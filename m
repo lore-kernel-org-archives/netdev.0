@@ -1,75 +1,51 @@
-From: Liping Zhang <zlpnobody@gmail.com>
-Subject: Re: kernel v4.8: iptables logs are truncated with the 4.8 kernel?
-Date: Wed, 5 Oct 2016 08:58:38 +0800
-Message-ID: <CAML_gOcpW=9PEJiE=XoSTRJVjGqAb-DwsWv6JSzkEwp3ivOLfA@mail.gmail.com>
-References: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next] openvswitch: correctly fragment packet with mpls headers
+Date: Tue, 4 Oct 2016 19:03:46 -0700
+Message-ID: <CAOrHB_Cr7E+_GLtrReUqqG91LV_7yJSWoZhs0pe6N9E0rAxqPQ@mail.gmail.com>
+References: <b0cb6efc9bfda8381af880f10fa6b3447f7d3d5d.1475512190.git.jbenc@redhat.com>
+ <CAOrHB_Dh=OPUTbbN7QYo9Nz4cV99-k_fT4z7jSOEcnFEDKXQEg@mail.gmail.com>
+ <20161004102458.1241605f@griffin> <20161004112804.04f25140@griffin>
+ <CAOrHB_C55GM=AfYj43VJ-hPRZfwFxm_+8Ls2+7mck2Js1fy9-w@mail.gmail.com> <20161004185920.229e62de@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Justin Piszcz <jpiszcz@lucidpixels.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f45.google.com ([209.85.213.45]:36329 "EHLO
-        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754474AbcJEA6o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 20:58:44 -0400
-In-Reply-To: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:46391 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753768AbcJECDv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 22:03:51 -0400
+Received: from mfilter32-d.gandi.net (mfilter32-d.gandi.net [217.70.178.163])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id B498A1720A4
+        for <netdev@vger.kernel.org>; Wed,  5 Oct 2016 04:03:49 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter32-d.gandi.net (mfilter32-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id cVfUqFrK6PTc for <netdev@vger.kernel.org>;
+        Wed,  5 Oct 2016 04:03:48 +0200 (CEST)
+Received: from mail-it0-f50.google.com (mail-it0-f50.google.com [209.85.214.50])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 5F4AF17209F
+        for <netdev@vger.kernel.org>; Wed,  5 Oct 2016 04:03:48 +0200 (CEST)
+Received: by mail-it0-f50.google.com with SMTP id 189so14093124ity.1
+        for <netdev@vger.kernel.org>; Tue, 04 Oct 2016 19:03:48 -0700 (PDT)
+In-Reply-To: <20161004185920.229e62de@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Justin,
+On Tue, Oct 4, 2016 at 9:59 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Tue, 4 Oct 2016 09:53:25 -0700, Pravin Shelar wrote:
+>> This code can be executed on encapsulated geneve or vxlan packets.
+>
+> How? The encapsulation header is in the form of metadata_dst at this
+> point and not present in the packet itself. Am I missing something?
+>
 
-2016-10-05 6:02 GMT+08:00 Justin Piszcz <jpiszcz@lucidpixels.com>:
-> Hello,
->
-> kernel 4.8 with ulogd-2.0.5- IPs are no longer logged:
->
-> Oct  4 17:51:30 atom INPUT_BLOCK IN=eth1 OUT=
-> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
-> TTL=0 ID=0 PROTO=0 MARK=0
-> Oct  4 17:51:31 atom INPUT_BLOCK IN=eth1 OUT=
-> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
-> TTL=0 ID=0 PROTO=0 MARK=0
-> Oct  4 17:51:32 atom INPUT_BLOCK IN=eth1 OUT=
-> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
-> TTL=0 ID=0 PROTO=0 MARK=0
->
-> (reboot back to kernel 4.7, works fine)
->
-> kernel 4.7 with ulogd-2.0.5:
-> Oct  4 17:56:44 atom INPUT_BLOCK IN=eth1 OUT=
-> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 SRC=74.125.22.125
-> DST=1.2.3.4 LEN=397 TOS=00 PREC=0x00 TTL=48 ID=58093 PROTO=TCP
-> SPT=5222 DPT=19804 SEQ=2032644254 ACK=2273184383 WINDOW=55272 ACK PSH
-> URGP=0 MARK=0
-> Oct  4 17:56:45 atom INPUT_BLOCK IN=eth1 OUT=
-> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 SRC=74.125.22.125
-> DST=1.2.3.4 LEN=397 TOS=00 PREC=0x00 TTL=48 ID=58725 PROTO=TCP
-> SPT=5222 DPT=19804 SEQ=2032644254 ACK=2273184383 WINDOW=55272 ACK PSH
-> URGP=0 MARK=0
->
-> Looks like there were some changes in the 4.8 kernel regarding ulogd,
-> has anyone else run into this problem?
->
->                 } ulog;
-> +               if ((li->u.ulog.flags & NF_LOG_F_COPY_LEN) &&
-> +                   (li->u.ulog.copy_len < data_len))
-> +                       data_len = li->u.ulog.copy_len;
->                 li->u.ulog.group = ntohs(nla_get_be16(tb[NFTA_LOG_GROUP]));
-> +                       li->u.ulog.flags |= NF_LOG_F_COPY_LEN;
->                         li->u.ulog.copy_len =
->                 if (nla_put_be16(skb, NFTA_LOG_GROUP, htons(li->u.ulog.group)))
-> -               if (li->u.ulog.copy_len) {
-> +               if (li->u.ulog.flags & NF_LOG_F_COPY_LEN) {
->                                          htonl(li->u.ulog.copy_len)))
->         li.u.ulog.group      = info->group;
->         li.u.ulog.qthreshold = info->threshold;
-> +               li.u.ulog.flags |= NF_LOG_F_COPY_LEN;
->
-> Thanks,
->
-> Justin.
+We could have encapsulated packet defragmented in physical bridge.
+that mean the packet is entering OVS after egressing tunnel device.
+That use case would break due to this patch.
 
-Which one are you using? iptables or nftables?
-
-Could you please paste the related iptables/nftables rules here?
+> If this patch is wrong, then the current push_mpls is wrong, too, it
+> does the same assumption.
+>
+I am not sure what you mean, can you explain?
