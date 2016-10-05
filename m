@@ -1,79 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] netlink: do not enter direct reclaim from netlink_dump()
-Date: Thu, 06 Oct 2016 04:13:18 +0900
-Message-ID: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] bluetooth.h: __ variants of u8 and friends are not
+ neccessary inside kernel
+Date: Wed, 05 Oct 2016 12:15:34 -0700
+Message-ID: <1475694934.1941.1.camel@perches.com>
+References: <20161003085640.GA8130@amd>
+         <368810F9-519C-44B5-85D4-1815273438BF@holtmann.org>
+         <1475689996.6105.11.camel@perches.com> <20161005191103.GA25972@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Greg Thelen <gthelen@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: Marcel Holtmann <marcel@holtmann.org>, trivial@kernel.org,
+        "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:33336 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753535AbcJETNY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 15:13:24 -0400
-Received: by mail-pa0-f67.google.com with SMTP id hh10so4452719pac.0
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 12:13:23 -0700 (PDT)
+Received: from smtprelay0017.hostedemail.com ([216.40.44.17]:52354 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753002AbcJETPj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 15:15:39 -0400
+In-Reply-To: <20161005191103.GA25972@amd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2016-10-05 at 21:11 +0200, Pavel Machek wrote:
+> On Wed 2016-10-05 10:53:16, Joe Perches wrote:
+> > On Wed, 2016-10-05 at 13:14 +0200, Marcel Holtmann wrote:
+> > > Hi Pavel,
+> > > 
+> > > > bluetooth.h is not part of user API, so __ variants are not neccessary
+> > > > here.
+> > > > 
+> > > > Signed-off-by: Pavel Machek <pavel@ucw.cz>
+> > > > 
+> > > > diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+> > 
+> > []
+> > > > struct bt_skb_cb {
+> > > > -	__u8 pkt_type;
+> > > > -	__u8 force_active;
+> > > > -	__u16 expect;
+> > > > -	__u8 incoming:1;
+> > > > +	u8 pkt_type;
+> > > > +	u8 force_active;
+> > > > +	u16 expect;
+> > > > +	u8 incoming:1;
+> > > > 	union {
+> > > > 		struct l2cap_ctrl l2cap;
+> > > > 		struct hci_ctrl hci;
+> > 
+> > 
+> > trivia:
+> > 
+> > It's generally faster to use bool instead of u8 foo:1;
+> 
+> Ok, but I'm not changing that in this patch.
+> (And actually, bool will take a lot more memory, right?)
 
-Since linux-3.15, netlink_dump() can use up to 16384 bytes skb
-allocations.
-
-Due to struct skb_shared_info ~320 bytes overhead, we end up using
-order-3 (on x86) page allocations, that might trigger direct reclaim and
-add stress.
-
-The intent was really to attempt a large allocation but immediately
-fallback to a smaller one (order-1 on x86) in case of memory stress.
-
-On recent kernels (linux-4.4), we can remove __GFP_DIRECT_RECLAIM to
-meet the goal. Old kernels would need to remove __GFP_WAIT
-
-While we are at it, since we do an order-3 allocation, allow to use
-all the allocated bytes instead of 16384 to reduce syscalls during
-large dumps.
-
-iproute2 already uses 32KB recvmsg() buffer sizes.
-
-Alexei provided an initial patch downsizing to SKB_WITH_OVERHEAD(16384)
-
-Fixes: 9063e21fb026 ("netlink: autosize skb lengthes")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Alexei Starovoitov <ast@kernel.org>
-Cc: Greg Thelen <gthelen@google.com>
----
-Note: This will apply to net tree when it has synced with Linus tree.
-
- net/netlink/af_netlink.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 627f898c05b96552318a881ce995ccc3342e1576..62bea4591054820eb516ef016214ee23fe89b6e9 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1832,7 +1832,7 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	/* Record the max length of recvmsg() calls for future allocations */
- 	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
- 	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
--				     16384);
-+				     SKB_WITH_OVERHEAD(32768));
- 
- 	copied = data_skb->len;
- 	if (len < copied) {
-@@ -2083,8 +2083,9 @@ static int netlink_dump(struct sock *sk)
- 
- 	if (alloc_min_size < nlk->max_recvmsg_len) {
- 		alloc_size = nlk->max_recvmsg_len;
--		skb = alloc_skb(alloc_size, GFP_KERNEL |
--					    __GFP_NOWARN | __GFP_NORETRY);
-+		skb = alloc_skb(alloc_size,
-+				(GFP_KERNEL & ~__GFP_DIRECT_RECLAIM) |
-+				__GFP_NOWARN | __GFP_NORETRY);
- 	}
- 	if (!skb) {
- 		alloc_size = alloc_min_size;
+No worries, and bool is the same size as u8.
+> 
