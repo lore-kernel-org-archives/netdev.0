@@ -1,145 +1,95 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [RFC v3 19/22] landlock: Add interrupted origin
-Date: Wed, 5 Oct 2016 23:01:05 +0200
-Message-ID: <57F56A11.109@digikod.net>
-References: <20160914072415.26021-1-mic@digikod.net>
- <20160914072415.26021-20-mic@digikod.net>
- <CALCETrUyqZEcJansuN=NX04CXv4ROtNqB25YZw7mBGuu43DFew@mail.gmail.com>
- <57D9CBD3.7030100@digikod.net>
- <CALCETrWmp33g0_adWcLXLuQe7R2EeLchKGivQnEsK5A4nAwTfw@mail.gmail.com>
- <CAGXu5j+90zJTcfm2DMP04zu0pg832dKgSJgfFYxLVvV=CZk16g@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Michal Sojka <sojkam1@fel.cvut.cz>
+Subject: error: 'struct net_device' has no member named 'nf_hooks_ingress'
+Date: Wed, 05 Oct 2016 22:56:11 +0200
+Message-ID: <87wphm1pn8.fsf@steelpick.2x.cz>
+References: <20160927164026.741b290b@canb.auug.org.au> <20160927100324.GA466@swordfish> <20161004004801.GA4661@swordfish>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="QbGjVHmkCgd1kuhloFi7UJuXFM8iwtEQ2"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-        "David S . Miller"
- <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>,
-        "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        LSM List <linux-security-module@vger.kernel
-To: Kees Cook <keescook@chromium.org>, Andy Lutomirski <luto@amacapital.net>
-Return-path: <kernel-hardening-return-4807-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAGXu5j+90zJTcfm2DMP04zu0pg832dKgSJgfFYxLVvV=CZk16g@mail.gmail.com>
+Content-Type: text/plain
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+To: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        Aaron Conole <aconole@bytheb.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161004004801.GA4661@swordfish>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---QbGjVHmkCgd1kuhloFi7UJuXFM8iwtEQ2
-Content-Type: multipart/mixed; boundary="GiHS6QJR9LRPB4Bvkv4J9dmBwf6CL0c24";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Kees Cook <keescook@chromium.org>, Andy Lutomirski <luto@amacapital.net>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
- Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
- David Drysdale <drysdale@google.com>, "David S . Miller"
- <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
- "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Paul Moore <pmoore@redhat.com>,
- Sargun Dhillon <sargun@sargun.me>, "Serge E . Hallyn" <serge@hallyn.com>,
- Tejun Heo <tj@kernel.org>, Will Drewry <wad@chromium.org>,
- "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
- Linux API <linux-api@vger.kernel.org>,
- LSM List <linux-security-module@vger.kernel.org>,
- Network Development <netdev@vger.kernel.org>,
- "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>
-Message-ID: <57F56A11.109@digikod.net>
-Subject: Re: [RFC v3 19/22] landlock: Add interrupted origin
-References: <20160914072415.26021-1-mic@digikod.net>
- <20160914072415.26021-20-mic@digikod.net>
- <CALCETrUyqZEcJansuN=NX04CXv4ROtNqB25YZw7mBGuu43DFew@mail.gmail.com>
- <57D9CBD3.7030100@digikod.net>
- <CALCETrWmp33g0_adWcLXLuQe7R2EeLchKGivQnEsK5A4nAwTfw@mail.gmail.com>
- <CAGXu5j+90zJTcfm2DMP04zu0pg832dKgSJgfFYxLVvV=CZk16g@mail.gmail.com>
-In-Reply-To: <CAGXu5j+90zJTcfm2DMP04zu0pg832dKgSJgfFYxLVvV=CZk16g@mail.gmail.com>
+Hi,
 
---GiHS6QJR9LRPB4Bvkv4J9dmBwf6CL0c24
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, Oct 04 2016, Sergey Senozhatsky wrote:
+> On (09/27/16 19:03), Sergey Senozhatsky wrote:
+>> Hello,
+>> 
+>> On (09/27/16 16:40), Stephen Rothwell wrote:
+>> > 
+>> > Changes since 20160923:
+>> > 
+>> 
+>> seems that commit e3b37f11e6e4e6b6 ("netfilter: replace list_head with
+>> single linked list") breaks the build on !CONFIG_NETFILTER_INGRESS systems
+>> accessing ->nf_hooks_ingress
+
+this commit is now in mainline as
+e3b37f11e6e4e6b6f02cc762f182ce233d2c1c9d and it breaks my build:
+
+    net/netfilter/core.c: In function 'nf_set_hooks_head':
+    net/netfilter/core.c:96:3: error: 'struct net_device' has no member named 'nf_hooks_ingress'
+
+Are the fixes (see below) on the way to mainline too?
+
+Thanks.
+-Michal
 
 
-On 04/10/2016 01:46, Kees Cook wrote:
-> On Wed, Sep 14, 2016 at 6:19 PM, Andy Lutomirski <luto@amacapital.net> =
-wrote:
->> On Wed, Sep 14, 2016 at 3:14 PM, Micka=C3=ABl Sala=C3=BCn <mic@digikod=
-=2Enet> wrote:
->>>
->>> On 14/09/2016 20:29, Andy Lutomirski wrote:
->>>> On Wed, Sep 14, 2016 at 12:24 AM, Micka=C3=ABl Sala=C3=BCn <mic@digi=
-kod.net> wrote:
->>>>> This third origin of hook call should cover all possible trigger pa=
-ths
->>>>> (e.g. page fault). Landlock eBPF programs can then take decisions
->>>>> accordingly.
->>>>>
->>>>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->>>>> Cc: Alexei Starovoitov <ast@kernel.org>
->>>>> Cc: Andy Lutomirski <luto@amacapital.net>
->>>>> Cc: Daniel Borkmann <daniel@iogearbox.net>
->>>>> Cc: Kees Cook <keescook@chromium.org>
->>>>> ---
->>>>
->>>>
->>>>>
->>>>> +       if (unlikely(in_interrupt())) {
->>>>
->>>> IMO security hooks have no business being called from interrupts.
->>>> Aren't they all synchronous things done by tasks?  Interrupts are
->>>> driver things.
->>>>
->>>> Are you trying to check for page faults and such?
->>>
->>> Yes, that was the idea you did put in my mind. Not sure how to deal w=
-ith
->>> this.
->>>
->>
->> It's not so easy, unfortunately.  The easiest reliable way might be to=
 
->> set a TS_ flag on all syscall entries when TIF_SECCOMP or similar is
->> set.
->=20
-> For making this series smaller, let's leave the idea idea of interrupt
-> hooks out -- the intention is for stricter syscall filtering, yes?
->=20
-> Once things are more well established and there's a use-case for this,
-> it can be added back in.
-
-Right, I'm no more convinced it's worth it.
-
-
---GiHS6QJR9LRPB4Bvkv4J9dmBwf6CL0c24--
-
---QbGjVHmkCgd1kuhloFi7UJuXFM8iwtEQ2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJX9WoRAAoJECLe/t9zvWqVEpcH/R44TEGL3LzKZz/gRIm8rV4x
-qXfaPm6oyWOUI7per3s30OcNulV8Jub0ik3Ce+UHLXgGndXhVRLqkthrrWewP8hv
-8o1lYVMWib0FbnLzAm2tyRnb52UK3MQv8Ina+QCwLSI1WX85kzJroHNVTX3J+3PT
-zbQm+ZfuVXrUUPpHqyraDwC5qQPmkmpmHSTl7Wyy+XCGR2OI8lt5+iLJUNYIcyXj
-mGKLaNpAsXOQG6OymgJo5e5nSjDPTQBvAiQjGt/vHGNnnLm6he1ErhvT4J61O5bX
-WQCKOlJCCU3Wvd0D+yHK7ukRP5XnYkA9HlhjFpF8Hi2cWehM2/HP0qBTi15QLEg=
-=oIPw
------END PGP SIGNATURE-----
-
---QbGjVHmkCgd1kuhloFi7UJuXFM8iwtEQ2--
+>> 
+>> static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
+>>                              struct nf_hook_entry *entry)
+>> {
+>>        switch (reg->pf) {
+>>        case NFPROTO_NETDEV:
+>>                /* We already checked in nf_register_net_hook() that this is
+>>                 * used from ingress.
+>>                 */
+>>                rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
+>> 					^^^^^^^^^^^^^^^^^^^^
+>
+>
+> so I see two commits in linux-next now that fix the commit in question in
+> two patches
+>
+>  : commit 7816ec564ec40ae20bb7925f733a181cad0cc491 ("netfilter: accommodate
+>  : different kconfig in nf_set_hooks_head")
+>  :
+>  :    When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
+>  :    the request for registration properly by dropping the hook.  This
+>  :    releases the entry during the set.
+>  :
+>  :    Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+>
+> and
+>
+>  : commit 5119e4381a90fabd3442bde02707cbd9e5d7367a ("netfilter: Fix potential
+>  : null pointer dereference")
+>  :
+>  :    It's possible for nf_hook_entry_head to return NULL.  If two
+>  :    nf_unregister_net_hook calls happen simultaneously with a single hook
+>  :    entry in the list, both will enter the nf_hook_mutex critical section.
+>  :    The first will successfully delete the head, but the second will see
+>  :    this NULL pointer and attempt to dereference.
+>  :
+>  :    This fix ensures that no null pointer dereference could occur when such
+>  :    a condition happens.
+>  :
+>  :    Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+>
+>
+> do you guys plan to fold those into "e3b37f11e6e4" (a preferred way)
+> or will send it out as 3 separate patches (um, why) ?
+>
+> 	-ss
