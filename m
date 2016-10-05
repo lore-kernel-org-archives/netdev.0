@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net] netlink: do not enter direct reclaim from
  netlink_dump()
-Date: Thu, 06 Oct 2016 08:30:11 +0900
-Message-ID: <1475710211.28155.232.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Thu, 06 Oct 2016 08:35:21 +0900
+Message-ID: <1475710521.28155.234.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
          <20161005222438.GA86006@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
@@ -15,12 +15,12 @@ Cc: David Miller <davem@davemloft.net>,
         kernel-team@fb.com
 To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:35637 "EHLO
-        mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933430AbcJEXaS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 19:30:18 -0400
-Received: by mail-yw0-f193.google.com with SMTP id t193so154119ywc.2
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 16:30:18 -0700 (PDT)
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:35428 "EHLO
+        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751227AbcJEXf5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 19:35:57 -0400
+Received: by mail-yw0-f195.google.com with SMTP id t193so159398ywc.2
+        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 16:35:28 -0700 (PDT)
 In-Reply-To: <20161005222438.GA86006@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -49,32 +49,11 @@ On Wed, 2016-10-05 at 15:24 -0700, Alexei Starovoitov wrote:
 > iproute2 increased the buffer form 16k to 32k due to 'msg_trunc' which
 > I think was due to this issue. If we go with SKB_WITH_OVERHEAD(16384)
 > we can go back to 16k in iproute2 as well.
-> 
-> Do we have any data to justify that buffer of 32k - skb_shared_info vs 16k
-> will meaninfully reduce the number of syscalls?
-> We're seeing direct reclaim get hammered due to order-3.
-> Not sure whether & ~__GFP_DIRECT_RECLAIM is going to be enough.
 
-It is. Really.
+Wow, if really iproute2 tool would have increased the buffer to work
+around a bug in the kernel, we should be worried.
 
-> Currently we're testing with SKB_WITH_OVERHEAD(16384) and ~__GFP_DIRECT_RECLAIM.
-> It will take another week to make sure SKB_WITH_OVERHEAD(32768) is ok.
-> imo this optimization is done too soon.
-> I'd much more comfortable with SKB_WITH_OVERHEAD(16384) value here.
+Hopefully the issue was fixed for good in the kernel ?
 
-Well, we _are_ allocating order-3 pages already.
-
-No need to switch to order-2 pages, when we have the proper fix.
-
-Note that tcp_sendmsg() does this all the time, and nobody complained
-after Shaohua Li fix (commit fb05e7a89f500cf "net: don't wait for
-order-3 page allocation")
-
-Why thousands of sockets could use order-3 pages, but constrain _one_
-(rtnl serializations) iproute2 dump to use tiny blocs exactly ?
-
-The rationale for order-3 is pretty clear : 
-
-#define PAGE_ALLOC_COSTLY_ORDER 3
-
-Really there is no point being cautious here.
+commit db65a3aaf29ecce2e34271d52e8d2336b97bd9fe
+("netlink: Trim skb to alloc size to avoid MSG_TRUNC")
