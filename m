@@ -1,65 +1,85 @@
-From: William Tu <u9012063@gmail.com>
-Subject: Re: Assertion faileda at samples/bpf/test_maps
-Date: Wed, 5 Oct 2016 09:48:52 +0900
-Message-ID: <CALDO+SYAxzzOTQu-Pgi6uPke0ojU46iS+0vk6cm5diytWca=EQ@mail.gmail.com>
-References: <CAEQ0BR4j65Upa_ZLo6yC1khOprvXx1_iVxCKuSxbn+Df1mo_OQ@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH] netdevice: add netdev_pub helper function
+Date: Wed, 5 Oct 2016 02:52:23 +0200
+Message-ID: <CAHmME9rYOYUy94ETHro7NFy9Q09PQuXDGcgsdAi577wquobZAg@mail.gmail.com>
+References: <1434115829-22804-1-git-send-email-Jason@zx2c4.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Louie Lu <louie.lu@hopebaytech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:38812 "EHLO
-        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751722AbcJEAtd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 20:49:33 -0400
-Received: by mail-it0-f49.google.com with SMTP id o19so144974071ito.1
-        for <netdev@vger.kernel.org>; Tue, 04 Oct 2016 17:49:33 -0700 (PDT)
-In-Reply-To: <CAEQ0BR4j65Upa_ZLo6yC1khOprvXx1_iVxCKuSxbn+Df1mo_OQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1434115829-22804-1-git-send-email-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Louie,
+Hey David,
 
-Can you check whether your num_possible_cpu == num_online_cpu?
-by doing:
-cat /sys/devices/system/cpu/possible
-and see how many cpu[0-9]
-ls /sys/devices/system/cpu/cpu*
+The use of this function is going from the private member to the
+public netdev struct. The usage is desired from the following coding
+pattern.
 
-There is a related discussion here:
-https://www.mail-archive.com/netdev@vger.kernel.org/msg121258.html
+You're implementing a netdevice. You've got ndo_init, ndo_uninit,
+ndo_open, ndo_stop, ndo_start_xmit, and maybe even ndo_do_ioctl. All
+of these functions basically follow the flow: get some information out
+of struct netdev, then call netdev_priv(), and pass that specific
+pointer onto the rest of the driver. The rest of the driver, 99% of
+the time, only deals with your private member. Very very occasionally
+it might want to check into how some piece of public data is doing.
+For example, is the interface up? In this case, it's very convenient
+to have the netdev_pub function, as in this patch.
+
+    if (netdev_pub(priv)->flags & IFF_UP) {
+        ...
+    }
+
+Then, after shortly using the public members, the driver gets on its
+way dealing again exclusively with the private part.
+
+I posted this patch a year ago, and let it languish after your initial
+comment, because I wasn't confident that this was necessarily
+something everybody could benefit from. 18 months later, after reading
+quite a few netdevice-based drivers, it seems like this is indeed a
+very useful code pattern, that makes things a bit more clear, a bit
+less verbose, and helps maintain type safety throughout a driver.
+
+So, I resubmit this to you for inclusion.
 
 Regards,
-William
+Jason
 
-On Sun, Oct 2, 2016 at 3:55 PM, Louie Lu <louie.lu@hopebaytech.com> wrote:
-> Hi everyone,
+
+On Fri, Jun 12, 2015 at 3:30 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+> Being able to utilize this makes much code a lot simpler and cleaner.
+> It's a nice convenience function.
 >
-> I'm now playing net-next samples/bpf things, and I found that
-> test_maps will give an assertion
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> ---
+>  include/linux/netdevice.h | 11 +++++++++++
+>  1 file changed, 11 insertions(+)
 >
-> ```
-> test_maps: /home/grd/linux/net-next/samples/bpf/test_maps.c:146:
-> test_percpu_hashmap_sanity: Assertion `bpf_lookup_elem(map_fd, &key,
-> value) == -1 && errno == ENOENT' failed.
-> [1]    20706 abort (core dumped)  ./test_maps
-> ```
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 05b9a69..f85be18 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1871,6 +1871,17 @@ static inline void *netdev_priv(const struct net_device *dev)
+>         return (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
+>  }
 >
-> I've done the check at [[iovisor-dev] Assertion fails at
-> samples/bpf/test_maps](http://lists.iovisor.org/pipermail/iovisor-dev/2016-June/000281.html)
-> which tells me to set ulimit to unlimited or patching by setrlimit().
+> +/**
+> + *     netdev_pub - access network device from private pointer
+> + *     @priv: private data pointer of network device
+> + *
+> + * Get network device from a network device private data pointer
+> + */
+> +static inline struct net_device *netdev_pub(void *priv)
+> +{
+> +       return (struct net_device *)((char *)priv - ALIGN(sizeof(struct net_device), NETDEV_ALIGN));
+> +}
+> +
+>  /* Set the sysfs physical device reference for the network logical device
+>   * if set prior to registration will cause a symlink during initialization.
+>   */
+> --
+> 2.4.2
 >
-> The problem is bpf_lookup_elem return -1, and errno return 0.
->
-> I'm using Intel(R) Core(TM) i7-2640M and net-next commit:
-> 803783849fed11, 4.8.0-rc7-ARCH-02283-g8037838.
->
-> And, a strange this is when I done this at QEMU, test_maps perform
-> will and pass the test.
->
-> Is that my hardware problem or something else?
->
->
-> Thanks.
->
-> Louie Lu.
