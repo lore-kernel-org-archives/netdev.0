@@ -1,59 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Subject: Re: [PATCH net] netlink: do not enter direct reclaim from
  netlink_dump()
-Date: Thu, 06 Oct 2016 08:35:21 +0900
-Message-ID: <1475710521.28155.234.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 5 Oct 2016 16:44:26 -0700
+Message-ID: <20161005234425.GA87410@ast-mbp.thefacebook.com>
 References: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161005222438.GA86006@ast-mbp.thefacebook.com>
+ <20161005222438.GA86006@ast-mbp.thefacebook.com>
+ <1475710521.28155.234.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
         Alexei Starovoitov <ast@kernel.org>,
         Greg Thelen <gthelen@google.com>, Chris Mason <clm@fb.com>,
         kernel-team@fb.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:35428 "EHLO
-        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751227AbcJEXf5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 19:35:57 -0400
-Received: by mail-yw0-f195.google.com with SMTP id t193so159398ywc.2
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 16:35:28 -0700 (PDT)
-In-Reply-To: <20161005222438.GA86006@ast-mbp.thefacebook.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33193 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934432AbcJEXoc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 19:44:32 -0400
+Received: by mail-pa0-f66.google.com with SMTP id hh10so148299pac.0
+        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 16:44:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1475710521.28155.234.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-05 at 15:24 -0700, Alexei Starovoitov wrote:
-> On Thu, Oct 06, 2016 at 04:13:18AM +0900, Eric Dumazet wrote:
+On Thu, Oct 06, 2016 at 08:35:21AM +0900, Eric Dumazet wrote:
+> On Wed, 2016-10-05 at 15:24 -0700, Alexei Starovoitov wrote:
+> > On Thu, Oct 06, 2016 at 04:13:18AM +0900, Eric Dumazet wrote:
+> > > 
+> > > While we are at it, since we do an order-3 allocation, allow to use
+> > > all the allocated bytes instead of 16384 to reduce syscalls during
+> > > large dumps.
+> > > 
+> > > iproute2 already uses 32KB recvmsg() buffer sizes.
+> > ....
+> > > diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> > > index 627f898c05b96552318a881ce995ccc3342e1576..62bea4591054820eb516ef016214ee23fe89b6e9 100644
+> > > --- a/net/netlink/af_netlink.c
+> > > +++ b/net/netlink/af_netlink.c
+> > > @@ -1832,7 +1832,7 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+> > >  	/* Record the max length of recvmsg() calls for future allocations */
+> > >  	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
+> > >  	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
+> > > -				     16384);
+> > > +				     SKB_WITH_OVERHEAD(32768));
 > > 
-> > While we are at it, since we do an order-3 allocation, allow to use
-> > all the allocated bytes instead of 16384 to reduce syscalls during
-> > large dumps.
-> > 
-> > iproute2 already uses 32KB recvmsg() buffer sizes.
-> ....
-> > diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> > index 627f898c05b96552318a881ce995ccc3342e1576..62bea4591054820eb516ef016214ee23fe89b6e9 100644
-> > --- a/net/netlink/af_netlink.c
-> > +++ b/net/netlink/af_netlink.c
-> > @@ -1832,7 +1832,7 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
-> >  	/* Record the max length of recvmsg() calls for future allocations */
-> >  	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
-> >  	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
-> > -				     16384);
-> > +				     SKB_WITH_OVERHEAD(32768));
+> > sure, it won't stress it more than what it is today, but why increase it?
+> > iproute2 increased the buffer form 16k to 32k due to 'msg_trunc' which
+> > I think was due to this issue. If we go with SKB_WITH_OVERHEAD(16384)
+> > we can go back to 16k in iproute2 as well.
 > 
-> sure, it won't stress it more than what it is today, but why increase it?
-> iproute2 increased the buffer form 16k to 32k due to 'msg_trunc' which
-> I think was due to this issue. If we go with SKB_WITH_OVERHEAD(16384)
-> we can go back to 16k in iproute2 as well.
+> Wow, if really iproute2 tool would have increased the buffer to work
+> around a bug in the kernel, we should be worried.
+> 
+> Hopefully the issue was fixed for good in the kernel ?
+> 
+> commit db65a3aaf29ecce2e34271d52e8d2336b97bd9fe
+> ("netlink: Trim skb to alloc size to avoid MSG_TRUNC")
 
-Wow, if really iproute2 tool would have increased the buffer to work
-around a bug in the kernel, we should be worried.
-
-Hopefully the issue was fixed for good in the kernel ?
-
-commit db65a3aaf29ecce2e34271d52e8d2336b97bd9fe
-("netlink: Trim skb to alloc size to avoid MSG_TRUNC")
+I would think so too, but
+iproute2 'fix' 72b365e8e0fd ("libnetlink: Double the dump buffer size")
+was on Mar 4, 2016
+whereas above 'netlink: trim' fix is on Oct 15, 2015
