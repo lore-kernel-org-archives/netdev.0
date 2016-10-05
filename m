@@ -1,85 +1,75 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH] netdevice: add netdev_pub helper function
-Date: Wed, 5 Oct 2016 02:52:23 +0200
-Message-ID: <CAHmME9rYOYUy94ETHro7NFy9Q09PQuXDGcgsdAi577wquobZAg@mail.gmail.com>
-References: <1434115829-22804-1-git-send-email-Jason@zx2c4.com>
+From: Liping Zhang <zlpnobody@gmail.com>
+Subject: Re: kernel v4.8: iptables logs are truncated with the 4.8 kernel?
+Date: Wed, 5 Oct 2016 08:58:38 +0800
+Message-ID: <CAML_gOcpW=9PEJiE=XoSTRJVjGqAb-DwsWv6JSzkEwp3ivOLfA@mail.gmail.com>
+References: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: "David S. Miller" <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1434115829-22804-1-git-send-email-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Justin Piszcz <jpiszcz@lucidpixels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f45.google.com ([209.85.213.45]:36329 "EHLO
+        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754474AbcJEA6o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 20:58:44 -0400
+In-Reply-To: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey David,
+Hi Justin,
 
-The use of this function is going from the private member to the
-public netdev struct. The usage is desired from the following coding
-pattern.
-
-You're implementing a netdevice. You've got ndo_init, ndo_uninit,
-ndo_open, ndo_stop, ndo_start_xmit, and maybe even ndo_do_ioctl. All
-of these functions basically follow the flow: get some information out
-of struct netdev, then call netdev_priv(), and pass that specific
-pointer onto the rest of the driver. The rest of the driver, 99% of
-the time, only deals with your private member. Very very occasionally
-it might want to check into how some piece of public data is doing.
-For example, is the interface up? In this case, it's very convenient
-to have the netdev_pub function, as in this patch.
-
-    if (netdev_pub(priv)->flags & IFF_UP) {
-        ...
-    }
-
-Then, after shortly using the public members, the driver gets on its
-way dealing again exclusively with the private part.
-
-I posted this patch a year ago, and let it languish after your initial
-comment, because I wasn't confident that this was necessarily
-something everybody could benefit from. 18 months later, after reading
-quite a few netdevice-based drivers, it seems like this is indeed a
-very useful code pattern, that makes things a bit more clear, a bit
-less verbose, and helps maintain type safety throughout a driver.
-
-So, I resubmit this to you for inclusion.
-
-Regards,
-Jason
-
-
-On Fri, Jun 12, 2015 at 3:30 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
-> Being able to utilize this makes much code a lot simpler and cleaner.
-> It's a nice convenience function.
+2016-10-05 6:02 GMT+08:00 Justin Piszcz <jpiszcz@lucidpixels.com>:
+> Hello,
 >
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-> ---
->  include/linux/netdevice.h | 11 +++++++++++
->  1 file changed, 11 insertions(+)
+> kernel 4.8 with ulogd-2.0.5- IPs are no longer logged:
 >
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 05b9a69..f85be18 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1871,6 +1871,17 @@ static inline void *netdev_priv(const struct net_device *dev)
->         return (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
->  }
+> Oct  4 17:51:30 atom INPUT_BLOCK IN=eth1 OUT=
+> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
+> TTL=0 ID=0 PROTO=0 MARK=0
+> Oct  4 17:51:31 atom INPUT_BLOCK IN=eth1 OUT=
+> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
+> TTL=0 ID=0 PROTO=0 MARK=0
+> Oct  4 17:51:32 atom INPUT_BLOCK IN=eth1 OUT=
+> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 LEN=0 TOS=00 PREC=0x00
+> TTL=0 ID=0 PROTO=0 MARK=0
 >
-> +/**
-> + *     netdev_pub - access network device from private pointer
-> + *     @priv: private data pointer of network device
-> + *
-> + * Get network device from a network device private data pointer
-> + */
-> +static inline struct net_device *netdev_pub(void *priv)
-> +{
-> +       return (struct net_device *)((char *)priv - ALIGN(sizeof(struct net_device), NETDEV_ALIGN));
-> +}
-> +
->  /* Set the sysfs physical device reference for the network logical device
->   * if set prior to registration will cause a symlink during initialization.
->   */
-> --
-> 2.4.2
+> (reboot back to kernel 4.7, works fine)
 >
+> kernel 4.7 with ulogd-2.0.5:
+> Oct  4 17:56:44 atom INPUT_BLOCK IN=eth1 OUT=
+> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 SRC=74.125.22.125
+> DST=1.2.3.4 LEN=397 TOS=00 PREC=0x00 TTL=48 ID=58093 PROTO=TCP
+> SPT=5222 DPT=19804 SEQ=2032644254 ACK=2273184383 WINDOW=55272 ACK PSH
+> URGP=0 MARK=0
+> Oct  4 17:56:45 atom INPUT_BLOCK IN=eth1 OUT=
+> MAC=00:1b:21:9c:3b:fa:3e:94:d5:d2:49:1e:08:00 SRC=74.125.22.125
+> DST=1.2.3.4 LEN=397 TOS=00 PREC=0x00 TTL=48 ID=58725 PROTO=TCP
+> SPT=5222 DPT=19804 SEQ=2032644254 ACK=2273184383 WINDOW=55272 ACK PSH
+> URGP=0 MARK=0
+>
+> Looks like there were some changes in the 4.8 kernel regarding ulogd,
+> has anyone else run into this problem?
+>
+>                 } ulog;
+> +               if ((li->u.ulog.flags & NF_LOG_F_COPY_LEN) &&
+> +                   (li->u.ulog.copy_len < data_len))
+> +                       data_len = li->u.ulog.copy_len;
+>                 li->u.ulog.group = ntohs(nla_get_be16(tb[NFTA_LOG_GROUP]));
+> +                       li->u.ulog.flags |= NF_LOG_F_COPY_LEN;
+>                         li->u.ulog.copy_len =
+>                 if (nla_put_be16(skb, NFTA_LOG_GROUP, htons(li->u.ulog.group)))
+> -               if (li->u.ulog.copy_len) {
+> +               if (li->u.ulog.flags & NF_LOG_F_COPY_LEN) {
+>                                          htonl(li->u.ulog.copy_len)))
+>         li.u.ulog.group      = info->group;
+>         li.u.ulog.qthreshold = info->threshold;
+> +               li.u.ulog.flags |= NF_LOG_F_COPY_LEN;
+>
+> Thanks,
+>
+> Justin.
+
+Which one are you using? iptables or nftables?
+
+Could you please paste the related iptables/nftables rules here?
