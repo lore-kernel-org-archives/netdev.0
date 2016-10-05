@@ -1,53 +1,56 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] openvswitch: correctly fragment packet with
- mpls headers
-Date: Wed, 5 Oct 2016 14:47:24 +0200
-Message-ID: <20161005144724.67a5ab12@griffin>
-References: <b0cb6efc9bfda8381af880f10fa6b3447f7d3d5d.1475512190.git.jbenc@redhat.com>
-        <CAOrHB_Dh=OPUTbbN7QYo9Nz4cV99-k_fT4z7jSOEcnFEDKXQEg@mail.gmail.com>
-        <20161004102458.1241605f@griffin>
-        <20161004112804.04f25140@griffin>
-        <CAOrHB_C55GM=AfYj43VJ-hPRZfwFxm_+8Ls2+7mck2Js1fy9-w@mail.gmail.com>
-        <20161004185920.229e62de@griffin>
-        <CAOrHB_Cr7E+_GLtrReUqqG91LV_7yJSWoZhs0pe6N9E0rAxqPQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 1/2] openvswitch: remove nonreachable code in
+ vlan parsing
+Date: Wed, 5 Oct 2016 14:53:49 +0200
+Message-ID: <20161005145349.51509e00@griffin>
+References: <cover.1475583870.git.jbenc@redhat.com>
+        <cfc3e476bc30c1e15506e80955bf43563de3c16c.1475583870.git.jbenc@redhat.com>
+        <20161005000618.GN25403@egarver>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Pravin Shelar <pshelar@ovn.org>
+Cc: netdev@vger.kernel.org, pravin shelar <pshelar@ovn.org>
+To: Eric Garver <e@erig.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58966 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56226 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752666AbcJEMr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Oct 2016 08:47:28 -0400
-In-Reply-To: <CAOrHB_Cr7E+_GLtrReUqqG91LV_7yJSWoZhs0pe6N9E0rAxqPQ@mail.gmail.com>
+        id S1752022AbcJEMxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Oct 2016 08:53:54 -0400
+In-Reply-To: <20161005000618.GN25403@egarver>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 Oct 2016 19:03:46 -0700, Pravin Shelar wrote:
-> We could have encapsulated packet defragmented in physical bridge.
-> that mean the packet is entering OVS after egressing tunnel device.
-> That use case would break due to this patch.
+On Tue, 4 Oct 2016 20:06:18 -0400, Eric Garver wrote:
+> This code is also called for packets passed back down from userspace
+> (after the flow key miss and upcall). So it does happen that we have a
+> skb without skb->vlan_tci set.
 
-Okay, thanks for explanation. I missed this use case and it would
-indeed break. And we can't clear existing inner headers when the frame
-enters the bridge as it would break GSO.
+That sucks. The vlan handling should be really consistent, Jiri Pirko
+and others put great effort to unify it in the stack, we should make
+use of that effort.
 
-Seems checking for the MPLS ethertype is indeed the only safe solution.
+I'll respin this patchset and add a patch to make the vlan handling
+consistent.
 
-> > If this patch is wrong, then the current push_mpls is wrong, too, it
-> > does the same assumption.
-> >
-> I am not sure what you mean, can you explain?
+> See the chain:
+> ovs_packet_cmd_execute()
+>   ovs_flow_key_extract_userspace()
+>     key_extract()
+>       parse_vlan()
+> 
+> > Moreover, the likely() statement around skb_vlan_tag_present is bogus. This
+> > code is called whenever flow key is being extracted from the packet. The
+> > packet may be as likely vlan tagged as not.
+> 
+> I guess the unlikely scenario is the one I mention above.
 
-push_mpls() uses inner_proto as an indication whether this is the first
-MPLS label or not. But it checks skb->encapsulation at the start, thus
-it's safe (I expected this check to be done at the config time, not
-runtime, and looked in the wrong place for it.)
+But it's wrong. It's also called via
 
-I'll respin the patch.
+ovs_vport_receive()
+  ovs_flow_key_extract()
+    key_extract()
+      parse_vlan()
 
-Thanks for the patience with me,
+and in that path, both cases (vlan vs. non-vlan) are equally possible.
 
  Jiri
