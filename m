@@ -1,44 +1,55 @@
-From: Anoob Soman <anoob.soman@citrix.com>
-Subject: [PATCH net] packet: call fanout_release, while UNREGISTERING a netdev
-Date: Wed, 5 Oct 2016 15:12:54 +0100
-Message-ID: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net-next v2 1/3] openvswitch: normalize vlan rx path
+Date: Wed, 5 Oct 2016 17:18:08 +0300
+Message-ID: <CAHsH6Gvha_Saq8SVaLhsXzNggAOwbdu6n5xLQD7HFhYweJMsmw@mail.gmail.com>
+References: <cover.1475672568.git.jbenc@redhat.com> <c7f44c08104958c86c68d98f1e093d754b0ca61b.1475672569.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Anoob Soman <anoob.soman@citrix.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        pravin shelar <pshelar@ovn.org>, Eric Garver <e@erig.me>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:53959 "EHLO
-        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754222AbcJEONJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 10:13:09 -0400
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36689 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751378AbcJEOSK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 10:18:10 -0400
+Received: by mail-wm0-f66.google.com with SMTP id b184so24817953wma.3
+        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 07:18:09 -0700 (PDT)
+In-Reply-To: <c7f44c08104958c86c68d98f1e093d754b0ca61b.1475672569.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a socket has FANOUT sockopt set, a new proto_hook is registered
-as part of fanout_add(). When processing a NETDEV_UNREGISTER event in
-af_packet, __fanout_unlink is called for all sockets, but prot_hook which was
-registered as part of fanout_add is not removed. Call fanout_release, on a
-NETDEV_UNREGISTER, which removes prot_hook and removes fanout from the
-fanout_list.
+Hi,
 
-This fixes BUG_ON(!list_empty(&dev->ptype_specific)) in netdev_run_todo()
+On Wed, Oct 5, 2016 at 4:07 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 4d67ea856067..c47b3da8ecf2 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -594,6 +594,16 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+>         else
+>                 packet->protocol = htons(ETH_P_802_2);
+>
+> +       if (eth_type_vlan(packet->protocol)) {
+> +               __skb_pull(packet, ETH_HLEN);
+> +               skb_reset_network_header(packet);
+> +               skb_reset_mac_len(packet);
+> +               packet = skb_vlan_untag(packet);
+> +               if (unlikely(!packet))
+> +                       goto err;
 
-Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
----
- net/packet/af_packet.c | 1 +
- 1 file changed, 1 insertion(+)
+I think at this point, 'eth' may point to a freed packet.
+Maybe replace the 'eth' variable with a 'proto' variable caching the
+value of eth_hdr(packet)->h_proto?
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 33a4697..11db0d6 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3952,6 +3952,7 @@ static int packet_notifier(struct notifier_block *this,
- 				}
- 				if (msg == NETDEV_UNREGISTER) {
- 					packet_cached_dev_reset(po);
-+					fanout_release(sk);
- 					po->ifindex = -1;
- 					if (po->prot_hook.dev)
- 						dev_put(po->prot_hook.dev);
--- 
-2.7.4
+> +               skb_push(packet, ETH_HLEN);
+> +       }
+> +
+>         /* Set packet's mru */
+>         if (a[OVS_PACKET_ATTR_MRU]) {
+>                 mru = nla_get_u16(a[OVS_PACKET_ATTR_MRU]);
+> --
+> 1.8.3.1
+>
+
+Eyal.
