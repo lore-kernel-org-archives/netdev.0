@@ -1,42 +1,70 @@
-From: Justin Piszcz <jpiszcz@lucidpixels.com>
-Subject: Re: kernel v4.8: iptables logs are truncated with the 4.8 kernel?
-Date: Wed, 5 Oct 2016 04:56:10 -0400
-Message-ID: <CAO9zADxo0T3=4JHTB4RQi7wG20iZoyP1=L-jrkx=n0RFObNBPg@mail.gmail.com>
-References: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
- <CAML_gOcpW=9PEJiE=XoSTRJVjGqAb-DwsWv6JSzkEwp3ivOLfA@mail.gmail.com>
+From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [net-next 08/13] fsl/fman: check pcsphy pointer before use
+Date: Wed, 5 Oct 2016 09:08:23 +0000
+Message-ID: <AM4PR04MB1604A090118C4C344A1685F5ECC40@AM4PR04MB1604.eurprd04.prod.outlook.com>
+References: <1475566379-5078-1-git-send-email-madalin.bucur@nxp.com>
+ <1475566379-5078-9-git-send-email-madalin.bucur@nxp.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB01E2ED3@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Liping Zhang <zlpnobody@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAML_gOcpW=9PEJiE=XoSTRJVjGqAb-DwsWv6JSzkEwp3ivOLfA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "linuxdev.baldrick@gmail.com" <linuxdev.baldrick@gmail.com>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB01E2ED3@AcuExch.aculab.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 4, 2016 at 8:58 PM, Liping Zhang <zlpnobody@gmail.com> wrote:
-> Hi Justin,
->
-> 2016-10-05 6:02 GMT+08:00 Justin Piszcz <jpiszcz@lucidpixels.com>:
->> Hello,
->>
+> -----Original Message-----
+> From: David Laight [mailto:David.Laight@ACULAB.COM]
+> Sent: Tuesday, October 04, 2016 5:44 PM
+> To: Madalin-Cristian Bucur <madalin.bucur@nxp.com>;
+> netdev@vger.kernel.org
+> Cc: linuxdev.baldrick@gmail.com; linuxppc-dev@lists.ozlabs.org;
+> davem@davemloft.net; linux-kernel@vger.kernel.org
+> Subject: RE: [net-next 08/13] fsl/fman: check pcsphy pointer before use
+>=20
+> From: Madalin Bucur
+> > Sent: 04 October 2016 08:33
+> > Subject: [net-next 08/13] fsl/fman: check pcsphy pointer before use
+> ..
+> > --- a/drivers/net/ethernet/freescale/fman/fman_memac.c
+> > +++ b/drivers/net/ethernet/freescale/fman/fman_memac.c
+> > @@ -507,6 +507,9 @@ static void setup_sgmii_internal_phy(struct
+> fman_mac *memac,
+> >  {
+> >  	u16 tmp_reg16;
+> >
+> > +	if (WARN_ON(!memac->pcsphy))
+> > +		return;
+> > +
+>=20
+> Why?
+>=20
+> Either it can validly be NULL in which case you don't want the message.
+> Or it shouldn't be NULL in which case you need to find and fix the bug.
+> The later kernel OOPS will make the bug much easier to find.
+>=20
+> 	David
 
-[ .. ]
+You can get into that situation if you have a broken device tree, state int=
+o
+which someone may get while trying to create the device tree for a new
+board. Avoiding a crash here allows the user to look at the device trees as
+seen by the kernel / add some debug code if needed.
 
->
-> Which one are you using? iptables or nftables?
-# iptables -V
-iptables v1.6.0
-
->
-> Could you please paste the related iptables/nftables rules here?
-
-Rules:
-
-  $IPTABLES -N INPUT_BLOCK
-  $IPTABLES -A INPUT_BLOCK -i eth1 -j NFLOG --nflog-group 2
---nflog-prefix "INPUT_BLOCK"
-  $IPTABLES -A INPUT_BLOCK -j DROP
-  $IPTABLES -A INPUT -j INPUT_BLOCK
-
-Justin.
+Madalin
