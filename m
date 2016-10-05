@@ -1,68 +1,80 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v8 net-next] net: phy: Add Edge-rate driver for Microsemi
- PHYs.
-Date: Wed, 5 Oct 2016 14:07:02 +0200
-Message-ID: <20161005120702.GO5575@lunn.ch>
-References: <1475667578-20799-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Nelson Chang <nelson.chang@mediatek.com>
+Subject: [PATCH net-next v2 2/3] net: ethernet: mediatek: get hw lro capability by the chip id instead of by the dtsi
+Date: Wed, 5 Oct 2016 20:12:11 +0800
+Message-ID: <1475669532-23894-3-git-send-email-nelson.chang@mediatek.com>
+References: <1475669532-23894-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org
-To: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1475667578-20799-1-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>,
+        Nelson Chang <nelson.chang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:30065 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752537AbcJEMMX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 08:12:23 -0400
+In-Reply-To: <1475669532-23894-1-git-send-email-nelson.chang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> - As per review comment, Added DT vddmac, slowdown value error check. 
+Because hw lro started to be supported from MT7623, the proper way to check if
+the feature is capable is to judge by the chip id instead of by the dtsi.
 
-So i said an exact match, which this is not.
+Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 12 ++++++++++--
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |  1 +
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
-How about something like:
-
-static u8 vsc85xx_edge_rate_magic_get(u16 vddmac, u8 slowdown)
-{
-	u8 vdd;
-	u8 sd;
-
-	for (vdd = 0; vdd < ARRAY_SIZE(edge_table); vdd++)
-		if (edge_table[vdd].vddmac == vddmac)
-			for (sd = 0; sd < MSCC_SLOWDOWN_MAX; sd++)
-				if (edge_table[vdd].slowdown[sd] == slowdown)
-					return (MSCC_SLOWDOWN_MAX - sd - 1);
- 	return -EINVAL;
-}
-
-> @@ -197,15 +203,34 @@ static int vsc8531_of_init(struct phy_device *phydev)
-  
-  	rc = of_property_read_u16(of_node, "vsc8531,vddmac",
-  				  &vsc8531->vddmac);
- 	if (rc == -EINVAL)
- 		vddmac = MSCC_VDDMAC_3300;
-
-  	rc = of_property_read_u8(of_node, "vsc8531,edge-slowdown",
-  				 &vsc8531->edge_slowdown);
- 	if (rc == -EINVAL)
-  		edge_slowdown = 0;
-
- 	vsc8531->rate_magic = edge_rate_magic_get(vddmac, edge_slowdown);
-	if (vsc8531->rate_magic < 0) {
- 	   dev_err(phydev->dev, "Invalid vsc8531,vddmac or vsc8531,edge-slowdown");
-	   return vsc8531->rate_magic;
-        }
-
->  static int vsc8531_of_init(struct phy_device *phydev)
-> @@ -232,8 +257,8 @@ static int vsc85xx_config_init(struct phy_device *phydev)
->  	if (rc)
->  		return rc;
->  
->  	rc = vsc85xx_edge_rate_cntl_set(phydev, vsc8531->rate_magic);
->  	if (rc)
->  		return rc;
-
-	Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 0c67ab1..07f3ffa 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -2348,6 +2348,14 @@ static int mtk_get_chip_id(struct mtk_eth *eth, u32 *chip_id)
+ 	return 0;
+ }
+ 
++static bool mtk_is_hwlro_supported(struct mtk_eth *eth)
++{
++	if (eth->chip_id == MT7623_ETH)
++		return true;
++	else
++		return false;
++}
++
+ static int mtk_probe(struct platform_device *pdev)
+ {
+ 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+@@ -2387,8 +2395,6 @@ static int mtk_probe(struct platform_device *pdev)
+ 		return PTR_ERR(eth->pctl);
+ 	}
+ 
+-	eth->hwlro = of_property_read_bool(pdev->dev.of_node, "mediatek,hwlro");
+-
+ 	for (i = 0; i < 3; i++) {
+ 		eth->irq[i] = platform_get_irq(pdev, i);
+ 		if (eth->irq[i] < 0) {
+@@ -2417,6 +2423,8 @@ static int mtk_probe(struct platform_device *pdev)
+ 	if (err)
+ 		return err;
+ 
++	eth->hwlro = mtk_is_hwlro_supported(eth);
++
+ 	for_each_child_of_node(pdev->dev.of_node, mac_np) {
+ 		if (!of_device_is_compatible(mac_np,
+ 					     "mediatek,eth-mac"))
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index a5b422b..58738fd 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -345,6 +345,7 @@
+ /* ethernet subsystem chip id register */
+ #define ETHSYS_CHIPID0_3	0x0
+ #define ETHSYS_CHIPID4_7	0x4
++#define MT7623_ETH		(7623)
+ 
+ /* ethernet subsystem config register */
+ #define ETHSYS_SYSCFG0		0x14
+-- 
+1.9.1
