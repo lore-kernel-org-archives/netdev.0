@@ -1,69 +1,101 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 2/3] net: ethernet: mediatek: get hw lro
- capability by the chip id instead of by the dtsi
-Date: Wed, 5 Oct 2016 15:18:24 +0300
-Message-ID: <6fdb5e81-0e95-0242-02bc-c2a8e15a9bf7@cogentembedded.com>
-References: <1475669532-23894-1-git-send-email-nelson.chang@mediatek.com>
- <1475669532-23894-3-git-send-email-nelson.chang@mediatek.com>
+From: Nelson Chang <nelson.chang@mediatek.com>
+Subject: [PATCH net-next v2 RESEND 1/3] net: ethernet: mediatek: get the chip id by ETHDMASYS registers
+Date: Wed, 5 Oct 2016 20:32:20 +0800
+Message-ID: <1475670742-11498-2-git-send-email-nelson.chang@mediatek.com>
+References: <1475670742-11498-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-mediatek@lists.infradead.org, nelsonch.tw@gmail.com
-To: Nelson Chang <nelson.chang@mediatek.com>, john@phrozen.org,
-        davem@davemloft.net
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>,
+        Nelson Chang <nelson.chang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:35709 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752213AbcJEMS2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 08:18:28 -0400
-Received: by mail-lf0-f49.google.com with SMTP id l131so209536245lfl.2
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 05:18:27 -0700 (PDT)
-In-Reply-To: <1475669532-23894-3-git-send-email-nelson.chang@mediatek.com>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:29131 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752359AbcJEMc3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 08:32:29 -0400
+In-Reply-To: <1475670742-11498-1-git-send-email-nelson.chang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The driver gets the chip id by ETHSYS_CHIPID0_3/ETHSYS_CHIPID4_7 registers
+in mtk_probe().
 
-On 10/05/2016 03:12 PM, Nelson Chang wrote:
+Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 29 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |  5 +++++
+ 2 files changed, 34 insertions(+)
 
-> Because hw lro started to be supported from MT7623, the proper way to check if
-> the feature is capable is to judge by the chip id instead of by the dtsi.
->
-> Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 12 ++++++++++--
->  drivers/net/ethernet/mediatek/mtk_eth_soc.h |  1 +
->  2 files changed, 11 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index 0c67ab1..07f3ffa 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -2348,6 +2348,14 @@ static int mtk_get_chip_id(struct mtk_eth *eth, u32 *chip_id)
->  	return 0;
->  }
->
-> +static bool mtk_is_hwlro_supported(struct mtk_eth *eth)
-> +{
-> +	if (eth->chip_id == MT7623_ETH)
-> +		return true;
-> +	else
-> +		return false;
-
-	return eth->chip_id == MT7623_ETH;
-
-[...]
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> index a5b422b..58738fd 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> @@ -345,6 +345,7 @@
->  /* ethernet subsystem chip id register */
->  #define ETHSYS_CHIPID0_3	0x0
->  #define ETHSYS_CHIPID4_7	0x4
-> +#define MT7623_ETH		(7623)
-
-    () not needed at all.
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index ad4ab97..0c67ab1 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -2323,6 +2323,31 @@ free_netdev:
+ 	return err;
+ }
+ 
++static int mtk_get_chip_id(struct mtk_eth *eth, u32 *chip_id)
++{
++	u32 val[2], id[4];
++
++	regmap_read(eth->ethsys, ETHSYS_CHIPID0_3, &val[0]);
++	regmap_read(eth->ethsys, ETHSYS_CHIPID4_7, &val[1]);
++
++	id[3] = ((val[0] >> 16) & 0xff) - '0';
++	id[2] = ((val[0] >> 24) & 0xff) - '0';
++	id[1] = (val[1] & 0xff) - '0';
++	id[0] = ((val[1] >> 8) & 0xff) - '0';
++
++	*chip_id = (id[3] * 1000) + (id[2] * 100) +
++		   (id[1] * 10) + id[0];
++
++	if (!(*chip_id)) {
++		dev_err(eth->dev, "failed to get chip id\n");
++		return -ENODEV;
++	}
++
++	dev_info(eth->dev, "chip id = %d\n", *chip_id);
++
++	return 0;
++}
++
+ static int mtk_probe(struct platform_device *pdev)
+ {
+ 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+@@ -2388,6 +2413,10 @@ static int mtk_probe(struct platform_device *pdev)
+ 	if (err)
+ 		return err;
+ 
++	err = mtk_get_chip_id(eth, &eth->chip_id);
++	if (err)
++		return err;
++
+ 	for_each_child_of_node(pdev->dev.of_node, mac_np) {
+ 		if (!of_device_is_compatible(mac_np,
+ 					     "mediatek,eth-mac"))
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index 3003195..a5b422b 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -342,6 +342,10 @@
+ #define GPIO_BIAS_CTRL		0xed0
+ #define GPIO_DRV_SEL10		0xf00
+ 
++/* ethernet subsystem chip id register */
++#define ETHSYS_CHIPID0_3	0x0
++#define ETHSYS_CHIPID4_7	0x4
++
+ /* ethernet subsystem config register */
+ #define ETHSYS_SYSCFG0		0x14
+ #define SYSCFG0_GE_MASK		0x3
+@@ -534,6 +538,7 @@ struct mtk_eth {
+ 	unsigned long			sysclk;
+ 	struct regmap			*ethsys;
+ 	struct regmap			*pctl;
++	u32				chip_id;
+ 	bool				hwlro;
+ 	atomic_t			dma_refcnt;
+ 	struct mtk_tx_ring		tx_ring;
+-- 
+1.9.1
