@@ -1,93 +1,140 @@
-From: Greg <gvrose8192@gmail.com>
-Subject: Re: [PATCH net] netlink: do not enter direct reclaim from
- netlink_dump()
-Date: Wed, 05 Oct 2016 12:54:43 -0700
-Message-ID: <1475697283.3279.12.camel@gmail.com>
-References: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
+Date: Wed, 5 Oct 2016 22:30:02 +0200
+Message-ID: <57F562CA.7080300@digikod.net>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <20160915091902.GA13132@amd> <57E16D07.4050301@digikod.net>
+ <CAGXu5jLp=GMpjqdCCPWeKHNseEv5DLPC7YN6EwhR1PJsei5cHw@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="K65skR0GWQxSWkEmSBJ1uR0qUDL6SOnjQ"
+Cc: Pavel Machek <pavel@ucw.cz>, LKML <linux-kernel@vger.kernel.org>,
         Alexei Starovoitov <ast@kernel.org>,
-        Greg Thelen <gthelen@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35635 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754004AbcJETyp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 15:54:45 -0400
-Received: by mail-pf0-f196.google.com with SMTP id t25so6725695pfg.2
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 12:54:45 -0700 (PDT)
-In-Reply-To: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Andy Lutomirski <luto@amacapital.net>, Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller"
+ <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Will Drewry <wad@chromium.org>,
+        "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        linux-security-module <linux-security-module@vger.kernel.org>,
+        Network Dev
+To: Kees Cook <keescook@chromium.org>
+Return-path: <kernel-hardening-return-4803-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CAGXu5jLp=GMpjqdCCPWeKHNseEv5DLPC7YN6EwhR1PJsei5cHw@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-10-06 at 04:13 +0900, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Since linux-3.15, netlink_dump() can use up to 16384 bytes skb
-> allocations.
-> 
-> Due to struct skb_shared_info ~320 bytes overhead, we end up using
-> order-3 (on x86) page allocations, that might trigger direct reclaim and
-> add stress.
-> 
-> The intent was really to attempt a large allocation but immediately
-> fallback to a smaller one (order-1 on x86) in case of memory stress.
-> 
-> On recent kernels (linux-4.4), we can remove __GFP_DIRECT_RECLAIM to
-> meet the goal. Old kernels would need to remove __GFP_WAIT
-> 
-> While we are at it, since we do an order-3 allocation, allow to use
-> all the allocated bytes instead of 16384 to reduce syscalls during
-> large dumps.
-> 
-> iproute2 already uses 32KB recvmsg() buffer sizes.
-> 
-> Alexei provided an initial patch downsizing to SKB_WITH_OVERHEAD(16384)
-> 
-> Fixes: 9063e21fb026 ("netlink: autosize skb lengthes")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Alexei Starovoitov <ast@kernel.org>
-> Cc: Greg Thelen <gthelen@google.com>
-> ---
-> Note: This will apply to net tree when it has synced with Linus tree.
-> 
->  net/netlink/af_netlink.c |    7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 627f898c05b96552318a881ce995ccc3342e1576..62bea4591054820eb516ef016214ee23fe89b6e9 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1832,7 +1832,7 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
->  	/* Record the max length of recvmsg() calls for future allocations */
->  	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
->  	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
-> -				     16384);
-> +				     SKB_WITH_OVERHEAD(32768));
->  
->  	copied = data_skb->len;
->  	if (len < copied) {
-> @@ -2083,8 +2083,9 @@ static int netlink_dump(struct sock *sk)
->  
->  	if (alloc_min_size < nlk->max_recvmsg_len) {
->  		alloc_size = nlk->max_recvmsg_len;
-> -		skb = alloc_skb(alloc_size, GFP_KERNEL |
-> -					    __GFP_NOWARN | __GFP_NORETRY);
-> +		skb = alloc_skb(alloc_size,
-> +				(GFP_KERNEL & ~__GFP_DIRECT_RECLAIM) |
-> +				__GFP_NOWARN | __GFP_NORETRY);
->  	}
->  	if (!skb) {
->  		alloc_size = alloc_min_size;
-> 
-> 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--K65skR0GWQxSWkEmSBJ1uR0qUDL6SOnjQ
+Content-Type: multipart/mixed; boundary="tOwjxlMXlbVgqR7reOf2Cx25pX7MujfUv";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Kees Cook <keescook@chromium.org>
+Cc: Pavel Machek <pavel@ucw.cz>, LKML <linux-kernel@vger.kernel.org>,
+ Alexei Starovoitov <ast@kernel.org>, Andy Lutomirski <luto@amacapital.net>,
+ Arnd Bergmann <arnd@arndb.de>, Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
+ David Drysdale <drysdale@google.com>, "David S . Miller"
+ <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
+ James Morris <james.l.morris@oracle.com>, Paul Moore <pmoore@redhat.com>,
+ Sargun Dhillon <sargun@sargun.me>, "Serge E . Hallyn" <serge@hallyn.com>,
+ Will Drewry <wad@chromium.org>,
+ "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+ Linux API <linux-api@vger.kernel.org>,
+ linux-security-module <linux-security-module@vger.kernel.org>,
+ Network Development <netdev@vger.kernel.org>
+Message-ID: <57F562CA.7080300@digikod.net>
+Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <20160915091902.GA13132@amd> <57E16D07.4050301@digikod.net>
+ <CAGXu5jLp=GMpjqdCCPWeKHNseEv5DLPC7YN6EwhR1PJsei5cHw@mail.gmail.com>
+In-Reply-To: <CAGXu5jLp=GMpjqdCCPWeKHNseEv5DLPC7YN6EwhR1PJsei5cHw@mail.gmail.com>
 
-This code has changed a lot since I first added it in 2011 but this
-appears to be the right thing to do.  I guess the order of operations
-for the bitwise '&' and the bitwise '~' are correct, I don't have my C
-manual laying around.
+--tOwjxlMXlbVgqR7reOf2Cx25pX7MujfUv
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Reviewed-by: Greg Rose <grose@lightfleet.com>
+
+On 04/10/2016 00:56, Kees Cook wrote:
+> On Tue, Sep 20, 2016 at 10:08 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod=
+=2Enet> wrote:
+>>
+>> On 15/09/2016 11:19, Pavel Machek wrote:
+>>> Hi!
+>>>
+>>>> This series is a proof of concept to fill some missing part of secco=
+mp as the
+>>>> ability to check syscall argument pointers or creating more dynamic =
+security
+>>>> policies. The goal of this new stackable Linux Security Module (LSM)=
+ called
+>>>> Landlock is to allow any process, including unprivileged ones, to cr=
+eate
+>>>> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox o=
+r the
+>>>> OpenBSD Pledge. This kind of sandbox help to mitigate the security i=
+mpact of
+>>>> bugs or unexpected/malicious behaviors in userland applications.
+>>>>
+>>>> The first RFC [1] was focused on extending seccomp while staying at =
+the syscall
+>>>> level. This brought a working PoC but with some (mitigated) ToCToU r=
+ace
+>>>> conditions due to the seccomp ptrace hole (now fixed) and the non-at=
+omic
+>>>> syscall argument evaluation (hence the LSM hooks).
+>>>
+>>> Long and nice description follows. Should it go to Documentation/
+>>> somewhere?
+>>>
+>>> Because some documentation would be useful...
+>>>                                                               Pavel
+>>
+>> Right, but I was looking for feedback before investing in documentatio=
+n. :)
+>=20
+> Heh, understood. There are a number of grammar issues that slow me
+> down when reading this, so when it does move into Documentation/, I'll
+> have some English nit-picks. :)
+>=20
+> While reading I found myself wanting an explicit list of "guiding
+> principles" for anyone implementing new hooks. It is touched on in
+> several places (don't expose things, don't allow for privilege
+> changes, etc). Having that spelled out somewhere would be nice.
+
+Right, I'm going to try to create a more consistent documentation with
+the "guiding principles".
+
+ Micka=C3=ABl
+
+
+--tOwjxlMXlbVgqR7reOf2Cx25pX7MujfUv--
+
+--K65skR0GWQxSWkEmSBJ1uR0qUDL6SOnjQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJX9WLKAAoJECLe/t9zvWqVoLgIAIvEs1LEWIjonrB4eq7A+mVo
+INObpZ4ecZdICzqwSqz1kw7xPwUNDuyxIIU/V2R80pnHZvcKBUUmMn57Xm+80Wk3
+kgAfypqezPno41o/rx1QoyDE/IAwD6dZ4YJ93K7DkhIanpQl6TIjxm1ViqZvv1a2
+vOpPLsckX2Kt9I5rAEJLahEpdqL0aouxhlc8la2GReMiQkIkywf2IyE8AdglGkwT
+XjnjmuqDAPF7fF2UBfMLExgs0trAwqEN5qxXTuspSvN45zkjLYg5SHaSKxhp2GD+
+Dwjvyl+aqIK9MaCV5kPEfSQXojHIL2HhBiZusFSP4QYiruZNKWBFwEJ9XZ0d3ws=
+=fjf+
+-----END PGP SIGNATURE-----
+
+--K65skR0GWQxSWkEmSBJ1uR0qUDL6SOnjQ--
