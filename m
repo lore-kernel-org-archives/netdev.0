@@ -1,97 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: A bug in team driver
-Date: Wed, 05 Oct 2016 12:08:48 +0900
-Message-ID: <1475636928.28155.196.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <3444639.ILgt5kU9OR@zbook>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH net-next 0/7] qed*: Add qedr infrastructure support,Re:
+ [PATCH net-next 0/7] qed*: Add qedr infrastructure support
+Date: Tue, 4 Oct 2016 23:09:59 -0400
+Message-ID: <fdcda684-f11d-50f4-45fe-aeae651cce3f@redhat.com>
+References: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+ <20161003.232446.1827173235395776859.davem@davemloft.net>
+ <ad89ec53-2355-e466-0ceb-92da51cc2a62@redhat.com>
+ <20161004.195945.1239283105752882824.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alex Sidorenko <alexandre.sidorenko@hpe.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="A0d1IPm3qLbclV9iI47rbKwutklgg0ltj"
+Cc: Yuval.Mintz@caviumnetworks.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, Ram.Amrani@caviumnetworks.com,
+        Michal.Kalderon@caviumnetworks.com, Ariel.Elior@caviumnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35404 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751223AbcJEDIx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2016 23:08:53 -0400
-Received: by mail-pf0-f172.google.com with SMTP id s13so82414455pfd.2
-        for <netdev@vger.kernel.org>; Tue, 04 Oct 2016 20:08:53 -0700 (PDT)
-In-Reply-To: <3444639.ILgt5kU9OR@zbook>
+Received: from mx1.redhat.com ([209.132.183.28]:50006 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751347AbcJEDKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 4 Oct 2016 23:10:13 -0400
+In-Reply-To: <20161004.195945.1239283105752882824.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-10-04 at 18:30 -0400, Alex Sidorenko wrote:
-> The problem was found on RHEL7.2 but is still present in the latest
-> upstream kernel (according to visual sources inspection).
-> 
-> While using roundrobin runner we have noticed that after sending on
-> team0 about 2.1 billion packets we started seeing 50% packet drop on
-> team0 
-> (according to 'netstat -i'). This number suggested 'signed int'
-> overflow and indeed, inspecting the sources I have noticed the
-> following in 
-> 
-> drivers/net/team/team_mode_roundrobin.c
-> ---------------------------------------
-> struct rr_priv {
-> 	unsigned int sent_packets;                        <--------- unsigned
-> int
-> };
-> 
-> static struct rr_priv *rr_priv(struct team *team)
-> {
-> 	return (struct rr_priv *) &team->mode_priv;
-> }
-> 
-> static bool rr_transmit(struct team *team, struct sk_buff *skb)
-> {
-> 	struct team_port *port;
-> 	int port_index;
-> 
-> 	port_index = team_num_to_port_index(team,
-> 					    rr_priv(team)->sent_packets++);
-> ---
-> 
-> 
-> we have 'unsigned int sent_packets' but we call team_num_to_port_index
-> where 'num' is 'int'
-> 
-> include/linux/if_team.h
-> -----------------------
-> static inline int team_num_to_port_index(struct team *team, int num)
-> <-- signed int
-> {
-> 	int en_port_count = ACCESS_ONCE(team->en_port_count);
-> 
-> 	if (unlikely(!en_port_count))
-> 		return 0;
-> 	return num % en_port_count;
-> }
-> 
-> 
-> As soon as sent_packets becomes larger than MAXINT (=2**31-1),
-> team_num_to_port_index() can return negative number as num becomes
-> negative and remainder 
-> (num % en_port_count) is either 0 or negative. This leads to looking
-> up incorrect hash-bucket and dropping packets.
-> 
-> We have easily duplicated this in roundrobin mode with two ports.
-> After reaching 2**31 packets sent on team0 every second packet was
-> dropped.
-> 
-> Rebuilding the kernel after changing 
-> 
-> team_num_to_port_index(struct team *team, int num) ->
-> team_num_to_port_index(struct team *team, unsigned int num)
-> 
-> and running the test again does not show packet drop anymore.
-> 
-> The same subroutine is used in
-> team_mode_loadbalance.c:lb_hash_select_tx_port but we pass 'unsigned
-> char hash' to team_num_to_port_index(), so there should be no
-> overflow. I did not test that mode in my tests.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--A0d1IPm3qLbclV9iI47rbKwutklgg0ltj
+Content-Type: multipart/mixed; boundary="fS0wPpEsU9w5EnPtaa2xKFlE9tCjnvAMw";
+ protected-headers="v1"
+From: Doug Ledford <dledford@redhat.com>
+To: David Miller <davem@davemloft.net>
+Cc: Yuval.Mintz@caviumnetworks.com, netdev@vger.kernel.org,
+ linux-rdma@vger.kernel.org, Ram.Amrani@caviumnetworks.com,
+ Michal.Kalderon@caviumnetworks.com, Ariel.Elior@caviumnetworks.com
+Message-ID: <fdcda684-f11d-50f4-45fe-aeae651cce3f@redhat.com>
+Subject: Re: [PATCH net-next 0/7] qed*: Add qedr infrastructure support,Re:
+ [PATCH net-next 0/7] qed*: Add qedr infrastructure support
+References: <1475348401-31392-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+ <20161003.232446.1827173235395776859.davem@davemloft.net>
+ <ad89ec53-2355-e466-0ceb-92da51cc2a62@redhat.com>
+ <20161004.195945.1239283105752882824.davem@davemloft.net>
+In-Reply-To: <20161004.195945.1239283105752882824.davem@davemloft.net>
 
-Good catch ! Can you send an official patch to fix this ?
+--fS0wPpEsU9w5EnPtaa2xKFlE9tCjnvAMw
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Thanks.
+On 10/4/2016 7:59 PM, David Miller wrote:
+> From: Doug Ledford <dledford@redhat.com>
+> Date: Tue, 4 Oct 2016 08:04:20 -0400
+>=20
+>> Are you going to merge this in 4.9 or is this going into net-next?
+>=20
+> 4.9, it will go into the pull request I send to Linus later today.
+>=20
 
-> 
+Got it, thanks.
+
+--=20
+Doug Ledford <dledford@redhat.com>
+    GPG Key ID: 0E572FDD
+
+
+--fS0wPpEsU9w5EnPtaa2xKFlE9tCjnvAMw--
+
+--A0d1IPm3qLbclV9iI47rbKwutklgg0ltj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCAAGBQJX9G8HAAoJELgmozMOVy/dq4AP/0SJxwjOUemoPcDELHr8jl4+
+6jJkroPNTEUWrtAk0DlGWcfsNHpk7D/eyy7qewsLR0QF7PzzyEajFqx4E3BpxzKS
+slhaySLaqGrzfnJCytT8v5K1SO3wFx9kV3PUNkoqnkhGyu+JbhJld8+WHFQ9IZ6H
+Q8uyK1VZZFpy5g/gma9Lhk/YlcCmIP1PBdZfPSecERGQOSvZP/lXWoTrlz8M24ZQ
+QgGuKWJBovHbF9xQBWEml3o167AmPqzpjp5bTQ/MZDu8E7ZhgLTtMsSIEMbdZYVS
+iC+AtNUP6dqH+f0eQFGMFSQgiyutZUemXvpY/zjEcgCb/dmIdesVaoXF3ZYstiIm
+HzMwhNwQqtrJ2GhfezlCJJ8Xz77V1XNR9/hP8WMPa4f6Z/R6lXMf+DG3QXjp+nD8
+/pOjeY7mUD2Jdf3GY5rXwgWxHd3wtjBpTXNvrnfW8WVtVEEoZ0ZKRe5RDc3Wrnxs
+rtm4lXzIDakWVpd3sdlhZ+EJXO1qwd84HvVP/J59EA+VOE2nVD9rh06J2r0sdPlJ
+Icnt68oF5ifr/X5c7BJ/+55fYwBo7YNMEtg8LbjatYDCOJVy5cNl2JfGzgqkhdD6
+5v+hYJeVd11som5Q9afAT2bXvEEeAT4FidHbYAUnUcI/Gx8kh7jYnjqstri5U+z/
+IpIIYEM8de4yqflH+hqn
+=/Nwg
+-----END PGP SIGNATURE-----
+
+--A0d1IPm3qLbclV9iI47rbKwutklgg0ltj--
