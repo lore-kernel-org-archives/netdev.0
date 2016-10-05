@@ -1,54 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT] Networking
-Date: Thu, 6 Oct 2016 09:29:47 +1100
-Message-ID: <20161006092947.25ae781c@canb.auug.org.au>
-References: <20161005.014437.1946431553783736769.davem@davemloft.net>
+Date: Wed, 5 Oct 2016 15:37:17 -0700
+Message-ID: <CA+55aFzbHD95PMUk4JQfAVkDDRcwzZ6vfvMR60tZnQNSwkDE6A@mail.gmail.com>
+References: <20161005.014437.1946431553783736769.davem@davemloft.net> <20161006092947.25ae781c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: NetFilter <netfilter-devel@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
         Pablo Neira Ayuso <pablo@netfilter.org>,
         Liping Zhang <liping.zhang@spreadtrum.com>
-To: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20161005.014437.1946431553783736769.davem@davemloft.net>
+In-Reply-To: <20161006092947.25ae781c@canb.auug.org.au>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Linus, Dave,
-
-On Wed, 05 Oct 2016 01:44:37 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+On Wed, Oct 5, 2016 at 3:29 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
 >
+> I have been carrying the following merge fix patch (for the merge of
+> the net-next tree with Linus' tree) for a while now which seems to have
+> got missed:
 
-I have been carrying the following merge fix patch (for the merge of
-the net-next tree with Linus' tree) for a while now which seems to have
-got missed:
+Ugh. It doesn't seem to be a merge error, because that double iph
+assignment came from the original patch that introduced this function:
+commit ddc8b6027ad0 ("netfilter: introduce nft_set_pktinfo_{ipv4,
+ipv6}_validate()").
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 13 Sep 2016 10:08:58 +1000
-Subject: [PATCH] netfilter: merge fixup for "nf_tables_netdev: remove redundant ip_hdr assignment"
+So I wouldn't call it a merge error - it just looks like a bug in the
+network layer. So I'm not going to apply your patch even though it
+looks plausible to me, simply because it's outside my area of
+expertise.
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- include/net/netfilter/nf_tables_ipv4.h | 1 -
- 1 file changed, 1 deletion(-)
+David? Pablo?
 
-diff --git a/include/net/netfilter/nf_tables_ipv4.h b/include/net/netfilter/nf_tables_ipv4.h
-index 968f00b82fb5..25e33aee91e7 100644
---- a/include/net/netfilter/nf_tables_ipv4.h
-+++ b/include/net/netfilter/nf_tables_ipv4.h
-@@ -33,7 +33,6 @@ __nft_set_pktinfo_ipv4_validate(struct nft_pktinfo *pkt,
- 	if (!iph)
- 		return -1;
- 
--	iph = ip_hdr(skb);
- 	if (iph->ihl < 5 || iph->version != 4)
- 		return -1;
- 
--- 
-2.8.1
-
--- 
-Cheers,
-Stephen Rothwell
+           Linus
