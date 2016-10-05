@@ -1,71 +1,48 @@
-From: Nelson Chang <nelson.chang@mediatek.com>
-Subject: RE: [PATCH net-next v2 2/3] net: ethernet: mediatek: get hw lro
- capability by the chip id instead of by the dtsi
-Date: Wed, 5 Oct 2016 21:21:18 +0800
-Message-ID: <1475673678.6101.11.camel@mtksdaap41>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH v2 net-next 0/2] bnx2x: page allocation failure
+Date: Wed, 5 Oct 2016 09:48:21 -0400
+Message-ID: <f9ac7a0b-5ebb-d545-5308-f4f0ad79559b@akamai.com>
+References: <cover.1474577624.git.jbaron@akamai.com>
+ <20160926.094606.142250516441125849.davem@davemloft.net>
+ <C6EA6A20-ECFC-43B5-B720-DC14CD212E7A@akamai.com>
+ <20161003.201958.1459020191229947657.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>
-To: <David.Laight@ACULAB.COM>, <sergei.shtylyov@cogentembedded.com>,
-        <john@phrozen.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+        <Yuval.Mintz@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:31982 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754240AbcJENVY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 09:21:24 -0400
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:52590 "EHLO
+        prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751304AbcJENsY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 09:48:24 -0400
+In-Reply-To: <20161003.201958.1459020191229947657.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei, David,
-
-I think modifying that as below is clear and scalable. Agree?
-
-static bool mtk_is_hwlro_supported(struct mtk_eth *eth)
-{
-	switch (eth->chip_id) {
-	case MT7623_ETH:
-		return true;
-	}
-
-	return false;
-}
-
-Thanks.
 
 
-Nelson
------Original Message-----
-From: David Laight [mailto:David.Laight@ACULAB.COM] 
-Sent: Wednesday, October 05, 2016 9:07 PM
-To: Nelson Chang (張家祥); sergei.shtylyov@cogentembedded.com;
-john@phrozen.org; davem@davemloft.net
-Cc: nbd@openwrt.org; netdev@vger.kernel.org;
-linux-mediatek@lists.infradead.org; nelsonch.tw@gmail.com
-Subject: RE: [PATCH net-next v2 2/3] net: ethernet: mediatek: get hw lro
-capability by the chip id instead of by the dtsi
+On 10/03/2016 08:19 PM, David Miller wrote:
+> From: "Baron, Jason" <jbaron@akamai.com>
+> Date: Mon, 3 Oct 2016 20:24:32 +0000
+>
+>> Or should I just send the incremental at this point?
+> Incremental is required at this point.
 
-From: Nelson Chang
-> Sent: 05 October 2016 13:46
-> > +static bool mtk_is_hwlro_supported(struct mtk_eth *eth) {
-> > +     if (eth->chip_id == MT7623_ETH)
-> > +             return true;
-> > +     else
-> > +             return false;
-> 
->         return eth->chip_id == MT7623_ETH;
-> 
-> => Since there will be more chips support hw lro in the future, keep 
-> the original codes to have the scalability like this:
-> if (eth->chip_id == MTxxxx_ETH ||
->     eth->chip_id == MTyyyy_ETH ||
->     ....)
-> 	return true;
+Hi David,
 
-Nothing wrong with:
+Ok. The above question was sent out erroneously. I have already posted
+the incremental patch that I was referring to here:
+https://patchwork.ozlabs.org/patch/675227/
 
-	return eth->chip_id == MTxxxx_ETH ||
-		eth->chip_id == MTyyyy_ETH;
+Prior to that incremental patch post, I had composed the above question,
+but realized that the right thing to do was simply to send the
+incremental. However, I forgot to delete the 'draft' mail that I had,
+and it accidentally got sent out on Monday.
 
-	David
+Please ignore the noise, we are all set here :)
+
+Thanks,
+
+-Jason
