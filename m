@@ -1,76 +1,43 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] netlink: do not enter direct reclaim from
- netlink_dump()
-Date: Wed, 5 Oct 2016 15:24:40 -0700
-Message-ID: <20161005222438.GA86006@ast-mbp.thefacebook.com>
-References: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] bluetooth.h: __ variants of u8 and friends are not
+ neccessary inside kernel
+Date: Wed, 05 Oct 2016 15:28:51 -0700
+Message-ID: <1475706531.1941.4.camel@perches.com>
+References: <20161003085640.GA8130@amd>
+         <368810F9-519C-44B5-85D4-1815273438BF@holtmann.org>
+         <1475689996.6105.11.camel@perches.com> <20161005191103.GA25972@amd>
+         <1475694934.1941.1.camel@perches.com> <20161005221317.GA21551@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Greg Thelen <gthelen@google.com>, Chris Mason <clm@fb.com>,
-        kernel-team@fb.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+        "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33703 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941740AbcJEWYp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 18:24:45 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i85so71908pfa.0
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 15:24:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtprelay0186.hostedemail.com ([216.40.44.186]:51119 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S934589AbcJEW24 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 18:28:56 -0400
+In-Reply-To: <20161005221317.GA21551@amd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 06, 2016 at 04:13:18AM +0900, Eric Dumazet wrote:
-> 
-> While we are at it, since we do an order-3 allocation, allow to use
-> all the allocated bytes instead of 16384 to reduce syscalls during
-> large dumps.
-> 
-> iproute2 already uses 32KB recvmsg() buffer sizes.
-....
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 627f898c05b96552318a881ce995ccc3342e1576..62bea4591054820eb516ef016214ee23fe89b6e9 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1832,7 +1832,7 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
->  	/* Record the max length of recvmsg() calls for future allocations */
->  	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
->  	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
-> -				     16384);
-> +				     SKB_WITH_OVERHEAD(32768));
+On Thu, 2016-10-06 at 00:13 +0200, Pavel Machek wrote:
+> On Wed 2016-10-05 12:15:34, Joe Perches wrote:
+> > On Wed, 2016-10-05 at 21:11 +0200, Pavel Machek wrote:
+> > > On Wed 2016-10-05 10:53:16, Joe Perches wrote:
+[]
+> > > > trivia:
+> > > > It's generally faster to use bool instead of u8 foo:1;
+> > > Ok, but I'm not changing that in this patch.
+> > > (And actually, bool will take a lot more memory, right?)
+> > No worries, and bool is the same size as u8.
+> Exactly what I'm talking about :-). One byte vs. one bit, right?
 
-sure, it won't stress it more than what it is today, but why increase it?
-iproute2 increased the buffer form 16k to 32k due to 'msg_trunc' which
-I think was due to this issue. If we go with SKB_WITH_OVERHEAD(16384)
-we can go back to 16k in iproute2 as well.
-
-Do we have any data to justify that buffer of 32k - skb_shared_info vs 16k
-will meaninfully reduce the number of syscalls?
-We're seeing direct reclaim get hammered due to order-3.
-Not sure whether & ~__GFP_DIRECT_RECLAIM is going to be enough.
-Currently we're testing with SKB_WITH_OVERHEAD(16384) and ~__GFP_DIRECT_RECLAIM.
-It will take another week to make sure SKB_WITH_OVERHEAD(32768) is ok.
-imo this optimization is done too soon.
-I'd much more comfortable with SKB_WITH_OVERHEAD(16384) value here.
-
->  
->  	copied = data_skb->len;
->  	if (len < copied) {
-> @@ -2083,8 +2083,9 @@ static int netlink_dump(struct sock *sk)
->  
->  	if (alloc_min_size < nlk->max_recvmsg_len) {
->  		alloc_size = nlk->max_recvmsg_len;
-> -		skb = alloc_skb(alloc_size, GFP_KERNEL |
-> -					    __GFP_NOWARN | __GFP_NORETRY);
-> +		skb = alloc_skb(alloc_size,
-> +				(GFP_KERNEL & ~__GFP_DIRECT_RECLAIM) |
-> +				__GFP_NOWARN | __GFP_NORETRY);
->  	}
->  	if (!skb) {
->  		alloc_size = alloc_min_size;
-> 
-> 
+Memory isn't bit addressable.
+So it's the same byte, it just doesn't use a read/modify/write
+operation to update a value.
