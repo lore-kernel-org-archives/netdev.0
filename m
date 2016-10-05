@@ -1,81 +1,79 @@
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: [PATCH] bluetooth.h: __ variants of u8 and friends are not
- neccessary inside kernel
-Date: Wed, 5 Oct 2016 21:11:03 +0200
-Message-ID: <20161005191103.GA25972@amd>
-References: <20161003085640.GA8130@amd>
- <368810F9-519C-44B5-85D4-1815273438BF@holtmann.org>
- <1475689996.6105.11.camel@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] netlink: do not enter direct reclaim from netlink_dump()
+Date: Thu, 06 Oct 2016 04:13:18 +0900
+Message-ID: <1475694798.28155.215.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="bp/iNruPH9dso1Pn"
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1475689996.6105.11.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Greg Thelen <gthelen@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33336 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753535AbcJETNY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 15:13:24 -0400
+Received: by mail-pa0-f67.google.com with SMTP id hh10so4452719pac.0
+        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 12:13:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
---bp/iNruPH9dso1Pn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Since linux-3.15, netlink_dump() can use up to 16384 bytes skb
+allocations.
 
-On Wed 2016-10-05 10:53:16, Joe Perches wrote:
-> On Wed, 2016-10-05 at 13:14 +0200, Marcel Holtmann wrote:
-> > Hi Pavel,
-> >=20
-> > > bluetooth.h is not part of user API, so __ variants are not neccessary
-> > > here.
-> > >=20
-> > > Signed-off-by: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-> > >=20
-> > > diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetoot=
-h/bluetooth.h
-> []
-> > > struct bt_skb_cb {
-> > > -	__u8 pkt_type;
-> > > -	__u8 force_active;
-> > > -	__u16 expect;
-> > > -	__u8 incoming:1;
-> > > +	u8 pkt_type;
-> > > +	u8 force_active;
-> > > +	u16 expect;
-> > > +	u8 incoming:1;
-> > > 	union {
-> > > 		struct l2cap_ctrl l2cap;
-> > > 		struct hci_ctrl hci;
->=20
-> trivia:
->=20
-> It's generally faster to use bool instead of u8 foo:1;
+Due to struct skb_shared_info ~320 bytes overhead, we end up using
+order-3 (on x86) page allocations, that might trigger direct reclaim and
+add stress.
 
-Ok, but I'm not changing that in this patch.
+The intent was really to attempt a large allocation but immediately
+fallback to a smaller one (order-1 on x86) in case of memory stress.
 
-(And actually, bool will take a lot more memory, right?)
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
+On recent kernels (linux-4.4), we can remove __GFP_DIRECT_RECLAIM to
+meet the goal. Old kernels would need to remove __GFP_WAIT
 
---bp/iNruPH9dso1Pn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+While we are at it, since we do an order-3 allocation, allow to use
+all the allocated bytes instead of 16384 to reduce syscalls during
+large dumps.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+iproute2 already uses 32KB recvmsg() buffer sizes.
 
-iEYEARECAAYFAlf1UEcACgkQMOfwapXb+vLL7QCfQIEcwKn89iZuB2xPud/61CFI
-Yx8AoLIifb6F89oprpCglUbjQT7fiQXw
-=QID+
------END PGP SIGNATURE-----
+Alexei provided an initial patch downsizing to SKB_WITH_OVERHEAD(16384)
 
---bp/iNruPH9dso1Pn--
+Fixes: 9063e21fb026 ("netlink: autosize skb lengthes")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Alexei Starovoitov <ast@kernel.org>
+Cc: Greg Thelen <gthelen@google.com>
+---
+Note: This will apply to net tree when it has synced with Linus tree.
+
+ net/netlink/af_netlink.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 627f898c05b96552318a881ce995ccc3342e1576..62bea4591054820eb516ef016214ee23fe89b6e9 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1832,7 +1832,7 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	/* Record the max length of recvmsg() calls for future allocations */
+ 	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
+ 	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
+-				     16384);
++				     SKB_WITH_OVERHEAD(32768));
+ 
+ 	copied = data_skb->len;
+ 	if (len < copied) {
+@@ -2083,8 +2083,9 @@ static int netlink_dump(struct sock *sk)
+ 
+ 	if (alloc_min_size < nlk->max_recvmsg_len) {
+ 		alloc_size = nlk->max_recvmsg_len;
+-		skb = alloc_skb(alloc_size, GFP_KERNEL |
+-					    __GFP_NOWARN | __GFP_NORETRY);
++		skb = alloc_skb(alloc_size,
++				(GFP_KERNEL & ~__GFP_DIRECT_RECLAIM) |
++				__GFP_NOWARN | __GFP_NORETRY);
+ 	}
+ 	if (!skb) {
+ 		alloc_size = alloc_min_size;
