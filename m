@@ -1,35 +1,56 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] ethernet: qualcomm: QCOM_EMAC should depend on HAS_DMA
-Date: Thu, 6 Oct 2016 09:12:03 -0500
-Message-ID: <57F65BB3.3090602@codeaurora.org>
-References: <1475762253-16759-1-git-send-email-geert@linux-m68k.org>
- <57F65A73.7020701@codeaurora.org>
- <CAMuHMdUGB6__ExtGTCpxOBXBG_=L9GNy1-g10VuCtqZvWRV5Tg@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH v2] ethernet: qualcomm: QCOM_EMAC should depend on HAS_DMA and HAS_IOMEM
+Date: Thu,  6 Oct 2016 16:44:53 +0200
+Message-ID: <1475765093-15536-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33796 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752960AbcJFOMG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 10:12:06 -0400
-In-Reply-To: <CAMuHMdUGB6__ExtGTCpxOBXBG_=L9GNy1-g10VuCtqZvWRV5Tg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Geert Uytterhoeven wrote:
-> Probably, I don't do UML allmodconfig builds.
->
-> Gr{oetje,eeting}s,
+If NO_DMA=y:
 
-Would you mind submitting another version of your patch that includes 
-HAS_DMA and HAS_IOMEM, so that both build breaks can be fixed in one shot?
+    drivers/built-in.o: In function `emac_probe':
+    emac.c:(.text+0x3780b8): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x3780e2): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x378112): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x378146): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x37816e): undefined reference to `bad_dma_ops'
+    drivers/built-in.o:emac.c:(.text+0x37819a): more undefined references to `bad_dma_ops' follow
 
+If NO_IOMEM=y:
+
+    drivers/net/ethernet/qualcomm/emac/emac.c: In function ‘emac_remove’:
+    drivers/net/ethernet/qualcomm/emac/emac.c:736:3: error: implicit declaration of function ‘iounmap’ [-Werror=implicit-function-declaration]
+       iounmap(adpt->phy.digital);
+       ^
+
+Add dependencies on HAS_DMA and HAS_IOMEM to fix this.
+
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+v2:
+  - Add dependency on HAS_IOMEM for UML.
+---
+ drivers/net/ethernet/qualcomm/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
+index 9ba568db576fb0e6..d7720bf92d49658a 100644
+--- a/drivers/net/ethernet/qualcomm/Kconfig
++++ b/drivers/net/ethernet/qualcomm/Kconfig
+@@ -26,6 +26,7 @@ config QCA7000
+ 
+ config QCOM_EMAC
+ 	tristate "Qualcomm Technologies, Inc. EMAC Gigabit Ethernet support"
++	depends on HAS_DMA && HAS_IOMEM
+ 	select CRC32
+ 	select PHYLIB
+ 	---help---
 -- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+1.9.1
