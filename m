@@ -1,42 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Netfilter fixes for net-next
-Date: Wed, 05 Oct 2016 20:26:12 -0400 (EDT)
-Message-ID: <20161005.202612.688630151401011904.davem@davemloft.net>
-References: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [GIT] Networking
+Date: Wed, 05 Oct 2016 20:26:24 -0400 (EDT)
+Message-ID: <20161005.202624.1436239748210168011.davem@davemloft.net>
+References: <20161006092947.25ae781c@canb.auug.org.au>
+        <CA+55aFzbHD95PMUk4JQfAVkDDRcwzZ6vfvMR60tZnQNSwkDE6A@mail.gmail.com>
+        <20161006000945.GA18976@salvia>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Cc: torvalds@linux-foundation.org, sfr@canb.auug.org.au,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, liping.zhang@spreadtrum.com
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50864 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750792AbcJFA0S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2016 20:26:18 -0400
-In-Reply-To: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161006000945.GA18976@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu,  6 Oct 2016 02:07:44 +0200
+Date: Thu, 6 Oct 2016 02:09:45 +0200
 
-> This is a pull request to address fallout from previous nf-next pull
-> request, only fixes going on here:
+> On Wed, Oct 05, 2016 at 03:37:17PM -0700, Linus Torvalds wrote:
+>> On Wed, Oct 5, 2016 at 3:29 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>> >
+>> > I have been carrying the following merge fix patch (for the merge of
+>> > the net-next tree with Linus' tree) for a while now which seems to have
+>> > got missed:
+>> 
+>> Ugh. It doesn't seem to be a merge error, because that double iph
+>> assignment came from the original patch that introduced this function:
+>> commit ddc8b6027ad0 ("netfilter: introduce nft_set_pktinfo_{ipv4,
+>> ipv6}_validate()").
+>> 
+>> So I wouldn't call it a merge error - it just looks like a bug in the
+>> network layer. So I'm not going to apply your patch even though it
+>> looks plausible to me, simply because it's outside my area of
+>> expertise.
+>> 
+>> David? Pablo?
 > 
-> 1) Address a potential null dereference in nf_unregister_net_hook()
->    when becomes nf_hook_entry_head is NULL, from Aaron Conole.
+> This looks good, please take it so we speed up things.
 > 
-> 2) Missing ifdef for CONFIG_NETFILTER_INGRESS, also from Aaron.
-> 
-> 3) Fix linking problems in xt_hashlimit in x86_32, from Pai.
-> 
-> 4) Fix permissions of nf_log sysctl from unpriviledge netns, from
->    Jann Horn.
-> 
-> 5) Fix possible divide by zero in nft_limit, from Liping Zhang.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Pulled, thanks Pablo.
+Applied.
