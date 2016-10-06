@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 11/13] afs: Check for fatal error when in waiting for
- ack state
-Date: Thu, 06 Oct 2016 11:05:13 +0100
-Message-ID: <147574831313.30350.4464082411010062270.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net 10/13] rxrpc: Return negative error code to kernel
+ service
+Date: Thu, 06 Oct 2016 11:05:06 +0100
+Message-ID: <147574830618.30350.11859903360731638231.stgit@warthog.procyon.org.uk>
 References: <147574823645.30350.16131031458272035074.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,27 +15,26 @@ In-Reply-To: <147574823645.30350.16131031458272035074.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When it's in the waiting-for-ACK state, the AFS filesystem needs to check
-the result of rxrpc_kernel_recv_data() any time it is notified to see if it
-is indicating a fatal error.  If this is the case, it needs to mark the
-call completed otherwise the call just sits there and never goes away.
+In rxrpc_kernel_recv_data(), when we return the error number incurred by a
+failed call, we must negate it before returning it as it's stored as
+positive (that's what we have to pass back to userspace).
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- fs/afs/rxrpc.c |    2 +-
+ net/rxrpc/recvmsg.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
-index 59bdaa7527b6..477928b25940 100644
---- a/fs/afs/rxrpc.c
-+++ b/fs/afs/rxrpc.c
-@@ -418,7 +418,7 @@ static void afs_deliver_to_call(struct afs_call *call)
- 						     &call->abort_code);
- 			if (ret == -EINPROGRESS || ret == -EAGAIN)
- 				return;
--			if (ret == 1) {
-+			if (ret == 1 || ret < 0) {
- 				call->state = AFS_CALL_COMPLETE;
- 				goto done;
- 			}
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index 3fa7771c2a9d..db5b02a47518 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -652,7 +652,7 @@ excess_data:
+ 	goto out;
+ call_complete:
+ 	*_abort = call->abort_code;
+-	ret = call->error;
++	ret = -call->error;
+ 	if (call->completion == RXRPC_CALL_SUCCEEDED) {
+ 		ret = 1;
+ 		if (size > 0)
