@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/5] netfilter: nft_limit: fix divided by zero panic
-Date: Thu,  6 Oct 2016 02:07:49 +0200
-Message-ID: <1475712469-17000-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/5] netfilter: accommodate different kconfig in nf_set_hooks_head
+Date: Thu,  6 Oct 2016 02:07:46 +0200
+Message-ID: <1475712469-17000-3-git-send-email-pablo@netfilter.org>
 References: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,58 +10,56 @@ In-Reply-To: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+From: Aaron Conole <aconole@bytheb.org>
 
-After I input the following nftables rule, a panic happened on my system:
-  # nft add rule filter OUTPUT limit rate 0xf00000000 bytes/second
+When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
+the request for registration properly by dropping the hook.  This
+releases the entry during the set.
 
-  divide error: 0000 [#1] SMP
-  [ ... ]
-  RIP: 0010:[<ffffffffa059035e>]  [<ffffffffa059035e>]
-  nft_limit_pkt_bytes_eval+0x2e/0xa0 [nft_limit]
-  Call Trace:
-  [<ffffffffa05721bb>] nft_do_chain+0xfb/0x4e0 [nf_tables]
-  [<ffffffffa044f236>] ? nf_nat_setup_info+0x96/0x480 [nf_nat]
-  [<ffffffff81753767>] ? ipt_do_table+0x327/0x610
-  [<ffffffffa044f677>] ? __nf_nat_alloc_null_binding+0x57/0x80 [nf_nat]
-  [<ffffffffa058b21f>] nft_ipv4_output+0xaf/0xd0 [nf_tables_ipv4]
-  [<ffffffff816f4aa2>] nf_iterate+0x62/0x80
-  [<ffffffff816f4b33>] nf_hook_slow+0x73/0xd0
-  [<ffffffff81703d0d>] __ip_local_out+0xcd/0xe0
-  [<ffffffff81701d90>] ? ip_forward_options+0x1b0/0x1b0
-  [<ffffffff81703d3c>] ip_local_out+0x1c/0x40
-
-This is because divisor is 64-bit, but we treat it as a 32-bit integer,
-then 0xf00000000 becomes zero, i.e. divisor becomes 0.
-
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_limit.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/core.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/nft_limit.c b/net/netfilter/nft_limit.c
-index 070b98938e02..c6baf412236d 100644
---- a/net/netfilter/nft_limit.c
-+++ b/net/netfilter/nft_limit.c
-@@ -145,7 +145,7 @@ static int nft_limit_pkts_init(const struct nft_ctx *ctx,
- 	if (err < 0)
- 		return err;
- 
--	priv->cost = div_u64(priv->limit.nsecs, priv->limit.rate);
-+	priv->cost = div64_u64(priv->limit.nsecs, priv->limit.rate);
- 	return 0;
- }
- 
-@@ -170,7 +170,7 @@ static void nft_limit_pkt_bytes_eval(const struct nft_expr *expr,
- 				     const struct nft_pktinfo *pkt)
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e3f68a786afe..c9d90eb64046 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -90,10 +90,12 @@ static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
  {
- 	struct nft_limit *priv = nft_expr_priv(expr);
--	u64 cost = div_u64(priv->nsecs * pkt->skb->len, priv->rate);
-+	u64 cost = div64_u64(priv->nsecs * pkt->skb->len, priv->rate);
+ 	switch (reg->pf) {
+ 	case NFPROTO_NETDEV:
++#ifdef CONFIG_NETFILTER_INGRESS
+ 		/* We already checked in nf_register_net_hook() that this is
+ 		 * used from ingress.
+ 		 */
+ 		rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
++#endif
+ 		break;
+ 	default:
+ 		rcu_assign_pointer(net->nf.hooks[reg->pf][reg->hooknum],
+@@ -107,10 +109,15 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
+ 	struct nf_hook_entry *hooks_entry;
+ 	struct nf_hook_entry *entry;
  
- 	if (nft_limit_eval(priv, cost))
- 		regs->verdict.code = NFT_BREAK;
+-	if (reg->pf == NFPROTO_NETDEV &&
+-	    (reg->hooknum != NF_NETDEV_INGRESS ||
+-	     !reg->dev || dev_net(reg->dev) != net))
+-		return -EINVAL;
++	if (reg->pf == NFPROTO_NETDEV) {
++#ifndef CONFIG_NETFILTER_INGRESS
++		if (reg->hooknum == NF_NETDEV_INGRESS)
++			return -EOPNOTSUPP;
++#endif
++		if (reg->hooknum != NF_NETDEV_INGRESS ||
++		    !reg->dev || dev_net(reg->dev) != net)
++			return -EINVAL;
++	}
+ 
+ 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+ 	if (!entry)
 -- 
 2.1.4
 
