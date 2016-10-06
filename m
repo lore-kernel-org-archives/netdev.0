@@ -1,50 +1,54 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] strparser: Propagate correct error code in strp_recv()
-Date: Thu,  6 Oct 2016 15:41:49 +0200
-Message-ID: <1475761309-13481-1-git-send-email-geert@linux-m68k.org>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: 4.9-rc0: nf_hooks_ingress missing, breaking compilation
+Date: Thu, 06 Oct 2016 09:54:15 -0400
+Message-ID: <f7ttwcpy454.fsf@redhat.com>
+References: <20161006065844.GA27024@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert@linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: kernel list <linux-kernel@vger.kernel.org>,
+        Netdev list <netdev@vger.kernel.org>, pablo@netfilter.org
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from andre.telenet-ops.be ([195.130.132.53]:41578 "EHLO
-        andre.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941992AbcJFNlv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 09:41:51 -0400
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:34459 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751346AbcJFNyU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 09:54:20 -0400
+Received: by mail-qk0-f180.google.com with SMTP id j129so16439066qkd.1
+        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 06:54:19 -0700 (PDT)
+In-Reply-To: <20161006065844.GA27024@amd> (Pavel Machek's message of "Thu, 6
+        Oct 2016 08:58:44 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With m68k-linux-gnu-gcc-4.1:
+Pavel Machek <pavel@ucw.cz> writes:
 
-    net/strparser/strparser.c: In function ‘strp_recv’:
-    net/strparser/strparser.c:98: warning: ‘err’ may be used uninitialized in this function
+> Hi!
 
-Pass "len" (which is an error code when negative) instead of the
-uninitialized "err" variable to fix this.
+Hi Pavel,
 
-Fixes: 43a0c6751a322847 ("strparser: Stream parser for messages")
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-Compile-tested only.
----
- net/strparser/strparser.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> In kernel based on edadd0e, I get plenty of errors such as:
 
-diff --git a/net/strparser/strparser.c b/net/strparser/strparser.c
-index 5c7549b5b92cd23c..41adf362936d7dc4 100644
---- a/net/strparser/strparser.c
-+++ b/net/strparser/strparser.c
-@@ -246,7 +246,7 @@ static int strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
- 				} else {
- 					strp->rx_interrupted = 1;
- 				}
--				strp_parser_err(strp, err, desc);
-+				strp_parser_err(strp, len, desc);
- 				break;
- 			} else if (len > strp->sk->sk_rcvbuf) {
- 				/* Message length exceeds maximum allowed */
--- 
-1.9.1
+In this case, I screwed up - sincere apologies.
+
+Enabling CONFIG_NETFILTER_INGRESS will work around this error for the
+time being, while the fix makes it way through the various trees.
+
+> net/netfilter/core.c:96:3: note: in expansion of macro =E2=80=98rcu_assig=
+n_pointer=E2=80=99
+>    rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
+>    ^
+> In file included from ./include/linux/linkage.h:4:0,
+>                  from ./include/linux/kernel.h:6,
+>                  from net/netfilter/core.c:10:
+> net/netfilter/core.c:96:30: error: =E2=80=98struct net_device=E2=80=99 ha=
+s no member named =E2=80=98nf_hooks_ingress=E2=80=99
+>    rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
+>                               ^
+>
+> Config is attached.
+>
+> [Ok, I guess testing -rc0 is "a bit too brave" :-)]
+>
+> Best regards,
+> 									Pavel
