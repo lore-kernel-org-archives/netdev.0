@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 12/13] rxrpc: Need to produce an ACK for service op if
- op takes a long time
-Date: Thu, 06 Oct 2016 11:05:20 +0100
-Message-ID: <147574832016.30350.7145676018037106906.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net 07/13] rxrpc: Partially handle OpenAFS's improper
+ termination of calls
+Date: Thu, 06 Oct 2016 11:04:45 +0100
+Message-ID: <147574828564.30350.1649444077912544776.stgit@warthog.procyon.org.uk>
 References: <147574823645.30350.16131031458272035074.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,162 +15,95 @@ In-Reply-To: <147574823645.30350.16131031458272035074.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We need to generate a DELAY ACK from the service end of an operation if we
-start doing the actual operation work and it takes longer than expected.
-This will hard-ACK the request data and allow the client to release its
-resources.
+OpenAFS doesn't always correctly terminate client calls that it makes -
+this includes calls the OpenAFS servers make to the cache manager service.
+It should end the client call with either:
 
-To make this work:
+ (1) An ACK that has firstPacket set to one greater than the seq number of
+     the reply DATA packet with the LAST_PACKET flag set (thereby
+     hard-ACK'ing all packets).  nAcks should be 0 and acks[] should be
+     empty (ie. no soft-ACKs).
 
- (1) We have to set the ack timer and propose an ACK when the call moves to
-     the RXRPC_CALL_SERVER_ACK_REQUEST and clear the pending ACK and cancel
-     the timer when we start transmitting the reply (the first DATA packet
-     of the reply implicitly ACKs the request phase).
+ (2) An ACKALL packet.
 
- (2) It must be possible to set the timer when the caller is holding
-     call->state_lock, so split the lock-getting part of the timer function
-     out.
+OpenAFS, though, may send an ACK packet with firstPacket set to the last
+seq number or less and soft-ACKs listed for all packets up to and including
+the last DATA packet.
 
- (3) Add trace notes for the ACK we're requesting and the timer we clear.
+The transmitter, however, is obliged to keep the call live and the
+soft-ACK'd DATA packets around until they're hard-ACK'd as the receiver is
+permitted to drop any merely soft-ACK'd packet and request retransmission
+by sending an ACK packet with a NACK in it.
+
+Further, OpenAFS will also terminate a client call by beginning the next
+client call on the same connection channel.  This implicitly completes the
+previous call.
+
+This patch handles implicit ACK of a call on a channel by the reception of
+the first packet of the next call on that channel.
+
+If another call doesn't come along to implicitly ACK a call, then we have
+to time the call out.  There are some bugs there that will be addressed in
+subsequent patches.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |    3 +++
- net/rxrpc/call_event.c  |   16 ++++++++++++----
- net/rxrpc/misc.c        |    2 ++
- net/rxrpc/recvmsg.c     |    8 ++++++--
- net/rxrpc/sendmsg.c     |    5 +++++
- 5 files changed, 28 insertions(+), 6 deletions(-)
+ net/rxrpc/input.c |   37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index b56676be07c7..f60e35576526 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -733,6 +733,7 @@ extern const char rxrpc_rtt_rx_traces[rxrpc_rtt_rx__nr_trace][5];
- enum rxrpc_timer_trace {
- 	rxrpc_timer_begin,
- 	rxrpc_timer_init_for_reply,
-+	rxrpc_timer_init_for_send_reply,
- 	rxrpc_timer_expired,
- 	rxrpc_timer_set_for_ack,
- 	rxrpc_timer_set_for_ping,
-@@ -749,6 +750,7 @@ enum rxrpc_propose_ack_trace {
- 	rxrpc_propose_ack_ping_for_lost_ack,
- 	rxrpc_propose_ack_ping_for_lost_reply,
- 	rxrpc_propose_ack_ping_for_params,
-+	rxrpc_propose_ack_processing_op,
- 	rxrpc_propose_ack_respond_to_ack,
- 	rxrpc_propose_ack_respond_to_ping,
- 	rxrpc_propose_ack_retry_tx,
-@@ -811,6 +813,7 @@ int rxrpc_reject_call(struct rxrpc_sock *);
- /*
-  * call_event.c
-  */
-+void __rxrpc_set_timer(struct rxrpc_call *, enum rxrpc_timer_trace, ktime_t);
- void rxrpc_set_timer(struct rxrpc_call *, enum rxrpc_timer_trace, ktime_t);
- void rxrpc_propose_ACK(struct rxrpc_call *, u8, u16, u32, bool, bool,
- 		       enum rxrpc_propose_ack_trace);
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index 0f91d329e910..97a17ada4431 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -24,15 +24,13 @@
- /*
-  * Set the timer
-  */
--void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
--		     ktime_t now)
-+void __rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
-+		       ktime_t now)
- {
- 	unsigned long t_j, now_j = jiffies;
- 	ktime_t t;
- 	bool queue = false;
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index a6da83f036d6..44fb8d893c7d 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -939,6 +939,33 @@ static void rxrpc_input_call_packet(struct rxrpc_call *call,
+ }
  
--	read_lock_bh(&call->state_lock);
--
- 	if (call->state < RXRPC_CALL_COMPLETE) {
- 		t = call->expire_at;
- 		if (!ktime_after(t, now)) {
-@@ -84,6 +82,16 @@ void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
- out:
- 	if (queue)
- 		rxrpc_queue_call(call);
+ /*
++ * Handle a new call on a channel implicitly completing the preceding call on
++ * that channel.
++ *
++ * TODO: If callNumber > call_id + 1, renegotiate security.
++ */
++static void rxrpc_input_implicit_end_call(struct rxrpc_connection *conn,
++					  struct rxrpc_call *call)
++{
++	switch (call->state) {
++	case RXRPC_CALL_SERVER_AWAIT_ACK:
++		rxrpc_call_completed(call);
++		break;
++	case RXRPC_CALL_COMPLETE:
++		break;
++	default:
++		if (rxrpc_abort_call("IMP", call, 0, RX_CALL_DEAD, ESHUTDOWN)) {
++			set_bit(RXRPC_CALL_EV_ABORT, &call->events);
++			rxrpc_queue_call(call);
++		}
++		break;
++	}
++
++	__rxrpc_disconnect_call(conn, call);
++	rxrpc_notify_socket(call);
 +}
 +
 +/*
-+ * Set the timer
-+ */
-+void rxrpc_set_timer(struct rxrpc_call *call, enum rxrpc_timer_trace why,
-+		     ktime_t now)
-+{
-+	read_lock_bh(&call->state_lock);
-+	__rxrpc_set_timer(call, why, now);
- 	read_unlock_bh(&call->state_lock);
- }
+  * post connection-level events to the connection
+  * - this includes challenges, responses, some aborts and call terminal packet
+  *   retransmission.
+@@ -1146,6 +1173,16 @@ void rxrpc_data_ready(struct sock *udp_sk)
+ 		}
  
-diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index 1cdcba52f83b..6dee55fad2d3 100644
---- a/net/rxrpc/misc.c
-+++ b/net/rxrpc/misc.c
-@@ -195,6 +195,7 @@ const char rxrpc_timer_traces[rxrpc_timer__nr_trace][8] = {
- 	[rxrpc_timer_begin]			= "Begin ",
- 	[rxrpc_timer_expired]			= "*EXPR*",
- 	[rxrpc_timer_init_for_reply]		= "IniRpl",
-+	[rxrpc_timer_init_for_send_reply]	= "SndRpl",
- 	[rxrpc_timer_set_for_ack]		= "SetAck",
- 	[rxrpc_timer_set_for_ping]		= "SetPng",
- 	[rxrpc_timer_set_for_send]		= "SetTx ",
-@@ -207,6 +208,7 @@ const char rxrpc_propose_ack_traces[rxrpc_propose_ack__nr_trace][8] = {
- 	[rxrpc_propose_ack_ping_for_lost_ack]	= "LostAck",
- 	[rxrpc_propose_ack_ping_for_lost_reply]	= "LostRpl",
- 	[rxrpc_propose_ack_ping_for_params]	= "Params ",
-+	[rxrpc_propose_ack_processing_op]	= "ProcOp ",
- 	[rxrpc_propose_ack_respond_to_ack]	= "Rsp2Ack",
- 	[rxrpc_propose_ack_respond_to_ping]	= "Rsp2Png",
- 	[rxrpc_propose_ack_retry_tx]		= "RetryTx",
-diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
-index db5b02a47518..c29362d50a92 100644
---- a/net/rxrpc/recvmsg.c
-+++ b/net/rxrpc/recvmsg.c
-@@ -151,17 +151,21 @@ static void rxrpc_end_rx_phase(struct rxrpc_call *call, rxrpc_serial_t serial)
- 	switch (call->state) {
- 	case RXRPC_CALL_CLIENT_RECV_REPLY:
- 		__rxrpc_call_completed(call);
-+		write_unlock_bh(&call->state_lock);
- 		break;
- 
- 	case RXRPC_CALL_SERVER_RECV_REQUEST:
- 		call->tx_phase = true;
- 		call->state = RXRPC_CALL_SERVER_ACK_REQUEST;
-+		call->ack_at = call->expire_at;
-+		write_unlock_bh(&call->state_lock);
-+		rxrpc_propose_ACK(call, RXRPC_ACK_DELAY, 0, serial, false, true,
-+				  rxrpc_propose_ack_processing_op);
- 		break;
- 	default:
-+		write_unlock_bh(&call->state_lock);
- 		break;
- 	}
--
--	write_unlock_bh(&call->state_lock);
- }
- 
- /*
-diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
-index 55a2fb2cfc2f..b214a4d4a641 100644
---- a/net/rxrpc/sendmsg.c
-+++ b/net/rxrpc/sendmsg.c
-@@ -130,6 +130,11 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 			break;
- 		case RXRPC_CALL_SERVER_ACK_REQUEST:
- 			call->state = RXRPC_CALL_SERVER_SEND_REPLY;
-+			call->ack_at = call->expire_at;
-+			if (call->ackr_reason == RXRPC_ACK_DELAY)
-+				call->ackr_reason = 0;
-+			__rxrpc_set_timer(call, rxrpc_timer_init_for_send_reply,
-+					  ktime_get_real());
- 			if (!last)
- 				break;
- 		case RXRPC_CALL_SERVER_SEND_REPLY:
+ 		call = rcu_dereference(chan->call);
++
++		if (sp->hdr.callNumber > chan->call_id) {
++			if (!(sp->hdr.flags & RXRPC_CLIENT_INITIATED)) {
++				rcu_read_unlock();
++				goto reject_packet;
++			}
++			if (call)
++				rxrpc_input_implicit_end_call(conn, call);
++			call = NULL;
++		}
+ 	} else {
+ 		skew = 0;
+ 		call = NULL;
