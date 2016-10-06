@@ -1,110 +1,66 @@
-From: Krister Johansen <kjlx@templeofstupid.com>
-Subject: Re: [PATCH net] Panic when tc_lookup_action_n finds a partially
- initialized action.
-Date: Wed, 5 Oct 2016 23:11:50 -0700
-Message-ID: <20161006061150.GA2525@templeofstupid.com>
-References: <20161002031349.GB2635@templeofstupid.com>
- <CAM_iQpX1a1=3PmMAwMRDXpL3qjAskQ990FdxgyCg4T5p4=8G7Q@mail.gmail.com>
- <20161005065244.GA2245@templeofstupid.com>
- <CAM_iQpUya1ORUUNC9-spLKHjsjNyj6xHO79kvoDGaZcWT_mEwg@mail.gmail.com>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH 3/3] net: smsc911x: add u16 workaround for pxa platforms
+Date: Thu, 06 Oct 2016 08:47:13 +0200
+Message-ID: <87lgy27z4e.fsf@belgarion.home>
+References: <1475485553-18747-1-git-send-email-robert.jarzmik@free.fr>
+        <1475485553-18747-3-git-send-email-robert.jarzmik@free.fr>
+        <20161003154624.GG7632@leverpostej> <87oa319zv8.fsf@belgarion.home>
+        <20161003165032.GB15313@leverpostej> <871szx9rhc.fsf@belgarion.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krister Johansen <kjlx@templeofstupid.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub5.mail.dreamhost.com ([208.113.200.129]:49289 "EHLO
-        homiemail-a59.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751562AbcJFGLx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 02:11:53 -0400
-Received: from homiemail-a59.g.dreamhost.com (localhost [127.0.0.1])
-        by homiemail-a59.g.dreamhost.com (Postfix) with ESMTP id 595316000F3C
-        for <netdev@vger.kernel.org>; Wed,  5 Oct 2016 23:11:52 -0700 (PDT)
-Received: from kmjvbox (c-73-202-117-160.hsd1.ca.comcast.net [73.202.117.160])
-        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        (Authenticated sender: kjlx@templeofstupid.com)
-        by homiemail-a59.g.dreamhost.com (Postfix) with ESMTPSA id E23D96002442
-        for <netdev@vger.kernel.org>; Wed,  5 Oct 2016 23:11:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpUya1ORUUNC9-spLKHjsjNyj6xHO79kvoDGaZcWT_mEwg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Rob Herring <robh+dt@kernel.org>, Nicolas Pitre <nico@fluxnic.net>,
+        Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <871szx9rhc.fsf@belgarion.home> (Robert Jarzmik's message of
+        "Mon, 03 Oct 2016 21:12:31 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 05, 2016 at 11:01:38AM -0700, Cong Wang wrote:
-> On Tue, Oct 4, 2016 at 11:52 PM, Krister Johansen
-> <kjlx@templeofstupid.com> wrote:
-> > On Mon, Oct 03, 2016 at 11:22:33AM -0700, Cong Wang wrote:
-> >> Please try the attached patch. I also convert the read path to RCU
-> >> to avoid a possible deadlock. A quick test shows no lockdep splat.
-> >
-> > I tried this patch, but it doesn't solve the problem.  I got a panic on
-> > my very first try:
-> 
-> Thanks for testing it.
+Robert Jarzmik <robert.jarzmik@free.fr> writes:
 
-Absolutely; thanks for helping to try to simplify this fix.
+> Mark Rutland <mark.rutland@arm.com> writes:
+>
+>> On Mon, Oct 03, 2016 at 06:11:23PM +0200, Robert Jarzmik wrote:
+>>> Mark Rutland <mark.rutland@arm.com> writes:
+>>> 
+>>> reg-u16-align4 tells that a specific hardware doesn't support 16 bit writes not
+>>> being 32 bits aligned, or said differently that a "store" 16 bits wide on an
+>>> address of the format 4*n + 2 deserves a special handling in the driver, while a
+>>> store 16 bits wide on an address of the format 4*n can follow the simple casual
+>>> case.
+>>
+>> If I've understood correctly, effectively the low 2 address lines to the
+>> device are hard-wired to zero, e.g. a 16-bit access to 4*n + 2 would go
+>> to 4*n + 0 on the device? Or is the failure case distinct from that?
+> It is distinct.
+>
+> The "awful truth" is that an FPGA lies between the system bus and the
+> smc91c111. And this FPGA cannot handle correctly the 4*n + 2 u16 writes.
+>
+>> Do we have other platforms where similar is true? e.g. u8 accesses
+>> requiring 16-bit alignment?
+>
+> Not really, ie. not with a alignement requirement.
+>
+> But there are of course these ones are handled by reg-io-width and the
+> SMC_USE_xxx_BITS flags as far as I understand it. These cases are when a
+> platform declares SMC91X_USE_16BIT or SMC91X_USE_32BIT, but not SMC91X_USE_8BIT,
+> which would make me think of :
+>  - CONFIG_SH_SH4202_MICRODEV,
+>  - CONFIG_M32R
+>  - several omap1 boards
+>  - 1 sa1100 board
+>  - several MMP and realview boards
+>
+> With all these platforms, each u8 access is replaced with a u16 access and a
+> mask / shift + mask.
 
-> > The problem here is the same as before: by using RCU the race isn't
-> > fixed because the module is still discoverable from act_base before the
-> > pernet initialization is completed.
-> >
-> > You can see from the trap frame that the first two arguments to
-> > tcf_hash_check were 0.  It couldn't look up the correct per-subsystem
-> > pointer because the id hadn't yet been registered.
-> 
-> I thought the problem is that we don't do pernet ops registration and
-> action ops registration atomically therefore chose to use mutex+RCU,
-> but I was wrong, the problem here is just ordering, we need to finish
-> the pernet initialization before making action ops visible.
-> 
-> If so, why not just reorder them? Does the attached patch make any
-> sense now? Our pernet init doesn't rely on act_base, so even we have
-> some race, the worst case is after we initialize the pernet netns for an
-> action but its ops still not visible, which seems fine (at least no crash).
-> 
-> Or I still miss something here?
+Or so what should I call this entry if reg-u16-align4 is not a good candidate ?
 
-I'm not sure.  The reason I didn't take this approach from the outset is
-that all of TC's callers of tcf_register_action pass a pointer to a
-static structure as their *ops argument.  The existence of code that
-checks the action for uniqueness suggests that it's possible for
-tcf_register_action to get passed two identical tc_action_ops.  If that
-happens in the current code base, we'll also get passed a duplicate
-pernet_operations pointer.  The code in register_pernet_subsys() makes
-no attempt to check for duplicates.  If we add a pointer that's already
-in the list, and subsequently call unregister, the results seem
-undefined.  It looks like we'll remove the pernet_operations for the
-existing action, assuming we don't corrupt the list in the process.
+Cheers.
 
-Is this actually safe?  If so, what corner case is the act->type /
-act->kind protecting us from?
-
-> (Sorry that I don't have the environment to reproduce your bug)
-
-I'm sorry that I didn't do a good job of explaining how we end up in
-this situation in the first place.  I can give a few more details,
-because it may explain some of my concern about the request_module()
-call.
-
-The system that encounters this bug launches a bunch of containers from
-systemd on boot.  Each container creates a new user, net, pid, and mount
-namespace and begins its setup.  When the networking in all of these
-containers, each in a new netns, try to configure TC and no modules are
-loaded we end up with this race.
-
-I can also reproduce by unloading the modules, and then launching a
-bunch of processes that configure tc in new namespaces.
-
-Part of the desire to inhibit extra modprobe calls is that if hundreds
-of these all start at once on boot, it's really unnecessary to have all
-of the rest of them wait while lots of extra modprobe calls are forked
-by the kernel.
-
-> Thanks for your patience and testing!
-
-Thank you for taking the time to look through the fix and discuss
-alternatives.
-
--K
+-- 
+Robert
