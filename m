@@ -1,165 +1,63 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH net-next 11/14] rxrpc: Make rxrpc_send_packet() take a
- connection not a transport [ver #2]
-Date: Thu, 6 Oct 2016 15:34:25 +0200
-Message-ID: <CAMuHMdUU=yRe_XgC64kD-ZtANVmmzUBJS9Rkkz8mp5-W96Z=qw@mail.gmail.com>
-References: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
- <146661145065.15011.7115489407328614610.stgit@warthog.procyon.org.uk>
+Subject: [PATCH] netfilter: xt_hashlimit: Add missing ULL suffixes for 64-bit constants
+Date: Thu,  6 Oct 2016 15:40:14 +0200
+Message-ID: <1475761214-13387-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-afs@lists.infradead.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34291 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751308AbcJFNe1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 09:34:27 -0400
-In-Reply-To: <146661145065.15011.7115489407328614610.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Vishwanath Pai <vpai@akamai.com>,
+        Joshua Hunt <johunt@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On 32-bit (e.g. with m68k-linux-gnu-gcc-4.1):
 
-On Wed, Jun 22, 2016 at 6:04 PM, David Howells <dhowells@redhat.com> wrote:
-> Make rxrpc_send_packet() take a connection not a transport as part of the
-> phasing out of the rxrpc_transport struct.
->
-> Whilst we're at it, rename the function to rxrpc_send_data_packet() to
-> differentiate it from the other packet sending functions.
->
-> Signed-off-by: David Howells <dhowells@redhat.com>
+    net/netfilter/xt_hashlimit.c: In function ‘user2credits’:
+    net/netfilter/xt_hashlimit.c:476: warning: integer constant is too large for ‘long’ type
+    ...
+    net/netfilter/xt_hashlimit.c:478: warning: integer constant is too large for ‘long’ type
+    ...
+    net/netfilter/xt_hashlimit.c:480: warning: integer constant is too large for ‘long’ type
+    ...
 
-This is now upstream commit 985a5c824a52e9f7
+    net/netfilter/xt_hashlimit.c: In function ‘rateinfo_recalc’:
+    net/netfilter/xt_hashlimit.c:513: warning: integer constant is too large for ‘long’ type
 
-> --- a/net/rxrpc/output.c
-> +++ b/net/rxrpc/output.c
-> @@ -338,7 +338,7 @@ EXPORT_SYMBOL(rxrpc_kernel_abort_call);
->  /*
->   * send a packet through the transport endpoint
->   */
-> -int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb=
-)
-> +int rxrpc_send_data_packet(struct rxrpc_connection *conn, struct sk_buff=
- *skb)
->  {
->         struct kvec iov[1];
->         struct msghdr msg;
-> @@ -349,30 +349,30 @@ int rxrpc_send_packet(struct rxrpc_transport *trans=
-, struct sk_buff *skb)
+Fixes: 11d5f15723c9f39d ("netfilter: xt_hashlimit: Create revision 2 to support higher pps rates")
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ net/netfilter/xt_hashlimit.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-net/rxrpc/output.c: In function =E2=80=98rxrpc_send_data_packet=E2=80=99:
-net/rxrpc/output.c:252: warning: =E2=80=98ret=E2=80=99 may be used uninitia=
-lized in
-this function
-(line number is from current mainline)
-
->         iov[0].iov_base =3D skb->head;
->         iov[0].iov_len =3D skb->len;
->
-> -       msg.msg_name =3D &trans->peer->srx.transport.sin;
-> -       msg.msg_namelen =3D sizeof(trans->peer->srx.transport.sin);
-> +       msg.msg_name =3D &conn->params.peer->srx.transport;
-> +       msg.msg_namelen =3D conn->params.peer->srx.transport_len;
->         msg.msg_control =3D NULL;
->         msg.msg_controllen =3D 0;
->         msg.msg_flags =3D 0;
->
->         /* send the packet with the don't fragment bit set if we currentl=
-y
->          * think it's small enough */
-> -       if (skb->len - sizeof(struct rxrpc_wire_header) < trans->peer->ma=
-xdata) {
-> -               down_read(&trans->local->defrag_sem);
-> +       if (skb->len - sizeof(struct rxrpc_wire_header) < conn->params.pe=
-er->maxdata) {
-> +               down_read(&conn->params.local->defrag_sem);
-
-If this branch is not taken...
-
->                 /* send the packet by UDP
->                  * - returns -EMSGSIZE if UDP would have to fragment the =
-packet
->                  *   to go out of the interface
->                  *   - in which case, we'll have processed the ICMP error
->                  *     message and update the peer record
->                  */
-> -               ret =3D kernel_sendmsg(trans->local->socket, &msg, iov, 1=
-,
-> +               ret =3D kernel_sendmsg(conn->params.local->socket, &msg, =
-iov, 1,
->                                      iov[0].iov_len);
->
-> -               up_read(&trans->local->defrag_sem);
-> +               up_read(&conn->params.local->defrag_sem);
->                 if (ret =3D=3D -EMSGSIZE)
->                         goto send_fragmentable;
->
-> -               _leave(" =3D %d [%u]", ret, trans->peer->maxdata);
-> +               _leave(" =3D %d [%u]", ret, conn->params.peer->maxdata);
->                 return ret;
->         }
->
-> @@ -380,21 +380,28 @@ send_fragmentable:
->         /* attempt to send this message with fragmentation enabled */
->         _debug("send fragment");
->
-> -       down_write(&trans->local->defrag_sem);
-> -       opt =3D IP_PMTUDISC_DONT;
-> -       ret =3D kernel_setsockopt(trans->local->socket, SOL_IP, IP_MTU_DI=
-SCOVER,
-> -                               (char *) &opt, sizeof(opt));
-> -       if (ret =3D=3D 0) {
-> -               ret =3D kernel_sendmsg(trans->local->socket, &msg, iov, 1=
-,
-> -                                    iov[0].iov_len);
-> -
-> -               opt =3D IP_PMTUDISC_DO;
-> -               kernel_setsockopt(trans->local->socket, SOL_IP,
-> -                                 IP_MTU_DISCOVER, (char *) &opt, sizeof(=
-opt));
-> +       down_write(&conn->params.local->defrag_sem);
-> +
-> +       switch (conn->params.local->srx.transport.family) {
-> +       case AF_INET:
-> +               opt =3D IP_PMTUDISC_DONT;
-> +               ret =3D kernel_setsockopt(conn->params.local->socket,
-> +                                       SOL_IP, IP_MTU_DISCOVER,
-> +                                       (char *)&opt, sizeof(opt));
-> +               if (ret =3D=3D 0) {
-> +                       ret =3D kernel_sendmsg(conn->params.local->socket=
-, &msg, iov, 1,
-> +                                            iov[0].iov_len);
-> +
-> +                       opt =3D IP_PMTUDISC_DO;
-> +                       kernel_setsockopt(conn->params.local->socket, SOL=
-_IP,
-> +                                         IP_MTU_DISCOVER,
-> +                                         (char *)&opt, sizeof(opt));
-> +               }
-> +               break;
-
-... and none of the cases (current upstream also has AF_INET6 if
-CONFIG_AF_RXRPC_IPV6 is enabled) match ...
-
->         }
->
-> -       up_write(&trans->local->defrag_sem);
-> -       _leave(" =3D %d [frag %u]", ret, trans->peer->maxdata);
-> +       up_write(&conn->params.local->defrag_sem);
-> +       _leave(" =3D %d [frag %u]", ret, conn->params.peer->maxdata);
->         return ret;
-
-... then ret is not initialized.
-
-I didn't create a patch, as I'm not sure this is a false positive or not.
-Is it possible that none of the cases match?
-
->  }
-
-Gr{oetje,eeting}s,
-
-                        Geert
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 2fab0c65aa94b666..b89b688e9d01a2d1 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -431,7 +431,7 @@ static void htable_put(struct xt_hashlimit_htable *hinfo)
+    CREDITS_PER_JIFFY*HZ*60*60*24 < 2^32 ie.
+ */
+ #define MAX_CPJ_v1 (0xFFFFFFFF / (HZ*60*60*24))
+-#define MAX_CPJ (0xFFFFFFFFFFFFFFFF / (HZ*60*60*24))
++#define MAX_CPJ (0xFFFFFFFFFFFFFFFFULL / (HZ*60*60*24))
+ 
+ /* Repeated shift and or gives us all 1s, final shift and add 1 gives
+  * us the power of 2 below the theoretical max, so GCC simply does a
+@@ -473,7 +473,7 @@ static u64 user2credits(u64 user, int revision)
+ 		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
+ 				 XT_HASHLIMIT_SCALE);
+ 	} else {
+-		if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
++		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
+ 			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
+ 				* HZ * CREDITS_PER_JIFFY;
+ 
+-- 
+1.9.1
