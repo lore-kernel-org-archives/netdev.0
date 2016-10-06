@@ -1,65 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: phy: Add PHY Auto/Mdi/Mdix set driver
- for Microsemi PHYs.
-Date: Thu, 6 Oct 2016 04:09:56 -0700
-Message-ID: <f10c1be8-bfce-a2e5-9a5c-d612a3e2cd4f@gmail.com>
-References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1475064078-22310-3-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160928202451.GC30728@lunn.ch> <20161004143122.GC29274@microsemi.com>
- <20161005071834.GD5575@lunn.ch>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] bluetooth.h: __ variants of u8 and friends are not
+ neccessary inside kernel
+Date: Thu, 06 Oct 2016 04:38:49 -0700
+Message-ID: <1475753929.1914.2.camel@perches.com>
+References: <20161003085640.GA8130@amd>
+         <368810F9-519C-44B5-85D4-1815273438BF@holtmann.org>
+         <1475689996.6105.11.camel@perches.com> <20161005191103.GA25972@amd>
+         <1475694934.1941.1.camel@perches.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB01E3EAB@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Allan.Nielsen@microsemi.com
-To: Andrew Lunn <andrew@lunn.ch>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+        "trivial@kernel.org" <trivial@kernel.org>,
+        "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>, Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34918 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752880AbcJFLKE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 07:10:04 -0400
-Received: by mail-qt0-f195.google.com with SMTP id g49so414910qtc.2
-        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 04:10:04 -0700 (PDT)
-In-Reply-To: <20161005071834.GD5575@lunn.ch>
+Received: from smtprelay0118.hostedemail.com ([216.40.44.118]:44674 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752858AbcJFLiy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 07:38:54 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB01E3EAB@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2016-10-06 at 09:41 +0000, David Laight wrote:
+> From: Joe Perches
+> > No worries, and bool is the same ,size as u8.
+> That is not guaranteed at all.
+> One of the ARM ABI defined bool to be the size of int.
 
-
-On 10/05/2016 12:18 AM, Andrew Lunn wrote:
->>>> +     phydev->mdix = ETH_TP_MDI_AUTO;
->>>
->>> Humm, interesting. The only other driver supporting mdix is the
->>> Marvell one. It does not do this, it leaves it to its default value of
->>> ETH_TP_MDI_INVALID. It does however interpret ETH_TP_MDI_INVALID as
->>> meaning as ETH_TP_MDI_AUTO.
->>>
->>> There needs to be consistency here. You either need to do the same as
->>> the Marvell driver, or you need to modify the Marvell driver to also
->>> set phydev->mdix to ETH_TP_MDI_AUTO.
->>>
->> In Ethtool two variable i.e. eth_tp_mdix_ctrl, eth_tp_mdix use to update
->> the status. But, driver header is having one variable i.e. mdix.
->> Driver header should also have another variabl like mdix_ctrl.
->> Then, Ethtool can get/set the Auto MDIX/MDI.
->> In case, mdix is not configure with ETH_TP_MDI_AUTO, Ethtool shows error as
->> "setting MDI not supported"
-
-Agreed, we currently report eth_tp_mdi and eth_tp_mdi_ctrl using
-phydev->mdix, but this is too limiting.
-
->>
->> Please suggest me if you have any better method to fix this issue.
-> 
-> Maybe we should add a new flag for the .flags member of the
-> phy_driver. If PHY_HAS_MDIX is set, the phy core will set phydev->mdix
-> to ETH_TP_MDI_AUTO?
-
-I agree with Raju here, like most other Ethernet drivers, we should
-allow PHY drivers to have an eth_tp_mdix_ctrl to indicate what is the
-configured MDI setting, and read eth_tp_mdi to indicate what is the
-current status, then ethtool can properly differentiate what is going on.
-
-Raju, Andrew, does that work for you?
--- 
-Florian
+Really?  What kernel has sizeof(_Bool) != 1 ?
