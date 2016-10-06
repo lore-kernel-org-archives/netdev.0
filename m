@@ -1,30 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] phy: micrel.c: Enable ksz9031 energy-detect
- power-down mode
-Date: Wed, 05 Oct 2016 21:19:37 -0400 (EDT)
-Message-ID: <20161005.211937.2062745471160637147.davem@davemloft.net>
-References: <1475499870-11465-1-git-send-email-mike.looijmans@topic.nl>
-        <1475560324-23346-1-git-send-email-mike.looijmans@topic.nl>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Wed, 5 Oct 2016 19:14:21 -0700
+Message-ID: <CA+55aFz0jv3xAQTwrspM3HkXQLVv_H4QuHf9a0Fq2Zm+=_sDtQ@mail.gmail.com>
+References: <20161005.014437.1946431553783736769.davem@davemloft.net>
+ <20161006092947.25ae781c@canb.auug.org.au> <CA+55aFzbHD95PMUk4JQfAVkDDRcwzZ6vfvMR60tZnQNSwkDE6A@mail.gmail.com>
+ <20161006115235.1a89c0da@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        linux-kernel@vger.kernel.org
-To: mike.looijmans@topic.nl
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Liping Zhang <liping.zhang@spreadtrum.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475560324-23346-1-git-send-email-mike.looijmans@topic.nl>
+In-Reply-To: <20161006115235.1a89c0da@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mike Looijmans <mike.looijmans@topic.nl>
-Date: Tue,  4 Oct 2016 07:52:04 +0200
+On Wed, Oct 5, 2016 at 5:52 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> Except that commit effectively moved that function from
+> net/netfilter/nf_tables_netdev.c to
+> include/net/netfilter/nf_tables_ipv4.h while commit c73c24849011
+> ("netfilter: nf_tables_netdev: remove redundant ip_hdr assignment")
+> removed the assignment in the original file (and has been in your tree
+> since v4.8-rc7) and that is where I originally actually got a conflict.
 
-> Set bit 0 in register 1C.23 to enable the EDPD feature of the
-> KSZ9031 PHY. This reduces power consumption when the link is
-> down.
-> 
-> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
-> ---
-> v2: Unconditionally enable EDPD mode
+Oh, interesting. Why didn't I get the conflict there then?
 
-Applied.
+I'm guessing (but too lazy to actually look up the history), that
+David ended up doing that merge and that ends up being why I never saw
+a conflict.
+
+               Linus
