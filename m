@@ -1,8 +1,8 @@
 From: Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next v3 2/3] net: ethernet: mediatek: get hw lro
- capability by the chip id instead of by the dtsi
-Date: Thu, 6 Oct 2016 19:44:02 +0800
-Message-ID: <1475754243-12557-3-git-send-email-nelson.chang@mediatek.com>
+Subject: [PATCH net-next v3 1/3] net: ethernet: mediatek: get the chip id by
+ ETHDMASYS registers
+Date: Thu, 6 Oct 2016 19:44:01 +0800
+Message-ID: <1475754243-12557-2-git-send-email-nelson.chang@mediatek.com>
 References: <1475754243-12557-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,65 +23,84 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Because hw lro started to be supported from MT7623, the proper way to check if
-the feature is capable is to judge by the chip id instead of by the dtsi.
+The driver gets the chip id by ETHSYS_CHIPID0_3/ETHSYS_CHIPID4_7 registers
+in mtk_probe().
 
 Signed-off-by: Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 14 ++++++++++++--
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |  1 +
- 2 files changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 29 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |  5 +++++
+ 2 files changed, 34 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 0c67ab1..4a62ffd 100644
+index ad4ab97..0c67ab1 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -2348,6 +2348,16 @@ static int mtk_get_chip_id(struct mtk_eth *eth, u32 *chip_id)
- 	return 0;
+@@ -2323,6 +2323,31 @@ free_netdev:
+ 	return err;
  }
  
-+static bool mtk_is_hwlro_supported(struct mtk_eth *eth)
++static int mtk_get_chip_id(struct mtk_eth *eth, u32 *chip_id)
 +{
-+	switch (eth->chip_id) {
-+	case MT7623_ETH:
-+		return true;
++	u32 val[2], id[4];
++
++	regmap_read(eth->ethsys, ETHSYS_CHIPID0_3, &val[0]);
++	regmap_read(eth->ethsys, ETHSYS_CHIPID4_7, &val[1]);
++
++	id[3] = ((val[0] >> 16) & 0xff) - '0';
++	id[2] = ((val[0] >> 24) & 0xff) - '0';
++	id[1] = (val[1] & 0xff) - '0';
++	id[0] = ((val[1] >> 8) & 0xff) - '0';
++
++	*chip_id = (id[3] * 1000) + (id[2] * 100) +
++		   (id[1] * 10) + id[0];
++
++	if (!(*chip_id)) {
++		dev_err(eth->dev, "failed to get chip id\n");
++		return -ENODEV;
 +	}
 +
-+	return false;
++	dev_info(eth->dev, "chip id = %d\n", *chip_id);
++
++	return 0;
 +}
 +
  static int mtk_probe(struct platform_device *pdev)
  {
  	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -2387,8 +2397,6 @@ static int mtk_probe(struct platform_device *pdev)
- 		return PTR_ERR(eth->pctl);
- 	}
- 
--	eth->hwlro = of_property_read_bool(pdev->dev.of_node, "mediatek,hwlro");
--
- 	for (i = 0; i < 3; i++) {
- 		eth->irq[i] = platform_get_irq(pdev, i);
- 		if (eth->irq[i] < 0) {
-@@ -2417,6 +2425,8 @@ static int mtk_probe(struct platform_device *pdev)
+@@ -2388,6 +2413,10 @@ static int mtk_probe(struct platform_device *pdev)
  	if (err)
  		return err;
  
-+	eth->hwlro = mtk_is_hwlro_supported(eth);
++	err = mtk_get_chip_id(eth, &eth->chip_id);
++	if (err)
++		return err;
 +
  	for_each_child_of_node(pdev->dev.of_node, mac_np) {
  		if (!of_device_is_compatible(mac_np,
  					     "mediatek,eth-mac"))
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index a5b422b..99b1c8e 100644
+index 3003195..a5b422b 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -345,6 +345,7 @@
- /* ethernet subsystem chip id register */
- #define ETHSYS_CHIPID0_3	0x0
- #define ETHSYS_CHIPID4_7	0x4
-+#define MT7623_ETH		7623
+@@ -342,6 +342,10 @@
+ #define GPIO_BIAS_CTRL		0xed0
+ #define GPIO_DRV_SEL10		0xf00
  
++/* ethernet subsystem chip id register */
++#define ETHSYS_CHIPID0_3	0x0
++#define ETHSYS_CHIPID4_7	0x4
++
  /* ethernet subsystem config register */
  #define ETHSYS_SYSCFG0		0x14
+ #define SYSCFG0_GE_MASK		0x3
+@@ -534,6 +538,7 @@ struct mtk_eth {
+ 	unsigned long			sysclk;
+ 	struct regmap			*ethsys;
+ 	struct regmap			*pctl;
++	u32				chip_id;
+ 	bool				hwlro;
+ 	atomic_t			dma_refcnt;
+ 	struct mtk_tx_ring		tx_ring;
 -- 
 1.9.1
