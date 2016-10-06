@@ -1,54 +1,43 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: 4.9-rc0: nf_hooks_ingress missing, breaking compilation
-Date: Thu, 06 Oct 2016 09:54:15 -0400
-Message-ID: <f7ttwcpy454.fsf@redhat.com>
-References: <20161006065844.GA27024@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: kernel list <linux-kernel@vger.kernel.org>,
-        Netdev list <netdev@vger.kernel.org>, pablo@netfilter.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:34459 "EHLO
-        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751346AbcJFNyU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 09:54:20 -0400
-Received: by mail-qk0-f180.google.com with SMTP id j129so16439066qkd.1
-        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 06:54:19 -0700 (PDT)
-In-Reply-To: <20161006065844.GA27024@amd> (Pavel Machek's message of "Thu, 6
-        Oct 2016 08:58:44 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] ethernet: qualcomm: QCOM_EMAC should depend on HAS_DMA
+Date: Thu,  6 Oct 2016 15:57:33 +0200
+Message-ID: <1475762253-16759-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pavel Machek <pavel@ucw.cz> writes:
+If NO_DMA=y:
 
-> Hi!
+    drivers/built-in.o: In function `emac_probe':
+    emac.c:(.text+0x3780b8): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x3780e2): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x378112): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x378146): undefined reference to `bad_dma_ops'
+    emac.c:(.text+0x37816e): undefined reference to `bad_dma_ops'
+    drivers/built-in.o:emac.c:(.text+0x37819a): more undefined references to `bad_dma_ops' follow
 
-Hi Pavel,
+Add a dependency on HAS_DMA to fix this.
 
-> In kernel based on edadd0e, I get plenty of errors such as:
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/net/ethernet/qualcomm/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-In this case, I screwed up - sincere apologies.
-
-Enabling CONFIG_NETFILTER_INGRESS will work around this error for the
-time being, while the fix makes it way through the various trees.
-
-> net/netfilter/core.c:96:3: note: in expansion of macro =E2=80=98rcu_assig=
-n_pointer=E2=80=99
->    rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
->    ^
-> In file included from ./include/linux/linkage.h:4:0,
->                  from ./include/linux/kernel.h:6,
->                  from net/netfilter/core.c:10:
-> net/netfilter/core.c:96:30: error: =E2=80=98struct net_device=E2=80=99 ha=
-s no member named =E2=80=98nf_hooks_ingress=E2=80=99
->    rcu_assign_pointer(reg->dev->nf_hooks_ingress, entry);
->                               ^
->
-> Config is attached.
->
-> [Ok, I guess testing -rc0 is "a bit too brave" :-)]
->
-> Best regards,
-> 									Pavel
+diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
+index 9ba568db576fb0e6..fe94d2baeaf26aa6 100644
+--- a/drivers/net/ethernet/qualcomm/Kconfig
++++ b/drivers/net/ethernet/qualcomm/Kconfig
+@@ -26,6 +26,7 @@ config QCA7000
+ 
+ config QCOM_EMAC
+ 	tristate "Qualcomm Technologies, Inc. EMAC Gigabit Ethernet support"
++	depends on HAS_DMA
+ 	select CRC32
+ 	select PHYLIB
+ 	---help---
+-- 
+1.9.1
