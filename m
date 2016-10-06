@@ -1,50 +1,80 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: [PATCH] drivers: net: phy: Correct duplicate MDIO_XGENE entry
-Date: Thu,  6 Oct 2016 11:22:51 -0700
-Message-ID: <1475778171-10905-1-git-send-email-labbott@redhat.com>
-Cc: Laura Abbott <labbott@redhat.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] Panic when tc_lookup_action_n finds a partially
+ initialized action.
+Date: Thu, 6 Oct 2016 12:01:15 -0700
+Message-ID: <CAM_iQpX7fC0HWz2X2R7uZNeiD_rEAe4QcSQiK+YZEHF8jkGBBA@mail.gmail.com>
+References: <20161002031349.GB2635@templeofstupid.com> <CAM_iQpX1a1=3PmMAwMRDXpL3qjAskQ990FdxgyCg4T5p4=8G7Q@mail.gmail.com>
+ <20161005065244.GA2245@templeofstupid.com> <CAM_iQpUya1ORUUNC9-spLKHjsjNyj6xHO79kvoDGaZcWT_mEwg@mail.gmail.com>
+ <20161006061150.GA2525@templeofstupid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Krister Johansen <kjlx@templeofstupid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36675 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751137AbcJFTBi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 15:01:38 -0400
+Received: by mail-it0-f67.google.com with SMTP id o19so2265336ito.3
+        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 12:01:37 -0700 (PDT)
+In-Reply-To: <20161006061150.GA2525@templeofstupid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-An extra entry for MDIO_XGENE got added during merging.
-Delete it.
+On Wed, Oct 5, 2016 at 11:11 PM, Krister Johansen
+<kjlx@templeofstupid.com> wrote:
+>
+> I'm not sure.  The reason I didn't take this approach from the outset is
+> that all of TC's callers of tcf_register_action pass a pointer to a
+> static structure as their *ops argument.  The existence of code that
+> checks the action for uniqueness suggests that it's possible for
+> tcf_register_action to get passed two identical tc_action_ops.  If that
+> happens in the current code base, we'll also get passed a duplicate
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Laura Abbott <labbott@redhat.com>
----
- drivers/net/phy/Kconfig | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+Each tc action module has its own unique ops, and kernel doesn't allow
+one module to register twice (either in parallel or not, see
+add_unformed_module()), so we should not have a duplicated case.
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 5078a0d..2651c8d 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -142,6 +142,7 @@ config MDIO_THUNDER
- 
- config MDIO_XGENE
- 	tristate "APM X-Gene SoC MDIO bus controller"
-+	depends on ARCH_XGENE || COMPILE_TEST
- 	help
- 	  This module provides a driver for the MDIO busses found in the
- 	  APM X-Gene SoC's.
-@@ -320,13 +321,6 @@ config XILINX_GMII2RGMII
-          the Reduced Gigabit Media Independent Interface(RGMII) between
-          Ethernet physical media devices and the Gigabit Ethernet controller.
- 
--config MDIO_XGENE
--	tristate "APM X-Gene SoC MDIO bus controller"
--	depends on ARCH_XGENE || COMPILE_TEST
--	help
--	  This module provides a driver for the MDIO busses found in the
--	  APM X-Gene SoC's.
--
- endif # PHYLIB
- 
- config MICREL_KS8995MA
--- 
-2.7.4
+
+> pernet_operations pointer.  The code in register_pernet_subsys() makes
+> no attempt to check for duplicates.  If we add a pointer that's already
+> in the list, and subsequently call unregister, the results seem
+> undefined.  It looks like we'll remove the pernet_operations for the
+> existing action, assuming we don't corrupt the list in the process.
+>
+> Is this actually safe?  If so, what corner case is the act->type /
+> act->kind protecting us from?
+
+ops->type and ops->kind should be unique too, user-space already
+relies on this (tc action ls action xxx). The code exists probably just
+for sanity check.
+
+So please give that patch a try, let's see if we miss any other problem.
+
+>
+>> (Sorry that I don't have the environment to reproduce your bug)
+>
+> I'm sorry that I didn't do a good job of explaining how we end up in
+> this situation in the first place.  I can give a few more details,
+> because it may explain some of my concern about the request_module()
+> call.
+>
+> The system that encounters this bug launches a bunch of containers from
+> systemd on boot.  Each container creates a new user, net, pid, and mount
+> namespace and begins its setup.  When the networking in all of these
+> containers, each in a new netns, try to configure TC and no modules are
+> loaded we end up with this race.
+>
+> I can also reproduce by unloading the modules, and then launching a
+> bunch of processes that configure tc in new namespaces.
+>
+> Part of the desire to inhibit extra modprobe calls is that if hundreds
+> of these all start at once on boot, it's really unnecessary to have all
+> of the rest of them wait while lots of extra modprobe calls are forked
+> by the kernel.
+
+You can tell systemd to load these modules before starting these
+containers to avoid blocking, no?
+
+Thanks.
