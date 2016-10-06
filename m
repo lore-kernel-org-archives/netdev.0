@@ -1,47 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Wed, 05 Oct 2016 22:56:12 -0400 (EDT)
-Message-ID: <20161005.225612.251098478131222998.davem@davemloft.net>
-References: <20161006115235.1a89c0da@canb.auug.org.au>
-        <CA+55aFz0jv3xAQTwrspM3HkXQLVv_H4QuHf9a0Fq2Zm+=_sDtQ@mail.gmail.com>
-        <20161006135152.3fd229cb@canb.auug.org.au>
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Subject: Re: error: 'struct net_device' has no member named 'nf_hooks_ingress'
+Date: Thu, 6 Oct 2016 13:31:39 +0900
+Message-ID: <20161006043139.GB5458@swordfish>
+References: <20160927164026.741b290b@canb.auug.org.au>
+ <20160927100324.GA466@swordfish>
+ <20161004004801.GA4661@swordfish>
+ <87wphm1pn8.fsf@steelpick.2x.cz>
+ <1475701886.28155.223.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, netfilter-devel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        pablo@netfilter.org, liping.zhang@spreadtrum.com
-To: sfr@canb.auug.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Sojka <sojkam1@fel.cvut.cz>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        Aaron Conole <aconole@bytheb.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161006135152.3fd229cb@canb.auug.org.au>
+Content-Disposition: inline
+In-Reply-To: <1475701886.28155.223.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 6 Oct 2016 13:51:52 +1100
-
-> On Wed, 5 Oct 2016 19:14:21 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
->>
->> On Wed, Oct 5, 2016 at 5:52 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->> >
->> > Except that commit effectively moved that function from
->> > net/netfilter/nf_tables_netdev.c to
->> > include/net/netfilter/nf_tables_ipv4.h while commit c73c24849011
->> > ("netfilter: nf_tables_netdev: remove redundant ip_hdr assignment")
->> > removed the assignment in the original file (and has been in your tree
->> > since v4.8-rc7) and that is where I originally actually got a conflict.  
->> 
->> Oh, interesting. Why didn't I get the conflict there then?
->> 
->> I'm guessing (but too lazy to actually look up the history), that
->> David ended up doing that merge and that ends up being why I never saw
->> a conflict.
+On (10/06/16 06:11), Eric Dumazet wrote:
+> On Wed, 2016-10-05 at 22:56 +0200, Michal Sojka wrote:
 > 
-> Yeah, commit b50afd203a5e ("Merge
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net") actually
-> merges v4.8 into the net-next tree.
+> > this commit is now in mainline as
+> > e3b37f11e6e4e6b6f02cc762f182ce233d2c1c9d and it breaks my build:
+> > 
+> >     net/netfilter/core.c: In function 'nf_set_hooks_head':
+> >     net/netfilter/core.c:96:3: error: 'struct net_device' has no member named 'nf_hooks_ingress'
+> > 
+> > Are the fixes (see below) on the way to mainline too?
+> 
+> Yes the fixes are already in nf tree and _will_ get pushed.
+> 
+> Pablo and David are attending netdev 1.2 in Tokyo and have obligations.
+> 
+> https://git.kernel.org/cgit/linux/kernel/git/pablo/nf-next.git/
 
-Yes, this is where the change got lost.
+well, I did my best to avoid it, but the guys didn't even bother to
+reply. pushing a knowingly broken patch that
+	a) kills the build
+	b) introduces a race
+	c) requires two "Fixes:" followup patches
+to the main line despite the fact that those problems were discovered
+at linux-next stage is totally un-cool.
 
-I have all of the fixups queued up in my net tree and will send in a pull
-request later.
+	-ss
