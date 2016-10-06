@@ -1,38 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Duplicate MDIO_XGENE Kconfig entries
-Date: Thu, 6 Oct 2016 18:37:36 +0200
-Message-ID: <20161006163736.GA16941@lunn.ch>
-References: <5fed0550-56d1-d019-86bf-2a882c0bf457@redhat.com>
+From: Vishwanath Pai <vpai@akamai.com>
+Subject: Re: [PATCH] netfilter: xt_hashlimit: Add missing ULL suffixes for
+ 64-bit constants
+Date: Thu, 6 Oct 2016 12:40:32 -0400
+Message-ID: <57F67E80.7080303@akamai.com>
+References: <1475761214-13387-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Laura Abbott <labbott@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40242 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S942075AbcJFQhn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 6 Oct 2016 12:37:43 -0400
-Content-Disposition: inline
-In-Reply-To: <5fed0550-56d1-d019-86bf-2a882c0bf457@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Joshua Hunt <johunt@akamai.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475761214-13387-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 06, 2016 at 09:01:27AM -0700, Laura Abbott wrote:
-> Hi,
-> 
-> While working on the Fedora tree today, I noticed that there
-> seem to be two entries for CONFIG_MDIO_XGENE. It looks like
-> this might have been fall out from d75b4a22b255 ("net: phy:
-> Sort Makefile and Kconfig"). I can submit the following if
-> this isn't fixed up elsewhere already
+On 10/06/2016 09:40 AM, Geert Uytterhoeven wrote:
+> diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+> index 2fab0c65aa94b666..b89b688e9d01a2d1 100644
+> --- a/net/netfilter/xt_hashlimit.c
+> +++ b/net/netfilter/xt_hashlimit.c
+> @@ -431,7 +431,7 @@ static void htable_put(struct xt_hashlimit_htable *hinfo)
+>     CREDITS_PER_JIFFY*HZ*60*60*24 < 2^32 ie.
+>  */
+>  #define MAX_CPJ_v1 (0xFFFFFFFF / (HZ*60*60*24))
+> -#define MAX_CPJ (0xFFFFFFFFFFFFFFFF / (HZ*60*60*24))
+> +#define MAX_CPJ (0xFFFFFFFFFFFFFFFFULL / (HZ*60*60*24))
+>  
+>  /* Repeated shift and or gives us all 1s, final shift and add 1 gives
+>   * us the power of 2 below the theoretical max, so GCC simply does a
+> @@ -473,7 +473,7 @@ static u64 user2credits(u64 user, int revision)
+>  		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
+>  				 XT_HASHLIMIT_SCALE);
+>  	} else {
+> -		if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
+> +		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
+>  			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
+>  				* HZ * CREDITS_PER_JIFFY;
+>  
+> -- 1.9.1
 
-Hi Laura
+Thanks for fixing this.
 
-I don't remember seeing a fix for this going by. Please do submit a
-follow up.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+Acked-by: Vishwanath Pai <vpai@akamai.com>
