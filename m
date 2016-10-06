@@ -1,58 +1,61 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/5] netfilter: Fix potential null pointer dereference
-Date: Thu,  6 Oct 2016 02:07:45 +0200
-Message-ID: <1475712469-17000-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/5] netfilter: xt_hashlimit: Fix link error in 32bit arch because of 64bit division
+Date: Thu,  6 Oct 2016 02:07:47 +0200
+Message-ID: <1475712469-17000-4-git-send-email-pablo@netfilter.org>
 References: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34422 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755413AbcJFAIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 5 Oct 2016 20:08:07 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id C3D6CC8830
-        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 02:08:04 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B0F92DA844
-        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 02:08:04 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 92F70DA84A
-        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 02:08:02 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Aaron Conole <aconole@bytheb.org>
+From: Vishwanath Pai <vpai@akamai.com>
 
-It's possible for nf_hook_entry_head to return NULL.  If two
-nf_unregister_net_hook calls happen simultaneously with a single hook
-entry in the list, both will enter the nf_hook_mutex critical section.
-The first will successfully delete the head, but the second will see
-this NULL pointer and attempt to dereference.
+Division of 64bit integers will cause linker error undefined reference
+to `__udivdi3'. Fix this by replacing divisions with div64_64
 
-This fix ensures that no null pointer dereference could occur when such
-a condition happens.
-
-Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
+Fixes: 11d5f15723c9 ("netfilter: xt_hashlimit: Create revision 2 to ...")
+Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+Acked-by: Maciej Żenczykowski <maze@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/xt_hashlimit.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index fa6715db4581..e3f68a786afe 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 44a095ecc7b7..2fab0c65aa94 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -467,17 +467,18 @@ static u64 user2credits(u64 user, int revision)
+ 		/* If multiplying would overflow... */
+ 		if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
+ 			/* Divide first. */
+-			return (user / XT_HASHLIMIT_SCALE) *\
+-						HZ * CREDITS_PER_JIFFY_v1;
++			return div64_u64(user, XT_HASHLIMIT_SCALE)
++				* HZ * CREDITS_PER_JIFFY_v1;
  
- 	mutex_lock(&nf_hook_mutex);
- 	hooks_entry = nf_hook_entry_head(net, reg);
--	if (hooks_entry->orig_ops == reg) {
-+	if (hooks_entry && hooks_entry->orig_ops == reg) {
- 		nf_set_hooks_head(net, reg,
- 				  nf_entry_dereference(hooks_entry->next));
- 		goto unlock;
+-		return (user * HZ * CREDITS_PER_JIFFY_v1) \
+-						/ XT_HASHLIMIT_SCALE;
++		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
++				 XT_HASHLIMIT_SCALE);
+ 	} else {
+ 		if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
+-			return (user / XT_HASHLIMIT_SCALE_v2) *\
+-						HZ * CREDITS_PER_JIFFY;
++			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
++				* HZ * CREDITS_PER_JIFFY;
+ 
+-		return (user * HZ * CREDITS_PER_JIFFY) / XT_HASHLIMIT_SCALE_v2;
++		return div64_u64(user * HZ * CREDITS_PER_JIFFY,
++				 XT_HASHLIMIT_SCALE_v2);
+ 	}
+ }
+ 
 -- 
 2.1.4
+
