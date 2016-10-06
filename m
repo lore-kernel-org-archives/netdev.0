@@ -1,70 +1,58 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/5] Netfilter fixes for net-next
-Date: Thu,  6 Oct 2016 02:07:44 +0200
-Message-ID: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/5] netfilter: Fix potential null pointer dereference
+Date: Thu,  6 Oct 2016 02:07:45 +0200
+Message-ID: <1475712469-17000-2-git-send-email-pablo@netfilter.org>
+References: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34422 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755413AbcJFAIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 5 Oct 2016 20:08:07 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id C3D6CC8830
+        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 02:08:04 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B0F92DA844
+        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 02:08:04 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 92F70DA84A
+        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 02:08:02 +0200 (CEST)
+In-Reply-To: <1475712469-17000-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Aaron Conole <aconole@bytheb.org>
 
-This is a pull request to address fallout from previous nf-next pull
-request, only fixes going on here:
+It's possible for nf_hook_entry_head to return NULL.  If two
+nf_unregister_net_hook calls happen simultaneously with a single hook
+entry in the list, both will enter the nf_hook_mutex critical section.
+The first will successfully delete the head, but the second will see
+this NULL pointer and attempt to dereference.
 
-1) Address a potential null dereference in nf_unregister_net_hook()
-   when becomes nf_hook_entry_head is NULL, from Aaron Conole.
+This fix ensures that no null pointer dereference could occur when such
+a condition happens.
 
-2) Missing ifdef for CONFIG_NETFILTER_INGRESS, also from Aaron.
+Fixes: e3b37f11e6e4 ("netfilter: replace list_head with single linked list")
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-3) Fix linking problems in xt_hashlimit in x86_32, from Pai.
-
-4) Fix permissions of nf_log sysctl from unpriviledge netns, from
-   Jann Horn.
-
-5) Fix possible divide by zero in nft_limit, from Liping Zhang.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-P.S: Sorry for not addressing this any sooner, a mixture of traveling
-overhead, conference and problems with wifi connection has prevented me
-to do this any sooner.
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 803783849fed11e38a30f31932c02c815520da70:
-
-  mlx5: Add ndo_poll_controller() implementation (2016-09-30 02:11:16 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git HEAD
-
-for you to fetch changes up to 2fa46c130193300f06e68727ae98ec9f6184cad4:
-
-  netfilter: nft_limit: fix divided by zero panic (2016-10-04 08:59:03 +0200)
-
-----------------------------------------------------------------
-Aaron Conole (2):
-      netfilter: Fix potential null pointer dereference
-      netfilter: accommodate different kconfig in nf_set_hooks_head
-
-Jann Horn (1):
-      netfilter: fix namespace handling in nf_log_proc_dostring
-
-Liping Zhang (1):
-      netfilter: nft_limit: fix divided by zero panic
-
-Vishwanath Pai (1):
-      netfilter: xt_hashlimit: Fix link error in 32bit arch because of 64bit division
-
- net/netfilter/core.c         | 17 ++++++++++++-----
- net/netfilter/nf_log.c       |  6 ++++--
- net/netfilter/nft_limit.c    |  4 ++--
- net/netfilter/xt_hashlimit.c | 15 ++++++++-------
- 4 files changed, 26 insertions(+), 16 deletions(-)
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index fa6715db4581..e3f68a786afe 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -160,7 +160,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+ 
+ 	mutex_lock(&nf_hook_mutex);
+ 	hooks_entry = nf_hook_entry_head(net, reg);
+-	if (hooks_entry->orig_ops == reg) {
++	if (hooks_entry && hooks_entry->orig_ops == reg) {
+ 		nf_set_hooks_head(net, reg,
+ 				  nf_entry_dereference(hooks_entry->next));
+ 		goto unlock;
+-- 
+2.1.4
