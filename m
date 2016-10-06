@@ -1,50 +1,62 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v2 2/3] openvswitch: remove unreachable code in
- vlan parsing
-Date: Wed, 5 Oct 2016 22:22:13 -0700
-Message-ID: <CAOrHB_B+qUf9zOORG6KOUgew3g4hZxPNiexdMTLvtaCuQQy1oQ@mail.gmail.com>
-References: <cover.1475672568.git.jbenc@redhat.com> <3b310a67f5a708da69ee3cf617e6cedd52f85842.1475672569.git.jbenc@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 06 Oct 2016 01:49:49 -0400 (EDT)
+Message-ID: <20161006.014949.378994666055712442.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Garver <e@erig.me>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:34832 "EHLO
-        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752006AbcJFFWU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 01:22:20 -0400
-Received: from mfilter24-d.gandi.net (mfilter24-d.gandi.net [217.70.178.152])
-        by relay5-d.mail.gandi.net (Postfix) with ESMTP id EB4F541C092
-        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 07:22:17 +0200 (CEST)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-        by mfilter24-d.gandi.net (mfilter24-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id RTTP_5G2qegb for <netdev@vger.kernel.org>;
-        Thu,  6 Oct 2016 07:22:15 +0200 (CEST)
-Received: from mail-it0-f51.google.com (mail-it0-f51.google.com [209.85.214.51])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id E409241C080
-        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 07:22:14 +0200 (CEST)
-Received: by mail-it0-f51.google.com with SMTP id o21so30953871itb.0
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 22:22:14 -0700 (PDT)
-In-Reply-To: <3b310a67f5a708da69ee3cf617e6cedd52f85842.1475672569.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 5, 2016 at 6:07 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> Now when the first vlan tag is always in skb->vlan_tci, drop code that
-> assumed it might not be the case.
->
-User can turn off TX vlan offload for OVS internal device that would
-allow vlan tagged packet with vlan header on the skb-data. This case
-will cause issue here.
 
-We could handle this case by not allowing this configuration.
+Here are the build and merge fixups for the networking
+stuff.
 
-> This patch also removes the wrong likely() statement around
-> skb_vlan_tag_present introduced by 018c1dda5ff1 ("openvswitch: 802.1AD Flow
-> handling, actions, vlan parsing, netlink attributes"). This code is called
-> whenever flow key is being extracted from the packet, the packet may be as
-> likely vlan tagged as not.
->
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Please pull, thanks a lot!
+
+The following changes since commit 41844e36206be90cd4d962ea49b0abc3612a99d0:
+
+  Merge tag 'staging-4.9-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging (2016-10-05 14:50:51 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
+
+for you to fetch changes up to af70c1f92d3567035d2f73f39079459d58c706dc:
+
+  phy: micrel.c: Enable ksz9031 energy-detect power-down mode (2016-10-05 21:19:06 -0400)
+
+----------------------------------------------------------------
+Aaron Conole (2):
+      netfilter: Fix potential null pointer dereference
+      netfilter: accommodate different kconfig in nf_set_hooks_head
+
+David S. Miller (1):
+      Merge git://git.kernel.org/.../pablo/nf-next
+
+Jann Horn (1):
+      netfilter: fix namespace handling in nf_log_proc_dostring
+
+Liping Zhang (1):
+      netfilter: nft_limit: fix divided by zero panic
+
+Mike Looijmans (1):
+      phy: micrel.c: Enable ksz9031 energy-detect power-down mode
+
+Stephen Rothwell (1):
+      netfilter: merge fixup for "nf_tables_netdev: remove redundant ip_hdr assignment"
+
+Vishwanath Pai (1):
+      netfilter: xt_hashlimit: Fix link error in 32bit arch because of 64bit division
+
+ drivers/net/phy/micrel.c               | 21 +++++++++++++++++++++
+ include/net/netfilter/nf_tables_ipv4.h |  1 -
+ net/netfilter/core.c                   | 17 ++++++++++++-----
+ net/netfilter/nf_log.c                 |  6 ++++--
+ net/netfilter/nft_limit.c              |  4 ++--
+ net/netfilter/xt_hashlimit.c           | 15 ++++++++-------
+ 6 files changed, 47 insertions(+), 17 deletions(-)
