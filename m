@@ -1,38 +1,28 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ethernet: qualcomm: QCOM_EMAC should depend on HAS_DMA
-Date: Thu, 6 Oct 2016 16:45:06 +0200
-Message-ID: <CAMuHMdW_KXxukwsPmpY-pF73++H+cy45-39JX33oUTLgypx8eA@mail.gmail.com>
-References: <1475762253-16759-1-git-send-email-geert@linux-m68k.org>
- <57F65A73.7020701@codeaurora.org> <CAMuHMdUGB6__ExtGTCpxOBXBG_=L9GNy1-g10VuCtqZvWRV5Tg@mail.gmail.com>
- <57F65BB3.3090602@codeaurora.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH v2] ethernet: qualcomm: QCOM_EMAC should depend on HAS_DMA
+ and HAS_IOMEM
+Date: Thu, 6 Oct 2016 09:48:25 -0500
+Message-ID: <57F66439.3040005@codeaurora.org>
+References: <1475765093-15536-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35104 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755551AbcJFOpJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 10:45:09 -0400
-In-Reply-To: <57F65BB3.3090602@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475765093-15536-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 6, 2016 at 4:12 PM, Timur Tabi <timur@codeaurora.org> wrote:
-> Geert Uytterhoeven wrote:
->>
->> Probably, I don't do UML allmodconfig builds.
->>
->> Gr{oetje,eeting}s,
+Geert Uytterhoeven wrote:
+> Add dependencies on HAS_DMA and HAS_IOMEM to fix this.
 >
->
-> Would you mind submitting another version of your patch that includes
-> HAS_DMA and HAS_IOMEM, so that both build breaks can be fixed in one shot?
+> Signed-off-by: Geert Uytterhoeven<geert@linux-m68k.org>
 
-Done.
+Acked-by: Timur Tabi <timur@codeaurora.org>
 
-Gr{oetje,eeting}s,
-
-                        Geert
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
