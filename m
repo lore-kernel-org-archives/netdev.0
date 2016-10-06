@@ -1,50 +1,71 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: [PATCH] netfilter: xt_hashlimit: Add missing ULL suffixes for
- 64-bit constants
-Date: Thu, 6 Oct 2016 12:40:32 -0400
-Message-ID: <57F67E80.7080303@akamai.com>
-References: <1475761214-13387-1-git-send-email-geert@linux-m68k.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v3 net-next 4/4] net/sched: act_mirred: Implement ingress actions
+Date: Thu, 6 Oct 2016 10:30:43 -0700
+Message-ID: <CAM_iQpXB_LGd0GLmuyjcUqSvBy9nKX_02TEdm4GF3V-yX_rr0g@mail.gmail.com>
+References: <1475147012-15538-1-git-send-email-shmulik.ladkani@gmail.com>
+ <1475147012-15538-5-git-send-email-shmulik.ladkani@gmail.com>
+ <CAM_iQpWwPqbiJ7tjbHqvYfyRL5fh+oXGVFFPmW3wLUCGbK-b4Q@mail.gmail.com> <CAOrmypK=TZ=cDCDwy=wJgCsMgJWaMfr5dudEwHNnQzpeYJRfHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joshua Hunt <johunt@akamai.com>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475761214-13387-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36556 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751201AbcJFRbF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 13:31:05 -0400
+Received: by mail-it0-f67.google.com with SMTP id o19so2133745ito.3
+        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 10:31:04 -0700 (PDT)
+In-Reply-To: <CAOrmypK=TZ=cDCDwy=wJgCsMgJWaMfr5dudEwHNnQzpeYJRfHw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2016 09:40 AM, Geert Uytterhoeven wrote:
-> diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-> index 2fab0c65aa94b666..b89b688e9d01a2d1 100644
-> --- a/net/netfilter/xt_hashlimit.c
-> +++ b/net/netfilter/xt_hashlimit.c
-> @@ -431,7 +431,7 @@ static void htable_put(struct xt_hashlimit_htable *hinfo)
->     CREDITS_PER_JIFFY*HZ*60*60*24 < 2^32 ie.
->  */
->  #define MAX_CPJ_v1 (0xFFFFFFFF / (HZ*60*60*24))
-> -#define MAX_CPJ (0xFFFFFFFFFFFFFFFF / (HZ*60*60*24))
-> +#define MAX_CPJ (0xFFFFFFFFFFFFFFFFULL / (HZ*60*60*24))
->  
->  /* Repeated shift and or gives us all 1s, final shift and add 1 gives
->   * us the power of 2 below the theoretical max, so GCC simply does a
-> @@ -473,7 +473,7 @@ static u64 user2credits(u64 user, int revision)
->  		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
->  				 XT_HASHLIMIT_SCALE);
->  	} else {
-> -		if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
-> +		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
->  			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
->  				* HZ * CREDITS_PER_JIFFY;
->  
-> -- 1.9.1
+On Thu, Oct 6, 2016 at 6:30 AM, Shmulik Ladkani
+<shmulik.ladkani@gmail.com> wrote:
+> Hi,
+>
+> On Mon, Oct 3, 2016 at 12:45 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Thu, Sep 29, 2016 at 4:03 AM, Shmulik Ladkani
+>> <shmulik.ladkani@gmail.com> wrote:
+>>>         skb2->skb_iif = skb->dev->ifindex;
+>>>         skb2->dev = dev;
+>>> -       err = dev_queue_xmit(skb2);
+>>> +       if (tcf_mirred_act_direction(m_eaction) & AT_EGRESS)
+>>> +               err = dev_queue_xmit(skb2);
+>>> +       else
+>>> +               netif_receive_skb(skb2);
+>>
+>> Any reason why not check the return value here?
+>
+> Rationale: netif_receive_skb returns err if there was no protocol
+> handler to deliver the skb to.
+> If skb is not caught by any protocol handler, this should not be
+> considered an "ingress redirect" error. The redirect action should be
+> considered successful.
 
-Thanks for fixing this.
+A quick grep shows there are many places returning NET_RX_DROP:
+E.g.
 
-Acked-by: Vishwanath Pai <vpai@akamai.com>
+net/ipv4/arp.c: return NET_RX_DROP;
+net/ipv4/arp.c: return NET_RX_DROP;
+net/ipv4/gre_demux.c:   return NET_RX_DROP;
+net/ipv4/ip_forward.c:  return NET_RX_DROP;
+net/ipv4/ip_input.c:    return NET_RX_DROP;
+net/ipv4/ip_input.c:    return NET_RX_DROP;
+net/ipv4/ipconfig.c:            return NET_RX_DROP;
+net/ipv4/ipconfig.c:            return NET_RX_DROP;
+net/ipv4/raw.c:         return NET_RX_DROP;
+net/ipv4/raw.c:         return NET_RX_DROP;
+net/ipv4/xfrm4_input.c: return NET_RX_DROP;
+net/ipv6/ip6_input.c:           return NET_RX_DROP;
+net/ipv6/ip6_input.c:                   return NET_RX_DROP;
+net/ipv6/ip6_input.c:   return NET_RX_DROP;
+net/ipv6/raw.c:         return NET_RX_DROP;
+net/ipv6/raw.c:         return NET_RX_DROP;
+net/ipv6/raw.c:         return NET_RX_DROP;
+net/ipv6/raw.c:                 return NET_RX_DROP;
