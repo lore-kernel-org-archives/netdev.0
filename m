@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 02/13] rxrpc: Fix duplicate const
-Date: Thu, 06 Oct 2016 11:04:10 +0100
-Message-ID: <147574825056.30350.16031428914524233220.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net 01/13] rxrpc: Accesses of rxrpc_local::service need to
+ be RCU managed
+Date: Thu, 06 Oct 2016 11:04:03 +0100
+Message-ID: <147574824368.30350.6920797508053651101.stgit@warthog.procyon.org.uk>
 References: <147574823645.30350.16131031458272035074.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,38 +15,30 @@ In-Reply-To: <147574823645.30350.16131031458272035074.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove a duplicate const keyword.
+struct rxrpc_local->service is marked __rcu - this means that accesses of
+it need to be managed using RCU wrappers.  There are two such places in
+rxrpc_release_sock() where the value is checked and cleared.  Fix this by
+using the appropriate wrappers.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |    2 +-
- net/rxrpc/misc.c        |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/rxrpc/af_rxrpc.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index d38dffd78085..4954e6e25819 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -777,7 +777,7 @@ extern const char rxrpc_congest_modes[NR__RXRPC_CONGEST_MODES][10];
- extern const char rxrpc_congest_changes[rxrpc_congest__nr_change][9];
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 44c9c2b0b190..2d59c9be40e1 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -678,9 +678,9 @@ static int rxrpc_release_sock(struct sock *sk)
+ 	sk->sk_state = RXRPC_CLOSE;
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
  
- extern const char *const rxrpc_pkts[];
--extern const char const rxrpc_ack_names[RXRPC_ACK__INVALID + 1][4];
-+extern const char rxrpc_ack_names[RXRPC_ACK__INVALID + 1][4];
+-	if (rx->local && rx->local->service == rx) {
++	if (rx->local && rcu_access_pointer(rx->local->service) == rx) {
+ 		write_lock(&rx->local->services_lock);
+-		rx->local->service = NULL;
++		rcu_assign_pointer(rx->local->service, NULL);
+ 		write_unlock(&rx->local->services_lock);
+ 	}
  
- #include <trace/events/rxrpc.h>
- 
-diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index 9d1c721bc4e8..804a88e28739 100644
---- a/net/rxrpc/misc.c
-+++ b/net/rxrpc/misc.c
-@@ -96,7 +96,7 @@ const s8 rxrpc_ack_priority[] = {
- 	[RXRPC_ACK_PING]		= 9,
- };
- 
--const char const rxrpc_ack_names[RXRPC_ACK__INVALID + 1][4] = {
-+const char rxrpc_ack_names[RXRPC_ACK__INVALID + 1][4] = {
- 	"---", "REQ", "DUP", "OOS", "WIN", "MEM", "PNG", "PNR", "DLY",
- 	"IDL", "-?-"
- };
