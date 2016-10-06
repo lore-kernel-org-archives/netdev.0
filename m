@@ -1,57 +1,38 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: phy: Add PHY Auto/Mdi/Mdix set driver
- for Microsemi PHYs.
-Date: Thu, 6 Oct 2016 03:57:32 -0700
-Message-ID: <965514c2-8219-435a-e32f-114c361ff55b@gmail.com>
-References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1475064078-22310-3-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160928202451.GC30728@lunn.ch>
+Subject: Re: [PATCH] devicetree: net: micrel-ksz90x1.txt: Properly explain
+ skew settings
+Date: Thu, 6 Oct 2016 04:04:26 -0700
+Message-ID: <5c48a89f-3f2e-a74a-8e7b-a4b7397c2408@gmail.com>
+References: <1475676188-10639-1-git-send-email-mike.looijmans@topic.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Allan.Nielsen@microsemi.com
-To: Andrew Lunn <andrew@lunn.ch>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36438 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbcJFK5k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 06:57:40 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n24so992582pfb.3
-        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 03:57:39 -0700 (PDT)
-In-Reply-To: <20160928202451.GC30728@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, robh+dt@kernel.org, mark.rutland@arm.com,
+        andrew@lunn.ch
+To: Mike Looijmans <mike.looijmans@topic.nl>,
+        devicetree@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475676188-10639-1-git-send-email-mike.looijmans@topic.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/28/2016 01:24 PM, Andrew Lunn wrote:
->>  static int vsc85xx_wol_set(struct phy_device *phydev,
->>  			   struct ethtool_wolinfo *wol)
->>  {
->> @@ -227,6 +281,7 @@ static int vsc85xx_default_config(struct phy_device *phydev)
->>  	int rc;
->>  	u16 reg_val;
->>  
->> +	phydev->mdix = ETH_TP_MDI_AUTO;
+On 10/05/2016 07:03 AM, Mike Looijmans wrote:
+> The KSZ9031 skew registers contain an offset, the chip's default value
+> is "neutral" which does not add any skew. Programming a 0 into a skew
+> property will actually set it the maximal negative adjustment and not
+> to a neutral position as one would expect.
 > 
-> Humm, interesting. The only other driver supporting mdix is the
-> Marvell one. It does not do this, it leaves it to its default value of
-> ETH_TP_MDI_INVALID. It does however interpret ETH_TP_MDI_INVALID as
-> meaning as ETH_TP_MDI_AUTO.
+> Explain this situation in the devicetree binding documentation and list
+> the settings that the chip considers neutral.
 > 
-> There needs to be consistency here. You either need to do the same as
-> the Marvell driver, or you need to modify the Marvell driver to also
-> set phydev->mdix to ETH_TP_MDI_AUTO.
+> Changing the implementation to accept negative values would have been
+> a better solution, but would break existing configurations.
 > 
-> I don't yet know which of these two is the right thing to do.
-> 
-> Florian?
+> Signed-off-by: Mike Looijmans <mike.looijmans@topic.nl>
 
-It's really hard to tell because the other drivers I looked at do not
-necessarily seem to be consistent either. Here, if the MDI status is
-really auto, then this is the correct value to return, if it is unknown,
-it should be ETH_TP_MDI_INVALID.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-For the Marvell PHY, it sounds like we should be able to determine what
-was configured and return the correct MDI status value
+Thanks!
 -- 
 Florian
