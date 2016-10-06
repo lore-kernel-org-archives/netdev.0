@@ -1,53 +1,38 @@
-From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Subject: Re: error: 'struct net_device' has no member named 'nf_hooks_ingress'
-Date: Thu, 6 Oct 2016 13:31:39 +0900
-Message-ID: <20161006043139.GB5458@swordfish>
-References: <20160927164026.741b290b@canb.auug.org.au>
- <20160927100324.GA466@swordfish>
- <20161004004801.GA4661@swordfish>
- <87wphm1pn8.fsf@steelpick.2x.cz>
- <1475701886.28155.223.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sistemas administrador <administrator@ancol.com>
+Subject: web.upgrades
+Date: Thu, 06 Oct 2016 10:06:56 +0530
+Message-ID: <20161006043703.08873CC21F@perdition.santafe.gov.ar>
+Reply-To: mailsss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Sojka <sojkam1@fel.cvut.cz>,
-        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
-        Aaron Conole <aconole@bytheb.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1475701886.28155.223.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from correo1.santafe.gov.ar ([200.12.192.14]:49314 "EHLO
+        correo1.santafe.gov.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751743AbcJFFAN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 01:00:13 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (10/06/16 06:11), Eric Dumazet wrote:
-> On Wed, 2016-10-05 at 22:56 +0200, Michal Sojka wrote:
-> 
-> > this commit is now in mainline as
-> > e3b37f11e6e4e6b6f02cc762f182ce233d2c1c9d and it breaks my build:
-> > 
-> >     net/netfilter/core.c: In function 'nf_set_hooks_head':
-> >     net/netfilter/core.c:96:3: error: 'struct net_device' has no member named 'nf_hooks_ingress'
-> > 
-> > Are the fixes (see below) on the way to mainline too?
-> 
-> Yes the fixes are already in nf tree and _will_ get pushed.
-> 
-> Pablo and David are attending netdev 1.2 in Tokyo and have obligations.
-> 
-> https://git.kernel.org/cgit/linux/kernel/git/pablo/nf-next.git/
+ATENCIÓN;
 
-well, I did my best to avoid it, but the guys didn't even bother to
-reply. pushing a knowingly broken patch that
-	a) kills the build
-	b) introduces a race
-	c) requires two "Fixes:" followup patches
-to the main line despite the fact that those problems were discovered
-at linux-next stage is totally un-cool.
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
+vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-	-ss
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
+
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
+
+Disculpa las molestias.
+Código de verificación:666690opp4r56 es: 006524
+Correo Soporte Técnico © 2016
+
+¡gracias
+Sistemas administrador
