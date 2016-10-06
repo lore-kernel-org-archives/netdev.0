@@ -1,38 +1,36 @@
-From: Sistemas administrador <administrator@ancol.com>
-Subject: web.upgrades
-Date: Thu, 06 Oct 2016 10:06:56 +0530
-Message-ID: <20161006043703.08873CC21F@perdition.santafe.gov.ar>
-Reply-To: mailsss@mail2world.com
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [GIT] Networking
+Date: Thu, 6 Oct 2016 16:07:40 +1100
+Message-ID: <20161006160740.5ad372c5@canb.auug.org.au>
+References: <20161006115235.1a89c0da@canb.auug.org.au>
+        <CA+55aFz0jv3xAQTwrspM3HkXQLVv_H4QuHf9a0Fq2Zm+=_sDtQ@mail.gmail.com>
+        <20161006135152.3fd229cb@canb.auug.org.au>
+        <20161005.225612.251098478131222998.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo1.santafe.gov.ar ([200.12.192.14]:49314 "EHLO
-        correo1.santafe.gov.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751743AbcJFFAN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 01:00:13 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        pablo@netfilter.org, liping.zhang@spreadtrum.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161005.225612.251098478131222998.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ATENCIÓN;
+Hi Dave,
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
-vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+On Wed, 05 Oct 2016 22:56:12 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+>
+> Yes, this is where the change got lost.
 
-nombre:
-Nombre de usuario:
-contraseña:
-Confirmar contraseña:
-E-mail:
-teléfono:
+No worries.
 
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
+> I have all of the fixups queued up in my net tree and will send in a pull
+> request later.
 
-Disculpa las molestias.
-Código de verificación:666690opp4r56 es: 006524
-Correo Soporte Técnico © 2016
+Thanks.
 
-¡gracias
-Sistemas administrador
+-- 
+Cheers,
+Stephen Rothwell
