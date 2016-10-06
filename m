@@ -1,56 +1,42 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: Re: [PATCH] bluetooth.h: __ variants of u8 and friends are not
- neccessary inside kernel
-Date: Thu, 6 Oct 2016 11:38:04 +0300
-Message-ID: <20161006083804.GA2993@x1c.lan>
-References: <20161003085640.GA8130@amd>
- <368810F9-519C-44B5-85D4-1815273438BF@holtmann.org>
- <1475689996.6105.11.camel@perches.com>
- <20161005191103.GA25972@amd>
- <1475694934.1941.1.camel@perches.com>
- <20161005221317.GA21551@amd>
- <1475706531.1941.4.camel@perches.com>
- <20161006070237.GB25972@amd>
- <1475737676.3224.1.camel@perches.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v2 2/3] openvswitch: remove unreachable code in
+ vlan parsing
+Date: Thu, 6 Oct 2016 11:08:39 +0200
+Message-ID: <20161006110839.46c82fc4@griffin>
+References: <cover.1475672568.git.jbenc@redhat.com>
+        <3b310a67f5a708da69ee3cf617e6cedd52f85842.1475672569.git.jbenc@redhat.com>
+        <CAOrHB_B+qUf9zOORG6KOUgew3g4hZxPNiexdMTLvtaCuQQy1oQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Machek <pavel@ucw.cz>, Marcel Holtmann <marcel@holtmann.org>,
-        "Gustavo F. Padovan" <gustavo@padovan.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1475737676.3224.1.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Garver <e@erig.me>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57222 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S966669AbcJFJIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 6 Oct 2016 05:08:43 -0400
+In-Reply-To: <CAOrHB_B+qUf9zOORG6KOUgew3g4hZxPNiexdMTLvtaCuQQy1oQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 5 Oct 2016 22:22:13 -0700, Pravin Shelar wrote:
+> User can turn off TX vlan offload for OVS internal device that would
+> allow vlan tagged packet with vlan header on the skb-data. This case
+> will cause issue here.
 
-On Thu, Oct 06, 2016, Joe Perches wrote:
-> On Thu, 2016-10-06 at 09:02 +0200, Pavel Machek wrote:
-> > I believe you are wrong. bit addressability does not matter, cpu can
-> > definitely get the bit values.
-> > 
-> > u8 foo:1;
-> > u8 bar:1;
-> > u8 baz:1;
-> > 
-> > should take 1 byte, where
-> > 
-> > bool foo, bar, baz;
-> > 
-> > will take more like 3.
-> 
-> Definitely true.
-> 
-> There is only one single bitfield foo here though
-> so what you wrote doesn't apply.
+Good catch. This is the feedback I hoped for, not the bikesheding about
+a value of unused variable :-)
 
-What's in the tree is a left-over from times when there were multiple
-bit fields in this struct. By the time others were removed and there was
-only one left no-one has apparently bothered to update it to a bool or
-single u8.
+> We could handle this case by not allowing this configuration.
 
-Johan
+I'm not sure how clean this is but let's try and see if anyone objects.
+I'll send v3.
+
+I also noticed we don't set NETIF_F_HW_VLAN_STAG_TX on internal ports.
+I'll fix it, too.
+
+Thanks!
+
+ Jiri
