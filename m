@@ -1,55 +1,56 @@
-From: Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next v3 3/3] net: ethernet: mediatek: remove hwlro
- property in the device tree
-Date: Thu, 6 Oct 2016 19:44:03 +0800
-Message-ID: <1475754243-12557-4-git-send-email-nelson.chang@mediatek.com>
-References: <1475754243-12557-1-git-send-email-nelson.chang@mediatek.com>
+From: michael-dev <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
+Subject: Re: [PATCH 3/3] mac80211: multicast to unicast conversion
+Date: Thu, 06 Oct 2016 13:53:08 +0200
+Message-ID: <199ae52e4e3000456d8d65b81500d874@fami-braun.de>
+References: <1475643324-2845-1-git-send-email-michael-dev@fami-braun.de>
+ <1475643324-2845-3-git-send-email-michael-dev@fami-braun.de>
+ <1475662791.4994.39.camel@sipsolutions.net>
+ <1690671fb30f19c53c7883a5207c5721@fami-braun.de>
+ <1475668688.4994.46.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- nelsonch.tw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1475754243-12557-1-git-send-email-nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, projekt-wlan-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475668688.4994.46.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Since the proper way to check the hw lro capability is by the chip id,
-hwlro property in the device tree should be removed.
+Am 05.10.2016 13:58, schrieb Johannes Berg:
+> 
+> Anyway, perhaps this needs to change to take DMS/per-station into
+> account?
+> 
+> Then again, this kind of setting - global multicast-to-unicast -
+> fundamentally *cannot* be done on a per-station basis, since if you
+> enable it for one station and not for another, the first station that
+> has it enabled would get the packets twice...
 
-Signed-off-by: Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
----
- Documentation/devicetree/bindings/net/mediatek-net.txt | 2 --
- 1 file changed, 2 deletions(-)
+as I see it, that is exactly how DMS is standarized.
 
-diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
-index f095257..c010faf 100644
---- a/Documentation/devicetree/bindings/net/mediatek-net.txt
-+++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
-@@ -24,7 +24,6 @@ Required properties:
- Optional properties:
- - interrupt-parent: Should be the phandle for the interrupt controller
-   that services interrupts for this device
--- mediatek,hwlro: the capability if the hardware supports LRO functions
- 
- * Ethernet MAC node
- 
-@@ -54,7 +53,6 @@ eth: ethernet@1b100000 {
- 	reset-names = "eth";
- 	mediatek,ethsys = <&ethsys>;
- 	mediatek,pctl = <&syscfg_pctl_a>;
--	mediatek,hwlro;
- 	#address-cells = <1>;
- 	#size-cells = <0>;
- 
--- 
-1.9.1
+IEEE 802.11-2012 section 10.23.15 DMS procedures:
+
+"If the requested DMS is accepted by the AP, the AP shall send 
+subsequent group addressed MSDUs that
+match the frame classifier specified in the DMS Descriptors to the 
+requesting STA as A-MSDU subframes
+within an individually addressed A-MSDU frame (see 8.3.2.2 and 9.11)."
+
+  -> so the multicast packets shall go out as unicast A-MSDU frames to 
+stations that requested this
+
+"The AP shall continue to transmit the matching frames as group 
+addressed frames (see 9.3.6, and 10.2.1.16) if at least one associated 
+STA has not requested DMS for these frames."
+
+  -> so it will continue to send it as multicast frames as well.
+
+As with DMS the station requested DMS for a specific multicast address, 
+it could then drop multicast frames addressed to the multicast address 
+it registered for DMS.
+
+Regards,
+M. Braun
