@@ -1,44 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Fixing a bug in team driver due to incorrect
- 'unsigned int' to 'int' conversion
-Date: Thu, 06 Oct 2016 01:19:50 -0400 (EDT)
-Message-ID: <20161006.011950.406052415167344815.davem@davemloft.net>
-References: <3444639.ILgt5kU9OR@zbook>
-        <1475636928.28155.196.camel@edumazet-glaptop3.roam.corp.google.com>
-        <2440068.EFRMUI8i5V@zbook>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v2 2/3] openvswitch: remove unreachable code in
+ vlan parsing
+Date: Wed, 5 Oct 2016 22:22:13 -0700
+Message-ID: <CAOrHB_B+qUf9zOORG6KOUgew3g4hZxPNiexdMTLvtaCuQQy1oQ@mail.gmail.com>
+References: <cover.1475672568.git.jbenc@redhat.com> <3b310a67f5a708da69ee3cf617e6cedd52f85842.1475672569.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alexandre.sidorenko@hpe.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Garver <e@erig.me>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53306 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751743AbcJFFTz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 01:19:55 -0400
-In-Reply-To: <2440068.EFRMUI8i5V@zbook>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:34832 "EHLO
+        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752006AbcJFFWU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 01:22:20 -0400
+Received: from mfilter24-d.gandi.net (mfilter24-d.gandi.net [217.70.178.152])
+        by relay5-d.mail.gandi.net (Postfix) with ESMTP id EB4F541C092
+        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 07:22:17 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+        by mfilter24-d.gandi.net (mfilter24-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id RTTP_5G2qegb for <netdev@vger.kernel.org>;
+        Thu,  6 Oct 2016 07:22:15 +0200 (CEST)
+Received: from mail-it0-f51.google.com (mail-it0-f51.google.com [209.85.214.51])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id E409241C080
+        for <netdev@vger.kernel.org>; Thu,  6 Oct 2016 07:22:14 +0200 (CEST)
+Received: by mail-it0-f51.google.com with SMTP id o21so30953871itb.0
+        for <netdev@vger.kernel.org>; Wed, 05 Oct 2016 22:22:14 -0700 (PDT)
+In-Reply-To: <3b310a67f5a708da69ee3cf617e6cedd52f85842.1475672569.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Sidorenko <alexandre.sidorenko@hpe.com>
-Date: Wed, 05 Oct 2016 09:06:04 -0400
+On Wed, Oct 5, 2016 at 6:07 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> Now when the first vlan tag is always in skb->vlan_tci, drop code that
+> assumed it might not be the case.
+>
+User can turn off TX vlan offload for OVS internal device that would
+allow vlan tagged packet with vlan header on the skb-data. This case
+will cause issue here.
 
-> Roundrobin runner of team driver uses 'unsigned int' variable to count the number of sent_packets.
-> Later it is passed to a subroutine team_num_to_port_index(struct team *team, int num) as
-> 'num' and when we reach MAXINT (2**31-1), 'num' becomes negative.
-> 
-> This leads to using incorrect hash-bucket for port lookup and as a result, packets are dropped. The fix
-> consists of changing 'int num' to 'unsigned int num'. Testing of a fixed kernel shows that there
-> is no packet drop anymore.
-> 
-> 
-> Signed-off-by: Alex Sidorenko <alexandre.sidorenko@hpe.com>
+We could handle this case by not allowing this configuration.
 
-This patch has been corrupted by your email client, for example it
-has transformed TAB charactes into spaces.
-
-Please fix this up, email a test patch to yourself, and only resubmit
-this patch to the mailing list when you are able to successfully apply
-the test patch you send to yourself.
-
-Thanks.
+> This patch also removes the wrong likely() statement around
+> skb_vlan_tag_present introduced by 018c1dda5ff1 ("openvswitch: 802.1AD Flow
+> handling, actions, vlan parsing, netlink attributes"). This code is called
+> whenever flow key is being extracted from the packet, the packet may be as
+> likely vlan tagged as not.
+>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
