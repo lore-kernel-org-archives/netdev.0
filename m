@@ -1,68 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v4 01/10] ethernet: add sun8i-emac driver
-Date: Fri, 07 Oct 2016 08:02:39 -0700
-Message-ID: <1475852559.1945.2.camel@perches.com>
-References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
-         <1475828757-926-2-git-send-email-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>, robh+dt@kernel.org,
-        mark.rutland@arm.com, maxime.ripard@free-electrons.com,
-        wens@csie.org, linux@armlinux.org.uk, davem@davemloft.net,
-        f.fainelli@gmail.com, andrew@lunn.ch
+From: Xander Huff <xander.huff@ni.com>
+Subject: [PATCH] net: macb: NULL out phydev after removing mdio bus
+Date: Fri, 7 Oct 2016 10:13:22 -0500
+Message-ID: <1475853202-19903-1-git-send-email-xander.huff@ni.com>
+Cc: netdev@vger.kernel.org, Nathan Sullivan <nathan.sullivan@ni.com>,
+        linux-kernel@vger.kernel.org, xander.huff@ni.com,
+        Brad Mouring <brad.mouring@ni.com>
+To: nicolas.ferre@atmel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475828757-926-2-git-send-email-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-10-07 at 10:25 +0200, Corentin Labbe wrote:
-> This patch add support for sun8i-emac ethernet MAC hardware.
-> It could be found in Allwinner H3/A83T/A64 SoCs.
+From: Nathan Sullivan <nathan.sullivan@ni.com>
 
-trivial notes:
+To ensure the dev->phydev pointer is not used after becoming invalid in
+mdiobus_unregister, set it to NULL. This happens when removing the macb
+driver without first taking its interface down, since unregister_netdev
+will end up calling macb_close.
 
-> diff --git a/drivers/net/ethernet/allwinner/sun8i-emac.c b/drivers/net/ethernet/allwinner/sun8i-emac.c
-[]
-> +static const char const estats_str[][ETH_GSTRING_LEN] = {
+Signed-off-by: Xander Huff <xander.huff@ni.com>
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+Signed-off-by: Brad Mouring <brad.mouring@ni.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-one too many const
-
-> +/* MAGIC value for knowing if a descriptor is available or not */
-> +#define DCLEAN cpu_to_le32(BIT(16) | BIT(14) | BIT(12) | BIT(10) | BIT(9))
-
-Aren't there #defines for these bits?
-
-> +static void sun8i_emac_flow_ctrl(struct sun8i_emac_priv *priv, int duplex,
-> +				 int fc)
-> +{
-> +	u32 flow = 0;
-> +
-> +	flow = readl(priv->base + EMAC_RX_CTL0);
-> +	if (fc & EMAC_FLOW_RX)
-> +		flow |= BIT(16);
-> +	else
-> +		flow &= ~BIT(16);
-> +	writel(flow, priv->base + EMAC_RX_CTL0);
-> +
-> +	flow = readl(priv->base + EMAC_TX_FLOW_CTL);
-> +	if (fc & EMAC_FLOW_TX)
-> +		flow |= BIT(0);
-> +	else
-> +		flow &= ~BIT(0);
-
-more magic bits that could be #defines
-
-> +static int sun8i_emac_rx_from_ddesc(struct net_device *ndev, int i)
-> +{
-> []
-> +	/* the checksum or length of received frame's payload is wrong*/
-> +	if (dstatus & BIT(0)) {
-[]
-> +	if (dstatus & BIT(1)) {
-[]
-> +	if ((dstatus & BIT(3))) {
-
-etc...
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 63144bb..b32444a 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -3117,6 +3117,7 @@ static int macb_remove(struct platform_device *pdev)
+ 		if (dev->phydev)
+ 			phy_disconnect(dev->phydev);
+ 		mdiobus_unregister(bp->mii_bus);
++		dev->phydev = NULL;
+ 		mdiobus_free(bp->mii_bus);
+ 
+ 		/* Shutdown the PHY if there is a GPIO reset */
+-- 
+1.9.1
