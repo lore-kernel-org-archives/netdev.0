@@ -1,47 +1,52 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: HSO driver patch [1/2]
-Date: Fri, 7 Oct 2016 16:38:21 +0200
-Message-ID: <20161007143821.GA26768@kroah.com>
-References: <CAHMF36FfubzNOcaud613oVuM4YZoC_y29GtMC_h7HDNLOSm8Ew@mail.gmail.com>
+From: Matej Kupljen <matej.kupljen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: HSO driver patch again [2/2]
+Date: Fri, 7 Oct 2016 16:45:56 +0200
+Message-ID: <CAHMF36GL_6RZyhtUikM8EpS5rWp4Q+=P8g8i6huijG5vtnnwAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matej Kupljen <matej.kupljen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAHMF36FfubzNOcaud613oVuM4YZoC_y29GtMC_h7HDNLOSm8Ew-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 07, 2016 at 04:29:42PM +0200, Matej Kupljen wrote:
-> Hi,
-> 
-> 
-> I am using hso driver for my 3G modem (although different manufacturer
-> with different USB VID/PID) but I have some problems with it. It is
-> working fine, but if you disconnect the USB connection while the data
-> is transferring trough AT interface, we get a crash.
-> 
-> There are two patches:
->  1.) 0001-Reverse-the-order-in-disconnect.patch
->       This patch first sets the interface to NULL and only then starts
-> removing the allocated
->       resources. This is according to documentation and it is also
-> more similar to other drivers.
->  2.) 0002-Stop-also-serial-queue-when-device-is-unplugged.patch
->       Serial device was not stopped when the device got unplugged so
-> there are continues error
->       messages that the URB cannot be submitted.
+Hi,
 
-Again, patches can not be attached, they just need to be inline, with
-the needed information.
+second patch:
+0002-Stop-also-serial-queue-when-device-is-unplugged.patch
+Serial device was not stopped when the device got unplugged so
+there are continues error messages that the URB cannot be submitted.
 
-Look at the patches on the mailing lists for plenty of examples of how
-to do this.
+Thanks,
+Matej
 
-thanks,
+From: Matej Kupljen <matej.kupljen-ovEwHRmg3fY@public.gmane.org>
+Date: Wed, 5 Oct 2016 13:08:31 +0200
+Subject: [PATCH] Stop also serial queue when device is unplugged
 
-greg k-h
+We need to also stop serial port when the device is unplugged,
+the network part is already stopped.
+
+Signed-off-by: Matej Kupljen <matej.kupljen-ovEwHRmg3fY@public.gmane.org>
+---
+ drivers/net/usb/hso.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 16aef06..efd1fef 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -3157,6 +3157,7 @@ static void hso_free_interface(struct
+usb_interface *interface)
+  mutex_lock(&serial->parent->mutex);
+  serial->parent->usb_gone = 1;
+  mutex_unlock(&serial->parent->mutex);
++ hso_stop_serial_device(serial->parent);
+  cancel_work_sync(&serial_table[i]->async_put_intf);
+  cancel_work_sync(&serial_table[i]->async_get_intf);
+  hso_serial_tty_unregister(serial);
+-- 
+2.7.4
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
