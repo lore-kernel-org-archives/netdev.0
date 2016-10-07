@@ -1,49 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v3 net-next 4/4] net/sched: act_mirred: Implement ingress actions
-Date: Thu, 6 Oct 2016 17:49:16 -0700
-Message-ID: <CAM_iQpUSbqnho97XufnFW=jJmCnc8HXbz657rk=LZzxmf=hwDw@mail.gmail.com>
-References: <1475147012-15538-1-git-send-email-shmulik.ladkani@gmail.com>
- <1475147012-15538-5-git-send-email-shmulik.ladkani@gmail.com>
- <CAM_iQpWwPqbiJ7tjbHqvYfyRL5fh+oXGVFFPmW3wLUCGbK-b4Q@mail.gmail.com>
- <CAOrmypK=TZ=cDCDwy=wJgCsMgJWaMfr5dudEwHNnQzpeYJRfHw@mail.gmail.com>
- <CAM_iQpXB_LGd0GLmuyjcUqSvBy9nKX_02TEdm4GF3V-yX_rr0g@mail.gmail.com> <2d606b1d-0281-403b-cf82-c02c785c0f10@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] packet: call fanout_release, while UNREGISTERING a
+ netdev
+Date: Thu, 06 Oct 2016 20:50:52 -0400 (EDT)
+Message-ID: <20161006.205052.1380596858044266995.davem@davemloft.net>
+References: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: anoob.soman@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:34268 "EHLO
-        mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936356AbcJGAti (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 20:49:38 -0400
-Received: by mail-io0-f176.google.com with SMTP id r30so32694472ioi.1
-        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 17:49:38 -0700 (PDT)
-In-Reply-To: <2d606b1d-0281-403b-cf82-c02c785c0f10@mojatatu.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43436 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936399AbcJGAuz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 20:50:55 -0400
+In-Reply-To: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 6, 2016 at 5:17 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> I dont believe we need to bother with the return code in  this case.
+From: Anoob Soman <anoob.soman@citrix.com>
+Date: Wed, 5 Oct 2016 15:12:54 +0100
 
-Why?
+> If a socket has FANOUT sockopt set, a new proto_hook is registered
+> as part of fanout_add(). When processing a NETDEV_UNREGISTER event in
+> af_packet, __fanout_unlink is called for all sockets, but prot_hook which was
+> registered as part of fanout_add is not removed. Call fanout_release, on a
+> NETDEV_UNREGISTER, which removes prot_hook and removes fanout from the
+> fanout_list.
+> 
+> This fixes BUG_ON(!list_empty(&dev->ptype_specific)) in netdev_run_todo()
+> 
+> Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
 
-For a quick example, STOLEN vs. SHOT:
-
-        result = tc_classify(skb, filter, &res, false);
-        if (result >= 0) {
-#ifdef CONFIG_NET_CLS_ACT
-                switch (result) {
-                case TC_ACT_STOLEN:
-                case TC_ACT_QUEUED:
-                        *qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-                case TC_ACT_SHOT:
-                        return 0;
-                }
-#endif
-
-Note, *qerr is the return value to ->enqueue().
+Applied and queued up for -stable, thanks.
