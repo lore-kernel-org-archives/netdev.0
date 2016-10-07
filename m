@@ -1,7 +1,7 @@
 From: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
-Subject: [PATCH 2/4] mfd: ptxpmb-ext-cpld: Add documentation for PTXPMB extended CPLD
-Date: Fri,  7 Oct 2016 18:19:32 +0300
-Message-ID: <1475853574-22339-3-git-send-email-pantelis.antoniou@konsulko.com>
+Subject: [PATCH 4/4] gpio: ptxpmb-ext-cpld: Document bindings of PTXPMB extended CPLD
+Date: Fri,  7 Oct 2016 18:19:34 +0300
+Message-ID: <1475853574-22339-5-git-send-email-pantelis.antoniou@konsulko.com>
 References: <1475853574-22339-1-git-send-email-pantelis.antoniou@konsulko.com>
 Cc: Linus Walleij <linus.walleij@linaro.org>,
         Alexandre Courbot <gnurou@gmail.com>,
@@ -17,63 +17,66 @@ Cc: Linus Walleij <linus.walleij@linaro.org>,
         linux-mtd@lists.infradead.org, linux-watchdog@vger.kernel.org,
         netdev@vger.kernel.org
 To: Lee Jones <lee.jones@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-gpio-owner@vger.kernel.org>
 In-Reply-To: <1475853574-22339-1-git-send-email-pantelis.antoniou@konsulko.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Georgi Vlaev <gvlaev@juniper.net>
 
-Add DT bindings document for the PTXPMB extended CPLD device.
+Add device tree bindings document for the GPIO driver of
+Juniper's PTXPMB extended CPLD.
 
 Signed-off-by: Georgi Vlaev <gvlaev@juniper.net>
 [Ported from Juniper kernel]
 Signed-off-by: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
 ---
- .../bindings/mfd/jnx-ptxpmb-ext-cpld.txt           | 35 ++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/mfd/jnx-ptxpmb-ext-cpld.txt
+ .../bindings/gpio/jnx,gpio-ptxpmb-ext-cpld.txt     | 36 ++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/gpio/jnx,gpio-ptxpmb-ext-cpld.txt
 
-diff --git a/Documentation/devicetree/bindings/mfd/jnx-ptxpmb-ext-cpld.txt b/Documentation/devicetree/bindings/mfd/jnx-ptxpmb-ext-cpld.txt
+diff --git a/Documentation/devicetree/bindings/gpio/jnx,gpio-ptxpmb-ext-cpld.txt b/Documentation/devicetree/bindings/gpio/jnx,gpio-ptxpmb-ext-cpld.txt
 new file mode 100644
-index 0000000..098a548a
+index 0000000..87f01b9
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/mfd/jnx-ptxpmb-ext-cpld.txt
-@@ -0,0 +1,35 @@
-+* Device tree bindings for Juniper's PTXPMB Extended CPLD FPGA MFD driver
-+
-+The device supports a gpio block which is described in the
-+jnx-gpio-ptxpmb-ext-cpld document.
++++ b/Documentation/devicetree/bindings/gpio/jnx,gpio-ptxpmb-ext-cpld.txt
+@@ -0,0 +1,36 @@
++Juniper PTXPMB extended CPLD GPIO block
 +
 +Required properties:
 +
-+- compatible:		"jnx,ptxpmb-ext-cpld"
++- compatible:
++    Must be "jnx,gpio-ptxpmb-ext-cpld"
 +
-+- reg:			contains offset/length value for device state control
-+			registers space.
++- #gpio-cells:
++    Should be <2>.  The first cell is the pin number (within the controller's
++    pin space), and the second is used for the following flags:
++	bit[0]: direction (0 = out, 1 = in)
++	bit[1]: init high
++	bit[2]: active low
++
++- gpio-controller:
++    Specifies that the node is a GPIO controller.
++
++- interrupt-controller:
++    Specifies that the node is an interrupt controller.
 +
 +Optional properties:
 +
-+- interrupts:		The interrupt line(s) the /IRQ signal(s) for the device is
-+			connected to.
++- reg:
++    Address and length of the register set for the device. Usually supplied
++    by the parent MFD device.
 +
-+- interrupt-parent:	The parent interrupt controller.
 +
 +Example:
 +
-+ext-cpld@1,0 {
-+	compatible = "jnx,ptxpmb-ext-cpld";
-+	reg = <0x1 0 0x1000>;
-+	interrupt-parent = <&mpic>;
-+	interrupts = <7 2>, <8 2>;
-+
-+	gpio_ext_cpld: cpld-ext-gpio {
-+		compatible = "jnx,gpio-ptxpmb-ext-cpld";
-+		#gpio-cells = <2>;
-+		#interrupt-cells = <2>;
-+		gpio-controller;
-+		interrupt-controller;
-+	};
++gpio_ext_cpld: cpld-ext-gpio {
++	compatible = "jnx,gpio-ptxpmb-ext-cpld";
++	#gpio-cells = <2>;
++	#interrupt-cells = <2>;
++	gpio-controller;
++	interrupt-controller;
 +};
 -- 
 1.9.1
+
