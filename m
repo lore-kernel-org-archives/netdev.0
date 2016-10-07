@@ -1,60 +1,61 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net] xen-netback: make sure that hashes are not send to
- unaware frontends
-Date: Fri, 7 Oct 2016 07:49:28 +0000
-Message-ID: <53e1696c79a447c3929267dc3de7dc82@AMSPEX02CL03.citrite.net>
-References: <1475765230-11936-1-git-send-email-paul.durrant@citrix.com>
- <20161007.013801.2201234350691558646.davem@davemloft.net>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH v2] ipv6 addrconf: disallow rtr_solicits < -1
+Date: Fri,  7 Oct 2016 01:00:49 -0700
+Message-ID: <1475827249-27318-1-git-send-email-zenczykowski@gmail.com>
+References: <CANP3RGdVquyFe1VA2mKMC1HNgnXPhmpsv45R-7P6boWCb8oC2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-        Wei Liu <wei.liu2@citrix.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:62153 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754169AbcJGHtb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 03:49:31 -0400
-In-Reply-To: <20161007.013801.2201234350691558646.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35193 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755710AbcJGIBA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 04:01:00 -0400
+Received: by mail-pf0-f193.google.com with SMTP id t25so2468578pfg.2
+        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 01:00:59 -0700 (PDT)
+In-Reply-To: <CANP3RGdVquyFe1VA2mKMC1HNgnXPhmpsv45R-7P6boWCb8oC2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: 07 October 2016 06:38
-> To: Paul Durrant <Paul.Durrant@citrix.com>
-> Cc: netdev@vger.kernel.org; xen-devel@lists.xenproject.org; Wei Liu
-> <wei.liu2@citrix.com>
-> Subject: Re: [PATCH net] xen-netback: make sure that hashes are not send
-> to unaware frontends
-> 
-> From: Paul Durrant <paul.durrant@citrix.com>
-> Date: Thu, 6 Oct 2016 15:47:10 +0100
-> 
-> > In the case when a frontend only negotiates a single queue with xen-
-> > netback it is possible for a skbuff with a s/w hash to result in a
-> > hash extra_info segment being sent to the frontend even when no hash
-> > algorithm has been configured. (The ndo_select_queue() entry point
-> > makes sure the hash is not set if no algorithm is configured, but this
-> > entry point is not called when there is only a single queue). This can
-> > result in a frontend that isunable to handle extra_info segments being
-> > given such a segment, causing it to crash.
-> >
-> > This patch fixes the problem by gating whether the extra_info is sent
-> > not only on the presence of a s/w hash, but also on whether the hash
-> > algorithm has been configured.
-> >
-> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> > Cc: Wei Liu <wei.liu2@citrix.com>
-> 
-> This doesn't apply cleanly to the current 'net' tree, please respin.
-> 
+From: Maciej Żenczykowski <maze@google.com>
 
-Sure. V2 coming.
+This disallows setting /proc/sys/net/ipv6/conf/*/router_solicitations
+to values below -1.
 
-  Paul
+-1 continues to mean an unlimited number of retransmits.
 
-> Thanks.
+Note: this depends on 'ipv6 addrconf: remove addrconf_sysctl_hop_limit()'
+
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+ net/ipv6/addrconf.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index cbd9343751a2..d8983e15f859 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5729,6 +5729,7 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
+ 	return ret;
+ }
+ 
++static int minus_one = -1;
+ static const int one = 1;
+ static const int two_five_five = 255;
+ 
+@@ -5789,7 +5790,8 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.data		= &ipv6_devconf.rtr_solicits,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &minus_one,
+ 	},
+ 	{
+ 		.procname	= "router_solicitation_interval",
+-- 
+2.8.0.rc3.226.g39d4020
