@@ -1,7 +1,7 @@
 From: Pantelis Antoniou <pantelis.antoniou-OWPKS81ov/FWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 3/4] gpio: ptxpmb-ext-cpld: Add driver for Juniper's PTXPMB extended CPLD
-Date: Fri,  7 Oct 2016 18:19:33 +0300
-Message-ID: <1475853574-22339-4-git-send-email-pantelis.antoniou@konsulko.com>
+Subject: [PATCH 1/4] mfd: ptxpmb: Add separate driver for extended CPLD
+Date: Fri,  7 Oct 2016 18:19:31 +0300
+Message-ID: <1475853574-22339-2-git-send-email-pantelis.antoniou@konsulko.com>
 References: <1475853574-22339-1-git-send-email-pantelis.antoniou@konsulko.com>
 Cc: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
         Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
@@ -24,491 +24,337 @@ List-Id: netdev.vger.kernel.org
 
 From: Guenter Roeck <groeck-3r7Miqu9kMnR7s880joybQ@public.gmane.org>
 
-This IP block is present in the PTXPMB extended CPLD present on
-Junipers PTX series of routers and provides SIB connector status pins
-as GPIO pins for use with other drivers.
+Extended CPLD only exists on certain boards (SPMB) and by itself requires
+an MFD driver, since it supports its own interrupts and sub-devices.
+It also needs to provide support for SIB hotplug. It is cleaner and easier
+to maintain it as separate driver.
 
+Signed-off-by: Georgi Vlaev <gvlaev-3r7Miqu9kMnR7s880joybQ@public.gmane.org>
 Signed-off-by: Guenter Roeck <groeck-3r7Miqu9kMnR7s880joybQ@public.gmane.org>
 Signed-off-by: JawaharBalaji Thirumalaisamy <jawaharb-3r7Miqu9kMnR7s880joybQ@public.gmane.org>
+Signed-off-by: Tom Kavanagh <tkavanagh-3r7Miqu9kMnR7s880joybQ@public.gmane.org>
 [Ported from Juniper kernel]
 Signed-off-by: Pantelis Antoniou <pantelis.antoniou-OWPKS81ov/FWk0Htik3J/w@public.gmane.org>
 ---
- drivers/gpio/Kconfig                |  11 +
- drivers/gpio/Makefile               |   1 +
- drivers/gpio/gpio-ptxpmb-ext-cpld.c | 430 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 442 insertions(+)
- create mode 100644 drivers/gpio/gpio-ptxpmb-ext-cpld.c
+ drivers/mfd/Kconfig                 |  13 +++
+ drivers/mfd/Makefile                |   1 +
+ drivers/mfd/ptxpmb-ext-cpld-core.c  | 221 ++++++++++++++++++++++++++++++++++++
+ include/linux/mfd/ptxpmb_ext_cpld.h |  42 +++++++
+ 4 files changed, 277 insertions(+)
+ create mode 100644 drivers/mfd/ptxpmb-ext-cpld-core.c
+ create mode 100644 include/linux/mfd/ptxpmb_ext_cpld.h
 
-diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
-index c25dbe9..281029b 100644
---- a/drivers/gpio/Kconfig
-+++ b/drivers/gpio/Kconfig
-@@ -371,6 +371,17 @@ config GPIO_PTXPMB_CPLD
- 	  This driver can also be built as a module.  If so, the module
- 	  will be called gpio-ptxpmb-cpld.
+diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
+index 75b46a1..7e1fa14 100644
+--- a/drivers/mfd/Kconfig
++++ b/drivers/mfd/Kconfig
+@@ -1371,6 +1371,19 @@ config MFD_JUNIPER_SAM
+ 	  This driver can be built as a module. If built as a module it will be
+ 	  called "sam-core"
  
-+config GPIO_PTXPMB_EXT_CPLD
-+	tristate "PTXPMB Extended CPLD GPIO"
-+	depends on MFD_JUNIPER_EXT_CPLD
-+	default y if MFD_JUNIPER_EXT_CPLD
++config MFD_JUNIPER_EXT_CPLD
++	tristate "Juniper PTX PMB Extended CPLD"
++	depends on PTXPMB_COMMON
++	default y if PTXPMB_COMMON
++	select MFD_CORE
 +	help
-+	  This driver exports various bits on the Juniper Control Board
-+	  Extended CPLD as GPIO pins to userspace.
++	  Select this to enable the PTX PMB Extended CPLD multi-function kernel
++	  driver for the applicable Juniper platforms.
 +
-+	  This driver can also be built as a module.  If so, the module
-+	  will be called gpio-ptxpmb-ext-cpld.
++	  This driver can be built as a module. If built as a module it will be
++	  called "ptxpmb-ext-cpld"
 +
- config GPIO_PXA
- 	bool "PXA GPIO support"
- 	depends on ARCH_PXA || ARCH_MMP
-diff --git a/drivers/gpio/Makefile b/drivers/gpio/Makefile
-index 6691d8c..ec890c7 100644
---- a/drivers/gpio/Makefile
-+++ b/drivers/gpio/Makefile
-@@ -91,6 +91,7 @@ obj-$(CONFIG_GPIO_PCH)		+= gpio-pch.o
- obj-$(CONFIG_GPIO_PISOSR)	+= gpio-pisosr.o
- obj-$(CONFIG_GPIO_PL061)	+= gpio-pl061.o
- obj-$(CONFIG_GPIO_PTXPMB_CPLD)	+= gpio-ptxpmb-cpld.o
-+obj-$(CONFIG_GPIO_PTXPMB_EXT_CPLD) += gpio-ptxpmb-ext-cpld.o
- obj-$(CONFIG_GPIO_PXA)		+= gpio-pxa.o
- obj-$(CONFIG_GPIO_RC5T583)	+= gpio-rc5t583.o
- obj-$(CONFIG_GPIO_RDC321X)	+= gpio-rdc321x.o
-diff --git a/drivers/gpio/gpio-ptxpmb-ext-cpld.c b/drivers/gpio/gpio-ptxpmb-ext-cpld.c
++
+ config MFD_TWL4030_AUDIO
+ 	bool "TI TWL4030 Audio"
+ 	depends on TWL4030_CORE
+diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
+index 71a8ba6..da94482 100644
+--- a/drivers/mfd/Makefile
++++ b/drivers/mfd/Makefile
+@@ -150,6 +150,7 @@ obj-$(CONFIG_AB8500_DEBUG)	+= ab8500-debugfs.o
+ obj-$(CONFIG_AB8500_GPADC)	+= ab8500-gpadc.o
+ obj-$(CONFIG_MFD_JUNIPER_CPLD)	+= ptxpmb-cpld-core.o
+ obj-$(CONFIG_MFD_JUNIPER_SAM)	+= sam-core.o
++obj-$(CONFIG_MFD_JUNIPER_EXT_CPLD) += ptxpmb-ext-cpld-core.o
+ obj-$(CONFIG_MFD_DB8500_PRCMU)	+= db8500-prcmu.o
+ # ab8500-core need to come after db8500-prcmu (which provides the channel)
+ obj-$(CONFIG_AB8500_CORE)	+= ab8500-core.o ab8500-sysctrl.o
+diff --git a/drivers/mfd/ptxpmb-ext-cpld-core.c b/drivers/mfd/ptxpmb-ext-cpld-core.c
 new file mode 100644
-index 0000000..0152f0b
+index 0000000..a1b1793
 --- /dev/null
-+++ b/drivers/gpio/gpio-ptxpmb-ext-cpld.c
-@@ -0,0 +1,430 @@
++++ b/drivers/mfd/ptxpmb-ext-cpld-core.c
+@@ -0,0 +1,221 @@
 +/*
-+ * Copyright (C) 2012 Juniper networks
++ * Juniper PTX PMB Extended CPLD multi-function core driver
++ *
++ * Copyright (C) 2012 Juniper Networks
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; version 2 of the License.
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
 + *
 + * This program is distributed in the hope that it will be useful,
 + * but WITHOUT ANY WARRANTY; without even the implied warranty of
 + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 + * GNU General Public License for more details.
 + */
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/pci.h>
-+#include <linux/gpio.h>
++
 +#include <linux/errno.h>
-+#include <linux/of_device.h>
-+#include <linux/of_platform.h>
-+#include <linux/of_gpio.h>
-+#include <linux/io.h>
++#include <linux/kernel.h>
 +#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/err.h>
++#include <linux/init.h>
++#include <linux/wait.h>
++#include <linux/clk.h>
 +#include <linux/interrupt.h>
-+#include <linux/irqdomain.h>
-+
++#include <linux/device.h>
++#include <linux/spinlock.h>
++#include <linux/platform_device.h>
++#include <linux/delay.h>
++#include <linux/io.h>
++#include <linux/mfd/core.h>
++#include <linux/of.h>
++#include <linux/sched.h>
 +#include <linux/mfd/ptxpmb_ext_cpld.h>
++#include <linux/jnx/jnx-subsys.h>
 +
-+#define EXT_CPLD_NGPIO	32	/*  0..15: SIB presence bits	*/
-+				/* 16..31: SIB interrupt status	*/
-+
-+/**
-+ * struct ext_cpld_gpio - GPIO private data structure.
-+ * @base: PCI base address of Memory mapped I/O register.
-+ * @dev: Pointer to device structure.
-+ * @gpio: Data for GPIO infrastructure.
-+ */
-+struct ext_cpld_gpio {
-+	void __iomem *base;
-+	struct device *dev;
-+	struct gpio_chip gpio;
-+	struct mutex irq_lock;
-+	struct mutex work_lock;
-+	struct irq_domain *domain;
-+	int irq;
-+	u8 irq_type[EXT_CPLD_NGPIO];
-+	u16 sib_presence_cache;
-+	u16 sib_presence_irq_enabled;
-+	u16 sib_irq_status_cache;
-+	u16 sib_irq_enabled;
-+	struct delayed_work work;
++struct pmb_ext_cpld_core {
++	struct device		*dev;
++	struct pmb_boot_cpld_ext __iomem *cpld;
++	spinlock_t		lock;
++	int			irq0, irq1;
++	wait_queue_head_t	wqh;
 +};
 +
-+static int ext_cpld_gpio_get(struct gpio_chip *gpio, unsigned int nr)
++static irqreturn_t pmb_ext_cpld_core_interrupt(int irq, void *dev_data)
 +{
-+	struct ext_cpld_gpio *chip = container_of(gpio,
-+						  struct ext_cpld_gpio, gpio);
-+	struct pmb_boot_cpld_ext *cpld = chip->base;
-+	u16 *addr = nr < 16 ? &cpld->sib_presence : &cpld->sib_irq_status;
-+	u16 val;
++	struct pmb_ext_cpld_core *cpld = dev_data;
++	unsigned char __iomem *data;
++	int i;
++	u8 buffer[48];
 +
-+	val = ioread16(addr);
-+	if (nr < 16)
-+		chip->sib_presence_cache = val;
-+	else
-+		chip->sib_irq_status_cache = val;
++	dev_info(cpld->dev, "interrupt %d sib presence=0x%x irq status=0x%x\n",
++		 irq, ioread16(&cpld->cpld->sib_presence),
++		 ioread16(&cpld->cpld->sib_irq_status));
 +
-+	return !!(val & (1 << (nr & 15)));
-+}
++	data = (u8 *)cpld->cpld;
++	for (i = 0; i < 48; i++)
++		buffer[i] = ioread8(data + i);
 +
-+static int ext_cpld_gpio_direction_input(struct gpio_chip *gpio,
-+					 unsigned int nr)
-+{
-+	/* all pins are input pins */
-+	return 0;
-+}
++	print_hex_dump(KERN_INFO, dev_name(cpld->dev), DUMP_PREFIX_OFFSET,
++		       16, 4, buffer, 48, false);
 +
-+static int ext_cpld_gpio_to_irq(struct gpio_chip *gpio, unsigned int offset)
-+{
-+	struct ext_cpld_gpio *chip = container_of(gpio,
-+						  struct ext_cpld_gpio, gpio);
++	spin_lock(&cpld->wqh.lock);
 +
-+	return irq_create_mapping(chip->domain, offset);
-+}
++	/* clear interrupt, wake up any handlers */
++	wake_up_locked(&cpld->wqh);
 +
-+static void ext_cpld_irq_mask(struct irq_data *data)
-+{
-+	struct ext_cpld_gpio *chip = irq_data_get_irq_chip_data(data);
-+	struct pmb_boot_cpld_ext *cpld = chip->base;
-+	u16 *addr = data->hwirq < 16 ?
-+		&cpld->sib_presence_irq_en : &cpld->sib_irq_en;
-+	u16 mask = 1 << (data->hwirq & 0x0f);
-+
-+	if (chip->irq)
-+		iowrite16(ioread16(addr) & ~mask, addr);
-+
-+	if (data->hwirq < 16)
-+		chip->sib_presence_irq_enabled &= ~mask;
-+	else
-+		chip->sib_irq_enabled &= ~mask;
-+}
-+
-+static void ext_cpld_irq_unmask(struct irq_data *data)
-+{
-+	struct ext_cpld_gpio *chip = irq_data_get_irq_chip_data(data);
-+	struct pmb_boot_cpld_ext *cpld = chip->base;
-+	u16 *addr = data->hwirq < 16 ?
-+		&cpld->sib_presence_irq_en : &cpld->sib_irq_en;
-+	u16 mask = 1 << (data->hwirq & 0x0f);
-+
-+	if (chip->irq)
-+		iowrite16(ioread16(addr) | mask, addr);
-+
-+	if (data->hwirq < 16)
-+		chip->sib_presence_irq_enabled |= mask;
-+	else
-+		chip->sib_irq_enabled |= mask;
-+}
-+
-+static int ext_cpld_irq_set_type(struct irq_data *data, unsigned int type)
-+{
-+	struct ext_cpld_gpio *chip = irq_data_get_irq_chip_data(data);
-+
-+	chip->irq_type[data->hwirq] = type & 0x0f;
-+
-+	return 0;
-+}
-+
-+static void ext_cpld_irq_bus_lock(struct irq_data *data)
-+{
-+	struct ext_cpld_gpio *chip = irq_data_get_irq_chip_data(data);
-+
-+	mutex_lock(&chip->irq_lock);
-+}
-+
-+static void ext_cpld_irq_bus_unlock(struct irq_data *data)
-+{
-+	struct ext_cpld_gpio *chip = irq_data_get_irq_chip_data(data);
-+
-+	/* Synchronize interrupts to chip */
-+
-+	mutex_unlock(&chip->irq_lock);
-+}
-+
-+static struct irq_chip ext_cpld_irq_chip = {
-+	.name = "gpio-ext-cpld",
-+	.irq_mask = ext_cpld_irq_mask,
-+	.irq_unmask = ext_cpld_irq_unmask,
-+	.irq_set_type = ext_cpld_irq_set_type,
-+	.irq_bus_lock = ext_cpld_irq_bus_lock,
-+	.irq_bus_sync_unlock = ext_cpld_irq_bus_unlock,
-+};
-+
-+static int ext_cpld_gpio_irq_map(struct irq_domain *domain, unsigned int irq,
-+				 irq_hw_number_t hwirq)
-+{
-+	pr_info("ext_cpld_gpio_irq_map irq %d hwirq %d\n", irq, (int)hwirq);
-+
-+	irq_set_chip_data(irq, domain->host_data);
-+	irq_set_chip(irq, &ext_cpld_irq_chip);
-+	irq_set_nested_thread(irq, true);
-+
-+	irq_set_noprobe(irq);
-+
-+	return 0;
-+}
-+
-+static const struct irq_domain_ops ext_cpld_gpio_irq_domain_ops = {
-+	.map = ext_cpld_gpio_irq_map,
-+	.xlate = irq_domain_xlate_twocell,
-+};
-+
-+static void __ext_cpld_gpio_irq_work(struct ext_cpld_gpio *chip,
-+				     u16 *datap, u16 *cachep,
-+				     unsigned long enabled, int base)
-+{
-+	u16 data, cache;
-+	unsigned int pos;
-+
-+	cache = *cachep;
-+	data = ioread16(datap);
-+
-+	for_each_set_bit(pos, &enabled, 16) {
-+		u16 mask = 1 << pos;
-+		u16 bit;
-+		int type;
-+
-+		bit = data & mask;
-+		if (bit == (cache & mask))
-+			continue;
-+
-+		type = chip->irq_type[base + pos];
-+		/*
-+		 * check irq->type for match. Only handle edge triggered
-+		 * interrupts; anything else doesn't make sense here.
-+		 * TBD: While this is correct for insertion status interrupts,
-+		 * we may need to support level triggered interrupts to handle
-+		 * the irq status register.
-+		 */
-+		if (((type & IRQ_TYPE_EDGE_RISING) && bit) ||
-+		    ((type & IRQ_TYPE_EDGE_FALLING) && !bit)) {
-+			int virq = irq_find_mapping(chip->domain, base + pos);
-+
-+			handle_nested_irq(virq);
-+		}
-+	}
-+	*cachep = data;
-+}
-+
-+static void ext_cpld_gpio_irq_work(struct ext_cpld_gpio *chip)
-+{
-+	struct pmb_boot_cpld_ext *cpld = chip->base;
-+
-+	mutex_lock(&chip->work_lock);
-+
-+	__ext_cpld_gpio_irq_work(chip, &cpld->sib_presence,
-+				 &chip->sib_presence_cache,
-+				 chip->sib_presence_irq_enabled,
-+				 0);
-+
-+	__ext_cpld_gpio_irq_work(chip, &cpld->sib_irq_status,
-+				 &chip->sib_irq_status_cache,
-+				 chip->sib_irq_enabled,
-+				 16);
-+
-+	mutex_unlock(&chip->work_lock);
-+}
-+
-+static irqreturn_t ext_cpld_gpio_irq_handler(int irq, void *data)
-+{
-+	struct ext_cpld_gpio *chip = data;
-+	struct pmb_boot_cpld_ext *cpld = chip->base;
-+
-+	pr_info("ext_cpld got interrupt %d 0x%x:0x%x\n", irq,
-+		ioread16(&cpld->sib_presence),
-+		ioread16(&cpld->sib_irq_status));
-+
-+	ext_cpld_gpio_irq_work(chip);
++	spin_unlock(&cpld->wqh.lock);
 +
 +	return IRQ_HANDLED;
 +}
 +
-+static void ext_cpld_gpio_worker(struct work_struct *work)
++static ssize_t show_sib_status(struct device *dev,
++			       struct device_attribute *attr, char *buf)
 +{
-+	struct ext_cpld_gpio *chip = container_of(work, struct ext_cpld_gpio,
-+						  work.work);
++	struct pmb_ext_cpld_core *cpld = dev_get_drvdata(dev);
 +
-+	ext_cpld_gpio_irq_work(chip);
-+	schedule_delayed_work(&chip->work, 1);
++	WARN_ONCE(1,
++		  "sib_status is deprecated and should no longer be used for presence detection\n");
++
++	return sprintf(buf, "0x%04x\n",
++		       ioread16(&cpld->cpld->sib_presence));
 +}
 +
-+static int ext_cpld_gpio_irq_setup(struct device *dev,
-+				   struct ext_cpld_gpio *chip)
++static DEVICE_ATTR(sib_status, S_IRUGO, show_sib_status, NULL);
++
++static struct resource pmb_ext_cpld_resources[] = {
++	{
++		.start	= 0,
++		.end	= sizeof(struct pmb_boot_cpld_ext) - 1,
++		.flags	= IORESOURCE_MEM,
++	},
++};
++
++static struct mfd_cell pmb_ext_cpld_cells[] = {
++	{
++		.name = "gpio-ptxpmb-ext-cpld",
++		.num_resources = ARRAY_SIZE(pmb_ext_cpld_resources),
++		.resources = pmb_ext_cpld_resources,
++		.of_compatible = "jnx,gpio-ptxpmb-ext-cpld",
++	},
++};
++
++static int pmb_ext_cpld_core_probe(struct platform_device *pdev)
 +{
-+	int ret;
-+
-+	chip->domain = irq_domain_add_linear(dev->of_node, EXT_CPLD_NGPIO,
-+					     &ext_cpld_gpio_irq_domain_ops,
-+					     chip);
-+	if (!chip->domain)
-+		return -ENOMEM;
-+
-+	INIT_DELAYED_WORK(&chip->work, ext_cpld_gpio_worker);
-+
-+	if (chip->irq) {
-+		dev_info(dev, "Setting up interrupt %d\n", chip->irq);
-+		ret = devm_request_threaded_irq(dev, chip->irq, NULL,
-+						ext_cpld_gpio_irq_handler,
-+						IRQF_ONESHOT,
-+						dev_name(dev), chip);
-+		if (ret)
-+			goto out_remove_domain;
-+	} else {
-+		schedule_delayed_work(&chip->work, 1);
-+	}
-+
-+	chip->gpio.to_irq = ext_cpld_gpio_to_irq;
-+
-+	return 0;
-+
-+out_remove_domain:
-+	irq_domain_remove(chip->domain);
-+	return ret;
-+}
-+
-+static void ext_cpld_gpio_irq_teardown(struct device *dev,
-+				       struct ext_cpld_gpio *chip)
-+{
-+	struct pmb_boot_cpld_ext *cpld = chip->base;
-+	int i;
-+
-+	if (chip->irq) {
-+		iowrite16(0, &cpld->sib_presence_irq_en);
-+		iowrite16(0, &cpld->sib_irq_en);
-+	}
-+
-+	for (i = 0; i < EXT_CPLD_NGPIO; i++) {
-+		int irq = irq_find_mapping(chip->domain, i);
-+
-+		if (irq > 0)
-+			irq_dispose_mapping(irq);
-+	}
-+	irq_domain_remove(chip->domain);
-+}
-+
-+static int ext_cpld_gpio_of_xlate(struct gpio_chip *gpio,
-+				  const struct of_phandle_args *gpiospec,
-+				  u32 *flags)
-+{
-+	if (WARN_ON(gpio->of_gpio_n_cells < 2))
-+		return -EINVAL;
-+
-+	if (WARN_ON(gpiospec->args_count < gpio->of_gpio_n_cells))
-+		return -EINVAL;
-+
-+	if (gpiospec->args[0] > gpio->ngpio)
-+		return -EINVAL;
-+
-+	if (flags)
-+		*flags = gpiospec->args[1] >> 16;
-+
-+	return gpiospec->args[0];
-+}
-+
-+static void ext_cpld_gpio_setup(struct ext_cpld_gpio *chip)
-+{
-+	struct gpio_chip *gpio = &chip->gpio;
-+
-+	gpio->label = dev_name(chip->dev);
-+	gpio->owner = THIS_MODULE;
-+	gpio->get = ext_cpld_gpio_get;
-+	gpio->direction_input = ext_cpld_gpio_direction_input;
-+	gpio->dbg_show = NULL;
-+	gpio->base = -1;
-+	gpio->ngpio = EXT_CPLD_NGPIO;
-+	gpio->can_sleep = 0;
-+	gpio->of_node = chip->dev->of_node;
-+	gpio->of_xlate = ext_cpld_gpio_of_xlate;
-+	gpio->of_gpio_n_cells = 2;
-+}
-+
-+static int ext_cpld_gpio_probe(struct platform_device *pdev)
-+{
++	static struct pmb_ext_cpld_core *cpld;
 +	struct device *dev = &pdev->dev;
-+	struct pmb_boot_cpld_ext *cpld;
-+	struct ext_cpld_gpio *chip;
 +	struct resource *res;
-+	int ret;
++	int error;
++	u16 asid;
 +
-+	chip = devm_kzalloc(dev, sizeof(*chip), GFP_KERNEL);
-+	if (!chip)
++	cpld = devm_kzalloc(dev, sizeof(*cpld), GFP_KERNEL);
++	if (!cpld)
 +		return -ENOMEM;
 +
-+	chip->dev = dev;
-+	platform_set_drvdata(pdev, chip);
++	cpld->dev = dev;
++	dev_set_drvdata(dev, cpld);
 +
 +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	if (!res)
-+		return -ENODEV;
++	cpld->cpld = devm_ioremap_resource(dev, res);
++	if (IS_ERR(cpld->cpld))
++		return PTR_ERR(cpld->cpld);
 +
-+	chip->base = devm_ioremap(dev, res->start, resource_size(res));
-+	if (!chip->base)
-+		return -ENOMEM;
-+
-+	cpld = chip->base;
-+	chip->sib_presence_cache = ioread16(&cpld->sib_presence);
-+
-+	mutex_init(&chip->irq_lock);
-+	mutex_init(&chip->work_lock);
-+	ext_cpld_gpio_setup(chip);
-+
-+	ret = ext_cpld_gpio_irq_setup(dev, chip);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = gpiochip_add(&chip->gpio);
-+	if (ret) {
-+		dev_err(dev, "Extended CPLD gpio: Failed to register GPIO\n");
-+		goto teardown;
++	cpld->irq0 = platform_get_irq(pdev, 0);
++	if (cpld->irq0 >= 0) {
++		error = devm_request_threaded_irq(dev, cpld->irq0, NULL,
++						  pmb_ext_cpld_core_interrupt,
++						  IRQF_TRIGGER_RISING |
++						  IRQF_TRIGGER_FALLING |
++						  IRQF_ONESHOT,
++						  dev_name(dev), cpld);
++		if (error < 0)
++			return error;
 +	}
++
++	cpld->irq1 = platform_get_irq(pdev, 1);
++	if (cpld->irq1 >= 0) {
++		error = devm_request_threaded_irq(dev, cpld->irq1, NULL,
++						  pmb_ext_cpld_core_interrupt,
++						  IRQF_TRIGGER_RISING |
++						  IRQF_TRIGGER_FALLING |
++						  IRQF_ONESHOT,
++						  dev_name(dev), cpld);
++		if (error < 0)
++			return error;
++	}
++
++	spin_lock_init(&cpld->lock);
++	init_waitqueue_head(&cpld->wqh);
++
++	asid = ioread16be(&cpld->cpld->cb_assembly_id);
++
++	dev_info(dev, "Ext CPLD rev %u.%u CB asy 0x%x CB rev %u.%u\n",
++		 ioread8(&cpld->cpld->major_rev),
++		 ioread8(&cpld->cpld->minor_rev),
++		 asid,
++		 ioread8(&cpld->cpld->cb_major_version),
++		 ioread8(&cpld->cpld->cb_minor_version));
++
++	dev_info(dev, "SIB status=0x%x SIB irq status=0x%x\n",
++		 ioread16(&cpld->cpld->sib_presence),
++		 ioread16(&cpld->cpld->sib_irq_status));
++
++	error = device_create_file(dev, &dev_attr_sib_status);
++	if (error)
++		return error;
++	error = mfd_add_devices(dev, pdev->id, pmb_ext_cpld_cells,
++				ARRAY_SIZE(pmb_ext_cpld_cells), res,
++				0, NULL);
++	if (error < 0)
++		goto abort;
++
++	iowrite16(0xffff, &cpld->cpld->sib_presence_irq_en);
++	iowrite16(0xffff, &cpld->cpld->sib_irq_en);
++
 +	return 0;
 +
-+teardown:
-+	if (chip->domain)
-+		ext_cpld_gpio_irq_teardown(dev, chip);
-+	return ret;
++abort:
++	device_remove_file(dev, &dev_attr_sib_status);
++	return error;
 +}
 +
-+static int ext_cpld_gpio_remove(struct platform_device *pdev)
++static int pmb_ext_cpld_core_remove(struct platform_device *pdev)
 +{
-+	struct ext_cpld_gpio *chip = platform_get_drvdata(pdev);
-+
-+	cancel_delayed_work_sync(&chip->work);
-+	if (chip->domain)
-+		ext_cpld_gpio_irq_teardown(&pdev->dev, chip);
-+
-+	gpiochip_remove(&chip->gpio);
-+
++	mfd_remove_devices(&pdev->dev);
++	device_remove_file(&pdev->dev, &dev_attr_sib_status);
 +	return 0;
 +}
 +
-+static const struct of_device_id ext_cpld_gpio_ids[] = {
-+	{ .compatible = "jnx,gpio-ptxpmb-ext-cpld", },
-+	{ },
++static const struct of_device_id pmb_ext_cpld_of_ids[] = {
++	{ .compatible = "jnx,ptxpmb-ext-cpld" },
++	{ }
 +};
-+MODULE_DEVICE_TABLE(of, ext_cpld_gpio_ids);
++MODULE_DEVICE_TABLE(of, pmb_ext_cpld_of_ids);
 +
-+static struct platform_driver ext_cpld_gpio_driver = {
-+	.driver = {
-+		.name = "gpio-ptxpmb-ext-cpld",
-+		.owner  = THIS_MODULE,
-+		.of_match_table = ext_cpld_gpio_ids,
-+	},
-+	.probe = ext_cpld_gpio_probe,
-+	.remove = ext_cpld_gpio_remove,
++static struct platform_driver pmb_ext_cpld_core_driver = {
++	.probe		= pmb_ext_cpld_core_probe,
++	.remove		= pmb_ext_cpld_core_remove,
++	.driver		= {
++		.name	= "ptxpmb-ext-cpld",
++		.of_match_table = pmb_ext_cpld_of_ids,
++		.owner	= THIS_MODULE,
++	}
 +};
 +
-+static int __init ext_cpld_gpio_init(void)
++static int __init pmb_ext_cpld_core_init(void)
 +{
-+	return platform_driver_register(&ext_cpld_gpio_driver);
++	return platform_driver_register(&pmb_ext_cpld_core_driver);
 +}
-+module_init(ext_cpld_gpio_init);
++module_init(pmb_ext_cpld_core_init);
 +
-+static void __exit ext_cpld_gpio_exit(void)
++static void __exit pmb_ext_cpld_core_exit(void)
 +{
-+	platform_driver_unregister(&ext_cpld_gpio_driver);
++	platform_driver_unregister(&pmb_ext_cpld_core_driver);
 +}
-+module_exit(ext_cpld_gpio_exit);
++module_exit(pmb_ext_cpld_core_exit);
 +
-+MODULE_DESCRIPTION("Extended CPLD FPGA GPIO Driver");
++MODULE_DESCRIPTION("Juniper PTX PMB Extended CPLD Core Driver");
++MODULE_AUTHOR("Guenter Roeck <groeck-3r7Miqu9kMnR7s880joybQ@public.gmane.org>");
 +MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:ptxpmb-cpld");
+diff --git a/include/linux/mfd/ptxpmb_ext_cpld.h b/include/linux/mfd/ptxpmb_ext_cpld.h
+new file mode 100644
+index 0000000..bac9a73
+--- /dev/null
++++ b/include/linux/mfd/ptxpmb_ext_cpld.h
+@@ -0,0 +1,42 @@
++/*---------------------------------------------------------------------------
++ *
++ * ptxpmb_ext_cpld_core.h
++ *     Copyright (c) 2012, 2013 Juniper Networks
++ *
++ *---------------------------------------------------------------------------
++ */
++
++#ifndef PTXPMB_EXT_CPLD_CORE_H
++#define PTXPMB_EXT_CPLD_CORE_H
++
++/*
++ * Extended CPLD registers
++ */
++struct pmb_boot_cpld_ext {
++	u8 major_rev;			/* 0x00 */
++	u8 minor_rev;			/* 0x01 */
++	u16 sib_presence;		/* 0x02 */
++	u8 unused0[4];			/* 0x04 */
++	u16 sib_presence_irq_en;	/* 0x08 */
++	u8 unused1[4];			/* 0x0a */
++	u16 sib_irq_status;		/* 0x0e */
++	u8 unused2[4];			/* 0x10 */
++	u16 sib_irq_en;			/* 0x14 */
++	u8 unused3[4];			/* 0x16 */
++	u8 i2c_group;			/* 0x1a */
++	u8 i2c_mux_sel;			/* 0x1b */
++	u8 re_status;			/* 0x1c */
++	u8 unused4[0x24 - 0x1d];	/* 0x1d */
++	u16 cb_assembly_id;		/* 0x24 */
++	u8 cb_major_version;		/* 0x26 */
++	u8 cb_minor_version;		/* 0x27 */
++	u8 unused5[0x40 - 0x28];	/* 0x28 */
++	u8 spare_a;			/* 0x40 */
++	u8 spare_b;			/* 0x41 */
++	u8 spare_c;			/* 0x42 */
++	u8 spare_d;			/* 0x43 */
++	u8 spare_e;			/* 0x44 */
++	u8 unused6[0x3ff - 0x45];	/* 0x45 */
++};
++
++#endif /* PTXPMB_EXT_CPLD_CORE_H */
 -- 
 1.9.1
 
