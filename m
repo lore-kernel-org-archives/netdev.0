@@ -1,41 +1,80 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v9 0/1] net: phy: Cleanup the Edge-Rate feature in Microsemi PHYs
-Date: Fri, 7 Oct 2016 10:28:23 +0200
-Message-ID: <1475828904-13839-1-git-send-email-allan.nielsen@microsemi.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH v2 net] xen-netback: make sure that hashes are not send to unaware frontends
+Date: Fri, 7 Oct 2016 09:32:31 +0100
+Message-ID: <1475829151-3707-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
-To: <netdev@vger.kernel.org>
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+        Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devl@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0064.outbound.protection.outlook.com ([104.47.40.64]:26432
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750976AbcJGIoS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Oct 2016 04:44:18 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:54752 "EHLO
+        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756231AbcJGIxk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 04:53:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew (and other),
+In the case when a frontend only negotiates a single queue with xen-
+netback it is possible for a skbuff with a s/w hash to result in a
+hash extra_info segment being sent to the frontend even when no hash
+algorithm has been configured. (The ndo_select_queue() entry point makes
+sure the hash is not set if no algorithm is configured, but this entry
+point is not called when there is only a single queue). This can result
+in a frontend that is unable to handle extra_info segments being given
+such a segment, causing it to crash.
 
-Raju and I have been going through all the comments received on the edge-rate
-feature, and tried to address them (once again...).
+This patch fixes the problem by clearing the hash in ndo_start_xmit()
+instead, which is clearly guaranteed to be called irrespective of the
+number of queues.
 
-The patch is rebased to fit on top of net-next (it depends on a4cc96d1f).
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+---
 
-Following initiatives is covered:
+v2:
+ - Simplified and re-based onto re-factored net branch
+---
+ drivers/net/xen-netback/interface.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
 
-- Updated device tree bindings documentation for edge-rate
-- The edge-rate is now specified as a "slowdown", meaning that it is now
-  being specified as positive values instead of negative (both
-  documentation and implementation wise).
-- Only explicitly documented values for "vsc8531,vddmac" and
-  "vsc8531,edge-slowdown" are accepted by the device driver.
-- Deleting include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
-- Initialize to default values when CONFIG_OF_MDIO is not defined
-- Using ARRAY_SIZE when iterating through an array.
-
-Please review.
-
-Best regards
-Allan W. Nielsen
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 4af532a..74dc2bf 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -149,17 +149,8 @@ static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	unsigned int size = vif->hash.size;
+ 
+-	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE) {
+-		u16 index = fallback(dev, skb) % dev->real_num_tx_queues;
+-
+-		/* Make sure there is no hash information in the socket
+-		 * buffer otherwise it would be incorrectly forwarded
+-		 * to the frontend.
+-		 */
+-		skb_clear_hash(skb);
+-
+-		return index;
+-	}
++	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
++		return fallback(dev, skb) % dev->real_num_tx_queues;
+ 
+ 	xenvif_set_skb_hash(vif, skb);
+ 
+@@ -208,6 +199,13 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	cb = XENVIF_RX_CB(skb);
+ 	cb->expires = jiffies + vif->drain_timeout;
+ 
++	/* If there is no hash algorithm configured then make sure there
++	 * is no hash information in the socket buffer otherwise it
++	 * would be incorrectly forwarded to the frontend.
++	 */
++	if (vif->hash.alg == XEN_NETIF_CTRL_HASH_ALGORITHM_NONE)
++		skb_clear_hash(skb);
++
+ 	xenvif_rx_queue_tail(queue, skb);
+ 	xenvif_kick_thread(queue);
+ 
+-- 
+2.1.4
