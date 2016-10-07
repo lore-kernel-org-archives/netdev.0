@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v4 10/10] ARM: sunxi: Enable sun8i-emac driver on multi_v7_defconfig
-Date: Fri,  7 Oct 2016 10:25:57 +0200
-Message-ID: <1475828757-926-11-git-send-email-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 04/10] ARM: dts: sun8i-h3: Add dt node for the syscon control module
+Date: Fri,  7 Oct 2016 10:25:51 +0200
+Message-ID: <1475828757-926-5-git-send-email-clabbe.montjoie@gmail.com>
 References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
@@ -10,29 +10,41 @@ To: robh+dt@kernel.org, mark.rutland@arm.com,
         maxime.ripard@free-electrons.com, wens@csie.org,
         linux@armlinux.org.uk, davem@davemloft.net, f.fainelli@gmail.com,
         andrew@lunn.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33260 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756315AbcJGI22 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 04:28:28 -0400
 In-Reply-To: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enable the sun8i-emac driver in the multi_v7 default configuration
+This patch add the dt node for the syscon register present on the
+Allwinner H3.
+
+Only two register are present in this syscon and the only one useful is
+the one dedicated to EMAC clock.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- arch/arm/configs/multi_v7_defconfig | 1 +
- 1 file changed, 1 insertion(+)
+ arch/arm/boot/dts/sun8i-h3.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
-index 5845910..f44d633 100644
---- a/arch/arm/configs/multi_v7_defconfig
-+++ b/arch/arm/configs/multi_v7_defconfig
-@@ -229,6 +229,7 @@ CONFIG_NETDEVICES=y
- CONFIG_VIRTIO_NET=y
- CONFIG_HIX5HD2_GMAC=y
- CONFIG_SUN4I_EMAC=y
-+CONFIG_SUN8I_EMAC=y
- CONFIG_MACB=y
- CONFIG_BCMGENET=m
- CONFIG_SYSTEMPORT=m
+diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
+index 8a95e36..1101d2f 100644
+--- a/arch/arm/boot/dts/sun8i-h3.dtsi
++++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+@@ -140,6 +140,11 @@
+ 		#size-cells = <1>;
+ 		ranges;
+ 
++		syscon: syscon@01c00000 {
++			compatible = "syscon";
++			reg = <0x01c00000 0x1000>;
++		};
++
+ 		dma: dma-controller@01c02000 {
+ 			compatible = "allwinner,sun8i-h3-dma";
+ 			reg = <0x01c02000 0x1000>;
 -- 
 2.7.3
