@@ -1,56 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: Reset skb to network header in neigh_hh_output
-Date: Fri, 7 Oct 2016 19:38:06 +0300
-Message-ID: <f1a14f84-f9f9-4cec-94ee-fce7ced6c9d1@cogentembedded.com>
-References: <1579f7f0f4f.114457ec828613.4349884782265574217@abahmed.com>
- <572cddd1-6a03-4c83-1e0e-55be37273396@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Abdelrhman Ahmed <ab@abahmed.com>, davem <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <572cddd1-6a03-4c83-1e0e-55be37273396@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Subject: [iproute2] bridge: Fix garbled json output seen if a vlan filter is specified
+Date: Fri,  7 Oct 2016 09:40:18 -0700
+Message-ID: <1475858418-1618-1-git-send-email-anuradhak@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, anuradhak@cumulusnetworks.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35614 "EHLO
+        mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941212AbcJGQkj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 12:40:39 -0400
+Received: by mail-pa0-f51.google.com with SMTP id qn10so20921239pac.2
+        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 09:40:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/07/2016 07:27 PM, Sergei Shtylyov wrote:
+From: anuradhak <anuradhak@cumulusnetworks.com>
 
->> When hardware header is added without using cached one, neigh_resolve_output
->> and neigh_connected_output reset skb to network header before adding it.
->> When cached one is used, neigh_hh_output does not reset the skb to network
->> header.
->>
->> The fix is to reset skb to network header before adding cached hardware header
->> to keep the behavior consistent in all cases.
->>
->> Signed-off-by: Abdelrhman Ahmed <ab@abahmed.com>
->> ---
->>  include/net/neighbour.h | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
->> index 8b68384..4d89fc2 100644
->> --- a/include/net/neighbour.h
->> +++ b/include/net/neighbour.h
->> @@ -424,7 +424,7 @@ static inline struct neighbour * neigh_clone(struct
->> neighbour *neigh)
->>  static inline int neigh_event_send(struct neighbour *neigh, struct sk_buff
->> *skb)
->>  {
->>         unsigned long now = jiffies;
->> -
->> +
->
->    Unraleted white-space change.
+json objects were started but not completed if the fdb vlan did not
+match the specified filter vlan.
 
-    And I thought I fixed this word... it's "unrelated" of/c. :-)
+Sample output:
+$ bridge -j fdb show vlan 111
+[{
+        "mac": "44:38:39:00:69:88",
+        "dev": "br0",
+        "vlan": 111,
+        "master": "br0",
+        "state": "permanent"
+    }
+]
+$ bridge -j fdb show vlan 100
+[]
+$
 
->
->>         if (neigh->used != now)
->>                 neigh->used = now;
->>         if (!(neigh->nud_state&(NUD_CONNECTED|NUD_DELAY|NUD_PROBE)))
-> [...]
+Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+---
+ bridge/fdb.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-MBR, Sergei
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index c6e0379..90f4b15 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -100,11 +100,6 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	if (filter_index && filter_index != r->ndm_ifindex)
+ 		return 0;
+ 
+-	if (jw_global) {
+-		jsonw_pretty(jw_global, 1);
+-		jsonw_start_object(jw_global);
+-	}
+-
+ 	parse_rtattr(tb, NDA_MAX, NDA_RTA(r),
+ 		     n->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+ 
+@@ -114,6 +109,11 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	if (filter_vlan && filter_vlan != vid)
+ 		return 0;
+ 
++	if (jw_global) {
++		jsonw_pretty(jw_global, 1);
++		jsonw_start_object(jw_global);
++	}
++
+ 	if (n->nlmsg_type == RTM_DELNEIGH) {
+ 		if (jw_global)
+ 			jsonw_string_field(jw_global, "opCode", "deleted");
+-- 
+2.1.4
