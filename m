@@ -1,53 +1,64 @@
-From: Matej Kupljen <matej.kupljen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: HSO driver patch again [2/2]
-Date: Fri, 7 Oct 2016 16:45:56 +0200
-Message-ID: <CAHMF36GL_6RZyhtUikM8EpS5rWp4Q+=P8g8i6huijG5vtnnwAQ@mail.gmail.com>
+From: Matej Kupljen <matej.kupljen@gmail.com>
+Subject: HSO driver patch again [1/2]
+Date: Fri, 7 Oct 2016 16:44:40 +0200
+Message-ID: <CAHMF36EFRnkXmBgt=CEP4PN-RbN-nWw9jx4HPJgc705W6iKgRg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33796 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755954AbcJGOom (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 10:44:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-second patch:
-0002-Stop-also-serial-queue-when-device-is-unplugged.patch
-Serial device was not stopped when the device got unplugged so
-there are continues error messages that the URB cannot be submitted.
+I am using hso driver for my 3G modem (although different manufacturer
+with different USB VID/PID) but I have some problems with it. It is
+working fine, but if you disconnect the USB connection while the data
+is transferring trough AT interface, we get a crash.
+
+First patch
+0001-Reverse-the-order-in-disconnect.patch
+This patch first sets the interface to NULL and only then starts
+removing the allocated resources. This is according to documentation and
+it is also more similar to other drivers.
 
 Thanks,
 Matej
 
-From: Matej Kupljen <matej.kupljen-ovEwHRmg3fY@public.gmane.org>
-Date: Wed, 5 Oct 2016 13:08:31 +0200
-Subject: [PATCH] Stop also serial queue when device is unplugged
+From: Matej Kupljen <matej.kupljen@norik.si>
+Date: Wed, 28 Sep 2016 18:37:23 +0200
+Subject: [PATCH] Reverse the order in disconnect
 
-We need to also stop serial port when the device is unplugged,
-the network part is already stopped.
+When the device is disconnected, we first need to set interface
+data to NULL and then do the freeing of resources to avoid race
+conditions.
 
-Signed-off-by: Matej Kupljen <matej.kupljen-ovEwHRmg3fY@public.gmane.org>
+Signed-off-by: Matej Kupljen <matej.kupljen@norik.si>
 ---
- drivers/net/usb/hso.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/usb/hso.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 16aef06..efd1fef 100644
+index b0df61f..16aef06 100644
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -3157,6 +3157,7 @@ static void hso_free_interface(struct
-usb_interface *interface)
-  mutex_lock(&serial->parent->mutex);
-  serial->parent->usb_gone = 1;
-  mutex_unlock(&serial->parent->mutex);
-+ hso_stop_serial_device(serial->parent);
-  cancel_work_sync(&serial_table[i]->async_put_intf);
-  cancel_work_sync(&serial_table[i]->async_get_intf);
-  hso_serial_tty_unregister(serial);
+@@ -3013,10 +3013,10 @@ exit:
+ /* device removed, cleaning up */
+ static void hso_disconnect(struct usb_interface *interface)
+ {
+- hso_free_interface(interface);
+-
+  /* remove reference of our private data */
+  usb_set_intfdata(interface, NULL);
++
++ hso_free_interface(interface);
+ }
+
+ static void async_get_intf(struct work_struct *data)
 -- 
 2.7.4
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
