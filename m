@@ -1,57 +1,43 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH][RESEND] dt-bindings: net: renesas-ravb: Add support for
- R8A7796 RAVB
-Date: Fri, 7 Oct 2016 12:29:16 +0900
-Message-ID: <20161007032915.GN13721@verge.net.au>
-References: <1475599546-29209-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] xen-netback: make sure that hashes are not send to
+ unaware frontends
+Date: Fri, 07 Oct 2016 01:38:01 -0400 (EDT)
+Message-ID: <20161007.013801.2201234350691558646.davem@davemloft.net>
+References: <1475765230-11936-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1475599546-29209-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+        wei.liu2@citrix.com
+To: paul.durrant@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45592 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752652AbcJGFiZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 01:38:25 -0400
+In-Reply-To: <1475765230-11936-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 04, 2016 at 07:45:46PM +0300, Laurent Pinchart wrote:
-> Add a new compatible string for the R8A7796 (M3-W) RAVB.
-> 
-> Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-> Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Thu, 6 Oct 2016 15:47:10 +0100
 
-Acked-by: Simon Horman <horms+renesas@verge.net.au>
+> In the case when a frontend only negotiates a single queue with xen-
+> netback it is possible for a skbuff with a s/w hash to result in a
+> hash extra_info segment being sent to the frontend even when no hash
+> algorithm has been configured. (The ndo_select_queue() entry point makes
+> sure the hash is not set if no algorithm is configured, but this entry
+> point is not called when there is only a single queue). This can result
+> in a frontend that isunable to handle extra_info segments being given
+> such a segment, causing it to crash.
+> 
+> This patch fixes the problem by gating whether the extra_info is sent
+> not only on the presence of a s/w hash, but also on whether the hash
+> algorithm has been configured.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
 
-> ---
->  Documentation/devicetree/bindings/net/renesas,ravb.txt | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> The patch has been posted to the linux-renesas-soc mailing list only, adding
-> the netdev mailing list to get it upstreamed.
-> 
-> diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> index c8ac222eac67..b519503be51a 100644
-> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> @@ -10,6 +10,7 @@ Required properties:
->  	      "renesas,etheravb-r8a7793" if the device is a part of R8A7793 SoC.
->  	      "renesas,etheravb-r8a7794" if the device is a part of R8A7794 SoC.
->  	      "renesas,etheravb-r8a7795" if the device is a part of R8A7795 SoC.
-> +	      "renesas,etheravb-r8a7796" if the device is a part of R8A7796 SoC.
->  	      "renesas,etheravb-rcar-gen2" for generic R-Car Gen 2 compatible interface.
->  	      "renesas,etheravb-rcar-gen3" for generic R-Car Gen 3 compatible interface.
->  
-> @@ -33,7 +34,7 @@ Optional properties:
->  - interrupt-parent: the phandle for the interrupt controller that services
->  		    interrupts for this device.
->  - interrupt-names: A list of interrupt names.
-> -		   For the R8A7795 SoC this property is mandatory;
-> +		   For the R8A779[56] SoCs this property is mandatory;
->  		   it should include one entry per channel, named "ch%u",
->  		   where %u is the channel number ranging from 0 to 24.
->  		   For other SoCs this property is optional; if present
-> -- 
-> Regards,
-> 
-> Laurent Pinchart
-> 
+This doesn't apply cleanly to the current 'net' tree, please respin.
+
+Thanks.
