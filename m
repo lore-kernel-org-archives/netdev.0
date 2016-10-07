@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] packet: call fanout_release, while UNREGISTERING a
- netdev
-Date: Thu, 06 Oct 2016 20:50:52 -0400 (EDT)
-Message-ID: <20161006.205052.1380596858044266995.davem@davemloft.net>
-References: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] ipv6 addrconf: disallow rtr_solicits < -1
+Date: Thu, 6 Oct 2016 17:53:19 -0700
+Message-ID: <CAM_iQpX7VUwey0gyjei9WLvXcs1pHidQUqvGW8rhpq-qC2PcXw@mail.gmail.com>
+References: <1475476917-17382-1-git-send-email-zenczykowski@gmail.com>
+ <20161004.003831.2056791273400961514.davem@davemloft.net> <CANP3RGdVquyFe1VA2mKMC1HNgnXPhmpsv45R-7P6boWCb8oC2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: anoob.soman@citrix.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        Erik Kline <ek@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43436 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936399AbcJGAuz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 20:50:55 -0400
-In-Reply-To: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
+Received: from mail-it0-f52.google.com ([209.85.214.52]:36039 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753266AbcJGAxk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 20:53:40 -0400
+Received: by mail-it0-f52.google.com with SMTP id l13so2627079itl.1
+        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 17:53:40 -0700 (PDT)
+In-Reply-To: <CANP3RGdVquyFe1VA2mKMC1HNgnXPhmpsv45R-7P6boWCb8oC2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anoob Soman <anoob.soman@citrix.com>
-Date: Wed, 5 Oct 2016 15:12:54 +0100
+On Mon, Oct 3, 2016 at 11:40 PM, Maciej =C5=BBenczykowski
+<zenczykowski@gmail.com> wrote:
+>> Please remove the const qualifier and the casts to be consistent
+>> with how we handle this elsewhere.
+>>
+>> Thanks.
+>
+> I can of course trivially make that change.
+>
+> But:
+>
+> (on net-next/master)
+> git grep 'extra[12].*=3D.*\(void *[*]\)'
+>
+> currently finds 45 matches, and this patch adds a 46th.
 
-> If a socket has FANOUT sockopt set, a new proto_hook is registered
-> as part of fanout_add(). When processing a NETDEV_UNREGISTER event in
-> af_packet, __fanout_unlink is called for all sockets, but prot_hook which was
-> registered as part of fanout_add is not removed. Call fanout_release, on a
-> NETDEV_UNREGISTER, which removes prot_hook and removes fanout from the
-> fanout_list.
-> 
-> This fixes BUG_ON(!list_empty(&dev->ptype_specific)) in netdev_run_todo()
-> 
-> Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
-
-Applied and queued up for -stable, thanks.
+Seems the sysctl layer should make them const, but I never look
+into it, it doesn't look like it needs to modify these min/max consts.
