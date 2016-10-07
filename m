@@ -1,37 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: phy: Add Wake-on-LAN driver for
- Microsemi PHYs.
-Date: Thu, 06 Oct 2016 20:48:26 -0400 (EDT)
-Message-ID: <20161006.204826.561373380580386700.davem@davemloft.net>
-References: <1475657367-13600-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] devicetree: net: micrel-ksz90x1.txt: Properly explain
+ skew settings
+Date: Thu, 06 Oct 2016 20:49:23 -0400 (EDT)
+Message-ID: <20161006.204923.1914066918563386131.davem@davemloft.net>
+References: <1475676188-10639-1-git-send-email-mike.looijmans@topic.nl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        Allan.Nielsen@microsemi.com, andrew@lunn.ch
-To: Raju.Lakkaraju@microsemi.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43378 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753266AbcJGAs3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 20:48:29 -0400
-In-Reply-To: <1475657367-13600-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: mike.looijmans-Oq418RWZeHk@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475676188-10639-1-git-send-email-mike.looijmans-Oq418RWZeHk@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Date: Wed, 5 Oct 2016 14:19:27 +0530
+From: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
+Date: Wed,  5 Oct 2016 16:03:08 +0200
 
-> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> The KSZ9031 skew registers contain an offset, the chip's default value
+> is "neutral" which does not add any skew. Programming a 0 into a skew
+> property will actually set it the maximal negative adjustment and not
+> to a neutral position as one would expect.
 > 
-> Wake-on-LAN (WoL) is an Ethernet networking standard that allows 
-> a computer/device to be turned on or awakened by a network message.
+> Explain this situation in the devicetree binding documentation and list
+> the settings that the chip considers neutral.
 > 
-> VSC8531 PHY can support this feature configure by driver set function.
-> WoL status get by driver get function.
+> Changing the implementation to accept negative values would have been
+> a better solution, but would break existing configurations.
 > 
-> Tested on Beaglebone Black with VSC 8531 PHY.
-> 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> Signed-off-by: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
