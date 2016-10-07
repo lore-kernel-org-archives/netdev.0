@@ -1,82 +1,87 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net 1/2] Subject: [PATCH] af_iucv: enable control sends in case of SEND_SHUTDOWN
-Date: Fri,  7 Oct 2016 15:51:47 +0200
-Message-ID: <88ab8b08bdcf2f35fd04e9d0c67b250999d7da33.1475846599.git.ursula.braun@de.ibm.com>
-References: <cover.1475846599.git.ursula.braun@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:60542 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756410AbcJGNv5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 09:51:57 -0400
-Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u97DndT3108056
-        for <netdev@vger.kernel.org>; Fri, 7 Oct 2016 09:51:57 -0400
-Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 25xap5p2gs-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 09:51:56 -0400
-Received: from localhost
-        by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Fri, 7 Oct 2016 14:51:54 +0100
-In-Reply-To: <cover.1475846599.git.ursula.braun@de.ibm.com>
-In-Reply-To: <cover.1475846599.git.ursula.braun@de.ibm.com>
-References: <cover.1475846599.git.ursula.braun@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RFC 0/3] Add support for led triggers on phy link state change
+Date: Fri, 7 Oct 2016 16:13:10 +0200
+Message-ID: <20161007141310.GD19976@amd>
+References: <1473890149-2066-1-git-send-email-zach.brown@ni.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============5339857830793109259=="
+Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
+ f.fainelli@gmail.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Larry.Finger@lwfinger.net, mlindner@marvell.com
+To: Zach Brown <zach.brown@ni.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1473890149-2066-1-git-send-email-zach.brown@ni.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-If a socket program has shut down the socket for sending, it can still
-receive an undetermined number of packets. The AF_IUCV protocol for
-HIPER transport requires sending of a WIN flag from time to time
-from the receiver to the sender, otherwise the peer cannot continue
-sending. That means sending of control flags must still work, even
-though the AF_IUCV socket is shutdown for sending data.
-sock_alloc_send_skb() returns with error EPIPE, if socket sk_shutdown
-is SEND_SHUTDOWN. Thus this patch temporarily removes the send
-shutdown attribute from the socket to enable transfer of control
-flags.
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- net/iucv/af_iucv.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+--===============5339857830793109259==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="d9ADC0YsG2v16Js0"
+Content-Disposition: inline
 
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index 02b45a8..88d0eaa 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -453,19 +453,27 @@ static void iucv_sever_path(struct sock *sk, int with_user_data)
- 	}
- }
- 
--/* Send FIN through an IUCV socket for HIPER transport */
-+/* Send controlling flags through an IUCV socket for HIPER transport */
- static int iucv_send_ctrl(struct sock *sk, u8 flags)
- {
- 	int err = 0;
- 	int blen;
- 	struct sk_buff *skb;
-+	u8 shutdown = 0;
- 
- 	blen = sizeof(struct af_iucv_trans_hdr) + ETH_HLEN;
-+	if (sk->sk_shutdown & SEND_SHUTDOWN) {
-+		/* controlling flags should be sent anyway */
-+		shutdown = sk->sk_shutdown;
-+		sk->sk_shutdown &= RCV_SHUTDOWN;
-+	}
- 	skb = sock_alloc_send_skb(sk, blen, 1, &err);
- 	if (skb) {
- 		skb_reserve(skb, blen);
- 		err = afiucv_hs_send(NULL, sk, skb, flags);
- 	}
-+	if (shutdown)
-+		sk->sk_shutdown = shutdown;
- 	return err;
- }
- 
--- 
-2.8.4
+
+--d9ADC0YsG2v16Js0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi!
+
+> Some drivers that include phy.h defined LED_OFF which conflicts with
+> definition in leds.h. phy led support uses leds.h so the two namespaces a=
+re no
+> longer isolated.
+> The first two patches fix the two net drivers that declared enum constant=
+s that
+> conflict with enum constants in linux/leds.h.
+
+Perhaps led patches should be cced to led mainainters?
+
+LED SUBSYSTEM
+M:      Richard Purdie <rpurdie@rpsys.net>
+M:      Jacek Anaszewski <j.anaszewski@samsung.com>
+L:      linux-leds@vger.kernel.org
+
+									Pavel
+
+
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--d9ADC0YsG2v16Js0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlf3rXYACgkQMOfwapXb+vLmwQCfXmxzpPeaw7MxX0NlJBwEpD7R
+gI4An0v7OFnWb2JIUVKD0dYo1b29Ml+D
+=OIm+
+-----END PGP SIGNATURE-----
+
+--d9ADC0YsG2v16Js0--
+
+--===============5339857830793109259==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+--===============5339857830793109259==--
