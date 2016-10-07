@@ -1,35 +1,41 @@
-From: Moritz Fischer <moritz.fischer@ettus.com>
-Subject: Re: [PATCH] net: macb: NULL out phydev after removing mdio bus
-Date: Fri, 7 Oct 2016 08:20:51 -0700
-Message-ID: <CAAtXAHeHyz1-HtLqa5rzLWoyEy6+sokRDzE8frVRGt3xomCvPA@mail.gmail.com>
-References: <1475853202-19903-1-git-send-email-xander.huff@ni.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-        Nathan Sullivan <nathan.sullivan@ni.com>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Brad Mouring <brad.mouring@ni.com>
-To: Xander Huff <xander.huff@ni.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f182.google.com ([209.85.217.182]:36527 "EHLO
-        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757107AbcJGPUx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 11:20:53 -0400
-Received: by mail-ua0-f182.google.com with SMTP id r64so47525053uar.3
-        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 08:20:52 -0700 (PDT)
-In-Reply-To: <1475853202-19903-1-git-send-email-xander.huff@ni.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xander Huff <xander.huff-acOepvfBmUk@public.gmane.org>
+Subject: [PATCH] wlcore: Allow scans when in AP mode
+Date: Fri, 7 Oct 2016 10:45:57 -0500
+Message-ID: <1475855157-21271-1-git-send-email-xander.huff@ni.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        James Minor <james.minor-acOepvfBmUk@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        xander.huff-acOepvfBmUk@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 7, 2016 at 8:13 AM, Xander Huff <xander.huff@ni.com> wrote:
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
->
-> To ensure the dev->phydev pointer is not used after becoming invalid in
-> mdiobus_unregister, set it to NULL. This happens when removing the macb
-> driver without first taking its interface down, since unregister_netdev
-> will end up calling macb_close.
->
-> Signed-off-by: Xander Huff <xander.huff@ni.com>
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
-> Signed-off-by: Brad Mouring <brad.mouring@ni.com>
-Reviewed-by: Moritz Fischer <moritz.fischer@ettus.com>
+From: James Minor <james.minor-acOepvfBmUk@public.gmane.org>
+
+When in AP mode, scans can be done without changing firmware to
+the multi-role firmware. Allow the interface to scan if forced
+in the scan request.
+
+Signed-off-by: James Minor <james.minor-acOepvfBmUk@public.gmane.org>
+Signed-off-by: Xander Huff <xander.huff-acOepvfBmUk@public.gmane.org>
+Reviewed-by: Ben Shelton <ben.shelton-acOepvfBmUk@public.gmane.org>
+Reviewed-by: Jaeden Amero <jaeden.amero-acOepvfBmUk@public.gmane.org>
+---
+ drivers/net/wireless/ti/wlcore/main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+index 471521a..01ca370 100644
+--- a/drivers/net/wireless/ti/wlcore/main.c
++++ b/drivers/net/wireless/ti/wlcore/main.c
+@@ -6120,6 +6120,8 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
+ 				WIPHY_FLAG_SUPPORTS_SCHED_SCAN |
+ 				WIPHY_FLAG_HAS_CHANNEL_SWITCH;
+ 
++	wl->hw->wiphy->features |= NL80211_FEATURE_AP_SCAN;
++
+ 	/* make sure all our channels fit in the scanned_ch bitmask */
+ 	BUILD_BUG_ON(ARRAY_SIZE(wl1271_channels) +
+ 		     ARRAY_SIZE(wl1271_channels_5ghz) >
+-- 
+1.9.1
