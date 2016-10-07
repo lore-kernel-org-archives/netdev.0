@@ -1,45 +1,53 @@
-From: Michael Braun <michael-dev@fami-braun.de>
-Subject: [PATCH v5 1/4] mac80211: remove unnecessary num_mcast_sta user
-Date: Fri,  7 Oct 2016 20:39:31 +0200
-Message-ID: <1475865574-5384-1-git-send-email-michael-dev@fami-braun.de>
-Cc: Michael Braun <michael-dev@fami-braun.de>,
-        linux-wireless@vger.kernel.org, projekt-wlan@fem.tu-ilmenau.de,
-        netdev@vger.kernel.org
-To: johannes@sipsolutions.net
+From: "Mr.Malaki Ahmed" <qmha5550@gmail.com>
+Subject: Auditor General Office
+Date: Fri, 7 Oct 2016 18:45:12 +0000
+Message-ID: <CAE84O8_KVgKhxnbNQd3hTofGb_8EwZQpgFucMbbf3ycGOWTT3w@mail.gmail.com>
+Reply-To: ahmedmalaki46@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fem.tu-ilmenau.de ([141.24.220.54]:59443 "EHLO
-        mail.fem.tu-ilmenau.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932132AbcJGSjj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 14:39:39 -0400
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35003 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932132AbcJGSpN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 14:45:13 -0400
+Received: by mail-wm0-f67.google.com with SMTP id f193so4185691wmg.2
+        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 11:45:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Checking for num_mcast_sta in __ieee80211_request_smps_ap() is unnecessary,
-as sta list will be empty in this case anyway, so list_for_each_entry(sta,
-...) will exit immediately.
+Mr.Malaki Ahmed
+Auditor General Office
 
-Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
----
- net/mac80211/cfg.c | 7 -------
- 1 file changed, 7 deletions(-)
+Attn,
 
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index 543b1d4..24133f5 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -2313,13 +2313,6 @@ int __ieee80211_request_smps_ap(struct ieee80211_sub_if_data *sdata,
- 	    smps_mode == IEEE80211_SMPS_AUTOMATIC)
- 		return 0;
- 
--	 /* If no associated stations, there's no need to do anything */
--	if (!atomic_read(&sdata->u.ap.num_mcast_sta)) {
--		sdata->smps_mode = smps_mode;
--		ieee80211_queue_work(&sdata->local->hw, &sdata->recalc_smps);
--		return 0;
--	}
--
- 	ht_dbg(sdata,
- 	       "SMPS %d requested in AP mode, sending Action frame to %d stations\n",
- 	       smps_mode, atomic_read(&sdata->u.ap.num_mcast_sta));
--- 
-2.1.4
+I feel quite safe dealing with you in this important business. Though
+this medium (Internet) has been greatly abused, I choose to reach you
+through it because it still remains the fastest medium of
+communication. However, this correspondence is private, and it should
+be treated in strict confidence.
+
+
+Firstly I will like to assure you that this transaction is 100% risk
+and trouble free to both parties, In order to transfer out fifteen
+million two hundred thousand dollars, (US$15.200 000 00) from our bank
+ here, secondly the fund for transfers of clean origin.
+
+The owner of the fund is a foreigner, a program leader who was
+believed to have acquired the fund through his secret Crude Oil deal
+with the Former IRAQ government.
+
+The deceased died with all the members of his family in an auto
+accident without a WILL. Again the amount involved isUS$15,200,000.00.
+
+I want to transfer this money into your account as the foreign
+beneficiary of the fund. I know that this letter will come to you as a
+surprise as we don't know ourselves before, but be sure that it is
+real and a genuine business. I contact you believing that you will not
+let me down once the fund goes into your account.
+
+Let me hear from you.
+
+
+Regards
+Ahmed
