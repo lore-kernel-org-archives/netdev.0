@@ -1,39 +1,49 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] devicetree: net: micrel-ksz90x1.txt: Properly explain
- skew settings
-Date: Thu, 06 Oct 2016 20:49:23 -0400 (EDT)
-Message-ID: <20161006.204923.1914066918563386131.davem@davemloft.net>
-References: <1475676188-10639-1-git-send-email-mike.looijmans@topic.nl>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v3 net-next 4/4] net/sched: act_mirred: Implement ingress actions
+Date: Thu, 6 Oct 2016 17:49:16 -0700
+Message-ID: <CAM_iQpUSbqnho97XufnFW=jJmCnc8HXbz657rk=LZzxmf=hwDw@mail.gmail.com>
+References: <1475147012-15538-1-git-send-email-shmulik.ladkani@gmail.com>
+ <1475147012-15538-5-git-send-email-shmulik.ladkani@gmail.com>
+ <CAM_iQpWwPqbiJ7tjbHqvYfyRL5fh+oXGVFFPmW3wLUCGbK-b4Q@mail.gmail.com>
+ <CAOrmypK=TZ=cDCDwy=wJgCsMgJWaMfr5dudEwHNnQzpeYJRfHw@mail.gmail.com>
+ <CAM_iQpXB_LGd0GLmuyjcUqSvBy9nKX_02TEdm4GF3V-yX_rr0g@mail.gmail.com> <2d606b1d-0281-403b-cf82-c02c785c0f10@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: mike.looijmans-Oq418RWZeHk@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1475676188-10639-1-git-send-email-mike.looijmans-Oq418RWZeHk@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:34268 "EHLO
+        mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936356AbcJGAti (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2016 20:49:38 -0400
+Received: by mail-io0-f176.google.com with SMTP id r30so32694472ioi.1
+        for <netdev@vger.kernel.org>; Thu, 06 Oct 2016 17:49:38 -0700 (PDT)
+In-Reply-To: <2d606b1d-0281-403b-cf82-c02c785c0f10@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
-Date: Wed,  5 Oct 2016 16:03:08 +0200
+On Thu, Oct 6, 2016 at 5:17 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> I dont believe we need to bother with the return code in  this case.
 
-> The KSZ9031 skew registers contain an offset, the chip's default value
-> is "neutral" which does not add any skew. Programming a 0 into a skew
-> property will actually set it the maximal negative adjustment and not
-> to a neutral position as one would expect.
-> 
-> Explain this situation in the devicetree binding documentation and list
-> the settings that the chip considers neutral.
-> 
-> Changing the implementation to accept negative values would have been
-> a better solution, but would break existing configurations.
-> 
-> Signed-off-by: Mike Looijmans <mike.looijmans-Oq418RWZeHk@public.gmane.org>
+Why?
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For a quick example, STOLEN vs. SHOT:
+
+        result = tc_classify(skb, filter, &res, false);
+        if (result >= 0) {
+#ifdef CONFIG_NET_CLS_ACT
+                switch (result) {
+                case TC_ACT_STOLEN:
+                case TC_ACT_QUEUED:
+                        *qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+                case TC_ACT_SHOT:
+                        return 0;
+                }
+#endif
+
+Note, *qerr is the return value to ->enqueue().
