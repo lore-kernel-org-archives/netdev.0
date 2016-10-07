@@ -1,64 +1,68 @@
-From: Matej Kupljen <matej.kupljen@gmail.com>
-Subject: HSO driver patch again [1/2]
-Date: Fri, 7 Oct 2016 16:44:40 +0200
-Message-ID: <CAHMF36EFRnkXmBgt=CEP4PN-RbN-nWw9jx4HPJgc705W6iKgRg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v4 01/10] ethernet: add sun8i-emac driver
+Date: Fri, 07 Oct 2016 08:02:39 -0700
+Message-ID: <1475852559.1945.2.camel@perches.com>
+References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
+         <1475828757-926-2-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33796 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755954AbcJGOom (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 10:44:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>, robh+dt@kernel.org,
+        mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+        wens@csie.org, linux@armlinux.org.uk, davem@davemloft.net,
+        f.fainelli@gmail.com, andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475828757-926-2-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, 2016-10-07 at 10:25 +0200, Corentin Labbe wrote:
+> This patch add support for sun8i-emac ethernet MAC hardware.
+> It could be found in Allwinner H3/A83T/A64 SoCs.
 
-I am using hso driver for my 3G modem (although different manufacturer
-with different USB VID/PID) but I have some problems with it. It is
-working fine, but if you disconnect the USB connection while the data
-is transferring trough AT interface, we get a crash.
+trivial notes:
 
-First patch
-0001-Reverse-the-order-in-disconnect.patch
-This patch first sets the interface to NULL and only then starts
-removing the allocated resources. This is according to documentation and
-it is also more similar to other drivers.
+> diff --git a/drivers/net/ethernet/allwinner/sun8i-emac.c b/drivers/net/ethernet/allwinner/sun8i-emac.c
+[]
+> +static const char const estats_str[][ETH_GSTRING_LEN] = {
 
-Thanks,
-Matej
+one too many const
 
-From: Matej Kupljen <matej.kupljen@norik.si>
-Date: Wed, 28 Sep 2016 18:37:23 +0200
-Subject: [PATCH] Reverse the order in disconnect
+> +/* MAGIC value for knowing if a descriptor is available or not */
+> +#define DCLEAN cpu_to_le32(BIT(16) | BIT(14) | BIT(12) | BIT(10) | BIT(9))
 
-When the device is disconnected, we first need to set interface
-data to NULL and then do the freeing of resources to avoid race
-conditions.
+Aren't there #defines for these bits?
 
-Signed-off-by: Matej Kupljen <matej.kupljen@norik.si>
----
- drivers/net/usb/hso.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> +static void sun8i_emac_flow_ctrl(struct sun8i_emac_priv *priv, int duplex,
+> +				 int fc)
+> +{
+> +	u32 flow = 0;
+> +
+> +	flow = readl(priv->base + EMAC_RX_CTL0);
+> +	if (fc & EMAC_FLOW_RX)
+> +		flow |= BIT(16);
+> +	else
+> +		flow &= ~BIT(16);
+> +	writel(flow, priv->base + EMAC_RX_CTL0);
+> +
+> +	flow = readl(priv->base + EMAC_TX_FLOW_CTL);
+> +	if (fc & EMAC_FLOW_TX)
+> +		flow |= BIT(0);
+> +	else
+> +		flow &= ~BIT(0);
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index b0df61f..16aef06 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -3013,10 +3013,10 @@ exit:
- /* device removed, cleaning up */
- static void hso_disconnect(struct usb_interface *interface)
- {
-- hso_free_interface(interface);
--
-  /* remove reference of our private data */
-  usb_set_intfdata(interface, NULL);
-+
-+ hso_free_interface(interface);
- }
+more magic bits that could be #defines
 
- static void async_get_intf(struct work_struct *data)
--- 
-2.7.4
+> +static int sun8i_emac_rx_from_ddesc(struct net_device *ndev, int i)
+> +{
+> []
+> +	/* the checksum or length of received frame's payload is wrong*/
+> +	if (dstatus & BIT(0)) {
+[]
+> +	if (dstatus & BIT(1)) {
+[]
+> +	if ((dstatus & BIT(3))) {
+
+etc...
