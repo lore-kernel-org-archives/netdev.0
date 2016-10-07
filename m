@@ -1,61 +1,111 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH v2] ipv6 addrconf: disallow rtr_solicits < -1
-Date: Fri,  7 Oct 2016 01:00:49 -0700
-Message-ID: <1475827249-27318-1-git-send-email-zenczykowski@gmail.com>
-References: <CANP3RGdVquyFe1VA2mKMC1HNgnXPhmpsv45R-7P6boWCb8oC2A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Erik Kline <ek@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35193 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755710AbcJGIBA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 04:01:00 -0400
-Received: by mail-pf0-f193.google.com with SMTP id t25so2468578pfg.2
-        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 01:00:59 -0700 (PDT)
-In-Reply-To: <CANP3RGdVquyFe1VA2mKMC1HNgnXPhmpsv45R-7P6boWCb8oC2A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v4 00/10] net-next: ethernet: add sun8i-emac driver
+Date: Fri,  7 Oct 2016 10:25:47 +0200
+Message-ID: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        andrew-g2DYL2Zd6BY@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Maciej Żenczykowski <maze@google.com>
+Hello
 
-This disallows setting /proc/sys/net/ipv6/conf/*/router_solicitations
-to values below -1.
+This patch series add the driver for sun8i-emac which handle the Ethernet MAC
+present on Allwinner H3/A83T/A64 SoCs.
 
--1 continues to mean an unlimited number of retransmits.
+It supports 10/100/1000 Mbit/s speed with half/full duplex.
+It can use an internal PHY (MII 10/100) or an external PHY
+via RGMII/RMII.
 
-Note: this depends on 'ipv6 addrconf: remove addrconf_sysctl_hop_limit()'
+This patch series enable the driver only for the H3 SoC since A83T and A64
+doesn't have the necessary clocks present in mainline.
 
-Signed-off-by: Maciej Żenczykowski <maze@google.com>
----
- net/ipv6/addrconf.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+This patch series enable the driver only for OrangePiPC and OrangePIOne boards
+since other board with H3 use external PHY which need optional regulators
+that will be supported later.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cbd9343751a2..d8983e15f859 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5729,6 +5729,7 @@ int addrconf_sysctl_ignore_routes_with_linkdown(struct ctl_table *ctl,
- 	return ret;
- }
- 
-+static int minus_one = -1;
- static const int one = 1;
- static const int two_five_five = 255;
- 
-@@ -5789,7 +5790,8 @@ static const struct ctl_table addrconf_sysctl[] = {
- 		.data		= &ipv6_devconf.rtr_solicits,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &minus_one,
- 	},
- 	{
- 		.procname	= "router_solicitation_interval",
+The driver have been tested on the following boards:
+- H3 Orange PI PC, Orange PI Plus, BananaPI-M2+
+- A64 Pine64
+- A83T BananaPI-M3
+
+I would like to thanks Chen-Yu Tsai for his help on developing this driver.
+
+Regards
+
+Changes since v3
+- sun8i-emac require a DT mdio node
+- moved sun8i_emac_power() so that no clock/reset/regulator is used
+    until netdev/open is called
+- Removed PM patch until proper tests are done
+- DT use phy-handle instead of phy
+- Moved DT aliases ethernet to subnodes
+- Renamed PHY nodes to [int|ext]_[r|g]mii_phy
+- Moved clock/reset for internal PHY to PHY node.
+
+Changes since v2
+- Added patch to support Orange PI One
+- Added a patch to enable SUN8I_EMAC in sunxi_defconfig
+- Added a patch to enable pm_runtime
+- The Emac clock is now used standard syscon/regmap
+- Added netdev_sent_queue/netdev_completed_queue
+- Added lots of documentation on working (locks, memory barrier, etc...)
+- Cleaned DT bindings documentation
+- Added ethernet0 aliases as suggested by Hans de Goede
+- Change prefix of all DEFINE to EMAC_
+- The driver is now endian safe
+- Reworked the internal PHY mechanism
+- Removed dma_set_mask_and_coherent(32) since it is the default for of_platform_driver
+
+Changes since v1
+- Implement NAPI
+- Sorted and reworded all define
+- Reworked ethtools stats strings
+- Removed all unneeded __packked and __aligned
+- Added tuning of RX/TX ring size via ethtool
+- Corrected use of sk/skb naming
+- Added some wmb when needed
+- Moved irq claim/free to emac_open/close
+- Lots of code refactoring
+
+Corentin Labbe (9):
+  ethernet: add sun8i-emac driver
+  MAINTAINERS: Add myself as maintainer of sun8i-emac
+  ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac
+  ARM: dts: sun8i-h3: Add dt node for the syscon control module
+  ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
+  ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
+  ARM: dts: sun8i: Enable sun8i-emac on the Orange Pi 2
+  ARM: sunxi: Enable sun8i-emac driver on multi_v7_defconfig
+  ARM: sunxi: Enable sun8i-emac driver on sunxi_defconfig
+
+Hans de Goede (1):
+  ARM: dts: sun8i: Enable sun8i-emac on the Orange PI One
+
+ .../bindings/net/allwinner,sun8i-emac.txt          |   70 +
+ MAINTAINERS                                        |    6 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts          |    8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts        |    8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |    8 +
+ arch/arm/boot/dts/sun8i-h3.dtsi                    |   29 +
+ arch/arm/configs/multi_v7_defconfig                |    1 +
+ arch/arm/configs/sunxi_defconfig                   |    1 +
+ drivers/net/ethernet/allwinner/Kconfig             |   13 +
+ drivers/net/ethernet/allwinner/Makefile            |    1 +
+ drivers/net/ethernet/allwinner/sun8i-emac.c        | 2266 ++++++++++++++++++++
+ 11 files changed, 2411 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+ create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c
+
 -- 
-2.8.0.rc3.226.g39d4020
+2.7.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
