@@ -1,7 +1,9 @@
 From: Zach Brown <zach.brown@ni.com>
-Subject: [PATCH 0/3] Add support for led triggers on phy link state change
-Date: Fri, 7 Oct 2016 16:14:54 -0500
-Message-ID: <1475874897-29720-1-git-send-email-zach.brown@ni.com>
+Subject: [RFC v3 1/3] skge: Rename LED_OFF and LED_ON in marvel skge driver to
+ avoid conflicts with leds namespace
+Date: Fri, 7 Oct 2016 16:14:55 -0500
+Message-ID: <1475874897-29720-2-git-send-email-zach.brown@ni.com>
+References: <1475874897-29720-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +13,7 @@ Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
  j.anaszewski@samsung.com, linux-leds@vger.kernel.org, mlindner@marvell.com
 To: f.fainelli@gmail.com
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1475874897-29720-1-git-send-email-zach.brown@ni.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
@@ -22,50 +25,67 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Fix skge driver that declared enum contants that conflicted with enum
-constants in linux/leds.h
+Adding led support for phy causes namespace conflicts for some
+phy drivers.
 
-Create function that encapsulates actions taken during the adjust phy link step
-of phy state changes.
+The marvel skge driver declared an enum for representing the states of
+Link LED Register. The enum contained constant LED_OFF which conflicted
+with declartation found in linux/leds.h.
+LED_OFF changed to LED_REG_OFF
+Also changed LED_ON to LED_REG_ON to avoid possible future conflict and
+for consistency.
 
-Add support for led triggers on phy link state changes by adding
-a config option. When set the config option will create a set of led triggers
-for each phy device. Users can use the led triggers to represent link state
-changes on the phy.
+Signed-off-by: Zach Brown <zach.brown@ni.com>
+---
+ drivers/net/ethernet/marvell/skge.c | 6 +++---
+ drivers/net/ethernet/marvell/skge.h | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-v2:
- * New patch that creates phy_adjust_link function to encapsulate actions taken
-   when adjusting phy link during phy state changes
- * led trigger speed strings changed to match existing phy speed strings
- * New function that maps speeds to led triggers
- * Replace magic constants with definitions when declaring trigger name
-   buffer and number of triggers.
-v3:
- * Changed LED_ON to LED_REG_ON in skge driver to avoid possible future
-   conflict and improve consistency.
- * Dropped rtl8712 patch that was accepted separately.
-
-Josh Cartwright (1):
-  phy,leds: add support for led triggers on phy link state change
-
-Zach Brown (2):
-  skge: Change LED_OFF to LED_REG_OFF in marvel skge driver to avoid
-    conflicts with leds namespace
-  phy: Encapsulate actions performed during link state changes into
-    function phy_adjust_link
-
- drivers/net/ethernet/marvell/skge.c |   6 +-
- drivers/net/ethernet/marvell/skge.h |   4 +-
- drivers/net/phy/Kconfig             |  13 +++-
- drivers/net/phy/Makefile            |   1 +
- drivers/net/phy/phy.c               |  22 ++++---
- drivers/net/phy/phy_device.c        |   4 ++
- drivers/net/phy/phy_led_triggers.c  | 121 ++++++++++++++++++++++++++++++++++++
- include/linux/phy.h                 |   9 +++
- include/linux/phy_led_triggers.h    |  52 ++++++++++++++++
- 9 files changed, 218 insertions(+), 14 deletions(-)
- create mode 100644 drivers/net/phy/phy_led_triggers.c
- create mode 100644 include/linux/phy_led_triggers.h
-
---
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 7173836..783df01 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -1048,7 +1048,7 @@ static const char *skge_pause(enum pause_status status)
+ static void skge_link_up(struct skge_port *skge)
+ {
+ 	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG),
+-		    LED_BLK_OFF|LED_SYNC_OFF|LED_ON);
++		    LED_BLK_OFF|LED_SYNC_OFF|LED_REG_ON);
+ 
+ 	netif_carrier_on(skge->netdev);
+ 	netif_wake_queue(skge->netdev);
+@@ -1062,7 +1062,7 @@ static void skge_link_up(struct skge_port *skge)
+ 
+ static void skge_link_down(struct skge_port *skge)
+ {
+-	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
++	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_REG_OFF);
+ 	netif_carrier_off(skge->netdev);
+ 	netif_stop_queue(skge->netdev);
+ 
+@@ -2668,7 +2668,7 @@ static int skge_down(struct net_device *dev)
+ 	if (hw->ports == 1)
+ 		free_irq(hw->pdev->irq, hw);
+ 
+-	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
++	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_REG_OFF);
+ 	if (is_genesis(hw))
+ 		genesis_stop(skge);
+ 	else
+diff --git a/drivers/net/ethernet/marvell/skge.h b/drivers/net/ethernet/marvell/skge.h
+index a2eb341..3ea151f 100644
+--- a/drivers/net/ethernet/marvell/skge.h
++++ b/drivers/net/ethernet/marvell/skge.h
+@@ -662,8 +662,8 @@ enum {
+ 	LED_BLK_OFF	= 1<<4,	/* Link LED Blinking Off */
+ 	LED_SYNC_ON	= 1<<3,	/* Use Sync Wire to switch LED */
+ 	LED_SYNC_OFF	= 1<<2,	/* Disable Sync Wire Input */
+-	LED_ON	= 1<<1,	/* switch LED on */
+-	LED_OFF	= 1<<0,	/* switch LED off */
++	LED_REG_ON	= 1<<1,	/* switch LED on */
++	LED_REG_OFF	= 1<<0,	/* switch LED off */
+ };
+ 
+ /* Receive GMAC FIFO (YUKON) */
+-- 
 2.7.4
