@@ -1,70 +1,268 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v3 0/6] openvswitch: make vlan handling consistent
-Date: Fri, 7 Oct 2016 12:59:08 -0700
-Message-ID: <CAOrHB_BTJecjrUsJVzhO4W-edX1V8U7_sn3AHa_Mo+v50n4ycQ@mail.gmail.com>
-References: <cover.1475855896.git.jbenc@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v9 1/1] net: phy: Cleanup the Edge-Rate feature
+ in Microsemi PHYs.
+Date: Fri, 7 Oct 2016 22:22:25 +0200
+Message-ID: <20161007202225.GC8266@lunn.ch>
+References: <1475828904-13839-1-git-send-email-allan.nielsen@microsemi.com>
+ <1475828904-13839-2-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Garver <e@erig.me>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        raju.lakkaraju@microsemi.com
+To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:44956 "EHLO
-        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932441AbcJGT7O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 15:59:14 -0400
-Received: from mfilter19-d.gandi.net (mfilter19-d.gandi.net [217.70.178.147])
-        by relay5-d.mail.gandi.net (Postfix) with ESMTP id A1E9541C07E
-        for <netdev@vger.kernel.org>; Fri,  7 Oct 2016 21:59:11 +0200 (CEST)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-        by mfilter19-d.gandi.net (mfilter19-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 2WDRBNehmkkN for <netdev@vger.kernel.org>;
-        Fri,  7 Oct 2016 21:59:10 +0200 (CEST)
-Received: from mail-it0-f46.google.com (mail-it0-f46.google.com [209.85.214.46])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 1770141C074
-        for <netdev@vger.kernel.org>; Fri,  7 Oct 2016 21:59:09 +0200 (CEST)
-Received: by mail-it0-f46.google.com with SMTP id z65so17942940itc.0
-        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 12:59:09 -0700 (PDT)
-In-Reply-To: <cover.1475855896.git.jbenc@redhat.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:41065 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932253AbcJGUW2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Oct 2016 16:22:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1475828904-13839-2-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 7, 2016 at 9:07 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> Always keep the first vlan tag "accelerated", i.e. in skb->vlan_tci.
->
-> Unfortunately, with all the changes since v2, this patchset no longer has
-> the nice deletions > insertions diffstat. I still think it's worth it, as it
-> makes things more consistent overall.
->
-After looking at the changes, I am not sure about the value. These
-patches are making code bit complicated by processing vlan header
-twice rather than once in current code.
+On Fri, Oct 07, 2016 at 10:28:24AM +0200, Allan W. Nielsen wrote:
+> Edge-Rate cleanup include the following:
+> - Updated device tree bindings documentation for edge-rate
+> - The edge-rate is now specified as a "slowdown", meaning that it is now
+>   being specified as positive values instead of negative (both
+>   documentation and implementation wise).
+> - Only explicitly documented values for "vsc8531,vddmac" and
+>   "vsc8531,edge-slowdown" are accepted by the device driver.
+> - Deleting include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
+> 
+> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> Signed-off-by: Raju Lakkaraju <raju.lakkaraju@microsemi.com>
+> ---
+>  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 49 ++++++++------
+>  drivers/net/phy/mscc.c                             | 79 +++++++++++++---------
+>  include/dt-bindings/net/mscc-phy-vsc8531.h         | 21 ------
+>  3 files changed, 75 insertions(+), 74 deletions(-)
+>  delete mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
+> 
+> diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> index 99c7eb0..f552033 100644
+> --- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> @@ -6,20 +6,27 @@ Required properties:
+>  		  Documentation/devicetree/bindings/net/phy.txt
+>  
+>  Optional properties:
+> -- vsc8531,vddmac	: The vddmac in mV.
+> +- vsc8531,vddmac	: The vddmac in mV. Allowed values is listed
+> +			  in the first row of Table 1 (below).
+> +			  This property is only used in combination
+> +			  with the 'edge-slowdown' property.
+> +			  Default value is 3300.
+>  - vsc8531,edge-slowdown	: % the edge should be slowed down relative to
+> -			  the fastest possible edge time. Native sign
+> -			  need not enter.
+> +			  the fastest possible edge time.
+>  			  Edge rate sets the drive strength of the MAC
+> -			  interface output signals.  Changing the drive
+> -			  strength will affect the edge rate of the output
+> -			  signal.  The goal of this setting is to help
+> -			  reduce electrical emission (EMI) by being able
+> -			  to reprogram drive strength and in effect slow
+> -			  down the edge rate if desired.  Table 1 shows the
+> -			  impact to the edge rate per VDDMAC supply for each
+> -			  drive strength setting.
+> -			  Ref: Table:1 - Edge rate change below.
+> +			  interface output signals.  Changing the
+> +			  drive strength will affect the edge rate of
+> +			  the output signal.  The goal of this setting
+> +			  is to help reduce electrical emission (EMI)
+> +			  by being able to reprogram drive strength
+> +			  and in effect slow down the edge rate if
+> +			  desired.
+> +			  To adjust the edge-slowdown, the 'vddmac'
+> +			  must be specified. Table 1 lists the
+> +			  supported edge-slowdown values for a given
+> +			  'vddmac'.
+> +			  Default value is 0%.
+> +			  Ref: Table:1 - Edge rate change (below).
+>  
+>  Note: see dt-bindings/net/mscc-phy-vsc8531.h for applicable values
 
-> Patch 3 is valid on its own. Patch 6 is needed in one form or other; with
-> the changes in this set, it's a simple deletion. Otherwise we'd need more
-> elaborate checks.
->
-As far as patch 6 is concerned I think we could do MTU checks similar
-to the rest of networking stack (for example is_skb_forwardable()).
-That would simplify things here.
+Hi Allen
 
+Overall, this is much better. I just have a few nitpicks.
 
-> Jiri Benc (6):
->   openvswitch: make skb modifiable in ovs_flow_key_extract*
->   openvswitch: normalize vlan rx path
->   openvswitch: add NETIF_F_HW_VLAN_STAG_TX to internal dev
->   openvswitch: keep vlan tag accelerated on internal device
->   openvswitch: remove unreachable code in vlan parsing
->   openvswitch: fix vlan subtraction from packet length
->
->  net/openvswitch/datapath.c           |  9 ++--
->  net/openvswitch/flow.c               | 83 ++++++++++++++++++++++++------------
->  net/openvswitch/flow.h               | 14 +++---
->  net/openvswitch/vport-internal_dev.c |  9 +++-
->  net/openvswitch/vport.c              | 18 +++-----
->  5 files changed, 83 insertions(+), 50 deletions(-)
->
-> --
-> 1.8.3.1
->
+dt-bindings/net/mscc-phy-vsc8531.h is removed by this patch. It would
+be good to also remove the reference.
+
+>  
+> @@ -29,23 +36,23 @@ Table: 1 - Edge rate change
+>  |								|
+>  | 3300 mV	2500 mV		1800 mV		1500 mV		|
+>  |---------------------------------------------------------------|
+> -| Default	Deafult		Default		Default		|
+> +| 0%		0%		0%		0%		|
+>  | (Fastest)			(recommended)	(recommended)	|
+>  |---------------------------------------------------------------|
+> -| -2%		-3%		-5%		-6%		|
+> +| 2%		3%		5%		6%		|
+>  |---------------------------------------------------------------|
+> -| -4%		-6%		-9%		-14%		|
+> +| 4%		6%		9%		14%		|
+>  |---------------------------------------------------------------|
+> -| -7%		-10%		-16%		-21%		|
+> +| 7%		10%		16%		21%		|
+>  |(recommended)	(recommended)					|
+>  |---------------------------------------------------------------|
+> -| -10%		-14%		-23%		-29%		|
+> +| 10%		14%		23%		29%		|
+>  |---------------------------------------------------------------|
+> -| -17%		-23%		-35%		-42%		|
+> +| 17%		23%		35%		42%		|
+>  |---------------------------------------------------------------|
+> -| -29%		-37%		-52%		-58%		|
+> +| 29%		37%		52%		58%		|
+>  |---------------------------------------------------------------|
+> -| -53%		-63%		-76%		-77%		|
+> +| 53%		63%		76%		77%		|
+>  | (slowest)							|
+>  |---------------------------------------------------------------|
+>  
+> @@ -54,5 +61,5 @@ Example:
+>          vsc8531_0: ethernet-phy@0 {
+>                  compatible = "ethernet-phy-id0007.0570";
+>                  vsc8531,vddmac		= <3300>;
+> -                vsc8531,edge-slowdown	= <21>;
+> +                vsc8531,edge-slowdown	= <7>;
+>          };
+> diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+> index a17573e..2bd00b6 100644
+> --- a/drivers/net/phy/mscc.c
+> +++ b/drivers/net/phy/mscc.c
+> @@ -12,7 +12,6 @@
+>  #include <linux/mii.h>
+>  #include <linux/phy.h>
+>  #include <linux/of.h>
+> -#include <dt-bindings/net/mscc-phy-vsc8531.h>
+>  
+>  enum rgmii_rx_clock_delay {
+>  	RGMII_RX_CLK_DELAY_0_2_NS = 0,
+> @@ -56,21 +55,27 @@ enum rgmii_rx_clock_delay {
+>  #define PHY_ID_VSC8531			  0x00070570
+>  #define PHY_ID_VSC8541			  0x00070770
+>  
+> -struct edge_rate_table {
+> +#define MSCC_VDDMAC_1500		  1500
+> +#define MSCC_VDDMAC_1800		  1800
+> +#define MSCC_VDDMAC_2500		  2500
+> +#define MSCC_VDDMAC_3300		  3300
+> +
+> +struct vsc8531_edge_rate_table {
+>  	u16 vddmac;
+> -	int slowdown[MSCC_SLOWDOWN_MAX];
+> +	u8 slowdown[8];
+>  };
+>  
+> -struct edge_rate_table edge_table[MSCC_VDDMAC_MAX] = {
+> -	{3300, { 0, -2, -4,  -7,  -10, -17, -29, -53} },
+> -	{2500, { 0, -3, -6,  -10, -14, -23, -37, -63} },
+> -	{1800, { 0, -5, -9,  -16, -23, -35, -52, -76} },
+> -	{1500, { 0, -6, -14, -21, -29, -42, -58, -77} },
+> +static const struct vsc8531_edge_rate_table edge_table[] = {
+> +	{MSCC_VDDMAC_3300, { 0, 2,  4,  7, 10, 17, 29, 53} },
+> +	{MSCC_VDDMAC_2500, { 0, 3,  6, 10, 14, 23, 37, 63} },
+> +	{MSCC_VDDMAC_1800, { 0, 5,  9, 16, 23, 35, 52, 76} },
+> +	{MSCC_VDDMAC_1500, { 0, 6, 14, 21, 29, 42, 58, 77} },
+>  };
+>  
+>  struct vsc8531_private {
+>  	u8 edge_slowdown;
+>  	u16 vddmac;
+> +	int rate_magic;
+>  };
+
+You don't need edge_slowdown and vddmac in the private structure,
+since they are never used after determining what rate_magic is.
+
+>  
+>  static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+> @@ -81,29 +86,21 @@ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+>  	return rc;
+>  }
+>  
+> -static u8 edge_rate_magic_get(u16 vddmac,
+> -			      int slowdown)
+> +static int vsc85xx_edge_rate_magic_get(u16 vddmac, u8 slowdown)
+>  {
+> -	int rc = (MSCC_SLOWDOWN_MAX - 1);
+>  	u8 vdd;
+>  	u8 sd;
+> -
+> -	for (vdd = 0; vdd < MSCC_VDDMAC_MAX; vdd++) {
+> -		if (edge_table[vdd].vddmac == vddmac) {
+> -			for (sd = 0; sd < MSCC_SLOWDOWN_MAX; sd++) {
+> -				if (edge_table[vdd].slowdown[sd] <= slowdown) {
+> -					rc = (MSCC_SLOWDOWN_MAX - sd - 1);
+> -					break;
+> -				}
+> -			}
+> -		}
+> -	}
+> -
+> -	return rc;
+> +	u8 sd_array_size = ARRAY_SIZE(edge_table[0].slowdown);
+> +
+> +	for (vdd = 0; vdd < ARRAY_SIZE(edge_table); vdd++)
+> +		if (edge_table[vdd].vddmac == vddmac)
+> +			for (sd = 0; sd < sd_array_size; sd++)
+> +				if (edge_table[vdd].slowdown[sd] == slowdown)
+> +					return (sd_array_size - sd - 1);
+> +	return -EINVAL;
+>  }
+>  
+> -static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
+> -				      u8 edge_rate)
+> +static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev, u8 edge_rate)
+>  {
+>  	int rc;
+>  	u16 reg_val;
+> @@ -199,17 +196,38 @@ static int vsc8531_of_init(struct phy_device *phydev)
+>  				  &vsc8531->vddmac);
+>  	if (rc == -EINVAL)
+>  		vsc8531->vddmac = MSCC_VDDMAC_3300;
+> +
+>  	rc = of_property_read_u8(of_node, "vsc8531,edge-slowdown",
+>  				 &vsc8531->edge_slowdown);
+>  	if (rc == -EINVAL)
+>  		vsc8531->edge_slowdown = 0;
+>  
+> -	rc = 0;
+> -	return rc;
+> +	vsc8531->rate_magic = vsc85xx_edge_rate_magic_get(
+> +		vsc8531->vddmac, vsc8531->edge_slowdown);
+> +	if (vsc8531->rate_magic < 0) {
+> +		phydev_err(phydev,
+> +			   "Invalid vsc8531,vddmac or vsc8531,edge-slowdown");
+> +		return vsc8531->rate_magic;
+> +	}
+> +
+> +	return 0;
+>  }
+>  #else
+>  static int vsc8531_of_init(struct phy_device *phydev)
+>  {
+> +	struct vsc8531_private *vsc8531 = phydev->priv;
+> +
+> +	vsc8531->vddmac = MSCC_VDDMAC_3300;
+> +	vsc8531->edge_slowdown = 0;
+> +
+> +	vsc8531->rate_magic = vsc85xx_edge_rate_magic_get(
+> +		vsc8531->vddmac, vsc8531->edge_slowdown);
+> +	if (vsc8531->rate_magic < 0) {
+> +		phydev_err(phydev,
+> +			   "Invalid vsc8531,vddmac or vsc8531,edge-slowdown");
+> +		return vsc8531->rate_magic;
+> +	}
+
+You could skip all this and just have:
+
+    vsc8531->rate_magic = 0;
+
+vsc8531->vddmac and vsc8531->edge_slowdown are not used anywhere else.
+
+	Andrew
