@@ -1,52 +1,47 @@
-From: Matej Kupljen <matej.kupljen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: HSO driver patch [2/2]
-Date: Fri, 7 Oct 2016 16:30:28 +0200
-Message-ID: <CAHMF36HmX166vMwtt8keJKtYshZPHHN95CXNcm4PNf8TwU7-VA@mail.gmail.com>
+From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: HSO driver patch [1/2]
+Date: Fri, 7 Oct 2016 16:38:21 +0200
+Message-ID: <20161007143821.GA26768@kroah.com>
+References: <CAHMF36FfubzNOcaud613oVuM4YZoC_y29GtMC_h7HDNLOSm8Ew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e010d89ea7a71e7053e4740aa
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+To: Matej Kupljen <matej.kupljen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAHMF36FfubzNOcaud613oVuM4YZoC_y29GtMC_h7HDNLOSm8Ew-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---089e010d89ea7a71e7053e4740aa
-Content-Type: text/plain; charset=UTF-8
+On Fri, Oct 07, 2016 at 04:29:42PM +0200, Matej Kupljen wrote:
+> Hi,
+> 
+> 
+> I am using hso driver for my 3G modem (although different manufacturer
+> with different USB VID/PID) but I have some problems with it. It is
+> working fine, but if you disconnect the USB connection while the data
+> is transferring trough AT interface, we get a crash.
+> 
+> There are two patches:
+>  1.) 0001-Reverse-the-order-in-disconnect.patch
+>       This patch first sets the interface to NULL and only then starts
+> removing the allocated
+>       resources. This is according to documentation and it is also
+> more similar to other drivers.
+>  2.) 0002-Stop-also-serial-queue-when-device-is-unplugged.patch
+>       Serial device was not stopped when the device got unplugged so
+> there are continues error
+>       messages that the URB cannot be submitted.
 
-Hi,
+Again, patches can not be attached, they just need to be inline, with
+the needed information.
 
-second patch..
+Look at the patches on the mailing lists for plenty of examples of how
+to do this.
 
-Thanks,
-Matej
+thanks,
 
---089e010d89ea7a71e7053e4740aa
-Content-Type: text/x-patch; charset=US-ASCII;
-	name="0002-Stop-also-serial-queue-when-device-is-unplugged.patch"
-Content-Disposition: attachment;
-	filename="0002-Stop-also-serial-queue-when-device-is-unplugged.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_itzvcutx1
-
-RnJvbSA5NWNmY2EyNmJiY2JiMDIxZTkzMjdjMDNmOGVkZjJlZDA4NzhkZTc1IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBNYXRlaiBLdXBsamVuIDxtYXRlai5rdXBsamVuQG5vcmlrLnNp
-PgpEYXRlOiBXZWQsIDUgT2N0IDIwMTYgMTM6MDg6MzEgKzAyMDAKU3ViamVjdDogW1BBVENIXSBT
-dG9wIGFsc28gc2VyaWFsIHF1ZXVlIHdoZW4gZGV2aWNlIGlzIHVucGx1Z2dlZAoKV2UgbmVlZCB0
-byBhbHNvIHN0b3Agc2VyaWFsIHBvcnQgd2hlbiB0aGUgZGV2aWNlIGlzIHVucGx1Z2dlZCwKdGhl
-IG5ldHdvcmsgcGFydCBpcyBhbHJlYWR5IHN0b3BwZWQuCgpTaWduZWQtb2ZmLWJ5OiBNYXRlaiBL
-dXBsamVuIDxtYXRlai5rdXBsamVuQG5vcmlrLnNpPgotLS0KIGRyaXZlcnMvbmV0L3VzYi9oc28u
-YyB8IDEgKwogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspCgpkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvdXNiL2hzby5jIGIvZHJpdmVycy9uZXQvdXNiL2hzby5jCmluZGV4IDE2YWVmMDYu
-LmVmZDFmZWYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9oc28uYworKysgYi9kcml2ZXJz
-L25ldC91c2IvaHNvLmMKQEAgLTMxNTcsNiArMzE1Nyw3IEBAIHN0YXRpYyB2b2lkIGhzb19mcmVl
-X2ludGVyZmFjZShzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZXJmYWNlKQogCQkJbXV0ZXhfbG9j
-aygmc2VyaWFsLT5wYXJlbnQtPm11dGV4KTsKIAkJCXNlcmlhbC0+cGFyZW50LT51c2JfZ29uZSA9
-IDE7CiAJCQltdXRleF91bmxvY2soJnNlcmlhbC0+cGFyZW50LT5tdXRleCk7CisJCQloc29fc3Rv
-cF9zZXJpYWxfZGV2aWNlKHNlcmlhbC0+cGFyZW50KTsKIAkJCWNhbmNlbF93b3JrX3N5bmMoJnNl
-cmlhbF90YWJsZVtpXS0+YXN5bmNfcHV0X2ludGYpOwogCQkJY2FuY2VsX3dvcmtfc3luYygmc2Vy
-aWFsX3RhYmxlW2ldLT5hc3luY19nZXRfaW50Zik7CiAJCQloc29fc2VyaWFsX3R0eV91bnJlZ2lz
-dGVyKHNlcmlhbCk7Ci0tIAoyLjcuNAoK
---089e010d89ea7a71e7053e4740aa--
+greg k-h
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
