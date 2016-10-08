@@ -1,63 +1,63 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Code quality and XDP
-Date: Sat, 8 Oct 2016 06:28:17 +0200
-Message-ID: <20161008062817.45d6ac2b@redhat.com>
-References: <CALx6S37LyR7NGkmxFrP67GVPsyke+BM9eZm0PSw+vQo3+wjSuA@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v3 net-next 4/4] net/sched: act_mirred: Implement ingress
+ actions
+Date: Sat, 8 Oct 2016 03:01:42 -0400
+Message-ID: <4498612b-a8ad-7e4a-048b-483615a87a11@mojatatu.com>
+References: <1475147012-15538-1-git-send-email-shmulik.ladkani@gmail.com>
+ <1475147012-15538-5-git-send-email-shmulik.ladkani@gmail.com>
+ <CAM_iQpWwPqbiJ7tjbHqvYfyRL5fh+oXGVFFPmW3wLUCGbK-b4Q@mail.gmail.com>
+ <CAOrmypK=TZ=cDCDwy=wJgCsMgJWaMfr5dudEwHNnQzpeYJRfHw@mail.gmail.com>
+ <CAM_iQpXB_LGd0GLmuyjcUqSvBy9nKX_02TEdm4GF3V-yX_rr0g@mail.gmail.com>
+ <2d606b1d-0281-403b-cf82-c02c785c0f10@mojatatu.com>
+ <CAM_iQpUSbqnho97XufnFW=jJmCnc8HXbz657rk=LZzxmf=hwDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58208 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750730AbcJHE21 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Oct 2016 00:28:27 -0400
-In-Reply-To: <CALx6S37LyR7NGkmxFrP67GVPsyke+BM9eZm0PSw+vQo3+wjSuA@mail.gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33356 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935027AbcJHHBu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2016 03:01:50 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i85so3992067pfa.0
+        for <netdev@vger.kernel.org>; Sat, 08 Oct 2016 00:01:49 -0700 (PDT)
+In-Reply-To: <CAM_iQpUSbqnho97XufnFW=jJmCnc8HXbz657rk=LZzxmf=hwDw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Sat, 8 Oct 2016 07:25:01 +0900 Tom Herbert <tom@herbertland.com> wrote:
-
-> One concern raised at netdev concerning XDP is how are we going to
-> maintain code quality, security, and correctness of programs being
-> loaded. With kernel bypass it is not just the kernel code path that is
-> being bypassed, but also the processes that hold the quality of code
-> being accepted to a high bar. Our users expect that quality to be
-> maintained.
-> 
-> I suggest that we need XDP programs to be subject to the same scrutiny
-> that any other kernel netdev code is. One idea is to sign programs
-> that have been accepted into the kernel. By default only signed
-> programs would be allowed to be loaded, the override to allow unsigned
-> programs might be a kernel config or a least a boot parameter
-> (enabling the override needs to be very explicit).
-
-Sorry, I think this "lock-down" will kill the DDoS use-case.  In the
-DDoS mitigation use-case, is all about flexibility to adapt quickly to
-changing attacks.  Thus, you need the ability to quickly modify your
-programs to catch attack signatures.
-
-
-> The acceptable XDP programs should probably be under their own
-> directory. Such a directory should only contain kernel code, not
-> userspace code also as is currently in samples/bpf.
+On 16-10-06 08:49 PM, Cong Wang wrote:
+> On Thu, Oct 6, 2016 at 5:17 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> I dont believe we need to bother with the return code in  this case.
 >
-> A nice side effect of this model is when the same XDP programs are
-> being used in non-Linux environments (HW offload, other OSes, etc.)
-> the process could maintain quality expections in those environments
-> also.
+> Why?
+>
+> For a quick example, STOLEN vs. SHOT:
+>
+>         result = tc_classify(skb, filter, &res, false);
+>         if (result >= 0) {
+> #ifdef CONFIG_NET_CLS_ACT
+>                 switch (result) {
+>                 case TC_ACT_STOLEN:
+>                 case TC_ACT_QUEUED:
+>                         *qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
+>                 case TC_ACT_SHOT:
+>                         return 0;
+>                 }
+> #endif
+>
+> Note, *qerr is the return value to ->enqueue().
+>
 
-I'm not against having some 'signed' eBPF/XDP programs.  If a XDP
-programs behavior is well-defined enough, this would also open up for
-HW offloading of "programs" that does the same functionality (without
-looking at the eBPF code).
+You are right. I take back what i said.
+We at minimal need consistency; so whether going to ingress or egress
+we should at least increment the overlimit stats in case of non-success
+code. Shmulik please fix up with checks on return code.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+cheers,
+jamal
