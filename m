@@ -1,18 +1,19 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH v3 net-next 0/2] net: centralize net_device MTU bounds checking
-Date: Fri,  7 Oct 2016 22:04:32 -0400
-Message-ID: <20161008020434.9691-1-jarod@redhat.com>
+Subject: [PATCH v3 net-next 1/2] net: centralize net_device min/max MTU checking
+Date: Fri,  7 Oct 2016 22:04:33 -0400
+Message-ID: <20161008020434.9691-2-jarod@redhat.com>
 References: <20161002.224322.740109807229746275.davem@davemloft.net>
+ <20161008020434.9691-1-jarod@redhat.com>
 Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161002.224322.740109807229746275.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Jarod Wilson (2):
-  net: centralize net_device min/max MTU checking
-  net: deprecate eth_change_mtu, remove usage
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43432 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933040AbcJHCEs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 7 Oct 2016 22:04:48 -0400
+In-Reply-To: <20161008020434.9691-1-jarod@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 While looking into an MTU issue with sfc, I started noticing that almost
 every NIC driver with an ndo_change_mtu function implemented almost
@@ -24,28 +25,67 @@ can remove a whole lot of redundant code here if we simple store min_mtu
 and max_mtu in net_device, and check against those in net/core/dev.c's
 dev_set_mtu().
 
-This pair of patches looks to introduce centralized MTU range checking
-infrastructure, while maintaining compatibility with all existing drivers,
-and start to make use of it, converting all eth_change_mtu/ether_setup users
-over to this new infra.
-
-Assuming these pass review muster, I've got a ton of follow-on patches to
-clean up MTU settings for everything in the kernel with an ndo_change_mtu.
-
-This work is all staged in a (rebasing) git tree here:
-
-https://github.com/jarodwilson/linux-muck
-
-The master branch is based on net-next from Oct 7, and carries these two
-patches, plus a ton of follow-on patches to eliminate MTU range checks
-and change_mtu functions where possible. All patches were successfully
-built across 160 various arch and config combos by the 0-day folks.
-(Thanks to Andrew Lunn for the suggestion to get that going).
-
-Jarod Wilson (2):
-  net: centralize net_device min/max MTU checking
-  net: deprecate eth_change_mtu, remove usage
+In theory, there should be zero functional change with this patch, it just
+puts the infrastructure in place. Subsequent patches will attempt to start
+using said infrastructure, with theoretically zero change in
+functionality.
 
 CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+v3: retain new_mtu < 0 check to prevent integral promotions,
+    as pointed out by Jakub Sitnicki.
+
+ include/linux/netdevice.h |  4 ++++
+ net/core/dev.c            | 13 +++++++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 136ae6bb..fbdf923 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1506,6 +1506,8 @@ enum netdev_priv_flags {
+  *	@if_port:	Selectable AUI, TP, ...
+  *	@dma:		DMA channel
+  *	@mtu:		Interface MTU value
++ *	@min_mtu:	Interface Minimum MTU value
++ *	@max_mtu:	Interface Maximum MTU value
+  *	@type:		Interface hardware type
+  *	@hard_header_len: Maximum hardware header length.
+  *
+@@ -1726,6 +1728,8 @@ struct net_device {
+ 	unsigned char		dma;
+ 
+ 	unsigned int		mtu;
++	unsigned int		min_mtu;
++	unsigned int		max_mtu;
+ 	unsigned short		type;
+ 	unsigned short		hard_header_len;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f1fe26f..f376639 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6499,9 +6499,18 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+ 	if (new_mtu == dev->mtu)
+ 		return 0;
+ 
+-	/*	MTU must be positive.	 */
+-	if (new_mtu < 0)
++	/* MTU must be positive, and in range */
++	if (new_mtu < 0 || new_mtu < dev->min_mtu) {
++		net_err_ratelimited("%s: Invalid MTU %d requested, hw min %d\n",
++				    dev->name, new_mtu, dev->min_mtu);
+ 		return -EINVAL;
++	}
++
++	if (dev->max_mtu > 0 && new_mtu > dev->max_mtu) {
++		net_err_ratelimited("%s: Invalid MTU %d requested, hw max %d\n",
++				    dev->name, new_mtu, dev->min_mtu);
++		return -EINVAL;
++	}
+ 
+ 	if (!netif_device_present(dev))
+ 		return -ENODEV;
 -- 
 2.10.0
