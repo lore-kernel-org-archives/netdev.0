@@ -1,143 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Accelerated receive flow steering (aRFS) for UDP
-Date: Sat, 08 Oct 2016 08:38:16 +0900
-Message-ID: <1475883496.28155.270.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <SN1PR07MB244706470867A923CF0FAF6589C60@SN1PR07MB2447.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "maorg@mellanox.com" <maorg@mellanox.com>,
-        "tom@herbertland.com" <tom@herbertland.com>
-To: "Chopra, Manish" <Manish.Chopra@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35156 "EHLO
-        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932821AbcJGXiU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 19:38:20 -0400
-Received: by mail-pa0-f48.google.com with SMTP id qn10so24582190pac.2
-        for <netdev@vger.kernel.org>; Fri, 07 Oct 2016 16:38:20 -0700 (PDT)
-In-Reply-To: <SN1PR07MB244706470867A923CF0FAF6589C60@SN1PR07MB2447.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH v3 net-next 0/2] net: centralize net_device MTU bounds checking
+Date: Fri,  7 Oct 2016 22:04:32 -0400
+Message-ID: <20161008020434.9691-1-jarod@redhat.com>
+References: <20161002.224322.740109807229746275.davem@davemloft.net>
+Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161002.224322.740109807229746275.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-10-07 at 22:55 +0000, Chopra, Manish wrote:
-> Hello Folks,
-> 
-> I am experimenting aRFS with our NIC devices, and for that I have
-> kernel 4.8.x installed with below config.
-> 
-> CONFIG_RPS=y
-> CONFIG_RFS_ACCEL=y
-> 
-> # cat /proc/cpuinfo  | grep processor
-> processor       : 0
-> processor       : 1
-> processor       : 2
-> processor       : 3
-> processor       : 4
-> processor       : 5
-> processor       : 6
-> processor       : 7
-> processor       : 8
-> processor       : 9
-> processor       : 10
-> processor       : 11
-> processor       : 12
-> processor       : 13
-> processor       : 14
-> processor       : 15
-> 
-> I configured rps_sock_flow_entries  and our NIC rx queues with below
-> values
-> 
-> echo 32768 > /proc/sys/net/core/rps_sock_flow_entries
-> echo 4096 > /sys/class/net/p4p1/queues/rx-0/rps_flow_cnt
-> echo 4096 > /sys/class/net/p4p1/queues/rx-1/rps_flow_cnt
-> echo 4096 > /sys/class/net/p4p1/queues/rx-2/rps_flow_cnt
-> echo 4096 > /sys/class/net/p4p1/queues/rx-3/rps_flow_cnt
-> echo 4096 > /sys/class/net/p4p1/queues/rx-4/rps_flow_cnt
-> echo 4096 > /sys/class/net/p4p1/queues/rx-5/rps_flow_cnt
-> echo 4096 > /sys/class/net/p4p1/queues/rx-6/rps_flow_cnt
-> echo 4096 > /sys/class/net/p4p1/queues/rx-7/rps_flow_cnt
-> 
-> echo ffff > /sys/class/net/p4p1/queues/rx-0/rps_cpus
-> echo ffff > /sys/class/net/p4p1/queues/rx-1/rps_cpus
-> echo ffff > /sys/class/net/p4p1/queues/rx-2/rps_cpus
-> echo ffff > /sys/class/net/p4p1/queues/rx-3/rps_cpus
-> echo ffff > /sys/class/net/p4p1/queues/rx-4/rps_cpus
-> echo ffff > /sys/class/net/p4p1/queues/rx-5/rps_cpus
-> echo ffff > /sys/class/net/p4p1/queues/rx-6/rps_cpus
-> echo ffff > /sys/class/net/p4p1/queues/rx-7/rps_cpus
-> 
-> Below is IRQ affinity configuration for NIC irqs used. 
-> 
-> # cat /proc/irq/67/smp_affinity_list
-> 8
-> # cat /proc/irq/68/smp_affinity_list
-> 9
-> # cat /proc/irq/69/smp_affinity_list
-> 10
-> # cat /proc/irq/70/smp_affinity_list
-> 11
-> # cat /proc/irq/71/smp_affinity_list
-> 12
-> # cat /proc/irq/72/smp_affinity_list
-> 13
-> # cat /proc/irq/73/smp_affinity_list
-> 14
-> # cat /proc/irq/74/smp_affinity_list
-> 15
-> 
-> Driver has required feature NETIF_F_NTUPLE set, ndo_rx_flow_steer()
-> registered and I am running UDP multiple connections stream using
-> netperf to the host where I am experimenting aRFS. 
-> 
-> # netperf -V
-> Netperf version 2.7.0
-> 
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 8,8 -- -m 1470 -P
-> 5001,48512 &
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 9,9 -- -m 1470 -P
-> 5001,37990 &
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 10,10 -- -m 1470 -P
-> 5001,40302 &
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 11,11 -- -m 1470 -P
-> 5001,39071 &
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 12,12 -- -m 1470 -P
-> 5001,58994 &
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 13,13 -- -m 1470 -P
-> 5001,59884 &
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 14,14 -- -m 1470 -P
-> 5001,40282 &
-> netperf -H 192.168.200.40 -t UDP_STREAM -l 150 -T 15,15 -- -m 1470 -P
-> 5001,56042 &
-> 
-> I see that our registered callback for ndo_rx_flow_steer() "NEVER"
-> gets invoked for UDP packets, with TCP_STREAM I do see it gets
-> invoked.
-> But while running UDP_STREAM I see it gets invoked for some of TCP
-> packets as netperf also uses TCP managed connections while running
-> UDP_STREAM.
-> 
-> My initial investigation suspects that while running UDP_STREAM with
-> netperf, rps_sock_flow_table doesn't get updated, as packets never
-> reach to the flow of inet_recvmsg()
-> where it gets updated using sock_rps_record_flow(). Which might be the
-> reason it never invokes NIC's flow steering handler ?
-> 
-> Please note that when I run UDP stream using "iperf" - I do see that
-> our registered callback function for flow steering gets invoked for
-> "UDP" packets.
-> I am not sure if I am missing something in configuration or something
-> else which is I am unware of  ? 
-> 
-> I appreciate any help for this.
+Jarod Wilson (2):
+  net: centralize net_device min/max MTU checking
+  net: deprecate eth_change_mtu, remove usage
 
-Make sure you use connected UDP flows
+While looking into an MTU issue with sfc, I started noticing that almost
+every NIC driver with an ndo_change_mtu function implemented almost
+exactly the same range checks, and in many cases, that was the only
+practical thing their ndo_change_mtu function was doing. Quite a few
+drivers have either 68, 64, 60 or 46 as their minimum MTU value checked,
+and then various sizes from 1500 to 65535 for their maximum MTU value. We
+can remove a whole lot of redundant code here if we simple store min_mtu
+and max_mtu in net_device, and check against those in net/core/dev.c's
+dev_set_mtu().
 
+This pair of patches looks to introduce centralized MTU range checking
+infrastructure, while maintaining compatibility with all existing drivers,
+and start to make use of it, converting all eth_change_mtu/ether_setup users
+over to this new infra.
 
-netperf -t UDP_STREAM ... -- -N -n
+Assuming these pass review muster, I've got a ton of follow-on patches to
+clean up MTU settings for everything in the kernel with an ndo_change_mtu.
 
-Otherwise, one UDP socket can be involved in millions of 4-tuples (aka
-flows)
+This work is all staged in a (rebasing) git tree here:
+
+https://github.com/jarodwilson/linux-muck
+
+The master branch is based on net-next from Oct 7, and carries these two
+patches, plus a ton of follow-on patches to eliminate MTU range checks
+and change_mtu functions where possible. All patches were successfully
+built across 160 various arch and config combos by the 0-day folks.
+(Thanks to Andrew Lunn for the suggestion to get that going).
+
+Jarod Wilson (2):
+  net: centralize net_device min/max MTU checking
+  net: deprecate eth_change_mtu, remove usage
+
+CC: netdev@vger.kernel.org
+-- 
+2.10.0
