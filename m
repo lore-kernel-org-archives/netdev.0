@@ -1,124 +1,139 @@
-From: "Chopra, Manish" <Manish.Chopra@cavium.com>
-Subject: RE: Accelerated receive flow steering (aRFS) for UDP
-Date: Sat, 8 Oct 2016 12:25:09 +0000
-Message-ID: <SN1PR07MB2447ED02140770F0B46967D589D90@SN1PR07MB2447.namprd07.prod.outlook.com>
-References: <SN1PR07MB244706470867A923CF0FAF6589C60@SN1PR07MB2447.namprd07.prod.outlook.com>
- <1475883496.28155.270.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: tg3 BUG: spinlock lockup suspected
+Date: Sat, 8 Oct 2016 19:45:31 +0300 (EEST)
+Message-ID: <alpine.LRH.2.20.1610081944440.10573@math.ut.ee>
+References: <alpine.LRH.2.20.1610051502240.23078@math.ut.ee> <alpine.LRH.2.20.1610081247020.15739@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "maorg@mellanox.com" <maorg@mellanox.com>,
-        "tom@herbertland.com" <tom@herbertland.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0061.outbound.protection.outlook.com ([104.47.33.61]:49228
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752068AbcJHO5j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 8 Oct 2016 10:57:39 -0400
-In-Reply-To: <1475883496.28155.270.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+To: netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+        Linux Kernel list <linux-kernel@vger.kernel.org>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <alpine.LRH.2.20.1610081247020.15739@math.ut.ee>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBTYXR1cmRheSwgT2N0b2JlciAwOCwg
-MjAxNiA1OjA4IEFNDQo+IFRvOiBDaG9wcmEsIE1hbmlzaCA8TWFuaXNoLkNob3ByYUBjYXZpdW0u
-Y29tPg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbWFvcmdAbWVsbGFub3guY29tOyB0
-b21AaGVyYmVydGxhbmQuY29tDQo+IFN1YmplY3Q6IFJlOiBBY2NlbGVyYXRlZCByZWNlaXZlIGZs
-b3cgc3RlZXJpbmcgKGFSRlMpIGZvciBVRFANCj4gDQo+IE9uIEZyaSwgMjAxNi0xMC0wNyBhdCAy
-Mjo1NSArMDAwMCwgQ2hvcHJhLCBNYW5pc2ggd3JvdGU6DQo+ID4gSGVsbG8gRm9sa3MsDQo+ID4N
-Cj4gPiBJIGFtIGV4cGVyaW1lbnRpbmcgYVJGUyB3aXRoIG91ciBOSUMgZGV2aWNlcywgYW5kIGZv
-ciB0aGF0IEkgaGF2ZQ0KPiA+IGtlcm5lbCA0LjgueCBpbnN0YWxsZWQgd2l0aCBiZWxvdyBjb25m
-aWcuDQo+ID4NCj4gPiBDT05GSUdfUlBTPXkNCj4gPiBDT05GSUdfUkZTX0FDQ0VMPXkNCj4gPg0K
-PiA+ICMgY2F0IC9wcm9jL2NwdWluZm8gIHwgZ3JlcCBwcm9jZXNzb3INCj4gPiBwcm9jZXNzb3Ig
-ICAgICAgOiAwDQo+ID4gcHJvY2Vzc29yICAgICAgIDogMQ0KPiA+IHByb2Nlc3NvciAgICAgICA6
-IDINCj4gPiBwcm9jZXNzb3IgICAgICAgOiAzDQo+ID4gcHJvY2Vzc29yICAgICAgIDogNA0KPiA+
-IHByb2Nlc3NvciAgICAgICA6IDUNCj4gPiBwcm9jZXNzb3IgICAgICAgOiA2DQo+ID4gcHJvY2Vz
-c29yICAgICAgIDogNw0KPiA+IHByb2Nlc3NvciAgICAgICA6IDgNCj4gPiBwcm9jZXNzb3IgICAg
-ICAgOiA5DQo+ID4gcHJvY2Vzc29yICAgICAgIDogMTANCj4gPiBwcm9jZXNzb3IgICAgICAgOiAx
-MQ0KPiA+IHByb2Nlc3NvciAgICAgICA6IDEyDQo+ID4gcHJvY2Vzc29yICAgICAgIDogMTMNCj4g
-PiBwcm9jZXNzb3IgICAgICAgOiAxNA0KPiA+IHByb2Nlc3NvciAgICAgICA6IDE1DQo+ID4NCj4g
-PiBJIGNvbmZpZ3VyZWQgcnBzX3NvY2tfZmxvd19lbnRyaWVzICBhbmQgb3VyIE5JQyByeCBxdWV1
-ZXMgd2l0aCBiZWxvdw0KPiA+IHZhbHVlcw0KPiA+DQo+ID4gZWNobyAzMjc2OCA+IC9wcm9jL3N5
-cy9uZXQvY29yZS9ycHNfc29ja19mbG93X2VudHJpZXMNCj4gPiBlY2hvIDQwOTYgPiAvc3lzL2Ns
-YXNzL25ldC9wNHAxL3F1ZXVlcy9yeC0wL3Jwc19mbG93X2NudA0KPiA+IGVjaG8gNDA5NiA+IC9z
-eXMvY2xhc3MvbmV0L3A0cDEvcXVldWVzL3J4LTEvcnBzX2Zsb3dfY250DQo+ID4gZWNobyA0MDk2
-ID4gL3N5cy9jbGFzcy9uZXQvcDRwMS9xdWV1ZXMvcngtMi9ycHNfZmxvd19jbnQNCj4gPiBlY2hv
-IDQwOTYgPiAvc3lzL2NsYXNzL25ldC9wNHAxL3F1ZXVlcy9yeC0zL3Jwc19mbG93X2NudA0KPiA+
-IGVjaG8gNDA5NiA+IC9zeXMvY2xhc3MvbmV0L3A0cDEvcXVldWVzL3J4LTQvcnBzX2Zsb3dfY250
-DQo+ID4gZWNobyA0MDk2ID4gL3N5cy9jbGFzcy9uZXQvcDRwMS9xdWV1ZXMvcngtNS9ycHNfZmxv
-d19jbnQNCj4gPiBlY2hvIDQwOTYgPiAvc3lzL2NsYXNzL25ldC9wNHAxL3F1ZXVlcy9yeC02L3Jw
-c19mbG93X2NudA0KPiA+IGVjaG8gNDA5NiA+IC9zeXMvY2xhc3MvbmV0L3A0cDEvcXVldWVzL3J4
-LTcvcnBzX2Zsb3dfY250DQo+ID4NCj4gPiBlY2hvIGZmZmYgPiAvc3lzL2NsYXNzL25ldC9wNHAx
-L3F1ZXVlcy9yeC0wL3Jwc19jcHVzDQo+ID4gZWNobyBmZmZmID4gL3N5cy9jbGFzcy9uZXQvcDRw
-MS9xdWV1ZXMvcngtMS9ycHNfY3B1cw0KPiA+IGVjaG8gZmZmZiA+IC9zeXMvY2xhc3MvbmV0L3A0
-cDEvcXVldWVzL3J4LTIvcnBzX2NwdXMNCj4gPiBlY2hvIGZmZmYgPiAvc3lzL2NsYXNzL25ldC9w
-NHAxL3F1ZXVlcy9yeC0zL3Jwc19jcHVzDQo+ID4gZWNobyBmZmZmID4gL3N5cy9jbGFzcy9uZXQv
-cDRwMS9xdWV1ZXMvcngtNC9ycHNfY3B1cw0KPiA+IGVjaG8gZmZmZiA+IC9zeXMvY2xhc3MvbmV0
-L3A0cDEvcXVldWVzL3J4LTUvcnBzX2NwdXMNCj4gPiBlY2hvIGZmZmYgPiAvc3lzL2NsYXNzL25l
-dC9wNHAxL3F1ZXVlcy9yeC02L3Jwc19jcHVzDQo+ID4gZWNobyBmZmZmID4gL3N5cy9jbGFzcy9u
-ZXQvcDRwMS9xdWV1ZXMvcngtNy9ycHNfY3B1cw0KPiA+DQo+ID4gQmVsb3cgaXMgSVJRIGFmZmlu
-aXR5IGNvbmZpZ3VyYXRpb24gZm9yIE5JQyBpcnFzIHVzZWQuDQo+ID4NCj4gPiAjIGNhdCAvcHJv
-Yy9pcnEvNjcvc21wX2FmZmluaXR5X2xpc3QNCj4gPiA4DQo+ID4gIyBjYXQgL3Byb2MvaXJxLzY4
-L3NtcF9hZmZpbml0eV9saXN0DQo+ID4gOQ0KPiA+ICMgY2F0IC9wcm9jL2lycS82OS9zbXBfYWZm
-aW5pdHlfbGlzdA0KPiA+IDEwDQo+ID4gIyBjYXQgL3Byb2MvaXJxLzcwL3NtcF9hZmZpbml0eV9s
-aXN0DQo+ID4gMTENCj4gPiAjIGNhdCAvcHJvYy9pcnEvNzEvc21wX2FmZmluaXR5X2xpc3QNCj4g
-PiAxMg0KPiA+ICMgY2F0IC9wcm9jL2lycS83Mi9zbXBfYWZmaW5pdHlfbGlzdA0KPiA+IDEzDQo+
-ID4gIyBjYXQgL3Byb2MvaXJxLzczL3NtcF9hZmZpbml0eV9saXN0DQo+ID4gMTQNCj4gPiAjIGNh
-dCAvcHJvYy9pcnEvNzQvc21wX2FmZmluaXR5X2xpc3QNCj4gPiAxNQ0KPiA+DQo+ID4gRHJpdmVy
-IGhhcyByZXF1aXJlZCBmZWF0dXJlIE5FVElGX0ZfTlRVUExFIHNldCwgbmRvX3J4X2Zsb3dfc3Rl
-ZXIoKQ0KPiA+IHJlZ2lzdGVyZWQgYW5kIEkgYW0gcnVubmluZyBVRFAgbXVsdGlwbGUgY29ubmVj
-dGlvbnMgc3RyZWFtIHVzaW5nDQo+ID4gbmV0cGVyZiB0byB0aGUgaG9zdCB3aGVyZSBJIGFtIGV4
-cGVyaW1lbnRpbmcgYVJGUy4NCj4gPg0KPiA+ICMgbmV0cGVyZiAtVg0KPiA+IE5ldHBlcmYgdmVy
-c2lvbiAyLjcuMA0KPiA+DQo+ID4gbmV0cGVyZiAtSCAxOTIuMTY4LjIwMC40MCAtdCBVRFBfU1RS
-RUFNIC1sIDE1MCAtVCA4LDggLS0gLW0gMTQ3MCAtUA0KPiA+IDUwMDEsNDg1MTIgJg0KPiA+IG5l
-dHBlcmYgLUggMTkyLjE2OC4yMDAuNDAgLXQgVURQX1NUUkVBTSAtbCAxNTAgLVQgOSw5IC0tIC1t
-IDE0NzAgLVANCj4gPiA1MDAxLDM3OTkwICYNCj4gPiBuZXRwZXJmIC1IIDE5Mi4xNjguMjAwLjQw
-IC10IFVEUF9TVFJFQU0gLWwgMTUwIC1UIDEwLDEwIC0tIC1tIDE0NzAgLVANCj4gPiA1MDAxLDQw
-MzAyICYNCj4gPiBuZXRwZXJmIC1IIDE5Mi4xNjguMjAwLjQwIC10IFVEUF9TVFJFQU0gLWwgMTUw
-IC1UIDExLDExIC0tIC1tIDE0NzAgLVANCj4gPiA1MDAxLDM5MDcxICYNCj4gPiBuZXRwZXJmIC1I
-IDE5Mi4xNjguMjAwLjQwIC10IFVEUF9TVFJFQU0gLWwgMTUwIC1UIDEyLDEyIC0tIC1tIDE0NzAg
-LVANCj4gPiA1MDAxLDU4OTk0ICYNCj4gPiBuZXRwZXJmIC1IIDE5Mi4xNjguMjAwLjQwIC10IFVE
-UF9TVFJFQU0gLWwgMTUwIC1UIDEzLDEzIC0tIC1tIDE0NzAgLVANCj4gPiA1MDAxLDU5ODg0ICYN
-Cj4gPiBuZXRwZXJmIC1IIDE5Mi4xNjguMjAwLjQwIC10IFVEUF9TVFJFQU0gLWwgMTUwIC1UIDE0
-LDE0IC0tIC1tIDE0NzAgLVANCj4gPiA1MDAxLDQwMjgyICYNCj4gPiBuZXRwZXJmIC1IIDE5Mi4x
-NjguMjAwLjQwIC10IFVEUF9TVFJFQU0gLWwgMTUwIC1UIDE1LDE1IC0tIC1tIDE0NzAgLVANCj4g
-PiA1MDAxLDU2MDQyICYNCj4gPg0KPiA+IEkgc2VlIHRoYXQgb3VyIHJlZ2lzdGVyZWQgY2FsbGJh
-Y2sgZm9yIG5kb19yeF9mbG93X3N0ZWVyKCkgIk5FVkVSIg0KPiA+IGdldHMgaW52b2tlZCBmb3Ig
-VURQIHBhY2tldHMsIHdpdGggVENQX1NUUkVBTSBJIGRvIHNlZSBpdCBnZXRzDQo+ID4gaW52b2tl
-ZC4NCj4gPiBCdXQgd2hpbGUgcnVubmluZyBVRFBfU1RSRUFNIEkgc2VlIGl0IGdldHMgaW52b2tl
-ZCBmb3Igc29tZSBvZiBUQ1ANCj4gPiBwYWNrZXRzIGFzIG5ldHBlcmYgYWxzbyB1c2VzIFRDUCBt
-YW5hZ2VkIGNvbm5lY3Rpb25zIHdoaWxlIHJ1bm5pbmcNCj4gPiBVRFBfU1RSRUFNLg0KPiA+DQo+
-ID4gTXkgaW5pdGlhbCBpbnZlc3RpZ2F0aW9uIHN1c3BlY3RzIHRoYXQgd2hpbGUgcnVubmluZyBV
-RFBfU1RSRUFNIHdpdGgNCj4gPiBuZXRwZXJmLCBycHNfc29ja19mbG93X3RhYmxlIGRvZXNuJ3Qg
-Z2V0IHVwZGF0ZWQsIGFzIHBhY2tldHMgbmV2ZXINCj4gPiByZWFjaCB0byB0aGUgZmxvdyBvZiBp
-bmV0X3JlY3Ztc2coKQ0KPiA+IHdoZXJlIGl0IGdldHMgdXBkYXRlZCB1c2luZyBzb2NrX3Jwc19y
-ZWNvcmRfZmxvdygpLiBXaGljaCBtaWdodCBiZSB0aGUNCj4gPiByZWFzb24gaXQgbmV2ZXIgaW52
-b2tlcyBOSUMncyBmbG93IHN0ZWVyaW5nIGhhbmRsZXIgPw0KPiA+DQo+ID4gUGxlYXNlIG5vdGUg
-dGhhdCB3aGVuIEkgcnVuIFVEUCBzdHJlYW0gdXNpbmcgImlwZXJmIiAtIEkgZG8gc2VlIHRoYXQN
-Cj4gPiBvdXIgcmVnaXN0ZXJlZCBjYWxsYmFjayBmdW5jdGlvbiBmb3IgZmxvdyBzdGVlcmluZyBn
-ZXRzIGludm9rZWQgZm9yDQo+ID4gIlVEUCIgcGFja2V0cy4NCj4gPiBJIGFtIG5vdCBzdXJlIGlm
-IEkgYW0gbWlzc2luZyBzb21ldGhpbmcgaW4gY29uZmlndXJhdGlvbiBvciBzb21ldGhpbmcNCj4g
-PiBlbHNlIHdoaWNoIGlzIEkgYW0gdW53YXJlIG9mICA/DQo+ID4NCj4gPiBJIGFwcHJlY2lhdGUg
-YW55IGhlbHAgZm9yIHRoaXMuDQo+IA0KPiBNYWtlIHN1cmUgeW91IHVzZSBjb25uZWN0ZWQgVURQ
-IGZsb3dzDQo+IA0KPiANCj4gbmV0cGVyZiAtdCBVRFBfU1RSRUFNIC4uLiAtLSAtTiAtbg0KPiAN
-Cj4gT3RoZXJ3aXNlLCBvbmUgVURQIHNvY2tldCBjYW4gYmUgaW52b2x2ZWQgaW4gbWlsbGlvbnMg
-b2YgNC10dXBsZXMgKGFrYQ0KPiBmbG93cykNCj4gDQo+IA0KDQpIaSBFcmljLCBJIHRyaWVkIHdp
-dGggaXQgYnV0IGl0IGRvZXNuJ3QgaGVscCB3aXRoIHRoZSBzYWlkIGlzc3VlLiBJIHN0aWxsIGRv
-bid0IHNlZSB0aGF0IG91ciByZWdpc3RlcmVkIGhhbmRsZXIgZm9yIGZsb3cgc3RlZXJpbmcgKG5k
-b19yeF9mbG93X3N0ZWVyKCkpIGlzIGdldHRpbmcNCmludm9rZWQgZm9yIFVEUCBwYWNrZXRzIFtp
-cC0+cHJvdG9jb2wgPSBJUFBST1RPX1VEUF0gLkFsbCBpdCBnZXRzIGludm9rZWQgZm9yIFRDUCBw
-YWNrZXRzIG9ubHkgW2lwLT5wcm90b2NvbCA9IElQUFJPVE9fVENQXQ0KDQpuZXRwZXJmIC1IICQx
-IC10IFVEUF9TVFJFQU0gLWwgMTUwIC1UIDgsOCAtLSAtTiAtbSAxNDcwIC1QIDUwMDEsNDg1MTIg
-Jg0KbmV0cGVyZiAtSCAkMSAtdCBVRFBfU1RSRUFNIC1sIDE1MCAtVCA5LDkgLS0gLU4gLW0gMTQ3
-MCAtUCA1MDAxLDM3OTkwICYNCm5ldHBlcmYgLUggJDEgLXQgVURQX1NUUkVBTSAtbCAxNTAgLVQg
-MTAsMTAgLS0gLU4gLW0gMTQ3MCAtUCA1MDAxLDQwMzAyICYNCm5ldHBlcmYgLUggJDEgLXQgVURQ
-X1NUUkVBTSAtbCAxNTAgLVQgMTEsMTEgLS0gLU4gLW0gMTQ3MCAtUCA1MDAxLDM5MDcxICYNCm5l
-dHBlcmYgLUggJDEgLXQgVURQX1NUUkVBTSAtbCAxNTAgLVQgMTIsMTIgLS0gLU4gLW0gMTQ3MCAt
-UCA1MDAxLDU4OTk0ICYNCm5ldHBlcmYgLUggJDEgLXQgVURQX1NUUkVBTSAtbCAxNTAgLVQgMTMs
-MTMgLS0gLU4gLW0gMTQ3MCAtUCA1MDAxLDU5ODg0ICYNCm5ldHBlcmYgLUggJDEgLXQgVURQX1NU
-UkVBTSAtbCAxNTAgLVQgMTQsMTQgLS0gLU4gLW0gMTQ3MCAtUCA1MDAxLDQwMjgyICYNCm5ldHBl
-cmYgLUggJDEgLXQgVURQX1NUUkVBTSAtbCAxNTAgLVQgMTUsMTUgLS0gLU4gLW0gMTQ3MCAtUCA1
-MDAxLDU2MDQyICYNCg0KVGhhbmtzICEhDQo=
+> That did not go well - bisect found the following commit but that does 
+> not seem to be related at all. So probably the reproducibility is not 
+> 100% but more random.
+
+Now I reproduced the bug even with 4.7-rc1 so it is older than 4.7. Will 
+test further.
+
+> 
+> 
+> 4c5773f9f5462dcb372857813918bbfe8c0cdcdd is the first bad commit
+> commit 4c5773f9f5462dcb372857813918bbfe8c0cdcdd
+> Author: Krzysztof Kozlowski <krzk@kernel.org>
+> Date:   Sat May 28 11:54:12 2016 +0200
+> 
+>     dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
+>     
+>     Add license and copyrights (file introduced in 2014) to header with
+>     Exynos5410 clock IDs. Additionally reformat it to improve readability.
+>     
+>     Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
+>     Acked-by: Stephen Boyd <sboyd@codeaurora.org>
+>     Reviewed-by: Javier Martinez Canillas <javier@osg.samsung.com>
+>     Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+> 
+> :040000 040000 acbd432e11366a8eb8775942bc7b8caa476226e2 08e3a3f98c3d4fa2a93123c3f21b2847c06b4665 M      include
+> 
+> 
+> The whiole bisect log seems to dig around in unrelated places so at best 
+> it just narrows the window by adding some known-bad data points.
+> 
+> git bisect start
+> # good: [523d939ef98fd712632d93a5a2b588e477a7565e] Linux 4.7
+> git bisect good 523d939ef98fd712632d93a5a2b588e477a7565e
+> # bad: [ef0e1ea8856bed6ff8394d3dfe77f2cab487ecea] Merge tag 'arc-4.8-rc4-fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/vgupta/arc
+> git bisect bad ef0e1ea8856bed6ff8394d3dfe77f2cab487ecea
+> # good: [e0b3f595d13b3e9ce9cdf53935e7f304c04b5b2b] affs ->d_compare(): don't bother with ->d_inode
+> git bisect good e0b3f595d13b3e9ce9cdf53935e7f304c04b5b2b
+> # bad: [77a87824ed676ca8ff8482e4157d3adb284fd381] clocksource/drivers/clps_711x: fixup for "ARM: clps711x:
+> git bisect bad 77a87824ed676ca8ff8482e4157d3adb284fd381
+> # bad: [27acbec338113a75b9d72aeb53149a3538031dda] Merge git://www.linux-watchdog.org/linux-watchdog
+> git bisect bad 27acbec338113a75b9d72aeb53149a3538031dda
+> # bad: [7f155c702677d057d03b192ce652311de5434697] Merge tag 'nfs-for-4.8-1' of git://git.linux-nfs.org/projects/trondmy/linux-nfs
+> git bisect bad 7f155c702677d057d03b192ce652311de5434697
+> # good: [797cee982eef9195736afc5e7f3b8f613c41d19a] Merge branch 'stable-4.8' of git://git.infradead.org/users/pcmoore/audit
+> git bisect good 797cee982eef9195736afc5e7f3b8f613c41d19a
+> # bad: [1056c9bd2702ea1bb79abf9bd1e78c578589d247] Merge tag 'clk-for-linus-4.8' of git://git.kernel.org/pub/scm/linux/kernel/git/clk/linux
+> git bisect bad 1056c9bd2702ea1bb79abf9bd1e78c578589d247
+> # bad: [1ff435d3571199a799ba6ccfe05544dcd21b9fb3] Merge branch 'clk-st-critical' into clk-next
+> git bisect bad 1ff435d3571199a799ba6ccfe05544dcd21b9fb3
+> # bad: [0e4504470667d355b53ca3c9802fdd2120c9f946] clk: samsung: exynos5433: Add CLK_IGNORE_UNUSED flag to PCIE device
+> git bisect bad 0e4504470667d355b53ca3c9802fdd2120c9f946
+> # bad: [880c81b3b6604a004d56b5975c8bed47276e8bf6] clk: samsung: exynos5440: Constify all clock initializers
+> git bisect bad 880c81b3b6604a004d56b5975c8bed47276e8bf6
+> # bad: [b3a96eed8e84780d300b79b58047ea277ba358b7] clk: samsung: exynos3250: Move platform driver and of_device_id to init section
+> git bisect bad b3a96eed8e84780d300b79b58047ea277ba358b7
+> # bad: [4528dd8ed477bf202bd33ee48d38d656672d37f8] dt-bindings: clock: Add watchdog and SSS clock IDs to Exynos5410
+> git bisect bad 4528dd8ed477bf202bd33ee48d38d656672d37f8
+> # bad: [5cd3535a27a7cf8fc4070b499d66e419e7e72b61] dt-bindings: clock: Add PWM and USB clock IDs to Exynos5410
+> git bisect bad 5cd3535a27a7cf8fc4070b499d66e419e7e72b61
+> # bad: [4c5773f9f5462dcb372857813918bbfe8c0cdcdd] dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
+> git bisect bad 4c5773f9f5462dcb372857813918bbfe8c0cdcdd
+> # first bad commit: [4c5773f9f5462dcb372857813918bbfe8c0cdcdd] dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
+> 
+> 
+> > 
+> > [   74.123859] tg3.c:v3.137 (May 11, 2014)
+> > [   74.123880] PCI: Enabling device: (0000:00:02.0), cmd 2
+> > [   74.315794] tg3 0000:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+> > [   74.656152] tg3 0000:00:02.0 eth0: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:85
+> > [   74.656160] tg3 0000:00:02.0 eth0: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > [   74.656167] tg3 0000:00:02.0 eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > [   74.656172] tg3 0000:00:02.0 eth0: dma_rwctrl[763f0000] dma_mask[32-bit]
+> > [   74.656322] PCI: Enabling device: (0000:00:02.1), cmd 2
+> > [   74.845325] tg3 0000:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+> > [   75.184539] tg3 0000:00:02.1 eth1: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:86
+> > [   75.184546] tg3 0000:00:02.1 eth1: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > [   75.184551] tg3 0000:00:02.1 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > [   75.184557] tg3 0000:00:02.1 eth1: dma_rwctrl[763f0000] dma_mask[32-bit]
+> > [   75.184708] PCI: Enabling device: (0003:00:02.0), cmd 2
+> > [   75.375322] tg3 0003:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+> > [   75.714681] tg3 0003:00:02.0 eth2: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:87
+> > [   75.714688] tg3 0003:00:02.0 eth2: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > [   75.714694] tg3 0003:00:02.0 eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > [   75.714699] tg3 0003:00:02.0 eth2: dma_rwctrl[763f0000] dma_mask[32-bit]
+> > [   75.714819] PCI: Enabling device: (0003:00:02.1), cmd 2
+> > [   75.905278] tg3 0003:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+> > [   76.244470] tg3 0003:00:02.1 eth3: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:88
+> > [   76.244477] tg3 0003:00:02.1 eth3: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > [   76.244482] tg3 0003:00:02.1 eth3: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > [   76.244488] tg3 0003:00:02.1 eth3: dma_rwctrl[763f0000] dma_mask[32-bit]
+> > [   83.643317] tg3 0000:00:02.0 eth0: No firmware running
+> > [...]
+> > [   83.716570] BUG: spinlock lockup suspected on CPU#0, dhclient/1014
+> > [   83.797819]  lock: 0xfff000123c8e4a08, .magic: dead4ead, .owner: ip/1001, .owner_cpu: 1
+> > [   83.903130] CPU: 0 PID: 1014 Comm: dhclient Not tainted 4.8.0 #4
+> > [   83.982129] Call Trace:
+> > [   84.014160]  [00000000004b7220] spin_dump+0x60/0xa0
+> > [   84.078203]  [00000000004b73a0] do_raw_spin_lock+0xa0/0x120
+> > [   84.106344] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+> > [   84.107193] ip (1001) used greatest stack depth: 2168 bytes left
+> > [   84.306955]  [000000000092c0d0] _raw_spin_lock_bh+0x30/0x40
+> > [   84.380188]  [00000000100822cc] tg3_get_stats64+0xc/0x80 [tg3]
+> > [   84.456885]  [00000000007fac8c] dev_get_stats+0x2c/0xc0
+> > [   84.525506]  [000000000081a4e8] dev_seq_printf_stats+0x8/0xe0
+> > [   84.600986]  [000000000081a5e4] dev_seq_show+0x24/0x40
+> > [   84.668467]  [00000000005cb6c4] seq_read+0x2c4/0x440
+> > [   84.733656]  [000000000060b97c] proc_reg_read+0x3c/0x80
+> > [   84.802282]  [00000000005a219c] __vfs_read+0x1c/0x140
+> > [   84.868613]  [00000000005a2310] vfs_read+0x50/0x100
+> > [   84.932662]  [00000000005a265c] SyS_read+0x3c/0xa0
+> > [   84.995573]  [00000000004061d4] linux_sparc_syscall32+0x34/0x60
+> > [   85.073748] * CPU[  0]: TSTATE[00000044f0001a22] TPC[00000000f79a16b0] TNPC[00000000f79a16b4] TASK[dhclient:1014]
+> > [   85.208732]              TPC[f79a16b0] O7[f79405c8] I7[0] RPC[0]
+> > [   85.287633]   CPU[  1]: TSTATE[0000004480001605] TPC[00000000004b26f0] TNPC[00000000004d0b0c] TASK[swapper/1:0]
+> > [   85.420338]              TPC[trace_hardirqs_off+0x10/0x20] O7[rcu_idle_enter+0x64/0xa0] I7[cpu_startup_entry+0x1b0/0x240] RPC[rest_init+0x178/0x1a0]
+> > [   85.664600] tg3 0000:00:02.0 eth0: Link is up at 100 Mbps, full duplex
+> > [   85.750515] tg3 0000:00:02.0 eth0: Flow control is off for TX and off for RX
+> > [   85.843994] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+> > 
+> > 
+> 
+> 
+
+-- 
+Meelis Roos (mroos@linux.ee)
