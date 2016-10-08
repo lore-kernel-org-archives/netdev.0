@@ -1,90 +1,129 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next] sctp: reuse sent_count to avoid retransmitted chunks for RTT measurements
-Date: Sat,  8 Oct 2016 11:36:05 +0800
-Message-ID: <b68194a4735a1ea5a652c13540df5d68e3c4b305.1475897765.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next] sctp: remove the old ttl expires policy
+Date: Sat,  8 Oct 2016 11:40:16 +0800
+Message-ID: <db5df5806c3c0b7c37ab9039a906664a33c74563.1475898016.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
         davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:35644 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752065AbcJHDgL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 23:36:11 -0400
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34417 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752065AbcJHDkU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 23:40:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now sctp uses chunk->resent to record if a chunk is retransmitted, for
-RTT measurements with retransmitted DATA chunks. chunk->sent_count was
-introduced to record how many times one chunk has been sent for prsctp
-RTX policy before. We actually can know if one chunk is retransmitted
-by checking chunk->sent_count is greater than 1.
+The prsctp polices include ttl expires policy already, we should remove
+the old ttl expires codes, and just adjust the new polices' codes to be
+compatible with the old one for users.
 
-This patch is to remove resent from sctp_chunk and reuse sent_count
-to avoid retransmitted chunks for RTT measurements.
+This patch is to remove all the old expires codes, and if prsctp polices
+are not set, it will still set msg's expires_at and check the expires in
+sctp_check_abandoned.
+
+Note that asoc->prsctp_enable is set by default, so users can't feel any
+difference even if they use the old expires api in userspace.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/structs.h | 2 +-
- net/sctp/output.c          | 3 ++-
- net/sctp/outqueue.c        | 4 +---
- 3 files changed, 4 insertions(+), 5 deletions(-)
+ include/net/sctp/structs.h |  1 -
+ net/sctp/chunk.c           | 32 ++++++++------------------------
+ net/sctp/output.c          |  3 ---
+ 3 files changed, 8 insertions(+), 28 deletions(-)
 
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 11c3bf2..27a933e 100644
+index 11c3bf2..61732e9 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -641,7 +641,6 @@ struct sctp_chunk {
- #define SCTP_NEED_FRTX 0x1
- #define SCTP_DONT_FRTX 0x2
- 	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
--		resent:1,		/* Has this chunk ever been resent. */
- 		has_tsn:1,		/* Does this chunk have a TSN yet? */
- 		has_ssn:1,		/* Does this chunk have a SSN yet? */
- 		singleton:1,		/* Only chunk in the packet? */
-@@ -656,6 +655,7 @@ struct sctp_chunk {
- 		fast_retransmit:2;	/* Is this chunk fast retransmitted? */
+@@ -530,7 +530,6 @@ struct sctp_datamsg {
+ 	/* Did the messenge fail to send? */
+ 	int send_error;
+ 	u8 send_failed:1,
+-	   can_abandon:1,   /* can chunks from this message can be abandoned. */
+ 	   can_delay;	    /* should this message be Nagle delayed */
  };
  
-+#define sctp_chunk_retransmitted(chunk)	(chunk->sent_count > 1)
- void sctp_chunk_hold(struct sctp_chunk *);
- void sctp_chunk_put(struct sctp_chunk *);
- int sctp_user_addto_chunk(struct sctp_chunk *chunk, int len,
+diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+index 7a1cdf4..615f0dd 100644
+--- a/net/sctp/chunk.c
++++ b/net/sctp/chunk.c
+@@ -52,7 +52,6 @@ static void sctp_datamsg_init(struct sctp_datamsg *msg)
+ 	atomic_set(&msg->refcnt, 1);
+ 	msg->send_failed = 0;
+ 	msg->send_error = 0;
+-	msg->can_abandon = 0;
+ 	msg->can_delay = 1;
+ 	msg->expires_at = 0;
+ 	INIT_LIST_HEAD(&msg->chunks);
+@@ -182,20 +181,11 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 	/* Note: Calculate this outside of the loop, so that all fragments
+ 	 * have the same expiration.
+ 	 */
+-	if (sinfo->sinfo_timetolive) {
+-		/* sinfo_timetolive is in milliseconds */
++	if (asoc->peer.prsctp_capable && sinfo->sinfo_timetolive &&
++	    (SCTP_PR_TTL_ENABLED(sinfo->sinfo_flags) ||
++	     !SCTP_PR_POLICY(sinfo->sinfo_flags)))
+ 		msg->expires_at = jiffies +
+ 				    msecs_to_jiffies(sinfo->sinfo_timetolive);
+-		msg->can_abandon = 1;
+-
+-		pr_debug("%s: msg:%p expires_at:%ld jiffies:%ld\n", __func__,
+-			 msg, msg->expires_at, jiffies);
+-	}
+-
+-	if (asoc->peer.prsctp_capable &&
+-	    SCTP_PR_TTL_ENABLED(sinfo->sinfo_flags))
+-		msg->expires_at =
+-			jiffies + msecs_to_jiffies(sinfo->sinfo_timetolive);
+ 
+ 	/* This is the biggest possible DATA chunk that can fit into
+ 	 * the packet
+@@ -354,18 +344,8 @@ errout:
+ /* Check whether this message has expired. */
+ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
+ {
+-	if (!chunk->asoc->peer.prsctp_capable ||
+-	    !SCTP_PR_POLICY(chunk->sinfo.sinfo_flags)) {
+-		struct sctp_datamsg *msg = chunk->msg;
+-
+-		if (!msg->can_abandon)
+-			return 0;
+-
+-		if (time_after(jiffies, msg->expires_at))
+-			return 1;
+-
++	if (!chunk->asoc->peer.prsctp_capable)
+ 		return 0;
+-	}
+ 
+ 	if (SCTP_PR_TTL_ENABLED(chunk->sinfo.sinfo_flags) &&
+ 	    time_after(jiffies, chunk->msg->expires_at)) {
+@@ -378,6 +358,10 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
+ 		   chunk->sent_count > chunk->sinfo.sinfo_timetolive) {
+ 		chunk->asoc->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
+ 		return 1;
++	} else if (!SCTP_PR_POLICY(chunk->sinfo.sinfo_flags) &&
++		   chunk->msg->expires_at &&
++		   time_after(jiffies, chunk->msg->expires_at)) {
++		return 1;
+ 	}
+ 	/* PRIO policy is processed by sendmsg, not here */
+ 
 diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 2a5c189..84f66d5 100644
+index 2a5c189..f0af831 100644
 --- a/net/sctp/output.c
 +++ b/net/sctp/output.c
-@@ -552,7 +552,8 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 				 * for a given destination transport address.
- 				 */
+@@ -865,9 +865,6 @@ static void sctp_packet_append_data(struct sctp_packet *packet,
+ 		rwnd = 0;
  
--				if (!chunk->resent && !tp->rto_pending) {
-+				if (!sctp_chunk_retransmitted(chunk) &&
-+				    !tp->rto_pending) {
- 					chunk->rtt_in_progress = 1;
- 					tp->rto_pending = 1;
- 				}
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 5825853..e540826 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -507,8 +507,6 @@ void sctp_retransmit_mark(struct sctp_outq *q,
- 				transport->rto_pending = 0;
- 			}
- 
--			chunk->resent = 1;
--
- 			/* Move the chunk to the retransmit queue. The chunks
- 			 * on the retransmit queue are always kept in order.
- 			 */
-@@ -1439,7 +1437,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 				 * instance).
- 				 */
- 				if (!tchunk->tsn_gap_acked &&
--				    !tchunk->resent &&
-+				    !sctp_chunk_retransmitted(tchunk) &&
- 				    tchunk->rtt_in_progress) {
- 					tchunk->rtt_in_progress = 0;
- 					rtt = jiffies - tchunk->sent_at;
+ 	asoc->peer.rwnd = rwnd;
+-	/* Has been accepted for transmission. */
+-	if (!asoc->peer.prsctp_capable)
+-		chunk->msg->can_abandon = 0;
+ 	sctp_chunk_assign_tsn(chunk);
+ 	sctp_chunk_assign_ssn(chunk);
+ }
 -- 
 2.1.0
