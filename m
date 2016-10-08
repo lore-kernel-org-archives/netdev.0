@@ -1,142 +1,359 @@
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Subject: Re: tg3 BUG: spinlock lockup suspected
-Date: Sat, 8 Oct 2016 21:30:47 +0530
-Message-ID: <CAMet4B7r-aVXLrHGnCUqXtV6OxXJkuy=qi3XZRe5HtTZSTfKrA@mail.gmail.com>
+From: Georgi Vlaev <gvlaev@juniper.net>
+Subject: Re: [PATCH 09/10] net: phy: Add MDIO driver for Juniper's SAM FPGA
+Date: Sat, 8 Oct 2016 09:30:57 -0700
+Message-ID: <20161008163056.GA17131@svl-evodev-gvlaev.juniper.net>
+References: <1475853518-22264-1-git-send-email-pantelis.antoniou@konsulko.com>
+ <1475853518-22264-10-git-send-email-pantelis.antoniou@konsulko.com>
+ <20161007211326.GB10197@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        sparclinux@vger.kernel.org,
-        Linux Kernel list <linux-kernel@vger.kernel.org>
-To: Meelis Roos <mroos@linux.ee>
-Return-path: <sparclinux-owner@vger.kernel.org>
-Sender: sparclinux-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Pantelis Antoniou <pantelis.antoniou@konsulko.com>,
+        David Miller <davem@davemloft.net>,
+        Lee Jones <lee.jones@linaro.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "Debjit Ghosh" <dghosh@juniper.net>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Maryam Seraj <mseraj@juniper.net>,
+        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161007211326.GB10197@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 8, 2016 at 10:15 PM, Meelis Roos <mroos@linux.ee> wrote:
->> That did not go well - bisect found the following commit but that does
->> not seem to be related at all. So probably the reproducibility is not
->> 100% but more random.
->
-> Now I reproduced the bug even with 4.7-rc1 so it is older than 4.7. Will
-> test further.
->
-Thanks for reporting this. We will look into this.
-Any specific steps to reproduce this?
->>
->>
->> 4c5773f9f5462dcb372857813918bbfe8c0cdcdd is the first bad commit
->> commit 4c5773f9f5462dcb372857813918bbfe8c0cdcdd
->> Author: Krzysztof Kozlowski <krzk@kernel.org>
->> Date:   Sat May 28 11:54:12 2016 +0200
->>
->>     dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
->>
->>     Add license and copyrights (file introduced in 2014) to header with
->>     Exynos5410 clock IDs. Additionally reformat it to improve readability.
->>
->>     Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
->>     Acked-by: Stephen Boyd <sboyd@codeaurora.org>
->>     Reviewed-by: Javier Martinez Canillas <javier@osg.samsung.com>
->>     Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
->>
->> :040000 040000 acbd432e11366a8eb8775942bc7b8caa476226e2 08e3a3f98c3d4fa2a93123c3f21b2847c06b4665 M      include
->>
->>
->> The whiole bisect log seems to dig around in unrelated places so at best
->> it just narrows the window by adding some known-bad data points.
->>
->> git bisect start
->> # good: [523d939ef98fd712632d93a5a2b588e477a7565e] Linux 4.7
->> git bisect good 523d939ef98fd712632d93a5a2b588e477a7565e
->> # bad: [ef0e1ea8856bed6ff8394d3dfe77f2cab487ecea] Merge tag 'arc-4.8-rc4-fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/vgupta/arc
->> git bisect bad ef0e1ea8856bed6ff8394d3dfe77f2cab487ecea
->> # good: [e0b3f595d13b3e9ce9cdf53935e7f304c04b5b2b] affs ->d_compare(): don't bother with ->d_inode
->> git bisect good e0b3f595d13b3e9ce9cdf53935e7f304c04b5b2b
->> # bad: [77a87824ed676ca8ff8482e4157d3adb284fd381] clocksource/drivers/clps_711x: fixup for "ARM: clps711x:
->> git bisect bad 77a87824ed676ca8ff8482e4157d3adb284fd381
->> # bad: [27acbec338113a75b9d72aeb53149a3538031dda] Merge git://www.linux-watchdog.org/linux-watchdog
->> git bisect bad 27acbec338113a75b9d72aeb53149a3538031dda
->> # bad: [7f155c702677d057d03b192ce652311de5434697] Merge tag 'nfs-for-4.8-1' of git://git.linux-nfs.org/projects/trondmy/linux-nfs
->> git bisect bad 7f155c702677d057d03b192ce652311de5434697
->> # good: [797cee982eef9195736afc5e7f3b8f613c41d19a] Merge branch 'stable-4.8' of git://git.infradead.org/users/pcmoore/audit
->> git bisect good 797cee982eef9195736afc5e7f3b8f613c41d19a
->> # bad: [1056c9bd2702ea1bb79abf9bd1e78c578589d247] Merge tag 'clk-for-linus-4.8' of git://git.kernel.org/pub/scm/linux/kernel/git/clk/linux
->> git bisect bad 1056c9bd2702ea1bb79abf9bd1e78c578589d247
->> # bad: [1ff435d3571199a799ba6ccfe05544dcd21b9fb3] Merge branch 'clk-st-critical' into clk-next
->> git bisect bad 1ff435d3571199a799ba6ccfe05544dcd21b9fb3
->> # bad: [0e4504470667d355b53ca3c9802fdd2120c9f946] clk: samsung: exynos5433: Add CLK_IGNORE_UNUSED flag to PCIE device
->> git bisect bad 0e4504470667d355b53ca3c9802fdd2120c9f946
->> # bad: [880c81b3b6604a004d56b5975c8bed47276e8bf6] clk: samsung: exynos5440: Constify all clock initializers
->> git bisect bad 880c81b3b6604a004d56b5975c8bed47276e8bf6
->> # bad: [b3a96eed8e84780d300b79b58047ea277ba358b7] clk: samsung: exynos3250: Move platform driver and of_device_id to init section
->> git bisect bad b3a96eed8e84780d300b79b58047ea277ba358b7
->> # bad: [4528dd8ed477bf202bd33ee48d38d656672d37f8] dt-bindings: clock: Add watchdog and SSS clock IDs to Exynos5410
->> git bisect bad 4528dd8ed477bf202bd33ee48d38d656672d37f8
->> # bad: [5cd3535a27a7cf8fc4070b499d66e419e7e72b61] dt-bindings: clock: Add PWM and USB clock IDs to Exynos5410
->> git bisect bad 5cd3535a27a7cf8fc4070b499d66e419e7e72b61
->> # bad: [4c5773f9f5462dcb372857813918bbfe8c0cdcdd] dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
->> git bisect bad 4c5773f9f5462dcb372857813918bbfe8c0cdcdd
->> # first bad commit: [4c5773f9f5462dcb372857813918bbfe8c0cdcdd] dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
->>
->>
->> >
->> > [   74.123859] tg3.c:v3.137 (May 11, 2014)
->> > [   74.123880] PCI: Enabling device: (0000:00:02.0), cmd 2
->> > [   74.315794] tg3 0000:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
->> > [   74.656152] tg3 0000:00:02.0 eth0: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:85
->> > [   74.656160] tg3 0000:00:02.0 eth0: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
->> > [   74.656167] tg3 0000:00:02.0 eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
->> > [   74.656172] tg3 0000:00:02.0 eth0: dma_rwctrl[763f0000] dma_mask[32-bit]
->> > [   74.656322] PCI: Enabling device: (0000:00:02.1), cmd 2
->> > [   74.845325] tg3 0000:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
->> > [   75.184539] tg3 0000:00:02.1 eth1: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:86
->> > [   75.184546] tg3 0000:00:02.1 eth1: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
->> > [   75.184551] tg3 0000:00:02.1 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
->> > [   75.184557] tg3 0000:00:02.1 eth1: dma_rwctrl[763f0000] dma_mask[32-bit]
->> > [   75.184708] PCI: Enabling device: (0003:00:02.0), cmd 2
->> > [   75.375322] tg3 0003:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
->> > [   75.714681] tg3 0003:00:02.0 eth2: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:87
->> > [   75.714688] tg3 0003:00:02.0 eth2: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
->> > [   75.714694] tg3 0003:00:02.0 eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
->> > [   75.714699] tg3 0003:00:02.0 eth2: dma_rwctrl[763f0000] dma_mask[32-bit]
->> > [   75.714819] PCI: Enabling device: (0003:00:02.1), cmd 2
->> > [   75.905278] tg3 0003:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
->> > [   76.244470] tg3 0003:00:02.1 eth3: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:88
->> > [   76.244477] tg3 0003:00:02.1 eth3: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
->> > [   76.244482] tg3 0003:00:02.1 eth3: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
->> > [   76.244488] tg3 0003:00:02.1 eth3: dma_rwctrl[763f0000] dma_mask[32-bit]
->> > [   83.643317] tg3 0000:00:02.0 eth0: No firmware running
->> > [...]
->> > [   83.716570] BUG: spinlock lockup suspected on CPU#0, dhclient/1014
->> > [   83.797819]  lock: 0xfff000123c8e4a08, .magic: dead4ead, .owner: ip/1001, .owner_cpu: 1
->> > [   83.903130] CPU: 0 PID: 1014 Comm: dhclient Not tainted 4.8.0 #4
->> > [   83.982129] Call Trace:
->> > [   84.014160]  [00000000004b7220] spin_dump+0x60/0xa0
->> > [   84.078203]  [00000000004b73a0] do_raw_spin_lock+0xa0/0x120
->> > [   84.106344] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
->> > [   84.107193] ip (1001) used greatest stack depth: 2168 bytes left
->> > [   84.306955]  [000000000092c0d0] _raw_spin_lock_bh+0x30/0x40
->> > [   84.380188]  [00000000100822cc] tg3_get_stats64+0xc/0x80 [tg3]
->> > [   84.456885]  [00000000007fac8c] dev_get_stats+0x2c/0xc0
->> > [   84.525506]  [000000000081a4e8] dev_seq_printf_stats+0x8/0xe0
->> > [   84.600986]  [000000000081a5e4] dev_seq_show+0x24/0x40
->> > [   84.668467]  [00000000005cb6c4] seq_read+0x2c4/0x440
->> > [   84.733656]  [000000000060b97c] proc_reg_read+0x3c/0x80
->> > [   84.802282]  [00000000005a219c] __vfs_read+0x1c/0x140
->> > [   84.868613]  [00000000005a2310] vfs_read+0x50/0x100
->> > [   84.932662]  [00000000005a265c] SyS_read+0x3c/0xa0
->> > [   84.995573]  [00000000004061d4] linux_sparc_syscall32+0x34/0x60
->> > [   85.073748] * CPU[  0]: TSTATE[00000044f0001a22] TPC[00000000f79a16b0] TNPC[00000000f79a16b4] TASK[dhclient:1014]
->> > [   85.208732]              TPC[f79a16b0] O7[f79405c8] I7[0] RPC[0]
->> > [   85.287633]   CPU[  1]: TSTATE[0000004480001605] TPC[00000000004b26f0] TNPC[00000000004d0b0c] TASK[swapper/1:0]
->> > [   85.420338]              TPC[trace_hardirqs_off+0x10/0x20] O7[rcu_idle_enter+0x64/0xa0] I7[cpu_startup_entry+0x1b0/0x240] RPC[rest_init+0x178/0x1a0]
->> > [   85.664600] tg3 0000:00:02.0 eth0: Link is up at 100 Mbps, full duplex
->> > [   85.750515] tg3 0000:00:02.0 eth0: Flow control is off for TX and off for RX
->> > [   85.843994] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
->> >
->> >
->>
->>
->
-> --
-> Meelis Roos (mroos@linux.ee)
+Hi Andrew,
+
+On 16-10-07 23:13:26, Andrew Lunn wrote:
+> On Fri, Oct 07, 2016 at 06:18:37PM +0300, Pantelis Antoniou wrote:
+> > From: Georgi Vlaev <gvlaev@juniper.net>
+> > 
+> > Add driver for the MDIO IP block present in Juniper's
+> > SAM FPGA.
+> > 
+> > This driver supports only Clause 45 of the 802.3 spec.
+> > 
+> > Note that due to the fact that there are no drivers for
+> > Broadcom/Avago retimers on 10/40Ge path that are controlled
+> > from the MDIO interface there is a method to have direct
+> > access to registers via a debugfs interface.
+> 
+> This seems to be the wrong solution. Why not write those drivers?
+> 
+> Controlling stuff from user space is generally frowned up. So i expect
+> DaveM will NACK this patch. Please remove all the debugfs stuff.
+
+I'll drop the debugfs and sysfs attributes. This will remove the
+access from the user space.
+
+> 
+> > +static int mdio_sam_stat_wait(struct mii_bus *bus, u32 wait_mask)
+> > +{
+> > +	struct mdio_sam_data *data = bus->priv;
+> > +	unsigned long timeout;
+> > +	u32 stat;
+> > +
+> > +	timeout = jiffies + msecs_to_jiffies(MDIO_RDY_TMO);
+> > +	do {
+> > +		stat = ioread32(data->base + MDIO_STATUS);
+> > +		if (stat & wait_mask)
+> > +			return 0;
+> > +
+> > +		usleep_range(50, 100);
+> > +	} while (time_before(jiffies, timeout));
+> > +
+> > +	return -EBUSY;
+> 
+> I've recently had to fix a loop like this in another
+> driver. usleep_range(50, 100) can sleep for a lot longer. If it sleeps
+> for MDIO_RDY_TMO you exit out with -EBUSY after a single iteration,
+> which is not what you want. It is better to make a fixed number of
+> iterations rather than a timeout.
+> 
+
+OK, I'll change it.
+
+> > +}
+> > +
+> > +static int mdio_sam_read(struct mii_bus *bus, int phy_id, int regnum)
+> > +{
+> > +	struct mdio_sam_data *data = bus->priv;
+> > +	u32 command, res;
+> > +	int ret;
+> > +
+> > +	/* mdiobus_read holds the bus->mdio_lock mutex */
+> > +
+> > +	if (!(regnum & MII_ADDR_C45))
+> > +		return -ENXIO;
+> > +
+> > +	ret = mdio_sam_stat_wait(bus, STAT_REG_RDY);
+> > +	if (ret < 0)
+> > +		return ret;
+> > +
+> > +	command = regnum & 0x1fffff; /* regnum = (dev_id << 16) | reg */
+> > +	command |= ((phy_id & 0x1f) << 21);
+> > +
+> > +	iowrite32(command, data->base + MDIO_CMD1);
+> > +	ioread32(data->base + MDIO_CMD1);
+> 
+> 
+> > +	iowrite32(CMD2_READ | CMD2_ENABLE, data->base + MDIO_CMD2);
+> > +	ioread32(data->base + MDIO_CMD2);
+> 
+> Why do you need to read the values back? Hardware bug?
+> 
+
+We have a lot of these 'SAM' type of FPGAs, that follow the
+same spec, but implemented in a different way. Some software
+revisions have issues.
+
+> > +	iowrite32(TBL_CMD_REG_GO, data->base + MDIO_TBL_CMD);
+> > +	ioread32(data->base + MDIO_TBL_CMD);
+> 
+> Although not wrong, most drivers use writel().
+> 
+> > +
+> > +	usleep_range(50, 100);
+> > +
+> > +	ret = mdio_sam_stat_wait(bus, (STAT_REG_DONE | STAT_REG_ERR));
+> 
+> Do you really need a wait before calling mdio_sam_stat_wait()? Isn't
+> that what it is supposed to do, wait...
+> 
+
+I'll remove it.
+
+> > +	if (ret < 0)
+> > +		return ret;
+> > +
+> > +	res = ioread32(data->base + MDIO_RESULT);
+> > +
+> > +	if (res & RES_ERROR || !(res & RES_SUCCESS))
+> > +		return -EIO;
+> > +
+> > +	return (res & 0xffff);
+> > +}
+> > +
+> > +static int mdio_sam_write(struct mii_bus *bus, int phy_id, int regnum, u16 val)
+> > +{
+> > +	struct mdio_sam_data *data = bus->priv;
+> > +	u32 command;
+> > +	int ret;
+> > +
+> > +	/* mdiobus_write holds the bus->mdio_lock mutex */
+> > +
+> > +	if (!(regnum & MII_ADDR_C45))
+> > +		return -ENXIO;
+> > +
+> > +	ret = mdio_sam_stat_wait(bus, STAT_REG_RDY);
+> > +	if (ret < 0)
+> > +		return ret;
+> > +
+> > +	command = regnum & 0x1fffff; /* regnum = (dev_id << 16) | reg */
+> > +	command |= ((phy_id & 0x1f) << 21);
+> > +
+> > +	iowrite32(command, data->base + MDIO_CMD1);
+> > +	ioread32(data->base + MDIO_CMD1);
+> > +	iowrite32(CMD2_ENABLE | val, data->base + MDIO_CMD2);
+> > +	ioread32(data->base + MDIO_CMD2);
+> > +	iowrite32(TBL_CMD_REG_GO, data->base + MDIO_TBL_CMD);
+> > +	ioread32(data->base + MDIO_TBL_CMD);
+> > +
+> > +	usleep_range(50, 100);
+> > +
+> > +	ret = mdio_sam_stat_wait(bus, (STAT_REG_DONE | STAT_REG_ERR));
+> > +	if (ret < 0)
+> > +		return ret;
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static int mdio_sam_reset(struct mii_bus *bus)
+> > +{
+> > +	struct mdio_sam_data *data = bus->priv;
+> > +
+> > +	iowrite32(TBL_CMD_SOFT_RESET, data->base + MDIO_TBL_CMD);
+> > +	ioread32(data->base + MDIO_TBL_CMD);
+> > +	mdelay(10);
+> > +	iowrite32(0, data->base + MDIO_TBL_CMD);
+> > +	ioread32(data->base + MDIO_TBL_CMD);
+> > +
+> > +	/* zero tables */
+> > +	memset_io(data->base + MDIO_CMD1, 0, 0x1000);
+> > +	memset_io(data->base + MDIO_PRI_CMD1, 0, 0x1000);
+> 
+> What tables?
+> 
+
+For each bus, the MDIO block has 3 tables of 512 entries - 2
+"command" and one "result" table. Addresses and data are
+written in the "command" table, the returned value for a
+read command is written in the "result" table. Once a start
+is triggered, the FPGA will flush all entries in those tables,
+starting from offset 0. We don't want to have stale entries
+in the tables, as they might result in transactions on the bus,
+so we have to clear everything at least once. Actually we're
+using just a single entry (1/512) from those tables.
+
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static int mdio_sam_of_register_bus(struct platform_device *pdev,
+> > +				    struct device_node *np, void __iomem *base)
+> > +{
+> > +	struct mii_bus *bus;
+> > +	struct mdio_sam_data *data;
+> > +	u32 reg;
+> > +	int ret;
+> > +
+> > +	bus = devm_mdiobus_alloc_size(&pdev->dev, sizeof(*data));
+> > +	if (!bus)
+> > +		return -ENOMEM;
+> > +
+> > +	/* bus offset */
+> > +	ret = of_property_read_u32(np, "reg", &reg);
+> > +	if (ret)
+> > +		return -ENODEV;
+> > +
+> > +	data = bus->priv;
+> > +	data->base = base + reg;
+> > +
+> > +	bus->parent = &pdev->dev;
+> > +	bus->name = "mdio-sam";
+> > +	bus->read = mdio_sam_read;
+> > +	bus->write = mdio_sam_write;
+> > +	bus->reset = mdio_sam_reset;
+> > +	snprintf(bus->id, MII_BUS_ID_SIZE, "mdiosam-%x-%x", pdev->id, reg);
+> > +
+> > +	ret = of_mdiobus_register(bus, np);
+> > +	if (ret < 0)
+> > +		return ret;
+> > +#ifdef CONFIG_DEBUG_FS
+> > +	ret = mdio_sam_debugfs_init(bus);
+> > +	if (ret < 0)
+> > +		goto err_unregister;
+> > +#endif
+> > +	ret = device_create_bin_file(&bus->dev, &bin_attr_raw_io);
+> > +	if (ret)
+> > +		goto err_debugfs;
+> > +
+> > +	return 0;
+> > +
+> > +err_debugfs:
+> > +#ifdef CONFIG_DEBUG_FS
+> > +	mdio_sam_debugfs_remove(bus);
+> > +#endif
+> > +err_unregister:
+> > +	mdiobus_unregister(bus);
+> > +
+> > +	return ret;
+> > +}
+> > +
+> > +static int mdio_sam_of_unregister_bus(struct device_node *np)
+> > +{
+> > +	struct mii_bus *bus;
+> > +
+> > +	bus = of_mdio_find_bus(np);
+> > +	if (bus) {
+> > +		device_remove_bin_file(&bus->dev, &bin_attr_raw_io);
+> > +#ifdef CONFIG_DEBUG_FS
+> > +		mdio_sam_debugfs_remove(bus);
+> > +#endif
+> > +		mdiobus_unregister(bus);
+> > +	}
+> > +	return 0;
+> > +}
+> > +
+> > +static int mdio_sam_probe(struct platform_device *pdev)
+> > +{
+> > +	struct device_node *np;
+> > +	struct resource *res;
+> > +	void __iomem *base;
+> > +	int ret;
+> > +
+> > +	if (!pdev->dev.of_node)
+> > +		return -ENODEV;
+> > +
+> > +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> > +	base = devm_ioremap_nocache(&pdev->dev, res->start,
+> > +				    resource_size(res));
+> 
+> Why nocache?
+> 
+
+I'll change it to devm_ioremap().
+
+> > +	if (IS_ERR(base))
+> > +		return PTR_ERR(base);
+> > +
+> > +	for_each_available_child_of_node(pdev->dev.of_node, np) {
+> > +		ret = mdio_sam_of_register_bus(pdev, np, base);
+> > +		if (ret)
+> > +			goto err;
+> > +	}
+> 
+> This is odd. There does not seem to be any shared resources. So you
+> should really have one MDIO bus as one device in the device tree.
+> 
+
+Well, there's no shared resource, so probably it can be changed to
+a single device/bus. This might require changing the parent MFD as
+well.
+
+> 
+> 
+>        Andrew
+> 
+> > +
+> > +	return 0;
+> > +err:
+> > +	/* roll back everything */
+> > +	for_each_available_child_of_node(pdev->dev.of_node, np)
+> > +		mdio_sam_of_unregister_bus(np);
+> > +
+> > +	return ret;
+> > +}
+> > +
+> > +static int mdio_sam_remove(struct platform_device *pdev)
+> > +{
+> > +	struct device_node *np;
+> > +
+> > +	for_each_available_child_of_node(pdev->dev.of_node, np)
+> > +		mdio_sam_of_unregister_bus(np);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static const struct of_device_id mdio_sam_of_match[] = {
+> > +	{ .compatible = "jnx,mdio-sam" },
+> > +	{  }
+> > +};
+> > +MODULE_DEVICE_TABLE(of, mdio_sam_of_match);
+> > +
+> > +static struct platform_driver mdio_sam_driver = {
+> > +	.probe = mdio_sam_probe,
+> > +	.remove = mdio_sam_remove,
+> > +	.driver = {
+> > +		.name = "mdio-sam",
+> > +		.owner = THIS_MODULE,
+> > +		.of_match_table = mdio_sam_of_match,
+> > +	},
+> > +};
+> > +
+> > +module_platform_driver(mdio_sam_driver);
+> > +
+> > +MODULE_ALIAS("platform:mdio-sam");
+> > +MODULE_AUTHOR("Georgi Vlaev <gvlaev@juniper.net>");
+> > +MODULE_LICENSE("GPL");
+> > +MODULE_DESCRIPTION("Juniper Networks SAM MDIO bus driver");
+> > -- 
+> > 1.9.1
+> > 
+
+-- 
+joe
