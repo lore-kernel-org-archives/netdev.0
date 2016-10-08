@@ -1,32 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: NULL out phydev after removing mdio bus
-Date: Fri, 07 Oct 2016 23:57:18 -0400 (EDT)
-Message-ID: <20161007.235718.1329800164848117692.davem@davemloft.net>
-References: <1475853202-19903-1-git-send-email-xander.huff@ni.com>
+Subject: Re: [PATCH] wan/fsl_ucc_hdlc: Fix size used in dma_free_coherent()
+Date: Sat, 08 Oct 2016 00:05:26 -0400 (EDT)
+Message-ID: <20161008.000526.415379645974882301.davem@davemloft.net>
+References: <1475873927-14999-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-        nathan.sullivan@ni.com, linux-kernel@vger.kernel.org,
-        brad.mouring@ni.com
-To: xander.huff@ni.com
+Cc: qiang.zhao@nxp.com, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475853202-19903-1-git-send-email-xander.huff@ni.com>
+In-Reply-To: <1475873927-14999-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xander Huff <xander.huff@ni.com>
-Date: Fri, 7 Oct 2016 10:13:22 -0500
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Fri,  7 Oct 2016 22:58:47 +0200
 
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
+> Size used with 'dma_alloc_coherent()' and 'dma_free_coherent()' should be
+> consistent.
+> Here, the size of a pointer is used in dma_alloc... and the size of the
+> pointed structure is used in dma_free...
 > 
-> To ensure the dev->phydev pointer is not used after becoming invalid in
-> mdiobus_unregister, set it to NULL. This happens when removing the macb
-> driver without first taking its interface down, since unregister_netdev
-> will end up calling macb_close.
+> This has been spotted with coccinelle, using the following script:
+> ////////////////////
+> @r@
+> expression x0, x1, y0, y1, z0, z1, t0, t1, ret;
+> @@
 > 
-> Signed-off-by: Xander Huff <xander.huff@ni.com>
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
-> Signed-off-by: Brad Mouring <brad.mouring@ni.com>
+> *   ret = dma_alloc_coherent(x0, y0, z0, t0);
+>     ...
+> *   dma_free_coherent(x1, y1, ret, t1);
+> 
+> 
+> @script:python@
+> y0 << r.y0;
+> y1 << r.y1;
+> 
+> @@
+> if y1.find(y0) == -1:
+>  print "WARNING: sizes look different:  '%s'   vs   '%s'" % (y0, y1)
+> ////////////////////
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Applied.
+Looks good to me, applied, thanks.
