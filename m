@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6 addrconf: disallow rtr_solicits < -1
-Date: Fri, 07 Oct 2016 23:44:21 -0400 (EDT)
-Message-ID: <20161007.234421.1323207153848674724.davem@davemloft.net>
-References: <CANP3RGdVquyFe1VA2mKMC1HNgnXPhmpsv45R-7P6boWCb8oC2A@mail.gmail.com>
-        <1475827249-27318-1-git-send-email-zenczykowski@gmail.com>
+Subject: Re: Reversion of "xen-netback: create a debugfs node for hash
+ information"
+Date: Fri, 07 Oct 2016 23:48:56 -0400 (EDT)
+Message-ID: <20161007.234856.1725862322997622606.davem@davemloft.net>
+References: <cbedcf0845fb449892e415e2a1c69a40@AMSPEX02CL03.citrite.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
-Cc: maze@google.com, netdev@vger.kernel.org, ek@google.com,
-        lorenzo@google.com
-To: zenczykowski@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wei.liu2@citrix.com
+To: Paul.Durrant@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59876 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59900 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752065AbcJHDo3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 23:44:29 -0400
-In-Reply-To: <1475827249-27318-1-git-send-email-zenczykowski@gmail.com>
+        with ESMTP id S1756002AbcJHDs7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2016 23:48:59 -0400
+In-Reply-To: <cbedcf0845fb449892e415e2a1c69a40@AMSPEX02CL03.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maciej ¯enczykowski <zenczykowski@gmail.com>
-Date: Fri,  7 Oct 2016 01:00:49 -0700
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Date: Fri, 7 Oct 2016 09:50:04 +0000
 
-> From: Maciej ¯enczykowski <maze@google.com>
-> 
-> This disallows setting /proc/sys/net/ipv6/conf/*/router_solicitations
-> to values below -1.
-> 
-> -1 continues to mean an unlimited number of retransmits.
-> 
-> Note: this depends on 'ipv6 addrconf: remove addrconf_sysctl_hop_limit()'
-> 
-> Signed-off-by: Maciej ¯enczykowski <maze@google.com>
+>   I notice that you have made the above reversion of commit c0c64c15
+>   (debugfs node) due to a build failure, despite the failure being
+>   caused by commit 0364a882 (switch to threaded irq) which was made
+>   subsequently. I assume you want me to re-spin a new patch for the
+>   debugfs node to fix the build problem?
 
-Applied, thanks.
+Yes, that's probably what you need to do.
+
+Thanks.
