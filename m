@@ -1,38 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v9 1/1] net: phy: Cleanup the Edge-Rate feature
- in Microsemi PHYs.
-Date: Sun, 9 Oct 2016 22:06:29 +0200
-Message-ID: <20161009200629.GI12033@lunn.ch>
-References: <1475828904-13839-1-git-send-email-allan.nielsen@microsemi.com>
- <1475828904-13839-2-git-send-email-allan.nielsen@microsemi.com>
- <20161007202225.GC8266@lunn.ch>
- <20161009194534.GA20767@microsemi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        raju.lakkaraju@microsemi.com
-To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41960 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751066AbcJIUGc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 9 Oct 2016 16:06:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20161009194534.GA20767@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: [PATCH v2 3/3] net: smsc91x: add u16 workaround for pxa platforms
+Date: Sun,  9 Oct 2016 22:33:47 +0200
+Message-ID: <1476045227-2970-3-git-send-email-robert.jarzmik@free.fr>
+References: <1476045227-2970-1-git-send-email-robert.jarzmik@free.fr>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Robert Jarzmik <robert.jarzmik@free.fr>,
+        Jeremy Linton <jeremy.linton@arm.com>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Nicolas Pitre <nico@fluxnic.net>,
+        Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476045227-2970-1-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Year... I was actually a bit confused about this... But assumed that you had
-> some conventions about saving "input" configuration.
+Add a workaround for mainstone, idp and stargate2 boards, for u16 writes
+which must be aligned on 32 bits addresses.
 
-Nope.
+Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+Cc: Jeremy Linton <jeremy.linton@arm.com>
+---
+Since v1: rename dt property to pxa-u16-align4
+      	  change the binding documentation file
+---
+ Documentation/devicetree/bindings/net/smsc-lan91c111.txt | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Humm, actually, i messed up here and missed something. Sorry.
-
-You should really do all the DT parsing in the probe function, or a
-function it calls. We want the probe to return -EINVAL if the device
-tree is invalid. Either you can program the magic value immediately,
-if it will survive a reset, or save it in the private structure until
-the init is called.
-
-   Andrew
+diff --git a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
+index e77e167593db..309e37eb7c7c 100644
+--- a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
++++ b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
+@@ -13,3 +13,5 @@ Optional properties:
+   16-bit access only.
+ - power-gpios: GPIO to control the PWRDWN pin
+ - reset-gpios: GPIO to control the RESET pin
++- pxa-u16-align4 : Boolean, put in place the workaround the force all
++		   u16 writes to be 32 bits aligned
+-- 
+2.1.4
