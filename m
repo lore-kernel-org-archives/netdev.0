@@ -1,77 +1,73 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] staging: net: netlogic: use new api
- ethtool_{get|set}_link_ksettings
-Date: Sun,  9 Oct 2016 15:58:39 +0200
-Message-ID: <1476021519-8250-1-git-send-email-tremyfr@gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH] qed: Fix to use list_for_each_entry_safe() when delete
+ items
+Date: Sun, 9 Oct 2016 13:44:42 +0000
+Message-ID: <BL2PR07MB2306DE6412B6516663F3BE608DD80@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1476019942-6837-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: gregkh@linuxfoundation.org, nevola@gmail.com, andrew@lunn.ch,
- davem@davemloft.net, amitoj1606@gmail.com, Julia.Lawall@lip6.fr,
- janani.rvchndrn@gmail.com, poojashamili@gmail.com, bhumirks@gmail.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: Wei Yongjun <weiyongjun1@huawei.com>,
+        "everest-linux-l2@qlogic.com" <everest-linux-l2@qlogic.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>,
+        Ariel Elior <Ariel.Elior@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0061.outbound.protection.outlook.com ([104.47.34.61]:23936
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751798AbcJIOUI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 9 Oct 2016 10:20:08 -0400
+In-Reply-To: <1476019942-6837-1-git-send-email-weiyj.lk@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+>=20
+> Since we will remove items off the list using list_del() we need to use a=
+ safe
+> version of the list_for_each_entry() macro aptly named
+> list_for_each_entry_safe().
+>=20
+> Fixes: 0a7fb11c23c0 ("qed: Add Light L2 support")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> ---
+>  drivers/net/ethernet/qlogic/qed/qed_ll2.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+> b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+> index a6db107..4428333 100644
+> --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+> @@ -1517,7 +1517,7 @@ static void qed_ll2_register_cb_ops(struct qed_dev
+> *cdev,  static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_par=
+ams
+> *params)  {
+>  	struct qed_ll2_info ll2_info;
+> -	struct qed_ll2_buffer *buffer;
+> +	struct qed_ll2_buffer *buffer, *tmp;
+>  	enum qed_ll2_conn_type conn_type;
+>  	struct qed_ptt *p_ptt;
+>  	int rc, i;
+> @@ -1587,7 +1587,7 @@ static int qed_ll2_start(struct qed_dev *cdev, stru=
+ct
+> qed_ll2_params *params)
+>=20
+>  	/* Post all Rx buffers to FW */
+>  	spin_lock_bh(&cdev->ll2->lock);
+> -	list_for_each_entry(buffer, &cdev->ll2->list, list) {
+> +	list_for_each_entry_safe(buffer, tmp, &cdev->ll2->list, list) {
+>  		rc =3D qed_ll2_post_rx_buffer(QED_LEADING_HWFN(cdev),
+>  					    cdev->ll2->handle,
+>  					    buffer->phys_addr, 0, buffer, 1);
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/staging/netlogic/xlr_net.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+Thanks for the catch.
 
-diff --git a/drivers/staging/netlogic/xlr_net.c b/drivers/staging/netlogic/xlr_net.c
-index 552a7dc..cdf01b9 100644
---- a/drivers/staging/netlogic/xlr_net.c
-+++ b/drivers/staging/netlogic/xlr_net.c
-@@ -172,29 +172,31 @@ static struct phy_device *xlr_get_phydev(struct xlr_net_priv *priv)
- /*
-  * Ethtool operation
-  */
--static int xlr_get_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-+static int xlr_get_link_ksettings(struct net_device *ndev,
-+				  struct ethtool_link_ksettings *ecmd)
- {
- 	struct xlr_net_priv *priv = netdev_priv(ndev);
- 	struct phy_device *phydev = xlr_get_phydev(priv);
- 
- 	if (!phydev)
- 		return -ENODEV;
--	return phy_ethtool_gset(phydev, ecmd);
-+	return phy_ethtool_ksettings_get(phydev, ecmd);
- }
- 
--static int xlr_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-+static int xlr_set_link_ksettings(struct net_device *ndev,
-+				  const struct ethtool_link_ksettings *ecmd)
- {
- 	struct xlr_net_priv *priv = netdev_priv(ndev);
- 	struct phy_device *phydev = xlr_get_phydev(priv);
- 
- 	if (!phydev)
- 		return -ENODEV;
--	return phy_ethtool_sset(phydev, ecmd);
-+	return phy_ethtool_ksettings_set(phydev, ecmd);
- }
- 
- static const struct ethtool_ops xlr_ethtool_ops = {
--	.get_settings = xlr_get_settings,
--	.set_settings = xlr_set_settings,
-+	.get_link_ksettings = xlr_get_link_ksettings,
-+	.set_link_ksettings = xlr_set_link_ksettings,
- };
- 
- /*
--- 
-1.7.4.4
+A single petty comment - having the variable called 'tmp' in such a long
+function is far from informative. Perhaps 'tmp_buffer' would have been
+better.
+
+Regardless,
+Acked-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
