@@ -1,9 +1,11 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: net: BUG still has locks held in unix_stream_splice_read
-Date: Sun, 9 Oct 2016 12:05:42 +0200
-Message-ID: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
+Subject: Re: net: BUG still has locks held in unix_stream_splice_read
+Date: Sun, 9 Oct 2016 12:06:14 +0200
+Message-ID: <CACT4Y+a6yDm28VYtNPSktYKs_T2UzLGb8jadpFpsdKfNzb7-tA@mail.gmail.com>
+References: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>
 To: Al Viro <viro@zeniv.linux.org.uk>,
         David Miller <davem@davemloft.net>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -11,6 +13,7 @@ To: Al Viro <viro@zeniv.linux.org.uk>,
         netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
