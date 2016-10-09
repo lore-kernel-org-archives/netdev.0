@@ -1,55 +1,78 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] qed: Fix to use list_for_each_entry_safe() when delete items
-Date: Sun,  9 Oct 2016 13:32:22 +0000
-Message-ID: <1476019942-6837-1-git-send-email-weiyj.lk@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, everest-linux-l2@qlogic.com,
-        netdev@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Ariel Elior <Ariel.Elior@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33088 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750717AbcJIOmc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 10:42:32 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i85so5867029pfa.0
-        for <netdev@vger.kernel.org>; Sun, 09 Oct 2016 07:42:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: dsa: slave: use new api ethtool_{get|set}_link_ksettings
+Date: Sun,  9 Oct 2016 17:00:53 +0200
+Message-ID: <1476025253-5571-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Since we will remove items off the list using list_del() we need
-to use a safe version of the list_for_each_entry() macro aptly named
-list_for_each_entry_safe().
-
-Fixes: 0a7fb11c23c0 ("qed: Add Light L2 support")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/dsa/slave.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index a6db107..4428333 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -1517,7 +1517,7 @@ static void qed_ll2_register_cb_ops(struct qed_dev *cdev,
- static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
- {
- 	struct qed_ll2_info ll2_info;
--	struct qed_ll2_buffer *buffer;
-+	struct qed_ll2_buffer *buffer, *tmp;
- 	enum qed_ll2_conn_type conn_type;
- 	struct qed_ptt *p_ptt;
- 	int rc, i;
-@@ -1587,7 +1587,7 @@ static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 6b1282c..68714a5 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -641,7 +641,8 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 	/* Post all Rx buffers to FW */
- 	spin_lock_bh(&cdev->ll2->lock);
--	list_for_each_entry(buffer, &cdev->ll2->list, list) {
-+	list_for_each_entry_safe(buffer, tmp, &cdev->ll2->list, list) {
- 		rc = qed_ll2_post_rx_buffer(QED_LEADING_HWFN(cdev),
- 					    cdev->ll2->handle,
- 					    buffer->phys_addr, 0, buffer, 1);
+ /* ethtool operations *******************************************************/
+ static int
+-dsa_slave_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++dsa_slave_get_link_ksettings(struct net_device *dev,
++			     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	int err;
+@@ -650,19 +651,20 @@ dsa_slave_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	if (p->phy != NULL) {
+ 		err = phy_read_status(p->phy);
+ 		if (err == 0)
+-			err = phy_ethtool_gset(p->phy, cmd);
++			err = phy_ethtool_ksettings_get(p->phy, cmd);
+ 	}
+ 
+ 	return err;
+ }
+ 
+ static int
+-dsa_slave_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++dsa_slave_set_link_ksettings(struct net_device *dev,
++			     const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 
+ 	if (p->phy != NULL)
+-		return phy_ethtool_sset(p->phy, cmd);
++		return phy_ethtool_ksettings_set(p->phy, cmd);
+ 
+ 	return -EOPNOTSUPP;
+ }
+@@ -990,8 +992,6 @@ void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
+ }
+ 
+ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+-	.get_settings		= dsa_slave_get_settings,
+-	.set_settings		= dsa_slave_set_settings,
+ 	.get_drvinfo		= dsa_slave_get_drvinfo,
+ 	.get_regs_len		= dsa_slave_get_regs_len,
+ 	.get_regs		= dsa_slave_get_regs,
+@@ -1007,6 +1007,8 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_wol		= dsa_slave_get_wol,
+ 	.set_eee		= dsa_slave_set_eee,
+ 	.get_eee		= dsa_slave_get_eee,
++	.get_link_ksettings	= dsa_slave_get_link_ksettings,
++	.set_link_ksettings	= dsa_slave_set_link_ksettings,
+ };
+ 
+ static const struct net_device_ops dsa_slave_netdev_ops = {
+-- 
+1.7.4.4
