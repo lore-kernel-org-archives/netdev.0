@@ -1,78 +1,102 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: dsa: slave: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  9 Oct 2016 17:00:53 +0200
-Message-ID: <1476025253-5571-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 4/6] qed*: Allow unicast filtering
+Date: Sun, 9 Oct 2016 18:25:36 +0300
+Message-ID: <1476026738-26069-5-git-send-email-Yuval.Mintz@qlogic.com>
+References: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:44709 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751297AbcJIP3B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 11:29:01 -0400
+In-Reply-To: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Apparently qede fails to set IFF_UNICAST_FLT, and as a result is not
+actually performing unicast MAC filtering.
+While we're at it - relax a hard-coded limitation that limits each
+interface into using at most 15 unicast MAC addresses before turning
+promiscuous. Instead utilize the HW resources to their limit.
+
+Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- net/dsa/slave.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_l2.c     | 12 ++++++++++--
+ drivers/net/ethernet/qlogic/qede/qede_main.c |  4 +++-
+ include/linux/qed/qed_eth_if.h               |  1 +
+ 3 files changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 6b1282c..68714a5 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -641,7 +641,8 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index ddd410a..572ed04 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -1652,6 +1652,7 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
  
- /* ethtool operations *******************************************************/
- static int
--dsa_slave_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+dsa_slave_get_link_ksettings(struct net_device *dev,
-+			     struct ethtool_link_ksettings *cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	int err;
-@@ -650,19 +651,20 @@ dsa_slave_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	if (p->phy != NULL) {
- 		err = phy_read_status(p->phy);
- 		if (err == 0)
--			err = phy_ethtool_gset(p->phy, cmd);
-+			err = phy_ethtool_ksettings_get(p->phy, cmd);
- 	}
+ 	if (IS_PF(cdev)) {
+ 		int max_vf_vlan_filters = 0;
++		int max_vf_mac_filters = 0;
  
- 	return err;
- }
+ 		if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
+ 			for_each_hwfn(cdev, i)
+@@ -1665,11 +1666,18 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+ 			info->num_queues = cdev->num_hwfns;
+ 		}
  
- static int
--dsa_slave_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+dsa_slave_set_link_ksettings(struct net_device *dev,
-+			     const struct ethtool_link_ksettings *cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
+-		if (IS_QED_SRIOV(cdev))
++		if (IS_QED_SRIOV(cdev)) {
+ 			max_vf_vlan_filters = cdev->p_iov_info->total_vfs *
+ 					      QED_ETH_VF_NUM_VLAN_FILTERS;
+-		info->num_vlan_filters = RESC_NUM(&cdev->hwfns[0], QED_VLAN) -
++			max_vf_mac_filters = cdev->p_iov_info->total_vfs *
++					     QED_ETH_VF_NUM_MAC_FILTERS;
++		}
++		info->num_vlan_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
++						  QED_VLAN) -
+ 					 max_vf_vlan_filters;
++		info->num_mac_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
++						 QED_MAC) -
++					max_vf_mac_filters;
  
- 	if (p->phy != NULL)
--		return phy_ethtool_sset(p->phy, cmd);
-+		return phy_ethtool_ksettings_set(p->phy, cmd);
+ 		ether_addr_copy(info->port_mac,
+ 				cdev->hwfns[0].hw_info.hw_mac_addr);
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 6c2b09c..0e483af 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -2365,6 +2365,8 @@ static void qede_init_ndev(struct qede_dev *edev)
  
- 	return -EOPNOTSUPP;
- }
-@@ -990,8 +992,6 @@ void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
- }
+ 	qede_set_ethtool_ops(ndev);
  
- static const struct ethtool_ops dsa_slave_ethtool_ops = {
--	.get_settings		= dsa_slave_get_settings,
--	.set_settings		= dsa_slave_set_settings,
- 	.get_drvinfo		= dsa_slave_get_drvinfo,
- 	.get_regs_len		= dsa_slave_get_regs_len,
- 	.get_regs		= dsa_slave_get_regs,
-@@ -1007,6 +1007,8 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_wol		= dsa_slave_get_wol,
- 	.set_eee		= dsa_slave_set_eee,
- 	.get_eee		= dsa_slave_get_eee,
-+	.get_link_ksettings	= dsa_slave_get_link_ksettings,
-+	.set_link_ksettings	= dsa_slave_set_link_ksettings,
- };
++	ndev->priv_flags = IFF_UNICAST_FLT;
++
+ 	/* user-changeble features */
+ 	hw_features = NETIF_F_GRO | NETIF_F_SG |
+ 		      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+@@ -3937,7 +3939,7 @@ static void qede_config_rx_mode(struct net_device *ndev)
  
- static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	/* Check for promiscuous */
+ 	if ((ndev->flags & IFF_PROMISC) ||
+-	    (uc_count > 15)) { /* @@@TBD resource allocation - 1 */
++	    (uc_count > edev->dev_info.num_mac_filters - 1)) {
+ 		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
+ 	} else {
+ 		/* Add MAC filters according to the unicast secondary macs */
+diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
+index 1c77948..1513080 100644
+--- a/include/linux/qed/qed_eth_if.h
++++ b/include/linux/qed/qed_eth_if.h
+@@ -23,6 +23,7 @@ struct qed_dev_eth_info {
+ 
+ 	u8	port_mac[ETH_ALEN];
+ 	u8	num_vlan_filters;
++	u16	num_mac_filters;
+ 
+ 	/* Legacy VF - this affects the datapath, so qede has to know */
+ 	bool is_legacy;
 -- 
-1.7.4.4
+1.9.3
