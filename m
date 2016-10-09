@@ -1,78 +1,165 @@
-From: Krister Johansen <kjlx@templeofstupid.com>
-Subject: Re: [PATCH net] Panic when tc_lookup_action_n finds a partially
- initialized action.
-Date: Sat, 8 Oct 2016 23:13:31 -0700
-Message-ID: <20161009061331.GB2677@templeofstupid.com>
-References: <20161002031349.GB2635@templeofstupid.com>
- <CAM_iQpX1a1=3PmMAwMRDXpL3qjAskQ990FdxgyCg4T5p4=8G7Q@mail.gmail.com>
- <20161005065244.GA2245@templeofstupid.com>
- <CAM_iQpUya1ORUUNC9-spLKHjsjNyj6xHO79kvoDGaZcWT_mEwg@mail.gmail.com>
- <20161006061150.GA2525@templeofstupid.com>
- <CAM_iQpX7fC0HWz2X2R7uZNeiD_rEAe4QcSQiK+YZEHF8jkGBBA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krister Johansen <kjlx@templeofstupid.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: VENKAT PRASHANTH B U <venkat.prashanth2498@gmail.com>
+Subject: [PATCH v2] Add support for ethtool operations to  RDC R6040.
+Date: Sun,  9 Oct 2016 00:39:42 -0700
+Message-ID: <1475998782-10593-1-git-send-email-venkat.prashanth2498@gmail.com>
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
+        VENKAT PRASHANTH B U <venkat.prashanth2498@gmail.com>
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub5.mail.dreamhost.com ([208.113.200.129]:37193 "EHLO
-        homiemail-a121.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753409AbcJIGNv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 02:13:51 -0400
-Received: from homiemail-a121.g.dreamhost.com (localhost [127.0.0.1])
-        by homiemail-a121.g.dreamhost.com (Postfix) with ESMTP id D056A60001126
-        for <netdev@vger.kernel.org>; Sat,  8 Oct 2016 23:13:32 -0700 (PDT)
-Received: from kmjvbox (c-73-202-117-160.hsd1.ca.comcast.net [73.202.117.160])
-        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        (Authenticated sender: kjlx@templeofstupid.com)
-        by homiemail-a121.g.dreamhost.com (Postfix) with ESMTPSA id B423360001121
-        for <netdev@vger.kernel.org>; Sat,  8 Oct 2016 23:13:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpX7fC0HWz2X2R7uZNeiD_rEAe4QcSQiK+YZEHF8jkGBBA@mail.gmail.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33322 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751975AbcJIH63 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 03:58:29 -0400
+Received: by mail-pa0-f65.google.com with SMTP id hh10so5074154pac.0
+        for <netdev@vger.kernel.org>; Sun, 09 Oct 2016 00:58:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Cong,
-Thanks for the follow-up.
+Signed-off-by: Venkat Prashanth B U <venkat.prashanth2498@gmail.com>
 
-On Thu, Oct 06, 2016 at 12:01:15PM -0700, Cong Wang wrote:
-> On Wed, Oct 5, 2016 at 11:11 PM, Krister Johansen
-> > pernet_operations pointer.  The code in register_pernet_subsys() makes
-> > no attempt to check for duplicates.  If we add a pointer that's already
-> > in the list, and subsequently call unregister, the results seem
-> > undefined.  It looks like we'll remove the pernet_operations for the
-> > existing action, assuming we don't corrupt the list in the process.
-> >
-> > Is this actually safe?  If so, what corner case is the act->type /
-> > act->kind protecting us from?
-> 
-> ops->type and ops->kind should be unique too, user-space already
-> relies on this (tc action ls action xxx). The code exists probably just
-> for sanity check.
+Changes since v1:
+1. Made the commit message more clear
+2. Add enumeration data type RTL_FLAG_MAX
+3. Modified the locking interface used in r6040_get_regs()
+   
+4. Initialized mutex dynamically in a function r6040_get_regs()
+   
+5. Declared u32 msg_enable in struct r6040_private
+---
+ drivers/net/ethernet/rdc/r6040.c | 95 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 95 insertions(+)
 
-With that in mind, would it make sense to change the check to a WARN/BUG
-or some kind of assertion?  I mistakenly inferred that it was possible to
-legtimately end up in this scenario.
-
-> So please give that patch a try, let's see if we miss any other problem.
-
-Will do.  I have not forgotten.  I hope to have results for you in a few
-days.
-
-> > Part of the desire to inhibit extra modprobe calls is that if hundreds
-> > of these all start at once on boot, it's really unnecessary to have all
-> > of the rest of them wait while lots of extra modprobe calls are forked
-> > by the kernel.
-> 
-> You can tell systemd to load these modules before starting these
-> containers to avoid blocking, no?
-
-That was exactly what I did to work around the panic until I was able to
-get a patch together.  The preload of the modules is still occurring,
-but I was hoping to excise that workaround entirely.
-
-Thanks,
-
--K
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index cb29ee2..167ff59 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -183,6 +183,10 @@ struct r6040_descriptor {
+ 	u32	rev2;			/* 1C-1F */
+ } __aligned(32);
+ 
++enum rtl_flag {
++	RTL_FLAG_MAX
++};
++
+ struct r6040_private {
+ 	spinlock_t lock;		/* driver lock */
+ 	struct pci_dev *pdev;
+@@ -196,12 +200,18 @@ struct r6040_private {
+ 	dma_addr_t tx_ring_dma;
+ 	u16	tx_free_desc;
+ 	u16	mcr0;
++	u32 msg_enable;
+ 	struct net_device *dev;
+ 	struct mii_bus *mii_bus;
+ 	struct napi_struct napi;
+ 	void __iomem *base;
+ 	int old_link;
+ 	int old_duplex;
++	struct {
++		DECLARE_BITMAP(flags, RTL_FLAG_MAX);
++		struct mutex mutex;
++		struct work_struct work;
++	} wk;
+ };
+ 
+ static char version[] = DRV_NAME
+@@ -955,12 +965,97 @@ static void netdev_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->bus_info, pci_name(rp->pdev), sizeof(info->bus_info));
+ }
+ 
++static void r6040_lock_work(struct r6040_private *tp)
++{
++	mutex_lock(&tp->wk.mutex);
++}
++
++static void r6040_unlock_work(struct r6040_private *tp)
++{
++	mutex_unlock(&tp->wk.mutex);
++}
++
++static int r6040_get_regs_len (struct net_device *dev)
++{
++  return R6040_IO_SIZE;
++}
++
++static void r6040_get_regs (struct net_device *dev, struct ethtool_regs *regs, void *p)
++{
++  struct r6040_private *tp = netdev_priv (dev);
++  u32 __iomem *data = tp->base;
++  u32 *dw = p;
++  int i;
++
++  r6040_lock_work (tp);
++  for (i = 0; i < R6040_IO_SIZE; i += 4)
++    memcpy_fromio (dw++, data++, 4);
++  r6040_unlock_work (tp);
++}
++
++static u32 r6040_get_msglevel (struct net_device *dev)
++{
++  struct r6040_private *tp = netdev_priv (dev);
++
++  return tp->msg_enable;
++}
++
++static void r6040_set_msglevel (struct net_device *dev, u32 value)
++{
++  struct r6040_private *tp = netdev_priv (dev);
++
++  tp->msg_enable = value;
++}
++
++static const char r6040_gstrings[][ETH_GSTRING_LEN] = {
++  "tx_packets",
++  "rx_packets",
++  "tx_errors",
++  "rx_errors",
++  "rx_missed",
++  "align_errors",
++  "tx_single_collisions",
++  "tx_multi_collisions",
++  "unicast",
++  "broadcast",
++  "multicast",
++  "tx_aborted",
++  "tx_underrun",
++};
++
++static int r6040_get_sset_count (struct net_device *dev, int sset)
++{
++  switch (sset)
++    {
++    case ETH_SS_STATS:
++      return ARRAY_SIZE (r6040_gstrings);
++    default:
++      return -EOPNOTSUPP;
++    }
++}
++
++static void r6040_get_strings (struct net_device *dev, u32 stringset, u8 * data)
++{
++  switch (stringset)
++    {
++    case ETH_SS_STATS:
++      memcpy (data, *r6040_gstrings, sizeof (r6040_gstrings));
++      break;
++    }
++}
++
+ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_drvinfo		= netdev_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ts_info		= ethtool_op_get_ts_info,
+ 	.get_link_ksettings     = phy_ethtool_get_link_ksettings,
+ 	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
++	.get_regs_len = r6040_get_regs_len,
++	.get_msglevel = r6040_get_msglevel,
++	.set_msglevel = r6040_set_msglevel,
++	.get_regs = r6040_get_regs,
++	.get_strings = r6040_get_strings,
++	.get_sset_count = r6040_get_sset_count,
+ };
+ 
+ static const struct net_device_ops r6040_netdev_ops = {
+-- 
+1.9.2
