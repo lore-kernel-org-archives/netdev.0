@@ -1,102 +1,352 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 4/6] qed*: Allow unicast filtering
-Date: Sun, 9 Oct 2016 18:25:36 +0300
-Message-ID: <1476026738-26069-5-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 6/6] qed: Handle malicious VFs events
+Date: Sun, 9 Oct 2016 18:25:38 +0300
+Message-ID: <1476026738-26069-7-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:44709 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:44723 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751297AbcJIP3B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 11:29:01 -0400
+        by vger.kernel.org with ESMTP id S1751554AbcJIP3d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 11:29:33 -0400
 In-Reply-To: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 
-Apparently qede fails to set IFF_UNICAST_FLT, and as a result is not
-actually performing unicast MAC filtering.
-While we're at it - relax a hard-coded limitation that limits each
-interface into using at most 15 unicast MAC addresses before turning
-promiscuous. Instead utilize the HW resources to their limit.
+Malicious VFs might be caught in several different methods:
+  - Misusing their bar permission and being blocked by hardware.
+  - Misusing their fastpath logic and being blocked by firmware.
+  - Misusing their interaction with their PF via hw-channel,
+    and being blocked by PF driver.
+
+On the first two items, firmware would indicate to driver that
+the VF is to be considered malicious, but would sometime still
+allow the VF to communicate with the PF [depending on the exact
+nature of the malicious activity done by the VF].
+The current existing logic on the PF side lacks handling of such events,
+and might allow the PF to perform some incorrect configuration on behalf
+of a VF that was previously indicated as malicious.
+
+The new scheme is simple -
+Once the PF determines a VF is malicious it would:
+ a. Ignore any further requests on behalf of the VF-driver.
+ b. Prevent any configurations initiated by the hyperuser for
+    the malicious VF, as firmware isn't willing to serve such.
+
+The malicious indication would be cleared upon the VF flr,
+after which it would become usable once again.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_l2.c     | 12 ++++++++++--
- drivers/net/ethernet/qlogic/qede/qede_main.c |  4 +++-
- include/linux/qed/qed_eth_if.h               |  1 +
- 3 files changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 114 +++++++++++++++++++++++-----
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.h    |   1 +
+ 3 files changed, 96 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index ddd410a..572ed04 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -1652,6 +1652,7 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index d2d6621..6f029f9 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -109,7 +109,8 @@ static int qed_sp_vf_stop(struct qed_hwfn *p_hwfn,
+ }
  
- 	if (IS_PF(cdev)) {
- 		int max_vf_vlan_filters = 0;
-+		int max_vf_mac_filters = 0;
+ static bool qed_iov_is_valid_vfid(struct qed_hwfn *p_hwfn,
+-				  int rel_vf_id, bool b_enabled_only)
++				  int rel_vf_id,
++				  bool b_enabled_only, bool b_non_malicious)
+ {
+ 	if (!p_hwfn->pf_iov_info) {
+ 		DP_NOTICE(p_hwfn->cdev, "No iov info\n");
+@@ -124,6 +125,10 @@ static bool qed_iov_is_valid_vfid(struct qed_hwfn *p_hwfn,
+ 	    b_enabled_only)
+ 		return false;
  
- 		if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
- 			for_each_hwfn(cdev, i)
-@@ -1665,11 +1666,18 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
- 			info->num_queues = cdev->num_hwfns;
++	if ((p_hwfn->pf_iov_info->vfs_array[rel_vf_id].b_malicious) &&
++	    b_non_malicious)
++		return false;
++
+ 	return true;
+ }
+ 
+@@ -138,7 +143,8 @@ static struct qed_vf_info *qed_iov_get_vf_info(struct qed_hwfn *p_hwfn,
+ 		return NULL;
+ 	}
+ 
+-	if (qed_iov_is_valid_vfid(p_hwfn, relative_vf_id, b_enabled_only))
++	if (qed_iov_is_valid_vfid(p_hwfn, relative_vf_id,
++				  b_enabled_only, false))
+ 		vf = &p_hwfn->pf_iov_info->vfs_array[relative_vf_id];
+ 	else
+ 		DP_ERR(p_hwfn, "qed_iov_get_vf_info: VF[%d] is not enabled\n",
+@@ -542,7 +548,8 @@ int qed_iov_hw_info(struct qed_hwfn *p_hwfn)
+ 	return 0;
+ }
+ 
+-static bool qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn, int vfid)
++bool _qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn,
++			      int vfid, bool b_fail_malicious)
+ {
+ 	/* Check PF supports sriov */
+ 	if (IS_VF(p_hwfn->cdev) || !IS_QED_SRIOV(p_hwfn->cdev) ||
+@@ -550,12 +557,17 @@ static bool qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn, int vfid)
+ 		return false;
+ 
+ 	/* Check VF validity */
+-	if (!qed_iov_is_valid_vfid(p_hwfn, vfid, true))
++	if (!qed_iov_is_valid_vfid(p_hwfn, vfid, true, b_fail_malicious))
+ 		return false;
+ 
+ 	return true;
+ }
+ 
++bool qed_iov_pf_sanity_check(struct qed_hwfn *p_hwfn, int vfid)
++{
++	return _qed_iov_pf_sanity_check(p_hwfn, vfid, true);
++}
++
+ static void qed_iov_set_vf_to_disable(struct qed_dev *cdev,
+ 				      u16 rel_vf_id, u8 to_disable)
+ {
+@@ -652,6 +664,9 @@ static int qed_iov_enable_vf_access(struct qed_hwfn *p_hwfn,
+ 
+ 	qed_iov_vf_igu_reset(p_hwfn, p_ptt, vf);
+ 
++	/* It's possible VF was previously considered malicious */
++	vf->b_malicious = false;
++
+ 	rc = qed_mcp_config_vf_msix(p_hwfn, p_ptt, vf->abs_vf_id, vf->num_sbs);
+ 	if (rc)
+ 		return rc;
+@@ -2804,6 +2819,13 @@ qed_iov_execute_vf_flr_cleanup(struct qed_hwfn *p_hwfn,
+ 			return rc;
  		}
  
--		if (IS_QED_SRIOV(cdev))
-+		if (IS_QED_SRIOV(cdev)) {
- 			max_vf_vlan_filters = cdev->p_iov_info->total_vfs *
- 					      QED_ETH_VF_NUM_VLAN_FILTERS;
--		info->num_vlan_filters = RESC_NUM(&cdev->hwfns[0], QED_VLAN) -
-+			max_vf_mac_filters = cdev->p_iov_info->total_vfs *
-+					     QED_ETH_VF_NUM_MAC_FILTERS;
-+		}
-+		info->num_vlan_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
-+						  QED_VLAN) -
- 					 max_vf_vlan_filters;
-+		info->num_mac_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
-+						 QED_MAC) -
-+					max_vf_mac_filters;
- 
- 		ether_addr_copy(info->port_mac,
- 				cdev->hwfns[0].hw_info.hw_mac_addr);
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 6c2b09c..0e483af 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -2365,6 +2365,8 @@ static void qede_init_ndev(struct qede_dev *edev)
- 
- 	qede_set_ethtool_ops(ndev);
- 
-+	ndev->priv_flags = IFF_UNICAST_FLT;
++		/* Workaround to make VF-PF channel ready, as FW
++		 * doesn't do that as a part of FLR.
++		 */
++		REG_WR(p_hwfn,
++		       GTT_BAR0_MAP_REG_USDM_RAM +
++		       USTORM_VF_PF_CHANNEL_READY_OFFSET(vfid), 1);
 +
- 	/* user-changeble features */
- 	hw_features = NETIF_F_GRO | NETIF_F_SG |
- 		      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-@@ -3937,7 +3939,7 @@ static void qede_config_rx_mode(struct net_device *ndev)
+ 		/* VF_STOPPED has to be set only after final cleanup
+ 		 * but prior to re-enabling the VF.
+ 		 */
+@@ -2942,7 +2964,8 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
+ 	mbx->first_tlv = mbx->req_virt->first_tlv;
  
- 	/* Check for promiscuous */
- 	if ((ndev->flags & IFF_PROMISC) ||
--	    (uc_count > 15)) { /* @@@TBD resource allocation - 1 */
-+	    (uc_count > edev->dev_info.num_mac_filters - 1)) {
- 		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
+ 	/* check if tlv type is known */
+-	if (qed_iov_tlv_supported(mbx->first_tlv.tl.type)) {
++	if (qed_iov_tlv_supported(mbx->first_tlv.tl.type) &&
++	    !p_vf->b_malicious) {
+ 		switch (mbx->first_tlv.tl.type) {
+ 		case CHANNEL_TLV_ACQUIRE:
+ 			qed_iov_vf_mbx_acquire(p_hwfn, p_ptt, p_vf);
+@@ -2984,6 +3007,15 @@ static void qed_iov_process_mbx_req(struct qed_hwfn *p_hwfn,
+ 			qed_iov_vf_mbx_release(p_hwfn, p_ptt, p_vf);
+ 			break;
+ 		}
++	} else if (qed_iov_tlv_supported(mbx->first_tlv.tl.type)) {
++		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++			   "VF [%02x] - considered malicious; Ignoring TLV [%04x]\n",
++			   p_vf->abs_vf_id, mbx->first_tlv.tl.type);
++
++		qed_iov_prepare_resp(p_hwfn, p_ptt, p_vf,
++				     mbx->first_tlv.tl.type,
++				     sizeof(struct pfvf_def_resp_tlv),
++				     PFVF_STATUS_MALICIOUS);
  	} else {
- 		/* Add MAC filters according to the unicast secondary macs */
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 1c77948..1513080 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -23,6 +23,7 @@ struct qed_dev_eth_info {
+ 		/* unknown TLV - this may belong to a VF driver from the future
+ 		 * - a version written after this PF driver was written, which
+@@ -3033,20 +3065,30 @@ static void qed_iov_pf_get_and_clear_pending_events(struct qed_hwfn *p_hwfn,
+ 	memset(p_pending_events, 0, sizeof(u64) * QED_VF_ARRAY_LENGTH);
+ }
  
- 	u8	port_mac[ETH_ALEN];
- 	u8	num_vlan_filters;
-+	u16	num_mac_filters;
+-static int qed_sriov_vfpf_msg(struct qed_hwfn *p_hwfn,
+-			      u16 abs_vfid, struct regpair *vf_msg)
++static struct qed_vf_info *qed_sriov_get_vf_from_absid(struct qed_hwfn *p_hwfn,
++						       u16 abs_vfid)
+ {
+-	u8 min = (u8)p_hwfn->cdev->p_iov_info->first_vf_in_pf;
+-	struct qed_vf_info *p_vf;
++	u8 min = (u8) p_hwfn->cdev->p_iov_info->first_vf_in_pf;
  
- 	/* Legacy VF - this affects the datapath, so qede has to know */
- 	bool is_legacy;
+-	if (!qed_iov_pf_sanity_check(p_hwfn, (int)abs_vfid - min)) {
++	if (!_qed_iov_pf_sanity_check(p_hwfn, (int)abs_vfid - min, false)) {
+ 		DP_VERBOSE(p_hwfn,
+ 			   QED_MSG_IOV,
+-			   "Got a message from VF [abs 0x%08x] that cannot be handled by PF\n",
++			   "Got indication for VF [abs 0x%08x] that cannot be handled by PF\n",
+ 			   abs_vfid);
+-		return 0;
++		return NULL;
+ 	}
+-	p_vf = &p_hwfn->pf_iov_info->vfs_array[(u8)abs_vfid - min];
++
++	return &p_hwfn->pf_iov_info->vfs_array[(u8) abs_vfid - min];
++}
++
++static int qed_sriov_vfpf_msg(struct qed_hwfn *p_hwfn,
++			      u16 abs_vfid, struct regpair *vf_msg)
++{
++	struct qed_vf_info *p_vf = qed_sriov_get_vf_from_absid(p_hwfn,
++			   abs_vfid);
++
++	if (!p_vf)
++		return 0;
+ 
+ 	/* List the physical address of the request so that handler
+ 	 * could later on copy the message from it.
+@@ -3060,6 +3102,23 @@ static int qed_sriov_vfpf_msg(struct qed_hwfn *p_hwfn,
+ 	return 0;
+ }
+ 
++static void qed_sriov_vfpf_malicious(struct qed_hwfn *p_hwfn,
++				     struct malicious_vf_eqe_data *p_data)
++{
++	struct qed_vf_info *p_vf;
++
++	p_vf = qed_sriov_get_vf_from_absid(p_hwfn, p_data->vf_id);
++
++	if (!p_vf)
++		return;
++
++	DP_INFO(p_hwfn,
++		"VF [%d] - Malicious behavior [%02x]\n",
++		p_vf->abs_vf_id, p_data->err_id);
++
++	p_vf->b_malicious = true;
++}
++
+ int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
+ 			u8 opcode, __le16 echo, union event_ring_data *data)
+ {
+@@ -3067,6 +3126,9 @@ int qed_sriov_eqe_event(struct qed_hwfn *p_hwfn,
+ 	case COMMON_EVENT_VF_PF_CHANNEL:
+ 		return qed_sriov_vfpf_msg(p_hwfn, le16_to_cpu(echo),
+ 					  &data->vf_pf_channel.msg_addr);
++	case COMMON_EVENT_MALICIOUS_VF:
++		qed_sriov_vfpf_malicious(p_hwfn, &data->malicious_vf);
++		return 0;
+ 	default:
+ 		DP_INFO(p_hwfn->cdev, "Unknown sriov eqe event 0x%02x\n",
+ 			opcode);
+@@ -3083,7 +3145,7 @@ u16 qed_iov_get_next_active_vf(struct qed_hwfn *p_hwfn, u16 rel_vf_id)
+ 		goto out;
+ 
+ 	for (i = rel_vf_id; i < p_iov->total_vfs; i++)
+-		if (qed_iov_is_valid_vfid(p_hwfn, rel_vf_id, true))
++		if (qed_iov_is_valid_vfid(p_hwfn, rel_vf_id, true, false))
+ 			return i;
+ 
+ out:
+@@ -3130,6 +3192,12 @@ static void qed_iov_bulletin_set_forced_mac(struct qed_hwfn *p_hwfn,
+ 		return;
+ 	}
+ 
++	if (vf_info->b_malicious) {
++		DP_NOTICE(p_hwfn->cdev,
++			  "Can't set forced MAC to malicious VF [%d]\n", vfid);
++		return;
++	}
++
+ 	feature = 1 << MAC_ADDR_FORCED;
+ 	memcpy(vf_info->bulletin.p_virt->mac, mac, ETH_ALEN);
+ 
+@@ -3153,6 +3221,12 @@ static void qed_iov_bulletin_set_forced_vlan(struct qed_hwfn *p_hwfn,
+ 		return;
+ 	}
+ 
++	if (vf_info->b_malicious) {
++		DP_NOTICE(p_hwfn->cdev,
++			  "Can't set forced vlan to malicious VF [%d]\n", vfid);
++		return;
++	}
++
+ 	feature = 1 << VLAN_ADDR_FORCED;
+ 	vf_info->bulletin.p_virt->pvid = pvid;
+ 	if (pvid)
+@@ -3367,7 +3441,7 @@ int qed_sriov_disable(struct qed_dev *cdev, bool pci_enabled)
+ 		qed_for_each_vf(hwfn, j) {
+ 			int k;
+ 
+-			if (!qed_iov_is_valid_vfid(hwfn, j, true))
++			if (!qed_iov_is_valid_vfid(hwfn, j, true, false))
+ 				continue;
+ 
+ 			/* Wait until VF is disabled before releasing */
+@@ -3425,7 +3499,7 @@ static int qed_sriov_enable(struct qed_dev *cdev, int num)
+ 		num_sbs = min_t(int, sb_cnt_info.sb_free_blk, limit);
+ 
+ 		for (i = 0; i < num; i++) {
+-			if (!qed_iov_is_valid_vfid(hwfn, i, false))
++			if (!qed_iov_is_valid_vfid(hwfn, i, false, true))
+ 				continue;
+ 
+ 			rc = qed_iov_init_hw_for_vf(hwfn,
+@@ -3477,7 +3551,7 @@ static int qed_sriov_pf_set_mac(struct qed_dev *cdev, u8 *mac, int vfid)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vfid, true)) {
++	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vfid, true, true)) {
+ 		DP_VERBOSE(cdev, QED_MSG_IOV,
+ 			   "Cannot set VF[%d] MAC (VF is not active)\n", vfid);
+ 		return -EINVAL;
+@@ -3509,7 +3583,7 @@ static int qed_sriov_pf_set_vlan(struct qed_dev *cdev, u16 vid, int vfid)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vfid, true)) {
++	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vfid, true, true)) {
+ 		DP_VERBOSE(cdev, QED_MSG_IOV,
+ 			   "Cannot set VF[%d] MAC (VF is not active)\n", vfid);
+ 		return -EINVAL;
+@@ -3543,7 +3617,7 @@ static int qed_get_vf_config(struct qed_dev *cdev,
+ 	if (IS_VF(cdev))
+ 		return -EINVAL;
+ 
+-	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vf_id, true)) {
++	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vf_id, true, false)) {
+ 		DP_VERBOSE(cdev, QED_MSG_IOV,
+ 			   "VF index [%d] isn't active\n", vf_id);
+ 		return -EINVAL;
+@@ -3647,7 +3721,7 @@ static int qed_set_vf_link_state(struct qed_dev *cdev,
+ 	if (IS_VF(cdev))
+ 		return -EINVAL;
+ 
+-	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vf_id, true)) {
++	if (!qed_iov_is_valid_vfid(&cdev->hwfns[0], vf_id, true, true)) {
+ 		DP_VERBOSE(cdev, QED_MSG_IOV,
+ 			   "VF index [%d] isn't active\n", vf_id);
+ 		return -EINVAL;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+index 0dd23e4..3cf515b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
+@@ -132,6 +132,7 @@ struct qed_vf_info {
+ 	struct qed_iov_vf_mbx vf_mbx;
+ 	enum vf_state state;
+ 	bool b_init;
++	bool b_malicious;
+ 	u8 to_disable;
+ 
+ 	struct qed_bulletin bulletin;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
+index 35db7a28..944745b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
+@@ -40,6 +40,7 @@ enum {
+ 	PFVF_STATUS_NOT_SUPPORTED,
+ 	PFVF_STATUS_NO_RESOURCE,
+ 	PFVF_STATUS_FORCED,
++	PFVF_STATUS_MALICIOUS,
+ };
+ 
+ /* vf pf channel tlvs */
 -- 
 1.9.3
