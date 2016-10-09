@@ -1,62 +1,104 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v2 1/3] net: smc91x: isolate u16 writes alignment workaround
-Date: Mon, 10 Oct 2016 00:55:17 +0300
-Message-ID: <CAHp75Vco13D7qQmC8vn6HGg9RYOwR-MgL2uo_cn_OSo4sk84UQ@mail.gmail.com>
-References: <1476045227-2970-1-git-send-email-robert.jarzmik@free.fr>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: Re: [PATCH net-next v9 1/1] net: phy: Cleanup the Edge-Rate feature
+ in Microsemi PHYs.
+Date: Sun, 9 Oct 2016 21:45:35 +0200
+Message-ID: <20161009194534.GA20767@microsemi.com>
+References: <1475828904-13839-1-git-send-email-allan.nielsen@microsemi.com>
+ <1475828904-13839-2-git-send-email-allan.nielsen@microsemi.com>
+ <20161007202225.GC8266@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Nicolas Pitre <nico@fluxnic.net>,
-        Russell King - ARM Linux <linux@armlinux.org.uk>,
-        Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>,
-        devicetree <devicetree@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Robert Jarzmik <robert.jarzmik@free.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476045227-2970-1-git-send-email-robert.jarzmik@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0082.outbound.protection.outlook.com ([104.47.36.82]:43502
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750862AbcJIWS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 9 Oct 2016 18:18:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20161007202225.GC8266@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 9, 2016 at 11:33 PM, Robert Jarzmik <robert.jarzmik@free.fr> wrote:
-> Writes to u16 has a special handling on 3 PXA platforms, where the
-> hardware wiring forces these writes to be u32 aligned.
->
-> This patch isolates this handling for PXA platforms as before, but
-> enables this "workaround" to be set up dynamically, which will be the
-> case in device-tree build types.
->
-> This patch was tested on 2 PXA platforms : mainstone, which relies on
-> the workaround, and lubbock, which doesn't.
+Hi,
 
-> @@ -2276,6 +2277,9 @@ static int smc_drv_probe(struct platform_device *pdev)
->                 memcpy(&lp->cfg, pd, sizeof(lp->cfg));
->                 lp->io_shift = SMC91X_IO_SHIFT(lp->cfg.flags);
->         }
-> +       lp->half_word_align4 =
-> +               machine_is_mainstone() || machine_is_stargate2() ||
-> +               machine_is_pxa_idp();
+On 07/10/16 22:22, Andrew Lunn wrote:
+> Overall, this is much better. I just have a few nitpicks.
+It is good to hear that we are getting closer ;-)
 
->  /* We actually can't write halfwords properly if not word aligned */
-> -static inline void SMC_outw(u16 val, void __iomem *ioaddr, int reg)
-> +static inline void _SMC_outw_align4(u16 val, void __iomem *ioaddr, int reg,
-> +                                   bool use_align4_workaround)
->  {
-> -       if ((machine_is_mainstone() || machine_is_stargate2() ||
-> -            machine_is_pxa_idp()) && reg & 2) {
-> +       if (use_align4_workaround) {
->                 unsigned int v = val << 16;
->                 v |= readl(ioaddr + (reg & ~2)) & 0xffff;
->                 writel(v, ioaddr + (reg & ~2));
+> dt-bindings/net/mscc-phy-vsc8531.h is removed by this patch. It would
+> be good to also remove the reference.
+My bad.
 
-> +#define SMC_outw(lp, v, a, r)                                          \
-> +       _SMC_outw_align4((v), (a), (r),                                 \
-> +                        IS_BUILTIN(CONFIG_ARCH_PXA) && ((r) & 2) &&    \
-> +                        lp->half_word_align4)
+> You don't need edge_slowdown and vddmac in the private structure,
+> since they are never used after determining what rate_magic is.
+Year... I was actually a bit confused about this... But assumed that you had
+some conventions about saving "input" configuration.
 
-Hmm... Isn't enough to have just (r) & 2 && lp->half_word_align4 ?
+Well, clearly not - I will clean this up.
+
+Actually, there is no need to store rate_magic either... It is only used in the
+init function. This means that there is no need for private date...
+
+The code could look somthing like this (it is not tested, so just look at see if
+you like the idea):
+
+#ifdef CONFIG_OF_MDIO
+static int vsc85xx_edge_rate_magic_get(struct phy_device *phydev)
+{
+	int rc;
+	u8 sd;
+	u16 vdd;
+	struct device *dev = &phydev->mdio.dev;
+	struct device_node *of_node = dev->of_node;
+	u8 sd_array_size = ARRAY_SIZE(edge_table[0].slowdown);
+
+	if (!of_node)
+		return -ENODEV;
+
+	rc = of_property_read_u16(of_node, "vsc8531,vddmac", &vdd);
+	if (rc != 0)
+		vdd = MSCC_VDDMAC_3300;
+
+	rc = of_property_read_u8(of_node, "vsc8531,edge-slowdown", &sd);
+	if (rc != 0)
+		sd = 0;
+
+	for (vdd = 0; vdd < ARRAY_SIZE(edge_table); vdd++)
+		if (edge_table[vdd].vddmac == vddmac)
+			for (sd = 0; sd < sd_array_size; sd++)
+				if (edge_table[vdd].slowdown[sd] == slowdown)
+					return (sd_array_size - sd - 1);
+
+	return -EINVAL;
+}
+#else
+static int vsc85xx_edge_rate_magic_get(struct phy_device *phydev)
+{
+	return 0;
+}
+#endif /* CONFIG_OF_MDIO */
 
 
--- 
-With Best Regards,
-Andy Shevchenko
+static int vsc85xx_config_init(struct phy_device *phydev)
+{
+	int rc, rate_magic;
+...
+	rate_magic = vsc85xx_edge_rate_magic_get(phydev);
+	if (rate_magic < 0)
+		return rate_magic;
+
+	rc = vsc85xx_edge_rate_cntl_set(phydev, rate_magic);
+	if (rc)
+		return rc;
+...
+}
+
+This is clearly how I would prefere it, as it would simplify the implementation.
+
+It should be no problem to have this tested, and have a new patch avialable
+tomorrow.
+
+/Allan
