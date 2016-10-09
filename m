@@ -1,83 +1,90 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/6] qed: Pass MAC hints to VFs
-Date: Sun, 9 Oct 2016 18:25:33 +0300
-Message-ID: <1476026738-26069-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 3/6] qede: Prevent GSO on long Geneve headers
+Date: Sun, 9 Oct 2016 18:25:35 +0300
+Message-ID: <1476026738-26069-4-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+Cc: Manish Chopra <manish.chopra@caviumnetworks.com>,
+        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49246 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751694AbcJIQSP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 12:18:15 -0400
+        by vger.kernel.org with ESMTP id S1751576AbcJIQSQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 12:18:16 -0400
 In-Reply-To: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+From: Manish Chopra <manish.chopra@caviumnetworks.com>
 
-Some hypervisors can support MAC hints to their VFs.
-Even though we don't have such a hypervisor API in linux, we add
-sufficient logic for the VF to be able to receive such hints and
-set the mac accordingly - as long as the VF has not been set with
-a MAC already.
+Due to hardware limitation, when transmitting a geneve-encapsulated
+packet with more than 32 bytes worth of geneve options the hardware
+would not be able to crack the packet and consider it a regular UDP
+packet.
 
+This implements the ndo_features_check() in qede in order to prevent
+GSO on said transmitted packets.
+
+Signed-off-by: Manish Chopra <manish.chopra@caviumnetworks.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_vf.c     | 4 ++--
- drivers/net/ethernet/qlogic/qede/qede_main.c | 6 +++++-
- include/linux/qed/qed_eth_if.h               | 2 +-
- 3 files changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 35 ++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index abf5bf1..f580bf4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -1230,8 +1230,8 @@ static void qed_handle_bulletin_change(struct qed_hwfn *hwfn)
- 
- 	is_mac_exist = qed_vf_bulletin_get_forced_mac(hwfn, mac,
- 						      &is_mac_forced);
--	if (is_mac_exist && is_mac_forced && cookie)
--		ops->force_mac(cookie, mac);
-+	if (is_mac_exist && cookie)
-+		ops->force_mac(cookie, mac, !!is_mac_forced);
- 
- 	/* Always update link configuration according to bulletin */
- 	qed_link_update(hwfn);
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 343038c..9866d95 100644
+index 7d5dc1e..6c2b09c 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -171,10 +171,14 @@ static struct pci_driver qede_pci_driver = {
- #endif
- };
- 
--static void qede_force_mac(void *dev, u8 *mac)
-+static void qede_force_mac(void *dev, u8 *mac, bool forced)
- {
- 	struct qede_dev *edev = dev;
- 
-+	/* MAC hints take effect only if we haven't set one already */
-+	if (is_valid_ether_addr(edev->ndev->dev_addr) && !forced)
-+		return;
-+
- 	ether_addr_copy(edev->ndev->dev_addr, mac);
- 	ether_addr_copy(edev->primary_mac, mac);
+@@ -2240,6 +2240,40 @@ static void qede_udp_tunnel_del(struct net_device *dev,
+ 	schedule_delayed_work(&edev->sp_task, 0);
  }
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 33c24eb..1c77948 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -129,7 +129,7 @@ struct qed_tunn_params {
  
- struct qed_eth_cb_ops {
- 	struct qed_common_cb_ops common;
--	void (*force_mac) (void *dev, u8 *mac);
-+	void (*force_mac) (void *dev, u8 *mac, bool forced);
++/* 8B udp header + 8B base tunnel header + 32B option length */
++#define QEDE_MAX_TUN_HDR_LEN 48
++
++static netdev_features_t qede_features_check(struct sk_buff *skb,
++					     struct net_device *dev,
++					     netdev_features_t features)
++{
++	if (skb->encapsulation) {
++		u8 l4_proto = 0;
++
++		switch (vlan_get_protocol(skb)) {
++		case htons(ETH_P_IP):
++			l4_proto = ip_hdr(skb)->protocol;
++			break;
++		case htons(ETH_P_IPV6):
++			l4_proto = ipv6_hdr(skb)->nexthdr;
++			break;
++		default:
++			return features;
++		}
++
++		/* Disable offloads for geneve tunnels, as HW can't parse
++		 * the geneve header which has option length greater than 32B.
++		 */
++		if ((l4_proto == IPPROTO_UDP) &&
++		    ((skb_inner_mac_header(skb) -
++		      skb_transport_header(skb)) > QEDE_MAX_TUN_HDR_LEN))
++			return features & ~(NETIF_F_CSUM_MASK |
++					    NETIF_F_GSO_MASK);
++	}
++
++	return features;
++}
++
+ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_open = qede_open,
+ 	.ndo_stop = qede_close,
+@@ -2264,6 +2298,7 @@ static const struct net_device_ops qede_netdev_ops = {
+ #endif
+ 	.ndo_udp_tunnel_add = qede_udp_tunnel_add,
+ 	.ndo_udp_tunnel_del = qede_udp_tunnel_del,
++	.ndo_features_check = qede_features_check,
  };
  
- #ifdef CONFIG_DCB
+ /* -------------------------------------------------------------------------
 -- 
 1.9.3
