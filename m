@@ -1,90 +1,175 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 3/6] qede: Prevent GSO on long Geneve headers
-Date: Sun, 9 Oct 2016 18:25:35 +0300
-Message-ID: <1476026738-26069-4-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 5/6] qed: Allow chance for fast ramrod completions
+Date: Sun, 9 Oct 2016 18:25:37 +0300
+Message-ID: <1476026738-26069-6-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Manish Chopra <manish.chopra@caviumnetworks.com>,
-        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+Cc: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49246 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49247 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751576AbcJIQSQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 12:18:16 -0400
+        by vger.kernel.org with ESMTP id S1751677AbcJIQSP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 12:18:15 -0400
 In-Reply-To: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@caviumnetworks.com>
+From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 
-Due to hardware limitation, when transmitting a geneve-encapsulated
-packet with more than 32 bytes worth of geneve options the hardware
-would not be able to crack the packet and consider it a regular UDP
-packet.
+Whenever a ramrod is being sent for some device configuration,
+the driver is going to sleep at least 5ms between each iteration
+of polling on the completion of the ramrod.
 
-This implements the ndo_features_check() in qede in order to prevent
-GSO on said transmitted packets.
+However, in almost every configuration scenario the firmware
+would be able to comply and complete the ramrod in a manner of
+several usecs. This is especially important in cases where there
+might be a lot of sequential configurations applying to the hardware
+[e.g., RoCE], in which case the existing scheme might cause some
+visible user delays.
 
-Signed-off-by: Manish Chopra <manish.chopra@caviumnetworks.com>
+This patch changes the completion scheme - instead of immediately
+starting to sleep for a 'long' period, allow the device to quickly
+poll on the first iteration after a couple of usecs.
+
 Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_main.c | 35 ++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_spq.c | 85 +++++++++++++++++++++----------
+ 1 file changed, 59 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 7d5dc1e..6c2b09c 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -2240,6 +2240,40 @@ static void qede_udp_tunnel_del(struct net_device *dev,
- 	schedule_delayed_work(&edev->sp_task, 0);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index caff415..259a615 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -37,7 +37,11 @@
+ ***************************************************************************/
+ 
+ #define SPQ_HIGH_PRI_RESERVE_DEFAULT    (1)
+-#define SPQ_BLOCK_SLEEP_LENGTH          (1000)
++
++#define SPQ_BLOCK_DELAY_MAX_ITER        (10)
++#define SPQ_BLOCK_DELAY_US              (10)
++#define SPQ_BLOCK_SLEEP_MAX_ITER        (1000)
++#define SPQ_BLOCK_SLEEP_MS              (5)
+ 
+ /***************************************************************************
+ * Blocking Imp. (BLOCK/EBLOCK mode)
+@@ -57,53 +61,81 @@ static void qed_spq_blocking_cb(struct qed_hwfn *p_hwfn,
+ 	smp_wmb();
  }
  
-+/* 8B udp header + 8B base tunnel header + 32B option length */
-+#define QEDE_MAX_TUN_HDR_LEN 48
+-static int qed_spq_block(struct qed_hwfn *p_hwfn,
+-			 struct qed_spq_entry *p_ent,
+-			 u8 *p_fw_ret)
++static int __qed_spq_block(struct qed_hwfn *p_hwfn,
++			   struct qed_spq_entry *p_ent,
++			   u8 *p_fw_ret, bool sleep_between_iter)
+ {
+-	int sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
+ 	struct qed_spq_comp_done *comp_done;
+-	int rc;
++	u32 iter_cnt;
+ 
+ 	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
+-	while (sleep_count) {
+-		/* validate we receive completion update */
++	iter_cnt = sleep_between_iter ? SPQ_BLOCK_SLEEP_MAX_ITER
++				      : SPQ_BLOCK_DELAY_MAX_ITER;
 +
-+static netdev_features_t qede_features_check(struct sk_buff *skb,
-+					     struct net_device *dev,
-+					     netdev_features_t features)
-+{
-+	if (skb->encapsulation) {
-+		u8 l4_proto = 0;
++	while (iter_cnt--) {
++		/* Validate we receive completion update */
+ 		smp_rmb();
+ 		if (comp_done->done == 1) {
+ 			if (p_fw_ret)
+ 				*p_fw_ret = comp_done->fw_return_code;
+ 			return 0;
+ 		}
+-		usleep_range(5000, 10000);
+-		sleep_count--;
 +
-+		switch (vlan_get_protocol(skb)) {
-+		case htons(ETH_P_IP):
-+			l4_proto = ip_hdr(skb)->protocol;
-+			break;
-+		case htons(ETH_P_IPV6):
-+			l4_proto = ipv6_hdr(skb)->nexthdr;
-+			break;
-+		default:
-+			return features;
-+		}
-+
-+		/* Disable offloads for geneve tunnels, as HW can't parse
-+		 * the geneve header which has option length greater than 32B.
-+		 */
-+		if ((l4_proto == IPPROTO_UDP) &&
-+		    ((skb_inner_mac_header(skb) -
-+		      skb_transport_header(skb)) > QEDE_MAX_TUN_HDR_LEN))
-+			return features & ~(NETIF_F_CSUM_MASK |
-+					    NETIF_F_GSO_MASK);
-+	}
-+
-+	return features;
++		if (sleep_between_iter)
++			msleep(SPQ_BLOCK_SLEEP_MS);
++		else
++			udelay(SPQ_BLOCK_DELAY_US);
+ 	}
+ 
++	return -EBUSY;
 +}
 +
- static const struct net_device_ops qede_netdev_ops = {
- 	.ndo_open = qede_open,
- 	.ndo_stop = qede_close,
-@@ -2264,6 +2298,7 @@ static const struct net_device_ops qede_netdev_ops = {
- #endif
- 	.ndo_udp_tunnel_add = qede_udp_tunnel_add,
- 	.ndo_udp_tunnel_del = qede_udp_tunnel_del,
-+	.ndo_features_check = qede_features_check,
- };
++static int qed_spq_block(struct qed_hwfn *p_hwfn,
++			 struct qed_spq_entry *p_ent,
++			 u8 *p_fw_ret, bool skip_quick_poll)
++{
++	struct qed_spq_comp_done *comp_done;
++	int rc;
++
++	/* A relatively short polling period w/o sleeping, to allow the FW to
++	 * complete the ramrod and thus possibly to avoid the following sleeps.
++	 */
++	if (!skip_quick_poll) {
++		rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, false);
++		if (!rc)
++			return 0;
++	}
++
++	/* Move to polling with a sleeping period between iterations */
++	rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, true);
++	if (!rc)
++		return 0;
++
+ 	DP_INFO(p_hwfn, "Ramrod is stuck, requesting MCP drain\n");
+ 	rc = qed_mcp_drain(p_hwfn, p_hwfn->p_main_ptt);
+-	if (rc != 0)
++	if (rc) {
+ 		DP_NOTICE(p_hwfn, "MCP drain failed\n");
++		goto err;
++	}
  
- /* -------------------------------------------------------------------------
+ 	/* Retry after drain */
+-	sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
+-	while (sleep_count) {
+-		/* validate we receive completion update */
+-		smp_rmb();
+-		if (comp_done->done == 1) {
+-			if (p_fw_ret)
+-				*p_fw_ret = comp_done->fw_return_code;
+-			return 0;
+-		}
+-		usleep_range(5000, 10000);
+-		sleep_count--;
+-	}
++	rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, true);
++	if (!rc)
++		return 0;
+ 
++	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
+ 	if (comp_done->done == 1) {
+ 		if (p_fw_ret)
+ 			*p_fw_ret = comp_done->fw_return_code;
+ 		return 0;
+ 	}
+-
+-	DP_NOTICE(p_hwfn, "Ramrod is stuck, MCP drain failed\n");
++err:
++	DP_NOTICE(p_hwfn,
++		  "Ramrod is stuck [CID %08x cmd %02x protocol %02x echo %04x]\n",
++		  le32_to_cpu(p_ent->elem.hdr.cid),
++		  p_ent->elem.hdr.cmd_id,
++		  p_ent->elem.hdr.protocol_id,
++		  le16_to_cpu(p_ent->elem.hdr.echo));
+ 
+ 	return -EBUSY;
+ }
+@@ -729,7 +761,8 @@ int qed_spq_post(struct qed_hwfn *p_hwfn,
+ 		 * access p_ent here to see whether it's successful or not.
+ 		 * Thus, after gaining the answer perform the cleanup here.
+ 		 */
+-		rc = qed_spq_block(p_hwfn, p_ent, fw_return_code);
++		rc = qed_spq_block(p_hwfn, p_ent, fw_return_code,
++				   p_ent->queue == &p_spq->unlimited_pending);
+ 
+ 		if (p_ent->queue == &p_spq->unlimited_pending) {
+ 			/* This is an allocated p_ent which does not need to
 -- 
 1.9.3
