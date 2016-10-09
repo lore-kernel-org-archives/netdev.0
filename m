@@ -1,61 +1,71 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH iproute2] devlink: Convert conditional in dl_argv_handle_port() to switch()
-Date: Sun,  9 Oct 2016 10:14:18 +0800
-Message-ID: <1475979258-29222-1-git-send-email-liuhangbin@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Hangbin Liu <liuhangbin@gmail.com>, Phil Sutter <phil@nwl.cc>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Subject: [PATCH net-next 2/5] be2net: NCSI FW section should be properly updated with ethtool for BE3
+Date: Sun,  9 Oct 2016 09:58:50 +0530
+Message-ID: <20161009042853.20601-3-sriharsha.basavapatna@broadcom.com>
+References: <20161009042853.20601-1-sriharsha.basavapatna@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36717 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752591AbcJICQV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2016 22:16:21 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 128so3500865pfz.3
-        for <netdev@vger.kernel.org>; Sat, 08 Oct 2016 19:16:21 -0700 (PDT)
+Received: from [192.19.245.250] ([192.19.245.250]:1200 "EHLO
+        CMRELAYP1.ad.emulex.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751011AbcJIE3e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 00:29:34 -0400
+In-Reply-To: <20161009042853.20601-1-sriharsha.basavapatna@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Discovered by Phil's covscan. The final return statement is never reached.
-This is not inherently clear from looking at the code, so change the
-conditional to a switch() statement which should clarify this.
+The driver has a check to ensure that NCSI FW section is updated only
+if the current FW version in the card supports it. This FW version check
+is done using memcmp() which obviously fails in some cases. Fix this by
+breaking up the version string into integer version components and
+comparing them.
 
-CC: Phil Sutter <phil@nwl.cc>
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 ---
- devlink/devlink.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
 
-diff --git a/devlink/devlink.c b/devlink/devlink.c
-index e91dc50..ccca0fb 100644
---- a/devlink/devlink.c
-+++ b/devlink/devlink.c
-@@ -524,19 +524,18 @@ static int dl_argv_handle_port(struct dl *dl, char **p_bus_name,
- 		return -EINVAL;
- 	}
- 	slash_count = strslashcount(str);
--	if (slash_count != 2 && slash_count != 0) {
-+	switch (slash_count) {
-+	case 0:
-+		return __dl_argv_handle_port_ifname(dl, str, p_bus_name,
-+						    p_dev_name, p_port_index);
-+	case 2:
-+		return __dl_argv_handle_port(str, p_bus_name,
-+					     p_dev_name, p_port_index);
-+	default:
- 		pr_err("Wrong port identification string format.\n");
- 		pr_err("Expected \"bus_name/dev_name/port_index\" or \"netdev_ifname\".\n");
- 		return -EINVAL;
- 	}
--	if (slash_count == 2) {
--		return __dl_argv_handle_port(str, p_bus_name,
--					     p_dev_name, p_port_index);
--	} else if (slash_count == 0) {
--		return __dl_argv_handle_port_ifname(dl, str, p_bus_name,
--						    p_dev_name, p_port_index);
--	}
--	return 0;
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 45d1742..7e9be9f4 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -2728,6 +2728,26 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
+ 	return 0;
  }
  
- static int dl_argv_handle_both(struct dl *dl, char **p_bus_name,
++#define NCSI_UPDATE_LOG	"NCSI section update is not supported in FW ver %s\n"
++static bool be_fw_ncsi_supported(char *ver)
++{
++	int v1[4] = {3, 102, 148, 0}; /* Min ver that supports NCSI FW */
++	int v2[4];
++	int i;
++
++	if (sscanf(ver, "%d.%d.%d.%d", &v2[0], &v2[1], &v2[2], &v2[3]) != 4)
++		return false;
++
++	for (i = 0; i < 4; i++) {
++		if (v1[i] < v2[i])
++			return true;
++		else if (v1[i] > v2[i])
++			return false;
++	}
++
++	return true;
++}
++
+ /* For BE2, BE3 and BE3-R */
+ static int be_flash_BEx(struct be_adapter *adapter,
+ 			const struct firmware *fw,
+@@ -2805,8 +2825,10 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 			continue;
+ 
+ 		if ((pflashcomp[i].optype == OPTYPE_NCSI_FW) &&
+-		    memcmp(adapter->fw_ver, "3.102.148.0", 11) < 0)
++		    !be_fw_ncsi_supported(adapter->fw_ver)) {
++			dev_info(dev, NCSI_UPDATE_LOG, adapter->fw_ver);
+ 			continue;
++		}
+ 
+ 		if (pflashcomp[i].optype == OPTYPE_PHY_FW  &&
+ 		    !phy_flashing_required(adapter))
 -- 
-2.5.5
+2.10.0.478.g3ef7618
