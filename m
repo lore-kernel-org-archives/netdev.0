@@ -1,72 +1,202 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: BUG still has locks held in unix_stream_splice_read
-Date: Sun, 9 Oct 2016 12:06:14 +0200
-Message-ID: <CACT4Y+a6yDm28VYtNPSktYKs_T2UzLGb8jadpFpsdKfNzb7-tA@mail.gmail.com>
-References: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>
-To: Al Viro <viro@zeniv.linux.org.uk>,
-        David Miller <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: usb: lan78xx: use new api ethtool_{get|set}_link_ksettings
+Date: Sun,  9 Oct 2016 12:07:04 +0200
+Message-ID: <1476007624-9676-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: woojung.huh@microchip.com, UNGLinuxDriver@microchip.com,
+        davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-While running syzkaller fuzzer on commit
-b66484cd74706fa8681d051840fe4b18a3da40ff (Oct 7), I am getting:
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/usb/lan78xx.c |   70 +++++++++++++++++++++++++-------------------
+ 1 files changed, 40 insertions(+), 30 deletions(-)
 
-[ BUG: syz-executor/15138 still has locks held! ]
-4.8.0+ #29 Not tainted
--------------------------------------
-1 lock held by syz-executor/15138:
- #0:  (&pipe->mutex/1){+.+.+.}, at: [<     inline     >]
-pipe_lock_nested fs/pipe.c:66
- #0:  (&pipe->mutex/1){+.+.+.}, at: [<ffffffff81844c8b>]
-pipe_lock+0x5b/0x70 fs/pipe.c:74
-
-stack backtrace:
-CPU: 1 PID: 15138 Comm: syz-executor Not tainted 4.8.0+ #29
-Hardware name: Google Google Compute Engine/Google Compute Engine,
-BIOS Google 01/01/2011
- ffff880044d4fa38 ffffffff82d383c9 ffffffff00000000 fffffbfff1097248
- ffff88005a44a3c0 ffff88005a44a3c0 dffffc0000000000 ffff88005a44a3c0
- ffff8800541fb9b8 ffff880044d4fa58 ffffffff81463cd5 0000000000000000
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff82d383c9>] dump_stack+0x12e/0x185 lib/dump_stack.c:51
- [<     inline     >] print_held_locks_bug kernel/locking/lockdep.c:4296
- [<ffffffff81463cd5>] debug_check_no_locks_held+0x125/0x140
-kernel/locking/lockdep.c:4302
- [<     inline     >] try_to_freeze include/linux/freezer.h:65
- [<     inline     >] freezer_count include/linux/freezer.h:127
- [<     inline     >] freezable_schedule_timeout include/linux/freezer.h:192
- [<     inline     >] unix_stream_data_wait net/unix/af_unix.c:2223
- [<ffffffff860bae67>] unix_stream_read_generic+0x1317/0x1b70
-net/unix/af_unix.c:2332
- [<ffffffff860bb81b>] unix_stream_splice_read+0x15b/0x1d0
-net/unix/af_unix.c:2506
- [<ffffffff85afc56e>] sock_splice_read+0xbe/0x100 net/socket.c:775
- [<ffffffff818d121f>] do_splice_to+0x10f/0x170 fs/splice.c:908
- [<     inline     >] do_splice fs/splice.c:1196
- [<     inline     >] SYSC_splice fs/splice.c:1420
- [<ffffffff818d6aec>] SyS_splice+0x114c/0x15b0 fs/splice.c:1403
- [<ffffffff86da6d05>] entry_SYSCALL_64_fastpath+0x23/0xc6
-
-
-I suspect this is:
-
-commit 25869262ef7af24ccde988867ac3eb1c3d4b88d4
-Author: Al Viro <viro@zeniv.linux.org.uk>
-Date:   Sat Sep 17 21:02:10 2016 -0400
-    skb_splice_bits(): get rid of callback
-    since pipe_lock is the outermost now, we don't need to drop/regain
-    socket locks around the call of splice_to_pipe() from skb_splice_bits(),
-    which kills the need to have a socket-specific callback; we can just
-    call splice_to_pipe() and be done with that.
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index db558b8..13f033c 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1092,7 +1092,7 @@ static int lan78xx_update_flowcontrol(struct lan78xx_net *dev, u8 duplex,
+ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ {
+ 	struct phy_device *phydev = dev->net->phydev;
+-	struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET };
++	struct ethtool_link_ksettings ecmd;
+ 	int ladv, radv, ret;
+ 	u32 buf;
+ 
+@@ -1126,12 +1126,12 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 	} else if (phydev->link && !dev->link_on) {
+ 		dev->link_on = true;
+ 
+-		phy_ethtool_gset(phydev, &ecmd);
++		phy_ethtool_ksettings_get(phydev, &ecmd);
+ 
+ 		ret = phy_read(phydev, LAN88XX_INT_STS);
+ 
+ 		if (dev->udev->speed == USB_SPEED_SUPER) {
+-			if (ethtool_cmd_speed(&ecmd) == 1000) {
++			if (ecmd.base.speed == 1000) {
+ 				/* disable U2 */
+ 				ret = lan78xx_read_reg(dev, USB_CFG1, &buf);
+ 				buf &= ~USB_CFG1_DEV_U2_INIT_EN_;
+@@ -1159,9 +1159,10 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 
+ 		netif_dbg(dev, link, dev->net,
+ 			  "speed: %u duplex: %d anadv: 0x%04x anlpa: 0x%04x",
+-			  ethtool_cmd_speed(&ecmd), ecmd.duplex, ladv, radv);
++			  ecmd.base.speed, ecmd.base.duplex, ladv, radv);
+ 
+-		ret = lan78xx_update_flowcontrol(dev, ecmd.duplex, ladv, radv);
++		ret = lan78xx_update_flowcontrol(dev, ecmd.base.duplex, ladv,
++						 radv);
+ 		phy_mac_interrupt(phydev, 1);
+ 
+ 		if (!timer_pending(&dev->stat_monitor)) {
+@@ -1484,7 +1485,8 @@ static void lan78xx_set_mdix_status(struct net_device *net, __u8 mdix_ctrl)
+ 	dev->mdix_ctrl = mdix_ctrl;
+ }
+ 
+-static int lan78xx_get_settings(struct net_device *net, struct ethtool_cmd *cmd)
++static int lan78xx_get_link_ksettings(struct net_device *net,
++				      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
+ 	struct phy_device *phydev = net->phydev;
+@@ -1495,20 +1497,20 @@ static int lan78xx_get_settings(struct net_device *net, struct ethtool_cmd *cmd)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = phy_ethtool_gset(phydev, cmd);
++	ret = phy_ethtool_ksettings_get(phydev, cmd);
+ 
+ 	buf = lan78xx_get_mdix_status(net);
+ 
+ 	buf &= LAN88XX_EXT_MODE_CTRL_MDIX_MASK_;
+ 	if (buf == LAN88XX_EXT_MODE_CTRL_AUTO_MDIX_) {
+-		cmd->eth_tp_mdix = ETH_TP_MDI_AUTO;
+-		cmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
++		cmd->base.eth_tp_mdix = ETH_TP_MDI_AUTO;
++		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
+ 	} else if (buf == LAN88XX_EXT_MODE_CTRL_MDI_) {
+-		cmd->eth_tp_mdix = ETH_TP_MDI;
+-		cmd->eth_tp_mdix_ctrl = ETH_TP_MDI;
++		cmd->base.eth_tp_mdix = ETH_TP_MDI;
++		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI;
+ 	} else if (buf == LAN88XX_EXT_MODE_CTRL_MDI_X_) {
+-		cmd->eth_tp_mdix = ETH_TP_MDI_X;
+-		cmd->eth_tp_mdix_ctrl = ETH_TP_MDI_X;
++		cmd->base.eth_tp_mdix = ETH_TP_MDI_X;
++		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_X;
+ 	}
+ 
+ 	usb_autopm_put_interface(dev->intf);
+@@ -1516,7 +1518,8 @@ static int lan78xx_get_settings(struct net_device *net, struct ethtool_cmd *cmd)
+ 	return ret;
+ }
+ 
+-static int lan78xx_set_settings(struct net_device *net, struct ethtool_cmd *cmd)
++static int lan78xx_set_link_ksettings(struct net_device *net,
++				      const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
+ 	struct phy_device *phydev = net->phydev;
+@@ -1527,14 +1530,13 @@ static int lan78xx_set_settings(struct net_device *net, struct ethtool_cmd *cmd)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (dev->mdix_ctrl != cmd->eth_tp_mdix_ctrl) {
+-		lan78xx_set_mdix_status(net, cmd->eth_tp_mdix_ctrl);
+-	}
++	if (dev->mdix_ctrl != cmd->base.eth_tp_mdix_ctrl)
++		lan78xx_set_mdix_status(net, cmd->base.eth_tp_mdix_ctrl);
+ 
+ 	/* change speed & duplex */
+-	ret = phy_ethtool_sset(phydev, cmd);
++	ret = phy_ethtool_ksettings_set(phydev, cmd);
+ 
+-	if (!cmd->autoneg) {
++	if (!cmd->base.autoneg) {
+ 		/* force link down */
+ 		temp = phy_read(phydev, MII_BMCR);
+ 		phy_write(phydev, MII_BMCR, temp | BMCR_LOOPBACK);
+@@ -1552,9 +1554,9 @@ static void lan78xx_get_pause(struct net_device *net,
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
+ 	struct phy_device *phydev = net->phydev;
+-	struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET };
++	struct ethtool_link_ksettings ecmd;
+ 
+-	phy_ethtool_gset(phydev, &ecmd);
++	phy_ethtool_ksettings_get(phydev, &ecmd);
+ 
+ 	pause->autoneg = dev->fc_autoneg;
+ 
+@@ -1570,12 +1572,12 @@ static int lan78xx_set_pause(struct net_device *net,
+ {
+ 	struct lan78xx_net *dev = netdev_priv(net);
+ 	struct phy_device *phydev = net->phydev;
+-	struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET };
++	struct ethtool_link_ksettings ecmd;
+ 	int ret;
+ 
+-	phy_ethtool_gset(phydev, &ecmd);
++	phy_ethtool_ksettings_get(phydev, &ecmd);
+ 
+-	if (pause->autoneg && !ecmd.autoneg) {
++	if (pause->autoneg && !ecmd.base.autoneg) {
+ 		ret = -EINVAL;
+ 		goto exit;
+ 	}
+@@ -1587,13 +1589,21 @@ static int lan78xx_set_pause(struct net_device *net,
+ 	if (pause->tx_pause)
+ 		dev->fc_request_control |= FLOW_CTRL_TX;
+ 
+-	if (ecmd.autoneg) {
++	if (ecmd.base.autoneg) {
+ 		u32 mii_adv;
++		u32 advertising;
++
++		ethtool_convert_link_mode_to_legacy_u32(
++			&advertising, ecmd.link_modes.advertising);
+ 
+-		ecmd.advertising &= ~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
++		advertising &= ~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
+ 		mii_adv = (u32)mii_advertise_flowctrl(dev->fc_request_control);
+-		ecmd.advertising |= mii_adv_to_ethtool_adv_t(mii_adv);
+-		phy_ethtool_sset(phydev, &ecmd);
++		advertising |= mii_adv_to_ethtool_adv_t(mii_adv);
++
++		ethtool_convert_legacy_u32_to_link_mode(
++			ecmd.link_modes.advertising, advertising);
++
++		phy_ethtool_ksettings_set(phydev, &ecmd);
+ 	}
+ 
+ 	dev->fc_autoneg = pause->autoneg;
+@@ -1609,8 +1619,6 @@ static const struct ethtool_ops lan78xx_ethtool_ops = {
+ 	.get_drvinfo	= lan78xx_get_drvinfo,
+ 	.get_msglevel	= lan78xx_get_msglevel,
+ 	.set_msglevel	= lan78xx_set_msglevel,
+-	.get_settings	= lan78xx_get_settings,
+-	.set_settings	= lan78xx_set_settings,
+ 	.get_eeprom_len = lan78xx_ethtool_get_eeprom_len,
+ 	.get_eeprom	= lan78xx_ethtool_get_eeprom,
+ 	.set_eeprom	= lan78xx_ethtool_set_eeprom,
+@@ -1623,6 +1631,8 @@ static const struct ethtool_ops lan78xx_ethtool_ops = {
+ 	.set_eee	= lan78xx_set_eee,
+ 	.get_pauseparam	= lan78xx_get_pause,
+ 	.set_pauseparam	= lan78xx_set_pause,
++	.get_link_ksettings = lan78xx_get_link_ksettings,
++	.set_link_ksettings = lan78xx_set_link_ksettings,
+ };
+ 
+ static int lan78xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+-- 
+1.7.4.4
