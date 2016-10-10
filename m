@@ -1,48 +1,50 @@
-From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
-Subject: Re: [PATCH v2 1/3] net: smc91x: isolate u16 writes alignment workaround
-Date: Mon, 10 Oct 2016 08:30:34 +0200
-Message-ID: <87zimc7m2d.fsf@belgarion.home>
-References: <1476045227-2970-1-git-send-email-robert.jarzmik@free.fr>
-        <CAHp75Vco13D7qQmC8vn6HGg9RYOwR-MgL2uo_cn_OSo4sk84UQ@mail.gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: Re: [PATCH net-next 5/6] qed: Allow chance for fast ramrod
+ completions
+Date: Mon, 10 Oct 2016 06:33:05 +0000
+Message-ID: <BL2PR07MB230613EB6D587458F4143C678DDB0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
+         <1476026738-26069-6-git-send-email-Yuval.Mintz@qlogic.com>,<1476058115.28155.282.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
-        Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHp75Vco13D7qQmC8vn6HGg9RYOwR-MgL2uo_cn_OSo4sk84UQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-        (Andy Shevchenko's message of "Mon, 10 Oct 2016 00:55:17 +0300")
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0043.outbound.protection.outlook.com ([104.47.32.43]:35462
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751691AbcJJGrN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Oct 2016 02:47:13 -0400
+In-Reply-To: <1476058115.28155.282.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
->> +#define SMC_outw(lp, v, a, r)                                          \
->> +       _SMC_outw_align4((v), (a), (r),                                 \
->> +                        IS_BUILTIN(CONFIG_ARCH_PXA) && ((r) & 2) &&    \
->> +                        lp->half_word_align4)
->
-> Hmm... Isn't enough to have just (r) & 2 && lp->half_word_align4 ?
+> > +=A0=A0=A0=A0 while (iter_cnt--) {
+> > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 /* Validate we receive completion=
+ update */
+> >=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 smp_rmb();
+> >=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 if (comp_done->done =3D=3D=
+ 1) {
+> >=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 if=
+ (p_fw_ret)
+> >=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0 *p_fw_ret =3D comp_done->fw_return_code;
+> >=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 re=
+turn 0;
+> >=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 }
 
-It wouldn't be equivalent to what we had before.
+> Note that this smp_rmb() and accesses to ->done and ->fw_return_code are
+> racy.
 
-The point of the previous code was to compile out as much as possible of this
-test. Therefore, at compilation time for omap1 boards, the compiler would
-evaluate the test to 0, and never leave the workaround code compiled.
+> fw_return_code needs to be written _before_ done.
 
-So it would be enough, but worse performance wise and not equivalent for non-pxa
-boards, hence this test.
+Thanks for catching this up.
 
-Cheers.
-
--- 
-Robert
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Dave  - do you want me to re-spin for this?
+I believe it's a day-1 issue [not introduced by this series],
+and merits its own patch [and not incorporated into this one].
+Still, if you'd like me to re-spin and include Eric's fix, I'll do it.=
