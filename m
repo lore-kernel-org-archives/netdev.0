@@ -1,67 +1,67 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: slab corruption with current -git
-Date: Mon, 10 Oct 2016 09:15:10 -0700
-Message-ID: <CA+55aFxB2Q8mp36-xRGGxms2Xqegohn=Y5c-N3oYWiknDBEGuw@mail.gmail.com>
-References: <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
- <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
- <20161009.235745.860945462339053703.davem@davemloft.net> <20161010.042401.637964142015887598.davem@davemloft.net>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net] net: add recursion limit to GRO
+Date: Mon, 10 Oct 2016 18:20:35 +0200
+Message-ID: <20161010162035.GA7422@bistromath.localdomain>
+References: <8fb8ec65c178b4d37951c4538dedc880eef068d4.1476106975.git.sd@queasysnail.net>
+ <1476108236.28155.299.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Aaron Conole <aconole@redhat.com>, Florian Westphal <fw@strlen.de>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Jens Axboe <axboe@fb.com>, "Theodore Ts'o" <tytso@mit.edu>,
-        Christoph Lameter <cl@linux.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        NetFilter <netfilter-devel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161010.042401.637964142015887598.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Benc <jbenc@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34772 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752307AbcJJQUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Oct 2016 12:20:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1476108236.28155.299.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 10, 2016 at 1:24 AM, David Miller <davem@davemloft.net> wrote:
+Hi Eric,
+
+2016-10-10, 07:03:56 -0700, Eric Dumazet wrote:
+> On Mon, 2016-10-10 at 15:43 +0200, Sabrina Dubroca wrote:
+> > Currently, GRO can do unlimited recursion through the gro_receive
+> > handlers.  This was fixed for tunneling protocols by limiting tunnel GRO
+> > to one level with encap_mark, but both VLAN and TEB still have this
+> > problem.  Thus, the kernel is vulnerable to a stack overflow, if we
+> > receive a packet composed entirely of VLAN headers.
+> > 
+> > This patch adds a recursion counter to the GRO layer to prevent stack
+> > overflow.  When a gro_receive function hits the recursion limit, GRO is
+> > aborted for this skb and it is processed normally.
+> > 
+> > Thanks to Vladimír Beneš <vbenes@redhat.com> for the initial bug report.
+> 
+> 
+> Hi Sabrina
+> 
+> Have you considered using a per cpu counter ?
 >
-> So I've been reviewing this patch and it looks fine, but I also want
-> to figure out what is actually causing the OOPS and I can't spot it
-> yet.
+> It might be cheaper than using a 4-bit field in skb.
 
-Yeah, I'm not actually sure the old linked list implementation is
-buggy - it might just be ugly. I tried to follow the old code, and I
-couldn't.
+I thought about it, but this looked a bit simpler. I can try some
+benchmarking tomorrow.
 
-So the patch I sent out was a combination of "that's not how you
-should do singly linked lists" and "those special cases make me
-worry". In particular, the old code really ended up doing odd things
-in the "can't find entry" case, because it would exit the loop with a
-non-NULL 'entry' just because the next entry was NULL..
 
-> One possible way to see that oops is to free the head entry of the
-> chain without unlinking it.  The next unregister will dereference a
-> POISON pointer.
->
-> Actually...
->
-> The POISON value comes not from a hook entry, but from the array of
-> pointers in the per-netns datastructure.
->
-> This means that the netns is possibly getting freed up before we
-> unregister the netfilter hooks.
+> Really this counter does not need to be stored in skb. GRO already uses
+> way too much space in skb->cb[]
 
-That is certainly one possible explanation for it, yes. However, I
-didn't think that part had changed, had it?
+For net-next I'm working on turning GRO into a loop, which would
+eliminate these few bits.
 
-The other thing I find a bit odd in that new single-linked list code is this:
 
- - nf_hook_slow():
-        ...
-        RCU_INIT_POINTER(state->hook_entries, entry);
+> Also please add appropriate unlikely() clauses, since most GRO traffic
+> is not trying to kill hosts ;)
 
-which makes me worried..  It copies the head entry of the list, and
-maybe it will then (later) end up being used stale. I don't know. But
-it looks a bit iffy.
+Right. I'll send a v2 with this later.
 
-              Linus
+
+Thanks,
+
+-- 
+Sabrina
