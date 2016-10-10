@@ -1,239 +1,94 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] net: add recursion limit to GRO
-Date: Mon, 10 Oct 2016 15:43:46 +0200
-Message-ID: <8fb8ec65c178b4d37951c4538dedc880eef068d4.1476106975.git.sd@queasysnail.net>
+From: Aaron Conole <aconole@redhat.com>
+Subject: Re: slab corruption with current -git (was Re: [git pull] vfs pile 1 (splice))
+Date: Mon, 10 Oct 2016 09:49:33 -0400
+Message-ID: <f7ta8ec71qq.fsf@redhat.com>
+References: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
+        <20161010005105.GA18349@breakpoint.cc> <f7tbmytkmtr.fsf@redhat.com>
+        <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
+        <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32836 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751392AbcJJNoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Oct 2016 09:44:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Florian Westphal <fw@strlen.de>, Al Viro <viro@zeniv.linux.org.uk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Jens Axboe <axboe@fb.com>, "Ted Ts'o" <tytso@mit.edu>,
+        Christoph Lameter <cl@linux.com>,
+        David Miller <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+        (Linus Torvalds's message of "Sun, 9 Oct 2016 20:41:17 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, GRO can do unlimited recursion through the gro_receive
-handlers.  This was fixed for tunneling protocols by limiting tunnel GRO
-to one level with encap_mark, but both VLAN and TEB still have this
-problem.  Thus, the kernel is vulnerable to a stack overflow, if we
-receive a packet composed entirely of VLAN headers.
+Linus Torvalds <torvalds@linux-foundation.org> writes:
 
-This patch adds a recursion counter to the GRO layer to prevent stack
-overflow.  When a gro_receive function hits the recursion limit, GRO is
-aborted for this skb and it is processed normally.
+> On Sun, Oct 9, 2016 at 7:49 PM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+>>
+>> There is one *correct* way to remove an entry from a singly linked
+>> list, and it looks like this:
+>>
+>>     struct entry **pp, *p;
+>>
+>>     pp = &head;
+>>     while ((p = *pp) != NULL) {
+>>         if (right_entry(p)) {
+>>             *pp = p->next;
+>>             break;
+>>         }
+>>         pp = &p->next;
+>>     }
+>>
+>> and that's it. Nothing else.
 
-Thanks to Vladimír Beneš <vbenes@redhat.com> for the initial bug report.
+Sorry, I should have done that.
 
-Fixes: CVE-2016-7039
-Fixes: 9b174d88c257 ("net: Add Transparent Ethernet Bridging GRO support.")
-Fixes: 66e5133f19e9 ("vlan: Add GRO support for non hardware accelerated vlan")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-Reviewed-by: Jiri Benc <jbenc@redhat.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- drivers/net/geneve.c      |  2 +-
- drivers/net/vxlan.c       |  2 +-
- include/linux/netdevice.h | 24 +++++++++++++++++++++++-
- net/8021q/vlan.c          |  2 +-
- net/core/dev.c            |  1 +
- net/ethernet/eth.c        |  2 +-
- net/ipv4/af_inet.c        |  2 +-
- net/ipv4/fou.c            |  4 ++--
- net/ipv4/gre_offload.c    |  2 +-
- net/ipv4/udp_offload.c    |  8 +++++++-
- net/ipv6/ip6_offload.c    |  2 +-
- 11 files changed, 40 insertions(+), 11 deletions(-)
+> This COMPLETELY UNTESTED patch tries to fix the nf_hook_entry code to do this.
+>
+> I repeat: it's ENTIRELY UNTESTED. I just converted the insertion and
+> deletion to the proper pattern, but I could easily have gotten the
+> insertion priority test the wrong way around entirely, for example. Or
+> it could simply have some other completely broken bug in it. It
+> compiles for me, but that's all I actually checked.
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 3c20e87bb761..16af1ce99233 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -453,7 +453,7 @@ static struct sk_buff **geneve_gro_receive(struct sock *sk,
- 
- 	skb_gro_pull(skb, gh_len);
- 	skb_gro_postpull_rcsum(skb, gh, gh_len);
--	pp = ptype->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
- 	flush = 0;
- 
- out_unlock:
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index e7d16687538b..c1639a3e95a4 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -583,7 +583,7 @@ static struct sk_buff **vxlan_gro_receive(struct sock *sk,
- 		}
- 	}
- 
--	pp = eth_gro_receive(head, skb);
-+	pp = call_gro_receive(eth_gro_receive, head, skb);
- 	flush = 0;
- 
- out:
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 136ae6bbe81e..11a7218c3661 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2169,7 +2169,10 @@ struct napi_gro_cb {
- 	/* Used to determine if flush_id can be ignored */
- 	u8	is_atomic:1;
- 
--	/* 5 bit hole */
-+	/* Number of gro_receive callbacks this packet already went through */
-+	u8 recursion_counter:4;
-+
-+	/* 1 bit hole */
- 
- 	/* used to support CHECKSUM_COMPLETE for tunneling protocols */
- 	__wsum	csum;
-@@ -2180,6 +2183,25 @@ struct napi_gro_cb {
- 
- #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
- 
-+#define GRO_RECURSION_LIMIT 15
-+static inline int gro_recursion_inc_test(struct sk_buff *skb)
-+{
-+	return ++NAPI_GRO_CB(skb)->recursion_counter == GRO_RECURSION_LIMIT;
-+}
-+
-+typedef struct sk_buff **(*gro_receive_t)(struct sk_buff **, struct sk_buff *);
-+static inline struct sk_buff **call_gro_receive(gro_receive_t cb,
-+						struct sk_buff **head,
-+						struct sk_buff *skb)
-+{
-+	if (gro_recursion_inc_test(skb)) {
-+		NAPI_GRO_CB(skb)->flush |= 1;
-+		return NULL;
-+	}
-+
-+	return cb(head, skb);
-+}
-+
- struct packet_type {
- 	__be16			type;	/* This is really htons(ether_type). */
- 	struct net_device	*dev;	/* NULL is wildcarded here	     */
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 8de138d3306b..f2531ad66b68 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -664,7 +664,7 @@ static struct sk_buff **vlan_gro_receive(struct sk_buff **head,
- 
- 	skb_gro_pull(skb, sizeof(*vhdr));
- 	skb_gro_postpull_rcsum(skb, vhdr, sizeof(*vhdr));
--	pp = ptype->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f1fe26f66458..f7cd4b8b035d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4511,6 +4511,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 		NAPI_GRO_CB(skb)->flush = 0;
- 		NAPI_GRO_CB(skb)->free = 0;
- 		NAPI_GRO_CB(skb)->encap_mark = 0;
-+		NAPI_GRO_CB(skb)->recursion_counter = 0;
- 		NAPI_GRO_CB(skb)->is_fou = 0;
- 		NAPI_GRO_CB(skb)->is_atomic = 1;
- 		NAPI_GRO_CB(skb)->gro_remcsum_start = 0;
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 66dff5e3d772..02acfff36028 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -439,7 +439,7 @@ struct sk_buff **eth_gro_receive(struct sk_buff **head,
- 
- 	skb_gro_pull(skb, sizeof(*eh));
- 	skb_gro_postpull_rcsum(skb, eh, sizeof(*eh));
--	pp = ptype->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1effc986739e..9648c97e541f 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1391,7 +1391,7 @@ struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	skb_gro_pull(skb, sizeof(*iph));
- 	skb_set_transport_header(skb, skb_gro_offset(skb));
- 
--	pp = ops->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index cf50f7e2b012..030d1531e897 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -249,7 +249,7 @@ static struct sk_buff **fou_gro_receive(struct sock *sk,
- 	if (!ops || !ops->callbacks.gro_receive)
- 		goto out_unlock;
- 
--	pp = ops->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
- 
- out_unlock:
- 	rcu_read_unlock();
-@@ -441,7 +441,7 @@ static struct sk_buff **gue_gro_receive(struct sock *sk,
- 	if (WARN_ON_ONCE(!ops || !ops->callbacks.gro_receive))
- 		goto out_unlock;
- 
--	pp = ops->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
- 	flush = 0;
- 
- out_unlock:
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 96e0efecefa6..d5cac99170b1 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -229,7 +229,7 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
- 	/* Adjusted NAPI_GRO_CB(skb)->csum after skb_gro_pull()*/
- 	skb_gro_postpull_rcsum(skb, greh, grehlen);
- 
--	pp = ptype->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
- 	flush = 0;
- 
- out_unlock:
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index f9333c963607..7b5879bcd08b 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -295,7 +295,13 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
- 
- 	skb_gro_pull(skb, sizeof(struct udphdr)); /* pull encapsulating udp header */
- 	skb_gro_postpull_rcsum(skb, uh, sizeof(struct udphdr));
--	pp = udp_sk(sk)->gro_receive(sk, head, skb);
-+
-+	if (gro_recursion_inc_test(skb)) {
-+		flush = 1;
-+		pp = NULL;
-+	} else {
-+		pp = udp_sk(sk)->gro_receive(sk, head, skb);
-+	}
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index e7bfd55899a3..1fcf61f1cbc3 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -246,7 +246,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 
- 	skb_gro_postpull_rcsum(skb, iph, nlen);
- 
--	pp = ops->callbacks.gro_receive(head, skb);
-+	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
- 
- out_unlock:
- 	rcu_read_unlock();
--- 
-2.10.0
+Okay, I'm looking it over.  Sorry for the mess.
+
+> Note that the "correct way" of doing list operations also almost
+> inevitably is the shortest way by far, since it gets rid of all the
+> special cases. So the patch looks nice. It gets rid of the magic
+> "nf_set_hooks_head()" thing too, because once you do list following
+> right, the head is no different from any other pointer in the list.
+>
+> So the patch stats look good:
+>
+>  net/netfilter/core.c | 108 ++++++++++++++++-----------------------------------
+>  1 file changed, 33 insertions(+), 75 deletions(-)
+>
+> but again, it's entirely *entirely* untested. Please consider this
+> just a "this is generally how list insert/delete operations should be
+> done, avoiding special cases for the first entry".
+
+I'll review it, and test it.  Can you tell me what steps you took to
+reproduce the oops?  I'll enable slab debugging and try to reproduce
+without and with this patch (and I'll also look into David's recent
+email as well).  Are you simply creating and removing network
+namespaces (I did test that, but I should have done a better job)?
+
+> ALSO NOTE! The code assumes that the "nf_hook_mutex" locking only
+> protects the actual *lists*, and that the address to the list can be
+> looked up without holding the lock. That's generally how things are
+> done, and it simplifies error handling (because you can do the "there
+> is no such list at all" test before you do anything else. But again, I
+> don't actually know the code, and if there is something that actually
+> expands the number of lists etc that depends on that mutex, then the
+> list head lookup may need to be inside the lock too.
+
+That should be correct, the nf_hook_mutex is only for protecting the
+lists.
+
+>            Linus
