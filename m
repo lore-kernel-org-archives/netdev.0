@@ -1,52 +1,59 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net 2/2] conntrack: enable to tune gc parameters
-Date: Mon, 10 Oct 2016 16:04:24 +0200
-Message-ID: <20161010140424.GB21057@breakpoint.cc>
-References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
- <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH v2] qed: Fix to use list_for_each_entry_safe() when delete items
+Date: Mon, 10 Oct 2016 14:08:28 +0000
+Message-ID: <1476108508-14376-1-git-send-email-weiyj.lk@gmail.com>
+References: <1476019942-6837-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, pablo@netfilter.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, fw@strlen.de
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, everest-linux-l2@qlogic.com,
+        netdev@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Ariel Elior <Ariel.Elior@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35298 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752653AbcJJOIi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 10:08:38 -0400
+Received: by mail-pa0-f68.google.com with SMTP id qn10so7280746pac.2
+        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 07:08:38 -0700 (PDT)
+In-Reply-To: <1476019942-6837-1-git-send-email-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> After commit b87a2f9199ea ("netfilter: conntrack: add gc worker to remove
-> timed-out entries"), netlink conntrack deletion events may be sent with a
-> huge delay. It could be interesting to let the user tweak gc parameters
-> depending on its use case.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-Hmm, care to elaborate?
+Since we will remove items off the list using list_del() we need
+to use a safe version of the list_for_each_entry() macro aptly named
+list_for_each_entry_safe().
 
-I am not against doing this but I'd like to hear/read your use case.
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Acked-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+---
+v1 -> v2: use tmp_buffer instead of tmp
+---
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-The expectation is that in almot all cases eviction will happen from
-packet path.  The gc worker is jusdt there for case where a busy system
-goes idle.
-
-> +nf_conntrack_gc_max_evicts - INTEGER
-> +	The maximum number of entries to be evicted during a run of gc.
-> +	This sysctl is only writeable in the initial net namespace.
-
-Hmmm, do you have any advice on sizing this one?
-
-I think a better change might be (instead of adding htis knob) to
-resched the gc worker for immediate re-executaion in case the entire
-"budget" was used.  What do you think?
-
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -983,7 +983,7 @@ static void gc_worker(struct work_struct *work)
-                return;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+index a6db107..02a8be2 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
+@@ -1517,7 +1517,7 @@ static void qed_ll2_register_cb_ops(struct qed_dev *cdev,
+ static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
+ {
+ 	struct qed_ll2_info ll2_info;
+-	struct qed_ll2_buffer *buffer;
++	struct qed_ll2_buffer *buffer, *tmp_buffer;
+ 	enum qed_ll2_conn_type conn_type;
+ 	struct qed_ptt *p_ptt;
+ 	int rc, i;
+@@ -1587,7 +1587,7 @@ static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
  
-        ratio = scanned ? expired_count * 100 / scanned : 0;
--       if (ratio >= 90)
-+       if (ratio >= 90 || expired_count == GC_MAX_EVICTS)
-                next_run = 0;
+ 	/* Post all Rx buffers to FW */
+ 	spin_lock_bh(&cdev->ll2->lock);
+-	list_for_each_entry(buffer, &cdev->ll2->list, list) {
++	list_for_each_entry_safe(buffer, tmp_buffer, &cdev->ll2->list, list) {
+ 		rc = qed_ll2_post_rx_buffer(QED_LEADING_HWFN(cdev),
+ 					    cdev->ll2->handle,
+ 					    buffer->phys_addr, 0, buffer, 1);
