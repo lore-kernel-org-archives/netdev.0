@@ -1,94 +1,65 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: Re: slab corruption with current -git (was Re: [git pull] vfs pile 1 (splice))
-Date: Mon, 10 Oct 2016 09:49:33 -0400
-Message-ID: <f7ta8ec71qq.fsf@redhat.com>
-References: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
-        <20161010005105.GA18349@breakpoint.cc> <f7tbmytkmtr.fsf@redhat.com>
-        <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
-        <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH] doc: fix wrongly referencing dev->skb_mark
+Date: Mon, 10 Oct 2016 16:49:43 +0300
+Message-ID: <20161010134943.GA8090@splinter>
+References: <1476098139-6333-1-git-send-email-ozaki.ryota@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Florian Westphal <fw@strlen.de>, Al Viro <viro@zeniv.linux.org.uk>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Jens Axboe <axboe@fb.com>, "Ted Ts'o" <tytso@mit.edu>,
-        Christoph Lameter <cl@linux.com>,
-        David Miller <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        NetFilter <netfilter-devel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
-        (Linus Torvalds's message of "Sun, 9 Oct 2016 20:41:17 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ryota Ozaki <ozaki.ryota@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:52218 "EHLO
+        out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752360AbcJJNtv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 09:49:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1476098139-6333-1-git-send-email-ozaki.ryota@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds <torvalds@linux-foundation.org> writes:
+Hi,
 
-> On Sun, Oct 9, 2016 at 7:49 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> There is one *correct* way to remove an entry from a singly linked
->> list, and it looks like this:
->>
->>     struct entry **pp, *p;
->>
->>     pp = &head;
->>     while ((p = *pp) != NULL) {
->>         if (right_entry(p)) {
->>             *pp = p->next;
->>             break;
->>         }
->>         pp = &p->next;
->>     }
->>
->> and that's it. Nothing else.
+On Mon, Oct 10, 2016 at 08:15:39PM +0900, Ryota Ozaki wrote:
+> Section "Flooding L2 domain" says, to avoid duplicated flooding, if
+> skb->offload_fwd_mark is matched with dev->skb_mark, the kernel will
+> drop the packet. However, the relevant code in __dev_queue_xmit
+> compares skb->offload_fwd_mark with dev->offload_fwd_mark, not
+> dev->skb_mark. I guess the text is wrong.
+> 
+> Signed-off-by: Ryota Ozaki <ozaki.ryota@gmail.com>
+> ---
+>  Documentation/networking/switchdev.txt | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+> index 31c3911..d4124a0 100644
+> --- a/Documentation/networking/switchdev.txt
+> +++ b/Documentation/networking/switchdev.txt
+> @@ -286,8 +286,8 @@ otherwise there will be duplicate packets on the wire.
+>  To avoid duplicate packets, the device/driver should mark a packet as already
+>  forwarded using skb->offload_fwd_mark.  The same mark is set on the device
+>  ports in the domain using dev->offload_fwd_mark.  If the skb->offload_fwd_mark
+> -is non-zero and matches the forwarding egress port's dev->skb_mark, the kernel
+> -will drop the skb right before transmit on the egress port, with the
+> +is non-zero and matches the forwarding egress port's dev->offload_fwd_mark,
+> +the kernel will drop the skb right before transmit on the egress port, with the
 
-Sorry, I should have done that.
+I think your tree isn't up to date. The flooding mechanism (and this
+document) were modified in commit 6bc506b4fb06 ("bridge: switchdev: Add
+forward mark support for stacked devices")
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6bc506b4fb065eac3d89ca1ce37082e174493d9e
 
-> This COMPLETELY UNTESTED patch tries to fix the nf_hook_entry code to do this.
->
-> I repeat: it's ENTIRELY UNTESTED. I just converted the insertion and
-> deletion to the proper pattern, but I could easily have gotten the
-> insertion priority test the wrong way around entirely, for example. Or
-> it could simply have some other completely broken bug in it. It
-> compiles for me, but that's all I actually checked.
+Also, in the future, please specify to which tree (net, net-next) your
+patch should go. See:
+https://www.kernel.org/doc/Documentation/networking/netdev-FAQ.txt
+(under "How do I indicate which tree (net vs. net-next) my patch
+should be in?").
 
-Okay, I'm looking it over.  Sorry for the mess.
+Thanks!
 
-> Note that the "correct way" of doing list operations also almost
-> inevitably is the shortest way by far, since it gets rid of all the
-> special cases. So the patch looks nice. It gets rid of the magic
-> "nf_set_hooks_head()" thing too, because once you do list following
-> right, the head is no different from any other pointer in the list.
->
-> So the patch stats look good:
->
->  net/netfilter/core.c | 108 ++++++++++++++++-----------------------------------
->  1 file changed, 33 insertions(+), 75 deletions(-)
->
-> but again, it's entirely *entirely* untested. Please consider this
-> just a "this is generally how list insert/delete operations should be
-> done, avoiding special cases for the first entry".
-
-I'll review it, and test it.  Can you tell me what steps you took to
-reproduce the oops?  I'll enable slab debugging and try to reproduce
-without and with this patch (and I'll also look into David's recent
-email as well).  Are you simply creating and removing network
-namespaces (I did test that, but I should have done a better job)?
-
-> ALSO NOTE! The code assumes that the "nf_hook_mutex" locking only
-> protects the actual *lists*, and that the address to the list can be
-> looked up without holding the lock. That's generally how things are
-> done, and it simplifies error handling (because you can do the "there
-> is no such list at all" test before you do anything else. But again, I
-> don't actually know the code, and if there is something that actually
-> expands the number of lists etc that depends on that mutex, then the
-> list head lookup may need to be inside the lock too.
-
-That should be correct, the nf_hook_mutex is only for protecting the
-lists.
-
->            Linus
+>  understanding that the device already forwarded the packet on same egress port.
+>  The driver can use switchdev_port_fwd_mark_set() to set a globally unique mark
+>  for port's dev->offload_fwd_mark, based on the port's parent ID (switch ID) and
+> -- 
+> 2.7.4
+> 
