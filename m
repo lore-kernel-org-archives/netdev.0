@@ -1,41 +1,67 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: Accelerated receive flow steering (aRFS) for UDP
-Date: Mon, 10 Oct 2016 09:08:27 -0700
-Message-ID: <ed0f723c-5e66-6d23-086d-71744570700a@hpe.com>
-References: <SN1PR07MB244706470867A923CF0FAF6589C60@SN1PR07MB2447.namprd07.prod.outlook.com>
- <1475883496.28155.270.camel@edumazet-glaptop3.roam.corp.google.com>
- <SN1PR07MB2447ED02140770F0B46967D589D90@SN1PR07MB2447.namprd07.prod.outlook.com>
- <1476033293.28155.273.camel@edumazet-glaptop3.roam.corp.google.com>
- <SN1PR07MB2447D70FD02730AFCEA410A089D80@SN1PR07MB2447.namprd07.prod.outlook.com>
- <1476052402.28155.277.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: slab corruption with current -git
+Date: Mon, 10 Oct 2016 09:15:10 -0700
+Message-ID: <CA+55aFxB2Q8mp36-xRGGxms2Xqegohn=Y5c-N3oYWiknDBEGuw@mail.gmail.com>
+References: <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
+ <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+ <20161009.235745.860945462339053703.davem@davemloft.net> <20161010.042401.637964142015887598.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "maorg@mellanox.com" <maorg@mellanox.com>,
-        "tom@herbertland.com" <tom@herbertland.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        "Chopra, Manish" <Manish.Chopra@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2353.austin.hpe.com ([15.233.44.26]:46153 "EHLO
-        g2t2353.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753243AbcJJQI3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 12:08:29 -0400
-In-Reply-To: <1476052402.28155.277.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Aaron Conole <aconole@redhat.com>, Florian Westphal <fw@strlen.de>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Jens Axboe <axboe@fb.com>, "Theodore Ts'o" <tytso@mit.edu>,
+        Christoph Lameter <cl@linux.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161010.042401.637964142015887598.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/09/2016 03:33 PM, Eric Dumazet wrote:
-> OK, I am adding/CC Rick Jones, netperf author, since it seems a netperf
-> bug, not a kernel one.
+On Mon, Oct 10, 2016 at 1:24 AM, David Miller <davem@davemloft.net> wrote:
 >
-> I believe I already mentioned fact that "UDP_STREAM -- -N" was not doing
-> a connect() on the receiver side.
+> So I've been reviewing this patch and it looks fine, but I also want
+> to figure out what is actually causing the OOPS and I can't spot it
+> yet.
 
-I can confirm that the receive side of the netperf omni path isn't 
-trying to connect UDP datagrams.  I will see what I can put together.
+Yeah, I'm not actually sure the old linked list implementation is
+buggy - it might just be ugly. I tried to follow the old code, and I
+couldn't.
 
-happy benchmarking,
+So the patch I sent out was a combination of "that's not how you
+should do singly linked lists" and "those special cases make me
+worry". In particular, the old code really ended up doing odd things
+in the "can't find entry" case, because it would exit the loop with a
+non-NULL 'entry' just because the next entry was NULL..
 
-rick jones
-rick.jones2@hpe.com
+> One possible way to see that oops is to free the head entry of the
+> chain without unlinking it.  The next unregister will dereference a
+> POISON pointer.
+>
+> Actually...
+>
+> The POISON value comes not from a hook entry, but from the array of
+> pointers in the per-netns datastructure.
+>
+> This means that the netns is possibly getting freed up before we
+> unregister the netfilter hooks.
+
+That is certainly one possible explanation for it, yes. However, I
+didn't think that part had changed, had it?
+
+The other thing I find a bit odd in that new single-linked list code is this:
+
+ - nf_hook_slow():
+        ...
+        RCU_INIT_POINTER(state->hook_entries, entry);
+
+which makes me worried..  It copies the head entry of the list, and
+maybe it will then (later) end up being used stale. I don't know. But
+it looks a bit iffy.
+
+              Linus
