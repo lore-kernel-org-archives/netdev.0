@@ -1,231 +1,264 @@
-From: Michael Braun <michael-dev@fami-braun.de>
-Subject: [PATCH v6 3/4] cfg80211: configure multicast to unicast for AP interfaces
-Date: Mon, 10 Oct 2016 19:12:22 +0200
-Message-ID: <1476119543-24509-3-git-send-email-michael-dev@fami-braun.de>
+From: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
+Subject: [PATCH v6 2/4] mac80211: filter multicast data packets on AP / AP_VLAN
+Date: Mon, 10 Oct 2016 19:12:21 +0200
+Message-ID: <1476119543-24509-2-git-send-email-michael-dev@fami-braun.de>
 References: <1476119543-24509-1-git-send-email-michael-dev@fami-braun.de>
-Cc: Michael Braun <michael-dev@fami-braun.de>,
-        linux-wireless@vger.kernel.org, projekt-wlan@fem.tu-ilmenau.de,
-        netdev@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fem.tu-ilmenau.de ([141.24.220.54]:43037 "EHLO
-        mail.fem.tu-ilmenau.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752900AbcJJRMg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 13:12:36 -0400
-In-Reply-To: <1476119543-24509-1-git-send-email-michael-dev@fami-braun.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, projekt-wlan-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476119543-24509-1-git-send-email-michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This add a userspace toggle to configure multicast to unicast.
+This patch adds filtering for multicast data packets on AP_VLAN interfaces
+that have no authorized station connected and changes filtering on AP
+interfaces to not count stations assigned to AP_VLAN interfaces.
 
-Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
+This saves airtime and avoids waking up other stations currently authorized
+in this BSS. When using WPA, the packets dropped could not be decrypted by
+any station.
+
+The behaviour when there are no AP_VLAN interfaces is left unchanged.
+When there are AP_VLAN interfaces, this patch
+1. adds filtering multicast data packets sent on AP_VLAN interfaces that
+   have no authorized station connected.
+   No filtering happens on 4addr AP_VLAN interfaces.
+2. makes filtering of multicast data packets sent on AP interfaces depend
+   on the number of authorized stations in this bss not assigned to an
+   AP_VLAN interface.
+
+Therefore, a new num_mcast_sta counter is added for AP_VLAN interfaces.
+The existing one for AP interfaces is altered to not track stations
+assigned to an AP_VLAN interface.
+
+The new counter is exposed in debugfs.
+
+Signed-off-by: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
 
 --
-v6:
- - clarify documentation
- - fix policy for NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED
+v4:
+ - update description
+v3:
+ - reuse existing num_mcast_sta
+v2:
+ - use separate function to inc/dec mcast_sta counters
+ - do not filter in 4addr mode
+ - change description
+ - change filtering on AP interface (do not count AP_VLAN sta)
+ - use new counters regardless of 4addr or not
+ - simplify cfg.c:change_station
+ - remove no-op change in __cleanup_single_sta
 ---
- include/net/cfg80211.h       |  6 ++++++
- include/uapi/linux/nl80211.h | 18 ++++++++++++++++++
- net/wireless/nl80211.c       | 36 ++++++++++++++++++++++++++++++++++++
- net/wireless/rdev-ops.h      | 12 ++++++++++++
- net/wireless/trace.h         | 19 +++++++++++++++++++
- 5 files changed, 91 insertions(+)
+ net/mac80211/cfg.c            | 20 ++++++--------------
+ net/mac80211/debugfs_netdev.c | 11 +++++++++++
+ net/mac80211/ieee80211_i.h    | 33 +++++++++++++++++++++++++++++++++
+ net/mac80211/rx.c             |  5 +++--
+ net/mac80211/sta_info.c       | 10 ++--------
+ net/mac80211/tx.c             |  5 ++---
+ 6 files changed, 57 insertions(+), 27 deletions(-)
 
-diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
-index 7ce6223..7b0941d 100644
---- a/include/net/cfg80211.h
-+++ b/include/net/cfg80211.h
-@@ -2460,6 +2460,8 @@ struct cfg80211_qos_map {
-  *
-  * @set_wds_peer: set the WDS peer for a WDS interface
-  *
-+ * @set_multicast_to_unicast: configure multicast to unicast conversion for BSS
-+ *
-  * @rfkill_poll: polls the hw rfkill line, use cfg80211 reporting
-  *	functions to adjust rfkill hw state
-  *
-@@ -2722,6 +2724,10 @@ struct cfg80211_ops {
- 	int	(*set_wds_peer)(struct wiphy *wiphy, struct net_device *dev,
- 				const u8 *addr);
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 24133f5..1edb017 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -1357,9 +1357,6 @@ static int ieee80211_change_station(struct wiphy *wiphy,
+ 		goto out_err;
  
-+	int	(*set_multicast_to_unicast)(struct wiphy *wiphy,
-+					    struct net_device *dev,
-+					    const bool enabled);
+ 	if (params->vlan && params->vlan != sta->sdata->dev) {
+-		bool prev_4addr = false;
+-		bool new_4addr = false;
+-
+ 		vlansdata = IEEE80211_DEV_TO_SUB_IF(params->vlan);
+ 
+ 		if (params->vlan->ieee80211_ptr->use_4addr) {
+@@ -1369,26 +1366,21 @@ static int ieee80211_change_station(struct wiphy *wiphy,
+ 			}
+ 
+ 			rcu_assign_pointer(vlansdata->u.vlan.sta, sta);
+-			new_4addr = true;
+ 			__ieee80211_check_fast_rx_iface(vlansdata);
+ 		}
+ 
+ 		if (sta->sdata->vif.type == NL80211_IFTYPE_AP_VLAN &&
+-		    sta->sdata->u.vlan.sta) {
++		    sta->sdata->u.vlan.sta)
+ 			RCU_INIT_POINTER(sta->sdata->u.vlan.sta, NULL);
+-			prev_4addr = true;
+-		}
 +
- 	void	(*rfkill_poll)(struct wiphy *wiphy);
++		if (test_sta_flag(sta, WLAN_STA_AUTHORIZED))
++			ieee80211_vif_dec_num_mcast(sta->sdata);
  
- #ifdef CONFIG_NL80211_TESTMODE
-diff --git a/include/uapi/linux/nl80211.h b/include/uapi/linux/nl80211.h
-index 2206941..327bbb8 100644
---- a/include/uapi/linux/nl80211.h
-+++ b/include/uapi/linux/nl80211.h
-@@ -599,6 +599,17 @@
-  *
-  * @NL80211_CMD_SET_WDS_PEER: Set the MAC address of the peer on a WDS interface.
-  *
-+ * @NL80211_CMD_SET_MULTICAST_TO_UNICAST: Configure if this AP should perform
-+ *      multicast to unicast conversion. When enabled, all multicast packets
-+ *      with ethertype ARP, IPv4 or IPv6 (possibly within an 802.1q header)
-+ *      will be sent out to each station once with the destination (multicast)
-+ *      mac address replaced by the stations mac address.
-+ *      This can only be toggled per BSS. Configure this on an interface of
-+ *      type %NL80211_IFTYPE_AP. It applies to all its vlans interfaces
-+ *      (%NL80211_IFTYPE_AP_VLAN), except for those in 4addr (WDS) mode.
-+ *      If %NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED is not present with this
-+ *      command, the feature is disabled.
-+ *
-  * @NL80211_CMD_JOIN_MESH: Join a mesh. The mesh ID must be given, and initial
-  *	mesh config parameters may be given.
-  * @NL80211_CMD_LEAVE_MESH: Leave the mesh network -- no special arguments, the
-@@ -1026,6 +1037,8 @@ enum nl80211_commands {
+ 		sta->sdata = vlansdata;
+ 		ieee80211_check_fast_xmit(sta);
  
- 	NL80211_CMD_ABORT_SCAN,
+-		if (sta->sta_state == IEEE80211_STA_AUTHORIZED &&
+-		    prev_4addr != new_4addr) {
+-			if (new_4addr)
+-				atomic_dec(&sta->sdata->bss->num_mcast_sta);
+-			else
+-				atomic_inc(&sta->sdata->bss->num_mcast_sta);
+-		}
++		if (test_sta_flag(sta, WLAN_STA_AUTHORIZED))
++			ieee80211_vif_inc_num_mcast(sta->sdata);
  
-+	NL80211_CMD_SET_MULTICAST_TO_UNICAST,
+ 		ieee80211_send_layer2_update(sta);
+ 	}
+diff --git a/net/mac80211/debugfs_netdev.c b/net/mac80211/debugfs_netdev.c
+index a5ba739..ed7bff4 100644
+--- a/net/mac80211/debugfs_netdev.c
++++ b/net/mac80211/debugfs_netdev.c
+@@ -477,6 +477,7 @@ IEEE80211_IF_FILE_RW(tdls_wider_bw);
+ IEEE80211_IF_FILE(num_mcast_sta, u.ap.num_mcast_sta, ATOMIC);
+ IEEE80211_IF_FILE(num_sta_ps, u.ap.ps.num_sta_ps, ATOMIC);
+ IEEE80211_IF_FILE(dtim_count, u.ap.ps.dtim_count, DEC);
++IEEE80211_IF_FILE(num_mcast_sta_vlan, u.vlan.num_mcast_sta, ATOMIC);
+ 
+ static ssize_t ieee80211_if_fmt_num_buffered_multicast(
+ 	const struct ieee80211_sub_if_data *sdata, char *buf, int buflen)
+@@ -643,6 +644,13 @@ static void add_ap_files(struct ieee80211_sub_if_data *sdata)
+ 	DEBUGFS_ADD_MODE(tkip_mic_test, 0200);
+ }
+ 
++static void add_vlan_files(struct ieee80211_sub_if_data *sdata)
++{
++	/* add num_mcast_sta_vlan using name num_mcast_sta */
++	debugfs_create_file("num_mcast_sta", 0400, sdata->vif.debugfs_dir,
++			    sdata, &num_mcast_sta_vlan_ops);
++}
 +
- 	/* add new commands above here */
+ static void add_ibss_files(struct ieee80211_sub_if_data *sdata)
+ {
+ 	DEBUGFS_ADD_MODE(tsf, 0600);
+@@ -746,6 +754,9 @@ static void add_files(struct ieee80211_sub_if_data *sdata)
+ 	case NL80211_IFTYPE_AP:
+ 		add_ap_files(sdata);
+ 		break;
++	case NL80211_IFTYPE_AP_VLAN:
++		add_vlan_files(sdata);
++		break;
+ 	case NL80211_IFTYPE_WDS:
+ 		add_wds_files(sdata);
+ 		break;
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index f56d342..70c0963 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -305,6 +305,7 @@ struct ieee80211_if_vlan {
  
- 	/* used to define NL80211_CMD_MAX below */
-@@ -1867,6 +1880,9 @@ enum nl80211_commands {
-  * @NL80211_ATTR_MESH_PEER_AID: Association ID for the mesh peer (u16). This is
-  *	used to pull the stored data for mesh peer in power save state.
-  *
-+ * @NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED: Multicast packets should be
-+ *      send out as unicast to all stations.
-+ *
-  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
-  * @NL80211_ATTR_MAX: highest attribute number currently defined
-  * @__NL80211_ATTR_AFTER_LAST: internal use
-@@ -2261,6 +2277,8 @@ enum nl80211_attrs {
- 
- 	NL80211_ATTR_MESH_PEER_AID,
- 
-+	NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED,
-+
- 	/* add attributes here, update the policy in nl80211.c */
- 
- 	__NL80211_ATTR_AFTER_LAST,
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index f02653a..3684e28 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -409,6 +409,7 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
- 		.len = VHT_MUMIMO_GROUPS_DATA_LEN
- 	},
- 	[NL80211_ATTR_MU_MIMO_FOLLOW_MAC_ADDR] = { .len = ETH_ALEN },
-+	[NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED] = { .type = NLA_FLAG, },
+ 	/* used for all tx if the VLAN is configured to 4-addr mode */
+ 	struct sta_info __rcu *sta;
++	atomic_t num_mcast_sta; /* number of stations receiving multicast */
  };
  
- /* policy for the key attributes */
-@@ -1538,6 +1539,7 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
- 				goto nla_put_failure;
- 		}
- 		CMD(set_wds_peer, SET_WDS_PEER);
-+		CMD(set_multicast_to_unicast, SET_MULTICAST_TO_UNICAST);
- 		if (rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS) {
- 			CMD(tdls_mgmt, TDLS_MGMT);
- 			CMD(tdls_oper, TDLS_OPER);
-@@ -2164,6 +2166,32 @@ static int nl80211_set_wds_peer(struct sk_buff *skb, struct genl_info *info)
- 	return rdev_set_wds_peer(rdev, dev, bssid);
+ struct mesh_stats {
+@@ -1496,6 +1497,38 @@ ieee80211_have_rx_timestamp(struct ieee80211_rx_status *status)
+ 	return false;
  }
  
-+static int nl80211_set_multicast_to_unicast(struct sk_buff *skb,
-+					    struct genl_info *info)
++static inline void
++ieee80211_vif_inc_num_mcast(struct ieee80211_sub_if_data *sdata)
 +{
-+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
-+	struct net_device *dev = info->user_ptr[1];
-+	struct wireless_dev *wdev = dev->ieee80211_ptr;
-+	const struct nlattr *nla;
-+	bool enabled;
-+
-+	if (!info->attrs[NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED])
-+		return -EINVAL;
-+
-+	if (netif_running(dev))
-+		return -EBUSY;
-+
-+	if (!rdev->ops->set_multicast_to_unicast)
-+		return -EOPNOTSUPP;
-+
-+	if (wdev->iftype != NL80211_IFTYPE_AP)
-+		return -EOPNOTSUPP;
-+
-+	nla = info->attrs[NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED];
-+	enabled = nla_get_flag(nla);
-+	return rdev_set_multicast_to_unicast(rdev, dev, enabled);
++	if (sdata->vif.type == NL80211_IFTYPE_AP)
++		atomic_inc(&sdata->u.ap.num_mcast_sta);
++	else if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
++		atomic_inc(&sdata->u.vlan.num_mcast_sta);
 +}
 +
- static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct cfg80211_registered_device *rdev;
-@@ -11574,6 +11602,14 @@ static const struct genl_ops nl80211_ops[] = {
- 				  NL80211_FLAG_NEED_RTNL,
- 	},
- 	{
-+		.cmd = NL80211_CMD_SET_MULTICAST_TO_UNICAST,
-+		.doit = nl80211_set_multicast_to_unicast,
-+		.policy = nl80211_policy,
-+		.flags = GENL_UNS_ADMIN_PERM,
-+		.internal_flags = NL80211_FLAG_NEED_NETDEV |
-+				  NL80211_FLAG_NEED_RTNL,
-+	},
-+	{
- 		.cmd = NL80211_CMD_JOIN_MESH,
- 		.doit = nl80211_join_mesh,
- 		.policy = nl80211_policy,
-diff --git a/net/wireless/rdev-ops.h b/net/wireless/rdev-ops.h
-index 85ff30b..7d93c3d 100644
---- a/net/wireless/rdev-ops.h
-+++ b/net/wireless/rdev-ops.h
-@@ -562,6 +562,18 @@ static inline int rdev_set_wds_peer(struct cfg80211_registered_device *rdev,
- 	return ret;
- }
- 
++static inline void
++ieee80211_vif_dec_num_mcast(struct ieee80211_sub_if_data *sdata)
++{
++	if (sdata->vif.type == NL80211_IFTYPE_AP)
++		atomic_dec(&sdata->u.ap.num_mcast_sta);
++	else if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
++		atomic_dec(&sdata->u.vlan.num_mcast_sta);
++}
++
++/* This function returns the number of multicast stations connected to this
++ * interface. It returns -1 if that number is not tracked, that is for netdevs
++ * not in AP or AP_VLAN mode or when using 4addr.
++ */
 +static inline int
-+rdev_set_multicast_to_unicast(struct cfg80211_registered_device *rdev,
-+			      struct net_device *dev,
-+			      const bool enabled)
++ieee80211_vif_get_num_mcast_if(struct ieee80211_sub_if_data *sdata)
 +{
-+	int ret;
-+	trace_rdev_set_multicast_to_unicast(&rdev->wiphy, dev, enabled);
-+	ret = rdev->ops->set_multicast_to_unicast(&rdev->wiphy, dev, enabled);
-+	trace_rdev_return_int(&rdev->wiphy, ret);
-+	return ret;
++	if (sdata->vif.type == NL80211_IFTYPE_AP)
++		return atomic_read(&sdata->u.ap.num_mcast_sta);
++	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN && !sdata->u.vlan.sta)
++		return atomic_read(&sdata->u.vlan.num_mcast_sta);
++	return -1;
 +}
 +
- static inline void rdev_rfkill_poll(struct cfg80211_registered_device *rdev)
- {
- 	trace_rdev_rfkill_poll(&rdev->wiphy);
-diff --git a/net/wireless/trace.h b/net/wireless/trace.h
-index 72b5255..8c9aa57 100644
---- a/net/wireless/trace.h
-+++ b/net/wireless/trace.h
-@@ -2940,6 +2940,25 @@ DEFINE_EVENT(wiphy_wdev_evt, rdev_abort_scan,
- 	TP_PROTO(struct wiphy *wiphy, struct wireless_dev *wdev),
- 	TP_ARGS(wiphy, wdev)
- );
-+
-+TRACE_EVENT(rdev_set_multicast_to_unicast,
-+	TP_PROTO(struct wiphy *wiphy, struct net_device *netdev,
-+		 const bool enabled),
-+	TP_ARGS(wiphy, netdev, enabled),
-+	TP_STRUCT__entry(
-+		WIPHY_ENTRY
-+		NETDEV_ENTRY
-+		__field(bool, enabled)
-+	),
-+	TP_fast_assign(
-+		WIPHY_ASSIGN;
-+		NETDEV_ASSIGN;
-+		__entry->enabled = enabled;
-+	),
-+	TP_printk(WIPHY_PR_FMT ", " NETDEV_PR_FMT ", unicast: %s",
-+		  WIPHY_PR_ARG, NETDEV_PR_ARG,
-+		  BOOL_TO_STR(__entry->enabled))
-+);
- #endif /* !__RDEV_OPS_TRACE || TRACE_HEADER_MULTI_READ */
- 
- #undef TRACE_INCLUDE_PATH
+ u64 ieee80211_calculate_rx_timestamp(struct ieee80211_local *local,
+ 				     struct ieee80211_rx_status *status,
+ 				     unsigned int mpdu_len,
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 9617f93..252d922 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -2160,7 +2160,8 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
+ 	     sdata->vif.type == NL80211_IFTYPE_AP_VLAN) &&
+ 	    !(sdata->flags & IEEE80211_SDATA_DONT_BRIDGE_PACKETS) &&
+ 	    (sdata->vif.type != NL80211_IFTYPE_AP_VLAN || !sdata->u.vlan.sta)) {
+-		if (is_multicast_ether_addr(ehdr->h_dest)) {
++		if (is_multicast_ether_addr(ehdr->h_dest) &&
++		    ieee80211_vif_get_num_mcast_if(sdata) != 0) {
+ 			/*
+ 			 * send multicast frames both to higher layers in
+ 			 * local net stack and back to the wireless medium
+@@ -2169,7 +2170,7 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
+ 			if (!xmit_skb)
+ 				net_info_ratelimited("%s: failed to clone multicast frame\n",
+ 						    dev->name);
+-		} else {
++		} else if (!is_multicast_ether_addr(ehdr->h_dest)) {
+ 			dsta = sta_info_get(sdata, skb->data);
+ 			if (dsta) {
+ 				/*
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 76b737d..216ef65 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -1882,10 +1882,7 @@ int sta_info_move_state(struct sta_info *sta,
+ 			if (!sta->sta.support_p2p_ps)
+ 				ieee80211_recalc_p2p_go_ps_allowed(sta->sdata);
+ 		} else if (sta->sta_state == IEEE80211_STA_AUTHORIZED) {
+-			if (sta->sdata->vif.type == NL80211_IFTYPE_AP ||
+-			    (sta->sdata->vif.type == NL80211_IFTYPE_AP_VLAN &&
+-			     !sta->sdata->u.vlan.sta))
+-				atomic_dec(&sta->sdata->bss->num_mcast_sta);
++			ieee80211_vif_dec_num_mcast(sta->sdata);
+ 			clear_bit(WLAN_STA_AUTHORIZED, &sta->_flags);
+ 			ieee80211_clear_fast_xmit(sta);
+ 			ieee80211_clear_fast_rx(sta);
+@@ -1893,10 +1890,7 @@ int sta_info_move_state(struct sta_info *sta,
+ 		break;
+ 	case IEEE80211_STA_AUTHORIZED:
+ 		if (sta->sta_state == IEEE80211_STA_ASSOC) {
+-			if (sta->sdata->vif.type == NL80211_IFTYPE_AP ||
+-			    (sta->sdata->vif.type == NL80211_IFTYPE_AP_VLAN &&
+-			     !sta->sdata->u.vlan.sta))
+-				atomic_inc(&sta->sdata->bss->num_mcast_sta);
++			ieee80211_vif_inc_num_mcast(sta->sdata);
+ 			set_bit(WLAN_STA_AUTHORIZED, &sta->_flags);
+ 			ieee80211_check_fast_xmit(sta);
+ 			ieee80211_check_fast_rx(sta);
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 5023966..c3ce86e 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -331,9 +331,8 @@ ieee80211_tx_h_check_assoc(struct ieee80211_tx_data *tx)
+ 			I802_DEBUG_INC(tx->local->tx_handlers_drop_not_assoc);
+ 			return TX_DROP;
+ 		}
+-	} else if (unlikely(tx->sdata->vif.type == NL80211_IFTYPE_AP &&
+-			    ieee80211_is_data(hdr->frame_control) &&
+-			    !atomic_read(&tx->sdata->u.ap.num_mcast_sta))) {
++	} else if (unlikely(ieee80211_is_data(hdr->frame_control) &&
++			    ieee80211_vif_get_num_mcast_if(tx->sdata) == 0)) {
+ 		/*
+ 		 * No associated STAs - no need to send multicast
+ 		 * frames.
 -- 
 2.1.4
