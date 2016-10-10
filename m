@@ -1,45 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/6] qed: Allow chance for fast ramrod
- completions
-Date: Mon, 10 Oct 2016 03:17:24 -0400 (EDT)
-Message-ID: <20161010.031724.182767468453485783.davem@davemloft.net>
-References: <1476026738-26069-6-git-send-email-Yuval.Mintz@qlogic.com>
-        <1476058115.28155.282.camel@edumazet-glaptop3.roam.corp.google.com>
-        <BL2PR07MB230613EB6D587458F4143C678DDB0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60854 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751967AbcJJHRg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 03:17:36 -0400
-In-Reply-To: <BL2PR07MB230613EB6D587458F4143C678DDB0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris Rorvick <chris@rorvick.com>
+Subject: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
+Date: Mon, 10 Oct 2016 02:19:43 -0500
+Message-ID: <20161010071943.4717-1-chris@rorvick.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Chris Rorvick <chris@rorvick.com>
+To: Intel Linux Wireless <linuxwifi@intel.com>,
+        Luca Coelho <luciano.coelho@intel.com>,
+        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Oren Givon <oren.givon@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Date: Mon, 10 Oct 2016 06:33:05 +0000
+Commit bcb079a14d75 ("iwlwifi: pcie: retrieve and parse ACPI power
+limitations") looks for a specific structure in the ACPI tables for
+setting the default power limit.  The data returned for at least some
+dual band chipsets is not recognized, though.  For example, the AC 8260
+reports the following:
 
-> 
->> > +     while (iter_cnt--) {
->> > +             /* Validate we receive completion update */
->> >                smp_rmb();
->> >                if (comp_done->done == 1) {
->> >                        if (p_fw_ret)
->> >                                *p_fw_ret = comp_done->fw_return_code;
->> >                        return 0;
->> >                }
-> 
->> Note that this smp_rmb() and accesses to ->done and ->fw_return_code are
->> racy.
-> 
->> fw_return_code needs to be written _before_ done.
-> 
-> Thanks for catching this up.
-> 
-> Dave  - do you want me to re-spin for this?
+        Name (SPLX, Package (0x04)
+        {
+            Zero,
+            Package (0x03)
+            {
+                0,
+                1200,
+                1000
+            },
+            Package (0x03)
+            {
+                0,
+                1200,
+                1000
+            },
+            Package (0x03)
+            {
+                0,
+                1200,
+                1000
+            }
+        })
 
-Yes.
+The current logic expects exactly two elements in the outer package,
+causing the above to be ignored and the power limit unset.
+
+Despite the interface being fully functional after initialization, the
+above condition is reported as an error.  Knock the message down to a
+warning and provide better context for understanding its consequence.
+
+Signed-off-by: Chris Rorvick <chris@rorvick.com>
+---
+ drivers/net/wireless/intel/iwlwifi/pcie/drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/drv.c b/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
+index 78cf9a7..19b531f 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
+@@ -540,7 +540,7 @@ static u64 splx_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splx)
+ 	    splx->package.count != 2 ||
+ 	    splx->package.elements[0].type != ACPI_TYPE_INTEGER ||
+ 	    splx->package.elements[0].integer.value != 0) {
+-		IWL_ERR(trans, "Unsupported splx structure\n");
++		IWL_WARN(trans, "Unsupported splx structure, not limiting WiFi power\n");
+ 		return 0;
+ 	}
+ 
+-- 
+2.10.1
