@@ -1,56 +1,94 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v3 0/6] openvswitch: make vlan handling
- consistent
-Date: Mon, 10 Oct 2016 14:46:17 +0200
-Message-ID: <20161010144617.67fd499b@griffin>
-References: <cover.1475855896.git.jbenc@redhat.com>
-        <CAOrHB_BTJecjrUsJVzhO4W-edX1V8U7_sn3AHa_Mo+v50n4ycQ@mail.gmail.com>
+From: Jean-Francois Moine <moinejf@free.fr>
+Subject: Re: [PATCH v4 04/10] ARM: dts: sun8i-h3: Add dt node for the syscon
+ control module
+Date: Mon, 10 Oct 2016 14:50:21 +0200
+Message-ID: <20161010145021.00586f772e3398833217796a@free.fr>
+References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1475828757-926-5-git-send-email-clabbe.montjoie@gmail.com>
+ <20161010123151.GI3462@lukather>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Garver <e@erig.me>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35866 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751917AbcJJMqW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Oct 2016 08:46:22 -0400
-In-Reply-To: <CAOrHB_BTJecjrUsJVzhO4W-edX1V8U7_sn3AHa_Mo+v50n4ycQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: mark.rutland@arm.com, andrew@lunn.ch, f.fainelli@gmail.com,
+ devicetree@vger.kernel.org, netdev@vger.kernel.org, linux@armlinux.org.uk,
+ linux-kernel@vger.kernel.org, wens@csie.org, robh+dt@kernel.org,
+ Corentin Labbe <clabbe.montjoie@gmail.com>, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20161010123151.GI3462@lukather>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 7 Oct 2016 12:59:08 -0700, Pravin Shelar wrote:
-> On Fri, Oct 7, 2016 at 9:07 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> > Always keep the first vlan tag "accelerated", i.e. in skb->vlan_tci.
-> >
-> > Unfortunately, with all the changes since v2, this patchset no longer has
-> > the nice deletions > insertions diffstat. I still think it's worth it, as it
-> > makes things more consistent overall.
-> >
-> After looking at the changes, I am not sure about the value. These
-> patches are making code bit complicated by processing vlan header
-> twice rather than once in current code.
+On Mon, 10 Oct 2016 14:31:51 +0200
+Maxime Ripard <maxime.ripard@free-electrons.com> wrote:
 
-Yes, this is a trade-off. A bit more complexity on packet ingress, less
-complexity on packet processing.
+> Hi,
+> =
 
-My main motivation was L3 packets where the code in packet_length
-became more complicated than I'd like to to cover all possible cases.
-Normalizing the vlan tags looked as a pretty obvious improvement. But
-I'm not that thrilled with what it evolved into. I think it's slightly
-better than what we have now but I can understand how you may think
-opposite.
+> On Fri, Oct 07, 2016 at 10:25:51AM +0200, Corentin Labbe wrote:
+> > This patch add the dt node for the syscon register present on the
+> > Allwinner H3.
+> > =
 
-I'll rip the fixes (patches 3 and 6) off this patchset and send them
-separately.
+> > Only two register are present in this syscon and the only one useful is
+> > the one dedicated to EMAC clock.
+> > =
 
-> As far as patch 6 is concerned I think we could do MTU checks similar
-> to the rest of networking stack (for example is_skb_forwardable()).
-> That would simplify things here.
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > ---
+> >  arch/arm/boot/dts/sun8i-h3.dtsi | 5 +++++
+> >  1 file changed, 5 insertions(+)
+> > =
 
-Fixing the current code is not that hard. The real problem is the added
-complexity with L3 packets. I'll look more into the possible solutions
-for the L3 patchset.
+> > diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-=
+h3.dtsi
+> > index 8a95e36..1101d2f 100644
+> > --- a/arch/arm/boot/dts/sun8i-h3.dtsi
+> > +++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+> > @@ -140,6 +140,11 @@
+> >  		#size-cells =3D <1>;
+> >  		ranges;
+> >  =
 
- Jiri
+> > +		syscon: syscon@01c00000 {
+> > +			compatible =3D "syscon";
+> =
+
+> It would be great to have a more specific compatible here in addition
+> to the syscon, like "allwinner,sun8i-h3-system-controller".
+
+The System Control area is just like the PRCM area: it would be simpler
+to define the specific registers in the associated drivers.
+
+Here, instead of the syscon node, plus
+
++		emac: ethernet@1c30000 {
++			compatible =3D "allwinner,sun8i-h3-emac";
++			syscon =3D <&syscon>;
++			reg =3D <0x01c30000 0x104>;
++			interrupts =3D <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+			...
+
+there would be no 'syscon' node and
+
++		emac: ethernet@1c30000 {
++			compatible =3D "allwinner,sun8i-h3-emac";
++			syscon =3D <&syscon>;
++			reg =3D	<0x01c30000 0x104>,	/* EMAC */
++				<0x01c00030 4>;		/* system control */
++			interrupts =3D <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+			...
+
+-- =
+
+Ken ar c'henta=F1	|	      ** Breizh ha Linux atav! **
+Jef		|		http://moinejf.free.fr/
