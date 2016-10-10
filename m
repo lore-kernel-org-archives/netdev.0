@@ -1,76 +1,47 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: Re: igb driver can cause cache invalidation of non-owned memory?
-Date: Mon, 10 Oct 2016 20:00:03 +0300
-Message-ID: <19aebfc3-5f1a-9206-4493-2255af7269f9@cogentembedded.com>
-References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
- <20161010.050125.1981283393312167625.davem@davemloft.net>
- <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
- <20161010.075731.2449861168238706.davem@davemloft.net>
- <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
- <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Accelerated receive flow steering (aRFS) for UDP
+Date: Mon, 10 Oct 2016 10:08:17 -0700
+Message-ID: <1476119297.5650.0.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <SN1PR07MB244706470867A923CF0FAF6589C60@SN1PR07MB2447.namprd07.prod.outlook.com>
+         <1475883496.28155.270.camel@edumazet-glaptop3.roam.corp.google.com>
+         <SN1PR07MB2447ED02140770F0B46967D589D90@SN1PR07MB2447.namprd07.prod.outlook.com>
+         <1476033293.28155.273.camel@edumazet-glaptop3.roam.corp.google.com>
+         <SN1PR07MB2447D70FD02730AFCEA410A089D80@SN1PR07MB2447.namprd07.prod.outlook.com>
+         <1476052402.28155.277.camel@edumazet-glaptop3.roam.corp.google.com>
+         <ed0f723c-5e66-6d23-086d-71744570700a@hpe.com>
+         <844f9891-3b30-e5fa-720e-d20e4ea5d751@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        cphealy@gmail.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Chopra, Manish" <Manish.Chopra@cavium.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "maorg@mellanox.com" <maorg@mellanox.com>,
+        "tom@herbertland.com" <tom@herbertland.com>
+To: Rick Jones <rick.jones2@hpe.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:36486 "EHLO
+        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752277AbcJJRIU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 13:08:20 -0400
+Received: by mail-io0-f181.google.com with SMTP id j37so117602209ioo.3
+        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 10:08:20 -0700 (PDT)
+In-Reply-To: <844f9891-3b30-e5fa-720e-d20e4ea5d751@hpe.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexander
+On Mon, 2016-10-10 at 09:23 -0700, Rick Jones wrote:
+> On 10/10/2016 09:08 AM, Rick Jones wrote:
+> > On 10/09/2016 03:33 PM, Eric Dumazet wrote:
+> >> OK, I am adding/CC Rick Jones, netperf author, since it seems a netperf
+> >> bug, not a kernel one.
+> >>
+> >> I believe I already mentioned fact that "UDP_STREAM -- -N" was not doing
+> >> a connect() on the receiver side.
+> >
+> > I can confirm that the receive side of the netperf omni path isn't
+> > trying to connect UDP datagrams.  I will see what I can put together.
+> 
+> I've put something together and pushed it to the netperf top of trunk. 
+> It seems to have been successful on a quick loopback UDP_STREAM test.
 
-Thanks for your explanation.
-
-> The main reason why this isn't a concern for the igb driver is because
-> we currently pass the page up as read-only.  We don't allow the stack
-> to write into the page by keeping the page count greater than 1 which
-> means that the page is shared.  It isn't until we unmap the page that
-> the page count is allowed to drop to 1 indicating that it is writable.
-
-Doesn't that mean that sync_to_device() in igb_reuse_rx_page() can be
-avoided? If page is read only for entire world, then it can't be dirty
-in cache and thus device can safely write to it without preparation step.
-
-Nikita
-
-
-P.S.
-
-We are observing strange performance anomaly with igb on imx6q board.
-
-Test is - simple iperf UDP receive. Other host runs
-  iperf -c X.X.X.X -u -b xxxM -t 300 -i 3
-
-Imx6q board can run iperf -s -u, or it can run nothing - result is the same.
-
-While generated traffic (controlled via xxx) is slow, softirq thread on
-imx6 board takes near-zero cpu time.  With increasing xxx, it still is
-near zero - up to some moment about 700 Mbps. At this moment softirqd
-cpu usage suddenly jumps to almost 100%.  Without anything in between:
-it is near-zero with slightly smaller traffic, and it is immediately
->99% with slightly larger traffic.
-
-Profiling this situation (>99% in softirqd) with perf gives up to 50%
-hits inside cache invalidation loops. That's why originally we thought
-cache invalidation is slow. But having the above dependency between
-traffic and softirq cpu usage (where napi code runs) can't be explained
-with slow cache invalidation.
-
-Also there are additional factors:
-- if UDP traffic is dropped - via iptables, or via forcing error paths
-at different points of network stack - softirqd cpu usage drops back to
-near-zero - although it still does all the same cache invalidations,
-- I tried to modify igb driver to disallow page reuse (made
-igb_add_rx_frag() always returning false). Result was - "border traffic"
-where softirq cpu usage goes from zero to 100% changed from ~700 Mbps to
-~400 Mbps.
-
-Any ideas what can happen there, and how to debug it?
-
-TIA
+Indeed, it looks better, thanks !
