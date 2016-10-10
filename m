@@ -1,45 +1,58 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: igb driver can cause cache invalidation of non-owned memory?
-Date: Mon, 10 Oct 2016 11:52:06 +0300
-Message-ID: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC v3 3/3] phy,leds: add support for led triggers on phy link
+ state change
+Date: Mon, 10 Oct 2016 02:03:32 -0700
+Message-ID: <1eb3afdb-0236-65e3-64be-09cc6eeda533@gmail.com>
+References: <1475874897-29720-1-git-send-email-zach.brown@ni.com>
+ <1475874897-29720-4-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Chris Healy <cphealy@gmail.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mlindner@marvell.com, stephen@networkplumber.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
+        Larry.Finger@lwfinger.net, gregkh@linuxfoundation.org,
+        rpurdie@rpsys.net, j.anaszewski@samsung.com,
+        linux-leds@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+To: Zach Brown <zach.brown@ni.com>
+Return-path: <linux-leds-owner@vger.kernel.org>
+In-Reply-To: <1475874897-29720-4-git-send-email-zach.brown@ni.com>
+Sender: linux-leds-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+On 10/07/2016 02:14 PM, Zach Brown wrote:
+> From: Josh Cartwright <josh.cartwright@ni.com>
+> 
+> Create an option CONFIG_LED_TRIGGER_PHY (default n), which will
+> create a set of led triggers for each instantiated PHY device.  There is
+> one LED trigger per link-speed, per-phy.
+> 
+> This allows for a user to configure their system to allow a set of LEDs
+> to represent link state changes on the phy.
 
+Seems like we are past the RFC state now, so you might want to prefix
+your patches with [PATCH ..] now. Also, the typical prefix used for
+PHYLIB changes is net: phy: foo
 
-DMA mapping scheme introduced in commit cbc8e55f6fda ('igb: Map entire
-page and sync half instead of mapping and unmapping half pages') back in
-2012, and used up to now, can probably cause breakage of unrelated code
-on archs with non-coherent caches.
+Other than that:
 
-With this scheme, page used for Rx is completely dma_map()ed at
-allocation time, split into two buffers, and individual buffer is
-sync_to_cpu()ed AND PASSED TO NETWORK STACK via skb_add_rx_frag() -
-while driver driver still uses other buffer. Later, when driver decides
-to no longer use this page, it will dma_unmap() it completely - which on
-archs with non-coherent caches means cache invalidation. This cache
-invalidation will include area that is already passed elsewhere. If
-external code has performed any writes to that area and writes still are
-in cache only, cache invalidation will cause writes to be lost.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
+Andrew, are you happy with this implementation?
 
-I'm not sure if this breakage is indeed possible. I did not face it,
-just found while checking how things work.
+[snip]
 
-Code in question is in kernel already for 4 years. However, since (1)
-igb is mostly used on x86 where caches are coherent, and (2) Rx buffers
-are normally not written to, it could stay unnoticed all that time.
+> +
+> +#ifdef CONFIG_LED_TRIGGER_PHY
+> +
+> +#include <linux/leds.h>
+> +#include <linux/phy.h>
+> +
+> +#define PHY_LINK_LED_MAX_TRIGGERS	5
+> +#define PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE	7
+> +#define PHY_MII_BUS_ID_SIZE	(20 - 3)
 
-Could somebody please comment on this?
-
-
-Nikita Yushchenko
+This particular constant may be something worth moving to
+include/linux/phy.h eventually.
+-- 
+Florian
