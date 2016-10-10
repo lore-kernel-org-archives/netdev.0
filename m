@@ -1,51 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: igb driver can cause cache invalidation of non-owned memory?
-Date: Mon, 10 Oct 2016 07:57:31 -0400 (EDT)
-Message-ID: <20161010.075731.2449861168238706.davem@davemloft.net>
-References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
-        <20161010.050125.1981283393312167625.davem@davemloft.net>
-        <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] qed: fix old-style function definition
+Date: Mon, 10 Oct 2016 13:59:16 +0200
+Message-ID: <20161010115937.730249-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        cphealy@gmail.com
-To: nikita.yoush@cogentembedded.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Ram Amrani <Ram.Amrani@caviumnetworks.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Ariel Elior <Ariel.Elior@qlogic.com>,
+        everest-linux-l2@qlogic.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Date: Mon, 10 Oct 2016 12:51:28 +0300
+The definition of qed_get_rdma_ops() is not a prototype unless
+we add 'void' here, as indicated by this W=1 warning:
 
-> Hmm...  I'm not about device writing to memory.
+drivers/net/ethernet/qlogic/qed/qed_roce.c: In function ‘qed_get_rdma_ops’:
+drivers/net/ethernet/qlogic/qed/qed_roce.c:2950:28: error: old-style function definition [-Werror=old-style-definition]
 
-This absolutely is about whether the device wrote into the
-area or not.
+Fixes: abd49676c707 ("qed: Add RoCE ll2 & GSI support")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Sequence in igb driver is:
-> 
-> dma_map(full_page)
->   <device writes here>
-> sync_to_cpu(half_page);
-> skb_add_rx_frag(skb, half_page);
-> napi_gro_receive(skb);
->   ...
-> dma_unmap(full_page)
-> 
-> What I'm concerned about is - same area is first passed up to network
-> stack, and _later_ dma_unmap()ed.  Is this indeed safe?
-
-dma_unmap() should never write anything unless the device has
-meanwhile written to that chunk of memory.
-
-If the device made no intervening writes into the area, dma_unmap()
-should not cause any data to be written to that area, period.
-
-In your example above, consider the case where the device never
-writes into the memory area after sync_to_cpu().  In that case
-there is nothing that dma_unmap() can possibly write.  All the
-data has been synced, and no device writes into the memory are
-have occurred.
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+index 23430059471c..76831a398bed 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+@@ -2947,7 +2947,7 @@ static const struct qed_rdma_ops qed_rdma_ops_pass = {
+ 	.roce_ll2_stats = &qed_roce_ll2_stats,
+ };
+ 
+-const struct qed_rdma_ops *qed_get_rdma_ops()
++const struct qed_rdma_ops *qed_get_rdma_ops(void)
+ {
+ 	return &qed_rdma_ops_pass;
+ }
+-- 
+2.9.0
