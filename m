@@ -1,67 +1,45 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net] net: add recursion limit to GRO
-Date: Mon, 10 Oct 2016 18:20:35 +0200
-Message-ID: <20161010162035.GA7422@bistromath.localdomain>
-References: <8fb8ec65c178b4d37951c4538dedc880eef068d4.1476106975.git.sd@queasysnail.net>
- <1476108236.28155.299.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: Accelerated receive flow steering (aRFS) for UDP
+Date: Mon, 10 Oct 2016 09:23:16 -0700
+Message-ID: <844f9891-3b30-e5fa-720e-d20e4ea5d751@hpe.com>
+References: <SN1PR07MB244706470867A923CF0FAF6589C60@SN1PR07MB2447.namprd07.prod.outlook.com>
+ <1475883496.28155.270.camel@edumazet-glaptop3.roam.corp.google.com>
+ <SN1PR07MB2447ED02140770F0B46967D589D90@SN1PR07MB2447.namprd07.prod.outlook.com>
+ <1476033293.28155.273.camel@edumazet-glaptop3.roam.corp.google.com>
+ <SN1PR07MB2447D70FD02730AFCEA410A089D80@SN1PR07MB2447.namprd07.prod.outlook.com>
+ <1476052402.28155.277.camel@edumazet-glaptop3.roam.corp.google.com>
+ <ed0f723c-5e66-6d23-086d-71744570700a@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "maorg@mellanox.com" <maorg@mellanox.com>,
+        "tom@herbertland.com" <tom@herbertland.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        "Chopra, Manish" <Manish.Chopra@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34772 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752307AbcJJQUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Oct 2016 12:20:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1476108236.28155.299.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from g2t2352.austin.hpe.com ([15.233.44.25]:58789 "EHLO
+        g2t2352.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752586AbcJJQXS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 12:23:18 -0400
+In-Reply-To: <ed0f723c-5e66-6d23-086d-71744570700a@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
-
-2016-10-10, 07:03:56 -0700, Eric Dumazet wrote:
-> On Mon, 2016-10-10 at 15:43 +0200, Sabrina Dubroca wrote:
-> > Currently, GRO can do unlimited recursion through the gro_receive
-> > handlers.  This was fixed for tunneling protocols by limiting tunnel GRO
-> > to one level with encap_mark, but both VLAN and TEB still have this
-> > problem.  Thus, the kernel is vulnerable to a stack overflow, if we
-> > receive a packet composed entirely of VLAN headers.
-> > 
-> > This patch adds a recursion counter to the GRO layer to prevent stack
-> > overflow.  When a gro_receive function hits the recursion limit, GRO is
-> > aborted for this skb and it is processed normally.
-> > 
-> > Thanks to Vladimír Beneš <vbenes@redhat.com> for the initial bug report.
-> 
-> 
-> Hi Sabrina
-> 
-> Have you considered using a per cpu counter ?
+On 10/10/2016 09:08 AM, Rick Jones wrote:
+> On 10/09/2016 03:33 PM, Eric Dumazet wrote:
+>> OK, I am adding/CC Rick Jones, netperf author, since it seems a netperf
+>> bug, not a kernel one.
+>>
+>> I believe I already mentioned fact that "UDP_STREAM -- -N" was not doing
+>> a connect() on the receiver side.
 >
-> It might be cheaper than using a 4-bit field in skb.
+> I can confirm that the receive side of the netperf omni path isn't
+> trying to connect UDP datagrams.  I will see what I can put together.
 
-I thought about it, but this looked a bit simpler. I can try some
-benchmarking tomorrow.
+I've put something together and pushed it to the netperf top of trunk. 
+It seems to have been successful on a quick loopback UDP_STREAM test.
 
+happy benchmarking,
 
-> Really this counter does not need to be stored in skb. GRO already uses
-> way too much space in skb->cb[]
-
-For net-next I'm working on turning GRO into a loop, which would
-eliminate these few bits.
-
-
-> Also please add appropriate unlikely() clauses, since most GRO traffic
-> is not trying to kill hosts ;)
-
-Right. I'll send a v2 with this later.
-
-
-Thanks,
-
--- 
-Sabrina
+rick jones
