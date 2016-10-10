@@ -1,73 +1,113 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Subject: [mac80211] BUG_ON with current -git (4.8.0-11417-g24532f7)
-Date: Tue, 11 Oct 2016 00:03:58 +0900
-Message-ID: <20161010150358.GA514@swordfish>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: igb driver can cause cache invalidation of non-owned memory?
+Date: Mon, 10 Oct 2016 08:11:38 -0700
+Message-ID: <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
+References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
+ <20161010.050125.1981283393312167625.davem@davemloft.net> <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
+ <20161010.075731.2449861168238706.davem@davemloft.net> <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
-        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
-        linux-next@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        cphealy@gmail.com
+To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, Oct 10, 2016 at 5:27 AM, Nikita Yushchenko
+<nikita.yoush@cogentembedded.com> wrote:
+>>> Hmm...  I'm not about device writing to memory.
+>>
+>> This absolutely is about whether the device wrote into the
+>> area or not.
+>
+> Not only.
+>
+>>> Sequence in igb driver is:
+>>>
+>>> dma_map(full_page)
+>>>   <device writes here>
+>>> sync_to_cpu(half_page);
+>>> skb_add_rx_frag(skb, half_page);
+>>> napi_gro_receive(skb);
+>>>   ...
+>>> dma_unmap(full_page)
+>>>
+>>> What I'm concerned about is - same area is first passed up to network
+>>> stack, and _later_ dma_unmap()ed.  Is this indeed safe?
+>>
+>> dma_unmap() should never write anything unless the device has
+>> meanwhile written to that chunk of memory.
+>
+> dma_unmap() for DMA_FROM_DEVICE never writes whatever to memory,
+> regardless of what device did.
+>
+> dma_unmap() for DMA_FROM_DEVICE ensures that data written to memory
+> by device (if any) is visible to CPU. Cache may contain stale data
+> for that memory region. To drop that from cache, dma_unmap() for
+> DMA_FROM_DEVICE does cache invalidation.
+>
+> static void arm_dma_unmap_page(struct device *dev, dma_addr_t handle,
+>                 size_t size, enum dma_data_direction dir, unsigned long attrs)
+> {
+>         if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
+>                 __dma_page_dev_to_cpu(pfn_to_page(dma_to_pfn(dev, handle)),
+>                                       handle & ~PAGE_MASK, size, dir);
+> }
+>
+> static void __dma_page_dev_to_cpu(struct page *page, unsigned long off,
+>         size_t size, enum dma_data_direction dir)
+> {
+> ...
+>         if (dir != DMA_TO_DEVICE) {
+>                 outer_inv_range(paddr, paddr + size);
+>
+>                 dma_cache_maint_page(page, off, size, dir, dmac_unmap_area);
+>         }
+> ...
+> }
+>
+>
+>> If the device made no intervening writes into the area, dma_unmap()
+>> should not cause any data to be written to that area, period.
+>
+> I'm not about writing.
+>
+> I'm about just the opposite - dropping not-written data from cache.
+>
+> - napi_gro_receive(skb) passes area to upper layers of the network stack,
+> - something in those layers - perhaps packet mangling or such - writes
+>   to the area,
+> - this write enters cache but does not end into memory immediately,
+> - at this moment, igb does dma_unmap(),
+> - write that was in cache but not yet in memory gets lost.
+>
+>
+>> In your example above, consider the case where the device never
+>> writes into the memory area after sync_to_cpu().  In that case
+>> there is nothing that dma_unmap() can possibly write.
+>> All the data has been synced
+>
+> Non-synced data is write done by CPU executing upper layers of network stack,
 
-current -git kills my system. adding
+The main reason why this isn't a concern for the igb driver is because
+we currently pass the page up as read-only.  We don't allow the stack
+to write into the page by keeping the page count greater than 1 which
+means that the page is shared.  It isn't until we unmap the page that
+the page count is allowed to drop to 1 indicating that it is writable.
 
-	if (!virt_addr_valid(&aad[2])) {
-		WARN_ON(1);
-		return -EINVAL;
-	}
+That being said, we are hoping to make the pages writable but in order
+to do so I was thinking of adding a new DMA API call that would
+destroy the mapping without performing any cache invalidation or sync.
+The general idea would be to create the mapping using the map call, to
+sync the contents using sync_for_cpu, and then to destroy the mapping
+using a destroy call instead of an unmap call.  It would allow us to
+use streaming mappings without having to worry about possibly
+invalidating writes by other holders of the page.
 
-to ieee80211_aes_ccm_decrypt() given the following backtrace
-
- WARNING: CPU: 5 PID: 252 at net/mac80211/aes_ccm.c:77 ieee80211_aes_ccm_decrypt+0xc8/0x197
- CPU: 5 PID: 252 Comm: irq/29-iwlwifi Tainted: G        W       4.8.0-next-20161010-dbg-00007-g79797e9-dirty #88
-  ffffc90000413638 ffffffff811ff0e3 0000000000000000 0000000000000000
-  ffffc90000413678 ffffffff8103fe91 0000004d000001c8 1ffff920000826d3
-  ffff88040fc526d8 0000000000000008 ffffc90000413978 ffffc9000041397a
- Call Trace:
-  [<ffffffff811ff0e3>] dump_stack+0x4f/0x65
-  [<ffffffff8103fe91>] __warn+0xc2/0xdd
-  [<ffffffff8103ff1c>] warn_slowpath_null+0x1d/0x1f
-  [<ffffffff8142aaa5>] ieee80211_aes_ccm_decrypt+0xc8/0x197
-  [<ffffffff810ed595>] ? __put_page+0x3c/0x3f
-  [<ffffffff8131fa42>] ? put_page+0x4a/0x62
-  [<ffffffff813218d3>] ? __pskb_pull_tail+0x1e8/0x279
-  [<ffffffff8141a7dc>] ? ccmp_special_blocks.isra.5+0x51/0x12d
-  [<ffffffff8141b226>] ieee80211_crypto_ccmp_decrypt+0x1ba/0x221
-  [<ffffffff81432e80>] ieee80211_rx_handlers+0x52a/0x19c2
-  [<ffffffff81070000>] ? start_dl_timer+0xa8/0xb4
-  [<ffffffff8107462d>] ? put_lock_stats.isra.24+0xe/0x20
-  [<ffffffff8108ebec>] ? del_timer+0x57/0x61
-  [<ffffffff814351a8>] ieee80211_prepare_and_rx_handle+0xcd6/0xd2a
-  [<ffffffff810742a5>] ? local_clock+0x10/0x12
-  [<ffffffff8107642b>] ? __lock_acquire.isra.31+0x202/0x57e
-  [<ffffffff8143207b>] ? rcu_read_unlock+0x23/0x23
-  [<ffffffff81066e77>] ? sched_clock_cpu+0x17/0xc6
-  [<ffffffff814357ab>] ieee80211_rx_napi+0x5af/0x698
-  [<ffffffff810742c0>] ? get_lock_stats+0x19/0x50
-  [<ffffffff8107462d>] ? put_lock_stats.isra.24+0xe/0x20
-  [<ffffffffa023aaa9>] iwl_mvm_rx_rx_mpdu+0x5ab/0x60c [iwlmvm]
-  [<ffffffff810742c0>] ? get_lock_stats+0x19/0x50
-  [<ffffffffa0235c80>] iwl_mvm_rx+0x45/0x69 [iwlmvm]
-  [<ffffffffa01a989e>] iwl_pcie_rx_handle+0x478/0x584 [iwlwifi]
-  [<ffffffffa01aaafd>] iwl_pcie_irq_handler+0x39c/0x52d [iwlwifi]
-  [<ffffffff81080824>] ? irq_finalize_oneshot+0xa7/0xa7
-  [<ffffffff81080841>] irq_thread_fn+0x1d/0x34
-  [<ffffffff81080ab5>] irq_thread+0xe6/0x1bb
-  [<ffffffff8108093a>] ? wake_threads_waitq+0x2c/0x2c
-  [<ffffffff810809cf>] ? irq_thread_dtor+0x95/0x95
-  [<ffffffff81059d79>] kthread+0xc6/0xce
-  [<ffffffff8107462d>] ? put_lock_stats.isra.24+0xe/0x20
-  [<ffffffff81059cb3>] ? __list_del_entry+0x22/0x22
-  [<ffffffff814669d2>] ret_from_fork+0x22/0x30
- ---[ end trace 94da6d4698b938b2 ]---
-
-	-ss
+- Alex
