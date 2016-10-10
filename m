@@ -1,41 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: slab corruption with current -git
-Date: Sun, 09 Oct 2016 23:57:45 -0400 (EDT)
-Message-ID: <20161009.235745.860945462339053703.davem@davemloft.net>
-References: <f7tbmytkmtr.fsf@redhat.com>
-        <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
-        <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
+Subject: Re: [PATCH v2 1/3] net: smc91x: isolate u16 writes alignment workaround
+Date: Mon, 10 Oct 2016 08:30:34 +0200
+Message-ID: <87zimc7m2d.fsf@belgarion.home>
+References: <1476045227-2970-1-git-send-email-robert.jarzmik@free.fr>
+        <CAHp75Vco13D7qQmC8vn6HGg9RYOwR-MgL2uo_cn_OSo4sk84UQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: aconole@redhat.com, fw@strlen.de, viro@zeniv.linux.org.uk,
-        akpm@linux-foundation.org, axboe@fb.com, tytso@mit.edu,
-        cl@linux.com, pablo@netfilter.org, linux-kernel@vger.kernel.org,
-        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59206 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbcJJD5y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 23:57:54 -0400
-In-Reply-To: <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
+        Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHp75Vco13D7qQmC8vn6HGg9RYOwR-MgL2uo_cn_OSo4sk84UQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+        (Andy Shevchenko's message of "Mon, 10 Oct 2016 00:55:17 +0300")
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sun, 9 Oct 2016 20:41:17 -0700
+Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-> Note that the "correct way" of doing list operations also almost
-> inevitably is the shortest way by far, since it gets rid of all the
-> special cases. So the patch looks nice. It gets rid of the magic
-> "nf_set_hooks_head()" thing too, because once you do list following
-> right, the head is no different from any other pointer in the list.
+>> +#define SMC_outw(lp, v, a, r)                                          \
+>> +       _SMC_outw_align4((v), (a), (r),                                 \
+>> +                        IS_BUILTIN(CONFIG_ARCH_PXA) && ((r) & 2) &&    \
+>> +                        lp->half_word_align4)
+>
+> Hmm... Isn't enough to have just (r) & 2 && lp->half_word_align4 ?
 
-Perhaps we should have some "slist" primitives added to
-include/linux/list.h but since the comparison differs for each user I
-guess it's hard to abstract in a way that's generic and inlines
-properly.
+It wouldn't be equivalent to what we had before.
 
-I'll start taking a look at your patch and this stuff as well, thanks
-Linus.
+The point of the previous code was to compile out as much as possible of this
+test. Therefore, at compilation time for omap1 boards, the compiler would
+evaluate the test to 0, and never leave the workaround code compiled.
+
+So it would be enough, but worse performance wise and not equivalent for non-pxa
+boards, hence this test.
+
+Cheers.
+
+-- 
+Robert
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
