@@ -1,116 +1,143 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4 03/10] ARM: sun8i: dt: Add DT bindings documentation
- for Allwinner sun8i-emac
-Date: Mon, 10 Oct 2016 10:15:39 -0500
-Message-ID: <20161010151539.GB3111@rob-hp-laptop>
-References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
- <1475828757-926-4-git-send-email-clabbe.montjoie@gmail.com>
- <20161010123023.GG3462@lukather>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH kernel v2] PCI: Enable access to custom VPD for Chelsio
+ devices (cxgb3)
+Date: Mon, 10 Oct 2016 08:23:36 -0700
+Message-ID: <CAKgT0Ue6VNb1Fko_OmFAn=3kOhesNVH+NsROiabR-NpKmwWvww@mail.gmail.com>
+References: <1475126512-10722-1-git-send-email-aik@ozlabs.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161010123023.GG3462@lukather>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Santosh Raspatur <santosh@chelsio.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Alexey Kardashevskiy <aik@ozlabs.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1475126512-10722-1-git-send-email-aik@ozlabs.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 10, 2016 at 02:30:23PM +0200, Maxime Ripard wrote:
-> On Fri, Oct 07, 2016 at 10:25:50AM +0200, Corentin Labbe wrote:
-> > This patch adds documentation for Device-Tree bindings for the
-> > Allwinner sun8i-emac driver.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > ---
-> >  .../bindings/net/allwinner,sun8i-emac.txt          | 70 ++++++++++++++++++++++
-> >  1 file changed, 70 insertions(+)
-> >  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
-> > new file mode 100644
-> > index 0000000..92e4ef3b
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
-> > @@ -0,0 +1,70 @@
-> > +* Allwinner sun8i EMAC ethernet controller
-> > +
-> > +Required properties:
-> > +- compatible: should be one of the following string:
-> > +		"allwinner,sun8i-a83t-emac"
-> > +		"allwinner,sun8i-h3-emac"
-> > +		"allwinner,sun50i-a64-emac"
-> > +- reg: address and length of the register for the device.
-> > +- syscon: A phandle to the syscon of the SoC
-> > +- interrupts: interrupt for the device
-> > +- clocks: A phandle to the reference clock for this device
-> > +- clock-names: should be "ahb"
-> > +- resets: A phandle to the reset control for this device
-> > +- reset-names: should be "ahb"
-> > +- phy-mode: See ethernet.txt
-> > +- phy-handle: See ethernet.txt
-> > +- #address-cells: shall be 1
-> > +- #size-cells: shall be 0
-> > +
-> > +Optional properties:
-> > +- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
-> > +- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
-> > +Both delay properties does not have units, there are arbitrary value.
-> > +The TX/RX clock delay chain settings are board specific and could be found
-> > +in vendor FEX files.
-> > +
-> > +Optional properties for "allwinner,sun8i-h3-emac":
-> > +- allwinner,leds-active-low: EPHY LEDs are active low
-> > +
-> > +Required child node of emac:
-> > +- mdio bus node: should be named mdio
-> > +
-> > +Required properties of the mdio node:
-> > +- #address-cells: shall be 1
-> > +- #size-cells: shall be 0
-> > +
-> > +The device node referenced by "phy" or "phy-handle" should be a child node
-> > +of the mdio node. See phy.txt for the generic PHY bindings.
-> > +
-> > +Required properties of the phy node with "allwinner,sun8i-h3-emac":
-> > +- clocks: an extra phandle to the reference clock for the EPHY
-> > +- resets: an extra phandle to the reset control for the EPHY
-> > +
-> > +Example:
-> > +
-> > +emac: ethernet@01c0b000 {
-> > +	compatible = "allwinner,sun8i-h3-emac";
-> > +	syscon = <&syscon>;
-> > +	reg = <0x01c0b000 0x104>;
-> > +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> > +	resets = <&ccu RST_BUS_EMAC>;
-> > +	reset-names = "ahb";
-> > +	clocks = <&ccu CLK_BUS_EMAC>;
-> > +	clock-names = "ahb";
-> > +	#address-cells = <1>;
-> > +	#size-cells = <0>;
-> > +
-> > +	phy = <&int_mii_phy>;
-> > +	phy-mode = "mii";
-> > +	allwinner,leds-active-low;
-> > +	mdio: mdio {
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +		int_mii_phy: ethernet-phy@1 {
-> > +			reg = <1>;
-> > +			clocks = <&ccu CLK_BUS_EPHY>;
-> > +			resets = <&ccu RST_BUS_EPHY>;
-> 
-> That works for me, let's see how the DT maintainers feel about it.
+On Wed, Sep 28, 2016 at 10:21 PM, Alexey Kardashevskiy <aik@ozlabs.ru> wrote:
+> There is at least one Chelsio 10Gb card which uses VPD area to store
+> some custom blocks (example below). However pci_vpd_size() returns
+> the length of the first block only assuming that there can be only
+> one VPD "End Tag" and VFIO blocks access beyond that offset
+> (since 4e1a63555) which leads to the situation when the guest "cxgb3"
+> driver fails to probe the device. The host system does not have this
+> problem as the drives accesses the config space directly without
+> pci_read_vpd()/...
+>
+> This adds a quirk to override the VPD size to a bigger value.
+> The maximum size is taken from EEPROMSIZE in
+> drivers/net/ethernet/chelsio/cxgb3/common.h. We do not read the tag
+> as the cxgb3 driver does as the driver supports writing to EEPROM/VPD
+> and when it writes, it only checks for 8192 bytes boundary. The quirk
+> is registerted for all devices supported by the cxgb3 driver.
+>
+> This adds a quirk to the PCI layer (not to the cxgb3 driver) as
+> the cxgb3 driver itself accesses VPD directly and the problem only exists
+> with the vfio-pci driver (when cxgb3 is not running on the host and
+> may not be even loaded) which blocks accesses beyond the first block
+> of VPD data. However vfio-pci itself does not have quirks mechanism so
+> we add it to PCI.
+>
+> Tested on:
+> Ethernet controller [0200]: Chelsio Communications Inc T310 10GbE Single Port Adapter [1425:0030]
+>
+> This is its VPD:
+> 0000 Large item 42 bytes; name 0x2 Identifier String
+>         b'10 Gigabit Ethernet-SR PCI Express Adapter'
+>         #00 [EC] len=7: b'D76809 '
+>         #0a [FN] len=7: b'46K7897'
+>         #14 [PN] len=7: b'46K7897'
+>         #1e [MN] len=4: b'1037'
+>         #25 [FC] len=4: b'5769'
+>         #2c [SN] len=12: b'YL102035603V'
+>         #3b [NA] len=12: b'00145E992ED1'
+>
+> 0c00 Large item 16 bytes; name 0x2 Identifier String
+>         b'S310E-SR-X      '
+> 0c13 Large item 234 bytes; name 0x10
+>         #00 [PN] len=16: b'TBD             '
+>         #13 [EC] len=16: b'110107730D2     '
+>         #26 [SN] len=16: b'97YL102035603V  '
+>         #39 [NA] len=12: b'00145E992ED1'
+>         #48 [V0] len=6: b'175000'
+>         #51 [V1] len=6: b'266666'
+>         #5a [V2] len=6: b'266666'
+>         #63 [V3] len=6: b'2000  '
+>         #6c [V4] len=2: b'1 '
+>         #71 [V5] len=6: b'c2    '
+>         #7a [V6] len=6: b'0     '
+>         #83 [V7] len=2: b'1 '
+>         #88 [V8] len=2: b'0 '
+>         #8d [V9] len=2: b'0 '
+>         #92 [VA] len=2: b'0 '
+>         #97 [RV] len=80: b's\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
+> 0d00 Large item 252 bytes; name 0x11
+>         #00 [VC] len=16: b'122310_1222 dp  '
+>         #13 [VD] len=16: b'610-0001-00 H1\x00\x00'
+>         #26 [VE] len=16: b'122310_1353 fp  '
+>         #39 [VF] len=16: b'610-0001-00 H1\x00\x00'
+>         #4c [RW] len=173: b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
+> 0dff Small item 0 bytes; name 0xf End Tag
+>
+> Signed-off-by: Alexey Kardashevskiy <aik@ozlabs.ru>
+> ---
+> Changes:
+> v2:
+> * used pci_set_vpd_size() helper
+> * added explicit list of IDs from cxgb3 driver
+> * added a note in the commit log why the quirk is not in cxgb3
+> ---
+>  drivers/pci/quirks.c | 22 ++++++++++++++++++++++
+>  1 file changed, 22 insertions(+)
+>
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index 44e0ff3..b22fce5 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -3243,6 +3243,28 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_4C
+>  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_PORT_RIDGE,
+>                         quirk_thunderbolt_hotplug_msi);
+>
+> +static void quirk_chelsio_extend_vpd(struct pci_dev *dev)
+> +{
+> +       if (!dev->vpd)
+> +               return;
+> +
+> +       pci_set_vpd_size(dev, max_t(unsigned int, dev->vpd->len, 8192));
 
-The phy should have a compatible string since you have extra properties.
+What is the point of the max_t?  From what I can tell you aren't
+writing 8192, you will always end up writing 32K since that is the
+starting value for dev->vpd->len assuming there have yet to be any
+reads.
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What you may want to do instead is just modify the pci_vpd_size
+function you can use that in your quirk, and modify it so that you can
+pass an offset  Then you could just start it with an offset of 0x0c00
+and have it read to get the exact size of the region covered in this
+second block of the VPD.
+
+> +}
+> +
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x20, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x21, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x22, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x23, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x24, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x25, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x26, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x30, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x31, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x32, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x35, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x36, quirk_chelsio_extend_vpd);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x37, quirk_chelsio_extend_vpd);
+> +
+>  #ifdef CONFIG_ACPI
+>  /*
+>   * Apple: Shutdown Cactus Ridge Thunderbolt controller.
+> --
+> 2.5.0.rc3
+>
