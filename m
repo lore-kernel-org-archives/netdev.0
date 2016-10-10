@@ -1,106 +1,127 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net] qmi_wwan: add support for Quectel EC21 and EC25
-Date: Mon, 10 Oct 2016 21:12:49 +0200
-Message-ID: <20161010191249.23814-1-bjorn@mork.no>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: slab corruption with current -git (was Re: [git pull] vfs pile 1 (splice))
+Date: Mon, 10 Oct 2016 15:18:13 -0400
+Message-ID: <f7td1j8xbbe.fsf@redhat.com>
+References: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
+        <20161010005105.GA18349@breakpoint.cc> <f7tbmytkmtr.fsf@redhat.com>
+        <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
+        <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+        <f7ta8ec71qq.fsf@redhat.com>
+        <CA+55aFy6pRhvodYG9WWjfxQBFr4ExSk_wxwY=treWYTPK+NTvQ@mail.gmail.com>
+        <CA+55aFy0szySf+SnysjXTyfiU=RMBo9U1sHAVaTKG=tUTF+XGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb@vger.kernel.org,
-        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:33631 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751056AbcJJTNB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 10 Oct 2016 15:13:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Florian Westphal <fw@strlen.de>, Al Viro <viro@zeniv.linux.org.uk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Jens Axboe <axboe@fb.com>, "Ted Ts'o" <tytso@mit.edu>,
+        Christoph Lameter <cl@linux.com>,
+        David Miller <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFy0szySf+SnysjXTyfiU=RMBo9U1sHAVaTKG=tUTF+XGw@mail.gmail.com>
+        (Linus Torvalds's message of "Mon, 10 Oct 2016 12:05:17 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Quectel EC21 and EC25 need the same "set DTR" request as devices
-based on the MDM9230 chipset, but has no USB3 support. Our best guess
-is that the "set DTR" functionality depends on chipset and/or
-baseband firmware generation. But USB3 is still an optional feature.
+Linus Torvalds <torvalds@linux-foundation.org> writes:
 
-Since we cannot enable this unconditionally for all older devices, and
-there doesn't appear to be anything we can use in the USB descriptors
-to identify these chips, we are forced to use a device specific quirk
-flag.
+> On Mon, Oct 10, 2016 at 9:28 AM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+>>
+>> So as I already answered to Dave, I'm not actually sure that this was
+>> the buggy code, or that my patch would make any difference at all.
+>
+> My patch does seem to fix things, and in fact the warning about "hook
+> not found" now triggers.
+>
+> So I think the bug really was that the singly-linked list handling
+> code did not correctly handle the case of not finding the entry, and
+> then freed (incorrectly) the last one that wasn't actually unlinked.
+>
+> In fact, I get quite a few warnings (56 total) about 30 seconds after
+> logging in:
+>
+> [   54.213170] WARNING: CPU: 1 PID: 111 at net/netfilter/core.c:151
+> nf_unregister_net_hook+0x8e/0x170
+> ... repeat 54 times ...
+> [   54.445520] WARNING: CPU: 7 PID: 111 at net/netfilter/core.c:151
+> nf_unregister_net_hook+0x8e/0x170
+>
+> and looking in the journal, the first one is (again) immediately
+> preceded by that systemd-hostnamed service stopping:
+>
+>   Oct 10 11:45:47 i7 audit[1546]: USER_LOGIN
+>   ...
+>   Oct 10 11:46:11 i7 audit[1]: SERVICE_STOP pid=1 uid=0
+> auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0
+> msg='unit=fprintd comm="systemd" exe="/usr/lib/systemd/systemd"
+> hostname=? addr=? terminal=? res=success'
+>   Oct 10 11:46:13 i7 pulseaudio[1697]: [pulseaudio] bluez5-util.c:
+> GetManagedObjects() failed: org.freedesktop.DBus.Error.NoReply: Did
+> not receive a reply. Possible causes include: the remote application
+> did not send a reply, the message bus security policy blocked the
+> reply, the reply timeout expir
+>   Oct 10 11:46:13 i7 dbus-daemon[1003]: [system] Failed to activate
+> service 'org.bluez': timed out
+>   Oct 10 11:46:20 i7 audit[1]: SERVICE_STOP pid=1 uid=0
+> auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0
+> msg='unit=systemd-hostnamed comm="systemd"
+> exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=?
+> res=success'
+>   Oct 10 11:46:20 i7 kernel: ------------[ cut here ]------------
+>   Oct 10 11:46:20 i7 kernel: WARNING: CPU: 1 PID: 111 at
+> net/netfilter/core.c:151 nf_unregister_net_hook+0x8e/0x170
+>
+> so I do think it's something to do with some network startup service
+> thing (perhaps dhcp, perhaps chrome, who knows) as I do my initial
+> login.
+>
+> David - I think that also explains what was wrong with the old code.
+> In the old code, this loop:
+>
+>         while (hooks_entry && nf_entry_dereference(hooks_entry->next)) {
+>
+> would exit with "hooks_entry" pointing to the last list entry (because
+> ->next was NULL). Nothing was ever unlinked in the loop itself,
+> because it never actually found a matching entry, but then after the
+> loop it would free that last entry because it *thought* that was the
+> match.
+>
+> My list rewrite fixes that.
+>
+> Anyway, I'm assuming it will come to me from the networking tree after
+> more testing by the maintainers. You can add my
+>
+>   Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+>
+> to the patch, though.
+>
+> David, if you want me to just commit that thing directly, I can
+> obviously do so, but I do think somebody should look at
+>
+>  (a) that I actually got the priority list ordering right on the
+>  insertion side
 
-Reported-and-tested-by: Sebastian Sjoholm <sebastian.sjoholm@gmail.com>
-Signed-off-by: Bjørn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c | 30 ++++++++++++++++++++++++++++--
- 1 file changed, 28 insertions(+), 2 deletions(-)
+It looks correct.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 9d1fce8a6e84..3ff76c6db4f6 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -59,6 +59,10 @@ enum qmi_wwan_flags {
- 	QMI_WWAN_FLAG_RAWIP = 1 << 0,
- };
- 
-+enum qmi_wwan_quirks {
-+	QMI_WWAN_QUIRK_DTR = 1 << 0,	/* needs "set DTR" request */
-+};
-+
- static void qmi_wwan_netdev_setup(struct net_device *net)
- {
- 	struct usbnet *dev = netdev_priv(net);
-@@ -411,9 +415,14 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
- 	 * clearing out state the clients might need.
- 	 *
- 	 * MDM9x30 is the first QMI chipset with USB3 support. Abuse
--	 * this fact to enable the quirk.
-+	 * this fact to enable the quirk for all USB3 devices.
-+	 *
-+	 * There are also chipsets with the same "set DTR" requirement
-+	 * but without USB3 support.  Devices based on these chips
-+	 * need a quirk flag in the device ID table.
- 	 */
--	if (le16_to_cpu(dev->udev->descriptor.bcdUSB) >= 0x0201) {
-+	if (dev->driver_info->data & QMI_WWAN_QUIRK_DTR ||
-+	    le16_to_cpu(dev->udev->descriptor.bcdUSB) >= 0x0201) {
- 		qmi_wwan_manage_power(dev, 1);
- 		qmi_wwan_change_dtr(dev, true);
- 	}
-@@ -526,6 +535,16 @@ static const struct driver_info	qmi_wwan_info = {
- 	.rx_fixup       = qmi_wwan_rx_fixup,
- };
- 
-+static const struct driver_info	qmi_wwan_info_quirk_dtr = {
-+	.description	= "WWAN/QMI device",
-+	.flags		= FLAG_WWAN,
-+	.bind		= qmi_wwan_bind,
-+	.unbind		= qmi_wwan_unbind,
-+	.manage_power	= qmi_wwan_manage_power,
-+	.rx_fixup       = qmi_wwan_rx_fixup,
-+	.data           = QMI_WWAN_QUIRK_DTR,
-+};
-+
- #define HUAWEI_VENDOR_ID	0x12D1
- 
- /* map QMI/wwan function by a fixed interface number */
-@@ -533,6 +552,11 @@ static const struct driver_info	qmi_wwan_info = {
- 	USB_DEVICE_INTERFACE_NUMBER(vend, prod, num), \
- 	.driver_info = (unsigned long)&qmi_wwan_info
- 
-+/* devices requiring "set DTR" quirk */
-+#define QMI_QUIRK_SET_DTR(vend, prod, num) \
-+	USB_DEVICE_INTERFACE_NUMBER(vend, prod, num), \
-+	.driver_info = (unsigned long)&qmi_wwan_info_quirk_dtr
-+
- /* Gobi 1000 QMI/wwan interface number is 3 according to qcserial */
- #define QMI_GOBI1K_DEVICE(vend, prod) \
- 	QMI_FIXED_INTF(vend, prod, 3)
-@@ -895,6 +919,8 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x03f0, 0x4e1d, 8)},	/* HP lt4111 LTE/EV-DO/HSPA+ Gobi 4G Module */
- 	{QMI_FIXED_INTF(0x22de, 0x9061, 3)},	/* WeTelecom WPD-600N */
- 	{QMI_FIXED_INTF(0x1e0e, 0x9001, 5)},	/* SIMCom 7230E */
-+	{QMI_QUIRK_SET_DTR(0x2c7c, 0x0125, 4)},	/* Quectel EC25, EC20 R2.0  Mini PCIe */
-+	{QMI_QUIRK_SET_DTR(0x2c7c, 0x0121, 4)},	/* Quectel EC21 Mini PCIe */
- 
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
--- 
-2.9.3
+Reviewed-by: Aaron Conole <aconole@bytheb.org>
+
+>  (b) what it is that makes it try to unregister that hook that isn't
+> on the list in the first place
+
+This is a still problem, I think.  I wasn't able to reproduce the issue
+on a fedora-23 VM.  My fedora 24 bare-metal system does trigger this,
+though.  Not sure what changed in userspace/kernel interaction side (not
+an excuse, but just an observation).
+
+> but on the whole I consider this issue explained and solved. I'll
+> continue to run with my patch on my machine (just not committed).
+
+Okay.  Very sorry for this, again.
+
+>               Linus
