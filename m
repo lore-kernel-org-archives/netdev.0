@@ -1,47 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Accelerated receive flow steering (aRFS) for UDP
-Date: Mon, 10 Oct 2016 10:08:17 -0700
-Message-ID: <1476119297.5650.0.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <SN1PR07MB244706470867A923CF0FAF6589C60@SN1PR07MB2447.namprd07.prod.outlook.com>
-         <1475883496.28155.270.camel@edumazet-glaptop3.roam.corp.google.com>
-         <SN1PR07MB2447ED02140770F0B46967D589D90@SN1PR07MB2447.namprd07.prod.outlook.com>
-         <1476033293.28155.273.camel@edumazet-glaptop3.roam.corp.google.com>
-         <SN1PR07MB2447D70FD02730AFCEA410A089D80@SN1PR07MB2447.namprd07.prod.outlook.com>
-         <1476052402.28155.277.camel@edumazet-glaptop3.roam.corp.google.com>
-         <ed0f723c-5e66-6d23-086d-71744570700a@hpe.com>
-         <844f9891-3b30-e5fa-720e-d20e4ea5d751@hpe.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Chopra, Manish" <Manish.Chopra@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "maorg@mellanox.com" <maorg@mellanox.com>,
-        "tom@herbertland.com" <tom@herbertland.com>
-To: Rick Jones <rick.jones2@hpe.com>
+From: Michael Braun <michael-dev@fami-braun.de>
+Subject: [PATCH v6 1/4] mac80211: remove unnecessary num_mcast_sta user
+Date: Mon, 10 Oct 2016 19:12:20 +0200
+Message-ID: <1476119543-24509-1-git-send-email-michael-dev@fami-braun.de>
+Cc: Michael Braun <michael-dev@fami-braun.de>,
+        linux-wireless@vger.kernel.org, projekt-wlan@fem.tu-ilmenau.de,
+        netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:36486 "EHLO
-        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752277AbcJJRIU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 13:08:20 -0400
-Received: by mail-io0-f181.google.com with SMTP id j37so117602209ioo.3
-        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 10:08:20 -0700 (PDT)
-In-Reply-To: <844f9891-3b30-e5fa-720e-d20e4ea5d751@hpe.com>
+Received: from mail.fem.tu-ilmenau.de ([141.24.220.54]:43050 "EHLO
+        mail.fem.tu-ilmenau.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752942AbcJJRMc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 13:12:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-10-10 at 09:23 -0700, Rick Jones wrote:
-> On 10/10/2016 09:08 AM, Rick Jones wrote:
-> > On 10/09/2016 03:33 PM, Eric Dumazet wrote:
-> >> OK, I am adding/CC Rick Jones, netperf author, since it seems a netperf
-> >> bug, not a kernel one.
-> >>
-> >> I believe I already mentioned fact that "UDP_STREAM -- -N" was not doing
-> >> a connect() on the receiver side.
-> >
-> > I can confirm that the receive side of the netperf omni path isn't
-> > trying to connect UDP datagrams.  I will see what I can put together.
-> 
-> I've put something together and pushed it to the netperf top of trunk. 
-> It seems to have been successful on a quick loopback UDP_STREAM test.
+Checking for num_mcast_sta in __ieee80211_request_smps_ap() is unnecessary,
+as sta list will be empty in this case anyway, so list_for_each_entry(sta,
+...) will exit immediately.
 
-Indeed, it looks better, thanks !
+Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
+---
+ net/mac80211/cfg.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 543b1d4..24133f5 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -2313,13 +2313,6 @@ int __ieee80211_request_smps_ap(struct ieee80211_sub_if_data *sdata,
+ 	    smps_mode == IEEE80211_SMPS_AUTOMATIC)
+ 		return 0;
+ 
+-	 /* If no associated stations, there's no need to do anything */
+-	if (!atomic_read(&sdata->u.ap.num_mcast_sta)) {
+-		sdata->smps_mode = smps_mode;
+-		ieee80211_queue_work(&sdata->local->hw, &sdata->recalc_smps);
+-		return 0;
+-	}
+-
+ 	ht_dbg(sdata,
+ 	       "SMPS %d requested in AP mode, sending Action frame to %d stations\n",
+ 	       smps_mode, atomic_read(&sdata->u.ap.num_mcast_sta));
+-- 
+2.1.4
