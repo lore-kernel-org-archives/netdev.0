@@ -1,80 +1,71 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v8 net-next] net: phy: Add Edge-rate driver for Microsemi
- PHYs.
-Date: Mon, 10 Oct 2016 07:50:07 -0500
-Message-ID: <20161010125007.GA24902@rob-hp-laptop>
-References: <1475667578-20799-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: Jean-Francois Moine <moinejf@free.fr>
+Subject: Re: [PATCH v4 10/10] ARM: sunxi: Enable sun8i-emac driver on
+ multi_v7_defconfig
+Date: Mon, 10 Oct 2016 15:09:43 +0200
+Message-ID: <20161010150943.fa7ca85fe52f4c6f9508b5eb@free.fr>
+References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1475828757-926-11-git-send-email-clabbe.montjoie@gmail.com>
+ <20161010123046.GH3462@lukather> <20161010123511.GA16103@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
-To: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1475667578-20799-1-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: mark.rutland@arm.com, andrew@lunn.ch, f.fainelli@gmail.com,
+ devicetree@vger.kernel.org, netdev@vger.kernel.org, linux@armlinux.org.uk,
+ linux-kernel@vger.kernel.org, wens@csie.org, robh+dt@kernel.org,
+ Maxime Ripard <maxime.ripard@free-electrons.com>, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: LABBE Corentin <clabbe.montjoie@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20161010123511.GA16103@Red>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 05, 2016 at 05:09:38PM +0530, Raju Lakkaraju wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> 
-> Edge-rate:
-> As system and networking speeds increase, a signal's output transition,
-> also know as the edge rate or slew rate (V/ns), takes on greater importance
-> because high-speed signals come with a price. That price is an assortment of
-> interference problems like ringing on the line, signal overshoot and
-> undershoot, extended signal settling times, crosstalk noise, transmission
-> line reflections, false signal detection by the receiving device and
-> electromagnetic interference (EMI) -- all of which can negate the potential
-> gains designers are seeking when they try to increase system speeds through
-> the use of higher performance logic devices. The fact is, faster signaling
-> edge rates can cause a higher level of electrical noise or other type of
-> interference that can actually lead to slower line speeds and lower maximum
-> system frequencies. This parameter allow the board designers to change the
-> driving strange, and thereby change the EMI behavioral.
-> 
-> Edge-rate parameters (vddmac, edge-slowdown) get from Device Tree.
-> 
-> Tested on Beaglebone Black with VSC 8531 PHY.
-> 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> 
-> ---
-> All the review comments updated and resending for review.
-> 
-> Change set:
-> v1:
-> - Initial version of Edge-rate driver add by using IOCTL.
-> v2:
-> - Changed edge-rate parameter to Device Tree with magic number.
-> v3:
-> - Added Device Tree documentati0n and edge-rate parameter table.
->   Added probe function initialize the vsc8531 private data structure.
-> v4:
-> - As per review comment, Device Tree parameters (vddmac, edge-slowdown)
->   added.
-> v5:
-> - As per review comment, Device Tree Document parameters (vddmac, 
->   edge-slowdown) real numbers added. Table number changed from 5 to 1.
-> v6:
-> - As per review comment, Removed Device Tree header file. Removed MACROs
->   and add ARRAYSIZE
-> v7:
-> - As per review comment, Removed '-'s (minus) sign in Edge rate table. 
-> v8:
-> - As per review comment, Added DT vddmac, slowdown value error check. 
-> 
-> ---
-> 
->  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 22 +++----
+On Mon, 10 Oct 2016 14:35:11 +0200
+LABBE Corentin <clabbe.montjoie@gmail.com> wrote:
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> On Mon, Oct 10, 2016 at 02:30:46PM +0200, Maxime Ripard wrote:
+> > On Fri, Oct 07, 2016 at 10:25:57AM +0200, Corentin Labbe wrote:
+> > > Enable the sun8i-emac driver in the multi_v7 default configuration
+> > > =
 
->  drivers/net/phy/mscc.c                             | 69 +++++++++++++++-------
->  include/dt-bindings/net/mscc-phy-vsc8531.h         | 21 -------
->  3 files changed, 59 insertions(+), 53 deletions(-)
->  delete mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > > ---
+> > >  arch/arm/configs/multi_v7_defconfig | 1 +
+> > >  1 file changed, 1 insertion(+)
+> > > =
+
+> > > diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/m=
+ulti_v7_defconfig
+> > > index 5845910..f44d633 100644
+> > > --- a/arch/arm/configs/multi_v7_defconfig
+> > > +++ b/arch/arm/configs/multi_v7_defconfig
+> > > @@ -229,6 +229,7 @@ CONFIG_NETDEVICES=3Dy
+> > >  CONFIG_VIRTIO_NET=3Dy
+> > >  CONFIG_HIX5HD2_GMAC=3Dy
+> > >  CONFIG_SUN4I_EMAC=3Dy
+> > > +CONFIG_SUN8I_EMAC=3Dy
+> > =
+
+> > Any reason to build it statically?
+> > =
+
+> =
+
+> No, just copied the same than CONFIG_SUN4I_EMAC that probably do not need=
+ it also.
+
+All arm configs are done the same way, and, some day, the generic ARM
+V7 kernel will not be loadable in 1Gb RAM...
+
+-- =
+
+Ken ar c'henta=F1	|	      ** Breizh ha Linux atav! **
+Jef		|		http://moinejf.free.fr/
