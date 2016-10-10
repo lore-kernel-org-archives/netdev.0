@@ -1,48 +1,72 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net] net_sched: do not broadcast RTM_GETTFILTER result
-Date: Mon, 10 Oct 2016 09:16:05 -0400
-Message-ID: <ea0ddd16-5c81-a0af-1a2a-4c1b5fe1bb35@mojatatu.com>
-References: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v3 1/4] net: phy: dp83867: Add documentation for optional
+ impedance control
+Date: Mon, 10 Oct 2016 08:18:41 -0500
+Message-ID: <20161010131841.GA8391@rob-hp-laptop>
+References: <20161006051355.15947-1-mugunthanvnm@ti.com>
+ <20161006051355.15947-2-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34849 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752218AbcJJNQI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 09:16:08 -0400
-Received: by mail-io0-f193.google.com with SMTP id p26so7349865ioo.2
-        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 06:16:07 -0700 (PDT)
-In-Reply-To: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Florian Fainelli <f.fainelli@gmail.com>, Tony Lindgren <tony@atomide.com>,
+ netdev@vger.kernel.org, Sekhar Nori <nsekhar@ti.com>,
+ linux-kernel@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
+ linux-omap@vger.kernel.org, David Miller <davem@davemloft.net>,
+ linux-arm-kernel@lists.infradead.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20161006051355.15947-2-mugunthanvnm@ti.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 16-10-09 11:25 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> There are two ways to get tc filters from kernel to user space.
->
-> 1) Full dump (tc_dump_tfilter())
-> 2) RTM_GETTFILTER to get one precise filter, reducing overhead.
->
-> The second operation is unfortunately broadcasting its result,
-> polluting "tc monitor" users.
->
-> This patch makes sure only the requester gets the result, using
-> netlink_unicast() instead of rtnetlink_send()
->
-> Jamal cooked an iproute2 patch to implement "tc filter get" operation,
-> but other user space libraries already use RTM_GETTFILTER when a single
-> filter is queried, instead of dumping all filters.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Thu, Oct 06, 2016 at 10:43:52AM +0530, Mugunthan V N wrote:
+> Add documention of ti,impedance-control which can be used to
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Needs updating.
 
-I will send the iproute2 patch
+> correct MAC impedance mismatch using phy extended registers.
+> 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> ---
+>  Documentation/devicetree/bindings/net/ti,dp83867.txt | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+> index 5d21141..85bf945 100644
+> --- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
+> +++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+> @@ -9,6 +9,18 @@ Required properties:
+>  	- ti,fifo-depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp83867.h
+>  		for applicable values
+>  
+> +Optional property:
+> +	- ti,min-output-impedance - MAC Interface Impedance control to set
+> +				    the programmable output impedance to
+> +				    minimum value (35 ohms).
+> +	- ti,max-output-impedance - MAC Interface Impedance control to set
+> +				    the programmable output impedance to
+> +				    maximum value (70 ohms).
 
-cheers,
-jamal
+Define what are valid range of values for these.
+
+> +
+> +Note: ti,min-output-impedance and ti,max-output-impedance are mutually
+> +      exclusive. When both properties are present ti,max-output-impedance
+> +      takes precedence.
+> +
+>  Default child nodes are standard Ethernet PHY device
+>  nodes as described in Documentation/devicetree/bindings/net/phy.txt
+>  
+> -- 
+> 2.10.0.372.g6fe1b14
+> 
