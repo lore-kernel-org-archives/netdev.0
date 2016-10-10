@@ -1,113 +1,117 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: igb driver can cause cache invalidation of non-owned memory?
-Date: Mon, 10 Oct 2016 08:11:38 -0700
-Message-ID: <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
-References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
- <20161010.050125.1981283393312167625.davem@davemloft.net> <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
- <20161010.075731.2449861168238706.davem@davemloft.net> <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v4 03/10] ARM: sun8i: dt: Add DT bindings documentation
+ for Allwinner sun8i-emac
+Date: Mon, 10 Oct 2016 10:13:35 -0500
+Message-ID: <20161010151335.GA3111@rob-hp-laptop>
+References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1475828757-926-4-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        cphealy@gmail.com
-To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+        wens@csie.org, linux@armlinux.org.uk, davem@davemloft.net,
+        f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
+Content-Disposition: inline
+In-Reply-To: <1475828757-926-4-git-send-email-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 10, 2016 at 5:27 AM, Nikita Yushchenko
-<nikita.yoush@cogentembedded.com> wrote:
->>> Hmm...  I'm not about device writing to memory.
->>
->> This absolutely is about whether the device wrote into the
->> area or not.
->
-> Not only.
->
->>> Sequence in igb driver is:
->>>
->>> dma_map(full_page)
->>>   <device writes here>
->>> sync_to_cpu(half_page);
->>> skb_add_rx_frag(skb, half_page);
->>> napi_gro_receive(skb);
->>>   ...
->>> dma_unmap(full_page)
->>>
->>> What I'm concerned about is - same area is first passed up to network
->>> stack, and _later_ dma_unmap()ed.  Is this indeed safe?
->>
->> dma_unmap() should never write anything unless the device has
->> meanwhile written to that chunk of memory.
->
-> dma_unmap() for DMA_FROM_DEVICE never writes whatever to memory,
-> regardless of what device did.
->
-> dma_unmap() for DMA_FROM_DEVICE ensures that data written to memory
-> by device (if any) is visible to CPU. Cache may contain stale data
-> for that memory region. To drop that from cache, dma_unmap() for
-> DMA_FROM_DEVICE does cache invalidation.
->
-> static void arm_dma_unmap_page(struct device *dev, dma_addr_t handle,
->                 size_t size, enum dma_data_direction dir, unsigned long attrs)
-> {
->         if ((attrs & DMA_ATTR_SKIP_CPU_SYNC) == 0)
->                 __dma_page_dev_to_cpu(pfn_to_page(dma_to_pfn(dev, handle)),
->                                       handle & ~PAGE_MASK, size, dir);
-> }
->
-> static void __dma_page_dev_to_cpu(struct page *page, unsigned long off,
->         size_t size, enum dma_data_direction dir)
-> {
-> ...
->         if (dir != DMA_TO_DEVICE) {
->                 outer_inv_range(paddr, paddr + size);
->
->                 dma_cache_maint_page(page, off, size, dir, dmac_unmap_area);
->         }
-> ...
-> }
->
->
->> If the device made no intervening writes into the area, dma_unmap()
->> should not cause any data to be written to that area, period.
->
-> I'm not about writing.
->
-> I'm about just the opposite - dropping not-written data from cache.
->
-> - napi_gro_receive(skb) passes area to upper layers of the network stack,
-> - something in those layers - perhaps packet mangling or such - writes
->   to the area,
-> - this write enters cache but does not end into memory immediately,
-> - at this moment, igb does dma_unmap(),
-> - write that was in cache but not yet in memory gets lost.
->
->
->> In your example above, consider the case where the device never
->> writes into the memory area after sync_to_cpu().  In that case
->> there is nothing that dma_unmap() can possibly write.
->> All the data has been synced
->
-> Non-synced data is write done by CPU executing upper layers of network stack,
+On Fri, Oct 07, 2016 at 10:25:50AM +0200, Corentin Labbe wrote:
+> This patch adds documentation for Device-Tree bindings for the
+> Allwinner sun8i-emac driver.
+> 
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>  .../bindings/net/allwinner,sun8i-emac.txt          | 70 ++++++++++++++++++++++
+>  1 file changed, 70 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> new file mode 100644
+> index 0000000..92e4ef3b
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> @@ -0,0 +1,70 @@
+> +* Allwinner sun8i EMAC ethernet controller
+> +
+> +Required properties:
+> +- compatible: should be one of the following string:
+> +		"allwinner,sun8i-a83t-emac"
+> +		"allwinner,sun8i-h3-emac"
+> +		"allwinner,sun50i-a64-emac"
+> +- reg: address and length of the register for the device.
+> +- syscon: A phandle to the syscon of the SoC
+> +- interrupts: interrupt for the device
+> +- clocks: A phandle to the reference clock for this device
+> +- clock-names: should be "ahb"
+> +- resets: A phandle to the reset control for this device
+> +- reset-names: should be "ahb"
+> +- phy-mode: See ethernet.txt
+> +- phy-handle: See ethernet.txt
+> +- #address-cells: shall be 1
+> +- #size-cells: shall be 0
+> +
+> +Optional properties:
+> +- allwinner,tx-delay: TX clock delay chain value. Range value is 0-0x07. Default is 0)
+> +- allwinner,rx-delay: RX clock delay chain value. Range value is 0-0x1F. Default is 0)
+> +Both delay properties does not have units, there are arbitrary value.
 
-The main reason why this isn't a concern for the igb driver is because
-we currently pass the page up as read-only.  We don't allow the stack
-to write into the page by keeping the page count greater than 1 which
-means that the page is shared.  It isn't until we unmap the page that
-the page count is allowed to drop to 1 indicating that it is writable.
+They have to have some sort of units. Some number of clocks perhaps. Or 
+just say what register field they correspond to.
 
-That being said, we are hoping to make the pages writable but in order
-to do so I was thinking of adding a new DMA API call that would
-destroy the mapping without performing any cache invalidation or sync.
-The general idea would be to create the mapping using the map call, to
-sync the contents using sync_for_cpu, and then to destroy the mapping
-using a destroy call instead of an unmap call.  It would allow us to
-use streaming mappings without having to worry about possibly
-invalidating writes by other holders of the page.
+> +The TX/RX clock delay chain settings are board specific and could be found
+> +in vendor FEX files.
+> +
+> +Optional properties for "allwinner,sun8i-h3-emac":
+> +- allwinner,leds-active-low: EPHY LEDs are active low
+> +
+> +Required child node of emac:
+> +- mdio bus node: should be named mdio
+> +
+> +Required properties of the mdio node:
+> +- #address-cells: shall be 1
+> +- #size-cells: shall be 0
+> +
+> +The device node referenced by "phy" or "phy-handle" should be a child node
+> +of the mdio node. See phy.txt for the generic PHY bindings.
+> +
+> +Required properties of the phy node with "allwinner,sun8i-h3-emac":
+> +- clocks: an extra phandle to the reference clock for the EPHY
+> +- resets: an extra phandle to the reset control for the EPHY
+> +
+> +Example:
+> +
+> +emac: ethernet@01c0b000 {
 
-- Alex
+Drop leading 0.
+
+> +	compatible = "allwinner,sun8i-h3-emac";
+> +	syscon = <&syscon>;
+> +	reg = <0x01c0b000 0x104>;
+> +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+> +	resets = <&ccu RST_BUS_EMAC>;
+> +	reset-names = "ahb";
+> +	clocks = <&ccu CLK_BUS_EMAC>;
+> +	clock-names = "ahb";
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +
+> +	phy = <&int_mii_phy>;
+> +	phy-mode = "mii";
+> +	allwinner,leds-active-low;
+> +	mdio: mdio {
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		int_mii_phy: ethernet-phy@1 {
+> +			reg = <1>;
+> +			clocks = <&ccu CLK_BUS_EPHY>;
+> +			resets = <&ccu RST_BUS_EPHY>;
+> +		};
+> +	};
+> +};
+> -- 
+> 2.7.3
+> 
