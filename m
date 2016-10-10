@@ -1,66 +1,56 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: BUG still has locks held in unix_stream_splice_read
-Date: Mon, 10 Oct 2016 10:01:05 +0200
-Message-ID: <CACT4Y+ZgbobWZEkAFLVK9bLHB0oLpnxXrH1FQzTgVu_6JQQVDQ@mail.gmail.com>
-References: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
- <CACT4Y+a6yDm28VYtNPSktYKs_T2UzLGb8jadpFpsdKfNzb7-tA@mail.gmail.com>
- <20161010024607.GV19539@ZenIV.linux.org.uk> <20161010031450.GW19539@ZenIV.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: slab corruption with current -git
+Date: Mon, 10 Oct 2016 04:24:01 -0400 (EDT)
+Message-ID: <20161010.042401.637964142015887598.davem@davemloft.net>
+References: <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
+        <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+        <20161009.235745.860945462339053703.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Al Viro <viro@zeniv.linux.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: aconole@redhat.com, fw@strlen.de, viro@zeniv.linux.org.uk,
+        akpm@linux-foundation.org, axboe@fb.com, tytso@mit.edu,
+        cl@linux.com, pablo@netfilter.org, linux-kernel@vger.kernel.org,
+        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161010031450.GW19539@ZenIV.linux.org.uk>
+In-Reply-To: <20161009.235745.860945462339053703.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 10, 2016 at 5:14 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Mon, Oct 10, 2016 at 03:46:07AM +0100, Al Viro wrote:
->> On Sun, Oct 09, 2016 at 12:06:14PM +0200, Dmitry Vyukov wrote:
->> > I suspect this is:
->> >
->> > commit 25869262ef7af24ccde988867ac3eb1c3d4b88d4
->> > Author: Al Viro <viro@zeniv.linux.org.uk>
->> > Date:   Sat Sep 17 21:02:10 2016 -0400
->> >     skb_splice_bits(): get rid of callback
->> >     since pipe_lock is the outermost now, we don't need to drop/regain
->> >     socket locks around the call of splice_to_pipe() from skb_splice_bits(),
->> >     which kills the need to have a socket-specific callback; we can just
->> >     call splice_to_pipe() and be done with that.
->>
->> Unlikely, since that particular commit removes unlocking/relocking ->iolock
->> around the call of splice_to_pipe().  Original would've retaken the same
->> lock on the way out; it's not as if we could leave the syscall there.
->>
->> It might be splice-related, but I don't believe that you've got the right
->> commit here.
->
-> It's not that commit
+From: David Miller <davem@davemloft.net>
+Date: Sun, 09 Oct 2016 23:57:45 -0400 (EDT)
 
-It's highly likely. Sorry for falsely pointing to your commit.
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Sun, 9 Oct 2016 20:41:17 -0700
+> 
+>> Note that the "correct way" of doing list operations also almost
+>> inevitably is the shortest way by far, since it gets rid of all the
+>> special cases. So the patch looks nice. It gets rid of the magic
+>> "nf_set_hooks_head()" thing too, because once you do list following
+>> right, the head is no different from any other pointer in the list.
+> 
+> Perhaps we should have some "slist" primitives added to
+> include/linux/list.h but since the comparison differs for each user I
+> guess it's hard to abstract in a way that's generic and inlines
+> properly.
+> 
+> I'll start taking a look at your patch and this stuff as well, thanks
+> Linus.
 
+So I've been reviewing this patch and it looks fine, but I also want
+to figure out what is actually causing the OOPS and I can't spot it
+yet.
 
-> , all right - it's "can't call unix_stream_read_generic()
-> with any locks held" stepped onto a couple of commits prior by
-> "splice: lift pipe_lock out of splice_to_pipe()".  Could somebody explain
-> what is that about?
->
-> E.g what will happen if some code does a read on AF_UNIX socket with
-> some local mutex held?  AFAICS, there are exactly two callers of
-> freezable_schedule_timeout() - this one and one in XFS; the latter is
-> in a kernel thread where we do have good warranties about the locking
-> environment, but here it's in the bleeding ->recvmsg/->splice_read and
-> for those assumption that caller doesn't hold any locks is pretty
-> strong, especially since it's not documented anywhere.
->
-> What's going on there?
+One possible way to see that oops is to free the head entry of the
+chain without unlinking it.  The next unregister will dereference a
+POISON pointer.
 
-I never saw that warning before. There is some possibility that fuzzer
-has discovered some new paths, but it's much more likely that
-something has changed recently (the stack looks quite simple -- just a
-splice from unix socket). And my previous pull was like a week ago.
+Actually...
+
+The POISON value comes not from a hook entry, but from the array of
+pointers in the per-netns datastructure.
+
+This means that the netns is possibly getting freed up before we
+unregister the netfilter hooks.
