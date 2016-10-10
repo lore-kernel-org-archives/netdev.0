@@ -1,9 +1,9 @@
 From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 02/10] mfd: sam: Add documentation for the SAM FPGA
-Date: Mon, 10 Oct 2016 14:47:55 -0500
-Message-ID: <20161010194755.GA16910@rob-hp-laptop>
+Subject: Re: [PATCH 04/10] i2c: i2c-sam: Add device tree bindings
+Date: Mon, 10 Oct 2016 14:54:58 -0500
+Message-ID: <20161010195458.GA20134@rob-hp-laptop>
 References: <1475853518-22264-1-git-send-email-pantelis.antoniou@konsulko.com>
- <1475853518-22264-3-git-send-email-pantelis.antoniou@konsulko.com>
+ <1475853518-22264-5-git-send-email-pantelis.antoniou@konsulko.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Lee Jones <lee.jones@linaro.org>,
@@ -25,141 +25,126 @@ Cc: Lee Jones <lee.jones@linaro.org>,
         linux-i2c@vger.kernel.org, linux-mtd@lists.infradead.org,
         linux-watchdog@vger.kernel.org, netdev@vger.kernel.org
 To: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-i2c-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1475853518-22264-3-git-send-email-pantelis.antoniou@konsulko.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1475853518-22264-5-git-send-email-pantelis.antoniou@konsulko.com>
+Sender: linux-i2c-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 07, 2016 at 06:18:30PM +0300, Pantelis Antoniou wrote:
+On Fri, Oct 07, 2016 at 06:18:32PM +0300, Pantelis Antoniou wrote:
 > From: Georgi Vlaev <gvlaev@juniper.net>
 > 
-> Add DT bindings document for the SAM MFD device.
+> Add binding document for the i2c driver of SAM FPGA.
 > 
 > Signed-off-by: Georgi Vlaev <gvlaev@juniper.net>
 > [Ported from Juniper kernel]
 > Signed-off-by: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
 > ---
->  Documentation/devicetree/bindings/mfd/jnx-sam.txt | 94 +++++++++++++++++++++++
->  1 file changed, 94 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/mfd/jnx-sam.txt
+>  .../devicetree/bindings/i2c/i2c-sam-mux.txt        | 20 ++++++++++
+>  Documentation/devicetree/bindings/i2c/i2c-sam.txt  | 44 ++++++++++++++++++++++
+>  2 files changed, 64 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt
+>  create mode 100644 Documentation/devicetree/bindings/i2c/i2c-sam.txt
 > 
-> diff --git a/Documentation/devicetree/bindings/mfd/jnx-sam.txt b/Documentation/devicetree/bindings/mfd/jnx-sam.txt
+> diff --git a/Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt b/Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt
 > new file mode 100644
-> index 0000000..b4af7ea
+> index 0000000..10ddffa
 > --- /dev/null
-> +++ b/Documentation/devicetree/bindings/mfd/jnx-sam.txt
-> @@ -0,0 +1,94 @@
-> +Device-Tree bindings for Juniper Networks SAM MFD
+> +++ b/Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt
+> @@ -0,0 +1,20 @@
+> +Juniper's SAM FPGA I2C accelerator mux
+> +
+> +The SAM FPGA I2C mux is present only on Juniper SAM FPGA PTX series
+> +of routers.
+> +
+> +The definition of the i2c sam bus is located in the i2c-sam.txt document.
 > +
 > +Required properties:
-> +
-> +- compatible - Must be: "jnx,sam"
+> +- compatible: should be "jnx,i2c-sam-mux".
+> +- reg: master number and mux number.
 
-Kind of generic. Only 1 FPGA version or some other way to tell the 
-version?
+This is not how i2c muxes are done.
 
 > +
 > +Optional properties:
+> +- speed: If present must be either 100000 or 400000. No other values supported.
 > +
-> +- pma-coefficients: A set of tupples containing the configuration of the PMA.
-
-What's a PMA? What type of configuration? How many entries?
-
-> +Device                   Description
-> +------                   -----------
-> +jnx,i2c-sam		: I2C mux driver
-> +jnx,gpio-sam		: GPIO block
-> +jnx,flash-sam		: MTD Flash
-> +jnx,mdio-sam		: MDIO interfaces
+> +Examples:
 > +
-> +All these optional nodes are described in their respective binding
-> +documents.
+> +pe1i2c: i2c-sam-mux@1,0 {
+
+i2c-mux@...
+
+> +	compatible = "jnx,i2c-sam-mux";
+> +	reg = <1 0>;
+> +};
+> diff --git a/Documentation/devicetree/bindings/i2c/i2c-sam.txt b/Documentation/devicetree/bindings/i2c/i2c-sam.txt
+> new file mode 100644
+> index 0000000..4830b48
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/i2c/i2c-sam.txt
+> @@ -0,0 +1,44 @@
+> +Juniper's SAM FPGA I2C accelerator
 > +
-> +Example node:
+> +The SAM FPGA accelerator is used to connect the large number of
+> +I2C muxes that are present on Juniper PTX series of routers.
+> +While it's an i2c bus, no other devices are located besides
+> +i2c-sam-mux devices.
 > +
-> +pci-0000-10-00.0 {
+> +The definition of the i2c sam mux is located in the i2c-sam-mux.txt document.
+> +
+> +Required properties:
+> +- compatible: should be "jnx,i2c-sam".
+> +- #address-cells: should be 2.
+> +- #size-cells: should be 0.
+> +- mux-channels: number of mux channels present
 
-What are the numbers?
+What is this needed for?
 
-> +	compatible = "jnx,sam";
+> +
+> +Optional properties:
+> +- reg: offset and length of the register set for the device are optional since
+> +  typically the register range is provided by the parent SAM MFD device.
+> +- master-offset: Offset of where the master register memory starts.
+> +  Default value is 0x8000.
 
-If this is a PCI device, then it should use PCI compatible string 
-syntax.
+Make this required.
 
-> +	#address-cells = <1>;
+> +- reverse-fill: Fill the start entries of transactions in reverse order
+
+Needs a better explanation.
+
+> +- priority-tables: Use the pre-programmed priority tables in the FPGA
+
+What does not present mean?
+
+> +- i2c-options: list of options to be written to the option field in the
+> +  FPGA controlling things like SCL push-pull drives, hold-times, etc.
+
+> +- bus-range: start of bus master range and number of masters.
+
+Needs a better explanation.
+
+> +
+> +Examples:
+> +
+> +i2c-sam {
+> +	compatible = "jnx,i2c-sam";
+> +	mux-channels = <2>;
 > +	#size-cells = <0>;
-> +	pma-coefficients = <4 0x0>;
+> +	#address-cells = <2>;
 > +
-> +	i2c-sam@10 {
-> +		compatible = "jnx,i2c-sam";
-> +		mux-channels = <2>;
-> +		master-offset = <0x10000>;
+> +	/* PE0 */ pe0i2c: i2c-sam-mux@0,0 {
+
+i2c-mux@...
+
+> +		compatible = "jnx,i2c-sam-mux";
+> +		reg = <0 0>;
 > +	};
 > +
-> +	gpiogpqam0: gpio-sam@10 {
-
-gpio@...
-
-Where does 10 come from?
-
-> +		compatible = "jnx,gpio-sam";
-> +		gpio-controller;
-> +		#gpio-cells = <2>;
-> +		gpio-count = <297>;
-> +		interrupt-controller;
-> +		/*
-> +		* 1st cell: gpio interrupt status bit
-> +		* 2nd cell: 1st pin
-> +		* 3rd cell: # of pins
-> +		*/
-> +		gpio-interrupts =
-> +			<0 0 12>,   /* phy_int_monitor_en [16] */
-> +			<1 235 24>, /* qsfpp_fpga_int_monitor [17] */
-> +			<2 259 24>, /* qsfpp_fpga_modprs_monitor [18] */
-> +			<3 295 1>,  /* si5345_fpga_monitor [19] */
-> +			<4 294 1>;  /* fpc_pic_int_monitor [20] */
-> +	};
-> +
-> +	flash-sam@10 {
-> +		compatible = "jnx,flash-sam";
-> +		#address-cells = <1>;
-> +		#size-cells = <1>;
-> +		partition@0 {
-> +		reg = <0x0 0x400000>;
-> +			label = "pic0-golden";
-> +			read-only;
-> +		};
-> +		partition@400000 {
-> +			reg = <0x400000 0x400000>;
-> +			label = "pic0-user";
-> +		};
-> +	};
-> +
-> +	mdio-sam@10 {
-> +		compatible = "jnx,mdio-sam";
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		reg = <0x40000>;
-> +
-> +		/* mii_bus types */
-> +		mdio0: mdio-sam@0 {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			reg = <0x0>;
-> +		};
-> +
-> +		mdio1: mdio-sam@4000 {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			reg = <0x4000>;
-> +		};
-> +
-> +		mdio2: mdio-sam@8000 {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			reg = <0x8000>;
-> +		};
+> +	/* PE1 */ pe1i2c: i2c-sam-mux@1,0 {
+> +		compatible = "jnx,i2c-sam-mux";
+> +		reg = <1 0>;
 > +	};
 > +};
 > -- 
