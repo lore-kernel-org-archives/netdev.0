@@ -1,72 +1,239 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v3 1/4] net: phy: dp83867: Add documentation for optional
- impedance control
-Date: Mon, 10 Oct 2016 08:18:41 -0500
-Message-ID: <20161010131841.GA8391@rob-hp-laptop>
-References: <20161006051355.15947-1-mugunthanvnm@ti.com>
- <20161006051355.15947-2-mugunthanvnm@ti.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] net: add recursion limit to GRO
+Date: Mon, 10 Oct 2016 15:43:46 +0200
+Message-ID: <8fb8ec65c178b4d37951c4538dedc880eef068d4.1476106975.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Florian Fainelli <f.fainelli@gmail.com>, Tony Lindgren <tony@atomide.com>,
- netdev@vger.kernel.org, Sekhar Nori <nsekhar@ti.com>,
- linux-kernel@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
- linux-omap@vger.kernel.org, David Miller <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20161006051355.15947-2-mugunthanvnm@ti.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Benc <jbenc@redhat.com>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32836 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751392AbcJJNoI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Oct 2016 09:44:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 06, 2016 at 10:43:52AM +0530, Mugunthan V N wrote:
-> Add documention of ti,impedance-control which can be used to
+Currently, GRO can do unlimited recursion through the gro_receive
+handlers.  This was fixed for tunneling protocols by limiting tunnel GRO
+to one level with encap_mark, but both VLAN and TEB still have this
+problem.  Thus, the kernel is vulnerable to a stack overflow, if we
+receive a packet composed entirely of VLAN headers.
 
-Needs updating.
+This patch adds a recursion counter to the GRO layer to prevent stack
+overflow.  When a gro_receive function hits the recursion limit, GRO is
+aborted for this skb and it is processed normally.
 
-> correct MAC impedance mismatch using phy extended registers.
-> 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
->  Documentation/devicetree/bindings/net/ti,dp83867.txt | 12 ++++++++++++
->  1 file changed, 12 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-> index 5d21141..85bf945 100644
-> --- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
-> +++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-> @@ -9,6 +9,18 @@ Required properties:
->  	- ti,fifo-depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp83867.h
->  		for applicable values
->  
-> +Optional property:
-> +	- ti,min-output-impedance - MAC Interface Impedance control to set
-> +				    the programmable output impedance to
-> +				    minimum value (35 ohms).
-> +	- ti,max-output-impedance - MAC Interface Impedance control to set
-> +				    the programmable output impedance to
-> +				    maximum value (70 ohms).
+Thanks to Vladimír Beneš <vbenes@redhat.com> for the initial bug report.
 
-Define what are valid range of values for these.
+Fixes: CVE-2016-7039
+Fixes: 9b174d88c257 ("net: Add Transparent Ethernet Bridging GRO support.")
+Fixes: 66e5133f19e9 ("vlan: Add GRO support for non hardware accelerated vlan")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Reviewed-by: Jiri Benc <jbenc@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ drivers/net/geneve.c      |  2 +-
+ drivers/net/vxlan.c       |  2 +-
+ include/linux/netdevice.h | 24 +++++++++++++++++++++++-
+ net/8021q/vlan.c          |  2 +-
+ net/core/dev.c            |  1 +
+ net/ethernet/eth.c        |  2 +-
+ net/ipv4/af_inet.c        |  2 +-
+ net/ipv4/fou.c            |  4 ++--
+ net/ipv4/gre_offload.c    |  2 +-
+ net/ipv4/udp_offload.c    |  8 +++++++-
+ net/ipv6/ip6_offload.c    |  2 +-
+ 11 files changed, 40 insertions(+), 11 deletions(-)
 
-> +
-> +Note: ti,min-output-impedance and ti,max-output-impedance are mutually
-> +      exclusive. When both properties are present ti,max-output-impedance
-> +      takes precedence.
-> +
->  Default child nodes are standard Ethernet PHY device
->  nodes as described in Documentation/devicetree/bindings/net/phy.txt
->  
-> -- 
-> 2.10.0.372.g6fe1b14
-> 
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 3c20e87bb761..16af1ce99233 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -453,7 +453,7 @@ static struct sk_buff **geneve_gro_receive(struct sock *sk,
+ 
+ 	skb_gro_pull(skb, gh_len);
+ 	skb_gro_postpull_rcsum(skb, gh, gh_len);
+-	pp = ptype->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
+ 	flush = 0;
+ 
+ out_unlock:
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index e7d16687538b..c1639a3e95a4 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -583,7 +583,7 @@ static struct sk_buff **vxlan_gro_receive(struct sock *sk,
+ 		}
+ 	}
+ 
+-	pp = eth_gro_receive(head, skb);
++	pp = call_gro_receive(eth_gro_receive, head, skb);
+ 	flush = 0;
+ 
+ out:
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 136ae6bbe81e..11a7218c3661 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2169,7 +2169,10 @@ struct napi_gro_cb {
+ 	/* Used to determine if flush_id can be ignored */
+ 	u8	is_atomic:1;
+ 
+-	/* 5 bit hole */
++	/* Number of gro_receive callbacks this packet already went through */
++	u8 recursion_counter:4;
++
++	/* 1 bit hole */
+ 
+ 	/* used to support CHECKSUM_COMPLETE for tunneling protocols */
+ 	__wsum	csum;
+@@ -2180,6 +2183,25 @@ struct napi_gro_cb {
+ 
+ #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
+ 
++#define GRO_RECURSION_LIMIT 15
++static inline int gro_recursion_inc_test(struct sk_buff *skb)
++{
++	return ++NAPI_GRO_CB(skb)->recursion_counter == GRO_RECURSION_LIMIT;
++}
++
++typedef struct sk_buff **(*gro_receive_t)(struct sk_buff **, struct sk_buff *);
++static inline struct sk_buff **call_gro_receive(gro_receive_t cb,
++						struct sk_buff **head,
++						struct sk_buff *skb)
++{
++	if (gro_recursion_inc_test(skb)) {
++		NAPI_GRO_CB(skb)->flush |= 1;
++		return NULL;
++	}
++
++	return cb(head, skb);
++}
++
+ struct packet_type {
+ 	__be16			type;	/* This is really htons(ether_type). */
+ 	struct net_device	*dev;	/* NULL is wildcarded here	     */
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 8de138d3306b..f2531ad66b68 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -664,7 +664,7 @@ static struct sk_buff **vlan_gro_receive(struct sk_buff **head,
+ 
+ 	skb_gro_pull(skb, sizeof(*vhdr));
+ 	skb_gro_postpull_rcsum(skb, vhdr, sizeof(*vhdr));
+-	pp = ptype->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f1fe26f66458..f7cd4b8b035d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4511,6 +4511,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 		NAPI_GRO_CB(skb)->flush = 0;
+ 		NAPI_GRO_CB(skb)->free = 0;
+ 		NAPI_GRO_CB(skb)->encap_mark = 0;
++		NAPI_GRO_CB(skb)->recursion_counter = 0;
+ 		NAPI_GRO_CB(skb)->is_fou = 0;
+ 		NAPI_GRO_CB(skb)->is_atomic = 1;
+ 		NAPI_GRO_CB(skb)->gro_remcsum_start = 0;
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 66dff5e3d772..02acfff36028 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -439,7 +439,7 @@ struct sk_buff **eth_gro_receive(struct sk_buff **head,
+ 
+ 	skb_gro_pull(skb, sizeof(*eh));
+ 	skb_gro_postpull_rcsum(skb, eh, sizeof(*eh));
+-	pp = ptype->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 1effc986739e..9648c97e541f 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1391,7 +1391,7 @@ struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	skb_gro_pull(skb, sizeof(*iph));
+ 	skb_set_transport_header(skb, skb_gro_offset(skb));
+ 
+-	pp = ops->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index cf50f7e2b012..030d1531e897 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -249,7 +249,7 @@ static struct sk_buff **fou_gro_receive(struct sock *sk,
+ 	if (!ops || !ops->callbacks.gro_receive)
+ 		goto out_unlock;
+ 
+-	pp = ops->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+@@ -441,7 +441,7 @@ static struct sk_buff **gue_gro_receive(struct sock *sk,
+ 	if (WARN_ON_ONCE(!ops || !ops->callbacks.gro_receive))
+ 		goto out_unlock;
+ 
+-	pp = ops->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
+ 	flush = 0;
+ 
+ out_unlock:
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index 96e0efecefa6..d5cac99170b1 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -229,7 +229,7 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 	/* Adjusted NAPI_GRO_CB(skb)->csum after skb_gro_pull()*/
+ 	skb_gro_postpull_rcsum(skb, greh, grehlen);
+ 
+-	pp = ptype->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
+ 	flush = 0;
+ 
+ out_unlock:
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index f9333c963607..7b5879bcd08b 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -295,7 +295,13 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+ 
+ 	skb_gro_pull(skb, sizeof(struct udphdr)); /* pull encapsulating udp header */
+ 	skb_gro_postpull_rcsum(skb, uh, sizeof(struct udphdr));
+-	pp = udp_sk(sk)->gro_receive(sk, head, skb);
++
++	if (gro_recursion_inc_test(skb)) {
++		flush = 1;
++		pp = NULL;
++	} else {
++		pp = udp_sk(sk)->gro_receive(sk, head, skb);
++	}
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index e7bfd55899a3..1fcf61f1cbc3 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -246,7 +246,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 
+ 	skb_gro_postpull_rcsum(skb, iph, nlen);
+ 
+-	pp = ops->callbacks.gro_receive(head, skb);
++	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+-- 
+2.10.0
