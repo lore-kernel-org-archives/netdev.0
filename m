@@ -1,152 +1,125 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 5/6] qed: Allow chance for fast ramrod
- completions
-Date: Sun, 09 Oct 2016 17:08:35 -0700
-Message-ID: <1476058115.28155.282.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1476026738-26069-1-git-send-email-Yuval.Mintz@qlogic.com>
-         <1476026738-26069-6-git-send-email-Yuval.Mintz@qlogic.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: slab corruption with current -git (was Re: [git pull] vfs pile 1
+ (splice))
+Date: Mon, 10 Oct 2016 02:51:05 +0200
+Message-ID: <20161010005105.GA18349@breakpoint.cc>
+References: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:32973 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750971AbcJJAIi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 20:08:38 -0400
-Received: by mail-it0-f66.google.com with SMTP id m138so34768itm.0
-        for <netdev@vger.kernel.org>; Sun, 09 Oct 2016 17:08:38 -0700 (PDT)
-In-Reply-To: <1476026738-26069-6-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Al Viro <viro@zeniv.linux.org.uk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Jens Axboe <axboe@fb.com>, Ted Ts'o <tytso@mit.edu>,
+        Christoph Lameter <cl@linux.com>,
+        David Miller <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Aaron Conole <aconole@bytheb.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-10-09 at 18:25 +0300, Yuval Mintz wrote:
-> From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+Linus Torvalds <torvalds@linux-foundation.org> wrote:
+> On Sun, Oct 9, 2016 at 12:11 PM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+> >
+> > Anyway, I don't think I can bisect it, but I'll try to narrow it down
+> > a *bit* at least.
+> >
+> > Not doing any more pulls on this unstable base, I've been puttering
+> > around in trying to clean up some stupid printk logging issues
+> > instead.
 > 
-> Whenever a ramrod is being sent for some device configuration,
-> the driver is going to sleep at least 5ms between each iteration
-> of polling on the completion of the ramrod.
-> 
-> However, in almost every configuration scenario the firmware
-> would be able to comply and complete the ramrod in a manner of
-> several usecs. This is especially important in cases where there
-> might be a lot of sequential configurations applying to the hardware
-> [e.g., RoCE], in which case the existing scheme might cause some
-> visible user delays.
-> 
-> This patch changes the completion scheme - instead of immediately
-> starting to sleep for a 'long' period, allow the device to quickly
-> poll on the first iteration after a couple of usecs.
-> 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-> ---
->  drivers/net/ethernet/qlogic/qed/qed_spq.c | 85 +++++++++++++++++++++----------
->  1 file changed, 59 insertions(+), 26 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-> index caff415..259a615 100644
-> --- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-> +++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-> @@ -37,7 +37,11 @@
->  ***************************************************************************/
->  
->  #define SPQ_HIGH_PRI_RESERVE_DEFAULT    (1)
-> -#define SPQ_BLOCK_SLEEP_LENGTH          (1000)
-> +
-> +#define SPQ_BLOCK_DELAY_MAX_ITER        (10)
-> +#define SPQ_BLOCK_DELAY_US              (10)
-> +#define SPQ_BLOCK_SLEEP_MAX_ITER        (1000)
-> +#define SPQ_BLOCK_SLEEP_MS              (5)
->  
->  /***************************************************************************
->  * Blocking Imp. (BLOCK/EBLOCK mode)
-> @@ -57,53 +61,81 @@ static void qed_spq_blocking_cb(struct qed_hwfn *p_hwfn,
->  	smp_wmb();
->  }
->  
-> -static int qed_spq_block(struct qed_hwfn *p_hwfn,
-> -			 struct qed_spq_entry *p_ent,
-> -			 u8 *p_fw_ret)
-> +static int __qed_spq_block(struct qed_hwfn *p_hwfn,
-> +			   struct qed_spq_entry *p_ent,
-> +			   u8 *p_fw_ret, bool sleep_between_iter)
->  {
-> -	int sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
->  	struct qed_spq_comp_done *comp_done;
-> -	int rc;
-> +	u32 iter_cnt;
->  
->  	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
-> -	while (sleep_count) {
-> -		/* validate we receive completion update */
-> +	iter_cnt = sleep_between_iter ? SPQ_BLOCK_SLEEP_MAX_ITER
-> +				      : SPQ_BLOCK_DELAY_MAX_ITER;
-> +
-> +	while (iter_cnt--) {
-> +		/* Validate we receive completion update */
->  		smp_rmb();
->  		if (comp_done->done == 1) {
->  			if (p_fw_ret)
->  				*p_fw_ret = comp_done->fw_return_code;
->  			return 0;
->  		}
+> So I finally got a oops with slub debugging enabled. It doesn't really
+> narrow things down, though, it kind of extends on the possible
+> suspects. Now adding David Miller and Pablo, because it looks like it
+> may be netfilter that does something bad and corrupts memory.
 
-Note that this smp_rmb() and accesses to ->done and ->fw_return_code are
-racy.
+Quite possible, the netns interactions are not nice :-/
 
-fq_return_code needs to be written _before_ done.
+> Without further ado, here's the new oops:
+> 
+>    general protection fault: 0000 [#1] SMP
+>    CPU: 7 PID: 169 Comm: kworker/u16:7 Not tainted 4.8.0-11288-gb66484cd7470 #1
+>    Hardware name: System manufacturer System Product Name/Z170-K, BIOS
+..
+>    Call Trace:
+>      netfilter_net_exit+0x2f/0x60
+>      ops_exit_list.isra.4+0x38/0x60
+>      cleanup_net+0x1ba/0x2a0
+>      process_one_work+0x1f1/0x480
+>      worker_thread+0x48/0x4d0
+>      ? process_one_work+0x480/0x480
 
-Something like the following patch would make sense...
+..
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index caff41544898baed09f45a41829cb0ba9c719fb9..eefa45eab3728791f4d15a088c4550f318a1d1da 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -50,11 +50,9 @@ static void qed_spq_blocking_cb(struct qed_hwfn *p_hwfn,
+> like it's a pointer loaded from a free'd allocation.
+> 
+> The code disassembles to
+> 
+>    0: 0f b6 ca             movzbl %dl,%ecx
+>    3: 48 8d 84 c8 00 01 00 lea    0x100(%rax,%rcx,8),%rax
+>    a: 00
+>    b: 49 8b 5c c5 00       mov    0x0(%r13,%rax,8),%rbx
+>   10: 48 85 db             test   %rbx,%rbx
+>   13: 0f 84 cb 00 00 00     je     0xe4
+>   19: 4c 3b 63 40           cmp    0x40(%rbx),%r12
+>   1d: 48 8b 03             mov    (%rbx),%rax
+>   20: 0f 84 e9 00 00 00     je     0x10f
+>   26: 48 85 c0             test   %rax,%rax
+>   29: 74 26                 je     0x51
+>   2b:* 4c 3b 60 40           cmp    0x40(%rax),%r12 <-- trapping instruction
+>   2f: 75 08                 jne    0x39
+>   31: e9 ef 00 00 00       jmpq   0x125
+>   36: 48 89 d8             mov    %rbx,%rax
+>   39: 48 8b 18             mov    (%rax),%rbx
+>   3c: 48 85 db             test   %rbx,%rbx
+> 
+> and that oopsing instruction seems to be the compare of
+> "hooks_entry->orig_ops" from hooks_entry in this expression:
+> 
+>         if (hooks_entry && hooks_entry->orig_ops == reg) {
+> 
+> so hooks_entry() is bogus. It was gotten from
+> 
+>         hooks_entry = nf_hook_entry_head(net, reg);
+> 
+> but that's as far as I dug. And yes, I do have
+> CONFIG_NETFILTER_INGRESS=y in case that matters.
+> 
+> And all this code has changed pretty radically in commit e3b37f11e6e4
+> ("netfilter: replace list_head with single linked list"), and there
+> was clearly already something wrong with that code, with commit
+> 5119e4381a90 ("netfilter: Fix potential null pointer dereference")
+> adding the test against NULL. But I suspect that only hid the "oops,
+> it's actually not NULL, it loaded some uninitialized value" problem.
+> 
+> Over to the networking guys.. Ideas?
+
+Sorry, not off the top of my head.
+Pablo is currently travelling back home from netdev 1.2 in Tokyo,
+I can help starting Wednesday when I am back.
+
+One shot in the dark (not even compile tested; wonder if we can end up
+zapping bogus hook ...)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index c9d90eb..fd6a2ce 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -189,6 +189,9 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
  
- 	comp_done = (struct qed_spq_comp_done *)cookie;
- 
--	comp_done->done			= 0x1;
--	comp_done->fw_return_code	= fw_return_code;
-+	comp_done->fw_return_code = fw_return_code;
- 
--	/* make update visible to waiting thread */
--	smp_wmb();
-+	smp_store_release(&comp_done->done, 0x1);
- }
- 
- static int qed_spq_block(struct qed_hwfn *p_hwfn,
-@@ -68,8 +66,8 @@ static int qed_spq_block(struct qed_hwfn *p_hwfn,
- 	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
- 	while (sleep_count) {
- 		/* validate we receive completion update */
--		smp_rmb();
--		if (comp_done->done == 1) {
-+		if (READ_ONCE(comp_done->done) == 1) {
-+			smp_read_barrier_depends();
- 			if (p_fw_ret)
- 				*p_fw_ret = comp_done->fw_return_code;
- 			return 0;
-@@ -87,8 +85,8 @@ static int qed_spq_block(struct qed_hwfn *p_hwfn,
- 	sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
- 	while (sleep_count) {
- 		/* validate we receive completion update */
--		smp_rmb();
--		if (comp_done->done == 1) {
-+		if (READ_ONCE(comp_done->done) == 1) {
-+			smp_read_barrier_depends();
- 			if (p_fw_ret)
- 				*p_fw_ret = comp_done->fw_return_code;
- 			return 0;
-@@ -97,7 +95,8 @@ static int qed_spq_block(struct qed_hwfn *p_hwfn,
- 		sleep_count--;
- 	}
- 
--	if (comp_done->done == 1) {
-+	if (READ_ONCE(comp_done->done) == 1) {
-+		smp_read_barrier_depends();
- 		if (p_fw_ret)
- 			*p_fw_ret = comp_done->fw_return_code;
- 		return 0;
+ unlock:
+        mutex_unlock(&nf_hook_mutex);
++
++       WARN_ON(hooks_entry && hooks_entry->orig_ops != reg);
++
+        if (!hooks_entry) {
+                WARN(1, "nf_unregister_net_hook: hook not found!\n");
+                return;
+
