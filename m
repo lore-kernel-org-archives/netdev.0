@@ -1,40 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/2] ip rule: merger iprule_flush and add
- selector support
-Date: Sun, 9 Oct 2016 19:30:34 -0700
-Message-ID: <20161009193034.3a10c6f8@xeon-e3>
-References: <1474525729-2845-1-git-send-email-liuhangbin@gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: net: BUG still has locks held in unix_stream_splice_read
+Date: Mon, 10 Oct 2016 03:46:07 +0100
+Message-ID: <20161010024607.GV19539@ZenIV.linux.org.uk>
+References: <CACT4Y+aPybMnXjiH+DdDWDAfz+L6PF-H-J3YT2+hjcDp3aw9SQ@mail.gmail.com>
+ <CACT4Y+a6yDm28VYtNPSktYKs_T2UzLGb8jadpFpsdKfNzb7-tA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34924 "EHLO
-        mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbcJJCad (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2016 22:30:33 -0400
-Received: by mail-pa0-f53.google.com with SMTP id qn10so42080268pac.2
-        for <netdev@vger.kernel.org>; Sun, 09 Oct 2016 19:30:19 -0700 (PDT)
-In-Reply-To: <1474525729-2845-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+a6yDm28VYtNPSktYKs_T2UzLGb8jadpFpsdKfNzb7-tA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Sep 2016 14:28:47 +0800
-Hangbin Liu <liuhangbin@gmail.com> wrote:
+On Sun, Oct 09, 2016 at 12:06:14PM +0200, Dmitry Vyukov wrote:
+> I suspect this is:
+> 
+> commit 25869262ef7af24ccde988867ac3eb1c3d4b88d4
+> Author: Al Viro <viro@zeniv.linux.org.uk>
+> Date:   Sat Sep 17 21:02:10 2016 -0400
+>     skb_splice_bits(): get rid of callback
+>     since pipe_lock is the outermost now, we don't need to drop/regain
+>     socket locks around the call of splice_to_pipe() from skb_splice_bits(),
+>     which kills the need to have a socket-specific callback; we can just
+>     call splice_to_pipe() and be done with that.
 
-> When merge iprule_flush() and iprule_list_or_save(). Renamed
-> rtnl_filter_t filter to filter_fn because we want to use global
-> variable 'filter' to filter nlmsg in the next patch.
-> 
-> Hangbin Liu (2):
->   ip rule: merge ip rule flush and list, save together
->   ip rule: add selector support
-> 
->  ip/iprule.c        | 295 +++++++++++++++++++++++++++++++++++++++++------------
->  man/man8/ip-rule.8 |   6 +-
->  2 files changed, 231 insertions(+), 70 deletions(-)
-> 
-> -- 
+Unlikely, since that particular commit removes unlocking/relocking ->iolock
+around the call of splice_to_pipe().  Original would've retaken the same
+lock on the way out; it's not as if we could leave the syscall there.
 
-Applied to net-next (for 4.9)
+It might be splice-related, but I don't believe that you've got the right
+commit here.
