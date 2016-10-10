@@ -1,71 +1,48 @@
-From: Jean-Francois Moine <moinejf@free.fr>
-Subject: Re: [PATCH v4 10/10] ARM: sunxi: Enable sun8i-emac driver on
- multi_v7_defconfig
-Date: Mon, 10 Oct 2016 15:09:43 +0200
-Message-ID: <20161010150943.fa7ca85fe52f4c6f9508b5eb@free.fr>
-References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
- <1475828757-926-11-git-send-email-clabbe.montjoie@gmail.com>
- <20161010123046.GH3462@lukather> <20161010123511.GA16103@Red>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net] net_sched: do not broadcast RTM_GETTFILTER result
+Date: Mon, 10 Oct 2016 09:16:05 -0400
+Message-ID: <ea0ddd16-5c81-a0af-1a2a-4c1b5fe1bb35@mojatatu.com>
+References: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: mark.rutland@arm.com, andrew@lunn.ch, f.fainelli@gmail.com,
- devicetree@vger.kernel.org, netdev@vger.kernel.org, linux@armlinux.org.uk,
- linux-kernel@vger.kernel.org, wens@csie.org, robh+dt@kernel.org,
- Maxime Ripard <maxime.ripard@free-electrons.com>, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: LABBE Corentin <clabbe.montjoie@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161010123511.GA16103@Red>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34849 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752218AbcJJNQI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 09:16:08 -0400
+Received: by mail-io0-f193.google.com with SMTP id p26so7349865ioo.2
+        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 06:16:07 -0700 (PDT)
+In-Reply-To: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Oct 2016 14:35:11 +0200
-LABBE Corentin <clabbe.montjoie@gmail.com> wrote:
+On 16-10-09 11:25 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> There are two ways to get tc filters from kernel to user space.
+>
+> 1) Full dump (tc_dump_tfilter())
+> 2) RTM_GETTFILTER to get one precise filter, reducing overhead.
+>
+> The second operation is unfortunately broadcasting its result,
+> polluting "tc monitor" users.
+>
+> This patch makes sure only the requester gets the result, using
+> netlink_unicast() instead of rtnetlink_send()
+>
+> Jamal cooked an iproute2 patch to implement "tc filter get" operation,
+> but other user space libraries already use RTM_GETTFILTER when a single
+> filter is queried, instead of dumping all filters.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-> On Mon, Oct 10, 2016 at 02:30:46PM +0200, Maxime Ripard wrote:
-> > On Fri, Oct 07, 2016 at 10:25:57AM +0200, Corentin Labbe wrote:
-> > > Enable the sun8i-emac driver in the multi_v7 default configuration
-> > > =
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> > > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > > ---
-> > >  arch/arm/configs/multi_v7_defconfig | 1 +
-> > >  1 file changed, 1 insertion(+)
-> > > =
+I will send the iproute2 patch
 
-> > > diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/m=
-ulti_v7_defconfig
-> > > index 5845910..f44d633 100644
-> > > --- a/arch/arm/configs/multi_v7_defconfig
-> > > +++ b/arch/arm/configs/multi_v7_defconfig
-> > > @@ -229,6 +229,7 @@ CONFIG_NETDEVICES=3Dy
-> > >  CONFIG_VIRTIO_NET=3Dy
-> > >  CONFIG_HIX5HD2_GMAC=3Dy
-> > >  CONFIG_SUN4I_EMAC=3Dy
-> > > +CONFIG_SUN8I_EMAC=3Dy
-> > =
-
-> > Any reason to build it statically?
-> > =
-
-> =
-
-> No, just copied the same than CONFIG_SUN4I_EMAC that probably do not need=
- it also.
-
-All arm configs are done the same way, and, some day, the generic ARM
-V7 kernel will not be loadable in 1Gb RAM...
-
--- =
-
-Ken ar c'henta=F1	|	      ** Breizh ha Linux atav! **
-Jef		|		http://moinejf.free.fr/
+cheers,
+jamal
