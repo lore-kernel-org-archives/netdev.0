@@ -1,135 +1,129 @@
-From: Alexey Kardashevskiy <aik@ozlabs.ru>
-Subject: Re: [PATCH kernel v2] PCI: Enable access to custom VPD for Chelsio
- devices (cxgb3)
-Date: Mon, 10 Oct 2016 12:18:50 +1100
-Message-ID: <1b80cbe3-ccdb-d56b-ce2d-6f5b2b88609f@ozlabs.ru>
-References: <1475126512-10722-1-git-send-email-aik@ozlabs.ru>
+From: Aaron Conole <aconole@redhat.com>
+Subject: Re: slab corruption with current -git (was Re: [git pull] vfs pile 1 (splice))
+Date: Sun, 09 Oct 2016 21:35:44 -0400
+Message-ID: <f7tbmytkmtr.fsf@redhat.com>
+References: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
+        <20161010005105.GA18349@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Santosh Raspatur <santosh@chelsio.com>,
-        linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org
-To: Bjorn Helgaas <bhelgaas@google.com>
+Content-Type: text/plain
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Jens Axboe <axboe@fb.com>, "Ted Ts'o" <tytso@mit.edu>,
+        Christoph Lameter <cl@linux.com>,
+        David Miller <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475126512-10722-1-git-send-email-aik@ozlabs.ru>
+In-Reply-To: <20161010005105.GA18349@breakpoint.cc> (Florian Westphal's
+        message of "Mon, 10 Oct 2016 02:51:05 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Anyone, ping?
+Florian Westphal <fw@strlen.de> writes:
 
-On 29/09/16 15:21, Alexey Kardashevskiy wrote:
-> There is at least one Chelsio 10Gb card which uses VPD area to store
-> some custom blocks (example below). However pci_vpd_size() returns
-> the length of the first block only assuming that there can be only
-> one VPD "End Tag" and VFIO blocks access beyond that offset
-> (since 4e1a63555) which leads to the situation when the guest "cxgb3"
-> driver fails to probe the device. The host system does not have this
-> problem as the drives accesses the config space directly without
-> pci_read_vpd()/...
-> 
-> This adds a quirk to override the VPD size to a bigger value.
-> The maximum size is taken from EEPROMSIZE in
-> drivers/net/ethernet/chelsio/cxgb3/common.h. We do not read the tag
-> as the cxgb3 driver does as the driver supports writing to EEPROM/VPD
-> and when it writes, it only checks for 8192 bytes boundary. The quirk
-> is registerted for all devices supported by the cxgb3 driver.
-> 
-> This adds a quirk to the PCI layer (not to the cxgb3 driver) as
-> the cxgb3 driver itself accesses VPD directly and the problem only exists
-> with the vfio-pci driver (when cxgb3 is not running on the host and
-> may not be even loaded) which blocks accesses beyond the first block
-> of VPD data. However vfio-pci itself does not have quirks mechanism so
-> we add it to PCI.
-> 
-> Tested on:
-> Ethernet controller [0200]: Chelsio Communications Inc T310 10GbE Single Port Adapter [1425:0030]
-> 
-> This is its VPD:
-> 0000 Large item 42 bytes; name 0x2 Identifier String
-> 	b'10 Gigabit Ethernet-SR PCI Express Adapter'
-> 	#00 [EC] len=7: b'D76809 '
-> 	#0a [FN] len=7: b'46K7897'
-> 	#14 [PN] len=7: b'46K7897'
-> 	#1e [MN] len=4: b'1037'
-> 	#25 [FC] len=4: b'5769'
-> 	#2c [SN] len=12: b'YL102035603V'
-> 	#3b [NA] len=12: b'00145E992ED1'
-> 
-> 0c00 Large item 16 bytes; name 0x2 Identifier String
->         b'S310E-SR-X      '
-> 0c13 Large item 234 bytes; name 0x10
->         #00 [PN] len=16: b'TBD             '
->         #13 [EC] len=16: b'110107730D2     '
->         #26 [SN] len=16: b'97YL102035603V  '
->         #39 [NA] len=12: b'00145E992ED1'
->         #48 [V0] len=6: b'175000'
->         #51 [V1] len=6: b'266666'
->         #5a [V2] len=6: b'266666'
->         #63 [V3] len=6: b'2000  '
->         #6c [V4] len=2: b'1 '
->         #71 [V5] len=6: b'c2    '
->         #7a [V6] len=6: b'0     '
->         #83 [V7] len=2: b'1 '
->         #88 [V8] len=2: b'0 '
->         #8d [V9] len=2: b'0 '
->         #92 [VA] len=2: b'0 '
->         #97 [RV] len=80: b's\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
-> 0d00 Large item 252 bytes; name 0x11
->         #00 [VC] len=16: b'122310_1222 dp  '
->         #13 [VD] len=16: b'610-0001-00 H1\x00\x00'
->         #26 [VE] len=16: b'122310_1353 fp  '
->         #39 [VF] len=16: b'610-0001-00 H1\x00\x00'
->         #4c [RW] len=173: b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
-> 0dff Small item 0 bytes; name 0xf End Tag
-> 
-> Signed-off-by: Alexey Kardashevskiy <aik@ozlabs.ru>
-> ---
-> Changes:
-> v2:
-> * used pci_set_vpd_size() helper
-> * added explicit list of IDs from cxgb3 driver
-> * added a note in the commit log why the quirk is not in cxgb3
-> ---
->  drivers/pci/quirks.c | 22 ++++++++++++++++++++++
->  1 file changed, 22 insertions(+)
-> 
-> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> index 44e0ff3..b22fce5 100644
-> --- a/drivers/pci/quirks.c
-> +++ b/drivers/pci/quirks.c
-> @@ -3243,6 +3243,28 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_4C
->  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_PORT_RIDGE,
->  			quirk_thunderbolt_hotplug_msi);
->  
-> +static void quirk_chelsio_extend_vpd(struct pci_dev *dev)
-> +{
-> +	if (!dev->vpd)
-> +		return;
-> +
-> +	pci_set_vpd_size(dev, max_t(unsigned int, dev->vpd->len, 8192));
-> +}
-> +
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x20, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x21, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x22, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x23, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x24, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x25, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x26, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x30, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x31, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x32, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x35, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x36, quirk_chelsio_extend_vpd);
-> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x37, quirk_chelsio_extend_vpd);
-> +
->  #ifdef CONFIG_ACPI
->  /*
->   * Apple: Shutdown Cactus Ridge Thunderbolt controller.
-> 
+> Linus Torvalds <torvalds@linux-foundation.org> wrote:
+>> On Sun, Oct 9, 2016 at 12:11 PM, Linus Torvalds
+>> <torvalds@linux-foundation.org> wrote:
+>> >
+>> > Anyway, I don't think I can bisect it, but I'll try to narrow it down
+>> > a *bit* at least.
+>> >
+>> > Not doing any more pulls on this unstable base, I've been puttering
+>> > around in trying to clean up some stupid printk logging issues
+>> > instead.
+>> 
+>> So I finally got a oops with slub debugging enabled. It doesn't really
+>> narrow things down, though, it kind of extends on the possible
+>> suspects. Now adding David Miller and Pablo, because it looks like it
+>> may be netfilter that does something bad and corrupts memory.
+>
+> Quite possible, the netns interactions are not nice :-/
+>
+>> Without further ado, here's the new oops:
+>> 
+>>    general protection fault: 0000 [#1] SMP
+>>    CPU: 7 PID: 169 Comm: kworker/u16:7 Not tainted
+>> 4.8.0-11288-gb66484cd7470 #1
+>>    Hardware name: System manufacturer System Product Name/Z170-K, BIOS
+> ..
+>>    Call Trace:
+>>      netfilter_net_exit+0x2f/0x60
+>>      ops_exit_list.isra.4+0x38/0x60
+>>      cleanup_net+0x1ba/0x2a0
+>>      process_one_work+0x1f1/0x480
+>>      worker_thread+0x48/0x4d0
+>>      ? process_one_work+0x480/0x480
+>
+> ..
+>
+>> like it's a pointer loaded from a free'd allocation.
+>> 
+>> The code disassembles to
+>> 
+>>    0: 0f b6 ca             movzbl %dl,%ecx
+>>    3: 48 8d 84 c8 00 01 00 lea    0x100(%rax,%rcx,8),%rax
+>>    a: 00
+>>    b: 49 8b 5c c5 00       mov    0x0(%r13,%rax,8),%rbx
+>>   10: 48 85 db             test   %rbx,%rbx
+>>   13: 0f 84 cb 00 00 00     je     0xe4
+>>   19: 4c 3b 63 40           cmp    0x40(%rbx),%r12
+>>   1d: 48 8b 03             mov    (%rbx),%rax
+>>   20: 0f 84 e9 00 00 00     je     0x10f
+>>   26: 48 85 c0             test   %rax,%rax
+>>   29: 74 26                 je     0x51
+>>   2b:* 4c 3b 60 40           cmp    0x40(%rax),%r12 <-- trapping instruction
+>>   2f: 75 08                 jne    0x39
+>>   31: e9 ef 00 00 00       jmpq   0x125
+>>   36: 48 89 d8             mov    %rbx,%rax
+>>   39: 48 8b 18             mov    (%rax),%rbx
+>>   3c: 48 85 db             test   %rbx,%rbx
+>> 
+>> and that oopsing instruction seems to be the compare of
+>> "hooks_entry->orig_ops" from hooks_entry in this expression:
+>> 
+>>         if (hooks_entry && hooks_entry->orig_ops == reg) {
+>> 
+>> so hooks_entry() is bogus. It was gotten from
+>> 
+>>         hooks_entry = nf_hook_entry_head(net, reg);
+>> 
+>> but that's as far as I dug. And yes, I do have
+>> CONFIG_NETFILTER_INGRESS=y in case that matters.
+>> 
+>> And all this code has changed pretty radically in commit e3b37f11e6e4
+>> ("netfilter: replace list_head with single linked list"), and there
+>> was clearly already something wrong with that code, with commit
+>> 5119e4381a90 ("netfilter: Fix potential null pointer dereference")
+>> adding the test against NULL. But I suspect that only hid the "oops,
+>> it's actually not NULL, it loaded some uninitialized value" problem.
+>> 
+>> Over to the networking guys.. Ideas?
+>
+> Sorry, not off the top of my head.
+> Pablo is currently travelling back home from netdev 1.2 in Tokyo,
+> I can help starting Wednesday when I am back.
+>
+> One shot in the dark (not even compile tested; wonder if we can end up
+> zapping bogus hook ...)
+>
 
+I was just about to build and test something similar:
 
--- 
-Alexey
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index c9d90eb..e84103f 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -189,7 +189,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
+ 
+ unlock:
+        mutex_unlock(&nf_hook_mutex);
+-       if (!hooks_entry) {
++       if (!hooks_entry || hooks_entry->orig_ops != reg) {
+                WARN(1, "nf_unregister_net_hook: hook not found!\n");
+                return;
+        }
