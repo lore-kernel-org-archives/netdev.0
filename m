@@ -1,127 +1,138 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: slab corruption with current -git (was Re: [git pull] vfs pile 1 (splice))
-Date: Mon, 10 Oct 2016 15:18:13 -0400
-Message-ID: <f7td1j8xbbe.fsf@redhat.com>
-References: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
-        <20161010005105.GA18349@breakpoint.cc> <f7tbmytkmtr.fsf@redhat.com>
-        <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
-        <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
-        <f7ta8ec71qq.fsf@redhat.com>
-        <CA+55aFy6pRhvodYG9WWjfxQBFr4ExSk_wxwY=treWYTPK+NTvQ@mail.gmail.com>
-        <CA+55aFy0szySf+SnysjXTyfiU=RMBo9U1sHAVaTKG=tUTF+XGw@mail.gmail.com>
+From: Julia Cartwright <julia@ni.com>
+Subject: Re: Kernel 4.6.7-rt13: Intel Ethernet driver igb causes huge
+ latencies in cyclictest
+Date: Mon, 10 Oct 2016 14:39:58 -0500
+Message-ID: <20161010193958.GE22235@jcartwri.amer.corp.natinst.com>
+References: <20160923144140.5tkzeymamrb5qnsv@linutronix.de>
+ <a5ea146cf078457ab001131ca0886b0b@FE-MBX1012.de.bosch.com>
+ <20160928194519.GA32423@jcartwri.amer.corp.natinst.com>
+ <487032ca81f84e70bdacc39a024eff5e@FE-MBX1012.de.bosch.com>
+ <20161004193445.GF10625@jcartwri.amer.corp.natinst.com>
+ <584755c2766e4b94a604ece16760fe14@FE-MBX1012.de.bosch.com>
+ <20161005155959.GH10625@jcartwri.amer.corp.natinst.com>
+ <13c3cd3ffee4490fb22b8de383e51361@FE-MBX1012.de.bosch.com>
+ <AAEA33E297BCAC4B9BB20A7C2DF0AB8D8045E418@FMSMSX113.amr.corp.intel.com>
+ <29250f87b1d84aacb8aa312935582291@FE-MBX1012.de.bosch.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Florian Westphal <fw@strlen.de>, Al Viro <viro@zeniv.linux.org.uk>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Jens Axboe <axboe@fb.com>, "Ted Ts'o" <tytso@mit.edu>,
-        Christoph Lameter <cl@linux.com>,
-        David Miller <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        NetFilter <netfilter-devel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFy0szySf+SnysjXTyfiU=RMBo9U1sHAVaTKG=tUTF+XGw@mail.gmail.com>
-        (Linus Torvalds's message of "Mon, 10 Oct 2016 12:05:17 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        Greg <gvrose8192@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "linux-rt-users@vger.kernel.org" <linux-rt-users@vger.kernel.org>,
+        Sebastian Andrzej Siewior <sebastian.siewior@linutronix.de>
+To: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from skprod3.natinst.com ([130.164.80.24]:49505 "EHLO ni.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751375AbcJJTkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 10 Oct 2016 15:40:16 -0400
+In-Reply-To: <29250f87b1d84aacb8aa312935582291@FE-MBX1012.de.bosch.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds <torvalds@linux-foundation.org> writes:
+Hello Mathias-
 
-> On Mon, Oct 10, 2016 at 9:28 AM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> So as I already answered to Dave, I'm not actually sure that this was
->> the buggy code, or that my patch would make any difference at all.
->
-> My patch does seem to fix things, and in fact the warning about "hook
-> not found" now triggers.
->
-> So I think the bug really was that the singly-linked list handling
-> code did not correctly handle the case of not finding the entry, and
-> then freed (incorrectly) the last one that wasn't actually unlinked.
->
-> In fact, I get quite a few warnings (56 total) about 30 seconds after
-> logging in:
->
-> [   54.213170] WARNING: CPU: 1 PID: 111 at net/netfilter/core.c:151
-> nf_unregister_net_hook+0x8e/0x170
-> ... repeat 54 times ...
-> [   54.445520] WARNING: CPU: 7 PID: 111 at net/netfilter/core.c:151
-> nf_unregister_net_hook+0x8e/0x170
->
-> and looking in the journal, the first one is (again) immediately
-> preceded by that systemd-hostnamed service stopping:
->
->   Oct 10 11:45:47 i7 audit[1546]: USER_LOGIN
->   ...
->   Oct 10 11:46:11 i7 audit[1]: SERVICE_STOP pid=1 uid=0
-> auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0
-> msg='unit=fprintd comm="systemd" exe="/usr/lib/systemd/systemd"
-> hostname=? addr=? terminal=? res=success'
->   Oct 10 11:46:13 i7 pulseaudio[1697]: [pulseaudio] bluez5-util.c:
-> GetManagedObjects() failed: org.freedesktop.DBus.Error.NoReply: Did
-> not receive a reply. Possible causes include: the remote application
-> did not send a reply, the message bus security policy blocked the
-> reply, the reply timeout expir
->   Oct 10 11:46:13 i7 dbus-daemon[1003]: [system] Failed to activate
-> service 'org.bluez': timed out
->   Oct 10 11:46:20 i7 audit[1]: SERVICE_STOP pid=1 uid=0
-> auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0
-> msg='unit=systemd-hostnamed comm="systemd"
-> exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=?
-> res=success'
->   Oct 10 11:46:20 i7 kernel: ------------[ cut here ]------------
->   Oct 10 11:46:20 i7 kernel: WARNING: CPU: 1 PID: 111 at
-> net/netfilter/core.c:151 nf_unregister_net_hook+0x8e/0x170
->
-> so I do think it's something to do with some network startup service
-> thing (perhaps dhcp, perhaps chrome, who knows) as I do my initial
-> login.
->
-> David - I think that also explains what was wrong with the old code.
-> In the old code, this loop:
->
->         while (hooks_entry && nf_entry_dereference(hooks_entry->next)) {
->
-> would exit with "hooks_entry" pointing to the last list entry (because
-> ->next was NULL). Nothing was ever unlinked in the loop itself,
-> because it never actually found a matching entry, but then after the
-> loop it would free that last entry because it *thought* that was the
-> match.
->
-> My list rewrite fixes that.
->
-> Anyway, I'm assuming it will come to me from the networking tree after
-> more testing by the maintainers. You can add my
->
->   Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
->
-> to the patch, though.
->
-> David, if you want me to just commit that thing directly, I can
-> obviously do so, but I do think somebody should look at
->
->  (a) that I actually got the priority list ordering right on the
->  insertion side
+On Fri, Oct 07, 2016 at 08:58:08AM +0000, Koehrer Mathias (ETAS/ESW5) wrote:
+[..]
+> I modified the in-kernel's igb_main.c (function igb_watchdog_task) to comment out
+> the access to the EICS registers:
+> 
+> --- igb_main.c.orig     2016-10-07 10:43:37.855873754 +0200
+> +++ igb_main.c  2016-10-07 10:31:51.451346292 +0200
+> @@ -4613,6 +4613,7 @@ no_wait:
+>         }
+> 
+>         /* Cause software interrupt to ensure Rx ring is cleaned */
+> +#if 0
+>         if (adapter->flags & IGB_FLAG_HAS_MSIX) {
+>                 u32 eics = 0;
+> 
+> @@ -4622,6 +4623,7 @@ no_wait:
+>         } else {
+>                 wr32(E1000_ICS, E1000_ICS_RXDMT0);
+>         }
+> +#endif
+> 
+>         igb_spoof_check(adapter);
+>         igb_ptp_rx_hang(adapter);
+> 
+> 
+> The result is now slighty better, however the max latency that has been measured by
+> cyclictest is still much higher compared to the values of kernel 3.18.27-rt27.
+> I have now enabled all events, the execution of 
+> # cyclictest -a -i 105 -m -n -p 80 -t 1  -b 30 -C
+> delivers the following trace values
 
-It looks correct.
+There is something still fishy with these traces...
 
-Reviewed-by: Aaron Conole <aconole@bytheb.org>
+> cyclicte-10062   0....... 10025813402us : sys_exit: NR 230 = 0
+> cyclicte-10062   0....... 10025813402us : sys_enter: NR 230 (1, 1, 7ffff73ff930, 0, 0, 2bd7e12e)
+> cyclicte-10062   0....... 10025813402us : hrtimer_init: hrtimer=ffff88040a017e18 clockid=CLOCK_MONOTONIC mode=HRTIMER_MODE_ABS
+> cyclicte-10062   0d...1.. 10025813403us : hrtimer_start: hrtimer=ffff88040a017e18 function=hrtimer_wakeup expires=10024735653388 softexpires=10024735653388
 
->  (b) what it is that makes it try to unregister that hook that isn't
-> on the list in the first place
+cyclictest thread sleeps waiting for wakeup at 10024735653388.
 
-This is a still problem, I think.  I wasn't able to reproduce the issue
-on a fedora-23 VM.  My fedora 24 bare-metal system does trigger this,
-though.  Not sure what changed in userspace/kernel interaction side (not
-an excuse, but just an observation).
+> cyclicte-10062   0d...1.. 10025813403us : write_msr: 6e0, value 20ca630b9aef
+> cyclicte-10062   0d...1.. 10025813403us : rcu_utilization: Start context switch
+> cyclicte-10062   0d...1.. 10025813403us : rcu_utilization: End context switch
+> cyclicte-10062   0d...2.. 10025813404us : sched_switch: prev_comm=cyclictest prev_pid=10062 prev_prio=19 prev_state=S ==> next_comm=kworker/0:3 next_pid=1388 next_prio=120
+> cyclicte-10062   0d...2.. 10025813404us+: x86_fpu_regs_deactivated: x86/fpu: ffff88040c603ec0 fpregs_active: 0 fpstate_active: 1 counter: 69 xfeatures: 2 xcomp_bv: 0
+> kworker/-1388    0d..h... 10025813468us : irq_handler_entry: irq=48 name=eth2-tx-0
+> kworker/-1388    0d..h... 10025813468us : irq_handler_exit: irq=48 ret=handled
+> kworker/-1388    0d..h1.. 10025813469us : sched_waking: comm=irq/48-eth2-tx- pid=10057 prio=49 target_cpu=000
+> kworker/-1388    0dN.h2.. 10025813469us : sched_wakeup: comm=irq/48-eth2-tx- pid=10057 prio=49 target_cpu=000
+> kworker/-1388    0dN.h1.. 10025813470us : irq_handler_entry: irq=47 name=eth2-rx-0
+> kworker/-1388    0dN.h1.. 10025813470us : irq_handler_exit: irq=47 ret=handled
+> kworker/-1388    0dN.h2.. 10025813471us : sched_waking: comm=irq/47-eth2-rx- pid=10056 prio=49 target_cpu=000
+> kworker/-1388    0dN.h3.. 10025813471us : sched_wakeup: comm=irq/47-eth2-rx- pid=10056 prio=49 target_cpu=000
 
-> but on the whole I consider this issue explained and solved. I'll
-> continue to run with my patch on my machine (just not committed).
+So, kworker/0:3 was busy doing something, and we received both tx and rx
+interrupts from eth2, waking up the relevant threads.
 
-Okay.  Very sorry for this, again.
+> kworker/-1388    0dN..1.. 10025813472us : rcu_utilization: Start context switch
+> kworker/-1388    0dN..1.. 10025813472us : rcu_utilization: End context switch
+> kworker/-1388    0dN..2.. 10025813472us : sched_stat_runtime: comm=kworker/0:3 pid=1388 runtime=67566 [ns] vruntime=101216288332 [ns]
+> kworker/-1388    0d...2.. 10025813472us : sched_switch: prev_comm=kworker/0:3 prev_pid=1388 prev_prio=120 prev_state=R+ ==> next_comm=irq/48-eth2-tx- next_pid=10057 next_prio=49
+> irq/48-e-10057   0d....11 10025813473us : softirq_raise: vec=3 [action=NET_RX]
+> irq/48-e-10057   0.....12 10025813474us : softirq_entry: vec=3 [action=NET_RX]
+> irq/48-e-10057   0.....12 10025813475us : napi_poll: napi poll on napi struct ffff88040a582850 for device eth2 work 0 budget 64
 
->               Linus
+Hmm, the irq/48-eth2-tx- thread is raising NET_RX?  That seems...wrong.
+
+> irq/48-e-10057   0.....12 10025813475us : softirq_exit: vec=3 [action=NET_RX]
+> irq/48-e-10057   0d...1.. 10025813475us : rcu_utilization: Start context switch
+> irq/48-e-10057   0d...1.. 10025813476us : rcu_utilization: End context switch
+> irq/48-e-10057   0d...2.. 10025813476us : sched_switch: prev_comm=irq/48-eth2-tx- prev_pid=10057 prev_prio=49 prev_state=S ==> next_comm=irq/47-eth2-rx- next_pid=10056 next_prio=49
+> irq/47-e-10056   0d....11 10025813477us : softirq_raise: vec=3 [action=NET_RX]
+> irq/47-e-10056   0.....12 10025813477us : softirq_entry: vec=3 [action=NET_RX]
+> irq/47-e-10056   0.....12 10025813478us : napi_poll: napi poll on napi struct ffff88040a580850 for device eth2 work 0 budget 64
+> irq/47-e-10056   0.....12 10025813478us : softirq_exit: vec=3 [action=NET_RX]
+
+Oh, then we do the same thing again?  Hrmph...why?
+
+> irq/47-e-10056   0d...1.. 10025813479us : rcu_utilization: Start context switch
+> irq/47-e-10056   0d...1.. 10025813479us : rcu_utilization: End context switch
+> irq/47-e-10056   0d...2.. 10025813479us+: sched_switch: prev_comm=irq/47-eth2-rx- prev_pid=10056 prev_prio=49 prev_state=S ==> next_comm=kworker/0:3 next_pid=1388 next_prio=120
+
+Done handling the two interrupts.  Back to whatever kworker/0:3 was up
+to...
+
+> kworker/-1388    0d..h... 10025813516us : local_timer_entry: vector=239
+> kworker/-1388    0d..h1.. 10025813516us : hrtimer_interrupt: cpu=0 offset=-28999 curr=kworker/0:3[120] thread=cyclictest[19]
+> kworker/-1388    0d..h1.. 10025813517us : hrtimer_cancel: hrtimer=ffff88040a017e18
+> kworker/-1388    0d..h... 10025813517us : hrtimer_expire_entry: hrtimer=ffff88040a017e18 function=hrtimer_wakeup now=10024735682387
+
+Okay, we finally received our wakeup event.  We were expecting to be
+woken up at 10024735653388ns, but were actually woken up at 10024735682387ns.
+
+  10024735682387 - 10024735653388 = 28999ns
+
+Our timer fired ~29us late!  But why...?
+
+Sorry I don't have answers, just more questions.  I do wonder what
+kworker/0:3 was up to at the time the timer interrupt should have fired.
+
+   Julia
