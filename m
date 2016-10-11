@@ -1,166 +1,82 @@
-From: Peter Rosin <peda@axentia.se>
-Subject: Re: [PATCH 04/10] i2c: i2c-sam: Add device tree bindings
-Date: Tue, 11 Oct 2016 09:13:42 +0200
-Message-ID: <1f5afc57-6b12-4096-587f-5a0f4ebee673@axentia.se>
-References: <1475853518-22264-1-git-send-email-pantelis.antoniou@konsulko.com>
- <1475853518-22264-5-git-send-email-pantelis.antoniou@konsulko.com>
- <20161010195458.GA20134@rob-hp-laptop>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: BUILD_BUG_ON error in mlx5/core/pagealloc.c
+Date: Tue, 11 Oct 2016 16:34:18 +0900
+Message-ID: <CALzJLG9HLz3y9jdcz+OsUCLhQyTrJxW3PYMz8kYRGRqay2S=HA@mail.gmail.com>
+References: <CALx6S348UQF_oSqVSJ5h=K74_Q6cesR8g1Wf3rn14XRnRRBwgQ@mail.gmail.com>
+ <CALx6S37sZFv2kEVmhAZru5H=rLqgW2nR7iSFUaPaJqV=eXNMMg@mail.gmail.com>
+ <CALzJLG911C=Chxgy0Fm_jLf7s8L21yqmQA4fqfn909o3VgnvRg@mail.gmail.com> <CALx6S37nd2gVE4K7u49U9J_xJiaT8OU7Tc_fp29JDqi32WVVJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, Alexandre Courbot <gnurou@gmail.com>,
- devicetree@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
- linux-watchdog@vger.kernel.org, Georgi Vlaev <gvlaev@juniper.net>,
- Wolfram Sang <wsa@the-dreams.de>, Maryam Seraj <mseraj@juniper.net>,
- Frank Rowand <frowand.list@gmail.com>,
- Linus Walleij <linus.walleij@linaro.org>, linux-kernel@vger.kernel.org,
- linux-gpio@vger.kernel.org, Wim Van Sebroeck <wim@iguana.be>,
- linux-mtd@lists.infradead.org, Debjit Ghosh <dghosh@juniper.net>,
- netdev@vger.kernel.org, Brian Norris <computersforpeace@gmail.com>,
- Lee Jones <lee.jones@linaro.org>, David Woodhouse <dwmw2@infradead.org>,
- Guenter Roeck <linux@roeck-us.net>, linux-i2c@vger.kernel.org
-To: Rob Herring <robh@kernel.org>, Pantelis Antoniou
- <pantelis.antoniou@konsulko.com>
-Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
-In-Reply-To: <20161010195458.GA20134@rob-hp-laptop>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mtd/>
-List-Post: <mailto:linux-mtd@lists.infradead.org>
-List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-mtd" <linux-mtd-bounces@lists.infradead.org>
-Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:35285 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751288AbcJKHel (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 03:34:41 -0400
+Received: by mail-lf0-f47.google.com with SMTP id l131so26588447lfl.2
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 00:34:40 -0700 (PDT)
+In-Reply-To: <CALx6S37nd2gVE4K7u49U9J_xJiaT8OU7Tc_fp29JDqi32WVVJA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016-10-10 21:54, Rob Herring wrote:
-> On Fri, Oct 07, 2016 at 06:18:32PM +0300, Pantelis Antoniou wrote:
->> From: Georgi Vlaev <gvlaev@juniper.net>
+On Tue, Oct 11, 2016 at 12:58 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Mon, Oct 10, 2016 at 8:17 PM, Saeed Mahameed
+> <saeedm@dev.mellanox.co.il> wrote:
 >>
->> Add binding document for the i2c driver of SAM FPGA.
 >>
->> Signed-off-by: Georgi Vlaev <gvlaev@juniper.net>
->> [Ported from Juniper kernel]
->> Signed-off-by: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
->> ---
->>  .../devicetree/bindings/i2c/i2c-sam-mux.txt        | 20 ++++++++++
->>  Documentation/devicetree/bindings/i2c/i2c-sam.txt  | 44 ++++++++++++++++++++++
->>  2 files changed, 64 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt
->>  create mode 100644 Documentation/devicetree/bindings/i2c/i2c-sam.txt
+>> On Tuesday, October 11, 2016, Tom Herbert <tom@herbertland.com> wrote:
+>>>
+>>> On Mon, Oct 10, 2016 at 4:41 PM, Tom Herbert <tom@herbertland.com> wrot=
+e:
+>>> > I am hitting this in mlx5
+>>> >
+>>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
+>>> > =E2=80=98reclaim_pages_cmd.clone.0=E2=80=99:
+>>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:346: error: call
+>>> > to =E2=80=98__compiletime_assert_346=E2=80=99 declared with attribute=
+ error:
+>>> > BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_out, pas[i]) % 64
+>>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
+>>> > =E2=80=98give_pages=E2=80=99:
+>>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:291: error: call
+>>> > to =E2=80=98__compiletime_assert_291=E2=80=99 declared with attribute=
+ error:
+>>> > BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_in, pas[i]) % 64
+>>> >
+>>>
+>>> The expression in BUILD_BUG_ON expands to "((unsigned)(unsigned
+>>> long)(&(((struct mlx5_ifc_manage_pages_in_bits *)0)->pas[i]))) % 64".
+>>> The variable array index to pas makes this expression non-constant, I
+>>> imagine that is where the problem lies.
+>>>
+>>> > Bisecting points to:
+>>> >
+>>> > commit a533ed5e179cd15512d40282617909d3482a771c
+>>> > Author: Saeed Mahameed <saeedm@mellanox.com>
+>>> > Date:   Sun Jul 17 13:27:25 2016 +0300
+>>> >
+>>> >     net/mlx5: Pages management commands via mlx5 ifc
 >>
->> diff --git a/Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt b/Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt
->> new file mode 100644
->> index 0000000..10ddffa
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/i2c/i2c-sam-mux.txt
->> @@ -0,0 +1,20 @@
->> +Juniper's SAM FPGA I2C accelerator mux
->> +
->> +The SAM FPGA I2C mux is present only on Juniper SAM FPGA PTX series
->> +of routers.
->> +
->> +The definition of the i2c sam bus is located in the i2c-sam.txt document.
->> +
->> +Required properties:
->> +- compatible: should be "jnx,i2c-sam-mux".
->> +- reg: master number and mux number.
-> 
-> This is not how i2c muxes are done.
-> 
->> +
->> +Optional properties:
->> +- speed: If present must be either 100000 or 400000. No other values supported.
->> +
->> +Examples:
->> +
->> +pe1i2c: i2c-sam-mux@1,0 {
-> 
-> i2c-mux@...
-> 
->> +	compatible = "jnx,i2c-sam-mux";
->> +	reg = <1 0>;
->> +};
->> diff --git a/Documentation/devicetree/bindings/i2c/i2c-sam.txt b/Documentation/devicetree/bindings/i2c/i2c-sam.txt
->> new file mode 100644
->> index 0000000..4830b48
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/i2c/i2c-sam.txt
->> @@ -0,0 +1,44 @@
->> +Juniper's SAM FPGA I2C accelerator
->> +
->> +The SAM FPGA accelerator is used to connect the large number of
->> +I2C muxes that are present on Juniper PTX series of routers.
->> +While it's an i2c bus, no other devices are located besides
->> +i2c-sam-mux devices.
->> +
->> +The definition of the i2c sam mux is located in the i2c-sam-mux.txt document.
->> +
->> +Required properties:
->> +- compatible: should be "jnx,i2c-sam".
->> +- #address-cells: should be 2.
->> +- #size-cells: should be 0.
->> +- mux-channels: number of mux channels present
-> 
-> What is this needed for?
-> 
->> +
->> +Optional properties:
->> +- reg: offset and length of the register set for the device are optional since
->> +  typically the register range is provided by the parent SAM MFD device.
->> +- master-offset: Offset of where the master register memory starts.
->> +  Default value is 0x8000.
-> 
-> Make this required.
-> 
->> +- reverse-fill: Fill the start entries of transactions in reverse order
-> 
-> Needs a better explanation.
-> 
->> +- priority-tables: Use the pre-programmed priority tables in the FPGA
-> 
-> What does not present mean?
-> 
->> +- i2c-options: list of options to be written to the option field in the
->> +  FPGA controlling things like SCL push-pull drives, hold-times, etc.
-> 
->> +- bus-range: start of bus master range and number of masters.
-> 
-> Needs a better explanation.
-> 
->> +
->> +Examples:
->> +
->> +i2c-sam {
->> +	compatible = "jnx,i2c-sam";
->> +	mux-channels = <2>;
->> +	#size-cells = <0>;
->> +	#address-cells = <2>;
->> +
->> +	/* PE0 */ pe0i2c: i2c-sam-mux@0,0 {
-> 
-> i2c-mux@...
-
-Hmm, I actually think i2c@... is the usual naming for i2c-mux children.
-
-Cheers,
-Peter
-
->> +		compatible = "jnx,i2c-sam-mux";
->> +		reg = <0 0>;
->> +	};
->> +
->> +	/* PE1 */ pe1i2c: i2c-sam-mux@1,0 {
->> +		compatible = "jnx,i2c-sam-mux";
->> +		reg = <1 0>;
->> +	};
->> +};
->> -- 
->> 1.9.1
 >>
+>> Hi Tom,
+>> We know about this issue, it happens only with gcc4.4  or gcc 4.2 i don'=
+t
+>> remember exactly which.
+>> Most likely it is a gcc issue.
+>>
+> I don't believe that is the case. As I pointed out this is giving
+> BUILD_BUG_ON a non-constant expression. To fix this should just be a
+> matter of using a constant argument for the BUILD_BUG_ON. AFAICT
 
+Well, compilation work for us on most of our systems (where we have
+newer gcc), something just doesn't add up here!
+Anyway we didn't want to complicate the MACROs API and we wanted to
+investigate a little bit more.
 
-______________________________________________________
-Linux MTD discussion mailing list
-http://lists.infradead.org/mailman/listinfo/linux-mtd/
+> there's only two instances of MLX5_SET64 where this can be a problem.
+> I will post a fix shortly.
+
+Thanks Tom, Just saw it, i will ack it.
