@@ -1,82 +1,115 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: BUILD_BUG_ON error in mlx5/core/pagealloc.c
-Date: Tue, 11 Oct 2016 16:34:18 +0900
-Message-ID: <CALzJLG9HLz3y9jdcz+OsUCLhQyTrJxW3PYMz8kYRGRqay2S=HA@mail.gmail.com>
-References: <CALx6S348UQF_oSqVSJ5h=K74_Q6cesR8g1Wf3rn14XRnRRBwgQ@mail.gmail.com>
- <CALx6S37sZFv2kEVmhAZru5H=rLqgW2nR7iSFUaPaJqV=eXNMMg@mail.gmail.com>
- <CALzJLG911C=Chxgy0Fm_jLf7s8L21yqmQA4fqfn909o3VgnvRg@mail.gmail.com> <CALx6S37nd2gVE4K7u49U9J_xJiaT8OU7Tc_fp29JDqi32WVVJA@mail.gmail.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH net v2] L2TP:Adjust intf MTU,factor underlay L3,overlay L2
+Date: Tue, 11 Oct 2016 08:47:45 +0100
+Message-ID: <52890af4-38d6-6aa7-a9e0-69be60fe89fa@katalix.com>
+References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net>
+ <57ED30D7.6000009@katalix.com>
+ <alpine.DEB.2.11.1609291913070.8509@duvvury48.eng.vyatta.net>
+ <1cec5be4-0719-0dca-d3c6-8c794c867672@katalix.com>
+ <alpine.DEB.2.11.1610031954330.2198@duvvury48.eng.vyatta.net>
+ <149288c4-a352-ae30-ad3a-91d1edfa4bce@katalix.com>
+ <CAGeBGG7AS1JZYHC6T5_H6vY4wfptUtPzO=+kdCcUzJGXA0m6_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:35285 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751288AbcJKHel (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 03:34:41 -0400
-Received: by mail-lf0-f47.google.com with SMTP id l131so26588447lfl.2
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 00:34:40 -0700 (PDT)
-In-Reply-To: <CALx6S37nd2gVE4K7u49U9J_xJiaT8OU7Tc_fp29JDqi32WVVJA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: kleptog@svana.org, netdev@vger.kernel.org, davem@redhat.com,
+        linux-kernel@vger.kernel.org, nprachan@brocade.com,
+        Robert Shearman <rshearma@brocade.com>, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com,
+        bhong@brocade.com
+To: R Parameswaran <parameswaran.r7@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGeBGG7AS1JZYHC6T5_H6vY4wfptUtPzO=+kdCcUzJGXA0m6_A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 11, 2016 at 12:58 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Mon, Oct 10, 2016 at 8:17 PM, Saeed Mahameed
-> <saeedm@dev.mellanox.co.il> wrote:
->>
->>
->> On Tuesday, October 11, 2016, Tom Herbert <tom@herbertland.com> wrote:
->>>
->>> On Mon, Oct 10, 2016 at 4:41 PM, Tom Herbert <tom@herbertland.com> wrot=
-e:
->>> > I am hitting this in mlx5
->>> >
->>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
->>> > =E2=80=98reclaim_pages_cmd.clone.0=E2=80=99:
->>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:346: error: call
->>> > to =E2=80=98__compiletime_assert_346=E2=80=99 declared with attribute=
- error:
->>> > BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_out, pas[i]) % 64
->>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
->>> > =E2=80=98give_pages=E2=80=99:
->>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:291: error: call
->>> > to =E2=80=98__compiletime_assert_291=E2=80=99 declared with attribute=
- error:
->>> > BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_in, pas[i]) % 64
->>> >
->>>
->>> The expression in BUILD_BUG_ON expands to "((unsigned)(unsigned
->>> long)(&(((struct mlx5_ifc_manage_pages_in_bits *)0)->pas[i]))) % 64".
->>> The variable array index to pas makes this expression non-constant, I
->>> imagine that is where the problem lies.
->>>
->>> > Bisecting points to:
->>> >
->>> > commit a533ed5e179cd15512d40282617909d3482a771c
->>> > Author: Saeed Mahameed <saeedm@mellanox.com>
->>> > Date:   Sun Jul 17 13:27:25 2016 +0300
->>> >
->>> >     net/mlx5: Pages management commands via mlx5 ifc
->>
->>
->> Hi Tom,
->> We know about this issue, it happens only with gcc4.4  or gcc 4.2 i don'=
-t
->> remember exactly which.
->> Most likely it is a gcc issue.
->>
-> I don't believe that is the case. As I pointed out this is giving
-> BUILD_BUG_ON a non-constant expression. To fix this should just be a
-> matter of using a constant argument for the BUILD_BUG_ON. AFAICT
+On 11/10/16 02:54, R Parameswaran wrote:
+>
+>
+> Hi James,
+>
+> Please see inline:
+>
+> On Tue, Oct 4, 2016 at 12:53 AM, James Chapman <jchapman@katalix.com
+> <mailto:jchapman@katalix.com>> wrote:
+>
+>     On 04/10/16 04:12, R. Parameswaran wrote:
+>     >
+>     > Hi James,
+>     >
+>     > Please see inline, thanks for the reply:
+>     >
+>     > On Sat, 1 Oct 2016, James Chapman wrote:
+>     >
+>     >> On 30/09/16 03:39, R. Parameswaran wrote:
+>     >>>>> + /* Adjust MTU, factor overhead - underlay L3 hdr, overlay
+>     L2 hdr*/
+>     >>>>> + if (tunnel->sock->sk_family == AF_INET)
+>     >>>>> +         overhead += (ETH_HLEN + sizeof(struct iphdr));
+>     >>>>> + else if (tunnel->sock->sk_family == AF_INET6)
+>     >>>>> +         overhead += (ETH_HLEN + sizeof(struct ipv6hdr));
+>     >>>> What about options in the IP header? If certain options are
+>     set on the
+>     >>>> socket, the IP header may be larger.
+>     >>>>
+>     >>> Thanks for the reply - It looks like IP options can only be
+>     >>> enabled through setsockopt on an application's socket (if
+>     there's any
+>     >>> other way to turn on IP options, please let me know - didn't
+>     see any
+>     >>> sysctl setting for transmit). This scenario would come
+>     >>> into picture when an application opens a raw IP or UDP socket
+>     such that it
+>     >>> routes into the L2TP logical interface.
+>     >> No. An L2TP daemon (userspace) will open a socket for each
+>     tunnel that
+>     >> it creates. Control and data packets use the same socket, which
+>     is the
+>     >> socket used by this code. It may set any options on its
+>     sockets. L2TP
+>     >> tunnel sockets can be created either by an L2TP daemon (managed
+>     tunnels)
+>     >> or by ip l2tp commands (unmanaged tunnels).
+>     >>
+>     > One Q I have is whether it would be sufficient to solve this for the
+>     > common case (i.e no IP options) and have an expectation that the
+>     > administrator will explicitly provision the mtu using the 'ip
+>     link ...
+>     > mtu'  command when dealing with infrequent occurences like IP
+>     options?
+>     >
+>     > But looking at the code, it looks to be possible to pick up whether
+>     > options are enabled and how long the options are, from the
+>     ip_options struct
+>     > embedded in the tunnel socket. If you want me to, I can repost
+>     the patch
+>     > with this change (will need a few days) - please let me know if
+>     this is
+>     > what you had in mind.
+>     >
+>     >
+>     Yes, that's what I had in mind. But my preference would be that this
+>     would be a new function in the ip core, for use by any encap protocol,
+>     where appropriate.
+>
+> Discussed this with Nachi (nprachan), we were thinking of a new
+> function in ip_sockglue.c which would take the tunnel socket as
+> parameter, derive the underlay device MTU and compute the underlay L3
+> overhead (IPv4/IPv6 header, UDP header if it is a UDP socket, and IP
+> option length if the ip_options struct exists in the socket). The
+> function would be agnostic to the tunnel type (although we could
+> provision tunnel-type and encap type as parameters). Callers would
+> call it to figure out the cumulative underlay L3 overhead and the
+> underlay MTU, and then use these numbers in the MTU calculation for
+> their specific tunnel type. Let me know if that is different from what
+> you had in mind, and/or if you have any suggestions on which file to
+> place this in. I'll try and have this re-posted  by the end of this
+> week or by early next week.
+>
 
-Well, compilation work for us on most of our systems (where we have
-newer gcc), something just doesn't add up here!
-Anyway we didn't want to complicate the MACROs API and we wanted to
-investigate a little bit more.
+I think keep it simple. A function to return the size of the IP header
+associated with any IP socket, not necessarily a tunnel socket. Don't
+mix in any MTU derivation logic or UDP header size etc.
 
-> there's only two instances of MLX5_SET64 where this can be a problem.
-> I will post a fix shortly.
-
-Thanks Tom, Just saw it, i will ack it.
+Post code early as an RFC. You're more likely to get review feedback
+from others.
