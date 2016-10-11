@@ -1,71 +1,77 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [RFC] net: phy: smsc: Disable auto-negotiation on startup
-Date: Tue, 11 Oct 2016 09:32:30 -0500
-Message-ID: <4ced57d0-febe-181c-5f41-41ff3e018857@arm.com>
-References: <20161010174123.21436-1-kyle.roeschley@ni.com>
+From: Ryota Ozaki <ozaki.ryota@gmail.com>
+Subject: Re: [PATCH] doc: fix wrongly referencing dev->skb_mark
+Date: Wed, 12 Oct 2016 00:47:39 +0900
+Message-ID: <CAKrYomi4otAHxZ17VLZXi7c37xAVdq_3vzHAwQQPeo2pPkkbkQ@mail.gmail.com>
+References: <1476098139-6333-1-git-send-email-ozaki.ryota@gmail.com> <20161010134943.GA8090@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kyle Roeschley <kyle.roeschley@ni.com>, f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161010174123.21436-1-kyle.roeschley@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Ido Schimmel <idosch@idosch.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36493 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752854AbcJKPsS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 11:48:18 -0400
+Received: by mail-qk0-f195.google.com with SMTP id z190so1720789qkc.3
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 08:48:00 -0700 (PDT)
+In-Reply-To: <20161010134943.GA8090@splinter>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/10/2016 12:41 PM, Kyle Roeschley wrote:
-> Because the SMSC PHY completes auto-negotiation before the driver is
-> ready to handle interrupts, the PHY state machine never realizes that we
-> have a link. Clear the ANENABLE bit on initialization, which lets
-> genphy_config_aneg do its thing when that code is hit later.
+On Mon, Oct 10, 2016 at 10:49 PM, Ido Schimmel <idosch@idosch.org> wrote:
+> Hi,
 >
-> While this patch does fix the problem we see (no link on boot without
-> re-plugging the cable), it seems like the generic PHY code should be
-> able to handle auto-negotiation completing before interrupts are
-> enabled. Submitted as an RFC in the hopes that someone has an idea as to
-> how that could be done.
+> On Mon, Oct 10, 2016 at 08:15:39PM +0900, Ryota Ozaki wrote:
+>> Section "Flooding L2 domain" says, to avoid duplicated flooding, if
+>> skb->offload_fwd_mark is matched with dev->skb_mark, the kernel will
+>> drop the packet. However, the relevant code in __dev_queue_xmit
+>> compares skb->offload_fwd_mark with dev->offload_fwd_mark, not
+>> dev->skb_mark. I guess the text is wrong.
+>>
+>> Signed-off-by: Ryota Ozaki <ozaki.ryota@gmail.com>
+>> ---
+>>  Documentation/networking/switchdev.txt | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+>> index 31c3911..d4124a0 100644
+>> --- a/Documentation/networking/switchdev.txt
+>> +++ b/Documentation/networking/switchdev.txt
+>> @@ -286,8 +286,8 @@ otherwise there will be duplicate packets on the wire.
+>>  To avoid duplicate packets, the device/driver should mark a packet as already
+>>  forwarded using skb->offload_fwd_mark.  The same mark is set on the device
+>>  ports in the domain using dev->offload_fwd_mark.  If the skb->offload_fwd_mark
+>> -is non-zero and matches the forwarding egress port's dev->skb_mark, the kernel
+>> -will drop the skb right before transmit on the egress port, with the
+>> +is non-zero and matches the forwarding egress port's dev->offload_fwd_mark,
+>> +the kernel will drop the skb right before transmit on the egress port, with the
+>
+> I think your tree isn't up to date. The flooding mechanism (and this
+> document) were modified in commit 6bc506b4fb06 ("bridge: switchdev: Add
+> forward mark support for stacked devices")
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6bc506b4fb065eac3d89ca1ce37082e174493d9e
 
-Hi,
-
-	Which smsc chip/driver? Maybe assuring the device interrupts are 
-enabled before the phy is started is a solution?
-
-	The whole problem sounds similar to what was recently happening in the 
-smsc911x driver, but AFAIK that driver is basically only polling at this 
-point so connecting the phy before the interrupts are enabled shouldn't 
-be a problem.
-
-
-
+Oh, right. I forgot to rebase my branch after the 4.9 merge period
+and saw the file as of 4.8.
 
 >
-> This fix is copied from commit 99f81afc139c ("phy: micrel: Disable auto
-> negotiation on startup").
+> Also, in the future, please specify to which tree (net, net-next) your
+> patch should go. See:
+> https://www.kernel.org/doc/Documentation/networking/netdev-FAQ.txt
+> (under "How do I indicate which tree (net vs. net-next) my patch
+> should be in?").
+
+Thanks for the pointer. I'll follow the rule next time.
+
+Thanks,
+  ozaki-r
+
 >
-> Signed-off-by: Kyle Roeschley <kyle.roeschley@ni.com>
-> ---
->  drivers/net/phy/smsc.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
+> Thanks!
 >
-> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-> index b62c4aa..8de8011 100644
-> --- a/drivers/net/phy/smsc.c
-> +++ b/drivers/net/phy/smsc.c
-> @@ -62,6 +62,16 @@ static int smsc_phy_config_init(struct phy_device *phydev)
->  			return rc;
->  	}
->
-> +	if (phy_interrupt_is_valid(phydev)) {
-> +		rc = phy_read(phydev, MII_BMCR);
-> +		if (rc < 0)
-> +			return rc;
-> +
-> +		rc = phy_write(phydev, MII_BMCR, rc & ~BMCR_ANENABLE);
-> +		if (rc < 0)
-> +			return rc;
-> +	}
-> +
->  	return smsc_phy_ack_interrupt(phydev);
->  }
->
->
+>>  understanding that the device already forwarded the packet on same egress port.
+>>  The driver can use switchdev_port_fwd_mark_set() to set a globally unique mark
+>>  for port's dev->offload_fwd_mark, based on the port's parent ID (switch ID) and
+>> --
+>> 2.7.4
+>>
