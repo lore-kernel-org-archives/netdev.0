@@ -1,51 +1,83 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v2 iproute2 0/9] Cleanup backlog
-Date: Tue, 11 Oct 2016 07:00:39 -0400
-Message-ID: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
+Subject: [PATCH v2 iproute2 7/9] man pages: update ife action to include tcindex
+Date: Tue, 11 Oct 2016 07:00:46 -0400
+Message-ID: <1476183648-25850-8-git-send-email-jhs@emojatatu.com>
+References: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, mrv@mojatatu.com, cdillaba@mojatatu.com,
         lucasb@mojatatu.com, Jamal Hadi Salim <jhs@mojatatu.com>
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:34758 "EHLO
-        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751050AbcJKLJM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 07:09:12 -0400
-Received: by mail-io0-f181.google.com with SMTP id r30so20843308ioi.1
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 04:09:12 -0700 (PDT)
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35225 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751203AbcJKLMw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 07:12:52 -0400
+Received: by mail-it0-f67.google.com with SMTP id l13so1374604itl.2
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 04:12:51 -0700 (PDT)
+In-Reply-To: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Lucas Bates <lucasb@mojatatu.com>
 
+Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ man/man8/tc-ife.8 | 29 ++++++++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
 
-Variety of cleanup and new functionality I had sitting around on my
-private tree
-
-Craig Dillabaugh (1):
-  action gact: list pipe as a valid action
-
-Jamal Hadi Salim (3):
-  actions ife: Introduce encoding and decoding of tcindex metadata
-  actions:  add skbmod action
-  man pages: Add tc-ife to Makefile
-
-Lucas Bates (2):
-  man pages: update ife action to include tcindex
-  man pages: add man page for skbmod action
-
-Roman Mashak (3):
-  ife action: allow specifying index in hex
-  ife: print prio, mark and hash as unsigned
-  ife: improve help text
-
- include/linux/tc_act/tc_ife.h |   3 +-
- man/man8/Makefile             |   2 +-
- man/man8/tc-ife.8             |  29 ++++-
- tc/m_gact.c                   |   4 +-
- tc/m_ife.c                    |  38 ++++--
- tc/m_skbmod.c                 | 260 ++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 319 insertions(+), 17 deletions(-)
- create mode 100644 tc/m_skbmod.c
-
+diff --git a/man/man8/tc-ife.8 b/man/man8/tc-ife.8
+index 7b3601e..aaf0f97 100644
+--- a/man/man8/tc-ife.8
++++ b/man/man8/tc-ife.8
+@@ -5,8 +5,8 @@ IFE - encapsulate/decapsulate metadata
+ .SH SYNOPSIS
+ .in +8
+ .ti -8
+-.BR tc " ... " action ife"
+-.I DIRECTION ACTION
++.BR tc " ... " " action ife"
++.IR DIRECTION " [ " ACTION " ] "
+ .RB "[ " dst
+ .IR DMAC " ] "
+ .RB "[ " src
+@@ -24,7 +24,13 @@ IFE - encapsulate/decapsulate metadata
+ 
+ .ti -8
+ .IR ACTION " := { "
+-.BR allow " | " use " }"
++.BI allow " ATTR"
++.RB "| " use
++.IR "ATTR value" " }"
++
++.ti -8
++.IR ATTR " := { "
++.BR mark " | " prio " | " tcindex " }"
+ 
+ .ti -8
+ .IR CONTROL " := { "
+@@ -50,6 +56,23 @@ Encode direction only. Allows encoding specified metadata.
+ .B use
+ Encode direction only. Enforce static encoding of specified metadata.
+ .TP
++.BR mark " [ "
++.IR u32_value " ]"
++The value to set for the skb mark. The u32 value is required only when
++.BR use " is specified."
++.TP
++.BR prio " [ "
++.IR u32_value " ]"
++The value to set for priority in the skb structure. The u32 value is required
++only when
++.BR use " is specified."
++.TP
++.BR tcindex " ["
++.IR u16_value " ]"
++Value to set for the traffic control index in the skb structure. The u16 value
++is required only when
++.BR use " is specified."
++.TP
+ .BI dmac " DMAC"
+ .TQ
+ .BI smac " SMAC"
 -- 
 1.9.1
