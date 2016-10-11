@@ -1,272 +1,45 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next] tcp: Change txhash on some non-RTO retransmits
-Date: Mon, 10 Oct 2016 17:18:41 -0700
-Message-ID: <20161011001841.1118150-1-brakmo@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: slab corruption with current -git
+Date: Mon, 10 Oct 2016 20:30:19 -0400 (EDT)
+Message-ID: <20161010.203019.388602181022157591.davem@davemloft.net>
+References: <f7ta8ec71qq.fsf@redhat.com>
+        <CA+55aFy6pRhvodYG9WWjfxQBFr4ExSk_wxwY=treWYTPK+NTvQ@mail.gmail.com>
+        <CA+55aFy0szySf+SnysjXTyfiU=RMBo9U1sHAVaTKG=tUTF+XGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60625 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752418AbcJKASp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 20:18:45 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9B0ERk4020836
-        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 17:18:44 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 260k2arr42-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 17:18:44 -0700
-Received: from facebook.com (2401:db00:11:d025:face:0:13:0)     by
- mx-out.facebook.com (10.223.100.97) with ESMTP id
- 43f19bd88f4811e6a4a524be0593f280-6bfdfa50 for <netdev@vger.kernel.org>;        Mon,
- 10 Oct 2016 17:18:42 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: aconole@redhat.com, fw@strlen.de, viro@zeniv.linux.org.uk,
+        akpm@linux-foundation.org, axboe@fb.com, tytso@mit.edu,
+        cl@linux.com, pablo@netfilter.org, linux-kernel@vger.kernel.org,
+        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFy0szySf+SnysjXTyfiU=RMBo9U1sHAVaTKG=tUTF+XGw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The purpose of this patch is to help balance flows across paths. A new
-sysctl "tcp_retrans_txhash_prob" specifies the probability (0-100) that
-the txhash (IPv6 flowlabel) will be changed after a non-RTO retransmit.
-A probability is used in order to control how many flows are moved
-during a congestion event and prevent the congested path from becoming
-under utilized (which could occur if too many flows leave the current
-path). Txhash changes may be delayed in order to decrease the likelihood
-that it will trigger retransmists due to too much reordering.
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Mon, 10 Oct 2016 12:05:17 -0700
 
-Another sysctl "tcp_retrans_txhash_mode" determines the behavior after
-RTOs. If the sysctl is 0, then after an RTO, only RTOs can trigger
-txhash changes. The idea is to decrease the likelihood of going back
-to a broken path. That is, we don't want flow balancing to trigger
-changes to broken paths. The drawback is that flow balancing does
-not work as well. If the sysctl is greater than 1, then we always
-do flow balancing, even after RTOs.
+> David - I think that also explains what was wrong with the old code.
+> In the old code, this loop:
+> 
+>         while (hooks_entry && nf_entry_dereference(hooks_entry->next)) {
+> 
+> would exit with "hooks_entry" pointing to the last list entry (because
+> ->next was NULL). Nothing was ever unlinked in the loop itself,
+> because it never actually found a matching entry, but then after the
+> loop it would free that last entry because it *thought* that was the
+> match.
 
-Tested with packedrill tests (for correctness) and performance
-experiments with 2 and 3 paths. Performance experiments looked at
-aggregate goodput and fairness. For each run, we looked at the ratio of
-the goodputs for the fastest and slowest flows. These were averaged for
-all the runs. A fairness of 1 means all flows had the same goodput, a
-fairness of 2 means the fastest flow was twice as fast as the slowest
-flow.
+It only does this when the ops don't match, but yes it can happen.
 
-The setup for the performance experiments was 4 or 5 serves in a rack,
-10G links. I tested various probabilities, but 20 seemed to have the
-best tradeoff for my setup (small RTTs).
+Linus can you add some extra info to that:
 
-                      --- node1 -----
-    sender --- switch --- node2 ----- switch ---- receiver
-                      --- node3 -----
+		WARN(1, "nf_unregister_net_hook: hook not found!\n");
 
-Scenario 1: One sender sends to one receiver through 2 routes (node1 or
-node 2). The output from node1 and node2 is 1G (1gbit/sec). With only 2
-flows, without flow balancing (prob=0) the average goodput is 1.6G vs.
-1.9G with flow balancing due to 2 flows ending up in one link and either
-not moving and taking some time to move. Fairness was 1 in all cases.
-For 7 flows, goodput was 1.9G for all, but fairness was 1.5, 1.4 or 1.2
-for prob=0, prob=20,mode=0 and prob=20,mode=1 respectively. That is,
-flow balancing increased fairness.
+diagnostic, such as the reg->pf and reg->hooknum values?
 
-Scenario 2: One sender to one receiver, through 3 routes (node1,...
-node2). With 6 or 16 flows the goodput was the same for all, but
-fairness was 1.8, 1.5 and 1.2 respectively. Interestingly, the worst
-case fairness out of 10 runs were 2.2, 1.8 and 1.4 repectively. That is,
-prob=20,mode=1 improved average and worst case fairness.
-
-Scenario 3: One sender to one receiver, 2 routes, one route drops 50% of
-the packets. With 7 flows, goodput was the same 1.1G, but fairness was
-1.8, 2.0 and 2.1 respectively. That is, if there is a bad route, then
-balancing, which does more re-routes, is less fair.
-
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
----
- Documentation/networking/ip-sysctl.txt | 15 +++++++++++++++
- include/linux/tcp.h                    |  4 +++-
- include/net/tcp.h                      |  2 ++
- net/ipv4/sysctl_net_ipv4.c             | 18 ++++++++++++++++++
- net/ipv4/tcp_input.c                   | 10 ++++++++++
- net/ipv4/tcp_output.c                  | 23 ++++++++++++++++++++++-
- net/ipv4/tcp_timer.c                   |  4 ++++
- 7 files changed, 74 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 3db8c67..87a984c 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -472,6 +472,21 @@ tcp_max_reordering - INTEGER
- 	if paths are using per packet load balancing (like bonding rr mode)
- 	Default: 300
- 
-+tcp_retrans_txhash_mode - INTEGER
-+	If zero, disable txhash recalculation due to non-RTO retransmissions
-+	after an RTO. The idea is that broken paths will trigger an RTO and
-+	we don't want going back to that path due to standard retransmissons
-+	(flow balancing). The drawback is that balancing is less robust.
-+	If greater than zero, can always (probabilistically) recalculate
-+	txhash after non-RTO retransmissions.
-+
-+tcp_retrans_txhash_prob - INTEGER
-+	Probability [0 to 100] that we will recalculate txhash when a
-+	packet is resent not due to RTO (for RTO txhash is always recalculated).
-+	The recalculation of the txhash may be delayed to decrease the
-+	likelihood that reordering will trigger retransmissons.
-+	The purpose is to help balance the flows among the possible paths.
-+
- tcp_retrans_collapse - BOOLEAN
- 	Bug-to-bug compatibility with some broken printers.
- 	On retransmit try to send bigger packets to work around bugs in
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index a17ae7b..e0e3b7d 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -214,7 +214,9 @@ struct tcp_sock {
- 	} rack;
- 	u16	advmss;		/* Advertised MSS			*/
- 	u8	rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
--		unused:7;
-+		txhash_rto:1,	/* If set, don't do flow balancing	*/
-+		txhash_want:1,	/* We want to change txhash when safe	*/
-+		unused:5;
- 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
- 		thin_lto    : 1,/* Use linear timeouts for thin streams */
- 		thin_dupack : 1,/* Fast retransmit on first dupack      */
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f83b7f2..3abd304 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -271,6 +271,8 @@ extern int sysctl_tcp_autocorking;
- extern int sysctl_tcp_invalid_ratelimit;
- extern int sysctl_tcp_pacing_ss_ratio;
- extern int sysctl_tcp_pacing_ca_ratio;
-+extern int sysctl_tcp_retrans_txhash_prob;
-+extern int sysctl_tcp_retrans_txhash_mode;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 1cb67de..00d6f26 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -28,6 +28,7 @@
- static int zero;
- static int one = 1;
- static int four = 4;
-+static int hundred = 100;
- static int thousand = 1000;
- static int gso_max_segs = GSO_MAX_SEGS;
- static int tcp_retr1_max = 255;
-@@ -624,6 +625,23 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec_ms_jiffies,
- 	},
- 	{
-+		.procname	= "tcp_retrans_txhash_prob",
-+		.data		= &sysctl_tcp_retrans_txhash_prob,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &hundred,
-+	},
-+	{
-+		.procname	= "tcp_retrans_txhash_mode",
-+		.data		= &sysctl_tcp_retrans_txhash_mode,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+	},
-+	{
- 		.procname	= "icmp_msgs_per_sec",
- 		.data		= &sysctl_icmp_msgs_per_sec,
- 		.maxlen		= sizeof(int),
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index a27b9c0..fed5366 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -101,6 +101,9 @@ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
- int sysctl_tcp_early_retrans __read_mostly = 3;
- int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
- 
-+int sysctl_tcp_retrans_txhash_prob __read_mostly;
-+int sysctl_tcp_retrans_txhash_mode __read_mostly;
-+
- #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
- #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
- #define FLAG_DATA_ACKED		0x04 /* This ACK acknowledged new data.		*/
-@@ -3674,6 +3677,13 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una, &acked,
- 				    &sack_state, &now);
- 
-+	/* Check if we should set txhash (would not cause reordering) */
-+	if (tp->txhash_want &&
-+	    (tp->packets_out - tp->sacked_out) < tp->reordering) {
-+		sk_set_txhash(sk);
-+		tp->txhash_want = 0;
-+	}
-+
- 	if (tcp_ack_is_dubious(sk, flag)) {
- 		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
- 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 896e9df..58490ac 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2738,9 +2738,30 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- 		tp->retrans_out += tcp_skb_pcount(skb);
- 
- 		/* Save stamp of the first retransmit. */
--		if (!tp->retrans_stamp)
-+		if (!tp->retrans_stamp) {
- 			tp->retrans_stamp = tcp_skb_timestamp(skb);
- 
-+			/* Determine if we should reset hash, only done once
-+			 * per recovery
-+			 */
-+			if ((!tp->txhash_rto ||
-+			     sysctl_tcp_retrans_txhash_mode > 0) &&
-+			    sk->sk_txhash &&
-+			    (prandom_u32_max(100) <
-+			     sysctl_tcp_retrans_txhash_prob)) {
-+				/* If not too much reordering, or RTT is
-+				 * small enough that we don't care about
-+				 * reordering, then change it now.
-+				 * Else, wait until it is safe.
-+				 */
-+				if ((tp->packets_out - tp->sacked_out) <
-+				    tp->reordering)
-+					sk_set_txhash(sk);
-+				else
-+					tp->txhash_want = 1;
-+			}
-+		}
-+
- 	} else if (err != -EBUSY) {
- 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
- 	}
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 3ea1cf8..e66baad 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -186,6 +186,8 @@ static int tcp_write_timeout(struct sock *sk)
- 
- 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
- 		if (icsk->icsk_retransmits) {
-+			tp->txhash_rto = 1;
-+			tp->txhash_want = 0;
- 			dst_negative_advice(sk);
- 			if (tp->syn_fastopen || tp->syn_data)
- 				tcp_fastopen_cache_set(sk, 0, NULL, true, 0);
-@@ -218,6 +220,8 @@ static int tcp_write_timeout(struct sock *sk)
- 		} else {
- 			sk_rethink_txhash(sk);
- 		}
-+		tp->txhash_rto = 1;
-+		tp->txhash_want = 0;
- 
- 		retry_until = net->ipv4.sysctl_tcp_retries2;
- 		if (sock_flag(sk, SOCK_DEAD)) {
--- 
-2.9.3
+That might help track down why this is happening in the first
+place.
