@@ -1,49 +1,73 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: Re: [PATCH net-next] mlx5: Add MLX5_SET64_VCHK to fix BUILD_BUG_ON
-Date: Tue, 11 Oct 2016 16:44:46 +0900
-Message-ID: <80c54091-5d0f-89a7-83ee-cbc521246117@mellanox.com>
-References: <20161011042222.2366145-1-tom@herbertland.com>
+From: Zach Brown <zach.brown@ni.com>
+Subject: [PATCH v4 0/3] Add support for led triggers on phy link state change
+Date: Tue, 11 Oct 2016 15:26:17 -0500
+Message-ID: <1476217580-21229-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0085.outbound.protection.outlook.com ([104.47.2.85]:62034
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752842AbcJKUYg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Oct 2016 16:24:36 -0400
-In-Reply-To: <20161011042222.2366145-1-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
+ andrew@lunn.ch, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ rpurdie@rpsys.net, gregkh@linuxfoundation.org, Larry.Finger@lwfinger.net,
+ j.anaszewski@samsung.com, linux-leds@vger.kernel.org, mlindner@marvell.com
+To: f.fainelli@gmail.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
+Fix skge driver that declared enum contants that conflicted with enum
+constants in linux/leds.h
 
+Create function that encapsulates actions taken during the adjust phy link step
+of phy state changes.
 
-On 10/11/2016 01:22 PM, Tom Herbert wrote:
-> I am hitting this in mlx5:
->
-> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
-> ‘reclaim_pages_cmd.clone.0’:
-> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:346: error: call
-> to ‘__compiletime_assert_346’ declared with attribute error:
-> BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_out, pas[i]) % 64
-> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function ‘give_pages’:
-> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:291: error: call
-> to ‘__compiletime_assert_291’ declared with attribute error:
-> BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_in, pas[i]) % 64
->
-> Problem is that this is doing a BUILD_BUG_ON on a non-constant
-> expression because of trying to take offset of pas[i] in the
-> structure.
->
-> Fix is to create MLX5_SET64_VCHK that takes an additional argument
-> that is a constant. There are two callers of MLX5_SET64 that are
-> trying to get a variable offset, change those to call MLX5_SET64_VCHK
-> passing pas[0] as the argument to use in the offset check.
->
-> Fixes: a533ed5e179cd ("net/mlx5: Pages management commands via mlx5 ifc")
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+Add support for led triggers on phy link state changes by adding
+a config option. When set the config option will create a set of led triggers
+for each phy device. Users can use the led triggers to represent link state
+changes on the phy.
 
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+v2:
+ * New patch that creates phy_adjust_link function to encapsulate actions taken
+   when adjusting phy link during phy state changes
+ * led trigger speed strings changed to match existing phy speed strings
+ * New function that maps speeds to led triggers
+ * Replace magic constants with definitions when declaring trigger name
+   buffer and number of triggers.
+v3:
+ * Changed LED_ON to LED_REG_ON in skge driver to avoid possible future
+   conflict and improve consistency.
+ * Dropped rtl8712 patch that was accepted separately.
+v4:
+ * tweaked commit message
+
+Josh Cartwright (1):
+  net: phy: leds: add support for led triggers on phy link state change
+
+Zach Brown (2):
+  skge: Rename LED_OFF and LED_ON in marvel skge driver to avoid
+    conflicts with     leds namespace
+  net: phy: Encapsulate actions performed during link state changes into
+        function phy_adjust_link
+
+ drivers/net/ethernet/marvell/skge.c |   6 +-
+ drivers/net/ethernet/marvell/skge.h |   4 +-
+ drivers/net/phy/Kconfig             |  13 +++-
+ drivers/net/phy/Makefile            |   1 +
+ drivers/net/phy/phy.c               |  22 ++++---
+ drivers/net/phy/phy_device.c        |   4 ++
+ drivers/net/phy/phy_led_triggers.c  | 121 ++++++++++++++++++++++++++++++++++++
+ include/linux/phy.h                 |   9 +++
+ include/linux/phy_led_triggers.h    |  52 ++++++++++++++++
+ 9 files changed, 218 insertions(+), 14 deletions(-)
+ create mode 100644 drivers/net/phy/phy_led_triggers.c
+ create mode 100644 include/linux/phy_led_triggers.h
+
+-- 
+2.7.4
