@@ -1,91 +1,69 @@
-From: <kkmomofr@free.fr>
-Subject: 4989658971444 netdev
-Date: Tue, 11 Oct 2016 22:16:23 -0000
-Message-ID: <147622418381.30466.15390172531437707374@classic.com.np>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] bridge: add address and vlan to fdb warning
+ messages
+Date: Tue, 11 Oct 2016 15:17:20 -0700
+Message-ID: <20161011151720.33f67320@xeon-e3>
+References: <1476221632-18488-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_3992939235268_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, nikolay@cumulusnetworks.com,
+        netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host217-32-dynamic.56-82-r.retail.telecomitalia.it ([82.56.32.217]:34480
-        "HELO classic.com.np" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1754449AbcJKWQf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 18:16:35 -0400
-Content-Disposition: attachment
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:32960 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754639AbcJKWRH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 18:17:07 -0400
+Received: by mail-pf0-f176.google.com with SMTP id 128so8748839pfz.0
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 15:17:06 -0700 (PDT)
+In-Reply-To: <1476221632-18488-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAAQABAGEAAADbDwAAAAA=
+On Tue, 11 Oct 2016 14:33:51 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> This patch adds vlan and address to warning messages printed
+> in the bridge fdb code for debuggability.
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  net/bridge/br_fdb.c | 11 ++++++-----
+>  1 file changed, 6 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 6b43c8c..1257a88 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -536,8 +536,8 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+>  		if (fdb->is_local)
+>  			return 0;
+>  		br_warn(br, "adding interface %s with same address "
+> -		       "as a received packet\n",
+> -		       source ? source->dev->name : br->dev->name);
+> +		       "as a received packet (addr:%pM, vlan:%d)\n",
+> +		       source ? source->dev->name : br->dev->name, addr, vid);
+>  		fdb_delete(br, fdb);
+>  	}
+>  
+> @@ -583,9 +583,10 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+>  		/* attempt to update an entry for a local interface */
+>  		if (unlikely(fdb->is_local)) {
+>  			if (net_ratelimit())
+> -				br_warn(br, "received packet on %s with "
+> -					"own address as source address\n",
+> -					source->dev->name);
+> +				br_warn(br, "received packet on %s with own "
+> +					"address as source address "
+> +					"(addr:%pM, vlan:%d)\n",
+> +					source->dev->name, addr, vid);
+>  		} else {
+
+Isn't vlan unsigned here so print with %u
+Also it would be good to make string format on one line to allow for easy search of source.
+				br_warn(br,
+					"received packet on %s with own address %pM vlan %u",
+					source->dev->name, addr, vid);
