@@ -1,52 +1,57 @@
-From: Zach Brown <zach.brown@ni.com>
-Subject: Re: [PATCH v4 1/3] skge: Rename LED_OFF and LED_ON in marvel skge
- driver to avoid conflicts with leds namespace
-Date: Tue, 11 Oct 2016 16:29:39 -0500
-Message-ID: <20161011212938.GA24636@zach-desktop>
-References: <1476217580-21229-1-git-send-email-zach.brown@ni.com>
- <1476217580-21229-2-git-send-email-zach.brown@ni.com>
- <20161011141407.3b233e83@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, rpurdie@rpsys.net, gregkh@linuxfoundation.org,
- Larry.Finger@lwfinger.net, j.anaszewski@samsung.com,
- linux-leds@vger.kernel.org, mlindner@marvell.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20161011141407.3b233e83@xeon-e3>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next] bridge: add address and vlan to fdb warning messages
+Date: Tue, 11 Oct 2016 14:33:51 -0700
+Message-ID: <1476221632-18488-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org
+To: davem@davemloft.net, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:36122 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752581AbcJKVeA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 17:34:00 -0400
+Received: by mail-pf0-f170.google.com with SMTP id e6so7826340pfk.3
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 14:34:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2016 at 02:14:07PM -0700, Stephen Hemminger wrote:
-> On Tue, 11 Oct 2016 15:26:18 -0500
-> Zach Brown <zach.brown@ni.com> wrote:
->
-> > Adding led support for phy causes namespace conflicts for some
-> > phy drivers.
-> >
-> > The marvel skge driver declared an enum for representing the states of
-> > Link LED Register. The enum contained constant LED_OFF which conflicted
-> > with declartation found in linux/leds.h.
-> > LED_OFF changed to LED_REG_OFF
-> > Also changed LED_ON to LED_REG_ON to avoid possible future conflict and
-> > for consistency.
-> >
-> > Signed-off-by: Zach Brown <zach.brown@ni.com>
->
-> Sure, that's fine but not sure why skge would be including linux/leds.h
-> anyway.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-It's pretty convoluted. Here's the chain of includes.
-skge -> netdevice -> dsa -> phy -> phy_led_triggers -> leds
+This patch adds vlan and address to warning messages printed
+in the bridge fdb code for debuggability.
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/bridge/br_fdb.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 6b43c8c..1257a88 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -536,8 +536,8 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 		if (fdb->is_local)
+ 			return 0;
+ 		br_warn(br, "adding interface %s with same address "
+-		       "as a received packet\n",
+-		       source ? source->dev->name : br->dev->name);
++		       "as a received packet (addr:%pM, vlan:%d)\n",
++		       source ? source->dev->name : br->dev->name, addr, vid);
+ 		fdb_delete(br, fdb);
+ 	}
+ 
+@@ -583,9 +583,10 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 		/* attempt to update an entry for a local interface */
+ 		if (unlikely(fdb->is_local)) {
+ 			if (net_ratelimit())
+-				br_warn(br, "received packet on %s with "
+-					"own address as source address\n",
+-					source->dev->name);
++				br_warn(br, "received packet on %s with own "
++					"address as source address "
++					"(addr:%pM, vlan:%d)\n",
++					source->dev->name, addr, vid);
+ 		} else {
+ 			/* fastpath: update of existing entry */
+ 			if (unlikely(source != fdb->dst)) {
+-- 
+1.9.1
