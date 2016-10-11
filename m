@@ -1,36 +1,28 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
- header
-Date: Tue, 11 Oct 2016 19:37:32 +0200
-Message-ID: <1476207452.448.2.camel@redhat.com>
-References: <1dbd83dfe7f435eecc5bc460e901b47758280f30.1476206016.git.pabeni@redhat.com>
-         <20161011173216.GA16892@obsidianresearch.com>
+From: Eric Garver <e@erig.me>
+Subject: Re: [PATCH net 1/3] openvswitch: vlan: remove wrong likely statement
+Date: Tue, 11 Oct 2016 13:38:59 -0400
+Message-ID: <20161011173859.GX25403@egarver>
+References: <cover.1476111550.git.jbenc@redhat.com>
+ <a4b63fa787569359d227beecbdbf9b023081cffc.1476111550.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        netdev@vger.kernel.org
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, pravin shelar <pshelar@ovn.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50826 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36220 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932252AbcJKRhg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Oct 2016 13:37:36 -0400
-In-Reply-To: <20161011173216.GA16892@obsidianresearch.com>
+        id S932531AbcJKRjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Oct 2016 13:39:01 -0400
+Content-Disposition: inline
+In-Reply-To: <a4b63fa787569359d227beecbdbf9b023081cffc.1476111550.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-10-11 at 11:32 -0600, Jason Gunthorpe wrote:
-> On Tue, Oct 11, 2016 at 07:15:44PM +0200, Paolo Abeni wrote:
+On Mon, Oct 10, 2016 at 05:02:42PM +0200, Jiri Benc wrote:
+> This code is called whenever flow key is being extracted from the packet.
+> The packet may be as likely vlan tagged as not.
 > 
-> > Also the connected mode maximum mtu is reduced by 16 bytes to
-> > cope with the increased hard header len.
-> 
-> Changing the MTU is going to cause annoying interop problems, can you
-> avoid this?
+> Fixes: 018c1dda5ff1 ("openvswitch: 802.1AD Flow handling, actions, vlan parsing, netlink attributes")
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-I don't like changing the maximum MTU value, too, but I was unable to
-find an alternative solution. The PMTU detection should protect against
-such issues. 
+Acked-by: Eric Garver <e@erig.me>
