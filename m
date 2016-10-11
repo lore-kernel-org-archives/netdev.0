@@ -1,94 +1,64 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] net_sched: reorder pernet ops and act ops registrations
-Date: Tue, 11 Oct 2016 10:56:45 -0700
-Message-ID: <1476208605-16199-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: kjlx@templeofstupid.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
+ header
+Date: Tue, 11 Oct 2016 12:01:19 -0600
+Message-ID: <20161011180119.GB17319@obsidianresearch.com>
+References: <1dbd83dfe7f435eecc5bc460e901b47758280f30.1476206016.git.pabeni@redhat.com>
+ <20161011173216.GA16892@obsidianresearch.com>
+ <22f61258-9bcf-0adc-f23f-79a4f1d50c6a@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Paolo Abeni <pabeni@redhat.com>, linux-rdma@vger.kernel.org,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        netdev@vger.kernel.org
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:35707 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753068AbcJKR4z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 13:56:55 -0400
-Received: by mail-pa0-f67.google.com with SMTP id qn10so2017593pac.2
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 10:56:55 -0700 (PDT)
+Received: from quartz.orcorp.ca ([184.70.90.242]:57079 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753480AbcJKSDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Oct 2016 14:03:41 -0400
+Content-Disposition: inline
+In-Reply-To: <22f61258-9bcf-0adc-f23f-79a4f1d50c6a@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krister reported a kernel NULL pointer dereference after
-tcf_action_init_1() invokes a_o->init(), it is a race condition
-where one thread calling tcf_register_action() to initialize
-the netns data after putting act ops in the global list and
-the other thread searching the list and then calling
-a_o->init(net, ...).
+On Tue, Oct 11, 2016 at 01:41:56PM -0400, Doug Ledford wrote:
 
-Fix this by moving the pernet ops registration before making
-the action ops visible. This is fine because: a) we don't
-rely on act_base in pernet ops->init(), b) in the worst case we
-have a fully initialized netns but ops is still not ready so
-new actions still can't be created.
+> declare the header.  The problem then became that the sg setup is such
+> that we are limited to 16 4k pages for the sg array, so that header had
+> to come out of the 64k maximum mtu.
 
-Reported-by: Krister Johansen <kjlx@templeofstupid.com>
-Tested-by: Krister Johansen <kjlx@templeofstupid.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/act_api.c | 19 +++++++++++--------
- 1 file changed, 11 insertions(+), 8 deletions(-)
+Oh, that clarifies things..
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index c910217..a512b18 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -341,22 +341,25 @@ int tcf_register_action(struct tc_action_ops *act,
- 	if (!act->act || !act->dump || !act->init || !act->walk || !act->lookup)
- 		return -EINVAL;
+Hum, so various options become:
+ - Use >=17 SGL entries when creating the QP. Is this possible
+   on common adapters?
+ - Use the FRWR infrastructure when necessary. Is there any chance
+   the majority of skbs will have at least two physically
+   continuous pages to make this overhead rare? Perhaps as a fall
+   back if many adaptors can do >=17 SGLs 
+ - Pad the hard header out to 4k and discard the first page
+   when building the sgl
+ - Memcopy the first ~8k into a contiguous 8k region on send
+ - Move the pseudo header to the end so it can cross the page
+   barrier without needing a sgl entry. (probably impossible?)
  
-+	/* We have to register pernet ops before making the action ops visible,
-+	 * otherwise tcf_action_init_1() could get a partially initialized
-+	 * netns.
-+	 */
-+	ret = register_pernet_subsys(ops);
-+	if (ret)
-+		return ret;
-+
- 	write_lock(&act_mod_lock);
- 	list_for_each_entry(a, &act_base, head) {
- 		if (act->type == a->type || (strcmp(act->kind, a->kind) == 0)) {
- 			write_unlock(&act_mod_lock);
-+			unregister_pernet_subsys(ops);
- 			return -EEXIST;
- 		}
- 	}
- 	list_add_tail(&act->head, &act_base);
- 	write_unlock(&act_mod_lock);
- 
--	ret = register_pernet_subsys(ops);
--	if (ret) {
--		tcf_unregister_action(act, ops);
--		return ret;
--	}
--
- 	return 0;
- }
- EXPORT_SYMBOL(tcf_register_action);
-@@ -367,8 +370,6 @@ int tcf_unregister_action(struct tc_action_ops *act,
- 	struct tc_action_ops *a;
- 	int err = -ENOENT;
- 
--	unregister_pernet_subsys(ops);
--
- 	write_lock(&act_mod_lock);
- 	list_for_each_entry(a, &act_base, head) {
- 		if (a == act) {
-@@ -378,6 +379,8 @@ int tcf_unregister_action(struct tc_action_ops *act,
- 		}
- 	}
- 	write_unlock(&act_mod_lock);
-+	if (!err)
-+		unregister_pernet_subsys(ops);
- 	return err;
- }
- EXPORT_SYMBOL(tcf_unregister_action);
--- 
-2.1.0
+>From Paolo
+
+> AFAICS the max mtu is already underlying h/w dependent, how does such
+> differences are currently coped by ? (I'm sorry I lack some/a lot of IB
+> back-ground)
+
+It isn't h/w dependent. In CM mode the MTU is 65520 because that is
+what is hard coded into the ipoib driver. We tell everyone to use that
+number. Eg see RH's docs on the subject:
+
+https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Networking_Guide/sec-Configuring_IPoIB.html
+
+AFAIK, today everyone just wires that number into their scripts, so we
+have to mass change everything to the smaller number. That sounds
+really hard, IMHO if there is any way to avoid it we should, even if
+it is a little costly.
+
+Jason
