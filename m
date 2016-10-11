@@ -1,58 +1,48 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH 1/1] vxlan: insert ipv6 macro
-Date: Tue, 11 Oct 2016 16:06:15 +0200
-Message-ID: <20161011160615.7f7f7746@griffin>
-References: <1476174211-9358-1-git-send-email-zyjzyj2000@gmail.com>
+From: Chris Rorvick <chris@rorvick.com>
+Subject: Re: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
+Date: Tue, 11 Oct 2016 09:27:36 -0500
+Message-ID: <CAEUsAPYOnSu5x3oak380YzrJPM3_N1bz2efkZQZ-8vLeTD286Q@mail.gmail.com>
+References: <20161010071943.4717-1-chris@rorvick.com> <1476108164.5210.11.camel@coelho.fi>
+ <1476180668.17022.21.camel@tiscali.nl> <CAEUsAPYDPCP0NBaTmy4xqFJhAS4xFQYinoNTknxFT23ef0dk4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pabeni@redhat.com, daniel@iogearbox.net,
-        pshelar@nicira.com, aduyck@mirantis.com,
-        hannes@stressinduktion.org, davem@davemloft.net
-To: zyjzyj2000@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49806 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752445AbcJKOQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Oct 2016 10:16:45 -0400
-In-Reply-To: <1476174211-9358-1-git-send-email-zyjzyj2000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Luca Coelho <luca@coelho.fi>,
+        Intel Linux Wireless <linuxwifi@intel.com>,
+        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Oren Givon <oren.givon@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEUsAPYDPCP0NBaTmy4xqFJhAS4xFQYinoNTknxFT23ef0dk4w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Oct 2016 16:23:31 +0800, zyjzyj2000@gmail.com wrote:
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2647,15 +2647,15 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
->  	int err;
->  
->  	memset(&udp_conf, 0, sizeof(udp_conf));
-> -
-> +#if IS_ENABLED(CONFIG_IPV6)
->  	if (ipv6) {
->  		udp_conf.family = AF_INET6;
->  		udp_conf.use_udp6_rx_checksums =
->  		    !(flags & VXLAN_F_UDP_ZERO_CSUM6_RX);
->  		udp_conf.ipv6_v6only = 1;
-> -	} else {
-> +	} else 
-> +#endif
->  		udp_conf.family = AF_INET;
-> -	}
+On Tue, Oct 11, 2016 at 9:09 AM, Chris Rorvick <chris@rorvick.com> wrote:
+> I didn't receive your email so I'll try to respond via Paul's.
 
-Zhu Yanjun, before posting patches such as the previous ones or
-this one, please test whether they make any difference. In this case,
-try to compile the code with IPv6 disabled before and after this patch,
-disassemble and compare the results. You'll see that this patch is
-pointless.
+>>> If this is really bothering you, I guess I could apply this patch for
+>>> now.  But as I said, this is not solving the actual problem.
+>>
+>> Bikeshedding: I think IWL_INFO() is more appropriate, as info doesn't
+>> imply one needs to act on this message, while warn does imply that
+>> action is needed.
+>
+> Agreed.  I still think making this a warning is appropriate, but it
+> seems pretty clear this is not an error.  This has nothing to do with
+> how much it bothers me.  An error tells the user something needs to be
+> fixed, but in this case the interface is working fine.  Making it a
+> warning with an improved message will result in fewer people wasting
+> their time.
 
-It's pretty obvious from the code but to be really sure, I've just
-quickly built the vxlan module with IPv6 disabled. And indeed, as
-expected, the compiler just inlined everything into vxlan_open. The
-whole chain vxlan_open -> vxlan_sock_add -> __vxlan_sock_add (note that
-there's only a single caller of __vxlan_sock_add with IPv6 disabled) ->
-vxlan_socket_create -> vxlan_create_sock is inlined.
+I found your original email on lkml.org... should have looked there in
+the first place!  Yes, if there is a fix for the underlying issue then
+that is obviously preferred.  When I investigated this I saw several
+reports spanning at least a few distros and kernel versions with at
+least some concluding "this is normal".
 
-It also means the code in the "if (ipv6)" branch is completely
-eliminated by the compiler even without ugly #ifdefs.
+Again, thanks!
 
- Jiri
+Chris
