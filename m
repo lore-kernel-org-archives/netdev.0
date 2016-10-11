@@ -1,68 +1,56 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCHv1 net] xen-netback: fix guest Rx stall detection (after
- guest Rx refactor)
-Date: Tue, 11 Oct 2016 15:54:38 +0000
-Message-ID: <6305305ff4664122b65d8dd0db9f5b32@AMSPEX02CL03.citrite.net>
-References: <1476200907-16085-1-git-send-email-david.vrabel@citrix.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] mlx5: Add MLX5_SET64_VCHK to fix BUILD_BUG_ON
+Date: Tue, 11 Oct 2016 08:46:45 -0700
+Message-ID: <CALx6S346RSTg6Knik5J4-BdvnTLrx28y-ADCt9ga344OFq4V0w@mail.gmail.com>
+References: <20161011042222.2366145-1-tom@herbertland.com> <063D6719AE5E284EB5DD2968C1650D6DB01E62DC@AcuExch.aculab.com>
+ <CALzJLG_9Yr=jCPix2Oisxf22CLHxtYYyXejYxkBi-A85kZ_Shw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Vrabel <david.vrabel@citrix.com>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-        Wei Liu <wei.liu2@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>,
+        "kernel-team@fb.com" <kernel-team@fb.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:22820 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753111AbcJKP4b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 11:56:31 -0400
-In-Reply-To: <1476200907-16085-1-git-send-email-david.vrabel@citrix.com>
-Content-Language: en-US
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:35479 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752245AbcJKQEw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 12:04:52 -0400
+Received: by mail-qt0-f194.google.com with SMTP id g49so744064qtc.2
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 09:04:08 -0700 (PDT)
+In-Reply-To: <CALzJLG_9Yr=jCPix2Oisxf22CLHxtYYyXejYxkBi-A85kZ_Shw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Vrabel [mailto:david.vrabel@citrix.com]
-> Sent: 11 October 2016 16:48
-> To: netdev@vger.kernel.org
-> Cc: David Vrabel <david.vrabel@citrix.com>; xen-devel@lists.xenproject.org;
-> Paul Durrant <Paul.Durrant@citrix.com>; Wei Liu <wei.liu2@citrix.com>
-> Subject: [PATCHv1 net] xen-netback: fix guest Rx stall detection (after guest
-> Rx refactor)
-> 
-> If a VIF has been ready for rx_stall_timeout (60s by default) and an
-> Rx ring is drained of all requests an Rx stall will be incorrectly
-> detected.  When this occurs and the guest Rx queue is empty, the Rx
-> ring's event index will not be set and the frontend will not raise an
-> event when new requests are placed on the ring, permanently stalling
-> the VIF.
-> 
-> This is a regression introduced by eb1723a29b9a7 (xen-netback:
-> refactor guest rx).
-> 
-> Fix this by reinstating the setting of queue->last_rx_time when
-> placing a packet onto the guest Rx ring.
-> 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+On Tue, Oct 11, 2016 at 4:57 AM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+> On Tue, Oct 11, 2016 at 7:50 PM, David Laight <David.Laight@aculab.com> wrote:
+>> From: Tom Herbert
+>>> Sent: 11 October 2016 05:22
+>> ...
+>>> Fix is to create MLX5_SET64_VCHK that takes an additional argument
+>>> that is a constant. There are two callers of MLX5_SET64 that are
+>>> trying to get a variable offset, change those to call MLX5_SET64_VCHK
+>>> passing pas[0] as the argument to use in the offset check.
+>>
+>> I think I'd separate the array index instead.
+>> Something like:
+>>
+>> #define MLX5_SET64_INDEXED(typ, p, fld, ndx, v) do { \
+>>         BUILD_BUG_ON(__mlx5_bit_off(typ, fld) % 64); \
+>>         __MLX5_SET64(typ, p, fld[ndx], v); \
+>> } while (0)
+>>
+>>         David
+>
+> Yes, I think this looks more natural, but instead MLX5_SET64_INDEXED,
+> I prefer to have 2 macros
+> MLX5_SET64(typ, p, fld, v) and MLX5_ARRAY_SET64(typ, p, fld, idx, v).
+>
+> Tom, do you want me to fix it ?
+>
+Please do.
 
-> ---
->  drivers/net/xen-netback/rx.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/net/xen-netback/rx.c b/drivers/net/xen-netback/rx.c
-> index 8e9ade6..d69f2a9 100644
-> --- a/drivers/net/xen-netback/rx.c
-> +++ b/drivers/net/xen-netback/rx.c
-> @@ -425,6 +425,8 @@ void xenvif_rx_skb(struct xenvif_queue *queue)
-> 
->  	xenvif_rx_next_skb(queue, &pkt);
-> 
-> +	queue->last_rx_time = jiffies;
-> +
->  	do {
->  		struct xen_netif_rx_request *req;
->  		struct xen_netif_rx_response *rsp;
-> --
-> 2.1.4
+> Thanks,
+> Saeed.
