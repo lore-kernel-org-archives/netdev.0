@@ -1,56 +1,38 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] mlx5: Add MLX5_SET64_VCHK to fix BUILD_BUG_ON
-Date: Tue, 11 Oct 2016 08:46:45 -0700
-Message-ID: <CALx6S346RSTg6Knik5J4-BdvnTLrx28y-ADCt9ga344OFq4V0w@mail.gmail.com>
-References: <20161011042222.2366145-1-tom@herbertland.com> <063D6719AE5E284EB5DD2968C1650D6DB01E62DC@AcuExch.aculab.com>
- <CALzJLG_9Yr=jCPix2Oisxf22CLHxtYYyXejYxkBi-A85kZ_Shw@mail.gmail.com>
+From: Sistemas administrador <administrator@ancol.com>
+Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
+Date: Tue, 11 Oct 2016 21:55:02 +0530
+Message-ID: <20161011162516.977117CA1712@students.itb.ac.id>
+Reply-To: mailsss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "saeedm@mellanox.com" <saeedm@mellanox.com>,
-        "kernel-team@fb.com" <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35479 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752245AbcJKQEw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 12:04:52 -0400
-Received: by mail-qt0-f194.google.com with SMTP id g49so744064qtc.2
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 09:04:08 -0700 (PDT)
-In-Reply-To: <CALzJLG_9Yr=jCPix2Oisxf22CLHxtYYyXejYxkBi-A85kZ_Shw@mail.gmail.com>
+Received: from mx2.itb.ac.id ([167.205.23.7]:61966 "EHLO mx2.itb.ac.id"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752417AbcJKQgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Oct 2016 12:36:20 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2016 at 4:57 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Tue, Oct 11, 2016 at 7:50 PM, David Laight <David.Laight@aculab.com> wrote:
->> From: Tom Herbert
->>> Sent: 11 October 2016 05:22
->> ...
->>> Fix is to create MLX5_SET64_VCHK that takes an additional argument
->>> that is a constant. There are two callers of MLX5_SET64 that are
->>> trying to get a variable offset, change those to call MLX5_SET64_VCHK
->>> passing pas[0] as the argument to use in the offset check.
->>
->> I think I'd separate the array index instead.
->> Something like:
->>
->> #define MLX5_SET64_INDEXED(typ, p, fld, ndx, v) do { \
->>         BUILD_BUG_ON(__mlx5_bit_off(typ, fld) % 64); \
->>         __MLX5_SET64(typ, p, fld[ndx], v); \
->> } while (0)
->>
->>         David
->
-> Yes, I think this looks more natural, but instead MLX5_SET64_INDEXED,
-> I prefer to have 2 macros
-> MLX5_SET64(typ, p, fld, v) and MLX5_ARRAY_SET64(typ, p, fld, idx, v).
->
-> Tom, do you want me to fix it ?
->
-Please do.
+ATENCIÓN;
 
-> Thanks,
-> Saeed.
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
+vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
+
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
+
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico © 2016
+
+¡gracias
+Sistemas administrador
