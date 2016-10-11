@@ -1,43 +1,42 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
- header
-Date: Tue, 11 Oct 2016 12:30:19 -0600
-Message-ID: <20161011183019.GC20253@obsidianresearch.com>
-References: <1dbd83dfe7f435eecc5bc460e901b47758280f30.1476206016.git.pabeni@redhat.com>
- <20161011173216.GA16892@obsidianresearch.com>
- <22f61258-9bcf-0adc-f23f-79a4f1d50c6a@redhat.com>
- <20161011180119.GB17319@obsidianresearch.com>
- <1476209407.448.9.camel@redhat.com>
- <073e0007-a43b-134d-ba7e-b290304be585@redhat.com>
+From: =?UTF-8?Q?Bj=C3=B8rnar_Ness?= <bjornar.ness@gmail.com>
+Subject: saddr based blackhole/unreachable route
+Date: Tue, 11 Oct 2016 20:39:49 +0200
+Message-ID: <CAJO99Tn7oaGEhRKEBR83K_+JSJUaFXEqvMnbM3vOLVxDqF9wtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <073e0007-a43b-134d-ba7e-b290304be585-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f171.google.com ([209.85.161.171]:36147 "EHLO
+        mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750909AbcJKStE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 14:49:04 -0400
+Received: by mail-yw0-f171.google.com with SMTP id u124so19167710ywg.3
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 11:47:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2016 at 02:17:51PM -0400, Doug Ledford wrote:
+Hello, netdev
 
-> Well, not exactly.  Even if we put 65520 into the scripts, the kernel
-> will silently drop it down to 65504.  It actually won't require anyone
-> change anything, they just won't get the full value.  I experimented
-> with this in the past for other reasons and an overly large MTU setting
-> just resulted in the max MTU.  I don't know if that's changed, but if it
-> still works that way, this is much less of an issue than it might
-> otherwise be.
+In a typical setup (eth0=internet, eth1=lan) i populate routing table
+100 with saddrs I want
+dropped, and: "ip ru a pref 100 lookup table 100"
 
-So it is just docs and relying on PMTU? That is not as bad..
+What I would expect to see is packets with a saddr in table 100 coming
+in eth0 will go out eth1,
+with replies beeing dropped, but I do not see the packets going out eth1 at all.
 
-Still would be nice to avoid if at all possible..
+Have tried searching and following the fib codepath, but have still
+not managed to understand
+what is really going on here.
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Is the saddr looked up in the routing table?
+Why dont I get icmp unreachable for unreachable routes?
+Is tcpdump tricking me here?
+
+I like the behavior, I just don't know if I can trust it.
+
+Kernel 4.8.1
+
+Regards,
+-- 
+Bj(/)rnar
