@@ -1,51 +1,79 @@
-From: Chris Caputo <ccaputo@alt.net>
-Subject: Re: kernel v4.8: iptables logs are truncated with the 4.8 kernel?
-Date: Tue, 11 Oct 2016 03:57:52 +0000 (UTC)
-Message-ID: <alpine.LNX.2.00.1610110353160.3698@nacho.alt.net>
-References: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
-        <Pine.LNX.4.64.1610100627230.28174@nacho.alt.net>
-        <CAML_gOeUOrt=-D3VHS2B3B_Q1F2-DAYK95Oxu4FEvfE43hjb3g@mail.gmail.com>
-        <Pine.LNX.4.64.1610101818110.28174@nacho.alt.net>
-        <CAML_gOeNcgH-26iL6W5GDf0Ke0Sbpe9MTSULTvTnuiR9Cj_ZLA@mail.gmail.com>
-Reply-To: Chris Caputo <ccaputo-dated-1486526273.d9d440@alt.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: BUILD_BUG_ON error in mlx5/core/pagealloc.c
+Date: Mon, 10 Oct 2016 20:58:09 -0700
+Message-ID: <CALx6S37nd2gVE4K7u49U9J_xJiaT8OU7Tc_fp29JDqi32WVVJA@mail.gmail.com>
+References: <CALx6S348UQF_oSqVSJ5h=K74_Q6cesR8g1Wf3rn14XRnRRBwgQ@mail.gmail.com>
+ <CALx6S37sZFv2kEVmhAZru5H=rLqgW2nR7iSFUaPaJqV=eXNMMg@mail.gmail.com> <CALzJLG911C=Chxgy0Fm_jLf7s8L21yqmQA4fqfn909o3VgnvRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vishwanath Pai <vpai@akamai.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Justin Piszcz <jpiszcz@lucidpixels.com>,
-        linux-kernel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Liping Zhang <zlpnobody@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAML_gOeNcgH-26iL6W5GDf0Ke0Sbpe9MTSULTvTnuiR9Cj_ZLA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:35377 "EHLO
+        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752047AbcJKD6Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2016 23:58:16 -0400
+Received: by mail-qk0-f179.google.com with SMTP id z190so12038739qkc.2
+        for <netdev@vger.kernel.org>; Mon, 10 Oct 2016 20:58:15 -0700 (PDT)
+In-Reply-To: <CALzJLG911C=Chxgy0Fm_jLf7s8L21yqmQA4fqfn909o3VgnvRg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Oct 2016, Liping Zhang wrote:
-> Yes, thanks for clarifying this. There's a bug in kernel, can you try
-> this patch:
-> 
-> diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
-> index 018eed7..8c069b4 100644
-> --- a/net/netfilter/xt_NFLOG.c
-> +++ b/net/netfilter/xt_NFLOG.c
-> @@ -32,6 +32,7 @@ nflog_tg(struct sk_buff *skb, const struct
-> xt_action_param *par)
->         li.u.ulog.copy_len   = info->len;
->         li.u.ulog.group      = info->group;
->         li.u.ulog.qthreshold = info->threshold;
-> +       li.u.ulog.flags      = 0;
-> 
->         if (info->flags & XT_NFLOG_F_COPY_LEN)
->                 li.u.ulog.flags |= NF_LOG_F_COPY_LEN;
+On Mon, Oct 10, 2016 at 8:17 PM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+>
+>
+> On Tuesday, October 11, 2016, Tom Herbert <tom@herbertland.com> wrote:
+>>
+>> On Mon, Oct 10, 2016 at 4:41 PM, Tom Herbert <tom@herbertland.com> wrote=
+:
+>> > I am hitting this in mlx5
+>> >
+>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
+>> > =E2=80=98reclaim_pages_cmd.clone.0=E2=80=99:
+>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:346: error: call
+>> > to =E2=80=98__compiletime_assert_346=E2=80=99 declared with attribute =
+error:
+>> > BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_out, pas[i]) % 64
+>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
+>> > =E2=80=98give_pages=E2=80=99:
+>> > drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:291: error: call
+>> > to =E2=80=98__compiletime_assert_291=E2=80=99 declared with attribute =
+error:
+>> > BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_in, pas[i]) % 64
+>> >
+>>
+>> The expression in BUILD_BUG_ON expands to "((unsigned)(unsigned
+>> long)(&(((struct mlx5_ifc_manage_pages_in_bits *)0)->pas[i]))) % 64".
+>> The variable array index to pas makes this expression non-constant, I
+>> imagine that is where the problem lies.
+>>
+>> > Bisecting points to:
+>> >
+>> > commit a533ed5e179cd15512d40282617909d3482a771c
+>> > Author: Saeed Mahameed <saeedm@mellanox.com>
+>> > Date:   Sun Jul 17 13:27:25 2016 +0300
+>> >
+>> >     net/mlx5: Pages management commands via mlx5 ifc
+>
+>
+> Hi Tom,
+> We know about this issue, it happens only with gcc4.4  or gcc 4.2 i don't
+> remember exactly which.
+> Most likely it is a gcc issue.
+>
+I don't believe that is the case. As I pointed out this is giving
+BUILD_BUG_ON a non-constant expression. To fix this should just be a
+matter of using a constant argument for the BUILD_BUG_ON. AFAICT
+there's only two instances of MLX5_SET64 where this can be a problem.
+I will post a fix shortly.
 
-I have tested the above patch with 4.8.1, with and without nflog-size 
-defined in an iptables configuration, and it works well.
+Tom
 
-The ulogd-2.0.5 segfaults no longer happen when nflog-size is not present 
-in a target.
-
-I recommend this fix.
-
-Thanks,
-Chris
+> Anyway, we are working on the issue and we will provide a fix or a W/A
+> hopefully next week. This week most of the team are on vacation.
+>
+> Thanks
+> Saeed.
