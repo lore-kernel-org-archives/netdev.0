@@ -1,18 +1,18 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v2 iproute2 1/9] ife action: allow specifying index in hex
-Date: Tue, 11 Oct 2016 07:00:40 -0400
-Message-ID: <1476183648-25850-2-git-send-email-jhs@emojatatu.com>
+Subject: [PATCH v2 iproute2 3/9] ife: improve help text
+Date: Tue, 11 Oct 2016 07:00:42 -0400
+Message-ID: <1476183648-25850-4-git-send-email-jhs@emojatatu.com>
 References: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, mrv@mojatatu.com, cdillaba@mojatatu.com,
         lucasb@mojatatu.com, Jamal Hadi Salim <jhs@mojatatu.com>
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34139 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752385AbcJKLOf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 07:14:35 -0400
-Received: by mail-io0-f194.google.com with SMTP id i202so1362512ioi.1
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 04:14:35 -0700 (PDT)
+Received: from mail-it0-f67.google.com ([209.85.214.67]:34366 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752015AbcJKLS3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 07:18:29 -0400
+Received: by mail-it0-f67.google.com with SMTP id e203so1393614itc.1
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 04:18:22 -0700 (PDT)
 In-Reply-To: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,21 +22,27 @@ From: Roman Mashak <mrv@mojatatu.com>
 Signed-off-by: Roman Mashak <mrv@mojatatu.com>
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- tc/m_ife.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ tc/m_ife.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/tc/m_ife.c b/tc/m_ife.c
-index 0219760..a5a7516 100644
+index 588bad7..862461b 100644
 --- a/tc/m_ife.c
 +++ b/tc/m_ife.c
-@@ -152,7 +152,7 @@ static int parse_ife(struct action_util *a, int *argc_p, char ***argv_p,
- 	if (argc) {
- 		if (matches(*argv, "index") == 0) {
- 			NEXT_ARG();
--			if (get_u32(&p.index, *argv, 10)) {
-+			if (get_u32(&p.index, *argv, 0)) {
- 				fprintf(stderr, "ife: Illegal \"index\"\n");
- 				return -1;
- 			}
+@@ -29,12 +29,13 @@
+ static void ife_explain(void)
+ {
+ 	fprintf(stderr,
+-		"Usage:... ife {decode|encode} {ALLOW|USE} [dst DMAC] [src SMAC] [type TYPE] [CONTROL] [index INDEX]\n");
++		"Usage:... ife {decode|encode} [{ALLOW|USE} ATTR] [dst DMAC] [src SMAC] [type TYPE] [CONTROL] [index INDEX]\n");
+ 	fprintf(stderr,
+ 		"\tALLOW := Encode direction. Allows encoding specified metadata\n"
+ 		"\t\t e.g \"allow mark\"\n"
+ 		"\tUSE := Encode direction. Enforce Static encoding of specified metadata\n"
+ 		"\t\t e.g \"use mark 0x12\"\n"
++		"\tATTR := mark (32-bit), prio (32-bit), tcindex (16-bit)\n"
+ 		"\tDMAC := 6 byte Destination MAC address to encode\n"
+ 		"\tSMAC := optional 6 byte Source MAC address to encode\n"
+ 		"\tTYPE := optional 16 bit ethertype to encode\n"
 -- 
 1.9.1
