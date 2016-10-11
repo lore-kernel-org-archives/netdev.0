@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: slab corruption with current -git
-Date: Tue, 11 Oct 2016 04:57:37 -0400 (EDT)
-Message-ID: <20161011.045737.227906000874505402.davem@davemloft.net>
-References: <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
-        <CA+55aFzcweyWCqq-fRAnJkFB7neKwKsXH=TMcLtRQRs2Wn6XEQ@mail.gmail.com>
-        <CA+55aFwhscZcWJVLbq+qUgNaN34VwBxFwUR97ktM-7003PcexQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: aconole@redhat.com, fw@strlen.de, viro@zeniv.linux.org.uk,
-        akpm@linux-foundation.org, axboe@fb.com, tytso@mit.edu,
-        cl@linux.com, pablo@netfilter.org, linux-kernel@vger.kernel.org,
-        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFwhscZcWJVLbq+qUgNaN34VwBxFwUR97ktM-7003PcexQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: [PATCH 6/6] fjes: Update fjes driver version : 1.2
+Date: Tue, 11 Oct 2016 17:55:35 +0900
+Message-ID: <1476176135-18945-1-git-send-email-izumi.taku@jp.fujitsu.com>
+References: <1476176047-18670-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Cc: Taku <izumi.taku@jp.fujitsu.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwym03.jp.fujitsu.com ([211.128.242.42]:25832 "EHLO
+        mgwym03.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752642AbcJKJRm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 05:17:42 -0400
+Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
+        by yt-mxoi1.gw.nic.fujitsu.com (Postfix) with ESMTP id 198BFAC0173
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 18:06:30 +0900 (JST)
+In-Reply-To: <1476176047-18670-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 10 Oct 2016 22:47:50 -0700
+From: Taku <izumi.taku@jp.fujitsu.com>
 
-> On Mon, Oct 10, 2016 at 10:39 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
->>
->> I guess I will have to double-check that the slub corruption is gone
->> still with that fixed.
-> 
-> So I'm not getting any warnings now from SLUB debugging. So the
-> original bug seems to not have re-surfaced, and the registration bug
-> is gone, so now the unregistration doesn't warn about anything either.
-> 
-> But I only rebooted three times.
+Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+---
+ drivers/net/fjes/fjes_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Looks good to me, I applied it to my tree with your signoff and will
-send you a pull request right now.
-
-Thanks!
+diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+index 359e7a5..f36eb4a 100644
+--- a/drivers/net/fjes/fjes_main.c
++++ b/drivers/net/fjes/fjes_main.c
+@@ -30,7 +30,7 @@
+ #include "fjes_trace.h"
+ 
+ #define MAJ 1
+-#define MIN 1
++#define MIN 2
+ #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN)
+ #define DRV_NAME	"fjes"
+ char fjes_driver_name[] = DRV_NAME;
+-- 
+2.6.6
