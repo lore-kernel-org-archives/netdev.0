@@ -1,91 +1,57 @@
-From: Zach Brown <zach.brown@ni.com>
-Subject: [PATCH v4 1/3] skge: Rename LED_OFF and LED_ON in marvel skge driver
- to avoid conflicts with leds namespace
-Date: Tue, 11 Oct 2016 15:26:18 -0500
-Message-ID: <1476217580-21229-2-git-send-email-zach.brown@ni.com>
-References: <1476217580-21229-1-git-send-email-zach.brown@ni.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- andrew@lunn.ch, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- rpurdie@rpsys.net, gregkh@linuxfoundation.org, Larry.Finger@lwfinger.net,
- j.anaszewski@samsung.com, linux-leds@vger.kernel.org, mlindner@marvell.com
-To: f.fainelli@gmail.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1476217580-21229-1-git-send-email-zach.brown@ni.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Vadim Fedorenko <junk@yandex-team.ru>
+Subject: [PATCH net] ip6_tunnel: fix ip6_tnl_lookup
+Date: Tue, 11 Oct 2016 22:47:20 +0300
+Message-ID: <20161011203454.F2B87341C3E@junk-ub14>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pmsearch-qa01d.mail.yandex.net ([5.255.216.105]:33943 "EHLO
+        outback2m.cmail.yandex.net" rhost-flags-OK-FAIL-OK-OK)
+        by vger.kernel.org with ESMTP id S1754934AbcJKUl0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 16:41:26 -0400
+Received: from outback2m.cmail.yandex.net (outback2m.cmail.yandex.net [127.0.0.1])
+        by outback2m.cmail.yandex.net (Yandex) with ESMTP id 5203321BA7
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 23:34:55 +0300 (MSK)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adding led support for phy causes namespace conflicts for some
-phy drivers.
+The commit ea3dc9601bda ("ip6_tunnel: Add support for wildcard tunnel
+endpoints.") introduces support for wildcards in tunnels endpoints,
+but in some rare circumstances ip6_tnl_lookup selects wrong tunnel
+interface relying only on source or destination address of the packet
+and not checking presence of wildcard in tunnels endpoints. Later in
+ip6_tnl_rcv this packets can be dicarded because of difference in
+ipproto even if fallback device have proper ipproto configuration.
 
-The marvel skge driver declared an enum for representing the states of
-Link LED Register. The enum contained constant LED_OFF which conflicted
-with declartation found in linux/leds.h.
-LED_OFF changed to LED_REG_OFF
-Also changed LED_ON to LED_REG_ON to avoid possible future conflict and
-for consistency.
+This patch adds checks of wildcard endpoint in tunnel avoiding such
+behavior
 
-Signed-off-by: Zach Brown <zach.brown@ni.com>
+Fixes: ea3dc9601bda ("ip6_tunnel: Add support for wildcard tunnel
+endpoints.")
+
+Signed-off-by: Vadim Fedorenko <junk@yandex-team.ru>
 ---
- drivers/net/ethernet/marvell/skge.c | 6 +++---
- drivers/net/ethernet/marvell/skge.h | 4 ++--
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ net/ipv6/ip6_tunnel.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
-index 7173836..783df01 100644
---- a/drivers/net/ethernet/marvell/skge.c
-+++ b/drivers/net/ethernet/marvell/skge.c
-@@ -1048,7 +1048,7 @@ static const char *skge_pause(enum pause_status status)
- static void skge_link_up(struct skge_port *skge)
- {
- 	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG),
--		    LED_BLK_OFF|LED_SYNC_OFF|LED_ON);
-+		    LED_BLK_OFF|LED_SYNC_OFF|LED_REG_ON);
- 
- 	netif_carrier_on(skge->netdev);
- 	netif_wake_queue(skge->netdev);
-@@ -1062,7 +1062,7 @@ static void skge_link_up(struct skge_port *skge)
- 
- static void skge_link_down(struct skge_port *skge)
- {
--	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
-+	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_REG_OFF);
- 	netif_carrier_off(skge->netdev);
- 	netif_stop_queue(skge->netdev);
- 
-@@ -2668,7 +2668,7 @@ static int skge_down(struct net_device *dev)
- 	if (hw->ports == 1)
- 		free_irq(hw->pdev->irq, hw);
- 
--	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
-+	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_REG_OFF);
- 	if (is_genesis(hw))
- 		genesis_stop(skge);
- 	else
-diff --git a/drivers/net/ethernet/marvell/skge.h b/drivers/net/ethernet/marvell/skge.h
-index a2eb341..3ea151f 100644
---- a/drivers/net/ethernet/marvell/skge.h
-+++ b/drivers/net/ethernet/marvell/skge.h
-@@ -662,8 +662,8 @@ enum {
- 	LED_BLK_OFF	= 1<<4,	/* Link LED Blinking Off */
- 	LED_SYNC_ON	= 1<<3,	/* Use Sync Wire to switch LED */
- 	LED_SYNC_OFF	= 1<<2,	/* Disable Sync Wire Input */
--	LED_ON	= 1<<1,	/* switch LED on */
--	LED_OFF	= 1<<0,	/* switch LED off */
-+	LED_REG_ON	= 1<<1,	/* switch LED on */
-+	LED_REG_OFF	= 1<<0,	/* switch LED off */
- };
- 
- /* Receive GMAC FIFO (YUKON) */
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 6a66adb..5692d6b 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -157,6 +157,7 @@ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_
+ 	hash = HASH(&any, local);
+ 	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
+ 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
++		    ipv6_addr_any(&t->parms.raddr) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+@@ -164,6 +165,7 @@ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_
+ 	hash = HASH(remote, &any);
+ 	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
+ 		if (ipv6_addr_equal(remote, &t->parms.raddr) &&
++		    ipv6_addr_any(&t->parms.laddr) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
 -- 
-2.7.4
+1.9.1
