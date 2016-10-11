@@ -1,43 +1,36 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v10 1/1] net: phy: Cleanup the Edge-Rate feature
- in Microsemi PHYs.
-Date: Tue, 11 Oct 2016 15:09:00 +0200
-Message-ID: <20161011130900.GE11534@lunn.ch>
-References: <1476108825-14613-1-git-send-email-allan.nielsen@microsemi.com>
- <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: slab corruption with current -git
+Date: Tue, 11 Oct 2016 15:17:09 +0200
+Message-ID: <20161011131709.GB24682@unicorn.suse.cz>
+References: <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
+ <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+ <20161009.235745.860945462339053703.davem@davemloft.net>
+ <20161010.042401.637964142015887598.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-        raju.lakkaraju@microsemi.com
-To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43147 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753501AbcJKNJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 11 Oct 2016 09:09:03 -0400
+Cc: torvalds@linux-foundation.org, aconole@redhat.com, fw@strlen.de,
+        viro@zeniv.linux.org.uk, akpm@linux-foundation.org, axboe@fb.com,
+        tytso@mit.edu, cl@linux.com, pablo@netfilter.org,
+        linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161010.042401.637964142015887598.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 10, 2016 at 04:13:45PM +0200, Allan W. Nielsen wrote:
-> Edge-Rate cleanup include the following:
-> - Updated device tree bindings documentation for edge-rate
-> - The edge-rate is now specified as a "slowdown", meaning that it is now
->   being specified as positive values instead of negative (both
->   documentation and implementation wise).
-> - Only explicitly documented values for "vsc8531,vddmac" and
->   "vsc8531,edge-slowdown" are accepted by the device driver.
-> - Deleted include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
-> - Read/validate devicetree settings in probe instead of init
+On Mon, Oct 10, 2016 at 04:24:01AM -0400, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Sun, 09 Oct 2016 23:57:45 -0400 (EDT)
 > 
-> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
-> Signed-off-by: Raju Lakkaraju <raju.lakkaraju@microsemi.com>
+> This means that the netns is possibly getting freed up before we
+> unregister the netfilter hooks.
 
-Hi Raju, Allan
+Sounds a bit like the issue discussed here:
 
-Thanks for keeping at this.
+  https://marc.info/?l=netfilter-devel&m=146980917627262&w=2
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Could it be (partly) the same race condition?
 
-    Andrew
+Michal Kubecek
