@@ -1,36 +1,51 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: slab corruption with current -git
-Date: Tue, 11 Oct 2016 15:17:09 +0200
-Message-ID: <20161011131709.GB24682@unicorn.suse.cz>
-References: <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com>
- <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
- <20161009.235745.860945462339053703.davem@davemloft.net>
- <20161010.042401.637964142015887598.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, aconole@redhat.com, fw@strlen.de,
-        viro@zeniv.linux.org.uk, akpm@linux-foundation.org, axboe@fb.com,
-        tytso@mit.edu, cl@linux.com, pablo@netfilter.org,
-        linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161010.042401.637964142015887598.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: zyjzyj2000@gmail.com
+Subject: [PATCH 1/1] vxlan: insert ipv6 macro
+Date: Tue, 11 Oct 2016 16:23:31 +0800
+Message-ID: <1476174211-9358-1-git-send-email-zyjzyj2000@gmail.com>
+To: netdev@vger.kernel.org, pabeni@redhat.com, daniel@iogearbox.net,
+        pshelar@nicira.com, aduyck@mirantis.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, davem@davemloft.net,
+        zyjzyj2000@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [123.118.58.201] ([123.118.58.201]:57428 "EHLO mail.rain.com"
+        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751335AbcJKNWF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Oct 2016 09:22:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 10, 2016 at 04:24:01AM -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Sun, 09 Oct 2016 23:57:45 -0400 (EDT)
-> 
-> This means that the netns is possibly getting freed up before we
-> unregister the netfilter hooks.
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-Sounds a bit like the issue discussed here:
+The source code is related with ipv6. As such, it is better to insert
+ipv6 macro.
 
-  https://marc.info/?l=netfilter-devel&m=146980917627262&w=2
+Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+---
+ drivers/net/vxlan.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Could it be (partly) the same race condition?
-
-Michal Kubecek
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index e7d1668..9af6600 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2647,15 +2647,15 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
+ 	int err;
+ 
+ 	memset(&udp_conf, 0, sizeof(udp_conf));
+-
++#if IS_ENABLED(CONFIG_IPV6)
+ 	if (ipv6) {
+ 		udp_conf.family = AF_INET6;
+ 		udp_conf.use_udp6_rx_checksums =
+ 		    !(flags & VXLAN_F_UDP_ZERO_CSUM6_RX);
+ 		udp_conf.ipv6_v6only = 1;
+-	} else {
++	} else 
++#endif
+ 		udp_conf.family = AF_INET;
+-	}
+ 
+ 	udp_conf.local_udp_port = port;
+ 
+-- 
+2.7.4
