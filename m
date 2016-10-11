@@ -1,51 +1,60 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next] mlx5: Add MLX5_SET64_VCHK to fix BUILD_BUG_ON
-Date: Tue, 11 Oct 2016 20:57:11 +0900
-Message-ID: <CALzJLG_9Yr=jCPix2Oisxf22CLHxtYYyXejYxkBi-A85kZ_Shw@mail.gmail.com>
-References: <20161011042222.2366145-1-tom@herbertland.com> <063D6719AE5E284EB5DD2968C1650D6DB01E62DC@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "saeedm@mellanox.com" <saeedm@mellanox.com>,
-        "kernel-team@fb.com" <kernel-team@fb.com>
-To: David Laight <David.Laight@aculab.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH v2 iproute2 2/9] ife: print prio, mark and hash as unsigned
+Date: Tue, 11 Oct 2016 07:00:41 -0400
+Message-ID: <1476183648-25850-3-git-send-email-jhs@emojatatu.com>
+References: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, mrv@mojatatu.com, cdillaba@mojatatu.com,
+        lucasb@mojatatu.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:33608 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751953AbcJKL7Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 07:59:25 -0400
-Received: by mail-lf0-f67.google.com with SMTP id l131so629068lfl.0
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 04:57:32 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB01E62DC@AcuExch.aculab.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:36453 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751953AbcJKMFT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 08:05:19 -0400
+Received: by mail-it0-f65.google.com with SMTP id o19so1453902ito.3
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 05:05:19 -0700 (PDT)
+In-Reply-To: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2016 at 7:50 PM, David Laight <David.Laight@aculab.com> wrote:
-> From: Tom Herbert
->> Sent: 11 October 2016 05:22
-> ...
->> Fix is to create MLX5_SET64_VCHK that takes an additional argument
->> that is a constant. There are two callers of MLX5_SET64 that are
->> trying to get a variable offset, change those to call MLX5_SET64_VCHK
->> passing pas[0] as the argument to use in the offset check.
->
-> I think I'd separate the array index instead.
-> Something like:
->
-> #define MLX5_SET64_INDEXED(typ, p, fld, ndx, v) do { \
->         BUILD_BUG_ON(__mlx5_bit_off(typ, fld) % 64); \
->         __MLX5_SET64(typ, p, fld[ndx], v); \
-> } while (0)
->
->         David
+From: Roman Mashak <mrv@mojatatu.com>
 
-Yes, I think this looks more natural, but instead MLX5_SET64_INDEXED,
-I prefer to have 2 macros
-MLX5_SET64(typ, p, fld, v) and MLX5_ARRAY_SET64(typ, p, fld, idx, v).
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ tc/m_ife.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Tom, do you want me to fix it ?
-
-Thanks,
-Saeed.
+diff --git a/tc/m_ife.c b/tc/m_ife.c
+index a5a7516..588bad7 100644
+--- a/tc/m_ife.c
++++ b/tc/m_ife.c
+@@ -252,7 +252,7 @@ static int print_ife(struct action_util *au, FILE *f, struct rtattr *arg)
+ 			len = RTA_PAYLOAD(metalist[IFE_META_SKBMARK]);
+ 			if (len) {
+ 				mmark = rta_getattr_u32(metalist[IFE_META_SKBMARK]);
+-				fprintf(f, "use mark %d ", mmark);
++				fprintf(f, "use mark %u ", mmark);
+ 			} else
+ 				fprintf(f, "allow mark ");
+ 		}
+@@ -261,7 +261,7 @@ static int print_ife(struct action_util *au, FILE *f, struct rtattr *arg)
+ 			len = RTA_PAYLOAD(metalist[IFE_META_HASHID]);
+ 			if (len) {
+ 				mhash = rta_getattr_u32(metalist[IFE_META_HASHID]);
+-				fprintf(f, "use hash %d ", mhash);
++				fprintf(f, "use hash %u ", mhash);
+ 			} else
+ 				fprintf(f, "allow hash ");
+ 		}
+@@ -270,7 +270,7 @@ static int print_ife(struct action_util *au, FILE *f, struct rtattr *arg)
+ 			len = RTA_PAYLOAD(metalist[IFE_META_PRIO]);
+ 			if (len) {
+ 				mprio = rta_getattr_u32(metalist[IFE_META_PRIO]);
+-				fprintf(f, "use prio %d ", mprio);
++				fprintf(f, "use prio %u ", mprio);
+ 			} else
+ 				fprintf(f, "allow prio ");
+ 		}
+-- 
+1.9.1
