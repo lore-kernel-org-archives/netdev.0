@@ -1,31 +1,161 @@
-From: Liping Zhang <zlpnobody@gmail.com>
-Subject: Re: kernel v4.8: iptables logs are truncated with the 4.8 kernel?
-Date: Tue, 11 Oct 2016 13:03:04 +0800
-Message-ID: <CAML_gOc92oRxPcc+d+6y6WP_D8ng8W7w9vrJcQhB=q9DcK1R_A@mail.gmail.com>
-References: <CAO9zADwLwLLvxmqiLzxK9A5+--ZnvewMzmUvQ4xdm8HHeFNOsA@mail.gmail.com>
- <Pine.LNX.4.64.1610100627230.28174@nacho.alt.net> <CAML_gOeUOrt=-D3VHS2B3B_Q1F2-DAYK95Oxu4FEvfE43hjb3g@mail.gmail.com>
- <Pine.LNX.4.64.1610101818110.28174@nacho.alt.net> <CAML_gOeNcgH-26iL6W5GDf0Ke0Sbpe9MTSULTvTnuiR9Cj_ZLA@mail.gmail.com>
- <alpine.LNX.2.00.1610110353160.3698@nacho.alt.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: slab corruption with current -git (was Re: [git pull] vfs pile 1 (splice))
+Date: Mon, 10 Oct 2016 22:39:04 -0700
+Message-ID: <CA+55aFzcweyWCqq-fRAnJkFB7neKwKsXH=TMcLtRQRs2Wn6XEQ@mail.gmail.com>
+References: <CA+55aFz2U83pG0v12E--nd5c6GZAUpVnT3jHuAwHCFk5XbVX0w@mail.gmail.com>
+ <20161010005105.GA18349@breakpoint.cc> <f7tbmytkmtr.fsf@redhat.com>
+ <CA+55aFzntXuUyL85A68ghS-D-t3VdgKo9-FiqQBG3efW2xns3A@mail.gmail.com> <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vishwanath Pai <vpai@akamai.com>,
+Content-Type: multipart/mixed; boundary=001a113d0a2465969c053e904bba
+Cc: Florian Westphal <fw@strlen.de>, Al Viro <viro@zeniv.linux.org.uk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Jens Axboe <axboe@fb.com>, "Ted Ts'o" <tytso@mit.edu>,
+        Christoph Lameter <cl@linux.com>,
+        David Miller <davem@davemloft.net>,
         Pablo Neira Ayuso <pablo@netfilter.org>,
-        Justin Piszcz <jpiszcz@lucidpixels.com>,
-        linux-kernel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Chris Caputo <ccaputo@alt.net>
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>
+To: Aaron Conole <aconole@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1610110353160.3698@nacho.alt.net>
+In-Reply-To: <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2016-10-11 11:57 GMT+08:00 Chris Caputo <ccaputo@alt.net>:
-> I have tested the above patch with 4.8.1, with and without nflog-size
-> defined in an iptables configuration, and it works well.
->
-> The ulogd-2.0.5 segfaults no longer happen when nflog-size is not present
-> in a target.
->
-> I recommend this fix.
+--001a113d0a2465969c053e904bba
+Content-Type: text/plain; charset=UTF-8
 
-Thanks, I will send an official patch later.
+On Sun, Oct 9, 2016 at 8:41 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> This COMPLETELY UNTESTED patch tries to fix the nf_hook_entry code to do this.
+>
+> I repeat: it's ENTIRELY UNTESTED.
+
+Gaah.
+
+That patch was subtle garbage.
+
+The "add to list" thing did this:
+
+        rcu_assign_pointer(entry->next, p);
+        rcu_assign_pointer(*pp, p);
+
+which is not so subtly broken - that second assignment just assigns
+"p" to "*pp", but that was what *pp already contained. Too much
+cut-and-paste.
+
+That also explains why I then get the NOT FOUND case, because the add
+never actually worked.
+
+It *should* be
+
+        rcu_assign_pointer(entry->next, p);
+        rcu_assign_pointer(*pp, entry);
+
+and then the warnings about "not found" are gone.
+
+Duh.
+
+I guess I will have to double-check that the slub corruption is gone
+still with that fixed.
+
+Anyway, new version of the patch (just that one line changed) attached.
+
+                Linus
+
+--001a113d0a2465969c053e904bba
+Content-Type: text/plain; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iu524vh50
+
+IG5ldC9uZXRmaWx0ZXIvY29yZS5jIHwgMTA4ICsrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDMzIGluc2VydGlvbnMoKyks
+IDc1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9uZXRmaWx0ZXIvY29yZS5jIGIvbmV0
+L25ldGZpbHRlci9jb3JlLmMKaW5kZXggYzlkOTBlYjY0MDQ2Li5mY2I1ZDFkZjExZTkgMTAwNjQ0
+Ci0tLSBhL25ldC9uZXRmaWx0ZXIvY29yZS5jCisrKyBiL25ldC9uZXRmaWx0ZXIvY29yZS5jCkBA
+IC02NSw0OSArNjUsMjQgQEAgc3RhdGljIERFRklORV9NVVRFWChuZl9ob29rX211dGV4KTsKICNk
+ZWZpbmUgbmZfZW50cnlfZGVyZWZlcmVuY2UoZSkgXAogCXJjdV9kZXJlZmVyZW5jZV9wcm90ZWN0
+ZWQoZSwgbG9ja2RlcF9pc19oZWxkKCZuZl9ob29rX211dGV4KSkKIAotc3RhdGljIHN0cnVjdCBu
+Zl9ob29rX2VudHJ5ICpuZl9ob29rX2VudHJ5X2hlYWQoc3RydWN0IG5ldCAqbmV0LAotCQkJCQkJ
+Y29uc3Qgc3RydWN0IG5mX2hvb2tfb3BzICpyZWcpCitzdGF0aWMgc3RydWN0IG5mX2hvb2tfZW50
+cnkgX19yY3UgKipuZl9ob29rX2VudHJ5X2hlYWQoc3RydWN0IG5ldCAqbmV0LCBjb25zdCBzdHJ1
+Y3QgbmZfaG9va19vcHMgKnJlZykKIHsKLQlzdHJ1Y3QgbmZfaG9va19lbnRyeSAqaG9va19oZWFk
+ID0gTlVMTDsKLQogCWlmIChyZWctPnBmICE9IE5GUFJPVE9fTkVUREVWKQotCQlob29rX2hlYWQg
+PSBuZl9lbnRyeV9kZXJlZmVyZW5jZShuZXQtPm5mLmhvb2tzW3JlZy0+cGZdCi0JCQkJCQkgW3Jl
+Zy0+aG9va251bV0pOwotCWVsc2UgaWYgKHJlZy0+aG9va251bSA9PSBORl9ORVRERVZfSU5HUkVT
+UykgeworCQlyZXR1cm4gbmV0LT5uZi5ob29rc1tyZWctPnBmXStyZWctPmhvb2tudW07CisKICNp
+ZmRlZiBDT05GSUdfTkVURklMVEVSX0lOR1JFU1MKKwlpZiAocmVnLT5ob29rbnVtID09IE5GX05F
+VERFVl9JTkdSRVNTKSB7CiAJCWlmIChyZWctPmRldiAmJiBkZXZfbmV0KHJlZy0+ZGV2KSA9PSBu
+ZXQpCi0JCQlob29rX2hlYWQgPQotCQkJCW5mX2VudHJ5X2RlcmVmZXJlbmNlKAotCQkJCQlyZWct
+PmRldi0+bmZfaG9va3NfaW5ncmVzcyk7Ci0jZW5kaWYKKwkJCXJldHVybiAmcmVnLT5kZXYtPm5m
+X2hvb2tzX2luZ3Jlc3M7CiAJfQotCXJldHVybiBob29rX2hlYWQ7Ci19Ci0KLS8qIG11c3QgaG9s
+ZCBuZl9ob29rX211dGV4ICovCi1zdGF0aWMgdm9pZCBuZl9zZXRfaG9va3NfaGVhZChzdHJ1Y3Qg
+bmV0ICpuZXQsIGNvbnN0IHN0cnVjdCBuZl9ob29rX29wcyAqcmVnLAotCQkJICAgICAgc3RydWN0
+IG5mX2hvb2tfZW50cnkgKmVudHJ5KQotewotCXN3aXRjaCAocmVnLT5wZikgewotCWNhc2UgTkZQ
+Uk9UT19ORVRERVY6Ci0jaWZkZWYgQ09ORklHX05FVEZJTFRFUl9JTkdSRVNTCi0JCS8qIFdlIGFs
+cmVhZHkgY2hlY2tlZCBpbiBuZl9yZWdpc3Rlcl9uZXRfaG9vaygpIHRoYXQgdGhpcyBpcwotCQkg
+KiB1c2VkIGZyb20gaW5ncmVzcy4KLQkJICovCi0JCXJjdV9hc3NpZ25fcG9pbnRlcihyZWctPmRl
+di0+bmZfaG9va3NfaW5ncmVzcywgZW50cnkpOwogI2VuZGlmCi0JCWJyZWFrOwotCWRlZmF1bHQ6
+Ci0JCXJjdV9hc3NpZ25fcG9pbnRlcihuZXQtPm5mLmhvb2tzW3JlZy0+cGZdW3JlZy0+aG9va251
+bV0sCi0JCQkJICAgZW50cnkpOwotCQlicmVhazsKLQl9CisJcmV0dXJuIE5VTEw7CiB9CiAKIGlu
+dCBuZl9yZWdpc3Rlcl9uZXRfaG9vayhzdHJ1Y3QgbmV0ICpuZXQsIGNvbnN0IHN0cnVjdCBuZl9o
+b29rX29wcyAqcmVnKQogewotCXN0cnVjdCBuZl9ob29rX2VudHJ5ICpob29rc19lbnRyeTsKLQlz
+dHJ1Y3QgbmZfaG9va19lbnRyeSAqZW50cnk7CisJc3RydWN0IG5mX2hvb2tfZW50cnkgX19yY3Ug
+KipwcDsKKwlzdHJ1Y3QgbmZfaG9va19lbnRyeSAqZW50cnksICpwOwogCiAJaWYgKHJlZy0+cGYg
+PT0gTkZQUk9UT19ORVRERVYpIHsKICNpZm5kZWYgQ09ORklHX05FVEZJTFRFUl9JTkdSRVNTCkBA
+IC0xMTksNiArOTQsMTAgQEAgaW50IG5mX3JlZ2lzdGVyX25ldF9ob29rKHN0cnVjdCBuZXQgKm5l
+dCwgY29uc3Qgc3RydWN0IG5mX2hvb2tfb3BzICpyZWcpCiAJCQlyZXR1cm4gLUVJTlZBTDsKIAl9
+CiAKKwlwcCA9IG5mX2hvb2tfZW50cnlfaGVhZChuZXQsIHJlZyk7CisJaWYgKCFwcCkKKwkJcmV0
+dXJuIC1FSU5WQUw7CisKIAllbnRyeSA9IGttYWxsb2Moc2l6ZW9mKCplbnRyeSksIEdGUF9LRVJO
+RUwpOwogCWlmICghZW50cnkpCiAJCXJldHVybiAtRU5PTUVNOwpAQCAtMTI4LDI2ICsxMDcsMTUg
+QEAgaW50IG5mX3JlZ2lzdGVyX25ldF9ob29rKHN0cnVjdCBuZXQgKm5ldCwgY29uc3Qgc3RydWN0
+IG5mX2hvb2tfb3BzICpyZWcpCiAJZW50cnktPm5leHQJPSBOVUxMOwogCiAJbXV0ZXhfbG9jaygm
+bmZfaG9va19tdXRleCk7Ci0JaG9va3NfZW50cnkgPSBuZl9ob29rX2VudHJ5X2hlYWQobmV0LCBy
+ZWcpOwotCi0JaWYgKGhvb2tzX2VudHJ5ICYmIGhvb2tzX2VudHJ5LT5vcmlnX29wcy0+cHJpb3Jp
+dHkgPiByZWctPnByaW9yaXR5KSB7Ci0JCS8qIFRoaXMgaXMgdGhlIGNhc2Ugd2hlcmUgd2UgbmVl
+ZCB0byBpbnNlcnQgYXQgdGhlIGhlYWQgKi8KLQkJZW50cnktPm5leHQgPSBob29rc19lbnRyeTsK
+LQkJaG9va3NfZW50cnkgPSBOVUxMOwotCX0KLQotCXdoaWxlIChob29rc19lbnRyeSAmJgotCQly
+ZWctPnByaW9yaXR5ID49IGhvb2tzX2VudHJ5LT5vcmlnX29wcy0+cHJpb3JpdHkgJiYKLQkJbmZf
+ZW50cnlfZGVyZWZlcmVuY2UoaG9va3NfZW50cnktPm5leHQpKSB7Ci0JCWhvb2tzX2VudHJ5ID0g
+bmZfZW50cnlfZGVyZWZlcmVuY2UoaG9va3NfZW50cnktPm5leHQpOwotCX0KIAotCWlmIChob29r
+c19lbnRyeSkgewotCQllbnRyeS0+bmV4dCA9IG5mX2VudHJ5X2RlcmVmZXJlbmNlKGhvb2tzX2Vu
+dHJ5LT5uZXh0KTsKLQkJcmN1X2Fzc2lnbl9wb2ludGVyKGhvb2tzX2VudHJ5LT5uZXh0LCBlbnRy
+eSk7Ci0JfSBlbHNlIHsKLQkJbmZfc2V0X2hvb2tzX2hlYWQobmV0LCByZWcsIGVudHJ5KTsKKwkv
+KiBGaW5kIHRoZSBzcG90IGluIHRoZSBsaXN0ICovCisJd2hpbGUgKChwID0gbmZfZW50cnlfZGVy
+ZWZlcmVuY2UoKnBwKSkgIT0gTlVMTCkgeworCQlpZiAocmVnLT5wcmlvcml0eSA8IHAtPm9yaWdf
+b3BzLT5wcmlvcml0eSkKKwkJCWJyZWFrOworCQlwcCA9ICZwLT5uZXh0OwogCX0KKwlyY3VfYXNz
+aWduX3BvaW50ZXIoZW50cnktPm5leHQsIHApOworCXJjdV9hc3NpZ25fcG9pbnRlcigqcHAsIGVu
+dHJ5KTsKIAogCW11dGV4X3VubG9jaygmbmZfaG9va19tdXRleCk7CiAjaWZkZWYgQ09ORklHX05F
+VEZJTFRFUl9JTkdSRVNTCkBAIC0xNjMsMzMgKzEzMSwyMyBAQCBFWFBPUlRfU1lNQk9MKG5mX3Jl
+Z2lzdGVyX25ldF9ob29rKTsKIAogdm9pZCBuZl91bnJlZ2lzdGVyX25ldF9ob29rKHN0cnVjdCBu
+ZXQgKm5ldCwgY29uc3Qgc3RydWN0IG5mX2hvb2tfb3BzICpyZWcpCiB7Ci0Jc3RydWN0IG5mX2hv
+b2tfZW50cnkgKmhvb2tzX2VudHJ5OworCXN0cnVjdCBuZl9ob29rX2VudHJ5IF9fcmN1ICoqcHA7
+CisJc3RydWN0IG5mX2hvb2tfZW50cnkgKnA7CiAKLQltdXRleF9sb2NrKCZuZl9ob29rX211dGV4
+KTsKLQlob29rc19lbnRyeSA9IG5mX2hvb2tfZW50cnlfaGVhZChuZXQsIHJlZyk7Ci0JaWYgKGhv
+b2tzX2VudHJ5ICYmIGhvb2tzX2VudHJ5LT5vcmlnX29wcyA9PSByZWcpIHsKLQkJbmZfc2V0X2hv
+b2tzX2hlYWQobmV0LCByZWcsCi0JCQkJICBuZl9lbnRyeV9kZXJlZmVyZW5jZShob29rc19lbnRy
+eS0+bmV4dCkpOwotCQlnb3RvIHVubG9jazsKLQl9Ci0Jd2hpbGUgKGhvb2tzX2VudHJ5ICYmIG5m
+X2VudHJ5X2RlcmVmZXJlbmNlKGhvb2tzX2VudHJ5LT5uZXh0KSkgewotCQlzdHJ1Y3QgbmZfaG9v
+a19lbnRyeSAqbmV4dCA9Ci0JCQluZl9lbnRyeV9kZXJlZmVyZW5jZShob29rc19lbnRyeS0+bmV4
+dCk7Ci0JCXN0cnVjdCBuZl9ob29rX2VudHJ5ICpubmV4dDsKKwlwcCA9IG5mX2hvb2tfZW50cnlf
+aGVhZChuZXQsIHJlZyk7CisJaWYgKFdBUk5fT05fT05DRSghcHApKQorCQlyZXR1cm47CiAKLQkJ
+aWYgKG5leHQtPm9yaWdfb3BzICE9IHJlZykgewotCQkJaG9va3NfZW50cnkgPSBuZXh0OwotCQkJ
+Y29udGludWU7CisJbXV0ZXhfbG9jaygmbmZfaG9va19tdXRleCk7CisJd2hpbGUgKChwID0gbmZf
+ZW50cnlfZGVyZWZlcmVuY2UoKnBwKSkgIT0gTlVMTCkgeworCQlpZiAocC0+b3JpZ19vcHMgPT0g
+cmVnKSB7CisJCQlyY3VfYXNzaWduX3BvaW50ZXIoKnBwLCBwLT5uZXh0KTsKKwkJCWJyZWFrOwog
+CQl9Ci0JCW5uZXh0ID0gbmZfZW50cnlfZGVyZWZlcmVuY2UobmV4dC0+bmV4dCk7Ci0JCXJjdV9h
+c3NpZ25fcG9pbnRlcihob29rc19lbnRyeS0+bmV4dCwgbm5leHQpOwotCQlob29rc19lbnRyeSA9
+IG5leHQ7Ci0JCWJyZWFrOworCQlwcCA9ICZwLT5uZXh0OwogCX0KLQotdW5sb2NrOgogCW11dGV4
+X3VubG9jaygmbmZfaG9va19tdXRleCk7Ci0JaWYgKCFob29rc19lbnRyeSkgeworCWlmICghcCkg
+ewogCQlXQVJOKDEsICJuZl91bnJlZ2lzdGVyX25ldF9ob29rOiBob29rIG5vdCBmb3VuZCFcbiIp
+OwogCQlyZXR1cm47CiAJfQpAQCAtMjAxLDEwICsxNTksMTAgQEAgdm9pZCBuZl91bnJlZ2lzdGVy
+X25ldF9ob29rKHN0cnVjdCBuZXQgKm5ldCwgY29uc3Qgc3RydWN0IG5mX2hvb2tfb3BzICpyZWcp
+CiAJc3RhdGljX2tleV9zbG93X2RlYygmbmZfaG9va3NfbmVlZGVkW3JlZy0+cGZdW3JlZy0+aG9v
+a251bV0pOwogI2VuZGlmCiAJc3luY2hyb25pemVfbmV0KCk7Ci0JbmZfcXVldWVfbmZfaG9va19k
+cm9wKG5ldCwgaG9va3NfZW50cnkpOworCW5mX3F1ZXVlX25mX2hvb2tfZHJvcChuZXQsIHApOwog
+CS8qIG90aGVyIGNwdSBtaWdodCBzdGlsbCBwcm9jZXNzIG5mcXVldWUgdmVyZGljdCB0aGF0IHVz
+ZWQgcmVnICovCiAJc3luY2hyb25pemVfbmV0KCk7Ci0Ja2ZyZWUoaG9va3NfZW50cnkpOworCWtm
+cmVlKHApOwogfQogRVhQT1JUX1NZTUJPTChuZl91bnJlZ2lzdGVyX25ldF9ob29rKTsKIAo=
+--001a113d0a2465969c053e904bba--
