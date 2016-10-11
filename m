@@ -1,40 +1,43 @@
-From: Vlad Tsyrklevich <vlad@tsyrklevich.net>
-Subject: [PATCH] drivers/ptp: Fix kernel memory disclosure
-Date: Tue, 11 Oct 2016 15:02:47 +0200
-Message-ID: <1476190967-38256-1-git-send-email-vlad@tsyrklevich.net>
-Cc: richardcochran@gmail.com, Vlad Tsyrklevich <vlad@tsyrklevich.net>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v10 1/1] net: phy: Cleanup the Edge-Rate feature
+ in Microsemi PHYs.
+Date: Tue, 11 Oct 2016 15:09:00 +0200
+Message-ID: <20161011130900.GE11534@lunn.ch>
+References: <1476108825-14613-1-git-send-email-allan.nielsen@microsemi.com>
+ <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        raju.lakkaraju@microsemi.com
+To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36003 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751629AbcJKNDK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2016 09:03:10 -0400
-Received: by mail-lf0-f66.google.com with SMTP id b75so3627615lfg.3
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2016 06:03:09 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:43147 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753501AbcJKNJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 11 Oct 2016 09:09:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The reserved field precise_offset->rsv is not cleared before being
-copied to user space, leaking kernel stack memory. Clear the struct
-before it's copied.
+On Mon, Oct 10, 2016 at 04:13:45PM +0200, Allan W. Nielsen wrote:
+> Edge-Rate cleanup include the following:
+> - Updated device tree bindings documentation for edge-rate
+> - The edge-rate is now specified as a "slowdown", meaning that it is now
+>   being specified as positive values instead of negative (both
+>   documentation and implementation wise).
+> - Only explicitly documented values for "vsc8531,vddmac" and
+>   "vsc8531,edge-slowdown" are accepted by the device driver.
+> - Deleted include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
+> - Read/validate devicetree settings in probe instead of init
+> 
+> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> Signed-off-by: Raju Lakkaraju <raju.lakkaraju@microsemi.com>
 
-Signed-off-by: Vlad Tsyrklevich <vlad@tsyrklevich.net>
+Hi Raju, Allan
 
----
- drivers/ptp/ptp_chardev.c | 1 +
- 1 file changed, 1 insertion(+)
+Thanks for keeping at this.
 
-diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
-index d637c93..58a97d4 100644
---- a/drivers/ptp/ptp_chardev.c
-+++ b/drivers/ptp/ptp_chardev.c
-@@ -193,6 +193,7 @@ long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
- 		if (err)
- 			break;
- 
-+		memset(&precise_offset, 0, sizeof(precise_offset));
- 		ts = ktime_to_timespec64(xtstamp.device);
- 		precise_offset.device.sec = ts.tv_sec;
- 		precise_offset.device.nsec = ts.tv_nsec;
--- 
-2.7.0
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
