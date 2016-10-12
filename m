@@ -1,79 +1,122 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Subject: Re: igb driver can cause cache invalidation of non-owned memory?
-Date: Wed, 12 Oct 2016 21:12:39 +0300
-Message-ID: <d34b7175-1024-8cc9-d422-d9f75f56c069@cogentembedded.com>
-References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
- <20161010.050125.1981283393312167625.davem@davemloft.net>
- <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
- <20161010.075731.2449861168238706.davem@davemloft.net>
- <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
- <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
- <19aebfc3-5f1a-9206-4493-2255af7269f9@cogentembedded.com>
- <CAKgT0UcSkG1Nws1kcUp-QV0jnwdXcXrOZ2m0vsWRziETA-11sw@mail.gmail.com>
- <a0779e4d-3228-8649-1e68-21dffd4249bd@cogentembedded.com>
- <CAKgT0UfPC_uAn5=+0iiAOGyY7QA-4NWAmedVmWf6TGnywjJR8A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB01E6F0F@AcuExch.aculab.com>
- <cbd0f41d-bc01-3f93-9171-2795c61afdc9@cogentembedded.com>
- <CAKgT0UdqwpjP0b4knt2d4DqS1Z9dR+vg-smkgBTZDeACGGdx=Q@mail.gmail.com>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
+ header
+Date: Wed, 12 Oct 2016 14:21:46 -0400
+Message-ID: <4779d199-4515-ee06-af0f-69e1d1b86b86@redhat.com>
+References: <1dbd83dfe7f435eecc5bc460e901b47758280f30.1476206016.git.pabeni@redhat.com>
+ <20161011173216.GA16892@obsidianresearch.com>
+ <22f61258-9bcf-0adc-f23f-79a4f1d50c6a@redhat.com>
+ <20161011180119.GB17319@obsidianresearch.com>
+ <1476209407.448.9.camel@redhat.com>
+ <073e0007-a43b-134d-ba7e-b290304be585@redhat.com>
+ <20161011183019.GC20253@obsidianresearch.com>
+ <9bed7085-949b-c68b-91ed-f930702a6a94@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@aculab.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Chris Healy <cphealy@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="IAmVhdT75FG2B94rwtsEAu9BUF5L6OI6G"
+Cc: Paolo Abeni <pabeni@redhat.com>, linux-rdma@vger.kernel.org,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        netdev@vger.kernel.org
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:36518 "EHLO
-        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933901AbcJLSTj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 14:19:39 -0400
-Received: by mail-lf0-f41.google.com with SMTP id b75so87999568lfg.3
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 11:19:39 -0700 (PDT)
-In-Reply-To: <CAKgT0UdqwpjP0b4knt2d4DqS1Z9dR+vg-smkgBTZDeACGGdx=Q@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42684 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932868AbcJLSWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Oct 2016 14:22:02 -0400
+In-Reply-To: <9bed7085-949b-c68b-91ed-f930702a6a94@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> It would make more sense to update the DMA API for
-> __dma_page_cpu_to_dev on ARM so that you don't invalidate the cache if
-> the direction is DMA_FROM_DEVICE.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--IAmVhdT75FG2B94rwtsEAu9BUF5L6OI6G
+Content-Type: multipart/mixed; boundary="ohePGETKNmv91mOwiBIJ5lxsD9ltNDiwJ";
+ protected-headers="v1"
+From: Doug Ledford <dledford@redhat.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Cc: Paolo Abeni <pabeni@redhat.com>, linux-rdma@vger.kernel.org,
+ Sean Hefty <sean.hefty@intel.com>, Hal Rosenstock
+ <hal.rosenstock@gmail.com>, netdev@vger.kernel.org
+Message-ID: <4779d199-4515-ee06-af0f-69e1d1b86b86@redhat.com>
+Subject: Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
+ header
+References: <1dbd83dfe7f435eecc5bc460e901b47758280f30.1476206016.git.pabeni@redhat.com>
+ <20161011173216.GA16892@obsidianresearch.com>
+ <22f61258-9bcf-0adc-f23f-79a4f1d50c6a@redhat.com>
+ <20161011180119.GB17319@obsidianresearch.com>
+ <1476209407.448.9.camel@redhat.com>
+ <073e0007-a43b-134d-ba7e-b290304be585@redhat.com>
+ <20161011183019.GC20253@obsidianresearch.com>
+ <9bed7085-949b-c68b-91ed-f930702a6a94@redhat.com>
+In-Reply-To: <9bed7085-949b-c68b-91ed-f930702a6a94@redhat.com>
 
-No, in generic case it's unsafe.
+--ohePGETKNmv91mOwiBIJ5lxsD9ltNDiwJ
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-If CPU issued a write to a location, and sometime later that location is
-used as DMA buffer, there is danger that write is still in cache only,
-and writeback is pending. Later this writeback can overwrite data
-written to memory via DMA, causing corruption.
+On 10/11/2016 2:50 PM, Doug Ledford wrote:
+> On 10/11/2016 2:30 PM, Jason Gunthorpe wrote:
+>> On Tue, Oct 11, 2016 at 02:17:51PM -0400, Doug Ledford wrote:
+>>
+>>> Well, not exactly.  Even if we put 65520 into the scripts, the kernel=
+
+>>> will silently drop it down to 65504.  It actually won't require anyon=
+e
+>>> change anything, they just won't get the full value.  I experimented
+>>> with this in the past for other reasons and an overly large MTU setti=
+ng
+>>> just resulted in the max MTU.  I don't know if that's changed, but if=
+ it
+>>> still works that way, this is much less of an issue than it might
+>>> otherwise be.
+>>
+>> So it is just docs and relying on PMTU? That is not as bad..
+>>
+>> Still would be nice to avoid if at all possible..
+>=20
+> I agree, but we have a test getting ready to commence.  We'll know
+> shortly how much the reduced MTU effects things because they aren't
+> going to alter any of their setup, just put the new kernel in place, an=
+d
+> see what happens.
+>=20
+>=20
+
+Long story short on the MTU stuff, the setups whined a bit about not
+being able to set the desired MTU, used the new max MTU instead, and
+things otherwise worked fine.  But, Paolo submitted a v2 patch that
+removes this change, so it's all moot anyway.
+
+--=20
+Doug Ledford <dledford@redhat.com>
+    GPG Key ID: 0E572FDD
 
 
-> The point I was trying to make is that you are invalidating the cache
-> in both the sync_for_device and sync_for_cpu.  Do you really need that
-> for ARM or do you need to perform the invalidation on sync_for_device
-> if that may be pushed out anyway?  If you aren't running with with
-> speculative look-ups do you even need the invalidation in
-> sync_for_cpu?
+--ohePGETKNmv91mOwiBIJ5lxsD9ltNDiwJ--
 
-I'm not lowlevel arm guru and I don't know for sure. Probably another
-CPU core can be accessing locations neighbor page, causing specilative
-load of locations in DMA page.
+--IAmVhdT75FG2B94rwtsEAu9BUF5L6OI6G
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-> Changing the driver code for this won't necessarily work on all
-> architectures, and on top of it we have some changes planned which
-> will end up making the pages writable in the future to support the
-> ongoing XDP effort.  That is one of the reasons why I would not be
-> okay with changing the driver to make this work.
+iQIcBAEBCAAGBQJX/n86AAoJELgmozMOVy/dHbkQAKsGv79P83AHzQZNVYqsErOy
+lMVPVe0CKnfgxmko1UioWhxNVWdp0tPuWQhD40nP3PWegZ786gGuNXEUQxQeZ69W
+3P0EkD+JNQfmBA+rugyogPQCsHwjZ2AFeoMaQNMF+oswEPdUy5xp3EKZM2ztQNO6
+B/wedPSDq3cmCW0NH5N0AItczUftljgDIMBziRhddoPUX+3Wu3cAE9W7bFwQFnvg
+NA1uHWG7j8VPhualbXEAkZVGbimq58F8ZA2SAoIc+xwe8KiQufl6zdl3GeD9Bt9o
+AfmqUZ+hFGSEG1NiL4iuRPVTGyEAFZo1vFsqC9H385farnxYL/YHqCwzcsChxeNw
+x/FtPw1dPbFwb+uKzh03MZmTlJopriWHojBXernIvUnEabeXRD2qGWzrFWIr5JIa
+p+p2zlRA35lgXQyGQPSKtQWSMjvfNesVG0Ly97IVzSe82nTwzNoINfK/XDWGey+a
+VztDw3Jn7Ju1/Nx/3YTmktjVLhXCpwg+8FdRakMuMqqRnzoNmdNVugL5VugU7V4K
+YmBhGU9c7vxbG5mMT1Yd17tvZ5qWDpViuwtli28MCYFlCD5Dh0HJwh7VdCpFU6Iy
+nHkAG/1nta5AjXN5z/ouJs5kMF5vQlLpU5rqWD77s+Y9TChsMraL1yTpEqFKtYcN
+/+/lYrHtf7HDROYzcu1h
+=pZLb
+-----END PGP SIGNATURE-----
 
-Well I was not really serious about removing that sync_for_device() in
-mainline :)   Although >20% throughput win that this provides is
-impressive...
-
-But what about doing something safer, e.g. adding a bit of tracking and
-only sync_for_device() what was previously sync_for_cpu()ed?  Will you
-accept that?
-
-Nikita
+--IAmVhdT75FG2B94rwtsEAu9BUF5L6OI6G--
