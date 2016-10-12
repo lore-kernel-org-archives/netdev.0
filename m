@@ -1,119 +1,145 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 04/11] IB/core: Flip to the new dev walk API
-Date: Wed, 12 Oct 2016 13:51:52 -0700
-Message-ID: <1476305519-28833-5-git-send-email-dsa@cumulusnetworks.com>
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: [PATCH net-next 01/11] net: Remove refnr arg when inserting link adjacencies
+Date: Wed, 12 Oct 2016 13:51:49 -0700
+Message-ID: <1476305519-28833-2-git-send-email-dsa@cumulusnetworks.com>
 References: <1476305519-28833-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
-        j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        David Ahern <dsa@cumulusnetworks.com>
-To: jiri@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33167 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934192AbcJLUwO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 16:52:14 -0400
-Received: by mail-pf0-f175.google.com with SMTP id 128so23973211pfz.0
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 13:52:13 -0700 (PDT)
-In-Reply-To: <1476305519-28833-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org,
+        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+To: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476305519-28833-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Convert rdma_is_upper_dev_rcu, handle_netdev_upper and
-ipoib_get_net_dev_match_addr to the new upper device walk API.
-This is just a move to the new API; no functional change is intended.
+Commit 93409033ae65 ("net: Add netdev all_adj_list refcnt propagation to
+fix panic") propagated the refnr to insert and remove functions tracking
+the netdev adjacency graph. However, for the insert path the refnr can
+only be 1. Accordingly, remove the refnr argument to make that clear.
+ie., the refnr arg in 93409033ae65 was only needed for the remove path.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 ---
- drivers/infiniband/core/core_priv.h     |  9 +------
- drivers/infiniband/core/roce_gid_mgmt.c | 42 ++++++++++++++++++---------------
- 2 files changed, 24 insertions(+), 27 deletions(-)
+ net/core/dev.c | 27 ++++++++++++---------------
+ 1 file changed, 12 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/infiniband/core/core_priv.h b/drivers/infiniband/core/core_priv.h
-index 19d499dcab76..0c0bea091de8 100644
---- a/drivers/infiniband/core/core_priv.h
-+++ b/drivers/infiniband/core/core_priv.h
-@@ -127,14 +127,7 @@ void ib_cache_release_one(struct ib_device *device);
- static inline bool rdma_is_upper_dev_rcu(struct net_device *dev,
- 					 struct net_device *upper)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f1fe26f66458..5aaa12a9e369 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5589,7 +5589,6 @@ static inline bool netdev_adjacent_is_neigh_list(struct net_device *dev,
+ 
+ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 					struct net_device *adj_dev,
+-					u16 ref_nr,
+ 					struct list_head *dev_list,
+ 					void *private, bool master)
  {
--	struct net_device *_upper = NULL;
--	struct list_head *iter;
--
--	netdev_for_each_all_upper_dev_rcu(dev, _upper, iter)
--		if (_upper == upper)
--			break;
--
--	return _upper == upper;
-+	return netdev_has_upper_dev_all_rcu(dev, upper);
+@@ -5599,7 +5598,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	adj = __netdev_find_adj(adj_dev, dev_list);
+ 
+ 	if (adj) {
+-		adj->ref_nr += ref_nr;
++		adj->ref_nr += 1;
+ 		return 0;
+ 	}
+ 
+@@ -5609,7 +5608,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 
+ 	adj->dev = adj_dev;
+ 	adj->master = master;
+-	adj->ref_nr = ref_nr;
++	adj->ref_nr = 1;
+ 	adj->private = private;
+ 	dev_hold(adj_dev);
+ 
+@@ -5683,22 +5682,21 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 
+ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+ 					    struct net_device *upper_dev,
+-					    u16 ref_nr,
+ 					    struct list_head *up_list,
+ 					    struct list_head *down_list,
+ 					    void *private, bool master)
+ {
+ 	int ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(dev, upper_dev, ref_nr, up_list,
++	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list,
+ 					   private, master);
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(upper_dev, dev, ref_nr, down_list,
++	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list,
+ 					   private, false);
+ 	if (ret) {
+-		__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
++		__netdev_adjacent_dev_remove(dev, upper_dev, 1, up_list);
+ 		return ret;
+ 	}
+ 
+@@ -5706,10 +5704,9 @@ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
  }
  
- int addr_init(void);
-diff --git a/drivers/infiniband/core/roce_gid_mgmt.c b/drivers/infiniband/core/roce_gid_mgmt.c
-index 06556c34606d..db759a68d948 100644
---- a/drivers/infiniband/core/roce_gid_mgmt.c
-+++ b/drivers/infiniband/core/roce_gid_mgmt.c
-@@ -437,6 +437,28 @@ static void callback_for_addr_gid_device_scan(struct ib_device *device,
- 			  &parsed->gid_attr);
- }
- 
-+struct upper_list {
-+	struct list_head list;
-+	struct net_device *upper;
-+};
-+
-+static int netdev_upper_walk(struct net_device *upper, void *data)
-+{
-+	struct upper_list *entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
-+	struct list_head *upper_list = (struct list_head *)data;
-+
-+	if (!entry) {
-+		pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
-+		return 0;
-+	}
-+
-+	list_add_tail(&entry->list, upper_list);
-+	dev_hold(upper);
-+	entry->upper = upper;
-+
-+	return 0;
-+}
-+
- static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
- 				void *cookie,
- 				void (*handle_netdev)(struct ib_device *ib_dev,
-@@ -444,30 +466,12 @@ static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
- 						      struct net_device *ndev))
+ static int __netdev_adjacent_dev_link(struct net_device *dev,
+-				      struct net_device *upper_dev,
+-				      u16 ref_nr)
++				      struct net_device *upper_dev)
  {
- 	struct net_device *ndev = (struct net_device *)cookie;
--	struct upper_list {
--		struct list_head list;
--		struct net_device *upper;
--	};
--	struct net_device *upper;
--	struct list_head *iter;
- 	struct upper_list *upper_iter;
- 	struct upper_list *upper_temp;
- 	LIST_HEAD(upper_list);
+-	return __netdev_adjacent_dev_link_lists(dev, upper_dev, ref_nr,
++	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 						&dev->all_adj_list.upper,
+ 						&upper_dev->all_adj_list.lower,
+ 						NULL, false);
+@@ -5738,12 +5735,12 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 						struct net_device *upper_dev,
+ 						void *private, bool master)
+ {
+-	int ret = __netdev_adjacent_dev_link(dev, upper_dev, 1);
++	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
  
- 	rcu_read_lock();
--	netdev_for_each_all_upper_dev_rcu(ndev, upper, iter) {
--		struct upper_list *entry = kmalloc(sizeof(*entry),
--						   GFP_ATOMIC);
--
--		if (!entry) {
--			pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
--			continue;
--		}
--
--		list_add_tail(&entry->list, &upper_list);
--		dev_hold(upper);
--		entry->upper = upper;
--	}
-+	netdev_walk_all_upper_dev_rcu(ndev, netdev_upper_walk, &upper_list);
- 	rcu_read_unlock();
+ 	if (ret)
+ 		return ret;
  
- 	handle_netdev(ib_dev, port, ndev);
+-	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev, 1,
++	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 					       &dev->adj_list.upper,
+ 					       &upper_dev->adj_list.lower,
+ 					       private, master);
+@@ -5812,7 +5809,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
+ 			pr_debug("Interlinking %s with %s, non-neighbour\n",
+ 				 i->dev->name, j->dev->name);
+-			ret = __netdev_adjacent_dev_link(i->dev, j->dev, i->ref_nr);
++			ret = __netdev_adjacent_dev_link(i->dev, j->dev);
+ 			if (ret)
+ 				goto rollback_mesh;
+ 		}
+@@ -5822,7 +5819,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
+ 		pr_debug("linking %s's upper device %s with %s\n",
+ 			 upper_dev->name, i->dev->name, dev->name);
+-		ret = __netdev_adjacent_dev_link(dev, i->dev, i->ref_nr);
++		ret = __netdev_adjacent_dev_link(dev, i->dev);
+ 		if (ret)
+ 			goto rollback_upper_mesh;
+ 	}
+@@ -5831,7 +5828,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
+ 		pr_debug("linking %s's lower device %s with %s\n", dev->name,
+ 			 i->dev->name, upper_dev->name);
+-		ret = __netdev_adjacent_dev_link(i->dev, upper_dev, i->ref_nr);
++		ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
+ 		if (ret)
+ 			goto rollback_lower_mesh;
+ 	}
 -- 
 2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
