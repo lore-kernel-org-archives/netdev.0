@@ -1,68 +1,50 @@
-From: Luca Coelho <luca@coelho.fi>
-Subject: Re: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
-Date: Wed, 12 Oct 2016 09:25:24 +0300
-Message-ID: <1476253524.7776.8.camel@coelho.fi>
-References: <20161010071943.4717-1-chris@rorvick.com>
-         <1476108164.5210.11.camel@coelho.fi> <1476180668.17022.21.camel@tiscali.nl>
-         <CAEUsAPYDPCP0NBaTmy4xqFJhAS4xFQYinoNTknxFT23ef0dk4w@mail.gmail.com>
+From: Liping Zhang <zlpnobody@gmail.com>
+Subject: Re: [patch] netfilter: nf_tables: underflow in nft_parse_u32_check()
+Date: Wed, 12 Oct 2016 15:27:19 +0800
+Message-ID: <CAML_gOedjw6uJqp13YkGfXoLQTd_ikOC8OoUA4oXv15RYsgoUg@mail.gmail.com>
+References: <20161012060811.GE12841@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Intel Linux Wireless <linuxwifi@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Oren Givon <oren.givon@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Chris Rorvick <chris@rorvick.com>, Paul Bolle <pebolle@tiscali.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from paleale.coelho.fi ([176.9.41.70]:48308 "EHLO
-        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754148AbcJLGzu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 02:55:50 -0400
-In-Reply-To: <CAEUsAPYDPCP0NBaTmy4xqFJhAS4xFQYinoNTknxFT23ef0dk4w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Laura Garcia Liebana <nevola@gmail.com>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>, coreteam@netfilter.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20161012060811.GE12841@mwanda>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Chris,
-On Tue, 2016-10-11 at 09:09 -0500, Chris Rorvick wrote:
-> On Tue, Oct 11, 2016 at 5:11 AM, Paul Bolle <pebolle@tiscali.nl> wrote:
-> > > This is not coming from the NIC itself, but from the platform's ACPI
-> > > tables.  Can you tell us which platform you are using?
-> 
-> 
-> Interesting.  I'm running a Dell XPS 13 9350.  I replaced the
-> factory-provided Broadcom card with an AC 8260.  I can update the
-> commit log to reflect this.
+2016-10-12 14:08 GMT+08:00 Dan Carpenter <dan.carpenter@oracle.com>:
+> We don't want to allow negatives here.
+>
+> Fixes: 36b701fae12a ('netfilter: nf_tables: validate maximum value of u32 netlink attributes')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+> index b70d3ea..dd55187 100644
+> --- a/net/netfilter/nf_tables_api.c
+> +++ b/net/netfilter/nf_tables_api.c
+> @@ -4423,7 +4423,7 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
+>   */
 
-Okay, so this makes sense.  Those entries are probably formatted for
-the Broadcom card, which the iwlwifi driver obviously doesn't
-understand.  The best we can do, as I already said, is to ignore values
-we don't understand.
+I think it's better if you can convert it to follows:
 
-I will also check what is the correct procedure in such cases, because
-it is possible, in theory, that the format *matches* but applies only
-to another device.
+>  unsigned int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
 
+int nft_parse_u32_check(const struct nlattr *attr, u32 max, u32 *dest)
 
-> > > If this is really bothering you, I guess I could apply this patch for
-> > > now.  But as I said, this is not solving the actual problem.
-> > 
-> > 
-> > Bikeshedding: I think IWL_INFO() is more appropriate, as info doesn't
-> > imply one needs to act on this message, while warn does imply that
-> > action is needed.
-> 
-> 
-> Agreed.  I still think making this a warning is appropriate, but it
-> seems pretty clear this is not an error.  This has nothing to do with
-> how much it bothers me.  An error tells the user something needs to be
-> fixed, but in this case the interface is working fine.  Making it a
-> warning with an improved message will result in fewer people wasting
-> their time.
+>  {
+> -       int val;
+> +       uint val;
 
-Yes, so I'll try to stop wasting people's timing by trying to do the
-correct thing without bothering the user at all. :)
+            u32 val;
 
-Thanks for pointing this all out!
+>
+>         val = ntohl(nla_get_be32(attr));
+>         if (val > max)
