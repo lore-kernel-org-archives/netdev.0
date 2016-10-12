@@ -1,43 +1,46 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH 1/1] vxlan: insert ipv6 macro
-Date: Wed, 12 Oct 2016 15:16:38 +0200
-Message-ID: <20161012151638.6250dff6@griffin>
-References: <1476174211-9358-1-git-send-email-zyjzyj2000@gmail.com>
-        <20161011160615.7f7f7746@griffin>
-        <CAD=hENc0pQPKDvq_HJ14BhNzAWQndZ4GMo_-_D4EtQMgs9tv2g@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net] net_sched: reorder pernet ops and act ops
+ registrations
+Date: Wed, 12 Oct 2016 07:29:06 -0400
+Message-ID: <d6dc7a72-aa65-e7fb-8ee6-631124233f10@mojatatu.com>
+References: <1476208605-16199-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, pabeni@redhat.com,
-        daniel@iogearbox.net, Pravin B Shelar <pshelar@nicira.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        hannes@stressinduktion.org, "David S. Miller" <davem@davemloft.net>
-To: zhuyj <zyjzyj2000@gmail.com>
+Cc: kjlx@templeofstupid.com
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47920 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932607AbcJLNRa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Oct 2016 09:17:30 -0400
-In-Reply-To: <CAD=hENc0pQPKDvq_HJ14BhNzAWQndZ4GMo_-_D4EtQMgs9tv2g@mail.gmail.com>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:36970 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932754AbcJLNWM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 09:22:12 -0400
+Received: by mail-it0-f53.google.com with SMTP id z65so54840028itc.0
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 06:22:11 -0700 (PDT)
+In-Reply-To: <1476208605-16199-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Oct 2016 21:01:54 +0800, zhuyj wrote:
-> How to explain the following source code? As you mentioned,  are the
-> #ifdefs in the following source pointless?
+On 16-10-11 01:56 PM, Cong Wang wrote:
+> Krister reported a kernel NULL pointer dereference after
+> tcf_action_init_1() invokes a_o->init(), it is a race condition
+> where one thread calling tcf_register_action() to initialize
+> the netns data after putting act ops in the global list and
+> the other thread searching the list and then calling
+> a_o->init(net, ...).
+>
+> Fix this by moving the pernet ops registration before making
+> the action ops visible. This is fine because: a) we don't
+> rely on act_base in pernet ops->init(), b) in the worst case we
+> have a fully initialized netns but ops is still not ready so
+> new actions still can't be created.
+>
+> Reported-by: Krister Johansen <kjlx@templeofstupid.com>
+> Tested-by: Krister Johansen <kjlx@templeofstupid.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-They are not, the code would not compile without them. Look how struct
-vxlan_dev is defined.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Those are really basic questions you have. I suggest you try yourself
-before asking such questions next time. In this case, you could
-trivially remove the #ifdef and see for yourself, as I explained in the
-previous email. Please do not try to offload your homework to other
-people. It's very obvious you didn't even try to understand this, even
-after the feedback you received.
 
-And do not top post.
-
-Thanks,
-
- Jiri
+cheers,
+jamal
