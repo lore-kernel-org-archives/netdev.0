@@ -1,42 +1,63 @@
-From: Chris Rorvick <chris@rorvick.com>
-Subject: Re: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
-Date: Wed, 12 Oct 2016 13:36:19 -0500
-Message-ID: <CAEUsAPbuHQuM4qEuuOKButjPniQAaL11E8zJVV6No1WWTdUBKQ@mail.gmail.com>
-References: <20161010071943.4717-1-chris@rorvick.com> <1476108164.5210.11.camel@coelho.fi>
- <1476180668.17022.21.camel@tiscali.nl> <1476252719.7776.6.camel@coelho.fi>
- <1476255135.1972.5.camel@tiscali.nl> <CAEUsAPYYJ3Gmh0T16veCn3wnzdD8bTxE+_U-AUYQpMo3TUd4Mg@mail.gmail.com>
- <1476295541.9670.26.camel@tiscali.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Luca Coelho <luca@coelho.fi>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Oren Givon <oren.givon@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476295541.9670.26.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: [PATCH 1/2] net: wan: slic_ds26522: add SPI device ID table to fix module autoload
+Date: Wed, 12 Oct 2016 15:55:40 -0300
+Message-ID: <1476298541-7354-1-git-send-email-javier@osg.samsung.com>
+Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
+        netdev@vger.kernel.org, Zhao Qiang <qiang.zhao@nxp.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:49318
+        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754719AbcJLSzw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 14:55:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 12, 2016 at 1:05 PM, Paul Bolle <pebolle@tiscali.nl> wrote:
-> On Wed, 2016-10-12 at 12:50 -0500, Chris Rorvick wrote:
->> This may already be apparent, but Dell sells two versions of the 9350:
->> one with the Broadcom adapter and one with the AC 8260.
->
-> Off topic, for most readers: my version (with the AC 8260) came with
-> Ubuntu preinstalled. Perhaps Chris' version came preinstalled with
-> something else?
+If the driver is built as a module, module alias information isn't filled
+so the module won't be autoloaded. Add a SPI device ID table and use the
+MODULE_DEVICE_TABLE() macro so the information is exported in the module.
 
-Exactly.  Mine came with Windows 10 and the Broadcom adapter, while
-the "Developer Edition" comes preloaded with Ubuntu and has the AC
-8260.  The Broadcom adapter has been supported since 4.4 but still
-seems to have issues.  For example, I had it working at home but I was
-not able to connect to a friend's AT&T U-Verse wireless gateway;
-something was failing with -EBUSY.  I ordered the AC 8260 and it works
-fine after the upgrade.
+Before this patch:
 
-Chris
+$ modinfo drivers/net/wan/slic_ds26522.ko | grep alias
+$
+
+After this patch:
+
+$ modinfo drivers/net/wan/slic_ds26522.ko | grep alias
+alias:          spi:ds26522
+
+Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+---
+
+ drivers/net/wan/slic_ds26522.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/wan/slic_ds26522.c b/drivers/net/wan/slic_ds26522.c
+index d06a887a2352..53366a2232f0 100644
+--- a/drivers/net/wan/slic_ds26522.c
++++ b/drivers/net/wan/slic_ds26522.c
+@@ -223,6 +223,12 @@ static int slic_ds26522_probe(struct spi_device *spi)
+ 	return ret;
+ }
+ 
++static const struct spi_device_id slic_ds26522_id[] = {
++	{ .name = "ds26522" },
++	{ /* sentinel */ },
++};
++MODULE_DEVICE_TABLE(spi, slic_ds26522_id);
++
+ static const struct of_device_id slic_ds26522_match[] = {
+ 	{
+ 	 .compatible = "maxim,ds26522",
+@@ -239,6 +245,7 @@ static struct spi_driver slic_ds26522_driver = {
+ 		   },
+ 	.probe = slic_ds26522_probe,
+ 	.remove = slic_ds26522_remove,
++	.id_table = slic_ds26522_id,
+ };
+ 
+ static int __init slic_ds26522_init(void)
+-- 
+2.7.4
