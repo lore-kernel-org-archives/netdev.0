@@ -1,44 +1,35 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
-Date: Wed, 12 Oct 2016 08:52:15 +0200
-Message-ID: <1476255135.1972.5.camel@tiscali.nl>
-References: <20161010071943.4717-1-chris@rorvick.com>
-         <1476108164.5210.11.camel@coelho.fi> <1476180668.17022.21.camel@tiscali.nl>
-         <1476252719.7776.6.camel@coelho.fi>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH v6] net: ip, diag -- Add diag interface for raw sockets
+Date: Wed, 12 Oct 2016 09:53:29 +0300
+Message-ID: <20161012065329.GH1941@uranus.lan>
+References: <20161006100055.GA1941@uranus.lan>
+ <20161012.015022.2273537782016406180.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Luca Coelho <luca@coelho.fi>, Chris Rorvick <chris@rorvick.com>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Oren Givon <oren.givon@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb2-smtp-cloud2.xs4all.net ([194.109.24.25]:52024 "EHLO
-        lb2-smtp-cloud2.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753878AbcJLGwX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 02:52:23 -0400
-In-Reply-To: <1476252719.7776.6.camel@coelho.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jhs@mojatatu.com,
+        dsa@cumulusnetworks.com, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161012.015022.2273537782016406180.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Luca,
+On Wed, Oct 12, 2016 at 01:50:22AM -0400, David Miller wrote:
+> 
+> Macros that look like function calls and are also lvalues tend to be
+> troublesome.
+> 
+> I know what you're trying to achieve, you want a named way to access
+> this so that the intent and semantics are clear.
+> 
+> But I'd rather you do something that provides a way by which normal
+> struct member accesses do the job, and your earlier patches achieved
+> this.
 
-On Wed, 2016-10-12 at 09:11 +0300, Luca Coelho wrote:
-> By "platform" I meant the PC you are using.  The ACPI table is created
-> by the OEM, so different PCs have different tables.
-
-Like Chris I use a Dell XPS 13 (9350), but mine came with an AC 8260
-out of it's assembly plant:
-    Detected Intel(R) Dual Band Wireless AC 8260, REV=0x208
-
-> In any case, I will rework this code, so I'd prefer if we skip this
-> patch entirely.
-
-Feel free to prod me for testing whatever you come up with.
-
-
-Paul Bolle
+I can't rename the field, neither a can use union. The only acceptable
+option I think is introduce inet_diag_v3 structure, which of course
+will require the mode wide patching. If there no objections I could
+try to implement it.
