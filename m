@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 03/11] net: bonding: Flip to the new dev walk API
-Date: Wed, 12 Oct 2016 13:51:51 -0700
-Message-ID: <1476305519-28833-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 04/11] IB/core: Flip to the new dev walk API
+Date: Wed, 12 Oct 2016 13:51:52 -0700
+Message-ID: <1476305519-28833-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1476305519-28833-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dledford@redhat.com, sean.hefty@intel.com,
         hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
@@ -10,169 +10,110 @@ Cc: dledford@redhat.com, sean.hefty@intel.com,
         David Ahern <dsa@cumulusnetworks.com>
 To: jiri@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33439 "EHLO
-        mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934181AbcJLUwO (ORCPT
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33167 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934192AbcJLUwO (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 16:52:14 -0400
-Received: by mail-pa0-f45.google.com with SMTP id vu5so31505051pab.0
+Received: by mail-pf0-f175.google.com with SMTP id 128so23973211pfz.0
         for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 13:52:13 -0700 (PDT)
 In-Reply-To: <1476305519-28833-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert alb_send_learning_packets and bond_has_this_ip to use the new
-netdev_walk_all_upper_dev_rcu API. In both cases this is just a move
-to the new API; no functional change is intended.
+Convert rdma_is_upper_dev_rcu, handle_netdev_upper and
+ipoib_get_net_dev_match_addr to the new upper device walk API.
+This is just a move to the new API; no functional change is intended.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/bonding/bond_alb.c  | 82 ++++++++++++++++++++++++++---------------
- drivers/net/bonding/bond_main.c | 21 +++++++----
- 2 files changed, 65 insertions(+), 38 deletions(-)
+ drivers/infiniband/core/core_priv.h     |  9 +------
+ drivers/infiniband/core/roce_gid_mgmt.c | 42 ++++++++++++++++++---------------
+ 2 files changed, 24 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 551f0f8dead3..1ddedec61900 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -950,13 +950,61 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
- 	dev_queue_xmit(skb);
+diff --git a/drivers/infiniband/core/core_priv.h b/drivers/infiniband/core/core_priv.h
+index 19d499dcab76..0c0bea091de8 100644
+--- a/drivers/infiniband/core/core_priv.h
++++ b/drivers/infiniband/core/core_priv.h
+@@ -127,14 +127,7 @@ void ib_cache_release_one(struct ib_device *device);
+ static inline bool rdma_is_upper_dev_rcu(struct net_device *dev,
+ 					 struct net_device *upper)
+ {
+-	struct net_device *_upper = NULL;
+-	struct list_head *iter;
+-
+-	netdev_for_each_all_upper_dev_rcu(dev, _upper, iter)
+-		if (_upper == upper)
+-			break;
+-
+-	return _upper == upper;
++	return netdev_has_upper_dev_all_rcu(dev, upper);
  }
  
-+struct alb_walk_data {
-+	struct bonding *bond;
-+	struct slave *slave;
-+	u8 *mac_addr;
-+	bool strict_match;
+ int addr_init(void);
+diff --git a/drivers/infiniband/core/roce_gid_mgmt.c b/drivers/infiniband/core/roce_gid_mgmt.c
+index 06556c34606d..db759a68d948 100644
+--- a/drivers/infiniband/core/roce_gid_mgmt.c
++++ b/drivers/infiniband/core/roce_gid_mgmt.c
+@@ -437,6 +437,28 @@ static void callback_for_addr_gid_device_scan(struct ib_device *device,
+ 			  &parsed->gid_attr);
+ }
+ 
++struct upper_list {
++	struct list_head list;
++	struct net_device *upper;
 +};
 +
-+static int alb_upper_dev_walk(struct net_device *upper, void *data)
++static int netdev_upper_walk(struct net_device *upper, void *data)
 +{
-+	struct alb_walk_data *_data = (struct alb_walk_data *)data;
-+	bool strict_match = _data->strict_match;
-+	struct bonding *bond = _data->bond;
-+	struct slave *slave = _data->slave;
-+	u8 *mac_addr = _data->mac_addr;
-+	struct bond_vlan_tag *tags;
++	struct upper_list *entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
++	struct list_head *upper_list = (struct list_head *)data;
 +
-+	if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0) {
-+		if (strict_match &&
-+		    ether_addr_equal_64bits(mac_addr,
-+					    upper->dev_addr)) {
-+			alb_send_lp_vid(slave, mac_addr,
-+					vlan_dev_vlan_proto(upper),
-+					vlan_dev_vlan_id(upper));
-+		} else if (!strict_match) {
-+			alb_send_lp_vid(slave, upper->dev_addr,
-+					vlan_dev_vlan_proto(upper),
-+					vlan_dev_vlan_id(upper));
-+		}
++	if (!entry) {
++		pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
++		return 0;
 +	}
 +
-+	/* If this is a macvlan device, then only send updates
-+	 * when strict_match is turned off.
-+	 */
-+	if (netif_is_macvlan(upper) && !strict_match) {
-+		tags = bond_verify_device_path(bond->dev, upper, 0);
-+		if (IS_ERR_OR_NULL(tags))
-+			BUG();
-+		alb_send_lp_vid(slave, upper->dev_addr,
-+				tags[0].vlan_proto, tags[0].vlan_id);
-+		kfree(tags);
-+	}
++	list_add_tail(&entry->list, upper_list);
++	dev_hold(upper);
++	entry->upper = upper;
 +
 +	return 0;
 +}
 +
- static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
- 				      bool strict_match)
+ static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
+ 				void *cookie,
+ 				void (*handle_netdev)(struct ib_device *ib_dev,
+@@ -444,30 +466,12 @@ static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
+ 						      struct net_device *ndev))
  {
- 	struct bonding *bond = bond_get_bond_by_slave(slave);
+ 	struct net_device *ndev = (struct net_device *)cookie;
+-	struct upper_list {
+-		struct list_head list;
+-		struct net_device *upper;
+-	};
 -	struct net_device *upper;
 -	struct list_head *iter;
--	struct bond_vlan_tag *tags;
-+	struct alb_walk_data data = {
-+		.strict_match = strict_match,
-+		.mac_addr = mac_addr,
-+		.slave = slave,
-+		.bond = bond,
-+	};
+ 	struct upper_list *upper_iter;
+ 	struct upper_list *upper_temp;
+ 	LIST_HEAD(upper_list);
  
- 	/* send untagged */
- 	alb_send_lp_vid(slave, mac_addr, 0, 0);
-@@ -965,33 +1013,7 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
- 	 * for that device.
- 	 */
  	rcu_read_lock();
--	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
--		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0) {
--			if (strict_match &&
--			    ether_addr_equal_64bits(mac_addr,
--						    upper->dev_addr)) {
--				alb_send_lp_vid(slave, mac_addr,
--						vlan_dev_vlan_proto(upper),
--						vlan_dev_vlan_id(upper));
--			} else if (!strict_match) {
--				alb_send_lp_vid(slave, upper->dev_addr,
--						vlan_dev_vlan_proto(upper),
--						vlan_dev_vlan_id(upper));
--			}
+-	netdev_for_each_all_upper_dev_rcu(ndev, upper, iter) {
+-		struct upper_list *entry = kmalloc(sizeof(*entry),
+-						   GFP_ATOMIC);
+-
+-		if (!entry) {
+-			pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
+-			continue;
 -		}
 -
--		/* If this is a macvlan device, then only send updates
--		 * when strict_match is turned off.
--		 */
--		if (netif_is_macvlan(upper) && !strict_match) {
--			tags = bond_verify_device_path(bond->dev, upper, 0);
--			if (IS_ERR_OR_NULL(tags))
--				BUG();
--			alb_send_lp_vid(slave, upper->dev_addr,
--					tags[0].vlan_proto, tags[0].vlan_id);
--			kfree(tags);
--		}
+-		list_add_tail(&entry->list, &upper_list);
+-		dev_hold(upper);
+-		entry->upper = upper;
 -	}
-+	netdev_walk_all_upper_dev_rcu(bond->dev, alb_upper_dev_walk, &data);
- 	rcu_read_unlock();
- }
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3f31ca32f52b..2b4134d5e081 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2270,22 +2270,27 @@ static void bond_mii_monitor(struct work_struct *work)
- 	}
- }
- 
-+static int bond_upper_dev_walk(struct net_device *upper, void *data)
-+{
-+	__be32 ip = *((__be32 *)data);
-+	int ret = 0;
-+
-+	if (ip == bond_confirm_addr(upper, 0, ip))
-+		ret = 1;
-+
-+	return ret;
-+}
-+
- static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
- {
--	struct net_device *upper;
--	struct list_head *iter;
- 	bool ret = false;
- 
- 	if (ip == bond_confirm_addr(bond->dev, 0, ip))
- 		return true;
- 
- 	rcu_read_lock();
--	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
--		if (ip == bond_confirm_addr(upper, 0, ip)) {
--			ret = true;
--			break;
--		}
--	}
-+	if (netdev_walk_all_upper_dev_rcu(bond->dev, bond_upper_dev_walk, &ip))
-+		ret = true;
++	netdev_walk_all_upper_dev_rcu(ndev, netdev_upper_walk, &upper_list);
  	rcu_read_unlock();
  
- 	return ret;
+ 	handle_netdev(ib_dev, port, ndev);
 -- 
 2.1.4
