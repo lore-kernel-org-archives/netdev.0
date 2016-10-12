@@ -1,88 +1,85 @@
-From: Kyle Roeschley <kyle.roeschley@ni.com>
-Subject: Re: [RFC] net: phy: smsc: Disable auto-negotiation on startup
-Date: Wed, 12 Oct 2016 10:09:14 -0500
-Message-ID: <20161012150914.aoxvdtrf5gh5z5t4@senary>
-References: <20161010174123.21436-1-kyle.roeschley@ni.com>
- <4ced57d0-febe-181c-5f41-41ff3e018857@arm.com>
+From: Chris Rorvick <chris@rorvick.com>
+Subject: Re: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
+Date: Wed, 12 Oct 2016 12:50:57 -0500
+Message-ID: <CAEUsAPYYJ3Gmh0T16veCn3wnzdD8bTxE+_U-AUYQpMo3TUd4Mg@mail.gmail.com>
+References: <20161010071943.4717-1-chris@rorvick.com> <1476108164.5210.11.camel@coelho.fi>
+ <1476180668.17022.21.camel@tiscali.nl> <1476252719.7776.6.camel@coelho.fi> <1476255135.1972.5.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Jeremy Linton <jeremy.linton@arm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Intel Linux Wireless <linuxwifi@intel.com>,
+        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Oren Givon <oren.givon@intel.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>, Luca Coelho <luca@coelho.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0100.outbound.protection.outlook.com ([104.47.40.100]:18688
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932324AbcJLRpg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Oct 2016 13:45:36 -0400
-Content-Disposition: inline
-In-Reply-To: <4ced57d0-febe-181c-5f41-41ff3e018857@arm.com>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:33360 "EHLO
+        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754885AbcJLRvE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 13:51:04 -0400
+In-Reply-To: <1476255135.1972.5.camel@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2016 at 09:32:30AM -0500, Jeremy Linton wrote:
-> On 10/10/2016 12:41 PM, Kyle Roeschley wrote:
-> > Because the SMSC PHY completes auto-negotiation before the driver is
-> > ready to handle interrupts, the PHY state machine never realizes that we
-> > have a link. Clear the ANENABLE bit on initialization, which lets
-> > genphy_config_aneg do its thing when that code is hit later.
-> > 
-> > While this patch does fix the problem we see (no link on boot without
-> > re-plugging the cable), it seems like the generic PHY code should be
-> > able to handle auto-negotiation completing before interrupts are
-> > enabled. Submitted as an RFC in the hopes that someone has an idea as to
-> > how that could be done.
-> 
-> Hi,
-> 
-> 	Which smsc chip/driver? Maybe assuring the device interrupts are enabled
-> before the phy is started is a solution?
-> 
-> 	The whole problem sounds similar to what was recently happening in the
-> smsc911x driver, but AFAIK that driver is basically only polling at this
-> point so connecting the phy before the interrupts are enabled shouldn't be a
-> problem.
-> 
+Hi Luca,
 
-We're using the SMSC LAN8720A with the Cadence MACB ethernet controller.
-Interrupts are enabled before the phy is started, but it looks like the patch
-Florian pointed me to (https://www.spinics.net/lists/netdev/msg397857.html)
-fixes my interrupt problem.
+FYI, It seems that Google does not like your email as I'm not
+receiving any of your messages in gmail.  Some responses below:
 
-> > 
-> > This fix is copied from commit 99f81afc139c ("phy: micrel: Disable auto
-> > negotiation on startup").
-> > 
-> > Signed-off-by: Kyle Roeschley <kyle.roeschley@ni.com>
-> > ---
-> >  drivers/net/phy/smsc.c | 10 ++++++++++
-> >  1 file changed, 10 insertions(+)
-> > 
-> > diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-> > index b62c4aa..8de8011 100644
-> > --- a/drivers/net/phy/smsc.c
-> > +++ b/drivers/net/phy/smsc.c
-> > @@ -62,6 +62,16 @@ static int smsc_phy_config_init(struct phy_device *phydev)
-> >  			return rc;
-> >  	}
-> > 
-> > +	if (phy_interrupt_is_valid(phydev)) {
-> > +		rc = phy_read(phydev, MII_BMCR);
-> > +		if (rc < 0)
-> > +			return rc;
-> > +
-> > +		rc = phy_write(phydev, MII_BMCR, rc & ~BMCR_ANENABLE);
-> > +		if (rc < 0)
-> > +			return rc;
-> > +	}
-> > +
-> >  	return smsc_phy_ack_interrupt(phydev);
-> >  }
-> > 
-> > 
-> 
+On Wed, 2016-10-12 at 15:24 +0300, Luca Coelho wrote:
+> Hi Chris,
+> On Tue, 2016-10-11 at 09:09 -0500, Chris Rorvick wrote:
+> > On Tue, Oct 11, 2016 at 5:11 AM, Paul Bolle <pebolle [at] tiscali> wrot=
+e:
+> > > > This is not coming from the NIC itself, but from the platform's ACP=
+I
+> > > > tables. Can you tell us which platform you are using?
+> >
+> > Interesting. I'm running a Dell XPS 13 9350. I replaced the
+> > factory-provided Broadcom card with an AC 8260. I can update the
+> > commit log to reflect this.
+>
+> Okay, so this makes sense. Those entries are probably formatted for
+> the Broadcom card, which the iwlwifi driver obviously doesn't
+> understand. The best we can do, as I already said, is to ignore values
+> we don't understand.
 
--- 
-Kyle Roeschley
-Software Engineer
-National Instruments
+This may already be apparent, but Dell sells two versions of the 9350:
+one with the Broadcom adapter and one with the AC 8260.  I just
+happened to find the former version at a deep discount at Costco so
+decided to chance it.  Turns out the Broadcom card is not so good even
+with new kernels so I upgraded.  Anyway, since Paul is seeing the same
+issue I don't think the values are intended to be Broadcom-specific.
+
+On Wed, 2016-10-12 at 17:21 +0300, Luca Coelho wrote:
+> And, the values in the SPLX structs are being changed here, to DOM1,
+> LIM1, TIM1 etc., before being returned. =C3=82 This also matches your
+> description that, at runtime, you got something different than the pure
+> dump. =C3=82 If you follow these DOM*, LIM*, TIM* symbols, you'll probabl=
+y
+> end up getting the values you observed at runtime.
+
+Probably not important, but it seems that there is some additional
+indirection.  The only values I'm seeing associated with those symbols
+are 8 and 16:
+
+    $ grep -e 'DOM[0-9]' -e 'LIM[0-9]' -e 'TIM[0-9]' dsdt.dsl | grep -v Sto=
+re
+    DOM1,   8,
+    LIM1,   16,
+    TIM1,   16,
+    DOM2,   8,
+    LIM2,   16,
+    TIM2,   16,
+    DOM3,   8,
+    LIM3,   16,
+    TIM3,   16,
+
+> I'll send you a patch for testing soon.
+
+I will keep an eye on the list archive, thanks!
+
+Chris
