@@ -1,95 +1,126 @@
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: [PATCH net-next 05/11] IB/ipoib: Flip to new dev walk API
-Date: Wed, 12 Oct 2016 13:51:53 -0700
-Message-ID: <1476305519-28833-6-git-send-email-dsa@cumulusnetworks.com>
-References: <1476305519-28833-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org,
-        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-To: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476305519-28833-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Kyle Roeschley <kyle.roeschley@ni.com>
+Subject: Re: [PATCH net-next] net: phy: Trigger state machine on state change
+ and not polling.
+Date: Wed, 12 Oct 2016 16:44:31 -0500
+Message-ID: <20161012214430.akx655amb4ow6kz5@senary>
+References: <1476303294-14944-1-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0099.outbound.protection.outlook.com ([104.47.32.99]:53280
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750898AbcJLV74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Oct 2016 17:59:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1476303294-14944-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert ipoib_get_net_dev_match_addr to the new upper device walk API.
-This is just a move to the new API; no functional change is intended.
+On Wed, Oct 12, 2016 at 10:14:53PM +0200, Andrew Lunn wrote:
+> The phy_start() is used to indicate the PHY is now ready to do its
+> work. The state is changed, normally to PHY_UP which means that both
+> the MAC and the PHY are ready.
+> 
+> If the phy driver is using polling, when the next poll happens, the
+> state machine notices the PHY is now in PHY_UP, and kicks off
+> auto-negotiation, if needed.
+> 
+> If however, the PHY is using interrupts, there is no polling. The phy
+> is stuck in PHY_UP until the next interrupt comes along. And there is
+> no reason for the PHY to interrupt.
+> 
+> Have phy_start() schedule the state machine to run, which both speeds
+> up the polling use case, and makes the interrupt use case actually
+> work.
+> 
+> This problems exists whenever there is a state change which will not
+> cause an interrupt. Trigger the state machine in these cases,
+> e.g. phy_error().
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Cc: Kyle Roeschley <kyle.roeschley@ni.com>
+> ---
+> 
+> This should be applied to stable, but i've no idea what fixes: tag to
+> use. It could be phylib has been broken since interrupts were added?
+> 
 
-Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
----
- drivers/infiniband/ulp/ipoib/ipoib_main.c | 37 +++++++++++++++++++++----------
- 1 file changed, 25 insertions(+), 12 deletions(-)
+This patched fixed another problem had with the phy state machine which was
+caused by d5c3d8465 ("net: phy: Avoid polling PHY with PHY_IGNORE_INTERRUPTS").
+That might be the commit you're looking for. Also,
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 5636fc3da6b8..624855ab7205 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -292,6 +292,25 @@ static struct net_device *ipoib_get_master_net_dev(struct net_device *dev)
- 	return dev;
- }
- 
-+struct ipoib_walk_data {
-+	const struct sockaddr *addr;
-+	struct net_device *result;
-+};
-+
-+static int ipoib_upper_walk(struct net_device *upper, void *_data)
-+{
-+	struct ipoib_walk_data *data = (struct ipoib_walk_data *)_data;
-+	int ret = 0;
-+
-+	if (ipoib_is_dev_match_addr_rcu(data->addr, upper)) {
-+		dev_hold(upper);
-+		data->result = upper;
-+		ret = 1;
-+	}
-+
-+	return ret;
-+}
-+
- /**
-  * Find a net_device matching the given address, which is an upper device of
-  * the given net_device.
-@@ -304,27 +323,21 @@ static struct net_device *ipoib_get_master_net_dev(struct net_device *dev)
- static struct net_device *ipoib_get_net_dev_match_addr(
- 		const struct sockaddr *addr, struct net_device *dev)
- {
--	struct net_device *upper,
--			  *result = NULL;
--	struct list_head *iter;
-+	struct ipoib_walk_data data = {
-+		.addr = addr,
-+	};
- 
- 	rcu_read_lock();
- 	if (ipoib_is_dev_match_addr_rcu(addr, dev)) {
- 		dev_hold(dev);
--		result = dev;
-+		data.result = dev;
- 		goto out;
- 	}
- 
--	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
--		if (ipoib_is_dev_match_addr_rcu(addr, upper)) {
--			dev_hold(upper);
--			result = upper;
--			break;
--		}
--	}
-+	netdev_walk_all_upper_dev_rcu(dev, ipoib_upper_walk, &data);
- out:
- 	rcu_read_unlock();
--	return result;
-+	return data.result;
- }
- 
- /* returns the number of IPoIB netdevs on top a given ipoib device matching a
+Tested-by: Kyle Roeschley <kyle.roeschley@ni.com>
+
+>  drivers/net/phy/phy.c | 22 ++++++++++++++++++++--
+>  1 file changed, 20 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index c6f66832a1a6..f424b867f73e 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -608,6 +608,21 @@ void phy_start_machine(struct phy_device *phydev)
+>  }
+>  
+>  /**
+> + * phy_trigger_machine - trigger the state machine to run
+> + *
+> + * @phydev: the phy_device struct
+> + *
+> + * Description: There has been a change in state which requires that the
+> + *   state machine runs.
+> + */
+> +
+
+You've got a bonus newline here.
+
+> +static void phy_trigger_machine(struct phy_device *phydev)
+> +{
+> +	cancel_delayed_work_sync(&phydev->state_queue);
+> +	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
+> +}
+> +
+> +/**
+>   * phy_stop_machine - stop the PHY state machine tracking
+>   * @phydev: target phy_device struct
+>   *
+> @@ -639,6 +654,8 @@ static void phy_error(struct phy_device *phydev)
+>  	mutex_lock(&phydev->lock);
+>  	phydev->state = PHY_HALTED;
+>  	mutex_unlock(&phydev->lock);
+> +
+> +	phy_trigger_machine(phydev);
+>  }
+>  
+>  /**
+> @@ -800,8 +817,7 @@ void phy_change(struct work_struct *work)
+>  	}
+>  
+>  	/* reschedule state queue work to run as soon as possible */
+> -	cancel_delayed_work_sync(&phydev->state_queue);
+> -	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
+> +	phy_trigger_machine(phydev);
+>  	return;
+>  
+>  ignore:
+> @@ -890,6 +906,8 @@ void phy_start(struct phy_device *phydev)
+>  	/* if phy was suspended, bring the physical link up again */
+>  	if (do_resume)
+>  		phy_resume(phydev);
+> +
+> +	phy_trigger_machine(phydev);
+>  }
+>  EXPORT_SYMBOL(phy_start);
+>  
+> -- 
+> 2.9.3
+> 
+
 -- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Kyle Roeschley
+Software Engineer
+National Instruments
