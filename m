@@ -1,44 +1,30 @@
-From: Zach Brown <zach.brown@ni.com>
-Subject: Re: [RFC v3 3/3] phy,leds: add support for led triggers on phy link
- state change
-Date: Wed, 12 Oct 2016 10:57:58 -0500
-Message-ID: <20161012155757.GA29538@zach-desktop>
-References: <1475874897-29720-1-git-send-email-zach.brown@ni.com>
- <1475874897-29720-4-git-send-email-zach.brown@ni.com>
- <1eb3afdb-0236-65e3-64be-09cc6eeda533@gmail.com>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v11 0/1] net: phy: Rebase Edge-Rate clean up
+Date: Wed, 12 Oct 2016 15:47:50 +0200
+Message-ID: <1476280071-6886-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <mlindner@marvell.com>, <stephen@networkplumber.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <devel@driverdev.osuosl.org>,
-        <florian.c.schilhabel@googlemail.com>, <Larry.Finger@lwfinger.net>,
-        <gregkh@linuxfoundation.org>, <rpurdie@rpsys.net>,
-        <j.anaszewski@samsung.com>, <linux-leds@vger.kernel.org>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1eb3afdb-0236-65e3-64be-09cc6eeda533@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0055.outbound.protection.outlook.com ([104.47.32.55]:7136
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932373AbcJLQWo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Oct 2016 12:22:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 10, 2016 at 02:03:32AM -0700, Florian Fainelli wrote:
-> > +
-> > +#ifdef CONFIG_LED_TRIGGER_PHY
-> > +
-> > +#include <linux/leds.h>
-> > +#include <linux/phy.h>
-> > +
-> > +#define PHY_LINK_LED_MAX_TRIGGERS	5
-> > +#define PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE	7
-> > +#define PHY_MII_BUS_ID_SIZE	(20 - 3)
-> 
-> This particular constant may be something worth moving to
-> include/linux/phy.h eventually.
-> -- 
-> Florian
+Hi,
 
-MII_BUS_ID_SIZE is defined in include/linux/phy.h but it's defined after
-phy_led_triggers.h is included so phy_led_triggers.h doesn't have access.
-I could move the definition of MII_BUS_ID_SIZE above the include, but that
-seemed ugly. Do you have any suggestions?
+I can see that the "Add Wake-on-LAN driver for Microsemi PHYs" (0a55c12f97)
+patch has been applied to net-next, and that it is causing the Edge-Rate patch
+to conflict.
+
+I have therefore rebased v10 of the patch to fit on top of net-next.
+
+/Allan
+
+-- 
+2.7.3
