@@ -1,70 +1,68 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] ipv6: correctly add local routes when lo goes up
-Date: Wed, 12 Oct 2016 10:10:40 +0200
-Message-ID: <1476259840-26261-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>,
-        Maruthi Thotad <Maruthi.Thotad@ap.sony.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Weilong Chen <chenweilong@huawei.com>,
-        Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v4 10/10] ARM: sunxi: Enable sun8i-emac driver on
+ multi_v7_defconfig
+Date: Wed, 12 Oct 2016 10:36:15 +0200
+Message-ID: <20161012083615.GA23377@Red>
+References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1475828757-926-11-git-send-email-clabbe.montjoie@gmail.com>
+ <20161010123046.GH3462@lukather>
+ <20161010123511.GA16103@Red>
+ <20161010150943.fa7ca85fe52f4c6f9508b5eb@free.fr>
+ <20161011094042.GS3462@lukather>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jean-Francois Moine <moinejf@free.fr>, mark.rutland@arm.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux@armlinux.org.uk,
+        linux-kernel@vger.kernel.org, wens@csie.org, robh+dt@kernel.org,
+        davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:40428 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752865AbcJLITP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 04:19:15 -0400
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36390 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932201AbcJLIgT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 04:36:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20161011094042.GS3462@lukather>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of the patch is to fix this scenario:
- ip link add dummy1 type dummy
- ip link set dummy1 up
- ip link set lo down ; ip link set lo up
+On Tue, Oct 11, 2016 at 11:40:42AM +0200, Maxime Ripard wrote:
+> On Mon, Oct 10, 2016 at 03:09:43PM +0200, Jean-Francois Moine wrote:
+> > On Mon, 10 Oct 2016 14:35:11 +0200
+> > LABBE Corentin <clabbe.montjoie@gmail.com> wrote:
+> > 
+> > > On Mon, Oct 10, 2016 at 02:30:46PM +0200, Maxime Ripard wrote:
+> > > > On Fri, Oct 07, 2016 at 10:25:57AM +0200, Corentin Labbe wrote:
+> > > > > Enable the sun8i-emac driver in the multi_v7 default configuration
+> > > > > 
+> > > > > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > > > > ---
+> > > > >  arch/arm/configs/multi_v7_defconfig | 1 +
+> > > > >  1 file changed, 1 insertion(+)
+> > > > > 
+> > > > > diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
+> > > > > index 5845910..f44d633 100644
+> > > > > --- a/arch/arm/configs/multi_v7_defconfig
+> > > > > +++ b/arch/arm/configs/multi_v7_defconfig
+> > > > > @@ -229,6 +229,7 @@ CONFIG_NETDEVICES=y
+> > > > >  CONFIG_VIRTIO_NET=y
+> > > > >  CONFIG_HIX5HD2_GMAC=y
+> > > > >  CONFIG_SUN4I_EMAC=y
+> > > > > +CONFIG_SUN8I_EMAC=y
+> > > > 
+> > > > Any reason to build it statically?
+> > > 
+> > > No, just copied the same than CONFIG_SUN4I_EMAC that probably do
+> > > not need it also.
+> > 
+> > All arm configs are done the same way, and, some day, the generic ARM
+> > V7 kernel will not be loadable in 1Gb RAM...
+> 
+> Yeah, if possible, I'd really like to avoid introducing statically
+> built drivers to multi_v7.
+> 
 
-After that sequence, the local route to the link layer address of dummy1 is
-not there anymore.
+I forgot to said it in my first answer, but yes I will change it.
 
-When the loopback is set down, all local routes are deleted by
-addrconf_ifdown()/rt6_ifdown(). At this time, the rt6_info entry still
-exists, because the corresponding idev has a reference on it. After the rcu
-grace period, dst_rcu_free() is called, and thus ___dst_free(), which will
-set obsolete to DST_OBSOLETE_DEAD.
-
-In this case, init_loopback() is called before dst_rcu_free(), thus
-obsolete is still sets to something <= 0. So, the function doesn't add the
-route again. To avoid that race, let's check the rt6 refcnt instead.
-
-Fixes: 25fb6ca4ed9c ("net IPv6 : Fix broken IPv6 routing table after loopback down-up")
-Fixes: a881ae1f625c ("ipv6: don't call addrconf_dst_alloc again when enable lo")
-Fixes: 33d99113b110 ("ipv6: reallocate addrconf router for ipv6 address when lo device up")
-Reported-by: Francesco Santoro <francesco.santoro@6wind.com>
-Reported-by: Samuel Gauthier <samuel.gauthier@6wind.com>
-CC: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
-CC: Maruthi Thotad <Maruthi.Thotad@ap.sony.com>
-CC: Sabrina Dubroca <sd@queasysnail.net>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-CC: Weilong Chen <chenweilong@huawei.com>
-CC: Gao feng <gaofeng@cn.fujitsu.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/addrconf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d8983e15f859..9faafe58516a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3018,7 +3018,7 @@ static void init_loopback(struct net_device *dev)
- 				 * lo device down, release this obsolete dst and
- 				 * reallocate a new router for ifa.
- 				 */
--				if (sp_ifa->rt->dst.obsolete > 0) {
-+				if (!atomic_read(&sp_ifa->rt->rt6i_ref)) {
- 					ip6_rt_put(sp_ifa->rt);
- 					sp_ifa->rt = NULL;
- 				} else {
--- 
-2.8.1
+Regards
