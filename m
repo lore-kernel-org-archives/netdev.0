@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: mv643xx_eth: use phydev from struct net_device
-Date: Wed, 12 Oct 2016 01:40:56 -0400 (EDT)
-Message-ID: <20161012.014056.252399120931987245.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Wed, 12 Oct 2016 01:41:20 -0400 (EDT)
+Message-ID: <20161012.014120.2261415940292360257.davem@davemloft.net>
 References: <1475402809-11593-1-git-send-email-tremyfr@gmail.com>
+        <1475402809-11593-2-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475402809-11593-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36538 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752097AbcJLFlY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 01:41:24 -0400
+In-Reply-To: <1475402809-11593-2-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun,  2 Oct 2016 12:06:48 +0200
+Date: Sun,  2 Oct 2016 12:06:49 +0200
 
-> The private structure contain a pointer to phydev, but the structure
-> net_device already contain such pointer. So we can remove the pointer
-> phydev in the private structure, and update the driver to use the
-> one contained in struct net_device.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
 > Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
