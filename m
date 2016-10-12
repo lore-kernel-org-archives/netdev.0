@@ -1,68 +1,53 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v4 10/10] ARM: sunxi: Enable sun8i-emac driver on
- multi_v7_defconfig
-Date: Wed, 12 Oct 2016 10:36:15 +0200
-Message-ID: <20161012083615.GA23377@Red>
-References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
- <1475828757-926-11-git-send-email-clabbe.montjoie@gmail.com>
- <20161010123046.GH3462@lukather>
- <20161010123511.GA16103@Red>
- <20161010150943.fa7ca85fe52f4c6f9508b5eb@free.fr>
- <20161011094042.GS3462@lukather>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] vti6: flush x-netns xfrm cache when vti interface is
+ removed
+Date: Wed, 12 Oct 2016 10:47:49 +0200
+Message-ID: <20161012084749.GB19080@gauss.secunet.com>
+References: <1475226667-22404-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jean-Francois Moine <moinejf@free.fr>, mark.rutland@arm.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux@armlinux.org.uk,
-        linux-kernel@vger.kernel.org, wens@csie.org, robh+dt@kernel.org,
-        davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Maxime Ripard <maxime.ripard@free-electrons.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Lance Richardson <lrichard@redhat.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36390 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932201AbcJLIgT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 04:36:19 -0400
+Received: from a.mx.secunet.com ([62.96.220.36]:57497 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932283AbcJLIse (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Oct 2016 04:48:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20161011094042.GS3462@lukather>
+In-Reply-To: <1475226667-22404-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2016 at 11:40:42AM +0200, Maxime Ripard wrote:
-> On Mon, Oct 10, 2016 at 03:09:43PM +0200, Jean-Francois Moine wrote:
-> > On Mon, 10 Oct 2016 14:35:11 +0200
-> > LABBE Corentin <clabbe.montjoie@gmail.com> wrote:
-> > 
-> > > On Mon, Oct 10, 2016 at 02:30:46PM +0200, Maxime Ripard wrote:
-> > > > On Fri, Oct 07, 2016 at 10:25:57AM +0200, Corentin Labbe wrote:
-> > > > > Enable the sun8i-emac driver in the multi_v7 default configuration
-> > > > > 
-> > > > > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > > > > ---
-> > > > >  arch/arm/configs/multi_v7_defconfig | 1 +
-> > > > >  1 file changed, 1 insertion(+)
-> > > > > 
-> > > > > diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
-> > > > > index 5845910..f44d633 100644
-> > > > > --- a/arch/arm/configs/multi_v7_defconfig
-> > > > > +++ b/arch/arm/configs/multi_v7_defconfig
-> > > > > @@ -229,6 +229,7 @@ CONFIG_NETDEVICES=y
-> > > > >  CONFIG_VIRTIO_NET=y
-> > > > >  CONFIG_HIX5HD2_GMAC=y
-> > > > >  CONFIG_SUN4I_EMAC=y
-> > > > > +CONFIG_SUN8I_EMAC=y
-> > > > 
-> > > > Any reason to build it statically?
-> > > 
-> > > No, just copied the same than CONFIG_SUN4I_EMAC that probably do
-> > > not need it also.
-> > 
-> > All arm configs are done the same way, and, some day, the generic ARM
-> > V7 kernel will not be loadable in 1Gb RAM...
+On Fri, Sep 30, 2016 at 11:11:07AM +0200, Nicolas Dichtel wrote:
+> This is the same fix than commit a5d0dc810abf ("vti: flush x-netns xfrm
+> cache when vti interface is removed")
 > 
-> Yeah, if possible, I'd really like to avoid introducing statically
-> built drivers to multi_v7.
+> This patch fixes a refcnt problem when a x-netns vti6 interface is removed:
+> unregister_netdevice: waiting for vti6_test to become free. Usage count = 1
 > 
+> Here is a script to reproduce the problem:
+> 
+> ip link set dev ntfp2 up
+> ip addr add dev ntfp2 2001::1/64
+> ip link add vti6_test type vti6 local 2001::1 remote 2001::2 key 1
+> ip netns add secure
+> ip link set vti6_test netns secure
+> ip netns exec secure ip link set vti6_test up
+> ip netns exec secure ip link s lo up
+> ip netns exec secure ip addr add dev vti6_test 2003::1/64
+> ip -6 xfrm policy add dir out tmpl src 2001::1 dst 2001::2 proto esp \
+> 	   mode tunnel mark 1
+> ip -6 xfrm policy add dir in tmpl src 2001::2 dst 2001::1 proto esp \
+> 	   mode tunnel mark 1
+> ip xfrm state add src 2001::1 dst 2001::2 proto esp spi 1 mode tunnel \
+> 	   enc des3_ede 0x112233445566778811223344556677881122334455667788 mark 1
+> ip xfrm state add src 2001::2 dst 2001::1 proto esp spi 1 mode tunnel \
+> 	   enc des3_ede 0x112233445566778811223344556677881122334455667788 mark 1
+> ip netns exec secure  ping6 -c 4 2003::2
+> ip netns del secure
+> 
+> CC: Lance Richardson <lrichard@redhat.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-I forgot to said it in my first answer, but yes I will change it.
-
-Regards
+Applied to the ipsec tree, thanks!
