@@ -1,126 +1,59 @@
-From: Kyle Roeschley <kyle.roeschley@ni.com>
-Subject: Re: [PATCH net-next] net: phy: Trigger state machine on state change
- and not polling.
-Date: Wed, 12 Oct 2016 16:44:31 -0500
-Message-ID: <20161012214430.akx655amb4ow6kz5@senary>
-References: <1476303294-14944-1-git-send-email-andrew@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 iproute2 0/9] Cleanup backlog
+Date: Wed, 12 Oct 2016 15:26:17 -0700
+Message-ID: <20161012152617.2018090c@xeon-e3>
+References: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mrv@mojatatu.com, cdillaba@mojatatu.com,
+        lucasb@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0099.outbound.protection.outlook.com ([104.47.32.99]:53280
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750898AbcJLV74 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Oct 2016 17:59:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1476303294-14944-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33190 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753189AbcJLWbY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 18:31:24 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 128so25024784pfz.0
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 15:31:24 -0700 (PDT)
+In-Reply-To: <1476183648-25850-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 12, 2016 at 10:14:53PM +0200, Andrew Lunn wrote:
-> The phy_start() is used to indicate the PHY is now ready to do its
-> work. The state is changed, normally to PHY_UP which means that both
-> the MAC and the PHY are ready.
+On Tue, 11 Oct 2016 07:00:39 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 > 
-> If the phy driver is using polling, when the next poll happens, the
-> state machine notices the PHY is now in PHY_UP, and kicks off
-> auto-negotiation, if needed.
 > 
-> If however, the PHY is using interrupts, there is no polling. The phy
-> is stuck in PHY_UP until the next interrupt comes along. And there is
-> no reason for the PHY to interrupt.
+> Variety of cleanup and new functionality I had sitting around on my
+> private tree
 > 
-> Have phy_start() schedule the state machine to run, which both speeds
-> up the polling use case, and makes the interrupt use case actually
-> work.
+> Craig Dillabaugh (1):
+>   action gact: list pipe as a valid action
 > 
-> This problems exists whenever there is a state change which will not
-> cause an interrupt. Trigger the state machine in these cases,
-> e.g. phy_error().
+> Jamal Hadi Salim (3):
+>   actions ife: Introduce encoding and decoding of tcindex metadata
+>   actions:  add skbmod action
+>   man pages: Add tc-ife to Makefile
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> Cc: Kyle Roeschley <kyle.roeschley@ni.com>
-> ---
+> Lucas Bates (2):
+>   man pages: update ife action to include tcindex
+>   man pages: add man page for skbmod action
 > 
-> This should be applied to stable, but i've no idea what fixes: tag to
-> use. It could be phylib has been broken since interrupts were added?
+> Roman Mashak (3):
+>   ife action: allow specifying index in hex
+>   ife: print prio, mark and hash as unsigned
+>   ife: improve help text
+> 
+>  include/linux/tc_act/tc_ife.h |   3 +-
+>  man/man8/Makefile             |   2 +-
+>  man/man8/tc-ife.8             |  29 ++++-
+>  tc/m_gact.c                   |   4 +-
+>  tc/m_ife.c                    |  38 ++++--
+>  tc/m_skbmod.c                 | 260 ++++++++++++++++++++++++++++++++++++++++++
+>  6 files changed, 319 insertions(+), 17 deletions(-)
+>  create mode 100644 tc/m_skbmod.c
 > 
 
-This patched fixed another problem had with the phy state machine which was
-caused by d5c3d8465 ("net: phy: Avoid polling PHY with PHY_IGNORE_INTERRUPTS").
-That might be the commit you're looking for. Also,
-
-Tested-by: Kyle Roeschley <kyle.roeschley@ni.com>
-
->  drivers/net/phy/phy.c | 22 ++++++++++++++++++++--
->  1 file changed, 20 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index c6f66832a1a6..f424b867f73e 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -608,6 +608,21 @@ void phy_start_machine(struct phy_device *phydev)
->  }
->  
->  /**
-> + * phy_trigger_machine - trigger the state machine to run
-> + *
-> + * @phydev: the phy_device struct
-> + *
-> + * Description: There has been a change in state which requires that the
-> + *   state machine runs.
-> + */
-> +
-
-You've got a bonus newline here.
-
-> +static void phy_trigger_machine(struct phy_device *phydev)
-> +{
-> +	cancel_delayed_work_sync(&phydev->state_queue);
-> +	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
-> +}
-> +
-> +/**
->   * phy_stop_machine - stop the PHY state machine tracking
->   * @phydev: target phy_device struct
->   *
-> @@ -639,6 +654,8 @@ static void phy_error(struct phy_device *phydev)
->  	mutex_lock(&phydev->lock);
->  	phydev->state = PHY_HALTED;
->  	mutex_unlock(&phydev->lock);
-> +
-> +	phy_trigger_machine(phydev);
->  }
->  
->  /**
-> @@ -800,8 +817,7 @@ void phy_change(struct work_struct *work)
->  	}
->  
->  	/* reschedule state queue work to run as soon as possible */
-> -	cancel_delayed_work_sync(&phydev->state_queue);
-> -	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
-> +	phy_trigger_machine(phydev);
->  	return;
->  
->  ignore:
-> @@ -890,6 +906,8 @@ void phy_start(struct phy_device *phydev)
->  	/* if phy was suspended, bring the physical link up again */
->  	if (do_resume)
->  		phy_resume(phydev);
-> +
-> +	phy_trigger_machine(phydev);
->  }
->  EXPORT_SYMBOL(phy_start);
->  
-> -- 
-> 2.9.3
-> 
-
--- 
-Kyle Roeschley
-Software Engineer
-National Instruments
+Applied. Then went through and cleaned up minor checkpatch style issues.
