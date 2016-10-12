@@ -1,74 +1,72 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 1/2] stmmac: fix ptp init for gmac4
-Date: Wed, 12 Oct 2016 15:42:03 +0200
-Message-ID: <1476279724-11817-1-git-send-email-peppe.cavallaro@st.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: Re: [PATCH V2 net-next 15/15] smc: proc-fs interface for smc
+ connections
+Date: Wed, 12 Oct 2016 16:00:27 +0200
+Message-ID: <a02646ea-9f36-85fc-f761-fd6ed123051c@linux.vnet.ibm.com>
+References: <20160927164156.26184-1-ubraun@linux.vnet.ibm.com>
+ <20160927164156.26184-16-ubraun@linux.vnet.ibm.com>
+ <20160927.222741.584893707513031004.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        Rayagond Kokatanur <rayagond@vayavyalabs.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        utz.bacher@de.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:42137 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754827AbcJLNsP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 09:48:15 -0400
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:39811 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755007AbcJLOAe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 10:00:34 -0400
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9CDx7mZ039532
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 10:00:33 -0400
+Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 261p5vh80k-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 10:00:33 -0400
+Received: from localhost
+        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Wed, 12 Oct 2016 15:00:30 +0100
+In-Reply-To: <20160927.222741.584893707513031004.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The gmac 4.x version has not extended descriptors
-(that are available on 3.x instead of).
-While initializing the PTP module, the advanced PTP was
-enabled in case of extended descriptors. This cannot be
-applied for 4.x version where only the hardware capability
-register has to show if the feature is present.
-Patch also adds some extra netdev_(debug/inof) to better
-dump the configuration.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Alexandre TORGUE <alexandre.torgue@st.com>
-Cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+Hi Dave,
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 4c8c60a..e838850 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -650,20 +650,27 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
- 	if (IS_ERR(priv->clk_ptp_ref)) {
- 		priv->clk_ptp_rate = clk_get_rate(priv->stmmac_clk);
- 		priv->clk_ptp_ref = NULL;
-+		netdev_dbg(priv->dev, "PTP uses main clock\n");
- 	} else {
- 		clk_prepare_enable(priv->clk_ptp_ref);
- 		priv->clk_ptp_rate = clk_get_rate(priv->clk_ptp_ref);
-+		netdev_dbg(priv->dev, "PTP rate %d\n", priv->clk_ptp_rate);
- 	}
- 
- 	priv->adv_ts = 0;
--	if (priv->dma_cap.atime_stamp && priv->extend_desc)
-+	/* Check if adv_ts can be enabled for dwmac 4.x core */
-+	if (priv->plat->has_gmac4 && priv->dma_cap.atime_stamp)
-+		priv->adv_ts = 1;
-+	/* Dwmac 3.x core with extend_desc can support adv_ts */
-+	else if (priv->extend_desc && priv->dma_cap.atime_stamp)
- 		priv->adv_ts = 1;
- 
--	if (netif_msg_hw(priv) && priv->dma_cap.time_stamp)
--		pr_debug("IEEE 1588-2002 Time Stamp supported\n");
-+	if (priv->dma_cap.time_stamp)
-+		netdev_info(priv->dev, "IEEE 1588-2002 Timestamp supported\n");
- 
--	if (netif_msg_hw(priv) && priv->adv_ts)
--		pr_debug("IEEE 1588-2008 Advanced Time Stamp supported\n");
-+	if (priv->adv_ts)
-+		netdev_info(priv->dev,
-+			    "IEEE 1588-2008 Advanced Timestamp supported\n");
- 
- 	priv->hw->ptp = &stmmac_ptp;
- 	priv->hwts_tx_en = 0;
--- 
-2.7.4
+thank you for your feedback. Following your guidance I studied the
+inet_diag/tcp_diag kernel code for AF_INET sockets. It could make sense
+to create an smc_diag module with an smc_diag_handler to provide
+SMC-socket data to userspace. Userspace tools could exploit this by
+receiving the SMC-socket data via AF_NETLINK sockets of protocol
+NETLINK_SOCK_DIAG.
+Please let me know, if this is the right direction.
+
+Regards, Ursula
+
+On 09/28/2016 04:27 AM, David Miller wrote:
+> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> Date: Tue, 27 Sep 2016 18:41:56 +0200
+> 
+>> Maintain a list of SMC sockets and display important SMC socket
+>> information in /proc/net/smc.
+>>
+>> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> 
+> Dumping internal tables and information via /procfs is strongly
+> deprecated.
+> 
+> Please use a more modern mechanism (such as netlink) to expose this
+> information to the user.
+> 
+> You'll be most likely to succeed in your submission if you make use of
+> or design a generic facility that allows other drivers similar to
+> your's to provide this kind of information as well.
+> 
+> I'm sorry if this is frustrating, but this is a huge piece of
+> infrastructure, therefore you can expect lots of pieces to get
+> feedback and require changes like this.
+> 
+> 
