@@ -1,152 +1,126 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: igb driver can cause cache invalidation of non-owned memory?
-Date: Wed, 12 Oct 2016 08:32:46 -0700
-Message-ID: <CAKgT0UfPC_uAn5=+0iiAOGyY7QA-4NWAmedVmWf6TGnywjJR8A@mail.gmail.com>
-References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
- <20161010.050125.1981283393312167625.davem@davemloft.net> <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
- <20161010.075731.2449861168238706.davem@davemloft.net> <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
- <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
- <19aebfc3-5f1a-9206-4493-2255af7269f9@cogentembedded.com> <CAKgT0UcSkG1Nws1kcUp-QV0jnwdXcXrOZ2m0vsWRziETA-11sw@mail.gmail.com>
- <a0779e4d-3228-8649-1e68-21dffd4249bd@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Chris Healy <cphealy@gmail.com>
-To: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH iproute2] tc: cls_bpf: handle skip_sw and skip_hw flags
+Date: Wed, 12 Oct 2016 16:46:36 +0100
+Message-ID: <1476287196-28931-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: daniel@iogearbox.net, Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:35393 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752704AbcJLPdB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 11:33:01 -0400
-In-Reply-To: <a0779e4d-3228-8649-1e68-21dffd4249bd@cogentembedded.com>
+Received: from mail-vk0-f53.google.com ([209.85.213.53]:32793 "EHLO
+        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933503AbcJLPq6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 11:46:58 -0400
+Received: by mail-vk0-f53.google.com with SMTP id 83so25914100vkd.0
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 08:46:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2016 at 11:55 PM, Nikita Yushchenko
-<nikita.yoush@cogentembedded.com> wrote:
->>>> The main reason why this isn't a concern for the igb driver is because
->>>> we currently pass the page up as read-only.  We don't allow the stack
->>>> to write into the page by keeping the page count greater than 1 which
->>>> means that the page is shared.  It isn't until we unmap the page that
->>>> the page count is allowed to drop to 1 indicating that it is writable.
->>>
->>> Doesn't that mean that sync_to_device() in igb_reuse_rx_page() can be
->>> avoided? If page is read only for entire world, then it can't be dirty
->>> in cache and thus device can safely write to it without preparation step.
->>
->> For the sake of correctness we were adding the
->> dma_sync_single_range_for_device.
->
-> Could you please elaborate this "for sake of correctness"?
->
-> If by "correctness" you mean ensuring that buffer gets frame DMAed by
-> device and that's not broken by cache activity, then:
-> - on first use of this buffer after page allocation, sync_for_device()
-> is not needed due to previous dma_page_map() call,
-> - on later uses of the same buffer, sync_for_device() is not needed due
-> to buffer being read-only since dma_page_map() call, thus it can't be
-> dirty in cache and thus no writebacks of this area can be possible.
->
-> If by "correctness" you mean strict following "ownership" concept - i.e.
-> memory area is "owned" either by cpu or by device, and "ownersip" must
-> be passed to device before DMA and back to cpu after DMA - then, igb
-> driver already breaks these rules anyway:
+Add support for controling hardware offload using (now standard)
+skip_sw and skip_hw flags in cls_bpf.
 
-Sort of.  Keep in mind the recent changes to only sync what the device
-had DMAed into is a recent change and was provided by a third party.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+Hi Stephen!
 
-> - igb calls dma_map_page() at page allocation time, thus entire page
-> becomes "owned" by device,
-> - and then, on first use of second buffer inside the page, igb calls
-> sync_for_device() for buffer area, despite of that area is already
-> "owned" by device,
+This requires header rebase to get TCA_BPF_FLAGS_GEN in pkt_cls.h.
+The patch is for 4.9 release so it is targeted at master branch.
 
-Right.  However there is nothing wrong with assigning a buffer to the
-device twice especially since we are just starting out.  If we wanted
-to be more correct we would probably be allocating and deallocating
-the pages with the DMA_ATTR_SKIP_CPU_SYNC attribute and then just do
-the sync_for_device before reassigning the page back to the device.
+Thanks!
 
-> - and later, if a buffer within page gets reused, igb calls
-> sync_for_device() for entire buffer, despite of only part of buffer was
-> sync_for_cpu()'ed at time of completing receive of previous frame into
-> this buffer,
+ man/man8/tc-bpf.8 | 14 ++++++++++++++
+ tc/f_bpf.c        | 21 +++++++++++++++++++--
+ 2 files changed, 33 insertions(+), 2 deletions(-)
 
-This is going to come into play with future changes we have planned.
-If we update things to use build_skb we are going to be writing into
-other parts of the page as we will be using that for shared info.
-
-> - and later, igb calls dma_unmap_page(), despite of that part of page
-> was sync_for_cpu()'ed and thus is "owned" by CPU.
-
-Right we are looking into finding a fix for that.
-
-> Given all that, not calling sync_for_device() before reusing buffer
-> won't make picture much worse :)
-
-Actually it will since you are suggesting taking things in a different
-direction then the rest of the community.  What we plan to do is
-weaken the dma_map/dma_unmap semantics by likely using
-DMA_ATTR_SKIP_CPU_SYNC on the map and unmap calls.
-
->> Since it is an DMA_FROM_DEVICE
->> mapping calling it should really have no effect for most DMA mapping
->> interfaces.
->
-> Unfortunately dma_sync_single_range_for_device() *is* slow on imx6q - it
-> does cache invalidation.  I don't really understand why invalidating
-> cache can be slow - it only removes data from cache, it should not
-> access slow outer memory - but cache invalidation *is* in top of perf
-> profiles.
->
-> To get some throughput improvement, I propose removal of that
-> sync_for_device() before reusing buffer. Will you accept such a patch ;)
-
-Not one that gets rid of sync_for_device() in the driver.  From what I
-can tell there are some DMA APIs that use that to perform the
-invalidation on the region of memory so that it can be DMAed into.
-Without that we run the risk of having a race between something the
-CPU might have placed in the cache and something the device wrote into
-memory.  The sync_for_device() call is meant to invalidate the cache
-for the region so that when the device writes into memory there is no
-risk of that race.
-
-What you may want to do is look at the DMA API you are using and
-determine if it is functioning correctly.  Most DMA APIs I am familiar
-with will either sync Rx data on the sync_for_cpu() or
-sync_for_device() but it should not sync on both.  The fact that it is
-syncing on both makes me wonder if the API was modified to work around
-a buggy driver that didn't follow the proper semantics for buffer
-ownership instead of just fixing the buggy driver.
-
->> Also you may want to try updating to the 4.8 version of the driver.
->> It reduces the size of the dma_sync_single_range_for_cpu loops by
->> reducing the sync size down to the size that was DMAed into the
->> buffer.
->
-> Actually that patch came out of the work I'm currently participating in
-> ;).  Sure I have it.
->
->> Specifically I believe
->> the 0->100% accounting problem is due to the way this is all tracked.
->
-> Thanks for this hint - shame on me not realizing this earlier...
->
->> You may want to try pulling the most recent net-next kernel and
->> testing that to see if you still see the same behavior as Eric has
->> recently added a fix that is meant to allow for better sharing between
->> softirq polling and applications when dealing with stuff like UDP
->> traffic.
->>
->> As far as identifying the problem areas your best bet would be to push
->> the CPU to 100% and then identify the hot spots.
->
-> Thanks for hints
->
->
-> Nikita
+diff --git a/man/man8/tc-bpf.8 b/man/man8/tc-bpf.8
+index c8d5c5f94da8..e371964d06ab 100644
+--- a/man/man8/tc-bpf.8
++++ b/man/man8/tc-bpf.8
+@@ -14,6 +14,10 @@ CLS_NAME ] [
+ UDS_FILE ] [
+ .B verbose
+ ] [
++.B skip_hw
++|
++.B skip_sw
++] [
+ .B police
+ POLICE_SPEC ] [
+ .B action
+@@ -137,6 +141,16 @@ if set, it will dump the eBPF verifier output, even if loading the eBPF
+ program was successful. By default, only on error, the verifier log is
+ being emitted to the user.
+ 
++.SS skip_hw | skip_sw
++hardware offload control flags. By default TC will try to offload
++filters to hardware if possible.
++.B skip_hw
++explicitly disables the attempt to offload.
++.B skip_sw
++forces the offload and disables running the eBPF program in the kernel.
++If hardware offload is not possible and this flag was set kernel will
++report an error and filter will not be installed at all.
++
+ .SS police
+ is an optional parameter for an eBPF/cBPF classifier that specifies a
+ police in
+diff --git a/tc/f_bpf.c b/tc/f_bpf.c
+index 5c97c863d15a..665bc6612eeb 100644
+--- a/tc/f_bpf.c
++++ b/tc/f_bpf.c
+@@ -37,8 +37,8 @@ static void explain(void)
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "eBPF use case:\n");
+ 	fprintf(stderr, " object-file FILE [ section CLS_NAME ] [ export UDS_FILE ]");
+-	fprintf(stderr, " [ verbose ] [ direct-action ]\n");
+-	fprintf(stderr, " object-pinned FILE [ direct-action ]\n");
++	fprintf(stderr, " [ verbose ] [ direct-action ] [ skip_hw | skip_sw ]\n");
++	fprintf(stderr, " object-pinned FILE [ direct-action ] [ skip_hw | skip_sw ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Common remaining options:\n");
+ 	fprintf(stderr, " [ action ACTION_SPEC ]\n");
+@@ -66,6 +66,7 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
+ {
+ 	const char *bpf_obj = NULL, *bpf_uds_name = NULL;
+ 	struct tcmsg *t = NLMSG_DATA(n);
++	unsigned int bpf_gen_flags = 0;
+ 	unsigned int bpf_flags = 0;
+ 	bool seen_run = false;
+ 	struct rtattr *tail;
+@@ -107,6 +108,10 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
+ 		} else if (matches(*argv, "direct-action") == 0 ||
+ 			   matches(*argv, "da") == 0) {
+ 			bpf_flags |= TCA_BPF_FLAG_ACT_DIRECT;
++		} else if (matches(*argv, "skip_hw") == 0) {
++			bpf_gen_flags |= TCA_CLS_FLAGS_SKIP_HW;
++		} else if (matches(*argv, "skip_sw") == 0) {
++			bpf_gen_flags |= TCA_CLS_FLAGS_SKIP_SW;
+ 		} else if (matches(*argv, "action") == 0) {
+ 			NEXT_ARG();
+ 			if (parse_action(&argc, &argv, TCA_BPF_ACT, n)) {
+@@ -136,6 +141,8 @@ static int bpf_parse_opt(struct filter_util *qu, char *handle,
+ 		NEXT_ARG_FWD();
+ 	}
+ 
++	if (bpf_gen_flags)
++		addattr32(n, MAX_MSG, TCA_BPF_FLAGS_GEN, bpf_gen_flags);
+ 	if (bpf_obj && bpf_flags)
+ 		addattr32(n, MAX_MSG, TCA_BPF_FLAGS, bpf_flags);
+ 
+@@ -178,6 +185,16 @@ static int bpf_print_opt(struct filter_util *qu, FILE *f,
+ 			fprintf(f, "direct-action ");
+ 	}
+ 
++	if (tb[TCA_BPF_FLAGS_GEN]) {
++		unsigned int flags =
++			rta_getattr_u32(tb[TCA_BPF_FLAGS_GEN]);
++
++		if (flags & TCA_CLS_FLAGS_SKIP_HW)
++			fprintf(f, "skip_hw ");
++		if (flags & TCA_CLS_FLAGS_SKIP_SW)
++			fprintf(f, "skip_sw ");
++	}
++
+ 	if (tb[TCA_BPF_OPS] && tb[TCA_BPF_OPS_LEN]) {
+ 		bpf_print_ops(f, tb[TCA_BPF_OPS],
+ 			      rta_getattr_u16(tb[TCA_BPF_OPS_LEN]));
+-- 
+1.9.1
