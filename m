@@ -1,30 +1,27 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v11 0/1] net: phy: Rebase Edge-Rate clean up
-Date: Wed, 12 Oct 2016 15:47:50 +0200
-Message-ID: <1476280071-6886-1-git-send-email-allan.nielsen@microsemi.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net_sched: do not broadcast RTM_GETTFILTER result
+Date: Wed, 12 Oct 2016 09:36:18 -0700
+Message-ID: <CAM_iQpWDwwo+DEi2aytoAnTHWKWeTRiMZqXfvaB7=T9eOnvR-w@mail.gmail.com>
+References: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0055.outbound.protection.outlook.com ([104.47.32.55]:7136
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932373AbcJLQWo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 12 Oct 2016 12:22:44 -0400
+Received: from mail-io0-f172.google.com ([209.85.223.172]:35633 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754888AbcJLQgx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 12:36:53 -0400
+Received: by mail-io0-f172.google.com with SMTP id i202so56152792ioi.2
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 09:36:39 -0700 (PDT)
+In-Reply-To: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sun, Oct 9, 2016 at 8:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> +       if (unicast)
+> +               return netlink_unicast(net->rtnl, skb, portid, MSG_DONTWAIT);
 
-I can see that the "Add Wake-on-LAN driver for Microsemi PHYs" (0a55c12f97)
-patch has been applied to net-next, and that it is causing the Edge-Rate patch
-to conflict.
-
-I have therefore rebased v10 of the patch to fit on top of net-next.
-
-/Allan
-
--- 
-2.7.3
+Nit: rtnl_unicast() is simpler.
