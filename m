@@ -1,29 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: HSO driver patch again [2/2]
-Date: Wed, 12 Oct 2016 01:58:06 -0400 (EDT)
-Message-ID: <20161012.015806.213797610756061652.davem@davemloft.net>
-References: <CAHMF36GL_6RZyhtUikM8EpS5rWp4Q+=P8g8i6huijG5vtnnwAQ@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] netfilter: nf_tables: underflow in nft_parse_u32_check()
+Date: Wed, 12 Oct 2016 09:08:11 +0300
+Message-ID: <20161012060811.GE12841@mwanda>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org
-To: matej.kupljen@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36826 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752026AbcJLGHu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 02:07:50 -0400
-In-Reply-To: <CAHMF36GL_6RZyhtUikM8EpS5rWp4Q+=P8g8i6huijG5vtnnwAQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Laura Garcia Liebana <nevola@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+We don't want to allow negatives here.
 
-"HSO driver patch again ..." is not an appropriate Subject line when
-submitting patches.
+Fixes: 36b701fae12a ('netfilter: nf_tables: validate maximum value of u32 netlink attributes')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Please read Documentation/SubmittingPatches for how to do things
-properly, and in a way that will actually lead to your patches
-being applied.
-
-Thanks.
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index b70d3ea..dd55187 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -4423,7 +4423,7 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
+  */
+ unsigned int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
+ {
+-	int val;
++	uint val;
+ 
+ 	val = ntohl(nla_get_be32(attr));
+ 	if (val > max)
