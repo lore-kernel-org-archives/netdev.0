@@ -1,56 +1,27 @@
-From: Chris Rorvick <chris@rorvick.com>
-Subject: Re: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
-Date: Tue, 11 Oct 2016 23:32:47 -0500
-Message-ID: <CAEUsAPbEf=hr1ki267qKpenWW_UBO93KY8q6-EdqWpk15Yhcnw@mail.gmail.com>
-References: <20161010071943.4717-1-chris@rorvick.com> <1476108164.5210.11.camel@coelho.fi>
- <1476180668.17022.21.camel@tiscali.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: mv643xx_eth: use phydev from struct net_device
+Date: Wed, 12 Oct 2016 01:40:56 -0400 (EDT)
+Message-ID: <20161012.014056.252399120931987245.davem@davemloft.net>
+References: <1475402809-11593-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Luca Coelho <luca@coelho.fi>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Oren Givon <oren.givon@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
+To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476180668.17022.21.camel@tiscali.nl>
+In-Reply-To: <1475402809-11593-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 11, 2016 at 5:11 AM, Paul Bolle <pebolle@tiscali.nl> wrote:
-> For what it's worth, on my machine I have twenty (!) SPLX entries, all
-> reading:
->     Name (SPLX, Package (0x04)
->     {
->         Zero,
->         Package (0x03)
->         {
->             0x80000000,
->             0x80000000,
->             0x80000000
->         },
->
->         Package (0x03)
->         {
->            0x80000000,
->            0x80000000,
->            0x80000000
->         },
->
->         Package (0x03)
->         {
->             0x80000000,
->             0x80000000,
->             0x80000000
->         }
->     })
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sun,  2 Oct 2016 12:06:48 +0200
 
-I actually see exactly the same on my Dell XPS 13 (9350) when I  use
-acpidump, etc.  I typed the entry I included in the commit log by hand
-based on what the driver gets back from the SPLC method (I added a
-function to dump the returned object.)
+> The private structure contain a pointer to phydev, but the structure
+> net_device already contain such pointer. So we can remove the pointer
+> phydev in the private structure, and update the driver to use the
+> one contained in struct net_device.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-Chris
+Applied.
