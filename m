@@ -1,82 +1,38 @@
-From: Luca Coelho <luca@coelho.fi>
-Subject: Re: [PATCH] iwlwifi: pcie: reduce "unsupported splx" to a warning
-Date: Wed, 12 Oct 2016 16:06:13 +0300
-Message-ID: <1476277573.7776.30.camel@coelho.fi>
-References: <20161010071943.4717-1-chris@rorvick.com>
-         <1476108164.5210.11.camel@coelho.fi> <1476180668.17022.21.camel@tiscali.nl>
-         <CAEUsAPbEf=hr1ki267qKpenWW_UBO93KY8q6-EdqWpk15Yhcnw@mail.gmail.com>
-         <1476275099.7776.28.camel@coelho.fi> <1476275787.9670.12.camel@tiscali.nl>
+From: Sistemas administrador <administrator@ancol.com>
+Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
+Date: Wed, 12 Oct 2016 18:57:53 +0530
+Message-ID: <20161012130957.D9BCFDC578F@zimbra2.bawaslu.go.id>
+Reply-To: mailsss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Intel Linux Wireless <linuxwifi@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Oren Givon <oren.givon@intel.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>, Chris Rorvick <chris@rorvick.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from paleale.coelho.fi ([176.9.41.70]:48444 "EHLO
-        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933740AbcJLNZE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 09:25:04 -0400
-In-Reply-To: <1476275787.9670.12.camel@tiscali.nl>
+Received: from [103.249.227.34] ([103.249.227.34]:40456 "EHLO
+        zimbra2.bawaslu.go.id" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S1754953AbcJLNnE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 09:43:04 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-12 at 14:36 +0200, Paul Bolle wrote:
-> On Wed, 2016-10-12 at 15:24 +0300, Luca Coelho wrote:
-> > Okay... Actually this is a structure in the BIOS and the actual method
-> > we call is SPLC.Â Â The SPLC method may return one item from this table,
-> > or something entirely different, possible one of the three values
-> > depending on a configuration option or so.
-> > 
-> > Can you to find and send me the actual SPLC method that we call, from
-> > your BIOS?
-> 
-> 
-> It seems Chris and I basically have identical setups, so I'll answer.
+ATENCIÓN;
 
-Thanks! Yeah, I implied any of you two. ;)
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
+vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
 
-> There are 20 SPLC methods in the BIOS. The first reads
->     Method (SPLC, 0, Serialized)
->     {
->         DerefOf (SPLX [One]) [Zero] = DOM1 /* \DOM1 */
->         DerefOf (SPLX [One]) [One] = LIM1 /* \LIM1 */
->         DerefOf (SPLX [One]) [0x02] = TIM1 /* \TIM1 */
->         DerefOf (SPLX [0x02]) [Zero] = DOM2 /* \DOM2 */
->         DerefOf (SPLX [0x02]) [One] = LIM2 /* \LIM2 */
->         DerefOf (SPLX [0x02]) [0x02] = TIM2 /* \TIM2 */
->         DerefOf (SPLX [0x03]) [Zero] = DOM3 /* \DOM3 */
->         DerefOf (SPLX [0x03]) [One] = LIM3 /* \LIM3 */
->         DerefOf (SPLX [0x03]) [0x02] = TIM3 /* \TIM3 */
->         Return (SPLX) /* \_SB_.PCI0.RP01.PXSX.SPLX */
->     }
-> 
-> The only difference is in the last comment. Ie, RP01 is increased until
-> it reaches RP20. (The machine has 20 PCI devices according to lspci. I
-> have no clue how to match that RPxx number to the 20 devices showing up
-> in lspci, sorry.)
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
 
-No problem, these BIOSes are usually quite cryptic. :) But what you're
-saying makes sense.  They have added the SPLC method to all PCI root-
-ports (which is what RP stands for here).
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico © 2016
 
-And, the values in the SPLX structs are being changed here, to DOM1,
-LIM1, TIM1 etc., before being returned. Â This also matches your
-description that, at runtime, you got something different than the pure
-dump. Â If you follow these DOM*, LIM*, TIM* symbols, you'll probably
-end up getting the values you observed at runtime.
-
-Basically this tells me that indeed 3 "structs" are being returned (as
-your dumps already showed). Â And, according to the specs that I found
-(which unfortunately are confidential, so I can't share) this is
-correct and the driver code is broken.
-
-I'll send you a patch for testing soon.
-
-Thanks for all the help!
+¡gracias
+Sistemas administrador
