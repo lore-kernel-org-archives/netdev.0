@@ -1,107 +1,153 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 1/5] udp: Add socket lookup functions with noref
-Date: Wed, 12 Oct 2016 16:25:43 -0700
-Message-ID: <20161012232547.2383961-2-tom@herbertland.com>
+Subject: [PATCH net-next 3/5] udp: Add UDP flow dissection functions to IPv4 and IPv6
+Date: Wed, 12 Oct 2016 16:25:45 -0700
+Message-ID: <20161012232547.2383961-4-tom@herbertland.com>
 References: <20161012232547.2383961-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51422 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933409AbcJLXZ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 19:25:56 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9CNP0wK004633
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 16:25:55 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55150 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S933432AbcJLXZ6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 19:25:58 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u9CNNkMi030076
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 16:25:57 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 261pk1as91-1
+        by m0089730.ppops.net with ESMTP id 261sv79qe6-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 16:25:55 -0700
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 16:25:57 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.103.99.97) with ESMTP  id
- 38e0ce3090d311e691970002c9931860-ed5fda50 for <netdev@vger.kernel.org>;        Wed,
- 12 Oct 2016 16:25:54 -0700
+ mx-out.facebook.com (10.103.99.99) with ESMTP  id
+ 39df22aa90d311e697ea0002c9dfb610-95a1c6d0 for <netdev@vger.kernel.org>;        Wed,
+ 12 Oct 2016 16:25:56 -0700
 In-Reply-To: <20161012232547.2383961-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create udp4_lib_lookup_noref and udp6_lib_lookup_noref. These perfrom
-a socket lookup on addresses and ports without taking a reference.
+Add per protocol offload callbacks for flow_dissect to UDP for
+IPv4 and IPv6. The callback functions extract the port number
+information and with the packet addresses (given in an argument with
+type flow_dissector_key_addrs) it performs a lookup on the UDP
+socket. If a socket is found and flow_dissect is set for the
+socket then that function is called.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/udp.h |  8 ++++++++
- net/ipv4/udp.c    |  8 ++++++++
- net/ipv6/udp.c    | 10 ++++++++++
- 3 files changed, 26 insertions(+)
+ net/ipv4/udp_offload.c | 39 +++++++++++++++++++++++++++++++++++++++
+ net/ipv6/udp_offload.c | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 77 insertions(+)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index ea53a87..717a972 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -275,6 +275,10 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- 			       struct udp_table *tbl, struct sk_buff *skb);
- struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
- 				 __be16 sport, __be16 dport);
-+struct sock *udp4_lib_lookup_noref(struct net *net,
-+				   __be32 saddr, __be16 sport,
-+				   __be32 daddr, __be16 dport,
-+				   int dif);
- struct sock *udp6_lib_lookup(struct net *net,
- 			     const struct in6_addr *saddr, __be16 sport,
- 			     const struct in6_addr *daddr, __be16 dport,
-@@ -286,6 +290,10 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 			       struct sk_buff *skb);
- struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
- 				 __be16 sport, __be16 dport);
-+struct sock *udp6_lib_lookup_noref(struct net *net,
-+				   const struct in6_addr *saddr, __be16 sport,
-+				   const struct in6_addr *daddr, __be16 dport,
-+				   int dif);
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index f9333c9..c7753ba 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -377,11 +377,50 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+ 	return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
+ }
  
- /*
-  * 	SNMP statistics for UDP and UDP-Lite
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 7d96dc2..7f84c51 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -595,6 +595,14 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- EXPORT_SYMBOL_GPL(udp4_lib_lookup);
- #endif
- 
-+struct sock *udp4_lib_lookup_noref(struct net *net, __be32 saddr, __be16 sport,
-+				   __be32 daddr, __be16 dport, int dif)
++/* Assumes rcu lock is held */
++static int udp4_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
++			     int *nhoff, u8 *ip_proto, __be16 *proto,
++			     struct flow_dissector_key_addrs *key_addrs)
 +{
-+	return __udp4_lib_lookup(net, saddr, sport, daddr, dport,
-+				 dif, &udp_table, NULL);
-+}
-+EXPORT_SYMBOL_GPL(udp4_lib_lookup_noref);
++	u16 _ports[2], *ports;
++	struct net *net;
++	struct sock *sk;
++	int dif = -1;
 +
- static inline bool __udp_is_mcast_sock(struct net *net, struct sock *sk,
- 				       __be16 loc_port, __be32 loc_addr,
- 				       __be16 rmt_port, __be32 rmt_addr,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 9aa7c1c..6e382d9 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -317,6 +317,16 @@ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be
- EXPORT_SYMBOL_GPL(udp6_lib_lookup);
- #endif
++	/* See if there is a flow dissector in the UDP socket */
++
++	if (skb->dev) {
++		net = dev_net(skb->dev);
++		dif = skb->dev->ifindex;
++	} else if (skb->sk) {
++		net = sock_net(skb->sk);
++	} else {
++		return FLOW_DIS_RET_PASS;
++	}
++
++	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
++				     data, hlen, &_ports);
++	if (!ports)
++		return FLOW_DIS_RET_BAD;
++
++	sk = udp4_lib_lookup_noref(net,
++				   key_addrs->v4addrs.src, ports[0],
++				   key_addrs->v4addrs.dst, ports[1],
++				   dif);
++
++	if (sk && udp_sk(sk)->flow_dissect)
++		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
++						ip_proto, proto);
++	else
++		return FLOW_DIS_RET_PASS;
++}
++
+ static const struct net_offload udpv4_offload = {
+ 	.callbacks = {
+ 		.gso_segment = udp4_ufo_fragment,
+ 		.gro_receive  =	udp4_gro_receive,
+ 		.gro_complete =	udp4_gro_complete,
++		.flow_dissect = udp4_flow_dissect,
+ 	},
+ };
  
-+struct sock *udp6_lib_lookup_noref(struct net *net,
-+				   const struct in6_addr *saddr, __be16 sport,
-+				   const struct in6_addr *daddr, __be16 dport,
-+				   int dif)
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index ac858c4..b3f4a6c 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -163,11 +163,49 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
+ 	return udp_gro_complete(skb, nhoff, udp6_lib_lookup_skb);
+ }
+ 
++/* Assumes rcu lock is held */
++static int udp6_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
++			     int *nhoff, u8 *ip_proto, __be16 *proto,
++			     const struct flow_dissector_key_addrs *key_addrs)
 +{
-+	return __udp6_lib_lookup(net, saddr, sport, daddr, dport,
-+				 dif, &udp_table, NULL);
-+}
-+EXPORT_SYMBOL_GPL(udp6_lib_lookup_noref);
++	u16 _ports[2], *ports;
++	struct net *net;
++	struct sock *sk;
++	int dif = -1;
 +
- /*
-  *	This should be easy, if there is something there we
-  *	return it, otherwise we block.
++	/* See if there is a flow dissector in the UDP socket */
++
++	if (skb->dev) {
++		net = dev_net(skb->dev);
++		dif = skb->dev->ifindex;
++	} else if (skb->sk) {
++		net = sock_net(skb->sk);
++	} else {
++		return FLOW_DIS_RET_PASS;
++	}
++
++	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
++				     data, hlen, &_ports);
++	if (!ports)
++		return FLOW_DIS_RET_BAD;
++
++	sk = udp6_lib_lookup_noref(net,
++				   &key_addrs->v6addrs.src, ports[0],
++				   &key_addrs->v6addrs.dst, ports[1],
++				   dif);
++
++	if (sk && udp_sk(sk)->flow_dissect)
++		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
++						ip_proto, proto);
++	return FLOW_DIS_RET_PASS;
++}
++
+ static const struct net_offload udpv6_offload = {
+ 	.callbacks = {
+ 		.gso_segment	=	udp6_ufo_fragment,
+ 		.gro_receive	=	udp6_gro_receive,
+ 		.gro_complete	=	udp6_gro_complete,
++		.flow_dissect	=	udp6_flow_dissect,
+ 	},
+ };
+ 
 -- 
 2.9.3
