@@ -1,44 +1,42 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v2] netfilter: nf_tables: underflow in nft_parse_u32_check()
-Date: Wed, 12 Oct 2016 12:14:29 +0300
-Message-ID: <20161012091429.GA27317@mwanda>
-References: <CAML_gOedjw6uJqp13YkGfXoLQTd_ikOC8OoUA4oXv15RYsgoUg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC] net: phy: smsc: Disable auto-negotiation on startup
+Date: Wed, 12 Oct 2016 02:13:06 -0700
+Message-ID: <0c2488d0-45f5-1ab7-bfa5-f19ae687a90f@gmail.com>
+References: <20161010174123.21436-1-kyle.roeschley@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Laura Garcia Liebana <nevola@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andrew Lunn <andrew@lunn.ch>
+To: Kyle Roeschley <kyle.roeschley@ni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26393 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932406AbcJLJPy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 05:15:54 -0400
-Content-Disposition: inline
-In-Reply-To: <CAML_gOedjw6uJqp13YkGfXoLQTd_ikOC8OoUA4oXv15RYsgoUg@mail.gmail.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:34993 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932105AbcJLJPq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 05:15:46 -0400
+In-Reply-To: <20161010174123.21436-1-kyle.roeschley@ni.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't want to allow negatives here.
+On 10/10/2016 10:41 AM, Kyle Roeschley wrote:
+> Because the SMSC PHY completes auto-negotiation before the driver is
+> ready to handle interrupts, the PHY state machine never realizes that we
+> have a link. Clear the ANENABLE bit on initialization, which lets
+> genphy_config_aneg do its thing when that code is hit later.
+> 
+> While this patch does fix the problem we see (no link on boot without
+> re-plugging the cable), it seems like the generic PHY code should be
+> able to handle auto-negotiation completing before interrupts are
+> enabled. Submitted as an RFC in the hopes that someone has an idea as to
+> how that could be done.
+> 
+> This fix is copied from commit 99f81afc139c ("phy: micrel: Disable auto
+> negotiation on startup").
 
-Fixes: 36b701fae12a ('netfilter: nf_tables: validate maximum value of u32 netlink attributes')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: cosmetic change
+Do you mind trying:
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index b70d3ea..dd55187 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -4423,7 +4423,7 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
-  */
- unsigned int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
- {
--	int val;
-+	u32 val;
- 
- 	val = ntohl(nla_get_be32(attr));
- 	if (val > max)
+https://www.spinics.net/lists/netdev/msg397857.html
+
+and see if you do get link interrupts without your patch applied? Thanks!
+-- 
+Florian
