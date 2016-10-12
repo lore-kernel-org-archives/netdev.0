@@ -1,44 +1,103 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH] net: wan: slic_ds26522: Allow driver to built if COMPILE_TEST is enabled
-Date: Wed, 12 Oct 2016 16:05:59 -0300
-Message-ID: <1476299159-21094-1-git-send-email-javier@osg.samsung.com>
-Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        netdev@vger.kernel.org, Zhao Qiang <qiang.zhao@nxp.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next] net: phy: Trigger state machine on state change and not polling.
+Date: Wed, 12 Oct 2016 22:14:53 +0200
+Message-ID: <1476303294-14944-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Kyle Roeschley <kyle.roeschley@ni.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:49381
-        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754850AbcJLTHw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 15:07:52 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:44287 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932574AbcJLUPo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 12 Oct 2016 16:15:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver only has runtime but no build time dependency with FSL_SOC ||
-ARCH_MXC || ARCH_LAYERSCAPE.  So it can be built for testing purposes if
-the COMPILE_TEST option is enabled.
+The phy_start() is used to indicate the PHY is now ready to do its
+work. The state is changed, normally to PHY_UP which means that both
+the MAC and the PHY are ready.
 
-This is useful to have more build coverage and make sure that the driver
-is not affected by changes that could cause build regressions.
+If the phy driver is using polling, when the next poll happens, the
+state machine notices the PHY is now in PHY_UP, and kicks off
+auto-negotiation, if needed.
 
-Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+If however, the PHY is using interrupts, there is no polling. The phy
+is stuck in PHY_UP until the next interrupt comes along. And there is
+no reason for the PHY to interrupt.
+
+Have phy_start() schedule the state machine to run, which both speeds
+up the polling use case, and makes the interrupt use case actually
+work.
+
+This problems exists whenever there is a state change which will not
+cause an interrupt. Trigger the state machine in these cases,
+e.g. phy_error().
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Cc: Kyle Roeschley <kyle.roeschley@ni.com>
 ---
 
- drivers/net/wan/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This should be applied to stable, but i've no idea what fixes: tag to
+use. It could be phylib has been broken since interrupts were added?
 
-diff --git a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
-index 33ab3345d333..4e9fe75d7067 100644
---- a/drivers/net/wan/Kconfig
-+++ b/drivers/net/wan/Kconfig
-@@ -294,7 +294,7 @@ config FSL_UCC_HDLC
- config SLIC_DS26522
- 	tristate "Slic Maxim ds26522 card support"
- 	depends on SPI
--	depends on FSL_SOC || ARCH_MXC || ARCH_LAYERSCAPE
-+	depends on FSL_SOC || ARCH_MXC || ARCH_LAYERSCAPE || COMPILE_TEST
- 	help
- 	  This module initializes and configures the slic maxim card
- 	  in T1 or E1 mode.
+ drivers/net/phy/phy.c | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index c6f66832a1a6..f424b867f73e 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -608,6 +608,21 @@ void phy_start_machine(struct phy_device *phydev)
+ }
+ 
+ /**
++ * phy_trigger_machine - trigger the state machine to run
++ *
++ * @phydev: the phy_device struct
++ *
++ * Description: There has been a change in state which requires that the
++ *   state machine runs.
++ */
++
++static void phy_trigger_machine(struct phy_device *phydev)
++{
++	cancel_delayed_work_sync(&phydev->state_queue);
++	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
++}
++
++/**
+  * phy_stop_machine - stop the PHY state machine tracking
+  * @phydev: target phy_device struct
+  *
+@@ -639,6 +654,8 @@ static void phy_error(struct phy_device *phydev)
+ 	mutex_lock(&phydev->lock);
+ 	phydev->state = PHY_HALTED;
+ 	mutex_unlock(&phydev->lock);
++
++	phy_trigger_machine(phydev);
+ }
+ 
+ /**
+@@ -800,8 +817,7 @@ void phy_change(struct work_struct *work)
+ 	}
+ 
+ 	/* reschedule state queue work to run as soon as possible */
+-	cancel_delayed_work_sync(&phydev->state_queue);
+-	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
++	phy_trigger_machine(phydev);
+ 	return;
+ 
+ ignore:
+@@ -890,6 +906,8 @@ void phy_start(struct phy_device *phydev)
+ 	/* if phy was suspended, bring the physical link up again */
+ 	if (do_resume)
+ 		phy_resume(phydev);
++
++	phy_trigger_machine(phydev);
+ }
+ EXPORT_SYMBOL(phy_start);
+ 
 -- 
-2.7.4
+2.9.3
