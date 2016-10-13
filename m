@@ -1,103 +1,172 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] qede: fix CONFIG_INFINIBAND_QEDR=m build error
-Date: Thu, 13 Oct 2016 12:20:59 +0200
-Message-ID: <5662883.yo8OytxU65@wuerfel>
-References: <20161012103340.978726-1-arnd@arndb.de> <6935319.6Adbod0g1H@wuerfel> <BY2PR07MB2309D9E2BEBC5A2091AC79E98DDC0@BY2PR07MB2309.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-        "everest-linux-l2@qlogic.com" <everest-linux-l2@qlogic.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        "Amrani, Ram" <Ram.Amrani@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+From: Luca Coelho <luca@coelho.fi>
+Subject: [PATCH] iwlwifi: pcie: fix SPLC structure parsing
+Date: Thu, 13 Oct 2016 13:21:55 +0300
+Message-ID: <20161013102155.14547-1-luca@coelho.fi>
+References: <1476349269.3880.18.camel@coelho.fi>
+Cc: linuxwifi@intel.com, emmanuel.grumbach@intel.com,
+        johannes@sipsolutions.net, kvalo@codeaurora.org,
+        oren.givon@intel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org, chris@rorvick.com,
+        pebolle@tiscali.nl
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BY2PR07MB2309D9E2BEBC5A2091AC79E98DDC0@BY2PR07MB2309.namprd07.prod.outlook.com>
+In-Reply-To: <1476349269.3880.18.camel@coelho.fi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, October 13, 2016 9:34:41 AM CEST Mintz, Yuval wrote:
-> 
-> > > > -		if (cond)
-> > > > +		if (IS_ENABLED(CONFIG_INFINIBAND_QEDR) && cond)
-> > > >			qed_rdma_dpm_bar(p_hwfn, p_ptt);
-> > >
-> > > Why not simply fix the qed_roce.h empty implementation?
-> > 
-> > Mainly for consistency: we have a couple of interfaces that are called from the
-> > qed driver that are implemented in qed_roce.c. We can either use a 'static inline'
-> > helper for all of them, or use if(IS_ENABLED()) everywhere. Since this was the
-> > only function that had a helper and that helper was defined incorrectly, I went
-> > with the second option.
-> 
-> Actually, that's not the case. I think with this exception, all the rest of the prototypes
-> in qed_roce.h aren't really needed, as those functions should only be accessed via
-> the qed_rdma_ops. I'll remove those later [or we can remove them as part of v2].
+From: Luca Coelho <luciano.coelho@intel.com>
 
-Ok, making those functions static and removing the prototypes would be
-a good improvement. Note that building with 'make C=1' or 'make W=1'
-will also warn if you have a global function that has no prototype,
-so just removing the prototypes without making the functions static
-would be bad (there is currently work going on to enable the warning
-by default).
+The SPLC data parsing is too restrictive and was not trying find the
+correct element for WiFi.  This causes problems with some BIOSes where
+the SPLC method exists, but doesn't have a WiFi entry on the first
+element of the list.  The domain type values are also incorrect
+according to the specification.
 
-The functions I was thinking of are qed_async_roce_event,
-qed_ll2b_complete_tx_gsi_packet, qed_ll2b_complete_rx_gsi_packet
-and qed_ll2b_release_tx_gsi_packet, all of which do get called
-from the qed driver, so you will still need to add inline wrappers
-for those.
+Fix this by complying with the actual specification.
 
-> The genereal qed* preference is to have empty static-inline implementations
-> in case content is compiled-out [Look at iov for example].
+Additionally, replace all occurrences of SPLX to SPLC, since SPLX is
+only a structure internal to the ACPI tables, and may not even exist.
 
-Ok, fair enough.
+Fixes: bcb079a14d75 ("iwlwifi: pcie: retrieve and parse ACPI power limitations")
+Reported-by: Chris Rorvick <chris@rorvick.com>
+Signed-off-by: Luca Coelho <luciano.coelho@intel.com>
+---
 
-> > > > -#if IS_ENABLED(CONFIG_INFINIBAND_QEDR)
-> > > > +	if (!IS_ENABLED(CONFIG_INFINIBAND_QEDR))
-> > > > +		return 0;
-> > > > +
-> > > >  	num_l2_queues = 0;
-> > > >  	for_each_hwfn(cdev, i)
-> > > >  		num_l2_queues += FEAT_NUM(&cdev->hwfns[i],
-> > QED_PF_L2_QUE); @@
-> > > > -738,7 +736,6 @@ static int qed_slowpath_setup_int(struct qed_dev
-> > > > *cdev,
-> > > >  	DP_VERBOSE(cdev, QED_MSG_RDMA, "roce_msix_cnt=%d
-> > > > roce_msix_base=%d\n",
-> > > >  		   cdev->int_params.rdma_msix_cnt,
-> > > >  		   cdev->int_params.rdma_msix_base); -#endif
-> > >
-> > > While I don't mind, you could have argued is that we're not removing
-> > > enough, not too much.
-> > > I.e., perhaps the rdma_msix_* fields should also have been ifdef-ed
-> > > instead. [in which case this solution would not have worked]
-> > 
-> > That would add even more #ifdefs though.
-> 
-> I agree. Although I'm never clear on the guidelines for the tradeoff - 
-> How much memory/code is considered too much so that you'd have
-> To ifdef code out instead of 'wasting'?
-> [I obviously don't claim 64 bytes of memory hit that threshold]
+Paul, Chris,
 
-I don't think code size should ever be a reason for an #ifdef in a .c
-file: if the code is well-structured, you can always get the same
-object code using if(IS_ENABLED()) checks within the code at better
-readability or better compile-time coverage.
+Could you please give this a spin? I have tested it with some handmade
+ACPI tables in QEMU and it seems to work fine now.
 
-Between if(IS_ENABLED()) checks and inline helpers, it usually
-doesn't matter much either way as long as the separation between
-the modules is clear enough. In the example above, removing
-the structure fields however would require to move the debugging
-output into another inline function though.
-  
-> BTW, are you interested in doing a v2 for this? Or would you prefer
-> if we'd pick it up from here?
+Thanks!
 
-I think it's better if you do a v2, as you better understand the
-long-term plans. I'd be happy to test your patch in my randconfig
-build setup if you like.
 
-	Arnd
+drivers/net/wireless/intel/iwlwifi/pcie/drv.c | 79 ++++++++++++++++-----------
+ 1 file changed, 48 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/drv.c b/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
+index 001be40..da4810f 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
+@@ -541,48 +541,64 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
+ MODULE_DEVICE_TABLE(pci, iwl_hw_card_ids);
+ 
+ #ifdef CONFIG_ACPI
+-#define SPL_METHOD		"SPLC"
+-#define SPL_DOMAINTYPE_MODULE	BIT(0)
+-#define SPL_DOMAINTYPE_WIFI	BIT(1)
+-#define SPL_DOMAINTYPE_WIGIG	BIT(2)
+-#define SPL_DOMAINTYPE_RFEM	BIT(3)
++#define ACPI_SPLC_METHOD	"SPLC"
++#define ACPI_SPLC_DOMAIN_WIFI	(0x07)
+ 
+-static u64 splx_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splx)
++static u64 splc_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splc)
+ {
+-	union acpi_object *limits, *domain_type, *power_limit;
+-
+-	if (splx->type != ACPI_TYPE_PACKAGE ||
+-	    splx->package.count != 2 ||
+-	    splx->package.elements[0].type != ACPI_TYPE_INTEGER ||
+-	    splx->package.elements[0].integer.value != 0) {
+-		IWL_ERR(trans, "Unsupported splx structure\n");
++	union acpi_object *data_pkg, *dflt_pwr_limit;
++	int i;
++
++	/* We need at least two elemets, one for the revision and one
++	 * for the data itself.  Also check that the revision is
++	 * supported (currently only revision 0).
++	*/
++	if (splc->type != ACPI_TYPE_PACKAGE ||
++	    splc->package.count < 2 ||
++	    splc->package.elements[0].type != ACPI_TYPE_INTEGER ||
++	    splc->package.elements[0].integer.value != 0) {
++		IWL_DEBUG_INFO(trans,
++			       "Unsupported structure returned by the SPLC method.  Ignoring.\n");
+ 		return 0;
+ 	}
+ 
+-	limits = &splx->package.elements[1];
+-	if (limits->type != ACPI_TYPE_PACKAGE ||
+-	    limits->package.count < 2 ||
+-	    limits->package.elements[0].type != ACPI_TYPE_INTEGER ||
+-	    limits->package.elements[1].type != ACPI_TYPE_INTEGER) {
+-		IWL_ERR(trans, "Invalid limits element\n");
+-		return 0;
++	/* loop through all the packages to find the one for WiFi */
++	for (i = 1; i < splc->package.count; i++) {
++		union acpi_object *domain;
++
++		data_pkg = &splc->package.elements[i];
++
++		/* Skip anything that is not a package with the right
++		 * amount of elements (i.e. at least 2 integers).
++		 */
++		if (data_pkg->type != ACPI_TYPE_PACKAGE ||
++		    data_pkg->package.count < 2 ||
++		    data_pkg->package.elements[0].type != ACPI_TYPE_INTEGER ||
++		    data_pkg->package.elements[1].type != ACPI_TYPE_INTEGER)
++			continue;
++
++		domain = &data_pkg->package.elements[0];
++		if (domain->integer.value == ACPI_SPLC_DOMAIN_WIFI)
++			break;
++
++		data_pkg = NULL;
+ 	}
+ 
+-	domain_type = &limits->package.elements[0];
+-	power_limit = &limits->package.elements[1];
+-	if (!(domain_type->integer.value & SPL_DOMAINTYPE_WIFI)) {
+-		IWL_DEBUG_INFO(trans, "WiFi power is not limited\n");
++	if (!data_pkg) {
++		IWL_DEBUG_INFO(trans,
++			       "No element for the WiFi domain returned by the SPLC method.\n");
+ 		return 0;
+ 	}
+ 
+-	return power_limit->integer.value;
++	dflt_pwr_limit = &data_pkg->package.elements[1];
++	return dflt_pwr_limit->integer.value;
+ }
+ 
+ static void set_dflt_pwr_limit(struct iwl_trans *trans, struct pci_dev *pdev)
+ {
+ 	acpi_handle pxsx_handle;
+ 	acpi_handle handle;
+-	struct acpi_buffer splx = {ACPI_ALLOCATE_BUFFER, NULL};
++	struct acpi_buffer splc = {ACPI_ALLOCATE_BUFFER, NULL};
+ 	acpi_status status;
+ 
+ 	pxsx_handle = ACPI_HANDLE(&pdev->dev);
+@@ -593,23 +609,24 @@ static void set_dflt_pwr_limit(struct iwl_trans *trans, struct pci_dev *pdev)
+ 	}
+ 
+ 	/* Get the method's handle */
+-	status = acpi_get_handle(pxsx_handle, (acpi_string)SPL_METHOD, &handle);
++	status = acpi_get_handle(pxsx_handle, (acpi_string)ACPI_SPLC_METHOD,
++				 &handle);
+ 	if (ACPI_FAILURE(status)) {
+-		IWL_DEBUG_INFO(trans, "SPL method not found\n");
++		IWL_DEBUG_INFO(trans, "SPLC method not found\n");
+ 		return;
+ 	}
+ 
+ 	/* Call SPLC with no arguments */
+-	status = acpi_evaluate_object(handle, NULL, NULL, &splx);
++	status = acpi_evaluate_object(handle, NULL, NULL, &splc);
+ 	if (ACPI_FAILURE(status)) {
+ 		IWL_ERR(trans, "SPLC invocation failed (0x%x)\n", status);
+ 		return;
+ 	}
+ 
+-	trans->dflt_pwr_limit = splx_get_pwr_limit(trans, splx.pointer);
++	trans->dflt_pwr_limit = splc_get_pwr_limit(trans, splc.pointer);
+ 	IWL_DEBUG_INFO(trans, "Default power limit set to %lld\n",
+ 		       trans->dflt_pwr_limit);
+-	kfree(splx.pointer);
++	kfree(splc.pointer);
+ }
+ 
+ #else /* CONFIG_ACPI */
+-- 
+2.9.3
