@@ -1,36 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] qmi_wwan: add support for Quectel EC21 and EC25
-Date: Thu, 13 Oct 2016 10:06:58 -0400 (EDT)
-Message-ID: <20161013.100658.2004540239157240023.davem@davemloft.net>
-References: <20161010191249.23814-1-bjorn@mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v10 1/1] net: phy: Cleanup the Edge-Rate
+ feature in Microsemi PHYs.
+Date: Thu, 13 Oct 2016 10:01:41 -0400 (EDT)
+Message-ID: <20161013.100141.1588302672560551253.davem@davemloft.net>
+References: <1476108825-14613-1-git-send-email-allan.nielsen@microsemi.com>
+        <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161010191249.23814-1-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
+        raju.lakkaraju@microsemi.com
+To: allan.nielsen@microsemi.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:32914 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932461AbcJMOHx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 10:07:53 -0400
+In-Reply-To: <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Mon, 10 Oct 2016 21:12:49 +0200
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Date: Mon, 10 Oct 2016 16:13:45 +0200
 
-> The Quectel EC21 and EC25 need the same "set DTR" request as devices
-> based on the MDM9230 chipset, but has no USB3 support. Our best guess
-> is that the "set DTR" functionality depends on chipset and/or
-> baseband firmware generation. But USB3 is still an optional feature.
+> Edge-Rate cleanup include the following:
+> - Updated device tree bindings documentation for edge-rate
+> - The edge-rate is now specified as a "slowdown", meaning that it is now
+>   being specified as positive values instead of negative (both
+>   documentation and implementation wise).
+> - Only explicitly documented values for "vsc8531,vddmac" and
+>   "vsc8531,edge-slowdown" are accepted by the device driver.
+> - Deleted include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
+> - Read/validate devicetree settings in probe instead of init
 > 
-> Since we cannot enable this unconditionally for all older devices, and
-> there doesn't appear to be anything we can use in the USB descriptors
-> to identify these chips, we are forced to use a device specific quirk
-> flag.
-> 
-> Reported-and-tested-by: Sebastian Sjoholm <sebastian.sjoholm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> Signed-off-by: Raju Lakkaraju <raju.lakkaraju@microsemi.com>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This doesn't apply cleanly to net-next, please respin.
+
+Thanks.
