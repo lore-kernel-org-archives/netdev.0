@@ -1,59 +1,69 @@
-From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
-Subject: Re: [PATCH] iwlwifi: pcie: fix SPLC structure parsing
-Date: Thu, 13 Oct 2016 15:44:13 +0300
-Message-ID: <1476362653.3880.25.camel@coelho.fi>
-References: <1476349269.3880.18.camel@coelho.fi>
-         <20161013102155.14547-1-luca@coelho.fi>
-         <1476358075.1999.5.camel@tiscali.nl> <1476358222.3880.21.camel@coelho.fi>
-         <1476362194.1999.11.camel@tiscali.nl>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/6] Add support for offloading
+ packet-sampling
+Date: Thu, 13 Oct 2016 14:45:26 +0200
+Message-ID: <20161013124526.GF1816@nanopsycho.orion>
+References: <1476276069-5315-1-git-send-email-jiri@resnulli.us>
+ <57FF37F5.4070100@cumulusnetworks.com>
+ <20161013084857.GC1816@nanopsycho.orion>
+ <64872c5b-8cbc-edd8-00aa-afc87a7cfa4a@mojatatu.com>
+ <20161013121022.GD1816@nanopsycho.orion>
+ <2cc65dfa-de32-2e31-5f03-80e8f0d2586f@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-        oren.givon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        chris-FAYdYWbMHyxBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476362194.1999.11.camel-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        geert+renesas@glider.be, stephen@networkplumber.org,
+        xiyou.wangcong@gmail.com, linux@roeck-us.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33677 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755355AbcJMMpa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 08:45:30 -0400
+Received: by mail-lf0-f65.google.com with SMTP id l131so9703857lfl.0
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 05:45:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <2cc65dfa-de32-2e31-5f03-80e8f0d2586f@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-10-13 at 14:36 +0200, Paul Bolle wrote:
-> On Thu, 2016-10-13 at 14:30 +0300, Luca Coelho wrote:
-> > I forgot to say... could you load the iwlwifi module with debug=0x01
-> > (module parameter), so we can see the messages the driver is printing
-> > when it doesn't find a proper structure?
-> 
-> 
-> That makes a lot of noise! Here's the first 100 lines or so, that
-> apparently are generated directly after modprobing iwlwifi.
-> 
-> After these 100 lines there's a ten second gap (I guess it took me ten
-> seconds to actually use the wifi). I assume you don't care about that
-> part of the debug messages.
-> 
-> Have fun!
+Thu, Oct 13, 2016 at 02:30:19PM CEST, jhs@mojatatu.com wrote:
+>On 16-10-13 08:10 AM, Jiri Pirko wrote:
+>> Thu, Oct 13, 2016 at 01:49:07PM CEST, jhs@mojatatu.com wrote:
+>> > On 16-10-13 04:48 AM, Jiri Pirko wrote:
+>
+>[..]
+>> > Roopa, did you mean eth1 as the new device or did you mean just in
+>> > general config requiring a device to be specified or did you mean a new
+>> > cpu netdev being needed? I couldnt tell from the patch.
+>> 
+>> You just have to have some netdev to use to funnel the IFE headered
+>> sample skbs to userspace. A dummy or a tap.
+>> 
+>
+>I see.
+>So with nflog you get basically a backend using a netlink socket
+>but in your case you will redirect to tuntap for the case of local
+>sflow but some other device for remote? I am assuming using dummy
+>would require a packet socket as means of retrieving the data.
 
-Thanks, Paul!
+Correct. The idea is that the userspace app would create a tap device,
+setup the sampling packets to be sent there and recieve them
+over chardev. Or the remote delivery could be use to push the sampling
+packet to a remote host.
 
-Yeah, this is the "INFO" debugging level and it is a sort of fallback
-bucket when there is nothing more specific.  Sorry for that.
+
+>If you take the structuring of the metadata that nflog uses it should
+>be easy to transpose.
+
+Yes, we do it with IFE, this patchset implements that.
 
 
-> <7>[  767.691342] iwlwifi 0000:3a:00.0: U iwl_pcie_prepare_card_hw iwl_trans_prepare_card_hw enter
-> <7>[  767.691362] iwlwifi 0000:3a:00.0: U iwl_pcie_set_hw_ready hardware ready
-> <7>[  767.692127] iwlwifi 0000:3a:00.0: U iwl_request_firmware attempting to load firmware 'iwlwifi-8000C-24.ucode'
-> <7>[  767.692322] iwlwifi 0000:3a:00.0: U splc_get_pwr_limit No element for the WiFi domain returned by the SPLC method.
-
-This is the line I was looking for. :) So everything looks fine now.
- Even though there is apparently something wrong with this part of the
-ACPI table on you laptop, since it doesn't match our specifications.
- In any case, it's mostly harmless.
-
-Thanks for the help!
-
---
-Cheers,
-Luca.
+>To Roopa's point, however: Would it not make sense to support nflog
+>(in addition?).
+>
+>cheers,
+>jamal
+>
