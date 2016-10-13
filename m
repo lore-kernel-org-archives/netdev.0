@@ -1,7 +1,7 @@
 From: Lorenzo Stoakes <lstoakes@gmail.com>
-Subject: [PATCH 02/10] mm: remove write/force parameters from __get_user_pages_unlocked()
-Date: Thu, 13 Oct 2016 01:20:12 +0100
-Message-ID: <20161013002020.3062-3-lstoakes@gmail.com>
+Subject: [PATCH 08/10] mm: replace __access_remote_vm() write parameter with gup_flags
+Date: Thu, 13 Oct 2016 01:20:18 +0100
+Message-ID: <20161013002020.3062-9-lstoakes@gmail.com>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
 Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Jan Kara <jack@suse.cz>,
@@ -36,174 +36,118 @@ In-Reply-To: <20161013002020.3062-1-lstoakes@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the write and force parameters from
-__get_user_pages_unlocked() to make the use of FOLL_FORCE explicit in callers as
-use of this flag can result in surprising behaviour (and hence bugs) within the
-mm subsystem.
+This patch removes the write parameter from __access_remote_vm() and replaces it
+with a gup_flags parameter as use of this function previously _implied_
+FOLL_FORCE, whereas after this patch callers explicitly pass this flag.
+
+We make this explicit as use of FOLL_FORCE can result in surprising behaviour
+(and hence bugs) within the mm subsystem.
 
 Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
 ---
- include/linux/mm.h     |  3 +--
- mm/gup.c               | 17 +++++++++--------
- mm/nommu.c             | 12 +++++++++---
- mm/process_vm_access.c |  7 +++++--
- virt/kvm/async_pf.c    |  3 ++-
- virt/kvm/kvm_main.c    | 11 ++++++++---
- 6 files changed, 34 insertions(+), 19 deletions(-)
+ mm/memory.c | 23 +++++++++++++++--------
+ mm/nommu.c  |  9 ++++++---
+ 2 files changed, 21 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index e9caec6..2db98b6 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -1285,8 +1285,7 @@ long get_user_pages_locked(unsigned long start, unsigned long nr_pages,
- 		    int write, int force, struct page **pages, int *locked);
- long __get_user_pages_unlocked(struct task_struct *tsk, struct mm_struct *mm,
- 			       unsigned long start, unsigned long nr_pages,
--			       int write, int force, struct page **pages,
--			       unsigned int gup_flags);
-+			       struct page **pages, unsigned int gup_flags);
- long get_user_pages_unlocked(unsigned long start, unsigned long nr_pages,
- 		    int write, int force, struct page **pages);
- int get_user_pages_fast(unsigned long start, int nr_pages, int write,
-diff --git a/mm/gup.c b/mm/gup.c
-index ba83942..3d620dd 100644
---- a/mm/gup.c
-+++ b/mm/gup.c
-@@ -865,17 +865,11 @@ EXPORT_SYMBOL(get_user_pages_locked);
+diff --git a/mm/memory.c b/mm/memory.c
+index 20a9adb..79ebed3 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -3869,14 +3869,11 @@ EXPORT_SYMBOL_GPL(generic_access_phys);
+  * given task for page fault accounting.
   */
- __always_inline long __get_user_pages_unlocked(struct task_struct *tsk, struct mm_struct *mm,
- 					       unsigned long start, unsigned long nr_pages,
--					       int write, int force, struct page **pages,
--					       unsigned int gup_flags)
-+					       struct page **pages, unsigned int gup_flags)
+ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+-		unsigned long addr, void *buf, int len, int write)
++		unsigned long addr, void *buf, int len, unsigned int gup_flags)
  {
- 	long ret;
- 	int locked = 1;
- 
--	if (write)
--		gup_flags |= FOLL_WRITE;
--	if (force)
--		gup_flags |= FOLL_FORCE;
+ 	struct vm_area_struct *vma;
+ 	void *old_buf = buf;
+-	unsigned int flags = FOLL_FORCE;
 -
+-	if (write)
+-		flags |= FOLL_WRITE;
++	int write = gup_flags & FOLL_WRITE;
+ 
  	down_read(&mm->mmap_sem);
- 	ret = __get_user_pages_locked(tsk, mm, start, nr_pages, pages, NULL,
- 				      &locked, false, gup_flags);
-@@ -905,8 +899,15 @@ EXPORT_SYMBOL(__get_user_pages_unlocked);
- long get_user_pages_unlocked(unsigned long start, unsigned long nr_pages,
- 			     int write, int force, struct page **pages)
+ 	/* ignore errors, just check how much was successfully transferred */
+@@ -3886,7 +3883,7 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+ 		struct page *page = NULL;
+ 
+ 		ret = get_user_pages_remote(tsk, mm, addr, 1,
+-				flags, &page, &vma);
++				gup_flags, &page, &vma);
+ 		if (ret <= 0) {
+ #ifndef CONFIG_HAVE_IOREMAP_PROT
+ 			break;
+@@ -3945,7 +3942,12 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+ int access_remote_vm(struct mm_struct *mm, unsigned long addr,
+ 		void *buf, int len, int write)
  {
-+	unsigned int flags = FOLL_TOUCH;
+-	return __access_remote_vm(NULL, mm, addr, buf, len, write);
++	unsigned int flags = FOLL_FORCE;
 +
 +	if (write)
 +		flags |= FOLL_WRITE;
-+	if (force)
-+		flags |= FOLL_FORCE;
 +
- 	return __get_user_pages_unlocked(current, current->mm, start, nr_pages,
--					 write, force, pages, FOLL_TOUCH);
-+					 pages, flags);
++	return __access_remote_vm(NULL, mm, addr, buf, len, flags);
  }
- EXPORT_SYMBOL(get_user_pages_unlocked);
  
+ /*
+@@ -3958,12 +3960,17 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr,
+ {
+ 	struct mm_struct *mm;
+ 	int ret;
++	unsigned int flags = FOLL_FORCE;
+ 
+ 	mm = get_task_mm(tsk);
+ 	if (!mm)
+ 		return 0;
+ 
+-	ret = __access_remote_vm(tsk, mm, addr, buf, len, write);
++	if (write)
++		flags |= FOLL_WRITE;
++
++	ret = __access_remote_vm(tsk, mm, addr, buf, len, flags);
++
+ 	mmput(mm);
+ 
+ 	return ret;
 diff --git a/mm/nommu.c b/mm/nommu.c
-index 95daf81..925dcc1 100644
+index 70cb844..bde7df3 100644
 --- a/mm/nommu.c
 +++ b/mm/nommu.c
-@@ -185,8 +185,7 @@ EXPORT_SYMBOL(get_user_pages_locked);
+@@ -1809,9 +1809,10 @@ void filemap_map_pages(struct fault_env *fe,
+ EXPORT_SYMBOL(filemap_map_pages);
  
- long __get_user_pages_unlocked(struct task_struct *tsk, struct mm_struct *mm,
- 			       unsigned long start, unsigned long nr_pages,
--			       int write, int force, struct page **pages,
--			       unsigned int gup_flags)
-+			       struct page **pages, unsigned int gup_flags)
+ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+-		unsigned long addr, void *buf, int len, int write)
++		unsigned long addr, void *buf, int len, unsigned int gup_flags)
  {
- 	long ret;
+ 	struct vm_area_struct *vma;
++	int write = gup_flags & FOLL_WRITE;
+ 
  	down_read(&mm->mmap_sem);
-@@ -200,8 +199,15 @@ EXPORT_SYMBOL(__get_user_pages_unlocked);
- long get_user_pages_unlocked(unsigned long start, unsigned long nr_pages,
- 			     int write, int force, struct page **pages)
+ 
+@@ -1853,7 +1854,8 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+ int access_remote_vm(struct mm_struct *mm, unsigned long addr,
+ 		void *buf, int len, int write)
  {
-+	unsigned int flags = 0;
-+
-+	if (write)
-+		flags |= FOLL_WRITE;
-+	if (force)
-+		flags |= FOLL_FORCE;
-+
- 	return __get_user_pages_unlocked(current, current->mm, start, nr_pages,
--					 write, force, pages, 0);
-+					 pages, flags);
+-	return __access_remote_vm(NULL, mm, addr, buf, len, write);
++	return __access_remote_vm(NULL, mm, addr, buf, len,
++			write ? FOLL_WRITE : 0);
  }
- EXPORT_SYMBOL(get_user_pages_unlocked);
  
-diff --git a/mm/process_vm_access.c b/mm/process_vm_access.c
-index 07514d4..be8dc8d 100644
---- a/mm/process_vm_access.c
-+++ b/mm/process_vm_access.c
-@@ -88,12 +88,16 @@ static int process_vm_rw_single_vec(unsigned long addr,
- 	ssize_t rc = 0;
- 	unsigned long max_pages_per_loop = PVM_MAX_KMALLOC_PAGES
- 		/ sizeof(struct pages *);
-+	unsigned int flags = FOLL_REMOTE;
- 
- 	/* Work out address and page range required */
- 	if (len == 0)
+ /*
+@@ -1871,7 +1873,8 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
+ 	if (!mm)
  		return 0;
- 	nr_pages = (addr + len - 1) / PAGE_SIZE - addr / PAGE_SIZE + 1;
  
-+	if (vm_write)
-+		flags |= FOLL_WRITE;
-+
- 	while (!rc && nr_pages && iov_iter_count(iter)) {
- 		int pages = min(nr_pages, max_pages_per_loop);
- 		size_t bytes;
-@@ -104,8 +108,7 @@ static int process_vm_rw_single_vec(unsigned long addr,
- 		 * current/current->mm
- 		 */
- 		pages = __get_user_pages_unlocked(task, mm, pa, pages,
--						  vm_write, 0, process_pages,
--						  FOLL_REMOTE);
-+						  process_pages, flags);
- 		if (pages <= 0)
- 			return -EFAULT;
+-	len = __access_remote_vm(tsk, mm, addr, buf, len, write);
++	len = __access_remote_vm(tsk, mm, addr, buf, len,
++			write ? FOLL_WRITE : 0);
  
-diff --git a/virt/kvm/async_pf.c b/virt/kvm/async_pf.c
-index db96688..8035cc1 100644
---- a/virt/kvm/async_pf.c
-+++ b/virt/kvm/async_pf.c
-@@ -84,7 +84,8 @@ static void async_pf_execute(struct work_struct *work)
- 	 * mm and might be done in another context, so we must
- 	 * use FOLL_REMOTE.
- 	 */
--	__get_user_pages_unlocked(NULL, mm, addr, 1, 1, 0, NULL, FOLL_REMOTE);
-+	__get_user_pages_unlocked(NULL, mm, addr, 1, NULL,
-+			FOLL_WRITE | FOLL_REMOTE);
- 
- 	kvm_async_page_present_sync(vcpu, apf);
- 
-diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index 81dfc73..28510e7 100644
---- a/virt/kvm/kvm_main.c
-+++ b/virt/kvm/kvm_main.c
-@@ -1416,10 +1416,15 @@ static int hva_to_pfn_slow(unsigned long addr, bool *async, bool write_fault,
- 		down_read(&current->mm->mmap_sem);
- 		npages = get_user_page_nowait(addr, write_fault, page);
- 		up_read(&current->mm->mmap_sem);
--	} else
-+	} else {
-+		unsigned int flags = FOLL_TOUCH | FOLL_HWPOISON;
-+
-+		if (write_fault)
-+			flags |= FOLL_WRITE;
-+
- 		npages = __get_user_pages_unlocked(current, current->mm, addr, 1,
--						   write_fault, 0, page,
--						   FOLL_TOUCH|FOLL_HWPOISON);
-+						   page, flags);
-+	}
- 	if (npages != 1)
- 		return npages;
- 
+ 	mmput(mm);
+ 	return len;
 -- 
 2.10.0
 
