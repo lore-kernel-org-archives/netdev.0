@@ -1,42 +1,53 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] net: bridge: add the multicast_flood flag attribute to brport_attrs
-Date: Thu, 13 Oct 2016 15:20:52 +0200
-Message-ID: <1476364852-25777-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
-        davem@davemloft.net,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/2] net: centralize net_device MTU bounds
+ checking
+Date: Thu, 13 Oct 2016 09:37:36 -0400 (EDT)
+Message-ID: <20161013.093736.2110253872628350396.davem@davemloft.net>
+References: <20161002.224322.740109807229746275.davem@davemloft.net>
+        <20161008020434.9691-1-jarod@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jarod@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f52.google.com ([209.85.213.52]:36030 "EHLO
-        mail-vk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753788AbcJMNWb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 09:22:31 -0400
-Received: by mail-vk0-f52.google.com with SMTP id 2so77208092vkb.3
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 06:21:55 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:60654 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752682AbcJMNij (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 09:38:39 -0400
+In-Reply-To: <20161008020434.9691-1-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When I added the multicast flood control flag, I also added an attribute
-for it for sysfs similar to other flags, but I forgot to add it to
-brport_attrs.
+From: Jarod Wilson <jarod@redhat.com>
+Date: Fri,  7 Oct 2016 22:04:32 -0400
 
-Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_sysfs_if.c | 1 +
- 1 file changed, 1 insertion(+)
+> While looking into an MTU issue with sfc, I started noticing that almost
+> every NIC driver with an ndo_change_mtu function implemented almost
+> exactly the same range checks, and in many cases, that was the only
+> practical thing their ndo_change_mtu function was doing. Quite a few
+> drivers have either 68, 64, 60 or 46 as their minimum MTU value checked,
+> and then various sizes from 1500 to 65535 for their maximum MTU value. We
+> can remove a whole lot of redundant code here if we simple store min_mtu
+> and max_mtu in net_device, and check against those in net/core/dev.c's
+> dev_set_mtu().
+> 
+> This pair of patches looks to introduce centralized MTU range checking
+> infrastructure, while maintaining compatibility with all existing drivers,
+> and start to make use of it, converting all eth_change_mtu/ether_setup users
+> over to this new infra.
+> 
+> Assuming these pass review muster, I've got a ton of follow-on patches to
+> clean up MTU settings for everything in the kernel with an ndo_change_mtu.
+> 
+> This work is all staged in a (rebasing) git tree here:
+> 
+> https://github.com/jarodwilson/linux-muck
+> 
+> The master branch is based on net-next from Oct 7, and carries these two
+> patches, plus a ton of follow-on patches to eliminate MTU range checks
+> and change_mtu functions where possible. All patches were successfully
+> built across 160 various arch and config combos by the 0-day folks.
+> (Thanks to Andrew Lunn for the suggestion to get that going).
 
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index e657258e1f2c..8bd569695e76 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -217,6 +217,7 @@ static const struct brport_attribute *brport_attrs[] = {
- #endif
- 	&brport_attr_proxyarp,
- 	&brport_attr_proxyarp_wifi,
-+	&brport_attr_multicast_flood,
- 	NULL
- };
- 
--- 
-2.1.4
+Looks great, series applied, thanks Jarod!
