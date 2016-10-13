@@ -1,63 +1,33 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH RFC v2 net-next 0/8] net: qualcomm: add QCA7000 UART
- driver
-Date: Thu, 13 Oct 2016 10:14:41 +0200
-Message-ID: <20161013081441.GA3639@kroah.com>
-References: <1474888086-514-1-git-send-email-stefan.wahren@i2se.com>
- <1257730210.379562.ef1d8693-0ff3-4b50-a424-49eebba23da1.open-xchange@email.1und1.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net_sched: do not broadcast RTM_GETTFILTER result
+Date: Thu, 13 Oct 2016 09:46:09 +0200
+Message-ID: <1476344769.5650.25.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpWDwwo+DEi2aytoAnTHWKWeTRiMZqXfvaB7=T9eOnvR-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jslaby@suse.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Stefan Wahren <stefan.wahren@i2se.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:47892 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751171AbcJMIQJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 04:16:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1257730210.379562.ef1d8693-0ff3-4b50-a424-49eebba23da1.open-xchange@email.1und1.de>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:34386 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752626AbcJMIlI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 04:41:08 -0400
+Received: by mail-lf0-f67.google.com with SMTP id x23so5730060lfi.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 01:41:08 -0700 (PDT)
+In-Reply-To: <CAM_iQpWDwwo+DEi2aytoAnTHWKWeTRiMZqXfvaB7=T9eOnvR-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 13, 2016 at 10:09:09AM +0200, Stefan Wahren wrote:
+On Wed, 2016-10-12 at 09:36 -0700, Cong Wang wrote:
+> On Sun, Oct 9, 2016 at 8:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > +       if (unicast)
+> > +               return netlink_unicast(net->rtnl, skb, portid, MSG_DONTWAIT);
 > 
-> > Stefan Wahren <stefan.wahren@i2se.com> hat am 26. September 2016 um 13:07
-> > geschrieben:
-> > 
-> > 
-> > The Qualcomm QCA7000 HomePlug GreenPHY supports two interfaces:
-> > UART and SPI. This patch series adds the missing support for UART.
-> > 
-> > This driver based on the Qualcomm code [1], but contains some changes:
-> > * use random MAC address per default
-> > * use net_device_stats from device
-> > * share frame decoding between SPI and UART driver
-> > * improve error handling
-> > * reimplement tty_wakeup with work queue (based on slcan)
-> > 
-> > The patches 1 - 3 are just for clean up and are not related to
-> > the UART support. Patches 4 - 7 prepare the existing QCA7000
-> > code for UART support. The last patch contains the new driver.
-> > 
-> > In order to test the driver a modified slattach in userspace is also
-> > required. A prepared busybox (includes slattach) can be found here [2].
-> > 
-> > The code itself has been tested on a Freescale i.MX28 board.
-> > 
-> > Changes in v2:
-> >   * fix build issue by using netif_trans_update() and dev_trans_start()
-> > 
-> > [1] - https://github.com/IoE/qca7000
-> > [2] - https://github.com/lategoodbye/busybox/commits/qca7k_support_1_24
-> > 
-> 
-> Gently ping, since i didn't receive any comment for this version.
+> Nit: rtnl_unicast() is simpler.
 
-It's the middle of the merge window, I can't add any new patches right
-now.  Please wait until after 4.9-rc1 is out.
-
-thanks,
-
-greg k-h
+I copied code in rtnetlink_send(), I guess we could use rtnl_unicast()
+there as well.
