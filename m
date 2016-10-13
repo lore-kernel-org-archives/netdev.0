@@ -1,65 +1,150 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 02/11] net: Introduce new api for walking upper
- and lower devices
-Date: Thu, 13 Oct 2016 09:30:29 +0200
-Message-ID: <20161013073029.GA1816@nanopsycho.orion>
-References: <1476305519-28833-1-git-send-email-dsa@cumulusnetworks.com>
- <1476305519-28833-3-git-send-email-dsa@cumulusnetworks.com>
+From: =?UTF-8?Q?Christian_K=c3=b6nig?= <christian.koenig@amd.com>
+Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions
+ to explicitly pass FOLL_* flags
+Date: Thu, 13 Oct 2016 09:32:51 +0200
+Message-ID: <914b917f-6871-2ba3-95ba-981dd2855743@amd.com>
+References: <20161013002020.3062-1-lstoakes@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net,
-        dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
-        j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:34891 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751288AbcJMHbS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 03:31:18 -0400
-Received: by mail-lf0-f68.google.com with SMTP id x79so11189572lff.2
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 00:30:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1476305519-28833-3-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
+ Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
+ Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org,
+ sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+ linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org,
+ Hugh Dickins <hughd@google.com>, linux-media@vger.kernel.org,
+ Rik van Riel <riel@redhat.com>, intel-gfx@lists.freedesktop.org,
+ adi-buildroot-devel@lists.sourceforge.net, ceph-devel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, Mel Gorman <mgorman@techsingularity.net>,
+ linux-cris-kernel@axis.com, netdev@vger.kernel.org,
+ linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+ linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org,
+ linux-fsdevel@vger.kernel.org
+To: Lorenzo Stoakes <lstoakes@gmail.com>, <linux-mm@kvack.org>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+In-Reply-To: <20161013002020.3062-1-lstoakes@gmail.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-Wed, Oct 12, 2016 at 10:51:50PM CEST, dsa@cumulusnetworks.com wrote:
->This patch introduces netdev_walk_all_upper_dev_rcu,
->netdev_walk_all_lower_dev and netdev_walk_all_lower_dev_rcu. These
->functions recursively walk the adj_list of devices to determine all upper
->and lower devices.
->
->The functions take a callback function that is invoked for each device
->in the list. If the callback returns non-0, the walk is terminated and
->the functions return that code back to callers.
->
->Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-
-[...]
-
->+int netdev_walk_all_lower_dev(struct net_device *dev,
->+			      int (*fn)(struct net_device *dev,
->+					void *data),
->+			      void *data)
->+{
->+	struct list_head *iter;
->+	struct net_device *ldev;
->+	int ret;
->+
->+	for (iter = &(dev)->adj_list.lower,
->+	     ldev = netdev_next_lower_dev(dev, &(iter));
->+	     ldev;
->+	     ldev = netdev_next_lower_dev(dev, &(iter))) {
->+		/* first is the lower device itself */
->+		ret = fn(ldev, data);
->+		if (ret)
->+			return ret;
->+
->+		/* then look at all of its lower devices */
->+		ret = netdev_walk_all_lower_dev(ldev, fn, data);
-
-I believe that Veaceslav's reason to collapse the upper/lower trees was
-to avoid this recursivity. I also believe that the recursivity was a big
-issue for DaveM and BenH. Something changed?
+QW0gMTMuMTAuMjAxNiB1bSAwMjoyMCBzY2hyaWViIExvcmVuem8gU3RvYWtlczoKPiBUaGlzIHBh
+dGNoIHNlcmllcyBhZGp1c3RzIGZ1bmN0aW9ucyBpbiB0aGUgZ2V0X3VzZXJfcGFnZXMqIGZhbWls
+eSBzdWNoIHRoYXQKPiBkZXNpcmVkIEZPTExfKiBmbGFncyBhcmUgcGFzc2VkIGFzIGFuIGFyZ3Vt
+ZW50IHJhdGhlciB0aGFuIGltcGxpZWQgYnkgZmxhZ3MuCj4KPiBUaGUgcHVycG9zZSBvZiB0aGlz
+IGNoYW5nZSBpcyB0byBtYWtlIHRoZSB1c2Ugb2YgRk9MTF9GT1JDRSBleHBsaWNpdCBzbyBpdCBp
+cwo+IGVhc2llciB0byBncmVwIGZvciBhbmQgY2xlYXJlciB0byBjYWxsZXJzIHRoYXQgdGhpcyBm
+bGFnIGlzIGJlaW5nIHVzZWQuIFRoZSB1c2UKPiBvZiBGT0xMX0ZPUkNFIGlzIGFuIGlzc3VlIGFz
+IGl0IG92ZXJyaWRlcyBtaXNzaW5nIFZNX1JFQUQvVk1fV1JJVEUgZmxhZ3MgZm9yIHRoZQo+IFZN
+QSB3aG9zZSBwYWdlcyB3ZSBhcmUgcmVhZGluZyBmcm9tL3dyaXRpbmcgdG8sIHdoaWNoIGNhbiBy
+ZXN1bHQgaW4gc3VycHJpc2luZwo+IGJlaGF2aW91ci4KPgo+IFRoZSBwYXRjaCBzZXJpZXMgY2Ft
+ZSBvdXQgb2YgdGhlIGRpc2N1c3Npb24gYXJvdW5kIGNvbW1pdCAzOGUwODg1LCB3aGljaAo+IGFk
+ZHJlc3NlZCBhIEJVR19PTigpIGJlaW5nIHRyaWdnZXJlZCB3aGVuIGEgcGFnZSB3YXMgZmF1bHRl
+ZCBpbiB3aXRoIFBST1RfTk9ORQo+IHNldCBidXQgaGF2aW5nIGJlZW4gb3ZlcnJpZGRlbiBieSBG
+T0xMX0ZPUkNFLiBkb19udW1hX3BhZ2UoKSB3YXMgcnVuIG9uIHRoZQo+IGFzc3VtcHRpb24gdGhl
+IHBhZ2UgX211c3RfIGJlIG9uZSBtYXJrZWQgZm9yIE5VTUEgbm9kZSBtaWdyYXRpb24gYXMgYW4g
+YWN0dWFsCj4gUFJPVF9OT05FIHBhZ2Ugd291bGQgaGF2ZSBiZWVuIGRlYWx0IHdpdGggcHJpb3Ig
+dG8gdGhpcyBjb2RlIHBhdGgsIGhvd2V2ZXIKPiBGT0xMX0ZPUkNFIGludHJvZHVjZWQgYSBzaXR1
+YXRpb24gd2hlcmUgdGhpcyBhc3N1bXB0aW9uIGRpZCBub3QgaG9sZC4KPgo+IFNlZSBodHRwczov
+L21hcmMuaW5mby8/bD1saW51eC1tbSZtPTE0NzU4NTQ0NTgwNTE2NiBmb3IgdGhlIHBhdGNoIHBy
+b3Bvc2FsLgo+Cj4gTG9yZW56byBTdG9ha2VzICgxMCk6Cj4gICAgbW06IHJlbW92ZSB3cml0ZS9m
+b3JjZSBwYXJhbWV0ZXJzIGZyb20gX19nZXRfdXNlcl9wYWdlc19sb2NrZWQoKQo+ICAgIG1tOiBy
+ZW1vdmUgd3JpdGUvZm9yY2UgcGFyYW1ldGVycyBmcm9tIF9fZ2V0X3VzZXJfcGFnZXNfdW5sb2Nr
+ZWQoKQo+ICAgIG1tOiByZXBsYWNlIGdldF91c2VyX3BhZ2VzX3VubG9ja2VkKCkgd3JpdGUvZm9y
+Y2UgcGFyYW1ldGVycyB3aXRoIGd1cF9mbGFncwo+ICAgIG1tOiByZXBsYWNlIGdldF91c2VyX3Bh
+Z2VzX2xvY2tlZCgpIHdyaXRlL2ZvcmNlIHBhcmFtZXRlcnMgd2l0aCBndXBfZmxhZ3MKPiAgICBt
+bTogcmVwbGFjZSBnZXRfdmFkZHJfZnJhbWVzKCkgd3JpdGUvZm9yY2UgcGFyYW1ldGVycyB3aXRo
+IGd1cF9mbGFncwo+ICAgIG1tOiByZXBsYWNlIGdldF91c2VyX3BhZ2VzKCkgd3JpdGUvZm9yY2Ug
+cGFyYW1ldGVycyB3aXRoIGd1cF9mbGFncwo+ICAgIG1tOiByZXBsYWNlIGdldF91c2VyX3BhZ2Vz
+X3JlbW90ZSgpIHdyaXRlL2ZvcmNlIHBhcmFtZXRlcnMgd2l0aCBndXBfZmxhZ3MKPiAgICBtbTog
+cmVwbGFjZSBfX2FjY2Vzc19yZW1vdGVfdm0oKSB3cml0ZSBwYXJhbWV0ZXIgd2l0aCBndXBfZmxh
+Z3MKPiAgICBtbTogcmVwbGFjZSBhY2Nlc3NfcmVtb3RlX3ZtKCkgd3JpdGUgcGFyYW1ldGVyIHdp
+dGggZ3VwX2ZsYWdzCj4gICAgbW06IHJlcGxhY2UgYWNjZXNzX3Byb2Nlc3Nfdm0oKSB3cml0ZSBw
+YXJhbWV0ZXIgd2l0aCBndXBfZmxhZ3MKClBhdGNoIG51bWJlciA2IGluIHRoaXMgc2VyaWVzICh3
+aGljaCB0b3VjaGVzIGRyaXZlcnMgSSBjby1tYWludGFpbikgaXMgCkFja2VkLWJ5OiBDaHJpc3Rp
+YW4gS8O2bmlnIDxjaHJpc3RpYW4ua29lbmlnQGFtZC5jb20+LgoKSW4gZ2VuZXJhbCBsb29rcyBs
+aWtlIGEgdmVyeSBuaWNlIGNsZWFudXAgdG8gbWUsIGJ1dCBJJ20gbm90IGVubGlnaHRlbmVkIApl
+bm91Z2ggdG8gZnVsbCBqdWRnZS4KClJlZ2FyZHMsCkNocmlzdGlhbi4KCj4KPiAgIGFyY2gvYWxw
+aGEva2VybmVsL3B0cmFjZS5jICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDkgKystLQo+ICAg
+YXJjaC9ibGFja2Zpbi9rZXJuZWwvcHRyYWNlLmMgICAgICAgICAgICAgICAgICAgICAgfCAgNSAr
+Ky0KPiAgIGFyY2gvY3Jpcy9hcmNoLXYzMi9kcml2ZXJzL2NyeXB0b2NvcC5jICAgICAgICAgICAg
+IHwgIDQgKy0KPiAgIGFyY2gvY3Jpcy9hcmNoLXYzMi9rZXJuZWwvcHRyYWNlLmMgICAgICAgICAg
+ICAgICAgIHwgIDQgKy0KPiAgIGFyY2gvaWE2NC9rZXJuZWwvZXJyX2luamVjdC5jICAgICAgICAg
+ICAgICAgICAgICAgIHwgIDIgKy0KPiAgIGFyY2gvaWE2NC9rZXJuZWwvcHRyYWNlLmMgICAgICAg
+ICAgICAgICAgICAgICAgICAgIHwgMTQgKysrLS0tCj4gICBhcmNoL20zMnIva2VybmVsL3B0cmFj
+ZS5jICAgICAgICAgICAgICAgICAgICAgICAgICB8IDE1ICsrKystLS0KPiAgIGFyY2gvbWlwcy9r
+ZXJuZWwvcHRyYWNlMzIuYyAgICAgICAgICAgICAgICAgICAgICAgIHwgIDUgKystCj4gICBhcmNo
+L21pcHMvbW0vZ3VwLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAyICstCj4g
+ICBhcmNoL3Bvd2VycGMva2VybmVsL3B0cmFjZTMyLmMgICAgICAgICAgICAgICAgICAgICB8ICA1
+ICsrLQo+ICAgYXJjaC9zMzkwL21tL2d1cC5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgfCAgMyArLQo+ICAgYXJjaC9zY29yZS9rZXJuZWwvcHRyYWNlLmMgICAgICAgICAgICAgICAg
+ICAgICAgICAgfCAxMCArKystLQo+ICAgYXJjaC9zaC9tbS9ndXAuYyAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgfCAgMyArLQo+ICAgYXJjaC9zcGFyYy9rZXJuZWwvcHRyYWNlXzY0
+LmMgICAgICAgICAgICAgICAgICAgICAgfCAyNCArKysrKysrLS0tLQo+ICAgYXJjaC9zcGFyYy9t
+bS9ndXAuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMyArLQo+ICAgYXJjaC94
+ODYva2VybmVsL3N0ZXAuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMyArLQo+ICAg
+YXJjaC94ODYvbW0vZ3VwLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiAr
+LQo+ICAgYXJjaC94ODYvbW0vbXB4LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+fCAgNSArLS0KPiAgIGFyY2gveDg2L3VtL3B0cmFjZV8zMi5jICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIHwgIDMgKy0KPiAgIGFyY2gveDg2L3VtL3B0cmFjZV82NC5jICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgIHwgIDMgKy0KPiAgIGRyaXZlcnMvZ3B1L2RybS9hbWQvYW1kZ3B1L2FtZGdw
+dV90dG0uYyAgICAgICAgICAgIHwgIDcgKystCj4gICBkcml2ZXJzL2dwdS9kcm0vZXRuYXZpdi9l
+dG5hdml2X2dlbS5jICAgICAgICAgICAgICB8ICA3ICsrLQo+ICAgZHJpdmVycy9ncHUvZHJtL2V4
+eW5vcy9leHlub3NfZHJtX2cyZC5jICAgICAgICAgICAgfCAgMyArLQo+ICAgZHJpdmVycy9ncHUv
+ZHJtL2k5MTUvaTkxNV9nZW1fdXNlcnB0ci5jICAgICAgICAgICAgfCAgNiArKy0KPiAgIGRyaXZl
+cnMvZ3B1L2RybS9yYWRlb24vcmFkZW9uX3R0bS5jICAgICAgICAgICAgICAgIHwgIDMgKy0KPiAg
+IGRyaXZlcnMvZ3B1L2RybS92aWEvdmlhX2RtYWJsaXQuYyAgICAgICAgICAgICAgICAgIHwgIDQg
+Ky0KPiAgIGRyaXZlcnMvaW5maW5pYmFuZC9jb3JlL3VtZW0uYyAgICAgICAgICAgICAgICAgICAg
+IHwgIDYgKystCj4gICBkcml2ZXJzL2luZmluaWJhbmQvY29yZS91bWVtX29kcC5jICAgICAgICAg
+ICAgICAgICB8ICA3ICsrLQo+ICAgZHJpdmVycy9pbmZpbmliYW5kL2h3L210aGNhL210aGNhX21l
+bWZyZWUuYyAgICAgICAgfCAgMiArLQo+ICAgZHJpdmVycy9pbmZpbmliYW5kL2h3L3FpYi9xaWJf
+dXNlcl9wYWdlcy5jICAgICAgICAgfCAgMyArLQo+ICAgZHJpdmVycy9pbmZpbmliYW5kL2h3L3Vz
+bmljL3VzbmljX3Vpb20uYyAgICAgICAgICAgfCAgNSArKy0KPiAgIGRyaXZlcnMvbWVkaWEvcGNp
+L2l2dHYvaXZ0di11ZG1hLmMgICAgICAgICAgICAgICAgIHwgIDQgKy0KPiAgIGRyaXZlcnMvbWVk
+aWEvcGNpL2l2dHYvaXZ0di15dXYuYyAgICAgICAgICAgICAgICAgIHwgIDUgKystCj4gICBkcml2
+ZXJzL21lZGlhL3BsYXRmb3JtL29tYXAvb21hcF92b3V0LmMgICAgICAgICAgICB8ICAyICstCj4g
+ICBkcml2ZXJzL21lZGlhL3Y0bDItY29yZS92aWRlb2J1Zi1kbWEtc2cuYyAgICAgICAgICB8ICA3
+ICsrLQo+ICAgZHJpdmVycy9tZWRpYS92NGwyLWNvcmUvdmlkZW9idWYyLW1lbW9wcy5jICAgICAg
+ICAgfCAgNiArKy0KPiAgIGRyaXZlcnMvbWlzYy9taWMvc2NpZi9zY2lmX3JtYS5jICAgICAgICAg
+ICAgICAgICAgIHwgIDMgKy0KPiAgIGRyaXZlcnMvbWlzYy9zZ2ktZ3J1L2dydWZhdWx0LmMgICAg
+ICAgICAgICAgICAgICAgIHwgIDIgKy0KPiAgIGRyaXZlcnMvcGxhdGZvcm0vZ29sZGZpc2gvZ29s
+ZGZpc2hfcGlwZS5jICAgICAgICAgIHwgIDMgKy0KPiAgIGRyaXZlcnMvcmFwaWRpby9kZXZpY2Vz
+L3Jpb19tcG9ydF9jZGV2LmMgICAgICAgICAgIHwgIDMgKy0KPiAgIGRyaXZlcnMvc2NzaS9zdC5j
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDUgKy0tCj4gICAuLi4vaW50ZXJm
+YWNlL3ZjaGlxX2FybS92Y2hpcV8yODM1X2FybS5jICAgICAgICAgICB8ICAzICstCj4gICAuLi4v
+dmMwNF9zZXJ2aWNlcy9pbnRlcmZhY2UvdmNoaXFfYXJtL3ZjaGlxX2FybS5jICB8ICAzICstCj4g
+ICBkcml2ZXJzL3ZpZGVvL2ZiZGV2L3B2cjJmYi5jICAgICAgICAgICAgICAgICAgICAgICB8ICA0
+ICstCj4gICBkcml2ZXJzL3ZpcnQvZnNsX2h5cGVydmlzb3IuYyAgICAgICAgICAgICAgICAgICAg
+ICB8ICA0ICstCj4gICBmcy9leGVjLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICB8ICA5ICsrKy0KPiAgIGZzL3Byb2MvYmFzZS5jICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIHwgMTkgKysrKystLS0KPiAgIGluY2x1ZGUvbGludXgvbW0uaCAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgMTggKysrKy0tLS0KPiAgIGtlcm5lbC9ldmVu
+dHMvdXByb2Jlcy5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDYgKystCj4gICBrZXJu
+ZWwvcHRyYWNlLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8IDE2ICsrKyst
+LS0KPiAgIG1tL2ZyYW1lX3ZlY3Rvci5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IHwgIDkgKystLQo+ICAgbW0vZ3VwLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgfCA1MCArKysrKysrKysrLS0tLS0tLS0tLS0tCj4gICBtbS9tZW1vcnkuYyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8IDE2ICsrKystLS0KPiAgIG1tL21l
+bXBvbGljeS5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0KPiAg
+IG1tL25vbW11LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgMzgg
+KysrKysrKy0tLS0tLS0tLQo+ICAgbW0vcHJvY2Vzc192bV9hY2Nlc3MuYyAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgfCAgNyArKy0KPiAgIG1tL3V0aWwuYyAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHwgIDggKystLQo+ICAgbmV0L2NlcGgvcGFnZXZlYy5jICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArLQo+ICAgc2VjdXJpdHkvdG9tb3lv
+L2RvbWFpbi5jICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArLQo+ICAgdmlydC9rdm0v
+YXN5bmNfcGYuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMyArLQo+ICAgdmly
+dC9rdm0va3ZtX21haW4uYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAxMSArKyst
+LQo+ICAgNjEgZmlsZXMgY2hhbmdlZCwgMjYwIGluc2VydGlvbnMoKyksIDE4NyBkZWxldGlvbnMo
+LSkKPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+IGRy
+aS1kZXZlbCBtYWlsaW5nIGxpc3QKPiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCj4g
+aHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1n
+ZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9s
+aXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
