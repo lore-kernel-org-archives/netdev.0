@@ -1,84 +1,100 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v2 net-next 1/7] qed: Pass MAC hints to VFs
-Date: Thu, 13 Oct 2016 07:22:45 -0400
-Message-ID: <1476357771-1578-2-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH v2 net-next 2/7] qede: GSO support for tunnels with outer csum
+Date: Thu, 13 Oct 2016 07:22:46 -0400
+Message-ID: <1476357771-1578-3-git-send-email-manish.chopra@qlogic.com>
 References: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+        Manish Chopra <manish.chopra@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:33189 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:33191 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753205AbcJMMIz (ORCPT
+        by vger.kernel.org with ESMTP id S1753268AbcJMMIz (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 08:08:55 -0400
 In-Reply-To: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+From: Manish Chopra <manish.chopra@caviumnetworks.com>
 
-Some hypervisors can support MAC hints to their VFs.
-Even though we don't have such a hypervisor API in linux, we add
-sufficient logic for the VF to be able to receive such hints and
-set the mac accordingly - as long as the VF has not been set with
-a MAC already.
+This patch adds GSO support for GRE and UDP tunnels
+where outer checksums are enabled.
 
+Signed-off-by: Manish Chopra <manish.chopra@caviumnetworks.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_vf.c     | 4 ++--
- drivers/net/ethernet/qlogic/qede/qede_main.c | 6 +++++-
- include/linux/qed/qed_eth_if.h               | 2 +-
- 3 files changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede.h      |  1 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 26 +++++++++++++++++++++++---
+ 2 files changed, 24 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index abf5bf1..f580bf4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -1230,8 +1230,8 @@ static void qed_handle_bulletin_change(struct qed_hwfn *hwfn)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 28c0e9f..f50e527 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -320,6 +320,7 @@ struct qede_fastpath {
+ #define XMIT_L4_CSUM		BIT(0)
+ #define XMIT_LSO		BIT(1)
+ #define XMIT_ENC		BIT(2)
++#define XMIT_ENC_GSO_L4_CSUM	BIT(3)
  
- 	is_mac_exist = qed_vf_bulletin_get_forced_mac(hwfn, mac,
- 						      &is_mac_forced);
--	if (is_mac_exist && is_mac_forced && cookie)
--		ops->force_mac(cookie, mac);
-+	if (is_mac_exist && cookie)
-+		ops->force_mac(cookie, mac, !!is_mac_forced);
- 
- 	/* Always update link configuration according to bulletin */
- 	qed_link_update(hwfn);
+ #define QEDE_CSUM_ERROR			BIT(0)
+ #define QEDE_CSUM_UNNECESSARY		BIT(1)
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 343038c..9866d95 100644
+index 9866d95..7d5dc1e 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -171,10 +171,14 @@ static struct pci_driver qede_pci_driver = {
- #endif
- };
+@@ -400,8 +400,19 @@ static u32 qede_xmit_type(struct qede_dev *edev,
+ 	    (ipv6_hdr(skb)->nexthdr == NEXTHDR_IPV6))
+ 		*ipv6_ext = 1;
  
--static void qede_force_mac(void *dev, u8 *mac)
-+static void qede_force_mac(void *dev, u8 *mac, bool forced)
- {
- 	struct qede_dev *edev = dev;
- 
-+	/* MAC hints take effect only if we haven't set one already */
-+	if (is_valid_ether_addr(edev->ndev->dev_addr) && !forced)
-+		return;
+-	if (skb->encapsulation)
++	if (skb->encapsulation) {
+ 		rc |= XMIT_ENC;
++		if (skb_is_gso(skb)) {
++			unsigned short gso_type = skb_shinfo(skb)->gso_type;
 +
- 	ether_addr_copy(edev->ndev->dev_addr, mac);
- 	ether_addr_copy(edev->primary_mac, mac);
- }
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 33c24eb..1c77948 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -129,7 +129,7 @@ struct qed_tunn_params {
++			if ((gso_type & SKB_GSO_UDP_TUNNEL_CSUM) ||
++			    (gso_type & SKB_GSO_GRE_CSUM))
++				rc |= XMIT_ENC_GSO_L4_CSUM;
++
++			rc |= XMIT_LSO;
++			return rc;
++		}
++	}
  
- struct qed_eth_cb_ops {
- 	struct qed_common_cb_ops common;
--	void (*force_mac) (void *dev, u8 *mac);
-+	void (*force_mac) (void *dev, u8 *mac, bool forced);
- };
+ 	if (skb_is_gso(skb))
+ 		rc |= XMIT_LSO;
+@@ -637,6 +648,12 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 		if (unlikely(xmit_type & XMIT_ENC)) {
+ 			first_bd->data.bd_flags.bitfields |=
+ 				1 << ETH_TX_1ST_BD_FLAGS_TUNN_IP_CSUM_SHIFT;
++
++			if (xmit_type & XMIT_ENC_GSO_L4_CSUM) {
++				u8 tmp = ETH_TX_1ST_BD_FLAGS_TUNN_L4_CSUM_SHIFT;
++
++				first_bd->data.bd_flags.bitfields |= 1 << tmp;
++			}
+ 			hlen = qede_get_skb_hlen(skb, true);
+ 		} else {
+ 			first_bd->data.bd_flags.bitfields |=
+@@ -2320,11 +2337,14 @@ static void qede_init_ndev(struct qede_dev *edev)
  
- #ifdef CONFIG_DCB
+ 	/* Encap features*/
+ 	hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
+-		       NETIF_F_TSO_ECN;
++		       NETIF_F_TSO_ECN | NETIF_F_GSO_UDP_TUNNEL_CSUM |
++		       NETIF_F_GSO_GRE_CSUM;
+ 	ndev->hw_enc_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 				NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO_ECN |
+ 				NETIF_F_TSO6 | NETIF_F_GSO_GRE |
+-				NETIF_F_GSO_UDP_TUNNEL | NETIF_F_RXCSUM;
++				NETIF_F_GSO_UDP_TUNNEL | NETIF_F_RXCSUM |
++				NETIF_F_GSO_UDP_TUNNEL_CSUM |
++				NETIF_F_GSO_GRE_CSUM;
+ 
+ 	ndev->vlan_features = hw_features | NETIF_F_RXHASH | NETIF_F_RXCSUM |
+ 			      NETIF_F_HIGHDMA;
 -- 
 2.7.2
