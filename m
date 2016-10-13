@@ -1,172 +1,73 @@
-From: Luca Coelho <luca@coelho.fi>
-Subject: [PATCH] iwlwifi: pcie: fix SPLC structure parsing
-Date: Thu, 13 Oct 2016 13:21:55 +0300
-Message-ID: <20161013102155.14547-1-luca@coelho.fi>
-References: <1476349269.3880.18.camel@coelho.fi>
-Cc: linuxwifi@intel.com, emmanuel.grumbach@intel.com,
-        johannes@sipsolutions.net, kvalo@codeaurora.org,
-        oren.givon@intel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: linux-wireless@vger.kernel.org, chris@rorvick.com,
-        pebolle@tiscali.nl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476349269.3880.18.camel@coelho.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: igb driver can cause cache invalidation of non-owned memory?
+Date: Thu, 13 Oct 2016 10:39:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01E773C@AcuExch.aculab.com>
+References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
+ <20161010.050125.1981283393312167625.davem@davemloft.net>
+ <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
+ <20161010.075731.2449861168238706.davem@davemloft.net>
+ <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
+ <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
+ <19aebfc3-5f1a-9206-4493-2255af7269f9@cogentembedded.com>
+ <CAKgT0UcSkG1Nws1kcUp-QV0jnwdXcXrOZ2m0vsWRziETA-11sw@mail.gmail.com>
+ <a0779e4d-3228-8649-1e68-21dffd4249bd@cogentembedded.com>
+ <CAKgT0UfPC_uAn5=+0iiAOGyY7QA-4NWAmedVmWf6TGnywjJR8A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB01E6F0F@AcuExch.aculab.com>
+ <cbd0f41d-bc01-3f93-9171-2795c61afdc9@cogentembedded.com>
+ <CAKgT0UdqwpjP0b4knt2d4DqS1Z9dR+vg-smkgBTZDeACGGdx=Q@mail.gmail.com>
+ <d34b7175-1024-8cc9-d422-d9f75f56c069@cogentembedded.com>
+ <CAKgT0UdMG4D8CZCVhBD7vF+E5aOk7zyPEp1xXaBukg3v0aYfFg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Chris Healy <cphealy@gmail.com>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.193]:62412 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753567AbcJMKkG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 06:40:06 -0400
+In-Reply-To: <CAKgT0UdMG4D8CZCVhBD7vF+E5aOk7zyPEp1xXaBukg3v0aYfFg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Luca Coelho <luciano.coelho@intel.com>
-
-The SPLC data parsing is too restrictive and was not trying find the
-correct element for WiFi.  This causes problems with some BIOSes where
-the SPLC method exists, but doesn't have a WiFi entry on the first
-element of the list.  The domain type values are also incorrect
-according to the specification.
-
-Fix this by complying with the actual specification.
-
-Additionally, replace all occurrences of SPLX to SPLC, since SPLX is
-only a structure internal to the ACPI tables, and may not even exist.
-
-Fixes: bcb079a14d75 ("iwlwifi: pcie: retrieve and parse ACPI power limitations")
-Reported-by: Chris Rorvick <chris@rorvick.com>
-Signed-off-by: Luca Coelho <luciano.coelho@intel.com>
----
-
-Paul, Chris,
-
-Could you please give this a spin? I have tested it with some handmade
-ACPI tables in QEMU and it seems to work fine now.
-
-Thanks!
-
-
-drivers/net/wireless/intel/iwlwifi/pcie/drv.c | 79 ++++++++++++++++-----------
- 1 file changed, 48 insertions(+), 31 deletions(-)
-
-diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/drv.c b/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
-index 001be40..da4810f 100644
---- a/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
-+++ b/drivers/net/wireless/intel/iwlwifi/pcie/drv.c
-@@ -541,48 +541,64 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
- MODULE_DEVICE_TABLE(pci, iwl_hw_card_ids);
- 
- #ifdef CONFIG_ACPI
--#define SPL_METHOD		"SPLC"
--#define SPL_DOMAINTYPE_MODULE	BIT(0)
--#define SPL_DOMAINTYPE_WIFI	BIT(1)
--#define SPL_DOMAINTYPE_WIGIG	BIT(2)
--#define SPL_DOMAINTYPE_RFEM	BIT(3)
-+#define ACPI_SPLC_METHOD	"SPLC"
-+#define ACPI_SPLC_DOMAIN_WIFI	(0x07)
- 
--static u64 splx_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splx)
-+static u64 splc_get_pwr_limit(struct iwl_trans *trans, union acpi_object *splc)
- {
--	union acpi_object *limits, *domain_type, *power_limit;
--
--	if (splx->type != ACPI_TYPE_PACKAGE ||
--	    splx->package.count != 2 ||
--	    splx->package.elements[0].type != ACPI_TYPE_INTEGER ||
--	    splx->package.elements[0].integer.value != 0) {
--		IWL_ERR(trans, "Unsupported splx structure\n");
-+	union acpi_object *data_pkg, *dflt_pwr_limit;
-+	int i;
-+
-+	/* We need at least two elemets, one for the revision and one
-+	 * for the data itself.  Also check that the revision is
-+	 * supported (currently only revision 0).
-+	*/
-+	if (splc->type != ACPI_TYPE_PACKAGE ||
-+	    splc->package.count < 2 ||
-+	    splc->package.elements[0].type != ACPI_TYPE_INTEGER ||
-+	    splc->package.elements[0].integer.value != 0) {
-+		IWL_DEBUG_INFO(trans,
-+			       "Unsupported structure returned by the SPLC method.  Ignoring.\n");
- 		return 0;
- 	}
- 
--	limits = &splx->package.elements[1];
--	if (limits->type != ACPI_TYPE_PACKAGE ||
--	    limits->package.count < 2 ||
--	    limits->package.elements[0].type != ACPI_TYPE_INTEGER ||
--	    limits->package.elements[1].type != ACPI_TYPE_INTEGER) {
--		IWL_ERR(trans, "Invalid limits element\n");
--		return 0;
-+	/* loop through all the packages to find the one for WiFi */
-+	for (i = 1; i < splc->package.count; i++) {
-+		union acpi_object *domain;
-+
-+		data_pkg = &splc->package.elements[i];
-+
-+		/* Skip anything that is not a package with the right
-+		 * amount of elements (i.e. at least 2 integers).
-+		 */
-+		if (data_pkg->type != ACPI_TYPE_PACKAGE ||
-+		    data_pkg->package.count < 2 ||
-+		    data_pkg->package.elements[0].type != ACPI_TYPE_INTEGER ||
-+		    data_pkg->package.elements[1].type != ACPI_TYPE_INTEGER)
-+			continue;
-+
-+		domain = &data_pkg->package.elements[0];
-+		if (domain->integer.value == ACPI_SPLC_DOMAIN_WIFI)
-+			break;
-+
-+		data_pkg = NULL;
- 	}
- 
--	domain_type = &limits->package.elements[0];
--	power_limit = &limits->package.elements[1];
--	if (!(domain_type->integer.value & SPL_DOMAINTYPE_WIFI)) {
--		IWL_DEBUG_INFO(trans, "WiFi power is not limited\n");
-+	if (!data_pkg) {
-+		IWL_DEBUG_INFO(trans,
-+			       "No element for the WiFi domain returned by the SPLC method.\n");
- 		return 0;
- 	}
- 
--	return power_limit->integer.value;
-+	dflt_pwr_limit = &data_pkg->package.elements[1];
-+	return dflt_pwr_limit->integer.value;
- }
- 
- static void set_dflt_pwr_limit(struct iwl_trans *trans, struct pci_dev *pdev)
- {
- 	acpi_handle pxsx_handle;
- 	acpi_handle handle;
--	struct acpi_buffer splx = {ACPI_ALLOCATE_BUFFER, NULL};
-+	struct acpi_buffer splc = {ACPI_ALLOCATE_BUFFER, NULL};
- 	acpi_status status;
- 
- 	pxsx_handle = ACPI_HANDLE(&pdev->dev);
-@@ -593,23 +609,24 @@ static void set_dflt_pwr_limit(struct iwl_trans *trans, struct pci_dev *pdev)
- 	}
- 
- 	/* Get the method's handle */
--	status = acpi_get_handle(pxsx_handle, (acpi_string)SPL_METHOD, &handle);
-+	status = acpi_get_handle(pxsx_handle, (acpi_string)ACPI_SPLC_METHOD,
-+				 &handle);
- 	if (ACPI_FAILURE(status)) {
--		IWL_DEBUG_INFO(trans, "SPL method not found\n");
-+		IWL_DEBUG_INFO(trans, "SPLC method not found\n");
- 		return;
- 	}
- 
- 	/* Call SPLC with no arguments */
--	status = acpi_evaluate_object(handle, NULL, NULL, &splx);
-+	status = acpi_evaluate_object(handle, NULL, NULL, &splc);
- 	if (ACPI_FAILURE(status)) {
- 		IWL_ERR(trans, "SPLC invocation failed (0x%x)\n", status);
- 		return;
- 	}
- 
--	trans->dflt_pwr_limit = splx_get_pwr_limit(trans, splx.pointer);
-+	trans->dflt_pwr_limit = splc_get_pwr_limit(trans, splc.pointer);
- 	IWL_DEBUG_INFO(trans, "Default power limit set to %lld\n",
- 		       trans->dflt_pwr_limit);
--	kfree(splx.pointer);
-+	kfree(splc.pointer);
- }
- 
- #else /* CONFIG_ACPI */
--- 
-2.9.3
+RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDEyIE9jdG9iZXIgMjAxNiAxOTozMA0KPiBP
+biBXZWQsIE9jdCAxMiwgMjAxNiBhdCAxMToxMiBBTSwgTmlraXRhIFl1c2hjaGVua28NCj4gPG5p
+a2l0YS55b3VzaEBjb2dlbnRlbWJlZGRlZC5jb20+IHdyb3RlOg0KPiA+PiBJdCB3b3VsZCBtYWtl
+IG1vcmUgc2Vuc2UgdG8gdXBkYXRlIHRoZSBETUEgQVBJIGZvcg0KPiA+PiBfX2RtYV9wYWdlX2Nw
+dV90b19kZXYgb24gQVJNIHNvIHRoYXQgeW91IGRvbid0IGludmFsaWRhdGUgdGhlIGNhY2hlIGlm
+DQo+ID4+IHRoZSBkaXJlY3Rpb24gaXMgRE1BX0ZST01fREVWSUNFLg0KPiA+DQo+ID4gTm8sIGlu
+IGdlbmVyaWMgY2FzZSBpdCdzIHVuc2FmZS4NCj4gPg0KPiA+IElmIENQVSBpc3N1ZWQgYSB3cml0
+ZSB0byBhIGxvY2F0aW9uLCBhbmQgc29tZXRpbWUgbGF0ZXIgdGhhdCBsb2NhdGlvbiBpcw0KPiA+
+IHVzZWQgYXMgRE1BIGJ1ZmZlciwgdGhlcmUgaXMgZGFuZ2VyIHRoYXQgd3JpdGUgaXMgc3RpbGwg
+aW4gY2FjaGUgb25seSwNCj4gPiBhbmQgd3JpdGViYWNrIGlzIHBlbmRpbmcuIExhdGVyIHRoaXMg
+d3JpdGViYWNrIGNhbiBvdmVyd3JpdGUgZGF0YQ0KPiA+IHdyaXR0ZW4gdG8gbWVtb3J5IHZpYSBE
+TUEsIGNhdXNpbmcgY29ycnVwdGlvbi4NCj4gDQo+IE9rYXkgc28gaWYgSSB1bmRlcnN0YW5kIGl0
+IGNvcnJlY3RseSB0aGVuIHRoZSBpbnZhbGlkYXRpb24gaW4NCj4gc3luY19mb3JfZGV2aWNlIGlz
+IHRvIGZvcmNlIGFueSB3cml0ZXMgdG8gYmUgZmx1c2hlZCBvdXQsIGFuZCB0aGUNCj4gaW52YWxp
+ZGF0aW9uIGluIHN5bmNfZm9yX2NwdSBpcyB0byBmbHVzaCBvdXQgYW55IHNwZWN1bGF0aXZlIHJl
+YWRzLg0KPiBTbyB3aXRob3V0IHNwZWN1bGF0aXZlIHJlYWRzIHRoZW4gdGhlIHN5bmNfZm9yX2Nw
+dSBwb3J0aW9uIGlzIG5vdA0KPiBuZWVkZWQuICBZb3UgbWlnaHQgd2FudCB0byBkZXRlcm1pbmUg
+aWYgdGhlIGNvcmUgeW91IGFyZSB1c2luZw0KPiBzdXBwb3J0cyB0aGUgc3BlY3VsYXRpdmUgcmVh
+ZHMsIGlmIG5vdCB5b3UgbWlnaHQgYmUgYWJsZSB0byBnZXQgYXdheQ0KPiB3aXRob3V0IGhhdmlu
+ZyB0byBkbyB0aGUgc3luY19mb3JfY3B1IGF0IGFsbC4NCg0KRm9yIHJlYWRzIHRoZSBzeW5jX2Zv
+cl9kZXZpY2UgaW52YWxpZGF0ZXMgKGllIGRpc2NhcmRzIHRoZSBjb250ZW50cyBvZikNCnRoZSBj
+YWNoZSBsaW5lcyB0byBlbnN1cmUgdGhlIGNwdSB3b24ndCB3cml0ZSBiYWNrIGRpcnR5IGxpbmVz
+Lg0KVGhlIHN5bmNfZm9yX2NwdSBpbnZhbGlkYXRlcyB0aGUgY2FjaGUgdG8gZW5zdXJlIHRoZSBj
+cHUgYWN0dWFsbHkNCnJlYWRzIGZyb20gbWVtb3J5Lg0KDQpGb3Igd3JpdGVzIHlvdSBuZWVkIHRv
+IGZsdXNoICh3cml0ZSBiYWNrKSBjYWNoZSBsaW5lcyBwcmlvciB0byB0aGUgRE1BLg0KSSBkb24n
+dCB0aGluayBhbnl0aGluZyBpcyBuZWVkZWQgd2hlbiB0aGUgdHJhbnNmZXIgZmluaXNoZXMuDQoN
+CklmIGhlYWRlcnMvdHJhaWxlcnMgbWlnaHQgYmUgYWRkZWQgdGhlIHN5bmNfZm9yX2RldmljZSBt
+dXN0IGNvdmVyDQp0aGUgZW50aXJlIGFyZWEgdGhlIGZyYW1lIHdpbGwgYmUgd3JpdHRlbiB0by4N
+CkNsZWFybHkgdGhlIHN5bmNfZm9yX2NwdSBuZWVkIG9ubHkgY292ZXIgdGhlIHZhbGlkIGZyYW1l
+IGRhdGEuDQpJIHN1c3BlY3QgeW91IGNhbiBzYWZlbHkgc2tpcCB0aGUgc3luY19mb3JfZGV2aWNl
+IGluIHRoZSAnY29weWJyZWFrJw0KcGF0aCBidXQgbm90IGlmIHRoZSBmcmFtZSBpcyBwYXNzZWQg
+dXAgdGhlIHByb3RvY29sIHN0YWNrLg0KDQoJRGF2aWQNCg0K
