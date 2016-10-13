@@ -1,33 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net_sched: do not broadcast RTM_GETTFILTER result
-Date: Thu, 13 Oct 2016 09:46:09 +0200
-Message-ID: <1476344769.5650.25.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpWDwwo+DEi2aytoAnTHWKWeTRiMZqXfvaB7=T9eOnvR-w@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] net: rtnl: info leak in rtnl_fill_vfinfo()
+Date: Thu, 13 Oct 2016 11:45:28 +0300
+Message-ID: <20161013084528.GA16198@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Moshe Shemesh <moshe@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:34386 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752626AbcJMIlI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 04:41:08 -0400
-Received: by mail-lf0-f67.google.com with SMTP id x23so5730060lfi.1
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 01:41:08 -0700 (PDT)
-In-Reply-To: <CAM_iQpWDwwo+DEi2aytoAnTHWKWeTRiMZqXfvaB7=T9eOnvR-w@mail.gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:25557 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752180AbcJMIqi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 04:46:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-12 at 09:36 -0700, Cong Wang wrote:
-> On Sun, Oct 9, 2016 at 8:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > +       if (unicast)
-> > +               return netlink_unicast(net->rtnl, skb, portid, MSG_DONTWAIT);
-> 
-> Nit: rtnl_unicast() is simpler.
+The "vf_vlan_info" struct ends with a 2 byte struct hole so we have to
+memset it to ensure that no stack information is revealed to user space.
 
-I copied code in rtnetlink_send(), I guess we could use rtnl_unicast()
-there as well.
+Fixes: 79aab093a0b5 ('net: Update API for VF vlan protocol 802.1ad support')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index b06d2f4..fb7348f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1144,6 +1144,8 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
+ 	if (dev->netdev_ops->ndo_get_vf_config(dev, vfs_num, &ivi))
+ 		return 0;
+ 
++	memset(&vf_vlan_info, 0, sizeof(vf_vlan_info));
++
+ 	vf_mac.vf =
+ 		vf_vlan.vf =
+ 		vf_vlan_info.vf =
