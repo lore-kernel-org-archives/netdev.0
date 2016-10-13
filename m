@@ -1,37 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: phy: Trigger state machine on state
- change and not polling.
-Date: Thu, 13 Oct 2016 12:30:59 -0400 (EDT)
-Message-ID: <20161013.123059.555986955599323943.davem@davemloft.net>
-References: <1476303294-14944-1-git-send-email-andrew@lunn.ch>
-        <20161013.120438.1184858529653754916.davem@davemloft.net>
-        <20161013162901.GA1286@lunn.ch>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net 3/4] rxrpc: Fix checking of error from ip6_route_output()
+Date: Thu, 13 Oct 2016 17:12:31 +0100
+Message-ID: <147637515104.17348.6976931105913936732.stgit@warthog.procyon.org.uk>
+References: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, kyle.roeschley@ni.com
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35112 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757069AbcJMQbE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 12:31:04 -0400
-In-Reply-To: <20161013162901.GA1286@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Thu, 13 Oct 2016 18:29:01 +0200
+ip6_route_output() doesn't return a negative error when it fails, rather
+the ->error field of the returned dst_entry struct needs to be checked.
 
-> Just for my clarification:
-> 
-> We are in the middle of the merge window. What does net-next and net
-> mean at the moment?
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Fixes: 75b54cb57ca3 ("rxrpc: Add IPv6 support")
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-Once I merge net-next to Linus, bug fixes should go to 'net'.
+ net/rxrpc/peer_object.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-And for the past day or so I've been slowly merging new features and
-cleanups into 'net-next'.  I realize that this latter aspect is a
-departure from the past, but no matter how hard I try people still
-submit net-next things during the merge window so I've basically given
-up pushing back on that.
+diff --git a/net/rxrpc/peer_object.c b/net/rxrpc/peer_object.c
+index 941b724d523b..862eea6b266c 100644
+--- a/net/rxrpc/peer_object.c
++++ b/net/rxrpc/peer_object.c
+@@ -193,8 +193,8 @@ static void rxrpc_assess_MTU_size(struct rxrpc_peer *peer)
+ 		fl6->fl6_dport = htons(7001);
+ 		fl6->fl6_sport = htons(7000);
+ 		dst = ip6_route_output(&init_net, NULL, fl6);
+-		if (IS_ERR(dst)) {
+-			_leave(" [route err %ld]", PTR_ERR(dst));
++		if (dst->error) {
++			_leave(" [route err %d]", dst->error);
+ 			return;
+ 		}
+ 		break;
