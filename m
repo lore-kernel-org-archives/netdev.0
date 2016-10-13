@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv4: Do not drop to make_route if oif is l3mdev
-Date: Thu, 13 Oct 2016 12:05:50 -0400 (EDT)
-Message-ID: <20161013.120550.886221045348261348.davem@davemloft.net>
-References: <1476303611-28154-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [patch] tipc: info leak in
+	__tipc_nl_add_udp_addr()
+Date: Thu, 13 Oct 2016 12:10:40 -0400 (EDT)
+Message-ID: <20161013.121040.414946493107087613.davem@davemloft.net>
+References: <20161013080606.GA3389@mwanda>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34780 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756577AbcJMQFw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 12:05:52 -0400
-In-Reply-To: <1476303611-28154-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, richard.alpe@ericsson.com
+To: dan.carpenter@oracle.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20161013080606.GA3389@mwanda>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed, 12 Oct 2016 13:20:11 -0700
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 13 Oct 2016 11:06:06 +0300
 
-> Commit e0d56fdd7342 was a bit aggressive removing l3mdev calls in
-> the IPv4 stack. If the fib_lookup fails we do not want to drop to
-> make_route if the oif is an l3mdev device.
+> We should clear out the padding and unused struct members so that we
+> don't expose stack information to userspace.
 > 
-> Also reverts 19664c6a0009 ("net: l3mdev: Remove netif_index_is_l3_master")
-> which removed netif_index_is_l3_master.
-> 
-> Fixes: e0d56fdd7342 ("net: l3mdev: remove redundant calls")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Fixes: fdb3accc2c15 ('tipc: add the ability to get UDP options via netlink')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thanks David.
+Applied, thanks.
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most 
+engaging tech sites, SlashDot.org! http://sdm.link/slashdot
