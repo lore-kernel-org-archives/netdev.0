@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: axienet: Remove unused parameter from
- __axienet_device_reset
-Date: Thu, 13 Oct 2016 12:15:57 -0400 (EDT)
-Message-ID: <20161013.121557.1377537577304981995.davem@davemloft.net>
-References: <20161013112833.7581-1-tklauser@distanz.ch>
+Subject: Re: [patch] liquidio: CN23XX: fix a loop timeout
+Date: Thu, 13 Oct 2016 12:13:04 -0400 (EDT)
+Message-ID: <20161013.121304.1793021152439393574.davem@davemloft.net>
+References: <20161013085657.GL16198@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: anirudh@xilinx.com, John.Linn@xilinx.com, michal.simek@xilinx.com,
-        soren.brinkmann@xilinx.com, netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35032 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756675AbcJMQYR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 12:24:17 -0400
-In-Reply-To: <20161013112833.7581-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: derek.chickles@caviumnetworks.com,
+        raghu.vatsavayi@caviumnetworks.com,
+        satananda.burla@caviumnetworks.com,
+        felix.manlunas@caviumnetworks.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20161013085657.GL16198@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu, 13 Oct 2016 13:28:33 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 13 Oct 2016 11:56:57 +0300
 
-> The dev parameter passed to __axienet_device_reset() is not used inside
-> the function, so remove it.
+> This is supposed to loop 1000 times and then give up.  The problem is
+> it's a post-op and after the loop we test if "loop" is zero when really
+> it would be -1.  Fix this by making it a pre-op.
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> Fixes: 1b7c55c4538b ("liquidio: CN23XX queue manipulation")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied.
+Applied, thanks Dan.
