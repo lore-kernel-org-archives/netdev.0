@@ -1,147 +1,170 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH v4 net-next 3/4] net/sched: tc_mirred: Rename public predicates 'is_tcf_mirred_redirect' and 'is_tcf_mirred_mirror'
-Date: Thu, 13 Oct 2016 09:06:43 +0300
-Message-ID: <1476338804-25440-4-git-send-email-shmulik.ladkani@gmail.com>
-References: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Eric Dumazet <edumazet@google.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Hariprasad S <hariprasad@chelsio.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: David Miller <davem@davemloft.net>
+From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
+Subject: Re: Kernel 4.6.7-rt13: Intel Ethernet driver igb causes huge
+ latencies in cyclictest
+Date: Thu, 13 Oct 2016 06:15:37 +0000
+Message-ID: <e9661abf93194ad3849e3864a8361993@FE-MBX1012.de.bosch.com>
+References: <20160923144140.5tkzeymamrb5qnsv@linutronix.de>
+ <a5ea146cf078457ab001131ca0886b0b@FE-MBX1012.de.bosch.com>
+ <20160928194519.GA32423@jcartwri.amer.corp.natinst.com>
+ <487032ca81f84e70bdacc39a024eff5e@FE-MBX1012.de.bosch.com>
+ <20161004193445.GF10625@jcartwri.amer.corp.natinst.com>
+ <584755c2766e4b94a604ece16760fe14@FE-MBX1012.de.bosch.com>
+ <20161005155959.GH10625@jcartwri.amer.corp.natinst.com>
+ <13c3cd3ffee4490fb22b8de383e51361@FE-MBX1012.de.bosch.com>
+ <AAEA33E297BCAC4B9BB20A7C2DF0AB8D8045E418@FMSMSX113.amr.corp.intel.com>
+ <29250f87b1d84aacb8aa312935582291@FE-MBX1012.de.bosch.com>
+ <20161010193958.GE22235@jcartwri.amer.corp.natinst.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        Greg <gvrose8192@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "linux-rt-users@vger.kernel.org" <linux-rt-users@vger.kernel.org>,
+        "Sebastian Andrzej Siewior" <sebastian.siewior@linutronix.de>
+To: Julia Cartwright <julia@ni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35088 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934270AbcJMGHv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 02:07:51 -0400
-Received: by mail-pf0-f194.google.com with SMTP id s8so4313828pfj.2
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 23:07:09 -0700 (PDT)
-In-Reply-To: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from smtp6-v.fe.bosch.de ([139.15.237.11]:22206 "EHLO
+        smtp6-v.fe.bosch.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754839AbcJMGR5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 02:17:57 -0400
+In-Reply-To: <20161010193958.GE22235@jcartwri.amer.corp.natinst.com>
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These accessors are used in various drivers that support tc offloading,
-to detect properties of a given 'tc_action'.
+Hi Julia,
 
-'is_tcf_mirred_redirect' tests that the action is TCA_EGRESS_REDIR.
-'is_tcf_mirred_mirror' tests that the action is TCA_EGRESS_MIRROR.
+thanks for the detailed analysis!
+> 
+> [...] 
+> Okay, we finally received our wakeup event.  We were expecting to be woken up at
+> 10024735653388ns, but were actually woken up at 10024735682387ns.
+> 
+>   10024735682387 - 10024735653388 = 28999ns
+> 
+> Our timer fired ~29us late!  But why...?
+> 
+> Sorry I don't have answers, just more questions.  I do wonder what
+> kworker/0:3 was up to at the time the timer interrupt should have fired.
+> 
+>    Julia
+I have now instrumented the igb driver to generate trace points that allows me to identify in 
+more details what's going on.
+This delivered interesting results!
 
-As a prep towards supporting INGRESS redir/mirror, rename these
-predicates to reflect their true meaning:
-  s/is_tcf_mirred_redirect/is_tcf_mirred_egress_redirect/
-  s/is_tcf_mirred_mirror/is_tcf_mirred_egress_mirror/
+Here are some places where I added traces:
+In file igb_ptp.c:
+void igb_ptp_rx_hang(struct igb_adapter *adapter)
+{
+        struct e1000_hw *hw = &adapter->hw;
+        unsigned long rx_event;
+        u32 tsyncrxctl;
+        trace_igb(700);
+        tsyncrxctl = rd32(E1000_TSYNCRXCTL);
+        trace_igb(701);
 
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Cc: Hariprasad S <hariprasad@chelsio.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Saeed Mahameed <saeedm@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>
-Cc: Ido Schimmel <idosch@mellanox.com>
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c    | 2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c        | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c      | 2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c       | 4 +++-
- drivers/net/ethernet/netronome/nfp/nfp_net_offload.c | 2 +-
- include/net/tc_act/tc_mirred.h                       | 4 ++--
- 6 files changed, 9 insertions(+), 7 deletions(-)
+        /* Other hardware uses per-packet timestamps */
+        if (hw->mac.type != e1000_82576)
+                return;
+...
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
-index 49d2deb..52af62e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
-@@ -113,7 +113,7 @@ static int fill_action_fields(struct adapter *adap,
- 		}
- 
- 		/* Re-direct to specified port in hardware. */
--		if (is_tcf_mirred_redirect(a)) {
-+		if (is_tcf_mirred_egress_redirect(a)) {
- 			struct net_device *n_dev;
- 			unsigned int i, index;
- 			bool found = false;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a244d9a..784b0b9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8410,7 +8410,7 @@ static int parse_tc_actions(struct ixgbe_adapter *adapter,
- 		}
- 
- 		/* Redirect to a VF or a offloaded macvlan */
--		if (is_tcf_mirred_redirect(a)) {
-+		if (is_tcf_mirred_egress_redirect(a)) {
- 			int ifindex = tcf_mirred_ifindex(a);
- 
- 			err = handle_redirect_action(adapter, ifindex, queue,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index ce8c54d..135a95b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -404,7 +404,7 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 			continue;
- 		}
- 
--		if (is_tcf_mirred_redirect(a)) {
-+		if (is_tcf_mirred_egress_redirect(a)) {
- 			int ifindex = tcf_mirred_ifindex(a);
- 			struct net_device *out_dev;
- 			struct mlx5e_priv *out_priv;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 1ec0a4c..43a5edd 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1237,8 +1237,10 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 
- 	tcf_exts_to_list(cls->exts, &actions);
- 	list_for_each_entry(a, &actions, list) {
--		if (!is_tcf_mirred_mirror(a) || protocol != htons(ETH_P_ALL))
-+		if (!is_tcf_mirred_egress_mirror(a) ||
-+		    protocol != htons(ETH_P_ALL)) {
- 			return -ENOTSUPP;
-+		}
- 
- 		err = mlxsw_sp_port_add_cls_matchall_mirror(mlxsw_sp_port, cls,
- 							    a, ingress);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-index 8acfb63..cfed40c 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
-@@ -128,7 +128,7 @@ static void nfp_net_bpf_stats_reset(struct nfp_net *nn)
- 		if (is_tcf_gact_shot(a))
- 			return NN_ACT_TC_DROP;
- 
--		if (is_tcf_mirred_redirect(a) &&
-+		if (is_tcf_mirred_egress_redirect(a) &&
- 		    tcf_mirred_ifindex(a) == nn->netdev->ifindex)
- 			return NN_ACT_TC_REDIR;
- 	}
-diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
-index 9543109..604bc31 100644
---- a/include/net/tc_act/tc_mirred.h
-+++ b/include/net/tc_act/tc_mirred.h
-@@ -14,7 +14,7 @@ struct tcf_mirred {
- };
- #define to_mirred(a) ((struct tcf_mirred *)a)
- 
--static inline bool is_tcf_mirred_redirect(const struct tc_action *a)
-+static inline bool is_tcf_mirred_egress_redirect(const struct tc_action *a)
- {
- #ifdef CONFIG_NET_CLS_ACT
- 	if (a->ops && a->ops->type == TCA_ACT_MIRRED)
-@@ -23,7 +23,7 @@ static inline bool is_tcf_mirred_redirect(const struct tc_action *a)
- 	return false;
- }
- 
--static inline bool is_tcf_mirred_mirror(const struct tc_action *a)
-+static inline bool is_tcf_mirred_egress_mirror(const struct tc_action *a)
- {
- #ifdef CONFIG_NET_CLS_ACT
- 	if (a->ops && a->ops->type == TCA_ACT_MIRRED)
--- 
-1.9.1
+In file igb_main.c:
+static void igb_check_lvmmc(struct igb_adapter *adapter)
+{
+        struct e1000_hw *hw = &adapter->hw;
+        u32 lvmmc;
+
+        trace_igb(600);
+        lvmmc = rd32(E1000_LVMMC);
+        trace_igb(601);
+        if (lvmmc) {
+...
+
+When I run now my test, I get the following trace:
+[...]
+kworker/-607     0....... 107315621us+: igb: val: 700
+kworker/-607     0d..h... 107315640us : irq_handler_entry: irq=47 name=eth2-rx-0
+kworker/-607     0d..h... 107315640us : irq_handler_exit: irq=47 ret=handled
+kworker/-607     0d..h1.. 107315640us : sched_waking: comm=irq/47-eth2-rx- pid=18009 prio=49 target_cpu=000
+kworker/-607     0dN.h2.. 107315641us : sched_wakeup: comm=irq/47-eth2-rx- pid=18009 prio=49 target_cpu=000
+kworker/-607     0dN.h1.. 107315643us : irq_handler_entry: irq=48 name=eth2-tx-0
+kworker/-607     0dN.h1.. 107315643us : irq_handler_exit: irq=48 ret=handled
+kworker/-607     0dN.h2.. 107315643us : sched_waking: comm=irq/48-eth2-tx- pid=18010 prio=49 target_cpu=000
+kworker/-607     0dN.h3.. 107315644us : sched_wakeup: comm=irq/48-eth2-tx- pid=18010 prio=49 target_cpu=000
+kworker/-607     0dN..1.. 107315644us : rcu_utilization: Start context switch
+kworker/-607     0dN..1.. 107315644us : rcu_utilization: End context switch
+kworker/-607     0dN..2.. 107315644us : sched_stat_runtime: comm=kworker/0:1 pid=607 runtime=88996 [ns] vruntime=49754678074 [ns]
+kworker/-607     0d...2.. 107315645us : sched_switch: prev_comm=kworker/0:1 prev_pid=607 prev_prio=120 prev_state=R+ ==> next_comm=irq/47-eth2-rx- next_pid=18009 next_prio=49
+irq/47-e-18009   0d....11 107315646us : softirq_raise: vec=3 [action=NET_RX]
+irq/47-e-18009   0.....12 107315646us : softirq_entry: vec=3 [action=NET_RX]
+irq/47-e-18009   0.....12 107315647us : napi_poll: napi poll on napi struct ffff88040ae58c50 for device eth2 work 0 budget 64
+irq/47-e-18009   0.....12 107315647us : softirq_exit: vec=3 [action=NET_RX]
+irq/47-e-18009   0d...1.. 107315648us : rcu_utilization: Start context switch
+irq/47-e-18009   0d...1.. 107315648us : rcu_utilization: End context switch
+irq/47-e-18009   0d...2.. 107315648us : sched_switch: prev_comm=irq/47-eth2-rx- prev_pid=18009 prev_prio=49 prev_state=S ==> next_comm=irq/48-eth2-tx- next_pid=18010 next_prio=49
+irq/48-e-18010   0d....11 107315649us : softirq_raise: vec=3 [action=NET_RX]
+irq/48-e-18010   0.....12 107315649us : softirq_entry: vec=3 [action=NET_RX]
+irq/48-e-18010   0.....12 107315650us : napi_poll: napi poll on napi struct ffff88040ae5f450 for device eth2 work 0 budget 64
+irq/48-e-18010   0.....12 107315650us : softirq_exit: vec=3 [action=NET_RX]
+irq/48-e-18010   0d...1.. 107315651us : rcu_utilization: Start context switch
+irq/48-e-18010   0d...1.. 107315651us : rcu_utilization: End context switch
+irq/48-e-18010   0d...2.. 107315651us : sched_switch: prev_comm=irq/48-eth2-tx- prev_pid=18010 prev_prio=49 prev_state=S ==> next_comm=kworker/0:1 next_pid=607 next_prio=120
+kworker/-607     0....... 107315652us : igb: val: 701
+kworker/-607     0....... 107315652us : igb: val: 106
+kworker/-607     0....... 107315652us : igb: val: 107
+kworker/-607     0....... 107315652us+: igb: val: 600
+kworker/-607     0d..h... 107315689us : local_timer_entry: vector=239
+kworker/-607     0d..h1.. 107315689us : hrtimer_interrupt: cpu=0 offset=-34521 curr=kworker/0:1[120] thread=cyclictest[19]
+kworker/-607     0d..h1.. 107315689us : hrtimer_cancel: hrtimer=ffff8803d42efe18
+kworker/-607     0d..h... 107315689us : hrtimer_expire_entry: hrtimer=ffff8803d42efe18 function=hrtimer_wakeup now=752735681960
+kworker/-607     0d..h1.. 107315689us : sched_waking: comm=cyclictest pid=18015 prio=19 target_cpu=000
+kworker/-607     0dN.h2.. 107315690us : sched_wakeup: comm=cyclictest pid=18015 prio=19 target_cpu=000
+kworker/-607     0dN.h... 107315690us : hrtimer_expire_exit: hrtimer=ffff8803d42efe18
+kworker/-607     0dN.h1.. 107315690us : hrtimer_interrupt: cpu=0 offset=318040 curr=kworker/0:1[120] thread=<none>[-1]
+kworker/-607     0dN.h... 107315690us : write_msr: 6e0, value 28096cdb9ce
+kworker/-607     0dN.h... 107315690us : local_timer_exit: vector=239
+kworker/-607     0dN..1.. 107315690us : rcu_utilization: Start context switch
+kworker/-607     0dN..1.. 107315691us : rcu_utilization: End context switch
+kworker/-607     0dN..2.. 107315691us : sched_stat_runtime: comm=kworker/0:1 pid=607 runtime=38439 [ns] vruntime=49754716513 [ns]
+kworker/-607     0d...2.. 107315691us : sched_switch: prev_comm=kworker/0:1 prev_pid=607 prev_prio=120 prev_state=R+ ==> next_comm=cyclictest next_pid=18015 next_prio=19
+kworker/-607     0d...2.. 107315691us : x86_fpu_regs_activated: x86/fpu: ffff8803f7f55940 fpregs_active: 1 fpstate_active: 1 counter: 99 xfeatures: 2 xcomp_bv: 0
+kworker/-607     0d...2.. 107315691us : write_msr: c0000100, value 7ffff7400700
+cyclicte-18015   0....... 107315692us : sys_exit: NR 230 = 0
+cyclicte-18015   0....... 107315697us : sys_enter: NR 1 (5, 7ffff7400300, 1f, 7ffff77a5460, 2, 7ffff744c99a)
+cyclicte-18015   0.....11 107315698us : tracing_mark_write: hit latency threshold (37 > 33)
+cyclicte-18015   0....... 107315699us : sys_exit: NR 1 = 31
+cyclicte-18015   0....... 107315699us : sys_enter: NR 1 (4, 4076b0, 2, 7ffff77a5460, 2, 7ffff744c99a)
+
+
+Very interesting is also the trace that I get in an idle system - without cyclictest running.
+When I just enable my igb tracepoint I got the following result:
+[...]
+kworker/-607     0....... 585779012us+: igb: val: 700
+kworker/-607     0....... 585779042us : igb: val: 701
+kworker/-607     0....... 585779042us : igb: val: 106
+kworker/-607     0....... 585779043us : igb: val: 107
+kworker/-607     0....... 585779043us+: igb: val: 600
+kworker/-607     0....... 585779080us : igb: val: 601
+
+The time between my trace points 700 and 701 is about 30us, 
+the time between my trace points 600 and 601 is even 37us!!
+The code in between is 
+     tsyncrxctl = rd32(E1000_TSYNCRXCTL);
+resp.
+     lvmmc = rd32(E1000_LVMMC);   
+
+In both cases this is a single read from a register.
+I have no idea why this single read could take that much time!
+Is it possible that the igb hardware is in a state that delays the read access
+and this is why the whole I/O system might be delayed?
+
+I hope this delivers more details on understanding this issue.
+
+Thanks for any feedback!
+
+Regards
+
+Mathias
