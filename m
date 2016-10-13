@@ -1,63 +1,39 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: axienet: Remove unused parameter from __axienet_device_reset
-Date: Thu, 13 Oct 2016 13:28:33 +0200
-Message-ID: <20161013112833.7581-1-tklauser@distanz.ch>
-Cc: Michal Simek <michal.simek@xilinx.com>,
-        =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
-        netdev@vger.kernel.org
-To: Anirudha Sarangi <anirudh@xilinx.com>,
-        John Linn <John.Linn@xilinx.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2 1/1] tc filters: add support to get individual
+ filters by handle
+Date: Thu, 13 Oct 2016 07:51:24 -0400
+Message-ID: <f05cfeee-773c-b256-745c-ee479a8bcb10@mojatatu.com>
+References: <1476117914-32207-1-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpVo-+jvJaBkJWR5ojkHKWY1fszDjPT+BYG20Vmb-dMtLQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Roman Mashak <mrv@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:53044 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755136AbcJMLl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Oct 2016 07:41:27 -0400
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35343 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754038AbcJMLvx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 07:51:53 -0400
+Received: by mail-it0-f65.google.com with SMTP id l13so5680652itl.2
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 04:51:26 -0700 (PDT)
+In-Reply-To: <CAM_iQpVo-+jvJaBkJWR5ojkHKWY1fszDjPT+BYG20Vmb-dMtLQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dev parameter passed to __axienet_device_reset() is not used inside
-the function, so remove it.
+On 16-10-12 12:46 PM, Cong Wang wrote:
+> On Mon, Oct 10, 2016 at 9:45 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>>  tc/tc_filter.c | 185 +++++++++++++++++++++++++++++++++++++++++++++++++++++----
+>>  1 file changed, 175 insertions(+), 10 deletions(-)
+>
+> Please update man/man8/tc.8 too, but can be a separated patch. ;)
+>
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+Excellent point.
+Punted to Roman ;->
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 35f9f9742a48..c688d68c39aa 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -431,8 +431,7 @@ static void axienet_setoptions(struct net_device *ndev, u32 options)
- 	lp->options |= options;
- }
- 
--static void __axienet_device_reset(struct axienet_local *lp,
--				   struct device *dev, off_t offset)
-+static void __axienet_device_reset(struct axienet_local *lp, off_t offset)
- {
- 	u32 timeout;
- 	/* Reset Axi DMA. This would reset Axi Ethernet core as well. The reset
-@@ -468,8 +467,8 @@ static void axienet_device_reset(struct net_device *ndev)
- 	u32 axienet_status;
- 	struct axienet_local *lp = netdev_priv(ndev);
- 
--	__axienet_device_reset(lp, &ndev->dev, XAXIDMA_TX_CR_OFFSET);
--	__axienet_device_reset(lp, &ndev->dev, XAXIDMA_RX_CR_OFFSET);
-+	__axienet_device_reset(lp, XAXIDMA_TX_CR_OFFSET);
-+	__axienet_device_reset(lp, XAXIDMA_RX_CR_OFFSET);
- 
- 	lp->max_frm_size = XAE_MAX_VLAN_FRAME_SIZE;
- 	lp->options |= XAE_OPTION_VLAN;
-@@ -1338,8 +1337,8 @@ static void axienet_dma_err_handler(unsigned long data)
- 	axienet_iow(lp, XAE_MDIO_MC_OFFSET, (mdio_mcreg &
- 		    ~XAE_MDIO_MC_MDIOEN_MASK));
- 
--	__axienet_device_reset(lp, &ndev->dev, XAXIDMA_TX_CR_OFFSET);
--	__axienet_device_reset(lp, &ndev->dev, XAXIDMA_RX_CR_OFFSET);
-+	__axienet_device_reset(lp, XAXIDMA_TX_CR_OFFSET);
-+	__axienet_device_reset(lp, XAXIDMA_RX_CR_OFFSET);
- 
- 	axienet_iow(lp, XAE_MDIO_MC_OFFSET, mdio_mcreg);
- 	axienet_mdio_wait_until_ready(lp);
--- 
-2.9.0
+cheers,
+jamal
