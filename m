@@ -1,25 +1,58 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V2 net-next] net/mlx5: Add MLX5_ARRAY_SET64 to fix
- BUILD_BUG_ON
-Date: Wed, 12 Oct 2016 19:56:35 -0400 (EDT)
-Message-ID: <20161012.195635.1641072951860727451.davem@davemloft.net>
-References: <1476237430-11756-1-git-send-email-saeedm@mellanox.com>
-        <20161012085022.GR9282@leon.nu>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH 1/1] vxlan: insert ipv6 macro
+Date: Thu, 13 Oct 2016 13:30:37 +0800
+Message-ID: <CAD=hENdAZX7T1f5S7f3j5k0xdrTwYp=Nc5Cn+F2RZXKA4ye3Qw@mail.gmail.com>
+References: <1476174211-9358-1-git-send-email-zyjzyj2000@gmail.com>
+ <20161011160615.7f7f7746@griffin> <CAD=hENc0pQPKDvq_HJ14BhNzAWQndZ4GMo_-_D4EtQMgs9tv2g@mail.gmail.com>
+ <20161012151638.6250dff6@griffin> <CAD=hENcp32QHB890DbnKN8QxQWbSLRcsUnE86YN-2nUZ_q7OSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org, David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
-To: leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161012085022.GR9282-2ukJVAZIZ/Y@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, pabeni@redhat.com,
+        daniel@iogearbox.net, Pravin B Shelar <pshelar@nicira.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        hannes@stressinduktion.org, "David S. Miller" <davem@davemloft.net>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f66.google.com ([209.85.213.66]:35744 "EHLO
+        mail-vk0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755049AbcJMFao (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 01:30:44 -0400
+Received: by mail-vk0-f66.google.com with SMTP id 130so584024vkg.2
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 22:30:38 -0700 (PDT)
+In-Reply-To: <CAD=hENcp32QHB890DbnKN8QxQWbSLRcsUnE86YN-2nUZ_q7OSA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+ Soon I will analyze the previous patch. I will let you know.
 
-I've been travelling and will get to this patch when I get to it.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks a lot.
+
+On Thu, Oct 13, 2016 at 1:28 PM, zhuyj <zyjzyj2000@gmail.com> wrote:
+>  Hi,  Jiri
+>
+> The dumped source code is in the attachment. Please check it. I think
+> this file can explain all.
+>
+> If anything, please just let me know.
+> Thanks a lot.
+>
+> On Wed, Oct 12, 2016 at 9:16 PM, Jiri Benc <jbenc@redhat.com> wrote:
+>> On Wed, 12 Oct 2016 21:01:54 +0800, zhuyj wrote:
+>>> How to explain the following source code? As you mentioned,  are the
+>>> #ifdefs in the following source pointless?
+>>
+>> They are not, the code would not compile without them. Look how struct
+>> vxlan_dev is defined.
+>>
+>> Those are really basic questions you have. I suggest you try yourself
+>> before asking such questions next time. In this case, you could
+>> trivially remove the #ifdef and see for yourself, as I explained in the
+>> previous email. Please do not try to offload your homework to other
+>> people. It's very obvious you didn't even try to understand this, even
+>> after the feedback you received.
+>>
+>> And do not top post.
+>>
+>> Thanks,
+>>
+>>  Jiri
