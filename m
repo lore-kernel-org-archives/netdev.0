@@ -1,48 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
- header,Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
- header,Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
- header,Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
- header
-Date: Thu, 13 Oct 2016 11:57:08 -0400 (EDT)
-Message-ID: <20161013.115708.2077879944453283228.davem@davemloft.net>
-References: <20ace6ee-b9e4-073c-56e7-29b2c50ae2d5@redhat.com>
-        <20161013.104314.1842951254979604965.davem@davemloft.net>
-        <2eadc083-e2e0-5c6d-fe84-c5851be3e2ec@redhat.com>
+Subject: Re: [PATCH v4 3/3] net: phy: leds: add support for led triggers on
+ phy link state change
+Date: Thu, 13 Oct 2016 11:59:56 -0400 (EDT)
+Message-ID: <20161013.115956.2197317299874950600.davem@davemloft.net>
+References: <1476217580-21229-4-git-send-email-zach.brown@ni.com>
+ <20161013.104634.2079376697690971907.davem@davemloft.net>
+ <20161013154246.GA17387@zach-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: pabeni@redhat.com, linux-rdma@vger.kernel.org,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com,
-        netdev@vger.kernel.org
-To: dledford@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34570 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755258AbcJMP7W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 11:59:22 -0400
-In-Reply-To: <2eadc083-e2e0-5c6d-fe84-c5851be3e2ec@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
+ f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, rpurdie@rpsys.net, gregkh@linuxfoundation.org,
+ Larry.Finger@lwfinger.net, j.anaszewski@samsung.com,
+ linux-leds@vger.kernel.org, mlindner@marvell.com
+To: zach.brown@ni.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20161013154246.GA17387@zach-desktop>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Doug Ledford <dledford@redhat.com>
-Date: Thu, 13 Oct 2016 11:20:59 -0400
+From: Zach Brown <zach.brown@ni.com>
+Date: Thu, 13 Oct 2016 10:42:46 -0500
 
-> We *had* a safe way to do that.  It got broken.  What about increasing
-> the size of skb->cb?  Or adding a skb->dgid that is a
-> u8[INFINIBAND_ALEN]?  Or a more generic skb->dest_ll_addr that is sized
-> to hold the dest address for any link layer?
+> Do you have suggestions on how to better handle the choice of the array size
+> and the speeds?
 
-I understand the situation, and I also believe that making sk_buff any
-huger than it already is happens to be a non-starter.
+All of the speed values are simply the rate in bits per second.
 
->> Pushing metadata before the head of the SKB data pointer is illegal,
->> as the layers in between might want to push protocol headers,
-> 
-> That's a total non-issue for us.  There are no headers that protocols
-> can add before ours.
-
-Ok, if that's the case, and based upon Paolo's response to me it appears
-to be, I guess this is OK for now.
-
-Paolo please resubmit your patch, thanks.
+There is therefore no reason you can't just print the raw value and
+scale it to whatever is appropriate ("MB/s", "GB/s", etc.)
