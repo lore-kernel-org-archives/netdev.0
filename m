@@ -1,58 +1,102 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: slab corruption with current -git
-Date: Thu, 13 Oct 2016 08:06:59 +0200
-Message-ID: <20161013060659.GB310@x4>
-References: <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
- <CA+55aFzcweyWCqq-fRAnJkFB7neKwKsXH=TMcLtRQRs2Wn6XEQ@mail.gmail.com>
- <CA+55aFwhscZcWJVLbq+qUgNaN34VwBxFwUR97ktM-7003PcexQ@mail.gmail.com>
- <20161011.045737.227906000874505402.davem@davemloft.net>
- <20161013060206.GA310@x4>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, aconole@redhat.com, fw@strlen.de,
-        viro@zeniv.linux.org.uk, akpm@linux-foundation.org, axboe@fb.com,
-        tytso@mit.edu, cl@linux.com, pablo@netfilter.org,
-        linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH v4 net-next 1/4] net/sched: act_mirred: Rename tcfm_ok_push to tcfm_mac_header_xmit and make it a bool
+Date: Thu, 13 Oct 2016 09:06:41 +0300
+Message-ID: <1476338804-25440-2-git-send-email-shmulik.ladkani@gmail.com>
+References: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Eric Dumazet <edumazet@google.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161013060206.GA310@x4>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33892 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934264AbcJMGHv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 02:07:51 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 128so4323728pfz.1
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 23:07:06 -0700 (PDT)
+In-Reply-To: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016.10.13 at 08:02 +0200, Markus Trippelsdorf wrote:
-> On 2016.10.11 at 04:57 -0400, David Miller wrote:
-> > From: Linus Torvalds <torvalds@linux-foundation.org>
-> > Date: Mon, 10 Oct 2016 22:47:50 -0700
-> > 
-> > > On Mon, Oct 10, 2016 at 10:39 PM, Linus Torvalds
-> > > <torvalds@linux-foundation.org> wrote:
-> > >>
-> > >> I guess I will have to double-check that the slub corruption is gone
-> > >> still with that fixed.
-> > > 
-> > > So I'm not getting any warnings now from SLUB debugging. So the
-> > > original bug seems to not have re-surfaced, and the registration bug
-> > > is gone, so now the unregistration doesn't warn about anything either.
-> > > 
-> > > But I only rebooted three times.
-> > 
-> > Looks good to me, I applied it to my tree with your signoff and will
-> > send you a pull request right now.
-> 
-> I'm still seeing:
-> 
-> nf_conntrack version 0.5.0 (4096 buckets, 16384 max)
-> ctnetlink v0.93: registering with nfnetlink.
-> ip_tables: (C) 2000-2006 Netfilter Core Team
-> WARNING: kmemcheck: Caught 64-bit read from uninitialized memory (ffff88001e605480)
-> 4055601e0088ffff000000000000000090686d81ffffffff0000000000000000
->  u u u u u u u u u u u u u u u u i i i i i i i i u u u u u u u u
->  ^
-> RIP: 0010:[<ffffffff8166e561>]  [<ffffffff8166e561>] nf_register_net_hook+0x51/0x160
+'tcfm_ok_push' specifies whether a mac_len sized push is needed upon
+egress to the target device (if action is performed at ingress).
 
-This is nf_register_net_hook at net/netfilter/core.c:106
+Rename it to 'tcfm_mac_header_xmit' as this is actually an attribute of
+the target device (and use a bool instead of int).
 
+This allows to decouple the attribute from the action to be taken.
+
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
+ v2: declare tcfm_mac_header_xmit as bool instead of int
+
+ include/net/tc_act/tc_mirred.h |  2 +-
+ net/sched/act_mirred.c         | 11 ++++++-----
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+index 62770ad..9543109 100644
+--- a/include/net/tc_act/tc_mirred.h
++++ b/include/net/tc_act/tc_mirred.h
+@@ -8,7 +8,7 @@ struct tcf_mirred {
+ 	struct tc_action	common;
+ 	int			tcfm_eaction;
+ 	int			tcfm_ifindex;
+-	int			tcfm_ok_push;
++	bool			tcfm_mac_header_xmit;
+ 	struct net_device __rcu	*tcfm_dev;
+ 	struct list_head	tcfm_list;
+ };
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 667dc38..16e17a8 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -60,11 +60,12 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ {
+ 	struct tc_action_net *tn = net_generic(net, mirred_net_id);
+ 	struct nlattr *tb[TCA_MIRRED_MAX + 1];
++	bool mac_header_xmit = false;
+ 	struct tc_mirred *parm;
+ 	struct tcf_mirred *m;
+ 	struct net_device *dev;
+-	int ret, ok_push = 0;
+ 	bool exists = false;
++	int ret;
+ 
+ 	if (nla == NULL)
+ 		return -EINVAL;
+@@ -102,10 +103,10 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 		case ARPHRD_IPGRE:
+ 		case ARPHRD_VOID:
+ 		case ARPHRD_NONE:
+-			ok_push = 0;
++			mac_header_xmit = false;
+ 			break;
+ 		default:
+-			ok_push = 1;
++			mac_header_xmit = true;
+ 			break;
+ 		}
+ 	} else {
+@@ -136,7 +137,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 			dev_put(rcu_dereference_protected(m->tcfm_dev, 1));
+ 		dev_hold(dev);
+ 		rcu_assign_pointer(m->tcfm_dev, dev);
+-		m->tcfm_ok_push = ok_push;
++		m->tcfm_mac_header_xmit = mac_header_xmit;
+ 	}
+ 
+ 	if (ret == ACT_P_CREATED) {
+@@ -181,7 +182,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+ 		goto out;
+ 
+ 	if (!(at & AT_EGRESS)) {
+-		if (m->tcfm_ok_push)
++		if (m->tcfm_mac_header_xmit)
+ 			skb_push_rcsum(skb2, skb->mac_len);
+ 	}
+ 
 -- 
-Markus
+1.9.1
