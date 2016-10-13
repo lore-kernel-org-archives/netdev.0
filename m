@@ -1,38 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netback: fix type mismatch warning
-Date: Thu, 13 Oct 2016 11:02:44 -0400 (EDT)
-Message-ID: <20161013.110244.359940583425366977.davem@davemloft.net>
-References: <20161012145434.2493788-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: wei.liu2@citrix.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- paul.durrant@citrix.com, david.vrabel@citrix.com,
- xen-devel@lists.xenproject.org
-To: arnd@arndb.de
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20161012145434.2493788-1-arnd@arndb.de>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: [PATCH net-next] Documentation/networking: update git urls to use https over http
+Date: Thu, 13 Oct 2016 17:09:51 +0200
+Message-ID: <20161013150951.4615-1-alexander@alemayhu.com>
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Alexander Alemayhu <alexander@alemayhu.com>
+To: netdev@vger.kernel.org, corbet@lwn.net
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KRGF0ZTogV2VkLCAxMiBPY3QgMjAx
-NiAxNjo1NDowMSArMDIwMAoKPiBXaWh0IHRoZSBsYXRlc3QgcmV3b3JrIG9mIHRoZSB4ZW4tbmV0
-YmFjayBkcml2ZXIsIHdlIGdldCBhIHdhcm5pbmcKPiBvbiBBUk0gYWJvdXQgdGhlIHR5cGVzIHBh
-c3NlZCBpbnRvIG1pbigpOgo+IAo+IGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3J4LmM6IEluIGZ1
-bmN0aW9uICd4ZW52aWZfcnhfbmV4dF9jaHVuayc6Cj4gaW5jbHVkZS9saW51eC9rZXJuZWwuaDo3
-Mzk6MTY6IGVycm9yOiBjb21wYXJpc29uIG9mIGRpc3RpbmN0IHBvaW50ZXIgdHlwZXMgbGFja3Mg
-YSBjYXN0IFstV2Vycm9yXQo+IAo+IFRoZSByZWFzb24gaXMgdGhhdCBYRU5fUEFHRV9TSVpFIGlz
-IG5vdCBzaXplX3QgaGVyZS4gVGhlcmUKPiBpcyBubyBhY3R1YWwgYnVnLCBhbmQgd2UgY2FuIGVh
-c2lseSBhdm9pZCB0aGUgd2FybmluZyB1c2luZyB0aGUKPiBtaW5fdCgpIG1hY3JvIGluc3RlYWQg
-b2YgbWluKCkuCj4gCj4gRml4ZXM6IGViMTcyM2EyOWI5YSAoInhlbi1uZXRiYWNrOiByZWZhY3Rv
-ciBndWVzdCByeCIpCj4gU2lnbmVkLW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5k
-ZT4KCkFwcGxpZWQsIHRoYW5rcy4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5v
-cmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+This fixes the following errors when trying to clone the urls:
+
+Cloning into 'net'...
+fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/' not found
+Cloning into 'net-next'...
+fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/' not found
+Cloning into 'linux'...
+fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/' not found
+Cloning into 'stable-queue'...
+fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git/' not found
+
+Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+---
+ Documentation/networking/netdev-FAQ.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/networking/netdev-FAQ.txt b/Documentation/networking/netdev-FAQ.txt
+index 0fe1c6e0dbcd..a20b2fae942b 100644
+--- a/Documentation/networking/netdev-FAQ.txt
++++ b/Documentation/networking/netdev-FAQ.txt
+@@ -29,8 +29,8 @@ A: There are always two trees (git repositories) in play.  Both are driven
+    Linus, and net-next is where the new code goes for the future release.
+    You can find the trees here:
+ 
+-	http://git.kernel.org/?p=linux/kernel/git/davem/net.git
+-	http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git
++        https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
++        https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+ 
+ Q: How often do changes from these trees make it to the mainline Linus tree?
+ 
+@@ -76,7 +76,7 @@ Q: So where are we now in this cycle?
+ 
+ A: Load the mainline (Linus) page here:
+ 
+-	http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git
++	https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+ 
+    and note the top of the "tags" section.  If it is rc1, it is early
+    in the dev cycle.  If it was tagged rc7 a week ago, then a release
+@@ -123,7 +123,7 @@ A: Normally Greg Kroah-Hartman collects stable commits himself, but
+ 
+    It contains the patches which Dave has selected, but not yet handed
+    off to Greg.  If Greg already has the patch, then it will be here:
+-	http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git
++	https://git.kernel.org/pub/scm/linux/kernel/git/stable/stable-queue.git
+ 
+    A quick way to find whether the patch is in this stable-queue is
+    to simply clone the repo, and then git grep the mainline commit ID, e.g.
+-- 
+2.10.1
+
