@@ -1,38 +1,170 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 3/3] net: phy: leds: add support for led triggers on
- phy link state change
-Date: Thu, 13 Oct 2016 18:40:30 +0200
-Message-ID: <20161013164030.GB1286@lunn.ch>
-References: <1476217580-21229-1-git-send-email-zach.brown@ni.com>
- <1476217580-21229-4-git-send-email-zach.brown@ni.com>
- <20161013.104634.2079376697690971907.davem@davemloft.net>
- <20161013154246.GA17387@zach-desktop>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [PATCH 2/2] IPv6: fix DESYNC_FACTOR
+Date: Thu, 13 Oct 2016 18:52:15 +0200
+Message-ID: <20161013165215.52jxdlkh7v5octl7@dwarf.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- f.fainelli@gmail.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- j.anaszewski@samsung.com, rpurdie@rpsys.net, gregkh@linuxfoundation.org,
- Larry.Finger@lwfinger.net, David Miller <davem@davemloft.net>,
- linux-leds@vger.kernel.org, mlindner@marvell.com
-To: Zach Brown <zach.brown@ni.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:57214 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933409AbcJMQw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Oct 2016 12:52:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20161013154246.GA17387@zach-desktop>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Do you have suggestions on how to better handle the choice of the array size
-> and the speeds?
+The IPv6 temporary address generation uses a variable called DESYNC_FACTOR
+to prevent hosts updating the addresses at the same time. Quoting RFC 4941:
 
-phydev->supported lists the speeds this phy supports.
+   ... The value DESYNC_FACTOR is a random value (different for each
+   client) that ensures that clients don't synchronize with each other and
+   generate new addresses at exactly the same time ...
 
-	Andrew
+DESYNC_FACTOR is defined as:
+
+   DESYNC_FACTOR -- A random value within the range 0 - MAX_DESYNC_FACTOR.
+   It is computed once at system start (rather than each time it is used)
+   and must never be greater than (TEMP_VALID_LIFETIME - REGEN_ADVANCE).
+
+First, I believe the RFC has a typo in it and meant to say: "and must
+never be greater than (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE)"
+
+The reason is that at various places in the RFC, DESYNC_FACTOR is used in
+a calculation like (TEMP_PREFERRED_LIFETIME - DESYNC_FACTOR) or
+(TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE - DESYNC_FACTOR). It needs to be
+smaller than (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE) for the result of
+these calculations to be larger than zero. It's never used in a
+calculation together with TEMP_VALID_LIFETIME.
+
+I already submitted an errata to the rfc-editor:
+https://www.rfc-editor.org/errata_search.php?rfc=4941
+
+The Linux implementation of DESYNC_FACTOR is very wrong:
+max_desync_factor is used in places DESYNC_FACTOR should be used.
+max_desync_factor is initialized to the RFC-recommended value for
+MAX_DESYNC_FACTOR (600) but the whole point is to get a _random_ value.
+
+And nothing ensures that the value used is not greater than
+(TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE), which leads to underflows.  The
+effect can easily be observed when setting the temp_prefered_lft sysctl
+e.g. to 60. The preferred lifetime of the temporary addresses will be
+bogus.
+
+TEMP_PREFERRED_LIFETIME and REGEN_ADVANCE are not constants and can be
+influenced by these three sysctls: regen_max_retry, dad_transmits and
+temp_prefered_lft. Thus, the upper bound for desync_factor needs to be
+re-calculated each time a new address is generated and if desync_factor is
+larger than the new upper bound, a new random value needs to be
+re-generated.
+
+And since we already have max_desync_factor configurable per interface, we
+also need to calculate and store desync_factor per interface.
+
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+---
+ include/net/if_inet6.h |  1 +
+ net/ipv6/addrconf.c    | 39 +++++++++++++++++++++++++++++++--------
+ 2 files changed, 32 insertions(+), 8 deletions(-)
+
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index ae70735..b0576cb 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -190,6 +190,7 @@ struct inet6_dev {
+ 	__u32			if_flags;
+ 	int			dead;
+ 
++	u32			desync_factor;
+ 	u8			rndid[8];
+ 	struct list_head	tempaddr_list;
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 63fc857..eca15f3 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -422,6 +422,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ #endif
+ 
+ 	INIT_LIST_HEAD(&ndev->tempaddr_list);
++	ndev->desync_factor = U32_MAX;
+ 	if ((dev->flags&IFF_LOOPBACK) ||
+ 	    dev->type == ARPHRD_TUNNEL ||
+ 	    dev->type == ARPHRD_TUNNEL6 ||
+@@ -1183,6 +1184,7 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
+ 	int ret = 0;
+ 	u32 addr_flags;
+ 	unsigned long now = jiffies;
++	long max_desync_factor;
+ 
+ 	write_lock_bh(&idev->lock);
+ 	if (ift) {
+@@ -1218,20 +1220,41 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
+ 	ipv6_try_regen_rndid(idev, tmpaddr);
+ 	memcpy(&addr.s6_addr[8], idev->rndid, 8);
+ 	age = (now - ifp->tstamp) / HZ;
++
++	regen_advance = idev->cnf.regen_max_retry *
++			idev->cnf.dad_transmits *
++			NEIGH_VAR(idev->nd_parms, RETRANS_TIME) / HZ;
++
++	/* recalculate max_desync_factor each time and update
++	 * idev->desync_factor if it's larger
++	 */
++	max_desync_factor = min_t(__u32,
++				  idev->cnf.max_desync_factor,
++				  idev->cnf.temp_prefered_lft - regen_advance);
++
++	if (unlikely(idev->desync_factor > max_desync_factor)) {
++		if (max_desync_factor > 0) {
++			get_random_bytes(&idev->desync_factor,
++					 sizeof(idev->desync_factor));
++			idev->desync_factor %= max_desync_factor;
++		} else {
++			idev->desync_factor = 0;
++		}
++	}
++
+ 	tmp_valid_lft = min_t(__u32,
+ 			      ifp->valid_lft,
+ 			      idev->cnf.temp_valid_lft + age);
+-	tmp_prefered_lft = min_t(__u32,
+-				 ifp->prefered_lft,
+-				 idev->cnf.temp_prefered_lft + age -
+-				 idev->cnf.max_desync_factor);
++	tmp_prefered_lft = idev->cnf.temp_prefered_lft + age -
++			    idev->desync_factor;
++	/* guard against underflow in case of concurrent updates to cnf */
++	if (unlikely(tmp_prefered_lft < 0))
++		tmp_prefered_lft = 0;
++	tmp_prefered_lft = min_t(__u32, ifp->prefered_lft, tmp_prefered_lft);
+ 	tmp_plen = ifp->prefix_len;
+ 	tmp_tstamp = ifp->tstamp;
+ 	spin_unlock_bh(&ifp->lock);
+ 
+-	regen_advance = idev->cnf.regen_max_retry *
+-			idev->cnf.dad_transmits *
+-			NEIGH_VAR(idev->nd_parms, RETRANS_TIME) / HZ;
+ 	write_unlock_bh(&idev->lock);
+ 
+ 	/* A temporary address is created only if this calculated Preferred
+@@ -2316,7 +2339,7 @@ static void manage_tempaddrs(struct inet6_dev *idev,
+ 			max_valid = 0;
+ 
+ 		max_prefered = idev->cnf.temp_prefered_lft -
+-			       idev->cnf.max_desync_factor - age;
++			       idev->desync_factor - age;
+ 		if (max_prefered < 0)
+ 			max_prefered = 0;
+ 
+-- 
+2.10.0
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
