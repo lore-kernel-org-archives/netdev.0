@@ -1,7 +1,7 @@
 From: Lorenzo Stoakes <lstoakes@gmail.com>
-Subject: [PATCH 08/10] mm: replace __access_remote_vm() write parameter with gup_flags
-Date: Thu, 13 Oct 2016 01:20:18 +0100
-Message-ID: <20161013002020.3062-9-lstoakes@gmail.com>
+Subject: [PATCH 04/10] mm: replace get_user_pages_locked() write/force parameters with gup_flags
+Date: Thu, 13 Oct 2016 01:20:14 +0100
+Message-ID: <20161013002020.3062-5-lstoakes@gmail.com>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
 Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Jan Kara <jack@suse.cz>,
@@ -36,118 +36,106 @@ In-Reply-To: <20161013002020.3062-1-lstoakes@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the write parameter from __access_remote_vm() and replaces it
-with a gup_flags parameter as use of this function previously _implied_
-FOLL_FORCE, whereas after this patch callers explicitly pass this flag.
-
-We make this explicit as use of FOLL_FORCE can result in surprising behaviour
-(and hence bugs) within the mm subsystem.
+This patch removes the write and force parameters from get_user_pages_locked()
+and replaces them with a gup_flags parameter to make the use of FOLL_FORCE
+explicit in callers as use of this flag can result in surprising behaviour (and
+hence bugs) within the mm subsystem.
 
 Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
 ---
- mm/memory.c | 23 +++++++++++++++--------
- mm/nommu.c  |  9 ++++++---
- 2 files changed, 21 insertions(+), 11 deletions(-)
+ include/linux/mm.h |  2 +-
+ mm/frame_vector.c  |  8 +++++++-
+ mm/gup.c           | 12 +++---------
+ mm/nommu.c         |  5 ++++-
+ 4 files changed, 15 insertions(+), 12 deletions(-)
 
-diff --git a/mm/memory.c b/mm/memory.c
-index 20a9adb..79ebed3 100644
---- a/mm/memory.c
-+++ b/mm/memory.c
-@@ -3869,14 +3869,11 @@ EXPORT_SYMBOL_GPL(generic_access_phys);
-  * given task for page fault accounting.
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 6adc4bc..27ab538 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1282,7 +1282,7 @@ long get_user_pages(unsigned long start, unsigned long nr_pages,
+ 			    int write, int force, struct page **pages,
+ 			    struct vm_area_struct **vmas);
+ long get_user_pages_locked(unsigned long start, unsigned long nr_pages,
+-		    int write, int force, struct page **pages, int *locked);
++		    unsigned int gup_flags, struct page **pages, int *locked);
+ long __get_user_pages_unlocked(struct task_struct *tsk, struct mm_struct *mm,
+ 			       unsigned long start, unsigned long nr_pages,
+ 			       struct page **pages, unsigned int gup_flags);
+diff --git a/mm/frame_vector.c b/mm/frame_vector.c
+index 381bb07..81b6749 100644
+--- a/mm/frame_vector.c
++++ b/mm/frame_vector.c
+@@ -41,10 +41,16 @@ int get_vaddr_frames(unsigned long start, unsigned int nr_frames,
+ 	int ret = 0;
+ 	int err;
+ 	int locked;
++	unsigned int gup_flags = 0;
+ 
+ 	if (nr_frames == 0)
+ 		return 0;
+ 
++	if (write)
++		gup_flags |= FOLL_WRITE;
++	if (force)
++		gup_flags |= FOLL_FORCE;
++
+ 	if (WARN_ON_ONCE(nr_frames > vec->nr_allocated))
+ 		nr_frames = vec->nr_allocated;
+ 
+@@ -59,7 +65,7 @@ int get_vaddr_frames(unsigned long start, unsigned int nr_frames,
+ 		vec->got_ref = true;
+ 		vec->is_pfns = false;
+ 		ret = get_user_pages_locked(start, nr_frames,
+-			write, force, (struct page **)(vec->ptrs), &locked);
++			gup_flags, (struct page **)(vec->ptrs), &locked);
+ 		goto out;
+ 	}
+ 
+diff --git a/mm/gup.c b/mm/gup.c
+index cfcb014..7a0d033 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -838,18 +838,12 @@ static __always_inline long __get_user_pages_locked(struct task_struct *tsk,
+  *          up_read(&mm->mmap_sem);
   */
- static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
--		unsigned long addr, void *buf, int len, int write)
-+		unsigned long addr, void *buf, int len, unsigned int gup_flags)
+ long get_user_pages_locked(unsigned long start, unsigned long nr_pages,
+-			   int write, int force, struct page **pages,
++			   unsigned int gup_flags, struct page **pages,
+ 			   int *locked)
  {
- 	struct vm_area_struct *vma;
- 	void *old_buf = buf;
--	unsigned int flags = FOLL_FORCE;
+-	unsigned int flags = FOLL_TOUCH;
 -
 -	if (write)
 -		flags |= FOLL_WRITE;
-+	int write = gup_flags & FOLL_WRITE;
- 
- 	down_read(&mm->mmap_sem);
- 	/* ignore errors, just check how much was successfully transferred */
-@@ -3886,7 +3883,7 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
- 		struct page *page = NULL;
- 
- 		ret = get_user_pages_remote(tsk, mm, addr, 1,
--				flags, &page, &vma);
-+				gup_flags, &page, &vma);
- 		if (ret <= 0) {
- #ifndef CONFIG_HAVE_IOREMAP_PROT
- 			break;
-@@ -3945,7 +3942,12 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
- int access_remote_vm(struct mm_struct *mm, unsigned long addr,
- 		void *buf, int len, int write)
- {
--	return __access_remote_vm(NULL, mm, addr, buf, len, write);
-+	unsigned int flags = FOLL_FORCE;
-+
-+	if (write)
-+		flags |= FOLL_WRITE;
-+
-+	return __access_remote_vm(NULL, mm, addr, buf, len, flags);
+-	if (force)
+-		flags |= FOLL_FORCE;
+-
+ 	return __get_user_pages_locked(current, current->mm, start, nr_pages,
+-				       pages, NULL, locked, true, flags);
++				       pages, NULL, locked, true,
++				       gup_flags | FOLL_TOUCH);
  }
+ EXPORT_SYMBOL(get_user_pages_locked);
  
- /*
-@@ -3958,12 +3960,17 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr,
- {
- 	struct mm_struct *mm;
- 	int ret;
-+	unsigned int flags = FOLL_FORCE;
- 
- 	mm = get_task_mm(tsk);
- 	if (!mm)
- 		return 0;
- 
--	ret = __access_remote_vm(tsk, mm, addr, buf, len, write);
-+	if (write)
-+		flags |= FOLL_WRITE;
-+
-+	ret = __access_remote_vm(tsk, mm, addr, buf, len, flags);
-+
- 	mmput(mm);
- 
- 	return ret;
 diff --git a/mm/nommu.c b/mm/nommu.c
-index 70cb844..bde7df3 100644
+index 7e27add..842cfdd 100644
 --- a/mm/nommu.c
 +++ b/mm/nommu.c
-@@ -1809,9 +1809,10 @@ void filemap_map_pages(struct fault_env *fe,
- EXPORT_SYMBOL(filemap_map_pages);
+@@ -176,9 +176,12 @@ long get_user_pages(unsigned long start, unsigned long nr_pages,
+ EXPORT_SYMBOL(get_user_pages);
  
- static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
--		unsigned long addr, void *buf, int len, int write)
-+		unsigned long addr, void *buf, int len, unsigned int gup_flags)
+ long get_user_pages_locked(unsigned long start, unsigned long nr_pages,
+-			    int write, int force, struct page **pages,
++			    unsigned int gup_flags, struct page **pages,
+ 			    int *locked)
  {
- 	struct vm_area_struct *vma;
 +	int write = gup_flags & FOLL_WRITE;
- 
- 	down_read(&mm->mmap_sem);
- 
-@@ -1853,7 +1854,8 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
- int access_remote_vm(struct mm_struct *mm, unsigned long addr,
- 		void *buf, int len, int write)
- {
--	return __access_remote_vm(NULL, mm, addr, buf, len, write);
-+	return __access_remote_vm(NULL, mm, addr, buf, len,
-+			write ? FOLL_WRITE : 0);
++	int force = gup_flags & FOLL_FORCE;
++
+ 	return get_user_pages(start, nr_pages, write, force, pages, NULL);
  }
- 
- /*
-@@ -1871,7 +1873,8 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
- 	if (!mm)
- 		return 0;
- 
--	len = __access_remote_vm(tsk, mm, addr, buf, len, write);
-+	len = __access_remote_vm(tsk, mm, addr, buf, len,
-+			write ? FOLL_WRITE : 0);
- 
- 	mmput(mm);
- 	return len;
+ EXPORT_SYMBOL(get_user_pages_locked);
 -- 
 2.10.0
 
