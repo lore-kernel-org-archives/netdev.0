@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vmxnet3: avoid assumption about invalid dma_pa in
- vmxnet3_set_mc()
-Date: Thu, 13 Oct 2016 09:43:23 -0400 (EDT)
-Message-ID: <20161013.094323.1769619439752576215.davem@davemloft.net>
-References: <1475895223-3225-1-git-send-email-khoroshilov@ispras.ru>
+Subject: Re: [PATCH net-next] sctp: reuse sent_count to avoid retransmitted
+ chunks for RTT measurements
+Date: Thu, 13 Oct 2016 09:44:50 -0400 (EDT)
+Message-ID: <20161013.094450.2198759604771922325.davem@davemloft.net>
+References: <b68194a4735a1ea5a652c13540df5d68e3c4b305.1475897765.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: skhare@vmware.com, pv-drivers@vmware.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: khoroshilov@ispras.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1475895223-3225-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, vyasevich@gmail.com,
+        daniel@iogearbox.net
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60766 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750929AbcJMNrH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 09:47:07 -0400
+In-Reply-To: <b68194a4735a1ea5a652c13540df5d68e3c4b305.1475897765.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Date: Fri,  7 Oct 2016 22:53:43 -0400
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sat,  8 Oct 2016 11:36:05 +0800
 
-> vmxnet3_set_mc() still assumes zero is invalid pa:
->   it assumes dma_mapping_error(...,0) returns true if vmxnet3_copy_mc() fails;
->   it calls dma_unmap_single() iff new_table_pa is not zero.
+> Now sctp uses chunk->resent to record if a chunk is retransmitted, for
+> RTT measurements with retransmitted DATA chunks. chunk->sent_count was
+> introduced to record how many times one chunk has been sent for prsctp
+> RTX policy before. We actually can know if one chunk is retransmitted
+> by checking chunk->sent_count is greater than 1.
 > 
-> The patch adds an explicit variable to track status of new_table_pa.
+> This patch is to remove resent from sctp_chunk and reuse sent_count
+> to avoid retransmitted chunks for RTT measurements.
 > 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Please use "bool" and "true"/"false" for boolean variables.
-
-Thanks.
+Applied.
