@@ -1,69 +1,52 @@
-From: Zach Brown <zach.brown@ni.com>
-Subject: Re: [PATCH v4 3/3] net: phy: leds: add support for led triggers on
- phy link state change
-Date: Thu, 13 Oct 2016 10:42:46 -0500
-Message-ID: <20161013154246.GA17387@zach-desktop>
-References: <1476217580-21229-1-git-send-email-zach.brown@ni.com>
- <1476217580-21229-4-git-send-email-zach.brown@ni.com>
- <20161013.104634.2079376697690971907.davem@davemloft.net>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net 2/4] rxrpc: Fix checker warning by not passing
+ always-zero value to ERR_PTR()
+Date: Thu, 13 Oct 2016 17:12:24 +0100
+Message-ID: <147637514401.17348.5521876451693174745.stgit@warthog.procyon.org.uk>
+References: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <f.fainelli@gmail.com>, <mlindner@marvell.com>,
-        <stephen@networkplumber.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <devel@driverdev.osuosl.org>,
-        <florian.c.schilhabel@googlemail.com>, <Larry.Finger@lwfinger.net>,
-        <gregkh@linuxfoundation.org>, <rpurdie@rpsys.net>,
-        <j.anaszewski@samsung.com>, <linux-leds@vger.kernel.org>,
-        <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-leds-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161013.104634.2079376697690971907.davem@davemloft.net>
-Sender: linux-leds-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39320 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756049AbcJMQVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Oct 2016 12:21:42 -0400
+In-Reply-To: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 13, 2016 at 10:46:34AM -0400, David Miller wrote:
-> From: Zach Brown <zach.brown@ni.com>
-> Date: Tue, 11 Oct 2016 15:26:20 -0500
-> 
-> > From: Josh Cartwright <josh.cartwright@ni.com>
-> > 
-> > Create an option CONFIG_LED_TRIGGER_PHY (default n), which will
-> > create a set of led triggers for each instantiated PHY device.  There is
-> > one LED trigger per link-speed, per-phy.
-> > 
-> > This allows for a user to configure their system to allow a set of LEDs
-> > to represent link state changes on the phy.
-> > 
-> > Signed-off-by: Josh Cartwright <josh.cartwright@ni.com>
-> > Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
-> > Signed-off-by: Zach Brown <zach.brown@ni.com>
->  ...
-> > +	static const char * const name_suffix[] = {
-> > +		"10Mbps",
-> > +		"100Mbps",
-> > +		"1Gbps",
-> > +		"2.5Gbps",
-> > +		"10Gbps",
-> 
-> This choice of both the array size and the speeds to support seems
-> entirely arbitrary and is inappropriate for a generic driver of this
-> kind.
-> 
-> This seems to be hard coding this to support the list of speeds
-> supported by whatever driver you want to use with this new LED
-> facility, and sorry that's not how we build nice generic pieces of
-> infrastructure.
-> 
-> Thanks.
+Fix the following checker warning:
 
-The speeds listed are the speeds found in the phy_speed_to_str function in phy.c.
-They are also the speeds found in the struct phy_setting settings array,
-which is commented with
-"/* A mapping of all SUPPORTED settings to speed/duplex */"
-We believed they represented the commonly supported speeds of phys.
+	net/rxrpc/call_object.c:279 rxrpc_new_client_call()
+	warn: passing zero to 'ERR_PTR'
 
-Do you have suggestions on how to better handle the choice of the array size
-and the speeds?
+where a value that's always zero is passed to ERR_PTR() so that it can be
+passed to a tracepoint in an auxiliary pointer field.
 
-Thanks.
+Just pass NULL instead to the tracepoint.
+
+Fixes: a84a46d73050 ("rxrpc: Add some additional call tracing")
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+
+ net/rxrpc/call_object.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 4353a29f3b57..1ed18d8c9c9f 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -276,7 +276,7 @@ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *rx,
+ 		goto error;
+ 
+ 	trace_rxrpc_call(call, rxrpc_call_connected, atomic_read(&call->usage),
+-			 here, ERR_PTR(ret));
++			 here, NULL);
+ 
+ 	spin_lock_bh(&call->conn->params.peer->lock);
+ 	hlist_add_head(&call->error_link,
