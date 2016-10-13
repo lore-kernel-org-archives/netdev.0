@@ -1,83 +1,64 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH] qede: fix CONFIG_INFINIBAND_QEDR=m build error
-Date: Thu, 13 Oct 2016 09:34:41 +0000
-Message-ID: <BY2PR07MB2309D9E2BEBC5A2091AC79E98DDC0@BY2PR07MB2309.namprd07.prod.outlook.com>
-References: <20161012103340.978726-1-arnd@arndb.de>
- <BL2PR07MB23069C99213F4E89A7DC162A8DDC0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <6935319.6Adbod0g1H@wuerfel>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next RFC 0/6] Add support for offloading packet-sampling
+Date: Thu, 13 Oct 2016 00:29:57 -0700
+Message-ID: <57FF37F5.4070100@cumulusnetworks.com>
+References: <1476276069-5315-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-        "everest-linux-l2@qlogic.com" <everest-linux-l2@qlogic.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        "Amrani, Ram" <Ram.Amrani@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6935319.6Adbod0g1H@wuerfel>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com, jhs@mojatatu.com, geert+renesas@glider.be,
+        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+        linux@roeck-us.net
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33112 "EHLO
+        mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752987AbcJMKC7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 06:02:59 -0400
+Received: by mail-pa0-f45.google.com with SMTP id vu5so37361267pab.0
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 03:02:59 -0700 (PDT)
+In-Reply-To: <1476276069-5315-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 10/12/16, 5:41 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> Add the sample tc action, which allows to sample packet matching
+> a classifier. The sample action peeks randomly packets, duplicates them,
+> truncates them and adds informative metadata on the packet, for example,
+> the input interface and the original packet length. The sampled packets
+> are marked to allow matching them and redirecting them to a specific
+> collector device.
+>
+> The sampled packets metadata is packed using ife encapsulation. To do
+> that, this patch-set extracts ife logics from the tc_ife action into an
+> independent ife module, and uses that functionality to pack the metadata.
+> To include all the needed metadata, this patch-set introduces some new
+> IFE_META tlv types.
+>
+> In addition, Add the support for offloading the matchall-sample tc command
+> in the Mellanox mlxsw driver, for ingress qdiscs.
+>
+> Yotam Gigi (6):
+>   Introduce ife encapsulation module
+>   act_ife: Change to use ife module
+>   ife: Introduce new metadata tlv types
+>   Introduce sample tc action
+>   mlxsw: reg: add the Monitoring Packet Sampling Configuration Register
+>   mlxsw: packet sample: Add packet sample offloading support
+>
 
-> > > -		if (cond)
-> > > +		if (IS_ENABLED(CONFIG_INFINIBAND_QEDR) && cond)
-> > >			qed_rdma_dpm_bar(p_hwfn, p_ptt);
-> >
-> > Why not simply fix the qed_roce.h empty implementation?
->=20
-> Mainly for consistency: we have a couple of interfaces that are called fr=
-om the
-> qed driver that are implemented in qed_roce.c. We can either use a 'stati=
-c inline'
-> helper for all of them, or use if(IS_ENABLED()) everywhere. Since this wa=
-s the
-> only function that had a helper and that helper was defined incorrectly, =
-I went
-> with the second option.
+we spoke with yotam about this at netdev1.2. and also remember speaking about this on our switchdev calls:
+Today our driver uses NFLOG to log packets to a netlink socket and hsflowd supported by the sflow
+people (at http://www.sflow.net/) is capable of reading from a nflog socket. NFLOG has the required netlink
+attribute markers for packet header/data (which we can possibly extend). We could also add nflog like action
+in tc if needed.
 
-Actually, that's not the case. I think with this exception, all the rest of=
- the prototypes
-in qed_roce.h aren't really needed, as those functions should only be acces=
-sed via
-the qed_rdma_ops. I'll remove those later [or we can remove them as part of=
- v2].
+sflow agents like hsflowd are capable of sending packets to an external collector with the required sflow header.
+Instead of re-inventing a new API for sflow, would be better to standardize/unify on existing mechanisms.
 
-The genereal qed* preference is to have empty static-inline implementations
-in case content is compiled-out [Look at iov for example].
-
-> > > -#if IS_ENABLED(CONFIG_INFINIBAND_QEDR)
-> > > +	if (!IS_ENABLED(CONFIG_INFINIBAND_QEDR))
-> > > +		return 0;
-> > > +
-> > >  	num_l2_queues =3D 0;
-> > >  	for_each_hwfn(cdev, i)
-> > >  		num_l2_queues +=3D FEAT_NUM(&cdev->hwfns[i],
-> QED_PF_L2_QUE); @@
-> > > -738,7 +736,6 @@ static int qed_slowpath_setup_int(struct qed_dev
-> > > *cdev,
-> > >  	DP_VERBOSE(cdev, QED_MSG_RDMA, "roce_msix_cnt=3D%d
-> > > roce_msix_base=3D%d\n",
-> > >  		   cdev->int_params.rdma_msix_cnt,
-> > >  		   cdev->int_params.rdma_msix_base); -#endif
-> >
-> > While I don't mind, you could have argued is that we're not removing
-> > enough, not too much.
-> > I.e., perhaps the rdma_msix_* fields should also have been ifdef-ed
-> > instead. [in which case this solution would not have worked]
->=20
-> That would add even more #ifdefs though.
-
-I agree. Although I'm never clear on the guidelines for the tradeoff -=20
-How much memory/code is considered too much so that you'd have
-To ifdef code out instead of 'wasting'?
-[I obviously don't claim 64 bytes of memory hit that threshold]
-=20
-BTW, are you interested in doing a v2 for this? Or would you prefer
-if we'd pick it up from here?
-
-Thanks,
-Yuval=20
+Also, this patch series requires a new device to be created which can be avoided if we used
+existing mechanisms like NFLOG.
