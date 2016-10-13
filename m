@@ -1,153 +1,151 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 3/5] udp: Add UDP flow dissection functions to IPv4 and IPv6
-Date: Wed, 12 Oct 2016 16:25:45 -0700
-Message-ID: <20161012232547.2383961-4-tom@herbertland.com>
-References: <20161012232547.2383961-1-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55150 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S933432AbcJLXZ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2016 19:25:58 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u9CNNkMi030076
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 16:25:57 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 261sv79qe6-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2016 16:25:57 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.103.99.99) with ESMTP  id
- 39df22aa90d311e697ea0002c9dfb610-95a1c6d0 for <netdev@vger.kernel.org>;        Wed,
- 12 Oct 2016 16:25:56 -0700
-In-Reply-To: <20161012232547.2383961-1-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lorenzo Stoakes <lstoakes@gmail.com>
+Subject: [PATCH 01/10] mm: remove write/force parameters from __get_user_pages_locked()
+Date: Thu, 13 Oct 2016 01:20:11 +0100
+Message-ID: <20161013002020.3062-2-lstoakes@gmail.com>
+References: <20161013002020.3062-1-lstoakes@gmail.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Jan Kara <jack@suse.cz>,
+	Hugh Dickins <hughd@google.com>,
+	Dave Hansen <dave.hansen@linux.intel.com>,
+	Rik van Riel <riel@redhat.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	ceph-devel@vger.kernel.org,
+	dri-devel@lists.freedesktop.org,
+	intel-gfx@lists.freedesktop.org,
+	kvm@vger.kernel.org,
+	linux-alpha@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-cris-kernel@axis.com,
+	linux-fbdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	linux-ia64@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-media@vger.kernel.org,
+	linux-mips@linux-mips.org,
+	linux-rdma@vger.kernel.org,
+	linux-s390@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org,
+	linux-scsi@vger.kernel.org,
+	linux-security-module@vger.kernel.org,
+	linux-sh@vger.kerne
+To: linux-mm@kvack.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161013002020.3062-1-lstoakes@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Add per protocol offload callbacks for flow_dissect to UDP for
-IPv4 and IPv6. The callback functions extract the port number
-information and with the packet addresses (given in an argument with
-type flow_dissector_key_addrs) it performs a lookup on the UDP
-socket. If a socket is found and flow_dissect is set for the
-socket then that function is called.
+This patch removes the write and force parameters from __get_user_pages_locked()
+to make the use of FOLL_FORCE explicit in callers as use of this flag can result
+in surprising behaviour (and hence bugs) within the mm subsystem.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
 ---
- net/ipv4/udp_offload.c | 39 +++++++++++++++++++++++++++++++++++++++
- net/ipv6/udp_offload.c | 38 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 77 insertions(+)
+ mm/gup.c | 47 +++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 33 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index f9333c9..c7753ba 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -377,11 +377,50 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
- 	return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
+diff --git a/mm/gup.c b/mm/gup.c
+index 96b2b2f..ba83942 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -729,7 +729,6 @@ static __always_inline long __get_user_pages_locked(struct task_struct *tsk,
+ 						struct mm_struct *mm,
+ 						unsigned long start,
+ 						unsigned long nr_pages,
+-						int write, int force,
+ 						struct page **pages,
+ 						struct vm_area_struct **vmas,
+ 						int *locked, bool notify_drop,
+@@ -747,10 +746,6 @@ static __always_inline long __get_user_pages_locked(struct task_struct *tsk,
+ 
+ 	if (pages)
+ 		flags |= FOLL_GET;
+-	if (write)
+-		flags |= FOLL_WRITE;
+-	if (force)
+-		flags |= FOLL_FORCE;
+ 
+ 	pages_done = 0;
+ 	lock_dropped = false;
+@@ -846,9 +841,15 @@ long get_user_pages_locked(unsigned long start, unsigned long nr_pages,
+ 			   int write, int force, struct page **pages,
+ 			   int *locked)
+ {
++	unsigned int flags = FOLL_TOUCH;
++
++	if (write)
++		flags |= FOLL_WRITE;
++	if (force)
++		flags |= FOLL_FORCE;
++
+ 	return __get_user_pages_locked(current, current->mm, start, nr_pages,
+-				       write, force, pages, NULL, locked, true,
+-				       FOLL_TOUCH);
++				       pages, NULL, locked, true, flags);
  }
+ EXPORT_SYMBOL(get_user_pages_locked);
  
-+/* Assumes rcu lock is held */
-+static int udp4_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
-+			     int *nhoff, u8 *ip_proto, __be16 *proto,
-+			     struct flow_dissector_key_addrs *key_addrs)
-+{
-+	u16 _ports[2], *ports;
-+	struct net *net;
-+	struct sock *sk;
-+	int dif = -1;
+@@ -869,9 +870,15 @@ __always_inline long __get_user_pages_unlocked(struct task_struct *tsk, struct m
+ {
+ 	long ret;
+ 	int locked = 1;
 +
-+	/* See if there is a flow dissector in the UDP socket */
++	if (write)
++		gup_flags |= FOLL_WRITE;
++	if (force)
++		gup_flags |= FOLL_FORCE;
 +
-+	if (skb->dev) {
-+		net = dev_net(skb->dev);
-+		dif = skb->dev->ifindex;
-+	} else if (skb->sk) {
-+		net = sock_net(skb->sk);
-+	} else {
-+		return FLOW_DIS_RET_PASS;
-+	}
+ 	down_read(&mm->mmap_sem);
+-	ret = __get_user_pages_locked(tsk, mm, start, nr_pages, write, force,
+-				      pages, NULL, &locked, false, gup_flags);
++	ret = __get_user_pages_locked(tsk, mm, start, nr_pages, pages, NULL,
++				      &locked, false, gup_flags);
+ 	if (locked)
+ 		up_read(&mm->mmap_sem);
+ 	return ret;
+@@ -963,9 +970,15 @@ long get_user_pages_remote(struct task_struct *tsk, struct mm_struct *mm,
+ 		int write, int force, struct page **pages,
+ 		struct vm_area_struct **vmas)
+ {
+-	return __get_user_pages_locked(tsk, mm, start, nr_pages, write, force,
+-				       pages, vmas, NULL, false,
+-				       FOLL_TOUCH | FOLL_REMOTE);
++	unsigned int flags = FOLL_TOUCH | FOLL_REMOTE;
 +
-+	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
-+				     data, hlen, &_ports);
-+	if (!ports)
-+		return FLOW_DIS_RET_BAD;
++	if (write)
++		flags |= FOLL_WRITE;
++	if (force)
++		flags |= FOLL_FORCE;
 +
-+	sk = udp4_lib_lookup_noref(net,
-+				   key_addrs->v4addrs.src, ports[0],
-+				   key_addrs->v4addrs.dst, ports[1],
-+				   dif);
-+
-+	if (sk && udp_sk(sk)->flow_dissect)
-+		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
-+						ip_proto, proto);
-+	else
-+		return FLOW_DIS_RET_PASS;
-+}
-+
- static const struct net_offload udpv4_offload = {
- 	.callbacks = {
- 		.gso_segment = udp4_ufo_fragment,
- 		.gro_receive  =	udp4_gro_receive,
- 		.gro_complete =	udp4_gro_complete,
-+		.flow_dissect = udp4_flow_dissect,
- 	},
- };
- 
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index ac858c4..b3f4a6c 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -163,11 +163,49 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
- 	return udp_gro_complete(skb, nhoff, udp6_lib_lookup_skb);
++	return __get_user_pages_locked(tsk, mm, start, nr_pages, pages, vmas,
++				       NULL, false, flags);
  }
+ EXPORT_SYMBOL(get_user_pages_remote);
  
-+/* Assumes rcu lock is held */
-+static int udp6_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
-+			     int *nhoff, u8 *ip_proto, __be16 *proto,
-+			     const struct flow_dissector_key_addrs *key_addrs)
-+{
-+	u16 _ports[2], *ports;
-+	struct net *net;
-+	struct sock *sk;
-+	int dif = -1;
+@@ -979,9 +992,15 @@ long get_user_pages(unsigned long start, unsigned long nr_pages,
+ 		int write, int force, struct page **pages,
+ 		struct vm_area_struct **vmas)
+ {
++	unsigned int flags = FOLL_TOUCH;
 +
-+	/* See if there is a flow dissector in the UDP socket */
++	if (write)
++		flags |= FOLL_WRITE;
++	if (force)
++		flags |= FOLL_FORCE;
 +
-+	if (skb->dev) {
-+		net = dev_net(skb->dev);
-+		dif = skb->dev->ifindex;
-+	} else if (skb->sk) {
-+		net = sock_net(skb->sk);
-+	} else {
-+		return FLOW_DIS_RET_PASS;
-+	}
-+
-+	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
-+				     data, hlen, &_ports);
-+	if (!ports)
-+		return FLOW_DIS_RET_BAD;
-+
-+	sk = udp6_lib_lookup_noref(net,
-+				   &key_addrs->v6addrs.src, ports[0],
-+				   &key_addrs->v6addrs.dst, ports[1],
-+				   dif);
-+
-+	if (sk && udp_sk(sk)->flow_dissect)
-+		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
-+						ip_proto, proto);
-+	return FLOW_DIS_RET_PASS;
-+}
-+
- static const struct net_offload udpv6_offload = {
- 	.callbacks = {
- 		.gso_segment	=	udp6_ufo_fragment,
- 		.gro_receive	=	udp6_gro_receive,
- 		.gro_complete	=	udp6_gro_complete,
-+		.flow_dissect	=	udp6_flow_dissect,
- 	},
- };
+ 	return __get_user_pages_locked(current, current->mm, start, nr_pages,
+-				       write, force, pages, vmas, NULL, false,
+-				       FOLL_TOUCH);
++				       pages, vmas, NULL, false, flags);
+ }
+ EXPORT_SYMBOL(get_user_pages);
  
 -- 
-2.9.3
+2.10.0
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
