@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 2/4] rxrpc: Fix checker warning by not passing
- always-zero value to ERR_PTR()
-Date: Thu, 13 Oct 2016 17:12:24 +0100
-Message-ID: <147637514401.17348.5521876451693174745.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net 1/4] afs: unmapping the wrong buffer
+Date: Thu, 13 Oct 2016 17:12:17 +0100
+Message-ID: <147637513708.17348.15850582249955166756.stgit@warthog.procyon.org.uk>
 References: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,42 +10,46 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39320 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52262 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756049AbcJMQVm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Oct 2016 12:21:42 -0400
+        id S1755258AbcJMQWg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Oct 2016 12:22:36 -0400
 In-Reply-To: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the following checker warning:
+From: Dan Carpenter <dan.carpenter@oracle.com>
 
-	net/rxrpc/call_object.c:279 rxrpc_new_client_call()
-	warn: passing zero to 'ERR_PTR'
+We switched from kmap_atomic() to kmap() so the kunmap() calls need to
+be updated to match.
 
-where a value that's always zero is passed to ERR_PTR() so that it can be
-passed to a tracepoint in an auxiliary pointer field.
-
-Just pass NULL instead to the tracepoint.
-
-Fixes: a84a46d73050 ("rxrpc: Add some additional call tracing")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Fixes: d001648ec7cf ('rxrpc: Don't expose skbs to in-kernel users [ver #2]')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/call_object.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ fs/afs/fsclient.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index 4353a29f3b57..1ed18d8c9c9f 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -276,7 +276,7 @@ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *rx,
- 		goto error;
+diff --git a/fs/afs/fsclient.c b/fs/afs/fsclient.c
+index 96f4d764d1a6..31c616ab9b40 100644
+--- a/fs/afs/fsclient.c
++++ b/fs/afs/fsclient.c
+@@ -364,7 +364,7 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call)
+ 			buffer = kmap(page);
+ 			ret = afs_extract_data(call, buffer,
+ 					       call->count, true);
+-			kunmap(buffer);
++			kunmap(page);
+ 			if (ret < 0)
+ 				return ret;
+ 		}
+@@ -397,7 +397,7 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call)
+ 		page = call->reply3;
+ 		buffer = kmap(page);
+ 		memset(buffer + call->count, 0, PAGE_SIZE - call->count);
+-		kunmap(buffer);
++		kunmap(page);
+ 	}
  
- 	trace_rxrpc_call(call, rxrpc_call_connected, atomic_read(&call->usage),
--			 here, ERR_PTR(ret));
-+			 here, NULL);
- 
- 	spin_lock_bh(&call->conn->params.peer->lock);
- 	hlist_add_head(&call->error_link,
+ 	_leave(" = 0 [done]");
