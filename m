@@ -1,9 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sctp: reuse sent_count to avoid retransmitted
- chunks for RTT measurements
-Date: Thu, 13 Oct 2016 09:44:50 -0400 (EDT)
-Message-ID: <20161013.094450.2198759604771922325.davem@davemloft.net>
-References: <b68194a4735a1ea5a652c13540df5d68e3c4b305.1475897765.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next] sctp: remove the old ttl expires policy
+Date: Thu, 13 Oct 2016 09:44:56 -0400 (EDT)
+Message-ID: <20161013.094456.2092429969925371125.davem@davemloft.net>
+References: <db5df5806c3c0b7c37ab9039a906664a33c74563.1475898016.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,25 +11,27 @@ Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
         daniel@iogearbox.net
 To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60766 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60776 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750929AbcJMNrH (ORCPT
+        with ESMTP id S1752434AbcJMNrH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 09:47:07 -0400
-In-Reply-To: <b68194a4735a1ea5a652c13540df5d68e3c4b305.1475897765.git.lucien.xin@gmail.com>
+In-Reply-To: <db5df5806c3c0b7c37ab9039a906664a33c74563.1475898016.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Xin Long <lucien.xin@gmail.com>
-Date: Sat,  8 Oct 2016 11:36:05 +0800
+Date: Sat,  8 Oct 2016 11:40:16 +0800
 
-> Now sctp uses chunk->resent to record if a chunk is retransmitted, for
-> RTT measurements with retransmitted DATA chunks. chunk->sent_count was
-> introduced to record how many times one chunk has been sent for prsctp
-> RTX policy before. We actually can know if one chunk is retransmitted
-> by checking chunk->sent_count is greater than 1.
+> The prsctp polices include ttl expires policy already, we should remove
+> the old ttl expires codes, and just adjust the new polices' codes to be
+> compatible with the old one for users.
 > 
-> This patch is to remove resent from sctp_chunk and reuse sent_count
-> to avoid retransmitted chunks for RTT measurements.
+> This patch is to remove all the old expires codes, and if prsctp polices
+> are not set, it will still set msg's expires_at and check the expires in
+> sctp_check_abandoned.
+> 
+> Note that asoc->prsctp_enable is set by default, so users can't feel any
+> difference even if they use the old expires api in userspace.
 > 
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
