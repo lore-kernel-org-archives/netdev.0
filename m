@@ -1,70 +1,43 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH] IB/ipoib: move back the IB LL address into the hard
- header
-Date: Thu, 13 Oct 2016 17:17:04 +0200
-Message-ID: <1476371824.4690.32.camel@redhat.com>
-References: <1dbd83dfe7f435eecc5bc460e901b47758280f30.1476206016.git.pabeni@redhat.com>
-         <20161013.102432.1450901395774429343.davem@davemloft.net>
+From: Jonathan Cooper <jcooper@solarflare.com>
+Subject: Re: [PATCH net] Revert "net: Add driver helper functions to determine
+ checksum offloadability"
+Date: Thu, 13 Oct 2016 16:06:17 +0100
+Message-ID: <dd10f71e-4104-369b-8350-eb150d3efaea@solarflare.com>
+References: <20161011130409.7e6b54ff@xeon-e3>
+ <20161013.103548.511298911926565246.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, dledford@redhat.com,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: <tom@herbertland.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60234 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756207AbcJMPRH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 13 Oct 2016 11:17:07 -0400
-In-Reply-To: <20161013.102432.1450901395774429343.davem@davemloft.net>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:23658 "EHLO
+        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756083AbcJMPRr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 11:17:47 -0400
+In-Reply-To: <20161013.103548.511298911926565246.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-10-13 at 10:24 -0400, David Miller wrote:
-> From: Paolo Abeni <pabeni@redhat.com>
-> Date: Tue, 11 Oct 2016 19:15:44 +0200
-> 
-> > After the commit 9207f9d45b0a ("net: preserve IP control block
-> > during GSO segmentation"), the GSO CB and the IPoIB CB conflict.
-> > That destroy the IPoIB address information cached there,
-> > causing a severe performance regression, as better described here:
-> > 
-> > http://marc.info/?l=linux-kernel&m=146787279825501&w=2
-> > 
-> > This change moves the data cached by the IPoIB driver from the
-> > skb control lock into the IPoIB hard header, as done before
-> > the commit 936d7de3d736 ("IPoIB: Stop lying about hard_header_len
-> > and use skb->cb to stash LL addresses").
-> > In order to avoid GRO issue, on packet reception, the IPoIB driver
-> > stash into the skb a dummy pseudo header, so that the received
-> > packets have actually a hard header matching the declared length.
-> > Also the connected mode maximum mtu is reduced by 16 bytes to
-> > cope with the increased hard header len.
-> > 
-> > After this commit, IPoIB performances are back to pre-regression
-> > value.
-> > 
-> > Fixes: 9207f9d45b0a ("net: preserve IP control block during GSO segmentation")
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> 
-> Not providing an accurate hard_header_len causes many problems.
-> 
-> In fact we recently fixed the mlxsw driver to stop doing this.
+On 13/10/16 15:35, David Miller wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Tue, 11 Oct 2016 13:04:09 -0700
+>
+>> This reverts commit 6ae23ad36253a8033c5714c52b691b84456487c5.
+>>
+>> The code has been in kernel since 4.4 but there are no in tree
+>> code that uses. Unused code is broken code, remove it.
+>>
+>> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Tom if you have any real plans to develop on this work at all in
+> the immediate future, please speak up now.
+>
+> Otherwise I'm applying Stephen's patch.
+>
+> Thanks.
 
-AFAICS the mlxsw did a different thing, adding an additional header in
-the xmit function and pushing packets in the network stack with a mac
-length different from the declared hard header length
+We've used this in our overlay support, which we plan to upstream in the 
+next month or two (or at least Soon(tm)),
+so we'd rather it stayed in otherwise we'll just have to reimplement it.
 
-The hard header specified by the IPoIB driver is build in the create()
-header_ops and its length matches the mac header length of the packets
-pushed into the network stack by such driver. GRO works correctly on top
-of that. From the networking stack PoV the hard_header_len should be
-'accurate'.
-
-Can you please give more details on the problem that may arise from
-this ?
-
-thank you,
-
-Paolo
+Jon
