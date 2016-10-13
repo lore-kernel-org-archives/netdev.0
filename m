@@ -1,83 +1,79 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: XDP_TX bug report on mlx4
-Date: Thu, 13 Oct 2016 12:46:09 -0700
-Message-ID: <20161013194609.GA29039@gmail.com>
-References: <20160916210340.4a7cdef8@redhat.com>
- <20160916191727.GA8410@gmail.com>
- <20160916212443.0eddbeb5@redhat.com>
- <20160918235943.GA18685@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: slab corruption with current -git
+Date: Thu, 13 Oct 2016 12:49:33 -0700
+Message-ID: <CA+55aFynWiz1UWwQVvFrRsVvgcYZ=ctCPou9BL1b9_DOVTqKOQ@mail.gmail.com>
+References: <CA+55aFwS1jfnNzU=8CzRyxC79qKrStwmTXYrBHQYcftAg4LT3Q@mail.gmail.com>
+ <CA+55aFzcweyWCqq-fRAnJkFB7neKwKsXH=TMcLtRQRs2Wn6XEQ@mail.gmail.com>
+ <CA+55aFwhscZcWJVLbq+qUgNaN34VwBxFwUR97ktM-7003PcexQ@mail.gmail.com>
+ <20161011.045737.227906000874505402.davem@davemloft.net> <20161013060206.GA310@x4>
+ <20161013060659.GB310@x4> <CA+55aFwsUR4-YmOYgJOOO4a2e48M4_tk7YhAo4s5KZQQxUjpZw@mail.gmail.com>
+ <20161013062703.GC310@x4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Rana Shahout <rana.shahot@gmail.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Christoph Lameter <cl@linux.com>, Jens Axboe <axboe@fb.com>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Aaron Conole <aconole@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Florian Westphal <fw@strlen.de>,
+        "Theodore Ts'o" <tytso@mit.edu>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33038 "EHLO
-        mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756613AbcJMTqa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 15:46:30 -0400
-Received: by mail-pa0-f44.google.com with SMTP id vu5so41015204pab.0
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 12:46:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160918235943.GA18685@gmail.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:33019 "EHLO
+        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751645AbcJMTwk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 15:52:40 -0400
+In-Reply-To: <20161013062703.GC310@x4>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 18, 2016 at 07:59:43PM -0400, Brenden Blanco wrote:
-> On Fri, Sep 16, 2016 at 09:24:43PM +0200, Jesper Dangaard Brouer wrote:
-> > On Fri, 16 Sep 2016 12:17:27 -0700
-> > Brenden Blanco <bblanco@plumgrid.com> wrote:
-> > 
-> > > On Fri, Sep 16, 2016 at 09:03:40PM +0200, Jesper Dangaard Brouer wrote:
-> > > > Hi Brenden,
-> > > > 
-> > > > I've discovered a bug with XDP_TX recycling of pages in the mlx4 driver.
-> > > > 
-> > > > If I increase the number of RX and TX queues/channels via ethtool cmd:
-> > > >  ethtool -L mlx4p1 rx 10 tx 10
-> > > > 
-> > > > Then when running the xdp2 program, which does XDP_TX, the kernel will
-> > > > crash with page errors, because the page refcnt goes to zero or even
-> > > > minus.  I've noticed pages delivered to mlx4_en_rx_recycle() can have
-> > > > a page refcnt of zero, which is wrong, they should always have 1 (for
-> > > > XDP).
-> > > > 
-> > > > Debugging it further, I find that this can happen when mlx4_en_rx_recycle()
-> > > > is called from mlx4_en_recycle_tx_desc().  This is the TX cleanup function,
-> > > > associated with TX ring queues used for XDP_TX only. No others than the
-> > > > XDP_TX action should be able to place packets into these TX rings
-> > > > which call mlx4_en_recycle_tx_desc().  
-> > > 
-> > > Sounds pretty straightforward, let me look into it.
-> > 
-> > Here is some debug info I instrumented my kernel with, and I've
-> > attached my minicom output with a warning and a panic.
-> 
-> Thanks for the info.
-> 
-> I've also spent this weekend trying to debug (pretty easy to reproduce),
-> but with no conclusive answer. I was investigating the sequence in
-> mlx4_en_stop_port to see if rx might still be running through the
-> function, on the theory that the xdp tx might race with
-> mlx4_en_free_tx_buf. For instance, I tried moving the napi_synchronize
-> loop to be just below the msleep(10). No improvement.
-> 
-> Unfortunately, I'm out of options, since my one test box has decided not
-> to reboot itself automatically, and I'll be out of email communication
-> (for 3 weeks) before anybody can physicially resuscitate it (tomorrow).
+On Wed, Oct 12, 2016 at 11:27 PM, Markus Trippelsdorf
+<markus@trippelsdorf.de> wrote:
+>
+> Yeah.
+>
+> 105         entry->orig_ops = reg;
+> 106         entry->ops      = *reg;
+> 107         entry->next     = NULL;
 
-Sorry to leave this hanging for so long. I've just recently come back
-from vacation and I think I now have a fix for this. I'll send a patch
-to the list shortly.
+So ipt_register_table() does:
 
-> > 
-> > Enable some driver debug printks via::
-> >  ethtool -s mlx4p1 msglvl drv on
-> > 
-> > Debug normal situation::
-> > 
-> [...]
+        ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
+
+and then nf_register_net_hooks() just does
+
+        for (i = 0; i < n; i++) {
+                err = nf_register_net_hook(net, &reg[i]);
+
+so if the *reg is uninitialized, it means that it's the 'ops[]' array
+that isn't actually really valid in "valid_hooks". Odd. They should
+all be initialized by xt_hook_ops_alloc(), no?
+
+That said, xt_hook_ops_alloc() itself is odd. Lookie here, this is the
+loop that initializes things:
+
+        for (i = 0, hooknum = 0; i < num_hooks && hook_mask != 0;
+             hook_mask >>= 1, ++hooknum) {
+
+and it makes no sense to me how that tests *both* "i < num_hools" and
+"hook_mask != 0".
+
+Why? Because
+
+    num_hooks = hweight32(hook_mask);
+
+so it's entirely redundant. num_hooks is already how many bits are on
+in hook_mask, so that test is just duplicating the same thing twice
+("have we done less than that number of bits" and "do we have any bits
+less").
+
+I don't know. There's something odd going on. Regardless, thsi is a
+different problem from the nf_register_net_hook() list handling, so
+I'll leave it to the networking people. David?
+
+               Linus
