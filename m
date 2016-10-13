@@ -1,73 +1,70 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: igb driver can cause cache invalidation of non-owned memory?
-Date: Thu, 13 Oct 2016 10:39:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01E773C@AcuExch.aculab.com>
-References: <0b57cbe2-84f7-6c0a-904a-d166571234b5@cogentembedded.com>
- <20161010.050125.1981283393312167625.davem@davemloft.net>
- <10474d19-df1a-3b09-917e-70659be3a56c@cogentembedded.com>
- <20161010.075731.2449861168238706.davem@davemloft.net>
- <f75cf1e1-d7e8-e044-188a-987f05f321a5@cogentembedded.com>
- <CAKgT0Uc2nL1aPoryhNxdbf3+TQO+fOvAZMZDe+=9NaqnHCZPyw@mail.gmail.com>
- <19aebfc3-5f1a-9206-4493-2255af7269f9@cogentembedded.com>
- <CAKgT0UcSkG1Nws1kcUp-QV0jnwdXcXrOZ2m0vsWRziETA-11sw@mail.gmail.com>
- <a0779e4d-3228-8649-1e68-21dffd4249bd@cogentembedded.com>
- <CAKgT0UfPC_uAn5=+0iiAOGyY7QA-4NWAmedVmWf6TGnywjJR8A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB01E6F0F@AcuExch.aculab.com>
- <cbd0f41d-bc01-3f93-9171-2795c61afdc9@cogentembedded.com>
- <CAKgT0UdqwpjP0b4knt2d4DqS1Z9dR+vg-smkgBTZDeACGGdx=Q@mail.gmail.com>
- <d34b7175-1024-8cc9-d422-d9f75f56c069@cogentembedded.com>
- <CAKgT0UdMG4D8CZCVhBD7vF+E5aOk7zyPEp1xXaBukg3v0aYfFg@mail.gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH] qede: fix CONFIG_INFINIBAND_QEDR=m build error
+Date: Thu, 13 Oct 2016 10:44:36 +0000
+Message-ID: <BL2PR07MB230634C0879011355A10B29A8DDC0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <20161012103340.978726-1-arnd@arndb.de>
+ <6935319.6Adbod0g1H@wuerfel>
+ <BY2PR07MB2309D9E2BEBC5A2091AC79E98DDC0@BY2PR07MB2309.namprd07.prod.outlook.com>
+ <5662883.yo8OytxU65@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+        "everest-linux-l2@qlogic.com" <everest-linux-l2@qlogic.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        "Amrani, Ram" <Ram.Amrani@cavium.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Chris Healy <cphealy@gmail.com>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.193]:62412 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753567AbcJMKkG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 06:40:06 -0400
-In-Reply-To: <CAKgT0UdMG4D8CZCVhBD7vF+E5aOk7zyPEp1xXaBukg3v0aYfFg@mail.gmail.com>
+        "David S. Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5662883.yo8OytxU65@wuerfel>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDEyIE9jdG9iZXIgMjAxNiAxOTozMA0KPiBP
-biBXZWQsIE9jdCAxMiwgMjAxNiBhdCAxMToxMiBBTSwgTmlraXRhIFl1c2hjaGVua28NCj4gPG5p
-a2l0YS55b3VzaEBjb2dlbnRlbWJlZGRlZC5jb20+IHdyb3RlOg0KPiA+PiBJdCB3b3VsZCBtYWtl
-IG1vcmUgc2Vuc2UgdG8gdXBkYXRlIHRoZSBETUEgQVBJIGZvcg0KPiA+PiBfX2RtYV9wYWdlX2Nw
-dV90b19kZXYgb24gQVJNIHNvIHRoYXQgeW91IGRvbid0IGludmFsaWRhdGUgdGhlIGNhY2hlIGlm
-DQo+ID4+IHRoZSBkaXJlY3Rpb24gaXMgRE1BX0ZST01fREVWSUNFLg0KPiA+DQo+ID4gTm8sIGlu
-IGdlbmVyaWMgY2FzZSBpdCdzIHVuc2FmZS4NCj4gPg0KPiA+IElmIENQVSBpc3N1ZWQgYSB3cml0
-ZSB0byBhIGxvY2F0aW9uLCBhbmQgc29tZXRpbWUgbGF0ZXIgdGhhdCBsb2NhdGlvbiBpcw0KPiA+
-IHVzZWQgYXMgRE1BIGJ1ZmZlciwgdGhlcmUgaXMgZGFuZ2VyIHRoYXQgd3JpdGUgaXMgc3RpbGwg
-aW4gY2FjaGUgb25seSwNCj4gPiBhbmQgd3JpdGViYWNrIGlzIHBlbmRpbmcuIExhdGVyIHRoaXMg
-d3JpdGViYWNrIGNhbiBvdmVyd3JpdGUgZGF0YQ0KPiA+IHdyaXR0ZW4gdG8gbWVtb3J5IHZpYSBE
-TUEsIGNhdXNpbmcgY29ycnVwdGlvbi4NCj4gDQo+IE9rYXkgc28gaWYgSSB1bmRlcnN0YW5kIGl0
-IGNvcnJlY3RseSB0aGVuIHRoZSBpbnZhbGlkYXRpb24gaW4NCj4gc3luY19mb3JfZGV2aWNlIGlz
-IHRvIGZvcmNlIGFueSB3cml0ZXMgdG8gYmUgZmx1c2hlZCBvdXQsIGFuZCB0aGUNCj4gaW52YWxp
-ZGF0aW9uIGluIHN5bmNfZm9yX2NwdSBpcyB0byBmbHVzaCBvdXQgYW55IHNwZWN1bGF0aXZlIHJl
-YWRzLg0KPiBTbyB3aXRob3V0IHNwZWN1bGF0aXZlIHJlYWRzIHRoZW4gdGhlIHN5bmNfZm9yX2Nw
-dSBwb3J0aW9uIGlzIG5vdA0KPiBuZWVkZWQuICBZb3UgbWlnaHQgd2FudCB0byBkZXRlcm1pbmUg
-aWYgdGhlIGNvcmUgeW91IGFyZSB1c2luZw0KPiBzdXBwb3J0cyB0aGUgc3BlY3VsYXRpdmUgcmVh
-ZHMsIGlmIG5vdCB5b3UgbWlnaHQgYmUgYWJsZSB0byBnZXQgYXdheQ0KPiB3aXRob3V0IGhhdmlu
-ZyB0byBkbyB0aGUgc3luY19mb3JfY3B1IGF0IGFsbC4NCg0KRm9yIHJlYWRzIHRoZSBzeW5jX2Zv
-cl9kZXZpY2UgaW52YWxpZGF0ZXMgKGllIGRpc2NhcmRzIHRoZSBjb250ZW50cyBvZikNCnRoZSBj
-YWNoZSBsaW5lcyB0byBlbnN1cmUgdGhlIGNwdSB3b24ndCB3cml0ZSBiYWNrIGRpcnR5IGxpbmVz
-Lg0KVGhlIHN5bmNfZm9yX2NwdSBpbnZhbGlkYXRlcyB0aGUgY2FjaGUgdG8gZW5zdXJlIHRoZSBj
-cHUgYWN0dWFsbHkNCnJlYWRzIGZyb20gbWVtb3J5Lg0KDQpGb3Igd3JpdGVzIHlvdSBuZWVkIHRv
-IGZsdXNoICh3cml0ZSBiYWNrKSBjYWNoZSBsaW5lcyBwcmlvciB0byB0aGUgRE1BLg0KSSBkb24n
-dCB0aGluayBhbnl0aGluZyBpcyBuZWVkZWQgd2hlbiB0aGUgdHJhbnNmZXIgZmluaXNoZXMuDQoN
-CklmIGhlYWRlcnMvdHJhaWxlcnMgbWlnaHQgYmUgYWRkZWQgdGhlIHN5bmNfZm9yX2RldmljZSBt
-dXN0IGNvdmVyDQp0aGUgZW50aXJlIGFyZWEgdGhlIGZyYW1lIHdpbGwgYmUgd3JpdHRlbiB0by4N
-CkNsZWFybHkgdGhlIHN5bmNfZm9yX2NwdSBuZWVkIG9ubHkgY292ZXIgdGhlIHZhbGlkIGZyYW1l
-IGRhdGEuDQpJIHN1c3BlY3QgeW91IGNhbiBzYWZlbHkgc2tpcCB0aGUgc3luY19mb3JfZGV2aWNl
-IGluIHRoZSAnY29weWJyZWFrJw0KcGF0aCBidXQgbm90IGlmIHRoZSBmcmFtZSBpcyBwYXNzZWQg
-dXAgdGhlIHByb3RvY29sIHN0YWNrLg0KDQoJRGF2aWQNCg0K
+> > > > While I don't mind, you could have argued is that we're not
+> > > > removing enough, not too much.
+> > > > I.e., perhaps the rdma_msix_* fields should also have been
+> > > > ifdef-ed instead. [in which case this solution would not have
+> > > > worked]
+> > >
+> > > That would add even more #ifdefs though.
+> >
+> > I agree. Although I'm never clear on the guidelines for the tradeoff -
+> > How much memory/code is considered too much so that you'd have To
+> > ifdef code out instead of 'wasting'?
+> > [I obviously don't claim 64 bytes of memory hit that threshold]
+>=20
+> I don't think code size should ever be a reason for an #ifdef in a .c
+> file: if the code is well-structured, you can always get the same object =
+code
+> using if(IS_ENABLED()) checks within the code at better readability or be=
+tter
+> compile-time coverage.
+>=20
+> Between if(IS_ENABLED()) checks and inline helpers, it usually doesn't ma=
+tter
+> much either way as long as the separation between the modules is clear en=
+ough.
+> In the example above, removing the structure fields however would require=
+ to
+> move the debugging output into another inline function though.
+
+Still, the question remains - If we were to allocate X bytes of memory
+per-something [in this case, per qed owned PCI function], and that memory
+wouldn't be functional without a some CONFIG option enabled,
+how big should X become before we'd decide the fields should also be
+dependent on the option?
+It bears no real relevance to this case, as the fields involved are insigni=
+ficantly
+small. But still - is there a rule of thumb here?
+
+> > BTW, are you interested in doing a v2 for this? Or would you prefer if
+> > we'd pick it up from here?
+>=20
+> I think it's better if you do a v2, as you better understand the long-ter=
+m plans. I'd
+> be happy to test your patch in my randconfig build setup if you like.
+
+Sure.
