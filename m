@@ -1,41 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v10 1/1] net: phy: Cleanup the Edge-Rate
- feature in Microsemi PHYs.
-Date: Thu, 13 Oct 2016 10:01:41 -0400 (EDT)
-Message-ID: <20161013.100141.1588302672560551253.davem@davemloft.net>
-References: <1476108825-14613-1-git-send-email-allan.nielsen@microsemi.com>
-        <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
+Subject: Re: [PATCH V2 net-next] net/mlx5: Add MLX5_ARRAY_SET64 to fix
+ BUILD_BUG_ON
+Date: Thu, 13 Oct 2016 10:13:38 -0400 (EDT)
+Message-ID: <20161013.101338.499759653949678061.davem@davemloft.net>
+References: <1476237430-11756-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
-        raju.lakkaraju@microsemi.com
-To: allan.nielsen@microsemi.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com, leonro@mellanox.com,
+        David.Laight@aculab.com, kernel-team@fb.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32914 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33034 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932461AbcJMOHx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 10:07:53 -0400
-In-Reply-To: <1476108825-14613-2-git-send-email-allan.nielsen@microsemi.com>
+        with ESMTP id S932239AbcJMONk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 10:13:40 -0400
+In-Reply-To: <1476237430-11756-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Date: Mon, 10 Oct 2016 16:13:45 +0200
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Wed, 12 Oct 2016 04:57:10 +0300
 
-> Edge-Rate cleanup include the following:
-> - Updated device tree bindings documentation for edge-rate
-> - The edge-rate is now specified as a "slowdown", meaning that it is now
->   being specified as positive values instead of negative (both
->   documentation and implementation wise).
-> - Only explicitly documented values for "vsc8531,vddmac" and
->   "vsc8531,edge-slowdown" are accepted by the device driver.
-> - Deleted include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
-> - Read/validate devicetree settings in probe instead of init
+> From: Tom Herbert <tom@herbertland.com>
 > 
-> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
-> Signed-off-by: Raju Lakkaraju <raju.lakkaraju@microsemi.com>
+> I am hitting this in mlx5:
+> 
+> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function
+> reclaim_pages_cmd.clone.0:
+> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:346: error: call
+> to __compiletime_assert_346 declared with attribute error:
+> BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_out, pas[i]) % 64
+> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c: In function give_pages:
+> drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c:291: error: call
+> to __compiletime_assert_291 declared with attribute error:
+> BUILD_BUG_ON failed: __mlx5_bit_off(manage_pages_in, pas[i]) % 64
+> 
+> Problem is that this is doing a BUILD_BUG_ON on a non-constant
+> expression because of trying to take offset of pas[i] in the
+> structure.
+> 
+> Fix is to create MLX5_ARRAY_SET64 that takes an additional argument
+> that is the field index to separate between BUILD_BUG_ON on the array
+> constant field and the indexed field to assign the value to.
+> There are two callers of MLX5_SET64 that are trying to get a variable
+> offset, change those to call MLX5_ARRAY_SET64 passing 'pas' and 'i'
+> as the arguments to use in the offset check and the indexed value
+> assignment.
+> 
+> Fixes: a533ed5e179cd ("net/mlx5: Pages management commands via mlx5 ifc")
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 
-This doesn't apply cleanly to net-next, please respin.
-
-Thanks.
+Applied, thanks.
