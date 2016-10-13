@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] xen-netback: (re-)create a debugfs node
- for hash information
-Date: Thu, 13 Oct 2016 09:54:24 -0400 (EDT)
-Message-ID: <20161013.095424.269923992714170690.davem@davemloft.net>
-References: <1476088253-10685-1-git-send-email-paul.durrant@citrix.com>
+Subject: Re: [PATCH] qed: fix old-style function definition
+Date: Thu, 13 Oct 2016 09:55:32 -0400 (EDT)
+Message-ID: <20161013.095532.1238800778112994579.davem@davemloft.net>
+References: <20161010115937.730249-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, wei.liu2@citrix.com, xen-devel@lists.xenproject.org
-To: paul.durrant@citrix.com
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1476088253-10685-1-git-send-email-paul.durrant@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+        everest-linux-l2@qlogic.com, Ram.Amrani@caviumnetworks.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161010115937.730249-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogUGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4KRGF0ZTogTW9uLCAx
-MCBPY3QgMjAxNiAwOTozMDo1MyArMDEwMAoKPiBGcm9tOiBQYXVsIER1cnJhbnQgPFBhdWwuRHVy
-cmFudEBjaXRyaXguY29tPgo+IAo+IEl0IGlzIHVzZWZ1bCB0byBiZSBhYmxlIHRvIHNlZSB0aGUg
-aGFzaCBjb25maWd1cmF0aW9uIHdoZW4gcnVubmluZyB0ZXN0cy4KPiBUaGlzIHBhdGNoIGFkZHMg
-YSBkZWJ1Z2ZzIG5vZGUgZm9yIHRoYXQgcHVycG9zZS4KPiAKPiBUaGUgb3JpZ2luYWwgdmVyc2lv
-biBvZiB0aGlzIHBhdGNoIChjb21taXQgYzBjNjRjMTUyMzg5KSB3YXMgcmV2ZXJ0ZWQgZHVlCj4g
-dG8gYnVpbGQgZmFpbHVyZXMgY2F1c2VkIGJ5IGEgY29uZmxpY3Qgd2l0aCBjb21taXQgMDM2NGE4
-ODI0YzAyCj4gKCJ4ZW4tbmV0YmFjazogc3dpdGNoIHRvIHRocmVhZGVkIGlycSBmb3IgY29udHJv
-bCByaW5nIikuIFRoaXMgbmV3IHZlcnNpb24KPiBvZiB0aGUgcGF0Y2ggaXMgbmVhcmx5IGlkZW50
-aWNhbCB0byB0aGUgb3JpZ2luYWwsIHRoZSBvbmx5IGRpZmZlcmVuY2UKPiBiZWluZyB0aGF0IGNy
-ZWF0aW9uIG9mIHRoZSBkZWJ1Z2ZzIG5vZGUgaXMgcHJlZGljYXRlZCBvbiAnY3RybF9pcnEnIGJl
-aW5nCj4gbm9uLXplcm8gcmF0aGVyIHRoZW4gdGhlIG5vdyBub24tZXhpc3RlbnQgJ2N0cmxfdGFz
-aycuCj4gCj4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4
-LmNvbT4KCkFwcGxpZWQuCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0
-dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
+RnJvbTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCkRhdGU6IE1vbiwgMTAgT2N0IDIw
+MTYgMTM6NTk6MTYgKzAyMDANCg0KPiBUaGUgZGVmaW5pdGlvbiBvZiBxZWRfZ2V0X3JkbWFfb3Bz
+KCkgaXMgbm90IGEgcHJvdG90eXBlIHVubGVzcw0KPiB3ZSBhZGQgJ3ZvaWQnIGhlcmUsIGFzIGlu
+ZGljYXRlZCBieSB0aGlzIFc9MSB3YXJuaW5nOg0KPiANCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQv
+cWxvZ2ljL3FlZC9xZWRfcm9jZS5jOiBJbiBmdW5jdGlvbiChcWVkX2dldF9yZG1hX29wc6I6DQo+
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xZWQvcWVkX3JvY2UuYzoyOTUwOjI4OiBlcnJv
+cjogb2xkLXN0eWxlIGZ1bmN0aW9uIGRlZmluaXRpb24gWy1XZXJyb3I9b2xkLXN0eWxlLWRlZmlu
+aXRpb25dDQo+IA0KPiBGaXhlczogYWJkNDk2NzZjNzA3ICgicWVkOiBBZGQgUm9DRSBsbDIgJiBH
+U0kgc3VwcG9ydCIpDQo+IFNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIu
+ZGU+DQoNCkFnYWluLCBRbG9naWMgZm9sa3MsIHBsZWFzZSBwcm9wZXJseSByZXZpZXcgcGF0Y2hl
+cyBwb3N0ZWQgYWdhaW5zdCB5b3VyDQpkcml2ZXIuDQoNClRoYW5rcy4NCg==
