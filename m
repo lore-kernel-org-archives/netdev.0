@@ -1,42 +1,38 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 3/4] rxrpc: Fix checking of error from ip6_route_output()
-Date: Thu, 13 Oct 2016 17:12:31 +0100
-Message-ID: <147637515104.17348.6976931105913936732.stgit@warthog.procyon.org.uk>
-References: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v4 3/3] net: phy: leds: add support for led triggers on
+ phy link state change
+Date: Thu, 13 Oct 2016 18:40:30 +0200
+Message-ID: <20161013164030.GB1286@lunn.ch>
+References: <1476217580-21229-1-git-send-email-zach.brown@ni.com>
+ <1476217580-21229-4-git-send-email-zach.brown@ni.com>
+ <20161013.104634.2079376697690971907.davem@davemloft.net>
+ <20161013154246.GA17387@zach-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
+ f.fainelli@gmail.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ j.anaszewski@samsung.com, rpurdie@rpsys.net, gregkh@linuxfoundation.org,
+ Larry.Finger@lwfinger.net, David Miller <davem@davemloft.net>,
+ linux-leds@vger.kernel.org, mlindner@marvell.com
+To: Zach Brown <zach.brown@ni.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20161013154246.GA17387@zach-desktop>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-ip6_route_output() doesn't return a negative error when it fails, rather
-the ->error field of the returned dst_entry struct needs to be checked.
+> Do you have suggestions on how to better handle the choice of the array size
+> and the speeds?
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Fixes: 75b54cb57ca3 ("rxrpc: Add IPv6 support")
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+phydev->supported lists the speeds this phy supports.
 
- net/rxrpc/peer_object.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/rxrpc/peer_object.c b/net/rxrpc/peer_object.c
-index 941b724d523b..862eea6b266c 100644
---- a/net/rxrpc/peer_object.c
-+++ b/net/rxrpc/peer_object.c
-@@ -193,8 +193,8 @@ static void rxrpc_assess_MTU_size(struct rxrpc_peer *peer)
- 		fl6->fl6_dport = htons(7001);
- 		fl6->fl6_sport = htons(7000);
- 		dst = ip6_route_output(&init_net, NULL, fl6);
--		if (IS_ERR(dst)) {
--			_leave(" [route err %ld]", PTR_ERR(dst));
-+		if (dst->error) {
-+			_leave(" [route err %d]", dst->error);
- 			return;
- 		}
- 		break;
+	Andrew
