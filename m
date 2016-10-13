@@ -1,85 +1,57 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v6] net: ip, diag -- Add diag interface for raw sockets
-Date: Thu, 13 Oct 2016 18:58:37 +0300
-Message-ID: <20161013155837.GD1847@uranus.lan>
-References: <20161006100055.GA1941@uranus.lan>
- <20161012.015022.2273537782016406180.davem@davemloft.net>
- <20161012065329.GH1941@uranus.lan>
- <20161012.195504.658773172040030000.davem@davemloft.net>
- <20161013071648.GA1946@uranus.lan>
- <e59c339f-ca3d-92e9-88e0-8c3e9e02e01a@cumulusnetworks.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/4] rxrpc: Fixes
+Date: Thu, 13 Oct 2016 17:12:09 +0100
+Message-ID: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        eric.dumazet@gmail.com, jhs@mojatatu.com,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        avagin@openvz.org, stephen@networkplumber.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:34302 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754969AbcJMQLQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 12:11:16 -0400
-Content-Disposition: inline
-In-Reply-To: <e59c339f-ca3d-92e9-88e0-8c3e9e02e01a@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47078 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933052AbcJMQOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Oct 2016 12:14:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 13, 2016 at 09:43:57AM -0600, David Ahern wrote:
-> On 10/13/16 1:16 AM, Cyrill Gorcunov wrote:
-> > On Wed, Oct 12, 2016 at 07:55:04PM -0400, David Miller wrote:
-> >> From: Cyrill Gorcunov <gorcunov@gmail.com>
-> >> Date: Wed, 12 Oct 2016 09:53:29 +0300
-> >>
-> >>> I can't rename the field, neither a can use union.
-> >>
-> >> Remind me again what is wrong with using an anonymous union?
-> > 
-> > Anon union would be a preferred but Eric pointed me that even
-> > though it might cause problems (https://patchwork.kernel.org/patch/9353365/)
-> > 
-> >  | Note that some programs could fail to compile with the added union
-> >  | anyway.
-> >  |
-> >  | Some gcc versions are unable to compile a static init with an union
-> >  |
-> >  | struct inet_diag_req_v2 foo = { .pad = 0, sdiag_family = AF_INET, };
-> >  |
-> >  | When I cooked my recent fq commit I simply removed a pad and replaced
-> >  | it :
-> >  |
-> >  | git show fefa569a9d4bc4 -- include
-> > 
-> 
-> That commit suggests it is acceptable to just rename the
-> pad field, which is the simplest approach.
 
-No. In further message Eric points that
+This set of patches contains a bunch of fixes:
 
-| This is a bit different of course, since struct tc_fq_qd_stats is only
-| one way : Kernel produces the content and gives it to user space.
+ (1) Fix use of kunmap() after change from kunmap_atomic() within AFS.
 
-and we are simply lucky that we didn't break anything in userspace yet.
-IOW, it's not a problem for me simply to
+ (2) Don't use of ERR_PTR() with an always zero value.
 
- - rename it or,
- - use anonymous union
+ (3) Check the right error when using ip6_route_output().
 
-but both options have own problems :/
+ (4) Be consistent about whether call->operation_ID is BE or CPU-E within
+     AFS.
 
-Also I just thought what if we introduce
+The patches can be found here also:
 
-struct inet_diag_req_raw_v2 {
-	__u8	sdiag_family;
-	__u8	sdiag_protocol;
-	__u8	idiag_ext;
-	__u8	sdiag_raw_protocol;
-	__u32	idiag_states;
-	struct inet_diag_sockid id;
-};
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
 
-where @sdiag_raw_protocol explicitly stated and
-will collide with existing struct inet_diag_req_v2?
-This is a hack too of course but at least this
-won't break api definitely.
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20161013
+
+David
+---
+Dan Carpenter (1):
+      afs: unmapping the wrong buffer
+
+David Howells (3):
+      rxrpc: Fix checker warning by not passing always-zero value to ERR_PTR()
+      rxrpc: Fix checking of error from ip6_route_output()
+      afs: call->operation_ID sometimes used as __be32 sometimes as u32
+
+
+ fs/afs/cmservice.c      |    6 ++----
+ fs/afs/fsclient.c       |    4 ++--
+ fs/afs/internal.h       |    2 +-
+ fs/afs/rxrpc.c          |    3 ++-
+ net/rxrpc/call_object.c |    2 +-
+ net/rxrpc/peer_object.c |    4 ++--
+ 6 files changed, 10 insertions(+), 11 deletions(-)
