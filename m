@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/6] fjes: Implement debug mode for fjes driver
-Date: Thu, 13 Oct 2016 10:19:30 -0400 (EDT)
-Message-ID: <20161013.101930.1034896203915503108.davem@davemloft.net>
-References: <1476176047-18670-1-git-send-email-izumi.taku@jp.fujitsu.com>
-        <1476176120-18859-1-git-send-email-izumi.taku@jp.fujitsu.com>
+From: Luca Coelho <luca@coelho.fi>
+Subject: Re: [PATCH] iwlwifi: pcie: fix SPLC structure parsing
+Date: Thu, 13 Oct 2016 17:30:47 +0300
+Message-ID: <1476369047.3880.27.camel@coelho.fi>
+References: <1476349269.3880.18.camel@coelho.fi>
+         <20161013102155.14547-1-luca@coelho.fi>
+         <1476358075.1999.5.camel@tiscali.nl>
+         <CAEUsAPaqyxA1=3ktisBO3Vrw9ygi7PSrk32Rw+iyHVe_WB1oyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: izumi.taku@jp.fujitsu.com
+Cc: linux-wireless@vger.kernel.org, linuxwifi@intel.com,
+        emmanuel.grumbach@intel.com, johannes@sipsolutions.net,
+        kvalo@codeaurora.org, oren.givon@intel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Paul Bolle <pebolle@tiscali.nl>
+To: Chris Rorvick <chris@rorvick.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33324 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932331AbcJMO2r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 10:28:47 -0400
-In-Reply-To: <1476176120-18859-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Received: from paleale.coelho.fi ([176.9.41.70]:48796 "EHLO
+        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752263AbcJMOd3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 10:33:29 -0400
+In-Reply-To: <CAEUsAPaqyxA1=3ktisBO3Vrw9ygi7PSrk32Rw+iyHVe_WB1oyg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Date: Tue, 11 Oct 2016 17:55:20 +0900
+On Thu, 2016-10-13 at 08:56 -0500, Chris Rorvick wrote:
+> Hi Luca,
+> 
+> > On Thu, 2016-10-13 at 13:21 +0300, Luca Coelho wrote:
+> > Could you please give this a spin? I have tested it with some handmade
+> > ACPI tables in QEMU and it seems to work fine now.
+> 
+> 
+> Tested-by: Chris Rorvick <chris@rorvick.com>
+> 
+> I think the debug output looks as expected, see below for the first 20
+> lines or so.  And, more importantly, everything seems to be working!
+> :-)
 
-> This patch implements debug mode for fjes driver.
-> You can get firmware activity information by enabling
-> debug mode. This is useful for debugging.
-> 
-> To enable debug mode, write value of debugging mode to
-> debug_mode file in debugfs:
-> 
->   # echo 1 > /sys/kernel/debug/fjes/fjes.0/debug_mode
-> 
-> To disable debug mode, write 0 to debug_mode file in debugfs:
-> 
->   # echo 0 > /sys/kernel/debug/fjes/fjes.0/debug_mode
-> 
-> Firmware activity information can be retrieved via
-> /sys/kernel/debug/fjes/fjes.0/debug_data file.
-> 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-
-There is no reason to use debugfs for this, we have facilities such
-as ETHTOOL_SET_DUMP et al. that you can use to implement this.
+Yes, you got exactly what was expected.  Thanks for testing!
