@@ -1,46 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 1/3] net: smc91x: isolate u16 writes alignment
- workaround
-Date: Thu, 13 Oct 2016 09:50:12 -0400 (EDT)
-Message-ID: <20161013.095012.244532868281403236.davem@davemloft.net>
-References: <1476045227-2970-1-git-send-email-robert.jarzmik@free.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net_sched: do not broadcast RTM_GETTFILTER result
+Date: Thu, 13 Oct 2016 09:54:03 -0400 (EDT)
+Message-ID: <20161013.095403.1806984759673575482.davem@davemloft.net>
+References: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: robert.jarzmik-GANU6spQydw@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476045227-2970-1-git-send-email-robert.jarzmik-GANU6spQydw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60906 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752150AbcJMNzH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 09:55:07 -0400
+In-Reply-To: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
-Date: Sun,  9 Oct 2016 22:33:45 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 09 Oct 2016 20:25:55 -0700
 
-> Writes to u16 has a special handling on 3 PXA platforms, where the
-> hardware wiring forces these writes to be u32 aligned.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This patch isolates this handling for PXA platforms as before, but
-> enables this "workaround" to be set up dynamically, which will be the
-> case in device-tree build types.
+> There are two ways to get tc filters from kernel to user space.
 > 
-> This patch was tested on 2 PXA platforms : mainstone, which relies on
-> the workaround, and lubbock, which doesn't.
+> 1) Full dump (tc_dump_tfilter())
+> 2) RTM_GETTFILTER to get one precise filter, reducing overhead.
 > 
-> Signed-off-by: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
+> The second operation is unfortunately broadcasting its result,
+> polluting "tc monitor" users.
+> 
+> This patch makes sure only the requester gets the result, using
+> netlink_unicast() instead of rtnetlink_send()
+> 
+> Jamal cooked an iproute2 patch to implement "tc filter get" operation,
+> but other user space libraries already use RTM_GETTFILTER when a single
+> filter is queried, instead of dumping all filters.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Please resubmit this patch series:
+Applied, thanks Eric.
 
-1) Respun against net-next, these don't currently apply cleanly there.
-
-2) With a proper "[PATCH 0/3] ..." posting explaining at a high level
-   what this patch series does, how it does it, and why it does it
-   that way.
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Want me to queue this up for -stable too?
