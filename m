@@ -1,66 +1,42 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH RFC v2 net-next 0/8] net: qualcomm: add QCA7000 UART
- driver
-Date: Thu, 13 Oct 2016 15:08:37 +0200
-Message-ID: <20161013130837.GA17629@kroah.com>
-References: <1474888086-514-1-git-send-email-stefan.wahren@i2se.com>
- <1257730210.379562.ef1d8693-0ff3-4b50-a424-49eebba23da1.open-xchange@email.1und1.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jslaby@suse.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Stefan Wahren <stefan.wahren@i2se.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] net: bridge: add the multicast_flood flag attribute to brport_attrs
+Date: Thu, 13 Oct 2016 15:20:52 +0200
+Message-ID: <1476364852-25777-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
+        davem@davemloft.net,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:52309 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753895AbcJMNKE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 09:10:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1257730210.379562.ef1d8693-0ff3-4b50-a424-49eebba23da1.open-xchange@email.1und1.de>
+Received: from mail-vk0-f52.google.com ([209.85.213.52]:36030 "EHLO
+        mail-vk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753788AbcJMNWb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 09:22:31 -0400
+Received: by mail-vk0-f52.google.com with SMTP id 2so77208092vkb.3
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 06:21:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 13, 2016 at 10:09:09AM +0200, Stefan Wahren wrote:
-> 
-> > Stefan Wahren <stefan.wahren@i2se.com> hat am 26. September 2016 um 13:07
-> > geschrieben:
-> > 
-> > 
-> > The Qualcomm QCA7000 HomePlug GreenPHY supports two interfaces:
-> > UART and SPI. This patch series adds the missing support for UART.
-> > 
-> > This driver based on the Qualcomm code [1], but contains some changes:
-> > * use random MAC address per default
-> > * use net_device_stats from device
-> > * share frame decoding between SPI and UART driver
-> > * improve error handling
-> > * reimplement tty_wakeup with work queue (based on slcan)
-> > 
-> > The patches 1 - 3 are just for clean up and are not related to
-> > the UART support. Patches 4 - 7 prepare the existing QCA7000
-> > code for UART support. The last patch contains the new driver.
-> > 
-> > In order to test the driver a modified slattach in userspace is also
-> > required. A prepared busybox (includes slattach) can be found here [2].
-> > 
-> > The code itself has been tested on a Freescale i.MX28 board.
-> > 
-> > Changes in v2:
-> >   * fix build issue by using netif_trans_update() and dev_trans_start()
-> > 
-> > [1] - https://github.com/IoE/qca7000
-> > [2] - https://github.com/lategoodbye/busybox/commits/qca7k_support_1_24
-> > 
-> 
-> Gently ping, since i didn't receive any comment for this version.
+When I added the multicast flood control flag, I also added an attribute
+for it for sysfs similar to other flags, but I forgot to add it to
+brport_attrs.
 
-Wait, this is an RFC, hah, I don't ever review those as obviously you
-don't think well enough of it to be proposing this for inclusion :)
+Fixes: b6cb5ac8331b ("net: bridge: add per-port multicast flood flag")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/bridge/br_sysfs_if.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Fix up what you think needs to be done and resend it "for real" and it
-will enter my review queue.
-
-thanks,
-
-greg k-h
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index e657258e1f2c..8bd569695e76 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -217,6 +217,7 @@ static const struct brport_attribute *brport_attrs[] = {
+ #endif
+ 	&brport_attr_proxyarp,
+ 	&brport_attr_proxyarp_wifi,
++	&brport_attr_multicast_flood,
+ 	NULL
+ };
+ 
+-- 
+2.1.4
