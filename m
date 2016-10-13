@@ -1,39 +1,44 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 1/1] tc filters: add support to get individual
- filters by handle
-Date: Thu, 13 Oct 2016 07:51:24 -0400
-Message-ID: <f05cfeee-773c-b256-745c-ee479a8bcb10@mojatatu.com>
-References: <1476117914-32207-1-git-send-email-jhs@emojatatu.com>
- <CAM_iQpVo-+jvJaBkJWR5ojkHKWY1fszDjPT+BYG20Vmb-dMtLQ@mail.gmail.com>
+From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
+Subject: Re: [PATCH] iwlwifi: pcie: fix SPLC structure parsing
+Date: Thu, 13 Oct 2016 14:30:22 +0300
+Message-ID: <1476358222.3880.21.camel@coelho.fi>
+References: <1476349269.3880.18.camel@coelho.fi>
+         <20161013102155.14547-1-luca@coelho.fi>
+         <1476358075.1999.5.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Roman Mashak <mrv@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35343 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754038AbcJMLvx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 07:51:53 -0400
-Received: by mail-it0-f65.google.com with SMTP id l13so5680652itl.2
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 04:51:26 -0700 (PDT)
-In-Reply-To: <CAM_iQpVo-+jvJaBkJWR5ojkHKWY1fszDjPT+BYG20Vmb-dMtLQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        oren.givon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        chris-FAYdYWbMHyxBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476358075.1999.5.camel-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16-10-12 12:46 PM, Cong Wang wrote:
-> On Mon, Oct 10, 2016 at 9:45 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->>  tc/tc_filter.c | 185 +++++++++++++++++++++++++++++++++++++++++++++++++++++----
->>  1 file changed, 175 insertions(+), 10 deletions(-)
->
-> Please update man/man8/tc.8 too, but can be a separated patch. ;)
->
+On Thu, 2016-10-13 at 13:27 +0200, Paul Bolle wrote:
+> Luca,
+> 
+> On Thu, 2016-10-13 at 13:21 +0300, Luca Coelho wrote:
+> > Could you please give this a spin? I have tested it with some handmade
+> > ACPI tables in QEMU and it seems to work fine now.
+> 
+> 
+> Tested-by: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
+> 
+> Not that this test was worth a lot: it builds cleanly (on top of
+> 4.8.1), the error at boot is gone, obviously, and wifi still works (as
+> you're reading a message that was sent out over wifi). And I haven't
+> even tested this on another machine than my XPS 13 (9350).
 
-Excellent point.
-Punted to Roman ;->
+Thanks for testing!
 
-cheers,
-jamal
+I forgot to say... could you load the iwlwifi module with debug=0x01
+(module parameter), so we can see the messages the driver is printing
+when it doesn't find a proper structure?
+
+--
+Luca.
