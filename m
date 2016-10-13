@@ -1,53 +1,28 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net 2/2] conntrack: enable to tune gc parameters
-Date: Thu, 13 Oct 2016 22:43:38 +0200
-Message-ID: <20161013204338.GA32449@breakpoint.cc>
-References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
- <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
- <20161010140424.GB21057@breakpoint.cc>
- <cdda5290-c49c-e841-6ba5-10b30fd04fc0@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net_sched: do not broadcast RTM_GETTFILTER result
+Date: Thu, 13 Oct 2016 23:08:42 +0200
+Message-ID: <1476392922.5650.26.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1476069955.28155.292.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161013.095403.1806984759673575482.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: Florian Westphal <fw@strlen.de>, davem@davemloft.net,
-        pablo@netfilter.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cdda5290-c49c-e841-6ba5-10b30fd04fc0@6wind.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:36658 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753566AbcJMVJp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 17:09:45 -0400
+Received: by mail-lf0-f66.google.com with SMTP id b75so14472431lfg.3
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 14:09:23 -0700 (PDT)
+In-Reply-To: <20161013.095403.1806984759673575482.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> Le 10/10/2016 à 16:04, Florian Westphal a écrit :
-> > Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> >> After commit b87a2f9199ea ("netfilter: conntrack: add gc worker to remove
-> >> timed-out entries"), netlink conntrack deletion events may be sent with a
-> >> huge delay. It could be interesting to let the user tweak gc parameters
-> >> depending on its use case.
-> > 
-> > Hmm, care to elaborate?
-> > 
-> > I am not against doing this but I'd like to hear/read your use case.
-> > 
-> > The expectation is that in almot all cases eviction will happen from
-> > packet path.  The gc worker is jusdt there for case where a busy system
-> > goes idle.
-> It was precisely that case. After a period of activity, the event is sent a long
-> time after the timeout. If the router does not manage a lot of flows, why not
-> trying to parse more entries instead of the default 1/64 of the table?
-> In fact, I don't understand why using GC_MAX_BUCKETS_DIV instead of using always
-> GC_MAX_BUCKETS whatever the size of the table is.
+On Thu, 2016-10-13 at 09:54 -0400, David Miller wrote:
+> Applied, thanks Eric.
+> 
+> Want me to queue this up for -stable too?
 
-I wanted to make sure that we have a known upper bound on the number of
-buckets we process so that we do not block other pending kworker items
-for too long.
-
-(Or cause too many useless scans)
-
-Another idea worth trying might be to get rid of the max cap and
-instead break early in case too many jiffies expired.
-
-I don't want to add sysctl knobs for this unless absolutely needed; its already
-possible to 'force' eviction cycle by running 'conntrack -L'.
+No thanks, it just occurred to me during a debugging session.
