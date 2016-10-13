@@ -1,66 +1,50 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v2 net-next 7/7] qed: Fix possible race when reading firmware return code.
-Date: Thu, 13 Oct 2016 07:22:51 -0400
-Message-ID: <1476357771-1578-8-git-send-email-manish.chopra@qlogic.com>
-References: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v4 net-next 3/4] net/sched: tc_mirred: Rename public
+ predicates 'is_tcf_mirred_redirect' and 'is_tcf_mirred_mirror'
+Date: Thu, 13 Oct 2016 07:57:06 -0400
+Message-ID: <e602a620-d4f9-6788-eca4-a666966a9448@mojatatu.com>
+References: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
+ <1476338804-25440-4-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-        Manish Chopra <manish.chopra@caviumnetworks.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Hariprasad S <hariprasad@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:33202 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754344AbcJMMIz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 08:08:55 -0400
-In-Reply-To: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35844 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754728AbcJMMJC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 08:09:02 -0400
+Received: by mail-io0-f193.google.com with SMTP id o141so4773168ioe.3
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 05:09:02 -0700 (PDT)
+In-Reply-To: <1476338804-25440-4-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@caviumnetworks.com>
+On 16-10-13 02:06 AM, Shmulik Ladkani wrote:
+> These accessors are used in various drivers that support tc offloading,
+> to detect properties of a given 'tc_action'.
+>
+> 'is_tcf_mirred_redirect' tests that the action is TCA_EGRESS_REDIR.
+> 'is_tcf_mirred_mirror' tests that the action is TCA_EGRESS_MIRROR.
+>
+> As a prep towards supporting INGRESS redir/mirror, rename these
+> predicates to reflect their true meaning:
+>   s/is_tcf_mirred_redirect/is_tcf_mirred_egress_redirect/
+>   s/is_tcf_mirred_mirror/is_tcf_mirred_egress_mirror/
+>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-While handling SPQ ramrod completion, there is a possible race
-where driver might not read updated fw return code based on
-ramrod completion done. This patch ensures that fw return code
-is written first and then completion done flag is updated
-using appropriate memory barriers.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Signed-off-by: Manish Chopra <manish.chopra@caviumnetworks.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
----
- drivers/net/ethernet/qlogic/qed/qed_spq.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index 259a615..6c05402 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -54,11 +54,10 @@ static void qed_spq_blocking_cb(struct qed_hwfn *p_hwfn,
- 
- 	comp_done = (struct qed_spq_comp_done *)cookie;
- 
--	comp_done->done			= 0x1;
--	comp_done->fw_return_code	= fw_return_code;
-+	comp_done->fw_return_code = fw_return_code;
- 
--	/* make update visible to waiting thread */
--	smp_wmb();
-+	/* Make sure completion done is visible on waiting thread */
-+	smp_store_release(&comp_done->done, 0x1);
- }
- 
- static int __qed_spq_block(struct qed_hwfn *p_hwfn,
-@@ -74,8 +73,9 @@ static int __qed_spq_block(struct qed_hwfn *p_hwfn,
- 
- 	while (iter_cnt--) {
- 		/* Validate we receive completion update */
--		smp_rmb();
--		if (comp_done->done == 1) {
-+		if (READ_ONCE(comp_done->done) == 1) {
-+			/* Read updated FW return value */
-+			smp_read_barrier_depends();
- 			if (p_fw_ret)
- 				*p_fw_ret = comp_done->fw_return_code;
- 			return 0;
--- 
-2.7.2
+cheers,
+jamal
