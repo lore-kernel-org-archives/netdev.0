@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] IPv6: fix DESYNC_FACTOR
-Date: Fri, 14 Oct 2016 10:59:40 -0400 (EDT)
-Message-ID: <20161014.105940.1675318884308466691.davem@davemloft.net>
-References: <20161013165215.52jxdlkh7v5octl7@dwarf.suse.cz>
+Subject: Re: [PATCH 1/2] IPv6: Drop the temporary address regen_timer
+Date: Fri, 14 Oct 2016 10:59:33 -0400 (EDT)
+Message-ID: <20161014.105933.75588707766999077.davem@davemloft.net>
+References: <20161013165002.zn7wgjbacs34i73i@dwarf.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -10,63 +10,30 @@ Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
         kaber@trash.net, netdev@vger.kernel.org
 To: jbohac@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48028 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48004 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932355AbcJNO7m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:59:42 -0400
-In-Reply-To: <20161013165215.52jxdlkh7v5octl7@dwarf.suse.cz>
+        with ESMTP id S1752843AbcJNO7g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:59:36 -0400
+In-Reply-To: <20161013165002.zn7wgjbacs34i73i@dwarf.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Bohac <jbohac@suse.cz>
-Date: Thu, 13 Oct 2016 18:52:15 +0200
+Date: Thu, 13 Oct 2016 18:50:02 +0200
 
-> The IPv6 temporary address generation uses a variable called DESYNC_FACTOR
-> to prevent hosts updating the addresses at the same time. Quoting RFC 4941:
+> The randomized interface identifier (rndid) was periodically updated from
+> the regen_timer timer. Simplify the code by updating the rndid only when
+> needed by ipv6_try_regen_rndid().
 > 
->    ... The value DESYNC_FACTOR is a random value (different for each
->    client) that ensures that clients don't synchronize with each other and
->    generate new addresses at exactly the same time ...
-> 
-> DESYNC_FACTOR is defined as:
-> 
->    DESYNC_FACTOR -- A random value within the range 0 - MAX_DESYNC_FACTOR.
->    It is computed once at system start (rather than each time it is used)
->    and must never be greater than (TEMP_VALID_LIFETIME - REGEN_ADVANCE).
-> 
-> First, I believe the RFC has a typo in it and meant to say: "and must
-> never be greater than (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE)"
-> 
-> The reason is that at various places in the RFC, DESYNC_FACTOR is used in
-> a calculation like (TEMP_PREFERRED_LIFETIME - DESYNC_FACTOR) or
-> (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE - DESYNC_FACTOR). It needs to be
-> smaller than (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE) for the result of
-> these calculations to be larger than zero. It's never used in a
-> calculation together with TEMP_VALID_LIFETIME.
-> 
-> I already submitted an errata to the rfc-editor:
-> https://www.rfc-editor.org/errata_search.php?rfc=4941
-> 
-> The Linux implementation of DESYNC_FACTOR is very wrong:
-> max_desync_factor is used in places DESYNC_FACTOR should be used.
-> max_desync_factor is initialized to the RFC-recommended value for
-> MAX_DESYNC_FACTOR (600) but the whole point is to get a _random_ value.
-> 
-> And nothing ensures that the value used is not greater than
-> (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE), which leads to underflows.  The
-> effect can easily be observed when setting the temp_prefered_lft sysctl
-> e.g. to 60. The preferred lifetime of the temporary addresses will be
-> bogus.
-> 
-> TEMP_PREFERRED_LIFETIME and REGEN_ADVANCE are not constants and can be
-> influenced by these three sysctls: regen_max_retry, dad_transmits and
-> temp_prefered_lft. Thus, the upper bound for desync_factor needs to be
-> re-calculated each time a new address is generated and if desync_factor is
-> larger than the new upper bound, a new random value needs to be
-> re-generated.
-> 
-> And since we already have max_desync_factor configurable per interface, we
-> also need to calculate and store desync_factor per interface.
+> This makes the follow-up DESYNC_FACTOR fix much simpler.  Also it fixes a
+> reference counting error in this error path, where an in6_dev_put was
+> missing:
+> 		err = addrconf_sysctl_register(ndev);
+> 		if (err) {
+> 			ipv6_mc_destroy_dev(ndev);
+> 	-               del_timer(&ndev->regen_timer);
+> 			snmp6_unregister_dev(ndev);
+> 			goto err_release;
 > 
 > Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
