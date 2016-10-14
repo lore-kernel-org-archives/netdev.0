@@ -1,116 +1,190 @@
-From: Joel Stanley <joel@jms.id.au>
-Subject: Re: [PATCH net 2/5] net/ncsi: Split out logic for ncsi_dev_state_suspend_select
-Date: Fri, 14 Oct 2016 16:32:22 +1030
-Message-ID: <CACPK8Xe58OE=WKZWL16K33FsY0vXb+i47PNG+nLSdhwmCeWNGw@mail.gmail.com>
-References: <1476413614-24586-1-git-send-email-gwshan@linux.vnet.ibm.com> <1476413614-24586-3-git-send-email-gwshan@linux.vnet.ibm.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/2] ila: Cache a route to translated address
+Date: Thu, 13 Oct 2016 23:22:14 -0700
+Message-ID: <58007996.2070500@cumulusnetworks.com>
+References: <20161014005743.288956-1-tom@herbertland.com> <20161014005743.288956-3-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:33093 "EHLO
-        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754327AbcJNGSw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 02:18:52 -0400
-Received: by mail-vk0-f65.google.com with SMTP id 83so3516465vkd.0
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 23:18:34 -0700 (PDT)
-In-Reply-To: <1476413614-24586-3-git-send-email-gwshan@linux.vnet.ibm.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36666 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754879AbcJNGWV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 02:22:21 -0400
+Received: by mail-pf0-f176.google.com with SMTP id e6so45329443pfk.3
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 23:22:15 -0700 (PDT)
+In-Reply-To: <20161014005743.288956-3-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Gavin,
-
-On Fri, Oct 14, 2016 at 1:23 PM, Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
-> This splits out the code that handles ncsi_dev_state_suspend_select
-> so that we can add more code to the handler in subsequent patch.
-> Apart from adding a error tag to reuse the code in error path,
-> no logical changes introduced.
+On 10/13/16, 5:57 PM, Tom Herbert wrote:
+> Add a dst_cache to ila_lwt structure. This holds a cached route for the
+> translated address. In ila_output we now perform a route lookup after
+> translation and if possible (destination in original route is full 128
+> bits) we set the dst_cache. Subsequent calls to ila_output can then use
+> the cache to avoid the route lookup.
 >
-> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+> This eliminates the need to set the gateway on ILA routes as previously
+> was being done. Now we can do something like:
+>
+> ./ip route add 3333::2000:0:0:2/128 encap ila 2222:0:0:2 \
+>     csum-mode neutral-map dev eth0  ## No via needed!
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 > ---
->  net/ncsi/ncsi-manage.c | 38 +++++++++++++++++++++++++-------------
->  1 file changed, 25 insertions(+), 13 deletions(-)
->
-> diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-> index 1bc96dc..5758a26 100644
-> --- a/net/ncsi/ncsi-manage.c
-> +++ b/net/ncsi/ncsi-manage.c
-> @@ -540,21 +540,30 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
->                 nd->state = ncsi_dev_state_suspend_select;
->                 /* Fall through */
->         case ncsi_dev_state_suspend_select:
-> +               ndp->pending_req_num = 1;
-> +
-> +               nca.type = NCSI_PKT_CMD_SP;
-> +               nca.package = np->id;
-> +               nca.channel = NCSI_RESERVED_CHANNEL;
-> +               if (ndp->flags & NCSI_DEV_HWA)
-> +                       nca.bytes[0] = 0;
-> +               else
-> +                       nca.bytes[0] = 1;
-> +
-> +               nd->state = ncsi_dev_state_suspend_dcnt;
-> +
-> +               ret = ncsi_xmit_cmd(&nca);
-> +               if (ret)
-> +                       goto error;
-> +
-> +               break;
->         case ncsi_dev_state_suspend_dcnt:
->         case ncsi_dev_state_suspend_dc:
->         case ncsi_dev_state_suspend_deselect:
->                 ndp->pending_req_num = 1;
->
->                 nca.package = np->id;
-> -               if (nd->state == ncsi_dev_state_suspend_select) {
-> -                       nca.type = NCSI_PKT_CMD_SP;
-> -                       nca.channel = NCSI_RESERVED_CHANNEL;
-> -                       if (ndp->flags & NCSI_DEV_HWA)
-> -                               nca.bytes[0] = 0;
-> -                       else
-> -                               nca.bytes[0] = 1;
-> -                       nd->state = ncsi_dev_state_suspend_dcnt;
-> -               } else if (nd->state == ncsi_dev_state_suspend_dcnt) {
-> +               if (nd->state == ncsi_dev_state_suspend_dcnt) {
->                         nca.type = NCSI_PKT_CMD_DCNT;
->                         nca.channel = nc->id;
->                         nd->state = ncsi_dev_state_suspend_dc;
+ Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This is a messy switch statement. How about break out out all of the
-states as you've done with suspend_select, instead of grouping them
-and then doing if ... else if .. else if. I realise there might be one
-or two lines duplicated for each state, but I think that's okay at the
-expense of readability.
+This is a nice way to cache and redirect to a new dst.
 
-Also, patch 1 could also be merged into this when making this cleanup.
+This removes the last and only user of lwt orig_output. we can drop it
+subsequently. But since orig_input is still in use, probably better to keep it
+around for symmetry and for other uses in the future.
 
-What do you think?
+thanks.
 
-> @@ -570,10 +579,8 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
->                 }
+
+
+>  net/ipv6/ila/ila_lwt.c | 76 +++++++++++++++++++++++++++++++++++++++++++++++---
+>  1 file changed, 72 insertions(+), 4 deletions(-)
 >
->                 ret = ncsi_xmit_cmd(&nca);
-> -               if (ret) {
-> -                       nd->state = ncsi_dev_state_functional;
-> -                       return;
-> -               }
-> +               if (ret)
-> +                       goto error;
->
->                 break;
->         case ncsi_dev_state_suspend_done:
-> @@ -587,6 +594,11 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
->                 netdev_warn(nd->dev, "Wrong NCSI state 0x%x in suspend\n",
->                             nd->state);
->         }
+> diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
+> index e50c27a..df14b00 100644
+> --- a/net/ipv6/ila/ila_lwt.c
+> +++ b/net/ipv6/ila/ila_lwt.c
+> @@ -6,29 +6,80 @@
+>  #include <linux/socket.h>
+>  #include <linux/types.h>
+>  #include <net/checksum.h>
+> +#include <net/dst_cache.h>
+>  #include <net/ip.h>
+>  #include <net/ip6_fib.h>
+> +#include <net/ip6_route.h>
+>  #include <net/lwtunnel.h>
+>  #include <net/protocol.h>
+>  #include <uapi/linux/ila.h>
+>  #include "ila.h"
+>  
+> +struct ila_lwt {
+> +	struct ila_params p;
+> +	struct dst_cache dst_cache;
+> +	u32 connected : 1;
+> +};
 > +
-> +       return;
+> +static inline struct ila_lwt *ila_lwt_lwtunnel(
+> +	struct lwtunnel_state *lwstate)
+> +{
+> +	return (struct ila_lwt *)lwstate->data;
+> +}
 > +
-> +error:
-> +       nd->state = ncsi_dev_state_functional;
+>  static inline struct ila_params *ila_params_lwtunnel(
+>  	struct lwtunnel_state *lwstate)
+>  {
+> -	return (struct ila_params *)lwstate->data;
+> +	return &((struct ila_lwt *)lwstate->data)->p;
 >  }
->
->  static void ncsi_configure_channel(struct ncsi_dev_priv *ndp)
-> --
-> 2.1.0
->
+>  
+>  static int ila_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+>  {
+> -	struct dst_entry *dst = skb_dst(skb);
+> +	struct dst_entry *orig_dst = skb_dst(skb);
+> +	struct ila_lwt *ilwt = ila_lwt_lwtunnel(orig_dst->lwtstate);
+> +	struct dst_entry *dst;
+> +	int err = -EINVAL;
+>  
+>  	if (skb->protocol != htons(ETH_P_IPV6))
+>  		goto drop;
+>  
+> -	ila_update_ipv6_locator(skb, ila_params_lwtunnel(dst->lwtstate), true);
+> +	ila_update_ipv6_locator(skb, ila_params_lwtunnel(orig_dst->lwtstate),
+> +				true);
+>  
+> -	return dst->lwtstate->orig_output(net, sk, skb);
+> +	dst = dst_cache_get(&ilwt->dst_cache);
+> +	if (unlikely(!dst)) {
+> +		struct ipv6hdr *ip6h = ipv6_hdr(skb);
+> +		struct flowi6 fl6;
+> +
+> +		/* Lookup a route for the new destination. Take into
+> +		 * account that the base route may already have a gateway.
+> +		 */
+> +
+> +		memset(&fl6, 0, sizeof(fl6));
+> +		fl6.flowi6_oif = orig_dst->dev->ifindex;
+> +		fl6.flowi6_iif = LOOPBACK_IFINDEX;
+> +		fl6.daddr = *rt6_nexthop((struct rt6_info *)orig_dst,
+> +					 &ip6h->daddr);
+> +
+> +		dst = ip6_route_output(net, NULL, &fl6);
+> +		if (dst->error) {
+> +			err = -EHOSTUNREACH;
+> +			dst_release(dst);
+> +			goto drop;
+> +		}
+> +
+> +		dst = xfrm_lookup(net, dst, flowi6_to_flowi(&fl6), NULL, 0);
+> +		if (IS_ERR(dst)) {
+> +			err = PTR_ERR(dst);
+> +			goto drop;
+> +		}
+> +
+> +		if (ilwt->connected)
+> +			dst_cache_set_ip6(&ilwt->dst_cache, dst, &fl6.saddr);
+> +	}
+> +
+> +	skb_dst_set(skb, dst);
+> +	return dst_output(dev_net(skb_dst(skb)->dev), sk, skb);
+>  
+>  drop:
+>  	kfree_skb(skb);
+> @@ -60,6 +111,7 @@ static int ila_build_state(struct net_device *dev, struct nlattr *nla,
+>  			   unsigned int family, const void *cfg,
+>  			   struct lwtunnel_state **ts)
+>  {
+> +	struct ila_lwt *ilwt;
+>  	struct ila_params *p;
+>  	struct nlattr *tb[ILA_ATTR_MAX + 1];
+>  	size_t encap_len = sizeof(*p);
+> @@ -99,6 +151,13 @@ static int ila_build_state(struct net_device *dev, struct nlattr *nla,
+>  	if (!newts)
+>  		return -ENOMEM;
+>  
+> +	ilwt = ila_lwt_lwtunnel(newts);
+> +	ret = dst_cache_init(&ilwt->dst_cache, GFP_ATOMIC);
+> +	if (ret) {
+> +		kfree(newts);
+> +		return ret;
+> +	}
+> +
+>  	newts->len = encap_len;
+>  	p = ila_params_lwtunnel(newts);
+>  
+> @@ -120,11 +179,19 @@ static int ila_build_state(struct net_device *dev, struct nlattr *nla,
+>  	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
+>  			LWTUNNEL_STATE_INPUT_REDIRECT;
+>  
+> +	if (cfg6->fc_dst_len == sizeof(struct in6_addr))
+> +		ilwt->connected = 1;
+> +
+>  	*ts = newts;
+>  
+>  	return 0;
+>  }
+>  
+> +static void ila_destroy_state(struct lwtunnel_state *lwt)
+> +{
+> +	dst_cache_destroy(&ila_lwt_lwtunnel(lwt)->dst_cache);
+> +}
+> +
+>  static int ila_fill_encap_info(struct sk_buff *skb,
+>  			       struct lwtunnel_state *lwtstate)
+>  {
+> @@ -159,6 +226,7 @@ static int ila_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
+>  
+>  static const struct lwtunnel_encap_ops ila_encap_ops = {
+>  	.build_state = ila_build_state,
+> +	.destroy_state = ila_destroy_state,
+>  	.output = ila_output,
+>  	.input = ila_input,
+>  	.fill_encap = ila_fill_encap_info,
