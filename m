@@ -1,86 +1,149 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3] IB/ipoib: move back IB LL address into the hard header
-Date: Fri, 14 Oct 2016 13:23:31 +0300
-Message-ID: <CAJ3xEMi7DY7_3vM+553dC4w17W==CdUdtn5PdzzCCUxtj434dQ@mail.gmail.com>
-References: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni@redhat.com>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH net 2/5] net/ncsi: Split out logic for
+ ncsi_dev_state_suspend_select
+Date: Fri, 14 Oct 2016 21:28:32 +1100
+Message-ID: <20161014102832.GA6278@gwshan>
+References: <1476413614-24586-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1476413614-24586-3-git-send-email-gwshan@linux.vnet.ibm.com>
+ <CACPK8Xe58OE=WKZWL16K33FsY0vXb+i47PNG+nLSdhwmCeWNGw@mail.gmail.com>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org,
+        davem@davemloft.net
+To: Joel Stanley <joel@jms.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:33786 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752221AbcJNK3l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:29:41 -0400
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9EANroD117761
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 06:28:09 -0400
+Received: from e23smtp06.au.ibm.com (e23smtp06.au.ibm.com [202.81.31.148])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 262uvcwncp-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 06:28:09 -0400
+Received: from localhost
+        by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Fri, 14 Oct 2016 20:28:06 +1000
+Received: from d23relay07.au.ibm.com (d23relay07.au.ibm.com [9.190.26.37])
+        by d23dlp01.au.ibm.com (Postfix) with ESMTP id BB3122CE8054
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 21:28:04 +1100 (EST)
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u9EAS4dM11272332
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 21:28:04 +1100
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+        by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u9EAS4dl001377
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 21:28:04 +1100
+Content-Disposition: inline
+In-Reply-To: <CACPK8Xe58OE=WKZWL16K33FsY0vXb+i47PNG+nLSdhwmCeWNGw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 13, 2016 at 7:26 PM, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> After the commit 9207f9d45b0a ("net: preserve IP control block
-> during GSO segmentation"), the GSO CB and the IPoIB CB conflict.
-
-the commit --> commit (remove the word "the" to make the sentence a
-bit more clear)
-
-> That destroy the IPoIB address information cached there,
-> causing a severe performance regression, as better described here:
-
-> http://marc.info/?l=linux-kernel&m=146787279825501&w=2
-
-I don't think that links into this archive last for long.. try to find
-something better
-best if you can provide quick wording telling what is broken (e.g HW LSO)
-
-> This change moves the data cached by the IPoIB driver from the
-> skb control lock into the IPoIB hard header, as done before
-
-lock --> block ?
-
-> the commit 936d7de3d736 ("IPoIB: Stop lying about hard_header_len
-
-the commit --> commit
-
-> and use skb->cb to stash LL addresses").
-> In order to avoid GRO issue, on packet reception, the IPoIB driver
-> stash into the skb a dummy pseudo header, so that the received
-> packets have actually a hard header matching the declared length.
-> To avoid changing the connected mode maximum mtu, the allocated
-> head buffer size is increased by the pseudo header length.
-
-> After this commit, IPoIB performances are back to pre-regression
-> value.
+On Fri, Oct 14, 2016 at 04:32:22PM +1030, Joel Stanley wrote:
+>Hi Gavin,
 >
-> v2 -> v3: rebased
-> v1 -> v2: avoid changing the max mtu, increasing the head buf size
+>On Fri, Oct 14, 2016 at 1:23 PM, Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
+>> This splits out the code that handles ncsi_dev_state_suspend_select
+>> so that we can add more code to the handler in subsequent patch.
+>> Apart from adding a error tag to reuse the code in error path,
+>> no logical changes introduced.
+>>
+>> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+>> ---
+>>  net/ncsi/ncsi-manage.c | 38 +++++++++++++++++++++++++-------------
+>>  1 file changed, 25 insertions(+), 13 deletions(-)
+>>
+>> diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
+>> index 1bc96dc..5758a26 100644
+>> --- a/net/ncsi/ncsi-manage.c
+>> +++ b/net/ncsi/ncsi-manage.c
+>> @@ -540,21 +540,30 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
+>>                 nd->state = ncsi_dev_state_suspend_select;
+>>                 /* Fall through */
+>>         case ncsi_dev_state_suspend_select:
+>> +               ndp->pending_req_num = 1;
+>> +
+>> +               nca.type = NCSI_PKT_CMD_SP;
+>> +               nca.package = np->id;
+>> +               nca.channel = NCSI_RESERVED_CHANNEL;
+>> +               if (ndp->flags & NCSI_DEV_HWA)
+>> +                       nca.bytes[0] = 0;
+>> +               else
+>> +                       nca.bytes[0] = 1;
+>> +
+>> +               nd->state = ncsi_dev_state_suspend_dcnt;
+>> +
+>> +               ret = ncsi_xmit_cmd(&nca);
+>> +               if (ret)
+>> +                       goto error;
+>> +
+>> +               break;
+>>         case ncsi_dev_state_suspend_dcnt:
+>>         case ncsi_dev_state_suspend_dc:
+>>         case ncsi_dev_state_suspend_deselect:
+>>                 ndp->pending_req_num = 1;
+>>
+>>                 nca.package = np->id;
+>> -               if (nd->state == ncsi_dev_state_suspend_select) {
+>> -                       nca.type = NCSI_PKT_CMD_SP;
+>> -                       nca.channel = NCSI_RESERVED_CHANNEL;
+>> -                       if (ndp->flags & NCSI_DEV_HWA)
+>> -                               nca.bytes[0] = 0;
+>> -                       else
+>> -                               nca.bytes[0] = 1;
+>> -                       nd->state = ncsi_dev_state_suspend_dcnt;
+>> -               } else if (nd->state == ncsi_dev_state_suspend_dcnt) {
+>> +               if (nd->state == ncsi_dev_state_suspend_dcnt) {
+>>                         nca.type = NCSI_PKT_CMD_DCNT;
+>>                         nca.channel = nc->id;
+>>                         nd->state = ncsi_dev_state_suspend_dc;
+>
+>This is a messy switch statement. How about break out out all of the
+>states as you've done with suspend_select, instead of grouping them
+>and then doing if ... else if .. else if. I realise there might be one
+>or two lines duplicated for each state, but I think that's okay at the
+>expense of readability.
+>
+>Also, patch 1 could also be merged into this when making this cleanup.
+>
+>What do you think?
+>
 
-> Fixes: 9207f9d45b0a ("net: preserve IP control block during GSO segmentation")
-> Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Thanks, Joel. I agree with you that code readability is important than
+duplicated code. I will do in next revision.
 
-Paolo,
+Thanks,
+Gavin
 
-Is this fix backportable to any kernel since the breakage? AFAIR,
-Roland mentioned
-that a 2nd change introduced in 4.7-rc1 changed things a bit more such
-that the fix
-he had in his head didn't apply any more.
-
-Dave, Doug
-
-I am still travelling after netdev and would like to put an eye on the
-patch and also see that @mellanox.com someone
-provides a  tested-by ack. Considering the fact that the bug is soon
-to (de-)celebrate it's 1st anniversary and as we're still not in rc1,
-the patch has enough time to get into 4.9... can you let it be here
-for another week or so?
-
-Or
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> @@ -570,10 +579,8 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
+>>                 }
+>>
+>>                 ret = ncsi_xmit_cmd(&nca);
+>> -               if (ret) {
+>> -                       nd->state = ncsi_dev_state_functional;
+>> -                       return;
+>> -               }
+>> +               if (ret)
+>> +                       goto error;
+>>
+>>                 break;
+>>         case ncsi_dev_state_suspend_done:
+>> @@ -587,6 +594,11 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
+>>                 netdev_warn(nd->dev, "Wrong NCSI state 0x%x in suspend\n",
+>>                             nd->state);
+>>         }
+>> +
+>> +       return;
+>> +
+>> +error:
+>> +       nd->state = ncsi_dev_state_functional;
+>>  }
+>>
+>>  static void ncsi_configure_channel(struct ncsi_dev_priv *ndp)
+>> --
+>> 2.1.0
+>>
+>
