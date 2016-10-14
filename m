@@ -1,61 +1,103 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH net 0/5] net/ncsi: More bug fixes
-Date: Fri, 14 Oct 2016 13:53:29 +1100
-Message-ID: <1476413614-24586-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Cc: davem@davemloft.net, joel@jms.id.au,
-        Gavin Shan <gwshan@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: limit a number of namespaces which can be cleaned up concurrently
+Date: Thu, 13 Oct 2016 22:06:28 -0500
+Message-ID: <87k2db39zf.fsf@x220.int.ebiederm.org>
+References: <1476293579-28582-1-git-send-email-avagin@openvz.org>
+        <871szk9rl9.fsf@x220.int.ebiederm.org>
+        <20161013204405.GA19836@outlook.office365.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Andrei Vagin <avagin@openvz.org>, <netdev@vger.kernel.org>,
+        <containers@lists.linux-foundation.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Andrei Vagin <avagin@virtuozzo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:52645 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751437AbcJNCyo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 22:54:44 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9E2nMwn013314
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 22:53:02 -0400
-Received: from e23smtp05.au.ibm.com (e23smtp05.au.ibm.com [202.81.31.147])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 262f43gncn-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 22:53:02 -0400
-Received: from localhost
-        by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Fri, 14 Oct 2016 12:53:00 +1000
-Received: from d23relay08.au.ibm.com (d23relay08.au.ibm.com [9.185.71.33])
-        by d23dlp02.au.ibm.com (Postfix) with ESMTP id B299D2BB005A
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 13:52:56 +1100 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-        by d23relay08.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u9E2quwG18284664
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 13:52:56 +1100
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-        by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u9E2qumt027277
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 13:52:56 +1100
+Received: from out01.mta.xmission.com ([166.70.13.231]:39712 "EHLO
+        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751559AbcJNDIb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 23:08:31 -0400
+In-Reply-To: <20161013204405.GA19836@outlook.office365.com> (Andrei Vagin's
+        message of "Thu, 13 Oct 2016 13:44:06 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series fixes 2 issues that were found during NCSI's availability
-testing on BCM5718 and improves HNCDSC AEN handler:
+Andrei Vagin <avagin@virtuozzo.com> writes:
 
-   * PATCH[1] and PATCH[2] refactors the code so that minimal code
-     change is put to PATCH[3].
-   * PATCH[3] fixes the NCSI channel's stale link state before doing
-     failover.
-   * PATCH[4] chooses the hot channel, which was ever chosen as active
-     channel, when the available channels are all in link-down state.
-   * PATCH[5] improves Host Network Controller Driver Status Change
-     (HNCDSC) AEN handler
+> On Thu, Oct 13, 2016 at 10:49:38AM -0500, Eric W. Biederman wrote:
+>> Andrei Vagin <avagin@openvz.org> writes:
+>> 
+>> > From: Andrey Vagin <avagin@openvz.org>
+>> >
+>> > The operation of destroying netns is heavy and it is executed under
+>> > net_mutex. If many namespaces are destroyed concurrently, net_mutex can
+>> > be locked for a long time. It is impossible to create a new netns during
+>> > this period of time.
+>> 
+>> This may be the right approach or at least the right approach to bound
+>> net_mutex hold times but I have to take exception to calling network
+>> namespace cleanup heavy.
+>> 
+>> The only particularly time consuming operation I have ever found are calls to
+>> synchronize_rcu/sycrhonize_sched/synchronize_net.
+>
+> I booted the kernel with maxcpus=1, in this case these functions work
+> very fast and the problem is there any way.
+>
+> Accoding to perf, we spend a lot of time in kobject_uevent:
+>
+> -   99.96%     0.00%  kworker/u4:1     [kernel.kallsyms]  [k] unregister_netdevice_many                                                                      ▒
+>    - unregister_netdevice_many                                                                                                                               ◆
+>       - 99.95% rollback_registered_many                                                                                                                      ▒
+>          - 99.64% netdev_unregister_kobject                                                                                                                  ▒
+>             - 33.43% netdev_queue_update_kobjects                                                                                                            ▒
+>                - 33.40% kobject_put                                                                                                                          ▒
+>                   - kobject_release                                                                                                                          ▒
+>                      + 33.37% kobject_uevent                                                                                                                 ▒
+>                      + 0.03% kobject_del                                                                                                                     ▒
+>                + 0.03% sysfs_remove_group                                                                                                                    ▒
+>             - 33.13% net_rx_queue_update_kobjects                                                                                                            ▒
+>                - kobject_put                                                                                                                                 ▒
+>                - kobject_release                                                                                                                             ▒
+>                   + 33.11% kobject_uevent                                                                                                                    ▒
+>                   + 0.01% kobject_del                                                                                                                        ▒
+>                     0.00% rx_queue_release                                                                                                                   ▒
+>             - 33.08% device_del                                                                                                                              ▒
+>                + 32.75% kobject_uevent                                                                                                                       ▒
+>                + 0.17% device_remove_attrs                                                                                                                   ▒
+>                + 0.07% dpm_sysfs_remove                                                                                                                      ▒
+>                + 0.04% device_remove_class_symlinks                                                                                                          ▒
+>                + 0.01% kobject_del                                                                                                                           ▒
+>                + 0.01% device_pm_remove                                                                                                                      ▒
+>                + 0.01% sysfs_remove_file_ns                                                                                                                  ▒
+>                + 0.00% klist_del                                                                                                                             ▒
+>                + 0.00% driver_deferred_probe_del                                                                                                             ▒
+>                  0.00% cleanup_glue_dir.isra.14.part.15                                                                                                      ▒
+>                  0.00% to_acpi_device_node                                                                                                                   ▒
+>                  0.00% sysfs_remove_group                                                                                                                    ▒
+>               0.00% klist_del                                                                                                                                ▒
+>               0.00% device_remove_attrs                                                                                                                      ▒
+>          + 0.26% call_netdevice_notifiers_info                                                                                                               ▒
+>          + 0.04% rtmsg_ifinfo_build_skb                                                                                                                      ▒
+>          + 0.01% rtmsg_ifinfo_send                                                                                                                           ▒
+>         0.00% dev_uc_flush                                                                                                                                   ▒
+>         0.00% netif_reset_xps_queues_gt
+>
+> Someone can listen these uevents, so we can't stop sending them without
+> breaking backward compatibility. We can try to optimize
+> kobject_uevent...
 
-Gavin Shan (5):
-  net/ncsi: Not fetch active package and channel again
-  net/ncsi: Split out logic for ncsi_dev_state_suspend_select
-  net/ncsi: Fix stale link state of inactive channels on failover
-  net/ncsi: Choose hot channel as active one if necessary
-  net/ncsi: Improve HNCDSC AEN handler
+Oh that is a surprise.  We can definitely skip genenerating uevents for
+network namespaces that are exiting because by definition no one can see
+those network namespaces.  If a socket existed that could see those
+uevents it would hold a reference to the network namespace and as such
+the network namespace could not exit.
 
- net/ncsi/internal.h    |  2 ++
- net/ncsi/ncsi-aen.c    | 18 ++++++++++--
- net/ncsi/ncsi-manage.c | 80 ++++++++++++++++++++++++++++++++++++++------------
- 3 files changed, 79 insertions(+), 21 deletions(-)
+That sounds like it is worth investigating a little more deeply.
 
--- 
-2.1.0
+I am surprised that allocation and freeing is so heavy we are spending
+lots of time doing that.  On the other hand kobj_bcast_filter is very
+dumb and very late so I expect something can be moved earlier and make
+that code cheaper with the tiniest bit of work.
+
+Eric
