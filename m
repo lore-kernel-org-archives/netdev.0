@@ -1,47 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Fri, 14 Oct 2016 06:06:41 +0200
-Message-ID: <20161014040641.GE5822@lunn.ch>
-References: <5800159B.3080708@codeaurora.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v4 net-next 0/4] act_mirred: Ingress actions support
+Date: Thu, 13 Oct 2016 21:24:25 -0700
+Message-ID: <CAM_iQpVBYwfdtit3s-ZP7YWuX9FrqHoTKnUcu8pvJhoAABXEzw@mail.gmail.com>
+References: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45159 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754120AbcJNEGo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 00:06:44 -0400
-Content-Disposition: inline
-In-Reply-To: <5800159B.3080708@codeaurora.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35968 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751041AbcJNEYq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 00:24:46 -0400
+Received: by mail-it0-f67.google.com with SMTP id o19so111166ito.3
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 21:24:46 -0700 (PDT)
+In-Reply-To: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 13, 2016 at 06:15:39PM -0500, Timur Tabi wrote:
-> I need help with a program I've discovered with my driver
-> (ethernet/qualcomm/emac/) that occurs in the following process:
-> 
-> 1. Load the driver
-> 1a. Driver calls mdiobus_register (see emac_phy_config), which calls
-> mdiobus_scan(), which calls get_phy_device()
-> 1b. get_phy_device() performs MDIO bus operations, which means the
-> bus and the external phy need to be active.
-> 2. Bring up the interface
-> 3. Bring down the interface.  This calls phy_disconnect() which
-> calls phy_detach() which calls phy_suspend().  This puts the
-> external phy to sleep.
-> 4. Unload the driver
-> 5. Re-load the driver.
-> 5a. Driver calls mdiobus_register again, but this time the call to
-> get_phy_device() fails because the external phy is asleep and does
-> not respond to MDIO transactions.
+On Wed, Oct 12, 2016 at 11:06 PM, Shmulik Ladkani
+<shmulik.ladkani@gmail.com> wrote:
+> This patch series implements action mirred 'ingress' actions
+> TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
+>
+> This allows attaching filters whose target is to hand matching skbs into
+> the rx processing of a specified device.
+>
+> v4:
+>   in 4/4, check ret code of netif_receive_skb, as suggested by Cong Wang
+> v3:
+>   in 4/4, addressed non coherency due to reading m->tcfm_eaction multiple
+>   times, as spotted by Eric Dumazet
+> v2:
+>   in 1/4, declare tcfm_mac_header_xmit as bool instead of int
+>
 
-Hi Timur
+For the whole series,
 
-Normally, a sleeping PHY does respond to MDIO. Otherwise, how do you
-wake it?
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-So i assume this phy has some other means to wake it. What is this
-means?
 
-      Andrew
+Thanks for your update!
