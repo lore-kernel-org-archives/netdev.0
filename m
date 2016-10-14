@@ -1,50 +1,48 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Subject: Re: [PATCH] mac80211: aes_ccm: move struct aead_req off the stack
-Date: Fri, 14 Oct 2016 14:19:21 +0100
-Message-ID: <CAKv+Gu81RYq1aZUQ2Aru3Vev4LGgb1zFwWz8gepE0tQEhQi9Uw@mail.gmail.com>
-References: <1476450540-1760-1-git-send-email-ard.biesheuvel@linaro.org>
- <1476450635.31114.42.camel@sipsolutions.net> <CAKv+Gu_eS-C84rH_MLYy--ivC0a99wwJvNDLhETfrBkYXW-XpA@mail.gmail.com>
- <1476450941.31114.45.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r8169: set coherent DMA mask as well as streaming DMA
+ mask
+Date: Fri, 14 Oct 2016 09:31:01 -0400 (EDT)
+Message-ID: <20161014.093101.1348173909013700977.davem@davemloft.net>
+References: <1476445170-4496-1-git-send-email-ard.biesheuvel@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto@amacapital.net>,
-        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
-        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Jouni Malinen <j@w1.fi>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476450941.31114.45.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, nic_swsd@realtek.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: ard.biesheuvel@linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47030 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755366AbcJNNbH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 09:31:07 -0400
+In-Reply-To: <1476445170-4496-1-git-send-email-ard.biesheuvel@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14 October 2016 at 14:15, Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Fri, 2016-10-14 at 14:13 +0100, Ard Biesheuvel wrote:
->>
->> > But if we allocate things anyway, is it worth expending per-CPU
->> > buffers on these?
->>
->> Ehmm, maybe not. I could spin a v2 that allocates a bigger buffer,
->> and copies aad[] into it as well
->
-> Copies in/out, I guess. Also there's B_0/J_0 for CCM/GCM, and the
-> 'zero' thing that GMAC has.
->
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Fri, 14 Oct 2016 12:39:30 +0100
 
-Is the aad[] actually reused? I would assume it only affects the mac
-on encryption, and the verification on decryption but I don't think we
-actually need it back from the crypto routines.
+> PCI devices that are 64-bit DMA capable should set the coherent
+> DMA mask as well as the streaming DMA mask. On some architectures,
+> these are managed separately, and so the coherent DMA mask will be
+> left at its default value of 32 if it is not set explicitly. This
+> results in errors such as
+> 
+>      r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+>      hwdev DMA mask = 0x00000000ffffffff, dev_addr = 0x00000080fbfff000
+>      swiotlb: coherent allocation failed for device 0000:02:00.0 size=4096
+>      CPU: 0 PID: 1062 Comm: systemd-udevd Not tainted 4.8.0+ #35
+>      Hardware name: AMD Seattle/Seattle, BIOS 10:53:24 Oct 13 2016
+> 
+> on systems without memory that is 32-bit addressable by PCI devices.
+> 
+> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+ ...
+> @@ -8281,6 +8282,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  		dev->features |= NETIF_F_HIGHDMA;
+>  	} else {
+>  		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+> +		if (!rc)
+> +			rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
 
->> That does not help the other algos though
->
-> What do you mean?
->
-
-Exactly what you said above :-) My patch only touches CCM but as you said,
-
-"""
-'Also there's B_0/J_0 for CCM/GCM, and the 'zero' thing that GMAC has.
-"""
+As you state 32-bit is the default, therefore this part of your patch is unnecessary.
