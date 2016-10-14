@@ -1,48 +1,60 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net 2/2] conntrack: enable to tune gc parameters
-Date: Fri, 14 Oct 2016 13:16:38 +0200
-Message-ID: <20161014111638.GA13022@breakpoint.cc>
-References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
- <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
- <20161010140424.GB21057@breakpoint.cc>
- <cdda5290-c49c-e841-6ba5-10b30fd04fc0@6wind.com>
- <20161013204338.GA32449@breakpoint.cc>
- <f1df137d-7278-f6fb-3237-1bd20afadb48@6wind.com>
- <20161014103726.GA10404@breakpoint.cc>
- <20161014105327.GA8655@salvia>
+From: "Chopra, Manish" <Manish.Chopra@cavium.com>
+Subject: RE: [PATCH v2 net-next 0/7] qed*: driver updates
+Date: Fri, 14 Oct 2016 09:54:05 +0000
+Message-ID: <SN1PR07MB24472647A83B446CD367EFAA89DF0@SN1PR07MB2447.namprd07.prod.outlook.com>
+References: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        davem@davemloft.net, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161014105327.GA8655@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>
+To: Manish Chopra <manish.chopra@qlogic.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0063.outbound.protection.outlook.com ([104.47.33.63]:30240
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751966AbcJNL2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Oct 2016 07:28:13 -0400
+In-Reply-To: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> I would prefer not to expose sysctl knobs, if we don't really know
-> what good default values are good, then we cannot expect our users to
-> know this for us.
-> 
-> I would go tune this in a way that this resembles to the previous
-> behaviour.
+> -----Original Message-----
+> From: Manish Chopra [mailto:manish.chopra@qlogic.com]
+> Sent: Thursday, October 13, 2016 4:53 PM
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org; Yuval.Mintz@qlogic.com; Chopra, Manish
+> <Manish.Chopra@cavium.com>
+> Subject: [PATCH v2 net-next 0/7] qed*: driver updates
+>=20
+> From: Manish Chopra <manish.chopra@caviumnetworks.com>
+>=20
+> Hi David,
+>=20
+> There are several new additions in this series;
+> Most are connected to either Tx offloading or Rx classifications
+> [either fastpath changes or supporting configuration].
+>=20
+> In addition, there's a single IOV enhancement.
+>=20
+> Please consider applying this series to `net-next'.
+>=20
+> V2:
+> Added a fix for the race in ramrod handling
+> pointed by Eric Dumazet [patch 7].
+>=20
 
-I do not see how this is possible without reverting to old per-conntrack
-timer scheme.
+Hi David, The last patch in this series has caused below kbuild failure.
 
-With per-ct timer userspace gets notified the moment the timer
-fires, without it notification comes 'when kernel detects the timeout'
-which in worst case, as Nicholas describes, is when gc worker comes
-along.
+drivers/net/ethernet/qlogic/qed/qed_spq.c: In function 'qed_spq_blocking_cb=
+':
+drivers/net/ethernet/qlogic/qed/qed_spq.c:62:85: error: call to '__compilet=
+ime_assert_60' declared with attribute error: Need native word sized stores=
+/loads for atomicity.
 
-You can run the gc worker every jiffie of course, but thats just
-wasting cpu cycles (and you still get a small delay).
+I will re-spin the series with kbuild fix and will send out soon.
 
-I don't see a way to do run-time tuning except faster restarts when
-old entries start accumulating.  This is what the code tries to do,
-perhaps you have a better idea for the 'next gc run' computation.
-
+Thanks,
+Manish
