@@ -1,62 +1,37 @@
-From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
-Subject: RE: [PATCH 4/6] fjes: Implement debug mode for fjes driver
-Date: Fri, 14 Oct 2016 07:30:20 +0000
-Message-ID: <E86EADE93E2D054CBCD4E708C38D364A74193885@G01JPEXMBYT21>
-References: <1476176047-18670-1-git-send-email-izumi.taku@jp.fujitsu.com>
-        <1476176120-18859-1-git-send-email-izumi.taku@jp.fujitsu.com>
- <20161013.101930.1034896203915503108.davem@davemloft.net>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: [PATCH trivial] net: add bbr to config DEFAULT_TCP_CONG
+Date: Fri, 14 Oct 2016 09:33:33 +0200
+Message-ID: <20161014073333.GA10006@x4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:49413 "EHLO
-        mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754216AbcJNHaa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 03:30:30 -0400
-Received: from g01jpfmpwyt01.exch.g01.fujitsu.local (g01jpfmpwyt01.exch.g01.fujitsu.local [10.128.193.38])
-        by kw-mxq.gw.nic.fujitsu.com (Postfix) with ESMTP id 9D524AC022C
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 16:30:22 +0900 (JST)
-In-Reply-To: <20161013.101930.1034896203915503108.davem@davemloft.net>
-Content-Language: ja-JP
+Received: from ud10.udmedia.de ([194.117.254.50]:57718 "EHLO
+        mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755693AbcJNHdh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 03:33:37 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear David,
+While playing with BBR I noticed that it was missing in the list of
+possible config DEFAULT_TCP_CONG choices. Fixed thusly.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, October 13, 2016 11:20 PM
-> To: Izumi, Taku/泉 拓
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH 4/6] fjes: Implement debug mode for fjes driver
-> 
-> From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> Date: Tue, 11 Oct 2016 17:55:20 +0900
-> 
-> > This patch implements debug mode for fjes driver.
-> > You can get firmware activity information by enabling
-> > debug mode. This is useful for debugging.
-> >
-> > To enable debug mode, write value of debugging mode to
-> > debug_mode file in debugfs:
-> >
-> >   # echo 1 > /sys/kernel/debug/fjes/fjes.0/debug_mode
-> >
-> > To disable debug mode, write 0 to debug_mode file in debugfs:
-> >
-> >   # echo 0 > /sys/kernel/debug/fjes/fjes.0/debug_mode
-> >
-> > Firmware activity information can be retrieved via
-> > /sys/kernel/debug/fjes/fjes.0/debug_data file.
-> >
-> > Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> 
-> There is no reason to use debugfs for this, we have facilities such
-> as ETHTOOL_SET_DUMP et al. that you can use to implement this.
+Signed-off-by: Markus Trippelsdorf <markus@trippelsdorf.de>
 
-  Thank you for reviewing.
-  I see. I'll rewrite this patch to use ethtool.
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 300b06888fdf..b54b3ca939db 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -715,6 +715,7 @@ config DEFAULT_TCP_CONG
+ 	default "reno" if DEFAULT_RENO
+ 	default "dctcp" if DEFAULT_DCTCP
+ 	default "cdg" if DEFAULT_CDG
++	default "bbr" if DEFAULT_BBR
+ 	default "cubic"
+ 
+ config TCP_MD5SIG
 
-Sincerely,
-Taku Izumi
+-- 
+Markus
