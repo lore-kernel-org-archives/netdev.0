@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6_tunnel: fix ip6_tnl_lookup
-Date: Fri, 14 Oct 2016 10:02:03 -0400 (EDT)
-Message-ID: <20161014.100203.681553712270913922.davem@davemloft.net>
-References: <20161011203454.F2B87341C3E@junk-ub14>
+Subject: Re: [PATCH net] Revert "net: Add driver helper functions to
+ determine checksum offloadability"
+Date: Fri, 14 Oct 2016 10:03:54 -0400 (EDT)
+Message-ID: <20161014.100354.446956331078920051.davem@davemloft.net>
+References: <20161011130409.7e6b54ff@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: junk@yandex-team.ru
+Cc: tom@herbertland.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47288 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47316 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753009AbcJNOCH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:02:07 -0400
-In-Reply-To: <20161011203454.F2B87341C3E@junk-ub14>
+        with ESMTP id S1753492AbcJNOD7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:03:59 -0400
+In-Reply-To: <20161011130409.7e6b54ff@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Fedorenko <junk@yandex-team.ru>
-Date: Tue, 11 Oct 2016 22:47:20 +0300
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 11 Oct 2016 13:04:09 -0700
 
-> The commit ea3dc9601bda ("ip6_tunnel: Add support for wildcard tunnel
-> endpoints.") introduces support for wildcards in tunnels endpoints,
-> but in some rare circumstances ip6_tnl_lookup selects wrong tunnel
-> interface relying only on source or destination address of the packet
-> and not checking presence of wildcard in tunnels endpoints. Later in
-> ip6_tnl_rcv this packets can be dicarded because of difference in
-> ipproto even if fallback device have proper ipproto configuration.
 > 
-> This patch adds checks of wildcard endpoint in tunnel avoiding such
-> behavior
+> This reverts commit 6ae23ad36253a8033c5714c52b691b84456487c5.
 > 
-> Fixes: ea3dc9601bda ("ip6_tunnel: Add support for wildcard tunnel
-> endpoints.")
+> The code has been in kernel since 4.4 but there are no in tree
+> code that uses. Unused code is broken code, remove it.
 > 
-> Signed-off-by: Vadim Fedorenko <junk@yandex-team.ru>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied and queued up for -stable.
+Applied to net-next, thanks Stephen.
+
+Please put proper "[PATCH net-next]" tags in your Subject lines when
+patches are targetting net-next.
+
+Thanks.
