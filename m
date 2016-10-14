@@ -1,37 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/2] net: phy: Add Speed downshift set driver
- for Microsemi PHYs.
-Date: Fri, 14 Oct 2016 14:12:32 +0200
-Message-ID: <20161014121232.GH5822@lunn.ch>
-References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1476445233-26524-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v2] net: Require exact match for TCP socket lookups if dif
+ is l3mdev
+Date: Fri, 14 Oct 2016 06:21:19 -0600
+Message-ID: <25e3a7a9-a74e-5392-742a-38bd224343f6@cumulusnetworks.com>
+References: <1476420459-20966-1-git-send-email-dsa@cumulusnetworks.com>
+ <1476426789.5650.34.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        f.fainelli@gmail.com, Allan.Nielsen@microsemi.com
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45376 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753093AbcJNMMe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 08:12:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1476445233-26524-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34559 "EHLO
+        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753542AbcJNMVX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 08:21:23 -0400
+Received: by mail-pa0-f48.google.com with SMTP id rz1so47151290pab.1
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 05:21:22 -0700 (PDT)
+In-Reply-To: <1476426789.5650.34.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 14, 2016 at 05:10:32PM +0530, Raju Lakkaraju wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On 10/14/16 12:33 AM, Eric Dumazet wrote:
+> There is a catch here.
+> TCP moves IP6CB() in a different location.
 > 
-> For operation in cabling environments that are incompatible with
-> 1000BAST-T, VSC8531 device provides an automatic link speed
-> downshift operation. When enabled, the device automatically changes
-> its 1000BAST-T auto-negotiation to the next slower speed after
-> a configured number of failed attempts at 1000BAST-T.
-> This feature is useful in setting up in networks using older cable
-> installations that include only pairs A and B, and not pairs C and D.
+> Reference :
+> 
+> 971f10eca186 ("tcp: better TCP_SKB_CB layout to reduce cache line misses")
 
-Any reason not to just turn this on by default when auto-neg is
-enabled?
+thanks for the reference.
 
-	Andrew
+
+> Problem is that the lookup can happen from IP early demux, before TCP
+> moved IP{6}CB around.
+
+For TCP we only need the exact_dif match for listen sockets, so early demux does not apply.
+
+> 
+> So you might need to let the caller pass IP6CB(skb)->flags (or
+> TCP_SKB_CB(skb)->header.h6.flags ) instead of skb since
+> inet6_exact_dif_match() does not know where to fetch the flags.
+> 
+> Same issue for IPv4.
+
+I'll update the match functions to pull from TCP_SKB_CB instead of IP6CB and make a note of the above.
+
+Thanks for the review
