@@ -1,80 +1,101 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Fri, 14 Oct 2016 19:25:14 +0200
-Message-ID: <20161014172514.GA23455@lunn.ch>
-References: <20161014040641.GE5822@lunn.ch>
- <5800C3C7.60705@codeaurora.org>
- <20161014120624.GG5822@lunn.ch>
- <5800D214.70808@codeaurora.org>
- <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org>
- <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org>
- <20161014131852.GM5822@lunn.ch>
- <58010E79.2030607@codeaurora.org>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v2 net-next 1/2] lwtunnel: Add destroy state operation
+Date: Fri, 14 Oct 2016 11:25:36 -0700
+Message-ID: <20161014182537.1713757-2-tom@herbertland.com>
+References: <20161014182537.1713757-1-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45563 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755455AbcJNRZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 13:25:16 -0400
-Content-Disposition: inline
-In-Reply-To: <58010E79.2030607@codeaurora.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35465 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752674AbcJNS03 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 14:26:29 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9EIOPq5010728
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 11:25:47 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 262wqwa15d-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 11:25:47 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
+ mx-out.facebook.com (10.223.101.97) with ESMTP id
+ 9fc10a2a923b11e69fc424be0595f910-d96f5a50 for <netdev@vger.kernel.org>;        Fri,
+ 14 Oct 2016 11:25:46 -0700
+In-Reply-To: <20161014182537.1713757-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 14, 2016 at 11:57:29AM -0500, Timur Tabi wrote:
-> Andrew Lunn wrote:
-> >That is a basic assumption of the code. If you cannot read the IDs how
-> >are you supposed to know what device it is, and what quirks you need
-> >to work around its broken features...
-> >
-> >Does the datasheet say anything about this?
-> >
-> >I would say for this device, suspend() is too aggressive.
-> 
-> This change in my driver makes the problem go away (I'm not sure if
-> it's a "fix"):
-> 
-> @@ -992,7 +992,7 @@ int emac_mac_up(struct emac_adapter *adpt)
->         emac_mac_rx_descs_refill(adpt, &adpt->rx_q);
-> 
->         ret = phy_connect_direct(netdev, adpt->phydev, emac_adjust_link,
-> -                                PHY_INTERFACE_MODE_SGMII);
-> +                                PHY_INTERFACE_MODE_NA);
+Users of lwt tunnels may set up some secondary state in build_state
+function. Add a corresponding destroy_state function to allow users to
+clean up state. This destroy state function is called from lwstate_free.
+Also, we now free lwstate using kfree_rcu so user can assume structure
+is not freed before rcu.
 
-It is normal to get the phy-mode from device tree. I've no idea what
-ACPI is supposed to do. Setting it to PHY_INTERFACE_MODE_NA means you
-assume the boot loader has correctly setup the hardware. You ACPI
-firmware might of done this, but there is no guarantee a device tree
-base bootloader has. So i would prefer not changing this.
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/net/lwtunnel.h |  7 +++----
+ net/core/lwtunnel.c    | 13 +++++++++++++
+ 2 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index ea3f80f..67d235f 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -29,6 +29,7 @@ struct lwtunnel_state {
+ 	int		(*orig_input)(struct sk_buff *);
+ 	int             len;
+ 	__u16		headroom;
++	struct		rcu_head rcu;
+ 	__u8            data[0];
+ };
  
-> With the interface not set as SGMII, the following code in
-> at803x_suspend() is not executed:
-> 
-> /* also power-down SGMII interface */
-> ccr = phy_read(phydev, AT803X_REG_CHIP_CONFIG);
-> phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
-> phy_write(phydev, MII_BMCR, phy_read(phydev, MII_BMCR) | BMCR_PDOWN);
-> phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr | AT803X_BT_BX_REG_SEL);
-> 
-> I don't see any other driver issue BMCR_PDOWN in their functions.  I
-> added some printks for the PHYSID1 and PHYSID2 registers before and
-> after BMCR_PDOWN:
-> 
-> at803x_suspend:235 MII_PHYSID1=004d MII_PHYSID2=d074
-> at803x_suspend:242 MII_PHYSID1=ffff MII_PHYSID2=ffff
-> 
-> So after calling BMCR_PDOWN, the PHYSID1 and PHYSID2 registers are
-> no longer readable.  Is that expected?
-
-You are making two changes here. Is it the SGMII power down which is
-causing the id registers to return 0xffff, or the BMCR_PDOWN.
-
-The generic suspend code sets the PDOWN bit, so it is assuming the PHY
-will respond afterwards.
-
-     Andrew
+@@ -36,6 +37,7 @@ struct lwtunnel_encap_ops {
+ 	int (*build_state)(struct net_device *dev, struct nlattr *encap,
+ 			   unsigned int family, const void *cfg,
+ 			   struct lwtunnel_state **ts);
++	void (*destroy_state)(struct lwtunnel_state *lws);
+ 	int (*output)(struct net *net, struct sock *sk, struct sk_buff *skb);
+ 	int (*input)(struct sk_buff *skb);
+ 	int (*fill_encap)(struct sk_buff *skb,
+@@ -46,10 +48,7 @@ struct lwtunnel_encap_ops {
+ };
+ 
+ #ifdef CONFIG_LWTUNNEL
+-static inline void lwtstate_free(struct lwtunnel_state *lws)
+-{
+-	kfree(lws);
+-}
++void lwtstate_free(struct lwtunnel_state *lws);
+ 
+ static inline struct lwtunnel_state *
+ lwtstate_get(struct lwtunnel_state *lws)
+diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+index e5f84c2..88fd642 100644
+--- a/net/core/lwtunnel.c
++++ b/net/core/lwtunnel.c
+@@ -130,6 +130,19 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+ }
+ EXPORT_SYMBOL(lwtunnel_build_state);
+ 
++void lwtstate_free(struct lwtunnel_state *lws)
++{
++	const struct lwtunnel_encap_ops *ops = lwtun_encaps[lws->type];
++
++	if (ops->destroy_state) {
++		ops->destroy_state(lws);
++		kfree_rcu(lws, rcu);
++	} else {
++		kfree(lws);
++	}
++}
++EXPORT_SYMBOL(lwtstate_free);
++
+ int lwtunnel_fill_encap(struct sk_buff *skb, struct lwtunnel_state *lwtstate)
+ {
+ 	const struct lwtunnel_encap_ops *ops;
+-- 
+2.9.3
