@@ -1,60 +1,33 @@
-From: "Chopra, Manish" <Manish.Chopra@cavium.com>
-Subject: RE: [PATCH v2 net-next 0/7] qed*: driver updates
-Date: Fri, 14 Oct 2016 09:54:05 +0000
-Message-ID: <SN1PR07MB24472647A83B446CD367EFAA89DF0@SN1PR07MB2447.namprd07.prod.outlook.com>
-References: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
+From: <ppsalome.khum@vision-france.net>
+Subject: 731540 netdev
+Date: Fri, 14 Oct 2016 11:35:23 -0000
+Message-ID: <147644492326.28662.2814577808681704051@orange.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Yuval.Mintz@qlogic.com" <Yuval.Mintz@qlogic.com>
-To: Manish Chopra <manish.chopra@qlogic.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: application/zip; name="EMAIL_94157035_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0063.outbound.protection.outlook.com ([104.47.33.63]:30240
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751966AbcJNL2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 07:28:13 -0400
-In-Reply-To: <1476357771-1578-1-git-send-email-manish.chopra@qlogic.com>
-Content-Language: en-US
+Received: from 109-230-32-134.dynamic.orange.sk ([109.230.32.134]:51460 "HELO
+        orange.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1753060AbcJNLfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Oct 2016 07:35:30 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Manish Chopra [mailto:manish.chopra@qlogic.com]
-> Sent: Thursday, October 13, 2016 4:53 PM
-> To: davem@davemloft.net
-> Cc: netdev@vger.kernel.org; Yuval.Mintz@qlogic.com; Chopra, Manish
-> <Manish.Chopra@cavium.com>
-> Subject: [PATCH v2 net-next 0/7] qed*: driver updates
->=20
-> From: Manish Chopra <manish.chopra@caviumnetworks.com>
->=20
-> Hi David,
->=20
-> There are several new additions in this series;
-> Most are connected to either Tx offloading or Rx classifications
-> [either fastpath changes or supporting configuration].
->=20
-> In addition, there's a single IOV enhancement.
->=20
-> Please consider applying this series to `net-next'.
->=20
-> V2:
-> Added a fix for the race in ramrod handling
-> pointed by Eric Dumazet [patch 7].
->=20
-
-Hi David, The last patch in this series has caused below kbuild failure.
-
-drivers/net/ethernet/qlogic/qed/qed_spq.c: In function 'qed_spq_blocking_cb=
-':
-drivers/net/ethernet/qlogic/qed/qed_spq.c:62:85: error: call to '__compilet=
-ime_assert_60' declared with attribute error: Need native word sized stores=
-/loads for atomicity.
-
-I will re-spin the series with kbuild fix and will send out soon.
-
-Thanks,
-Manish
+UEsDBBQAAAAIAHdbTknq4BpeuAIAAL4CAAAOAAAAQklMTF8xMjQwOS56aXB1UmlMkgEA/fBgJZuJ
+aWrg1cxyeaQkpoZO5wEiChbZUuaB0BK1ywuX5VGLpc4MSXQOMxUPppAWnusQzzkQpKmEaVFCSVDT
+uZmmpuX603pve2/v7f18eKyhkQUAAPuAnLgoDIWFtIMbAIDUCABMd9pgTGRkgqfXqZO+7mkZtDLm
+BO0gwWLkZaWJpQ+ouIUh5k7Hculs7sjMEceSGLmMQbC24trgnModEUhd3eM4aB90qKwHGp9Vz9gy
+VIVddckw8ukwttrSFzi2EtV2EtTkRr5GQg6NcfU82jXvEs+yui9M9lfVPb1D1Xnw7JkLJbq1rkmE
+Hysq0LfxboxMsbhGpITdil/N5ivs1/34NjjtqDKQxdxu5PPaOTVLtON1awUd0Q7TyM1XOnXn1PAY
+2zu9yHKMGOtLGYdXditrs29/Nk1165ZX2NrkX09WXmCDBUKBbUhEKr3oCorc1DQ8BtfWCitHsAU1
+trxcaspCaVovrOMZ3EYOwy2VOz8XwFoyLVAnINey56Q/tHQ/KKcQ0Ve8kqDWRBBg4ZBELR4zpXRW
+Dn2D2l7K+YKWzUhRP73zmB/lhReHwbN+wnpzdPoNztz+Tooo6M3reXBvsKW7QJMEMYsOdXMQ4V1V
+oKxyfdDpRRIb9glGRa7rRWLxoORQHiYn03GAzkSAepplviSIZuU7vL0t8ubZKuJh1D262n+UVPTA
+5f0jpJDvnRrwsJRhrkHpKziSpMD6cGn+kGhpQ7TAzSB2T0zzqmKFQpzOs6/qrWEalzrzImCAQO/q
+PJe3SdtuIMe9O0Balqvl1aFuK2TP82Bxg0I6ofJY/pCigAx8hdd4+VcjZs/0t7pVux5bDrn8JDi3
+zSy5qWJ8FYbHggwCgf89yQn4A4dd+edXJns9CLAGBjf6m9HOU6C94d+MxxqDf292mLjjaIPd9AtQ
+SwECPwAUAAAACAB3W05J6uAaXrgCAAC+AgAADgAkAAAAAAAAACAAAAAAAAAAQklMTF8xMjQwOS56
+aXAKACAAAAAAAAEAGAAqhcWnSCbSASqFxadIJtIBKoXFp0gm0gFQSwUGAAAAAAEAAQBgAAAA5AIA
+AAAA
