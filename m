@@ -1,48 +1,62 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH NET] ethtool: silence warning on bit loss
-Date: Fri, 14 Oct 2016 09:26:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01E8624@AcuExch.aculab.com>
-References: <1476400435-18400-1-git-send-email-jesse.brandeburg@intel.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [mac80211] BUG_ON with current -git (4.8.0-11417-g24532f7)
+Date: Fri, 14 Oct 2016 10:35:56 +0100
+Message-ID: <CAKv+Gu_p7neD-ttCBBA6p7VSkQt8mvfhS9cdcLftdkXNtAAFnQ@mail.gmail.com>
+References: <20161010150358.GA514@swordfish> <20161010153050.GA836@swordfish>
+ <1476263106.5271.23.camel@sipsolutions.net> <20161012141245.GA436@swordfish>
+ <1476282127.5271.30.camel@sipsolutions.net> <CALCETrXg9-OpJx5Rqz8afyaug+0DjzxvpdbOV9q6i01=zCZbcQ@mail.gmail.com>
+ <1476338524.4904.1.camel@sipsolutions.net> <20161013134252.GA583@swordfish>
+ <1476366354.4904.31.camel@sipsolutions.net> <CALCETrW8imkGTtR9-mFB=e=Gdr1QXVuhXN3GRs2B6wbmPaaGhA@mail.gmail.com>
+ <1476429916.4382.12.camel@sipsolutions.net> <1476433699.31114.6.camel@sipsolutions.net>
+ <CAKv+Gu8hTy8U7FcA58P1YWt2rHU09xP9v1UU0KcnD4uuaK8How@mail.gmail.com>
+ <CAKv+Gu_v+4D_7EvRkrSrStheuP1L-oPh=o7Ub+NU7-wgLYks4w@mail.gmail.com>
+ <1476434561.31114.7.camel@sipsolutions.net> <CAKv+Gu896xme5sd5i8hs7tA=Xt=qQKCiAx7fQg1ZECn50NttbQ@mail.gmail.com>
+ <1476435303.31114.14.camel@sipsolutions.net> <CAKv+Gu9KObA61fEYxr1FFj_3SKNS2RUbqZo01yfnm9Bf0AncwA@mail.gmail.com>
+ <1476436248.31114.21.camel@sipsolutions.net> <CAKv+Gu-Y6wuMGuRgrHRGCvAM9qZjvufs=7VWL8hAUKFSF=tZWg@mail.gmail.com>
+ <1476437149.31114.27.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Jesse Brandeburg' <jesse.brandeburg@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.182]:63176 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752903AbcJNJaU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 05:30:20 -0400
-In-Reply-To: <1476400435-18400-1-git-send-email-jesse.brandeburg@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@amacapital.net>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Jouni Malinen <j@w1.fi>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476437149.31114.27.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg
-> Sent: 14 October 2016 00:14
-> Sparse was complaining when we went to prototype some code
-> using ethtool_cmd_speed_set and SPEED_100000, which uses
-> the upper 16 bits of __u32 speed for the first time.
-...
-> Reported-by: Preethi Banala <preethi.banala@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> ---
->  include/uapi/linux/ethtool.h | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 099a420..8e54723 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -119,8 +119,7 @@ struct ethtool_cmd {
->  static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
->  					 __u32 speed)
->  {
-> -
-> -	ep->speed = (__u16)speed;
-> +	ep->speed = (__u16)(speed & 0xFFFF);
->  	ep->speed_hi = (__u16)(speed >> 16);
+On 14 October 2016 at 10:25, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Fri, 2016-10-14 at 10:21 +0100, Ard Biesheuvel wrote:
+>
+>> It is annotated with a TODO, though :-)
+>>
+>> 38320c70d282b (Herbert Xu               2008-01-28 19:35:05
+>> -0800  41)
+>>  * TODO: Use spare space in skb for this where possible.
+>
+> I saw that, but I don't think generally there will be spare space for
+> it - the stuff there is likely far too big. Anyway ... same problem
+> that we have.
+>
+> I'm not inclined to allocate ~500 bytes temporarily for every frame
+> either though.
+>
+> Maybe we could try to manage it in mac80211, we'd "only" need 5 AEAD
+> structs (which are today on the stack) in parallel for each key (4 TX,
+> 1 RX), but in a typical case of having 3 keys that's already 7.5K worth
+> of memory that we almost never use. Again, with more complexity, we
+> could know that the TX will not be used if the driver does the TX, but
+> the single RX one we'd need unconditionally... decisions decisions...
+>
 
-I suspect that deleting both (__u16) casts also fixes it?
-
-	David
+So why is the performance hit acceptable for ESP but not for WPA? We
+could easily implement the same thing, i.e., kmalloc(GFP_ATOMIC)/kfree
+the aead_req struct rather than allocate it on the stack
