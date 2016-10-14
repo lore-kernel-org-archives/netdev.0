@@ -1,66 +1,86 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 2/2] conntrack: enable to tune gc parameters
-Date: Fri, 14 Oct 2016 12:12:29 +0200
-Message-ID: <f1df137d-7278-f6fb-3237-1bd20afadb48@6wind.com>
-References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
- <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
- <20161010140424.GB21057@breakpoint.cc>
- <cdda5290-c49c-e841-6ba5-10b30fd04fc0@6wind.com>
- <20161013204338.GA32449@breakpoint.cc>
-Reply-To: nicolas.dichtel@6wind.com
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3] IB/ipoib: move back IB LL address into the hard header
+Date: Fri, 14 Oct 2016 13:23:31 +0300
+Message-ID: <CAJ3xEMi7DY7_3vM+553dC4w17W==CdUdtn5PdzzCCUxtj434dQ@mail.gmail.com>
+References: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, pablo@netfilter.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20161013204338.GA32449@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 13/10/2016 à 22:43, Florian Westphal a écrit :
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->> Le 10/10/2016 à 16:04, Florian Westphal a écrit :
->>> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->>>> After commit b87a2f9199ea ("netfilter: conntrack: add gc worker to remove
->>>> timed-out entries"), netlink conntrack deletion events may be sent with a
->>>> huge delay. It could be interesting to let the user tweak gc parameters
->>>> depending on its use case.
->>>
->>> Hmm, care to elaborate?
->>>
->>> I am not against doing this but I'd like to hear/read your use case.
->>>
->>> The expectation is that in almot all cases eviction will happen from
->>> packet path.  The gc worker is jusdt there for case where a busy system
->>> goes idle.
->> It was precisely that case. After a period of activity, the event is sent a long
->> time after the timeout. If the router does not manage a lot of flows, why not
->> trying to parse more entries instead of the default 1/64 of the table?
->> In fact, I don't understand why using GC_MAX_BUCKETS_DIV instead of using always
->> GC_MAX_BUCKETS whatever the size of the table is.
-> 
-> I wanted to make sure that we have a known upper bound on the number of
-> buckets we process so that we do not block other pending kworker items
-> for too long.
-I don't understand. GC_MAX_BUCKETS is the upper bound and I agree that it is
-needed. But why GC_MAX_BUCKETS_DIV (ie 1/64)?
-In other words, why this line:
-goal = min(nf_conntrack_htable_size / GC_MAX_BUCKETS_DIV, GC_MAX_BUCKETS);
-instead of:
-goal = GC_MAX_BUCKETS;
-?
+On Thu, Oct 13, 2016 at 7:26 PM, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> After the commit 9207f9d45b0a ("net: preserve IP control block
+> during GSO segmentation"), the GSO CB and the IPoIB CB conflict.
 
-> 
-> (Or cause too many useless scans)
-> 
-> Another idea worth trying might be to get rid of the max cap and
-> instead break early in case too many jiffies expired.
-> 
-> I don't want to add sysctl knobs for this unless absolutely needed; its already
-> possible to 'force' eviction cycle by running 'conntrack -L'.
-> 
-Sure, but this is not a "real" solution, just a workaround.
-We need to find a way to deliver conntrack deletion events in a reasonable
-delay, whatever the traffic on the machine is.
+the commit --> commit (remove the word "the" to make the sentence a
+bit more clear)
+
+> That destroy the IPoIB address information cached there,
+> causing a severe performance regression, as better described here:
+
+> http://marc.info/?l=linux-kernel&m=146787279825501&w=2
+
+I don't think that links into this archive last for long.. try to find
+something better
+best if you can provide quick wording telling what is broken (e.g HW LSO)
+
+> This change moves the data cached by the IPoIB driver from the
+> skb control lock into the IPoIB hard header, as done before
+
+lock --> block ?
+
+> the commit 936d7de3d736 ("IPoIB: Stop lying about hard_header_len
+
+the commit --> commit
+
+> and use skb->cb to stash LL addresses").
+> In order to avoid GRO issue, on packet reception, the IPoIB driver
+> stash into the skb a dummy pseudo header, so that the received
+> packets have actually a hard header matching the declared length.
+> To avoid changing the connected mode maximum mtu, the allocated
+> head buffer size is increased by the pseudo header length.
+
+> After this commit, IPoIB performances are back to pre-regression
+> value.
+>
+> v2 -> v3: rebased
+> v1 -> v2: avoid changing the max mtu, increasing the head buf size
+
+> Fixes: 9207f9d45b0a ("net: preserve IP control block during GSO segmentation")
+> Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+
+Paolo,
+
+Is this fix backportable to any kernel since the breakage? AFAIR,
+Roland mentioned
+that a 2nd change introduced in 4.7-rc1 changed things a bit more such
+that the fix
+he had in his head didn't apply any more.
+
+Dave, Doug
+
+I am still travelling after netdev and would like to put an eye on the
+patch and also see that @mellanox.com someone
+provides a  tested-by ack. Considering the fact that the bug is soon
+to (de-)celebrate it's 1st anniversary and as we're still not in rc1,
+the patch has enough time to get into 4.9... can you let it be here
+for another week or so?
+
+Or
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
