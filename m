@@ -1,90 +1,64 @@
-From: Vlad Tsyrklevich <vlad@tsyrklevich.net>
-Subject: [PATCH] ethtool: Zero memory allocated for statistics
-Date: Fri, 14 Oct 2016 11:59:18 +0200
-Message-ID: <1476439158-66060-1-git-send-email-vlad@tsyrklevich.net>
-Cc: Vlad Tsyrklevich <vlad@tsyrklevich.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35773 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753607AbcJNJ71 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 05:59:27 -0400
-Received: by mail-lf0-f67.google.com with SMTP id x79so17346686lff.2
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 02:59:26 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [mac80211] BUG_ON with current -git (4.8.0-11417-g24532f7)
+Date: Fri, 14 Oct 2016 12:00:12 +0200
+Message-ID: <1476439212.31114.37.camel@sipsolutions.net>
+References: <20161010150358.GA514@swordfish>
+         <20161010153050.GA836@swordfish>
+         <1476263106.5271.23.camel@sipsolutions.net>
+         <20161012141245.GA436@swordfish>
+         <1476282127.5271.30.camel@sipsolutions.net>
+         <CALCETrXg9-OpJx5Rqz8afyaug+0DjzxvpdbOV9q6i01=zCZbcQ@mail.gmail.com>
+         <1476338524.4904.1.camel@sipsolutions.net> <20161013134252.GA583@swordfish>
+         <1476366354.4904.31.camel@sipsolutions.net>
+         <CALCETrW8imkGTtR9-mFB=e=Gdr1QXVuhXN3GRs2B6wbmPaaGhA@mail.gmail.com>
+         <1476429916.4382.12.camel@sipsolutions.net>
+         <1476433699.31114.6.camel@sipsolutions.net>
+         <CAKv+Gu8hTy8U7FcA58P1YWt2rHU09xP9v1UU0KcnD4uuaK8How@mail.gmail.com>
+         <CAKv+Gu_v+4D_7EvRkrSrStheuP1L-oPh=o7Ub+NU7-wgLYks4w@mail.gmail.com>
+         <1476434561.31114.7.camel@sipsolutions.net>
+         <CAKv+Gu896xme5sd5i8hs7tA=Xt=qQKCiAx7fQg1ZECn50NttbQ@mail.gmail.com>
+         <1476435303.31114.14.camel@sipsolutions.net>
+         <CAKv+Gu9KObA61fEYxr1FFj_3SKNS2RUbqZo01yfnm9Bf0AncwA@mail.gmail.com>
+         <1476436248.31114.21.camel@sipsolutions.net>
+         <CAKv+Gu-Y6wuMGuRgrHRGCvAM9qZjvufs=7VWL8hAUKFSF=tZWg@mail.gmail.com>
+         <1476437149.31114.27.camel@sipsolutions.net>
+         <CAKv+Gu_p7neD-ttCBBA6p7VSkQt8mvfhS9cdcLftdkXNtAAFnQ@mail.gmail.com>
+         (sfid-20161014_113557_975987_6F520981)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto@amacapital.net>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Jouni Malinen <j@w1.fi>
+To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKv+Gu_p7neD-ttCBBA6p7VSkQt8mvfhS9cdcLftdkXNtAAFnQ@mail.gmail.com> (sfid-20161014_113557_975987_6F520981)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Zero allocations before they're passed to drivers to be filled out with
-statistics. While many drivers always correctly fill out the entire
-allocated space, under some failure conditions some drivers will not
-clear the allocated space appropriately. Unprivileged users could
-induce some of these failure conditions to leak kernel memory. Instead
-of fixing drivers one by one, the best solution is to eliminate the
-possibility of driver errors leaking kernel memory entirely.
 
-Given that ethtool_get_stats(), ethtool_get_phy_stats(), and
-ethtool_get_tunable() are accessible without CAP_NET_ADMIN they are the
-most important to clear to avoid memory leaks. ethtool_self_test() and
-ethtool_get_any_eeprom() require CAP_NET_ADMIN but were also included
-for completeness.
+> So why is the performance hit acceptable for ESP but not for WPA? We
+> could easily implement the same thing, i.e.,
+> kmalloc(GFP_ATOMIC)/kfree the aead_req struct rather than allocate it
+> on the stack
 
-Some examples of driver methods that could fail to fill out memory:
-enic_get_ethtool_stats(), cp_get_ethtool_stats(),
-mv88e6xxx_get_ethtool_stats(), bnx2x_self_test(), be_self_test(), etc.
+Yeah, maybe we should. It's likely a much bigger allocation, but I
+don't actually know if that affects speed.
 
-Signed-off-by: Vlad Tsyrklevich <vlad@tsyrklevich.net>
----
- net/core/ethtool.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+In most cases where you want high performance we never hit this anyway
+since we'll have hardware crypto. I know for our (Intel's) devices we
+normally never hit these code paths.
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 9774898..7202915 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1538,7 +1538,7 @@ static int ethtool_get_any_eeprom(struct net_device *dev, void __user *useraddr,
- 	if (eeprom.offset + eeprom.len > total_len)
- 		return -EINVAL;
- 
--	data = kmalloc(PAGE_SIZE, GFP_USER);
-+	data = kzalloc(PAGE_SIZE, GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
-@@ -1775,7 +1775,7 @@ static int ethtool_self_test(struct net_device *dev, char __user *useraddr)
- 		return -EFAULT;
- 
- 	test.len = test_len;
--	data = kmalloc(test_len * sizeof(u64), GFP_USER);
-+	data = kcalloc(test_len, sizeof(u64), GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
-@@ -1907,7 +1907,7 @@ static int ethtool_get_stats(struct net_device *dev, void __user *useraddr)
- 		return -EFAULT;
- 
- 	stats.n_stats = n_stats;
--	data = kmalloc(n_stats * sizeof(u64), GFP_USER);
-+	data = kcalloc(n_stats, sizeof(u64), GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
-@@ -1946,7 +1946,7 @@ static int ethtool_get_phy_stats(struct net_device *dev, void __user *useraddr)
- 		return -EFAULT;
- 
- 	stats.n_stats = n_stats;
--	data = kmalloc_array(n_stats, sizeof(u64), GFP_USER);
-+	data = kcalloc(n_stats, sizeof(u64), GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 
-@@ -2269,7 +2269,7 @@ static int ethtool_get_tunable(struct net_device *dev, void __user *useraddr)
- 	ret = ethtool_tunable_valid(&tuna);
- 	if (ret)
- 		return ret;
--	data = kmalloc(tuna.len, GFP_USER);
-+	data = kzalloc(tuna.len, GFP_USER);
- 	if (!data)
- 		return -ENOMEM;
- 	ret = ops->get_tunable(dev, &tuna, data);
--- 
-2.7.0
+But on the other hand, you also did your changes for a reason, and the
+only reason I can see of that is performance. So you'd be the one with
+most "skin in the game", I guess?
+
+johannes
