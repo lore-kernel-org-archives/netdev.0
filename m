@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] qed: Fix dependencies and warnings series
-Date: Fri, 14 Oct 2016 11:07:49 -0400 (EDT)
-Message-ID: <20161014.110749.281611802201976690.davem@davemloft.net>
-References: <1476388623-31032-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+Subject: Re: [PATCH net] net/mlx4_en: fixup xdp tx irq to match rx
+Date: Fri, 14 Oct 2016 11:14:21 -0400 (EDT)
+Message-ID: <20161014.111421.755793293161214884.davem@davemloft.net>
+References: <20161013201311.20844-1-bblanco@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de, dan.carpenter@oracle.com
-To: Yuval.Mintz@caviumnetworks.com
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        ttoukan.linux@gmail.com, gerlitz.or@gmail.com,
+        saeedm@dev.mellanox.co.il, brouer@redhat.com
+To: bblanco@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48090 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48174 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751148AbcJNPHv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 11:07:51 -0400
-In-Reply-To: <1476388623-31032-1-git-send-email-Yuval.Mintz@caviumnetworks.com>
+        with ESMTP id S1752443AbcJNPOX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 11:14:23 -0400
+In-Reply-To: <20161013201311.20844-1-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-Date: Thu, 13 Oct 2016 22:57:00 +0300
+From: Brenden Blanco <bblanco@plumgrid.com>
+Date: Thu, 13 Oct 2016 13:13:11 -0700
 
-> The first patch in this series follows Dan Carpenter's reports about
-> Smatch warnings for recent qed additions and fixes those.
+> In cases where the number of tx rings is not a multiple of the number of
+> rx rings, the tx completion event will be handled on a different core
+> from the transmit and population of the ring. Races on the ring will
+> lead to a double-free of the page, and possibly other corruption.
 > 
-> The second patch is the most significant one [and the reason this is
-> ntended for 'net'] - it's based on Arnd Bermann's suggestion for fixing
-> compilation issues that were introduced with the roce addition as a result
-> of certain combinations of qed, qede and qedr Kconfig options.
+> The rings are initialized by default with a valid multiple of rings,
+> based on the number of cpus, therefore an invalid configuration requires
+> ethtool to change the ring layout. For instance 'ethtool -L eth0 rx 9 tx
+> 8' will cause packets received on rx0, and XDP_TX'd to tx48, to be
+> completed on cpu3 (48 % 9 == 3).
 > 
-> The third follows the discussion with Arnd and clears a lot of the warnings
-> that arise when compiling the drivers with "C=1".
+> Resolve this discrepancy by shifting the irq for the xdp tx queues to
+> start again from 0, modulo rx_ring_num.
 > 
-> Please consider applying this series to 'net'.
+> Fixes: 9ecc2d86171a ("net/mlx4_en: add xdp forwarding and data write support")
+> Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
