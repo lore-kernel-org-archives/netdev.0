@@ -1,51 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH trivial] net: add bbr to config DEFAULT_TCP_CONG
-Date: Fri, 14 Oct 2016 11:17:27 -0400 (EDT)
-Message-ID: <20161014.111727.1347759995128120612.davem@davemloft.net>
-References: <20161014073333.GA10006@x4>
-        <1476431026.5650.38.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20161014080716.GA306@x4>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v2] net: Require exact match for TCP socket lookups if dif
+ is l3mdev
+Date: Fri, 14 Oct 2016 09:28:15 -0600
+Message-ID: <f82e5e6d-d32d-d5dc-5484-f3f2ab76450b@cumulusnetworks.com>
+References: <1476420459-20966-1-git-send-email-dsa@cumulusnetworks.com>
+ <1476426789.5650.34.camel@edumazet-glaptop3.roam.corp.google.com>
+ <25e3a7a9-a74e-5392-742a-38bd224343f6@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, ncardwell@google.com,
-        netdev@vger.kernel.org
-To: markus@trippelsdorf.de
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48230 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752098AbcJNPR2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 11:17:28 -0400
-In-Reply-To: <20161014080716.GA306@x4>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:36124 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753945AbcJNP2S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 11:28:18 -0400
+Received: by mail-pf0-f177.google.com with SMTP id e6so51038479pfk.3
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 08:28:18 -0700 (PDT)
+In-Reply-To: <25e3a7a9-a74e-5392-742a-38bd224343f6@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Date: Fri, 14 Oct 2016 10:07:16 +0200
-
-> On 2016.10.14 at 09:43 +0200, Eric Dumazet wrote:
->> On Fri, 2016-10-14 at 09:33 +0200, Markus Trippelsdorf wrote:
->> > While playing with BBR I noticed that it was missing in the list of
->> > possible config DEFAULT_TCP_CONG choices. Fixed thusly.
->> > 
->> > Signed-off-by: Markus Trippelsdorf <markus@trippelsdorf.de>
->> > 
->> > diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
->> > index 300b06888fdf..b54b3ca939db 100644
->> > --- a/net/ipv4/Kconfig
->> > +++ b/net/ipv4/Kconfig
->> > @@ -715,6 +715,7 @@ config DEFAULT_TCP_CONG
->> >  	default "reno" if DEFAULT_RENO
->> >  	default "dctcp" if DEFAULT_DCTCP
->> >  	default "cdg" if DEFAULT_CDG
->> > +	default "bbr" if DEFAULT_BBR
->> >  	default "cubic"
->> 
->> Not sure if we want this at this moment.
->> 
->> BBR needs FQ packet scheduler, and this is not exactly trivial to
->> achieve.
+On 10/14/16 6:21 AM, David Ahern wrote:
+>> So you might need to let the caller pass IP6CB(skb)->flags (or
+>> TCP_SKB_CB(skb)->header.h6.flags ) instead of skb since
+>> inet6_exact_dif_match() does not know where to fetch the flags.
+>>
+>> Same issue for IPv4.
 > 
-> For a start, it could be automatically selected:
+> I'll update the match functions to pull from TCP_SKB_CB instead of IP6CB and make a note of the above.
 
-Right but FQ has to be properly enabled and configured as well.
+IPv6 does the move after the socket lookup where IPv4 does it before.
