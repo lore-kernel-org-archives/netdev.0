@@ -1,49 +1,53 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v2] net: Require exact match for TCP socket lookups if dif
- is l3mdev
-Date: Fri, 14 Oct 2016 06:21:19 -0600
-Message-ID: <25e3a7a9-a74e-5392-742a-38bd224343f6@cumulusnetworks.com>
-References: <1476420459-20966-1-git-send-email-dsa@cumulusnetworks.com>
- <1476426789.5650.34.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: Need help with mdiobus_register and phy
+Date: Fri, 14 Oct 2016 07:39:48 -0500
+Message-ID: <5800D214.70808@codeaurora.org>
+References: <5800159B.3080708@codeaurora.org> <20161014040641.GE5822@lunn.ch>
+ <5800C3C7.60705@codeaurora.org> <20161014120624.GG5822@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34559 "EHLO
-        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753542AbcJNMVX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 08:21:23 -0400
-Received: by mail-pa0-f48.google.com with SMTP id rz1so47151290pab.1
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 05:21:22 -0700 (PDT)
-In-Reply-To: <1476426789.5650.34.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:35522 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752900AbcJNMju (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 08:39:50 -0400
+In-Reply-To: <20161014120624.GG5822@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/14/16 12:33 AM, Eric Dumazet wrote:
-> There is a catch here.
-> TCP moves IP6CB() in a different location.
-> 
-> Reference :
-> 
-> 971f10eca186 ("tcp: better TCP_SKB_CB layout to reduce cache line misses")
+Andrew Lunn wrote:
+> Please can you tell us what PHY which is, and how it is put to sleep
+> and woken up.
 
-thanks for the reference.
+It's the at803x driver.
 
+http://lxr.free-electrons.com/source/drivers/net/phy/at803x.c
 
-> Problem is that the lookup can happen from IP early demux, before TCP
-> moved IP{6}CB around.
+It goes to sleep in its at803x_suspend() function, which is called by 
+phy_suspend().
 
-For TCP we only need the exact_dif match for listen sockets, so early demux does not apply.
+There is a corresponding at803x_resume().  The problem is that this is 
+not called by mdiobus_register().  I'm guessing that mdiobus_register() 
+assumes that the phy is awake.
 
-> 
-> So you might need to let the caller pass IP6CB(skb)->flags (or
-> TCP_SKB_CB(skb)->header.h6.flags ) instead of skb since
-> inet6_exact_dif_match() does not know where to fetch the flags.
-> 
-> Same issue for IPv4.
+It seems like a catch-22.  mdiobus_register() assumes that the phy is 
+awake, but you can't wake up the phy until after you call 
+mdiobus_register().
 
-I'll update the match functions to pull from TCP_SKB_CB instead of IP6CB and make a note of the above.
+> If the PHY cannot be woken up using MDIO, then maybe you need to look
+> at the mdio bus reset call?
 
-Thanks for the review
+I looked at that, but it won't work because there is no phydev when the 
+reset function is called:
+
+http://lxr.free-electrons.com/source/drivers/net/phy/mdio_bus.c#L328
+
+It's the same catch-22.
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
