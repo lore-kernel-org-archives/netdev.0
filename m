@@ -1,61 +1,52 @@
-From: Paolo Abeni <pabeni@redhat.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v3] IB/ipoib: move back IB LL address into the hard
  header
-Date: Fri, 14 Oct 2016 16:48:50 +0200
-Message-ID: <1476456530.5591.1.camel@redhat.com>
+Date: Fri, 14 Oct 2016 10:55:09 -0400 (EDT)
+Message-ID: <20161014.105509.96692421040954960.davem@davemloft.net>
 References: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni@redhat.com>
-         <CAJ3xEMi7DY7_3vM+553dC4w17W==CdUdtn5PdzzCCUxtj434dQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>,
-        Erez Shitrit <erezsh@mellanox.com>,
-        Alex Vesker <valex@mellanox.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "talal@mellanox.com" <talal@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: linux-rdma@vger.kernel.org, dledford@redhat.com,
+        sean.hefty@intel.com, hal.rosenstock@gmail.com,
+        jgunthorpe@obsidianresearch.com, netdev@vger.kernel.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41968 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752742AbcJNOsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 10:48:55 -0400
-In-Reply-To: <CAJ3xEMi7DY7_3vM+553dC4w17W==CdUdtn5PdzzCCUxtj434dQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47960 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751148AbcJNOzM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:55:12 -0400
+In-Reply-To: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-10-14 at 13:23 +0300, Or Gerlitz wrote:
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Thu, 13 Oct 2016 18:26:56 +0200
+
+> After the commit 9207f9d45b0a ("net: preserve IP control block
+> during GSO segmentation"), the GSO CB and the IPoIB CB conflict.
+> That destroy the IPoIB address information cached there,
+> causing a severe performance regression, as better described here:
 > 
-> Paolo,
+> http://marc.info/?l=linux-kernel&m=146787279825501&w=2
 > 
-> Is this fix backportable to any kernel since the breakage? 
+> This change moves the data cached by the IPoIB driver from the
+> skb control lock into the IPoIB hard header, as done before
+> the commit 936d7de3d736 ("IPoIB: Stop lying about hard_header_len
+> and use skb->cb to stash LL addresses").
+> In order to avoid GRO issue, on packet reception, the IPoIB driver
+> stash into the skb a dummy pseudo header, so that the received
+> packets have actually a hard header matching the declared length.
+> To avoid changing the connected mode maximum mtu, the allocated
+> head buffer size is increased by the pseudo header length.
+> 
+> After this commit, IPoIB performances are back to pre-regression
+> value.
+> 
+> v2 -> v3: rebased
+> v1 -> v2: avoid changing the max mtu, increasing the head buf size
+> 
+> Fixes: 9207f9d45b0a ("net: preserve IP control block during GSO segmentation")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-yes, AFAIK this is beck-portable.
-
-> AFAIR,
-> Roland mentioned
-> that a 2nd change introduced in 4.7-rc1 changed things a bit more such
-> that the fix
-> he had in his head didn't apply any more.
-
-If you refer to shrinking both IPoIB and gso control buffer, as proposed
-by Roland in:
-
-http://marc.info/?l=linux-kernel&m=146787279825501&w=2
-
-that will not work, since the gso control buffer is grown a bit since
-the first time the bug was detected.
-
-This patch does not have that sort of issue.
-
-> I am still travelling after netdev and would like to put an eye on the
-> patch and also see that @mellanox.com someone
-
-Not sure if that helps, but a 3rd party has already confirmed privately
-that this patch fixes the bug for them.
-
-Paolo
+Applied and queued up for -stable, thanks.
