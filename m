@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Documentation/networking: update git urls to
- use https over http
-Date: Fri, 14 Oct 2016 10:27:55 -0400 (EDT)
-Message-ID: <20161014.102755.1254674092225073407.davem@davemloft.net>
-References: <20161013150951.4615-1-alexander@alemayhu.com>
+Subject: Re: [PATCH net-next 0/4] rxrpc: Fixes
+Date: Fri, 14 Oct 2016 10:45:02 -0400 (EDT)
+Message-ID: <20161014.104502.1079192449965835276.davem@davemloft.net>
+References: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, corbet@lwn.net, linux-doc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: alexander@alemayhu.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20161013150951.4615-1-alexander@alemayhu.com>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Date: Thu, 13 Oct 2016 17:09:51 +0200
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 13 Oct 2016 17:12:09 +0100
 
-> This fixes the following errors when trying to clone the urls:
 > 
-> Cloning into 'net'...
-> fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/' not found
-> Cloning into 'net-next'...
-> fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/' not found
-> Cloning into 'linux'...
-> fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/' not found
-> Cloning into 'stable-queue'...
-> fatal: repository 'http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git/' not found
+> This set of patches contains a bunch of fixes:
 > 
-> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+>  (1) Fix use of kunmap() after change from kunmap_atomic() within AFS.
+> 
+>  (2) Don't use of ERR_PTR() with an always zero value.
+> 
+>  (3) Check the right error when using ip6_route_output().
+> 
+>  (4) Be consistent about whether call->operation_ID is BE or CPU-E within
+>      AFS.
+> 
+> The patches can be found here also:
+> 
+> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+> 
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20161013
 
-Since this is simply a documentation fix I applied this to 'net', thanks.
+Pulled, thanks David.
