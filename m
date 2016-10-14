@@ -1,87 +1,113 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Fri, 14 Oct 2016 13:30:15 -0500
-Message-ID: <58012437.6010706@codeaurora.org>
-References: <20161014040641.GE5822@lunn.ch> <5800C3C7.60705@codeaurora.org>
- <20161014120624.GG5822@lunn.ch> <5800D214.70808@codeaurora.org>
- <20161014124928.GJ5822@lunn.ch> <5800D474.1030303@codeaurora.org>
- <20161014125736.GK5822@lunn.ch> <5800D796.1030602@codeaurora.org>
- <20161014131852.GM5822@lunn.ch> <58010E79.2030607@codeaurora.org>
- <20161014172514.GA23455@lunn.ch>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: Re: [PATCH net-next v11 1/1] net: phy: Cleanup the Edge-Rate feature
+ in Microsemi PHYs.
+Date: Fri, 14 Oct 2016 20:48:39 +0200
+Message-ID: <20161014184838.GA9670@microsemi.com>
+References: <20161013.100141.1588302672560551253.davem@davemloft.net>
+ <1476382890-7275-1-git-send-email-allan.nielsen@microsemi.com>
+ <1476382890-7275-2-git-send-email-allan.nielsen@microsemi.com>
+ <20161014.110544.269842399219820528.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>, zefir.kurtisi@neratec.com
+Content-Type: text/plain; charset="iso-8859-1"
+Cc: <netdev@vger.kernel.org>, <andrew@lunn.ch>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:42862 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbcJNSqj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 14:46:39 -0400
-In-Reply-To: <20161014172514.GA23455@lunn.ch>
+Received: from mail-cys01nam02on0076.outbound.protection.outlook.com ([104.47.37.76]:19968
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751532AbcJNStp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Oct 2016 14:49:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20161014.110544.269842399219820528.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Lunn wrote:
+Hi David,
 
-> It is normal to get the phy-mode from device tree. I've no idea what
-> ACPI is supposed to do. Setting it to PHY_INTERFACE_MODE_NA means you
-> assume the boot loader has correctly setup the hardware. You ACPI
-> firmware might of done this, but there is no guarantee a device tree
-> base bootloader has. So i would prefer not changing this.
+I'm really sorry if I messed up, or is not following the protocol...
 
-Fair enough.  I don't think it's specified anywhere what firmware is 
-supposed to do.
+But you have applied it already:
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=4f58e6dceb0e44ca8f21568ed81e1df24e55964c
 
-What about specifying PHY_INTERFACE_MODE_NA on ACPI systems, but using 
-the phy-mode property on device tree systems?  That doesn't sound like a 
-great idea.
+> commit 4f58e6dceb0e44ca8f21568ed81e1df24e55964c
+> Author:     Allan W. Nielsen <allan.nielsen@microsemi.com>
+> AuthorDate: Wed Oct 12 15:47:51 2016 +0200
+> Commit:     David S. Miller <davem@davemloft.net>
+> CommitDate: Fri Oct 14 10:06:13 2016 -0400
+> 
+>     net: phy: Cleanup the Edge-Rate feature in Microsemi PHYs.
+> 
+>     Edge-Rate cleanup include the following:
+>     - Updated device tree bindings documentation for edge-rate
+>     - The edge-rate is now specified as a "slowdown", meaning that it is now
+>       being specified as positive values instead of negative (both
+>       documentation and implementation wise).
+>     - Only explicitly documented values for "vsc8531,vddmac" and
+>       "vsc8531,edge-slowdown" are accepted by the device driver.
+>     - Deleted include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
+>     - Read/validate devicetree settings in probe instead of init
+> 
+>     Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+>     Signed-off-by: Raju Lakkaraju <raju.lakkaraju@microsemi.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
 
->> >I don't see any other driver issue BMCR_PDOWN in their functions.  I
->> >added some printks for the PHYSID1 and PHYSID2 registers before and
->> >after BMCR_PDOWN:
->> >
->> >at803x_suspend:235 MII_PHYSID1=004d MII_PHYSID2=d074
->> >at803x_suspend:242 MII_PHYSID1=ffff MII_PHYSID2=ffff
->> >
->> >So after calling BMCR_PDOWN, the PHYSID1 and PHYSID2 registers are
->> >no longer readable.  Is that expected?
-> You are making two changes here. Is it the SGMII power down which is
-> causing the id registers to return 0xffff, or the BMCR_PDOWN.
->
-> The generic suspend code sets the PDOWN bit, so it is assuming the PHY
-> will respond afterwards.
+Maybe the misunderstanding was caused by me posting the re-based version in
+another thread.
 
-Ok, it took me a while to figure this out.  The driver does three writes:
+Anyway, thanks a lot for the big effort you put into maintaining this
+sub-system. I will be more care full next time to avoid such confusions.
 
-phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
-phy_write(phydev, MII_BMCR, phy_read(phydev, MII_BMCR) | BMCR_PDOWN);
-phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr | AT803X_BT_BX_REG_SEL);
+Best regards
+Allan W. Nielsen
 
-The first clears the AT803X_BT_BX_REG_SEL bit.  According to the 
-datasheet, that changes the register set from copper to fiber mode. 
-BMCR_PDOWN in fiber mode shuts off the SerDes bus.  That's not true in 
-copper mode.
 
-Then after shutting down SerDes, it switches back to copper mode.
 
-I also noticed the at803x_suspend already sends BMCR_PDOWN in copper 
-mode earlier in the function.
 
-So the question remains: should drivers shut down the SerDes bus when 
-they suspend?  In a sense, I'm wondering if we should revert
 
-	at803x: fix suspend/resume for SGMII link
-
-However, the changelog for that patch makes it sound like it's a 
-necessary fix.
-
-So I'm torn.  With the SerDes connection disabled, the driver no longer 
-responds to ID register reads.  That seems like something that would be 
-broken on device tree as well, but I don't understand why no one noticed 
-it before.
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+On 14/10/16 11:05, David Miller wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+> Date: Thu, 13 Oct 2016 20:21:30 +0200
+> 
+> > Edge-Rate cleanup include the following:
+> > - Updated device tree bindings documentation for edge-rate
+> > - The edge-rate is now specified as a "slowdown", meaning that it is now
+> >   being specified as positive values instead of negative (both
+> >   documentation and implementation wise).
+> > - Only explicitly documented values for "vsc8531,vddmac" and
+> >   "vsc8531,edge-slowdown" are accepted by the device driver.
+> > - Deleted include/dt-bindings/net/mscc-phy-vsc8531.h as it was not needed.
+> > - Read/validate devicetree settings in probe instead of init
+> >
+> > Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> > Signed-off-by: Raju Lakkaraju <raju.lakkaraju@microsemi.com>
+> 
+> This patch does not apply to the net-next tree.
+> 
+> Take my tree, put this email of your's into a file, and run this:
+> 
+> bash$ git am file
+> 
+> and you will get:
+> 
+> [davem@dhcp-10-15-49-210 net-next]$ git am --signoff net-next-v11-1-1-net-phy-Cleanup-the-Edge-Rate-feature-in-Microsemi-PHYs..patch
+> Applying: net: phy: Cleanup the Edge-Rate feature in Microsemi PHYs.
+> error: patch failed: Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt:6
+> error: Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt: patch does not apply
+> error: patch failed: drivers/net/phy/mscc.c:12
+> error: drivers/net/phy/mscc.c: patch does not apply
+> error: include/dt-bindings/net/mscc-phy-vsc8531.h: does not exist in index
+> Patch failed at 0001 net: phy: Cleanup the Edge-Rate feature in Microsemi PHYs.
+> The copy of the patch that failed is found in:
+>    /home/davem/src/GIT/net-next/.git/rebase-apply/patch
+> When you have resolved this problem, run "git am --continue".
+> If you prefer to skip this patch, run "git am --skip" instead.
+> To restore the original branch and stop patching, run "git am --abort".
+> 
+> Please do not resubmit this patch until you can successfully email the
+> patch to yourself and apply it cleanly to the net-next tree.
+> 
+> 
