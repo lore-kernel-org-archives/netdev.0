@@ -1,48 +1,74 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2] r8169: set coherent DMA mask as well as streaming DMA
- mask
-Date: Fri, 14 Oct 2016 22:48:47 +0200
-Message-ID: <20161014204847.GA25285@electric-eye.fr.zoreil.com>
-References: <1476452433-20518-1-git-send-email-ard.biesheuvel@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:42185 "EHLO
-        violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753866AbcJNUs5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 16:48:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1476452433-20518-1-git-send-email-ard.biesheuvel@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH v2] vmxnet3: avoid assumption about invalid dma_pa in vmxnet3_set_mc()
+Date: Sat, 15 Oct 2016 00:01:20 +0300
+Message-ID: <1476478880-22607-1-git-send-email-khoroshilov@ispras.ru>
+References: <20161013.094323.1769619439752576215.davem@davemloft.net>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+        "VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: David Miller <davem@davemloft.net>,
+        Shrikrishna Khare <skhare@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161013.094323.1769619439752576215.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ard Biesheuvel <ard.biesheuvel@linaro.org> :
-> PCI devices that are 64-bit DMA capable should set the coherent
-> DMA mask as well as the streaming DMA mask. On some architectures,
-> these are managed separately, and so the coherent DMA mask will be
-> left at its default value of 32 if it is not set explicitly. This
-> results in errors such as
-> 
->      r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->      hwdev DMA mask = 0x00000000ffffffff, dev_addr = 0x00000080fbfff000
->      swiotlb: coherent allocation failed for device 0000:02:00.0 size=4096
->      CPU: 0 PID: 1062 Comm: systemd-udevd Not tainted 4.8.0+ #35
->      Hardware name: AMD Seattle/Seattle, BIOS 10:53:24 Oct 13 2016
-> 
-> on systems without memory that is 32-bit addressable by PCI devices.
-> 
-> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+vmxnet3_set_mc() checks new_table_pa returned by dma_map_single()
+with dma_mapping_error(), but even there it assumes zero is invalid pa
+(it assumes dma_mapping_error(...,0) returns true if new_table is NULL).
 
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+The patch adds an explicit variable to track status of new_table_pa.
 
-Unless someone plans to plug an acenic, a 83820 (pci-e gem board, anyone ?)
-on top of a pci <-> pci-e adapter on this kind of motherboard, no other
-network driver that uses the pci_... dma api exhibits this mixed 32 / 64 bit
-support bug. I haven't checked devices with 32 < mask < 64 nor plain DMA api
-converted ones.
+Found by Linux Driver Verification project (linuxtesting.org).
 
+v2: use "bool" and "true"/"false" for boolean variables.
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index b5554f2ebee4..ef83ae3b0a44 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2279,6 +2279,7 @@ vmxnet3_set_mc(struct net_device *netdev)
+ 					&adapter->shared->devRead.rxFilterConf;
+ 	u8 *new_table = NULL;
+ 	dma_addr_t new_table_pa = 0;
++	bool new_table_pa_valid = false;
+ 	u32 new_mode = VMXNET3_RXM_UCAST;
+ 
+ 	if (netdev->flags & IFF_PROMISC) {
+@@ -2307,13 +2308,15 @@ vmxnet3_set_mc(struct net_device *netdev)
+ 							new_table,
+ 							sz,
+ 							PCI_DMA_TODEVICE);
++				if (!dma_mapping_error(&adapter->pdev->dev,
++						       new_table_pa)) {
++					new_mode |= VMXNET3_RXM_MCAST;
++					new_table_pa_valid = true;
++					rxConf->mfTablePA = cpu_to_le64(
++								new_table_pa);
++				}
+ 			}
+-
+-			if (!dma_mapping_error(&adapter->pdev->dev,
+-					       new_table_pa)) {
+-				new_mode |= VMXNET3_RXM_MCAST;
+-				rxConf->mfTablePA = cpu_to_le64(new_table_pa);
+-			} else {
++			if (!new_table_pa_valid) {
+ 				netdev_info(netdev,
+ 					    "failed to copy mcast list, setting ALL_MULTI\n");
+ 				new_mode |= VMXNET3_RXM_ALL_MULTI;
+@@ -2338,7 +2341,7 @@ vmxnet3_set_mc(struct net_device *netdev)
+ 			       VMXNET3_CMD_UPDATE_MAC_FILTERS);
+ 	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+ 
+-	if (new_table_pa)
++	if (new_table_pa_valid)
+ 		dma_unmap_single(&adapter->pdev->dev, new_table_pa,
+ 				 rxConf->mfTableLen, PCI_DMA_TODEVICE);
+ 	kfree(new_table);
 -- 
-Ueimor
+2.7.4
