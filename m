@@ -1,52 +1,73 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] IB/ipoib: move back IB LL address into the hard
- header
-Date: Fri, 14 Oct 2016 10:55:09 -0400 (EDT)
-Message-ID: <20161014.105509.96692421040954960.davem@davemloft.net>
-References: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni@redhat.com>
+Subject: Re: [PATCH 2/2] IPv6: fix DESYNC_FACTOR
+Date: Fri, 14 Oct 2016 10:59:40 -0400 (EDT)
+Message-ID: <20161014.105940.1675318884308466691.davem@davemloft.net>
+References: <20161013165215.52jxdlkh7v5octl7@dwarf.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, dledford@redhat.com,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com,
-        jgunthorpe@obsidianresearch.com, netdev@vger.kernel.org
-To: pabeni@redhat.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netdev@vger.kernel.org
+To: jbohac@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47960 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48028 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751148AbcJNOzM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:55:12 -0400
-In-Reply-To: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni@redhat.com>
+        with ESMTP id S932355AbcJNO7m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:59:42 -0400
+In-Reply-To: <20161013165215.52jxdlkh7v5octl7@dwarf.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Thu, 13 Oct 2016 18:26:56 +0200
+From: Jiri Bohac <jbohac@suse.cz>
+Date: Thu, 13 Oct 2016 18:52:15 +0200
 
-> After the commit 9207f9d45b0a ("net: preserve IP control block
-> during GSO segmentation"), the GSO CB and the IPoIB CB conflict.
-> That destroy the IPoIB address information cached there,
-> causing a severe performance regression, as better described here:
+> The IPv6 temporary address generation uses a variable called DESYNC_FACTOR
+> to prevent hosts updating the addresses at the same time. Quoting RFC 4941:
 > 
-> http://marc.info/?l=linux-kernel&m=146787279825501&w=2
+>    ... The value DESYNC_FACTOR is a random value (different for each
+>    client) that ensures that clients don't synchronize with each other and
+>    generate new addresses at exactly the same time ...
 > 
-> This change moves the data cached by the IPoIB driver from the
-> skb control lock into the IPoIB hard header, as done before
-> the commit 936d7de3d736 ("IPoIB: Stop lying about hard_header_len
-> and use skb->cb to stash LL addresses").
-> In order to avoid GRO issue, on packet reception, the IPoIB driver
-> stash into the skb a dummy pseudo header, so that the received
-> packets have actually a hard header matching the declared length.
-> To avoid changing the connected mode maximum mtu, the allocated
-> head buffer size is increased by the pseudo header length.
+> DESYNC_FACTOR is defined as:
 > 
-> After this commit, IPoIB performances are back to pre-regression
-> value.
+>    DESYNC_FACTOR -- A random value within the range 0 - MAX_DESYNC_FACTOR.
+>    It is computed once at system start (rather than each time it is used)
+>    and must never be greater than (TEMP_VALID_LIFETIME - REGEN_ADVANCE).
 > 
-> v2 -> v3: rebased
-> v1 -> v2: avoid changing the max mtu, increasing the head buf size
+> First, I believe the RFC has a typo in it and meant to say: "and must
+> never be greater than (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE)"
 > 
-> Fixes: 9207f9d45b0a ("net: preserve IP control block during GSO segmentation")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> The reason is that at various places in the RFC, DESYNC_FACTOR is used in
+> a calculation like (TEMP_PREFERRED_LIFETIME - DESYNC_FACTOR) or
+> (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE - DESYNC_FACTOR). It needs to be
+> smaller than (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE) for the result of
+> these calculations to be larger than zero. It's never used in a
+> calculation together with TEMP_VALID_LIFETIME.
+> 
+> I already submitted an errata to the rfc-editor:
+> https://www.rfc-editor.org/errata_search.php?rfc=4941
+> 
+> The Linux implementation of DESYNC_FACTOR is very wrong:
+> max_desync_factor is used in places DESYNC_FACTOR should be used.
+> max_desync_factor is initialized to the RFC-recommended value for
+> MAX_DESYNC_FACTOR (600) but the whole point is to get a _random_ value.
+> 
+> And nothing ensures that the value used is not greater than
+> (TEMP_PREFERRED_LIFETIME - REGEN_ADVANCE), which leads to underflows.  The
+> effect can easily be observed when setting the temp_prefered_lft sysctl
+> e.g. to 60. The preferred lifetime of the temporary addresses will be
+> bogus.
+> 
+> TEMP_PREFERRED_LIFETIME and REGEN_ADVANCE are not constants and can be
+> influenced by these three sysctls: regen_max_retry, dad_transmits and
+> temp_prefered_lft. Thus, the upper bound for desync_factor needs to be
+> re-calculated each time a new address is generated and if desync_factor is
+> larger than the new upper bound, a new random value needs to be
+> re-generated.
+> 
+> And since we already have max_desync_factor configurable per interface, we
+> also need to calculate and store desync_factor per interface.
+> 
+> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
-Applied and queued up for -stable, thanks.
+Applied.
