@@ -1,39 +1,61 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH net-next v2 6/6] fjes: Update fjes driver version : 1.2
-Date: Fri, 14 Oct 2016 20:28:15 +0900
-Message-ID: <1476444495-28942-1-git-send-email-izumi.taku@jp.fujitsu.com>
-References: <1476444345-28673-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Cc: Taku Izumi <izumi.taku@jp.fujitsu.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: [PATCH] r8169: set coherent DMA mask as well as streaming DMA mask
+Date: Fri, 14 Oct 2016 12:39:30 +0100
+Message-ID: <1476445170-4496-1-git-send-email-ard.biesheuvel@linaro.org>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: romieu@fr.zoreil.com, nic_swsd@realtek.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm03.jp.fujitsu.com ([202.219.69.170]:14756 "EHLO
-        mgwkm03.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754310AbcJNLjV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 07:39:21 -0400
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-        by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id 3E7B9AC01F1
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 20:39:15 +0900 (JST)
-In-Reply-To: <1476444345-28673-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Received: from mail-qt0-f175.google.com ([209.85.216.175]:34985 "EHLO
+        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754385AbcJNLjh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 07:39:37 -0400
+Received: by mail-qt0-f175.google.com with SMTP id f6so74463028qtd.2
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 04:39:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
----
- drivers/net/fjes/fjes_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+PCI devices that are 64-bit DMA capable should set the coherent
+DMA mask as well as the streaming DMA mask. On some architectures,
+these are managed separately, and so the coherent DMA mask will be
+left at its default value of 32 if it is not set explicitly. This
+results in errors such as
 
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index 359e7a5..f36eb4a 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -30,7 +30,7 @@
- #include "fjes_trace.h"
+     r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+     hwdev DMA mask = 0x00000000ffffffff, dev_addr = 0x00000080fbfff000
+     swiotlb: coherent allocation failed for device 0000:02:00.0 size=4096
+     CPU: 0 PID: 1062 Comm: systemd-udevd Not tainted 4.8.0+ #35
+     Hardware name: AMD Seattle/Seattle, BIOS 10:53:24 Oct 13 2016
+
+on systems without memory that is 32-bit addressable by PCI devices.
+
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+---
+ drivers/net/ethernet/realtek/r8169.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index e55638c7505a..04957a36b11f 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -8273,7 +8273,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if ((sizeof(dma_addr_t) > 4) &&
+ 	    (use_dac == 1 || (use_dac == -1 && pci_is_pcie(pdev) &&
+ 			      tp->mac_version >= RTL_GIGA_MAC_VER_18)) &&
+-	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
++	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) &&
++	    !pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
  
- #define MAJ 1
--#define MIN 1
-+#define MIN 2
- #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN)
- #define DRV_NAME	"fjes"
- char fjes_driver_name[] = DRV_NAME;
+ 		/* CPlusCmd Dual Access Cycle is only needed for non-PCIe */
+ 		if (!pci_is_pcie(pdev))
+@@ -8281,6 +8282,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		dev->features |= NETIF_F_HIGHDMA;
+ 	} else {
+ 		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
++		if (!rc)
++			rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+ 		if (rc < 0) {
+ 			netif_err(tp, probe, dev, "DMA configuration failed\n");
+ 			goto err_out_unmap_4;
 -- 
-2.6.6
+2.7.4
