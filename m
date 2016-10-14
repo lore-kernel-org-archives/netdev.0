@@ -1,34 +1,41 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v2] net: Require exact match for TCP socket lookups if dif
- is l3mdev
-Date: Fri, 14 Oct 2016 09:28:15 -0600
-Message-ID: <f82e5e6d-d32d-d5dc-5484-f3f2ab76450b@cumulusnetworks.com>
-References: <1476420459-20966-1-git-send-email-dsa@cumulusnetworks.com>
- <1476426789.5650.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <25e3a7a9-a74e-5392-742a-38bd224343f6@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/7] qed*: driver updates
+Date: Fri, 14 Oct 2016 12:00:21 -0400 (EDT)
+Message-ID: <20161014.120021.368068785305617043.davem@davemloft.net>
+References: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com,
+        manish.chopra@caviumnetworks.com
+To: manish.chopra@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:36124 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753945AbcJNP2S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 11:28:18 -0400
-Received: by mail-pf0-f177.google.com with SMTP id e6so51038479pfk.3
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 08:28:18 -0700 (PDT)
-In-Reply-To: <25e3a7a9-a74e-5392-742a-38bd224343f6@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48772 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751061AbcJNQAa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 12:00:30 -0400
+In-Reply-To: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/14/16 6:21 AM, David Ahern wrote:
->> So you might need to let the caller pass IP6CB(skb)->flags (or
->> TCP_SKB_CB(skb)->header.h6.flags ) instead of skb since
->> inet6_exact_dif_match() does not know where to fetch the flags.
->>
->> Same issue for IPv4.
-> 
-> I'll update the match functions to pull from TCP_SKB_CB instead of IP6CB and make a note of the above.
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Fri, 14 Oct 2016 05:19:16 -0400
 
-IPv6 does the move after the socket lookup where IPv4 does it before.
+> There are several new additions in this series;
+> Most are connected to either Tx offloading or Rx classifications
+> [either fastpath changes or supporting configuration].
+> 
+> In addition, there's a single IOV enhancement.
+> 
+> Please consider applying this series to `net-next'.
+> 
+> V2->V3:
+> Fixes below kbuild warning
+> call to '__compiletime_assert_60' declared with
+> attribute error: Need native word sized stores/loads for atomicity.
+> 
+> V1->V2:
+> Added a fix for the race in ramrod handling
+> pointed by Eric Dumazet [patch 7].
+
+Series applied, thanks.
