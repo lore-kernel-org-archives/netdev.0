@@ -1,7 +1,7 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v3 net-next 2/7] qede: GSO support for tunnels with outer csum
-Date: Fri, 14 Oct 2016 05:19:18 -0400
-Message-ID: <1476436763-5274-3-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH v3 net-next 3/7] qede: Prevent GSO on long Geneve headers
+Date: Fri, 14 Oct 2016 05:19:19 -0400
+Message-ID: <1476436763-5274-4-git-send-email-manish.chopra@qlogic.com>
 References: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,9 +9,9 @@ Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
         Manish Chopra <manish.chopra@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41647 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41650 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753603AbcJNKEx (ORCPT
+        by vger.kernel.org with ESMTP id S1753684AbcJNKEx (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:04:53 -0400
 In-Reply-To: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,82 +19,72 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Manish Chopra <manish.chopra@caviumnetworks.com>
 
-This patch adds GSO support for GRE and UDP tunnels
-where outer checksums are enabled.
+Due to hardware limitation, when transmitting a geneve-encapsulated
+packet with more than 32 bytes worth of geneve options the hardware
+would not be able to crack the packet and consider it a regular UDP
+packet.
+
+This implements the ndo_features_check() in qede in order to prevent
+GSO on said transmitted packets.
 
 Signed-off-by: Manish Chopra <manish.chopra@caviumnetworks.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h      |  1 +
- drivers/net/ethernet/qlogic/qede/qede_main.c | 26 +++++++++++++++++++++++---
- 2 files changed, 24 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 35 ++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index 28c0e9f..f50e527 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -320,6 +320,7 @@ struct qede_fastpath {
- #define XMIT_L4_CSUM		BIT(0)
- #define XMIT_LSO		BIT(1)
- #define XMIT_ENC		BIT(2)
-+#define XMIT_ENC_GSO_L4_CSUM	BIT(3)
- 
- #define QEDE_CSUM_ERROR			BIT(0)
- #define QEDE_CSUM_UNNECESSARY		BIT(1)
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 9866d95..7d5dc1e 100644
+index 7d5dc1e..6c2b09c 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -400,8 +400,19 @@ static u32 qede_xmit_type(struct qede_dev *edev,
- 	    (ipv6_hdr(skb)->nexthdr == NEXTHDR_IPV6))
- 		*ipv6_ext = 1;
+@@ -2240,6 +2240,40 @@ static void qede_udp_tunnel_del(struct net_device *dev,
+ 	schedule_delayed_work(&edev->sp_task, 0);
+ }
  
--	if (skb->encapsulation)
++/* 8B udp header + 8B base tunnel header + 32B option length */
++#define QEDE_MAX_TUN_HDR_LEN 48
++
++static netdev_features_t qede_features_check(struct sk_buff *skb,
++					     struct net_device *dev,
++					     netdev_features_t features)
++{
 +	if (skb->encapsulation) {
- 		rc |= XMIT_ENC;
-+		if (skb_is_gso(skb)) {
-+			unsigned short gso_type = skb_shinfo(skb)->gso_type;
++		u8 l4_proto = 0;
 +
-+			if ((gso_type & SKB_GSO_UDP_TUNNEL_CSUM) ||
-+			    (gso_type & SKB_GSO_GRE_CSUM))
-+				rc |= XMIT_ENC_GSO_L4_CSUM;
-+
-+			rc |= XMIT_LSO;
-+			return rc;
++		switch (vlan_get_protocol(skb)) {
++		case htons(ETH_P_IP):
++			l4_proto = ip_hdr(skb)->protocol;
++			break;
++		case htons(ETH_P_IPV6):
++			l4_proto = ipv6_hdr(skb)->nexthdr;
++			break;
++		default:
++			return features;
 +		}
++
++		/* Disable offloads for geneve tunnels, as HW can't parse
++		 * the geneve header which has option length greater than 32B.
++		 */
++		if ((l4_proto == IPPROTO_UDP) &&
++		    ((skb_inner_mac_header(skb) -
++		      skb_transport_header(skb)) > QEDE_MAX_TUN_HDR_LEN))
++			return features & ~(NETIF_F_CSUM_MASK |
++					    NETIF_F_GSO_MASK);
 +	}
- 
- 	if (skb_is_gso(skb))
- 		rc |= XMIT_LSO;
-@@ -637,6 +648,12 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 		if (unlikely(xmit_type & XMIT_ENC)) {
- 			first_bd->data.bd_flags.bitfields |=
- 				1 << ETH_TX_1ST_BD_FLAGS_TUNN_IP_CSUM_SHIFT;
 +
-+			if (xmit_type & XMIT_ENC_GSO_L4_CSUM) {
-+				u8 tmp = ETH_TX_1ST_BD_FLAGS_TUNN_L4_CSUM_SHIFT;
++	return features;
++}
 +
-+				first_bd->data.bd_flags.bitfields |= 1 << tmp;
-+			}
- 			hlen = qede_get_skb_hlen(skb, true);
- 		} else {
- 			first_bd->data.bd_flags.bitfields |=
-@@ -2320,11 +2337,14 @@ static void qede_init_ndev(struct qede_dev *edev)
+ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_open = qede_open,
+ 	.ndo_stop = qede_close,
+@@ -2264,6 +2298,7 @@ static const struct net_device_ops qede_netdev_ops = {
+ #endif
+ 	.ndo_udp_tunnel_add = qede_udp_tunnel_add,
+ 	.ndo_udp_tunnel_del = qede_udp_tunnel_del,
++	.ndo_features_check = qede_features_check,
+ };
  
- 	/* Encap features*/
- 	hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
--		       NETIF_F_TSO_ECN;
-+		       NETIF_F_TSO_ECN | NETIF_F_GSO_UDP_TUNNEL_CSUM |
-+		       NETIF_F_GSO_GRE_CSUM;
- 	ndev->hw_enc_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO_ECN |
- 				NETIF_F_TSO6 | NETIF_F_GSO_GRE |
--				NETIF_F_GSO_UDP_TUNNEL | NETIF_F_RXCSUM;
-+				NETIF_F_GSO_UDP_TUNNEL | NETIF_F_RXCSUM |
-+				NETIF_F_GSO_UDP_TUNNEL_CSUM |
-+				NETIF_F_GSO_GRE_CSUM;
- 
- 	ndev->vlan_features = hw_features | NETIF_F_RXHASH | NETIF_F_RXCSUM |
- 			      NETIF_F_HIGHDMA;
+ /* -------------------------------------------------------------------------
 -- 
 2.7.2
