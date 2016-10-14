@@ -1,7 +1,7 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v3 net-next 4/7] qed*: Allow unicast filtering
-Date: Fri, 14 Oct 2016 05:19:20 -0400
-Message-ID: <1476436763-5274-5-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH v3 net-next 1/7] qed: Pass MAC hints to VFs
+Date: Fri, 14 Oct 2016 05:19:17 -0400
+Message-ID: <1476436763-5274-2-git-send-email-manish.chopra@qlogic.com>
 References: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,9 +9,9 @@ Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
         Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41646 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41649 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753599AbcJNKEx (ORCPT
+        by vger.kernel.org with ESMTP id S1753607AbcJNKEx (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:04:53 -0400
 In-Reply-To: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,85 +19,66 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 
-Apparently qede fails to set IFF_UNICAST_FLT, and as a result is not
-actually performing unicast MAC filtering.
-While we're at it - relax a hard-coded limitation that limits each
-interface into using at most 15 unicast MAC addresses before turning
-promiscuous. Instead utilize the HW resources to their limit.
+Some hypervisors can support MAC hints to their VFs.
+Even though we don't have such a hypervisor API in linux, we add
+sufficient logic for the VF to be able to receive such hints and
+set the mac accordingly - as long as the VF has not been set with
+a MAC already.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_l2.c     | 12 ++++++++++--
- drivers/net/ethernet/qlogic/qede/qede_main.c |  4 +++-
- include/linux/qed/qed_eth_if.h               |  1 +
- 3 files changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_vf.c     | 4 ++--
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 6 +++++-
+ include/linux/qed/qed_eth_if.h               | 2 +-
+ 3 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index ddd410a..6b0e22d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -1652,6 +1652,7 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+index abf5bf1..f580bf4 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+@@ -1230,8 +1230,8 @@ static void qed_handle_bulletin_change(struct qed_hwfn *hwfn)
  
- 	if (IS_PF(cdev)) {
- 		int max_vf_vlan_filters = 0;
-+		int max_vf_mac_filters = 0;
+ 	is_mac_exist = qed_vf_bulletin_get_forced_mac(hwfn, mac,
+ 						      &is_mac_forced);
+-	if (is_mac_exist && is_mac_forced && cookie)
+-		ops->force_mac(cookie, mac);
++	if (is_mac_exist && cookie)
++		ops->force_mac(cookie, mac, !!is_mac_forced);
  
- 		if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
- 			for_each_hwfn(cdev, i)
-@@ -1665,11 +1666,18 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
- 			info->num_queues = cdev->num_hwfns;
- 		}
- 
--		if (IS_QED_SRIOV(cdev))
-+		if (IS_QED_SRIOV(cdev)) {
- 			max_vf_vlan_filters = cdev->p_iov_info->total_vfs *
- 					      QED_ETH_VF_NUM_VLAN_FILTERS;
--		info->num_vlan_filters = RESC_NUM(&cdev->hwfns[0], QED_VLAN) -
-+			max_vf_mac_filters = cdev->p_iov_info->total_vfs *
-+					     QED_ETH_VF_NUM_MAC_FILTERS;
-+		}
-+		info->num_vlan_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
-+						  QED_VLAN) -
- 					 max_vf_vlan_filters;
-+		info->num_mac_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
-+						 QED_MAC) -
-+					max_vf_mac_filters;
- 
- 		ether_addr_copy(info->port_mac,
- 				cdev->hwfns[0].hw_info.hw_mac_addr);
+ 	/* Always update link configuration according to bulletin */
+ 	qed_link_update(hwfn);
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 6c2b09c..0e483af 100644
+index 343038c..9866d95 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -2365,6 +2365,8 @@ static void qede_init_ndev(struct qede_dev *edev)
+@@ -171,10 +171,14 @@ static struct pci_driver qede_pci_driver = {
+ #endif
+ };
  
- 	qede_set_ethtool_ops(ndev);
+-static void qede_force_mac(void *dev, u8 *mac)
++static void qede_force_mac(void *dev, u8 *mac, bool forced)
+ {
+ 	struct qede_dev *edev = dev;
  
-+	ndev->priv_flags = IFF_UNICAST_FLT;
++	/* MAC hints take effect only if we haven't set one already */
++	if (is_valid_ether_addr(edev->ndev->dev_addr) && !forced)
++		return;
 +
- 	/* user-changeble features */
- 	hw_features = NETIF_F_GRO | NETIF_F_SG |
- 		      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-@@ -3937,7 +3939,7 @@ static void qede_config_rx_mode(struct net_device *ndev)
- 
- 	/* Check for promiscuous */
- 	if ((ndev->flags & IFF_PROMISC) ||
--	    (uc_count > 15)) { /* @@@TBD resource allocation - 1 */
-+	    (uc_count > edev->dev_info.num_mac_filters - 1)) {
- 		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
- 	} else {
- 		/* Add MAC filters according to the unicast secondary macs */
+ 	ether_addr_copy(edev->ndev->dev_addr, mac);
+ 	ether_addr_copy(edev->primary_mac, mac);
+ }
 diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 1c77948..1513080 100644
+index 33c24eb..1c77948 100644
 --- a/include/linux/qed/qed_eth_if.h
 +++ b/include/linux/qed/qed_eth_if.h
-@@ -23,6 +23,7 @@ struct qed_dev_eth_info {
+@@ -129,7 +129,7 @@ struct qed_tunn_params {
  
- 	u8	port_mac[ETH_ALEN];
- 	u8	num_vlan_filters;
-+	u16	num_mac_filters;
+ struct qed_eth_cb_ops {
+ 	struct qed_common_cb_ops common;
+-	void (*force_mac) (void *dev, u8 *mac);
++	void (*force_mac) (void *dev, u8 *mac, bool forced);
+ };
  
- 	/* Legacy VF - this affects the datapath, so qede has to know */
- 	bool is_legacy;
+ #ifdef CONFIG_DCB
 -- 
 2.7.2
