@@ -1,60 +1,50 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] r8169: set coherent DMA mask as well as streaming
- DMA mask
-Date: Fri, 14 Oct 2016 13:42:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB01FF652@AcuExch.aculab.com>
-References: <1476452433-20518-1-git-send-email-ard.biesheuvel@linaro.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211: aes_ccm: move struct aead_req off the stack
+Date: Fri, 14 Oct 2016 15:46:32 +0200
+Message-ID: <1476452792.31114.46.camel@sipsolutions.net>
+References: <1476450540-1760-1-git-send-email-ard.biesheuvel@linaro.org>
+         <1476450635.31114.42.camel@sipsolutions.net>
+         <CAKv+Gu_eS-C84rH_MLYy--ivC0a99wwJvNDLhETfrBkYXW-XpA@mail.gmail.com>
+         <1476450941.31114.45.camel@sipsolutions.net>
+         <CAKv+Gu81RYq1aZUQ2Aru3Vev4LGgb1zFwWz8gepE0tQEhQi9Uw@mail.gmail.com>
+         (sfid-20161014_151923_585451_B0D65F1F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Ard Biesheuvel' <ard.biesheuvel@linaro.org>,
-        "romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
-        "nic_swsd@realtek.com" <nic_swsd@realtek.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto@amacapital.net>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476452433-20518-1-git-send-email-ard.biesheuvel@linaro.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Jouni Malinen <j@w1.fi>
+To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:59080 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756349AbcJNNqm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Oct 2016 09:46:42 -0400
+In-Reply-To: <CAKv+Gu81RYq1aZUQ2Aru3Vev4LGgb1zFwWz8gepE0tQEhQi9Uw@mail.gmail.com> (sfid-20161014_151923_585451_B0D65F1F)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Of Ard Biesheuvel
-> Sent: 14 October 2016 14:41
-> PCI devices that are 64-bit DMA capable should set the coherent
-> DMA mask as well as the streaming DMA mask. On some architectures,
-> these are managed separately, and so the coherent DMA mask will be
-> left at its default value of 32 if it is not set explicitly. This
-> results in errors such as
-> 
->      r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->      hwdev DMA mask = 0x00000000ffffffff, dev_addr = 0x00000080fbfff000
->      swiotlb: coherent allocation failed for device 0000:02:00.0 size=4096
->      CPU: 0 PID: 1062 Comm: systemd-udevd Not tainted 4.8.0+ #35
->      Hardware name: AMD Seattle/Seattle, BIOS 10:53:24 Oct 13 2016
-> 
-> on systems without memory that is 32-bit addressable by PCI devices.
-> 
-> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-> ---
-> v2: dropped the hunk that sets the coherent DMA mask to DMA_BIT_MASK(32),
->     which is unnecessary given that it is the default
-> 
->  drivers/net/ethernet/realtek/r8169.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index e55638c7505a..bf000d819a21 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -8273,7 +8273,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	if ((sizeof(dma_addr_t) > 4) &&
->  	    (use_dac == 1 || (use_dac == -1 && pci_is_pcie(pdev) &&
->  			      tp->mac_version >= RTL_GIGA_MAC_VER_18)) &&
-> -	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
-> +	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) &&
-> +	    !pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
 
-Isn't there a dma_set_mask_and_coherent() function ?
+> 
+> Is the aad[] actually reused? I would assume it only affects the mac
+> on encryption, and the verification on decryption but I don't think
+> we actually need it back from the crypto routines.
 
-	David
+I don't think it's reused.
+
+> Exactly what you said above :-) My patch only touches CCM but as you
+> said,
+> 
+> """
+> 'Also there's B_0/J_0 for CCM/GCM, and the 'zero' thing that GMAC
+> has.
+> """
+
+Ah, but we can/should do the same for the others, no?
+
+johannes
