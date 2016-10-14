@@ -1,114 +1,67 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: pull-request: wireless-drivers 2016-10-14
-Date: Fri, 14 Oct 2016 10:18:42 +0300
-Message-ID: <87oa2nbdpp.fsf@kamboji.qca.qualcomm.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [mac80211] BUG_ON with current -git (4.8.0-11417-g24532f7)
+Date: Fri, 14 Oct 2016 09:25:16 +0200
+Message-ID: <1476429916.4382.12.camel@sipsolutions.net>
+References: <20161010150358.GA514@swordfish>
+         <20161010153050.GA836@swordfish>
+         <1476263106.5271.23.camel@sipsolutions.net>
+         <20161012141245.GA436@swordfish>
+         <1476282127.5271.30.camel@sipsolutions.net>
+         <CALCETrXg9-OpJx5Rqz8afyaug+0DjzxvpdbOV9q6i01=zCZbcQ@mail.gmail.com>
+         <1476338524.4904.1.camel@sipsolutions.net> <20161013134252.GA583@swordfish>
+         <1476366354.4904.31.camel@sipsolutions.net>
+         <CALCETrW8imkGTtR9-mFB=e=Gdr1QXVuhXN3GRs2B6wbmPaaGhA@mail.gmail.com>
+         (sfid-20161013_235018_225755_5BCF27D2)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55933 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753004AbcJNHSs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 03:18:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CALCETrW8imkGTtR9-mFB=e=Gdr1QXVuhXN3GRs2B6wbmPaaGhA@mail.gmail.com> (sfid-20161013_235018_225755_5BCF27D2)
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Thu, 2016-10-13 at 14:49 -0700, Andy Lutomirski wrote:
+> 
+> It's failing before that.  With CONFIG_VMAP_STACK=y, the stack may
+> not be physically contiguous and can't be used for DMA, so putting it
+> in a scatterlist is bogus in general, and the crypto code mostly
+> wants a scatterlist.
 
-first wireless-drivers pull request for 4.9 and this time we have
-unusually many fixes even before -rc1 is released. Most important here
-are the wlcore and rtlwifi commits which fix critical regressions,
-otherwise smaller impact fixes and one new sdio id for ath6kl.
+I see, so all this stuff is getting inlined, and we crash in
+sg_set_buf() because it does sg_set_page() and that obviously needs to
+do virt_to_page(), which is invalid on this address now.
+With CONFIG_DEBUG_SG we'd have hit the BUG_ON there instead.
 
-Please let me know if there are any problems.
+It does indeed look like AEAD doesn't have any non-SG API.
 
-Kalle
+So ultimately, the bug already goes back to Ard's commit 7ec7c4a9a686
+("mac80211: port CCMP to cryptoapi's CCM driver") since that already
+potentially used stack space for DMA.
 
-The following changes since commit 03a1eabc3f54469abd4f1784182851b2e29630cc:
+Since we don't have any space in the SKB or anywhere else at this point
+(other than the stack that we can't use), I see two ways out of this:
 
-  Merge branch 'mlxsw-fixes' (2016-10-04 20:28:10 -0400)
+   1. revert that patch (doing so would need some major adjustments now,
+      since it's pretty old and a number of new things were added in the
+      meantime)
+   2. allocate a per-CPU buffer for all the things that we put on the
+      stack and use in SG lists, those are:
+       * CCM/GCM: AAD (32B), B_0/J_0 (16B)
+       * GMAC: AAD (20B), zero (16B)
+       * (not sure why CMAC isn't using this API, but it would be like
+      GMAC)
 
-are available in the git repository at:
+Thoughts?
 
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-10-14
-
-for you to fetch changes up to 1ea2643961b0d1b8d0e4a11af5aa69b0f92d0533:
-
-  ath6kl: add Dell OEM SDIO I/O for the Venue 8 Pro (2016-10-13 14:16:33 +0300)
-
-----------------------------------------------------------------
-wireless-drivers fixes for 4.9
-
-wlcore
-
-* fix a double free regression causing hard to track crashes
-
-rtl8xxxu
-
-* fix driver reload issues, a memory leak and an endian bug
-
-rtlwifi
-
-* fix a major regression introduced in 4.9 with firmware loading on
-  certain hardware
-
-ath10k
-
-* fix regression about broken cal_data debugfs file (since 4.7)
-
-ath9k
-
-* revert temperature compensation for AR9003+ devices, it was causing
-  too much problems
-
-ath6kl
-
-* add Dell OEM SDIO I/O for the Venue 8 Pro
-
-----------------------------------------------------------------
-Adam Williamson (1):
-      ath6kl: add Dell OEM SDIO I/O for the Venue 8 Pro
-
-Felix Fietkau (1):
-      Revert "ath9k_hw: implement temperature compensation support for AR9003+"
-
-Jes Sorensen (4):
-      rtl8xxxu: Fix memory leak in handling rxdesc16 packets
-      rtl8xxxu: Fix big-endian problem reporting mactime
-      rtl8xxxu: Fix rtl8723bu driver reload issue
-      rtl8xxxu: Fix rtl8192eu driver reload issue
-
-Larry Finger (1):
-      rtlwifi: Fix regression caused by commit d86e64768859
-
-Marty Faltesek (1):
-      ath10k: cache calibration data when the core is stopped
-
-Wei Yongjun (1):
-      wlcore: sdio: drop kfree for memory allocated with devm_kzalloc
-
- drivers/net/wireless/ath/ath10k/core.h             |    1 +
- drivers/net/wireless/ath/ath10k/debug.c            |   75 ++++++++++----------
- drivers/net/wireless/ath/ath6kl/sdio.c             |    1 +
- drivers/net/wireless/ath/ath9k/ar9003_calib.c      |   25 +------
- drivers/net/wireless/ath/ath9k/hw.h                |    1 -
- drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.h   |    4 +-
- .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c |    8 ++-
- .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_8723b.c |    4 ++
- .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c  |   11 ++-
- drivers/net/wireless/realtek/rtlwifi/core.c        |    2 +-
- .../net/wireless/realtek/rtlwifi/rtl8188ee/sw.c    |    8 +--
- .../net/wireless/realtek/rtlwifi/rtl8192ce/sw.c    |   13 ++--
- .../net/wireless/realtek/rtlwifi/rtl8192cu/sw.c    |   12 ++--
- .../net/wireless/realtek/rtlwifi/rtl8192de/sw.c    |    6 +-
- .../net/wireless/realtek/rtlwifi/rtl8192ee/sw.c    |    8 +--
- .../net/wireless/realtek/rtlwifi/rtl8192se/sw.c    |    9 +--
- .../net/wireless/realtek/rtlwifi/rtl8723ae/sw.c    |   12 ++--
- .../net/wireless/realtek/rtlwifi/rtl8723be/sw.c    |    6 +-
- .../net/wireless/realtek/rtlwifi/rtl8821ae/sw.c    |   18 ++---
- drivers/net/wireless/realtek/rtlwifi/wifi.h        |    2 -
- drivers/net/wireless/ti/wlcore/sdio.c              |    1 -
- 21 files changed, 110 insertions(+), 117 deletions(-)
+johannes
