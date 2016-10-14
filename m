@@ -1,66 +1,176 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v3 net-next 0/7] qed*: driver updates
-Date: Fri, 14 Oct 2016 05:19:16 -0400
-Message-ID: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH v3 net-next 5/7] qed: Allow chance for fast ramrod completions
+Date: Fri, 14 Oct 2016 05:19:21 -0400
+Message-ID: <1476436763-5274-6-git-send-email-manish.chopra@qlogic.com>
+References: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-        Manish Chopra <manish.chopra@caviumnetworks.com>
+        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:37895 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751852AbcJNKEv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:04:51 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41651 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753423AbcJNKEx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:04:53 -0400
+In-Reply-To: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@caviumnetworks.com>
+From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 
-Hi David,
+Whenever a ramrod is being sent for some device configuration,
+the driver is going to sleep at least 5ms between each iteration
+of polling on the completion of the ramrod.
 
-There are several new additions in this series;
-Most are connected to either Tx offloading or Rx classifications
-[either fastpath changes or supporting configuration].
+However, in almost every configuration scenario the firmware
+would be able to comply and complete the ramrod in a manner of
+several usecs. This is especially important in cases where there
+might be a lot of sequential configurations applying to the hardware
+[e.g., RoCE], in which case the existing scheme might cause some
+visible user delays.
 
-In addition, there's a single IOV enhancement.
+This patch changes the completion scheme - instead of immediately
+starting to sleep for a 'long' period, allow the device to quickly
+poll on the first iteration after a couple of usecs.
 
-Please consider applying this series to `net-next'.
+Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_spq.c | 85 +++++++++++++++++++++----------
+ 1 file changed, 59 insertions(+), 26 deletions(-)
 
-V2->V3:
-Fixes below kbuild warning
-call to '__compiletime_assert_60' declared with
-attribute error: Need native word sized stores/loads for atomicity.
-
-V1->V2:
-Added a fix for the race in ramrod handling
-pointed by Eric Dumazet [patch 7].
-
-Thanks,
-Manish
-
-Manish Chopra (3):
-  qede: GSO support for tunnels with outer csum
-  qede: Prevent GSO on long Geneve headers
-  qed: Fix possible race when reading firmware return code.
-
-Yuval Mintz (4):
-  qed: Pass MAC hints to VFs
-  qed*: Allow unicast filtering
-  qed: Allow chance for fast ramrod completions
-  qed: Handle malicious VFs events
-
- drivers/net/ethernet/qlogic/qed/qed_l2.c     |  12 ++-
- drivers/net/ethernet/qlogic/qed/qed_sp.h     |   4 +-
- drivers/net/ethernet/qlogic/qed/qed_spq.c    |  97 +++++++++++++++--------
- drivers/net/ethernet/qlogic/qed/qed_sriov.c  | 114 ++++++++++++++++++++++-----
- drivers/net/ethernet/qlogic/qed/qed_sriov.h  |   1 +
- drivers/net/ethernet/qlogic/qed/qed_vf.c     |   4 +-
- drivers/net/ethernet/qlogic/qed/qed_vf.h     |   1 +
- drivers/net/ethernet/qlogic/qede/qede.h      |   1 +
- drivers/net/ethernet/qlogic/qede/qede_main.c |  71 +++++++++++++++--
- include/linux/qed/qed_eth_if.h               |   3 +-
- 10 files changed, 244 insertions(+), 64 deletions(-)
-
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index caff415..259a615 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -37,7 +37,11 @@
+ ***************************************************************************/
+ 
+ #define SPQ_HIGH_PRI_RESERVE_DEFAULT    (1)
+-#define SPQ_BLOCK_SLEEP_LENGTH          (1000)
++
++#define SPQ_BLOCK_DELAY_MAX_ITER        (10)
++#define SPQ_BLOCK_DELAY_US              (10)
++#define SPQ_BLOCK_SLEEP_MAX_ITER        (1000)
++#define SPQ_BLOCK_SLEEP_MS              (5)
+ 
+ /***************************************************************************
+ * Blocking Imp. (BLOCK/EBLOCK mode)
+@@ -57,53 +61,81 @@ static void qed_spq_blocking_cb(struct qed_hwfn *p_hwfn,
+ 	smp_wmb();
+ }
+ 
+-static int qed_spq_block(struct qed_hwfn *p_hwfn,
+-			 struct qed_spq_entry *p_ent,
+-			 u8 *p_fw_ret)
++static int __qed_spq_block(struct qed_hwfn *p_hwfn,
++			   struct qed_spq_entry *p_ent,
++			   u8 *p_fw_ret, bool sleep_between_iter)
+ {
+-	int sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
+ 	struct qed_spq_comp_done *comp_done;
+-	int rc;
++	u32 iter_cnt;
+ 
+ 	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
+-	while (sleep_count) {
+-		/* validate we receive completion update */
++	iter_cnt = sleep_between_iter ? SPQ_BLOCK_SLEEP_MAX_ITER
++				      : SPQ_BLOCK_DELAY_MAX_ITER;
++
++	while (iter_cnt--) {
++		/* Validate we receive completion update */
+ 		smp_rmb();
+ 		if (comp_done->done == 1) {
+ 			if (p_fw_ret)
+ 				*p_fw_ret = comp_done->fw_return_code;
+ 			return 0;
+ 		}
+-		usleep_range(5000, 10000);
+-		sleep_count--;
++
++		if (sleep_between_iter)
++			msleep(SPQ_BLOCK_SLEEP_MS);
++		else
++			udelay(SPQ_BLOCK_DELAY_US);
+ 	}
+ 
++	return -EBUSY;
++}
++
++static int qed_spq_block(struct qed_hwfn *p_hwfn,
++			 struct qed_spq_entry *p_ent,
++			 u8 *p_fw_ret, bool skip_quick_poll)
++{
++	struct qed_spq_comp_done *comp_done;
++	int rc;
++
++	/* A relatively short polling period w/o sleeping, to allow the FW to
++	 * complete the ramrod and thus possibly to avoid the following sleeps.
++	 */
++	if (!skip_quick_poll) {
++		rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, false);
++		if (!rc)
++			return 0;
++	}
++
++	/* Move to polling with a sleeping period between iterations */
++	rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, true);
++	if (!rc)
++		return 0;
++
+ 	DP_INFO(p_hwfn, "Ramrod is stuck, requesting MCP drain\n");
+ 	rc = qed_mcp_drain(p_hwfn, p_hwfn->p_main_ptt);
+-	if (rc != 0)
++	if (rc) {
+ 		DP_NOTICE(p_hwfn, "MCP drain failed\n");
++		goto err;
++	}
+ 
+ 	/* Retry after drain */
+-	sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
+-	while (sleep_count) {
+-		/* validate we receive completion update */
+-		smp_rmb();
+-		if (comp_done->done == 1) {
+-			if (p_fw_ret)
+-				*p_fw_ret = comp_done->fw_return_code;
+-			return 0;
+-		}
+-		usleep_range(5000, 10000);
+-		sleep_count--;
+-	}
++	rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, true);
++	if (!rc)
++		return 0;
+ 
++	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
+ 	if (comp_done->done == 1) {
+ 		if (p_fw_ret)
+ 			*p_fw_ret = comp_done->fw_return_code;
+ 		return 0;
+ 	}
+-
+-	DP_NOTICE(p_hwfn, "Ramrod is stuck, MCP drain failed\n");
++err:
++	DP_NOTICE(p_hwfn,
++		  "Ramrod is stuck [CID %08x cmd %02x protocol %02x echo %04x]\n",
++		  le32_to_cpu(p_ent->elem.hdr.cid),
++		  p_ent->elem.hdr.cmd_id,
++		  p_ent->elem.hdr.protocol_id,
++		  le16_to_cpu(p_ent->elem.hdr.echo));
+ 
+ 	return -EBUSY;
+ }
+@@ -729,7 +761,8 @@ int qed_spq_post(struct qed_hwfn *p_hwfn,
+ 		 * access p_ent here to see whether it's successful or not.
+ 		 * Thus, after gaining the answer perform the cleanup here.
+ 		 */
+-		rc = qed_spq_block(p_hwfn, p_ent, fw_return_code);
++		rc = qed_spq_block(p_hwfn, p_ent, fw_return_code,
++				   p_ent->queue == &p_spq->unlimited_pending);
+ 
+ 		if (p_ent->queue == &p_spq->unlimited_pending) {
+ 			/* This is an allocated p_ent which does not need to
 -- 
 2.7.2
