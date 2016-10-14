@@ -1,64 +1,66 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [mac80211] BUG_ON with current -git (4.8.0-11417-g24532f7)
-Date: Fri, 14 Oct 2016 12:00:12 +0200
-Message-ID: <1476439212.31114.37.camel@sipsolutions.net>
-References: <20161010150358.GA514@swordfish>
-         <20161010153050.GA836@swordfish>
-         <1476263106.5271.23.camel@sipsolutions.net>
-         <20161012141245.GA436@swordfish>
-         <1476282127.5271.30.camel@sipsolutions.net>
-         <CALCETrXg9-OpJx5Rqz8afyaug+0DjzxvpdbOV9q6i01=zCZbcQ@mail.gmail.com>
-         <1476338524.4904.1.camel@sipsolutions.net> <20161013134252.GA583@swordfish>
-         <1476366354.4904.31.camel@sipsolutions.net>
-         <CALCETrW8imkGTtR9-mFB=e=Gdr1QXVuhXN3GRs2B6wbmPaaGhA@mail.gmail.com>
-         <1476429916.4382.12.camel@sipsolutions.net>
-         <1476433699.31114.6.camel@sipsolutions.net>
-         <CAKv+Gu8hTy8U7FcA58P1YWt2rHU09xP9v1UU0KcnD4uuaK8How@mail.gmail.com>
-         <CAKv+Gu_v+4D_7EvRkrSrStheuP1L-oPh=o7Ub+NU7-wgLYks4w@mail.gmail.com>
-         <1476434561.31114.7.camel@sipsolutions.net>
-         <CAKv+Gu896xme5sd5i8hs7tA=Xt=qQKCiAx7fQg1ZECn50NttbQ@mail.gmail.com>
-         <1476435303.31114.14.camel@sipsolutions.net>
-         <CAKv+Gu9KObA61fEYxr1FFj_3SKNS2RUbqZo01yfnm9Bf0AncwA@mail.gmail.com>
-         <1476436248.31114.21.camel@sipsolutions.net>
-         <CAKv+Gu-Y6wuMGuRgrHRGCvAM9qZjvufs=7VWL8hAUKFSF=tZWg@mail.gmail.com>
-         <1476437149.31114.27.camel@sipsolutions.net>
-         <CAKv+Gu_p7neD-ttCBBA6p7VSkQt8mvfhS9cdcLftdkXNtAAFnQ@mail.gmail.com>
-         (sfid-20161014_113557_975987_6F520981)
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH v3 net-next 0/7] qed*: driver updates
+Date: Fri, 14 Oct 2016 05:19:16 -0400
+Message-ID: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Wireless List <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Jouni Malinen <j@w1.fi>
-To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKv+Gu_p7neD-ttCBBA6p7VSkQt8mvfhS9cdcLftdkXNtAAFnQ@mail.gmail.com> (sfid-20161014_113557_975987_6F520981)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+        Manish Chopra <manish.chopra@caviumnetworks.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:37895 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751852AbcJNKEv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:04:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Manish Chopra <manish.chopra@caviumnetworks.com>
 
-> So why is the performance hit acceptable for ESP but not for WPA? We
-> could easily implement the same thing, i.e.,
-> kmalloc(GFP_ATOMIC)/kfree the aead_req struct rather than allocate it
-> on the stack
+Hi David,
 
-Yeah, maybe we should. It's likely a much bigger allocation, but I
-don't actually know if that affects speed.
+There are several new additions in this series;
+Most are connected to either Tx offloading or Rx classifications
+[either fastpath changes or supporting configuration].
 
-In most cases where you want high performance we never hit this anyway
-since we'll have hardware crypto. I know for our (Intel's) devices we
-normally never hit these code paths.
+In addition, there's a single IOV enhancement.
 
-But on the other hand, you also did your changes for a reason, and the
-only reason I can see of that is performance. So you'd be the one with
-most "skin in the game", I guess?
+Please consider applying this series to `net-next'.
 
-johannes
+V2->V3:
+Fixes below kbuild warning
+call to '__compiletime_assert_60' declared with
+attribute error: Need native word sized stores/loads for atomicity.
+
+V1->V2:
+Added a fix for the race in ramrod handling
+pointed by Eric Dumazet [patch 7].
+
+Thanks,
+Manish
+
+Manish Chopra (3):
+  qede: GSO support for tunnels with outer csum
+  qede: Prevent GSO on long Geneve headers
+  qed: Fix possible race when reading firmware return code.
+
+Yuval Mintz (4):
+  qed: Pass MAC hints to VFs
+  qed*: Allow unicast filtering
+  qed: Allow chance for fast ramrod completions
+  qed: Handle malicious VFs events
+
+ drivers/net/ethernet/qlogic/qed/qed_l2.c     |  12 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sp.h     |   4 +-
+ drivers/net/ethernet/qlogic/qed/qed_spq.c    |  97 +++++++++++++++--------
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c  | 114 ++++++++++++++++++++++-----
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h  |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.c     |   4 +-
+ drivers/net/ethernet/qlogic/qed/qed_vf.h     |   1 +
+ drivers/net/ethernet/qlogic/qede/qede.h      |   1 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c |  71 +++++++++++++++--
+ include/linux/qed/qed_eth_if.h               |   3 +-
+ 10 files changed, 244 insertions(+), 64 deletions(-)
+
+-- 
+2.7.2
