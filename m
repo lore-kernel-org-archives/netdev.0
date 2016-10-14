@@ -1,52 +1,38 @@
-From: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] mac80211: aes_ccm: move struct aead_req off the stack
-Date: Fri, 14 Oct 2016 15:22:50 +0100
-Message-ID: <7531788D-2651-449B-9824-E418F773F23C@linaro.org>
-References: <1476450540-1760-1-git-send-email-ard.biesheuvel@linaro.org> <1476450635.31114.42.camel@sipsolutions.net> <CAKv+Gu_eS-C84rH_MLYy--ivC0a99wwJvNDLhETfrBkYXW-XpA@mail.gmail.com> <1476450941.31114.45.camel@sipsolutions.net> <CAKv+Gu81RYq1aZUQ2Aru3Vev4LGgb1zFwWz8gepE0tQEhQi9Uw@mail.gmail.com> <1476452792.31114.46.camel@sipsolutions.net>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-        charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-        Sergey Senozhatsky <sergey.senozhatsky.work-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Jouni Malinen <j@w1.fi>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476452792.31114.46.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 0/4] act_mirred: Ingress actions support
+Date: Fri, 14 Oct 2016 10:23:28 -0400 (EDT)
+Message-ID: <20161014.102328.1338324981265661044.davem@davemloft.net>
+References: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, edumazet@google.com, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, netdev@vger.kernel.org
+To: shmulik.ladkani@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47562 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752585AbcJNOXa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:23:30 -0400
+In-Reply-To: <1476338804-25440-1-git-send-email-shmulik.ladkani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Thu, 13 Oct 2016 09:06:40 +0300
 
-> On 14 Oct 2016, at 14:46, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:=
+> This patch series implements action mirred 'ingress' actions
+> TCA_INGRESS_REDIR and TCA_INGRESS_MIRROR.
+> 
+> This allows attaching filters whose target is to hand matching skbs into
+> the rx processing of a specified device.
+> 
+> v4:
+>   in 4/4, check ret code of netif_receive_skb, as suggested by Cong Wang
+> v3:
+>   in 4/4, addressed non coherency due to reading m->tcfm_eaction multiple
+>   times, as spotted by Eric Dumazet
+> v2:
+>   in 1/4, declare tcfm_mac_header_xmit as bool instead of int
 
->=20
->=20
->>=20
->> Is the aad[] actually reused? I would assume it only affects the mac
->> on encryption, and the verification on decryption but I don't think
->> we actually need it back from the crypto routines.
->=20
-> I don't think it's reused.
->=20
->> Exactly what you said above :-) My patch only touches CCM but as you
->> said,
->>=20
->> """
->> 'Also there's B_0/J_0 for CCM/GCM, and the 'zero' thing that GMAC
->> has.
->> """
->=20
-> Ah, but we can/should do the same for the others, no?
->=20
-
-Yes, but then we end up kmalloc/kfreeing chunks of 16 bytes, which is actual=
-ly another problem.
-
-I still think we are not violating the api by putting aead_req on the stack (=
-but herbert should confirm). The aad[] issue does violate the api, so it des=
-erves a separate fix imo=
+Series applied, thanks.
