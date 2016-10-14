@@ -1,70 +1,60 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net 2/2] conntrack: enable to tune gc parameters
-Date: Fri, 14 Oct 2016 12:53:27 +0200
-Message-ID: <20161014105327.GA8655@salvia>
-References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
- <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
- <20161010140424.GB21057@breakpoint.cc>
- <cdda5290-c49c-e841-6ba5-10b30fd04fc0@6wind.com>
- <20161013204338.GA32449@breakpoint.cc>
- <f1df137d-7278-f6fb-3237-1bd20afadb48@6wind.com>
- <20161014103726.GA10404@breakpoint.cc>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [mac80211] BUG_ON with current -git (4.8.0-11417-g24532f7)
+Date: Fri, 14 Oct 2016 12:11:12 +0100
+Message-ID: <CAKv+Gu9t2fk2+4QwsDATv11wggQPryobGUGJQHO-G09bYbecGg@mail.gmail.com>
+References: <20161010150358.GA514@swordfish> <20161010153050.GA836@swordfish>
+ <1476263106.5271.23.camel@sipsolutions.net> <20161012141245.GA436@swordfish>
+ <1476282127.5271.30.camel@sipsolutions.net> <CALCETrXg9-OpJx5Rqz8afyaug+0DjzxvpdbOV9q6i01=zCZbcQ@mail.gmail.com>
+ <1476338524.4904.1.camel@sipsolutions.net> <20161013134252.GA583@swordfish>
+ <1476366354.4904.31.camel@sipsolutions.net> <CALCETrW8imkGTtR9-mFB=e=Gdr1QXVuhXN3GRs2B6wbmPaaGhA@mail.gmail.com>
+ <1476429916.4382.12.camel@sipsolutions.net> <1476433699.31114.6.camel@sipsolutions.net>
+ <CAKv+Gu8hTy8U7FcA58P1YWt2rHU09xP9v1UU0KcnD4uuaK8How@mail.gmail.com>
+ <CAKv+Gu_v+4D_7EvRkrSrStheuP1L-oPh=o7Ub+NU7-wgLYks4w@mail.gmail.com>
+ <1476434561.31114.7.camel@sipsolutions.net> <CAKv+Gu896xme5sd5i8hs7tA=Xt=qQKCiAx7fQg1ZECn50NttbQ@mail.gmail.com>
+ <1476435303.31114.14.camel@sipsolutions.net> <CAKv+Gu9KObA61fEYxr1FFj_3SKNS2RUbqZo01yfnm9Bf0AncwA@mail.gmail.com>
+ <1476436248.31114.21.camel@sipsolutions.net> <CAKv+Gu-Y6wuMGuRgrHRGCvAM9qZjvufs=7VWL8hAUKFSF=tZWg@mail.gmail.com>
+ <1476437149.31114.27.camel@sipsolutions.net> <CAKv+Gu_p7neD-ttCBBA6p7VSkQt8mvfhS9cdcLftdkXNtAAFnQ@mail.gmail.com>
+ <1476439212.31114.37.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46296 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751605AbcJNKxe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 06:53:34 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 4C2099B801
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 12:53:31 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3E3EFDA7FA
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 12:53:31 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 04108DA847
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 12:53:29 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20161014103726.GA10404@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@amacapital.net>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Jouni Malinen <j@w1.fi>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476439212.31114.37.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 14, 2016 at 12:37:26PM +0200, Florian Westphal wrote:
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> > Le 13/10/2016 à 22:43, Florian Westphal a écrit :
-[...]
-> > > (Or cause too many useless scans)
-> > > 
-> > > Another idea worth trying might be to get rid of the max cap and
-> > > instead break early in case too many jiffies expired.
-> > > 
-> > > I don't want to add sysctl knobs for this unless absolutely needed; its already
-> > > possible to 'force' eviction cycle by running 'conntrack -L'.
-> > > 
-> > Sure, but this is not a "real" solution, just a workaround.
-> > We need to find a way to deliver conntrack deletion events in a reasonable
-> > delay, whatever the traffic on the machine is.
-> 
-> Agree, but that depends on what 'reasonable' means and what kind of
-> uneeded cpu churn we're willing to add.
-> 
-> We can add a sysctl for this but we should use a low default to not do
-> too much unneeded work.
-> 
-> So what about your original patch, but only add
-> 
-> nf_conntrack_gc_interval
-> 
-> (and also add instant-resched in case entire budget was consumed)?
+On 14 October 2016 at 11:00, Johannes Berg <johannes@sipsolutions.net> wrote:
+>
+>> So why is the performance hit acceptable for ESP but not for WPA? We
+>> could easily implement the same thing, i.e.,
+>> kmalloc(GFP_ATOMIC)/kfree the aead_req struct rather than allocate it
+>> on the stack
+>
+> Yeah, maybe we should. It's likely a much bigger allocation, but I
+> don't actually know if that affects speed.
+>
+> In most cases where you want high performance we never hit this anyway
+> since we'll have hardware crypto. I know for our (Intel's) devices we
+> normally never hit these code paths.
+>
+> But on the other hand, you also did your changes for a reason, and the
+> only reason I can see of that is performance. So you'd be the one with
+> most "skin in the game", I guess?
+>
 
-I would prefer not to expose sysctl knobs, if we don't really know
-what good default values are good, then we cannot expect our users to
-know this for us.
-
-I would go tune this in a way that this resembles to the previous
-behaviour.
+Well, what sucks here is that the accelerated driver I implemented for
+arm64 does not actually need this, as long as we take aad[] off the
+stack. And note that the API was changed since my patch, to add aad[]
+to the scatterlist: prior to this change, it used
+aead_request_set_assoc() to set the associated data separately.
