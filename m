@@ -1,106 +1,172 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] net: asix: Avoid looping when the device does not respond
-Date: Thu, 13 Oct 2016 16:43:16 -0700
-Message-ID: <1476402196-5920-1-git-send-email-linux@roeck-us.net>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        Guenter Roeck <linux@roeck-us.net>
-To: "David S. Miller" <davem@davemloft.net>
+From: Siva Reddy Kallam <siva.kallam@broadcom.com>
+Subject: Re: tg3 BUG: spinlock lockup suspected
+Date: Fri, 14 Oct 2016 06:25:08 +0530
+Message-ID: <CAMet4B4xZ+J60hA8tTck6u4_g6rESc4v3w8w_2aAhxeR4gNGRw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        sparclinux@vger.kernel.org,
+        Linux Kernel list <linux-kernel@vger.kernel.org>
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:47326 "EHLO
-        bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751050AbcJMXnY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 19:43:24 -0400
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:34216 "EHLO
+        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757248AbcJNAzl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2016 20:55:41 -0400
+Received: by mail-qk0-f169.google.com with SMTP id f128so115798357qkb.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2016 17:55:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check answers from USB stack and avoid re-sending the request
-multiple times if the device does not respond.
-
-This fixes the following problem, observed with a probably flaky adapter.
-
-[62108.732707] usb 1-3: new high-speed USB device number 5 using xhci_hcd
-[62108.914421] usb 1-3: New USB device found, idVendor=0b95, idProduct=7720
-[62108.914463] usb 1-3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
-[62108.914476] usb 1-3: Product: AX88x72A
-[62108.914486] usb 1-3: Manufacturer: ASIX Elec. Corp.
-[62108.914495] usb 1-3: SerialNumber: 000001
-[62114.109109] asix 1-3:1.0 (unnamed net_device) (uninitialized):
-	Failed to write reg index 0x0000: -110
-[62114.109139] asix 1-3:1.0 (unnamed net_device) (uninitialized):
-	Failed to send software reset: ffffff92
-[62119.109048] asix 1-3:1.0 (unnamed net_device) (uninitialized):
-	Failed to write reg index 0x0000: -110
-...
-
-Since the USB timeout is 5 seconds, and the operation is retried 30 times,
-this results in
-
-[62278.180353] INFO: task mtpd:1725 blocked for more than 120 seconds.
-[62278.180373]       Tainted: G        W      3.18.0-13298-g94ace9e #1
-[62278.180383] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-...
-[62278.180957] kworker/2:0     D 0000000000000000     0  5744      2 0x00000000
-[62278.180978] Workqueue: usb_hub_wq hub_event
-[62278.181029]  ffff880177f833b8 0000000000000046 ffff88017fd00000 ffff88017b126d80
-[62278.181048]  ffff880177f83fd8 ffff880065a71b60 0000000000013340 ffff880065a71b60
-[62278.181065]  0000000000000286 0000000103b1c199 0000000000001388 0000000000000002
-[62278.181081] Call Trace:
-[62278.181092]  [<ffffffff8e0971fd>] ? console_conditional_schedule+0x2c/0x2c
-[62278.181105]  [<ffffffff8e094f7b>] schedule+0x69/0x6b
-[62278.181117]  [<ffffffff8e0972e0>] schedule_timeout+0xe3/0x11d
-[62278.181133]  [<ffffffff8daadb1b>] ? trace_timer_start+0x51/0x51
-[62278.181146]  [<ffffffff8e095a05>] do_wait_for_common+0x12f/0x16c
-[62278.181162]  [<ffffffff8da856a7>] ? wake_up_process+0x39/0x39
-[62278.181174]  [<ffffffff8e095aee>] wait_for_common+0x52/0x6d
-[62278.181187]  [<ffffffff8e095b3b>] wait_for_completion_timeout+0x13/0x15
-[62278.181201]  [<ffffffff8de676ce>] usb_start_wait_urb+0x93/0xf1
-[62278.181214]  [<ffffffff8de6780d>] usb_control_msg+0xe1/0x11d
-[62278.181230]  [<ffffffffc037d629>] usbnet_write_cmd+0x9c/0xc6 [usbnet]
-[62278.181286]  [<ffffffffc03af793>] asix_write_cmd+0x4e/0x7e [asix]
-[62278.181300]  [<ffffffffc03afb41>] asix_set_sw_mii+0x25/0x4e [asix]
-[62278.181314]  [<ffffffffc03b001d>] asix_mdio_read+0x51/0x109 [asix]
-...
-
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/usb/asix_common.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index f79eb12c326a..125cff57c759 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -433,13 +433,13 @@ int asix_mdio_read(struct net_device *netdev, int phy_id, int loc)
- 	mutex_lock(&dev->phy_mutex);
- 	do {
- 		ret = asix_set_sw_mii(dev, 0);
--		if (ret == -ENODEV)
-+		if (ret == -ENODEV || ret == -ETIMEDOUT)
- 			break;
- 		usleep_range(1000, 1100);
- 		ret = asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG,
- 				    0, 0, 1, &smsr, 0);
- 	} while (!(smsr & AX_HOST_EN) && (i++ < 30) && (ret != -ENODEV));
--	if (ret == -ENODEV) {
-+	if (ret == -ENODEV || ret == -ETIMEDOUT) {
- 		mutex_unlock(&dev->phy_mutex);
- 		return ret;
- 	}
-@@ -497,13 +497,13 @@ int asix_mdio_read_nopm(struct net_device *netdev, int phy_id, int loc)
- 	mutex_lock(&dev->phy_mutex);
- 	do {
- 		ret = asix_set_sw_mii(dev, 1);
--		if (ret == -ENODEV)
-+		if (ret == -ENODEV || ret == -ETIMEDOUT)
- 			break;
- 		usleep_range(1000, 1100);
- 		ret = asix_read_cmd(dev, AX_CMD_STATMNGSTS_REG,
- 				    0, 0, 1, &smsr, 1);
- 	} while (!(smsr & AX_HOST_EN) && (i++ < 30) && (ret != -ENODEV));
--	if (ret == -ENODEV) {
-+	if (ret == -ENODEV || ret == -ETIMEDOUT) {
- 		mutex_unlock(&dev->phy_mutex);
- 		return ret;
- 	}
--- 
-2.5.0
+On Mon, Oct 10, 2016 at 5:21 PM, Siva Reddy Kallam
+<siva.kallam@broadcom.com> wrote:
+> On Sun, Oct 9, 2016 at 12:35 AM, Meelis Roos <mroos@linux.ee> wrote:
+>>> > That did not go well - bisect found the following commit but that does
+>>> > not seem to be related at all. So probably the reproducibility is not
+>>> > 100% but more random.
+>>>
+>>> Now I reproduced the bug even with 4.7-rc1 so it is older than 4.7. Will
+>>> test further.
+>>
+>> It gets stranger and stranger - my old 4.7 image worked fine, freshly
+>> compiled 4.7 exhibits the same problem.
+>>
+>> Toolchain has not changed, that I know for sure.
+>>
+>> What may have changed is kernel .config. My old conf was with whatever I
+>> had during 4.7. Then I upgraded to 4.8-rc3 and then 4.8 and selected
+>> values for "make oldconfig" new entries. Then went back to 4.7-rc1 and
+>> then to 4.7 with this config, answering quiestion about new options when
+>> any appeared. Diff is not available since I do not have the old configs
+>> archived.
+>>
+>> Any ideas where to continue from here?
+> Probably, You can do fresh system installation if possible.
+> Any way, I will try to reproduce with 4.7 and 4.8 kernel versions.
+> Will let you know my response in 1-2 days.
+We are unable to reproduce with Intel system. we tried with both 4.7
+and 4.8 kernel versions.
+We are trying to get one SPARC system. We will let you know once we
+are done with reproducing with SPARC system.
+>>
+>>>
+>>> >
+>>> >
+>>> > 4c5773f9f5462dcb372857813918bbfe8c0cdcdd is the first bad commit
+>>> > commit 4c5773f9f5462dcb372857813918bbfe8c0cdcdd
+>>> > Author: Krzysztof Kozlowski <krzk@kernel.org>
+>>> > Date:   Sat May 28 11:54:12 2016 +0200
+>>> >
+>>> >     dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
+>>> >
+>>> >     Add license and copyrights (file introduced in 2014) to header with
+>>> >     Exynos5410 clock IDs. Additionally reformat it to improve readability.
+>>> >
+>>> >     Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
+>>> >     Acked-by: Stephen Boyd <sboyd@codeaurora.org>
+>>> >     Reviewed-by: Javier Martinez Canillas <javier@osg.samsung.com>
+>>> >     Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+>>> >
+>>> > :040000 040000 acbd432e11366a8eb8775942bc7b8caa476226e2 08e3a3f98c3d4fa2a93123c3f21b2847c06b4665 M      include
+>>> >
+>>> >
+>>> > The whiole bisect log seems to dig around in unrelated places so at best
+>>> > it just narrows the window by adding some known-bad data points.
+>>> >
+>>> > git bisect start
+>>> > # good: [523d939ef98fd712632d93a5a2b588e477a7565e] Linux 4.7
+>>> > git bisect good 523d939ef98fd712632d93a5a2b588e477a7565e
+>>> > # bad: [ef0e1ea8856bed6ff8394d3dfe77f2cab487ecea] Merge tag 'arc-4.8-rc4-fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/vgupta/arc
+>>> > git bisect bad ef0e1ea8856bed6ff8394d3dfe77f2cab487ecea
+>>> > # good: [e0b3f595d13b3e9ce9cdf53935e7f304c04b5b2b] affs ->d_compare(): don't bother with ->d_inode
+>>> > git bisect good e0b3f595d13b3e9ce9cdf53935e7f304c04b5b2b
+>>> > # bad: [77a87824ed676ca8ff8482e4157d3adb284fd381] clocksource/drivers/clps_711x: fixup for "ARM: clps711x:
+>>> > git bisect bad 77a87824ed676ca8ff8482e4157d3adb284fd381
+>>> > # bad: [27acbec338113a75b9d72aeb53149a3538031dda] Merge git://www.linux-watchdog.org/linux-watchdog
+>>> > git bisect bad 27acbec338113a75b9d72aeb53149a3538031dda
+>>> > # bad: [7f155c702677d057d03b192ce652311de5434697] Merge tag 'nfs-for-4.8-1' of git://git.linux-nfs.org/projects/trondmy/linux-nfs
+>>> > git bisect bad 7f155c702677d057d03b192ce652311de5434697
+>>> > # good: [797cee982eef9195736afc5e7f3b8f613c41d19a] Merge branch 'stable-4.8' of git://git.infradead.org/users/pcmoore/audit
+>>> > git bisect good 797cee982eef9195736afc5e7f3b8f613c41d19a
+>>> > # bad: [1056c9bd2702ea1bb79abf9bd1e78c578589d247] Merge tag 'clk-for-linus-4.8' of git://git.kernel.org/pub/scm/linux/kernel/git/clk/linux
+>>> > git bisect bad 1056c9bd2702ea1bb79abf9bd1e78c578589d247
+>>> > # bad: [1ff435d3571199a799ba6ccfe05544dcd21b9fb3] Merge branch 'clk-st-critical' into clk-next
+>>> > git bisect bad 1ff435d3571199a799ba6ccfe05544dcd21b9fb3
+>>> > # bad: [0e4504470667d355b53ca3c9802fdd2120c9f946] clk: samsung: exynos5433: Add CLK_IGNORE_UNUSED flag to PCIE device
+>>> > git bisect bad 0e4504470667d355b53ca3c9802fdd2120c9f946
+>>> > # bad: [880c81b3b6604a004d56b5975c8bed47276e8bf6] clk: samsung: exynos5440: Constify all clock initializers
+>>> > git bisect bad 880c81b3b6604a004d56b5975c8bed47276e8bf6
+>>> > # bad: [b3a96eed8e84780d300b79b58047ea277ba358b7] clk: samsung: exynos3250: Move platform driver and of_device_id to init section
+>>> > git bisect bad b3a96eed8e84780d300b79b58047ea277ba358b7
+>>> > # bad: [4528dd8ed477bf202bd33ee48d38d656672d37f8] dt-bindings: clock: Add watchdog and SSS clock IDs to Exynos5410
+>>> > git bisect bad 4528dd8ed477bf202bd33ee48d38d656672d37f8
+>>> > # bad: [5cd3535a27a7cf8fc4070b499d66e419e7e72b61] dt-bindings: clock: Add PWM and USB clock IDs to Exynos5410
+>>> > git bisect bad 5cd3535a27a7cf8fc4070b499d66e419e7e72b61
+>>> > # bad: [4c5773f9f5462dcb372857813918bbfe8c0cdcdd] dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
+>>> > git bisect bad 4c5773f9f5462dcb372857813918bbfe8c0cdcdd
+>>> > # first bad commit: [4c5773f9f5462dcb372857813918bbfe8c0cdcdd] dt-bindings: clock: Add license and reformat Exynos5410 clock IDs
+>>> >
+>>> >
+>>> > >
+>>> > > [   74.123859] tg3.c:v3.137 (May 11, 2014)
+>>> > > [   74.123880] PCI: Enabling device: (0000:00:02.0), cmd 2
+>>> > > [   74.315794] tg3 0000:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+>>> > > [   74.656152] tg3 0000:00:02.0 eth0: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:85
+>>> > > [   74.656160] tg3 0000:00:02.0 eth0: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+>>> > > [   74.656167] tg3 0000:00:02.0 eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+>>> > > [   74.656172] tg3 0000:00:02.0 eth0: dma_rwctrl[763f0000] dma_mask[32-bit]
+>>> > > [   74.656322] PCI: Enabling device: (0000:00:02.1), cmd 2
+>>> > > [   74.845325] tg3 0000:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+>>> > > [   75.184539] tg3 0000:00:02.1 eth1: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:86
+>>> > > [   75.184546] tg3 0000:00:02.1 eth1: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+>>> > > [   75.184551] tg3 0000:00:02.1 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+>>> > > [   75.184557] tg3 0000:00:02.1 eth1: dma_rwctrl[763f0000] dma_mask[32-bit]
+>>> > > [   75.184708] PCI: Enabling device: (0003:00:02.0), cmd 2
+>>> > > [   75.375322] tg3 0003:00:02.0 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+>>> > > [   75.714681] tg3 0003:00:02.0 eth2: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:87
+>>> > > [   75.714688] tg3 0003:00:02.0 eth2: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+>>> > > [   75.714694] tg3 0003:00:02.0 eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+>>> > > [   75.714699] tg3 0003:00:02.0 eth2: dma_rwctrl[763f0000] dma_mask[32-bit]
+>>> > > [   75.714819] PCI: Enabling device: (0003:00:02.1), cmd 2
+>>> > > [   75.905278] tg3 0003:00:02.1 (unnamed net_device) (uninitialized): Cannot get nvram lock, tg3_nvram_init failed
+>>> > > [   76.244470] tg3 0003:00:02.1 eth3: Tigon3 [partno(none) rev 2003] (PCI:66MHz:64-bit) MAC address 00:03:ba:0a:f3:88
+>>> > > [   76.244477] tg3 0003:00:02.1 eth3: attached PHY is 5704 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+>>> > > [   76.244482] tg3 0003:00:02.1 eth3: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+>>> > > [   76.244488] tg3 0003:00:02.1 eth3: dma_rwctrl[763f0000] dma_mask[32-bit]
+>>> > > [   83.643317] tg3 0000:00:02.0 eth0: No firmware running
+>>> > > [...]
+>>> > > [   83.716570] BUG: spinlock lockup suspected on CPU#0, dhclient/1014
+>>> > > [   83.797819]  lock: 0xfff000123c8e4a08, .magic: dead4ead, .owner: ip/1001, .owner_cpu: 1
+>>> > > [   83.903130] CPU: 0 PID: 1014 Comm: dhclient Not tainted 4.8.0 #4
+>>> > > [   83.982129] Call Trace:
+>>> > > [   84.014160]  [00000000004b7220] spin_dump+0x60/0xa0
+>>> > > [   84.078203]  [00000000004b73a0] do_raw_spin_lock+0xa0/0x120
+>>> > > [   84.106344] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>> > > [   84.107193] ip (1001) used greatest stack depth: 2168 bytes left
+>>> > > [   84.306955]  [000000000092c0d0] _raw_spin_lock_bh+0x30/0x40
+>>> > > [   84.380188]  [00000000100822cc] tg3_get_stats64+0xc/0x80 [tg3]
+>>> > > [   84.456885]  [00000000007fac8c] dev_get_stats+0x2c/0xc0
+>>> > > [   84.525506]  [000000000081a4e8] dev_seq_printf_stats+0x8/0xe0
+>>> > > [   84.600986]  [000000000081a5e4] dev_seq_show+0x24/0x40
+>>> > > [   84.668467]  [00000000005cb6c4] seq_read+0x2c4/0x440
+>>> > > [   84.733656]  [000000000060b97c] proc_reg_read+0x3c/0x80
+>>> > > [   84.802282]  [00000000005a219c] __vfs_read+0x1c/0x140
+>>> > > [   84.868613]  [00000000005a2310] vfs_read+0x50/0x100
+>>> > > [   84.932662]  [00000000005a265c] SyS_read+0x3c/0xa0
+>>> > > [   84.995573]  [00000000004061d4] linux_sparc_syscall32+0x34/0x60
+>>> > > [   85.073748] * CPU[  0]: TSTATE[00000044f0001a22] TPC[00000000f79a16b0] TNPC[00000000f79a16b4] TASK[dhclient:1014]
+>>> > > [   85.208732]              TPC[f79a16b0] O7[f79405c8] I7[0] RPC[0]
+>>> > > [   85.287633]   CPU[  1]: TSTATE[0000004480001605] TPC[00000000004b26f0] TNPC[00000000004d0b0c] TASK[swapper/1:0]
+>>> > > [   85.420338]              TPC[trace_hardirqs_off+0x10/0x20] O7[rcu_idle_enter+0x64/0xa0] I7[cpu_startup_entry+0x1b0/0x240] RPC[rest_init+0x178/0x1a0]
+>>> > > [   85.664600] tg3 0000:00:02.0 eth0: Link is up at 100 Mbps, full duplex
+>>> > > [   85.750515] tg3 0000:00:02.0 eth0: Flow control is off for TX and off for RX
+>>> > > [   85.843994] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+>>> > >
+>>> > >
+>>> >
+>>> >
+>>>
+>>>
+>>
+>> --
+>> Meelis Roos (mroos@linux.ee)
