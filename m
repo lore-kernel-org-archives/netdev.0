@@ -1,33 +1,53 @@
-From: <ppsalome.khum@vision-france.net>
-Subject: 731540 netdev
-Date: Fri, 14 Oct 2016 11:35:23 -0000
-Message-ID: <147644492326.28662.2814577808681704051@orange.sk>
-Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_94157035_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: [PATCH net-next v2 0/6] FUJITSU Extended Socket driver version 1.2
+Date: Fri, 14 Oct 2016 20:25:44 +0900
+Message-ID: <1476444345-28673-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Cc: Taku Izumi <izumi.taku@jp.fujitsu.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 109-230-32-134.dynamic.orange.sk ([109.230.32.134]:51460 "HELO
-        orange.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1753060AbcJNLfa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 07:35:30 -0400
-Content-Disposition: attachment
+Received: from mgwkm04.jp.fujitsu.com ([202.219.69.171]:11172 "EHLO
+        mgwkm04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753423AbcJNLiL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 07:38:11 -0400
+Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
+        by kw-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 78E52AC0228
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 20:36:46 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBBQAAAAIAHdbTknq4BpeuAIAAL4CAAAOAAAAQklMTF8xMjQwOS56aXB1UmlMkgEA/fBgJZuJ
-aWrg1cxyeaQkpoZO5wEiChbZUuaB0BK1ywuX5VGLpc4MSXQOMxUPppAWnusQzzkQpKmEaVFCSVDT
-uZmmpuX603pve2/v7f18eKyhkQUAAPuAnLgoDIWFtIMbAIDUCABMd9pgTGRkgqfXqZO+7mkZtDLm
-BO0gwWLkZaWJpQ+ouIUh5k7Hculs7sjMEceSGLmMQbC24trgnModEUhd3eM4aB90qKwHGp9Vz9gy
-VIVddckw8ukwttrSFzi2EtV2EtTkRr5GQg6NcfU82jXvEs+yui9M9lfVPb1D1Xnw7JkLJbq1rkmE
-Hysq0LfxboxMsbhGpITdil/N5ivs1/34NjjtqDKQxdxu5PPaOTVLtON1awUd0Q7TyM1XOnXn1PAY
-2zu9yHKMGOtLGYdXditrs29/Nk1165ZX2NrkX09WXmCDBUKBbUhEKr3oCorc1DQ8BtfWCitHsAU1
-trxcaspCaVovrOMZ3EYOwy2VOz8XwFoyLVAnINey56Q/tHQ/KKcQ0Ve8kqDWRBBg4ZBELR4zpXRW
-Dn2D2l7K+YKWzUhRP73zmB/lhReHwbN+wnpzdPoNztz+Tooo6M3reXBvsKW7QJMEMYsOdXMQ4V1V
-oKxyfdDpRRIb9glGRa7rRWLxoORQHiYn03GAzkSAepplviSIZuU7vL0t8ubZKuJh1D262n+UVPTA
-5f0jpJDvnRrwsJRhrkHpKziSpMD6cGn+kGhpQ7TAzSB2T0zzqmKFQpzOs6/qrWEalzrzImCAQO/q
-PJe3SdtuIMe9O0Balqvl1aFuK2TP82Bxg0I6ofJY/pCigAx8hdd4+VcjZs/0t7pVux5bDrn8JDi3
-zSy5qWJ8FYbHggwCgf89yQn4A4dd+edXJns9CLAGBjf6m9HOU6C94d+MxxqDf292mLjjaIPd9AtQ
-SwECPwAUAAAACAB3W05J6uAaXrgCAAC+AgAADgAkAAAAAAAAACAAAAAAAAAAQklMTF8xMjQwOS56
-aXAKACAAAAAAAAEAGAAqhcWnSCbSASqFxadIJtIBKoXFp0gm0gFQSwUGAAAAAAEAAQBgAAAA5AIA
-AAAA
+This patchset updates FUJITSU Extended Socket network driver into version 1.2.
+This includes the following enhancements:
+  - ethtool -d support
+  - ethtool -S enhancement
+  - ethtool -w/-W support
+  - Add some debugging feature (tracepoints etc)
+
+v1 -> v2:
+  - Use u64 instead of phys_addr_t as TP_STRUCT__entry
+  - Use ethtool facility to achieve debug mode instead of using debugfs
+
+
+Taku Izumi (6):
+  fjes: ethtool -d support for fjes driver
+  fjes: Enhance ethtool -S for fjes driver
+  fjes: Add tracepoints in fjes driver
+  fjes: ethtool -w and -W support for fjes driver
+  fjes: Add debugfs entry for EP status information in fjes driver
+  fjes: Update fjes driver version : 1.2
+
+ drivers/net/fjes/Makefile       |   2 +-
+ drivers/net/fjes/fjes.h         |  16 ++
+ drivers/net/fjes/fjes_debugfs.c | 117 +++++++++++++
+ drivers/net/fjes/fjes_ethtool.c | 181 ++++++++++++++++++-
+ drivers/net/fjes/fjes_hw.c      | 171 +++++++++++++++++-
+ drivers/net/fjes/fjes_hw.h      |  34 ++++
+ drivers/net/fjes/fjes_main.c    |  63 ++++++-
+ drivers/net/fjes/fjes_trace.c   |  30 ++++
+ drivers/net/fjes/fjes_trace.h   | 380 ++++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 983 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/net/fjes/fjes_debugfs.c
+ create mode 100644 drivers/net/fjes/fjes_trace.c
+ create mode 100644 drivers/net/fjes/fjes_trace.h
+
+-- 
+2.6.6
