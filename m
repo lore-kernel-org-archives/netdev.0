@@ -1,7 +1,7 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v3 net-next 5/7] qed: Allow chance for fast ramrod completions
-Date: Fri, 14 Oct 2016 05:19:21 -0400
-Message-ID: <1476436763-5274-6-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH v3 net-next 4/7] qed*: Allow unicast filtering
+Date: Fri, 14 Oct 2016 05:19:20 -0400
+Message-ID: <1476436763-5274-5-git-send-email-manish.chopra@qlogic.com>
 References: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,9 +9,9 @@ Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
         Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41651 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41646 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753423AbcJNKEx (ORCPT
+        by vger.kernel.org with ESMTP id S1753599AbcJNKEx (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:04:53 -0400
 In-Reply-To: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,158 +19,85 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 
-Whenever a ramrod is being sent for some device configuration,
-the driver is going to sleep at least 5ms between each iteration
-of polling on the completion of the ramrod.
-
-However, in almost every configuration scenario the firmware
-would be able to comply and complete the ramrod in a manner of
-several usecs. This is especially important in cases where there
-might be a lot of sequential configurations applying to the hardware
-[e.g., RoCE], in which case the existing scheme might cause some
-visible user delays.
-
-This patch changes the completion scheme - instead of immediately
-starting to sleep for a 'long' period, allow the device to quickly
-poll on the first iteration after a couple of usecs.
+Apparently qede fails to set IFF_UNICAST_FLT, and as a result is not
+actually performing unicast MAC filtering.
+While we're at it - relax a hard-coded limitation that limits each
+interface into using at most 15 unicast MAC addresses before turning
+promiscuous. Instead utilize the HW resources to their limit.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_spq.c | 85 +++++++++++++++++++++----------
- 1 file changed, 59 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_l2.c     | 12 ++++++++++--
+ drivers/net/ethernet/qlogic/qede/qede_main.c |  4 +++-
+ include/linux/qed/qed_eth_if.h               |  1 +
+ 3 files changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index caff415..259a615 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -37,7 +37,11 @@
- ***************************************************************************/
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index ddd410a..6b0e22d 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -1652,6 +1652,7 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
  
- #define SPQ_HIGH_PRI_RESERVE_DEFAULT    (1)
--#define SPQ_BLOCK_SLEEP_LENGTH          (1000)
-+
-+#define SPQ_BLOCK_DELAY_MAX_ITER        (10)
-+#define SPQ_BLOCK_DELAY_US              (10)
-+#define SPQ_BLOCK_SLEEP_MAX_ITER        (1000)
-+#define SPQ_BLOCK_SLEEP_MS              (5)
+ 	if (IS_PF(cdev)) {
+ 		int max_vf_vlan_filters = 0;
++		int max_vf_mac_filters = 0;
  
- /***************************************************************************
- * Blocking Imp. (BLOCK/EBLOCK mode)
-@@ -57,53 +61,81 @@ static void qed_spq_blocking_cb(struct qed_hwfn *p_hwfn,
- 	smp_wmb();
- }
- 
--static int qed_spq_block(struct qed_hwfn *p_hwfn,
--			 struct qed_spq_entry *p_ent,
--			 u8 *p_fw_ret)
-+static int __qed_spq_block(struct qed_hwfn *p_hwfn,
-+			   struct qed_spq_entry *p_ent,
-+			   u8 *p_fw_ret, bool sleep_between_iter)
- {
--	int sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
- 	struct qed_spq_comp_done *comp_done;
--	int rc;
-+	u32 iter_cnt;
- 
- 	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
--	while (sleep_count) {
--		/* validate we receive completion update */
-+	iter_cnt = sleep_between_iter ? SPQ_BLOCK_SLEEP_MAX_ITER
-+				      : SPQ_BLOCK_DELAY_MAX_ITER;
-+
-+	while (iter_cnt--) {
-+		/* Validate we receive completion update */
- 		smp_rmb();
- 		if (comp_done->done == 1) {
- 			if (p_fw_ret)
- 				*p_fw_ret = comp_done->fw_return_code;
- 			return 0;
+ 		if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
+ 			for_each_hwfn(cdev, i)
+@@ -1665,11 +1666,18 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+ 			info->num_queues = cdev->num_hwfns;
  		}
--		usleep_range(5000, 10000);
--		sleep_count--;
-+
-+		if (sleep_between_iter)
-+			msleep(SPQ_BLOCK_SLEEP_MS);
-+		else
-+			udelay(SPQ_BLOCK_DELAY_US);
- 	}
  
-+	return -EBUSY;
-+}
-+
-+static int qed_spq_block(struct qed_hwfn *p_hwfn,
-+			 struct qed_spq_entry *p_ent,
-+			 u8 *p_fw_ret, bool skip_quick_poll)
-+{
-+	struct qed_spq_comp_done *comp_done;
-+	int rc;
-+
-+	/* A relatively short polling period w/o sleeping, to allow the FW to
-+	 * complete the ramrod and thus possibly to avoid the following sleeps.
-+	 */
-+	if (!skip_quick_poll) {
-+		rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, false);
-+		if (!rc)
-+			return 0;
-+	}
-+
-+	/* Move to polling with a sleeping period between iterations */
-+	rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, true);
-+	if (!rc)
-+		return 0;
-+
- 	DP_INFO(p_hwfn, "Ramrod is stuck, requesting MCP drain\n");
- 	rc = qed_mcp_drain(p_hwfn, p_hwfn->p_main_ptt);
--	if (rc != 0)
-+	if (rc) {
- 		DP_NOTICE(p_hwfn, "MCP drain failed\n");
-+		goto err;
-+	}
+-		if (IS_QED_SRIOV(cdev))
++		if (IS_QED_SRIOV(cdev)) {
+ 			max_vf_vlan_filters = cdev->p_iov_info->total_vfs *
+ 					      QED_ETH_VF_NUM_VLAN_FILTERS;
+-		info->num_vlan_filters = RESC_NUM(&cdev->hwfns[0], QED_VLAN) -
++			max_vf_mac_filters = cdev->p_iov_info->total_vfs *
++					     QED_ETH_VF_NUM_MAC_FILTERS;
++		}
++		info->num_vlan_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
++						  QED_VLAN) -
+ 					 max_vf_vlan_filters;
++		info->num_mac_filters = RESC_NUM(QED_LEADING_HWFN(cdev),
++						 QED_MAC) -
++					max_vf_mac_filters;
  
- 	/* Retry after drain */
--	sleep_count = SPQ_BLOCK_SLEEP_LENGTH;
--	while (sleep_count) {
--		/* validate we receive completion update */
--		smp_rmb();
--		if (comp_done->done == 1) {
--			if (p_fw_ret)
--				*p_fw_ret = comp_done->fw_return_code;
--			return 0;
--		}
--		usleep_range(5000, 10000);
--		sleep_count--;
--	}
-+	rc = __qed_spq_block(p_hwfn, p_ent, p_fw_ret, true);
-+	if (!rc)
-+		return 0;
+ 		ether_addr_copy(info->port_mac,
+ 				cdev->hwfns[0].hw_info.hw_mac_addr);
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 6c2b09c..0e483af 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -2365,6 +2365,8 @@ static void qede_init_ndev(struct qede_dev *edev)
  
-+	comp_done = (struct qed_spq_comp_done *)p_ent->comp_cb.cookie;
- 	if (comp_done->done == 1) {
- 		if (p_fw_ret)
- 			*p_fw_ret = comp_done->fw_return_code;
- 		return 0;
- 	}
--
--	DP_NOTICE(p_hwfn, "Ramrod is stuck, MCP drain failed\n");
-+err:
-+	DP_NOTICE(p_hwfn,
-+		  "Ramrod is stuck [CID %08x cmd %02x protocol %02x echo %04x]\n",
-+		  le32_to_cpu(p_ent->elem.hdr.cid),
-+		  p_ent->elem.hdr.cmd_id,
-+		  p_ent->elem.hdr.protocol_id,
-+		  le16_to_cpu(p_ent->elem.hdr.echo));
+ 	qede_set_ethtool_ops(ndev);
  
- 	return -EBUSY;
- }
-@@ -729,7 +761,8 @@ int qed_spq_post(struct qed_hwfn *p_hwfn,
- 		 * access p_ent here to see whether it's successful or not.
- 		 * Thus, after gaining the answer perform the cleanup here.
- 		 */
--		rc = qed_spq_block(p_hwfn, p_ent, fw_return_code);
-+		rc = qed_spq_block(p_hwfn, p_ent, fw_return_code,
-+				   p_ent->queue == &p_spq->unlimited_pending);
++	ndev->priv_flags = IFF_UNICAST_FLT;
++
+ 	/* user-changeble features */
+ 	hw_features = NETIF_F_GRO | NETIF_F_SG |
+ 		      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+@@ -3937,7 +3939,7 @@ static void qede_config_rx_mode(struct net_device *ndev)
  
- 		if (p_ent->queue == &p_spq->unlimited_pending) {
- 			/* This is an allocated p_ent which does not need to
+ 	/* Check for promiscuous */
+ 	if ((ndev->flags & IFF_PROMISC) ||
+-	    (uc_count > 15)) { /* @@@TBD resource allocation - 1 */
++	    (uc_count > edev->dev_info.num_mac_filters - 1)) {
+ 		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
+ 	} else {
+ 		/* Add MAC filters according to the unicast secondary macs */
+diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
+index 1c77948..1513080 100644
+--- a/include/linux/qed/qed_eth_if.h
++++ b/include/linux/qed/qed_eth_if.h
+@@ -23,6 +23,7 @@ struct qed_dev_eth_info {
+ 
+ 	u8	port_mac[ETH_ALEN];
+ 	u8	num_vlan_filters;
++	u16	num_mac_filters;
+ 
+ 	/* Legacy VF - this affects the datapath, so qede has to know */
+ 	bool is_legacy;
 -- 
 2.7.2
