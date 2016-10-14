@@ -1,35 +1,48 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Fri, 14 Oct 2016 08:28:57 -0500
-Message-ID: <5800DD99.6040907@codeaurora.org>
-References: <5800159B.3080708@codeaurora.org> <20161014040641.GE5822@lunn.ch>
- <5800C3C7.60705@codeaurora.org> <20161014120624.GG5822@lunn.ch>
- <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH] r8169: set coherent DMA mask as well as streaming DMA mask
+Date: Fri, 14 Oct 2016 14:32:24 +0100
+Message-ID: <CAKv+Gu_HEANqHNh5d_b=-3djA__8MkE7UE5ps8rTFuCuJURcVQ@mail.gmail.com>
+References: <1476445170-4496-1-git-send-email-ard.biesheuvel@linaro.org> <20161014.093101.1348173909013700977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33959 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754351AbcJNN3g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 09:29:36 -0400
-In-Reply-To: <20161014131852.GM5822@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+        Realtek linux nic maintainers <nic_swsd@realtek.com>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161014.093101.1348173909013700977.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Lunn wrote:
-> Does the datasheet say anything about this?
+On 14 October 2016 at 14:31, David Miller <davem@davemloft.net> wrote:
+> From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+> Date: Fri, 14 Oct 2016 12:39:30 +0100
 >
-> I would say for this device, suspend() is too aggressive.
+>> PCI devices that are 64-bit DMA capable should set the coherent
+>> DMA mask as well as the streaming DMA mask. On some architectures,
+>> these are managed separately, and so the coherent DMA mask will be
+>> left at its default value of 32 if it is not set explicitly. This
+>> results in errors such as
+>>
+>>      r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+>>      hwdev DMA mask = 0x00000000ffffffff, dev_addr = 0x00000080fbfff000
+>>      swiotlb: coherent allocation failed for device 0000:02:00.0 size=4096
+>>      CPU: 0 PID: 1062 Comm: systemd-udevd Not tainted 4.8.0+ #35
+>>      Hardware name: AMD Seattle/Seattle, BIOS 10:53:24 Oct 13 2016
+>>
+>> on systems without memory that is 32-bit addressable by PCI devices.
+>>
+>> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+>  ...
+>> @@ -8281,6 +8282,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>>               dev->features |= NETIF_F_HIGHDMA;
+>>       } else {
+>>               rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+>> +             if (!rc)
+>> +                     rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+>
+> As you state 32-bit is the default, therefore this part of your patch is unnecessary.
 
-I'll have to find the datasheet.  Let me do some research and get back 
-to you.  Thanks for your help so far.
-
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+Perhaps, but the original code did not assume that either. Should I
+remove the other call in a subsequent patch as well?
