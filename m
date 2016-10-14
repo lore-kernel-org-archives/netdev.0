@@ -1,54 +1,41 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] net: qcom/emac: disable interrupts before calling phy_disconnect
-Date: Fri, 14 Oct 2016 14:14:35 -0500
-Message-ID: <1476472475-12104-1-git-send-email-timur@codeaurora.org>
-To: netdev@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] stmmac: fix an error code in stmmac_ptp_register()
+Date: Fri, 14 Oct 2016 22:26:11 +0300
+Message-ID: <20161014192417.GC21917@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexandre Torgue <alexandre.torgue@st.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56232 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752077AbcJNTOj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 15:14:39 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:42731 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750929AbcJNT00 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 15:26:26 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a race condition that can occur if EMAC interrupts are
-enabled when phy_disconnect() is called.  phy_disconnect() sets
-adjust_link to NULL.  When an interrupt occurs, the ISR might
-call phy_mac_interrupt(), which wakes up the workqueue function
-phy_state_machine().  This function might reference adjust_link,
-thereby causing a null pointer exception.
+PTR_ERR(NULL) is success.  We have to preserve the error code earlier.
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
+Fixes: 7086605a6ab5 ("stmmac: fix error check when init ptp")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- drivers/net/ethernet/qualcomm/emac/emac-mac.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Applies to net.git tree.
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index e97968e..6fb3bee 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -1021,14 +1021,18 @@ void emac_mac_down(struct emac_adapter *adpt)
- 	napi_disable(&adpt->rx_q.napi);
- 
- 	phy_stop(adpt->phydev);
--	phy_disconnect(adpt->phydev);
- 
--	/* disable mac irq */
-+	/* Interrupts must be disabled before the PHY is disconnected, to
-+	 * avoid a race condition where adjust_link is null when we get
-+	 * an interrupt.
-+	 */
- 	writel(DIS_INT, adpt->base + EMAC_INT_STATUS);
- 	writel(0, adpt->base + EMAC_INT_MASK);
- 	synchronize_irq(adpt->irq.irq);
- 	free_irq(adpt->irq.irq, &adpt->irq);
- 
-+	phy_disconnect(adpt->phydev);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+index 289d527..5d61fb2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+@@ -185,8 +185,10 @@ int stmmac_ptp_register(struct stmmac_priv *priv)
+ 	priv->ptp_clock = ptp_clock_register(&priv->ptp_clock_ops,
+ 					     priv->device);
+ 	if (IS_ERR(priv->ptp_clock)) {
++		int ret = PTR_ERR(priv->ptp_clock);
 +
- 	emac_mac_reset(adpt);
+ 		priv->ptp_clock = NULL;
+-		return PTR_ERR(priv->ptp_clock);
++		return ret;
+ 	}
  
- 	emac_tx_q_descs_free(adpt);
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+ 	spin_lock_init(&priv->ptp_lock);
