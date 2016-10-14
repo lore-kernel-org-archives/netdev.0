@@ -1,31 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers 2016-10-14
-Date: Fri, 14 Oct 2016 16:08:37 -0400 (EDT)
-Message-ID: <20161014.160837.116145889846400558.davem@davemloft.net>
-References: <87oa2nbdpp.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH NET] ethtool: silence warning on bit loss
+Date: Fri, 14 Oct 2016 16:06:25 -0400 (EDT)
+Message-ID: <20161014.160625.256367812856122638.davem@davemloft.net>
+References: <1476400435-18400-1-git-send-email-jesse.brandeburg@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
+Cc: netdev@vger.kernel.org
+To: jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52264 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52278 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751997AbcJNUIj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 16:08:39 -0400
-In-Reply-To: <87oa2nbdpp.fsf@kamboji.qca.qualcomm.com>
+        with ESMTP id S1756914AbcJNUMz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 16:12:55 -0400
+In-Reply-To: <1476400435-18400-1-git-send-email-jesse.brandeburg@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Fri, 14 Oct 2016 10:18:42 +0300
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date: Thu, 13 Oct 2016 16:13:55 -0700
 
-> first wireless-drivers pull request for 4.9 and this time we have
-> unusually many fixes even before -rc1 is released. Most important here
-> are the wlcore and rtlwifi commits which fix critical regressions,
-> otherwise smaller impact fixes and one new sdio id for ath6kl.
+> Sparse was complaining when we went to prototype some code
+> using ethtool_cmd_speed_set and SPEED_100000, which uses
+> the upper 16 bits of __u32 speed for the first time.
 > 
-> Please let me know if there are any problems.
+> CHECK
+> ...
+> .../uapi/linux/ethtool.h:123:28: warning:
+>   cast truncates bits from constant value (186a0 becomes 86a0)
+> 
+> The warning is actually bogus, as no bits are really lost, but
+> we can get rid of the sparse warning with this one small change.
+> 
+> Reported-by: Preethi Banala <preethi.banala@intel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Pulled, thanks Kalle.
+Ok, I'll apply this.
+
+There were alternative suggestions but I like this patch
+because it makes it explicit what is going on.
+
+Just removing the u16 cast requires the reader to implicitly
+understand and know the types in the structure.
