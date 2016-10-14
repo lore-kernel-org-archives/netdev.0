@@ -1,120 +1,91 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH net 3/5] net/ncsi: Fix stale link state of inactive
- channels on failover
-Date: Fri, 14 Oct 2016 21:37:23 +1100
-Message-ID: <20161014103722.GB6278@gwshan>
-References: <1476413614-24586-1-git-send-email-gwshan@linux.vnet.ibm.com>
- <1476413614-24586-4-git-send-email-gwshan@linux.vnet.ibm.com>
- <CACPK8Xf1A2pvE0WCe2araRxZyMu9wkw=L=2-WuXrkBthehdfgw@mail.gmail.com>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net 2/2] conntrack: enable to tune gc parameters
+Date: Fri, 14 Oct 2016 12:37:26 +0200
+Message-ID: <20161014103726.GA10404@breakpoint.cc>
+References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
+ <20161010140424.GB21057@breakpoint.cc>
+ <cdda5290-c49c-e841-6ba5-10b30fd04fc0@6wind.com>
+ <20161013204338.GA32449@breakpoint.cc>
+ <f1df137d-7278-f6fb-3237-1bd20afadb48@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org,
-        davem@davemloft.net
-To: Joel Stanley <joel@jms.id.au>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: Florian Westphal <fw@strlen.de>, davem@davemloft.net,
+        pablo@netfilter.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:47091 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752356AbcJNKhG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:37:06 -0400
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9EAXbmE141565
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 06:37:05 -0400
-Received: from e28smtp09.in.ibm.com (e28smtp09.in.ibm.com [125.16.236.9])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 262uvcx3h2-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 06:37:05 -0400
-Received: from localhost
-        by e28smtp09.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-        Fri, 14 Oct 2016 16:07:01 +0530
-Received: from d28relay06.in.ibm.com (d28relay06.in.ibm.com [9.184.220.150])
-        by d28dlp03.in.ibm.com (Postfix) with ESMTP id 13C80125804F
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 16:07:32 +0530 (IST)
-Received: from d28av07.in.ibm.com (d28av07.in.ibm.com [9.184.220.146])
-        by d28relay06.in.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u9EAaxrC23330950
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 16:06:59 +0530
-Received: from d28av07.in.ibm.com (localhost [127.0.0.1])
-        by d28av07.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u9EAaup6018069
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2016 16:06:58 +0530
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41866 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751939AbcJNKiW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:38:22 -0400
 Content-Disposition: inline
-In-Reply-To: <CACPK8Xf1A2pvE0WCe2araRxZyMu9wkw=L=2-WuXrkBthehdfgw@mail.gmail.com>
+In-Reply-To: <f1df137d-7278-f6fb-3237-1bd20afadb48@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 14, 2016 at 04:32:28PM +1030, Joel Stanley wrote:
->On Fri, Oct 14, 2016 at 1:23 PM, Gavin Shan <gwshan@linux.vnet.ibm.com> wrote:
->> The issue was found on BCM5718 which has two NCSI channels in one
->> package: C0 and C1. Both of them are connected to different LANs,
->> means they are in link-up state and C0 is chosen  as the active
->> one until resetting BCM5718 happens as below.
->>
->> Resetting BCM5718 results in LSC (Link State Change) AEN packet
->> received on C0, meaning LSC AEN is missed on C1. When LSC AEN packet
->> received on C0 to report link-down, it fails over to C1 because C1
->> is in link-up state as software can see. However, C1 is in link-down
->> state in hardware. It means the link state is out of synchronization
->> between hardware and software, resulting in inappropriate channel (C1)
->> selected as active one.
->>
->> This resolves the issue by sending separate GLS (Get Link Status)
->> commands to all channels in the package before trying to do failover.
->> The last link state on all channels in the package is retrieved. With
->> it, C0 is selected as active one as expected.
->
->I follow this, and can see that happening in the
->ncsi_dev_state_suspend_gls state. However, what is
->
->> -               nd->state = ncsi_dev_state_suspend_dcnt;
->> +               if (ndp->flags & NCSI_DEV_RESHUFFLE)
->> +                       nd->state = ncsi_dev_state_suspend_gls;
->> +               else
->> +                       nd->state = ncsi_dev_state_suspend_dcnt;
->
->However, what is this doing? I'm not quite sure what
->NCSI_DEV_RESHUFFLE is and why we enable it?
->
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> Le 13/10/2016 à 22:43, Florian Westphal a écrit :
+> > Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> >> Le 10/10/2016 à 16:04, Florian Westphal a écrit :
+> >>> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> >>>> After commit b87a2f9199ea ("netfilter: conntrack: add gc worker to remove
+> >>>> timed-out entries"), netlink conntrack deletion events may be sent with a
+> >>>> huge delay. It could be interesting to let the user tweak gc parameters
+> >>>> depending on its use case.
+> >>>
+> >>> Hmm, care to elaborate?
+> >>>
+> >>> I am not against doing this but I'd like to hear/read your use case.
+> >>>
+> >>> The expectation is that in almot all cases eviction will happen from
+> >>> packet path.  The gc worker is jusdt there for case where a busy system
+> >>> goes idle.
+> >> It was precisely that case. After a period of activity, the event is sent a long
+> >> time after the timeout. If the router does not manage a lot of flows, why not
+> >> trying to parse more entries instead of the default 1/64 of the table?
+> >> In fact, I don't understand why using GC_MAX_BUCKETS_DIV instead of using always
+> >> GC_MAX_BUCKETS whatever the size of the table is.
+> > 
+> > I wanted to make sure that we have a known upper bound on the number of
+> > buckets we process so that we do not block other pending kworker items
+> > for too long.
+> I don't understand. GC_MAX_BUCKETS is the upper bound and I agree that it is
+> needed. But why GC_MAX_BUCKETS_DIV (ie 1/64)?
+> In other words, why this line:
+> goal = min(nf_conntrack_htable_size / GC_MAX_BUCKETS_DIV, GC_MAX_BUCKETS);
+> instead of:
+> goal = GC_MAX_BUCKETS;
 
-NCSI_DEV_RESHUFFLE is set when we need failover, which happens on
-resetting NIC or unplugging the cable connected to the active channel
-(port) or other events. The first step for failover is to suspend
-currently active channel and then choose the best one (channel's link
-state is important factor) to be active. ncsi_dev_state_suspend_gls
-ensures we will get updated link state of available channels before
-choosing and enabling next active channel. If there are no failover
-happening, we needn't get the update link state on the available
-channels and the state ncsi_dev_state_suspend_gls will be skipped.
+Sure, we can do that.  But why is a fixed size better than a fraction?
 
-I think I need put comments here to explain the change in next revision.
+E.g. with 8k buckets and simple goal = GC_MAX_BUCKETS we scan entire
+table on every run, currently we only scan 128.
 
-Thanks,
-Gavin
+I wanted to keep too many destroy notifications from firing at once
+but maybe i was too paranoid...
 
->>
->>                 ret = ncsi_xmit_cmd(&nca);
->>                 if (ret)
->>                         goto error;
->>
->>                 break;
->> +       case ncsi_dev_state_suspend_gls:
->> +               ndp->pending_req_num = np->channel_num;
->> +
->> +               nca.type = NCSI_PKT_CMD_GLS;
->> +               nca.package = np->id;
->> +               nd->state = ncsi_dev_state_suspend_dcnt;
->> +
->> +               NCSI_FOR_EACH_CHANNEL(np, nc) {
->> +                       nca.channel = nc->id;
->> +                       ret = ncsi_xmit_cmd(&nca);
->> +                       if (ret)
->> +                               goto error;
->> +               }
->> +
->> +               break;
->>         case ncsi_dev_state_suspend_dcnt:
->>         case ncsi_dev_state_suspend_dc:
->>         case ncsi_dev_state_suspend_deselect:
->> --
->> 2.1.0
->>
->
+> > (Or cause too many useless scans)
+> > 
+> > Another idea worth trying might be to get rid of the max cap and
+> > instead break early in case too many jiffies expired.
+> > 
+> > I don't want to add sysctl knobs for this unless absolutely needed; its already
+> > possible to 'force' eviction cycle by running 'conntrack -L'.
+> > 
+> Sure, but this is not a "real" solution, just a workaround.
+> We need to find a way to deliver conntrack deletion events in a reasonable
+> delay, whatever the traffic on the machine is.
+
+Agree, but that depends on what 'reasonable' means and what kind of
+uneeded cpu churn we're willing to add.
+
+We can add a sysctl for this but we should use a low default to not do
+too much unneeded work.
+
+So what about your original patch, but only add
+
+nf_conntrack_gc_interval
+
+(and also add instant-resched in case entire budget was consumed)?
