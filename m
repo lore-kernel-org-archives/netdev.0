@@ -1,50 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Fri, 14 Oct 2016 15:18:52 +0200
-Message-ID: <20161014131852.GM5822@lunn.ch>
-References: <5800159B.3080708@codeaurora.org>
- <20161014040641.GE5822@lunn.ch>
- <5800C3C7.60705@codeaurora.org>
- <20161014120624.GG5822@lunn.ch>
- <5800D214.70808@codeaurora.org>
- <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org>
- <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH] mac80211: aes_ccm: move struct aead_req off the stack
+Date: Fri, 14 Oct 2016 14:19:21 +0100
+Message-ID: <CAKv+Gu81RYq1aZUQ2Aru3Vev4LGgb1zFwWz8gepE0tQEhQi9Uw@mail.gmail.com>
+References: <1476450540-1760-1-git-send-email-ard.biesheuvel@linaro.org>
+ <1476450635.31114.42.camel@sipsolutions.net> <CAKv+Gu_eS-C84rH_MLYy--ivC0a99wwJvNDLhETfrBkYXW-XpA@mail.gmail.com>
+ <1476450941.31114.45.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45432 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932454AbcJNNSy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 14 Oct 2016 09:18:54 -0400
-Content-Disposition: inline
-In-Reply-To: <5800D796.1030602@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@amacapital.net>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Jouni Malinen <j@w1.fi>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476450941.31114.45.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 14, 2016 at 08:03:18AM -0500, Timur Tabi wrote:
-> Andrew Lunn wrote:
-> >Have you tried using the ethernet-phy-id device tree property? It
-> >looks like that will allow you to skip get_phy_device and just create
-> >the phy device. You can then bring the phy out of sleep in the probe
-> >function?
-> 
-> The problem I'm experiencing is with ACPI, so I can't use any of the
-> fancy of_ apis like of_get_phy_id().  But I'll look into it.
-> 
-> Is it possible that at803x_suspend() is too aggressive?  That's it's
-> effectively disabling the phy?  While the phy is suspended, should
-> it still respond to MII_PHYSID1 and MII_PHYSID2 requests?
+On 14 October 2016 at 14:15, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Fri, 2016-10-14 at 14:13 +0100, Ard Biesheuvel wrote:
+>>
+>> > But if we allocate things anyway, is it worth expending per-CPU
+>> > buffers on these?
+>>
+>> Ehmm, maybe not. I could spin a v2 that allocates a bigger buffer,
+>> and copies aad[] into it as well
+>
+> Copies in/out, I guess. Also there's B_0/J_0 for CCM/GCM, and the
+> 'zero' thing that GMAC has.
+>
 
-That is a basic assumption of the code. If you cannot read the IDs how
-are you supposed to know what device it is, and what quirks you need
-to work around its broken features...
+Is the aad[] actually reused? I would assume it only affects the mac
+on encryption, and the verification on decryption but I don't think we
+actually need it back from the crypto routines.
 
-Does the datasheet say anything about this?
+>> That does not help the other algos though
+>
+> What do you mean?
+>
 
-I would say for this device, suspend() is too aggressive.
+Exactly what you said above :-) My patch only touches CCM but as you said,
 
-  Andrew
+"""
+'Also there's B_0/J_0 for CCM/GCM, and the 'zero' thing that GMAC has.
+"""
