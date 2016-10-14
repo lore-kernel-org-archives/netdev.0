@@ -1,41 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] rxrpc: Fixes
-Date: Fri, 14 Oct 2016 10:45:02 -0400 (EDT)
-Message-ID: <20161014.104502.1079192449965835276.davem@davemloft.net>
-References: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH v3] IB/ipoib: move back IB LL address into the hard
+ header
+Date: Fri, 14 Oct 2016 16:48:50 +0200
+Message-ID: <1476456530.5591.1.camel@redhat.com>
+References: <9fce9b87ecc4c5c4f03401359806f40b1dcd0eb3.1476374992.git.pabeni@redhat.com>
+         <CAJ3xEMi7DY7_3vM+553dC4w17W==CdUdtn5PdzzCCUxtj434dQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147637512988.17348.9857198849984467857.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>,
+        Erez Shitrit <erezsh@mellanox.com>,
+        Alex Vesker <valex@mellanox.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "talal@mellanox.com" <talal@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41968 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752742AbcJNOsz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 14 Oct 2016 10:48:55 -0400
+In-Reply-To: <CAJ3xEMi7DY7_3vM+553dC4w17W==CdUdtn5PdzzCCUxtj434dQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 13 Oct 2016 17:12:09 +0100
+On Fri, 2016-10-14 at 13:23 +0300, Or Gerlitz wrote:
+> 
+> Paolo,
+> 
+> Is this fix backportable to any kernel since the breakage? 
 
-> 
-> This set of patches contains a bunch of fixes:
-> 
->  (1) Fix use of kunmap() after change from kunmap_atomic() within AFS.
-> 
->  (2) Don't use of ERR_PTR() with an always zero value.
-> 
->  (3) Check the right error when using ip6_route_output().
-> 
->  (4) Be consistent about whether call->operation_ID is BE or CPU-E within
->      AFS.
-> 
-> The patches can be found here also:
-> 
-> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-> 
-> Tagged thusly:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-rewrite-20161013
+yes, AFAIK this is beck-portable.
 
-Pulled, thanks David.
+> AFAIR,
+> Roland mentioned
+> that a 2nd change introduced in 4.7-rc1 changed things a bit more such
+> that the fix
+> he had in his head didn't apply any more.
+
+If you refer to shrinking both IPoIB and gso control buffer, as proposed
+by Roland in:
+
+http://marc.info/?l=linux-kernel&m=146787279825501&w=2
+
+that will not work, since the gso control buffer is grown a bit since
+the first time the bug was detected.
+
+This patch does not have that sort of issue.
+
+> I am still travelling after netdev and would like to put an eye on the
+> patch and also see that @mellanox.com someone
+
+Not sure if that helps, but a 3rd party has already confirmed privately
+that this patch fixes the bug for them.
+
+Paolo
