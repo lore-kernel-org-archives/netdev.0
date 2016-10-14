@@ -1,90 +1,66 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v3 net-next 3/7] qede: Prevent GSO on long Geneve headers
-Date: Fri, 14 Oct 2016 05:19:19 -0400
-Message-ID: <1476436763-5274-4-git-send-email-manish.chopra@qlogic.com>
-References: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 2/2] conntrack: enable to tune gc parameters
+Date: Fri, 14 Oct 2016 12:12:29 +0200
+Message-ID: <f1df137d-7278-f6fb-3237-1bd20afadb48@6wind.com>
+References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1476094704-17452-3-git-send-email-nicolas.dichtel@6wind.com>
+ <20161010140424.GB21057@breakpoint.cc>
+ <cdda5290-c49c-e841-6ba5-10b30fd04fc0@6wind.com>
+ <20161013204338.GA32449@breakpoint.cc>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-        Manish Chopra <manish.chopra@caviumnetworks.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41650 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753684AbcJNKEx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 06:04:53 -0400
-In-Reply-To: <1476436763-5274-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, pablo@netfilter.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20161013204338.GA32449@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@caviumnetworks.com>
+Le 13/10/2016 à 22:43, Florian Westphal a écrit :
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+>> Le 10/10/2016 à 16:04, Florian Westphal a écrit :
+>>> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+>>>> After commit b87a2f9199ea ("netfilter: conntrack: add gc worker to remove
+>>>> timed-out entries"), netlink conntrack deletion events may be sent with a
+>>>> huge delay. It could be interesting to let the user tweak gc parameters
+>>>> depending on its use case.
+>>>
+>>> Hmm, care to elaborate?
+>>>
+>>> I am not against doing this but I'd like to hear/read your use case.
+>>>
+>>> The expectation is that in almot all cases eviction will happen from
+>>> packet path.  The gc worker is jusdt there for case where a busy system
+>>> goes idle.
+>> It was precisely that case. After a period of activity, the event is sent a long
+>> time after the timeout. If the router does not manage a lot of flows, why not
+>> trying to parse more entries instead of the default 1/64 of the table?
+>> In fact, I don't understand why using GC_MAX_BUCKETS_DIV instead of using always
+>> GC_MAX_BUCKETS whatever the size of the table is.
+> 
+> I wanted to make sure that we have a known upper bound on the number of
+> buckets we process so that we do not block other pending kworker items
+> for too long.
+I don't understand. GC_MAX_BUCKETS is the upper bound and I agree that it is
+needed. But why GC_MAX_BUCKETS_DIV (ie 1/64)?
+In other words, why this line:
+goal = min(nf_conntrack_htable_size / GC_MAX_BUCKETS_DIV, GC_MAX_BUCKETS);
+instead of:
+goal = GC_MAX_BUCKETS;
+?
 
-Due to hardware limitation, when transmitting a geneve-encapsulated
-packet with more than 32 bytes worth of geneve options the hardware
-would not be able to crack the packet and consider it a regular UDP
-packet.
-
-This implements the ndo_features_check() in qede in order to prevent
-GSO on said transmitted packets.
-
-Signed-off-by: Manish Chopra <manish.chopra@caviumnetworks.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
----
- drivers/net/ethernet/qlogic/qede/qede_main.c | 35 ++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
-
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 7d5dc1e..6c2b09c 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -2240,6 +2240,40 @@ static void qede_udp_tunnel_del(struct net_device *dev,
- 	schedule_delayed_work(&edev->sp_task, 0);
- }
- 
-+/* 8B udp header + 8B base tunnel header + 32B option length */
-+#define QEDE_MAX_TUN_HDR_LEN 48
-+
-+static netdev_features_t qede_features_check(struct sk_buff *skb,
-+					     struct net_device *dev,
-+					     netdev_features_t features)
-+{
-+	if (skb->encapsulation) {
-+		u8 l4_proto = 0;
-+
-+		switch (vlan_get_protocol(skb)) {
-+		case htons(ETH_P_IP):
-+			l4_proto = ip_hdr(skb)->protocol;
-+			break;
-+		case htons(ETH_P_IPV6):
-+			l4_proto = ipv6_hdr(skb)->nexthdr;
-+			break;
-+		default:
-+			return features;
-+		}
-+
-+		/* Disable offloads for geneve tunnels, as HW can't parse
-+		 * the geneve header which has option length greater than 32B.
-+		 */
-+		if ((l4_proto == IPPROTO_UDP) &&
-+		    ((skb_inner_mac_header(skb) -
-+		      skb_transport_header(skb)) > QEDE_MAX_TUN_HDR_LEN))
-+			return features & ~(NETIF_F_CSUM_MASK |
-+					    NETIF_F_GSO_MASK);
-+	}
-+
-+	return features;
-+}
-+
- static const struct net_device_ops qede_netdev_ops = {
- 	.ndo_open = qede_open,
- 	.ndo_stop = qede_close,
-@@ -2264,6 +2298,7 @@ static const struct net_device_ops qede_netdev_ops = {
- #endif
- 	.ndo_udp_tunnel_add = qede_udp_tunnel_add,
- 	.ndo_udp_tunnel_del = qede_udp_tunnel_del,
-+	.ndo_features_check = qede_features_check,
- };
- 
- /* -------------------------------------------------------------------------
--- 
-2.7.2
+> 
+> (Or cause too many useless scans)
+> 
+> Another idea worth trying might be to get rid of the max cap and
+> instead break early in case too many jiffies expired.
+> 
+> I don't want to add sysctl knobs for this unless absolutely needed; its already
+> possible to 'force' eviction cycle by running 'conntrack -L'.
+> 
+Sure, but this is not a "real" solution, just a workaround.
+We need to find a way to deliver conntrack deletion events in a reasonable
+delay, whatever the traffic on the machine is.
