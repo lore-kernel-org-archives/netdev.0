@@ -1,52 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: correctly add local routes when lo goes up
-Date: Fri, 14 Oct 2016 10:06:34 -0400 (EDT)
-Message-ID: <20161014.100634.1750361454408261153.davem@davemloft.net>
-References: <1476259840-26261-1-git-send-email-nicolas.dichtel@6wind.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 00/11] net: Fix netdev adjacency tracking
+Date: Fri, 14 Oct 2016 10:17:30 -0400 (EDT)
+Message-ID: <20161014.101730.404820561372500741.davem@davemloft.net>
+References: <1476305519-28833-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Balakumaran.Kannan@ap.sony.com,
-        Maruthi.Thotad@ap.sony.com, sd@queasysnail.net,
-        hannes@stressinduktion.org, chenweilong@huawei.com,
-        gaofeng@cn.fujitsu.com
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47438 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754538AbcJNON3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2016 10:13:29 -0400
-In-Reply-To: <1476259840-26261-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org
+To: dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476305519-28833-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 12 Oct 2016 10:10:40 +0200
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Date: Wed, 12 Oct 2016 13:51:48 -0700
 
-> The goal of the patch is to fix this scenario:
->  ip link add dummy1 type dummy
->  ip link set dummy1 up
->  ip link set lo down ; ip link set lo up
+> The netdev adjacency tracking is failing to create proper dependencies
+> for some topologies. For example this topology
 > 
-> After that sequence, the local route to the link layer address of dummy1 is
-> not there anymore.
+>         +--------+
+>         |  myvrf |
+>         +--------+
+>           |    |
+>           |  +---------+
+>           |  | macvlan |
+>           |  +---------+
+>           |    |
+>       +----------+
+>       |  bridge  |
+>       +----------+
+>           |
+>       +--------+
+>       | bond0  |
+>       +--------+
+>           |
+>       +--------+
+>       |  eth3  |
+>       +--------+
 > 
-> When the loopback is set down, all local routes are deleted by
-> addrconf_ifdown()/rt6_ifdown(). At this time, the rt6_info entry still
-> exists, because the corresponding idev has a reference on it. After the rcu
-> grace period, dst_rcu_free() is called, and thus ___dst_free(), which will
-> set obsolete to DST_OBSOLETE_DEAD.
+> hits 1 of 2 problems depending on the order of enslavement. The base set of
+> commands for both cases:
 > 
-> In this case, init_loopback() is called before dst_rcu_free(), thus
-> obsolete is still sets to something <= 0. So, the function doesn't add the
-> route again. To avoid that race, let's check the rt6 refcnt instead.
-> 
-> Fixes: 25fb6ca4ed9c ("net IPv6 : Fix broken IPv6 routing table after loopback down-up")
-> Fixes: a881ae1f625c ("ipv6: don't call addrconf_dst_alloc again when enable lo")
-> Fixes: 33d99113b110 ("ipv6: reallocate addrconf router for ipv6 address when lo device up")
-> Reported-by: Francesco Santoro <francesco.santoro@6wind.com>
-> Reported-by: Samuel Gauthier <samuel.gauthier@6wind.com>
- ...
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>     ip link add bond1 type bond
+>     ip link set bond1 up
 
-Applied and queued up for -stable, thanks.
+Your diagram uses the device name "bond0" but all of your command examples
+use "bond1".  Please fix this up, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
