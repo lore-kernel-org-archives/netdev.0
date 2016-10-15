@@ -1,29 +1,51 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] rds: Remove duplicate prefix from rds_conn_path_error
- use
-Date: Sat, 15 Oct 2016 12:38:34 -0700
-Message-ID: <e1ea4ec0-9bde-f459-82e2-58cd8a5d7f9a@oracle.com>
-References: <cover.1476557523.git.joe@perches.com>
- <832b0d2c1b31c10db7692f65f1ba77e779db15e1.1476557523.git.joe@perches.com>
+From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
+Subject: Re: [PATCH v2 1/3] net: smc91x: isolate u16 writes alignment workaround
+Date: Sat, 15 Oct 2016 23:11:56 +0200
+Message-ID: <87shrx5nc3.fsf@belgarion.home>
+References: <1476559670-25056-1-git-send-email-robert.jarzmik@free.fr>
+        <1476559670-25056-2-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <832b0d2c1b31c10db7692f65f1ba77e779db15e1.1476557523.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
+        Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476559670-25056-2-git-send-email-robert.jarzmik-GANU6spQydw@public.gmane.org>
+        (Robert Jarzmik's message of "Sat, 15 Oct 2016 21:27:48 +0200")
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/2016 11:53 AM, Joe Perches wrote:
-> rds_conn_path_error already prefixes "RDS:" to the output.
->
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> ---
-Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sorry David, I just noticed you weren't in the "To:" of this serie, but I won't
+forget you for the v3 I need to release anyway
+(https://lkml.org/lkml/2016/10/15/104).
+
+Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org> writes:
+> +	lp->half_word_align4 =
+> +		machine_is_mainstone() || machine_is_stargate2() ||
+> +		machine_is_pxa_idp();
+
+Bah this one is not good enough.
+
+First, machine_is_*() is not defined if CONFIG_ARM=n, and this part is not under
+a #ifdef CONFIG_ARM.
+
+Moreover, I think it is a good occasion to go further, and :
+ - enhance smc91x_platdata and add a pxa_u16_align4 boolean
+ - transform this statement into :
+	lp->half_word_align4 = lp->cfg.pxa_u16_align4
+
+This will remove the machine_*() calls from the smc91x driver, which looks a
+good move, doesn't it ?
+
+Cheers.
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+Robert
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
