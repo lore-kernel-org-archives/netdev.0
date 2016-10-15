@@ -1,77 +1,76 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 4/6] Introduce sample tc action
-Date: Sat, 15 Oct 2016 10:31:20 -0700
-Message-ID: <580267E8.70801@cumulusnetworks.com>
-References: <1476276069-5315-1-git-send-email-jiri@resnulli.us> <1476276069-5315-5-git-send-email-jiri@resnulli.us> <58025A90.9010608@cumulusnetworks.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: [net:master 10/15] net/ipv6/addrconf.c:1251:14-30: WARNING: Unsigned
+ expression compared with zero: tmp_prefered_lft < 0
+Date: Sat, 15 Oct 2016 19:46:41 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1610151945380.9280@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com, jhs@mojatatu.com, geert+renesas@glider.be,
-        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
-        linux@roeck-us.net, Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, kbuild-all@01.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:32982 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751519AbcJORbX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 13:31:23 -0400
-Received: by mail-pf0-f178.google.com with SMTP id 128so63051390pfz.0
-        for <netdev@vger.kernel.org>; Sat, 15 Oct 2016 10:31:23 -0700 (PDT)
-In-Reply-To: <58025A90.9010608@cumulusnetworks.com>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:52492 "EHLO
+        mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753128AbcJORuA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 13:50:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/15/16, 9:34 AM, Roopa Prabhu wrote:
-> On 10/12/16, 5:41 AM, Jiri Pirko wrote:
->> From: Yotam Gigi <yotam.gi@gmail.com>
->>
->> This action allow the user to sample traffic matched by tc classifier.
->> The sampling consists of choosing packets randomly, truncating them,
->> adding some informative metadata regarding the interface and the original
->> packet size and mark them with specific mark, to allow further tc rules to
->> match and process. The marked sample packets are then injected into the
->> device ingress qdisc using netif_receive_skb.
->>
->> The packets metadata is packed using the ife encapsulation protocol, and
->> the outer packet's ethernet dest, source and eth_type, along with the
->> rate, mark and the optional truncation size can be configured from
->> userspace.
->>
->> Example:
->> To sample ingress traffic from interface eth1, and redirect the sampled
->> the sampled packets to interface dummy0, one may use the commands:
->>
->> tc qdisc add dev eth1 handle ffff: ingress
->>
->> tc filter add dev eth1 parent ffff: \
->> 	   matchall action sample rate 12 mark 17
->>
->> tc filter add parent ffff: dev eth1 protocol all \
->> 	   u32 match mark 172 0xff
->> 	   action mirred egress redirect dev dummy0
->>
->> Where the first command adds an ingress qdisc and the second starts
->> sampling every 12'th packet on dev eth0 and marks the sampled packets with
->> 17. The command third catches the sampled packets, which are marked with
->> 17, and redirects them to dev dummy0.
->>
->> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> channeling some feedback from Peter Phaal @sflow inline below:
->
->
-If it helps, one more thing that came up was using bpf.
-They also use bpf filters for pkt sampling in the non-offloaded case:
-http://blog.sflow.com/2016/05/berkeley-packet-filter-bpf.html
+I haven't checked the entire context, but it could be useful to look at
+line 1251.
 
-so, existing apps (like sflow) that care about packet sampling do prefer to use
-a socket api for sample delivery: netlink nflog or bpf like socket filters
+julia
 
-also, to keep the software and hardware models the same, wondering if ebpf attach
-can be a viable option (have not thought about the offloaded case completely yet).
-This would give apps more control on attaching sample headers (like sflow) if needed.
+---------- Forwarded message ----------
+Date: Sun, 16 Oct 2016 01:34:18 +0800
+From: kbuild test robot <fengguang.wu@intel.com>
+To: kbuild@01.org
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+Subject: [net:master 10/15] net/ipv6/addrconf.c:1251:14-30: WARNING: Unsigned
+    expression compared with zero: tmp_prefered_lft < 0
 
-thanks,
-Roopa
+CC: kbuild-all@01.org
+CC: netdev@vger.kernel.org
+TO: Jiri Bohac <jbohac@suse.cz>
+
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+head:   9e55d0f95460a067def5400fa5eee5dabb0fc5a5
+commit: 76506a986dc31394fd1f2741db037d29c7e57843 [10/15] IPv6: fix DESYNC_FACTOR
+:::::: branch date: 21 hours ago
+:::::: commit date: 27 hours ago
+
+>> net/ipv6/addrconf.c:1251:14-30: WARNING: Unsigned expression compared with zero: tmp_prefered_lft < 0
+
+git remote add net https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+git remote update net
+git checkout 76506a986dc31394fd1f2741db037d29c7e57843
+vim +1251 net/ipv6/addrconf.c
+
+76506a986 Jiri Bohac     2016-10-13  1235  	if (unlikely(idev->desync_factor > max_desync_factor)) {
+76506a986 Jiri Bohac     2016-10-13  1236  		if (max_desync_factor > 0) {
+76506a986 Jiri Bohac     2016-10-13  1237  			get_random_bytes(&idev->desync_factor,
+76506a986 Jiri Bohac     2016-10-13  1238  					 sizeof(idev->desync_factor));
+76506a986 Jiri Bohac     2016-10-13  1239  			idev->desync_factor %= max_desync_factor;
+76506a986 Jiri Bohac     2016-10-13  1240  		} else {
+76506a986 Jiri Bohac     2016-10-13  1241  			idev->desync_factor = 0;
+76506a986 Jiri Bohac     2016-10-13  1242  		}
+76506a986 Jiri Bohac     2016-10-13  1243  	}
+76506a986 Jiri Bohac     2016-10-13  1244
+^1da177e4 Linus Torvalds 2005-04-16  1245  	tmp_valid_lft = min_t(__u32,
+^1da177e4 Linus Torvalds 2005-04-16  1246  			      ifp->valid_lft,
+7a876b0ef Glenn Wurster  2010-09-27  1247  			      idev->cnf.temp_valid_lft + age);
+76506a986 Jiri Bohac     2016-10-13  1248  	tmp_prefered_lft = idev->cnf.temp_prefered_lft + age -
+76506a986 Jiri Bohac     2016-10-13  1249  			    idev->desync_factor;
+76506a986 Jiri Bohac     2016-10-13  1250  	/* guard against underflow in case of concurrent updates to cnf */
+76506a986 Jiri Bohac     2016-10-13 @1251  	if (unlikely(tmp_prefered_lft < 0))
+76506a986 Jiri Bohac     2016-10-13  1252  		tmp_prefered_lft = 0;
+76506a986 Jiri Bohac     2016-10-13  1253  	tmp_prefered_lft = min_t(__u32, ifp->prefered_lft, tmp_prefered_lft);
+^1da177e4 Linus Torvalds 2005-04-16  1254  	tmp_plen = ifp->prefix_len;
+^1da177e4 Linus Torvalds 2005-04-16  1255  	tmp_tstamp = ifp->tstamp;
+^1da177e4 Linus Torvalds 2005-04-16  1256  	spin_unlock_bh(&ifp->lock);
+^1da177e4 Linus Torvalds 2005-04-16  1257
+53bd67491 Jiri Pirko     2013-12-06  1258  	write_unlock_bh(&idev->lock);
+95c385b4d Neil Horman    2007-04-25  1259
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
