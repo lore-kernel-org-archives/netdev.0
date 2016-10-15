@@ -1,72 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 1/2] rds: Remove unused rds_conn_error
-Date: Sat, 15 Oct 2016 11:53:21 -0700
-Message-ID: <01fddf3af8f7757d0e79e4f25d7eb8b246e3d695.1476557523.git.joe@perches.com>
+From: Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [rds-devel] [PATCH 2/2] rds: Remove duplicate prefix from
+ rds_conn_path_error use
+Date: Sat, 15 Oct 2016 15:00:00 -0400
+Message-ID: <20161015190000.GH31471@oracle.com>
 References: <cover.1476557523.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-kernel@vger.kernel.org
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0056.hostedemail.com ([216.40.44.56]:49738 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751392AbcJOSxa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 14:53:30 -0400
-In-Reply-To: <cover.1476557523.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ <832b0d2c1b31c10db7692f65f1ba77e779db15e1.1476557523.git.joe@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <832b0d2c1b31c10db7692f65f1ba77e779db15e1.1476557523.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This macro's last use was removed in commit d769ef81d5b59
-("RDS: Update rds_conn_shutdown to work with rds_conn_path")
-so make the macro and the __rds_conn_error function definition
-and declaration disappear.
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/rds/connection.c | 15 ---------------
- net/rds/rds.h        |  4 ----
- 2 files changed, 19 deletions(-)
-
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index f5058559bb08..13f459dad4ef 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -689,21 +689,6 @@ void rds_conn_connect_if_down(struct rds_connection *conn)
- }
- EXPORT_SYMBOL_GPL(rds_conn_connect_if_down);
- 
--/*
-- * An error occurred on the connection
-- */
--void
--__rds_conn_error(struct rds_connection *conn, const char *fmt, ...)
--{
--	va_list ap;
--
--	va_start(ap, fmt);
--	vprintk(fmt, ap);
--	va_end(ap);
--
--	rds_conn_drop(conn);
--}
--
- void
- __rds_conn_path_error(struct rds_conn_path *cp, const char *fmt, ...)
- {
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index fd0bccb2f9f9..25532a46602f 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -683,10 +683,6 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
- 			  struct rds_info_lengths *lens,
- 			  int (*visitor)(struct rds_connection *, void *),
- 			  size_t item_len);
--__printf(2, 3)
--void __rds_conn_error(struct rds_connection *conn, const char *, ...);
--#define rds_conn_error(conn, fmt...) \
--	__rds_conn_error(conn, KERN_WARNING "RDS: " fmt)
- 
- __printf(2, 3)
- void __rds_conn_path_error(struct rds_conn_path *cp, const char *, ...);
--- 
-2.10.0.rc2.1.g053435c
+On (10/15/16 11:53), Joe Perches wrote:
+> 
+> rds_conn_path_error already prefixes "RDS:" to the output.
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Acked-by: Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
