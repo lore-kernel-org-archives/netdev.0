@@ -1,94 +1,37 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with Linus' tree
-Date: Sun, 16 Oct 2016 08:13:17 +1100
-Message-ID: <20161016081317.229c5c47@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] r8169: set coherent DMA mask as well as streaming
+ DMA mask
+Date: Sat, 15 Oct 2016 17:29:49 -0400 (EDT)
+Message-ID: <20161015.172949.326250924585943753.davem@davemloft.net>
+References: <1476452433-20518-1-git-send-email-ard.biesheuvel@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ram Amrani <Ram.Amrani@cavium.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Cc: romieu@fr.zoreil.com, nic_swsd@realtek.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: ard.biesheuvel@linaro.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476452433-20518-1-git-send-email-ard.biesheuvel@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Fri, 14 Oct 2016 14:40:33 +0100
 
-Today's linux-next merge of the net tree got a conflict in:
+> PCI devices that are 64-bit DMA capable should set the coherent
+> DMA mask as well as the streaming DMA mask. On some architectures,
+> these are managed separately, and so the coherent DMA mask will be
+> left at its default value of 32 if it is not set explicitly. This
+> results in errors such as
+> 
+>      r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+>      hwdev DMA mask = 0x00000000ffffffff, dev_addr = 0x00000080fbfff000
+>      swiotlb: coherent allocation failed for device 0000:02:00.0 size=4096
+>      CPU: 0 PID: 1062 Comm: systemd-udevd Not tainted 4.8.0+ #35
+>      Hardware name: AMD Seattle/Seattle, BIOS 10:53:24 Oct 13 2016
+> 
+> on systems without memory that is 32-bit addressable by PCI devices.
+> 
+> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 
-  drivers/net/ethernet/qlogic/Kconfig
-
-between commit:
-
-  2e0cbc4dd077 ("qedr: Add RoCE driver framework")
-
-from Linus' tree and commit:
-
-  0189efb8f4f8 ("qed*: Fix Kconfig dependencies with INFINIBAND_QEDR")
-
-from the net tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
-I also added this merge fix patch:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Sun, 16 Oct 2016 08:09:42 +1100
-Subject: [PATCH] qed*: merge fix for CONFIG_INFINIBAND_QEDR Kconfig move
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/infiniband/hw/qedr/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/infiniband/hw/qedr/Kconfig b/drivers/infiniband/hw/qedr/Kconfig
-index 7c06d85568d4..6c9f3923e838 100644
---- a/drivers/infiniband/hw/qedr/Kconfig
-+++ b/drivers/infiniband/hw/qedr/Kconfig
-@@ -2,6 +2,7 @@ config INFINIBAND_QEDR
- 	tristate "QLogic RoCE driver"
- 	depends on 64BIT && QEDE
- 	select QED_LL2
-+	select QED_RDMA
- 	---help---
- 	  This driver provides low-level InfiniBand over Ethernet
- 	  support for QLogic QED host channel adapters (HCAs).
--- 
-2.8.1
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/ethernet/qlogic/Kconfig
-index 1e8339a67f6e,77567727528a..000000000000
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@@ -107,4 -107,19 +107,7 @@@ config QED
-  	---help---
-  	  This enables the support for ...
-  
-+ config QED_RDMA
-+ 	bool
-+ 
- -config INFINIBAND_QEDR
- -	tristate "QLogic qede RoCE sources [debug]"
- -	depends on QEDE && 64BIT
- -	select QED_LL2
- -	select QED_RDMA
- -	default n
- -	---help---
- -	  This provides a temporary node that allows the compilation
- -	  and logical testing of the InfiniBand over Ethernet support
- -	  for QLogic QED. This would be replaced by the 'real' option
- -	  once the QEDR driver is added [+relocated].
- -
-  endif # NET_VENDOR_QLOGIC
+Applied.
