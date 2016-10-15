@@ -1,72 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] r8169: set coherent DMA mask as well as streaming
- DMA mask
-Date: Sat, 15 Oct 2016 17:31:08 -0400 (EDT)
-Message-ID: <20161015.173108.998320512006202215.davem@davemloft.net>
-References: <1476452433-20518-1-git-send-email-ard.biesheuvel@linaro.org>
-        <063D6719AE5E284EB5DD2968C1650D6DB01FF652@AcuExch.aculab.com>
-        <EEC99DAD-50A1-4E45-8707-E5A4E6851D22@linaro.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH RFC] ixgbe: ixgbe_atr() must check if network header is
+ available in headlen
+Date: Sat, 15 Oct 2016 17:31:04 -0400
+Message-ID: <20161015213104.GK31471@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, romieu@fr.zoreil.com,
-        nic_swsd@realtek.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: ard.biesheuvel@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <EEC99DAD-50A1-4E45-8707-E5A4E6851D22@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sowmini.varadhan@oracle.com
+To: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:51264 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751332AbcJOVbK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 17:31:10 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Fri, 14 Oct 2016 14:48:51 +0100
 
-> 
->> On 14 Oct 2016, at 14:42, David Laight <David.Laight@ACULAB.COM> wrote:
->> 
->> From: Of Ard Biesheuvel
->>> Sent: 14 October 2016 14:41
->>> PCI devices that are 64-bit DMA capable should set the coherent
->>> DMA mask as well as the streaming DMA mask. On some architectures,
->>> these are managed separately, and so the coherent DMA mask will be
->>> left at its default value of 32 if it is not set explicitly. This
->>> results in errors such as
->>> 
->>>     r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->>>     hwdev DMA mask = 0x00000000ffffffff, dev_addr = 0x00000080fbfff000
->>>     swiotlb: coherent allocation failed for device 0000:02:00.0 size=4096
->>>     CPU: 0 PID: 1062 Comm: systemd-udevd Not tainted 4.8.0+ #35
->>>     Hardware name: AMD Seattle/Seattle, BIOS 10:53:24 Oct 13 2016
->>> 
->>> on systems without memory that is 32-bit addressable by PCI devices.
->>> 
->>> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
->>> ---
->>> v2: dropped the hunk that sets the coherent DMA mask to DMA_BIT_MASK(32),
->>>    which is unnecessary given that it is the default
->>> 
->>> drivers/net/ethernet/realtek/r8169.c | 3 ++-
->>> 1 file changed, 2 insertions(+), 1 deletion(-)
->>> 
->>> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
->>> index e55638c7505a..bf000d819a21 100644
->>> --- a/drivers/net/ethernet/realtek/r8169.c
->>> +++ b/drivers/net/ethernet/realtek/r8169.c
->>> @@ -8273,7 +8273,8 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>>    if ((sizeof(dma_addr_t) > 4) &&
->>>        (use_dac == 1 || (use_dac == -1 && pci_is_pcie(pdev) &&
->>>                  tp->mac_version >= RTL_GIGA_MAC_VER_18)) &&
->>> -        !pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
->>> +        !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) &&
->>> +        !pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
->> 
->> Isn't there a dma_set_mask_and_coherent() function ?
->> 
-> 
-> Not of the pci_xxx variety afaik
+For some Tx paths (e.g., tpacket_snd()), ixgbe_atr may be
+passed down an sk_buff that has the network and transport
+header in the paged data, so it needs to make sure these
+headers are available in the headlen bytes to calculate the
+l4_proto.
 
-You can often use the "dev_*" variants intechangably with the pci_*()
-ones.
+This patch bails out if the headlen is "too short", and does
+not attempt to call skb_header_pointer() to get the needed
+bytes: the assumption is that the caller should set things
+up properly if the l4_proto based tx steering is desired.
 
-In fact you'll find that for several architectures pci_*() is
-implemented via calls to dev_*().
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index a244d9a..0868de1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7632,6 +7632,7 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	struct sk_buff *skb;
+ 	__be16 vlan_id;
+ 	int l4_proto;
++	int min_hdr_size = 0;
+ 
+ 	/* if ring doesn't have a interrupt vector, cannot perform ATR */
+ 	if (!q_vector)
+@@ -7650,6 +7651,14 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 
+ 	/* snag network header to get L4 type and address */
+ 	skb = first->skb;
++	if (first->protocol == htons(ETH_P_IP))
++		min_hdr_size = sizeof(struct iphdr) +
++			       sizeof(struct tcphdr);
++	else if (first->protocol == htons(ETH_P_IPV6))
++		min_hdr_size = sizeof(struct ipv6hdr) +
++			       sizeof(struct tcphdr);
++	if (min_hdr_size && skb_headlen(skb) < ETH_HLEN + min_hdr_size)
++		return;
+ 	hdr.network = skb_network_header(skb);
+ 	if (skb->encapsulation &&
+ 	    first->protocol == htons(ETH_P_IP) &&
+-- 
+1.7.1
