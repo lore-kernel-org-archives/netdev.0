@@ -1,7 +1,7 @@
 From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: [PATCH net-next 03/11] net: bonding: Flip to the new dev walk API
-Date: Fri, 14 Oct 2016 18:28:43 -0700
-Message-ID: <1476494931-31813-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 05/11] IB/ipoib: Flip to new dev walk API
+Date: Fri, 14 Oct 2016 18:28:45 -0700
+Message-ID: <1476494931-31813-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1476494931-31813-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
         hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -14,160 +14,78 @@ In-Reply-To: <1476494931-31813-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrv
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Convert alb_send_learning_packets and bond_has_this_ip to use the new
-netdev_walk_all_upper_dev_rcu API. In both cases this is just a code
-conversion; no functional change is intended.
+Convert ipoib_get_net_dev_match_addr to the new upper device walk API.
+This is just a code conversion; no functional change is intended.
 
 Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 ---
- drivers/net/bonding/bond_alb.c  | 82 ++++++++++++++++++++++++++---------------
- drivers/net/bonding/bond_main.c | 21 +++++++----
- 2 files changed, 65 insertions(+), 38 deletions(-)
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 37 +++++++++++++++++++++----------
+ 1 file changed, 25 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 551f0f8dead3..1ddedec61900 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -950,13 +950,61 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
- 	dev_queue_xmit(skb);
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 5636fc3da6b8..624855ab7205 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -292,6 +292,25 @@ static struct net_device *ipoib_get_master_net_dev(struct net_device *dev)
+ 	return dev;
  }
  
-+struct alb_walk_data {
-+	struct bonding *bond;
-+	struct slave *slave;
-+	u8 *mac_addr;
-+	bool strict_match;
++struct ipoib_walk_data {
++	const struct sockaddr *addr;
++	struct net_device *result;
 +};
 +
-+static int alb_upper_dev_walk(struct net_device *upper, void *data)
++static int ipoib_upper_walk(struct net_device *upper, void *_data)
 +{
-+	struct alb_walk_data *_data = (struct alb_walk_data *)data;
-+	bool strict_match = _data->strict_match;
-+	struct bonding *bond = _data->bond;
-+	struct slave *slave = _data->slave;
-+	u8 *mac_addr = _data->mac_addr;
-+	struct bond_vlan_tag *tags;
-+
-+	if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0) {
-+		if (strict_match &&
-+		    ether_addr_equal_64bits(mac_addr,
-+					    upper->dev_addr)) {
-+			alb_send_lp_vid(slave, mac_addr,
-+					vlan_dev_vlan_proto(upper),
-+					vlan_dev_vlan_id(upper));
-+		} else if (!strict_match) {
-+			alb_send_lp_vid(slave, upper->dev_addr,
-+					vlan_dev_vlan_proto(upper),
-+					vlan_dev_vlan_id(upper));
-+		}
-+	}
-+
-+	/* If this is a macvlan device, then only send updates
-+	 * when strict_match is turned off.
-+	 */
-+	if (netif_is_macvlan(upper) && !strict_match) {
-+		tags = bond_verify_device_path(bond->dev, upper, 0);
-+		if (IS_ERR_OR_NULL(tags))
-+			BUG();
-+		alb_send_lp_vid(slave, upper->dev_addr,
-+				tags[0].vlan_proto, tags[0].vlan_id);
-+		kfree(tags);
-+	}
-+
-+	return 0;
-+}
-+
- static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
- 				      bool strict_match)
- {
- 	struct bonding *bond = bond_get_bond_by_slave(slave);
--	struct net_device *upper;
--	struct list_head *iter;
--	struct bond_vlan_tag *tags;
-+	struct alb_walk_data data = {
-+		.strict_match = strict_match,
-+		.mac_addr = mac_addr,
-+		.slave = slave,
-+		.bond = bond,
-+	};
- 
- 	/* send untagged */
- 	alb_send_lp_vid(slave, mac_addr, 0, 0);
-@@ -965,33 +1013,7 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
- 	 * for that device.
- 	 */
- 	rcu_read_lock();
--	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
--		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0) {
--			if (strict_match &&
--			    ether_addr_equal_64bits(mac_addr,
--						    upper->dev_addr)) {
--				alb_send_lp_vid(slave, mac_addr,
--						vlan_dev_vlan_proto(upper),
--						vlan_dev_vlan_id(upper));
--			} else if (!strict_match) {
--				alb_send_lp_vid(slave, upper->dev_addr,
--						vlan_dev_vlan_proto(upper),
--						vlan_dev_vlan_id(upper));
--			}
--		}
--
--		/* If this is a macvlan device, then only send updates
--		 * when strict_match is turned off.
--		 */
--		if (netif_is_macvlan(upper) && !strict_match) {
--			tags = bond_verify_device_path(bond->dev, upper, 0);
--			if (IS_ERR_OR_NULL(tags))
--				BUG();
--			alb_send_lp_vid(slave, upper->dev_addr,
--					tags[0].vlan_proto, tags[0].vlan_id);
--			kfree(tags);
--		}
--	}
-+	netdev_walk_all_upper_dev_rcu(bond->dev, alb_upper_dev_walk, &data);
- 	rcu_read_unlock();
- }
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5fa36ebc0640..89191b019178 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2270,22 +2270,27 @@ static void bond_mii_monitor(struct work_struct *work)
- 	}
- }
- 
-+static int bond_upper_dev_walk(struct net_device *upper, void *data)
-+{
-+	__be32 ip = *((__be32 *)data);
++	struct ipoib_walk_data *data = (struct ipoib_walk_data *)_data;
 +	int ret = 0;
 +
-+	if (ip == bond_confirm_addr(upper, 0, ip))
++	if (ipoib_is_dev_match_addr_rcu(data->addr, upper)) {
++		dev_hold(upper);
++		data->result = upper;
 +		ret = 1;
++	}
 +
 +	return ret;
 +}
 +
- static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
+ /**
+  * Find a net_device matching the given address, which is an upper device of
+  * the given net_device.
+@@ -304,27 +323,21 @@ static struct net_device *ipoib_get_master_net_dev(struct net_device *dev)
+ static struct net_device *ipoib_get_net_dev_match_addr(
+ 		const struct sockaddr *addr, struct net_device *dev)
  {
--	struct net_device *upper;
+-	struct net_device *upper,
+-			  *result = NULL;
 -	struct list_head *iter;
- 	bool ret = false;
- 
- 	if (ip == bond_confirm_addr(bond->dev, 0, ip))
- 		return true;
++	struct ipoib_walk_data data = {
++		.addr = addr,
++	};
  
  	rcu_read_lock();
--	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
--		if (ip == bond_confirm_addr(upper, 0, ip)) {
--			ret = true;
+ 	if (ipoib_is_dev_match_addr_rcu(addr, dev)) {
+ 		dev_hold(dev);
+-		result = dev;
++		data.result = dev;
+ 		goto out;
+ 	}
+ 
+-	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
+-		if (ipoib_is_dev_match_addr_rcu(addr, upper)) {
+-			dev_hold(upper);
+-			result = upper;
 -			break;
 -		}
 -	}
-+	if (netdev_walk_all_upper_dev_rcu(bond->dev, bond_upper_dev_walk, &ip))
-+		ret = true;
++	netdev_walk_all_upper_dev_rcu(dev, ipoib_upper_walk, &data);
+ out:
  	rcu_read_unlock();
+-	return result;
++	return data.result;
+ }
  
- 	return ret;
+ /* returns the number of IPoIB netdevs on top a given ipoib device matching a
 -- 
 2.1.4
 
