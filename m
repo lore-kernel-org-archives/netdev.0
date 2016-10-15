@@ -1,54 +1,80 @@
-From: Pascal Terjan <pterjan@gmail.com>
-Subject: linux/atm_zatm.h not really usable in userspace since cf00713a655d3019be7faa184402f16c43a0fed3
-Date: Sat, 15 Oct 2016 13:05:10 +0100
-Message-ID: <CA+CX+bjErkFu=VVv55PtiWg-Z88twBUyE20vo5A3fk9=ZD_LLw@mail.gmail.com>
+From: Alban Crequy <alban.crequy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RFC v2 0/2] proc connector: get namespace events
+Date: Sat, 15 Oct 2016 14:26:08 +0200
+Message-ID: <1476534370-4027-1-git-send-email-alban@kinvolk.io>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Mikko Rapeli <mikko.rapeli@iki.fi>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34580 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752259AbcJOMF1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 08:05:27 -0400
-Received: by mail-wm0-f45.google.com with SMTP id c78so3743984wme.1
-        for <netdev@vger.kernel.org>; Sat, 15 Oct 2016 05:05:26 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Iago Lopez Galeiras <iago-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Aaron Campbell <aaron-J6AcJDG0ZEwdnm+yROfE0A@public.gmane.org>,
+	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jesper Derehag <jderehag-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
+	Alban Crequy <alban-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>,
+	Dimitri John Ledkov <dimitri.j.ledkov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-It is no longer possible to include <linux/atm_zatm.h> + userspace
-headers using time, for example  <stdlib.h>, this broke for example
-the build of linux-atm.
+This is v2 of the patch set to add namespace events in the proc connector.
 
-Reproducer:
+The act of a process creating or joining a namespace via clone(),
+unshare() or setns() is a useful signal for monitoring applications.
 
-$ cat test.c
-#include <linux/atm_zatm.h>
-#include <stdlib.h>
+I am working on a monitoring application that keeps track of all the
+containers and all processes inside each container. The current way of
+doing it is by polling regularly in /proc for the list of processes and
+in /proc/*/ns/* to know which namespaces they belong to. This is
+inefficient on systems with a large number of containers and a large
+number of processes.
 
-$ gcc -c test.c
-In file included from /usr/include/sys/select.h:43:0,
-                 from /usr/include/sys/types.h:219,
-                 from /usr/include/stdlib.h:314,
-                 from test.c:2:
-/usr/include/time.h:120:8: error: redefinition of 'struct timespec'
- struct timespec
-        ^
-In file included from /usr/include/linux/atm_zatm.h:17:0,
-                 from test.c:1:
-/usr/include/linux/time.h:9:8: note: originally defined here
- struct timespec {
-        ^
-In file included from /usr/include/sys/select.h:45:0,
-                 from /usr/include/sys/types.h:219,
-                 from /usr/include/stdlib.h:314,
-                 from test.c:2:
-/usr/include/bits/time.h:30:8: error: redefinition of 'struct timeval'
- struct timeval
-        ^
-In file included from /usr/include/linux/atm_zatm.h:17:0,
-                 from test.c:1:
-/usr/include/linux/time.h:15:8: note: originally defined here
- struct timeval {
-        ^
+Instead, I would inspect /proc only one time and get the updates with
+the proc connector. Unfortunately, the proc connector gives me the list
+of processes but does not notify me when a process changes namespaces.
+So I would still need to inspect /proc/*/ns/*.
+
+ (1) Add namespace events for processes. It generates a namespace event each
+     time a process changes namespace via clone(), unshare() or setns().
+
+ (2) Add a way for userspace to detect if proc connector is able to send
+     namespace events.
+
+
+Changes since RFC-v1: https://lkml.org/lkml/2016/9/8/588
+
+* Supports userns.
+
+* The reason field says exactly whether it is clone/setns/unshare.
+
+* Sends aggregated messages containing details of several namespaces
+  changes. Suggested by Evgeniy Polyakov.
+
+* Add patch 2 to detect if proc connector is able to send namespace events.
+
+
+This patch set is available in the git repository at:
+
+  https://github.com/kinvolk/linux.git alban/proc_ns_connector-v2-5
+
+
+Alban Crequy (2):
+  proc connector: add namespace events
+  proc connector: add a "get feature" op
+
+ drivers/connector/cn_proc.c  | 163 ++++++++++++++++++++++++++++++++++++++++---
+ include/linux/cn_proc.h      |  25 +++++++
+ include/uapi/linux/cn_proc.h |  27 ++++++-
+ kernel/fork.c                |  10 +++
+ kernel/nsproxy.c             |   6 ++
+ 5 files changed, 220 insertions(+), 11 deletions(-)
+
+-- 
+2.7.4
