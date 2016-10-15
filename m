@@ -1,51 +1,94 @@
-From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
-Subject: Re: [PATCH v2 1/3] net: smc91x: isolate u16 writes alignment workaround
-Date: Sat, 15 Oct 2016 23:11:56 +0200
-Message-ID: <87shrx5nc3.fsf@belgarion.home>
-References: <1476559670-25056-1-git-send-email-robert.jarzmik@free.fr>
-        <1476559670-25056-2-git-send-email-robert.jarzmik@free.fr>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with Linus' tree
+Date: Sun, 16 Oct 2016 08:13:17 +1100
+Message-ID: <20161016081317.229c5c47@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
-        Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476559670-25056-2-git-send-email-robert.jarzmik-GANU6spQydw@public.gmane.org>
-        (Robert Jarzmik's message of "Sat, 15 Oct 2016 21:27:48 +0200")
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ram Amrani <Ram.Amrani@cavium.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Yuval Mintz <Yuval.Mintz@caviumnetworks.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry David, I just noticed you weren't in the "To:" of this serie, but I won't
-forget you for the v3 I need to release anyway
-(https://lkml.org/lkml/2016/10/15/104).
+Hi all,
 
-Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org> writes:
-> +	lp->half_word_align4 =
-> +		machine_is_mainstone() || machine_is_stargate2() ||
-> +		machine_is_pxa_idp();
+Today's linux-next merge of the net tree got a conflict in:
 
-Bah this one is not good enough.
+  drivers/net/ethernet/qlogic/Kconfig
 
-First, machine_is_*() is not defined if CONFIG_ARM=n, and this part is not under
-a #ifdef CONFIG_ARM.
+between commit:
 
-Moreover, I think it is a good occasion to go further, and :
- - enhance smc91x_platdata and add a pxa_u16_align4 boolean
- - transform this statement into :
-	lp->half_word_align4 = lp->cfg.pxa_u16_align4
+  2e0cbc4dd077 ("qedr: Add RoCE driver framework")
 
-This will remove the machine_*() calls from the smc91x driver, which looks a
-good move, doesn't it ?
+from Linus' tree and commit:
 
-Cheers.
+  0189efb8f4f8 ("qed*: Fix Kconfig dependencies with INFINIBAND_QEDR")
 
---
-Robert
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+from the net tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+I also added this merge fix patch:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Sun, 16 Oct 2016 08:09:42 +1100
+Subject: [PATCH] qed*: merge fix for CONFIG_INFINIBAND_QEDR Kconfig move
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/infiniband/hw/qedr/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/infiniband/hw/qedr/Kconfig b/drivers/infiniband/hw/qedr/Kconfig
+index 7c06d85568d4..6c9f3923e838 100644
+--- a/drivers/infiniband/hw/qedr/Kconfig
++++ b/drivers/infiniband/hw/qedr/Kconfig
+@@ -2,6 +2,7 @@ config INFINIBAND_QEDR
+ 	tristate "QLogic RoCE driver"
+ 	depends on 64BIT && QEDE
+ 	select QED_LL2
++	select QED_RDMA
+ 	---help---
+ 	  This driver provides low-level InfiniBand over Ethernet
+ 	  support for QLogic QED host channel adapters (HCAs).
+-- 
+2.8.1
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/qlogic/Kconfig
+index 1e8339a67f6e,77567727528a..000000000000
+--- a/drivers/net/ethernet/qlogic/Kconfig
++++ b/drivers/net/ethernet/qlogic/Kconfig
+@@@ -107,4 -107,19 +107,7 @@@ config QED
+  	---help---
+  	  This enables the support for ...
+  
++ config QED_RDMA
++ 	bool
++ 
+ -config INFINIBAND_QEDR
+ -	tristate "QLogic qede RoCE sources [debug]"
+ -	depends on QEDE && 64BIT
+ -	select QED_LL2
+ -	select QED_RDMA
+ -	default n
+ -	---help---
+ -	  This provides a temporary node that allows the compilation
+ -	  and logical testing of the InfiniBand over Ethernet support
+ -	  for QLogic QED. This would be replaced by the 'real' option
+ -	  once the QEDR driver is added [+relocated].
+ -
+  endif # NET_VENDOR_QLOGIC
