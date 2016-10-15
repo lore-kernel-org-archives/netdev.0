@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: Fix compiler warnings
-Date: Sat, 15 Oct 2016 17:48:50 -0400 (EDT)
-Message-ID: <20161015.174850.1523283727470633263.davem@davemloft.net>
-References: <1476489966-9128-1-git-send-email-tushar.n.dave@oracle.com>
+Subject: Re: [PATCH] ipvlan: constify l3mdev_ops structure
+Date: Sat, 15 Oct 2016 17:50:36 -0400 (EDT)
+Message-ID: <20161015.175036.584156456725838147.davem@davemloft.net>
+References: <1476546030-14324-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chris.hyser@oracle.com,
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: tushar.n.dave@oracle.com
+To: Julia.Lawall@lip6.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36612 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36622 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750919AbcJOVs5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 17:48:57 -0400
-In-Reply-To: <1476489966-9128-1-git-send-email-tushar.n.dave@oracle.com>
+        with ESMTP id S1750919AbcJOVui (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 17:50:38 -0400
+In-Reply-To: <1476546030-14324-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tushar Dave <tushar.n.dave@oracle.com>
-Date: Fri, 14 Oct 2016 17:06:04 -0700
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Sat, 15 Oct 2016 17:40:30 +0200
 
-> Recently, ATU (iommu) changes are submitted to linux-sparc that
-> enables 64bit DMA on SPARC. However, this change also makes
-> 'incompatible pointer type' compiler warnings inevitable on sunqe
-> and sunbmac driver.
+> This l3mdev_ops structure is only stored in the l3mdev_ops field of a
+> net_device structure.  This field is declared const, so the l3mdev_ops
+> structure can be declared as const also.  Additionally drop the
+> __read_mostly annotation.
 > 
-> The two patches in series fix compiler warnings.
+> The semantic patch that adds const is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Only the sparc tree has this build problem, so these patches
-really ought to be submitted for and applied there.
-
-Thanks.
+Applied, thanks.
