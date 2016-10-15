@@ -1,44 +1,36 @@
-From: tndave <tushar.n.dave@oracle.com>
-Subject: Re: [PATCH 0/2] net: Fix compiler warnings
-Date: Sat, 15 Oct 2016 16:26:15 -0700
-Message-ID: <aa8baef0-9b47-d2a4-531b-d9cc71bdd766@oracle.com>
-References: <1476489966-9128-1-git-send-email-tushar.n.dave@oracle.com>
- <20161015.174850.1523283727470633263.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net: Require exact match for TCP socket lookups if
+ dif is l3mdev
+Date: Sat, 15 Oct 2016 19:32:36 -0400 (EDT)
+Message-ID: <20161015.193236.1802271946749974666.davem@davemloft.net>
+References: <1476473359-15422-1-git-send-email-dsa@cumulusnetworks.com>
+        <20161015.174654.72392403309705041.davem@davemloft.net>
+        <48ba7600-0624-9684-e609-b7a315e03483@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chris.hyser@oracle.com,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:20389 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752203AbcJOX05 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 19:26:57 -0400
-In-Reply-To: <20161015.174850.1523283727470633263.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37298 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752604AbcJOXco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 19:32:44 -0400
+In-Reply-To: <48ba7600-0624-9684-e609-b7a315e03483@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Sat, 15 Oct 2016 17:07:53 -0600
 
+> I believe at netconf someone mentioned it would be a great day when
+> something is done for IPv6 first and IPv4 was a follow on. Here you
+> go. :-)
 
-On 10/15/2016 02:48 PM, David Miller wrote:
-> From: Tushar Dave <tushar.n.dave@oracle.com>
-> Date: Fri, 14 Oct 2016 17:06:04 -0700
->
->> Recently, ATU (iommu) changes are submitted to linux-sparc that
->> enables 64bit DMA on SPARC. However, this change also makes
->> 'incompatible pointer type' compiler warnings inevitable on sunqe
->> and sunbmac driver.
->>
->> The two patches in series fix compiler warnings.
->
-> Only the sparc tree has this build problem, so these patches
-> really ought to be submitted for and applied there.
-Okay. I will send these to sparclinux then.
+:-)
 
-Thanks.
+> I can rename the existing one to skb_l3mdev_slave_6 and make the new
+> one skb_l3mdev_slave_4.
 
--Tushar
->
-> Thanks.
->
+That works.  So does names with "ipv4_" and "ipv6_" prefixes which at
+least to me seems more canonical.  But maybe I'm just weird like that.
