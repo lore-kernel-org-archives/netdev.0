@@ -1,11 +1,12 @@
 From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: [PATCH v2 2/3] net: smc91x: take into account half-word workaround
-Date: Sat, 15 Oct 2016 21:27:49 +0200
-Message-ID: <1476559670-25056-3-git-send-email-robert.jarzmik@free.fr>
+Subject: [PATCH v2 3/3] net: smsc91x: add u16 workaround for pxa platforms
+Date: Sat, 15 Oct 2016 21:27:50 +0200
+Message-ID: <1476559670-25056-4-git-send-email-robert.jarzmik@free.fr>
 References: <1476559670-25056-1-git-send-email-robert.jarzmik@free.fr>
 Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
         linux-kernel@vger.kernel.org,
-        Robert Jarzmik <robert.jarzmik@free.fr>
+        Robert Jarzmik <robert.jarzmik@free.fr>,
+        Jeremy Linton <jeremy.linton@arm.com>
 To: Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         Nicolas Pitre <nico@fluxnic.net>,
@@ -16,30 +17,27 @@ In-Reply-To: <1476559670-25056-1-git-send-email-robert.jarzmik@free.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For device-tree builds, platforms such as mainstone, idp and stargate2
-must have their u16 writes all aligned on 32 bit boundaries. This is
-already enabled in platform data builds, and this patch adds it to
-device-tree builds.
+Add a workaround for mainstone, idp and stargate2 boards, for u16 writes
+which must be aligned on 32 bits addresses.
 
 Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+Cc: Jeremy Linton <jeremy.linton@arm.com>
 ---
 Since v1: rename dt property to pxa-u16-align4
+      	  change the binding documentation file
 ---
- drivers/net/ethernet/smsc/smc91x.c | 2 ++
+ Documentation/devicetree/bindings/net/smsc-lan91c111.txt | 2 ++
  1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 5658c2b28ec8..c14676805d06 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -2329,6 +2329,8 @@ static int smc_drv_probe(struct platform_device *pdev)
- 		if (!device_property_read_u32(&pdev->dev, "reg-shift",
- 					      &val))
- 			lp->io_shift = val;
-+		lp->half_word_align4 =
-+			device_property_read_bool(&pdev->dev, "pxa-u16-align4");
- 	}
- #endif
- 
+diff --git a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
+index e77e167593db..309e37eb7c7c 100644
+--- a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
++++ b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
+@@ -13,3 +13,5 @@ Optional properties:
+   16-bit access only.
+ - power-gpios: GPIO to control the PWRDWN pin
+ - reset-gpios: GPIO to control the RESET pin
++- pxa-u16-align4 : Boolean, put in place the workaround the force all
++		   u16 writes to be 32 bits aligned
 -- 
 2.1.4
