@@ -1,33 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qcom/emac: disable interrupts before calling
- phy_disconnect
-Date: Sat, 15 Oct 2016 17:35:06 -0400 (EDT)
-Message-ID: <20161015.173506.1915898679977419991.davem@davemloft.net>
-References: <1476472475-12104-1-git-send-email-timur@codeaurora.org>
+Subject: Re: [patch] stmmac: fix an error code in stmmac_ptp_register()
+Date: Sat, 15 Oct 2016 17:35:43 -0400 (EDT)
+Message-ID: <20161015.173543.1886751731467613909.davem@davemloft.net>
+References: <20161014192417.GC21917@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: timur@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36464 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752203AbcJOVfK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 17:35:10 -0400
-In-Reply-To: <1476472475-12104-1-git-send-email-timur@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20161014192417.GC21917@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Fri, 14 Oct 2016 14:14:35 -0500
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 14 Oct 2016 22:26:11 +0300
 
-> There is a race condition that can occur if EMAC interrupts are
-> enabled when phy_disconnect() is called.  phy_disconnect() sets
-> adjust_link to NULL.  When an interrupt occurs, the ISR might
-> call phy_mac_interrupt(), which wakes up the workqueue function
-> phy_state_machine().  This function might reference adjust_link,
-> thereby causing a null pointer exception.
+> PTR_ERR(NULL) is success.  We have to preserve the error code earlier.
 > 
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
+> Fixes: 7086605a6ab5 ("stmmac: fix error check when init ptp")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied.
+Good catch, applied.
