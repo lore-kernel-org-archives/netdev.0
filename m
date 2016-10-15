@@ -1,32 +1,53 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [rds-devel] [PATCH 1/2] rds: Remove unused rds_conn_error
-Date: Sat, 15 Oct 2016 15:00:48 -0400
-Message-ID: <20161015190048.GI31471@oracle.com>
-References: <cover.1476557523.git.joe@perches.com>
- <01fddf3af8f7757d0e79e4f25d7eb8b246e3d695.1476557523.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        rds-devel@oss.oracle.com, "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26738 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752654AbcJOTBc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2016 15:01:32 -0400
-Content-Disposition: inline
-In-Reply-To: <01fddf3af8f7757d0e79e4f25d7eb8b246e3d695.1476557523.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
+Subject: [PATCH v2 0/3] support smc91x on mainstone and devicetree
+Date: Sat, 15 Oct 2016 21:27:47 +0200
+Message-ID: <1476559670-25056-1-git-send-email-robert.jarzmik@free.fr>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
+        Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On (10/15/16 11:53), Joe Perches wrote:
-> This macro's last use was removed in commit d769ef81d5b59
-> ("RDS: Update rds_conn_shutdown to work with rds_conn_path")
-> so make the macro and the __rds_conn_error function definition
-> and declaration disappear.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+This serie aims at bringing support to mainstone board on a device-tree based
+build, as what is already in place for legacy mainstone.
 
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+The bulk of the mainstone "specific" behavior is that a u16 write doesn't work
+on a address of the form 4*n + 2, while it works on 4*n.
+
+The legacy workaround was in SMC_outw(), with calls to
+machine_is_mainstone(). These calls don't work with a pxa27x-dt machine type,
+which is used when a generic device-tree pxa27x machine is used to boot the
+mainstone board.
+
+Therefore, this serie enables the smc91c111 adapter of the mainstone board to
+work on a device-tree build, exaclty as it's been working for years with the
+legacy arch/arm/mach-pxa/mainstone.c definition.
+
+Cheers.
+
+--
+Robert
+
+Robert Jarzmik (3):
+  net: smc91x: isolate u16 writes alignment workaround
+  net: smc91x: take into account half-word workaround
+  net: smsc91x: add u16 workaround for pxa platforms
+
+ .../devicetree/bindings/net/smsc-lan91c111.txt     |  2 +
+ drivers/net/ethernet/smsc/smc91x.c                 |  8 ++-
+ drivers/net/ethernet/smsc/smc91x.h                 | 78 ++++++++++++----------
+ 3 files changed, 52 insertions(+), 36 deletions(-)
+
+-- 
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
