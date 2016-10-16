@@ -1,121 +1,275 @@
-From: Baozeng Ding <sploving1@gmail.com>
-Subject: net/l2tp:BUG: KASAN: use-after-free in l2tp_ip6_close
-Date: Sun, 16 Oct 2016 23:07:32 +0800
-Message-ID: <33b1f154-3f9a-55b6-63d3-cd28c0524ea6@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+From: William Tu <u9012063@gmail.com>
+Subject: [RFC PATCH net-next] bpf: fix potential percpu map overcopy to user.
+Date: Sun, 16 Oct 2016 09:41:28 -0700
+Message-ID: <1476636088-9268-1-git-send-email-u9012063@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33359 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753952AbcJPPHp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2016 11:07:45 -0400
-Received: by mail-oi0-f68.google.com with SMTP id i127so10856855oia.0
-        for <netdev@vger.kernel.org>; Sun, 16 Oct 2016 08:07:45 -0700 (PDT)
-Received: from [192.168.1.101] ([119.80.189.206])
-        by smtp.gmail.com with ESMTPSA id s130sm9069092oif.3.2016.10.16.08.07.42
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36782 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751742AbcJPQlk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2016 12:41:40 -0400
+Received: by mail-pf0-f193.google.com with SMTP id r16so11120039pfg.3
+        for <netdev@vger.kernel.org>; Sun, 16 Oct 2016 09:41:39 -0700 (PDT)
+Received: from vm-dev.localdomain ([76.126.157.223])
+        by smtp.gmail.com with ESMTPSA id u10sm41822757pau.32.2016.10.16.09.41.37
         for <netdev@vger.kernel.org>
         (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sun, 16 Oct 2016 08:07:44 -0700 (PDT)
+        Sun, 16 Oct 2016 09:41:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-While running syzkaller fuzzer I have got the following use-after-free
-bug in l2tp_ip6_close. The kernel version is 4.8.0+ (on Oct 7 commit d1f5323370fceaed43a7ee38f4c7bfc7e70f28d0).
+When running bpf_map_lookup on percpu elements, the bytes copied to
+userspace depends on num_possible_cpus() * value_size, which could
+potentially be larger than memory allocated from user, which depends
+on sysconf(_SC_NPROCESSORS_CONF) to get the current cpu num.  As a
+result, the inconsistency might corrupt the user's stack.
 
-BUG: KASAN: use-after-free in l2tp_ip6_close+0x22e/0x290 at addr ffff8800081b0ed8
-Write of size 8 by task syz-executor/10987
-CPU: 0 PID: 10987 Comm: syz-executor Not tainted 4.8.0+ #39
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
- ffff880031d97838 ffffffff829f835b ffff88001b5a1640 ffff8800081b0ec0
- ffff8800081b15a0 ffff8800081b6d20 ffff880031d97860 ffffffff8174d3cc
- ffff880031d978f0 ffff8800081b0e80 ffff88001b5a1640 ffff880031d978e0
-Call Trace:
- [<ffffffff829f835b>] dump_stack+0xb3/0x118 lib/dump_stack.c:15
- [<ffffffff8174d3cc>] kasan_object_err+0x1c/0x70 mm/kasan/report.c:156
- [<     inline     >] print_address_description mm/kasan/report.c:194
- [<ffffffff8174d666>] kasan_report_error+0x1f6/0x4d0 mm/kasan/report.c:283
- [<     inline     >] kasan_report mm/kasan/report.c:303
- [<ffffffff8174db7e>] __asan_report_store8_noabort+0x3e/0x40 mm/kasan/report.c:329
- [<     inline     >] __write_once_size ./include/linux/compiler.h:249
- [<     inline     >] __hlist_del ./include/linux/list.h:622
- [<     inline     >] hlist_del_init ./include/linux/list.h:637
- [<ffffffff8579047e>] l2tp_ip6_close+0x22e/0x290 net/l2tp/l2tp_ip6.c:239
- [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
- [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
- [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
- [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
- [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
- [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
- [<ffffffff813774f9>] task_work_run+0xf9/0x170
- [<ffffffff81324aae>] do_exit+0x85e/0x2a00
- [<ffffffff81326dc8>] do_group_exit+0x108/0x330
- [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
- [<ffffffff811b49af>] do_signal+0x7f/0x18f0
- [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
- [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
- [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
- [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
-Object at ffff8800081b0ec0, in cache L2TP/IPv6 size: 1448
-Allocated:
-PID = 10987
- [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
- [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
- [ 1116.897025] [<ffffffff8174c9ad>] kasan_kmalloc+0xad/0xe0
- [ 1116.897025] [<ffffffff8174cee2>] kasan_slab_alloc+0x12/0x20
- [ 1116.897025] [<     inline     >] slab_post_alloc_hook mm/slab.h:417
- [ 1116.897025] [<     inline     >] slab_alloc_node mm/slub.c:2708
- [ 1116.897025] [<     inline     >] slab_alloc mm/slub.c:2716
- [ 1116.897025] [<ffffffff817476a8>] kmem_cache_alloc+0xc8/0x2b0 mm/slub.c:2721
- [ 1116.897025] [<ffffffff84c4f6a9>] sk_prot_alloc+0x69/0x2b0 net/core/sock.c:1326
- [ 1116.897025] [<ffffffff84c58ac8>] sk_alloc+0x38/0xae0 net/core/sock.c:1388
- [ 1116.897025] [<ffffffff851ddf67>] inet6_create+0x2d7/0x1000 net/ipv6/af_inet6.c:182
- [ 1116.897025] [<ffffffff84c4af7b>] __sock_create+0x37b/0x640 net/socket.c:1153
- [ 1116.897025] [<     inline     >] sock_create net/socket.c:1193
- [ 1116.897025] [<     inline     >] SYSC_socket net/socket.c:1223
- [ 1116.897025] [<ffffffff84c4b46f>] SyS_socket+0xef/0x1b0 net/socket.c:1203
- [ 1116.897025] [<ffffffff85e4d685>] entry_SYSCALL_64_fastpath+0x23/0xc6
-Freed:
-PID = 10987
- [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
- [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
- [ 1116.897025] [<ffffffff8174cf61>] kasan_slab_free+0x71/0xb0
- [ 1116.897025] [<     inline     >] slab_free_hook mm/slub.c:1352
- [ 1116.897025] [<     inline     >] slab_free_freelist_hook mm/slub.c:1374
- [ 1116.897025] [<     inline     >] slab_free mm/slub.c:2951
- [ 1116.897025] [<ffffffff81748b28>] kmem_cache_free+0xc8/0x330 mm/slub.c:2973
- [ 1116.897025] [<     inline     >] sk_prot_free net/core/sock.c:1369
- [ 1116.897025] [<ffffffff84c541eb>] __sk_destruct+0x32b/0x4f0 net/core/sock.c:1444
- [ 1116.897025] [<ffffffff84c5aca4>] sk_destruct+0x44/0x80 net/core/sock.c:1452
- [ 1116.897025] [<ffffffff84c5ad33>] __sk_free+0x53/0x220 net/core/sock.c:1460
- [ 1116.897025] [<ffffffff84c5af23>] sk_free+0x23/0x30 net/core/sock.c:1471
- [ 1116.897025] [<ffffffff84c5cb6c>] sk_common_release+0x28c/0x3e0 ./include/net/sock.h:1589
- [ 1116.897025] [<ffffffff8579044e>] l2tp_ip6_close+0x1fe/0x290 net/l2tp/l2tp_ip6.c:243
- [ 1116.897025] [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
- [ 1116.897025] [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
- [ 1116.897025] [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
- [ 1116.897025] [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
- [ 1116.897025] [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
- [ 1116.897025] [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
- [ 1116.897025] [<ffffffff813774f9>] task_work_run+0xf9/0x170
- [ 1116.897025] [<ffffffff81324aae>] do_exit+0x85e/0x2a00
- [ 1116.897025] [<ffffffff81326dc8>] do_group_exit+0x108/0x330
- [ 1116.897025] [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
- [ 1116.897025] [<ffffffff811b49af>] do_signal+0x7f/0x18f0
- [ 1116.897025] [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
- [ 1116.897025] [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
- [ 1116.897025] [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
- [ 1116.897025] [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
-Memory state around the buggy address:
- ffff8800081b0d80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
- ffff8800081b0e00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->ffff8800081b0e80: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
-                                                    ^
- ffff8800081b0f00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff8800081b0f80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-==================================================================
+The fact that sysconf(_SC_NPROCESSORS_CONF) != num_possible_cpu()
+happens when cpu hotadd is enabled.  For example, in Fusion when
+setting vcpu.hotadd = "TRUE" or in KVM, setting
+  ./qemu-system-x86_64 -smp 2, maxcpus=4 ...
+the num_possible_cpu() will be 4 and sysconf() will be 2[1].
+Currently the any percpu map lookup suffers this issue, try
+samples/bpf/test_maps.c or tracex3.c.
 
-Best Regards,
-Baozeng Ding
+Th RFC patch adds additional 'size' param from userspace so that
+kernel knows the maximum memory it should copy to the user.
+
+[1] https://www.mail-archive.com/netdev@vger.kernel.org/msg121183.html
+
+Signed-off-by: William Tu <u9012063@gmail.com>
+---
+ include/uapi/linux/bpf.h       |  5 ++++-
+ kernel/bpf/syscall.c           |  5 +++--
+ samples/bpf/fds_example.c      |  2 +-
+ samples/bpf/libbpf.c           |  3 ++-
+ samples/bpf/libbpf.h           |  2 +-
+ samples/bpf/test_maps.c        | 30 +++++++++++++++---------------
+ tools/include/uapi/linux/bpf.h |  5 ++++-
+ 7 files changed, 30 insertions(+), 22 deletions(-)
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index f09c70b..fa0c40b 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -123,7 +123,10 @@ union bpf_attr {
+ 			__aligned_u64 value;
+ 			__aligned_u64 next_key;
+ 		};
+-		__u64		flags;
++		union {
++			__u64		flags;
++			__u32		size; /* number of bytes allocated in userspace */
++		};
+ 	};
+ 
+ 	struct { /* anonymous struct used by BPF_PROG_LOAD command */
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 228f962..be211ea 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -264,13 +264,14 @@ int __weak bpf_stackmap_copy(struct bpf_map *map, void *key, void *value)
+ }
+ 
+ /* last field in 'union bpf_attr' used by this command */
+-#define BPF_MAP_LOOKUP_ELEM_LAST_FIELD value
++#define BPF_MAP_LOOKUP_ELEM_LAST_FIELD size
+ 
+ static int map_lookup_elem(union bpf_attr *attr)
+ {
+ 	void __user *ukey = u64_to_ptr(attr->key);
+ 	void __user *uvalue = u64_to_ptr(attr->value);
+ 	int ufd = attr->map_fd;
++	u32 usize = attr->size;
+ 	struct bpf_map *map;
+ 	void *key, *value, *ptr;
+ 	u32 value_size;
+@@ -324,7 +325,7 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 		goto free_value;
+ 
+ 	err = -EFAULT;
+-	if (copy_to_user(uvalue, value, value_size) != 0)
++	if (copy_to_user(uvalue, value, min_t(u32, usize, value_size)) != 0)
+ 		goto free_value;
+ 
+ 	err = 0;
+diff --git a/samples/bpf/fds_example.c b/samples/bpf/fds_example.c
+index 625e797..5b833d8 100644
+--- a/samples/bpf/fds_example.c
++++ b/samples/bpf/fds_example.c
+@@ -88,7 +88,7 @@ static int bpf_do_map(const char *file, uint32_t flags, uint32_t key,
+ 		       ret, strerror(errno));
+ 		assert(ret == 0);
+ 	} else if (flags & BPF_F_KEY) {
+-		ret = bpf_lookup_elem(fd, &key, &value);
++		ret = bpf_lookup_elem(fd, &key, &value, sizeof(value));
+ 		printf("bpf: fd:%d l->(%u):%u ret:(%d,%s)\n", fd, key, value,
+ 		       ret, strerror(errno));
+ 		assert(ret == 0);
+diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
+index 9969e35..9f0a1c3 100644
+--- a/samples/bpf/libbpf.c
++++ b/samples/bpf/libbpf.c
+@@ -44,12 +44,13 @@ int bpf_update_elem(int fd, void *key, void *value, unsigned long long flags)
+ 	return syscall(__NR_bpf, BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
+ }
+ 
+-int bpf_lookup_elem(int fd, void *key, void *value)
++int bpf_lookup_elem(int fd, void *key, void *value, int size)
+ {
+ 	union bpf_attr attr = {
+ 		.map_fd = fd,
+ 		.key = ptr_to_u64(key),
+ 		.value = ptr_to_u64(value),
++		.size = size,
+ 	};
+ 
+ 	return syscall(__NR_bpf, BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
+diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
+index ac6edb6..b911185 100644
+--- a/samples/bpf/libbpf.h
++++ b/samples/bpf/libbpf.h
+@@ -7,7 +7,7 @@ struct bpf_insn;
+ int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+ 		   int max_entries, int map_flags);
+ int bpf_update_elem(int fd, void *key, void *value, unsigned long long flags);
+-int bpf_lookup_elem(int fd, void *key, void *value);
++int bpf_lookup_elem(int fd, void *key, void *value, int size);
+ int bpf_delete_elem(int fd, void *key);
+ int bpf_get_next_key(int fd, void *key, void *next_key);
+ 
+diff --git a/samples/bpf/test_maps.c b/samples/bpf/test_maps.c
+index cce2b59..a6a8fbe 100644
+--- a/samples/bpf/test_maps.c
++++ b/samples/bpf/test_maps.c
+@@ -47,11 +47,11 @@ static void test_hashmap_sanity(int i, void *data)
+ 	assert(bpf_update_elem(map_fd, &key, &value, -1) == -1 && errno == EINVAL);
+ 
+ 	/* check that key=1 can be found */
+-	assert(bpf_lookup_elem(map_fd, &key, &value) == 0 && value == 1234);
++	assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == 0 && value == 1234);
+ 
+ 	key = 2;
+ 	/* check that key=2 is not found */
+-	assert(bpf_lookup_elem(map_fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == -1 && errno == ENOENT);
+ 
+ 	/* BPF_EXIST means: update existing element */
+ 	assert(bpf_update_elem(map_fd, &key, &value, BPF_EXIST) == -1 &&
+@@ -139,11 +139,11 @@ static void test_percpu_hashmap_sanity(int task, void *data)
+ 	 * was run from a different cpu.
+ 	 */
+ 	value[0] = 1;
+-	assert(bpf_lookup_elem(map_fd, &key, value) == 0 && value[0] == 100);
++	assert(bpf_lookup_elem(map_fd, &key, value, sizeof(value)) == 0 && value[0] == 100);
+ 
+ 	key = 2;
+ 	/* check that key=2 is not found */
+-	assert(bpf_lookup_elem(map_fd, &key, value) == -1 && errno == ENOENT);
++	assert(bpf_lookup_elem(map_fd, &key, value, sizeof(value)) == -1 && errno == ENOENT);
+ 
+ 	/* BPF_EXIST means: update existing element */
+ 	assert(bpf_update_elem(map_fd, &key, value, BPF_EXIST) == -1 &&
+@@ -170,7 +170,7 @@ static void test_percpu_hashmap_sanity(int task, void *data)
+ 		assert((expected_key_mask & next_key) == next_key);
+ 		expected_key_mask &= ~next_key;
+ 
+-		assert(bpf_lookup_elem(map_fd, &next_key, value) == 0);
++		assert(bpf_lookup_elem(map_fd, &next_key, value, sizeof(value)) == 0);
+ 		for (i = 0; i < nr_cpus; i++)
+ 			assert(value[i] == i + 100);
+ 
+@@ -218,11 +218,11 @@ static void test_arraymap_sanity(int i, void *data)
+ 	       errno == EEXIST);
+ 
+ 	/* check that key=1 can be found */
+-	assert(bpf_lookup_elem(map_fd, &key, &value) == 0 && value == 1234);
++	assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == 0 && value == 1234);
+ 
+ 	key = 0;
+ 	/* check that key=0 is also found and zero initialized */
+-	assert(bpf_lookup_elem(map_fd, &key, &value) == 0 && value == 0);
++	assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == 0 && value == 0);
+ 
+ 
+ 	/* key=0 and key=1 were inserted, check that key=2 cannot be inserted
+@@ -233,7 +233,7 @@ static void test_arraymap_sanity(int i, void *data)
+ 	       errno == E2BIG);
+ 
+ 	/* check that key = 2 doesn't exist */
+-	assert(bpf_lookup_elem(map_fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == -1 && errno == ENOENT);
+ 
+ 	/* iterate over two elements */
+ 	assert(bpf_get_next_key(map_fd, &key, &next_key) == 0 &&
+@@ -274,7 +274,7 @@ static void test_percpu_arraymap_many_keys(void)
+ 	for (key = 0; key < nr_keys; key++) {
+ 		for (i = 0; i < nr_cpus; i++)
+ 			values[i] = 0;
+-		assert(bpf_lookup_elem(map_fd, &key, values) == 0);
++		assert(bpf_lookup_elem(map_fd, &key, values, sizeof(values)) == 0);
+ 		for (i = 0; i < nr_cpus; i++)
+ 			assert(values[i] == i + 10);
+ 	}
+@@ -307,11 +307,11 @@ static void test_percpu_arraymap_sanity(int i, void *data)
+ 	       errno == EEXIST);
+ 
+ 	/* check that key=1 can be found */
+-	assert(bpf_lookup_elem(map_fd, &key, values) == 0 && values[0] == 100);
++	assert(bpf_lookup_elem(map_fd, &key, values, sizeof(values)) == 0 && values[0] == 100);
+ 
+ 	key = 0;
+ 	/* check that key=0 is also found and zero initialized */
+-	assert(bpf_lookup_elem(map_fd, &key, values) == 0 &&
++	assert(bpf_lookup_elem(map_fd, &key, values, sizeof(values)) == 0 &&
+ 	       values[0] == 0 && values[nr_cpus - 1] == 0);
+ 
+ 
+@@ -321,7 +321,7 @@ static void test_percpu_arraymap_sanity(int i, void *data)
+ 	       errno == E2BIG);
+ 
+ 	/* check that key = 2 doesn't exist */
+-	assert(bpf_lookup_elem(map_fd, &key, values) == -1 && errno == ENOENT);
++	assert(bpf_lookup_elem(map_fd, &key, values, sizeof(values)) == -1 && errno == ENOENT);
+ 
+ 	/* iterate over two elements */
+ 	assert(bpf_get_next_key(map_fd, &key, &next_key) == 0 &&
+@@ -371,9 +371,9 @@ static void test_map_large(void)
+ 	assert(bpf_get_next_key(map_fd, &key, &key) == -1 && errno == ENOENT);
+ 
+ 	key.c = 0;
+-	assert(bpf_lookup_elem(map_fd, &key, &value) == 0 && value == 0);
++	assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == 0 && value == 0);
+ 	key.a = 1;
+-	assert(bpf_lookup_elem(map_fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == -1 && errno == ENOENT);
+ 
+ 	close(map_fd);
+ }
+@@ -466,7 +466,7 @@ static void test_map_parallel(void)
+ 	/* another check for all elements */
+ 	for (i = 0; i < MAP_SIZE; i++) {
+ 		key = MAP_SIZE - i - 1;
+-		assert(bpf_lookup_elem(map_fd, &key, &value) == 0 &&
++		assert(bpf_lookup_elem(map_fd, &key, &value, sizeof(value)) == 0 &&
+ 		       value == key);
+ 	}
+ 
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 9e5fc16..719fa25 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -122,7 +122,10 @@ union bpf_attr {
+ 			__aligned_u64 value;
+ 			__aligned_u64 next_key;
+ 		};
+-		__u64		flags;
++		union {
++			__u64		flags;
++			__u32		size; /* number of bytes allocated in userspace */
++		};
+ 	};
+ 
+ 	struct { /* anonymous struct used by BPF_PROG_LOAD command */
+-- 
+2.5.0
