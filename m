@@ -1,48 +1,121 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [RFC v2 0/2] proc connector: get namespace events
-Date: Sun, 16 Oct 2016 09:57:32 -0500
-Message-ID: <87twcctk83.fsf@x220.int.ebiederm.org>
-References: <1476534370-4027-1-git-send-email-alban@kinvolk.io>
+From: Baozeng Ding <sploving1@gmail.com>
+Subject: net/l2tp:BUG: KASAN: use-after-free in l2tp_ip6_close
+Date: Sun, 16 Oct 2016 23:07:32 +0800
+Message-ID: <33b1f154-3f9a-55b6-63d3-cd28c0524ea6@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Iago Lopez Galeiras <iago-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Aaron Campbell <aaron-J6AcJDG0ZEwdnm+yROfE0A@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jesper Derehag <jderehag-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-	Alban Crequy <alban-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>,
-	Dimitri John Ledkov <dimitri.j.ledkov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Alban Crequy <alban.crequy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1476534370-4027-1-git-send-email-alban-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org> (Alban
-	Crequy's message of "Sat, 15 Oct 2016 14:26:08 +0200")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33359 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753952AbcJPPHp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2016 11:07:45 -0400
+Received: by mail-oi0-f68.google.com with SMTP id i127so10856855oia.0
+        for <netdev@vger.kernel.org>; Sun, 16 Oct 2016 08:07:45 -0700 (PDT)
+Received: from [192.168.1.101] ([119.80.189.206])
+        by smtp.gmail.com with ESMTPSA id s130sm9069092oif.3.2016.10.16.08.07.42
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sun, 16 Oct 2016 08:07:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alban Crequy <alban.crequy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+Hello,
+While running syzkaller fuzzer I have got the following use-after-free
+bug in l2tp_ip6_close. The kernel version is 4.8.0+ (on Oct 7 commit d1f5323370fceaed43a7ee38f4c7bfc7e70f28d0).
 
-> This is v2 of the patch set to add namespace events in the proc
-> connector.
+BUG: KASAN: use-after-free in l2tp_ip6_close+0x22e/0x290 at addr ffff8800081b0ed8
+Write of size 8 by task syz-executor/10987
+CPU: 0 PID: 10987 Comm: syz-executor Not tainted 4.8.0+ #39
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+ ffff880031d97838 ffffffff829f835b ffff88001b5a1640 ffff8800081b0ec0
+ ffff8800081b15a0 ffff8800081b6d20 ffff880031d97860 ffffffff8174d3cc
+ ffff880031d978f0 ffff8800081b0e80 ffff88001b5a1640 ffff880031d978e0
+Call Trace:
+ [<ffffffff829f835b>] dump_stack+0xb3/0x118 lib/dump_stack.c:15
+ [<ffffffff8174d3cc>] kasan_object_err+0x1c/0x70 mm/kasan/report.c:156
+ [<     inline     >] print_address_description mm/kasan/report.c:194
+ [<ffffffff8174d666>] kasan_report_error+0x1f6/0x4d0 mm/kasan/report.c:283
+ [<     inline     >] kasan_report mm/kasan/report.c:303
+ [<ffffffff8174db7e>] __asan_report_store8_noabort+0x3e/0x40 mm/kasan/report.c:329
+ [<     inline     >] __write_once_size ./include/linux/compiler.h:249
+ [<     inline     >] __hlist_del ./include/linux/list.h:622
+ [<     inline     >] hlist_del_init ./include/linux/list.h:637
+ [<ffffffff8579047e>] l2tp_ip6_close+0x22e/0x290 net/l2tp/l2tp_ip6.c:239
+ [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
+ [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
+ [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
+ [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
+ [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
+ [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
+ [<ffffffff813774f9>] task_work_run+0xf9/0x170
+ [<ffffffff81324aae>] do_exit+0x85e/0x2a00
+ [<ffffffff81326dc8>] do_group_exit+0x108/0x330
+ [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
+ [<ffffffff811b49af>] do_signal+0x7f/0x18f0
+ [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
+ [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
+ [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
+ [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
+Object at ffff8800081b0ec0, in cache L2TP/IPv6 size: 1448
+Allocated:
+PID = 10987
+ [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
+ [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
+ [ 1116.897025] [<ffffffff8174c9ad>] kasan_kmalloc+0xad/0xe0
+ [ 1116.897025] [<ffffffff8174cee2>] kasan_slab_alloc+0x12/0x20
+ [ 1116.897025] [<     inline     >] slab_post_alloc_hook mm/slab.h:417
+ [ 1116.897025] [<     inline     >] slab_alloc_node mm/slub.c:2708
+ [ 1116.897025] [<     inline     >] slab_alloc mm/slub.c:2716
+ [ 1116.897025] [<ffffffff817476a8>] kmem_cache_alloc+0xc8/0x2b0 mm/slub.c:2721
+ [ 1116.897025] [<ffffffff84c4f6a9>] sk_prot_alloc+0x69/0x2b0 net/core/sock.c:1326
+ [ 1116.897025] [<ffffffff84c58ac8>] sk_alloc+0x38/0xae0 net/core/sock.c:1388
+ [ 1116.897025] [<ffffffff851ddf67>] inet6_create+0x2d7/0x1000 net/ipv6/af_inet6.c:182
+ [ 1116.897025] [<ffffffff84c4af7b>] __sock_create+0x37b/0x640 net/socket.c:1153
+ [ 1116.897025] [<     inline     >] sock_create net/socket.c:1193
+ [ 1116.897025] [<     inline     >] SYSC_socket net/socket.c:1223
+ [ 1116.897025] [<ffffffff84c4b46f>] SyS_socket+0xef/0x1b0 net/socket.c:1203
+ [ 1116.897025] [<ffffffff85e4d685>] entry_SYSCALL_64_fastpath+0x23/0xc6
+Freed:
+PID = 10987
+ [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
+ [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
+ [ 1116.897025] [<ffffffff8174cf61>] kasan_slab_free+0x71/0xb0
+ [ 1116.897025] [<     inline     >] slab_free_hook mm/slub.c:1352
+ [ 1116.897025] [<     inline     >] slab_free_freelist_hook mm/slub.c:1374
+ [ 1116.897025] [<     inline     >] slab_free mm/slub.c:2951
+ [ 1116.897025] [<ffffffff81748b28>] kmem_cache_free+0xc8/0x330 mm/slub.c:2973
+ [ 1116.897025] [<     inline     >] sk_prot_free net/core/sock.c:1369
+ [ 1116.897025] [<ffffffff84c541eb>] __sk_destruct+0x32b/0x4f0 net/core/sock.c:1444
+ [ 1116.897025] [<ffffffff84c5aca4>] sk_destruct+0x44/0x80 net/core/sock.c:1452
+ [ 1116.897025] [<ffffffff84c5ad33>] __sk_free+0x53/0x220 net/core/sock.c:1460
+ [ 1116.897025] [<ffffffff84c5af23>] sk_free+0x23/0x30 net/core/sock.c:1471
+ [ 1116.897025] [<ffffffff84c5cb6c>] sk_common_release+0x28c/0x3e0 ./include/net/sock.h:1589
+ [ 1116.897025] [<ffffffff8579044e>] l2tp_ip6_close+0x1fe/0x290 net/l2tp/l2tp_ip6.c:243
+ [ 1116.897025] [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
+ [ 1116.897025] [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
+ [ 1116.897025] [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
+ [ 1116.897025] [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
+ [ 1116.897025] [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
+ [ 1116.897025] [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
+ [ 1116.897025] [<ffffffff813774f9>] task_work_run+0xf9/0x170
+ [ 1116.897025] [<ffffffff81324aae>] do_exit+0x85e/0x2a00
+ [ 1116.897025] [<ffffffff81326dc8>] do_group_exit+0x108/0x330
+ [ 1116.897025] [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
+ [ 1116.897025] [<ffffffff811b49af>] do_signal+0x7f/0x18f0
+ [ 1116.897025] [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
+ [ 1116.897025] [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
+ [ 1116.897025] [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
+ [ 1116.897025] [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
+Memory state around the buggy address:
+ ffff8800081b0d80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+ ffff8800081b0e00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>ffff8800081b0e80: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
+                                                    ^
+ ffff8800081b0f00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff8800081b0f80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+==================================================================
 
-So while not totally wrong the way you report namespaces makes me
-grumpy.  You are not including the device node of the filesystem
-those inodes are on.  The inode number is meaningless if you don't
-specify which filesystem the inode is from. 
-
-I absolutely do not want to have to implement a namespace for namespaces
-someday just because people have been sloppy like this.
-
-So please correct this to at least report the full information on
-namespaces.
-
-Thank you,
-Eric
+Best Regards,
+Baozeng Ding
