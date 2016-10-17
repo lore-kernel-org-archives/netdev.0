@@ -1,34 +1,45 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next 03/15] ethernet/intel: use core min/max MTU
- checking
-Date: Mon, 17 Oct 2016 21:20:57 +0100
-Message-ID: <20161017212057.42d4e91f@jkicinski-Precision-T1700>
-References: <20161017195417.48259-1-jarod@redhat.com>
-        <20161017195417.48259-4-jarod@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Jarod Wilson <jarod@redhat.com>
+From: Eric Garver <e@erig.me>
+Subject: [PATCH net] flow_dissector: Check skb for VLAN only if skb specified.
+Date: Mon, 17 Oct 2016 16:21:57 -0400
+Message-ID: <1476735717-20802-1-git-send-email-e@erig.me>
+Cc: Hadar Hen Zion <hadarh@mellanox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:12183 "EHLO mx3.wp.pl"
+Received: from mx1.redhat.com ([209.132.183.28]:43512 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758851AbcJQUVC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 16:21:02 -0400
-In-Reply-To: <20161017195417.48259-4-jarod@redhat.com>
+        id S1758963AbcJQUV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 16:21:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks better, unfortunately, I can't test since net-next also seem to
-make nfs implode on my setup.
+From: Eric Garver <egarver@redhat.com>
 
-On Mon, 17 Oct 2016 15:54:05 -0400, Jarod Wilson wrote:
-> @@ -7187,6 +7180,11 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->  		netdev->vlan_features |= NETIF_F_HIGHDMA;
->  	}
->  
-> +	/* MTU range: 68 - max_hw_frame_size */
-> +	netdev->min_mtu = ETH_MIN_MTU;
+Fixes a panic when calling eth_get_headlen(). Noticed on i40e driver.
 
-Nitpick: we probably don't have to reinit min_mtu if it's 68.
+Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
+Signed-off-by: Eric Garver <e@erig.me>
+---
+ net/core/flow_dissector.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 1a7b80f73376..44e6ba9d3a6b 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -247,12 +247,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 	case htons(ETH_P_8021Q): {
+ 		const struct vlan_hdr *vlan;
+ 
+-		if (skb_vlan_tag_present(skb))
++		if (skb && skb_vlan_tag_present(skb))
+ 			proto = skb->protocol;
+ 
+-		if (!skb_vlan_tag_present(skb) ||
+-		    proto == cpu_to_be16(ETH_P_8021Q) ||
+-		    proto == cpu_to_be16(ETH_P_8021AD)) {
++		if (eth_type_vlan(proto)) {
+ 			struct vlan_hdr _vlan;
+ 
+ 			vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan),
+-- 
+2.5.5
