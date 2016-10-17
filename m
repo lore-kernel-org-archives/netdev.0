@@ -1,144 +1,100 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next 11/15] ethernet/cavium: use core min/max MTU checking
-Date: Mon, 17 Oct 2016 15:54:13 -0400
-Message-ID: <20161017195417.48259-12-jarod@redhat.com>
+Subject: [PATCH net-next 12/15] ethernet/ibm: use core min/max MTU checking
+Date: Mon, 17 Oct 2016 15:54:14 -0400
+Message-ID: <20161017195417.48259-13-jarod@redhat.com>
 References: <20161017195417.48259-1-jarod@redhat.com>
 Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        Sunil Goutham <sgoutham@cavium.com>,
-        Robert Richter <rric@kernel.org>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+        Douglas Miller <dougmill@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161017195417.48259-1-jarod@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-liquidio: min_mtu 68, max_mtu 16000
+ehea: min_mtu 68, max_mtu 9022
+- remove ehea_change_mtu, it's now redundant
 
-thunder: min_mtu 64, max_mtu 9200
+emac: min_mtu 46, max_mtu 1500 or whatever gets read from OF
 
 CC: netdev@vger.kernel.org
-CC: Sunil Goutham <sgoutham@cavium.com>
-CC: Robert Richter <rric@kernel.org>
-CC: Derek Chickles <derek.chickles@caviumnetworks.com>
-CC: Satanand Burla <satananda.burla@caviumnetworks.com>
-CC: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-CC: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+CC: Douglas Miller <dougmill@linux.vnet.ibm.com>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c       | 15 ++++-----------
- drivers/net/ethernet/cavium/liquidio/octeon_network.h |  2 +-
- drivers/net/ethernet/cavium/octeon/octeon_mgmt.c      | 13 +++----------
- drivers/net/ethernet/cavium/thunder/nicvf_main.c      | 10 ++++------
- 4 files changed, 12 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/ibm/ehea/ehea_main.c | 13 ++++---------
+ drivers/net/ethernet/ibm/emac/core.c      |  9 +++++----
+ 2 files changed, 9 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index afc6f9dc..71d01a7 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2868,17 +2868,6 @@ static int liquidio_change_mtu(struct net_device *netdev, int new_mtu)
- 	struct octnic_ctrl_pkt nctrl;
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index 54efa9a..e9719ba 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -1981,14 +1981,6 @@ static void ehea_set_multicast_list(struct net_device *dev)
+ 	ehea_update_bcmc_registrations();
+ }
+ 
+-static int ehea_change_mtu(struct net_device *dev, int new_mtu)
+-{
+-	if ((new_mtu < 68) || (new_mtu > EHEA_MAX_PACKET_SIZE))
+-		return -EINVAL;
+-	dev->mtu = new_mtu;
+-	return 0;
+-}
+-
+ static void xmit_common(struct sk_buff *skb, struct ehea_swqe *swqe)
+ {
+ 	swqe->tx_control |= EHEA_SWQE_IMM_DATA_PRESENT | EHEA_SWQE_CRC;
+@@ -2968,7 +2960,6 @@ static const struct net_device_ops ehea_netdev_ops = {
+ 	.ndo_set_mac_address	= ehea_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_rx_mode	= ehea_set_multicast_list,
+-	.ndo_change_mtu		= ehea_change_mtu,
+ 	.ndo_vlan_rx_add_vid	= ehea_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ehea_vlan_rx_kill_vid,
+ 	.ndo_tx_timeout		= ehea_tx_watchdog,
+@@ -3041,6 +3032,10 @@ static struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ 			NETIF_F_IP_CSUM;
+ 	dev->watchdog_timeo = EHEA_WATCH_DOG_TIMEOUT;
+ 
++	/* MTU range: 68 - 9022 */
++	dev->min_mtu = ETH_MIN_MTU;
++	dev->max_mtu = EHEA_MAX_PACKET_SIZE;
++
+ 	INIT_WORK(&port->reset_task, ehea_reset_port);
+ 	INIT_DELAYED_WORK(&port->stats_work, ehea_update_stats);
+ 
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+index 5d804a5..52a69c9 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -1099,9 +1099,6 @@ static int emac_change_mtu(struct net_device *ndev, int new_mtu)
+ 	struct emac_instance *dev = netdev_priv(ndev);
  	int ret = 0;
  
--	/* Limit the MTU to make sure the ethernet packets are between 68 bytes
--	 * and 16000 bytes
--	 */
--	if ((new_mtu < LIO_MIN_MTU_SIZE) ||
--	    (new_mtu > LIO_MAX_MTU_SIZE)) {
--		dev_err(&oct->pci_dev->dev, "Invalid MTU: %d\n", new_mtu);
--		dev_err(&oct->pci_dev->dev, "Valid range %d and %d\n",
--			LIO_MIN_MTU_SIZE, LIO_MAX_MTU_SIZE);
+-	if (new_mtu < EMAC_MIN_MTU || new_mtu > dev->max_mtu)
 -		return -EINVAL;
--	}
 -
- 	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
+ 	DBG(dev, "change_mtu(%d)" NL, new_mtu);
  
- 	nctrl.ncmd.u64 = 0;
-@@ -3891,6 +3880,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 		netdev->hw_features = netdev->hw_features &
- 			~NETIF_F_HW_VLAN_CTAG_RX;
+ 	if (netif_running(ndev)) {
+@@ -2564,7 +2561,7 @@ static int emac_init_config(struct emac_instance *dev)
+ 	if (emac_read_uint_prop(np, "cell-index", &dev->cell_index, 1))
+ 		return -ENXIO;
+ 	if (emac_read_uint_prop(np, "max-frame-size", &dev->max_mtu, 0))
+-		dev->max_mtu = 1500;
++		dev->max_mtu = ETH_DATA_LEN;
+ 	if (emac_read_uint_prop(np, "rx-fifo-size", &dev->rx_fifo_size, 0))
+ 		dev->rx_fifo_size = 2048;
+ 	if (emac_read_uint_prop(np, "tx-fifo-size", &dev->tx_fifo_size, 0))
+@@ -2890,6 +2887,10 @@ static int emac_probe(struct platform_device *ofdev)
+ 		ndev->netdev_ops = &emac_netdev_ops;
+ 	ndev->ethtool_ops = &emac_ethtool_ops;
  
-+		/* MTU range: 68 - 16000 */
-+		netdev->min_mtu = LIO_MIN_MTU_SIZE;
-+		netdev->max_mtu = LIO_MAX_MTU_SIZE;
++	/* MTU range: 46 - 1500 or whatever is in OF */
++	ndev->min_mtu = EMAC_MIN_MTU;
++	ndev->max_mtu = dev->max_mtu;
 +
- 		/* Point to the  properties for octeon device to which this
- 		 * interface belongs.
- 		 */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index e5d1deb..54b9665 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -29,7 +29,7 @@
- #include <linux/ptp_clock_kernel.h>
+ 	netif_carrier_off(ndev);
  
- #define LIO_MAX_MTU_SIZE (OCTNET_MAX_FRM_SIZE - OCTNET_FRM_HEADER_SIZE)
--#define LIO_MIN_MTU_SIZE 68
-+#define LIO_MIN_MTU_SIZE ETH_MIN_MTU
- 
- struct oct_nic_stats_resp {
- 	u64     rh;
-diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-index 4ab404f..16e12c4 100644
---- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-@@ -645,16 +645,6 @@ static int octeon_mgmt_change_mtu(struct net_device *netdev, int new_mtu)
- 	struct octeon_mgmt *p = netdev_priv(netdev);
- 	int size_without_fcs = new_mtu + OCTEON_MGMT_RX_HEADROOM;
- 
--	/* Limit the MTU to make sure the ethernet packets are between
--	 * 64 bytes and 16383 bytes.
--	 */
--	if (size_without_fcs < 64 || size_without_fcs > 16383) {
--		dev_warn(p->dev, "MTU must be between %d and %d.\n",
--			 64 - OCTEON_MGMT_RX_HEADROOM,
--			 16383 - OCTEON_MGMT_RX_HEADROOM);
--		return -EINVAL;
--	}
--
- 	netdev->mtu = new_mtu;
- 
- 	cvmx_write_csr(p->agl + AGL_GMX_RX_FRM_MAX, size_without_fcs);
-@@ -1491,6 +1481,9 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
- 	netdev->netdev_ops = &octeon_mgmt_ops;
- 	netdev->ethtool_ops = &octeon_mgmt_ethtool_ops;
- 
-+	netdev->min_mtu = 64 - OCTEON_MGMT_RX_HEADROOM;
-+	netdev->max_mtu = 16383 - OCTEON_MGMT_RX_HEADROOM;
-+
- 	mac = of_get_mac_address(pdev->dev.of_node);
- 
- 	if (mac)
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 45a13f7..b192712 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1312,12 +1312,6 @@ static int nicvf_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct nicvf *nic = netdev_priv(netdev);
- 
--	if (new_mtu > NIC_HW_MAX_FRS)
--		return -EINVAL;
--
--	if (new_mtu < NIC_HW_MIN_FRS)
--		return -EINVAL;
--
- 	if (nicvf_update_hw_max_frs(nic, new_mtu))
- 		return -EINVAL;
- 	netdev->mtu = new_mtu;
-@@ -1630,6 +1624,10 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->netdev_ops = &nicvf_netdev_ops;
- 	netdev->watchdog_timeo = NICVF_TX_TIMEOUT;
- 
-+	/* MTU range: 64 - 9200 */
-+	netdev->min_mtu = NIC_HW_MIN_FRS;
-+	netdev->max_mtu = NIC_HW_MAX_FRS;
-+
- 	INIT_WORK(&nic->reset_task, nicvf_reset_task);
- 
- 	err = register_netdev(netdev);
+ 	err = register_netdev(ndev);
 -- 
 2.10.0
