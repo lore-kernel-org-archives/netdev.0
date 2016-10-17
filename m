@@ -1,46 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/5] Interrupt support for mv88e6xxx
-Date: Mon, 17 Oct 2016 11:18:44 -0400 (EDT)
-Message-ID: <20161017.111844.816079254713993206.davem@davemloft.net>
-References: <1476640613-25365-1-git-send-email-andrew@lunn.ch>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] fsl/fman: fix error return code in mac_probe()
+Date: Mon, 17 Oct 2016 15:19:56 +0000
+Message-ID: <1476717596-19526-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com
-To: andrew@lunn.ch
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Madalin Bucur <madalin.bucur@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56582 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932551AbcJQPSq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 11:18:46 -0400
-In-Reply-To: <1476640613-25365-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33517 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932871AbcJQPUC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 11:20:02 -0400
+Received: by mail-pa0-f68.google.com with SMTP id hh10so9348744pac.0
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 08:20:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sun, 16 Oct 2016 19:56:48 +0200
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-> This patchset add interrupt controller support to the MV88E6xxx.  This
-> allows access to the interrupts the internal PHY generate. These
-> interrupts can then be associated to a PHY device in the device tree
-> and used by the PHY lib, rather than polling.
-> 
-> Since interrupt handling needs to make MDIO bus accesses, threaded
-> interrupts are used. The phylib needs to request the PHY interrupt
-> using the threaded IRQ API. This in term allows some simplification to
-> the code, in that the phylib interrupt handler can directly call
-> phy_change(), rather than use a work queue. The work queue is however
-> retained for the phy_mac_interrupt() call, which can be called in hard
-> interrupt context.
-> 
-> Since RFC v1:
-> 
-> Keep phy_mac_interrupt() callable in hard IRQ context.
-> 
-> The fix to trigger the phy state machine transitions on interrupts has
-> already been submitted, so is dropped from here.
-> 
-> Added back shared interrupts support.
+Fix to return a negative error code from the error handling
+case instead of 0, as done elsewhere in this function.
 
-Series applied, thanks!
+Fixes: 3933961682a3 ("fsl/fman: Add FMan MAC driver")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/freescale/fman/mac.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
+index 8fe6b3e..cc5d07c 100644
+--- a/drivers/net/ethernet/freescale/fman/mac.c
++++ b/drivers/net/ethernet/freescale/fman/mac.c
+@@ -879,13 +879,17 @@ static int mac_probe(struct platform_device *_of_dev)
+ 
+ 		priv->fixed_link = kzalloc(sizeof(*priv->fixed_link),
+ 					   GFP_KERNEL);
+-		if (!priv->fixed_link)
++		if (!priv->fixed_link) {
++			err = -ENOMEM;
+ 			goto _return_dev_set_drvdata;
++		}
+ 
+ 		priv->phy_node = of_node_get(mac_node);
+ 		phy = of_phy_find_device(priv->phy_node);
+-		if (!phy)
++		if (!phy) {
++			err = -EINVAL;
+ 			goto _return_dev_set_drvdata;
++		}
+ 
+ 		priv->fixed_link->link = phy->link;
+ 		priv->fixed_link->speed = phy->speed;
