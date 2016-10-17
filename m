@@ -1,50 +1,65 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: [PATCH] mac80211_hwsim: suggest nl80211 instead of wext driver in documentation
-Date: Mon, 17 Oct 2016 00:39:33 +0200
-Message-ID: <20161016223933.9484-1-linus.luessing@c0d3.blue>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH 1/8] tools lib bpf: add error functions
+Date: Mon, 17 Oct 2016 09:47:14 +0800
+Message-ID: <58042DA2.30901@huawei.com>
+References: <20161016211834.11732-1-eric@regit.org>
+ <20161016211834.11732-2-eric@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Jonathan Corbet <corbet@lwn.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-        =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-To: linux-wireless@vger.kernel.org,
-        Johannes Berg <johannes@sipsolutions.net>,
-        Jouni Malinen <j@w1.fi>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <ast@fb.com>
+To: Eric Leblond <eric@regit.org>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161016211834.11732-2-eric@regit.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For mac80211_hwsim interfaces, suggest to use wpa_supplicant with the more
-modern, netlink based driver instead of wext.
 
-Signed-off-by: Linus Lüssing <linus.luessing@c0d3.blue>
----
 
-Actually, I wasn't even able to make a connection with the configuration
-files and information provided in
-Documentation/networking/mac80211_hwsim/{README,hostapd.conf/wpa_supplicant.conf}
+On 2016/10/17 5:18, Eric Leblond wrote:
+> The include of err.h is not explicitely needed in exported
+> functions and it was causing include conflict with some existing
+> code due to redefining some macros.
+>
+> To fix this, let's have error handling functions provided by the
+> library. Furthermore this will allow user to have an homogeneous
+> API.
+>
+> Signed-off-by: Eric Leblond <eric@regit.org>
+> ---
+>   tools/lib/bpf/libbpf.c | 11 +++++++++++
+>   tools/lib/bpf/libbpf.h |  4 +++-
+>   2 files changed, 14 insertions(+), 1 deletion(-)
+>
+> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+> index b699aea..90932f1 100644
+> --- a/tools/lib/bpf/libbpf.c
+> +++ b/tools/lib/bpf/libbpf.c
+> @@ -31,6 +31,7 @@
+>   #include <linux/kernel.h>
+>   #include <linux/bpf.h>
+>   #include <linux/list.h>
+> +#include <linux/err.h>
+>   #include <libelf.h>
+>   #include <gelf.h>
+>   
+> @@ -1447,3 +1448,13 @@ bpf_object__find_map_by_name(struct bpf_object *obj, const char *name)
+>   	}
+>   	return NULL;
+>   }
+> +
+> +bool bpf__is_error(const void *ptr)
 
-Changing -Dwext to -Dnl80211 helped and made the WPA-PSK connection with
-mac80211_hwsim interfaces work for me.
----
- Documentation/networking/mac80211_hwsim/README | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Please use libbpf_is_error(), like libbpf_set_print. We use '__' because 
+we want
+to use the OO concept. This utility is not OO.
 
-diff --git a/Documentation/networking/mac80211_hwsim/README b/Documentation/networking/mac80211_hwsim/README
-index 24ac91d..3566a72 100644
---- a/Documentation/networking/mac80211_hwsim/README
-+++ b/Documentation/networking/mac80211_hwsim/README
-@@ -60,7 +60,7 @@ modprobe mac80211_hwsim
- hostapd hostapd.conf
- 
- # Run wpa_supplicant (station) for wlan1
--wpa_supplicant -Dwext -iwlan1 -c wpa_supplicant.conf
-+wpa_supplicant -Dnl80211 -iwlan1 -c wpa_supplicant.conf
- 
- 
- More test cases are available in hostap.git:
--- 
-2.1.4
+> +{
+> +	return IS_ERR(ptr);
+> +}
+> +
+> +long bpf__get_error(const void *ptr)
 
+Same, please call it libbpf_get_error().
+
+Thank you.
