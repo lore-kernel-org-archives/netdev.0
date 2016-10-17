@@ -1,160 +1,60 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 5/7] udp: Add UDP flow dissection functions to IPv4 and IPv6
-Date: Mon, 17 Oct 2016 12:42:00 -0700
-Message-ID: <20161017194202.3510238-6-tom@herbertland.com>
-References: <20161017194202.3510238-1-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57390 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1759131AbcJQTmO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 15:42:14 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u9HJcW9Q016554
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:13 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 2652utah1d-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:13 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.223.101.97) with ESMTP id
- cc0c3b6494a111e6ba3124be0595f910-d9ff7a50 for <netdev@vger.kernel.org>;        Mon,
- 17 Oct 2016 12:42:11 -0700
-In-Reply-To: <20161017194202.3510238-1-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: [PATCH v3 0/4] support smc91x on mainstone and devicetree
+Date: Mon, 17 Oct 2016 21:45:28 +0200
+Message-ID: <1476733532-29716-1-git-send-email-robert.jarzmik@free.fr>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-am33-list@redhat.com
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Daniel Mack <daniel@zonque.org>,
+        Haojian Zhuang <haojian.zhuang@gmail.com>,
+        Robert Jarzmik <robert.jarzmik@free.fr>,
+        Jonathan Cameron <jic23@cam.ac.uk>,
+        David Howells <dhowells@redhat.com>,
+        Nicolas Pitre <nico@fluxnic.net>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add per protocol offload callbacks for flow_dissect to UDP for
-IPv4 and IPv6. The callback functions extract the port number
-information and with the packet addresses (given in an argument with
-type flow_dissector_key_addrs) it performs a lookup on the UDP
-socket. If a socket is found and flow_dissect is set for the
-socket then that function is called.
+This serie aims at bringing support to mainstone board on a device-tree based
+build, as what is already in place for legacy mainstone.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/ipv4/udp_offload.c | 39 +++++++++++++++++++++++++++++++++++++++
- net/ipv6/udp_offload.c | 40 +++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 78 insertions(+), 1 deletion(-)
+The bulk of the mainstone "specific" behavior is that a u16 write doesn't work
+on a address of the form 4*n + 2, while it works on 4*n.
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index f9333c9..c7753ba 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -377,11 +377,50 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
- 	return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
- }
- 
-+/* Assumes rcu lock is held */
-+static int udp4_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
-+			     int *nhoff, u8 *ip_proto, __be16 *proto,
-+			     struct flow_dissector_key_addrs *key_addrs)
-+{
-+	u16 _ports[2], *ports;
-+	struct net *net;
-+	struct sock *sk;
-+	int dif = -1;
-+
-+	/* See if there is a flow dissector in the UDP socket */
-+
-+	if (skb->dev) {
-+		net = dev_net(skb->dev);
-+		dif = skb->dev->ifindex;
-+	} else if (skb->sk) {
-+		net = sock_net(skb->sk);
-+	} else {
-+		return FLOW_DIS_RET_PASS;
-+	}
-+
-+	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
-+				     data, hlen, &_ports);
-+	if (!ports)
-+		return FLOW_DIS_RET_BAD;
-+
-+	sk = udp4_lib_lookup_noref(net,
-+				   key_addrs->v4addrs.src, ports[0],
-+				   key_addrs->v4addrs.dst, ports[1],
-+				   dif);
-+
-+	if (sk && udp_sk(sk)->flow_dissect)
-+		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
-+						ip_proto, proto);
-+	else
-+		return FLOW_DIS_RET_PASS;
-+}
-+
- static const struct net_offload udpv4_offload = {
- 	.callbacks = {
- 		.gso_segment = udp4_ufo_fragment,
- 		.gro_receive  =	udp4_gro_receive,
- 		.gro_complete =	udp4_gro_complete,
-+		.flow_dissect = udp4_flow_dissect,
- 	},
- };
- 
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index ac858c4..12d9a92 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -1,5 +1,5 @@
- /*
-- *	IPV6 GSO/GRO offload support
-+ *	ipv6 gso/gro offload support
-  *	Linux INET6 implementation
-  *
-  *	This program is free software; you can redistribute it and/or
-@@ -163,11 +163,49 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
- 	return udp_gro_complete(skb, nhoff, udp6_lib_lookup_skb);
- }
- 
-+/* Assumes rcu lock is held */
-+static int udp6_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
-+			     int *nhoff, u8 *ip_proto, __be16 *proto,
-+			     const struct flow_dissector_key_addrs *key_addrs)
-+{
-+	u16 _ports[2], *ports;
-+	struct net *net;
-+	struct sock *sk;
-+	int dif = -1;
-+
-+	/* See if there is a flow dissector in the UDP socket */
-+
-+	if (skb->dev) {
-+		net = dev_net(skb->dev);
-+		dif = skb->dev->ifindex;
-+	} else if (skb->sk) {
-+		net = sock_net(skb->sk);
-+	} else {
-+		return FLOW_DIS_RET_PASS;
-+	}
-+
-+	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
-+				     data, hlen, &_ports);
-+	if (!ports)
-+		return FLOW_DIS_RET_BAD;
-+
-+	sk = udp6_lib_lookup_noref(net,
-+				   &key_addrs->v6addrs.src, ports[0],
-+				   &key_addrs->v6addrs.dst, ports[1],
-+				   dif);
-+
-+	if (sk && udp_sk(sk)->flow_dissect)
-+		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
-+						ip_proto, proto);
-+	return FLOW_DIS_RET_PASS;
-+}
-+
- static const struct net_offload udpv6_offload = {
- 	.callbacks = {
- 		.gso_segment	=	udp6_ufo_fragment,
- 		.gro_receive	=	udp6_gro_receive,
- 		.gro_complete	=	udp6_gro_complete,
-+		.flow_dissect	=	udp6_flow_dissect,
- 	},
- };
- 
+The legacy workaround was in SMC_outw(), with calls to
+machine_is_mainstone(). These calls don't work with a pxa27x-dt machine type,
+which is used when a generic device-tree pxa27x machine is used to boot the
+mainstone board.
+
+Therefore, this serie enables the smc91c111 adapter of the mainstone board to
+work on a device-tree build, exaclty as it's been working for years with the
+legacy arch/arm/mach-pxa/mainstone.c definition.
+
+As a sum up, this extends an existing mechanism to device-tree based pxa platforms.
+
+Cheers.
+
+--
+Robert
+
+Robert Jarzmik (4):
+  ARM: pxa: enhance smc91x platform data
+  net: smc91x: isolate u16 writes alignment workaround
+  net: smc91x: take into account half-word workaround
+  net: smsc91x: add u16 workaround for pxa platforms
+
+ .../devicetree/bindings/net/smsc-lan91c111.txt     |  2 +
+ arch/arm/mach-pxa/idp.c                            |  1 +
+ arch/arm/mach-pxa/mainstone.c                      |  1 +
+ arch/arm/mach-pxa/stargate2.c                      |  1 +
+ arch/mn10300/unit-asb2303/include/unit/smc91111.h  |  2 +-
+ drivers/net/ethernet/smsc/smc91x.c                 |  5 +-
+ drivers/net/ethernet/smsc/smc91x.h                 | 82 ++++++++++++----------
+ include/linux/smc91x.h                             |  1 +
+ 8 files changed, 55 insertions(+), 40 deletions(-)
+
 -- 
-2.9.3
+2.1.4
