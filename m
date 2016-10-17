@@ -1,175 +1,278 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v12 3/9] openvswitch: pass mac_proto to ovs_vport_send
-Date: Mon, 17 Oct 2016 15:02:39 +0200
-Message-ID: <c954507a960add0ae9410c19fd40eebc1fda0f95.1476708212.git.jbenc@redhat.com>
+Subject: [PATCH net-next v12 5/9] openvswitch: add processing of L3 packets
+Date: Mon, 17 Oct 2016 15:02:41 +0200
+Message-ID: <a4590d690c169e0021031405463c8629a6e9ecb8.1476708213.git.jbenc@redhat.com>
 References: <cover.1476708212.git.jbenc@redhat.com>
 Cc: dev@openvswitch.org, Pravin Shelar <pshelar@ovn.org>,
         Lorand Jakab <lojakab@cisco.com>,
         Simon Horman <simon.horman@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57886 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57920 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757828AbcJQNDZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 09:03:25 -0400
+        id S1757831AbcJQND2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 09:03:28 -0400
 In-Reply-To: <cover.1476708212.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We'll need it to alter packets sent to ARPHRD_NONE interfaces.
+Support receiving, extracting flow key and sending of L3 packets (packets
+without an Ethernet header).
 
-Change do_output() to use the actual L2 header size of the packet when
-deciding on the minimum cutlen. The assumption here is that what matters is
-not the output interface hard_header_len but rather the L2 header of the
-particular packet. For example, ARPHRD_NONE tunnels that encapsulate
-Ethernet should get at least the Ethernet header.
+Note that even after this patch, non-Ethernet interfaces are still not
+allowed to be added to bridges. Similarly, netlink interface for sending and
+receiving L3 packets to/from user space is not in place yet.
 
+Based on previous versions by Lorand Jakab and Simon Horman.
+
+Signed-off-by: Lorand Jakab <lojakab@cisco.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- net/openvswitch/actions.c | 29 +++++++++++++++++------------
- net/openvswitch/vport.c   |  2 +-
- net/openvswitch/vport.h   |  2 +-
- 3 files changed, 19 insertions(+), 14 deletions(-)
+ net/openvswitch/datapath.c |  17 ++------
+ net/openvswitch/flow.c     | 101 ++++++++++++++++++++++++++++++++++-----------
+ net/openvswitch/vport.c    |  16 +++++++
+ 3 files changed, 96 insertions(+), 38 deletions(-)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 44144f914920..dc8bb97e2258 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -66,6 +66,7 @@ struct ovs_frag_data {
- 	u16 vlan_tci;
- 	__be16 vlan_proto;
- 	unsigned int l2_len;
-+	u8 mac_proto;
- 	u8 l2_data[MAX_L2_LEN];
- };
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 4d67ea856067..c5b719fca8d4 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -562,7 +562,6 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 	struct sw_flow *flow;
+ 	struct sw_flow_actions *sf_acts;
+ 	struct datapath *dp;
+-	struct ethhdr *eth;
+ 	struct vport *input_vport;
+ 	u16 mru = 0;
+ 	int len;
+@@ -583,17 +582,6 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
  
-@@ -673,7 +674,7 @@ static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *sk
- 		skb_reset_mac_len(skb);
- 	}
+ 	nla_memcpy(__skb_put(packet, len), a[OVS_PACKET_ATTR_PACKET], len);
  
--	ovs_vport_send(vport, skb);
-+	ovs_vport_send(vport, skb, data->mac_proto);
- 	return 0;
+-	skb_reset_mac_header(packet);
+-	eth = eth_hdr(packet);
+-
+-	/* Normally, setting the skb 'protocol' field would be handled by a
+-	 * call to eth_type_trans(), but it assumes there's a sending
+-	 * device, which we may not have. */
+-	if (eth_proto_is_802_3(eth->h_proto))
+-		packet->protocol = eth->h_proto;
+-	else
+-		packet->protocol = htons(ETH_P_802_2);
+-
+ 	/* Set packet's mru */
+ 	if (a[OVS_PACKET_ATTR_MRU]) {
+ 		mru = nla_get_u16(a[OVS_PACKET_ATTR_MRU]);
+@@ -609,8 +597,10 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	err = ovs_flow_key_extract_userspace(net, a[OVS_PACKET_ATTR_KEY],
+ 					     packet, &flow->key, log);
+-	if (err)
++	if (err) {
++		packet = NULL;
+ 		goto err_flow_free;
++	}
+ 
+ 	err = ovs_nla_copy_actions(net, a[OVS_PACKET_ATTR_ACTIONS],
+ 				   &flow->key, &acts, log);
+@@ -620,6 +610,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+ 	rcu_assign_pointer(flow->sf_acts, acts);
+ 	packet->priority = flow->key.phy.priority;
+ 	packet->mark = flow->key.phy.skb_mark;
++	packet->protocol = flow->key.eth.type;
+ 
+ 	rcu_read_lock();
+ 	dp = get_dp_rcu(net, ovs_header->dp_ifindex);
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 96c8c4716603..7aee6e273765 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -334,14 +334,17 @@ static int parse_vlan_tag(struct sk_buff *skb, struct vlan_head *key_vh)
+ 	return 1;
  }
  
-@@ -692,7 +693,7 @@ static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *sk
-  * ovs_vport_output(), which is called once per fragmented packet.
+-static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
++static void clear_vlan(struct sw_flow_key *key)
+ {
+-	int res;
+-
+ 	key->eth.vlan.tci = 0;
+ 	key->eth.vlan.tpid = 0;
+ 	key->eth.cvlan.tci = 0;
+ 	key->eth.cvlan.tpid = 0;
++}
++
++static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
++{
++	int res;
+ 
+ 	if (skb_vlan_tag_present(skb)) {
+ 		key->eth.vlan.tci = htons(skb->vlan_tci);
+@@ -483,17 +486,20 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
+  *
+  * Returns 0 if successful, otherwise a negative errno value.
+  *
+- * Initializes @skb header pointers as follows:
++ * Initializes @skb header fields as follows:
+  *
+- *    - skb->mac_header: the Ethernet header.
++ *    - skb->mac_header: the L2 header.
+  *
+- *    - skb->network_header: just past the Ethernet header, or just past the
+- *      VLAN header, to the first byte of the Ethernet payload.
++ *    - skb->network_header: just past the L2 header, or just past the
++ *      VLAN header, to the first byte of the L2 payload.
+  *
+  *    - skb->transport_header: If key->eth.type is ETH_P_IP or ETH_P_IPV6
+  *      on output, then just past the IP header, if one is present and
+  *      of a correct length, otherwise the same as skb->network_header.
+  *      For other key->eth.type values it is left untouched.
++ *
++ *    - skb->protocol: the type of the data starting at skb->network_header.
++ *      Equals to key->eth.type.
   */
- static void prepare_frag(struct vport *vport, struct sk_buff *skb,
--			 u16 orig_network_offset)
-+			 u16 orig_network_offset, u8 mac_proto)
+ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
  {
- 	unsigned int hlen = skb_network_offset(skb);
- 	struct ovs_frag_data *data;
-@@ -705,6 +706,7 @@ static void prepare_frag(struct vport *vport, struct sk_buff *skb,
- 	data->network_offset = orig_network_offset;
- 	data->vlan_tci = skb->vlan_tci;
- 	data->vlan_proto = skb->vlan_proto;
-+	data->mac_proto = mac_proto;
- 	data->l2_len = hlen;
- 	memcpy(&data->l2_data, skb->data, hlen);
+@@ -505,28 +511,35 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
  
-@@ -713,7 +715,8 @@ static void prepare_frag(struct vport *vport, struct sk_buff *skb,
+ 	skb_reset_mac_header(skb);
+ 
+-	/* Link layer.  We are guaranteed to have at least the 14 byte Ethernet
+-	 * header in the linear data area.
+-	 */
+-	eth = eth_hdr(skb);
+-	ether_addr_copy(key->eth.src, eth->h_source);
+-	ether_addr_copy(key->eth.dst, eth->h_dest);
++	/* Link layer. */
++	clear_vlan(key);
++	if (key->mac_proto == MAC_PROTO_NONE) {
++		if (unlikely(eth_type_vlan(skb->protocol)))
++			return -EINVAL;
+ 
+-	__skb_pull(skb, 2 * ETH_ALEN);
+-	/* We are going to push all headers that we pull, so no need to
+-	 * update skb->csum here.
+-	 */
++		skb_reset_network_header(skb);
++	} else {
++		eth = eth_hdr(skb);
++		ether_addr_copy(key->eth.src, eth->h_source);
++		ether_addr_copy(key->eth.dst, eth->h_dest);
+ 
+-	if (unlikely(parse_vlan(skb, key)))
+-		return -ENOMEM;
++		__skb_pull(skb, 2 * ETH_ALEN);
++		/* We are going to push all headers that we pull, so no need to
++		* update skb->csum here.
++		*/
+ 
+-	key->eth.type = parse_ethertype(skb);
+-	if (unlikely(key->eth.type == htons(0)))
+-		return -ENOMEM;
++		if (unlikely(parse_vlan(skb, key)))
++			return -ENOMEM;
+ 
+-	skb_reset_network_header(skb);
++		skb->protocol = parse_ethertype(skb);
++		if (unlikely(skb->protocol == htons(0)))
++			return -ENOMEM;
++
++		skb_reset_network_header(skb);
++		__skb_push(skb, skb->data - skb_mac_header(skb));
++	}
+ 	skb_reset_mac_len(skb);
+-	__skb_push(skb, skb->data - skb_mac_header(skb));
++	key->eth.type = skb->protocol;
+ 
+ 	/* Network layer. */
+ 	if (key->eth.type == htons(ETH_P_IP)) {
+@@ -721,6 +734,20 @@ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
+ 	return key_extract(skb, key);
  }
  
- static void ovs_fragment(struct net *net, struct vport *vport,
--			 struct sk_buff *skb, u16 mru, __be16 ethertype)
-+			 struct sk_buff *skb, u16 mru,
-+			 struct sw_flow_key *key)
++static u8 key_extract_mac_proto(struct sk_buff *skb)
++{
++	switch (skb->dev->type) {
++	case ARPHRD_ETHER:
++		return MAC_PROTO_ETHERNET;
++	case ARPHRD_NONE:
++		if (skb->protocol == htons(ETH_P_TEB))
++			return MAC_PROTO_ETHERNET;
++		return MAC_PROTO_NONE;
++	}
++	WARN_ON_ONCE(1);
++	return MAC_PROTO_ETHERNET;
++}
++
+ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
+ 			 struct sk_buff *skb, struct sw_flow_key *key)
  {
- 	u16 orig_network_offset = 0;
+@@ -751,7 +778,7 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
+ 	key->phy.skb_mark = skb->mark;
+ 	ovs_ct_fill_key(skb, key);
+ 	key->ovs_flow_hash = 0;
+-	key->mac_proto = MAC_PROTO_ETHERNET;
++	key->mac_proto = key_extract_mac_proto(skb);
+ 	key->recirc_id = 0;
  
-@@ -727,11 +730,12 @@ static void ovs_fragment(struct net *net, struct vport *vport,
- 		goto err;
- 	}
+ 	return key_extract(skb, key);
+@@ -768,5 +795,29 @@ int ovs_flow_key_extract_userspace(struct net *net, const struct nlattr *attr,
+ 	if (err)
+ 		return err;
  
--	if (ethertype == htons(ETH_P_IP)) {
-+	if (key->eth.type == htons(ETH_P_IP)) {
- 		struct dst_entry ovs_dst;
- 		unsigned long orig_dst;
- 
--		prepare_frag(vport, skb, orig_network_offset);
-+		prepare_frag(vport, skb, orig_network_offset,
-+			     ovs_key_mac_proto(key));
- 		dst_init(&ovs_dst, &ovs_dst_ops, NULL, 1,
- 			 DST_OBSOLETE_NONE, DST_NOCOUNT);
- 		ovs_dst.dev = vport->dev;
-@@ -742,7 +746,7 @@ static void ovs_fragment(struct net *net, struct vport *vport,
- 
- 		ip_do_fragment(net, skb->sk, skb, ovs_vport_output);
- 		refdst_drop(orig_dst);
--	} else if (ethertype == htons(ETH_P_IPV6)) {
-+	} else if (key->eth.type == htons(ETH_P_IPV6)) {
- 		const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
- 		unsigned long orig_dst;
- 		struct rt6_info ovs_rt;
-@@ -751,7 +755,8 @@ static void ovs_fragment(struct net *net, struct vport *vport,
- 			goto err;
- 		}
- 
--		prepare_frag(vport, skb, orig_network_offset);
-+		prepare_frag(vport, skb, orig_network_offset,
-+			     ovs_key_mac_proto(key));
- 		memset(&ovs_rt, 0, sizeof(ovs_rt));
- 		dst_init(&ovs_rt.dst, &ovs_dst_ops, NULL, 1,
- 			 DST_OBSOLETE_NONE, DST_NOCOUNT);
-@@ -765,7 +770,7 @@ static void ovs_fragment(struct net *net, struct vport *vport,
- 		refdst_drop(orig_dst);
- 	} else {
- 		WARN_ONCE(1, "Failed fragment ->%s: eth=%04x, MRU=%d, MTU=%d.",
--			  ovs_vport_name(vport), ntohs(ethertype), mru,
-+			  ovs_vport_name(vport), ntohs(key->eth.type), mru,
- 			  vport->dev->mtu);
- 		goto err;
- 	}
-@@ -785,19 +790,19 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
- 		u32 cutlen = OVS_CB(skb)->cutlen;
- 
- 		if (unlikely(cutlen > 0)) {
--			if (skb->len - cutlen > ETH_HLEN)
-+			if (skb->len - cutlen > ovs_mac_header_len(key))
- 				pskb_trim(skb, skb->len - cutlen);
- 			else
--				pskb_trim(skb, ETH_HLEN);
-+				pskb_trim(skb, ovs_mac_header_len(key));
- 		}
- 
- 		if (likely(!mru ||
- 		           (skb->len <= mru + vport->dev->hard_header_len))) {
--			ovs_vport_send(vport, skb);
-+			ovs_vport_send(vport, skb, ovs_key_mac_proto(key));
- 		} else if (mru <= vport->dev->mtu) {
- 			struct net *net = read_pnet(&dp->net);
- 
--			ovs_fragment(net, vport, skb, mru, key->eth.type);
-+			ovs_fragment(net, vport, skb, mru, key);
- 		} else {
- 			kfree_skb(skb);
- 		}
++	if (ovs_key_mac_proto(key) == MAC_PROTO_NONE) {
++		/* key_extract assumes that skb->protocol is set-up for
++		 * layer 3 packets which is the case for other callers,
++		 * in particular packets recieved from the network stack.
++		 * Here the correct value can be set from the metadata
++		 * extracted above.
++		 */
++		skb->protocol = key->eth.type;
++	} else {
++		struct ethhdr *eth;
++
++		skb_reset_mac_header(skb);
++		eth = eth_hdr(skb);
++
++		/* Normally, setting the skb 'protocol' field would be
++		 * handled by a call to eth_type_trans(), but it assumes
++		 * there's a sending device, which we may not have.
++		 */
++		if (eth_proto_is_802_3(eth->h_proto))
++			skb->protocol = eth->h_proto;
++		else
++			skb->protocol = htons(ETH_P_802_2);
++	}
++
+ 	return key_extract(skb, key);
+ }
 diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index d5550fd6a013..dc0e2212edfc 100644
+index dc0e2212edfc..8361b62a47c2 100644
 --- a/net/openvswitch/vport.c
 +++ b/net/openvswitch/vport.c
-@@ -498,7 +498,7 @@ static unsigned int packet_length(const struct sk_buff *skb,
- 	return length;
- }
- 
--void ovs_vport_send(struct vport *vport, struct sk_buff *skb)
-+void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
+@@ -502,6 +502,22 @@ void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
  {
  	int mtu = vport->dev->mtu;
  
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index f01f28a567ad..81925e21ff8e 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -198,6 +198,6 @@ static inline const char *ovs_vport_name(struct vport *vport)
- 	})
- 
- void ovs_vport_ops_unregister(struct vport_ops *ops);
--void ovs_vport_send(struct vport *vport, struct sk_buff *skb);
-+void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto);
- 
- #endif /* vport.h */
++	switch (vport->dev->type) {
++	case ARPHRD_NONE:
++		if (mac_proto != MAC_PROTO_NONE) {
++			WARN_ON_ONCE(mac_proto != MAC_PROTO_ETHERNET);
++
++			skb_reset_network_header(skb);
++			skb_reset_mac_len(skb);
++			skb->protocol = htons(ETH_P_TEB);
++		}
++		break;
++	case ARPHRD_ETHER:
++		if (mac_proto != MAC_PROTO_ETHERNET)
++			goto drop;
++		break;
++	}
++
+ 	if (unlikely(packet_length(skb, vport->dev) > mtu &&
+ 		     !skb_is_gso(skb))) {
+ 		net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
 -- 
 1.8.3.1
