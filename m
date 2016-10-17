@@ -1,37 +1,35 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH v3 net-next 2/2] net: deprecate eth_change_mtu, remove
- usage
-Date: Mon, 17 Oct 2016 18:00:27 +0100
-Message-ID: <20161017180027.4936fa15@jkicinski-Precision-T1700>
-References: <20161008020434.9691-1-jarod@redhat.com>
-        <20161008020434.9691-3-jarod@redhat.com>
-        <20161017172006.4d549daa@jkicinski-Precision-T1700>
-        <20161017.124954.360760874377344385.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] net: Fix module autoload for several platform
+ drivers
+Date: Mon, 17 Oct 2016 13:03:24 -0400 (EDT)
+Message-ID: <20161017.130324.233185426125147662.davem@davemloft.net>
+References: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarod@redhat.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161017.124954.360760874377344385.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, arnd@arndb.de, timur@codeaurora.org,
+        noamca@mellanox.com, xieqianqian@huawei.com,
+        vivien.didelot@savoirfairelinux.com, Lada.Trimasova@synopsys.com,
+        huangdaode@hisilicon.com, sf84@laposte.net, f.fainelli@gmail.com,
+        eladkan@mellanox.com, weiyongjun1@huawei.com,
+        salil.mehta@huawei.com, yisen.zhuang@huawei.com, andrew@lunn.ch,
+        yankejian@huawei.com, tremyfr@gmail.com, mans@mansr.com,
+        netdev@vger.kernel.org, giladby@mellanox.com, jarod@redhat.com,
+        oulijun@huawei.com
+To: javier@osg.samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57894 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938553AbcJQRDe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 13:03:34 -0400
+In-Reply-To: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Oct 2016 12:49:54 -0400 (EDT), David Miller wrote:
-> From: Jakub Kicinski <kubakici@wp.pl>
-> Date: Mon, 17 Oct 2016 17:20:06 +0100
-> 
-> > Please correct me if I'm wrong but it seems like we are now limiting
-> > _all_ ethernet drivers to ETH_DATA_LEN in net-next.  
-> 
-> No, because the driver can increase the netdev->max_mtu value as needed.
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Date: Mon, 17 Oct 2016 11:05:39 -0300
 
-But since almost no driver is doing that, yet, right now in net-next
-jumbo frames are not possible, no?  I thought the idea was the leave
-the value at 0 so drivers can opt-in as needed but since setup_ether()
-is initializing to 1500 now all ethernet driver get a default of
-limiting to 1500.
+> I noticed that module autoload won't be working in a bunch of platform
+> drivers in the net subsystem and this patch series contains the fixes.
 
-IOW this patch made checks which were done only in eth_change_mtu()
-mandatory for all drivers.
+Looks good, series applied, thanks.
