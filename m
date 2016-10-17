@@ -1,54 +1,57 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 21/28] net/hyperv: avoid uninitialized variable
-Date: Tue, 18 Oct 2016 00:16:09 +0200
-Message-ID: <20161017221650.1902729-2-arnd@arndb.de>
+Subject: [PATCH 20/28] net: bcm63xx: avoid referencing uninitialized variable
+Date: Tue, 18 Oct 2016 00:16:08 +0200
+Message-ID: <20161017221650.1902729-1-arnd@arndb.de>
 References: <20161017220342.1627073-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
- Linus Torvalds <torvalds@linux-foundation.org>,
- "David S. Miller" <davem@davemloft.net>
-To: "K. Y. Srinivasan" <kys@microsoft.com>,
- Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        bcm-kernel-feedback-list@broadcom.com,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([217.72.192.75]:59226 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758713AbcJQWRd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 18:17:33 -0400
 In-Reply-To: <20161017220342.1627073-1-arnd@arndb.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIGhkcl9vZmZzZXQgdmFyaWFibGUgaXMgb25seSBpZiB3ZSBkZWFsIHdpdGggYSBUQ1Agb3Ig
-VURQIHBhY2tldCwKYnV0IGFzIHRoZSBjaGVjayBzdXJyb3VuZGluZyBpdHMgdXNhZ2UgdGVzdHMg
-Zm9yIHNrYl9pc19nc28oKQppbnN0ZWFkLCB0aGUgY29tcGlsZXIgaGFzIG5vIGlkZWEgaWYgdGhl
-IHZhcmlhYmxlIGlzIGluaXRpYWxpemVkCm9yIG5vdCBhdCB0aGF0IHBvaW50OgoKZHJpdmVycy9u
-ZXQvaHlwZXJ2L25ldHZzY19kcnYuYzogSW4gZnVuY3Rpb24g4oCYbmV0dnNjX3N0YXJ0X3htaXTi
-gJk6CmRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmM6NDk0OjQyOiBlcnJvcjog4oCYaGRy
-X29mZnNldOKAmSBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1X
-ZXJyb3I9bWF5YmUtdW5pbml0aWFsaXplZF0KClRoaXMgYWRkcyBhbiBhZGRpdGlvbmFsIGNoZWNr
-IGZvciB0aGUgdHJhbnNwb3J0IHR5cGUsIHdoaWNoCnRlbGxzIHRoZSBjb21waWxlciB0aGF0IHRo
-aXMgcGF0aCBjYW5ub3QgaGFwcGVuLiBTaW5jZSB0aGUKZ2V0X25ldF90cmFuc3BvcnRfaW5mbygp
-IGZ1bmN0aW9uIHNob3VsZCBhbHdheXMgYmUgaW5saW5lZApoZXJlLCBJIGRvbid0IGV4cGVjdCB0
-aGlzIHRvIHJlc3VsdCBpbiBhZGRpdGlvbmFsIHJ1bnRpbWUKY2hlY2tzLgoKU2lnbmVkLW9mZi1i
-eTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KLS0tCiBkcml2ZXJzL25ldC9oeXBlcnYv
-bmV0dnNjX2Rydi5jIHwgMiArLQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRl
-bGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYyBi
-L2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMKaW5kZXggZjA5MTliZC4uNWQ2ZTc1YSAx
-MDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYworKysgYi9kcml2ZXJz
-L25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jCkBAIC00NDcsNyArNDQ3LDcgQEAgc3RhdGljIGludCBu
-ZXR2c2Nfc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAq
-bmV0KQogCSAqIFNldHVwIHRoZSBzZW5kc2lkZSBjaGVja3N1bSBvZmZsb2FkIG9ubHkgaWYgdGhp
-cyBpcyBub3QgYQogCSAqIEdTTyBwYWNrZXQuCiAJICovCi0JaWYgKHNrYl9pc19nc28oc2tiKSkg
-eworCWlmICgobmV0X3RyYW5zX2luZm8gJiAoSU5GT19UQ1AgfCBJTkZPX1VEUCkpICYmIHNrYl9p
-c19nc28oc2tiKSkgewogCQlzdHJ1Y3QgbmRpc190Y3BfbHNvX2luZm8gKmxzb19pbmZvOwogCiAJ
-CXJuZGlzX21zZ19zaXplICs9IE5ESVNfTFNPX1BQSV9TSVpFOwotLSAKMi45LjAKCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcgbGlz
-dApkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhkcml2
-ZXJwcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
+gcc found a reference to an uninitialized variable in the error handling
+of bcm_enet_open, introduced by a recent cleanup:
+
+drivers/net/ethernet/broadcom/bcm63xx_enet.c: In function 'bcm_enet_open'
+drivers/net/ethernet/broadcom/bcm63xx_enet.c:1129:2: warning: 'phydev' may be used uninitialized in this function [-Wmaybe-uninitialized]
+
+This makes the use of that variable conditional, so we only reference it
+here after it has been used before. Unlike my normal patches, I have not
+build-tested this one, as I don't currently have mips test in my
+randconfig setup.
+
+Fixes: 625eb8667d6f ("net: ethernet: broadcom: bcm63xx: use phydev from struct net_device")
+Cc: Philippe Reynes <tremyfr@gmail.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index ae364c7..5370909 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1126,7 +1126,8 @@ static int bcm_enet_open(struct net_device *dev)
+ 	free_irq(dev->irq, dev);
+ 
+ out_phy_disconnect:
+-	phy_disconnect(phydev);
++	if (priv->has_phy)
++		phy_disconnect(phydev);
+ 
+ 	return ret;
+ }
+-- 
+2.9.0
