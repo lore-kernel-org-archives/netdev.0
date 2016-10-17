@@ -1,58 +1,47 @@
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Subject: Re: [PATCH 10/10] mm: replace access_process_vm() write parameter
- with gup_flags
-Date: Mon, 17 Oct 2016 11:23:52 +0200
-Message-ID: <20161017092352.GH30704@axis.com>
-References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-11-lstoakes@gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH v4] mac80211: move extra crypto data off the stack
+Date: Mon, 17 Oct 2016 11:23:46 +0200
+Message-ID: <1476696226.19992.13.camel@sipsolutions.net>
+References: <1476693195-14071-1-git-send-email-johannes@sipsolutions.net>
+         <CAKv+Gu-aZhCBvnEQoZUZLDPXCrvgxO1pSd=6EHz+tMB+dFz5hg@mail.gmail.com>
+         (sfid-20161017_111430_166768_740CD0F3)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, linux-mips@linux-mips.org,
-	linux-fbdev@vger.kernel.org, Jan Kara <jack@suse.cz>,
-	kvm@vger.kernel.org, linux-sh@vger.kernel.org,
-	Dave Hansen <dave.hansen@linux.intel.com>,
-	dri-devel@lists.freedesktop.org, netdev@vger.kernel.org,
-	sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org,
-	x86@kernel.org, Hugh Dickins <hughd@google.com>,
-	linux-media@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	intel-gfx@lists.freedesktop.org,
-	adi-buildroot-devel@lists.sourceforge.net,
-	ceph-devel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-cris-kernel@axis.com,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org,
-To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20161013002020.3062-11-lstoakes@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+To: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKv+Gu-aZhCBvnEQoZUZLDPXCrvgxO1pSd=6EHz+tMB+dFz5hg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20161017_111430_166768_740CD0F3)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 13, 2016 at 01:20:20AM +0100, Lorenzo Stoakes wrote:
-> This patch removes the write parameter from access_process_vm() and replaces it
-> with a gup_flags parameter as use of this function previously _implied_
-> FOLL_FORCE, whereas after this patch callers explicitly pass this flag.
+
+> Apologies for going back and forth on this, but it appears there may
+> be another way to deal with this.
 > 
-> We make this explicit as use of FOLL_FORCE can result in surprising behaviour
-> (and hence bugs) within the mm subsystem.
-> 
-> Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
-> ---
->  arch/cris/arch-v32/kernel/ptrace.c |  4 ++--
+> First of all, we only need this handling for the authenticated data,
 
-For the CRIS part:
+Are you sure b_0/j_0 aren't needed? We pass those
+to aead_request_set_crypt(), and I wasn't sure what that really did
+internally, perhaps like the internal data.
 
-Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
+Testing with that on the stack does seem to work, in fact.
 
-/^JN - Jesper Nilsson
--- 
-               Jesper Nilsson -- jesper.nilsson@axis.com
+Surely we need zero for GMAC though, since we also put that into the sg
+list. Thus for GMAC we definitely need 20+16 bytes, and since I round
+up to a cacheline (at least on SMP) it doesn't really matter that we
+could get 36 instead of the 48 I have now.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> and only for CCM and GCM, not CMAC (which does not use scatterlists
+> at all, it simply calls the AES cipher directly)
+
+I didn't modify CMAC, I think, only GMAC, which also uses scatterlists.
+
+> So that leaves a fixed 20 bytes for GCM and fixed 32 bytes for CCM,
+
+and 36 for GMAC :)
+
+johannes
