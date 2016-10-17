@@ -1,74 +1,65 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 01/28] [v2] netfilter: nf_tables: avoid uninitialized variable warning
-Date: Tue, 18 Oct 2016 00:05:30 +0200
-Message-ID: <20161017220557.1688282-1-arnd@arndb.de>
+Subject: [PATCH 19/28] brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
+Date: Tue, 18 Oct 2016 00:13:40 +0200
+Message-ID: <20161017221355.1861551-7-arnd@arndb.de>
 References: <20161017220342.1627073-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: Linus Torvalds <torvalds@linux-foundation.org>,
         linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        "Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
+To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.130]:49231 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754096AbcJQWQO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 18:16:14 -0400
 In-Reply-To: <20161017220342.1627073-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The newly added nft_range_eval() function handles the two possible
-nft range operations, but as the compiler warning points out,
-any unexpected value would lead to the 'mismatch' variable being
-used without being initialized:
+A bugfix added a sanity check around the assignment and use of the
+'is_11d' variable, which looks correct to me, but as the function is
+rather complex already, this confuses the compiler to the point where
+it can no longer figure out if the variable is always initialized
+correctly:
 
-net/netfilter/nft_range.c: In function 'nft_range_eval':
-net/netfilter/nft_range.c:45:5: error: 'mismatch' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+brcm80211/brcmfmac/cfg80211.c: In function ‘brcmf_cfg80211_start_ap’:
+brcm80211/brcmfmac/cfg80211.c:4586:10: error: ‘is_11d’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-This removes the variable in question and instead moves the
-condition into the switch itself, which is potentially more
-efficient than adding a bogus 'default' clause as in my
-first approach, and is nicer than using the 'uninitialized_var'
-macro.
+This adds an initialization for the newly introduced case in which
+the variable should not really be used, in order to make the warning
+go away.
 
-Fixes: 0f3cd9b36977 ("netfilter: nf_tables: add range expression")
-Link: http://patchwork.ozlabs.org/patch/677114/
+Fixes: b3589dfe0212 ("brcmfmac: ignore 11d configuration errors")
+Cc: Hante Meuleman <hante.meuleman@broadcom.com>
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>
+Cc: Kalle Valo <kvalo@codeaurora.org>
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- net/netfilter/nft_range.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-
-diff --git a/net/netfilter/nft_range.c b/net/netfilter/nft_range.c
-index c6d5358..2dd80f4 100644
---- a/net/netfilter/nft_range.c
-+++ b/net/netfilter/nft_range.c
-@@ -28,22 +28,20 @@ static void nft_range_eval(const struct nft_expr *expr,
- 			 const struct nft_pktinfo *pkt)
- {
- 	const struct nft_range_expr *priv = nft_expr_priv(expr);
--	bool mismatch;
- 	int d1, d2;
- 
- 	d1 = memcmp(&regs->data[priv->sreg], &priv->data_from, priv->len);
- 	d2 = memcmp(&regs->data[priv->sreg], &priv->data_to, priv->len);
- 	switch (priv->op) {
- 	case NFT_RANGE_EQ:
--		mismatch = (d1 < 0 || d2 > 0);
-+		if (d1 < 0 || d2 > 0)
-+			regs->verdict.code = NFT_BREAK;
- 		break;
- 	case NFT_RANGE_NEQ:
--		mismatch = (d1 >= 0 && d2 <= 0);
-+		if (d1 >= 0 && d2 <= 0)
-+			regs->verdict.code = NFT_BREAK;
- 		break;
- 	}
--
--	if (mismatch)
--		regs->verdict.code = NFT_BREAK;
- }
- 
- static const struct nla_policy nft_range_policy[NFTA_RANGE_MAX + 1] = {
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+index b777e1b..78d9966 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+@@ -4516,7 +4516,7 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
+ 	/* store current 11d setting */
+ 	if (brcmf_fil_cmd_int_get(ifp, BRCMF_C_GET_REGULATORY,
+ 				  &ifp->vif->is_11d)) {
+-		supports_11d = false;
++		is_11d = supports_11d = false;
+ 	} else {
+ 		country_ie = brcmf_parse_tlvs((u8 *)settings->beacon.tail,
+ 					      settings->beacon.tail_len,
 -- 
 2.9.0
