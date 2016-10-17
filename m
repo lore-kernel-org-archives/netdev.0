@@ -1,93 +1,49 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH V2 RFC 2/2] ixgbe: ixgbe_atr() compute l4_proto only if non-paged data has network/transport headers
-Date: Mon, 17 Oct 2016 10:25:07 -0700
-Message-ID: <ff985fc71358a90f7a97ca176abb96845852269e.1476724638.git.sowmini.varadhan@oracle.com>
-References: <cover.1476724638.git.sowmini.varadhan@oracle.com>
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: sowmini.varadhan@oracle.com, alexander.h.duyck@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 2/2] net: deprecate eth_change_mtu, remove
+ usage
+Date: Mon, 17 Oct 2016 13:25:53 -0400 (EDT)
+Message-ID: <20161017.132553.1015830249902227215.davem@davemloft.net>
+References: <20161017180027.4936fa15@jkicinski-Precision-T1700>
+        <20161017.131513.135103913948374087.davem@davemloft.net>
+        <20161017182049.4be802d1@jkicinski-Precision-T1700>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarod@redhat.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: kubakici@wp.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:25572 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938599AbcJQRZZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 13:25:25 -0400
-In-Reply-To: <cover.1476724638.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1476724638.git.sowmini.varadhan@oracle.com>
-References: <cover.1476724638.git.sowmini.varadhan@oracle.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58248 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030392AbcJQRZz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 13:25:55 -0400
+In-Reply-To: <20161017182049.4be802d1@jkicinski-Precision-T1700>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For some Tx paths (e.g., tpacket_snd()), ixgbe_atr may be
-passed down an sk_buff that has the network and transport
-header in the paged data, so it needs to make sure these
-headers are available in the headlen bytes to calculate the
-l4_proto.
+From: Jakub Kicinski <kubakici@wp.pl>
+Date: Mon, 17 Oct 2016 18:20:49 +0100
 
-This patch expect that network and transport headers are
-already available in the non-paged header dat.  The assumption
-is that the caller has set this up if l4_proto based Tx
-steering is desired.
+> Hm.  I must be missing something really obvious.  I just booted
+> net-next an hour ago and couldn't set MTU to anything larger than 1500
+> on either nfp or igb.  As far as I can read the code it will set the
+> max_mtu to 1500 in setup_ether() but none of the jumbo-capable drivers
+> had been touched by Jarod so far...
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   18 ++++++++++++++++++
- 1 files changed, 18 insertions(+), 0 deletions(-)
+Indeed.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index eceb47b..2cc1dae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -54,6 +54,7 @@
- #include <net/pkt_cls.h>
- #include <net/tc_act/tc_gact.h>
- #include <net/tc_act/tc_mirred.h>
-+#include <net/vxlan.h>
- 
- #include "ixgbe.h"
- #include "ixgbe_common.h"
-@@ -7651,11 +7652,16 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 	/* snag network header to get L4 type and address */
- 	skb = first->skb;
- 	hdr.network = skb_network_header(skb);
-+	if (hdr.network <= skb->data || hdr.network >= skb_tail_pointer(skb))
-+		return;
- 	if (skb->encapsulation &&
- 	    first->protocol == htons(ETH_P_IP) &&
- 	    hdr.ipv4->protocol == IPPROTO_UDP) {
- 		struct ixgbe_adapter *adapter = q_vector->adapter;
- 
-+		if (skb_tail_pointer(skb) < hdr.network + VXLAN_HEADROOM)
-+			return;
-+
- 		/* verify the port is recognized as VXLAN */
- 		if (adapter->vxlan_port &&
- 		    udp_hdr(skb)->dest == adapter->vxlan_port)
-@@ -7666,15 +7672,27 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 			hdr.network = skb_inner_network_header(skb);
- 	}
- 
-+	/* Make sure we have at least [minimum IPv4 header + TCP]
-+	 * or [IPv6 header] bytes
-+	 */
-+	if (skb_tail_pointer(skb) < hdr.network + 40)
-+		return;
-+
- 	/* Currently only IPv4/IPv6 with TCP is supported */
- 	switch (hdr.ipv4->version) {
- 	case IPVERSION:
- 		/* access ihl as u8 to avoid unaligned access on ia64 */
- 		hlen = (hdr.network[0] & 0x0F) << 2;
-+		if (skb_tail_pointer(skb) < hdr.network + hlen +
-+					    sizeof(struct tcphdr))
-+			return;
- 		l4_proto = hdr.ipv4->protocol;
- 		break;
- 	case 6:
- 		hlen = hdr.network - skb->data;
-+		if (skb_tail_pointer(skb) < hdr.network + hlen +
-+					    sizeof(struct tcphdr))
-+			return;
- 		l4_proto = ipv6_find_hdr(skb, &hlen, IPPROTO_TCP, NULL, NULL);
- 		hlen -= hdr.network - skb->data;
- 		break;
--- 
-1.7.1
+Jarod, this doesn't work.
+
+I guess the idea was that if the driver overrides ndo_change_mtu and
+enforeced it's limits there, the driver would still work after your
+changes.
+
+But that isn't what is happening, look at the IGB example.
+
+It uses ether_setup(), which sets those new defaults, but now when
+the MTU is changed you enforce those default min/max before the
+driver's ->ndo_change_mtu() has a change to step in front and make
+the decision on it's own.
+
+This means your changes pretty much did indeed break a lot of
+drivers's ability to set larger than a 1500 byte MTU.
