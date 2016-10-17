@@ -1,169 +1,51 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH 0/9] net: add support for IPv6 Segment Routing
-Date: Mon, 17 Oct 2016 16:42:21 +0200
-Message-ID: <1476715350-18983-1-git-send-email-david.lebrun@uclouvain.be>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] net: wan: slic_ds26522: Use module_spi_driver to simplify the code
+Date: Mon, 17 Oct 2016 14:50:45 +0000
+Message-ID: <1476715845-27691-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Javier Martinez Canillas <javier@osg.samsung.com>,
+        Zhao Qiang <qiang.zhao@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:44826 "EHLO
-        smtp3.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933390AbcJQOqg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:46:36 -0400
-Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by smtp3.sgsi.ucl.ac.be (Postfix) with ESMTPS id 02C0167DB13
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 16:41:10 +0200 (CEST)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34331 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933143AbcJQOvB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:51:01 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 128so12949222pfz.1
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 07:51:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Segment Routing (SR) is a source routing paradigm, architecturally
-defined in draft-ietf-spring-segment-routing-09 [1]. The IPv6 flavor of
-SR is defined in draft-ietf-6man-segment-routing-header-02 [2].
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-The main idea is that an SR-enabled packet contains a list of segments,
-which represent mandatory waypoints. Each waypoint is called a segment
-endpoint. The SR-enabled packet is routed normally (e.g. shortest path)
-between the segment endpoints. A node that inserts an SRH into a packet
-is called an ingress node, and a node that is the last segment endpoint
-is called an egress node.
+module_spi_driver() makes the code simpler by eliminating
+boilerplate code.
 
->From an IPv6 viewpoint, an SR-enabled packet contains an IPv6 extension
-header, which is a Routing Header type 4, defined as follows:
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/wan/slic_ds26522.c | 13 +------------
+ 1 file changed, 1 insertion(+), 12 deletions(-)
 
-struct ipv6_sr_hdr {
-        __u8    nexthdr;
-        __u8    hdrlen;
-        __u8    type;
-        __u8    segments_left;
-        __u8    first_segment;
-        __be16  flags;
-        __u8    reserved;
-
-        struct in6_addr segments[0];
-} __attribute__((packed));
-
-The first 4 bytes of the SRH is consistent with the Routing Header
-definition in RFC 2460. The type is set to `4' (SRH).
-
-Each segment is encoded as an IPv6 address. The segments are encoded in
-reverse order: segments[0] is the last segment of the path, and
-segments[first_segment] is the first segment of the path.
-
-segments[segments_left] points to the currently active segment and
-segments_left is decremented at each segment endpoint.
-
-There exist two ways for a packet to receive an SRH, we call them
-encap mode and inline mode. In the encap mode, the packet is encapsulated
-in an outer IPv6 header that contains the SRH. The inner (original) packet
-is not modified. A virtual tunnel is thus created between the ingress node
-(the node that encapsulates) and the egress node (the last segment of the path).
-Once an encapsulated SR packet reaches the egress node, the node decapsulates
-the packet and performs a routing decision on the inner packet. This kind of
-SRH insertion is intended to use for routers that encapsulates in-transit
-packet.
-
-The second SRH insertion method, the inline mode, acts by directly inserting
-the SRH right after the IPv6 header of the original packet. For this method,
-if a particular flag (SR6_FLAG_CLEANUP) is set, then the penultimate segment
-endpoint must strip the SRH from the packet before forwarding it to the last
-segment endpoint. This insertion method is intended to use for endhosts,
-however it is also used for in-transit packets by some industry actors.
-
-Finally, the SRH may contain TLVs after the segments list. Several types of
-TLVs are defined, but we currently consider only the HMAC TLV. This TLV is
-an answer to the deprecation of the RH0 and enables to ensure the authenticity
-and integrity of the SRH. The HMAC text contains the flags, the first_segment
-index, the full list of segments, and the source address of the packet. While
-SR is intended to use mostly within a single administrative domain, the HMAC
-TLV allows to verify SR packets coming from an untrusted source.
-
-This patches series implements support for the IPv6 flavor of SR and is
-logically divided into the following components:
-
-        (1) Data plane support (patch 01). This patch adds a function
-            in net/ipv6/exthdrs.c to handle the Routing Header type 4.
-            It enables the kernel to act as a segment endpoint, by supporting
-            the following operations: decrementation of the segments_left field,
-            cleanup flag support (removal of the SRH if we are the penultimate
-            segment endpoint) and decapsulation of the inner packet as an egress
-            node.
-        (2) Control plane support (patches 02..03 and 07..09). These patches enables
-            to insert SRH on locally emitted and/or forwarded packets, both with
-            encap mode and with inline mode. The SRH insertion is controlled through
-            the lightweight tunnels mechanism. Furthermore, patch 08 enables the
-            applications to insert an SRH on a per-socket basis, through the
-            setsockopt() system call. The mechanism to specify a per-socket
-            Routing Header was already defined for RH0 and no special modification
-            was performed on this side. However, the code to actually push the RH
-            onto the packets had to be adapted for the SRH specifications.
-        (3) HMAC support (patches 04..06). These patches adds the support of the
-            HMAC TLV verification for the dataplane part, and generation for
-            the control plane part. Two hashing algorithms are supported
-            (SHA-1 as legacy and SHA-256 as required by the IETF draft), but
-            additional algorithms can be easily supported by simply adding an
-            entry into an array.
-
-[1] https://tools.ietf.org/html/draft-ietf-spring-segment-routing-09
-[2] https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-02
-
-David Lebrun (9):
-  ipv6: implement dataplane support for rthdr type 4 (Segment Routing
-    Header)
-  ipv6: sr: add code base for control plane support of SR-IPv6
-  ipv6: sr: add support for SRH encapsulation and injection with
-    lwtunnels
-  ipv6: sr: add core files for SR HMAC support
-  ipv6: sr: implement API to control SR HMAC structures
-  ipv6: sr: add calls to verify and insert HMAC signatures
-  ipv6: add source address argument for ipv6_push_nfrag_opts
-  ipv6: sr: add support for SRH injection through setsockopt
-  ipv6: sr: add documentation file for per-interface sysctls
-
- Documentation/networking/seg6-sysctl.txt |  18 ++
- include/linux/ipv6.h                     |   4 +
- include/linux/seg6.h                     |   6 +
- include/linux/seg6_genl.h                |   6 +
- include/linux/seg6_hmac.h                |   6 +
- include/linux/seg6_iptunnel.h            |   6 +
- include/net/ipv6.h                       |   3 +-
- include/net/netns/ipv6.h                 |   3 +
- include/net/seg6.h                       |  51 ++++
- include/net/seg6_hmac.h                  |  62 +++++
- include/uapi/linux/ipv6.h                |   3 +
- include/uapi/linux/lwtunnel.h            |   1 +
- include/uapi/linux/seg6.h                |  46 ++++
- include/uapi/linux/seg6_genl.h           |  33 +++
- include/uapi/linux/seg6_hmac.h           |  20 ++
- include/uapi/linux/seg6_iptunnel.h       |  33 +++
- net/core/lwtunnel.c                      |   2 +
- net/ipv6/Kconfig                         |  13 +
- net/ipv6/Makefile                        |   1 +
- net/ipv6/addrconf.c                      |  28 ++
- net/ipv6/exthdrs.c                       | 217 +++++++++++++++-
- net/ipv6/ip6_output.c                    |   5 +-
- net/ipv6/ip6_tunnel.c                    |   2 +-
- net/ipv6/ipv6_sockglue.c                 |   4 +
- net/ipv6/seg6.c                          | 363 ++++++++++++++++++++++++++
- net/ipv6/seg6_hmac.c                     | 432 +++++++++++++++++++++++++++++++
- net/ipv6/seg6_iptunnel.c                 | 328 +++++++++++++++++++++++
- 27 files changed, 1686 insertions(+), 10 deletions(-)
- create mode 100644 Documentation/networking/seg6-sysctl.txt
- create mode 100644 include/linux/seg6.h
- create mode 100644 include/linux/seg6_genl.h
- create mode 100644 include/linux/seg6_hmac.h
- create mode 100644 include/linux/seg6_iptunnel.h
- create mode 100644 include/net/seg6.h
- create mode 100644 include/net/seg6_hmac.h
- create mode 100644 include/uapi/linux/seg6.h
- create mode 100644 include/uapi/linux/seg6_genl.h
- create mode 100644 include/uapi/linux/seg6_hmac.h
- create mode 100644 include/uapi/linux/seg6_iptunnel.h
- create mode 100644 net/ipv6/seg6.c
- create mode 100644 net/ipv6/seg6_hmac.c
- create mode 100644 net/ipv6/seg6_iptunnel.c
-
--- 
-2.7.3
+diff --git a/drivers/net/wan/slic_ds26522.c b/drivers/net/wan/slic_ds26522.c
+index b776a0a..8f782f1 100644
+--- a/drivers/net/wan/slic_ds26522.c
++++ b/drivers/net/wan/slic_ds26522.c
+@@ -249,15 +249,4 @@ static struct spi_driver slic_ds26522_driver = {
+ 	.id_table = slic_ds26522_id,
+ };
+ 
+-static int __init slic_ds26522_init(void)
+-{
+-	return spi_register_driver(&slic_ds26522_driver);
+-}
+-
+-static void __exit slic_ds26522_exit(void)
+-{
+-	spi_unregister_driver(&slic_ds26522_driver);
+-}
+-
+-module_init(slic_ds26522_init);
+-module_exit(slic_ds26522_exit);
++module_spi_driver(slic_ds26522_driver);
