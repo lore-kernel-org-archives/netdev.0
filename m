@@ -1,405 +1,293 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH 1/9] ipv6: implement dataplane support for rthdr type 4
- (Segment Routing Header)
-Date: Mon, 17 Oct 2016 10:01:00 -0700
-Message-ID: <CALx6S35sU+aw3UvMTknj8SjJP4O=Q-9eVV3OC640Qzces_eE7w@mail.gmail.com>
-References: <1476715350-18983-1-git-send-email-david.lebrun@uclouvain.be> <1476715350-18983-2-git-send-email-david.lebrun@uclouvain.be>
+From: Jay Smith <jay@kentik.com>
+Subject: Re: UDP wierdness around skb_copy_and_csum_datagram_msg()
+Date: Mon, 17 Oct 2016 10:10:34 -0700
+Message-ID: <87d1iyvr3p.fsf@kentik.com>
+References: <CAA3=++__5iwkyyCvSCWJS_b=pBXg=CTYikGgLSh40dkDaY82vg@mail.gmail.com> <3897844.9kvF4Wy8aS@debian64> <87a8epp9ya.fsf@kentik.com> <2193954.GuvoBo3fQP@debian64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Lebrun <david.lebrun@uclouvain.be>
+Content-Type: text/plain
+Cc: Jay Smith <jay@kentik.com>, Alan Curry <rlwinm@sdf.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        "davem\@davemloft.net" <davem@davemloft.net>
+To: Christian Lamparter <chunkeey@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:36571 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932489AbcJQRBC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 13:01:02 -0400
-Received: by mail-qt0-f193.google.com with SMTP id y38so6444909qta.3
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 10:01:02 -0700 (PDT)
-In-Reply-To: <1476715350-18983-2-git-send-email-david.lebrun@uclouvain.be>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36759 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932489AbcJQRLU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 13:11:20 -0400
+Received: by mail-pf0-f182.google.com with SMTP id e6so81172956pfk.3
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 10:11:20 -0700 (PDT)
+In-reply-to: <2193954.GuvoBo3fQP@debian64>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 17, 2016 at 7:42 AM, David Lebrun <david.lebrun@uclouvain.be> wrote:
-> Implement minimal support for processing of SR-enabled packets
-> as described in
-> https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-02.
->
-> This patch implements the following operations:
-> - Intermediate segment endpoint: incrementation of active segment and rerouting.
-> - Egress for SR-encapsulated packets: decapsulation of outer IPv6 header + SRH
->   and routing of inner packet.
-> - Cleanup flag support for SR-inlined packets: removal of SRH if we are the
->   penultimate segment endpoint.
->
-> A per-interface sysctl seg6_enabled is provided, to accept/deny SR-enabled
-> packets. Default is deny.
->
-> This patch does not provide support for HMAC-signed packets.
->
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
-> ---
->  include/linux/ipv6.h      |   3 +
->  include/linux/seg6.h      |   6 ++
->  include/uapi/linux/ipv6.h |   2 +
->  include/uapi/linux/seg6.h |  46 +++++++++++++++
->  net/ipv6/Kconfig          |  13 +++++
->  net/ipv6/addrconf.c       |  18 ++++++
->  net/ipv6/exthdrs.c        | 140 ++++++++++++++++++++++++++++++++++++++++++++++
->  7 files changed, 228 insertions(+)
->  create mode 100644 include/linux/seg6.h
->  create mode 100644 include/uapi/linux/seg6.h
->
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index 7e9a789..75395ad 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -64,6 +64,9 @@ struct ipv6_devconf {
->         } stable_secret;
->         __s32           use_oif_addrs_only;
->         __s32           keep_addr_on_down;
-> +#ifdef CONFIG_IPV6_SEG6
-> +       __s32           seg6_enabled;
-> +#endif
->
->         struct ctl_table_header *sysctl_header;
->  };
-> diff --git a/include/linux/seg6.h b/include/linux/seg6.h
-> new file mode 100644
-> index 0000000..7a66d2b
-> --- /dev/null
-> +++ b/include/linux/seg6.h
-> @@ -0,0 +1,6 @@
-> +#ifndef _LINUX_SEG6_H
-> +#define _LINUX_SEG6_H
-> +
-> +#include <uapi/linux/seg6.h>
-> +
-> +#endif
-> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-> index 8c27723..7ff1d65 100644
-> --- a/include/uapi/linux/ipv6.h
-> +++ b/include/uapi/linux/ipv6.h
-> @@ -39,6 +39,7 @@ struct in6_ifreq {
->  #define IPV6_SRCRT_STRICT      0x01    /* Deprecated; will be removed */
->  #define IPV6_SRCRT_TYPE_0      0       /* Deprecated; will be removed */
->  #define IPV6_SRCRT_TYPE_2      2       /* IPv6 type 2 Routing Header   */
-> +#define IPV6_SRCRT_TYPE_4      4       /* Segment Routing with IPv6 */
->
->  /*
->   *     routing header
-> @@ -178,6 +179,7 @@ enum {
->         DEVCONF_DROP_UNSOLICITED_NA,
->         DEVCONF_KEEP_ADDR_ON_DOWN,
->         DEVCONF_RTR_SOLICIT_MAX_INTERVAL,
-> +       DEVCONF_SEG6_ENABLED,
->         DEVCONF_MAX
->  };
->
-> diff --git a/include/uapi/linux/seg6.h b/include/uapi/linux/seg6.h
-> new file mode 100644
-> index 0000000..9f9e157
-> --- /dev/null
-> +++ b/include/uapi/linux/seg6.h
-> @@ -0,0 +1,46 @@
-> +/*
-> + *  SR-IPv6 implementation
-> + *
-> + *  Author:
-> + *  David Lebrun <david.lebrun@uclouvain.be>
-> + *
-> + *
-> + *  This program is free software; you can redistribute it and/or
-> + *      modify it under the terms of the GNU General Public License
-> + *      as published by the Free Software Foundation; either version
-> + *      2 of the License, or (at your option) any later version.
-> + */
-> +
-> +#ifndef _UAPI_LINUX_SEG6_H
-> +#define _UAPI_LINUX_SEG6_H
-> +
-> +/*
-> + * SRH
-> + */
-> +struct ipv6_sr_hdr {
-> +       __u8    nexthdr;
-> +       __u8    hdrlen;
-> +       __u8    type;
-> +       __u8    segments_left;
-> +       __u8    first_segment;
-> +       __be16  flags;
 
-Bad alignment for 16 bit field could be unpleasant on some
-architectures. Might be better to split this into to u8's, defined
-flags are only in first eight bits anyway.
+Trying to revive this thread.
 
-> +       __u8    reserved;
-> +
-> +       struct in6_addr segments[0];
-> +} __attribute__((packed));
-> +
-> +#define SR6_FLAG_CLEANUP       (1 << 15)
-> +#define SR6_FLAG_PROTECTED     (1 << 14)
-> +#define SR6_FLAG_OAM           (1 << 13)
-> +#define SR6_FLAG_ALERT         (1 << 12)
-> +#define SR6_FLAG_HMAC          (1 << 11)
-> +
-> +#define SR6_TLV_INGRESS                1
-> +#define SR6_TLV_EGRESS         2
-> +#define SR6_TLV_OPAQUE         3
-> +#define SR6_TLV_PADDING                4
-> +#define SR6_TLV_HMAC           5
-> +
-> +#define sr_get_flags(srh) (be16_to_cpu((srh)->flags))
-> +
-> +#endif
-> diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-> index 2343e4f..691c318 100644
-> --- a/net/ipv6/Kconfig
-> +++ b/net/ipv6/Kconfig
-> @@ -289,4 +289,17 @@ config IPV6_PIMSM_V2
->           Support for IPv6 PIM multicast routing protocol PIM-SMv2.
->           If unsure, say N.
->
-> +config IPV6_SEG6
-> +       bool "IPv6: Segment Routing support"
-> +       depends on IPV6
-> +       select CRYPTO_HMAC
-> +       select CRYPTO_SHA1
-> +       select CRYPTO_SHA256
-> +       ---help---
-> +         Experimental support for IPv6 Segment Routing dataplane as defined
+To review:  skb_copy_and_csum_datagram_msg() pretty clearly doesn't do
+the right thing since it started using an iov_iter to copy into the
+user's iovec.  In particular, if it encounters a datagram that fails the
+checksum, the iov_iter continues to point to the end of the failed
+datagram's data, and that data makes it out to user-space.
 
-I don't think calling this experimental is relevant.
+I'd previously sent a test program that consistenly reproduced the UDP(v4)
+symptoms of this problem [0].  I've now also taken Christian's netem
+suggestion and written a quick program that sends known data over
+loopback TCP from one thread and reads it from another.  It optionally
+sets up a netem qdisc that corrupts 1% of packets.  As expected, even
+with corruption, tcp delivers correct data to the user on pre-3.19
+kernels; on 3.19 and later, long transfers usually see corruptions.
+(Source for the TCP test program below.)
 
-> +         in IETF draft-ietf-6man-segment-routing-header-02. This option
-> +         enables the processing of SR-enabled packets allowing the kernel
-> +         to act as a segment endpoint (intermediate or egress). It also
-> +         enables an API for the kernel to act as an ingress SR router.
-> +
->  endif # IPV6
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index d8983e1..42c0ffb 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -239,6 +239,9 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
->         .use_oif_addrs_only     = 0,
->         .ignore_routes_with_linkdown = 0,
->         .keep_addr_on_down      = 0,
-> +#ifdef CONFIG_IPV6_SEG6
-> +       .seg6_enabled           = 0,
-> +#endif
->  };
->
->  static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
-> @@ -285,6 +288,9 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
->         .use_oif_addrs_only     = 0,
->         .ignore_routes_with_linkdown = 0,
->         .keep_addr_on_down      = 0,
-> +#ifdef CONFIG_IPV6_SEG6
-> +       .seg6_enabled           = 0,
-> +#endif
->  };
->
->  /* Check if a valid qdisc is available */
-> @@ -4965,6 +4971,9 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
->         array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
->         array[DEVCONF_DROP_UNSOLICITED_NA] = cnf->drop_unsolicited_na;
->         array[DEVCONF_KEEP_ADDR_ON_DOWN] = cnf->keep_addr_on_down;
-> +#ifdef CONFIG_IPV6_SEG6
-> +       array[DEVCONF_SEG6_ENABLED] = cnf->seg6_enabled;
-> +#endif
->  }
->
->  static inline size_t inet6_ifla6_size(void)
-> @@ -6056,6 +6065,15 @@ static const struct ctl_table addrconf_sysctl[] = {
->                 .proc_handler   = proc_dointvec,
->
->         },
-> +#ifdef CONFIG_IPV6_SEG6
-> +       {
-> +               .procname       = "seg6_enabled",
-> +               .data           = &ipv6_devconf.seg6_enabled,
-> +               .maxlen         = sizeof(int),
-> +               .mode           = 0644,
-> +               .proc_handler   = proc_dointvec,
-> +       },
-> +#endif
->         {
->                 /* sentinel */
->         }
-> diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-> index 139ceb6..b31f811 100644
-> --- a/net/ipv6/exthdrs.c
-> +++ b/net/ipv6/exthdrs.c
-> @@ -47,6 +47,9 @@
->  #if IS_ENABLED(CONFIG_IPV6_MIP6)
->  #include <net/xfrm.h>
->  #endif
-> +#ifdef CONFIG_IPV6_SEG6
-> +#include <linux/seg6.h>
-> +#endif
->
->  #include <linux/uaccess.h>
->
-> @@ -286,6 +289,137 @@ static int ipv6_destopt_rcv(struct sk_buff *skb)
->         return -1;
->  }
->
-> +#ifdef CONFIG_IPV6_SEG6
-> +static int ipv6_srh_rcv(struct sk_buff *skb)
-> +{
-> +       struct in6_addr *addr = NULL, *last_addr = NULL, *active_addr = NULL;
-> +       struct inet6_skb_parm *opt = IP6CB(skb);
-> +       struct net *net = dev_net(skb->dev);
-> +       struct ipv6_sr_hdr *hdr;
-> +       struct inet6_dev *idev;
-> +       int cleanup = 0;
-> +       int accept_seg6;
-> +
-> +       hdr = (struct ipv6_sr_hdr *)skb_transport_header(skb);
-> +
-> +       idev = __in6_dev_get(skb->dev);
-> +
-> +       accept_seg6 = net->ipv6.devconf_all->seg6_enabled;
-> +       if (accept_seg6 > idev->cnf.seg6_enabled)
-> +               accept_seg6 = idev->cnf.seg6_enabled;
-> +
-> +       if (!accept_seg6) {
-> +               kfree_skb(skb);
-> +               return -1;
-> +       }
-> +
-> +looped_back:
-> +       last_addr = hdr->segments;
-> +
-> +       if (hdr->segments_left > 0) {
-> +               if (hdr->nexthdr != NEXTHDR_IPV6 && hdr->segments_left == 1 &&
-> +                   sr_get_flags(hdr) & SR6_FLAG_CLEANUP)
-> +                       cleanup = 1;
-> +       } else {
-> +               if (hdr->nexthdr == NEXTHDR_IPV6) {
-> +                       int offset = (hdr->hdrlen + 1) << 3;
-> +
-> +                       if (!pskb_pull(skb, offset)) {
-> +                               kfree_skb(skb);
-> +                               return -1;
-> +                       }
-> +                       skb_postpull_rcsum(skb, skb_transport_header(skb),
-> +                                          offset);
-> +
-> +                       skb_reset_network_header(skb);
-> +                       skb_reset_transport_header(skb);
-> +                       skb->encapsulation = 0;
-> +
-> +                       __skb_tunnel_rx(skb, skb->dev, net);
-> +
-> +                       netif_rx(skb);
-> +                       return -1;
-> +               }
-> +
-> +               opt->srcrt = skb_network_header_len(skb);
-> +               opt->lastopt = opt->srcrt;
-> +               skb->transport_header += (hdr->hdrlen + 1) << 3;
-> +               opt->nhoff = (&hdr->nexthdr) - skb_network_header(skb);
-> +
-> +               return 1;
-> +       }
-> +
-> +       if (skb_cloned(skb)) {
-> +               if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
-> +                       __IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
-> +                                       IPSTATS_MIB_OUTDISCARDS);
-> +                       kfree_skb(skb);
-> +                       return -1;
-> +               }
-> +       }
-> +
-> +       if (skb->ip_summed == CHECKSUM_COMPLETE)
-> +               skb->ip_summed = CHECKSUM_NONE;
-> +
-Because the packet is being changed? Would it make sense to update the
-checksum complete value based on the changes being made. Consider the
-case that the next hop is local to the host (someone may try to
-implement network virtualization this way).
+I've also tried both test programs with the following patch:
 
-> +       hdr = (struct ipv6_sr_hdr *)skb_transport_header(skb);
-> +
-> +       active_addr = hdr->segments + hdr->segments_left;
-> +       hdr->segments_left--;
-> +       addr = hdr->segments + hdr->segments_left;
-> +
-> +       ipv6_hdr(skb)->daddr = *addr;
-> +
-> +       skb_push(skb, sizeof(struct ipv6hdr));
-> +
-> +       if (cleanup) {
-> +               int srhlen = (hdr->hdrlen + 1) << 3;
-> +               int nh = hdr->nexthdr;
-> +
-> +               memmove(skb_network_header(skb) + srhlen,
-> +                       skb_network_header(skb),
-> +                       (unsigned char *)hdr - skb_network_header(skb));
-> +               skb_pull(skb, srhlen);
-> +               skb->network_header += srhlen;
-> +               ipv6_hdr(skb)->nexthdr = nh;
-> +               ipv6_hdr(skb)->payload_len = htons(skb->len -
-> +                                                  sizeof(struct ipv6hdr));
-> +       }
-> +
-> +       skb_dst_drop(skb);
-> +
-> +       ip6_route_input(skb);
-> +
-> +       if (skb_dst(skb)->error) {
-> +               dst_input(skb);
-> +               return -1;
-> +       }
-> +
-> +       if (skb_dst(skb)->dev->flags & IFF_LOOPBACK) {
-> +               if (ipv6_hdr(skb)->hop_limit <= 1) {
-> +                       __IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
-> +                                       IPSTATS_MIB_INHDRERRORS);
-> +                       icmpv6_send(skb, ICMPV6_TIME_EXCEED,
-> +                                   ICMPV6_EXC_HOPLIMIT, 0);
-> +                       kfree_skb(skb);
-> +                       return -1;
-> +               }
-> +               ipv6_hdr(skb)->hop_limit--;
-> +
-> +               /* be sure that srh is still present before reinjecting */
-> +               if (!cleanup) {
-> +                       skb_pull(skb, sizeof(struct ipv6hdr));
-> +                       goto looped_back;
-> +               }
-> +               skb_set_transport_header(skb, sizeof(struct ipv6hdr));
-> +               IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
-> +       }
-> +
-> +       dst_input(skb);
-> +
-> +       return -1;
-> +}
-> +#endif
-> +
->  /********************************
->    Routing header.
->   ********************************/
-> @@ -326,6 +460,12 @@ static int ipv6_rthdr_rcv(struct sk_buff *skb)
->                 return -1;
->         }
->
-> +#ifdef CONFIG_IPV6_SEG6
-> +       /* segment routing */
-> +       if (hdr->type == IPV6_SRCRT_TYPE_4)
-> +               return ipv6_srh_rcv(skb);
-> +#endif
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index b7de71f..61da091 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -730,6 +730,7 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+ {
+        __wsum csum;
+        int chunk = skb->len - hlen;
++       struct iov_iter saved_iter;
+ 
+        if (!chunk)
+                return 0;
+@@ -741,11 +742,16 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+                        goto fault;
+        } else {
+                csum = csum_partial(skb->data, hlen, skb->csum);
++
++               /* save msg_iter state, so we can revert if csum fails. */
++               saved_iter = msg->msg_iter;
+                if (skb_copy_and_csum_datagram(skb, hlen, &msg->msg_iter,
+                                               chunk, &csum))
+                        goto fault;
+-               if (csum_fold(csum))
++               if (csum_fold(csum)) {
++                       msg->msg_iter = saved_iter;
+                        goto csum_error;
++               }
+                if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE))
+                        netdev_rx_csum_fault(skb->dev);
+        }
 
-This doesn't belong in one of the switch statements in ipv6_rthdr_rcv?
 
-> +
->  looped_back:
->         if (hdr->segments_left == 0) {
->                 switch (hdr->type) {
-> --
-> 2.7.3
->
+(This is essentially the same fix Alan previously sent [1], except that
+it uses struct assignment rather than memcpy'ing the struct iov_iter.)
+As expected, both UDP and TCP tests succeed under this fix.
+
+So I've missed whatever conversations happened off-list after Alan's
+original report.  But it appears to me that this patch completely
+resolves the csum/iov_iter problem for both TCP and UDP; I'm not sure I
+see what further problem we'd want to hold the fix off for?
+
+[0] https://www.spinics.net/lists/netdev/msg398026.html
+[1] https://patchwork.kernel.org/patch/9260733/
+
+
+New TCP test program:
+
+#include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+
+#include <netlink/route/tc.h>
+#include <netlink/route/qdisc.h>
+#include <netlink/route/qdisc/netem.h>
+
+int bytes = 0;
+struct sockaddr_in addr;
+socklen_t addrLen = sizeof(addr);  
+
+
+void *sender(void *ignore)
+{
+  int send = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (send < 0)
+  {
+    fprintf(stderr, "failed to create sending socket (err=%d: %s)\n", errno, strerror(errno));
+    exit(1);
+  }
+
+  int ret = connect(send, (struct sockaddr *) &addr, addrLen);
+  if (ret != 0)
+  {
+    fprintf(stderr, "failed to connect sending socket (err=%d: %s)\n", errno, strerror(errno));
+    exit(1);
+  }
+
+  int i = 0;
+  while (i < bytes)
+  {
+#define OUT_MESSAGE  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    int w = write(send, OUT_MESSAGE, strlen(OUT_MESSAGE));
+    if (w < 0)
+    {
+      fprintf(stdout, "failed to write byte %d\n", i);
+      exit(1);
+    }
+    i += w;
+  }
+
+  close(send);
+}
+
+/* set a qdisc on lo with corruption_probability 1% (or remove if if on==0) */
+void setCorrupt(int on)
+{
+  struct nl_sock *sock;
+  struct nl_cache *cache;
+  struct rtnl_qdisc *q;
+  struct rtnl_link *link;
+  int if_index;
+
+  sock = nl_socket_alloc();
+  nl_connect(sock, NETLINK_ROUTE);
+
+  rtnl_link_alloc_cache(sock, AF_UNSPEC, &cache);
+  link = rtnl_link_get_by_name(cache, "lo");
+  if_index = rtnl_link_get_ifindex(link);
+
+  q = rtnl_qdisc_alloc();
+  rtnl_tc_set_ifindex(TC_CAST(q), if_index);
+  rtnl_tc_set_parent(TC_CAST(q), TC_H_ROOT);
+  rtnl_tc_set_handle(TC_CAST(q), TC_HANDLE(1, 0));
+  rtnl_tc_set_kind(TC_CAST(q), "netem");
+  rtnl_netem_set_corruption_probability(q, 0xffffffff / 100);
+  if (on)
+  {
+    int ret = rtnl_qdisc_add(sock, q, NLM_F_CREATE);
+    if (ret < 0)
+      {
+	fprintf(stderr, "rtnl_qdisc_add error: %s\n", nl_geterror(ret));
+	exit(1);
+      }
+  }
+  else
+  {
+    int ret = rtnl_qdisc_delete(sock, q);
+    if (ret < 0)
+      {
+	fprintf(stderr, "rtnl_qdisc_del error: %s\n", nl_geterror(ret));
+	exit(1);
+      }
+  }
+
+  rtnl_qdisc_put(q);
+  nl_socket_free(sock);
+  rtnl_link_put(link);
+  nl_cache_put(cache);
+}
+
+
+int main(int argc, char **argv)
+{
+  if (argc < 2)
+  {
+    fprintf(stderr, "Usage: tcpcsum <number-of-bytes> [corruption-rate]");
+    exit(1);
+  }
+
+  bytes = atoi(argv[1]);
+  int corrupt = argc > 2;
+
+  if (corrupt)
+  {
+    setCorrupt(1);
+  }
+
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+  addr.sin_port = htons(0);
+
+  int l = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (l < 0)
+  {
+    fprintf(stderr, "failed to create listening socket (err=%d: %s)\n", errno, strerror(errno));
+    goto exit;
+  }
+
+  int ret = bind(l, (struct sockaddr *) &addr, addrLen);
+  if (ret != 0)
+  {
+    fprintf(stderr, "failed to bind listening socket socket (err=%d: %s)\n", errno, strerror(errno));
+    goto exit;
+  }
+
+  ret = listen(l, 5);
+  if (ret != 0)
+  {
+    fprintf(stderr, "listen failed (err=%d: %s)\n", errno, strerror(errno));
+    goto exit;
+  }
+
+  ret = getsockname(l, (struct sockaddr *) &addr, &addrLen);
+  if (ret != 0)
+  {
+    fprintf(stderr, "getsockname failed for listening socket socket (err=%d: %s)\n", errno, strerror(errno));
+    goto exit;
+  }
+  else
+  {
+    printf("listening on port %d\n", ntohs(addr.sin_port));
+  }
+  
+  // Launch writer thread
+  pthread_t t;
+  ret = pthread_create(&t, NULL, &sender, NULL);
+  if (ret != 0)
+  {
+    fprintf(stderr, "pthread_create failed: (err=%d: %s)\n", errno, strerror(errno));
+    goto exit;
+  }
+
+  int recv = accept(l, NULL, NULL);
+  if (recv < 0)
+  {
+    fprintf(stderr, "accept failed: (err=%d: %s)\n", errno, strerror(errno));
+    goto exit;
+  }
+   
+#define BUFLEN  16384
+  char buf[BUFLEN];
+  int total = 0;
+  int r = 0;
+  while((r = read(recv, buf, BUFLEN)))
+  {
+    if(r < 0)
+    {
+      perror("read from socket");
+      return 1;
+    }
+
+    if (r == 0)
+    {
+      break;
+    }
+    
+    int i;
+    for(i= 0; i < r; i++, total++)
+    {
+      if (buf[i] != 'a')
+      {
+	fprintf(stdout, "data corruption found at byte %d: %c\n", total, buf[i]);
+	goto exit;
+      }
+    }
+  }
+
+  fprintf(stdout, "read %d bytes without data corruption\n", total);
+
+exit:
+  if (corrupt)
+  {
+    setCorrupt(0);
+  }
+  exit(0);
+}
