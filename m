@@ -1,17 +1,21 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 6/7] net: dsa: b53: Fix module autoload
-Date: Mon, 17 Oct 2016 11:05:45 -0300
-Message-ID: <1476713146-26632-7-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 7/7] net: dsa: bcm_sf2: Fix module autoload for OF registration
+Date: Mon, 17 Oct 2016 11:05:46 -0300
+Message-ID: <1476713146-26632-8-git-send-email-javier@osg.samsung.com>
 References: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
 Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+        netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+        Andrew Lunn <andrew@lunn.ch>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:35564
+        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934881AbcJQOG2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:06:28 -0400
 In-Reply-To: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 If the driver is built as a module, autoload won't work because the module
 alias information is not filled. So user-space can't match the registered
@@ -21,38 +25,34 @@ Export the module alias information using the MODULE_DEVICE_TABLE() macro.
 
 Before this patch:
 
-$ modinfo drivers/net/dsa/b53/b53_mmap.ko  | grep alias
-$
+$ modinfo drivers/net/dsa/bcm_sf2.ko | grep alias
+alias:          platform:brcm-sf2
 
 After this patch:
 
-$ modinfo drivers/net/dsa/b53/b53_mmap.ko  | grep alias
-alias:          of:N*T*Cbrcm,bcm63xx-switchC*
-alias:          of:N*T*Cbrcm,bcm63xx-switch
-alias:          of:N*T*Cbrcm,bcm6368-switchC*
-alias:          of:N*T*Cbrcm,bcm6368-switch
-alias:          of:N*T*Cbrcm,bcm6328-switchC*
-alias:          of:N*T*Cbrcm,bcm6328-switch
-alias:          of:N*T*Cbrcm,bcm3384-switchC*
-alias:          of:N*T*Cbrcm,bcm3384-switch
+$ modinfo drivers/net/dsa/bcm_sf2.ko | grep alias
+alias:          platform:brcm-sf2
+alias:          of:N*T*Cbrcm,bcm7445-switch-v4.0C*
+alias:          of:N*T*Cbrcm,bcm7445-switch-v4.0
 
 Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+
 ---
 
- drivers/net/dsa/b53/b53_mmap.c | 1 +
+ drivers/net/dsa/bcm_sf2.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/dsa/b53/b53_mmap.c b/drivers/net/dsa/b53/b53_mmap.c
-index 76fb8552c9d9..ef63d24fef81 100644
---- a/drivers/net/dsa/b53/b53_mmap.c
-+++ b/drivers/net/dsa/b53/b53_mmap.c
-@@ -256,6 +256,7 @@ static const struct of_device_id b53_mmap_of_table[] = {
- 	{ .compatible = "brcm,bcm63xx-switch" },
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index e218887f18b7..0427009bc924 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1158,6 +1158,7 @@ static const struct of_device_id bcm_sf2_of_match[] = {
+ 	{ .compatible = "brcm,bcm7445-switch-v4.0" },
  	{ /* sentinel */ },
  };
-+MODULE_DEVICE_TABLE(of, b53_mmap_of_table);
++MODULE_DEVICE_TABLE(of, bcm_sf2_of_match);
  
- static struct platform_driver b53_mmap_driver = {
- 	.probe = b53_mmap_probe,
+ static struct platform_driver bcm_sf2_driver = {
+ 	.probe	= bcm_sf2_sw_probe,
 -- 
 2.7.4
