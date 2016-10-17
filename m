@@ -1,51 +1,114 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] net: wan: slic_ds26522: Use module_spi_driver to simplify the code
-Date: Mon, 17 Oct 2016 14:50:45 +0000
-Message-ID: <1476715845-27691-1-git-send-email-weiyj.lk@gmail.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH 7/9] ipv6: add source address argument for ipv6_push_nfrag_opts
+Date: Mon, 17 Oct 2016 16:43:40 +0200
+Message-ID: <1476715422-19151-3-git-send-email-david.lebrun@uclouvain.be>
+References: <1476715350-18983-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Javier Martinez Canillas <javier@osg.samsung.com>,
-        Zhao Qiang <qiang.zhao@nxp.com>
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34331 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933143AbcJQOvB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:51:01 -0400
-Received: by mail-pf0-f196.google.com with SMTP id 128so12949222pfz.1
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 07:51:00 -0700 (PDT)
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:33792 "EHLO
+        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755042AbcJQOvf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:51:35 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp2.sgsi.ucl.ac.be (Postfix) with ESMTPS id 1F21167DD15
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 16:42:07 +0200 (CEST)
+In-Reply-To: <1476715350-18983-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+This patch prepares for insertion of SRH through setsockopt().
+The new source address argument is used when an HMAC field is
+present in the SRH, which must be filled. The HMAC signature
+process requires the source address as input text.
 
-module_spi_driver() makes the code simpler by eliminating
-boilerplate code.
-
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- drivers/net/wan/slic_ds26522.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
+ include/net/ipv6.h    | 3 ++-
+ net/ipv6/exthdrs.c    | 6 +++---
+ net/ipv6/ip6_output.c | 5 +++--
+ net/ipv6/ip6_tunnel.c | 2 +-
+ 4 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wan/slic_ds26522.c b/drivers/net/wan/slic_ds26522.c
-index b776a0a..8f782f1 100644
---- a/drivers/net/wan/slic_ds26522.c
-+++ b/drivers/net/wan/slic_ds26522.c
-@@ -249,15 +249,4 @@ static struct spi_driver slic_ds26522_driver = {
- 	.id_table = slic_ds26522_id,
- };
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8fed1cd..0a3622b 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -932,7 +932,8 @@ int ip6_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
+  */
  
--static int __init slic_ds26522_init(void)
--{
--	return spi_register_driver(&slic_ds26522_driver);
--}
--
--static void __exit slic_ds26522_exit(void)
--{
--	spi_unregister_driver(&slic_ds26522_driver);
--}
--
--module_init(slic_ds26522_init);
--module_exit(slic_ds26522_exit);
-+module_spi_driver(slic_ds26522_driver);
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+-			  u8 *proto, struct in6_addr **daddr_p);
++			  u8 *proto, struct in6_addr **daddr_p,
++			  struct in6_addr *saddr);
+ void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			 u8 *proto);
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 73b3743..c8a74a1 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -827,7 +827,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
+ 
+ static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
+ 			    struct ipv6_rt_hdr *opt,
+-			    struct in6_addr **addr_p)
++			    struct in6_addr **addr_p, struct in6_addr *saddr)
+ {
+ 	struct rt0_hdr *phdr, *ihdr;
+ 	int hops;
+@@ -861,10 +861,10 @@ static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv
+ 
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			  u8 *proto,
+-			  struct in6_addr **daddr)
++			  struct in6_addr **daddr, struct in6_addr *saddr)
+ {
+ 	if (opt->srcrt) {
+-		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr);
++		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr, saddr);
+ 		/*
+ 		 * IPV6_RTHDRDSTOPTS is ignored
+ 		 * unless IPV6_RTHDR is set (RFC3542).
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6001e78..ddc878d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -203,7 +203,8 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 		if (opt->opt_flen)
+ 			ipv6_push_frag_opts(skb, opt, &proto);
+ 		if (opt->opt_nflen)
+-			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
++			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop,
++					     &fl6->saddr);
+ 	}
+ 
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+@@ -1672,7 +1673,7 @@ struct sk_buff *__ip6_make_skb(struct sock *sk,
+ 	if (opt && opt->opt_flen)
+ 		ipv6_push_frag_opts(skb, opt, &proto);
+ 	if (opt && opt->opt_nflen)
+-		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
++		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst, &fl6->saddr);
+ 
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 6a66adb..1281e17 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1155,7 +1155,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 
+ 	if (encap_limit >= 0) {
+ 		init_tel_txopt(&opt, encap_limit);
+-		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
++		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
+ 	}
+ 
+ 	/* Calculate max headroom for all the headers and adjust
+-- 
+2.7.3
