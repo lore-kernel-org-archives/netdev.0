@@ -1,78 +1,78 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Mon, 17 Oct 2016 11:41:49 +0000
-Message-ID: <BL2PR07MB2306E247793F8600405A6E238DD00@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20161016081317.229c5c47@canb.auug.org.au>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH net-next 2/2] net: phy: Add PHY Auto/Mdi/Mdix set driver
+ for Microsemi PHYs.
+Date: Mon, 17 Oct 2016 17:16:42 +0530
+Message-ID: <20161017114601.GA25339@microsemi.com>
+References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1475064078-22310-3-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20160928202451.GC30728@lunn.ch>
+ <965514c2-8219-435a-e32f-114c361ff55b@gmail.com>
+Reply-To: <Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Amrani, Ram" <Ram.Amrani@cavium.com>,
-        Doug Ledford <dledford@redhat.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andrew Lunn <andrew@lunn.ch>, <netdev@vger.kernel.org>,
+        <Allan.Nielsen@microsemi.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0059.outbound.protection.outlook.com ([104.47.38.59]:5427
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0044.outbound.protection.outlook.com ([104.47.41.44]:4696
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933852AbcJQLlw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 07:41:52 -0400
-In-Reply-To: <20161016081317.229c5c47@canb.auug.org.au>
-Content-Language: en-US
+        id S932764AbcJQLrC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 07:47:02 -0400
+Content-Disposition: inline
+In-Reply-To: <965514c2-8219-435a-e32f-114c361ff55b@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Today's linux-next merge of the net tree got a conflict in:
+Hi Florian/Andrew,
 
-> =A0 drivers/net/ethernet/qlogic/Kconfig
+Thank you for review comments.
 
-> between commit:
+On Thu, Oct 06, 2016 at 03:57:32AM -0700, Florian Fainelli wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> On 09/28/2016 01:24 PM, Andrew Lunn wrote:
+> >>  static int vsc85xx_wol_set(struct phy_device *phydev,
+> >>                         struct ethtool_wolinfo *wol)
+> >>  {
+> >> @@ -227,6 +281,7 @@ static int vsc85xx_default_config(struct phy_device *phydev)
+> >>      int rc;
+> >>      u16 reg_val;
+> >>
+> >> +    phydev->mdix = ETH_TP_MDI_AUTO;
+> >
+> > Humm, interesting. The only other driver supporting mdix is the
+> > Marvell one. It does not do this, it leaves it to its default value of
+> > ETH_TP_MDI_INVALID. It does however interpret ETH_TP_MDI_INVALID as
+> > meaning as ETH_TP_MDI_AUTO.
+> >
+> > There needs to be consistency here. You either need to do the same as
+> > the Marvell driver, or you need to modify the Marvell driver to also
+> > set phydev->mdix to ETH_TP_MDI_AUTO.
+> >
+> > I don't yet know which of these two is the right thing to do.
+> >
+> > Florian?
+> 
+> It's really hard to tell because the other drivers I looked at do not
+> necessarily seem to be consistent either. Here, if the MDI status is
+> really auto, then this is the correct value to return, if it is unknown,
+> it should be ETH_TP_MDI_INVALID.
+> 
 
-> =A0 2e0cbc4dd077 ("qedr: Add RoCE driver framework")
+In mdix get status function, This value will be update as per 
+PHY mdix current status.
 
-> from Linus' tree and commit:
+Shall i configure "phydev->mdix = ETH_TP_MDI_AUTO" as default ?
 
-> =A0 0189efb8f4f8 ("qed*: Fix Kconfig dependencies with INFINIBAND_QEDR")
+Andrew, do you have any comments?
 
-> from the net tree.
+> For the Marvell PHY, it sounds like we should be able to determine what
+> was configured and return the correct MDI status value
+> --
+> Florian
 
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.=A0=20
-
-My bad; I've sent the fix to 'net' and was not aware that the
-qedr submission was already accepted in linux-rdma.
-
-> I also added this merge fix patch:
-
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Sun, 16 Oct 2016 08:09:42 +1100
-> Subject: [PATCH] qed*: merge fix for CONFIG_INFINIBAND_QEDR Kconfig move
-
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
-> =A0drivers/infiniband/hw/qedr/Kconfig | 1 +
-> =A01 file changed, 1 insertion(+)
-
-> diff --git a/drivers/infiniband/hw/qedr/Kconfig b/drivers/infiniband/hw/q=
-edr/Kconfig
-> index 7c06d85568d4..6c9f3923e838 100644
-> --- a/drivers/infiniband/hw/qedr/Kconfig
-> +++ b/drivers/infiniband/hw/qedr/Kconfig
-> @@ -2,6 +2,7 @@ config INFINIBAND_QEDR
-> =A0=A0=A0=A0=A0=A0=A0=A0 tristate "QLogic RoCE driver"
-> =A0=A0=A0=A0=A0=A0=A0=A0 depends on 64BIT && QEDE
-> =A0=A0=A0=A0=A0=A0=A0=A0 select QED_LL2
-> +=A0=A0=A0=A0=A0=A0 select QED_RDMA
-> =A0=A0=A0=A0=A0=A0=A0=A0 ---help---
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 This driver provides low-level InfiniBand =
-over Ethernet
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 support for QLogic QED host channel adapte=
-rs (HCAs).
-> --=20
-> 2.8.1
-
-Looks good; Thanks.=
+---
+Thanks,
+Raju.
