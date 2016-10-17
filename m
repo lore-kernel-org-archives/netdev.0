@@ -1,100 +1,91 @@
 From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH 3/8] tools: Sync tools/include/uapi/linux/bpf.h with the
- kernel
-Date: Mon, 17 Oct 2016 09:48:04 +0800
-Message-ID: <58042DD4.1050105@huawei.com>
+Subject: Re: [PATCH 4/8] tools lib bpf: export function to set type
+Date: Mon, 17 Oct 2016 09:56:39 +0800
+Message-ID: <58042FD7.3010008@huawei.com>
 References: <20161016211834.11732-1-eric@regit.org>
- <20161016211834.11732-4-eric@regit.org>
+ <20161016211834.11732-5-eric@regit.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: <linux-kernel@vger.kernel.org>, <ast@fb.com>
 To: Eric Leblond <eric@regit.org>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161016211834.11732-4-eric@regit.org>
+In-Reply-To: <20161016211834.11732-5-eric@regit.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
 On 2016/10/17 5:18, Eric Leblond wrote:
+> Current API was not allowing the user to set a type like socket
+> filter. To avoid a setter function for each type, the patch simply
+> exports a set function that takes the type in parameter.
+>
 > Signed-off-by: Eric Leblond <eric@regit.org>
+> ---
+>   tools/lib/bpf/libbpf.c | 19 +++++++++----------
+>   tools/lib/bpf/libbpf.h |  3 +++
+>   2 files changed, 12 insertions(+), 10 deletions(-)
+>
+> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+> index 90932f1..7cd341e 100644
+> --- a/tools/lib/bpf/libbpf.c
+> +++ b/tools/lib/bpf/libbpf.c
+> @@ -1336,26 +1336,25 @@ int bpf_program__nth_fd(struct bpf_program *prog, int n)
+>   	return fd;
+>   }
+>   
+> -static void bpf_program__set_type(struct bpf_program *prog,
+> -				  enum bpf_prog_type type)
+> +int bpf_program__set_type(struct bpf_program *prog, unsigned int type)
+>   {
+> +	if (!prog)
+> +		return -EINVAL;
+> +	if (type >= __MAX_BPF_PROG_TYPE)
+> +		return -EINVAL;
+> +
+>   	prog->type = type;
+> +	return 0;
+>   }
+>   
+>   int bpf_program__set_tracepoint(struct bpf_program *prog)
+>   {
+> -	if (!prog)
+> -		return -EINVAL;
+> -	bpf_program__set_type(prog, BPF_PROG_TYPE_TRACEPOINT);
+> -	return 0;
+> +	return bpf_program__set_type(prog, BPF_PROG_TYPE_TRACEPOINT);
+>   }
+>   
+>   int bpf_program__set_kprobe(struct bpf_program *prog)
+>   {
+> -	if (!prog)
+> -		return -EINVAL;
+> -	bpf_program__set_type(prog, BPF_PROG_TYPE_KPROBE);
+> -	return 0;
+> +	return bpf_program__set_type(prog, BPF_PROG_TYPE_KPROBE);
+>   }
+>   
+>   static bool bpf_program__is_type(struct bpf_program *prog,
+> diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+> index e40c8d3..a18783b 100644
+> --- a/tools/lib/bpf/libbpf.h
+> +++ b/tools/lib/bpf/libbpf.h
+> @@ -173,6 +173,9 @@ int bpf_program__set_kprobe(struct bpf_program *prog);
+>   bool bpf_program__is_tracepoint(struct bpf_program *prog);
+>   bool bpf_program__is_kprobe(struct bpf_program *prog);
+>   
+> +int bpf_program__set_type(struct bpf_program *prog,
+> +				  unsigned int type);
+> +
 
-Commit message is required.
+Although you don't include uapi/linux/bpf.h in this patch, logically
+you add this dependency.
+
+Please continously add bpf_program__set_socket_filter() and
+bpf_program__is_socket_filter() like what we do for tracepoint.
+This way libbpf.h is indenpendent from kernel header.
+
+We can use macro in both .h and .c.
 
 Thank you.
-
-> ---
->   tools/include/uapi/linux/bpf.h | 52 ++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 52 insertions(+)
->
-> diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-> index 9e5fc16..570287f 100644
-> --- a/tools/include/uapi/linux/bpf.h
-> +++ b/tools/include/uapi/linux/bpf.h
-> @@ -95,6 +95,8 @@ enum bpf_prog_type {
->   	BPF_PROG_TYPE_SCHED_ACT,
->   	BPF_PROG_TYPE_TRACEPOINT,
->   	BPF_PROG_TYPE_XDP,
-> +	BPF_PROG_TYPE_PERF_EVENT,
-> +	__MAX_BPF_PROG_TYPE,
->   };
->   
->   #define BPF_PSEUDO_MAP_FD	1
-> @@ -375,6 +377,56 @@ enum bpf_func_id {
->   	 */
->   	BPF_FUNC_probe_write_user,
->   
-> +	/**
-> +	 * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
-> +	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
-> +	 * @index: index of the cgroup in the bpf_map
-> +	 * Return:
-> +	 *   == 0 current failed the cgroup2 descendant test
-> +	 *   == 1 current succeeded the cgroup2 descendant test
-> +	 *    < 0 error
-> +	 */
-> +	BPF_FUNC_current_task_under_cgroup,
-> +
-> +	/**
-> +	 * bpf_skb_change_tail(skb, len, flags)
-> +	 * The helper will resize the skb to the given new size,
-> +	 * to be used f.e. with control messages.
-> +	 * @skb: pointer to skb
-> +	 * @len: new skb length
-> +	 * @flags: reserved
-> +	 * Return: 0 on success or negative error
-> +	 */
-> +	BPF_FUNC_skb_change_tail,
-> +
-> +	/**
-> +	 * bpf_skb_pull_data(skb, len)
-> +	 * The helper will pull in non-linear data in case the
-> +	 * skb is non-linear and not all of len are part of the
-> +	 * linear section. Only needed for read/write with direct
-> +	 * packet access.
-> +	 * @skb: pointer to skb
-> +	 * @len: len to make read/writeable
-> +	 * Return: 0 on success or negative error
-> +	 */
-> +	BPF_FUNC_skb_pull_data,
-> +
-> +	/**
-> +	 * bpf_csum_update(skb, csum)
-> +	 * Adds csum into skb->csum in case of CHECKSUM_COMPLETE.
-> +	 * @skb: pointer to skb
-> +	 * @csum: csum to add
-> +	 * Return: csum on success or negative error
-> +	 */
-> +	BPF_FUNC_csum_update,
-> +
-> +	/**
-> +	 * bpf_set_hash_invalid(skb)
-> +	 * Invalidate current skb>hash.
-> +	 * @skb: pointer to skb
-> +	 */
-> +	BPF_FUNC_set_hash_invalid,
-> +
->   	__BPF_FUNC_MAX_ID,
->   };
->   
