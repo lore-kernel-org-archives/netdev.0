@@ -1,69 +1,73 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 2/2] net: phy: Add Fast Link Failure - 2 set driver for Microsemi PHYs.
-Date: Mon, 17 Oct 2016 05:51:11 -0700
-Message-ID: <838C6202-9B7D-4AFA-B163-55515044FA4F@gmail.com>
-References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com> <1476445233-26524-3-git-send-email-Raju.Lakkaraju@microsemi.com> <20161014120228.GF5822@lunn.ch> <20161017081312.GB2365@microsemi.com>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v12 0/9] openvswitch: support for layer 3
+	encapsulated packets
+Date: Mon, 17 Oct 2016 15:02:36 +0200
+Message-ID: <cover.1476708212.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org
-To: Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161017081312.GB2365-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On October 17, 2016 1:13:14 AM PDT, Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org> wrote:
->Hi Andrew,
->
->Thank you for code review and comments.
->
->On Fri, Oct 14, 2016 at 02:02:28PM +0200, Andrew Lunn wrote:
->> EXTERNAL EMAIL
->> 
->> 
->> > On Fri, Oct 14, 2016 at 05:10:33PM +0530, Raju Lakkaraju wrote:
->> > From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
->> >
->> > VSC8531 Fast Link Failure 2 feature enables the PHY to indicate the
->> > onset of a potential link failure in < 100 usec for 100BASE-TX
->> > operation. FLF2 is supported through the MDINT (active low) pin.
->> 
->> Is the MDINT pin specific to this feature, or a general interrupt
->pin?
->> 
->
->MDINT pin is general interrupt. MDINT pin share the interrupt with
->FLF2 along with another 13 interrupts.
->
->> Device tree is used to describe the hardware. It should not really
->> describe software or configuration. But the borders are a bit
->> fluffly. Signal edge rates is near to hardware. This is a lot more
->> towards configuration. So i'm not sure a device tree property is the
->> correct way to describe this.
->> 
->> This is also a feature i know other PHYs support. The Marvell PHY has
->> a "Metro Ethernet" extension which allows it to report link failures
->> for 1000BASE-T in 10, 20 or 40ms, instead of the usual 750ms. So we
->> need a generic solution other PHYs can implement.
->> 
->> As with cable testing, i think it should be an ethtool option.
->
->I agree with you.
->I thought this is one time initialization either enable or disable.
->if customer need this feature, they can enable in DT.
->Do you want me to implement through IOCTL instead of Device tree?
->Do you have any other suggestions?
-
-As indicated in the other email about speed downshift, we may want to utilize ethtool's ability to modify tunable parameters (small integer, boolean, values) and extend it to cover features offered by PHYs in a way that an user can dynamically turn these features on or off.
-
-In fact, this looks a lot like netdev features (e.g: checksum offload), and there seems to be some commonality here between at least Marvell and Microsemi (for the faster link down reporting), so maybe we should start adding PHY features similar to netdev features?
-
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+QXQgdGhlIGNvcmUgb2YgdGhpcyBwYXRjaCBzZXQgaXMgcmVtb3ZpbmcgdGhlIGFzc3VtcHRpb24g
+aW4gT3BlbiB2U3dpdGNoCmRhdGFwYXRoIHRoYXQgYWxsIHBhY2tldHMgaGF2ZSBFdGhlcm5ldCBo
+ZWFkZXIuIFN1cHBvcnQgZm9yIGxheWVyIDMgR1JFCnR1bm5lbHMgaXMgYWxzbyBhZGRlZCBieSB0
+aGlzIHBhdGNoc2V0LgoKVGhlIGltcGxlbWVudGF0aW9uIHJlbGllcyBvbiB0aGUgcHJlc2VuY2Ug
+b2YgcG9wX2V0aCBhbmQgcHVzaF9ldGggYWN0aW9ucwppbiBkYXRhcGF0aCBmbG93cyB0byBmYWNp
+bGl0YXRlIGFkZGluZyBhbmQgcmVtb3ZpbmcgRXRoZXJuZXQgaGVhZGVycyBhcwphcHByb3ByaWF0
+ZS4gVGhlIGNvbnN0cnVjdGlvbiBvZiBzdWNoIGZsb3dzIGlzIGxlZnQgdXAgdG8gdXNlci1zcGFj
+ZS4KClRoaXMgc2VyaWVzIGlzIGJhc2VkIG9uIHdvcmsgYnkgU2ltb24gSG9ybWFuLCBMb3JhbmQg
+SmFrYWIsIFRob21hcyBNb3JpbiBhbmQKb3RoZXJzLiBJIGtlcHQgTG9yYW5kJ3MgYW5kIFNpbW9u
+J3Mgcy1vLWIgaW4gdGhlIHBhdGNoZXMgdGhhdCBhcmUgZGVyaXZlZApmcm9tIHYxMSB0byByZWNv
+cmQgdGhlaXIgYXV0aG9yc2hpcCBvZiBwYXJ0cyBvZiB0aGUgY29kZS4gUGxlYXNlIGxldCBtZSBr
+bm93CmlmIHlvdSBkaXNhZ3JlZSB3aXRoIHRoaXMuCgp2MTIgZGlmZmVycyBmcm9tIHYxMSBhIGxv
+dC4gVGhlIG1haW4gY2hhbmdlcyBhcmU6CgoqIFRoZSBwYXRjaGVzIHdlcmUgcmVzdHJ1Y3R1cmVk
+IGFuZCBzcGxpdCBkaWZmZXJlbnRseSBmb3IgZWFzaWVyIHJldmlldy4KKiBUaGV5IHdlcmUgcmVi
+YXNlZCBhbmQgYWRqdXN0ZWQgdG8gdGhlIGN1cnJlbnQgbmV0LW5leHQuIEVzcGVjaWFsbHkgTVBM
+UwogIGhhbmRsaW5nIGlzIGRpZmZlcmVudCAoYW5kIGVhc2llcikgdGhhbmtzIHRvIHRoZSByZWNl
+bnQgTVBMUyBHU08gcmV3b3JrLgoqIFNldmVyYWwgYnVncyB3ZXJlIGRpc2NvdmVyZWQgYW5kIGZp
+eGVkLiBUaGUgbW9zdCBub3RhYmxlIGlzIGZyYWdtZW50CiAgaGFuZGxpbmc6IGhlYWRlciBhZGp1
+c3RtZW50IGZvciBBUlBIUkRfTk9ORSBkZXZpY2VzIG9uIHR4IG5lZWRzIHRvIGJlIGRvbmUKICBh
+ZnRlciByZWZyYWdtZW50YXRpb24sIG5vdCBiZWZvcmUgaXQuIFRoaXMgcmVxdWlyZWQgc2lnbmlm
+aWNhbnQgY2hhbmdlcyBpbgogIHRoZSBwYXRjaHNldC4gQW5vdGhlciBvbmUgaXMgc3RyaWN0ZXIg
+Y2hlY2tpbmcgb2YgYXR0cmlidXRlcyAobWF0Y2ggb24gTDIKICB2cy4gTDMgcGFja2V0KSBhdCB0
+aGUga2VybmVsIGxldmVsLgoqIEluc3RlYWQgb2YgaXNfbGF5ZXIzIGJvb2wsIGEgbWFjX3Byb3Rv
+IGZpZWxkIGlzIHVzZWQuIFNlZSBwYXRjaCAyLiBUaGlzIGlzCiAgYSBtYXR0ZXIgb2YgdGFzdGUg
+YW5kIGFsdGVybmF0ZSBhcHByb2FjaGVzIGFyZSBvZmZlcmVkIGluIHBhdGNoIDIKICBkZXNjcmlw
+dGlvbi4KClRoZXJlIGlzIG5vIGNoYW5nZSB0byB1QVBJIHNpbmNlIHYxMS4gVGhlIHByZXZpb3Vz
+bHkgcG9zdGVkIHBhdGNoc2V0IGZvcgpPcGVuIHZTd2l0Y2ggdXNlciBzcGFjZSB3b3JrcyB3aXRo
+IHRoaXMgc3VibWlzc2lvbiB1bm1vZGlmaWVkLgoKSmlyaSBCZW5jICg4KToKICBvcGVudnN3aXRj
+aDogdXNlIGhhcmRfaGVhZGVyX2xlbiBpbnN0ZWFkIG9mIGhhcmRjb2RlZCBFVEhfSExFTgogIG9w
+ZW52c3dpdGNoOiBhZGQgbWFjX3Byb3RvIGZpZWxkIHRvIHRoZSBmbG93IGtleQogIG9wZW52c3dp
+dGNoOiBwYXNzIG1hY19wcm90byB0byBvdnNfdnBvcnRfc2VuZAogIG9wZW52c3dpdGNoOiBzdXBw
+b3J0IE1QTFMgcHVzaCBhbmQgcG9wIGZvciBMMyBwYWNrZXRzCiAgb3BlbnZzd2l0Y2g6IGFkZCBw
+cm9jZXNzaW5nIG9mIEwzIHBhY2tldHMKICBvcGVudnN3aXRjaDogbmV0bGluazogc3VwcG9ydCBM
+MyBwYWNrZXRzCiAgb3BlbnZzd2l0Y2g6IGFkZCBFdGhlcm5ldCBwdXNoIGFuZCBwb3AgYWN0aW9u
+cwogIG9wZW52c3dpdGNoOiBhbGxvdyBMMyBuZXRkZXYgcG9ydHMKClNpbW9uIEhvcm1hbiAoMSk6
+CiAgb3BlbnZzd2l0Y2g6IHVzZSBpcGdyZSB0dW5uZWwgcmF0aGVyIHRoYW4gZ3JldGFwIHR1bm5l
+bAoKIGluY2x1ZGUvbmV0L2dyZS5oICAgICAgICAgICAgICAgIHwgICA0ICstCiBpbmNsdWRlL3Vh
+cGkvbGludXgvb3BlbnZzd2l0Y2guaCB8ICAxNSArKysrCiBuZXQvaXB2NC9pcF9ncmUuYyAgICAg
+ICAgICAgICAgICB8ICAgOSArLQogbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYyAgICAgICAgfCAx
+MTEgKysrKysrKysrKysrKysrKystLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYyAg
+ICAgICB8ICAxNyArLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5jICAgICAgICAgICB8IDEwMCAr
+KysrKysrKysrKysrKysrLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAgICAgICB8
+ICAyMiArKysrKwogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jICAgfCAxNzkgKysrKysr
+KysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQt
+Z3JlLmMgICAgICB8ICAgMiArLQogbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jICAgfCAg
+IDkgKy0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC5jICAgICAgICAgIHwgIDI4ICsrKystLQogbmV0
+L29wZW52c3dpdGNoL3Zwb3J0LmggICAgICAgICAgfCAgIDIgKy0KIDEyIGZpbGVzIGNoYW5nZWQs
+IDM1NiBpbnNlcnRpb25zKCspLCAxNDIgZGVsZXRpb25zKC0pCgotLSAKMS44LjMuMQoKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlz
+dApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0
+aW5mby9kZXYK
