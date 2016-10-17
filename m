@@ -1,68 +1,38 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH iproute2 1/2] tc filters: display handle in events when a filter is deleted
-Date: Mon, 17 Oct 2016 05:34:44 -0400
-Message-ID: <1476696885-22214-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com, mrv@mojatatu.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35010 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932727AbcJQJe5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 05:34:57 -0400
-Received: by mail-it0-f65.google.com with SMTP id 139so2845887itm.2
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 02:34:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH v4] mac80211: move extra crypto data off the stack
+Date: Mon, 17 Oct 2016 11:35:18 +0200
+Message-ID: <1476696918.19992.15.camel@sipsolutions.net>
+References: <1476693195-14071-1-git-send-email-johannes@sipsolutions.net>
+         <CAKv+Gu-aZhCBvnEQoZUZLDPXCrvgxO1pSd=6EHz+tMB+dFz5hg@mail.gmail.com>
+         <1476696226.19992.13.camel@sipsolutions.net>
+         <CAKv+Gu_ZH9hO_xbVfOfk90CxFJ6ZTz3PKWB1v23LRVzpBrb=oQ@mail.gmail.com>
+         (sfid-20161017_113100_410034_F49AAA79)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+To: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKv+Gu_ZH9hO_xbVfOfk90CxFJ6ZTz3PKWB1v23LRVzpBrb=oQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20161017_113100_410034_F49AAA79)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Mon, 2016-10-17 at 10:30 +0100, Ard Biesheuvel wrote:
 
-An event being displayed via "tc mon" should display the filter handle.
-The filter handle is a required parameter when deleting a filter and
-therefore the delete event should mimic/mirror the command sent.
-A simple test, run tc monitor on one window, on another try adding
-a filter:
-..
-sudo $TC filter add dev $ETH parent ffff: protocol ip pref 1 \
-u32 match ip protocol 1 0xff \
-flowid 1:1 \
-action ok
-..
+> Yes. But as I replied, setting the req size is not supported atm,
+> although it is reasonable to demand a way to allocate additional data
+> in the request specifically for this issue. So let's proceed with the
+> aead_request_alloc/free patch, but I would like to propose something
+> on the API side to address this particular issue
 
-.. get its handle by dumping ...
-sudo $TC -s filter ls dev $ETH parent ffff: protocol ip
-... find out the handle (say it was 800::800)
-... go delete it..
-sudo $TC filter del dev $ETH handle 800::800 parent ffff: \
-protocol ip prio 1 u32
+Well, if your other patch to make it OK to be on-stack would be applied
+instead, this wouldn't make much sense either :)
 
-now see tc monitor reporting it without handle. After this patch
-with a handle.
+In this particular patch, we could reduce the size of the struct, but I
+don't actually think it'll make a difference to go from 48 to 36 bytes,
+given alignment etc., so I think I'll just leave it as is.
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- tc/tc_filter.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-index 2413cef..4efc44f 100644
---- a/tc/tc_filter.c
-+++ b/tc/tc_filter.c
-@@ -253,12 +253,13 @@ int print_filter(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	}
- 	fprintf(fp, "%s ", rta_getattr_str(tb[TCA_KIND]));
- 	q = get_filter_kind(RTA_DATA(tb[TCA_KIND]));
--	if (tb[TCA_OPTIONS]) {
-+	if (tb[TCA_OPTIONS] || n->nlmsg_type == RTM_DELTFILTER) {
- 		if (q)
- 			q->print_fopt(q, fp, tb[TCA_OPTIONS], t->tcm_handle);
- 		else
- 			fprintf(fp, "[cannot parse parameters]");
- 	}
-+
- 	fprintf(fp, "\n");
- 
- 	if (show_stats && (tb[TCA_STATS] || tb[TCA_STATS2])) {
--- 
-1.9.1
+johannes
