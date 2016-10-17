@@ -1,66 +1,71 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 3/7] net: hns: Fix hns_dsaf module autoload for OF registration
-Date: Mon, 17 Oct 2016 11:05:42 -0300
-Message-ID: <1476713146-26632-4-git-send-email-javier@osg.samsung.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH 2/7] net: ethernet: nb8800: Fix module autoload
+Date: Mon, 17 Oct 2016 15:09:29 +0100
+Message-ID: <yw1xr37fkqxy.fsf@unicorn.mansr.com>
 References: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
-Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        netdev@vger.kernel.org, Kejian Yan <yankejian@huawei.com>,
-        Daode Huang <huangdaode@hisilicon.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
+        <1476713146-26632-3-git-send-email-javier@osg.samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         "David S. Miller" <davem@davemloft.net>,
-        oulijun <oulijun@huawei.com>,
-        Qianqian Xie <xieqianqian@huawei.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:35544
-        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934779AbcJQOGU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:06:20 -0400
-In-Reply-To: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Jarod Wilson <jarod@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+        Sebastian Frias <sf84@laposte.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Philippe Reynes <tremyfr@gmail.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476713146-26632-3-git-send-email-javier@osg.samsung.com>
+        (Javier Martinez Canillas's message of "Mon, 17 Oct 2016 11:05:41
+        -0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the driver is built as a module, autoload won't work because the module
-alias information is not filled. So user-space can't match the registered
-device with the corresponding module.
+Javier Martinez Canillas <javier@osg.samsung.com> writes:
 
-Export the module alias information using the MODULE_DEVICE_TABLE() macro.
+> If the driver is built as a module, autoload won't work because the module
+> alias information is not filled. So user-space can't match the registered
+> device with the corresponding module.
+>
+> Export the module alias information using the MODULE_DEVICE_TABLE() macro.
+>
+> Before this patch:
+>
+> $ $ modinfo drivers/net/ethernet/aurora/nb8800.ko | grep alias
+> $
+>
+> After this patch:
+>
+> $ modinfo drivers/net/ethernet/aurora/nb8800.ko | grep alias
+> alias:          of:N*T*Csigma,smp8734-ethernetC*
+> alias:          of:N*T*Csigma,smp8734-ethernet
+> alias:          of:N*T*Csigma,smp8642-ethernetC*
+> alias:          of:N*T*Csigma,smp8642-ethernet
+> alias:          of:N*T*Caurora,nb8800C*
+> alias:          of:N*T*Caurora,nb8800
+>
+> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 
-Before this patch:
+Acked-by: Mans Rullgard <mans@mansr.com>
 
-$ modinfo drivers/net/ethernet/hisilicon/hns/hns_dsaf.ko | grep alias
-alias:          acpi*:HISI00B2:*
-alias:          acpi*:HISI00B1:*
+> ---
+>
+>  drivers/net/ethernet/aurora/nb8800.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+> index 453dc0967125..d5f2ad1a5a30 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.c
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+> @@ -1357,6 +1357,7 @@ static const struct of_device_id nb8800_dt_ids[] = {
+>  	},
+>  	{ }
+>  };
+> +MODULE_DEVICE_TABLE(of, nb8800_dt_ids);
+>
+>  static int nb8800_probe(struct platform_device *pdev)
+>  {
+> -- 
 
-After this patch:
-
-$ modinfo drivers/net/ethernet/hisilicon/hns/hns_dsaf.ko | grep alias
-alias:          acpi*:HISI00B2:*
-alias:          acpi*:HISI00B1:*
-alias:          of:N*T*Chisilicon,hns-dsaf-v2C*
-alias:          of:N*T*Chisilicon,hns-dsaf-v2
-alias:          of:N*T*Chisilicon,hns-dsaf-v1C*
-alias:          of:N*T*Chisilicon,hns-dsaf-v1
-
-Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
----
-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 8d70377f6624..8ea3d95fa483 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2751,6 +2751,7 @@ static const struct of_device_id g_dsaf_match[] = {
- 	{.compatible = "hisilicon,hns-dsaf-v2"},
- 	{}
- };
-+MODULE_DEVICE_TABLE(of, g_dsaf_match);
- 
- static struct platform_driver g_dsaf_driver = {
- 	.probe = hns_dsaf_probe,
 -- 
-2.7.4
+Måns Rullgård
