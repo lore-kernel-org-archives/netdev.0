@@ -1,106 +1,143 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next 09/15] ethernet/dlink: use core min/max MTU checking
-Date: Mon, 17 Oct 2016 15:54:11 -0400
-Message-ID: <20161017195417.48259-10-jarod@redhat.com>
+Subject: [PATCH net-next 13/15] ethernet/tile: use core min/max MTU checking
+Date: Mon, 17 Oct 2016 15:54:15 -0400
+Message-ID: <20161017195417.48259-14-jarod@redhat.com>
 References: <20161017195417.48259-1-jarod@redhat.com>
 Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        Denis Kirjanov <kda@linux-powerpc.org>
+        Chris Metcalf <cmetcalf@mellanox.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161017195417.48259-1-jarod@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dl2k: min_mtu 68, max_mtu 1536 or 8000, depending on hardware
-- Removed change_mtu, does nothing productive anymore
+tilegx: min_mtu 68, max_mtu 1500 or 9000, depending on modparam
+- remove tile_net_change_mtu now that it is fully redundant
 
-sundance: min_mtu 68, max_mtu 8191
+tilepro: min_mtu 68, max_mtu 1500
+- hardware supports jumbo packets up to 10226, but it's not implemented or
+  tested yet, according to code comments
 
 CC: netdev@vger.kernel.org
-CC: Denis Kirjanov <kda@linux-powerpc.org>
+CC: Chris Metcalf <cmetcalf@mellanox.com>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- drivers/net/ethernet/dlink/dl2k.c     | 22 ++++------------------
- drivers/net/ethernet/dlink/sundance.c |  6 ++++--
- 2 files changed, 8 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/tile/tilegx.c  | 21 ++++++++-------------
+ drivers/net/ethernet/tile/tilepro.c | 27 +++++----------------------
+ 2 files changed, 13 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index 78f1446..8c95a8a 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -76,7 +76,6 @@ static void rio_free_tx (struct net_device *dev, int irq);
- static void tx_error (struct net_device *dev, int tx_status);
- static int receive_packet (struct net_device *dev);
- static void rio_error (struct net_device *dev, int int_status);
--static int change_mtu (struct net_device *dev, int new_mtu);
- static void set_multicast (struct net_device *dev);
- static struct net_device_stats *get_stats (struct net_device *dev);
- static int clear_stats (struct net_device *dev);
-@@ -106,7 +105,6 @@ static const struct net_device_ops netdev_ops = {
- 	.ndo_set_rx_mode	= set_multicast,
- 	.ndo_do_ioctl		= rio_ioctl,
- 	.ndo_tx_timeout		= rio_tx_timeout,
--	.ndo_change_mtu		= change_mtu,
- };
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index 11213a3..0aaf975 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -59,6 +59,9 @@
+ /* Maximum number of packets to handle per "poll". */
+ #define TILE_NET_WEIGHT 64
  
- static int
-@@ -230,6 +228,10 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
- #if 0
- 	dev->features = NETIF_F_IP_CSUM;
- #endif
-+	/* MTU range: 68 - 1536 or 8000 */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	dev->max_mtu = np->jumbo ? MAX_JUMBO : PACKET_SIZE;
++/* Maximum Jumbo Packet MTU */
++#define TILE_JUMBO_MAX_MTU 9000
 +
- 	pci_set_drvdata (pdev, dev);
+ /* Number of entries in each iqueue. */
+ #define IQUEUE_ENTRIES 512
  
- 	ring_space = pci_alloc_consistent (pdev, TX_TOTAL_SIZE, &ring_dma);
-@@ -1198,22 +1200,6 @@ clear_stats (struct net_device *dev)
- 	return 0;
+@@ -2101,17 +2104,6 @@ static int tile_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	return -EOPNOTSUPP;
  }
  
--
--static int
--change_mtu (struct net_device *dev, int new_mtu)
+-/* Change the MTU. */
+-static int tile_net_change_mtu(struct net_device *dev, int new_mtu)
 -{
--	struct netdev_private *np = netdev_priv(dev);
--	int max = (np->jumbo) ? MAX_JUMBO : 1536;
--
--	if ((new_mtu < 68) || (new_mtu > max)) {
+-	if (new_mtu < 68)
 -		return -EINVAL;
--	}
+-	if (new_mtu > ((jumbo_num != 0) ? 9000 : 1500))
+-		return -EINVAL;
+-	dev->mtu = new_mtu;
+-	return 0;
+-}
 -
+ /* Change the Ethernet address of the NIC.
+  *
+  * The hypervisor driver does not support changing MAC address.  However,
+@@ -2154,7 +2146,6 @@ static const struct net_device_ops tile_net_ops = {
+ 	.ndo_start_xmit = tile_net_tx,
+ 	.ndo_select_queue = tile_net_select_queue,
+ 	.ndo_do_ioctl = tile_net_ioctl,
+-	.ndo_change_mtu = tile_net_change_mtu,
+ 	.ndo_tx_timeout = tile_net_tx_timeout,
+ 	.ndo_set_mac_address = tile_net_set_mac_address,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -2174,7 +2165,11 @@ static void tile_net_setup(struct net_device *dev)
+ 	ether_setup(dev);
+ 	dev->netdev_ops = &tile_net_ops;
+ 	dev->watchdog_timeo = TILE_NET_TIMEOUT;
+-	dev->mtu = 1500;
++
++	/* MTU range: 68 - 1500 or 9000 */
++	dev->mtu = ETH_DATA_LEN;
++	dev->min_mtu = ETH_MIN_MTU;
++	dev->max_mtu = jumbo_num ? TILE_JUMBO_MAX_MTU : ETH_DATA_LEN;
+ 
+ 	features |= NETIF_F_HW_CSUM;
+ 	features |= NETIF_F_SG;
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index 4ef605a..0a3b7da 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -87,7 +87,7 @@
+ /* This should be 1500 if "jumbo" is not set in LIPP. */
+ /* This should be at most 10226 (10240 - 14) if "jumbo" is set in LIPP. */
+ /* ISSUE: This has not been thoroughly tested (except at 1500). */
+-#define TILE_NET_MTU 1500
++#define TILE_NET_MTU ETH_DATA_LEN
+ 
+ /* HACK: Define this to verify incoming packets. */
+ /* #define TILE_NET_VERIFY_INGRESS */
+@@ -2095,26 +2095,6 @@ static struct rtnl_link_stats64 *tile_net_get_stats64(struct net_device *dev,
+ }
+ 
+ 
+-/*
+- * Change the "mtu".
+- *
+- * The "change_mtu" method is usually not needed.
+- * If you need it, it must be like this.
+- */
+-static int tile_net_change_mtu(struct net_device *dev, int new_mtu)
+-{
+-	PDEBUG("tile_net_change_mtu()\n");
+-
+-	/* Check ranges. */
+-	if ((new_mtu < 68) || (new_mtu > 1500))
+-		return -EINVAL;
+-
+-	/* Accept the value. */
 -	dev->mtu = new_mtu;
 -
 -	return 0;
 -}
 -
- static void
- set_multicast (struct net_device *dev)
- {
-diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-index 79d8009..eab36ac 100644
---- a/drivers/net/ethernet/dlink/sundance.c
-+++ b/drivers/net/ethernet/dlink/sundance.c
-@@ -580,6 +580,10 @@ static int sundance_probe1(struct pci_dev *pdev,
- 	dev->ethtool_ops = &ethtool_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
  
-+	/* MTU range: 68 - 8191 */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	dev->max_mtu = 8191;
+ /*
+  * Change the Ethernet Address of the NIC.
+@@ -2229,7 +2209,6 @@ static const struct net_device_ops tile_net_ops = {
+ 	.ndo_start_xmit = tile_net_tx,
+ 	.ndo_do_ioctl = tile_net_ioctl,
+ 	.ndo_get_stats64 = tile_net_get_stats64,
+-	.ndo_change_mtu = tile_net_change_mtu,
+ 	.ndo_tx_timeout = tile_net_tx_timeout,
+ 	.ndo_set_mac_address = tile_net_set_mac_address,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -2252,7 +2231,11 @@ static void tile_net_setup(struct net_device *dev)
+ 	dev->netdev_ops = &tile_net_ops;
+ 	dev->watchdog_timeo = TILE_NET_TIMEOUT;
+ 	dev->tx_queue_len = TILE_NET_TX_QUEUE_LEN;
 +
- 	pci_set_drvdata(pdev, dev);
++	/* MTU range: 68 - 1500 */
+ 	dev->mtu = TILE_NET_MTU;
++	dev->min_mtu = ETH_MIN_MTU;
++	dev->max_mtu = TILE_NET_MTU;
  
- 	i = register_netdev(dev);
-@@ -713,8 +717,6 @@ static int sundance_probe1(struct pci_dev *pdev,
- 
- static int change_mtu(struct net_device *dev, int new_mtu)
- {
--	if ((new_mtu < 68) || (new_mtu > 8191)) /* Set by RxDMAFrameLen */
--		return -EINVAL;
- 	if (netif_running(dev))
- 		return -EBUSY;
- 	dev->mtu = new_mtu;
+ 	features |= NETIF_F_HW_CSUM;
+ 	features |= NETIF_F_SG;
 -- 
 2.10.0
