@@ -1,85 +1,67 @@
-From: Zach Brown <zach.brown@ni.com>
-Subject: [PATCH v5 0/4] Add support for led triggers on phy link state change
-Date: Mon, 17 Oct 2016 10:49:51 -0500
-Message-ID: <1476719395-28273-1-git-send-email-zach.brown@ni.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [ANNOUNCE] bridge-utils 1.6 release
+Date: Mon, 17 Oct 2016 09:03:30 -0700
+Message-ID: <20161017090330.270fe160@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- andrew@lunn.ch, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- rpurdie@rpsys.net, gregkh@linuxfoundation.org, Larry.Finger@lwfinger.net,
- j.anaszewski@samsung.com, linux-leds@vger.kernel.org, mlindner@marvell.com
-To: <f.fainelli@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:36208 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935363AbcJQQDQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 12:03:16 -0400
+Received: by mail-pf0-f173.google.com with SMTP id e6so80590749pfk.3
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 09:03:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix skge driver that declared enum contants that conflicted with enum
-constants in linux/leds.h
+Release of bridge-utils version 1.6
 
-Create function that encapsulates actions taken during the adjust phy link step
-of phy state changes.
+This is the first bridge-utils release in a long time.
+There are not any new features, since bridge-utils is deprecated in
+favor of bridge command in iproute2. But there are several small
+bug fixes and minor cleanups.
 
-Create function that provides list of speeds currently supported by the phy.
+Source:
+  http://www.kernel.org/pub/linux/utils/net/bridge-utils/bridge-utils.1.6.tar.gz
 
-Add support for led triggers on phy link state changes by adding
-a config option. When set the config option will create a set of led triggers
-for each phy device. Users can use the led triggers to represent link state
-changes on the phy.
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/bridge-utils.git
 
-v2:
- * New patch that creates phy_adjust_link function to encapsulate actions taken
-   when adjusting phy link during phy state changes
- * led trigger speed strings changed to match existing phy speed strings
- * New function that maps speeds to led triggers
- * Replace magic constants with definitions when declaring trigger name
-   buffer and number of triggers.
-v3:
- * Changed LED_ON to LED_REG_ON in skge driver to avoid possible future
-   conflict and improve consistency.
- * Dropped rtl8712 patch that was accepted separately.
-v4:
- * tweaked commit message
-v5
- * Changed commit message to explain relationship between the new triggers and
-   leds driven by phys.
- * Added new patch that creates phy_supported_speeds function.
- * Moved phy_leds_triggers_register and phy_leds_triggers_unregister to
-   phy_attach and phy_detach respectively. This change is so the
-   phydev->supported field will be filled by the time the triggers are
-   registered.
- * Changed hardcoded list of triggers to dynamic list determined by speeds
-   return by phy_supported_speeds.
+Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
 
-Zach Brown (4):
-  skge: Rename LED_OFF and LED_ON in marvel skge driver to avoid
-    conflicts with     leds namespace
-  net: phy: Encapsulate actions performed during link state changes into
-        function phy_adjust_link
-  net: phy: Create phy_supported_speeds function which lists speeds
-    currently supported by a     phydevice
-  net: phy: leds: add support for led triggers on phy link state change
+---
+Andrey Mazo (4):
+      bridge-utils: Abort compilation on error in any subdirectory
+      bridge-utils: Remove unused variable in doc/Makefile.in
+      bridge-utils: AC_OUTPUT should be used without arguments
+      bridge-utils: Pretty print configure help
 
- drivers/net/ethernet/marvell/skge.c |   6 +-
- drivers/net/ethernet/marvell/skge.h |   4 +-
- drivers/net/phy/Kconfig             |  13 ++++
- drivers/net/phy/Makefile            |   1 +
- drivers/net/phy/phy.c               |  57 ++++++++++++---
- drivers/net/phy/phy_device.c        |   5 ++
- drivers/net/phy/phy_led_triggers.c  | 136 ++++++++++++++++++++++++++++++++++++
- include/linux/phy.h                 |  22 ++++++
- include/linux/phy_led_triggers.h    |  51 ++++++++++++++
- 9 files changed, 282 insertions(+), 13 deletions(-)
- create mode 100644 drivers/net/phy/phy_led_triggers.c
- create mode 100644 include/linux/phy_led_triggers.h
+David Johnson (1):
+      bug with older glibc: "brctl show" shows nothing
 
--- 
-2.7.4
+Kylie McClain (1):
+      Fix building on musl libc
+
+Russell Senior (1):
+      bridge-utils: Fix compile against linux-3.8.x
+
+Stephen Hemminger (10):
+      Fix incorrect command in manual
+      Fix error message for incorrect command
+      Check error returns from write to sysfs
+      Fix typo's on man page
+      update email address
+      ignore build files
+      Clean up autoconf debris when doing make maintainer-clean
+      brctl: better error handling
+      man: add obsolete notice to man page
+      bridge-utils 1.6 release
+
+Xiaochen Wang (1):
+      skip . and .. in accurately in isbridge()
+
+Yegor Yefremov (1):
+      rename configure.in to configure.ac
