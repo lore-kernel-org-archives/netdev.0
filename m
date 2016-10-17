@@ -1,49 +1,48 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 4/7] net: qcom/emac: Fix module autoload for OF
- registration
-Date: Mon, 17 Oct 2016 09:40:30 -0500
-Message-ID: <5804E2DE.3010502@codeaurora.org>
-References: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
- <1476713146-26632-5-git-send-email-javier@osg.samsung.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 02/11] net: Introduce new api for walking
+ upper and lower devices
+Date: Mon, 17 Oct 2016 10:42:00 -0400 (EDT)
+Message-ID: <20161017.104200.2266025643403507437.davem@davemloft.net>
+References: <1476494931-31813-1-git-send-email-dsa@cumulusnetworks.com>
+        <1476494931-31813-3-git-send-email-dsa@cumulusnetworks.com>
+        <20161017052121.2322279d@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Javier Martinez Canillas <javier@osg.samsung.com>,
-        linux-kernel@vger.kernel.org
+Cc: dsa@cumulusnetworks.com, jiri@mellanox.com, netdev@vger.kernel.org,
+        dledford@redhat.com, sean.hefty@intel.com,
+        hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
+        j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:51534 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932273AbcJQOkd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:40:33 -0400
-In-Reply-To: <1476713146-26632-5-git-send-email-javier@osg.samsung.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56128 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933005AbcJQOmC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:42:02 -0400
+In-Reply-To: <20161017052121.2322279d@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Javier Martinez Canillas wrote:
-> If the driver is built as a module, autoload won't work because the module
-> alias information is not filled. So user-space can't match the registered
-> device with the corresponding module.
->
-> Export the module alias information using the MODULE_DEVICE_TABLE() macro.
->
-> Before this patch:
->
-> $ modinfo drivers/net/ethernet/qualcomm/emac/qcom-emac.ko | grep alias
-> alias:          platform:qcom-emac
->
-> After this patch:
->
-> $ modinfo drivers/net/ethernet/qualcomm/emac/qcom-emac.ko | grep alias
-> alias:          platform:qcom-emac
-> alias:          of:N*T*Cqcom,fsm9900-emacC*
-> alias:          of:N*T*Cqcom,fsm9900-emac
->
-> Signed-off-by: Javier Martinez Canillas<javier@osg.samsung.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 17 Oct 2016 05:21:21 -0700
 
-Acked-by: Timur Tabi <timur@codeaurora.org>
+> You should write this more succinctly as:
+> 
+> static bool __netdev_has_upper_dev(struct net_device *upper_dev, void *data)
+> {
+> 	struct net_device *dev = data;
+> 
+> 	return upper_dev == dev;
+> }
+> 
+> bool netdev_has_upper_dev_all_rcu(struct net_device *dev,
+> 				  struct net_device *upper_dev)
+> {
+> 	return netdev_walk_all_upper_dev_rcu(dev,
+> 			__netdev_has_upper_dev, upper_dev);
+> }
+> 
+> No if/else needed. No cast of void * ptr need. Use const if possible?
 
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+Agreed.
