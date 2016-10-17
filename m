@@ -1,56 +1,217 @@
-From: Julia Cartwright <julia@ni.com>
-Subject: Re: Kernel 4.6.7-rt13: Intel Ethernet driver igb causes huge
- latencies in cyclictest
-Date: Mon, 17 Oct 2016 13:36:45 -0500
-Message-ID: <20161017183645.GA9435@jcartwri.amer.corp.natinst.com>
-References: <20161005155959.GH10625@jcartwri.amer.corp.natinst.com>
- <13c3cd3ffee4490fb22b8de383e51361@FE-MBX1012.de.bosch.com>
- <AAEA33E297BCAC4B9BB20A7C2DF0AB8D8045E418@FMSMSX113.amr.corp.intel.com>
- <29250f87b1d84aacb8aa312935582291@FE-MBX1012.de.bosch.com>
- <20161010193958.GE22235@jcartwri.amer.corp.natinst.com>
- <e9661abf93194ad3849e3864a8361993@FE-MBX1012.de.bosch.com>
- <b77ea8ab312149d2b20a717d3ab0a8dc@FE-MBX1012.de.bosch.com>
- <20161013161839.GV10625@jcartwri.amer.corp.natinst.com>
- <f395ea6cd1274fac83d2744121da7441@FE-MBX1012.de.bosch.com>
- <20161014220633.GA1811@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>,
-        "Williams, Mitch A" <mitch.a.williams@intel.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "linux-rt-users@vger.kernel.org" <linux-rt-users@vger.kernel.org>,
-        Sebastian Andrzej Siewior <sebastian.siewior@linutronix.de>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        Greg <gvrose8192@gmail.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod2.natinst.com ([130.164.80.23]:45278 "EHLO ni.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932863AbcJQShB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 14:37:01 -0400
-In-Reply-To: <20161014220633.GA1811@netboy>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+Subject: Re: [PATCH 06/10] gpio: sam: Document bindings of SAM FPGA GPIO block
+Date: Mon, 17 Oct 2016 22:01:39 +0300
+Message-ID: <59521A70-4897-4F10-B757-E25245F8E05E@konsulko.com>
+References: <1475853518-22264-1-git-send-email-pantelis.antoniou@konsulko.com> <1475853518-22264-7-git-send-email-pantelis.antoniou@konsulko.com> <20161010200346.GA24239@rob-hp-laptop>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: Lee Jones <lee.jones@linaro.org>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Alexandre Courbot <gnurou@gmail.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Wolfram Sang <wsa@the-dreams.de>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Brian Norris <computersforpeace@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Wim Van Sebroeck <wim@iguana.be>,
+        Peter Rosin <peda@axentia.se>,
+        Debjit Ghosh <dghosh@juniper.net>,
+        Georgi Vlaev <gvlaev@juniper.net>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Maryam Seraj <mseraj@juniper.net>, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-gpio@vger.kernel.org,
+        linux-i2c@vger.kernel.org, linux-mtd@lists.infradead.org,
+        linux-watchdog@vger.kernel.org, netdev@vger.kernel.org
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-i2c-owner@vger.kernel.org>
+In-Reply-To: <20161010200346.GA24239@rob-hp-laptop>
+Sender: linux-i2c-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 15, 2016 at 12:06:33AM +0200, Richard Cochran wrote:
-> On Fri, Oct 14, 2016 at 08:58:22AM +0000, Koehrer Mathias (ETAS/ESW5) wrote:
-> > @@ -753,7 +756,9 @@ u32 igb_rd32(struct e1000_hw *hw, u32 re
-> >  	if (E1000_REMOVED(hw_addr))
-> >  		return ~value;
-> >  
-> > +        trace_igb(801);
-> >  	value = readl(&hw_addr[reg]);
-> > +        trace_igb(802);
-> 
-> Nothing prevents this code from being preempted between the two trace
-> points, and so you can't be sure whether the time delta in the trace
-> is caused by the PCIe read stalling or not.
+Hi Rob,
 
-While that is certainly the case, and would explain the most egregious
-of measured latency spikes, it doesn't invalidate the test if you
-consider the valuable data point(s) to be the minimum and/or median
-latencies.
+> On Oct 10, 2016, at 23:03 , Rob Herring <robh@kernel.org> wrote:
+>=20
+> On Fri, Oct 07, 2016 at 06:18:34PM +0300, Pantelis Antoniou wrote:
+>> From: Georgi Vlaev <gvlaev@juniper.net>
+>>=20
+>> Add device tree bindings document for the GPIO driver of
+>> Juniper's SAM FPGA.
+>>=20
+>> Signed-off-by: Georgi Vlaev <gvlaev@juniper.net>
+>> [Ported from Juniper kernel]
+>> Signed-off-by: Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+>> ---
+>> .../devicetree/bindings/gpio/jnx,gpio-sam.txt      | 110 =
++++++++++++++++++++++
+>> 1 file changed, 110 insertions(+)
+>> create mode 100644 =
+Documentation/devicetree/bindings/gpio/jnx,gpio-sam.txt
+>>=20
+>> diff --git a/Documentation/devicetree/bindings/gpio/jnx,gpio-sam.txt =
+b/Documentation/devicetree/bindings/gpio/jnx,gpio-sam.txt
+>> new file mode 100644
+>> index 0000000..514c350
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/gpio/jnx,gpio-sam.txt
+>> @@ -0,0 +1,110 @@
+>> +Juniper SAM FPGA GPIO block
+>> +
+>> +The controller's registers are organized as sets of eight 32-bit
+>> +registers with each set controlling a bank of up to 32 pins.  A =
+single
+>> +interrupt is shared for all of the banks handled by the controller.
+>> +
+>> +Required properties:
+>> +
+>> +- compatible:
+>> +    Must be "jnx,gpio-sam"
+>> +
+>> +- #gpio-cells:
+>> +    Should be <2>.  The first cell is the pin number (within the =
+controller's
+>> +    pin space), and the second is used for the following flags:
+>> +	bit[0]: direction (0 =3D out, 1 =3D in)
+>> +	bit[1]: init high
+>> +	bit[2]: active low
+>> +	bit[3]: open drain
+>> +	bit[4]: open drain
+>=20
+> Use and/or add to standard flags.
+>=20
 
-   Julia
+OK.
+
+>> +
+>> +- gpio-controller:
+>> +    Specifies that the node is a GPIO controller.
+>> +
+>> +Optional properties:
+>> +
+>> +- reg:
+>> +    This driver is part of the SAM FPGA MFD driver, so the
+>> +    address range is supplied by that driver. However you can
+>> +    override using this property.
+>> +
+>> +- gpio-base:
+>> +    Base of the GPIO pins of this instance. If not present use =
+system allocated.
+>=20
+> This probably needs to go.
+>=20
+
+OK.
+
+>> +
+>> +- gpio-count:
+>=20
+> ngpios instead.
+>=20
+
+OK.
+
+>> +    Number of GPIO pins of this instance. If not present read the =
+number from
+>> +    the one configured in the FPGA data. Maximum number is 512.
+>> +
+>> +- #interrupt-cells:
+>> +    Should be <2>.  The first cell is the GPIO number, the second =
+should specify
+>> +    flags.  The following subset of flags is supported:
+>> +    - bits[16,4:0] trigger type and level flags
+>> +	bit  0: rising edge interrupt
+>> +	bit  1: falling edge interrupt
+>> +	bit  2: active high interrupt
+>> +	bit  3: active low interrupt
+>> +	bit  4: enable debounce
+>> +	bit 16: signal is active low
+>=20
+> What does this mean?
+>=20
+
+I will reword.
+
+>> +    See also =
+Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+>> +
+>> +- gpio-interrupts:
+>> +    A number of triples that define the mapping of interrupt groupsb =
+to a range of
+>> +    pins. The first cell defines the interrupt group, the second is =
+the start of
+>> +    the pin range and the third the number of pins in the range.
+>=20
+> Needs a vendor prefix.
+>=20
+
+OK.
+
+>> +
+>> +- gpio-exports:
+>> +    A subnode containing the list of pins that will be exported to =
+user-space.
+>=20
+> DT doesn't know about userspace. Drop this.
+>=20
+
+OK, the export bit should go.=20
+
+>> +    Each subnode contains:
+>> +    Required properties:
+>> +	- pin: The gpio to be exported and the relevant flags.
+>> +    Optional properties:
+>> +        - label: The label to use for export; if not supplied use =
+the node name.
+>> +
+>> +Example:
+>> +
+>> +gpio20: gpio-sam {
+>> +	compatible =3D "jnx,gpio-sam";
+>> +	gpio-controller;
+>> +	interrupt-controller;
+>> +	/* 1st cell: gpio pin
+>> +	 * 2nd cell: flags (bit mask)
+>> +	 * bit  0: rising edge interrupt
+>> +	 * bit  1: falling edge interrupt
+>> +	 * bit  2: active high interrupt
+>> +	 * bit  3: active low interrupt
+>> +	 * bit  4: enable debounce
+>> +	 * bit 16: signal is active low
+>> +	 */
+>> +	#interrupt-cells =3D <2>;
+>> +	#gpio-cells =3D <2>;
+>> +	gpio-count =3D <340>;
+>> +	/* 1st cell: gpio interrupt status bit
+>> +	 * 2nd cell: 1st pin
+>> +	 * 3rd cell: # of pins
+>> +	 */
+>> +	gpio-interrupts =3D
+>> +		<0 0 32>,	/* TL / TQ */
+>> +		<1 32 32>,	/* PIC 1 */
+>> +		<2 32 32>,	/* PIC 1 spare */
+>> +		<7 148 32>,	/* PIC 0 */
+>> +		<8 170 32>,	/* PIC 0 spare */
+>> +		<16 318 22>;	/* FPC */
+>> +
+>> +	gpio-exports {
+>> +		/*
+>> +		 * flags:
+>> +		 * GPIOF_DIR_IN			bit 0=3D1
+>> +		 * GPIOF_DIR_OUT		bit 0=3D0
+>> +		 * GPIOF_INIT_HIGH		bit 1=3D1
+>> +		 *   GPIOF_INIT_HIGH is raw, not translated
+>> +		 * GPIOF_ACTIVE_LOW		bit 2=3D1
+>> +		 * GPIOF_OPEN_DRAIN		bit 3=3D1
+>> +		 * GPIOF_OPEN_SOURCE		bit 4=3D1
+>> +		 * GPIOF_EXPORT			bit 5=3D1
+>> +		 * GPIOF_EXPORT_CHANGEABLE      bit 6=3D1
+>> +		 */
+>> +		tl0-rst {
+>> +			pin =3D < 8 0x24 >;
+>> +		};
+>> +	};
+>> +};
+>> --=20
+>> 1.9.1
