@@ -1,56 +1,42 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH -next] net: ethernet: nb8800: fix error return code in nb8800_open()
-Date: Mon, 17 Oct 2016 16:35:10 +0100
-Message-ID: <yw1xmvi3kmz5.fsf@unicorn.mansr.com>
-References: <1476718318-28428-1-git-send-email-weiyj.lk@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net 1/2] conntrack: remove obsolete sysctl
+ (nf_conntrack_events_retry_timeout)
+Date: Mon, 17 Oct 2016 17:39:00 +0200
+Message-ID: <20161017153900.GA15632@salvia>
+References: <1476094704-17452-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1476094704-17452-2-git-send-email-nicolas.dichtel@6wind.com>
+ <20161010135737.GA21057@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: jarod@redhat.com, sf84@laposte.net, peter.chen@nxp.com,
-        tremyfr@gmail.com, arnd@arndb.de, f.fainelli@gmail.com,
-        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:57526 "EHLO unicorn.mansr.com"
+Received: from mail.us.es ([193.147.175.20]:46098 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754792AbcJQPfO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 11:35:14 -0400
-In-Reply-To: <1476718318-28428-1-git-send-email-weiyj.lk@gmail.com> (Wei
-        Yongjun's message of "Mon, 17 Oct 2016 15:31:58 +0000")
+        id S1754595AbcJQPjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 11:39:07 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 0843DF9475
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 17:39:04 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id E35A1DA7FA
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 17:39:03 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 80D36DA819
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 17:39:01 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20161010135737.GA21057@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wei Yongjun <weiyj.lk@gmail.com> writes:
+On Mon, Oct 10, 2016 at 03:57:37PM +0200, Florian Westphal wrote:
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> > This entry has been removed in commit 9500507c6138.
+> > 
+> > Fixes: 9500507c6138 ("netfilter: conntrack: remove timer from ecache extension")
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> 
+> Acked-by: Florian Westphal <fw@strlen.de>
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
->
-> Fix to return error code -ENODEV from the of_phy_connect() error
-> handling case instead of 0, as done elsewhere in this function.
->
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
-
-Acked-by: Mans Rullgard <mans@mansr.com>
-
-> ---
->  drivers/net/ethernet/aurora/nb8800.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> index 453dc09..99c4055 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -975,8 +975,10 @@ static int nb8800_open(struct net_device *dev)
->  	phydev = of_phy_connect(dev, priv->phy_node,
->  				nb8800_link_reconfigure, 0,
->  				priv->phy_mode);
-> -	if (!phydev)
-> +	if (!phydev) {
-> +		err = -ENODEV;
->  		goto err_free_irq;
-> +	}
->
->  	nb8800_pause_adv(dev);
->
-
--- 
-Måns Rullgård
+Applied, thanks Nicolas.
