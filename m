@@ -1,43 +1,63 @@
-From: Eric Garver <e@erig.me>
-Subject: [PATCH net v2] flow_dissector: Check skb for VLAN only if skb specified.
-Date: Mon, 17 Oct 2016 16:30:12 -0400
-Message-ID: <1476736212-21238-1-git-send-email-e@erig.me>
-Cc: Hadar Hen Zion <hadarh@mellanox.com>
-To: netdev@vger.kernel.org
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: [PATCH -next] net: wan: slic_ds26522: Use module_spi_driver to
+ simplify the code
+Date: Mon, 17 Oct 2016 17:38:02 -0300
+Message-ID: <4f9d6820-d3c4-ea90-8b3a-b6d4f5911580@osg.samsung.com>
+References: <1476715845-27691-1-git-send-email-weiyj.lk@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>, Zhao Qiang <qiang.zhao@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51666 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758012AbcJQUaO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 16:30:14 -0400
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:37807
+        "EHLO s-opensource.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932306AbcJQUiL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 16:38:11 -0400
+In-Reply-To: <1476715845-27691-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes a panic when calling eth_get_headlen(). Noticed on i40e driver.
+Hello Wei,
 
-Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
-Signed-off-by: Eric Garver <e@erig.me>
----
- net/core/flow_dissector.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+On 10/17/2016 11:50 AM, Wei Yongjun wrote:
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> module_spi_driver() makes the code simpler by eliminating
+> boilerplate code.
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> ---
+>  drivers/net/wan/slic_ds26522.c | 13 +------------
+>  1 file changed, 1 insertion(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/wan/slic_ds26522.c b/drivers/net/wan/slic_ds26522.c
+> index b776a0a..8f782f1 100644
+> --- a/drivers/net/wan/slic_ds26522.c
+> +++ b/drivers/net/wan/slic_ds26522.c
+> @@ -249,15 +249,4 @@ static struct spi_driver slic_ds26522_driver = {
+>  	.id_table = slic_ds26522_id,
+>  };
+>  
+> -static int __init slic_ds26522_init(void)
+> -{
+> -	return spi_register_driver(&slic_ds26522_driver);
+> -}
+> -
+> -static void __exit slic_ds26522_exit(void)
+> -{
+> -	spi_unregister_driver(&slic_ds26522_driver);
+> -}
+> -
+> -module_init(slic_ds26522_init);
+> -module_exit(slic_ds26522_exit);
+> +module_spi_driver(slic_ds26522_driver);
+> 
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1a7b80f73376..44e6ba9d3a6b 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -247,12 +247,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	case htons(ETH_P_8021Q): {
- 		const struct vlan_hdr *vlan;
- 
--		if (skb_vlan_tag_present(skb))
-+		if (skb && skb_vlan_tag_present(skb))
- 			proto = skb->protocol;
- 
--		if (!skb_vlan_tag_present(skb) ||
--		    proto == cpu_to_be16(ETH_P_8021Q) ||
--		    proto == cpu_to_be16(ETH_P_8021AD)) {
-+		if (eth_type_vlan(proto)) {
- 			struct vlan_hdr _vlan;
- 
- 			vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan),
+Reviewed-by: Javier Martinez Canillas <javier@osg.samsung.com>
+
+Best regards,
 -- 
-2.5.5
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
