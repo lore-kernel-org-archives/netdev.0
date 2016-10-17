@@ -1,46 +1,61 @@
-From: Baozeng Ding <sploving1@gmail.com>
-Subject: Re: net/ipv6: potential deadlock in do_ipv6_setsockopt
-Date: Mon, 17 Oct 2016 17:54:57 +0800
-Message-ID: <ec7e340c-132f-549d-9c30-b6e903cc7666@gmail.com>
-References: <f43836e6-82b2-4673-1f5e-cd41ba0bc609@gmail.com>
- <CAM_iQpWKfkkYzF6yb9fGQsieGwok196kqGtRNVVS_ULxZghyew@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH v4] mac80211: move extra crypto data off the stack
+Date: Mon, 17 Oct 2016 11:02:53 +0100
+Message-ID: <41D0AC2F-E86E-4A98-AD8B-1239D7E6123A@linaro.org>
+References: <1476693195-14071-1-git-send-email-johannes@sipsolutions.net> <CAKv+Gu-aZhCBvnEQoZUZLDPXCrvgxO1pSd=6EHz+tMB+dFz5hg@mail.gmail.com> <1476696226.19992.13.camel@sipsolutions.net> <CAKv+Gu_ZH9hO_xbVfOfk90CxFJ6ZTz3PKWB1v23LRVzpBrb=oQ@mail.gmail.com> <1476696918.19992.15.camel@sipsolutions.net> <67161BCC-596E-4DDE-A58E-9195BB5570C2@linaro.org> <1476698041.19992.19.camel@sipsolutions.net>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+        charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33605 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932687AbcJQJzH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 05:55:07 -0400
-Received: by mail-pf0-f176.google.com with SMTP id 128so78135614pfz.0
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 02:55:07 -0700 (PDT)
-In-Reply-To: <CAM_iQpWKfkkYzF6yb9fGQsieGwok196kqGtRNVVS_ULxZghyew@mail.gmail.com>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:34803 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754520AbcJQKC6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 06:02:58 -0400
+Received: by mail-lf0-f54.google.com with SMTP id b81so277161442lfe.1
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 03:02:58 -0700 (PDT)
+In-Reply-To: <1476698041.19992.19.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Applied the patch to my test tree. I will tell you the result a few days later. Thank you.
 
-On 2016/10/17 2:50, Cong Wang wrote:
-> On Sun, Oct 16, 2016 at 6:34 AM, Baozeng Ding <sploving1@gmail.com> wrote:
->>  Possible unsafe locking scenario:
->>
->>        CPU0                    CPU1
->>        ----                    ----
->>   lock([  165.136033] sk_lock-AF_INET6
->> );
->>                                lock([  165.136033] rtnl_mutex
->> );
->>                                lock([  165.136033] sk_lock-AF_INET6
->> );
->>   lock([  165.136033] rtnl_mutex
->> );
->>
->>  *** DEADLOCK ***
-> 
-> This is caused by the conditional rtnl locking in do_ipv6_setsockopt().
-> It looks like we miss the case of IPV6_ADDRFORM.
-> 
-> Please try the attached patch.
-> 
+
+> On 17 Oct 2016, at 10:54, Johannes Berg <johannes@sipsolutions.net> wrote:=
+
+>=20
+>=20
+>>> Well, if your other patch to make it OK to be on-stack would be
+>>> applied instead, this wouldn't make much sense either :)
+>>>=20
+>>=20
+>> Yes but that one only fixes ccm not gcm
+>=20
+> Yes, but we can do the same for GCM, no?
+>=20
+
+No, not really. ccm happens to use aes with the same key for the mac and the=
+ encryption. gcm uses an another algo entirely for the mac
+
+>>> In this particular patch, we could reduce the size of the struct,
+>>> but I
+>>> don't actually think it'll make a difference to go from 48 to 36
+>>> bytes,
+>>> given alignment etc., so I think I'll just leave it as is.
+>>>=20
+>>=20
+>> I understand you are in a hurry, but this is unlikely to be the only
+>> such issue. I will propose an 'auxdata' feature for the crypto api
+>> that can be used here, but also for any other occurrence where client
+>> data assoiciated with the request can no longer be allocated on the
+>> stack
+>=20
+> No objections. I'll merge this anyway today I think, reverting is easy
+> later.
+>=20
+
+ok fair enough=
