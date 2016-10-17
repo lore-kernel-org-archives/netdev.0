@@ -1,117 +1,156 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH V2 RFC 2/2] ixgbe: ixgbe_atr() compute
- l4_proto only if non-paged data has network/transport headers
-Date: Mon, 17 Oct 2016 11:15:17 -0700
-Message-ID: <CAKgT0Uee88Vh8aHDDzMBZojGjkEz_Po5AKq+6yJ2tVambzH8zw@mail.gmail.com>
-References: <cover.1476724638.git.sowmini.varadhan@oracle.com> <ff985fc71358a90f7a97ca176abb96845852269e.1476724638.git.sowmini.varadhan@oracle.com>
+From: Julia Cartwright <julia@ni.com>
+Subject: Re: Kernel 4.6.7-rt13: Intel Ethernet driver igb causes huge
+ latencies in cyclictest
+Date: Mon, 17 Oct 2016 13:32:09 -0500
+Message-ID: <20161017183209.GA18465@jcartwri.amer.corp.natinst.com>
+References: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D8045E418@FMSMSX113.amr.corp.intel.com>
+ <29250f87b1d84aacb8aa312935582291@FE-MBX1012.de.bosch.com>
+ <20161010193958.GE22235@jcartwri.amer.corp.natinst.com>
+ <e9661abf93194ad3849e3864a8361993@FE-MBX1012.de.bosch.com>
+ <b77ea8ab312149d2b20a717d3ab0a8dc@FE-MBX1012.de.bosch.com>
+ <20161013161839.GV10625@jcartwri.amer.corp.natinst.com>
+ <f395ea6cd1274fac83d2744121da7441@FE-MBX1012.de.bosch.com>
+ <20161014195536.GB27124@jcartwri.amer.corp.natinst.com>
+ <82dcd5bb210f4f82af1e88313c3ec742@FE-MBX1012.de.bosch.com>
+ <CAKgT0Uf-F9V+AeP0+92Gf=40Tye-687_GFbhp4Sex=Hat+Ha+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        Netdev <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        "linux-rt-users@vger.kernel.org" <linux-rt-users@vger.kernel.org>,
+        Sebastian Andrzej Siewior <sebastian.siewior@linutronix.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        Matthew Garrett <mjg59@coreos.com>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Greg <gvrose8192@gmail.com>, <linux-pci@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:35909 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758092AbcJQSPT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 14:15:19 -0400
-Received: by mail-io0-f193.google.com with SMTP id o141so11290959ioe.3
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 11:15:18 -0700 (PDT)
-In-Reply-To: <ff985fc71358a90f7a97ca176abb96845852269e.1476724638.git.sowmini.varadhan@oracle.com>
+Received: from skprod2.natinst.com ([130.164.80.23]:42603 "EHLO ni.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754447AbcJQSc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 14:32:28 -0400
+In-Reply-To: <CAKgT0Uf-F9V+AeP0+92Gf=40Tye-687_GFbhp4Sex=Hat+Ha+w@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 17, 2016 at 10:25 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> For some Tx paths (e.g., tpacket_snd()), ixgbe_atr may be
-> passed down an sk_buff that has the network and transport
-> header in the paged data, so it needs to make sure these
-> headers are available in the headlen bytes to calculate the
-> l4_proto.
++linux-pci
+
+On Mon, Oct 17, 2016 at 08:39:40AM -0700, Alexander Duyck wrote:
+> On Mon, Oct 17, 2016 at 8:00 AM, Koehrer Mathias (ETAS/ESW5)
+> <mathias.koehrer@etas.com> wrote:
+> > Hi Julia!
+> >> > > Have you tested on a vanilla (non-RT) kernel?  I doubt there is
+> >> > > anything RT specific about what you are seeing, but it might be nice
+> >> > > to get confirmation.  Also, bisection would probably be easier if you confirm on a
+> >> vanilla kernel.
+> >> > >
+> >> > > I find it unlikely that it's a kernel config option that changed
+> >> > > which regressed you, but instead was a code change to a driver.
+> >> > > Which driver is now the question, and the surface area is still big
+> >> > > (processor mapping attributes for this region, PCI root complex configuration,
+> >> PCI brige configuration, igb driver itself, etc.).
+> >> > >
+> >> > > Big enough that I'd recommend a bisection.  It looks like a
+> >> > > bisection between 3.18 and 4.8 would take you about 18 tries to narrow down,
+> >> assuming all goes well.
+> >> > >
+> >> >
+> >> > I have now repeated my tests using the vanilla kernel.
+> >> > There I got the very same issue.
+> >> > Using kernel 4.0 is fine, however starting with kernel 4.1, the issue appears.
+> >>
+> >> Great, thanks for confirming!  That helps narrow things down quite a bit.
+> >>
+> >> > Here is my exact (reproducible) test description:
+> >> > I applied the following patch to the kernel to get the igb trace.
+> >> > This patch instruments the igb_rd32() function to measure the call to
+> >> > readl() which is used to access registers of the igb NIC.
+> >>
+> >> I took your test setup and ran it between 4.0 and 4.1 on the hardware on my desk,
+> >> which is an Atom-based board with dual I210s, however I didn't see much
+> >> difference.
+> >>
+> >> However, it's a fairly simple board, with a much simpler PCI topology than your
+> >> workstation.  I'll see if I can find some other hardware to test on.
+> >>
+> >> [..]
+> >> > This means, that I think that some other stuff in kernel 4.1 has
+> >> > changed, which has impact on the igb accesses.
+> >> >
+> >> > Any idea what component could cause this kind of issue?
+> >>
+> >> Can you continue your bisection using 'git bisect'?  You've already narrowed it down
+> >> between 4.0 and 4.1, so you're well on your way.
+> >>
+> >
+> > OK - done.
+> > And finally I was successful!
+> > The following git commit is the one that is causing the trouble!
+> > (The full commit is in the attachment).
+> > +++++++++++++++++++++ BEGIN +++++++++++++++++++++++++++
+> > commit 387d37577fdd05e9472c20885464c2a53b3c945f
+> > Author: Matthew Garrett <mjg59@coreos.com>
+> > Date:   Tue Apr 7 11:07:00 2015 -0700
+> >
+> >     PCI: Don't clear ASPM bits when the FADT declares it's unsupported
+> >
+> >     Communications with a hardware vendor confirm that the expected behaviour
+> >     on systems that set the FADT ASPM disable bit but which still grant full
+> >     PCIe control is for the OS to leave any BIOS configuration intact and
+> >     refuse to touch the ASPM bits.  This mimics the behaviour of Windows.
+> >
+> >     Signed-off-by: Matthew Garrett <mjg59@coreos.com>
+> >     Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+> > +++++++++++++++++++++ HEADER +++++++++++++++++++++++++++
+> >
+> > The only files that are modified by this commit are
+> > drivers/acpi/pci_root.c
+> > drivers/pci/pcie/aspm.c
+> > include/linux/pci-aspm.h
+> >
+> > This is all generic PCIe stuff - however I do not really understand what
+> > the changes of the commit are...
+> >
+> > In my setup I am using a dual port igb Ethernet adapter.
+> > This has an onboard PCIe switch and it might be that the configuration of this
+> > PCIe switch on the Intel board is causing the trouble.
+> >
+> > Please see also the output of "lspci -v" in the attachment.
+> > The relevant PCI address of the NIC is 04:00.0 / 04:00.1
+> >
+> > Any feedback on this is welcome!
+> >
+> > Thanks
+> >
+> > Mathias
 >
-> This patch expect that network and transport headers are
-> already available in the non-paged header dat.  The assumption
-> is that the caller has set this up if l4_proto based Tx
-> steering is desired.
+> Hi Mathias,
 >
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   18 ++++++++++++++++++
->  1 files changed, 18 insertions(+), 0 deletions(-)
+> If you could set the output of lspci -vvv it might be more useful as
+> most of the configuration data isn't present in the lspci dump you had
+> attached.  Specifically if you could do this for the working case and
+> the non-working case we could verify if this issue is actually due to
+> the ASPM configuration on the device.
 >
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index eceb47b..2cc1dae 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -54,6 +54,7 @@
->  #include <net/pkt_cls.h>
->  #include <net/tc_act/tc_gact.h>
->  #include <net/tc_act/tc_mirred.h>
-> +#include <net/vxlan.h>
->
->  #include "ixgbe.h"
->  #include "ixgbe_common.h"
-> @@ -7651,11 +7652,16 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
->         /* snag network header to get L4 type and address */
->         skb = first->skb;
->         hdr.network = skb_network_header(skb);
-> +       if (hdr.network <= skb->data || hdr.network >= skb_tail_pointer(skb))
-> +               return;
+> Also one thing you might try is booting your kernel with the kernel
+> parameter "pcie_aspm=off".  It sounds like the extra latency is likely
+> due to your platform enabling ASPM on the device and this in turn will
+> add latency if the PCIe link is disabled when you attempt to perform a
+> read as it takes some time to bring the PCIe link up when in L1 state.
 
-I would say you probably only need the first check here for skb->data
-and could probably skip the second part.  You will be testing for
-skb_tail_pointer in all the other tests you added so this check is
-redundant anyway.
+So if we assume it's this commit causing the regression, then it's safe
+to assume that this system's BIOS is claiming to not support ASPM in the
+FADT, but the BIOS is leaving ASPM configured in some way on the
+relevant devices.
 
-Also you might want to go through and wrap these with unlikely() since
-most of these are exception cases.
+Also, unfortunately, taking a look at the code which handles
+"pcie_aspm=off", it won't be sufficient to disable ASPM on these
+this system, as disabling these states is skipped when the FADT doesn't
+advertise ASPM support.
 
->         if (skb->encapsulation &&
->             first->protocol == htons(ETH_P_IP) &&
->             hdr.ipv4->protocol == IPPROTO_UDP) {
->                 struct ixgbe_adapter *adapter = q_vector->adapter;
->
-> +               if (skb_tail_pointer(skb) < hdr.network + VXLAN_HEADROOM)
-> +                       return;
-> +
->                 /* verify the port is recognized as VXLAN */
->                 if (adapter->vxlan_port &&
->                     udp_hdr(skb)->dest == adapter->vxlan_port)
-> @@ -7666,15 +7672,27 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
->                         hdr.network = skb_inner_network_header(skb);
->         }
->
-> +       /* Make sure we have at least [minimum IPv4 header + TCP]
-> +        * or [IPv6 header] bytes
-> +        */
-> +       if (skb_tail_pointer(skb) < hdr.network + 40)
-> +               return;
-> +
->         /* Currently only IPv4/IPv6 with TCP is supported */
->         switch (hdr.ipv4->version) {
->         case IPVERSION:
->                 /* access ihl as u8 to avoid unaligned access on ia64 */
->                 hlen = (hdr.network[0] & 0x0F) << 2;
-> +               if (skb_tail_pointer(skb) < hdr.network + hlen +
-> +                                           sizeof(struct tcphdr))
-> +                       return;
->                 l4_proto = hdr.ipv4->protocol;
->                 break;
->         case 6:
->                 hlen = hdr.network - skb->data;
-> +               if (skb_tail_pointer(skb) < hdr.network + hlen +
-> +                                           sizeof(struct tcphdr))
-> +                       return;
->                 l4_proto = ipv6_find_hdr(skb, &hlen, IPPROTO_TCP, NULL, NULL);
->                 hlen -= hdr.network - skb->data;
->                 break;
+What would be needed is an option like "force", but which force
+_disables_ ASPM.  "force-disable", maybe.
 
-I believe one more check is needed after this block to verify the TCP
-header fields are present.
-
-So you probably need to add a check for "skb_tail_pointer(skb) <
-(hdr.network + hlen + 20)".
-
-Thanks.
-
-- Alex
+   Julia
