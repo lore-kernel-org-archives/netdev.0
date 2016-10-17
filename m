@@ -1,10 +1,10 @@
 From: Jesper Nilsson <jesper.nilsson@axis.com>
-Subject: Re: [PATCH 06/10] mm: replace get_user_pages() write/force
- parameters with gup_flags
-Date: Mon, 17 Oct 2016 11:22:46 +0200
-Message-ID: <20161017092246.GG30704@axis.com>
+Subject: Re: [PATCH 10/10] mm: replace access_process_vm() write parameter
+ with gup_flags
+Date: Mon, 17 Oct 2016 11:23:52 +0200
+Message-ID: <20161017092352.GH30704@axis.com>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-7-lstoakes@gmail.com>
+ <20161013002020.3062-11-lstoakes@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-mm@kvack.org, linux-mips@linux-mips.org,
@@ -27,19 +27,21 @@ Cc: linux-mm@kvack.org, linux-mips@linux-mips.org,
 To: Lorenzo Stoakes <lstoakes@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20161013002020.3062-7-lstoakes@gmail.com>
+In-Reply-To: <20161013002020.3062-11-lstoakes@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 13, 2016 at 01:20:16AM +0100, Lorenzo Stoakes wrote:
-> This patch removes the write and force parameters from get_user_pages() and
-> replaces them with a gup_flags parameter to make the use of FOLL_FORCE explicit
-> in callers as use of this flag can result in surprising behaviour (and hence
-> bugs) within the mm subsystem.
+On Thu, Oct 13, 2016 at 01:20:20AM +0100, Lorenzo Stoakes wrote:
+> This patch removes the write parameter from access_process_vm() and replaces it
+> with a gup_flags parameter as use of this function previously _implied_
+> FOLL_FORCE, whereas after this patch callers explicitly pass this flag.
+> 
+> We make this explicit as use of FOLL_FORCE can result in surprising behaviour
+> (and hence bugs) within the mm subsystem.
 > 
 > Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
 > ---
->  arch/cris/arch-v32/drivers/cryptocop.c                 |  4 +---
+>  arch/cris/arch-v32/kernel/ptrace.c |  4 ++--
 
 For the CRIS part:
 
