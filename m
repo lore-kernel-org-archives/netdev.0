@@ -1,269 +1,139 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: Require exact match for TCP socket lookups if dif is l3mdev
-Date: Sun, 16 Oct 2016 20:02:52 -0700
-Message-ID: <1476673372-5360-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: eric.dumazet@gmail.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:32968 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755386AbcJQD2c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2016 23:28:32 -0400
-Received: by mail-pf0-f173.google.com with SMTP id 128so73874867pfz.0
-        for <netdev@vger.kernel.org>; Sun, 16 Oct 2016 20:28:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "R. Parameswaran" <parameswaran.r7@gmail.com>
+Subject: [RFC PATCH v3 1/2] L2TP:Adjust intf MTU,factor underlay L3,overlay
+ L2
+Date: Sun, 16 Oct 2016 21:05:51 -0700 (PDT)
+Message-ID: <alpine.DEB.2.11.1610162104480.12804@duvvury48.eng.vyatta.net>
+References: <alpine.DEB.2.11.1609221341500.6975@duvvury30.eng.vyatta.net> <57ED30D7.6000009@katalix.com> <alpine.DEB.2.11.1609291913070.8509@duvvury48.eng.vyatta.net> <1cec5be4-0719-0dca-d3c6-8c794c867672@katalix.com> <alpine.DEB.2.11.1610031954330.2198@duvvury48.eng.vyatta.net>
+ <149288c4-a352-ae30-ad3a-91d1edfa4bce@katalix.com> <CAGeBGG7AS1JZYHC6T5_H6vY4wfptUtPzO=+kdCcUzJGXA0m6_A@mail.gmail.com> <52890af4-38d6-6aa7-a9e0-69be60fe89fa@katalix.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: R Parameswaran <parameswaran.r7@gmail.com>, kleptog@svana.org,
+        netdev@vger.kernel.org, davem@redhat.com,
+        linux-kernel@vger.kernel.org, nprachan@brocade.com,
+        Robert Shearman <rshearma@brocade.com>, dfawcus@brocade.com,
+        stephen@networkplumber.org, acme@redhat.com, lboccass@brocade.com,
+        bhong@brocade.com
+To: James Chapman <jchapman@katalix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52890af4-38d6-6aa7-a9e0-69be60fe89fa@katalix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, socket lookups for l3mdev (vrf) use cases can match a socket
-that is bound to a port but not a device (ie., a global socket). If the
-sysctl tcp_l3mdev_accept is not set this leads to ack packets going out
-based on the main table even though the packet came in from an L3 domain.
-The end result is that the connection does not establish creating
-confusion for users since the service is running and a socket shows in
-ss output. Fix by requiring an exact dif to sk_bound_dev_if match if the
-skb came through an interface enslaved to an l3mdev device and the
-tcp_l3mdev_accept is not set.
 
-skb's through an l3mdev interface are marked by setting a flag in
-inet{6}_skb_parm. The IPv6 variant is already set; this patch adds the
-flag for IPv4. Using an skb flag avoids a device lookup on the dif. The
-flag is set in the VRF driver using the IP{6}CB macros. For IPv4, the
-inet_skb_parm struct is moved in the cb per commit 971f10eca186, so the
-match function in the TCP stack needs to use TCP_SKB_CB. For IPv6, the
-move is done after the socket lookup, so IP6CB is used.
+[v3: Picked up review comments from James Chapman, added a
+ function  to compute ip header + ip option overhead on a socket, and factored
+ it  into L2TP change-set, RFC, would like early feedback on name and
+ placement, and logic  of new function while I test this]
 
-The flags field in inet_skb_parm struct needs to be increased to add
-another flag. There is currently a 1-byte hole following the flags,
-so it can be expanded to u16 without increasing the size of the struct.
+>From 30c4b3900d09deb912fc6ce4af3c19e870f84e14 Mon Sep 17 00:00:00 2001
+From: "R. Parameswaran" <rparames@brocade.com>
+Date: Sun, 16 Oct 2016 20:19:38 -0700
 
-Fixes: 193125dbd8eb ("net: Introduce VRF device driver")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+In existing kernel code, when setting up the L2TP interface, all of the
+tunnel encapsulation headers are not taken into account when setting
+up the MTU on the  L2TP logical interface device. Due to this, the
+packets created by the applications on top of the L2TP layer are larger
+than they ought to be, relative to the underlay MTU, which leads to
+needless fragmentation once the L2TP packet is encapsulated in an outer IP
+packet.
+
+Specifically, the MTU calculation  does not take into account the (outer)
+IP header imposed on the encapsulated L2TP packet, and the Layer 2 header
+imposed on the inner L2TP packet prior to encapsulation. The patch posted
+here takes care of these.
+
+Existing code also seems to assume an Ethernet (non-jumbo) underlay. The
+patch uses the PMTU mechanism and the dst entry in the L2TP tunnel socket
+to directly pull up the underlay MTU (as the baseline number on top of
+which the encapsulation headers are factored in).  Ethernet MTU is
+assumed as a fallback only if this fails.
+
+Picked up review comments from James Chapman, added a function
+to compute ip header + ip option overhead on a socket, and factored it
+into L2TP change-set.
+
+Signed-off-by: nprachan@brocade.com,
+Signed-off-by: bhong@brocade.com,
+Signed-off-by: rshearma@brocade.com,
+Signed-off-by: dfawcus@brocade.com
 ---
-v4
-- renamed existing skb_l3mdev_slave to ipv6_l3mdev_skb
-- renamed ipv4 version ipv4_l3mdev_skb
+ include/linux/net.h |  3 +++
+ net/socket.c        | 37 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+)
 
-v3
-- changed the match functions to pull the skb flag from TCP_SKB_CB
-  rather than IPCB for IPv4 per changes from 971f10eca186. match
-  function is moved to tcp.h as a consequence.
-- made flags a u16 versus __u16 for consistency with frag_max_size
-- updated commit message
-
-v2
-- reordered the checks in inet_exact_dif_match per Eric's comment
-- changed the l3mdev determination from looking up the dif to using
-  a flag set on the skb which is much faster
-
- drivers/net/vrf.c           |  2 ++
- include/linux/ipv6.h        | 17 ++++++++++++++---
- include/net/ip.h            |  8 +++++++-
- include/net/tcp.h           | 13 ++++++++++++-
- net/ipv4/inet_hashtables.c  |  8 +++++---
- net/ipv6/inet6_hashtables.c |  7 ++++---
- 6 files changed, 44 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 85c271c70d42..820de6a9ddde 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -956,6 +956,7 @@ static struct sk_buff *vrf_ip6_rcv(struct net_device *vrf_dev,
- 	if (skb->pkt_type == PACKET_LOOPBACK) {
- 		skb->dev = vrf_dev;
- 		skb->skb_iif = vrf_dev->ifindex;
-+		IP6CB(skb)->flags |= IP6SKB_L3SLAVE;
- 		skb->pkt_type = PACKET_HOST;
- 		goto out;
- 	}
-@@ -996,6 +997,7 @@ static struct sk_buff *vrf_ip_rcv(struct net_device *vrf_dev,
- {
- 	skb->dev = vrf_dev;
- 	skb->skb_iif = vrf_dev->ifindex;
-+	IPCB(skb)->flags |= IPSKB_L3SLAVE;
+diff --git a/include/linux/net.h b/include/linux/net.h
+index cd0c8bd..2c8b092 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -298,6 +298,9 @@ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+ int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
+ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
  
- 	/* loopback traffic; do not push through packet taps again.
- 	 * Reset pkt_type for upper layers to process skb
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 7e9a789be5e0..ca1ad9ebbc92 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -123,12 +123,12 @@ struct inet6_skb_parm {
- };
- 
- #if defined(CONFIG_NET_L3_MASTER_DEV)
--static inline bool skb_l3mdev_slave(__u16 flags)
-+static inline bool ipv6_l3mdev_skb(__u16 flags)
- {
- 	return flags & IP6SKB_L3SLAVE;
- }
- #else
--static inline bool skb_l3mdev_slave(__u16 flags)
-+static inline bool ipv6_l3mdev_skb(__u16 flags)
- {
- 	return false;
- }
-@@ -139,11 +139,22 @@ static inline bool skb_l3mdev_slave(__u16 flags)
- 
- static inline int inet6_iif(const struct sk_buff *skb)
- {
--	bool l3_slave = skb_l3mdev_slave(IP6CB(skb)->flags);
-+	bool l3_slave = ipv6_l3mdev_skb(IP6CB(skb)->flags);
- 
- 	return l3_slave ? skb->skb_iif : IP6CB(skb)->iif;
- }
- 
-+/* can not be used in TCP layer after tcp_v6_fill_cb */
-+static inline bool inet6_exact_dif_match(struct net *net, struct sk_buff *skb)
-+{
-+#if defined(CONFIG_NET_L3_MASTER_DEV)
-+	if (!net->ipv4.sysctl_tcp_l3mdev_accept &&
-+	    ipv6_l3mdev_skb(IP6CB(skb)->flags))
-+		return true;
-+#endif
-+	return false;
-+}
++/* Following routine returns the IP overhead imposed by a socket.  */
++u32 kernel_sock_ip_overhead(struct sock *sk);
 +
- struct tcp6_request_sock {
- 	struct tcp_request_sock	  tcp6rsk_tcp;
- };
-diff --git a/include/net/ip.h b/include/net/ip.h
-index bc43c0fcae12..c9d07988911e 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -38,7 +38,7 @@ struct sock;
- struct inet_skb_parm {
- 	int			iif;
- 	struct ip_options	opt;		/* Compiled IP options		*/
--	unsigned char		flags;
-+	u16			flags;
+ #define MODULE_ALIAS_NETPROTO(proto) \
+ 	MODULE_ALIAS("net-pf-" __stringify(proto))
  
- #define IPSKB_FORWARDED		BIT(0)
- #define IPSKB_XFRM_TUNNEL_SIZE	BIT(1)
-@@ -48,10 +48,16 @@ struct inet_skb_parm {
- #define IPSKB_DOREDIRECT	BIT(5)
- #define IPSKB_FRAG_PMTU		BIT(6)
- #define IPSKB_FRAG_SEGS		BIT(7)
-+#define IPSKB_L3SLAVE		BIT(8)
- 
- 	u16			frag_max_size;
- };
- 
-+static inline bool ipv4_l3mdev_skb(u16 flags)
-+{
-+	return !!(flags & IPSKB_L3SLAVE);
-+}
-+
- static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
- {
- 	return ip_hdr(skb)->ihl * 4;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f83b7f220a65..5b82d4d94834 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -794,12 +794,23 @@ struct tcp_skb_cb {
-  */
- static inline int tcp_v6_iif(const struct sk_buff *skb)
- {
--	bool l3_slave = skb_l3mdev_slave(TCP_SKB_CB(skb)->header.h6.flags);
-+	bool l3_slave = ipv6_l3mdev_skb(TCP_SKB_CB(skb)->header.h6.flags);
- 
- 	return l3_slave ? skb->skb_iif : TCP_SKB_CB(skb)->header.h6.iif;
+diff --git a/net/socket.c b/net/socket.c
+index 5a9bf5e..d5e79c2 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -3293,3 +3293,40 @@ int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how)
+ 	return sock->ops->shutdown(sock, how);
  }
- #endif
- 
-+/* TCP_SKB_CB reference means this can not be used from early demux */
-+static inline bool inet_exact_dif_match(struct net *net, struct sk_buff *skb)
-+{
-+#if IS_ENABLED(CONFIG_NET_L3_MASTER_DEV)
-+	if (!net->ipv4.sysctl_tcp_l3mdev_accept &&
-+	    ipv4_l3mdev_skb(TCP_SKB_CB(skb)->header.h4.flags))
-+		return true;
-+#endif
-+	return false;
-+}
+ EXPORT_SYMBOL(kernel_sock_shutdown);
 +
- /* Due to TSO, an SKB can be composed of multiple actual
-  * packets.  To keep these tracked properly, we use this.
-  */
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 77c20a489218..ca97835bfec4 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -25,6 +25,7 @@
- #include <net/inet_hashtables.h>
- #include <net/secure_seq.h>
- #include <net/ip.h>
-+#include <net/tcp.h>
- #include <net/sock_reuseport.h>
- 
- static u32 inet_ehashfn(const struct net *net, const __be32 laddr,
-@@ -172,7 +173,7 @@ EXPORT_SYMBOL_GPL(__inet_inherit_port);
- 
- static inline int compute_score(struct sock *sk, struct net *net,
- 				const unsigned short hnum, const __be32 daddr,
--				const int dif)
-+				const int dif, bool exact_dif)
- {
- 	int score = -1;
- 	struct inet_sock *inet = inet_sk(sk);
-@@ -186,7 +187,7 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 				return -1;
- 			score += 4;
- 		}
--		if (sk->sk_bound_dev_if) {
-+		if (sk->sk_bound_dev_if || exact_dif) {
- 			if (sk->sk_bound_dev_if != dif)
- 				return -1;
- 			score += 4;
-@@ -215,11 +216,12 @@ struct sock *__inet_lookup_listener(struct net *net,
- 	unsigned int hash = inet_lhashfn(net, hnum);
- 	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
- 	int score, hiscore = 0, matches = 0, reuseport = 0;
-+	bool exact_dif = inet_exact_dif_match(net, skb);
- 	struct sock *sk, *result = NULL;
- 	u32 phash = 0;
- 
- 	sk_for_each_rcu(sk, &ilb->head) {
--		score = compute_score(sk, net, hnum, daddr, dif);
-+		score = compute_score(sk, net, hnum, daddr, dif, exact_dif);
- 		if (score > hiscore) {
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 00cf28ad4565..2fd0374a35b1 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -96,7 +96,7 @@ EXPORT_SYMBOL(__inet6_lookup_established);
- static inline int compute_score(struct sock *sk, struct net *net,
- 				const unsigned short hnum,
- 				const struct in6_addr *daddr,
--				const int dif)
-+				const int dif, bool exact_dif)
- {
- 	int score = -1;
- 
-@@ -109,7 +109,7 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 				return -1;
- 			score++;
- 		}
--		if (sk->sk_bound_dev_if) {
-+		if (sk->sk_bound_dev_if || exact_dif) {
- 			if (sk->sk_bound_dev_if != dif)
- 				return -1;
- 			score++;
-@@ -131,11 +131,12 @@ struct sock *inet6_lookup_listener(struct net *net,
- 	unsigned int hash = inet_lhashfn(net, hnum);
- 	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
- 	int score, hiscore = 0, matches = 0, reuseport = 0;
-+	bool exact_dif = inet6_exact_dif_match(net, skb);
- 	struct sock *sk, *result = NULL;
- 	u32 phash = 0;
- 
- 	sk_for_each(sk, &ilb->head) {
--		score = compute_score(sk, net, hnum, daddr, dif);
-+		score = compute_score(sk, net, hnum, daddr, dif, exact_dif);
- 		if (score > hiscore) {
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
++/*
++ *	This routine returns the IP overhead imposed by a socket i.e.
++ *	the length of the underlying IP header, depending on whether
++ *      this is an IPv4 or IPv6 socket and the length from IP options turned
++ *      on at the socket.
++ */
++u32 kernel_sock_ip_overhead(struct sock *sk)
++{
++	u32 overhead = 0;
++	if (!sk)
++		goto done;
++	if (sk->sk_family == AF_INET) {
++		struct ip_options_rcu *opt = NULL;
++		struct inet_sock *inet = inet_sk(sk);
++		overhead += sizeof(struct iphdr);
++		if (inet)
++			opt = rcu_dereference_protected(inet->inet_opt,
++							sock_owned_by_user(sk));
++		if (opt)
++			overhead += opt->opt.optlen;
++	}
++	else if (sk->sk_family == AF_INET6) {
++		struct ipv6_pinfo *np = inet6_sk(sk);
++		struct ipv6_txoptions *opt = NULL;
++		overhead += sizeof(struct ipv6hdr);
++		if (np)
++			opt = rcu_dereference_protected(np->opt,
++							sock_owned_by_user(sk));
++		if (opt)
++			overhead += (opt->opt_flen + opt->opt_nflen);
++	}
++
++done:
++	return overhead;
++}
++EXPORT_SYMBOL_GPL(kernel_sock_ip_overhead);
 -- 
 2.1.4
+
+----
+On Tue, 11 Oct 2016, James Chapman wrote:
+
+> 
+> I think keep it simple. A function to return the size of the IP header
+> associated with any IP socket, not necessarily a tunnel socket. Don't
+> mix in any MTU derivation logic or UDP header size etc.
+> 
+> Post code early as an RFC. You're more likely to get review feedback
+> from others.
+> 
+> 
+> 
+> 
