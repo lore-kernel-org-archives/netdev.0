@@ -1,256 +1,121 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next 04/15] ethernet/marvell: use core min/max MTU checking
-Date: Mon, 17 Oct 2016 15:54:06 -0400
-Message-ID: <20161017195417.48259-5-jarod@redhat.com>
+Subject: [PATCH net-next 06/15] ethernet/qlogic: use core min/max MTU checking
+Date: Mon, 17 Oct 2016 15:54:08 -0400
+Message-ID: <20161017195417.48259-7-jarod@redhat.com>
 References: <20161017195417.48259-1-jarod@redhat.com>
 Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        Mirko Lindner <mlindner@marvell.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Ariel Elior <Ariel.Elior@qlogic.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43244 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758791AbcJQTya (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 15:54:30 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161017195417.48259-1-jarod@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-mvneta: min_mtu 68, max_mtu 9676
-- mtu validation routine mostly did range check, merge back into
-  mvneta_change_mtu for simplicity
+qede: min_mtu 46, max_mtu 9600
+- Put define for max in qede.h
 
-mvpp2: min_mtu 68, max_mtu 9676
-- mtu validation routine mostly did range check, merge back into
-  mvpp2_change_mtu for simplicity
-
-pxa168_eth: min_mtu 68, max_mtu 9500
-
-skge: min_mtu 60, max_mtu 9000
-
-sky2: min_mtu 68, max_mtu 1500 or 9000, depending on hw
+qlcnic: min_mtu 68, max_mtu 9600
 
 CC: netdev@vger.kernel.org
-CC: Mirko Lindner <mlindner@marvell.com>
-CC: Stephen Hemminger <stephen@networkplumber.org>
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC Dept-GELinuxNICDev@qlogic.com
+CC: Yuval Mintz <Yuval.Mintz@qlogic.com>
+CC: Ariel Elior <Ariel.Elior@qlogic.com>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c     | 36 +++++++++----------------------
- drivers/net/ethernet/marvell/mvpp2.c      | 36 ++++++++-----------------------
- drivers/net/ethernet/marvell/pxa168_eth.c |  7 +++---
- drivers/net/ethernet/marvell/skge.c       |  7 +++---
- drivers/net/ethernet/marvell/sky2.c       | 18 +++++++---------
- 5 files changed, 35 insertions(+), 69 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede.h          | 5 +++--
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c  | 8 --------
+ drivers/net/ethernet/qlogic/qede/qede_main.c     | 4 ++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c   | 6 ------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 4 ++++
+ 5 files changed, 11 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 5cb07c2..b85819e 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3024,29 +3024,6 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
- 	mvneta_rx_reset(pp);
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index f50e527..9135b9d 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -362,8 +362,9 @@ void qede_recycle_rx_bd_ring(struct qede_rx_queue *rxq, struct qede_dev *edev,
+ #define NUM_TX_BDS_MIN		128
+ #define NUM_TX_BDS_DEF		NUM_TX_BDS_MAX
+ 
+-#define QEDE_MIN_PKT_LEN	64
+-#define QEDE_RX_HDR_SIZE	256
++#define QEDE_MIN_PKT_LEN		64
++#define QEDE_RX_HDR_SIZE		256
++#define QEDE_MAX_JUMBO_PACKET_SIZE	9600
+ #define	for_each_queue(i) for (i = 0; i < edev->num_queues; i++)
+ 
+ #endif /* _QEDE_H_ */
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 25a9b29..b7dbb44 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -723,19 +723,11 @@ static void qede_update_mtu(struct qede_dev *edev, union qede_reload_args *args)
  }
  
--/* Return positive if MTU is valid */
--static int mvneta_check_mtu_valid(struct net_device *dev, int mtu)
--{
--	if (mtu < 68) {
--		netdev_err(dev, "cannot change mtu to less than 68\n");
--		return -EINVAL;
--	}
--
--	/* 9676 == 9700 - 20 and rounding to 8 */
--	if (mtu > 9676) {
--		netdev_info(dev, "Illegal MTU value %d, round to 9676\n", mtu);
--		mtu = 9676;
--	}
--
--	if (!IS_ALIGNED(MVNETA_RX_PKT_SIZE(mtu), 8)) {
--		netdev_info(dev, "Illegal MTU value %d, rounding to %d\n",
--			mtu, ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8));
--		mtu = ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8);
--	}
--
--	return mtu;
--}
--
- static void mvneta_percpu_enable(void *arg)
+ /* Netdevice NDOs */
+-#define ETH_MAX_JUMBO_PACKET_SIZE	9600
+-#define ETH_MIN_PACKET_SIZE		60
+ int qede_change_mtu(struct net_device *ndev, int new_mtu)
  {
- 	struct mvneta_port *pp = arg;
-@@ -3067,9 +3044,11 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
- 	struct mvneta_port *pp = netdev_priv(dev);
- 	int ret;
+ 	struct qede_dev *edev = netdev_priv(ndev);
+ 	union qede_reload_args args;
  
--	mtu = mvneta_check_mtu_valid(dev, mtu);
--	if (mtu < 0)
+-	if ((new_mtu > ETH_MAX_JUMBO_PACKET_SIZE) ||
+-	    ((new_mtu + ETH_HLEN) < ETH_MIN_PACKET_SIZE)) {
+-		DP_ERR(edev, "Can't support requested MTU size\n");
 -		return -EINVAL;
-+	if (!IS_ALIGNED(MVNETA_RX_PKT_SIZE(mtu), 8)) {
-+		netdev_info(dev, "Illegal MTU value %d, rounding to %d\n",
-+			    mtu, ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8));
-+		mtu = ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8);
-+	}
+-	}
+-
+ 	DP_VERBOSE(edev, (NETIF_MSG_IFUP | NETIF_MSG_IFDOWN),
+ 		   "Configuring MTU size of %d\n", new_mtu);
  
- 	dev->mtu = mtu;
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 0e483af..4f29865 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -2391,6 +2391,10 @@ static void qede_init_ndev(struct qede_dev *edev)
  
-@@ -4154,6 +4133,11 @@ static int mvneta_probe(struct platform_device *pdev)
- 	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
- 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+ 	ndev->hw_features = hw_features;
  
-+	/* MTU range: 68 - 9676 */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	/* 9676 == 9700 - 20 and rounding to 8 */
-+	dev->max_mtu = 9676;
++	/* MTU range: 46 - 9600 */
++	ndev->min_mtu = ETH_ZLEN - ETH_HLEN;
++	ndev->max_mtu = QEDE_MAX_JUMBO_PACKET_SIZE;
 +
- 	err = register_netdev(dev);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "failed to register\n");
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 60227a3..c8bf155 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5453,29 +5453,6 @@ static void mvpp2_stop_dev(struct mvpp2_port *port)
- 	phy_stop(ndev->phydev);
+ 	/* Set network device HW mac */
+ 	ether_addr_copy(edev->ndev->dev_addr, edev->dev_info.common.hw_mac);
  }
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 509b596..838cc0c 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -1024,12 +1024,6 @@ int qlcnic_change_mtu(struct net_device *netdev, int mtu)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	int rc = 0;
  
--/* Return positive if MTU is valid */
--static inline int mvpp2_check_mtu_valid(struct net_device *dev, int mtu)
--{
--	if (mtu < 68) {
--		netdev_err(dev, "cannot change mtu to less than 68\n");
+-	if (mtu < P3P_MIN_MTU || mtu > P3P_MAX_MTU) {
+-		dev_err(&adapter->netdev->dev, "%d bytes < mtu < %d bytes"
+-			" not supported\n", P3P_MAX_MTU, P3P_MIN_MTU);
 -		return -EINVAL;
 -	}
 -
--	/* 9676 == 9700 - 20 and rounding to 8 */
--	if (mtu > 9676) {
--		netdev_info(dev, "illegal MTU value %d, round to 9676\n", mtu);
--		mtu = 9676;
--	}
--
--	if (!IS_ALIGNED(MVPP2_RX_PKT_SIZE(mtu), 8)) {
--		netdev_info(dev, "illegal MTU value %d, round to %d\n", mtu,
--			    ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8));
--		mtu = ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8);
--	}
--
--	return mtu;
--}
--
- static int mvpp2_check_ringparam_valid(struct net_device *dev,
- 				       struct ethtool_ringparam *ring)
- {
-@@ -5717,10 +5694,10 @@ static int mvpp2_change_mtu(struct net_device *dev, int mtu)
- 	struct mvpp2_port *port = netdev_priv(dev);
- 	int err;
+ 	rc = qlcnic_fw_cmd_set_mtu(adapter, mtu);
  
--	mtu = mvpp2_check_mtu_valid(dev, mtu);
--	if (mtu < 0) {
--		err = mtu;
--		goto error;
-+	if (!IS_ALIGNED(MVPP2_RX_PKT_SIZE(mtu), 8)) {
-+		netdev_info(dev, "illegal MTU value %d, round to %d\n", mtu,
-+			    ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8));
-+		mtu = ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8);
- 	}
+ 	if (!rc)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 3ae3968..4c0cce96 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2342,6 +2342,10 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 	netdev->irq = adapter->msix_entries[0].vector;
  
- 	if (!netif_running(dev)) {
-@@ -6212,6 +6189,11 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 	dev->hw_features |= features | NETIF_F_RXCSUM | NETIF_F_GRO;
- 	dev->vlan_features |= features;
- 
-+	/* MTU range: 68 - 9676 */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	/* 9676 == 9700 - 20 and rounding to 8 */
-+	dev->max_mtu = 9676;
++	/* MTU range: 68 - 9600 */
++	netdev->min_mtu = P3P_MIN_MTU;
++	netdev->max_mtu = P3P_MAX_MTU;
 +
- 	err = register_netdev(dev);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "failed to register netdev\n");
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index 5d5000c..b78a838 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -1209,9 +1209,6 @@ static int pxa168_eth_change_mtu(struct net_device *dev, int mtu)
- 	int retval;
- 	struct pxa168_eth_private *pep = netdev_priv(dev);
- 
--	if ((mtu > 9500) || (mtu < 68))
--		return -EINVAL;
--
- 	dev->mtu = mtu;
- 	retval = set_port_config_ext(pep);
- 
-@@ -1459,6 +1456,10 @@ static int pxa168_eth_probe(struct platform_device *pdev)
- 	dev->base_addr = 0;
- 	dev->ethtool_ops = &pxa168_ethtool_ops;
- 
-+	/* MTU range: 68 - 9500 */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	dev->max_mtu = 9500;
-+
- 	INIT_WORK(&pep->tx_timeout_task, pxa168_eth_tx_timeout_task);
- 
- 	if (pdev->dev.of_node)
-diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
-index 7173836..9c4b722 100644
---- a/drivers/net/ethernet/marvell/skge.c
-+++ b/drivers/net/ethernet/marvell/skge.c
-@@ -2900,9 +2900,6 @@ static int skge_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	int err;
- 
--	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
--		return -EINVAL;
--
- 	if (!netif_running(dev)) {
- 		dev->mtu = new_mtu;
- 		return 0;
-@@ -3857,6 +3854,10 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
- 	dev->watchdog_timeo = TX_WATCHDOG;
- 	dev->irq = hw->pdev->irq;
- 
-+	/* MTU range: 60 - 9000 */
-+	dev->min_mtu = ETH_ZLEN;
-+	dev->max_mtu = ETH_JUMBO_MTU;
-+
- 	if (highmem)
- 		dev->features |= NETIF_F_HIGHDMA;
- 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index f05ea56..aa60f4d 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2398,16 +2398,6 @@ static int sky2_change_mtu(struct net_device *dev, int new_mtu)
- 	u16 ctl, mode;
- 	u32 imask;
- 
--	/* MTU size outside the spec */
--	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
--		return -EINVAL;
--
--	/* MTU > 1500 on yukon FE and FE+ not allowed */
--	if (new_mtu > ETH_DATA_LEN &&
--	    (hw->chip_id == CHIP_ID_YUKON_FE ||
--	     hw->chip_id == CHIP_ID_YUKON_FE_P))
--		return -EINVAL;
--
- 	if (!netif_running(dev)) {
- 		dev->mtu = new_mtu;
- 		netdev_update_features(dev);
-@@ -4808,6 +4798,14 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
- 
- 	dev->features |= dev->hw_features;
- 
-+	/* MTU range: 60 - 1500 or 9000 */
-+	dev->min_mtu = ETH_ZLEN;
-+	if (hw->chip_id == CHIP_ID_YUKON_FE ||
-+	    hw->chip_id == CHIP_ID_YUKON_FE_P)
-+		dev->max_mtu = ETH_DATA_LEN;
-+	else
-+		dev->max_mtu = ETH_JUMBO_MTU;
-+
- 	/* try to get mac address in the following order:
- 	 * 1) from device tree data
- 	 * 2) from internal registers set by bootloader
+ 	err = qlcnic_set_real_num_queues(adapter, adapter->drv_tx_rings,
+ 					 adapter->drv_sds_rings);
+ 	if (err)
 -- 
 2.10.0
