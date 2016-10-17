@@ -1,108 +1,111 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Mon, 17 Oct 2016 11:05:47 +0200
-Message-ID: <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
-References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
- <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
- <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
- <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
- <58027540.6080604@codeaurora.org>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH v4] mac80211: move extra crypto data off the stack
+Date: Mon, 17 Oct 2016 10:14:28 +0100
+Message-ID: <CAKv+Gu-aZhCBvnEQoZUZLDPXCrvgxO1pSd=6EHz+tMB+dFz5hg@mail.gmail.com>
+References: <1476693195-14071-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>, Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:10139 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933584AbcJQJOA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 05:14:00 -0400
-In-Reply-To: <58027540.6080604@codeaurora.org>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:36402 "EHLO
+        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933389AbcJQJO3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 05:14:29 -0400
+Received: by mail-io0-f174.google.com with SMTP id j37so181583807ioo.3
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 02:14:29 -0700 (PDT)
+In-Reply-To: <1476693195-14071-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/15/2016 08:28 PM, Timur Tabi wrote:
-> Andrew Lunn wrote:
->> 1) Take the SerDes power down out of the suspend code for the at803x.
->>
->> 2) Assume MII_PHYID1/2 registers are not guaranteed to be available
->> when the PHY is powered down. So get_phy_id should first read
->> MII_BMCR. If it gets 0xffff, assume there is no PHY there. If the
->> PDOWN bit is set, power up the PHY. Then reading the ID registers.
-> 
-> Before we take approach #1, I'd like to hear from the developer of that patch,
-> Zefir.  According to him, that patch is necessary to fix a bug. I don't know if
-> that bug exists only on his system, though.
-> 
+On 17 October 2016 at 09:33, Johannes Berg <johannes@sipsolutions.net> wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
+>
+> As the stack can (on x86-64) now be virtually mapped rather than
+> using "normal" kernel memory, Sergey noticed mac80211 isn't using
+> the SG APIs correctly by putting on-stack buffers into SG tables.
+> This leads to kernel crashes.
+>
+> Fix this by allocating the extra fields dynamically on the fly as
+> needed, using a kmem cache.
+>
+> I used per-CPU memory in a previous iteration of this patch, but
+> Ard Biesheuvel pointed out that was also vmalloc'ed on some
+> architectures.
+>
+> Reported-by: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 
-Hi,
+Apologies for going back and forth on this, but it appears there may
+be another way to deal with this.
 
-the problem we observed was that in SGMII mode after a suspend/resume cycle the
-PHY link states get out of sync (e.g. gianfar reports link up, at803x down) and
-power cycling the SerDes was a reliable way to get them re-synchronized again.
+First of all, we only need this handling for the authenticated data,
+and only for CCM and GCM, not CMAC (which does not use scatterlists at
+all, it simply calls the AES cipher directly)
 
-This obviously worked for some time after March 2016 and must have stopped only
-recently (maybe additional PHY suspends were added).
+So that leaves a fixed 20 bytes for GCM and fixed 32 bytes for CCM,
+which we could allocate along with the AEAD request, e..g.,
 
-Anyway, since the SGMII reset is required, instead of reverting the patch in full
-I suggest to move the SGMII power down from at803x_suspend() and do a SerDes power
-cycle in at803x_resume(). Could you please test if the patch below fixes the problem?
+"""
+diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
+index 8e898a6e8de8..c0c33e6ad94e 100644
+--- a/net/mac80211/aes_ccm.c
++++ b/net/mac80211/aes_ccm.c
+@@ -24,13 +24,17 @@ int ieee80211_aes_ccm_encrypt(struct crypto_aead
+*tfm, u8 *b_0, u8 *aad,
+ {
+        struct scatterlist sg[3];
+        struct aead_request *aead_req;
++       u8 *__aad;
 
+        aead_req = aead_request_alloc(tfm, GFP_ATOMIC);
+        if (!aead_req)
+                return -ENOMEM;
 
-Thanks,
-Zefir
----
-
-
-
-Subject: [PATCH] at803x: don't power down SerDes on suspend
-
-Powering down SerDes renders registers inaccessible
-and with that re-initializing a suspended PHY fails.
-
-Instead of powering down SerDes at suspend(), leave
-it as is and power-cycle it on resume().
-
-Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
----
- drivers/net/phy/at803x.c | 14 +++-----------
- 1 file changed, 3 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index f279a89..282ffbb 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -225,16 +225,6 @@ static int at803x_suspend(struct phy_device *phydev)
-
- 	phy_write(phydev, MII_BMCR, value);
-
--	if (phydev->interface != PHY_INTERFACE_MODE_SGMII)
--		goto done;
--
--	/* also power-down SGMII interface */
--	ccr = phy_read(phydev, AT803X_REG_CHIP_CONFIG);
--	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
--	phy_write(phydev, MII_BMCR, phy_read(phydev, MII_BMCR) | BMCR_PDOWN);
--	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr | AT803X_BT_BX_REG_SEL);
--
--done:
- 	mutex_unlock(&phydev->lock);
-
- 	return 0;
-@@ -254,9 +244,11 @@ static int at803x_resume(struct phy_device *phydev)
- 	if (phydev->interface != PHY_INTERFACE_MODE_SGMII)
- 		goto done;
-
--	/* also power-up SGMII interface */
-+	/* reset SGMII interface for re-synchronization */
- 	ccr = phy_read(phydev, AT803X_REG_CHIP_CONFIG);
- 	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
-+	phy_write(phydev, MII_BMCR, phy_read(phydev, MII_BMCR) | BMCR_PDOWN);
++       __aad = (u8 *)aead_req + crypto_aead_reqsize(tfm);
++       memcpy(__aad, aad, 2 * AES_BLOCK_SIZE);
 +
- 	value = phy_read(phydev, MII_BMCR) & ~(BMCR_PDOWN | BMCR_ISOLATE);
- 	phy_write(phydev, MII_BMCR, value);
- 	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr | AT803X_BT_BX_REG_SEL);
--- 
-2.7.4
+        sg_init_table(sg, 3);
+-       sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
++       sg_set_buf(&sg[0], &__aad[2], be16_to_cpup((__be16 *)__aad));
+        sg_set_buf(&sg[1], data, data_len);
+        sg_set_buf(&sg[2], mic, mic_len);
+
+@@ -49,6 +53,7 @@ int ieee80211_aes_ccm_decrypt(struct crypto_aead
+*tfm, u8 *b_0, u8 *aad,
+ {
+        struct scatterlist sg[3];
+        struct aead_request *aead_req;
++       u8 *__aad;
+        int err;
+
+        if (data_len == 0)
+@@ -58,8 +63,11 @@ int ieee80211_aes_ccm_decrypt(struct crypto_aead
+*tfm, u8 *b_0, u8 *aad,
+        if (!aead_req)
+                return -ENOMEM;
+
++       __aad = (u8 *)aead_req + crypto_aead_reqsize(tfm);
++       memcpy(__aad, aad, 2 * AES_BLOCK_SIZE);
++
+        sg_init_table(sg, 3);
+-       sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
++       sg_set_buf(&sg[0], &__aad[2], be16_to_cpup((__be16 *)__aad));
+        sg_set_buf(&sg[1], data, data_len);
+        sg_set_buf(&sg[2], mic, mic_len);
+
+@@ -90,6 +98,8 @@ struct crypto_aead
+*ieee80211_aes_key_setup_encrypt(const u8 key[],
+        if (err)
+                goto free_aead;
+
++       crypto_aead_set_reqsize(tfm,
++                               crypto_aead_reqsize(tfm) + 2 * AES_BLOCK_SIZE));
+        return tfm;
+
+ free_aead:
+"""
