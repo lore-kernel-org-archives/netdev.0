@@ -1,65 +1,54 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 19/28] brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
-Date: Tue, 18 Oct 2016 00:13:40 +0200
-Message-ID: <20161017221355.1861551-7-arnd@arndb.de>
+Subject: [PATCH 21/28] net/hyperv: avoid uninitialized variable
+Date: Tue, 18 Oct 2016 00:16:09 +0200
+Message-ID: <20161017221650.1902729-2-arnd@arndb.de>
 References: <20161017220342.1627073-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        "Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
-To: Arend van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:49231 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754096AbcJQWQO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 18:16:14 -0400
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ "David S. Miller" <davem@davemloft.net>
+To: "K. Y. Srinivasan" <kys@microsoft.com>,
+ Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20161017220342.1627073-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-A bugfix added a sanity check around the assignment and use of the
-'is_11d' variable, which looks correct to me, but as the function is
-rather complex already, this confuses the compiler to the point where
-it can no longer figure out if the variable is always initialized
-correctly:
-
-brcm80211/brcmfmac/cfg80211.c: In function ‘brcmf_cfg80211_start_ap’:
-brcm80211/brcmfmac/cfg80211.c:4586:10: error: ‘is_11d’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-
-This adds an initialization for the newly introduced case in which
-the variable should not really be used, in order to make the warning
-go away.
-
-Fixes: b3589dfe0212 ("brcmfmac: ignore 11d configuration errors")
-Cc: Hante Meuleman <hante.meuleman@broadcom.com>
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>
-Cc: Kalle Valo <kvalo@codeaurora.org>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-index b777e1b..78d9966 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-@@ -4516,7 +4516,7 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
- 	/* store current 11d setting */
- 	if (brcmf_fil_cmd_int_get(ifp, BRCMF_C_GET_REGULATORY,
- 				  &ifp->vif->is_11d)) {
--		supports_11d = false;
-+		is_11d = supports_11d = false;
- 	} else {
- 		country_ie = brcmf_parse_tlvs((u8 *)settings->beacon.tail,
- 					      settings->beacon.tail_len,
--- 
-2.9.0
+VGhlIGhkcl9vZmZzZXQgdmFyaWFibGUgaXMgb25seSBpZiB3ZSBkZWFsIHdpdGggYSBUQ1Agb3Ig
+VURQIHBhY2tldCwKYnV0IGFzIHRoZSBjaGVjayBzdXJyb3VuZGluZyBpdHMgdXNhZ2UgdGVzdHMg
+Zm9yIHNrYl9pc19nc28oKQppbnN0ZWFkLCB0aGUgY29tcGlsZXIgaGFzIG5vIGlkZWEgaWYgdGhl
+IHZhcmlhYmxlIGlzIGluaXRpYWxpemVkCm9yIG5vdCBhdCB0aGF0IHBvaW50OgoKZHJpdmVycy9u
+ZXQvaHlwZXJ2L25ldHZzY19kcnYuYzogSW4gZnVuY3Rpb24g4oCYbmV0dnNjX3N0YXJ0X3htaXTi
+gJk6CmRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmM6NDk0OjQyOiBlcnJvcjog4oCYaGRy
+X29mZnNldOKAmSBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1X
+ZXJyb3I9bWF5YmUtdW5pbml0aWFsaXplZF0KClRoaXMgYWRkcyBhbiBhZGRpdGlvbmFsIGNoZWNr
+IGZvciB0aGUgdHJhbnNwb3J0IHR5cGUsIHdoaWNoCnRlbGxzIHRoZSBjb21waWxlciB0aGF0IHRo
+aXMgcGF0aCBjYW5ub3QgaGFwcGVuLiBTaW5jZSB0aGUKZ2V0X25ldF90cmFuc3BvcnRfaW5mbygp
+IGZ1bmN0aW9uIHNob3VsZCBhbHdheXMgYmUgaW5saW5lZApoZXJlLCBJIGRvbid0IGV4cGVjdCB0
+aGlzIHRvIHJlc3VsdCBpbiBhZGRpdGlvbmFsIHJ1bnRpbWUKY2hlY2tzLgoKU2lnbmVkLW9mZi1i
+eTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KLS0tCiBkcml2ZXJzL25ldC9oeXBlcnYv
+bmV0dnNjX2Rydi5jIHwgMiArLQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRl
+bGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYyBi
+L2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMKaW5kZXggZjA5MTliZC4uNWQ2ZTc1YSAx
+MDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYworKysgYi9kcml2ZXJz
+L25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jCkBAIC00NDcsNyArNDQ3LDcgQEAgc3RhdGljIGludCBu
+ZXR2c2Nfc3RhcnRfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAq
+bmV0KQogCSAqIFNldHVwIHRoZSBzZW5kc2lkZSBjaGVja3N1bSBvZmZsb2FkIG9ubHkgaWYgdGhp
+cyBpcyBub3QgYQogCSAqIEdTTyBwYWNrZXQuCiAJICovCi0JaWYgKHNrYl9pc19nc28oc2tiKSkg
+eworCWlmICgobmV0X3RyYW5zX2luZm8gJiAoSU5GT19UQ1AgfCBJTkZPX1VEUCkpICYmIHNrYl9p
+c19nc28oc2tiKSkgewogCQlzdHJ1Y3QgbmRpc190Y3BfbHNvX2luZm8gKmxzb19pbmZvOwogCiAJ
+CXJuZGlzX21zZ19zaXplICs9IE5ESVNfTFNPX1BQSV9TSVpFOwotLSAKMi45LjAKCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcgbGlz
+dApkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhkcml2
+ZXJwcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
