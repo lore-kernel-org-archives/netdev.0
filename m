@@ -1,107 +1,78 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 3/7] udp: Add socket lookup functions with noref
-Date: Mon, 17 Oct 2016 12:41:58 -0700
-Message-ID: <20161017194202.3510238-4-tom@herbertland.com>
+Subject: [PATCH v2 net-next 6/7] udp: UDP tunnel flow dissection infrastructure
+Date: Mon, 17 Oct 2016 12:42:01 -0700
+Message-ID: <20161017194202.3510238-7-tom@herbertland.com>
 References: <20161017194202.3510238-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:50508 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S933359AbcJQTmM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 15:42:12 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u9HJfeH1008133
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:11 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:40459 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1758211AbcJQTmO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 15:42:14 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9HJcO2I001058
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:13 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0001303.ppops.net with ESMTP id 26512nn947-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2651s0bwu5-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:11 -0700
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:13 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.212.236.87) with ESMTP id
- cb2b956494a111e695bf0002c9521c9e-ed3f8a50 for <netdev@vger.kernel.org>;        Mon,
- 17 Oct 2016 12:42:10 -0700
+ mx-out.facebook.com (10.223.100.99) with ESMTP id
+ cc6d5ac094a111e697e724be05956610-81ff6a50 for <netdev@vger.kernel.org>;        Mon,
+ 17 Oct 2016 12:42:12 -0700
 In-Reply-To: <20161017194202.3510238-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create udp4_lib_lookup_noref and udp6_lib_lookup_noref. These perfrom
-a socket lookup on addresses and ports without taking a reference.
+Add infrastructure to allow UDP tunnels to setup flow dissecion.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/udp.h |  8 ++++++++
- net/ipv4/udp.c    |  8 ++++++++
- net/ipv6/udp.c    | 10 ++++++++++
- 3 files changed, 26 insertions(+)
+ include/net/udp_tunnel.h | 5 +++++
+ net/ipv4/udp_tunnel.c    | 5 +++++
+ 2 files changed, 10 insertions(+)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index ea53a87..717a972 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -275,6 +275,10 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- 			       struct udp_table *tbl, struct sk_buff *skb);
- struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
- 				 __be16 sport, __be16 dport);
-+struct sock *udp4_lib_lookup_noref(struct net *net,
-+				   __be32 saddr, __be16 sport,
-+				   __be32 daddr, __be16 dport,
-+				   int dif);
- struct sock *udp6_lib_lookup(struct net *net,
- 			     const struct in6_addr *saddr, __be16 sport,
- 			     const struct in6_addr *daddr, __be16 dport,
-@@ -286,6 +290,10 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 			       struct sk_buff *skb);
- struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
- 				 __be16 sport, __be16 dport);
-+struct sock *udp6_lib_lookup_noref(struct net *net,
-+				   const struct in6_addr *saddr, __be16 sport,
-+				   const struct in6_addr *daddr, __be16 dport,
-+				   int dif);
+diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+index 02c5be0..81d2584 100644
+--- a/include/net/udp_tunnel.h
++++ b/include/net/udp_tunnel.h
+@@ -69,6 +69,10 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
+ 						     struct sk_buff *skb);
+ typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
+ 					 int nhoff);
++typedef int (*udp_tunnel_flow_dissect_t)(struct sock *sk,
++					 const struct sk_buff *skb,
++					 void *data, int hlen, int *nhoff,
++					 u8 *ip_proto, __be16 *proto);
  
- /*
-  * 	SNMP statistics for UDP and UDP-Lite
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 7d96dc2..7f84c51 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -595,6 +595,14 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- EXPORT_SYMBOL_GPL(udp4_lib_lookup);
- #endif
+ struct udp_tunnel_sock_cfg {
+ 	void *sk_user_data;     /* user data used by encap_rcv call back */
+@@ -78,6 +82,7 @@ struct udp_tunnel_sock_cfg {
+ 	udp_tunnel_encap_destroy_t encap_destroy;
+ 	udp_tunnel_gro_receive_t gro_receive;
+ 	udp_tunnel_gro_complete_t gro_complete;
++	udp_tunnel_flow_dissect_t flow_dissect;
+ };
  
-+struct sock *udp4_lib_lookup_noref(struct net *net, __be32 saddr, __be16 sport,
-+				   __be32 daddr, __be16 dport, int dif)
-+{
-+	return __udp4_lib_lookup(net, saddr, sport, daddr, dport,
-+				 dif, &udp_table, NULL);
-+}
-+EXPORT_SYMBOL_GPL(udp4_lib_lookup_noref);
+ /* Setup the given (UDP) sock to receive UDP encapsulated packets */
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index 58bd39f..4459288 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -72,6 +72,11 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+ 	udp_sk(sk)->gro_receive = cfg->gro_receive;
+ 	udp_sk(sk)->gro_complete = cfg->gro_complete;
+ 
++	if (cfg->flow_dissect) {
++		udp_sk(sk)->flow_dissect = cfg->flow_dissect;
++		udp_flow_dissect_enable();
++	}
 +
- static inline bool __udp_is_mcast_sock(struct net *net, struct sock *sk,
- 				       __be16 loc_port, __be32 loc_addr,
- 				       __be16 rmt_port, __be32 rmt_addr,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 9aa7c1c..6e382d9 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -317,6 +317,16 @@ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be
- EXPORT_SYMBOL_GPL(udp6_lib_lookup);
- #endif
- 
-+struct sock *udp6_lib_lookup_noref(struct net *net,
-+				   const struct in6_addr *saddr, __be16 sport,
-+				   const struct in6_addr *daddr, __be16 dport,
-+				   int dif)
-+{
-+	return __udp6_lib_lookup(net, saddr, sport, daddr, dport,
-+				 dif, &udp_table, NULL);
-+}
-+EXPORT_SYMBOL_GPL(udp6_lib_lookup_noref);
-+
- /*
-  *	This should be easy, if there is something there we
-  *	return it, otherwise we block.
+ 	udp_tunnel_encap_enable(sock);
+ }
+ EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
 -- 
 2.9.3
