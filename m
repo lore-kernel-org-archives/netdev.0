@@ -1,70 +1,180 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v12 4/9] openvswitch: support MPLS push and pop for L3 packets
-Date: Mon, 17 Oct 2016 15:02:40 +0200
-Message-ID: <004e53f40443698cffdaf8f9839649cc4b9101cc.1476708213.git.jbenc@redhat.com>
+Subject: [PATCH net-next v12 7/9] openvswitch: add Ethernet push and pop actions
+Date: Mon, 17 Oct 2016 15:02:43 +0200
+Message-ID: <bf8e49c178a2f8ed9adb02e30470be5163d46296.1476708213.git.jbenc@redhat.com>
 References: <cover.1476708212.git.jbenc@redhat.com>
 Cc: dev@openvswitch.org, Pravin Shelar <pshelar@ovn.org>,
         Lorand Jakab <lojakab@cisco.com>,
         Simon Horman <simon.horman@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44654 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50068 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757829AbcJQND0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 09:03:26 -0400
+        id S1752801AbcJQNDb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 09:03:31 -0400
 In-Reply-To: <cover.1476708212.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update Ethernet header only if there is one.
+It's not allowed to push Ethernet header in front of another Ethernet
+header.
 
+It's not allowed to pop Ethernet header if there's a vlan tag. This
+preserves the invariant that L3 packet never has a vlan tag.
+
+Based on previous versions by Lorand Jakab and Simon Horman.
+
+Signed-off-by: Lorand Jakab <lojakab@cisco.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- net/openvswitch/actions.c | 18 +++++++++++-------
- 1 file changed, 11 insertions(+), 7 deletions(-)
+ include/uapi/linux/openvswitch.h | 15 ++++++++++++
+ net/openvswitch/actions.c        | 49 ++++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/flow_netlink.c   | 18 +++++++++++++++
+ 3 files changed, 82 insertions(+)
 
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 59ed3992c760..375d812fea36 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -705,6 +705,15 @@ enum ovs_nat_attr {
+ 
+ #define OVS_NAT_ATTR_MAX (__OVS_NAT_ATTR_MAX - 1)
+ 
++/*
++ * struct ovs_action_push_eth - %OVS_ACTION_ATTR_PUSH_ETH action argument.
++ * @addresses: Source and destination MAC addresses.
++ * @eth_type: Ethernet type
++ */
++struct ovs_action_push_eth {
++	struct ovs_key_ethernet addresses;
++};
++
+ /**
+  * enum ovs_action_attr - Action types.
+  *
+@@ -738,6 +747,10 @@ enum ovs_nat_attr {
+  * is no MPLS label stack, as determined by ethertype, no action is taken.
+  * @OVS_ACTION_ATTR_CT: Track the connection. Populate the conntrack-related
+  * entries in the flow key.
++ * @OVS_ACTION_ATTR_PUSH_ETH: Push a new outermost Ethernet header onto the
++ * packet.
++ * @OVS_ACTION_ATTR_POP_ETH: Pop the outermost Ethernet header off the
++ * packet.
+  *
+  * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
+  * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
+@@ -765,6 +778,8 @@ enum ovs_action_attr {
+ 				       * bits. */
+ 	OVS_ACTION_ATTR_CT,           /* Nested OVS_CT_ATTR_* . */
+ 	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
++	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
++	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
+ 
+ 	__OVS_ACTION_ATTR_MAX,	      /* Nothing past this will be accepted
+ 				       * from userspace. */
 diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index dc8bb97e2258..064cbcb7b0c5 100644
+index 064cbcb7b0c5..a63572fb878e 100644
 --- a/net/openvswitch/actions.c
 +++ b/net/openvswitch/actions.c
-@@ -187,7 +187,8 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+@@ -317,6 +317,47 @@ static int set_eth_addr(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 	return 0;
+ }
  
- 	skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
- 
--	update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
-+	if (ovs_key_mac_proto(key) == MAC_PROTO_ETHERNET)
-+		update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
- 	skb->protocol = mpls->mpls_ethertype;
- 
- 	invalidate_flow_key(key);
-@@ -197,7 +198,6 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 		    const __be16 ethertype)
- {
--	struct ethhdr *hdr;
- 	int err;
- 
- 	err = skb_ensure_writable(skb, skb->mac_len + MPLS_HLEN);
-@@ -213,11 +213,15 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 	skb_reset_mac_header(skb);
- 	skb_set_network_header(skb, skb->mac_len);
- 
--	/* mpls_hdr() is used to locate the ethertype field correctly in the
--	 * presence of VLAN tags.
--	 */
--	hdr = (struct ethhdr *)((void *)mpls_hdr(skb) - ETH_HLEN);
--	update_ethertype(skb, hdr, ethertype);
-+	if (ovs_key_mac_proto(key) == MAC_PROTO_ETHERNET) {
-+		struct ethhdr *hdr;
++/* pop_eth does not support VLAN packets as this action is never called
++ * for them.
++ */
++static int pop_eth(struct sk_buff *skb, struct sw_flow_key *key)
++{
++	skb_pull_rcsum(skb, ETH_HLEN);
++	skb_reset_mac_header(skb);
++	skb->mac_len -= ETH_HLEN;
 +
-+		/* mpls_hdr() is used to locate the ethertype field correctly in the
-+		 * presence of VLAN tags.
-+		 */
-+		hdr = (struct ethhdr *)((void *)mpls_hdr(skb) - ETH_HLEN);
-+		update_ethertype(skb, hdr, ethertype);
-+	}
- 	if (eth_p_mpls(skb->protocol))
- 		skb->protocol = ethertype;
++	/* safe right before invalidate_flow_key */
++	key->mac_proto = MAC_PROTO_NONE;
++	invalidate_flow_key(key);
++	return 0;
++}
++
++static int push_eth(struct sk_buff *skb, struct sw_flow_key *key,
++		    const struct ovs_action_push_eth *ethh)
++{
++	struct ethhdr *hdr;
++
++	/* Add the new Ethernet header */
++	if (skb_cow_head(skb, ETH_HLEN) < 0)
++		return -ENOMEM;
++
++	skb_push(skb, ETH_HLEN);
++	skb_reset_mac_header(skb);
++	skb->mac_len = ETH_HLEN;
++
++	hdr = eth_hdr(skb);
++	ether_addr_copy(hdr->h_source, ethh->addresses.eth_src);
++	ether_addr_copy(hdr->h_dest, ethh->addresses.eth_dst);
++	hdr->h_proto = skb->protocol;
++
++	skb_postpush_rcsum(skb, hdr, ETH_HLEN);
++
++	/* safe right before invalidate_flow_key */
++	key->mac_proto = MAC_PROTO_ETHERNET;
++	invalidate_flow_key(key);
++	return 0;
++}
++
+ static void update_ip_l4_checksum(struct sk_buff *skb, struct iphdr *nh,
+ 				  __be32 addr, __be32 new_addr)
+ {
+@@ -1200,6 +1241,14 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			if (err)
+ 				return err == -EINPROGRESS ? 0 : err;
+ 			break;
++
++		case OVS_ACTION_ATTR_PUSH_ETH:
++			err = push_eth(skb, key, nla_data(a));
++			break;
++
++		case OVS_ACTION_ATTR_POP_ETH:
++			err = pop_eth(skb, key);
++			break;
+ 		}
  
+ 		if (unlikely(err)) {
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index c3d0cc4321c3..d19044f2b1f4 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -2383,6 +2383,8 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
+ 			[OVS_ACTION_ATTR_HASH] = sizeof(struct ovs_action_hash),
+ 			[OVS_ACTION_ATTR_CT] = (u32)-1,
+ 			[OVS_ACTION_ATTR_TRUNC] = sizeof(struct ovs_action_trunc),
++			[OVS_ACTION_ATTR_PUSH_ETH] = sizeof(struct ovs_action_push_eth),
++			[OVS_ACTION_ATTR_POP_ETH] = 0,
+ 		};
+ 		const struct ovs_action_push_vlan *vlan;
+ 		int type = nla_type(a);
+@@ -2517,6 +2519,22 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
+ 			skip_copy = true;
+ 			break;
+ 
++		case OVS_ACTION_ATTR_PUSH_ETH:
++			/* Disallow pushing an Ethernet header if one
++			 * is already present */
++			if (mac_proto != MAC_PROTO_NONE)
++				return -EINVAL;
++			mac_proto = MAC_PROTO_NONE;
++			break;
++
++		case OVS_ACTION_ATTR_POP_ETH:
++			if (mac_proto != MAC_PROTO_ETHERNET)
++				return -EINVAL;
++			if (vlan_tci & htons(VLAN_TAG_PRESENT))
++				return -EINVAL;
++			mac_proto = MAC_PROTO_ETHERNET;
++			break;
++
+ 		default:
+ 			OVS_NLERR(log, "Unknown Action type %d", type);
+ 			return -EINVAL;
 -- 
 1.8.3.1
