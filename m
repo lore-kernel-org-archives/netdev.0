@@ -1,65 +1,175 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v12 1/9] openvswitch: use hard_header_len
-	instead of hardcoded ETH_HLEN
-Date: Mon, 17 Oct 2016 15:02:37 +0200
-Message-ID: <eef37b3c7e1c1deffd6a5a8cfff83cd2c82cb76b.1476708212.git.jbenc@redhat.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next v12 3/9] openvswitch: pass mac_proto to ovs_vport_send
+Date: Mon, 17 Oct 2016 15:02:39 +0200
+Message-ID: <c954507a960add0ae9410c19fd40eebc1fda0f95.1476708212.git.jbenc@redhat.com>
 References: <cover.1476708212.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1476708212.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@ovn.org>,
+        Lorand Jakab <lojakab@cisco.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57886 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757828AbcJQNDZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 09:03:25 -0400
+In-Reply-To: <cover.1476708212.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gdHgsIHVzZSBoYXJkX2hlYWRlcl9sZW4gd2hpbGUgZGVjaWRpbmcgd2hldGhlciB0byByZWZy
-YWdtZW50IG9yIGRyb3AgdGhlCnBhY2tldC4gVGhhdCB3YXksIGFsbCBjb21iaW5hdGlvbnMgYXJl
-IGNhbGN1bGF0ZWQgY29ycmVjdGx5OgoKKiBMMiBwYWNrZXQgZ29pbmcgdG8gTDIgaW50ZXJmYWNl
-ICh0aGUgTDIgaGVhZGVyIGxlbiBpcyBzdWJ0cmFjdGVkKSwKKiBMMiBwYWNrZXQgZ29pbmcgdG8g
-TDMgaW50ZXJmYWNlICh0aGUgTDIgaGVhZGVyIGlzIGluY2x1ZGVkIGluIHRoZSBwYWNrZXQKICBs
-ZW5naHQpLAoqIEwzIHBhY2tldCBnb2luZyB0byBMMyBpbnRlcmZhY2UuCgpTaWduZWQtb2ZmLWJ5
-OiBKaXJpIEJlbmMgPGpiZW5jQHJlZGhhdC5jb20+Ci0tLQogbmV0L29wZW52c3dpdGNoL2FjdGlv
-bnMuYyB8ICAzICsrLQogbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMgICB8IDEwICsrKysrKy0tLS0K
-IDIgZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAt
-LWdpdCBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgYi9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9u
-cy5jCmluZGV4IDExMDVjNGUyOWM2Mi4uNDlhZjE2NzEwNWQzIDEwMDY0NAotLS0gYS9uZXQvb3Bl
-bnZzd2l0Y2gvYWN0aW9ucy5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKQEAgLTc5
-MSw3ICs3OTEsOCBAQCBzdGF0aWMgdm9pZCBkb19vdXRwdXQoc3RydWN0IGRhdGFwYXRoICpkcCwg
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgaW50IG91dF9wb3J0LAogCQkJCXBza2JfdHJpbShza2IsIEVU
-SF9ITEVOKTsKIAkJfQogCi0JCWlmIChsaWtlbHkoIW1ydSB8fCAoc2tiLT5sZW4gPD0gbXJ1ICsg
-RVRIX0hMRU4pKSkgeworCQlpZiAobGlrZWx5KCFtcnUgfHwKKwkJICAgICAgICAgICAoc2tiLT5s
-ZW4gPD0gbXJ1ICsgdnBvcnQtPmRldi0+aGFyZF9oZWFkZXJfbGVuKSkpIHsKIAkJCW92c192cG9y
-dF9zZW5kKHZwb3J0LCBza2IpOwogCQl9IGVsc2UgaWYgKG1ydSA8PSB2cG9ydC0+ZGV2LT5tdHUp
-IHsKIAkJCXN0cnVjdCBuZXQgKm5ldCA9IHJlYWRfcG5ldCgmZHAtPm5ldCk7CmRpZmYgLS1naXQg
-YS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC5jCmluZGV4
-IDczODc0MThhYzUxNC4uZDU1NTBmZDZhMDEzIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gv
-dnBvcnQuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQuYwpAQCAtNDgxLDkgKzQ4MSwxMCBA
-QCB2b2lkIG92c192cG9ydF9kZWZlcnJlZF9mcmVlKHN0cnVjdCB2cG9ydCAqdnBvcnQpCiB9CiBF
-WFBPUlRfU1lNQk9MX0dQTChvdnNfdnBvcnRfZGVmZXJyZWRfZnJlZSk7CiAKLXN0YXRpYyB1bnNp
-Z25lZCBpbnQgcGFja2V0X2xlbmd0aChjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQorc3RhdGlj
-IHVuc2lnbmVkIGludCBwYWNrZXRfbGVuZ3RoKGNvbnN0IHN0cnVjdCBza19idWZmICpza2IsCisJ
-CQkJICBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogewotCXVuc2lnbmVkIGludCBsZW5ndGggPSBz
-a2ItPmxlbiAtIEVUSF9ITEVOOworCXVuc2lnbmVkIGludCBsZW5ndGggPSBza2ItPmxlbiAtIGRl
-di0+aGFyZF9oZWFkZXJfbGVuOwogCiAJaWYgKCFza2Jfdmxhbl90YWdfcHJlc2VudChza2IpICYm
-CiAJICAgIGV0aF90eXBlX3ZsYW4oc2tiLT5wcm90b2NvbCkpCkBAIC01MDEsMTAgKzUwMiwxMSBA
-QCB2b2lkIG92c192cG9ydF9zZW5kKHN0cnVjdCB2cG9ydCAqdnBvcnQsIHN0cnVjdCBza19idWZm
-ICpza2IpCiB7CiAJaW50IG10dSA9IHZwb3J0LT5kZXYtPm10dTsKIAotCWlmICh1bmxpa2VseShw
-YWNrZXRfbGVuZ3RoKHNrYikgPiBtdHUgJiYgIXNrYl9pc19nc28oc2tiKSkpIHsKKwlpZiAodW5s
-aWtlbHkocGFja2V0X2xlbmd0aChza2IsIHZwb3J0LT5kZXYpID4gbXR1ICYmCisJCSAgICAgIXNr
-Yl9pc19nc28oc2tiKSkpIHsKIAkJbmV0X3dhcm5fcmF0ZWxpbWl0ZWQoIiVzOiBkcm9wcGVkIG92
-ZXItbXR1IHBhY2tldDogJWQgPiAlZFxuIiwKIAkJCQkgICAgIHZwb3J0LT5kZXYtPm5hbWUsCi0J
-CQkJICAgICBwYWNrZXRfbGVuZ3RoKHNrYiksIG10dSk7CisJCQkJICAgICBwYWNrZXRfbGVuZ3Ro
-KHNrYiwgdnBvcnQtPmRldiksIG10dSk7CiAJCXZwb3J0LT5kZXYtPnN0YXRzLnR4X2Vycm9ycysr
-OwogCQlnb3RvIGRyb3A7CiAJfQotLSAKMS44LjMuMQoKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gu
-b3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+We'll need it to alter packets sent to ARPHRD_NONE interfaces.
+
+Change do_output() to use the actual L2 header size of the packet when
+deciding on the minimum cutlen. The assumption here is that what matters is
+not the output interface hard_header_len but rather the L2 header of the
+particular packet. For example, ARPHRD_NONE tunnels that encapsulate
+Ethernet should get at least the Ethernet header.
+
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ net/openvswitch/actions.c | 29 +++++++++++++++++------------
+ net/openvswitch/vport.c   |  2 +-
+ net/openvswitch/vport.h   |  2 +-
+ 3 files changed, 19 insertions(+), 14 deletions(-)
+
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 44144f914920..dc8bb97e2258 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -66,6 +66,7 @@ struct ovs_frag_data {
+ 	u16 vlan_tci;
+ 	__be16 vlan_proto;
+ 	unsigned int l2_len;
++	u8 mac_proto;
+ 	u8 l2_data[MAX_L2_LEN];
+ };
+ 
+@@ -673,7 +674,7 @@ static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *sk
+ 		skb_reset_mac_len(skb);
+ 	}
+ 
+-	ovs_vport_send(vport, skb);
++	ovs_vport_send(vport, skb, data->mac_proto);
+ 	return 0;
+ }
+ 
+@@ -692,7 +693,7 @@ static int ovs_vport_output(struct net *net, struct sock *sk, struct sk_buff *sk
+  * ovs_vport_output(), which is called once per fragmented packet.
+  */
+ static void prepare_frag(struct vport *vport, struct sk_buff *skb,
+-			 u16 orig_network_offset)
++			 u16 orig_network_offset, u8 mac_proto)
+ {
+ 	unsigned int hlen = skb_network_offset(skb);
+ 	struct ovs_frag_data *data;
+@@ -705,6 +706,7 @@ static void prepare_frag(struct vport *vport, struct sk_buff *skb,
+ 	data->network_offset = orig_network_offset;
+ 	data->vlan_tci = skb->vlan_tci;
+ 	data->vlan_proto = skb->vlan_proto;
++	data->mac_proto = mac_proto;
+ 	data->l2_len = hlen;
+ 	memcpy(&data->l2_data, skb->data, hlen);
+ 
+@@ -713,7 +715,8 @@ static void prepare_frag(struct vport *vport, struct sk_buff *skb,
+ }
+ 
+ static void ovs_fragment(struct net *net, struct vport *vport,
+-			 struct sk_buff *skb, u16 mru, __be16 ethertype)
++			 struct sk_buff *skb, u16 mru,
++			 struct sw_flow_key *key)
+ {
+ 	u16 orig_network_offset = 0;
+ 
+@@ -727,11 +730,12 @@ static void ovs_fragment(struct net *net, struct vport *vport,
+ 		goto err;
+ 	}
+ 
+-	if (ethertype == htons(ETH_P_IP)) {
++	if (key->eth.type == htons(ETH_P_IP)) {
+ 		struct dst_entry ovs_dst;
+ 		unsigned long orig_dst;
+ 
+-		prepare_frag(vport, skb, orig_network_offset);
++		prepare_frag(vport, skb, orig_network_offset,
++			     ovs_key_mac_proto(key));
+ 		dst_init(&ovs_dst, &ovs_dst_ops, NULL, 1,
+ 			 DST_OBSOLETE_NONE, DST_NOCOUNT);
+ 		ovs_dst.dev = vport->dev;
+@@ -742,7 +746,7 @@ static void ovs_fragment(struct net *net, struct vport *vport,
+ 
+ 		ip_do_fragment(net, skb->sk, skb, ovs_vport_output);
+ 		refdst_drop(orig_dst);
+-	} else if (ethertype == htons(ETH_P_IPV6)) {
++	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ 		const struct nf_ipv6_ops *v6ops = nf_get_ipv6_ops();
+ 		unsigned long orig_dst;
+ 		struct rt6_info ovs_rt;
+@@ -751,7 +755,8 @@ static void ovs_fragment(struct net *net, struct vport *vport,
+ 			goto err;
+ 		}
+ 
+-		prepare_frag(vport, skb, orig_network_offset);
++		prepare_frag(vport, skb, orig_network_offset,
++			     ovs_key_mac_proto(key));
+ 		memset(&ovs_rt, 0, sizeof(ovs_rt));
+ 		dst_init(&ovs_rt.dst, &ovs_dst_ops, NULL, 1,
+ 			 DST_OBSOLETE_NONE, DST_NOCOUNT);
+@@ -765,7 +770,7 @@ static void ovs_fragment(struct net *net, struct vport *vport,
+ 		refdst_drop(orig_dst);
+ 	} else {
+ 		WARN_ONCE(1, "Failed fragment ->%s: eth=%04x, MRU=%d, MTU=%d.",
+-			  ovs_vport_name(vport), ntohs(ethertype), mru,
++			  ovs_vport_name(vport), ntohs(key->eth.type), mru,
+ 			  vport->dev->mtu);
+ 		goto err;
+ 	}
+@@ -785,19 +790,19 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+ 		u32 cutlen = OVS_CB(skb)->cutlen;
+ 
+ 		if (unlikely(cutlen > 0)) {
+-			if (skb->len - cutlen > ETH_HLEN)
++			if (skb->len - cutlen > ovs_mac_header_len(key))
+ 				pskb_trim(skb, skb->len - cutlen);
+ 			else
+-				pskb_trim(skb, ETH_HLEN);
++				pskb_trim(skb, ovs_mac_header_len(key));
+ 		}
+ 
+ 		if (likely(!mru ||
+ 		           (skb->len <= mru + vport->dev->hard_header_len))) {
+-			ovs_vport_send(vport, skb);
++			ovs_vport_send(vport, skb, ovs_key_mac_proto(key));
+ 		} else if (mru <= vport->dev->mtu) {
+ 			struct net *net = read_pnet(&dp->net);
+ 
+-			ovs_fragment(net, vport, skb, mru, key->eth.type);
++			ovs_fragment(net, vport, skb, mru, key);
+ 		} else {
+ 			kfree_skb(skb);
+ 		}
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index d5550fd6a013..dc0e2212edfc 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -498,7 +498,7 @@ static unsigned int packet_length(const struct sk_buff *skb,
+ 	return length;
+ }
+ 
+-void ovs_vport_send(struct vport *vport, struct sk_buff *skb)
++void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
+ {
+ 	int mtu = vport->dev->mtu;
+ 
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index f01f28a567ad..81925e21ff8e 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -198,6 +198,6 @@ static inline const char *ovs_vport_name(struct vport *vport)
+ 	})
+ 
+ void ovs_vport_ops_unregister(struct vport_ops *ops);
+-void ovs_vport_send(struct vport *vport, struct sk_buff *skb);
++void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto);
+ 
+ #endif /* vport.h */
+-- 
+1.8.3.1
