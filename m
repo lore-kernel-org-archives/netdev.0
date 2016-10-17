@@ -1,158 +1,160 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 2/7] flow_dissector: Limit processing of next encaps and extensions
-Date: Mon, 17 Oct 2016 12:41:57 -0700
-Message-ID: <20161017194202.3510238-3-tom@herbertland.com>
+Subject: [PATCH v2 net-next 5/7] udp: Add UDP flow dissection functions to IPv4 and IPv6
+Date: Mon, 17 Oct 2016 12:42:00 -0700
+Message-ID: <20161017194202.3510238-6-tom@herbertland.com>
 References: <20161017194202.3510238-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:52219 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57390 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932649AbcJQTmL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 15:42:11 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9HJg35Z003094
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:10 -0700
+        by vger.kernel.org with ESMTP id S1759131AbcJQTmO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 15:42:14 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u9HJcW9Q016554
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:13 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 2651nr40g5-4
+        by m0089730.ppops.net with ESMTP id 2652utah1d-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:10 -0700
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:13 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.223.100.97) with ESMTP id
- caade37694a111e6888b24be0593f280-6f5eba50 for <netdev@vger.kernel.org>;        Mon,
- 17 Oct 2016 12:42:09 -0700
+ mx-out.facebook.com (10.223.101.97) with ESMTP id
+ cc0c3b6494a111e6ba3124be0595f910-d9ff7a50 for <netdev@vger.kernel.org>;        Mon,
+ 17 Oct 2016 12:42:11 -0700
 In-Reply-To: <20161017194202.3510238-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flow dissector does not limit the number of encapsulated packets or IPv6
-header extensions that will be processed. This could easily be
-suceptible to DOS attack-- for instance a 1500 byte packet could contain
-75 IPIP headers.
-
-This patch places limits on the number of encapsulations and IPv6 extension
-headers that are processed in flow dissector
+Add per protocol offload callbacks for flow_dissect to UDP for
+IPv4 and IPv6. The callback functions extract the port number
+information and with the packet addresses (given in an argument with
+type flow_dissector_key_addrs) it performs a lookup on the UDP
+socket. If a socket is found and flow_dissect is set for the
+socket then that function is called.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/core/flow_dissector.c | 37 +++++++++++++++++++++++++++----------
- 1 file changed, 27 insertions(+), 10 deletions(-)
+ net/ipv4/udp_offload.c | 39 +++++++++++++++++++++++++++++++++++++++
+ net/ipv6/udp_offload.c | 40 +++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 78 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1a7b80f..919bd02 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -91,6 +91,22 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index f9333c9..c7753ba 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -377,11 +377,50 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+ 	return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
  }
- EXPORT_SYMBOL(__skb_flow_get_ports);
  
-+#define MAX_DISSECT_DEPTH	10
-+#define MAX_DISSECT_EXT		10
++/* Assumes rcu lock is held */
++static int udp4_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
++			     int *nhoff, u8 *ip_proto, __be16 *proto,
++			     struct flow_dissector_key_addrs *key_addrs)
++{
++	u16 _ports[2], *ports;
++	struct net *net;
++	struct sock *sk;
++	int dif = -1;
 +
-+#define __DISSECT_AGAIN(_target, _depth, _limit) do {	\
-+	(_depth)++;					\
-+	if ((_depth) > (_limit))				\
-+		goto out_good;				\
-+	else						\
-+		goto _target;				\
-+} while (0)
++	/* See if there is a flow dissector in the UDP socket */
 +
-+#define DISSECT_AGAIN(target) \
-+	__DISSECT_AGAIN(target, depth, MAX_DISSECT_DEPTH)
-+#define DISSECT_AGAIN_EXT(target) \
-+	__DISSECT_AGAIN(target, ext_cnt, MAX_DISSECT_EXT)
++	if (skb->dev) {
++		net = dev_net(skb->dev);
++		dif = skb->dev->ifindex;
++	} else if (skb->sk) {
++		net = sock_net(skb->sk);
++	} else {
++		return FLOW_DIS_RET_PASS;
++	}
 +
- /**
-  * __skb_flow_dissect - extract the flow_keys struct and return it
-  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
-@@ -123,6 +139,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	bool skip_vlan = false;
- 	u8 ip_proto = 0;
- 	bool ret = false;
-+	int depth = 0, ext_cnt = 0;
++	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
++				     data, hlen, &_ports);
++	if (!ports)
++		return FLOW_DIS_RET_BAD;
++
++	sk = udp4_lib_lookup_noref(net,
++				   key_addrs->v4addrs.src, ports[0],
++				   key_addrs->v4addrs.dst, ports[1],
++				   dif);
++
++	if (sk && udp_sk(sk)->flow_dissect)
++		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
++						ip_proto, proto);
++	else
++		return FLOW_DIS_RET_PASS;
++}
++
+ static const struct net_offload udpv4_offload = {
+ 	.callbacks = {
+ 		.gso_segment = udp4_ufo_fragment,
+ 		.gro_receive  =	udp4_gro_receive,
+ 		.gro_complete =	udp4_gro_complete,
++		.flow_dissect = udp4_flow_dissect,
+ 	},
+ };
  
- 	if (!data) {
- 		data = skb->data;
-@@ -262,7 +279,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			proto = vlan->h_vlan_encapsulated_proto;
- 			nhoff += sizeof(*vlan);
- 			if (skip_vlan)
--				goto again;
-+				DISSECT_AGAIN(again);
- 		}
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index ac858c4..12d9a92 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -1,5 +1,5 @@
+ /*
+- *	IPV6 GSO/GRO offload support
++ *	ipv6 gso/gro offload support
+  *	Linux INET6 implementation
+  *
+  *	This program is free software; you can redistribute it and/or
+@@ -163,11 +163,49 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
+ 	return udp_gro_complete(skb, nhoff, udp6_lib_lookup_skb);
+ }
  
- 		skip_vlan = true;
-@@ -285,7 +302,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			}
- 		}
++/* Assumes rcu lock is held */
++static int udp6_flow_dissect(const struct sk_buff *skb, void *data, int hlen,
++			     int *nhoff, u8 *ip_proto, __be16 *proto,
++			     const struct flow_dissector_key_addrs *key_addrs)
++{
++	u16 _ports[2], *ports;
++	struct net *net;
++	struct sock *sk;
++	int dif = -1;
++
++	/* See if there is a flow dissector in the UDP socket */
++
++	if (skb->dev) {
++		net = dev_net(skb->dev);
++		dif = skb->dev->ifindex;
++	} else if (skb->sk) {
++		net = sock_net(skb->sk);
++	} else {
++		return FLOW_DIS_RET_PASS;
++	}
++
++	ports = __skb_header_pointer(skb, *nhoff, sizeof(_ports),
++				     data, hlen, &_ports);
++	if (!ports)
++		return FLOW_DIS_RET_BAD;
++
++	sk = udp6_lib_lookup_noref(net,
++				   &key_addrs->v6addrs.src, ports[0],
++				   &key_addrs->v6addrs.dst, ports[1],
++				   dif);
++
++	if (sk && udp_sk(sk)->flow_dissect)
++		return udp_sk(sk)->flow_dissect(sk, skb, data, hlen, nhoff,
++						ip_proto, proto);
++	return FLOW_DIS_RET_PASS;
++}
++
+ static const struct net_offload udpv6_offload = {
+ 	.callbacks = {
+ 		.gso_segment	=	udp6_ufo_fragment,
+ 		.gro_receive	=	udp6_gro_receive,
+ 		.gro_complete	=	udp6_gro_complete,
++		.flow_dissect	=	udp6_flow_dissect,
+ 	},
+ };
  
--		goto again;
-+		DISSECT_AGAIN(again);
- 	}
- 	case htons(ETH_P_PPP_SES): {
- 		struct {
-@@ -299,9 +316,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		nhoff += PPPOE_SES_HLEN;
- 		switch (proto) {
- 		case htons(PPP_IP):
--			goto ip;
-+			DISSECT_AGAIN(ip);
- 		case htons(PPP_IPV6):
--			goto ipv6;
-+			DISSECT_AGAIN(ipv6);
- 		default:
- 			goto out_bad;
- 		}
-@@ -472,7 +489,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
- 			goto out_good;
- 
--		goto again;
-+		DISSECT_AGAIN(again);
- 	}
- 	case NEXTHDR_HOP:
- 	case NEXTHDR_ROUTING:
-@@ -490,7 +507,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		ip_proto = opthdr[0];
- 		nhoff += (opthdr[1] + 1) << 3;
- 
--		goto ip_proto_again;
-+		DISSECT_AGAIN_EXT(ip_proto_again);
- 	}
- 	case NEXTHDR_FRAGMENT: {
- 		struct frag_hdr _fh, *fh;
-@@ -512,7 +529,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (!(fh->frag_off & htons(IP6_OFFSET))) {
- 			key_control->flags |= FLOW_DIS_FIRST_FRAG;
- 			if (flags & FLOW_DISSECTOR_F_PARSE_1ST_FRAG)
--				goto ip_proto_again;
-+				DISSECT_AGAIN_EXT(ip_proto_again);
- 		}
- 		goto out_good;
- 	}
-@@ -523,7 +540,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
- 			goto out_good;
- 
--		goto ip;
-+		DISSECT_AGAIN(ip);
- 	case IPPROTO_IPV6:
- 		proto = htons(ETH_P_IPV6);
- 
-@@ -531,10 +548,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
- 			goto out_good;
- 
--		goto ipv6;
-+		DISSECT_AGAIN(ipv6);
- 	case IPPROTO_MPLS:
- 		proto = htons(ETH_P_MPLS_UC);
--		goto mpls;
-+		DISSECT_AGAIN(mpls);
- 	default:
- 		break;
- 	}
 -- 
 2.9.3
