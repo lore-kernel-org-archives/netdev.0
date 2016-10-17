@@ -1,34 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: Use list_move_tail instead of
- list_del/list_add_tail
-Date: Mon, 17 Oct 2016 15:36:35 -0400 (EDT)
-Message-ID: <20161017.153635.798383310340984408.davem@davemloft.net>
-References: <1476717471-16261-1-git-send-email-weiyj.lk@gmail.com>
-        <BL2PR07MB23068E5DAD844D5FDF31E4518DD00@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v2 net-next 0/7] udp: Flow dissection for tunnels
+Date: Mon, 17 Oct 2016 12:41:55 -0700
+Message-ID: <20161017194202.3510238-1-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: weiyj.lk@gmail.com, Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-        weiyongjun1@huawei.com, everest-linux-l2@qlogic.com,
-        netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59826 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759318AbcJQThE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 15:37:04 -0400
-In-Reply-To: <BL2PR07MB23068E5DAD844D5FDF31E4518DD00@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:52211 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1758211AbcJQTmK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 15:42:10 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+        by mx0b-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9HJg3EE003106
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:09 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0b-00082601.pphosted.com with ESMTP id 2651nr40gn-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 12:42:09 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ c99d682694a111e694fa0002c992ebde-327f1a50 for <netdev@vger.kernel.org>;        Mon,
+ 17 Oct 2016 12:42:07 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Date: Mon, 17 Oct 2016 19:10:10 +0000
+Now that we have a means to perform a UDP socket lookup without taking
+a reference, it is feasible to have flow dissector crack open UDP
+encapsulated packets. Generally, we would expect that the UDP source
+port or the flow label in IPv6 would contain enough entropy about
+the encapsulated flow. However, there will be cases, such as a static
+UDP tunnel with fixed ports, where dissecting the encapsulated packet
+is valuable.
 
->> Using list_move_tail() instead of list_del() + list_add_tail().
-> 
->> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
-> 
-> Thanks.
-> Acked-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+The model is here is similar to that implemented for UDP GRO. A
+tunnel implementation (e.g. GUE) may set a flow_dissect function
+in the udp_sk. In __skb_flow_dissect a case has been added for
+UDP to check if there is a socket with flow_dissect set. If there
+is the function is called. The (per tunnel implementation)
+function can parse the encapsulation headers and return the
+next protocol for __skb_flow_dissect to process and it's position
+in nhoff.
 
-Applied, thanks.
+Since performing a UDP lookup on every packet might be expensive
+I added a static key check to bypass the lookup if there are no
+sockets with flow_dissect set. I should mention that doing the
+lookup wasn't particularly a big hit anyway.
+
+Fou/gue was modified to perform tunnel dissection. This is enabled
+on each listener socket via a netlink configuration option.
+
+v2:
+  - davem suggested that we don't need udp_flow_dissect and that
+    udp{v6}_encap_needed could be used. Problem is that those are
+    in respective udp.c and flow_dissector.c is in net/core. Keep
+    udp_flow_dissect as more generic item.
+  - Fixed Makefile issue where we were using CONFIG_NET instead of
+    CONFIG_INET.
+  - Added limits inf flow dissector from controlling number of nested
+    encapsulations or EHs that are dissected.
+  - Added CONFIG_INET around use of inet_offloads in flow_dissector.c.
+
+Tested:
+
+Running 200 streams with TCP_RR.
+
+GRE/GUE variable source port (baseline)
+RSS distributes packets, RFS is effective
+1211702 tps
+147/241/442 50/90/99% latencies
+87.95 CPU utilization
+
+GRE/GUE fixed source port
+All packets to one CPU, RFS is ineffective
+173680 tps
+1170/1377/1853 50/90/99% latencies
+7.42 CPU utilization
+
+GRE/GUE fixed source port with deep hash enabled
+All packets to one CPU, but now RFS is effective
+730359 tps
+263/325/464 50/90/99% latencies
+38.25% CPU utilization (Interrupting CPU is maxed out)
+
+
+Tom Herbert (7):
+  ipv6: Fix Makefile conditional to use CONFIG_INET
+  flow_dissector: Limit processing of next encaps and extensions
+  udp: Add socket lookup functions with noref
+  udp: UDP flow dissector
+  udp: Add UDP flow dissection functions to IPv4 and IPv6
+  udp: UDP tunnel flow dissection infrastructure
+  fou: Support flow dissection
+
+ include/linux/netdevice.h    |   5 ++
+ include/linux/udp.h          |   7 +++
+ include/net/flow_dissector.h |   8 +++
+ include/net/udp.h            |  12 +++++
+ include/net/udp_tunnel.h     |   5 ++
+ include/uapi/linux/fou.h     |   1 +
+ net/Makefile                 |   2 +-
+ net/core/flow_dissector.c    | 122 ++++++++++++++++++++++++++++++++++++++-----
+ net/ipv4/fou.c               |  68 +++++++++++++++++++++++-
+ net/ipv4/udp.c               |  11 ++++
+ net/ipv4/udp_offload.c       |  39 ++++++++++++++
+ net/ipv4/udp_tunnel.c        |   5 ++
+ net/ipv6/udp.c               |  10 ++++
+ net/ipv6/udp_offload.c       |  40 +++++++++++++-
+ 14 files changed, 320 insertions(+), 15 deletions(-)
+
+-- 
+2.9.3
