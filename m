@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: report right mtu value in error message
-Date: Mon, 17 Oct 2016 13:15:45 -0400 (EDT)
-Message-ID: <20161017.131545.863029198846136458.davem@davemloft.net>
-References: <1476723742-7557-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH -next] fsl/fman: fix error return code in mac_probe()
+Date: Mon, 17 Oct 2016 13:17:05 -0400 (EDT)
+Message-ID: <20161017.131705.1427013945307423818.davem@davemloft.net>
+References: <1476717596-19526-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarod@redhat.com
-To: jakub.kicinski@netronome.com
+Cc: madalin.bucur@nxp.com, weiyongjun1@huawei.com,
+        netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58090 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58100 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932489AbcJQRPq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 13:15:46 -0400
-In-Reply-To: <1476723742-7557-1-git-send-email-jakub.kicinski@netronome.com>
+        with ESMTP id S932489AbcJQRRH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 13:17:07 -0400
+In-Reply-To: <1476717596-19526-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Mon, 17 Oct 2016 18:02:22 +0100
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Mon, 17 Oct 2016 15:19:56 +0000
 
-> Check is for max_mtu but message reports min_mtu.
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Fix to return a negative error code from the error handling
+> case instead of 0, as done elsewhere in this function.
+> 
+> Fixes: 3933961682a3 ("fsl/fman: Add FMan MAC driver")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-Good catch, applied, thanks.
+Applied, thanks.
