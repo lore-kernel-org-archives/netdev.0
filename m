@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ila: Don't use dest cache when gateway is set
-Date: Mon, 17 Oct 2016 10:30:51 -0400 (EDT)
-Message-ID: <20161017.103051.222981655806556402.davem@davemloft.net>
-References: <20161017042535.2167680-1-tom@herbertland.com>
+Subject: Re: [PATCH] net: hip04: Remove superfluous ether_setup after
+ alloc_etherdev
+Date: Mon, 17 Oct 2016 10:32:49 -0400 (EDT)
+Message-ID: <20161017.103249.169301846253853366.davem@davemloft.net>
+References: <20161017072204.19777-1-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        netdev@vger.kernel.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55910 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55920 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757558AbcJQOax (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:30:53 -0400
-In-Reply-To: <20161017042535.2167680-1-tom@herbertland.com>
+        with ESMTP id S932614AbcJQOcv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:32:51 -0400
+In-Reply-To: <20161017072204.19777-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Sun, 16 Oct 2016 21:25:35 -0700
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Mon, 17 Oct 2016 09:22:04 +0200
 
-> If the gateway is set on an ILA route we don't need to bother with using
-> the destination cache in the ILA route. Translation does not change the
-> routing in this case so we can stick with orig_output in the lwstate
-> output function.
+> There is no need to call ether_setup after alloc_ethdev since it was
+> already called there.
 > 
-> Tested: Ran netperf with and without gateway for LWT route.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Applied, thanks Tom.
+Applied to net-next, thanks.
