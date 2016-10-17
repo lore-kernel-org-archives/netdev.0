@@ -1,73 +1,49 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH RFC] ixgbe: ixgbe_atr() must check if network header is
- available in headlen
-Date: Mon, 17 Oct 2016 14:38:48 +0000
-Message-ID: <1476715125.4409.8.camel@intel.com>
-References: <20161015213104.GK31471@oracle.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 4/7] net: qcom/emac: Fix module autoload for OF
+ registration
+Date: Mon, 17 Oct 2016 09:40:30 -0500
+Message-ID: <5804E2DE.3010502@codeaurora.org>
+References: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
+ <1476713146-26632-5-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "sowmini.varadhan@oracle.com" <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Javier Martinez Canillas <javier@osg.samsung.com>,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39360 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932489AbcJQOiu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 10:38:50 -0400
-In-Reply-To: <20161015213104.GK31471@oracle.com>
-Content-Language: en-US
-Content-ID: <554697E263450642AF0189A67611DBD0@intel.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:51534 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932273AbcJQOkd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 10:40:33 -0400
+In-Reply-To: <1476713146-26632-5-git-send-email-javier@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gU2F0LCAyMDE2LTEwLTE1IGF0IDE3OjMxIC0wNDAwLCBTb3dtaW5pIFZhcmFkaGFuIHdyb3Rl
-Og0KPiBGb3Igc29tZSBUeCBwYXRocyAoZS5nLiwgdHBhY2tldF9zbmQoKSksIGl4Z2JlX2F0ciBt
-YXkgYmUNCj4gcGFzc2VkIGRvd24gYW4gc2tfYnVmZiB0aGF0IGhhcyB0aGUgbmV0d29yayBhbmQg
-dHJhbnNwb3J0DQo+IGhlYWRlciBpbiB0aGUgcGFnZWQgZGF0YSwgc28gaXQgbmVlZHMgdG8gbWFr
-ZSBzdXJlIHRoZXNlDQo+IGhlYWRlcnMgYXJlIGF2YWlsYWJsZSBpbiB0aGUgaGVhZGxlbiBieXRl
-cyB0byBjYWxjdWxhdGUgdGhlDQo+IGw0X3Byb3RvLg0KPiANCj4gVGhpcyBwYXRjaCBiYWlscyBv
-dXQgaWYgdGhlIGhlYWRsZW4gaXMgInRvbyBzaG9ydCIsIGFuZCBkb2VzDQo+IG5vdCBhdHRlbXB0
-IHRvIGNhbGwgc2tiX2hlYWRlcl9wb2ludGVyKCkgdG8gZ2V0IHRoZSBuZWVkZWQNCj4gYnl0ZXM6
-IHRoZSBhc3N1bXB0aW9uIGlzIHRoYXQgdGhlIGNhbGxlciBzaG91bGQgc2V0IHRoaW5ncw0KPiB1
-cCBwcm9wZXJseSBpZiB0aGUgbDRfcHJvdG8gYmFzZWQgdHggc3RlZXJpbmcgaXMgZGVzaXJlZC4N
-Cj4gDQo+ID4gU2lnbmVkLW9mZi1ieTogU293bWluaSBWYXJhZGhhbiA8c293bWluaS52YXJhZGhh
-bkBvcmFjbGUuY29tPg0KPiAtLS0NCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdi
-ZS9peGdiZV9tYWluLmMgfMKgwqDCoMKgOSArKysrKysrKysNCj4gwqAxIGZpbGVzIGNoYW5nZWQs
-IDkgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMgYi9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMNCj4gaW5kZXggYTI0NGQ5YS4uMDg2OGRl
-MSAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVf
-bWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21h
-aW4uYw0KPiBAQCAtNzYzMiw2ICs3NjMyLDcgQEAgc3RhdGljIHZvaWQgaXhnYmVfYXRyKHN0cnVj
-dCBpeGdiZV9yaW5nICpyaW5nLA0KPiA+IMKgCXN0cnVjdCBza19idWZmICpza2I7DQo+ID4gwqAJ
-X19iZTE2IHZsYW5faWQ7DQo+ID4gwqAJaW50IGw0X3Byb3RvOw0KPiA+ICsJaW50IG1pbl9oZHJf
-c2l6ZSA9IDA7DQo+IMKgDQo+ID4gwqAJLyogaWYgcmluZyBkb2Vzbid0IGhhdmUgYSBpbnRlcnJ1
-cHQgdmVjdG9yLCBjYW5ub3QgcGVyZm9ybSBBVFIgKi8NCj4gPiDCoAlpZiAoIXFfdmVjdG9yKQ0K
-PiBAQCAtNzY1MCw2ICs3NjUxLDE0IEBAIHN0YXRpYyB2b2lkIGl4Z2JlX2F0cihzdHJ1Y3QgaXhn
-YmVfcmluZyAqcmluZywNCj4gwqANCj4gPiDCoAkvKiBzbmFnIG5ldHdvcmsgaGVhZGVyIHRvIGdl
-dCBMNCB0eXBlIGFuZCBhZGRyZXNzICovDQo+ID4gwqAJc2tiID0gZmlyc3QtPnNrYjsNCj4gPiAr
-CWlmIChmaXJzdC0+cHJvdG9jb2wgPT0gaHRvbnMoRVRIX1BfSVApKQ0KPiA+ICsJCW1pbl9oZHJf
-c2l6ZSA9IHNpemVvZihzdHJ1Y3QgaXBoZHIpICsNCj4gPiArCQkJwqDCoMKgwqDCoMKgwqBzaXpl
-b2Yoc3RydWN0IHRjcGhkcik7DQo+ID4gKwllbHNlIGlmIChmaXJzdC0+cHJvdG9jb2wgPT0gaHRv
-bnMoRVRIX1BfSVBWNikpDQo+ID4gKwkJbWluX2hkcl9zaXplID0gc2l6ZW9mKHN0cnVjdCBpcHY2
-aGRyKSArDQo+ID4gKwkJCcKgwqDCoMKgwqDCoMKgc2l6ZW9mKHN0cnVjdCB0Y3BoZHIpOw0KPiA+
-ICsJaWYgKG1pbl9oZHJfc2l6ZSAmJiBza2JfaGVhZGxlbihza2IpIDwgRVRIX0hMRU4gKyBtaW5f
-aGRyX3NpemUpDQo+ID4gKwkJcmV0dXJuOw0KPiA+IMKgCWhkci5uZXR3b3JrID0gc2tiX25ldHdv
-cmtfaGVhZGVyKHNrYik7DQo+ID4gwqAJaWYgKHNrYi0+ZW5jYXBzdWxhdGlvbiAmJg0KPiA+IMKg
-CcKgwqDCoMKgZmlyc3QtPnByb3RvY29sID09IGh0b25zKEVUSF9QX0lQKSAmJg0KDQpTbyB0aGlz
-IGRvZXNuJ3QgcmVhbGx5IGNvdmVyIGFsbCB0aGUgY2FzZXMgbmVjZXNzYXJ5LiDCoFRoZXJlIGVu
-ZCB1cA0KYmVpbmcgZXNzZW50aWFsbHkgMyBzcG90cyB3aGVyZSB3ZSBuZWVkIHRvIHBlcmZvcm0g
-Y2hlY2tzIHRvIHZlcmlmeSB0aGUNCmhlYWRlciBzaXplLg0KDQpUaGUgZmlyc3Qgb25lIGlzIGlu
-c2lkZSB0aGUgY2hlY2tzIGZvciBza2ItPmVuY2Fwc3VsYXRpb24sIEVUSF9QX0lQLA0KYW5kIElQ
-UFJPVE9fVURQLiDCoFdlIGNvdWxkIHByb2JhYmx5IGp1c3QgdmVyaWZ5IHRoYXQgc2tiX3RhaWxf
-cG9pbnRlcg0KaXMgZ3JlYXRlciB0aGFuIHNrYl90cmFuc3BvcnRfaGVhZGVyICsgKDggKyA4ICsg
-MTQpLCB0aGUgbWluaW11bSBzaXplDQpuZWVkZWQgdG8gc3VwcG9ydCBWeExBTi4NCg0KVGhlIHNl
-Y29uZCBibG9jayB3aGVyZSB3ZSBuZWVkIHRvIHBlcmZvcm0gdGhpcyBjaGVjayB3b3VsZCBiZSBh
-ZnRlcg0KdGhpcyBjaGVjayBvbmNlIHRoZSBuZXR3b3JrIGhlYWRlciBoYXMgYmVlbiB1cGRhdGVk
-LiDCoFRoZXJlIHdlIG5lZWQgdG8NCnZlcmlmeSB0aGF0IGhkci5uZXR3b3JrICsgNDAgaXMgbGVz
-cyB0aGFuIG9yIGVxdWFsIHRvIHNrYl90YWlsX3BvaW50ZXIuDQrCoFRoYXQgY292ZXJzIGJvdGgg
-SVB2NCB3LyBUQ1Agb3IgSVB2Ni4NCg0KVGhlIHRoaXJkIGNoZWNrIHRoYXQgbmVlZHMgdG8gYmUg
-cGVyZm9ybWVkIGlzIHRvIHZlcmlmeSB0aGF0DQpoZHIubmV0d29yayArIGhsZW4gaXMgZ3JlYXRl
-ciB0aGFuIG9yIGVxdWFsIHRvIHNrYl90YWlsX3BvaW50ZXIgLSAyMC4NClRoYXQgaXMgbmVlZGVk
-IHRvIHZlcmlmeSB3ZSBoYXZlIGVub3VnaCByb29tIGZvciB0aGUgdGNwIGhlYWRlciBkYXRhIHRv
-DQpiZSBwdWxsZWQuDQoNCi0gQWxleA0K
+Javier Martinez Canillas wrote:
+> If the driver is built as a module, autoload won't work because the module
+> alias information is not filled. So user-space can't match the registered
+> device with the corresponding module.
+>
+> Export the module alias information using the MODULE_DEVICE_TABLE() macro.
+>
+> Before this patch:
+>
+> $ modinfo drivers/net/ethernet/qualcomm/emac/qcom-emac.ko | grep alias
+> alias:          platform:qcom-emac
+>
+> After this patch:
+>
+> $ modinfo drivers/net/ethernet/qualcomm/emac/qcom-emac.ko | grep alias
+> alias:          platform:qcom-emac
+> alias:          of:N*T*Cqcom,fsm9900-emacC*
+> alias:          of:N*T*Cqcom,fsm9900-emac
+>
+> Signed-off-by: Javier Martinez Canillas<javier@osg.samsung.com>
+
+Acked-by: Timur Tabi <timur@codeaurora.org>
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
