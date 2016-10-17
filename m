@@ -1,45 +1,67 @@
-From: Eric Garver <e@erig.me>
-Subject: [PATCH net] flow_dissector: Check skb for VLAN only if skb specified.
-Date: Mon, 17 Oct 2016 16:21:57 -0400
-Message-ID: <1476735717-20802-1-git-send-email-e@erig.me>
-Cc: Hadar Hen Zion <hadarh@mellanox.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43512 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758963AbcJQUV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 16:21:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH v3 net-next 2/2] net: deprecate eth_change_mtu, remove
+ usage
+Date: Mon, 17 Oct 2016 16:22:28 -0400
+Message-ID: <20161017202228.GO14983@redhat.com>
+References: <20161017180027.4936fa15@jkicinski-Precision-T1700>
+ <20161017.131513.135103913948374087.davem@davemloft.net>
+ <20161017182049.4be802d1@jkicinski-Precision-T1700>
+ <20161017.132553.1015830249902227215.davem@davemloft.net>
+ <20161017200712.GN14983@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kubakici@wp.pl, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161017200712.GN14983@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Garver <egarver@redhat.com>
+On Mon, Oct 17, 2016 at 04:07:12PM -0400, Jarod Wilson wrote:
+> On Mon, Oct 17, 2016 at 01:25:53PM -0400, David Miller wrote:
+> > From: Jakub Kicinski <kubakici@wp.pl>
+> > Date: Mon, 17 Oct 2016 18:20:49 +0100
+> > 
+> > > Hm.  I must be missing something really obvious.  I just booted
+> > > net-next an hour ago and couldn't set MTU to anything larger than 1500
+> > > on either nfp or igb.  As far as I can read the code it will set the
+> > > max_mtu to 1500 in setup_ether() but none of the jumbo-capable drivers
+> > > had been touched by Jarod so far...
+> > 
+> > Indeed.
+> > 
+> > Jarod, this doesn't work.
+> > 
+> > I guess the idea was that if the driver overrides ndo_change_mtu and
+> > enforeced it's limits there, the driver would still work after your
+> > changes.
+> > 
+> > But that isn't what is happening, look at the IGB example.
+> > 
+> > It uses ether_setup(), which sets those new defaults, but now when
+> > the MTU is changed you enforce those default min/max before the
+> > driver's ->ndo_change_mtu() has a change to step in front and make
+> > the decision on it's own.
+> > 
+> > This means your changes pretty much did indeed break a lot of
+> > drivers's ability to set larger than a 1500 byte MTU.
+> 
+> Argh. Yeah, I see it now. I was primarily operating with the follow-on
+> patches also in play, which do touch all the ethernet drivers and set
+> max_mtu to match current behavior, didn't consider the max_mtu case where
+> only the initial patches were applied and the follow-on ones weren't. I've
+> sent that set, which should theoretically make this problem go away, but I
+> can also try to rework things if need be to restore intermediate jumbo
+> frames functionality. (And there are actually non-ethernet devices that
+> also call ether_setup and may or may not have larger than 1500 mtu that
+> aren't yet addressed by that follow-on set).
 
-Fixes a panic when calling eth_get_headlen(). Noticed on i40e driver.
+Looks like the simplest thing to do is going to be to revert a52ad514, and
+only make that change after all callers of ether_setup() are setting
+min/max_mtu themselves as needed, then it can be reintroduced.
 
-Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
-Signed-off-by: Eric Garver <e@erig.me>
----
- net/core/flow_dissector.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1a7b80f73376..44e6ba9d3a6b 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -247,12 +247,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	case htons(ETH_P_8021Q): {
- 		const struct vlan_hdr *vlan;
- 
--		if (skb_vlan_tag_present(skb))
-+		if (skb && skb_vlan_tag_present(skb))
- 			proto = skb->protocol;
- 
--		if (!skb_vlan_tag_present(skb) ||
--		    proto == cpu_to_be16(ETH_P_8021Q) ||
--		    proto == cpu_to_be16(ETH_P_8021AD)) {
-+		if (eth_type_vlan(proto)) {
- 			struct vlan_hdr _vlan;
- 
- 			vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan),
 -- 
-2.5.5
+Jarod Wilson
+jarod@redhat.com
