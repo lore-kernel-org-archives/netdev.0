@@ -1,47 +1,284 @@
-From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
-Subject: Re:
- linux-4.9-rc1/drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c:1561: poor
- error checking ?
-Date: Mon, 17 Oct 2016 10:58:33 +0300
-Message-ID: <1476691113.3880.37.camel@coelho.fi>
-References: <VI1PR08MB1022786893DC435E1A71F3069CD00@VI1PR08MB1022.eurprd08.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: David Binderman <dcb314-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-        "johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <VI1PR08MB1022786893DC435E1A71F3069CD00-Rgw4eRhbCXnvbuUDGEufgykoKrxaZxrJvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH v2] mac80211: move struct aead_req off the stack
+Date: Mon, 17 Oct 2016 10:01:01 +0200
+Message-ID: <1476691261-21816-1-git-send-email-johannes@sipsolutions.net>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
+        netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+        Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:49148 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758254AbcJQIBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 04:01:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-On Mon, 2016-10-17 at 07:40 +0000, David Binderman wrote:
-> Hello there,
-> 
-> linux-4.9-rc1/drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c:1561]: (style) Checking if unsigned variable 'len' is less than zero.
-> 
-> Source code is
-> 
->     len = min((size_t)le32_to_cpu(rsp->len) << 2,
->           iwl_rx_packet_payload_len(hcmd.resp_pkt) - sizeof(*rsp));
->     len = min(len - delta, count);
->     if (len < 0) {
->         ret = -EFAULT;
->         goto out;
->     }
-> 
-> Suggest improve error checking.
+From: Johannes Berg <johannes.berg@intel.com>
 
-Thanks for reporting! A fix for this is already queued in our internal
-tree and will be sent upstream soon.
+Some crypto implementations (such as the generic CCM wrapper in crypto/)
+use scatterlists to map fields of private data in their struct aead_req.
+This means these data structures cannot live in the vmalloc area, which
+means that they cannot live on the stack (with CONFIG_VMAP_STACK.)
 
---
-Cheers,
-Luca.
+This currently occurs only with the generic software implementation, but
+the private data and usage is implementation specific, so move the whole
+data structures off the stack into heap by allocating every time we need
+to use them.
+
+This pattern already exists in the IPsec ESP driver, but in the future,
+we may want/need to improve upon this, e.g. by using a slab cache.
+
+(Based on Ard's patch, but that was missing error handling and GCM/GMAC)
+
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/mac80211/aes_ccm.c  | 34 +++++++++++++++++++---------------
+ net/mac80211/aes_ccm.h  |  6 +++---
+ net/mac80211/aes_gcm.c  | 31 +++++++++++++++++--------------
+ net/mac80211/aes_gcm.h  |  4 ++--
+ net/mac80211/aes_gmac.c | 10 +++++-----
+ net/mac80211/wpa.c      | 12 ++++--------
+ 6 files changed, 50 insertions(+), 47 deletions(-)
+
+diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
+index 7663c28ba353..5c9fe00be6cc 100644
+--- a/net/mac80211/aes_ccm.c
++++ b/net/mac80211/aes_ccm.c
+@@ -18,18 +18,16 @@
+ #include "key.h"
+ #include "aes_ccm.h"
+ 
+-void ieee80211_aes_ccm_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+-			       u8 *data, size_t data_len, u8 *mic,
+-			       size_t mic_len)
++int ieee80211_aes_ccm_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
++			      u8 *data, size_t data_len, u8 *mic,
++			      size_t mic_len)
+ {
+ 	struct scatterlist sg[3];
++	struct aead_request *aead_req;
+ 
+-	char aead_req_data[sizeof(struct aead_request) +
+-			   crypto_aead_reqsize(tfm)]
+-		__aligned(__alignof__(struct aead_request));
+-	struct aead_request *aead_req = (void *) aead_req_data;
+-
+-	memset(aead_req, 0, sizeof(aead_req_data));
++	aead_req = aead_request_alloc(tfm, GFP_ATOMIC);
++	if (!aead_req)
++		return -ENOMEM;
+ 
+ 	sg_init_table(sg, 3);
+ 	sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -41,6 +39,9 @@ void ieee80211_aes_ccm_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+ 	aead_request_set_ad(aead_req, sg[0].length);
+ 
+ 	crypto_aead_encrypt(aead_req);
++	aead_request_free(aead_req);
++
++	return 0;
+ }
+ 
+ int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+@@ -48,15 +49,15 @@ int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+ 			      size_t mic_len)
+ {
+ 	struct scatterlist sg[3];
+-	char aead_req_data[sizeof(struct aead_request) +
+-			   crypto_aead_reqsize(tfm)]
+-		__aligned(__alignof__(struct aead_request));
+-	struct aead_request *aead_req = (void *) aead_req_data;
++	struct aead_request *aead_req;
++	int err;
+ 
+ 	if (data_len == 0)
+ 		return -EINVAL;
+ 
+-	memset(aead_req, 0, sizeof(aead_req_data));
++	aead_req = aead_request_alloc(tfm, GFP_ATOMIC);
++	if (!aead_req)
++		return -ENOMEM;
+ 
+ 	sg_init_table(sg, 3);
+ 	sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -67,7 +68,10 @@ int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+ 	aead_request_set_crypt(aead_req, sg, sg, data_len + mic_len, b_0);
+ 	aead_request_set_ad(aead_req, sg[0].length);
+ 
+-	return crypto_aead_decrypt(aead_req);
++	err = crypto_aead_decrypt(aead_req);
++	aead_request_free(aead_req);
++
++	return err;
+ }
+ 
+ struct crypto_aead *ieee80211_aes_key_setup_encrypt(const u8 key[],
+diff --git a/net/mac80211/aes_ccm.h b/net/mac80211/aes_ccm.h
+index 6a73d1e4d186..03e21b0995e3 100644
+--- a/net/mac80211/aes_ccm.h
++++ b/net/mac80211/aes_ccm.h
+@@ -15,9 +15,9 @@
+ struct crypto_aead *ieee80211_aes_key_setup_encrypt(const u8 key[],
+ 						    size_t key_len,
+ 						    size_t mic_len);
+-void ieee80211_aes_ccm_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+-			       u8 *data, size_t data_len, u8 *mic,
+-			       size_t mic_len);
++int ieee80211_aes_ccm_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
++			      u8 *data, size_t data_len, u8 *mic,
++			      size_t mic_len);
+ int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+ 			      u8 *data, size_t data_len, u8 *mic,
+ 			      size_t mic_len);
+diff --git a/net/mac80211/aes_gcm.c b/net/mac80211/aes_gcm.c
+index 3afe361fd27c..aa8eb2718bc1 100644
+--- a/net/mac80211/aes_gcm.c
++++ b/net/mac80211/aes_gcm.c
+@@ -15,17 +15,15 @@
+ #include "key.h"
+ #include "aes_gcm.h"
+ 
+-void ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
+-			       u8 *data, size_t data_len, u8 *mic)
++int ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
++			      u8 *data, size_t data_len, u8 *mic)
+ {
+ 	struct scatterlist sg[3];
++	struct aead_request *aead_req;
+ 
+-	char aead_req_data[sizeof(struct aead_request) +
+-			   crypto_aead_reqsize(tfm)]
+-		__aligned(__alignof__(struct aead_request));
+-	struct aead_request *aead_req = (void *)aead_req_data;
+-
+-	memset(aead_req, 0, sizeof(aead_req_data));
++	aead_req = aead_request_alloc(tfm, GFP_ATOMIC);
++	if (!aead_req)
++		return -ENOMEM;
+ 
+ 	sg_init_table(sg, 3);
+ 	sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -37,21 +35,23 @@ void ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
+ 	aead_request_set_ad(aead_req, sg[0].length);
+ 
+ 	crypto_aead_encrypt(aead_req);
++	aead_request_free(aead_req);
++	return 0;
+ }
+ 
+ int ieee80211_aes_gcm_decrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
+ 			      u8 *data, size_t data_len, u8 *mic)
+ {
+ 	struct scatterlist sg[3];
+-	char aead_req_data[sizeof(struct aead_request) +
+-			   crypto_aead_reqsize(tfm)]
+-		__aligned(__alignof__(struct aead_request));
+-	struct aead_request *aead_req = (void *)aead_req_data;
++	struct aead_request *aead_req;
++	int err;
+ 
+ 	if (data_len == 0)
+ 		return -EINVAL;
+ 
+-	memset(aead_req, 0, sizeof(aead_req_data));
++	aead_req = aead_request_alloc(tfm, GFP_ATOMIC);
++	if (!aead_req)
++		return -ENOMEM;
+ 
+ 	sg_init_table(sg, 3);
+ 	sg_set_buf(&sg[0], &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -63,7 +63,10 @@ int ieee80211_aes_gcm_decrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
+ 			       data_len + IEEE80211_GCMP_MIC_LEN, j_0);
+ 	aead_request_set_ad(aead_req, sg[0].length);
+ 
+-	return crypto_aead_decrypt(aead_req);
++	err = crypto_aead_decrypt(aead_req);
++	aead_request_free(aead_req);
++
++	return err;
+ }
+ 
+ struct crypto_aead *ieee80211_aes_gcm_key_setup_encrypt(const u8 key[],
+diff --git a/net/mac80211/aes_gcm.h b/net/mac80211/aes_gcm.h
+index 1347fda6b76a..b36503cd7716 100644
+--- a/net/mac80211/aes_gcm.h
++++ b/net/mac80211/aes_gcm.h
+@@ -11,8 +11,8 @@
+ 
+ #include <linux/crypto.h>
+ 
+-void ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
+-			       u8 *data, size_t data_len, u8 *mic);
++int ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
++			      u8 *data, size_t data_len, u8 *mic);
+ int ieee80211_aes_gcm_decrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
+ 			      u8 *data, size_t data_len, u8 *mic);
+ struct crypto_aead *ieee80211_aes_gcm_key_setup_encrypt(const u8 key[],
+diff --git a/net/mac80211/aes_gmac.c b/net/mac80211/aes_gmac.c
+index 3ddd927aaf30..15cfcebf0884 100644
+--- a/net/mac80211/aes_gmac.c
++++ b/net/mac80211/aes_gmac.c
+@@ -25,16 +25,15 @@ int ieee80211_aes_gmac(struct crypto_aead *tfm, const u8 *aad, u8 *nonce,
+ 		       const u8 *data, size_t data_len, u8 *mic)
+ {
+ 	struct scatterlist sg[4];
+-	char aead_req_data[sizeof(struct aead_request) +
+-			   crypto_aead_reqsize(tfm)]
+-		__aligned(__alignof__(struct aead_request));
+-	struct aead_request *aead_req = (void *)aead_req_data;
+ 	u8 zero[GMAC_MIC_LEN], iv[AES_BLOCK_SIZE];
++	struct aead_request *aead_req;
+ 
+ 	if (data_len < GMAC_MIC_LEN)
+ 		return -EINVAL;
+ 
+-	memset(aead_req, 0, sizeof(aead_req_data));
++	aead_req = aead_request_alloc(tfm, GFP_ATOMIC);
++	if (!aead_req)
++		return -ENOMEM;
+ 
+ 	memset(zero, 0, GMAC_MIC_LEN);
+ 	sg_init_table(sg, 4);
+@@ -52,6 +51,7 @@ int ieee80211_aes_gmac(struct crypto_aead *tfm, const u8 *aad, u8 *nonce,
+ 	aead_request_set_ad(aead_req, AAD_LEN + data_len);
+ 
+ 	crypto_aead_encrypt(aead_req);
++	aead_request_free(aead_req);
+ 
+ 	return 0;
+ }
+diff --git a/net/mac80211/wpa.c b/net/mac80211/wpa.c
+index b48c1e13e281..2e366438f8ef 100644
+--- a/net/mac80211/wpa.c
++++ b/net/mac80211/wpa.c
+@@ -461,10 +461,8 @@ static int ccmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb,
+ 
+ 	pos += IEEE80211_CCMP_HDR_LEN;
+ 	ccmp_special_blocks(skb, pn, b_0, aad);
+-	ieee80211_aes_ccm_encrypt(key->u.ccmp.tfm, b_0, aad, pos, len,
+-				  skb_put(skb, mic_len), mic_len);
+-
+-	return 0;
++	return ieee80211_aes_ccm_encrypt(key->u.ccmp.tfm, b_0, aad, pos, len,
++					 skb_put(skb, mic_len), mic_len);
+ }
+ 
+ 
+@@ -696,10 +694,8 @@ static int gcmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
+ 
+ 	pos += IEEE80211_GCMP_HDR_LEN;
+ 	gcmp_special_blocks(skb, pn, j_0, aad);
+-	ieee80211_aes_gcm_encrypt(key->u.gcmp.tfm, j_0, aad, pos, len,
+-				  skb_put(skb, IEEE80211_GCMP_MIC_LEN));
+-
+-	return 0;
++	return ieee80211_aes_gcm_encrypt(key->u.gcmp.tfm, j_0, aad, pos, len,
++					 skb_put(skb, IEEE80211_GCMP_MIC_LEN));
+ }
+ 
+ ieee80211_tx_result
+-- 
+2.8.1
