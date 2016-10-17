@@ -1,34 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] dwc_eth_qos: do not clear pause flags from
- phy_device->supported
-Date: Mon, 17 Oct 2016 12:53:53 -0400 (EDT)
-Message-ID: <20161017.125353.119289785321107013.davem@davemloft.net>
-References: <1476685548-15574-1-git-send-email-niklass@axis.com>
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: Re: [ANNOUNCE] bridge-utils 1.6 release
+Date: Mon, 17 Oct 2016 18:59:02 +0200
+Message-ID: <20161017165902.GA18441@gmail.com>
+References: <20161017090330.270fe160@xeon-e3>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: larper@axis.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, niklass@axis.com
-To: niklas.cassel@axis.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476685548-15574-1-git-send-email-niklass@axis.com>
+Content-Disposition: inline
+In-Reply-To: <20161017090330.270fe160@xeon-e3>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Mon, 17 Oct 2016 08:25:48 +0200
-
-> From: Niklas Cassel <niklas.cassel@axis.com>
+On Mon, Oct 17, 2016 at 09:03:30AM -0700, Stephen Hemminger wrote:
 > 
-> phy_device->supported is originally set by the PHY driver.
-> The ethernet driver should filter phy_device->supported to only contain
-> flags supported by the IP.
-> The IP supports setting rx and tx flow control independently,
-> therefore SUPPORTED_Pause and SUPPORTED_Asym_Pause should not be cleared.
-> If the flags are cleared, pause frames cannot be enabled (even if they
-> are supported by the PHY).
-> 
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> Signed-off-by: Lars Persson <larper@axis.com>
+> Source:
+>   http://www.kernel.org/pub/linux/utils/net/bridge-utils/bridge-utils.1.6.tar.gz
+>
 
-These two patches do not apply to the current 'net' tree, please respin.
+This link seems to be broken.
+
+-- 
+Mit freundlichen Grüßen
+
+Alexander Alemayhu
