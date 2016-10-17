@@ -1,111 +1,38 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH net-next 2/2] net: phy: Add PHY Auto/Mdi/Mdix set driver
- for Microsemi PHYs.
-Date: Mon, 17 Oct 2016 17:40:23 +0530
-Message-ID: <20161017121013.GC25339@microsemi.com>
-References: <1475064078-22310-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1475064078-22310-3-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20160928202451.GC30728@lunn.ch>
-Reply-To: <Raju.Lakkaraju@microsemi.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next] bridge: vlan: remove wrong stats help
+Date: Mon, 17 Oct 2016 05:23:21 -0700
+Message-ID: <20161017052321.7d129703@xeon-e3>
+References: <1476277348-32302-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
-        <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0051.outbound.protection.outlook.com ([104.47.32.51]:14811
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757570AbcJQMKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 08:10:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20160928202451.GC30728@lunn.ch>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34651 "EHLO
+        mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932588AbcJQMXM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 08:23:12 -0400
+Received: by mail-pa0-f51.google.com with SMTP id rz1so63073943pab.1
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 05:23:07 -0700 (PDT)
+In-Reply-To: <1476277348-32302-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Wed, 12 Oct 2016 15:02:28 +0200
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 
-Thank you for code review and valuable comments.
+> When I did the per-vlan stats iproute2 support, I left out a hunk from a
+> previous version of the patch that was using a special subcommand "stats".
+> Since the latest version uses the -s switch remove the help for the stats
+> subcommand.
+> 
+> Fixes: 7abf5de677e32 ("bridge: vlan: add support to display per-vlan statistics")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> The commit is only in iproute2 net-next branch.
+> 
+>  bridge/vlan.c | 1 -
+>  1 file changed, 1 deletion(-)
 
-On Wed, Sep 28, 2016 at 10:24:51PM +0200, Andrew Lunn wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> > +     reg_val = phy_read(phydev, MSCC_PHY_BYPASS_CONTROL);
-> > +     if ((mdix == ETH_TP_MDI) || (mdix == ETH_TP_MDI_X)) {
-> > +             reg_val |= (DISABLE_PAIR_SWAP_CORR_MASK |
-> > +                         DISABLE_POLARITY_CORR_MASK  |
-> > +                         DISABLE_HP_AUTO_MDIX_MASK);
-> > +     } else {
-> > +             reg_val &= ~(DISABLE_PAIR_SWAP_CORR_MASK |
-> > +                          DISABLE_POLARITY_CORR_MASK  |
-> > +                          DISABLE_HP_AUTO_MDIX_MASK);
-> > +     }
-> > +     rc = phy_write(phydev, MSCC_PHY_BYPASS_CONTROL, reg_val);
-> > +     if (rc != 0)
-> > +             goto out_unlock;
-> > +
-> > +     rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED);
-> > +     if (rc != 0)
-> > +             goto out_unlock;
-> > +
-> > +     reg_val = phy_read(phydev, MSCC_PHY_EXT_MODE_CNTL);
-> > +     reg_val &= ~(FORCE_MDI_CROSSOVER_MASK);
-> > +     if (mdix == ETH_TP_MDI)
-> > +             reg_val |= FORCE_MDI_CROSSOVER_MDI;
-> > +     else if (mdix == ETH_TP_MDI_X)
-> > +             reg_val |= FORCE_MDI_CROSSOVER_MDIX;
-> > +     rc = phy_write(phydev, MSCC_PHY_EXT_MODE_CNTL, reg_val);
-> > +     if (rc != 0)
-> > +             goto out_unlock;
-> > +
-> > +     rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-> > +
-> > +out_unlock:
-> 
-> out_unlock seems a bit of an odd name, since you are not unlocking
-> anything.
-> 
-
-Accepted. I will change.
-
-> I also wonder if you should try to reset to MSCC_PHY_PAGE_STANDARD in
-> the error condition?
-> 
-
-In case of PHY write error, then PHY page set will also return error.
-I would like to return error condition, so return after write failure.
-
-> > +
-> > +     return rc;
-> > +}
-> > +
-> >  static int vsc85xx_wol_set(struct phy_device *phydev,
-> >                          struct ethtool_wolinfo *wol)
-> >  {
-> > @@ -227,6 +281,7 @@ static int vsc85xx_default_config(struct phy_device *phydev)
-> >       int rc;
-> >       u16 reg_val;
-> >
-> > +     phydev->mdix = ETH_TP_MDI_AUTO;
-> 
-> Humm, interesting. The only other driver supporting mdix is the
-> Marvell one. It does not do this, it leaves it to its default value of
-> ETH_TP_MDI_INVALID. It does however interpret ETH_TP_MDI_INVALID as
-> meaning as ETH_TP_MDI_AUTO.
-> 
-> There needs to be consistency here. You either need to do the same as
-> the Marvell driver, or you need to modify the Marvell driver to also
-> set phydev->mdix to ETH_TP_MDI_AUTO.
-> 
-> I don't yet know which of these two is the right thing to do.
-> 
-> Florian?
-> 
->         Andrew
-
-For this comment, I responded in another thread.
-
----
-Thanks,
-Raju.
+Applied thanks.
