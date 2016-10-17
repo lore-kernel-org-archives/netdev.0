@@ -1,87 +1,54 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: [PATCH v3 1/4] ARM: pxa: enhance smc91x platform data
-Date: Mon, 17 Oct 2016 21:45:29 +0200
-Message-ID: <1476733532-29716-2-git-send-email-robert.jarzmik@free.fr>
+From: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
+Subject: [PATCH v3 3/4] net: smc91x: take into account half-word workaround
+Date: Mon, 17 Oct 2016 21:45:31 +0200
+Message-ID: <1476733532-29716-4-git-send-email-robert.jarzmik@free.fr>
 References: <1476733532-29716-1-git-send-email-robert.jarzmik@free.fr>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-am33-list@redhat.com
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Daniel Mack <daniel@zonque.org>,
-        Haojian Zhuang <haojian.zhuang@gmail.com>,
-        Robert Jarzmik <robert.jarzmik@free.fr>,
-        Jonathan Cameron <jic23@cam.ac.uk>,
-        David Howells <dhowells@redhat.com>,
-        Nicolas Pitre <nico@fluxnic.net>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476733532-29716-1-git-send-email-robert.jarzmik@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        Haojian Zhuang <haojian.zhuang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>,
+        Jonathan Cameron <jic23-KWPb1pKIrIJaa/9Udqfwiw@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476733532-29716-1-git-send-email-robert.jarzmik-GANU6spQydw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Instead of having the smc91x driver relying on machine_is_*() calls,
-provide this data through platform data, ie. idp, mainstone and
-stargate.
+For device-tree builds, platforms such as mainstone, idp and stargate2
+must have their u16 writes all aligned on 32 bit boundaries. This is
+already enabled in platform data builds, and this patch adds it to
+device-tree builds.
 
-This way, the driver doesn't need anymore machine_is_*() calls, which
-wouldn't work anymore with a device-tree build.
-
-Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+Signed-off-by: Robert Jarzmik <robert.jarzmik-GANU6spQydw@public.gmane.org>
 ---
- arch/arm/mach-pxa/idp.c       | 1 +
- arch/arm/mach-pxa/mainstone.c | 1 +
- arch/arm/mach-pxa/stargate2.c | 1 +
- include/linux/smc91x.h        | 1 +
- 4 files changed, 4 insertions(+)
+Since v1: rename dt property to pxa-u16-align4
+---
+ drivers/net/ethernet/smsc/smc91x.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/arm/mach-pxa/idp.c b/arch/arm/mach-pxa/idp.c
-index 66070acaa888..d1db32b1a2c6 100644
---- a/arch/arm/mach-pxa/idp.c
-+++ b/arch/arm/mach-pxa/idp.c
-@@ -85,6 +85,7 @@ static struct resource smc91x_resources[] = {
- static struct smc91x_platdata smc91x_platdata = {
- 	.flags = SMC91X_USE_8BIT | SMC91X_USE_16BIT | SMC91X_USE_32BIT |
- 		 SMC91X_USE_DMA | SMC91X_NOWAIT,
-+	.pxa_u16_align4 = true,
- };
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 705d99b2d947..65077c77082a 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -2326,6 +2326,8 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 		if (!device_property_read_u32(&pdev->dev, "reg-shift",
+ 					      &val))
+ 			lp->io_shift = val;
++		lp->cfg.pxa_u16_align4 =
++			device_property_read_bool(&pdev->dev, "pxa-u16-align4");
+ 	}
+ #endif
  
- static struct platform_device smc91x_device = {
-diff --git a/arch/arm/mach-pxa/mainstone.c b/arch/arm/mach-pxa/mainstone.c
-index 40964069a17c..a2d851a3a546 100644
---- a/arch/arm/mach-pxa/mainstone.c
-+++ b/arch/arm/mach-pxa/mainstone.c
-@@ -140,6 +140,7 @@ static struct resource smc91x_resources[] = {
- static struct smc91x_platdata mainstone_smc91x_info = {
- 	.flags	= SMC91X_USE_8BIT | SMC91X_USE_16BIT | SMC91X_USE_32BIT |
- 		  SMC91X_NOWAIT | SMC91X_USE_DMA,
-+	.pxa_u16_align4 = true,
- };
- 
- static struct platform_device smc91x_device = {
-diff --git a/arch/arm/mach-pxa/stargate2.c b/arch/arm/mach-pxa/stargate2.c
-index 702f4f14b708..7b6610e9dae4 100644
---- a/arch/arm/mach-pxa/stargate2.c
-+++ b/arch/arm/mach-pxa/stargate2.c
-@@ -673,6 +673,7 @@ static struct resource smc91x_resources[] = {
- static struct smc91x_platdata stargate2_smc91x_info = {
- 	.flags = SMC91X_USE_8BIT | SMC91X_USE_16BIT | SMC91X_USE_32BIT
- 	| SMC91X_NOWAIT | SMC91X_USE_DMA,
-+	.pxa_u16_align4 = true,
- };
- 
- static struct platform_device smc91x_device = {
-diff --git a/include/linux/smc91x.h b/include/linux/smc91x.h
-index e302c447e057..129bc674dcf5 100644
---- a/include/linux/smc91x.h
-+++ b/include/linux/smc91x.h
-@@ -39,6 +39,7 @@ struct smc91x_platdata {
- 	unsigned long flags;
- 	unsigned char leda;
- 	unsigned char ledb;
-+	bool pxa_u16_align4;	/* PXA buggy u16 writes on 4*n+2 addresses */
- };
- 
- #endif /* __SMC91X_H__ */
 -- 
 2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
