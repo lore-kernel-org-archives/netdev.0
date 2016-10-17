@@ -1,301 +1,152 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next 01/15] ethernet/atheros: use core min/max MTU checking
-Date: Mon, 17 Oct 2016 15:54:03 -0400
-Message-ID: <20161017195417.48259-2-jarod@redhat.com>
-References: <20161017195417.48259-1-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        Jay Cliburn <jcliburn@gmail.com>,
-        Chris Snook <chris.snook@gmail.com>
+Subject: [PATCH net-next 00/15] ethernet: use core min/max MTU checking
+Date: Mon, 17 Oct 2016 15:54:02 -0400
+Message-ID: <20161017195417.48259-1-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57368 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755939AbcJQTy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 15:54:27 -0400
-In-Reply-To: <20161017195417.48259-1-jarod@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-atl2: min_mtu 40, max_mtu 1504
+Now that the network stack core min/max MTU checking infrastructure is in
+place, time to start making drivers use it. We'll start with the easiest
+ones, the ethernet drivers, split roughly by vendor, with a catch-all
+patch at the end.
 
-- Remove a few redundant defines that already have equivalents in
-  if_ether.h.
+For the most part, every patch does the same essential thing: removes the
+MTU range checking from the drivers' ndo_change_mtu function, puts those
+ranges into the core net_device min_mtu and max_mtu fields, and where
+possible, removes ndo_change_mtu functions entirely.
 
-atl1: min_mtu 42, max_mtu 10218
+These patches have all been built through the 0-day build infrastructure
+provided by Intel, on top of net-next as of October 17.
 
-atl1e: min_mtu 42, max_mtu 8170
+Rebasing git tree with these patches can be found here:
 
-atl1c: min_mtu 42, max_mtu 6122/1500
+  https://github.com/jarodwilson/linux-muck
 
-- GbE hardware gets a max_mtu of 6122, slower hardware gets 1500.
-
-alx: min_mtu 34, max_mtu 9256
-
-- Not so sure that minimum MTU number is really what was intended, but
-  that's what the math actually makes it out to be, due to max_frame
-  manipulations and comparison in alx_change_mtu, rather than just
-  comparing new_mtu. (I think 68 was the intended min_mtu value).
+Jarod Wilson (15):
+  ethernet/atheros: use core min/max MTU checking
+  ethernet/broadcom: use core min/max MTU checking
+  ethernet/intel: use core min/max MTU checking
+  ethernet/marvell: use core min/max MTU checking
+  ethernet/mellanox: use core min/max MTU checking
+  ethernet/qlogic: use core min/max MTU checking
+  ethernet/realtek: use core min/max MTU checking
+  ethernet/sun: use core min/max MTU checking
+  ethernet/dlink: use core min/max MTU checking
+  ethernet/neterion: use core min/max MTU checking
+  ethernet/cavium: use core min/max MTU checking
+  ethernet/ibm: use core min/max MTU checking
+  ethernet/tile: use core min/max MTU checking
+  ethernet/toshiba: use core min/max MTU checking
+  ethernet: use core min/max MTU checking
 
 CC: netdev@vger.kernel.org
-CC: Jay Cliburn <jcliburn@gmail.com>
-CC: Chris Snook <chris.snook@gmail.com>
-Signed-off-by: Jarod Wilson <jarod@redhat.com>
----
- drivers/net/ethernet/atheros/alx/hw.h           |  1 -
- drivers/net/ethernet/atheros/alx/main.c         | 10 ++----
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 41 ++++++++++++++++---------
- drivers/net/ethernet/atheros/atl1e/atl1e_main.c | 12 +++-----
- drivers/net/ethernet/atheros/atlx/atl1.c        | 15 ++++-----
- drivers/net/ethernet/atheros/atlx/atl2.c        | 16 +++++-----
- drivers/net/ethernet/atheros/atlx/atl2.h        |  3 --
- 7 files changed, 47 insertions(+), 51 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/alx/hw.h b/drivers/net/ethernet/atheros/alx/hw.h
-index 0191477..e42d7e0 100644
---- a/drivers/net/ethernet/atheros/alx/hw.h
-+++ b/drivers/net/ethernet/atheros/alx/hw.h
-@@ -351,7 +351,6 @@ struct alx_rrd {
- #define ALX_MAX_JUMBO_PKT_SIZE	(9*1024)
- #define ALX_MAX_TSO_PKT_SIZE	(7*1024)
- #define ALX_MAX_FRAME_SIZE	ALX_MAX_JUMBO_PKT_SIZE
--#define ALX_MIN_FRAME_SIZE	(ETH_ZLEN + ETH_FCS_LEN + VLAN_HLEN)
- 
- #define ALX_MAX_RX_QUEUES	8
- #define ALX_MAX_TX_QUEUES	4
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index c0f84b7..eccbacd 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -892,6 +892,9 @@ static int alx_init_sw(struct alx_priv *alx)
- 	hw->smb_timer = 400;
- 	hw->mtu = alx->dev->mtu;
- 	alx->rxbuf_size = ALX_MAX_FRAME_LEN(hw->mtu);
-+	/* MTU range: 34 - 9256 */
-+	alx->dev->min_mtu = 34;
-+	alx->dev->max_mtu = ALX_MAX_FRAME_LEN(ALX_MAX_FRAME_SIZE);
- 	alx->tx_ringsz = 256;
- 	alx->rx_ringsz = 512;
- 	hw->imt = 200;
-@@ -994,13 +997,6 @@ static int alx_change_mtu(struct net_device *netdev, int mtu)
- 	struct alx_priv *alx = netdev_priv(netdev);
- 	int max_frame = ALX_MAX_FRAME_LEN(mtu);
- 
--	if ((max_frame < ALX_MIN_FRAME_SIZE) ||
--	    (max_frame > ALX_MAX_FRAME_SIZE))
--		return -EINVAL;
--
--	if (netdev->mtu == mtu)
--		return 0;
--
- 	netdev->mtu = mtu;
- 	alx->hw.mtu = mtu;
- 	alx->rxbuf_size = max(max_frame, ALX_DEF_RXBUF_SIZE);
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index a3200ea..773d3b7 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -519,6 +519,26 @@ static int atl1c_set_features(struct net_device *netdev,
- 	return 0;
- }
- 
-+static void atl1c_set_max_mtu(struct net_device *netdev)
-+{
-+	struct atl1c_adapter *adapter = netdev_priv(netdev);
-+	struct atl1c_hw *hw = &adapter->hw;
-+
-+	switch (hw->nic_type) {
-+	/* These (GbE) devices support jumbo packets, max_mtu 6122 */
-+	case athr_l1c:
-+	case athr_l1d:
-+	case athr_l1d_2:
-+		netdev->max_mtu = MAX_JUMBO_FRAME_SIZE -
-+				  (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
-+		break;
-+	/* The 10/100 devices don't support jumbo packets, max_mtu 1500 */
-+	default:
-+		netdev->max_mtu = ETH_DATA_LEN;
-+		break;
-+	}
-+}
-+
- /**
-  * atl1c_change_mtu - Change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-@@ -529,22 +549,9 @@ static int atl1c_set_features(struct net_device *netdev,
- static int atl1c_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
--	struct atl1c_hw *hw = &adapter->hw;
--	int old_mtu   = netdev->mtu;
--	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
--
--	/* Fast Ethernet controller doesn't support jumbo packet */
--	if (((hw->nic_type == athr_l2c ||
--	      hw->nic_type == athr_l2c_b ||
--	      hw->nic_type == athr_l2c_b2) && new_mtu > ETH_DATA_LEN) ||
--	      max_frame < ETH_ZLEN + ETH_FCS_LEN ||
--	      max_frame > MAX_JUMBO_FRAME_SIZE) {
--		if (netif_msg_link(adapter))
--			dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
--		return -EINVAL;
--	}
-+
- 	/* set MTU */
--	if (old_mtu != new_mtu && netif_running(netdev)) {
-+	if (netif_running(netdev)) {
- 		while (test_and_set_bit(__AT_RESETTING, &adapter->flags))
- 			msleep(1);
- 		netdev->mtu = new_mtu;
-@@ -2511,6 +2518,7 @@ static int atl1c_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
- 
- 	netdev->netdev_ops = &atl1c_netdev_ops;
- 	netdev->watchdog_timeo = AT_TX_WATCHDOG;
-+	netdev->min_mtu = ETH_ZLEN - (ETH_HLEN + VLAN_HLEN);
- 	atl1c_set_ethtool_ops(netdev);
- 
- 	/* TODO: add when ready */
-@@ -2613,6 +2621,9 @@ static int atl1c_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev_err(&pdev->dev, "net device private data init failed\n");
- 		goto err_sw_init;
- 	}
-+	/* set max MTU */
-+	atl1c_set_max_mtu(netdev);
-+
- 	atl1c_reset_pcie(&adapter->hw, ATL1C_PCIE_L0S_L1_DISABLE);
- 
- 	/* Init GPHY as early as possible due to power saving issue  */
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-index 974713b..e96091b6 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-@@ -439,16 +439,10 @@ static int atl1e_set_features(struct net_device *netdev,
- static int atl1e_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct atl1e_adapter *adapter = netdev_priv(netdev);
--	int old_mtu   = netdev->mtu;
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
- 
--	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
--			(max_frame > MAX_JUMBO_FRAME_SIZE)) {
--		netdev_warn(adapter->netdev, "invalid MTU setting\n");
--		return -EINVAL;
--	}
- 	/* set MTU */
--	if (old_mtu != new_mtu && netif_running(netdev)) {
-+	if (netif_running(netdev)) {
- 		while (test_and_set_bit(__AT_RESETTING, &adapter->flags))
- 			msleep(1);
- 		netdev->mtu = new_mtu;
-@@ -2272,6 +2266,10 @@ static int atl1e_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
- 	netdev->netdev_ops = &atl1e_netdev_ops;
- 
- 	netdev->watchdog_timeo = AT_TX_WATCHDOG;
-+	/* MTU range: 42 - 8170 */
-+	netdev->min_mtu = ETH_ZLEN - (ETH_HLEN + VLAN_HLEN);
-+	netdev->max_mtu = MAX_JUMBO_FRAME_SIZE -
-+			  (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
- 	atl1e_set_ethtool_ops(netdev);
- 
- 	netdev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_TSO |
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 529bca7..9aede18 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -2701,23 +2701,15 @@ static void atl1_reset_dev_task(struct work_struct *work)
- static int atl1_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct atl1_adapter *adapter = netdev_priv(netdev);
--	int old_mtu = netdev->mtu;
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
- 
--	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
--	    (max_frame > MAX_JUMBO_FRAME_SIZE)) {
--		if (netif_msg_link(adapter))
--			dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
--		return -EINVAL;
--	}
--
- 	adapter->hw.max_frame_size = max_frame;
- 	adapter->hw.tx_jumbo_task_th = (max_frame + 7) >> 3;
- 	adapter->rx_buffer_len = (max_frame + 7) & ~7;
- 	adapter->hw.rx_jumbo_th = adapter->rx_buffer_len / 8;
- 
- 	netdev->mtu = new_mtu;
--	if ((old_mtu != new_mtu) && netif_running(netdev)) {
-+	if (netif_running(netdev)) {
- 		atl1_down(adapter);
- 		atl1_up(adapter);
- 	}
-@@ -3031,6 +3023,11 @@ static int atl1_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* is this valid? see atl1_setup_mac_ctrl() */
- 	netdev->features |= NETIF_F_RXCSUM;
- 
-+	/* MTU range: 42 - 10218 */
-+	netdev->min_mtu = ETH_ZLEN - (ETH_HLEN + VLAN_HLEN);
-+	netdev->max_mtu = MAX_JUMBO_FRAME_SIZE -
-+			  (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
-+
- 	/*
- 	 * patch for some L1 of old version,
- 	 * the final version of L1 may not need these
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
-index 2ff4658..6911394 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.c
-@@ -253,7 +253,7 @@ static int atl2_configure(struct atl2_adapter *adapter)
- 
- 	/* set MTU */
- 	ATL2_WRITE_REG(hw, REG_MTU, adapter->netdev->mtu +
--		ENET_HEADER_SIZE + VLAN_SIZE + ETHERNET_FCS_SIZE);
-+		ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
- 
- 	/* 1590 */
- 	ATL2_WRITE_REG(hw, REG_TX_CUT_THRESH, 0x177);
-@@ -925,15 +925,11 @@ static int atl2_change_mtu(struct net_device *netdev, int new_mtu)
- 	struct atl2_adapter *adapter = netdev_priv(netdev);
- 	struct atl2_hw *hw = &adapter->hw;
- 
--	if ((new_mtu < 40) || (new_mtu > (ETH_DATA_LEN + VLAN_SIZE)))
--		return -EINVAL;
--
- 	/* set MTU */
--	if (hw->max_frame_size != new_mtu) {
--		netdev->mtu = new_mtu;
--		ATL2_WRITE_REG(hw, REG_MTU, new_mtu + ENET_HEADER_SIZE +
--			VLAN_SIZE + ETHERNET_FCS_SIZE);
--	}
-+	netdev->mtu = new_mtu;
-+	hw->max_frame_size = new_mtu;
-+	ATL2_WRITE_REG(hw, REG_MTU, new_mtu + ETH_HLEN +
-+		       VLAN_HLEN + ETH_FCS_LEN);
- 
- 	return 0;
- }
-@@ -1398,6 +1394,8 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->netdev_ops = &atl2_netdev_ops;
- 	netdev->ethtool_ops = &atl2_ethtool_ops;
- 	netdev->watchdog_timeo = 5 * HZ;
-+	netdev->min_mtu = 40;
-+	netdev->max_mtu = ETH_DATA_LEN + VLAN_HLEN;
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
- 	netdev->mem_start = mmio_start;
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.h b/drivers/net/ethernet/atheros/atlx/atl2.h
-index 2f27d4c..c64a6bd 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.h
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.h
-@@ -228,12 +228,9 @@ static void atl2_force_ps(struct atl2_hw *hw);
- #define AUTONEG_ADVERTISE_SPEED_DEFAULT	0x000F	/* Everything */
- 
- /* The size (in bytes) of a ethernet packet */
--#define ENET_HEADER_SIZE		14
- #define MAXIMUM_ETHERNET_FRAME_SIZE	1518	/* with FCS */
- #define MINIMUM_ETHERNET_FRAME_SIZE	64	/* with FCS */
--#define ETHERNET_FCS_SIZE		4
- #define MAX_JUMBO_FRAME_SIZE		0x2000
--#define VLAN_SIZE                                               4
- 
- struct tx_pkt_header {
- 	unsigned pkt_size:11;
+ drivers/net/ethernet/agere/et131x.c                |  7 ++--
+ drivers/net/ethernet/altera/altera_tse.h           |  1 -
+ drivers/net/ethernet/altera/altera_tse_main.c      | 14 ++------
+ drivers/net/ethernet/amd/amd8111e.c                |  5 ++-
+ drivers/net/ethernet/atheros/alx/hw.h              |  1 -
+ drivers/net/ethernet/atheros/alx/main.c            | 10 ++----
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c    | 41 ++++++++++++++--------
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c    | 12 +++----
+ drivers/net/ethernet/atheros/atlx/atl1.c           | 15 ++++----
+ drivers/net/ethernet/atheros/atlx/atl2.c           | 16 ++++-----
+ drivers/net/ethernet/atheros/atlx/atl2.h           |  3 --
+ drivers/net/ethernet/broadcom/b44.c                |  9 +++--
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c       | 35 ++++++------------
+ drivers/net/ethernet/broadcom/bnx2.c               | 16 ++++-----
+ drivers/net/ethernet/broadcom/bnx2.h               |  6 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |  6 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  8 +----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c   | 22 +++++-------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |  7 ++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  7 ++--
+ drivers/net/ethernet/broadcom/tg3.c                |  9 ++---
+ drivers/net/ethernet/brocade/bna/bnad.c            |  7 ++--
+ drivers/net/ethernet/cadence/macb.c                | 19 +++++-----
+ drivers/net/ethernet/calxeda/xgmac.c               | 20 +++--------
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 15 +++-----
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |  2 +-
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c   | 13 ++-----
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 10 +++---
+ drivers/net/ethernet/chelsio/cxgb/common.h         |  5 +++
+ drivers/net/ethernet/chelsio/cxgb/cxgb2.c          | 18 ++++++++--
+ drivers/net/ethernet/chelsio/cxgb/pm3393.c         |  8 +----
+ drivers/net/ethernet/chelsio/cxgb/vsc7326.c        |  5 ---
+ drivers/net/ethernet/cisco/enic/enic_main.c        |  7 ++--
+ drivers/net/ethernet/cisco/enic/enic_res.h         |  2 +-
+ drivers/net/ethernet/dlink/dl2k.c                  | 22 +++---------
+ drivers/net/ethernet/dlink/sundance.c              |  6 ++--
+ drivers/net/ethernet/freescale/gianfar.c           |  9 ++---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  3 +-
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 11 +++---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c          | 13 +++----
+ drivers/net/ethernet/ibm/emac/core.c               |  9 ++---
+ drivers/net/ethernet/intel/e100.c                  |  9 -----
+ drivers/net/ethernet/intel/e1000/e1000_main.c      | 12 +++----
+ drivers/net/ethernet/intel/e1000e/netdev.c         | 14 ++++----
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c    | 15 +++-----
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 10 +++---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  8 ++---
+ drivers/net/ethernet/intel/igb/e1000_defines.h     |  3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          | 15 +++-----
+ drivers/net/ethernet/intel/igbvf/defines.h         |  3 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c          | 14 +++-----
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c        | 16 +++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 11 +++---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  | 33 ++++++++---------
+ drivers/net/ethernet/marvell/mvneta.c              | 36 ++++++-------------
+ drivers/net/ethernet/marvell/mvpp2.c               | 36 +++++--------------
+ drivers/net/ethernet/marvell/pxa168_eth.c          |  7 ++--
+ drivers/net/ethernet/marvell/skge.c                |  7 ++--
+ drivers/net/ethernet/marvell/sky2.c                | 18 +++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  8 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 24 ++++---------
+ drivers/net/ethernet/micrel/ksz884x.c              | 33 ++++++++---------
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c   | 20 ++++++-----
+ drivers/net/ethernet/natsemi/natsemi.c             |  7 ++--
+ drivers/net/ethernet/neterion/s2io.c               |  9 +++--
+ drivers/net/ethernet/neterion/vxge/vxge-config.h   |  2 +-
+ drivers/net/ethernet/neterion/vxge/vxge-main.c     |  9 +++--
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 10 +++---
+ drivers/net/ethernet/nvidia/forcedeth.c            |  9 +++--
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 13 ++++---
+ drivers/net/ethernet/pasemi/pasemi_mac.c           | 12 ++++---
+ drivers/net/ethernet/qlogic/qede/qede.h            |  5 +--
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c    |  8 -----
+ drivers/net/ethernet/qlogic/qede/qede_main.c       |  4 +++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |  6 ----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  4 +++
+ drivers/net/ethernet/qualcomm/qca_framing.h        |  6 ++--
+ drivers/net/ethernet/qualcomm/qca_spi.c            | 16 +++------
+ drivers/net/ethernet/realtek/8139cp.c              |  8 ++---
+ drivers/net/ethernet/realtek/8139too.c             | 13 +++----
+ drivers/net/ethernet/realtek/r8169.c               |  8 ++---
+ drivers/net/ethernet/rocker/rocker_main.c          | 12 +++----
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    | 17 +++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 25 +++++--------
+ drivers/net/ethernet/sun/cassini.c                 |  7 ++--
+ drivers/net/ethernet/sun/ldmvsw.c                  |  5 ++-
+ drivers/net/ethernet/sun/niu.c                     |  7 ++--
+ drivers/net/ethernet/sun/sungem.c                  | 11 +++---
+ drivers/net/ethernet/sun/sunvnet.c                 |  5 ++-
+ drivers/net/ethernet/sun/sunvnet_common.c          | 10 ------
+ drivers/net/ethernet/sun/sunvnet_common.h          |  3 +-
+ drivers/net/ethernet/tehuti/tehuti.c               | 14 +++-----
+ drivers/net/ethernet/tehuti/tehuti.h               |  3 ++
+ drivers/net/ethernet/ti/netcp_core.c               | 20 +++--------
+ drivers/net/ethernet/tile/tilegx.c                 | 21 +++++------
+ drivers/net/ethernet/tile/tilepro.c                | 27 +++-----------
+ drivers/net/ethernet/toshiba/ps3_gelic_net.c       | 23 +++---------
+ drivers/net/ethernet/toshiba/ps3_gelic_net.h       |  1 -
+ drivers/net/ethernet/toshiba/ps3_gelic_wireless.c  |  1 -
+ drivers/net/ethernet/toshiba/spider_net.c          | 24 +++----------
+ drivers/net/ethernet/via/via-velocity.c            | 11 +++---
+ drivers/staging/octeon/ethernet.c                  | 22 ++++++------
+ 102 files changed, 480 insertions(+), 744 deletions(-)
+
 -- 
 2.10.0
