@@ -1,57 +1,59 @@
 From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: [PATCH 0/7] net: Fix module autoload for several platform drivers
-Date: Mon, 17 Oct 2016 11:05:39 -0300
-Message-ID: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
+Subject: [PATCH 2/7] net: ethernet: nb8800: Fix module autoload
+Date: Mon, 17 Oct 2016 11:05:41 -0300
+Message-ID: <1476713146-26632-3-git-send-email-javier@osg.samsung.com>
+References: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
 Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Timur Tabi <timur@codeaurora.org>,
-        Noam Camus <noamca@mellanox.com>,
-        Qianqian Xie <xieqianqian@huawei.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Lada Trimasova <Lada.Trimasova@synopsys.com>,
-        Daode Huang <huangdaode@hisilicon.com>,
+        =?UTF-8?q?M=C3=A5ns=20Rullg=C3=A5rd?= <mans@mansr.com>,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jarod Wilson <jarod@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
         Sebastian Frias <sf84@laposte.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Elad Kanfi <eladkan@mellanox.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Kejian Yan <yankejian@huawei.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        =?UTF-8?q?M=C3=A5ns=20Rullg=C3=A5rd?= <mans@mansr.com>,
-        netdev@vger.kernel.org, Gilad Ben-Yo
+        Philippe Reynes <tremyfr@gmail.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476713146-26632-1-git-send-email-javier@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+If the driver is built as a module, autoload won't work because the module
+alias information is not filled. So user-space can't match the registered
+device with the corresponding module.
 
-I noticed that module autoload won't be working in a bunch of platform
-drivers in the net subsystem and this patch series contains the fixes.
+Export the module alias information using the MODULE_DEVICE_TABLE() macro.
 
-Best regards,
-Javier
+Before this patch:
 
+$ $ modinfo drivers/net/ethernet/aurora/nb8800.ko | grep alias
+$
 
-Javier Martinez Canillas (7):
-  net: nps_enet: Fix module autoload
-  net: ethernet: nb8800: Fix module autoload
-  net: hns: Fix hns_dsaf module autoload for OF registration
-  net: qcom/emac: Fix module autoload for OF registration
-  net: hisilicon: Fix hns_mdio module autoload for OF registration
-  net: dsa: b53: Fix module autoload
-  net: dsa: bcm_sf2: Fix module autoload for OF registration
+After this patch:
 
- drivers/net/dsa/b53/b53_mmap.c                     | 1 +
- drivers/net/dsa/bcm_sf2.c                          | 1 +
- drivers/net/ethernet/aurora/nb8800.c               | 1 +
- drivers/net/ethernet/ezchip/nps_enet.c             | 1 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 1 +
- drivers/net/ethernet/hisilicon/hns_mdio.c          | 1 +
- drivers/net/ethernet/qualcomm/emac/emac.c          | 1 +
- 7 files changed, 7 insertions(+)
+$ modinfo drivers/net/ethernet/aurora/nb8800.ko | grep alias
+alias:          of:N*T*Csigma,smp8734-ethernetC*
+alias:          of:N*T*Csigma,smp8734-ethernet
+alias:          of:N*T*Csigma,smp8642-ethernetC*
+alias:          of:N*T*Csigma,smp8642-ethernet
+alias:          of:N*T*Caurora,nb8800C*
+alias:          of:N*T*Caurora,nb8800
 
+Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+---
+
+ drivers/net/ethernet/aurora/nb8800.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index 453dc0967125..d5f2ad1a5a30 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -1357,6 +1357,7 @@ static const struct of_device_id nb8800_dt_ids[] = {
+ 	},
+ 	{ }
+ };
++MODULE_DEVICE_TABLE(of, nb8800_dt_ids);
+ 
+ static int nb8800_probe(struct platform_device *pdev)
+ {
 -- 
 2.7.4
