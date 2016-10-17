@@ -1,121 +1,256 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next 07/15] ethernet/realtek: use core min/max MTU checking
-Date: Mon, 17 Oct 2016 15:54:09 -0400
-Message-ID: <20161017195417.48259-8-jarod@redhat.com>
+Subject: [PATCH net-next 04/15] ethernet/marvell: use core min/max MTU checking
+Date: Mon, 17 Oct 2016 15:54:06 -0400
+Message-ID: <20161017195417.48259-5-jarod@redhat.com>
 References: <20161017195417.48259-1-jarod@redhat.com>
 Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        Realtek linux nic maintainers <nic_swsd@realtek.com>
+        Mirko Lindner <mlindner@marvell.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45310 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43244 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758812AbcJQTyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 15:54:33 -0400
+        id S1758791AbcJQTya (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 15:54:30 -0400
 In-Reply-To: <20161017195417.48259-1-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-8139cp: min_mtu 60, max_mtu 4096
+mvneta: min_mtu 68, max_mtu 9676
+- mtu validation routine mostly did range check, merge back into
+  mvneta_change_mtu for simplicity
 
-8139too: min_mtu 68, max_mtu 1770
+mvpp2: min_mtu 68, max_mtu 9676
+- mtu validation routine mostly did range check, merge back into
+  mvpp2_change_mtu for simplicity
 
-r8169: min_mtu 60, max_mtu depends on chipset, 1500 to 9k-ish
+pxa168_eth: min_mtu 68, max_mtu 9500
+
+skge: min_mtu 60, max_mtu 9000
+
+sky2: min_mtu 68, max_mtu 1500 or 9000, depending on hw
 
 CC: netdev@vger.kernel.org
-CC: Realtek linux nic maintainers <nic_swsd@realtek.com>
+CC: Mirko Lindner <mlindner@marvell.com>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c  |  8 ++++----
- drivers/net/ethernet/realtek/8139too.c | 13 ++++---------
- drivers/net/ethernet/realtek/r8169.c   |  8 ++++----
- 3 files changed, 12 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c     | 36 +++++++++----------------------
+ drivers/net/ethernet/marvell/mvpp2.c      | 36 ++++++++-----------------------
+ drivers/net/ethernet/marvell/pxa168_eth.c |  7 +++---
+ drivers/net/ethernet/marvell/skge.c       |  7 +++---
+ drivers/net/ethernet/marvell/sky2.c       | 18 +++++++---------
+ 5 files changed, 35 insertions(+), 69 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 5297bf7..b7c89eb 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1277,10 +1277,6 @@ static int cp_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct cp_private *cp = netdev_priv(dev);
- 
--	/* check for invalid MTU, according to hardware limits */
--	if (new_mtu < CP_MIN_MTU || new_mtu > CP_MAX_MTU)
--		return -EINVAL;
--
- 	/* if network interface not up, no need for complexity */
- 	if (!netif_running(dev)) {
- 		dev->mtu = new_mtu;
-@@ -2010,6 +2006,10 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
- 		NETIF_F_HIGHDMA;
- 
-+	/* MTU range: 60 - 4096 */
-+	dev->min_mtu = CP_MIN_MTU;
-+	dev->max_mtu = CP_MAX_MTU;
-+
- 	rc = register_netdev(dev);
- 	if (rc)
- 		goto err_out_iomap;
-diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-index da4c2d8..9bc047a 100644
---- a/drivers/net/ethernet/realtek/8139too.c
-+++ b/drivers/net/ethernet/realtek/8139too.c
-@@ -924,19 +924,10 @@ static int rtl8139_set_features(struct net_device *dev, netdev_features_t featur
- 	return 0;
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 5cb07c2..b85819e 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3024,29 +3024,6 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
+ 	mvneta_rx_reset(pp);
  }
  
--static int rtl8139_change_mtu(struct net_device *dev, int new_mtu)
+-/* Return positive if MTU is valid */
+-static int mvneta_check_mtu_valid(struct net_device *dev, int mtu)
 -{
--	if (new_mtu < 68 || new_mtu > MAX_ETH_DATA_SIZE)
+-	if (mtu < 68) {
+-		netdev_err(dev, "cannot change mtu to less than 68\n");
 -		return -EINVAL;
--	dev->mtu = new_mtu;
--	return 0;
+-	}
+-
+-	/* 9676 == 9700 - 20 and rounding to 8 */
+-	if (mtu > 9676) {
+-		netdev_info(dev, "Illegal MTU value %d, round to 9676\n", mtu);
+-		mtu = 9676;
+-	}
+-
+-	if (!IS_ALIGNED(MVNETA_RX_PKT_SIZE(mtu), 8)) {
+-		netdev_info(dev, "Illegal MTU value %d, rounding to %d\n",
+-			mtu, ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8));
+-		mtu = ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8);
+-	}
+-
+-	return mtu;
 -}
 -
- static const struct net_device_ops rtl8139_netdev_ops = {
- 	.ndo_open		= rtl8139_open,
- 	.ndo_stop		= rtl8139_close,
- 	.ndo_get_stats64	= rtl8139_get_stats64,
--	.ndo_change_mtu		= rtl8139_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address 	= rtl8139_set_mac_address,
- 	.ndo_start_xmit		= rtl8139_start_xmit,
-@@ -1022,6 +1013,10 @@ static int rtl8139_init_one(struct pci_dev *pdev,
- 	dev->hw_features |= NETIF_F_RXALL;
- 	dev->hw_features |= NETIF_F_RXFCS;
- 
-+	/* MTU range: 68 - 1770 */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	dev->max_mtu = MAX_ETH_DATA_SIZE;
-+
- 	/* tp zeroed and aligned in alloc_etherdev */
- 	tp = netdev_priv(dev);
- 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index e55638c..b698ea5 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6673,10 +6673,6 @@ static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
+ static void mvneta_percpu_enable(void *arg)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	struct mvneta_port *pp = arg;
+@@ -3067,9 +3044,11 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ 	struct mvneta_port *pp = netdev_priv(dev);
+ 	int ret;
  
--	if (new_mtu < ETH_ZLEN ||
--	    new_mtu > rtl_chip_infos[tp->mac_version].jumbo_max)
+-	mtu = mvneta_check_mtu_valid(dev, mtu);
+-	if (mtu < 0)
+-		return -EINVAL;
++	if (!IS_ALIGNED(MVNETA_RX_PKT_SIZE(mtu), 8)) {
++		netdev_info(dev, "Illegal MTU value %d, rounding to %d\n",
++			    mtu, ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8));
++		mtu = ALIGN(MVNETA_RX_PKT_SIZE(mtu), 8);
++	}
+ 
+ 	dev->mtu = mtu;
+ 
+@@ -4154,6 +4133,11 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
+ 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+ 
++	/* MTU range: 68 - 9676 */
++	dev->min_mtu = ETH_MIN_MTU;
++	/* 9676 == 9700 - 20 and rounding to 8 */
++	dev->max_mtu = 9676;
++
+ 	err = register_netdev(dev);
+ 	if (err < 0) {
+ 		dev_err(&pdev->dev, "failed to register\n");
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 60227a3..c8bf155 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -5453,29 +5453,6 @@ static void mvpp2_stop_dev(struct mvpp2_port *port)
+ 	phy_stop(ndev->phydev);
+ }
+ 
+-/* Return positive if MTU is valid */
+-static inline int mvpp2_check_mtu_valid(struct net_device *dev, int mtu)
+-{
+-	if (mtu < 68) {
+-		netdev_err(dev, "cannot change mtu to less than 68\n");
+-		return -EINVAL;
+-	}
+-
+-	/* 9676 == 9700 - 20 and rounding to 8 */
+-	if (mtu > 9676) {
+-		netdev_info(dev, "illegal MTU value %d, round to 9676\n", mtu);
+-		mtu = 9676;
+-	}
+-
+-	if (!IS_ALIGNED(MVPP2_RX_PKT_SIZE(mtu), 8)) {
+-		netdev_info(dev, "illegal MTU value %d, round to %d\n", mtu,
+-			    ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8));
+-		mtu = ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8);
+-	}
+-
+-	return mtu;
+-}
+-
+ static int mvpp2_check_ringparam_valid(struct net_device *dev,
+ 				       struct ethtool_ringparam *ring)
+ {
+@@ -5717,10 +5694,10 @@ static int mvpp2_change_mtu(struct net_device *dev, int mtu)
+ 	struct mvpp2_port *port = netdev_priv(dev);
+ 	int err;
+ 
+-	mtu = mvpp2_check_mtu_valid(dev, mtu);
+-	if (mtu < 0) {
+-		err = mtu;
+-		goto error;
++	if (!IS_ALIGNED(MVPP2_RX_PKT_SIZE(mtu), 8)) {
++		netdev_info(dev, "illegal MTU value %d, round to %d\n", mtu,
++			    ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8));
++		mtu = ALIGN(MVPP2_RX_PKT_SIZE(mtu), 8);
+ 	}
+ 
+ 	if (!netif_running(dev)) {
+@@ -6212,6 +6189,11 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	dev->hw_features |= features | NETIF_F_RXCSUM | NETIF_F_GRO;
+ 	dev->vlan_features |= features;
+ 
++	/* MTU range: 68 - 9676 */
++	dev->min_mtu = ETH_MIN_MTU;
++	/* 9676 == 9700 - 20 and rounding to 8 */
++	dev->max_mtu = 9676;
++
+ 	err = register_netdev(dev);
+ 	if (err < 0) {
+ 		dev_err(&pdev->dev, "failed to register netdev\n");
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index 5d5000c..b78a838 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -1209,9 +1209,6 @@ static int pxa168_eth_change_mtu(struct net_device *dev, int mtu)
+ 	int retval;
+ 	struct pxa168_eth_private *pep = netdev_priv(dev);
+ 
+-	if ((mtu > 9500) || (mtu < 68))
 -		return -EINVAL;
 -
- 	if (new_mtu > ETH_DATA_LEN)
- 		rtl_hw_jumbo_enable(tp);
- 	else
-@@ -8430,6 +8426,10 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->hw_features |= NETIF_F_RXALL;
- 	dev->hw_features |= NETIF_F_RXFCS;
+ 	dev->mtu = mtu;
+ 	retval = set_port_config_ext(pep);
  
-+	/* MTU range: 60 - hw-specific max */
-+	dev->min_mtu = ETH_ZLEN;
-+	dev->max_mtu = rtl_chip_infos[chipset].jumbo_max;
+@@ -1459,6 +1456,10 @@ static int pxa168_eth_probe(struct platform_device *pdev)
+ 	dev->base_addr = 0;
+ 	dev->ethtool_ops = &pxa168_ethtool_ops;
+ 
++	/* MTU range: 68 - 9500 */
++	dev->min_mtu = ETH_MIN_MTU;
++	dev->max_mtu = 9500;
 +
- 	tp->hw_start = cfg->hw_start;
- 	tp->event_slow = cfg->event_slow;
+ 	INIT_WORK(&pep->tx_timeout_task, pxa168_eth_tx_timeout_task);
  
+ 	if (pdev->dev.of_node)
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 7173836..9c4b722 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -2900,9 +2900,6 @@ static int skge_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	int err;
+ 
+-	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
+-		return -EINVAL;
+-
+ 	if (!netif_running(dev)) {
+ 		dev->mtu = new_mtu;
+ 		return 0;
+@@ -3857,6 +3854,10 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
+ 	dev->watchdog_timeo = TX_WATCHDOG;
+ 	dev->irq = hw->pdev->irq;
+ 
++	/* MTU range: 60 - 9000 */
++	dev->min_mtu = ETH_ZLEN;
++	dev->max_mtu = ETH_JUMBO_MTU;
++
+ 	if (highmem)
+ 		dev->features |= NETIF_F_HIGHDMA;
+ 
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index f05ea56..aa60f4d 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -2398,16 +2398,6 @@ static int sky2_change_mtu(struct net_device *dev, int new_mtu)
+ 	u16 ctl, mode;
+ 	u32 imask;
+ 
+-	/* MTU size outside the spec */
+-	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
+-		return -EINVAL;
+-
+-	/* MTU > 1500 on yukon FE and FE+ not allowed */
+-	if (new_mtu > ETH_DATA_LEN &&
+-	    (hw->chip_id == CHIP_ID_YUKON_FE ||
+-	     hw->chip_id == CHIP_ID_YUKON_FE_P))
+-		return -EINVAL;
+-
+ 	if (!netif_running(dev)) {
+ 		dev->mtu = new_mtu;
+ 		netdev_update_features(dev);
+@@ -4808,6 +4798,14 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ 
+ 	dev->features |= dev->hw_features;
+ 
++	/* MTU range: 60 - 1500 or 9000 */
++	dev->min_mtu = ETH_ZLEN;
++	if (hw->chip_id == CHIP_ID_YUKON_FE ||
++	    hw->chip_id == CHIP_ID_YUKON_FE_P)
++		dev->max_mtu = ETH_DATA_LEN;
++	else
++		dev->max_mtu = ETH_JUMBO_MTU;
++
+ 	/* try to get mac address in the following order:
+ 	 * 1) from device tree data
+ 	 * 2) from internal registers set by bootloader
 -- 
 2.10.0
