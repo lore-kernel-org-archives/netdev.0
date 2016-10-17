@@ -1,40 +1,39 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211_hwsim: suggest nl80211 instead of wext driver
- in documentation
-Date: Mon, 17 Oct 2016 11:39:04 +0200
-Message-ID: <1476697144.19992.16.camel@sipsolutions.net>
-References: <20161016223933.9484-1-linus.luessing@c0d3.blue>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Jonathan Corbet <corbet@lwn.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org
-To: Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
-        linux-wireless@vger.kernel.org, Jouni Malinen <j@w1.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:49508 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757095AbcJQJji (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 05:39:38 -0400
-In-Reply-To: <20161016223933.9484-1-linus.luessing@c0d3.blue>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v4] mac80211: move extra crypto data off the stack
+Date: Mon, 17 Oct 2016 10:49:01 +0100
+Message-ID: <38BC2B4F-4050-4060-9FF0-54212DE3E1CF@linaro.org>
+References: <1476693195-14071-1-git-send-email-johannes@sipsolutions.net> <CAKv+Gu-aZhCBvnEQoZUZLDPXCrvgxO1pSd=6EHz+tMB+dFz5hg@mail.gmail.com> <1476696226.19992.13.camel@sipsolutions.net> <CAKv+Gu_ZH9hO_xbVfOfk90CxFJ6ZTz3PKWB1v23LRVzpBrb=oQ@mail.gmail.com> <1476696918.19992.15.camel@sipsolutions.net>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+        charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Sergey Senozhatsky <sergey.senozhatsky.work-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476696918.19992.15.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-10-17 at 00:39 +0200, Linus Lüssing wrote:
-> For mac80211_hwsim interfaces, suggest to use wpa_supplicant with the
-> more modern, netlink based driver instead of wext.
 
-Makes sense, applied.
 
-> Actually, I wasn't even able to make a connection with the
-> configuration
-> files and information provided in
-> Documentation/networking/mac80211_hwsim/{README,hostapd.conf/wpa_supp
-> licant.conf}
+> On 17 Oct 2016, at 10:35, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
 > 
-This less so, we even have a few test cases we run regularly, but I
-don't know. Maybe there's something special in those configuration
-files that we don't test for otherwise.
-
-johannes
+>> On Mon, 2016-10-17 at 10:30 +0100, Ard Biesheuvel wrote:
+>> 
+>> Yes. But as I replied, setting the req size is not supported atm,
+>> although it is reasonable to demand a way to allocate additional data
+>> in the request specifically for this issue. So let's proceed with the
+>> aead_request_alloc/free patch, but I would like to propose something
+>> on the API side to address this particular issue
+> 
+> Well, if your other patch to make it OK to be on-stack would be applied
+> instead, this wouldn't make much sense either :)
+> 
+> In this particular patch, we could reduce the size of the struct, but I
+> don't actually think it'll make a difference to go from 48 to 36 bytes,
+> given alignment etc., so I think I'll just leave it as is.
+> 
+> johannes
