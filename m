@@ -1,28 +1,37 @@
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Subject: Re: [ANNOUNCE] bridge-utils 1.6 release
-Date: Mon, 17 Oct 2016 18:59:02 +0200
-Message-ID: <20161017165902.GA18441@gmail.com>
-References: <20161017090330.270fe160@xeon-e3>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH v3 net-next 2/2] net: deprecate eth_change_mtu, remove
+ usage
+Date: Mon, 17 Oct 2016 18:00:27 +0100
+Message-ID: <20161017180027.4936fa15@jkicinski-Precision-T1700>
+References: <20161008020434.9691-1-jarod@redhat.com>
+        <20161008020434.9691-3-jarod@redhat.com>
+        <20161017172006.4d549daa@jkicinski-Precision-T1700>
+        <20161017.124954.360760874377344385.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jarod@redhat.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161017090330.270fe160@xeon-e3>
+In-Reply-To: <20161017.124954.360760874377344385.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 17, 2016 at 09:03:30AM -0700, Stephen Hemminger wrote:
+On Mon, 17 Oct 2016 12:49:54 -0400 (EDT), David Miller wrote:
+> From: Jakub Kicinski <kubakici@wp.pl>
+> Date: Mon, 17 Oct 2016 17:20:06 +0100
 > 
-> Source:
->   http://www.kernel.org/pub/linux/utils/net/bridge-utils/bridge-utils.1.6.tar.gz
->
+> > Please correct me if I'm wrong but it seems like we are now limiting
+> > _all_ ethernet drivers to ETH_DATA_LEN in net-next.  
+> 
+> No, because the driver can increase the netdev->max_mtu value as needed.
 
-This link seems to be broken.
+But since almost no driver is doing that, yet, right now in net-next
+jumbo frames are not possible, no?  I thought the idea was the leave
+the value at 0 so drivers can opt-in as needed but since setup_ether()
+is initializing to 1500 now all ethernet driver get a default of
+limiting to 1500.
 
--- 
-Mit freundlichen Grüßen
-
-Alexander Alemayhu
+IOW this patch made checks which were done only in eth_change_mtu()
+mandatory for all drivers.
