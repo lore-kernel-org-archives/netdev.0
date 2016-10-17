@@ -1,29 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] rds: Remove unused rds_conn_error
-Date: Mon, 17 Oct 2016 11:07:33 -0400 (EDT)
-Message-ID: <20161017.110733.866131367668424465.davem@davemloft.net>
-References: <cover.1476557523.git.joe@perches.com>
-        <01fddf3af8f7757d0e79e4f25d7eb8b246e3d695.1476557523.git.joe@perches.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 0/9] net: add support for IPv6 Segment Routing
+Date: Mon, 17 Oct 2016 15:09:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0203D50@AcuExch.aculab.com>
+References: <1476715350-18983-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <01fddf3af8f7757d0e79e4f25d7eb8b246e3d695.1476557523.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'David Lebrun' <david.lebrun@uclouvain.be>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.187]:58373 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754734AbcJQPMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 11:12:49 -0400
+In-Reply-To: <1476715350-18983-1-git-send-email-david.lebrun@uclouvain.be>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 15 Oct 2016 11:53:21 -0700
-
-> This macro's last use was removed in commit d769ef81d5b59
-> ("RDS: Update rds_conn_shutdown to work with rds_conn_path")
-> so make the macro and the __rds_conn_error function definition
-> and declaration disappear.
+From: David Lebrun
+> Sent: 17 October 2016 15:42
+ 
+> Segment Routing (SR) is a source routing paradigm, architecturally
+> defined in draft-ietf-spring-segment-routing-09 [1]. The IPv6 flavor of
+> SR is defined in draft-ietf-6man-segment-routing-header-02 [2].
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> The main idea is that an SR-enabled packet contains a list of segments,
+> which represent mandatory waypoints. Each waypoint is called a segment
+> endpoint. The SR-enabled packet is routed normally (e.g. shortest path)
+> between the segment endpoints. A node that inserts an SRH into a packet
+> is called an ingress node, and a node that is the last segment endpoint
+> is called an egress node.
 
-Applied.
+Is this a new source routing definition?
+
+I thought the original IPv6 definition contained source routing
+(probably because someone thought it was a good idea (tm))
+but no one implemented it because of the security implications.
+
+You really don't want sending systems using source routing to
+get packets across routers (etc) in ways that are contrary to
+the packets actual addresses.
+
+	David
