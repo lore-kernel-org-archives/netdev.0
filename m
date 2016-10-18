@@ -1,72 +1,40 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] conntrack: perform a full scan in gc
-Date: Tue, 18 Oct 2016 10:47:18 +0200
-Message-ID: <20161018084718.GB29405@breakpoint.cc>
-References: <20161014105327.GA8655@salvia>
- <1476779435-30503-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, fw@strlen.de, davem@davemloft.net,
-        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1476779435-30503-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH] cxgb4: Fix number of queue sets corssing the limit
+Date: Tue, 18 Oct 2016 14:21:25 +0530
+Message-ID: <1476780685-31363-1-git-send-email-ganeshgr@chelsio.com>
+Cc: netdev@vger.kernel.org, linteam@chelsio.com,
+        hariprasad@chelsio.com, nirranjan@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:59198 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757838AbcJRIwY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 04:52:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> After commit b87a2f9199ea ("netfilter: conntrack: add gc worker to remove
-> timed-out entries"), netlink conntrack deletion events may be sent with a
-> huge delay (5 minutes).
-> 
-> There is two ways to evict conntrack:
->  - during a conntrack lookup;
->  - during a conntrack dump.
-> Let's do a full scan of conntrack entries after a period of inactivity
-> (no conntrack lookup).
-> 
-> CC: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
-> 
-> Here is another proposal to try to fix the problem.
-> Comments are welcomed,
-> Nicolas
+Do not let number of offload queue sets to go more than
+MAX_OFLD_QSETS, which would otherwise crash the driver
+on machines with cores more than MAX_OFLD_QSETS.
 
-Hmm, I don't think its good idea in practice.
-If goal is to avoid starving arbitrary 'dead' ct for too long,
-then simple ping will defeat the logic here, because...
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->  net/netfilter/nf_conntrack_core.c | 11 +++++++++--
->  1 file changed, 9 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index ba6a1d421222..3dbb27bd9582 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -87,6 +87,7 @@ static __read_mostly bool nf_conntrack_locks_all;
->  #define GC_MAX_BUCKETS		8192u
->  #define GC_INTERVAL		(5 * HZ)
->  #define GC_MAX_EVICTS		256u
-> +static bool gc_full_scan = true;
->  
->  static struct conntrack_gc_work conntrack_gc_work;
->  
-> @@ -511,6 +512,7 @@ ____nf_conntrack_find(struct net *net, const struct nf_conntrack_zone *zone,
->  	unsigned int bucket, hsize;
->  
->  begin:
-> +	gc_full_scan = false;
-
-... we do periodic lookup (but always in same slot), so no full scan is
-triggered.
-
-If you think its useful, consider sending patch that rescheds worker
-instantly in case budget expired, otherwise I will do this later this
-week.
-
-[ I am aware doing instant restart might be too late, but at least we
-  would then reap more entries once we stumble upon large number of
-  expired ones ].
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index f320497..57eb4e1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4057,7 +4057,7 @@ static void cfg_queues(struct adapter *adap)
+ 		 * capped by the number of available cores.
+ 		 */
+ 		if (n10g) {
+-			i = num_online_cpus();
++			i = min_t(int, MAX_OFLD_QSETS, num_online_cpus());
+ 			s->ofldqsets = roundup(i, adap->params.nports);
+ 		} else {
+ 			s->ofldqsets = adap->params.nports;
+-- 
+2.1.0
