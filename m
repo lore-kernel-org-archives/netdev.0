@@ -1,37 +1,30 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v2 net-next 0/5] Interrupt support for mv88e6xxx
-Date: Tue, 18 Oct 2016 15:20:54 -0400
-Message-ID: <87pomxihux.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1476640613-25365-1-git-send-email-andrew@lunn.ch> <87r37dlccl.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me> <20161018185729.GB15180@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bnx2x: ethtool -x full support
+Date: Tue, 18 Oct 2016 12:24:15 -0700
+Message-ID: <1476818655.5650.69.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1476810487.5650.68.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Ariel Elior <ariel.elior@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:36043 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934818AbcJRTU5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 15:20:57 -0400
-In-Reply-To: <20161018185729.GB15180@lunn.ch>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34044 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753901AbcJRTYS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 15:24:18 -0400
+Received: by mail-pf0-f194.google.com with SMTP id 128so240894pfz.1
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 12:24:18 -0700 (PDT)
+In-Reply-To: <1476810487.5650.68.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Tue, 2016-10-18 at 10:08 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Implement ethtool -x full support, so that rss key can be fetched
+> instead of assuming it matches /proc/sys/net/core/netdev_rss_key
+> content.
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
->> mv88e6xxx_g1_* should've been moved to global1.c, I'll move them
->> later.
->
-> Hi Vivian
->
-> I did consider that, but at the moment, there are only access
-> functions in there. But the code should be easy to move.
-
-True, looks good to me like this for the moment :-)
-
-Thanks,
-
-        Vivien
+I'll send a V2, tested with CONFIG_BNX2X_SRIOV=y ;)
