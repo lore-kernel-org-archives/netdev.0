@@ -1,117 +1,65 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH net-next 09/15] ethernet/dlink: use core min/max MTU checking
-Date: Tue, 18 Oct 2016 16:45:51 +0300
-Message-ID: <CAOJe8K0Yme_do82WgD7L+eWsvbC2nSQr13Kohj0Jd3coAeHfrg@mail.gmail.com>
-References: <20161017195417.48259-1-jarod@redhat.com> <20161017195417.48259-10-jarod@redhat.com>
+From: Lorenzo Stoakes <lstoakes@gmail.com>
+Subject: Re: [PATCH 04/10] mm: replace get_user_pages_locked() write/force
+ parameters with gup_flags
+Date: Tue, 18 Oct 2016 14:56:09 +0100
+Message-ID: <20161018135609.GA30025@lucifer>
+References: <20161013002020.3062-1-lstoakes@gmail.com>
+ <20161013002020.3062-5-lstoakes@gmail.com>
+ <20161018125425.GD29967@quack2.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161017195417.48259-10-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
+        Hugh Dickins <hughd@google.com>,
+        Dave Hansen <dave.hansen@linux.intel.com>,
+        Rik van Riel <riel@redhat.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        adi-buildroot-devel@lists.sourceforge.net,
+        ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
+        linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
+        linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+        linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
+        linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+To: Jan Kara <jack@suse.cz>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161018125425.GD29967@quack2.suse.cz>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/17/16, Jarod Wilson <jarod@redhat.com> wrote:
-> dl2k: min_mtu 68, max_mtu 1536 or 8000, depending on hardware
-> - Removed change_mtu, does nothing productive anymore
+On Tue, Oct 18, 2016 at 02:54:25PM +0200, Jan Kara wrote:
+> > @@ -1282,7 +1282,7 @@ long get_user_pages(unsigned long start, unsigned long nr_pages,
+> >  			    int write, int force, struct page **pages,
+> >  			    struct vm_area_struct **vmas);
+> >  long get_user_pages_locked(unsigned long start, unsigned long nr_pages,
+> > -		    int write, int force, struct page **pages, int *locked);
+> > +		    unsigned int gup_flags, struct page **pages, int *locked);
 >
-> sundance: min_mtu 68, max_mtu 8191
->
-> CC: netdev@vger.kernel.org
-> CC: Denis Kirjanov <kda@linux-powerpc.org>
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
->  drivers/net/ethernet/dlink/dl2k.c     | 22 ++++------------------
->  drivers/net/ethernet/dlink/sundance.c |  6 ++++--
->  2 files changed, 8 insertions(+), 20 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dlink/dl2k.c
-> b/drivers/net/ethernet/dlink/dl2k.c
-> index 78f1446..8c95a8a 100644
-> --- a/drivers/net/ethernet/dlink/dl2k.c
-> +++ b/drivers/net/ethernet/dlink/dl2k.c
-> @@ -76,7 +76,6 @@ static void rio_free_tx (struct net_device *dev, int
-> irq);
->  static void tx_error (struct net_device *dev, int tx_status);
->  static int receive_packet (struct net_device *dev);
->  static void rio_error (struct net_device *dev, int int_status);
-> -static int change_mtu (struct net_device *dev, int new_mtu);
->  static void set_multicast (struct net_device *dev);
->  static struct net_device_stats *get_stats (struct net_device *dev);
->  static int clear_stats (struct net_device *dev);
-> @@ -106,7 +105,6 @@ static const struct net_device_ops netdev_ops = {
->  	.ndo_set_rx_mode	= set_multicast,
->  	.ndo_do_ioctl		= rio_ioctl,
->  	.ndo_tx_timeout		= rio_tx_timeout,
-> -	.ndo_change_mtu		= change_mtu,
->  };
->
->  static int
-> @@ -230,6 +228,10 @@ rio_probe1 (struct pci_dev *pdev, const struct
-> pci_device_id *ent)
->  #if 0
->  	dev->features = NETIF_F_IP_CSUM;
->  #endif
-> +	/* MTU range: 68 - 1536 or 8000 */
-> +	dev->min_mtu = ETH_MIN_MTU;
-> +	dev->max_mtu = np->jumbo ? MAX_JUMBO : PACKET_SIZE;
-> +
->  	pci_set_drvdata (pdev, dev);
->
->  	ring_space = pci_alloc_consistent (pdev, TX_TOTAL_SIZE, &ring_dma);
-> @@ -1198,22 +1200,6 @@ clear_stats (struct net_device *dev)
->  	return 0;
->  }
->
-> -
-> -static int
-> -change_mtu (struct net_device *dev, int new_mtu)
-> -{
-> -	struct netdev_private *np = netdev_priv(dev);
-> -	int max = (np->jumbo) ? MAX_JUMBO : 1536;
-> -
-> -	if ((new_mtu < 68) || (new_mtu > max)) {
-> -		return -EINVAL;
-> -	}
-> -
-> -	dev->mtu = new_mtu;
-> -
-> -	return 0;
-> -}
-> -
->  static void
->  set_multicast (struct net_device *dev)
->  {
-> diff --git a/drivers/net/ethernet/dlink/sundance.c
-> b/drivers/net/ethernet/dlink/sundance.c
-> index 79d8009..eab36ac 100644
-> --- a/drivers/net/ethernet/dlink/sundance.c
-> +++ b/drivers/net/ethernet/dlink/sundance.c
-> @@ -580,6 +580,10 @@ static int sundance_probe1(struct pci_dev *pdev,
->  	dev->ethtool_ops = &ethtool_ops;
->  	dev->watchdog_timeo = TX_TIMEOUT;
->
-> +	/* MTU range: 68 - 8191 */
-> +	dev->min_mtu = ETH_MIN_MTU;
-> +	dev->max_mtu = 8191;
-> +
-ICPlus datasheet defines the max frame size like 0x1514 or 0x4491
-based on the RcvLargeFrames bit in the MACCtrl0 register
+> Hum, the prototype is inconsistent with e.g. __get_user_pages_unlocked()
+> where gup_flags come after **pages argument. Actually it makes more sense
+> to have it before **pages so that input arguments come first and output
+> arguments second but I don't care that much. But it definitely should be
+> consistent...
 
->  	pci_set_drvdata(pdev, dev);
->
->  	i = register_netdev(dev);
-> @@ -713,8 +717,6 @@ static int sundance_probe1(struct pci_dev *pdev,
->
->  static int change_mtu(struct net_device *dev, int new_mtu)
->  {
-> -	if ((new_mtu < 68) || (new_mtu > 8191)) /* Set by RxDMAFrameLen */
-> -		return -EINVAL;
->  	if (netif_running(dev))
->  		return -EBUSY;
->  	dev->mtu = new_mtu;
-> --
-> 2.10.0
->
->
+It was difficult to decide quite how to arrange parameters as there was
+inconsitency with regards to parameter ordering already - for example
+__get_user_pages() places its flags argument before pages whereas, as you note,
+__get_user_pages_unlocked() puts them afterwards.
+
+I ended up compromising by trying to match the existing ordering of the function
+as much as I could by replacing write, force pairs with gup_flags in the same
+location (with the exception of get_user_pages_unlocked() which I felt should
+match __get_user_pages_unlocked() in signature) or if there was already a
+gup_flags parameter as in the case of __get_user_pages_unlocked() I simply
+removed the write, force pair and left the flags as the last parameter.
+
+I am happy to rearrange parameters as needed, however I am not sure if it'd be
+worthwhile for me to do so (I am keen to try to avoid adding too much noise here
+:)
+
+If we were to rearrange parameters for consistency I'd suggest adjusting
+__get_user_pages_unlocked() to put gup_flags before pages and do the same with
+get_user_pages_unlocked(), let me know what you think.
