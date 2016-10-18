@@ -1,97 +1,35 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] bridge: multicast: restore perm router ports on multicast enable
-Date: Tue, 18 Oct 2016 15:10:38 +0200
-Message-ID: <1476796238-9384-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: herbert@gondor.apana.org.au, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: properly disconnect the slave PHYs
+Date: Tue, 18 Oct 2016 15:24:13 +0200
+Message-ID: <20161018132413.GU26778@lunn.ch>
+References: <1476792760-60356-1-git-send-email-john@phrozen.org>
+ <20161018122909.GR26778@lunn.ch>
+ <a310cfb9-8000-3906-242e-501900d5c8a0@phrozen.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: John Crispin <john@phrozen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:34323 "EHLO
-        mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758894AbcJRNLo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 09:11:44 -0400
-Received: by mail-yw0-f177.google.com with SMTP id w3so136627710ywg.1
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 06:11:44 -0700 (PDT)
+Received: from vps0.lunn.ch ([178.209.37.122]:47853 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754454AbcJRNYV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 09:24:21 -0400
+Content-Disposition: inline
+In-Reply-To: <a310cfb9-8000-3906-242e-501900d5c8a0@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Satish reported a problem with the perm multicast router ports not getting
-reenabled after some series of events, in particular if it happens that the
-multicast snooping has been disabled and the port goes to disabled state
-then it will be deleted from the router port list, but if it moves into
-non-disabled state it will not be re-added because the mcast snooping is
-still disabled, and enabling snooping later does nothing.
+> Hi Andrew
+> 
+> i am testing on v4.4 which did not have a phy_disconnect() call. this
+> seems to have been fixed by cda5c15b so please ignore this patch
 
-Here are the steps to reproduce, setup br0 with snooping enabled and eth1
-added as a perm router (multicast_router = 2):
-1. $ echo 0 > /sys/class/net/br0/bridge/multicast_snooping
-2. $ ip l set eth1 down
-^ This step deletes the interface from the router list
-3. $ ip l set eth1 up
-^ This step does not add it again because mcast snooping is disabled
-4. $ echo 1 > /sys/class/net/br0/bridge/multicast_snooping
-5. $ bridge -d -s mdb show
-<empty>
+Hi John
 
-At this point we have mcast enabled and eth1 as a perm router (value = 2)
-but it is not in the router list which is incorrect.
+All patches must be against net-next, or net if it is a fix. Anything
+else is wrong....
 
-After this change:
-1. $ echo 0 > /sys/class/net/br0/bridge/multicast_snooping
-2. $ ip l set eth1 down
-^ This step deletes the interface from the router list
-3. $ ip l set eth1 up
-^ This step does not add it again because mcast snooping is disabled
-4. $ echo 1 > /sys/class/net/br0/bridge/multicast_snooping
-5. $ bridge -d -s mdb show
-router ports on br0: eth1
-
-Fixes: 561f1103a2b7 ("bridge: Add multicast_snooping sysfs toggle")
-Reported-by: Satish Ashok <sashok@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_multicast.c | 18 +++++++++++++++++-
- 1 file changed, 17 insertions(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index c5fea9393946..1bc807f1d633 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1992,10 +1992,25 @@ static void br_multicast_start_querier(struct net_bridge *br,
- 	}
- }
- 
-+static void br_multicast_start_router(struct net_bridge *br)
-+{
-+	struct net_bridge_port *port;
-+
-+	list_for_each_entry(port, &br->port_list, list) {
-+		if (port->state == BR_STATE_DISABLED ||
-+		    port->state == BR_STATE_BLOCKING)
-+			continue;
-+
-+		if (port->multicast_router == MDB_RTR_TYPE_PERM &&
-+		    hlist_unhashed(&port->rlist))
-+			br_multicast_add_router(br, port);
-+	}
-+}
-+
- int br_multicast_toggle(struct net_bridge *br, unsigned long val)
- {
--	int err = 0;
- 	struct net_bridge_mdb_htable *mdb;
-+	int err = 0;
- 
- 	spin_lock_bh(&br->multicast_lock);
- 	if (br->multicast_disabled == !val)
-@@ -2027,6 +2042,7 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
- #if IS_ENABLED(CONFIG_IPV6)
- 	br_multicast_start_querier(br, &br->ip6_own_query);
- #endif
-+	br_multicast_start_router(br);
- 
- unlock:
- 	spin_unlock_bh(&br->multicast_lock);
--- 
-2.1.4
+     Andrew
