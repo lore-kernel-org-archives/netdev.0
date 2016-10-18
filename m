@@ -1,28 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: Remove unnecessary comparison of unsigned
- against 0
-Date: Tue, 18 Oct 2016 10:25:47 -0400 (EDT)
-Message-ID: <20161018.102547.1252630571952098432.davem@davemloft.net>
-References: <20161018064417.26379-1-tklauser@distanz.ch>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2016-10-18
+Date: Tue, 18 Oct 2016 10:26:45 -0400 (EDT)
+Message-ID: <20161018.102645.77065965118492040.davem@davemloft.net>
+References: <1476774058-9279-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42114 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761203AbcJROZt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 10:25:49 -0400
-In-Reply-To: <20161018064417.26379-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476774058-9279-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogVG9iaWFzIEtsYXVzZXIgPHRrbGF1c2VyQGRpc3RhbnouY2g+DQpEYXRlOiBUdWUsIDE4
-IE9jdCAyMDE2IDA4OjQ0OjE3ICswMjAwDQoNCj4gYXJncy51Lm5hbWVfdHlwZSBpcyBvZiB0eXBl
-IHVuc2lnbmVkIGludCBhbmQgaXMgYWx3YXlzID49IDAuDQo+IA0KPiBUaGlzIGZpeGVzIHRoZSBm
-b2xsb3dpbmcgR0NDIHdhcm5pbmc6DQo+IA0KPiAgIG5ldC84MDIxcS92bGFuLmM6IEluIGZ1bmN0
-aW9uIKF2bGFuX2lvY3RsX2hhbmRsZXKiOg0KPiAgIG5ldC84MDIxcS92bGFuLmM6NTc0OjE0OiB3
-YXJuaW5nOiBjb21wYXJpc29uIG9mIHVuc2lnbmVkIGV4cHJlc3Npb24gPj0gMCBpcyBhbHdheXMg
-dHJ1ZSBbLVd0eXBlLWxpbWl0c10NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFRvYmlhcyBLbGF1c2Vy
-IDx0a2xhdXNlckBkaXN0YW56LmNoPg0KDQpBcHBsaWVkIHRvIG5ldC1uZXh0LCB0aGFua3MuDQo=
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue, 18 Oct 2016 09:00:57 +0200
+
+> As I mention in the tag message, the most urgent fix here is for
+> the VMAP_STACK vs. software crypto usage. I ended up applying Ard's
+> fix that dynamically allocates everything in one go, perhaps we'll
+> find a better solution in the future, but in the meantime this will
+> get things working again (rather than crashing or getting BUG_ON),
+> and normally it's a rarely used code path since hardware crypto is
+> used for almost all devices.
+> 
+> Please pull, or let me know if there's any problem.
+
+Pulled, thanks Johannes.
