@@ -1,102 +1,134 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH v4 2/4] net: phy: dp83867: add support for MAC impedance
- configuration
-Date: Tue, 18 Oct 2016 16:50:18 +0530
-Message-ID: <20161018112020.30273-3-mugunthanvnm@ti.com>
-References: <20161018112020.30273-1-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Florian Fainelli <f.fainelli@gmail.com>, Mugunthan V N <mugunthanvnm@ti.com>,
- Tony Lindgren <tony@atomide.com>, Sekhar Nori <nsekhar@ti.com>,
- linux-kernel@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
- Rob Herring <robh+dt@kernel.org>, linux-omap@vger.kernel.org,
- David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161018112020.30273-1-mugunthanvnm@ti.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH v3 net-next 6/8] net: qualcomm: prepare frame decoding for UART driver
+Date: Tue, 18 Oct 2016 13:27:32 +0200
+Message-ID: <1476790054-27174-7-git-send-email-stefan.wahren@i2se.com>
+References: <1476790054-27174-1-git-send-email-stefan.wahren@i2se.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Stefan Wahren <stefan.wahren@i2se.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jiri Slaby <jslaby@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.134]:60374 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754111AbcJRL15 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 07:27:57 -0400
+In-Reply-To: <1476790054-27174-1-git-send-email-stefan.wahren@i2se.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for programmable MAC impedance configuration
+Unfortunately the frame format is not exactly identical between SPI
+and UART. In case of SPI there is an additional HW length at the
+beginning. So store the initial state to make the decoding state machine
+more flexible and easy to extend for UART support.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 ---
- drivers/net/phy/dp83867.c | 28 ++++++++++++++++++++++++++++
- 1 file changed, 28 insertions(+)
+ drivers/net/ethernet/qualcomm/qca_common.c | 12 ++++++------
+ drivers/net/ethernet/qualcomm/qca_common.h |  8 ++++++--
+ drivers/net/ethernet/qualcomm/qca_spi.c    |  2 +-
+ 3 files changed, 13 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-index 91177a4..1b63924 100644
---- a/drivers/net/phy/dp83867.c
-+++ b/drivers/net/phy/dp83867.c
-@@ -33,6 +33,7 @@
- /* Extended Registers */
- #define DP83867_RGMIICTL	0x0032
- #define DP83867_RGMIIDCTL	0x0086
-+#define DP83867_IO_MUX_CFG	0x0170
+diff --git a/drivers/net/ethernet/qualcomm/qca_common.c b/drivers/net/ethernet/qualcomm/qca_common.c
+index 9020c57..7eefdad 100644
+--- a/drivers/net/ethernet/qualcomm/qca_common.c
++++ b/drivers/net/ethernet/qualcomm/qca_common.c
+@@ -83,7 +83,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
  
- #define DP83867_SW_RESET	BIT(15)
- #define DP83867_SW_RESTART	BIT(14)
-@@ -62,10 +63,17 @@
- /* RGMIIDCTL bits */
- #define DP83867_RGMII_TX_CLK_DELAY_SHIFT	4
- 
-+/* IO_MUX_CFG bits */
-+#define DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL	0x1f
-+
-+#define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX	0x0
-+#define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN	0x1f
-+
- struct dp83867_private {
- 	int rx_id_delay;
- 	int tx_id_delay;
- 	int fifo_depth;
-+	int io_impedance;
- };
- 
- static int dp83867_ack_interrupt(struct phy_device *phydev)
-@@ -111,6 +119,14 @@ static int dp83867_of_init(struct phy_device *phydev)
- 	if (!of_node)
- 		return -ENODEV;
- 
-+	dp83867->io_impedance = -EINVAL;
-+
-+	/* Optional configuration */
-+	if (of_property_read_bool(of_node, "ti,max-output-impedance"))
-+		dp83867->io_impedance = DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX;
-+	else if (of_property_read_bool(of_node, "ti,min-output-impedance"))
-+		dp83867->io_impedance = DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN;
-+
- 	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
- 				   &dp83867->rx_id_delay);
- 	if (ret)
-@@ -184,6 +200,18 @@ static int dp83867_config_init(struct phy_device *phydev)
- 
- 		phy_write_mmd_indirect(phydev, DP83867_RGMIIDCTL,
- 				       DP83867_DEVADDR, delay);
-+
-+		if (dp83867->io_impedance >= 0) {
-+			val = phy_read_mmd_indirect(phydev, DP83867_IO_MUX_CFG,
-+						    DP83867_DEVADDR);
-+
-+			val &= ~DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
-+			val |= dp83867->io_impedance &
-+			       DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
-+
-+			phy_write_mmd_indirect(phydev, DP83867_IO_MUX_CFG,
-+					       DP83867_DEVADDR, val);
-+		}
+ 		if (recv_byte != 0x00) {
+ 			/* first two bytes of length must be 0 */
+-			handle->state = QCAFRM_HW_LEN0;
++			handle->state = handle->init;
+ 		}
+ 		break;
+ 	case QCAFRM_HW_LEN2:
+@@ -97,7 +97,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
+ 	case QCAFRM_WAIT_AA4:
+ 		if (recv_byte != 0xAA) {
+ 			ret = QCAFRM_NOHEAD;
+-			handle->state = QCAFRM_HW_LEN0;
++			handle->state = handle->init;
+ 		} else {
+ 			handle->state--;
+ 		}
+@@ -119,7 +119,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
+ 		len = handle->offset;
+ 		if (len > buf_len || len < QCAFRM_ETHMINLEN) {
+ 			ret = QCAFRM_INVLEN;
+-			handle->state = QCAFRM_HW_LEN0;
++			handle->state = handle->init;
+ 		} else {
+ 			handle->state = (enum qcafrm_state)(len + 1);
+ 			/* Remaining number of bytes. */
+@@ -135,7 +135,7 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
+ 	case QCAFRM_WAIT_551:
+ 		if (recv_byte != 0x55) {
+ 			ret = QCAFRM_NOTAIL;
+-			handle->state = QCAFRM_HW_LEN0;
++			handle->state = handle->init;
+ 		} else {
+ 			handle->state = QCAFRM_WAIT_552;
+ 		}
+@@ -143,11 +143,11 @@ qcafrm_fsm_decode(struct qcafrm_handle *handle, u8 *buf, u16 buf_len, u8 recv_by
+ 	case QCAFRM_WAIT_552:
+ 		if (recv_byte != 0x55) {
+ 			ret = QCAFRM_NOTAIL;
+-			handle->state = QCAFRM_HW_LEN0;
++			handle->state = handle->init;
+ 		} else {
+ 			ret = handle->offset;
+ 			/* Frame is fully received. */
+-			handle->state = QCAFRM_HW_LEN0;
++			handle->state = handle->init;
+ 		}
+ 		break;
  	}
+diff --git a/drivers/net/ethernet/qualcomm/qca_common.h b/drivers/net/ethernet/qualcomm/qca_common.h
+index 0fafaaf..c93cfdf07 100644
+--- a/drivers/net/ethernet/qualcomm/qca_common.h
++++ b/drivers/net/ethernet/qualcomm/qca_common.h
+@@ -62,6 +62,7 @@
+ #define QCAFRM_ERR_BASE -1000
  
- 	return 0;
+ enum qcafrm_state {
++	/* HW length is only available on SPI */
+ 	QCAFRM_HW_LEN0 = 0x8000,
+ 	QCAFRM_HW_LEN1 = QCAFRM_HW_LEN0 - 1,
+ 	QCAFRM_HW_LEN2 = QCAFRM_HW_LEN1 - 1,
+@@ -102,6 +103,8 @@ enum qcafrm_state {
+ struct qcafrm_handle {
+ 	/*  Current decoding state */
+ 	enum qcafrm_state state;
++	/* Initial state depends on connection type */
++	enum qcafrm_state init;
+ 
+ 	/* Offset in buffer (borrowed for length too) */
+ 	s16 offset;
+@@ -114,9 +117,10 @@ u16 qcafrm_create_header(u8 *buf, u16 len);
+ 
+ u16 qcafrm_create_footer(u8 *buf);
+ 
+-static inline void qcafrm_fsm_init(struct qcafrm_handle *handle)
++static inline void qcafrm_fsm_init_spi(struct qcafrm_handle *handle)
+ {
+-	handle->state = QCAFRM_HW_LEN0;
++	handle->init = QCAFRM_HW_LEN0;
++	handle->state = handle->init;
+ }
+ 
+ /*   Gather received bytes and try to extract a full Ethernet frame
+diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
+index e0a5020..36ac07d 100644
+--- a/drivers/net/ethernet/qualcomm/qca_spi.c
++++ b/drivers/net/ethernet/qualcomm/qca_spi.c
+@@ -638,7 +638,7 @@ qcaspi_netdev_open(struct net_device *dev)
+ 	qca->intr_req = 1;
+ 	qca->intr_svc = 0;
+ 	qca->sync = QCASPI_SYNC_UNKNOWN;
+-	qcafrm_fsm_init(&qca->frm_handle);
++	qcafrm_fsm_init_spi(&qca->frm_handle);
+ 
+ 	qca->spi_thread = kthread_run((void *)qcaspi_spi_thread,
+ 				      qca, "%s", dev->name);
 -- 
-2.10.1.445.g3cdd5d1
+2.1.4
