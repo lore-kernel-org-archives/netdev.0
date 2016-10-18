@@ -1,14 +1,14 @@
 From: fgao@ikuai8.com
-Subject: [PATCH 1/1] net: vlan: Use sizeof instead of literal number
-Date: Tue, 18 Oct 2016 08:44:02 +0800
-Message-ID: <1476751442-12112-1-git-send-email-fgao@ikuai8.com>
+Subject: [PATCH net-next 1/1] net: vlan: Use sizeof instead of literal number
+Date: Tue, 18 Oct 2016 08:57:50 +0800
+Message-ID: <1476752270-12590-1-git-send-email-fgao@ikuai8.com>
 Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
 To: kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg342.qq.com ([14.17.44.37]:41768 "EHLO smtpbg342.qq.com"
+Received: from smtpbg342.qq.com ([14.17.44.37]:38306 "EHLO smtpbg342.qq.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934089AbcJRAp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 17 Oct 2016 20:45:27 -0400
+        id S933918AbcJRA6l (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 20:58:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
