@@ -1,158 +1,107 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v3 net-next 2/7] flow_dissector: Limit processing of next encaps and extensions
-Date: Tue, 18 Oct 2016 10:02:38 -0700
-Message-ID: <20161018170243.1369807-3-tom@herbertland.com>
+Subject: [PATCH v3 net-next 3/7] udp: Add socket lookup functions with noref
+Date: Tue, 18 Oct 2016 10:02:39 -0700
+Message-ID: <20161018170243.1369807-4-tom@herbertland.com>
 References: <20161018170243.1369807-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38585 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1760114AbcJRRCy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 13:02:54 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u9IGx7hE021858
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57488 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1760095AbcJRRCx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 13:02:53 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9IGwlmK007513
         for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 10:02:53 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 265q0q08ws-1
+        by mx0a-00082601.pphosted.com with ESMTP id 265qa8g6cn-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 10:02:53 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.223.100.99) with ESMTP id
- b408e4f0955411e6b8ec24be05956610-4eff4a50 for <netdev@vger.kernel.org>;        Tue,
- 18 Oct 2016 10:02:51 -0700
+ mx-out.facebook.com (10.223.100.97) with ESMTP id
+ b48cdb52955411e6a09924be0593f280-a0ffba50 for <netdev@vger.kernel.org>;        Tue,
+ 18 Oct 2016 10:02:52 -0700
 In-Reply-To: <20161018170243.1369807-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flow dissector does not limit the number of encapsulated packets or IPv6
-header extensions that will be processed. This could easily be
-suceptible to DOS attack-- for instance a 1500 byte packet could contain
-75 IPIP headers.
-
-This patch places limits on the number of encapsulations and IPv6 extension
-headers that are processed in flow dissector
+Create udp4_lib_lookup_noref and udp6_lib_lookup_noref. These perfrom
+a socket lookup on addresses and ports without taking a reference.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/core/flow_dissector.c | 37 +++++++++++++++++++++++++++----------
- 1 file changed, 27 insertions(+), 10 deletions(-)
+ include/net/udp.h |  8 ++++++++
+ net/ipv4/udp.c    |  8 ++++++++
+ net/ipv6/udp.c    | 10 ++++++++++
+ 3 files changed, 26 insertions(+)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1a7b80f..919bd02 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -91,6 +91,22 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
- }
- EXPORT_SYMBOL(__skb_flow_get_ports);
+diff --git a/include/net/udp.h b/include/net/udp.h
+index ea53a87..717a972 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -275,6 +275,10 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 			       struct udp_table *tbl, struct sk_buff *skb);
+ struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
+ 				 __be16 sport, __be16 dport);
++struct sock *udp4_lib_lookup_noref(struct net *net,
++				   __be32 saddr, __be16 sport,
++				   __be32 daddr, __be16 dport,
++				   int dif);
+ struct sock *udp6_lib_lookup(struct net *net,
+ 			     const struct in6_addr *saddr, __be16 sport,
+ 			     const struct in6_addr *daddr, __be16 dport,
+@@ -286,6 +290,10 @@ struct sock *__udp6_lib_lookup(struct net *net,
+ 			       struct sk_buff *skb);
+ struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
+ 				 __be16 sport, __be16 dport);
++struct sock *udp6_lib_lookup_noref(struct net *net,
++				   const struct in6_addr *saddr, __be16 sport,
++				   const struct in6_addr *daddr, __be16 dport,
++				   int dif);
  
-+#define MAX_DISSECT_DEPTH	10
-+#define MAX_DISSECT_EXT		10
+ /*
+  * 	SNMP statistics for UDP and UDP-Lite
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 7d96dc2..7f84c51 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -595,6 +595,14 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ EXPORT_SYMBOL_GPL(udp4_lib_lookup);
+ #endif
+ 
++struct sock *udp4_lib_lookup_noref(struct net *net, __be32 saddr, __be16 sport,
++				   __be32 daddr, __be16 dport, int dif)
++{
++	return __udp4_lib_lookup(net, saddr, sport, daddr, dport,
++				 dif, &udp_table, NULL);
++}
++EXPORT_SYMBOL_GPL(udp4_lib_lookup_noref);
 +
-+#define __DISSECT_AGAIN(_target, _depth, _limit) do {	\
-+	(_depth)++;					\
-+	if ((_depth) > (_limit))				\
-+		goto out_good;				\
-+	else						\
-+		goto _target;				\
-+} while (0)
+ static inline bool __udp_is_mcast_sock(struct net *net, struct sock *sk,
+ 				       __be16 loc_port, __be32 loc_addr,
+ 				       __be16 rmt_port, __be32 rmt_addr,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 9aa7c1c..6e382d9 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -317,6 +317,16 @@ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be
+ EXPORT_SYMBOL_GPL(udp6_lib_lookup);
+ #endif
+ 
++struct sock *udp6_lib_lookup_noref(struct net *net,
++				   const struct in6_addr *saddr, __be16 sport,
++				   const struct in6_addr *daddr, __be16 dport,
++				   int dif)
++{
++	return __udp6_lib_lookup(net, saddr, sport, daddr, dport,
++				 dif, &udp_table, NULL);
++}
++EXPORT_SYMBOL_GPL(udp6_lib_lookup_noref);
 +
-+#define DISSECT_AGAIN(target) \
-+	__DISSECT_AGAIN(target, depth, MAX_DISSECT_DEPTH)
-+#define DISSECT_AGAIN_EXT(target) \
-+	__DISSECT_AGAIN(target, ext_cnt, MAX_DISSECT_EXT)
-+
- /**
-  * __skb_flow_dissect - extract the flow_keys struct and return it
-  * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
-@@ -123,6 +139,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	bool skip_vlan = false;
- 	u8 ip_proto = 0;
- 	bool ret = false;
-+	int depth = 0, ext_cnt = 0;
- 
- 	if (!data) {
- 		data = skb->data;
-@@ -262,7 +279,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			proto = vlan->h_vlan_encapsulated_proto;
- 			nhoff += sizeof(*vlan);
- 			if (skip_vlan)
--				goto again;
-+				DISSECT_AGAIN(again);
- 		}
- 
- 		skip_vlan = true;
-@@ -285,7 +302,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			}
- 		}
- 
--		goto again;
-+		DISSECT_AGAIN(again);
- 	}
- 	case htons(ETH_P_PPP_SES): {
- 		struct {
-@@ -299,9 +316,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		nhoff += PPPOE_SES_HLEN;
- 		switch (proto) {
- 		case htons(PPP_IP):
--			goto ip;
-+			DISSECT_AGAIN(ip);
- 		case htons(PPP_IPV6):
--			goto ipv6;
-+			DISSECT_AGAIN(ipv6);
- 		default:
- 			goto out_bad;
- 		}
-@@ -472,7 +489,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
- 			goto out_good;
- 
--		goto again;
-+		DISSECT_AGAIN(again);
- 	}
- 	case NEXTHDR_HOP:
- 	case NEXTHDR_ROUTING:
-@@ -490,7 +507,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		ip_proto = opthdr[0];
- 		nhoff += (opthdr[1] + 1) << 3;
- 
--		goto ip_proto_again;
-+		DISSECT_AGAIN_EXT(ip_proto_again);
- 	}
- 	case NEXTHDR_FRAGMENT: {
- 		struct frag_hdr _fh, *fh;
-@@ -512,7 +529,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (!(fh->frag_off & htons(IP6_OFFSET))) {
- 			key_control->flags |= FLOW_DIS_FIRST_FRAG;
- 			if (flags & FLOW_DISSECTOR_F_PARSE_1ST_FRAG)
--				goto ip_proto_again;
-+				DISSECT_AGAIN_EXT(ip_proto_again);
- 		}
- 		goto out_good;
- 	}
-@@ -523,7 +540,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
- 			goto out_good;
- 
--		goto ip;
-+		DISSECT_AGAIN(ip);
- 	case IPPROTO_IPV6:
- 		proto = htons(ETH_P_IPV6);
- 
-@@ -531,10 +548,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
- 			goto out_good;
- 
--		goto ipv6;
-+		DISSECT_AGAIN(ipv6);
- 	case IPPROTO_MPLS:
- 		proto = htons(ETH_P_MPLS_UC);
--		goto mpls;
-+		DISSECT_AGAIN(mpls);
- 	default:
- 		break;
- 	}
+ /*
+  *	This should be easy, if there is something there we
+  *	return it, otherwise we block.
 -- 
 2.9.3
