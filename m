@@ -1,27 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ethernet/sfc: use core min/max MTU checking
-Date: Tue, 18 Oct 2016 13:54:36 -0400 (EDT)
-Message-ID: <20161018.135436.1507161576613185236.davem@davemloft.net>
-References: <4705a2ea-7734-b549-561c-bc7b6d8710d3@solarflare.com>
+Subject: Re: [PATCH v3 net-next 0/7] udp: Flow dissection for tunnels
+Date: Tue, 18 Oct 2016 14:03:15 -0400 (EDT)
+Message-ID: <20161018.140315.1520738555319027922.davem@davemloft.net>
+References: <20161018170243.1369807-1-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-        jarod@redhat.com
-To: bkenward@solarflare.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44602 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44786 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965233AbcJRRyl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 13:54:41 -0400
-In-Reply-To: <4705a2ea-7734-b549-561c-bc7b6d8710d3@solarflare.com>
+        with ESMTP id S1034141AbcJRSDS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 14:03:18 -0400
+In-Reply-To: <20161018170243.1369807-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Tue, 18 Oct 2016 17:47:45 +0100
-
-> Fixes: 61e84623 ("net: centralize net_device min/max MTU checking")
-> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
-
-Applied with Fixes tag fixed up to use a 12 character SHA1-ID.
+RnJvbTogVG9tIEhlcmJlcnQgPHRvbUBoZXJiZXJ0bGFuZC5jb20+DQpEYXRlOiBUdWUsIDE4IE9j
+dCAyMDE2IDEwOjAyOjM2IC0wNzAwDQoNCj4gdjM6DQo+ICAgLSBGaXggYnVpbGQgaXNzdWVzIHdp
+dGggbW9kdWxlcyB0aGF0IGNhbGwgSVB2NiBmdW5jdGlvbnMgYW5kDQo+ICAgICBDT05GSUdfSU5F
+VCBpcyBub3Qgc2V0Lg0KPiAgIC0gRml4IGNvbXBpbGF0aW9uIGVycm9yIGluIGluaXQnaW5nIC5m
+bG93X2Rpc3NlY3QgaW4gSVB2NiBVRFANCj4gICAgIG9mZmxvYWQuDQoNClN0aWxsIGRvZXNuJ3Qg
+YnVpbGQ6DQoNCm5ldC9pcHY2L3VkcF9vZmZsb2FkLmM6MjA4OjE5OiBlcnJvcjogaW5pdGlhbGl6
+YXRpb24gZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFstV2Vycm9yPWluY29tcGF0aWJs
+ZS1wb2ludGVyLXR5cGVzXQ0KICAgLmZsb3dfZGlzc2VjdCA9IHVkcDZfZmxvd19kaXNzZWN0LA0K
+ICAgICAgICAgICAgICAgICAgIF4NCm5ldC9pcHY2L3VkcF9vZmZsb2FkLmM6MjA4OjE5OiBub3Rl
+OiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoXVkcHY2X29mZmxvYWQuY2FsbGJhY2tzLmZsb3df
+ZGlzc2VjdKIpDQpjYzE6IHNvbWUgd2FybmluZ3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCnNj
+cmlwdHMvTWFrZWZpbGUuYnVpbGQ6Mjg5OiByZWNpcGUgZm9yIHRhcmdldCAnbmV0L2lwdjYvdWRw
+X29mZmxvYWQubycgZmFpbGVkDQptYWtlWzJdOiAqKiogW25ldC9pcHY2L3VkcF9vZmZsb2FkLm9d
+IEVycm9yIDENCm1ha2VbMl06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQpz
+Y3JpcHRzL01ha2VmaWxlLmJ1aWxkOjQ0MDogcmVjaXBlIGZvciB0YXJnZXQgJ25ldC9pcHY2JyBm
+YWlsZWQNCm1ha2VbMV06ICoqKiBbbmV0L2lwdjZdIEVycm9yIDINCm1ha2VbMV06ICoqKiBXYWl0
+aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQpNYWtlZmlsZTo5Njk6IHJlY2lwZSBmb3IgdGFy
+Z2V0ICduZXQnIGZhaWxlZA0KbWFrZTogKioqIFtuZXRdIEVycm9yIDINCm1ha2U6ICoqKiBXYWl0
+aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQoNClRoZSBmaW5hbCBhcmd1bWVudCB0byB1ZHA2
+X2Zsb3dfZGlzc2VjdCgpIGlzIG1hcmtlZCBjb25zdCBidXQgdGhhdCBpcyBub3Qgd2hhdCB0aGUN
+Cm1ldGhvZCBkZWZpbml0aW9uIHdhbnRzLg0K
