@@ -1,98 +1,41 @@
 From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net v2] bnx2: fix locking when netconsole is used
-Date: Tue, 18 Oct 2016 08:16:03 +0200
-Message-ID: <1476771363-3552-1-git-send-email-ivecera@redhat.com>
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
+Subject: Re: [PATCH net] bnx2: fix locking when netconsole is used
+Date: Tue, 18 Oct 2016 08:16:55 +0200
+Message-ID: <094513d1-4852-cc6d-5ebe-cfc1c37ef7fc@redhat.com>
+References: <1476721231-31624-1-git-send-email-ivecera@redhat.com>
+ <20161017.132142.526817621160813690.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
         Dept-HSGLinuxNICDev@qlogic.com
-To: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48346 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48540 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758272AbcJRGQH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 02:16:07 -0400
+        id S1750813AbcJRGQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 02:16:59 -0400
+In-Reply-To: <20161017.132142.526817621160813690.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Functions bnx2_reg_rd_ind(), bnx2_reg_wr_ind() and bnx2_ctx_wr()
-can be called with IRQs disabled when netconsole is enabled. So they
-should use spin_{,un}lock_irq{save,restore} instead of _bh variants.
+Dne 17.10.2016 v 19:21 David Miller napsal(a):
+> From: Ivan Vecera <ivecera@redhat.com>
+> Date: Mon, 17 Oct 2016 18:20:31 +0200
+>
+>> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+>> index 27f11a5..9c408413 100644
+>> --- a/drivers/net/ethernet/broadcom/bnx2.c
+>> +++ b/drivers/net/ethernet/broadcom/bnx2.c
+>> @@ -272,21 +272,24 @@ static u32
+>>  bnx2_reg_rd_ind(struct bnx2 *bp, u32 offset)
+>>  {
+>>  	u32 val;
+>> +	unsigned long flags;
+>>
+>
+> Please order local variable declarations from longest to shortest
+> line.
+Sure Dave, done.
 
-Example call flow:
-bnx2_poll()
-  ->bnx2_poll_link()
-    ->bnx2_phy_int()
-      ->bnx2_set_remote_link()
-        ->bnx2_shmem_rd()
-          ->bnx2_reg_rd_ind()
-            -> spin_lock_bh(&bp->indirect_lock);
-               spin_unlock_bh(&bp->indirect_lock);
-               ...
-               -> __local_bh_enable_ip
-
-static inline void __local_bh_enable_ip(unsigned long ip)
-      WARN_ON_ONCE(in_irq() || irqs_disabled());   <<<<<< WARN
-
-Cc: Sony Chacko <sony.chacko@qlogic.com>
-Cc: Dept-HSGLinuxNICDev@qlogic.com
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2.c | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 27f11a5..b3791b3 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -271,22 +271,25 @@ static inline u32 bnx2_tx_avail(struct bnx2 *bp, struct bnx2_tx_ring_info *txr)
- static u32
- bnx2_reg_rd_ind(struct bnx2 *bp, u32 offset)
- {
-+	unsigned long flags;
- 	u32 val;
- 
--	spin_lock_bh(&bp->indirect_lock);
-+	spin_lock_irqsave(&bp->indirect_lock, flags);
- 	BNX2_WR(bp, BNX2_PCICFG_REG_WINDOW_ADDRESS, offset);
- 	val = BNX2_RD(bp, BNX2_PCICFG_REG_WINDOW);
--	spin_unlock_bh(&bp->indirect_lock);
-+	spin_unlock_irqrestore(&bp->indirect_lock, flags);
- 	return val;
- }
- 
- static void
- bnx2_reg_wr_ind(struct bnx2 *bp, u32 offset, u32 val)
- {
--	spin_lock_bh(&bp->indirect_lock);
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&bp->indirect_lock, flags);
- 	BNX2_WR(bp, BNX2_PCICFG_REG_WINDOW_ADDRESS, offset);
- 	BNX2_WR(bp, BNX2_PCICFG_REG_WINDOW, val);
--	spin_unlock_bh(&bp->indirect_lock);
-+	spin_unlock_irqrestore(&bp->indirect_lock, flags);
- }
- 
- static void
-@@ -304,8 +307,10 @@ bnx2_shmem_rd(struct bnx2 *bp, u32 offset)
- static void
- bnx2_ctx_wr(struct bnx2 *bp, u32 cid_addr, u32 offset, u32 val)
- {
-+	unsigned long flags;
-+
- 	offset += cid_addr;
--	spin_lock_bh(&bp->indirect_lock);
-+	spin_lock_irqsave(&bp->indirect_lock, flags);
- 	if (BNX2_CHIP(bp) == BNX2_CHIP_5709) {
- 		int i;
- 
-@@ -322,7 +327,7 @@ bnx2_ctx_wr(struct bnx2 *bp, u32 cid_addr, u32 offset, u32 val)
- 		BNX2_WR(bp, BNX2_CTX_DATA_ADR, offset);
- 		BNX2_WR(bp, BNX2_CTX_DATA, val);
- 	}
--	spin_unlock_bh(&bp->indirect_lock);
-+	spin_unlock_irqrestore(&bp->indirect_lock, flags);
- }
- 
- #ifdef BCM_CNIC
--- 
-2.7.3
+Ivan
