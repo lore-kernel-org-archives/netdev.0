@@ -1,7 +1,7 @@
 From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: [PATCH net-next 11/11] net: dev: Improve debug statements for adjacency tracking
-Date: Mon, 17 Oct 2016 19:15:53 -0700
-Message-ID: <1476756953-30923-12-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 10/11] net: Add warning if any lower device is still in adjacency list
+Date: Mon, 17 Oct 2016 19:15:52 -0700
+Message-ID: <1476756953-30923-11-git-send-email-dsa@cumulusnetworks.com>
 References: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
         hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -14,79 +14,46 @@ In-Reply-To: <1476756953-30923-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrv
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Adjacency code only has debugs for the insert case. Add debugs for
-the remove path and make both consistently worded to make it easier
-to follow the insert and removal with reference counts.
-
-In addition, change the BUG to a WARN_ON. A missing adjacency at
-removal time is not cause for a panic.
+Lower list should be empty just like upper.
 
 Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 ---
- net/core/dev.c | 22 +++++++++++++++-------
- 1 file changed, 15 insertions(+), 7 deletions(-)
+ net/core/dev.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index c6bbf310d407..f55fb4536016 100644
+index a9fe14908b44..c6bbf310d407 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5561,6 +5561,9 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+@@ -5219,6 +5219,20 @@ struct net_device *netdev_master_upper_dev_get(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(netdev_master_upper_dev_get);
  
- 	if (adj) {
- 		adj->ref_nr += 1;
-+		pr_debug("Insert adjacency: dev %s adj_dev %s adj->ref_nr %d\n",
-+			 dev->name, adj_dev->name, adj->ref_nr);
++/**
++ * netdev_has_any_lower_dev - Check if device is linked to some device
++ * @dev: device
++ *
++ * Find out if a device is linked to a lower device and return true in case
++ * it is. The caller must hold the RTNL lock.
++ */
++static bool netdev_has_any_lower_dev(struct net_device *dev)
++{
++	ASSERT_RTNL();
 +
- 		return 0;
- 	}
- 
-@@ -5574,8 +5577,8 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	adj->private = private;
- 	dev_hold(adj_dev);
- 
--	pr_debug("dev_hold for %s, because of link added from %s to %s\n",
--		 adj_dev->name, dev->name, adj_dev->name);
-+	pr_debug("Insert adjacency: dev %s adj_dev %s adj->ref_nr %d; dev_hold on %s\n",
-+		 dev->name, adj_dev->name, adj->ref_nr, adj_dev->name);
- 
- 	if (netdev_adjacent_is_neigh_list(dev, adj_dev, dev_list)) {
- 		ret = netdev_adjacent_sysfs_add(dev, adj_dev, dev_list);
-@@ -5614,17 +5617,22 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
++	return !list_empty(&dev->adj_list.lower);
++}
++
+ void *netdev_adjacent_get_private(struct list_head *adj_list)
  {
  	struct netdev_adjacent *adj;
+@@ -6616,6 +6630,7 @@ static void rollback_registered_many(struct list_head *head)
  
-+	pr_debug("Remove adjacency: dev %s adj_dev %s ref_nr %d\n",
-+		 dev->name, adj_dev->name, ref_nr);
-+
- 	adj = __netdev_find_adj(adj_dev, dev_list);
+ 		/* Notifier chain MUST detach us all upper devices. */
+ 		WARN_ON(netdev_has_any_upper_dev(dev));
++		WARN_ON(netdev_has_any_lower_dev(dev));
  
- 	if (!adj) {
--		pr_err("tried to remove device %s from %s\n",
-+		pr_err("Adjacency does not exist for device %s from %s\n",
- 		       dev->name, adj_dev->name);
--		BUG();
-+		WARN_ON(1);
-+		return;
- 	}
- 
- 	if (adj->ref_nr > ref_nr) {
--		pr_debug("%s to %s ref_nr-%d = %d\n", dev->name, adj_dev->name,
--			 ref_nr, adj->ref_nr-ref_nr);
-+		pr_debug("adjacency: %s to %s ref_nr - %d = %d\n",
-+			 dev->name, adj_dev->name, ref_nr,
-+			 adj->ref_nr - ref_nr);
- 		adj->ref_nr -= ref_nr;
- 		return;
- 	}
-@@ -5636,7 +5644,7 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 		netdev_adjacent_sysfs_del(dev, adj_dev->name, dev_list);
- 
- 	list_del_rcu(&adj->list);
--	pr_debug("dev_put for %s, because link removed from %s to %s\n",
-+	pr_debug("adjacency: dev_put for %s, because link removed from %s to %s\n",
- 		 adj_dev->name, dev->name, adj_dev->name);
- 	dev_put(adj_dev);
- 	kfree_rcu(adj, rcu);
+ 		/* Remove entries from kobject tree */
+ 		netdev_unregister_kobject(dev);
 -- 
 2.1.4
 
