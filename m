@@ -1,34 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH -next] net: dsa: mv88e6xxx: fix non static symbol warning
-Date: Tue, 18 Oct 2016 17:56:54 +0200
-Message-ID: <20161018155654.GD26778@lunn.ch>
-References: <1476806017-4290-1-git-send-email-weiyj.lk@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 0/4] Add support for led triggers on phy link state
+ change
+Date: Tue, 18 Oct 2016 11:57:07 -0400 (EDT)
+Message-ID: <20161018.115707.1632276930668736889.davem@davemloft.net>
+References: <1476719395-28273-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48021 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938606AbcJRP5B (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 11:57:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1476806017-4290-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
+ f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, rpurdie@rpsys.net, gregkh@linuxfoundation.org,
+ Larry.Finger@lwfinger.net, j.anaszewski@samsung.com,
+ linux-leds@vger.kernel.org, mlindner@marvell.com
+To: zach.brown@ni.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1476719395-28273-1-git-send-email-zach.brown@ni.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 18, 2016 at 03:53:37PM +0000, Wei Yongjun wrote:
-> From: Wei Yongjun <weiyongjun1@huawei.com>
-> 
-> Fixes the following sparse warning:
-> 
-> drivers/net/dsa/mv88e6xxx/chip.c:2866:5: warning:
->  symbol 'mv88e6xxx_g1_set_switch_mac' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+From: Zach Brown <zach.brown@ni.com>
+Date: Mon, 17 Oct 2016 10:49:51 -0500
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> Fix skge driver that declared enum contants that conflicted with enum
+> constants in linux/leds.h
+> 
+> Create function that encapsulates actions taken during the adjust phy link step
+> of phy state changes.
+> 
+> Create function that provides list of speeds currently supported by the phy.
+> 
+> Add support for led triggers on phy link state changes by adding
+> a config option. When set the config option will create a set of led triggers
+> for each phy device. Users can use the led triggers to represent link state
+> changes on the phy.
 
-    Andrew
+Ok this looks good enough for now, we can expand and improve upon it
+later if necessary.
+
+Series applied, thanks Zach.
