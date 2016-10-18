@@ -1,56 +1,103 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Tue, 18 Oct 2016 12:31:42 +0200
-Message-ID: <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
-References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
- <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
- <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
- <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
- <58027540.6080604@codeaurora.org>
- <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
- <58053A33.4030108@codeaurora.org>
+From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Subject: Re: [PATCH net-next 2/2] net: phy: Add Fast Link Failure - 2 set
+ driver for Microsemi PHYs.
+Date: Tue, 18 Oct 2016 16:04:34 +0530
+Message-ID: <20161018103413.GA31087@microsemi.com>
+References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1476445233-26524-3-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20161014120228.GF5822@lunn.ch>
+ <20161017081312.GB2365@microsemi.com>
+ <838C6202-9B7D-4AFA-B163-55515044FA4F@gmail.com>
+Reply-To: <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:3014 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753306AbcJRKbq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 06:31:46 -0400
-In-Reply-To: <58053A33.4030108@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <838C6202-9B7D-4AFA-B163-55515044FA4F-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/17/2016 10:53 PM, Timur Tabi wrote:
-> Zefir Kurtisi wrote:
->> Anyway, since the SGMII reset is required, instead of reverting the patch in full
->> I suggest to move the SGMII power down from at803x_suspend() and do a SerDes power
->> cycle in at803x_resume(). Could you please test if the patch below fixes the
->> problem?
+Hi Florian,
+
+Thank you for review comments.
+
+On Mon, Oct 17, 2016 at 05:51:11AM -0700, Florian Fainelli wrote:
+> EXTERNAL EMAIL
 > 
-> I have never seen the original problem that you noticed.  When I use the generic
-> phy driver instead of the at803x driver, everything works great for me.  Perhaps
-> the problem that you noticed only occurs with the Gianfar NIC?
 > 
-You mean it works for you in SGMII mode without glitches? Then it might in fact be
-an unfortunate rare or unique combination that we chose.
-
-> Anyway, I tested the change you suggested, and it fixes the problem for me.  I
-> moved the power-down code to before the power-up code.  But like I said, since I
-> never experienced the original problem, I don't know if that works for you.
+> On October 17, 2016 1:13:14 AM PDT, Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org> wrote:
+> >Hi Andrew,
+> >
+> >Thank you for code review and comments.
+> >
+> >On Fri, Oct 14, 2016 at 02:02:28PM +0200, Andrew Lunn wrote:
+> >> EXTERNAL EMAIL
+> >>
+> >>
+> >> > On Fri, Oct 14, 2016 at 05:10:33PM +0530, Raju Lakkaraju wrote:
+> >> > From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> >> >
+> >> > VSC8531 Fast Link Failure 2 feature enables the PHY to indicate the
+> >> > onset of a potential link failure in < 100 usec for 100BASE-TX
+> >> > operation. FLF2 is supported through the MDINT (active low) pin.
+> >>
+> >> Is the MDINT pin specific to this feature, or a general interrupt
+> >pin?
+> >>
+> >
+> >MDINT pin is general interrupt. MDINT pin share the interrupt with
+> >FLF2 along with another 13 interrupts.
+> >
+> >> Device tree is used to describe the hardware. It should not really
+> >> describe software or configuration. But the borders are a bit
+> >> fluffly. Signal edge rates is near to hardware. This is a lot more
+> >> towards configuration. So i'm not sure a device tree property is the
+> >> correct way to describe this.
+> >>
+> >> This is also a feature i know other PHYs support. The Marvell PHY has
+> >> a "Metro Ethernet" extension which allows it to report link failures
+> >> for 1000BASE-T in 10, 20 or 40ms, instead of the usual 750ms. So we
+> >> need a generic solution other PHYs can implement.
+> >>
+> >> As with cable testing, i think it should be an ethtool option.
+> >
+> >I agree with you.
+> >I thought this is one time initialization either enable or disable.
+> >if customer need this feature, they can enable in DT.
+> >Do you want me to implement through IOCTL instead of Device tree?
+> >Do you have any other suggestions?
 > 
-> I suggest you make the changes in the driver yourself and test it, and then I will
-> test whether that patch also works for me.
+> As indicated in the other email about speed downshift, we may want to utilize ethtool's ability to modify tunable parameters (small integer, boolean, values) and extend it to cover features offered by PHYs in a way that an user can dynamically turn these features on or off.
+> 
+> In fact, this looks a lot like netdev features (e.g: checksum offload), and there seems to be some commonality here between at least Marvell and Microsemi (for the faster link down reporting), so maybe we should start adding PHY features similar to netdev features?
 > 
 
-I'd need some time to get that tested, and since our device might be the only one
-requiring the fix, I am fine with keeping the patch private. Feel free to revert
-it, if required, I'll provide a revised one.
+Sure. 
 
+I would like add one flag in phy_device structure:
+u64 phy_features;
 
-Thanks
-Zefir
+In phy_driver structure, i would like to add 2 function pointer as
+
+int (*phy_featues_set)(struct phy_device *phydev);
+int (*phy_featues_get)(struct phy_device *phydev);
+
+All the PHY specific features i.e. Fast link failure -2, Downshift, Loopback etc
+are the case in feature_set/feature_get functions.
+
+Is it ok?
+
+> --
+> Florian
+
+---
+Thanks,
+Raju.
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
