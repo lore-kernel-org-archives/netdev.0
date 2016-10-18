@@ -1,41 +1,20 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Need help parsing dropwatch results
-Date: Tue, 18 Oct 2016 18:57:24 -0500
-Message-ID: <5806B6E4.1050004@codeaurora.org>
+From: "Sydney" <Cdlampley42@students.tntech.edu>
+Subject: Hi
+Date: Wed, 19 Oct 2016 04:59:24 +0530
+Message-ID: <BY2PR03MB587034051DE66E9CBD16C2DF5D30__26825.2355665483$1476836154$gmane$org@BY2PR03MB587.namprd03.prod.outlook.com>
+Reply-To: sgt.sa@outlook.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <Cdlampley42@students.tntech.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55422 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754907AbcJRX50 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 19:57:26 -0400
+Received: from mail-co1nam03hn0218.outbound.protection.outlook.com ([104.47.40.218]:52398
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752683AbcJSAP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 20:15:29 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using iperf3 and dropwatch, I discovered that my EMAC driver is dropping 
-packets, a lot of them.  This driver is based on an internal version 
-(written by someone else) that does not have this problem, so obviously 
-there's a bug in my driver.  Unfortunately, I need help understanding 
-where in my driver the bug could be.
-
-dropwatch display this:
-
-3297 drops at net_tx_action+0 (0xffff000008aa1108)
-3671 drops at net_tx_action+0 (0xffff000008aa1108)
-4055 drops at net_tx_action+0 (0xffff000008aa1108)
-3976 drops at net_tx_action+0 (0xffff000008aa1108)
-3847 drops at net_tx_action+0 (0xffff000008aa1108)
-3933 drops at net_tx_action+0 (0xffff000008aa1108)
-3933 drops at net_tx_action+0 (0xffff000008aa1108)
-1376 drops at net_tx_action+0 (0xffff000008aa1108)
-
-Can someone tell me what "drops at net_tx_action+0" actually means? How 
-does a packet drop at net_tx_action() actually occur?  Where in the 
-driver should I look for the problem?
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+I want to discuss with you please reply
