@@ -1,36 +1,107 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] sched, cls: don't dump kernel addr into tc monitors
- on delete event
-Date: Wed, 19 Oct 2016 00:21:58 +0200
-Message-ID: <5806A086.2060401@iogearbox.net>
-References: <f7e28cd6ec298a90dc33fcc85e7361eb92025690.1476821268.git.daniel@iogearbox.net> <c02ce4f1-ba99-f54c-d35d-ca81cc771c8a@mojatatu.com> <58069B3B.20009@iogearbox.net> <e3ad33a8-f254-25f9-df96-2df325bd366b@mojatatu.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next 00/15] ethernet: use core min/max MTU checking
+Date: Tue, 18 Oct 2016 18:28:20 -0400
+Message-ID: <20161018222820.GW14983@redhat.com>
+References: <20161017195417.48259-1-jarod@redhat.com>
+ <20161017.160341.529517225075047124.davem@davemloft.net>
+ <20161017202943.GP14983@redhat.com>
+ <20161018.113327.621225542297731341.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41094 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932719AbcJRWWC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 18:22:02 -0400
-In-Reply-To: <e3ad33a8-f254-25f9-df96-2df325bd366b@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161018.113327.621225542297731341.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/19/2016 12:18 AM, Jamal Hadi Salim wrote:
-> On 16-10-18 05:59 PM, Daniel Borkmann wrote:
-[...]
->> Ahh sure, looks good to me. All other RTM_DELTFILTER events
->> would be for the entire tcf_proto and 'enforced' destroy, so
->> zero handle would indicate that then as opposed to a individual
->> cls delete with non-zero handle. Seems fine.
->
-> Ok, thanks. I will send an official patch when i get a chance.
-> I tested earlier on net-next; but maybe this deserves to go
-> on net.
+On Tue, Oct 18, 2016 at 11:33:27AM -0400, David Miller wrote:
+> From: Jarod Wilson <jarod@redhat.com>
+> Date: Mon, 17 Oct 2016 16:29:43 -0400
+> 
+> > On Mon, Oct 17, 2016 at 04:03:41PM -0400, David Miller wrote:
+> >> From: Jarod Wilson <jarod@redhat.com>
+> >> Date: Mon, 17 Oct 2016 15:54:02 -0400
+> >> 
+> >> > For the most part, every patch does the same essential thing: removes the
+> >> > MTU range checking from the drivers' ndo_change_mtu function, puts those
+> >> > ranges into the core net_device min_mtu and max_mtu fields, and where
+> >> > possible, removes ndo_change_mtu functions entirely.
+> >> 
+> >> Jarod, please read my other posting.
+> > 
+> > Done, didn't see it until just after I'd hit send, have replied there as
+> > well.
+> > 
+> >> You've positively broken the maximum MTU for all of these drivers.
+> >> 
+> >> That's not cool.
+> >>
+> >> And this series fixing things doesn't make things better, because now
+> >> we've significanyly broken bisection for anyone running into this
+> >> regression.
+> > 
+> > Agreed, and my suggestion right now is to revert the 2nd patch from the
+> > prior series. I believe it can be resubmitted after all other callers of
+> > ether_setup() have been converted to have their own min/max_mtu.
+> > 
+> >> You should have arranged this in such a way that the drivers needing
+> >> > 1500 byte MTU were not impacted at all by your changes, but that
+> >> isn't what happened.
+> > 
+> > Yeah, I must admit to not looking closely enough at the state the first
+> > two patches left things in. It was absolutely my intention to not alter
+> > behaviour in any way, but I neglected to test sufficiently without this
+> > additional set applied.
+> 
+> So what I'm going to do now it simply just apply your current patch series
+> to net-next and hope this gets everything working again.
 
-net would be appropriate as mentioned in commit message.
+Unfortunately, no, it doesn't get *everything* working again, because...
 
-Thanks,
-Daniel
+direct ether_setup() callers:
+
+drivers/misc/sgi-xp/xpnet.c
+drivers/net/geneve.c
+drivers/net/macvlan.c
+drivers/net/tun.c
+drivers/net/vxlan.c
+drivers/net/wan/hdlc.c
+drivers/net/wan/hdlc_fr.c
+drivers/net/wireless/ath/wil6210/netdev.c
+drivers/net/wireless/cisco/airo.c
+drivers/staging/wlan-ng/p80211netdev.c
+net/batman-adv/soft-interface.c
+net/bridge/br_device.c
+net/openvswitch/vport-internal_dev.c
+
+alloc_etherdev*() callers:
+drivers/infiniband/hw/nes/nes_nic.c
+drivers/net/hyperv/netvsc_drv.c
+drivers/net/rionet.c
+drivers/net/usb/lan78xx.c
+drivers/net/usb/r8152.c
+drivers/net/usb/usbnet.c
+drivers/net/virtio_net.c
+drivers/net/vmxnet3/vmxnet3_drv.c
+drivers/net/wireless/atmel/atmel.c
+drivers/net/wireless/cisco/airo.c
+drivers/net/wireless/intel/ipw2x00/libipw_module.c
+net/atm/lec.c
+
+I have additional patches for all of these that I haven't yet posted, so
+I'd still suggest backing out the one patch to keep the above working too
+until the subsequent patches are posted.
+
+> I'm just happy that you acknowledged how badly things got broken, so let's
+> move on and try to avoid this happening again in the future.
+> 
+> Thanks.
+
+I profusely apologize again for the mess. Was trying to clean up a mess,
+made another one. Story of my life right now, it seems... :\
+
+-- 
+Jarod Wilson
+jarod@redhat.com
