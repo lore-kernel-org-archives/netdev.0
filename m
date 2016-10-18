@@ -1,34 +1,40 @@
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: Re: [PATCH net-next 02/11] net: Introduce new api for walking upper
- and lower devices
-Date: Mon, 17 Oct 2016 18:42:14 -0600
-Message-ID: <f2eee17c-835c-b14e-6c96-4fd8fb7d18c9@cumulusnetworks.com>
-References: <1476494931-31813-1-git-send-email-dsa@cumulusnetworks.com>
- <1476494931-31813-3-git-send-email-dsa@cumulusnetworks.com>
- <20161017052121.2322279d@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org
-To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161017052121.2322279d@xeon-e3>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH 1/1] net: vlan: Use sizeof instead of literal number
+Date: Tue, 18 Oct 2016 08:44:02 +0800
+Message-ID: <1476751442-12112-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbg342.qq.com ([14.17.44.37]:41768 "EHLO smtpbg342.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934089AbcJRAp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Oct 2016 20:45:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/17/16 6:21 AM, Stephen Hemminger wrote:
-> 
-> No if/else needed. No cast of void * ptr need. Use const if possible?
-> 
+From: Gao Feng <fgao@ikuai8.com>
 
-so much of the stack does not use const and trying to add it for this API does not work -- the upper or lower device is passed to the callbacks and those callbacks invoke other apis. e.g., the bond patch calls vlan_get_encap_level, bond_verify_device_path and bond_confirm_addr and none of those accept a const dev.
+Use sizeof variable instead of literal number to enhance the readability.
 
-v3 coming up with the more succinct versions, but const is not possible.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ net/8021q/vlan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 8de138d..5a3903b 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -515,8 +515,8 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
+ 		return -EFAULT;
+ 
+ 	/* Null terminate this sucker, just in case. */
+-	args.device1[23] = 0;
+-	args.u.device2[23] = 0;
++	args.device1[sizeof(args.device1) - 1] = 0;
++	args.u.device2[sizeof(args.u.device2) - 1] = 0;
+ 
+ 	rtnl_lock();
+ 
+-- 
+1.9.1
