@@ -1,66 +1,47 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH net-next 2/2] net: phy: Add Fast Link Failure - 2 set
- driver for Microsemi PHYs.
-Date: Tue, 18 Oct 2016 17:01:03 +0530
-Message-ID: <20161018113043.GA19357@microsemi.com>
-References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1476445233-26524-3-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20161014120228.GF5822@lunn.ch>
- <20161017081312.GB2365@microsemi.com>
- <838C6202-9B7D-4AFA-B163-55515044FA4F@gmail.com>
- <20161018103413.GA31087@microsemi.com>
- <20161018105820.GM26778@lunn.ch>
-Reply-To: <Raju.Lakkaraju@microsemi.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v3 net-next 4/8] net: qualcomm: rename qca_framing.c to
+ qca_common.c
+Date: Tue, 18 Oct 2016 13:40:04 +0200
+Message-ID: <20161018114004.GA19299@kroah.com>
+References: <1476790054-27174-1-git-send-email-stefan.wahren@i2se.com>
+ <1476790054-27174-5-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-        <devicetree@vger.kernel.org>, <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0088.outbound.protection.outlook.com ([104.47.40.88]:19264
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752684AbcJRLbX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 07:31:23 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jiri Slaby <jslaby@suse.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Stefan Wahren <stefan.wahren@i2se.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161018105820.GM26778@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1476790054-27174-5-git-send-email-stefan.wahren@i2se.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Tue, Oct 18, 2016 at 01:27:30PM +0200, Stefan Wahren wrote:
+> As preparation for the upcoming UART driver we need a module
+> which contains common functions for both interfaces. The module
+> qca_framing is a good candidate but renaming to qca_common would
+> make it clear.
+> 
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> ---
+>  drivers/net/ethernet/qualcomm/Makefile      |   2 +-
+>  drivers/net/ethernet/qualcomm/qca_common.c  | 156 ++++++++++++++++++++++++++++
+>  drivers/net/ethernet/qualcomm/qca_common.h  | 134 ++++++++++++++++++++++++
+>  drivers/net/ethernet/qualcomm/qca_framing.c | 156 ----------------------------
+>  drivers/net/ethernet/qualcomm/qca_framing.h | 134 ------------------------
+>  drivers/net/ethernet/qualcomm/qca_spi.c     |   2 +-
+>  drivers/net/ethernet/qualcomm/qca_spi.h     |   2 +-
+>  7 files changed, 293 insertions(+), 293 deletions(-)
+>  create mode 100644 drivers/net/ethernet/qualcomm/qca_common.c
+>  create mode 100644 drivers/net/ethernet/qualcomm/qca_common.h
+>  delete mode 100644 drivers/net/ethernet/qualcomm/qca_framing.c
+>  delete mode 100644 drivers/net/ethernet/qualcomm/qca_framing.h
 
-On Tue, Oct 18, 2016 at 12:58:20PM +0200, Andrew Lunn wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> > > In fact, this looks a lot like netdev features (e.g: checksum
-> > > offload), and there seems to be some commonality here between at
-> > > least Marvell and Microsemi (for the faster link down reporting),
-> > > so maybe we should start adding PHY features similar to netdev
-> > > features?
-> 
-> > Sure.
-> >
-> > I would like add one flag in phy_device structure:
-> > u64 phy_features;
-> >
-> > In phy_driver structure, i would like to add 2 function pointer as
-> >
-> > int (*phy_featues_set)(struct phy_device *phydev);
-> > int (*phy_featues_get)(struct phy_device *phydev);
-> >
-> > All the PHY specific features i.e. Fast link failure -2, Downshift, Loopback etc
-> > are the case in feature_set/feature_get functions.
-> 
-> Please follow how the ethertool features are implemented. So you need
-> to extend net/core/ethtool.c to pass these call down, etc.
-> 
+'git format-patch -M' is nice when renaming files to show that the files
+really are being renamed, and no other changes are being made (or show
+the changes easier.)
 
-Sure. I will do.
-Do i need to change Ethtool application and submit along with 
-downshift driver patch (i.e. ethtool.c, phy.c, cpsw.c and mscc.c changes) ? 
->        Andrew
+thanks,
 
----
-Thanks,
-Raju.
+greg k-h
