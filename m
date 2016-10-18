@@ -1,107 +1,36 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net-next 00/15] ethernet: use core min/max MTU checking
-Date: Tue, 18 Oct 2016 18:28:20 -0400
-Message-ID: <20161018222820.GW14983@redhat.com>
-References: <20161017195417.48259-1-jarod@redhat.com>
- <20161017.160341.529517225075047124.davem@davemloft.net>
- <20161017202943.GP14983@redhat.com>
- <20161018.113327.621225542297731341.davem@davemloft.net>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH 1/8] tools lib bpf: add error functions
+Date: Tue, 18 Oct 2016 15:52:18 -0700
+Message-ID: <CAPWQB7Fvz=MkHGRVPR924BXzuWuLn6VTqaNGR+x_TYhycdOLag@mail.gmail.com>
+References: <20161016211834.11732-1-eric@regit.org> <20161016211834.11732-2-eric@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161018.113327.621225542297731341.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, wangnan0@huawei.com,
+        linux-kernel@vger.kernel.org, ast@fb.com
+To: Eric Leblond <eric@regit.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:38844 "EHLO
+        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756340AbcJRW5d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 18:57:33 -0400
+In-Reply-To: <20161016211834.11732-2-eric@regit.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 18, 2016 at 11:33:27AM -0400, David Miller wrote:
-> From: Jarod Wilson <jarod@redhat.com>
-> Date: Mon, 17 Oct 2016 16:29:43 -0400
-> 
-> > On Mon, Oct 17, 2016 at 04:03:41PM -0400, David Miller wrote:
-> >> From: Jarod Wilson <jarod@redhat.com>
-> >> Date: Mon, 17 Oct 2016 15:54:02 -0400
-> >> 
-> >> > For the most part, every patch does the same essential thing: removes the
-> >> > MTU range checking from the drivers' ndo_change_mtu function, puts those
-> >> > ranges into the core net_device min_mtu and max_mtu fields, and where
-> >> > possible, removes ndo_change_mtu functions entirely.
-> >> 
-> >> Jarod, please read my other posting.
-> > 
-> > Done, didn't see it until just after I'd hit send, have replied there as
-> > well.
-> > 
-> >> You've positively broken the maximum MTU for all of these drivers.
-> >> 
-> >> That's not cool.
-> >>
-> >> And this series fixing things doesn't make things better, because now
-> >> we've significanyly broken bisection for anyone running into this
-> >> regression.
-> > 
-> > Agreed, and my suggestion right now is to revert the 2nd patch from the
-> > prior series. I believe it can be resubmitted after all other callers of
-> > ether_setup() have been converted to have their own min/max_mtu.
-> > 
-> >> You should have arranged this in such a way that the drivers needing
-> >> > 1500 byte MTU were not impacted at all by your changes, but that
-> >> isn't what happened.
-> > 
-> > Yeah, I must admit to not looking closely enough at the state the first
-> > two patches left things in. It was absolutely my intention to not alter
-> > behaviour in any way, but I neglected to test sufficiently without this
-> > additional set applied.
-> 
-> So what I'm going to do now it simply just apply your current patch series
-> to net-next and hope this gets everything working again.
+On 16 October 2016 at 14:18, Eric Leblond <eric@regit.org> wrote:
+> The include of err.h is not explicitely needed in exported
+> functions and it was causing include conflict with some existing
+> code due to redefining some macros.
+>
+> To fix this, let's have error handling functions provided by the
+> library. Furthermore this will allow user to have an homogeneous
+> API.
+>
+> Signed-off-by: Eric Leblond <eric@regit.org>
 
-Unfortunately, no, it doesn't get *everything* working again, because...
+Does it need to return the error like this or should we just fix up
+the bpf_object__open() API to return errors in a simpler form?
 
-direct ether_setup() callers:
-
-drivers/misc/sgi-xp/xpnet.c
-drivers/net/geneve.c
-drivers/net/macvlan.c
-drivers/net/tun.c
-drivers/net/vxlan.c
-drivers/net/wan/hdlc.c
-drivers/net/wan/hdlc_fr.c
-drivers/net/wireless/ath/wil6210/netdev.c
-drivers/net/wireless/cisco/airo.c
-drivers/staging/wlan-ng/p80211netdev.c
-net/batman-adv/soft-interface.c
-net/bridge/br_device.c
-net/openvswitch/vport-internal_dev.c
-
-alloc_etherdev*() callers:
-drivers/infiniband/hw/nes/nes_nic.c
-drivers/net/hyperv/netvsc_drv.c
-drivers/net/rionet.c
-drivers/net/usb/lan78xx.c
-drivers/net/usb/r8152.c
-drivers/net/usb/usbnet.c
-drivers/net/virtio_net.c
-drivers/net/vmxnet3/vmxnet3_drv.c
-drivers/net/wireless/atmel/atmel.c
-drivers/net/wireless/cisco/airo.c
-drivers/net/wireless/intel/ipw2x00/libipw_module.c
-net/atm/lec.c
-
-I have additional patches for all of these that I haven't yet posted, so
-I'd still suggest backing out the one patch to keep the above working too
-until the subsequent patches are posted.
-
-> I'm just happy that you acknowledged how badly things got broken, so let's
-> move on and try to avoid this happening again in the future.
-> 
-> Thanks.
-
-I profusely apologize again for the mess. Was trying to clean up a mess,
-made another one. Story of my life right now, it seems... :\
-
--- 
-Jarod Wilson
-jarod@redhat.com
+There's already libbpf_set_print(...) for outputting errors, is it
+reasonable to just change the library to return NULLs in error cases
+instead?
