@@ -1,46 +1,24 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] vlan: Remove unnecessary comparison of unsigned against 0
-Date: Tue, 18 Oct 2016 08:44:17 +0200
-Message-ID: <20161018064417.26379-1-tklauser@distanz.ch>
+From: ottow@absamail.co.za
+Subject: Re: Funding Approved In Minutes!
+Date: Tue, 18 Oct 2016 08:33:40 +0200
+Message-ID: <201610180636.u9I6al5u027123-u9I6al5v027123@fortimail-02.voxtelecom.co.za>
+Reply-To: easyfundingservice@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <ottow@absamail.co.za>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:50288 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757791AbcJRGoU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 02:44:20 -0400
+Received: from fm-relay-312.voxtelecom.co.za ([196.41.196.44]:53963 "EHLO
+        fm-relay-312.voxtelecom.co.za" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755021AbcJRGrK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 02:47:10 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-args.u.name_type is of type unsigned int and is always >= 0.
+Good Day,
 
-This fixes the following GCC warning:
+Financing shouldn't be a mystery for you, contact us for help today. Easy Funding Service is here to help you solve out all your outstanding debts and be free for good..We have come to conclusion that its high time a person can buy his own house, good cars, established good business, and also pay his/her accounts off... All this can be done by cash and this finance company will offer you any leaser and Lump amount from R1,000.00  to R2,000,000.00. Email us today and you will be attended to immediately...
 
-  net/8021q/vlan.c: In function ‘vlan_ioctl_handler’:
-  net/8021q/vlan.c:574:14: warning: comparison of unsigned expression >= 0 is always true [-Wtype-limits]
-
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- net/8021q/vlan.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 8de138d3306b..f8903c1e1010 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -571,8 +571,7 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
- 		err = -EPERM;
- 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
- 			break;
--		if ((args.u.name_type >= 0) &&
--		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
-+		if (args.u.name_type < VLAN_NAME_TYPE_HIGHEST) {
- 			struct vlan_net *vn;
- 
- 			vn = net_generic(net, vlan_net_id);
--- 
-2.9.0
+Regards,
+Lionel Griffin
