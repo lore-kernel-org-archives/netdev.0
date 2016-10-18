@@ -1,50 +1,117 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH] net: dsa: properly disconnect the slave PHYs
-Date: Tue, 18 Oct 2016 15:27:41 +0200
-Message-ID: <08bfeefe-14bd-409a-3d05-7fd9fd26b5f3@phrozen.org>
-References: <1476792760-60356-1-git-send-email-john@phrozen.org>
- <20161018122909.GR26778@lunn.ch>
- <a310cfb9-8000-3906-242e-501900d5c8a0@phrozen.org>
- <20161018132413.GU26778@lunn.ch>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH net-next 09/15] ethernet/dlink: use core min/max MTU checking
+Date: Tue, 18 Oct 2016 16:45:51 +0300
+Message-ID: <CAOJe8K0Yme_do82WgD7L+eWsvbC2nSQr13Kohj0Jd3coAeHfrg@mail.gmail.com>
+References: <20161017195417.48259-1-jarod@redhat.com> <20161017195417.48259-10-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:38776 "EHLO nbd.name"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755336AbcJRN1q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 09:27:46 -0400
-In-Reply-To: <20161018132413.GU26778@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161017195417.48259-10-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 10/17/16, Jarod Wilson <jarod@redhat.com> wrote:
+> dl2k: min_mtu 68, max_mtu 1536 or 8000, depending on hardware
+> - Removed change_mtu, does nothing productive anymore
+>
+> sundance: min_mtu 68, max_mtu 8191
+>
+> CC: netdev@vger.kernel.org
+> CC: Denis Kirjanov <kda@linux-powerpc.org>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+>  drivers/net/ethernet/dlink/dl2k.c     | 22 ++++------------------
+>  drivers/net/ethernet/dlink/sundance.c |  6 ++++--
+>  2 files changed, 8 insertions(+), 20 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/dlink/dl2k.c
+> b/drivers/net/ethernet/dlink/dl2k.c
+> index 78f1446..8c95a8a 100644
+> --- a/drivers/net/ethernet/dlink/dl2k.c
+> +++ b/drivers/net/ethernet/dlink/dl2k.c
+> @@ -76,7 +76,6 @@ static void rio_free_tx (struct net_device *dev, int
+> irq);
+>  static void tx_error (struct net_device *dev, int tx_status);
+>  static int receive_packet (struct net_device *dev);
+>  static void rio_error (struct net_device *dev, int int_status);
+> -static int change_mtu (struct net_device *dev, int new_mtu);
+>  static void set_multicast (struct net_device *dev);
+>  static struct net_device_stats *get_stats (struct net_device *dev);
+>  static int clear_stats (struct net_device *dev);
+> @@ -106,7 +105,6 @@ static const struct net_device_ops netdev_ops = {
+>  	.ndo_set_rx_mode	= set_multicast,
+>  	.ndo_do_ioctl		= rio_ioctl,
+>  	.ndo_tx_timeout		= rio_tx_timeout,
+> -	.ndo_change_mtu		= change_mtu,
+>  };
+>
+>  static int
+> @@ -230,6 +228,10 @@ rio_probe1 (struct pci_dev *pdev, const struct
+> pci_device_id *ent)
+>  #if 0
+>  	dev->features = NETIF_F_IP_CSUM;
+>  #endif
+> +	/* MTU range: 68 - 1536 or 8000 */
+> +	dev->min_mtu = ETH_MIN_MTU;
+> +	dev->max_mtu = np->jumbo ? MAX_JUMBO : PACKET_SIZE;
+> +
+>  	pci_set_drvdata (pdev, dev);
+>
+>  	ring_space = pci_alloc_consistent (pdev, TX_TOTAL_SIZE, &ring_dma);
+> @@ -1198,22 +1200,6 @@ clear_stats (struct net_device *dev)
+>  	return 0;
+>  }
+>
+> -
+> -static int
+> -change_mtu (struct net_device *dev, int new_mtu)
+> -{
+> -	struct netdev_private *np = netdev_priv(dev);
+> -	int max = (np->jumbo) ? MAX_JUMBO : 1536;
+> -
+> -	if ((new_mtu < 68) || (new_mtu > max)) {
+> -		return -EINVAL;
+> -	}
+> -
+> -	dev->mtu = new_mtu;
+> -
+> -	return 0;
+> -}
+> -
+>  static void
+>  set_multicast (struct net_device *dev)
+>  {
+> diff --git a/drivers/net/ethernet/dlink/sundance.c
+> b/drivers/net/ethernet/dlink/sundance.c
+> index 79d8009..eab36ac 100644
+> --- a/drivers/net/ethernet/dlink/sundance.c
+> +++ b/drivers/net/ethernet/dlink/sundance.c
+> @@ -580,6 +580,10 @@ static int sundance_probe1(struct pci_dev *pdev,
+>  	dev->ethtool_ops = &ethtool_ops;
+>  	dev->watchdog_timeo = TX_TIMEOUT;
+>
+> +	/* MTU range: 68 - 8191 */
+> +	dev->min_mtu = ETH_MIN_MTU;
+> +	dev->max_mtu = 8191;
+> +
+ICPlus datasheet defines the max frame size like 0x1514 or 0x4491
+based on the RcvLargeFrames bit in the MACCtrl0 register
 
-
-On 18/10/2016 15:24, Andrew Lunn wrote:
->> Hi Andrew
->>
->> i am testing on v4.4 which did not have a phy_disconnect() call. this
->> seems to have been fixed by cda5c15b so please ignore this patch
-> 
-> Hi John
-> 
-> All patches must be against net-next, or net if it is a fix. Anything
-> else is wrong....
-> 
->      Andrew
-> 
-
-Hi Andrew,
-
-i know. i was testing on v4.4 and then rebased the patch against
-net-next without noticing that a similar patch had already been merged.
-
-regardless, using the latest net-next tree, the oops is gone without
-adding any patches.
-
-	John
+>  	pci_set_drvdata(pdev, dev);
+>
+>  	i = register_netdev(dev);
+> @@ -713,8 +717,6 @@ static int sundance_probe1(struct pci_dev *pdev,
+>
+>  static int change_mtu(struct net_device *dev, int new_mtu)
+>  {
+> -	if ((new_mtu < 68) || (new_mtu > 8191)) /* Set by RxDMAFrameLen */
+> -		return -EINVAL;
+>  	if (netif_running(dev))
+>  		return -EBUSY;
+>  	dev->mtu = new_mtu;
+> --
+> 2.10.0
+>
+>
