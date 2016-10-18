@@ -1,38 +1,33 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH -next] qed: Remove useless set memory to zero use memset()
-Date: Tue, 18 Oct 2016 20:20:41 +0300
-Message-ID: <aa9877bc-850a-fa2d-72e7-6d7a5b37ac55@cogentembedded.com>
-References: <1476806090-4456-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net-next] ethernet/sfc: use core min/max MTU checking
+Date: Tue, 18 Oct 2016 20:21:46 +0300
+Message-ID: <a03cfc93-09f9-c25b-4be1-25dd4a3ba487@cogentembedded.com>
+References: <4705a2ea-7734-b549-561c-bc7b6d8710d3@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, everest-linux-l2@qlogic.com,
-        netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>,
-        Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        Ariel Elior <Ariel.Elior@qlogic.com>
+Cc: Solarflare Linux Maintainers <linux-net-drivers@solarflare.com>,
+        netdev@vger.kernel.org, Jarod Wilson <jarod@redhat.com>
+To: Bert Kenward <bkenward@solarflare.com>,
+        Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:33576 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934797AbcJRRUp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 13:20:45 -0400
-Received: by mail-lf0-f50.google.com with SMTP id x79so283243lff.0
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 10:20:44 -0700 (PDT)
-In-Reply-To: <1476806090-4456-1-git-send-email-weiyj.lk@gmail.com>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:35193 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933658AbcJRRVu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 13:21:50 -0400
+Received: by mail-lf0-f49.google.com with SMTP id l131so203837lfl.2
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 10:21:49 -0700 (PDT)
+In-Reply-To: <4705a2ea-7734-b549-561c-bc7b6d8710d3@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/18/2016 06:54 PM, Wei Yongjun wrote:
+On 10/18/2016 07:47 PM, Bert Kenward wrote:
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
->
-> The memory return by kzalloc() has already be set to zero, so
+> Fixes: 61e84623 ("net: centralize net_device min/max MTU checking")
 
-    Returned?
+    The commit SHA1 should be at least 12 digits here.
 
-> remove useless memset(0).
->
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
 [...]
 
 MBR, Sergei
