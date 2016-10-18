@@ -1,29 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2016-10-18
-Date: Tue, 18 Oct 2016 10:26:45 -0400 (EDT)
-Message-ID: <20161018.102645.77065965118492040.davem@davemloft.net>
-References: <1476774058-9279-1-git-send-email-johannes@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/hsr: Remove unused but set variable
+Date: Tue, 18 Oct 2016 10:28:34 -0400 (EDT)
+Message-ID: <20161018.102834.1105390902417549378.davem@davemloft.net>
+References: <20161018070729.10110-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476774058-9279-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: arvid.brodin@alten.se, netdev@vger.kernel.org
+To: tklauser@distanz.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42162 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754129AbcJRO2j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 10:28:39 -0400
+In-Reply-To: <20161018070729.10110-1-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 18 Oct 2016 09:00:57 +0200
-
-> As I mention in the tag message, the most urgent fix here is for
-> the VMAP_STACK vs. software crypto usage. I ended up applying Ard's
-> fix that dynamically allocates everything in one go, perhaps we'll
-> find a better solution in the future, but in the meantime this will
-> get things working again (rather than crashing or getting BUG_ON),
-> and normally it's a rarely used code path since hardware crypto is
-> used for almost all devices.
-> 
-> Please pull, or let me know if there's any problem.
-
-Pulled, thanks Johannes.
+RnJvbTogVG9iaWFzIEtsYXVzZXIgPHRrbGF1c2VyQGRpc3RhbnouY2g+DQpEYXRlOiBUdWUsIDE4
+IE9jdCAyMDE2IDA5OjA3OjI5ICswMjAwDQoNCj4gUmVtb3ZlIHRoZSB1bnVzZWQgYnV0IHNldCB2
+YXJpYWJsZSBtYXN0ZXJfZGV2IGluIGNoZWNrX2xvY2FsX2Rlc3QgdG8gZml4DQo+IHRoZSBmb2xs
+b3dpbmcgR0NDIHdhcm5pbmcgd2hlbiBidWlsZGluZyB3aXRoICdXPTEnOg0KPiANCj4gICBuZXQv
+aHNyL2hzcl9mb3J3YXJkLmM6IEluIGZ1bmN0aW9uIKFjaGVja19sb2NhbF9kZXN0ojoNCj4gICBu
+ZXQvaHNyL2hzcl9mb3J3YXJkLmM6MzAzOjIxOiB3YXJuaW5nOiB2YXJpYWJsZSChbWFzdGVyX2Rl
+dqIgc2V0IGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtYnV0LXNldC12YXJpYWJsZV0NCj4gDQo+IFNp
+Z25lZC1vZmYtYnk6IFRvYmlhcyBLbGF1c2VyIDx0a2xhdXNlckBkaXN0YW56LmNoPg0KDQpBcHBs
+aWVkLg0K
