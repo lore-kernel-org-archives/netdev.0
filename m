@@ -1,38 +1,72 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 00/28] Reenable maybe-uninitialized warnings
-Date: Mon, 17 Oct 2016 22:08:04 -0700
-Message-ID: <20161018050804.GA9902@infradead.org>
-References: <20161017220342.1627073-1-arnd@arndb.de>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next RFC 4/6] Introduce sample tc action
+Date: Mon, 17 Oct 2016 22:07:55 -0700
+Message-ID: <5805AE2B.2040905@cumulusnetworks.com>
+References: <1476276069-5315-1-git-send-email-jiri@resnulli.us> <1476276069-5315-5-git-send-email-jiri@resnulli.us> <58025A90.9010608@cumulusnetworks.com> <81e49d64-e0bc-2f43-7a9c-daefb12a4b8a@mojatatu.com> <58056A08.5070809@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        linux-kernel@vger.kernel.org, x86@kernel.org,
-        linux-media@vger.kernel.org,
-        Mauro Carvalho Chehab <mchehab@kernel.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        linux-s390@vger.kernel.org, Ilya Dryomov <idryomov@gmail.com>,
-        dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        linux-crypto@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        ceph-devel@vger.kernel.org, linux-f2fs-devel@lists.sourceforge.net,
-        linux-ext4@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-ext4-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161017220342.1627073-1-arnd@arndb.de>
-Sender: linux-ext4-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        geert+renesas@glider.be, stephen@networkplumber.org,
+        xiyou.wangcong@gmail.com, linux@roeck-us.net,
+        Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+        Peter Phaal <peter.phaal@inmon.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:32933 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755038AbcJRFH6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 01:07:58 -0400
+Received: by mail-pf0-f170.google.com with SMTP id 128so88448735pfz.0
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 22:07:58 -0700 (PDT)
+In-Reply-To: <58056A08.5070809@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 18, 2016 at 12:03:28AM +0200, Arnd Bergmann wrote:
-> This is a set of patches that I hope to get into v4.9 in some form
-> in order to turn on the -Wmaybe-uninitialized warnings again.
+On 10/17/16, 5:17 PM, Roopa Prabhu wrote:
+> On 10/17/16, 3:10 AM, Jamal Hadi Salim wrote:
+[snip]
 
-Hi Arnd,
+inline below more data/context..
 
-I jsut complained to Geert that I was introducing way to many
-bugs or pointless warnings for some compilers lately, but gcc didn't
-warn me about them.  From a little research the lack of
--Wmaybe-uninitialized seems to be the reason for it, so I'm all
-for re-enabling it.
+>>>> +
+>>>> +struct sample_packet_metadata {
+>>>> +    int sample_size;
+>>>> +    int orig_size;
+>>>> +    int ifindex;
+>>>> +};
+>>>> +
+>>> This metadata does not look extensible.. can it be made to ?
+>>>
+>> Sure it can...
+more sflow context here... [1]
+
+An extensible metadata scheme is  highly desirable when passing data from the dataplane to 
+the sampling agent in userspace. Looking forward, advanced instrumentation is being 
+added to data planes and keeping the api future proof will help.
+
+
+
+>>
+>>> With sflow in context, you need a pair of ifindex numbers to encode ingress and egress ports.
+>> What is the use case for both?
+> I have heard that most monitoring tools have moved to ingress only sampling because of operational
+> complexity (use case is sflow). I think hardware also supports ingress and egress only sampling.
+> better to have an option to reflect that in the api.
+
+The reason for having two ifindex numbers is to record the ingress and egress ports (i.e. the path that the packet takes through the datapath/ASIC). You may actually have three ifindex numbers associated with a sample:
+1. The data source that made the measurement (on a linux system each bridge has its own ifindex)
+2. The ifindex associated with the ingress switch port
+3. The ifindex associated with the egress switch port.
+
+All three apply irrespective of sampling direction.
+
+
+thanks,
+Roopa
+
+[1] Additional extended flow attributes have been defined to further extend sFlow packet samples:
+http://sflow.org/sflow_tunnels.txt <http://sflow.org/sflow_tunnels.txt>
+http://sflow.org/sflow_openflow.txt <http://sflow.org/sflow_openflow.txt>
