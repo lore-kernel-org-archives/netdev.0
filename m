@@ -1,72 +1,47 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next 1/2] net: phy: Add Speed downshift set driver
- for Microsemi PHYs.
-Date: Tue, 18 Oct 2016 09:24:45 -0500
-Message-ID: <20161018142445.vzpkebnmqv6y5zqa@rob-hp-laptop>
-References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1476445233-26524-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] bnx2: fix locking when netconsole is used
+Date: Tue, 18 Oct 2016 10:24:56 -0400 (EDT)
+Message-ID: <20161018.102456.2192831343851897913.davem@davemloft.net>
+References: <1476771363-3552-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
-To: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1476445233-26524-2-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+        Dept-HSGLinuxNICDev@qlogic.com
+To: ivecera@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42098 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761517AbcJROZF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 10:25:05 -0400
+In-Reply-To: <1476771363-3552-1-git-send-email-ivecera@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 14, 2016 at 05:10:32PM +0530, Raju Lakkaraju wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Tue, 18 Oct 2016 08:16:03 +0200
+
+> Functions bnx2_reg_rd_ind(), bnx2_reg_wr_ind() and bnx2_ctx_wr()
+> can be called with IRQs disabled when netconsole is enabled. So they
+> should use spin_{,un}lock_irq{save,restore} instead of _bh variants.
 > 
-> For operation in cabling environments that are incompatible with
-> 1000BAST-T, VSC8531 device provides an automatic link speed
-> downshift operation. When enabled, the device automatically changes
-> its 1000BAST-T auto-negotiation to the next slower speed after
-> a configured number of failed attempts at 1000BAST-T.
-> This feature is useful in setting up in networks using older cable
-> installations that include only pairs A and B, and not pairs C and D.
+> Example call flow:
+> bnx2_poll()
+>   ->bnx2_poll_link()
+>     ->bnx2_phy_int()
+>       ->bnx2_set_remote_link()
+>         ->bnx2_shmem_rd()
+>           ->bnx2_reg_rd_ind()
+>             -> spin_lock_bh(&bp->indirect_lock);
+>                spin_unlock_bh(&bp->indirect_lock);
+>                ...
+>                -> __local_bh_enable_ip
 > 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> Signed-off-by: Allan W. Nielsen <allan.nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   |  6 ++
->  drivers/net/phy/mscc.c                             | 75 +++++++++++++++++++++-
->  2 files changed, 80 insertions(+), 1 deletion(-)
+> static inline void __local_bh_enable_ip(unsigned long ip)
+>       WARN_ON_ONCE(in_irq() || irqs_disabled());   <<<<<< WARN
 > 
-> diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> index bdefefc6..062d115 100644
-> --- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> @@ -27,6 +27,11 @@ Optional properties:
->  			  'vddmac'.
->  			  Default value is 0%.
->  			  Ref: Table:1 - Edge rate change (below).
-> +- downshift-cnt		: When enabled, the device automatically changes its
-> +			  1000BAST-T auto-negotiation to the next slower speed
-> +			  after a 'downshift-cnt' of failed attempts at
-> +			  1000BAST-T. Allowed values: 0, 2, 3, 4, 5.
-> +			  0 is default and will disable downshifting.
+> Cc: Sony Chacko <sony.chacko@qlogic.com>
+> Cc: Dept-HSGLinuxNICDev@qlogic.com
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Not sure if you are dropping this based on the discussion. Is this 
-end-user controlled or a board property? Only the latter should be in 
-DT.
-
->  
->  Table: 1 - Edge rate change
->  ----------------------------------------------------------------|
-> @@ -60,4 +65,5 @@ Example:
->                  compatible = "ethernet-phy-id0007.0570";
->                  vsc8531,vddmac		= <3300>;
->                  vsc8531,edge-slowdown	= <7>;
-> +                vsc8531,downshift-cnt   = <3>;
-
-This doesn't match the above. Also, 'vsc8531' should be the vendor 
-prefix, not a part number. The existing properties are fine, but fix new 
-ones.
-
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Ivan.
