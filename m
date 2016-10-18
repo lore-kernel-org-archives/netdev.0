@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Remove unused but set variable
-Date: Tue, 18 Oct 2016 10:34:37 -0400 (EDT)
-Message-ID: <20161018.103437.1321761578970745583.davem@davemloft.net>
-References: <20161018092254.28043-1-tklauser@distanz.ch>
+Subject: Re: [PATCH v4 0/4] add support for impedance control for TI
+ dp83867 phy and fix 2nd ethernet on dra72 rev C evm
+Date: Tue, 18 Oct 2016 10:42:53 -0400 (EDT)
+Message-ID: <20161018.104253.1412536252154725850.davem@davemloft.net>
+References: <20161018112020.30273-1-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: tklauser@distanz.ch
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, robh+dt@kernel.org,
+        mark.rutland@arm.com, tony@atomide.com, linux@armlinux.org.uk,
+        f.fainelli@gmail.com, nsekhar@ti.com
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42272 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42358 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934880AbcJROej (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 10:34:39 -0400
-In-Reply-To: <20161018092254.28043-1-tklauser@distanz.ch>
+        with ESMTP id S1761708AbcJROm4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 10:42:56 -0400
+In-Reply-To: <20161018112020.30273-1-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVG9iaWFzIEtsYXVzZXIgPHRrbGF1c2VyQGRpc3RhbnouY2g+DQpEYXRlOiBUdWUsIDE4
-IE9jdCAyMDE2IDExOjIyOjU0ICswMjAwDQoNCj4gUmVtb3ZlIHRoZSB1bnVzZWQgYnV0IHNldCB2
-YXJpYWJsZSBpY3NrIGluIGxpc3RlbmluZ19nZXRfbmV4dCB0byBmaXggdGhlDQo+IGZvbGxvd2lu
-ZyBHQ0Mgd2FybmluZyB3aGVuIGJ1aWxkaW5nIHdpdGggJ1c9MSc6DQo+IA0KPiAgIG5ldC9pcHY0
-L3RjcF9pcHY0LmM6IEluIGZ1bmN0aW9uIKFsaXN0ZW5pbmdfZ2V0X25leHSiOg0KPiAgIG5ldC9p
-cHY0L3RjcF9pcHY0LmM6MTg5MDozMTogd2FybmluZzogdmFyaWFibGUgoWljc2uiIHNldCBidXQg
-bm90IHVzZWQgWy1XdW51c2VkLWJ1dC1zZXQtdmFyaWFibGVdDQo+IA0KPiBTaWduZWQtb2ZmLWJ5
-OiBUb2JpYXMgS2xhdXNlciA8dGtsYXVzZXJAZGlzdGFuei5jaD4NCg0KQXBwbGllZC4NCg==
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Tue, 18 Oct 2016 16:50:16 +0530
+
+> Add support for configurable impedance control for TI dp83867
+> phy via devicetree. More documentation in [1].
+> CPSW second ethernet is not working, fix it by enabling
+> impedance configuration on the phy.
+
+Series applied to net-next, thanks.
