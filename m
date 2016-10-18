@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/15] ethernet: use core min/max MTU checking
-Date: Tue, 18 Oct 2016 11:34:38 -0400 (EDT)
-Message-ID: <20161018.113438.62003626132979588.davem@davemloft.net>
-References: <20161017195417.48259-1-jarod@redhat.com>
+Subject: Re: [PATCH net-next 0/2] Move to BPF selftests
+Date: Tue, 18 Oct 2016 11:36:12 -0400 (EDT)
+Message-ID: <20161018.113612.2148099210449625187.davem@davemloft.net>
+References: <cover.1476705709.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jarod@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161017195417.48259-1-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42960 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935596AbcJRPgO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 11:36:14 -0400
+In-Reply-To: <cover.1476705709.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarod Wilson <jarod@redhat.com>
-Date: Mon, 17 Oct 2016 15:54:02 -0400
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 17 Oct 2016 14:28:34 +0200
 
-> Now that the network stack core min/max MTU checking infrastructure is in
-> place, time to start making drivers use it. We'll start with the easiest
-> ones, the ethernet drivers, split roughly by vendor, with a catch-all
-> patch at the end.
-> 
-> For the most part, every patch does the same essential thing: removes the
-> MTU range checking from the drivers' ndo_change_mtu function, puts those
-> ranges into the core net_device min_mtu and max_mtu fields, and where
-> possible, removes ndo_change_mtu functions entirely.
-> 
-> These patches have all been built through the 0-day build infrastructure
-> provided by Intel, on top of net-next as of October 17.
+> This set improves the test_verifier and test_maps suite and moves
+> it over to a new BPF selftest directory, so we can keep improving
+> it under kernel selftest umbrella. This also integrates a test
+> script for checking test_bpf.ko under various JIT options.
 
-Series applied, thanks Jarod.
+Series applied, thanks Daniel.
