@@ -1,89 +1,62 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions to explicitly
- pass FOLL_* flags
-Date: Tue, 18 Oct 2016 17:30:50 +0200
-Message-ID: <20161018153050.GC13117@dhcp22.suse.cz>
-References: <20161013002020.3062-1-lstoakes@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/15] ethernet: use core min/max MTU checking
+Date: Tue, 18 Oct 2016 11:33:27 -0400 (EDT)
+Message-ID: <20161018.113327.621225542297731341.davem@davemloft.net>
+References: <20161017195417.48259-1-jarod@redhat.com>
+        <20161017.160341.529517225075047124.davem@davemloft.net>
+        <20161017202943.GP14983@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
-	Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
-	Dave Hansen <dave.hansen@linux.intel.com>,
-	Rik van Riel <riel@redhat.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
-	linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-sh@
-To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20161013002020.3062-1-lstoakes@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161017202943.GP14983@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu 13-10-16 01:20:10, Lorenzo Stoakes wrote:
-> This patch series adjusts functions in the get_user_pages* family such that
-> desired FOLL_* flags are passed as an argument rather than implied by flags.
+From: Jarod Wilson <jarod@redhat.com>
+Date: Mon, 17 Oct 2016 16:29:43 -0400
+
+> On Mon, Oct 17, 2016 at 04:03:41PM -0400, David Miller wrote:
+>> From: Jarod Wilson <jarod@redhat.com>
+>> Date: Mon, 17 Oct 2016 15:54:02 -0400
+>> 
+>> > For the most part, every patch does the same essential thing: removes the
+>> > MTU range checking from the drivers' ndo_change_mtu function, puts those
+>> > ranges into the core net_device min_mtu and max_mtu fields, and where
+>> > possible, removes ndo_change_mtu functions entirely.
+>> 
+>> Jarod, please read my other posting.
 > 
-> The purpose of this change is to make the use of FOLL_FORCE explicit so it is
-> easier to grep for and clearer to callers that this flag is being used. The use
-> of FOLL_FORCE is an issue as it overrides missing VM_READ/VM_WRITE flags for the
-> VMA whose pages we are reading from/writing to, which can result in surprising
-> behaviour.
+> Done, didn't see it until just after I'd hit send, have replied there as
+> well.
 > 
-> The patch series came out of the discussion around commit 38e0885, which
-> addressed a BUG_ON() being triggered when a page was faulted in with PROT_NONE
-> set but having been overridden by FOLL_FORCE. do_numa_page() was run on the
-> assumption the page _must_ be one marked for NUMA node migration as an actual
-> PROT_NONE page would have been dealt with prior to this code path, however
-> FOLL_FORCE introduced a situation where this assumption did not hold.
+>> You've positively broken the maximum MTU for all of these drivers.
+>> 
+>> That's not cool.
+>>
+>> And this series fixing things doesn't make things better, because now
+>> we've significanyly broken bisection for anyone running into this
+>> regression.
 > 
-> See https://marc.info/?l=linux-mm&m=147585445805166 for the patch proposal.
+> Agreed, and my suggestion right now is to revert the 2nd patch from the
+> prior series. I believe it can be resubmitted after all other callers of
+> ether_setup() have been converted to have their own min/max_mtu.
+> 
+>> You should have arranged this in such a way that the drivers needing
+>> > 1500 byte MTU were not impacted at all by your changes, but that
+>> isn't what happened.
+> 
+> Yeah, I must admit to not looking closely enough at the state the first
+> two patches left things in. It was absolutely my intention to not alter
+> behaviour in any way, but I neglected to test sufficiently without this
+> additional set applied.
 
-I like this cleanup. Tracking FOLL_FORCE users was always a nightmare
-and the flag behavior is really subtle so we should better be explicit
-about it. I haven't gone through each patch separately but rather
-applied the whole series and checked the resulting diff. This all seems
-OK to me and feel free to add
-Acked-by: Michal Hocko <mhocko@suse.com>
+So what I'm going to do now it simply just apply your current patch series
+to net-next and hope this gets everything working again.
 
-I am wondering whether we can go further. E.g. it is not really clear to
-me whether we need an explicit FOLL_REMOTE when we can in fact check
-mm != current->mm and imply that. Maybe there are some contexts which
-wouldn't work, I haven't checked.
+I'm just happy that you acknowledged how badly things got broken, so let's
+move on and try to avoid this happening again in the future.
 
-Then I am also wondering about FOLL_TOUCH behavior.
-__get_user_pages_unlocked has only few callers which used to be
-get_user_pages_unlocked before 1e9877902dc7e ("mm/gup: Introduce
-get_user_pages_remote()"). To me a dropped FOLL_TOUCH seems
-unintentional. Now that get_user_pages_unlocked has gup_flags argument I
-guess we might want to get rid of the __g-u-p-u version altogether, no?
-
-__get_user_pages is quite low level and imho shouldn't be exported. It's
-only user - kvm - should rather pull those two functions to gup instead
-and export them. There is nothing really KVM specific in them.
-
-I also cannot say I would be entirely thrilled about get_user_pages_locked,
-we only have one user which can simply do lock g-u-p unlock AFAICS.
-
-I guess there is more work in that area and I do not want to impose all
-that work on you, but I couldn't resist once I saw you playing in that
-area ;) Definitely a good start!
--- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks.
