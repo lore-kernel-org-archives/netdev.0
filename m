@@ -1,269 +1,121 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 02/11] net: Introduce new api for walking upper and lower devices
-Date: Mon, 17 Oct 2016 19:15:44 -0700
-Message-ID: <1476756953-30923-3-git-send-email-dsa@cumulusnetworks.com>
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: [PATCH net-next 04/11] IB/core: Flip to the new dev walk API
+Date: Mon, 17 Oct 2016 19:15:46 -0700
+Message-ID: <1476756953-30923-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
-        j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        David Ahern <dsa@cumulusnetworks.com>
-To: jiri@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35669 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755343AbcJRCQ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 22:16:58 -0400
-Received: by mail-pf0-f169.google.com with SMTP id s8so86149980pfj.2
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 19:16:57 -0700 (PDT)
-In-Reply-To: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org,
+        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+To: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476756953-30923-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch introduces netdev_walk_all_upper_dev_rcu,
-netdev_walk_all_lower_dev and netdev_walk_all_lower_dev_rcu. These
-functions recursively walk the adj_list of devices to determine all upper
-and lower devices.
-
-The functions take a callback function that is invoked for each device
-in the list. If the callback returns non-0, the walk is terminated and
-the functions return that code back to callers.
-
-v3
-- simplified netdev_has_upper_dev_all_rcu and __netdev_has_upper_dev and
-  removed typecast as suggested by Stephen
+Convert rdma_is_upper_dev_rcu, handle_netdev_upper and
+ipoib_get_net_dev_match_addr to the new upper device walk API.
+This is just a code conversion; no functional change is intended.
 
 v2
-- fixed definition of netdev_next_lower_dev_rcu to mirror the upper_dev
-  version.
+- removed typecast of data
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 ---
- include/linux/netdevice.h |  17 +++++
- net/core/dev.c            | 155 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 172 insertions(+)
+ drivers/infiniband/core/core_priv.h     |  9 +------
+ drivers/infiniband/core/roce_gid_mgmt.c | 42 ++++++++++++++++++---------------
+ 2 files changed, 24 insertions(+), 27 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index bf341b65ca5e..a5902d995907 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3778,6 +3778,14 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
- 	     updev; \
- 	     updev = netdev_all_upper_get_next_dev_rcu(dev, &(iter)))
- 
-+int netdev_walk_all_upper_dev_rcu(struct net_device *dev,
-+				  int (*fn)(struct net_device *upper_dev,
-+					    void *data),
-+				  void *data);
-+
-+bool netdev_has_upper_dev_all_rcu(struct net_device *dev,
-+				  struct net_device *upper_dev);
-+
- void *netdev_lower_get_next_private(struct net_device *dev,
- 				    struct list_head **iter);
- void *netdev_lower_get_next_private_rcu(struct net_device *dev,
-@@ -3821,6 +3829,15 @@ struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
- 	     ldev; \
- 	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)))
- 
-+int netdev_walk_all_lower_dev(struct net_device *dev,
-+			      int (*fn)(struct net_device *lower_dev,
-+					void *data),
-+			      void *data);
-+int netdev_walk_all_lower_dev_rcu(struct net_device *dev,
-+				  int (*fn)(struct net_device *lower_dev,
-+					    void *data),
-+				  void *data);
-+
- void *netdev_adjacent_get_private(struct list_head *adj_list);
- void *netdev_lower_get_first_private_rcu(struct net_device *dev);
- struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f67fd16615bb..fc48337cfab8 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5156,6 +5156,31 @@ bool netdev_has_upper_dev(struct net_device *dev,
- EXPORT_SYMBOL(netdev_has_upper_dev);
- 
- /**
-+ * netdev_has_upper_dev_all - Check if device is linked to an upper device
-+ * @dev: device
-+ * @upper_dev: upper device to check
-+ *
-+ * Find out if a device is linked to specified upper device and return true
-+ * in case it is. Note that this checks the entire upper device chain.
-+ * The caller must hold rcu lock.
-+ */
-+
-+static int __netdev_has_upper_dev(struct net_device *upper_dev, void *data)
-+{
-+	struct net_device *dev = data;
-+
-+	return upper_dev == dev;
-+}
-+
-+bool netdev_has_upper_dev_all_rcu(struct net_device *dev,
-+				  struct net_device *upper_dev)
-+{
-+	return !!netdev_walk_all_upper_dev_rcu(dev, __netdev_has_upper_dev,
-+					       upper_dev);
-+}
-+EXPORT_SYMBOL(netdev_has_upper_dev_all_rcu);
-+
-+/**
-  * netdev_has_any_upper_dev - Check if device is linked to some device
-  * @dev: device
-  *
-@@ -5255,6 +5280,51 @@ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
+diff --git a/drivers/infiniband/core/core_priv.h b/drivers/infiniband/core/core_priv.h
+index 19d499dcab76..0c0bea091de8 100644
+--- a/drivers/infiniband/core/core_priv.h
++++ b/drivers/infiniband/core/core_priv.h
+@@ -127,14 +127,7 @@ void ib_cache_release_one(struct ib_device *device);
+ static inline bool rdma_is_upper_dev_rcu(struct net_device *dev,
+ 					 struct net_device *upper)
+ {
+-	struct net_device *_upper = NULL;
+-	struct list_head *iter;
+-
+-	netdev_for_each_all_upper_dev_rcu(dev, _upper, iter)
+-		if (_upper == upper)
+-			break;
+-
+-	return _upper == upper;
++	return netdev_has_upper_dev_all_rcu(dev, upper);
  }
- EXPORT_SYMBOL(netdev_all_upper_get_next_dev_rcu);
  
-+static struct net_device *netdev_next_upper_dev_rcu(struct net_device *dev,
-+						    struct list_head **iter)
+ int addr_init(void);
+diff --git a/drivers/infiniband/core/roce_gid_mgmt.c b/drivers/infiniband/core/roce_gid_mgmt.c
+index 06556c34606d..3a64a0881882 100644
+--- a/drivers/infiniband/core/roce_gid_mgmt.c
++++ b/drivers/infiniband/core/roce_gid_mgmt.c
+@@ -437,6 +437,28 @@ static void callback_for_addr_gid_device_scan(struct ib_device *device,
+ 			  &parsed->gid_attr);
+ }
+ 
++struct upper_list {
++	struct list_head list;
++	struct net_device *upper;
++};
++
++static int netdev_upper_walk(struct net_device *upper, void *data)
 +{
-+	struct netdev_adjacent *upper;
++	struct upper_list *entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
++	struct list_head *upper_list = data;
 +
-+	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_rtnl_is_held());
-+
-+	upper = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
-+
-+	if (&upper->list == &dev->adj_list.upper)
-+		return NULL;
-+
-+	*iter = &upper->list;
-+
-+	return upper->dev;
-+}
-+
-+int netdev_walk_all_upper_dev_rcu(struct net_device *dev,
-+				  int (*fn)(struct net_device *dev,
-+					    void *data),
-+				  void *data)
-+{
-+	struct net_device *udev;
-+	struct list_head *iter;
-+	int ret;
-+
-+	for (iter = &dev->adj_list.upper,
-+	     udev = netdev_next_upper_dev_rcu(dev, &iter);
-+	     udev;
-+	     udev = netdev_next_upper_dev_rcu(dev, &iter)) {
-+		/* first is the upper device itself */
-+		ret = fn(udev, data);
-+		if (ret)
-+			return ret;
-+
-+		/* then look at all of its upper devices */
-+		ret = netdev_walk_all_upper_dev_rcu(udev, fn, data);
-+		if (ret)
-+			return ret;
++	if (!entry) {
++		pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
++		return 0;
 +	}
++
++	list_add_tail(&entry->list, upper_list);
++	dev_hold(upper);
++	entry->upper = upper;
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(netdev_walk_all_upper_dev_rcu);
 +
- /**
-  * netdev_lower_get_next_private - Get the next ->private from the
-  *				   lower neighbour list
-@@ -5361,6 +5431,49 @@ struct net_device *netdev_all_lower_get_next(struct net_device *dev, struct list
- }
- EXPORT_SYMBOL(netdev_all_lower_get_next);
+ static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
+ 				void *cookie,
+ 				void (*handle_netdev)(struct ib_device *ib_dev,
+@@ -444,30 +466,12 @@ static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
+ 						      struct net_device *ndev))
+ {
+ 	struct net_device *ndev = (struct net_device *)cookie;
+-	struct upper_list {
+-		struct list_head list;
+-		struct net_device *upper;
+-	};
+-	struct net_device *upper;
+-	struct list_head *iter;
+ 	struct upper_list *upper_iter;
+ 	struct upper_list *upper_temp;
+ 	LIST_HEAD(upper_list);
  
-+static struct net_device *netdev_next_lower_dev(struct net_device *dev,
-+						struct list_head **iter)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	lower = list_entry(*iter, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	*iter = lower->list.next;
-+
-+	return lower->dev;
-+}
-+
-+int netdev_walk_all_lower_dev(struct net_device *dev,
-+			      int (*fn)(struct net_device *dev,
-+					void *data),
-+			      void *data)
-+{
-+	struct net_device *ldev;
-+	struct list_head *iter;
-+	int ret;
-+
-+	for (iter = &dev->adj_list.lower,
-+	     ldev = netdev_next_lower_dev(dev, &iter);
-+	     ldev;
-+	     ldev = netdev_next_lower_dev(dev, &iter)) {
-+		/* first is the lower device itself */
-+		ret = fn(ldev, data);
-+		if (ret)
-+			return ret;
-+
-+		/* then look at all of its lower devices */
-+		ret = netdev_walk_all_lower_dev(ldev, fn, data);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(netdev_walk_all_lower_dev);
-+
- /**
-  * netdev_all_lower_get_next_rcu - Get the next device from all
-  *				   lower neighbour list, RCU variant
-@@ -5382,6 +5495,48 @@ struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_all_lower_get_next_rcu);
+ 	rcu_read_lock();
+-	netdev_for_each_all_upper_dev_rcu(ndev, upper, iter) {
+-		struct upper_list *entry = kmalloc(sizeof(*entry),
+-						   GFP_ATOMIC);
+-
+-		if (!entry) {
+-			pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
+-			continue;
+-		}
+-
+-		list_add_tail(&entry->list, &upper_list);
+-		dev_hold(upper);
+-		entry->upper = upper;
+-	}
++	netdev_walk_all_upper_dev_rcu(ndev, netdev_upper_walk, &upper_list);
+ 	rcu_read_unlock();
  
-+static struct net_device *netdev_next_lower_dev_rcu(struct net_device *dev,
-+						    struct list_head **iter)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	*iter = &lower->list;
-+
-+	return lower->dev;
-+}
-+
-+int netdev_walk_all_lower_dev_rcu(struct net_device *dev,
-+				  int (*fn)(struct net_device *dev,
-+					    void *data),
-+				  void *data)
-+{
-+	struct net_device *ldev;
-+	struct list_head *iter;
-+	int ret;
-+
-+	for (iter = &dev->adj_list.lower,
-+	     ldev = netdev_next_lower_dev_rcu(dev, &iter);
-+	     ldev;
-+	     ldev = netdev_next_lower_dev_rcu(dev, &iter)) {
-+		/* first is the lower device itself */
-+		ret = fn(ldev, data);
-+		if (ret)
-+			return ret;
-+
-+		/* then look at all of its lower devices */
-+		ret = netdev_walk_all_lower_dev_rcu(ldev, fn, data);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(netdev_walk_all_lower_dev_rcu);
-+
- /**
-  * netdev_lower_get_first_private_rcu - Get the first ->private from the
-  *				       lower neighbour list, RCU
+ 	handle_netdev(ib_dev, port, ndev);
 -- 
 2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
