@@ -1,103 +1,69 @@
-From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Subject: Re: [PATCH net-next 2/2] net: phy: Add Fast Link Failure - 2 set
- driver for Microsemi PHYs.
-Date: Tue, 18 Oct 2016 16:04:34 +0530
-Message-ID: <20161018103413.GA31087@microsemi.com>
-References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1476445233-26524-3-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20161014120228.GF5822@lunn.ch>
- <20161017081312.GB2365@microsemi.com>
- <838C6202-9B7D-4AFA-B163-55515044FA4F@gmail.com>
-Reply-To: <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC 3/6] net: phy: Threaded interrupts allow some
+ simplification
+Date: Tue, 18 Oct 2016 13:37:11 +0300
+Message-ID: <a3e6b467-9e44-1ed5-65ce-63c839dd3365@cogentembedded.com>
+References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
+ <1475051544-18561-4-git-send-email-andrew@lunn.ch>
+ <7997d337-cd0f-ab39-1f53-df996063932b@cogentembedded.com>
+ <af8f7c76-f2fe-95ac-4151-0189baf84a53@cogentembedded.com>
+ <20160928122835.GB22809@lunn.ch>
+ <891f6b60-47a0-ba03-d6d3-8284993d1896@cogentembedded.com>
+ <06bdfcb4-8bb6-28e6-00e5-2518f79f729d@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <838C6202-9B7D-4AFA-B163-55515044FA4F-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33222 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752803AbcJRKhN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 06:37:13 -0400
+Received: by mail-lf0-f47.google.com with SMTP id x79so348643553lff.0
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 03:37:13 -0700 (PDT)
+In-Reply-To: <06bdfcb4-8bb6-28e6-00e5-2518f79f729d@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Hello!
 
-Thank you for review comments.
+On 9/28/2016 8:14 PM, Florian Fainelli wrote:
 
-On Mon, Oct 17, 2016 at 05:51:11AM -0700, Florian Fainelli wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> On October 17, 2016 1:13:14 AM PDT, Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org> wrote:
-> >Hi Andrew,
-> >
-> >Thank you for code review and comments.
-> >
-> >On Fri, Oct 14, 2016 at 02:02:28PM +0200, Andrew Lunn wrote:
-> >> EXTERNAL EMAIL
-> >>
-> >>
-> >> > On Fri, Oct 14, 2016 at 05:10:33PM +0530, Raju Lakkaraju wrote:
-> >> > From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-> >> >
-> >> > VSC8531 Fast Link Failure 2 feature enables the PHY to indicate the
-> >> > onset of a potential link failure in < 100 usec for 100BASE-TX
-> >> > operation. FLF2 is supported through the MDINT (active low) pin.
-> >>
-> >> Is the MDINT pin specific to this feature, or a general interrupt
-> >pin?
-> >>
-> >
-> >MDINT pin is general interrupt. MDINT pin share the interrupt with
-> >FLF2 along with another 13 interrupts.
-> >
-> >> Device tree is used to describe the hardware. It should not really
-> >> describe software or configuration. But the borders are a bit
-> >> fluffly. Signal edge rates is near to hardware. This is a lot more
-> >> towards configuration. So i'm not sure a device tree property is the
-> >> correct way to describe this.
-> >>
-> >> This is also a feature i know other PHYs support. The Marvell PHY has
-> >> a "Metro Ethernet" extension which allows it to report link failures
-> >> for 1000BASE-T in 10, 20 or 40ms, instead of the usual 750ms. So we
-> >> need a generic solution other PHYs can implement.
-> >>
-> >> As with cable testing, i think it should be an ethtool option.
-> >
-> >I agree with you.
-> >I thought this is one time initialization either enable or disable.
-> >if customer need this feature, they can enable in DT.
-> >Do you want me to implement through IOCTL instead of Device tree?
-> >Do you have any other suggestions?
-> 
-> As indicated in the other email about speed downshift, we may want to utilize ethtool's ability to modify tunable parameters (small integer, boolean, values) and extend it to cover features offered by PHYs in a way that an user can dynamically turn these features on or off.
-> 
-> In fact, this looks a lot like netdev features (e.g: checksum offload), and there seems to be some commonality here between at least Marvell and Microsemi (for the faster link down reporting), so maybe we should start adding PHY features similar to netdev features?
-> 
+>>>>>> The PHY interrupts are now handled in a threaded interrupt handler,
+>>>>>> which can sleep. The work queue is no longer needed, phy_change() can
+>>>>>> be called directly. Additionally, none of the callers of
+>>>>>> phy_mac_interrupt() did so in interrupt context, so fully remove the
+>>>>>
+>>>>>   I did intend to call it from interrupt context (from the ravb
+>>>>> driver).
+>>>>>
+>>>>>> work queue, and document that phy_mac_interrupt() should not be called
+>>>>>> in interrupt context.
+>>>>>
+>>>>>   It was intentionally made callable from the interrupt context, I'd
+>>>>> prefer
+>>>>> if you wouldn't change that.
+>>>>
+>>>>    OTOH, it's still not very handy to call because of the 'new_link'
+>>>> parameter which I'm not sure I can provide...
+>>>
+>>> Hi Sergei
+>>>
+>>> If there is a need for it, i will leave the work queue and keep this
+>>> code unchanged.
+>>
+>>    Let's hear what Florian says...
+>
+> The intent is really to have phy_mac_interrupt() callable from hard IRQ
+> context, not that this matters really too much because link events
+> already occur in the slow path, but it's nice to have that property
+> retained IMHO.
 
-Sure. 
+    Actually, I still don't know how to call phy_mac_interrupt() from the ravb 
+driver because of the 'new_link' parameter -- I won't always have that signal 
+connected to the MAC...
 
-I would like add one flag in phy_device structure:
-u64 phy_features;
-
-In phy_driver structure, i would like to add 2 function pointer as
-
-int (*phy_featues_set)(struct phy_device *phydev);
-int (*phy_featues_get)(struct phy_device *phydev);
-
-All the PHY specific features i.e. Fast link failure -2, Downshift, Loopback etc
-are the case in feature_set/feature_get functions.
-
-Is it ok?
-
-> --
-> Florian
-
----
-Thanks,
-Raju.
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MBR, Sergei
