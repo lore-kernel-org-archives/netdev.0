@@ -1,43 +1,58 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v3 4/4] net: smsc91x: add u16 workaround for pxa platforms
-Date: Tue, 18 Oct 2016 11:39:44 -0500
-Message-ID: <20161018163944.jaqtthlka6t7pxhn@rob-hp-laptop>
-References: <1476733532-29716-1-git-send-email-robert.jarzmik@free.fr>
- <1476733532-29716-5-git-send-email-robert.jarzmik@free.fr>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: [PATCH net-next] ethernet/sfc: use core min/max MTU checking
+Date: Tue, 18 Oct 2016 17:47:45 +0100
+Message-ID: <4705a2ea-7734-b549-561c-bc7b6d8710d3@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Rutland <mark.rutland@arm.com>,
-        Daniel Mack <daniel@zonque.org>,
-        Haojian Zhuang <haojian.zhuang@gmail.com>,
-        Jonathan Cameron <jic23@cam.ac.uk>,
-        David Howells <dhowells@redhat.com>,
-        Nicolas Pitre <nico@fluxnic.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-am33-list@redhat.com,
-        Jeremy Linton <jeremy.linton@arm.com>
-To: Robert Jarzmik <robert.jarzmik@free.fr>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Solarflare Linux Maintainers <linux-net-drivers@solarflare.com>,
+        <netdev@vger.kernel.org>, Jarod Wilson <jarod@redhat.com>
+To: Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35634 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938478AbcJRQjq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 12:39:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1476733532-29716-5-git-send-email-robert.jarzmik@free.fr>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:29302 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753901AbcJRQr4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 12:47:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 17, 2016 at 09:45:32PM +0200, Robert Jarzmik wrote:
-> Add a workaround for mainstone, idp and stargate2 boards, for u16 writes
-> which must be aligned on 32 bits addresses.
-> 
-> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-> Cc: Jeremy Linton <jeremy.linton@arm.com>
-> ---
-> Since v1: rename dt property to pxa-u16-align4
->       	  change the binding documentation file
-> ---
->  Documentation/devicetree/bindings/net/smsc-lan91c111.txt | 2 ++
->  1 file changed, 2 insertions(+)
+Fixes: 61e84623 ("net: centralize net_device min/max MTU checking")
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c | 14 ++------------
+ 1 file changed, 2 insertions(+), 12 deletions(-)
 
-Acked-by: Rob Herring <robh@kernel.org>
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 3cf3557..b626da6 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2263,18 +2263,6 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ 	rc = efx_check_disabled(efx);
+ 	if (rc)
+ 		return rc;
+-	if (new_mtu > EFX_MAX_MTU) {
+-		netif_err(efx, drv, efx->net_dev,
+-			  "Requested MTU of %d too big (max: %d)\n",
+-			  new_mtu, EFX_MAX_MTU);
+-		return -EINVAL;
+-	}
+-	if (new_mtu < EFX_MIN_MTU) {
+-		netif_err(efx, drv, efx->net_dev,
+-			  "Requested MTU of %d too small (min: %d)\n",
+-			  new_mtu, EFX_MIN_MTU);
+-		return -EINVAL;
+-	}
+ 
+ 	netif_dbg(efx, drv, efx->net_dev, "changing MTU to %d\n", new_mtu);
+ 
+@@ -2478,6 +2466,8 @@ static int efx_register_netdev(struct efx_nic *efx)
+ 		net_dev->priv_flags |= IFF_UNICAST_FLT;
+ 	net_dev->ethtool_ops = &efx_ethtool_ops;
+ 	net_dev->gso_max_segs = EFX_TSO_MAX_SEGS;
++	net_dev->min_mtu = EFX_MIN_MTU;
++	net_dev->max_mtu = EFX_MAX_MTU;
+ 
+ 	rtnl_lock();
+ 
+-- 
+2.7.4
