@@ -1,7 +1,7 @@
 From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: [PATCH net-next 01/11] net: Remove refnr arg when inserting link adjacencies
-Date: Mon, 17 Oct 2016 19:15:43 -0700
-Message-ID: <1476756953-30923-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 03/11] net: bonding: Flip to the new dev walk API
+Date: Mon, 17 Oct 2016 19:15:45 -0700
+Message-ID: <1476756953-30923-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
         hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -14,128 +14,159 @@ In-Reply-To: <1476756953-30923-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrv
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Commit 93409033ae65 ("net: Add netdev all_adj_list refcnt propagation to
-fix panic") propagated the refnr to insert and remove functions tracking
-the netdev adjacency graph. However, for the insert path the refnr can
-only be 1. Accordingly, remove the refnr argument to make that clear.
-ie., the refnr arg in 93409033ae65 was only needed for the remove path.
+Convert alb_send_learning_packets and bond_has_this_ip to use the new
+netdev_walk_all_upper_dev_rcu API. In both cases this is just a code
+conversion; no functional change is intended.
+
+v2
+- removed typecast of data and simplified bond_upper_dev_walk
 
 Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 ---
- net/core/dev.c | 27 ++++++++++++---------------
- 1 file changed, 12 insertions(+), 15 deletions(-)
+ drivers/net/bonding/bond_alb.c  | 82 ++++++++++++++++++++++++++---------------
+ drivers/net/bonding/bond_main.c | 17 +++++----
+ 2 files changed, 61 insertions(+), 38 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 352e98129601..f67fd16615bb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5453,7 +5453,6 @@ static inline bool netdev_adjacent_is_neigh_list(struct net_device *dev,
- 
- static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 					struct net_device *adj_dev,
--					u16 ref_nr,
- 					struct list_head *dev_list,
- 					void *private, bool master)
- {
-@@ -5463,7 +5462,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 	adj = __netdev_find_adj(adj_dev, dev_list);
- 
- 	if (adj) {
--		adj->ref_nr += ref_nr;
-+		adj->ref_nr += 1;
- 		return 0;
- 	}
- 
-@@ -5473,7 +5472,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
- 
- 	adj->dev = adj_dev;
- 	adj->master = master;
--	adj->ref_nr = ref_nr;
-+	adj->ref_nr = 1;
- 	adj->private = private;
- 	dev_hold(adj_dev);
- 
-@@ -5547,22 +5546,21 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
- 
- static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
- 					    struct net_device *upper_dev,
--					    u16 ref_nr,
- 					    struct list_head *up_list,
- 					    struct list_head *down_list,
- 					    void *private, bool master)
- {
- 	int ret;
- 
--	ret = __netdev_adjacent_dev_insert(dev, upper_dev, ref_nr, up_list,
-+	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list,
- 					   private, master);
- 	if (ret)
- 		return ret;
- 
--	ret = __netdev_adjacent_dev_insert(upper_dev, dev, ref_nr, down_list,
-+	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list,
- 					   private, false);
- 	if (ret) {
--		__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
-+		__netdev_adjacent_dev_remove(dev, upper_dev, 1, up_list);
- 		return ret;
- 	}
- 
-@@ -5570,10 +5568,9 @@ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 551f0f8dead3..c80b023092dd 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -950,13 +950,61 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
+ 	dev_queue_xmit(skb);
  }
  
- static int __netdev_adjacent_dev_link(struct net_device *dev,
--				      struct net_device *upper_dev,
--				      u16 ref_nr)
-+				      struct net_device *upper_dev)
++struct alb_walk_data {
++	struct bonding *bond;
++	struct slave *slave;
++	u8 *mac_addr;
++	bool strict_match;
++};
++
++static int alb_upper_dev_walk(struct net_device *upper, void *_data)
++{
++	struct alb_walk_data *data = _data;
++	bool strict_match = data->strict_match;
++	struct bonding *bond = data->bond;
++	struct slave *slave = data->slave;
++	u8 *mac_addr = data->mac_addr;
++	struct bond_vlan_tag *tags;
++
++	if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0) {
++		if (strict_match &&
++		    ether_addr_equal_64bits(mac_addr,
++					    upper->dev_addr)) {
++			alb_send_lp_vid(slave, mac_addr,
++					vlan_dev_vlan_proto(upper),
++					vlan_dev_vlan_id(upper));
++		} else if (!strict_match) {
++			alb_send_lp_vid(slave, upper->dev_addr,
++					vlan_dev_vlan_proto(upper),
++					vlan_dev_vlan_id(upper));
++		}
++	}
++
++	/* If this is a macvlan device, then only send updates
++	 * when strict_match is turned off.
++	 */
++	if (netif_is_macvlan(upper) && !strict_match) {
++		tags = bond_verify_device_path(bond->dev, upper, 0);
++		if (IS_ERR_OR_NULL(tags))
++			BUG();
++		alb_send_lp_vid(slave, upper->dev_addr,
++				tags[0].vlan_proto, tags[0].vlan_id);
++		kfree(tags);
++	}
++
++	return 0;
++}
++
+ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
+ 				      bool strict_match)
  {
--	return __netdev_adjacent_dev_link_lists(dev, upper_dev, ref_nr,
-+	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
- 						&dev->all_adj_list.upper,
- 						&upper_dev->all_adj_list.lower,
- 						NULL, false);
-@@ -5602,12 +5599,12 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
- 						struct net_device *upper_dev,
- 						void *private, bool master)
+ 	struct bonding *bond = bond_get_bond_by_slave(slave);
+-	struct net_device *upper;
+-	struct list_head *iter;
+-	struct bond_vlan_tag *tags;
++	struct alb_walk_data data = {
++		.strict_match = strict_match,
++		.mac_addr = mac_addr,
++		.slave = slave,
++		.bond = bond,
++	};
+ 
+ 	/* send untagged */
+ 	alb_send_lp_vid(slave, mac_addr, 0, 0);
+@@ -965,33 +1013,7 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
+ 	 * for that device.
+ 	 */
+ 	rcu_read_lock();
+-	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
+-		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0) {
+-			if (strict_match &&
+-			    ether_addr_equal_64bits(mac_addr,
+-						    upper->dev_addr)) {
+-				alb_send_lp_vid(slave, mac_addr,
+-						vlan_dev_vlan_proto(upper),
+-						vlan_dev_vlan_id(upper));
+-			} else if (!strict_match) {
+-				alb_send_lp_vid(slave, upper->dev_addr,
+-						vlan_dev_vlan_proto(upper),
+-						vlan_dev_vlan_id(upper));
+-			}
+-		}
+-
+-		/* If this is a macvlan device, then only send updates
+-		 * when strict_match is turned off.
+-		 */
+-		if (netif_is_macvlan(upper) && !strict_match) {
+-			tags = bond_verify_device_path(bond->dev, upper, 0);
+-			if (IS_ERR_OR_NULL(tags))
+-				BUG();
+-			alb_send_lp_vid(slave, upper->dev_addr,
+-					tags[0].vlan_proto, tags[0].vlan_id);
+-			kfree(tags);
+-		}
+-	}
++	netdev_walk_all_upper_dev_rcu(bond->dev, alb_upper_dev_walk, &data);
+ 	rcu_read_unlock();
+ }
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 5fa36ebc0640..c9944d86d045 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2270,22 +2270,23 @@ static void bond_mii_monitor(struct work_struct *work)
+ 	}
+ }
+ 
++static int bond_upper_dev_walk(struct net_device *upper, void *data)
++{
++	__be32 ip = *((__be32 *)data);
++
++	return ip == bond_confirm_addr(upper, 0, ip);
++}
++
+ static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
  {
--	int ret = __netdev_adjacent_dev_link(dev, upper_dev, 1);
-+	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
+-	struct net_device *upper;
+-	struct list_head *iter;
+ 	bool ret = false;
  
- 	if (ret)
- 		return ret;
+ 	if (ip == bond_confirm_addr(bond->dev, 0, ip))
+ 		return true;
  
--	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev, 1,
-+	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
- 					       &dev->adj_list.upper,
- 					       &upper_dev->adj_list.lower,
- 					       private, master);
-@@ -5676,7 +5673,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
- 			pr_debug("Interlinking %s with %s, non-neighbour\n",
- 				 i->dev->name, j->dev->name);
--			ret = __netdev_adjacent_dev_link(i->dev, j->dev, i->ref_nr);
-+			ret = __netdev_adjacent_dev_link(i->dev, j->dev);
- 			if (ret)
- 				goto rollback_mesh;
- 		}
-@@ -5686,7 +5683,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
- 		pr_debug("linking %s's upper device %s with %s\n",
- 			 upper_dev->name, i->dev->name, dev->name);
--		ret = __netdev_adjacent_dev_link(dev, i->dev, i->ref_nr);
-+		ret = __netdev_adjacent_dev_link(dev, i->dev);
- 		if (ret)
- 			goto rollback_upper_mesh;
- 	}
-@@ -5695,7 +5692,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
- 		pr_debug("linking %s's lower device %s with %s\n", dev->name,
- 			 i->dev->name, upper_dev->name);
--		ret = __netdev_adjacent_dev_link(i->dev, upper_dev, i->ref_nr);
-+		ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
- 		if (ret)
- 			goto rollback_lower_mesh;
- 	}
+ 	rcu_read_lock();
+-	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
+-		if (ip == bond_confirm_addr(upper, 0, ip)) {
+-			ret = true;
+-			break;
+-		}
+-	}
++	if (netdev_walk_all_upper_dev_rcu(bond->dev, bond_upper_dev_walk, &ip))
++		ret = true;
+ 	rcu_read_unlock();
+ 
+ 	return ret;
 -- 
 2.1.4
 
