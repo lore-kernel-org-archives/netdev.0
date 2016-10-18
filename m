@@ -1,48 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/4] Add support for led triggers on phy link state
- change
-Date: Tue, 18 Oct 2016 11:57:07 -0400 (EDT)
-Message-ID: <20161018.115707.1632276930668736889.davem@davemloft.net>
-References: <1476719395-28273-1-git-send-email-zach.brown@ni.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3 net-next 00/11] net: Fix netdev adjacency tracking
+Date: Tue, 18 Oct 2016 09:58:23 -0600
+Message-ID: <295372c1-a359-d560-2856-45e5f0c183be@cumulusnetworks.com>
+References: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
+ <20161018.114631.1954199143257806104.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, florian.c.schilhabel@googlemail.com,
- f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, rpurdie@rpsys.net, gregkh@linuxfoundation.org,
- Larry.Finger@lwfinger.net, j.anaszewski@samsung.com,
- linux-leds@vger.kernel.org, mlindner@marvell.com
-To: zach.brown@ni.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1476719395-28273-1-git-send-email-zach.brown@ni.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: jiri@mellanox.com, netdev@vger.kernel.org, dledford@redhat.com,
+        sean.hefty@intel.com, hal.rosenstock@gmail.com,
+        linux-rdma@vger.kernel.org, j.vosburgh@gmail.com,
+        vfalico@gmail.com, andy@greyhouse.net, jeffrey.t.kirsher@intel.com,
+        intel-wired-lan@lists.osuosl.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33177 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938706AbcJRP60 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 11:58:26 -0400
+Received: by mail-pf0-f182.google.com with SMTP id 128so97070664pfz.0
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 08:58:25 -0700 (PDT)
+In-Reply-To: <20161018.114631.1954199143257806104.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zach Brown <zach.brown@ni.com>
-Date: Mon, 17 Oct 2016 10:49:51 -0500
-
-> Fix skge driver that declared enum contants that conflicted with enum
-> constants in linux/leds.h
+On 10/18/16 9:46 AM, David Miller wrote:
+> Series applied, but the recursion is disappointing.
 > 
-> Create function that encapsulates actions taken during the adjust phy link step
-> of phy state changes.
-> 
-> Create function that provides list of speeds currently supported by the phy.
-> 
-> Add support for led triggers on phy link state changes by adding
-> a config option. When set the config option will create a set of led triggers
-> for each phy device. Users can use the led triggers to represent link state
-> changes on the phy.
+> If we run into problems due to kernel stack depth because of this with
+> some configurations (reasonable or not, if we allow it then it can't
+> crash the kernel), we will either need to find a way to make this walk
+> iterative or revert these changes.
 
-Ok this looks good enough for now, we can expand and improve upon it
-later if necessary.
+understood.
 
-Series applied, thanks Zach.
+Since 4.9 is tagged as the next LTS I would like to see the series applied to it at some point - assuming no problems show up with wider exposure in net-next.
