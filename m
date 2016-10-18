@@ -1,60 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: dsa: properly disconnect the slave PHYs
-Date: Tue, 18 Oct 2016 14:29:09 +0200
-Message-ID: <20161018122909.GR26778@lunn.ch>
-References: <1476792760-60356-1-git-send-email-john@phrozen.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: Need help with mdiobus_register and phy
+Date: Tue, 18 Oct 2016 07:40:17 -0500
+Message-ID: <58061831.6080005@codeaurora.org>
+References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
+ <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
+ <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
+ <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
+ <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
+ <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
+ <58027540.6080604@codeaurora.org>
+ <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
+ <58053A33.4030108@codeaurora.org>
+ <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: John Crispin <john@phrozen.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1476792760-60356-1-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:45317 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754454AbcJRMkV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 08:40:21 -0400
+In-Reply-To: <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 18, 2016 at 02:12:40PM +0200, John Crispin wrote:
-> The shutdown code only stopped the PHYs but does not diconnect them
-> properly. This could lead to null pointer deref related kernel oopses
-> during reboot. Fix this by calling phy_disconnect() after the PHYs are
-> stopped.
+Zefir Kurtisi wrote:
 
-Humm, i don't follow this.
+>> I have never seen the original problem that you noticed.  When I use the generic
+>> phy driver instead of the at803x driver, everything works great for me.  Perhaps
+>> the problem that you noticed only occurs with the Gianfar NIC?
+>>
+> You mean it works for you in SGMII mode without glitches?
 
-The phy is disconnected in dsa_slave_destroy(). Why is that not
-sufficient?
+That is correct.
 
-Also, after calling dsa_slave_close(), dsa_slave_open() can be
-called. But with your change, the phy has gone, so we are going to
-have trouble.
+> Then it might in fact be
+> an unfortunate rare or unique combination that we chose.
 
-	Andrew
+That is what I expect.
 
-> 
-> Signed-off-by: John Crispin <john@phrozen.org>
-> ---
->  net/dsa/slave.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 68714a5..725d9f7 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -154,8 +154,10 @@ static int dsa_slave_close(struct net_device *dev)
->  	struct net_device *master = p->parent->dst->master_netdev;
->  	struct dsa_switch *ds = p->parent;
->  
-> -	if (p->phy)
-> +	if (p->phy) {
->  		phy_stop(p->phy);
-> +		phy_disconnect(p->phy);
-> +	}
->  
->  	dev_mc_unsync(master, dev);
->  	dev_uc_unsync(master, dev);
-> -- 
-> 1.7.10.4
-> 
+> I'd need some time to get that tested, and since our device might be the only one
+> requiring the fix, I am fine with keeping the patch private. Feel free to revert
+> it, if required, I'll provide a revised one.
+
+I'm in no hurry to get this fixed.  Do you need a couple weeks to run 
+some tests?  It would be good to know for sure that your fix is needed 
+only on your platform.
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
