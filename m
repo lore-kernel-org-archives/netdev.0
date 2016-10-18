@@ -1,39 +1,51 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH v2 2/2] dwc_eth_qos: enable flow control by default
-Date: Tue, 18 Oct 2016 09:20:55 +0200
-Message-ID: <1476775255-14701-1-git-send-email-niklass@axis.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] ipv4: Remove unused but set variable
+Date: Tue, 18 Oct 2016 09:40:20 +0200
+Message-ID: <20161018074020.11162-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, Niklas Cassel <niklass@axis.com>,
-        Jesper Nilsson <jespern@axis.com>
-To: <larper@axis.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.zhinst.com ([212.126.164.98]:51228 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932460AbcJRHk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 03:40:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
+Remove the unused but set variable dev in ip_do_fragment to fix the
+following GCC warning when building with 'W=1':
 
-Allow autoneg to enable flow control by default.
-The behavior when autoneg is off has not changed.
+  net/ipv4/ip_output.c: In function ‘ip_do_fragment’:
+  net/ipv4/ip_output.c:541:21: warning: variable ‘dev’ set but not used [-Wunused-but-set-variable]
 
-Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-Signed-off-by: Jesper Nilsson <jespern@axis.com>
-Acked-by: Lars Persson <larper@axis.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
- drivers/net/ethernet/synopsys/dwc_eth_qos.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv4/ip_output.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-index d775729648ef..5eedac495077 100644
---- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-+++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
-@@ -988,6 +988,7 @@ static int dwceqos_mii_probe(struct net_device *ndev)
- 	lp->link    = 0;
- 	lp->speed   = 0;
- 	lp->duplex  = DUPLEX_UNKNOWN;
-+	lp->flowcontrol.autoneg = AUTONEG_ENABLE;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 05d105832bdb..03e7f7310423 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -538,7 +538,6 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ {
+ 	struct iphdr *iph;
+ 	int ptr;
+-	struct net_device *dev;
+ 	struct sk_buff *skb2;
+ 	unsigned int mtu, hlen, left, len, ll_rs;
+ 	int offset;
+@@ -546,8 +545,6 @@ int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+ 	struct rtable *rt = skb_rtable(skb);
+ 	int err = 0;
  
- 	return 0;
- }
+-	dev = rt->dst.dev;
+-
+ 	/* for offloaded checksums cleanup checksum before fragmentation */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+ 	    (err = skb_checksum_help(skb)))
 -- 
-2.1.4
+2.9.0
