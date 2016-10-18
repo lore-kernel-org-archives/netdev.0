@@ -1,41 +1,46 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net] bnx2: fix locking when netconsole is used
-Date: Tue, 18 Oct 2016 08:16:55 +0200
-Message-ID: <094513d1-4852-cc6d-5ebe-cfc1c37ef7fc@redhat.com>
-References: <1476721231-31624-1-git-send-email-ivecera@redhat.com>
- <20161017.132142.526817621160813690.davem@davemloft.net>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] vlan: Remove unnecessary comparison of unsigned against 0
+Date: Tue, 18 Oct 2016 08:44:17 +0200
+Message-ID: <20161018064417.26379-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
-        Dept-HSGLinuxNICDev@qlogic.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48540 "EHLO mx1.redhat.com"
+Received: from mail.zhinst.com ([212.126.164.98]:50288 "EHLO mail.zhinst.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750813AbcJRGQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 02:16:59 -0400
-In-Reply-To: <20161017.132142.526817621160813690.davem@davemloft.net>
+        id S1757791AbcJRGoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 02:44:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dne 17.10.2016 v 19:21 David Miller napsal(a):
-> From: Ivan Vecera <ivecera@redhat.com>
-> Date: Mon, 17 Oct 2016 18:20:31 +0200
->
->> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
->> index 27f11a5..9c408413 100644
->> --- a/drivers/net/ethernet/broadcom/bnx2.c
->> +++ b/drivers/net/ethernet/broadcom/bnx2.c
->> @@ -272,21 +272,24 @@ static u32
->>  bnx2_reg_rd_ind(struct bnx2 *bp, u32 offset)
->>  {
->>  	u32 val;
->> +	unsigned long flags;
->>
->
-> Please order local variable declarations from longest to shortest
-> line.
-Sure Dave, done.
+args.u.name_type is of type unsigned int and is always >= 0.
 
-Ivan
+This fixes the following GCC warning:
+
+  net/8021q/vlan.c: In function ‘vlan_ioctl_handler’:
+  net/8021q/vlan.c:574:14: warning: comparison of unsigned expression >= 0 is always true [-Wtype-limits]
+
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ net/8021q/vlan.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 8de138d3306b..f8903c1e1010 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -571,8 +571,7 @@ static int vlan_ioctl_handler(struct net *net, void __user *arg)
+ 		err = -EPERM;
+ 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			break;
+-		if ((args.u.name_type >= 0) &&
+-		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
++		if (args.u.name_type < VLAN_NAME_TYPE_HIGHEST) {
+ 			struct vlan_net *vn;
+ 
+ 			vn = net_generic(net, vlan_net_id);
+-- 
+2.9.0
