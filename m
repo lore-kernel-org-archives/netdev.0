@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] soreuseport: do not export reuseport_add_sock()
-Date: Tue, 18 Oct 2016 14:18:46 -0400 (EDT)
-Message-ID: <20161018.141846.2143723397593988907.davem@davemloft.net>
-References: <1476739368.5650.60.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH 20/28] net: bcm63xx: avoid referencing uninitialized
+ variable
+Date: Tue, 18 Oct 2016 14:21:04 -0400 (EDT)
+Message-ID: <20161018.142104.1792947498376488428.davem@davemloft.net>
+References: <20161017220342.1627073-1-arnd@arndb.de>
+        <20161017221650.1902729-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45014 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034293AbcJRSSs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 14:18:48 -0400
-In-Reply-To: <1476739368.5650.60.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+        tremyfr@gmail.com, f.fainelli@gmail.com,
+        bcm-kernel-feedback-list@broadcom.com, andrew@lunn.ch,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161017221650.1902729-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 17 Oct 2016 14:22:48 -0700
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 18 Oct 2016 00:16:08 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> gcc found a reference to an uninitialized variable in the error handling
+> of bcm_enet_open, introduced by a recent cleanup:
 > 
-> reuseport_add_sock() is not used from a module,
-> no need to export it.
+> drivers/net/ethernet/broadcom/bcm63xx_enet.c: In function 'bcm_enet_open'
+> drivers/net/ethernet/broadcom/bcm63xx_enet.c:1129:2: warning: 'phydev' may be used uninitialized in this function [-Wmaybe-uninitialized]
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> This makes the use of that variable conditional, so we only reference it
+> here after it has been used before. Unlike my normal patches, I have not
+> build-tested this one, as I don't currently have mips test in my
+> randconfig setup.
+> 
+> Fixes: 625eb8667d6f ("net: ethernet: broadcom: bcm63xx: use phydev from struct net_device")
+> Cc: Philippe Reynes <tremyfr@gmail.com>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks Eric.
+Applied.
