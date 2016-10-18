@@ -1,52 +1,72 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC PATCH 2/2] mac80211: aes_ccm: cache AEAD request
- structures per CPU
-Date: Tue, 18 Oct 2016 16:24:07 +0200
-Message-ID: <1476800647.6425.38.camel@sipsolutions.net>
-References: <1476799713-16188-1-git-send-email-ard.biesheuvel@linaro.org>
-         <1476799713-16188-3-git-send-email-ard.biesheuvel@linaro.org>
-         <1476800194.6425.35.camel@sipsolutions.net>
-         <CAKv+Gu8aE4AfewHeMDf2RQfJtSsrp6Fb1A_ygFsqEwpyP6hDjQ@mail.gmail.com>
-         (sfid-20161018_161829_091999_FC9D3B10)
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] net: phy: Add Speed downshift set driver
+ for Microsemi PHYs.
+Date: Tue, 18 Oct 2016 09:24:45 -0500
+Message-ID: <20161018142445.vzpkebnmqv6y5zqa@rob-hp-laptop>
+References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1476445233-26524-2-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
-        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Jouni Malinen <j@w1.fi>, Andy Lutomirski <luto@amacapital.net>
-To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:56329 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753095AbcJROYL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Oct 2016 10:24:11 -0400
-In-Reply-To: <CAKv+Gu8aE4AfewHeMDf2RQfJtSsrp6Fb1A_ygFsqEwpyP6hDjQ@mail.gmail.com> (sfid-20161018_161829_091999_FC9D3B10)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
+To: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1476445233-26524-2-git-send-email-Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-10-18 at 15:18 +0100, Ard Biesheuvel wrote:
-> 
-> > Hmm. Is it really worth having a per-CPU variable for each possible
-> > key? You could have a large number of those (typically three when
-> > you're a client on an AP, and 1 + 1 for each client when you're the
-> > AP).
+On Fri, Oct 14, 2016 at 05:10:32PM +0530, Raju Lakkaraju wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> 
+> For operation in cabling environments that are incompatible with
+> 1000BAST-T, VSC8531 device provides an automatic link speed
+> downshift operation. When enabled, the device automatically changes
+> its 1000BAST-T auto-negotiation to the next slower speed after
+> a configured number of failed attempts at 1000BAST-T.
+> This feature is useful in setting up in networks using older cable
+> installations that include only pairs A and B, and not pairs C and D.
+> 
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> Signed-off-by: Allan W. Nielsen <allan.nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   |  6 ++
+>  drivers/net/phy/mscc.c                             | 75 +++++++++++++++++++++-
+>  2 files changed, 80 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> index bdefefc6..062d115 100644
+> --- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
+> @@ -27,6 +27,11 @@ Optional properties:
+>  			  'vddmac'.
+>  			  Default value is 0%.
+>  			  Ref: Table:1 - Edge rate change (below).
+> +- downshift-cnt		: When enabled, the device automatically changes its
+> +			  1000BAST-T auto-negotiation to the next slower speed
+> +			  after a 'downshift-cnt' of failed attempts at
+> +			  1000BAST-T. Allowed values: 0, 2, 3, 4, 5.
+> +			  0 is default and will disable downshifting.
 
-2 + 1 for each client, actually, since you have 2 GTKs present in the
-"steady state"; not a big difference though.
+Not sure if you are dropping this based on the discussion. Is this 
+end-user controlled or a board property? Only the latter should be in 
+DT.
 
-> > Would it be so bad to have to set the TFM every time (if that's
-> > even possible), and just have a single per-CPU cache?
+>  
+>  Table: 1 - Edge rate change
+>  ----------------------------------------------------------------|
+> @@ -60,4 +65,5 @@ Example:
+>                  compatible = "ethernet-phy-id0007.0570";
+>                  vsc8531,vddmac		= <3300>;
+>                  vsc8531,edge-slowdown	= <7>;
+> +                vsc8531,downshift-cnt   = <3>;
 
-> That would be preferred, yes. The only snag here is that
-> crypto_alloc_aead() is not guaranteed to return the same algo every
-> time, which means the request size is not guaranteed to be the same
-> either. This is a rare corner case, of course, but it needs to be
-> dealt with regardless
+This doesn't match the above. Also, 'vsc8531' should be the vendor 
+prefix, not a part number. The existing properties are fine, but fix new 
+ones.
 
-Ah, good point. Well I guess you could allocate a bigger one it if it's
-too small, but then we'd have to recalculate the size all the time
-(which we already did anyway, but saving something else would be good).
-Then we'd be close to just having a per-CPU memory block cache though.
-
-johannes
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
