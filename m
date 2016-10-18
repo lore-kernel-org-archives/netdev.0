@@ -1,68 +1,76 @@
-From: Jan Kara <jack@suse.cz>
-Subject: Re: [PATCH 04/10] mm: replace get_user_pages_locked()
- write/force parameters with gup_flags
-Date: Tue, 18 Oct 2016 14:54:25 +0200
-Message-ID: <20161018125425.GD29967@quack2.suse.cz>
-References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-5-lstoakes@gmail.com>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [PATCH] net: dsa: properly disconnect the slave PHYs
+Date: Tue, 18 Oct 2016 14:54:30 +0200
+Message-ID: <a310cfb9-8000-3906-242e-501900d5c8a0@phrozen.org>
+References: <1476792760-60356-1-git-send-email-john@phrozen.org>
+ <20161018122909.GR26778@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
- Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
- Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org,
- linux-mm@kvack.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org,
- linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
- linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>,
- linux-media@vger.kernel.org, Rik van Riel <riel@redhat.com>,
- intel-gfx@lists.freedesktop.org, adi-buildroot-devel@lists.sourceforge.net,
- ceph-devel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>,
- linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
- linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org,
- lin
-To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-Content-Disposition: inline
-In-Reply-To: <20161013002020.3062-5-lstoakes@gmail.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:37884 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759777AbcJRMyf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 08:54:35 -0400
+In-Reply-To: <20161018122909.GR26778@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1IDEzLTEwLTE2IDAxOjIwOjE0LCBMb3JlbnpvIFN0b2FrZXMgd3JvdGU6Cj4gVGhpcyBw
-YXRjaCByZW1vdmVzIHRoZSB3cml0ZSBhbmQgZm9yY2UgcGFyYW1ldGVycyBmcm9tIGdldF91c2Vy
-X3BhZ2VzX2xvY2tlZCgpCj4gYW5kIHJlcGxhY2VzIHRoZW0gd2l0aCBhIGd1cF9mbGFncyBwYXJh
-bWV0ZXIgdG8gbWFrZSB0aGUgdXNlIG9mIEZPTExfRk9SQ0UKPiBleHBsaWNpdCBpbiBjYWxsZXJz
-IGFzIHVzZSBvZiB0aGlzIGZsYWcgY2FuIHJlc3VsdCBpbiBzdXJwcmlzaW5nIGJlaGF2aW91ciAo
-YW5kCj4gaGVuY2UgYnVncykgd2l0aGluIHRoZSBtbSBzdWJzeXN0ZW0uCj4gCj4gU2lnbmVkLW9m
-Zi1ieTogTG9yZW56byBTdG9ha2VzIDxsc3RvYWtlc0BnbWFpbC5jb20+Cj4gLS0tCj4gIGluY2x1
-ZGUvbGludXgvbW0uaCB8ICAyICstCj4gIG1tL2ZyYW1lX3ZlY3Rvci5jICB8ICA4ICsrKysrKyst
-Cj4gIG1tL2d1cC5jICAgICAgICAgICB8IDEyICsrKy0tLS0tLS0tLQo+ICBtbS9ub21tdS5jICAg
-ICAgICAgfCAgNSArKysrLQo+ICA0IGZpbGVzIGNoYW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDEy
-IGRlbGV0aW9ucygtKQo+IAo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L21tLmggYi9pbmNs
-dWRlL2xpbnV4L21tLmgKPiBpbmRleCA2YWRjNGJjLi4yN2FiNTM4IDEwMDY0NAo+IC0tLSBhL2lu
-Y2x1ZGUvbGludXgvbW0uaAo+ICsrKyBiL2luY2x1ZGUvbGludXgvbW0uaAo+IEBAIC0xMjgyLDcg
-KzEyODIsNyBAQCBsb25nIGdldF91c2VyX3BhZ2VzKHVuc2lnbmVkIGxvbmcgc3RhcnQsIHVuc2ln
-bmVkIGxvbmcgbnJfcGFnZXMsCj4gIAkJCSAgICBpbnQgd3JpdGUsIGludCBmb3JjZSwgc3RydWN0
-IHBhZ2UgKipwYWdlcywKPiAgCQkJICAgIHN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqKnZtYXMpOwo+
-ICBsb25nIGdldF91c2VyX3BhZ2VzX2xvY2tlZCh1bnNpZ25lZCBsb25nIHN0YXJ0LCB1bnNpZ25l
-ZCBsb25nIG5yX3BhZ2VzLAo+IC0JCSAgICBpbnQgd3JpdGUsIGludCBmb3JjZSwgc3RydWN0IHBh
-Z2UgKipwYWdlcywgaW50ICpsb2NrZWQpOwo+ICsJCSAgICB1bnNpZ25lZCBpbnQgZ3VwX2ZsYWdz
-LCBzdHJ1Y3QgcGFnZSAqKnBhZ2VzLCBpbnQgKmxvY2tlZCk7CgpIdW0sIHRoZSBwcm90b3R5cGUg
-aXMgaW5jb25zaXN0ZW50IHdpdGggZS5nLiBfX2dldF91c2VyX3BhZ2VzX3VubG9ja2VkKCkKd2hl
-cmUgZ3VwX2ZsYWdzIGNvbWUgYWZ0ZXIgKipwYWdlcyBhcmd1bWVudC4gQWN0dWFsbHkgaXQgbWFr
-ZXMgbW9yZSBzZW5zZQp0byBoYXZlIGl0IGJlZm9yZSAqKnBhZ2VzIHNvIHRoYXQgaW5wdXQgYXJn
-dW1lbnRzIGNvbWUgZmlyc3QgYW5kIG91dHB1dAphcmd1bWVudHMgc2Vjb25kIGJ1dCBJIGRvbid0
-IGNhcmUgdGhhdCBtdWNoLiBCdXQgaXQgZGVmaW5pdGVseSBzaG91bGQgYmUKY29uc2lzdGVudC4u
-LgoKCQkJCQkJCQlIb256YQotLSAKSmFuIEthcmEgPGphY2tAc3VzZS5jb20+ClNVU0UgTGFicywg
-Q1IKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50ZWwt
-Z2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8v
-bGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
+
+
+On 18/10/2016 14:29, Andrew Lunn wrote:
+> On Tue, Oct 18, 2016 at 02:12:40PM +0200, John Crispin wrote:
+>> The shutdown code only stopped the PHYs but does not diconnect them
+>> properly. This could lead to null pointer deref related kernel oopses
+>> during reboot. Fix this by calling phy_disconnect() after the PHYs are
+>> stopped.
+> 
+> Humm, i don't follow this.
+> 
+> The phy is disconnected in dsa_slave_destroy(). Why is that not
+> sufficient?
+> 
+> Also, after calling dsa_slave_close(), dsa_slave_open() can be
+> called. But with your change, the phy has gone, so we are going to
+> have trouble.
+> 
+> 	Andrew
+> 
+
+Hi Andrew
+
+i am testing on v4.4 which did not have a phy_disconnect() call. this
+seems to have been fixed by cda5c15b so please ignore this patch
+
+	John
+
+>>
+>> Signed-off-by: John Crispin <john@phrozen.org>
+>> ---
+>>  net/dsa/slave.c |    4 +++-
+>>  1 file changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+>> index 68714a5..725d9f7 100644
+>> --- a/net/dsa/slave.c
+>> +++ b/net/dsa/slave.c
+>> @@ -154,8 +154,10 @@ static int dsa_slave_close(struct net_device *dev)
+>>  	struct net_device *master = p->parent->dst->master_netdev;
+>>  	struct dsa_switch *ds = p->parent;
+>>  
+>> -	if (p->phy)
+>> +	if (p->phy) {
+>>  		phy_stop(p->phy);
+>> +		phy_disconnect(p->phy);
+>> +	}
+>>  
+>>  	dev_mc_unsync(master, dev);
+>>  	dev_uc_unsync(master, dev);
+>> -- 
+>> 1.7.10.4
+>>
