@@ -1,70 +1,50 @@
-From: Patrice Chotard <patrice.chotard-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [STLinux Kernel] [PATCH 18/19] stmmac: dwmac-sti: Remove obsolete
- STi platforms
-Date: Tue, 18 Oct 2016 10:59:15 +0200
-Message-ID: <7b0ce054-b30b-3a8e-23b9-ca3a33a55e31@st.com>
-References: <1473859677-9231-1-git-send-email-peter.griffin@linaro.org>
- <1473859677-9231-19-git-send-email-peter.griffin@linaro.org>
- <20160923151142.GG9176@rob-hp-laptop>
- <dcbb8065-b272-0a2f-8efb-c55217712caf@st.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] tcp: Remove unused but set variable
+Date: Tue, 18 Oct 2016 11:22:54 +0200
+Message-ID: <20161018092254.28043-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <kernel-F5mvAk5X5gdBDgjK7y7TUQ@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Peter Griffin <peter.griffin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Peppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <dcbb8065-b272-0a2f-8efb-c55217712caf-qxv4g6HH51o@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.zhinst.com ([212.126.164.98]:53020 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934043AbcJRJXA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 05:23:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Remove the unused but set variable icsk in listening_get_next to fix the
+following GCC warning when building with 'W=1':
 
+  net/ipv4/tcp_ipv4.c: In function ‘listening_get_next’:
+  net/ipv4/tcp_ipv4.c:1890:31: warning: variable ‘icsk’ set but not used [-Wunused-but-set-variable]
 
-On 10/18/2016 10:05 AM, Patrice Chotard wrote:
-> 
-> 
-> On 09/23/2016 05:11 PM, Rob Herring wrote:
->> On Wed, Sep 14, 2016 at 02:27:56PM +0100, Peter Griffin wrote:
->>> This patch removes support for STiH415/6 SoC's from the
->>> dwmac-sti driver and dt binding doc, as support for these
->>> platforms is being removed from the kernel. It also removes
->>> STiD127 related code, which has never actually been supported
->>> upstream.
->>>
->>> Signed-off-by: Peter Griffin <peter.griffin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
->>> Cc: <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
->>> Cc: <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
->>> Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
->>> ---
->>>  .../devicetree/bindings/net/sti-dwmac.txt          |  3 +-
->>
->> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> 
-> 
-> Applied on sti-dt-for-4.10 branch
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ net/ipv4/tcp_ipv4.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-
-Sorry, i did a mistake, these patch should go in stmmac tree.
-Peppe or Alexandre will you take care of it ?
-
-Thanks
-> 
-> Thanks 
-> 
->>
->>>  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 37 ----------------------
->>>  2 files changed, 1 insertion(+), 39 deletions(-)
-> 
-> _______________________________________________
-> Kernel mailing list
-> Kernel-F5mvAk5X5gdBDgjK7y7TUQ@public.gmane.org
-> http://www.stlinux.com/mailman/listinfo/kernel
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index bd5e8d10893f..79d55eb3ec3f 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1887,7 +1887,6 @@ static void *listening_get_next(struct seq_file *seq, void *cur)
+ 	struct tcp_iter_state *st = seq->private;
+ 	struct net *net = seq_file_net(seq);
+ 	struct inet_listen_hashbucket *ilb;
+-	struct inet_connection_sock *icsk;
+ 	struct sock *sk = cur;
+ 
+ 	if (!sk) {
+@@ -1909,7 +1908,6 @@ static void *listening_get_next(struct seq_file *seq, void *cur)
+ 			continue;
+ 		if (sk->sk_family == st->family)
+ 			return sk;
+-		icsk = inet_csk(sk);
+ 	}
+ 	spin_unlock_bh(&ilb->lock);
+ 	st->offset = 0;
+-- 
+2.9.0
