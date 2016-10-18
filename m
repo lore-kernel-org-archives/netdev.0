@@ -1,65 +1,45 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] bridge: multicast: restore perm router ports on
- multicast enable
-Date: Tue, 18 Oct 2016 16:16:45 +0200
-Message-ID: <0cdace0f-ac89-6ac5-c8ab-40b8490bed62@cumulusnetworks.com>
-References: <1476796238-9384-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC PATCH 2/2] mac80211: aes_ccm: cache AEAD request structures
+ per CPU
+Date: Tue, 18 Oct 2016 15:18:26 +0100
+Message-ID: <CAKv+Gu8aE4AfewHeMDf2RQfJtSsrp6Fb1A_ygFsqEwpyP6hDjQ@mail.gmail.com>
+References: <1476799713-16188-1-git-send-email-ard.biesheuvel@linaro.org>
+ <1476799713-16188-3-git-send-email-ard.biesheuvel@linaro.org> <1476800194.6425.35.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:32815 "EHLO
-        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759876AbcJROQt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 10:16:49 -0400
-Received: by mail-lf0-f46.google.com with SMTP id x79so358599346lff.0
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 07:16:48 -0700 (PDT)
-In-Reply-To: <1476796238-9384-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+        Jouni Malinen <j@w1.fi>, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476800194.6425.35.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 18/10/16 15:10, Nikolay Aleksandrov wrote:
-> Satish reported a problem with the perm multicast router ports not getting
-> reenabled after some series of events, in particular if it happens that the
-> multicast snooping has been disabled and the port goes to disabled state
-> then it will be deleted from the router port list, but if it moves into
-> non-disabled state it will not be re-added because the mcast snooping is
-> still disabled, and enabling snooping later does nothing.
-> 
-> Here are the steps to reproduce, setup br0 with snooping enabled and eth1
-> added as a perm router (multicast_router = 2):
-> 1. $ echo 0 > /sys/class/net/br0/bridge/multicast_snooping
-> 2. $ ip l set eth1 down
-> ^ This step deletes the interface from the router list
-> 3. $ ip l set eth1 up
-> ^ This step does not add it again because mcast snooping is disabled
-> 4. $ echo 1 > /sys/class/net/br0/bridge/multicast_snooping
-> 5. $ bridge -d -s mdb show
-> <empty>
-> 
-> At this point we have mcast enabled and eth1 as a perm router (value = 2)
-> but it is not in the router list which is incorrect.
-> 
-> After this change:
-> 1. $ echo 0 > /sys/class/net/br0/bridge/multicast_snooping
-> 2. $ ip l set eth1 down
-> ^ This step deletes the interface from the router list
-> 3. $ ip l set eth1 up
-> ^ This step does not add it again because mcast snooping is disabled
-> 4. $ echo 1 > /sys/class/net/br0/bridge/multicast_snooping
-> 5. $ bridge -d -s mdb show
-> router ports on br0: eth1
-> 
-> Fixes: 561f1103a2b7 ("bridge: Add multicast_snooping sysfs toggle")
-> Reported-by: Satish Ashok <sashok@cumulusnetworks.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
->  net/bridge/br_multicast.c | 18 +++++++++++++++++-
->  1 file changed, 17 insertions(+), 1 deletion(-)
-> 
+On 18 October 2016 at 15:16, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Tue, 2016-10-18 at 15:08 +0100, Ard Biesheuvel wrote:
+>>
+>> +     aead_req = *this_cpu_ptr(ccmp->reqs);
+>> +     if (!aead_req) {
+>> +             aead_req = kzalloc(reqsize + CCM_AAD_LEN, GFP_ATOMIC);
+>> +             if (!aead_req)
+>> +                     return -ENOMEM;
+>> +             *this_cpu_ptr(ccmp->reqs) = aead_req;
+>> +             aead_request_set_tfm(aead_req, ccmp->tfm);
+>> +     }
+>
+> Hmm. Is it really worth having a per-CPU variable for each possible
+> key? You could have a large number of those (typically three when
+> you're a client on an AP, and 1 + 1 for each client when you're the
+> AP).
+>
+> Would it be so bad to have to set the TFM every time (if that's even
+> possible), and just have a single per-CPU cache?
+>
 
-Self-NAK. I sent an older version of the patch, v2 coming up.
-Sorry for the noise.
+That would be preferred, yes. The only snag here is that
+crypto_alloc_aead() is not guaranteed to return the same algo every
+time, which means the request size is not guaranteed to be the same
+either. This is a rare corner case, of course, but it needs to be
+dealt with regardless
