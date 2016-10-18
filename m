@@ -1,29 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Useless debug warning "netlink: 16 bytes leftover after parsing
- attributes"
-Date: Tue, 18 Oct 2016 07:06:50 +0200
-Message-ID: <0756CFFC-5BF7-4685-A1E2-0D88B2898454@holtmann.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.0 \(3226\))
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 00/28] Reenable maybe-uninitialized warnings
+Date: Mon, 17 Oct 2016 22:08:04 -0700
+Message-ID: <20161018050804.GA9902@infradead.org>
+References: <20161017220342.1627073-1-arnd@arndb.de>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Michal Schmidt <mschmidt@redhat.com>
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([212.227.132.17]:49923 "EHLO
-        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755038AbcJRFGx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 01:06:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        linux-kernel@vger.kernel.org, x86@kernel.org,
+        linux-media@vger.kernel.org,
+        Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        linux-s390@vger.kernel.org, Ilya Dryomov <idryomov@gmail.com>,
+        dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        linux-crypto@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        ceph-devel@vger.kernel.org, linux-f2fs-devel@lists.sourceforge.net,
+        linux-ext4@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-ext4-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161017220342.1627073-1-arnd@arndb.de>
+Sender: linux-ext4-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Oct 18, 2016 at 12:03:28AM +0200, Arnd Bergmann wrote:
+> This is a set of patches that I hope to get into v4.9 in some form
+> in order to turn on the -Wmaybe-uninitialized warnings again.
 
-so lately I am seeing a bunch of these warnings:
+Hi Arnd,
 
-netlink: 16 bytes leftover after parsing attributes..
-
-While they give you the process name, they are still useless to track down the message that causes them. I find them even more useless since an updated userspace on an older kernel can trigger the nla_policy warning here. And that updated userspace program is doing nothing wrong by including extra attributes. So what purpose is this warning serving?
-
-Regards
-
-Marcel
+I jsut complained to Geert that I was introducing way to many
+bugs or pointless warnings for some compilers lately, but gcc didn't
+warn me about them.  From a little research the lack of
+-Wmaybe-uninitialized seems to be the reason for it, so I'm all
+for re-enabling it.
