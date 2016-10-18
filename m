@@ -1,7 +1,7 @@
 From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Subject: [PATCH net-next 04/11] IB/core: Flip to the new dev walk API
-Date: Mon, 17 Oct 2016 19:15:46 -0700
-Message-ID: <1476756953-30923-5-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 08/11] rocker: Flip to the new dev walk API
+Date: Mon, 17 Oct 2016 19:15:50 -0700
+Message-ID: <1476756953-30923-9-git-send-email-dsa@cumulusnetworks.com>
 References: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
         hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -14,104 +14,66 @@ In-Reply-To: <1476756953-30923-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrv
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Convert rdma_is_upper_dev_rcu, handle_netdev_upper and
-ipoib_get_net_dev_match_addr to the new upper device walk API.
-This is just a code conversion; no functional change is intended.
+Convert rocker to the new dev walk API. This is just a code conversion;
+no functional change is intended.
 
 v2
 - removed typecast of data
 
 Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
 ---
- drivers/infiniband/core/core_priv.h     |  9 +------
- drivers/infiniband/core/roce_gid_mgmt.c | 42 ++++++++++++++++++---------------
- 2 files changed, 24 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/rocker/rocker_main.c | 31 ++++++++++++++++++++++++-------
+ 1 file changed, 24 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/infiniband/core/core_priv.h b/drivers/infiniband/core/core_priv.h
-index 19d499dcab76..0c0bea091de8 100644
---- a/drivers/infiniband/core/core_priv.h
-+++ b/drivers/infiniband/core/core_priv.h
-@@ -127,14 +127,7 @@ void ib_cache_release_one(struct ib_device *device);
- static inline bool rdma_is_upper_dev_rcu(struct net_device *dev,
- 					 struct net_device *upper)
- {
--	struct net_device *_upper = NULL;
--	struct list_head *iter;
--
--	netdev_for_each_all_upper_dev_rcu(dev, _upper, iter)
--		if (_upper == upper)
--			break;
--
--	return _upper == upper;
-+	return netdev_has_upper_dev_all_rcu(dev, upper);
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 5424fb341613..5deb25f26e5f 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -2839,20 +2839,37 @@ static bool rocker_port_dev_check_under(const struct net_device *dev,
+ 	return true;
  }
  
- int addr_init(void);
-diff --git a/drivers/infiniband/core/roce_gid_mgmt.c b/drivers/infiniband/core/roce_gid_mgmt.c
-index 06556c34606d..3a64a0881882 100644
---- a/drivers/infiniband/core/roce_gid_mgmt.c
-+++ b/drivers/infiniband/core/roce_gid_mgmt.c
-@@ -437,6 +437,28 @@ static void callback_for_addr_gid_device_scan(struct ib_device *device,
- 			  &parsed->gid_attr);
- }
- 
-+struct upper_list {
-+	struct list_head list;
-+	struct net_device *upper;
++struct rocker_walk_data {
++	struct rocker *rocker;
++	struct rocker_port *port;
 +};
 +
-+static int netdev_upper_walk(struct net_device *upper, void *data)
++static int rocker_lower_dev_walk(struct net_device *lower_dev, void *_data)
 +{
-+	struct upper_list *entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
-+	struct list_head *upper_list = data;
++	struct rocker_walk_data *data = _data;
++	int ret = 0;
 +
-+	if (!entry) {
-+		pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
-+		return 0;
++	if (rocker_port_dev_check_under(lower_dev, data->rocker)) {
++		data->port = netdev_priv(lower_dev);
++		ret = 1;
 +	}
 +
-+	list_add_tail(&entry->list, upper_list);
-+	dev_hold(upper);
-+	entry->upper = upper;
-+
-+	return 0;
++	return ret;
 +}
 +
- static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
- 				void *cookie,
- 				void (*handle_netdev)(struct ib_device *ib_dev,
-@@ -444,30 +466,12 @@ static void handle_netdev_upper(struct ib_device *ib_dev, u8 port,
- 						      struct net_device *ndev))
+ struct rocker_port *rocker_port_dev_lower_find(struct net_device *dev,
+ 					       struct rocker *rocker)
  {
- 	struct net_device *ndev = (struct net_device *)cookie;
--	struct upper_list {
--		struct list_head list;
--		struct net_device *upper;
--	};
--	struct net_device *upper;
+-	struct net_device *lower_dev;
 -	struct list_head *iter;
- 	struct upper_list *upper_iter;
- 	struct upper_list *upper_temp;
- 	LIST_HEAD(upper_list);
++	struct rocker_walk_data data;
  
- 	rcu_read_lock();
--	netdev_for_each_all_upper_dev_rcu(ndev, upper, iter) {
--		struct upper_list *entry = kmalloc(sizeof(*entry),
--						   GFP_ATOMIC);
--
--		if (!entry) {
--			pr_info("roce_gid_mgmt: couldn't allocate entry to delete ndev\n");
--			continue;
--		}
--
--		list_add_tail(&entry->list, &upper_list);
--		dev_hold(upper);
--		entry->upper = upper;
+ 	if (rocker_port_dev_check_under(dev, rocker))
+ 		return netdev_priv(dev);
+ 
+-	netdev_for_each_all_lower_dev(dev, lower_dev, iter) {
+-		if (rocker_port_dev_check_under(lower_dev, rocker))
+-			return netdev_priv(lower_dev);
 -	}
-+	netdev_walk_all_upper_dev_rcu(ndev, netdev_upper_walk, &upper_list);
- 	rcu_read_unlock();
+-	return NULL;
++	data.rocker = rocker;
++	data.port = NULL;
++	netdev_walk_all_lower_dev(dev, rocker_lower_dev_walk, &data);
++
++	return data.port;
+ }
  
- 	handle_netdev(ib_dev, port, ndev);
+ static int rocker_netdevice_event(struct notifier_block *unused,
 -- 
 2.1.4
 
