@@ -1,149 +1,131 @@
-From: Juerg Haefliger <juerg.haefliger@hpe.com>
-Subject: Re: [PATCH net v2 0/3] Tunneling fixes
-Date: Tue, 18 Oct 2016 18:03:28 +0200
-Message-ID: <2320b0ab-b48c-292a-52d0-8e2db3ccf521@hpe.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="lUcBAcbRphpWalkuEw3DnqGr4QLAlSMBr"
-Cc: netdev@vger.kernel.org, Juerg Haefliger <juerg.haefliger@hpe.com>
-To: jesse@kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net v2] bridge: multicast: restore perm router ports on multicast enable
+Date: Tue, 18 Oct 2016 18:09:48 +0200
+Message-ID: <1476806988-20557-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <1476796238-9384-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: sashok@cumulusnetworks.com, roopa@cumulusnetworks.com,
+        herbert@gondor.apana.org.au, stephen@networkplumber.org,
+        davem@davemloft.net,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:55144 "EHLO
-        g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936072AbcJRQDj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 12:03:39 -0400
-Received: from g2t2352.austin.hpe.com (g2t2352.austin.hpe.com [15.233.44.25])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id 961EB1C72
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 16:03:32 +0000 (UTC)
-In-Reply-To: 
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:33158 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030230AbcJRQJ5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 12:09:57 -0400
+Received: by mail-wm0-f54.google.com with SMTP id g16so308723wmg.0
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 09:09:56 -0700 (PDT)
+In-Reply-To: <1476796238-9384-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---lUcBAcbRphpWalkuEw3DnqGr4QLAlSMBr
-Content-Type: multipart/mixed; boundary="GCScLJxnu6UFuqsBcQFmONXW6T1wdOJTc";
- protected-headers="v1"
-From: Juerg Haefliger <juerg.haefliger@hpe.com>
-To: jesse@kernel.org
-Cc: netdev@vger.kernel.org, Juerg Haefliger <juerg.haefliger@hpe.com>
-Message-ID: <2320b0ab-b48c-292a-52d0-8e2db3ccf521@hpe.com>
-Subject: Re: [PATCH net v2 0/3] Tunneling fixes
+Satish reported a problem with the perm multicast router ports not getting
+reenabled after some series of events, in particular if it happens that the
+multicast snooping has been disabled and the port goes to disabled state
+then it will be deleted from the router port list, but if it moves into
+non-disabled state it will not be re-added because the mcast snooping is
+still disabled, and enabling snooping later does nothing.
 
---GCScLJxnu6UFuqsBcQFmONXW6T1wdOJTc
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Here are the steps to reproduce, setup br0 with snooping enabled and eth1
+added as a perm router (multicast_router = 2):
+1. $ echo 0 > /sys/class/net/br0/bridge/multicast_snooping
+2. $ ip l set eth1 down
+^ This step deletes the interface from the router list
+3. $ ip l set eth1 up
+^ This step does not add it again because mcast snooping is disabled
+4. $ echo 1 > /sys/class/net/br0/bridge/multicast_snooping
+5. $ bridge -d -s mdb show
+<empty>
 
-> This series fixes a problem that was reported where encapsulated packet=
-s
-> do not have their encapsulation offload markers stripped off when being=
+At this point we have mcast enabled and eth1 as a perm router (value = 2)
+but it is not in the router list which is incorrect.
 
-> decapsulated. This causes a significant performance drop if the packets=
+After this change:
+1. $ echo 0 > /sys/class/net/br0/bridge/multicast_snooping
+2. $ ip l set eth1 down
+^ This step deletes the interface from the router list
+3. $ ip l set eth1 up
+^ This step does not add it again because mcast snooping is disabled
+4. $ echo 1 > /sys/class/net/br0/bridge/multicast_snooping
+5. $ bridge -d -s mdb show
+router ports on br0: eth1
 
-> are later retransmitted.
->
-> Fixing this revealed two other bugs which are also addressed as prerequ=
-isites:
->  * GRO can aggregate packets for multiple layers of encapsulation which=
- the
->    stack cannot properly handle.
->  * IPIP packets which are combined by GRO are not marked properly with =
-their
->    GSO type.
->
-> Note that this is based off the net-next tree as the current target for=
+Note: we can directly do br_multicast_enable_port for all because the
+querier timer already has checks for the port state and will simply
+expire if it's in blocking/disabled. See the comment added by
+commit 9aa66382163e7 ("bridge: multicast: add a comment to
+br_port_state_selection about blocking state")
 
-> bug fixes.
+Fixes: 561f1103a2b7 ("bridge: Add multicast_snooping sysfs toggle")
+Reported-by: Satish Ashok <sashok@cumulusnetworks.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v2: just call br_multicast_enable_port for all ports and use
+br_multicast_open
 
-I need to backport this series to the 4.4 kernel to fix a performance iss=
-ue we're seeing. The series
-applies but commit a09a4c8dd1ec (tunnels: Remove encapsulation offloads o=
-n decap) breaks compilation
-when CONFIG_IPV6_SIT is enabled. This is because the patch uses iptunnel_=
-pull_header() whose usage
-changed with commit 7f290c94352e (iptunnel: scrub packet in iptunnel_pull=
-_header) which is not in 4.4.
+ net/bridge/br_multicast.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
 
-7f290c94352e seems to be a cleanup patch which also requires c9e78efb6f66=
- (vxlan: move vxlan device
-lookup before iptunnel_pull_header) and potentially others. Rather than p=
-ulling in a slew of cleanup
-patches, I was wondering if the following from commit a09a4c8dd1ec can be=
- rewritten without using
-the 'new' iptunnel_pull_header() function:
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index f45b8ffc2840..83384308d032 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -681,14 +681,16 @@ static int ipip6_rcv(struct sk_buff *skb)
-                skb->mac_header =3D skb->network_header;
-                skb_reset_network_header(skb);
-                IPCB(skb)->flags =3D 0;
--               skb->protocol =3D htons(ETH_P_IPV6);
-+               skb->dev =3D tunnel->dev;
-
-                if (packet_is_spoofed(skb, iph, tunnel)) {
-                        tunnel->dev->stats.rx_errors++;
-                        goto out;
-                }
-
--               __skb_tunnel_rx(skb, tunnel->dev, tunnel->net);
-+               if (iptunnel_pull_header(skb, 0, htons(ETH_P_IPV6),
-+                   !net_eq(tunnel->net, dev_net(tunnel->dev))))
-+                       goto out;
-
-
-Thanks
-=2E..Juerg
-
-
-> v2: No code changes, just additional information in commit messages and=
-
->     a new cover letter.
->
-> Jesse Gross (3):
->   ipip: Properly mark ipip GRO packets as encapsulated.
->   tunnels: Don't apply GRO to multiple layers of encapsulation.
->   tunnels: Remove encapsulation offloads on decap.
->
->  include/linux/netdevice.h |  4 ++--
->  include/net/ip_tunnels.h  | 16 ++++++++++++++++
->  net/core/dev.c            |  2 +-
->  net/ipv4/af_inet.c        | 24 ++++++++++++++++++++++--
->  net/ipv4/fou.c            | 13 +++++++++++--
->  net/ipv4/gre_offload.c    |  5 +++++
->  net/ipv4/ip_tunnel_core.c |  3 ++-
->  net/ipv4/udp_offload.c    |  6 +++---
->  net/ipv6/ip6_offload.c    | 15 ++++++++++++++-
->  net/ipv6/sit.c            |  6 ++++--
->  10 files changed, 80 insertions(+), 14 deletions(-)
-
-
---GCScLJxnu6UFuqsBcQFmONXW6T1wdOJTc--
-
---lUcBAcbRphpWalkuEw3DnqGr4QLAlSMBr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJYBkfQAAoJEHVMOpb5+LSMHL0P/3w2M+F/N+5UGQM8nEwlqwPY
-EuLzAcu4m3Vr9lUzCOZWrP8X1HM+DeQqvf+2TR69rFa82cSE1pNEaUclqFYMxd62
-guDwzlR4ETrt2QqexxNE1SDL2r4poCR+yK7ptbnkEfrWMeVjJlPaswnilnsuoWNK
-IgpughZMLp4KrFnvNl29rekvk6WdiEuKe+pLfe0vO0VxsHUt+LIvgMEC2ARp8iHP
-LqKflxfSodHeqad3PGcoIQAIT1LwpnI1Z4tWXIYJjlrT9OLpguWcrgKpIUj1Lw++
-N7rOFzasjjd2UZwDigSRLV73J6vn1tJHigBcvPvw0js/DhJIjA32CYOe0XzaW7Tr
-Ov5JlES7J/jQywYHZ5ZCGgYItQgWrhur4/vTDbJ0K/Xl9LgeR+ZaZu2EWH22Jeqy
-YnVXYHHaFJB7gmumYbpH/YD0F/74uOy+HLC06saKmz5Up+UTwXWZPH8/MD7xqK0f
-2S7VfqHnFE29YtvYcRzeIXe/d52J+AWUQHX9EBFmafMKLGR9R+dn7x0jwH3hAQy4
-ukzaLS42l742DQEsziaZJ6KO2mDYqORXQc+sVzSs1eVi31DFsVhv+pihFD1M28sn
-OR7k6a2ltYMjx9jX6AyZEhmtY83vWRwgaU9xt6LpT4fx9fE7IQQQ6WfxSt10tCDD
-hHPLuvSnOiBtJ1kHL5nQ
-=zof3
------END PGP SIGNATURE-----
-
---lUcBAcbRphpWalkuEw3DnqGr4QLAlSMBr--
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index c5fea9393946..2136e45f5277 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -972,13 +972,12 @@ static void br_multicast_enable(struct bridge_mcast_own_query *query)
+ 		mod_timer(&query->timer, jiffies);
+ }
+ 
+-void br_multicast_enable_port(struct net_bridge_port *port)
++static void __br_multicast_enable_port(struct net_bridge_port *port)
+ {
+ 	struct net_bridge *br = port->br;
+ 
+-	spin_lock(&br->multicast_lock);
+ 	if (br->multicast_disabled || !netif_running(br->dev))
+-		goto out;
++		return;
+ 
+ 	br_multicast_enable(&port->ip4_own_query);
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -987,8 +986,14 @@ void br_multicast_enable_port(struct net_bridge_port *port)
+ 	if (port->multicast_router == MDB_RTR_TYPE_PERM &&
+ 	    hlist_unhashed(&port->rlist))
+ 		br_multicast_add_router(br, port);
++}
+ 
+-out:
++void br_multicast_enable_port(struct net_bridge_port *port)
++{
++	struct net_bridge *br = port->br;
++
++	spin_lock(&br->multicast_lock);
++	__br_multicast_enable_port(port);
+ 	spin_unlock(&br->multicast_lock);
+ }
+ 
+@@ -1994,8 +1999,9 @@ static void br_multicast_start_querier(struct net_bridge *br,
+ 
+ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
+ {
+-	int err = 0;
+ 	struct net_bridge_mdb_htable *mdb;
++	struct net_bridge_port *port;
++	int err = 0;
+ 
+ 	spin_lock_bh(&br->multicast_lock);
+ 	if (br->multicast_disabled == !val)
+@@ -2023,10 +2029,9 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
+ 			goto rollback;
+ 	}
+ 
+-	br_multicast_start_querier(br, &br->ip4_own_query);
+-#if IS_ENABLED(CONFIG_IPV6)
+-	br_multicast_start_querier(br, &br->ip6_own_query);
+-#endif
++	br_multicast_open(br);
++	list_for_each_entry(port, &br->port_list, list)
++		__br_multicast_enable_port(port);
+ 
+ unlock:
+ 	spin_unlock_bh(&br->multicast_lock);
+-- 
+2.1.4
