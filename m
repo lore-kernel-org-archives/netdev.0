@@ -1,31 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] sched, cls: don't dump kernel addr into tc monitors
- on delete event
-Date: Tue, 18 Oct 2016 16:14:09 -0700
-Message-ID: <CAM_iQpW4RdVo72=nQVaehkUCA98yq8+PyFQUTxis-Bx7XgVkFw@mail.gmail.com>
-References: <f7e28cd6ec298a90dc33fcc85e7361eb92025690.1476821268.git.daniel@iogearbox.net>
- <c02ce4f1-ba99-f54c-d35d-ca81cc771c8a@mojatatu.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Need help parsing dropwatch results
+Date: Tue, 18 Oct 2016 18:57:24 -0500
+Message-ID: <5806B6E4.1050004@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35190 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751635AbcJRXOa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 19:14:30 -0400
-Received: by mail-io0-f195.google.com with SMTP id p26so680894ioo.2
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 16:14:30 -0700 (PDT)
-In-Reply-To: <c02ce4f1-ba99-f54c-d35d-ca81cc771c8a@mojatatu.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:55422 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754907AbcJRX50 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 19:57:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 18, 2016 at 2:21 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> I was sitting on this patch I was going to send ;->
-> Does this resolve it?
+Using iperf3 and dropwatch, I discovered that my EMAC driver is dropping 
+packets, a lot of them.  This driver is based on an internal version 
+(written by someone else) that does not have this problem, so obviously 
+there's a bug in my driver.  Unfortunately, I need help understanding 
+where in my driver the bug could be.
 
-Your patch makes more sense to me. Maybe we can remove the
-event != RTM_DELTFILTER special case too?
+dropwatch display this:
+
+3297 drops at net_tx_action+0 (0xffff000008aa1108)
+3671 drops at net_tx_action+0 (0xffff000008aa1108)
+4055 drops at net_tx_action+0 (0xffff000008aa1108)
+3976 drops at net_tx_action+0 (0xffff000008aa1108)
+3847 drops at net_tx_action+0 (0xffff000008aa1108)
+3933 drops at net_tx_action+0 (0xffff000008aa1108)
+3933 drops at net_tx_action+0 (0xffff000008aa1108)
+1376 drops at net_tx_action+0 (0xffff000008aa1108)
+
+Can someone tell me what "drops at net_tx_action+0" actually means? How 
+does a packet drop at net_tx_action() actually occur?  Where in the 
+driver should I look for the problem?
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
