@@ -1,69 +1,87 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFC 3/6] net: phy: Threaded interrupts allow some
- simplification
-Date: Tue, 18 Oct 2016 13:37:11 +0300
-Message-ID: <a3e6b467-9e44-1ed5-65ce-63c839dd3365@cogentembedded.com>
-References: <1475051544-18561-1-git-send-email-andrew@lunn.ch>
- <1475051544-18561-4-git-send-email-andrew@lunn.ch>
- <7997d337-cd0f-ab39-1f53-df996063932b@cogentembedded.com>
- <af8f7c76-f2fe-95ac-4151-0189baf84a53@cogentembedded.com>
- <20160928122835.GB22809@lunn.ch>
- <891f6b60-47a0-ba03-d6d3-8284993d1896@cogentembedded.com>
- <06bdfcb4-8bb6-28e6-00e5-2518f79f729d@gmail.com>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: [PATCH net-next 1/2] net: phy: Add Speed downshift set driver
+ for Microsemi PHYs.
+Date: Tue, 18 Oct 2016 16:11:48 +0530
+Message-ID: <20161018104147.GB31087@microsemi.com>
+References: <1476445233-26524-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <1476445233-26524-2-git-send-email-Raju.Lakkaraju@microsemi.com>
+ <20161014121232.GH5822@lunn.ch>
+ <20161017073152.GA2365@microsemi.com>
+ <A80DFF63-2C6B-4113-AA7D-AEEC0150EAF2@gmail.com>
+Reply-To: <Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andrew Lunn <andrew@lunn.ch>, <netdev@vger.kernel.org>,
+        <devicetree@vger.kernel.org>, <Allan.Nielsen@microsemi.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:33222 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752803AbcJRKhN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 06:37:13 -0400
-Received: by mail-lf0-f47.google.com with SMTP id x79so348643553lff.0
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 03:37:13 -0700 (PDT)
-In-Reply-To: <06bdfcb4-8bb6-28e6-00e5-2518f79f729d@gmail.com>
+Received: from mail-sn1nam01on0052.outbound.protection.outlook.com ([104.47.32.52]:44638
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752803AbcJRKmA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 06:42:00 -0400
+Content-Disposition: inline
+In-Reply-To: <A80DFF63-2C6B-4113-AA7D-AEEC0150EAF2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Hi Florian,
 
-On 9/28/2016 8:14 PM, Florian Fainelli wrote:
+Thank you for review comments.
 
->>>>>> The PHY interrupts are now handled in a threaded interrupt handler,
->>>>>> which can sleep. The work queue is no longer needed, phy_change() can
->>>>>> be called directly. Additionally, none of the callers of
->>>>>> phy_mac_interrupt() did so in interrupt context, so fully remove the
->>>>>
->>>>>   I did intend to call it from interrupt context (from the ravb
->>>>> driver).
->>>>>
->>>>>> work queue, and document that phy_mac_interrupt() should not be called
->>>>>> in interrupt context.
->>>>>
->>>>>   It was intentionally made callable from the interrupt context, I'd
->>>>> prefer
->>>>> if you wouldn't change that.
->>>>
->>>>    OTOH, it's still not very handy to call because of the 'new_link'
->>>> parameter which I'm not sure I can provide...
->>>
->>> Hi Sergei
->>>
->>> If there is a need for it, i will leave the work queue and keep this
->>> code unchanged.
->>
->>    Let's hear what Florian says...
->
-> The intent is really to have phy_mac_interrupt() callable from hard IRQ
-> context, not that this matters really too much because link events
-> already occur in the slow path, but it's nice to have that property
-> retained IMHO.
+On Mon, Oct 17, 2016 at 05:38:46AM -0700, Florian Fainelli wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> On October 17, 2016 12:31:54 AM PDT, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com> wrote:
+> >Hi Andrew,
+> >
+> >Thank you for code review and comments.
+> >
+> >On Fri, Oct 14, 2016 at 02:12:32PM +0200, Andrew Lunn wrote:
+> >> EXTERNAL EMAIL
+> >>
+> >>
+> >> On Fri, Oct 14, 2016 at 05:10:32PM +0530, Raju Lakkaraju wrote:
+> >> > From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> >> >
+> >> > For operation in cabling environments that are incompatible with
+> >> > 1000BAST-T, VSC8531 device provides an automatic link speed
+> >> > downshift operation. When enabled, the device automatically changes
+> >> > its 1000BAST-T auto-negotiation to the next slower speed after
+> >> > a configured number of failed attempts at 1000BAST-T.
+> >> > This feature is useful in setting up in networks using older cable
+> >> > installations that include only pairs A and B, and not pairs C and
+> >D.
+> >>
+> >> Any reason not to just turn this on by default when auto-neg is
+> >> enabled?
+> >>
+> >Downshift can enable by default when auto-neg enabled. This is good
+> >idea.
+> >But we would like to provide option to customer can choose whether this
+> >feature need to enable or disable and also configure failure attempts.
+> >
+> >Do you have any other suggestion how to configure failure attempts?
+> 
+> Is the speed downshift feature similar to what Intel and Broadcom refer to as wirespeed? I have seen cases with Broadcom PHYs where we had to turn such a feature on to allow auto-negotiation to complete with 4-wire cables, but this had the downside of impacting normal autoneg, so it is left disabled.
+> 
 
-    Actually, I still don't know how to call phy_mac_interrupt() from the ravb 
-driver because of the 'new_link' parameter -- I won't always have that signal 
-connected to the MAC...
+Yes. I check the Broadcom wirespeed code. Downshift is similar to wirespeed.
+But Broadcom wirespeed configuration in Ethernet controller. 
 
-MBR, Sergei
+> I would expect the number of customers using this feature to be fairly limited, so having a tunable to turn this downshift on/off may be acceptable. Ethtool supports a number of tunable parameters now (such as rx_copybreak), there may be room for using something similar for boolean flags like these.
+> 
+
+This implementation shows little bit specific to Ethernet controller.
+Do you have any PHY specific examples?
+
+In another mail thread, you proposed similar to net device features.
+Shall i implement that suggestion here?
+
+> --
+> Florian
+
+---
+Thanks,
+Raju.
