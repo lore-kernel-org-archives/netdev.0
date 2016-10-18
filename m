@@ -1,158 +1,145 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v3 net-next 00/11] net: Fix netdev adjacency tracking
-Date: Mon, 17 Oct 2016 19:15:42 -0700
-Message-ID: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
-        j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        David Ahern <dsa@cumulusnetworks.com>
-To: jiri@mellanox.com, netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36832 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753416AbcJRCQz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2016 22:16:55 -0400
-Received: by mail-pf0-f173.google.com with SMTP id e6so85876882pfk.3
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2016 19:16:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Subject: [PATCH net-next 01/11] net: Remove refnr arg when inserting link adjacencies
+Date: Mon, 17 Oct 2016 19:15:43 -0700
+Message-ID: <1476756953-30923-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org,
+        David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+To: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476756953-30923-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The netdev adjacency tracking is failing to create proper dependencies
-for some topologies. For example this topology
+Commit 93409033ae65 ("net: Add netdev all_adj_list refcnt propagation to
+fix panic") propagated the refnr to insert and remove functions tracking
+the netdev adjacency graph. However, for the insert path the refnr can
+only be 1. Accordingly, remove the refnr argument to make that clear.
+ie., the refnr arg in 93409033ae65 was only needed for the remove path.
 
-        +--------+
-        |  myvrf |
-        +--------+
-          |    |
-          |  +---------+
-          |  | macvlan |
-          |  +---------+
-          |    |
-      +----------+
-      |  bridge  |
-      +----------+
-          |
-      +--------+
-      | bond1  |
-      +--------+
-          |
-      +--------+
-      |  eth3  |
-      +--------+
+Signed-off-by: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
+---
+ net/core/dev.c | 27 ++++++++++++---------------
+ 1 file changed, 12 insertions(+), 15 deletions(-)
 
-hits 1 of 2 problems depending on the order of enslavement. The base set of
-commands for both cases:
-
-    ip link add bond1 type bond
-    ip link set bond1 up
-    ip link set eth3 down
-    ip link set eth3 master bond1
-    ip link set eth3 up
-
-    ip link add bridge type bridge
-    ip link set bridge up
-    ip link add macvlan link bridge type macvlan
-    ip link set macvlan up
-
-    ip link add myvrf type vrf table 1234
-    ip link set myvrf up
-
-    ip link set bridge master myvrf
-
-Case 1 enslave macvlan to the vrf before enslaving the bond to the bridge:
-
-    ip link set macvlan master myvrf
-    ip link set bond1 master bridge
-
-Attempts to delete the VRF:
-    ip link delete myvrf
-
-trigger the BUG in __netdev_adjacent_dev_remove:
-
-[  587.405260] tried to remove device eth3 from myvrf
-[  587.407269] ------------[ cut here ]------------
-[  587.408918] kernel BUG at /home/dsa/kernel.git/net/core/dev.c:5661!
-[  587.411113] invalid opcode: 0000 [#1] SMP
-[  587.412454] Modules linked in: macvlan bridge stp llc bonding vrf
-[  587.414765] CPU: 0 PID: 726 Comm: ip Not tainted 4.8.0+ #109
-[  587.416766] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[  587.420241] task: ffff88013ab6eec0 task.stack: ffffc90000628000
-[  587.422163] RIP: 0010:[<ffffffff813cef03>]  [<ffffffff813cef03>] __netdev_adjacent_dev_remove+0x40/0x12c
-...
-[  587.446053] Call Trace:
-[  587.446424]  [<ffffffff813d1542>] __netdev_adjacent_dev_unlink+0x20/0x3c
-[  587.447390]  [<ffffffff813d16a3>] netdev_upper_dev_unlink+0xfa/0x15e
-[  587.448297]  [<ffffffffa00003a3>] vrf_del_slave+0x13/0x2a [vrf]
-[  587.449153]  [<ffffffffa00004a4>] vrf_dev_uninit+0xea/0x114 [vrf]
-[  587.450036]  [<ffffffff813d19b0>] rollback_registered_many+0x22b/0x2da
-[  587.450974]  [<ffffffff813d1aac>] unregister_netdevice_many+0x17/0x48
-[  587.451903]  [<ffffffff813de444>] rtnl_delete_link+0x3c/0x43
-[  587.452719]  [<ffffffff813dedcd>] rtnl_dellink+0x180/0x194
-
-When the BUG is converted to a WARN_ON it shows 4 missing adjacencies:
-  eth3 - myvrf, mvrf - eth3, bond1 - myvrf and myvrf - bond1
-
-All of those are because the __netdev_upper_dev_link function does not
-properly link macvlan lower devices to myvrf when it is enslaved.
-
-The second case just flips the ordering of the enslavements:
-    ip link set bond1 master bridge
-    ip link set macvlan master myvrf
-
-Then run:
-    ip link delete bond1
-    ip link delete myvrf
-
-The vrf delete command hangs because myvrf has a reference that has not
-been released. In this case the removal code does not account for 2 paths 
-between eth3 and myvrf - one from bridge to vrf and the other through the
-macvlan.
-
-Rather than try to maintain a linked list of all upper and lower devices
-per netdevice, only track the direct neighbors. The remaining stack can
-be determined by recursively walking the neighbors.
-
-The existing netdev_for_each_all_upper_dev_rcu,
-netdev_for_each_all_lower_dev and netdev_for_each_all_lower_dev_rcu macros
-are replaced with APIs that walk the upper and lower device lists. The
-new APIs take a callback function and a data arg that is passed to the
-callback for each device in the list. Drivers using the old macros are
-converted in separate patches to make it easier on reviewers. It is an
-API conversion only; no functional change is intended.
-
-v3
-- address Stephen's comment to simplify logic and remove typecasts
-
-v2
-- fixed bond0 references in cover-letter
-- fixed definition of netdev_next_lower_dev_rcu to mirror the upper_dev
-  version.
-
-David Ahern (11):
-  net: Remove refnr arg when inserting link adjacencies
-  net: Introduce new api for walking upper and lower devices
-  net: bonding: Flip to the new dev walk API
-  IB/core: Flip to the new dev walk API
-  IB/ipoib: Flip to new dev walk API
-  ixgbe: Flip to the new dev walk API
-  mlxsw: Flip to the new dev walk API
-  rocker: Flip to the new dev walk API
-  net: Remove all_adj_list and its references
-  net: Add warning if any lower device is still in adjacency list
-  net: dev: Improve debug statements for adjacency tracking
-
- drivers/infiniband/core/core_priv.h            |   9 +-
- drivers/infiniband/core/roce_gid_mgmt.c        |  42 +--
- drivers/infiniband/ulp/ipoib/ipoib_main.c      |  37 ++-
- drivers/net/bonding/bond_alb.c                 |  82 +++---
- drivers/net/bonding/bond_main.c                |  17 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 132 ++++++----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  37 ++-
- drivers/net/ethernet/rocker/rocker_main.c      |  31 ++-
- include/linux/netdevice.h                      |  38 ++-
- net/core/dev.c                                 | 350 ++++++++++++-------------
- 10 files changed, 423 insertions(+), 352 deletions(-)
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 352e98129601..f67fd16615bb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5453,7 +5453,6 @@ static inline bool netdev_adjacent_is_neigh_list(struct net_device *dev,
+ 
+ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 					struct net_device *adj_dev,
+-					u16 ref_nr,
+ 					struct list_head *dev_list,
+ 					void *private, bool master)
+ {
+@@ -5463,7 +5462,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 	adj = __netdev_find_adj(adj_dev, dev_list);
+ 
+ 	if (adj) {
+-		adj->ref_nr += ref_nr;
++		adj->ref_nr += 1;
+ 		return 0;
+ 	}
+ 
+@@ -5473,7 +5472,7 @@ static int __netdev_adjacent_dev_insert(struct net_device *dev,
+ 
+ 	adj->dev = adj_dev;
+ 	adj->master = master;
+-	adj->ref_nr = ref_nr;
++	adj->ref_nr = 1;
+ 	adj->private = private;
+ 	dev_hold(adj_dev);
+ 
+@@ -5547,22 +5546,21 @@ static void __netdev_adjacent_dev_remove(struct net_device *dev,
+ 
+ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+ 					    struct net_device *upper_dev,
+-					    u16 ref_nr,
+ 					    struct list_head *up_list,
+ 					    struct list_head *down_list,
+ 					    void *private, bool master)
+ {
+ 	int ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(dev, upper_dev, ref_nr, up_list,
++	ret = __netdev_adjacent_dev_insert(dev, upper_dev, up_list,
+ 					   private, master);
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_insert(upper_dev, dev, ref_nr, down_list,
++	ret = __netdev_adjacent_dev_insert(upper_dev, dev, down_list,
+ 					   private, false);
+ 	if (ret) {
+-		__netdev_adjacent_dev_remove(dev, upper_dev, ref_nr, up_list);
++		__netdev_adjacent_dev_remove(dev, upper_dev, 1, up_list);
+ 		return ret;
+ 	}
+ 
+@@ -5570,10 +5568,9 @@ static int __netdev_adjacent_dev_link_lists(struct net_device *dev,
+ }
+ 
+ static int __netdev_adjacent_dev_link(struct net_device *dev,
+-				      struct net_device *upper_dev,
+-				      u16 ref_nr)
++				      struct net_device *upper_dev)
+ {
+-	return __netdev_adjacent_dev_link_lists(dev, upper_dev, ref_nr,
++	return __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 						&dev->all_adj_list.upper,
+ 						&upper_dev->all_adj_list.lower,
+ 						NULL, false);
+@@ -5602,12 +5599,12 @@ static int __netdev_adjacent_dev_link_neighbour(struct net_device *dev,
+ 						struct net_device *upper_dev,
+ 						void *private, bool master)
+ {
+-	int ret = __netdev_adjacent_dev_link(dev, upper_dev, 1);
++	int ret = __netdev_adjacent_dev_link(dev, upper_dev);
+ 
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev, 1,
++	ret = __netdev_adjacent_dev_link_lists(dev, upper_dev,
+ 					       &dev->adj_list.upper,
+ 					       &upper_dev->adj_list.lower,
+ 					       private, master);
+@@ -5676,7 +5673,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 		list_for_each_entry(j, &upper_dev->all_adj_list.upper, list) {
+ 			pr_debug("Interlinking %s with %s, non-neighbour\n",
+ 				 i->dev->name, j->dev->name);
+-			ret = __netdev_adjacent_dev_link(i->dev, j->dev, i->ref_nr);
++			ret = __netdev_adjacent_dev_link(i->dev, j->dev);
+ 			if (ret)
+ 				goto rollback_mesh;
+ 		}
+@@ -5686,7 +5683,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	list_for_each_entry(i, &upper_dev->all_adj_list.upper, list) {
+ 		pr_debug("linking %s's upper device %s with %s\n",
+ 			 upper_dev->name, i->dev->name, dev->name);
+-		ret = __netdev_adjacent_dev_link(dev, i->dev, i->ref_nr);
++		ret = __netdev_adjacent_dev_link(dev, i->dev);
+ 		if (ret)
+ 			goto rollback_upper_mesh;
+ 	}
+@@ -5695,7 +5692,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
+ 	list_for_each_entry(i, &dev->all_adj_list.lower, list) {
+ 		pr_debug("linking %s's lower device %s with %s\n", dev->name,
+ 			 i->dev->name, upper_dev->name);
+-		ret = __netdev_adjacent_dev_link(i->dev, upper_dev, i->ref_nr);
++		ret = __netdev_adjacent_dev_link(i->dev, upper_dev);
+ 		if (ret)
+ 			goto rollback_lower_mesh;
+ 	}
 -- 
 2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
