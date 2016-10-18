@@ -1,65 +1,48 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 net-next 00/11] net: Fix netdev adjacency tracking
-Date: Tue, 18 Oct 2016 11:46:31 -0400 (EDT)
-Message-ID: <20161018.114631.1954199143257806104.davem@davemloft.net>
-References: <1476756953-30923-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/7] udp: Flow dissection for tunnels
+Date: Tue, 18 Oct 2016 11:48:37 -0400 (EDT)
+Message-ID: <20161018.114837.323859592404227389.davem@davemloft.net>
+References: <20161017194202.3510238-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, j.vosburgh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        vfalico-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        intel-wired-lan-qjLDD68F18P21nG7glBr7A@public.gmane.org
-To: dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476756953-30923-1-git-send-email-dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43150 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964865AbcJRPsj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 11:48:39 -0400
+In-Reply-To: <20161017194202.3510238-1-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>
-Date: Mon, 17 Oct 2016 19:15:42 -0700
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 17 Oct 2016 12:41:55 -0700
 
-> The netdev adjacency tracking is failing to create proper dependencies
-> for some topologies. For example this topology
- ...
-> hits 1 of 2 problems depending on the order of enslavement. The base set of
-> commands for both cases:
- ...
-> Case 1 enslave macvlan to the vrf before enslaving the bond to the bridge:
- ...
-> Attempts to delete the VRF:
->     ip link delete myvrf
+> Now that we have a means to perform a UDP socket lookup without taking
+> a reference, it is feasible to have flow dissector crack open UDP
+> encapsulated packets. Generally, we would expect that the UDP source
+> port or the flow label in IPv6 would contain enough entropy about
+> the encapsulated flow. However, there will be cases, such as a static
+> UDP tunnel with fixed ports, where dissecting the encapsulated packet
+> is valuable.
 > 
-> trigger the BUG in __netdev_adjacent_dev_remove:
- ...
-> When the BUG is converted to a WARN_ON it shows 4 missing adjacencies:
->   eth3 - myvrf, mvrf - eth3, bond1 - myvrf and myvrf - bond1
+> The model is here is similar to that implemented for UDP GRO. A
+> tunnel implementation (e.g. GUE) may set a flow_dissect function
+> in the udp_sk. In __skb_flow_dissect a case has been added for
+> UDP to check if there is a socket with flow_dissect set. If there
+> is the function is called. The (per tunnel implementation)
+> function can parse the encapsulation headers and return the
+> next protocol for __skb_flow_dissect to process and it's position
+> in nhoff.
 > 
-> All of those are because the __netdev_upper_dev_link function does not
-> properly link macvlan lower devices to myvrf when it is enslaved.
- ...
-> Rather than try to maintain a linked list of all upper and lower devices
-> per netdevice, only track the direct neighbors. The remaining stack can
-> be determined by recursively walking the neighbors.
+> Since performing a UDP lookup on every packet might be expensive
+> I added a static key check to bypass the lookup if there are no
+> sockets with flow_dissect set. I should mention that doing the
+> lookup wasn't particularly a big hit anyway.
 > 
-> The existing netdev_for_each_all_upper_dev_rcu,
-> netdev_for_each_all_lower_dev and netdev_for_each_all_lower_dev_rcu macros
-> are replaced with APIs that walk the upper and lower device lists. The
-> new APIs take a callback function and a data arg that is passed to the
-> callback for each device in the list. Drivers using the old macros are
-> converted in separate patches to make it easier on reviewers. It is an
-> API conversion only; no functional change is intended.
+> Fou/gue was modified to perform tunnel dissection. This is enabled
+> on each listener socket via a netlink configuration option.
 
-Series applied, but the recursion is disappointing.
-
-If we run into problems due to kernel stack depth because of this with
-some configurations (reasonable or not, if we allow it then it can't
-crash the kernel), we will either need to find a way to make this walk
-iterative or revert these changes.
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks Tom.
