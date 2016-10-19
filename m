@@ -1,51 +1,30 @@
-From: Eric Garver <e@erig.me>
-Subject: Re: [PATCH net v2] flow_dissector: Check skb for VLAN only if skb
- specified.
-Date: Wed, 19 Oct 2016 10:00:36 -0400
-Message-ID: <20161019140035.GA2588@roberto>
-References: <1476736212-21238-1-git-send-email-e@erig.me>
- <CAJ3xEMiR3EODEV5aQ9cQG=7YZtVfFkbpHn79_j+s8H7XQ5F0rA@mail.gmail.com>
- <CAPcc5Pg=vy67dMcr4U6DFwZu5UgSWyV6c662cv9XR-QXKfUVXw@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/ipv6: potential deadlock in do_ipv6_setsockopt
+Date: Wed, 19 Oct 2016 09:36:04 -0700
+Message-ID: <CAM_iQpWFVXEcCNfaDeiL0e9Q4J=bOo5EfD995hikPxmgQrUU_w@mail.gmail.com>
+References: <f43836e6-82b2-4673-1f5e-cd41ba0bc609@gmail.com>
+ <CAM_iQpWKfkkYzF6yb9fGQsieGwok196kqGtRNVVS_ULxZghyew@mail.gmail.com>
+ <ec7e340c-132f-549d-9c30-b6e903cc7666@gmail.com> <6e9dbe30-ec0f-07cb-0e16-d86eb4bc480f@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: amir@vadai.me
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Baozeng Ding <sploving1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:35253 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750747AbcJSOJr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:09:47 -0400
-Received: from relay3-d.mail.gandi.net (relay3-d.mail.gandi.net [217.70.183.195])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 534DB486305
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 16:00:50 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <CAPcc5Pg=vy67dMcr4U6DFwZu5UgSWyV6c662cv9XR-QXKfUVXw@mail.gmail.com>
+Received: from mail-it0-f52.google.com ([209.85.214.52]:35901 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751012AbcJSQg0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 12:36:26 -0400
+Received: by mail-it0-f52.google.com with SMTP id 139so109816446itm.1
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 09:36:25 -0700 (PDT)
+In-Reply-To: <6e9dbe30-ec0f-07cb-0e16-d86eb4bc480f@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2016 at 11:44:10AM +0300, Amir Vadai wrote:
-> On Tue, Oct 18, 2016 at 4:59 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> > On Mon, Oct 17, 2016 at 11:30 PM, Eric Garver <e@erig.me> wrote:
-> >> Fixes a panic when calling eth_get_headlen(). Noticed on i40e driver.
-> >>
-> >> Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
-> >> Signed-off-by: Eric Garver <e@erig.me>
-> >
-> > Dave,
-> >
-> > Hadar is OOO and I have asked Amir to look on the fix, will appreciate
-> > if we can have 24 hours to respond
-> >
-> > Or.
-> 
-> Reviewed and tested.
-> 
-> Acked-by: Amir Vadai <amir@vadai.me>
+On Wed, Oct 19, 2016 at 12:45 AM, Baozeng Ding <sploving1@gmail.com> wrote:
+> It fixes the issue for me.
+> Tested-by: Baozeng Ding <sploving1@gmail.com>
 
-Amir,
+Thanks for testing, I will send out the patch formally very soon.
 
-Your ACK may have been lost on its way to the list. I received it, but
-it's not showing on any list archives or patchwork.
+BTW, you can check mailing archive to see if your email succeeds or not,
+for example, http://marc.info/?l=linux-netdev
