@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: arc_emac: use dev_kfree_skb_any instead of
- dev_kfree_skb
-Date: Wed, 19 Oct 2016 15:16:49 -0400 (EDT)
-Message-ID: <20161019.151649.1017207144840174569.davem@davemloft.net>
-References: <1476884872-15213-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH 0/2] Add ethtool get_ringparam and set_ringparam to
+ cadence
+Date: Wed, 19 Oct 2016 15:18:36 -0400 (EDT)
+Message-ID: <20161019.151836.1970381994363651324.davem@davemloft.net>
+References: <1476889018-8357-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wxt@rock-chips.com, al.kochet@gmail.com, tremyfr@gmail.com,
-        peter.chen@nxp.com, weiyongjun1@huawei.com, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59734 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932977AbcJSTQv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 15:16:51 -0400
-In-Reply-To: <1476884872-15213-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: zach.brown@ni.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476889018-8357-1-git-send-email-zach.brown@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Wed, 19 Oct 2016 13:47:52 +0000
+From: Zach Brown <zach.brown@ni.com>
+Date: Wed, 19 Oct 2016 09:56:56 -0500
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
+> There are use cases like RT that would benefit from being able to tune the
+> macb rx/tx ring sizes. The ethtool set_ringparam function is the standard way
+> of doing so.
 > 
-> Replace dev_kfree_skb with dev_kfree_skb_any in arc_emac_tx()
-> which can be called from hard irq context (netpoll) and from
-> other contexts. arc_emac_tx() only frees skbs that it has
-> dropped.
+> The first patch changes the hardcoded tx/rx ring sizes to variables that are
+> set to a hardcoded default.
 > 
-> This is detected by Coccinelle semantic patch.
-> 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> The second patch implements the get_ringparam and set_ringparam fucntions.
 
-Applied.
+Series applied, thanks.
