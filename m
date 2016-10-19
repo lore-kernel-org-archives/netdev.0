@@ -1,84 +1,74 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: bad commit touching stmmac_ptp.c
-Date: Wed, 19 Oct 2016 09:16:26 +0200
-Message-ID: <63faa826-2e87-f73e-6c1f-34fbced9d220@st.com>
-References: <alpine.LFD.2.20.1610182339340.25105@knanqh.ubzr>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next 5/6] net: use core MTU range checking in virt
+ drivers
+Date: Wed, 19 Oct 2016 10:17:58 -0400
+Message-ID: <20161019141758.GC18569@redhat.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161019023333.15760-6-jarod@redhat.com>
+ <20161019165629-mutt-send-email-mst@kernel.org>
+ <20161019170330-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexandre TORGUE <alexandre.torgue@st.com>,
-        Rayagond Kokatanur <rayagond@vayavyalabs.com>,
-        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:7096 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S936519AbcJSOSM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:18:12 -0400
-In-Reply-To: <alpine.LFD.2.20.1610182339340.25105@knanqh.ubzr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Shrikrishna Khare <skhare@vmware.com>,
+        "VMware, Inc." <pv-drivers@vmware.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161019170330-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Nicolas
+On Wed, Oct 19, 2016 at 05:03:43PM +0300, Michael S. Tsirkin wrote:
+> On Wed, Oct 19, 2016 at 04:59:46PM +0300, Michael S. Tsirkin wrote:
+> > On Tue, Oct 18, 2016 at 10:33:32PM -0400, Jarod Wilson wrote:
+> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > > index fad84f3..4885a42 100644
+> > > --- a/drivers/net/virtio_net.c
+> > > +++ b/drivers/net/virtio_net.c
+> > > @@ -1419,17 +1419,6 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+> > >  	.set_settings = virtnet_set_settings,
+> > >  };
+> > >  
+> > > -#define MIN_MTU 68
+> > > -#define MAX_MTU 65535
+> > > -
+> > > -static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+> > > -{
+> > > -	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+> > > -		return -EINVAL;
+> > > -	dev->mtu = new_mtu;
+> > > -	return 0;
+> > > -}
+> > > -
+> > >  static const struct net_device_ops virtnet_netdev = {
+> > >  	.ndo_open            = virtnet_open,
+> > >  	.ndo_stop   	     = virtnet_close,
+> > > @@ -1437,7 +1426,6 @@ static const struct net_device_ops virtnet_netdev = {
+> > >  	.ndo_validate_addr   = eth_validate_addr,
+> > >  	.ndo_set_mac_address = virtnet_set_mac_address,
+> > >  	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+> > > -	.ndo_change_mtu	     = virtnet_change_mtu,
+> > >  	.ndo_get_stats64     = virtnet_stats,
+> > >  	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
+> > >  	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
+> > > @@ -1748,6 +1736,9 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
+> > >  	return true;
+> > >  }
+> > >  
+> > > +#define MIN_MTU ETH_MIN_MTU
+> > > +#define MAX_MTU 65535
+> > > +
+> > 
+> > Do we need a common macro for this?
+> 
+> I think it's actually IP_MAX_MTU.
 
-I have just sent a new patch to try to fix the problems you
-raised.
+Ah, yes, it is. I'm not sure why I didn't use that...
 
-Please let me know if
-
-    [PATCH (net.git)] stmmac: fix and review the ptp registration
-
-actually covers and fixes the points.
-
-FYI, I am trying to review the PTP, especially for
-for the GMAC4, in these days so I will send other
-patches on top of this if OK.
-
-Thanks for your advice and warning.
-
-Peppe
-
-On 10/19/2016 6:16 AM, Nicolas Pitre wrote:
-> Hello,
->
-> I noticed a recently added commit 7086605a6a ("stmmac: fix error check
-> when init ptp") to the mainline linux tree from you. This commit is
-> wrong.  The affected code now reads as:
->
-> int stmmac_ptp_register(struct stmmac_priv *priv)
-> {
->         spin_lock_init(&priv->ptp_lock);
->         priv->ptp_clock_ops = stmmac_ptp_clock_ops;
->
->         priv->ptp_clock = ptp_clock_register(&priv->ptp_clock_ops,
->                                              priv->device);
->         if (IS_ERR(priv->ptp_clock)) {
->                 priv->ptp_clock = NULL;
->                 return PTR_ERR(priv->ptp_clock);
->         }
->
->         spin_lock_init(&priv->ptp_lock);
->
->         netdev_dbg(priv->dev, "Added PTP HW clock successfully\n");
->
->         return 0;
-> }
->
-> Firstly, you basically reverted the change I did with commit
-> efee95f42b ("ptp_clock: future-proofing drivers against PTP subsystem
-> becoming optional").  Please have a look at that commit and ponder its
-> implications.
->
-> Secondly, the error you're actually returning to the caller with your
-> patch is actually PTR_ERR(NULL) which is basically a more convoluted way
-> to return the same value as what was returned before your patch, which
-> is probably not what you intended.
->
-> And finally you added a needless initialization of priv->ptp_lock given
-> that this was already done a few lines before that addition.
->
-> Was this patch actually reviewed?
->
->
-> Nicolas
->
+-- 
+Jarod Wilson
+jarod@redhat.com
