@@ -1,49 +1,111 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/sched: act_mirred: Use passed lastuse argument
-Date: Wed, 19 Oct 2016 17:42:39 +0300
-Message-ID: <1476888159-30332-1-git-send-email-ogerlitz@mellanox.com>
-Cc: Amir Vadai <amirva@mellanox.com>, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org, Paul Blakey <paulb@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44608 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S942886AbcJSOms (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:42:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git)] stmmac: fix and review the ptp registration.
+Date: Wed, 19 Oct 2016 09:06:41 +0200
+Message-ID: <1476860801-28242-1-git-send-email-peppe.cavallaro@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre TORGUE <alexandre.torgue@st.com>,
+        Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        Nicolas Pitre <nico@linaro.org>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Blakey <paulb@mellanox.com>
+The commit commit 7086605a6ab5 ("stmmac: fix error check when init ptp")
+breaks the procedure added by the
+commit efee95f42b5d ("ptp_clock: future-proofing drivers against PTP
+subsystem becoming optional")
 
-stats_update callback is called by NIC drivers doing hardware
-offloading of the mirred action. Lastuse is passed as argument
-to specify when the stats was actually last updated and is not
-always the current time.
+So this patch tries to re-import the logic added by the latest
+commit above: it makes sense to have the stmmac_ptp_register
+as void function and, inside the main, the stmmac_init_ptp can fails
+in case of the capability cannot be supported by the HW.
 
-Fixes: 9798e6fe4f9b ('net: act_mirred: allow statistic updates from offloaded actions')
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Alexandre TORGUE <alexandre.torgue@st.com>
+Cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Nicolas Pitre <nico@linaro.org>
 ---
- net/sched/act_mirred.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  6 ++++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c  | 15 ++++-----------
+ 3 files changed, 9 insertions(+), 14 deletions(-)
 
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 667dc38..6b07fba 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -207,8 +207,11 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- static void tcf_stats_update(struct tc_action *a, u64 bytes, u32 packets,
- 			     u64 lastuse)
- {
--	tcf_lastuse_update(&a->tcfa_tm);
-+	struct tcf_mirred *m = to_mirred(a);
-+	struct tcf_t *tm = &m->tcf_tm;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 8dc9056..b15fc55 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -145,7 +145,7 @@ int stmmac_mdio_register(struct net_device *ndev);
+ int stmmac_mdio_reset(struct mii_bus *mii);
+ void stmmac_set_ethtool_ops(struct net_device *netdev);
+ 
+-int stmmac_ptp_register(struct stmmac_priv *priv);
++void stmmac_ptp_register(struct stmmac_priv *priv);
+ void stmmac_ptp_unregister(struct stmmac_priv *priv);
+ int stmmac_resume(struct device *dev);
+ int stmmac_suspend(struct device *dev);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 6c85b61..48e71fa 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -676,7 +676,9 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
+ 	priv->hwts_tx_en = 0;
+ 	priv->hwts_rx_en = 0;
+ 
+-	return stmmac_ptp_register(priv);
++	stmmac_ptp_register(priv);
 +
- 	_bstats_cpu_update(this_cpu_ptr(a->cpu_bstats), bytes, packets);
-+	tm->lastuse = lastuse;
++	return 0;
  }
  
- static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+ static void stmmac_release_ptp(struct stmmac_priv *priv)
+@@ -1710,7 +1712,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	if (init_ptp) {
+ 		ret = stmmac_init_ptp(priv);
+ 		if (ret)
+-			netdev_warn(priv->dev, "PTP support cannot init.\n");
++			netdev_warn(priv->dev, "fail to init PTP.\n");
+ 	}
+ 
+ #ifdef CONFIG_DEBUG_FS
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+index 5d61fb2..1477471 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+@@ -177,7 +177,7 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
+  * Description: this function will register the ptp clock driver
+  * to kernel. It also does some house keeping work.
+  */
+-int stmmac_ptp_register(struct stmmac_priv *priv)
++void stmmac_ptp_register(struct stmmac_priv *priv)
+ {
+ 	spin_lock_init(&priv->ptp_lock);
+ 	priv->ptp_clock_ops = stmmac_ptp_clock_ops;
+@@ -185,17 +185,10 @@ int stmmac_ptp_register(struct stmmac_priv *priv)
+ 	priv->ptp_clock = ptp_clock_register(&priv->ptp_clock_ops,
+ 					     priv->device);
+ 	if (IS_ERR(priv->ptp_clock)) {
+-		int ret = PTR_ERR(priv->ptp_clock);
+-
++		netdev_err(priv->dev, "ptp_clock_register failed\n");
+ 		priv->ptp_clock = NULL;
+-		return ret;
+-	}
+-
+-	spin_lock_init(&priv->ptp_lock);
+-
+-	netdev_dbg(priv->dev, "Added PTP HW clock successfully\n");
+-
+-	return 0;
++	} else if (priv->ptp_clock)
++		netdev_info(priv->dev, "registered PTP clock\n");
+ }
+ 
+ /**
 -- 
-2.3.7
+2.7.4
