@@ -1,47 +1,78 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v12 1/9] openvswitch: use hard_header_len instead
- of hardcoded ETH_HLEN
-Date: Tue, 18 Oct 2016 22:13:53 -0700
-Message-ID: <CAOrHB_C1LuA=pPm7CoVk6Hrkvi-0V54DP2vx9ADV6gx9qUWntg@mail.gmail.com>
-References: <cover.1476708212.git.jbenc@redhat.com> <eef37b3c7e1c1deffd6a5a8cfff83cd2c82cb76b.1476708212.git.jbenc@redhat.com>
+From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v12 9/9] openvswitch: use ipgre
+ tunnel rather than gretap tunnel
+Date: Tue, 18 Oct 2016 22:14:06 -0700
+Message-ID: <CAOrHB_AWT1zp_6wJMOP=2GdJGtgZ6yvt5ysf9gBBnGDKHU3BUA@mail.gmail.com>
+References: <cover.1476708212.git.jbenc@redhat.com>
+ <4e5bfb307ee1e419f973a100e8acc7556311b64a.1476708213.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>,
-        Lorand Jakab <lojakab@cisco.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:55488 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755278AbcJSFN6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 01:13:58 -0400
-Received: from mfilter34-d.gandi.net (mfilter34-d.gandi.net [217.70.178.165])
-        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 604E5C5A50
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:13:57 +0200 (CEST)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-        by mfilter34-d.gandi.net (mfilter34-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id CbSVG3IamRFy for <netdev@vger.kernel.org>;
-        Wed, 19 Oct 2016 07:13:55 +0200 (CEST)
-Received: from mail-it0-f47.google.com (mail-it0-f47.google.com [209.85.214.47])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 351C1C5A44
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:13:55 +0200 (CEST)
-Received: by mail-it0-f47.google.com with SMTP id m138so18432743itm.0
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 22:13:55 -0700 (PDT)
-In-Reply-To: <eef37b3c7e1c1deffd6a5a8cfff83cd2c82cb76b.1476708212.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <4e5bfb307ee1e419f973a100e8acc7556311b64a.1476708213.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 17, 2016 at 6:02 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On tx, use hard_header_len while deciding whether to refragment or drop the
-> packet. That way, all combinations are calculated correctly:
->
-> * L2 packet going to L2 interface (the L2 header len is subtracted),
-> * L2 packet going to L3 interface (the L2 header is included in the packet
->   lenght),
-> * L3 packet going to L3 interface.
->
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+T24gTW9uLCBPY3QgMTcsIDIwMTYgYXQgNjowMiBBTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
+Y29tPiB3cm90ZToKPiBGcm9tOiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUu
+Y29tPgo+Cj4gVGhpcyBhbGxvd3MgR1JFIHR1bm5lbHMgdG8gc2VuZCBhbmQgcmVjZWl2ZSBib3Ro
+Cj4gbGF5ZXIgMiBwYWNrZXRzIChwYWNrZXRzIHdpdGggYW4gZXRoZXJuZXQgaGVhZGVyKSBhbmQK
+PiBsYXllciAzIHBhY2tldHMgKHBhY2tldHMgd2l0aG91dCBhbiBldGhlcm5ldCBoZWFkZXIpLgo+
+Cj4gU2lnbmVkLW9mZi1ieTogU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNv
+bT4KPiBTaWduZWQtb2ZmLWJ5OiBKaXJpIEJlbmMgPGpiZW5jQHJlZGhhdC5jb20+Cj4gLS0tCj4g
+djEyOiByZW1vdmVkIHRoZSBub24tZ3JlIGh1bmtzIChub3cgcGFydCBvZiBwcmV2aW91cyBwYXRj
+aGVzIGluIHRoaXMKPiAgICAgIHBhdGNoc2V0KQo+IC0tLQo+ICBpbmNsdWRlL25ldC9ncmUuaCAg
+ICAgICAgICAgfCA0ICsrLS0KPiAgbmV0L2lwdjQvaXBfZ3JlLmMgICAgICAgICAgIHwgOSArKysr
+Ky0tLS0KPiAgbmV0L29wZW52c3dpdGNoL3Zwb3J0LWdyZS5jIHwgMiArLQo+ICAzIGZpbGVzIGNo
+YW5nZWQsIDggaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9p
+bmNsdWRlL25ldC9ncmUuaCBiL2luY2x1ZGUvbmV0L2dyZS5oCj4gaW5kZXggZDI1ZDgzNmMxMjli
+Li4xYTBiYjFjZWZhNjAgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9uZXQvZ3JlLmgKPiArKysgYi9p
+bmNsdWRlL25ldC9ncmUuaAo+IEBAIC0zMSw4ICszMSw4IEBAIHN0cnVjdCBncmVfcHJvdG9jb2wg
+ewo+ICBpbnQgZ3JlX2FkZF9wcm90b2NvbChjb25zdCBzdHJ1Y3QgZ3JlX3Byb3RvY29sICpwcm90
+bywgdTggdmVyc2lvbik7Cj4gIGludCBncmVfZGVsX3Byb3RvY29sKGNvbnN0IHN0cnVjdCBncmVf
+cHJvdG9jb2wgKnByb3RvLCB1OCB2ZXJzaW9uKTsKPgo+IC1zdHJ1Y3QgbmV0X2RldmljZSAqZ3Jl
+dGFwX2ZiX2Rldl9jcmVhdGUoc3RydWN0IG5ldCAqbmV0LCBjb25zdCBjaGFyICpuYW1lLAo+IC0g
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHU4IG5hbWVfYXNzaWduX3R5cGUp
+Owo+ICtzdHJ1Y3QgbmV0X2RldmljZSAqZ3JlX2ZiX2Rldl9jcmVhdGUoc3RydWN0IG5ldCAqbmV0
+LCBjb25zdCBjaGFyICpuYW1lLAo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICB1OCBuYW1lX2Fzc2lnbl90eXBlKTsKPiAgaW50IGdyZV9wYXJzZV9oZWFkZXIoc3RydWN0IHNr
+X2J1ZmYgKnNrYiwgc3RydWN0IHRubF9wdGtfaW5mbyAqdHBpLAo+ICAgICAgICAgICAgICAgICAg
+ICAgIGJvb2wgKmNzdW1fZXJyLCBfX2JlMTYgcHJvdG8sIGludCBuaHMpOwo+Cj4gZGlmZiAtLWdp
+dCBhL25ldC9pcHY0L2lwX2dyZS5jIGIvbmV0L2lwdjQvaXBfZ3JlLmMKPiBpbmRleCA1NzZmNzA1
+ZDgxODAuLjE4Y2FlYTVjNmQwOSAxMDA2NDQKPiAtLS0gYS9uZXQvaXB2NC9pcF9ncmUuYwo+ICsr
+KyBiL25ldC9pcHY0L2lwX2dyZS5jCj4gQEAgLTExMjUsOCArMTEyNSw4IEBAIHN0YXRpYyBpbnQg
+aXBncmVfZmlsbF9pbmZvKHN0cnVjdCBza19idWZmICpza2IsIGNvbnN0IHN0cnVjdCBuZXRfZGV2
+aWNlICpkZXYpCj4gICAgICAgICAuZ2V0X2xpbmtfbmV0ICAgPSBpcF90dW5uZWxfZ2V0X2xpbmtf
+bmV0LAo+ICB9Owo+Cj4gLXN0cnVjdCBuZXRfZGV2aWNlICpncmV0YXBfZmJfZGV2X2NyZWF0ZShz
+dHJ1Y3QgbmV0ICpuZXQsIGNvbnN0IGNoYXIgKm5hbWUsCj4gLSAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIHU4IG5hbWVfYXNzaWduX3R5cGUpCj4gK3N0cnVjdCBuZXRfZGV2
+aWNlICpncmVfZmJfZGV2X2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIGNvbnN0IGNoYXIgKm5hbWUs
+Cj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHU4IG5hbWVfYXNzaWduX3R5
+cGUpCj4gIHsKPiAgICAgICAgIHN0cnVjdCBubGF0dHIgKnRiW0lGTEFfTUFYICsgMV07Cj4gICAg
+ICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2Owo+IEBAIC0xMTM3LDEzICsxMTM3LDE0IEBAIHN0
+cnVjdCBuZXRfZGV2aWNlICpncmV0YXBfZmJfZGV2X2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIGNv
+bnN0IGNoYXIgKm5hbWUsCj4gICAgICAgICBtZW1zZXQoJnRiLCAwLCBzaXplb2YodGIpKTsKPgo+
+ICAgICAgICAgZGV2ID0gcnRubF9jcmVhdGVfbGluayhuZXQsIG5hbWUsIG5hbWVfYXNzaWduX3R5
+cGUsCj4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICZpcGdyZV90YXBfb3BzLCB0Yik7
+Cj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICZpcGdyZV9saW5rX29wcywgdGIpOwo+
+ICAgICAgICAgaWYgKElTX0VSUihkZXYpKQo+ICAgICAgICAgICAgICAgICByZXR1cm4gZGV2Owo+
+Cj4gICAgICAgICAvKiBDb25maWd1cmUgZmxvdyBiYXNlZCBHUkUgZGV2aWNlLiAqLwo+ICAgICAg
+ICAgdCA9IG5ldGRldl9wcml2KGRldik7Cj4gICAgICAgICB0LT5jb2xsZWN0X21kID0gdHJ1ZTsK
+PiArICAgICAgIGRldi0+dHlwZSA9IEFSUEhSRF9OT05FOwo+CgpUaGlzIGlzIE9WUyB0dW5uZWwg
+Y29tcGF0aWJpbGl0eSBjb2RlLiBXZSBhcmUgbm90IHN1cHBvc2UgdG8gYWRkIG5ldwpmZWF0dXJl
+cyB0byBjb21wYXQgY29kZS4gSnVzdCBwcm92aWRlIGEgd2F5IHRvIGNvbmZpZ3VyZSBzdWNoIGRl
+dmljZQpvdmVyIHJ0bmwuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZz
+d2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
