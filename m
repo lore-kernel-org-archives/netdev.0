@@ -1,34 +1,73 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v12 0/9] openvswitch: support for layer 3
- encapsulated packets
-Date: Wed, 19 Oct 2016 18:59:26 +0200
-Message-ID: <20161019185926.76b4dcec@griffin>
-References: <cover.1476708212.git.jbenc@redhat.com>
-        <CAOrHB_AfMFsMbU+NNVX3q+OUntnJaBZX=O2MQTAsnnM2bxJqVA@mail.gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions to explicitly
+ pass FOLL_* flags
+Date: Wed, 19 Oct 2016 19:01:27 +0200
+Message-ID: <20161019170127.GN24393@dhcp22.suse.cz>
+References: <20161013002020.3062-1-lstoakes@gmail.com>
+ <20161018153050.GC13117@dhcp22.suse.cz>
+ <20161019085815.GA22239@lucifer>
+ <20161019090727.GE7517@dhcp22.suse.cz>
+ <5807A427.7010200@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>,
-        Lorand Jakab <lojakab@cisco.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42926 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941180AbcJSQ73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Oct 2016 12:59:29 -0400
-In-Reply-To: <CAOrHB_AfMFsMbU+NNVX3q+OUntnJaBZX=O2MQTAsnnM2bxJqVA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lorenzo Stoakes <lstoakes@gmail.com>, linux-mm@kvack.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
+	linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
+	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-sh@vger.
+To: Dave Hansen <dave.hansen@linux.intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <5807A427.7010200@linux.intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Oct 2016 22:11:21 -0700, Pravin Shelar wrote:
-> I have not finished the review yet, but most of patches looks good to
-> me. Can you send userspace patches against latest master so that I can
-> try the patches with tunnel setup?
+On Wed 19-10-16 09:49:43, Dave Hansen wrote:
+> On 10/19/2016 02:07 AM, Michal Hocko wrote:
+> > On Wed 19-10-16 09:58:15, Lorenzo Stoakes wrote:
+> >> On Tue, Oct 18, 2016 at 05:30:50PM +0200, Michal Hocko wrote:
+> >>> I am wondering whether we can go further. E.g. it is not really clear to
+> >>> me whether we need an explicit FOLL_REMOTE when we can in fact check
+> >>> mm != current->mm and imply that. Maybe there are some contexts which
+> >>> wouldn't work, I haven't checked.
+> >>
+> >> This flag is set even when /proc/self/mem is used. I've not looked deeply into
+> >> this flag but perhaps accessing your own memory this way can be considered
+> >> 'remote' since you're not accessing it directly. On the other hand, perhaps this
+> >> is just mistaken in this case?
+> > 
+> > My understanding of the flag is quite limited as well. All I know it is
+> > related to protection keys and it is needed to bypass protection check.
+> > See arch_vma_access_permitted. See also 1b2ee1266ea6 ("mm/core: Do not
+> > enforce PKEY permissions on remote mm access").
+> 
+> Yeah, we need the flag to tell us when PKEYs should be applied or not.
+> The current task's PKRU (pkey rights register) should really only be
+> used to impact access to the task's memory, but has no bearing on how a
+> given task should access remote memory.
 
-Will do in a few minutes.
+The question I had earlier was whether this has to be an explicit FOLL
+flag used by g-u-p users or we can just use it internally when mm !=
+current->mm
 
-Thanks for the review,
+-- 
+Michal Hocko
+SUSE Labs
 
- Jiri
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
