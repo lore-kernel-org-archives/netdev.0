@@ -1,204 +1,108 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/netlink: null-ptr-deref in netlink_dump/lock_acquire
-Date: Wed, 19 Oct 2016 16:13:49 +0200
-Message-ID: <CAAeHK+wM9yG3c9AksSyj7jYSY4ujssH+vTuV2nyz=-0enLrB8w@mail.gmail.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next 5/6] net: use core MTU range checking in virt
+ drivers
+Date: Wed, 19 Oct 2016 10:15:21 -0400
+Message-ID: <20161019141521.GB18569@redhat.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161019023333.15760-6-jarod@redhat.com>
+ <20161019165629-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a113fa8480dfbe2053f386bbd
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Florian Westphal <fw@strlen.de>,
-        Michal Hocko <mhocko@suse.com>,
-        Vlastimil Babka <vbabka@suse.cz>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        David Decotigny <decot@googlers.com>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        David Herrmann <dh.herrmann@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Shrikrishna Khare <skhare@vmware.com>,
+        "VMware, Inc." <pv-drivers@vmware.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161019165629-mutt-send-email-mst@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001a113fa8480dfbe2053f386bbd
-Content-Type: text/plain; charset=UTF-8
+On Wed, Oct 19, 2016 at 04:59:46PM +0300, Michael S. Tsirkin wrote:
+> On Tue, Oct 18, 2016 at 10:33:32PM -0400, Jarod Wilson wrote:
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index fad84f3..4885a42 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -1419,17 +1419,6 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+> >  	.set_settings = virtnet_set_settings,
+> >  };
+> >  
+> > -#define MIN_MTU 68
+> > -#define MAX_MTU 65535
+> > -
+> > -static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+> > -{
+> > -	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+> > -		return -EINVAL;
+> > -	dev->mtu = new_mtu;
+> > -	return 0;
+> > -}
+> > -
+> >  static const struct net_device_ops virtnet_netdev = {
+> >  	.ndo_open            = virtnet_open,
+> >  	.ndo_stop   	     = virtnet_close,
+> > @@ -1437,7 +1426,6 @@ static const struct net_device_ops virtnet_netdev = {
+> >  	.ndo_validate_addr   = eth_validate_addr,
+> >  	.ndo_set_mac_address = virtnet_set_mac_address,
+> >  	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+> > -	.ndo_change_mtu	     = virtnet_change_mtu,
+> >  	.ndo_get_stats64     = virtnet_stats,
+> >  	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
+> >  	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
+> > @@ -1748,6 +1736,9 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
+> >  	return true;
+> >  }
+> >  
+> > +#define MIN_MTU ETH_MIN_MTU
+> > +#define MAX_MTU 65535
+> > +
+> 
+> Do we need a common macro for this?
 
-Hi,
+Probably. That value crops up in multiple drivers.
 
-I've got the following error report while running the syzkaller fuzzer:
+> >  static int virtnet_probe(struct virtio_device *vdev)
+> >  {
+> >  	int i, err;
+> > @@ -1821,6 +1812,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+> >  
+> >  	dev->vlan_features = dev->features;
+> >  
+> > +	/* MTU range: 68 - 65535 */
+> > +	dev->min_mtu = MIN_MTU;
+> > +	dev->max_mtu = MAX_MTU;
+> > +
+> >  	/* Configuration may specify what MAC to use.  Otherwise random. */
+> >  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
+> >  		virtio_cread_bytes(vdev,
+> > @@ -1875,8 +1870,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+> >  		mtu = virtio_cread16(vdev,
+> >  				     offsetof(struct virtio_net_config,
+> >  					      mtu));
+> > -		if (virtnet_change_mtu(dev, mtu))
+> > +		if (mtu >= dev->min_mtu && mtu <= dev->max_mtu) {
+> > +			dev->mtu = mtu;
+> >  			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
+> 
+> I think the logic is wrong here:
+> 
+> If mtu is legal, we set it but do not tell host.
+> If it's out of range we tell host we use it
+> but don't actually.
+> 
+> Should be the reverse.
 
-kasan: CONFIG_KASAN_INLINE enabled
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 1 PID: 3933 Comm: syz-executor Not tainted 4.9.0-rc1+ #230
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff88006b79d800 task.stack: ffff88006bbc0000
-RIP: 0010:[<ffffffff8120872d>]  [<ffffffff8120872d>]
-__lock_acquire+0x12d/0x3450 kernel/locking/lockdep.c:3221
-RSP: 0018:ffff88006bbc7420  EFLAGS: 00010006
-RAX: 0000000000000046 RBX: dffffc0000000000 RCX: 0000000000000000
-RDX: 000000000000000c RSI: 0000000000000000 RDI: 0000000000000003
-RBP: ffff88006bbc75c0 R08: 0000000000000001 R09: 0000000000000000
-R10: 0000000000000000 R11: ffffffff85f42240 R12: ffff88006b79d800
-R13: ffffffff84bfe4e0 R14: 0000000000000001 R15: 0000000000000060
-FS:  00007fd9c41cc700(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000000451f80 CR3: 00000000638f0000 CR4: 00000000000006e0
-Stack:
- 0000000000000000 ffff88006bbc0000 ffff88006bbc8000 0000000000000000
- 0000000000000002 ffff88006b79d800 0000000000000000 ffff88006bbc7f48
- ffffffff852adc60 0000000000000000 ffffffff852adc64 1ffffffff0b40135
-Call Trace:
- [<ffffffff8120c5ae>] lock_acquire+0x17e/0x340 kernel/locking/lockdep.c:3746
- [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:521
- [<ffffffff83fb6fe1>] mutex_lock_nested+0xb1/0x890 kernel/locking/mutex.c:621
- [<ffffffff82db6fd0>] netlink_dump+0x50/0xac0 net/netlink/af_netlink.c:2067
- [<ffffffff82dba381>] __netlink_dump_start+0x501/0x770
-net/netlink/af_netlink.c:2200
- [<ffffffff82dc35b2>] genl_family_rcv_msg+0xa02/0xc80
-net/netlink/genetlink.c:595
- [<ffffffff82dc39e6>] genl_rcv_msg+0x1b6/0x270 net/netlink/genetlink.c:658
- [<ffffffff82dc1a70>] netlink_rcv_skb+0x2c0/0x3b0 net/netlink/af_netlink.c:2281
- [<ffffffff82dc2b98>] genl_rcv+0x28/0x40 net/netlink/genetlink.c:669
- [<     inline     >] netlink_unicast_kernel net/netlink/af_netlink.c:1214
- [<ffffffff82dc0329>] netlink_unicast+0x5a9/0x880 net/netlink/af_netlink.c:1240
- [<ffffffff82dc0fb7>] netlink_sendmsg+0x9b7/0xce0 net/netlink/af_netlink.c:1786
- [<     inline     >] sock_sendmsg_nosec net/socket.c:606
- [<ffffffff82b7075c>] sock_sendmsg+0xcc/0x110 net/socket.c:616
- [<ffffffff82b709c1>] sock_write_iter+0x221/0x3b0 net/socket.c:814
- [<     inline     >] new_sync_write fs/read_write.c:499
- [<ffffffff8151c944>] __vfs_write+0x334/0x570 fs/read_write.c:512
- [<ffffffff8152045b>] vfs_write+0x17b/0x500 fs/read_write.c:560
- [<     inline     >] SYSC_write fs/read_write.c:607
- [<ffffffff81523d84>] SyS_write+0xd4/0x1a0 fs/read_write.c:599
- [<ffffffff83fc0141>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-arch/x86/entry/entry_64.S:209
-Code: 0f 1f 44 00 00 f6 c4 02 0f 85 24 0a 00 00 44 8b 35 c9 61 8b 03
-45 85 f6 74 2c 4c 89 fa 48 bb 00 00 00 00 00 fc ff df 48 c1 ea 03 <80>
-3c 1a 00 0f 85 04 2f 00 00 49 81 3f a0 dc 2a 85 41 be 00 00
-RIP  [<ffffffff8120872d>] __lock_acquire+0x12d/0x3450
-kernel/locking/lockdep.c:3221
- RSP <ffff88006bbc7420>
----[ end trace 685b3c182bf7f25c ]---
+Ah, yes, looks like it should be:
 
-The reproducer is attached.
+                if (mtu < dev->min_mtu || mtu > dev->max_mtu)
+                        __virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
+                else
+                        dev->mtu = mtu;
 
-On commit 1a1891d762d6e64daf07b5be4817e3fbb29e3c59 (Oct 18).
-
---001a113fa8480dfbe2053f386bbd
-Content-Type: text/x-csrc; charset=US-ASCII; name="netlink.c"
-Content-Disposition: attachment; filename="netlink.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_iugztcfe0
-
-Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
-eXprYWxsZXIpCgojaWZuZGVmIF9fTlJfc3l6X3Rlc3QKI2RlZmluZSBfX05SX3N5el90ZXN0IDEw
-MDAwMDEKI2VuZGlmCiNpZm5kZWYgX19OUl9zb2NrZXQKI2RlZmluZSBfX05SX3NvY2tldCA0MQoj
-ZW5kaWYKI2lmbmRlZiBfX05SX3dyaXRlCiNkZWZpbmUgX19OUl93cml0ZSAxCiNlbmRpZgojaWZu
-ZGVmIF9fTlJfc3l6X2Z1c2VfbW91bnQKI2RlZmluZSBfX05SX3N5el9mdXNlX21vdW50IDEwMDAw
-MDQKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpfb3Blbl9kZXYKI2RlZmluZSBfX05SX3N5el9vcGVu
-X2RldiAxMDAwMDAyCiNlbmRpZgojaWZuZGVmIF9fTlJfbW1hcAojZGVmaW5lIF9fTlJfbW1hcCA5
-CiNlbmRpZgojaWZuZGVmIF9fTlJfc3l6X2Z1c2VibGtfbW91bnQKI2RlZmluZSBfX05SX3N5el9m
-dXNlYmxrX21vdW50IDEwMDAwMDUKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpfb3Blbl9wdHMKI2Rl
-ZmluZSBfX05SX3N5el9vcGVuX3B0cyAxMDAwMDAzCiNlbmRpZgoKI2luY2x1ZGUgPGZjbnRsLmg+
-CiNpbmNsdWRlIDxwdGhyZWFkLmg+CiNpbmNsdWRlIDxzZXRqbXAuaD4KI2luY2x1ZGUgPHNpZ25h
-bC5oPgojaW5jbHVkZSA8c3RkZGVmLmg+CiNpbmNsdWRlIDxzdGRpbnQuaD4KI2luY2x1ZGUgPHN0
-ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5oPgojaW5jbHVkZSA8
-c3lzL2lvY3RsLmg+CiNpbmNsdWRlIDxzeXMvc3RhdC5oPgojaW5jbHVkZSA8c3lzL3N5c2NhbGwu
-aD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8dW5pc3RkLmg+CgpfX3RocmVhZCBp
-bnQgc2tpcF9zZWd2OwpfX3RocmVhZCBqbXBfYnVmIHNlZ3ZfZW52OwoKc3RhdGljIHZvaWQgc2Vn
-dl9oYW5kbGVyKGludCBzaWcsIHNpZ2luZm9fdCogaW5mbywgdm9pZCogdWN0eCkKewogIGlmIChf
-X2F0b21pY19sb2FkX24oJnNraXBfc2VndiwgX19BVE9NSUNfUkVMQVhFRCkpCiAgICBfbG9uZ2pt
-cChzZWd2X2VudiwgMSk7CiAgZXhpdChzaWcpOwp9CgpzdGF0aWMgdm9pZCBpbnN0YWxsX3NlZ3Zf
-aGFuZGxlcigpCnsKICBzdHJ1Y3Qgc2lnYWN0aW9uIHNhOwogIG1lbXNldCgmc2EsIDAsIHNpemVv
-ZihzYSkpOwogIHNhLnNhX3NpZ2FjdGlvbiA9IHNlZ3ZfaGFuZGxlcjsKICBzYS5zYV9mbGFncyA9
-IFNBX05PREVGRVIgfCBTQV9TSUdJTkZPOwogIHNpZ2FjdGlvbihTSUdTRUdWLCAmc2EsIE5VTEwp
-OwogIHNpZ2FjdGlvbihTSUdCVVMsICZzYSwgTlVMTCk7Cn0KCiNkZWZpbmUgTk9ORkFJTElORygu
-Li4pICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAogIHsg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIFwKICAgIF9fYXRvbWljX2ZldGNoX2FkZCgmc2tpcF9zZWd2LCAxLCBfX0FUT01J
-Q19TRVFfQ1NUKTsgICAgICAgICAgICAgICBcCiAgICBpZiAoX3NldGptcChzZWd2X2VudikgPT0g
-MCkgeyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAogICAgICBfX1ZBX0FS
-R1NfXzsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IFwKICAgIH0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICBcCiAgICBfX2F0b21pY19mZXRjaF9zdWIoJnNraXBfc2VndiwgMSwg
-X19BVE9NSUNfU0VRX0NTVCk7ICAgICAgICAgICAgICAgXAogIH0KCnN0YXRpYyB1aW50cHRyX3Qg
-c3l6X29wZW5fZGV2KHVpbnRwdHJfdCBhMCwgdWludHB0cl90IGExLCB1aW50cHRyX3QgYTIpCnsK
-ICBpZiAoYTAgPT0gMHhjIHx8IGEwID09IDB4YikgewogICAgY2hhciBidWZbMTI4XTsKICAgIHNw
-cmludGYoYnVmLCAiL2Rldi8lcy8lZDolZCIsIGEwID09IDB4YyA/ICJjaGFyIiA6ICJibG9jayIs
-CiAgICAgICAgICAgICh1aW50OF90KWExLCAodWludDhfdClhMik7CiAgICByZXR1cm4gb3Blbihi
-dWYsIE9fUkRXUiwgMCk7CiAgfSBlbHNlIHsKICAgIGNoYXIgYnVmWzEwMjRdOwogICAgY2hhciog
-aGFzaDsKICAgIHN0cm5jcHkoYnVmLCAoY2hhciopYTAsIHNpemVvZihidWYpKTsKICAgIGJ1Zltz
-aXplb2YoYnVmKSAtIDFdID0gMDsKICAgIHdoaWxlICgoaGFzaCA9IHN0cmNocihidWYsICcjJykp
-KSB7CiAgICAgICpoYXNoID0gJzAnICsgKGNoYXIpKGExICUgMTApOwogICAgICBhMSAvPSAxMDsK
-ICAgIH0KICAgIHJldHVybiBvcGVuKGJ1ZiwgYTIsIDApOwogIH0KfQoKc3RhdGljIHVpbnRwdHJf
-dCBzeXpfb3Blbl9wdHModWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEpCnsKICBpbnQgcHR5bm8g
-PSAwOwogIGlmIChpb2N0bChhMCwgVElPQ0dQVE4sICZwdHlubykpCiAgICByZXR1cm4gLTE7CiAg
-Y2hhciBidWZbMTI4XTsKICBzcHJpbnRmKGJ1ZiwgIi9kZXYvcHRzLyVkIiwgcHR5bm8pOwogIHJl
-dHVybiBvcGVuKGJ1ZiwgYTEsIDApOwp9CgpzdGF0aWMgdWludHB0cl90IHN5el9mdXNlX21vdW50
-KHVpbnRwdHJfdCBhMCwgdWludHB0cl90IGExLAogICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHVpbnRwdHJfdCBhMiwgdWludHB0cl90IGEzLAogICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIHVpbnRwdHJfdCBhNCwgdWludHB0cl90IGE1KQp7CiAgdWludDY0X3QgdGFyZ2V0ID0g
-YTA7CiAgdWludDY0X3QgbW9kZSA9IGExOwogIHVpbnQ2NF90IHVpZCA9IGEyOwogIHVpbnQ2NF90
-IGdpZCA9IGEzOwogIHVpbnQ2NF90IG1heHJlYWQgPSBhNDsKICB1aW50NjRfdCBmbGFncyA9IGE1
-OwoKICBpbnQgZmQgPSBvcGVuKCIvZGV2L2Z1c2UiLCBPX1JEV1IpOwogIGlmIChmZCA9PSAtMSkK
-ICAgIHJldHVybiBmZDsKICBjaGFyIGJ1ZlsxMDI0XTsKICBzcHJpbnRmKGJ1ZiwgImZkPSVkLHVz
-ZXJfaWQ9JWxkLGdyb3VwX2lkPSVsZCxyb290bW9kZT0wJW8iLCBmZCwKICAgICAgICAgIChsb25n
-KXVpZCwgKGxvbmcpZ2lkLCAodW5zaWduZWQpbW9kZSAmIH4zdSk7CiAgaWYgKG1heHJlYWQgIT0g
-MCkKICAgIHNwcmludGYoYnVmICsgc3RybGVuKGJ1ZiksICIsbWF4X3JlYWQ9JWxkIiwgKGxvbmcp
-bWF4cmVhZCk7CiAgaWYgKG1vZGUgJiAxKQogICAgc3RyY2F0KGJ1ZiwgIixkZWZhdWx0X3Blcm1p
-c3Npb25zIik7CiAgaWYgKG1vZGUgJiAyKQogICAgc3RyY2F0KGJ1ZiwgIixhbGxvd19vdGhlciIp
-OwogIHN5c2NhbGwoU1lTX21vdW50LCAiIiwgdGFyZ2V0LCAiZnVzZSIsIGZsYWdzLCBidWYpOwog
-IHJldHVybiBmZDsKfQoKc3RhdGljIHVpbnRwdHJfdCBzeXpfZnVzZWJsa19tb3VudCh1aW50cHRy
-X3QgYTAsIHVpbnRwdHJfdCBhMSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1
-aW50cHRyX3QgYTIsIHVpbnRwdHJfdCBhMywKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICB1aW50cHRyX3QgYTQsIHVpbnRwdHJfdCBhNSwKICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICB1aW50cHRyX3QgYTYsIHVpbnRwdHJfdCBhNykKewogIHVpbnQ2NF90IHRhcmdl
-dCA9IGEwOwogIHVpbnQ2NF90IGJsa2RldiA9IGExOwogIHVpbnQ2NF90IG1vZGUgPSBhMjsKICB1
-aW50NjRfdCB1aWQgPSBhMzsKICB1aW50NjRfdCBnaWQgPSBhNDsKICB1aW50NjRfdCBtYXhyZWFk
-ID0gYTU7CiAgdWludDY0X3QgYmxrc2l6ZSA9IGE2OwogIHVpbnQ2NF90IGZsYWdzID0gYTc7Cgog
-IGludCBmZCA9IG9wZW4oIi9kZXYvZnVzZSIsIE9fUkRXUik7CiAgaWYgKGZkID09IC0xKQogICAg
-cmV0dXJuIGZkOwogIGlmIChzeXNjYWxsKFNZU19ta25vZGF0LCBBVF9GRENXRCwgYmxrZGV2LCBT
-X0lGQkxLLCBtYWtlZGV2KDcsIDE5OSkpKQogICAgcmV0dXJuIGZkOwogIGNoYXIgYnVmWzI1Nl07
-CiAgc3ByaW50ZihidWYsICJmZD0lZCx1c2VyX2lkPSVsZCxncm91cF9pZD0lbGQscm9vdG1vZGU9
-MCVvIiwgZmQsCiAgICAgICAgICAobG9uZyl1aWQsIChsb25nKWdpZCwgKHVuc2lnbmVkKW1vZGUg
-JiB+M3UpOwogIGlmIChtYXhyZWFkICE9IDApCiAgICBzcHJpbnRmKGJ1ZiArIHN0cmxlbihidWYp
-LCAiLG1heF9yZWFkPSVsZCIsIChsb25nKW1heHJlYWQpOwogIGlmIChibGtzaXplICE9IDApCiAg
-ICBzcHJpbnRmKGJ1ZiArIHN0cmxlbihidWYpLCAiLGJsa3NpemU9JWxkIiwgKGxvbmcpYmxrc2l6
-ZSk7CiAgaWYgKG1vZGUgJiAxKQogICAgc3RyY2F0KGJ1ZiwgIixkZWZhdWx0X3Blcm1pc3Npb25z
-Iik7CiAgaWYgKG1vZGUgJiAyKQogICAgc3RyY2F0KGJ1ZiwgIixhbGxvd19vdGhlciIpOwogIHN5
-c2NhbGwoU1lTX21vdW50LCBibGtkZXYsIHRhcmdldCwgImZ1c2VibGsiLCBmbGFncywgYnVmKTsK
-ICByZXR1cm4gZmQ7Cn0KCnN0YXRpYyB1aW50cHRyX3QgZXhlY3V0ZV9zeXNjYWxsKGludCBuciwg
-dWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHVpbnRwdHJfdCBhMiwgdWludHB0cl90IGEzLAogICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICB1aW50cHRyX3QgYTQsIHVpbnRwdHJfdCBhNSwKICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgdWludHB0cl90IGE2LCB1aW50cHRyX3QgYTcsCiAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhOCkKewogIHN3aXRjaCAobnIpIHsKICBkZWZhdWx0
-OgogICAgcmV0dXJuIHN5c2NhbGwobnIsIGEwLCBhMSwgYTIsIGEzLCBhNCwgYTUpOwogIGNhc2Ug
-X19OUl9zeXpfdGVzdDoKICAgIHJldHVybiAwOwogIGNhc2UgX19OUl9zeXpfb3Blbl9kZXY6CiAg
-ICByZXR1cm4gc3l6X29wZW5fZGV2KGEwLCBhMSwgYTIpOwogIGNhc2UgX19OUl9zeXpfb3Blbl9w
-dHM6CiAgICByZXR1cm4gc3l6X29wZW5fcHRzKGEwLCBhMSk7CiAgY2FzZSBfX05SX3N5el9mdXNl
-X21vdW50OgogICAgcmV0dXJuIHN5el9mdXNlX21vdW50KGEwLCBhMSwgYTIsIGEzLCBhNCwgYTUp
-OwogIGNhc2UgX19OUl9zeXpfZnVzZWJsa19tb3VudDoKICAgIHJldHVybiBzeXpfZnVzZWJsa19t
-b3VudChhMCwgYTEsIGEyLCBhMywgYTQsIGE1LCBhNiwgYTcpOwogIH0KfQoKbG9uZyByWzRdOwoK
-aW50IG1haW4oKQp7CiAgaW5zdGFsbF9zZWd2X2hhbmRsZXIoKTsKICBtZW1zZXQociwgLTEsIHNp
-emVvZihyKSk7CiAgclswXSA9IGV4ZWN1dGVfc3lzY2FsbChfX05SX21tYXAsIDB4MjAwMDAwMDB1
-bCwgMHg5YmMwMDB1bCwgMHgzdWwsCiAgICAgICAgICAgICAgICAgICAgICAgICAweDMydWwsIDB4
-ZmZmZmZmZmZmZmZmZmZmZnVsLCAweDB1bCwgMCwgMCwgMCk7CiAgclsxXSA9IGV4ZWN1dGVfc3lz
-Y2FsbChfX05SX3NvY2tldCwgMHgxMHVsLCAweDN1bCwgMHgxMHVsLCAwLCAwLCAwLCAwLAogICAg
-ICAgICAgICAgICAgICAgICAgICAgMCwgMCk7CiAgTk9ORkFJTElORyhtZW1jcHkoKHZvaWQqKTB4
-MjA2MWEwMDAsCiAgICAgICAgICAgICAgICAgICAgIlx4MWZceDAwXHgwMFx4MDBceDI0XHgwMFx4
-MDdceDgzXHhmOVx4ZmZceGZmXHhmZiIKICAgICAgICAgICAgICAgICAgICAiXHhmZlx4ZmZceGZm
-XHhmZlx4MDNceDAwXHgwOVx4MGFceDQ1XHg1OFx4ZTJceDkzIgogICAgICAgICAgICAgICAgICAg
-ICJceDNlXHgwMFx4MDNceDkyXHgwNFx4MDBceDFjXHgxOFx4MDhceDAwXHhmM1x4MDEiCiAgICAg
-ICAgICAgICAgICAgICAgIlx4OTdceDY4XHgxYSIsCiAgICAgICAgICAgICAgICAgICAgMzkpKTsK
-ICByWzNdID0gZXhlY3V0ZV9zeXNjYWxsKF9fTlJfd3JpdGUsIHJbMV0sIDB4MjA2MWEwMDB1bCwg
-MHgyN3VsLCAwLCAwLAogICAgICAgICAgICAgICAgICAgICAgICAgMCwgMCwgMCwgMCk7CiAgcmV0
-dXJuIDA7Cn0K
---001a113fa8480dfbe2053f386bbd--
+-- 
+Jarod Wilson
+jarod@redhat.com
