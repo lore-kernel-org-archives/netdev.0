@@ -1,53 +1,96 @@
-From: Dave Hansen <dave.hansen@linux.intel.com>
-Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions
- to explicitly pass FOLL_* flags
-Date: Wed, 19 Oct 2016 10:23:55 -0700
-Message-ID: <5807AC2B.4090208@linux.intel.com>
-References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161018153050.GC13117@dhcp22.suse.cz> <20161019085815.GA22239@lucifer>
- <20161019090727.GE7517@dhcp22.suse.cz> <5807A427.7010200@linux.intel.com>
- <20161019170127.GN24393@dhcp22.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
- Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-mm@kvack.org, netdev@vger.kernel.org,
- sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org,
- linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
- linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org,
- Hugh Dickins <hughd@google.com>, linux-media@vger.kernel.org,
- Rik van Riel <riel@redhat.com>, intel-gfx@lists.freedesktop.org,
- adi-buildroot-devel@lists.sourceforge.net, ceph-devel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, Lorenzo Stoakes <lstoakes@gmail.com>,
- linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>,
- linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
- linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org,
- linux-fs
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <20161019170127.GN24393@dhcp22.suse.cz>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv6: fix a potential deadlock in do_ipv6_setsockopt()
+Date: Wed, 19 Oct 2016 11:20:18 -0700
+Message-ID: <1476901218-15635-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: sploving1@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36558 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932426AbcJSSUZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 14:20:25 -0400
+Received: by mail-pf0-f196.google.com with SMTP id r16so3089131pfg.3
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 11:20:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTAvMTkvMjAxNiAxMDowMSBBTSwgTWljaGFsIEhvY2tvIHdyb3RlOgo+IFRoZSBxdWVzdGlv
-biBJIGhhZCBlYXJsaWVyIHdhcyB3aGV0aGVyIHRoaXMgaGFzIHRvIGJlIGFuIGV4cGxpY2l0IEZP
-TEwKPiBmbGFnIHVzZWQgYnkgZy11LXAgdXNlcnMgb3Igd2UgY2FuIGp1c3QgdXNlIGl0IGludGVy
-bmFsbHkgd2hlbiBtbSAhPQo+IGN1cnJlbnQtPm1tCgpUaGUgcmVhc29uIEkgY2hvc2Ugbm90IHRv
-IGRvIHRoYXQgd2FzIHRoYXQgZGVmZXJyZWQgd29yayBnZXRzIHJ1biB1bmRlcgphIGJhc2ljYWxs
-eSByYW5kb20gJ2N1cnJlbnQnLiAgSWYgd2UganVzdCB1c2UgJ21tICE9IGN1cnJlbnQtPm1tJywg
-dGhlbgp0aGUgZGVmZXJyZWQgd29yayB3aWxsIHNvbWV0aW1lcyBoYXZlIHBrZXlzIGVuZm9yY2Vk
-IGFuZCBzb21ldGltZXMgbm90LApiYXNpY2FsbHkgcmFuZG9tbHkuCgpXZSB3YW50IHRvIGJlIGNv
-bnNpc3RlbnQgd2l0aCB3aGV0aGVyIHRoZXkgYXJlIGVuZm9yY2VkIG9yIG5vdCwgc28gd2UKZXhw
-bGljaXRseSBpbmRpY2F0ZSB0aGF0IGJ5IGNhbGxpbmcgdGhlIHJlbW90ZSB2YXJpYW50IHZzLiBw
-bGFpbi4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50
-ZWwtZ2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBz
-Oi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
+Baozeng reported this deadlock case:
+
+       CPU0                    CPU1
+       ----                    ----
+  lock([  165.136033] sk_lock-AF_INET6);
+                               lock([  165.136033] rtnl_mutex);
+                               lock([  165.136033] sk_lock-AF_INET6);
+  lock([  165.136033] rtnl_mutex);
+
+Similar to commit 87e9f0315952
+("ipv4: fix a potential deadlock in mcast getsockopt() path")
+this is due to we still have a case, ipv6_sock_mc_close(),
+where we acquire sk_lock before rtnl_lock. Close this deadlock
+with the similar solution, that is always acquire rtnl lock first.
+
+Fixes: baf606d9c9b1 ("ipv4,ipv6: grab rtnl before locking the socket")
+Reported-by: Baozeng Ding <sploving1@gmail.com>
+Tested-by: Baozeng Ding <sploving1@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv6/af_inet6.c      | 2 ++
+ net/ipv6/ipv6_sockglue.c | 1 +
+ net/ipv6/mcast.c         | 4 ++--
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 46ad699..b8c8d20 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -414,7 +414,9 @@ int inet6_release(struct socket *sock)
+ 		return -EINVAL;
+ 
+ 	/* Free mc lists */
++	rtnl_lock();
+ 	ipv6_sock_mc_close(sk);
++	rtnl_unlock();
+ 
+ 	/* Free ac lists */
+ 	ipv6_sock_ac_close(sk);
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 5330262..1e4bcce 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -120,6 +120,7 @@ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
+ static bool setsockopt_needs_rtnl(int optname)
+ {
+ 	switch (optname) {
++	case IPV6_ADDRFORM:
+ 	case IPV6_ADD_MEMBERSHIP:
+ 	case IPV6_DROP_MEMBERSHIP:
+ 	case IPV6_JOIN_ANYCAST:
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 75c1fc5..41badfd 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -282,10 +282,11 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 	struct ipv6_mc_socklist *mc_lst;
+ 	struct net *net = sock_net(sk);
+ 
++	ASSERT_RTNL();
++
+ 	if (!rcu_access_pointer(np->ipv6_mc_list))
+ 		return;
+ 
+-	rtnl_lock();
+ 	while ((mc_lst = rtnl_dereference(np->ipv6_mc_list)) != NULL) {
+ 		struct net_device *dev;
+ 
+@@ -305,7 +306,6 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 		kfree_rcu(mc_lst, rcu);
+ 
+ 	}
+-	rtnl_unlock();
+ }
+ 
+ int ip6_mc_source(int add, int omode, struct sock *sk,
+-- 
+2.1.0
