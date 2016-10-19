@@ -1,55 +1,130 @@
 From: Jan Kara <jack@suse.cz>
-Subject: Re: [PATCH 04/10] mm: replace get_user_pages_locked() write/force
- parameters with gup_flags
-Date: Wed, 19 Oct 2016 09:33:36 +0200
-Message-ID: <20161019073336.GL29967@quack2.suse.cz>
+Subject: Re: [PATCH 05/10] mm: replace get_vaddr_frames()
+ write/force parameters with gup_flags
+Date: Wed, 19 Oct 2016 09:34:35 +0200
+Message-ID: <20161019073435.GM29967@quack2.suse.cz>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-5-lstoakes@gmail.com>
+ <20161013002020.3062-6-lstoakes@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
-	Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
-	Dave Hansen <dave.hansen@linux.intel.com>,
-	Rik van Riel <riel@redhat.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
-	linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-sh@
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
+ Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
+ Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org,
+ linux-mm@kvack.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org,
+ linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
+ linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>,
+ linux-media@vger.kernel.org, Rik van Riel <riel@redhat.com>,
+ intel-gfx@lists.freedesktop.org, adi-buildroot-devel@lists.sourceforge.net,
+ ceph-devel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>,
+ linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+ linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org,
+ lin
 To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
 Content-Disposition: inline
-In-Reply-To: <20161013002020.3062-5-lstoakes@gmail.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20161013002020.3062-6-lstoakes@gmail.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu 13-10-16 01:20:14, Lorenzo Stoakes wrote:
-> This patch removes the write and force parameters from get_user_pages_locked()
-> and replaces them with a gup_flags parameter to make the use of FOLL_FORCE
-> explicit in callers as use of this flag can result in surprising behaviour (and
-> hence bugs) within the mm subsystem.
-> 
-> Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
-
-After our discussion the patch looks good to me. You can add:
-
-Reviewed-by: Jan Kara <jack@suse.cz>
-
-								Honza
--- 
-Jan Kara <jack@suse.com>
-SUSE Labs, CR
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+T24gVGh1IDEzLTEwLTE2IDAxOjIwOjE1LCBMb3JlbnpvIFN0b2FrZXMgd3JvdGU6Cj4gVGhpcyBw
+YXRjaCByZW1vdmVzIHRoZSB3cml0ZSBhbmQgZm9yY2UgcGFyYW1ldGVycyBmcm9tIGdldF92YWRk
+cl9mcmFtZXMoKSBhbmQKPiByZXBsYWNlcyB0aGVtIHdpdGggYSBndXBfZmxhZ3MgcGFyYW1ldGVy
+IHRvIG1ha2UgdGhlIHVzZSBvZiBGT0xMX0ZPUkNFIGV4cGxpY2l0Cj4gaW4gY2FsbGVycyBhcyB1
+c2Ugb2YgdGhpcyBmbGFnIGNhbiByZXN1bHQgaW4gc3VycHJpc2luZyBiZWhhdmlvdXIgKGFuZCBo
+ZW5jZQo+IGJ1Z3MpIHdpdGhpbiB0aGUgbW0gc3Vic3lzdGVtLgo+IAo+IFNpZ25lZC1vZmYtYnk6
+IExvcmVuem8gU3RvYWtlcyA8bHN0b2FrZXNAZ21haWwuY29tPgoKTG9va3MgZ29vZC4gWW91IGNh
+biBhZGQ6CgpSZXZpZXdlZC1ieTogSmFuIEthcmEgPGphY2tAc3VzZS5jej4KCgkJCQkJCQkJSG9u
+emEKCj4gLS0tCj4gIGRyaXZlcnMvZ3B1L2RybS9leHlub3MvZXh5bm9zX2RybV9nMmQuYyAgICB8
+ICAzICsrLQo+ICBkcml2ZXJzL21lZGlhL3BsYXRmb3JtL29tYXAvb21hcF92b3V0LmMgICAgfCAg
+MiArLQo+ICBkcml2ZXJzL21lZGlhL3Y0bDItY29yZS92aWRlb2J1ZjItbWVtb3BzLmMgfCAgNiAr
+KysrKy0KPiAgaW5jbHVkZS9saW51eC9tbS5oICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIg
+Ky0KPiAgbW0vZnJhbWVfdmVjdG9yLmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgMTMgKyst
+LS0tLS0tLS0tLQo+ICA1IGZpbGVzIGNoYW5nZWQsIDExIGluc2VydGlvbnMoKyksIDE1IGRlbGV0
+aW9ucygtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL2dwdS9kcm0vZXh5bm9zL2V4eW5vc19k
+cm1fZzJkLmMgYi9kcml2ZXJzL2dwdS9kcm0vZXh5bm9zL2V4eW5vc19kcm1fZzJkLmMKPiBpbmRl
+eCBhYTkyZGVjLi5mYmQxM2ZhIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvZ3B1L2RybS9leHlub3Mv
+ZXh5bm9zX2RybV9nMmQuYwo+ICsrKyBiL2RyaXZlcnMvZ3B1L2RybS9leHlub3MvZXh5bm9zX2Ry
+bV9nMmQuYwo+IEBAIC00ODgsNyArNDg4LDggQEAgc3RhdGljIGRtYV9hZGRyX3QgKmcyZF91c2Vy
+cHRyX2dldF9kbWFfYWRkcihzdHJ1Y3QgZHJtX2RldmljZSAqZHJtX2RldiwKPiAgCQlnb3RvIGVy
+cl9mcmVlOwo+ICAJfQo+ICAKPiAtCXJldCA9IGdldF92YWRkcl9mcmFtZXMoc3RhcnQsIG5wYWdl
+cywgdHJ1ZSwgdHJ1ZSwgZzJkX3VzZXJwdHItPnZlYyk7Cj4gKwlyZXQgPSBnZXRfdmFkZHJfZnJh
+bWVzKHN0YXJ0LCBucGFnZXMsIEZPTExfRk9SQ0UgfCBGT0xMX1dSSVRFLAo+ICsJCWcyZF91c2Vy
+cHRyLT52ZWMpOwo+ICAJaWYgKHJldCAhPSBucGFnZXMpIHsKPiAgCQlEUk1fRVJST1IoImZhaWxl
+ZCB0byBnZXQgdXNlciBwYWdlcyBmcm9tIHVzZXJwdHIuXG4iKTsKPiAgCQlpZiAocmV0IDwgMCkK
+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9tZWRpYS9wbGF0Zm9ybS9vbWFwL29tYXBfdm91dC5jIGIv
+ZHJpdmVycy9tZWRpYS9wbGF0Zm9ybS9vbWFwL29tYXBfdm91dC5jCj4gaW5kZXggZTY2OGRkZS4u
+YTMxYjk1YyAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL21lZGlhL3BsYXRmb3JtL29tYXAvb21hcF92
+b3V0LmMKPiArKysgYi9kcml2ZXJzL21lZGlhL3BsYXRmb3JtL29tYXAvb21hcF92b3V0LmMKPiBA
+QCAtMjE0LDcgKzIxNCw3IEBAIHN0YXRpYyBpbnQgb21hcF92b3V0X2dldF91c2VycHRyKHN0cnVj
+dCB2aWRlb2J1Zl9idWZmZXIgKnZiLCB1MzIgdmlydHAsCj4gIAlpZiAoIXZlYykKPiAgCQlyZXR1
+cm4gLUVOT01FTTsKPiAgCj4gLQlyZXQgPSBnZXRfdmFkZHJfZnJhbWVzKHZpcnRwLCAxLCB0cnVl
+LCBmYWxzZSwgdmVjKTsKPiArCXJldCA9IGdldF92YWRkcl9mcmFtZXModmlydHAsIDEsIEZPTExf
+V1JJVEUsIHZlYyk7Cj4gIAlpZiAocmV0ICE9IDEpIHsKPiAgCQlmcmFtZV92ZWN0b3JfZGVzdHJv
+eSh2ZWMpOwo+ICAJCXJldHVybiAtRUlOVkFMOwo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL21lZGlh
+L3Y0bDItY29yZS92aWRlb2J1ZjItbWVtb3BzLmMgYi9kcml2ZXJzL21lZGlhL3Y0bDItY29yZS92
+aWRlb2J1ZjItbWVtb3BzLmMKPiBpbmRleCAzYzNiNTE3Li4xY2QzMjJlIDEwMDY0NAo+IC0tLSBh
+L2RyaXZlcnMvbWVkaWEvdjRsMi1jb3JlL3ZpZGVvYnVmMi1tZW1vcHMuYwo+ICsrKyBiL2RyaXZl
+cnMvbWVkaWEvdjRsMi1jb3JlL3ZpZGVvYnVmMi1tZW1vcHMuYwo+IEBAIC00Miw2ICs0MiwxMCBA
+QCBzdHJ1Y3QgZnJhbWVfdmVjdG9yICp2YjJfY3JlYXRlX2ZyYW1ldmVjKHVuc2lnbmVkIGxvbmcg
+c3RhcnQsCj4gIAl1bnNpZ25lZCBsb25nIGZpcnN0LCBsYXN0Owo+ICAJdW5zaWduZWQgbG9uZyBu
+cjsKPiAgCXN0cnVjdCBmcmFtZV92ZWN0b3IgKnZlYzsKPiArCXVuc2lnbmVkIGludCBmbGFncyA9
+IEZPTExfRk9SQ0U7Cj4gKwo+ICsJaWYgKHdyaXRlKQo+ICsJCWZsYWdzIHw9IEZPTExfV1JJVEU7
+Cj4gIAo+ICAJZmlyc3QgPSBzdGFydCA+PiBQQUdFX1NISUZUOwo+ICAJbGFzdCA9IChzdGFydCAr
+IGxlbmd0aCAtIDEpID4+IFBBR0VfU0hJRlQ7Cj4gQEAgLTQ5LDcgKzUzLDcgQEAgc3RydWN0IGZy
+YW1lX3ZlY3RvciAqdmIyX2NyZWF0ZV9mcmFtZXZlYyh1bnNpZ25lZCBsb25nIHN0YXJ0LAo+ICAJ
+dmVjID0gZnJhbWVfdmVjdG9yX2NyZWF0ZShucik7Cj4gIAlpZiAoIXZlYykKPiAgCQlyZXR1cm4g
+RVJSX1BUUigtRU5PTUVNKTsKPiAtCXJldCA9IGdldF92YWRkcl9mcmFtZXMoc3RhcnQgJiBQQUdF
+X01BU0ssIG5yLCB3cml0ZSwgdHJ1ZSwgdmVjKTsKPiArCXJldCA9IGdldF92YWRkcl9mcmFtZXMo
+c3RhcnQgJiBQQUdFX01BU0ssIG5yLCBmbGFncywgdmVjKTsKPiAgCWlmIChyZXQgPCAwKQo+ICAJ
+CWdvdG8gb3V0X2Rlc3Ryb3k7Cj4gIAkvKiBXZSBhY2NlcHQgb25seSBjb21wbGV0ZSBzZXQgb2Yg
+UEZOcyAqLwo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L21tLmggYi9pbmNsdWRlL2xpbnV4
+L21tLmgKPiBpbmRleCAyN2FiNTM4Li41ZmYwODRmNiAxMDA2NDQKPiAtLS0gYS9pbmNsdWRlL2xp
+bnV4L21tLmgKPiArKysgYi9pbmNsdWRlL2xpbnV4L21tLmgKPiBAQCAtMTMwNSw3ICsxMzA1LDcg
+QEAgc3RydWN0IGZyYW1lX3ZlY3RvciB7Cj4gIHN0cnVjdCBmcmFtZV92ZWN0b3IgKmZyYW1lX3Zl
+Y3Rvcl9jcmVhdGUodW5zaWduZWQgaW50IG5yX2ZyYW1lcyk7Cj4gIHZvaWQgZnJhbWVfdmVjdG9y
+X2Rlc3Ryb3koc3RydWN0IGZyYW1lX3ZlY3RvciAqdmVjKTsKPiAgaW50IGdldF92YWRkcl9mcmFt
+ZXModW5zaWduZWQgbG9uZyBzdGFydCwgdW5zaWduZWQgaW50IG5yX3BmbnMsCj4gLQkJICAgICBi
+b29sIHdyaXRlLCBib29sIGZvcmNlLCBzdHJ1Y3QgZnJhbWVfdmVjdG9yICp2ZWMpOwo+ICsJCSAg
+ICAgdW5zaWduZWQgaW50IGd1cF9mbGFncywgc3RydWN0IGZyYW1lX3ZlY3RvciAqdmVjKTsKPiAg
+dm9pZCBwdXRfdmFkZHJfZnJhbWVzKHN0cnVjdCBmcmFtZV92ZWN0b3IgKnZlYyk7Cj4gIGludCBm
+cmFtZV92ZWN0b3JfdG9fcGFnZXMoc3RydWN0IGZyYW1lX3ZlY3RvciAqdmVjKTsKPiAgdm9pZCBm
+cmFtZV92ZWN0b3JfdG9fcGZucyhzdHJ1Y3QgZnJhbWVfdmVjdG9yICp2ZWMpOwo+IGRpZmYgLS1n
+aXQgYS9tbS9mcmFtZV92ZWN0b3IuYyBiL21tL2ZyYW1lX3ZlY3Rvci5jCj4gaW5kZXggODFiNjc0
+OS4uZGI3N2RjYiAxMDA2NDQKPiAtLS0gYS9tbS9mcmFtZV92ZWN0b3IuYwo+ICsrKyBiL21tL2Zy
+YW1lX3ZlY3Rvci5jCj4gQEAgLTExLDEwICsxMSw3IEBACj4gICAqIGdldF92YWRkcl9mcmFtZXMo
+KSAtIG1hcCB2aXJ0dWFsIGFkZHJlc3NlcyB0byBwZm5zCj4gICAqIEBzdGFydDoJc3RhcnRpbmcg
+dXNlciBhZGRyZXNzCj4gICAqIEBucl9mcmFtZXM6CW51bWJlciBvZiBwYWdlcyAvIHBmbnMgZnJv
+bSBzdGFydCB0byBtYXAKPiAtICogQHdyaXRlOgl3aGV0aGVyIHBhZ2VzIHdpbGwgYmUgd3JpdHRl
+biB0byBieSB0aGUgY2FsbGVyCj4gLSAqIEBmb3JjZToJd2hldGhlciB0byBmb3JjZSB3cml0ZSBh
+Y2Nlc3MgZXZlbiBpZiB1c2VyIG1hcHBpbmcgaXMKPiAtICoJCXJlYWRvbmx5LiBTZWUgZGVzY3Jp
+cHRpb24gb2YgdGhlIHNhbWUgYXJndW1lbnQgb2YKPiAtCQlnZXRfdXNlcl9wYWdlcygpLgo+ICsg
+KiBAZ3VwX2ZsYWdzOglmbGFncyBtb2RpZnlpbmcgbG9va3VwIGJlaGF2aW91cgo+ICAgKiBAdmVj
+OglzdHJ1Y3R1cmUgd2hpY2ggcmVjZWl2ZXMgcGFnZXMgLyBwZm5zIG9mIHRoZSBhZGRyZXNzZXMg
+bWFwcGVkLgo+ICAgKgkJSXQgc2hvdWxkIGhhdmUgc3BhY2UgZm9yIGF0IGxlYXN0IG5yX2ZyYW1l
+cyBlbnRyaWVzLgo+ICAgKgo+IEBAIC0zNCwyMyArMzEsMTcgQEAKPiAgICogVGhpcyBmdW5jdGlv
+biB0YWtlcyBjYXJlIG9mIGdyYWJiaW5nIG1tYXBfc2VtIGFzIG5lY2Vzc2FyeS4KPiAgICovCj4g
+IGludCBnZXRfdmFkZHJfZnJhbWVzKHVuc2lnbmVkIGxvbmcgc3RhcnQsIHVuc2lnbmVkIGludCBu
+cl9mcmFtZXMsCj4gLQkJICAgICBib29sIHdyaXRlLCBib29sIGZvcmNlLCBzdHJ1Y3QgZnJhbWVf
+dmVjdG9yICp2ZWMpCj4gKwkJICAgICB1bnNpZ25lZCBpbnQgZ3VwX2ZsYWdzLCBzdHJ1Y3QgZnJh
+bWVfdmVjdG9yICp2ZWMpCj4gIHsKPiAgCXN0cnVjdCBtbV9zdHJ1Y3QgKm1tID0gY3VycmVudC0+
+bW07Cj4gIAlzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYTsKPiAgCWludCByZXQgPSAwOwo+ICAJ
+aW50IGVycjsKPiAgCWludCBsb2NrZWQ7Cj4gLQl1bnNpZ25lZCBpbnQgZ3VwX2ZsYWdzID0gMDsK
+PiAgCj4gIAlpZiAobnJfZnJhbWVzID09IDApCj4gIAkJcmV0dXJuIDA7Cj4gIAo+IC0JaWYgKHdy
+aXRlKQo+IC0JCWd1cF9mbGFncyB8PSBGT0xMX1dSSVRFOwo+IC0JaWYgKGZvcmNlKQo+IC0JCWd1
+cF9mbGFncyB8PSBGT0xMX0ZPUkNFOwo+IC0KPiAgCWlmIChXQVJOX09OX09OQ0UobnJfZnJhbWVz
+ID4gdmVjLT5ucl9hbGxvY2F0ZWQpKQo+ICAJCW5yX2ZyYW1lcyA9IHZlYy0+bnJfYWxsb2NhdGVk
+Owo+ICAKPiAtLSAKPiAyLjEwLjAKPiAKLS0gCkphbiBLYXJhIDxqYWNrQHN1c2UuY29tPgpTVVNF
+IExhYnMsIENSCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+CkludGVsLWdmeCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpo
+dHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2ludGVsLWdmeAo=
