@@ -1,7 +1,7 @@
 From: <manish.rangankar@cavium.com>
-Subject: [RFC 4/6] qedi: Add LL2 iSCSI interface for offload iSCSI.
-Date: Wed, 19 Oct 2016 01:01:11 -0400
-Message-ID: <1476853273-22960-5-git-send-email-manish.rangankar@cavium.com>
+Subject: [RFC 6/6] qedi: Add support for data path.
+Date: Wed, 19 Oct 2016 01:01:13 -0400
+Message-ID: <1476853273-22960-7-git-send-email-manish.rangankar@cavium.com>
 References: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,15 +15,18 @@ Cc: <martin.petersen@oracle.com>, <jejb@linux.vnet.ibm.com>,
         Saurav Kashyap <saurav.kashyap@cavium.com>,
         Arun Easi <arun.easi@cavium.com>
 To: <lduncan@suse.com>, <cleech@redhat.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:55055 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755723AbcJSFru (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 01:47:50 -0400
 In-Reply-To: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Manish Rangankar <manish.rangankar@cavium.com>
 
-This patch adds support for iscsiuio interface using Light L2 (LL2) qed
-interface.
+This patch adds support for data path and TMF handling.
 
 Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
 Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
@@ -32,486 +35,1414 @@ Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
 Signed-off-by: Arun Easi <arun.easi@cavium.com>
 Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
 ---
- drivers/scsi/qedi/qedi.h      |  73 +++++++++
- drivers/scsi/qedi/qedi_main.c | 357 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 430 insertions(+)
+ drivers/scsi/qedi/qedi_fw.c    | 1282 ++++++++++++++++++++++++++++++++++++++++
+ drivers/scsi/qedi/qedi_gbl.h   |    6 +
+ drivers/scsi/qedi/qedi_iscsi.c |    6 +
+ drivers/scsi/qedi/qedi_main.c  |    4 +
+ 4 files changed, 1298 insertions(+)
 
-diff --git a/drivers/scsi/qedi/qedi.h b/drivers/scsi/qedi/qedi.h
-index 0a5035e..02fefbd 100644
---- a/drivers/scsi/qedi/qedi.h
-+++ b/drivers/scsi/qedi/qedi.h
-@@ -21,6 +21,7 @@
- #include <linux/qed/qed_if.h>
- #include "qedi_dbg.h"
- #include <linux/qed/qed_iscsi_if.h>
-+#include <linux/qed/qed_ll2_if.h>
- #include "qedi_version.h"
- 
- #define QEDI_MODULE_NAME		"qedi"
-@@ -54,6 +55,78 @@
- #define QEDI_LOCAL_PORT_MAX     61024
- #define QEDI_LOCAL_PORT_RANGE   (QEDI_LOCAL_PORT_MAX - QEDI_LOCAL_PORT_MIN)
- #define QEDI_LOCAL_PORT_INVALID	0xffff
-+#define TX_RX_RING		16
-+#define RX_RING			(TX_RX_RING - 1)
-+#define LL2_SINGLE_BUF_SIZE	0x400
-+#define QEDI_PAGE_SIZE		4096
-+#define QEDI_PAGE_ALIGN(addr)	ALIGN(addr, QEDI_PAGE_SIZE)
-+#define QEDI_PAGE_MASK		(~((QEDI_PAGE_SIZE) - 1))
-+
-+#define QEDI_PAGE_SIZE		4096
-+#define QEDI_PATH_HANDLE	0xFE0000000UL
-+
-+struct qedi_uio_ctrl {
-+	/* meta data */
-+	u32 uio_hsi_version;
-+
-+	/* user writes */
-+	u32 host_tx_prod;
-+	u32 host_rx_cons;
-+	u32 host_rx_bd_cons;
-+	u32 host_tx_pkt_len;
-+	u32 host_rx_cons_cnt;
-+
-+	/* driver writes */
-+	u32 hw_tx_cons;
-+	u32 hw_rx_prod;
-+	u32 hw_rx_bd_prod;
-+	u32 hw_rx_prod_cnt;
-+
-+	/* other */
-+	u8 mac_addr[6];
-+	u8 reserve[2];
-+};
-+
-+struct qedi_rx_bd {
-+	u32 rx_pkt_index;
-+	u32 rx_pkt_len;
-+	u16 vlan_id;
-+};
-+
-+#define QEDI_RX_DESC_CNT	(QEDI_PAGE_SIZE / sizeof(struct qedi_rx_bd))
-+#define QEDI_MAX_RX_DESC_CNT	(QEDI_RX_DESC_CNT - 1)
-+#define QEDI_NUM_RX_BD		(QEDI_RX_DESC_CNT * 1)
-+#define QEDI_MAX_RX_BD		(QEDI_NUM_RX_BD - 1)
-+
-+#define QEDI_NEXT_RX_IDX(x)	((((x) & (QEDI_MAX_RX_DESC_CNT)) ==	\
-+				  (QEDI_MAX_RX_DESC_CNT - 1)) ?		\
-+				 (x) + 2 : (x) + 1)
-+
-+struct qedi_uio_dev {
-+	struct uio_info		qedi_uinfo;
-+	u32			uio_dev;
-+	struct list_head	list;
-+
-+	u32			ll2_ring_size;
-+	void			*ll2_ring;
-+
-+	u32			ll2_buf_size;
-+	void			*ll2_buf;
-+
-+	void			*rx_pkt;
-+	void			*tx_pkt;
-+
-+	struct qedi_ctx		*qedi;
-+	struct pci_dev		*pdev;
-+	void			*uctrl;
-+};
-+
-+/* List to maintain the skb pointers */
-+struct skb_work_list {
-+	struct list_head list;
-+	struct sk_buff *skb;
-+	u16 vlan_id;
-+};
- 
- /* Queue sizes in number of elements */
- #define QEDI_SQ_SIZE		MAX_OUSTANDING_TASKS_PER_CON
-diff --git a/drivers/scsi/qedi/qedi_main.c b/drivers/scsi/qedi/qedi_main.c
-index 35ab2f9..58ac9a2 100644
---- a/drivers/scsi/qedi/qedi_main.c
-+++ b/drivers/scsi/qedi/qedi_main.c
-@@ -45,9 +45,12 @@
- static struct scsi_transport_template *qedi_scsi_transport;
- static struct pci_driver qedi_pci_driver;
- static DEFINE_PER_CPU(struct qedi_percpu_s, qedi_percpu);
-+static LIST_HEAD(qedi_udev_list);
- /* Static function declaration */
- static int qedi_alloc_global_queues(struct qedi_ctx *qedi);
- static void qedi_free_global_queues(struct qedi_ctx *qedi);
-+static void qedi_reset_uio_rings(struct qedi_uio_dev *udev);
-+static void qedi_ll2_free_skbs(struct qedi_ctx *qedi);
- 
- static int qedi_iscsi_event_cb(void *context, u8 fw_event_code, void *fw_handle)
- {
-@@ -112,6 +115,224 @@ static int qedi_iscsi_event_cb(void *context, u8 fw_event_code, void *fw_handle)
- 	return rval;
+diff --git a/drivers/scsi/qedi/qedi_fw.c b/drivers/scsi/qedi/qedi_fw.c
+index a820785..af1e14d 100644
+--- a/drivers/scsi/qedi/qedi_fw.c
++++ b/drivers/scsi/qedi/qedi_fw.c
+@@ -147,6 +147,114 @@ static void qedi_process_text_resp(struct qedi_ctx *qedi,
+ 	spin_unlock(&session->back_lock);
  }
  
-+static int qedi_uio_open(struct uio_info *uinfo, struct inode *inode)
++static void qedi_tmf_resp_work(struct work_struct *work)
 +{
-+	struct qedi_uio_dev *udev = uinfo->priv;
-+	struct qedi_ctx *qedi = udev->qedi;
++	struct qedi_cmd *qedi_cmd =
++				container_of(work, struct qedi_cmd, tmf_work);
++	struct qedi_conn *qedi_conn = qedi_cmd->conn;
++	struct qedi_ctx *qedi = qedi_conn->qedi;
++	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
++	struct iscsi_session *session = conn->session;
++	struct iscsi_tm_rsp *resp_hdr_ptr;
++	struct iscsi_cls_session *cls_sess;
++	int rval = 0;
 +
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
++	set_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
++	resp_hdr_ptr =  (struct iscsi_tm_rsp *)qedi_cmd->tmf_resp_buf;
++	cls_sess = iscsi_conn_to_session(qedi_conn->cls_conn);
 +
-+	if (udev->uio_dev != -1)
-+		return -EBUSY;
-+
-+	rtnl_lock();
-+	udev->uio_dev = iminor(inode);
-+	qedi_reset_uio_rings(udev);
-+	set_bit(UIO_DEV_OPENED, &qedi->flags);
-+	rtnl_unlock();
-+
-+	return 0;
-+}
-+
-+static int qedi_uio_close(struct uio_info *uinfo, struct inode *inode)
-+{
-+	struct qedi_uio_dev *udev = uinfo->priv;
-+	struct qedi_ctx *qedi = udev->qedi;
-+
-+	udev->uio_dev = -1;
-+	clear_bit(UIO_DEV_OPENED, &qedi->flags);
-+	qedi_ll2_free_skbs(qedi);
-+	return 0;
-+}
-+
-+static void __qedi_free_uio_rings(struct qedi_uio_dev *udev)
-+{
-+	if (udev->ll2_ring) {
-+		free_page((unsigned long)udev->ll2_ring);
-+		udev->ll2_ring = NULL;
-+	}
-+
-+	if (udev->ll2_buf) {
-+		free_pages((unsigned long)udev->ll2_buf, 2);
-+		udev->ll2_buf = NULL;
-+	}
-+}
-+
-+static void __qedi_free_uio(struct qedi_uio_dev *udev)
-+{
-+	uio_unregister_device(&udev->qedi_uinfo);
-+
-+	__qedi_free_uio_rings(udev);
-+
-+	pci_dev_put(udev->pdev);
-+	kfree(udev->uctrl);
-+	kfree(udev);
-+}
-+
-+static void qedi_free_uio(struct qedi_uio_dev *udev)
-+{
-+	if (!udev)
++	iscsi_block_session(session->cls_session);
++	rval = qedi_cleanup_all_io(qedi, qedi_conn, qedi_cmd->task, true);
++	if (rval) {
++		clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
++		qedi_clear_task_idx(qedi, qedi_cmd->task_id);
++		iscsi_unblock_session(session->cls_session);
 +		return;
-+
-+	list_del_init(&udev->list);
-+	__qedi_free_uio(udev);
-+}
-+
-+static void qedi_reset_uio_rings(struct qedi_uio_dev *udev)
-+{
-+	struct qedi_ctx *qedi = NULL;
-+	struct qedi_uio_ctrl *uctrl = NULL;
-+
-+	qedi = udev->qedi;
-+	uctrl = udev->uctrl;
-+
-+	spin_lock_bh(&qedi->ll2_lock);
-+	uctrl->host_rx_cons = 0;
-+	uctrl->hw_rx_prod = 0;
-+	uctrl->hw_rx_bd_prod = 0;
-+	uctrl->host_rx_bd_cons = 0;
-+
-+	memset(udev->ll2_ring, 0, udev->ll2_ring_size);
-+	memset(udev->ll2_buf, 0, udev->ll2_buf_size);
-+	spin_unlock_bh(&qedi->ll2_lock);
-+}
-+
-+static int __qedi_alloc_uio_rings(struct qedi_uio_dev *udev)
-+{
-+	int rc = 0;
-+
-+	if (udev->ll2_ring || udev->ll2_buf)
-+		return rc;
-+
-+	/* Allocating memory for LL2 ring  */
-+	udev->ll2_ring_size = QEDI_PAGE_SIZE;
-+	udev->ll2_ring = (void *)get_zeroed_page(GFP_KERNEL | __GFP_COMP);
-+	if (!udev->ll2_ring) {
-+		rc = -ENOMEM;
-+		goto exit_alloc_ring;
 +	}
 +
-+	/* Allocating memory for Tx/Rx pkt buffer */
-+	udev->ll2_buf_size = TX_RX_RING * LL2_SINGLE_BUF_SIZE;
-+	udev->ll2_buf_size = QEDI_PAGE_ALIGN(udev->ll2_buf_size);
-+	udev->ll2_buf = (void *)__get_free_pages(GFP_KERNEL | __GFP_COMP |
-+						 __GFP_ZERO, 2);
-+	if (!udev->ll2_buf) {
-+		rc = -ENOMEM;
-+		goto exit_alloc_buf;
-+	}
-+	return rc;
++	iscsi_unblock_session(session->cls_session);
++	qedi_clear_task_idx(qedi, qedi_cmd->task_id);
 +
-+exit_alloc_buf:
-+	free_page((unsigned long)udev->ll2_ring);
-+	udev->ll2_ring = NULL;
-+exit_alloc_ring:
-+	return rc;
++	spin_lock(&session->back_lock);
++	__iscsi_complete_pdu(conn, (struct iscsi_hdr *)resp_hdr_ptr, NULL, 0);
++	spin_unlock(&session->back_lock);
++	kfree(resp_hdr_ptr);
++	clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
 +}
 +
-+static int qedi_alloc_uio_rings(struct qedi_ctx *qedi)
-+{
-+	struct qedi_uio_dev *udev = NULL;
-+	struct qedi_uio_ctrl *uctrl = NULL;
-+	int rc = 0;
++static void qedi_process_tmf_resp(struct qedi_ctx *qedi,
++				  union iscsi_cqe *cqe,
++				  struct iscsi_task *task,
++				  struct qedi_conn *qedi_conn)
 +
-+	list_for_each_entry(udev, &qedi_udev_list, list) {
-+		if (udev->pdev == qedi->pdev) {
-+			udev->qedi = qedi;
-+			if (__qedi_alloc_uio_rings(udev)) {
-+				udev->qedi = NULL;
-+				return -ENOMEM;
++{
++	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
++	struct iscsi_session *session = conn->session;
++	struct iscsi_tmf_response_hdr *cqe_tmp_response;
++	struct iscsi_tm_rsp *resp_hdr_ptr;
++	struct iscsi_tm *tmf_hdr;
++	struct qedi_cmd *qedi_cmd = NULL;
++	u32 *tmp;
++
++	cqe_tmp_response = &cqe->cqe_common.iscsi_hdr.tmf_response;
++
++	qedi_cmd = task->dd_data;
++	qedi_cmd->tmf_resp_buf = kzalloc(sizeof(*resp_hdr_ptr), GFP_KERNEL);
++	if (!qedi_cmd->tmf_resp_buf) {
++		QEDI_ERR(&qedi->dbg_ctx,
++			 "Failed to allocate resp buf, cid=0x%x\n",
++			  qedi_conn->iscsi_conn_id);
++		return;
++	}
++
++	spin_lock(&session->back_lock);
++	resp_hdr_ptr =  (struct iscsi_tm_rsp *)qedi_cmd->tmf_resp_buf;
++	memset(resp_hdr_ptr, 0, sizeof(struct iscsi_tm_rsp));
++
++	/* Fill up the header */
++	resp_hdr_ptr->opcode = cqe_tmp_response->opcode;
++	resp_hdr_ptr->flags = cqe_tmp_response->hdr_flags;
++	resp_hdr_ptr->response = cqe_tmp_response->hdr_response;
++	resp_hdr_ptr->hlength = 0;
++
++	hton24(resp_hdr_ptr->dlength,
++	       (cqe_tmp_response->hdr_second_dword &
++		ISCSI_TMF_RESPONSE_HDR_DATA_SEG_LEN_MASK));
++	tmp = (u32 *)resp_hdr_ptr->dlength;
++	resp_hdr_ptr->itt = build_itt(cqe->cqe_solicited.itid,
++				      conn->session->age);
++	resp_hdr_ptr->statsn = cpu_to_be32(cqe_tmp_response->stat_sn);
++	resp_hdr_ptr->exp_cmdsn  = cpu_to_be32(cqe_tmp_response->exp_cmd_sn);
++	resp_hdr_ptr->max_cmdsn = cpu_to_be32(cqe_tmp_response->max_cmd_sn);
++
++	tmf_hdr = (struct iscsi_tm *)qedi_cmd->task->hdr;
++
++	if (likely(qedi_cmd->io_cmd_in_list)) {
++		qedi_cmd->io_cmd_in_list = false;
++		list_del_init(&qedi_cmd->io_cmd);
++		qedi_conn->active_cmd_count--;
++	}
++
++	if (((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++	      ISCSI_TM_FUNC_LOGICAL_UNIT_RESET) ||
++	    ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++	      ISCSI_TM_FUNC_TARGET_WARM_RESET) ||
++	    ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++	      ISCSI_TM_FUNC_TARGET_COLD_RESET)) {
++		INIT_WORK(&qedi_cmd->tmf_work, qedi_tmf_resp_work);
++		queue_work(qedi->tmf_thread, &qedi_cmd->tmf_work);
++		goto unblock_sess;
++	}
++
++	qedi_clear_task_idx(qedi, qedi_cmd->task_id);
++
++	__iscsi_complete_pdu(conn, (struct iscsi_hdr *)resp_hdr_ptr, NULL, 0);
++	kfree(resp_hdr_ptr);
++
++unblock_sess:
++	spin_unlock(&session->back_lock);
++}
++
+ static void qedi_process_login_resp(struct qedi_ctx *qedi,
+ 				    union iscsi_cqe *cqe,
+ 				    struct iscsi_task *task,
+@@ -470,6 +578,121 @@ static void qedi_process_reject_mesg(struct qedi_ctx *qedi,
+ 	spin_unlock_bh(&session->back_lock);
+ }
+ 
++static void qedi_scsi_completion(struct qedi_ctx *qedi,
++				 union iscsi_cqe *cqe,
++				 struct iscsi_task *task,
++				 struct iscsi_conn *conn)
++{
++	struct scsi_cmnd *sc_cmd;
++	struct qedi_cmd *cmd = task->dd_data;
++	struct iscsi_session *session = conn->session;
++	struct iscsi_scsi_rsp *hdr;
++	struct iscsi_data_in_hdr *cqe_data_in;
++	int datalen = 0;
++	struct qedi_conn *qedi_conn;
++	u32 iscsi_cid;
++	bool mark_cmd_node_deleted = false;
++	u8 cqe_err_bits = 0;
++
++	iscsi_cid  = cqe->cqe_common.conn_id;
++	qedi_conn = qedi->cid_que.conn_cid_tbl[iscsi_cid];
++
++	cqe_data_in = &cqe->cqe_common.iscsi_hdr.data_in;
++	cqe_err_bits =
++		cqe->cqe_common.error_bitmap.error_bits.cqe_error_status_bits;
++
++	spin_lock_bh(&session->back_lock);
++	/* get the scsi command */
++	sc_cmd = cmd->scsi_cmd;
++
++	if (!sc_cmd) {
++		QEDI_WARN(&qedi->dbg_ctx, "sc_cmd is NULL!\n");
++		goto error;
++	}
++
++	if (!sc_cmd->SCp.ptr) {
++		QEDI_WARN(&qedi->dbg_ctx,
++			  "SCp.ptr is NULL, returned in another context.\n");
++		goto error;
++	}
++
++	if (!sc_cmd->request) {
++		QEDI_WARN(&qedi->dbg_ctx,
++			  "sc_cmd->request is NULL, sc_cmd=%p.\n",
++			  sc_cmd);
++		goto error;
++	}
++
++	if (!sc_cmd->request->special) {
++		QEDI_WARN(&qedi->dbg_ctx,
++			  "request->special is NULL so request not valid, sc_cmd=%p.\n",
++			  sc_cmd);
++		goto error;
++	}
++
++	if (!sc_cmd->request->q) {
++		QEDI_WARN(&qedi->dbg_ctx,
++			  "request->q is NULL so request is not valid, sc_cmd=%p.\n",
++			  sc_cmd);
++		goto error;
++	}
++
++	qedi_iscsi_unmap_sg_list(cmd);
++
++	hdr = (struct iscsi_scsi_rsp *)task->hdr;
++	hdr->opcode = cqe_data_in->opcode;
++	hdr->max_cmdsn = cpu_to_be32(cqe_data_in->max_cmd_sn);
++	hdr->exp_cmdsn = cpu_to_be32(cqe_data_in->exp_cmd_sn);
++	hdr->itt = build_itt(cqe->cqe_solicited.itid, conn->session->age);
++	hdr->response = cqe_data_in->reserved1;
++	hdr->cmd_status = cqe_data_in->status_rsvd;
++	hdr->flags = cqe_data_in->flags;
++	hdr->residual_count = cpu_to_be32(cqe_data_in->residual_count);
++
++	if (hdr->cmd_status == SAM_STAT_CHECK_CONDITION) {
++		datalen = cqe_data_in->reserved2 &
++			  ISCSI_COMMON_HDR_DATA_SEG_LEN_MASK;
++		memcpy((char *)conn->data, (char *)cmd->sense_buffer, datalen);
++	}
++
++	/* If f/w reports data underrun err then set residual to IO transfer
++	 * length, set Underrun flag and clear Overrun flag explicitly
++	 */
++	if (unlikely(cqe_err_bits &&
++		     GET_FIELD(cqe_err_bits, CQE_ERROR_BITMAP_UNDER_RUN_ERR))) {
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
++			  "Under flow itt=0x%x proto flags=0x%x tid=0x%x cid 0x%x fw resid 0x%x sc dlen 0x%x\n",
++			  hdr->itt, cqe_data_in->flags, cmd->task_id,
++			  qedi_conn->iscsi_conn_id, hdr->residual_count,
++			  scsi_bufflen(sc_cmd));
++		hdr->residual_count = cpu_to_be32(scsi_bufflen(sc_cmd));
++		hdr->flags |= ISCSI_FLAG_CMD_UNDERFLOW;
++		hdr->flags &= (~ISCSI_FLAG_CMD_OVERFLOW);
++	}
++
++	spin_lock(&qedi_conn->list_lock);
++	if (likely(cmd->io_cmd_in_list)) {
++		cmd->io_cmd_in_list = false;
++		list_del_init(&cmd->io_cmd);
++		qedi_conn->active_cmd_count--;
++		mark_cmd_node_deleted = true;
++	}
++	spin_unlock(&qedi_conn->list_lock);
++
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_TID,
++		  "Freeing tid=0x%x for cid=0x%x\n",
++		  cmd->task_id, qedi_conn->iscsi_conn_id);
++	cmd->state = RESPONSE_RECEIVED;
++	if (io_tracing)
++		qedi_trace_io(qedi, task, cmd->task_id, QEDI_IO_TRACE_RSP);
++
++	qedi_clear_task_idx(qedi, cmd->task_id);
++	__iscsi_complete_pdu(conn, (struct iscsi_hdr *)hdr,
++			     conn->data, datalen);
++error:
++	spin_unlock_bh(&session->back_lock);
++}
++
+ static void qedi_mtask_completion(struct qedi_ctx *qedi,
+ 				  union iscsi_cqe *cqe,
+ 				  struct iscsi_task *task,
+@@ -482,9 +705,16 @@ static void qedi_mtask_completion(struct qedi_ctx *qedi,
+ 	iscsi_conn = conn->cls_conn->dd_data;
+ 
+ 	switch (hdr_opcode) {
++	case ISCSI_OPCODE_SCSI_RESPONSE:
++	case ISCSI_OPCODE_DATA_IN:
++		qedi_scsi_completion(qedi, cqe, task, iscsi_conn);
++		break;
+ 	case ISCSI_OPCODE_LOGIN_RESPONSE:
+ 		qedi_process_login_resp(qedi, cqe, task, conn);
+ 		break;
++	case ISCSI_OPCODE_TMF_RESPONSE:
++		qedi_process_tmf_resp(qedi, cqe, task, conn);
++		break;
+ 	case ISCSI_OPCODE_TEXT_RESPONSE:
+ 		qedi_process_text_resp(qedi, cqe, task, conn);
+ 		break;
+@@ -520,6 +750,131 @@ static void qedi_process_nopin_local_cmpl(struct qedi_ctx *qedi,
+ 	spin_unlock_bh(&session->back_lock);
+ }
+ 
++static void qedi_process_cmd_cleanup_resp(struct qedi_ctx *qedi,
++					  struct iscsi_cqe_solicited *cqe,
++					  struct iscsi_task *task,
++					  struct iscsi_conn *conn)
++{
++	struct qedi_work_map *work, *work_tmp;
++	u32 proto_itt = cqe->itid;
++	u32 ptmp_itt = 0;
++	itt_t protoitt = 0;
++	int found = 0;
++	struct qedi_cmd *qedi_cmd = NULL;
++	u32 rtid = 0;
++	u32 iscsi_cid;
++	struct qedi_conn *qedi_conn;
++	struct qedi_cmd *cmd_new, *dbg_cmd;
++	struct iscsi_task *mtask;
++	struct iscsi_tm *tmf_hdr = NULL;
++
++	iscsi_cid = cqe->conn_id;
++	qedi_conn = qedi->cid_que.conn_cid_tbl[iscsi_cid];
++
++	/* Based on this itt get the corresponding qedi_cmd */
++	spin_lock_bh(&qedi_conn->tmf_work_lock);
++	list_for_each_entry_safe(work, work_tmp, &qedi_conn->tmf_work_list,
++				 list) {
++		if (work->rtid == proto_itt) {
++			/* We found the command */
++			qedi_cmd = work->qedi_cmd;
++			if (!qedi_cmd->list_tmf_work) {
++				QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++					  "TMF work not found, cqe->tid=0x%x, cid=0x%x\n",
++					  proto_itt, qedi_conn->iscsi_conn_id);
++				WARN_ON(1);
 +			}
-+			qedi->udev = udev;
++			found = 1;
++			mtask = qedi_cmd->task;
++			tmf_hdr = (struct iscsi_tm *)mtask->hdr;
++			rtid = work->rtid;
++
++			list_del_init(&work->list);
++			kfree(work);
++			qedi_cmd->list_tmf_work = NULL;
++		}
++	}
++	spin_unlock_bh(&qedi_conn->tmf_work_lock);
++
++	if (found) {
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++			  "TMF work, cqe->tid=0x%x, tmf flags=0x%x, cid=0x%x\n",
++			  proto_itt, tmf_hdr->flags, qedi_conn->iscsi_conn_id);
++
++		if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++		    ISCSI_TM_FUNC_ABORT_TASK) {
++			spin_lock_bh(&conn->session->back_lock);
++
++			protoitt = build_itt(get_itt(tmf_hdr->rtt),
++					     conn->session->age);
++			task = iscsi_itt_to_task(conn, protoitt);
++
++			spin_unlock_bh(&conn->session->back_lock);
++
++			if (!task) {
++				QEDI_NOTICE(&qedi->dbg_ctx,
++					    "IO task completed, tmf rtt=0x%x, cid=0x%x\n",
++					    get_itt(tmf_hdr->rtt),
++					    qedi_conn->iscsi_conn_id);
++				return;
++			}
++
++			dbg_cmd = task->dd_data;
++
++			QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++				  "Abort tmf rtt=0x%x, i/o itt=0x%x, i/o tid=0x%x, cid=0x%x\n",
++				  get_itt(tmf_hdr->rtt), get_itt(task->itt),
++				  dbg_cmd->task_id, qedi_conn->iscsi_conn_id);
++
++			if (qedi_cmd->state == CLEANUP_WAIT_FAILED)
++				qedi_cmd->state = CLEANUP_RECV;
++
++			qedi_clear_task_idx(qedi_conn->qedi, rtid);
++
++			spin_lock(&qedi_conn->list_lock);
++			list_del_init(&dbg_cmd->io_cmd);
++			qedi_conn->active_cmd_count--;
++			spin_unlock(&qedi_conn->list_lock);
++			qedi_cmd->state = CLEANUP_RECV;
++			wake_up_interruptible(&qedi_conn->wait_queue);
++		}
++	} else if (qedi_conn->cmd_cleanup_req > 0) {
++		spin_lock_bh(&conn->session->back_lock);
++		qedi_get_proto_itt(qedi, cqe->itid, &ptmp_itt);
++		protoitt = build_itt(ptmp_itt, conn->session->age);
++		task = iscsi_itt_to_task(conn, protoitt);
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++			  "cleanup io itid=0x%x, protoitt=0x%x, cmd_cleanup_cmpl=%d, cid=0x%x\n",
++			  cqe->itid, protoitt, qedi_conn->cmd_cleanup_cmpl,
++			  qedi_conn->iscsi_conn_id);
++
++		spin_unlock_bh(&conn->session->back_lock);
++		if (!task) {
++			QEDI_NOTICE(&qedi->dbg_ctx,
++				    "task is null, itid=0x%x, cid=0x%x\n",
++				    cqe->itid, qedi_conn->iscsi_conn_id);
++			return;
++		}
++		qedi_conn->cmd_cleanup_cmpl++;
++		wake_up(&qedi_conn->wait_queue);
++		cmd_new = task->dd_data;
++
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_TID,
++			  "Freeing tid=0x%x for cid=0x%x\n",
++			  cqe->itid, qedi_conn->iscsi_conn_id);
++		qedi_clear_task_idx(qedi_conn->qedi, cqe->itid);
++
++	} else {
++		qedi_get_proto_itt(qedi, cqe->itid, &ptmp_itt);
++		protoitt = build_itt(ptmp_itt, conn->session->age);
++		task = iscsi_itt_to_task(conn, protoitt);
++		QEDI_ERR(&qedi->dbg_ctx,
++			 "Delayed or untracked cleanup response, itt=0x%x, tid=0x%x, cid=0x%x, task=%p\n",
++			 protoitt, cqe->itid, qedi_conn->iscsi_conn_id, task);
++		WARN_ON(1);
++	}
++}
++
+ void qedi_fp_process_cqes(struct qedi_ctx *qedi, union iscsi_cqe *cqe,
+ 			  uint16_t que_idx)
+ {
+@@ -619,6 +974,14 @@ void qedi_fp_process_cqes(struct qedi_ctx *qedi, union iscsi_cqe *cqe,
+ 			break;
+ 		}
+ 		goto exit_fp_process;
++	case ISCSI_CQE_TYPE_DUMMY:
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM, "Dummy CqE\n");
++		goto exit_fp_process;
++	case ISCSI_CQE_TYPE_TASK_CLEANUP:
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM, "CleanUp CqE\n");
++		qedi_process_cmd_cleanup_resp(qedi, &cqe->cqe_solicited, task,
++					      conn);
++		goto exit_fp_process;
+ 	default:
+ 		QEDI_ERR(&qedi->dbg_ctx, "Error cqe.\n");
+ 		break;
+@@ -904,6 +1267,440 @@ int qedi_send_iscsi_logout(struct qedi_conn *qedi_conn,
+ 	return 0;
+ }
+ 
++int qedi_cleanup_all_io(struct qedi_ctx *qedi, struct qedi_conn *qedi_conn,
++			struct iscsi_task *task, bool in_recovery)
++{
++	int rval;
++	struct iscsi_task *ctask;
++	struct qedi_cmd *cmd, *cmd_tmp;
++	struct iscsi_tm *tmf_hdr;
++	unsigned int lun = 0;
++	bool lun_reset = false;
++	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
++	struct iscsi_session *session = conn->session;
++
++	/* From recovery, task is NULL or from tmf resp valid task */
++	if (task) {
++		tmf_hdr = (struct iscsi_tm *)task->hdr;
++
++		if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++			ISCSI_TM_FUNC_LOGICAL_UNIT_RESET) {
++			lun_reset = true;
++			lun = scsilun_to_int(&tmf_hdr->lun);
++		}
++	}
++
++	qedi_conn->cmd_cleanup_req = 0;
++	qedi_conn->cmd_cleanup_cmpl = 0;
++
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++		  "active_cmd_count=%d, cid=0x%x, in_recovery=%d, lun_reset=%d\n",
++		  qedi_conn->active_cmd_count, qedi_conn->iscsi_conn_id,
++		  in_recovery, lun_reset);
++
++	if (lun_reset)
++		spin_lock_bh(&session->back_lock);
++
++	spin_lock(&qedi_conn->list_lock);
++
++	list_for_each_entry_safe(cmd, cmd_tmp, &qedi_conn->active_cmd_list,
++				 io_cmd) {
++		ctask = cmd->task;
++		if (ctask == task)
++			continue;
++
++		if (lun_reset) {
++			if (cmd->scsi_cmd && cmd->scsi_cmd->device) {
++				QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++					  "tid=0x%x itt=0x%x scsi_cmd_ptr=%p device=%p task_state=%d cmd_state=0%x cid=0x%x\n",
++					  cmd->task_id, get_itt(ctask->itt),
++					  cmd->scsi_cmd, cmd->scsi_cmd->device,
++					  ctask->state, cmd->state,
++					  qedi_conn->iscsi_conn_id);
++				if (cmd->scsi_cmd->device->lun != lun)
++					continue;
++			}
++		}
++		qedi_conn->cmd_cleanup_req++;
++		qedi_iscsi_cleanup_task(ctask, true);
++
++		list_del_init(&cmd->io_cmd);
++		qedi_conn->active_cmd_count--;
++		QEDI_WARN(&qedi->dbg_ctx,
++			  "Deleted active cmd list node io_cmd=%p, cid=0x%x\n",
++			  &cmd->io_cmd, qedi_conn->iscsi_conn_id);
++	}
++
++	spin_unlock(&qedi_conn->list_lock);
++
++	if (lun_reset)
++		spin_unlock_bh(&session->back_lock);
++
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++		  "cmd_cleanup_req=%d, cid=0x%x\n",
++		  qedi_conn->cmd_cleanup_req,
++		  qedi_conn->iscsi_conn_id);
++
++	rval  = wait_event_interruptible_timeout(qedi_conn->wait_queue,
++						 ((qedi_conn->cmd_cleanup_req ==
++						 qedi_conn->cmd_cleanup_cmpl) ||
++						 qedi_conn->ep),
++						 5 * HZ);
++	if (rval) {
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++			  "i/o cmd_cleanup_req=%d, equal to cmd_cleanup_cmpl=%d, cid=0x%x\n",
++			  qedi_conn->cmd_cleanup_req,
++			  qedi_conn->cmd_cleanup_cmpl,
++			  qedi_conn->iscsi_conn_id);
++
++		return 0;
++	}
++
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++		  "i/o cmd_cleanup_req=%d, not equal to cmd_cleanup_cmpl=%d, cid=0x%x\n",
++		  qedi_conn->cmd_cleanup_req,
++		  qedi_conn->cmd_cleanup_cmpl,
++		  qedi_conn->iscsi_conn_id);
++
++	iscsi_host_for_each_session(qedi->shost,
++				    qedi_mark_device_missing);
++	qedi_ops->common->drain(qedi->cdev);
++
++	/* Enable IOs for all other sessions except current.*/
++	if (!wait_event_interruptible_timeout(qedi_conn->wait_queue,
++					      (qedi_conn->cmd_cleanup_req ==
++					       qedi_conn->cmd_cleanup_cmpl),
++					      5 * HZ)) {
++		iscsi_host_for_each_session(qedi->shost,
++					    qedi_mark_device_available);
++		return -1;
++	}
++
++	iscsi_host_for_each_session(qedi->shost,
++				    qedi_mark_device_available);
++
++	return 0;
++}
++
++void qedi_clearsq(struct qedi_ctx *qedi, struct qedi_conn *qedi_conn,
++		  struct iscsi_task *task)
++{
++	struct qedi_endpoint *qedi_ep;
++	int rval;
++
++	qedi_ep = qedi_conn->ep;
++	qedi_conn->cmd_cleanup_req = 0;
++	qedi_conn->cmd_cleanup_cmpl = 0;
++
++	if (!qedi_ep) {
++		QEDI_WARN(&qedi->dbg_ctx,
++			  "Cannot proceed, ep already disconnected, cid=0x%x\n",
++			  qedi_conn->iscsi_conn_id);
++		return;
++	}
++
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
++		  "Clearing SQ for cid=0x%x, conn=%p, ep=%p\n",
++		  qedi_conn->iscsi_conn_id, qedi_conn, qedi_ep);
++
++	qedi_ops->clear_sq(qedi->cdev, qedi_ep->handle);
++
++	rval = qedi_cleanup_all_io(qedi, qedi_conn, task, true);
++	if (rval) {
++		QEDI_ERR(&qedi->dbg_ctx,
++			 "fatal error, need hard reset, cid=0x%x\n",
++			 qedi_conn->iscsi_conn_id);
++		WARN_ON(1);
++	}
++}
++
++static int qedi_wait_for_cleanup_request(struct qedi_ctx *qedi,
++					 struct qedi_conn *qedi_conn,
++					 struct iscsi_task *task,
++					 struct qedi_cmd *qedi_cmd,
++					 struct qedi_work_map *list_work)
++{
++	struct qedi_cmd *cmd = (struct qedi_cmd *)task->dd_data;
++	int wait;
++
++	wait  = wait_event_interruptible_timeout(qedi_conn->wait_queue,
++						 ((qedi_cmd->state ==
++						   CLEANUP_RECV) ||
++						 ((qedi_cmd->type == TYPEIO) &&
++						  (cmd->state ==
++						   RESPONSE_RECEIVED))),
++						 5 * HZ);
++	if (!wait) {
++		qedi_cmd->state = CLEANUP_WAIT_FAILED;
++
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++			  "Cleanup timedout tid=0x%x, issue connection recovery, cid=0x%x\n",
++			  cmd->task_id, qedi_conn->iscsi_conn_id);
++
++		return -1;
++	}
++	return 0;
++}
++
++static void qedi_tmf_work(struct work_struct *work)
++{
++	struct qedi_cmd *qedi_cmd =
++		container_of(work, struct qedi_cmd, tmf_work);
++	struct qedi_conn *qedi_conn = qedi_cmd->conn;
++	struct qedi_ctx *qedi = qedi_conn->qedi;
++	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
++	struct iscsi_cls_session *cls_sess;
++	struct qedi_work_map *list_work = NULL;
++	struct iscsi_task *mtask;
++	struct qedi_cmd *cmd;
++	struct iscsi_task *ctask;
++	struct iscsi_tm *tmf_hdr;
++	s16 rval = 0;
++	s16 tid = 0;
++
++	mtask = qedi_cmd->task;
++	tmf_hdr = (struct iscsi_tm *)mtask->hdr;
++	cls_sess = iscsi_conn_to_session(qedi_conn->cls_conn);
++	set_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
++
++	ctask = iscsi_itt_to_task(conn, tmf_hdr->rtt);
++	if (!ctask || !ctask->sc) {
++		QEDI_ERR(&qedi->dbg_ctx, "Task already completed\n");
++		goto abort_ret;
++	}
++
++	cmd = (struct qedi_cmd *)ctask->dd_data;
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
++		  "Abort tmf rtt=0x%x, cmd itt=0x%x, cmd tid=0x%x, cid=0x%x\n",
++		  get_itt(tmf_hdr->rtt), get_itt(ctask->itt), cmd->task_id,
++		  qedi_conn->iscsi_conn_id);
++
++	if (do_not_recover) {
++		QEDI_ERR(&qedi->dbg_ctx, "DONT SEND CLEANUP/ABORT %d\n",
++			 do_not_recover);
++		goto abort_ret;
++	}
++
++	list_work = kzalloc(sizeof(*list_work), GFP_ATOMIC);
++	if (!list_work) {
++		QEDI_ERR(&qedi->dbg_ctx, "Memory alloction failed\n");
++		goto abort_ret;
++	}
++
++	qedi_cmd->type = TYPEIO;
++	list_work->qedi_cmd = qedi_cmd;
++	list_work->rtid = cmd->task_id;
++	list_work->state = QEDI_WORK_SCHEDULED;
++	qedi_cmd->list_tmf_work = list_work;
++
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++		  "Queue tmf work=%p, list node=%p, cid=0x%x, tmf flags=0x%x\n",
++		  list_work->ptr_tmf_work, list_work, qedi_conn->iscsi_conn_id,
++		  tmf_hdr->flags);
++
++	spin_lock_bh(&qedi_conn->tmf_work_lock);
++	list_add_tail(&list_work->list, &qedi_conn->tmf_work_list);
++	spin_unlock_bh(&qedi_conn->tmf_work_lock);
++
++	qedi_iscsi_cleanup_task(ctask, false);
++
++	rval = qedi_wait_for_cleanup_request(qedi, qedi_conn, ctask, qedi_cmd,
++					     list_work);
++	if (rval == -1) {
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
++			  "FW cleanup got escalated, cid=0x%x\n",
++			  qedi_conn->iscsi_conn_id);
++		goto ldel_exit;
++	}
++
++	tid = qedi_get_task_idx(qedi);
++	if (tid == -1) {
++		QEDI_ERR(&qedi->dbg_ctx, "Invalid tid, cid=0x%x\n",
++			 qedi_conn->iscsi_conn_id);
++		goto ldel_exit;
++	}
++
++	qedi_cmd->task_id = tid;
++	qedi_send_iscsi_tmf(qedi_conn, qedi_cmd->task);
++
++abort_ret:
++	clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
++	return;
++
++ldel_exit:
++	spin_lock_bh(&qedi_conn->tmf_work_lock);
++	if (!qedi_cmd->list_tmf_work) {
++		list_del_init(&list_work->list);
++		qedi_cmd->list_tmf_work = NULL;
++		kfree(list_work);
++	}
++	spin_unlock_bh(&qedi_conn->tmf_work_lock);
++
++	spin_lock(&qedi_conn->list_lock);
++	list_del_init(&cmd->io_cmd);
++	qedi_conn->active_cmd_count--;
++	spin_unlock(&qedi_conn->list_lock);
++
++	clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
++}
++
++static int qedi_send_iscsi_tmf(struct qedi_conn *qedi_conn,
++			       struct iscsi_task *mtask)
++{
++	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
++	struct qedi_ctx *qedi = qedi_conn->qedi;
++	struct iscsi_task_context *fw_task_ctx;
++	struct iscsi_tmf_request_hdr *fw_tmf_request;
++	struct iscsi_sge *single_sge;
++	struct qedi_cmd *qedi_cmd;
++	struct qedi_cmd *cmd;
++	struct iscsi_task *ctask;
++	struct iscsi_tm *tmf_hdr;
++	struct iscsi_sge *req_sge;
++	struct iscsi_sge *resp_sge;
++	u32 scsi_lun[2];
++	s16 tid = 0, ptu_invalidate = 0;
++
++	req_sge = (struct iscsi_sge *)qedi_conn->gen_pdu.req_bd_tbl;
++	resp_sge = (struct iscsi_sge *)qedi_conn->gen_pdu.resp_bd_tbl;
++	qedi_cmd = (struct qedi_cmd *)mtask->dd_data;
++	tmf_hdr = (struct iscsi_tm *)mtask->hdr;
++
++	tid = qedi_cmd->task_id;
++	qedi_update_itt_map(qedi, tid, mtask->itt);
++
++	fw_task_ctx =
++	      (struct iscsi_task_context *)qedi_get_task_mem(&qedi->tasks, tid);
++	memset(fw_task_ctx, 0, sizeof(struct iscsi_task_context));
++
++	fw_tmf_request = &fw_task_ctx->ystorm_st_context.pdu_hdr.tmf_request;
++	fw_tmf_request->itt = qedi_set_itt(tid, get_itt(mtask->itt));
++	fw_tmf_request->cmd_sn = be32_to_cpu(tmf_hdr->cmdsn);
++
++	memcpy(scsi_lun, &tmf_hdr->lun, sizeof(struct scsi_lun));
++	fw_tmf_request->lun.lo = be32_to_cpu(scsi_lun[0]);
++	fw_tmf_request->lun.hi = be32_to_cpu(scsi_lun[1]);
++
++	if (qedi->tid_reuse_count[tid] == QEDI_MAX_TASK_NUM) {
++		ptu_invalidate = 1;
++		qedi->tid_reuse_count[tid] = 0;
++	}
++	fw_task_ctx->ystorm_st_context.state.reuse_count =
++						qedi->tid_reuse_count[tid];
++	fw_task_ctx->mstorm_st_context.reuse_count =
++						qedi->tid_reuse_count[tid]++;
++
++	if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++	     ISCSI_TM_FUNC_ABORT_TASK) {
++		ctask = iscsi_itt_to_task(conn, tmf_hdr->rtt);
++		if (!ctask || !ctask->sc) {
++			QEDI_ERR(&qedi->dbg_ctx,
++				 "Could not get reference task\n");
 +			return 0;
 +		}
++		cmd = (struct qedi_cmd *)ctask->dd_data;
++		fw_tmf_request->rtt =
++				qedi_set_itt(cmd->task_id,
++					     get_itt(tmf_hdr->rtt));
++	} else {
++		fw_tmf_request->rtt = ISCSI_RESERVED_TAG;
 +	}
 +
-+	udev = kzalloc(sizeof(*udev), GFP_KERNEL);
-+	if (!udev) {
-+		rc = -ENOMEM;
-+		goto err_udev;
-+	}
++	fw_tmf_request->opcode = tmf_hdr->opcode;
++	fw_tmf_request->function = tmf_hdr->flags;
++	fw_tmf_request->hdr_second_dword = ntoh24(tmf_hdr->dlength);
++	fw_tmf_request->ref_cmd_sn = be32_to_cpu(tmf_hdr->refcmdsn);
 +
-+	uctrl = kzalloc(sizeof(*uctrl), GFP_KERNEL);
-+	if (!uctrl) {
-+		rc = -ENOMEM;
-+		goto err_uctrl;
-+	}
++	single_sge = &fw_task_ctx->mstorm_st_context.sgl_union.single_sge;
++	fw_task_ctx->mstorm_st_context.task_type = ISCSI_TASK_TYPE_MIDPATH;
++	fw_task_ctx->mstorm_ag_context.task_cid = (u16)qedi_conn->iscsi_conn_id;
++	single_sge->sge_addr.lo = resp_sge->sge_addr.lo;
++	single_sge->sge_addr.hi = resp_sge->sge_addr.hi;
++	single_sge->sge_len = resp_sge->sge_len;
 +
-+	udev->uio_dev = -1;
++	SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++		  ISCSI_MFLAGS_SINGLE_SGE, 1);
++	SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++		  ISCSI_MFLAGS_SLOW_IO, 0);
++	fw_task_ctx->mstorm_st_context.sgl_size = 1;
++	fw_task_ctx->mstorm_st_context.rem_task_size = resp_sge->sge_len;
 +
-+	udev->qedi = qedi;
-+	udev->pdev = qedi->pdev;
-+	udev->uctrl = uctrl;
++	/* Ustorm context */
++	fw_task_ctx->ustorm_st_context.rem_rcv_len = 0;
++	fw_task_ctx->ustorm_st_context.exp_data_transfer_len = 0;
++	fw_task_ctx->ustorm_st_context.exp_data_sn = 0;
++	fw_task_ctx->ustorm_st_context.task_type =  ISCSI_TASK_TYPE_MIDPATH;
++	fw_task_ctx->ustorm_st_context.cq_rss_number = 0;
 +
-+	rc = __qedi_alloc_uio_rings(udev);
-+	if (rc)
-+		goto err_uio_rings;
++	SET_FIELD(fw_task_ctx->ustorm_st_context.flags,
++		  USTORM_ISCSI_TASK_ST_CTX_LOCAL_COMP, 0);
++	SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
++		  ISCSI_REG1_NUM_FAST_SGES, 0);
 +
-+	list_add(&udev->list, &qedi_udev_list);
++	fw_task_ctx->ustorm_ag_context.icid = (u16)qedi_conn->iscsi_conn_id;
++	SET_FIELD(fw_task_ctx->ustorm_ag_context.flags1,
++		  USTORM_ISCSI_TASK_AG_CTX_R2T2RECV, 1);
++	fw_task_ctx->ustorm_st_context.lun.lo = be32_to_cpu(scsi_lun[0]);
++	fw_task_ctx->ustorm_st_context.lun.hi = be32_to_cpu(scsi_lun[1]);
 +
-+	pci_dev_get(udev->pdev);
-+	qedi->udev = udev;
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++		  "Add TMF to SQ, tmf tid=0x%x, itt=0x%x, cid=0x%x\n",
++		  tid,  mtask->itt, qedi_conn->iscsi_conn_id);
 +
-+	udev->tx_pkt = udev->ll2_buf;
-+	udev->rx_pkt = udev->ll2_buf + LL2_SINGLE_BUF_SIZE;
++	spin_lock(&qedi_conn->list_lock);
++	list_add_tail(&qedi_cmd->io_cmd, &qedi_conn->active_cmd_list);
++	qedi_cmd->io_cmd_in_list = true;
++	qedi_conn->active_cmd_count++;
++	spin_unlock(&qedi_conn->list_lock);
++
++	qedi_add_to_sq(qedi_conn, mtask, tid, ptu_invalidate, false);
++	qedi_ring_doorbell(qedi_conn);
 +	return 0;
-+
-+ err_uio_rings:
-+	kfree(uctrl);
-+ err_uctrl:
-+	kfree(udev);
-+ err_udev:
-+	return -ENOMEM;
 +}
 +
-+static int qedi_init_uio(struct qedi_ctx *qedi)
++int qedi_iscsi_abort_work(struct qedi_conn *qedi_conn,
++			  struct iscsi_task *mtask)
 +{
-+	struct qedi_uio_dev *udev = qedi->udev;
-+	struct uio_info *uinfo;
-+	int ret = 0;
++	struct qedi_ctx *qedi = qedi_conn->qedi;
++	struct iscsi_tm *tmf_hdr;
++	struct qedi_cmd *qedi_cmd = (struct qedi_cmd *)mtask->dd_data;
++	s16 tid = 0;
 +
-+	if (!udev)
++	tmf_hdr = (struct iscsi_tm *)mtask->hdr;
++	qedi_cmd->task = mtask;
++
++	/* If abort task then schedule the work and return */
++	if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++	    ISCSI_TM_FUNC_ABORT_TASK) {
++		qedi_cmd->state = CLEANUP_WAIT;
++		INIT_WORK(&qedi_cmd->tmf_work, qedi_tmf_work);
++		queue_work(qedi->tmf_thread, &qedi_cmd->tmf_work);
++
++	} else if (((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++		    ISCSI_TM_FUNC_LOGICAL_UNIT_RESET) ||
++		   ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++		    ISCSI_TM_FUNC_TARGET_WARM_RESET) ||
++		   ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
++		    ISCSI_TM_FUNC_TARGET_COLD_RESET)) {
++		tid = qedi_get_task_idx(qedi);
++		if (tid == -1) {
++			QEDI_ERR(&qedi->dbg_ctx, "Invalid tid, cid=0x%x\n",
++				 qedi_conn->iscsi_conn_id);
++			return -1;
++		}
++		qedi_cmd->task_id = tid;
++
++		qedi_send_iscsi_tmf(qedi_conn, qedi_cmd->task);
++
++	} else {
++		QEDI_ERR(&qedi->dbg_ctx, "Invalid tmf, cid=0x%x\n",
++			 qedi_conn->iscsi_conn_id);
++		return -1;
++	}
++
++	return 0;
++}
++
+ int qedi_send_iscsi_text(struct qedi_conn *qedi_conn,
+ 			 struct iscsi_task *task)
+ {
+@@ -1121,3 +1918,488 @@ int qedi_send_iscsi_nopout(struct qedi_conn *qedi_conn,
+ 	qedi_ring_doorbell(qedi_conn);
+ 	return 0;
+ }
++
++static int qedi_split_bd(struct qedi_cmd *cmd, u64 addr, int sg_len,
++			 int bd_index)
++{
++	struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
++	int frag_size, sg_frags;
++
++	sg_frags = 0;
++
++	while (sg_len) {
++		if (addr % QEDI_PAGE_SIZE)
++			frag_size =
++				   (QEDI_PAGE_SIZE - (addr % QEDI_PAGE_SIZE));
++		else
++			frag_size = (sg_len > QEDI_BD_SPLIT_SZ) ? 0 :
++				    (sg_len % QEDI_BD_SPLIT_SZ);
++
++		if (frag_size == 0)
++			frag_size = QEDI_BD_SPLIT_SZ;
++
++		bd[bd_index + sg_frags].sge_addr.lo = (addr & 0xffffffff);
++		bd[bd_index + sg_frags].sge_addr.hi = (addr >> 32);
++		bd[bd_index + sg_frags].sge_len = (u16)frag_size;
++		QEDI_INFO(&cmd->conn->qedi->dbg_ctx, QEDI_LOG_IO,
++			  "split sge %d: addr=%llx, len=%x",
++			  (bd_index + sg_frags), addr, frag_size);
++
++		addr += (u64)frag_size;
++		sg_frags++;
++		sg_len -= frag_size;
++	}
++	return sg_frags;
++}
++
++static int qedi_map_scsi_sg(struct qedi_ctx *qedi, struct qedi_cmd *cmd)
++{
++	struct scsi_cmnd *sc = cmd->scsi_cmd;
++	struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
++	struct scatterlist *sg;
++	int byte_count = 0;
++	int bd_count = 0;
++	int sg_count;
++	int sg_len;
++	int sg_frags;
++	u64 addr, end_addr;
++	int i;
++
++	WARN_ON(scsi_sg_count(sc) > QEDI_ISCSI_MAX_BDS_PER_CMD);
++
++	sg_count = dma_map_sg(&qedi->pdev->dev, scsi_sglist(sc),
++			      scsi_sg_count(sc), sc->sc_data_direction);
++
++	/*
++	 * New condition to send single SGE as cached-SGL.
++	 * Single SGE with length less than 64K.
++	 */
++	sg = scsi_sglist(sc);
++	if ((sg_count == 1) && (sg_dma_len(sg) <= MAX_SGLEN_FOR_CACHESGL)) {
++		sg_len = sg_dma_len(sg);
++		addr = (u64)sg_dma_address(sg);
++
++		bd[bd_count].sge_addr.lo = (addr & 0xffffffff);
++		bd[bd_count].sge_addr.hi = (addr >> 32);
++		bd[bd_count].sge_len = (u16)sg_len;
++
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO,
++			  "single-cashed-sgl: bd_count:%d addr=%llx, len=%x",
++			  sg_count, addr, sg_len);
++
++		return ++bd_count;
++	}
++
++	scsi_for_each_sg(sc, sg, sg_count, i) {
++		sg_len = sg_dma_len(sg);
++		addr = (u64)sg_dma_address(sg);
++		end_addr = (addr + sg_len);
++
++		/*
++		 * first sg elem in the 'list',
++		 * check if end addr is page-aligned.
++		 */
++		if ((i == 0) && (sg_count > 1) && (end_addr % QEDI_PAGE_SIZE))
++			cmd->use_slowpath = true;
++
++		/*
++		 * last sg elem in the 'list',
++		 * check if start addr is page-aligned.
++		 */
++		else if ((i == (sg_count - 1)) &&
++			 (sg_count > 1) && (addr % QEDI_PAGE_SIZE))
++			cmd->use_slowpath = true;
++
++		/*
++		 * middle sg elements in list,
++		 * check if start and end addr is page-aligned
++		 */
++		else if ((i != 0) && (i != (sg_count - 1)) &&
++			 ((addr % QEDI_PAGE_SIZE) ||
++			 (end_addr % QEDI_PAGE_SIZE)))
++			cmd->use_slowpath = true;
++
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO, "sg[%d] size=0x%x",
++			  i, sg_len);
++
++		if (sg_len > QEDI_BD_SPLIT_SZ) {
++			sg_frags = qedi_split_bd(cmd, addr, sg_len, bd_count);
++		} else {
++			sg_frags = 1;
++			bd[bd_count].sge_addr.lo = addr & 0xffffffff;
++			bd[bd_count].sge_addr.hi = addr >> 32;
++			bd[bd_count].sge_len = sg_len;
++		}
++		byte_count += sg_len;
++		bd_count += sg_frags;
++	}
++
++	if (byte_count != scsi_bufflen(sc))
++		QEDI_ERR(&qedi->dbg_ctx,
++			 "byte_count = %d != scsi_bufflen = %d\n", byte_count,
++			 scsi_bufflen(sc));
++	else
++		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO, "byte_count = %d\n",
++			  byte_count);
++
++	WARN_ON(byte_count != scsi_bufflen(sc));
++
++	return bd_count;
++}
++
++static void qedi_iscsi_map_sg_list(struct qedi_cmd *cmd)
++{
++	int bd_count;
++	struct scsi_cmnd *sc = cmd->scsi_cmd;
++
++	if (scsi_sg_count(sc)) {
++		bd_count  = qedi_map_scsi_sg(cmd->conn->qedi, cmd);
++		if (bd_count == 0)
++			return;
++	} else {
++		struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
++
++		bd[0].sge_addr.lo = 0;
++		bd[0].sge_addr.hi = 0;
++		bd[0].sge_len = 0;
++		bd_count = 0;
++	}
++	cmd->io_tbl.sge_valid = bd_count;
++}
++
++static void qedi_cpy_scsi_cdb(struct scsi_cmnd *sc, u32 *dstp)
++{
++	u32 dword;
++	int lpcnt;
++	u8 *srcp;
++
++	lpcnt = sc->cmd_len / sizeof(dword);
++	srcp = (u8 *)sc->cmnd;
++	while (lpcnt--) {
++		memcpy(&dword, (const void *)srcp, 4);
++		*dstp = cpu_to_be32(dword);
++		srcp += 4;
++		dstp++;
++	}
++	if (sc->cmd_len & 0x3) {
++		dword = (u32)srcp[0] | ((u32)srcp[1] << 8);
++		*dstp = cpu_to_be32(dword);
++	}
++}
++
++void qedi_trace_io(struct qedi_ctx *qedi, struct iscsi_task *task,
++		   u16 tid, int8_t direction)
++{
++	struct qedi_io_log *io_log;
++	struct iscsi_conn *conn = task->conn;
++	struct qedi_conn *qedi_conn = conn->dd_data;
++	struct scsi_cmnd *sc_cmd = task->sc;
++	unsigned long flags;
++	u8 op;
++
++	spin_lock_irqsave(&qedi->io_trace_lock, flags);
++
++	io_log = &qedi->io_trace_buf[qedi->io_trace_idx];
++	io_log->direction = direction;
++	io_log->task_id = tid;
++	io_log->cid = qedi_conn->iscsi_conn_id;
++	io_log->lun = sc_cmd->device->lun;
++	io_log->op = sc_cmd->cmnd[0];
++	op = sc_cmd->cmnd[0];
++
++	if (op == READ_10 || op == WRITE_10) {
++		io_log->lba[0] = sc_cmd->cmnd[2];
++		io_log->lba[1] = sc_cmd->cmnd[3];
++		io_log->lba[2] = sc_cmd->cmnd[4];
++		io_log->lba[3] = sc_cmd->cmnd[5];
++	} else {
++		io_log->lba[0] = 0;
++		io_log->lba[1] = 0;
++		io_log->lba[2] = 0;
++		io_log->lba[3] = 0;
++	}
++	io_log->bufflen = scsi_bufflen(sc_cmd);
++	io_log->sg_count = scsi_sg_count(sc_cmd);
++	io_log->fast_sgs = qedi->fast_sgls;
++	io_log->cached_sgs = qedi->cached_sgls;
++	io_log->slow_sgs = qedi->slow_sgls;
++	io_log->cached_sge = qedi->use_cached_sge;
++	io_log->slow_sge = qedi->use_slow_sge;
++	io_log->fast_sge = qedi->use_fast_sge;
++	io_log->result = sc_cmd->result;
++	io_log->jiffies = jiffies;
++	io_log->blk_req_cpu = smp_processor_id();
++
++	if (direction == QEDI_IO_TRACE_REQ) {
++		/* For requests we only care about the submission CPU */
++		io_log->req_cpu = smp_processor_id() % qedi->num_queues;
++		io_log->intr_cpu = 0;
++		io_log->blk_rsp_cpu = 0;
++	} else if (direction == QEDI_IO_TRACE_RSP) {
++		io_log->req_cpu = smp_processor_id() % qedi->num_queues;
++		io_log->intr_cpu = qedi->intr_cpu;
++		io_log->blk_rsp_cpu = smp_processor_id();
++	}
++
++	qedi->io_trace_idx++;
++	if (qedi->io_trace_idx == QEDI_IO_TRACE_SIZE)
++		qedi->io_trace_idx = 0;
++
++	qedi->use_cached_sge = false;
++	qedi->use_slow_sge = false;
++	qedi->use_fast_sge = false;
++
++	spin_unlock_irqrestore(&qedi->io_trace_lock, flags);
++}
++
++int qedi_iscsi_send_ioreq(struct iscsi_task *task)
++{
++	struct iscsi_conn *conn = task->conn;
++	struct iscsi_session *session = conn->session;
++	struct Scsi_Host *shost = iscsi_session_to_shost(session->cls_session);
++	struct qedi_ctx *qedi = iscsi_host_priv(shost);
++	struct qedi_conn *qedi_conn = conn->dd_data;
++	struct qedi_cmd *cmd = task->dd_data;
++	struct scsi_cmnd *sc = task->sc;
++	struct iscsi_task_context *fw_task_ctx;
++	struct iscsi_cached_sge_ctx *cached_sge;
++	struct iscsi_phys_sgl_ctx *phys_sgl;
++	struct iscsi_virt_sgl_ctx *virt_sgl;
++	struct ystorm_iscsi_task_st_ctx *yst_cxt;
++	struct mstorm_iscsi_task_st_ctx *mst_cxt;
++	struct iscsi_sgl *sgl_struct;
++	struct iscsi_sge *single_sge;
++	struct iscsi_scsi_req *hdr = (struct iscsi_scsi_req *)task->hdr;
++	struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
++	enum iscsi_task_type task_type;
++	struct iscsi_cmd_hdr *fw_cmd;
++	u32 scsi_lun[2];
++	u16 cq_idx = smp_processor_id() % qedi->num_queues;
++	s16 ptu_invalidate = 0;
++	s16 tid = 0;
++	u8 num_fast_sgs;
++
++	tid = qedi_get_task_idx(qedi);
++	if (tid == -1)
 +		return -ENOMEM;
 +
-+	uinfo = &udev->qedi_uinfo;
++	qedi_iscsi_map_sg_list(cmd);
 +
-+	uinfo->mem[0].addr = (unsigned long)udev->uctrl;
-+	uinfo->mem[0].size = sizeof(struct qedi_uio_ctrl);
-+	uinfo->mem[0].memtype = UIO_MEM_LOGICAL;
++	int_to_scsilun(sc->device->lun, (struct scsi_lun *)scsi_lun);
++	fw_task_ctx =
++	      (struct iscsi_task_context *)qedi_get_task_mem(&qedi->tasks, tid);
 +
-+	uinfo->mem[1].addr = (unsigned long)udev->ll2_ring;
-+	uinfo->mem[1].size = udev->ll2_ring_size;
-+	uinfo->mem[1].memtype = UIO_MEM_LOGICAL;
++	memset(fw_task_ctx, 0, sizeof(struct iscsi_task_context));
++	cmd->task_id = tid;
 +
-+	uinfo->mem[2].addr = (unsigned long)udev->ll2_buf;
-+	uinfo->mem[2].size = udev->ll2_buf_size;
-+	uinfo->mem[2].memtype = UIO_MEM_LOGICAL;
++	/* Ystrom context */
++	fw_cmd = &fw_task_ctx->ystorm_st_context.pdu_hdr.cmd;
++	SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_ATTR, ISCSI_ATTR_SIMPLE);
 +
-+	uinfo->name = "qedi_uio";
-+	uinfo->version = QEDI_MODULE_VERSION;
-+	uinfo->irq = UIO_IRQ_CUSTOM;
-+
-+	uinfo->open = qedi_uio_open;
-+	uinfo->release = qedi_uio_close;
-+
-+	if (udev->uio_dev == -1) {
-+		if (!uinfo->priv) {
-+			uinfo->priv = udev;
-+
-+			ret = uio_register_device(&udev->pdev->dev, uinfo);
-+			if (ret) {
-+				QEDI_ERR(&qedi->dbg_ctx,
-+					 "UIO registration failed\n");
-+			}
++	if (sc->sc_data_direction == DMA_TO_DEVICE) {
++		if (conn->session->initial_r2t_en) {
++			fw_task_ctx->ustorm_ag_context.exp_data_acked =
++				min((conn->session->imm_data_en *
++				    conn->max_xmit_dlength),
++				    conn->session->first_burst);
++			fw_task_ctx->ustorm_ag_context.exp_data_acked =
++			      min(fw_task_ctx->ustorm_ag_context.exp_data_acked,
++				  scsi_bufflen(sc));
++		} else {
++			fw_task_ctx->ustorm_ag_context.exp_data_acked =
++			      min(conn->session->first_burst, scsi_bufflen(sc));
 +		}
++
++		SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_WRITE, 1);
++		task_type = ISCSI_TASK_TYPE_INITIATOR_WRITE;
++	} else {
++		if (scsi_bufflen(sc))
++			SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_READ, 1);
++		task_type = ISCSI_TASK_TYPE_INITIATOR_READ;
 +	}
 +
-+	return ret;
++	fw_cmd->lun.lo = be32_to_cpu(scsi_lun[0]);
++	fw_cmd->lun.hi = be32_to_cpu(scsi_lun[1]);
++
++	qedi_update_itt_map(qedi, tid, task->itt);
++	fw_cmd->itt = qedi_set_itt(tid, get_itt(task->itt));
++	fw_cmd->expected_transfer_length = scsi_bufflen(sc);
++	fw_cmd->cmd_sn = be32_to_cpu(hdr->cmdsn);
++	fw_cmd->opcode = hdr->opcode;
++	qedi_cpy_scsi_cdb(sc, (u32 *)fw_cmd->cdb);
++
++	/* Mstorm context */
++	fw_task_ctx->mstorm_st_context.sense_db.lo = (u32)cmd->sense_buffer_dma;
++	fw_task_ctx->mstorm_st_context.sense_db.hi =
++					(u32)((u64)cmd->sense_buffer_dma >> 32);
++	fw_task_ctx->mstorm_ag_context.task_cid = qedi_conn->iscsi_conn_id;
++	fw_task_ctx->mstorm_st_context.task_type = task_type;
++
++	if (qedi->tid_reuse_count[tid] == QEDI_MAX_TASK_NUM) {
++		ptu_invalidate = 1;
++		qedi->tid_reuse_count[tid] = 0;
++	}
++	fw_task_ctx->ystorm_st_context.state.reuse_count =
++						     qedi->tid_reuse_count[tid];
++	fw_task_ctx->mstorm_st_context.reuse_count =
++						   qedi->tid_reuse_count[tid]++;
++
++	/* Ustrorm context */
++	fw_task_ctx->ustorm_st_context.rem_rcv_len = scsi_bufflen(sc);
++	fw_task_ctx->ustorm_st_context.exp_data_transfer_len = scsi_bufflen(sc);
++	fw_task_ctx->ustorm_st_context.exp_data_sn =
++						   be32_to_cpu(hdr->exp_statsn);
++	fw_task_ctx->ustorm_st_context.task_type = task_type;
++	fw_task_ctx->ustorm_st_context.cq_rss_number = cq_idx;
++	fw_task_ctx->ustorm_ag_context.icid = (u16)qedi_conn->iscsi_conn_id;
++
++	SET_FIELD(fw_task_ctx->ustorm_ag_context.flags1,
++		  USTORM_ISCSI_TASK_AG_CTX_R2T2RECV, 1);
++	SET_FIELD(fw_task_ctx->ustorm_st_context.flags,
++		  USTORM_ISCSI_TASK_ST_CTX_LOCAL_COMP, 0);
++
++	num_fast_sgs = (cmd->io_tbl.sge_valid ?
++			min((u16)QEDI_FAST_SGE_COUNT,
++			    (u16)cmd->io_tbl.sge_valid) : 0);
++	SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
++		  ISCSI_REG1_NUM_FAST_SGES, num_fast_sgs);
++
++	fw_task_ctx->ustorm_st_context.lun.lo = be32_to_cpu(scsi_lun[0]);
++	fw_task_ctx->ustorm_st_context.lun.hi = be32_to_cpu(scsi_lun[1]);
++
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO, "Total sge count [%d]\n",
++		  cmd->io_tbl.sge_valid);
++
++	yst_cxt = &fw_task_ctx->ystorm_st_context;
++	mst_cxt = &fw_task_ctx->mstorm_st_context;
++	/* Tx path */
++	if (task_type == ISCSI_TASK_TYPE_INITIATOR_WRITE) {
++		/* not considering  superIO or FastIO */
++		if (cmd->io_tbl.sge_valid == 1) {
++			cached_sge = &yst_cxt->state.sgl_ctx_union.cached_sge;
++			cached_sge->sge.sge_addr.lo = bd[0].sge_addr.lo;
++			cached_sge->sge.sge_addr.hi = bd[0].sge_addr.hi;
++			cached_sge->sge.sge_len = bd[0].sge_len;
++			qedi->cached_sgls++;
++		} else if ((cmd->io_tbl.sge_valid != 1) && cmd->use_slowpath) {
++			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++				  ISCSI_MFLAGS_SLOW_IO, 1);
++			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
++				  ISCSI_REG1_NUM_FAST_SGES, 0);
++			phys_sgl = &yst_cxt->state.sgl_ctx_union.phys_sgl;
++			phys_sgl->sgl_base.lo = (u32)(cmd->io_tbl.sge_tbl_dma);
++			phys_sgl->sgl_base.hi =
++				     (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
++			phys_sgl->sgl_size = cmd->io_tbl.sge_valid;
++			qedi->slow_sgls++;
++		} else if ((cmd->io_tbl.sge_valid != 1) && !cmd->use_slowpath) {
++			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++				  ISCSI_MFLAGS_SLOW_IO, 0);
++			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
++				  ISCSI_REG1_NUM_FAST_SGES,
++				  min((u16)QEDI_FAST_SGE_COUNT,
++				      (u16)cmd->io_tbl.sge_valid));
++			virt_sgl = &yst_cxt->state.sgl_ctx_union.virt_sgl;
++			virt_sgl->sgl_base.lo = (u32)(cmd->io_tbl.sge_tbl_dma);
++			virt_sgl->sgl_base.hi =
++				      (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
++			virt_sgl->sgl_initial_offset =
++				 (u32)bd[0].sge_addr.lo & (QEDI_PAGE_SIZE - 1);
++			qedi->fast_sgls++;
++		}
++		fw_task_ctx->mstorm_st_context.sgl_size = cmd->io_tbl.sge_valid;
++		fw_task_ctx->mstorm_st_context.rem_task_size = scsi_bufflen(sc);
++	} else {
++	/* Rx path */
++		if (cmd->io_tbl.sge_valid == 1) {
++			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++				  ISCSI_MFLAGS_SLOW_IO, 0);
++			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++				  ISCSI_MFLAGS_SINGLE_SGE, 1);
++			single_sge = &mst_cxt->sgl_union.single_sge;
++			single_sge->sge_addr.lo = bd[0].sge_addr.lo;
++			single_sge->sge_addr.hi = bd[0].sge_addr.hi;
++			single_sge->sge_len = bd[0].sge_len;
++			qedi->cached_sgls++;
++		} else if ((cmd->io_tbl.sge_valid != 1) && cmd->use_slowpath) {
++			sgl_struct = &mst_cxt->sgl_union.sgl_struct;
++			sgl_struct->sgl_addr.lo =
++						(u32)(cmd->io_tbl.sge_tbl_dma);
++			sgl_struct->sgl_addr.hi =
++				     (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
++			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++				  ISCSI_MFLAGS_SLOW_IO, 1);
++			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
++				  ISCSI_REG1_NUM_FAST_SGES, 0);
++			sgl_struct->updated_sge_size = 0;
++			sgl_struct->updated_sge_offset = 0;
++			qedi->slow_sgls++;
++		} else if ((cmd->io_tbl.sge_valid != 1) && !cmd->use_slowpath) {
++			sgl_struct = &mst_cxt->sgl_union.sgl_struct;
++			sgl_struct->sgl_addr.lo =
++						(u32)(cmd->io_tbl.sge_tbl_dma);
++			sgl_struct->sgl_addr.hi =
++				     (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
++			sgl_struct->byte_offset =
++				(u32)bd[0].sge_addr.lo & (QEDI_PAGE_SIZE - 1);
++			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
++				  ISCSI_MFLAGS_SLOW_IO, 0);
++			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
++				  ISCSI_REG1_NUM_FAST_SGES, 0);
++			sgl_struct->updated_sge_size = 0;
++			sgl_struct->updated_sge_offset = 0;
++			qedi->fast_sgls++;
++		}
++		fw_task_ctx->mstorm_st_context.sgl_size = cmd->io_tbl.sge_valid;
++		fw_task_ctx->mstorm_st_context.rem_task_size = scsi_bufflen(sc);
++	}
++
++	if (cmd->io_tbl.sge_valid == 1)
++		/* Singel-SGL */
++		qedi->use_cached_sge = true;
++	else {
++		if (cmd->use_slowpath)
++			qedi->use_slow_sge = true;
++		else
++			qedi->use_fast_sge = true;
++	}
++	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO,
++		  "%s: %s-SGL: num_sges=0x%x first-sge-lo=0x%x first-sge-hi=0x%x",
++		  (task_type == ISCSI_TASK_TYPE_INITIATOR_WRITE) ?
++		  "Write " : "Read ", (cmd->io_tbl.sge_valid == 1) ?
++		  "Single" : (cmd->use_slowpath ? "SLOW" : "FAST"),
++		  (u16)cmd->io_tbl.sge_valid, (u32)(cmd->io_tbl.sge_tbl_dma),
++		  (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32));
++
++	/*  Add command in active command list */
++	spin_lock(&qedi_conn->list_lock);
++	list_add_tail(&cmd->io_cmd, &qedi_conn->active_cmd_list);
++	cmd->io_cmd_in_list = true;
++	qedi_conn->active_cmd_count++;
++	spin_unlock(&qedi_conn->list_lock);
++
++	qedi_add_to_sq(qedi_conn, task, tid, ptu_invalidate, false);
++	qedi_ring_doorbell(qedi_conn);
++	if (io_tracing)
++		qedi_trace_io(qedi, task, tid, QEDI_IO_TRACE_REQ);
++
++	return 0;
 +}
 +
- static int qedi_alloc_and_init_sb(struct qedi_ctx *qedi,
- 				  struct qed_sb_info *sb_info, u16 sb_id)
- {
-@@ -441,6 +662,142 @@ static struct qedi_ctx *qedi_host_alloc(struct pci_dev *pdev)
- 	return qedi;
++int qedi_iscsi_cleanup_task(struct iscsi_task *task, bool mark_cmd_node_deleted)
++{
++	struct iscsi_conn *conn = task->conn;
++	struct qedi_conn *qedi_conn = conn->dd_data;
++	struct qedi_cmd *cmd = task->dd_data;
++	s16 ptu_invalidate = 0;
++
++	QEDI_INFO(&qedi_conn->qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
++		  "issue cleanup tid=0x%x itt=0x%x task_state=%d cmd_state=0%x cid=0x%x\n",
++		  cmd->task_id, get_itt(task->itt), task->state,
++		  cmd->state, qedi_conn->iscsi_conn_id);
++
++	qedi_add_to_sq(qedi_conn, task, cmd->task_id, ptu_invalidate, true);
++	qedi_ring_doorbell(qedi_conn);
++
++	return 0;
++}
+diff --git a/drivers/scsi/qedi/qedi_gbl.h b/drivers/scsi/qedi/qedi_gbl.h
+index 85ea3d7..c50c2b1 100644
+--- a/drivers/scsi/qedi/qedi_gbl.h
++++ b/drivers/scsi/qedi/qedi_gbl.h
+@@ -28,11 +28,14 @@ int qedi_send_iscsi_login(struct qedi_conn *qedi_conn,
+ 			  struct iscsi_task *task);
+ int qedi_send_iscsi_logout(struct qedi_conn *qedi_conn,
+ 			   struct iscsi_task *task);
++int qedi_iscsi_abort_work(struct qedi_conn *qedi_conn,
++			  struct iscsi_task *mtask);
+ int qedi_send_iscsi_text(struct qedi_conn *qedi_conn,
+ 			 struct iscsi_task *task);
+ int qedi_send_iscsi_nopout(struct qedi_conn *qedi_conn,
+ 			   struct iscsi_task *task,
+ 			   char *datap, int data_len, int unsol);
++int qedi_iscsi_send_ioreq(struct iscsi_task *task);
+ int qedi_get_task_idx(struct qedi_ctx *qedi);
+ void qedi_clear_task_idx(struct qedi_ctx *qedi, int idx);
+ int qedi_iscsi_cleanup_task(struct iscsi_task *task,
+@@ -53,6 +56,9 @@ void qedi_start_conn_recovery(struct qedi_ctx *qedi,
+ int qedi_recover_all_conns(struct qedi_ctx *qedi);
+ void qedi_fp_process_cqes(struct qedi_ctx *qedi, union iscsi_cqe *cqe,
+ 			  uint16_t que_idx);
++int qedi_cleanup_all_io(struct qedi_ctx *qedi,
++			struct qedi_conn *qedi_conn,
++			struct iscsi_task *task, bool in_recovery);
+ void qedi_trace_io(struct qedi_ctx *qedi, struct iscsi_task *task,
+ 		   u16 tid, int8_t direction);
+ int qedi_alloc_id(struct qedi_portid_tbl *id_tbl, u16 id);
+diff --git a/drivers/scsi/qedi/qedi_iscsi.c b/drivers/scsi/qedi/qedi_iscsi.c
+index caecdb8..7a07211 100644
+--- a/drivers/scsi/qedi/qedi_iscsi.c
++++ b/drivers/scsi/qedi/qedi_iscsi.c
+@@ -755,6 +755,9 @@ static int qedi_iscsi_send_generic_request(struct iscsi_task *task)
+ 	case ISCSI_OP_LOGOUT:
+ 		rc = qedi_send_iscsi_logout(qedi_conn, task);
+ 		break;
++	case ISCSI_OP_SCSI_TMFUNC:
++		rc = qedi_iscsi_abort_work(qedi_conn, task);
++		break;
+ 	case ISCSI_OP_TEXT:
+ 		rc = qedi_send_iscsi_text(qedi_conn, task);
+ 		break;
+@@ -804,6 +807,9 @@ static int qedi_task_xmit(struct iscsi_task *task)
+ 
+ 	if (!sc)
+ 		return qedi_mtask_xmit(conn, task);
++
++	cmd->scsi_cmd = sc;
++	return qedi_iscsi_send_ioreq(task);
  }
  
-+static int qedi_ll2_rx(void *cookie, struct sk_buff *skb, u32 arg1, u32 arg2)
-+{
-+	struct qedi_ctx *qedi = (struct qedi_ctx *)cookie;
-+	struct qedi_uio_dev *udev;
-+	struct qedi_uio_ctrl *uctrl;
-+	struct skb_work_list *work;
-+	u32 prod;
-+
-+	if (!qedi) {
-+		QEDI_ERR(NULL, "qedi is NULL\n");
-+		return -1;
-+	}
-+
-+	if (!test_bit(UIO_DEV_OPENED, &qedi->flags)) {
-+		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_UIO,
-+			  "UIO DEV is not opened\n");
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+
-+	udev = qedi->udev;
-+	uctrl = udev->uctrl;
-+
-+	work = kzalloc(sizeof(*work), GFP_ATOMIC);
-+	if (!work) {
-+		QEDI_WARN(&qedi->dbg_ctx,
-+			  "Could not allocate work so dropping frame.\n");
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+
-+	INIT_LIST_HEAD(&work->list);
-+	work->skb = skb;
-+
-+	if (skb_vlan_tag_present(skb))
-+		work->vlan_id = skb_vlan_tag_get(skb);
-+
-+	if (work->vlan_id)
-+		__vlan_insert_tag(work->skb, htons(ETH_P_8021Q), work->vlan_id);
-+
-+	spin_lock_bh(&qedi->ll2_lock);
-+	list_add_tail(&work->list, &qedi->ll2_skb_list);
-+
-+	++uctrl->hw_rx_prod_cnt;
-+	prod = (uctrl->hw_rx_prod + 1) % RX_RING;
-+	if (prod != uctrl->host_rx_cons) {
-+		uctrl->hw_rx_prod = prod;
-+		spin_unlock_bh(&qedi->ll2_lock);
-+		wake_up_process(qedi->ll2_recv_thread);
-+		return 0;
-+	}
-+
-+	spin_unlock_bh(&qedi->ll2_lock);
-+	return 0;
-+}
-+
-+/* map this skb to iscsiuio mmaped region */
-+static int qedi_ll2_process_skb(struct qedi_ctx *qedi, struct sk_buff *skb,
-+				u16 vlan_id)
-+{
-+	struct qedi_uio_dev *udev = NULL;
-+	struct qedi_uio_ctrl *uctrl = NULL;
-+	struct qedi_rx_bd rxbd;
-+	struct qedi_rx_bd *p_rxbd;
-+	u32 rx_bd_prod;
-+	void *pkt;
-+	int len = 0;
-+
-+	if (!qedi) {
-+		QEDI_ERR(NULL, "qedi is NULL\n");
-+		return -1;
-+	}
-+
-+	udev = qedi->udev;
-+	uctrl = udev->uctrl;
-+	pkt = udev->rx_pkt + (uctrl->hw_rx_prod * LL2_SINGLE_BUF_SIZE);
-+	len = min_t(u32, skb->len, (u32)LL2_SINGLE_BUF_SIZE);
-+	memcpy(pkt, skb->data, len);
-+
-+	memset(&rxbd, 0, sizeof(rxbd));
-+	rxbd.rx_pkt_index = uctrl->hw_rx_prod;
-+	rxbd.rx_pkt_len = len;
-+	rxbd.vlan_id = vlan_id;
-+
-+	uctrl->hw_rx_bd_prod = (uctrl->hw_rx_bd_prod + 1) % QEDI_NUM_RX_BD;
-+	rx_bd_prod = uctrl->hw_rx_bd_prod;
-+	p_rxbd = (struct qedi_rx_bd *)udev->ll2_ring;
-+	p_rxbd += rx_bd_prod;
-+
-+	memcpy(p_rxbd, &rxbd, sizeof(rxbd));
-+
-+	/* notify the iscsiuio about new packet */
-+	uio_event_notify(&udev->qedi_uinfo);
-+
-+	return 0;
-+}
-+
-+static void qedi_ll2_free_skbs(struct qedi_ctx *qedi)
-+{
-+	struct skb_work_list *work, *work_tmp;
-+
-+	spin_lock_bh(&qedi->ll2_lock);
-+	list_for_each_entry_safe(work, work_tmp, &qedi->ll2_skb_list, list) {
-+		list_del(&work->list);
-+		if (work->skb)
-+			kfree_skb(work->skb);
-+		kfree(work);
-+	}
-+	spin_unlock_bh(&qedi->ll2_lock);
-+}
-+
-+static int qedi_ll2_recv_thread(void *arg)
-+{
-+	struct qedi_ctx *qedi = (struct qedi_ctx *)arg;
-+	struct skb_work_list *work, *work_tmp;
-+
-+	set_user_nice(current, -20);
-+
-+	while (!kthread_should_stop()) {
-+		spin_lock_bh(&qedi->ll2_lock);
-+		list_for_each_entry_safe(work, work_tmp, &qedi->ll2_skb_list,
-+					 list) {
-+			list_del(&work->list);
-+			qedi_ll2_process_skb(qedi, work->skb, work->vlan_id);
-+			kfree_skb(work->skb);
-+			kfree(work);
-+		}
-+		set_current_state(TASK_INTERRUPTIBLE);
-+		spin_unlock_bh(&qedi->ll2_lock);
-+		schedule();
-+	}
-+
-+	__set_current_state(TASK_RUNNING);
-+	return 0;
-+}
-+
- static int qedi_set_iscsi_pf_param(struct qedi_ctx *qedi)
- {
- 	u8 num_sq_pages;
+ static struct iscsi_endpoint *
+diff --git a/drivers/scsi/qedi/qedi_main.c b/drivers/scsi/qedi/qedi_main.c
+index 22d19a3..fd0d335 100644
+--- a/drivers/scsi/qedi/qedi_main.c
++++ b/drivers/scsi/qedi/qedi_main.c
+@@ -43,6 +43,10 @@
+ module_param(debug, uint, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(debug, " Default debug level");
+ 
++uint io_tracing;
++module_param(io_tracing, uint, S_IRUGO | S_IWUSR);
++MODULE_PARM_DESC(io_tracing,
++		 " Enable logging of SCSI requests/completions into trace buffer. (default off).");
+ const struct qed_iscsi_ops *qedi_ops;
+ static struct scsi_transport_template *qedi_scsi_transport;
+ static struct pci_driver qedi_pci_driver;
 -- 
 1.8.3.1
-
