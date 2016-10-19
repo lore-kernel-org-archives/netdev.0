@@ -1,53 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 1/6] switchdev: Execute bridge ndos only for bridge
- ports
-Date: Wed, 19 Oct 2016 11:00:05 -0400 (EDT)
-Message-ID: <20161019.110005.2037777401331235347.davem@davemloft.net>
-References: <1476809423-14624-1-git-send-email-jiri@resnulli.us>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: Re: [PATCH net-next 5/6] net: use core MTU range checking in virt drivers
+Date: Wed, 19 Oct 2016 09:06:24 -0400
+Message-ID: <f7toa2gmqsv.fsf@redhat.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+        <20161019023333.15760-6-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com, jhs@mojatatu.com,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        ivecera@redhat.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56308 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943233AbcJSPAI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 11:00:08 -0400
-In-Reply-To: <1476809423-14624-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Shrikrishna Khare <skhare@vmware.com>,
+        "VMware\, Inc." <pv-drivers@vmware.com>
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161019023333.15760-6-jarod@redhat.com> (Jarod Wilson's message
+        of "Tue, 18 Oct 2016 22:33:32 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 18 Oct 2016 18:50:23 +0200
+Jarod Wilson <jarod@redhat.com> writes:
 
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> We recently got the following warning after setting up a vlan device on
-> top of an offloaded bridge and executing 'bridge link':
-...
-> The problem is that the 8021q module propagates the call to
-> ndo_bridge_getlink() via switchdev ops, but the switch driver doesn't
-> recognize the netdev, as it's not offloaded.
-> 
-> While we can ignore calls being made to non-bridge ports inside the
-> driver, a better fix would be to push this check up to the switchdev
-> layer.
-> 
-> Note that these ndos can be called for non-bridged netdev, but this only
-> happens in certain PF drivers which don't call the corresponding
-> switchdev functions anyway.
-> 
-> Fixes: 99f44bb3527b ("mlxsw: spectrum: Enable L3 interfaces on top of bridge devices")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reported-by: Tamir Winetroub <tamirw@mellanox.com>
-> Tested-by: Tamir Winetroub <tamirw@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> hyperv_net:
+> - set min/max_mtu
+>
+> virtio_net:
+> - set min/max_mtu
+> - remove virtnet_change_mtu
+>
+> vmxnet3:
+> - set min/max_mtu
+>
+> CC: netdev@vger.kernel.org
+> CC: virtualization@lists.linux-foundation.org
+> CC: "K. Y. Srinivasan" <kys@microsoft.com>
+> CC: Haiyang Zhang <haiyangz@microsoft.com>
+> CC: "Michael S. Tsirkin" <mst@redhat.com>
+> CC: Shrikrishna Khare <skhare@vmware.com>
+> CC: "VMware, Inc." <pv-drivers@vmware.com>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
 
-Applied and queued up for -stable, thanks.
+
+The virtnet change looks good to me.  It simplifies an enhancement that
+I was about to propose, so I'll let yours land first.
+
+-Aaron
