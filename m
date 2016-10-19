@@ -1,30 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v2 0/2] openvswitch: remove unused
-	code
-Date: Wed, 19 Oct 2016 15:12:13 -0400 (EDT)
-Message-ID: <20161019.151213.765513830007915242.davem@davemloft.net>
-References: <cover.1476869133.git.jbenc@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] net: arc_emac: use dev_kfree_skb_any instead of
+ dev_kfree_skb
+Date: Wed, 19 Oct 2016 15:16:49 -0400 (EDT)
+Message-ID: <20161019.151649.1017207144840174569.davem@davemloft.net>
+References: <1476884872-15213-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1476869133.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wxt@rock-chips.com, al.kochet@gmail.com, tremyfr@gmail.com,
+        peter.chen@nxp.com, weiyongjun1@huawei.com, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59734 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932977AbcJSTQv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 15:16:51 -0400
+In-Reply-To: <1476884872-15213-1-git-send-email-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPgpEYXRlOiBXZWQsIDE5IE9jdCAyMDE2
-IDExOjI2OjM1ICswMjAwCgo+IFJlbW92ZWQgdW51c2VkIGZ1bmN0aW9ucyBhbmQgdW5uZWNlc3Nh
-cnkgRVhQT1JUX1NZTUJPTHMgZnJvbSBvcGVudnN3aXRjaC4KClNlcmllcyBhcHBsaWVkLCB0aGFu
-a3MuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
-YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
-aWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed, 19 Oct 2016 13:47:52 +0000
+
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> Replace dev_kfree_skb with dev_kfree_skb_any in arc_emac_tx()
+> which can be called from hard irq context (netpoll) and from
+> other contexts. arc_emac_tx() only frees skbs that it has
+> dropped.
+> 
+> This is detected by Coccinelle semantic patch.
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+
+Applied.
