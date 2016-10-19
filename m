@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fs_enet: Use net_device_stats from struct
- net_device
-Date: Wed, 19 Oct 2016 10:37:19 -0400 (EDT)
-Message-ID: <20161019.103719.1662715158720899418.davem@davemloft.net>
-References: <20161019092457.15006-1-tklauser@distanz.ch>
+From: Robin Holt <robinmholt@gmail.com>
+Subject: Re: [PATCH net-next 6/6] net: use core MTU range checking in misc drivers
+Date: Wed, 19 Oct 2016 09:37:22 -0500
+Message-ID: <CAPp3RGrEcXcbiyaREVo=onx2oqRZvDPYHxTiS3c=v3vmg_hwCQ@mail.gmail.com>
+References: <20161019023333.15760-1-jarod@redhat.com> <20161019023333.15760-7-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: tklauser@distanz.ch
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+        Stefan Richter <stefanr@s5r6.in-berlin.de>,
+        Faisal Latif <faisal.latif@intel.com>,
+        linux-rdma@vger.kernel.org, Cliff Whickman <cpw@sgi.com>,
+        Jes Sorensen <jes@trained-monkey.org>,
+        Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>
+To: Jarod Wilson <jarod@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55988 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942433AbcJSOhV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:37:21 -0400
-In-Reply-To: <20161019092457.15006-1-tklauser@distanz.ch>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36766 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942681AbcJSOhY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:37:24 -0400
+In-Reply-To: <20161019023333.15760-7-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Wed, 19 Oct 2016 11:24:57 +0200
+On Tue, Oct 18, 2016 at 9:33 PM, Jarod Wilson <jarod@redhat.com> wrote:
+> CC: netdev@vger.kernel.org
+> CC: Stefan Richter <stefanr@s5r6.in-berlin.de>
+> CC: Faisal Latif <faisal.latif@intel.com>
+> CC: linux-rdma@vger.kernel.org
+> CC: Cliff Whickman <cpw@sgi.com>
 
-> Instead of using a private copy of struct net_device_stats in struct
-> fs_enet_private, use stats from struct net_device. Also remove the now
-> unnecessary .ndo_get_stats function.
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Acked-by: Robin Holt <robinmholt@gmail.com>
 
-Applied to net-next, thanks.
+> CC: Jes Sorensen <jes@trained-monkey.org>
+> CC: Marek Lindner <mareklindner@neomailbox.ch>
+> CC: Simon Wunderlich <sw@simonwunderlich.de>
+> CC: Antonio Quartulli <a@unstable.cc>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
