@@ -1,65 +1,46 @@
-From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v12 2/9] openvswitch: add mac_proto
- field to the flow key
-Date: Tue, 18 Oct 2016 22:11:32 -0700
-Message-ID: <CAOrHB_BNMo5eoHPaSLrq8XViRDk7fj3NYywMQMGOhb8R2RcQSQ@mail.gmail.com>
-References: <cover.1476708212.git.jbenc@redhat.com>
- <098a6ab19e26cf7b1cc16f57f5fc0cc019ca44d6.1476708212.git.jbenc@redhat.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v12 3/9] openvswitch: pass mac_proto to ovs_vport_send
+Date: Tue, 18 Oct 2016 22:11:38 -0700
+Message-ID: <CAOrHB_BWpzHjiFGikUCyjW5WnNYjqXT+SxbVdBFRUcHPH+Yfgg@mail.gmail.com>
+References: <cover.1476708212.git.jbenc@redhat.com> <c954507a960add0ae9410c19fd40eebc1fda0f95.1476708212.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <098a6ab19e26cf7b1cc16f57f5fc0cc019ca44d6.1476708212.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        ovs dev <dev@openvswitch.org>,
+        Lorand Jakab <lojakab@cisco.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:33134 "EHLO
+        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756785AbcJSFLn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 01:11:43 -0400
+Received: from mfilter1-d.gandi.net (mfilter1-d.gandi.net [217.70.178.130])
+        by relay5-d.mail.gandi.net (Postfix) with ESMTP id A9EA341C091
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:11:41 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+        by mfilter1-d.gandi.net (mfilter1-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id 9_Y84XhLnyp2 for <netdev@vger.kernel.org>;
+        Wed, 19 Oct 2016 07:11:40 +0200 (CEST)
+Received: from mail-it0-f51.google.com (mail-it0-f51.google.com [209.85.214.51])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 05D4B41C08B
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:11:39 +0200 (CEST)
+Received: by mail-it0-f51.google.com with SMTP id 4so102345484itv.0
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2016 22:11:39 -0700 (PDT)
+In-Reply-To: <c954507a960add0ae9410c19fd40eebc1fda0f95.1476708212.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBPY3QgMTcsIDIwMTYgYXQgNjowMiBBTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
-Y29tPiB3cm90ZToKPiBVc2UgYSBob2xlIGluIHRoZSBzdHJ1Y3R1cmUuIFdlIHN1cHBvcnQgb25s
-eSBFdGhlcm5ldCBzbyBmYXIgYW5kIHdpbGwgYWRkCj4gYSBzdXBwb3J0IGZvciBMMi1sZXNzIHBh
-Y2tldHMgc2hvcnRseS4gV2UgY291bGQgdXNlIGEgYm9vbCB0byBpbmRpY2F0ZQo+IHdoZXRoZXIg
-dGhlIEV0aGVybmV0IGhlYWRlciBpcyBwcmVzZW50IG9yIG5vdCBidXQgdGhlIGFwcHJvYWNoIHdp
-dGggdGhlCj4gbWFjX3Byb3RvIGZpZWxkIGlzIG1vcmUgZ2VuZXJpYyBhbmQgb2NjdXBpZXMgdGhl
-IHNhbWUgbnVtYmVyIG9mIGJ5dGVzIGluIHRoZQo+IHN0cnVjdCwgd2hpbGUgYWxsb3dpbmcgbGF0
-ZXIgZXh0ZW5zaWJpbGl0eS4gSXQgYWxzbyBtYWtlcyB0aGUgY29kZSBpbiB0aGUKPiBuZXh0IHBh
-dGNoZXMgbW9yZSBzZWxmIGV4cGxhaW5pbmcuCj4KPiBJdCB3b3VsZCBiZSBuaWNlIHRvIHVzZSBB
-UlBIUkRfIGNvbnN0YW50cyBidXQgdGhvc2UgYXJlIHUxNiB3aGljaCB3b3VsZCBiZQo+IHdhc3Rl
-LiBUaHVzIGRlZmluZSBvdXIgb3duIGNvbnN0YW50cy4KPgo+IEFub3RoZXIgdXBzaWRlIG9mIHRo
-aXMgaXMgdGhhdCB3ZSBjYW4gb3ZlcmxvYWQgdGhpcyBuZXcgZmllbGQgdG8gYWxzbyBkZW5vdGUK
-PiB3aGV0aGVyIHRoZSBmbG93IGtleSBpcyB2YWxpZC4gVGhpcyBoYXMgdGhlIGFkdmFudGFnZSB0
-aGF0IG9uCj4gcmVmcmFnbWVudGF0aW9uLCB3ZSBkb24ndCBoYXZlIHRvIHJlcGFyc2UgdGhlIHBh
-Y2tldCBidXQgY2FuIHJlbHkgb24gdGhlCj4gc3RvcmVkIGV0aC50eXBlLiBUaGlzIGlzIGVzcGVj
-aWFsbHkgaW1wb3J0YW50IGZvciB0aGUgbmV4dCBwYXRjaGVzIGluIHRoaXMKPiBzZXJpZXMgLSBp
-bnN0ZWFkIG9mIGFkZGluZyBhbm90aGVyIGJyYW5jaCBmb3IgTDItbGVzcyBwYWNrZXRzIGJlZm9y
-ZSBjYWxsaW5nCj4gb3ZzX2ZyYWdtZW50LCB3ZSBjYW4ganVzdCByZW1vdmUgYWxsIHRob3NlIGJy
-YW5jaGVzIGNvbXBsZXRlbHkuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKaXJpIEJlbmMgPGpiZW5jQHJl
-ZGhhdC5jb20+Cj4gLS0tCj4gVGhlcmUgYXJlIHRocmVlIHBvc3NpYmxlIGFwcHJvYWNoZXM6Cj4K
-PiAoMSkgVGhlIG9uZSBpbiB0aGlzIHBhdGNoLgo+Cj4gKDIpIFVzZSBqdXN0IGEgb25lIGJpdCBm
-bGFnIGluZGljYXRpbmcgd2hldGhlciB0aGUgcGFja2V0IGlzIEwzIG9yIEV0aGVybmV0Cj4gICAg
-IChzaW1pbGFyIHRvIHRoZSAiaXNfbGF5ZXIzIiBib29sIGluIHYxMSkuIFRoZSBjb2RlIHdvdWxk
-IHN0YXkgdmVyeQo+ICAgICBzaW1pbGFyIHRvIHRoaXMgcGF0Y2hzZXQsIHRoZSBtZW1vcnkgY29u
-c3VtcHRpb24gd291bGQgYmUgdGhlIHNhbWUuCj4KPiAoMykgVXNlIHZhbHVlIG9mIDE0IGZvciBN
-QUNfUFJPVE9fRVRIRVJORVQuIEl0IHdvdWxkIHNpbXBsaWZ5IHRoaW5ncyBuaWNlbHksCj4gICAg
-IGFzIG92c19tYWNfaGVhZGVyX2xlbiB3b3VsZCBiZSBpZGVudGljYWwgdG8gb3ZzX2tleV9tYWNf
-cHJvdG8sIHNhdmluZwo+ICAgICBvbmUgY29tcGFyaXNvbi4gT2YgY291cnNlLCB0aGlzIHdvdWxk
-IG1lYW4gdGhhdCBpZiBvdGhlciBMMiBwcm90b2NvbHMKPiAgICAgYXJlIGFkZGVkIGluIHRoZSBm
-dXR1cmUsIHRoZXkgY2FuIG9ubHkgaGF2ZSBMMiBoZWFkZXIgbGVuZ3RoIGRpZmZlcmVudAo+ICAg
-ICB0aGFuIDE0LiBTb3VuZHMgaGFja3ksIGFsdGhvdWdoIEkga2luZCBvZiBsaWtlIHRoaXMuCj4K
-PiBBZnRlciB0aGlua2luZyBhYm91dCBwcm9zIGFuZCBjb25zLCBJIGltcGxlbWVudGVkICgxKS4g
-U2VlbXMgdG8gYmUgbW9zdAo+IGNsZWFyIG9mIHRoZSB0aHJlZSBvcHRpb25zLiBCdXQgSSdtIGhh
-cHB5IHRvIGltcGxlbWVudCAoMikgb3IgKDMpIGlmIGl0J3MKPiBkZWVtZWQgYmV0dGVyLgoKSSBs
-aWtlIGFwcHJvYWNoIHRha2VuIGJ5IHRoaXMgcGF0Y2guCgpBY2tlZC1ieTogUHJhdmluIEIgU2hl
-bGFyIDxwc2hlbGFyQG92bi5vcmc+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
-b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Mon, Oct 17, 2016 at 6:02 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> We'll need it to alter packets sent to ARPHRD_NONE interfaces.
+>
+> Change do_output() to use the actual L2 header size of the packet when
+> deciding on the minimum cutlen. The assumption here is that what matters is
+> not the output interface hard_header_len but rather the L2 header of the
+> particular packet. For example, ARPHRD_NONE tunnels that encapsulate
+> Ethernet should get at least the Ethernet header.
+>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
