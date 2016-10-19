@@ -1,71 +1,97 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v4 0/3] udp: refactor memory accounting
-Date: Wed, 19 Oct 2016 14:46:59 +0200
-Message-ID: <cover.1476877189.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH net-next] bpf: fix potential percpu map overcopy to
+ user.
+Date: Wed, 19 Oct 2016 12:05:53 +0200
+Message-ID: <58074581.1000601@iogearbox.net>
+References: <1476636088-9268-1-git-send-email-u9012063@gmail.com> <20161019005004.GA87961@ast-mbp.thefacebook.com> <CALDO+SaebqahYHn2PU=nk6mYOMjRp+F8PKb3cFaGMv4_xjLwZg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37038 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S944222AbcJSPRa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Oct 2016 11:17:30 -0400
+Received: from www62.your-server.de ([213.133.104.62]:33755 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S944286AbcJSPRc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 11:17:32 -0400
+In-Reply-To: <CALDO+SaebqahYHn2PU=nk6mYOMjRp+F8PKb3cFaGMv4_xjLwZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series refactor the udp memory accounting, replacing the
-generic implementation with a custom one, in order to remove the needs for
-locking the socket on the enqueue and dequeue operations. The socket backlog
-usage is dropped, as well.
+On 10/19/2016 07:31 AM, William Tu wrote:
+>> ...
+>>> -     if (copy_to_user(uvalue, value, value_size) != 0)
+>>> +     if (copy_to_user(uvalue, value, min_t(u32, usize, value_size)) != 0)
+>>>                goto free_value;
+>>
+>> I think such approach won't actually fix anything. User space
+>> may lose some of the values and won't have any idea what was lost.
+>> I think we need to fix sample code to avoid using sysconf(_SC_NPROCESSORS_CONF)
+>> and use /sys/devices/system/cpu/possible instead.
+>> I would argue that glibc should be fixed as well since relying on
+>> ls -d /sys/devices/system/cpu/cpu[0-9]*|wc -l turned out to be incorrect.
+>
+> Thanks for the feedback. I think glibc is correct. The
+> _SC_NPROCESSORS_CONF presents the number of processors
+> configured/populated and is indeed "ls
+> /sys/devices/system/cpu/cpu[0-9]*|wc -l". This means the actual number
+> of CPUs installed on your system. On the other hand, the
 
-The first patch factor out pieces of some queue and memory management
-socket helpers, so that they can later be used by the udp memory accounting
-functions.
-The second patch adds the memory account helpers, without using them.
-The third patch replacse the old rx memory accounting path for udp over ipv4 and
-udp over ipv6. In kernel UDP users are updated, as well.
+In glibc __get_nprocs_conf() seems to try a number of things, first it
+tries equivalent of /sys/devices/system/cpu/cpu[0-9]*|wc -l, if that fails,
+depending on the config, it either tries to count cpus in /proc/cpuinfo,
+or returns the _SC_NPROCESSORS_ONLN value instead. If /proc/cpuinfo has
+some issue, it returns just 1 worst case. _SC_NPROCESSORS_ONLN will parse
+/sys/devices/system/cpu/online, if that fails it looks into /proc/stat
+for cpuX entries, and if also that fails for some reason, /proc/cpuinfo
+is consulted (and returning 1 if unlikely all breaks down).
 
-The memory accounting schema is described in detail in the individual patch
-commit message.
+> num_possible_cpus() includes both the installed CPUs and the empty CPU
+> socket/slot, in order to support CPU hotplug.
 
-The performance gain depends on the specific scenario; with few flows (and
-little contention in the original code) the differences are in the noise range,
-while with several flows contending the same socket, the measured speed-up
-is relevant (e.g. even over 100% in case of extreme contention)
+Correct.
 
-v3 -> v4:
- - simplified the locking schema, always use a plain spinlock
+> As a example, one of my dual socket motherboard with 1 CPU installed has
+> # /sys/devices/system/cpu/possible
+> 0-239
+> # /sys/devices/system/cpu/cpu[0-9]*|wc -l
+> 12
+> Note that these 12 cpus could be online/offline by
+> # echo 1/0 > /sys/devices/system/cpu/cpuX/online
+> Even if it is offline, the entry is still there.
+>
+> Thinking about another solution, maybe we should use
+> "num_present_cpus()" which means the configured/populated CPUs and the
+> value is the same as sysconf(_SC_NPROCESSORS_CONF). Consider:
+> 1) cpuX is online/offline: the num_present_cpus() remains the same.
+> 2) new cpu is hotplug into the empty socket: the num_present_cpus()
+> gets updates, and also the sysconf(_SC_NPROCESSORS_CONF).
+>
+> +++ b/kernel/bpf/syscall.c
+> @@ -297,7 +297,7 @@ static int map_lookup_elem(union bpf_attr *attr)
+>
+>          if (map->map_type == BPF_MAP_TYPE_PERCPU_HASH ||
+>              map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY)
+> -               value_size = round_up(map->value_size, 8) * num_possible_cpus();
+> +               value_size = round_up(map->value_size, 8) * num_present_cpus();
+>          else
+>                  value_size = map->value_size;
 
-v2 -> v3:
- - do not set the now unsed backlog_rcv callback
+But as you say in 2) that also has a chance of being racy on CPU hotplug
+compared to num_possible_cpus() which is fixed at boot time.
 
-v1 -> v2:
- - changed slighly the memory accounting schema, we now perform lazy reclaim
- - fixed forward_alloc updating issue
- - fixed memory counter integer overflows
+Documentation/cputopology.txt +106 says /sys/devices/system/cpu/possible
+outputs cpu_possible_mask. That is the same as in num_possible_cpus(), so
+first step would be to fix the buggy example code, imho.
 
-Paolo Abeni (3):
-  net/socket: factor out helpers for memory and queue manipulation
-  udp: implement memory accounting helpers
-  udp: use it's own memory accounting schema
+What perhaps could be done in a second step to reduce overhead is an option
+for bpf(2) to pass in a cpu mask similarly as for sched_{get,set}affinity()
+syscalls, where user space can construct a mask via CPU_SET(3). For the
+syscall time, kernel would lock hot plugging via get_online_cpus() and
+put_online_cpus(), it would check whether passed CPUs are online to query
+and if so then it would copy the values into the user provided buffer. I'd
+think this might be useful in a number of ways anyway.
 
- include/linux/udp.h   |   1 +
- include/net/sock.h    |   4 ++
- include/net/udp.h     |   4 ++
- net/core/datagram.c   |  36 +++++++-----
- net/core/sock.c       |  66 +++++++++++++++-------
- net/ipv4/udp.c        | 153 +++++++++++++++++++++++++++++++++++++++-----------
- net/ipv6/udp.c        |  34 +++--------
- net/sunrpc/svcsock.c  |  20 +++++--
- net/sunrpc/xprtsock.c |   2 +-
- 9 files changed, 221 insertions(+), 99 deletions(-)
-
--- 
-1.8.3.1
+Thanks,
+Daniel
