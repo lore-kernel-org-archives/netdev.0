@@ -1,365 +1,412 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next 3/6] net: use core MTU range checking in WAN drivers
-Date: Tue, 18 Oct 2016 22:33:30 -0400
-Message-ID: <20161019023333.15760-4-jarod@redhat.com>
+Subject: [PATCH net-next 6/6] net: use core MTU range checking in misc drivers
+Date: Tue, 18 Oct 2016 22:33:33 -0400
+Message-ID: <20161019023333.15760-7-jarod@redhat.com>
 References: <20161019023333.15760-1-jarod@redhat.com>
 Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        Krzysztof Halasa <khc@pm.waw.pl>,
-        Krzysztof Halasa <khalasa@piap.pl>,
-        Jan Yenya Kasprzak <kas@fi.muni.cz>,
-        Francois Romieu <romieu@fr.zoreil.com>,
-        Kevin Curtis <kevin.curtis@farsite.co.uk>,
-        Zhao Qiang <qiang.zhao@nxp.com>
+        Stefan Richter <stefanr@s5r6.in-berlin.de>,
+        Faisal Latif <faisal.latif@intel.com>,
+        linux-rdma@vger.kernel.org, Cliff Whickman <cpw@sgi.com>,
+        Robin Holt <robinmholt@gmail.com>,
+        Jes Sorensen <jes@trained-monkey.org>,
+        Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51334 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934086AbcJSCeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Oct 2016 22:34:01 -0400
 In-Reply-To: <20161019023333.15760-1-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-- set min/max_mtu in all hdlc drivers, remove hdlc_change_mtu
-- sent max_mtu in lec driver, remove lec_change_mtu
+firewire-net:
+- set min/max_mtu
+- remove fwnet_change_mtu
+
+nes:
+- set max_mtu
+- clean up nes_netdev_change_mtu
+
+xpnet:
+- set min/max_mtu
+- remove xpnet_dev_change_mtu
+
+hippi:
+- set min/max_mtu
+- remove hippi_change_mtu
+
+batman-adv:
+- set max_mtu
+- remove batadv_interface_change_mtu
+- initialization is a little async, not 100% certain that max_mtu is set
+  in the optimal place, don't have hardware to test with
+
+rionet:
+- set min/max_mtu
+- remove rionet_change_mtu
+
+slip:
+- set min/max_mtu
+- streamline sl_change_mtu
 
 CC: netdev@vger.kernel.org
-CC: Krzysztof Halasa <khc@pm.waw.pl>
-CC: Krzysztof Halasa <khalasa@piap.pl>
-CC: Jan "Yenya" Kasprzak <kas@fi.muni.cz>
-CC: Francois Romieu <romieu@fr.zoreil.com>
-CC: Kevin Curtis <kevin.curtis@farsite.co.uk>
-CC: Zhao Qiang <qiang.zhao@nxp.com>
+CC: Stefan Richter <stefanr@s5r6.in-berlin.de>
+CC: Faisal Latif <faisal.latif@intel.com>
+CC: linux-rdma@vger.kernel.org
+CC: Cliff Whickman <cpw@sgi.com>
+CC: Robin Holt <robinmholt@gmail.com>
+CC: Jes Sorensen <jes@trained-monkey.org>
+CC: Marek Lindner <mareklindner@neomailbox.ch>
+CC: Simon Wunderlich <sw@simonwunderlich.de>
+CC: Antonio Quartulli <a@unstable.cc>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- drivers/char/pcmcia/synclink_cs.c |  1 -
- drivers/net/wan/c101.c            |  1 -
- drivers/net/wan/cosa.c            |  1 -
- drivers/net/wan/dscc4.c           |  1 -
- drivers/net/wan/farsync.c         |  1 -
- drivers/net/wan/fsl_ucc_hdlc.c    |  1 -
- drivers/net/wan/hdlc.c            | 11 ++---------
- drivers/net/wan/hdlc_fr.c         |  3 ++-
- drivers/net/wan/hostess_sv11.c    |  1 -
- drivers/net/wan/ixp4xx_hss.c      |  1 -
- drivers/net/wan/lmc/lmc_main.c    |  1 -
- drivers/net/wan/n2.c              |  1 -
- drivers/net/wan/pc300too.c        |  1 -
- drivers/net/wan/pci200syn.c       |  1 -
- drivers/net/wan/sealevel.c        |  1 -
- drivers/net/wan/wanxl.c           |  1 -
- drivers/tty/synclink.c            |  1 -
- drivers/tty/synclink_gt.c         |  1 -
- drivers/tty/synclinkmp.c          |  1 -
- include/linux/hdlc.h              |  2 --
- net/atm/lec.c                     | 11 +----------
- 21 files changed, 5 insertions(+), 39 deletions(-)
+ drivers/firewire/net.c              | 12 ++----------
+ drivers/infiniband/hw/nes/nes.c     |  1 -
+ drivers/infiniband/hw/nes/nes.h     |  4 ++--
+ drivers/infiniband/hw/nes/nes_nic.c | 10 +++-------
+ drivers/misc/sgi-xp/xpnet.c         | 21 ++++-----------------
+ drivers/net/hippi/rrunner.c         |  1 -
+ drivers/net/rionet.c                | 15 +++------------
+ drivers/net/slip/slip.c             | 11 +++++------
+ include/linux/hippidevice.h         |  1 -
+ net/802/hippi.c                     | 14 ++------------
+ net/batman-adv/soft-interface.c     | 13 +------------
+ 11 files changed, 22 insertions(+), 81 deletions(-)
 
-diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
-index d28922d..a7dd5f4 100644
---- a/drivers/char/pcmcia/synclink_cs.c
-+++ b/drivers/char/pcmcia/synclink_cs.c
-@@ -4248,7 +4248,6 @@ static void hdlcdev_rx(MGSLPC_INFO *info, char *buf, int size)
- static const struct net_device_ops hdlcdev_ops = {
- 	.ndo_open       = hdlcdev_open,
- 	.ndo_stop       = hdlcdev_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = hdlcdev_ioctl,
- 	.ndo_tx_timeout = hdlcdev_tx_timeout,
-diff --git a/drivers/net/wan/c101.c b/drivers/net/wan/c101.c
-index 09a5075..2371e07 100644
---- a/drivers/net/wan/c101.c
-+++ b/drivers/net/wan/c101.c
-@@ -302,7 +302,6 @@ static void c101_destroy_card(card_t *card)
- static const struct net_device_ops c101_ops = {
- 	.ndo_open       = c101_open,
- 	.ndo_stop       = c101_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = c101_ioctl,
- };
-diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
-index b87fe0a..087eb26 100644
---- a/drivers/net/wan/cosa.c
-+++ b/drivers/net/wan/cosa.c
-@@ -432,7 +432,6 @@ module_exit(cosa_exit);
- static const struct net_device_ops cosa_ops = {
- 	.ndo_open       = cosa_net_open,
- 	.ndo_stop       = cosa_net_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = cosa_net_ioctl,
- 	.ndo_tx_timeout = cosa_net_timeout,
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index 6292259..7351e54 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -887,7 +887,6 @@ static inline int dscc4_set_quartz(struct dscc4_dev_priv *dpriv, int hz)
- static const struct net_device_ops dscc4_ops = {
- 	.ndo_open       = dscc4_open,
- 	.ndo_stop       = dscc4_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = dscc4_ioctl,
- 	.ndo_tx_timeout = dscc4_tx_timeout,
-diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-index 3c9cbf9..03696d3 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -2394,7 +2394,6 @@ fst_init_card(struct fst_card_info *card)
- static const struct net_device_ops fst_ops = {
- 	.ndo_open       = fst_open,
- 	.ndo_stop       = fst_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = fst_ioctl,
- 	.ndo_tx_timeout = fst_tx_timeout,
-diff --git a/drivers/net/wan/fsl_ucc_hdlc.c b/drivers/net/wan/fsl_ucc_hdlc.c
-index 6564753..e38ce4d 100644
---- a/drivers/net/wan/fsl_ucc_hdlc.c
-+++ b/drivers/net/wan/fsl_ucc_hdlc.c
-@@ -992,7 +992,6 @@ static const struct dev_pm_ops uhdlc_pm_ops = {
- static const struct net_device_ops uhdlc_ops = {
- 	.ndo_open       = uhdlc_open,
- 	.ndo_stop       = uhdlc_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = uhdlc_ioctl,
- };
-diff --git a/drivers/net/wan/hdlc.c b/drivers/net/wan/hdlc.c
-index 9bd4aa8..7221a53 100644
---- a/drivers/net/wan/hdlc.c
-+++ b/drivers/net/wan/hdlc.c
-@@ -46,14 +46,6 @@ static const char* version = "HDLC support module revision 1.22";
+diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
+index 309311b..b5f125c 100644
+--- a/drivers/firewire/net.c
++++ b/drivers/firewire/net.c
+@@ -1349,15 +1349,6 @@ static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
+ 	return NETDEV_TX_OK;
+ }
  
- static struct hdlc_proto *first_proto;
- 
--int hdlc_change_mtu(struct net_device *dev, int new_mtu)
+-static int fwnet_change_mtu(struct net_device *net, int new_mtu)
 -{
--	if ((new_mtu < 68) || (new_mtu > HDLC_MAX_MTU))
+-	if (new_mtu < 68)
 -		return -EINVAL;
--	dev->mtu = new_mtu;
+-
+-	net->mtu = new_mtu;
 -	return 0;
 -}
 -
- static int hdlc_rcv(struct sk_buff *skb, struct net_device *dev,
- 		    struct packet_type *p, struct net_device *orig_dev)
+ static const struct ethtool_ops fwnet_ethtool_ops = {
+ 	.get_link	= ethtool_op_get_link,
+ };
+@@ -1366,7 +1357,6 @@ static const struct net_device_ops fwnet_netdev_ops = {
+ 	.ndo_open       = fwnet_open,
+ 	.ndo_stop	= fwnet_stop,
+ 	.ndo_start_xmit = fwnet_tx,
+-	.ndo_change_mtu = fwnet_change_mtu,
+ };
+ 
+ static void fwnet_init_dev(struct net_device *net)
+@@ -1481,6 +1471,8 @@ static int fwnet_probe(struct fw_unit *unit,
+ 	max_mtu = (1 << (card->max_receive + 1))
+ 		  - sizeof(struct rfc2734_header) - IEEE1394_GASP_HDR_SIZE;
+ 	net->mtu = min(1500U, max_mtu);
++	net->min_mtu = ETH_MIN_MTU;
++	net->max_mtu = net->mtu;
+ 
+ 	/* Set our hardware address while we're at it */
+ 	ha = (union fwnet_hwaddr *)net->dev_addr;
+diff --git a/drivers/infiniband/hw/nes/nes.c b/drivers/infiniband/hw/nes/nes.c
+index 35cbb17..2baa45a 100644
+--- a/drivers/infiniband/hw/nes/nes.c
++++ b/drivers/infiniband/hw/nes/nes.c
+@@ -65,7 +65,6 @@ MODULE_DESCRIPTION("NetEffect RNIC Low-level iWARP Driver");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
+-int max_mtu = 9000;
+ int interrupt_mod_interval = 0;
+ 
+ /* Interoperability */
+diff --git a/drivers/infiniband/hw/nes/nes.h b/drivers/infiniband/hw/nes/nes.h
+index e7430c9..85acd08 100644
+--- a/drivers/infiniband/hw/nes/nes.h
++++ b/drivers/infiniband/hw/nes/nes.h
+@@ -83,6 +83,8 @@
+ #define NES_FIRST_QPN           64
+ #define NES_SW_CONTEXT_ALIGN    1024
+ 
++#define NES_MAX_MTU		9000
++
+ #define NES_NIC_MAX_NICS        16
+ #define NES_MAX_ARP_TABLE_SIZE  4096
+ 
+@@ -169,8 +171,6 @@ do { \
+ #include "nes_cm.h"
+ #include "nes_mgt.h"
+ 
+-extern int max_mtu;
+-#define max_frame_len (max_mtu+ETH_HLEN)
+ extern int interrupt_mod_interval;
+ extern int nes_if_count;
+ extern int mpa_version;
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+index 2b27d13..7f8597d 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -981,20 +981,16 @@ static int nes_netdev_change_mtu(struct net_device *netdev, int new_mtu)
  {
-@@ -237,6 +229,8 @@ static void hdlc_setup_dev(struct net_device *dev)
- 	dev->flags		 = IFF_POINTOPOINT | IFF_NOARP;
- 	dev->priv_flags		 = IFF_WAN_HDLC;
- 	dev->mtu		 = HDLC_MAX_MTU;
-+	dev->min_mtu		 = 68;
-+	dev->max_mtu		 = HDLC_MAX_MTU;
- 	dev->type		 = ARPHRD_RAWHDLC;
- 	dev->hard_header_len	 = 16;
- 	dev->addr_len		 = 0;
-@@ -353,7 +347,6 @@ MODULE_AUTHOR("Krzysztof Halasa <khc@pm.waw.pl>");
- MODULE_DESCRIPTION("HDLC support module");
- MODULE_LICENSE("GPL v2");
+ 	struct nes_vnic	*nesvnic = netdev_priv(netdev);
+ 	struct nes_device *nesdev = nesvnic->nesdev;
+-	int ret = 0;
+ 	u8 jumbomode = 0;
+ 	u32 nic_active;
+ 	u32 nic_active_bit;
+ 	u32 uc_all_active;
+ 	u32 mc_all_active;
  
--EXPORT_SYMBOL(hdlc_change_mtu);
- EXPORT_SYMBOL(hdlc_start_xmit);
- EXPORT_SYMBOL(hdlc_open);
- EXPORT_SYMBOL(hdlc_close);
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index b6e0cfb..eb91528 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -1053,7 +1053,6 @@ static void pvc_setup(struct net_device *dev)
- static const struct net_device_ops pvc_ops = {
- 	.ndo_open       = pvc_open,
- 	.ndo_stop       = pvc_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = pvc_xmit,
- 	.ndo_do_ioctl   = pvc_ioctl,
- };
-@@ -1096,6 +1095,8 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
+-	if ((new_mtu < ETH_ZLEN) || (new_mtu > max_mtu))
+-		return -EINVAL;
+-
+ 	netdev->mtu = new_mtu;
+ 	nesvnic->max_frame_size	= new_mtu + VLAN_ETH_HLEN;
+ 
+-	if (netdev->mtu	> 1500)	{
++	if (netdev->mtu	> ETH_DATA_LEN)	{
+ 		jumbomode=1;
  	}
- 	dev->netdev_ops = &pvc_ops;
- 	dev->mtu = HDLC_MAX_MTU;
-+	dev->min_mtu = 68;
-+	dev->max_mtu = HDLC_MAX_MTU;
- 	dev->priv_flags |= IFF_NO_QUEUE;
- 	dev->ml_priv = pvc;
+ 	nes_nic_init_timer_defaults(nesdev, jumbomode);
+@@ -1020,7 +1016,7 @@ static int nes_netdev_change_mtu(struct net_device *netdev, int new_mtu)
+ 		nes_write_indexed(nesdev, NES_IDX_NIC_UNICAST_ALL, nic_active);
+ 	}
  
-diff --git a/drivers/net/wan/hostess_sv11.c b/drivers/net/wan/hostess_sv11.c
-index 3d74166..dd6bb33 100644
---- a/drivers/net/wan/hostess_sv11.c
-+++ b/drivers/net/wan/hostess_sv11.c
-@@ -180,7 +180,6 @@ static int hostess_attach(struct net_device *dev, unsigned short encoding,
- static const struct net_device_ops hostess_ops = {
- 	.ndo_open       = hostess_open,
- 	.ndo_stop       = hostess_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = hostess_ioctl,
- };
-diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
-index e7bbdb7..6a505c2 100644
---- a/drivers/net/wan/ixp4xx_hss.c
-+++ b/drivers/net/wan/ixp4xx_hss.c
-@@ -1321,7 +1321,6 @@ static int hss_hdlc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- static const struct net_device_ops hss_hdlc_ops = {
- 	.ndo_open       = hss_hdlc_open,
- 	.ndo_stop       = hss_hdlc_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = hss_hdlc_ioctl,
- };
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index 299140c..001b779 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -808,7 +808,6 @@ static int lmc_attach(struct net_device *dev, unsigned short encoding,
- static const struct net_device_ops lmc_ops = {
- 	.ndo_open       = lmc_open,
- 	.ndo_stop       = lmc_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = lmc_ioctl,
- 	.ndo_tx_timeout = lmc_driver_timeout,
-diff --git a/drivers/net/wan/n2.c b/drivers/net/wan/n2.c
-index 315bf09..c8f4517 100644
---- a/drivers/net/wan/n2.c
-+++ b/drivers/net/wan/n2.c
-@@ -330,7 +330,6 @@ static void n2_destroy_card(card_t *card)
- static const struct net_device_ops n2_ops = {
- 	.ndo_open       = n2_open,
- 	.ndo_stop       = n2_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = n2_ioctl,
- };
-diff --git a/drivers/net/wan/pc300too.c b/drivers/net/wan/pc300too.c
-index db36385..e1dd1ec 100644
---- a/drivers/net/wan/pc300too.c
-+++ b/drivers/net/wan/pc300too.c
-@@ -291,7 +291,6 @@ static void pc300_pci_remove_one(struct pci_dev *pdev)
- static const struct net_device_ops pc300_ops = {
- 	.ndo_open       = pc300_open,
- 	.ndo_stop       = pc300_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = pc300_ioctl,
- };
-diff --git a/drivers/net/wan/pci200syn.c b/drivers/net/wan/pci200syn.c
-index e845562..4e437c5 100644
---- a/drivers/net/wan/pci200syn.c
-+++ b/drivers/net/wan/pci200syn.c
-@@ -270,7 +270,6 @@ static void pci200_pci_remove_one(struct pci_dev *pdev)
- static const struct net_device_ops pci200_ops = {
- 	.ndo_open       = pci200_open,
- 	.ndo_stop       = pci200_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = pci200_ioctl,
- };
-diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
-index 27860b4..fbb5aa2 100644
---- a/drivers/net/wan/sealevel.c
-+++ b/drivers/net/wan/sealevel.c
-@@ -174,7 +174,6 @@ static int sealevel_attach(struct net_device *dev, unsigned short encoding,
- static const struct net_device_ops sealevel_ops = {
- 	.ndo_open       = sealevel_open,
- 	.ndo_stop       = sealevel_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = sealevel_ioctl,
- };
-diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
-index a20d688..0c73175 100644
---- a/drivers/net/wan/wanxl.c
-+++ b/drivers/net/wan/wanxl.c
-@@ -551,7 +551,6 @@ static void wanxl_pci_remove_one(struct pci_dev *pdev)
- static const struct net_device_ops wanxl_ops = {
- 	.ndo_open       = wanxl_open,
- 	.ndo_stop       = wanxl_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = wanxl_ioctl,
- 	.ndo_get_stats  = wanxl_get_stats,
-diff --git a/drivers/tty/synclink.c b/drivers/tty/synclink.c
-index c13e27e..415885c 100644
---- a/drivers/tty/synclink.c
-+++ b/drivers/tty/synclink.c
-@@ -7973,7 +7973,6 @@ static void hdlcdev_rx(struct mgsl_struct *info, char *buf, int size)
- static const struct net_device_ops hdlcdev_ops = {
- 	.ndo_open       = hdlcdev_open,
- 	.ndo_stop       = hdlcdev_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = hdlcdev_ioctl,
- 	.ndo_tx_timeout = hdlcdev_tx_timeout,
-diff --git a/drivers/tty/synclink_gt.c b/drivers/tty/synclink_gt.c
-index 7aca2d4..8267bcf 100644
---- a/drivers/tty/synclink_gt.c
-+++ b/drivers/tty/synclink_gt.c
-@@ -1768,7 +1768,6 @@ static void hdlcdev_rx(struct slgt_info *info, char *buf, int size)
- static const struct net_device_ops hdlcdev_ops = {
- 	.ndo_open       = hdlcdev_open,
- 	.ndo_stop       = hdlcdev_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = hdlcdev_ioctl,
- 	.ndo_tx_timeout = hdlcdev_tx_timeout,
-diff --git a/drivers/tty/synclinkmp.c b/drivers/tty/synclinkmp.c
-index dec1565..d66620f 100644
---- a/drivers/tty/synclinkmp.c
-+++ b/drivers/tty/synclinkmp.c
-@@ -1887,7 +1887,6 @@ static void hdlcdev_rx(SLMP_INFO *info, char *buf, int size)
- static const struct net_device_ops hdlcdev_ops = {
- 	.ndo_open       = hdlcdev_open,
- 	.ndo_stop       = hdlcdev_close,
--	.ndo_change_mtu = hdlc_change_mtu,
- 	.ndo_start_xmit = hdlc_start_xmit,
- 	.ndo_do_ioctl   = hdlcdev_ioctl,
- 	.ndo_tx_timeout = hdlcdev_tx_timeout,
-diff --git a/include/linux/hdlc.h b/include/linux/hdlc.h
-index e31bcd4..97585d9 100644
---- a/include/linux/hdlc.h
-+++ b/include/linux/hdlc.h
-@@ -93,8 +93,6 @@ static __inline__ void debug_frame(const struct sk_buff *skb)
- int hdlc_open(struct net_device *dev);
- /* Must be called by hardware driver when HDLC device is being closed */
- void hdlc_close(struct net_device *dev);
--/* May be used by hardware driver */
--int hdlc_change_mtu(struct net_device *dev, int new_mtu);
- /* Must be pointed to by hw driver's dev->netdev_ops->ndo_start_xmit */
- netdev_tx_t hdlc_start_xmit(struct sk_buff *skb, struct net_device *dev);
+-	return ret;
++	return 0;
+ }
  
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 5d26938..779b3fa 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -544,15 +544,6 @@ send_to_lecd(struct lec_priv *priv, atmlec_msg_type type,
+ 
+@@ -1658,7 +1654,7 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
+ 
+ 	netdev->watchdog_timeo = NES_TX_TIMEOUT;
+ 	netdev->irq = nesdev->pcidev->irq;
+-	netdev->mtu = ETH_DATA_LEN;
++	netdev->max_mtu = NES_MAX_MTU;
+ 	netdev->hard_header_len = ETH_HLEN;
+ 	netdev->addr_len = ETH_ALEN;
+ 	netdev->type = ARPHRD_ETHER;
+diff --git a/drivers/misc/sgi-xp/xpnet.c b/drivers/misc/sgi-xp/xpnet.c
+index 557f978..0c26eaf 100644
+--- a/drivers/misc/sgi-xp/xpnet.c
++++ b/drivers/misc/sgi-xp/xpnet.c
+@@ -118,6 +118,8 @@ static DEFINE_SPINLOCK(xpnet_broadcast_lock);
+  * now, the default is 64KB.
+  */
+ #define XPNET_MAX_MTU (0x800000UL - L1_CACHE_BYTES)
++/* 68 comes from min TCP+IP+MAC header */
++#define XPNET_MIN_MTU 68
+ /* 32KB has been determined to be the ideal */
+ #define XPNET_DEF_MTU (0x8000UL)
+ 
+@@ -330,22 +332,6 @@ xpnet_dev_stop(struct net_device *dev)
  	return 0;
  }
  
--/* shamelessly stolen from drivers/net/net_init.c */
--static int lec_change_mtu(struct net_device *dev, int new_mtu)
+-static int
+-xpnet_dev_change_mtu(struct net_device *dev, int new_mtu)
 -{
--	if ((new_mtu < 68) || (new_mtu > 18190))
+-	/* 68 comes from min TCP+IP+MAC header */
+-	if ((new_mtu < 68) || (new_mtu > XPNET_MAX_MTU)) {
+-		dev_err(xpnet, "ifconfig %s mtu %d failed; value must be "
+-			"between 68 and %ld\n", dev->name, new_mtu,
+-			XPNET_MAX_MTU);
+-		return -EINVAL;
+-	}
+-
+-	dev->mtu = new_mtu;
+-	dev_dbg(xpnet, "ifconfig %s mtu set to %d\n", dev->name, new_mtu);
+-	return 0;
+-}
+-
+ /*
+  * Notification that the other end has received the message and
+  * DMA'd the skb information.  At this point, they are done with
+@@ -519,7 +505,6 @@ static const struct net_device_ops xpnet_netdev_ops = {
+ 	.ndo_open		= xpnet_dev_open,
+ 	.ndo_stop		= xpnet_dev_stop,
+ 	.ndo_start_xmit		= xpnet_dev_hard_start_xmit,
+-	.ndo_change_mtu		= xpnet_dev_change_mtu,
+ 	.ndo_tx_timeout		= xpnet_dev_tx_timeout,
+ 	.ndo_set_mac_address 	= eth_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+@@ -555,6 +540,8 @@ xpnet_init(void)
+ 
+ 	xpnet_device->netdev_ops = &xpnet_netdev_ops;
+ 	xpnet_device->mtu = XPNET_DEF_MTU;
++	xpnet_device->min_mtu = XPNET_MIN_MTU;
++	xpnet_device->max_mtu = XPNET_MAX_MTU;
+ 
+ 	/*
+ 	 * Multicast assumes the LSB of the first octet is set for multicast
+diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
+index 95c0b45..f5a9728 100644
+--- a/drivers/net/hippi/rrunner.c
++++ b/drivers/net/hippi/rrunner.c
+@@ -68,7 +68,6 @@ static const struct net_device_ops rr_netdev_ops = {
+ 	.ndo_stop		= rr_close,
+ 	.ndo_do_ioctl		= rr_ioctl,
+ 	.ndo_start_xmit		= rr_start_xmit,
+-	.ndo_change_mtu		= hippi_change_mtu,
+ 	.ndo_set_mac_address	= hippi_mac_addr,
+ };
+ 
+diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
+index a31f461..300bb14 100644
+--- a/drivers/net/rionet.c
++++ b/drivers/net/rionet.c
+@@ -466,17 +466,6 @@ static void rionet_set_msglevel(struct net_device *ndev, u32 value)
+ 	rnet->msg_enable = value;
+ }
+ 
+-static int rionet_change_mtu(struct net_device *ndev, int new_mtu)
+-{
+-	if ((new_mtu < 68) || (new_mtu > RIONET_MAX_MTU)) {
+-		printk(KERN_ERR "%s: Invalid MTU size %d\n",
+-		       ndev->name, new_mtu);
+-		return -EINVAL;
+-	}
+-	ndev->mtu = new_mtu;
+-	return 0;
+-}
+-
+ static const struct ethtool_ops rionet_ethtool_ops = {
+ 	.get_drvinfo = rionet_get_drvinfo,
+ 	.get_msglevel = rionet_get_msglevel,
+@@ -488,7 +477,6 @@ static const struct net_device_ops rionet_netdev_ops = {
+ 	.ndo_open		= rionet_open,
+ 	.ndo_stop		= rionet_close,
+ 	.ndo_start_xmit		= rionet_start_xmit,
+-	.ndo_change_mtu		= rionet_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ };
+@@ -525,6 +513,9 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
+ 
+ 	ndev->netdev_ops = &rionet_netdev_ops;
+ 	ndev->mtu = RIONET_MAX_MTU;
++	/* MTU range: 68 - 4082 */
++	ndev->min_mtu = ETH_MIN_MTU;
++	ndev->max_mtu = RIONET_MAX_MTU;
+ 	ndev->features = NETIF_F_LLTX;
+ 	SET_NETDEV_DEV(ndev, &mport->dev);
+ 	ndev->ethtool_ops = &rionet_ethtool_ops;
+diff --git a/drivers/net/slip/slip.c b/drivers/net/slip/slip.c
+index 9ed6d1c..7e933d8 100644
+--- a/drivers/net/slip/slip.c
++++ b/drivers/net/slip/slip.c
+@@ -561,12 +561,7 @@ static int sl_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct slip *sl = netdev_priv(dev);
+ 
+-	if (new_mtu < 68 || new_mtu > 65534)
+-		return -EINVAL;
+-
+-	if (new_mtu != dev->mtu)
+-		return sl_realloc_bufs(sl, new_mtu);
+-	return 0;
++	return sl_realloc_bufs(sl, new_mtu);
+ }
+ 
+ /* Netdevice get statistics request */
+@@ -663,6 +658,10 @@ static void sl_setup(struct net_device *dev)
+ 	dev->addr_len		= 0;
+ 	dev->tx_queue_len	= 10;
+ 
++	/* MTU range: 68 - 65534 */
++	dev->min_mtu = 68;
++	dev->max_mtu = 65534;
++
+ 	/* New-style flags. */
+ 	dev->flags		= IFF_NOARP|IFF_POINTOPOINT|IFF_MULTICAST;
+ }
+diff --git a/include/linux/hippidevice.h b/include/linux/hippidevice.h
+index 8ec23fb..402f99e 100644
+--- a/include/linux/hippidevice.h
++++ b/include/linux/hippidevice.h
+@@ -32,7 +32,6 @@ struct hippi_cb {
+ };
+ 
+ __be16 hippi_type_trans(struct sk_buff *skb, struct net_device *dev);
+-int hippi_change_mtu(struct net_device *dev, int new_mtu);
+ int hippi_mac_addr(struct net_device *dev, void *p);
+ int hippi_neigh_setup_dev(struct net_device *dev, struct neigh_parms *p);
+ struct net_device *alloc_hippi_dev(int sizeof_priv);
+diff --git a/net/802/hippi.c b/net/802/hippi.c
+index ade1a52..5e4427b 100644
+--- a/net/802/hippi.c
++++ b/net/802/hippi.c
+@@ -116,18 +116,6 @@ __be16 hippi_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 
+ EXPORT_SYMBOL(hippi_type_trans);
+ 
+-int hippi_change_mtu(struct net_device *dev, int new_mtu)
+-{
+-	/*
+-	 * HIPPI's got these nice large MTUs.
+-	 */
+-	if ((new_mtu < 68) || (new_mtu > 65280))
 -		return -EINVAL;
 -	dev->mtu = new_mtu;
 -	return 0;
 -}
+-EXPORT_SYMBOL(hippi_change_mtu);
 -
- static void lec_set_multicast_list(struct net_device *dev)
- {
- 	/*
-@@ -565,7 +556,6 @@ static const struct net_device_ops lec_netdev_ops = {
- 	.ndo_open		= lec_open,
- 	.ndo_stop		= lec_close,
- 	.ndo_start_xmit		= lec_start_xmit,
--	.ndo_change_mtu		= lec_change_mtu,
- 	.ndo_tx_timeout		= lec_tx_timeout,
- 	.ndo_set_rx_mode	= lec_set_multicast_list,
- };
-@@ -742,6 +732,7 @@ static int lecd_attach(struct atm_vcc *vcc, int arg)
- 		if (!dev_lec[i])
- 			return -ENOMEM;
- 		dev_lec[i]->netdev_ops = &lec_netdev_ops;
-+		dev_lec[i]->max_mtu = 18190;
- 		snprintf(dev_lec[i]->name, IFNAMSIZ, "lec%d", i);
- 		if (register_netdev(dev_lec[i])) {
- 			free_netdev(dev_lec[i]);
+ /*
+  * For HIPPI we will actually use the lower 4 bytes of the hardware
+  * address as the I-FIELD rather than the actual hardware address.
+@@ -174,6 +162,8 @@ static void hippi_setup(struct net_device *dev)
+ 	dev->type		= ARPHRD_HIPPI;
+ 	dev->hard_header_len 	= HIPPI_HLEN;
+ 	dev->mtu		= 65280;
++	dev->min_mtu		= 68;
++	dev->max_mtu		= 65280;
+ 	dev->addr_len		= HIPPI_ALEN;
+ 	dev->tx_queue_len	= 25 /* 5 */;
+ 	memset(dev->broadcast, 0xFF, HIPPI_ALEN);
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 49e16b6..112679d 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -158,17 +158,6 @@ static int batadv_interface_set_mac_addr(struct net_device *dev, void *p)
+ 	return 0;
+ }
+ 
+-static int batadv_interface_change_mtu(struct net_device *dev, int new_mtu)
+-{
+-	/* check ranges */
+-	if ((new_mtu < 68) || (new_mtu > batadv_hardif_min_mtu(dev)))
+-		return -EINVAL;
+-
+-	dev->mtu = new_mtu;
+-
+-	return 0;
+-}
+-
+ /**
+  * batadv_interface_set_rx_mode - set the rx mode of a device
+  * @dev: registered network device to modify
+@@ -920,7 +909,6 @@ static const struct net_device_ops batadv_netdev_ops = {
+ 	.ndo_vlan_rx_add_vid = batadv_interface_add_vid,
+ 	.ndo_vlan_rx_kill_vid = batadv_interface_kill_vid,
+ 	.ndo_set_mac_address = batadv_interface_set_mac_addr,
+-	.ndo_change_mtu = batadv_interface_change_mtu,
+ 	.ndo_set_rx_mode = batadv_interface_set_rx_mode,
+ 	.ndo_start_xmit = batadv_interface_tx,
+ 	.ndo_validate_addr = eth_validate_addr,
+@@ -987,6 +975,7 @@ struct net_device *batadv_softif_create(struct net *net, const char *name)
+ 	dev_net_set(soft_iface, net);
+ 
+ 	soft_iface->rtnl_link_ops = &batadv_link_ops;
++	soft_iface->max_mtu = batadv_hardif_min_mtu(soft_iface);
+ 
+ 	ret = register_netdevice(soft_iface);
+ 	if (ret < 0) {
 -- 
 2.10.0
