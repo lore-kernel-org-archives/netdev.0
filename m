@@ -1,96 +1,34 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv6: fix a potential deadlock in do_ipv6_setsockopt()
-Date: Wed, 19 Oct 2016 11:20:18 -0700
-Message-ID: <1476901218-15635-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: sploving1@gmail.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36558 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932426AbcJSSUZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 14:20:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id r16so3089131pfg.3
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 11:20:25 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/2] openvswitch: remove unused
+	functions
+Date: Wed, 19 Oct 2016 11:34:35 -0700
+Message-ID: <CAOrHB_CT6VnAC4MKg_kSX=F6udSf7y-Egevn6-dFFHKPRW3WGQ@mail.gmail.com>
+References: <cover.1476869133.git.jbenc@redhat.com>
+ <75a1e9718357fe5c40948d4c3032c95278277587.1476869133.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <75a1e9718357fe5c40948d4c3032c95278277587.1476869133.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Baozeng reported this deadlock case:
-
-       CPU0                    CPU1
-       ----                    ----
-  lock([  165.136033] sk_lock-AF_INET6);
-                               lock([  165.136033] rtnl_mutex);
-                               lock([  165.136033] sk_lock-AF_INET6);
-  lock([  165.136033] rtnl_mutex);
-
-Similar to commit 87e9f0315952
-("ipv4: fix a potential deadlock in mcast getsockopt() path")
-this is due to we still have a case, ipv6_sock_mc_close(),
-where we acquire sk_lock before rtnl_lock. Close this deadlock
-with the similar solution, that is always acquire rtnl lock first.
-
-Fixes: baf606d9c9b1 ("ipv4,ipv6: grab rtnl before locking the socket")
-Reported-by: Baozeng Ding <sploving1@gmail.com>
-Tested-by: Baozeng Ding <sploving1@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/af_inet6.c      | 2 ++
- net/ipv6/ipv6_sockglue.c | 1 +
- net/ipv6/mcast.c         | 4 ++--
- 3 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 46ad699..b8c8d20 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -414,7 +414,9 @@ int inet6_release(struct socket *sock)
- 		return -EINVAL;
- 
- 	/* Free mc lists */
-+	rtnl_lock();
- 	ipv6_sock_mc_close(sk);
-+	rtnl_unlock();
- 
- 	/* Free ac lists */
- 	ipv6_sock_ac_close(sk);
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 5330262..1e4bcce 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -120,6 +120,7 @@ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
- static bool setsockopt_needs_rtnl(int optname)
- {
- 	switch (optname) {
-+	case IPV6_ADDRFORM:
- 	case IPV6_ADD_MEMBERSHIP:
- 	case IPV6_DROP_MEMBERSHIP:
- 	case IPV6_JOIN_ANYCAST:
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 75c1fc5..41badfd 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -282,10 +282,11 @@ void ipv6_sock_mc_close(struct sock *sk)
- 	struct ipv6_mc_socklist *mc_lst;
- 	struct net *net = sock_net(sk);
- 
-+	ASSERT_RTNL();
-+
- 	if (!rcu_access_pointer(np->ipv6_mc_list))
- 		return;
- 
--	rtnl_lock();
- 	while ((mc_lst = rtnl_dereference(np->ipv6_mc_list)) != NULL) {
- 		struct net_device *dev;
- 
-@@ -305,7 +306,6 @@ void ipv6_sock_mc_close(struct sock *sk)
- 		kfree_rcu(mc_lst, rcu);
- 
- 	}
--	rtnl_unlock();
- }
- 
- int ip6_mc_source(int add, int omode, struct sock *sk,
--- 
-2.1.0
+T24gV2VkLCBPY3QgMTksIDIwMTYgYXQgMjoyNiBBTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
+Y29tPiB3cm90ZToKPiBvdnNfdnBvcnRfZGVmZXJyZWRfZnJlZSBpcyBub3QgdXNlZCBhbnl3aGVy
+ZS4gSXQncyB0aGUgb25seSBjYWxsZXIgb2YKPiBmcmVlX3Zwb3J0X3JjdSB0aHVzIHRoaXMgb25l
+IGNhbiBiZSByZW1vdmVkLCB0b28uCj4KPiBTaWduZWQtb2ZmLWJ5OiBKaXJpIEJlbmMgPGpiZW5j
+QHJlZGhhdC5jb20+CgpBY2tlZC1ieTogUHJhdmluIEIgU2hlbGFyIDxwc2hlbGFyQG92bi5vcmc+
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
