@@ -1,54 +1,121 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC v3 04/22] bpf: Set register type according to
- is_valid_access()
-Date: Wed, 19 Oct 2016 16:54:20 +0200
-Message-ID: <20161019145420.GA22003@pox.localdomain>
-References: <20160914072415.26021-1-mic@digikod.net>
- <20160914072415.26021-5-mic@digikod.net>
+From: Zach Brown <zach.brown@ni.com>
+Subject: [PATCH 2/2] net: macb: Add ethtool get_ringparam and set_ringparam functionality
+Date: Wed, 19 Oct 2016 09:56:58 -0500
+Message-ID: <1476889018-8357-3-git-send-email-zach.brown@ni.com>
+References: <1476889018-8357-1-git-send-email-zach.brown@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>,
-        Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Will Drewry <wad@chromium.org>,
-        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-        linux-security-module@vger.kern
-To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
+To: <nicolas.ferre@atmel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160914072415.26021-5-mic@digikod.net>
+In-Reply-To: <1476889018-8357-1-git-send-email-zach.brown@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/14/16 at 09:23am, Mickaël Salaün wrote:
-> This fix a pointer leak when an unprivileged eBPF program read a pointer
-> value from the context. Even if is_valid_access() returns a pointer
-> type, the eBPF verifier replace it with UNKNOWN_VALUE. The register
-> value containing an address is then allowed to leak. Moreover, this
-> prevented unprivileged eBPF programs to use functions with (legitimate)
-> pointer arguments.
-> 
-> This bug was not a problem until now because the only unprivileged eBPF
-> program allowed is of type BPF_PROG_TYPE_SOCKET_FILTER and all the types
-> from its context are UNKNOWN_VALUE.
-> 
-> Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> Fixes: 969bf05eb3ce ("bpf: direct packet access")
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
+Some applications want to tune the size of the macb rx/tx ring buffers.
+The ethtool set_ringparam function is the standard way of doing it.
 
-Can you post this fix separately? It's valid and needed outside of the
-scope of this series.
+Signed-off-by: Zach Brown <zach.brown@ni.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 59 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 59 insertions(+)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 644975d..e1847ce 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -37,11 +37,16 @@
+
+ #define MACB_RX_BUFFER_SIZE	128
+ #define RX_BUFFER_MULTIPLE	64  /* bytes */
++
+ #define DEFAULT_RX_RING_SIZE	512 /* must be power of 2 */
++#define MIN_RX_RING_SIZE	64
++#define MAX_RX_RING_SIZE	8192
+ #define RX_RING_BYTES(bp)	(sizeof(struct macb_dma_desc)	\
+ 				 * (bp)->rx_ring_size)
+
+ #define DEFAULT_TX_RING_SIZE	512 /* must be power of 2 */
++#define MIN_TX_RING_SIZE	64
++#define MAX_TX_RING_SIZE	4096
+ #define TX_RING_BYTES(bp)	(sizeof(struct macb_dma_desc)	\
+ 				 * (bp)->tx_ring_size)
+
+@@ -2211,6 +2216,56 @@ static int macb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	return 0;
+ }
+
++static void macb_get_ringparam(struct net_device *netdev,
++			       struct ethtool_ringparam *ring)
++{
++	struct macb *bp = netdev_priv(netdev);
++
++	ring->rx_max_pending = MAX_RX_RING_SIZE;
++	ring->tx_max_pending = MAX_TX_RING_SIZE;
++
++	ring->rx_pending = bp->rx_ring_size;
++	ring->tx_pending = bp->tx_ring_size;
++}
++
++static int macb_set_ringparam(struct net_device *netdev,
++			      struct ethtool_ringparam *ring)
++{
++	struct macb *bp = netdev_priv(netdev);
++	u32 new_rx_size, new_tx_size;
++	unsigned int reset = 0;
++
++	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
++		return -EINVAL;
++
++	new_rx_size = clamp_t(u32, ring->rx_pending,
++			      MIN_RX_RING_SIZE, MAX_RX_RING_SIZE);
++	new_rx_size = roundup_pow_of_two(new_rx_size);
++
++	new_tx_size = clamp_t(u32, ring->tx_pending,
++			      MIN_TX_RING_SIZE, MAX_TX_RING_SIZE);
++	new_tx_size = roundup_pow_of_two(new_tx_size);
++
++	if ((new_tx_size == bp->tx_ring_size) &&
++	    (new_rx_size == bp->rx_ring_size)) {
++		/* nothing to do */
++		return 0;
++	}
++
++	if (netif_running(bp->dev)) {
++		reset = 1;
++		macb_close(bp->dev);
++	}
++
++	bp->rx_ring_size = new_rx_size;
++	bp->tx_ring_size = new_tx_size;
++
++	if (reset)
++		macb_open(bp->dev);
++
++	return 0;
++}
++
+ static const struct ethtool_ops macb_ethtool_ops = {
+ 	.get_regs_len		= macb_get_regs_len,
+ 	.get_regs		= macb_get_regs,
+@@ -2220,6 +2275,8 @@ static const struct ethtool_ops macb_ethtool_ops = {
+ 	.set_wol		= macb_set_wol,
+ 	.get_link_ksettings     = phy_ethtool_get_link_ksettings,
+ 	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
++	.get_ringparam		= macb_get_ringparam,
++	.set_ringparam		= macb_set_ringparam,
+ };
+
+ static const struct ethtool_ops gem_ethtool_ops = {
+@@ -2232,6 +2289,8 @@ static const struct ethtool_ops gem_ethtool_ops = {
+ 	.get_sset_count		= gem_get_sset_count,
+ 	.get_link_ksettings     = phy_ethtool_get_link_ksettings,
+ 	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
++	.get_ringparam		= macb_get_ringparam,
++	.set_ringparam		= macb_set_ringparam,
+ };
+
+ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+--
+2.7.4
