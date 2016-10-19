@@ -1,37 +1,38 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: net/sctp: use-after-free in __sctp_connect
-Date: Wed, 19 Oct 2016 14:57:54 -0200
-Message-ID: <20161019165754.GD2958@localhost.localdomain>
-References: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v12 9/9] openvswitch: use ipgre tunnel rather
+ than gretap tunnel
+Date: Wed, 19 Oct 2016 18:58:39 +0200
+Message-ID: <20161019185839.7c62183c@griffin>
+References: <cover.1476708212.git.jbenc@redhat.com>
+        <4e5bfb307ee1e419f973a100e8acc7556311b64a.1476708213.git.jbenc@redhat.com>
+        <CAOrHB_AWT1zp_6wJMOP=2GdJGtgZ6yvt5ysf9gBBnGDKHU3BUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Sasha Levin <sasha.levin@oracle.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        ovs dev <dev@openvswitch.org>,
+        Lorand Jakab <lojakab@cisco.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45972 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S941180AbcJSQ6n (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Oct 2016 12:58:43 -0400
+In-Reply-To: <CAOrHB_AWT1zp_6wJMOP=2GdJGtgZ6yvt5ysf9gBBnGDKHU3BUA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2016 at 02:25:24PM +0200, Andrey Konovalov wrote:
-> Hi,
-> 
-> I've got the following error report while running the syzkaller fuzzer:
-> 
-> ==================================================================
-> BUG: KASAN: use-after-free in __sctp_connect+0xabe/0xbf0 at addr
-> ffff88006b1dc610
+On Tue, 18 Oct 2016 22:14:06 -0700, Pravin Shelar wrote:
+> This is OVS tunnel compatibility code. We are not suppose to add new
+> features to compat code. Just provide a way to configure such device
+> over rtnl.
 
-Seems this is the same that Dmitry Vyukov had reported back in Jan 13th.
-So far I couldn't identify the reason.
-"Good" to know it's still there, thanks for reporting it.
+Makes sense. Please consider this a test-only patch for now. I won't
+include it in v13.
+
+rtnetlink already supports configuration of such devices, I added that
+some time ago. We'll just need to make the user space aware of that.
+But at the kernel side, just dropping this patch is enough.
+
+ Jiri
