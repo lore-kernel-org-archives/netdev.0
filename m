@@ -1,42 +1,151 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: core: Correctly iterate over lower adjacency
- list
-Date: Wed, 19 Oct 2016 10:38:29 -0400 (EDT)
-Message-ID: <20161019.103829.1873231752009765175.davem@davemloft.net>
-References: <1476885428-5189-1-git-send-email-idosch@idosch.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next 4/6] net: use core MTU range checking in core
+ net infra
+Date: Wed, 19 Oct 2016 10:40:06 -0400
+Message-ID: <20161019144006.GF18569@redhat.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161019023333.15760-5-jarod@redhat.com>
+ <20161019135529.GA11224@bistromath.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        dsa@cumulusnetworks.com, idosch@mellanox.com
-To: idosch@idosch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56016 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932591AbcJSOib (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:38:31 -0400
-In-Reply-To: <1476885428-5189-1-git-send-email-idosch@idosch.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Paolo Abeni <pabeni@redhat.com>, Jiri Benc <jbenc@redhat.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Pravin B Shelar <pshelar@ovn.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Pravin Shelar <pshelar@nicira.com>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161019135529.GA11224@bistromath.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: idosch@idosch.org
-Date: Wed, 19 Oct 2016 16:57:08 +0300
+On Wed, Oct 19, 2016 at 03:55:29PM +0200, Sabrina Dubroca wrote:
+> 2016-10-18, 22:33:31 -0400, Jarod Wilson wrote:
+> > geneve:
+> > - Merge __geneve_change_mtu back into geneve_change_mtu, set max_mtu
+> > - This one isn't quite as straight-forward as others, could use some
+> >   closer inspection and testing
+> > 
+> > macvlan:
+> > - set min/max_mtu
+> > 
+> > tun:
+> > - set min/max_mtu, remove tun_net_change_mtu
+> > 
+> > vxlan:
+> > - Merge __vxlan_change_mtu back into vxlan_change_mtu, set min/max_mtu
+> > - This one is also not as straight-forward and could use closer inspection
+> >   and testing from vxlan folks
+> > 
+> > bridge:
+> > - set max_mtu via br_min_mtu()
+> > 
+> > openvswitch:
+> > - set min/max_mtu, remove internal_dev_change_mtu
+> > - note: max_mtu wasn't checked previously, it's been set to 65535, which
+> >   is the largest possible size supported
+> > 
+> > sch_teql:
+> > - set min/max_mtu (note: max_mtu previously unchecked, used max of 65535)
+> 
+> Nothing for other virtual netdevices? (dummy, veth, bond, etc) Their
+> MTU is limited to 1500 now.  Also missing macsec and ip_gre, probably
+> others that are using ether_setup.
 
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> Tamir reported the following trace when processing ARP requests received
-> via a vlan device on top of a VLAN-aware bridge:
- ...
-> The problem is that netdev_all_lower_get_next_rcu() never advances the
-> iterator, thereby causing the loop over the lower adjacency list to run
-> forever.
-> 
-> Fix this by advancing the iterator and avoid the infinite loop.
-> 
-> Fixes: 7ce856aaaf13 ("mlxsw: spectrum: Add couple of lower device helper functions")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reported-by: Tamir Winetroub <tamirw@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+Yeah, I've clearly missed more than I thought. Doing another sweep now.
+I'm thinking more and more that we ought to back out the patch that sets
+min/max in ether_setup, save it for last, after we're sure everyone that
+calls it has been prepared.
 
-Applied.
+> [...]
+> > diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+> > index 89a687f..81fc79a 100644
+> > --- a/net/bridge/br_device.c
+> > +++ b/net/bridge/br_device.c
+> > @@ -184,17 +184,15 @@ static struct rtnl_link_stats64 *br_get_stats64(struct net_device *dev,
+> >  
+> >  static int br_change_mtu(struct net_device *dev, int new_mtu)
+> >  {
+> > +#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+> >  	struct net_bridge *br = netdev_priv(dev);
+> > -	if (new_mtu < 68 || new_mtu > br_min_mtu(br))
+> > -		return -EINVAL;
+> > -
+> > -	dev->mtu = new_mtu;
+> >  
+> > -#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+> >  	/* remember the MTU in the rtable for PMTU */
+> >  	dst_metric_set(&br->fake_rtable.dst, RTAX_MTU, new_mtu);
+> >  #endif
+> >  
+> > +	dev->mtu = new_mtu;
+> > +
+> >  	return 0;
+> >  }
+> >  
+> > @@ -390,6 +388,7 @@ void br_dev_setup(struct net_device *dev)
+> >  	dev->hw_features = COMMON_FEATURES | NETIF_F_HW_VLAN_CTAG_TX |
+> >  			   NETIF_F_HW_VLAN_STAG_TX;
+> >  	dev->vlan_features = COMMON_FEATURES;
+> > +	dev->max_mtu = br_min_mtu(br);
+> 
+> br_min_mtu uses br->port_list, which is only initialized a few lines
+> later (right after the spin_lock_init() at the end of the context of
+> this diff).
+
+Ah, okay, I'd just grouped it with the other dev->foo settings.
+
+> Besides, I don't think this works: br_min_mtu(br) changes when you add
+> and remove ports, or when you change the MTU of an enslaved
+> device. But this makes the max MTU for the bridge fixed (to 1500).
+
+Okay, how about this: set no max_mtu (or set it to IP_MAX_MTU/65535), and
+then retain a check against the possibly ever-changing br_min_mtu(br) in
+br_change_mtu()?
+
+> > diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+> > index e7da290..d5d6cae 100644
+> > --- a/net/openvswitch/vport-internal_dev.c
+> > +++ b/net/openvswitch/vport-internal_dev.c
+> > @@ -89,15 +89,6 @@ static const struct ethtool_ops internal_dev_ethtool_ops = {
+> >  	.get_link	= ethtool_op_get_link,
+> >  };
+> >  
+> > -static int internal_dev_change_mtu(struct net_device *netdev, int new_mtu)
+> > -{
+> > -	if (new_mtu < 68)
+> > -		return -EINVAL;
+> > -
+> > -	netdev->mtu = new_mtu;
+> > -	return 0;
+> > -}
+> > -
+> >  static void internal_dev_destructor(struct net_device *dev)
+> >  {
+> >  	struct vport *vport = ovs_internal_dev_get_vport(dev);
+> > @@ -148,7 +139,6 @@ static const struct net_device_ops internal_dev_netdev_ops = {
+> >  	.ndo_stop = internal_dev_stop,
+> >  	.ndo_start_xmit = internal_dev_xmit,
+> >  	.ndo_set_mac_address = eth_mac_addr,
+> > -	.ndo_change_mtu = internal_dev_change_mtu,
+> >  	.ndo_get_stats64 = internal_get_stats,
+> >  	.ndo_set_rx_headroom = internal_set_rx_headroom,
+> >  };
+> 
+> vport-internal uses ether_setup, so the MTU is currently limited to
+> 1500, no?
+
+Yeah. Sweep ongoing...
+
+-- 
+Jarod Wilson
+jarod@redhat.com
