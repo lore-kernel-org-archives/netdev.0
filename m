@@ -1,189 +1,119 @@
-From: Baozeng Ding <sploving1@gmail.com>
-Subject: Re: net/l2tp:BUG: KASAN: use-after-free in l2tp_ip6_close
-Date: Wed, 19 Oct 2016 22:52:03 +0800
-Message-ID: <76f028b3-cf56-5526-352f-ff4826933779@gmail.com>
-References: <33b1f154-3f9a-55b6-63d3-cd28c0524ea6@gmail.com>
- <CAM_iQpWpf--gXPy7zD7ax4vt-foMCh_dw8Pbb3=y_gSgegeF3Q@mail.gmail.com>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: tg3 BUG: spinlock lockup suspected
+Date: Wed, 19 Oct 2016 14:06:44 +0300 (EEST)
+Message-ID: <alpine.LRH.2.20.1610191357310.18007@math.ut.ee>
+References: <CAMet4B60wAi0oqEXDdGdw4UV-bCsbprm9xQqkLMznSyxO3Z-Sg@mail.gmail.com> <CAF2ZziZiy+ZeoH1pPiBOWAdXrV1qzqhjBabxMW0jUjtYPfjQ8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:33537 "EHLO
-        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943082AbcJSOwK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:52:10 -0400
-Received: by mail-oi0-f50.google.com with SMTP id y2so33343241oie.0
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:52:10 -0700 (PDT)
-In-Reply-To: <CAM_iQpWpf--gXPy7zD7ax4vt-foMCh_dw8Pbb3=y_gSgegeF3Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Cc: Siva Reddy Kallam <siva.kallam@broadcom.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        sparclinux@vger.kernel.org,
+        Linux Kernel list <linux-kernel@vger.kernel.org>
+To: Deepak Khungar <deepak.khungar@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAF2ZziZiy+ZeoH1pPiBOWAdXrV1qzqhjBabxMW0jUjtYPfjQ8A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This use-after-free seems to be triggered by some race. I use stress tool for this: 
-https://github.com/golang/tools/blob/master/cmd/stress/stress.go 
-If you have Go toolchain installed, then the following will do: 
-$ go get golang.org/x/tools/cmd/stress 
-$ stress ./a.out
+> Can you please share the Linux Distribution information along with sparc machine specification.
 
-=========================================================================
-#include <unistd.h>
-#include <stdint.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <linux/l2tp.h>
+Sun Fire V210 (dual UltraSPARC IIIi), onboard NICs with tg3 
+driver. Debian unstable snapshot (as last seen in Debian):
 
-int fd;
-struct sockaddr_l2tpip sock_addr = {
-        .l2tp_family = AF_INET,
-        .l2tp_unused = 0,
-        .l2tp_addr = 0,
-        .l2tp_conn_id = 8,
-        .__pad = 0
+deb http://snapshot.debian.org/archive/debian/20150725T121538Z/ unstable main contrib non-free
 
-};
+except for udev and libudev1 that are 218-8 (older) because the latest 
+udev at that moment was broken.
 
-void *thr(void *arg)
-{
-        switch ((long)arg) {
-        case 0:
-                fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_L2TP);
-                break;
-        case 1:
-                bind(fd, (struct sockaddr*) &sock_addr, 0x10ul);
-                break;
-        case 2:
-                bind(fd, (struct sockaddr*)&sock_addr, 0x10ul);
-                break;
-        case 3:
-                connect(fd, (struct sockaddr*)&sock_addr, 0x10ul);
-                break;
-        }
-        return 0;
-}
+This implies gcc version 4.9.3 (Debian 4.9.3-2).
 
-int main()
-{
-        long i;
-        pthread_t th[4];
-        int n;
-        for (i = 0; i < 4; i++) {
-               pthread_create(&th[i], 0, thr, (void*)i);
-               usleep(10000);
-        }
-        for (i = 0; i < 4; i++) {
-               pthread_create(&th[i], 0, thr, (void*)i);
-               if (i%2==0)
-                        usleep(10000);
-        }
-        usleep(100000);
-        return 0;
-}
 
-On 2016/10/17 3:50, Cong Wang wrote:
-> On Sun, Oct 16, 2016 at 8:07 AM, Baozeng Ding <sploving1@gmail.com> wrote:
->> Hello,
->> While running syzkaller fuzzer I have got the following use-after-free
->> bug in l2tp_ip6_close. The kernel version is 4.8.0+ (on Oct 7 commit d1f5323370fceaed43a7ee38f4c7bfc7e70f28d0).
->>
->> BUG: KASAN: use-after-free in l2tp_ip6_close+0x22e/0x290 at addr ffff8800081b0ed8
->> Write of size 8 by task syz-executor/10987
->> CPU: 0 PID: 10987 Comm: syz-executor Not tainted 4.8.0+ #39
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
->>  ffff880031d97838 ffffffff829f835b ffff88001b5a1640 ffff8800081b0ec0
->>  ffff8800081b15a0 ffff8800081b6d20 ffff880031d97860 ffffffff8174d3cc
->>  ffff880031d978f0 ffff8800081b0e80 ffff88001b5a1640 ffff880031d978e0
->> Call Trace:
->>  [<ffffffff829f835b>] dump_stack+0xb3/0x118 lib/dump_stack.c:15
->>  [<ffffffff8174d3cc>] kasan_object_err+0x1c/0x70 mm/kasan/report.c:156
->>  [<     inline     >] print_address_description mm/kasan/report.c:194
->>  [<ffffffff8174d666>] kasan_report_error+0x1f6/0x4d0 mm/kasan/report.c:283
->>  [<     inline     >] kasan_report mm/kasan/report.c:303
->>  [<ffffffff8174db7e>] __asan_report_store8_noabort+0x3e/0x40 mm/kasan/report.c:329
->>  [<     inline     >] __write_once_size ./include/linux/compiler.h:249
->>  [<     inline     >] __hlist_del ./include/linux/list.h:622
->>  [<     inline     >] hlist_del_init ./include/linux/list.h:637
->>  [<ffffffff8579047e>] l2tp_ip6_close+0x22e/0x290 net/l2tp/l2tp_ip6.c:239
+> Regards,
+> Deepak Khungar
+> 
+> On Wed, Oct 19, 2016 at 10:18 AM, Siva Reddy Kallam <siva.kallam@broadcom.com> wrote:
+>       On Mon, Oct 17, 2016 at 6:35 PM, Meelis Roos <mroos@linux.ee> wrote:
+>       >> > Now I reproduced the bug even with 4.7-rc1 so it is older than 4.7. Will
+>       >> > test further.
+>       >>
+>       >> It gets stranger and stranger - my old 4.7 image worked fine, freshly
+>       >> compiled 4.7 exhibits the same problem.
+>       >>
+>       >> Toolchain has not changed, that I know for sure.
+>       >>
+>       >> What may have changed is kernel .config. My old conf was with whatever I
+>       >> had during 4.7. Then I upgraded to 4.8-rc3 and then 4.8 and selected
+>       >> values for "make oldconfig" new entries. Then went back to 4.7-rc1 and
+>       >> then to 4.7 with this config, answering quiestion about new options when
+>       >> any appeared. Diff is not available since I do not have the old configs
+>       >> archived.
+>       >
+>       > I did some more digging. Found an older configuration that is working
+>       > and recreated a newer one that is bad, for the same 4.7 kernel. This is
+>       > reproducible now, from "make clean" state.
+>       >
+>       > Working config from 4.7-rc4 attached as config-4.7, broken config from
+>       > 4.7 attached as config-4.7-bad.
+>       >
+>       > Will try to bisect the configs as time permits. But looking at the
+>       > stack traces, the issue is probably timing related, when ip and dhclient
+>       > do something with the same lock. seq_read that outputs stats could be
+>       > reading /proc/net/dev that reads counters from each interface.
+>       >
+>       > ifupdown seems to use the following for dhcp interfaces:
+>       >   up
+>       >     [[/bin/ip link set dev %iface% address %hwaddress%]]
+>       >     /sbin/dhclient -v -pf /run/dhclient.%iface%.pid -lf /var/lib/dhcp/dhclient.%iface%.leases -I -df /var/lib/dhcp/dhclient6.%iface%.leases %iface% \
+>       > ...
+>       >
+>       > so ip link is setting link up, this creates some work for the
+>       > background, and the dhclient goes adn reads /proc/net/dev, and lockup is
+>       > suspected but not proven?
+>       >
+>       > I started a loop for test, doing cat /proc/net/dev in a loop and at the
+>       > same link link up and down from console, but up and down is slow process
+>       > and the loop did not seem to trigger the warning over night, so it was
+>       > not so simple.
+>       >
+>       I am busy with other priority tasks. One of my colleague Deepak will
+>       work this with you.
+>       I added him to CC list.
+>       Thanks.
+>       >
+>       >> > > [   83.716570] BUG: spinlock lockup suspected on CPU#0, dhclient/1014
+>       >> > > [   83.797819]  lock: 0xfff000123c8e4a08, .magic: dead4ead, .owner: ip/1001, .owner_cpu: 1
+>       >> > > [   83.903130] CPU: 0 PID: 1014 Comm: dhclient Not tainted 4.8.0 #4
+>       >> > > [   83.982129] Call Trace:
+>       >> > > [   84.014160]  [00000000004b7220] spin_dump+0x60/0xa0
+>       >> > > [   84.078203]  [00000000004b73a0] do_raw_spin_lock+0xa0/0x120
+>       >> > > [   84.106344] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>       >> > > [   84.107193] ip (1001) used greatest stack depth: 2168 bytes left
+>       >> > > [   84.306955]  [000000000092c0d0] _raw_spin_lock_bh+0x30/0x40
+>       >> > > [   84.380188]  [00000000100822cc] tg3_get_stats64+0xc/0x80 [tg3]
+>       >> > > [   84.456885]  [00000000007fac8c] dev_get_stats+0x2c/0xc0
+>       >> > > [   84.525506]  [000000000081a4e8] dev_seq_printf_stats+0x8/0xe0
+>       >> > > [   84.600986]  [000000000081a5e4] dev_seq_show+0x24/0x40
+>       >> > > [   84.668467]  [00000000005cb6c4] seq_read+0x2c4/0x440
+>       >> > > [   84.733656]  [000000000060b97c] proc_reg_read+0x3c/0x80
+>       >> > > [   84.802282]  [00000000005a219c] __vfs_read+0x1c/0x140
+>       >> > > [   84.868613]  [00000000005a2310] vfs_read+0x50/0x100
+>       >> > > [   84.932662]  [00000000005a265c] SyS_read+0x3c/0xa0
+>       >> > > [   84.995573]  [00000000004061d4] linux_sparc_syscall32+0x34/0x60
+>       >> > > [   85.073748] * CPU[  0]: TSTATE[00000044f0001a22] TPC[00000000f79a16b0] TNPC[00000000f79a16b4] TASK[dhclient:1014]
+>       >> > > [   85.208732]              TPC[f79a16b0] O7[f79405c8] I7[0] RPC[0]
+>       >> > > [   85.287633]   CPU[  1]: TSTATE[0000004480001605] TPC[00000000004b26f0] TNPC[00000000004d0b0c] TASK[swapper/1:0]
+>       >> > > [   85.420338]              TPC[trace_hardirqs_off+0x10/0x20] O7[rcu_idle_enter+0x64/0xa0] I7[cpu_startup_entry+0x1b0/0x240] RPC[rest_init+0x178/0x1a0]
+>       >> > > [   85.664600] tg3 0000:00:02.0 eth0: Link is up at 100 Mbps, full duplex
+>       >> > > [   85.750515] tg3 0000:00:02.0 eth0: Flow control is off for TX and off for RX
+>       >> > > [   85.843994] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+>       >
+>       > --
+>       > Meelis Roos (mroos@linux.ee)
 > 
 > 
-> This one looks pretty interesting, how the hell could we call ____fput() twice
-> on the same fd...
 > 
 > 
->>  [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
->>  [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
->>  [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
->>  [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
->>  [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
->>  [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
->>  [<ffffffff813774f9>] task_work_run+0xf9/0x170
->>  [<ffffffff81324aae>] do_exit+0x85e/0x2a00
->>  [<ffffffff81326dc8>] do_group_exit+0x108/0x330
->>  [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
->>  [<ffffffff811b49af>] do_signal+0x7f/0x18f0
->>  [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
->>  [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
->>  [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
->>  [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
->> Object at ffff8800081b0ec0, in cache L2TP/IPv6 size: 1448
->> Allocated:
->> PID = 10987
->>  [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
->>  [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
->>  [ 1116.897025] [<ffffffff8174c9ad>] kasan_kmalloc+0xad/0xe0
->>  [ 1116.897025] [<ffffffff8174cee2>] kasan_slab_alloc+0x12/0x20
->>  [ 1116.897025] [<     inline     >] slab_post_alloc_hook mm/slab.h:417
->>  [ 1116.897025] [<     inline     >] slab_alloc_node mm/slub.c:2708
->>  [ 1116.897025] [<     inline     >] slab_alloc mm/slub.c:2716
->>  [ 1116.897025] [<ffffffff817476a8>] kmem_cache_alloc+0xc8/0x2b0 mm/slub.c:2721
->>  [ 1116.897025] [<ffffffff84c4f6a9>] sk_prot_alloc+0x69/0x2b0 net/core/sock.c:1326
->>  [ 1116.897025] [<ffffffff84c58ac8>] sk_alloc+0x38/0xae0 net/core/sock.c:1388
->>  [ 1116.897025] [<ffffffff851ddf67>] inet6_create+0x2d7/0x1000 net/ipv6/af_inet6.c:182
->>  [ 1116.897025] [<ffffffff84c4af7b>] __sock_create+0x37b/0x640 net/socket.c:1153
->>  [ 1116.897025] [<     inline     >] sock_create net/socket.c:1193
->>  [ 1116.897025] [<     inline     >] SYSC_socket net/socket.c:1223
->>  [ 1116.897025] [<ffffffff84c4b46f>] SyS_socket+0xef/0x1b0 net/socket.c:1203
->>  [ 1116.897025] [<ffffffff85e4d685>] entry_SYSCALL_64_fastpath+0x23/0xc6
->> Freed:
->> PID = 10987
->>  [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
->>  [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
->>  [ 1116.897025] [<ffffffff8174cf61>] kasan_slab_free+0x71/0xb0
->>  [ 1116.897025] [<     inline     >] slab_free_hook mm/slub.c:1352
->>  [ 1116.897025] [<     inline     >] slab_free_freelist_hook mm/slub.c:1374
->>  [ 1116.897025] [<     inline     >] slab_free mm/slub.c:2951
->>  [ 1116.897025] [<ffffffff81748b28>] kmem_cache_free+0xc8/0x330 mm/slub.c:2973
->>  [ 1116.897025] [<     inline     >] sk_prot_free net/core/sock.c:1369
->>  [ 1116.897025] [<ffffffff84c541eb>] __sk_destruct+0x32b/0x4f0 net/core/sock.c:1444
->>  [ 1116.897025] [<ffffffff84c5aca4>] sk_destruct+0x44/0x80 net/core/sock.c:1452
->>  [ 1116.897025] [<ffffffff84c5ad33>] __sk_free+0x53/0x220 net/core/sock.c:1460
->>  [ 1116.897025] [<ffffffff84c5af23>] sk_free+0x23/0x30 net/core/sock.c:1471
->>  [ 1116.897025] [<ffffffff84c5cb6c>] sk_common_release+0x28c/0x3e0 ./include/net/sock.h:1589
->>  [ 1116.897025] [<ffffffff8579044e>] l2tp_ip6_close+0x1fe/0x290 net/l2tp/l2tp_ip6.c:243
->>  [ 1116.897025] [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
->>  [ 1116.897025] [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
->>  [ 1116.897025] [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
->>  [ 1116.897025] [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
->>  [ 1116.897025] [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
->>  [ 1116.897025] [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
->>  [ 1116.897025] [<ffffffff813774f9>] task_work_run+0xf9/0x170
->>  [ 1116.897025] [<ffffffff81324aae>] do_exit+0x85e/0x2a00
->>  [ 1116.897025] [<ffffffff81326dc8>] do_group_exit+0x108/0x330
->>  [ 1116.897025] [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
->>  [ 1116.897025] [<ffffffff811b49af>] do_signal+0x7f/0x18f0
->>  [ 1116.897025] [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
->>  [ 1116.897025] [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
->>  [ 1116.897025] [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
->>  [ 1116.897025] [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
->> Memory state around the buggy address:
->>  ffff8800081b0d80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>  ffff8800081b0e00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>> ffff8800081b0e80: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
->>                                                     ^
->>  ffff8800081b0f00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>  ffff8800081b0f80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->> ==================================================================
->>
->> Best Regards,
->> Baozeng Ding
+
+-- 
+Meelis Roos (mroos@ut.ee)      http://www.cs.ut.ee/~mroos/
