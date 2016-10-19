@@ -1,59 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: Detect identical
- PTR_TO_MAP_VALUE_OR_NULL registers
-Date: Wed, 19 Oct 2016 11:09:42 -0400 (EDT)
-Message-ID: <20161019.110942.1093696611535286858.davem@davemloft.net>
-References: <c678e43377187d72c87a030ad27afbcd7748e1e3.1476812715.git.tgraf@suug.ch>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC v3 04/22] bpf: Set register type according to is_valid_access()
+Date: Wed, 19 Oct 2016 17:10:29 +0200
+Message-ID: <58078CE5.50200@iogearbox.net>
+References: <20160914072415.26021-1-mic@digikod.net> <20160914072415.26021-5-mic@digikod.net> <20161019145420.GA22003@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net, jbacik@fb.com
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56508 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752745AbcJSPJo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 11:09:44 -0400
-In-Reply-To: <c678e43377187d72c87a030ad27afbcd7748e1e3.1476812715.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Mack <daniel@zonque.org>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+        cgroups@
+To: Thomas Graf <tgraf@suug.ch>,
+        =?windows-1252?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161019145420.GA22003@pox.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Tue, 18 Oct 2016 19:51:19 +0200
+On 10/19/2016 04:54 PM, Thomas Graf wrote:
+> On 09/14/16 at 09:23am, Mickaël Salaün wrote:
+>> This fix a pointer leak when an unprivileged eBPF program read a pointer
+>> value from the context. Even if is_valid_access() returns a pointer
+>> type, the eBPF verifier replace it with UNKNOWN_VALUE. The register
+>> value containing an address is then allowed to leak. Moreover, this
+>> prevented unprivileged eBPF programs to use functions with (legitimate)
+>> pointer arguments.
+>>
+>> This bug was not a problem until now because the only unprivileged eBPF
+>> program allowed is of type BPF_PROG_TYPE_SOCKET_FILTER and all the types
+>> from its context are UNKNOWN_VALUE.
+>>
+>> Signed-off-by: Mickaël Salaün <mic@digikod.net>
+>> Fixes: 969bf05eb3ce ("bpf: direct packet access")
+>> Cc: Alexei Starovoitov <ast@kernel.org>
+>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>
+> Can you post this fix separately? It's valid and needed outside of the
+> scope of this series.
 
-> A BPF program is required to check the return register of a
-> map_elem_lookup() call before accessing memory. The verifier keeps
-> track of this by converting the type of the result register from
-> PTR_TO_MAP_VALUE_OR_NULL to PTR_TO_MAP_VALUE after a conditional
-> jump ensures safety. This check is currently exclusively performed
-> for the result register 0.
-> 
-> In the event the compiler reorders instructions, BPF_MOV64_REG
-> instructions may be moved before the conditional jump which causes
-> them to keep their type PTR_TO_MAP_VALUE_OR_NULL to which the
-> verifier objects when the register is accessed:
-> 
-> 0: (b7) r1 = 10
-> 1: (7b) *(u64 *)(r10 -8) = r1
-> 2: (bf) r2 = r10
-> 3: (07) r2 += -8
-> 4: (18) r1 = 0x59c00000
-> 6: (85) call 1
-> 7: (bf) r4 = r0
-> 8: (15) if r0 == 0x0 goto pc+1
->  R0=map_value(ks=8,vs=8) R4=map_value_or_null(ks=8,vs=8) R10=fp
-> 9: (7a) *(u64 *)(r4 +0) = 0
-> R4 invalid mem access 'map_value_or_null'
-> 
-> This commit extends the verifier to keep track of all identical
-> PTR_TO_MAP_VALUE_OR_NULL registers after a map_elem_lookup() by
-> assigning them an ID and then marking them all when the conditional
-> jump is observed.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> Reviewed-by: Josef Bacik <jbacik@fb.com>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+Yes, that one was already merged:
 
-Applied, thanks Thomas.
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=1955351da41caa1dbf4139191358fed84909d64b
