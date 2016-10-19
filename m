@@ -1,47 +1,83 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH 1/8] tools lib bpf: add error functions
-Date: Wed, 19 Oct 2016 09:53:12 +0800
-Message-ID: <5806D208.90308@huawei.com>
-References: <20161016211834.11732-1-eric@regit.org>
- <20161016211834.11732-2-eric@regit.org>
- <CAPWQB7Fvz=MkHGRVPR924BXzuWuLn6VTqaNGR+x_TYhycdOLag@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
+Date: Wed, 19 Oct 2016 03:16:54 +0100
+Message-ID: <20161019021654.GD2773@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <ast@fb.com>
-To: Joe Stringer <joe@ovn.org>, Eric Leblond <eric@regit.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPWQB7Fvz=MkHGRVPR924BXzuWuLn6VTqaNGR+x_TYhycdOLag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="d9ADC0YsG2v16Js0"
+Cc: netdev@vger.kernel.org, Qian Zhang <zhangqian-c@360.cn>,
+        Eric Dumazet <edumazet@google.com>
+To: Jon Maloy <jon.maloy@ericsson.com>,
+        Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51147 "EHLO
+        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752677AbcJSCRD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2016 22:17:03 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--d9ADC0YsG2v16Js0
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 2016/10/19 6:52, Joe Stringer wrote:
-> On 16 October 2016 at 14:18, Eric Leblond <eric@regit.org> wrote:
->> The include of err.h is not explicitely needed in exported
->> functions and it was causing include conflict with some existing
->> code due to redefining some macros.
->>
->> To fix this, let's have error handling functions provided by the
->> library. Furthermore this will allow user to have an homogeneous
->> API.
->>
->> Signed-off-by: Eric Leblond <eric@regit.org>
-> Does it need to return the error like this or should we just fix up
-> the bpf_object__open() API to return errors in a simpler form?
->
-> There's already libbpf_set_print(...) for outputting errors, is it
-> reasonable to just change the library to return NULLs in error cases
-> instead?
+Qian Zhang (=E5=BC=A0=E8=B0=A6) reported a potential socket buffer overflow=
+ in
+tipc_msg_build().  The minimum fragment length needs to be checked
+against the maximum packet size, which is based on the link MTU.
 
-Returning error code to caller so caller knows what happen.
-Other subsystems in perf also do this.
+Reported-by: Qian Zhang (=E5=BC=A0=E8=B0=A6) <zhangqian-c@360.cn>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+This is untested, but I think it fixes the issue reported.  Ideally
+tipc_l2_device_event() would also disable use of TIPC on devices with
+too small an MTU, like several other protocols do.
 
-Perf hides libbpf's error output (make it silent unless -v),
-so it needs a way for receiving libbpf's error code.
+Ben.
 
-I think this patch is good, decouple libbpf.h and kernel headers.
+ net/tipc/msg.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Thank you.
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index 17201aa8423d..b9124ac82c29 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -274,6 +274,10 @@ int tipc_msg_build(struct tipc_msg *mhdr, struct msghd=
+r *m,
+ 		goto error;
+ 	}
+=20
++	/* Check that fragment and message header will fit */
++	if (INT_H_SIZE + mhsz > pktmax)
++		return -EMSGSIZE;
++
+ 	/* Prepare reusable fragment header */
+ 	tipc_msg_init(msg_prevnode(mhdr), &pkthdr, MSG_FRAGMENTER,
+ 		      FIRST_FRAGMENT, INT_H_SIZE, msg_destnode(mhdr));
+
+--d9ADC0YsG2v16Js0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUBWAbXlue/yOyVhhEJAQoHPRAAsSsA6IuUS4u2Hm+dt/y9zKSYpZOY8iCu
+j4WWf0BNrScoMH4HpNDI4cmCIvDudVMcInbbWDTw+joI+IxTYitxdrIOo9AroPSu
+XGjfHzF7s0ZBUdZKTC+jduYuOe6C25ASVDQgz/2Fz1mxBRQrKD7rN7AFkl/4c6/n
+Kr3xQJbBYpZZESChvqd0EGTfwVStv4OhHzWAEHYNd+WkcY4Y/GC82TQ2gYBhhdAh
+RAGc8mfZ1pqzvZi6CbAQp7U0fgr5JsdZA/anwJJrffPzbHpsV3ct3uLk0r8OccnS
+5ZmKWn+Sj6wWCfkPNPQVvF4qBMYt2KNzfvPOKGxds4tWjjmTrNo6euIOp+ss3bRS
+0GAb1HrNe8ABC8tNedON71AZnFK2zOVmNnTn19vLT0ll3/H4t5zA4eFPtxX3+PGp
+fCzV6uuWDx1ONoNxKhwPggVvi3MNcdMoAdC+OXX27ATamtR3E/erbn/PJ2tjiqpy
+w/YfLiqPLr3zL6v4/ytltWzZGzP7c9mnFrpn1ZxKSIZAUE2ztlFAFqS98+dcbuwE
+ODZT9BXaUrTrbpHGDGY+3ErZR1pRm3akREprGD9K1nZDdJE6pLrilqhKJUk4MIkQ
+rvrcVEYRrAF7IkozpcOzuiBNFAQAjOZoXIdGLzv6CwDXBQaKPgMiKH3QgiZ9ds0W
+yDO3AcP34HY=
+=sDld
+-----END PGP SIGNATURE-----
+
+--d9ADC0YsG2v16Js0--
