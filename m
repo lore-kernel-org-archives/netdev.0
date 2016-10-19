@@ -1,19 +1,15 @@
-From: Lorenzo Stoakes <lstoakes@gmail.com>
-Subject: Re: [PATCH 08/10] mm: replace __access_remote_vm() write parameter
- with gup_flags
-Date: Wed, 19 Oct 2016 10:06:46 +0100
-Message-ID: <20161019090646.GA24243@lucifer>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions to explicitly
+ pass FOLL_* flags
+Date: Wed, 19 Oct 2016 11:07:28 +0200
+Message-ID: <20161019090727.GE7517@dhcp22.suse.cz>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-9-lstoakes@gmail.com>
- <20161019075903.GP29967@quack2.suse.cz>
- <20161019081352.GB7562@dhcp22.suse.cz>
- <20161019084045.GA19441@lucifer>
- <20161019085204.GD7517@dhcp22.suse.cz>
+ <20161018153050.GC13117@dhcp22.suse.cz>
+ <20161019085815.GA22239@lucifer>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Kara <jack@suse.cz>, linux-mm@kvack.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Hugh Dickins <hughd@google.com>,
+Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
+	Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
 	Dave Hansen <dave.hansen@linux.intel.com>,
 	Rik van Riel <riel@redhat.com>,
 	Mel Gorman <mgorman@techsingularity.net>,
@@ -28,29 +24,34 @@ Cc: Jan Kara <jack@suse.cz>, linux-mm@kvack.org,
 	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
 	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
 	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-sh
-To: Michal Hocko <mhocko@kernel.org>
+	linux-sh@
+To: Lorenzo Stoakes <lstoakes@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20161019085204.GD7517@dhcp22.suse.cz>
+In-Reply-To: <20161019085815.GA22239@lucifer>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 19, 2016 at 10:52:05AM +0200, Michal Hocko wrote:
-> yes this is the desirable and expected behavior.
->
-> > wonder if this is desirable behaviour or whether this ought to be limited to
-> > ptrace system calls. Regardless, by making the flag more visible it makes it
-> > easier to see that this is happening.
->
-> mem_open already enforces PTRACE_MODE_ATTACH
+On Wed 19-10-16 09:58:15, Lorenzo Stoakes wrote:
+> On Tue, Oct 18, 2016 at 05:30:50PM +0200, Michal Hocko wrote:
+> > I am wondering whether we can go further. E.g. it is not really clear to
+> > me whether we need an explicit FOLL_REMOTE when we can in fact check
+> > mm != current->mm and imply that. Maybe there are some contexts which
+> > wouldn't work, I haven't checked.
+> 
+> This flag is set even when /proc/self/mem is used. I've not looked deeply into
+> this flag but perhaps accessing your own memory this way can be considered
+> 'remote' since you're not accessing it directly. On the other hand, perhaps this
+> is just mistaken in this case?
 
-Ah I missed this, that makes a lot of sense, thanks!
+My understanding of the flag is quite limited as well. All I know it is
+related to protection keys and it is needed to bypass protection check.
+See arch_vma_access_permitted. See also 1b2ee1266ea6 ("mm/core: Do not
+enforce PKEY permissions on remote mm access").
 
-I still wonder whether other invocations of access_remote_vm() in fs/proc/base.c
-(the principle caller of this function) need FOLL_FORCE, for example the various
-calls that simply read data from other processes, so I think the point stands
-about keeping this explicit.
+-- 
+Michal Hocko
+SUSE Labs
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
