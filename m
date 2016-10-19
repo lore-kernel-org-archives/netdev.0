@@ -1,59 +1,172 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v2 2/2] openvswitch: remove unnecessary
-	EXPORT_SYMBOLs
-Date: Wed, 19 Oct 2016 11:26:37 +0200
-Message-ID: <4653b9825aa5e4047c4a91241dcafd1706171e80.1476869133.git.jbenc@redhat.com>
-References: <cover.1476869133.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1476869133.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: fs_enet: Use net_device_stats from struct net_device
+Date: Wed, 19 Oct 2016 11:24:57 +0200
+Message-ID: <20161019092457.15006-1-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+ Vitaly Bordug <vbordug@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-U29tZSBzeW1ib2xzIGV4cG9ydGVkIHRvIG90aGVyIG1vZHVsZXMgYXJlIHJlYWxseSB1c2VkIG9u
-bHkgYnkKb3BlbnZzd2l0Y2gua28uIFJlbW92ZSB0aGUgZXhwb3J0cy4KClRlc3RlZCBieSBsb2Fk
-aW5nIGFsbCA0IG9wZW52c3dpdGNoIG1vZHVsZXMsIG5vdGhpbmcgYnJlYWtzLgoKU2lnbmVkLW9m
-Zi1ieTogSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPgotLS0KdjI6IG92c192cG9ydF9kZWZl
-cnJlZF9mcmVlIGlzIGNvbXBsZXRlbHkgcmVtb3ZlZCBieSB0aGUgZmlyc3QgcGF0Y2gKLS0tCiBu
-ZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYyAgICAgfCAyIC0tCiBuZXQvb3BlbnZzd2l0Y2gvdnBv
-cnQtbmV0ZGV2LmMgfCAxIC0KIG5ldC9vcGVudnN3aXRjaC92cG9ydC5jICAgICAgICB8IDEgLQog
-MyBmaWxlcyBjaGFuZ2VkLCA0IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3
-aXRjaC9kYXRhcGF0aC5jIGIvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKaW5kZXggNGQ2N2Vh
-ODU2MDY3Li4xOTQ0MzVhYTExNjUgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0
-aC5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCkBAIC01OSw3ICs1OSw2IEBACiAj
-aW5jbHVkZSAidnBvcnQtbmV0ZGV2LmgiCiAKIGludCBvdnNfbmV0X2lkIF9fcmVhZF9tb3N0bHk7
-Ci1FWFBPUlRfU1lNQk9MX0dQTChvdnNfbmV0X2lkKTsKIAogc3RhdGljIHN0cnVjdCBnZW5sX2Zh
-bWlseSBkcF9wYWNrZXRfZ2VubF9mYW1pbHk7CiBzdGF0aWMgc3RydWN0IGdlbmxfZmFtaWx5IGRw
-X2Zsb3dfZ2VubF9mYW1pbHk7CkBAIC0xMzEsNyArMTMwLDYgQEAgaW50IGxvY2tkZXBfb3ZzbF9p
-c19oZWxkKHZvaWQpCiAJZWxzZQogCQlyZXR1cm4gMTsKIH0KLUVYUE9SVF9TWU1CT0xfR1BMKGxv
-Y2tkZXBfb3ZzbF9pc19oZWxkKTsKICNlbmRpZgogCiBzdGF0aWMgc3RydWN0IHZwb3J0ICpuZXdf
-dnBvcnQoY29uc3Qgc3RydWN0IHZwb3J0X3Bhcm1zICopOwpkaWZmIC0tZ2l0IGEvbmV0L29wZW52
-c3dpdGNoL3Zwb3J0LW5ldGRldi5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jCmlu
-ZGV4IDRlMzk3MjM0NGFhNi4uZTgyNTc1M2RlMWUwIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0
-Y2gvdnBvcnQtbmV0ZGV2LmMKKysrIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jCkBA
-IC0xNjIsNyArMTYyLDYgQEAgdm9pZCBvdnNfbmV0ZGV2X2RldGFjaF9kZXYoc3RydWN0IHZwb3J0
-ICp2cG9ydCkKIAkJCQluZXRkZXZfbWFzdGVyX3VwcGVyX2Rldl9nZXQodnBvcnQtPmRldikpOwog
-CWRldl9zZXRfcHJvbWlzY3VpdHkodnBvcnQtPmRldiwgLTEpOwogfQotRVhQT1JUX1NZTUJPTF9H
-UEwob3ZzX25ldGRldl9kZXRhY2hfZGV2KTsKIAogc3RhdGljIHZvaWQgbmV0ZGV2X2Rlc3Ryb3ko
-c3RydWN0IHZwb3J0ICp2cG9ydCkKIHsKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9y
-dC5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LmMKaW5kZXggOWQwYTg3ODQ1ODQzLi45YmI4NWIz
-NWExZmIgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC92cG9ydC5jCisrKyBiL25ldC9vcGVu
-dnN3aXRjaC92cG9ydC5jCkBAIC00NjMsNyArNDYzLDYgQEAgaW50IG92c192cG9ydF9yZWNlaXZl
-KHN0cnVjdCB2cG9ydCAqdnBvcnQsIHN0cnVjdCBza19idWZmICpza2IsCiAJb3ZzX2RwX3Byb2Nl
-c3NfcGFja2V0KHNrYiwgJmtleSk7CiAJcmV0dXJuIDA7CiB9Ci1FWFBPUlRfU1lNQk9MX0dQTChv
-dnNfdnBvcnRfcmVjZWl2ZSk7CiAKIHN0YXRpYyB1bnNpZ25lZCBpbnQgcGFja2V0X2xlbmd0aChj
-b25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewotLSAKMS44LjMuMQoKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
-bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Instead of using a private copy of struct net_device_stats in struct
+fs_enet_private, use stats from struct net_device. Also remove the now
+unnecessary .ndo_get_stats function.
+
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 43 +++++++++-------------
+ drivers/net/ethernet/freescale/fs_enet/fs_enet.h   |  1 -
+ 2 files changed, 18 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index 925d1bca6a26..44f50e168703 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -118,22 +118,22 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 			  BD_ENET_TX_RL | BD_ENET_TX_UN | BD_ENET_TX_CSL)) {
+ 
+ 			if (sc & BD_ENET_TX_HB)	/* No heartbeat */
+-				fep->stats.tx_heartbeat_errors++;
++				dev->stats.tx_heartbeat_errors++;
+ 			if (sc & BD_ENET_TX_LC)	/* Late collision */
+-				fep->stats.tx_window_errors++;
++				dev->stats.tx_window_errors++;
+ 			if (sc & BD_ENET_TX_RL)	/* Retrans limit */
+-				fep->stats.tx_aborted_errors++;
++				dev->stats.tx_aborted_errors++;
+ 			if (sc & BD_ENET_TX_UN)	/* Underrun */
+-				fep->stats.tx_fifo_errors++;
++				dev->stats.tx_fifo_errors++;
+ 			if (sc & BD_ENET_TX_CSL)	/* Carrier lost */
+-				fep->stats.tx_carrier_errors++;
++				dev->stats.tx_carrier_errors++;
+ 
+ 			if (sc & (BD_ENET_TX_LC | BD_ENET_TX_RL | BD_ENET_TX_UN)) {
+-				fep->stats.tx_errors++;
++				dev->stats.tx_errors++;
+ 				do_restart = 1;
+ 			}
+ 		} else
+-			fep->stats.tx_packets++;
++			dev->stats.tx_packets++;
+ 
+ 		if (sc & BD_ENET_TX_READY) {
+ 			dev_warn(fep->dev,
+@@ -145,7 +145,7 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 		 * but we eventually sent the packet OK.
+ 		 */
+ 		if (sc & BD_ENET_TX_DEF)
+-			fep->stats.collisions++;
++			dev->stats.collisions++;
+ 
+ 		/* unmap */
+ 		if (fep->mapped_as_page[dirtyidx])
+@@ -212,19 +212,19 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 		 */
+ 		if (sc & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_CL |
+ 			  BD_ENET_RX_NO | BD_ENET_RX_CR | BD_ENET_RX_OV)) {
+-			fep->stats.rx_errors++;
++			dev->stats.rx_errors++;
+ 			/* Frame too long or too short. */
+ 			if (sc & (BD_ENET_RX_LG | BD_ENET_RX_SH))
+-				fep->stats.rx_length_errors++;
++				dev->stats.rx_length_errors++;
+ 			/* Frame alignment */
+ 			if (sc & (BD_ENET_RX_NO | BD_ENET_RX_CL))
+-				fep->stats.rx_frame_errors++;
++				dev->stats.rx_frame_errors++;
+ 			/* CRC Error */
+ 			if (sc & BD_ENET_RX_CR)
+-				fep->stats.rx_crc_errors++;
++				dev->stats.rx_crc_errors++;
+ 			/* FIFO overrun */
+ 			if (sc & BD_ENET_RX_OV)
+-				fep->stats.rx_crc_errors++;
++				dev->stats.rx_crc_errors++;
+ 
+ 			skbn = fep->rx_skbuff[curidx];
+ 		} else {
+@@ -233,9 +233,9 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 			/*
+ 			 * Process the incoming frame.
+ 			 */
+-			fep->stats.rx_packets++;
++			dev->stats.rx_packets++;
+ 			pkt_len = CBDR_DATLEN(bdp) - 4;	/* remove CRC */
+-			fep->stats.rx_bytes += pkt_len + 4;
++			dev->stats.rx_bytes += pkt_len + 4;
+ 
+ 			if (pkt_len <= fpi->rx_copybreak) {
+ 				/* +2 to make IP header L1 cache aligned */
+@@ -277,7 +277,7 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
+ 				received++;
+ 				netif_receive_skb(skb);
+ 			} else {
+-				fep->stats.rx_dropped++;
++				dev->stats.rx_dropped++;
+ 				skbn = skb;
+ 			}
+ 		}
+@@ -543,7 +543,7 @@ static int fs_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	curidx = bdp - fep->tx_bd_base;
+ 
+ 	len = skb->len;
+-	fep->stats.tx_bytes += len;
++	dev->stats.tx_bytes += len;
+ 	if (nr_frags)
+ 		len -= skb->data_len;
+ 	fep->tx_free -= nr_frags + 1;
+@@ -619,7 +619,7 @@ static void fs_timeout(struct net_device *dev)
+ 	unsigned long flags;
+ 	int wake = 0;
+ 
+-	fep->stats.tx_errors++;
++	dev->stats.tx_errors++;
+ 
+ 	spin_lock_irqsave(&fep->lock, flags);
+ 
+@@ -774,12 +774,6 @@ static int fs_enet_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *fs_enet_get_stats(struct net_device *dev)
+-{
+-	struct fs_enet_private *fep = netdev_priv(dev);
+-	return &fep->stats;
+-}
+-
+ /*************************************************************************/
+ 
+ static void fs_get_drvinfo(struct net_device *dev,
+@@ -905,7 +899,6 @@ extern void fs_mii_disconnect(struct net_device *dev);
+ static const struct net_device_ops fs_enet_netdev_ops = {
+ 	.ndo_open		= fs_enet_open,
+ 	.ndo_stop		= fs_enet_close,
+-	.ndo_get_stats		= fs_enet_get_stats,
+ 	.ndo_start_xmit		= fs_enet_start_xmit,
+ 	.ndo_tx_timeout		= fs_timeout,
+ 	.ndo_set_rx_mode	= fs_set_multicast_list,
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet.h b/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
+index fee24c822fad..5ce516c8a62a 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
+@@ -137,7 +137,6 @@ struct fs_enet_private {
+ 	cbd_t __iomem *cur_rx;
+ 	cbd_t __iomem *cur_tx;
+ 	int tx_free;
+-	struct net_device_stats stats;
+ 	struct timer_list phy_timer_list;
+ 	const struct phy_info *phy;
+ 	u32 msg_enable;
+-- 
+2.9.0
