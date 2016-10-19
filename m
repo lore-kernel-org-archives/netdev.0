@@ -1,173 +1,63 @@
-From: Jan Kara <jack@suse.cz>
-Subject: Re: [PATCH 08/10] mm: replace __access_remote_vm() write parameter
- with gup_flags
-Date: Wed, 19 Oct 2016 09:59:03 +0200
-Message-ID: <20161019075903.GP29967@quack2.suse.cz>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 08/10] mm: replace __access_remote_vm()
+ write parameter with gup_flags
+Date: Wed, 19 Oct 2016 10:13:52 +0200
+Message-ID: <20161019081352.GB7562@dhcp22.suse.cz>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
  <20161013002020.3062-9-lstoakes@gmail.com>
+ <20161019075903.GP29967@quack2.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
-	Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
-	Dave Hansen <dave.hansen@linux.intel.com>,
-	Rik van Riel <riel@redhat.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
-	linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-sh@
-To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
+ linux-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
+ Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org,
+ linux-mm@kvack.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+ linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org,
+ Hugh Dickins <hughd@google.com>, linux-media@vger.kernel.org,
+ Rik van Riel <riel@redhat.com>, intel-gfx@lists.freedesktop.org,
+ adi-buildroot-devel@lists.sourceforge.net, ceph-devel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, Lorenzo Stoakes <lstoakes@gmail.com>,
+ linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>,
+ linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+ linux-security-module@vger.kernel.org, linux-alpha@vger.ker
+To: Jan Kara <jack@suse.cz>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
 Content-Disposition: inline
-In-Reply-To: <20161013002020.3062-9-lstoakes@gmail.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20161019075903.GP29967@quack2.suse.cz>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu 13-10-16 01:20:18, Lorenzo Stoakes wrote:
-> This patch removes the write parameter from __access_remote_vm() and replaces it
-> with a gup_flags parameter as use of this function previously _implied_
-> FOLL_FORCE, whereas after this patch callers explicitly pass this flag.
-> 
-> We make this explicit as use of FOLL_FORCE can result in surprising behaviour
-> (and hence bugs) within the mm subsystem.
-> 
-> Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
-
-So I'm not convinced this (and the following two patches) is actually
-helping much. By grepping for FOLL_FORCE we will easily see that any caller
-of access_remote_vm() gets that semantics and can thus continue search
-accordingly (it is much simpler than searching for all get_user_pages()
-users and extracting from parameter lists what they actually pass as
-'force' argument). Sure it makes somewhat more visible to callers of
-access_remote_vm() that they get FOLL_FORCE semantics but OTOH it also
-opens a space for issues where a caller of access_remote_vm() actually
-wants FOLL_FORCE (and currently all of them want it) and just mistakenly
-does not set it. All in all I'd prefer to keep access_remote_vm() and
-friends as is...
-
-								Honza
-
-> ---
->  mm/memory.c | 23 +++++++++++++++--------
->  mm/nommu.c  |  9 ++++++---
->  2 files changed, 21 insertions(+), 11 deletions(-)
-> 
-> diff --git a/mm/memory.c b/mm/memory.c
-> index 20a9adb..79ebed3 100644
-> --- a/mm/memory.c
-> +++ b/mm/memory.c
-> @@ -3869,14 +3869,11 @@ EXPORT_SYMBOL_GPL(generic_access_phys);
->   * given task for page fault accounting.
->   */
->  static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
-> -		unsigned long addr, void *buf, int len, int write)
-> +		unsigned long addr, void *buf, int len, unsigned int gup_flags)
->  {
->  	struct vm_area_struct *vma;
->  	void *old_buf = buf;
-> -	unsigned int flags = FOLL_FORCE;
-> -
-> -	if (write)
-> -		flags |= FOLL_WRITE;
-> +	int write = gup_flags & FOLL_WRITE;
->  
->  	down_read(&mm->mmap_sem);
->  	/* ignore errors, just check how much was successfully transferred */
-> @@ -3886,7 +3883,7 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
->  		struct page *page = NULL;
->  
->  		ret = get_user_pages_remote(tsk, mm, addr, 1,
-> -				flags, &page, &vma);
-> +				gup_flags, &page, &vma);
->  		if (ret <= 0) {
->  #ifndef CONFIG_HAVE_IOREMAP_PROT
->  			break;
-> @@ -3945,7 +3942,12 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
->  int access_remote_vm(struct mm_struct *mm, unsigned long addr,
->  		void *buf, int len, int write)
->  {
-> -	return __access_remote_vm(NULL, mm, addr, buf, len, write);
-> +	unsigned int flags = FOLL_FORCE;
-> +
-> +	if (write)
-> +		flags |= FOLL_WRITE;
-> +
-> +	return __access_remote_vm(NULL, mm, addr, buf, len, flags);
->  }
->  
->  /*
-> @@ -3958,12 +3960,17 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr,
->  {
->  	struct mm_struct *mm;
->  	int ret;
-> +	unsigned int flags = FOLL_FORCE;
->  
->  	mm = get_task_mm(tsk);
->  	if (!mm)
->  		return 0;
->  
-> -	ret = __access_remote_vm(tsk, mm, addr, buf, len, write);
-> +	if (write)
-> +		flags |= FOLL_WRITE;
-> +
-> +	ret = __access_remote_vm(tsk, mm, addr, buf, len, flags);
-> +
->  	mmput(mm);
->  
->  	return ret;
-> diff --git a/mm/nommu.c b/mm/nommu.c
-> index 70cb844..bde7df3 100644
-> --- a/mm/nommu.c
-> +++ b/mm/nommu.c
-> @@ -1809,9 +1809,10 @@ void filemap_map_pages(struct fault_env *fe,
->  EXPORT_SYMBOL(filemap_map_pages);
->  
->  static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
-> -		unsigned long addr, void *buf, int len, int write)
-> +		unsigned long addr, void *buf, int len, unsigned int gup_flags)
->  {
->  	struct vm_area_struct *vma;
-> +	int write = gup_flags & FOLL_WRITE;
->  
->  	down_read(&mm->mmap_sem);
->  
-> @@ -1853,7 +1854,8 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
->  int access_remote_vm(struct mm_struct *mm, unsigned long addr,
->  		void *buf, int len, int write)
->  {
-> -	return __access_remote_vm(NULL, mm, addr, buf, len, write);
-> +	return __access_remote_vm(NULL, mm, addr, buf, len,
-> +			write ? FOLL_WRITE : 0);
->  }
->  
->  /*
-> @@ -1871,7 +1873,8 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
->  	if (!mm)
->  		return 0;
->  
-> -	len = __access_remote_vm(tsk, mm, addr, buf, len, write);
-> +	len = __access_remote_vm(tsk, mm, addr, buf, len,
-> +			write ? FOLL_WRITE : 0);
->  
->  	mmput(mm);
->  	return len;
-> -- 
-> 2.10.0
-> 
--- 
-Jan Kara <jack@suse.com>
-SUSE Labs, CR
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+T24gV2VkIDE5LTEwLTE2IDA5OjU5OjAzLCBKYW4gS2FyYSB3cm90ZToKPiBPbiBUaHUgMTMtMTAt
+MTYgMDE6MjA6MTgsIExvcmVuem8gU3RvYWtlcyB3cm90ZToKPiA+IFRoaXMgcGF0Y2ggcmVtb3Zl
+cyB0aGUgd3JpdGUgcGFyYW1ldGVyIGZyb20gX19hY2Nlc3NfcmVtb3RlX3ZtKCkgYW5kIHJlcGxh
+Y2VzIGl0Cj4gPiB3aXRoIGEgZ3VwX2ZsYWdzIHBhcmFtZXRlciBhcyB1c2Ugb2YgdGhpcyBmdW5j
+dGlvbiBwcmV2aW91c2x5IF9pbXBsaWVkXwo+ID4gRk9MTF9GT1JDRSwgd2hlcmVhcyBhZnRlciB0
+aGlzIHBhdGNoIGNhbGxlcnMgZXhwbGljaXRseSBwYXNzIHRoaXMgZmxhZy4KPiA+IAo+ID4gV2Ug
+bWFrZSB0aGlzIGV4cGxpY2l0IGFzIHVzZSBvZiBGT0xMX0ZPUkNFIGNhbiByZXN1bHQgaW4gc3Vy
+cHJpc2luZyBiZWhhdmlvdXIKPiA+IChhbmQgaGVuY2UgYnVncykgd2l0aGluIHRoZSBtbSBzdWJz
+eXN0ZW0uCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IExvcmVuem8gU3RvYWtlcyA8bHN0b2FrZXNA
+Z21haWwuY29tPgo+IAo+IFNvIEknbSBub3QgY29udmluY2VkIHRoaXMgKGFuZCB0aGUgZm9sbG93
+aW5nIHR3byBwYXRjaGVzKSBpcyBhY3R1YWxseQo+IGhlbHBpbmcgbXVjaC4gQnkgZ3JlcHBpbmcg
+Zm9yIEZPTExfRk9SQ0Ugd2Ugd2lsbCBlYXNpbHkgc2VlIHRoYXQgYW55IGNhbGxlcgo+IG9mIGFj
+Y2Vzc19yZW1vdGVfdm0oKSBnZXRzIHRoYXQgc2VtYW50aWNzIGFuZCBjYW4gdGh1cyBjb250aW51
+ZSBzZWFyY2gKCkkgYW0gcmVhbGx5IHdvbmRlcmluZy4gSXMgdGhlcmUgYW55dGhpbmcgaW5oZXJl
+bnQgdGhhdCB3b3VsZCByZXF1aXJlCkZPTExfRk9SQ0UgZm9yIGFjY2Vzc19yZW1vdGVfdm0/IEkg
+bWVhbiBGT0xMX0ZPUkNFIGlzIGEgcmVhbGx5Cm5vbi10cml2aWFsIHRoaW5nLiBJdCBkb2Vzbid0
+IG9iZXkgdm1hIHBlcm1pc3Npb25zIHNvIHdlIHNob3VsZCByZWFsbHkKbWluaW1pemUgaXRzIHVz
+YWdlLiBEbyBhbGwgb2YgdGhvc2UgdXNlcnMgcmVhbGx5IG5lZWQgRk9MTF9GT1JDRT8KCkFueXdh
+eSBJIHdvdWxkIHJhdGhlciBzZWUgdGhlIGZsYWcgZXhwbGljaXQgYW5kIHVzZWQgYXQgbW9yZSBw
+bGFjZXMgdGhhbgpoaWRkZW4gYmVoaW5kIGEgaGVscGVyIGZ1bmN0aW9uLgotLSAKTWljaGFsIEhv
+Y2tvClNVU0UgTGFicwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5v
+cmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1n
+ZngK
