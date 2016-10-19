@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC net 1/3] net: bridge: add helper to offload ageing time
-Date: Wed, 19 Oct 2016 17:38:01 -0400
-Message-ID: <20161019213803.22837-2-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC net 2/3] net: bridge: add helper to set topology change
+Date: Wed, 19 Oct 2016 17:38:02 -0400
+Message-ID: <20161019213803.22837-3-vivien.didelot@savoirfairelinux.com>
 References: <20161019213803.22837-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,116 +14,100 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         cphealy@gmail.com, bridge@lists.linux-foundation.org,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:52170 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754240AbcJSVjH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 17:39:07 -0400
 In-Reply-To: <20161019213803.22837-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME switchdev attr is actually set
-when initializing a bridge port, and when configuring the bridge ageing
-time from ioctl/netlink/sysfs.
+Add a __br_set_topology_change helper to set the topology change value.
 
-Add a __set_ageing_time helper to offload the ageing time to physical
-switches, and add the SWITCHDEV_F_DEFER flag since it can be called
-under bridge lock.
+This can be later extended to add actions when the topology change flag
+is set or cleared.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/bridge/br_private.h |  1 +
- net/bridge/br_stp.c     | 28 ++++++++++++++++++++--------
- net/bridge/br_stp_if.c  | 12 +++---------
- 3 files changed, 24 insertions(+), 17 deletions(-)
+ net/bridge/br_private_stp.h |  1 +
+ net/bridge/br_stp.c         | 10 ++++++++--
+ net/bridge/br_stp_if.c      |  2 +-
+ net/bridge/br_stp_timer.c   |  2 +-
+ 4 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 1b63177..3c294b4 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -992,6 +992,7 @@ void __br_set_forward_delay(struct net_bridge *br, unsigned long t);
- int br_set_forward_delay(struct net_bridge *br, unsigned long x);
- int br_set_hello_time(struct net_bridge *br, unsigned long x);
- int br_set_max_age(struct net_bridge *br, unsigned long x);
-+int __set_ageing_time(struct net_device *dev, unsigned long t);
- int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time);
+diff --git a/net/bridge/br_private_stp.h b/net/bridge/br_private_stp.h
+index 2fe910c..3f7543a 100644
+--- a/net/bridge/br_private_stp.h
++++ b/net/bridge/br_private_stp.h
+@@ -61,6 +61,7 @@ void br_received_tcn_bpdu(struct net_bridge_port *p);
+ void br_transmit_config(struct net_bridge_port *p);
+ void br_transmit_tcn(struct net_bridge *br);
+ void br_topology_change_detection(struct net_bridge *br);
++void __br_set_topology_change(struct net_bridge *br, unsigned char val);
  
- 
+ /* br_stp_bpdu.c */
+ void br_send_config_bpdu(struct net_bridge_port *, struct br_config_bpdu *);
 diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 9258b8e..6ebe2a0 100644
+index 6ebe2a0..8d7b4c7 100644
 --- a/net/bridge/br_stp.c
 +++ b/net/bridge/br_stp.c
-@@ -562,6 +562,24 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
+@@ -234,7 +234,7 @@ static void br_record_config_timeout_values(struct net_bridge *br,
+ 	br->max_age = bpdu->max_age;
+ 	br->hello_time = bpdu->hello_time;
+ 	br->forward_delay = bpdu->forward_delay;
+-	br->topology_change = bpdu->topology_change;
++	__br_set_topology_change(br, bpdu->topology_change);
+ }
  
+ /* called under bridge lock */
+@@ -344,7 +344,7 @@ void br_topology_change_detection(struct net_bridge *br)
+ 		isroot ? "propagating" : "sending tcn bpdu");
+ 
+ 	if (isroot) {
+-		br->topology_change = 1;
++		__br_set_topology_change(br, 1);
+ 		mod_timer(&br->topology_change_timer, jiffies
+ 			  + br->bridge_forward_delay + br->bridge_max_age);
+ 	} else if (!br->topology_change_detected) {
+@@ -603,6 +603,12 @@ int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time)
+ 	return 0;
  }
  
 +/* called under bridge lock */
-+int __set_ageing_time(struct net_device *dev, unsigned long t)
++void __br_set_topology_change(struct net_bridge *br, unsigned char val)
 +{
-+	struct switchdev_attr attr = {
-+		.orig_dev = dev,
-+		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
-+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
-+		.u.ageing_time = jiffies_to_clock_t(t),
-+	};
-+	int err;
-+
-+	err = switchdev_port_attr_set(dev, &attr);
-+	if (err && err != -EOPNOTSUPP)
-+		return err;
-+
-+	return 0;
++	br->topology_change = val;
 +}
 +
- /* Set time interval that dynamic forwarding entries live
-  * For pure software bridge, allow values outside the 802.1
-  * standard specification for special cases:
-@@ -572,17 +590,11 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
-  */
- int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time)
+ void __br_set_forward_delay(struct net_bridge *br, unsigned long t)
  {
--	struct switchdev_attr attr = {
--		.orig_dev = br->dev,
--		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
--		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
--		.u.ageing_time = ageing_time,
--	};
- 	unsigned long t = clock_t_to_jiffies(ageing_time);
- 	int err;
- 
--	err = switchdev_port_attr_set(br->dev, &attr);
--	if (err && err != -EOPNOTSUPP)
-+	err = __set_ageing_time(br->dev, t);
-+	if (err)
- 		return err;
- 
- 	br->ageing_time = t;
+ 	br->bridge_forward_delay = t;
 diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index d8ad73b..2efbba5 100644
+index 2efbba5..6c1e214 100644
 --- a/net/bridge/br_stp_if.c
 +++ b/net/bridge/br_stp_if.c
-@@ -36,12 +36,6 @@ static inline port_id br_make_port_id(__u8 priority, __u16 port_no)
- /* called under bridge lock */
- void br_init_port(struct net_bridge_port *p)
- {
--	struct switchdev_attr attr = {
--		.orig_dev = p->dev,
--		.id = SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
--		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP | SWITCHDEV_F_DEFER,
--		.u.ageing_time = jiffies_to_clock_t(p->br->ageing_time),
--	};
- 	int err;
+@@ -81,7 +81,7 @@ void br_stp_disable_bridge(struct net_bridge *br)
  
- 	p->port_id = br_make_port_id(p->priority, p->port_no);
-@@ -50,9 +44,9 @@ void br_init_port(struct net_bridge_port *p)
- 	p->topology_change_ack = 0;
- 	p->config_pending = 0;
+ 	}
  
--	err = switchdev_port_attr_set(p->dev, &attr);
--	if (err && err != -EOPNOTSUPP)
--		netdev_err(p->dev, "failed to set HW ageing time\n");
-+	err = __set_ageing_time(p->dev, p->br->ageing_time);
-+	if (err)
-+		netdev_err(p->dev, "failed to offload ageing time\n");
+-	br->topology_change = 0;
++	__br_set_topology_change(br, 0);
+ 	br->topology_change_detected = 0;
+ 	spin_unlock_bh(&br->lock);
+ 
+diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+index da058b8..7ddb38e 100644
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -125,7 +125,7 @@ static void br_topology_change_timer_expired(unsigned long arg)
+ 	br_debug(br, "topo change timer expired\n");
+ 	spin_lock(&br->lock);
+ 	br->topology_change_detected = 0;
+-	br->topology_change = 0;
++	__br_set_topology_change(br, 0);
+ 	spin_unlock(&br->lock);
  }
  
- /* NO locks held */
 -- 
 2.10.0
