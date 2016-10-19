@@ -1,122 +1,137 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH (net.git)] stmmac: fix and review the ptp registration.
-Date: Wed, 19 Oct 2016 10:47:42 -0400 (EDT)
-Message-ID: <alpine.LFD.2.20.1610191045130.25105@knanqh.ubzr>
-References: <1476860801-28242-1-git-send-email-peppe.cavallaro@st.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next 4/6] net: use core MTU range checking in core
+ net infra
+Date: Wed, 19 Oct 2016 10:51:43 -0400
+Message-ID: <20161019145143.GG18569@redhat.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161019023333.15760-5-jarod@redhat.com>
+ <20161019141703.01ff8850@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        linux-kernel@vger.kernel.org,
-        Alexandre TORGUE <alexandre.torgue@st.com>,
-        Rayagond Kokatanur <rayagond@vayavyalabs.com>,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        Richard Cochran <richardcochran@gmail.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476860801-28242-1-git-send-email-peppe.cavallaro@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Pravin B Shelar <pshelar@ovn.org>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        Patrick McHardy <kaber@trash.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Pravin Shelar <pshelar@nicira.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:34199 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943328AbcJSOv4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:51:56 -0400
+Received: by mail-qk0-f173.google.com with SMTP id f128so38123180qkb.1
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:51:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20161019141703.01ff8850@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[ added Richard to CC ]
+On Wed, Oct 19, 2016 at 02:17:03PM +0200, Jiri Benc wrote:
+> On Tue, 18 Oct 2016 22:33:31 -0400, Jarod Wilson wrote:
+> > --- a/drivers/net/vxlan.c
+> > +++ b/drivers/net/vxlan.c
+> > @@ -2367,43 +2367,31 @@ static void vxlan_set_multicast_list(struct net_device *dev)
+> >  {
+> >  }
+> >  
+> > -static int __vxlan_change_mtu(struct net_device *dev,
+> > -			      struct net_device *lowerdev,
+> > -			      struct vxlan_rdst *dst, int new_mtu, bool strict)
+> > +static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
+> >  {
+> > -	int max_mtu = IP_MAX_MTU;
+> > -
+> > -	if (lowerdev)
+> > -		max_mtu = lowerdev->mtu;
+> > +	struct vxlan_dev *vxlan = netdev_priv(dev);
+> > +	struct vxlan_rdst *dst = &vxlan->default_dst;
+> > +	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
+> > +							 dst->remote_ifindex);
+> > +	bool use_ipv6 = false;
+> >  
+> >  	if (dst->remote_ip.sa.sa_family == AF_INET6)
+> > -		max_mtu -= VXLAN6_HEADROOM;
+> > -	else
+> > -		max_mtu -= VXLAN_HEADROOM;
+> > -
+> > -	if (new_mtu < 68)
+> > -		return -EINVAL;
+> > +		use_ipv6 = true;
+> >  
+> > -	if (new_mtu > max_mtu) {
+> > -		if (strict)
+> > +	/* We re-check this, because users *could* alter the mtu of the
+> > +	 * lower device after we've initialized dev->max_mtu.
+> > +	 */
+> > +	if (lowerdev) {
+> > +		dev->max_mtu = lowerdev->mtu -
+> > +			       (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
+> > +		if (new_mtu > dev->max_mtu)
+> >  			return -EINVAL;
+> > -
+> > -		new_mtu = max_mtu;
+> >  	}
+> >  
+> >  	dev->mtu = new_mtu;
+> >  	return 0;
+> >  }
+> 
+> Sorry for the silly question, how does the min_mtu and max_mtu stuff
+> works? I noticed your patches but haven't looked in depth into them.
+> 
+> When the ndo_change_mtu callback is defined, is the dev->min_mtu and
+> dev->max_mtu checked first and if the desired mtu is not within range,
+> ndo_change_mtu is not called?
+> 
+> Or does ndo_change_mtu override the checks?
 
-On Wed, 19 Oct 2016, Giuseppe Cavallaro wrote:
+The former. If the new value is outside min/max, ndo_change_mtu doesn't
+get called, which is exactly the chicken and egg problem I introduced by
+setting max_mtu to 1500 in ether_setup before having all drivers that call
+ether_setup set a more appropriate max_mtu first. :\
 
-> The commit commit 7086605a6ab5 ("stmmac: fix error check when init ptp")
-> breaks the procedure added by the
-> commit efee95f42b5d ("ptp_clock: future-proofing drivers against PTP
-> subsystem becoming optional")
-> 
-> So this patch tries to re-import the logic added by the latest
-> commit above: it makes sense to have the stmmac_ptp_register
-> as void function and, inside the main, the stmmac_init_ptp can fails
-> in case of the capability cannot be supported by the HW.
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Alexandre TORGUE <alexandre.torgue@st.com>
-> Cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-> Cc: Dan Carpenter <dan.carpenter@oracle.com>
-> Cc: Nicolas Pitre <nico@linaro.org>
+> In either case, the code does not look correct. In the first case,
+> increasing of lowerdev MTU wouldn't allow increasing of vxlan MTU
+> without deleting and recreating the vxlan interface. In the second
+> case, you're missing check against the min_mtu.
 
-Acked-by: Nicolas Pitre <nico@linaro.org>
+Okay, this sounds like a similar case to bridge that Sabrina pointed out.
+Looks like virtual devices will need to just set no max_mtu directly (or
+IP_MAX_MTU), and do dynamic checks in their ndo_change_mtu if they need to
+compare against underlying devices on the fly.
 
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  2 +-
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  6 ++++--
->  drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c  | 15 ++++-----------
->  3 files changed, 9 insertions(+), 14 deletions(-)
+...
+> > @@ -2847,9 +2842,14 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+> >  	}
+> >  
+> >  	if (conf->mtu) {
+> > -		err = __vxlan_change_mtu(dev, lowerdev, dst, conf->mtu, false);
+> > -		if (err)
+> > -			return err;
+> > +		if (lowerdev)
+> > +			dev->max_mtu = lowerdev->mtu;
+> > +		dev->max_mtu -= (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
+> > +
+> > +		dev->mtu = conf->mtu;
+> > +
+> > +		if (conf->mtu > dev->max_mtu)
+> > +			dev->mtu = dev->max_mtu;
+> >  	}
 > 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-> index 8dc9056..b15fc55 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-> @@ -145,7 +145,7 @@ int stmmac_mdio_register(struct net_device *ndev);
->  int stmmac_mdio_reset(struct mii_bus *mii);
->  void stmmac_set_ethtool_ops(struct net_device *netdev);
->  
-> -int stmmac_ptp_register(struct stmmac_priv *priv);
-> +void stmmac_ptp_register(struct stmmac_priv *priv);
->  void stmmac_ptp_unregister(struct stmmac_priv *priv);
->  int stmmac_resume(struct device *dev);
->  int stmmac_suspend(struct device *dev);
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 6c85b61..48e71fa 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -676,7 +676,9 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
->  	priv->hwts_tx_en = 0;
->  	priv->hwts_rx_en = 0;
->  
-> -	return stmmac_ptp_register(priv);
-> +	stmmac_ptp_register(priv);
-> +
-> +	return 0;
->  }
->  
->  static void stmmac_release_ptp(struct stmmac_priv *priv)
-> @@ -1710,7 +1712,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
->  	if (init_ptp) {
->  		ret = stmmac_init_ptp(priv);
->  		if (ret)
-> -			netdev_warn(priv->dev, "PTP support cannot init.\n");
-> +			netdev_warn(priv->dev, "fail to init PTP.\n");
->  	}
->  
->  #ifdef CONFIG_DEBUG_FS
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-> index 5d61fb2..1477471 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-> @@ -177,7 +177,7 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
->   * Description: this function will register the ptp clock driver
->   * to kernel. It also does some house keeping work.
->   */
-> -int stmmac_ptp_register(struct stmmac_priv *priv)
-> +void stmmac_ptp_register(struct stmmac_priv *priv)
->  {
->  	spin_lock_init(&priv->ptp_lock);
->  	priv->ptp_clock_ops = stmmac_ptp_clock_ops;
-> @@ -185,17 +185,10 @@ int stmmac_ptp_register(struct stmmac_priv *priv)
->  	priv->ptp_clock = ptp_clock_register(&priv->ptp_clock_ops,
->  					     priv->device);
->  	if (IS_ERR(priv->ptp_clock)) {
-> -		int ret = PTR_ERR(priv->ptp_clock);
-> -
-> +		netdev_err(priv->dev, "ptp_clock_register failed\n");
->  		priv->ptp_clock = NULL;
-> -		return ret;
-> -	}
-> -
-> -	spin_lock_init(&priv->ptp_lock);
-> -
-> -	netdev_dbg(priv->dev, "Added PTP HW clock successfully\n");
-> -
-> -	return 0;
-> +	} else if (priv->ptp_clock)
-> +		netdev_info(priv->dev, "registered PTP clock\n");
->  }
->  
->  /**
-> -- 
-> 2.7.4
-> 
-> 
+> You removed the check for min_mtu but it's needed here. The conf->mtu
+> value comes from the user space and can be anything.
+
+Hm. Not sure why I did that... Will put it back now...
+
+-- 
+Jarod Wilson
+jarod@redhat.com
