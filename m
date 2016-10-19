@@ -1,33 +1,45 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net-next 0/6] net: use core MTU range checking everywhere
-Date: Wed, 19 Oct 2016 15:29:05 -0400
-Message-ID: <20161019192905.GI18569@redhat.com>
-References: <20161019023333.15760-1-jarod@redhat.com>
- <20161019.151005.240728702055002369.davem@davemloft.net>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [linux-next:master 1436/1582] drivers/net/ethernet/smsc/smc91x.c:2378:6: error: implicit declaration of function 'machine_is_assabet'
+Date: Wed, 19 Oct 2016 21:58:06 +0200
+Message-ID: <87funs3ycx.fsf@belgarion.home>
+References: <201610200342.Wv4wShnU%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161019.151005.240728702055002369.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp01.smtpout.orange.fr ([80.12.242.123]:50920 "EHLO
+        smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755798AbcJST6L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 15:58:11 -0400
+In-Reply-To: <201610200342.Wv4wShnU%fengguang.wu@intel.com> (kbuild test
+        robot's message of "Thu, 20 Oct 2016 03:31:48 +0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2016 at 03:10:05PM -0400, David Miller wrote:
-> From: Jarod Wilson <jarod@redhat.com>
-> Date: Tue, 18 Oct 2016 22:33:27 -0400
-> 
-> > This stack of patches should get absolutely everything in the kernel
-> > converted from doing their own MTU range checking to the core MTU range
-> > checking.
-> 
-> I'm expecting a respin of this series.
+Hi David,
 
-Absolutely. Will address all review comments, and have some additional
-patches to add to the series to hopefully have absolutely everything
-functional, asap.
+Here is a little mess I created with my former serie :
+>    drivers/net/ethernet/smsc/smc91x.c: In function 'smc_drv_probe':
+>>> drivers/net/ethernet/smsc/smc91x.c:2378:6: error: implicit declaration of function 'machine_is_assabet' [-Werror=implicit-function-declaration]
+>      if (machine_is_assabet() && machine_has_neponset())
+>          ^~~~~~~~~~~~~~~~~~
+>    cc1: some warnings being treated as errors
+>
+> vim +/machine_is_assabet +2378 drivers/net/ethernet/smsc/smc91x.c
 
--- 
-Jarod Wilson
-jarod@redhat.com
+The mess comes from the patch "net: smc91x: isolate u16 writes alignment
+workaround", where I though I had removed all "machine_is_*()" calls, and I
+didn't notice the machine_is_assabet() one.
+
+The fix is to re-add the removed include in the wrong chunk in [1].
+
+Now do you want :
+ - another apart patch to fix the faulty one
+ - a "fixup!" patch to fixup the commit in your next tree
+ - or anything else
+
+As I didn't compile assabet, my testers have missed this one. Please tell me
+which way suits you to repair this commit.
+
+Cheers.
