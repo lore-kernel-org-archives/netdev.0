@@ -1,64 +1,63 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH 10/10] mm: replace access_process_vm() write parameter with gup_flags
-Date: Wed, 19 Oct 2016 22:10:46 +1100
-Message-ID: <87twc84mrt.fsf@concordia.ellerman.id.au>
-References: <20161013002020.3062-1-lstoakes@gmail.com> <20161013002020.3062-11-lstoakes@gmail.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net-next] hv_netvsc: fix a race between netvsc_send() and
+ netvsc_init_buf()
+Date: Wed, 19 Oct 2016 15:53:01 +0200
+Message-ID: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org, Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>, linux-media@vger.kernel.org, Rik van Riel <riel@redhat.com>, intel-gfx@lists.freedesktop.org, adi-buildroot-devel@lists.sourceforge.net, ceph-devel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Lorenzo Stoakes <lstoakes@gmail.com>, linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>, linuxppc-dev@lists.ozlabs.o
- rg, linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.o
-To: Lorenzo Stoakes <lstoakes@gmail.com>, linux-mm@kvack.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161013002020.3062-11-lstoakes@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ Stephen Hemminger <sthemmin@microsoft.com>, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Lorenzo Stoakes <lstoakes@gmail.com> writes:
+Fix in commit 880988348270 ("hv_netvsc: set nvdev link after populating
+chn_table") turns out to be incomplete. A crash in
+netvsc_get_next_send_section() is observed on mtu change when the device
+is under load. The race I identified is: if we get to netvsc_send() after
+we set net_device_ctx->nvdev link in netvsc_device_add() but before we
+finish netvsc_connect_vsp()->netvsc_init_buf() send_section_map is not
+allocated and we crash. Unfortunately we can't set net_device_ctx->nvdev
+link after the netvsc_init_buf() call as during the negotiation we need
+to receive packets and on the receive path we check for it. It would
+probably be possible to split nvdev into a pair of nvdev_in and nvdev_out
+links and check them accordingly in get_outbound_net_device()/
+get_inbound_net_device() but this looks like an overkill.
 
-> diff --git a/arch/powerpc/kernel/ptrace32.c b/arch/powerpc/kernel/ptrace32.c
-> index f52b7db3..010b7b3 100644
-> --- a/arch/powerpc/kernel/ptrace32.c
-> +++ b/arch/powerpc/kernel/ptrace32.c
-> @@ -74,7 +74,7 @@ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
->  			break;
->  
->  		copied = access_process_vm(child, (u64)addrOthers, &tmp,
-> -				sizeof(tmp), 0);
-> +				sizeof(tmp), FOLL_FORCE);
->  		if (copied != sizeof(tmp))
->  			break;
->  		ret = put_user(tmp, (u32 __user *)data);
+Check that send_section_map is allocated in netvsc_send().
 
-LGTM.
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ drivers/net/hyperv/netvsc.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-> @@ -179,7 +179,8 @@ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
->  			break;
->  		ret = 0;
->  		if (access_process_vm(child, (u64)addrOthers, &tmp,
-> -					sizeof(tmp), 1) == sizeof(tmp))
-> +					sizeof(tmp),
-> +					FOLL_FORCE | FOLL_WRITE) == sizeof(tmp))
->  			break;
->  		ret = -EIO;
->  		break;
-
-If you're respinning this anyway, can you format that as:
-
-		if (access_process_vm(child, (u64)addrOthers, &tmp, sizeof(tmp),
-				      FOLL_FORCE | FOLL_WRITE) == sizeof(tmp))
-  			break;
-
-I realise you probably deliberately didn't do that to make the diff clearer.
-
-Either way:
-
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
-
-
-cheers
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 720b5fa..e2bfaac 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -888,6 +888,13 @@ int netvsc_send(struct hv_device *device,
+ 	if (!net_device)
+ 		return -ENODEV;
+ 
++	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
++	 * here before the negotiation with the host is finished and
++	 * send_section_map may not be allocated yet.
++	 */
++	if (!net_device->send_section_map)
++		return -EAGAIN;
++
+ 	out_channel = net_device->chn_table[q_idx];
+ 
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+-- 
+2.7.4
