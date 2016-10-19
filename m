@@ -1,33 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git)] stmmac: fix and review the ptp registration.
-Date: Wed, 19 Oct 2016 15:10:47 -0400 (EDT)
-Message-ID: <20161019.151047.464176535089164279.davem@davemloft.net>
-References: <1476860801-28242-1-git-send-email-peppe.cavallaro@st.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v2 0/2] openvswitch: remove unused
+	code
+Date: Wed, 19 Oct 2016 15:12:13 -0400 (EDT)
+Message-ID: <20161019.151213.765513830007915242.davem@davemloft.net>
+References: <cover.1476869133.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        alexandre.torgue@st.com, rayagond@vayavyalabs.com,
-        dan.carpenter@oracle.com, nico@linaro.org
-To: peppe.cavallaro@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476860801-28242-1-git-send-email-peppe.cavallaro@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1476869133.git.jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date: Wed, 19 Oct 2016 09:06:41 +0200
-
-> The commit commit 7086605a6ab5 ("stmmac: fix error check when init ptp")
-> breaks the procedure added by the
-> commit efee95f42b5d ("ptp_clock: future-proofing drivers against PTP
-> subsystem becoming optional")
-> 
-> So this patch tries to re-import the logic added by the latest
-> commit above: it makes sense to have the stmmac_ptp_register
-> as void function and, inside the main, the stmmac_init_ptp can fails
-> in case of the capability cannot be supported by the HW.
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-
-Applied.
+RnJvbTogSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPgpEYXRlOiBXZWQsIDE5IE9jdCAyMDE2
+IDExOjI2OjM1ICswMjAwCgo+IFJlbW92ZWQgdW51c2VkIGZ1bmN0aW9ucyBhbmQgdW5uZWNlc3Nh
+cnkgRVhQT1JUX1NZTUJPTHMgZnJvbSBvcGVudnN3aXRjaC4KClNlcmllcyBhcHBsaWVkLCB0aGFu
+a3MuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
+YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
+aWxtYW4vbGlzdGluZm8vZGV2Cg==
