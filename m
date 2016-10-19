@@ -1,66 +1,391 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: core: Correctly iterate over lower adjacency
- list
-Date: Wed, 19 Oct 2016 08:33:19 -0600
-Message-ID: <c029e5bb-68b4-322f-f7b5-9ada9e5915ac@cumulusnetworks.com>
-References: <1476885428-5189-1-git-send-email-idosch@idosch.org>
+From: Johannes Thumshirn <jthumshirn@suse.de>
+Subject: Re: [RFC 1/6] qed: Add support for hardware offloaded iSCSI.
+Date: Wed, 19 Oct 2016 11:09:23 +0200
+Message-ID: <20161019090923.up3xgrbya3mxr7vu@linux-x5ow.site>
+References: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
+ <1476853273-22960-2-git-send-email-manish.rangankar@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        Ido Schimmel <idosch@mellanox.com>
-To: idosch@idosch.org, davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: lduncan@suse.com, cleech@redhat.com, martin.petersen@oracle.com,
+        jejb@linux.vnet.ibm.com, linux-scsi@vger.kernel.org,
+        netdev@vger.kernel.org, Yuval.Mintz@cavium.com,
+        QLogic-Storage-Upstream@cavium.com,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Arun Easi <arun.easi@cavium.com>
+To: manish.rangankar@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36758 "EHLO
-        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941689AbcJSOdX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:33:23 -0400
-Received: by mail-io0-f180.google.com with SMTP id j37so33301076ioo.3
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:33:22 -0700 (PDT)
-In-Reply-To: <1476885428-5189-1-git-send-email-idosch@idosch.org>
+Received: from mx2.suse.de ([195.135.220.15]:41530 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S942290AbcJSOdt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Oct 2016 10:33:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1476853273-22960-2-git-send-email-manish.rangankar@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/19/16 7:57 AM, idosch@idosch.org wrote:
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 136ae6bb..465e128 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -3877,7 +3877,7 @@ struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
->  	     ldev = netdev_all_lower_get_next(dev, &(iter)))
+Hi Manish,
+
+Some initital comments
+
+On Wed, Oct 19, 2016 at 01:01:08AM -0400, manish.rangankar@cavium.com wrote:
+> From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> 
+> This adds the backbone required for the various HW initalizations
+> which are necessary for the iSCSI driver (qedi) for QLogic FastLinQ
+> 4xxxx line of adapters - FW notification, resource initializations, etc.
+> 
+> Signed-off-by: Arun Easi <arun.easi@cavium.com>
+> Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
+> ---
+>  drivers/net/ethernet/qlogic/Kconfig            |   15 +
+>  drivers/net/ethernet/qlogic/qed/Makefile       |    1 +
+>  drivers/net/ethernet/qlogic/qed/qed.h          |    8 +-
+>  drivers/net/ethernet/qlogic/qed/qed_dev.c      |   15 +
+>  drivers/net/ethernet/qlogic/qed/qed_int.h      |    1 -
+>  drivers/net/ethernet/qlogic/qed/qed_iscsi.c    | 1310 ++++++++++++++++++++++++
+>  drivers/net/ethernet/qlogic/qed/qed_iscsi.h    |   52 +
+>  drivers/net/ethernet/qlogic/qed/qed_l2.c       |    1 -
+>  drivers/net/ethernet/qlogic/qed/qed_ll2.c      |   35 +-
+>  drivers/net/ethernet/qlogic/qed/qed_main.c     |    2 -
+>  drivers/net/ethernet/qlogic/qed/qed_mcp.h      |    6 -
+>  drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |    2 +
+>  drivers/net/ethernet/qlogic/qed/qed_spq.c      |   15 +
+>  include/linux/qed/qed_if.h                     |    2 +
+>  include/linux/qed/qed_iscsi_if.h               |  249 +++++
+>  15 files changed, 1692 insertions(+), 22 deletions(-)
+>  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iscsi.c
+>  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iscsi.h
+>  create mode 100644 include/linux/qed/qed_iscsi_if.h
+> 
+> diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
+> index 0df1391f9..bad4fae 100644
+> --- a/drivers/net/ethernet/qlogic/Kconfig
+> +++ b/drivers/net/ethernet/qlogic/Kconfig
+> @@ -118,4 +118,19 @@ config INFINIBAND_QEDR
+>  	  for QLogic QED. This would be replaced by the 'real' option
+>  	  once the QEDR driver is added [+relocated].
 >  
->  #define netdev_for_each_all_lower_dev_rcu(dev, ldev, iter) \
-> -	for (iter = (dev)->all_adj_list.lower.next, \
-> +	for (iter = &(dev)->all_adj_list.lower, \
->  	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)); \
->  	     ldev; \
->  	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)))
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index f1fe26f..b09ac57 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5511,10 +5511,14 @@ struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
->  {
->  	struct netdev_adjacent *lower;
->  
-> -	lower = list_first_or_null_rcu(&dev->all_adj_list.lower,
-> -				       struct netdev_adjacent, list);
-> +	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
+> +config QED_ISCSI
+> +	bool
 > +
-> +	if (&lower->list == &dev->all_adj_list.lower)
-> +		return NULL;
+> +config QEDI
+> +	tristate "QLogic QED 25/40/100Gb iSCSI driver"
+> +	depends on QED
+> +	select QED_LL2
+> +	select QED_ISCSI
+> +	default n
+> +	---help---
+> +	  This provides a temporary node that allows the compilation
+> +	  and logical testing of the hardware offload iSCSI support
+> +	  for QLogic QED. This would be replaced by the 'real' option
+> +	  once the QEDI driver is added [+relocated].
 > +
-> +	*iter = &lower->list;
+>  endif # NET_VENDOR_QLOGIC
+> diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
+> index cda0af7..b76669c 100644
+> --- a/drivers/net/ethernet/qlogic/qed/Makefile
+> +++ b/drivers/net/ethernet/qlogic/qed/Makefile
+> @@ -6,3 +6,4 @@ qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o \
+>  qed-$(CONFIG_QED_SRIOV) += qed_sriov.o qed_vf.o
+>  qed-$(CONFIG_QED_LL2) += qed_ll2.o
+>  qed-$(CONFIG_INFINIBAND_QEDR) += qed_roce.o
+> +qed-$(CONFIG_QED_ISCSI) += qed_iscsi.o
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+> index 653bb57..a61b1c0 100644
+> --- a/drivers/net/ethernet/qlogic/qed/qed.h
+> +++ b/drivers/net/ethernet/qlogic/qed/qed.h
+> @@ -35,6 +35,7 @@
 >  
-> -	return lower ? lower->dev : NULL;
-> +	return lower->dev;
->  }
->  EXPORT_SYMBOL(netdev_all_lower_get_next_rcu);
+>  #define QED_WFQ_UNIT	100
+>  
+> +#define ISCSI_BDQ_ID(_port_id) (_port_id)
+
+This looks a bit odd to me.
+
+[...]
+
+>  #endif
+> +		if (IS_ENABLED(CONFIG_QEDI) &&
+> +				p_hwfn->hw_info.personality == QED_PCI_ISCSI)
+> +			qed_iscsi_free(p_hwfn, p_hwfn->p_iscsi_info);
 
 
-When I converted this function in my series I wondered how the current code worked at all. I guess I didn't. This is inline with what I did and matches the form used for the all_upper variant, so for 4.9 and 4.8.x
+Why not introduce a small helper like:
+static inline bool qed_is_iscsi_personality()
+{
+	return IS_ENABLED(CONFIG_QEDI) && p_hwfn->hw_info.personality ==
+		QED_PCI_ISCSI;
+}
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+>  		qed_iov_free(p_hwfn);
 
-I would like to see my series applied to 4.9 at some point.
+[...]
+
+> +
+> +	if (!GET_FIELD(p_ramrod->iscsi.flags,
+> +		       ISCSI_CONN_OFFLOAD_PARAMS_TCP_ON_CHIP_1B)) {
+> +		p_tcp = &p_ramrod->tcp;
+> +		ucval = p_conn->local_mac[1];
+> +		((u8 *)(&p_tcp->local_mac_addr_hi))[0] = ucval;
+> +		ucval = p_conn->local_mac[0];
+> +		((u8 *)(&p_tcp->local_mac_addr_hi))[1] = ucval;
+> +		ucval = p_conn->local_mac[3];
+> +		((u8 *)(&p_tcp->local_mac_addr_mid))[0] = ucval;
+> +		ucval = p_conn->local_mac[2];
+> +		((u8 *)(&p_tcp->local_mac_addr_mid))[1] = ucval;
+> +		ucval = p_conn->local_mac[5];
+> +		((u8 *)(&p_tcp->local_mac_addr_lo))[0] = ucval;
+> +		ucval = p_conn->local_mac[4];
+> +		((u8 *)(&p_tcp->local_mac_addr_lo))[1] = ucval;
+> +		ucval = p_conn->remote_mac[1];
+> +		((u8 *)(&p_tcp->remote_mac_addr_hi))[0] = ucval;
+> +		ucval = p_conn->remote_mac[0];
+> +		((u8 *)(&p_tcp->remote_mac_addr_hi))[1] = ucval;
+> +		ucval = p_conn->remote_mac[3];
+> +		((u8 *)(&p_tcp->remote_mac_addr_mid))[0] = ucval;
+> +		ucval = p_conn->remote_mac[2];
+> +		((u8 *)(&p_tcp->remote_mac_addr_mid))[1] = ucval;
+> +		ucval = p_conn->remote_mac[5];
+> +		((u8 *)(&p_tcp->remote_mac_addr_lo))[0] = ucval;
+> +		ucval = p_conn->remote_mac[4];
+> +		((u8 *)(&p_tcp->remote_mac_addr_lo))[1] = ucval;
+> +
+> +		p_tcp->vlan_id = cpu_to_le16(p_conn->vlan_id);
+> +
+> +		p_tcp->flags = p_conn->tcp_flags;
+> +		p_tcp->ip_version = p_conn->ip_version;
+> +		for (i = 0; i < 4; i++) {
+> +			dval = p_conn->remote_ip[i];
+> +			p_tcp->remote_ip[i] = cpu_to_le32(dval);
+> +			dval = p_conn->local_ip[i];
+> +			p_tcp->local_ip[i] = cpu_to_le32(dval);
+> +		}
+> +		p_tcp->ka_max_probe_cnt = p_conn->ka_max_probe_cnt;
+> +		p_tcp->dup_ack_theshold = p_conn->dup_ack_theshold;
+> +
+> +		p_tcp->rcv_next = cpu_to_le32(p_conn->rcv_next);
+> +		p_tcp->snd_una = cpu_to_le32(p_conn->snd_una);
+> +		p_tcp->snd_next = cpu_to_le32(p_conn->snd_next);
+> +		p_tcp->snd_max = cpu_to_le32(p_conn->snd_max);
+> +		p_tcp->snd_wnd = cpu_to_le32(p_conn->snd_wnd);
+> +		p_tcp->rcv_wnd = cpu_to_le32(p_conn->rcv_wnd);
+> +		p_tcp->snd_wl1 = cpu_to_le32(p_conn->snd_wl1);
+> +		p_tcp->cwnd = cpu_to_le32(p_conn->cwnd);
+> +		p_tcp->ss_thresh = cpu_to_le32(p_conn->ss_thresh);
+> +		p_tcp->srtt = cpu_to_le16(p_conn->srtt);
+> +		p_tcp->rtt_var = cpu_to_le16(p_conn->rtt_var);
+> +		p_tcp->ts_time = cpu_to_le32(p_conn->ts_time);
+> +		p_tcp->ts_recent = cpu_to_le32(p_conn->ts_recent);
+> +		p_tcp->ts_recent_age = cpu_to_le32(p_conn->ts_recent_age);
+> +		p_tcp->total_rt = cpu_to_le32(p_conn->total_rt);
+> +		dval = p_conn->ka_timeout_delta;
+> +		p_tcp->ka_timeout_delta = cpu_to_le32(dval);
+> +		dval = p_conn->rt_timeout_delta;
+> +		p_tcp->rt_timeout_delta = cpu_to_le32(dval);
+> +		p_tcp->dup_ack_cnt = p_conn->dup_ack_cnt;
+> +		p_tcp->snd_wnd_probe_cnt = p_conn->snd_wnd_probe_cnt;
+> +		p_tcp->ka_probe_cnt = p_conn->ka_probe_cnt;
+> +		p_tcp->rt_cnt = p_conn->rt_cnt;
+> +		p_tcp->flow_label = cpu_to_le32(p_conn->flow_label);
+> +		p_tcp->ka_timeout = cpu_to_le32(p_conn->ka_timeout);
+> +		p_tcp->ka_interval = cpu_to_le32(p_conn->ka_interval);
+> +		p_tcp->max_rt_time = cpu_to_le32(p_conn->max_rt_time);
+> +		dval = p_conn->initial_rcv_wnd;
+> +		p_tcp->initial_rcv_wnd = cpu_to_le32(dval);
+> +		p_tcp->ttl = p_conn->ttl;
+> +		p_tcp->tos_or_tc = p_conn->tos_or_tc;
+> +		p_tcp->remote_port = cpu_to_le16(p_conn->remote_port);
+> +		p_tcp->local_port = cpu_to_le16(p_conn->local_port);
+> +		p_tcp->mss = cpu_to_le16(p_conn->mss);
+> +		p_tcp->snd_wnd_scale = p_conn->snd_wnd_scale;
+> +		p_tcp->rcv_wnd_scale = p_conn->rcv_wnd_scale;
+> +		dval = p_conn->ts_ticks_per_second;
+> +		p_tcp->ts_ticks_per_second = cpu_to_le32(dval);
+> +		wval = p_conn->da_timeout_value;
+> +		p_tcp->da_timeout_value = cpu_to_le16(wval);
+> +		p_tcp->ack_frequency = p_conn->ack_frequency;
+> +		p_tcp->connect_mode = p_conn->connect_mode;
+> +	} else {
+> +		p_tcp2 =
+> +		    &((struct iscsi_spe_conn_offload_option2 *)p_ramrod)->tcp;
+> +		ucval = p_conn->local_mac[1];
+> +		((u8 *)(&p_tcp2->local_mac_addr_hi))[0] = ucval;
+> +		ucval = p_conn->local_mac[0];
+> +		((u8 *)(&p_tcp2->local_mac_addr_hi))[1] = ucval;
+> +		ucval = p_conn->local_mac[3];
+> +		((u8 *)(&p_tcp2->local_mac_addr_mid))[0] = ucval;
+> +		ucval = p_conn->local_mac[2];
+> +		((u8 *)(&p_tcp2->local_mac_addr_mid))[1] = ucval;
+> +		ucval = p_conn->local_mac[5];
+> +		((u8 *)(&p_tcp2->local_mac_addr_lo))[0] = ucval;
+> +		ucval = p_conn->local_mac[4];
+> +		((u8 *)(&p_tcp2->local_mac_addr_lo))[1] = ucval;
+> +
+> +		ucval = p_conn->remote_mac[1];
+> +		((u8 *)(&p_tcp2->remote_mac_addr_hi))[0] = ucval;
+> +		ucval = p_conn->remote_mac[0];
+> +		((u8 *)(&p_tcp2->remote_mac_addr_hi))[1] = ucval;
+> +		ucval = p_conn->remote_mac[3];
+> +		((u8 *)(&p_tcp2->remote_mac_addr_mid))[0] = ucval;
+> +		ucval = p_conn->remote_mac[2];
+> +		((u8 *)(&p_tcp2->remote_mac_addr_mid))[1] = ucval;
+> +		ucval = p_conn->remote_mac[5];
+> +		((u8 *)(&p_tcp2->remote_mac_addr_lo))[0] = ucval;
+> +		ucval = p_conn->remote_mac[4];
+> +		((u8 *)(&p_tcp2->remote_mac_addr_lo))[1] = ucval;
+> +
+> +		p_tcp2->vlan_id = cpu_to_le16(p_conn->vlan_id);
+> +		p_tcp2->flags = p_conn->tcp_flags;
+> +
+> +		p_tcp2->ip_version = p_conn->ip_version;
+> +		for (i = 0; i < 4; i++) {
+> +			dval = p_conn->remote_ip[i];
+> +			p_tcp2->remote_ip[i] = cpu_to_le32(dval);
+> +			dval = p_conn->local_ip[i];
+> +			p_tcp2->local_ip[i] = cpu_to_le32(dval);
+> +		}
+> +
+> +		p_tcp2->flow_label = cpu_to_le32(p_conn->flow_label);
+> +		p_tcp2->ttl = p_conn->ttl;
+> +		p_tcp2->tos_or_tc = p_conn->tos_or_tc;
+> +		p_tcp2->remote_port = cpu_to_le16(p_conn->remote_port);
+> +		p_tcp2->local_port = cpu_to_le16(p_conn->local_port);
+> +		p_tcp2->mss = cpu_to_le16(p_conn->mss);
+> +		p_tcp2->rcv_wnd_scale = p_conn->rcv_wnd_scale;
+> +		p_tcp2->connect_mode = p_conn->connect_mode;
+> +		wval = p_conn->syn_ip_payload_length;
+> +		p_tcp2->syn_ip_payload_length = cpu_to_le16(wval);
+> +		p_tcp2->syn_phy_addr_lo = DMA_LO_LE(p_conn->syn_phy_addr);
+> +		p_tcp2->syn_phy_addr_hi = DMA_HI_LE(p_conn->syn_phy_addr);
+> +	}
+
+Is there any chance you could factor out above blocks into own functions so
+you have
+
+
+	if (!GET_FIELD(p_ramrod->iscsi.flags,
+		       ISCSI_CONN_OFFLOAD_PARAMS_TCP_ON_CHIP_1B)) {
+		qedi_do_stuff_off_chip();
+	else 
+		qedi_do_stuff_on_chip();
+
+> +
+
+[...]
+
+> +static void __iomem *qed_iscsi_get_db_addr(struct qed_hwfn *p_hwfn, u32 cid)
+> +{
+> +	return (u8 __iomem *)p_hwfn->doorbells +
+> +			     qed_db_addr(cid, DQ_DEMS_LEGACY);
+> +}
+> +
+> +static void __iomem *qed_iscsi_get_primary_bdq_prod(struct qed_hwfn *p_hwfn,
+> +						    u8 bdq_id)
+> +{
+> +	u8 bdq_function_id = ISCSI_BDQ_ID(p_hwfn->port_id);
+> +
+> +	return (u8 __iomem *)p_hwfn->regview + GTT_BAR0_MAP_REG_MSDM_RAM +
+> +			     MSTORM_SCSI_BDQ_EXT_PROD_OFFSET(bdq_function_id,
+> +							     bdq_id);
+> +}
+> +
+> +static void __iomem *qed_iscsi_get_secondary_bdq_prod(struct qed_hwfn *p_hwfn,
+> +						      u8 bdq_id)
+> +{
+> +	u8 bdq_function_id = ISCSI_BDQ_ID(p_hwfn->port_id);
+> +
+> +	return (u8 __iomem *)p_hwfn->regview + GTT_BAR0_MAP_REG_TSDM_RAM +
+> +			     TSTORM_SCSI_BDQ_EXT_PROD_OFFSET(bdq_function_id,
+> +							     bdq_id);
+> +}
+
+Why are you casting to u8* here, you're returning void*? 
+
+[...]
+
+> +
+> +	if (tasks) {
+> +		struct qed_tid_mem *tid_info = kzalloc(sizeof(*tid_info),
+> +						       GFP_KERNEL);
+> +
+> +		if (!tid_info) {
+> +			DP_NOTICE(cdev,
+> +				  "Failed to allocate tasks information\n");
+> +			qed_iscsi_stop(cdev);
+> +			return -ENOMEM;
+> +		}
+> +
+> +		rc = qed_cxt_get_tid_mem_info(QED_LEADING_HWFN(cdev),
+> +					      tid_info);
+> +		if (rc) {
+> +			DP_NOTICE(cdev, "Failed to gather task information\n");
+> +			qed_iscsi_stop(cdev);
+> +			kfree(tid_info);
+> +			return rc;
+> +		}
+> +
+> +		/* Fill task information */
+> +		tasks->size = tid_info->tid_size;
+> +		tasks->num_tids_per_block = tid_info->num_tids_per_block;
+> +		memcpy(tasks->blocks, tid_info->blocks, MAX_TID_BLOCKS);
+> +
+> +		kfree(tid_info);
+> +	}
+> +
+> +	return 0;
+> +}
+
+Maybe:
+
+struct qed_tid_mem *tid_info;
+[...]
+if (!tasks)
+	return 0;
+
+tid_info = kzalloc(sizeof(*tid_info), GFP_KERNEL);
+
+if (!tid_info) {
+	DP_NOTICE(cdev, "Failed to allocate tasks information\n");
+	qed_iscsi_stop(cdev);
+	return -ENOMEM;
+}
+
+rc = qed_cxt_get_tid_mem_info(QED_LEADING_HWFN(cdev), tid_info);
+if (rc) {
+	DP_NOTICE(cdev, "Failed to gather task information\n");
+	qed_iscsi_stop(cdev);
+	kfree(tid_info);
+	return rc;
+}
+
+/* Fill task information */
+tasks->size = tid_info->tid_size;
+tasks->num_tids_per_block = tid_info->num_tids_per_block;
+memcpy(tasks->blocks, tid_info->blocks, MAX_TID_BLOCKS);
+
+kfree(tid_info);
+
+> +
+
+[...]
+
+> +/**
+> + * @brief start iscsi in FW
+> + *
+> + * @param cdev
+> + * @param tasks - qed will fill information about tasks
+> + *
+
+Please use proper kerneldoc and not doxygen syntax.
+
+Thanks,
+	Johannes
+
+-- 
+Johannes Thumshirn                                          Storage
+jthumshirn@suse.de                                +49 911 74053 689
+SUSE LINUX GmbH, Maxfeldstr. 5, 90409 Nürnberg
+GF: Felix Imendörffer, Jane Smithard, Graham Norton
+HRB 21284 (AG Nürnberg)
+Key fingerprint = EC38 9CAB C2C4 F25D 8600 D0D0 0393 969D 2D76 0850
