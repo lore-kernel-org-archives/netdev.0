@@ -1,30 +1,56 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/ipv6: potential deadlock in do_ipv6_setsockopt
-Date: Wed, 19 Oct 2016 09:36:04 -0700
-Message-ID: <CAM_iQpWFVXEcCNfaDeiL0e9Q4J=bOo5EfD995hikPxmgQrUU_w@mail.gmail.com>
-References: <f43836e6-82b2-4673-1f5e-cd41ba0bc609@gmail.com>
- <CAM_iQpWKfkkYzF6yb9fGQsieGwok196kqGtRNVVS_ULxZghyew@mail.gmail.com>
- <ec7e340c-132f-549d-9c30-b6e903cc7666@gmail.com> <6e9dbe30-ec0f-07cb-0e16-d86eb4bc480f@gmail.com>
+From: Dave Hansen <dave.hansen@linux.intel.com>
+Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions to explicitly
+ pass FOLL_* flags
+Date: Wed, 19 Oct 2016 09:49:43 -0700
+Message-ID: <5807A427.7010200@linux.intel.com>
+References: <20161013002020.3062-1-lstoakes@gmail.com>
+ <20161018153050.GC13117@dhcp22.suse.cz> <20161019085815.GA22239@lucifer>
+ <20161019090727.GE7517@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Baozeng Ding <sploving1@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:35901 "EHLO
-        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751012AbcJSQg0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 12:36:26 -0400
-Received: by mail-it0-f52.google.com with SMTP id 139so109816446itm.1
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 09:36:25 -0700 (PDT)
-In-Reply-To: <6e9dbe30-ec0f-07cb-0e16-d86eb4bc480f@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
+        Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
+        Rik van Riel <riel@redhat.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        adi-buildroot-devel@lists.sourceforge.net,
+        ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
+        linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
+        linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+        linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
+        linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+        linux-scsi@vger.kernel.
+To: Michal Hocko <mhocko@kernel.org>,
+        Lorenzo Stoakes <lstoakes@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20161019090727.GE7517@dhcp22.suse.cz>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 19, 2016 at 12:45 AM, Baozeng Ding <sploving1@gmail.com> wrote:
-> It fixes the issue for me.
-> Tested-by: Baozeng Ding <sploving1@gmail.com>
+On 10/19/2016 02:07 AM, Michal Hocko wrote:
+> On Wed 19-10-16 09:58:15, Lorenzo Stoakes wrote:
+>> On Tue, Oct 18, 2016 at 05:30:50PM +0200, Michal Hocko wrote:
+>>> I am wondering whether we can go further. E.g. it is not really clear to
+>>> me whether we need an explicit FOLL_REMOTE when we can in fact check
+>>> mm != current->mm and imply that. Maybe there are some contexts which
+>>> wouldn't work, I haven't checked.
+>>
+>> This flag is set even when /proc/self/mem is used. I've not looked deeply into
+>> this flag but perhaps accessing your own memory this way can be considered
+>> 'remote' since you're not accessing it directly. On the other hand, perhaps this
+>> is just mistaken in this case?
+> 
+> My understanding of the flag is quite limited as well. All I know it is
+> related to protection keys and it is needed to bypass protection check.
+> See arch_vma_access_permitted. See also 1b2ee1266ea6 ("mm/core: Do not
+> enforce PKEY permissions on remote mm access").
 
-Thanks for testing, I will send out the patch formally very soon.
+Yeah, we need the flag to tell us when PKEYs should be applied or not.
+The current task's PKRU (pkey rights register) should really only be
+used to impact access to the task's memory, but has no bearing on how a
+given task should access remote memory.
 
-BTW, you can check mailing archive to see if your email succeeds or not,
-for example, http://marc.info/?l=linux-netdev
