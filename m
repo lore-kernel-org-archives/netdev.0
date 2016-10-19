@@ -1,137 +1,184 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v4 net-next 1/7] ipv6: Fix Makefile conditional to use CONFIG_INET
-Date: Wed, 19 Oct 2016 16:03:03 -0700
-Message-ID: <20161019230309.3746853-2-tom@herbertland.com>
+Subject: [PATCH v4 net-next 7/7] fou: Support flow dissection
+Date: Wed, 19 Oct 2016 16:03:09 -0700
+Message-ID: <20161019230309.3746853-8-tom@herbertland.com>
 References: <20161019230309.3746853-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58003 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754128AbcJSXD1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 19:03:27 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9JMwm6h011416
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 16:03:26 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45048 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754202AbcJSXDb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 19:03:31 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u9JN3PMO012832
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 16:03:29 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 266fgpgvgn-2
+        by m0001303.ppops.net with ESMTP id 2668cg3g3f-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 16:03:26 -0700
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 16:03:29 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)     by
- mx-out.facebook.com (10.222.219.45) with ESMTP id
- 39fcb716965011e697f024be05904660-501eaa50 for <netdev@vger.kernel.org>;        Wed,
- 19 Oct 2016 16:03:19 -0700
+ mx-out.facebook.com (10.212.236.87) with ESMTP id
+ 3d521992965011e68e6b0002c9521c9e-f4df9a50 for <netdev@vger.kernel.org>;        Wed,
+ 19 Oct 2016 16:03:25 -0700
 In-Reply-To: <20161019230309.3746853-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipv6 directory was being built based on CONFIG_NET not CONFIG_INET.
+This patch performs flow dissection for GUE and FOU. This is an
+optional feature on the receiver and is set by FOU_ATTR_DEEP_HASH
+netlink configuration. When enable the UDP socket flow_dissect
+function is set to fou_flow_dissect or gue_flow_dissect as
+appropriate. These functions return FLOW_DIS_RET_IPPROTO and
+set ip protocol argument. In the case of GUE the header is
+parsed to find the protocol number.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/usb/cdc_mbim.c  |  4 ++++
- include/net/ipv6.h          | 15 +++++++++++++++
- include/net/net_namespace.h |  2 ++
- net/Makefile                |  2 +-
- 4 files changed, 22 insertions(+), 1 deletion(-)
+ include/uapi/linux/fou.h |  1 +
+ net/ipv4/fou.c           | 68 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 68 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index 96a5028..6b38e0c 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -301,6 +301,7 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct usbnet *dev, struct sk_buff *skb
- 	return NULL;
- }
+diff --git a/include/uapi/linux/fou.h b/include/uapi/linux/fou.h
+index d2947c5..2c837eb 100644
+--- a/include/uapi/linux/fou.h
++++ b/include/uapi/linux/fou.h
+@@ -15,6 +15,7 @@ enum {
+ 	FOU_ATTR_IPPROTO,			/* u8 */
+ 	FOU_ATTR_TYPE,				/* u8 */
+ 	FOU_ATTR_REMCSUM_NOPARTIAL,		/* flag */
++	FOU_ATTR_DEEP_HASH,			/* flag */
  
-+#ifdef CONFIG_INET
- /* Some devices are known to send Neigbor Solicitation messages and
-  * require Neigbor Advertisement replies.  The IPv6 core will not
-  * respond since IFF_NOARP is set, so we must handle them ourselves.
-@@ -350,6 +351,7 @@ static void do_neigh_solicit(struct usbnet *dev, u8 *buf, u16 tci)
- out:
- 	dev_put(netdev);
- }
-+#endif
- 
- static bool is_neigh_solicit(u8 *buf, size_t len)
- {
-@@ -377,8 +379,10 @@ static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *buf, size_
- 			proto = htons(ETH_P_IP);
- 			break;
- 		case 0x60:
-+#ifdef CONFIG_INET
- 			if (is_neigh_solicit(buf, len))
- 				do_neigh_solicit(dev, buf, tci);
-+#endif
- 			proto = htons(ETH_P_IPV6);
- 			break;
- 		default:
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 8fed1cd..cbb1ce0 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -936,8 +936,15 @@ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
- void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
- 			 u8 *proto);
- 
-+#ifdef CONFIG_INET
- int ipv6_skip_exthdr(const struct sk_buff *, int start, u8 *nexthdrp,
- 		     __be16 *frag_offp);
-+#else
-+static inline int ipv6_skip_exthdr(const struct sk_buff *skb, int start,
-+				   u8 *nexthdrp, __be16 *frag_offp) {
-+	return -1;
-+}
-+#endif
- 
- bool ipv6_ext_hdr(u8 nexthdr);
- 
-@@ -948,8 +955,16 @@ enum {
+ 	__FOU_ATTR_MAX,
+ };
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index cf50f7e..95ac5a8 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -27,7 +27,8 @@ struct fou {
+ 	struct rcu_head rcu;
  };
  
- /* find specified header and get offset to it */
-+#ifdef CONFIG_INET
- int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset, int target,
- 		  unsigned short *fragoff, int *fragflg);
-+#else
-+static inline int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
-+				int target, unsigned short *fragoff,
-+				int *fragflg) {
-+	return -EPROTONOSUPPORT;
-+}
-+#endif
+-#define FOU_F_REMCSUM_NOPARTIAL BIT(0)
++#define FOU_F_REMCSUM_NOPARTIAL	BIT(0)
++#define FOU_F_DEEP_HASH		BIT(1)
  
- int ipv6_find_tlv(const struct sk_buff *skb, int offset, int type);
- 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index fc4f757..b4c4a5f 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -352,8 +352,10 @@ static inline void rt_genid_bump_ipv4(struct net *net)
- extern void (*__fib6_flush_trees)(struct net *net);
- static inline void rt_genid_bump_ipv6(struct net *net)
- {
-+#ifdef CONFIG_INET
- 	if (__fib6_flush_trees)
- 		__fib6_flush_trees(net);
-+#endif
+ struct fou_cfg {
+ 	u16 type;
+@@ -281,6 +282,16 @@ static int fou_gro_complete(struct sock *sk, struct sk_buff *skb,
+ 	return err;
  }
  
- #if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
-diff --git a/net/Makefile b/net/Makefile
-index 4cafaa2..82ffb91 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -17,7 +17,7 @@ obj-$(CONFIG_NETFILTER)		+= netfilter/
- obj-$(CONFIG_INET)		+= ipv4/
- obj-$(CONFIG_XFRM)		+= xfrm/
- obj-$(CONFIG_UNIX)		+= unix/
--obj-$(CONFIG_NET)		+= ipv6/
-+obj-$(CONFIG_INET)		+= ipv6/
- obj-$(CONFIG_PACKET)		+= packet/
- obj-$(CONFIG_NET_KEY)		+= key/
- obj-$(CONFIG_BRIDGE)		+= bridge/
++static int fou_flow_dissect(struct sock *sk, const struct sk_buff *skb,
++			    void *data, int hlen, int *nhoff, u8 *ip_proto,
++			    __be16 *proto)
++{
++	*ip_proto = fou_from_sock(sk)->protocol;
++	*nhoff += sizeof(struct udphdr);
++
++	return FLOW_DIS_RET_IPPROTO;
++}
++
+ static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
+ 				      struct guehdr *guehdr, void *data,
+ 				      size_t hdrlen, struct gro_remcsum *grc,
+@@ -498,6 +509,48 @@ static int gue_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
+ 	return err;
+ }
+ 
++static int gue_flow_dissect(struct sock *sk, const struct sk_buff *skb,
++			    void *data, int hlen, int *nhoff, u8 *ip_proto,
++			    __be16 *proto)
++{
++	struct guehdr _hdr, *hdr;
++
++	hdr = __skb_header_pointer(skb, *nhoff + sizeof(struct udphdr),
++				   sizeof(_hdr), data, hlen, &_hdr);
++	if (!hdr)
++		return FLOW_DIS_RET_BAD;
++
++	switch (hdr->version) {
++	case 0: /* Full GUE header present */
++		if (hdr->control)
++			return FLOW_DIS_RET_PASS;
++
++		*nhoff += sizeof(struct udphdr) + sizeof(_hdr) +
++			  (hdr->hlen << 2);
++		*ip_proto = hdr->proto_ctype;
++
++		return FLOW_DIS_RET_IPPROTO;
++	case 1:
++		/* Direct encasulation of IPv4 or IPv6 */
++
++		switch (((struct iphdr *)hdr)->version) {
++		case 4:
++			*nhoff += sizeof(struct udphdr);
++			*ip_proto = IPPROTO_IPIP;
++			return FLOW_DIS_RET_IPPROTO;
++		case 6:
++			*nhoff += sizeof(struct udphdr);
++			*ip_proto = IPPROTO_IPV6;
++			return FLOW_DIS_RET_IPPROTO;
++		default:
++			return FLOW_DIS_RET_PASS;
++		}
++
++	default:
++		return FLOW_DIS_RET_PASS;
++	}
++}
++
+ static int fou_add_to_port_list(struct net *net, struct fou *fou)
+ {
+ 	struct fou_net *fn = net_generic(net, fou_net_id);
+@@ -568,12 +621,16 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 		tunnel_cfg.encap_rcv = fou_udp_recv;
+ 		tunnel_cfg.gro_receive = fou_gro_receive;
+ 		tunnel_cfg.gro_complete = fou_gro_complete;
++		if (cfg->flags & FOU_F_DEEP_HASH)
++			tunnel_cfg.flow_dissect = fou_flow_dissect;
+ 		fou->protocol = cfg->protocol;
+ 		break;
+ 	case FOU_ENCAP_GUE:
+ 		tunnel_cfg.encap_rcv = gue_udp_recv;
+ 		tunnel_cfg.gro_receive = gue_gro_receive;
+ 		tunnel_cfg.gro_complete = gue_gro_complete;
++		if (cfg->flags & FOU_F_DEEP_HASH)
++			tunnel_cfg.flow_dissect = gue_flow_dissect;
+ 		break;
+ 	default:
+ 		err = -EINVAL;
+@@ -637,6 +694,7 @@ static const struct nla_policy fou_nl_policy[FOU_ATTR_MAX + 1] = {
+ 	[FOU_ATTR_IPPROTO] = { .type = NLA_U8, },
+ 	[FOU_ATTR_TYPE] = { .type = NLA_U8, },
+ 	[FOU_ATTR_REMCSUM_NOPARTIAL] = { .type = NLA_FLAG, },
++	[FOU_ATTR_DEEP_HASH] = { .type = NLA_FLAG },
+ };
+ 
+ static int parse_nl_config(struct genl_info *info,
+@@ -677,6 +735,9 @@ static int parse_nl_config(struct genl_info *info,
+ 	if (info->attrs[FOU_ATTR_REMCSUM_NOPARTIAL])
+ 		cfg->flags |= FOU_F_REMCSUM_NOPARTIAL;
+ 
++	if (info->attrs[FOU_ATTR_DEEP_HASH])
++		cfg->flags |= FOU_F_DEEP_HASH;
++
+ 	return 0;
+ }
+ 
+@@ -717,6 +778,11 @@ static int fou_fill_info(struct fou *fou, struct sk_buff *msg)
+ 	if (fou->flags & FOU_F_REMCSUM_NOPARTIAL)
+ 		if (nla_put_flag(msg, FOU_ATTR_REMCSUM_NOPARTIAL))
+ 			return -1;
++
++	if (fou->flags & FOU_F_DEEP_HASH)
++		if (nla_put_flag(msg, FOU_ATTR_DEEP_HASH))
++			return -1;
++
+ 	return 0;
+ }
+ 
 -- 
 2.9.3
