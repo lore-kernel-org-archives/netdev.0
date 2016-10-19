@@ -1,80 +1,58 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 08/10] mm: replace __access_remote_vm() write parameter
- with gup_flags
-Date: Wed, 19 Oct 2016 10:52:05 +0200
-Message-ID: <20161019085204.GD7517@dhcp22.suse.cz>
+From: Lorenzo Stoakes <lstoakes@gmail.com>
+Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions
+ to explicitly pass FOLL_* flags
+Date: Wed, 19 Oct 2016 09:58:15 +0100
+Message-ID: <20161019085815.GA22239@lucifer>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-9-lstoakes@gmail.com>
- <20161019075903.GP29967@quack2.suse.cz>
- <20161019081352.GB7562@dhcp22.suse.cz>
- <20161019084045.GA19441@lucifer>
+ <20161018153050.GC13117@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Kara <jack@suse.cz>, linux-mm@kvack.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Hugh Dickins <hughd@google.com>,
-	Dave Hansen <dave.hansen@linux.intel.com>,
-	Rik van Riel <riel@redhat.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
-	linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-sh
-To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
+ Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
+ Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org,
+ linux-mm@kvack.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org,
+ linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
+ linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>,
+ linux-media@vger.kernel.org, Rik van Riel <riel@redhat.com>,
+ intel-gfx@lists.freedesktop.org, adi-buildroot-devel@lists.sourceforge.net,
+ ceph-devel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>,
+ linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+ linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org,
+ lin
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
 Content-Disposition: inline
-In-Reply-To: <20161019084045.GA19441@lucifer>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20161018153050.GC13117@dhcp22.suse.cz>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed 19-10-16 09:40:45, Lorenzo Stoakes wrote:
-> On Wed, Oct 19, 2016 at 10:13:52AM +0200, Michal Hocko wrote:
-> > On Wed 19-10-16 09:59:03, Jan Kara wrote:
-> > > On Thu 13-10-16 01:20:18, Lorenzo Stoakes wrote:
-> > > > This patch removes the write parameter from __access_remote_vm() and replaces it
-> > > > with a gup_flags parameter as use of this function previously _implied_
-> > > > FOLL_FORCE, whereas after this patch callers explicitly pass this flag.
-> > > >
-> > > > We make this explicit as use of FOLL_FORCE can result in surprising behaviour
-> > > > (and hence bugs) within the mm subsystem.
-> > > >
-> > > > Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
-> > >
-> > > So I'm not convinced this (and the following two patches) is actually
-> > > helping much. By grepping for FOLL_FORCE we will easily see that any caller
-> > > of access_remote_vm() gets that semantics and can thus continue search
-> >
-> > I am really wondering. Is there anything inherent that would require
-> > FOLL_FORCE for access_remote_vm? I mean FOLL_FORCE is a really
-> > non-trivial thing. It doesn't obey vma permissions so we should really
-> > minimize its usage. Do all of those users really need FOLL_FORCE?
-> 
-> I wonder about this also, for example by accessing /proc/self/mem you trigger
-> access_remote_vm() and consequently get_user_pages_remote() meaning FOLL_FORCE
-> is implied and you can use /proc/self/mem to override any VMA permissions. I
-
-yes this is the desirable and expected behavior. 
-
-> wonder if this is desirable behaviour or whether this ought to be limited to
-> ptrace system calls. Regardless, by making the flag more visible it makes it
-> easier to see that this is happening.
-
-mem_open already enforces PTRACE_MODE_ATTACH
-
--- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+T24gVHVlLCBPY3QgMTgsIDIwMTYgYXQgMDU6MzA6NTBQTSArMDIwMCwgTWljaGFsIEhvY2tvIHdy
+b3RlOgo+IEkgYW0gd29uZGVyaW5nIHdoZXRoZXIgd2UgY2FuIGdvIGZ1cnRoZXIuIEUuZy4gaXQg
+aXMgbm90IHJlYWxseSBjbGVhciB0bwo+IG1lIHdoZXRoZXIgd2UgbmVlZCBhbiBleHBsaWNpdCBG
+T0xMX1JFTU9URSB3aGVuIHdlIGNhbiBpbiBmYWN0IGNoZWNrCj4gbW0gIT0gY3VycmVudC0+bW0g
+YW5kIGltcGx5IHRoYXQuIE1heWJlIHRoZXJlIGFyZSBzb21lIGNvbnRleHRzIHdoaWNoCj4gd291
+bGRuJ3Qgd29yaywgSSBoYXZlbid0IGNoZWNrZWQuCgpUaGlzIGZsYWcgaXMgc2V0IGV2ZW4gd2hl
+biAvcHJvYy9zZWxmL21lbSBpcyB1c2VkLiBJJ3ZlIG5vdCBsb29rZWQgZGVlcGx5IGludG8KdGhp
+cyBmbGFnIGJ1dCBwZXJoYXBzIGFjY2Vzc2luZyB5b3VyIG93biBtZW1vcnkgdGhpcyB3YXkgY2Fu
+IGJlIGNvbnNpZGVyZWQKJ3JlbW90ZScgc2luY2UgeW91J3JlIG5vdCBhY2Nlc3NpbmcgaXQgZGly
+ZWN0bHkuIE9uIHRoZSBvdGhlciBoYW5kLCBwZXJoYXBzIHRoaXMKaXMganVzdCBtaXN0YWtlbiBp
+biB0aGlzIGNhc2U/Cgo+IEkgZ3Vlc3MgdGhlcmUgaXMgbW9yZSB3b3JrIGluIHRoYXQgYXJlYSBh
+bmQgSSBkbyBub3Qgd2FudCB0byBpbXBvc2UgYWxsCj4gdGhhdCB3b3JrIG9uIHlvdSwgYnV0IEkg
+Y291bGRuJ3QgcmVzaXN0IG9uY2UgSSBzYXcgeW91IHBsYXlpbmcgaW4gdGhhdAo+IGFyZWEgOykg
+RGVmaW5pdGVseSBhIGdvb2Qgc3RhcnQhCgpUaGFua3MsIEkgYW0gbW9yZSB0aGFuIGhhcHB5IHRv
+IGdvIGFzIGZhciBkb3duIHRoaXMgcmFiYml0IGhvbGUgYXMgaXMgaGVscGZ1bCwKbm8gaW1wb3Np
+dGlvbiBhdCBhbGwgOikKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KSW50ZWwtZ2Z4IG1haWxpbmcgbGlzdApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Au
+b3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwt
+Z2Z4Cg==
