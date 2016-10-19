@@ -1,102 +1,50 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [patch net-next RFC 4/6] Introduce sample tc action
-Date: Wed, 19 Oct 2016 08:28:14 +0000
-Message-ID: <AM3PR05MB0759EB89C599428761FA226AACD20@AM3PR05MB0759.eurprd05.prod.outlook.com>
-References: <1476276069-5315-1-git-send-email-jiri@resnulli.us>
- <1476276069-5315-5-git-send-email-jiri@resnulli.us>
- <58025A90.9010608@cumulusnetworks.com>
- <81e49d64-e0bc-2f43-7a9c-daefb12a4b8a@mojatatu.com>
- <58056A08.5070809@cumulusnetworks.com>
- <DB3PR05MB0764DA26C8250B6C8DFD537CACD30@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <580721BF.4010303@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        "geert+renesas@glider.be" <geert+renesas@glider.be>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "linux@roeck-us.net" <linux@roeck-us.net>,
-        Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-        "Yotam Gigi" <yotam.gi@gmail.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net] ila: Fix tailroom allocation of lwtstate
+Date: Wed, 19 Oct 2016 23:16:39 +0200
+Message-ID: <d7e2292a2be9d142a05b7c528746820bac358065.1476911506.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0081.outbound.protection.outlook.com ([104.47.2.81]:15709
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1756454AbcJSUoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Oct 2016 16:44:25 -0400
-In-Reply-To: <580721BF.4010303@cumulusnetworks.com>
-Content-Language: en-US
+Received: from merlin.infradead.org ([205.233.59.134]:37020 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753594AbcJSVQp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 17:16:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Tailroom is supposed to be of length sizeof(struct ila_lwt) but
+sizeof(struct ila_params) is currently allocated.
 
+This leads to the dst_cache and connected member of ila_lwt being
+referenced out of bounds.
 
->-----Original Message-----
->From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
->Sent: Wednesday, October 19, 2016 10:33 AM
->To: Yotam Gigi <yotamg@mellanox.com>
->Cc: Jamal Hadi Salim <jhs@mojatatu.com>; Jiri Pirko <jiri@resnulli.us>;
->netdev@vger.kernel.org; davem@davemloft.net; Ido Schimmel
-><idosch@mellanox.com>; Elad Raz <eladr@mellanox.com>; Nogah Frankel
-><nogahf@mellanox.com>; Or Gerlitz <ogerlitz@mellanox.com>;
->geert+renesas@glider.be; stephen@networkplumber.org;
->xiyou.wangcong@gmail.com; linux@roeck-us.net; Shrijeet Mukherjee
-><shm@cumulusnetworks.com>; Yotam Gigi <yotam.gi@gmail.com>
->Subject: Re: [patch net-next RFC 4/6] Introduce sample tc action
->
->On 10/18/16, 3:58 AM, Yotam Gigi wrote:
->
->> On 16-10-15 12:34 PM, Roopa Prabhu wrote:
->[snip]
->
->>> The OVS implementation is a good example, the metadata includes all the
->>> actions applied
->>>>> to the packet in the kernel data path.
->>>>>
->>>> Again not sure what the use case would be (and why waste such space
->>>> especially when you are sending over the wire with such details).
->>> All this is being used currently.., But, this can be other api's sflow =
-uses
->>> for monitoring.
->>> http://openvswitch.org/support/ovscon2014/17/1400-ovs-sflow.pdf
->>>
->>> Does not have to be part of the main/basic sampling api...
->>> it was just an example.
->>>
->> I guess that making the API extensible solves this, isn't it?
->
->yes, that might help...
->
->Just wanted to bring up the question/clarification on using mark again
->
->tc qdisc add dev eth1 handle ffff: ingress
->
->tc filter add dev eth1 parent ffff: \
->           matchall action sample rate 12 mark 17
->
->tc filter add parent ffff: dev eth1 protocol all \
->           u32 match mark 172 0xff
->           action mirred egress redirect dev dummy0
->
->Like we discussed @ netdev, mark can be used by other things in the system=
-.
->A request to sample on an interface cannot be disruptive.
->Does this require mark to be not used elsewhere in the system when samplin=
-g is
->enabled on an interface ?
+struct ila_lwt {
+	struct ila_params p;
+	struct dst_cache dst_cache;
+	u32 connected : 1;
+};
 
-I think the we can spare the usage of mark, or at least make it optional, a=
-s the user
-can match on the packets according to the eth_type (as part of the IFE, the=
- user=20
-can set the sampled packet eth_type).
+Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ -stable candidate
 
-I will do that, and update the documentation as well.
+ net/ipv6/ila/ila_lwt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
+index 9fafba6..c7a39d0 100644
+--- a/net/ipv6/ila/ila_lwt.c
++++ b/net/ipv6/ila/ila_lwt.c
+@@ -122,7 +122,7 @@ static int ila_build_state(struct net_device *dev, struct nlattr *nla,
+ 	struct ila_lwt *ilwt;
+ 	struct ila_params *p;
+ 	struct nlattr *tb[ILA_ATTR_MAX + 1];
+-	size_t encap_len = sizeof(*p);
++	size_t encap_len = sizeof(*ilwt);
+ 	struct lwtunnel_state *newts;
+ 	const struct fib6_config *cfg6 = cfg;
+ 	struct ila_addr *iaddr;
+-- 
+2.7.4
