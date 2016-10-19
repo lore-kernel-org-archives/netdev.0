@@ -1,220 +1,173 @@
 From: Jan Kara <jack@suse.cz>
-Subject: Re: [PATCH 07/10] mm: replace get_user_pages_remote()
- write/force parameters with gup_flags
-Date: Wed, 19 Oct 2016 09:47:07 +0200
-Message-ID: <20161019074707.GO29967@quack2.suse.cz>
+Subject: Re: [PATCH 08/10] mm: replace __access_remote_vm() write parameter
+ with gup_flags
+Date: Wed, 19 Oct 2016 09:59:03 +0200
+Message-ID: <20161019075903.GP29967@quack2.suse.cz>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-8-lstoakes@gmail.com>
+ <20161013002020.3062-9-lstoakes@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
- Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
- Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org,
- linux-mm@kvack.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org,
- linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
- linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>,
- linux-media@vger.kernel.org, Rik van Riel <riel@redhat.com>,
- intel-gfx@lists.freedesktop.org, adi-buildroot-devel@lists.sourceforge.net,
- ceph-devel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>,
- linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
- linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org,
- lin
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
+	Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
+	Dave Hansen <dave.hansen@linux.intel.com>,
+	Rik van Riel <riel@redhat.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
+	linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
+	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-sh@
 To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20161013002020.3062-8-lstoakes@gmail.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+In-Reply-To: <20161013002020.3062-9-lstoakes@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1IDEzLTEwLTE2IDAxOjIwOjE3LCBMb3JlbnpvIFN0b2FrZXMgd3JvdGU6Cj4gVGhpcyBw
-YXRjaCByZW1vdmVzIHRoZSB3cml0ZSBhbmQgZm9yY2UgcGFyYW1ldGVycyBmcm9tIGdldF91c2Vy
-X3BhZ2VzX3JlbW90ZSgpCj4gYW5kIHJlcGxhY2VzIHRoZW0gd2l0aCBhIGd1cF9mbGFncyBwYXJh
-bWV0ZXIgdG8gbWFrZSB0aGUgdXNlIG9mIEZPTExfRk9SQ0UKPiBleHBsaWNpdCBpbiBjYWxsZXJz
-IGFzIHVzZSBvZiB0aGlzIGZsYWcgY2FuIHJlc3VsdCBpbiBzdXJwcmlzaW5nIGJlaGF2aW91ciAo
-YW5kCj4gaGVuY2UgYnVncykgd2l0aGluIHRoZSBtbSBzdWJzeXN0ZW0uCj4gCj4gU2lnbmVkLW9m
-Zi1ieTogTG9yZW56byBTdG9ha2VzIDxsc3RvYWtlc0BnbWFpbC5jb20+CgpMb29rcyBnb29kLiBZ
-b3UgY2FuIGFkZDoKClJldmlld2VkLWJ5OiBKYW4gS2FyYSA8amFja0BzdXNlLmN6PgoKCQkJCQkJ
-CQlIb256YQoKPiAtLS0KPiAgZHJpdmVycy9ncHUvZHJtL2V0bmF2aXYvZXRuYXZpdl9nZW0uYyAg
-IHwgIDcgKysrKystLQo+ICBkcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbV91c2VycHRyLmMg
-fCAgNiArKysrKy0KPiAgZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvdW1lbV9vZHAuYyAgICAgIHwg
-IDcgKysrKystLQo+ICBmcy9leGVjLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAg
-OSArKysrKysrLS0KPiAgaW5jbHVkZS9saW51eC9tbS5oICAgICAgICAgICAgICAgICAgICAgIHwg
-IDIgKy0KPiAga2VybmVsL2V2ZW50cy91cHJvYmVzLmMgICAgICAgICAgICAgICAgIHwgIDYgKysr
-Ky0tCj4gIG1tL2d1cC5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8IDIyICsrKysr
-KystLS0tLS0tLS0tLS0tLS0KPiAgbW0vbWVtb3J5LmMgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHwgIDYgKysrKystCj4gIHNlY3VyaXR5L3RvbW95by9kb21haW4uYyAgICAgICAgICAgICAg
-ICB8ICAyICstCj4gIDkgZmlsZXMgY2hhbmdlZCwgNDAgaW5zZXJ0aW9ucygrKSwgMjcgZGVsZXRp
-b25zKC0pCj4gCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9ldG5hdml2L2V0bmF2aXZf
-Z2VtLmMgYi9kcml2ZXJzL2dwdS9kcm0vZXRuYXZpdi9ldG5hdml2X2dlbS5jCj4gaW5kZXggNWNl
-MzYwMy4uMDM3MGI4NCAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL2dwdS9kcm0vZXRuYXZpdi9ldG5h
-dml2X2dlbS5jCj4gKysrIGIvZHJpdmVycy9ncHUvZHJtL2V0bmF2aXYvZXRuYXZpdl9nZW0uYwo+
-IEBAIC03NDgsMTkgKzc0OCwyMiBAQCBzdGF0aWMgc3RydWN0IHBhZ2UgKipldG5hdml2X2dlbV91
-c2VycHRyX2RvX2dldF9wYWdlcygKPiAgCWludCByZXQgPSAwLCBwaW5uZWQsIG5wYWdlcyA9IGV0
-bmF2aXZfb2JqLT5iYXNlLnNpemUgPj4gUEFHRV9TSElGVDsKPiAgCXN0cnVjdCBwYWdlICoqcHZl
-YzsKPiAgCXVpbnRwdHJfdCBwdHI7Cj4gKwl1bnNpZ25lZCBpbnQgZmxhZ3MgPSAwOwo+ICAKPiAg
-CXB2ZWMgPSBkcm1fbWFsbG9jX2FiKG5wYWdlcywgc2l6ZW9mKHN0cnVjdCBwYWdlICopKTsKPiAg
-CWlmICghcHZlYykKPiAgCQlyZXR1cm4gRVJSX1BUUigtRU5PTUVNKTsKPiAgCj4gKwlpZiAoIWV0
-bmF2aXZfb2JqLT51c2VycHRyLnJvKQo+ICsJCWZsYWdzIHw9IEZPTExfV1JJVEU7Cj4gKwo+ICAJ
-cGlubmVkID0gMDsKPiAgCXB0ciA9IGV0bmF2aXZfb2JqLT51c2VycHRyLnB0cjsKPiAgCj4gIAlk
-b3duX3JlYWQoJm1tLT5tbWFwX3NlbSk7Cj4gIAl3aGlsZSAocGlubmVkIDwgbnBhZ2VzKSB7Cj4g
-IAkJcmV0ID0gZ2V0X3VzZXJfcGFnZXNfcmVtb3RlKHRhc2ssIG1tLCBwdHIsIG5wYWdlcyAtIHBp
-bm5lZCwKPiAtCQkJCQkgICAgIWV0bmF2aXZfb2JqLT51c2VycHRyLnJvLCAwLAo+IC0JCQkJCSAg
-ICBwdmVjICsgcGlubmVkLCBOVUxMKTsKPiArCQkJCQkgICAgZmxhZ3MsIHB2ZWMgKyBwaW5uZWQs
-IE5VTEwpOwo+ICAJCWlmIChyZXQgPCAwKQo+ICAJCQlicmVhazsKPiAgCj4gZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtX3VzZXJwdHIuYyBiL2RyaXZlcnMvZ3B1L2Ry
-bS9pOTE1L2k5MTVfZ2VtX3VzZXJwdHIuYwo+IGluZGV4IGU1Mzc5MzAuLmM2Zjc4MGYgMTAwNjQ0
-Cj4gLS0tIGEvZHJpdmVycy9ncHUvZHJtL2k5MTUvaTkxNV9nZW1fdXNlcnB0ci5jCj4gKysrIGIv
-ZHJpdmVycy9ncHUvZHJtL2k5MTUvaTkxNV9nZW1fdXNlcnB0ci5jCj4gQEAgLTUwOCw2ICs1MDgs
-MTAgQEAgX19pOTE1X2dlbV91c2VycHRyX2dldF9wYWdlc193b3JrZXIoc3RydWN0IHdvcmtfc3Ry
-dWN0ICpfd29yaykKPiAgCXB2ZWMgPSBkcm1fbWFsbG9jX2dmcChucGFnZXMsIHNpemVvZihzdHJ1
-Y3QgcGFnZSAqKSwgR0ZQX1RFTVBPUkFSWSk7Cj4gIAlpZiAocHZlYyAhPSBOVUxMKSB7Cj4gIAkJ
-c3RydWN0IG1tX3N0cnVjdCAqbW0gPSBvYmotPnVzZXJwdHIubW0tPm1tOwo+ICsJCXVuc2lnbmVk
-IGludCBmbGFncyA9IDA7Cj4gKwo+ICsJCWlmICghb2JqLT51c2VycHRyLnJlYWRfb25seSkKPiAr
-CQkJZmxhZ3MgfD0gRk9MTF9XUklURTsKPiAgCj4gIAkJcmV0ID0gLUVGQVVMVDsKPiAgCQlpZiAo
-YXRvbWljX2luY19ub3RfemVybygmbW0tPm1tX3VzZXJzKSkgewo+IEBAIC01MTcsNyArNTIxLDcg
-QEAgX19pOTE1X2dlbV91c2VycHRyX2dldF9wYWdlc193b3JrZXIoc3RydWN0IHdvcmtfc3RydWN0
-ICpfd29yaykKPiAgCQkJCQkod29yay0+dGFzaywgbW0sCj4gIAkJCQkJIG9iai0+dXNlcnB0ci5w
-dHIgKyBwaW5uZWQgKiBQQUdFX1NJWkUsCj4gIAkJCQkJIG5wYWdlcyAtIHBpbm5lZCwKPiAtCQkJ
-CQkgIW9iai0+dXNlcnB0ci5yZWFkX29ubHksIDAsCj4gKwkJCQkJIGZsYWdzLAo+ICAJCQkJCSBw
-dmVjICsgcGlubmVkLCBOVUxMKTsKPiAgCQkJCWlmIChyZXQgPCAwKQo+ICAJCQkJCWJyZWFrOwo+
-IGRpZmYgLS1naXQgYS9kcml2ZXJzL2luZmluaWJhbmQvY29yZS91bWVtX29kcC5jIGIvZHJpdmVy
-cy9pbmZpbmliYW5kL2NvcmUvdW1lbV9vZHAuYwo+IGluZGV4IDc1MDc3YTAuLjFmMGZlMzIgMTAw
-NjQ0Cj4gLS0tIGEvZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvdW1lbV9vZHAuYwo+ICsrKyBiL2Ry
-aXZlcnMvaW5maW5pYmFuZC9jb3JlL3VtZW1fb2RwLmMKPiBAQCAtNTI3LDYgKzUyNyw3IEBAIGlu
-dCBpYl91bWVtX29kcF9tYXBfZG1hX3BhZ2VzKHN0cnVjdCBpYl91bWVtICp1bWVtLCB1NjQgdXNl
-cl92aXJ0LCB1NjQgYmNudCwKPiAgCXU2NCBvZmY7Cj4gIAlpbnQgaiwgaywgcmV0ID0gMCwgc3Rh
-cnRfaWR4LCBucGFnZXMgPSAwOwo+ICAJdTY0IGJhc2VfdmlydF9hZGRyOwo+ICsJdW5zaWduZWQg
-aW50IGZsYWdzID0gMDsKPiAgCj4gIAlpZiAoYWNjZXNzX21hc2sgPT0gMCkKPiAgCQlyZXR1cm4g
-LUVJTlZBTDsKPiBAQCAtNTU2LDYgKzU1Nyw5IEBAIGludCBpYl91bWVtX29kcF9tYXBfZG1hX3Bh
-Z2VzKHN0cnVjdCBpYl91bWVtICp1bWVtLCB1NjQgdXNlcl92aXJ0LCB1NjQgYmNudCwKPiAgCQln
-b3RvIG91dF9wdXRfdGFzazsKPiAgCX0KPiAgCj4gKwlpZiAoYWNjZXNzX21hc2sgJiBPRFBfV1JJ
-VEVfQUxMT1dFRF9CSVQpCj4gKwkJZmxhZ3MgfD0gRk9MTF9XUklURTsKPiArCj4gIAlzdGFydF9p
-ZHggPSAodXNlcl92aXJ0IC0gaWJfdW1lbV9zdGFydCh1bWVtKSkgPj4gUEFHRV9TSElGVDsKPiAg
-CWsgPSBzdGFydF9pZHg7Cj4gIAo+IEBAIC01NzQsOCArNTc4LDcgQEAgaW50IGliX3VtZW1fb2Rw
-X21hcF9kbWFfcGFnZXMoc3RydWN0IGliX3VtZW0gKnVtZW0sIHU2NCB1c2VyX3ZpcnQsIHU2NCBi
-Y250LAo+ICAJCSAqLwo+ICAJCW5wYWdlcyA9IGdldF91c2VyX3BhZ2VzX3JlbW90ZShvd25pbmdf
-cHJvY2Vzcywgb3duaW5nX21tLAo+ICAJCQkJdXNlcl92aXJ0LCBndXBfbnVtX3BhZ2VzLAo+IC0J
-CQkJYWNjZXNzX21hc2sgJiBPRFBfV1JJVEVfQUxMT1dFRF9CSVQsCj4gLQkJCQkwLCBsb2NhbF9w
-YWdlX2xpc3QsIE5VTEwpOwo+ICsJCQkJZmxhZ3MsIGxvY2FsX3BhZ2VfbGlzdCwgTlVMTCk7Cj4g
-IAkJdXBfcmVhZCgmb3duaW5nX21tLT5tbWFwX3NlbSk7Cj4gIAo+ICAJCWlmIChucGFnZXMgPCAw
-KQo+IGRpZmYgLS1naXQgYS9mcy9leGVjLmMgYi9mcy9leGVjLmMKPiBpbmRleCA2ZmNmYjNmLi40
-ZTQ5N2I5IDEwMDY0NAo+IC0tLSBhL2ZzL2V4ZWMuYwo+ICsrKyBiL2ZzL2V4ZWMuYwo+IEBAIC0x
-OTEsNiArMTkxLDcgQEAgc3RhdGljIHN0cnVjdCBwYWdlICpnZXRfYXJnX3BhZ2Uoc3RydWN0IGxp
-bnV4X2JpbnBybSAqYnBybSwgdW5zaWduZWQgbG9uZyBwb3MsCj4gIHsKPiAgCXN0cnVjdCBwYWdl
-ICpwYWdlOwo+ICAJaW50IHJldDsKPiArCXVuc2lnbmVkIGludCBndXBfZmxhZ3MgPSBGT0xMX0ZP
-UkNFOwo+ICAKPiAgI2lmZGVmIENPTkZJR19TVEFDS19HUk9XU1VQCj4gIAlpZiAod3JpdGUpIHsK
-PiBAQCAtMTk5LDEyICsyMDAsMTYgQEAgc3RhdGljIHN0cnVjdCBwYWdlICpnZXRfYXJnX3BhZ2Uo
-c3RydWN0IGxpbnV4X2JpbnBybSAqYnBybSwgdW5zaWduZWQgbG9uZyBwb3MsCj4gIAkJCXJldHVy
-biBOVUxMOwo+ICAJfQo+ICAjZW5kaWYKPiArCj4gKwlpZiAod3JpdGUpCj4gKwkJZ3VwX2ZsYWdz
-IHw9IEZPTExfV1JJVEU7Cj4gKwo+ICAJLyoKPiAgCSAqIFdlIGFyZSBkb2luZyBhbiBleGVjKCku
-ICAnY3VycmVudCcgaXMgdGhlIHByb2Nlc3MKPiAgCSAqIGRvaW5nIHRoZSBleGVjIGFuZCBicHJt
-LT5tbSBpcyB0aGUgbmV3IHByb2Nlc3MncyBtbS4KPiAgCSAqLwo+IC0JcmV0ID0gZ2V0X3VzZXJf
-cGFnZXNfcmVtb3RlKGN1cnJlbnQsIGJwcm0tPm1tLCBwb3MsIDEsIHdyaXRlLAo+IC0JCQkxLCAm
-cGFnZSwgTlVMTCk7Cj4gKwlyZXQgPSBnZXRfdXNlcl9wYWdlc19yZW1vdGUoY3VycmVudCwgYnBy
-bS0+bW0sIHBvcywgMSwgZ3VwX2ZsYWdzLAo+ICsJCQkmcGFnZSwgTlVMTCk7Cj4gIAlpZiAocmV0
-IDw9IDApCj4gIAkJcmV0dXJuIE5VTEw7Cj4gIAo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4
-L21tLmggYi9pbmNsdWRlL2xpbnV4L21tLmgKPiBpbmRleCA2ODZhNDc3Li4yYTQ4MWQzIDEwMDY0
-NAo+IC0tLSBhL2luY2x1ZGUvbGludXgvbW0uaAo+ICsrKyBiL2luY2x1ZGUvbGludXgvbW0uaAo+
-IEBAIC0xMjc2LDcgKzEyNzYsNyBAQCBsb25nIF9fZ2V0X3VzZXJfcGFnZXMoc3RydWN0IHRhc2tf
-c3RydWN0ICp0c2ssIHN0cnVjdCBtbV9zdHJ1Y3QgKm1tLAo+ICAJCSAgICAgIHN0cnVjdCB2bV9h
-cmVhX3N0cnVjdCAqKnZtYXMsIGludCAqbm9uYmxvY2tpbmcpOwo+ICBsb25nIGdldF91c2VyX3Bh
-Z2VzX3JlbW90ZShzdHJ1Y3QgdGFza19zdHJ1Y3QgKnRzaywgc3RydWN0IG1tX3N0cnVjdCAqbW0s
-Cj4gIAkJCSAgICB1bnNpZ25lZCBsb25nIHN0YXJ0LCB1bnNpZ25lZCBsb25nIG5yX3BhZ2VzLAo+
-IC0JCQkgICAgaW50IHdyaXRlLCBpbnQgZm9yY2UsIHN0cnVjdCBwYWdlICoqcGFnZXMsCj4gKwkJ
-CSAgICB1bnNpZ25lZCBpbnQgZ3VwX2ZsYWdzLCBzdHJ1Y3QgcGFnZSAqKnBhZ2VzLAo+ICAJCQkg
-ICAgc3RydWN0IHZtX2FyZWFfc3RydWN0ICoqdm1hcyk7Cj4gIGxvbmcgZ2V0X3VzZXJfcGFnZXMo
-dW5zaWduZWQgbG9uZyBzdGFydCwgdW5zaWduZWQgbG9uZyBucl9wYWdlcywKPiAgCQkJICAgIHVu
-c2lnbmVkIGludCBndXBfZmxhZ3MsIHN0cnVjdCBwYWdlICoqcGFnZXMsCj4gZGlmZiAtLWdpdCBh
-L2tlcm5lbC9ldmVudHMvdXByb2Jlcy5jIGIva2VybmVsL2V2ZW50cy91cHJvYmVzLmMKPiBpbmRl
-eCBkNDEyOWJiLi5mOWVjOWFkIDEwMDY0NAo+IC0tLSBhL2tlcm5lbC9ldmVudHMvdXByb2Jlcy5j
-Cj4gKysrIGIva2VybmVsL2V2ZW50cy91cHJvYmVzLmMKPiBAQCAtMzAwLDcgKzMwMCw4IEBAIGlu
-dCB1cHJvYmVfd3JpdGVfb3Bjb2RlKHN0cnVjdCBtbV9zdHJ1Y3QgKm1tLCB1bnNpZ25lZCBsb25n
-IHZhZGRyLAo+ICAKPiAgcmV0cnk6Cj4gIAkvKiBSZWFkIHRoZSBwYWdlIHdpdGggdmFkZHIgaW50
-byBtZW1vcnkgKi8KPiAtCXJldCA9IGdldF91c2VyX3BhZ2VzX3JlbW90ZShOVUxMLCBtbSwgdmFk
-ZHIsIDEsIDAsIDEsICZvbGRfcGFnZSwgJnZtYSk7Cj4gKwlyZXQgPSBnZXRfdXNlcl9wYWdlc19y
-ZW1vdGUoTlVMTCwgbW0sIHZhZGRyLCAxLCBGT0xMX0ZPUkNFLCAmb2xkX3BhZ2UsCj4gKwkJCSZ2
-bWEpOwo+ICAJaWYgKHJldCA8PSAwKQo+ICAJCXJldHVybiByZXQ7Cj4gIAo+IEBAIC0xNzEwLDcg
-KzE3MTEsOCBAQCBzdGF0aWMgaW50IGlzX3RyYXBfYXRfYWRkcihzdHJ1Y3QgbW1fc3RydWN0ICpt
-bSwgdW5zaWduZWQgbG9uZyB2YWRkcikKPiAgCSAqIGJ1dCB3ZSB0cmVhdCB0aGlzIGFzIGEgJ3Jl
-bW90ZScgYWNjZXNzIHNpbmNlIGl0IGlzCj4gIAkgKiBlc3NlbnRpYWxseSBhIGtlcm5lbCBhY2Nl
-c3MgdG8gdGhlIG1lbW9yeS4KPiAgCSAqLwo+IC0JcmVzdWx0ID0gZ2V0X3VzZXJfcGFnZXNfcmVt
-b3RlKE5VTEwsIG1tLCB2YWRkciwgMSwgMCwgMSwgJnBhZ2UsIE5VTEwpOwo+ICsJcmVzdWx0ID0g
-Z2V0X3VzZXJfcGFnZXNfcmVtb3RlKE5VTEwsIG1tLCB2YWRkciwgMSwgRk9MTF9GT1JDRSwgJnBh
-Z2UsCj4gKwkJCU5VTEwpOwo+ICAJaWYgKHJlc3VsdCA8IDApCj4gIAkJcmV0dXJuIHJlc3VsdDsK
-PiAgCj4gZGlmZiAtLWdpdCBhL21tL2d1cC5jIGIvbW0vZ3VwLmMKPiBpbmRleCBkYzkxMzAzLi4w
-ZGVlY2YzIDEwMDY0NAo+IC0tLSBhL21tL2d1cC5jCj4gKysrIGIvbW0vZ3VwLmMKPiBAQCAtOTA1
-LDkgKzkwNSw3IEBAIEVYUE9SVF9TWU1CT0woZ2V0X3VzZXJfcGFnZXNfdW5sb2NrZWQpOwo+ICAg
-KiBAbW06CQltbV9zdHJ1Y3Qgb2YgdGFyZ2V0IG1tCj4gICAqIEBzdGFydDoJc3RhcnRpbmcgdXNl
-ciBhZGRyZXNzCj4gICAqIEBucl9wYWdlczoJbnVtYmVyIG9mIHBhZ2VzIGZyb20gc3RhcnQgdG8g
-cGluCj4gLSAqIEB3cml0ZToJd2hldGhlciBwYWdlcyB3aWxsIGJlIHdyaXR0ZW4gdG8gYnkgdGhl
-IGNhbGxlcgo+IC0gKiBAZm9yY2U6CXdoZXRoZXIgdG8gZm9yY2UgYWNjZXNzIGV2ZW4gd2hlbiB1
-c2VyIG1hcHBpbmcgaXMgY3VycmVudGx5Cj4gLSAqCQlwcm90ZWN0ZWQgKGJ1dCBuZXZlciBmb3Jj
-ZXMgd3JpdGUgYWNjZXNzIHRvIHNoYXJlZCBtYXBwaW5nKS4KPiArICogQGd1cF9mbGFnczoJZmxh
-Z3MgbW9kaWZ5aW5nIGxvb2t1cCBiZWhhdmlvdXIKPiAgICogQHBhZ2VzOglhcnJheSB0aGF0IHJl
-Y2VpdmVzIHBvaW50ZXJzIHRvIHRoZSBwYWdlcyBwaW5uZWQuCj4gICAqCQlTaG91bGQgYmUgYXQg
-bGVhc3QgbnJfcGFnZXMgbG9uZy4gT3IgTlVMTCwgaWYgY2FsbGVyCj4gICAqCQlvbmx5IGludGVu
-ZHMgdG8gZW5zdXJlIHRoZSBwYWdlcyBhcmUgZmF1bHRlZCBpbi4KPiBAQCAtOTM2LDkgKzkzNCw5
-IEBAIEVYUE9SVF9TWU1CT0woZ2V0X3VzZXJfcGFnZXNfdW5sb2NrZWQpOwo+ICAgKiBvciBzaW1p
-bGFyIG9wZXJhdGlvbiBjYW5ub3QgZ3VhcmFudGVlIGFueXRoaW5nIHN0cm9uZ2VyIGFueXdheSBi
-ZWNhdXNlCj4gICAqIGxvY2tzIGNhbid0IGJlIGhlbGQgb3ZlciB0aGUgc3lzY2FsbCBib3VuZGFy
-eS4KPiAgICoKPiAtICogSWYgd3JpdGU9MCwgdGhlIHBhZ2UgbXVzdCBub3QgYmUgd3JpdHRlbiB0
-by4gSWYgdGhlIHBhZ2UgaXMgd3JpdHRlbiB0bywKPiAtICogc2V0X3BhZ2VfZGlydHkgKG9yIHNl
-dF9wYWdlX2RpcnR5X2xvY2ssIGFzIGFwcHJvcHJpYXRlKSBtdXN0IGJlIGNhbGxlZAo+IC0gKiBh
-ZnRlciB0aGUgcGFnZSBpcyBmaW5pc2hlZCB3aXRoLCBhbmQgYmVmb3JlIHB1dF9wYWdlIGlzIGNh
-bGxlZC4KPiArICogSWYgZ3VwX2ZsYWdzICYgRk9MTF9XUklURSA9PSAwLCB0aGUgcGFnZSBtdXN0
-IG5vdCBiZSB3cml0dGVuIHRvLiBJZiB0aGUgcGFnZQo+ICsgKiBpcyB3cml0dGVuIHRvLCBzZXRf
-cGFnZV9kaXJ0eSAob3Igc2V0X3BhZ2VfZGlydHlfbG9jaywgYXMgYXBwcm9wcmlhdGUpIG11c3QK
-PiArICogYmUgY2FsbGVkIGFmdGVyIHRoZSBwYWdlIGlzIGZpbmlzaGVkIHdpdGgsIGFuZCBiZWZv
-cmUgcHV0X3BhZ2UgaXMgY2FsbGVkLgo+ICAgKgo+ICAgKiBnZXRfdXNlcl9wYWdlcyBpcyB0eXBp
-Y2FsbHkgdXNlZCBmb3IgZmV3ZXItY29weSBJTyBvcGVyYXRpb25zLCB0byBnZXQgYQo+ICAgKiBo
-YW5kbGUgb24gdGhlIG1lbW9yeSBieSBzb21lIG1lYW5zIG90aGVyIHRoYW4gYWNjZXNzZXMgdmlh
-IHRoZSB1c2VyIHZpcnR1YWwKPiBAQCAtOTU1LDE4ICs5NTMsMTIgQEAgRVhQT1JUX1NZTUJPTChn
-ZXRfdXNlcl9wYWdlc191bmxvY2tlZCk7Cj4gICAqLwo+ICBsb25nIGdldF91c2VyX3BhZ2VzX3Jl
-bW90ZShzdHJ1Y3QgdGFza19zdHJ1Y3QgKnRzaywgc3RydWN0IG1tX3N0cnVjdCAqbW0sCj4gIAkJ
-dW5zaWduZWQgbG9uZyBzdGFydCwgdW5zaWduZWQgbG9uZyBucl9wYWdlcywKPiAtCQlpbnQgd3Jp
-dGUsIGludCBmb3JjZSwgc3RydWN0IHBhZ2UgKipwYWdlcywKPiArCQl1bnNpZ25lZCBpbnQgZ3Vw
-X2ZsYWdzLCBzdHJ1Y3QgcGFnZSAqKnBhZ2VzLAo+ICAJCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAq
-KnZtYXMpCj4gIHsKPiAtCXVuc2lnbmVkIGludCBmbGFncyA9IEZPTExfVE9VQ0ggfCBGT0xMX1JF
-TU9URTsKPiAtCj4gLQlpZiAod3JpdGUpCj4gLQkJZmxhZ3MgfD0gRk9MTF9XUklURTsKPiAtCWlm
-IChmb3JjZSkKPiAtCQlmbGFncyB8PSBGT0xMX0ZPUkNFOwo+IC0KPiAgCXJldHVybiBfX2dldF91
-c2VyX3BhZ2VzX2xvY2tlZCh0c2ssIG1tLCBzdGFydCwgbnJfcGFnZXMsIHBhZ2VzLCB2bWFzLAo+
-IC0JCQkJICAgICAgIE5VTEwsIGZhbHNlLCBmbGFncyk7Cj4gKwkJCQkgICAgICAgTlVMTCwgZmFs
-c2UsCj4gKwkJCQkgICAgICAgZ3VwX2ZsYWdzIHwgRk9MTF9UT1VDSCB8IEZPTExfUkVNT1RFKTsK
-PiAgfQo+ICBFWFBPUlRfU1lNQk9MKGdldF91c2VyX3BhZ2VzX3JlbW90ZSk7Cj4gIAo+IGRpZmYg
-LS1naXQgYS9tbS9tZW1vcnkuYyBiL21tL21lbW9yeS5jCj4gaW5kZXggZmMxOTg3ZC4uMjBhOWFk
-YiAxMDA2NDQKPiAtLS0gYS9tbS9tZW1vcnkuYwo+ICsrKyBiL21tL21lbW9yeS5jCj4gQEAgLTM4
-NzMsNiArMzg3MywxMCBAQCBzdGF0aWMgaW50IF9fYWNjZXNzX3JlbW90ZV92bShzdHJ1Y3QgdGFz
-a19zdHJ1Y3QgKnRzaywgc3RydWN0IG1tX3N0cnVjdCAqbW0sCj4gIHsKPiAgCXN0cnVjdCB2bV9h
-cmVhX3N0cnVjdCAqdm1hOwo+ICAJdm9pZCAqb2xkX2J1ZiA9IGJ1ZjsKPiArCXVuc2lnbmVkIGlu
-dCBmbGFncyA9IEZPTExfRk9SQ0U7Cj4gKwo+ICsJaWYgKHdyaXRlKQo+ICsJCWZsYWdzIHw9IEZP
-TExfV1JJVEU7Cj4gIAo+ICAJZG93bl9yZWFkKCZtbS0+bW1hcF9zZW0pOwo+ICAJLyogaWdub3Jl
-IGVycm9ycywganVzdCBjaGVjayBob3cgbXVjaCB3YXMgc3VjY2Vzc2Z1bGx5IHRyYW5zZmVycmVk
-ICovCj4gQEAgLTM4ODIsNyArMzg4Niw3IEBAIHN0YXRpYyBpbnQgX19hY2Nlc3NfcmVtb3RlX3Zt
-KHN0cnVjdCB0YXNrX3N0cnVjdCAqdHNrLCBzdHJ1Y3QgbW1fc3RydWN0ICptbSwKPiAgCQlzdHJ1
-Y3QgcGFnZSAqcGFnZSA9IE5VTEw7Cj4gIAo+ICAJCXJldCA9IGdldF91c2VyX3BhZ2VzX3JlbW90
-ZSh0c2ssIG1tLCBhZGRyLCAxLAo+IC0JCQkJd3JpdGUsIDEsICZwYWdlLCAmdm1hKTsKPiArCQkJ
-CWZsYWdzLCAmcGFnZSwgJnZtYSk7Cj4gIAkJaWYgKHJldCA8PSAwKSB7Cj4gICNpZm5kZWYgQ09O
-RklHX0hBVkVfSU9SRU1BUF9QUk9UCj4gIAkJCWJyZWFrOwo+IGRpZmYgLS1naXQgYS9zZWN1cml0
-eS90b21veW8vZG9tYWluLmMgYi9zZWN1cml0eS90b21veW8vZG9tYWluLmMKPiBpbmRleCBhZGU3
-YzZjLi42ODJiNzNhIDEwMDY0NAo+IC0tLSBhL3NlY3VyaXR5L3RvbW95by9kb21haW4uYwo+ICsr
-KyBiL3NlY3VyaXR5L3RvbW95by9kb21haW4uYwo+IEBAIC04ODEsNyArODgxLDcgQEAgYm9vbCB0
-b21veW9fZHVtcF9wYWdlKHN0cnVjdCBsaW51eF9iaW5wcm0gKmJwcm0sIHVuc2lnbmVkIGxvbmcg
-cG9zLAo+ICAJICogdGhlIGV4ZWN2ZSgpLgo+ICAJICovCj4gIAlpZiAoZ2V0X3VzZXJfcGFnZXNf
-cmVtb3RlKGN1cnJlbnQsIGJwcm0tPm1tLCBwb3MsIDEsCj4gLQkJCQkwLCAxLCAmcGFnZSwgTlVM
-TCkgPD0gMCkKPiArCQkJCUZPTExfRk9SQ0UsICZwYWdlLCBOVUxMKSA8PSAwKQo+ICAJCXJldHVy
-biBmYWxzZTsKPiAgI2Vsc2UKPiAgCXBhZ2UgPSBicHJtLT5wYWdlW3BvcyAvIFBBR0VfU0laRV07
-Cj4gLS0gCj4gMi4xMC4wCj4gCi0tIApKYW4gS2FyYSA8amFja0BzdXNlLmNvbT4KU1VTRSBMYWJz
-LCBDUgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRl
-bC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6
-Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
+On Thu 13-10-16 01:20:18, Lorenzo Stoakes wrote:
+> This patch removes the write parameter from __access_remote_vm() and replaces it
+> with a gup_flags parameter as use of this function previously _implied_
+> FOLL_FORCE, whereas after this patch callers explicitly pass this flag.
+> 
+> We make this explicit as use of FOLL_FORCE can result in surprising behaviour
+> (and hence bugs) within the mm subsystem.
+> 
+> Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
+
+So I'm not convinced this (and the following two patches) is actually
+helping much. By grepping for FOLL_FORCE we will easily see that any caller
+of access_remote_vm() gets that semantics and can thus continue search
+accordingly (it is much simpler than searching for all get_user_pages()
+users and extracting from parameter lists what they actually pass as
+'force' argument). Sure it makes somewhat more visible to callers of
+access_remote_vm() that they get FOLL_FORCE semantics but OTOH it also
+opens a space for issues where a caller of access_remote_vm() actually
+wants FOLL_FORCE (and currently all of them want it) and just mistakenly
+does not set it. All in all I'd prefer to keep access_remote_vm() and
+friends as is...
+
+								Honza
+
+> ---
+>  mm/memory.c | 23 +++++++++++++++--------
+>  mm/nommu.c  |  9 ++++++---
+>  2 files changed, 21 insertions(+), 11 deletions(-)
+> 
+> diff --git a/mm/memory.c b/mm/memory.c
+> index 20a9adb..79ebed3 100644
+> --- a/mm/memory.c
+> +++ b/mm/memory.c
+> @@ -3869,14 +3869,11 @@ EXPORT_SYMBOL_GPL(generic_access_phys);
+>   * given task for page fault accounting.
+>   */
+>  static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+> -		unsigned long addr, void *buf, int len, int write)
+> +		unsigned long addr, void *buf, int len, unsigned int gup_flags)
+>  {
+>  	struct vm_area_struct *vma;
+>  	void *old_buf = buf;
+> -	unsigned int flags = FOLL_FORCE;
+> -
+> -	if (write)
+> -		flags |= FOLL_WRITE;
+> +	int write = gup_flags & FOLL_WRITE;
+>  
+>  	down_read(&mm->mmap_sem);
+>  	/* ignore errors, just check how much was successfully transferred */
+> @@ -3886,7 +3883,7 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+>  		struct page *page = NULL;
+>  
+>  		ret = get_user_pages_remote(tsk, mm, addr, 1,
+> -				flags, &page, &vma);
+> +				gup_flags, &page, &vma);
+>  		if (ret <= 0) {
+>  #ifndef CONFIG_HAVE_IOREMAP_PROT
+>  			break;
+> @@ -3945,7 +3942,12 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+>  int access_remote_vm(struct mm_struct *mm, unsigned long addr,
+>  		void *buf, int len, int write)
+>  {
+> -	return __access_remote_vm(NULL, mm, addr, buf, len, write);
+> +	unsigned int flags = FOLL_FORCE;
+> +
+> +	if (write)
+> +		flags |= FOLL_WRITE;
+> +
+> +	return __access_remote_vm(NULL, mm, addr, buf, len, flags);
+>  }
+>  
+>  /*
+> @@ -3958,12 +3960,17 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr,
+>  {
+>  	struct mm_struct *mm;
+>  	int ret;
+> +	unsigned int flags = FOLL_FORCE;
+>  
+>  	mm = get_task_mm(tsk);
+>  	if (!mm)
+>  		return 0;
+>  
+> -	ret = __access_remote_vm(tsk, mm, addr, buf, len, write);
+> +	if (write)
+> +		flags |= FOLL_WRITE;
+> +
+> +	ret = __access_remote_vm(tsk, mm, addr, buf, len, flags);
+> +
+>  	mmput(mm);
+>  
+>  	return ret;
+> diff --git a/mm/nommu.c b/mm/nommu.c
+> index 70cb844..bde7df3 100644
+> --- a/mm/nommu.c
+> +++ b/mm/nommu.c
+> @@ -1809,9 +1809,10 @@ void filemap_map_pages(struct fault_env *fe,
+>  EXPORT_SYMBOL(filemap_map_pages);
+>  
+>  static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+> -		unsigned long addr, void *buf, int len, int write)
+> +		unsigned long addr, void *buf, int len, unsigned int gup_flags)
+>  {
+>  	struct vm_area_struct *vma;
+> +	int write = gup_flags & FOLL_WRITE;
+>  
+>  	down_read(&mm->mmap_sem);
+>  
+> @@ -1853,7 +1854,8 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+>  int access_remote_vm(struct mm_struct *mm, unsigned long addr,
+>  		void *buf, int len, int write)
+>  {
+> -	return __access_remote_vm(NULL, mm, addr, buf, len, write);
+> +	return __access_remote_vm(NULL, mm, addr, buf, len,
+> +			write ? FOLL_WRITE : 0);
+>  }
+>  
+>  /*
+> @@ -1871,7 +1873,8 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
+>  	if (!mm)
+>  		return 0;
+>  
+> -	len = __access_remote_vm(tsk, mm, addr, buf, len, write);
+> +	len = __access_remote_vm(tsk, mm, addr, buf, len,
+> +			write ? FOLL_WRITE : 0);
+>  
+>  	mmput(mm);
+>  	return len;
+> -- 
+> 2.10.0
+> 
+-- 
+Jan Kara <jack@suse.com>
+SUSE Labs, CR
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
