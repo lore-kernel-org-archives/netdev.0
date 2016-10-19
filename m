@@ -1,63 +1,56 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 08/10] mm: replace __access_remote_vm()
- write parameter with gup_flags
-Date: Wed, 19 Oct 2016 10:13:52 +0200
-Message-ID: <20161019081352.GB7562@dhcp22.suse.cz>
-References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-9-lstoakes@gmail.com>
- <20161019075903.GP29967@quack2.suse.cz>
+From: "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [v12, 0/8] Fix eSDHC host version register bug
+Date: Wed, 19 Oct 2016 10:27:15 +0200
+Message-ID: <20161019082715.GA6140@kroah.com>
+References: <1474441040-11946-1-git-send-email-yangbo.lu@nxp.com>
+	<CAPDyKFoit0sTPpfi2=AHcdZsDwOJxbBX68O-1jBFL=5JN0m6_w@mail.gmail.com>
+	<AM5PR0401MB2529BA70C6E7AF7C71631A47F8D20@AM5PR0401MB2529.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
- linux-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org,
- Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org,
- linux-mm@kvack.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org,
- linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
- linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org,
- Hugh Dickins <hughd@google.com>, linux-media@vger.kernel.org,
- Rik van Riel <riel@redhat.com>, intel-gfx@lists.freedesktop.org,
- adi-buildroot-devel@lists.sourceforge.net, ceph-devel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, Lorenzo Stoakes <lstoakes@gmail.com>,
- linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>,
- linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
- linux-security-module@vger.kernel.org, linux-alpha@vger.ker
-To: Jan Kara <jack@suse.cz>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"X.B. Xie" <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>, "M.H. Lian" <minghuan.lian-3arQi8VN3Tc@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-clk <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-mmc <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Leo Li <l
+To: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20161019075903.GP29967@quack2.suse.cz>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
+In-Reply-To: <AM5PR0401MB2529BA70C6E7AF7C71631A47F8D20-oQ3wXcTHOqqGPub0A97BiI3W/0Ik+aLCnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkIDE5LTEwLTE2IDA5OjU5OjAzLCBKYW4gS2FyYSB3cm90ZToKPiBPbiBUaHUgMTMtMTAt
-MTYgMDE6MjA6MTgsIExvcmVuem8gU3RvYWtlcyB3cm90ZToKPiA+IFRoaXMgcGF0Y2ggcmVtb3Zl
-cyB0aGUgd3JpdGUgcGFyYW1ldGVyIGZyb20gX19hY2Nlc3NfcmVtb3RlX3ZtKCkgYW5kIHJlcGxh
-Y2VzIGl0Cj4gPiB3aXRoIGEgZ3VwX2ZsYWdzIHBhcmFtZXRlciBhcyB1c2Ugb2YgdGhpcyBmdW5j
-dGlvbiBwcmV2aW91c2x5IF9pbXBsaWVkXwo+ID4gRk9MTF9GT1JDRSwgd2hlcmVhcyBhZnRlciB0
-aGlzIHBhdGNoIGNhbGxlcnMgZXhwbGljaXRseSBwYXNzIHRoaXMgZmxhZy4KPiA+IAo+ID4gV2Ug
-bWFrZSB0aGlzIGV4cGxpY2l0IGFzIHVzZSBvZiBGT0xMX0ZPUkNFIGNhbiByZXN1bHQgaW4gc3Vy
-cHJpc2luZyBiZWhhdmlvdXIKPiA+IChhbmQgaGVuY2UgYnVncykgd2l0aGluIHRoZSBtbSBzdWJz
-eXN0ZW0uCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IExvcmVuem8gU3RvYWtlcyA8bHN0b2FrZXNA
-Z21haWwuY29tPgo+IAo+IFNvIEknbSBub3QgY29udmluY2VkIHRoaXMgKGFuZCB0aGUgZm9sbG93
-aW5nIHR3byBwYXRjaGVzKSBpcyBhY3R1YWxseQo+IGhlbHBpbmcgbXVjaC4gQnkgZ3JlcHBpbmcg
-Zm9yIEZPTExfRk9SQ0Ugd2Ugd2lsbCBlYXNpbHkgc2VlIHRoYXQgYW55IGNhbGxlcgo+IG9mIGFj
-Y2Vzc19yZW1vdGVfdm0oKSBnZXRzIHRoYXQgc2VtYW50aWNzIGFuZCBjYW4gdGh1cyBjb250aW51
-ZSBzZWFyY2gKCkkgYW0gcmVhbGx5IHdvbmRlcmluZy4gSXMgdGhlcmUgYW55dGhpbmcgaW5oZXJl
-bnQgdGhhdCB3b3VsZCByZXF1aXJlCkZPTExfRk9SQ0UgZm9yIGFjY2Vzc19yZW1vdGVfdm0/IEkg
-bWVhbiBGT0xMX0ZPUkNFIGlzIGEgcmVhbGx5Cm5vbi10cml2aWFsIHRoaW5nLiBJdCBkb2Vzbid0
-IG9iZXkgdm1hIHBlcm1pc3Npb25zIHNvIHdlIHNob3VsZCByZWFsbHkKbWluaW1pemUgaXRzIHVz
-YWdlLiBEbyBhbGwgb2YgdGhvc2UgdXNlcnMgcmVhbGx5IG5lZWQgRk9MTF9GT1JDRT8KCkFueXdh
-eSBJIHdvdWxkIHJhdGhlciBzZWUgdGhlIGZsYWcgZXhwbGljaXQgYW5kIHVzZWQgYXQgbW9yZSBw
-bGFjZXMgdGhhbgpoaWRkZW4gYmVoaW5kIGEgaGVscGVyIGZ1bmN0aW9uLgotLSAKTWljaGFsIEhv
-Y2tvClNVU0UgTGFicwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5v
-cmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1n
-ZngK
+On Wed, Oct 19, 2016 at 02:47:07AM +0000, Y.B. Lu wrote:
+> + Greg
+> 
+> Hi Greg,
+> 
+> I submitted this patchset for a MMC bug fix, and introduce the below patch which needs your ACK.
+> > > Arnd Bergmann (1):
+> > >   base: soc: introduce soc_device_match() interface
+> https://patchwork.kernel.org/patch/9342913/
+> 
+> Could you help to review it and give some comments or ACK.
+> Thank you very much.
+
+Now acked.
