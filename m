@@ -1,48 +1,37 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v12 5/9] openvswitch: add processing of L3
- packets
-Date: Wed, 19 Oct 2016 18:52:06 +0200
-Message-ID: <20161019185206.7347e189@griffin>
-References: <cover.1476708212.git.jbenc@redhat.com>
-        <a4590d690c169e0021031405463c8629a6e9ecb8.1476708213.git.jbenc@redhat.com>
-        <CAOrHB_B1-29CM=DWpWuRVbTRriW2ViJRZULMS22+NSPwW_J_=Q@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: net/sctp: use-after-free in __sctp_connect
+Date: Wed, 19 Oct 2016 14:57:54 -0200
+Message-ID: <20161019165754.GD2958@localhost.localdomain>
+References: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>,
-        Lorand Jakab <lojakab@cisco.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35082 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756690AbcJSQwL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Oct 2016 12:52:11 -0400
-In-Reply-To: <CAOrHB_B1-29CM=DWpWuRVbTRriW2ViJRZULMS22+NSPwW_J_=Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Sasha Levin <sasha.levin@oracle.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Oct 2016 22:13:45 -0700, Pravin Shelar wrote:
-> On Mon, Oct 17, 2016 at 6:02 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> > -       skb_reset_network_header(skb);
-> > +               skb->protocol = parse_ethertype(skb);
+On Wed, Oct 19, 2016 at 02:25:24PM +0200, Andrey Konovalov wrote:
+> Hi,
 > 
-> I am not sure about changing skb->protocol here.
-> By changing this skb loosing information about packet type. Therefore
-> if packet re-enters OVS (through different bridge), this packet would
-> look like L3 packet. function key_extract_mac_proto() would not see
-> TEB type packet.
+> I've got the following error report while running the syzkaller fuzzer:
+> 
+> ==================================================================
+> BUG: KASAN: use-after-free in __sctp_connect+0xabe/0xbf0 at addr
+> ffff88006b1dc610
 
-This should be okay. If the packet is sent out to an Ethernet interface
-(whatever interface it is), skb->protocol needs to contain the payload
-type. We're not interested in ETH_P_TEB. If the packet is sent out to
-an ARPHRD_NONE interface, ETH_P_TEB is pushed back.
-
-Basically, what we're doing here is unconditionally converting
-ETH_P_TEB packets *coming from ARPHRD_NONE interfaces* (this is
-important) into regular Ethernet packets. Which is exactly what we want.
-
-Am I missing something?
-
- Jiri
+Seems this is the same that Dmitry Vyukov had reported back in Jan 13th.
+So far I couldn't identify the reason.
+"Good" to know it's still there, thanks for reporting it.
