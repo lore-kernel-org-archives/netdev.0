@@ -1,40 +1,66 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net-next 2/6] net: use core MTU range checking in
- wireless drivers
-Date: Wed, 19 Oct 2016 10:27:06 -0400
-Message-ID: <20161019142706.GE18569@redhat.com>
-References: <20161019023333.15760-1-jarod@redhat.com>
- <20161019023333.15760-3-jarod@redhat.com>
- <1476862713.5927.0.camel@sipsolutions.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: core: Correctly iterate over lower adjacency
+ list
+Date: Wed, 19 Oct 2016 08:33:19 -0600
+Message-ID: <c029e5bb-68b4-322f-f7b5-9ada9e5915ac@cumulusnetworks.com>
+References: <1476885428-5189-1-git-send-email-idosch@idosch.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Maya Erez <qca_merez@qca.qualcomm.com>,
-        Simon Kelley <simon@thekelleys.org.uk>,
-        Stanislav Yakovlev <stas.yakovlev@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1476862713.5927.0.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        Ido Schimmel <idosch@mellanox.com>
+To: idosch@idosch.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:36758 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941689AbcJSOdX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:33:23 -0400
+Received: by mail-io0-f180.google.com with SMTP id j37so33301076ioo.3
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:33:22 -0700 (PDT)
+In-Reply-To: <1476885428-5189-1-git-send-email-idosch@idosch.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2016 at 09:38:33AM +0200, Johannes Berg wrote:
-> On Tue, 2016-10-18 at 22:33 -0400, Jarod Wilson wrote:
-> > - set max_mtu in wil6210 driver
-> > - set max_mtu in atmel driver
-> > - set min/max_mtu in cisco airo driver, remove airo_change_mtu
-> > - set min/max_mtu in ipw2100/ipw2200 drivers, remove
-> > libipw_change_mtu
-> > - set min/max_mtu in p80211netdev, remove wlan_change_mtu
-> 
-> I guess we should do the same in net/mac80211/iface.c?
+On 10/19/16 7:57 AM, idosch@idosch.org wrote:
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 136ae6bb..465e128 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -3877,7 +3877,7 @@ struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
+>  	     ldev = netdev_all_lower_get_next(dev, &(iter)))
+>  
+>  #define netdev_for_each_all_lower_dev_rcu(dev, ldev, iter) \
+> -	for (iter = (dev)->all_adj_list.lower.next, \
+> +	for (iter = &(dev)->all_adj_list.lower, \
+>  	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)); \
+>  	     ldev; \
+>  	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)))
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index f1fe26f..b09ac57 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5511,10 +5511,14 @@ struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
+>  {
+>  	struct netdev_adjacent *lower;
+>  
+> -	lower = list_first_or_null_rcu(&dev->all_adj_list.lower,
+> -				       struct netdev_adjacent, list);
+> +	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
+> +
+> +	if (&lower->list == &dev->all_adj_list.lower)
+> +		return NULL;
+> +
+> +	*iter = &lower->list;
+>  
+> -	return lower ? lower->dev : NULL;
+> +	return lower->dev;
+>  }
+>  EXPORT_SYMBOL(netdev_all_lower_get_next_rcu);
 
-Yeah. I thought I'd located all places this needed to happen, but
-obviously not. I'll get this added and do another sweep for others I might
-have missed.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+When I converted this function in my series I wondered how the current code worked at all. I guess I didn't. This is inline with what I did and matches the form used for the all_upper variant, so for 4.9 and 4.8.x
+
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
+
+I would like to see my series applied to 4.9 at some point.
