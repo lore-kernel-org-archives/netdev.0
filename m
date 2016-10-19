@@ -1,54 +1,40 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH net] net: core: Correctly iterate over lower adjacency
- list
-Date: Wed, 19 Oct 2016 18:36:27 +0300
-Message-ID: <20161019153627.GA28249@splinter>
-References: <1476885428-5189-1-git-send-email-idosch@idosch.org>
- <20161019.103829.1873231752009765175.davem@davemloft.net>
+From: Amir Vadai <amirva@gmail.com>
+Subject: Re: [PATCH net v2] flow_dissector: Check skb for VLAN only if skb specified.
+Date: Wed, 19 Oct 2016 11:44:10 +0300
+Message-ID: <CAPcc5Pg=vy67dMcr4U6DFwZu5UgSWyV6c662cv9XR-QXKfUVXw@mail.gmail.com>
+References: <1476736212-21238-1-git-send-email-e@erig.me> <CAJ3xEMiR3EODEV5aQ9cQG=7YZtVfFkbpHn79_j+s8H7XQ5F0rA@mail.gmail.com>
+Reply-To: amir@vadai.me
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        dsa@cumulusnetworks.com, idosch@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Garver <e@erig.me>, David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36805 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S942983AbcJSPga (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 11:36:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20161019.103829.1873231752009765175.davem@davemloft.net>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33318 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942417AbcJSPaQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 11:30:16 -0400
+Received: by mail-lf0-f65.google.com with SMTP id l131so2585420lfl.0
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 08:30:15 -0700 (PDT)
+In-Reply-To: <CAJ3xEMiR3EODEV5aQ9cQG=7YZtVfFkbpHn79_j+s8H7XQ5F0rA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Tue, Oct 18, 2016 at 4:59 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Mon, Oct 17, 2016 at 11:30 PM, Eric Garver <e@erig.me> wrote:
+>> Fixes a panic when calling eth_get_headlen(). Noticed on i40e driver.
+>>
+>> Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
+>> Signed-off-by: Eric Garver <e@erig.me>
+>
+> Dave,
+>
+> Hadar is OOO and I have asked Amir to look on the fix, will appreciate
+> if we can have 24 hours to respond
+>
+> Or.
 
-On Wed, Oct 19, 2016 at 10:38:29AM -0400, David Miller wrote:
-> From: idosch@idosch.org
-> Date: Wed, 19 Oct 2016 16:57:08 +0300
-> 
-> > From: Ido Schimmel <idosch@mellanox.com>
-> > 
-> > Tamir reported the following trace when processing ARP requests received
-> > via a vlan device on top of a VLAN-aware bridge:
->  ...
-> > The problem is that netdev_all_lower_get_next_rcu() never advances the
-> > iterator, thereby causing the loop over the lower adjacency list to run
-> > forever.
-> > 
-> > Fix this by advancing the iterator and avoid the infinite loop.
-> > 
-> > Fixes: 7ce856aaaf13 ("mlxsw: spectrum: Add couple of lower device helper functions")
-> > Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> > Reported-by: Tamir Winetroub <tamirw@mellanox.com>
-> > Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-> 
-> Applied.
+Reviewed and tested.
 
-Below the patch I noted "Please consider queueing this for 4.8.y", but
-you didn't reply and I don't see it here:
-https://patchwork.ozlabs.org/bundle/davem/stable/?state=*
-
-So I'm not sure if this was rejected or you just missed my note.
-
-Thanks
+Acked-by: Amir Vadai <amir@vadai.me>
