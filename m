@@ -1,63 +1,108 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next] hv_netvsc: fix a race between netvsc_send() and
- netvsc_init_buf()
-Date: Wed, 19 Oct 2016 15:53:01 +0200
-Message-ID: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 5/6] net: use core MTU range checking in virt
+	drivers
+Date: Wed, 19 Oct 2016 16:59:46 +0300
+Message-ID: <20161019165629-mutt-send-email-mst@kernel.org>
+References: <20161019023333.15760-1-jarod@redhat.com>
+	<20161019023333.15760-6-jarod@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
- Stephen Hemminger <sthemmin@microsoft.com>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: "VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
+	Haiyang Zhang <haiyangz@microsoft.com>, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Shrikrishna Khare <skhare@vmware.com>
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20161019023333.15760-6-jarod@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Fix in commit 880988348270 ("hv_netvsc: set nvdev link after populating
-chn_table") turns out to be incomplete. A crash in
-netvsc_get_next_send_section() is observed on mtu change when the device
-is under load. The race I identified is: if we get to netvsc_send() after
-we set net_device_ctx->nvdev link in netvsc_device_add() but before we
-finish netvsc_connect_vsp()->netvsc_init_buf() send_section_map is not
-allocated and we crash. Unfortunately we can't set net_device_ctx->nvdev
-link after the netvsc_init_buf() call as during the negotiation we need
-to receive packets and on the receive path we check for it. It would
-probably be possible to split nvdev into a pair of nvdev_in and nvdev_out
-links and check them accordingly in get_outbound_net_device()/
-get_inbound_net_device() but this looks like an overkill.
+On Tue, Oct 18, 2016 at 10:33:32PM -0400, Jarod Wilson wrote:
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index fad84f3..4885a42 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1419,17 +1419,6 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.set_settings = virtnet_set_settings,
+>  };
+>  
+> -#define MIN_MTU 68
+> -#define MAX_MTU 65535
+> -
+> -static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+> -{
+> -	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+> -		return -EINVAL;
+> -	dev->mtu = new_mtu;
+> -	return 0;
+> -}
+> -
+>  static const struct net_device_ops virtnet_netdev = {
+>  	.ndo_open            = virtnet_open,
+>  	.ndo_stop   	     = virtnet_close,
+> @@ -1437,7 +1426,6 @@ static const struct net_device_ops virtnet_netdev = {
+>  	.ndo_validate_addr   = eth_validate_addr,
+>  	.ndo_set_mac_address = virtnet_set_mac_address,
+>  	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+> -	.ndo_change_mtu	     = virtnet_change_mtu,
+>  	.ndo_get_stats64     = virtnet_stats,
+>  	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
+>  	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
+> @@ -1748,6 +1736,9 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
+>  	return true;
+>  }
+>  
+> +#define MIN_MTU ETH_MIN_MTU
+> +#define MAX_MTU 65535
+> +
 
-Check that send_section_map is allocated in netvsc_send().
+Do we need a common macro for this?
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/hyperv/netvsc.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+>  static int virtnet_probe(struct virtio_device *vdev)
+>  {
+>  	int i, err;
+> @@ -1821,6 +1812,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  
+>  	dev->vlan_features = dev->features;
+>  
+> +	/* MTU range: 68 - 65535 */
+> +	dev->min_mtu = MIN_MTU;
+> +	dev->max_mtu = MAX_MTU;
+> +
+>  	/* Configuration may specify what MAC to use.  Otherwise random. */
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
+>  		virtio_cread_bytes(vdev,
+> @@ -1875,8 +1870,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		mtu = virtio_cread16(vdev,
+>  				     offsetof(struct virtio_net_config,
+>  					      mtu));
+> -		if (virtnet_change_mtu(dev, mtu))
+> +		if (mtu >= dev->min_mtu && mtu <= dev->max_mtu) {
+> +			dev->mtu = mtu;
+>  			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 720b5fa..e2bfaac 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -888,6 +888,13 @@ int netvsc_send(struct hv_device *device,
- 	if (!net_device)
- 		return -ENODEV;
- 
-+	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
-+	 * here before the negotiation with the host is finished and
-+	 * send_section_map may not be allocated yet.
-+	 */
-+	if (!net_device->send_section_map)
-+		return -EAGAIN;
-+
- 	out_channel = net_device->chn_table[q_idx];
- 
- 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+I think the logic is wrong here:
+
+If mtu is legal, we set it but do not tell host.
+If it's out of range we tell host we use it
+but don't actually.
+
+Should be the reverse.
+
+> +		}
+>  	}
+>  
+>  	if (vi->any_header_sg)
+
 -- 
-2.7.4
+MST
