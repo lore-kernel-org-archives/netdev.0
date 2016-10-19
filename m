@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] flow_dissector: Check skb for VLAN only if skb
- specified.
-Date: Wed, 19 Oct 2016 10:36:07 -0400 (EDT)
-Message-ID: <20161019.103607.842949345730109568.davem@davemloft.net>
-References: <1476736212-21238-1-git-send-email-e@erig.me>
+Subject: Re: [PATCH] net: fs_enet: Use net_device_stats from struct
+ net_device
+Date: Wed, 19 Oct 2016 10:37:19 -0400 (EDT)
+Message-ID: <20161019.103719.1662715158720899418.davem@davemloft.net>
+References: <20161019092457.15006-1-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadarh@mellanox.com
-To: e@erig.me
+Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55976 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55988 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942123AbcJSOgt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:36:49 -0400
-In-Reply-To: <1476736212-21238-1-git-send-email-e@erig.me>
+        with ESMTP id S942433AbcJSOhV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:37:21 -0400
+In-Reply-To: <20161019092457.15006-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Garver <e@erig.me>
-Date: Mon, 17 Oct 2016 16:30:12 -0400
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Wed, 19 Oct 2016 11:24:57 +0200
 
-> Fixes a panic when calling eth_get_headlen(). Noticed on i40e driver.
+> Instead of using a private copy of struct net_device_stats in struct
+> fs_enet_private, use stats from struct net_device. Also remove the now
+> unnecessary .ndo_get_stats function.
 > 
-> Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
-> Signed-off-by: Eric Garver <e@erig.me>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Applied, thanks.
+Applied to net-next, thanks.
