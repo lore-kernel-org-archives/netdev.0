@@ -1,137 +1,189 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net-next 4/6] net: use core MTU range checking in core
- net infra
-Date: Wed, 19 Oct 2016 10:51:43 -0400
-Message-ID: <20161019145143.GG18569@redhat.com>
-References: <20161019023333.15760-1-jarod@redhat.com>
- <20161019023333.15760-5-jarod@redhat.com>
- <20161019141703.01ff8850@griffin>
+From: Baozeng Ding <sploving1@gmail.com>
+Subject: Re: net/l2tp:BUG: KASAN: use-after-free in l2tp_ip6_close
+Date: Wed, 19 Oct 2016 22:52:03 +0800
+Message-ID: <76f028b3-cf56-5526-352f-ff4826933779@gmail.com>
+References: <33b1f154-3f9a-55b6-63d3-cd28c0524ea6@gmail.com>
+ <CAM_iQpWpf--gXPy7zD7ax4vt-foMCh_dw8Pbb3=y_gSgegeF3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Pravin B Shelar <pshelar@ovn.org>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        Patrick McHardy <kaber@trash.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Pravin Shelar <pshelar@nicira.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:34199 "EHLO
-        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943328AbcJSOv4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:51:56 -0400
-Received: by mail-qk0-f173.google.com with SMTP id f128so38123180qkb.1
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:51:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20161019141703.01ff8850@griffin>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:33537 "EHLO
+        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943082AbcJSOwK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 10:52:10 -0400
+Received: by mail-oi0-f50.google.com with SMTP id y2so33343241oie.0
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 07:52:10 -0700 (PDT)
+In-Reply-To: <CAM_iQpWpf--gXPy7zD7ax4vt-foMCh_dw8Pbb3=y_gSgegeF3Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2016 at 02:17:03PM +0200, Jiri Benc wrote:
-> On Tue, 18 Oct 2016 22:33:31 -0400, Jarod Wilson wrote:
-> > --- a/drivers/net/vxlan.c
-> > +++ b/drivers/net/vxlan.c
-> > @@ -2367,43 +2367,31 @@ static void vxlan_set_multicast_list(struct net_device *dev)
-> >  {
-> >  }
-> >  
-> > -static int __vxlan_change_mtu(struct net_device *dev,
-> > -			      struct net_device *lowerdev,
-> > -			      struct vxlan_rdst *dst, int new_mtu, bool strict)
-> > +static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
-> >  {
-> > -	int max_mtu = IP_MAX_MTU;
-> > -
-> > -	if (lowerdev)
-> > -		max_mtu = lowerdev->mtu;
-> > +	struct vxlan_dev *vxlan = netdev_priv(dev);
-> > +	struct vxlan_rdst *dst = &vxlan->default_dst;
-> > +	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
-> > +							 dst->remote_ifindex);
-> > +	bool use_ipv6 = false;
-> >  
-> >  	if (dst->remote_ip.sa.sa_family == AF_INET6)
-> > -		max_mtu -= VXLAN6_HEADROOM;
-> > -	else
-> > -		max_mtu -= VXLAN_HEADROOM;
-> > -
-> > -	if (new_mtu < 68)
-> > -		return -EINVAL;
-> > +		use_ipv6 = true;
-> >  
-> > -	if (new_mtu > max_mtu) {
-> > -		if (strict)
-> > +	/* We re-check this, because users *could* alter the mtu of the
-> > +	 * lower device after we've initialized dev->max_mtu.
-> > +	 */
-> > +	if (lowerdev) {
-> > +		dev->max_mtu = lowerdev->mtu -
-> > +			       (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
-> > +		if (new_mtu > dev->max_mtu)
-> >  			return -EINVAL;
-> > -
-> > -		new_mtu = max_mtu;
-> >  	}
-> >  
-> >  	dev->mtu = new_mtu;
-> >  	return 0;
-> >  }
+This use-after-free seems to be triggered by some race. I use stress tool for this: 
+https://github.com/golang/tools/blob/master/cmd/stress/stress.go 
+If you have Go toolchain installed, then the following will do: 
+$ go get golang.org/x/tools/cmd/stress 
+$ stress ./a.out
+
+=========================================================================
+#include <unistd.h>
+#include <stdint.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <linux/l2tp.h>
+
+int fd;
+struct sockaddr_l2tpip sock_addr = {
+        .l2tp_family = AF_INET,
+        .l2tp_unused = 0,
+        .l2tp_addr = 0,
+        .l2tp_conn_id = 8,
+        .__pad = 0
+
+};
+
+void *thr(void *arg)
+{
+        switch ((long)arg) {
+        case 0:
+                fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_L2TP);
+                break;
+        case 1:
+                bind(fd, (struct sockaddr*) &sock_addr, 0x10ul);
+                break;
+        case 2:
+                bind(fd, (struct sockaddr*)&sock_addr, 0x10ul);
+                break;
+        case 3:
+                connect(fd, (struct sockaddr*)&sock_addr, 0x10ul);
+                break;
+        }
+        return 0;
+}
+
+int main()
+{
+        long i;
+        pthread_t th[4];
+        int n;
+        for (i = 0; i < 4; i++) {
+               pthread_create(&th[i], 0, thr, (void*)i);
+               usleep(10000);
+        }
+        for (i = 0; i < 4; i++) {
+               pthread_create(&th[i], 0, thr, (void*)i);
+               if (i%2==0)
+                        usleep(10000);
+        }
+        usleep(100000);
+        return 0;
+}
+
+On 2016/10/17 3:50, Cong Wang wrote:
+> On Sun, Oct 16, 2016 at 8:07 AM, Baozeng Ding <sploving1@gmail.com> wrote:
+>> Hello,
+>> While running syzkaller fuzzer I have got the following use-after-free
+>> bug in l2tp_ip6_close. The kernel version is 4.8.0+ (on Oct 7 commit d1f5323370fceaed43a7ee38f4c7bfc7e70f28d0).
+>>
+>> BUG: KASAN: use-after-free in l2tp_ip6_close+0x22e/0x290 at addr ffff8800081b0ed8
+>> Write of size 8 by task syz-executor/10987
+>> CPU: 0 PID: 10987 Comm: syz-executor Not tainted 4.8.0+ #39
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+>>  ffff880031d97838 ffffffff829f835b ffff88001b5a1640 ffff8800081b0ec0
+>>  ffff8800081b15a0 ffff8800081b6d20 ffff880031d97860 ffffffff8174d3cc
+>>  ffff880031d978f0 ffff8800081b0e80 ffff88001b5a1640 ffff880031d978e0
+>> Call Trace:
+>>  [<ffffffff829f835b>] dump_stack+0xb3/0x118 lib/dump_stack.c:15
+>>  [<ffffffff8174d3cc>] kasan_object_err+0x1c/0x70 mm/kasan/report.c:156
+>>  [<     inline     >] print_address_description mm/kasan/report.c:194
+>>  [<ffffffff8174d666>] kasan_report_error+0x1f6/0x4d0 mm/kasan/report.c:283
+>>  [<     inline     >] kasan_report mm/kasan/report.c:303
+>>  [<ffffffff8174db7e>] __asan_report_store8_noabort+0x3e/0x40 mm/kasan/report.c:329
+>>  [<     inline     >] __write_once_size ./include/linux/compiler.h:249
+>>  [<     inline     >] __hlist_del ./include/linux/list.h:622
+>>  [<     inline     >] hlist_del_init ./include/linux/list.h:637
+>>  [<ffffffff8579047e>] l2tp_ip6_close+0x22e/0x290 net/l2tp/l2tp_ip6.c:239
 > 
-> Sorry for the silly question, how does the min_mtu and max_mtu stuff
-> works? I noticed your patches but haven't looked in depth into them.
 > 
-> When the ndo_change_mtu callback is defined, is the dev->min_mtu and
-> dev->max_mtu checked first and if the desired mtu is not within range,
-> ndo_change_mtu is not called?
+> This one looks pretty interesting, how the hell could we call ____fput() twice
+> on the same fd...
 > 
-> Or does ndo_change_mtu override the checks?
-
-The former. If the new value is outside min/max, ndo_change_mtu doesn't
-get called, which is exactly the chicken and egg problem I introduced by
-setting max_mtu to 1500 in ether_setup before having all drivers that call
-ether_setup set a more appropriate max_mtu first. :\
-
-> In either case, the code does not look correct. In the first case,
-> increasing of lowerdev MTU wouldn't allow increasing of vxlan MTU
-> without deleting and recreating the vxlan interface. In the second
-> case, you're missing check against the min_mtu.
-
-Okay, this sounds like a similar case to bridge that Sabrina pointed out.
-Looks like virtual devices will need to just set no max_mtu directly (or
-IP_MAX_MTU), and do dynamic checks in their ndo_change_mtu if they need to
-compare against underlying devices on the fly.
-
-...
-> > @@ -2847,9 +2842,14 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
-> >  	}
-> >  
-> >  	if (conf->mtu) {
-> > -		err = __vxlan_change_mtu(dev, lowerdev, dst, conf->mtu, false);
-> > -		if (err)
-> > -			return err;
-> > +		if (lowerdev)
-> > +			dev->max_mtu = lowerdev->mtu;
-> > +		dev->max_mtu -= (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
-> > +
-> > +		dev->mtu = conf->mtu;
-> > +
-> > +		if (conf->mtu > dev->max_mtu)
-> > +			dev->mtu = dev->max_mtu;
-> >  	}
 > 
-> You removed the check for min_mtu but it's needed here. The conf->mtu
-> value comes from the user space and can be anything.
-
-Hm. Not sure why I did that... Will put it back now...
-
--- 
-Jarod Wilson
-jarod@redhat.com
+>>  [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
+>>  [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
+>>  [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
+>>  [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
+>>  [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
+>>  [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
+>>  [<ffffffff813774f9>] task_work_run+0xf9/0x170
+>>  [<ffffffff81324aae>] do_exit+0x85e/0x2a00
+>>  [<ffffffff81326dc8>] do_group_exit+0x108/0x330
+>>  [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
+>>  [<ffffffff811b49af>] do_signal+0x7f/0x18f0
+>>  [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
+>>  [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
+>>  [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
+>>  [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
+>> Object at ffff8800081b0ec0, in cache L2TP/IPv6 size: 1448
+>> Allocated:
+>> PID = 10987
+>>  [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
+>>  [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
+>>  [ 1116.897025] [<ffffffff8174c9ad>] kasan_kmalloc+0xad/0xe0
+>>  [ 1116.897025] [<ffffffff8174cee2>] kasan_slab_alloc+0x12/0x20
+>>  [ 1116.897025] [<     inline     >] slab_post_alloc_hook mm/slab.h:417
+>>  [ 1116.897025] [<     inline     >] slab_alloc_node mm/slub.c:2708
+>>  [ 1116.897025] [<     inline     >] slab_alloc mm/slub.c:2716
+>>  [ 1116.897025] [<ffffffff817476a8>] kmem_cache_alloc+0xc8/0x2b0 mm/slub.c:2721
+>>  [ 1116.897025] [<ffffffff84c4f6a9>] sk_prot_alloc+0x69/0x2b0 net/core/sock.c:1326
+>>  [ 1116.897025] [<ffffffff84c58ac8>] sk_alloc+0x38/0xae0 net/core/sock.c:1388
+>>  [ 1116.897025] [<ffffffff851ddf67>] inet6_create+0x2d7/0x1000 net/ipv6/af_inet6.c:182
+>>  [ 1116.897025] [<ffffffff84c4af7b>] __sock_create+0x37b/0x640 net/socket.c:1153
+>>  [ 1116.897025] [<     inline     >] sock_create net/socket.c:1193
+>>  [ 1116.897025] [<     inline     >] SYSC_socket net/socket.c:1223
+>>  [ 1116.897025] [<ffffffff84c4b46f>] SyS_socket+0xef/0x1b0 net/socket.c:1203
+>>  [ 1116.897025] [<ffffffff85e4d685>] entry_SYSCALL_64_fastpath+0x23/0xc6
+>> Freed:
+>> PID = 10987
+>>  [ 1116.897025] [<ffffffff811ddcb6>] save_stack_trace+0x16/0x20
+>>  [ 1116.897025] [<ffffffff8174c736>] save_stack+0x46/0xd0
+>>  [ 1116.897025] [<ffffffff8174cf61>] kasan_slab_free+0x71/0xb0
+>>  [ 1116.897025] [<     inline     >] slab_free_hook mm/slub.c:1352
+>>  [ 1116.897025] [<     inline     >] slab_free_freelist_hook mm/slub.c:1374
+>>  [ 1116.897025] [<     inline     >] slab_free mm/slub.c:2951
+>>  [ 1116.897025] [<ffffffff81748b28>] kmem_cache_free+0xc8/0x330 mm/slub.c:2973
+>>  [ 1116.897025] [<     inline     >] sk_prot_free net/core/sock.c:1369
+>>  [ 1116.897025] [<ffffffff84c541eb>] __sk_destruct+0x32b/0x4f0 net/core/sock.c:1444
+>>  [ 1116.897025] [<ffffffff84c5aca4>] sk_destruct+0x44/0x80 net/core/sock.c:1452
+>>  [ 1116.897025] [<ffffffff84c5ad33>] __sk_free+0x53/0x220 net/core/sock.c:1460
+>>  [ 1116.897025] [<ffffffff84c5af23>] sk_free+0x23/0x30 net/core/sock.c:1471
+>>  [ 1116.897025] [<ffffffff84c5cb6c>] sk_common_release+0x28c/0x3e0 ./include/net/sock.h:1589
+>>  [ 1116.897025] [<ffffffff8579044e>] l2tp_ip6_close+0x1fe/0x290 net/l2tp/l2tp_ip6.c:243
+>>  [ 1116.897025] [<ffffffff850b2dfd>] inet_release+0xed/0x1c0 net/ipv4/af_inet.c:415
+>>  [ 1116.897025] [<ffffffff851dc5a0>] inet6_release+0x50/0x70 net/ipv6/af_inet6.c:422
+>>  [ 1116.897025] [<ffffffff84c4581d>] sock_release+0x8d/0x1d0 net/socket.c:570
+>>  [ 1116.897025] [<ffffffff84c45976>] sock_close+0x16/0x20 net/socket.c:1017
+>>  [ 1116.897025] [<ffffffff817a108c>] __fput+0x28c/0x780 fs/file_table.c:208
+>>  [ 1116.897025] [<ffffffff817a1605>] ____fput+0x15/0x20 fs/file_table.c:244
+>>  [ 1116.897025] [<ffffffff813774f9>] task_work_run+0xf9/0x170
+>>  [ 1116.897025] [<ffffffff81324aae>] do_exit+0x85e/0x2a00
+>>  [ 1116.897025] [<ffffffff81326dc8>] do_group_exit+0x108/0x330
+>>  [ 1116.897025] [<ffffffff81348cf7>] get_signal+0x617/0x17a0 kernel/signal.c:2307
+>>  [ 1116.897025] [<ffffffff811b49af>] do_signal+0x7f/0x18f0
+>>  [ 1116.897025] [<ffffffff810039bf>] exit_to_usermode_loop+0xbf/0x150 arch/x86/entry/common.c:156
+>>  [ 1116.897025] [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
+>>  [ 1116.897025] [<ffffffff81006060>] syscall_return_slowpath+0x1a0/0x1e0 arch/x86/entry/common.c:259
+>>  [ 1116.897025] [<ffffffff85e4d726>] entry_SYSCALL_64_fastpath+0xc4/0xc6
+>> Memory state around the buggy address:
+>>  ffff8800081b0d80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>>  ffff8800081b0e00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>>> ffff8800081b0e80: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
+>>                                                     ^
+>>  ffff8800081b0f00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>>  ffff8800081b0f80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>> ==================================================================
+>>
+>> Best Regards,
+>> Baozeng Ding
