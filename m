@@ -1,111 +1,222 @@
-From: Haiyang Zhang via Virtualization
-	<virtualization@lists.linux-foundation.org>
-Subject: RE: [PATCH net-next 5/6] net: use core MTU range checking in virt
-	drivers
-Date: Wed, 19 Oct 2016 14:07:47 +0000
-Message-ID: <BLUPR03MB141289B9E24503DF35D5AAC3CAD20@BLUPR03MB1412.namprd03.prod.outlook.com>
-References: <20161019023333.15760-1-jarod@redhat.com>
-	<20161019023333.15760-6-jarod@redhat.com>
-Reply-To: Haiyang Zhang <haiyangz@microsoft.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/ipx: null-ptr-deref in ipxrtr_route_packet
+Date: Wed, 19 Oct 2016 15:16:36 +0200
+Message-ID: <CAAeHK+z1vkY=CdCHzvyzAgrsmOW_bH4OKSY6cCkiw_OJk3kXCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, "VMware,
-	Inc." <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	Shrikrishna Khare <skhare@vmware.com>
-To: Jarod Wilson <jarod@redhat.com>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161019023333.15760-6-jarod@redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/mixed; boundary=94eb2c184a8c77d26b053f379e51
+Cc: syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Sasha Levin <sasha.levin@oracle.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--94eb2c184a8c77d26b053f379e51
+Content-Type: text/plain; charset=UTF-8
 
+Hi,
 
-> -----Original Message-----
-> From: Jarod Wilson [mailto:jarod@redhat.com]
-> Sent: Tuesday, October 18, 2016 10:34 PM
-> To: linux-kernel@vger.kernel.org
-> Cc: Jarod Wilson <jarod@redhat.com>; netdev@vger.kernel.org;
-> virtualization@lists.linux-foundation.org; KY Srinivasan
-> <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>; Michael S.
-> Tsirkin <mst@redhat.com>; Shrikrishna Khare <skhare@vmware.com>; VMware,
-> Inc. <pv-drivers@vmware.com>
-> Subject: [PATCH net-next 5/6] net: use core MTU range checking in virt
-> drivers
-> 
-> hyperv_net:
-> - set min/max_mtu
-> 
-> virtio_net:
-> - set min/max_mtu
-> - remove virtnet_change_mtu
-> 
-> vmxnet3:
-> - set min/max_mtu
-> 
-> CC: netdev@vger.kernel.org
-> CC: virtualization@lists.linux-foundation.org
-> CC: "K. Y. Srinivasan" <kys@microsoft.com>
-> CC: Haiyang Zhang <haiyangz@microsoft.com>
-> CC: "Michael S. Tsirkin" <mst@redhat.com>
-> CC: Shrikrishna Khare <skhare@vmware.com>
-> CC: "VMware, Inc." <pv-drivers@vmware.com>
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
->  drivers/net/hyperv/hyperv_net.h   |  4 ++--
->  drivers/net/hyperv/netvsc_drv.c   | 14 +++++++-------
->  drivers/net/virtio_net.c          | 23 ++++++++++-------------
->  drivers/net/vmxnet3/vmxnet3_drv.c |  7 ++++---
->  4 files changed, 23 insertions(+), 25 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/hyperv_net.h
-> b/drivers/net/hyperv/hyperv_net.h
-> index f4fbcb5..3958ada 100644
-> --- a/drivers/net/hyperv/hyperv_net.h
-> +++ b/drivers/net/hyperv/hyperv_net.h
-> @@ -606,8 +606,8 @@ struct nvsp_message {
->  } __packed;
-> 
-> 
-> -#define NETVSC_MTU 65536
-> -#define NETVSC_MTU_MIN 68
-> +#define NETVSC_MTU 65535
+I've got the following error report while running the syzkaller fuzzer:
 
-Why change it to 65535? For Hyperv host, this should be 65536.
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Modules linked in:
+CPU: 0 PID: 3953 Comm: syz-executor Not tainted 4.9.0-rc1+ #228
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff88006aa2ac00 task.stack: ffff880068a90000
+RIP: 0010:[<ffffffff834ed8f4>]  [<ffffffff834ed8f4>]
+ipxrtr_route_packet+0x4e4/0xbe0 net/ipx/ipx_route.c
+:213
+RSP: 0018:ffff880068a97b08  EFLAGS: 00010246
+RAX: ffff88006b648500 RBX: ffff880068a97e40 RCX: dffffc0000000000
+RDX: 0000000000000003 RSI: 0000000000000000 RDI: ffff88006b648960
+RBP: ffff880068a97bc8 R08: dffffc0000000000 R09: 1ffff1000d4ddf97
+R10: dffffc0000000000 R11: 0000000000000000 R12: ffff88006b410300
+R13: 0000000000000000 R14: ffff88006444b68e R15: ffff88006a6efc80
+FS:  00007f28cf665700(0000) GS:ffff88006cc00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000451f80 CR3: 0000000068a9a000 CR4: 00000000000006f0
+Stack:
+ ffff88006a6efd58 ffff880068a97dc0 ffff880068a97e44 1ffff1000d152f68
+ 000000000000001a 0000000000000000 ffff88006b648500 0000000041b58ab3
+ ffffffff847fb90b ffffffff834ed410 ffffffff82b7cfea ffff8800ffffff97
+Call Trace:
+ [<ffffffff834e802e>] ipx_sendmsg+0x30e/0x550 net/ipx/af_ipx.c:1749
+ [<     inline     >] sock_sendmsg_nosec net/socket.c:606
+ [<ffffffff82b7075c>] sock_sendmsg+0xcc/0x110 net/socket.c:616
+ [<ffffffff82b718a1>] SYSC_sendto+0x211/0x340 net/socket.c:1641
+ [<ffffffff82b73e80>] SyS_sendto+0x40/0x50 net/socket.c:1609
+ [<ffffffff83fc0141>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+arch/x86/entry/entry_64.S:209
+Code: 41 80 7c 0d 00 00 0f 85 82 06 00 00 48 8b 85 70 ff ff ff 49 b8
+00 00 00 00 00 fc ff df 4c 8b a8 60 04 00 00 4c 89 ee 48 c1 ee 03 <46>
+0f b6 0c 06 45 84 c9 74 0a 41 80 f9 03 0f 8e e5 05 00 00 49
+RIP  [<ffffffff834ed8f4>] ipxrtr_route_packet+0x4e4/0xbe0
+net/ipx/ipx_route.c:213
+ RSP <ffff880068a97b08>
+---[ end trace f5bc9a28de6b2776 ]---
+==================================================================
 
+For some reason ipxs->intrfc ends up being NULL.
 
-> @@ -1343,6 +1336,13 @@ static int netvsc_probe(struct hv_device *dev,
-> 
->  	netif_carrier_off(net);
-> 
-> +	/* MTU range: 68 - 1500 or 65521 */
-> +	net->min_mtu = NETVSC_MTU_MIN;
-> +	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
-> +		net->max_mtu = NETVSC_MTU - ETH_HLEN;
-> +	else
-> +		net->max_mtu = ETH_DATA_LEN;
-> +
->  	netvsc_init_settings(net);
-> 
->  	net_device_ctx = netdev_priv(net);
+The reproducer is attached, you need to run a few instances simultaneously.
 
-nvdev->nvsp_version is not set until after rndis_filter_device_add()
-is successfully completed.
-You need to move this part to the place just before this line:
- ret = register_netdev(net);
+In case it's relevant, this is what I have in /etc/network/interfaces:
 
-Thanks,
-- Haiyang
+auto eth1
+iface eth1 inet static
+address 192.168.1.5
+netmask 255.255.255.0
+post-up arp -s 192.168.1.6 aa:aa:aa:aa:aa:aa
+iface eth1 ipx static
+frame EtherII
+netnum 0x42424242
+
+On commit 1a1891d762d6e64daf07b5be4817e3fbb29e3c59 (Oct 18).
+
+--94eb2c184a8c77d26b053f379e51
+Content-Type: text/x-csrc; charset=US-ASCII; name="ipx.c"
+Content-Disposition: attachment; filename="ipx.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iugxxkib0
+
+Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
+eXprYWxsZXIpCgojaWZuZGVmIF9fTlJfc2VuZHRvCiNkZWZpbmUgX19OUl9zZW5kdG8gNDQKI2Vu
+ZGlmCiNpZm5kZWYgX19OUl9zeXpfZnVzZV9tb3VudAojZGVmaW5lIF9fTlJfc3l6X2Z1c2VfbW91
+bnQgMTAwMDAwNAojZW5kaWYKI2lmbmRlZiBfX05SX3N5el9vcGVuX2RldgojZGVmaW5lIF9fTlJf
+c3l6X29wZW5fZGV2IDEwMDAwMDIKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpfdGVzdAojZGVmaW5l
+IF9fTlJfc3l6X3Rlc3QgMTAwMDAwMQojZW5kaWYKI2lmbmRlZiBfX05SX21tYXAKI2RlZmluZSBf
+X05SX21tYXAgOQojZW5kaWYKI2lmbmRlZiBfX05SX3NvY2tldAojZGVmaW5lIF9fTlJfc29ja2V0
+IDQxCiNlbmRpZgojaWZuZGVmIF9fTlJfYmluZAojZGVmaW5lIF9fTlJfYmluZCA0OQojZW5kaWYK
+I2lmbmRlZiBfX05SX3N5el9mdXNlYmxrX21vdW50CiNkZWZpbmUgX19OUl9zeXpfZnVzZWJsa19t
+b3VudCAxMDAwMDA1CiNlbmRpZgojaWZuZGVmIF9fTlJfc3l6X29wZW5fcHRzCiNkZWZpbmUgX19O
+Ul9zeXpfb3Blbl9wdHMgMTAwMDAwMwojZW5kaWYKCiNpbmNsdWRlIDxmY250bC5oPgojaW5jbHVk
+ZSA8cHRocmVhZC5oPgojaW5jbHVkZSA8c2V0am1wLmg+CiNpbmNsdWRlIDxzaWduYWwuaD4KI2lu
+Y2x1ZGUgPHN0ZGRlZi5oPgojaW5jbHVkZSA8c3RkaW50Lmg+CiNpbmNsdWRlIDxzdGRpby5oPgoj
+aW5jbHVkZSA8c3RkbGliLmg+CiNpbmNsdWRlIDxzdHJpbmcuaD4KI2luY2x1ZGUgPHN5cy9pb2N0
+bC5oPgojaW5jbHVkZSA8c3lzL3N0YXQuaD4KI2luY2x1ZGUgPHN5cy9zeXNjYWxsLmg+CiNpbmNs
+dWRlIDxzeXMvdHlwZXMuaD4KI2luY2x1ZGUgPHVuaXN0ZC5oPgoKX190aHJlYWQgaW50IHNraXBf
+c2VndjsKX190aHJlYWQgam1wX2J1ZiBzZWd2X2VudjsKCnN0YXRpYyB2b2lkIHNlZ3ZfaGFuZGxl
+cihpbnQgc2lnLCBzaWdpbmZvX3QqIGluZm8sIHZvaWQqIHVjdHgpCnsKICBpZiAoX19hdG9taWNf
+bG9hZF9uKCZza2lwX3NlZ3YsIF9fQVRPTUlDX1JFTEFYRUQpKQogICAgX2xvbmdqbXAoc2Vndl9l
+bnYsIDEpOwogIGV4aXQoc2lnKTsKfQoKc3RhdGljIHZvaWQgaW5zdGFsbF9zZWd2X2hhbmRsZXIo
+KQp7CiAgc3RydWN0IHNpZ2FjdGlvbiBzYTsKICBtZW1zZXQoJnNhLCAwLCBzaXplb2Yoc2EpKTsK
+ICBzYS5zYV9zaWdhY3Rpb24gPSBzZWd2X2hhbmRsZXI7CiAgc2Euc2FfZmxhZ3MgPSBTQV9OT0RF
+RkVSIHwgU0FfU0lHSU5GTzsKICBzaWdhY3Rpb24oU0lHU0VHViwgJnNhLCBOVUxMKTsKICBzaWdh
+Y3Rpb24oU0lHQlVTLCAmc2EsIE5VTEwpOwp9CgojZGVmaW5lIE5PTkZBSUxJTkcoLi4uKSAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKICB7ICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICBcCiAgICBfX2F0b21pY19mZXRjaF9hZGQoJnNraXBfc2VndiwgMSwgX19BVE9NSUNfU0VRX0NT
+VCk7ICAgICAgICAgICAgICAgXAogICAgaWYgKF9zZXRqbXAoc2Vndl9lbnYpID09IDApIHsgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKICAgICAgX19WQV9BUkdTX187ICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcCiAgICB9
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgXAogICAgX19hdG9taWNfZmV0Y2hfc3ViKCZza2lwX3NlZ3YsIDEsIF9fQVRPTUlD
+X1NFUV9DU1QpOyAgICAgICAgICAgICAgIFwKICB9CgpzdGF0aWMgdWludHB0cl90IHN5el9vcGVu
+X2Rldih1aW50cHRyX3QgYTAsIHVpbnRwdHJfdCBhMSwgdWludHB0cl90IGEyKQp7CiAgaWYgKGEw
+ID09IDB4YyB8fCBhMCA9PSAweGIpIHsKICAgIGNoYXIgYnVmWzEyOF07CiAgICBzcHJpbnRmKGJ1
+ZiwgIi9kZXYvJXMvJWQ6JWQiLCBhMCA9PSAweGMgPyAiY2hhciIgOiAiYmxvY2siLAogICAgICAg
+ICAgICAodWludDhfdClhMSwgKHVpbnQ4X3QpYTIpOwogICAgcmV0dXJuIG9wZW4oYnVmLCBPX1JE
+V1IsIDApOwogIH0gZWxzZSB7CiAgICBjaGFyIGJ1ZlsxMDI0XTsKICAgIGNoYXIqIGhhc2g7CiAg
+ICBzdHJuY3B5KGJ1ZiwgKGNoYXIqKWEwLCBzaXplb2YoYnVmKSk7CiAgICBidWZbc2l6ZW9mKGJ1
+ZikgLSAxXSA9IDA7CiAgICB3aGlsZSAoKGhhc2ggPSBzdHJjaHIoYnVmLCAnIycpKSkgewogICAg
+ICAqaGFzaCA9ICcwJyArIChjaGFyKShhMSAlIDEwKTsKICAgICAgYTEgLz0gMTA7CiAgICB9CiAg
+ICByZXR1cm4gb3BlbihidWYsIGEyLCAwKTsKICB9Cn0KCnN0YXRpYyB1aW50cHRyX3Qgc3l6X29w
+ZW5fcHRzKHVpbnRwdHJfdCBhMCwgdWludHB0cl90IGExKQp7CiAgaW50IHB0eW5vID0gMDsKICBp
+ZiAoaW9jdGwoYTAsIFRJT0NHUFROLCAmcHR5bm8pKQogICAgcmV0dXJuIC0xOwogIGNoYXIgYnVm
+WzEyOF07CiAgc3ByaW50ZihidWYsICIvZGV2L3B0cy8lZCIsIHB0eW5vKTsKICByZXR1cm4gb3Bl
+bihidWYsIGExLCAwKTsKfQoKc3RhdGljIHVpbnRwdHJfdCBzeXpfZnVzZV9tb3VudCh1aW50cHRy
+X3QgYTAsIHVpbnRwdHJfdCBhMSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1aW50
+cHRyX3QgYTIsIHVpbnRwdHJfdCBhMywKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1
+aW50cHRyX3QgYTQsIHVpbnRwdHJfdCBhNSkKewogIHVpbnQ2NF90IHRhcmdldCA9IGEwOwogIHVp
+bnQ2NF90IG1vZGUgPSBhMTsKICB1aW50NjRfdCB1aWQgPSBhMjsKICB1aW50NjRfdCBnaWQgPSBh
+MzsKICB1aW50NjRfdCBtYXhyZWFkID0gYTQ7CiAgdWludDY0X3QgZmxhZ3MgPSBhNTsKCiAgaW50
+IGZkID0gb3BlbigiL2Rldi9mdXNlIiwgT19SRFdSKTsKICBpZiAoZmQgPT0gLTEpCiAgICByZXR1
+cm4gZmQ7CiAgY2hhciBidWZbMTAyNF07CiAgc3ByaW50ZihidWYsICJmZD0lZCx1c2VyX2lkPSVs
+ZCxncm91cF9pZD0lbGQscm9vdG1vZGU9MCVvIiwgZmQsCiAgICAgICAgICAobG9uZyl1aWQsIChs
+b25nKWdpZCwgKHVuc2lnbmVkKW1vZGUgJiB+M3UpOwogIGlmIChtYXhyZWFkICE9IDApCiAgICBz
+cHJpbnRmKGJ1ZiArIHN0cmxlbihidWYpLCAiLG1heF9yZWFkPSVsZCIsIChsb25nKW1heHJlYWQp
+OwogIGlmIChtb2RlICYgMSkKICAgIHN0cmNhdChidWYsICIsZGVmYXVsdF9wZXJtaXNzaW9ucyIp
+OwogIGlmIChtb2RlICYgMikKICAgIHN0cmNhdChidWYsICIsYWxsb3dfb3RoZXIiKTsKICBzeXNj
+YWxsKFNZU19tb3VudCwgIiIsIHRhcmdldCwgImZ1c2UiLCBmbGFncywgYnVmKTsKICByZXR1cm4g
+ZmQ7Cn0KCnN0YXRpYyB1aW50cHRyX3Qgc3l6X2Z1c2VibGtfbW91bnQodWludHB0cl90IGEwLCB1
+aW50cHRyX3QgYTEsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90
+IGEyLCB1aW50cHRyX3QgYTMsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdWlu
+dHB0cl90IGE0LCB1aW50cHRyX3QgYTUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgdWludHB0cl90IGE2LCB1aW50cHRyX3QgYTcpCnsKICB1aW50NjRfdCB0YXJnZXQgPSBhMDsK
+ICB1aW50NjRfdCBibGtkZXYgPSBhMTsKICB1aW50NjRfdCBtb2RlID0gYTI7CiAgdWludDY0X3Qg
+dWlkID0gYTM7CiAgdWludDY0X3QgZ2lkID0gYTQ7CiAgdWludDY0X3QgbWF4cmVhZCA9IGE1Owog
+IHVpbnQ2NF90IGJsa3NpemUgPSBhNjsKICB1aW50NjRfdCBmbGFncyA9IGE3OwoKICBpbnQgZmQg
+PSBvcGVuKCIvZGV2L2Z1c2UiLCBPX1JEV1IpOwogIGlmIChmZCA9PSAtMSkKICAgIHJldHVybiBm
+ZDsKICBpZiAoc3lzY2FsbChTWVNfbWtub2RhdCwgQVRfRkRDV0QsIGJsa2RldiwgU19JRkJMSywg
+bWFrZWRldig3LCAxOTkpKSkKICAgIHJldHVybiBmZDsKICBjaGFyIGJ1ZlsyNTZdOwogIHNwcmlu
+dGYoYnVmLCAiZmQ9JWQsdXNlcl9pZD0lbGQsZ3JvdXBfaWQ9JWxkLHJvb3Rtb2RlPTAlbyIsIGZk
+LAogICAgICAgICAgKGxvbmcpdWlkLCAobG9uZylnaWQsICh1bnNpZ25lZCltb2RlICYgfjN1KTsK
+ICBpZiAobWF4cmVhZCAhPSAwKQogICAgc3ByaW50ZihidWYgKyBzdHJsZW4oYnVmKSwgIixtYXhf
+cmVhZD0lbGQiLCAobG9uZyltYXhyZWFkKTsKICBpZiAoYmxrc2l6ZSAhPSAwKQogICAgc3ByaW50
+ZihidWYgKyBzdHJsZW4oYnVmKSwgIixibGtzaXplPSVsZCIsIChsb25nKWJsa3NpemUpOwogIGlm
+IChtb2RlICYgMSkKICAgIHN0cmNhdChidWYsICIsZGVmYXVsdF9wZXJtaXNzaW9ucyIpOwogIGlm
+IChtb2RlICYgMikKICAgIHN0cmNhdChidWYsICIsYWxsb3dfb3RoZXIiKTsKICBzeXNjYWxsKFNZ
+U19tb3VudCwgYmxrZGV2LCB0YXJnZXQsICJmdXNlYmxrIiwgZmxhZ3MsIGJ1Zik7CiAgcmV0dXJu
+IGZkOwp9CgpzdGF0aWMgdWludHB0cl90IGV4ZWN1dGVfc3lzY2FsbChpbnQgbnIsIHVpbnRwdHJf
+dCBhMCwgdWludHB0cl90IGExLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1aW50
+cHRyX3QgYTIsIHVpbnRwdHJfdCBhMywKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+dWludHB0cl90IGE0LCB1aW50cHRyX3QgYTUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgIHVpbnRwdHJfdCBhNiwgdWludHB0cl90IGE3LAogICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICB1aW50cHRyX3QgYTgpCnsKICBzd2l0Y2ggKG5yKSB7CiAgZGVmYXVsdDoKICAgIHJl
+dHVybiBzeXNjYWxsKG5yLCBhMCwgYTEsIGEyLCBhMywgYTQsIGE1KTsKICBjYXNlIF9fTlJfc3l6
+X3Rlc3Q6CiAgICByZXR1cm4gMDsKICBjYXNlIF9fTlJfc3l6X29wZW5fZGV2OgogICAgcmV0dXJu
+IHN5el9vcGVuX2RldihhMCwgYTEsIGEyKTsKICBjYXNlIF9fTlJfc3l6X29wZW5fcHRzOgogICAg
+cmV0dXJuIHN5el9vcGVuX3B0cyhhMCwgYTEpOwogIGNhc2UgX19OUl9zeXpfZnVzZV9tb3VudDoK
+ICAgIHJldHVybiBzeXpfZnVzZV9tb3VudChhMCwgYTEsIGEyLCBhMywgYTQsIGE1KTsKICBjYXNl
+IF9fTlJfc3l6X2Z1c2VibGtfbW91bnQ6CiAgICByZXR1cm4gc3l6X2Z1c2VibGtfbW91bnQoYTAs
+IGExLCBhMiwgYTMsIGE0LCBhNSwgYTYsIGE3KTsKICB9Cn0KCmxvbmcgclsxOF07CgppbnQgbWFp
+bigpCnsKICBpbnN0YWxsX3NlZ3ZfaGFuZGxlcigpOwogIG1lbXNldChyLCAtMSwgc2l6ZW9mKHIp
+KTsKICByWzBdID0gZXhlY3V0ZV9zeXNjYWxsKF9fTlJfbW1hcCwgMHgyMDAwMDAwMHVsLCAweGUw
+MDB1bCwgMHgzdWwsCiAgICAgICAgICAgICAgICAgICAgICAgICAweDMydWwsIDB4ZmZmZmZmZmZm
+ZmZmZmZmZnVsLCAweDB1bCwgMCwgMCwgMCk7CiAgclsxXSA9IGV4ZWN1dGVfc3lzY2FsbChfX05S
+X3NvY2tldCwgMHg0dWwsIDB4MnVsLCAweDB1bCwgMCwgMCwgMCwgMCwKICAgICAgICAgICAgICAg
+ICAgICAgICAgIDAsIDApOwogIHJbMl0gPSBleGVjdXRlX3N5c2NhbGwoX19OUl9tbWFwLCAweDIw
+MDBlMDAwdWwsIDB4MTAwMHVsLCAweDN1bCwKICAgICAgICAgICAgICAgICAgICAgICAgIDB4MzJ1
+bCwgMHhmZmZmZmZmZmZmZmZmZmZmdWwsIDB4MHVsLCAwLCAwLCAwKTsKICBOT05GQUlMSU5HKCoo
+dWludDE2X3QqKTB4MjAwMGUwMDAgPSAodWludDE2X3QpMHgyKTsKICBOT05GQUlMSU5HKCoodWlu
+dDE2X3QqKTB4MjAwMGUwMDIgPSAodWludDE2X3QpMHg0MjQyKTsKICBOT05GQUlMSU5HKCoodWlu
+dDMyX3QqKTB4MjAwMGUwMDQgPSAodWludDMyX3QpMHgwKTsKICBOT05GQUlMSU5HKCoodWludDhf
+dCopMHgyMDAwZTAwOCA9ICh1aW50OF90KTB4MCk7CiAgTk9ORkFJTElORygqKHVpbnQ4X3QqKTB4
+MjAwMGUwMDkgPSAodWludDhfdCkweDApOwogIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwMDBl
+MDBhID0gKHVpbnQ4X3QpMHgwKTsKICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMDAwZTAwYiA9
+ICh1aW50OF90KTB4MCk7CiAgTk9ORkFJTElORygqKHVpbnQ4X3QqKTB4MjAwMGUwMGMgPSAodWlu
+dDhfdCkweDApOwogIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwMDBlMDBkID0gKHVpbnQ4X3Qp
+MHgwKTsKICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMDAwZTAwZSA9ICh1aW50OF90KTB4MCk7
+CiAgTk9ORkFJTElORygqKHVpbnQ4X3QqKTB4MjAwMGUwMGYgPSAodWludDhfdCkweDApOwogIHJb
+MTRdID0gZXhlY3V0ZV9zeXNjYWxsKF9fTlJfYmluZCwgclsxXSwgMHgyMDAwZTAwMHVsLCAweDEw
+dWwsIDAsIDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgMCwgMCwgMCwgMCk7CiAgTk9ORkFJ
+TElORyhtZW1jcHkoKHZvaWQqKTB4MjAwMDdmZTYsICJceGFlXHg4OVx4ZmFceDQxXHhkMFx4Mjlc
+eDY5IgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAiXHhjM1x4YWNceDc5
+XHhmMFx4NjRceGM2XHhhZCIKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+Ilx4NmJceDI3XHg2M1x4NmJceDQ5XHgwZFx4OTkiCiAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICJceDdiXHgwMVx4OWVceDNlXHhiMyIsCiAgICAgICAgICAgICAgICAgICAg
+MjYpKTsKICBOT05GQUlMSU5HKG1lbWNweSgKICAgICAgKHZvaWQqKTB4MjAwMGQwMDAsCiAgICAg
+ICJceDA0XHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgw
+MFx4MDBceDAwIgogICAgICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgw
+MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMCIKICAgICAgIlx4MDBceDAwXHgwMFx4MDBceDAwXHgw
+MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDAiCiAgICAgICJceDAwXHgw
+MFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
+IgogICAgICAiXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
+XHgwMFx4MDBceDAwXHgwMCIKICAgICAgIlx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAw
+XHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDAiCiAgICAgICJceDAwXHgwMFx4MDBceDAw
+XHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwIgogICAgICAi
+XHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBceDAwXHgwMFx4MDBc
+eDAwIgogICAgICAiXHgwMCIsCiAgICAgIDEyOCkpOwogIHJbMTddID0gZXhlY3V0ZV9zeXNjYWxs
+KF9fTlJfc2VuZHRvLCByWzFdLCAweDIwMDA3ZmU2dWwsIDB4MWF1bCwKICAgICAgICAgICAgICAg
+ICAgICAgICAgICAweDB1bCwgMHgyMDAwZDAwMHVsLCAweDgwdWwsIDAsIDAsIDApOwogIHJldHVy
+biAwOwp9Cg==
+--94eb2c184a8c77d26b053f379e51--
