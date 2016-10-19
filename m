@@ -1,60 +1,31 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 00/10] mm: adjust get_user_pages* functions to explicitly
- pass FOLL_* flags
-Date: Wed, 19 Oct 2016 11:07:28 +0200
-Message-ID: <20161019090727.GE7517@dhcp22.suse.cz>
-References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161018153050.GC13117@dhcp22.suse.cz>
- <20161019085815.GA22239@lucifer>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: remove unnecessary
+	EXPORT_SYMBOLs
+Date: Wed, 19 Oct 2016 11:10:11 +0200
+Message-ID: <20161019111011.0e450b27@griffin>
+References: <5be1d459a2508bbce591ee82f9a2eb147dceedb7.1476791224.git.jbenc@redhat.com>
+ <CAOrHB_CkJ0vz3HekYU4HA6rukgE3g1j6ECFyY+RxZjPV9uwjYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>,
-	Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>,
-	Dave Hansen <dave.hansen@linux.intel.com>,
-	Rik van Riel <riel@redhat.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org,
-	linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-rdma@vger.kernel.org,
-	linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-sh@
-To: Lorenzo Stoakes <lstoakes@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20161019085815.GA22239@lucifer>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAOrHB_CkJ0vz3HekYU4HA6rukgE3g1j6ECFyY+RxZjPV9uwjYw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed 19-10-16 09:58:15, Lorenzo Stoakes wrote:
-> On Tue, Oct 18, 2016 at 05:30:50PM +0200, Michal Hocko wrote:
-> > I am wondering whether we can go further. E.g. it is not really clear to
-> > me whether we need an explicit FOLL_REMOTE when we can in fact check
-> > mm != current->mm and imply that. Maybe there are some contexts which
-> > wouldn't work, I haven't checked.
-> 
-> This flag is set even when /proc/self/mem is used. I've not looked deeply into
-> this flag but perhaps accessing your own memory this way can be considered
-> 'remote' since you're not accessing it directly. On the other hand, perhaps this
-> is just mistaken in this case?
-
-My understanding of the flag is quite limited as well. All I know it is
-related to protection keys and it is needed to bypass protection check.
-See arch_vma_access_permitted. See also 1b2ee1266ea6 ("mm/core: Do not
-enforce PKEY permissions on remote mm access").
-
--- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+T24gVHVlLCAxOCBPY3QgMjAxNiAxMjo0ODozMyAtMDcwMCwgUHJhdmluIFNoZWxhciB3cm90ZToK
+PiBvdnNfdnBvcnRfZGVmZXJyZWRfZnJlZSgpIGlzIG5vdCB1c2VkIGFueXdoZXJlLiBjYW4geW91
+IHJlbW92ZSBpdD8KCkdvb2QgcG9pbnQuIFdpbGwgZG8uCgogSmlyaQpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
+dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
