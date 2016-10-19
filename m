@@ -1,119 +1,1460 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: tg3 BUG: spinlock lockup suspected
-Date: Wed, 19 Oct 2016 14:06:44 +0300 (EEST)
-Message-ID: <alpine.LRH.2.20.1610191357310.18007@math.ut.ee>
-References: <CAMet4B60wAi0oqEXDdGdw4UV-bCsbprm9xQqkLMznSyxO3Z-Sg@mail.gmail.com> <CAF2ZziZiy+ZeoH1pPiBOWAdXrV1qzqhjBabxMW0jUjtYPfjQ8A@mail.gmail.com>
+From: Hannes Reinecke <hare@suse.de>
+Subject: Re: [RFC 6/6] qedi: Add support for data path.
+Date: Wed, 19 Oct 2016 12:24:20 +0200
+Message-ID: <fc58b63a-ac67-59e4-7698-4ab742848080@suse.de>
+References: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
+ <1476853273-22960-7-git-send-email-manish.rangankar@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Cc: Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        sparclinux@vger.kernel.org,
-        Linux Kernel list <linux-kernel@vger.kernel.org>
-To: Deepak Khungar <deepak.khungar@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAF2ZziZiy+ZeoH1pPiBOWAdXrV1qzqhjBabxMW0jUjtYPfjQ8A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: martin.petersen@oracle.com, jejb@linux.vnet.ibm.com,
+        linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+        Yuval.Mintz@cavium.com, QLogic-Storage-Upstream@cavium.com,
+        Nilesh Javali <nilesh.javali@cavium.com>,
+        Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>,
+        Chad Dupuis <chad.dupuis@cavium.com>,
+        Saurav Kashyap <saurav.kashyap@cavium.com>,
+        Arun Easi <arun.easi@cavium.com>
+To: manish.rangankar@cavium.com, lduncan@suse.com, cleech@redhat.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1476853273-22960-7-git-send-email-manish.rangankar@cavium.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Can you please share the Linux Distribution information along with sparc machine specification.
-
-Sun Fire V210 (dual UltraSPARC IIIi), onboard NICs with tg3 
-driver. Debian unstable snapshot (as last seen in Debian):
-
-deb http://snapshot.debian.org/archive/debian/20150725T121538Z/ unstable main contrib non-free
-
-except for udev and libudev1 that are 218-8 (older) because the latest 
-udev at that moment was broken.
-
-This implies gcc version 4.9.3 (Debian 4.9.3-2).
-
-
-> Regards,
-> Deepak Khungar
+On 10/19/2016 07:01 AM, manish.rangankar@cavium.com wrote:
+> From: Manish Rangankar <manish.rangankar@cavium.com>
 > 
-> On Wed, Oct 19, 2016 at 10:18 AM, Siva Reddy Kallam <siva.kallam@broadcom.com> wrote:
->       On Mon, Oct 17, 2016 at 6:35 PM, Meelis Roos <mroos@linux.ee> wrote:
->       >> > Now I reproduced the bug even with 4.7-rc1 so it is older than 4.7. Will
->       >> > test further.
->       >>
->       >> It gets stranger and stranger - my old 4.7 image worked fine, freshly
->       >> compiled 4.7 exhibits the same problem.
->       >>
->       >> Toolchain has not changed, that I know for sure.
->       >>
->       >> What may have changed is kernel .config. My old conf was with whatever I
->       >> had during 4.7. Then I upgraded to 4.8-rc3 and then 4.8 and selected
->       >> values for "make oldconfig" new entries. Then went back to 4.7-rc1 and
->       >> then to 4.7 with this config, answering quiestion about new options when
->       >> any appeared. Diff is not available since I do not have the old configs
->       >> archived.
->       >
->       > I did some more digging. Found an older configuration that is working
->       > and recreated a newer one that is bad, for the same 4.7 kernel. This is
->       > reproducible now, from "make clean" state.
->       >
->       > Working config from 4.7-rc4 attached as config-4.7, broken config from
->       > 4.7 attached as config-4.7-bad.
->       >
->       > Will try to bisect the configs as time permits. But looking at the
->       > stack traces, the issue is probably timing related, when ip and dhclient
->       > do something with the same lock. seq_read that outputs stats could be
->       > reading /proc/net/dev that reads counters from each interface.
->       >
->       > ifupdown seems to use the following for dhcp interfaces:
->       >   up
->       >     [[/bin/ip link set dev %iface% address %hwaddress%]]
->       >     /sbin/dhclient -v -pf /run/dhclient.%iface%.pid -lf /var/lib/dhcp/dhclient.%iface%.leases -I -df /var/lib/dhcp/dhclient6.%iface%.leases %iface% \
->       > ...
->       >
->       > so ip link is setting link up, this creates some work for the
->       > background, and the dhclient goes adn reads /proc/net/dev, and lockup is
->       > suspected but not proven?
->       >
->       > I started a loop for test, doing cat /proc/net/dev in a loop and at the
->       > same link link up and down from console, but up and down is slow process
->       > and the loop did not seem to trigger the warning over night, so it was
->       > not so simple.
->       >
->       I am busy with other priority tasks. One of my colleague Deepak will
->       work this with you.
->       I added him to CC list.
->       Thanks.
->       >
->       >> > > [   83.716570] BUG: spinlock lockup suspected on CPU#0, dhclient/1014
->       >> > > [   83.797819]  lock: 0xfff000123c8e4a08, .magic: dead4ead, .owner: ip/1001, .owner_cpu: 1
->       >> > > [   83.903130] CPU: 0 PID: 1014 Comm: dhclient Not tainted 4.8.0 #4
->       >> > > [   83.982129] Call Trace:
->       >> > > [   84.014160]  [00000000004b7220] spin_dump+0x60/0xa0
->       >> > > [   84.078203]  [00000000004b73a0] do_raw_spin_lock+0xa0/0x120
->       >> > > [   84.106344] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
->       >> > > [   84.107193] ip (1001) used greatest stack depth: 2168 bytes left
->       >> > > [   84.306955]  [000000000092c0d0] _raw_spin_lock_bh+0x30/0x40
->       >> > > [   84.380188]  [00000000100822cc] tg3_get_stats64+0xc/0x80 [tg3]
->       >> > > [   84.456885]  [00000000007fac8c] dev_get_stats+0x2c/0xc0
->       >> > > [   84.525506]  [000000000081a4e8] dev_seq_printf_stats+0x8/0xe0
->       >> > > [   84.600986]  [000000000081a5e4] dev_seq_show+0x24/0x40
->       >> > > [   84.668467]  [00000000005cb6c4] seq_read+0x2c4/0x440
->       >> > > [   84.733656]  [000000000060b97c] proc_reg_read+0x3c/0x80
->       >> > > [   84.802282]  [00000000005a219c] __vfs_read+0x1c/0x140
->       >> > > [   84.868613]  [00000000005a2310] vfs_read+0x50/0x100
->       >> > > [   84.932662]  [00000000005a265c] SyS_read+0x3c/0xa0
->       >> > > [   84.995573]  [00000000004061d4] linux_sparc_syscall32+0x34/0x60
->       >> > > [   85.073748] * CPU[  0]: TSTATE[00000044f0001a22] TPC[00000000f79a16b0] TNPC[00000000f79a16b4] TASK[dhclient:1014]
->       >> > > [   85.208732]              TPC[f79a16b0] O7[f79405c8] I7[0] RPC[0]
->       >> > > [   85.287633]   CPU[  1]: TSTATE[0000004480001605] TPC[00000000004b26f0] TNPC[00000000004d0b0c] TASK[swapper/1:0]
->       >> > > [   85.420338]              TPC[trace_hardirqs_off+0x10/0x20] O7[rcu_idle_enter+0x64/0xa0] I7[cpu_startup_entry+0x1b0/0x240] RPC[rest_init+0x178/0x1a0]
->       >> > > [   85.664600] tg3 0000:00:02.0 eth0: Link is up at 100 Mbps, full duplex
->       >> > > [   85.750515] tg3 0000:00:02.0 eth0: Flow control is off for TX and off for RX
->       >> > > [   85.843994] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
->       >
->       > --
->       > Meelis Roos (mroos@linux.ee)
+> This patch adds support for data path and TMF handling.
 > 
+> Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
+> Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
+> Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
+> Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
+> Signed-off-by: Arun Easi <arun.easi@cavium.com>
+> Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
+> ---
+>  drivers/scsi/qedi/qedi_fw.c    | 1282 ++++++++++++++++++++++++++++++++++++++++
+>  drivers/scsi/qedi/qedi_gbl.h   |    6 +
+>  drivers/scsi/qedi/qedi_iscsi.c |    6 +
+>  drivers/scsi/qedi/qedi_main.c  |    4 +
+>  4 files changed, 1298 insertions(+)
 > 
-> 
-> 
+> diff --git a/drivers/scsi/qedi/qedi_fw.c b/drivers/scsi/qedi/qedi_fw.c
+> index a820785..af1e14d 100644
+> --- a/drivers/scsi/qedi/qedi_fw.c
+> +++ b/drivers/scsi/qedi/qedi_fw.c
+> @@ -147,6 +147,114 @@ static void qedi_process_text_resp(struct qedi_ctx *qedi,
+>  	spin_unlock(&session->back_lock);
+>  }
+>  
+> +static void qedi_tmf_resp_work(struct work_struct *work)
+> +{
+> +	struct qedi_cmd *qedi_cmd =
+> +				container_of(work, struct qedi_cmd, tmf_work);
+> +	struct qedi_conn *qedi_conn = qedi_cmd->conn;
+> +	struct qedi_ctx *qedi = qedi_conn->qedi;
+> +	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
+> +	struct iscsi_session *session = conn->session;
+> +	struct iscsi_tm_rsp *resp_hdr_ptr;
+> +	struct iscsi_cls_session *cls_sess;
+> +	int rval = 0;
+> +
+> +	set_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
+> +	resp_hdr_ptr =  (struct iscsi_tm_rsp *)qedi_cmd->tmf_resp_buf;
+> +	cls_sess = iscsi_conn_to_session(qedi_conn->cls_conn);
+> +
+> +	iscsi_block_session(session->cls_session);
+> +	rval = qedi_cleanup_all_io(qedi, qedi_conn, qedi_cmd->task, true);
+> +	if (rval) {
+> +		clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
+> +		qedi_clear_task_idx(qedi, qedi_cmd->task_id);
+> +		iscsi_unblock_session(session->cls_session);
+> +		return;
+> +	}
+> +
+> +	iscsi_unblock_session(session->cls_session);
+> +	qedi_clear_task_idx(qedi, qedi_cmd->task_id);
+> +
+> +	spin_lock(&session->back_lock);
+> +	__iscsi_complete_pdu(conn, (struct iscsi_hdr *)resp_hdr_ptr, NULL, 0);
+> +	spin_unlock(&session->back_lock);
+> +	kfree(resp_hdr_ptr);
+> +	clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
+> +}
+> +
+> +static void qedi_process_tmf_resp(struct qedi_ctx *qedi,
+> +				  union iscsi_cqe *cqe,
+> +				  struct iscsi_task *task,
+> +				  struct qedi_conn *qedi_conn)
+> +
+> +{
+> +	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
+> +	struct iscsi_session *session = conn->session;
+> +	struct iscsi_tmf_response_hdr *cqe_tmp_response;
+> +	struct iscsi_tm_rsp *resp_hdr_ptr;
+> +	struct iscsi_tm *tmf_hdr;
+> +	struct qedi_cmd *qedi_cmd = NULL;
+> +	u32 *tmp;
+> +
+> +	cqe_tmp_response = &cqe->cqe_common.iscsi_hdr.tmf_response;
+> +
+> +	qedi_cmd = task->dd_data;
+> +	qedi_cmd->tmf_resp_buf = kzalloc(sizeof(*resp_hdr_ptr), GFP_KERNEL);
+> +	if (!qedi_cmd->tmf_resp_buf) {
+> +		QEDI_ERR(&qedi->dbg_ctx,
+> +			 "Failed to allocate resp buf, cid=0x%x\n",
+> +			  qedi_conn->iscsi_conn_id);
+> +		return;
+> +	}
+> +
+> +	spin_lock(&session->back_lock);
+> +	resp_hdr_ptr =  (struct iscsi_tm_rsp *)qedi_cmd->tmf_resp_buf;
+> +	memset(resp_hdr_ptr, 0, sizeof(struct iscsi_tm_rsp));
+> +
+> +	/* Fill up the header */
+> +	resp_hdr_ptr->opcode = cqe_tmp_response->opcode;
+> +	resp_hdr_ptr->flags = cqe_tmp_response->hdr_flags;
+> +	resp_hdr_ptr->response = cqe_tmp_response->hdr_response;
+> +	resp_hdr_ptr->hlength = 0;
+> +
+> +	hton24(resp_hdr_ptr->dlength,
+> +	       (cqe_tmp_response->hdr_second_dword &
+> +		ISCSI_TMF_RESPONSE_HDR_DATA_SEG_LEN_MASK));
+> +	tmp = (u32 *)resp_hdr_ptr->dlength;
+> +	resp_hdr_ptr->itt = build_itt(cqe->cqe_solicited.itid,
+> +				      conn->session->age);
+> +	resp_hdr_ptr->statsn = cpu_to_be32(cqe_tmp_response->stat_sn);
+> +	resp_hdr_ptr->exp_cmdsn  = cpu_to_be32(cqe_tmp_response->exp_cmd_sn);
+> +	resp_hdr_ptr->max_cmdsn = cpu_to_be32(cqe_tmp_response->max_cmd_sn);
+> +
+> +	tmf_hdr = (struct iscsi_tm *)qedi_cmd->task->hdr;
+> +
+> +	if (likely(qedi_cmd->io_cmd_in_list)) {
+> +		qedi_cmd->io_cmd_in_list = false;
+> +		list_del_init(&qedi_cmd->io_cmd);
+> +		qedi_conn->active_cmd_count--;
+> +	}
+> +
+> +	if (((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +	      ISCSI_TM_FUNC_LOGICAL_UNIT_RESET) ||
+> +	    ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +	      ISCSI_TM_FUNC_TARGET_WARM_RESET) ||
+> +	    ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +	      ISCSI_TM_FUNC_TARGET_COLD_RESET)) {
+> +		INIT_WORK(&qedi_cmd->tmf_work, qedi_tmf_resp_work);
+> +		queue_work(qedi->tmf_thread, &qedi_cmd->tmf_work);
+> +		goto unblock_sess;
+> +	}
+> +
+> +	qedi_clear_task_idx(qedi, qedi_cmd->task_id);
+> +
+> +	__iscsi_complete_pdu(conn, (struct iscsi_hdr *)resp_hdr_ptr, NULL, 0);
+> +	kfree(resp_hdr_ptr);
+> +
+> +unblock_sess:
+> +	spin_unlock(&session->back_lock);
+> +}
+> +
+>  static void qedi_process_login_resp(struct qedi_ctx *qedi,
+>  				    union iscsi_cqe *cqe,
+>  				    struct iscsi_task *task,
+> @@ -470,6 +578,121 @@ static void qedi_process_reject_mesg(struct qedi_ctx *qedi,
+>  	spin_unlock_bh(&session->back_lock);
+>  }
+>  
+> +static void qedi_scsi_completion(struct qedi_ctx *qedi,
+> +				 union iscsi_cqe *cqe,
+> +				 struct iscsi_task *task,
+> +				 struct iscsi_conn *conn)
+> +{
+> +	struct scsi_cmnd *sc_cmd;
+> +	struct qedi_cmd *cmd = task->dd_data;
+> +	struct iscsi_session *session = conn->session;
+> +	struct iscsi_scsi_rsp *hdr;
+> +	struct iscsi_data_in_hdr *cqe_data_in;
+> +	int datalen = 0;
+> +	struct qedi_conn *qedi_conn;
+> +	u32 iscsi_cid;
+> +	bool mark_cmd_node_deleted = false;
+> +	u8 cqe_err_bits = 0;
+> +
+> +	iscsi_cid  = cqe->cqe_common.conn_id;
+> +	qedi_conn = qedi->cid_que.conn_cid_tbl[iscsi_cid];
+> +
+> +	cqe_data_in = &cqe->cqe_common.iscsi_hdr.data_in;
+> +	cqe_err_bits =
+> +		cqe->cqe_common.error_bitmap.error_bits.cqe_error_status_bits;
+> +
+> +	spin_lock_bh(&session->back_lock);
+> +	/* get the scsi command */
+> +	sc_cmd = cmd->scsi_cmd;
+> +
+> +	if (!sc_cmd) {
+> +		QEDI_WARN(&qedi->dbg_ctx, "sc_cmd is NULL!\n");
+> +		goto error;
+> +	}
+> +
+> +	if (!sc_cmd->SCp.ptr) {
+> +		QEDI_WARN(&qedi->dbg_ctx,
+> +			  "SCp.ptr is NULL, returned in another context.\n");
+> +		goto error;
+> +	}
+> +
+> +	if (!sc_cmd->request) {
+> +		QEDI_WARN(&qedi->dbg_ctx,
+> +			  "sc_cmd->request is NULL, sc_cmd=%p.\n",
+> +			  sc_cmd);
+> +		goto error;
+> +	}
+> +
+> +	if (!sc_cmd->request->special) {
+> +		QEDI_WARN(&qedi->dbg_ctx,
+> +			  "request->special is NULL so request not valid, sc_cmd=%p.\n",
+> +			  sc_cmd);
+> +		goto error;
+> +	}
+> +
+> +	if (!sc_cmd->request->q) {
+> +		QEDI_WARN(&qedi->dbg_ctx,
+> +			  "request->q is NULL so request is not valid, sc_cmd=%p.\n",
+> +			  sc_cmd);
+> +		goto error;
+> +	}
+> +
+> +	qedi_iscsi_unmap_sg_list(cmd);
+> +
+> +	hdr = (struct iscsi_scsi_rsp *)task->hdr;
+> +	hdr->opcode = cqe_data_in->opcode;
+> +	hdr->max_cmdsn = cpu_to_be32(cqe_data_in->max_cmd_sn);
+> +	hdr->exp_cmdsn = cpu_to_be32(cqe_data_in->exp_cmd_sn);
+> +	hdr->itt = build_itt(cqe->cqe_solicited.itid, conn->session->age);
+> +	hdr->response = cqe_data_in->reserved1;
+> +	hdr->cmd_status = cqe_data_in->status_rsvd;
+> +	hdr->flags = cqe_data_in->flags;
+> +	hdr->residual_count = cpu_to_be32(cqe_data_in->residual_count);
+> +
+> +	if (hdr->cmd_status == SAM_STAT_CHECK_CONDITION) {
+> +		datalen = cqe_data_in->reserved2 &
+> +			  ISCSI_COMMON_HDR_DATA_SEG_LEN_MASK;
+> +		memcpy((char *)conn->data, (char *)cmd->sense_buffer, datalen);
+> +	}
+> +
+> +	/* If f/w reports data underrun err then set residual to IO transfer
+> +	 * length, set Underrun flag and clear Overrun flag explicitly
+> +	 */
+> +	if (unlikely(cqe_err_bits &&
+> +		     GET_FIELD(cqe_err_bits, CQE_ERROR_BITMAP_UNDER_RUN_ERR))) {
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
+> +			  "Under flow itt=0x%x proto flags=0x%x tid=0x%x cid 0x%x fw resid 0x%x sc dlen 0x%x\n",
+> +			  hdr->itt, cqe_data_in->flags, cmd->task_id,
+> +			  qedi_conn->iscsi_conn_id, hdr->residual_count,
+> +			  scsi_bufflen(sc_cmd));
+> +		hdr->residual_count = cpu_to_be32(scsi_bufflen(sc_cmd));
+> +		hdr->flags |= ISCSI_FLAG_CMD_UNDERFLOW;
+> +		hdr->flags &= (~ISCSI_FLAG_CMD_OVERFLOW);
+> +	}
+> +
+> +	spin_lock(&qedi_conn->list_lock);
+> +	if (likely(cmd->io_cmd_in_list)) {
+> +		cmd->io_cmd_in_list = false;
+> +		list_del_init(&cmd->io_cmd);
+> +		qedi_conn->active_cmd_count--;
+> +		mark_cmd_node_deleted = true;
+> +	}
+> +	spin_unlock(&qedi_conn->list_lock);
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_TID,
+> +		  "Freeing tid=0x%x for cid=0x%x\n",
+> +		  cmd->task_id, qedi_conn->iscsi_conn_id);
+> +	cmd->state = RESPONSE_RECEIVED;
+> +	if (io_tracing)
+> +		qedi_trace_io(qedi, task, cmd->task_id, QEDI_IO_TRACE_RSP);
+> +
+> +	qedi_clear_task_idx(qedi, cmd->task_id);
+> +	__iscsi_complete_pdu(conn, (struct iscsi_hdr *)hdr,
+> +			     conn->data, datalen);
+> +error:
+> +	spin_unlock_bh(&session->back_lock);
+> +}
+> +
+>  static void qedi_mtask_completion(struct qedi_ctx *qedi,
+>  				  union iscsi_cqe *cqe,
+>  				  struct iscsi_task *task,
+> @@ -482,9 +705,16 @@ static void qedi_mtask_completion(struct qedi_ctx *qedi,
+>  	iscsi_conn = conn->cls_conn->dd_data;
+>  
+>  	switch (hdr_opcode) {
+> +	case ISCSI_OPCODE_SCSI_RESPONSE:
+> +	case ISCSI_OPCODE_DATA_IN:
+> +		qedi_scsi_completion(qedi, cqe, task, iscsi_conn);
+> +		break;
+>  	case ISCSI_OPCODE_LOGIN_RESPONSE:
+>  		qedi_process_login_resp(qedi, cqe, task, conn);
+>  		break;
+> +	case ISCSI_OPCODE_TMF_RESPONSE:
+> +		qedi_process_tmf_resp(qedi, cqe, task, conn);
+> +		break;
+>  	case ISCSI_OPCODE_TEXT_RESPONSE:
+>  		qedi_process_text_resp(qedi, cqe, task, conn);
+>  		break;
+> @@ -520,6 +750,131 @@ static void qedi_process_nopin_local_cmpl(struct qedi_ctx *qedi,
+>  	spin_unlock_bh(&session->back_lock);
+>  }
+>  
+> +static void qedi_process_cmd_cleanup_resp(struct qedi_ctx *qedi,
+> +					  struct iscsi_cqe_solicited *cqe,
+> +					  struct iscsi_task *task,
+> +					  struct iscsi_conn *conn)
+> +{
+> +	struct qedi_work_map *work, *work_tmp;
+> +	u32 proto_itt = cqe->itid;
+> +	u32 ptmp_itt = 0;
+> +	itt_t protoitt = 0;
+> +	int found = 0;
+> +	struct qedi_cmd *qedi_cmd = NULL;
+> +	u32 rtid = 0;
+> +	u32 iscsi_cid;
+> +	struct qedi_conn *qedi_conn;
+> +	struct qedi_cmd *cmd_new, *dbg_cmd;
+> +	struct iscsi_task *mtask;
+> +	struct iscsi_tm *tmf_hdr = NULL;
+> +
+> +	iscsi_cid = cqe->conn_id;
+> +	qedi_conn = qedi->cid_que.conn_cid_tbl[iscsi_cid];
+> +
+> +	/* Based on this itt get the corresponding qedi_cmd */
+> +	spin_lock_bh(&qedi_conn->tmf_work_lock);
+> +	list_for_each_entry_safe(work, work_tmp, &qedi_conn->tmf_work_list,
+> +				 list) {
+> +		if (work->rtid == proto_itt) {
+> +			/* We found the command */
+> +			qedi_cmd = work->qedi_cmd;
+> +			if (!qedi_cmd->list_tmf_work) {
+> +				QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +					  "TMF work not found, cqe->tid=0x%x, cid=0x%x\n",
+> +					  proto_itt, qedi_conn->iscsi_conn_id);
+> +				WARN_ON(1);
+> +			}
+> +			found = 1;
+> +			mtask = qedi_cmd->task;
+> +			tmf_hdr = (struct iscsi_tm *)mtask->hdr;
+> +			rtid = work->rtid;
+> +
+> +			list_del_init(&work->list);
+> +			kfree(work);
+> +			qedi_cmd->list_tmf_work = NULL;
+> +		}
+> +	}
+> +	spin_unlock_bh(&qedi_conn->tmf_work_lock);
+> +
+> +	if (found) {
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +			  "TMF work, cqe->tid=0x%x, tmf flags=0x%x, cid=0x%x\n",
+> +			  proto_itt, tmf_hdr->flags, qedi_conn->iscsi_conn_id);
+> +
+> +		if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +		    ISCSI_TM_FUNC_ABORT_TASK) {
+> +			spin_lock_bh(&conn->session->back_lock);
+> +
+> +			protoitt = build_itt(get_itt(tmf_hdr->rtt),
+> +					     conn->session->age);
+> +			task = iscsi_itt_to_task(conn, protoitt);
+> +
+> +			spin_unlock_bh(&conn->session->back_lock);
+> +
+> +			if (!task) {
+> +				QEDI_NOTICE(&qedi->dbg_ctx,
+> +					    "IO task completed, tmf rtt=0x%x, cid=0x%x\n",
+> +					    get_itt(tmf_hdr->rtt),
+> +					    qedi_conn->iscsi_conn_id);
+> +				return;
+> +			}
+> +
+> +			dbg_cmd = task->dd_data;
+> +
+> +			QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +				  "Abort tmf rtt=0x%x, i/o itt=0x%x, i/o tid=0x%x, cid=0x%x\n",
+> +				  get_itt(tmf_hdr->rtt), get_itt(task->itt),
+> +				  dbg_cmd->task_id, qedi_conn->iscsi_conn_id);
+> +
+> +			if (qedi_cmd->state == CLEANUP_WAIT_FAILED)
+> +				qedi_cmd->state = CLEANUP_RECV;
+> +
+> +			qedi_clear_task_idx(qedi_conn->qedi, rtid);
+> +
+> +			spin_lock(&qedi_conn->list_lock);
+> +			list_del_init(&dbg_cmd->io_cmd);
+> +			qedi_conn->active_cmd_count--;
+> +			spin_unlock(&qedi_conn->list_lock);
+> +			qedi_cmd->state = CLEANUP_RECV;
+> +			wake_up_interruptible(&qedi_conn->wait_queue);
+> +		}
+> +	} else if (qedi_conn->cmd_cleanup_req > 0) {
+> +		spin_lock_bh(&conn->session->back_lock);
+> +		qedi_get_proto_itt(qedi, cqe->itid, &ptmp_itt);
+> +		protoitt = build_itt(ptmp_itt, conn->session->age);
+> +		task = iscsi_itt_to_task(conn, protoitt);
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +			  "cleanup io itid=0x%x, protoitt=0x%x, cmd_cleanup_cmpl=%d, cid=0x%x\n",
+> +			  cqe->itid, protoitt, qedi_conn->cmd_cleanup_cmpl,
+> +			  qedi_conn->iscsi_conn_id);
+> +
+> +		spin_unlock_bh(&conn->session->back_lock);
+> +		if (!task) {
+> +			QEDI_NOTICE(&qedi->dbg_ctx,
+> +				    "task is null, itid=0x%x, cid=0x%x\n",
+> +				    cqe->itid, qedi_conn->iscsi_conn_id);
+> +			return;
+> +		}
+> +		qedi_conn->cmd_cleanup_cmpl++;
+> +		wake_up(&qedi_conn->wait_queue);
+> +		cmd_new = task->dd_data;
+> +
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_TID,
+> +			  "Freeing tid=0x%x for cid=0x%x\n",
+> +			  cqe->itid, qedi_conn->iscsi_conn_id);
+> +		qedi_clear_task_idx(qedi_conn->qedi, cqe->itid);
+> +
+> +	} else {
+> +		qedi_get_proto_itt(qedi, cqe->itid, &ptmp_itt);
+> +		protoitt = build_itt(ptmp_itt, conn->session->age);
+> +		task = iscsi_itt_to_task(conn, protoitt);
+> +		QEDI_ERR(&qedi->dbg_ctx,
+> +			 "Delayed or untracked cleanup response, itt=0x%x, tid=0x%x, cid=0x%x, task=%p\n",
+> +			 protoitt, cqe->itid, qedi_conn->iscsi_conn_id, task);
+> +		WARN_ON(1);
+> +	}
+> +}
+> +
+>  void qedi_fp_process_cqes(struct qedi_ctx *qedi, union iscsi_cqe *cqe,
+>  			  uint16_t que_idx)
+>  {
+> @@ -619,6 +974,14 @@ void qedi_fp_process_cqes(struct qedi_ctx *qedi, union iscsi_cqe *cqe,
+>  			break;
+>  		}
+>  		goto exit_fp_process;
+> +	case ISCSI_CQE_TYPE_DUMMY:
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM, "Dummy CqE\n");
+> +		goto exit_fp_process;
+> +	case ISCSI_CQE_TYPE_TASK_CLEANUP:
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM, "CleanUp CqE\n");
+> +		qedi_process_cmd_cleanup_resp(qedi, &cqe->cqe_solicited, task,
+> +					      conn);
+> +		goto exit_fp_process;
+>  	default:
+>  		QEDI_ERR(&qedi->dbg_ctx, "Error cqe.\n");
+>  		break;
+> @@ -904,6 +1267,440 @@ int qedi_send_iscsi_logout(struct qedi_conn *qedi_conn,
+>  	return 0;
+>  }
+>  
+> +int qedi_cleanup_all_io(struct qedi_ctx *qedi, struct qedi_conn *qedi_conn,
+> +			struct iscsi_task *task, bool in_recovery)
+> +{
+> +	int rval;
+> +	struct iscsi_task *ctask;
+> +	struct qedi_cmd *cmd, *cmd_tmp;
+> +	struct iscsi_tm *tmf_hdr;
+> +	unsigned int lun = 0;
+> +	bool lun_reset = false;
+> +	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
+> +	struct iscsi_session *session = conn->session;
+> +
+> +	/* From recovery, task is NULL or from tmf resp valid task */
+> +	if (task) {
+> +		tmf_hdr = (struct iscsi_tm *)task->hdr;
+> +
+> +		if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +			ISCSI_TM_FUNC_LOGICAL_UNIT_RESET) {
+> +			lun_reset = true;
+> +			lun = scsilun_to_int(&tmf_hdr->lun);
+> +		}
+> +	}
+> +
+> +	qedi_conn->cmd_cleanup_req = 0;
+> +	qedi_conn->cmd_cleanup_cmpl = 0;
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +		  "active_cmd_count=%d, cid=0x%x, in_recovery=%d, lun_reset=%d\n",
+> +		  qedi_conn->active_cmd_count, qedi_conn->iscsi_conn_id,
+> +		  in_recovery, lun_reset);
+> +
+> +	if (lun_reset)
+> +		spin_lock_bh(&session->back_lock);
+> +
+> +	spin_lock(&qedi_conn->list_lock);
+> +
+> +	list_for_each_entry_safe(cmd, cmd_tmp, &qedi_conn->active_cmd_list,
+> +				 io_cmd) {
+> +		ctask = cmd->task;
+> +		if (ctask == task)
+> +			continue;
+> +
+> +		if (lun_reset) {
+> +			if (cmd->scsi_cmd && cmd->scsi_cmd->device) {
+> +				QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +					  "tid=0x%x itt=0x%x scsi_cmd_ptr=%p device=%p task_state=%d cmd_state=0%x cid=0x%x\n",
+> +					  cmd->task_id, get_itt(ctask->itt),
+> +					  cmd->scsi_cmd, cmd->scsi_cmd->device,
+> +					  ctask->state, cmd->state,
+> +					  qedi_conn->iscsi_conn_id);
+> +				if (cmd->scsi_cmd->device->lun != lun)
+> +					continue;
+> +			}
+> +		}
+> +		qedi_conn->cmd_cleanup_req++;
+> +		qedi_iscsi_cleanup_task(ctask, true);
+> +
+> +		list_del_init(&cmd->io_cmd);
+> +		qedi_conn->active_cmd_count--;
+> +		QEDI_WARN(&qedi->dbg_ctx,
+> +			  "Deleted active cmd list node io_cmd=%p, cid=0x%x\n",
+> +			  &cmd->io_cmd, qedi_conn->iscsi_conn_id);
+> +	}
+> +
+> +	spin_unlock(&qedi_conn->list_lock);
+> +
+> +	if (lun_reset)
+> +		spin_unlock_bh(&session->back_lock);
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +		  "cmd_cleanup_req=%d, cid=0x%x\n",
+> +		  qedi_conn->cmd_cleanup_req,
+> +		  qedi_conn->iscsi_conn_id);
+> +
+> +	rval  = wait_event_interruptible_timeout(qedi_conn->wait_queue,
+> +						 ((qedi_conn->cmd_cleanup_req ==
+> +						 qedi_conn->cmd_cleanup_cmpl) ||
+> +						 qedi_conn->ep),
+> +						 5 * HZ);
+> +	if (rval) {
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +			  "i/o cmd_cleanup_req=%d, equal to cmd_cleanup_cmpl=%d, cid=0x%x\n",
+> +			  qedi_conn->cmd_cleanup_req,
+> +			  qedi_conn->cmd_cleanup_cmpl,
+> +			  qedi_conn->iscsi_conn_id);
+> +
+> +		return 0;
+> +	}
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +		  "i/o cmd_cleanup_req=%d, not equal to cmd_cleanup_cmpl=%d, cid=0x%x\n",
+> +		  qedi_conn->cmd_cleanup_req,
+> +		  qedi_conn->cmd_cleanup_cmpl,
+> +		  qedi_conn->iscsi_conn_id);
+> +
+> +	iscsi_host_for_each_session(qedi->shost,
+> +				    qedi_mark_device_missing);
+> +	qedi_ops->common->drain(qedi->cdev);
+> +
+> +	/* Enable IOs for all other sessions except current.*/
+> +	if (!wait_event_interruptible_timeout(qedi_conn->wait_queue,
+> +					      (qedi_conn->cmd_cleanup_req ==
+> +					       qedi_conn->cmd_cleanup_cmpl),
+> +					      5 * HZ)) {
+> +		iscsi_host_for_each_session(qedi->shost,
+> +					    qedi_mark_device_available);
+> +		return -1;
+> +	}
+> +
+> +	iscsi_host_for_each_session(qedi->shost,
+> +				    qedi_mark_device_available);
+> +
+> +	return 0;
+> +}
+> +
+> +void qedi_clearsq(struct qedi_ctx *qedi, struct qedi_conn *qedi_conn,
+> +		  struct iscsi_task *task)
+> +{
+> +	struct qedi_endpoint *qedi_ep;
+> +	int rval;
+> +
+> +	qedi_ep = qedi_conn->ep;
+> +	qedi_conn->cmd_cleanup_req = 0;
+> +	qedi_conn->cmd_cleanup_cmpl = 0;
+> +
+> +	if (!qedi_ep) {
+> +		QEDI_WARN(&qedi->dbg_ctx,
+> +			  "Cannot proceed, ep already disconnected, cid=0x%x\n",
+> +			  qedi_conn->iscsi_conn_id);
+> +		return;
+> +	}
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
+> +		  "Clearing SQ for cid=0x%x, conn=%p, ep=%p\n",
+> +		  qedi_conn->iscsi_conn_id, qedi_conn, qedi_ep);
+> +
+> +	qedi_ops->clear_sq(qedi->cdev, qedi_ep->handle);
+> +
+> +	rval = qedi_cleanup_all_io(qedi, qedi_conn, task, true);
+> +	if (rval) {
+> +		QEDI_ERR(&qedi->dbg_ctx,
+> +			 "fatal error, need hard reset, cid=0x%x\n",
+> +			 qedi_conn->iscsi_conn_id);
+> +		WARN_ON(1);
+> +	}
+> +}
+> +
+> +static int qedi_wait_for_cleanup_request(struct qedi_ctx *qedi,
+> +					 struct qedi_conn *qedi_conn,
+> +					 struct iscsi_task *task,
+> +					 struct qedi_cmd *qedi_cmd,
+> +					 struct qedi_work_map *list_work)
+> +{
+> +	struct qedi_cmd *cmd = (struct qedi_cmd *)task->dd_data;
+> +	int wait;
+> +
+> +	wait  = wait_event_interruptible_timeout(qedi_conn->wait_queue,
+> +						 ((qedi_cmd->state ==
+> +						   CLEANUP_RECV) ||
+> +						 ((qedi_cmd->type == TYPEIO) &&
+> +						  (cmd->state ==
+> +						   RESPONSE_RECEIVED))),
+> +						 5 * HZ);
+> +	if (!wait) {
+> +		qedi_cmd->state = CLEANUP_WAIT_FAILED;
+> +
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +			  "Cleanup timedout tid=0x%x, issue connection recovery, cid=0x%x\n",
+> +			  cmd->task_id, qedi_conn->iscsi_conn_id);
+> +
+> +		return -1;
+> +	}
+> +	return 0;
+> +}
+> +
+> +static void qedi_tmf_work(struct work_struct *work)
+> +{
+> +	struct qedi_cmd *qedi_cmd =
+> +		container_of(work, struct qedi_cmd, tmf_work);
+> +	struct qedi_conn *qedi_conn = qedi_cmd->conn;
+> +	struct qedi_ctx *qedi = qedi_conn->qedi;
+> +	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
+> +	struct iscsi_cls_session *cls_sess;
+> +	struct qedi_work_map *list_work = NULL;
+> +	struct iscsi_task *mtask;
+> +	struct qedi_cmd *cmd;
+> +	struct iscsi_task *ctask;
+> +	struct iscsi_tm *tmf_hdr;
+> +	s16 rval = 0;
+> +	s16 tid = 0;
+> +
+> +	mtask = qedi_cmd->task;
+> +	tmf_hdr = (struct iscsi_tm *)mtask->hdr;
+> +	cls_sess = iscsi_conn_to_session(qedi_conn->cls_conn);
+> +	set_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
+> +
+> +	ctask = iscsi_itt_to_task(conn, tmf_hdr->rtt);
+> +	if (!ctask || !ctask->sc) {
+> +		QEDI_ERR(&qedi->dbg_ctx, "Task already completed\n");
+> +		goto abort_ret;
+> +	}
+> +
+> +	cmd = (struct qedi_cmd *)ctask->dd_data;
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
+> +		  "Abort tmf rtt=0x%x, cmd itt=0x%x, cmd tid=0x%x, cid=0x%x\n",
+> +		  get_itt(tmf_hdr->rtt), get_itt(ctask->itt), cmd->task_id,
+> +		  qedi_conn->iscsi_conn_id);
+> +
+> +	if (do_not_recover) {
+> +		QEDI_ERR(&qedi->dbg_ctx, "DONT SEND CLEANUP/ABORT %d\n",
+> +			 do_not_recover);
+> +		goto abort_ret;
+> +	}
+> +
+> +	list_work = kzalloc(sizeof(*list_work), GFP_ATOMIC);
+> +	if (!list_work) {
+> +		QEDI_ERR(&qedi->dbg_ctx, "Memory alloction failed\n");
+> +		goto abort_ret;
+> +	}
+> +
+> +	qedi_cmd->type = TYPEIO;
+> +	list_work->qedi_cmd = qedi_cmd;
+> +	list_work->rtid = cmd->task_id;
+> +	list_work->state = QEDI_WORK_SCHEDULED;
+> +	qedi_cmd->list_tmf_work = list_work;
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +		  "Queue tmf work=%p, list node=%p, cid=0x%x, tmf flags=0x%x\n",
+> +		  list_work->ptr_tmf_work, list_work, qedi_conn->iscsi_conn_id,
+> +		  tmf_hdr->flags);
+> +
+> +	spin_lock_bh(&qedi_conn->tmf_work_lock);
+> +	list_add_tail(&list_work->list, &qedi_conn->tmf_work_list);
+> +	spin_unlock_bh(&qedi_conn->tmf_work_lock);
+> +
+> +	qedi_iscsi_cleanup_task(ctask, false);
+> +
+> +	rval = qedi_wait_for_cleanup_request(qedi, qedi_conn, ctask, qedi_cmd,
+> +					     list_work);
+> +	if (rval == -1) {
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
+> +			  "FW cleanup got escalated, cid=0x%x\n",
+> +			  qedi_conn->iscsi_conn_id);
+> +		goto ldel_exit;
+> +	}
+> +
+> +	tid = qedi_get_task_idx(qedi);
+> +	if (tid == -1) {
+> +		QEDI_ERR(&qedi->dbg_ctx, "Invalid tid, cid=0x%x\n",
+> +			 qedi_conn->iscsi_conn_id);
+> +		goto ldel_exit;
+> +	}
+> +
+> +	qedi_cmd->task_id = tid;
+> +	qedi_send_iscsi_tmf(qedi_conn, qedi_cmd->task);
+> +
+> +abort_ret:
+> +	clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
+> +	return;
+> +
+> +ldel_exit:
+> +	spin_lock_bh(&qedi_conn->tmf_work_lock);
+> +	if (!qedi_cmd->list_tmf_work) {
+> +		list_del_init(&list_work->list);
+> +		qedi_cmd->list_tmf_work = NULL;
+> +		kfree(list_work);
+> +	}
+> +	spin_unlock_bh(&qedi_conn->tmf_work_lock);
+> +
+> +	spin_lock(&qedi_conn->list_lock);
+> +	list_del_init(&cmd->io_cmd);
+> +	qedi_conn->active_cmd_count--;
+> +	spin_unlock(&qedi_conn->list_lock);
+> +
+> +	clear_bit(QEDI_CONN_FW_CLEANUP, &qedi_conn->flags);
+> +}
+> +
+> +static int qedi_send_iscsi_tmf(struct qedi_conn *qedi_conn,
+> +			       struct iscsi_task *mtask)
+> +{
+> +	struct iscsi_conn *conn = qedi_conn->cls_conn->dd_data;
+> +	struct qedi_ctx *qedi = qedi_conn->qedi;
+> +	struct iscsi_task_context *fw_task_ctx;
+> +	struct iscsi_tmf_request_hdr *fw_tmf_request;
+> +	struct iscsi_sge *single_sge;
+> +	struct qedi_cmd *qedi_cmd;
+> +	struct qedi_cmd *cmd;
+> +	struct iscsi_task *ctask;
+> +	struct iscsi_tm *tmf_hdr;
+> +	struct iscsi_sge *req_sge;
+> +	struct iscsi_sge *resp_sge;
+> +	u32 scsi_lun[2];
+> +	s16 tid = 0, ptu_invalidate = 0;
+> +
+> +	req_sge = (struct iscsi_sge *)qedi_conn->gen_pdu.req_bd_tbl;
+> +	resp_sge = (struct iscsi_sge *)qedi_conn->gen_pdu.resp_bd_tbl;
+> +	qedi_cmd = (struct qedi_cmd *)mtask->dd_data;
+> +	tmf_hdr = (struct iscsi_tm *)mtask->hdr;
+> +
+> +	tid = qedi_cmd->task_id;
+> +	qedi_update_itt_map(qedi, tid, mtask->itt);
+> +
+> +	fw_task_ctx =
+> +	      (struct iscsi_task_context *)qedi_get_task_mem(&qedi->tasks, tid);
+> +	memset(fw_task_ctx, 0, sizeof(struct iscsi_task_context));
+> +
+> +	fw_tmf_request = &fw_task_ctx->ystorm_st_context.pdu_hdr.tmf_request;
+> +	fw_tmf_request->itt = qedi_set_itt(tid, get_itt(mtask->itt));
+> +	fw_tmf_request->cmd_sn = be32_to_cpu(tmf_hdr->cmdsn);
+> +
+> +	memcpy(scsi_lun, &tmf_hdr->lun, sizeof(struct scsi_lun));
+> +	fw_tmf_request->lun.lo = be32_to_cpu(scsi_lun[0]);
+> +	fw_tmf_request->lun.hi = be32_to_cpu(scsi_lun[1]);
+> +
+> +	if (qedi->tid_reuse_count[tid] == QEDI_MAX_TASK_NUM) {
+> +		ptu_invalidate = 1;
+> +		qedi->tid_reuse_count[tid] = 0;
+> +	}
+> +	fw_task_ctx->ystorm_st_context.state.reuse_count =
+> +						qedi->tid_reuse_count[tid];
+> +	fw_task_ctx->mstorm_st_context.reuse_count =
+> +						qedi->tid_reuse_count[tid]++;
+> +
+> +	if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +	     ISCSI_TM_FUNC_ABORT_TASK) {
+> +		ctask = iscsi_itt_to_task(conn, tmf_hdr->rtt);
+> +		if (!ctask || !ctask->sc) {
+> +			QEDI_ERR(&qedi->dbg_ctx,
+> +				 "Could not get reference task\n");
+> +			return 0;
+> +		}
+> +		cmd = (struct qedi_cmd *)ctask->dd_data;
+> +		fw_tmf_request->rtt =
+> +				qedi_set_itt(cmd->task_id,
+> +					     get_itt(tmf_hdr->rtt));
+> +	} else {
+> +		fw_tmf_request->rtt = ISCSI_RESERVED_TAG;
+> +	}
+> +
+> +	fw_tmf_request->opcode = tmf_hdr->opcode;
+> +	fw_tmf_request->function = tmf_hdr->flags;
+> +	fw_tmf_request->hdr_second_dword = ntoh24(tmf_hdr->dlength);
+> +	fw_tmf_request->ref_cmd_sn = be32_to_cpu(tmf_hdr->refcmdsn);
+> +
+> +	single_sge = &fw_task_ctx->mstorm_st_context.sgl_union.single_sge;
+> +	fw_task_ctx->mstorm_st_context.task_type = ISCSI_TASK_TYPE_MIDPATH;
+> +	fw_task_ctx->mstorm_ag_context.task_cid = (u16)qedi_conn->iscsi_conn_id;
+> +	single_sge->sge_addr.lo = resp_sge->sge_addr.lo;
+> +	single_sge->sge_addr.hi = resp_sge->sge_addr.hi;
+> +	single_sge->sge_len = resp_sge->sge_len;
+> +
+> +	SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +		  ISCSI_MFLAGS_SINGLE_SGE, 1);
+> +	SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +		  ISCSI_MFLAGS_SLOW_IO, 0);
+> +	fw_task_ctx->mstorm_st_context.sgl_size = 1;
+> +	fw_task_ctx->mstorm_st_context.rem_task_size = resp_sge->sge_len;
+> +
+> +	/* Ustorm context */
+> +	fw_task_ctx->ustorm_st_context.rem_rcv_len = 0;
+> +	fw_task_ctx->ustorm_st_context.exp_data_transfer_len = 0;
+> +	fw_task_ctx->ustorm_st_context.exp_data_sn = 0;
+> +	fw_task_ctx->ustorm_st_context.task_type =  ISCSI_TASK_TYPE_MIDPATH;
+> +	fw_task_ctx->ustorm_st_context.cq_rss_number = 0;
+> +
+> +	SET_FIELD(fw_task_ctx->ustorm_st_context.flags,
+> +		  USTORM_ISCSI_TASK_ST_CTX_LOCAL_COMP, 0);
+> +	SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
+> +		  ISCSI_REG1_NUM_FAST_SGES, 0);
+> +
+> +	fw_task_ctx->ustorm_ag_context.icid = (u16)qedi_conn->iscsi_conn_id;
+> +	SET_FIELD(fw_task_ctx->ustorm_ag_context.flags1,
+> +		  USTORM_ISCSI_TASK_AG_CTX_R2T2RECV, 1);
+> +	fw_task_ctx->ustorm_st_context.lun.lo = be32_to_cpu(scsi_lun[0]);
+> +	fw_task_ctx->ustorm_st_context.lun.hi = be32_to_cpu(scsi_lun[1]);
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +		  "Add TMF to SQ, tmf tid=0x%x, itt=0x%x, cid=0x%x\n",
+> +		  tid,  mtask->itt, qedi_conn->iscsi_conn_id);
+> +
+> +	spin_lock(&qedi_conn->list_lock);
+> +	list_add_tail(&qedi_cmd->io_cmd, &qedi_conn->active_cmd_list);
+> +	qedi_cmd->io_cmd_in_list = true;
+> +	qedi_conn->active_cmd_count++;
+> +	spin_unlock(&qedi_conn->list_lock);
+> +
+> +	qedi_add_to_sq(qedi_conn, mtask, tid, ptu_invalidate, false);
+> +	qedi_ring_doorbell(qedi_conn);
+> +	return 0;
+> +}
+> +
+> +int qedi_iscsi_abort_work(struct qedi_conn *qedi_conn,
+> +			  struct iscsi_task *mtask)
+> +{
+> +	struct qedi_ctx *qedi = qedi_conn->qedi;
+> +	struct iscsi_tm *tmf_hdr;
+> +	struct qedi_cmd *qedi_cmd = (struct qedi_cmd *)mtask->dd_data;
+> +	s16 tid = 0;
+> +
+> +	tmf_hdr = (struct iscsi_tm *)mtask->hdr;
+> +	qedi_cmd->task = mtask;
+> +
+> +	/* If abort task then schedule the work and return */
+> +	if ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +	    ISCSI_TM_FUNC_ABORT_TASK) {
+> +		qedi_cmd->state = CLEANUP_WAIT;
+> +		INIT_WORK(&qedi_cmd->tmf_work, qedi_tmf_work);
+> +		queue_work(qedi->tmf_thread, &qedi_cmd->tmf_work);
+> +
+> +	} else if (((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +		    ISCSI_TM_FUNC_LOGICAL_UNIT_RESET) ||
+> +		   ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +		    ISCSI_TM_FUNC_TARGET_WARM_RESET) ||
+> +		   ((tmf_hdr->flags & ISCSI_FLAG_TM_FUNC_MASK) ==
+> +		    ISCSI_TM_FUNC_TARGET_COLD_RESET)) {
+> +		tid = qedi_get_task_idx(qedi);
+> +		if (tid == -1) {
+> +			QEDI_ERR(&qedi->dbg_ctx, "Invalid tid, cid=0x%x\n",
+> +				 qedi_conn->iscsi_conn_id);
+> +			return -1;
+> +		}
+> +		qedi_cmd->task_id = tid;
+> +
+> +		qedi_send_iscsi_tmf(qedi_conn, qedi_cmd->task);
+> +
+> +	} else {
+> +		QEDI_ERR(&qedi->dbg_ctx, "Invalid tmf, cid=0x%x\n",
+> +			 qedi_conn->iscsi_conn_id);
+> +		return -1;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>  int qedi_send_iscsi_text(struct qedi_conn *qedi_conn,
+>  			 struct iscsi_task *task)
+>  {
+> @@ -1121,3 +1918,488 @@ int qedi_send_iscsi_nopout(struct qedi_conn *qedi_conn,
+>  	qedi_ring_doorbell(qedi_conn);
+>  	return 0;
+>  }
+> +
+> +static int qedi_split_bd(struct qedi_cmd *cmd, u64 addr, int sg_len,
+> +			 int bd_index)
+> +{
+> +	struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
+> +	int frag_size, sg_frags;
+> +
+> +	sg_frags = 0;
+> +
+> +	while (sg_len) {
+> +		if (addr % QEDI_PAGE_SIZE)
+> +			frag_size =
+> +				   (QEDI_PAGE_SIZE - (addr % QEDI_PAGE_SIZE));
+> +		else
+> +			frag_size = (sg_len > QEDI_BD_SPLIT_SZ) ? 0 :
+> +				    (sg_len % QEDI_BD_SPLIT_SZ);
+> +
+> +		if (frag_size == 0)
+> +			frag_size = QEDI_BD_SPLIT_SZ;
+> +
+> +		bd[bd_index + sg_frags].sge_addr.lo = (addr & 0xffffffff);
+> +		bd[bd_index + sg_frags].sge_addr.hi = (addr >> 32);
+> +		bd[bd_index + sg_frags].sge_len = (u16)frag_size;
+> +		QEDI_INFO(&cmd->conn->qedi->dbg_ctx, QEDI_LOG_IO,
+> +			  "split sge %d: addr=%llx, len=%x",
+> +			  (bd_index + sg_frags), addr, frag_size);
+> +
+> +		addr += (u64)frag_size;
+> +		sg_frags++;
+> +		sg_len -= frag_size;
+> +	}
+> +	return sg_frags;
+> +}
+> +
+> +static int qedi_map_scsi_sg(struct qedi_ctx *qedi, struct qedi_cmd *cmd)
+> +{
+> +	struct scsi_cmnd *sc = cmd->scsi_cmd;
+> +	struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
+> +	struct scatterlist *sg;
+> +	int byte_count = 0;
+> +	int bd_count = 0;
+> +	int sg_count;
+> +	int sg_len;
+> +	int sg_frags;
+> +	u64 addr, end_addr;
+> +	int i;
+> +
+> +	WARN_ON(scsi_sg_count(sc) > QEDI_ISCSI_MAX_BDS_PER_CMD);
+> +
+> +	sg_count = dma_map_sg(&qedi->pdev->dev, scsi_sglist(sc),
+> +			      scsi_sg_count(sc), sc->sc_data_direction);
+> +
+> +	/*
+> +	 * New condition to send single SGE as cached-SGL.
+> +	 * Single SGE with length less than 64K.
+> +	 */
+> +	sg = scsi_sglist(sc);
+> +	if ((sg_count == 1) && (sg_dma_len(sg) <= MAX_SGLEN_FOR_CACHESGL)) {
+> +		sg_len = sg_dma_len(sg);
+> +		addr = (u64)sg_dma_address(sg);
+> +
+> +		bd[bd_count].sge_addr.lo = (addr & 0xffffffff);
+> +		bd[bd_count].sge_addr.hi = (addr >> 32);
+> +		bd[bd_count].sge_len = (u16)sg_len;
+> +
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO,
+> +			  "single-cashed-sgl: bd_count:%d addr=%llx, len=%x",
+> +			  sg_count, addr, sg_len);
+> +
+> +		return ++bd_count;
+> +	}
+> +
+> +	scsi_for_each_sg(sc, sg, sg_count, i) {
+> +		sg_len = sg_dma_len(sg);
+> +		addr = (u64)sg_dma_address(sg);
+> +		end_addr = (addr + sg_len);
+> +
+> +		/*
+> +		 * first sg elem in the 'list',
+> +		 * check if end addr is page-aligned.
+> +		 */
+> +		if ((i == 0) && (sg_count > 1) && (end_addr % QEDI_PAGE_SIZE))
+> +			cmd->use_slowpath = true;
+> +
+> +		/*
+> +		 * last sg elem in the 'list',
+> +		 * check if start addr is page-aligned.
+> +		 */
+> +		else if ((i == (sg_count - 1)) &&
+> +			 (sg_count > 1) && (addr % QEDI_PAGE_SIZE))
+> +			cmd->use_slowpath = true;
+> +
+> +		/*
+> +		 * middle sg elements in list,
+> +		 * check if start and end addr is page-aligned
+> +		 */
+> +		else if ((i != 0) && (i != (sg_count - 1)) &&
+> +			 ((addr % QEDI_PAGE_SIZE) ||
+> +			 (end_addr % QEDI_PAGE_SIZE)))
+> +			cmd->use_slowpath = true;
+> +
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO, "sg[%d] size=0x%x",
+> +			  i, sg_len);
+> +
+> +		if (sg_len > QEDI_BD_SPLIT_SZ) {
+> +			sg_frags = qedi_split_bd(cmd, addr, sg_len, bd_count);
+> +		} else {
+> +			sg_frags = 1;
+> +			bd[bd_count].sge_addr.lo = addr & 0xffffffff;
+> +			bd[bd_count].sge_addr.hi = addr >> 32;
+> +			bd[bd_count].sge_len = sg_len;
+> +		}
+> +		byte_count += sg_len;
+> +		bd_count += sg_frags;
+> +	}
+> +
+> +	if (byte_count != scsi_bufflen(sc))
+> +		QEDI_ERR(&qedi->dbg_ctx,
+> +			 "byte_count = %d != scsi_bufflen = %d\n", byte_count,
+> +			 scsi_bufflen(sc));
+> +	else
+> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO, "byte_count = %d\n",
+> +			  byte_count);
+> +
+> +	WARN_ON(byte_count != scsi_bufflen(sc));
+> +
+> +	return bd_count;
+> +}
+> +
+> +static void qedi_iscsi_map_sg_list(struct qedi_cmd *cmd)
+> +{
+> +	int bd_count;
+> +	struct scsi_cmnd *sc = cmd->scsi_cmd;
+> +
+> +	if (scsi_sg_count(sc)) {
+> +		bd_count  = qedi_map_scsi_sg(cmd->conn->qedi, cmd);
+> +		if (bd_count == 0)
+> +			return;
+> +	} else {
+> +		struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
+> +
+> +		bd[0].sge_addr.lo = 0;
+> +		bd[0].sge_addr.hi = 0;
+> +		bd[0].sge_len = 0;
+> +		bd_count = 0;
+> +	}
+> +	cmd->io_tbl.sge_valid = bd_count;
+> +}
+> +
+> +static void qedi_cpy_scsi_cdb(struct scsi_cmnd *sc, u32 *dstp)
+> +{
+> +	u32 dword;
+> +	int lpcnt;
+> +	u8 *srcp;
+> +
+> +	lpcnt = sc->cmd_len / sizeof(dword);
+> +	srcp = (u8 *)sc->cmnd;
+> +	while (lpcnt--) {
+> +		memcpy(&dword, (const void *)srcp, 4);
+> +		*dstp = cpu_to_be32(dword);
+> +		srcp += 4;
+> +		dstp++;
+> +	}
+> +	if (sc->cmd_len & 0x3) {
+> +		dword = (u32)srcp[0] | ((u32)srcp[1] << 8);
+> +		*dstp = cpu_to_be32(dword);
+> +	}
+> +}
+> +
+> +void qedi_trace_io(struct qedi_ctx *qedi, struct iscsi_task *task,
+> +		   u16 tid, int8_t direction)
+> +{
+> +	struct qedi_io_log *io_log;
+> +	struct iscsi_conn *conn = task->conn;
+> +	struct qedi_conn *qedi_conn = conn->dd_data;
+> +	struct scsi_cmnd *sc_cmd = task->sc;
+> +	unsigned long flags;
+> +	u8 op;
+> +
+> +	spin_lock_irqsave(&qedi->io_trace_lock, flags);
+> +
+> +	io_log = &qedi->io_trace_buf[qedi->io_trace_idx];
+> +	io_log->direction = direction;
+> +	io_log->task_id = tid;
+> +	io_log->cid = qedi_conn->iscsi_conn_id;
+> +	io_log->lun = sc_cmd->device->lun;
+> +	io_log->op = sc_cmd->cmnd[0];
+> +	op = sc_cmd->cmnd[0];
+> +
+> +	if (op == READ_10 || op == WRITE_10) {
+> +		io_log->lba[0] = sc_cmd->cmnd[2];
+> +		io_log->lba[1] = sc_cmd->cmnd[3];
+> +		io_log->lba[2] = sc_cmd->cmnd[4];
+> +		io_log->lba[3] = sc_cmd->cmnd[5];
+> +	} else {
+> +		io_log->lba[0] = 0;
+> +		io_log->lba[1] = 0;
+> +		io_log->lba[2] = 0;
+> +		io_log->lba[3] = 0;
+> +	}
+Only for READ_10 and WRITE_10? What about the other read or write commands?
 
+> +	io_log->bufflen = scsi_bufflen(sc_cmd);
+> +	io_log->sg_count = scsi_sg_count(sc_cmd);
+> +	io_log->fast_sgs = qedi->fast_sgls;
+> +	io_log->cached_sgs = qedi->cached_sgls;
+> +	io_log->slow_sgs = qedi->slow_sgls;
+> +	io_log->cached_sge = qedi->use_cached_sge;
+> +	io_log->slow_sge = qedi->use_slow_sge;
+> +	io_log->fast_sge = qedi->use_fast_sge;
+> +	io_log->result = sc_cmd->result;
+> +	io_log->jiffies = jiffies;
+> +	io_log->blk_req_cpu = smp_processor_id();
+> +
+> +	if (direction == QEDI_IO_TRACE_REQ) {
+> +		/* For requests we only care about the submission CPU */
+> +		io_log->req_cpu = smp_processor_id() % qedi->num_queues;
+> +		io_log->intr_cpu = 0;
+> +		io_log->blk_rsp_cpu = 0;
+> +	} else if (direction == QEDI_IO_TRACE_RSP) {
+> +		io_log->req_cpu = smp_processor_id() % qedi->num_queues;
+> +		io_log->intr_cpu = qedi->intr_cpu;
+> +		io_log->blk_rsp_cpu = smp_processor_id();
+> +	}
+> +
+> +	qedi->io_trace_idx++;
+> +	if (qedi->io_trace_idx == QEDI_IO_TRACE_SIZE)
+> +		qedi->io_trace_idx = 0;
+> +
+> +	qedi->use_cached_sge = false;
+> +	qedi->use_slow_sge = false;
+> +	qedi->use_fast_sge = false;
+> +
+> +	spin_unlock_irqrestore(&qedi->io_trace_lock, flags);
+> +}
+> +
+> +int qedi_iscsi_send_ioreq(struct iscsi_task *task)
+> +{
+> +	struct iscsi_conn *conn = task->conn;
+> +	struct iscsi_session *session = conn->session;
+> +	struct Scsi_Host *shost = iscsi_session_to_shost(session->cls_session);
+> +	struct qedi_ctx *qedi = iscsi_host_priv(shost);
+> +	struct qedi_conn *qedi_conn = conn->dd_data;
+> +	struct qedi_cmd *cmd = task->dd_data;
+> +	struct scsi_cmnd *sc = task->sc;
+> +	struct iscsi_task_context *fw_task_ctx;
+> +	struct iscsi_cached_sge_ctx *cached_sge;
+> +	struct iscsi_phys_sgl_ctx *phys_sgl;
+> +	struct iscsi_virt_sgl_ctx *virt_sgl;
+> +	struct ystorm_iscsi_task_st_ctx *yst_cxt;
+> +	struct mstorm_iscsi_task_st_ctx *mst_cxt;
+> +	struct iscsi_sgl *sgl_struct;
+> +	struct iscsi_sge *single_sge;
+> +	struct iscsi_scsi_req *hdr = (struct iscsi_scsi_req *)task->hdr;
+> +	struct iscsi_sge *bd = cmd->io_tbl.sge_tbl;
+> +	enum iscsi_task_type task_type;
+> +	struct iscsi_cmd_hdr *fw_cmd;
+> +	u32 scsi_lun[2];
+> +	u16 cq_idx = smp_processor_id() % qedi->num_queues;
+> +	s16 ptu_invalidate = 0;
+> +	s16 tid = 0;
+> +	u8 num_fast_sgs;
+> +
+> +	tid = qedi_get_task_idx(qedi);
+> +	if (tid == -1)
+> +		return -ENOMEM;
+> +
+> +	qedi_iscsi_map_sg_list(cmd);
+> +
+> +	int_to_scsilun(sc->device->lun, (struct scsi_lun *)scsi_lun);
+> +	fw_task_ctx =
+> +	      (struct iscsi_task_context *)qedi_get_task_mem(&qedi->tasks, tid);
+> +
+> +	memset(fw_task_ctx, 0, sizeof(struct iscsi_task_context));
+> +	cmd->task_id = tid;
+> +
+> +	/* Ystrom context */
+Ystrom or Ystorm?
+
+> +	fw_cmd = &fw_task_ctx->ystorm_st_context.pdu_hdr.cmd;
+> +	SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_ATTR, ISCSI_ATTR_SIMPLE);
+> +
+> +	if (sc->sc_data_direction == DMA_TO_DEVICE) {
+> +		if (conn->session->initial_r2t_en) {
+> +			fw_task_ctx->ustorm_ag_context.exp_data_acked =
+> +				min((conn->session->imm_data_en *
+> +				    conn->max_xmit_dlength),
+> +				    conn->session->first_burst);
+> +			fw_task_ctx->ustorm_ag_context.exp_data_acked =
+> +			      min(fw_task_ctx->ustorm_ag_context.exp_data_acked,
+> +				  scsi_bufflen(sc));
+> +		} else {
+> +			fw_task_ctx->ustorm_ag_context.exp_data_acked =
+> +			      min(conn->session->first_burst, scsi_bufflen(sc));
+> +		}
+> +
+> +		SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_WRITE, 1);
+> +		task_type = ISCSI_TASK_TYPE_INITIATOR_WRITE;
+> +	} else {
+> +		if (scsi_bufflen(sc))
+> +			SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_READ, 1);
+> +		task_type = ISCSI_TASK_TYPE_INITIATOR_READ;
+> +	}
+> +
+> +	fw_cmd->lun.lo = be32_to_cpu(scsi_lun[0]);
+> +	fw_cmd->lun.hi = be32_to_cpu(scsi_lun[1]);
+> +
+> +	qedi_update_itt_map(qedi, tid, task->itt);
+> +	fw_cmd->itt = qedi_set_itt(tid, get_itt(task->itt));
+> +	fw_cmd->expected_transfer_length = scsi_bufflen(sc);
+> +	fw_cmd->cmd_sn = be32_to_cpu(hdr->cmdsn);
+> +	fw_cmd->opcode = hdr->opcode;
+> +	qedi_cpy_scsi_cdb(sc, (u32 *)fw_cmd->cdb);
+> +
+> +	/* Mstorm context */
+> +	fw_task_ctx->mstorm_st_context.sense_db.lo = (u32)cmd->sense_buffer_dma;
+> +	fw_task_ctx->mstorm_st_context.sense_db.hi =
+> +					(u32)((u64)cmd->sense_buffer_dma >> 32);
+> +	fw_task_ctx->mstorm_ag_context.task_cid = qedi_conn->iscsi_conn_id;
+> +	fw_task_ctx->mstorm_st_context.task_type = task_type;
+> +
+> +	if (qedi->tid_reuse_count[tid] == QEDI_MAX_TASK_NUM) {
+> +		ptu_invalidate = 1;
+> +		qedi->tid_reuse_count[tid] = 0;
+> +	}
+> +	fw_task_ctx->ystorm_st_context.state.reuse_count =
+> +						     qedi->tid_reuse_count[tid];
+> +	fw_task_ctx->mstorm_st_context.reuse_count =
+> +						   qedi->tid_reuse_count[tid]++;
+> +
+> +	/* Ustrorm context */
+Ustrorm?
+
+> +	fw_task_ctx->ustorm_st_context.rem_rcv_len = scsi_bufflen(sc);
+> +	fw_task_ctx->ustorm_st_context.exp_data_transfer_len = scsi_bufflen(sc);
+> +	fw_task_ctx->ustorm_st_context.exp_data_sn =
+> +						   be32_to_cpu(hdr->exp_statsn);
+> +	fw_task_ctx->ustorm_st_context.task_type = task_type;
+> +	fw_task_ctx->ustorm_st_context.cq_rss_number = cq_idx;
+> +	fw_task_ctx->ustorm_ag_context.icid = (u16)qedi_conn->iscsi_conn_id;
+> +
+> +	SET_FIELD(fw_task_ctx->ustorm_ag_context.flags1,
+> +		  USTORM_ISCSI_TASK_AG_CTX_R2T2RECV, 1);
+> +	SET_FIELD(fw_task_ctx->ustorm_st_context.flags,
+> +		  USTORM_ISCSI_TASK_ST_CTX_LOCAL_COMP, 0);
+> +
+> +	num_fast_sgs = (cmd->io_tbl.sge_valid ?
+> +			min((u16)QEDI_FAST_SGE_COUNT,
+> +			    (u16)cmd->io_tbl.sge_valid) : 0);
+> +	SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
+> +		  ISCSI_REG1_NUM_FAST_SGES, num_fast_sgs);
+> +
+> +	fw_task_ctx->ustorm_st_context.lun.lo = be32_to_cpu(scsi_lun[0]);
+> +	fw_task_ctx->ustorm_st_context.lun.hi = be32_to_cpu(scsi_lun[1]);
+> +
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO, "Total sge count [%d]\n",
+> +		  cmd->io_tbl.sge_valid);
+> +
+> +	yst_cxt = &fw_task_ctx->ystorm_st_context;
+> +	mst_cxt = &fw_task_ctx->mstorm_st_context;
+> +	/* Tx path */
+> +	if (task_type == ISCSI_TASK_TYPE_INITIATOR_WRITE) {
+> +		/* not considering  superIO or FastIO */
+> +		if (cmd->io_tbl.sge_valid == 1) {
+> +			cached_sge = &yst_cxt->state.sgl_ctx_union.cached_sge;
+> +			cached_sge->sge.sge_addr.lo = bd[0].sge_addr.lo;
+> +			cached_sge->sge.sge_addr.hi = bd[0].sge_addr.hi;
+> +			cached_sge->sge.sge_len = bd[0].sge_len;
+> +			qedi->cached_sgls++;
+> +		} else if ((cmd->io_tbl.sge_valid != 1) && cmd->use_slowpath) {
+> +			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +				  ISCSI_MFLAGS_SLOW_IO, 1);
+> +			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
+> +				  ISCSI_REG1_NUM_FAST_SGES, 0);
+> +			phys_sgl = &yst_cxt->state.sgl_ctx_union.phys_sgl;
+> +			phys_sgl->sgl_base.lo = (u32)(cmd->io_tbl.sge_tbl_dma);
+> +			phys_sgl->sgl_base.hi =
+> +				     (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
+> +			phys_sgl->sgl_size = cmd->io_tbl.sge_valid;
+> +			qedi->slow_sgls++;
+> +		} else if ((cmd->io_tbl.sge_valid != 1) && !cmd->use_slowpath) {
+> +			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +				  ISCSI_MFLAGS_SLOW_IO, 0);
+> +			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
+> +				  ISCSI_REG1_NUM_FAST_SGES,
+> +				  min((u16)QEDI_FAST_SGE_COUNT,
+> +				      (u16)cmd->io_tbl.sge_valid));
+> +			virt_sgl = &yst_cxt->state.sgl_ctx_union.virt_sgl;
+> +			virt_sgl->sgl_base.lo = (u32)(cmd->io_tbl.sge_tbl_dma);
+> +			virt_sgl->sgl_base.hi =
+> +				      (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
+> +			virt_sgl->sgl_initial_offset =
+> +				 (u32)bd[0].sge_addr.lo & (QEDI_PAGE_SIZE - 1);
+> +			qedi->fast_sgls++;
+> +		}
+> +		fw_task_ctx->mstorm_st_context.sgl_size = cmd->io_tbl.sge_valid;
+> +		fw_task_ctx->mstorm_st_context.rem_task_size = scsi_bufflen(sc);
+> +	} else {
+> +	/* Rx path */
+> +		if (cmd->io_tbl.sge_valid == 1) {
+> +			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +				  ISCSI_MFLAGS_SLOW_IO, 0);
+> +			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +				  ISCSI_MFLAGS_SINGLE_SGE, 1);
+> +			single_sge = &mst_cxt->sgl_union.single_sge;
+> +			single_sge->sge_addr.lo = bd[0].sge_addr.lo;
+> +			single_sge->sge_addr.hi = bd[0].sge_addr.hi;
+> +			single_sge->sge_len = bd[0].sge_len;
+> +			qedi->cached_sgls++;
+> +		} else if ((cmd->io_tbl.sge_valid != 1) && cmd->use_slowpath) {
+> +			sgl_struct = &mst_cxt->sgl_union.sgl_struct;
+> +			sgl_struct->sgl_addr.lo =
+> +						(u32)(cmd->io_tbl.sge_tbl_dma);
+> +			sgl_struct->sgl_addr.hi =
+> +				     (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
+> +			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +				  ISCSI_MFLAGS_SLOW_IO, 1);
+> +			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
+> +				  ISCSI_REG1_NUM_FAST_SGES, 0);
+> +			sgl_struct->updated_sge_size = 0;
+> +			sgl_struct->updated_sge_offset = 0;
+> +			qedi->slow_sgls++;
+> +		} else if ((cmd->io_tbl.sge_valid != 1) && !cmd->use_slowpath) {
+> +			sgl_struct = &mst_cxt->sgl_union.sgl_struct;
+> +			sgl_struct->sgl_addr.lo =
+> +						(u32)(cmd->io_tbl.sge_tbl_dma);
+> +			sgl_struct->sgl_addr.hi =
+> +				     (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32);
+> +			sgl_struct->byte_offset =
+> +				(u32)bd[0].sge_addr.lo & (QEDI_PAGE_SIZE - 1);
+> +			SET_FIELD(fw_task_ctx->mstorm_st_context.flags.mflags,
+> +				  ISCSI_MFLAGS_SLOW_IO, 0);
+> +			SET_FIELD(fw_task_ctx->ustorm_st_context.reg1.reg1_map,
+> +				  ISCSI_REG1_NUM_FAST_SGES, 0);
+> +			sgl_struct->updated_sge_size = 0;
+> +			sgl_struct->updated_sge_offset = 0;
+> +			qedi->fast_sgls++;
+> +		}
+> +		fw_task_ctx->mstorm_st_context.sgl_size = cmd->io_tbl.sge_valid;
+> +		fw_task_ctx->mstorm_st_context.rem_task_size = scsi_bufflen(sc);
+> +	}
+> +
+> +	if (cmd->io_tbl.sge_valid == 1)
+> +		/* Singel-SGL */
+> +		qedi->use_cached_sge = true;
+> +	else {
+> +		if (cmd->use_slowpath)
+> +			qedi->use_slow_sge = true;
+> +		else
+> +			qedi->use_fast_sge = true;
+> +	}
+> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO,
+> +		  "%s: %s-SGL: num_sges=0x%x first-sge-lo=0x%x first-sge-hi=0x%x",
+> +		  (task_type == ISCSI_TASK_TYPE_INITIATOR_WRITE) ?
+> +		  "Write " : "Read ", (cmd->io_tbl.sge_valid == 1) ?
+> +		  "Single" : (cmd->use_slowpath ? "SLOW" : "FAST"),
+> +		  (u16)cmd->io_tbl.sge_valid, (u32)(cmd->io_tbl.sge_tbl_dma),
+> +		  (u32)((u64)cmd->io_tbl.sge_tbl_dma >> 32));
+> +
+> +	/*  Add command in active command list */
+> +	spin_lock(&qedi_conn->list_lock);
+> +	list_add_tail(&cmd->io_cmd, &qedi_conn->active_cmd_list);
+> +	cmd->io_cmd_in_list = true;
+> +	qedi_conn->active_cmd_count++;
+> +	spin_unlock(&qedi_conn->list_lock);
+> +
+> +	qedi_add_to_sq(qedi_conn, task, tid, ptu_invalidate, false);
+> +	qedi_ring_doorbell(qedi_conn);
+> +	if (io_tracing)
+> +		qedi_trace_io(qedi, task, tid, QEDI_IO_TRACE_REQ);
+> +
+> +	return 0;
+> +}
+> +
+> +int qedi_iscsi_cleanup_task(struct iscsi_task *task, bool mark_cmd_node_deleted)
+> +{
+> +	struct iscsi_conn *conn = task->conn;
+> +	struct qedi_conn *qedi_conn = conn->dd_data;
+> +	struct qedi_cmd *cmd = task->dd_data;
+> +	s16 ptu_invalidate = 0;
+> +
+> +	QEDI_INFO(&qedi_conn->qedi->dbg_ctx, QEDI_LOG_SCSI_TM,
+> +		  "issue cleanup tid=0x%x itt=0x%x task_state=%d cmd_state=0%x cid=0x%x\n",
+> +		  cmd->task_id, get_itt(task->itt), task->state,
+> +		  cmd->state, qedi_conn->iscsi_conn_id);
+> +
+> +	qedi_add_to_sq(qedi_conn, task, cmd->task_id, ptu_invalidate, true);
+> +	qedi_ring_doorbell(qedi_conn);
+> +
+> +	return 0;
+> +}
+> diff --git a/drivers/scsi/qedi/qedi_gbl.h b/drivers/scsi/qedi/qedi_gbl.h
+> index 85ea3d7..c50c2b1 100644
+> --- a/drivers/scsi/qedi/qedi_gbl.h
+> +++ b/drivers/scsi/qedi/qedi_gbl.h
+> @@ -28,11 +28,14 @@ int qedi_send_iscsi_login(struct qedi_conn *qedi_conn,
+>  			  struct iscsi_task *task);
+>  int qedi_send_iscsi_logout(struct qedi_conn *qedi_conn,
+>  			   struct iscsi_task *task);
+> +int qedi_iscsi_abort_work(struct qedi_conn *qedi_conn,
+> +			  struct iscsi_task *mtask);
+>  int qedi_send_iscsi_text(struct qedi_conn *qedi_conn,
+>  			 struct iscsi_task *task);
+>  int qedi_send_iscsi_nopout(struct qedi_conn *qedi_conn,
+>  			   struct iscsi_task *task,
+>  			   char *datap, int data_len, int unsol);
+> +int qedi_iscsi_send_ioreq(struct iscsi_task *task);
+>  int qedi_get_task_idx(struct qedi_ctx *qedi);
+>  void qedi_clear_task_idx(struct qedi_ctx *qedi, int idx);
+>  int qedi_iscsi_cleanup_task(struct iscsi_task *task,
+> @@ -53,6 +56,9 @@ void qedi_start_conn_recovery(struct qedi_ctx *qedi,
+>  int qedi_recover_all_conns(struct qedi_ctx *qedi);
+>  void qedi_fp_process_cqes(struct qedi_ctx *qedi, union iscsi_cqe *cqe,
+>  			  uint16_t que_idx);
+> +int qedi_cleanup_all_io(struct qedi_ctx *qedi,
+> +			struct qedi_conn *qedi_conn,
+> +			struct iscsi_task *task, bool in_recovery);
+>  void qedi_trace_io(struct qedi_ctx *qedi, struct iscsi_task *task,
+>  		   u16 tid, int8_t direction);
+>  int qedi_alloc_id(struct qedi_portid_tbl *id_tbl, u16 id);
+> diff --git a/drivers/scsi/qedi/qedi_iscsi.c b/drivers/scsi/qedi/qedi_iscsi.c
+> index caecdb8..7a07211 100644
+> --- a/drivers/scsi/qedi/qedi_iscsi.c
+> +++ b/drivers/scsi/qedi/qedi_iscsi.c
+> @@ -755,6 +755,9 @@ static int qedi_iscsi_send_generic_request(struct iscsi_task *task)
+>  	case ISCSI_OP_LOGOUT:
+>  		rc = qedi_send_iscsi_logout(qedi_conn, task);
+>  		break;
+> +	case ISCSI_OP_SCSI_TMFUNC:
+> +		rc = qedi_iscsi_abort_work(qedi_conn, task);
+> +		break;
+>  	case ISCSI_OP_TEXT:
+>  		rc = qedi_send_iscsi_text(qedi_conn, task);
+>  		break;
+> @@ -804,6 +807,9 @@ static int qedi_task_xmit(struct iscsi_task *task)
+>  
+>  	if (!sc)
+>  		return qedi_mtask_xmit(conn, task);
+> +
+> +	cmd->scsi_cmd = sc;
+> +	return qedi_iscsi_send_ioreq(task);
+>  }
+>  
+>  static struct iscsi_endpoint *
+> diff --git a/drivers/scsi/qedi/qedi_main.c b/drivers/scsi/qedi/qedi_main.c
+> index 22d19a3..fd0d335 100644
+> --- a/drivers/scsi/qedi/qedi_main.c
+> +++ b/drivers/scsi/qedi/qedi_main.c
+> @@ -43,6 +43,10 @@
+>  module_param(debug, uint, S_IRUGO | S_IWUSR);
+>  MODULE_PARM_DESC(debug, " Default debug level");
+>  
+> +uint io_tracing;
+> +module_param(io_tracing, uint, S_IRUGO | S_IWUSR);
+> +MODULE_PARM_DESC(io_tracing,
+> +		 " Enable logging of SCSI requests/completions into trace buffer. (default off).");
+>  const struct qed_iscsi_ops *qedi_ops;
+>  static struct scsi_transport_template *qedi_scsi_transport;
+>  static struct pci_driver qedi_pci_driver;
+> 
+Cheers,
+
+Hannes
 -- 
-Meelis Roos (mroos@ut.ee)      http://www.cs.ut.ee/~mroos/
+Dr. Hannes Reinecke		   Teamlead Storage & Networking
+hare@suse.de			               +49 911 74053 688
+SUSE LINUX GmbH, Maxfeldstr. 5, 90409 Nürnberg
+GF: F. Imendörffer, J. Smithard, J. Guild, D. Upmanyu, G. Norton
+HRB 21284 (AG Nürnberg)
