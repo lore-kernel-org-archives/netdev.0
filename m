@@ -1,126 +1,328 @@
-From: Binoy Jayan <binoy.jayan@linaro.org>
-Subject: [PATCH] bnx2x: Replace semaphore stats_lock with mutex
-Date: Thu, 20 Oct 2016 14:22:12 +0530
-Message-ID: <1476953532-2019-1-git-send-email-binoy.jayan@linaro.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Binoy Jayan <binoy.jayan@linaro.org>
-To: Ariel Elior <ariel.elior@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Rangankar, Manish" <Manish.Rangankar@cavium.com>
+Subject: Re: [RFC 3/6] qedi: Add QLogic FastLinQ offload iSCSI driver
+ framework.
+Date: Thu, 20 Oct 2016 08:41:01 +0000
+Message-ID: <D42E7DDF.340F3%manish.rangankar@cavium.com>
+References: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
+ <1476853273-22960-4-git-send-email-manish.rangankar@cavium.com>
+ <20161019100253.vxqxp5fhoxrlt6ay@linux-x5ow.site>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "lduncan@suse.com" <lduncan@suse.com>,
+        "cleech@redhat.com" <cleech@redhat.com>,
+        "martin.petersen@oracle.com" <martin.petersen@oracle.com>,
+        "jejb@linux.vnet.ibm.com" <jejb@linux.vnet.ibm.com>,
+        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
+        "Dept-Eng QLogic Storage Upstream"
+        <QLogic-Storage-Upstream@cavium.com>,
+        "Javali, Nilesh" <Nilesh.Javali@cavium.com>,
+        Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>,
+        "Dupuis, Chad" <Chad.Dupuis@cavium.com>,
+        "Kashyap, Saurav" <Saurav.Kashyap@cavium.com>,
+        "Easi, Arun" <Arun.Easi@cavium.com>
+To: Johannes Thumshirn <jthumshirn@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-dm3nam03on0075.outbound.protection.outlook.com ([104.47.41.75]:38992
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S935266AbcJTI4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 04:56:19 -0400
+In-Reply-To: <20161019100253.vxqxp5fhoxrlt6ay@linux-x5ow.site>
+Content-Language: en-US
+Content-ID: <CB0E4C3039646C4FAFAF68EBC8D63AEA@namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-stats_lock is used as a simple mutex, so replace it with a mutex.
-Semaphores are going away in the future.
+Thanks Johannes for the review, please see comments below,
 
-Signed-off-by: Binoy Jayan <binoy.jayan@linaro.org>
----
-They following is a patch which removes semaphores from bnx2x.
-Its part of a bigger effort to eliminate all semaphores
-from the linux kernel.
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  3 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  6 +++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 17 +++++++----------
- 3 files changed, 12 insertions(+), 14 deletions(-)
+On 19/10/16 3:32 PM, "Johannes Thumshirn" <jthumshirn@suse.de> wrote:
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 7dd7490..fd5e5b8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -25,6 +25,7 @@
- #include <linux/ptp_clock_kernel.h>
- #include <linux/net_tstamp.h>
- #include <linux/timecounter.h>
-+#include <linux/mutex.h>
- 
- /* compilation time flags */
- 
-@@ -1698,7 +1699,7 @@ struct bnx2x {
- 	int			stats_state;
- 
- 	/* used for synchronization of concurrent threads statistics handling */
--	struct semaphore	stats_lock;
-+	struct mutex		stats_lock;
- 
- 	/* used by dmae command loader */
- 	struct dmae_command	stats_dmae;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 20fe6a8..b323d69 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12340,7 +12340,7 @@ static int bnx2x_init_bp(struct bnx2x *bp)
- 	mutex_init(&bp->port.phy_mutex);
- 	mutex_init(&bp->fw_mb_mutex);
- 	mutex_init(&bp->drv_info_mutex);
--	sema_init(&bp->stats_lock, 1);
-+	mutex_init(&bp->stats_lock);
- 	bp->drv_info_mng_owner = false;
- 	INIT_LIST_HEAD(&bp->vlan_reg);
- 
-@@ -14205,9 +14205,9 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
- 	cancel_delayed_work_sync(&bp->sp_task);
- 	cancel_delayed_work_sync(&bp->period_task);
- 
--	if (!down_timeout(&bp->stats_lock, HZ / 10)) {
-+	if (mutex_trylock(&bp->stats_lock)) {
- 		bp->stats_state = STATS_STATE_DISABLED;
--		up(&bp->stats_lock);
-+		mutex_unlock(&bp->stats_lock);
- 	}
- 
- 	bnx2x_save_statistics(bp);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index 7e0919a..ee6ffd8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -1374,23 +1374,20 @@ void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event)
- 	 * that context in case someone is in the middle of a transition.
- 	 * For other events, wait a bit until lock is taken.
- 	 */
--	if (down_trylock(&bp->stats_lock)) {
-+	if (!mutex_trylock(&bp->stats_lock)) {
- 		if (event == STATS_EVENT_UPDATE)
- 			return;
- 
- 		DP(BNX2X_MSG_STATS,
- 		   "Unlikely stats' lock contention [event %d]\n", event);
--		if (unlikely(down_timeout(&bp->stats_lock, HZ / 10))) {
--			BNX2X_ERR("Failed to take stats lock [event %d]\n",
--				  event);
--			return;
--		}
-+		BNX2X_ERR("Failed to take stats lock [event %d]\n", event);
-+		return;
- 	}
- 
- 	bnx2x_stats_stm[state][event].action(bp);
- 	bp->stats_state = bnx2x_stats_stm[state][event].next_state;
- 
--	up(&bp->stats_lock);
-+	mutex_unlock(&bp->stats_lock);
- 
- 	if ((event != STATS_EVENT_UPDATE) || netif_msg_timer(bp))
- 		DP(BNX2X_MSG_STATS, "state %d -> event %d -> state %d\n",
-@@ -1976,8 +1973,8 @@ int bnx2x_stats_safe_exec(struct bnx2x *bp,
- 	/* Wait for statistics to end [while blocking further requests],
- 	 * then run supplied function 'safely'.
- 	 */
--	rc = down_timeout(&bp->stats_lock, HZ / 10);
--	if (unlikely(rc)) {
-+	rc = mutex_trylock(&bp->stats_lock);
-+	if (unlikely(!rc)) {
- 		BNX2X_ERR("Failed to take statistics lock for safe execution\n");
- 		goto out_no_lock;
- 	}
-@@ -1998,7 +1995,7 @@ int bnx2x_stats_safe_exec(struct bnx2x *bp,
- 	/* No need to restart statistics - if they're enabled, the timer
- 	 * will restart the statistics.
- 	 */
--	up(&bp->stats_lock);
-+	mutex_unlock(&bp->stats_lock);
- out_no_lock:
- 	return rc;
- }
--- 
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project
+>On Wed, Oct 19, 2016 at 01:01:10AM -0400, manish.rangankar@cavium.com
+>wrote:
+>> From: Manish Rangankar <manish.rangankar@cavium.com>
+>>=20
+>> The QLogic FastLinQ Driver for iSCSI (qedi) is the iSCSI specific module
+>> for 41000 Series Converged Network Adapters by QLogic.
+>>=20
+>> This patch consists of following changes:
+>>   - MAINTAINERS Makefile and Kconfig changes for qedi,
+>>   - PCI driver registration,
+>>   - iSCSI host level initialization,
+>>   - Debugfs and log level infrastructure.
+>>=20
+>> Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
+>> Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
+>> Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
+>> Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
+>> Signed-off-by: Arun Easi <arun.easi@cavium.com>
+>> Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
+>> ---
+>
+>[...]
+>
+>> +static inline void *qedi_get_task_mem(struct qed_iscsi_tid *info, u32
+>>tid)
+>> +{
+>> +	return (void *)(info->blocks[tid / info->num_tids_per_block] +
+>> +			(tid % info->num_tids_per_block) * info->size);
+>> +}
+>
+>Unnecessary cast here.
+
+Noted
+
+>
+>
+>[...]
+>
+>> +void
+>> +qedi_dbg_err(struct qedi_dbg_ctx *qedi, const char *func, u32 line,
+>> +	     const char *fmt, ...)
+>> +{
+>> +	va_list va;
+>> +	struct va_format vaf;
+>> +	char nfunc[32];
+>> +
+>> +	memset(nfunc, 0, sizeof(nfunc));
+>> +	memcpy(nfunc, func, sizeof(nfunc) - 1);
+>> +
+>> +	va_start(va, fmt);
+>> +
+>> +	vaf.fmt =3D fmt;
+>> +	vaf.va =3D &va;
+>> +
+>> +	if (likely(qedi) && likely(qedi->pdev))
+>> +		pr_crit("[%s]:[%s:%d]:%d: %pV", dev_name(&qedi->pdev->dev),
+>> +			nfunc, line, qedi->host_no, &vaf);
+>> +	else
+>> +		pr_crit("[0000:00:00.0]:[%s:%d]: %pV", nfunc, line, &vaf);
+>
+>pr_crit, seriously?
+
+We will change it to pr_err.
+
+>
+>[...]
+>
+>> +static void qedi_int_fp(struct qedi_ctx *qedi)
+>> +{
+>> +	struct qedi_fastpath *fp;
+>> +	int id;
+>> +
+>> +	memset((void *)qedi->fp_array, 0, MIN_NUM_CPUS_MSIX(qedi) *
+>> +	       sizeof(*qedi->fp_array));
+>> +	memset((void *)qedi->sb_array, 0, MIN_NUM_CPUS_MSIX(qedi) *
+>> +	       sizeof(*qedi->sb_array));
+>
+>I don't think the cast is necessary here.
+
+Noted
+
+
+>
+>[...]
+>
+>> +static int qedi_setup_cid_que(struct qedi_ctx *qedi)
+>> +{
+>> +	int i;
+>> +
+>> +	qedi->cid_que.cid_que_base =3D kmalloc((qedi->max_active_conns *
+>> +					      sizeof(u32)), GFP_KERNEL);
+>> +	if (!qedi->cid_que.cid_que_base)
+>> +		return -ENOMEM;
+>> +
+>> +	qedi->cid_que.conn_cid_tbl =3D kmalloc((qedi->max_active_conns *
+>> +					      sizeof(struct qedi_conn *)),
+>> +					     GFP_KERNEL);
+>
+>Please use kmalloc_array() here.
+
+Will do.
+
+>
+>[...]
+>
+>> +/* MSI-X fastpath handler code */
+>> +static irqreturn_t qedi_msix_handler(int irq, void *dev_id)
+>> +{
+>> +	struct qedi_fastpath *fp =3D dev_id;
+>> +	struct qedi_ctx *qedi =3D fp->qedi;
+>> +	bool wake_io_thread =3D true;
+>> +
+>> +	qed_sb_ack(fp->sb_info, IGU_INT_DISABLE, 0);
+>> +
+>> +process_again:
+>> +	wake_io_thread =3D qedi_process_completions(fp);
+>> +	if (wake_io_thread) {
+>> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_DISC,
+>> +			  "process already running\n");
+>> +	}
+>> +
+>> +	if (qedi_fp_has_work(fp) =3D=3D 0)
+>> +		qed_sb_update_sb_idx(fp->sb_info);
+>> +
+>> +	/* Check for more work */
+>> +	rmb();
+>> +
+>> +	if (qedi_fp_has_work(fp) =3D=3D 0)
+>> +		qed_sb_ack(fp->sb_info, IGU_INT_ENABLE, 1);
+>> +	else
+>> +		goto process_again;
+>> +
+>> +	return IRQ_HANDLED;
+>> +}
+>
+>You might want to consider workqueues here.
+
+We will revisit this code.
+
+>
+>[...]
+>
+>> +static int qedi_alloc_itt(struct qedi_ctx *qedi)
+>> +{
+>> +	qedi->itt_map =3D kzalloc((sizeof(struct qedi_itt_map) *
+>> +				MAX_ISCSI_TASK_ENTRIES), GFP_KERNEL);
+>
+>that screams for kcalloc()
+>
+>> +	if (!qedi->itt_map) {
+>> +		QEDI_ERR(&qedi->dbg_ctx,
+>> +			 "Unable to allocate itt map array memory\n");
+>> +		return -ENOMEM;
+>> +	}
+>> +	return 0;
+>> +}
+>> +
+>> +static void qedi_free_itt(struct qedi_ctx *qedi)
+>> +{
+>> +	kfree(qedi->itt_map);
+>> +}
+>> +
+>> +static struct qed_ll2_cb_ops qedi_ll2_cb_ops =3D {
+>> +	.rx_cb =3D qedi_ll2_rx,
+>> +	.tx_cb =3D NULL,
+>> +};
+>> +
+>> +static int qedi_percpu_io_thread(void *arg)
+>> +{
+>> +	struct qedi_percpu_s *p =3D arg;
+>> +	struct qedi_work *work, *tmp;
+>> +	unsigned long flags;
+>> +	LIST_HEAD(work_list);
+>> +
+>> +	set_user_nice(current, -20);
+>> +
+>> +	while (!kthread_should_stop()) {
+>> +		spin_lock_irqsave(&p->p_work_lock, flags);
+>> +		while (!list_empty(&p->work_list)) {
+>> +			list_splice_init(&p->work_list, &work_list);
+>> +			spin_unlock_irqrestore(&p->p_work_lock, flags);
+>> +
+>> +			list_for_each_entry_safe(work, tmp, &work_list, list) {
+>> +				list_del_init(&work->list);
+>> +				qedi_fp_process_cqes(work->qedi, &work->cqe,
+>> +						     work->que_idx);
+>> +				kfree(work);
+>> +			}
+>> +			spin_lock_irqsave(&p->p_work_lock, flags);
+>> +		}
+>> +		set_current_state(TASK_INTERRUPTIBLE);
+>> +		spin_unlock_irqrestore(&p->p_work_lock, flags);
+>> +		schedule();
+>> +	}
+>> +	__set_current_state(TASK_RUNNING);
+>> +
+>> +	return 0;
+>> +}
+>
+>A kthread with prio -20 IRQs turned off looping over a list, what could
+>possibly go wrong here. I bet you your favorite beverage that this will
+>cause Soft Lockups when running I/O stress tests BTDT.
+
+Will remove this.
+
+>
+>[...]
+>
+>> +	if (mode !=3D QEDI_MODE_RECOVERY) {
+>> +		if (iscsi_host_add(qedi->shost, &pdev->dev)) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "Could not add iscsi host\n");
+>> +			rc =3D -ENOMEM;
+>> +			goto remove_host;
+>> +		}
+>> +
+>> +		/* Allocate uio buffers */
+>> +		rc =3D qedi_alloc_uio_rings(qedi);
+>> +		if (rc) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "UIO alloc ring failed err=3D%d\n", rc);
+>> +			goto remove_host;
+>> +		}
+>> +
+>> +		rc =3D qedi_init_uio(qedi);
+>> +		if (rc) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "UIO init failed, err=3D%d\n", rc);
+>> +			goto free_uio;
+>> +		}
+>> +
+>> +		/* host the array on iscsi_conn */
+>> +		rc =3D qedi_setup_cid_que(qedi);
+>> +		if (rc) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "Could not setup cid que\n");
+>> +			goto free_uio;
+>> +		}
+>> +
+>> +		rc =3D qedi_cm_alloc_mem(qedi);
+>> +		if (rc) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "Could not alloc cm memory\n");
+>> +			goto free_cid_que;
+>> +		}
+>> +
+>> +		rc =3D qedi_alloc_itt(qedi);
+>> +		if (rc) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "Could not alloc itt memory\n");
+>> +			goto free_cid_que;
+>> +		}
+>> +
+>> +		sprintf(host_buf, "host_%d", qedi->shost->host_no);
+>> +		qedi->tmf_thread =3D create_singlethread_workqueue(host_buf);
+>> +		if (!qedi->tmf_thread) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "Unable to start tmf thread!\n");
+>> +			rc =3D -ENODEV;
+>> +			goto free_cid_que;
+>> +		}
+>> +
+>> +		sprintf(host_buf, "qedi_ofld%d", qedi->shost->host_no);
+>> +		qedi->offload_thread =3D create_workqueue(host_buf);
+>> +		if (!qedi->offload_thread) {
+>> +			QEDI_ERR(&qedi->dbg_ctx,
+>> +				 "Unable to start offload thread!\n");
+>> +			rc =3D -ENODEV;
+>> +			goto free_cid_que;
+>> +		}
+>> +
+>> +		/* F/w needs 1st task context memory entry for performance */
+>> +		set_bit(QEDI_RESERVE_TASK_ID, qedi->task_idx_map);
+>> +		atomic_set(&qedi->num_offloads, 0);
+>> +	}
+>> +
+>> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_INFO,
+>> +		  "QLogic FastLinQ iSCSI Module qedi %s, FW %d.%d.%d.%d\n",
+>> +		  QEDI_MODULE_VERSION, FW_MAJOR_VERSION, FW_MINOR_VERSION,
+>> +		   FW_REVISION_VERSION, FW_ENGINEERING_VERSION);
+>> +	return 0;
+>
+>Please put the QEDI_INFO() above the if and invert the condition.
+
+Will do.
