@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 0/4] net/ncsi: More bug fixes
-Date: Thu, 20 Oct 2016 11:23:25 -0400 (EDT)
-Message-ID: <20161020.112325.907295254918060127.davem@davemloft.net>
-References: <1476924352-31165-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] tcp: relax listening_hash operations
+Date: Thu, 20 Oct 2016 11:24:59 -0400 (EDT)
+Message-ID: <20161020.112459.564839965287134365.davem@davemloft.net>
+References: <1476937498.5650.102.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joel@jms.id.au
-To: gwshan@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42060 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42076 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965150AbcJTPX1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:23:27 -0400
-In-Reply-To: <1476924352-31165-1-git-send-email-gwshan@linux.vnet.ibm.com>
+        with ESMTP id S1753405AbcJTPZB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:25:01 -0400
+In-Reply-To: <1476937498.5650.102.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Date: Thu, 20 Oct 2016 11:45:48 +1100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 19 Oct 2016 21:24:58 -0700
 
-> This series fixes 2 issues that were found during NCSI's availability
-> testing on BCM5718 and improves HNCDSC AEN handler:
+> From: Eric Dumazet <edumazet@google.com>
 > 
->    * PATCH[1] refactors the code so that minimal code change is put
->      to PATCH[2].
->    * PATCH[2] fixes the NCSI channel's stale link state before doing
->      failover.
->    * PATCH[3] chooses the hot channel, which was ever chosen as active
->      channel, when the available channels are all in link-down state.
->    * PATCH[4] improves Host Network Controller Driver Status Change
->      (HNCDSC) AEN handler
+> softirq handlers use RCU protection to lookup listeners,
+> and write operations all happen from process context.
+> We do not need to block BH for dump operations.
 > 
-> Changelog
-> =========
-> v2:
->    * Merged PATCH[v1 1/2] to PATCH[v2 1].
->    * Avoid if/else statements in ncsi_suspend_channel() as Joel suggested.
->    * Added comments to explain why we need retrieve last link states in
->      ncsi_suspend_channel().
+> Also SYN_RECV since request sockets are stored in the ehash table :
+> 
+>  1) inet_diag_dump_icsk() no longer need to clear
+>     cb->args[3] and cb->args[4] that were used as cursors while
+>     iterating the old per listener hash table.
+> 
+>  2) Also factorize a test : No need to scan listening_hash[]
+>     if r->id.idiag_dport is not zero.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks.
+Applied, thanks Eric.
