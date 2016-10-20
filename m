@@ -1,70 +1,110 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv4: use the right lock for ping_group_range
-Date: Thu, 20 Oct 2016 14:19:46 -0700
-Message-ID: <1476998386-20935-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>, Eric Salo <salo@google.com>
-To: netdev@vger.kernel.org
+From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
+Subject: RE: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF support
+Date: Thu, 20 Oct 2016 21:15:24 +0000
+Message-ID: <DM3PR07MB21384EF280334F587ACE0C8781D50@DM3PR07MB2138.namprd07.prod.outlook.com>
+References: <1476942046-18789-2-git-send-email-rvatsavayi@caviumnetworks.com>
+        <20161020.141304.286994718471308700.davem@davemloft.net>
+        <DM3PR07MB21387F2B6D44558DBC36649881D50@DM3PR07MB2138.namprd07.prod.outlook.com>
+ <20161020.165720.1537348879596195765.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Chickles, Derek" <Derek.Chickles@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>,
+        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33837 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754069AbcJTVTw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 17:19:52 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 128so6561934pfz.1
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 14:19:51 -0700 (PDT)
+Received: from mail-bn3nam01on0046.outbound.protection.outlook.com ([104.47.33.46]:32717
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753607AbcJTVbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 17:31:15 -0400
+In-Reply-To: <20161020.165720.1537348879596195765.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit a681574c99be23e4d20b769bf0e543239c364af5
-("ipv4: disable BH in set_ping_group_range()") because we never
-read ping_group_range in BH context (unlike local_port_range).
 
-Then, since we already have a lock for ping_group_range, those
-using ip_local_ports.lock for ping_group_range are clearly typos.
 
-We might consider to share a same lock for both ping_group_range
-and local_port_range w.r.t. space saving, but that should be for
-net-next.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, October 20, 2016 1:57 PM
+> To: Vatsavayi, Raghu
+> Cc: netdev@vger.kernel.org; Chickles, Derek; Burla, Satananda; Manlunas,
+> Felix
+> Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF
+> support
+>=20
+> From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
+> Date: Thu, 20 Oct 2016 20:01:37 +0000
+>=20
+> >
+> >
+> >> -----Original Message-----
+> >> From: David Miller [mailto:davem@davemloft.net]
+> >> Sent: Thursday, October 20, 2016 11:13 AM
+> >> To: Vatsavayi, Raghu
+> >> Cc: netdev@vger.kernel.org; Vatsavayi, Raghu; Chickles, Derek; Burla,
+> >> Satananda; Manlunas, Felix
+> >> Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for
+> >> VF support
+> >>
+> >> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+> >> Date: Wed, 19 Oct 2016 22:40:38 -0700
+> >>
+> >> > +/* Default behaviour of Liquidio is to provide one queue per VF.
+> >> > +But Liquidio
+> >> > + * can also provide multiple queues to each VF. If user wants to
+> >> > +change the
+> >> > + * default behaviour HW should be provided configuration info at
+> >> > +init time,
+> >> > + * based on which it will create control queues for communicating
+> >> > +with
+> >> FW.
+> >> > + */
+> >> > +static u32 max_vfs[2] =3D { 0, 0 };
+> >> > +module_param_array(max_vfs, int, NULL, 0444);
+> >> > +MODULE_PARM_DESC(max_vfs, "Assign two comma-separated
+> unsigned
+> >> > +integers that specify max number of VFs for PF0 (left of the
+> >> > +comma) and PF1 (right of the comma); for 23xx only. By default HW
+> >> > +will configure as many VFs as queues after allocating PF queues.To
+> >> > +increase queues for VF use this parameter. Use sysfs to create
+> >> > +these VFs.");
+> >> > +
+> >> > +static unsigned int num_queues_per_pf[2] =3D { 0, 0 };
+> >> > +module_param_array(num_queues_per_pf, uint, NULL, 0444);
+> >> > +MODULE_PARM_DESC(num_queues_per_pf, "two comma-separated
+> >> unsigned
+> >> > +integers that specify number of queues per PF0 (left of the comma)
+> >> > +and PF1 (right of the comma); for 23xx only");
+> >> > +
+> >> >  static int ptp_enable =3D 1;
+> >>
+> >> We cannot continue to allow drivers to add custom module parameters
+> >> to control this.  It is the worst user experience possible.
+> >>
+> >> We need a tree-wide generic, consistent, manner in which to configure
+> >> and control this kind of thing.
+> >
+> > Sure Dave, I will remove max_vfs module parameter and will use tree
+> > wide generic sysfs interface to enable VFs.
+>=20
+> That's not what I meant.
+>=20
+> I mean there needs to be a generic mechanism that isn't a per-device knob
+> (be it a module parameter or a sysctl, to me these are identical function=
+ality
+> and user experience wise).
+>=20
+> Something like ethtool or netlink.
 
-Fixes: a681574c99be ("ipv4: disable BH in set_ping_group_range()")
-Fixes: ba6b918ab234 ("ping: move ping_group_range out of CONFIG_SYSCTL")
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Eric Salo <salo@google.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv4/sysctl_net_ipv4.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Dave, I will remove max_vfs module parameter and will just use the generic =
+mechanism that=20
+all drivers do like:
 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 500ae40..80bc36b 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -96,11 +96,11 @@ static void inet_get_ping_group_range_table(struct ctl_table *table, kgid_t *low
- 		container_of(table->data, struct net, ipv4.ping_group_range.range);
- 	unsigned int seq;
- 	do {
--		seq = read_seqbegin(&net->ipv4.ip_local_ports.lock);
-+		seq = read_seqbegin(&net->ipv4.ping_group_range.lock);
- 
- 		*low = data[0];
- 		*high = data[1];
--	} while (read_seqretry(&net->ipv4.ip_local_ports.lock, seq));
-+	} while (read_seqretry(&net->ipv4.ping_group_range.lock, seq));
- }
- 
- /* Update system visible IP port range */
-@@ -109,10 +109,10 @@ static void set_ping_group_range(struct ctl_table *table, kgid_t low, kgid_t hig
- 	kgid_t *data = table->data;
- 	struct net *net =
- 		container_of(table->data, struct net, ipv4.ping_group_range.range);
--	write_seqlock_bh(&net->ipv4.ip_local_ports.lock);
-+	write_seqlock(&net->ipv4.ping_group_range.lock);
- 	data[0] = low;
- 	data[1] = high;
--	write_sequnlock_bh(&net->ipv4.ip_local_ports.lock);
-+	write_sequnlock(&net->ipv4.ping_group_range.lock);
- }
- 
- /* Validate changes from /proc interface. */
--- 
-2.1.0
+" echo 10 > /sys/devices/pci0000:00/0000:00:03.0/0000:03:00.1/sriov_numvfs"
+
+Regards
+Raghu.
