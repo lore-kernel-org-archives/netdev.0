@@ -1,62 +1,33 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Redundancy support through HSR and PRP
-Date: Thu, 20 Oct 2016 13:08:12 -0400
-Message-ID: <5808F9FC.1080802@ti.com>
-References: <57FBDF33.1060606@ti.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] net: saving irq context for peernet2id()
+Date: Thu, 20 Oct 2016 10:17:23 -0700
+Message-ID: <CAM_iQpUjbfMdn4wBL=ibQd=mJmKS+Jh-LmsM_LEz8SkOwcPV0A@mail.gmail.com>
+References: <1476946352-15770-1-git-send-email-xiyou.wangcong@gmail.com> <eced0989-d8bc-d34e-9ecb-8540d80a7173@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Stephen Smalley <sds@tycho.nsa.gov>, Elad Raz <e@eladraz.com>,
+        Paul Moore <paul@paul-moore.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:36200 "EHLO
-        devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934359AbcJTRIM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 13:08:12 -0400
-In-Reply-To: <57FBDF33.1060606@ti.com>
+Received: from mail-it0-f47.google.com ([209.85.214.47]:36515 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932748AbcJTRRr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 13:17:47 -0400
+Received: by mail-it0-f47.google.com with SMTP id 139so172356827itm.1
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 10:17:47 -0700 (PDT)
+In-Reply-To: <eced0989-d8bc-d34e-9ecb-8540d80a7173@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+On Thu, Oct 20, 2016 at 3:17 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+>
+> Now, we see that "it's needed" and that the analysis was wrong. If a race is
+> introduced by this patch, it will be hard to detect and fix it.
 
-On 10/10/2016 02:34 PM, Murali Karicheri wrote:
-> All,
-> 
-> Wondering if there plan to add PRP driver support, like HSR in Linux? AFAIK, PRP
-> adds trailor to Ethernet frame and is used for Redundancy management like HSR.
-> So wondering why this is not supported.
-> 
-> Thanks
-> 
-I need to work on a prp driver for Linux. So if there is already someone working
-on this, I would like to join and contribute. Either way please respond so that
-I can work to add this support. 
+It is _not_ needed for protection, it is needed to shut up a warning, I thought
+this is pretty clear in the changelog.
 
-I am also working to add support for offload HSR functions to hardware and will
-need to modify the hsr driver to support the same. So any suggestion as to how this
-can be done, will be appreciated.
-
-Here is what I believe should happen to support this at a higher level
-
-hsr capable NIC (with firmware support) may able to
- - duplicate packets at the egress. So only one copy needs to be forwarded to the
-   NIC
- - Discard the duplicate at the ingress. So forward only one to copy to the ethernet
-   driver
- - Manage supervision of the network. Keep node list and their status
-
-It could be a subset of the above. So I am hoping this can be published by the Ethernet
-driver as a set of features. The hsr driver can then look at this features and
-decide to offload and disable same functionality at the hsr driver. Also the node list/status
-has to be polled from the underlying hardware.
-
-PRP is similar to HSR in many respect. Redundancy management uses a suffix tag to the MAC
-frame instead of prefix used by HSR. So they are more transparently handled by 
-switches or routers. Probably i need to do
-  - rename net/hsr to net/hsr-prp
-  - restructure the current set of files to add prp support 
-
-Thanks
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+If we could invent some way to save BH (*lock_bhsave()), we don't need
+to bother this at all, currently we don't.
