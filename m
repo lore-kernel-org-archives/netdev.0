@@ -1,53 +1,36 @@
-From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v12 5/9] openvswitch: add processing
-	of L3 packets
-Date: Thu, 20 Oct 2016 11:48:18 -0700
-Message-ID: <CAOrHB_D2TpjLaE=EyMuL2_vYV05SiQ1rgQJRZ2xA7rqG1qmDWQ@mail.gmail.com>
-References: <cover.1476708212.git.jbenc@redhat.com>
- <a4590d690c169e0021031405463c8629a6e9ecb8.1476708213.git.jbenc@redhat.com>
- <CAOrHB_B1-29CM=DWpWuRVbTRriW2ViJRZULMS22+NSPwW_J_=Q@mail.gmail.com>
- <20161019185206.7347e189@griffin>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] dwc_eth_qos: use dev_kfree_skb_any instead of
+ dev_kfree_skb
+Date: Thu, 20 Oct 2016 14:48:44 -0400 (EDT)
+Message-ID: <20161020.144844.667279135003325516.davem@davemloft.net>
+References: <1476982789-27821-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20161019185206.7347e189@griffin>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lars.persson@axis.com, weiyongjun1@huawei.com,
+        netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44664 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933863AbcJTSsr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:48:47 -0400
+In-Reply-To: <1476982789-27821-1-git-send-email-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBPY3QgMTksIDIwMTYgYXQgOTo1MiBBTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
-Y29tPiB3cm90ZToKPiBPbiBUdWUsIDE4IE9jdCAyMDE2IDIyOjEzOjQ1IC0wNzAwLCBQcmF2aW4g
-U2hlbGFyIHdyb3RlOgo+PiBPbiBNb24sIE9jdCAxNywgMjAxNiBhdCA2OjAyIEFNLCBKaXJpIEJl
-bmMgPGpiZW5jQHJlZGhhdC5jb20+IHdyb3RlOgo+PiA+IC0gICAgICAgc2tiX3Jlc2V0X25ldHdv
-cmtfaGVhZGVyKHNrYik7Cj4+ID4gKyAgICAgICAgICAgICAgIHNrYi0+cHJvdG9jb2wgPSBwYXJz
-ZV9ldGhlcnR5cGUoc2tiKTsKPj4KPj4gSSBhbSBub3Qgc3VyZSBhYm91dCBjaGFuZ2luZyBza2It
-PnByb3RvY29sIGhlcmUuCj4+IEJ5IGNoYW5naW5nIHRoaXMgc2tiIGxvb3NpbmcgaW5mb3JtYXRp
-b24gYWJvdXQgcGFja2V0IHR5cGUuIFRoZXJlZm9yZQo+PiBpZiBwYWNrZXQgcmUtZW50ZXJzIE9W
-UyAodGhyb3VnaCBkaWZmZXJlbnQgYnJpZGdlKSwgdGhpcyBwYWNrZXQgd291bGQKPj4gbG9vayBs
-aWtlIEwzIHBhY2tldC4gZnVuY3Rpb24ga2V5X2V4dHJhY3RfbWFjX3Byb3RvKCkgd291bGQgbm90
-IHNlZQo+PiBURUIgdHlwZSBwYWNrZXQuCj4KPiBUaGlzIHNob3VsZCBiZSBva2F5LiBJZiB0aGUg
-cGFja2V0IGlzIHNlbnQgb3V0IHRvIGFuIEV0aGVybmV0IGludGVyZmFjZQo+ICh3aGF0ZXZlciBp
-bnRlcmZhY2UgaXQgaXMpLCBza2ItPnByb3RvY29sIG5lZWRzIHRvIGNvbnRhaW4gdGhlIHBheWxv
-YWQKPiB0eXBlLiBXZSdyZSBub3QgaW50ZXJlc3RlZCBpbiBFVEhfUF9URUIuIElmIHRoZSBwYWNr
-ZXQgaXMgc2VudCBvdXQgdG8KPiBhbiBBUlBIUkRfTk9ORSBpbnRlcmZhY2UsIEVUSF9QX1RFQiBp
-cyBwdXNoZWQgYmFjay4KPgpJIHNlZSwgdnBvcnQgc2VuZCBpcyByZXN0b3JpbmcgdGhlIHNrYiBw
-cm90b2NvbCBmaWVsZC4gSXQgc2hvdWxkIGJlIGZpbmUgdGhlbi4KCj4gQmFzaWNhbGx5LCB3aGF0
-IHdlJ3JlIGRvaW5nIGhlcmUgaXMgdW5jb25kaXRpb25hbGx5IGNvbnZlcnRpbmcKPiBFVEhfUF9U
-RUIgcGFja2V0cyAqY29taW5nIGZyb20gQVJQSFJEX05PTkUgaW50ZXJmYWNlcyogKHRoaXMgaXMK
-PiBpbXBvcnRhbnQpIGludG8gcmVndWxhciBFdGhlcm5ldCBwYWNrZXRzLiBXaGljaCBpcyBleGFj
-dGx5IHdoYXQgd2Ugd2FudC4KPgo+IEFtIEkgbWlzc2luZyBzb21ldGhpbmc/Cj4KPiAgSmlyaQpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
-ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL2Rldgo=
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Thu, 20 Oct 2016 16:59:49 +0000
+
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> Replace dev_kfree_skb with dev_kfree_skb_any in dwceqos_start_xmit()
+> which can be called from hard irq context (netpoll) and from
+> other contexts. dwceqos_start_xmit() only frees skbs that it has
+> dropped.
+> 
+> This is detected by Coccinelle semantic patch.
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+
+Applied.
