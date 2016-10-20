@@ -1,61 +1,80 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] stmmac: display the descriptors if DES0 = 0
-Date: Thu, 20 Oct 2016 10:01:28 +0200
-Message-ID: <1476950488-24923-1-git-send-email-peppe.cavallaro@st.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+        <u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] net: fec: drop check for clk==NULL before calling clk_*
+Date: Thu, 20 Oct 2016 10:28:27 +0200
+Message-ID: <20161020082827.598-1-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre TORGUE <alexandre.torgue@st.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: kernel@pengutronix.de, netdev@vger.kernel.org
+To: Fugang Duan <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:56074 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750912AbcJTIHH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 04:07:07 -0400
-Received: from pps.filterd (m0046661.ppops.net [127.0.0.1])
-        by mx08-00178001.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u9K83ox9017159
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 10:07:06 +0200
-Received: from beta.dmz-eu.st.com (beta.dmz-eu.st.com [164.129.1.35])
-        by mx08-.pphosted.com with ESMTP id 263bbdw002-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 10:07:06 +0200
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-        by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id AE41531
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 08:07:05 +0000 (GMT)
-Received: from Webmail-eu.st.com (Safex1hubcas23.st.com [10.75.90.46])
-        by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 86B9418D8
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 08:07:05 +0000 (GMT)
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:45693 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753058AbcJTI2c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 04:28:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It makes sense to display the descriptors even if 
-DES0 is zero. This helps for example in case of it
-is needed to dump rx write-back descriptors to get
-timestamp status.
+clk_prepare, clk_enable and their counterparts (at least the common clk
+ones, but also most others) do check for the clk being NULL anyhow (and
+return 0 then), so there is no gain when the caller checks, too.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Alexandre TORGUE <alexandre.torgue@st.com>
+Signed-off-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 25 +++++++++++--------------
+ 1 file changed, 11 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-index 4ec7397..a1b17cd 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-@@ -347,10 +347,9 @@ static void dwmac4_display_ring(void *head, unsigned int size, bool rx)
- 	pr_info("%s descriptor ring:\n", rx ? "RX" : "TX");
- 
- 	for (i = 0; i < size; i++) {
--		if (p->des0)
--			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
--				i, (unsigned int)virt_to_phys(p),
--				p->des0, p->des1, p->des2, p->des3);
-+		pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
-+			i, (unsigned int)virt_to_phys(p),
-+			p->des0, p->des1, p->des2, p->des3);
- 		p++;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 48a033e64423..1722ccac18c2 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1841,11 +1841,11 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 		ret = clk_prepare_enable(fep->clk_ahb);
+ 		if (ret)
+ 			return ret;
+-		if (fep->clk_enet_out) {
+-			ret = clk_prepare_enable(fep->clk_enet_out);
+-			if (ret)
+-				goto failed_clk_enet_out;
+-		}
++
++		ret = clk_prepare_enable(fep->clk_enet_out);
++		if (ret)
++			goto failed_clk_enet_out;
++
+ 		if (fep->clk_ptp) {
+ 			mutex_lock(&fep->ptp_clk_mutex);
+ 			ret = clk_prepare_enable(fep->clk_ptp);
+@@ -1857,23 +1857,20 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
+ 			}
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
+-		if (fep->clk_ref) {
+-			ret = clk_prepare_enable(fep->clk_ref);
+-			if (ret)
+-				goto failed_clk_ref;
+-		}
++
++		ret = clk_prepare_enable(fep->clk_ref);
++		if (ret)
++			goto failed_clk_ref;
+ 	} else {
+ 		clk_disable_unprepare(fep->clk_ahb);
+-		if (fep->clk_enet_out)
+-			clk_disable_unprepare(fep->clk_enet_out);
++		clk_disable_unprepare(fep->clk_enet_out);
+ 		if (fep->clk_ptp) {
+ 			mutex_lock(&fep->ptp_clk_mutex);
+ 			clk_disable_unprepare(fep->clk_ptp);
+ 			fep->ptp_clk_on = false;
+ 			mutex_unlock(&fep->ptp_clk_mutex);
+ 		}
+-		if (fep->clk_ref)
+-			clk_disable_unprepare(fep->clk_ref);
++		clk_disable_unprepare(fep->clk_ref);
  	}
- }
+ 
+ 	return 0;
 -- 
-2.7.4
+2.9.3
