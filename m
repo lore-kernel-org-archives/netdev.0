@@ -1,66 +1,86 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [Patch net] net: saving irq context for peernet2id()
-Date: Thu, 20 Oct 2016 15:07:35 -0400
-Message-ID: <CAHC9VhSronk914-0QZd7cPBEAOvSzN++Umc=_aueeCuOB9iG8Q@mail.gmail.com>
-References: <1476946352-15770-1-git-send-email-xiyou.wangcong@gmail.com>
- <2707c52d-88ec-7b93-f96e-eeaffc952c9c@tycho.nsa.gov> <CAM_iQpWD3WiX1ZX+3LJ8vbJc42K1jZcZ4-f6MO5kzZY-+Szkqw@mail.gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH 1/4] kconfig: introduce the "imply" keyword
+Date: Thu, 20 Oct 2016 20:09:07 +0100
+Message-ID: <3c91236f-6795-fdcc-c8a2-6e7b2fd7da66@solarflare.com>
+References: <1476920573-14384-1-git-send-email-nicolas.pitre@linaro.org>
+ <1476920573-14384-2-git-send-email-nicolas.pitre@linaro.org>
+ <44f95579-6c35-7592-08e3-d8dbb13026b2@solarflare.com>
+ <alpine.LFD.2.20.1610201245230.25105@knanqh.ubzr>
+ <fea29738-142d-0cb8-da85-cf376d1158e7@solarflare.com>
+ <alpine.LFD.2.20.1610201349070.25105@knanqh.ubzr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Smalley <sds@tycho.nsa.gov>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Elad Raz <e@eladraz.com>, Richard Guy Briggs <rgb@redhat.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f67.google.com ([209.85.213.67]:35532 "EHLO
-        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751015AbcJTTHi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 15:07:38 -0400
-Received: by mail-vk0-f67.google.com with SMTP id 130so3572526vkg.2
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 12:07:37 -0700 (PDT)
-In-Reply-To: <CAM_iQpWD3WiX1ZX+3LJ8vbJc42K1jZcZ4-f6MO5kzZY-+Szkqw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: John Stultz <john.stultz@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Yann E MORIN <yann.morin.1998@free.fr>,
+        "Thomas Gleixner" <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>,
+        <netdev@vger.kernel.org>, <linux-kbuild@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.20.1610201349070.25105@knanqh.ubzr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 2:29 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Thu, Oct 20, 2016 at 7:58 AM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
->> On 10/20/2016 02:52 AM, Cong Wang wrote:
->>> A kernel warning inside __local_bh_enable_ip() was reported by people
->>> running SELinux, this is caused due to some SELinux functions
->>> (indirectly) call peernet2id() with IRQ disabled in process context,
->>> when we re-enable BH with IRQ disabled kernel complains. Shut up this
->>> warning by saving IRQ context in peernet2id(), BH is still implicitly
->>> disabled.
->>
->> Not sure this suffices; kill_fasync() -> send_sigio() ->
->> send_sigio_to_task() -> sigio_perm() -> security_file_send_sigiotask()
->> -> selinux_file_send_sigiotask() -> ... -> audit_log() -> ... ->
->> peernet2id()
->
-> Oh, this is a new one. kill_fasync() is called in IRQ handler, so we actually
-> do multicast in IRQ context.... It makes no sense, netlink multicast could
-> be very expensive if we have many listeners.
+On 20/10/16 19:29, Nicolas Pitre wrote:
+> On Thu, 20 Oct 2016, Edward Cree wrote:
+>> But the desire is a property of the user, not of the driver.  If you're
+>> willing to add CONFIG_FOO_BAZ to every combination of (driver, subsystem)
+>> then "imply" becomes unnecessary, doesn't it?
+> Absolutely.  And if that's something that inspires you please be my 
+> guest.  So far, though, this apparently didn't inspire the majority of 
+> driver authors who preferred to have a smaller set of config options and 
+> forcefully pull in the BAZ features with a "select".  But "select" comes 
+> with its set of evils which "imply" is meant to overcome.
+It really doesn't inspire me either ;)
+I was using it as a way to set up the converse, rather than as any kind of
+serious suggestion.
+And I agree that "imply", as it stands, is an improvement over "select" for
+these kinds of cases.  I just think it could be further improved.
+>> Conversely, if you *don't*
+>> want to have to do that, then "imply" needs to only ever deal in defaults,
+>> not in limitations.
+> As I explained, It still has to prevent BAZ=m if FOO moves from m to y 
+> otherwise this would effectively have the same result as BAZ=n in 
+> practice and that is not what people expect if BAZ actually isn't n in 
+> your .config file.  That's why "select" also has that particular 
+> semantic.
+If FOO "moves from" m to y (by which I'm assuming you mean a call to
+sym_set_tristate_value()), then by all means set BAZ=y.  But the user
+should then still be allowed to move BAZ from y to m without having to
+change FOO (though hopefully they will get warned about it somehow).
+> Here "imply" is meant to be a weaker form of "select".  If you prefer 
+> not to have that limitation imposed by either "select" and "imply" then 
+> simply don't use them at all.  Nothing forces you to use any of them if 
+> your code can cope with any config combination.
+I'm interpreting "imply" as being more a way of saying "if you want FOO you
+probably want BAZ as well".  But maybe that should be yet another new
+keyword if it's so different from what you want "imply" to be.  "suggests",
+perhaps.
+>> Right, so those drivers can use PTP if they're y and PTP is m, as long 
+>> as the PTP module is loaded when they probe.
+> Not at the moment. There is no way for PTP to dynamically signal to 
+> interested drivers its presence at run time.  And drivers, when 
+> built-in, typically probe their hardware during the boot process even 
+> before you have the chance to load any module. If that ever changes, 
+> then the imply or select statement could simply be dropped.
+At least for PCIe devices, the driver can be un- and re-bound (despite
+being built-in) through sysfs.  So you (already) can re-probe them after
+loading PTP.  So driver=y && PTP=m is valid, today.
+>> I think that Josh's suggestion (have the UI warn you if you set BAZ to m
+>> while FOO=y) is the right approach, but I also think it should be done
+>> now rather than at some unspecified future time.
+> Please advocate this with kconfig UI authors.  My recursion stack is 
+> already quite deep.
+If I'm reading your patch correctly, your symbol.c additions enforce this
+restriction, and AFAIK the UI can't override that by saying "Yeah I warned
+the user and he said it was fine".
+The kconfig UI API would need to change; sym_set_tristate_value() could
+grow an 'override-imply' flag, for instance.
 
-I'm sure there are a few others I don't know about, but I believe the
-only commonly used audit multicast listener is systemd.
+But I'm not married to the idea; I don't have a real-world use-case this
+interferes with, so if you still think I'm wrong, feel free to ignore me :)
 
-> I am Cc'ing Richard who added that multicast in audit_log_end(). It seems
-> not easy to just move the multicast to a workqueue, since the skb is copied
-> from audit_buffer which is freed immediately after that, probably need another
-> queue like audit_skb_queue.
-
-This approach would double the queue size which is something I want to
-avoid.  I would suggest sticking with a single queue and dealing with
-the netlink message link fixup and multicast send in the existing
-netlink unicast thread; basically we would just be moving the
-multicast code from audit_log_end() into kauditd_thread().  This is
-the same approach I mentioned earlier off-list.
-
-However, that isn't something I want to mess with as a regression fix,
-mostly because I really want to see this regression gone by -rc2 as it
-is making SELinux testing a real pain.  If the patch posted at the top
-of this thread isn't a suitable fix, we really should revert the
-original patch.
-
--- 
-paul moore
-www.paul-moore.com
+-Ed
