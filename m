@@ -1,60 +1,43 @@
-From: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-Subject: [PATCH 1/4] ARM: dts: stm32f429: Align Ethernet node with new bindings properties
-Date: Thu, 20 Oct 2016 17:21:23 +0200
-Message-ID: <1476976886-23781-2-git-send-email-alexandre.torgue@st.com>
-References: <1476976886-23781-1-git-send-email-alexandre.torgue@st.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net 0/4] net/ncsi: More bug fixes
+Date: Thu, 20 Oct 2016 11:23:25 -0400 (EDT)
+Message-ID: <20161020.112325.907295254918060127.davem@davemloft.net>
+References: <1476924352-31165-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>,
-        <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476976886-23781-1-git-send-email-alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, joel@jms.id.au
+To: gwshan@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42060 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965150AbcJTPX1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:23:27 -0400
+In-Reply-To: <1476924352-31165-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch aligns clocks names and node reference according to new
-stm32-dwmac glue binding. It also renames Ethernet pinctrl phandle
-(indeed there is no need to add 0 as Ethernet instance as there is only
-one IP in SOC).
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Date: Thu, 20 Oct 2016 11:45:48 +1100
 
-Signed-off-by: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+> This series fixes 2 issues that were found during NCSI's availability
+> testing on BCM5718 and improves HNCDSC AEN handler:
+> 
+>    * PATCH[1] refactors the code so that minimal code change is put
+>      to PATCH[2].
+>    * PATCH[2] fixes the NCSI channel's stale link state before doing
+>      failover.
+>    * PATCH[3] chooses the hot channel, which was ever chosen as active
+>      channel, when the available channels are all in link-down state.
+>    * PATCH[4] improves Host Network Controller Driver Status Change
+>      (HNCDSC) AEN handler
+> 
+> Changelog
+> =========
+> v2:
+>    * Merged PATCH[v1 1/2] to PATCH[v2 1].
+>    * Avoid if/else statements in ncsi_suspend_channel() as Joel suggested.
+>    * Added comments to explain why we need retrieve last link states in
+>      ncsi_suspend_channel().
 
-diff --git a/arch/arm/boot/dts/stm32f429.dtsi b/arch/arm/boot/dts/stm32f429.dtsi
-index 336ee4f..6350117b 100644
---- a/arch/arm/boot/dts/stm32f429.dtsi
-+++ b/arch/arm/boot/dts/stm32f429.dtsi
-@@ -313,7 +313,7 @@
- 				};
- 			};
- 
--			ethernet0_mii: mii@0 {
-+			ethernet_mii: mii@0 {
- 				pins {
- 					pinmux = <STM32F429_PG13_FUNC_ETH_MII_TXD0_ETH_RMII_TXD0>,
- 						 <STM32F429_PG14_FUNC_ETH_MII_TXD1_ETH_RMII_TXD1>,
-@@ -373,13 +373,13 @@
- 			st,mem2mem;
- 		};
- 
--		ethernet0: dwmac@40028000 {
-+		mac: ethernet@40028000 {
- 			compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
- 			reg = <0x40028000 0x8000>;
- 			reg-names = "stmmaceth";
- 			interrupts = <61>, <62>;
- 			interrupt-names = "macirq", "eth_wake_irq";
--			clock-names = "stmmaceth", "tx-clk", "rx-clk";
-+			clock-names = "stmmaceth", "mac-clk-tx", "mac-clk-rx";
- 			clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
- 			st,syscon = <&syscfg 0x4>;
- 			snps,pbl = <8>;
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks.
