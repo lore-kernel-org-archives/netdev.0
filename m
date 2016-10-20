@@ -1,89 +1,314 @@
-From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-Subject: RE: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF support
-Date: Thu, 20 Oct 2016 20:01:37 +0000
-Message-ID: <DM3PR07MB21387F2B6D44558DBC36649881D50@DM3PR07MB2138.namprd07.prod.outlook.com>
-References: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
-        <1476942046-18789-2-git-send-email-rvatsavayi@caviumnetworks.com>
- <20161020.141304.286994718471308700.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next v2 6/9] net: use core MTU range checking in virt
+ drivers
+Date: Thu, 20 Oct 2016 23:23:54 +0300
+Message-ID: <20161020231559-mutt-send-email-mst@kernel.org>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161020175524.6184-1-jarod@redhat.com>
+ <20161020175524.6184-7-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0059.outbound.protection.outlook.com ([104.47.42.59]:5105
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753133AbcJTURp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 16:17:45 -0400
-In-Reply-To: <20161020.141304.286994718471308700.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Shrikrishna Khare <skhare@vmware.com>,
+        "VMware, Inc." <pv-drivers@vmware.com>,
+        Wei Liu <wei.liu2@citrix.com>,
+        Paul Durrant <paul.durrant@citrix.com>,
+        David Kershner <david.kershner@unisys.com>,
+        Aaron Conole <aconole@bytheb.org>
+To: Jarod Wilson <jarod@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161020175524.6184-7-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Oct 20, 2016 at 01:55:21PM -0400, Jarod Wilson wrote:
+> hyperv_net:
+> - set min/max_mtu, per Haiyang, after rndis_filter_device_add
+> 
+> virtio_net:
+> - set min/max_mtu
+> - remove virtnet_change_mtu
+> vmxnet3:
+> - set min/max_mtu
+> 
+> xen-netback:
+> - min_mtu = 0, max_mtu = 65517
+> 
+> xen-netfront:
+> - min_mtu = 0, max_mtu = 65535
+> 
+> unisys/visor:
+> - clean up defines a little to not clash with network core or add
+>   redundat definitions
+> 
+> CC: netdev@vger.kernel.org
+> CC: virtualization@lists.linux-foundation.org
+> CC: "K. Y. Srinivasan" <kys@microsoft.com>
+> CC: Haiyang Zhang <haiyangz@microsoft.com>
+> CC: "Michael S. Tsirkin" <mst@redhat.com>
+> CC: Shrikrishna Khare <skhare@vmware.com>
+> CC: "VMware, Inc." <pv-drivers@vmware.com>
+> CC: Wei Liu <wei.liu2@citrix.com>
+> CC: Paul Durrant <paul.durrant@citrix.com>
+> CC: David Kershner <david.kershner@unisys.com>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+>  drivers/net/hyperv/hyperv_net.h                 |  4 ++--
+>  drivers/net/hyperv/netvsc_drv.c                 | 14 +++++++-------
+>  drivers/net/virtio_net.c                        | 23 ++++++++++-------------
+>  drivers/net/vmxnet3/vmxnet3_drv.c               |  7 ++++---
+>  drivers/net/xen-netback/interface.c             |  5 ++++-
+>  drivers/net/xen-netfront.c                      |  2 ++
+>  drivers/staging/unisys/include/iochannel.h      | 10 ++++------
+>  drivers/staging/unisys/visornic/visornic_main.c |  4 ++--
+>  8 files changed, 35 insertions(+), 34 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+> index f4fbcb5..3958ada 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -606,8 +606,8 @@ struct nvsp_message {
+>  } __packed;
+>  
+>  
+> -#define NETVSC_MTU 65536
+> -#define NETVSC_MTU_MIN 68
+> +#define NETVSC_MTU 65535
+> +#define NETVSC_MTU_MIN ETH_MIN_MTU
+>  
+>  #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
+>  #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index f0919bd..3b28cf1 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -872,19 +872,12 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+>  	struct netvsc_device *nvdev = ndevctx->nvdev;
+>  	struct hv_device *hdev = ndevctx->device_ctx;
+>  	struct netvsc_device_info device_info;
+> -	int limit = ETH_DATA_LEN;
+>  	u32 num_chn;
+>  	int ret = 0;
+>  
+>  	if (ndevctx->start_remove || !nvdev || nvdev->destroy)
+>  		return -ENODEV;
+>  
+> -	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
+> -		limit = NETVSC_MTU - ETH_HLEN;
+> -
+> -	if (mtu < NETVSC_MTU_MIN || mtu > limit)
+> -		return -EINVAL;
+> -
+>  	ret = netvsc_close(ndev);
+>  	if (ret)
+>  		goto out;
+> @@ -1402,6 +1395,13 @@ static int netvsc_probe(struct hv_device *dev,
+>  	netif_set_real_num_tx_queues(net, nvdev->num_chn);
+>  	netif_set_real_num_rx_queues(net, nvdev->num_chn);
+>  
+> +	/* MTU range: 68 - 1500 or 65521 */
+> +	net->min_mtu = NETVSC_MTU_MIN;
+> +	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
+> +		net->max_mtu = NETVSC_MTU - ETH_HLEN;
+> +	else
+> +		net->max_mtu = ETH_DATA_LEN;
+> +
+>  	ret = register_netdev(net);
+>  	if (ret != 0) {
+>  		pr_err("Unable to register netdev.\n");
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index fad84f3..720809f 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1419,17 +1419,6 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.set_settings = virtnet_set_settings,
+>  };
+>  
+> -#define MIN_MTU 68
+> -#define MAX_MTU 65535
+> -
+> -static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+> -{
+> -	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+> -		return -EINVAL;
+> -	dev->mtu = new_mtu;
+> -	return 0;
+> -}
+> -
+>  static const struct net_device_ops virtnet_netdev = {
+>  	.ndo_open            = virtnet_open,
+>  	.ndo_stop   	     = virtnet_close,
+> @@ -1437,7 +1426,6 @@ static const struct net_device_ops virtnet_netdev = {
+>  	.ndo_validate_addr   = eth_validate_addr,
+>  	.ndo_set_mac_address = virtnet_set_mac_address,
+>  	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+> -	.ndo_change_mtu	     = virtnet_change_mtu,
+>  	.ndo_get_stats64     = virtnet_stats,
+>  	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
+>  	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
+> @@ -1748,6 +1736,9 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
+>  	return true;
+>  }
+>  
+> +#define MIN_MTU ETH_MIN_MTU
+> +#define MAX_MTU ETH_MAX_MTU
+> +
 
+Can we drop these btw?
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, October 20, 2016 11:13 AM
-> To: Vatsavayi, Raghu
-> Cc: netdev@vger.kernel.org; Vatsavayi, Raghu; Chickles, Derek; Burla,
-> Satananda; Manlunas, Felix
-> Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF
-> support
->=20
-> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-> Date: Wed, 19 Oct 2016 22:40:38 -0700
->=20
-> > +/* Default behaviour of Liquidio is to provide one queue per VF. But
-> > +Liquidio
-> > + * can also provide multiple queues to each VF. If user wants to
-> > +change the
-> > + * default behaviour HW should be provided configuration info at init
-> > +time,
-> > + * based on which it will create control queues for communicating with
-> FW.
-> > + */
-> > +static u32 max_vfs[2] =3D { 0, 0 };
-> > +module_param_array(max_vfs, int, NULL, 0444);
-> > +MODULE_PARM_DESC(max_vfs, "Assign two comma-separated unsigned
-> > +integers that specify max number of VFs for PF0 (left of the comma)
-> > +and PF1 (right of the comma); for 23xx only. By default HW will
-> > +configure as many VFs as queues after allocating PF queues.To
-> > +increase queues for VF use this parameter. Use sysfs to create these
-> > +VFs.");
-> > +
-> > +static unsigned int num_queues_per_pf[2] =3D { 0, 0 };
-> > +module_param_array(num_queues_per_pf, uint, NULL, 0444);
-> > +MODULE_PARM_DESC(num_queues_per_pf, "two comma-separated
-> unsigned
-> > +integers that specify number of queues per PF0 (left of the comma)
-> > +and PF1 (right of the comma); for 23xx only");
-> > +
-> >  static int ptp_enable =3D 1;
->=20
-> We cannot continue to allow drivers to add custom module parameters to
-> control this.  It is the worst user experience possible.
->=20
-> We need a tree-wide generic, consistent, manner in which to configure and
-> control this kind of thing.
+>  static int virtnet_probe(struct virtio_device *vdev)
+>  {
+>  	int i, err;
+> @@ -1821,6 +1812,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  
+>  	dev->vlan_features = dev->features;
+>  
+> +	/* MTU range: 68 - 65535 */
+> +	dev->min_mtu = MIN_MTU;
+> +	dev->max_mtu = MAX_MTU;
+> +
+>  	/* Configuration may specify what MAC to use.  Otherwise random. */
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
+>  		virtio_cread_bytes(vdev,
+> @@ -1875,8 +1870,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		mtu = virtio_cread16(vdev,
+>  				     offsetof(struct virtio_net_config,
+>  					      mtu));
+> -		if (virtnet_change_mtu(dev, mtu))
+> +		if (mtu < dev->min_mtu || mtu > dev->max_mtu)
 
-Sure Dave, I will remove max_vfs module parameter and will use tree wide ge=
-neric=20
-sysfs interface to enable VFs. Also if user wants to have multiple queues t=
-hen because=20
-of the way Liquidio HW works we need num_queues_per_pf and num_queues_per_v=
-f=20
-module parameters at HW/module init time. This is required only in case of =
-non-default
-case of multi-queues per VF because HW has to carve these queues before FW =
-can start
-communicating with PF/VF host drivers, so we may include these two.=20
+In fact the > max_mtu branch does not make sense since a 16 bit
+value can't exceed MAX_MTU.
 
-I will soon forward you the patches with the changes that you recommended.
-
-Thanks Much.
-Raghu.
+>  			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
+> +		else
+> +			dev->mtu = mtu;
+>  	}
+>  
+>  	if (vi->any_header_sg)
+> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+> index b5554f2..0c36de1 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> @@ -2969,9 +2969,6 @@ vmxnet3_change_mtu(struct net_device *netdev, int new_mtu)
+>  	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+>  	int err = 0;
+>  
+> -	if (new_mtu < VMXNET3_MIN_MTU || new_mtu > VMXNET3_MAX_MTU)
+> -		return -EINVAL;
+> -
+>  	netdev->mtu = new_mtu;
+>  
+>  	/*
+> @@ -3428,6 +3425,10 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+>  	vmxnet3_set_ethtool_ops(netdev);
+>  	netdev->watchdog_timeo = 5 * HZ;
+>  
+> +	/* MTU range: 60 - 9000 */
+> +	netdev->min_mtu = VMXNET3_MIN_MTU;
+> +	netdev->max_mtu = VMXNET3_MAX_MTU;
+> +
+>  	INIT_WORK(&adapter->work, vmxnet3_reset_work);
+>  	set_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
+>  
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 74dc2bf..e30ffd2 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -302,7 +302,7 @@ static int xenvif_close(struct net_device *dev)
+>  static int xenvif_change_mtu(struct net_device *dev, int mtu)
+>  {
+>  	struct xenvif *vif = netdev_priv(dev);
+> -	int max = vif->can_sg ? 65535 - VLAN_ETH_HLEN : ETH_DATA_LEN;
+> +	int max = vif->can_sg ? ETH_MAX_MTU - VLAN_ETH_HLEN : ETH_DATA_LEN;
+>  
+>  	if (mtu > max)
+>  		return -EINVAL;
+> @@ -471,6 +471,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>  
+>  	dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
+>  
+> +	dev->min_mtu = 0;
+> +	dev->max_mtu = ETH_MAX_MTU - VLAN_ETH_HLEN;
+> +
+>  	/*
+>  	 * Initialise a dummy MAC address. We choose the numerically
+>  	 * largest non-broadcast address to prevent the address getting
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index e17879d..7d616b0 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1329,6 +1329,8 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+>  	netdev->features |= netdev->hw_features;
+>  
+>  	netdev->ethtool_ops = &xennet_ethtool_ops;
+> +	netdev->min_mtu = 0;
+> +	netdev->max_mtu = XEN_NETIF_MAX_TX_SIZE;
+>  	SET_NETDEV_DEV(netdev, &dev->dev);
+>  
+>  	np->netdev = netdev;
+> diff --git a/drivers/staging/unisys/include/iochannel.h b/drivers/staging/unisys/include/iochannel.h
+> index cba4433..9081b3f 100644
+> --- a/drivers/staging/unisys/include/iochannel.h
+> +++ b/drivers/staging/unisys/include/iochannel.h
+> @@ -113,12 +113,10 @@ enum net_types {
+>  
+>  };
+>  
+> -#define		ETH_HEADER_SIZE 14	/* size of ethernet header */
+> -
+>  #define		ETH_MIN_DATA_SIZE 46	/* minimum eth data size */
+> -#define		ETH_MIN_PACKET_SIZE (ETH_HEADER_SIZE + ETH_MIN_DATA_SIZE)
+> +#define		ETH_MIN_PACKET_SIZE (ETH_HLEN + ETH_MIN_DATA_SIZE)
+>  
+> -#define		ETH_MAX_MTU 16384	/* maximum data size */
+> +#define		VISOR_ETH_MAX_MTU 16384	/* maximum data size */
+>  
+>  #ifndef MAX_MACADDR_LEN
+>  #define MAX_MACADDR_LEN 6	/* number of bytes in MAC address */
+> @@ -288,7 +286,7 @@ struct net_pkt_xmt {
+>  	int len;	/* full length of data in the packet */
+>  	int num_frags;	/* number of fragments in frags containing data */
+>  	struct phys_info frags[MAX_PHYS_INFO];	/* physical page information */
+> -	char ethhdr[ETH_HEADER_SIZE];	/* the ethernet header  */
+> +	char ethhdr[ETH_HLEN];	/* the ethernet header  */
+>  	struct {
+>  		/* these are needed for csum at uisnic end */
+>  		u8 valid;	/* 1 = struct is valid - else ignore */
+> @@ -323,7 +321,7 @@ struct net_pkt_xmtdone {
+>   */
+>  #define RCVPOST_BUF_SIZE 4032
+>  #define MAX_NET_RCV_CHAIN \
+> -	((ETH_MAX_MTU + ETH_HEADER_SIZE + RCVPOST_BUF_SIZE - 1) \
+> +	((VISOR_ETH_MAX_MTU + ETH_HLEN + RCVPOST_BUF_SIZE - 1) \
+>  	/ RCVPOST_BUF_SIZE)
+>  
+>  struct net_pkt_rcvpost {
+> diff --git a/drivers/staging/unisys/visornic/visornic_main.c b/drivers/staging/unisys/visornic/visornic_main.c
+> index 1367007..f8a584b 100644
+> --- a/drivers/staging/unisys/visornic/visornic_main.c
+> +++ b/drivers/staging/unisys/visornic/visornic_main.c
+> @@ -791,7 +791,7 @@ visornic_xmit(struct sk_buff *skb, struct net_device *netdev)
+>  	 * pointing to
+>  	 */
+>  	firstfraglen = skb->len - skb->data_len;
+> -	if (firstfraglen < ETH_HEADER_SIZE) {
+> +	if (firstfraglen < ETH_HLEN) {
+>  		spin_unlock_irqrestore(&devdata->priv_lock, flags);
+>  		devdata->busy_cnt++;
+>  		dev_err(&netdev->dev,
+> @@ -864,7 +864,7 @@ visornic_xmit(struct sk_buff *skb, struct net_device *netdev)
+>  	/* copy ethernet header from first frag into ocmdrsp
+>  	 * - everything else will be pass in frags & DMA'ed
+>  	 */
+> -	memcpy(cmdrsp->net.xmt.ethhdr, skb->data, ETH_HEADER_SIZE);
+> +	memcpy(cmdrsp->net.xmt.ethhdr, skb->data, ETH_HLEN);
+>  	/* copy frags info - from skb->data we need to only provide access
+>  	 * beyond eth header
+>  	 */
+> -- 
+> 2.10.0
