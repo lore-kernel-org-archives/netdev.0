@@ -1,312 +1,149 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next v2 6/9] net: use core MTU range checking in virt
-	drivers
-Date: Thu, 20 Oct 2016 13:55:21 -0400
-Message-ID: <20161020175524.6184-7-jarod@redhat.com>
+Subject: [PATCH net-next v2 8/9] s390/net: use net core MTU range checking
+Date: Thu, 20 Oct 2016 13:55:23 -0400
+Message-ID: <20161020175524.6184-9-jarod@redhat.com>
 References: <20161019023333.15760-1-jarod@redhat.com>
-	<20161020175524.6184-1-jarod@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jarod Wilson <jarod@redhat.com>, David Kershner <david.kershner@unisys.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, "VMware,
-	Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	virtualization@lists.linux-foundation.org,
-	Paul Durrant <paul.durrant@citrix.com>,
-	Shrikrishna Khare <skhare@vmware.com>
+ <20161020175524.6184-1-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
+        linux-s390@vger.kernel.org,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161020175524.6184-1-jarod@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hyperv_net:
-- set min/max_mtu, per Haiyang, after rndis_filter_device_add
+ctcm:
+- min_mtu = 576, max_mtu = 65527
 
-virtio_net:
-- set min/max_mtu
-- remove virtnet_change_mtu
+netiucv:
+- min_mtu = 576, max_mtu = 65535
 
-vmxnet3:
-- set min/max_mtu
-
-xen-netback:
-- min_mtu = 0, max_mtu = 65517
-
-xen-netfront:
-- min_mtu = 0, max_mtu = 65535
-
-unisys/visor:
-- clean up defines a little to not clash with network core or add
-  redundat definitions
+qeth:
+- min_mtu = 64, max_mtu = 65535
 
 CC: netdev@vger.kernel.org
-CC: virtualization@lists.linux-foundation.org
-CC: "K. Y. Srinivasan" <kys@microsoft.com>
-CC: Haiyang Zhang <haiyangz@microsoft.com>
-CC: "Michael S. Tsirkin" <mst@redhat.com>
-CC: Shrikrishna Khare <skhare@vmware.com>
-CC: "VMware, Inc." <pv-drivers@vmware.com>
-CC: Wei Liu <wei.liu2@citrix.com>
-CC: Paul Durrant <paul.durrant@citrix.com>
-CC: David Kershner <david.kershner@unisys.com>
+CC: linux-s390@vger.kernel.org
+CC: Ursula Braun <ubraun@linux.vnet.ibm.com>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- drivers/net/hyperv/hyperv_net.h                 |  4 ++--
- drivers/net/hyperv/netvsc_drv.c                 | 14 +++++++-------
- drivers/net/virtio_net.c                        | 23 ++++++++++-------------
- drivers/net/vmxnet3/vmxnet3_drv.c               |  7 ++++---
- drivers/net/xen-netback/interface.c             |  5 ++++-
- drivers/net/xen-netfront.c                      |  2 ++
- drivers/staging/unisys/include/iochannel.h      | 10 ++++------
- drivers/staging/unisys/visornic/visornic_main.c |  4 ++--
- 8 files changed, 35 insertions(+), 34 deletions(-)
+ drivers/s390/net/ctcm_main.c      |  5 ++---
+ drivers/s390/net/netiucv.c        | 24 ++----------------------
+ drivers/s390/net/qeth_core_main.c |  4 ----
+ drivers/s390/net/qeth_l2_main.c   |  2 ++
+ drivers/s390/net/qeth_l3_main.c   |  2 ++
+ 5 files changed, 8 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index f4fbcb5..3958ada 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -606,8 +606,8 @@ struct nvsp_message {
- } __packed;
+diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
+index ad17fc5..ac65f12 100644
+--- a/drivers/s390/net/ctcm_main.c
++++ b/drivers/s390/net/ctcm_main.c
+@@ -1032,9 +1032,6 @@ static int ctcm_change_mtu(struct net_device *dev, int new_mtu)
+ 	struct ctcm_priv *priv;
+ 	int max_bufsize;
  
- 
--#define NETVSC_MTU 65536
--#define NETVSC_MTU_MIN 68
-+#define NETVSC_MTU 65535
-+#define NETVSC_MTU_MIN ETH_MIN_MTU
- 
- #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
- #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f0919bd..3b28cf1 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -872,19 +872,12 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	struct netvsc_device *nvdev = ndevctx->nvdev;
- 	struct hv_device *hdev = ndevctx->device_ctx;
- 	struct netvsc_device_info device_info;
--	int limit = ETH_DATA_LEN;
- 	u32 num_chn;
- 	int ret = 0;
- 
- 	if (ndevctx->start_remove || !nvdev || nvdev->destroy)
- 		return -ENODEV;
- 
--	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
--		limit = NETVSC_MTU - ETH_HLEN;
--
--	if (mtu < NETVSC_MTU_MIN || mtu > limit)
+-	if (new_mtu < 576 || new_mtu > 65527)
 -		return -EINVAL;
 -
- 	ret = netvsc_close(ndev);
- 	if (ret)
- 		goto out;
-@@ -1402,6 +1395,13 @@ static int netvsc_probe(struct hv_device *dev,
- 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
- 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
+ 	priv = dev->ml_priv;
+ 	max_bufsize = priv->channel[CTCM_READ]->max_bufsize;
  
-+	/* MTU range: 68 - 1500 or 65521 */
-+	net->min_mtu = NETVSC_MTU_MIN;
-+	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
-+		net->max_mtu = NETVSC_MTU - ETH_HLEN;
-+	else
-+		net->max_mtu = ETH_DATA_LEN;
-+
- 	ret = register_netdev(net);
- 	if (ret != 0) {
- 		pr_err("Unable to register netdev.\n");
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index fad84f3..720809f 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1419,17 +1419,6 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
- 	.set_settings = virtnet_set_settings,
- };
+@@ -1123,6 +1120,8 @@ void static ctcm_dev_setup(struct net_device *dev)
+ 	dev->type = ARPHRD_SLIP;
+ 	dev->tx_queue_len = 100;
+ 	dev->flags = IFF_POINTOPOINT | IFF_NOARP;
++	dev->min_mtu = 576;
++	dev->max_mtu = 65527;
+ }
  
--#define MIN_MTU 68
--#define MAX_MTU 65535
--
--static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+ /*
+diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
+index 2f0f391..2981024 100644
+--- a/drivers/s390/net/netiucv.c
++++ b/drivers/s390/net/netiucv.c
+@@ -1428,27 +1428,6 @@ static struct net_device_stats *netiucv_stats (struct net_device * dev)
+ 	return &priv->stats;
+ }
+ 
+-/**
+- * netiucv_change_mtu
+- * @dev: Pointer to interface struct.
+- * @new_mtu: The new MTU to use for this interface.
+- *
+- * Sets MTU of an interface.
+- *
+- * Returns 0 on success, -EINVAL if MTU is out of valid range.
+- *         (valid range is 576 .. NETIUCV_MTU_MAX).
+- */
+-static int netiucv_change_mtu(struct net_device * dev, int new_mtu)
 -{
--	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+-	IUCV_DBF_TEXT(trace, 3, __func__);
+-	if (new_mtu < 576 || new_mtu > NETIUCV_MTU_MAX) {
+-		IUCV_DBF_TEXT(setup, 2, "given MTU out of valid range\n");
 -		return -EINVAL;
+-	}
 -	dev->mtu = new_mtu;
 -	return 0;
 -}
 -
- static const struct net_device_ops virtnet_netdev = {
- 	.ndo_open            = virtnet_open,
- 	.ndo_stop   	     = virtnet_close,
-@@ -1437,7 +1426,6 @@ static const struct net_device_ops virtnet_netdev = {
- 	.ndo_validate_addr   = eth_validate_addr,
- 	.ndo_set_mac_address = virtnet_set_mac_address,
- 	.ndo_set_rx_mode     = virtnet_set_rx_mode,
--	.ndo_change_mtu	     = virtnet_change_mtu,
- 	.ndo_get_stats64     = virtnet_stats,
- 	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
-@@ -1748,6 +1736,9 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
- 	return true;
- }
- 
-+#define MIN_MTU ETH_MIN_MTU
-+#define MAX_MTU ETH_MAX_MTU
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int i, err;
-@@ -1821,6 +1812,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 
- 	dev->vlan_features = dev->features;
- 
-+	/* MTU range: 68 - 65535 */
-+	dev->min_mtu = MIN_MTU;
-+	dev->max_mtu = MAX_MTU;
-+
- 	/* Configuration may specify what MAC to use.  Otherwise random. */
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
- 		virtio_cread_bytes(vdev,
-@@ -1875,8 +1870,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		mtu = virtio_cread16(vdev,
- 				     offsetof(struct virtio_net_config,
- 					      mtu));
--		if (virtnet_change_mtu(dev, mtu))
-+		if (mtu < dev->min_mtu || mtu > dev->max_mtu)
- 			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
-+		else
-+			dev->mtu = mtu;
- 	}
- 
- 	if (vi->any_header_sg)
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index b5554f2..0c36de1 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2969,9 +2969,6 @@ vmxnet3_change_mtu(struct net_device *netdev, int new_mtu)
- 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
- 	int err = 0;
- 
--	if (new_mtu < VMXNET3_MIN_MTU || new_mtu > VMXNET3_MAX_MTU)
--		return -EINVAL;
--
- 	netdev->mtu = new_mtu;
- 
- 	/*
-@@ -3428,6 +3425,10 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 	vmxnet3_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
- 
-+	/* MTU range: 60 - 9000 */
-+	netdev->min_mtu = VMXNET3_MIN_MTU;
-+	netdev->max_mtu = VMXNET3_MAX_MTU;
-+
- 	INIT_WORK(&adapter->work, vmxnet3_reset_work);
- 	set_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
- 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 74dc2bf..e30ffd2 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -302,7 +302,7 @@ static int xenvif_close(struct net_device *dev)
- static int xenvif_change_mtu(struct net_device *dev, int mtu)
- {
- 	struct xenvif *vif = netdev_priv(dev);
--	int max = vif->can_sg ? 65535 - VLAN_ETH_HLEN : ETH_DATA_LEN;
-+	int max = vif->can_sg ? ETH_MAX_MTU - VLAN_ETH_HLEN : ETH_DATA_LEN;
- 
- 	if (mtu > max)
- 		return -EINVAL;
-@@ -471,6 +471,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 
- 	dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
- 
-+	dev->min_mtu = 0;
-+	dev->max_mtu = ETH_MAX_MTU - VLAN_ETH_HLEN;
-+
- 	/*
- 	 * Initialise a dummy MAC address. We choose the numerically
- 	 * largest non-broadcast address to prevent the address getting
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index e17879d..7d616b0 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1329,6 +1329,8 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
- 	netdev->features |= netdev->hw_features;
- 
- 	netdev->ethtool_ops = &xennet_ethtool_ops;
-+	netdev->min_mtu = 0;
-+	netdev->max_mtu = XEN_NETIF_MAX_TX_SIZE;
- 	SET_NETDEV_DEV(netdev, &dev->dev);
- 
- 	np->netdev = netdev;
-diff --git a/drivers/staging/unisys/include/iochannel.h b/drivers/staging/unisys/include/iochannel.h
-index cba4433..9081b3f 100644
---- a/drivers/staging/unisys/include/iochannel.h
-+++ b/drivers/staging/unisys/include/iochannel.h
-@@ -113,12 +113,10 @@ enum net_types {
- 
+ /*
+  * attributes in sysfs
+  */
+@@ -1986,12 +1965,13 @@ static const struct net_device_ops netiucv_netdev_ops = {
+ 	.ndo_stop		= netiucv_close,
+ 	.ndo_get_stats		= netiucv_stats,
+ 	.ndo_start_xmit		= netiucv_tx,
+-	.ndo_change_mtu	   	= netiucv_change_mtu,
  };
  
--#define		ETH_HEADER_SIZE 14	/* size of ethernet header */
--
- #define		ETH_MIN_DATA_SIZE 46	/* minimum eth data size */
--#define		ETH_MIN_PACKET_SIZE (ETH_HEADER_SIZE + ETH_MIN_DATA_SIZE)
-+#define		ETH_MIN_PACKET_SIZE (ETH_HLEN + ETH_MIN_DATA_SIZE)
+ static void netiucv_setup_netdevice(struct net_device *dev)
+ {
+ 	dev->mtu	         = NETIUCV_MTU_DEFAULT;
++	dev->min_mtu		 = 576;
++	dev->max_mtu		 = NETIUCV_MTU_MAX;
+ 	dev->destructor          = netiucv_free_netdevice;
+ 	dev->hard_header_len     = NETIUCV_HDRLEN;
+ 	dev->addr_len            = 0;
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index 20cf296..e335583 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -4202,10 +4202,6 @@ int qeth_change_mtu(struct net_device *dev, int new_mtu)
+ 	sprintf(dbf_text, "%8x", new_mtu);
+ 	QETH_CARD_TEXT(card, 4, dbf_text);
  
--#define		ETH_MAX_MTU 16384	/* maximum data size */
-+#define		VISOR_ETH_MAX_MTU 16384	/* maximum data size */
- 
- #ifndef MAX_MACADDR_LEN
- #define MAX_MACADDR_LEN 6	/* number of bytes in MAC address */
-@@ -288,7 +286,7 @@ struct net_pkt_xmt {
- 	int len;	/* full length of data in the packet */
- 	int num_frags;	/* number of fragments in frags containing data */
- 	struct phys_info frags[MAX_PHYS_INFO];	/* physical page information */
--	char ethhdr[ETH_HEADER_SIZE];	/* the ethernet header  */
-+	char ethhdr[ETH_HLEN];	/* the ethernet header  */
- 	struct {
- 		/* these are needed for csum at uisnic end */
- 		u8 valid;	/* 1 = struct is valid - else ignore */
-@@ -323,7 +321,7 @@ struct net_pkt_xmtdone {
-  */
- #define RCVPOST_BUF_SIZE 4032
- #define MAX_NET_RCV_CHAIN \
--	((ETH_MAX_MTU + ETH_HEADER_SIZE + RCVPOST_BUF_SIZE - 1) \
-+	((VISOR_ETH_MAX_MTU + ETH_HLEN + RCVPOST_BUF_SIZE - 1) \
- 	/ RCVPOST_BUF_SIZE)
- 
- struct net_pkt_rcvpost {
-diff --git a/drivers/staging/unisys/visornic/visornic_main.c b/drivers/staging/unisys/visornic/visornic_main.c
-index 1367007..f8a584b 100644
---- a/drivers/staging/unisys/visornic/visornic_main.c
-+++ b/drivers/staging/unisys/visornic/visornic_main.c
-@@ -791,7 +791,7 @@ visornic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	 * pointing to
- 	 */
- 	firstfraglen = skb->len - skb->data_len;
--	if (firstfraglen < ETH_HEADER_SIZE) {
-+	if (firstfraglen < ETH_HLEN) {
- 		spin_unlock_irqrestore(&devdata->priv_lock, flags);
- 		devdata->busy_cnt++;
- 		dev_err(&netdev->dev,
-@@ -864,7 +864,7 @@ visornic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	/* copy ethernet header from first frag into ocmdrsp
- 	 * - everything else will be pass in frags & DMA'ed
- 	 */
--	memcpy(cmdrsp->net.xmt.ethhdr, skb->data, ETH_HEADER_SIZE);
-+	memcpy(cmdrsp->net.xmt.ethhdr, skb->data, ETH_HLEN);
- 	/* copy frags info - from skb->data we need to only provide access
- 	 * beyond eth header
- 	 */
+-	if (new_mtu < 64)
+-		return -EINVAL;
+-	if (new_mtu > 65535)
+-		return -EINVAL;
+ 	if ((!qeth_is_supported(card, IPA_IP_FRAGMENTATION)) &&
+ 	    (!qeth_mtu_is_valid(card, new_mtu)))
+ 		return -EINVAL;
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index bb27058..9c921c28 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -1107,6 +1107,8 @@ static int qeth_l2_setup_netdev(struct qeth_card *card)
+ 	card->dev->ml_priv = card;
+ 	card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
+ 	card->dev->mtu = card->info.initial_mtu;
++	card->dev->min_mtu = 64;
++	card->dev->max_mtu = ETH_MAX_MTU;
+ 	card->dev->netdev_ops = &qeth_l2_netdev_ops;
+ 	card->dev->ethtool_ops =
+ 		(card->info.type != QETH_CARD_TYPE_OSN) ?
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 272d9e7..ac37d05 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -3140,6 +3140,8 @@ static int qeth_l3_setup_netdev(struct qeth_card *card)
+ 	card->dev->ml_priv = card;
+ 	card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
+ 	card->dev->mtu = card->info.initial_mtu;
++	card->dev->min_mtu = 64;
++	card->dev->max_mtu = ETH_MAX_MTU;
+ 	card->dev->ethtool_ops = &qeth_l3_ethtool_ops;
+ 	card->dev->features |=	NETIF_F_HW_VLAN_CTAG_TX |
+ 				NETIF_F_HW_VLAN_CTAG_RX |
 -- 
 2.10.0
