@@ -1,75 +1,63 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [RFC 2/6] qed: Add iSCSI out of order packet handling.
-Date: Thu, 20 Oct 2016 12:58:13 +0000
-Message-ID: <BL2PR07MB2306CA84C34D4F67EA5335C28DD50@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
- <1476853273-22960-3-git-send-email-manish.rangankar@cavium.com>
- <f8c5d8d1-0e69-00c2-9349-de611c4b6c08@suse.de>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [PATCH 1/9] ipv6: implement dataplane support for rthdr type
+ 4 (Segment Routing Header)
+Date: Thu, 20 Oct 2016 15:04:59 +0200
+Message-ID: <5808C0FB.2050202@uclouvain.be>
+References: <1476715350-18983-1-git-send-email-david.lebrun@uclouvain.be> <1476715350-18983-2-git-send-email-david.lebrun@uclouvain.be> <CALx6S35sU+aw3UvMTknj8SjJP4O=Q-9eVV3OC640Qzces_eE7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "martin.petersen@oracle.com" <martin.petersen@oracle.com>,
-        "jejb@linux.vnet.ibm.com" <jejb@linux.vnet.ibm.com>,
-        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Dept-Eng QLogic Storage Upstream"
-        <QLogic-Storage-Upstream@cavium.com>,
-        "Easi, Arun" <Arun.Easi@cavium.com>
-To: Hannes Reinecke <hare@suse.de>,
-        "Rangankar, Manish" <Manish.Rangankar@cavium.com>,
-        "lduncan@suse.com" <lduncan@suse.com>,
-        "cleech@redhat.com" <cleech@redhat.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="kiHK4HScUDNvNv8mXg3Sl4IxwS7NXhvLn"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0085.outbound.protection.outlook.com ([104.47.33.85]:30737
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932943AbcJTM6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 08:58:20 -0400
-In-Reply-To: <f8c5d8d1-0e69-00c2-9349-de611c4b6c08@suse.de>
-Content-Language: en-US
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:37295 "EHLO
+        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932543AbcJTND3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 09:03:29 -0400
+In-Reply-To: <CALx6S35sU+aw3UvMTknj8SjJP4O=Q-9eVV3OC640Qzces_eE7w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > This patch adds out of order packet handling for hardware offloaded
-> > iSCSI. Out of order packet handling requires driver buffer allocation
-> > and assistance.
-> >
-> > Signed-off-by: Arun Easi <arun.easi@cavium.com>
-> > Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
-> >
-> Hmm. The entire out-of-order handling is pretty generic. I really wonder
-> if this doesn't apply to iSCSI in general; surely iscsi_tcp suffers from
-> the same problem, no?
-> If so, wouldn't it be better to move it into generic (iSCSI) code so
-> that all implementations would benefit from it?
+--kiHK4HScUDNvNv8mXg3Sl4IxwS7NXhvLn
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-[disclaimer - I'm far from knowledgeable in iscsi ]
+On 10/17/2016 07:01 PM, Tom Herbert wrote:
+>> > +
+>> > +       if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE)
+>> > +               skb->ip_summed =3D CHECKSUM_NONE;
+>> > +
+> Because the packet is being changed? Would it make sense to update the
+> checksum complete value based on the changes being made. Consider the
+> case that the next hop is local to the host (someone may try to
+> implement network virtualization this way).
+>=20
 
-I agree that the problem of out-of-order handling is probably generic,
-but our solution is very device oriented.
-As the device lacks [a lot of] internal memory, it uses the host memory
-for out-of-order buffers and the driver assistance in pushing them when
-they are needed.
->From driver perspective, all the data is completely opaque; All it does is
-follow the firmware's guidance in storing & re-transmitting buffers when
-required.
+Rethinking about that: even if the next hop is local, I am not sure to
+see the benefits of updating the checksum instead of setting
+CHECKSUM_NONE. For example, if the next and final hop is local and the
+packet carries a TCP payload, tcp_checksum_complete() would force the
+recomputation of the checksum anyway (unless ip_summed =3D=3D
+CHECKSUM_UNNECESSARY).
 
-Now, I guess the logic could be divided between hardware-specifics -
-Interaction with 'client' [in our case, device's firmware], to receive
-new data, instructions regarding placement and re-transmission,
-and a lower generic data structure which supports manipulation of
-buffers [push-left, push-right, join, etc.].
+So I fail to see a path where updating the checksum would be beneficial.
 
-But given that the data-structure would completely lacks all
-protocol-knowledge [as our implementation doesn't have nor require such],
-I think there would be very little gain - we might find out that as much
-as 80% of the code is device interaction, and the remaining so-called
-'generic' data-structure won't be that useful to other clients as it was
-closely tied to our device needs and API.
+Am I missing something ?
 
-Either way, placing this under iscsi would probably be insufficient for our
-future needs, as our qed-iwarp driver would also require this functionality=
-.
+David
 
-Thanks,
-Yuval
+
+--kiHK4HScUDNvNv8mXg3Sl4IxwS7NXhvLn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iEYEARECAAYFAlgIwPsACgkQjbzn67sZ6ANQCQCeMJ88JkRJmC5dXZ1ixcT60i2W
+jOwAnAgjWoRs/K1GvYgFDJuPiGyVWtd+
+=PVyR
+-----END PGP SIGNATURE-----
+
+--kiHK4HScUDNvNv8mXg3Sl4IxwS7NXhvLn--
