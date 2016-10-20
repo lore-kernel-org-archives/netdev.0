@@ -1,67 +1,72 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 4/4] mlxsw: pci: Fix reset wait for SwitchX2
-Date: Thu, 20 Oct 2016 16:05:45 +0200
-Message-ID: <1476972345-31568-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net 2/4] mlxsw: spectrum_router: Make mlxsw_sp_router_fib4_del return void and remove warn
+Date: Thu, 20 Oct 2016 16:05:43 +0200
+Message-ID: <1476972345-31568-3-git-send-email-jiri@resnulli.us>
 References: <1476972345-31568-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:35668 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753299AbcJTOFz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 10:05:55 -0400
-Received: by mail-lf0-f66.google.com with SMTP id x79so177507lff.2
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 07:05:55 -0700 (PDT)
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:36598 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753299AbcJTOFw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 10:05:52 -0400
+Received: by mail-lf0-f68.google.com with SMTP id b75so431881lfg.3
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 07:05:52 -0700 (PDT)
 In-Reply-To: <1476972345-31568-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-SwitchX2 firmware does not implement reset done yet. Moreover, when
-busy-polled for ready magic, that slows down firmware and reset takes
-longer than the defined timeout, causing initialization to fail.
-So restore the previous behaviour and just sleep in this case.
+The function return value is not checked anywhere. Also, the warning
+causes huge slowdown when removing large number of FIB entries which
+were not offloaded, because of ordering issue. Ido's preparing
+a patchset to fix the ordering issue, but that is definitelly not
+net tree material.
 
-Fixes: 233fa44bd67a ("mlxsw: pci: Implement reset done check")
+Fixes: b45f64d16d45 ("mlxsw: spectrum_router: Use FIB notifications instead of switchdev calls")
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/pci.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index e742bd4..912f71f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -1838,11 +1838,17 @@ static const struct mlxsw_bus mlxsw_pci_bus = {
- 	.cmd_exec		= mlxsw_pci_cmd_exec,
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 1b3a2cb..f3d50d3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1820,19 +1820,17 @@ static int mlxsw_sp_router_fib4_add(struct mlxsw_sp *mlxsw_sp,
+ 	return err;
+ }
  
--static int mlxsw_pci_sw_reset(struct mlxsw_pci *mlxsw_pci)
-+static int mlxsw_pci_sw_reset(struct mlxsw_pci *mlxsw_pci,
-+			      const struct pci_device_id *id)
+-static int mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
+-				    struct fib_entry_notifier_info *fen_info)
++static void mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
++				     struct fib_entry_notifier_info *fen_info)
  {
- 	unsigned long end;
+ 	struct mlxsw_sp_fib_entry *fib_entry;
  
- 	mlxsw_pci_write32(mlxsw_pci, SW_RESET, MLXSW_PCI_SW_RESET_RST_BIT);
-+	if (id->device == PCI_DEVICE_ID_MELLANOX_SWITCHX2) {
-+		msleep(MLXSW_PCI_SW_RESET_TIMEOUT_MSECS);
-+		return 0;
-+	}
-+
- 	wmb(); /* reset needs to be written before we read control register */
- 	end = jiffies + msecs_to_jiffies(MLXSW_PCI_SW_RESET_TIMEOUT_MSECS);
- 	do {
-@@ -1909,7 +1915,7 @@ static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	mlxsw_pci->pdev = pdev;
- 	pci_set_drvdata(pdev, mlxsw_pci);
+ 	if (mlxsw_sp->router.aborted)
+-		return 0;
++		return;
  
--	err = mlxsw_pci_sw_reset(mlxsw_pci);
-+	err = mlxsw_pci_sw_reset(mlxsw_pci, id);
- 	if (err) {
- 		dev_err(&pdev->dev, "Software reset failed\n");
- 		goto err_sw_reset;
+ 	fib_entry = mlxsw_sp_fib_entry_find(mlxsw_sp, fen_info);
+-	if (!fib_entry) {
+-		dev_warn(mlxsw_sp->bus_info->dev, "Failed to find FIB4 entry being removed.\n");
+-		return -ENOENT;
+-	}
++	if (!fib_entry)
++		return;
+ 
+ 	if (fib_entry->ref_count == 1) {
+ 		mlxsw_sp_fib_entry_del(mlxsw_sp, fib_entry);
+@@ -1840,7 +1838,6 @@ static int mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
+ 	}
+ 
+ 	mlxsw_sp_fib_entry_put(mlxsw_sp, fib_entry);
+-	return 0;
+ }
+ 
+ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
 -- 
 2.5.5
