@@ -1,162 +1,713 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next v2 0/9] net: use core MTU range checking everywhere
-Date: Thu, 20 Oct 2016 13:55:15 -0400
-Message-ID: <20161020175524.6184-1-jarod@redhat.com>
+Subject: [PATCH net-next v2 1/9] ethernet: use net core MTU range checking in more drivers
+Date: Thu, 20 Oct 2016 13:55:16 -0400
+Message-ID: <20161020175524.6184-2-jarod@redhat.com>
 References: <20161019023333.15760-1-jarod@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org
+ <20161020175524.6184-1-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
+        Jes Sorensen <jes@trained-monkey.org>,
+        Netanel Belgazal <netanel@annapurnalabs.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Santosh Raspatur <santosh@chelsio.com>,
+        Hariprasad S <hariprasad@chelsio.com>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        John Allen <jallen@linux.vnet.ibm.com>,
+        Guo-Fu Tseng <cooldavid@cooldavid.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Manish Chopra <manish.chopra@qlogic.com>,
+        Sony Chacko <sony
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47400 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48452 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752359AbcJTRze (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 13:55:34 -0400
-In-Reply-To: <20161019023333.15760-1-jarod@redhat.com>
+        id S1755976AbcJTRzj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 13:55:39 -0400
+In-Reply-To: <20161020175524.6184-1-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This stack of patches should get absolutely everything in the kernel
-converted from doing their own MTU range checking to the core MTU range
-checking. This second spin includes alterations to hopefully fix all
-concerns raised with the first, as well as including some additional
-changes to drivers and infrastructure where I completely missed necessary
-updates.
+Somehow, I missed a healthy number of ethernet drivers in the last pass.
+Most of these drivers either were in need of an updated max_mtu to make
+jumbo frames possible to enable again. In a few cases, also setting a
+different min_mtu to match previous lower bounds. There are also a few
+drivers that had no upper bounds checking, so they're getting a brand new
+ETH_MAX_MTU that is identical to IP_MAX_MTU, but accessible by includes
+all ethernet and ethernet-like drivers all have already.
 
-These have all been built through the 0-day build infrastructure via the
-(rebasing) master branch at https://github.com/jarodwilson/linux-muck, which
-at the time of the most recent compile across 147 configs, was based on
-net-next at commit 7b1536ef0aa0.
+acenic:
+- min_mtu = 0, max_mtu = 9000
 
-Jarod Wilson (9):
-  ethernet: use net core MTU range checking in more drivers
-  net: use core MTU range checking in USB NIC drivers
-  net: use core MTU range checking in wireless drivers
-  net: use core MTU range checking in WAN drivers
-  net: use core MTU range checking in core net infra
-  net: use core MTU range checking in virt drivers
-  net: use core MTU range checking in misc drivers
-  s390/net: use net core MTU range checking
-  ipv4/6: use core net MTU range checking
+amazon/ena:
+- min_mtu = 128, max_mtu = adapter->max_mtu
 
+amd/xgbe:
+- min_mtu = 0, max_mtu = 9000
+
+sb1250:
+- min_mtu = 0, max_mtu = 1518
+
+cxgb3:
+- min_mtu = 81, max_mtu = 65535
+
+cxgb4:
+- min_mtu = 81, max_mtu = 9600
+
+cxgb4vf:
+- min_mtu = 81, max_mtu = 65535
+
+benet:
+- min_mtu = 256, max_mtu = 9000
+
+ibmveth:
+- min_mtu = 68, max_mtu = 65535
+
+ibmvnic:
+- min_mtu = adapter->min_mtu, max_mtu = adapter->max_mtu
+- remove now redundant ibmvnic_change_mtu
+
+jme:
+- min_mtu = 1280, max_mtu = 9202
+
+mv643xx_eth:
+- min_mtu = 64, max_mtu = 9500
+
+mlxsw:
+- min_mtu = 0, max_mtu = 65535
+- Basically bypassing the core checks, and instead relying on dynamic
+  checks in the respective switch drivers' ndo_change_mtu functions
+
+ns83820:
+- min_mtu = 0
+- remove redundant ns83820_change_mtu, only checked for mtu > 1500
+
+netxen:
+- min_mtu = 0, max_mtu = 8000 (P2), max_mtu = 9600 (P3)
+
+qlge:
+- min_mtu = 1500, max_mtu = 9000
+- driver only supports setting mtu to 1500 or 9000, so the core check only
+  rules out < 1500 and > 9000, qlge_change_mtu still needs to check that
+  the value is 1500 or 9000
+
+qualcomm/emac:
+- min_mtu = 46, max_mtu = 9194
+
+xilinx_axienet:
+- min_mtu = 64, max_mtu = 9000
+
+Fixes: 61e84623ace3 ("net: centralize net_device min/max MTU checking")
 CC: netdev@vger.kernel.org
-
- arch/um/drivers/net_kern.c                         |  8 ---
- drivers/char/pcmcia/synclink_cs.c                  |  1 -
- drivers/firewire/net.c                             | 18 ++----
- drivers/hsi/clients/ssi_protocol.c                 | 14 ++---
- drivers/infiniband/hw/nes/nes.c                    |  1 -
- drivers/infiniband/hw/nes/nes.h                    |  4 +-
- drivers/infiniband/hw/nes/nes_nic.c                | 10 +---
- drivers/infiniband/ulp/ipoib/ipoib_main.c          |  1 +
- drivers/message/fusion/mptlan.c                    | 15 ++---
- drivers/misc/sgi-xp/xpnet.c                        | 21 ++-----
- drivers/net/ethernet/alteon/acenic.c               |  5 +-
- drivers/net/ethernet/amazon/ena/ena_netdev.c       |  9 +--
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  5 --
- drivers/net/ethernet/amd/xgbe/xgbe-main.c          |  2 +
- drivers/net/ethernet/broadcom/sb1250-mac.c         | 12 +---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c    |  4 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  6 +-
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |  6 +-
- drivers/net/ethernet/emulex/benet/be_main.c        | 22 ++------
- drivers/net/ethernet/ibm/ibmveth.c                 |  6 +-
- drivers/net/ethernet/ibm/ibmvnic.c                 | 16 ++----
- drivers/net/ethernet/jme.c                         | 12 ++--
- drivers/net/ethernet/marvell/mv643xx_eth.c         |  7 ++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  3 +
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c     |  3 +
- drivers/net/ethernet/natsemi/ns83820.c             | 11 +---
- drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | 12 ----
- .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |  7 +++
- drivers/net/ethernet/qlogic/qlge/qlge_main.c       |  7 +++
- drivers/net/ethernet/qualcomm/emac/emac.c          | 13 ++---
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c  |  7 ++-
- drivers/net/fddi/skfp/skfddi.c                     |  1 -
- drivers/net/fjes/fjes_main.c                       |  2 +
- drivers/net/geneve.c                               | 48 +++++++---------
- drivers/net/hippi/rrunner.c                        |  1 -
- drivers/net/hyperv/hyperv_net.h                    |  4 +-
- drivers/net/hyperv/netvsc_drv.c                    | 14 ++---
- drivers/net/macsec.c                               |  2 +
- drivers/net/macvlan.c                              |  8 ++-
- drivers/net/ntb_netdev.c                           |  3 +
- drivers/net/rionet.c                               | 15 +----
- drivers/net/slip/slip.c                            | 11 ++--
- drivers/net/tun.c                                  | 20 ++-----
- drivers/net/usb/asix_devices.c                     |  4 +-
- drivers/net/usb/ax88179_178a.c                     |  4 +-
- drivers/net/usb/cdc-phonet.c                       | 12 +---
- drivers/net/usb/cdc_ncm.c                          |  5 +-
- drivers/net/usb/lan78xx.c                          |  8 +--
- drivers/net/usb/r8152.c                            | 15 ++++-
- drivers/net/usb/sierra_net.c                       | 13 +----
- drivers/net/usb/smsc75xx.c                         |  4 +-
- drivers/net/usb/usbnet.c                           |  4 +-
- drivers/net/veth.c                                 | 17 +-----
- drivers/net/virtio_net.c                           | 23 ++++----
- drivers/net/vmxnet3/vmxnet3_drv.c                  |  7 ++-
- drivers/net/vxlan.c                                | 64 ++++++++++++----------
- drivers/net/wan/c101.c                             |  1 -
- drivers/net/wan/cosa.c                             |  1 -
- drivers/net/wan/dscc4.c                            |  1 -
- drivers/net/wan/farsync.c                          |  1 -
- drivers/net/wan/fsl_ucc_hdlc.c                     |  1 -
- drivers/net/wan/hdlc.c                             | 11 +---
- drivers/net/wan/hdlc_fr.c                          |  3 +-
- drivers/net/wan/hostess_sv11.c                     |  1 -
- drivers/net/wan/ixp4xx_hss.c                       |  1 -
- drivers/net/wan/lmc/lmc_main.c                     |  1 -
- drivers/net/wan/n2.c                               |  1 -
- drivers/net/wan/pc300too.c                         |  1 -
- drivers/net/wan/pci200syn.c                        |  1 -
- drivers/net/wan/sealevel.c                         |  1 -
- drivers/net/wan/wanxl.c                            |  1 -
- drivers/net/wan/x25_asy.c                          |  5 +-
- drivers/net/wimax/i2400m/netdev.c                  | 22 +-------
- drivers/net/wireless/ath/wil6210/netdev.c          | 17 +-----
- drivers/net/wireless/atmel/atmel.c                 | 13 ++---
- drivers/net/wireless/cisco/airo.c                  | 14 +----
- drivers/net/wireless/intel/ipw2x00/ipw2100.c       |  3 +-
- drivers/net/wireless/intel/ipw2x00/ipw2200.c       |  8 ++-
- drivers/net/wireless/intel/ipw2x00/libipw.h        |  1 -
- drivers/net/wireless/intel/ipw2x00/libipw_module.c |  9 ---
- drivers/net/wireless/intersil/hostap/hostap_main.c | 15 +----
- drivers/net/wireless/intersil/orinoco/main.c       |  6 +-
- drivers/net/xen-netback/interface.c                |  5 +-
- drivers/net/xen-netfront.c                         |  2 +
- drivers/s390/net/ctcm_main.c                       |  5 +-
- drivers/s390/net/netiucv.c                         | 24 +-------
- drivers/s390/net/qeth_core_main.c                  |  4 --
- drivers/s390/net/qeth_l2_main.c                    |  2 +
- drivers/s390/net/qeth_l3_main.c                    |  2 +
- drivers/staging/unisys/include/iochannel.h         | 10 ++--
- drivers/staging/unisys/visornic/visornic_main.c    |  4 +-
- drivers/staging/wlan-ng/p80211netdev.c             | 18 ++----
- drivers/tty/n_gsm.c                                | 12 +---
- drivers/tty/synclink.c                             |  1 -
- drivers/tty/synclink_gt.c                          |  1 -
- drivers/tty/synclinkmp.c                           |  1 -
- drivers/usb/gadget/function/f_phonet.c             | 11 +---
- drivers/usb/gadget/function/u_ether.c              | 14 ++---
- include/linux/fddidevice.h                         |  1 -
- include/linux/hdlc.h                               |  2 -
- include/linux/hippidevice.h                        |  1 -
+CC: Jes Sorensen <jes@trained-monkey.org>
+CC: Netanel Belgazal <netanel@annapurnalabs.com>
+CC: Tom Lendacky <thomas.lendacky@amd.com>
+CC: Santosh Raspatur <santosh@chelsio.com>
+CC: Hariprasad S <hariprasad@chelsio.com>
+CC: Sathya Perla <sathya.perla@broadcom.com>
+CC: Ajit Khaparde <ajit.khaparde@broadcom.com>
+CC: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+CC: Somnath Kotur <somnath.kotur@broadcom.com>
+CC: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+CC: John Allen <jallen@linux.vnet.ibm.com>
+CC: Guo-Fu Tseng <cooldavid@cooldavid.org>
+CC: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+CC: Jiri Pirko <jiri@mellanox.com>
+CC: Ido Schimmel <idosch@mellanox.com>
+CC: Manish Chopra <manish.chopra@qlogic.com>
+CC: Sony Chacko <sony.chacko@qlogic.com>
+CC: Rajesh Borundia <rajesh.borundia@qlogic.com>
+CC: Timur Tabi <timur@codeaurora.org>
+CC: Anirudha Sarangi <anirudh@xilinx.com>
+CC: John Linn <John.Linn@xilinx.com>
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/alteon/acenic.c               |  5 ++---
+ drivers/net/ethernet/amazon/ena/ena_netdev.c       |  9 ++-------
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  5 -----
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c          |  2 ++
+ drivers/net/ethernet/broadcom/sb1250-mac.c         | 12 ++----------
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c    |  4 ++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  6 ++++--
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |  6 ++----
+ drivers/net/ethernet/emulex/benet/be_main.c        | 22 ++++------------------
+ drivers/net/ethernet/ibm/ibmveth.c                 |  6 +++---
+ drivers/net/ethernet/ibm/ibmvnic.c                 | 16 ++++------------
+ drivers/net/ethernet/jme.c                         | 12 ++++--------
+ drivers/net/ethernet/marvell/mv643xx_eth.c         |  7 ++++---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  3 +++
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c     |  3 +++
+ drivers/net/ethernet/natsemi/ns83820.c             | 11 ++---------
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | 12 ------------
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |  7 +++++++
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c       |  7 +++++++
+ drivers/net/ethernet/qualcomm/emac/emac.c          | 13 ++++++-------
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c  |  7 ++++---
  include/uapi/linux/if_ether.h                      |  1 +
- net/802/fddi.c                                     | 11 +---
- net/802/hippi.c                                    | 14 +----
- net/8021q/vlan_dev.c                               |  3 +
- net/atm/lec.c                                      | 11 +---
- net/batman-adv/soft-interface.c                    | 13 +----
- net/bridge/br_device.c                             |  3 +-
- net/hsr/hsr_device.c                               |  1 +
- net/ipv4/ip_tunnel.c                               |  6 +-
- net/ipv6/ip6_tunnel.c                              |  4 +-
- net/ipv6/ip6_vti.c                                 | 21 +------
- net/ipv6/sit.c                                     | 14 +----
- net/mac80211/iface.c                               | 15 ++---
- net/openvswitch/vport-internal_dev.c               | 10 ----
- net/phonet/pep-gprs.c                              | 12 +---
- net/sched/sch_teql.c                               |  5 +-
- 117 files changed, 316 insertions(+), 665 deletions(-)
+ 22 files changed, 68 insertions(+), 108 deletions(-)
 
+diff --git a/drivers/net/ethernet/alteon/acenic.c b/drivers/net/ethernet/alteon/acenic.c
+index b90a26b..a5c1e29 100644
+--- a/drivers/net/ethernet/alteon/acenic.c
++++ b/drivers/net/ethernet/alteon/acenic.c
+@@ -474,6 +474,8 @@ static int acenic_probe_one(struct pci_dev *pdev,
+ 	dev->features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+ 
+ 	dev->watchdog_timeo = 5*HZ;
++	dev->min_mtu = 0;
++	dev->max_mtu = ACE_JUMBO_MTU;
+ 
+ 	dev->netdev_ops = &ace_netdev_ops;
+ 	dev->ethtool_ops = &ace_ethtool_ops;
+@@ -2548,9 +2550,6 @@ static int ace_change_mtu(struct net_device *dev, int new_mtu)
+ 	struct ace_private *ap = netdev_priv(dev);
+ 	struct ace_regs __iomem *regs = ap->regs;
+ 
+-	if (new_mtu > ACE_JUMBO_MTU)
+-		return -EINVAL;
+-
+ 	writel(new_mtu + ETH_HLEN + 4, &regs->IfMtu);
+ 	dev->mtu = new_mtu;
+ 
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index bfeaec5..2a55ab0 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -103,13 +103,6 @@ static int ena_change_mtu(struct net_device *dev, int new_mtu)
+ 	struct ena_adapter *adapter = netdev_priv(dev);
+ 	int ret;
+ 
+-	if ((new_mtu > adapter->max_mtu) || (new_mtu < ENA_MIN_MTU)) {
+-		netif_err(adapter, drv, dev,
+-			  "Invalid MTU setting. new_mtu: %d\n", new_mtu);
+-
+-		return -EINVAL;
+-	}
+-
+ 	ret = ena_com_set_dev_mtu(adapter->ena_dev, new_mtu);
+ 	if (!ret) {
+ 		netif_dbg(adapter, drv, dev, "set MTU to %d\n", new_mtu);
+@@ -2755,6 +2748,8 @@ static void ena_set_conf_feat_params(struct ena_adapter *adapter,
+ 	ena_set_dev_offloads(feat, netdev);
+ 
+ 	adapter->max_mtu = feat->dev_attr.max_mtu;
++	netdev->max_mtu = adapter->max_mtu;
++	netdev->min_mtu = ENA_MIN_MTU;
+ }
+ 
+ static int ena_rss_init_default(struct ena_adapter *adapter)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 7f9216d..c4e6682 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -257,11 +257,6 @@ static int xgbe_calc_rx_buf_size(struct net_device *netdev, unsigned int mtu)
+ {
+ 	unsigned int rx_buf_size;
+ 
+-	if (mtu > XGMAC_JUMBO_PACKET_MTU) {
+-		netdev_alert(netdev, "MTU exceeds maximum supported value\n");
+-		return -EINVAL;
+-	}
+-
+ 	rx_buf_size = mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+ 	rx_buf_size = clamp_val(rx_buf_size, XGBE_RX_MIN_BUF_SIZE, PAGE_SIZE);
+ 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 9de0788..667e120 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -738,6 +738,8 @@ static int xgbe_probe(struct platform_device *pdev)
+ 	pdata->netdev_features = netdev->features;
+ 
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
++	netdev->min_mtu = 0;
++	netdev->max_mtu = XGMAC_JUMBO_PACKET_MTU;
+ 
+ 	/* Use default watchdog timeout */
+ 	netdev->watchdog_timeo = 0;
+diff --git a/drivers/net/ethernet/broadcom/sb1250-mac.c b/drivers/net/ethernet/broadcom/sb1250-mac.c
+index f1b8118..cb312e4 100644
+--- a/drivers/net/ethernet/broadcom/sb1250-mac.c
++++ b/drivers/net/ethernet/broadcom/sb1250-mac.c
+@@ -2147,15 +2147,6 @@ static void sbmac_setmulti(struct sbmac_softc *sc)
+ 	}
+ }
+ 
+-static int sb1250_change_mtu(struct net_device *_dev, int new_mtu)
+-{
+-	if (new_mtu >  ENET_PACKET_SIZE)
+-		return -EINVAL;
+-	_dev->mtu = new_mtu;
+-	pr_info("changing the mtu to %d\n", new_mtu);
+-	return 0;
+-}
+-
+ static const struct net_device_ops sbmac_netdev_ops = {
+ 	.ndo_open		= sbmac_open,
+ 	.ndo_stop		= sbmac_close,
+@@ -2163,7 +2154,6 @@ static const struct net_device_ops sbmac_netdev_ops = {
+ 	.ndo_set_rx_mode	= sbmac_set_rx_mode,
+ 	.ndo_tx_timeout		= sbmac_tx_timeout,
+ 	.ndo_do_ioctl		= sbmac_mii_ioctl,
+-	.ndo_change_mtu		= sb1250_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -2229,6 +2219,8 @@ static int sbmac_init(struct platform_device *pldev, long long base)
+ 
+ 	dev->netdev_ops = &sbmac_netdev_ops;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
++	dev->max_mtu = 0;
++	dev->max_mtu = ENET_PACKET_SIZE;
+ 
+ 	netif_napi_add(dev, &sc->napi, sbmac_poll, 16);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index 43da891..092b3c1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -2531,8 +2531,6 @@ static int cxgb_change_mtu(struct net_device *dev, int new_mtu)
+ 	struct adapter *adapter = pi->adapter;
+ 	int ret;
+ 
+-	if (new_mtu < 81)	/* accommodate SACK */
+-		return -EINVAL;
+ 	if ((ret = t3_mac_set_mtu(&pi->mac, new_mtu)))
+ 		return ret;
+ 	dev->mtu = new_mtu;
+@@ -3295,6 +3293,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 		netdev->netdev_ops = &cxgb_netdev_ops;
+ 		netdev->ethtool_ops = &cxgb_ethtool_ops;
++		netdev->min_mtu = 81;
++		netdev->max_mtu = ETH_MAX_MTU;
+ 	}
+ 
+ 	pci_set_drvdata(pdev, adapter);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index f320497..b0bb23f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2502,8 +2502,6 @@ static int cxgb_change_mtu(struct net_device *dev, int new_mtu)
+ 	int ret;
+ 	struct port_info *pi = netdev_priv(dev);
+ 
+-	if (new_mtu < 81 || new_mtu > MAX_MTU)         /* accommodate SACK */
+-		return -EINVAL;
+ 	ret = t4_set_rxmode(pi->adapter, pi->adapter->pf, pi->viid, new_mtu, -1,
+ 			    -1, -1, -1, true);
+ 	if (!ret)
+@@ -4803,6 +4801,10 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 		netdev->priv_flags |= IFF_UNICAST_FLT;
+ 
++		/* MTU range: 81 - 9600 */
++		netdev->min_mtu = 81;
++		netdev->max_mtu = MAX_MTU;
++
+ 		netdev->netdev_ops = &cxgb4_netdev_ops;
+ #ifdef CONFIG_CHELSIO_T4_DCB
+ 		netdev->dcbnl_ops = &cxgb4_dcb_ops;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 100b2cc..5d4da0e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -1108,10 +1108,6 @@ static int cxgb4vf_change_mtu(struct net_device *dev, int new_mtu)
+ 	int ret;
+ 	struct port_info *pi = netdev_priv(dev);
+ 
+-	/* accommodate SACK */
+-	if (new_mtu < 81)
+-		return -EINVAL;
+-
+ 	ret = t4vf_set_rxmode(pi->adapter, pi->viid, new_mtu,
+ 			      -1, -1, -1, -1, true);
+ 	if (!ret)
+@@ -2966,6 +2962,8 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 			netdev->features |= NETIF_F_HIGHDMA;
+ 
+ 		netdev->priv_flags |= IFF_UNICAST_FLT;
++		netdev->min_mtu = 81;
++		netdev->max_mtu = ETH_MAX_MTU;
+ 
+ 		netdev->netdev_ops = &cxgb4vf_netdev_ops;
+ 		netdev->ethtool_ops = &cxgb4vf_ethtool_ops;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index cece8a0..3f6152c 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1406,23 +1406,6 @@ static netdev_tx_t be_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static int be_change_mtu(struct net_device *netdev, int new_mtu)
+-{
+-	struct be_adapter *adapter = netdev_priv(netdev);
+-	struct device *dev = &adapter->pdev->dev;
+-
+-	if (new_mtu < BE_MIN_MTU || new_mtu > BE_MAX_MTU) {
+-		dev_info(dev, "MTU must be between %d and %d bytes\n",
+-			 BE_MIN_MTU, BE_MAX_MTU);
+-		return -EINVAL;
+-	}
+-
+-	dev_info(dev, "MTU changed from %d to %d bytes\n",
+-		 netdev->mtu, new_mtu);
+-	netdev->mtu = new_mtu;
+-	return 0;
+-}
+-
+ static inline bool be_in_all_promisc(struct be_adapter *adapter)
+ {
+ 	return (adapter->if_flags & BE_IF_FLAGS_ALL_PROMISCUOUS) ==
+@@ -5216,7 +5199,6 @@ static const struct net_device_ops be_netdev_ops = {
+ 	.ndo_start_xmit		= be_xmit,
+ 	.ndo_set_rx_mode	= be_set_rx_mode,
+ 	.ndo_set_mac_address	= be_mac_addr_set,
+-	.ndo_change_mtu		= be_change_mtu,
+ 	.ndo_get_stats64	= be_get_stats64,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
+@@ -5266,6 +5248,10 @@ static void be_netdev_init(struct net_device *netdev)
+ 	netdev->netdev_ops = &be_netdev_ops;
+ 
+ 	netdev->ethtool_ops = &be_ethtool_ops;
++
++	/* MTU range: 256 - 9000 */
++	netdev->min_mtu = BE_MIN_MTU;
++	netdev->max_mtu = BE_MAX_MTU;
+ }
+ 
+ static void be_cleanup(struct be_adapter *adapter)
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index ebe6071..29c05d0 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -1349,9 +1349,6 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
+ 	int i, rc;
+ 	int need_restart = 0;
+ 
+-	if (new_mtu < IBMVETH_MIN_MTU)
+-		return -EINVAL;
+-
+ 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
+ 		if (new_mtu_oh <= adapter->rx_buff_pool[i].buff_size)
+ 			break;
+@@ -1551,6 +1548,9 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		netdev->hw_features |= NETIF_F_TSO;
+ 	}
+ 
++	netdev->min_mtu = IBMVETH_MIN_MTU;
++	netdev->min_mtu = ETH_MAX_MTU;
++
+ 	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
+ 
+ 	if (firmware_has_feature(FW_FEATURE_CMO))
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index bfe17d9..657206b 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -902,17 +902,6 @@ static int ibmvnic_set_mac(struct net_device *netdev, void *p)
+ 	return 0;
+ }
+ 
+-static int ibmvnic_change_mtu(struct net_device *netdev, int new_mtu)
+-{
+-	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+-
+-	if (new_mtu > adapter->req_mtu || new_mtu < adapter->min_mtu)
+-		return -EINVAL;
+-
+-	netdev->mtu = new_mtu;
+-	return 0;
+-}
+-
+ static void ibmvnic_tx_timeout(struct net_device *dev)
+ {
+ 	struct ibmvnic_adapter *adapter = netdev_priv(dev);
+@@ -1029,7 +1018,6 @@ static const struct net_device_ops ibmvnic_netdev_ops = {
+ 	.ndo_set_rx_mode	= ibmvnic_set_multi,
+ 	.ndo_set_mac_address	= ibmvnic_set_mac,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_change_mtu		= ibmvnic_change_mtu,
+ 	.ndo_tx_timeout		= ibmvnic_tx_timeout,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ibmvnic_netpoll_controller,
+@@ -2638,10 +2626,12 @@ static void handle_query_cap_rsp(union ibmvnic_crq *crq,
+ 		break;
+ 	case MIN_MTU:
+ 		adapter->min_mtu = be64_to_cpu(crq->query_capability.number);
++		netdev->min_mtu = adapter->min_mtu;
+ 		netdev_dbg(netdev, "min_mtu = %lld\n", adapter->min_mtu);
+ 		break;
+ 	case MAX_MTU:
+ 		adapter->max_mtu = be64_to_cpu(crq->query_capability.number);
++		netdev->max_mtu = adapter->max_mtu;
+ 		netdev_dbg(netdev, "max_mtu = %lld\n", adapter->max_mtu);
+ 		break;
+ 	case MAX_MULTICAST_FILTERS:
+@@ -3654,6 +3644,8 @@ static void handle_crq_init_rsp(struct work_struct *work)
+ 		goto task_failed;
+ 
+ 	netdev->real_num_tx_queues = adapter->req_tx_queues;
++	netdev->min_mtu = adapter->min_mtu;
++	netdev->max_mtu = adapter->max_mtu;
+ 
+ 	if (adapter->failover) {
+ 		adapter->failover = false;
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index 836ebd8..f9fcab5 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -2357,14 +2357,6 @@ jme_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+ 	struct jme_adapter *jme = netdev_priv(netdev);
+ 
+-	if (new_mtu == jme->old_mtu)
+-		return 0;
+-
+-	if (((new_mtu + ETH_HLEN) > MAX_ETHERNET_JUMBO_PACKET_SIZE) ||
+-		((new_mtu) < IPV6_MIN_MTU))
+-		return -EINVAL;
+-
+-
+ 	netdev->mtu = new_mtu;
+ 	netdev_update_features(netdev);
+ 
+@@ -3063,6 +3055,10 @@ jme_init_one(struct pci_dev *pdev,
+ 	if (using_dac)
+ 		netdev->features	|=	NETIF_F_HIGHDMA;
+ 
++	/* MTU range: 1280 - 9202*/
++	netdev->min_mtu = IPV6_MIN_MTU;
++	netdev->max_mtu = MAX_ETHERNET_JUMBO_PACKET_SIZE - ETH_HLEN;
++
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 	pci_set_drvdata(pdev, netdev);
+ 
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 18e6bb6..68675d8 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2585,9 +2585,6 @@ static int mv643xx_eth_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct mv643xx_eth_private *mp = netdev_priv(dev);
+ 
+-	if (new_mtu < 64 || new_mtu > 9500)
+-		return -EINVAL;
+-
+ 	dev->mtu = new_mtu;
+ 	mv643xx_eth_recalc_skb_size(mp);
+ 	tx_set_rate(mp, 1000000000, 16777216);
+@@ -3206,6 +3203,10 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+ 	dev->gso_max_segs = MV643XX_MAX_TSO_SEGS;
+ 
++	/* MTU range: 64 - 9500 */
++	dev->min_mtu = 64;
++	dev->max_mtu = 9500;
++
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+ 	if (mp->shared->win_protect)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 99805fd..6d8cb22 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2284,6 +2284,9 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 			 NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_HW_TC;
+ 	dev->hw_features |= NETIF_F_HW_TC;
+ 
++	dev->min_mtu = 0;
++	dev->max_mtu = ETH_MAX_MTU;
++
+ 	/* Each packet needs to have a Tx header (metadata) on top all other
+ 	 * headers.
+ 	 */
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index c0c23e2..66af63d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -994,6 +994,9 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
+ 	dev->features |= NETIF_F_NETNS_LOCAL | NETIF_F_LLTX | NETIF_F_SG |
+ 			 NETIF_F_VLAN_CHALLENGED;
+ 
++	dev->min_mtu = 0;
++	dev->max_mtu = ETH_MAX_MTU;
++
+ 	/* Each packet needs to have a Tx header (metadata) on top all other
+ 	 * headers.
+ 	 */
+diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
+index 569ade6..a34631e 100644
+--- a/drivers/net/ethernet/natsemi/ns83820.c
++++ b/drivers/net/ethernet/natsemi/ns83820.c
+@@ -1679,14 +1679,6 @@ static void ns83820_getmac(struct ns83820 *dev, u8 *mac)
+ 	}
+ }
+ 
+-static int ns83820_change_mtu(struct net_device *ndev, int new_mtu)
+-{
+-	if (new_mtu > RX_BUF_SIZE)
+-		return -EINVAL;
+-	ndev->mtu = new_mtu;
+-	return 0;
+-}
+-
+ static void ns83820_set_multicast(struct net_device *ndev)
+ {
+ 	struct ns83820 *dev = PRIV(ndev);
+@@ -1933,7 +1925,6 @@ static const struct net_device_ops netdev_ops = {
+ 	.ndo_stop		= ns83820_stop,
+ 	.ndo_start_xmit		= ns83820_hard_start_xmit,
+ 	.ndo_get_stats		= ns83820_get_stats,
+-	.ndo_change_mtu		= ns83820_change_mtu,
+ 	.ndo_set_rx_mode	= ns83820_set_multicast,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+@@ -2190,6 +2181,8 @@ static int ns83820_init_one(struct pci_dev *pci_dev,
+ 	ndev->features |= NETIF_F_SG;
+ 	ndev->features |= NETIF_F_IP_CSUM;
+ 
++	ndev->min_mtu = 0;
++
+ #ifdef NS83820_VLAN_ACCEL_SUPPORT
+ 	/* We also support hardware vlan acceleration */
+ 	ndev->features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index 2b10f1b..a996801 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -987,20 +987,8 @@ int netxen_send_lro_cleanup(struct netxen_adapter *adapter)
+ int netxen_nic_change_mtu(struct net_device *netdev, int mtu)
+ {
+ 	struct netxen_adapter *adapter = netdev_priv(netdev);
+-	int max_mtu;
+ 	int rc = 0;
+ 
+-	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+-		max_mtu = P3_MAX_MTU;
+-	else
+-		max_mtu = P2_MAX_MTU;
+-
+-	if (mtu > max_mtu) {
+-		printk(KERN_ERR "%s: mtu > %d bytes unsupported\n",
+-				netdev->name, max_mtu);
+-		return -EINVAL;
+-	}
+-
+ 	if (adapter->set_mtu)
+ 		rc = adapter->set_mtu(adapter, mtu);
+ 
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 7a0281a..561fb94 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -1572,6 +1572,13 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			adapter->physical_port = i;
+ 	}
+ 
++	/* MTU range: 0 - 8000 (P2) or 9600 (P3) */
++	netdev->min_mtu = 0;
++	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
++		netdev->max_mtu = P3_MAX_MTU;
++	else
++		netdev->max_mtu = P2_MAX_MTU;
++
+ 	netxen_nic_clear_stats(adapter);
+ 
+ 	err = netxen_setup_intr(adapter);
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index fd4a8e4..1409412 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -4788,6 +4788,13 @@ static int qlge_probe(struct pci_dev *pdev,
+ 	ndev->ethtool_ops = &qlge_ethtool_ops;
+ 	ndev->watchdog_timeo = 10 * HZ;
+ 
++	/* MTU range: this driver only supports 1500 or 9000, so this only
++	 * filters out values above or below, and we'll rely on
++	 * qlge_change_mtu to make sure only 1500 or 9000 are allowed
++	 */
++	ndev->min_mtu = ETH_DATA_LEN;
++	ndev->max_mtu = 9000;
++
+ 	err = register_netdev(ndev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "net device registration failed.\n");
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 9bf3b2b..e4e1925 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -239,15 +239,8 @@ static void emac_rx_mode_set(struct net_device *netdev)
+ /* Change the Maximum Transfer Unit (MTU) */
+ static int emac_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+-	unsigned int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+ 	struct emac_adapter *adpt = netdev_priv(netdev);
+ 
+-	if ((max_frame < EMAC_MIN_ETH_FRAME_SIZE) ||
+-	    (max_frame > EMAC_MAX_ETH_FRAME_SIZE)) {
+-		netdev_err(adpt->netdev, "error: invalid MTU setting\n");
+-		return -EINVAL;
+-	}
+-
+ 	netif_info(adpt, hw, adpt->netdev,
+ 		   "changing MTU from %d to %d\n", netdev->mtu,
+ 		   new_mtu);
+@@ -679,6 +672,12 @@ static int emac_probe(struct platform_device *pdev)
+ 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_HW_CSUM |
+ 				 NETIF_F_TSO | NETIF_F_TSO6;
+ 
++	/* MTU range: 46 - 9194 */
++	netdev->min_mtu = EMAC_MIN_ETH_FRAME_SIZE -
++			  (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
++	netdev->max_mtu = EMAC_MAX_ETH_FRAME_SIZE -
++			  (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
++
+ 	INIT_WORK(&adpt->work_thread, emac_work_thread);
+ 
+ 	/* Initialize queues */
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index c688d68..c9c8a3b 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -1034,9 +1034,6 @@ static int axienet_change_mtu(struct net_device *ndev, int new_mtu)
+ 		XAE_TRL_SIZE) > lp->rxmem)
+ 		return -EINVAL;
+ 
+-	if ((new_mtu > XAE_JUMBO_MTU) || (new_mtu < 64))
+-		return -EINVAL;
+-
+ 	ndev->mtu = new_mtu;
+ 
+ 	return 0;
+@@ -1475,6 +1472,10 @@ static int axienet_probe(struct platform_device *pdev)
+ 	ndev->netdev_ops = &axienet_netdev_ops;
+ 	ndev->ethtool_ops = &axienet_ethtool_ops;
+ 
++	/* MTU range: 64 - 9000 */
++	ndev->min_mtu = 64;
++	ndev->max_mtu = XAE_JUMBO_MTU;
++
+ 	lp = netdev_priv(ndev);
+ 	lp->ndev = ndev;
+ 	lp->dev = &pdev->dev;
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index 864d6f2..3e5185e 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -36,6 +36,7 @@
+ #define ETH_FCS_LEN	4		/* Octets in the FCS		 */
+ 
+ #define ETH_MIN_MTU	68		/* Min IPv4 MTU per RFC791	*/
++#define ETH_MAX_MTU	0xFFFFU		/* 65535, same as IP_MAX_MTU	*/
+ 
+ /*
+  *	These are the defined Ethernet Protocol ID's.
 -- 
 2.10.0
