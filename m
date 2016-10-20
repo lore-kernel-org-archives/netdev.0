@@ -1,31 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] udp: must lock the socket in udp_disconnect()
-Date: Thu, 20 Oct 2016 13:44:39 -0700
-Message-ID: <1476996279.7065.29.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <05f766db-4a8c-933e-9d73-6daada21f491@gmail.com>
-         <1476944754.7065.3.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1476981580.7065.15.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161020.144610.532749573029633695.davem@davemloft.net>
+From: "Kershner, David A" <David.Kershner@unisys.com>
+Subject: RE: [PATCH net-next v2 6/9] net: use core MTU range checking in virt
+ drivers
+Date: Thu, 20 Oct 2016 20:12:38 +0000
+Message-ID: <SN1PR0701MB1838454F38F431F3216AEB42F0D50@SN1PR0701MB1838.namprd07.prod.outlook.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161020175524.6184-1-jarod@redhat.com>
+ <20161020175524.6184-7-jarod@redhat.com>
+ <BLUPR03MB141270CC6037546F918409AECAD50@BLUPR03MB1412.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sploving1@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35774 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753398AbcJTUok (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 16:44:40 -0400
-Received: by mail-pf0-f174.google.com with SMTP id s8so43022680pfj.2
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 13:44:40 -0700 (PDT)
-In-Reply-To: <20161020.144610.532749573029633695.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "virtualization@lists.linux-foundation.org"
+        <virtualization@lists.linux-foundation.org>,
+        KY Srinivasan <kys@microsoft.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Shrikrishna Khare <skhare@vmware.com>,
+        "VMware, Inc." <pv-drivers@vmware.com>,
+        Wei Liu <wei.liu2@citrix.com>,
+        Paul Durrant <paul.durrant@citrix.com>
+To: Haiyang Zhang <haiyangz@microsoft.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BLUPR03MB141270CC6037546F918409AECAD50@BLUPR03MB1412.namprd03.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-10-20 at 14:46 -0400, David Miller wrote:
 
-> 
-> Applied, sounds like I should queue this up for -stable too right?
 
-Yes, I believe all stable versions have this bug.
-Thanks.
+> -----Original Message-----
+> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
+> Sent: Thursday, October 20, 2016 2:05 PM
+> To: Jarod Wilson <jarod@redhat.com>; linux-kernel@vger.kernel.org
+> Cc: netdev@vger.kernel.org; virtualization@lists.linux-foundation.org; KY
+> Srinivasan <kys@microsoft.com>; Michael S. Tsirkin <mst@redhat.com>;
+> Shrikrishna Khare <skhare@vmware.com>; VMware, Inc. <pv-
+> drivers@vmware.com>; Wei Liu <wei.liu2@citrix.com>; Paul Durrant
+> <paul.durrant@citrix.com>; Kershner, David A
+> <David.Kershner@unisys.com>
+> Subject: RE: [PATCH net-next v2 6/9] net: use core MTU range checking in =
+virt
+> drivers
+>=20
+>=20
+>=20
+> > -----Original Message-----
+> > From: Jarod Wilson [mailto:jarod@redhat.com]
+> > Sent: Thursday, October 20, 2016 1:55 PM
+> > To: linux-kernel@vger.kernel.org
+> > Cc: Jarod Wilson <jarod@redhat.com>; netdev@vger.kernel.org;
+> > virtualization@lists.linux-foundation.org; KY Srinivasan
+> > <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>;
+> Michael S.
+> > Tsirkin <mst@redhat.com>; Shrikrishna Khare <skhare@vmware.com>;
+> VMware,
+> > Inc. <pv-drivers@vmware.com>; Wei Liu <wei.liu2@citrix.com>; Paul
+> > Durrant <paul.durrant@citrix.com>; David Kershner
+> > <david.kershner@unisys.com>
+> > Subject: [PATCH net-next v2 6/9] net: use core MTU range checking in
+> > virt drivers
+> >
+> > hyperv_net:
+> > - set min/max_mtu, per Haiyang, after rndis_filter_device_add
+> >
+> > virtio_net:
+> > - set min/max_mtu
+> > - remove virtnet_change_mtu
+> >
+> > vmxnet3:
+> > - set min/max_mtu
+> >
+> > xen-netback:
+> > - min_mtu =3D 0, max_mtu =3D 65517
+> >
+> > xen-netfront:
+> > - min_mtu =3D 0, max_mtu =3D 65535
+> >
+> > unisys/visor:
+> > - clean up defines a little to not clash with network core or add
+> >   redundat definitions
+> >
+> > CC: netdev@vger.kernel.org
+> > CC: virtualization@lists.linux-foundation.org
+> > CC: "K. Y. Srinivasan" <kys@microsoft.com>
+> > CC: Haiyang Zhang <haiyangz@microsoft.com>
+> > CC: "Michael S. Tsirkin" <mst@redhat.com>
+> > CC: Shrikrishna Khare <skhare@vmware.com>
+> > CC: "VMware, Inc." <pv-drivers@vmware.com>
+> > CC: Wei Liu <wei.liu2@citrix.com>
+> > CC: Paul Durrant <paul.durrant@citrix.com>
+> > CC: David Kershner <david.kershner@unisys.com>
+> > Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> > ---
+>=20
+> The hv_netvsc changes look fine. Thanks.
+>=20
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+>=20
+
+The visornic changes look good.
+
+Reviewed-by: David Kershner <david.kershner@unisys.com>
+
+
+=20
