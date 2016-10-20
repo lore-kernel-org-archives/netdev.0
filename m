@@ -1,57 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd
- kernels
-Date: Thu, 20 Oct 2016 11:47:53 -0700
-Message-ID: <605285c4-bc92-0a0d-87b9-5066e39078a3@gmail.com>
-References: <1476981139-28889-1-git-send-email-f.fainelli@gmail.com>
- <20161020.144431.1484493400918018326.davem@davemloft.net>
+From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v12 5/9] openvswitch: add processing
+	of L3 packets
+Date: Thu, 20 Oct 2016 11:48:18 -0700
+Message-ID: <CAOrHB_D2TpjLaE=EyMuL2_vYV05SiQ1rgQJRZ2xA7rqG1qmDWQ@mail.gmail.com>
+References: <cover.1476708212.git.jbenc@redhat.com>
+ <a4590d690c169e0021031405463c8629a6e9ecb8.1476708213.git.jbenc@redhat.com>
+ <CAOrHB_B1-29CM=DWpWuRVbTRriW2ViJRZULMS22+NSPwW_J_=Q@mail.gmail.com>
+ <20161019185206.7347e189@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35678 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933863AbcJTSr4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:47:56 -0400
-Received: by mail-pf0-f195.google.com with SMTP id s8so6274334pfj.2
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 11:47:56 -0700 (PDT)
-In-Reply-To: <20161020.144431.1484493400918018326.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20161019185206.7347e189@griffin>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 10/20/2016 11:44 AM, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Thu, 20 Oct 2016 09:32:19 -0700
-> 
->> For a kernel that is being kexec'd we re-enable the integrated GPHY in
->> order for the subsequent MDIO bus scan to succeed and properly bind to
->> the bcm7xxx PHY driver. If we did not do that, the GPHY would be shut
->> down by the time the MDIO driver is probing the bus, and it would fail
->> to read the correct PHY OUI and therefore bind to an appropriate PHY
->> driver. Later on, this would cause DSA not to be able to successfully
->> attach to the PHY, and the interface would not be created at all.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> Applied, but I have to wonder...
-> 
-> If enabling the GPHY is necessary for proper probing, why isn't the
-> kexec kernel enabling it properly?
-
-The GPHY enable control is unfortunately located in the switch register
-block space and is dependent upon the switch port to be
-enabled/accessible, which the DSA layer won't create if the GPHY is not
-successfully probed and bound to a PHY driver. It did not appear that
-probe deferral could help solve that problem, since MDIO and switch are
-reasonable independent from each other.
-
-This was the easiest way I could come up with, without requiring DT
-changes and references to register blocks that are not quite relevant to
-each other.
-
-HTH
--- 
-Florian
+T24gV2VkLCBPY3QgMTksIDIwMTYgYXQgOTo1MiBBTSwgSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQu
+Y29tPiB3cm90ZToKPiBPbiBUdWUsIDE4IE9jdCAyMDE2IDIyOjEzOjQ1IC0wNzAwLCBQcmF2aW4g
+U2hlbGFyIHdyb3RlOgo+PiBPbiBNb24sIE9jdCAxNywgMjAxNiBhdCA2OjAyIEFNLCBKaXJpIEJl
+bmMgPGpiZW5jQHJlZGhhdC5jb20+IHdyb3RlOgo+PiA+IC0gICAgICAgc2tiX3Jlc2V0X25ldHdv
+cmtfaGVhZGVyKHNrYik7Cj4+ID4gKyAgICAgICAgICAgICAgIHNrYi0+cHJvdG9jb2wgPSBwYXJz
+ZV9ldGhlcnR5cGUoc2tiKTsKPj4KPj4gSSBhbSBub3Qgc3VyZSBhYm91dCBjaGFuZ2luZyBza2It
+PnByb3RvY29sIGhlcmUuCj4+IEJ5IGNoYW5naW5nIHRoaXMgc2tiIGxvb3NpbmcgaW5mb3JtYXRp
+b24gYWJvdXQgcGFja2V0IHR5cGUuIFRoZXJlZm9yZQo+PiBpZiBwYWNrZXQgcmUtZW50ZXJzIE9W
+UyAodGhyb3VnaCBkaWZmZXJlbnQgYnJpZGdlKSwgdGhpcyBwYWNrZXQgd291bGQKPj4gbG9vayBs
+aWtlIEwzIHBhY2tldC4gZnVuY3Rpb24ga2V5X2V4dHJhY3RfbWFjX3Byb3RvKCkgd291bGQgbm90
+IHNlZQo+PiBURUIgdHlwZSBwYWNrZXQuCj4KPiBUaGlzIHNob3VsZCBiZSBva2F5LiBJZiB0aGUg
+cGFja2V0IGlzIHNlbnQgb3V0IHRvIGFuIEV0aGVybmV0IGludGVyZmFjZQo+ICh3aGF0ZXZlciBp
+bnRlcmZhY2UgaXQgaXMpLCBza2ItPnByb3RvY29sIG5lZWRzIHRvIGNvbnRhaW4gdGhlIHBheWxv
+YWQKPiB0eXBlLiBXZSdyZSBub3QgaW50ZXJlc3RlZCBpbiBFVEhfUF9URUIuIElmIHRoZSBwYWNr
+ZXQgaXMgc2VudCBvdXQgdG8KPiBhbiBBUlBIUkRfTk9ORSBpbnRlcmZhY2UsIEVUSF9QX1RFQiBp
+cyBwdXNoZWQgYmFjay4KPgpJIHNlZSwgdnBvcnQgc2VuZCBpcyByZXN0b3JpbmcgdGhlIHNrYiBw
+cm90b2NvbCBmaWVsZC4gSXQgc2hvdWxkIGJlIGZpbmUgdGhlbi4KCj4gQmFzaWNhbGx5LCB3aGF0
+IHdlJ3JlIGRvaW5nIGhlcmUgaXMgdW5jb25kaXRpb25hbGx5IGNvbnZlcnRpbmcKPiBFVEhfUF9U
+RUIgcGFja2V0cyAqY29taW5nIGZyb20gQVJQSFJEX05PTkUgaW50ZXJmYWNlcyogKHRoaXMgaXMK
+PiBpbXBvcnRhbnQpIGludG8gcmVndWxhciBFdGhlcm5ldCBwYWNrZXRzLiBXaGljaCBpcyBleGFj
+dGx5IHdoYXQgd2Ugd2FudC4KPgo+IEFtIEkgbWlzc2luZyBzb21ldGhpbmc/Cj4KPiAgSmlyaQpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
+ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2Rldgo=
