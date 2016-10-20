@@ -1,62 +1,68 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH 1/4] kconfig: introduce the "imply" keyword
-Date: Thu, 20 Oct 2016 15:52:04 +0100
-Message-ID: <44f95579-6c35-7592-08e3-d8dbb13026b2@solarflare.com>
-References: <1476920573-14384-1-git-send-email-nicolas.pitre@linaro.org>
- <1476920573-14384-2-git-send-email-nicolas.pitre@linaro.org>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
+Date: Thu, 20 Oct 2016 14:51:05 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D22587ADA@eusaamb103.ericsson.se>
+References: <20161019021654.GD2773@decadent.org.uk>
+         <6a69780d-0797-b5af-fc90-04960bbb21c6@gmail.com>
+ <1476967585.2709.52.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>,
-        <netdev@vger.kernel.org>, <linux-kbuild@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Nicolas Pitre <nicolas.pitre@linaro.org>,
-        John Stultz <john.stultz@linaro.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        "Yann E MORIN" <yann.morin.1998@free.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476920573-14384-2-git-send-email-nicolas.pitre@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Qian Zhang <zhangqian-c@360.cn>,
+        Eric Dumazet <edumazet@google.com>
+To: Ben Hutchings <ben@decadent.org.uk>, Ying Xue <ying.xue0@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usplmg21.ericsson.net ([198.24.6.65]:62172 "EHLO
+        usplmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934150AbcJTPGS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:06:18 -0400
+In-Reply-To: <1476967585.2709.52.camel@decadent.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/10/16 00:42, Nicolas Pitre wrote:
-> diff --git a/Documentation/kbuild/kconfig-language.txt b/Documentation/kbuild/kconfig-language.txt
-> index 069fcb3eef..c96127f648 100644
-> --- a/Documentation/kbuild/kconfig-language.txt
-> +++ b/Documentation/kbuild/kconfig-language.txt
-> @@ -113,6 +113,33 @@ applicable everywhere (see syntax).
->  	That will limit the usefulness but on the other hand avoid
->  	the illegal configurations all over.
->  
-> +- weak reverse dependencies: "imply" <symbol> ["if" <expr>]
-> +  This is similar to "select" as it enforces a lower limit on another
-> +  symbol except that the "implied" config symbol's value may still be
-> +  set to n from a direct dependency or with a visible prompt.
-> +  Given the following example:
-> +
-> +  config FOO
-> +	tristate
-> +	imply BAZ
-> +
-> +  config BAZ
-> +	tristate
-> +	depends on BAr
-> +
-> +  The following values are possible:
-> +
-> +	FOO		BAR		BAR's default	choice for BAZ
-Should the third column not be "BAZ's default"?
-> +	---------------	---------------	---------------	--------------
-> +	n		y		n		N/m/y
-> +	m		y		m		M/y/n
-> +	y		y		y		Y/n
-> +	y		n		*		N
-Also, I don't think having any FOO=y should preclude BAZ=m.  Suppose both
-FOO and FOO2 imply BAZ, FOO=y and FOO2=m.  Then if BAZ-features are only
-desired for driver FOO2, BAz=m makes sense.
-There is also the case of drivers with the ability to detect at runtime
-whether BAZ is present, rather than making the decision at build time, but
-I'm not sure how common that is.
-
--Ed
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCAyMCBPY3RvYmVy
+LCAyMDE2IDA4OjQ2DQo+IFRvOiBZaW5nIFh1ZSA8eWluZy54dWUwQGdtYWlsLmNvbT47IEpvbiBN
+YWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IFFpYW4gWmhhbmcgPHpoYW5ncWlhbi1jQDM2MC5jbj47IEVyaWMgRHVtYXpldA0KPiA8ZWR1
+bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHRpcGM6IEd1YXJk
+IGFnYWluc3QgdGlueSBNVFUgaW4gdGlwY19tc2dfYnVpbGQoKQ0KPiANCj4gT24gVGh1LCAyMDE2
+LTEwLTIwIGF0IDE3OjMwICswODAwLCBZaW5nIFh1ZSB3cm90ZToNCj4gPiBPbiAxMC8xOS8yMDE2
+IDEwOjE2IEFNLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOg0KPiA+ID4gUWlhbiBaaGFuZyAo5byg6LCm
+KSByZXBvcnRlZCBhIHBvdGVudGlhbCBzb2NrZXQgYnVmZmVyIG92ZXJmbG93IGluDQo+ID4gPiB0
+aXBjX21zZ19idWlsZCgpLsKgwqBUaGUgbWluaW11bSBmcmFnbWVudCBsZW5ndGggbmVlZHMgdG8g
+YmUgY2hlY2tlZA0KPiA+ID4gYWdhaW5zdCB0aGUgbWF4aW11bSBwYWNrZXQgc2l6ZSwgd2hpY2gg
+aXMgYmFzZWQgb24gdGhlIGxpbmsgTVRVLg0KPiBbLi4uXQ0KPiA+ID4NCj4gPiA+IC0tLSBhL25l
+dC90aXBjL21zZy5jDQo+ID4gPiArKysgYi9uZXQvdGlwYy9tc2cuYw0KPiA+ID4gQEAgLTI3NCw2
+ICsyNzQsMTAgQEAgaW50IHRpcGNfbXNnX2J1aWxkKHN0cnVjdCB0aXBjX21zZyAqbWhkciwgc3Ry
+dWN0DQo+IG1zZ2hkciAqbSwNCj4gPiA+ID4gPiDCoAkJZ290byBlcnJvcjsNCj4gPiA+ID4gPiDC
+oAl9DQo+ID4gPg0KPiA+ID4gPiA+ICsJLyogQ2hlY2sgdGhhdCBmcmFnbWVudCBhbmQgbWVzc2Fn
+ZSBoZWFkZXIgd2lsbCBmaXQgKi8NCj4gPiA+ID4gPiArCWlmIChJTlRfSF9TSVpFICsgbWhzeiA+
+IHBrdG1heCkNCj4gPiA+ICsJCXJldHVybiAtRU1TR1NJWkU7DQo+ID4NCj4gPg0KPiA+IFRoZSAi
+bWhzeiIgcmVwcmVzZW50cyB0aGUgc2l6ZSBvZiB0aXBjIHBhY2tldCBoZWFkZXIgZm9yIGN1cnJl
+bnQgc29ja2V0LA0KPiA+IElOVF9IX1NJWkUgaW5kaWNhdGVzIHRoZSBzaXplIG9mIHRpcGMgaW50
+ZXJuYWwgbWVzc2FnZSBoZWFkZXIuIFNvIGl0DQo+ID4gc2VlbXMgdW5yZWFzb25hYmxlIHRvIGlk
+ZW50aWZ5IHdoZXRoZXIgdGhlIHN1bSBvZiBib3RoIGhlYWRlciBzaXplcyBpcw0KPiA+IGJpZ2dl
+ciB0aGFuIE1UVSBzaXplLiBJbiBteSBvcGluaW9uLCBpdCdzIGJldHRlciB0byB1c2UgTUFYX0hf
+U0laRSB0bw0KPiA+IGNvbXBhcmUgaXQgd2l0aCBwa3RtYXguIElmIE1BWF9IX1NJWkUgaXMgYmln
+Z2VyIHRoYW4gcGt0bWF4LCB3ZSBzaG91bGQNCj4gPiByZXR1cm4gRU1TR1NJWkUgZXJyb3IgY29k
+ZS4NCj4gDQo+IEF0IHRoaXMgcG9pbnQgd2UncmUgYWJvdXQgdG8gY29weSBJTlRfSF9TSVpFICsg
+bWhzeiBieXRlcyBpbnRvIHRoZQ0KPiBmaXJzdCBmcmFnbWVudC4gwqBJZiB0aGF0J3MgYWxyZWFk
+eSBsaW1pdGVkIHRvIGJlIGxlc3MgdGhhbiBvciBlcXVhbCB0bw0KPiBNQVhfSF9TSVpFLCBjb21w
+YXJpbmcgd2l0aCBNQVhfSF9TSVpFIHdvdWxkIGJlIGZpbmUuIMKgQnV0IGlmIE1BWF9IX1NJWkUN
+Cj4gaXMgdGhlIG1heGltdW0gdmFsdWUgb2YgbWhzeiwgdGhhdCB3b24ndCBiZSBnb29kIGVub3Vn
+aC4NCg0KTUFYX0hfU0laRSBpcyA2MCBieXRlcywgYnV0IGluIHByYWN0aWNlIHlvdSB3aWxsIG5l
+dmVyIHNlZSBhbiBtaHN6IGxhcmdlciB0aGFuIHRoZSBiaWdnZXN0IGhlYWRlciB3ZSBhcmUgYWN0
+dWFsbHkgdXNpbmcsIHdoaWNoIGlzIE1DQVNUX0hfU0laRSAoPT00NCBieXRlcykuDQpJTlRfSF9T
+SVpFIGlzIDQwIGJ5dGVzLCBzbyB5b3UgYXJlIGluIHJlYWxpdHkgdGVzdGluZyBmb3Igd2hldGhl
+ciB3ZSBoYXZlIGFuIG10dSA8IDg0IGJ5dGVzLg0KWW91IHdvbid0IGZpbmQgYW55IGludGVyZmFj
+ZXMgb3IgcHJvdG9jb2xzIHRoYXQgY29tZSBldmVuIGNsb3NlIHRvIHRoaXMgbGltaXRhdGlvbiwg
+c28gdG8gbWUgdGhpcyB0ZXN0IGlzIHJlZHVuZGFudC4NCg0KUmVnYXJkcw0KLy8vam9uDQoNCj4g
+DQo+IEJlbi4NCj4gDQo+ID4gPiArDQo+ID4gPiA+ID4gwqAJLyogUHJlcGFyZSByZXVzYWJsZSBm
+cmFnbWVudCBoZWFkZXIgKi8NCj4gPiA+ID4gPiDCoAl0aXBjX21zZ19pbml0KG1zZ19wcmV2bm9k
+ZShtaGRyKSwgJnBrdGhkciwNCj4gTVNHX0ZSQUdNRU5URVIsDQo+ID4gPiA+ID4gwqAJCcKgwqDC
+oMKgwqDCoEZJUlNUX0ZSQUdNRU5ULCBJTlRfSF9TSVpFLA0KPiBtc2dfZGVzdG5vZGUobWhkcikp
+Ow0KPiA+ID4NCj4gPg0KPiA+DQo+ID4NCj4gLS0NCj4gQmVuIEh1dGNoaW5ncw0KPiBOZXZlciBw
+dXQgb2ZmIHRpbGwgdG9tb3Jyb3cgd2hhdCB5b3UgY2FuIGF2b2lkIGFsbCB0b2dldGhlci4NCg0K
