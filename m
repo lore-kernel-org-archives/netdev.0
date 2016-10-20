@@ -1,41 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 3/9] net: use core MTU range checking in
- wireless drivers
-Date: Thu, 20 Oct 2016 14:38:00 -0400 (EDT)
-Message-ID: <20161020.143800.2192559431314444033.davem@davemloft.net>
-References: <20161020175524.6184-1-jarod@redhat.com>
-        <20161020175524.6184-4-jarod@redhat.com>
-        <1476987755.14078.3.camel@sipsolutions.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/4] STM32F429: Add Ethernet fixes
+Date: Thu, 20 Oct 2016 14:41:40 -0400 (EDT)
+Message-ID: <20161020.144140.1794871934594140769.davem@davemloft.net>
+References: <1476976886-23781-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarod@redhat.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        qca_merez@qca.qualcomm.com, simon@thekelleys.org.uk,
-        stas.yakovlev@gmail.com, inaky.perez-gonzalez@intel.com
-To: johannes@sipsolutions.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476987755.14078.3.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
+        robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476976886-23781-1-git-send-email-alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 20 Oct 2016 20:22:35 +0200
+From: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Date: Thu, 20 Oct 2016 17:21:22 +0200
 
-> On Thu, 2016-10-20 at 13:55 -0400, Jarod Wilson wrote:
->> - set max_mtu in wil6210 driver
->> - set max_mtu in atmel driver
->> - set min/max_mtu in cisco airo driver, remove airo_change_mtu
->> - set min/max_mtu in ipw2100/ipw2200 drivers, remove
->> libipw_change_mtu
->> - set min/max_mtu in p80211netdev, remove wlan_change_mtu
->> - set min/max_mtu in net/mac80211/iface.c and remove ieee80211_change_mtu
-> 
-> For the mac80211 part,
-> 
-> Acked-by: Johannes Berg <johannes@sipsolutions.net>
-> 
-> Dave, I'm assuming you'll pick this up, but if you prefer not to I can
-> also coordinate with Kalle to take this through our trees.
+> This series adds several fixes for Ethernet for stm32f429 MCU.
+> First 2 patches have already been reviewed some months ago when 
+> stm32 Ethernet glue has been pushed (I added in this series to keep
+> history). Fixes are:
+>  -Change DT to be compliant to stm32 ethernet glue binding
+>  -Add phy-handle to correctly use mdio subnode
+>  -Remove WoL support
 
-Yeah I'll get this, thanks for asking.
+I'm assuming this will be merged via the ARM tree.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
