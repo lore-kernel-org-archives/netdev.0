@@ -1,72 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 2/4] mlxsw: spectrum_router: Make mlxsw_sp_router_fib4_del return void and remove warn
-Date: Thu, 20 Oct 2016 16:05:43 +0200
-Message-ID: <1476972345-31568-3-git-send-email-jiri@resnulli.us>
-References: <1476972345-31568-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bnx2x: ethtool -x full support
+Date: Thu, 20 Oct 2016 07:26:27 -0700
+Message-ID: <1476973587.7065.7.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1476810487.5650.68.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1476818655.5650.69.camel@edumazet-glaptop3.roam.corp.google.com>
+         <BL2PR07MB2306E14F54D13CA215D8923C8DD50@BL2PR07MB2306.namprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Ariel Elior <ariel.elior@qlogic.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:36598 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753299AbcJTOFw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 10:05:52 -0400
-Received: by mail-lf0-f68.google.com with SMTP id b75so431881lfg.3
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 07:05:52 -0700 (PDT)
-In-Reply-To: <1476972345-31568-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35352 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964983AbcJTO0b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 10:26:31 -0400
+Received: by mail-pf0-f193.google.com with SMTP id s8so5750977pfj.2
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 07:26:30 -0700 (PDT)
+In-Reply-To: <BL2PR07MB2306E14F54D13CA215D8923C8DD50@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Thu, 2016-10-20 at 12:27 +0000, Mintz, Yuval wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > >
+> > > Implement ethtool -x full support, so that rss key can be fetched
+> > > instead of assuming it matches /proc/sys/net/core/netdev_rss_key
+> > > content.
+> > 
+> > I'll send a V2, tested with CONFIG_BNX2X_SRIOV=y ;)
+> > 
+> 
+> Hi Eric,
+> 
+> Thanks for this. Are you planning on sending v2 or do you want us to take over?
+> 
+> BTW, what's the benefit of changing the RSS keys? Giving the hash properties,
+> in which scenarios would we gain by switching keys?
 
-The function return value is not checked anywhere. Also, the warning
-causes huge slowdown when removing large number of FIB entries which
-were not offloaded, because of ordering issue. Ido's preparing
-a patchset to fix the ordering issue, but that is definitelly not
-net tree material.
+I will send a v2
 
-Fixes: b45f64d16d45 ("mlxsw: spectrum_router: Use FIB notifications instead of switchdev calls")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 13 +++++--------
- 1 file changed, 5 insertions(+), 8 deletions(-)
+Changing keys once a day or so might be important for security
+purposes. 
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 1b3a2cb..f3d50d3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1820,19 +1820,17 @@ static int mlxsw_sp_router_fib4_add(struct mlxsw_sp *mlxsw_sp,
- 	return err;
- }
- 
--static int mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
--				    struct fib_entry_notifier_info *fen_info)
-+static void mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
-+				     struct fib_entry_notifier_info *fen_info)
- {
- 	struct mlxsw_sp_fib_entry *fib_entry;
- 
- 	if (mlxsw_sp->router.aborted)
--		return 0;
-+		return;
- 
- 	fib_entry = mlxsw_sp_fib_entry_find(mlxsw_sp, fen_info);
--	if (!fib_entry) {
--		dev_warn(mlxsw_sp->bus_info->dev, "Failed to find FIB4 entry being removed.\n");
--		return -ENOENT;
--	}
-+	if (!fib_entry)
-+		return;
- 
- 	if (fib_entry->ref_count == 1) {
- 		mlxsw_sp_fib_entry_del(mlxsw_sp, fib_entry);
-@@ -1840,7 +1838,6 @@ static int mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
- 	}
- 
- 	mlxsw_sp_fib_entry_put(mlxsw_sp, fib_entry);
--	return 0;
- }
- 
- static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
--- 
-2.5.5
+I wont give details here ;)
+
+Thanks.
