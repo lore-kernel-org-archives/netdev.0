@@ -1,45 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] net: add recursion limit to GRO
-Date: Thu, 20 Oct 2016 14:32:52 -0400 (EDT)
-Message-ID: <20161020.143252.1084197903325642557.davem@davemloft.net>
-References: <7429d1a2eaceec5e4563be8c67e86e1a515f21b5.1476971359.git.sd@queasysnail.net>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH 0/4] make POSIX timers optional with some Kconfig help
+Date: Thu, 20 Oct 2016 14:35:59 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1610201433250.25105@knanqh.ubzr>
+References: <1476920573-14384-1-git-send-email-nicolas.pitre@linaro.org> <alpine.DEB.2.20.1610201145310.5073@nanos>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-        tom@herbertland.com, jbenc@redhat.com, hannes@stressinduktion.org
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44346 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753343AbcJTScy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:32:54 -0400
-In-Reply-To: <7429d1a2eaceec5e4563be8c67e86e1a515f21b5.1476971359.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: John Stultz <john.stultz@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Yann E MORIN <yann.morin.1998@free.fr>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.20.1610201145310.5073@nanos>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Thu, 20 Oct 2016 15:58:02 +0200
+On Thu, 20 Oct 2016, Thomas Gleixner wrote:
 
-> Currently, GRO can do unlimited recursion through the gro_receive
-> handlers.  This was fixed for tunneling protocols by limiting tunnel GRO
-> to one level with encap_mark, but both VLAN and TEB still have this
-> problem.  Thus, the kernel is vulnerable to a stack overflow, if we
-> receive a packet composed entirely of VLAN headers.
+> On Wed, 19 Oct 2016, Nicolas Pitre wrote:
+> > Therefore this series also includes kconfig changes to implement a new
+> > keyword to express some reverse dependencies like "select" does, named
+> > "imply", and still allowing for the target config symbol to be disabled
+> > if the user or a direct dependency says so.
 > 
-> This patch adds a recursion counter to the GRO layer to prevent stack
-> overflow.  When a gro_receive function hits the recursion limit, GRO is
-> aborted for this skb and it is processed normally.  This recursion
-> counter is put in the GRO CB, but could be turned into a percpu counter
-> if we run out of space in the CB.
-> 
-> Thanks to Vladimír Bene¨ <vbenes@redhat.com> for the initial bug report.
-> 
-> Fixes: CVE-2016-7039
-> Fixes: 9b174d88c257 ("net: Add Transparent Ethernet Bridging GRO support.")
-> Fixes: 66e5133f19e9 ("vlan: Add GRO support for non hardware accelerated vlan")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Reviewed-by: Jiri Benc <jbenc@redhat.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> That's really nice work! Thanks for doing that. It makes the whole thing
+> more palatable.
 
-Applied and queued up for -stable, thanks!
+Thanks.
+
+Now I'd need some review tags...  ;-)
+
+
+Nicolas
