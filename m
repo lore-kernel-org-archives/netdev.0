@@ -1,68 +1,70 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH net-next] net/sched: em_meta: Fix 'meta vlan' to correctly recognize zero VID frames
-Date: Fri, 21 Oct 2016 00:18:08 +0300
-Message-ID: <1476998288-13341-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@resnulli.us>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: "David S . Miller" <davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ipv4: use the right lock for ping_group_range
+Date: Thu, 20 Oct 2016 14:19:46 -0700
+Message-ID: <1476998386-20935-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>, Eric Salo <salo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:36854 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754626AbcJTVSX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 17:18:23 -0400
-Received: by mail-lf0-f68.google.com with SMTP id b75so2435975lfg.3
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 14:18:22 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33837 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754069AbcJTVTw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 17:19:52 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 128so6561934pfz.1
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 14:19:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-META_COLLECTOR int_vlan_tag() assumes that if the accel tag (vlan_tci)
-is zero, then no vlan accel tag is present.
+This reverts commit a681574c99be23e4d20b769bf0e543239c364af5
+("ipv4: disable BH in set_ping_group_range()") because we never
+read ping_group_range in BH context (unlike local_port_range).
 
-This is incorrect for zero VID vlan accel packets, making the following
-match fail:
-  tc filter add ... basic match 'meta(vlan mask 0xfff eq 0)' ...
+Then, since we already have a lock for ping_group_range, those
+using ip_local_ports.lock for ping_group_range are clearly typos.
 
-Apparently 'int_vlan_tag' was implemented prior VLAN_TAG_PRESENT was
-introduced in 05423b2 "vlan: allow null VLAN ID to be used"
-(and at time introduced, the 'vlan_tx_tag_get' call in em_meta was not
- adapted).
+We might consider to share a same lock for both ping_group_range
+and local_port_range w.r.t. space saving, but that should be for
+net-next.
 
-Fix, testing skb_vlan_tag_present instead of testing skb_vlan_tag_get's
-value.
-
-Fixes: 05423b2413 ("vlan: allow null VLAN ID to be used")
-Fixes: 1a31f2042e ("netsched: Allow meta match on vlan tag on receive")
-
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
+Fixes: a681574c99be ("ipv4: disable BH in set_ping_group_range()")
+Fixes: ba6b918ab234 ("ping: move ping_group_range out of CONFIG_SYSCTL")
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Eric Salo <salo@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/em_meta.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ net/ipv4/sysctl_net_ipv4.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-index a309a07ccb..41c80b6c39 100644
---- a/net/sched/em_meta.c
-+++ b/net/sched/em_meta.c
-@@ -176,11 +176,12 @@ META_COLLECTOR(int_vlan_tag)
- {
- 	unsigned short tag;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 500ae40..80bc36b 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -96,11 +96,11 @@ static void inet_get_ping_group_range_table(struct ctl_table *table, kgid_t *low
+ 		container_of(table->data, struct net, ipv4.ping_group_range.range);
+ 	unsigned int seq;
+ 	do {
+-		seq = read_seqbegin(&net->ipv4.ip_local_ports.lock);
++		seq = read_seqbegin(&net->ipv4.ping_group_range.lock);
  
--	tag = skb_vlan_tag_get(skb);
--	if (!tag && __vlan_get_tag(skb, &tag))
--		*err = -1;
--	else
-+	if (skb_vlan_tag_present(skb))
-+		dst->value = skb_vlan_tag_get(skb);
-+	else if (!__vlan_get_tag(skb, &tag))
- 		dst->value = tag;
-+	else
-+		*err = -1;
+ 		*low = data[0];
+ 		*high = data[1];
+-	} while (read_seqretry(&net->ipv4.ip_local_ports.lock, seq));
++	} while (read_seqretry(&net->ipv4.ping_group_range.lock, seq));
  }
  
+ /* Update system visible IP port range */
+@@ -109,10 +109,10 @@ static void set_ping_group_range(struct ctl_table *table, kgid_t low, kgid_t hig
+ 	kgid_t *data = table->data;
+ 	struct net *net =
+ 		container_of(table->data, struct net, ipv4.ping_group_range.range);
+-	write_seqlock_bh(&net->ipv4.ip_local_ports.lock);
++	write_seqlock(&net->ipv4.ping_group_range.lock);
+ 	data[0] = low;
+ 	data[1] = high;
+-	write_sequnlock_bh(&net->ipv4.ip_local_ports.lock);
++	write_sequnlock(&net->ipv4.ping_group_range.lock);
+ }
  
+ /* Validate changes from /proc interface. */
 -- 
-2.7.4
+2.1.0
