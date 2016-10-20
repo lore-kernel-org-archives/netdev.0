@@ -1,50 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bnx2x: ethtool -x full support
-Date: Thu, 20 Oct 2016 07:26:27 -0700
-Message-ID: <1476973587.7065.7.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1476810487.5650.68.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1476818655.5650.69.camel@edumazet-glaptop3.roam.corp.google.com>
-         <BL2PR07MB2306E14F54D13CA215D8923C8DD50@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 1/7] ipv6: Fix Makefile conditional to use
+ CONFIG_INET
+Date: Thu, 20 Oct 2016 10:38:59 -0400 (EDT)
+Message-ID: <20161020.103859.1463894712484547341.davem@davemloft.net>
+References: <20161019230309.3746853-1-tom@herbertland.com>
+        <20161019230309.3746853-2-tom@herbertland.com>
+        <CALx6S34ypSKUg715g1K783ze95ko1SeSA+Yb0JFqvfsSHwxQug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Ariel Elior <ariel.elior@qlogic.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35352 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964983AbcJTO0b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 10:26:31 -0400
-Received: by mail-pf0-f193.google.com with SMTP id s8so5750977pfj.2
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 07:26:30 -0700 (PDT)
-In-Reply-To: <BL2PR07MB2306E14F54D13CA215D8923C8DD50@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41442 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756107AbcJTOjD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 10:39:03 -0400
+In-Reply-To: <CALx6S34ypSKUg715g1K783ze95ko1SeSA+Yb0JFqvfsSHwxQug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-10-20 at 12:27 +0000, Mintz, Yuval wrote:
-> > > From: Eric Dumazet <edumazet@google.com>
-> > >
-> > > Implement ethtool -x full support, so that rss key can be fetched
-> > > instead of assuming it matches /proc/sys/net/core/netdev_rss_key
-> > > content.
-> > 
-> > I'll send a V2, tested with CONFIG_BNX2X_SRIOV=y ;)
-> > 
-> 
-> Hi Eric,
-> 
-> Thanks for this. Are you planning on sending v2 or do you want us to take over?
-> 
-> BTW, what's the benefit of changing the RSS keys? Giving the hash properties,
-> in which scenarios would we gain by switching keys?
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 19 Oct 2016 20:16:01 -0700
 
-I will send a v2
+> Please don't apply this. It's like whack-a-mole trying to resolve all
+> the dependencies. I'll resubmit the series without this.
 
-Changing keys once a day or so might be important for security
-purposes. 
-
-I wont give details here ;)
-
-Thanks.
+Ok.
