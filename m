@@ -1,44 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net: saving irq context for peernet2id()
-Date: Thu, 20 Oct 2016 11:29:11 -0700
-Message-ID: <CAM_iQpWD3WiX1ZX+3LJ8vbJc42K1jZcZ4-f6MO5kzZY-+Szkqw@mail.gmail.com>
-References: <1476946352-15770-1-git-send-email-xiyou.wangcong@gmail.com> <2707c52d-88ec-7b93-f96e-eeaffc952c9c@tycho.nsa.gov>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3] net: add recursion limit to GRO
+Date: Thu, 20 Oct 2016 14:32:52 -0400 (EDT)
+Message-ID: <20161020.143252.1084197903325642557.davem@davemloft.net>
+References: <7429d1a2eaceec5e4563be8c67e86e1a515f21b5.1476971359.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Elad Raz <e@eladraz.com>, Paul Moore <paul@paul-moore.com>,
-        Richard Guy Briggs <rgb@redhat.com>
-To: Stephen Smalley <sds@tycho.nsa.gov>
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+        tom@herbertland.com, jbenc@redhat.com, hannes@stressinduktion.org
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33942 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933076AbcJTS3c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:29:32 -0400
-Received: by mail-it0-f65.google.com with SMTP id e203so7371045itc.1
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 11:29:32 -0700 (PDT)
-In-Reply-To: <2707c52d-88ec-7b93-f96e-eeaffc952c9c@tycho.nsa.gov>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44346 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753343AbcJTScy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:32:54 -0400
+In-Reply-To: <7429d1a2eaceec5e4563be8c67e86e1a515f21b5.1476971359.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 20, 2016 at 7:58 AM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
-> On 10/20/2016 02:52 AM, Cong Wang wrote:
->> A kernel warning inside __local_bh_enable_ip() was reported by people
->> running SELinux, this is caused due to some SELinux functions
->> (indirectly) call peernet2id() with IRQ disabled in process context,
->> when we re-enable BH with IRQ disabled kernel complains. Shut up this
->> warning by saving IRQ context in peernet2id(), BH is still implicitly
->> disabled.
->
-> Not sure this suffices; kill_fasync() -> send_sigio() ->
-> send_sigio_to_task() -> sigio_perm() -> security_file_send_sigiotask()
-> -> selinux_file_send_sigiotask() -> ... -> audit_log() -> ... ->
-> peernet2id()
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Thu, 20 Oct 2016 15:58:02 +0200
 
-Oh, this is a new one. kill_fasync() is called in IRQ handler, so we actually
-do multicast in IRQ context.... It makes no sense, netlink multicast could
-be very expensive if we have many listeners.
+> Currently, GRO can do unlimited recursion through the gro_receive
+> handlers.  This was fixed for tunneling protocols by limiting tunnel GRO
+> to one level with encap_mark, but both VLAN and TEB still have this
+> problem.  Thus, the kernel is vulnerable to a stack overflow, if we
+> receive a packet composed entirely of VLAN headers.
+> 
+> This patch adds a recursion counter to the GRO layer to prevent stack
+> overflow.  When a gro_receive function hits the recursion limit, GRO is
+> aborted for this skb and it is processed normally.  This recursion
+> counter is put in the GRO CB, but could be turned into a percpu counter
+> if we run out of space in the CB.
+> 
+> Thanks to Vladimír Bene¨ <vbenes@redhat.com> for the initial bug report.
+> 
+> Fixes: CVE-2016-7039
+> Fixes: 9b174d88c257 ("net: Add Transparent Ethernet Bridging GRO support.")
+> Fixes: 66e5133f19e9 ("vlan: Add GRO support for non hardware accelerated vlan")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Reviewed-by: Jiri Benc <jbenc@redhat.com>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I am Cc'ing Richard who added that multicast in audit_log_end(). It seems
-not easy to just move the multicast to a workqueue, since the skb is copied
-from audit_buffer which is freed immediately after that, probably need another
-queue like audit_skb_queue.
+Applied and queued up for -stable, thanks!
