@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 6/9] liquidio CN23XX: device states
-Date: Wed, 19 Oct 2016 22:40:43 -0700
-Message-ID: <1476942046-18789-7-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 4/9] liquidio CN23XX: mailbox interrupt processing
+Date: Wed, 19 Oct 2016 22:40:41 -0700
+Message-ID: <1476942046-18789-5-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,308 +16,330 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-sn1nam02on0041.outbound.protection.outlook.com ([104.47.36.41]:13246
         "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753115AbcJTFle (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 01:41:34 -0400
+        id S1753115AbcJTFlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 01:41:31 -0400
 In-Reply-To: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cleaned up resource leaks during destroy resources by
-introducing more device states.
+Adds support for mailbox interrupt processing of various
+commands.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 33 ++++++++++++++++------
- .../net/ethernet/cavium/liquidio/octeon_device.c   |  6 +++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   | 29 ++++++++++---------
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c | 13 +++++----
- drivers/net/ethernet/cavium/liquidio/octeon_main.h |  8 ++++--
- .../net/ethernet/cavium/liquidio/request_manager.c |  6 +++-
- 6 files changed, 64 insertions(+), 31 deletions(-)
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 157 +++++++++++++++++++++
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |  12 ++
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |   1 +
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |  21 ++-
+ 4 files changed, 184 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 56faf1d..2fe1001 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -779,6 +779,7 @@ static void delete_glists(struct lio *lio)
- 	}
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+index b3fa5d9..e054010 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+@@ -30,6 +30,7 @@
+ #include "octeon_device.h"
+ #include "cn23xx_pf_device.h"
+ #include "octeon_main.h"
++#include "octeon_mailbox.h"
  
- 	kfree((void *)lio->glist);
-+	kfree((void *)lio->glist_lock);
+ #define RESET_NOTDONE 0
+ #define RESET_DONE 1
+@@ -682,6 +683,118 @@ static void cn23xx_setup_oq_regs(struct octeon_device *oct, u32 oq_no)
+ 	}
  }
  
- /**
-@@ -1338,6 +1339,7 @@ static int liquidio_watchdog(void *param)
- 		complete(&first_stage);
- 
- 	if (octeon_device_init(oct_dev)) {
-+		complete(&hs->init);
- 		liquidio_remove(pdev);
- 		return -ENOMEM;
- 	}
-@@ -1362,7 +1364,15 @@ static int liquidio_watchdog(void *param)
- 			oct_dev->watchdog_task = kthread_create(
- 			    liquidio_watchdog, oct_dev,
- 			    "liowd/%02hhx:%02hhx.%hhx", bus, device, function);
--			wake_up_process(oct_dev->watchdog_task);
-+			if (!IS_ERR(oct_dev->watchdog_task)) {
-+				wake_up_process(oct_dev->watchdog_task);
-+			} else {
-+				oct_dev->watchdog_task = NULL;
-+				dev_err(&oct_dev->pci_dev->dev,
-+					"failed to create kernel_thread\n");
-+				liquidio_remove(pdev);
-+				return -1;
++static void cn23xx_pf_mbox_thread(struct work_struct *work)
++{
++	struct cavium_wk *wk = (struct cavium_wk *)work;
++	struct octeon_mbox *mbox = (struct octeon_mbox *)wk->ctxptr;
++	struct octeon_device *oct = mbox->oct_dev;
++	u64 mbox_int_val, val64;
++	u32 q_no, i;
++
++	if (oct->rev_id < OCTEON_CN23XX_REV_1_1) {
++		/*read and clear by writing 1*/
++		mbox_int_val = readq(mbox->mbox_int_reg);
++		writeq(mbox_int_val, mbox->mbox_int_reg);
++
++		for (i = 0; i < oct->sriov_info.num_vfs_alloced; i++) {
++			q_no = i * oct->sriov_info.rings_per_vf;
++
++			val64 = readq(oct->mbox[q_no]->mbox_write_reg);
++
++			if (val64 && (val64 != OCTEON_PFVFACK)) {
++				if (octeon_mbox_read(oct->mbox[q_no]))
++					octeon_mbox_process_message(
++					    oct->mbox[q_no]);
 +			}
- 		}
++		}
++
++		schedule_delayed_work(&wk->work, msecs_to_jiffies(10));
++	} else {
++		octeon_mbox_process_message(mbox);
++	}
++}
++
++static int cn23xx_setup_pf_mbox(struct octeon_device *oct)
++{
++	struct octeon_mbox *mbox = NULL;
++	u16 mac_no = oct->pcie_port;
++	u16 pf_num = oct->pf_num;
++	u32 q_no, i;
++
++	if (!oct->sriov_info.max_vfs)
++		return 0;
++
++	for (i = 0; i < oct->sriov_info.max_vfs; i++) {
++		q_no = i * oct->sriov_info.rings_per_vf;
++
++		mbox = vmalloc(sizeof(*mbox));
++		if (!mbox)
++			goto free_mbox;
++
++		memset(mbox, 0, sizeof(struct octeon_mbox));
++
++		spin_lock_init(&mbox->lock);
++
++		mbox->oct_dev = oct;
++
++		mbox->q_no = q_no;
++
++		mbox->state = OCTEON_MBOX_STATE_IDLE;
++
++		/* PF mbox interrupt reg */
++		mbox->mbox_int_reg = (u8 *)oct->mmio[0].hw_addr +
++				     CN23XX_SLI_MAC_PF_MBOX_INT(mac_no, pf_num);
++
++		/* PF writes into SIG0 reg */
++		mbox->mbox_write_reg = (u8 *)oct->mmio[0].hw_addr +
++				       CN23XX_SLI_PKT_PF_VF_MBOX_SIG(q_no, 0);
++
++		/* PF reads from SIG1 reg */
++		mbox->mbox_read_reg = (u8 *)oct->mmio[0].hw_addr +
++				      CN23XX_SLI_PKT_PF_VF_MBOX_SIG(q_no, 1);
++
++		/*Mail Box Thread creation*/
++		INIT_DELAYED_WORK(&mbox->mbox_poll_wk.work,
++				  cn23xx_pf_mbox_thread);
++		mbox->mbox_poll_wk.ctxptr = (void *)mbox;
++
++		oct->mbox[q_no] = mbox;
++
++		writeq(OCTEON_PFVFSIG, mbox->mbox_read_reg);
++	}
++
++	if (oct->rev_id < OCTEON_CN23XX_REV_1_1)
++		schedule_delayed_work(&oct->mbox[0]->mbox_poll_wk.work,
++				      msecs_to_jiffies(0));
++
++	return 0;
++
++free_mbox:
++	while (i) {
++		i--;
++		vfree(oct->mbox[i]);
++	}
++
++	return 1;
++}
++
++static int cn23xx_free_pf_mbox(struct octeon_device *oct)
++{
++	u32 q_no, i;
++
++	if (!oct->sriov_info.max_vfs)
++		return 0;
++
++	for (i = 0; i < oct->sriov_info.max_vfs; i++) {
++		q_no = i * oct->sriov_info.rings_per_vf;
++		cancel_delayed_work_sync(
++		    &oct->mbox[q_no]->mbox_poll_wk.work);
++		vfree(oct->mbox[q_no]);
++	}
++
++	return 0;
++}
++
+ static int cn23xx_enable_io_queues(struct octeon_device *oct)
+ {
+ 	u64 reg_val;
+@@ -876,6 +989,29 @@ static u64 cn23xx_pf_msix_interrupt_handler(void *dev)
+ 	return ret;
+ }
+ 
++static void cn23xx_handle_pf_mbox_intr(struct octeon_device *oct)
++{
++	struct delayed_work *work;
++	u64 mbox_int_val;
++	u32 i, q_no;
++
++	mbox_int_val = readq(oct->mbox[0]->mbox_int_reg);
++
++	for (i = 0; i < oct->sriov_info.num_vfs_alloced; i++) {
++		q_no = i * oct->sriov_info.rings_per_vf;
++
++		if (mbox_int_val & BIT_ULL(q_no)) {
++			writeq(BIT_ULL(q_no),
++			       oct->mbox[0]->mbox_int_reg);
++			if (octeon_mbox_read(oct->mbox[q_no])) {
++				work = &oct->mbox[q_no]->mbox_poll_wk.work;
++				schedule_delayed_work(work,
++						      msecs_to_jiffies(0));
++			}
++		}
++	}
++}
++
+ static irqreturn_t cn23xx_interrupt_handler(void *dev)
+ {
+ 	struct octeon_device *oct = (struct octeon_device *)dev;
+@@ -891,6 +1027,10 @@ static irqreturn_t cn23xx_interrupt_handler(void *dev)
+ 		dev_err(&oct->pci_dev->dev, "OCTEON[%d]: Error Intr: 0x%016llx\n",
+ 			oct->octeon_id, CVM_CAST64(intr64));
+ 
++	/* When VFs write into MBOX_SIG2 reg,these intr is set in PF */
++	if (intr64 & CN23XX_INTR_VF_MBOX)
++		cn23xx_handle_pf_mbox_intr(oct);
++
+ 	if (oct->msix_on != LIO_FLAG_MSIX_ENABLED) {
+ 		if (intr64 & CN23XX_INTR_PKT_DATA)
+ 			oct->int_status |= OCT_DEV_INTR_PKT_DATA;
+@@ -981,6 +1121,13 @@ static void cn23xx_enable_pf_interrupt(struct octeon_device *oct, u8 intr_flag)
+ 		intr_val = readq(cn23xx->intr_enb_reg64);
+ 		intr_val |= CN23XX_INTR_PKT_DATA;
+ 		writeq(intr_val, cn23xx->intr_enb_reg64);
++	} else if ((intr_flag & OCTEON_MBOX_INTR) &&
++		   (oct->sriov_info.max_vfs > 0)) {
++		if (oct->rev_id >= OCTEON_CN23XX_REV_1_1) {
++			intr_val = readq(cn23xx->intr_enb_reg64);
++			intr_val |= CN23XX_INTR_VF_MBOX;
++			writeq(intr_val, cn23xx->intr_enb_reg64);
++		}
  	}
+ }
  
-@@ -1426,6 +1436,8 @@ static void octeon_destroy_resources(struct octeon_device *oct)
- 		if (lio_wait_for_oq_pkts(oct))
- 			dev_err(&oct->pci_dev->dev, "OQ had pending packets\n");
+@@ -996,6 +1143,13 @@ static void cn23xx_disable_pf_interrupt(struct octeon_device *oct, u8 intr_flag)
+ 		intr_val = readq(cn23xx->intr_enb_reg64);
+ 		intr_val &= ~CN23XX_INTR_PKT_DATA;
+ 		writeq(intr_val, cn23xx->intr_enb_reg64);
++	} else if ((intr_flag & OCTEON_MBOX_INTR) &&
++		   (oct->sriov_info.max_vfs > 0)) {
++		if (oct->rev_id >= OCTEON_CN23XX_REV_1_1) {
++			intr_val = readq(cn23xx->intr_enb_reg64);
++			intr_val &= ~CN23XX_INTR_VF_MBOX;
++			writeq(intr_val, cn23xx->intr_enb_reg64);
++		}
+ 	}
+ }
  
-+	/* fallthrough */
-+	case OCT_DEV_INTR_SET_DONE:
- 		/* Disable interrupts  */
- 		oct->fn_list.disable_interrupt(oct, OCTEON_ALL_INTR);
+@@ -1203,6 +1357,9 @@ int setup_cn23xx_octeon_pf_device(struct octeon_device *oct)
  
-@@ -1452,6 +1464,8 @@ static void octeon_destroy_resources(struct octeon_device *oct)
- 				pci_disable_msi(oct->pci_dev);
- 		}
+ 	oct->fn_list.setup_iq_regs = cn23xx_setup_iq_regs;
+ 	oct->fn_list.setup_oq_regs = cn23xx_setup_oq_regs;
++	oct->fn_list.setup_mbox = cn23xx_setup_pf_mbox;
++	oct->fn_list.free_mbox = cn23xx_free_pf_mbox;
++
+ 	oct->fn_list.process_interrupt_regs = cn23xx_interrupt_handler;
+ 	oct->fn_list.msix_interrupt_handler = cn23xx_pf_msix_interrupt_handler;
  
-+	/* fallthrough */
-+	case OCT_DEV_MSIX_ALLOC_VECTOR_DONE:
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 2825590..114208f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -1454,6 +1454,12 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 
  		if (OCTEON_CN23XX_PF(oct))
  			octeon_free_ioq_vector(oct);
- 
-@@ -1515,10 +1529,13 @@ static void octeon_destroy_resources(struct octeon_device *oct)
- 		octeon_unmap_pci_barx(oct, 1);
- 
- 		/* fallthrough */
--	case OCT_DEV_BEGIN_STATE:
-+	case OCT_DEV_PCI_ENABLE_DONE:
-+		pci_clear_master(oct->pci_dev);
- 		/* Disable the device, releasing the PCI INT */
- 		pci_disable_device(oct->pci_dev);
- 
-+		/* fallthrough */
-+	case OCT_DEV_BEGIN_STATE:
- 		/* Nothing to be done here either */
- 		break;
- 	}                       /* end switch (oct->status) */
-@@ -1793,6 +1810,7 @@ static int octeon_pci_os_setup(struct octeon_device *oct)
- 
- 	if (dma_set_mask_and_coherent(&oct->pci_dev->dev, DMA_BIT_MASK(64))) {
- 		dev_err(&oct->pci_dev->dev, "Unexpected DMA device capability\n");
-+		pci_disable_device(oct->pci_dev);
- 		return 1;
- 	}
- 
-@@ -4447,6 +4465,8 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 	if (octeon_pci_os_setup(octeon_dev))
- 		return 1;
- 
-+	atomic_set(&octeon_dev->status, OCT_DEV_PCI_ENABLE_DONE);
 +
- 	/* Identify the Octeon type and map the BAR address space. */
- 	if (octeon_chip_specific_setup(octeon_dev)) {
- 		dev_err(&octeon_dev->pci_dev->dev, "Chip specific setup failed\n");
-@@ -4518,9 +4538,6 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 	if (octeon_setup_instr_queues(octeon_dev)) {
- 		dev_err(&octeon_dev->pci_dev->dev,
- 			"instruction queue initialization failed\n");
--		/* On error, release any previously allocated queues */
--		for (j = 0; j < octeon_dev->num_iqs; j++)
--			octeon_delete_instr_queue(octeon_dev, j);
- 		return 1;
- 	}
- 	atomic_set(&octeon_dev->status, OCT_DEV_INSTR_QUEUE_INIT_DONE);
-@@ -4536,9 +4553,6 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
++	/* fallthrough */
++	case OCT_DEV_MBOX_SETUP_DONE:
++		if (OCTEON_CN23XX_PF(oct))
++			oct->fn_list.free_mbox(oct);
++
+ 	/* fallthrough */
+ 	case OCT_DEV_IN_RESET:
+ 	case OCT_DEV_DROQ_INIT_DONE:
+@@ -4325,6 +4331,12 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	atomic_set(&octeon_dev->status, OCT_DEV_DROQ_INIT_DONE);
  
- 	if (octeon_setup_output_queues(octeon_dev)) {
- 		dev_err(&octeon_dev->pci_dev->dev, "Output queue initialization failed\n");
--		/* Release any previously allocated queues */
--		for (j = 0; j < octeon_dev->num_oqs; j++)
--			octeon_delete_droq(octeon_dev, j);
- 		return 1;
- 	}
- 
-@@ -4555,6 +4569,7 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	if (OCTEON_CN23XX_PF(octeon_dev)) {
++		if (octeon_dev->fn_list.setup_mbox(octeon_dev)) {
++			dev_err(&octeon_dev->pci_dev->dev, "OCTEON: Mailbox setup failed\n");
++			return 1;
++		}
++		atomic_set(&octeon_dev->status, OCT_DEV_MBOX_SETUP_DONE);
++
+ 		if (octeon_allocate_ioq_vector(octeon_dev)) {
  			dev_err(&octeon_dev->pci_dev->dev, "OCTEON: ioq vector allocation failed\n");
  			return 1;
- 		}
-+		atomic_set(&octeon_dev->status, OCT_DEV_MSIX_ALLOC_VECTOR_DONE);
- 
- 	} else {
- 		/* The input and output queue registers were setup earlier (the
-@@ -4582,6 +4597,8 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 	/* Enable Octeon device interrupts */
- 	octeon_dev->fn_list.enable_interrupt(octeon_dev, OCTEON_ALL_INTR);
- 
-+	atomic_set(&octeon_dev->status, OCT_DEV_INTR_SET_DONE);
-+
- 	/* Enable the input and output queues for this Octeon device */
- 	ret = octeon_dev->fn_list.enable_io_queues(octeon_dev);
- 	if (ret) {
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 7f532fd..295e2ca 100644
+index 586b688..7f532fd 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -822,6 +822,7 @@ int octeon_setup_instr_queues(struct octeon_device *oct)
- 	if (octeon_init_instr_queue(oct, txpciq, num_descs)) {
- 		/* prevent memory leak */
- 		vfree(oct->instr_queue[0]);
-+		oct->instr_queue[0] = NULL;
- 		return 1;
- 	}
+@@ -767,6 +767,7 @@ struct octeon_device *octeon_allocate_device(u32 pci_id,
+ 		ioq_vector->oct_dev	= oct;
+ 		ioq_vector->iq_index	= i;
+ 		ioq_vector->droq_index	= i;
++		ioq_vector->mbox	= oct->mbox[i];
  
-@@ -854,8 +855,11 @@ int octeon_setup_output_queues(struct octeon_device *oct)
- 	if (!oct->droq[0])
- 		return 1;
- 
--	if (octeon_init_droq(oct, oq_no, num_descs, desc_size, NULL))
-+	if (octeon_init_droq(oct, oq_no, num_descs, desc_size, NULL)) {
-+		vfree(oct->droq[oq_no]);
-+		oct->droq[oq_no] = NULL;
- 		return 1;
-+	}
- 	oct->num_oqs++;
- 
- 	return 0;
+ 		cpu_num = i % num_online_cpus();
+ 		cpumask_set_cpu(cpu_num, &ioq_vector->affinity_mask);
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 70a0d98..6c18baa 100644
+index 77a6eb7..bdb10a0 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -72,20 +72,23 @@ enum octeon_pci_swap_mode {
-  *  as it is initialized.
-  */
- #define    OCT_DEV_BEGIN_STATE            0x0
--#define    OCT_DEV_PCI_MAP_DONE           0x1
--#define    OCT_DEV_DISPATCH_INIT_DONE     0x2
--#define    OCT_DEV_INSTR_QUEUE_INIT_DONE  0x3
--#define    OCT_DEV_SC_BUFF_POOL_INIT_DONE 0x4
--#define    OCT_DEV_RESP_LIST_INIT_DONE    0x5
--#define    OCT_DEV_DROQ_INIT_DONE         0x6
-+#define    OCT_DEV_PCI_ENABLE_DONE        0x1
-+#define    OCT_DEV_PCI_MAP_DONE           0x2
-+#define    OCT_DEV_DISPATCH_INIT_DONE     0x3
-+#define    OCT_DEV_INSTR_QUEUE_INIT_DONE  0x4
-+#define    OCT_DEV_SC_BUFF_POOL_INIT_DONE 0x5
-+#define    OCT_DEV_RESP_LIST_INIT_DONE    0x6
-+#define    OCT_DEV_DROQ_INIT_DONE         0x7
- #define    OCT_DEV_MBOX_SETUP_DONE        0x8
--#define    OCT_DEV_IO_QUEUES_DONE         0x9
--#define    OCT_DEV_CONSOLE_INIT_DONE      0xa
--#define    OCT_DEV_HOST_OK                0xb
--#define    OCT_DEV_CORE_OK                0xc
--#define    OCT_DEV_RUNNING                0xd
--#define    OCT_DEV_IN_RESET               0xe
--#define    OCT_DEV_STATE_INVALID          0xf
-+#define    OCT_DEV_MSIX_ALLOC_VECTOR_DONE 0x9
-+#define    OCT_DEV_INTR_SET_DONE          0xa
-+#define    OCT_DEV_IO_QUEUES_DONE         0xb
-+#define    OCT_DEV_CONSOLE_INIT_DONE      0xc
-+#define    OCT_DEV_HOST_OK                0xd
-+#define    OCT_DEV_CORE_OK                0xe
-+#define    OCT_DEV_RUNNING                0xf
-+#define    OCT_DEV_IN_RESET               0x10
-+#define    OCT_DEV_STATE_INVALID          0x11
+@@ -54,6 +54,7 @@ enum octeon_pci_swap_mode {
+ };
+ 
+ #define  OCTEON_OUTPUT_INTR   (2)
++#define  OCTEON_MBOX_INTR     (4)
+ #define  OCTEON_ALL_INTR      0xff
+ 
+ /*---------------   PCI BAR1 index registers -------------*/
+@@ -77,13 +78,14 @@ enum octeon_pci_swap_mode {
+ #define    OCT_DEV_SC_BUFF_POOL_INIT_DONE 0x4
+ #define    OCT_DEV_RESP_LIST_INIT_DONE    0x5
+ #define    OCT_DEV_DROQ_INIT_DONE         0x6
+-#define    OCT_DEV_IO_QUEUES_DONE         0x7
+-#define    OCT_DEV_CONSOLE_INIT_DONE      0x8
+-#define    OCT_DEV_HOST_OK                0x9
+-#define    OCT_DEV_CORE_OK                0xa
+-#define    OCT_DEV_RUNNING                0xb
+-#define    OCT_DEV_IN_RESET               0xc
+-#define    OCT_DEV_STATE_INVALID          0xd
++#define    OCT_DEV_MBOX_SETUP_DONE        0x8
++#define    OCT_DEV_IO_QUEUES_DONE         0x9
++#define    OCT_DEV_CONSOLE_INIT_DONE      0xa
++#define    OCT_DEV_HOST_OK                0xb
++#define    OCT_DEV_CORE_OK                0xc
++#define    OCT_DEV_RUNNING                0xd
++#define    OCT_DEV_IN_RESET               0xe
++#define    OCT_DEV_STATE_INVALID          0xf
  
  #define    OCT_DEV_STATES                 OCT_DEV_STATE_INVALID
  
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-index f60e532..886987f 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-@@ -988,7 +988,8 @@ int octeon_create_droq(struct octeon_device *oct,
- 	if (!droq)
- 		droq = vmalloc(sizeof(*droq));
- 	if (!droq)
--		goto create_droq_fail;
-+		return -1;
+@@ -209,6 +211,10 @@ struct octeon_fn_list {
+ 
+ 	irqreturn_t (*process_interrupt_regs)(void *);
+ 	u64 (*msix_interrupt_handler)(void *);
 +
- 	memset(droq, 0, sizeof(struct octeon_droq));
- 
- 	/*Disable the pkt o/p for this Q  */
-@@ -996,7 +997,11 @@ int octeon_create_droq(struct octeon_device *oct,
- 	oct->droq[q_no] = droq;
- 
- 	/* Initialize the Droq */
--	octeon_init_droq(oct, q_no, num_descs, desc_size, app_ctx);
-+	if (octeon_init_droq(oct, q_no, num_descs, desc_size, app_ctx)) {
-+		vfree(oct->droq[q_no]);
-+		oct->droq[q_no] = NULL;
-+		return -1;
-+	}
- 
- 	oct->num_oqs++;
- 
-@@ -1009,8 +1014,4 @@ int octeon_create_droq(struct octeon_device *oct,
- 	 * the same time.
- 	 */
- 	return 0;
--
--create_droq_fail:
--	octeon_delete_droq(oct, q_no);
--	return -ENOMEM;
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_main.h b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-index 3cddf28..3afa61e 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-@@ -116,7 +116,7 @@ static inline int octeon_map_pci_barx(struct octeon_device *oct,
- 
- 	mapped_len = oct->mmio[baridx].len;
- 	if (!mapped_len)
--		return 1;
-+		goto err_release_region;
- 
- 	if (max_map_len && (mapped_len > max_map_len))
- 		mapped_len = max_map_len;
-@@ -132,11 +132,15 @@ static inline int octeon_map_pci_barx(struct octeon_device *oct,
- 	if (!oct->mmio[baridx].hw_addr) {
- 		dev_err(&oct->pci_dev->dev, "error ioremap for bar %d\n",
- 			baridx);
--		return 1;
-+		goto err_release_region;
- 	}
- 	oct->mmio[baridx].done = 1;
- 
- 	return 0;
++	int (*setup_mbox)(struct octeon_device *);
++	int (*free_mbox)(struct octeon_device *);
 +
-+err_release_region:
-+	pci_release_region(oct->pci_dev, baridx * 2);
-+	return 1;
- }
- 
- static inline void *
-diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-index 90866bb..a73560c 100644
---- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
-+++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-@@ -157,6 +157,8 @@ int octeon_init_instr_queue(struct octeon_device *oct,
- 						     WQ_MEM_RECLAIM,
- 						     0);
- 	if (!oct->check_db_wq[iq_no].wq) {
-+		vfree(iq->request_list);
-+		iq->request_list = NULL;
- 		lio_dma_free(oct, q_size, iq->base_addr, iq->base_addr_dma);
- 		dev_err(&oct->pci_dev->dev, "check db wq create failed for iq %d\n",
- 			iq_no);
-@@ -749,8 +751,10 @@ int octeon_setup_sc_buffer_pool(struct octeon_device *oct)
- 			lio_dma_alloc(oct,
- 				      SOFT_COMMAND_BUFFER_SIZE,
- 					  (dma_addr_t *)&dma_addr);
--		if (!sc)
-+		if (!sc) {
-+			octeon_free_sc_buffer_pool(oct);
- 			return 1;
-+		}
- 
- 		sc->dma_addr = dma_addr;
- 		sc->size = SOFT_COMMAND_BUFFER_SIZE;
+ 	int (*soft_reset)(struct octeon_device *);
+ 	int (*setup_device_regs)(struct octeon_device *);
+ 	void (*bar1_idx_setup)(struct octeon_device *, u64, u32, int);
+@@ -355,6 +361,7 @@ struct octeon_ioq_vector {
+ 	int		        iq_index;
+ 	int		        droq_index;
+ 	int			vector;
++	struct octeon_mbox     *mbox;
+ 	struct cpumask		affinity_mask;
+ 	u32			ioq_num;
+ };
 -- 
 1.8.3.1
