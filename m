@@ -1,252 +1,323 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v4 2/3] udp: implement memory accounting helpers
-Date: Wed, 19 Oct 2016 21:43:42 -0700
-Message-ID: <1476938622.5650.111.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1476877189.git.pabeni@redhat.com>
-         <c5a425a33f7dc8cda35f19c0979cf3ea5c10fc96.1476877189.git.pabeni@redhat.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 6/9] liquidio CN23XX: device states
+Date: Wed, 19 Oct 2016 22:40:43 -0700
+Message-ID: <1476942046-18789-7-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:34551 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753111AbcJTEnq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 00:43:46 -0400
-In-Reply-To: <c5a425a33f7dc8cda35f19c0979cf3ea5c10fc96.1476877189.git.pabeni@redhat.com>
+Received: from mail-sn1nam02on0041.outbound.protection.outlook.com ([104.47.36.41]:13246
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753115AbcJTFle (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 01:41:34 -0400
+In-Reply-To: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-19 at 14:47 +0200, Paolo Abeni wrote:
-> Avoid using the generic helpers.
-> Adds a new spinlock_t to the udp_sock structure and use
-> it to protect the memory accounting operation, both on
-> enqueue and on dequeue.
-> 
-> On dequeue perform partial memory reclaiming, trying to
-> leave a quantum of forward allocated memory.
-> 
-> On enqueue use a custom helper, to allow some optimizations:
-> - use a plain spin_lock() variant instead of the slightly
->   costly spin_lock_irqsave(),
-> - avoid dst_force check, since the calling code has already
->   dropped the skb dst
-> 
-> The above needs custom memory reclaiming on shutdown, provided
-> by the udp_destruct_sock().
-> 
-> v3 -> v4:
->   - reworked memory accunting, simplifying the schema
->   - provide an helper for both memory scheduling and enqueuing
-> 
-> v1 -> v2:
->   - use a udp specific destrctor to perform memory reclaiming
->   - remove a couple of helpers, unneeded after the above cleanup
->   - do not reclaim memory on dequeue if not under memory
->     pressure
->   - reworked the fwd accounting schema to avoid potential
->     integer overflow
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  include/linux/udp.h |   1 +
->  include/net/udp.h   |   4 ++
->  net/ipv4/udp.c      | 111 ++++++++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 116 insertions(+)
-> 
-> diff --git a/include/linux/udp.h b/include/linux/udp.h
-> index d1fd8cd..8ea7f8b 100644
-> --- a/include/linux/udp.h
-> +++ b/include/linux/udp.h
-> @@ -66,6 +66,7 @@ struct udp_sock {
->  #define UDPLITE_RECV_CC  0x4		/* set via udplite setsocktopt        */
->  	__u8		 pcflag;        /* marks socket as UDP-Lite if > 0    */
->  	__u8		 unused[3];
-> +	spinlock_t	 mem_lock;	/* protects memory accounting         */
->  	/*
->  	 * For encapsulation sockets.
->  	 */
-> diff --git a/include/net/udp.h b/include/net/udp.h
-> index ea53a87..18f1e6b 100644
-> --- a/include/net/udp.h
-> +++ b/include/net/udp.h
-> @@ -246,6 +246,9 @@ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
->  }
->  
->  /* net/ipv4/udp.c */
-> +void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len);
-> +int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb);
-> +
->  void udp_v4_early_demux(struct sk_buff *skb);
->  int udp_get_port(struct sock *sk, unsigned short snum,
->  		 int (*saddr_cmp)(const struct sock *,
-> @@ -258,6 +261,7 @@ int udp_get_port(struct sock *sk, unsigned short snum,
->  void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst);
->  int udp_rcv(struct sk_buff *skb);
->  int udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
-> +int udp_init_sock(struct sock *sk);
->  int udp_disconnect(struct sock *sk, int flags);
->  unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait);
->  struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 7d96dc2..7047bb3 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1172,6 +1172,117 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
->  	return ret;
->  }
->  
-> +static void udp_rmem_release(struct sock *sk, int size, int partial)
-> +{
-> +	struct udp_sock *up = udp_sk(sk);
-> +	int amt;
-> +
-> +	atomic_sub(size, &sk->sk_rmem_alloc);
-> +
-> +	spin_lock_bh(&up->mem_lock);
-> +	sk->sk_forward_alloc += size;
-> +	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
-> +	sk->sk_forward_alloc -= amt;
-> +	spin_unlock_bh(&up->mem_lock);
-> +
-> +	if (amt)
-> +		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-> +}
-> +
-> +static void udp_rmem_free(struct sk_buff *skb)
-> +{
-> +	udp_rmem_release(skb->sk, skb->truesize, 1);
-> +}
-> +
-> +int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
-> +{
-> +	struct sk_buff_head *list = &sk->sk_receive_queue;
-> +	int rmem, delta, amt, err = -ENOMEM;
-> +	struct udp_sock *up = udp_sk(sk);
-> +	int size = skb->truesize;
-> +
-> +	/* try to avoid the costly atomic add/sub pair when the receive
-> +	 * queue is full
-> +	 */
-> +	if (atomic_read(&sk->sk_rmem_alloc) + size > sk->sk_rcvbuf)
-> +		goto drop;
-> +
-> +	rmem = atomic_add_return(size, &sk->sk_rmem_alloc);
-> +	if (rmem > sk->sk_rcvbuf)
-> +		goto uncharge_drop;
+Cleaned up resource leaks during destroy resources by
+introducing more device states.
 
-This is dangerous : We used to accept one packet in receive queue, even
-if sk_rcvbuf is too small. (Check __sock_queue_rcv_skb())
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 33 ++++++++++++++++------
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |  6 +++-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   | 29 ++++++++++---------
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.c | 13 +++++----
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h |  8 ++++--
+ .../net/ethernet/cavium/liquidio/request_manager.c |  6 +++-
+ 6 files changed, 64 insertions(+), 31 deletions(-)
 
-With your code we might drop all packets even if receive queue is empty,
-this might add regressions for some apps.
-
-> +
-> +	spin_lock(&up->mem_lock);
-> +	if (size < sk->sk_forward_alloc)
-> +		goto unlock;
-
-Strange label name, since you do "sk->sk_forward_alloc -= size;"before
-unlock.
-
-You could avoid the goto by :
-
-	if (size >= sk->sk_forward_alloc) {
-             amt = sk_mem_pages(size);
-             ...
-        }
-        sk->sk_forward_alloc += delta;
-
-> +
-> +	amt = sk_mem_pages(size);
-> +	delta = amt << SK_MEM_QUANTUM_SHIFT;
-> +	if (!__sk_mem_raise_allocated(sk, delta, amt, SK_MEM_RECV)) {
-> +		err = -ENOBUFS;
-> +		spin_unlock(&up->mem_lock);
-> +		goto uncharge_drop;
-> +	}
-> +
-> +	sk->sk_forward_alloc += delta;
-> +
-> +unlock:
-> +	sk->sk_forward_alloc -= size;
-> +	spin_unlock(&up->mem_lock);
-> +
-> +	/* the skb owner in now the udp socket */
-> +	skb_orphan(skb);
-> +	skb->sk = sk;
-> +	skb->destructor = udp_rmem_free;
-
-> +
-> +	skb->dev = NULL;
-> +	sock_skb_set_dropcount(sk, skb);
-> +
-> +	spin_lock(&list->lock);
-
-Since we acquire this lock anyway to store the packet,
-why not protecting sk_forward_alloc as well with this spinlock,
-and get rid of up->mem_lock.
-
-Ideally a single spin_lock() should be enough.
-
-Then almost all other atomic ops could be transformed to non atomic ops.
-
-
-> +	__skb_queue_tail(list, skb);
-> +	spin_unlock(&list->lock);
-> +
-> +	if (!sock_flag(sk, SOCK_DEAD))
-> +		sk->sk_data_ready(sk);
-> +
-> +	return 0;
-> +
-> +uncharge_drop:
-> +	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
-> +
-> +drop:
-> +	atomic_inc(&sk->sk_drops);
-> +	return err;
-> +}
-> +EXPORT_SYMBOL_GPL(__udp_enqueue_schedule_skb);
-> +
-> +static void udp_destruct_sock(struct sock *sk)
-> +{
-> +	/* reclaim completely the forward allocated memory */
-> +	__skb_queue_purge(&sk->sk_receive_queue);
-> +	udp_rmem_release(sk, 0, 0);
-> +	inet_sock_destruct(sk);
-> +}
-> +
-> +int udp_init_sock(struct sock *sk)
-> +{
-> +	sk->sk_destruct = udp_destruct_sock;
-> +	spin_lock_init(&udp_sk(sk)->mem_lock);
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(udp_init_sock);
-> +
-> +void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
-> +{
-> +	if (unlikely(READ_ONCE(sk->sk_peek_off) >= 0)) {
-> +		bool slow = lock_sock_fast(sk);
-> +
-> +		sk_peek_offset_bwd(sk, len);
-> +		unlock_sock_fast(sk, slow);
-> +	}
-> +	consume_skb(skb);
-> +}
-> +EXPORT_SYMBOL_GPL(skb_consume_udp);
-> +
->  /**
->   *	first_packet_length	- return length of first packet in receive queue
->   *	@sk: socket
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 56faf1d..2fe1001 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -779,6 +779,7 @@ static void delete_glists(struct lio *lio)
+ 	}
+ 
+ 	kfree((void *)lio->glist);
++	kfree((void *)lio->glist_lock);
+ }
+ 
+ /**
+@@ -1338,6 +1339,7 @@ static int liquidio_watchdog(void *param)
+ 		complete(&first_stage);
+ 
+ 	if (octeon_device_init(oct_dev)) {
++		complete(&hs->init);
+ 		liquidio_remove(pdev);
+ 		return -ENOMEM;
+ 	}
+@@ -1362,7 +1364,15 @@ static int liquidio_watchdog(void *param)
+ 			oct_dev->watchdog_task = kthread_create(
+ 			    liquidio_watchdog, oct_dev,
+ 			    "liowd/%02hhx:%02hhx.%hhx", bus, device, function);
+-			wake_up_process(oct_dev->watchdog_task);
++			if (!IS_ERR(oct_dev->watchdog_task)) {
++				wake_up_process(oct_dev->watchdog_task);
++			} else {
++				oct_dev->watchdog_task = NULL;
++				dev_err(&oct_dev->pci_dev->dev,
++					"failed to create kernel_thread\n");
++				liquidio_remove(pdev);
++				return -1;
++			}
+ 		}
+ 	}
+ 
+@@ -1426,6 +1436,8 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 		if (lio_wait_for_oq_pkts(oct))
+ 			dev_err(&oct->pci_dev->dev, "OQ had pending packets\n");
+ 
++	/* fallthrough */
++	case OCT_DEV_INTR_SET_DONE:
+ 		/* Disable interrupts  */
+ 		oct->fn_list.disable_interrupt(oct, OCTEON_ALL_INTR);
+ 
+@@ -1452,6 +1464,8 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 				pci_disable_msi(oct->pci_dev);
+ 		}
+ 
++	/* fallthrough */
++	case OCT_DEV_MSIX_ALLOC_VECTOR_DONE:
+ 		if (OCTEON_CN23XX_PF(oct))
+ 			octeon_free_ioq_vector(oct);
+ 
+@@ -1515,10 +1529,13 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 		octeon_unmap_pci_barx(oct, 1);
+ 
+ 		/* fallthrough */
+-	case OCT_DEV_BEGIN_STATE:
++	case OCT_DEV_PCI_ENABLE_DONE:
++		pci_clear_master(oct->pci_dev);
+ 		/* Disable the device, releasing the PCI INT */
+ 		pci_disable_device(oct->pci_dev);
+ 
++		/* fallthrough */
++	case OCT_DEV_BEGIN_STATE:
+ 		/* Nothing to be done here either */
+ 		break;
+ 	}                       /* end switch (oct->status) */
+@@ -1793,6 +1810,7 @@ static int octeon_pci_os_setup(struct octeon_device *oct)
+ 
+ 	if (dma_set_mask_and_coherent(&oct->pci_dev->dev, DMA_BIT_MASK(64))) {
+ 		dev_err(&oct->pci_dev->dev, "Unexpected DMA device capability\n");
++		pci_disable_device(oct->pci_dev);
+ 		return 1;
+ 	}
+ 
+@@ -4447,6 +4465,8 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	if (octeon_pci_os_setup(octeon_dev))
+ 		return 1;
+ 
++	atomic_set(&octeon_dev->status, OCT_DEV_PCI_ENABLE_DONE);
++
+ 	/* Identify the Octeon type and map the BAR address space. */
+ 	if (octeon_chip_specific_setup(octeon_dev)) {
+ 		dev_err(&octeon_dev->pci_dev->dev, "Chip specific setup failed\n");
+@@ -4518,9 +4538,6 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	if (octeon_setup_instr_queues(octeon_dev)) {
+ 		dev_err(&octeon_dev->pci_dev->dev,
+ 			"instruction queue initialization failed\n");
+-		/* On error, release any previously allocated queues */
+-		for (j = 0; j < octeon_dev->num_iqs; j++)
+-			octeon_delete_instr_queue(octeon_dev, j);
+ 		return 1;
+ 	}
+ 	atomic_set(&octeon_dev->status, OCT_DEV_INSTR_QUEUE_INIT_DONE);
+@@ -4536,9 +4553,6 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 
+ 	if (octeon_setup_output_queues(octeon_dev)) {
+ 		dev_err(&octeon_dev->pci_dev->dev, "Output queue initialization failed\n");
+-		/* Release any previously allocated queues */
+-		for (j = 0; j < octeon_dev->num_oqs; j++)
+-			octeon_delete_droq(octeon_dev, j);
+ 		return 1;
+ 	}
+ 
+@@ -4555,6 +4569,7 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 			dev_err(&octeon_dev->pci_dev->dev, "OCTEON: ioq vector allocation failed\n");
+ 			return 1;
+ 		}
++		atomic_set(&octeon_dev->status, OCT_DEV_MSIX_ALLOC_VECTOR_DONE);
+ 
+ 	} else {
+ 		/* The input and output queue registers were setup earlier (the
+@@ -4582,6 +4597,8 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	/* Enable Octeon device interrupts */
+ 	octeon_dev->fn_list.enable_interrupt(octeon_dev, OCTEON_ALL_INTR);
+ 
++	atomic_set(&octeon_dev->status, OCT_DEV_INTR_SET_DONE);
++
+ 	/* Enable the input and output queues for this Octeon device */
+ 	ret = octeon_dev->fn_list.enable_io_queues(octeon_dev);
+ 	if (ret) {
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index 7f532fd..295e2ca 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -822,6 +822,7 @@ int octeon_setup_instr_queues(struct octeon_device *oct)
+ 	if (octeon_init_instr_queue(oct, txpciq, num_descs)) {
+ 		/* prevent memory leak */
+ 		vfree(oct->instr_queue[0]);
++		oct->instr_queue[0] = NULL;
+ 		return 1;
+ 	}
+ 
+@@ -854,8 +855,11 @@ int octeon_setup_output_queues(struct octeon_device *oct)
+ 	if (!oct->droq[0])
+ 		return 1;
+ 
+-	if (octeon_init_droq(oct, oq_no, num_descs, desc_size, NULL))
++	if (octeon_init_droq(oct, oq_no, num_descs, desc_size, NULL)) {
++		vfree(oct->droq[oq_no]);
++		oct->droq[oq_no] = NULL;
+ 		return 1;
++	}
+ 	oct->num_oqs++;
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 70a0d98..6c18baa 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -72,20 +72,23 @@ enum octeon_pci_swap_mode {
+  *  as it is initialized.
+  */
+ #define    OCT_DEV_BEGIN_STATE            0x0
+-#define    OCT_DEV_PCI_MAP_DONE           0x1
+-#define    OCT_DEV_DISPATCH_INIT_DONE     0x2
+-#define    OCT_DEV_INSTR_QUEUE_INIT_DONE  0x3
+-#define    OCT_DEV_SC_BUFF_POOL_INIT_DONE 0x4
+-#define    OCT_DEV_RESP_LIST_INIT_DONE    0x5
+-#define    OCT_DEV_DROQ_INIT_DONE         0x6
++#define    OCT_DEV_PCI_ENABLE_DONE        0x1
++#define    OCT_DEV_PCI_MAP_DONE           0x2
++#define    OCT_DEV_DISPATCH_INIT_DONE     0x3
++#define    OCT_DEV_INSTR_QUEUE_INIT_DONE  0x4
++#define    OCT_DEV_SC_BUFF_POOL_INIT_DONE 0x5
++#define    OCT_DEV_RESP_LIST_INIT_DONE    0x6
++#define    OCT_DEV_DROQ_INIT_DONE         0x7
+ #define    OCT_DEV_MBOX_SETUP_DONE        0x8
+-#define    OCT_DEV_IO_QUEUES_DONE         0x9
+-#define    OCT_DEV_CONSOLE_INIT_DONE      0xa
+-#define    OCT_DEV_HOST_OK                0xb
+-#define    OCT_DEV_CORE_OK                0xc
+-#define    OCT_DEV_RUNNING                0xd
+-#define    OCT_DEV_IN_RESET               0xe
+-#define    OCT_DEV_STATE_INVALID          0xf
++#define    OCT_DEV_MSIX_ALLOC_VECTOR_DONE 0x9
++#define    OCT_DEV_INTR_SET_DONE          0xa
++#define    OCT_DEV_IO_QUEUES_DONE         0xb
++#define    OCT_DEV_CONSOLE_INIT_DONE      0xc
++#define    OCT_DEV_HOST_OK                0xd
++#define    OCT_DEV_CORE_OK                0xe
++#define    OCT_DEV_RUNNING                0xf
++#define    OCT_DEV_IN_RESET               0x10
++#define    OCT_DEV_STATE_INVALID          0x11
+ 
+ #define    OCT_DEV_STATES                 OCT_DEV_STATE_INVALID
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
+index f60e532..886987f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
+@@ -988,7 +988,8 @@ int octeon_create_droq(struct octeon_device *oct,
+ 	if (!droq)
+ 		droq = vmalloc(sizeof(*droq));
+ 	if (!droq)
+-		goto create_droq_fail;
++		return -1;
++
+ 	memset(droq, 0, sizeof(struct octeon_droq));
+ 
+ 	/*Disable the pkt o/p for this Q  */
+@@ -996,7 +997,11 @@ int octeon_create_droq(struct octeon_device *oct,
+ 	oct->droq[q_no] = droq;
+ 
+ 	/* Initialize the Droq */
+-	octeon_init_droq(oct, q_no, num_descs, desc_size, app_ctx);
++	if (octeon_init_droq(oct, q_no, num_descs, desc_size, app_ctx)) {
++		vfree(oct->droq[q_no]);
++		oct->droq[q_no] = NULL;
++		return -1;
++	}
+ 
+ 	oct->num_oqs++;
+ 
+@@ -1009,8 +1014,4 @@ int octeon_create_droq(struct octeon_device *oct,
+ 	 * the same time.
+ 	 */
+ 	return 0;
+-
+-create_droq_fail:
+-	octeon_delete_droq(oct, q_no);
+-	return -ENOMEM;
+ }
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_main.h b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
+index 3cddf28..3afa61e 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_main.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
+@@ -116,7 +116,7 @@ static inline int octeon_map_pci_barx(struct octeon_device *oct,
+ 
+ 	mapped_len = oct->mmio[baridx].len;
+ 	if (!mapped_len)
+-		return 1;
++		goto err_release_region;
+ 
+ 	if (max_map_len && (mapped_len > max_map_len))
+ 		mapped_len = max_map_len;
+@@ -132,11 +132,15 @@ static inline int octeon_map_pci_barx(struct octeon_device *oct,
+ 	if (!oct->mmio[baridx].hw_addr) {
+ 		dev_err(&oct->pci_dev->dev, "error ioremap for bar %d\n",
+ 			baridx);
+-		return 1;
++		goto err_release_region;
+ 	}
+ 	oct->mmio[baridx].done = 1;
+ 
+ 	return 0;
++
++err_release_region:
++	pci_release_region(oct->pci_dev, baridx * 2);
++	return 1;
+ }
+ 
+ static inline void *
+diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+index 90866bb..a73560c 100644
+--- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+@@ -157,6 +157,8 @@ int octeon_init_instr_queue(struct octeon_device *oct,
+ 						     WQ_MEM_RECLAIM,
+ 						     0);
+ 	if (!oct->check_db_wq[iq_no].wq) {
++		vfree(iq->request_list);
++		iq->request_list = NULL;
+ 		lio_dma_free(oct, q_size, iq->base_addr, iq->base_addr_dma);
+ 		dev_err(&oct->pci_dev->dev, "check db wq create failed for iq %d\n",
+ 			iq_no);
+@@ -749,8 +751,10 @@ int octeon_setup_sc_buffer_pool(struct octeon_device *oct)
+ 			lio_dma_alloc(oct,
+ 				      SOFT_COMMAND_BUFFER_SIZE,
+ 					  (dma_addr_t *)&dma_addr);
+-		if (!sc)
++		if (!sc) {
++			octeon_free_sc_buffer_pool(oct);
+ 			return 1;
++		}
+ 
+ 		sc->dma_addr = dma_addr;
+ 		sc->size = SOFT_COMMAND_BUFFER_SIZE;
+-- 
+1.8.3.1
