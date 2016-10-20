@@ -1,49 +1,40 @@
-From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
-Subject: Re: [PATCH] net: l2tp_eth: fix max_mtu
-Date: Thu, 20 Oct 2016 21:19:29 +0000
-Message-ID: <1476998369.10048.1@x201s.roaming.asbjorn.biz>
-References: <20161020200826.24578-1-asbjorn@asbjorn.st>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net v2] ipv6: fix a potential deadlock in do_ipv6_setsockopt()
+Date: Thu, 20 Oct 2016 14:35:59 -0700
+Message-ID: <CAM_iQpUvU8dZPquAgtcZASO6jhjtoYQ2nc8EBceqZmSHg4ZSsQ@mail.gmail.com>
+References: <1476945312-15572-1-git-send-email-xiyou.wangcong@gmail.com> <1476971226.7065.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-/2Ytv3SIWkK+O8pVJQsL"
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Baozeng Ding <sploving1@gmail.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.asbjorn.biz ([185.38.24.25]:50114 "EHLO mail.asbjorn.biz"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752872AbcJTVby (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 17:31:54 -0400
-Cc: netdev@vger.kernel.org
-Cc: Jarod Wilson <jarod@redhat.com>
-Cc: R Parameswaran <parameswaran.r7@gmail.com>
-In-Reply-To: <20161020200826.24578-1-asbjorn@asbjorn.st>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:36266 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752385AbcJTVgU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 17:36:20 -0400
+Received: by mail-it0-f65.google.com with SMTP id 66so8116557itl.3
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 14:36:20 -0700 (PDT)
+In-Reply-To: <1476971226.7065.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-/2Ytv3SIWkK+O8pVJQsL
-Content-Type: text/plain; charset=UTF-8
+On Thu, Oct 20, 2016 at 6:47 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2016-10-19 at 23:35 -0700, Cong Wang wrote:
+>> Baozeng reported this deadlock case:
+>
+> ...
+>
+>> +
+>> +void ipv6_sock_mc_close(struct sock *sk)
+>> +{
+>> +     struct ipv6_pinfo *np = inet6_sk(sk);
+>> +
+>> +     if (!rcu_access_pointer(np->ipv6_mc_list))
+>> +             return;
+>
+> I wonder if rcu_dereference_protected(..., lockdep_sock_is_held(sk))
+> could be used instead, to get lockdep support ?
 
-On Thu, 20 Oct 2016 20:08:26 +0000 (UTC), ast@asbjorn.biz wrote:
-> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-> index 965f7e3..ba82dcc 100644
-> --- a/net/l2tp/l2tp_eth.c
-> +++ b/net/l2tp/l2tp_eth.c
-> @@ -259,6 +259,7 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
->  		session->mtu = dev->mtu - session->hdr_len;
->  	dev->mtu = session->mtu;
->  	dev->needed_headroom += session->hdr_len;
-> +	dev->max_mtu = ETH_MAX_MTU - dev->needed_headroom;
-
-I forgot to add that subtracting dev->needed_headroom doesn't
-give the exact maximum MTU, but one that is a bit too high.
-It could also just be set to ETH_MAX_MTU, to indicate that
-the encapsulation is not included.
-
-Calculations like in R. Parameswaran's patch is needed for the
-exact one.
-https://lkml.org/lkml/2016/10/17/3
-
--- 
-Best regards
-Asbjørn Sloth Tønnesen
-
---=-/2Ytv3SIWkK+O8pVJQsL--
+Maybe, but this "problem" exists without my patch too, right?
