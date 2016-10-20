@@ -1,110 +1,49 @@
-From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-Subject: RE: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF support
-Date: Thu, 20 Oct 2016 21:15:24 +0000
-Message-ID: <DM3PR07MB21384EF280334F587ACE0C8781D50@DM3PR07MB2138.namprd07.prod.outlook.com>
-References: <1476942046-18789-2-git-send-email-rvatsavayi@caviumnetworks.com>
-        <20161020.141304.286994718471308700.davem@davemloft.net>
-        <DM3PR07MB21387F2B6D44558DBC36649881D50@DM3PR07MB2138.namprd07.prod.outlook.com>
- <20161020.165720.1537348879596195765.davem@davemloft.net>
+From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+Subject: Re: [PATCH] net: l2tp_eth: fix max_mtu
+Date: Thu, 20 Oct 2016 21:19:29 +0000
+Message-ID: <1476998369.10048.1@x201s.roaming.asbjorn.biz>
+References: <20161020200826.24578-1-asbjorn@asbjorn.st>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="=-/2Ytv3SIWkK+O8pVJQsL"
+Cc: linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0046.outbound.protection.outlook.com ([104.47.33.46]:32717
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753607AbcJTVbP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 17:31:15 -0400
-In-Reply-To: <20161020.165720.1537348879596195765.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail.asbjorn.biz ([185.38.24.25]:50114 "EHLO mail.asbjorn.biz"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752872AbcJTVby (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 17:31:54 -0400
+Cc: netdev@vger.kernel.org
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: R Parameswaran <parameswaran.r7@gmail.com>
+In-Reply-To: <20161020200826.24578-1-asbjorn@asbjorn.st>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--=-/2Ytv3SIWkK+O8pVJQsL
+Content-Type: text/plain; charset=UTF-8
 
+On Thu, 20 Oct 2016 20:08:26 +0000 (UTC), ast@asbjorn.biz wrote:
+> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+> index 965f7e3..ba82dcc 100644
+> --- a/net/l2tp/l2tp_eth.c
+> +++ b/net/l2tp/l2tp_eth.c
+> @@ -259,6 +259,7 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
+>  		session->mtu = dev->mtu - session->hdr_len;
+>  	dev->mtu = session->mtu;
+>  	dev->needed_headroom += session->hdr_len;
+> +	dev->max_mtu = ETH_MAX_MTU - dev->needed_headroom;
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, October 20, 2016 1:57 PM
-> To: Vatsavayi, Raghu
-> Cc: netdev@vger.kernel.org; Chickles, Derek; Burla, Satananda; Manlunas,
-> Felix
-> Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF
-> support
->=20
-> From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-> Date: Thu, 20 Oct 2016 20:01:37 +0000
->=20
-> >
-> >
-> >> -----Original Message-----
-> >> From: David Miller [mailto:davem@davemloft.net]
-> >> Sent: Thursday, October 20, 2016 11:13 AM
-> >> To: Vatsavayi, Raghu
-> >> Cc: netdev@vger.kernel.org; Vatsavayi, Raghu; Chickles, Derek; Burla,
-> >> Satananda; Manlunas, Felix
-> >> Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for
-> >> VF support
-> >>
-> >> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-> >> Date: Wed, 19 Oct 2016 22:40:38 -0700
-> >>
-> >> > +/* Default behaviour of Liquidio is to provide one queue per VF.
-> >> > +But Liquidio
-> >> > + * can also provide multiple queues to each VF. If user wants to
-> >> > +change the
-> >> > + * default behaviour HW should be provided configuration info at
-> >> > +init time,
-> >> > + * based on which it will create control queues for communicating
-> >> > +with
-> >> FW.
-> >> > + */
-> >> > +static u32 max_vfs[2] =3D { 0, 0 };
-> >> > +module_param_array(max_vfs, int, NULL, 0444);
-> >> > +MODULE_PARM_DESC(max_vfs, "Assign two comma-separated
-> unsigned
-> >> > +integers that specify max number of VFs for PF0 (left of the
-> >> > +comma) and PF1 (right of the comma); for 23xx only. By default HW
-> >> > +will configure as many VFs as queues after allocating PF queues.To
-> >> > +increase queues for VF use this parameter. Use sysfs to create
-> >> > +these VFs.");
-> >> > +
-> >> > +static unsigned int num_queues_per_pf[2] =3D { 0, 0 };
-> >> > +module_param_array(num_queues_per_pf, uint, NULL, 0444);
-> >> > +MODULE_PARM_DESC(num_queues_per_pf, "two comma-separated
-> >> unsigned
-> >> > +integers that specify number of queues per PF0 (left of the comma)
-> >> > +and PF1 (right of the comma); for 23xx only");
-> >> > +
-> >> >  static int ptp_enable =3D 1;
-> >>
-> >> We cannot continue to allow drivers to add custom module parameters
-> >> to control this.  It is the worst user experience possible.
-> >>
-> >> We need a tree-wide generic, consistent, manner in which to configure
-> >> and control this kind of thing.
-> >
-> > Sure Dave, I will remove max_vfs module parameter and will use tree
-> > wide generic sysfs interface to enable VFs.
->=20
-> That's not what I meant.
->=20
-> I mean there needs to be a generic mechanism that isn't a per-device knob
-> (be it a module parameter or a sysctl, to me these are identical function=
-ality
-> and user experience wise).
->=20
-> Something like ethtool or netlink.
+I forgot to add that subtracting dev->needed_headroom doesn't
+give the exact maximum MTU, but one that is a bit too high.
+It could also just be set to ETH_MAX_MTU, to indicate that
+the encapsulation is not included.
 
-Dave, I will remove max_vfs module parameter and will just use the generic =
-mechanism that=20
-all drivers do like:
+Calculations like in R. Parameswaran's patch is needed for the
+exact one.
+https://lkml.org/lkml/2016/10/17/3
 
-" echo 10 > /sys/devices/pci0000:00/0000:00:03.0/0000:03:00.1/sriov_numvfs"
+-- 
+Best regards
+Asbjørn Sloth Tønnesen
 
-Regards
-Raghu.
+--=-/2Ytv3SIWkK+O8pVJQsL--
