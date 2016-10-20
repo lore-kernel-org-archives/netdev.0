@@ -1,41 +1,85 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] myri10ge: fix typo in parameter description
-Date: Thu, 20 Oct 2016 17:01:56 +0000
-Message-ID: <1476982916-28139-1-git-send-email-weiyj.lk@gmail.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH 1/4] kconfig: introduce the "imply" keyword
+Date: Thu, 20 Oct 2016 13:04:08 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1610201245230.25105@knanqh.ubzr>
+References: <1476920573-14384-1-git-send-email-nicolas.pitre@linaro.org> <1476920573-14384-2-git-send-email-nicolas.pitre@linaro.org> <44f95579-6c35-7592-08e3-d8dbb13026b2@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Hyong-Youb Kim <hykim@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32839 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753663AbcJTRCE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 13:02:04 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i85so6082391pfa.0
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 10:02:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: John Stultz <john.stultz@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Yann E MORIN <yann.morin.1998@free.fr>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <44f95579-6c35-7592-08e3-d8dbb13026b2@solarflare.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+On Thu, 20 Oct 2016, Edward Cree wrote:
 
-Fix typo in parameter description.
+> On 20/10/16 00:42, Nicolas Pitre wrote:
+> > diff --git a/Documentation/kbuild/kconfig-language.txt b/Documentation/kbuild/kconfig-language.txt
+> > index 069fcb3eef..c96127f648 100644
+> > --- a/Documentation/kbuild/kconfig-language.txt
+> > +++ b/Documentation/kbuild/kconfig-language.txt
+> > @@ -113,6 +113,33 @@ applicable everywhere (see syntax).
+> >       That will limit the usefulness but on the other hand avoid
+> >       the illegal configurations all over.
+> >
+> > +- weak reverse dependencies: "imply" <symbol> ["if" <expr>]
+> > +  This is similar to "select" as it enforces a lower limit on another
+> > +  symbol except that the "implied" config symbol's value may still be
+> > +  set to n from a direct dependency or with a visible prompt.
+> > +  Given the following example:
+> > +
+> > +  config FOO
+> > +     tristate
+> > +     imply BAZ
+> > +
+> > +  config BAZ
+> > +     tristate
+> > +     depends on BAr
+> > +
+> > +  The following values are possible:
+> > +
+> > +     FOO             BAR             BAR's default   choice for BAZ
+> Should the third column not be "BAZ's default"?
 
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Indeed.  Good catch.
 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 5ae3f17..e506ca8 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -289,7 +289,7 @@ static char *myri10ge_fw_names[MYRI10GE_MAX_BOARDS] =
-     {[0 ... (MYRI10GE_MAX_BOARDS - 1)] = NULL };
- module_param_array_named(myri10ge_fw_names, myri10ge_fw_names, charp, NULL,
- 			 0444);
--MODULE_PARM_DESC(myri10ge_fw_name, "Firmware image names per board");
-+MODULE_PARM_DESC(myri10ge_fw_names, "Firmware image names per board");
- 
- static int myri10ge_ecrc_enable = 1;
- module_param(myri10ge_ecrc_enable, int, S_IRUGO);
+> > +     --------------- --------------- --------------- --------------
+> > +     n               y               n               N/m/y
+> > +     m               y               m               M/y/n
+> > +     y               y               y               Y/n
+> > +     y               n               *               N
+> Also, I don't think having any FOO=y should preclude BAZ=m.  Suppose both
+> FOO and FOO2 imply BAZ, FOO=y and FOO2=m.
+
+Some people didn't like the fact that you could turn a driver from m to 
+y and silently lose some features if they were provided by a subsystem 
+that also used to be m, which arguably is not the same as being 
+explicitly disabled.  With "select" this is not a problem as the target 
+symbol is also promoted to y in that case, so I wanted to preserve that 
+property.
+
+> Then if BAZ-features are only
+> desired for driver FOO2, BAz=m makes sense.
+
+In that case it would make more sense to add a config option related to 
+FOO asking if BAZ features are desired for that driver (there is already 
+one occurrence of that with PTP).  Or you could simply drop the "imply" 
+statement from the FOO config entry.
+
+> There is also the case of drivers with the ability to detect at runtime
+> whether BAZ is present, rather than making the decision at build time, but
+> I'm not sure how common that is.
+
+Right now that's how PTP support is done.  Drivers can optimize things 
+at build time, but most of them simply cope with a NULL return from 
+ptp_clock_register().  Hence the imply statement becomes a big 
+configuration hint rather than some hard build dependency.
+
+
+Nicolas
