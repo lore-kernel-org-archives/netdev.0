@@ -1,98 +1,101 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
-Date: Thu, 20 Oct 2016 13:46:25 +0100
-Message-ID: <1476967585.2709.52.camel@decadent.org.uk>
-References: <20161019021654.GD2773@decadent.org.uk>
-         <6a69780d-0797-b5af-fc90-04960bbb21c6@gmail.com>
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: Need help with mdiobus_register and phy
+Date: Thu, 20 Oct 2016 14:55:17 +0200
+Message-ID: <bff7ab7f-93e4-8d78-ac73-e97d1832d155@neratec.com>
+References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
+ <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
+ <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
+ <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
+ <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
+ <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
+ <58027540.6080604@codeaurora.org>
+ <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
+ <58053A33.4030108@codeaurora.org>
+ <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
+ <58061831.6080005@codeaurora.org>
+ <dfff1abf-f506-bffa-8e09-edeebd753be5@neratec.com>
+ <58076403.3060608@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-RJeYYi5O1FBvVIh1MTfo"
-Cc: netdev@vger.kernel.org, Qian Zhang <zhangqian-c@360.cn>,
-        Eric Dumazet <edumazet@google.com>
-To: Ying Xue <ying.xue0@gmail.com>, Jon Maloy <jon.maloy@ericsson.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Timur Tabi <timur@codeaurora.org>, Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:41467 "EHLO
-        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932939AbcJTMqf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 08:46:35 -0400
-In-Reply-To: <6a69780d-0797-b5af-fc90-04960bbb21c6@gmail.com>
+Received: from mail.neratec.com ([46.140.151.2]:19655 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932345AbcJTMzV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 08:55:21 -0400
+In-Reply-To: <58076403.3060608@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10/19/2016 02:16 PM, Timur Tabi wrote:
+> Zefir Kurtisi wrote:
+>> Ok then, if you can wait some days, I'll prepare and provide you a more detailed
+>> failure report to allow you testing if the issue happens with other NICs.
+> 
+> That sounds great.
+> 
 
---=-RJeYYi5O1FBvVIh1MTfo
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I am now able again to reproduce the issue reliably, let's see if it is helpful
+enough to check if this a problem unique to our setup.
 
-On Thu, 2016-10-20 at 17:30 +0800, Ying Xue wrote:
-> On 10/19/2016 10:16 AM, Ben Hutchings wrote:
-> > Qian Zhang (=E5=BC=A0=E8=B0=A6) reported a potential socket buffer over=
-flow in
-> > tipc_msg_build().=C2=A0=C2=A0The minimum fragment length needs to be ch=
-ecked
-> > against the maximum packet size, which is based on the link MTU.
-[...]
-> > =C2=A0
-> > --- a/net/tipc/msg.c
-> > +++ b/net/tipc/msg.c
-> > @@ -274,6 +274,10 @@ int tipc_msg_build(struct tipc_msg *mhdr, struct m=
-sghdr *m,
-> > > > =C2=A0		goto error;
-> > > > =C2=A0	}
-> > =C2=A0
-> > > > +	/* Check that fragment and message header will fit */
-> > > > +	if (INT_H_SIZE + mhsz > pktmax)
-> > +		return -EMSGSIZE;
->=20
->=20
-> The "mhsz" represents the size of tipc packet header for current socket,
-> INT_H_SIZE indicates the size of tipc internal message header. So it
-> seems unreasonable to identify whether the sum of both header sizes is
-> bigger than MTU size. In my opinion, it's better to use MAX_H_SIZE to
-> compare it with pktmax. If MAX_H_SIZE is bigger than pktmax, we should
-> return EMSGSIZE error code.
+As described earlier, the HW is as follows:
+(copper)--[at8031]--(SGMII)--[eTSEC/mpc85xx]
 
-At this point we're about to copy INT_H_SIZE + mhsz bytes into the
-first fragment. =C2=A0If that's already limited to be less than or equal to
-MAX_H_SIZE, comparing with MAX_H_SIZE would be fine. =C2=A0But if MAX_H_SIZ=
-E
-is the maximum value of mhsz, that won't be good enough.
-
-Ben.
-
-> > +
-> > > > =C2=A0	/* Prepare reusable fragment header */
-> > > > =C2=A0	tipc_msg_init(msg_prevnode(mhdr), &pkthdr, MSG_FRAGMENTER,
-> > > > =C2=A0		=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0FIRST_FRAGMENT, INT_H_S=
-IZE, msg_destnode(mhdr));
-> >=20
->=20
->=20
->=20
---=20
-Ben Hutchings
-Never put off till tomorrow what you can avoid all together.
+We are using OpenWRT/LEDE as SW platform, therefore I can't do the tests on the
+latest kernel but provide a reference to inspect the problem. The kernel used is
+4.4.21 with the relevant drivers (ath803x and gianfar_driver) being either clean
+or patched with OWRT/LEDE modifications (issue happens in either case).
 
 
---=-RJeYYi5O1FBvVIh1MTfo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+The process for detecting the failure is rather trivial: continuously put the
+Ethernet interface down and up and try to get some data through until it fails.
+The script I used to run on the device (over serial) is:
+#----------------------------------------------------------
+HOST=192.168.1.100
+TIMEOUT=20
 
------BEGIN PGP SIGNATURE-----
+while true; do
+	ifconfig eth0 down
+	ifconfig eth0 up
 
-iQIcBAABCgAGBQJYCLyhAAoJEOe/yOyVhhEJbDUP+gM9Fpd+T1y2hgLLXamyJx4s
-6GvTH+RRy+Ne+Rwrnx9UEhGHM0s/3ghCze+TWymkoEv5a5vmKNNky8LV7K1WaCJo
-Ds1R7IvSrBuDYJjd15zF3H5zwU/yVkd+HhtRScC0wQJnusqSe26YSe7vUWgnD/id
-lduNAv59iqiv1m5/8GtFj/W5ldLnOpxU7bVmL0RgkVFwCApkKT7epeWbfu8Xt1gv
-IFqu54TCbwlF35u4TF9++2NE4LPI44BRbFTRVQMW1YahU3hsHZ37dufOFAjQk3Ay
-/78Gy26cMEEAubmYQQpHKNjryOBnaH5PrWUHMk8TMX2pU44QsxG1SGtS5rYmg8/m
-7r5KqZWc4jBPwiEvEDABQ18IC3LS1F9iUr+wn/rPejaX2AALvcGjVCpFg2NU/ex4
-wfZmx5A6d4voS8rv8BuLAjL5Lq2MuMkBt8LE+RJDJpbODDkYUj4/WPxL0NYX6TWs
-g9tLOwejV3/0Dth87ZnmBhbA1uBi3od8c2uc42vDRXMZ02EajSeXxxA89K7fFZ+y
-KS5BRF8W82TMk5OcQ1JDN6oLbvaDjhhNxnuZoVWNedovY3Rb4pPKaionCvWMDm+q
-JuXqXsB2qSQuAPXsuLnKcUE2QZAze5IX/+6gp4k9RGFpPCZ3e1ZYHyx5mp/veRNd
-V3Q2EFdjK+Ycp+iWjGe7
-=Q813
------END PGP SIGNATURE-----
+        ping $HOST -c 1 -w $TIMEOUT || {
+                echo "Ping failed after $TIMEOUT seconds"
+                exit 1
+        }
+done
+#----------------------------------------------------------
+In my setup, it takes less than 5 minutes for the script to exit. Once running
+into this state, the relevant registers read from at803x are as follows:
+* copper status              (0x01): 0x796d
+* fiber  status              (0x01): 0x6149
+* copper phy specific status (0x11): 0xbc10
+* fiber  phy specific status (0x11): 0x8100
+* copper/fiber status        (0x1b): 0x020e
 
---=-RJeYYi5O1FBvVIh1MTfo--
+In essence
+* the copper link is up with autonegotiation completed
+  (switch/peer link indication is also up), but
+* the SGMII link is down
+  (bits LINK and MR_AN_COMPLETE in PHY specific status fiber cleared)
+* although SGMII is synchronized (SYNC_STATUS bit in same register set)
+
+The SGMII link does not recover from this state thereafter, the only reliable way
+to get it up again I found is to do a power down/up cycle at the fiber/SGMII side,
+which is what the patch I contributed does.
+
+
+Now the interesting (and new for me) part is: if I remove the at803x driver from
+the system and use the generic phy instead, the problem does not happen (or at
+least not while running for one full day). I don't see any significant differences
+between what at803x does above genphy (gpio based HW reset is not run for 8031 in
+at803x_link_change_notify()). Using the genphy is not an option for us, since we
+have the PHY also attached to fiber and need dedicated handling.
+
+
+Hope this helps for the beginning, let me know if you need more information.
+
+
+Cheers,
+Zefir
