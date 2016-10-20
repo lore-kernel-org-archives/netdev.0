@@ -1,66 +1,343 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: drop check for clk==NULL before calling clk_*
-Date: Thu, 20 Oct 2016 08:56:40 +0000
-Message-ID: <AM4PR0401MB22600D9DE5CE2326E18CB4A3FFD50@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20161020082827.598-1-u.kleine-koenig@pengutronix.de>
+From: "Rangankar, Manish" <Manish.Rangankar@cavium.com>
+Subject: Re: [RFC 3/6] qedi: Add QLogic FastLinQ offload iSCSI driver
+ framework.
+Date: Thu, 20 Oct 2016 08:27:50 +0000
+Message-ID: <D42E7773.340BC%manish.rangankar@cavium.com>
+References: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
+ <1476853273-22960-4-git-send-email-manish.rangankar@cavium.com>
+ <50c821e3-28dc-78b1-8fa4-527a138f1709@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kernel@pengutronix.de" <kernel@pengutronix.de>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?utf-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
-        <u.kleine-koenig@pengutronix.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "martin.petersen@oracle.com" <martin.petersen@oracle.com>,
+        "jejb@linux.vnet.ibm.com" <jejb@linux.vnet.ibm.com>,
+        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
+        Dept-Eng QLogic Storage Upstream
+        <QLogic-Storage-Upstream@cavium.com>,
+        "Javali, Nilesh" <Nilesh.Javali@cavium.com>,
+        Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>,
+        "Dupuis, Chad" <Chad.Dupuis@cavium.com>,
+        "Kashyap, Saurav" <Saurav.Kashyap@cavium.com>,
+        "Easi, Arun" <Arun.Easi@cavium.com>
+To: Hannes Reinecke <hare@suse.de>,
+        "lduncan@suse.com" <lduncan@suse.com>,
+        "cleech@redhat.com" <cleech@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0063.outbound.protection.outlook.com ([104.47.2.63]:44704
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0073.outbound.protection.outlook.com ([104.47.41.73]:27040
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S935395AbcJTI4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 04:56:49 -0400
-In-Reply-To: <20161020082827.598-1-u.kleine-koenig@pengutronix.de>
+        id S1751012AbcJTJB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 05:01:27 -0400
+In-Reply-To: <50c821e3-28dc-78b1-8fa4-527a138f1709@suse.de>
 Content-Language: en-US
+Content-ID: <E4FC2B2A79FA6843945A3DAE27067CF1@namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVXdlIEtsZWluZS1Lw7ZuaWcgPHUua2xlaW5lLWtvZW5pZ0BwZW5ndXRyb25peC5kZT4g
-U2VudDogVGh1cnNkYXksIE9jdG9iZXIgMjAsIDIwMTYgNDoyOCBQTQ0KPiBUbzogQW5keSBEdWFu
-IDxmdWdhbmcuZHVhbkBueHAuY29tPg0KPiBDYzoga2VybmVsQHBlbmd1dHJvbml4LmRlOyBuZXRk
-ZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSF0gbmV0OiBmZWM6IGRyb3AgY2hl
-Y2sgZm9yIGNsaz09TlVMTCBiZWZvcmUgY2FsbGluZyBjbGtfKg0KPiANCj4gY2xrX3ByZXBhcmUs
-IGNsa19lbmFibGUgYW5kIHRoZWlyIGNvdW50ZXJwYXJ0cyAoYXQgbGVhc3QgdGhlIGNvbW1vbiBj
-bGsNCj4gb25lcywgYnV0IGFsc28gbW9zdCBvdGhlcnMpIGRvIGNoZWNrIGZvciB0aGUgY2xrIGJl
-aW5nIE5VTEwgYW55aG93IChhbmQNCj4gcmV0dXJuIDAgdGhlbiksIHNvIHRoZXJlIGlzIG5vIGdh
-aW4gd2hlbiB0aGUgY2FsbGVyIGNoZWNrcywgdG9vLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogVXdl
-IEtsZWluZS1Lw7ZuaWcgPHUua2xlaW5lLWtvZW5pZ0BwZW5ndXRyb25peC5kZT4NCj4gLS0tDQoN
-CkFja2VkLWJ5OiBGdWdhbmcgRHVhbiA8ZnVnYW5nLmR1YW5AbnhwLmNvbT4NCg0KPiAgZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMgfCAyNSArKysrKysrKysrKy0tLS0t
-LS0tLS0tLS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMTQgZGVsZXRp
-b25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
-L2ZlY19tYWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4u
-Yw0KPiBpbmRleCA0OGEwMzNlNjQ0MjMuLjE3MjJjY2FjMThjMiAxMDA2NDQNCj4gLS0tIGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gKysrIGIvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4gQEAgLTE4NDEsMTEgKzE4NDEsMTEg
-QEAgc3RhdGljIGludCBmZWNfZW5ldF9jbGtfZW5hYmxlKHN0cnVjdCBuZXRfZGV2aWNlDQo+ICpu
-ZGV2LCBib29sIGVuYWJsZSkNCj4gIAkJcmV0ID0gY2xrX3ByZXBhcmVfZW5hYmxlKGZlcC0+Y2xr
-X2FoYik7DQo+ICAJCWlmIChyZXQpDQo+ICAJCQlyZXR1cm4gcmV0Ow0KPiAtCQlpZiAoZmVwLT5j
-bGtfZW5ldF9vdXQpIHsNCj4gLQkJCXJldCA9IGNsa19wcmVwYXJlX2VuYWJsZShmZXAtPmNsa19l
-bmV0X291dCk7DQo+IC0JCQlpZiAocmV0KQ0KPiAtCQkJCWdvdG8gZmFpbGVkX2Nsa19lbmV0X291
-dDsNCj4gLQkJfQ0KPiArDQo+ICsJCXJldCA9IGNsa19wcmVwYXJlX2VuYWJsZShmZXAtPmNsa19l
-bmV0X291dCk7DQo+ICsJCWlmIChyZXQpDQo+ICsJCQlnb3RvIGZhaWxlZF9jbGtfZW5ldF9vdXQ7
-DQo+ICsNCj4gIAkJaWYgKGZlcC0+Y2xrX3B0cCkgew0KPiAgCQkJbXV0ZXhfbG9jaygmZmVwLT5w
-dHBfY2xrX211dGV4KTsNCj4gIAkJCXJldCA9IGNsa19wcmVwYXJlX2VuYWJsZShmZXAtPmNsa19w
-dHApOyBAQCAtDQo+IDE4NTcsMjMgKzE4NTcsMjAgQEAgc3RhdGljIGludCBmZWNfZW5ldF9jbGtf
-ZW5hYmxlKHN0cnVjdCBuZXRfZGV2aWNlDQo+ICpuZGV2LCBib29sIGVuYWJsZSkNCj4gIAkJCX0N
-Cj4gIAkJCW11dGV4X3VubG9jaygmZmVwLT5wdHBfY2xrX211dGV4KTsNCj4gIAkJfQ0KPiAtCQlp
-ZiAoZmVwLT5jbGtfcmVmKSB7DQo+IC0JCQlyZXQgPSBjbGtfcHJlcGFyZV9lbmFibGUoZmVwLT5j
-bGtfcmVmKTsNCj4gLQkJCWlmIChyZXQpDQo+IC0JCQkJZ290byBmYWlsZWRfY2xrX3JlZjsNCj4g
-LQkJfQ0KPiArDQo+ICsJCXJldCA9IGNsa19wcmVwYXJlX2VuYWJsZShmZXAtPmNsa19yZWYpOw0K
-PiArCQlpZiAocmV0KQ0KPiArCQkJZ290byBmYWlsZWRfY2xrX3JlZjsNCj4gIAl9IGVsc2Ugew0K
-PiAgCQljbGtfZGlzYWJsZV91bnByZXBhcmUoZmVwLT5jbGtfYWhiKTsNCj4gLQkJaWYgKGZlcC0+
-Y2xrX2VuZXRfb3V0KQ0KPiAtCQkJY2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2VuZXRf
-b3V0KTsNCj4gKwkJY2xrX2Rpc2FibGVfdW5wcmVwYXJlKGZlcC0+Y2xrX2VuZXRfb3V0KTsNCj4g
-IAkJaWYgKGZlcC0+Y2xrX3B0cCkgew0KPiAgCQkJbXV0ZXhfbG9jaygmZmVwLT5wdHBfY2xrX211
-dGV4KTsNCj4gIAkJCWNsa19kaXNhYmxlX3VucHJlcGFyZShmZXAtPmNsa19wdHApOw0KPiAgCQkJ
-ZmVwLT5wdHBfY2xrX29uID0gZmFsc2U7DQo+ICAJCQltdXRleF91bmxvY2soJmZlcC0+cHRwX2Ns
-a19tdXRleCk7DQo+ICAJCX0NCj4gLQkJaWYgKGZlcC0+Y2xrX3JlZikNCj4gLQkJCWNsa19kaXNh
-YmxlX3VucHJlcGFyZShmZXAtPmNsa19yZWYpOw0KPiArCQljbGtfZGlzYWJsZV91bnByZXBhcmUo
-ZmVwLT5jbGtfcmVmKTsNCj4gIAl9DQo+IA0KPiAgCXJldHVybiAwOw0KPiAtLQ0KPiAyLjkuMw0K
+Thanks Hannes for the review, please see my comments below,
+
+On 19/10/16 1:15 PM, "Hannes Reinecke" <hare@suse.de> wrote:
+
+>On 10/19/2016 07:01 AM, manish.rangankar@cavium.com wrote:
+>> From: Manish Rangankar <manish.rangankar@cavium.com>
+>>=20
+>> The QLogic FastLinQ Driver for iSCSI (qedi) is the iSCSI specific module
+>> for 41000 Series Converged Network Adapters by QLogic.
+>>=20
+>> This patch consists of following changes:
+>>   - MAINTAINERS Makefile and Kconfig changes for qedi,
+>>   - PCI driver registration,
+>>   - iSCSI host level initialization,
+>>   - Debugfs and log level infrastructure.
+>>=20
+>> Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
+>> Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
+>> Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
+>> Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
+>> Signed-off-by: Arun Easi <arun.easi@cavium.com>
+>> Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
+>> ---
+>>  MAINTAINERS                         |    6 +
+>>  drivers/net/ethernet/qlogic/Kconfig |   12 -
+>>  drivers/scsi/Kconfig                |    1 +
+>>  drivers/scsi/Makefile               |    1 +
+>>  drivers/scsi/qedi/Kconfig           |   10 +
+>>  drivers/scsi/qedi/Makefile          |    5 +
+>>  drivers/scsi/qedi/qedi.h            |  286 +++++++
+>>  drivers/scsi/qedi/qedi_dbg.c        |  143 ++++
+>>  drivers/scsi/qedi/qedi_dbg.h        |  144 ++++
+>>  drivers/scsi/qedi/qedi_debugfs.c    |  244 ++++++
+>>  drivers/scsi/qedi/qedi_hsi.h        |   52 ++
+>>  drivers/scsi/qedi/qedi_main.c       | 1550
+>>+++++++++++++++++++++++++++++++++++
+>>  drivers/scsi/qedi/qedi_sysfs.c      |   52 ++
+>>  drivers/scsi/qedi/qedi_version.h    |   14 +
+>>  14 files changed, 2508 insertions(+), 12 deletions(-)
+>>  create mode 100644 drivers/scsi/qedi/Kconfig
+>>  create mode 100644 drivers/scsi/qedi/Makefile
+>>  create mode 100644 drivers/scsi/qedi/qedi.h
+>>  create mode 100644 drivers/scsi/qedi/qedi_dbg.c
+>>  create mode 100644 drivers/scsi/qedi/qedi_dbg.h
+>>  create mode 100644 drivers/scsi/qedi/qedi_debugfs.c
+>>  create mode 100644 drivers/scsi/qedi/qedi_hsi.h
+>>  create mode 100644 drivers/scsi/qedi/qedi_main.c
+>>  create mode 100644 drivers/scsi/qedi/qedi_sysfs.c
+>>  create mode 100644 drivers/scsi/qedi/qedi_version.h
+>>=20
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> index 5e925a2..906d05f 100644
+>> --- a/MAINTAINERS
+>> +++ b/MAINTAINERS
+>> @@ -9909,6 +9909,12 @@ F:	drivers/net/ethernet/qlogic/qed/
+>>  F:	include/linux/qed/
+>>  F:	drivers/net/ethernet/qlogic/qede/
+>> =20
+>> +QLOGIC QL41xxx ISCSI DRIVER
+>> +M:	QLogic-Storage-Upstream@cavium.com
+>> +L:	linux-scsi@vger.kernel.org
+>> +S:	Supported
+>> +F:	drivers/scsi/qedi/
+>> +
+>>  QNX4 FILESYSTEM
+>>  M:	Anders Larsen <al@alarsen.net>
+>>  W:	http://www.alarsen.net/linux/qnx4fs/
+>> diff --git a/drivers/net/ethernet/qlogic/Kconfig
+>>b/drivers/net/ethernet/qlogic/Kconfig
+>> index bad4fae..28b4366 100644
+>> --- a/drivers/net/ethernet/qlogic/Kconfig
+>> +++ b/drivers/net/ethernet/qlogic/Kconfig
+>> @@ -121,16 +121,4 @@ config INFINIBAND_QEDR
+>>  config QED_ISCSI
+>>  	bool
+>> =20
+>> -config QEDI
+>> -	tristate "QLogic QED 25/40/100Gb iSCSI driver"
+>> -	depends on QED
+>> -	select QED_LL2
+>> -	select QED_ISCSI
+>> -	default n
+>> -	---help---
+>> -	  This provides a temporary node that allows the compilation
+>> -	  and logical testing of the hardware offload iSCSI support
+>> -	  for QLogic QED. This would be replaced by the 'real' option
+>> -	  once the QEDI driver is added [+relocated].
+>> -
+>>  endif # NET_VENDOR_QLOGIC
+>Huh? You just introduce this one in patch 1/6.
+>Please fold them together so that this can be omitted.
+
+Yes, we will remove this in the next revision.
+
+-- snipped --
+
+
+>> @@ -0,0 +1,52 @@
+>> +/*
+>> + * QLogic iSCSI Offload Driver
+>> + * Copyright (c) 2016 Cavium Inc.
+>> + *
+>> + * This software is available under the terms of the GNU General
+>>Public License
+>> + * (GPL) Version 2, available from the file COPYING in the main
+>>directory of
+>> + * this source tree.
+>> + */
+>> +#ifndef __QEDI_HSI__
+>> +#define __QEDI_HSI__
+>> +/********************************/
+>> +/* Add include to common target */
+>> +/********************************/
+>> +#include <linux/qed/common_hsi.h>
+>> +
+>Please use kernel-doc style for comments
+
+Will do.
+
+--snipped--
+>> +static void qedi_int_fp(struct qedi_ctx *qedi)
+>> +{
+>> +	struct qedi_fastpath *fp;
+>> +	int id;
+>> +
+>> +	memset((void *)qedi->fp_array, 0, MIN_NUM_CPUS_MSIX(qedi) *
+>> +	       sizeof(*qedi->fp_array));
+>> +	memset((void *)qedi->sb_array, 0, MIN_NUM_CPUS_MSIX(qedi) *
+>> +	       sizeof(*qedi->sb_array));
+>> +
+>> +	for (id =3D 0; id < MIN_NUM_CPUS_MSIX(qedi); id++) {
+>> +		fp =3D &qedi->fp_array[id];
+>> +		fp->sb_info =3D &qedi->sb_array[id];
+>> +		fp->sb_id =3D id;
+>> +		fp->qedi =3D qedi;
+>> +		snprintf(fp->name, sizeof(fp->name), "%s-fp-%d",
+>> +			 "qedi", id);
+>> +
+>> +		/* fp_array[i] ---- irq cookie
+>> +		 * So init data which is needed in int ctx
+>> +		 */
+>> +	}
+>> +}
+>> +
+>Please check if you cannot make use of Christophs irq rework.
+
+Sure, we will explore this.
+
+--snipped--
+>> +static bool qedi_process_completions(struct qedi_fastpath *fp)
+>> +{
+>> +	struct qedi_work *qedi_work =3D NULL;
+>> +	struct qedi_ctx *qedi =3D fp->qedi;
+>> +	struct qed_sb_info *sb_info =3D fp->sb_info;
+>> +	struct status_block *sb =3D sb_info->sb_virt;
+>> +	struct qedi_percpu_s *p =3D NULL;
+>> +	struct global_queue *que;
+>> +	u16 prod_idx;
+>> +	unsigned long flags;
+>> +	union iscsi_cqe *cqe;
+>> +	int cpu;
+>> +
+>> +	/* Get the current firmware producer index */
+>> +	prod_idx =3D sb->pi_array[QEDI_PROTO_CQ_PROD_IDX];
+>> +
+>> +	if (prod_idx >=3D QEDI_CQ_SIZE)
+>> +		prod_idx =3D prod_idx % QEDI_CQ_SIZE;
+>> +
+>> +	que =3D qedi->global_queues[fp->sb_id];
+>> +	QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO,
+>> +		  "Before: global queue=3D%p prod_idx=3D%d cons_idx=3D%d, sb_id=3D%d\=
+n",
+>> +		  que, prod_idx, que->cq_cons_idx, fp->sb_id);
+>> +
+>> +	qedi->intr_cpu =3D fp->sb_id;
+>> +	cpu =3D smp_processor_id();
+>> +	p =3D &per_cpu(qedi_percpu, cpu);
+>> +
+>> +	if (unlikely(!p->iothread))
+>> +		WARN_ON(1);
+>> +
+>> +	spin_lock_irqsave(&p->p_work_lock, flags);
+>> +	while (que->cq_cons_idx !=3D prod_idx) {
+>> +		cqe =3D &que->cq[que->cq_cons_idx];
+>> +
+>> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_IO,
+>> +			  "cqe=3D%p prod_idx=3D%d cons_idx=3D%d.\n",
+>> +			  cqe, prod_idx, que->cq_cons_idx);
+>> +
+>> +		/* Alloc and copy to the cqe */
+>> +		qedi_work =3D kzalloc(sizeof(*qedi_work), GFP_ATOMIC);
+>> +		if (qedi_work) {
+>> +			INIT_LIST_HEAD(&qedi_work->list);
+>> +			qedi_work->qedi =3D qedi;
+>> +			memcpy(&qedi_work->cqe, cqe, sizeof(union iscsi_cqe));
+>> +			qedi_work->que_idx =3D fp->sb_id;
+>> +			list_add_tail(&qedi_work->list, &p->work_list);
+>> +		} else {
+>> +			WARN_ON(1);
+>> +			continue;
+>> +		}
+>> +
+>Memory allocation in an interrupt routine?
+>You must be kidding ...
+
+We will revisit this code.
+
+>
+>> +		que->cq_cons_idx++;
+>> +		if (que->cq_cons_idx =3D=3D QEDI_CQ_SIZE)
+>> +			que->cq_cons_idx =3D 0;
+>> +	}
+>> +	wake_up_process(p->iothread);
+>> +	spin_unlock_irqrestore(&p->p_work_lock, flags);
+>> +
+>> +	return true;
+>> +}
+>> +
+>> +static bool qedi_fp_has_work(struct qedi_fastpath *fp)
+>> +{
+>> +	struct qedi_ctx *qedi =3D fp->qedi;
+>> +	struct global_queue *que;
+>> +	struct qed_sb_info *sb_info =3D fp->sb_info;
+>> +	struct status_block *sb =3D sb_info->sb_virt;
+>> +	u16 prod_idx;
+>> +
+>> +	barrier();
+>> +
+>> +	/* Get the current firmware producer index */
+>> +	prod_idx =3D sb->pi_array[QEDI_PROTO_CQ_PROD_IDX];
+>> +
+>> +	/* Get the pointer to the global CQ this completion is on */
+>> +	que =3D qedi->global_queues[fp->sb_id];
+>> +
+>> +	/* prod idx wrap around uint16 */
+>> +	if (prod_idx >=3D QEDI_CQ_SIZE)
+>> +		prod_idx =3D prod_idx % QEDI_CQ_SIZE;
+>> +
+>> +	return (que->cq_cons_idx !=3D prod_idx);
+>> +}
+>> +
+>> +/* MSI-X fastpath handler code */
+>> +static irqreturn_t qedi_msix_handler(int irq, void *dev_id)
+>> +{
+>> +	struct qedi_fastpath *fp =3D dev_id;
+>> +	struct qedi_ctx *qedi =3D fp->qedi;
+>> +	bool wake_io_thread =3D true;
+>> +
+>> +	qed_sb_ack(fp->sb_info, IGU_INT_DISABLE, 0);
+>> +
+>> +process_again:
+>> +	wake_io_thread =3D qedi_process_completions(fp);
+>> +	if (wake_io_thread) {
+>> +		QEDI_INFO(&qedi->dbg_ctx, QEDI_LOG_DISC,
+>> +			  "process already running\n");
+>> +	}
+>> +
+>> +	if (qedi_fp_has_work(fp) =3D=3D 0)
+>> +		qed_sb_update_sb_idx(fp->sb_info);
+>> +
+>> +	/* Check for more work */
+>> +	rmb();
+>> +
+>> +	if (qedi_fp_has_work(fp) =3D=3D 0)
+>> +		qed_sb_ack(fp->sb_info, IGU_INT_ENABLE, 1);
+>> +	else
+>> +		goto process_again;
+>> +
+>> +	return IRQ_HANDLED;
+>> +}
+>> +
+>> +/* simd handler for MSI/INTa */
+>> +static void qedi_simd_int_handler(void *cookie)
+>> +{
+>> +	/* Cookie is qedi_ctx struct */
+>> +	struct qedi_ctx *qedi =3D (struct qedi_ctx *)cookie;
+>> +
+>> +	QEDI_WARN(&qedi->dbg_ctx, "qedi=3D%p.\n", qedi);
+>> +}
+>> +
+>> +#define QEDI_SIMD_HANDLER_NUM		0
+>> +static void qedi_sync_free_irqs(struct qedi_ctx *qedi)
+>> +{
+>> +	int i;
+>> +
+>> +	if (qedi->int_info.msix_cnt) {
+>> +		for (i =3D 0; i < qedi->int_info.used_cnt; i++) {
+>> +			synchronize_irq(qedi->int_info.msix[i].vector);
+>> +			irq_set_affinity_hint(qedi->int_info.msix[i].vector,
+>> +					      NULL);
+>> +			free_irq(qedi->int_info.msix[i].vector,
+>> +				 &qedi->fp_array[i]);
+>> +		}
+>> +	} else {
+>> +		qedi_ops->common->simd_handler_clean(qedi->cdev,
+>> +						     QEDI_SIMD_HANDLER_NUM);
+>> +	}
+>> +
+>> +	qedi->int_info.used_cnt =3D 0;
+>> +	qedi_ops->common->set_fp_int(qedi->cdev, 0);
+>> +}
+>> +
+>Again, consider using the interrupt affinity rework from Christoph Hellwig
+
+Sure, we will explore this one also.
