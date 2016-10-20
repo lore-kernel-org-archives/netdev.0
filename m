@@ -1,35 +1,45 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH 0/4] make POSIX timers optional with some Kconfig help
-Date: Thu, 20 Oct 2016 14:35:59 -0400 (EDT)
-Message-ID: <alpine.LFD.2.20.1610201433250.25105@knanqh.ubzr>
-References: <1476920573-14384-1-git-send-email-nicolas.pitre@linaro.org> <alpine.DEB.2.20.1610201145310.5073@nanos>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netfilter: don't permit unprivileged writes to global
+ state via sysctls
+Date: Thu, 20 Oct 2016 14:37:47 -0400 (EDT)
+Message-ID: <20161020.143747.1033652491220298518.davem@davemloft.net>
+References: <1474669264-3283-1-git-send-email-jann@thejh.net>
+        <20161020182224.GA10999@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: John Stultz <john.stultz@linaro.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Yann E MORIN <yann.morin.1998@free.fr>,
-        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.20.1610201145310.5073@nanos>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jann@thejh.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44398 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753574AbcJTSht (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:37:49 -0400
+In-Reply-To: <20161020182224.GA10999@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Oct 2016, Thomas Gleixner wrote:
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 20 Oct 2016 20:22:24 +0200
 
-> On Wed, 19 Oct 2016, Nicolas Pitre wrote:
-> > Therefore this series also includes kconfig changes to implement a new
-> > keyword to express some reverse dependencies like "select" does, named
-> > "imply", and still allowing for the target config symbol to be disabled
-> > if the user or a direct dependency says so.
+> On Sat, Sep 24, 2016 at 12:21:04AM +0200, Jann Horn wrote:
+>> This prevents the modification of nf_conntrack_max in unprivileged network
+>> namespaces. For unprivileged network namespaces, ip_conntrack_max is kept
+>> as a readonly sysctl in order to minimize potential compatibility issues.
+>> 
+>> This patch should apply cleanly to the net tree.
 > 
-> That's really nice work! Thanks for doing that. It makes the whole thing
-> more palatable.
+> For the record: This patch looks good to me, but this legacy
+> ip_conntrack sysctl code is now gone.
+> 
+> I don't know what is the procedure to get this to -stable branches now
+> that this cannot be pushed upstream.
 
-Thanks.
+In the commit message for the -stable submission simply say "Not
+applicable" in the upstream commit reference.  Like:
 
-Now I'd need some review tags...  ;-)
+	[ Upstream commit: Not applicable ]
 
-
-Nicolas
+or something like that.
