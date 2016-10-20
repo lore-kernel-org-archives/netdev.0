@@ -1,42 +1,36 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 3/4] ptp_clock: allow for it to be optional
-Date: Thu, 20 Oct 2016 19:58:47 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1610201958110.4938@nanos>
-References: <1476920573-14384-1-git-send-email-nicolas.pitre@linaro.org> <1476920573-14384-4-git-send-email-nicolas.pitre@linaro.org> <alpine.DEB.2.20.1610201149190.5073@nanos> <alpine.LFD.2.20.1610201338330.25105@knanqh.ubzr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] hv_netvsc: fix a race between netvsc_send()
+ and netvsc_init_buf()
+Date: Thu, 20 Oct 2016 14:03:00 -0400 (EDT)
+Message-ID: <20161020.140300.122827393647670926.davem@davemloft.net>
+References: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
+        <BLUPR0301MB2098D6A07F0D465E63988D9FCCD50@BLUPR0301MB2098.namprd03.prod.outlook.com>
+        <8737jr1k07.fsf@vitty.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: John Stultz <john.stultz@linaro.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Yann E MORIN <yann.morin.1998@free.fr>,
-        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sthemmin@microsoft.com, netdev@vger.kernel.org,
+        devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+        kys@microsoft.com, haiyangz@microsoft.com
+To: vkuznets@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.20.1610201338330.25105@knanqh.ubzr>
+In-Reply-To: <8737jr1k07.fsf@vitty.brq.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Oct 2016, Nicolas Pitre wrote:
-> On Thu, 20 Oct 2016, Thomas Gleixner wrote:
-> 
-> > On Wed, 19 Oct 2016, Nicolas Pitre wrote:
-> > > The pch_gbe driver is a bit special as it relies on extra code in
-> > > drivers/ptp/ptp_pch.c. Therefore we let the make process descend into
-> > > drivers/ptp/ even if PTP_1588_CLOCK is unselected.
-> > 
-> > The above paragraph looks like a leftover of the previous patch set.
-> 
-> Not really.  Without the change to drivers/Makefile, drivers/ptp/ is not 
-> visited when CONFIG_PTP_1588_CLOCK=n. If you then have CONFIG_PCH_GBE=y 
-> you end up with:
-> 
-> drivers/built-in.o: In function `pch_gbe_ioctl':
-> pch_gbe_main.c:(.text+0x28c914): undefined reference to `pch_ch_control_write'
-> 
-> Hence the above paragraph.
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Thu, 20 Oct 2016 10:51:04 +0200
 
-Indeed. I misread that.
+> Stephen Hemminger <sthemmin@microsoft.com> writes:
+> 
+>> Do we need ACCESS_ONCE() here to avoid check/use issues?
+>>
+> 
+> I think we don't: this is the only place in the function where we read
+> the variable so we'll get normal read. We're not trying to syncronize
+> with netvsc_init_buf() as that would require locking, if we read stale
+> NULL value after it was already updated on a different CPU we're fine,
+> we'll just return -EAGAIN.
 
-Thanks,
-
-	tglx
+The concern is if we race with netvsc_destroy_buf() and this pointer
+becomes NULL after the test you are adding.
