@@ -1,98 +1,138 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v4 3/3] udp: use it's own memory accounting
- schema
-Date: Wed, 19 Oct 2016 18:54:30 -0700
-Message-ID: <1476928470.5650.84.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1476877189.git.pabeni@redhat.com>
-         <33ab5953606ae34a04c3a88a9439a31475b5a496.1476877189.git.pabeni@redhat.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v4 net-next 1/7] ipv6: Fix Makefile conditional to use CONFIG_INET
+Date: Wed, 19 Oct 2016 20:16:01 -0700
+Message-ID: <CALx6S34ypSKUg715g1K783ze95ko1SeSA+Yb0JFqvfsSHwxQug@mail.gmail.com>
+References: <20161019230309.3746853-1-tom@herbertland.com> <20161019230309.3746853-2-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kernel Team <kernel-team@fb.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36503 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757163AbcJTByx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 21:54:53 -0400
-In-Reply-To: <33ab5953606ae34a04c3a88a9439a31475b5a496.1476877189.git.pabeni@redhat.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:34701 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753298AbcJTDQC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 23:16:02 -0400
+Received: by mail-qk0-f196.google.com with SMTP id n189so3441085qke.1
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 20:16:02 -0700 (PDT)
+In-Reply-To: <20161019230309.3746853-2-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-19 at 14:47 +0200, Paolo Abeni wrote:
-> Completely avoid default sock memory accounting and replace it
-> with udp-specific accounting.
-> 
-> Since the new memory accounting model encapsulates completely
-> the required locking, remove the socket lock on both enqueue and
-> dequeue, and avoid using the backlog on enqueue.
-> 
-> Be sure to clean-up rx queue memory on socket destruction, using
-> udp its own sk_destruct.
-> 
-> Tested using pktgen with random src port, 64 bytes packet,
-> wire-speed on a 10G link as sender and udp_sink as the receiver,
-> using an l4 tuple rxhash to stress the contention, and one or more
-> udp_sink instances with reuseport.
-> 
-> nr readers      Kpps (vanilla)  Kpps (patched)
-> 1               170             420
-> 3               1250            1900
-> 6               3000            3500
-> 9               4200            4400
-> 12              5700            6100
-> 
-> v3 -> v4:
->   - remove useless sk_rcvqueues_full() call
-> 
-> v2 -> v3:
->   - do not set the now unsed backlog_rcv callback
-> 
-> v1 -> v2:
->   - add memory pressure support
->   - fixed dropwatch accounting for ipv6
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Dave,
+
+Please don't apply this. It's like whack-a-mole trying to resolve all
+the dependencies. I'll resubmit the series without this.
+
+Tom
+
+On Wed, Oct 19, 2016 at 4:03 PM, Tom Herbert <tom@herbertland.com> wrote:
+> ipv6 directory was being built based on CONFIG_NET not CONFIG_INET.
+>
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 > ---
->  net/ipv4/udp.c        | 42 ++++++++----------------------------------
->  net/ipv6/udp.c        | 34 ++++++++--------------------------
->  net/sunrpc/svcsock.c  | 20 ++++++++++++++++----
->  net/sunrpc/xprtsock.c |  2 +-
->  4 files changed, 33 insertions(+), 65 deletions(-)
-> 
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 7047bb3..1925ca7 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1312,13 +1312,8 @@ static int first_packet_length(struct sock *sk)
->  	res = skb ? skb->len : -1;
->  	spin_unlock_bh(&rcvq->lock);
->  
-> -	if (!skb_queue_empty(&list_kill)) {
-> -		bool slow = lock_sock_fast(sk);
-> -
-> +	if (!skb_queue_empty(&list_kill))
->  		__skb_queue_purge(&list_kill);
-> -		sk_mem_reclaim_partial(sk);
-> -		unlock_sock_fast(sk, slow);
-> -	}
-
-Simply call __skb_queue_purge(&list_kill);
-
-(without testing if list_kill is empty or not)
-
->  	return res;
+>  drivers/net/usb/cdc_mbim.c  |  4 ++++
+>  include/net/ipv6.h          | 15 +++++++++++++++
+>  include/net/net_namespace.h |  2 ++
+>  net/Makefile                |  2 +-
+>  4 files changed, 22 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+> index 96a5028..6b38e0c 100644
+> --- a/drivers/net/usb/cdc_mbim.c
+> +++ b/drivers/net/usb/cdc_mbim.c
+> @@ -301,6 +301,7 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct usbnet *dev, struct sk_buff *skb
+>         return NULL;
 >  }
->  
-
-We also could remove list_kill and directly call kfree_skb() in the
-loop.
+>
+> +#ifdef CONFIG_INET
+>  /* Some devices are known to send Neigbor Solicitation messages and
+>   * require Neigbor Advertisement replies.  The IPv6 core will not
+>   * respond since IFF_NOARP is set, so we must handle them ourselves.
+> @@ -350,6 +351,7 @@ static void do_neigh_solicit(struct usbnet *dev, u8 *buf, u16 tci)
+>  out:
+>         dev_put(netdev);
+>  }
+> +#endif
+>
+>  static bool is_neigh_solicit(u8 *buf, size_t len)
+>  {
+> @@ -377,8 +379,10 @@ static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *buf, size_
+>                         proto = htons(ETH_P_IP);
+>                         break;
+>                 case 0x60:
+> +#ifdef CONFIG_INET
+>                         if (is_neigh_solicit(buf, len))
+>                                 do_neigh_solicit(dev, buf, tci);
+> +#endif
+>                         proto = htons(ETH_P_IPV6);
+>                         break;
+>                 default:
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index 8fed1cd..cbb1ce0 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -936,8 +936,15 @@ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+>  void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+>                          u8 *proto);
+>
+> +#ifdef CONFIG_INET
+>  int ipv6_skip_exthdr(const struct sk_buff *, int start, u8 *nexthdrp,
+>                      __be16 *frag_offp);
+> +#else
+> +static inline int ipv6_skip_exthdr(const struct sk_buff *skb, int start,
+> +                                  u8 *nexthdrp, __be16 *frag_offp) {
+> +       return -1;
+> +}
+> +#endif
+>
+>  bool ipv6_ext_hdr(u8 nexthdr);
+>
+> @@ -948,8 +955,16 @@ enum {
+>  };
+>
+>  /* find specified header and get offset to it */
+> +#ifdef CONFIG_INET
+>  int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset, int target,
+>                   unsigned short *fragoff, int *fragflg);
+> +#else
+> +static inline int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+> +                               int target, unsigned short *fragoff,
+> +                               int *fragflg) {
+> +       return -EPROTONOSUPPORT;
+> +}
+> +#endif
+>
+>  int ipv6_find_tlv(const struct sk_buff *skb, int offset, int type);
+>
+> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+> index fc4f757..b4c4a5f 100644
+> --- a/include/net/net_namespace.h
+> +++ b/include/net/net_namespace.h
+> @@ -352,8 +352,10 @@ static inline void rt_genid_bump_ipv4(struct net *net)
+>  extern void (*__fib6_flush_trees)(struct net *net);
+>  static inline void rt_genid_bump_ipv6(struct net *net)
+>  {
+> +#ifdef CONFIG_INET
+>         if (__fib6_flush_trees)
+>                 __fib6_flush_trees(net);
+> +#endif
+>  }
+>
+>  #if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
+> diff --git a/net/Makefile b/net/Makefile
+> index 4cafaa2..82ffb91 100644
+> --- a/net/Makefile
+> +++ b/net/Makefile
+> @@ -17,7 +17,7 @@ obj-$(CONFIG_NETFILTER)               += netfilter/
+>  obj-$(CONFIG_INET)             += ipv4/
+>  obj-$(CONFIG_XFRM)             += xfrm/
+>  obj-$(CONFIG_UNIX)             += unix/
+> -obj-$(CONFIG_NET)              += ipv6/
+> +obj-$(CONFIG_INET)             += ipv6/
+>  obj-$(CONFIG_PACKET)           += packet/
+>  obj-$(CONFIG_NET_KEY)          += key/
+>  obj-$(CONFIG_BRIDGE)           += bridge/
+> --
+> 2.9.3
+>
