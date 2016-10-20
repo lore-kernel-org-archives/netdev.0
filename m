@@ -1,314 +1,75 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v2 6/9] net: use core MTU range checking in virt
- drivers
-Date: Thu, 20 Oct 2016 23:23:54 +0300
-Message-ID: <20161020231559-mutt-send-email-mst@kernel.org>
-References: <20161019023333.15760-1-jarod@redhat.com>
- <20161020175524.6184-1-jarod@redhat.com>
- <20161020175524.6184-7-jarod@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org,
-        "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Shrikrishna Khare <skhare@vmware.com>,
-        "VMware, Inc." <pv-drivers@vmware.com>,
-        Wei Liu <wei.liu2@citrix.com>,
-        Paul Durrant <paul.durrant@citrix.com>,
-        David Kershner <david.kershner@unisys.com>,
-        Aaron Conole <aconole@bytheb.org>
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161020175524.6184-7-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v5 0/3] udp: refactor memory accounting
+Date: Thu, 20 Oct 2016 22:31:07 +0200
+Message-ID: <cover.1476979679.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 01:55:21PM -0400, Jarod Wilson wrote:
-> hyperv_net:
-> - set min/max_mtu, per Haiyang, after rndis_filter_device_add
-> 
-> virtio_net:
-> - set min/max_mtu
-> - remove virtnet_change_mtu
-> vmxnet3:
-> - set min/max_mtu
-> 
-> xen-netback:
-> - min_mtu = 0, max_mtu = 65517
-> 
-> xen-netfront:
-> - min_mtu = 0, max_mtu = 65535
-> 
-> unisys/visor:
-> - clean up defines a little to not clash with network core or add
->   redundat definitions
-> 
-> CC: netdev@vger.kernel.org
-> CC: virtualization@lists.linux-foundation.org
-> CC: "K. Y. Srinivasan" <kys@microsoft.com>
-> CC: Haiyang Zhang <haiyangz@microsoft.com>
-> CC: "Michael S. Tsirkin" <mst@redhat.com>
-> CC: Shrikrishna Khare <skhare@vmware.com>
-> CC: "VMware, Inc." <pv-drivers@vmware.com>
-> CC: Wei Liu <wei.liu2@citrix.com>
-> CC: Paul Durrant <paul.durrant@citrix.com>
-> CC: David Kershner <david.kershner@unisys.com>
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
->  drivers/net/hyperv/hyperv_net.h                 |  4 ++--
->  drivers/net/hyperv/netvsc_drv.c                 | 14 +++++++-------
->  drivers/net/virtio_net.c                        | 23 ++++++++++-------------
->  drivers/net/vmxnet3/vmxnet3_drv.c               |  7 ++++---
->  drivers/net/xen-netback/interface.c             |  5 ++++-
->  drivers/net/xen-netfront.c                      |  2 ++
->  drivers/staging/unisys/include/iochannel.h      | 10 ++++------
->  drivers/staging/unisys/visornic/visornic_main.c |  4 ++--
->  8 files changed, 35 insertions(+), 34 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-> index f4fbcb5..3958ada 100644
-> --- a/drivers/net/hyperv/hyperv_net.h
-> +++ b/drivers/net/hyperv/hyperv_net.h
-> @@ -606,8 +606,8 @@ struct nvsp_message {
->  } __packed;
->  
->  
-> -#define NETVSC_MTU 65536
-> -#define NETVSC_MTU_MIN 68
-> +#define NETVSC_MTU 65535
-> +#define NETVSC_MTU_MIN ETH_MIN_MTU
->  
->  #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
->  #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index f0919bd..3b28cf1 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -872,19 +872,12 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
->  	struct netvsc_device *nvdev = ndevctx->nvdev;
->  	struct hv_device *hdev = ndevctx->device_ctx;
->  	struct netvsc_device_info device_info;
-> -	int limit = ETH_DATA_LEN;
->  	u32 num_chn;
->  	int ret = 0;
->  
->  	if (ndevctx->start_remove || !nvdev || nvdev->destroy)
->  		return -ENODEV;
->  
-> -	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
-> -		limit = NETVSC_MTU - ETH_HLEN;
-> -
-> -	if (mtu < NETVSC_MTU_MIN || mtu > limit)
-> -		return -EINVAL;
-> -
->  	ret = netvsc_close(ndev);
->  	if (ret)
->  		goto out;
-> @@ -1402,6 +1395,13 @@ static int netvsc_probe(struct hv_device *dev,
->  	netif_set_real_num_tx_queues(net, nvdev->num_chn);
->  	netif_set_real_num_rx_queues(net, nvdev->num_chn);
->  
-> +	/* MTU range: 68 - 1500 or 65521 */
-> +	net->min_mtu = NETVSC_MTU_MIN;
-> +	if (nvdev->nvsp_version >= NVSP_PROTOCOL_VERSION_2)
-> +		net->max_mtu = NETVSC_MTU - ETH_HLEN;
-> +	else
-> +		net->max_mtu = ETH_DATA_LEN;
-> +
->  	ret = register_netdev(net);
->  	if (ret != 0) {
->  		pr_err("Unable to register netdev.\n");
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index fad84f3..720809f 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1419,17 +1419,6 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->  	.set_settings = virtnet_set_settings,
->  };
->  
-> -#define MIN_MTU 68
-> -#define MAX_MTU 65535
-> -
-> -static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
-> -{
-> -	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
-> -		return -EINVAL;
-> -	dev->mtu = new_mtu;
-> -	return 0;
-> -}
-> -
->  static const struct net_device_ops virtnet_netdev = {
->  	.ndo_open            = virtnet_open,
->  	.ndo_stop   	     = virtnet_close,
-> @@ -1437,7 +1426,6 @@ static const struct net_device_ops virtnet_netdev = {
->  	.ndo_validate_addr   = eth_validate_addr,
->  	.ndo_set_mac_address = virtnet_set_mac_address,
->  	.ndo_set_rx_mode     = virtnet_set_rx_mode,
-> -	.ndo_change_mtu	     = virtnet_change_mtu,
->  	.ndo_get_stats64     = virtnet_stats,
->  	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
->  	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
-> @@ -1748,6 +1736,9 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
->  	return true;
->  }
->  
-> +#define MIN_MTU ETH_MIN_MTU
-> +#define MAX_MTU ETH_MAX_MTU
-> +
+This patch series refactor the udp memory accounting, replacing the
+generic implementation with a custom one, in order to remove the needs for
+locking the socket on the enqueue and dequeue operations. The socket backlog
+usage is dropped, as well.
 
-Can we drop these btw?
+The first patch factor out pieces of some queue and memory management
+socket helpers, so that they can later be used by the udp memory accounting
+functions.
+The second patch adds the memory account helpers, without using them.
+The third patch replacse the old rx memory accounting path for udp over ipv4 and
+udp over ipv6. In kernel UDP users are updated, as well.
 
->  static int virtnet_probe(struct virtio_device *vdev)
->  {
->  	int i, err;
-> @@ -1821,6 +1812,10 @@ static int virtnet_probe(struct virtio_device *vdev)
->  
->  	dev->vlan_features = dev->features;
->  
-> +	/* MTU range: 68 - 65535 */
-> +	dev->min_mtu = MIN_MTU;
-> +	dev->max_mtu = MAX_MTU;
-> +
->  	/* Configuration may specify what MAC to use.  Otherwise random. */
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
->  		virtio_cread_bytes(vdev,
-> @@ -1875,8 +1870,10 @@ static int virtnet_probe(struct virtio_device *vdev)
->  		mtu = virtio_cread16(vdev,
->  				     offsetof(struct virtio_net_config,
->  					      mtu));
-> -		if (virtnet_change_mtu(dev, mtu))
-> +		if (mtu < dev->min_mtu || mtu > dev->max_mtu)
+The memory accounting schema is described in detail in the individual patch
+commit message.
 
-In fact the > max_mtu branch does not make sense since a 16 bit
-value can't exceed MAX_MTU.
+The performance gain depends on the specific scenario; with few flows (and
+little contention in the original code) the differences are in the noise range,
+while with several flows contending the same socket, the measured speed-up
+is relevant (e.g. even over 100% in case of extreme contention)
 
->  			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
-> +		else
-> +			dev->mtu = mtu;
->  	}
->  
->  	if (vi->any_header_sg)
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index b5554f2..0c36de1 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -2969,9 +2969,6 @@ vmxnet3_change_mtu(struct net_device *netdev, int new_mtu)
->  	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
->  	int err = 0;
->  
-> -	if (new_mtu < VMXNET3_MIN_MTU || new_mtu > VMXNET3_MAX_MTU)
-> -		return -EINVAL;
-> -
->  	netdev->mtu = new_mtu;
->  
->  	/*
-> @@ -3428,6 +3425,10 @@ vmxnet3_probe_device(struct pci_dev *pdev,
->  	vmxnet3_set_ethtool_ops(netdev);
->  	netdev->watchdog_timeo = 5 * HZ;
->  
-> +	/* MTU range: 60 - 9000 */
-> +	netdev->min_mtu = VMXNET3_MIN_MTU;
-> +	netdev->max_mtu = VMXNET3_MAX_MTU;
-> +
->  	INIT_WORK(&adapter->work, vmxnet3_reset_work);
->  	set_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
->  
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index 74dc2bf..e30ffd2 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -302,7 +302,7 @@ static int xenvif_close(struct net_device *dev)
->  static int xenvif_change_mtu(struct net_device *dev, int mtu)
->  {
->  	struct xenvif *vif = netdev_priv(dev);
-> -	int max = vif->can_sg ? 65535 - VLAN_ETH_HLEN : ETH_DATA_LEN;
-> +	int max = vif->can_sg ? ETH_MAX_MTU - VLAN_ETH_HLEN : ETH_DATA_LEN;
->  
->  	if (mtu > max)
->  		return -EINVAL;
-> @@ -471,6 +471,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->  
->  	dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
->  
-> +	dev->min_mtu = 0;
-> +	dev->max_mtu = ETH_MAX_MTU - VLAN_ETH_HLEN;
-> +
->  	/*
->  	 * Initialise a dummy MAC address. We choose the numerically
->  	 * largest non-broadcast address to prevent the address getting
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index e17879d..7d616b0 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1329,6 +1329,8 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
->  	netdev->features |= netdev->hw_features;
->  
->  	netdev->ethtool_ops = &xennet_ethtool_ops;
-> +	netdev->min_mtu = 0;
-> +	netdev->max_mtu = XEN_NETIF_MAX_TX_SIZE;
->  	SET_NETDEV_DEV(netdev, &dev->dev);
->  
->  	np->netdev = netdev;
-> diff --git a/drivers/staging/unisys/include/iochannel.h b/drivers/staging/unisys/include/iochannel.h
-> index cba4433..9081b3f 100644
-> --- a/drivers/staging/unisys/include/iochannel.h
-> +++ b/drivers/staging/unisys/include/iochannel.h
-> @@ -113,12 +113,10 @@ enum net_types {
->  
->  };
->  
-> -#define		ETH_HEADER_SIZE 14	/* size of ethernet header */
-> -
->  #define		ETH_MIN_DATA_SIZE 46	/* minimum eth data size */
-> -#define		ETH_MIN_PACKET_SIZE (ETH_HEADER_SIZE + ETH_MIN_DATA_SIZE)
-> +#define		ETH_MIN_PACKET_SIZE (ETH_HLEN + ETH_MIN_DATA_SIZE)
->  
-> -#define		ETH_MAX_MTU 16384	/* maximum data size */
-> +#define		VISOR_ETH_MAX_MTU 16384	/* maximum data size */
->  
->  #ifndef MAX_MACADDR_LEN
->  #define MAX_MACADDR_LEN 6	/* number of bytes in MAC address */
-> @@ -288,7 +286,7 @@ struct net_pkt_xmt {
->  	int len;	/* full length of data in the packet */
->  	int num_frags;	/* number of fragments in frags containing data */
->  	struct phys_info frags[MAX_PHYS_INFO];	/* physical page information */
-> -	char ethhdr[ETH_HEADER_SIZE];	/* the ethernet header  */
-> +	char ethhdr[ETH_HLEN];	/* the ethernet header  */
->  	struct {
->  		/* these are needed for csum at uisnic end */
->  		u8 valid;	/* 1 = struct is valid - else ignore */
-> @@ -323,7 +321,7 @@ struct net_pkt_xmtdone {
->   */
->  #define RCVPOST_BUF_SIZE 4032
->  #define MAX_NET_RCV_CHAIN \
-> -	((ETH_MAX_MTU + ETH_HEADER_SIZE + RCVPOST_BUF_SIZE - 1) \
-> +	((VISOR_ETH_MAX_MTU + ETH_HLEN + RCVPOST_BUF_SIZE - 1) \
->  	/ RCVPOST_BUF_SIZE)
->  
->  struct net_pkt_rcvpost {
-> diff --git a/drivers/staging/unisys/visornic/visornic_main.c b/drivers/staging/unisys/visornic/visornic_main.c
-> index 1367007..f8a584b 100644
-> --- a/drivers/staging/unisys/visornic/visornic_main.c
-> +++ b/drivers/staging/unisys/visornic/visornic_main.c
-> @@ -791,7 +791,7 @@ visornic_xmit(struct sk_buff *skb, struct net_device *netdev)
->  	 * pointing to
->  	 */
->  	firstfraglen = skb->len - skb->data_len;
-> -	if (firstfraglen < ETH_HEADER_SIZE) {
-> +	if (firstfraglen < ETH_HLEN) {
->  		spin_unlock_irqrestore(&devdata->priv_lock, flags);
->  		devdata->busy_cnt++;
->  		dev_err(&netdev->dev,
-> @@ -864,7 +864,7 @@ visornic_xmit(struct sk_buff *skb, struct net_device *netdev)
->  	/* copy ethernet header from first frag into ocmdrsp
->  	 * - everything else will be pass in frags & DMA'ed
->  	 */
-> -	memcpy(cmdrsp->net.xmt.ethhdr, skb->data, ETH_HEADER_SIZE);
-> +	memcpy(cmdrsp->net.xmt.ethhdr, skb->data, ETH_HLEN);
->  	/* copy frags info - from skb->data we need to only provide access
->  	 * beyond eth header
->  	 */
-> -- 
-> 2.10.0
+v4 -> v5:
+ - use the receive queue spin lock to protect the memory accounting
+ - several minor clean-up
+
+v3 -> v4:
+ - simplified the locking schema, always use a plain spinlock
+
+v2 -> v3:
+ - do not set the now unsed backlog_rcv callback
+
+v1 -> v2:
+ - changed slighly the memory accounting schema, we now perform lazy reclaim
+ - fixed forward_alloc updating issue
+ - fixed memory counter integer overflows
+
+Paolo Abeni (3):
+  net/socket: factor out helpers for memory and queue manipulation
+  udp: implement memory accounting helpers
+  udp: use it's own memory accounting schema
+
+ include/net/sock.h    |   4 ++
+ include/net/udp.h     |   4 ++
+ net/core/datagram.c   |  36 +++++++-----
+ net/core/sock.c       |  64 ++++++++++++++-------
+ net/ipv4/udp.c        | 151 ++++++++++++++++++++++++++++++++++++++------------
+ net/ipv6/udp.c        |  34 +++---------
+ net/sunrpc/svcsock.c  |  20 +++++--
+ net/sunrpc/xprtsock.c |   2 +-
+ 8 files changed, 216 insertions(+), 99 deletions(-)
+
+-- 
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
