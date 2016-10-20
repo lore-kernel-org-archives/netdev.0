@@ -1,115 +1,122 @@
-From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
-Subject: Re: Intel Wireless 7260 Microcode SW error detected
-Date: Thu, 20 Oct 2016 06:59:15 +0300
-Message-ID: <1476935955.7845.3.camel@coelho.fi>
-References: <41dbbe14-3098-551d-6c34-0a3654bafca9@gmx.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: relax listening_hash operations
+Date: Wed, 19 Oct 2016 21:24:58 -0700
+Message-ID: <1476937498.5650.102.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Billes Tibor <tbilles-KK0ffGbhmjU@public.gmane.org>, linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <41dbbe14-3098-551d-6c34-0a3654bafca9-KK0ffGbhmjU@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:35977 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751441AbcJTEZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 00:25:02 -0400
+Received: by mail-it0-f68.google.com with SMTP id 66so4050391itl.3
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 21:25:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tibor,
+From: Eric Dumazet <edumazet@google.com>
 
-On Sun, 2016-10-16 at 20:08 +0200, Billes Tibor wrote:
-> I have Lenovo laptop with an Intel Wireless 7260 wifi module and the 
-> latest stable kernel 4.8.1. I was playing a movie from an sshfs mounted 
-> file system, when the movie just froze and my network stopped working. 
-> Dmesg said 'Microcode SW error detected'. Below is my full `dmesg -r` 
-> output. I probably will not be able to reproduce this behaviour, because 
-> it did not happen in the past, and it seems to work fine after reboot.
+softirq handlers use RCU protection to lookup listeners,
+and write operations all happen from process context.
+We do not need to block BH for dump operations.
 
-Can you file a bug in bugzilla so we can track this? It seems to be a
-firmware problem that we'll have to investigate.  We have instructions
-on how to report here:
+Also SYN_RECV since request sockets are stored in the ehash table :
 
-https://wireless.wiki.kernel.org/en/users/drivers/iwlwifi/debugging
+ 1) inet_diag_dump_icsk() no longer need to clear
+    cb->args[3] and cb->args[4] that were used as cursors while
+    iterating the old per listener hash table.
 
+ 2) Also factorize a test : No need to scan listening_hash[]
+    if r->id.idiag_dport is not zero.
 
-> Is there anything more that I can do to help you debug this?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inet_diag.c |   16 ++++------------
+ net/ipv4/tcp_ipv4.c  |    6 +++---
+ 2 files changed, 7 insertions(+), 15 deletions(-)
 
-It would be nice if you could enable firmware debugging so that, if
-this happens again, we'll have the appropriate FW logs to investigate
-it further.  There are instructions on how to enable it in the
-"Firmware Debugging" section of that wiki page.
-
-Please make sure you read and understand the privacy aspects of
-submitting firmware debugging data, as explained here:
-
-https://wireless.wiki.kernel.org/en/users/drivers/iwlwifi/debugging#privacy_aspects
-
-
-> <3>[37750.190201] iwlwifi 0000:08:00.0: Microcode SW error detected.  
-> Restarting 0x2000000.
-> <3>[37750.190206] iwlwifi 0000:08:00.0: CSR values:
-> <3>[37750.190207] iwlwifi 0000:08:00.0: (2nd byte of CSR_INT_COALESCING 
-> is CSR_INT_PERIODIC_REG)
-> <3>[37750.190212] iwlwifi 0000:08:00.0: CSR_HW_IF_CONFIG_REG: 0X40489204
-> <3>[37750.190226] iwlwifi 0000:08:00.0: CSR_INT_COALESCING: 0X80000040
-> <3>[37750.190239] iwlwifi 0000:08:00.0: CSR_INT: 0X00000000
-> <3>[37750.190253] iwlwifi 0000:08:00.0: CSR_INT_MASK: 0X00000000
-> <3>[37750.190267] iwlwifi 0000:08:00.0: CSR_FH_INT_STATUS: 0X00000000
-> <3>[37750.190281] iwlwifi 0000:08:00.0: CSR_GPIO_IN: 0X00000000
-> <3>[37750.190294] iwlwifi 0000:08:00.0: CSR_RESET: 0X00000000
-> <3>[37750.190308] iwlwifi 0000:08:00.0: CSR_GP_CNTRL: 0X080403c5
-> <3>[37750.190322] iwlwifi 0000:08:00.0: CSR_HW_REV: 0X00000144
-> <3>[37750.190336] iwlwifi 0000:08:00.0: CSR_EEPROM_REG: 0X00000000
-> <3>[37750.190350] iwlwifi 0000:08:00.0: CSR_EEPROM_GP: 0X80000000
-> <3>[37750.190363] iwlwifi 0000:08:00.0: CSR_OTP_GP_REG: 0X803a0000
-> <3>[37750.190377] iwlwifi 0000:08:00.0: CSR_GIO_REG: 0X001f0042
-> <3>[37750.190391] iwlwifi 0000:08:00.0: CSR_GP_UCODE_REG: 0X00000000
-> <3>[37750.190405] iwlwifi 0000:08:00.0: CSR_GP_DRIVER_REG: 0X00000000
-> <3>[37750.190419] iwlwifi 0000:08:00.0: CSR_UCODE_DRV_GP1: 0X00000000
-> <3>[37750.190432] iwlwifi 0000:08:00.0: CSR_UCODE_DRV_GP2: 0X00000000
-> <3>[37750.190446] iwlwifi 0000:08:00.0: CSR_LED_REG: 0X00000060
-> <3>[37750.190460] iwlwifi 0000:08:00.0: CSR_DRAM_INT_TBL_REG: 0X881530a3
-> <3>[37750.190474] iwlwifi 0000:08:00.0: CSR_GIO_CHICKEN_BITS: 0X27800200
-> <3>[37750.190488] iwlwifi 0000:08:00.0: CSR_ANA_PLL_CFG: 0Xd55555d5
-> <3>[37750.190501] iwlwifi 0000:08:00.0: CSR_MONITOR_STATUS_REG: 0X3d0801bd
-> <3>[37750.190515] iwlwifi 0000:08:00.0: CSR_HW_REV_WA_REG: 0X0001001a
-> <3>[37750.190529] iwlwifi 0000:08:00.0: CSR_DBG_HPET_MEM_REG: 0Xffff0010
-> <3>[37750.190530] iwlwifi 0000:08:00.0: FH register values:
-> <3>[37750.190552] iwlwifi 0000:08:00.0: FH_RSCSR_CHNL0_STTS_WPTR_REG: 
-> 0X15005f00
-> <3>[37750.190566] iwlwifi 0000:08:00.0: FH_RSCSR_CHNL0_RBDCB_BASE_REG: 
-> 0X015005e0
-> <3>[37750.190580] iwlwifi 0000:08:00.0: FH_RSCSR_CHNL0_WPTR: 0X000000e8
-> <3>[37750.190593] iwlwifi 0000:08:00.0: FH_MEM_RCSR_CHNL0_CONFIG_REG: 
-> 0X80801114
-> <3>[37750.190607] iwlwifi 0000:08:00.0: FH_MEM_RSSR_SHARED_CTRL_REG: 
-> 0X000000fc
-> <3>[37750.190621] iwlwifi 0000:08:00.0: FH_MEM_RSSR_RX_STATUS_REG: 
-> 0X07030000
-> <3>[37750.190635] iwlwifi 0000:08:00.0: 
-> FH_MEM_RSSR_RX_ENABLE_ERR_IRQ2DRV: 0X00000000
-> <3>[37750.190648] iwlwifi 0000:08:00.0: FH_TSSR_TX_STATUS_REG: 0X07ff0001
-> <3>[37750.190662] iwlwifi 0000:08:00.0: FH_TSSR_TX_ERROR_REG: 0X00000000
-> <3>[37750.190790] iwlwifi 0000:08:00.0: Start IWL Error Log Dump:
-> <3>[37750.190791] iwlwifi 0000:08:00.0: Status: 0x00000000, count: 6
-> <3>[37750.190793] iwlwifi 0000:08:00.0: Loaded firmware version: 16.242414.0
-
-I recommend that you update your firmware to the latest version
-(iwlwifi-7260-17.ucode) published in linux-firmware.git:
-
-http://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git
-
-While I'm not sure the issue you saw is solved by that, we do have lots
-of other fixes in it that are worth the effort.
-
-
-<3>[37750.190794] iwlwifi 0000:08:00.0: 0x0000307C | ADVANCED_SYSASSERT
-
-I hadn't seen this for a while.  This is something related to the TX
-queues and could have many different causes...
-
-Thanks for reporting!
-
---
-Cheers,
-Luca.
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index e4d16fc5bbb3fec077f8e3bb3ff8811a66046edc..0a1d4a896a261dcb67e69a2d8c9aff83332fadd7 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -863,7 +863,7 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
+ 	s_num = num = cb->args[2];
+ 
+ 	if (cb->args[0] == 0) {
+-		if (!(idiag_states & TCPF_LISTEN))
++		if (!(idiag_states & TCPF_LISTEN) || r->id.idiag_dport)
+ 			goto skip_listen_ht;
+ 
+ 		for (i = s_i; i < INET_LHTABLE_SIZE; i++) {
+@@ -872,7 +872,7 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
+ 
+ 			num = 0;
+ 			ilb = &hashinfo->listening_hash[i];
+-			spin_lock_bh(&ilb->lock);
++			spin_lock(&ilb->lock);
+ 			sk_for_each(sk, &ilb->head) {
+ 				struct inet_sock *inet = inet_sk(sk);
+ 
+@@ -892,26 +892,18 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
+ 				    r->id.idiag_sport)
+ 					goto next_listen;
+ 
+-				if (r->id.idiag_dport ||
+-				    cb->args[3] > 0)
+-					goto next_listen;
+-
+ 				if (inet_csk_diag_dump(sk, skb, cb, r,
+ 						       bc, net_admin) < 0) {
+-					spin_unlock_bh(&ilb->lock);
++					spin_unlock(&ilb->lock);
+ 					goto done;
+ 				}
+ 
+ next_listen:
+-				cb->args[3] = 0;
+-				cb->args[4] = 0;
+ 				++num;
+ 			}
+-			spin_unlock_bh(&ilb->lock);
++			spin_unlock(&ilb->lock);
+ 
+ 			s_num = 0;
+-			cb->args[3] = 0;
+-			cb->args[4] = 0;
+ 		}
+ skip_listen_ht:
+ 		cb->args[0] = 1;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index bd5e8d10893fb6abffa6b0aa65de239b0000fe5b..83b3d0b8c4812d734728360a694a596a17257d02 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1893,7 +1893,7 @@ static void *listening_get_next(struct seq_file *seq, void *cur)
+ 	if (!sk) {
+ get_head:
+ 		ilb = &tcp_hashinfo.listening_hash[st->bucket];
+-		spin_lock_bh(&ilb->lock);
++		spin_lock(&ilb->lock);
+ 		sk = sk_head(&ilb->head);
+ 		st->offset = 0;
+ 		goto get_sk;
+@@ -1911,7 +1911,7 @@ static void *listening_get_next(struct seq_file *seq, void *cur)
+ 			return sk;
+ 		icsk = inet_csk(sk);
+ 	}
+-	spin_unlock_bh(&ilb->lock);
++	spin_unlock(&ilb->lock);
+ 	st->offset = 0;
+ 	if (++st->bucket < INET_LHTABLE_SIZE)
+ 		goto get_head;
+@@ -2119,7 +2119,7 @@ static void tcp_seq_stop(struct seq_file *seq, void *v)
+ 	switch (st->state) {
+ 	case TCP_SEQ_STATE_LISTENING:
+ 		if (v != SEQ_START_TOKEN)
+-			spin_unlock_bh(&tcp_hashinfo.listening_hash[st->bucket].lock);
++			spin_unlock(&tcp_hashinfo.listening_hash[st->bucket].lock);
+ 		break;
+ 	case TCP_SEQ_STATE_ESTABLISHED:
+ 		if (v)
