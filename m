@@ -1,43 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ila: Fix tailroom allocation of lwtstate
-Date: Thu, 20 Oct 2016 11:20:19 -0400 (EDT)
-Message-ID: <20161020.112019.468220952101459876.davem@davemloft.net>
-References: <d7e2292a2be9d142a05b7c528746820bac358065.1476911506.git.tgraf@suug.ch>
+Subject: Re: [PATCH] net: smc91x: fix neponset breakage by pxa u16 writes
+Date: Thu, 20 Oct 2016 11:21:12 -0400 (EDT)
+Message-ID: <20161020.112112.836590043273464129.davem@davemloft.net>
+References: <1476912230-18175-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42010 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965049AbcJTPUU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:20:20 -0400
-In-Reply-To: <d7e2292a2be9d142a05b7c528746820bac358065.1476911506.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: nico@fluxnic.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: robert.jarzmik@free.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1476912230-18175-1-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Wed, 19 Oct 2016 23:16:39 +0200
-
-> Tailroom is supposed to be of length sizeof(struct ila_lwt) but
-> sizeof(struct ila_params) is currently allocated.
-> 
-> This leads to the dst_cache and connected member of ila_lwt being
-> referenced out of bounds.
-> 
-> struct ila_lwt {
-> 	struct ila_params p;
-> 	struct dst_cache dst_cache;
-> 	u32 connected : 1;
-> };
-> 
-> Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  -stable candidate
-
-This patch only applies to net-next, so I've applied it there.
-
-Please explain how I should handle 'net' and -stable.
+RnJvbTogUm9iZXJ0IEphcnptaWsgPHJvYmVydC5qYXJ6bWlrQGZyZWUuZnI+DQpEYXRlOiBXZWQs
+IDE5IE9jdCAyMDE2IDIzOjIzOjUwICswMjAwDQoNCj4gVGhlIHBhdGNoIGlzb2xhdGluZyB0aGUg
+dTE2IHdyaXRlcyBmb3IgcHhhIGFzc3VtZWQgYWxsIG1hY2hpbmVfaXNfKigpDQo+IGNhbGxzIHdl
+cmUgcmVtb3ZlZCwgYW5kIHRoZXJlZm9yZSByZW1vdmVkIHRoZSBtYWNoLXR5cGVzLmggaW5jbHVk
+ZSB3aGljaA0KPiBwcm92aWRlZCB0aGVtLg0KPiANCj4gVW5mb3J0dW5hdGVseSAyIG1hY2hpbmVf
+aXNfKigpIHJlbWFpbmVkIGluIHNtYzkxeC5jIGZpbGUgaW5jbHVkaW5nDQo+IHNtYzkxeC5oIGZy
+b20gd2hpY2ggdGhlIGluY2x1ZGUgd2FzIHJlbW92ZWQsIHRyaWdnZXJpbmcgdGhlIGVycm9yOg0K
+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvc21zYy9zbWM5MXguYzogSW4gZnVuY3Rpb24goXNtY19k
+cnZfcHJvYmWiOg0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvc21zYy9zbWM5MXguYzoyMzgwOjI6
+IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbg0KPiAgb2YgZnVuY3Rpb24goW1hY2hpbmVfaXNf
+YXNzYWJldKINCj4gIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KPiAJ
+aWYgKG1hY2hpbmVfaXNfYXNzYWJldCgpICYmIG1hY2hpbmVfaGFzX25lcG9uc2V0KCkpDQo+IA0K
+PiBUaGlzIGFkZHMgYmFjayB0aGUgd3JvbmdseSByZW1vdmVkIGluY2x1ZGUuDQo+IA0KPiBGaXhl
+czogZDA5ZDc0N2FlNGMyICgibmV0OiBzbWM5MXg6IGlzb2xhdGUgdTE2IHdyaXRlcyBhbGlnbm1l
+bnQgd29ya2Fyb3VuZCIpDQo+IFNpZ25lZC1vZmYtYnk6IFJvYmVydCBKYXJ6bWlrIDxyb2JlcnQu
+amFyem1pa0BmcmVlLmZyPg0KDQpBcHBsaWVkLg0K
