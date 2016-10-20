@@ -1,83 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF
- support
-Date: Thu, 20 Oct 2016 16:57:20 -0400 (EDT)
-Message-ID: <20161020.165720.1537348879596195765.davem@davemloft.net>
-References: <1476942046-18789-2-git-send-email-rvatsavayi@caviumnetworks.com>
-        <20161020.141304.286994718471308700.davem@davemloft.net>
-        <DM3PR07MB21387F2B6D44558DBC36649881D50@DM3PR07MB2138.namprd07.prod.outlook.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ipv4: disable BH in set_ping_group_range()
+Date: Thu, 20 Oct 2016 14:00:20 -0700
+Message-ID: <CAM_iQpX0=OnOfsGg_KGz=--_S+-1TG2=LoAmYVAOSxawCQtBUg@mail.gmail.com>
+References: <1476984408.7065.21.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVFQD0Oqf8YO9HybDpPMhzMMK5m_wNyLwTfVpEwpAVBNw@mail.gmail.com>
+ <CAM_iQpVBHa2ujKN1hsU0LT+g899+WEy9a1oBgDj1FmpifPmz6g@mail.gmail.com>
+ <CAM_iQpV-00gemayMkdLGzb8wo8CNimOZQHDXrvH1jeN6Svrs8w@mail.gmail.com> <1476996209.7065.28.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Derek.Chickles@cavium.com,
-        Satananda.Burla@cavium.com, Felix.Manlunas@cavium.com
-To: Raghu.Vatsavayi@cavium.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Eric Salo <salo@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46266 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754103AbcJTU5W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 16:57:22 -0400
-In-Reply-To: <DM3PR07MB21387F2B6D44558DBC36649881D50@DM3PR07MB2138.namprd07.prod.outlook.com>
+Received: from mail-it0-f41.google.com ([209.85.214.41]:35083 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755474AbcJTVAn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 17:00:43 -0400
+Received: by mail-it0-f41.google.com with SMTP id 4so195439241itv.0
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 14:00:43 -0700 (PDT)
+In-Reply-To: <1476996209.7065.28.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-Date: Thu, 20 Oct 2016 20:01:37 +0000
+On Thu, Oct 20, 2016 at 1:43 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2016-10-20 at 12:44 -0700, Cong Wang wrote:
+>> On Thu, Oct 20, 2016 at 12:40 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> > On Thu, Oct 20, 2016 at 12:32 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> >> On Thu, Oct 20, 2016 at 10:26 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> >>> From: Eric Dumazet <edumazet@google.com>
+>> >>>
+>> >>> In commit 4ee3bd4a8c746 ("ipv4: disable BH when changing ip local port
+>> >>> range") Cong added BH protection in set_local_port_range() but missed
+>> >>> that same fix was needed in set_ping_group_range()
+>> >>
+>> >> Don't know why ping_group_range shares the same lock with local_port_range...
+>> >> Perhaps just for saving a few bytes, but that is why I missed this place.
+>> >
+>> > Hold on... We clearly have typos there... Your fix is not correct.
+>>
+>> We need the attached patch, your patch should be reverted, because
+>> unlike local_port_range we never read it in BH context, no need to bother _bh.
+>
+> Well, we do not change this sysctl very often, so I am not sure why we
+> need different seqlocks to protect these ranges.
+>
+> Seems a waste of space really (per netns)
 
-> 
-> 
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Thursday, October 20, 2016 11:13 AM
->> To: Vatsavayi, Raghu
->> Cc: netdev@vger.kernel.org; Vatsavayi, Raghu; Chickles, Derek; Burla,
->> Satananda; Manlunas, Felix
->> Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF
->> support
->> 
->> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
->> Date: Wed, 19 Oct 2016 22:40:38 -0700
->> 
->> > +/* Default behaviour of Liquidio is to provide one queue per VF. But
->> > +Liquidio
->> > + * can also provide multiple queues to each VF. If user wants to
->> > +change the
->> > + * default behaviour HW should be provided configuration info at init
->> > +time,
->> > + * based on which it will create control queues for communicating with
->> FW.
->> > + */
->> > +static u32 max_vfs[2] = { 0, 0 };
->> > +module_param_array(max_vfs, int, NULL, 0444);
->> > +MODULE_PARM_DESC(max_vfs, "Assign two comma-separated unsigned
->> > +integers that specify max number of VFs for PF0 (left of the comma)
->> > +and PF1 (right of the comma); for 23xx only. By default HW will
->> > +configure as many VFs as queues after allocating PF queues.To
->> > +increase queues for VF use this parameter. Use sysfs to create these
->> > +VFs.");
->> > +
->> > +static unsigned int num_queues_per_pf[2] = { 0, 0 };
->> > +module_param_array(num_queues_per_pf, uint, NULL, 0444);
->> > +MODULE_PARM_DESC(num_queues_per_pf, "two comma-separated
->> unsigned
->> > +integers that specify number of queues per PF0 (left of the comma)
->> > +and PF1 (right of the comma); for 23xx only");
->> > +
->> >  static int ptp_enable = 1;
->> 
->> We cannot continue to allow drivers to add custom module parameters to
->> control this.  It is the worst user experience possible.
->> 
->> We need a tree-wide generic, consistent, manner in which to configure and
->> control this kind of thing.
-> 
-> Sure Dave, I will remove max_vfs module parameter and will use tree wide generic 
-> sysfs interface to enable VFs.
+Error prone vs. space saving, it's up to you...
 
-That's not what I meant.
-
-I mean there needs to be a generic mechanism that isn't a per-device
-knob (be it a module parameter or a sysctl, to me these are identical
-functionality and user experience wise).
-
-Something like ethtool or netlink.
+But clearly current code is still broken even after your patch. I will send
+a revert + previous typo fix.
