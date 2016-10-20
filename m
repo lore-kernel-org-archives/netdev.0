@@ -1,83 +1,228 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 0/9] liquidio CN23XX VF support
-Date: Wed, 19 Oct 2016 22:40:37 -0700
-Message-ID: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 2/9] liquidio CN23XX: sysfs VF config support
+Date: Wed, 19 Oct 2016 22:40:39 -0700
+Message-ID: <1476942046-18789-3-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0058.outbound.protection.outlook.com ([104.47.33.58]:23168
+Received: from mail-bn3nam01on0069.outbound.protection.outlook.com ([104.47.33.69]:32496
         "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750951AbcJTHOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 03:14:50 -0400
+        id S1753191AbcJTHPA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 03:15:00 -0400
+In-Reply-To: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Adds sysfs based support for enabling or disabling VFs.
 
-Following is the V2 patch series for adding VF support on
-CN23XX devices. This version addressed your concern for
-ordering of local variable declarations from longest to shortest
-line. There are some other minor changes for fixing new checkpatch
-script related errors on pre-existing driver.
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+---
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    |  3 +
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 98 ++++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_config.h   |  3 +
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |  8 ++
+ 4 files changed, 112 insertions(+)
 
-I will post remaining VF patches soon after this patchseries is
-applied. Please apply patches in the following order as some of
-the patches depend on earlier patches.
-
-Thanks.
-
-
-Raghu Vatsavayi (9):
-  liquidio CN23XX: HW config for VF support
-  liquidio CN23XX: sysfs VF config support
-  liquidio CN23XX: Mailbox support
-  liquidio CN23XX: mailbox interrupt processing
-  liquidio CN23XX: VF related operations
-  liquidio CN23XX: device states
-  liquidio CN23XX: code cleanup
-  liquidio CN23XX: copyrights changes and alignment
-  liquidio CN23XX: fix for new check patch errors
-
- drivers/net/ethernet/cavium/liquidio/Makefile      |   1 +
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 360 ++++++++++++++---
- .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |  42 +-
- .../net/ethernet/cavium/liquidio/cn23xx_pf_regs.h  |  51 ++-
- .../net/ethernet/cavium/liquidio/cn66xx_device.c   |  49 +--
- .../net/ethernet/cavium/liquidio/cn66xx_device.h   |  41 +-
- drivers/net/ethernet/cavium/liquidio/cn66xx_regs.h |  49 ++-
- .../net/ethernet/cavium/liquidio/cn68xx_device.c   |  38 +-
- .../net/ethernet/cavium/liquidio/cn68xx_device.h   |  37 +-
- drivers/net/ethernet/cavium/liquidio/cn68xx_regs.h |  37 +-
- drivers/net/ethernet/cavium/liquidio/lio_core.c    |  68 +++-
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c |  65 ++-
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 437 ++++++++++++++++++---
- .../net/ethernet/cavium/liquidio/liquidio_common.h | 100 +++--
- .../net/ethernet/cavium/liquidio/liquidio_image.h  |  36 +-
- .../net/ethernet/cavium/liquidio/octeon_config.h   |  45 ++-
- .../net/ethernet/cavium/liquidio/octeon_console.c  | 156 ++++----
- .../net/ethernet/cavium/liquidio/octeon_device.c   |  74 ++--
- .../net/ethernet/cavium/liquidio/octeon_device.h   | 133 ++++---
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c |  91 +++--
- drivers/net/ethernet/cavium/liquidio/octeon_droq.h |  18 +-
- drivers/net/ethernet/cavium/liquidio/octeon_iq.h   |  25 +-
- .../net/ethernet/cavium/liquidio/octeon_mailbox.c  | 318 +++++++++++++++
- .../net/ethernet/cavium/liquidio/octeon_mailbox.h  | 112 ++++++
- drivers/net/ethernet/cavium/liquidio/octeon_main.h |  47 +--
- .../net/ethernet/cavium/liquidio/octeon_mem_ops.c  |   7 +-
- .../net/ethernet/cavium/liquidio/octeon_mem_ops.h  |   5 +-
- .../net/ethernet/cavium/liquidio/octeon_network.h  |  11 +-
- drivers/net/ethernet/cavium/liquidio/octeon_nic.c  |   5 +-
- drivers/net/ethernet/cavium/liquidio/octeon_nic.h  |   7 +-
- .../net/ethernet/cavium/liquidio/request_manager.c |  34 +-
- .../ethernet/cavium/liquidio/response_manager.c    |  11 +-
- .../ethernet/cavium/liquidio/response_manager.h    |   6 +-
- 33 files changed, 1738 insertions(+), 778 deletions(-)
- create mode 100644 drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
- create mode 100644 drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
-
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+index c7257ed..b3fa5d9 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+@@ -1173,6 +1173,9 @@ static int cn23xx_sriov_config(struct octeon_device *oct)
+ 		oct->sriov_info.trs, oct->sriov_info.max_vfs,
+ 		oct->sriov_info.rings_per_vf, oct->sriov_info.pf_srn,
+ 		oct->sriov_info.num_pf_rings);
++
++	oct->sriov_info.sriov_enabled = 0;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 016b7aa..2825590 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -193,6 +193,8 @@ struct octeon_device_priv {
+ 	unsigned long napi_mask;
+ };
+ 
++static int liquidio_enable_sriov(struct pci_dev *dev, int num_vfs);
++
+ static int octeon_device_init(struct octeon_device *);
+ static int liquidio_stop(struct net_device *netdev);
+ static void liquidio_remove(struct pci_dev *pdev);
+@@ -531,6 +533,7 @@ static int liquidio_resume(struct pci_dev *pdev __attribute__((unused)))
+ 	.suspend	= liquidio_suspend,
+ 	.resume		= liquidio_resume,
+ #endif
++	.sriov_configure = liquidio_enable_sriov,
+ };
+ 
+ /**
+@@ -1485,6 +1488,8 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 				continue;
+ 			octeon_delete_instr_queue(oct, i);
+ 		}
++		if (oct->sriov_info.sriov_enabled)
++			pci_disable_sriov(oct->pci_dev);
+ 		/* fallthrough */
+ 	case OCT_DEV_SC_BUFF_POOL_INIT_DONE:
+ 		octeon_free_sc_buffer_pool(oct);
+@@ -4008,6 +4013,99 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 	return -ENODEV;
+ }
+ 
++static int octeon_enable_sriov(struct octeon_device *oct)
++{
++	unsigned int num_vfs_alloced = oct->sriov_info.num_vfs_alloced;
++	struct pci_dev *vfdev;
++	int err;
++	u32 u;
++
++	if (OCTEON_CN23XX_PF(oct) && num_vfs_alloced) {
++		err = pci_enable_sriov(oct->pci_dev,
++				       oct->sriov_info.num_vfs_alloced);
++		if (err) {
++			dev_err(&oct->pci_dev->dev,
++				"OCTEON: Failed to enable PCI sriov: %d\n",
++				err);
++			oct->sriov_info.num_vfs_alloced = 0;
++			return err;
++		}
++		oct->sriov_info.sriov_enabled = 1;
++
++		/* init lookup table that maps DPI ring number to VF pci_dev
++		 * struct pointer
++		 */
++		u = 0;
++		vfdev = pci_get_device(PCI_VENDOR_ID_CAVIUM,
++				       OCTEON_CN23XX_VF_VID, NULL);
++		while (vfdev) {
++			if (vfdev->is_virtfn &&
++			    (vfdev->physfn == oct->pci_dev)) {
++				oct->sriov_info.dpiring_to_vfpcidev_lut[u] =
++					vfdev;
++				u += oct->sriov_info.rings_per_vf;
++			}
++			vfdev = pci_get_device(PCI_VENDOR_ID_CAVIUM,
++					       OCTEON_CN23XX_VF_VID, vfdev);
++		}
++	}
++
++	return num_vfs_alloced;
++}
++
++static int lio_pci_sriov_disable(struct octeon_device *oct)
++{
++	int u;
++
++	if (pci_vfs_assigned(oct->pci_dev)) {
++		dev_err(&oct->pci_dev->dev, "VFs are still assigned to VMs.\n");
++		return -EPERM;
++	}
++
++	pci_disable_sriov(oct->pci_dev);
++
++	u = 0;
++	while (u < MAX_POSSIBLE_VFS) {
++		oct->sriov_info.dpiring_to_vfpcidev_lut[u] = NULL;
++		u += oct->sriov_info.rings_per_vf;
++	}
++
++	oct->sriov_info.num_vfs_alloced = 0;
++	dev_info(&oct->pci_dev->dev, "oct->pf_num:%d disabled VFs\n",
++		 oct->pf_num);
++
++	return 0;
++}
++
++static int liquidio_enable_sriov(struct pci_dev *dev, int num_vfs)
++{
++	struct octeon_device *oct = pci_get_drvdata(dev);
++	int ret = 0;
++
++	if ((num_vfs == oct->sriov_info.num_vfs_alloced) &&
++	    (oct->sriov_info.sriov_enabled)) {
++		dev_info(&oct->pci_dev->dev, "oct->pf_num:%d already enabled num_vfs:%d\n",
++			 oct->pf_num, num_vfs);
++		return 0;
++	}
++
++	if (!num_vfs) {
++		ret = lio_pci_sriov_disable(oct);
++	} else if (num_vfs > oct->sriov_info.max_vfs) {
++		dev_err(&oct->pci_dev->dev,
++			"OCTEON: Max allowed VFs:%d user requested:%d",
++			oct->sriov_info.max_vfs, num_vfs);
++		ret = -EPERM;
++	} else {
++		oct->sriov_info.num_vfs_alloced = num_vfs;
++		ret = octeon_enable_sriov(oct);
++		dev_info(&oct->pci_dev->dev, "oct->pf_num:%d enabled num_vfs:%d\n",
++			 oct->pf_num, num_vfs);
++	}
++
++	return ret;
++}
++
+ /**
+  * \brief initialize the NIC
+  * @param oct octeon device
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+index 0127a0e..8871fb5 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+@@ -471,4 +471,7 @@ struct octeon_config {
+ 
+ #define MAX_POSSIBLE_OCTEON_INSTR_QUEUES	CN23XX_MAX_INPUT_QUEUES
+ #define MAX_POSSIBLE_OCTEON_OUTPUT_QUEUES	CN23XX_MAX_OUTPUT_QUEUES
++
++#define MAX_POSSIBLE_VFS			64
++
+ #endif /* __OCTEON_CONFIG_H__  */
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 751d3b6..cfd12ec 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -38,6 +38,7 @@
+ #define  OCTEON_CN68XX                0x0091
+ #define  OCTEON_CN66XX                0x0092
+ #define  OCTEON_CN23XX_PF_VID         0x9702
++#define  OCTEON_CN23XX_VF_VID         0x9712
+ 
+ /**RevisionId for the chips */
+ #define  OCTEON_CN23XX_REV_1_0        0x00
+@@ -331,6 +332,9 @@ struct octeon_sriov_info {
+ 	 **/
+ 	u32	max_vfs;
+ 
++	/** Number of VF devices enabled using sysfs. */
++	u32	num_vfs_alloced;
++
+ 	/* Actual rings left for PF device */
+ 	u32	num_pf_rings;
+ 
+@@ -340,6 +344,10 @@ struct octeon_sriov_info {
+ 	/* total pf rings */
+ 	u32	trs;
+ 
++	u32	sriov_enabled;
++
++	/*lookup table that maps DPI ring number to VF pci_dev struct pointer*/
++	struct pci_dev *dpiring_to_vfpcidev_lut[MAX_POSSIBLE_VFS];
+ };
+ 
+ struct octeon_ioq_vector {
 -- 
 1.8.3.1
