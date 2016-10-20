@@ -1,60 +1,46 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH net-next] bpf: fix potential percpu map overcopy to
- user.
-Date: Thu, 20 Oct 2016 09:58:09 -0700
-Message-ID: <20161020165807.GB97796@ast-mbp.thefacebook.com>
-References: <1476636088-9268-1-git-send-email-u9012063@gmail.com>
- <20161019005004.GA87961@ast-mbp.thefacebook.com>
- <CALDO+SaebqahYHn2PU=nk6mYOMjRp+F8PKb3cFaGMv4_xjLwZg@mail.gmail.com>
- <58078E1D.6080108@iogearbox.net>
- <5808EB16.4000103@iogearbox.net>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] dwc_eth_qos: use dev_kfree_skb_any instead of dev_kfree_skb
+Date: Thu, 20 Oct 2016 16:59:49 +0000
+Message-ID: <1476982789-27821-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: William Tu <u9012063@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Lars Persson <lars.persson@axis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36299 "EHLO
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33241 "EHLO
         mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753501AbcJTQ6P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 12:58:15 -0400
-Received: by mail-pf0-f195.google.com with SMTP id r16so6058527pfg.3
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 09:58:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5808EB16.4000103@iogearbox.net>
+        with ESMTP id S1752463AbcJTRAP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 13:00:15 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i85so6078453pfa.0
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 10:00:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 20, 2016 at 06:04:38PM +0200, Daniel Borkmann wrote:
-> 
-> diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-> index ee384f0..d4832e8 100644
-> --- a/tools/testing/selftests/bpf/test_maps.c
-> +++ b/tools/testing/selftests/bpf/test_maps.c
-> @@ -25,6 +25,33 @@
-> 
->  static int map_flags;
-> 
-> +static unsigned int num_possible_cpus(void)
-> +{
-> +	static const char *fcpu = "/sys/devices/system/cpu/possible";
-> +	unsigned int val, possible_cpus = 0;
-> +	char buff[128];
-> +	FILE *fp;
-> +
-> +	fp = fopen(fcpu, "r");
-> +	if (!fp) {
-> +		printf("Failed to open %s: '%s'!\n", fcpu, strerror(errno));
-> +		exit(1);
-> +	}
-> +
-> +	while (fgets(buff, sizeof(buff), fp)) {
-> +		if (sscanf(buff, "%*u-%u", &val) == 1)
-> +			possible_cpus = val;
-> +	}
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-looks great to me.
-Could you move it into bpf_sys.h or somehow make it common in libbpf
-and reuse it in samples/bpf/ ?
-Since quite a few samples need this fix as well.
-Thanks!
+Replace dev_kfree_skb with dev_kfree_skb_any in dwceqos_start_xmit()
+which can be called from hard irq context (netpoll) and from
+other contexts. dwceqos_start_xmit() only frees skbs that it has
+dropped.
+
+This is detected by Coccinelle semantic patch.
+
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 0d00531..eaa51ce 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2211,7 +2211,7 @@ static int dwceqos_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ tx_error:
+ 	dwceqos_tx_rollback(lp, &trans);
+-	dev_kfree_skb(skb);
++	dev_kfree_skb_any(skb);
+ 	return 0;
+ }
+ 
