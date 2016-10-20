@@ -1,40 +1,46 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH 3/4] ptp_clock: allow for it to be optional
-Date: Thu, 20 Oct 2016 12:44:34 -0400 (EDT)
-Message-ID: <alpine.LFD.2.20.1610201241450.25105@knanqh.ubzr>
-References: <1476920573-14384-1-git-send-email-nicolas.pitre@linaro.org> <1476920573-14384-4-git-send-email-nicolas.pitre@linaro.org> <20161020140601.GC2238@netboy>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net] bpf, test: fix ld_abs + vlan push/pop stress test
+Date: Thu, 20 Oct 2016 09:53:10 -0700
+Message-ID: <20161020165309.GA97796@ast-mbp.thefacebook.com>
+References: <24f37bd819eceb02c56fc5a6fcd5b8450b1db36a.1476976082.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: John Stultz <john.stultz@linaro.org>,
-        Yann E MORIN <yann.morin.1998@free.fr>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f170.google.com ([209.85.216.170]:33225 "EHLO
-        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932711AbcJTQog (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 12:44:36 -0400
-Received: by mail-qt0-f170.google.com with SMTP id s49so61940865qta.0
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 09:44:36 -0700 (PDT)
-In-Reply-To: <20161020140601.GC2238@netboy>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33122 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752855AbcJTQxP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 12:53:15 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i85so6063853pfa.0
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 09:53:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <24f37bd819eceb02c56fc5a6fcd5b8450b1db36a.1476976082.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Oct 2016, Richard Cochran wrote:
-
-> On Wed, Oct 19, 2016 at 07:42:52PM -0400, Nicolas Pitre wrote:
-> > +static inline void ptp_clock_event(struct ptp_clock *ptp,
-> > +				   struct ptp_clock_event *event)
-> > +{ (void)event; }
+On Thu, Oct 20, 2016 at 05:13:53PM +0200, Daniel Borkmann wrote:
+> After commit 636c2628086e ("net: skbuff: Remove errornous length
+> validation in skb_vlan_pop()") mentioned test case stopped working,
+> throwing a -12 (ENOMEM) return code. The issue however is not due to
+> 636c2628086e, but rather due to a buggy test case that got uncovered
+> from the change in behaviour in 636c2628086e.
 > 
-> Just out of curiosity, why do you need that cast?
+> The data_size of that test case for the skb was set to 1. In the
+> bpf_fill_ld_abs_vlan_push_pop() handler bpf insns are generated that
+> loop with: reading skb data, pushing 68 tags, reading skb data,
+> popping 68 tags, reading skb data, etc, in order to force a skb
+> expansion and thus trigger that JITs recache skb->data. Problem is
+> that initial data_size is too small.
+> 
+> While before 636c2628086e, the test silently bailed out due to the
+> skb->len < VLAN_ETH_HLEN check with returning 0, and now throwing an
+> error from failing skb_ensure_writable(). Set at least minimum of
+> ETH_HLEN as an initial length so that on first push of data, equivalent
+> pop will succeed.
+> 
+> Fixes: 4d9c5c53ac99 ("test_bpf: add bpf_skb_vlan_push/pop() tests")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-It's redundant and now gone.  Probably a remnant from the initial test 
-code that used macros.
-
-Thanks.
-
-
-Nicolas
+Impressive sleuthing.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
