@@ -1,43 +1,50 @@
-From: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
-Subject: Re: [RFC v2 2/2] proc connector: add a "get feature" op
-Date: Thu, 20 Oct 2016 20:16:54 +0300
-Message-ID: <123471476983814@web23g.yandex.ru>
-References: <1476534370-4027-1-git-send-email-alban@kinvolk.io>
-	<1476534370-4027-3-git-send-email-alban@kinvolk.io>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv4: disable BH in set_ping_group_range()
+Date: Thu, 20 Oct 2016 10:26:48 -0700
+Message-ID: <1476984408.7065.21.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Iago Lopez Galeiras <iago-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Aaron Campbell <aaron-J6AcJDG0ZEwdnm+yROfE0A@public.gmane.org>,
-	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jesper Derehag <jderehag-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
-	Alban Crequy <alban-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Dimitri John Ledkov <dimitri.j.ledkov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Alban Crequy <alban.crequy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org"
-	<containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1476534370-4027-3-git-send-email-alban-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Eric Salo <salo@google.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33498 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964929AbcJTR0u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 13:26:50 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i85so6131453pfa.0
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 10:26:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgQWxiYW4KCjE1LjEwLjIwMTYsIDE1OjI4LCAiQWxiYW4gQ3JlcXV5IiA8YWxiYW4uY3JlcXV5
-QGdtYWlsLmNvbT46Cj4gLXN0YXRpYyB2b2lkIGNuX3Byb2NfYWNrKGludCBlcnIsIGludCByY3Zk
-X3NlcSwgaW50IHJjdmRfYWNrKQo+ICtzdGF0aWMgdm9pZCBjbl9wcm9jX2FjayhpbnQgZXJyLCB1
-MTYgZmxhZ3MsIGludCByY3ZkX3NlcSwgaW50IHJjdmRfYWNrKQo+IMKgewo+IMKgwqDCoMKgwqDC
-oMKgwqDCoHN0cnVjdCBjbl9tc2cgKm1zZzsKPiDCoMKgwqDCoMKgwqDCoMKgwqBzdHJ1Y3QgcHJv
-Y19ldmVudCAqZXY7Cj4gwqDCoMKgwqDCoMKgwqDCoMKgX191OCBidWZmZXJbQ05fUFJPQ19NU0df
-U0laRV0gX19hbGlnbmVkKDgpOwo+Cj4gLSBpZiAoYXRvbWljX3JlYWQoJnByb2NfZXZlbnRfbnVt
-X2xpc3RlbmVycykgPCAxKQo+IC0gcmV0dXJuOwo+IC0KCldoeSBkbyB5b3UgcmVtb3ZlIG51bWJl
-ciBvZiBsaXN0ZW5lcnMgY2hlY2s/Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCkNvbnRhaW5lcnMgbWFpbGluZyBsaXN0CkNvbnRhaW5lcnNAbGlzdHMubGlu
-dXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxt
-YW4vbGlzdGluZm8vY29udGFpbmVycw==
+From: Eric Dumazet <edumazet@google.com>
+
+In commit 4ee3bd4a8c746 ("ipv4: disable BH when changing ip local port
+range") Cong added BH protection in set_local_port_range() but missed
+that same fix was needed in set_ping_group_range()
+
+Fixes: b8f1a55639e6 ("udp: Add function to make source port for UDP tunnels")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Eric Salo <salo@google.com>
+---
+ net/ipv4/sysctl_net_ipv4.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 1cb67de106fe..500ae4010bed 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -109,10 +109,10 @@ static void set_ping_group_range(struct ctl_table *table, kgid_t low, kgid_t hig
+ 	kgid_t *data = table->data;
+ 	struct net *net =
+ 		container_of(table->data, struct net, ipv4.ping_group_range.range);
+-	write_seqlock(&net->ipv4.ip_local_ports.lock);
++	write_seqlock_bh(&net->ipv4.ip_local_ports.lock);
+ 	data[0] = low;
+ 	data[1] = high;
+-	write_sequnlock(&net->ipv4.ip_local_ports.lock);
++	write_sequnlock_bh(&net->ipv4.ip_local_ports.lock);
+ }
+ 
+ /* Validate changes from /proc interface. */
