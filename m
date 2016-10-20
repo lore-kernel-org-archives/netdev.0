@@ -1,33 +1,48 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net: saving irq context for peernet2id()
-Date: Thu, 20 Oct 2016 10:17:23 -0700
-Message-ID: <CAM_iQpUjbfMdn4wBL=ibQd=mJmKS+Jh-LmsM_LEz8SkOwcPV0A@mail.gmail.com>
-References: <1476946352-15770-1-git-send-email-xiyou.wangcong@gmail.com> <eced0989-d8bc-d34e-9ecb-8540d80a7173@6wind.com>
+From: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
+Subject: Re: [RFC v2 1/2] proc connector: add namespace events
+Date: Thu, 20 Oct 2016 20:12:03 +0300
+Message-ID: <84641476983523@web30m.yandex.ru>
+References: <1476534370-4027-1-git-send-email-alban@kinvolk.io>
+	<1476534370-4027-2-git-send-email-alban@kinvolk.io>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Stephen Smalley <sds@tycho.nsa.gov>, Elad Raz <e@eladraz.com>,
-        Paul Moore <paul@paul-moore.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:36515 "EHLO
-        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932748AbcJTRRr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 13:17:47 -0400
-Received: by mail-it0-f47.google.com with SMTP id 139so172356827itm.1
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 10:17:47 -0700 (PDT)
-In-Reply-To: <eced0989-d8bc-d34e-9ecb-8540d80a7173@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Iago Lopez Galeiras <iago-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Aaron Campbell <aaron-J6AcJDG0ZEwdnm+yROfE0A@public.gmane.org>,
+	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jesper Derehag <jderehag-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>,
+	Alban Crequy <alban-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Dimitri John Ledkov <dimitri.j.ledkov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Alban Crequy <alban.crequy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org"
+	<containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1476534370-4027-2-git-send-email-alban-lYLaGTFnO9sWenYVfaLwtA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 3:17 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
->
-> Now, we see that "it's needed" and that the analysis was wrong. If a race is
-> introduced by this patch, it will be hard to detect and fix it.
+Hi Alban
 
-It is _not_ needed for protection, it is needed to shut up a warning, I thought
-this is pretty clear in the changelog.
+15.10.2016, 15:28, "Alban Crequy" <alban.crequy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> + /* net */
+> + if (prepare->net_inum != ns->net_ns->ns.inum) {
+> + ev->event_data.ns.items[count].type = CLONE_NEWNET;
+> + ev->event_data.ns.items[count].flags = 0;
+> + ev->event_data.ns.items[count].old_inum = prepare->net_inum;
+> + ev->event_data.ns.items[count].inum = ns->net_ns->ns.inum;
+> + count++;
+> + }
+> +
+> + /* cgroup */
+> + if (prepare->cgroup_inum != ns->cgroup_ns->ns.inum) {
+> + ev->event_data.ns.items[count].type = CLONE_NEWNET;
 
-If we could invent some way to save BH (*lock_bhsave()), we don't need
-to bother this at all, currently we don't.
+NEWNET here looks like a type, isn't it?
