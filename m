@@ -1,107 +1,115 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net-next 6/6] net: use core MTU range checking in misc
- drivers
-Date: Wed, 19 Oct 2016 23:16:41 -0400
-Message-ID: <20161020031641.GJ18569@redhat.com>
-References: <20161019023333.15760-1-jarod@redhat.com>
- <20161019023333.15760-7-jarod@redhat.com>
- <20161019160546.GC11224@bistromath.localdomain>
- <20161020003846.64f85f7e@kant>
+From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
+Subject: Re: Intel Wireless 7260 Microcode SW error detected
+Date: Thu, 20 Oct 2016 06:59:15 +0300
+Message-ID: <1476935955.7845.3.camel@coelho.fi>
+References: <41dbbe14-3098-551d-6c34-0a3654bafca9@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sabrina Dubroca <sd@queasysnail.net>, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, Faisal Latif <faisal.latif@intel.com>,
-        linux-rdma@vger.kernel.org, Cliff Whickman <cpw@sgi.com>,
-        Robin Holt <robinmholt@gmail.com>,
-        Jes Sorensen <jes@trained-monkey.org>,
-        Marek Lindner <mareklindner@neomailbox.ch>,
-        Simon Wunderlich <sw@simonwunderlich.de>,
-        Antonio Quartulli <a@unstable.cc>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161020003846.64f85f7e@kant>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Billes Tibor <tbilles-KK0ffGbhmjU@public.gmane.org>, linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <41dbbe14-3098-551d-6c34-0a3654bafca9-KK0ffGbhmjU@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 12:38:46AM +0200, Stefan Richter wrote:
-> On Oct 19 Sabrina Dubroca wrote:
-> > 2016-10-18, 22:33:33 -0400, Jarod Wilson wrote:
-> > [...]
-> > > diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-> > > index 309311b..b5f125c 100644
-> > > --- a/drivers/firewire/net.c
-> > > +++ b/drivers/firewire/net.c
-> > > @@ -1349,15 +1349,6 @@ static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
-> > >  	return NETDEV_TX_OK;
-> > >  }
-> > >  
-> > > -static int fwnet_change_mtu(struct net_device *net, int new_mtu)
-> > > -{
-> > > -	if (new_mtu < 68)
-> > > -		return -EINVAL;
-> > > -
-> > > -	net->mtu = new_mtu;
-> > > -	return 0;
-> > > -}
-> > > -  
-> > 
-> > This doesn't do any upper bound checking.
-> 
-> I need to check more closely, but I think the RFC 2734 encapsulation spec
-> and our implementation do not impose a particular upper limit.  Though I
-> guess it's bad to let userland set arbitrarily large values here.
+Hi Tibor,
 
-In which case, that would suggest using IP_MAX_MTU (65535) here.
+On Sun, 2016-10-16 at 20:08 +0200, Billes Tibor wrote:
+> I have Lenovo laptop with an Intel Wireless 7260 wifi module and the 
+> latest stable kernel 4.8.1. I was playing a movie from an sshfs mounted 
+> file system, when the movie just froze and my network stopped working. 
+> Dmesg said 'Microcode SW error detected'. Below is my full `dmesg -r` 
+> output. I probably will not be able to reproduce this behaviour, because 
+> it did not happen in the past, and it seems to work fine after reboot.
 
-> > >  static const struct ethtool_ops fwnet_ethtool_ops = {
-> > >  	.get_link	= ethtool_op_get_link,
-> > >  };
-> > > @@ -1366,7 +1357,6 @@ static const struct net_device_ops fwnet_netdev_ops = {
-> > >  	.ndo_open       = fwnet_open,
-> > >  	.ndo_stop	= fwnet_stop,
-> > >  	.ndo_start_xmit = fwnet_tx,
-> > > -	.ndo_change_mtu = fwnet_change_mtu,
-> > >  };
-> > >  
-> > >  static void fwnet_init_dev(struct net_device *net)
-> > > @@ -1481,6 +1471,8 @@ static int fwnet_probe(struct fw_unit *unit,
-> > >  	max_mtu = (1 << (card->max_receive + 1))
-> > >  		  - sizeof(struct rfc2734_header) - IEEE1394_GASP_HDR_SIZE;
-> > >  	net->mtu = min(1500U, max_mtu);
-> > > +	net->min_mtu = ETH_MIN_MTU;
-> > > +	net->max_mtu = net->mtu;  
-> > 
-> > But that will now prevent increasing the MTU above the initial value?
-> 
-> Indeed, therefore NAK.
+Can you file a bug in bugzilla so we can track this? It seems to be a
+firmware problem that we'll have to investigate.  We have instructions
+on how to report here:
 
-However, there's an explicit calculation for 'max_mtu' right there that I
-glazed right over. It would seem perhaps *that* should be used for
-net->max_mtu here, no?
+https://wireless.wiki.kernel.org/en/users/drivers/iwlwifi/debugging
 
-> PS:
-> If the IP packet plus encapsulation header fits into IEEE 1394 packet
-> payload, it is transported without link fragmentation.  If it does not
-> fit, link fragmentation occurs (which reduces bandwidth a bit and
-> consumes additional buffering resources at the transmitter and the
-> receiver).
-> 
-> Broadcast and multicast packets are transmitted via IEEE 1394 asynchronous
-> stream packets at a low bus speed (because our code does not attempt to
-> find the maximum speed and size that is supported by all potential
-> listeners).  This limits the payload to 512 bytes.
-> 
-> Unicast packets are transmitted via IEEE 1394 asynchronous write request
-> packets at optimum speed.  In most cases, this means that 2048 bytes
-> payload is possible, in some cases 4096 bytes.  Many CardBus FireWire
-> cards support only 1024 bytes payload of these packets though.
-> Furthermore, some low-speed long-haul cablings may cap the bus speed and
-> thereby the payload size to 1024 or 512 bytes, but this is uncommon in
-> practice.
 
-Thorough as always, Stefan! :)
+> Is there anything more that I can do to help you debug this?
 
--- 
-Jarod Wilson
-jarod@redhat.com
+It would be nice if you could enable firmware debugging so that, if
+this happens again, we'll have the appropriate FW logs to investigate
+it further.  There are instructions on how to enable it in the
+"Firmware Debugging" section of that wiki page.
+
+Please make sure you read and understand the privacy aspects of
+submitting firmware debugging data, as explained here:
+
+https://wireless.wiki.kernel.org/en/users/drivers/iwlwifi/debugging#privacy_aspects
+
+
+> <3>[37750.190201] iwlwifi 0000:08:00.0: Microcode SW error detected.  
+> Restarting 0x2000000.
+> <3>[37750.190206] iwlwifi 0000:08:00.0: CSR values:
+> <3>[37750.190207] iwlwifi 0000:08:00.0: (2nd byte of CSR_INT_COALESCING 
+> is CSR_INT_PERIODIC_REG)
+> <3>[37750.190212] iwlwifi 0000:08:00.0: CSR_HW_IF_CONFIG_REG: 0X40489204
+> <3>[37750.190226] iwlwifi 0000:08:00.0: CSR_INT_COALESCING: 0X80000040
+> <3>[37750.190239] iwlwifi 0000:08:00.0: CSR_INT: 0X00000000
+> <3>[37750.190253] iwlwifi 0000:08:00.0: CSR_INT_MASK: 0X00000000
+> <3>[37750.190267] iwlwifi 0000:08:00.0: CSR_FH_INT_STATUS: 0X00000000
+> <3>[37750.190281] iwlwifi 0000:08:00.0: CSR_GPIO_IN: 0X00000000
+> <3>[37750.190294] iwlwifi 0000:08:00.0: CSR_RESET: 0X00000000
+> <3>[37750.190308] iwlwifi 0000:08:00.0: CSR_GP_CNTRL: 0X080403c5
+> <3>[37750.190322] iwlwifi 0000:08:00.0: CSR_HW_REV: 0X00000144
+> <3>[37750.190336] iwlwifi 0000:08:00.0: CSR_EEPROM_REG: 0X00000000
+> <3>[37750.190350] iwlwifi 0000:08:00.0: CSR_EEPROM_GP: 0X80000000
+> <3>[37750.190363] iwlwifi 0000:08:00.0: CSR_OTP_GP_REG: 0X803a0000
+> <3>[37750.190377] iwlwifi 0000:08:00.0: CSR_GIO_REG: 0X001f0042
+> <3>[37750.190391] iwlwifi 0000:08:00.0: CSR_GP_UCODE_REG: 0X00000000
+> <3>[37750.190405] iwlwifi 0000:08:00.0: CSR_GP_DRIVER_REG: 0X00000000
+> <3>[37750.190419] iwlwifi 0000:08:00.0: CSR_UCODE_DRV_GP1: 0X00000000
+> <3>[37750.190432] iwlwifi 0000:08:00.0: CSR_UCODE_DRV_GP2: 0X00000000
+> <3>[37750.190446] iwlwifi 0000:08:00.0: CSR_LED_REG: 0X00000060
+> <3>[37750.190460] iwlwifi 0000:08:00.0: CSR_DRAM_INT_TBL_REG: 0X881530a3
+> <3>[37750.190474] iwlwifi 0000:08:00.0: CSR_GIO_CHICKEN_BITS: 0X27800200
+> <3>[37750.190488] iwlwifi 0000:08:00.0: CSR_ANA_PLL_CFG: 0Xd55555d5
+> <3>[37750.190501] iwlwifi 0000:08:00.0: CSR_MONITOR_STATUS_REG: 0X3d0801bd
+> <3>[37750.190515] iwlwifi 0000:08:00.0: CSR_HW_REV_WA_REG: 0X0001001a
+> <3>[37750.190529] iwlwifi 0000:08:00.0: CSR_DBG_HPET_MEM_REG: 0Xffff0010
+> <3>[37750.190530] iwlwifi 0000:08:00.0: FH register values:
+> <3>[37750.190552] iwlwifi 0000:08:00.0: FH_RSCSR_CHNL0_STTS_WPTR_REG: 
+> 0X15005f00
+> <3>[37750.190566] iwlwifi 0000:08:00.0: FH_RSCSR_CHNL0_RBDCB_BASE_REG: 
+> 0X015005e0
+> <3>[37750.190580] iwlwifi 0000:08:00.0: FH_RSCSR_CHNL0_WPTR: 0X000000e8
+> <3>[37750.190593] iwlwifi 0000:08:00.0: FH_MEM_RCSR_CHNL0_CONFIG_REG: 
+> 0X80801114
+> <3>[37750.190607] iwlwifi 0000:08:00.0: FH_MEM_RSSR_SHARED_CTRL_REG: 
+> 0X000000fc
+> <3>[37750.190621] iwlwifi 0000:08:00.0: FH_MEM_RSSR_RX_STATUS_REG: 
+> 0X07030000
+> <3>[37750.190635] iwlwifi 0000:08:00.0: 
+> FH_MEM_RSSR_RX_ENABLE_ERR_IRQ2DRV: 0X00000000
+> <3>[37750.190648] iwlwifi 0000:08:00.0: FH_TSSR_TX_STATUS_REG: 0X07ff0001
+> <3>[37750.190662] iwlwifi 0000:08:00.0: FH_TSSR_TX_ERROR_REG: 0X00000000
+> <3>[37750.190790] iwlwifi 0000:08:00.0: Start IWL Error Log Dump:
+> <3>[37750.190791] iwlwifi 0000:08:00.0: Status: 0x00000000, count: 6
+> <3>[37750.190793] iwlwifi 0000:08:00.0: Loaded firmware version: 16.242414.0
+
+I recommend that you update your firmware to the latest version
+(iwlwifi-7260-17.ucode) published in linux-firmware.git:
+
+http://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git
+
+While I'm not sure the issue you saw is solved by that, we do have lots
+of other fixes in it that are worth the effort.
+
+
+<3>[37750.190794] iwlwifi 0000:08:00.0: 0x0000307C | ADVANCED_SYSASSERT
+
+I hadn't seen this for a while.  This is something related to the TX
+queues and could have many different causes...
+
+Thanks for reporting!
+
+--
+Cheers,
+Luca.
