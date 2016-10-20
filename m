@@ -1,101 +1,75 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Thu, 20 Oct 2016 14:55:17 +0200
-Message-ID: <bff7ab7f-93e4-8d78-ac73-e97d1832d155@neratec.com>
-References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
- <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
- <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
- <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
- <58027540.6080604@codeaurora.org>
- <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
- <58053A33.4030108@codeaurora.org>
- <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
- <58061831.6080005@codeaurora.org>
- <dfff1abf-f506-bffa-8e09-edeebd753be5@neratec.com>
- <58076403.3060608@codeaurora.org>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [RFC 2/6] qed: Add iSCSI out of order packet handling.
+Date: Thu, 20 Oct 2016 12:58:13 +0000
+Message-ID: <BL2PR07MB2306CA84C34D4F67EA5335C28DD50@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1476853273-22960-1-git-send-email-manish.rangankar@cavium.com>
+ <1476853273-22960-3-git-send-email-manish.rangankar@cavium.com>
+ <f8c5d8d1-0e69-00c2-9349-de611c4b6c08@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>, Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "martin.petersen@oracle.com" <martin.petersen@oracle.com>,
+        "jejb@linux.vnet.ibm.com" <jejb@linux.vnet.ibm.com>,
+        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Dept-Eng QLogic Storage Upstream"
+        <QLogic-Storage-Upstream@cavium.com>,
+        "Easi, Arun" <Arun.Easi@cavium.com>
+To: Hannes Reinecke <hare@suse.de>,
+        "Rangankar, Manish" <Manish.Rangankar@cavium.com>,
+        "lduncan@suse.com" <lduncan@suse.com>,
+        "cleech@redhat.com" <cleech@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:19655 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932345AbcJTMzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 08:55:21 -0400
-In-Reply-To: <58076403.3060608@codeaurora.org>
+Received: from mail-bn3nam01on0085.outbound.protection.outlook.com ([104.47.33.85]:30737
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932943AbcJTM6U (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 08:58:20 -0400
+In-Reply-To: <f8c5d8d1-0e69-00c2-9349-de611c4b6c08@suse.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/19/2016 02:16 PM, Timur Tabi wrote:
-> Zefir Kurtisi wrote:
->> Ok then, if you can wait some days, I'll prepare and provide you a more detailed
->> failure report to allow you testing if the issue happens with other NICs.
-> 
-> That sounds great.
-> 
+> > This patch adds out of order packet handling for hardware offloaded
+> > iSCSI. Out of order packet handling requires driver buffer allocation
+> > and assistance.
+> >
+> > Signed-off-by: Arun Easi <arun.easi@cavium.com>
+> > Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
+> >
+> Hmm. The entire out-of-order handling is pretty generic. I really wonder
+> if this doesn't apply to iSCSI in general; surely iscsi_tcp suffers from
+> the same problem, no?
+> If so, wouldn't it be better to move it into generic (iSCSI) code so
+> that all implementations would benefit from it?
 
-I am now able again to reproduce the issue reliably, let's see if it is helpful
-enough to check if this a problem unique to our setup.
+[disclaimer - I'm far from knowledgeable in iscsi ]
 
-As described earlier, the HW is as follows:
-(copper)--[at8031]--(SGMII)--[eTSEC/mpc85xx]
+I agree that the problem of out-of-order handling is probably generic,
+but our solution is very device oriented.
+As the device lacks [a lot of] internal memory, it uses the host memory
+for out-of-order buffers and the driver assistance in pushing them when
+they are needed.
+>From driver perspective, all the data is completely opaque; All it does is
+follow the firmware's guidance in storing & re-transmitting buffers when
+required.
 
-We are using OpenWRT/LEDE as SW platform, therefore I can't do the tests on the
-latest kernel but provide a reference to inspect the problem. The kernel used is
-4.4.21 with the relevant drivers (ath803x and gianfar_driver) being either clean
-or patched with OWRT/LEDE modifications (issue happens in either case).
+Now, I guess the logic could be divided between hardware-specifics -
+Interaction with 'client' [in our case, device's firmware], to receive
+new data, instructions regarding placement and re-transmission,
+and a lower generic data structure which supports manipulation of
+buffers [push-left, push-right, join, etc.].
 
+But given that the data-structure would completely lacks all
+protocol-knowledge [as our implementation doesn't have nor require such],
+I think there would be very little gain - we might find out that as much
+as 80% of the code is device interaction, and the remaining so-called
+'generic' data-structure won't be that useful to other clients as it was
+closely tied to our device needs and API.
 
-The process for detecting the failure is rather trivial: continuously put the
-Ethernet interface down and up and try to get some data through until it fails.
-The script I used to run on the device (over serial) is:
-#----------------------------------------------------------
-HOST=192.168.1.100
-TIMEOUT=20
+Either way, placing this under iscsi would probably be insufficient for our
+future needs, as our qed-iwarp driver would also require this functionality=
+.
 
-while true; do
-	ifconfig eth0 down
-	ifconfig eth0 up
-
-        ping $HOST -c 1 -w $TIMEOUT || {
-                echo "Ping failed after $TIMEOUT seconds"
-                exit 1
-        }
-done
-#----------------------------------------------------------
-In my setup, it takes less than 5 minutes for the script to exit. Once running
-into this state, the relevant registers read from at803x are as follows:
-* copper status              (0x01): 0x796d
-* fiber  status              (0x01): 0x6149
-* copper phy specific status (0x11): 0xbc10
-* fiber  phy specific status (0x11): 0x8100
-* copper/fiber status        (0x1b): 0x020e
-
-In essence
-* the copper link is up with autonegotiation completed
-  (switch/peer link indication is also up), but
-* the SGMII link is down
-  (bits LINK and MR_AN_COMPLETE in PHY specific status fiber cleared)
-* although SGMII is synchronized (SYNC_STATUS bit in same register set)
-
-The SGMII link does not recover from this state thereafter, the only reliable way
-to get it up again I found is to do a power down/up cycle at the fiber/SGMII side,
-which is what the patch I contributed does.
-
-
-Now the interesting (and new for me) part is: if I remove the at803x driver from
-the system and use the generic phy instead, the problem does not happen (or at
-least not while running for one full day). I don't see any significant differences
-between what at803x does above genphy (gpio based HW reset is not run for 8031 in
-at803x_link_change_notify()). Using the genphy is not an option for us, since we
-have the PHY also attached to fiber and need dedicated handling.
-
-
-Hope this helps for the beginning, let me know if you need more information.
-
-
-Cheers,
-Zefir
+Thanks,
+Yuval
