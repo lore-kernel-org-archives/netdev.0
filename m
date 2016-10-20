@@ -1,81 +1,126 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] hv_netvsc: fix a race between netvsc_send() and
- netvsc_init_buf()
-Date: Thu, 20 Oct 2016 10:51:04 +0200
-Message-ID: <8737jr1k07.fsf@vitty.brq.redhat.com>
-References: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
- <BLUPR0301MB2098D6A07F0D465E63988D9FCCD50@BLUPR0301MB2098.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Stephen Hemminger <sthemmin@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <BLUPR0301MB2098D6A07F0D465E63988D9FCCD50@BLUPR0301MB2098.namprd03.prod.outlook.com>
- (Stephen Hemminger's message of "Thu, 20 Oct 2016 08:36:21 +0000")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+From: Binoy Jayan <binoy.jayan@linaro.org>
+Subject: [PATCH] bnx2x: Replace semaphore stats_lock with mutex
+Date: Thu, 20 Oct 2016 14:22:12 +0530
+Message-ID: <1476953532-2019-1-git-send-email-binoy.jayan@linaro.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Binoy Jayan <binoy.jayan@linaro.org>
+To: Ariel Elior <ariel.elior@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <sthemmin@microsoft.com> writes:
+stats_lock is used as a simple mutex, so replace it with a mutex.
+Semaphores are going away in the future.
 
-> Do we need ACCESS_ONCE() here to avoid check/use issues?
->
+Signed-off-by: Binoy Jayan <binoy.jayan@linaro.org>
+---
+They following is a patch which removes semaphores from bnx2x.
+Its part of a bigger effort to eliminate all semaphores
+from the linux kernel.
 
-I think we don't: this is the only place in the function where we read
-the variable so we'll get normal read. We're not trying to syncronize
-with netvsc_init_buf() as that would require locking, if we read stale
-NULL value after it was already updated on a different CPU we're fine,
-we'll just return -EAGAIN.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  3 ++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  6 +++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c | 17 +++++++----------
+ 3 files changed, 12 insertions(+), 14 deletions(-)
 
-> -----Original Message-----
-> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com] 
-> Sent: Wednesday, October 19, 2016 2:53 PM
-> To: netdev@vger.kernel.org
-> Cc: Stephen Hemminger <sthemmin@microsoft.com>; devel@linuxdriverproject.org; linux-kernel@vger.kernel.org; KY Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>
-> Subject: [PATCH net-next] hv_netvsc: fix a race between netvsc_send() and netvsc_init_buf()
->
-> Fix in commit 880988348270 ("hv_netvsc: set nvdev link after populating
-> chn_table") turns out to be incomplete. A crash in
-> netvsc_get_next_send_section() is observed on mtu change when the device is under load. The race I identified is: if we get to netvsc_send() after we set net_device_ctx->nvdev link in netvsc_device_add() but before we finish netvsc_connect_vsp()->netvsc_init_buf() send_section_map is not allocated and we crash. Unfortunately we can't set net_device_ctx->nvdev link after the netvsc_init_buf() call as during the negotiation we need to receive packets and on the receive path we check for it. It would probably be possible to split nvdev into a pair of nvdev_in and nvdev_out links and check them accordingly in get_outbound_net_device()/
-> get_inbound_net_device() but this looks like an overkill.
->
-> Check that send_section_map is allocated in netvsc_send().
->
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> ---
->  drivers/net/hyperv/netvsc.c | 7 +++++++
->  1 file changed, 7 insertions(+)
->
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c index 720b5fa..e2bfaac 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -888,6 +888,13 @@ int netvsc_send(struct hv_device *device,
->  	if (!net_device)
->  		return -ENODEV;
->
-> +	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
-> +	 * here before the negotiation with the host is finished and
-> +	 * send_section_map may not be allocated yet.
-> +	 */
-> +	if (!net_device->send_section_map)
-> +		return -EAGAIN;
-> +
->  	out_channel = net_device->chn_table[q_idx];
->
->  	packet->send_buf_index = NETVSC_INVALID_INDEX;
-> --
-> 2.7.4
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 7dd7490..fd5e5b8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -25,6 +25,7 @@
+ #include <linux/ptp_clock_kernel.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/timecounter.h>
++#include <linux/mutex.h>
+ 
+ /* compilation time flags */
+ 
+@@ -1698,7 +1699,7 @@ struct bnx2x {
+ 	int			stats_state;
+ 
+ 	/* used for synchronization of concurrent threads statistics handling */
+-	struct semaphore	stats_lock;
++	struct mutex		stats_lock;
+ 
+ 	/* used by dmae command loader */
+ 	struct dmae_command	stats_dmae;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 20fe6a8..b323d69 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12340,7 +12340,7 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+ 	mutex_init(&bp->port.phy_mutex);
+ 	mutex_init(&bp->fw_mb_mutex);
+ 	mutex_init(&bp->drv_info_mutex);
+-	sema_init(&bp->stats_lock, 1);
++	mutex_init(&bp->stats_lock);
+ 	bp->drv_info_mng_owner = false;
+ 	INIT_LIST_HEAD(&bp->vlan_reg);
+ 
+@@ -14205,9 +14205,9 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
+ 	cancel_delayed_work_sync(&bp->sp_task);
+ 	cancel_delayed_work_sync(&bp->period_task);
+ 
+-	if (!down_timeout(&bp->stats_lock, HZ / 10)) {
++	if (mutex_trylock(&bp->stats_lock)) {
+ 		bp->stats_state = STATS_STATE_DISABLED;
+-		up(&bp->stats_lock);
++		mutex_unlock(&bp->stats_lock);
+ 	}
+ 
+ 	bnx2x_save_statistics(bp);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 7e0919a..ee6ffd8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -1374,23 +1374,20 @@ void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event)
+ 	 * that context in case someone is in the middle of a transition.
+ 	 * For other events, wait a bit until lock is taken.
+ 	 */
+-	if (down_trylock(&bp->stats_lock)) {
++	if (!mutex_trylock(&bp->stats_lock)) {
+ 		if (event == STATS_EVENT_UPDATE)
+ 			return;
+ 
+ 		DP(BNX2X_MSG_STATS,
+ 		   "Unlikely stats' lock contention [event %d]\n", event);
+-		if (unlikely(down_timeout(&bp->stats_lock, HZ / 10))) {
+-			BNX2X_ERR("Failed to take stats lock [event %d]\n",
+-				  event);
+-			return;
+-		}
++		BNX2X_ERR("Failed to take stats lock [event %d]\n", event);
++		return;
+ 	}
+ 
+ 	bnx2x_stats_stm[state][event].action(bp);
+ 	bp->stats_state = bnx2x_stats_stm[state][event].next_state;
+ 
+-	up(&bp->stats_lock);
++	mutex_unlock(&bp->stats_lock);
+ 
+ 	if ((event != STATS_EVENT_UPDATE) || netif_msg_timer(bp))
+ 		DP(BNX2X_MSG_STATS, "state %d -> event %d -> state %d\n",
+@@ -1976,8 +1973,8 @@ int bnx2x_stats_safe_exec(struct bnx2x *bp,
+ 	/* Wait for statistics to end [while blocking further requests],
+ 	 * then run supplied function 'safely'.
+ 	 */
+-	rc = down_timeout(&bp->stats_lock, HZ / 10);
+-	if (unlikely(rc)) {
++	rc = mutex_trylock(&bp->stats_lock);
++	if (unlikely(!rc)) {
+ 		BNX2X_ERR("Failed to take statistics lock for safe execution\n");
+ 		goto out_no_lock;
+ 	}
+@@ -1998,7 +1995,7 @@ int bnx2x_stats_safe_exec(struct bnx2x *bp,
+ 	/* No need to restart statistics - if they're enabled, the timer
+ 	 * will restart the statistics.
+ 	 */
+-	up(&bp->stats_lock);
++	mutex_unlock(&bp->stats_lock);
+ out_no_lock:
+ 	return rc;
+ }
 -- 
-  Vitaly
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project
