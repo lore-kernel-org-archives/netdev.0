@@ -1,44 +1,48 @@
-From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH 0/4] STM32F429: Add Ethernet fixes
-Date: Thu, 20 Oct 2016 17:21:22 +0200
-Message-ID: <1476976886-23781-1-git-send-email-alexandre.torgue@st.com>
+From: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Subject: [PATCH 2/4] ARM: dts: stm32f429: Update Ethernet node on Eval board
+Date: Thu, 20 Oct 2016 17:21:24 +0200
+Message-ID: <1476976886-23781-3-git-send-email-alexandre.torgue@st.com>
+References: <1476976886-23781-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-        <devicetree@vger.kernel.org>
-To: <peppe.cavallaro@st.com>,
-        Maxime Coquelin <mcoquelin.stm32@gmail.com>, <arnd@arndb.de>,
-        <robh@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:38408 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S964884AbcJTPWS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:22:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>,
+        <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476976886-23781-1-git-send-email-alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This series adds several fixes for Ethernet for stm32f429 MCU.
-First 2 patches have already been reviewed some months ago when 
-stm32 Ethernet glue has been pushed (I added in this series to keep
-history). Fixes are:
- -Change DT to be compliant to stm32 ethernet glue binding
- -Add phy-handle to correctly use mdio subnode
- -Remove WoL support
+Update new pinctrl phandle name and use new node name.
 
-Regards
+Signed-off-by: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
 
-Alex
-
-
-Alexandre TORGUE (4):
-  ARM: dts: stm32f429: Align Ethernet node with new bindings properties
-  ARM: dts: stm32f429: Update Ethernet node on Eval board
-  ARM: dts: stm32f429: Fix Ethernet node on Eval Board
-  ARM: dts: stm32f429: remove Ethernet wake on Lan support
-
- arch/arm/boot/dts/stm32429i-eval.dts |  7 ++++---
- arch/arm/boot/dts/stm32f429.dtsi     | 10 +++++-----
- 2 files changed, 9 insertions(+), 8 deletions(-)
-
+diff --git a/arch/arm/boot/dts/stm32429i-eval.dts b/arch/arm/boot/dts/stm32429i-eval.dts
+index 13c7cd2..fa30bf1 100644
+--- a/arch/arm/boot/dts/stm32429i-eval.dts
++++ b/arch/arm/boot/dts/stm32429i-eval.dts
+@@ -94,11 +94,12 @@
+ 	clock-frequency = <25000000>;
+ };
+ 
+-&ethernet0 {
++&mac {
+ 	status = "okay";
+-	pinctrl-0	= <&ethernet0_mii>;
++	pinctrl-0	= <&ethernet_mii>;
+ 	pinctrl-names	= "default";
+-	phy-mode	= "mii-id";
++	phy-mode	= "mii";
++
+ 	mdio0 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
