@@ -1,60 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] udp: must lock the socket in udp_disconnect()
-Date: Thu, 20 Oct 2016 14:46:10 -0400 (EDT)
-Message-ID: <20161020.144610.532749573029633695.davem@davemloft.net>
-References: <05f766db-4a8c-933e-9d73-6daada21f491@gmail.com>
-        <1476944754.7065.3.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1476981580.7065.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd
+ kernels
+Date: Thu, 20 Oct 2016 11:47:53 -0700
+Message-ID: <605285c4-bc92-0a0d-87b9-5066e39078a3@gmail.com>
+References: <1476981139-28889-1-git-send-email-f.fainelli@gmail.com>
+ <20161020.144431.1484493400918018326.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: sploving1@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44594 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934225AbcJTSqM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:46:12 -0400
-In-Reply-To: <1476981580.7065.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35678 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933863AbcJTSr4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 14:47:56 -0400
+Received: by mail-pf0-f195.google.com with SMTP id s8so6274334pfj.2
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 11:47:56 -0700 (PDT)
+In-Reply-To: <20161020.144431.1484493400918018326.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Oct 2016 09:39:40 -0700
+On 10/20/2016 11:44 AM, David Miller wrote:
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Thu, 20 Oct 2016 09:32:19 -0700
+> 
+>> For a kernel that is being kexec'd we re-enable the integrated GPHY in
+>> order for the subsequent MDIO bus scan to succeed and properly bind to
+>> the bcm7xxx PHY driver. If we did not do that, the GPHY would be shut
+>> down by the time the MDIO driver is probing the bus, and it would fail
+>> to read the correct PHY OUI and therefore bind to an appropriate PHY
+>> driver. Later on, this would cause DSA not to be able to successfully
+>> attach to the PHY, and the interface would not be created at all.
+>>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+> Applied, but I have to wonder...
+> 
+> If enabling the GPHY is necessary for proper probing, why isn't the
+> kexec kernel enabling it properly?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Baozeng Ding reported KASAN traces showing uses after free in
-> udp_lib_get_port() and other related UDP functions.
-> 
-> A CONFIG_DEBUG_PAGEALLOC=y kernel would eventually crash.
-> 
-> I could write a reproducer with two threads doing :
-> 
-> static int sock_fd;
-> static void *thr1(void *arg)
-> {
-> 	for (;;) {
-> 		connect(sock_fd, (const struct sockaddr *)arg,
-> 			sizeof(struct sockaddr_in));
-> 	}
-> }
-> 
-> static void *thr2(void *arg)
-> {
-> 	struct sockaddr_in unspec;
-> 
-> 	for (;;) {
-> 		memset(&unspec, 0, sizeof(unspec));
-> 	        connect(sock_fd, (const struct sockaddr *)&unspec,
-> 			sizeof(unspec));
->         }
-> }
-> 
-> Problem is that udp_disconnect() could run without holding socket lock,
-> and this was causing list corruptions.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Baozeng Ding <sploving1@gmail.com>
+The GPHY enable control is unfortunately located in the switch register
+block space and is dependent upon the switch port to be
+enabled/accessible, which the DSA layer won't create if the GPHY is not
+successfully probed and bound to a PHY driver. It did not appear that
+probe deferral could help solve that problem, since MDIO and switch are
+reasonable independent from each other.
 
-Applied, sounds like I should queue this up for -stable too right?
+This was the easiest way I could come up with, without requiring DT
+changes and references to register blocks that are not quite relevant to
+each other.
+
+HTH
+-- 
+Florian
