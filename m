@@ -1,76 +1,135 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [PATCH] ipv6: properly prevent temp_prefered_lft sysctl race
-Date: Thu, 20 Oct 2016 12:29:26 +0200
-Message-ID: <20161020102926.ysgqdjghmvc573s4@dwarf.suse.cz>
-References: <20161018150154.4tpivtvxygp7kjpd@dwarf.suse.cz>
- <20161018.142525.1262217492229127435.davem@davemloft.net>
- <20161019131636.zhusbqh63qlbq5vy@dwarf.suse.cz>
- <20161019.145816.259194714319437266.davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [Patch net v2] ipv6: fix a potential deadlock in
+ do_ipv6_setsockopt()
+Date: Thu, 20 Oct 2016 09:12:17 -0200
+Message-ID: <20161020111217.GA7224@localhost.localdomain>
+References: <1476945312-15572-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        kbuild-all@01.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, sploving1@gmail.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:54276 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:33616 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754041AbcJTK3c (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 06:29:32 -0400
+        id S1755137AbcJTLMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 07:12:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20161019.145816.259194714319437266.davem@davemloft.net>
+In-Reply-To: <1476945312-15572-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The check for an underflow of tmp_prefered_lft is always false
-because tmp_prefered_lft is unsigned. The intention of the check
-was to guard against racing with an update of the
-temp_prefered_lft sysctl, potentially resulting in an underflow.
+On Wed, Oct 19, 2016 at 11:35:12PM -0700, Cong Wang wrote:
+> Baozeng reported this deadlock case:
+> 
+>        CPU0                    CPU1
+>        ----                    ----
+>   lock([  165.136033] sk_lock-AF_INET6);
+>                                lock([  165.136033] rtnl_mutex);
+>                                lock([  165.136033] sk_lock-AF_INET6);
+>   lock([  165.136033] rtnl_mutex);
+> 
+> Similar to commit 87e9f0315952
+> ("ipv4: fix a potential deadlock in mcast getsockopt() path")
+> this is due to we still have a case, ipv6_sock_mc_close(),
+> where we acquire sk_lock before rtnl_lock. Close this deadlock
+> with the similar solution, that is always acquire rtnl lock first.
+> 
+> Fixes: baf606d9c9b1 ("ipv4,ipv6: grab rtnl before locking the socket")
+> Reported-by: Baozeng Ding <sploving1@gmail.com>
+> Tested-by: Baozeng Ding <sploving1@gmail.com>
+> Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  include/net/addrconf.h   |  1 +
+>  net/ipv6/ipv6_sockglue.c |  3 ++-
+>  net/ipv6/mcast.c         | 17 ++++++++++++-----
+>  3 files changed, 15 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+> index f2d0727..8f998af 100644
+> --- a/include/net/addrconf.h
+> +++ b/include/net/addrconf.h
+> @@ -174,6 +174,7 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex,
+>  		      const struct in6_addr *addr);
+>  int ipv6_sock_mc_drop(struct sock *sk, int ifindex,
+>  		      const struct in6_addr *addr);
+> +void __ipv6_sock_mc_close(struct sock *sk);
+>  void ipv6_sock_mc_close(struct sock *sk);
+>  bool inet6_mc_check(struct sock *sk, const struct in6_addr *mc_addr,
+>  		    const struct in6_addr *src_addr);
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index 5330262..636ec56 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -120,6 +120,7 @@ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
+>  static bool setsockopt_needs_rtnl(int optname)
+>  {
+>  	switch (optname) {
+> +	case IPV6_ADDRFORM:
+>  	case IPV6_ADD_MEMBERSHIP:
+>  	case IPV6_DROP_MEMBERSHIP:
+>  	case IPV6_JOIN_ANYCAST:
+> @@ -198,7 +199,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>  			}
+>  
+>  			fl6_free_socklist(sk);
+> -			ipv6_sock_mc_close(sk);
+> +			__ipv6_sock_mc_close(sk);
 
-As suggested by David Miller, the best way to prevent the race is
-by reading the sysctl variable using READ_ONCE.
+Considering we already took rtnl lock and the way __ipv6_sock_mc_close()
+is written, we don't need that check
+	if (!rcu_access_pointer(np->ipv6_mc_list))
+here too as the while() in there does it already.
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-Reported-by: Julia Lawall <julia.lawall@lip6.fr>
-Fixes: 76506a986dc3 ("IPv6: fix DESYNC_FACTOR")
+LGTM, thanks
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cc7c26d..060dd99 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1185,6 +1185,7 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
- 	u32 addr_flags;
- 	unsigned long now = jiffies;
- 	long max_desync_factor;
-+	s32 cnf_temp_preferred_lft;
- 
- 	write_lock_bh(&idev->lock);
- 	if (ift) {
-@@ -1228,9 +1229,10 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
- 	/* recalculate max_desync_factor each time and update
- 	 * idev->desync_factor if it's larger
- 	 */
-+	cnf_temp_preferred_lft = READ_ONCE(idev->cnf.temp_prefered_lft);
- 	max_desync_factor = min_t(__u32,
- 				  idev->cnf.max_desync_factor,
--				  idev->cnf.temp_prefered_lft - regen_advance);
-+				  cnf_temp_preferred_lft - regen_advance);
- 
- 	if (unlikely(idev->desync_factor > max_desync_factor)) {
- 		if (max_desync_factor > 0) {
-@@ -1245,11 +1247,8 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
- 	tmp_valid_lft = min_t(__u32,
- 			      ifp->valid_lft,
- 			      idev->cnf.temp_valid_lft + age);
--	tmp_prefered_lft = idev->cnf.temp_prefered_lft + age -
-+	tmp_prefered_lft = cnf_temp_preferred_lft + age -
- 			    idev->desync_factor;
--	/* guard against underflow in case of concurrent updates to cnf */
--	if (unlikely(tmp_prefered_lft < 0))
--		tmp_prefered_lft = 0;
- 	tmp_prefered_lft = min_t(__u32, ifp->prefered_lft, tmp_prefered_lft);
- 	tmp_plen = ifp->prefix_len;
- 	tmp_tstamp = ifp->tstamp;
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+
+>  
+>  			/*
+>  			 * Sock is moving from IPv6 to IPv4 (sk_prot), so
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index 75c1fc5..14a3903 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -276,16 +276,14 @@ static struct inet6_dev *ip6_mc_find_dev_rcu(struct net *net,
+>  	return idev;
+>  }
+>  
+> -void ipv6_sock_mc_close(struct sock *sk)
+> +void __ipv6_sock_mc_close(struct sock *sk)
+>  {
+>  	struct ipv6_pinfo *np = inet6_sk(sk);
+>  	struct ipv6_mc_socklist *mc_lst;
+>  	struct net *net = sock_net(sk);
+>  
+> -	if (!rcu_access_pointer(np->ipv6_mc_list))
+> -		return;
+> +	ASSERT_RTNL();
+>  
+> -	rtnl_lock();
+>  	while ((mc_lst = rtnl_dereference(np->ipv6_mc_list)) != NULL) {
+>  		struct net_device *dev;
+>  
+> @@ -303,8 +301,17 @@ void ipv6_sock_mc_close(struct sock *sk)
+>  
+>  		atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
+>  		kfree_rcu(mc_lst, rcu);
+> -
+>  	}
+> +}
+> +
+> +void ipv6_sock_mc_close(struct sock *sk)
+> +{
+> +	struct ipv6_pinfo *np = inet6_sk(sk);
+> +
+> +	if (!rcu_access_pointer(np->ipv6_mc_list))
+> +		return;
+> +	rtnl_lock();
+> +	__ipv6_sock_mc_close(sk);
+>  	rtnl_unlock();
+>  }
+>  
+> -- 
+> 2.1.0
+> 
