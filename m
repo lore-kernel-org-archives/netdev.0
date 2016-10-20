@@ -1,208 +1,49 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v5 2/3] udp: implement memory accounting helpers
-Date: Thu, 20 Oct 2016 22:31:09 +0200
-Message-ID: <d932905c2581df9415449216eceeed1566290e3e.1476979679.git.pabeni@redhat.com>
-References: <cover.1476979679.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1476979679.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv4: disable BH in set_ping_group_range()
+Date: Thu, 20 Oct 2016 13:43:29 -0700
+Message-ID: <1476996209.7065.28.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1476984408.7065.21.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpVFQD0Oqf8YO9HybDpPMhzMMK5m_wNyLwTfVpEwpAVBNw@mail.gmail.com>
+         <CAM_iQpVBHa2ujKN1hsU0LT+g899+WEy9a1oBgDj1FmpifPmz6g@mail.gmail.com>
+         <CAM_iQpV-00gemayMkdLGzb8wo8CNimOZQHDXrvH1jeN6Svrs8w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Eric Salo <salo@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36686 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753398AbcJTUnb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 16:43:31 -0400
+Received: by mail-pf0-f196.google.com with SMTP id r16so6472851pfg.3
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 13:43:30 -0700 (PDT)
+In-Reply-To: <CAM_iQpV-00gemayMkdLGzb8wo8CNimOZQHDXrvH1jeN6Svrs8w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Avoid using the generic helpers.
-Use the receive queue spin lock to protect the memory
-accounting operation, both on enqueue and on dequeue.
+On Thu, 2016-10-20 at 12:44 -0700, Cong Wang wrote:
+> On Thu, Oct 20, 2016 at 12:40 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > On Thu, Oct 20, 2016 at 12:32 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> >> On Thu, Oct 20, 2016 at 10:26 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >>> From: Eric Dumazet <edumazet@google.com>
+> >>>
+> >>> In commit 4ee3bd4a8c746 ("ipv4: disable BH when changing ip local port
+> >>> range") Cong added BH protection in set_local_port_range() but missed
+> >>> that same fix was needed in set_ping_group_range()
+> >>
+> >> Don't know why ping_group_range shares the same lock with local_port_range...
+> >> Perhaps just for saving a few bytes, but that is why I missed this place.
+> >
+> > Hold on... We clearly have typos there... Your fix is not correct.
+> 
+> We need the attached patch, your patch should be reverted, because
+> unlike local_port_range we never read it in BH context, no need to bother _bh.
 
-On dequeue perform partial memory reclaiming, trying to
-leave a quantum of forward allocated memory.
+Well, we do not change this sysctl very often, so I am not sure why we
+need different seqlocks to protect these ranges.
 
-On enqueue use a custom helper, to allow some optimizations:
-- use a plain spin_lock() variant instead of the slightly
-  costly spin_lock_irqsave(),
-- avoid dst_force check, since the calling code has already
-  dropped the skb dst
+Seems a waste of space really (per netns)
 
-The above needs custom memory reclaiming on shutdown, provided
-by the udp_destruct_sock().
-
-v4 -> v5:
-  - replace the mem_lock with the receive queue spin lock
-  - ensure that the bh is always allowed to enqueue at least
-    a skb, even if sk_rcvbuf is exceeded
-
-v3 -> v4:
-  - reworked memory accunting, simplifying the schema
-  - provide an helper for both memory scheduling and enqueuing
-
-v1 -> v2:
-  - use a udp specific destrctor to perform memory reclaiming
-  - remove a couple of helpers, unneeded after the above cleanup
-  - do not reclaim memory on dequeue if not under memory
-    pressure
-  - reworked the fwd accounting schema to avoid potential
-    integer overflow
-
-Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- include/net/udp.h |   4 ++
- net/ipv4/udp.c    | 108 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 112 insertions(+)
-
-diff --git a/include/net/udp.h b/include/net/udp.h
-index ea53a87..18f1e6b 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -246,6 +246,9 @@ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
- }
  
- /* net/ipv4/udp.c */
-+void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len);
-+int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb);
-+
- void udp_v4_early_demux(struct sk_buff *skb);
- int udp_get_port(struct sock *sk, unsigned short snum,
- 		 int (*saddr_cmp)(const struct sock *,
-@@ -258,6 +261,7 @@ int udp_get_port(struct sock *sk, unsigned short snum,
- void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst);
- int udp_rcv(struct sk_buff *skb);
- int udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
-+int udp_init_sock(struct sock *sk);
- int udp_disconnect(struct sock *sk, int flags);
- unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait);
- struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 7d96dc2..5e79992 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1172,6 +1172,114 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
- 	return ret;
- }
- 
-+static void udp_rmem_release(struct sock *sk, int size, int partial)
-+{
-+	int amt;
-+
-+	atomic_sub(size, &sk->sk_rmem_alloc);
-+
-+	spin_lock_bh(&sk->sk_receive_queue.lock);
-+	sk->sk_forward_alloc += size;
-+	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
-+	sk->sk_forward_alloc -= amt;
-+	spin_unlock_bh(&sk->sk_receive_queue.lock);
-+
-+	if (amt)
-+		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-+}
-+
-+static void udp_rmem_free(struct sk_buff *skb)
-+{
-+	udp_rmem_release(skb->sk, skb->truesize, 1);
-+}
-+
-+int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct sk_buff_head *list = &sk->sk_receive_queue;
-+	int rmem, delta, amt, err = -ENOMEM;
-+	int size = skb->truesize;
-+
-+	/* try to avoid the costly atomic add/sub pair when the receive
-+	 * queue is full; always allow at least a packet
-+	 */
-+	rmem = atomic_read(&sk->sk_rmem_alloc);
-+	if (rmem && (rmem + size > sk->sk_rcvbuf))
-+		goto drop;
-+
-+	/* we drop only if the receive buf is full and the receive
-+	 * queue contains some other skb
-+	 */
-+	rmem = atomic_add_return(size, &sk->sk_rmem_alloc);
-+	if ((rmem > sk->sk_rcvbuf) && (rmem > size))
-+		goto uncharge_drop;
-+
-+	skb_orphan(skb);
-+
-+	spin_lock(&list->lock);
-+	if (size >= sk->sk_forward_alloc) {
-+		amt = sk_mem_pages(size);
-+		delta = amt << SK_MEM_QUANTUM_SHIFT;
-+		if (!__sk_mem_raise_allocated(sk, delta, amt, SK_MEM_RECV)) {
-+			err = -ENOBUFS;
-+			spin_unlock(&list->lock);
-+			goto uncharge_drop;
-+		}
-+
-+		sk->sk_forward_alloc += delta;
-+	}
-+
-+	sk->sk_forward_alloc -= size;
-+
-+	/* the skb owner in now the udp socket */
-+	skb->sk = sk;
-+	skb->destructor = udp_rmem_free;
-+	skb->dev = NULL;
-+	sock_skb_set_dropcount(sk, skb);
-+
-+	__skb_queue_tail(list, skb);
-+	spin_unlock(&list->lock);
-+
-+	if (!sock_flag(sk, SOCK_DEAD))
-+		sk->sk_data_ready(sk);
-+
-+	return 0;
-+
-+uncharge_drop:
-+	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
-+
-+drop:
-+	atomic_inc(&sk->sk_drops);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(__udp_enqueue_schedule_skb);
-+
-+static void udp_destruct_sock(struct sock *sk)
-+{
-+	/* reclaim completely the forward allocated memory */
-+	__skb_queue_purge(&sk->sk_receive_queue);
-+	udp_rmem_release(sk, 0, 0);
-+	inet_sock_destruct(sk);
-+}
-+
-+int udp_init_sock(struct sock *sk)
-+{
-+	sk->sk_destruct = udp_destruct_sock;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(udp_init_sock);
-+
-+void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
-+{
-+	if (unlikely(READ_ONCE(sk->sk_peek_off) >= 0)) {
-+		bool slow = lock_sock_fast(sk);
-+
-+		sk_peek_offset_bwd(sk, len);
-+		unlock_sock_fast(sk, slow);
-+	}
-+	consume_skb(skb);
-+}
-+EXPORT_SYMBOL_GPL(skb_consume_udp);
-+
- /**
-  *	first_packet_length	- return length of first packet in receive queue
-  *	@sk: socket
--- 
-1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
