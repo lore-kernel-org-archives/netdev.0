@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smc91x: fix neponset breakage by pxa u16 writes
-Date: Thu, 20 Oct 2016 11:21:12 -0400 (EDT)
-Message-ID: <20161020.112112.836590043273464129.davem@davemloft.net>
-References: <1476912230-18175-1-git-send-email-robert.jarzmik@free.fr>
+From: Alexandre TORGUE <alexandre.torgue@st.com>
+Subject: [PATCH 0/4] STM32F429: Add Ethernet fixes
+Date: Thu, 20 Oct 2016 17:21:22 +0200
+Message-ID: <1476976886-23781-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: nico@fluxnic.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: robert.jarzmik@free.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1476912230-18175-1-git-send-email-robert.jarzmik@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+        <devicetree@vger.kernel.org>
+To: <peppe.cavallaro@st.com>,
+        Maxime Coquelin <mcoquelin.stm32@gmail.com>, <arnd@arndb.de>,
+        <robh@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:38408 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S964884AbcJTPWS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:22:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUm9iZXJ0IEphcnptaWsgPHJvYmVydC5qYXJ6bWlrQGZyZWUuZnI+DQpEYXRlOiBXZWQs
-IDE5IE9jdCAyMDE2IDIzOjIzOjUwICswMjAwDQoNCj4gVGhlIHBhdGNoIGlzb2xhdGluZyB0aGUg
-dTE2IHdyaXRlcyBmb3IgcHhhIGFzc3VtZWQgYWxsIG1hY2hpbmVfaXNfKigpDQo+IGNhbGxzIHdl
-cmUgcmVtb3ZlZCwgYW5kIHRoZXJlZm9yZSByZW1vdmVkIHRoZSBtYWNoLXR5cGVzLmggaW5jbHVk
-ZSB3aGljaA0KPiBwcm92aWRlZCB0aGVtLg0KPiANCj4gVW5mb3J0dW5hdGVseSAyIG1hY2hpbmVf
-aXNfKigpIHJlbWFpbmVkIGluIHNtYzkxeC5jIGZpbGUgaW5jbHVkaW5nDQo+IHNtYzkxeC5oIGZy
-b20gd2hpY2ggdGhlIGluY2x1ZGUgd2FzIHJlbW92ZWQsIHRyaWdnZXJpbmcgdGhlIGVycm9yOg0K
-PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvc21zYy9zbWM5MXguYzogSW4gZnVuY3Rpb24goXNtY19k
-cnZfcHJvYmWiOg0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvc21zYy9zbWM5MXguYzoyMzgwOjI6
-IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbg0KPiAgb2YgZnVuY3Rpb24goW1hY2hpbmVfaXNf
-YXNzYWJldKINCj4gIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KPiAJ
-aWYgKG1hY2hpbmVfaXNfYXNzYWJldCgpICYmIG1hY2hpbmVfaGFzX25lcG9uc2V0KCkpDQo+IA0K
-PiBUaGlzIGFkZHMgYmFjayB0aGUgd3JvbmdseSByZW1vdmVkIGluY2x1ZGUuDQo+IA0KPiBGaXhl
-czogZDA5ZDc0N2FlNGMyICgibmV0OiBzbWM5MXg6IGlzb2xhdGUgdTE2IHdyaXRlcyBhbGlnbm1l
-bnQgd29ya2Fyb3VuZCIpDQo+IFNpZ25lZC1vZmYtYnk6IFJvYmVydCBKYXJ6bWlrIDxyb2JlcnQu
-amFyem1pa0BmcmVlLmZyPg0KDQpBcHBsaWVkLg0K
+This series adds several fixes for Ethernet for stm32f429 MCU.
+First 2 patches have already been reviewed some months ago when 
+stm32 Ethernet glue has been pushed (I added in this series to keep
+history). Fixes are:
+ -Change DT to be compliant to stm32 ethernet glue binding
+ -Add phy-handle to correctly use mdio subnode
+ -Remove WoL support
+
+Regards
+
+Alex
+
+
+Alexandre TORGUE (4):
+  ARM: dts: stm32f429: Align Ethernet node with new bindings properties
+  ARM: dts: stm32f429: Update Ethernet node on Eval board
+  ARM: dts: stm32f429: Fix Ethernet node on Eval Board
+  ARM: dts: stm32f429: remove Ethernet wake on Lan support
+
+ arch/arm/boot/dts/stm32429i-eval.dts |  7 ++++---
+ arch/arm/boot/dts/stm32f429.dtsi     | 10 +++++-----
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+-- 
+1.9.1
