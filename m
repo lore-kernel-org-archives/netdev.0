@@ -1,108 +1,83 @@
-From: "Kershner, David A" <David.Kershner@unisys.com>
-Subject: RE: [PATCH net-next v2 6/9] net: use core MTU range checking in virt
- drivers
-Date: Thu, 20 Oct 2016 20:12:38 +0000
-Message-ID: <SN1PR0701MB1838454F38F431F3216AEB42F0D50@SN1PR0701MB1838.namprd07.prod.outlook.com>
-References: <20161019023333.15760-1-jarod@redhat.com>
- <20161020175524.6184-1-jarod@redhat.com>
- <20161020175524.6184-7-jarod@redhat.com>
- <BLUPR03MB141270CC6037546F918409AECAD50@BLUPR03MB1412.namprd03.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF
+ support
+Date: Thu, 20 Oct 2016 16:57:20 -0400 (EDT)
+Message-ID: <20161020.165720.1537348879596195765.davem@davemloft.net>
+References: <1476942046-18789-2-git-send-email-rvatsavayi@caviumnetworks.com>
+        <20161020.141304.286994718471308700.davem@davemloft.net>
+        <DM3PR07MB21387F2B6D44558DBC36649881D50@DM3PR07MB2138.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "virtualization@lists.linux-foundation.org"
-        <virtualization@lists.linux-foundation.org>,
-        KY Srinivasan <kys@microsoft.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Shrikrishna Khare <skhare@vmware.com>,
-        "VMware, Inc." <pv-drivers@vmware.com>,
-        Wei Liu <wei.liu2@citrix.com>,
-        Paul Durrant <paul.durrant@citrix.com>
-To: Haiyang Zhang <haiyangz@microsoft.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BLUPR03MB141270CC6037546F918409AECAD50@BLUPR03MB1412.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Derek.Chickles@cavium.com,
+        Satananda.Burla@cavium.com, Felix.Manlunas@cavium.com
+To: Raghu.Vatsavayi@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46266 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754103AbcJTU5W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 16:57:22 -0400
+In-Reply-To: <DM3PR07MB21387F2B6D44558DBC36649881D50@DM3PR07MB2138.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
+Date: Thu, 20 Oct 2016 20:01:37 +0000
 
+> 
+> 
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Thursday, October 20, 2016 11:13 AM
+>> To: Vatsavayi, Raghu
+>> Cc: netdev@vger.kernel.org; Vatsavayi, Raghu; Chickles, Derek; Burla,
+>> Satananda; Manlunas, Felix
+>> Subject: Re: [PATCH net-next V2 1/9] liquidio CN23XX: HW config for VF
+>> support
+>> 
+>> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+>> Date: Wed, 19 Oct 2016 22:40:38 -0700
+>> 
+>> > +/* Default behaviour of Liquidio is to provide one queue per VF. But
+>> > +Liquidio
+>> > + * can also provide multiple queues to each VF. If user wants to
+>> > +change the
+>> > + * default behaviour HW should be provided configuration info at init
+>> > +time,
+>> > + * based on which it will create control queues for communicating with
+>> FW.
+>> > + */
+>> > +static u32 max_vfs[2] = { 0, 0 };
+>> > +module_param_array(max_vfs, int, NULL, 0444);
+>> > +MODULE_PARM_DESC(max_vfs, "Assign two comma-separated unsigned
+>> > +integers that specify max number of VFs for PF0 (left of the comma)
+>> > +and PF1 (right of the comma); for 23xx only. By default HW will
+>> > +configure as many VFs as queues after allocating PF queues.To
+>> > +increase queues for VF use this parameter. Use sysfs to create these
+>> > +VFs.");
+>> > +
+>> > +static unsigned int num_queues_per_pf[2] = { 0, 0 };
+>> > +module_param_array(num_queues_per_pf, uint, NULL, 0444);
+>> > +MODULE_PARM_DESC(num_queues_per_pf, "two comma-separated
+>> unsigned
+>> > +integers that specify number of queues per PF0 (left of the comma)
+>> > +and PF1 (right of the comma); for 23xx only");
+>> > +
+>> >  static int ptp_enable = 1;
+>> 
+>> We cannot continue to allow drivers to add custom module parameters to
+>> control this.  It is the worst user experience possible.
+>> 
+>> We need a tree-wide generic, consistent, manner in which to configure and
+>> control this kind of thing.
+> 
+> Sure Dave, I will remove max_vfs module parameter and will use tree wide generic 
+> sysfs interface to enable VFs.
 
-> -----Original Message-----
-> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
-> Sent: Thursday, October 20, 2016 2:05 PM
-> To: Jarod Wilson <jarod@redhat.com>; linux-kernel@vger.kernel.org
-> Cc: netdev@vger.kernel.org; virtualization@lists.linux-foundation.org; KY
-> Srinivasan <kys@microsoft.com>; Michael S. Tsirkin <mst@redhat.com>;
-> Shrikrishna Khare <skhare@vmware.com>; VMware, Inc. <pv-
-> drivers@vmware.com>; Wei Liu <wei.liu2@citrix.com>; Paul Durrant
-> <paul.durrant@citrix.com>; Kershner, David A
-> <David.Kershner@unisys.com>
-> Subject: RE: [PATCH net-next v2 6/9] net: use core MTU range checking in =
-virt
-> drivers
->=20
->=20
->=20
-> > -----Original Message-----
-> > From: Jarod Wilson [mailto:jarod@redhat.com]
-> > Sent: Thursday, October 20, 2016 1:55 PM
-> > To: linux-kernel@vger.kernel.org
-> > Cc: Jarod Wilson <jarod@redhat.com>; netdev@vger.kernel.org;
-> > virtualization@lists.linux-foundation.org; KY Srinivasan
-> > <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>;
-> Michael S.
-> > Tsirkin <mst@redhat.com>; Shrikrishna Khare <skhare@vmware.com>;
-> VMware,
-> > Inc. <pv-drivers@vmware.com>; Wei Liu <wei.liu2@citrix.com>; Paul
-> > Durrant <paul.durrant@citrix.com>; David Kershner
-> > <david.kershner@unisys.com>
-> > Subject: [PATCH net-next v2 6/9] net: use core MTU range checking in
-> > virt drivers
-> >
-> > hyperv_net:
-> > - set min/max_mtu, per Haiyang, after rndis_filter_device_add
-> >
-> > virtio_net:
-> > - set min/max_mtu
-> > - remove virtnet_change_mtu
-> >
-> > vmxnet3:
-> > - set min/max_mtu
-> >
-> > xen-netback:
-> > - min_mtu =3D 0, max_mtu =3D 65517
-> >
-> > xen-netfront:
-> > - min_mtu =3D 0, max_mtu =3D 65535
-> >
-> > unisys/visor:
-> > - clean up defines a little to not clash with network core or add
-> >   redundat definitions
-> >
-> > CC: netdev@vger.kernel.org
-> > CC: virtualization@lists.linux-foundation.org
-> > CC: "K. Y. Srinivasan" <kys@microsoft.com>
-> > CC: Haiyang Zhang <haiyangz@microsoft.com>
-> > CC: "Michael S. Tsirkin" <mst@redhat.com>
-> > CC: Shrikrishna Khare <skhare@vmware.com>
-> > CC: "VMware, Inc." <pv-drivers@vmware.com>
-> > CC: Wei Liu <wei.liu2@citrix.com>
-> > CC: Paul Durrant <paul.durrant@citrix.com>
-> > CC: David Kershner <david.kershner@unisys.com>
-> > Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> > ---
->=20
-> The hv_netvsc changes look fine. Thanks.
->=20
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
->=20
+That's not what I meant.
 
-The visornic changes look good.
+I mean there needs to be a generic mechanism that isn't a per-device
+knob (be it a module parameter or a sysctl, to me these are identical
+functionality and user experience wise).
 
-Reviewed-by: David Kershner <david.kershner@unisys.com>
-
-
-=20
+Something like ethtool or netlink.
