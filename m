@@ -1,555 +1,321 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: [PATCH net-next v2 5/9] net: use core MTU range checking in core net infra
-Date: Thu, 20 Oct 2016 13:55:20 -0400
-Message-ID: <20161020175524.6184-6-jarod@redhat.com>
+Subject: [PATCH net-next v2 2/9] net: use core MTU range checking in USB NIC drivers
+Date: Thu, 20 Oct 2016 13:55:17 -0400
+Message-ID: <20161020175524.6184-3-jarod@redhat.com>
 References: <20161019023333.15760-1-jarod@redhat.com>
  <20161020175524.6184-1-jarod@redhat.com>
 Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Paolo Abeni <pabeni@redhat.com>, Jiri Benc <jbenc@redhat.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Pravin B Shelar <pshelar@ovn.org>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        Patrick McHardy <kaber@trash.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Pravin Shelar <pshelar@nicira.com>,
-        Maxim Krasnyansky <maxk@qti.qualcomm.com>
+        Woojung Huh <woojung.huh@microchip.com>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        Hayes Wang <hayeswang@realtek.com>,
+        Oliver Neukum <oneukum@suse.com>,
+        Steve Glendinning <steve.glendinning@shawell.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161020175524.6184-1-jarod@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-geneve:
-- Merge __geneve_change_mtu back into geneve_change_mtu, set max_mtu
-- This one isn't quite as straight-forward as others, could use some
-  closer inspection and testing
+usbnet:
+- Remove stale new_mtu <= 0 check in usbnet.c
+- Set min_mtu = 0, max_mtu = 65535 (sub-drivers must set their own
+  max_mtu and/or min_mtu as needed)
 
-macvlan:
-- set min/max_mtu
+r8152:
+- Set appropriate max_mtu for different variants (1500 or 9194)
 
-tun:
-- set min/max_mtu, remove tun_net_change_mtu
+lan78xx:
+- Set max_mtu = 9000
 
-vxlan:
-- Merge __vxlan_change_mtu back into vxlan_change_mtu
-- Set max_mtu to IP_MAX_MTU and retain dynamic MTU range checks in
-  change_mtu function
-- This one is also not as straight-forward and could use closer inspection
-  and testing from vxlan folks
+asix_driver:
+- max_mtu = 16384 for ax88178 variant
 
-bridge:
-- set max_mtu of IP_MAX_MTU and retain dynamic MTU range checks in
-  change_mtu function
+ax88179:
+- max_mtu = 4088
 
-openvswitch:
-- set min/max_mtu, remove internal_dev_change_mtu
-- note: max_mtu wasn't checked previously, it's been set to 65535, which
-  is the largest possible size supported
+cdc_ncm:
+- max_mtu from hardware
 
-sch_teql:
-- set min/max_mtu (note: max_mtu previously unchecked, used max of 65535)
+cdc-phonet:
+- min_mtu = 6, max_mtu = 65541
 
-macsec:
-- min_mtu = 0, max_mtu = 65535
+sierra_net:
+- max_mtu = 1500, call usbnet_change_mtu directly
+- sierra_net_change_mtu checked for MTU > 1500, then called
+  usbnet_change_mtu, but if we set max_mtu to let the network core handle
+  the range check, then we can simply call usbnet_change_mtu directly
 
-macvlan:
-- min_mtu = 0, max_mtu = 65535
-
-ntb_netdev:
-- min_mtu = 0, max_mtu = 65535
-
-veth:
-- min_mtu = 68, max_mtu = 65535
-
-8021q:
-- min_mtu = 0, max_mtu = 65535
+smsc75xx:
+- max_mtu = 9000
 
 CC: netdev@vger.kernel.org
-CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-CC: Tom Herbert <tom@herbertland.com>
-CC: Daniel Borkmann <daniel@iogearbox.net>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: Paolo Abeni <pabeni@redhat.com>
-CC: Jiri Benc <jbenc@redhat.com>
-CC: WANG Cong <xiyou.wangcong@gmail.com>
-CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-CC: Pravin B Shelar <pshelar@ovn.org>
-CC: Sabrina Dubroca <sd@queasysnail.net>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Stephen Hemminger <stephen@networkplumber.org>
-CC: Pravin Shelar <pshelar@nicira.com>
-CC: Maxim Krasnyansky <maxk@qti.qualcomm.com>
+CC: Woojung Huh <woojung.huh@microchip.com>
+CC: Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+CC: Hayes Wang <hayeswang@realtek.com>
+CC: Oliver Neukum <oneukum@suse.com>
+CC: Steve Glendinning <steve.glendinning@shawell.net>
 Signed-off-by: Jarod Wilson <jarod@redhat.com>
 ---
- drivers/net/geneve.c                 | 48 +++++++++++----------------
- drivers/net/macsec.c                 |  2 ++
- drivers/net/macvlan.c                |  8 ++++-
- drivers/net/ntb_netdev.c             |  3 ++
- drivers/net/tun.c                    | 20 ++++-------
- drivers/net/veth.c                   | 17 ++--------
- drivers/net/vxlan.c                  | 64 +++++++++++++++++++-----------------
- net/8021q/vlan_dev.c                 |  3 ++
- net/bridge/br_device.c               |  3 +-
- net/openvswitch/vport-internal_dev.c | 10 ------
- net/sched/sch_teql.c                 |  5 ++-
- 11 files changed, 81 insertions(+), 102 deletions(-)
+ drivers/net/usb/asix_devices.c |  4 +---
+ drivers/net/usb/ax88179_178a.c |  4 +---
+ drivers/net/usb/cdc-phonet.c   | 12 ++----------
+ drivers/net/usb/cdc_ncm.c      |  5 +----
+ drivers/net/usb/lan78xx.c      |  8 +++-----
+ drivers/net/usb/r8152.c        | 15 ++++++++++++---
+ drivers/net/usb/sierra_net.c   | 13 ++-----------
+ drivers/net/usb/smsc75xx.c     |  4 +---
+ drivers/net/usb/usbnet.c       |  4 ++--
+ 9 files changed, 25 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 3c20e87..752bcaa 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -1034,39 +1034,18 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return geneve_xmit_skb(skb, dev, info);
- }
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index cce2495..7363cc5 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -1026,9 +1026,6 @@ static int ax88178_change_mtu(struct net_device *net, int new_mtu)
  
--static int __geneve_change_mtu(struct net_device *dev, int new_mtu, bool strict)
-+static int geneve_change_mtu(struct net_device *dev, int new_mtu)
- {
--	struct geneve_dev *geneve = netdev_priv(dev);
--	/* The max_mtu calculation does not take account of GENEVE
--	 * options, to avoid excluding potentially valid
--	 * configurations.
-+	/* Only possible if called internally, ndo_change_mtu path's new_mtu
-+	 * is guaranteed to be between dev->min_mtu and dev->max_mtu.
- 	 */
--	int max_mtu = IP_MAX_MTU - GENEVE_BASE_HLEN - dev->hard_header_len;
--
--	if (geneve->remote.sa.sa_family == AF_INET6)
--		max_mtu -= sizeof(struct ipv6hdr);
--	else
--		max_mtu -= sizeof(struct iphdr);
--
--	if (new_mtu < 68)
+ 	netdev_dbg(dev->net, "ax88178_change_mtu() new_mtu=%d\n", new_mtu);
+ 
+-	if (new_mtu <= 0 || ll_mtu > 16384)
 -		return -EINVAL;
 -
--	if (new_mtu > max_mtu) {
--		if (strict)
--			return -EINVAL;
--
--		new_mtu = max_mtu;
--	}
-+	if (new_mtu > dev->max_mtu)
-+		new_mtu = dev->max_mtu;
+ 	if ((ll_mtu % dev->maxpacket) == 0)
+ 		return -EDOM;
  
- 	dev->mtu = new_mtu;
- 	return 0;
- }
+@@ -1081,6 +1078,7 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
  
--static int geneve_change_mtu(struct net_device *dev, int new_mtu)
--{
--	return __geneve_change_mtu(dev, new_mtu, true);
--}
--
- static int geneve_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct ip_tunnel_info *info = skb_tunnel_info(skb);
-@@ -1170,6 +1149,14 @@ static void geneve_setup(struct net_device *dev)
- 	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
- 	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
+ 	dev->net->netdev_ops = &ax88178_netdev_ops;
+ 	dev->net->ethtool_ops = &ax88178_ethtool_ops;
++	dev->net->max_mtu = 16384 - (dev->net->hard_header_len + 4);
  
-+	/* MTU range: 68 - (something less than 65535) */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	/* The max_mtu calculation does not take account of GENEVE
-+	 * options, to avoid excluding potentially valid
-+	 * configurations. This will be further reduced by IPvX hdr size.
-+	 */
-+	dev->max_mtu = IP_MAX_MTU - GENEVE_BASE_HLEN - dev->hard_header_len;
-+
- 	netif_keep_dst(dev);
- 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_NO_QUEUE;
-@@ -1285,10 +1272,13 @@ static int geneve_configure(struct net *net, struct net_device *dev,
+ 	/* Blink LEDS so users know driver saw dongle */
+ 	asix_sw_reset(dev, 0, 0);
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index e6338c1..36c70d6 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -907,9 +907,6 @@ static int ax88179_change_mtu(struct net_device *net, int new_mtu)
+ 	struct usbnet *dev = netdev_priv(net);
+ 	u16 tmp16;
  
- 	/* make enough headroom for basic scenario */
- 	encap_len = GENEVE_BASE_HLEN + ETH_HLEN;
--	if (remote->sa.sa_family == AF_INET)
-+	if (remote->sa.sa_family == AF_INET) {
- 		encap_len += sizeof(struct iphdr);
--	else
-+		dev->max_mtu -= sizeof(struct iphdr);
-+	} else {
- 		encap_len += sizeof(struct ipv6hdr);
-+		dev->max_mtu -= sizeof(struct ipv6hdr);
-+	}
- 	dev->needed_headroom = encap_len + ETH_HLEN;
- 
- 	if (metadata) {
-@@ -1488,7 +1478,7 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
- 	/* openvswitch users expect packet sizes to be unrestricted,
- 	 * so set the largest MTU we can.
- 	 */
--	err = __geneve_change_mtu(dev, IP_MAX_MTU, false);
-+	err = geneve_change_mtu(dev, IP_MAX_MTU);
- 	if (err)
- 		goto err;
- 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index 3ea47f2..1a134cb 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -2970,6 +2970,8 @@ static void macsec_free_netdev(struct net_device *dev)
- static void macsec_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
-+	dev->min_mtu = 0;
-+	dev->max_mtu = ETH_MAX_MTU;
- 	dev->priv_flags |= IFF_NO_QUEUE;
- 	dev->netdev_ops = &macsec_netdev_ops;
- 	dev->destructor = macsec_free_netdev;
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 3234fcd..a064415 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -777,7 +777,7 @@ static int macvlan_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 
--	if (new_mtu < 68 || vlan->lowerdev->mtu < new_mtu)
-+	if (vlan->lowerdev->mtu < new_mtu)
- 		return -EINVAL;
- 	dev->mtu = new_mtu;
- 	return 0;
-@@ -1085,6 +1085,8 @@ void macvlan_common_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
- 
-+	dev->min_mtu		= 0;
-+	dev->max_mtu		= ETH_MAX_MTU;
- 	dev->priv_flags	       &= ~IFF_TX_SKB_SHARING;
- 	netif_keep_dst(dev);
- 	dev->priv_flags	       |= IFF_UNICAST_FLT;
-@@ -1297,6 +1299,10 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	else if (dev->mtu > lowerdev->mtu)
- 		return -EINVAL;
- 
-+	/* MTU range: 68 - lowerdev->max_mtu */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	dev->max_mtu = lowerdev->max_mtu;
-+
- 	if (!tb[IFLA_ADDRESS])
- 		eth_hw_addr_random(dev);
- 
-diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
-index a9acf71..36877ba 100644
---- a/drivers/net/ntb_netdev.c
-+++ b/drivers/net/ntb_netdev.c
-@@ -433,6 +433,9 @@ static int ntb_netdev_probe(struct device *client_dev)
- 	ndev->netdev_ops = &ntb_netdev_ops;
- 	ndev->ethtool_ops = &ntb_ethtool_ops;
- 
-+	ndev->min_mtu = 0;
-+	ndev->max_mtu = ETH_MAX_MTU;
-+
- 	dev->qp = ntb_transport_create_queue(ndev, client_dev,
- 					     &ntb_netdev_handlers);
- 	if (!dev->qp) {
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8093e39..9328568 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -925,18 +925,6 @@ static void tun_net_mclist(struct net_device *dev)
- 	 */
- }
- 
--#define MIN_MTU 68
--#define MAX_MTU 65535
--
--static int
--tun_net_change_mtu(struct net_device *dev, int new_mtu)
--{
--	if (new_mtu < MIN_MTU || new_mtu + dev->hard_header_len > MAX_MTU)
+-	if (new_mtu <= 0 || new_mtu > 4088)
 -		return -EINVAL;
+-
+ 	net->mtu = new_mtu;
+ 	dev->hard_mtu = net->mtu + net->hard_header_len;
+ 
+@@ -1266,6 +1263,7 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	dev->net->netdev_ops = &ax88179_netdev_ops;
+ 	dev->net->ethtool_ops = &ax88179_ethtool_ops;
+ 	dev->net->needed_headroom = 8;
++	dev->net->max_mtu = 4088;
+ 
+ 	/* Initialize MII structure */
+ 	dev->mii.dev = dev->net;
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
+index ff2270e..eb52de8 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -276,21 +276,11 @@ static int usbpn_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return -ENOIOCTLCMD;
+ }
+ 
+-static int usbpn_set_mtu(struct net_device *dev, int new_mtu)
+-{
+-	if ((new_mtu < PHONET_MIN_MTU) || (new_mtu > PHONET_MAX_MTU))
+-		return -EINVAL;
+-
 -	dev->mtu = new_mtu;
 -	return 0;
 -}
 -
- static netdev_features_t tun_net_fix_features(struct net_device *dev,
- 	netdev_features_t features)
- {
-@@ -1014,7 +1002,6 @@ static const struct net_device_ops tun_netdev_ops = {
- 	.ndo_open		= tun_net_open,
- 	.ndo_stop		= tun_net_close,
- 	.ndo_start_xmit		= tun_net_xmit,
--	.ndo_change_mtu		= tun_net_change_mtu,
- 	.ndo_fix_features	= tun_net_fix_features,
- 	.ndo_select_queue	= tun_select_queue,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -1029,7 +1016,6 @@ static const struct net_device_ops tap_netdev_ops = {
- 	.ndo_open		= tun_net_open,
- 	.ndo_stop		= tun_net_close,
- 	.ndo_start_xmit		= tun_net_xmit,
--	.ndo_change_mtu		= tun_net_change_mtu,
- 	.ndo_fix_features	= tun_net_fix_features,
- 	.ndo_set_rx_mode	= tun_net_mclist,
- 	.ndo_set_mac_address	= eth_mac_addr,
-@@ -1062,6 +1048,9 @@ static void tun_flow_uninit(struct tun_struct *tun)
- 	tun_flow_flush(tun);
- }
+ static const struct net_device_ops usbpn_ops = {
+ 	.ndo_open	= usbpn_open,
+ 	.ndo_stop	= usbpn_close,
+ 	.ndo_start_xmit = usbpn_xmit,
+ 	.ndo_do_ioctl	= usbpn_ioctl,
+-	.ndo_change_mtu = usbpn_set_mtu,
+ };
  
-+#define MIN_MTU 68
-+#define MAX_MTU 65535
+ static void usbpn_setup(struct net_device *dev)
+@@ -301,6 +291,8 @@ static void usbpn_setup(struct net_device *dev)
+ 	dev->type		= ARPHRD_PHONET;
+ 	dev->flags		= IFF_POINTOPOINT | IFF_NOARP;
+ 	dev->mtu		= PHONET_MAX_MTU;
++	dev->min_mtu		= PHONET_MIN_MTU;
++	dev->max_mtu		= PHONET_MAX_MTU;
+ 	dev->hard_header_len	= 1;
+ 	dev->dev_addr[0]	= PN_MEDIA_USB;
+ 	dev->addr_len		= 1;
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 877c951..7141817 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -740,10 +740,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
+ int cdc_ncm_change_mtu(struct net_device *net, int new_mtu)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+-	int maxmtu = cdc_ncm_max_dgram_size(dev) - cdc_ncm_eth_hlen(dev);
+-
+-	if (new_mtu <= 0 || new_mtu > maxmtu)
+-		return -EINVAL;
+ 
+ 	net->mtu = new_mtu;
+ 	cdc_ncm_set_dgram_size(dev, new_mtu + cdc_ncm_eth_hlen(dev));
+@@ -909,6 +905,7 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
+ 
+ 	/* must handle MTU changes */
+ 	dev->net->netdev_ops = &cdc_ncm_netdev_ops;
++	dev->net->max_mtu = cdc_ncm_max_dgram_size(dev) - cdc_ncm_eth_hlen(dev);
+ 
+ 	return 0;
+ 
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 13f033c..c4e748e 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1980,11 +1980,6 @@ static int lan78xx_change_mtu(struct net_device *netdev, int new_mtu)
+ 	int old_rx_urb_size = dev->rx_urb_size;
+ 	int ret;
+ 
+-	if (new_mtu > MAX_SINGLE_PACKET_SIZE)
+-		return -EINVAL;
+-
+-	if (new_mtu <= 0)
+-		return -EINVAL;
+ 	/* no second zero-length packet read wanted after mtu-sized packets */
+ 	if ((ll_mtu % dev->maxpacket) == 0)
+ 		return -EDOM;
+@@ -3388,6 +3383,9 @@ static int lan78xx_probe(struct usb_interface *intf,
+ 	if (netdev->mtu > (dev->hard_mtu - netdev->hard_header_len))
+ 		netdev->mtu = dev->hard_mtu - netdev->hard_header_len;
+ 
++	/* MTU range: 68 - 9000 */
++	netdev->max_mtu = MAX_SINGLE_PACKET_SIZE;
 +
- /* Initialize net device. */
- static void tun_net_init(struct net_device *dev)
- {
-@@ -1092,6 +1081,9 @@ static void tun_net_init(struct net_device *dev)
- 
+ 	dev->ep_blkin = (intf->cur_altsetting)->endpoint + 0;
+ 	dev->ep_blkout = (intf->cur_altsetting)->endpoint + 1;
+ 	dev->ep_intr = (intf->cur_altsetting)->endpoint + 2;
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 8d6e13c..4213c28 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -4119,9 +4119,6 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
  		break;
  	}
-+
-+	dev->min_mtu = MIN_MTU;
-+	dev->max_mtu = MAX_MTU - dev->hard_header_len;
- }
  
- /* Character device part */
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index fbc853e..0520952a 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -23,9 +23,6 @@
- #define DRV_NAME	"veth"
- #define DRV_VERSION	"1.0"
- 
--#define MIN_MTU 68		/* Min L3 MTU */
--#define MAX_MTU 65535		/* Max L3 MTU (arbitrary) */
+-	if (new_mtu < 68 || new_mtu > RTL8153_MAX_MTU)
+-		return -EINVAL;
 -
- struct pcpu_vstats {
- 	u64			packets;
- 	u64			bytes;
-@@ -216,17 +213,9 @@ static int veth_close(struct net_device *dev)
+ 	ret = usb_autopm_get_interface(tp->intf);
+ 	if (ret < 0)
+ 		return ret;
+@@ -4311,6 +4308,18 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 	netdev->ethtool_ops = &ops;
+ 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
+ 
++	/* MTU range: 68 - 1500 or 9194 */
++	netdev->min_mtu = ETH_MIN_MTU;
++	switch (tp->version) {
++	case RTL_VER_01:
++	case RTL_VER_02:
++		netdev->max_mtu = ETH_DATA_LEN;
++		break;
++	default:
++		netdev->max_mtu = RTL8153_MAX_MTU;
++		break;
++	}
++
+ 	tp->mii.dev = netdev;
+ 	tp->mii.mdio_read = read_mii_word;
+ 	tp->mii.mdio_write = write_mii_word;
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
+index a2515887..12071f1 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -165,7 +165,6 @@ struct lsi_umts {
+ 
+ /* Forward definitions */
+ static void sierra_sync_timer(unsigned long syncdata);
+-static int sierra_net_change_mtu(struct net_device *net, int new_mtu);
+ 
+ /* Our own net device operations structure */
+ static const struct net_device_ops sierra_net_device_ops = {
+@@ -173,7 +172,7 @@ static const struct net_device_ops sierra_net_device_ops = {
+ 	.ndo_stop               = usbnet_stop,
+ 	.ndo_start_xmit         = usbnet_start_xmit,
+ 	.ndo_tx_timeout         = usbnet_tx_timeout,
+-	.ndo_change_mtu         = sierra_net_change_mtu,
++	.ndo_change_mtu         = usbnet_change_mtu,
+ 	.ndo_set_mac_address    = eth_mac_addr,
+ 	.ndo_validate_addr      = eth_validate_addr,
+ };
+@@ -622,15 +621,6 @@ static const struct ethtool_ops sierra_net_ethtool_ops = {
+ 	.nway_reset = usbnet_nway_reset,
+ };
+ 
+-/* MTU can not be more than 1500 bytes, enforce it. */
+-static int sierra_net_change_mtu(struct net_device *net, int new_mtu)
+-{
+-	if (new_mtu > SIERRA_NET_MAX_SUPPORTED_MTU)
+-		return -EINVAL;
+-
+-	return usbnet_change_mtu(net, new_mtu);
+-}
+-
+ static int sierra_net_get_fw_attr(struct usbnet *dev, u16 *datap)
+ {
+ 	int result = 0;
+@@ -720,6 +710,7 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
+ 
+ 	dev->net->hard_header_len += SIERRA_NET_HIP_EXT_HDR_LEN;
+ 	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
++	dev->net->max_mtu = SIERRA_NET_MAX_SUPPORTED_MTU;
+ 
+ 	/* Set up the netdev */
+ 	dev->net->flags |= IFF_NOARP;
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index 9af9799..0b17b40 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -925,9 +925,6 @@ static int smsc75xx_change_mtu(struct net_device *netdev, int new_mtu)
+ 	struct usbnet *dev = netdev_priv(netdev);
+ 	int ret;
+ 
+-	if (new_mtu > MAX_SINGLE_PACKET_SIZE)
+-		return -EINVAL;
+-
+ 	ret = smsc75xx_set_rx_max_frame_length(dev, new_mtu + ETH_HLEN);
+ 	if (ret < 0) {
+ 		netdev_warn(dev->net, "Failed to set mac rx frame length\n");
+@@ -1448,6 +1445,7 @@ static int smsc75xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	dev->net->flags |= IFF_MULTICAST;
+ 	dev->net->hard_header_len += SMSC75XX_TX_OVERHEAD;
+ 	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
++	dev->net->max_mtu = MAX_SINGLE_PACKET_SIZE;
  	return 0;
  }
  
--static int is_valid_veth_mtu(int new_mtu)
-+static int is_valid_veth_mtu(int mtu)
- {
--	return new_mtu >= MIN_MTU && new_mtu <= MAX_MTU;
--}
--
--static int veth_change_mtu(struct net_device *dev, int new_mtu)
--{
--	if (!is_valid_veth_mtu(new_mtu))
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index d5071e3..3de65ea 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -384,8 +384,6 @@ int usbnet_change_mtu (struct net_device *net, int new_mtu)
+ 	int		old_hard_mtu = dev->hard_mtu;
+ 	int		old_rx_urb_size = dev->rx_urb_size;
+ 
+-	if (new_mtu <= 0)
 -		return -EINVAL;
--	dev->mtu = new_mtu;
--	return 0;
-+	return mtu >= ETH_MIN_MTU && mtu <= ETH_MAX_MTU;
- }
+ 	// no second zero-length packet read wanted after mtu-sized packets
+ 	if ((ll_mtu % dev->maxpacket) == 0)
+ 		return -EDOM;
+@@ -1669,6 +1667,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	 * bind() should set rx_urb_size in that case.
+ 	 */
+ 	dev->hard_mtu = net->mtu + net->hard_header_len;
++	net->min_mtu = 0;
++	net->max_mtu = ETH_MAX_MTU;
  
- static int veth_dev_init(struct net_device *dev)
-@@ -300,7 +289,6 @@ static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_open            = veth_open,
- 	.ndo_stop            = veth_close,
- 	.ndo_start_xmit      = veth_xmit,
--	.ndo_change_mtu      = veth_change_mtu,
- 	.ndo_get_stats64     = veth_get_stats64,
- 	.ndo_set_rx_mode     = veth_set_multicast_list,
- 	.ndo_set_mac_address = eth_mac_addr,
-@@ -337,6 +325,7 @@ static void veth_setup(struct net_device *dev)
- 			       NETIF_F_HW_VLAN_CTAG_RX |
- 			       NETIF_F_HW_VLAN_STAG_RX);
- 	dev->destructor = veth_dev_free;
-+	dev->max_mtu = ETH_MAX_MTU;
- 
- 	dev->hw_features = VETH_FEATURES;
- 	dev->hw_enc_features = VETH_FEATURES;
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index e7d1668..c0170b6 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2367,43 +2367,31 @@ static void vxlan_set_multicast_list(struct net_device *dev)
- {
- }
- 
--static int __vxlan_change_mtu(struct net_device *dev,
--			      struct net_device *lowerdev,
--			      struct vxlan_rdst *dst, int new_mtu, bool strict)
-+static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
- {
--	int max_mtu = IP_MAX_MTU;
--
--	if (lowerdev)
--		max_mtu = lowerdev->mtu;
-+	struct vxlan_dev *vxlan = netdev_priv(dev);
-+	struct vxlan_rdst *dst = &vxlan->default_dst;
-+	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
-+							 dst->remote_ifindex);
-+	bool use_ipv6 = false;
- 
- 	if (dst->remote_ip.sa.sa_family == AF_INET6)
--		max_mtu -= VXLAN6_HEADROOM;
--	else
--		max_mtu -= VXLAN_HEADROOM;
--
--	if (new_mtu < 68)
--		return -EINVAL;
-+		use_ipv6 = true;
- 
--	if (new_mtu > max_mtu) {
--		if (strict)
-+	/* This check is different than dev->max_mtu, because it looks at
-+	 * the lowerdev->mtu, rather than the static dev->max_mtu
-+	 */
-+	if (lowerdev) {
-+		int max_mtu = lowerdev->mtu -
-+			      (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
-+		if (new_mtu > max_mtu)
- 			return -EINVAL;
--
--		new_mtu = max_mtu;
- 	}
- 
- 	dev->mtu = new_mtu;
- 	return 0;
- }
- 
--static int vxlan_change_mtu(struct net_device *dev, int new_mtu)
--{
--	struct vxlan_dev *vxlan = netdev_priv(dev);
--	struct vxlan_rdst *dst = &vxlan->default_dst;
--	struct net_device *lowerdev = __dev_get_by_index(vxlan->net,
--							 dst->remote_ifindex);
--	return __vxlan_change_mtu(dev, lowerdev, dst, new_mtu, true);
--}
--
- static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
-@@ -2795,6 +2783,10 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 		vxlan_ether_setup(dev);
- 	}
- 
-+	/* MTU range: 68 - 65535 */
-+	dev->min_mtu = ETH_MIN_MTU;
-+	dev->max_mtu = ETH_MAX_MTU;
-+
- 	vxlan->net = src_net;
- 
- 	dst->remote_vni = conf->vni;
-@@ -2838,7 +2830,8 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- #endif
- 
- 		if (!conf->mtu)
--			dev->mtu = lowerdev->mtu - (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
-+			dev->mtu = lowerdev->mtu -
-+				   (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
- 
- 		needed_headroom = lowerdev->hard_header_len;
- 	} else if (vxlan_addr_multicast(&dst->remote_ip)) {
-@@ -2847,9 +2840,20 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 	}
- 
- 	if (conf->mtu) {
--		err = __vxlan_change_mtu(dev, lowerdev, dst, conf->mtu, false);
--		if (err)
--			return err;
-+		int max_mtu = ETH_MAX_MTU;
-+
-+		if (lowerdev)
-+			max_mtu = lowerdev->mtu;
-+
-+		max_mtu -= (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
-+
-+		if (conf->mtu < dev->min_mtu || conf->mtu > dev->max_mtu)
-+			return -EINVAL;
-+
-+		dev->mtu = conf->mtu;
-+
-+		if (conf->mtu > max_mtu)
-+			dev->mtu = max_mtu;
- 	}
- 
- 	if (use_ipv6 || conf->flags & VXLAN_F_COLLECT_METADATA)
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index fbfacd5..10da6c5 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -826,5 +826,8 @@ void vlan_setup(struct net_device *dev)
- 	dev->destructor		= vlan_dev_free;
- 	dev->ethtool_ops	= &vlan_ethtool_ops;
- 
-+	dev->min_mtu		= 0;
-+	dev->max_mtu		= ETH_MAX_MTU;
-+
- 	eth_zero_addr(dev->broadcast);
- }
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 89a687f..c08e02b 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -185,7 +185,7 @@ static struct rtnl_link_stats64 *br_get_stats64(struct net_device *dev,
- static int br_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct net_bridge *br = netdev_priv(dev);
--	if (new_mtu < 68 || new_mtu > br_min_mtu(br))
-+	if (new_mtu > br_min_mtu(br))
- 		return -EINVAL;
- 
- 	dev->mtu = new_mtu;
-@@ -410,6 +410,7 @@ void br_dev_setup(struct net_device *dev)
- 	br->bridge_hello_time = br->hello_time = 2 * HZ;
- 	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
- 	br->ageing_time = BR_DEFAULT_AGEING_TIME;
-+	dev->max_mtu = ETH_MAX_MTU;
- 
- 	br_netfilter_rtable_init(br);
- 	br_stp_timer_init(br);
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index e7da290..d5d6cae 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -89,15 +89,6 @@ static const struct ethtool_ops internal_dev_ethtool_ops = {
- 	.get_link	= ethtool_op_get_link,
- };
- 
--static int internal_dev_change_mtu(struct net_device *netdev, int new_mtu)
--{
--	if (new_mtu < 68)
--		return -EINVAL;
--
--	netdev->mtu = new_mtu;
--	return 0;
--}
--
- static void internal_dev_destructor(struct net_device *dev)
- {
- 	struct vport *vport = ovs_internal_dev_get_vport(dev);
-@@ -148,7 +139,6 @@ static const struct net_device_ops internal_dev_netdev_ops = {
- 	.ndo_stop = internal_dev_stop,
- 	.ndo_start_xmit = internal_dev_xmit,
- 	.ndo_set_mac_address = eth_mac_addr,
--	.ndo_change_mtu = internal_dev_change_mtu,
- 	.ndo_get_stats64 = internal_get_stats,
- 	.ndo_set_rx_headroom = internal_set_rx_headroom,
- };
-diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
-index 2cd9b44..b019636 100644
---- a/net/sched/sch_teql.c
-+++ b/net/sched/sch_teql.c
-@@ -418,9 +418,6 @@ static int teql_master_mtu(struct net_device *dev, int new_mtu)
- 	struct teql_master *m = netdev_priv(dev);
- 	struct Qdisc *q;
- 
--	if (new_mtu < 68)
--		return -EINVAL;
--
- 	q = m->slaves;
- 	if (q) {
- 		do {
-@@ -460,6 +457,8 @@ static __init void teql_master_setup(struct net_device *dev)
- 	dev->netdev_ops =       &teql_netdev_ops;
- 	dev->type		= ARPHRD_VOID;
- 	dev->mtu		= 1500;
-+	dev->min_mtu		= 68;
-+	dev->max_mtu		= 65535;
- 	dev->tx_queue_len	= 100;
- 	dev->flags		= IFF_NOARP;
- 	dev->hard_header_len	= LL_MAX_HEADER;
+ 	net->netdev_ops = &usbnet_netdev_ops;
+ 	net->watchdog_timeo = TX_TIMEOUT_JIFFIES;
 -- 
 2.10.0
