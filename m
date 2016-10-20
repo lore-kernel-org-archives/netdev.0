@@ -1,91 +1,72 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [RFC PATCH] net: stmmac: Add OXNAS Glue Driver
-Date: Thu, 20 Oct 2016 18:26:58 +0200
-Message-ID: <CAGhQ9VxJ-gQTX1xjMOJ4spiL_RnhryyQ0=gUEQCHm3sHecTVuA@mail.gmail.com>
-References: <20161020155406.27172-1-narmstrong@baylibre.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "peppe.cavallaro" <peppe.cavallaro@st.com>,
-        alexandre.torgue@st.com, devicetree <devicetree@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        linux-oxnas@lists.tuxfamily.org,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161020155406.27172-1-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd kernels
+Date: Thu, 20 Oct 2016 09:32:19 -0700
+Message-ID: <1476981139-28889-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35703 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751873AbcJTQcW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 12:32:22 -0400
+Received: by mail-pf0-f193.google.com with SMTP id s8so6011519pfj.2
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 09:32:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Neil,
+For a kernel that is being kexec'd we re-enable the integrated GPHY in
+order for the subsequent MDIO bus scan to succeed and properly bind to
+the bcm7xxx PHY driver. If we did not do that, the GPHY would be shut
+down by the time the MDIO driver is probing the bus, and it would fail
+to read the correct PHY OUI and therefore bind to an appropriate PHY
+driver. Later on, this would cause DSA not to be able to successfully
+attach to the PHY, and the interface would not be created at all.
 
-On 20 October 2016 at 17:54, Neil Armstrong <narmstrong@baylibre.com> wrote:
-> Add Synopsys Designware MAC Glue layer for the Oxford Semiconductor OX820.
->
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-> ---
->  .../devicetree/bindings/net/oxnas-dwmac.txt        |  44 ++++++
->  drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 ++
->  drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
->  drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c  | 173 +++++++++++++++++++++
->  4 files changed, 229 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/oxnas-dwmac.txt
->  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
-<snip>
-> +
-> +static int oxnas_dwmac_probe(struct platform_device *pdev)
-> +{
-> +       struct plat_stmmacenet_data *plat_dat;
-> +       struct stmmac_resources stmmac_res;
-> +       struct device_node *sysctrl;
-> +       struct oxnas_dwmac *dwmac;
-> +       int ret;
-> +
-> +       sysctrl = of_parse_phandle(pdev->dev.of_node, "oxsemi,sys-ctrl", 0);
-> +       if (!sysctrl) {
-> +               dev_err(&pdev->dev, "failed to get sys-ctrl node\n");
-> +               return -EINVAL;
-> +       }
-> +
-> +       ret = stmmac_get_platform_resources(pdev, &stmmac_res);
-> +       if (ret)
-> +               return ret;
-> +
-> +       plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
-> +       if (IS_ERR(plat_dat))
-> +               return PTR_ERR(plat_dat);
-> +
-> +       dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
-> +       if (!dwmac)
-> +               return -ENOMEM;
-> +
-> +       dwmac->regmap = syscon_node_to_regmap(sysctrl);
-> +       if (IS_ERR(dwmac->regmap)) {
-> +               dev_err(&pdev->dev, "failed to have sysctrl regmap\n");
-> +               return PTR_ERR(dwmac->regmap);
-> +       }
-> +
-> +       dwmac->clk = devm_clk_get(&pdev->dev, "gmac");
-> +       if (IS_ERR(dwmac->clk))
-> +               return PTR_ERR(dwmac->clk);
-> +
-> +       plat_dat->bsp_priv = dwmac;
-> +       plat_dat->init = oxnas_dwmac_init;
-> +       plat_dat->exit = oxnas_dwmac_exit;
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-Please do not use the init/exit callbacks. Implement proper driver
-callbacks instead. I.e: PM resume/suspend and driver remove.
-
-Shouldn't you call oxnas_dwmac_init() from probe as well?
-As it is now it will only be called during PM resume and that can't be right.
-
-
-> +
-> +       return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-
-If stmmac_dvr_probe() fails you should disable your clocks.
-
-
-regards,
-Joachim Eastwood
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 0427009bc924..077a24541584 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -30,6 +30,7 @@
+ #include <linux/etherdevice.h>
+ #include <net/switchdev.h>
+ #include <linux/platform_data/b53.h>
++#include <linux/kexec.h>
+ 
+ #include "bcm_sf2.h"
+ #include "bcm_sf2_regs.h"
+@@ -1133,6 +1134,18 @@ static int bcm_sf2_sw_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static void bcm_sf2_sw_shutdown(struct platform_device *pdev)
++{
++	struct bcm_sf2_priv *priv = platform_get_drvdata(pdev);
++
++	/* For a kernel about to be kexec'd we want to keep the GPHY on for a
++	 * successful MDIO bus scan to occur. If we did turn off the GPHY
++	 * before (e.g: port_disable), this will also power it back on.
++	 */
++	if (priv->hw_params.num_gphy == 1)
++		bcm_sf2_gphy_enable_set(priv->dev->ds, kexec_in_progress);
++}
++
+ #ifdef CONFIG_PM_SLEEP
+ static int bcm_sf2_suspend(struct device *dev)
+ {
+@@ -1163,6 +1176,7 @@ MODULE_DEVICE_TABLE(of, bcm_sf2_of_match);
+ static struct platform_driver bcm_sf2_driver = {
+ 	.probe	= bcm_sf2_sw_probe,
+ 	.remove	= bcm_sf2_sw_remove,
++	.shutdown = bcm_sf2_sw_shutdown,
+ 	.driver = {
+ 		.name = "brcm-sf2",
+ 		.of_match_table = bcm_sf2_of_match,
+-- 
+2.7.4
