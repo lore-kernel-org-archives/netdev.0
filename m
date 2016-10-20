@@ -1,35 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/sched: act_mirred: Use passed lastuse argument
-Date: Thu, 20 Oct 2016 11:15:07 -0400 (EDT)
-Message-ID: <20161020.111507.1336932324302066566.davem@davemloft.net>
-References: <1476888159-30332-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net] ila: Fix tailroom allocation of lwtstate
+Date: Thu, 20 Oct 2016 11:20:19 -0400 (EDT)
+Message-ID: <20161020.112019.468220952101459876.davem@davemloft.net>
+References: <d7e2292a2be9d142a05b7c528746820bac358065.1476911506.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amirva@mellanox.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org, paulb@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: tom@herbertland.com, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41910 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42010 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964843AbcJTPPJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:15:09 -0400
-In-Reply-To: <1476888159-30332-1-git-send-email-ogerlitz@mellanox.com>
+        with ESMTP id S965049AbcJTPUU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 11:20:20 -0400
+In-Reply-To: <d7e2292a2be9d142a05b7c528746820bac358065.1476911506.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 19 Oct 2016 17:42:39 +0300
+From: Thomas Graf <tgraf@suug.ch>
+Date: Wed, 19 Oct 2016 23:16:39 +0200
 
-> From: Paul Blakey <paulb@mellanox.com>
+> Tailroom is supposed to be of length sizeof(struct ila_lwt) but
+> sizeof(struct ila_params) is currently allocated.
 > 
-> stats_update callback is called by NIC drivers doing hardware
-> offloading of the mirred action. Lastuse is passed as argument
-> to specify when the stats was actually last updated and is not
-> always the current time.
+> This leads to the dst_cache and connected member of ila_lwt being
+> referenced out of bounds.
 > 
-> Fixes: 9798e6fe4f9b ('net: act_mirred: allow statistic updates from offloaded actions')
-> Signed-off-by: Paul Blakey <paulb@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> struct ila_lwt {
+> 	struct ila_params p;
+> 	struct dst_cache dst_cache;
+> 	u32 connected : 1;
+> };
+> 
+> Fixes: 65d7ab8de582 ("net: Identifier Locator Addressing module")
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  -stable candidate
 
-Applied, thanks.
+This patch only applies to net-next, so I've applied it there.
+
+Please explain how I should handle 'net' and -stable.
