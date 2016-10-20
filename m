@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 5/9] liquidio CN23XX: VF related operations
-Date: Wed, 19 Oct 2016 22:40:42 -0700
-Message-ID: <1476942046-18789-6-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 8/9] liquidio CN23XX: copyrights changes and alignment
+Date: Wed, 19 Oct 2016 22:40:45 -0700
+Message-ID: <1476942046-18789-9-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,370 +16,1386 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-sn1nam02on0041.outbound.protection.outlook.com ([104.47.36.41]:13246
         "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753173AbcJTFlc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Oct 2016 01:41:32 -0400
+        id S933043AbcJTFli (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Oct 2016 01:41:38 -0400
 In-Reply-To: <1476942046-18789-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for VF related operations like mac address vlan
-and link changes.
+Updated copyrights comments and also changed some other comments
+alignments.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    |  22 +++
- .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |   3 +
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 214 +++++++++++++++++++++
- .../net/ethernet/cavium/liquidio/liquidio_common.h |   5 +
- .../net/ethernet/cavium/liquidio/octeon_device.h   |   8 +
- 5 files changed, 252 insertions(+)
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 53 ++++++++++------------
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.h    | 39 +++++++---------
+ .../net/ethernet/cavium/liquidio/cn23xx_pf_regs.h  | 39 +++++++---------
+ .../net/ethernet/cavium/liquidio/cn66xx_device.c   | 36 +++++++--------
+ .../net/ethernet/cavium/liquidio/cn66xx_device.h   | 37 +++++++--------
+ drivers/net/ethernet/cavium/liquidio/cn66xx_regs.h | 37 +++++++--------
+ .../net/ethernet/cavium/liquidio/cn68xx_device.c   | 36 +++++++--------
+ .../net/ethernet/cavium/liquidio/cn68xx_device.h   | 37 +++++++--------
+ drivers/net/ethernet/cavium/liquidio/cn68xx_regs.h | 37 +++++++--------
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    | 36 +++++++--------
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 42 ++++++++---------
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 36 +++++++--------
+ .../net/ethernet/cavium/liquidio/liquidio_common.h | 37 +++++++--------
+ .../net/ethernet/cavium/liquidio/liquidio_image.h  | 36 +++++++--------
+ .../net/ethernet/cavium/liquidio/octeon_config.h   | 37 +++++++--------
+ .../net/ethernet/cavium/liquidio/octeon_console.c  | 43 ++++++++----------
+ .../net/ethernet/cavium/liquidio/octeon_device.c   | 36 +++++++--------
+ .../net/ethernet/cavium/liquidio/octeon_device.h   | 45 ++++++++----------
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.c | 36 +++++++--------
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.h | 17 +++----
+ drivers/net/ethernet/cavium/liquidio/octeon_iq.h   | 21 ++++-----
+ .../net/ethernet/cavium/liquidio/octeon_mailbox.c  |  3 --
+ .../net/ethernet/cavium/liquidio/octeon_mailbox.h  |  3 --
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h | 19 +++-----
+ .../net/ethernet/cavium/liquidio/octeon_mem_ops.c  |  5 +-
+ .../net/ethernet/cavium/liquidio/octeon_mem_ops.h  |  5 +-
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |  5 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_nic.c  |  5 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_nic.h  |  5 +-
+ .../net/ethernet/cavium/liquidio/request_manager.c |  5 +-
+ .../ethernet/cavium/liquidio/response_manager.c    |  5 +-
+ .../ethernet/cavium/liquidio/response_manager.h    |  5 +-
+ 32 files changed, 352 insertions(+), 486 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-index e054010..ef7d3b2 100644
+index ef7d3b2..2a56ded 100644
 --- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
 +++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-@@ -23,6 +23,7 @@
+@@ -1,27 +1,21 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #include <linux/pci.h>
+-#include <linux/netdevice.h>
+ #include <linux/vmalloc.h>
+ #include <linux/etherdevice.h>
+ #include "liquidio_common.h"
+@@ -426,10 +420,10 @@ static int cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
+ 		return -1;
+ 
+ 	/** Set the MAC_NUM and PVF_NUM in IQ_PKT_CONTROL reg
+-	* for all queues.Only PF can set these bits.
+-	* bits 29:30 indicate the MAC num.
+-	* bits 32:47 indicate the PVF num.
+-	*/
++	 * for all queues.Only PF can set these bits.
++	 * bits 29:30 indicate the MAC num.
++	 * bits 32:47 indicate the PVF num.
++	 */
+ 	for (q_no = 0; q_no < ern; q_no++) {
+ 		reg_val = oct->pcie_port << CN23XX_PKT_INPUT_CTL_MAC_NUM_POS;
+ 
+@@ -552,8 +546,8 @@ static void cn23xx_pf_setup_global_output_regs(struct octeon_device *oct)
+ 	writeq(0x40, (u8 *)oct->mmio[0].hw_addr + CN23XX_SLI_OQ_WMARK);
+ 
+ 	/** Disabling setting OQs in reset when ring has no dorebells
+-	  * enabling this will cause of head of line blocking
+-	  */
++	 * enabling this will cause of head of line blocking
++	 */
+ 	/* Do it only for pass1.1. and pass1.2 */
+ 	if ((oct->rev_id == OCTEON_CN23XX_REV_1_0) ||
+ 	    (oct->rev_id == OCTEON_CN23XX_REV_1_1))
+@@ -1451,8 +1445,7 @@ void cn23xx_dump_iq_regs(struct octeon_device *oct)
+ 		dev_dbg(&oct->pci_dev->dev, "SLI_PKT[%d]_INPUT_CTL [0x%x]: 0x%016llx\n",
+ 			q_no, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
+ 			CVM_CAST64(octeon_read_csr64
+-				(oct,
+-					CN23XX_SLI_IQ_PKT_CONTROL64(q_no))));
++				(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no))));
+ 	}
+ 
+ 	pci_read_config_dword(oct->pci_dev, CN23XX_CONFIG_PCIE_DEVCTL, &regval);
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+index 20a9dc5..65ffefe 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+@@ -1,28 +1,23 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file  cn23xx_device.h
+  * \brief Host Driver: Routines that perform CN23XX specific operations.
+-*/
++ */
+ 
+ #ifndef __CN23XX_PF_DEVICE_H__
+ #define __CN23XX_PF_DEVICE_H__
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h
+index 03d79d9..680a405 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h
+@@ -1,29 +1,24 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file cn23xx_regs.h
+  * \brief Host Driver: Register Address and Register Mask values for
+  * Octeon CN23XX devices.
+-*/
++ */
+ 
+ #ifndef __CN23XX_PF_REGS_H__
+ #define __CN23XX_PF_REGS_H__
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
+index 1ebc225..bdec051 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include "liquidio_common.h"
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h
+index 32fbbb2..8ed5713 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file  cn66xx_device.h
+  *  \brief Host Driver: Routines that perform CN66XX specific operations.
+  */
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_regs.h b/drivers/net/ethernet/cavium/liquidio/cn66xx_regs.h
+index 5e3aff2..23152c0 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn66xx_regs.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_regs.h
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file cn66xx_regs.h
+  *  \brief Host Driver: Register Address and Register Mask values for
+  *  Octeon CN66XX devices.
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn68xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn68xx_device.c
+index dbf3566..1e40f1a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn68xx_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn68xx_device.c
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include "liquidio_common.h"
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn68xx_device.h b/drivers/net/ethernet/cavium/liquidio/cn68xx_device.h
+index ea7bdcc..66b8d6b 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn68xx_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn68xx_device.h
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file  cn68xx_device.h
+  *  \brief Host Driver: Routines that perform CN68XX specific operations.
+  */
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn68xx_regs.h b/drivers/net/ethernet/cavium/liquidio/cn68xx_regs.h
+index d45a0f4..0b742f0 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn68xx_regs.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn68xx_regs.h
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file cn68xx_regs.h
+  *  \brief Host Driver: Register Address and Register Mask values for
+  *  Octeon CN68XX devices. The register map for CN66XX is the same
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+index e6026df..b28e740 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/if_vlan.h>
+ #include "liquidio_common.h"
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index 1674522..c7c39a0 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #include <linux/netdevice.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/pci.h>
+@@ -87,9 +83,9 @@ enum {
+ 	"tx_bytes",
+ 	"rx_errors",	/*jabber_err+l2_err+frame_err */
+ 	"tx_errors",	/*fw_err_pko+fw_err_link+fw_err_drop */
+-	"rx_dropped",   /*st->fromwire.total_rcvd - st->fromwire.fw_total_rcvd
+-			*+st->fromwire.dmac_drop + st->fromwire.fw_err_drop
+-			*/
++	"rx_dropped",   /*st->fromwire.total_rcvd - st->fromwire.fw_total_rcvd +
++			 *st->fromwire.dmac_drop + st->fromwire.fw_err_drop
++			 */
+ 	"tx_dropped",
+ 
+ 	"tx_total_sent",
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 091701b..f25f443 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/firmware.h>
+ #include <net/vxlan.h>
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 1d2eba7..82a4eed 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*!  \file  liquidio_common.h
+  *   \brief Common: Structures and macros used in PCI-NIC package by core and
+  *   host driver.
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_image.h b/drivers/net/ethernet/cavium/liquidio/liquidio_image.h
+index 93819bd..78a3685 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_image.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_image.h
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #ifndef _LIQUIDIO_IMAGE_H_
+ #define _LIQUIDIO_IMAGE_H_
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+index 8871fb5..f9f65e2 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file  octeon_config.h
+  *  \brief Host Driver: Configuration data structures for the host driver.
+  */
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+index 01a50f3..c0089ed 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /**
+  * @file octeon_console.c
+  */
+@@ -76,9 +71,9 @@ static int octeon_console_read(struct octeon_device *oct, u32 console_num,
+ #define OCTEON_CONSOLE_POLL_INTERVAL_MS  100    /* 10 times per second */
+ 
+ /* First three members of cvmx_bootmem_desc are left in original
+-** positions for backwards compatibility.
+-** Assumes big endian target
+-*/
++ * positions for backwards compatibility.
++ * Assumes big endian target
++ */
+ struct cvmx_bootmem_desc {
+ 	/** spinlock to control access to list */
+ 	u32 lock;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index 278c880..4a30d7c 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
  #include <linux/pci.h>
  #include <linux/netdevice.h>
  #include <linux/vmalloc.h>
-+#include <linux/etherdevice.h>
- #include "liquidio_common.h"
- #include "octeon_droq.h"
- #include "octeon_iq.h"
-@@ -1476,3 +1477,24 @@ int cn23xx_fw_loaded(struct octeon_device *oct)
- 	val = octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1);
- 	return (val >> 1) & 1ULL;
- }
-+
-+void cn23xx_tell_vf_its_macaddr_changed(struct octeon_device *oct, int vfidx,
-+					u8 *mac)
-+{
-+	if (oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vfidx)) {
-+		struct octeon_mbox_cmd mbox_cmd;
-+
-+		mbox_cmd.msg.u64 = 0;
-+		mbox_cmd.msg.s.type = OCTEON_MBOX_REQUEST;
-+		mbox_cmd.msg.s.resp_needed = 0;
-+		mbox_cmd.msg.s.cmd = OCTEON_PF_CHANGED_VF_MACADDR;
-+		mbox_cmd.msg.s.len = 1;
-+		mbox_cmd.recv_len = 0;
-+		mbox_cmd.recv_status = 0;
-+		mbox_cmd.fn = NULL;
-+		mbox_cmd.fn_arg = 0;
-+		ether_addr_copy(mbox_cmd.msg.s.params, mac);
-+		mbox_cmd.q_no = vfidx * oct->sriov_info.rings_per_vf;
-+		octeon_mbox_write(oct, &mbox_cmd);
-+	}
-+}
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-index 21b5c90..20a9dc5 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-@@ -56,4 +56,7 @@ int validate_cn23xx_pf_config_info(struct octeon_device *oct,
- void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct);
- 
- int cn23xx_fw_loaded(struct octeon_device *oct);
-+
-+void cn23xx_tell_vf_its_macaddr_changed(struct octeon_device *oct, int vfidx,
-+					u8 *mac);
- #endif
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 114208f..56faf1d 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3585,6 +3585,151 @@ static void liquidio_del_vxlan_port(struct net_device *netdev,
- 				    OCTNET_CMD_VXLAN_PORT_DEL);
- }
- 
-+static int __liquidio_set_vf_mac(struct net_device *netdev, int vfidx,
-+				 u8 *mac, bool is_admin_assigned)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+
-+	if (!is_valid_ether_addr(mac))
-+		return -EINVAL;
-+
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.max_vfs)
-+		return -EINVAL;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_CHANGE_MACADDR;
-+	/* vfidx is 0 based, but vf_num (param1) is 1 based */
-+	nctrl.ncmd.s.param1 = vfidx + 1;
-+	nctrl.ncmd.s.param2 = (is_admin_assigned ? 1 : 0);
-+	nctrl.ncmd.s.more = 1;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.cb_fn = 0;
-+	nctrl.wait_time = 100;
-+
-+	nctrl.udd[0] = 0;
-+	/* The MAC Address is presented in network byte order. */
-+	ether_addr_copy((u8 *)&nctrl.udd[0] + 2, mac);
-+
-+	oct->sriov_info.vf_macaddr[vfidx] = nctrl.udd[0];
-+
-+	octnet_send_nic_ctrl_pkt(oct, &nctrl);
-+
-+	return 0;
-+}
-+
-+static int liquidio_set_vf_mac(struct net_device *netdev, int vfidx, u8 *mac)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	int retval;
-+
-+	retval = __liquidio_set_vf_mac(netdev, vfidx, mac, true);
-+	if (!retval)
-+		cn23xx_tell_vf_its_macaddr_changed(oct, vfidx, mac);
-+
-+	return retval;
-+}
-+
-+static int liquidio_set_vf_vlan(struct net_device *netdev, int vfidx,
-+				u16 vlan, u8 qos, __be16 vlan_proto)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	u16 vlantci;
-+
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
-+		return -EINVAL;
-+
-+	if (vlan_proto != htons(ETH_P_8021Q))
-+		return -EPROTONOSUPPORT;
-+
-+	if (vlan >= VLAN_N_VID || qos > 7)
-+		return -EINVAL;
-+
-+	if (vlan)
-+		vlantci = vlan | (u16)qos << VLAN_PRIO_SHIFT;
-+	else
-+		vlantci = 0;
-+
-+	if (oct->sriov_info.vf_vlantci[vfidx] == vlantci)
-+		return 0;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
-+	if (vlan)
-+		nctrl.ncmd.s.cmd = OCTNET_CMD_ADD_VLAN_FILTER;
-+	else
-+		nctrl.ncmd.s.cmd = OCTNET_CMD_DEL_VLAN_FILTER;
-+
-+	nctrl.ncmd.s.param1 = vlantci;
-+	nctrl.ncmd.s.param2 =
-+	    vfidx + 1; /* vfidx is 0 based, but vf_num (param2) is 1 based */
-+	nctrl.ncmd.s.more = 0;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.cb_fn = 0;
-+	nctrl.wait_time = 100;
-+
-+	octnet_send_nic_ctrl_pkt(oct, &nctrl);
-+
-+	oct->sriov_info.vf_vlantci[vfidx] = vlantci;
-+
-+	return 0;
-+}
-+
-+static int liquidio_get_vf_config(struct net_device *netdev, int vfidx,
-+				  struct ifla_vf_info *ivi)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	u8 *macaddr;
-+
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
-+		return -EINVAL;
-+
-+	ivi->vf = vfidx;
-+	macaddr = 2 + (u8 *)&oct->sriov_info.vf_macaddr[vfidx];
-+	ether_addr_copy(&ivi->mac[0], macaddr);
-+	ivi->vlan = oct->sriov_info.vf_vlantci[vfidx] & VLAN_VID_MASK;
-+	ivi->qos = oct->sriov_info.vf_vlantci[vfidx] >> VLAN_PRIO_SHIFT;
-+	ivi->linkstate = oct->sriov_info.vf_linkstate[vfidx];
-+	return 0;
-+}
-+
-+static int liquidio_set_vf_link_state(struct net_device *netdev, int vfidx,
-+				      int linkstate)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
-+		return -EINVAL;
-+
-+	if (oct->sriov_info.vf_linkstate[vfidx] == linkstate)
-+		return 0;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_VF_LINKSTATE;
-+	nctrl.ncmd.s.param1 =
-+	    vfidx + 1; /* vfidx is 0 based, but vf_num (param1) is 1 based */
-+	nctrl.ncmd.s.param2 = linkstate;
-+	nctrl.ncmd.s.more = 0;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.cb_fn = 0;
-+	nctrl.wait_time = 100;
-+
-+	octnet_send_nic_ctrl_pkt(oct, &nctrl);
-+
-+	oct->sriov_info.vf_linkstate[vfidx] = linkstate;
-+
-+	return 0;
-+}
-+
- static struct net_device_ops lionetdevops = {
- 	.ndo_open		= liquidio_open,
- 	.ndo_stop		= liquidio_stop,
-@@ -3602,6 +3747,10 @@ static void liquidio_del_vxlan_port(struct net_device *netdev,
- 	.ndo_set_features	= liquidio_set_features,
- 	.ndo_udp_tunnel_add	= liquidio_add_vxlan_port,
- 	.ndo_udp_tunnel_del	= liquidio_del_vxlan_port,
-+	.ndo_set_vf_mac		= liquidio_set_vf_mac,
-+	.ndo_set_vf_vlan	= liquidio_set_vf_vlan,
-+	.ndo_get_vf_config	= liquidio_get_vf_config,
-+	.ndo_set_vf_link_state  = liquidio_set_vf_link_state,
- };
- 
- /** \brief Entry point for the liquidio module
-@@ -3924,6 +4073,22 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			"if%d gmx: %d hw_addr: 0x%llx\n", i,
- 			lio->linfo.gmxport, CVM_CAST64(lio->linfo.hw_addr));
- 
-+		for (j = 0; j < octeon_dev->sriov_info.max_vfs; j++) {
-+			u8 vfmac[ETH_ALEN];
-+
-+			random_ether_addr(&vfmac[0]);
-+			if (__liquidio_set_vf_mac(netdev, j,
-+						  &vfmac[0], false)) {
-+				dev_err(&octeon_dev->pci_dev->dev,
-+					"Error setting VF%d MAC address\n",
-+					j);
-+				goto setup_nic_dev_fail;
-+			}
-+			dev_info(&octeon_dev->pci_dev->dev,
-+				 "MAC Address %pM is configured for VF %d\n",
-+				 &vfmac[0], j);
-+		}
-+
- 		/* 64-bit swap required on LE machines */
- 		octeon_swap_8B_data(&lio->linfo.hw_addr, 1);
- 		for (j = 0; j < 6; j++)
-@@ -4217,6 +4382,52 @@ static void nic_starter(struct work_struct *work)
- 	complete(&handshake[oct->octeon_id].started);
- }
- 
-+static int
-+octeon_recv_vf_drv_notice(struct octeon_recv_info *recv_info, void *buf)
-+{
-+	struct octeon_device *oct = (struct octeon_device *)buf;
-+	struct octeon_recv_pkt *recv_pkt = recv_info->recv_pkt;
-+	int i, notice, vf_idx;
-+	u64 *data, vf_num;
-+
-+	notice = recv_pkt->rh.r.ossp;
-+	data = (u64 *)get_rbd(recv_pkt->buffer_ptr[0]);
-+
-+	/* the first 64-bit word of data is the vf_num */
-+	vf_num = data[0];
-+	octeon_swap_8B_data(&vf_num, 1);
-+	vf_idx = (int)vf_num - 1;
-+
-+	if (notice == VF_DRV_LOADED) {
-+		if (!(oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vf_idx))) {
-+			oct->sriov_info.vf_drv_loaded_mask |= BIT_ULL(vf_idx);
-+			dev_info(&oct->pci_dev->dev,
-+				 "driver for VF%d was loaded\n", vf_idx);
-+			try_module_get(THIS_MODULE);
-+		}
-+	} else if (notice == VF_DRV_REMOVED) {
-+		if (oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vf_idx)) {
-+			oct->sriov_info.vf_drv_loaded_mask &= ~BIT_ULL(vf_idx);
-+			dev_info(&oct->pci_dev->dev,
-+				 "driver for VF%d was removed\n", vf_idx);
-+			module_put(THIS_MODULE);
-+		}
-+	} else if (notice == VF_DRV_MACADDR_CHANGED) {
-+		u8 *b = (u8 *)&data[1];
-+
-+		oct->sriov_info.vf_macaddr[vf_idx] = data[1];
-+		dev_info(&oct->pci_dev->dev,
-+			 "VF driver changed VF%d's MAC address to %02x:%02x:%02x:%02x:%02x:%02x\n",
-+			 vf_idx, b[2], b[3], b[4], b[5], b[6], b[7]);
-+	}
-+
-+	for (i = 0; i < recv_pkt->buffer_count; i++)
-+		recv_buffer_free(recv_pkt->buffer_ptr[i]);
-+	octeon_free_recv_info(recv_info);
-+
-+	return 0;
-+}
-+
- /**
-  * \brief Device initialization for each Octeon device that is probed
-  * @param octeon_dev  octeon device
-@@ -4275,6 +4486,9 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 				    octeon_core_drv_init,
- 				    octeon_dev);
- 
-+	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC,
-+				    OPCODE_NIC_VF_DRV_NOTICE,
-+				    octeon_recv_vf_drv_notice, octeon_dev);
- 	INIT_DELAYED_WORK(&octeon_dev->nic_poll_work.work, nic_starter);
- 	octeon_dev->nic_poll_work.ctxptr = (void *)octeon_dev;
- 	schedule_delayed_work(&octeon_dev->nic_poll_work.work,
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index caeff9a..edf1282 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -89,6 +89,10 @@ enum octeon_tag_type {
- #define OPCODE_NIC_TIMESTAMP           0x07
- #define OPCODE_NIC_INTRMOD_CFG         0x08
- #define OPCODE_NIC_IF_CFG              0x09
-+#define OPCODE_NIC_VF_DRV_NOTICE       0x0A
-+#define VF_DRV_LOADED                  1
-+#define VF_DRV_REMOVED                -1
-+#define VF_DRV_MACADDR_CHANGED         2
- 
- #define CORE_DRV_TEST_SCATTER_OP    0xFFF5
- 
-@@ -235,6 +239,7 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
- 
- #define   OCTNET_CMD_ID_ACTIVE         0x1a
- 
-+#define   OCTNET_CMD_SET_VF_LINKSTATE  0x1c
- #define   OCTNET_CMD_VXLAN_PORT_ADD    0x0
- #define   OCTNET_CMD_VXLAN_PORT_DEL    0x1
- #define   OCTNET_CMD_RXCSUM_ENABLE     0x0
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index bdb10a0..70a0d98 100644
+index 6c18baa..c59b77e 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -354,6 +354,14 @@ struct octeon_sriov_info {
+@@ -1,25 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
+-
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file octeon_device.h
+  *  \brief Host Driver: This file defines the octeon device structure.
+  */
+@@ -93,9 +88,9 @@ enum octeon_pci_swap_mode {
+ #define    OCT_DEV_STATES                 OCT_DEV_STATE_INVALID
  
- 	/*lookup table that maps DPI ring number to VF pci_dev struct pointer*/
- 	struct pci_dev *dpiring_to_vfpcidev_lut[MAX_POSSIBLE_VFS];
-+
-+	u64	vf_macaddr[MAX_POSSIBLE_VFS];
-+
-+	u16	vf_vlantci[MAX_POSSIBLE_VFS];
-+
-+	int	vf_linkstate[MAX_POSSIBLE_VFS];
-+
-+	u64	vf_drv_loaded_mask;
- };
+ /** Octeon Device interrupts
+-  *  These interrupt bits are set in int_status filed of
+-  *  octeon_device structure
+-  */
++ * These interrupt bits are set in int_status filed of
++ * octeon_device structure
++ */
+ #define	   OCT_DEV_INTR_DMA0_FORCE	  0x01
+ #define	   OCT_DEV_INTR_DMA1_FORCE	  0x02
+ #define	   OCT_DEV_INTR_PKT_DATA	  0x04
+@@ -548,7 +543,7 @@ struct oct_intrmod_cmd {
+ void octeon_init_device_list(int conf_type);
  
- struct octeon_ioq_vector {
+ /** Free memory for Input and Output queue structures for a octeon device */
+-void octeon_free_device_mem(struct octeon_device *);
++void octeon_free_device_mem(struct octeon_device *oct);
+ 
+ /* Look up a free entry in the octeon_device table and allocate resources
+  * for the octeon_device structure for an octeon device. Called at init
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
+index 8f6fc95..d7ba000 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
+@@ -1,24 +1,20 @@
+ /**********************************************************************
+-* Author: Cavium, Inc.
+-*
+-* Contact: support@cavium.com
+-*          Please include "LiquidIO" in the subject.
+-*
+-* Copyright (c) 2003-2015 Cavium, Inc.
+-*
+-* This file is free software; you can redistribute it and/or modify
+-* it under the terms of the GNU General Public License, Version 2, as
+-* published by the Free Software Foundation.
+-*
+-* This file is distributed in the hope that it will be useful, but
+-* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+-* NONINFRINGEMENT.  See the GNU General Public License for more
+-* details.
+-*
+-* This file may also be available under a different license from Cavium.
+-* Contact Cavium, Inc. for more information
+-**********************************************************************/
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include <linux/vmalloc.h>
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
+index d591f5f..e620740 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -13,13 +13,8 @@
+  * This file is distributed in the hope that it will be useful, but
+  * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+- * NONINFRINGEMENT.  See the GNU General Public License for more
+- * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+- **********************************************************************/
+-
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*!  \file  octeon_droq.h
+  *   \brief Implementation of Octeon Output queues. "Output" is with
+  *   respect to the Octeon device on the NIC. From this driver's point of
+@@ -81,7 +76,7 @@ struct octeon_skb_page_info {
+  *  the Octeon device. Since the descriptor ring keeps physical (bus)
+  *  addresses, this field is required for the driver to keep track of
+  *  the virtual address pointers.
+-*/
++ */
+ struct octeon_recv_buffer {
+ 	/** Packet buffer, including metadata. */
+ 	void *buffer;
+@@ -358,7 +353,7 @@ struct octeon_droq {
+  * @param  q_no       - droq no. ranges from 0 - 3.
+  * @param app_ctx     - pointer to application context
+  * @return Success: 0    Failure: 1
+-*/
++ */
+ int octeon_init_droq(struct octeon_device *oct_dev,
+ 		     u32 q_no,
+ 		     u32 num_descs,
+@@ -371,7 +366,7 @@ int octeon_init_droq(struct octeon_device *oct_dev,
+  *  @param oct_dev - pointer to the octeon device structure
+  *  @param q_no    - droq no. ranges from 0 - 3.
+  *  @return:    Success: 0    Failure: 1
+-*/
++ */
+ int octeon_delete_droq(struct octeon_device *oct_dev, u32 q_no);
+ 
+ /** Register a change in droq operations. The ops field has a pointer to a
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
+index b493e67..c67152a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -13,13 +13,8 @@
+  * This file is distributed in the hope that it will be useful, but
+  * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+- * NONINFRINGEMENT.  See the GNU General Public License for more
+- * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+- **********************************************************************/
+-
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*!  \file  octeon_iq.h
+  *   \brief Host Driver: Implementation of Octeon input queues. "Input" is
+  *   with respect to the Octeon device on the NIC. From this driver's
+@@ -77,7 +72,7 @@ struct oct_iq_stats {
+  *  The input queue is used to post raw (instruction) mode data or packet
+  *  data to Octeon device from the host. Each input queue (upto 4) for
+  *  a Octeon device has one such structure to represent it.
+-*/
++ */
+ struct octeon_instr_queue {
+ 	struct octeon_device *oct_dev;
+ 
+@@ -117,8 +112,8 @@ struct octeon_instr_queue {
+ 	u32 octeon_read_index;
+ 
+ 	/** This index aids in finding the window in the queue where Octeon
+-	  * has read the commands.
+-	  */
++	 *  has read the commands.
++	 */
+ 	u32 flush_index;
+ 
+ 	/** This field keeps track of the instructions pending in this queue. */
+@@ -149,8 +144,8 @@ struct octeon_instr_queue {
+ 	u64 last_db_time;
+ 
+ 	/** The doorbell timeout. If the doorbell was not rung for this time and
+-	  * fill_cnt is non-zero, ring the doorbell again.
+-	  */
++	 * fill_cnt is non-zero, ring the doorbell again.
++	 */
+ 	u32 db_timeout;
+ 
+ 	/** Statistics for this input queue. */
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+index 3a2f6c1..5628f84 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+@@ -14,9 +14,6 @@
+  * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  ***********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+index 377a43f..5c38f70 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+@@ -14,9 +14,6 @@
+  * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  ***********************************************************************/
+ #ifndef __MAILBOX_H__
+ #define __MAILBOX_H__
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_main.h b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
+index db86c63..8cd3891 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_main.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -13,13 +13,8 @@
+  * This file is distributed in the hope that it will be useful, but
+  * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+- * NONINFRINGEMENT.  See the GNU General Public License for more
+- * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+- **********************************************************************/
+-
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
+ /*! \file octeon_main.h
+  *  \brief Host Driver: This file is included by all host driver source files
+  *  to include common definitions.
+@@ -78,10 +73,10 @@ static inline void octeon_swap_8B_data(u64 *data, u32 blocks)
+ }
+ 
+ /**
+-  * \brief unmaps a PCI BAR
+-  * @param oct Pointer to Octeon device
+-  * @param baridx bar index
+-  */
++ * \brief unmaps a PCI BAR
++ * @param oct Pointer to Octeon device
++ * @param baridx bar index
++ */
+ static inline void octeon_unmap_pci_barx(struct octeon_device *oct, int baridx)
+ {
+ 	dev_dbg(&oct->pci_dev->dev, "Freeing PCI mapped regions for Bar%d\n",
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c b/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c
+index 0dc081a..98d8066d 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ #include <linux/netdevice.h>
+ #include "liquidio_common.h"
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.h b/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.h
+index 11b1833..bae2fdd 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.h
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ 
+ /*!  \file octeon_mem_ops.h
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
+index 54b9665..172b70e 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ 
+ /*!  \file  octeon_network.h
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_nic.c b/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
+index 40ac1fe..c3d6a82 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
+index 4b8da67b..b059979 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ 
+ /*!  \file octeon_nic.h
+diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+index f6e1616..0cc1583 100644
+--- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+diff --git a/drivers/net/ethernet/cavium/liquidio/response_manager.c b/drivers/net/ethernet/cavium/liquidio/response_manager.c
+index 9e496c1..fdaf742 100644
+--- a/drivers/net/ethernet/cavium/liquidio/response_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/response_manager.c
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+diff --git a/drivers/net/ethernet/cavium/liquidio/response_manager.h b/drivers/net/ethernet/cavium/liquidio/response_manager.h
+index d377faf..cbb2d84 100644
+--- a/drivers/net/ethernet/cavium/liquidio/response_manager.h
++++ b/drivers/net/ethernet/cavium/liquidio/response_manager.h
+@@ -4,7 +4,7 @@
+  * Contact: support@cavium.com
+  *          Please include "LiquidIO" in the subject.
+  *
+- * Copyright (c) 2003-2015 Cavium, Inc.
++ * Copyright (c) 2003-2016 Cavium, Inc.
+  *
+  * This file is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License, Version 2, as
+@@ -15,9 +15,6 @@
+  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
+  * NONINFRINGEMENT.  See the GNU General Public License for more
+  * details.
+- *
+- * This file may also be available under a different license from Cavium.
+- * Contact Cavium, Inc. for more information
+  **********************************************************************/
+ 
+ /*! \file response_manager.h
 -- 
 1.8.3.1
