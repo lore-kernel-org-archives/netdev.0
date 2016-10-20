@@ -1,57 +1,30 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 21 Oct 2016 10:40:46 +1100
-Message-ID: <20161021104046.2bfb8b58@canb.auug.org.au>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net v2] ipv6: fix a potential deadlock in do_ipv6_setsockopt()
+Date: Thu, 20 Oct 2016 16:43:54 -0700
+Message-ID: <CAM_iQpVOtqP9XtYuAcwm2ccdY+itKdH_mEnN71wGwYO4cTF8xg@mail.gmail.com>
+References: <1476945312-15572-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1476971226.7065.5.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpUvU8dZPquAgtcZASO6jhjtoYQ2nc8EBceqZmSHg4ZSsQ@mail.gmail.com> <1477001458.7065.37.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jarod Wilson <jarod@redhat.com>,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Baozeng Ding <sploving1@gmail.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f41.google.com ([209.85.214.41]:34891 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751605AbcJTXoP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 19:44:15 -0400
+Received: by mail-it0-f41.google.com with SMTP id 4so203295843itv.0
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 16:44:15 -0700 (PDT)
+In-Reply-To: <1477001458.7065.37.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Thu, Oct 20, 2016 at 3:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> I used 'I wonder if' to say that we might have some better way to code
+> this test nowadays, but this can be done in a separate patch of course.
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  drivers/net/ethernet/ibm/ibmvnic.c
-
-between commit:
-
-  87737f8810db ("ibmvnic: Update MTU after device initialization")
-
-from the net tree and commit:
-
-  d894be57ca92 ("ethernet: use net core MTU range checking in more drivers")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/ethernet/ibm/ibmvnic.c
-index 213162df1a9b,657206be7ba9..000000000000
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@@ -3654,7 -3644,8 +3644,9 @@@ static void handle_crq_init_rsp(struct 
-  		goto task_failed;
-  
-  	netdev->real_num_tx_queues = adapter->req_tx_queues;
- +	netdev->mtu = adapter->req_mtu;
-+ 	netdev->min_mtu = adapter->min_mtu;
-+ 	netdev->max_mtu = adapter->max_mtu;
-  
-  	if (adapter->failover) {
-  		adapter->failover = false;
+OK, let's keep one bugfix in one patch. ;)
