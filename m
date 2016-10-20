@@ -1,68 +1,33 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC PATCH net-next] bpf: fix potential percpu map overcopy to
- user.
-Date: Thu, 20 Oct 2016 21:39:49 +0200
-Message-ID: <58091D85.9060701@iogearbox.net>
-References: <1476636088-9268-1-git-send-email-u9012063@gmail.com> <20161019005004.GA87961@ast-mbp.thefacebook.com> <CALDO+SaebqahYHn2PU=nk6mYOMjRp+F8PKb3cFaGMv4_xjLwZg@mail.gmail.com> <58078E1D.6080108@iogearbox.net> <5808EB16.4000103@iogearbox.net> <20161020165807.GB97796@ast-mbp.thefacebook.com> <CALDO+SZbWbMPFsj10hR3XEB1696s0ENRoBttrT5T3O=DQ445XQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ipv4: disable BH in set_ping_group_range()
+Date: Thu, 20 Oct 2016 12:40:07 -0700
+Message-ID: <CAM_iQpVBHa2ujKN1hsU0LT+g899+WEy9a1oBgDj1FmpifPmz6g@mail.gmail.com>
+References: <1476984408.7065.21.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpVFQD0Oqf8YO9HybDpPMhzMMK5m_wNyLwTfVpEwpAVBNw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Tu <u9012063@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Eric Salo <salo@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47820 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756485AbcJTTjw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 15:39:52 -0400
-In-Reply-To: <CALDO+SZbWbMPFsj10hR3XEB1696s0ENRoBttrT5T3O=DQ445XQ@mail.gmail.com>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:38170 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756531AbcJTTke (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 15:40:34 -0400
+Received: by mail-it0-f46.google.com with SMTP id 66so108689922itl.1
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 12:40:34 -0700 (PDT)
+In-Reply-To: <CAM_iQpVFQD0Oqf8YO9HybDpPMhzMMK5m_wNyLwTfVpEwpAVBNw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2016 08:41 PM, William Tu wrote:
-> On Thu, Oct 20, 2016 at 9:58 AM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
->> On Thu, Oct 20, 2016 at 06:04:38PM +0200, Daniel Borkmann wrote:
->>>
->>> diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
->>> index ee384f0..d4832e8 100644
->>> --- a/tools/testing/selftests/bpf/test_maps.c
->>> +++ b/tools/testing/selftests/bpf/test_maps.c
->>> @@ -25,6 +25,33 @@
->>>
->>>   static int map_flags;
->>>
->>> +static unsigned int num_possible_cpus(void)
->>> +{
->>> +     static const char *fcpu = "/sys/devices/system/cpu/possible";
->>> +     unsigned int val, possible_cpus = 0;
->>> +     char buff[128];
->>> +     FILE *fp;
->>> +
->>> +     fp = fopen(fcpu, "r");
->>> +     if (!fp) {
->>> +             printf("Failed to open %s: '%s'!\n", fcpu, strerror(errno));
->>> +             exit(1);
->>> +     }
->>> +
->>> +     while (fgets(buff, sizeof(buff), fp)) {
->>> +             if (sscanf(buff, "%*u-%u", &val) == 1)
->>> +                     possible_cpus = val;
->>> +     }
+On Thu, Oct 20, 2016 at 12:32 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Thu, Oct 20, 2016 at 10:26 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
 >>
->> looks great to me.
->> Could you move it into bpf_sys.h or somehow make it common in libbpf
->> and reuse it in samples/bpf/ ?
->> Since quite a few samples need this fix as well.
-
-Ahh, true.
-
->> Thanks!
+>> In commit 4ee3bd4a8c746 ("ipv4: disable BH when changing ip local port
+>> range") Cong added BH protection in set_local_port_range() but missed
+>> that same fix was needed in set_ping_group_range()
 >
-> Looks good to me. I tested it and it works fine.
+> Don't know why ping_group_range shares the same lock with local_port_range...
+> Perhaps just for saving a few bytes, but that is why I missed this place.
 
-Okay, thanks. I'll fix that up, mid-term we should try and move most of
-that over to kernel selftests/bpf, and reuse tools/lib/bpf/.
-
-> Thanks!
-> William
+Hold on... We clearly have typos there... Your fix is not correct.
