@@ -1,138 +1,107 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v4 net-next 1/7] ipv6: Fix Makefile conditional to use CONFIG_INET
-Date: Wed, 19 Oct 2016 20:16:01 -0700
-Message-ID: <CALx6S34ypSKUg715g1K783ze95ko1SeSA+Yb0JFqvfsSHwxQug@mail.gmail.com>
-References: <20161019230309.3746853-1-tom@herbertland.com> <20161019230309.3746853-2-tom@herbertland.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net-next 6/6] net: use core MTU range checking in misc
+ drivers
+Date: Wed, 19 Oct 2016 23:16:41 -0400
+Message-ID: <20161020031641.GJ18569@redhat.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161019023333.15760-7-jarod@redhat.com>
+ <20161019160546.GC11224@bistromath.localdomain>
+ <20161020003846.64f85f7e@kant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kernel Team <kernel-team@fb.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:34701 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753298AbcJTDQC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2016 23:16:02 -0400
-Received: by mail-qk0-f196.google.com with SMTP id n189so3441085qke.1
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2016 20:16:02 -0700 (PDT)
-In-Reply-To: <20161019230309.3746853-2-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sabrina Dubroca <sd@queasysnail.net>, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, Faisal Latif <faisal.latif@intel.com>,
+        linux-rdma@vger.kernel.org, Cliff Whickman <cpw@sgi.com>,
+        Robin Holt <robinmholt@gmail.com>,
+        Jes Sorensen <jes@trained-monkey.org>,
+        Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161020003846.64f85f7e@kant>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
+On Thu, Oct 20, 2016 at 12:38:46AM +0200, Stefan Richter wrote:
+> On Oct 19 Sabrina Dubroca wrote:
+> > 2016-10-18, 22:33:33 -0400, Jarod Wilson wrote:
+> > [...]
+> > > diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
+> > > index 309311b..b5f125c 100644
+> > > --- a/drivers/firewire/net.c
+> > > +++ b/drivers/firewire/net.c
+> > > @@ -1349,15 +1349,6 @@ static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
+> > >  	return NETDEV_TX_OK;
+> > >  }
+> > >  
+> > > -static int fwnet_change_mtu(struct net_device *net, int new_mtu)
+> > > -{
+> > > -	if (new_mtu < 68)
+> > > -		return -EINVAL;
+> > > -
+> > > -	net->mtu = new_mtu;
+> > > -	return 0;
+> > > -}
+> > > -  
+> > 
+> > This doesn't do any upper bound checking.
+> 
+> I need to check more closely, but I think the RFC 2734 encapsulation spec
+> and our implementation do not impose a particular upper limit.  Though I
+> guess it's bad to let userland set arbitrarily large values here.
 
-Please don't apply this. It's like whack-a-mole trying to resolve all
-the dependencies. I'll resubmit the series without this.
+In which case, that would suggest using IP_MAX_MTU (65535) here.
 
-Tom
+> > >  static const struct ethtool_ops fwnet_ethtool_ops = {
+> > >  	.get_link	= ethtool_op_get_link,
+> > >  };
+> > > @@ -1366,7 +1357,6 @@ static const struct net_device_ops fwnet_netdev_ops = {
+> > >  	.ndo_open       = fwnet_open,
+> > >  	.ndo_stop	= fwnet_stop,
+> > >  	.ndo_start_xmit = fwnet_tx,
+> > > -	.ndo_change_mtu = fwnet_change_mtu,
+> > >  };
+> > >  
+> > >  static void fwnet_init_dev(struct net_device *net)
+> > > @@ -1481,6 +1471,8 @@ static int fwnet_probe(struct fw_unit *unit,
+> > >  	max_mtu = (1 << (card->max_receive + 1))
+> > >  		  - sizeof(struct rfc2734_header) - IEEE1394_GASP_HDR_SIZE;
+> > >  	net->mtu = min(1500U, max_mtu);
+> > > +	net->min_mtu = ETH_MIN_MTU;
+> > > +	net->max_mtu = net->mtu;  
+> > 
+> > But that will now prevent increasing the MTU above the initial value?
+> 
+> Indeed, therefore NAK.
 
-On Wed, Oct 19, 2016 at 4:03 PM, Tom Herbert <tom@herbertland.com> wrote:
-> ipv6 directory was being built based on CONFIG_NET not CONFIG_INET.
->
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  drivers/net/usb/cdc_mbim.c  |  4 ++++
->  include/net/ipv6.h          | 15 +++++++++++++++
->  include/net/net_namespace.h |  2 ++
->  net/Makefile                |  2 +-
->  4 files changed, 22 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-> index 96a5028..6b38e0c 100644
-> --- a/drivers/net/usb/cdc_mbim.c
-> +++ b/drivers/net/usb/cdc_mbim.c
-> @@ -301,6 +301,7 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct usbnet *dev, struct sk_buff *skb
->         return NULL;
->  }
->
-> +#ifdef CONFIG_INET
->  /* Some devices are known to send Neigbor Solicitation messages and
->   * require Neigbor Advertisement replies.  The IPv6 core will not
->   * respond since IFF_NOARP is set, so we must handle them ourselves.
-> @@ -350,6 +351,7 @@ static void do_neigh_solicit(struct usbnet *dev, u8 *buf, u16 tci)
->  out:
->         dev_put(netdev);
->  }
-> +#endif
->
->  static bool is_neigh_solicit(u8 *buf, size_t len)
->  {
-> @@ -377,8 +379,10 @@ static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *buf, size_
->                         proto = htons(ETH_P_IP);
->                         break;
->                 case 0x60:
-> +#ifdef CONFIG_INET
->                         if (is_neigh_solicit(buf, len))
->                                 do_neigh_solicit(dev, buf, tci);
-> +#endif
->                         proto = htons(ETH_P_IPV6);
->                         break;
->                 default:
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index 8fed1cd..cbb1ce0 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -936,8 +936,15 @@ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
->  void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
->                          u8 *proto);
->
-> +#ifdef CONFIG_INET
->  int ipv6_skip_exthdr(const struct sk_buff *, int start, u8 *nexthdrp,
->                      __be16 *frag_offp);
-> +#else
-> +static inline int ipv6_skip_exthdr(const struct sk_buff *skb, int start,
-> +                                  u8 *nexthdrp, __be16 *frag_offp) {
-> +       return -1;
-> +}
-> +#endif
->
->  bool ipv6_ext_hdr(u8 nexthdr);
->
-> @@ -948,8 +955,16 @@ enum {
->  };
->
->  /* find specified header and get offset to it */
-> +#ifdef CONFIG_INET
->  int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset, int target,
->                   unsigned short *fragoff, int *fragflg);
-> +#else
-> +static inline int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
-> +                               int target, unsigned short *fragoff,
-> +                               int *fragflg) {
-> +       return -EPROTONOSUPPORT;
-> +}
-> +#endif
->
->  int ipv6_find_tlv(const struct sk_buff *skb, int offset, int type);
->
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-> index fc4f757..b4c4a5f 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -352,8 +352,10 @@ static inline void rt_genid_bump_ipv4(struct net *net)
->  extern void (*__fib6_flush_trees)(struct net *net);
->  static inline void rt_genid_bump_ipv6(struct net *net)
->  {
-> +#ifdef CONFIG_INET
->         if (__fib6_flush_trees)
->                 __fib6_flush_trees(net);
-> +#endif
->  }
->
->  #if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
-> diff --git a/net/Makefile b/net/Makefile
-> index 4cafaa2..82ffb91 100644
-> --- a/net/Makefile
-> +++ b/net/Makefile
-> @@ -17,7 +17,7 @@ obj-$(CONFIG_NETFILTER)               += netfilter/
->  obj-$(CONFIG_INET)             += ipv4/
->  obj-$(CONFIG_XFRM)             += xfrm/
->  obj-$(CONFIG_UNIX)             += unix/
-> -obj-$(CONFIG_NET)              += ipv6/
-> +obj-$(CONFIG_INET)             += ipv6/
->  obj-$(CONFIG_PACKET)           += packet/
->  obj-$(CONFIG_NET_KEY)          += key/
->  obj-$(CONFIG_BRIDGE)           += bridge/
-> --
-> 2.9.3
->
+However, there's an explicit calculation for 'max_mtu' right there that I
+glazed right over. It would seem perhaps *that* should be used for
+net->max_mtu here, no?
+
+> PS:
+> If the IP packet plus encapsulation header fits into IEEE 1394 packet
+> payload, it is transported without link fragmentation.  If it does not
+> fit, link fragmentation occurs (which reduces bandwidth a bit and
+> consumes additional buffering resources at the transmitter and the
+> receiver).
+> 
+> Broadcast and multicast packets are transmitted via IEEE 1394 asynchronous
+> stream packets at a low bus speed (because our code does not attempt to
+> find the maximum speed and size that is supported by all potential
+> listeners).  This limits the payload to 512 bytes.
+> 
+> Unicast packets are transmitted via IEEE 1394 asynchronous write request
+> packets at optimum speed.  In most cases, this means that 2048 bytes
+> payload is possible, in some cases 4096 bytes.  Many CardBus FireWire
+> cards support only 1024 bytes payload of these packets though.
+> Furthermore, some low-speed long-haul cablings may cap the bus speed and
+> thereby the payload size to 1024 or 512 bytes, but this is uncommon in
+> practice.
+
+Thorough as always, Stefan! :)
+
+-- 
+Jarod Wilson
+jarod@redhat.com
