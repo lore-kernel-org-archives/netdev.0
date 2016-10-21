@@ -1,42 +1,33 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging tree with the net-next tree
-Date: Fri, 21 Oct 2016 12:21:45 +1100
-Message-ID: <20161021122145.0139d5a3@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] kexec: Export kexec_in_progress to modules
+Date: Thu, 20 Oct 2016 21:54:10 -0400 (EDT)
+Message-ID: <20161020.215410.650162338407203719.davem@davemloft.net>
+References: <1477012516-20470-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jarod Wilson <jarod@redhat.com>,
-        Sergio Paracuellos <sergio.paracuellos@gmail.com>
-To: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
+        kexec@lists.infradead.org, linux-kernel@vger.kernel.org,
+        sfr@canb.auug.org.au
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477012516-20470-1-git-send-email-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 20 Oct 2016 18:15:16 -0700
 
-Today's linux-next merge of the staging tree got a conflict in:
+> The bcm_sf2 driver uses kexec_in_progress to know whether it can power
+> down an integrated PHY during shutdown, and can be built as a module.
+> Other modules may be using this in the future, so export it.
+> 
+> Fixes: 2399d6143f85 ("net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd kernels")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> Eric, David, Stephen,
+> 
+> The offending commit is in David's net.git tree, so it would probably make
+> sense to route the fix through the same tree.
 
-  drivers/staging/wlan-ng/p80211netdev.c
-
-between commit:
-
-  9c22b4a34edd ("net: use core MTU range checking in wireless drivers")
-
-from the net-next tree and commit:
-
-  84ad1efa7d2b ("staging: wlan-ng: fix block comment warnings in p80211netdev.c")
-
-from the staging tree.
-
-I fixed it up (the former removed the code updates by the latter, so I
-just did that) and can carry the fix as necessary. This is now fixed as
-far as linux-next is concerned, but any non trivial conflicts should be
-mentioned to your upstream maintainer when your tree is submitted for
-merging.  You may also want to consider cooperating with the maintainer
-of the conflicting tree to minimise any particularly complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
+Ok, I'll apply this, thanks Florian.
