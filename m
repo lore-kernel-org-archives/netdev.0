@@ -1,48 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v6 2/3] udp: implement memory accounting helpers
-Date: Fri, 21 Oct 2016 14:13:43 -0700
-Message-ID: <1477084423.7065.88.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v6 3/3] udp: use it's own memory accounting
+ schema
+Date: Fri, 21 Oct 2016 14:14:38 -0700
+Message-ID: <1477084478.7065.89.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <cover.1477043395.git.pabeni@redhat.com>
-         <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni@redhat.com>
+         <530de0874eb7bbe1dbdaa4e8ccbb56d917ee598f.1477043395.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@namei.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35674 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932965AbcJUVNp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 17:13:45 -0400
-In-Reply-To: <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <530de0874eb7bbe1dbdaa4e8ccbb56d917ee598f.1477043395.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 On Fri, 2016-10-21 at 13:55 +0200, Paolo Abeni wrote:
-> Avoid using the generic helpers.
-> Use the receive queue spin lock to protect the memory
-> accounting operation, both on enqueue and on dequeue.
+> Completely avoid default sock memory accounting and replace it
+> with udp-specific accounting.
 > 
-> On dequeue perform partial memory reclaiming, trying to
-> leave a quantum of forward allocated memory.
+> Since the new memory accounting model encapsulates completely
+> the required locking, remove the socket lock on both enqueue and
+> dequeue, and avoid using the backlog on enqueue.
 > 
-> On enqueue use a custom helper, to allow some optimizations:
-> - use a plain spin_lock() variant instead of the slightly
->   costly spin_lock_irqsave(),
-> - avoid dst_force check, since the calling code has already
->   dropped the skb dst
-> - avoid orphaning the skb, since skb_steal_sock() already did
->   the work for us
+> Be sure to clean-up rx queue memory on socket destruction, using
+> udp its own sk_destruct.
 > 
-> The above needs custom memory reclaiming on shutdown, provided
-> by the udp_destruct_sock().
+> Tested using pktgen with random src port, 64 bytes packet,
+> wire-speed on a 10G link as sender and udp_sink as the receiver,
+> using an l4 tuple rxhash to stress the contention, and one or more
+> udp_sink instances with reuseport.
+> 
+> nr readers      Kpps (vanilla)  Kpps (patched)
+> 1               170             440
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+
+Thanks a lot guys.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
