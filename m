@@ -1,76 +1,95 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] kexec: Export kexec_in_progress to modules
-Date: Fri, 21 Oct 2016 11:48:24 -0700
-Message-ID: <441f79c2-fcf3-b35b-f30d-3667513a51c0@gmail.com>
-References: <1477012516-20470-1-git-send-email-f.fainelli@gmail.com>
- <20161020.215410.650162338407203719.davem@davemloft.net>
- <871szagtls.fsf@xmission.com>
- <20161021.101343.1389577512803674816.davem@davemloft.net>
- <87wph1eeft.fsf@xmission.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [Patch net] net: saving irq context for peernet2id()
+Date: Fri, 21 Oct 2016 15:39:51 -0400
+Message-ID: <20161021193951.GS23701@madcap2.tricolour.ca>
+References: <1476946352-15770-1-git-send-email-xiyou.wangcong@gmail.com>
+ <2707c52d-88ec-7b93-f96e-eeaffc952c9c@tycho.nsa.gov>
+ <CAM_iQpWD3WiX1ZX+3LJ8vbJc42K1jZcZ4-f6MO5kzZY-+Szkqw@mail.gmail.com>
+ <CAHC9VhSronk914-0QZd7cPBEAOvSzN++Umc=_aueeCuOB9iG8Q@mail.gmail.com>
+ <CAM_iQpVFWzUm2BJZUs+-LWpKA8kubuKhzyE01_V69TEsrFnm-Q@mail.gmail.com>
+ <CAHC9VhQWWDHnQGv+feXZ_CDrkftuRkKLtKvXkpN0pqh6e6hMPQ@mail.gmail.com>
+ <CAM_iQpV0vfwsToR=maxhGM+fvQLX9zqcpp14A-C9JNzLfKJy9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kexec@lists.infradead.org,
-        linux-kernel@vger.kernel.org, sfr@canb.auug.org.au
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87wph1eeft.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul@paul-moore.com>,
+        Stephen Smalley <sds@tycho.nsa.gov>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Elad Raz <e@eladraz.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40420 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932277AbcJUTjz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Oct 2016 15:39:55 -0400
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpV0vfwsToR=maxhGM+fvQLX9zqcpp14A-C9JNzLfKJy9g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/21/2016 11:37 AM, Eric W. Biederman wrote:
-> David Miller <davem@davemloft.net> writes:
+On 2016-10-21 11:02, Cong Wang wrote:
+> On Fri, Oct 21, 2016 at 9:19 AM, Paul Moore <paul@paul-moore.com> wrote:
+> > On Thu, Oct 20, 2016 at 7:35 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> >> This is what I did in the follow up patch. I attach the updated version
+> >> in this email for you to review ...
+> >
+> > I think there is still some confusion.  The second patch you posted
+> > still has two queues with potentially duplicated (minus the length
+> > tweaks) skbs.
 > 
->> From: ebiederm@xmission.com (Eric W. Biederman)
->> Date: Fri, 21 Oct 2016 00:26:55 -0500
->>
->>> So as far as I can tell you are advocating for a change to support a
->>> driver doing something that is completely pointless.  So no let's not
->>> export this symbol.  Please fix the driver to do something less
->>> pointless instead.
->>
->> FLorian explained his reasoning for doing what he is doing in this
->> specific driver and it made sense to me.
+> The current code without my patch is already this, the only difference
+> is there is no queue for multicast case, duplication is already there.
+> So, why do you expect me to fix two problems in one patch? This
+> is totally unfair, it is probably based on your eager to revert...
 > 
-> What doesn't make sense to me is not doing that for any other kind of
-> reboot.
+> >
+> > What I am talking about is queuing the skb in audit_log_end(), without
+> > any modification, waking up the kauditd_thread, and then letting the
+> > kauditd_thread() function do both the netlink multicast and unicast
+> > sends, complete with the skb_copy() and length tweaks.  This way we
+> > only queue one copy of the skb.  To help make this more clear, I'll
+> > work up a patch and CC you.
 > 
-> Of the 3 uses of kexec_in_progres in the kernel (not counting this one)
-> I think there is only one of them that is really valid.   And that one
-> is only valid because it is the least horrible thing the pci layer can
-> do.  (AKA it is a hack even there).
+> Sure, I hate the skb_copy() too since it could be in a IRQ handler,
+> I didn't remove it because that would make the patch more complicated
+> than the current one. We can always improve this later for the next merge
+> window, can't we? Why are you pushing something irrelevant to my
+> patch to make it unnecessarily complicated?
 > 
-> It really is nonsense having methods do different things depending on
-> context and that is why kexec_in_progress is not exeported.
 > 
-> As far as I can tell the use of kexec_in_progress winds up being
-> a fragile hack that will just cause more problems later on.
+> > However, let me say this one more time: this is *NOT* a change I want
+> > to make during the -rcX cycle, this is a change that we should do for
+> > -next and submit during the next merge window after is has been tested
+> > and soaked in linux-next.  Given where we are at right now - it's
+> > Friday and I expect -rc2 on Sunday - I think the best course of action
+> > is to revert the original patch and move on.  I'm going to do that now
+> > and I'll submit it to netdev as soon as I've done some basic sanity
+> > checks.
 > 
-> Florian is there a good readon why you don't just do?
+> The problem with this is: I would have to revert this revert for the next
+> merge window, in the end you would have the following in git log:
+> 
+> 1) original one
+> 2) revert
+> 3) audit fix
+> 4) revert the above revert
+> 
+> comparing with:
+> 
+> 1) original one
+> 2) audit fix
+> 
+> You just want to make things unnecessarily complicated.
 
-Checking kexec_in_progress allowed not to turn the PHY on for a normal
-reboot case, since we don't necessarily know when it will be
-re-initialized next, so in that sense it's a power optimization that is
-nice to have.
+I agree here.  I've been following this, thinking about it, but don't
+yet have a solid recommendation about the way to proceed yet, but
+reverting it does not seem like the right solution.
 
-> 
-> static void bcm_sf2_sw_shutdown(struct platform_device *pdev)
-> {
->         struct bcm_sf2_priv *priv = platform_get_drvdata(pdev);
-> 
-> 	/* For a kernel about to be kexec'd we want to keep the GPHY on for a
->          * successful MDIO bus scan to occur. If we did turn off the GPHY
-> 	 * before (e.g: port_disable), this will also power it back on.
-> 	 */
-> 	if (priv->hw_params.num_gphy == 1)
-> 		bcm_sf2_gphy_enable_set(priv->dev->ds, true);
-> }
-> 
-> I certainly don't see anything in the changelog to explain why that
-> isn't done.
+> You need to really CALM DOWN, -rc2 is NOT late, assuming -rc7 is the final
+> release candidate, we still have 5 weeks to fix it, why are you so scared?
 
-That would result in an identical behavior for what I am after, David,
-shall I send a revert plus this?
--- 
-Florian
+A revert seems pretty impulsive to me now.
+
+> We have dealt much more complicated patch/backport for networking
+> for -stable. Please don't panic.
+
+- RGB
