@@ -1,39 +1,84 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH 08/13] dwmac-meson8b: add support for phy selection
-Date: Fri, 21 Oct 2016 17:46:34 +0200
-Message-ID: <20161021154634.GQ16974@lunn.ch>
-References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
- <1477060838-14164-9-git-send-email-narmstrong@baylibre.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net] net: remove MTU limits on a few ether_setup callers
+Date: Fri, 21 Oct 2016 11:48:51 -0400
+Message-ID: <20161021154851.GE11396@redhat.com>
+References: <20161021032527.12954-1-jarod@redhat.com>
+ <ebcdfc7f-5d91-c64f-19f4-99f58614caae@gmail.com>
+ <20161021084441.GC16974@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: khilman@baylibre.com, carlo@caione.org, linus.walleij@linaro.org,
-        linux-gpio@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-amlogic@lists.infradead.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50995 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934249AbcJUPrE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 11:47:04 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>,
+        R Parameswaran <parameswaran.r7@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1477060838-14164-9-git-send-email-narmstrong@baylibre.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161021084441.GC16974@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 21, 2016 at 04:40:33PM +0200, Neil Armstrong wrote:
-> The Meson GXL dwmac Glue Layer also provides switching between an external PHY
-> and an internal RMII 10/100 PHY.
-> Add a way to setup the correct PHY switching from a device tree attribute.
+On Fri, Oct 21, 2016 at 10:44:41AM +0200, Andrew Lunn wrote:
+> On Thu, Oct 20, 2016 at 08:42:46PM -0700, Florian Fainelli wrote:
+> > Le 20/10/2016 à 20:25, Jarod Wilson a écrit :
+> > > These few drivers call ether_setup(), but have no ndo_change_mtu, and thus
+> > > were overlooked for changes to MTU range checking behavior. They
+> > > previously had no range checks, so for feature-parity, set their min_mtu
+> > > to 0 and max_mtu to ETH_MAX_MTU (65535), instead of the 68 and 1500
+> > > inherited from the ether_setup() changes. Fine-tuning can come after we get
+> > > back to full feature-parity here.
+> > > 
+> > > CC: netdev@vger.kernel.org
+> > > Reported-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> > > CC: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> > > CC: R Parameswaran <parameswaran.r7@gmail.com>
+> > > Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> > > ---
+> > 
+> > > diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> > > index 68714a5..d0c7bce 100644
+> > > --- a/net/dsa/slave.c
+> > > +++ b/net/dsa/slave.c
+> > > @@ -1247,6 +1247,8 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+> > >  	slave_dev->priv_flags |= IFF_NO_QUEUE;
+> > >  	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
+> > >  	slave_dev->switchdev_ops = &dsa_slave_switchdev_ops;
+> > > +	slave_dev->min_mtu = 0;
+> > > +	slave_dev->max_mtu = ETH_MAX_MTU;
+> > >  	SET_NETDEV_DEVTYPE(slave_dev, &dsa_type);
+> > 
+> > Actually for DSA, a reasonable minimum is probably 68 for the following
+> > reasons: ETH_ZLEN of 60 bytes + FCS (4 bytes) + 2/4/8 bytes of
+> > Ethernet switch tag (which is dependent on the tagging protocol
+> > used).
+> 
+> Humm, isn't the switch tag added by the layer below this? So this
+> should be - 2/4/8 bytes, so that the assembled frame that actually
+> hits the conduit interface has an MTU of 64.
 
-Hi Neil
+I'm all for fine-tuning things to be more correct, but my initial approach
+here was to restore the ranges that were previously there, and DSA had no
+upper or lower bounds checks. I'm not at all familiar with DSA either way.
 
-Can this be made automatic?
+> > Such an Ethernet interface would submit packets through the conduit
+> > interface which is connected to an Ethernet switches, and those
+> > typically discard packets smaller than 64 bytes +/- their custom tag
+> > length.
+> 
+> I have a purely theoretical observation, i.e. i have not checked the
+> datasheets. You can also control some of the Marvell switches by
+> sending it ethernet frames containing commands. Most commands are 4
+> bytes long. So an Ethernet header + 4 bytes is < 64. I expect the
+> switch will accept command frames which are padded to stop them being
+> runts. Also, such frames will be submitted to the conduit interface,
+> not the slave interface.
 
-The internal PHY appears to be on address 8. Can there also be an
-external PHY on address 8? Could you follow the phy-handle link to the
-phy node, check the address, and if it is 8, configure for an internal
-PHY?
+So presumably, slave_dev->min_mtu wouldn't come into play in that
+scenario, and we wouldn't break that functionality if min_mtu did get get
+to 64 or 68 or whatever > 0.
 
-	Andrew
+-- 
+Jarod Wilson
+jarod@redhat.com
