@@ -1,73 +1,49 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] hv_netvsc: fix a race between netvsc_send() and
- netvsc_init_buf()
-Date: Fri, 21 Oct 2016 13:15:53 +0200
-Message-ID: <87d1iuymty.fsf@vitty.brq.redhat.com>
-References: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
- <BLUPR0301MB2098D6A07F0D465E63988D9FCCD50@BLUPR0301MB2098.namprd03.prod.outlook.com>
- <8737jr1k07.fsf@vitty.brq.redhat.com>
- <20161020.140300.122827393647670926.davem@davemloft.net>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: Need help with mdiobus_register and phy
+Date: Fri, 21 Oct 2016 06:19:20 -0500
+Message-ID: <5809F9B8.4010505@codeaurora.org>
+References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
+ <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
+ <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
+ <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
+ <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
+ <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
+ <58027540.6080604@codeaurora.org>
+ <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
+ <58053A33.4030108@codeaurora.org>
+ <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
+ <58061831.6080005@codeaurora.org>
+ <dfff1abf-f506-bffa-8e09-edeebd753be5@neratec.com>
+ <58076403.3060608@codeaurora.org>
+ <bff7ab7f-93e4-8d78-ac73-e97d1832d155@neratec.com>
+ <e4b86886-737a-0a1c-c95a-34b6b6373755@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sthemmin@microsoft.com, netdev@vger.kernel.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20161020.140300.122827393647670926.davem@davemloft.net> (David
- Miller's message of "Thu, 20 Oct 2016 14:03:00 -0400 (EDT)")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:33556 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754060AbcJULTX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 07:19:23 -0400
+In-Reply-To: <e4b86886-737a-0a1c-c95a-34b6b6373755@neratec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+Zefir Kurtisi wrote:
+>> >Now the interesting (and new for me) part is: if I remove the at803x driver from
+>> >the system and use the generic phy instead, the problem does not happen (or at
+>> >least not while running for one full day). [...]
+>> >
+> Update: the failure also happened with genphy after running for another day.
 
-> From: Vitaly Kuznetsov <vkuznets@redhat.com>
-> Date: Thu, 20 Oct 2016 10:51:04 +0200
->
->> Stephen Hemminger <sthemmin@microsoft.com> writes:
->> 
->>> Do we need ACCESS_ONCE() here to avoid check/use issues?
->>>
->> 
->> I think we don't: this is the only place in the function where we read
->> the variable so we'll get normal read. We're not trying to syncronize
->> with netvsc_init_buf() as that would require locking, if we read stale
->> NULL value after it was already updated on a different CPU we're fine,
->> we'll just return -EAGAIN.
->
-> The concern is if we race with netvsc_destroy_buf() and this pointer
-> becomes NULL after the test you are adding.
-
-Thanks, this is interesting.
-
-We may reach to netvsc_destroy_buf() by 3 pathes:
-
-1) cleanup path in netvsc_init_buf(). It is never called with
-send_section_map being not NULL so it seems we're safe.
-
-2) from netvsc_remove() when the device is being removed. As far as I
-understand we can't be on the transmit path after we call
-unregister_netdev() so we're safe.
-
-3) from netvsc_change_mtu() and netvsc_set_channels(). These pathes are
-specific to netvsc driver as basically we need to remove the device and
-add it back to change mtu/number of channels. The underligning 'struct
-net_device' stays but the rest is being removed and added back. On both
-pathes we first call netvsc_close() which does netif_tx_disable() and as
-far as I understand (I may be wrong) this guarantees that we won't be in
-netvsc_send().
-
-So *I think* that we can't ever free send_section_map while in
-netvsc_send() and we can't even get to netvsc_send() after it is freed
-but I may have missed something.
+I haven't had a chance to try to reproduce this failure, but to me this 
+sounds like you have a problem with gianfar or your board, and not the 
+at803x driver.
 
 -- 
-  Vitaly
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
