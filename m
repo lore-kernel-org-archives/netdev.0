@@ -1,49 +1,100 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Fri, 21 Oct 2016 06:19:20 -0500
-Message-ID: <5809F9B8.4010505@codeaurora.org>
-References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
- <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
- <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
- <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
- <58027540.6080604@codeaurora.org>
- <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
- <58053A33.4030108@codeaurora.org>
- <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
- <58061831.6080005@codeaurora.org>
- <dfff1abf-f506-bffa-8e09-edeebd753be5@neratec.com>
- <58076403.3060608@codeaurora.org>
- <bff7ab7f-93e4-8d78-ac73-e97d1832d155@neratec.com>
- <e4b86886-737a-0a1c-c95a-34b6b6373755@neratec.com>
+From: Tobias Brunner <tobias@strongswan.org>
+Subject: [PATCH net] macsec: Fix header length if SCI is added if explicitily
+ disabled
+Date: Fri, 21 Oct 2016 13:11:37 +0200
+Message-ID: <bfb9f7ef-39b1-269f-48de-d7caf5c54c2f@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33556 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754060AbcJULTX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 07:19:23 -0400
-In-Reply-To: <e4b86886-737a-0a1c-c95a-34b6b6373755@neratec.com>
+Received: from sitav-80046.hsr.ch ([152.96.80.46]:36159 "EHLO
+        mail.strongswan.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753745AbcJULVB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 07:21:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Zefir Kurtisi wrote:
->> >Now the interesting (and new for me) part is: if I remove the at803x driver from
->> >the system and use the generic phy instead, the problem does not happen (or at
->> >least not while running for one full day). [...]
->> >
-> Update: the failure also happened with genphy after running for another day.
+Even if sending SCIs is explicitly disabled, the code that creates the
+Security Tag might still decide to add it (e.g. if multiple RX SCs are
+defined on the MACsec interface).
+But because the header length so far only depended on the configuration
+option the SCI might not actually have ended up in the packet, while the
+SC flag in the TCI field of the Security Tag was still set, resulting
+in invalid MACsec frames.
 
-I haven't had a chance to try to reproduce this failure, but to me this 
-sounds like you have a problem with gianfar or your board, and not the 
-at803x driver.
+Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+---
+ drivers/net/macsec.c | 22 ++++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 3ea47f28e143..246679f24a44 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -397,6 +397,14 @@ static struct macsec_cb *macsec_skb_cb(struct sk_buff *skb)
+ #define DEFAULT_ENCRYPT false
+ #define DEFAULT_ENCODING_SA 0
+ 
++static bool send_sci(const struct macsec_secy *secy)
++{
++	const struct macsec_tx_sc *tx_sc = &secy->tx_sc;
++
++	return tx_sc->send_sci ||
++		(secy->n_rx_sc > 1 && !tx_sc->end_station && !tx_sc->scb);
++}
++
+ static sci_t make_sci(u8 *addr, __be16 port)
+ {
+ 	sci_t sci;
+@@ -440,12 +448,12 @@ static void macsec_fill_sectag(struct macsec_eth_header *h,
+ 			       const struct macsec_secy *secy, u32 pn)
+ {
+ 	const struct macsec_tx_sc *tx_sc = &secy->tx_sc;
++	bool sci_present = send_sci(secy);
+ 
+-	memset(&h->tci_an, 0, macsec_sectag_len(tx_sc->send_sci));
++	memset(&h->tci_an, 0, macsec_sectag_len(sci_present));
+ 	h->eth.h_proto = htons(ETH_P_MACSEC);
+ 
+-	if (tx_sc->send_sci ||
+-	    (secy->n_rx_sc > 1 && !tx_sc->end_station && !tx_sc->scb)) {
++	if (sci_present) {
+ 		h->tci_an |= MACSEC_TCI_SC;
+ 		memcpy(&h->secure_channel_id, &secy->sci,
+ 		       sizeof(h->secure_channel_id));
+@@ -650,6 +658,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 	struct macsec_tx_sc *tx_sc;
+ 	struct macsec_tx_sa *tx_sa;
+ 	struct macsec_dev *macsec = macsec_priv(dev);
++	bool sci_present;
+ 	u32 pn;
+ 
+ 	secy = &macsec->secy;
+@@ -687,7 +696,8 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 
+ 	unprotected_len = skb->len;
+ 	eth = eth_hdr(skb);
+-	hh = (struct macsec_eth_header *)skb_push(skb, macsec_extra_len(tx_sc->send_sci));
++	sci_present = send_sci(secy);
++	hh = (struct macsec_eth_header *)skb_push(skb, macsec_extra_len(sci_present));
+ 	memmove(hh, eth, 2 * ETH_ALEN);
+ 
+ 	pn = tx_sa_update_pn(tx_sa, secy);
+@@ -726,10 +736,10 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 	skb_to_sgvec(skb, sg, 0, skb->len);
+ 
+ 	if (tx_sc->encrypt) {
+-		int len = skb->len - macsec_hdr_len(tx_sc->send_sci) -
++		int len = skb->len - macsec_hdr_len(sci_present) -
+ 			  secy->icv_len;
+ 		aead_request_set_crypt(req, sg, sg, len, iv);
+-		aead_request_set_ad(req, macsec_hdr_len(tx_sc->send_sci));
++		aead_request_set_ad(req, macsec_hdr_len(sci_present));
+ 	} else {
+ 		aead_request_set_crypt(req, sg, sg, 0, iv);
+ 		aead_request_set_ad(req, skb->len - secy->icv_len);
 -- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+1.9.1
