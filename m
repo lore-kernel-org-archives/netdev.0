@@ -1,44 +1,51 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [RFC PATCH 08/13] dwmac-meson8b: add support for phy selection
-Date: Fri, 21 Oct 2016 17:59:57 +0200
-Message-ID: <dc810494-6ece-c4ae-d412-ed9af3fac9c2@baylibre.com>
-References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
- <1477060838-14164-9-git-send-email-narmstrong@baylibre.com>
- <20161021155408.GR16974@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_htb: do not report fake rate estimators
+Date: Fri, 21 Oct 2016 09:02:43 -0700
+Message-ID: <1477065763.7065.84.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: khilman@baylibre.com, carlo@caione.org, linus.walleij@linaro.org,
-        linux-gpio@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-amlogic@lists.infradead.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <20161021155408.GR16974@lunn.ch>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Jiri Kosina <jikos@kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34209 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753953AbcJUQCp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 12:02:45 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 128so9014787pfz.1
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 09:02:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/21/2016 05:54 PM, Andrew Lunn wrote:
-> On Fri, Oct 21, 2016 at 04:40:33PM +0200, Neil Armstrong wrote:
->> The Meson GXL dwmac Glue Layer also provides switching between an external PHY
->> and an internal RMII 10/100 PHY.
->> Add a way to setup the correct PHY switching from a device tree attribute.
-> 
-> Humm, actually. Maybe PHY_IS_INTERNAL in the phydrv->flags is the
-> better solution. The MAC can then use phy_is_internal(ndev->phydev) to
-> decide if this register needs programming.
-> 
->        Andrew
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-Hi Andrew,
+When I prepared commit d250a5f90e53 ("pkt_sched: gen_estimator: Dont
+report fake rate estimators"), htb still had an implicit rate estimator
+for all its classes.
 
-Yes this would be a good idea if we were able to scan the internal and external PHYs at the same time,
-but with our limited knowledge the values we write in the register seems to switch a mux for the whole RMII
-and MDIO signals to either interface.
+Then later, I made this rate estimator optional in commit 64153ce0a7b6
+("net_sched: htb: do not setup default rate estimators"), but I forgot
+to update htb use of gnet_stats_copy_rate_est()
 
-Do you have knowledge if this case is already handled upstream ?
+After this patch, "tc -s qdisc ..." no longer report fake rate
+estimators for HTB classes.
 
-Thanks for your help,
-Neil
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_htb.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index c798d0de8a9daf067cae2485ad6bfeeac039efb0..9926fe4f3b6f7db9aeba22fbbfae3d47c4e2af60 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1145,7 +1145,7 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
+ 
+ 	if (gnet_stats_copy_basic(qdisc_root_sleeping_running(sch),
+ 				  d, NULL, &cl->bstats) < 0 ||
+-	    gnet_stats_copy_rate_est(d, NULL, &cl->rate_est) < 0 ||
++	    gnet_stats_copy_rate_est(d, &cl->bstats, &cl->rate_est) < 0 ||
+ 	    gnet_stats_copy_queue(d, NULL, &qs, qlen) < 0)
+ 		return -1;
+ 
