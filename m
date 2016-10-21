@@ -1,46 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: fix a race between netvsc_send()
- and netvsc_init_buf()
-Date: Fri, 21 Oct 2016 11:28:01 -0400 (EDT)
-Message-ID: <20161021.112801.585243295635293094.davem@davemloft.net>
-References: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
+Subject: Re: [Patch net v2] ipv6: fix a potential deadlock in
+ do_ipv6_setsockopt()
+Date: Fri, 21 Oct 2016 11:29:16 -0400 (EDT)
+Message-ID: <20161021.112916.1504671090390906970.davem@davemloft.net>
+References: <1476945312-15572-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sthemmin@microsoft.com, netdev@vger.kernel.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: vkuznets@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+        sploving1@gmail.com, marcelo.leitner@gmail.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56258 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755768AbcJUP3S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 11:29:18 -0400
+In-Reply-To: <1476945312-15572-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Wed, 19 Oct 2016 15:53:01 +0200
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 19 Oct 2016 23:35:12 -0700
 
-> Fix in commit 880988348270 ("hv_netvsc: set nvdev link after populating
-> chn_table") turns out to be incomplete. A crash in
-> netvsc_get_next_send_section() is observed on mtu change when the device
-> is under load. The race I identified is: if we get to netvsc_send() after
-> we set net_device_ctx->nvdev link in netvsc_device_add() but before we
-> finish netvsc_connect_vsp()->netvsc_init_buf() send_section_map is not
-> allocated and we crash. Unfortunately we can't set net_device_ctx->nvdev
-> link after the netvsc_init_buf() call as during the negotiation we need
-> to receive packets and on the receive path we check for it. It would
-> probably be possible to split nvdev into a pair of nvdev_in and nvdev_out
-> links and check them accordingly in get_outbound_net_device()/
-> get_inbound_net_device() but this looks like an overkill.
+> Baozeng reported this deadlock case:
 > 
-> Check that send_section_map is allocated in netvsc_send().
+>        CPU0                    CPU1
+>        ----                    ----
+>   lock([  165.136033] sk_lock-AF_INET6);
+>                                lock([  165.136033] rtnl_mutex);
+>                                lock([  165.136033] sk_lock-AF_INET6);
+>   lock([  165.136033] rtnl_mutex);
 > 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Similar to commit 87e9f0315952
+> ("ipv4: fix a potential deadlock in mcast getsockopt() path")
+> this is due to we still have a case, ipv6_sock_mc_close(),
+> where we acquire sk_lock before rtnl_lock. Close this deadlock
+> with the similar solution, that is always acquire rtnl lock first.
+> 
+> Fixes: baf606d9c9b1 ("ipv4,ipv6: grab rtnl before locking the socket")
+> Reported-by: Baozeng Ding <sploving1@gmail.com>
+> Tested-by: Baozeng Ding <sploving1@gmail.com>
+> Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
 Applied, thanks.
