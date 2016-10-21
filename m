@@ -1,54 +1,189 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/1] driver: tun: Forbid to set IFF_TUN and
- IFF_TAP at the same time
-Date: Fri, 21 Oct 2016 13:50:12 +0300
-Message-ID: <5c58ba54-9c37-0f4a-b68c-c15ed7008d3c@cogentembedded.com>
-References: <1477030452-1765-1-git-send-email-fgao@ikuai8.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gfree.wind@gmail.com
-To: fgao@ikuai8.com, davem@davemloft.net, jasowang@redhat.com,
-        edumazet@google.com, pabeni@redhat.com, netdev@vger.kernel.org
+From: Tobias Regnery <tobias.regnery@gmail.com>
+Subject: [PATCH net-next 3/9] alx: add ability to allocate and free alx_napi structures
+Date: Fri, 21 Oct 2016 12:49:46 +0200
+Message-ID: <a05985fd449c81b8a9d9f6311618beeea8ddb6aa.1477044919.git.tobias.regnery@gmail.com>
+References: <cover.1477044917.git.tobias.regnery@gmail.com>
+Cc: davem@davemloft.net, Tobias Regnery <tobias.regnery@gmail.com>
+To: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:33745 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754035AbcJUKuQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 06:50:16 -0400
-Received: by mail-lf0-f50.google.com with SMTP id x79so144897129lff.0
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 03:50:15 -0700 (PDT)
-In-Reply-To: <1477030452-1765-1-git-send-email-fgao@ikuai8.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:35802 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755094AbcJUKub (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 06:50:31 -0400
+Received: by mail-qk0-f193.google.com with SMTP id v138so6743095qka.2
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 03:50:30 -0700 (PDT)
+In-Reply-To: <cover.1477044917.git.tobias.regnery@gmail.com>
+In-Reply-To: <cover.1477044917.git.tobias.regnery@gmail.com>
+References: <cover.1477044917.git.tobias.regnery@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Add new functions to allocate and free the alx_napi structures and use them
+in __alx_open and __alx_stop. We only allocate one of these structures for
+now, as the rest of the driver is not yet ready for multiple queues.
 
-On 10/21/2016 9:14 AM, fgao@ikuai8.com wrote:
+We switch over the setup of the interrupt mask and the call to netif_napi_add
+to the new function because we must adjust these later on a per queue basis.
 
-> From: Gao Feng <fgao@ikuai8.com>
->
-> Current tun driver permits the ifr_flags is set with IFF_TUN and
-> IFF_TAP at the same time. But actually there is only IFF_TUN flag
-> works. And it does not make sense these two flags are set, so add
-> this check.
->
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->  drivers/net/tun.c | 4 ++++
->  1 file changed, 4 insertions(+)
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 8093e39..c1f89c1 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1752,6 +1752,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  		if (err < 0)
->  			return err;
->
-> +		if ((ifr->ifr_flags & (IFF_TUN | IFF_TAP)) == (IFF_TUN | IFF_TAP)) {
-> +			return -EINVAL;
-> +		}
+Based on the downstream driver at github.com/qca/alx
 
-    {} not needed here.
+Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
+---
+ drivers/net/ethernet/atheros/alx/main.c | 99 ++++++++++++++++++++++++++-------
+ 1 file changed, 78 insertions(+), 21 deletions(-)
 
-MBR, Sergei
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index b7e67dd3d995..77b225535600 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -632,45 +632,96 @@ static int alx_alloc_rings(struct alx_priv *alx)
+ 	offset = alx_alloc_tx_ring(alx, &alx->txq, offset);
+ 	if (offset < 0) {
+ 		netdev_err(alx->dev, "Allocation of tx buffer failed!\n");
+-		goto out_free;
++		return -ENOMEM;
+ 	}
+ 
+ 	offset = alx_alloc_rx_ring(alx, &alx->rxq, offset);
+ 	if (offset < 0) {
+ 		netdev_err(alx->dev, "Allocation of rx buffer failed!\n");
+-		goto out_free;
++		return -ENOMEM;
+ 	}
+ 
+-	alx->int_mask &= ~ALX_ISR_ALL_QUEUES;
+-	alx->int_mask |= ALX_ISR_TX_Q0 | ALX_ISR_RX_Q0;
+-
+-	netif_napi_add(alx->dev, &alx->napi, alx_poll, 64);
+-
+ 	alx_reinit_rings(alx);
+ 
+ 	return 0;
+-out_free:
+-	kfree(alx->txq.bufs);
+-	kfree(alx->rxq.bufs);
+-	dma_free_coherent(&alx->hw.pdev->dev,
+-			  alx->descmem.size,
+-			  alx->descmem.virt,
+-			  alx->descmem.dma);
+-	return -ENOMEM;
+ }
+ 
+ static void alx_free_rings(struct alx_priv *alx)
+ {
+-	netif_napi_del(&alx->napi);
+ 	alx_free_buffers(alx);
+ 
+ 	kfree(alx->txq.bufs);
+ 	kfree(alx->rxq.bufs);
+ 
+-	dma_free_coherent(&alx->hw.pdev->dev,
+-			  alx->descmem.size,
+-			  alx->descmem.virt,
+-			  alx->descmem.dma);
++	if (!alx->descmem.virt)
++		dma_free_coherent(&alx->hw.pdev->dev,
++				  alx->descmem.size,
++				  alx->descmem.virt,
++				  alx->descmem.dma);
++}
++
++static void alx_free_napis(struct alx_priv *alx)
++{
++	struct alx_napi *np;
++
++	np = alx->qnapi[0];
++	if (!np)
++		return;
++
++	netif_napi_del(&alx->napi);
++	kfree(np->txq);
++	kfree(np->rxq);
++	kfree(np);
++	alx->qnapi[0] = NULL;
++}
++
++static int alx_alloc_napis(struct alx_priv *alx)
++{
++	struct alx_napi *np;
++	struct alx_rx_queue *rxq;
++	struct alx_tx_queue *txq;
++
++	alx->int_mask &= ~ALX_ISR_ALL_QUEUES;
++	alx->int_mask |= ALX_ISR_TX_Q0 | ALX_ISR_RX_Q0;
++
++	/* allocate alx_napi structures */
++	np = kzalloc(sizeof(struct alx_napi), GFP_KERNEL);
++	if (!np)
++		goto err_out;
++
++	np->alx = alx;
++	netif_napi_add(alx->dev, &alx->napi, alx_poll, 64);
++	alx->qnapi[0] = np;
++
++	/* allocate tx queues */
++	np = alx->qnapi[0];
++	txq = kzalloc(sizeof(*txq), GFP_KERNEL);
++	if (!txq)
++		goto err_out;
++
++	np->txq = txq;
++	txq->count = alx->tx_ringsz;
++	txq->netdev = alx->dev;
++	txq->dev = &alx->hw.pdev->dev;
++
++	/* allocate rx queues */
++	np = alx->qnapi[0];
++	rxq = kzalloc(sizeof(*rxq), GFP_KERNEL);
++	if (!rxq)
++		goto err_out;
++
++	np->rxq = rxq;
++	rxq->np = alx->qnapi[0];
++	rxq->count = alx->rx_ringsz;
++	rxq->netdev = alx->dev;
++	rxq->dev = &alx->hw.pdev->dev;
++
++	return 0;
++
++err_out:
++	netdev_err(alx->dev, "error allocating internal structures\n");
++	alx_free_napis(alx);
++	return -ENOMEM;
+ }
+ 
+ static void alx_config_vector_mapping(struct alx_priv *alx)
+@@ -1031,10 +1082,14 @@ static int __alx_open(struct alx_priv *alx, bool resume)
+ 	if (!resume)
+ 		netif_carrier_off(alx->dev);
+ 
+-	err = alx_alloc_rings(alx);
++	err = alx_alloc_napis(alx);
+ 	if (err)
+ 		goto out_disable_adv_intr;
+ 
++	err = alx_alloc_rings(alx);
++	if (err)
++		goto out_free_rings;
++
+ 	alx_configure(alx);
+ 
+ 	err = alx_request_irq(alx);
+@@ -1054,6 +1109,7 @@ static int __alx_open(struct alx_priv *alx, bool resume)
+ 
+ out_free_rings:
+ 	alx_free_rings(alx);
++	alx_free_napis(alx);
+ out_disable_adv_intr:
+ 	alx_disable_advanced_intr(alx);
+ 	return err;
+@@ -1064,6 +1120,7 @@ static void __alx_stop(struct alx_priv *alx)
+ 	alx_halt(alx);
+ 	alx_free_irq(alx);
+ 	alx_free_rings(alx);
++	alx_free_napis(alx);
+ }
+ 
+ static const char *alx_speed_desc(struct alx_hw *hw)
+-- 
+2.7.4
