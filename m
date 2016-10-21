@@ -1,68 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Thu, 20 Oct 2016 17:46:17 -0700
-Message-ID: <f0888a5e-e358-8b46-3fe7-581e4811fe72@gmail.com>
-References: <20161021092710.1b56a35b@canb.auug.org.au>
- <bd2fa038-2d0a-8cd1-d80d-860a7497bdf5@gmail.com>
- <e2380249-29b4-4769-514a-5fc5fbd8f95c@gmail.com>
- <20161021114334.1eb189aa@canb.auug.org.au>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] udp: must lock the socket in udp_disconnect()
+Date: Thu, 20 Oct 2016 18:12:45 -0700
+Message-ID: <CAM_iQpVG-L=ZCDnOpDjpyDWuyPFY378JbQ5qhu9_bhzOGc9BuQ@mail.gmail.com>
+References: <31cb3583-5620-de3f-784d-300df3fda0a4@gmail.com>
+ <CAM_iQpVExpqdOXZp0Lw+4Nr2_9W24P2dQFdM=EoYwBkHtwDoPw@mail.gmail.com>
+ <05f766db-4a8c-933e-9d73-6daada21f491@gmail.com> <1476944754.7065.3.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1476981580.7065.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain; charset=UTF-8
+Cc: Baozeng Ding <sploving1@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        network dev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32879 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753100AbcJUAqU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 20:46:20 -0400
-In-Reply-To: <20161021114334.1eb189aa@canb.auug.org.au>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:33675 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752618AbcJUBNG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 21:13:06 -0400
+Received: by mail-it0-f67.google.com with SMTP id k64so8851809itb.0
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 18:13:06 -0700 (PDT)
+In-Reply-To: <1476981580.7065.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2016 05:43 PM, Stephen Rothwell wrote:
-> Hi Florian,
-> 
-> On Thu, 20 Oct 2016 17:30:33 -0700 Florian Fainelli <f.fainelli@gmail.com> wrote:
->>
->> On 10/20/2016 03:42 PM, Florian Fainelli wrote:
->>> On 10/20/2016 03:27 PM, Stephen Rothwell wrote:  
->>>>
->>>> After merging the net tree, today's linux-next build (arm
->>>> multi_v7_defconfig) failed like this:
->>>>
->>>> ERROR: "kexec_in_progress" [drivers/net/dsa/bcm_sf2.ko] undefined!
->>>>
->>>> Caused by commit
->>>>
->>>>   2399d6143f85 ("net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd kernels")
->>>>
->>>> I used the version of the net tree from next-20161020 for today.  
->>>
->>> OK, seems like we need an ifdef CONFIG_KEXEC_CORE, let me fix that.
->>> Thanks Stephen!  
->>
->> Stephen, can you send me the .config file? I could not reproduce it with
->> next-20161020 and doing a make multi_v7_defconfig:
-> 
-> This only started with the net tree as of today (HEAD a681574c99be).
-> The problem is simply that kexec_in_progress is not exported to modules.
+On Thu, Oct 20, 2016 at 9:39 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Baozeng Ding reported KASAN traces showing uses after free in
+> udp_lib_get_port() and other related UDP functions.
+>
+> A CONFIG_DEBUG_PAGEALLOC=y kernel would eventually crash.
+>
+> I could write a reproducer with two threads doing :
+>
+> static int sock_fd;
+> static void *thr1(void *arg)
+> {
+>         for (;;) {
+>                 connect(sock_fd, (const struct sockaddr *)arg,
+>                         sizeof(struct sockaddr_in));
+>         }
+> }
+>
+> static void *thr2(void *arg)
+> {
+>         struct sockaddr_in unspec;
+>
+>         for (;;) {
+>                 memset(&unspec, 0, sizeof(unspec));
+>                 connect(sock_fd, (const struct sockaddr *)&unspec,
+>                         sizeof(unspec));
+>         }
+> }
+>
+> Problem is that udp_disconnect() could run without holding socket lock,
+> and this was causing list corruptions.
 
-Realized that right after sending you the email.
+If this is the cause of the hashlist corruption (I am still unsure about this),
+then why only UDP? Don't all of those using ip4_datagram_connect()
+as ->connect() and using udp_disconnect() as ->disconnect() need this fix?
 
-> 
-> Sorry, getting the actual .config file is a pain at this point since my
-> builds have moved on.
-> 
-> It probably had (the current .config has):
-> 
-> CONFIG_NET_DSA_BCM_SF2=m
-> CONFIG_KEXEC_CORE=y
-> 
-> If CONFIG_KEXEC_CORE is not set, then kexec_in_progress is defined to false.
+For example, after your patch,
 
-Yes indeed, I have a fix ready, thanks!
--- 
-Florian
+        .connect =      ip4_datagram_connect,
+-       .disconnect =   udp_disconnect,
++       .disconnect =   __udp_disconnect,
+
+Ping socket still doesn't have sock lock for ->disconnect() but has it for
+->connect()? I must miss something...
