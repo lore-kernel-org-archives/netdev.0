@@ -1,53 +1,38 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v6 3/3] udp: use it's own memory accounting
- schema
-Date: Fri, 21 Oct 2016 14:14:38 -0700
-Message-ID: <1477084478.7065.89.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1477043395.git.pabeni@redhat.com>
-         <530de0874eb7bbe1dbdaa4e8ccbb56d917ee598f.1477043395.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <530de0874eb7bbe1dbdaa4e8ccbb56d917ee598f.1477043395.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 1/2] Revert "kexec: Export kexec_in_progress to modules"
+Date: Fri, 21 Oct 2016 14:21:55 -0700
+Message-ID: <1477084916-26327-2-git-send-email-f.fainelli@gmail.com>
+References: <1477084916-26327-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+        ebiederm@xmission.com, kexec@lists.infradead.org,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477084916-26327-1-git-send-email-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-10-21 at 13:55 +0200, Paolo Abeni wrote:
-> Completely avoid default sock memory accounting and replace it
-> with udp-specific accounting.
-> 
-> Since the new memory accounting model encapsulates completely
-> the required locking, remove the socket lock on both enqueue and
-> dequeue, and avoid using the backlog on enqueue.
-> 
-> Be sure to clean-up rx queue memory on socket destruction, using
-> udp its own sk_destruct.
-> 
-> Tested using pktgen with random src port, 64 bytes packet,
-> wire-speed on a 10G link as sender and udp_sink as the receiver,
-> using an l4 tuple rxhash to stress the contention, and one or more
-> udp_sink instances with reuseport.
-> 
-> nr readers      Kpps (vanilla)  Kpps (patched)
-> 1               170             440
+This reverts commit 97dcaa0fcfd24daa9a36c212c1ad1d5a97759212. Based on
+the review discussion with Eric, we will come up with a different fix
+for the bcm_sf2 driver which does not make it rely on the
+kexec_in_progress value.
 
-Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ kernel/kexec_core.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Thanks a lot guys.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
+index 786ab85a5452..561675589511 100644
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -59,7 +59,6 @@ size_t vmcoreinfo_max_size = sizeof(vmcoreinfo_data);
+ 
+ /* Flag to indicate we are going to kexec a new kernel */
+ bool kexec_in_progress = false;
+-EXPORT_SYMBOL_GPL(kexec_in_progress);
+ 
+ 
+ /* Location of the reserved area for the crash kernel */
+-- 
+2.7.4
