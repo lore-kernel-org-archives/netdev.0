@@ -1,83 +1,35 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH] net: sctp, forbid negative length
-Date: Fri, 21 Oct 2016 14:13:24 +0200
-Message-ID: <20161021121324.13942-1-jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v12 7/9] openvswitch: add Ethernet push and pop
+ actions
+Date: Fri, 21 Oct 2016 14:21:01 +0200
+Message-ID: <20161021142101.6e6307df@griffin>
+References: <cover.1476708212.git.jbenc@redhat.com>
+        <bf8e49c178a2f8ed9adb02e30470be5163d46296.1476708213.git.jbenc@redhat.com>
+        <CAOrHB_Bj+0DNePDKQ64Gtx9SyxS4cy20Y-1RLC4Dpd3DKJpsjA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        ovs dev <dev@openvswitch.org>,
+        Lorand Jakab <lojakab@cisco.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35004 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932247AbcJUMVG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Oct 2016 08:21:06 -0400
+In-Reply-To: <CAOrHB_Bj+0DNePDKQ64Gtx9SyxS4cy20Y-1RLC4Dpd3DKJpsjA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Most of getsockopt handlers in net/sctp/socket.c check len against
-sizeof some structure like:
-        if (len < sizeof(int))
-                return -EINVAL;
+On Thu, 20 Oct 2016 21:22:21 -0700, Pravin Shelar wrote:
+> The eth pop substracts ETH_HLEN but here the length is set. I think it
+> should be consistent with respect to eth-pop.
 
-On the first look, the check seems to be correct. But since len is int
-and sizeof returns size_t, int gets promoted to unsigned size_t too. So
-the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
-false.
+Agreed. Will use skb_reset_mac_len in both, that better reflects what's
+going on.
 
-Fix this in sctp by explicitly checking len < 0 before any getsockopt
-handler is called.
+Thanks,
 
-Note that sctp_getsockopt_events already handled the negative case.
-Since we added the < 0 check elsewhere, this one can be removed.
-
-If not checked, this is the result:
-UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
-shift exponent 52 is too large for 32-bit type 'int'
-CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
- 0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
- ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
- 0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
-Call Trace:
- [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
-...
- [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
- [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
- [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
- [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
- [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
- [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
- [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-sctp@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
- net/sctp/socket.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index fb02c7033307..9fbb6feb8c27 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4687,7 +4687,7 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
- static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
- 				  int __user *optlen)
- {
--	if (len <= 0)
-+	if (len == 0)
- 		return -EINVAL;
- 	if (len > sizeof(struct sctp_event_subscribe))
- 		len = sizeof(struct sctp_event_subscribe);
-@@ -6430,6 +6430,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 	if (get_user(len, optlen))
- 		return -EFAULT;
- 
-+	if (len < 0)
-+		return -EINVAL;
-+
- 	lock_sock(sk);
- 
- 	switch (optname) {
--- 
-2.10.1
+ Jiri
