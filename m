@@ -1,60 +1,51 @@
-From: Eric Nelson <eric@nelint.com>
-Subject: Re: commit-3ac72b7b63d5 breaks networking on iMX28
-Date: Fri, 21 Oct 2016 06:39:35 -0700
-Message-ID: <fea86fa6-d74a-43ff-cf60-0d375336a5ba@nelint.com>
-References: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v6 2/3] udp: implement memory accounting helpers
+Date: Fri, 21 Oct 2016 06:41:35 -0700
+Message-ID: <1477057295.7065.68.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1477043395.git.pabeni@redhat.com>
+         <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni@redhat.com>
+         <1477052642.7065.63.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1477056841.4606.36.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Henri Roosen <henri.roosen@ginzinger.com>, fugang.duan@nxp.com,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33587 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933183AbcJUNji (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 09:39:38 -0400
-Received: by mail-pf0-f174.google.com with SMTP id 128so57533779pfz.0
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 06:39:38 -0700 (PDT)
-In-Reply-To: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1477056841.4606.36.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Henri,
+On Fri, 2016-10-21 at 15:34 +0200, Paolo Abeni wrote:
 
-On 10/21/2016 02:19 AM, Henri Roosen wrote:
-> Hi,
+> Updating sk_rmem_alloc would still need an atomic operation,
+> because it is touched also by the error queue path: we will end up
+> adding an atomic operation (or two, when reclaiming the fwd allocated
+> memory) inside the critical section. The contention will likely
+> increase.
 > 
-> Unfortunately commit-3ac72b7b63d5 "net: fec: align IP header in
-> hardware" breaks networking on an iMX28 system.
+> The above is going to be quite intrusive: we need to pass an
+> additional argument all the way up to __skb_try_recv_datagram() and
+> change the function behavior according to its value.
 > 
-> The commit seems valid for iMX6, where it is tested okay and solves the
-> unaligned accesses.
-> 
-> On iMX28 I still see unaligned accesses and networking is broken. Can
-> anyone confirm this?
-> 
+> If you are otherwise satisfied with the series in the current shape,
+> can't we instead build incrementally on top of it ? it will simplify
+> both reviews and re-factor tasks.
 
-Reading the i.MX28 reference manual, it appears that this SoC doesn't
-have the RACC bit, and I missed removal of the FEC_QUIRK_HAS_RACC flag.
-
-Can you try with this patch?
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c
-b/drivers/net/ethernet/freescale/fec_main.c
-index 692ee24..db5eee9 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -96,7 +96,7 @@ static struct platform_device_id fec_devtype[] = {
-}, {
-.name = "imx28-fec",
-.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME |
-- FEC_QUIRK_SINGLE_MDIO | FEC_QUIRK_HAS_RACC,
-+ FEC_QUIRK_SINGLE_MDIO,
-}, {
-.name = "imx6q-fec",
-.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
-
-Please advise,
+I certainly can provide an incremental patch, it might be easier for
+both of us ;)
 
 
-Eric
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
