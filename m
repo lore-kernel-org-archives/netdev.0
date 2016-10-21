@@ -1,33 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sched: make default fifo qdiscs appear in the dump
-Date: Fri, 21 Oct 2016 08:27:28 -0700
-Message-ID: <1477063648.7065.70.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <alpine.LNX.2.00.1610211024400.31629@cbobk.fhfr.pm>
-         <1477049817.7065.56.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161021.105504.662057621984429928.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] hv_netvsc: fix a race between netvsc_send()
+ and netvsc_init_buf()
+Date: Fri, 21 Oct 2016 11:28:01 -0400 (EDT)
+Message-ID: <20161021.112801.585243295635293094.davem@davemloft.net>
+References: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jikos@kernel.org, jhs@mojatatu.com, phil@nwl.cc,
-        xiyou.wangcong@gmail.com, daniel@iogearbox.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33286 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755929AbcJUP1a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 11:27:30 -0400
-In-Reply-To: <20161021.105504.662057621984429928.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sthemmin@microsoft.com, netdev@vger.kernel.org, haiyangz@microsoft.com,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: vkuznets@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-10-21 at 10:55 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 21 Oct 2016 04:36:57 -0700
-> 
-> > I guess we'll need to not pull this patch in our kernels.
-> 
-> Eric, quite frankly, this whole "we won't pull this patch into Google
-> kernels" threat is getting _REALLY_ _OLD_.
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Wed, 19 Oct 2016 15:53:01 +0200
 
-I am sorry you felt it was a threat, this was certainly not my intent.
+> Fix in commit 880988348270 ("hv_netvsc: set nvdev link after populating
+> chn_table") turns out to be incomplete. A crash in
+> netvsc_get_next_send_section() is observed on mtu change when the device
+> is under load. The race I identified is: if we get to netvsc_send() after
+> we set net_device_ctx->nvdev link in netvsc_device_add() but before we
+> finish netvsc_connect_vsp()->netvsc_init_buf() send_section_map is not
+> allocated and we crash. Unfortunately we can't set net_device_ctx->nvdev
+> link after the netvsc_init_buf() call as during the negotiation we need
+> to receive packets and on the receive path we check for it. It would
+> probably be possible to split nvdev into a pair of nvdev_in and nvdev_out
+> links and check them accordingly in get_outbound_net_device()/
+> get_inbound_net_device() but this looks like an overkill.
+> 
+> Check that send_section_map is allocated in netvsc_send().
+> 
+> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+
+Applied, thanks.
