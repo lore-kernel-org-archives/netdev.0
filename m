@@ -1,30 +1,49 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net v2] ipv6: fix a potential deadlock in do_ipv6_setsockopt()
-Date: Thu, 20 Oct 2016 16:43:54 -0700
-Message-ID: <CAM_iQpVOtqP9XtYuAcwm2ccdY+itKdH_mEnN71wGwYO4cTF8xg@mail.gmail.com>
-References: <1476945312-15572-1-git-send-email-xiyou.wangcong@gmail.com>
- <1476971226.7065.5.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUvU8dZPquAgtcZASO6jhjtoYQ2nc8EBceqZmSHg4ZSsQ@mail.gmail.com> <1477001458.7065.37.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Thu, 20 Oct 2016 17:30:33 -0700
+Message-ID: <e2380249-29b4-4769-514a-5fc5fbd8f95c@gmail.com>
+References: <20161021092710.1b56a35b@canb.auug.org.au>
+ <bd2fa038-2d0a-8cd1-d80d-860a7497bdf5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Baozeng Ding <sploving1@gmail.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f41.google.com ([209.85.214.41]:34891 "EHLO
-        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751605AbcJTXoP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 19:44:15 -0400
-Received: by mail-it0-f41.google.com with SMTP id 4so203295843itv.0
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 16:44:15 -0700 (PDT)
-In-Reply-To: <1477001458.7065.37.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:32774 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755255AbcJUAag (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2016 20:30:36 -0400
+In-Reply-To: <bd2fa038-2d0a-8cd1-d80d-860a7497bdf5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 20, 2016 at 3:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> I used 'I wonder if' to say that we might have some better way to code
-> this test nowadays, but this can be done in a separate patch of course.
+On 10/20/2016 03:42 PM, Florian Fainelli wrote:
+> On 10/20/2016 03:27 PM, Stephen Rothwell wrote:
+>> Hi all,
+>>
+>> After merging the net tree, today's linux-next build (arm
+>> multi_v7_defconfig) failed like this:
+>>
+>> ERROR: "kexec_in_progress" [drivers/net/dsa/bcm_sf2.ko] undefined!
+>>
+>> Caused by commit
+>>
+>>   2399d6143f85 ("net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd kernels")
+>>
+>> I used the version of the net tree from next-20161020 for today.
+> 
+> OK, seems like we need an ifdef CONFIG_KEXEC_CORE, let me fix that.
+> Thanks Stephen!
 
-OK, let's keep one bugfix in one patch. ;)
+Stephen, can you send me the .config file? I could not reproduce it with
+next-20161020 and doing a make multi_v7_defconfig:
+
+fainelli@fainelli-desktop:[~/../linux]$ ls -l drivers/net/dsa/*.ko
+-rw-rw-r-- 1 fainelli fainelli 17K Oct 20 17:30 drivers/net/dsa/bcm_sf2.ko
+
+Thanks
+-- 
+Florian
