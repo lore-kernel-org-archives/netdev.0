@@ -1,76 +1,61 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH v2 net-next 1/1] driver: tun: Forbid to set IFF_TUN and
- IFF_TAP at the same time
-Date: Fri, 21 Oct 2016 19:32:26 +0800
-Message-ID: <CA+6hz4owMopnVPAUJgo6pRpx+KE_YdWAXXzsJ8jKNCrWuRhBTw@mail.gmail.com>
-References: <1477047735-26003-1-git-send-email-fgao@ikuai8.com> <1477049287.7065.51.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, jasowang@redhat.com,
-        edumazet@google.com, pabeni@redhat.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH net] net: fec: Call swap_buffer() prior to IP header alignment
+Date: Fri, 21 Oct 2016 09:34:29 -0200
+Message-ID: <1477049669-25101-1-git-send-email-festevam@gmail.com>
+Cc: fugang.duan@nxp.com, henri.roosen@ginzinger.com, eric@nelint.com,
+        kernel@pengutronix.de, rmk@armlinux.org.uk, netdev@vger.kernel.org,
+        Fabio Estevam <fabio.estevam@nxp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg202.qq.com ([184.105.206.29]:50840 "EHLO smtpbg202.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754814AbcJULcv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 07:32:51 -0400
-Received: from mail-vk0-f44.google.com (unknown [209.85.213.44])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 19:32:27 +0800 (CST)
-Received: by mail-vk0-f44.google.com with SMTP id b186so112917254vkb.1
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 04:32:28 -0700 (PDT)
-In-Reply-To: <1477049287.7065.51.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:35405 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753088AbcJULey (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 07:34:54 -0400
+Received: by mail-qk0-f196.google.com with SMTP id v138so6852262qka.2
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 04:34:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+From: Fabio Estevam <fabio.estevam@nxp.com>
 
-On Fri, Oct 21, 2016 at 7:28 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2016-10-21 at 19:02 +0800, fgao@ikuai8.com wrote:
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> Current tun driver permits the ifr_flags is set with IFF_TUN and
->> IFF_TAP at the same time. But actually there is only IFF_TUN flag
->> works. And it does not make sense these two flags are set, so add
->> this check.
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> ---
->>  v2: Remove useless {}
->>  v1: Initial patch
->>
->>  drivers/net/tun.c | 3 +++
->>  1 file changed, 3 insertions(+)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index 8093e39..faaa189 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -1752,6 +1752,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->>               if (err < 0)
->>                       return err;
->>
->> +             if ((ifr->ifr_flags & (IFF_TUN | IFF_TAP)) == (IFF_TUN | IFF_TAP))
->> +                     return -EINVAL;
->> +
->>               /* Set dev type */
->>               if (ifr->ifr_flags & IFF_TUN) {
->>                       /* TUN device */
->
->
-> This might break some applications.
+Commit 3ac72b7b63d5 ("net: fec: align IP header in hardware") breaks
+networking on mx28.
 
-Yes. I consider about this case.
-But I think there should be very least applications which set these
-two flags at the same time.
+There is an erratum on mx28 (ENGR121613 - ENET big endian mode
+not compatible with ARM little endian) that requires an additional
+byte-swap operation to workaround this problem.
 
->
-> It might be too late to add this check without a grace period.
->
->
->
-Yes, It needs some discussions.
+So call swap_buffer() prior to performing the IP header alignment
+to restore network functionality on mx28. 
 
-Regards
-Feng
+Fixes: 3ac72b7b63d5 ("net: fec: align IP header in hardware")
+Reported-and-tested-by: Henri Roosen <henri.roosen@ginzinger.com>
+Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 4ce8179..3c888be 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1430,14 +1430,14 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
+ 		skb_put(skb, pkt_len - 4);
+ 		data = skb->data;
+ 
++		if (!is_copybreak && need_swap)
++			swap_buffer(data, pkt_len);
++
+ #if !defined(CONFIG_M5272)
+ 		if (fep->quirks & FEC_QUIRK_HAS_RACC)
+ 			data = skb_pull_inline(skb, 2);
+ #endif
+ 
+-		if (!is_copybreak && need_swap)
+-			swap_buffer(data, pkt_len);
+-
+ 		/* Extract the enhanced buffer descriptor */
+ 		ebdp = NULL;
+ 		if (fep->bufdesc_ex)
+-- 
+2.7.4
