@@ -1,72 +1,73 @@
-From: Sebastian Reichel <sre@kernel.org>
-Subject: Re: [PATCH net-next v2 7/9] net: use core MTU range checking in misc
- drivers
-Date: Fri, 21 Oct 2016 18:22:28 +0200
-Message-ID: <20161021162228.5lllrnsbegxgf3lu@earth>
-References: <20161019023333.15760-1-jarod@redhat.com>
- <20161020175524.6184-1-jarod@redhat.com>
- <20161020175524.6184-8-jarod@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] flow_dissector: avoid uninitialized variable access
+Date: Fri, 21 Oct 2016 18:31:18 +0200
+Message-ID: <20161021163118.GA2155@nanopsycho.orion>
+References: <20161021155626.4020344-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="eeqo55dra4cvgby7"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org,
-        Stefan Richter <stefanr@s5r6.in-berlin.de>,
-        Faisal Latif <faisal.latif@intel.com>,
-        Cliff Whickman <cpw@sgi.com>,
-        Robin Holt <robinmholt@gmail.com>,
-        Jes Sorensen <jes@trained-monkey.org>,
-        Marek Lindner <mareklindner@neomailbox.ch>,
-        Simon Wunderlich <sw@simonwunderlich.de>,
-        Antonio Quartulli <a@unstable.cc>,
-        Sathya Prakash <sathya.prakash@broadcom.com>,
-        Chaitra P B <chaitra.basappa@broadcom.com>,
-        Suganath Prabu Subramani
-        <suganath-prabu.subramani@broadcom.com>,
-        MPT-FusionLinux.pdl@broadcom.com, Felipe Balbi <balbi@kernel.org>,
-        Arvid Brodin <arvid.brodin@alten.se>,
-        Remi Denis-Courmont <courmisch@gmail.com>
-To: Jarod Wilson <jarod@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Gao Feng <fgao@ikuai8.com>, Eric Garver <e@erig.me>,
+        Amir Vadai <amir@vadai.me>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161020175524.6184-8-jarod@redhat.com>
+In-Reply-To: <20161021155626.4020344-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Fri, Oct 21, 2016 at 05:55:53PM CEST, arnd@arndb.de wrote:
+>gcc warns about an uninitialized pointer dereference in the vlan
+>priority handling:
+>
+>net/core/flow_dissector.c: In function '__skb_flow_dissect':
+>net/core/flow_dissector.c:281:61: error: 'vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+>
+>From all I can tell, this warning is about a real bug, and we
+>should not attempt look up the vlan header if there was
+>no vlan tag.
 
---eeqo55dra4cvgby7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I don't see how vlan could be used uninitialized. But I understand that
+this is impossible for gcc to track it. Please just use uninitialized_var()
 
-Hi,
 
-On Thu, Oct 20, 2016 at 01:55:22PM -0400, Jarod Wilson wrote:
-> hsi/clients/ssi_protocol:
-> - use core MTU range checking
-> - remove now redundant ssip_pn_set_mtu
 
-Acked-By: Sebastian Reichel <sre@kernel.org>
-
--- Sebastian
-
---eeqo55dra4cvgby7
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABCgAGBQJYCkDBAAoJENju1/PIO/qa9mYQAJESHC4204kwddPXQrq/mw6b
-vPGsFsMUXrpfx7Sq25Aaf9GB1ubkqznDKjW6Wfo6oGzaWJ1hfvGrJzP5xHbOJPbf
-Mi3mHd3+Psj6H1uv84HJP951RDw+99EvT8HzxSshPFVi62Xzffw07zLO2qgX4LIM
-ZKTuoR1nyIDcd0AGFbh9JGKtrG6gnAeAL4xowipUyS5vM/d6vJd9L0qO2Ky6ahpp
-/NBPjVVWYIh04fU2AmWmXBIeq49jsEL4sRAvFdLFJijZtGdGyq/FL+RaG6x8hZAR
-1RZIkqPFV9FxcxMQweh7xvgXhpwQ+Y8G4T0KXqYoIIcplHD6u86FRIDvr+06HR1x
-9tjIxj2jkbC4nHlJXZVK6qZc08+qnhBzs2US8H0BB0sD2W79paLgjj7wGpP99zKX
-Dva9z4NYi/HgQQ8HiU12ImV5tIGXvqjoNGLggPiQg9FV9kKubZTXQQuaqyphbEc6
-4+EvsSFAf5bl6cGuYG/f2ibMA9Pe2WkSRFEyJN62ARU6sItK6SwP/BmRJFqa8BCl
-el8ma5tLMbQQdwhE3mUmfInRpuOjX3gueLpHrhvjeR86HnSE2gIcErnAC8lzltUw
-PJQxDOSP+dallMc5bDqFphPbHzZ7if4687U3M8yrvz3ew+NuyeaDeWWvFLrV4Hf9
-UHu/BrnSZaN7XZSqCGW7
-=ui/h
------END PGP SIGNATURE-----
-
---eeqo55dra4cvgby7--
+>
+>Fixes: f6a66927692e ("flow_dissector: Get vlan priority in addition to vlan id")
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>---
+>I'm not sure about this one, please have a closer look at what
+>the original code does before applying.
+>---
+> net/core/flow_dissector.c | 4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+>
+>diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>index 44e6ba9d3a6b..dd6003bf27e1 100644
+>--- a/net/core/flow_dissector.c
+>+++ b/net/core/flow_dissector.c
+>@@ -245,7 +245,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+> 	}
+> 	case htons(ETH_P_8021AD):
+> 	case htons(ETH_P_8021Q): {
+>-		const struct vlan_hdr *vlan;
+>+		const struct vlan_hdr *vlan = NULL;
+> 
+> 		if (skb && skb_vlan_tag_present(skb))
+> 			proto = skb->protocol;
+>@@ -264,7 +264,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+> 		}
+> 
+> 		skip_vlan = true;
+>-		if (dissector_uses_key(flow_dissector,
+>+		if (vlan && dissector_uses_key(flow_dissector,
+> 				       FLOW_DISSECTOR_KEY_VLAN)) {
+> 			key_vlan = skb_flow_dissector_target(flow_dissector,
+> 							     FLOW_DISSECTOR_KEY_VLAN,
+>-- 
+>2.9.0
+>
