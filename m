@@ -1,65 +1,151 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [Patch net] net: saving irq context for peernet2id()
-Date: Fri, 21 Oct 2016 16:53:08 -0400
-Message-ID: <CAHC9VhTm7Qc0FwEE35c5uyfWz-5DH1mKQtHGYrNVhPHm9ze34Q@mail.gmail.com>
-References: <CAM_iQpV0vfwsToR=maxhGM+fvQLX9zqcpp14A-C9JNzLfKJy9g@mail.gmail.com>
- <20161021193951.GS23701@madcap2.tricolour.ca> <CAHC9VhSm21f-HurdGi7+D0LmHNkkKRyAsT-OHJEyOZgoJVYUNg@mail.gmail.com>
- <20161021.163342.2187677530255875866.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH 09/13] net: phy: Add Meson GXL Internal PHY driver
+Date: Fri, 21 Oct 2016 13:56:30 -0700
+Message-ID: <0ea5a7a8-3913-0e6a-6ff2-9f34015ea071@gmail.com>
+References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
+ <1477060838-14164-10-git-send-email-narmstrong@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: rgb@redhat.com, xiyou.wangcong@gmail.com,
-        Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
-        e@eladraz.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f68.google.com ([209.85.213.68]:34987 "EHLO
-        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755258AbcJUUxK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 16:53:10 -0400
-Received: by mail-vk0-f68.google.com with SMTP id 130so5296947vkg.2
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 13:53:10 -0700 (PDT)
-In-Reply-To: <20161021.163342.2187677530255875866.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1477060838-14164-10-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 21, 2016 at 4:33 PM, David Miller <davem@davemloft.net> wrote:
-> From: Paul Moore <paul@paul-moore.com>
-> Date: Fri, 21 Oct 2016 16:15:00 -0400
->
->> However, that's not the case is it?  Unless I missed something, the
->> fix that Cong Wang is advocating (rework the audit multicast code), is
->> a change that I have said I'm not going to accept during the -rc
->> phase.  It has been a few days now and no alternate fix has been
->> proposed, I'll give it a few more hours ...
->
-> It really is the right way to fix this though.
->
-> Nothing should be emitting netlink messages, potentially en-masse
-> to a multicast group or broadcast, in hardware interrupt context.
->
-> I know it's been said that only systemd receives these things, so
-> that point doesn't need to be remade again.
+On 10/21/2016 07:40 AM, Neil Armstrong wrote:
+> Add driver for the Internal RMII PHY found in the Amlogic Meson GXL SoCs.
+> 
+> This PHY seems to only implement some standard registers and need some
+> workarounds to provide autoneg values from vendor registers.
+> 
+> Some magic values are currently used to configure the PHY, and this a
+> temporary setup until clarification about these registers names and
+> registers fields are provided by Amlogic.
+> 
+> Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+> ---
+> +
+> +static int meson_gxl_config_init(struct phy_device *phydev)
+> +{
+> +	int val;
+> +	u32 features;
+> +
+> +	meson_gxl_phy_config(phydev);
+> +
+> +	features = SUPPORTED_MII;
 
-I think it is also worth noting that this code has been doing it this
-way for some time now.  I say this not to advocate that it is correct,
-only that there hasn't been a demonstrated problem until Cong Wang's
-patch.
+This does not really belong in the PHY driver, and this is statically
+assigned, I would just drop this.
 
-> We have many weeks until -final is released so I really don't
-> understand the reluctance at a slightly more involved fix in -rc2.  In
-> fact this is the most optimal time to try it this way, as we'll have
-> the maximum amount of time for it to have exposure for testing before
-> -final.
+> +
+> +	/* Do we support autonegotiation? */
+> +	val = phy_read(phydev, MII_BMSR);
+> +	if (val < 0)
+> +		return val;
+> +
+> +	if (val & BMSR_ANEGCAPABLE)
+> +		features |= SUPPORTED_Autoneg;
+> +	if (val & BMSR_100FULL)
+> +		features |= SUPPORTED_100baseT_Full;
+> +	if (val & BMSR_100HALF)
+> +		features |= SUPPORTED_100baseT_Half;
+> +	if (val & BMSR_10FULL)
+> +		features |= SUPPORTED_10baseT_Full;
+> +	if (val & BMSR_10HALF)
+> +		features |= SUPPORTED_10baseT_Half;
+> +
+> +	phydev->supported = features;
+> +	phydev->advertising = features;
 
-Well, I understand what you are trying to say, but the maximum amount
-of time for exposure/testing would be to put it in -next.  The audit
-netlink code needs a rework, but introducing such a change in the -rc
-kernels is not something I'm going to do, especially when the change
-which triggered the regression is an optimization that can be easily
-reverted ... or fixed, but the only two options I've heard mentioned
-are the audit multicast rework and the revert; if someone has a third
-option I'm listening ...
+This is redundant with what PHYLIB will determine for the PHY.
 
+> +
+> +	return 0;
+> +}
+> +
+> +static int meson_gxl_phy_read_status(struct phy_device *phydev)
+> +{
+> +	int err;
+> +
+> +	/* Update the link, but return if there was an error */
+> +	err = genphy_update_link(phydev);
+> +	if (err)
+> +		return err;
+> +
+> +	phydev->lp_advertising = 0;
+> +	phydev->pause = 0;
+> +	phydev->asym_pause = 0;
+> +
+> +	if (phydev->autoneg == AUTONEG_ENABLE) {
+> +		unsigned int speed;
+> +		int reg = phy_read(phydev, GXL_REG_ANEG);
+
+Is all of this really necessary? This should all be reflected in the
+standard BMSR register, is not this the case here that we have to read
+this non-standard register?
+
+You use genphy_config_aneg(), so surely, the standard auto-negotiation
+part works somehow?
+
+> +
+> +		if (reg < 0)
+> +			return reg;
+> +
+> +		speed = reg & REG_ANEG_SPEED_MASK;
+> +
+> +		if (reg & REG_ANEG_FDUPLEX)
+> +			phydev->duplex = DUPLEX_FULL;
+> +		else
+> +			phydev->duplex = DUPLEX_HALF;
+> +
+> +		if ((reg & REG_ANEG_SPEED_MASK) == REG_ANEG_SPEED10)
+> +			phydev->speed = SPEED_10;
+> +		else if ((reg & REG_ANEG_SPEED_MASK) == REG_ANEG_SPEED100)
+> +			phydev->speed = SPEED_100;
+> +	} else {
+> +		int bmcr = phy_read(phydev, MII_BMCR);
+> +
+> +		if (bmcr < 0)
+> +			return bmcr;
+> +
+> +		if (bmcr & BMCR_FULLDPLX)
+> +			phydev->duplex = DUPLEX_FULL;
+> +		else
+> +			phydev->duplex = DUPLEX_HALF;
+> +
+> +		if (bmcr & BMCR_SPEED1000)
+> +			phydev->speed = SPEED_1000;
+> +		else if (bmcr & BMCR_SPEED100)
+> +			phydev->speed = SPEED_100;
+> +		else
+> +			phydev->speed = SPEED_10;
+> +	}
+
+> +
+> +	return 0;
+> +}
+> +
+> +static struct phy_driver meson_gxl_phy = {
+> +	.phy_id		= 0x01814400,
+> +	.name		= "Meson GXL Internal PHY",
+> +	.phy_id_mask	= 0x0fffffff,
+
+Usually the last 4 bits are 0, since that's where the revision part is
+located.
+
+> +	.features	= 0,
+
+You should set PHY_GBIT_FEATURES and set .flags to PHY_IS_INTERNAL since
+this is an internal PHY?
 -- 
-paul moore
-www.paul-moore.com
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
