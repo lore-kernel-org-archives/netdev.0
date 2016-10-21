@@ -1,52 +1,53 @@
-From: <sudarsana.kalluru@cavium.com>
-Subject: [PATCH net 5/7] qede: Reconfigure rss indirection direction table when rss count is updated
-Date: Fri, 21 Oct 2016 04:43:43 -0400
-Message-ID: <1477039425-31341-6-git-send-email-sudarsana.kalluru@cavium.com>
-References: <1477039425-31341-1-git-send-email-sudarsana.kalluru@cavium.com>
+From: Henri Roosen <henri.roosen@ginzinger.com>
+Subject: commit-3ac72b7b63d5 breaks networking on iMX28
+Date: Fri, 21 Oct 2016 11:19:50 +0200
+Message-ID: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Ariel.Elior@cavium.com>,
-        <Yuval.Mintz@cavium.com>, <manish.chopra@cavium.com>,
-        Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 8BIT
+To: <eric@nelint.com>, <fugang.duan@nxp.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49038 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933879AbcJUJaB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 05:30:01 -0400
-In-Reply-To: <1477039425-31341-1-git-send-email-sudarsana.kalluru@cavium.com>
+Received: from mail.ginzinger.com ([31.193.165.229]:48413 "EHLO
+        mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933608AbcJUJTz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 05:19:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
+Hi,
 
-Rx indirection table entries are in the range [0, (rss_count - 1)]. If
-user reduces the rss count, the table entries may not be in the ccorrect
-range. Need to reconfigure the table with new rss_count as a basis.
+Unfortunately commit-3ac72b7b63d5 "net: fec: align IP header in
+hardware" breaks networking on an iMX28 system.
 
-Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+The commit seems valid for iMX6, where it is tested okay and solves the
+unaligned accesses.
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 7da184c..d47bdaa 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -822,6 +822,13 @@ static int qede_set_channels(struct net_device *dev,
- 	edev->req_queues = count;
- 	edev->req_num_tx = channels->tx_count;
- 	edev->req_num_rx = channels->rx_count;
-+	/* Reset the indirection table if rx queue count is updated */
-+	if ((edev->req_queues - edev->req_num_tx) != QEDE_RSS_COUNT(edev)) {
-+		edev->rss_params_inited &= ~QEDE_RSS_INDIR_INITED;
-+		memset(&edev->rss_params.rss_ind_table, 0,
-+		       sizeof(edev->rss_params.rss_ind_table));
-+	}
-+
- 	if (netif_running(dev))
- 		qede_reload(edev, NULL, NULL);
- 
--- 
-1.8.3.1
+On iMX28 I still see unaligned accesses and networking is broken. Can
+anyone confirm this?
+
+Thanks,
+Henri
+
+________________________________
+
+Ginzinger electronic systems GmbH
+Gewerbegebiet Pirath 16
+4952 Weng im Innkreis
+www.ginzinger.com
+
+Firmenbuchnummer: FN 364958d
+Firmenbuchgericht: Ried im Innkreis
+UID-Nr.: ATU66521089
+
+
+________________________________
+
+Kommende Events:
+
+08.-11. November 2016: Besuchen Sie uns auf der electronica in München -> Halle B1 Stand 538
+16. November 2016: Nachmittagsseminar mit unserem Partner Irlbacher zum Thema „Glas als innovatives Material für moderne HMI’s“
+17. November 2016: Juristisches Seminar in Linz: Einsatz von Open Source-Software in der Industrie
+06. Dezember 2016: Nachmittagsseminar mit unserem Partner sequality software engineering zum Thema Usability
+
+>> Weitere Informationen zu diesen Veranstaltungen und Neuigkeiten aus der Elektronikbranche finden Sie auf www.ginzinger.com/techtalk
