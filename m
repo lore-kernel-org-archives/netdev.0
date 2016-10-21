@@ -1,27 +1,36 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: network packet kernel rate limit
-Date: Fri, 21 Oct 2016 10:41:47 -0700
-Message-ID: <CAM_iQpWT3EDqx9WSfso6BVeMuo_gsEsgBJx3prOQcT7_0kd28Q@mail.gmail.com>
-References: <8729016553E3654398EA69218DA29EEF5CB42C@cnshjmbx02>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: remove MTU limits on a few ether_setup callers
+Date: Fri, 21 Oct 2016 13:58:28 -0400 (EDT)
+Message-ID: <20161021.135828.966455231750113733.davem@davemloft.net>
+References: <20161021032527.12954-1-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:36583 "EHLO
-        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932507AbcJURmJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 13:42:09 -0400
-Received: by mail-it0-f44.google.com with SMTP id 139so236163008itm.1
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 10:42:08 -0700 (PDT)
-In-Reply-To: <8729016553E3654398EA69218DA29EEF5CB42C@cnshjmbx02>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        asbjorn@asbjorn.st, parameswaran.r7@gmail.com
+To: jarod@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161021032527.12954-1-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 11:17 PM, YUAN Linyu
-<Linyu.Yuan@alcatel-sbell.com.cn> wrote:
-> User space application require linux kernel to do rate limit to some type of Ethernet packet(ARP, ICMP, TCP, for example 1000 packet/s) when system run under Ethernet packet flooding test.
-> Do you know if kernel already exist a feature to implement this requirement?
+From: Jarod Wilson <jarod@redhat.com>
+Date: Thu, 20 Oct 2016 23:25:27 -0400
 
-There are multiple Qdisc's for rate limiting, e.g.:
-http://lartc.org/manpages/tc-htb.html
+> These few drivers call ether_setup(), but have no ndo_change_mtu, and thus
+> were overlooked for changes to MTU range checking behavior. They
+> previously had no range checks, so for feature-parity, set their min_mtu
+> to 0 and max_mtu to ETH_MAX_MTU (65535), instead of the 68 and 1500
+> inherited from the ether_setup() changes. Fine-tuning can come after we get
+> back to full feature-parity here.
+> 
+> CC: netdev@vger.kernel.org
+> Reported-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> CC: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> CC: R Parameswaran <parameswaran.r7@gmail.com>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+
+Applied.
+
+Please use "[PATCH net-next]" in your subject line when a patch
+targets net-next.
