@@ -1,40 +1,50 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: Need help with mdiobus_register and phy
-Date: Fri, 21 Oct 2016 09:44:28 +0200
-Message-ID: <e4b86886-737a-0a1c-c95a-34b6b6373755@neratec.com>
-References: <5800D214.70808@codeaurora.org> <20161014124928.GJ5822@lunn.ch>
- <5800D474.1030303@codeaurora.org> <20161014125736.GK5822@lunn.ch>
- <5800D796.1030602@codeaurora.org> <20161014131852.GM5822@lunn.ch>
- <58010E79.2030607@codeaurora.org> <20161014172514.GA23455@lunn.ch>
- <535FE9FE-0D69-4874-BBF0-F0662C2157DB@gmail.com>
- <58023F90.5070302@codeaurora.org> <20161015180219.GB6918@lunn.ch>
- <58027540.6080604@codeaurora.org>
- <7dced72e-c441-06d1-161d-3bccad34f2cd@neratec.com>
- <58053A33.4030108@codeaurora.org>
- <21038884-a76e-1647-9194-be510a2f9da4@neratec.com>
- <58061831.6080005@codeaurora.org>
- <dfff1abf-f506-bffa-8e09-edeebd753be5@neratec.com>
- <58076403.3060608@codeaurora.org>
- <bff7ab7f-93e4-8d78-ac73-e97d1832d155@neratec.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH] net: cpsw: fix obtaining mac address for am3517
+Date: Fri, 21 Oct 2016 00:53:18 -0700
+Message-ID: <20161021075317.767cu7qkmcn4k4e4@atomide.com>
+References: <1476993351-23065-1-git-send-email-jhofstee@victronenergy.com>
+ <20161021063851.6frul6pemo52i7ot@atomide.com>
+ <b713c697-3e42-4621-5d65-ab69c979d8be@victronenergy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:4942 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750853AbcJUHoa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 03:44:30 -0400
-In-Reply-To: <bff7ab7f-93e4-8d78-ac73-e97d1832d155@neratec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeroen Hofstee <jhofstee@victronenergy.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b713c697-3e42-4621-5d65-ab69c979d8be@victronenergy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/20/2016 02:55 PM, Zefir Kurtisi wrote:
-> [...]
+* Jeroen Hofstee <jhofstee@victronenergy.com> [161021 00:37]:
+> Hello Tony,
 > 
-> Now the interesting (and new for me) part is: if I remove the at803x driver from
-> the system and use the generic phy instead, the problem does not happen (or at
-> least not while running for one full day). [...]
+> On 21-10-16 08:38, Tony Lindgren wrote:
+> > * Jeroen Hofstee <jhofstee@victronenergy.com> [161020 12:57]:
+> > > Commit b6745f6e4e63 ("drivers: net: cpsw: davinci_emac: move reading mac
+> > > id to common file") did not only move the code for an am3517, it also
+> > > added the slave parameter, resulting in a invalid (all zero) mac address
+> > > being returned. So change it back to always read from slave zero, so it
+> > > works again.
+> > Hmm doesn't this now break it for cpsw with two instances?
+> > 
 > 
-Update: the failure also happened with genphy after running for another day.
+> Yes, well, they get the same mac address at least. But does it matter?
+> This changes davinci_emac_3517_get_macid, the only way to get there
+> is:
+> 
+>     if (of_device_is_compatible(dev->of_node, "ti,am3517-emac"))
+>         return davinci_emac_3517_get_macid(dev, 0x110, slave, mac_addr)
+> 
+> and the only user of ti,am3517-emac is arch/arm/boot/dts/am3517.dtsi,
+> which only has one emac. So the change is already am3517 specific.
+> 
+> > We may need am3517 specific quirk flag instead?
+> 
+> Given above, it is already am3517 specific. Let me know if you prefer this
+> route then I will have a look at it.
+
+Oh OK thanks for explaining it :) As it's already am3517 specific:
+
+Acked-by: Tony Lindgren <tony@atomide.com>
