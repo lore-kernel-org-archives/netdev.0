@@ -1,151 +1,55 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH 09/13] net: phy: Add Meson GXL Internal PHY driver
-Date: Fri, 21 Oct 2016 13:56:30 -0700
-Message-ID: <0ea5a7a8-3913-0e6a-6ff2-9f34015ea071@gmail.com>
-References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
- <1477060838-14164-10-git-send-email-narmstrong@baylibre.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] flow_dissector: avoid uninitialized variable access
+Date: Fri, 21 Oct 2016 23:05:45 +0200
+Message-ID: <5467015.N4DG5uA0DU@wuerfel>
+References: <20161021155626.4020344-1-arnd@arndb.de> <20161021163118.GA2155@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-        carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477060838-14164-10-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Gao Feng <fgao@ikuai8.com>, Eric Garver <e@erig.me>,
+        Amir Vadai <amir@vadai.me>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161021163118.GA2155@nanopsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/21/2016 07:40 AM, Neil Armstrong wrote:
-> Add driver for the Internal RMII PHY found in the Amlogic Meson GXL SoCs.
+On Friday, October 21, 2016 6:31:18 PM CEST Jiri Pirko wrote:
+> Fri, Oct 21, 2016 at 05:55:53PM CEST, arnd@arndb.de wrote:
+> >gcc warns about an uninitialized pointer dereference in the vlan
+> >priority handling:
+> >
+> >net/core/flow_dissector.c: In function '__skb_flow_dissect':
+> >net/core/flow_dissector.c:281:61: error: 'vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> >
+> >From all I can tell, this warning is about a real bug, and we
+> >should not attempt look up the vlan header if there was
+> >no vlan tag.
 > 
-> This PHY seems to only implement some standard registers and need some
-> workarounds to provide autoneg values from vendor registers.
+> I don't see how vlan could be used uninitialized. But I understand that
+> this is impossible for gcc to track it. Please just use uninitialized_var()
 > 
-> Some magic values are currently used to configure the PHY, and this a
-> temporary setup until clarification about these registers names and
-> registers fields are provided by Amlogic.
-> 
-> Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> ---
-> +
-> +static int meson_gxl_config_init(struct phy_device *phydev)
-> +{
-> +	int val;
-> +	u32 features;
-> +
-> +	meson_gxl_phy_config(phydev);
-> +
-> +	features = SUPPORTED_MII;
 
-This does not really belong in the PHY driver, and this is statically
-assigned, I would just drop this.
+I usually try to avoid uninitialized_var(), as making it obvious to
+the compiler why something is known tends to result in more readable
+source code and better object code.
 
-> +
-> +	/* Do we support autonegotiation? */
-> +	val = phy_read(phydev, MII_BMSR);
-> +	if (val < 0)
-> +		return val;
-> +
-> +	if (val & BMSR_ANEGCAPABLE)
-> +		features |= SUPPORTED_Autoneg;
-> +	if (val & BMSR_100FULL)
-> +		features |= SUPPORTED_100baseT_Full;
-> +	if (val & BMSR_100HALF)
-> +		features |= SUPPORTED_100baseT_Half;
-> +	if (val & BMSR_10FULL)
-> +		features |= SUPPORTED_10baseT_Full;
-> +	if (val & BMSR_10HALF)
-> +		features |= SUPPORTED_10baseT_Half;
-> +
-> +	phydev->supported = features;
-> +	phydev->advertising = features;
+Can you explain why "dissector_uses_key(flow_dissector,
+FLOW_DISSECTOR_KEY_VLAN) && skb_vlan_tag_present(skb)" implies
+"eth_type_vlan(proto))"?
 
-This is redundant with what PHYLIB will determine for the PHY.
+If I add uninitialized_var() here, I would at least put that in
+a comment here.
 
-> +
-> +	return 0;
-> +}
-> +
-> +static int meson_gxl_phy_read_status(struct phy_device *phydev)
-> +{
-> +	int err;
-> +
-> +	/* Update the link, but return if there was an error */
-> +	err = genphy_update_link(phydev);
-> +	if (err)
-> +		return err;
-> +
-> +	phydev->lp_advertising = 0;
-> +	phydev->pause = 0;
-> +	phydev->asym_pause = 0;
-> +
-> +	if (phydev->autoneg == AUTONEG_ENABLE) {
-> +		unsigned int speed;
-> +		int reg = phy_read(phydev, GXL_REG_ANEG);
+On a related note, I also don't see how
+"dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_VLAN)"
+implies that skb is non-NULL. I guess this is related to the
+first one.
 
-Is all of this really necessary? This should all be reflected in the
-standard BMSR register, is not this the case here that we have to read
-this non-standard register?
-
-You use genphy_config_aneg(), so surely, the standard auto-negotiation
-part works somehow?
-
-> +
-> +		if (reg < 0)
-> +			return reg;
-> +
-> +		speed = reg & REG_ANEG_SPEED_MASK;
-> +
-> +		if (reg & REG_ANEG_FDUPLEX)
-> +			phydev->duplex = DUPLEX_FULL;
-> +		else
-> +			phydev->duplex = DUPLEX_HALF;
-> +
-> +		if ((reg & REG_ANEG_SPEED_MASK) == REG_ANEG_SPEED10)
-> +			phydev->speed = SPEED_10;
-> +		else if ((reg & REG_ANEG_SPEED_MASK) == REG_ANEG_SPEED100)
-> +			phydev->speed = SPEED_100;
-> +	} else {
-> +		int bmcr = phy_read(phydev, MII_BMCR);
-> +
-> +		if (bmcr < 0)
-> +			return bmcr;
-> +
-> +		if (bmcr & BMCR_FULLDPLX)
-> +			phydev->duplex = DUPLEX_FULL;
-> +		else
-> +			phydev->duplex = DUPLEX_HALF;
-> +
-> +		if (bmcr & BMCR_SPEED1000)
-> +			phydev->speed = SPEED_1000;
-> +		else if (bmcr & BMCR_SPEED100)
-> +			phydev->speed = SPEED_100;
-> +		else
-> +			phydev->speed = SPEED_10;
-> +	}
-
-> +
-> +	return 0;
-> +}
-> +
-> +static struct phy_driver meson_gxl_phy = {
-> +	.phy_id		= 0x01814400,
-> +	.name		= "Meson GXL Internal PHY",
-> +	.phy_id_mask	= 0x0fffffff,
-
-Usually the last 4 bits are 0, since that's where the revision part is
-located.
-
-> +	.features	= 0,
-
-You should set PHY_GBIT_FEATURES and set .flags to PHY_IS_INTERNAL since
-this is an internal PHY?
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd
