@@ -1,64 +1,153 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH 00/13] ARM64: meson-gxl: Add extended support
-Date: Fri, 21 Oct 2016 16:40:25 +0200
-Message-ID: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
+Subject: [RFC PATCH 12/13] ARM64: dts: meson-gxl-p23x: Add SD/SDIO/MMC and PWM nodes
+Date: Fri, 21 Oct 2016 16:40:37 +0200
+Message-ID: <1477060838-14164-13-git-send-email-narmstrong@baylibre.com>
+References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
 Cc: Neil Armstrong <narmstrong@baylibre.com>,
         linux-gpio@vger.kernel.org, devicetree@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org,
         linux-amlogic@lists.infradead.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
 To: khilman@baylibre.com, carlo@caione.org, linus.walleij@linaro.org
-Return-path: <linux-gpio-owner@vger.kernel.org>
-Sender: linux-gpio-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This RFC patchset provides extended peripheral support for the Amlogix GXL SoCs.
+Add SD/SDIO/MMC nodes and PWM 32768Hz clock configuration to provide
+storage and WiFi functionality on the p23x boards.
 
-The final patchs will be split among the correct subsystems.
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ .../boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi     | 112 +++++++++++++++++++++
+ 1 file changed, 112 insertions(+)
 
-In order to support more functionalities, this patchset :
- - Moves peripheral nodes to the common Meson arm64 dtsi
- - Add i2c, mmc, sd, sdio, pinctrl and clock nodes for GXL
- - Adds correct GXL P23X boards uart pinctrl
- - Adds the GXL Internal PHY driver
- - Add a temporary workaround to select the internal PHY
- - Add Ethernet nodes for GXL and the P23X boards
- - Add SD/MMC and SDIO WiFi support support for P23X boards
-
-Neil Armstrong (13):
-  pinctrl: meson: Add GXL pinctrl definitions
-  ARM64: dts: meson-gxbb: Move common nodes to meson-gx
-  ARM64: dts: meson-gxl: Add pinctrl nodes
-  ARM64: dts: meson-gxl: Add clock nodes
-  ARM64: dts: meson-gxl: Add i2c nodes
-  ARM64: dts: meson-gxl: Add MMC/SD/SDIO nodes
-  ARM64: dts: meson-gxl-p23x: Add uart pinctrl
-  dwmac-meson8b: add support for phy selection
-  net: phy: Add Meson GXL Internal PHY driver
-  ARM64: dts: meson-gxl: Add ethernet nodes with internal PHY
-  ARM64: dts: meson-gxl-p23x: Enable ethernet
-  ARM64: dts: meson-gxl-p23x: Add SD/SDIO/MMC and PWM nodes
-  ARM64: dts: meson-gxl-p23x: Enable IR receiver
-
- .../devicetree/bindings/pinctrl/meson,pinctrl.txt  |   2 +
- arch/arm64/boot/dts/amlogic/meson-gx.dtsi          | 131 +++++
- arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi        | 155 +-----
- .../boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi     | 125 +++++
- arch/arm64/boot/dts/amlogic/meson-gxl.dtsi         | 238 +++++++++
- .../net/ethernet/stmicro/stmmac/dwmac-meson8b.c    |  25 +
- drivers/net/phy/Kconfig                            |   5 +
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/meson-gxl.c                        | 175 ++++++
- drivers/pinctrl/meson/Makefile                     |   3 +-
- drivers/pinctrl/meson/pinctrl-meson-gxl.c          | 589 +++++++++++++++++++++
- drivers/pinctrl/meson/pinctrl-meson.c              |   8 +
- drivers/pinctrl/meson/pinctrl-meson.h              |   2 +
- include/dt-bindings/gpio/meson-gxl-gpio.h          | 131 +++++
- 14 files changed, 1452 insertions(+), 138 deletions(-)
- create mode 100644 drivers/net/phy/meson-gxl.c
- create mode 100644 drivers/pinctrl/meson/pinctrl-meson-gxl.c
- create mode 100644 include/dt-bindings/gpio/meson-gxl-gpio.h
-
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
+index 02faccc..77637ce 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
+@@ -56,6 +56,46 @@
+ 		device_type = "memory";
+ 		reg = <0x0 0x0 0x0 0x80000000>;
+ 	};
++
++	vddio_boot: regulator-vddio_boot {
++		compatible = "regulator-fixed";
++		regulator-name = "VDDIO_BOOT";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++	};
++
++	vddao_3v3: regulator-vddao_3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "VDDAO_3V3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++	};
++
++	vcc_3v3: regulator-vcc_3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "VCC_3V3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++	};
++
++	emmc_pwrseq: emmc-pwrseq {
++		compatible = "mmc-pwrseq-emmc";
++		reset-gpios = <&gpio BOOT_9 GPIO_ACTIVE_LOW>;
++	};
++
++	wifi32k: wifi32k {
++		compatible = "pwm-clock";
++		#clock-cells = <0>;
++		clock-frequency = <32768>;
++		pwms = <&pwm_ef 0 30518 0>; /* PWM_E at 32.768KHz */
++	};
++
++	sdio_pwrseq: sdio-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&gpio GPIOX_6 GPIO_ACTIVE_LOW>;
++		clocks = <&wifi32k>;
++		clock-names = "ext_clock";
++	};
+ };
+ 
+ /* This UART is brought out to the DB9 connector */
+@@ -68,3 +108,75 @@
+ &ethmac {
+ 	status = "okay";
+ };
++
++/* Wireless SDIO Module */
++&sd_emmc_a {
++	status = "okay";
++	pinctrl-0 = <&sdio_pins>;
++	pinctrl-names = "default";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	bus-width = <4>;
++	cap-sd-highspeed;
++	max-frequency = <100000000>;
++
++	non-removable;
++	disable-wp;
++
++	mmc-pwrseq = <&sdio_pwrseq>;
++
++	vmmc-supply = <&vddao_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++
++	brcmf: bcrmf@1 {
++		reg = <1>;
++		compatible = "brcm,bcm4329-fmac";
++	};
++};
++
++/* SD card */
++&sd_emmc_b {
++	status = "okay";
++	pinctrl-0 = <&sdcard_pins>;
++	pinctrl-names = "default";
++
++	bus-width = <4>;
++	cap-sd-highspeed;
++	max-frequency = <100000000>;
++	disable-wp;
++
++	cd-gpios = <&gpio CARD_6 GPIO_ACTIVE_HIGH>;
++	cd-inverted;
++
++	vmmc-supply = <&vddao_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++};
++
++/* eMMC */
++&sd_emmc_c {
++	status = "okay";
++	pinctrl-0 = <&emmc_pins>;
++	pinctrl-names = "default";
++
++	bus-width = <8>;
++	cap-sd-highspeed;
++	cap-mmc-highspeed;
++	max-frequency = <200000000>;
++	non-removable;
++	disable-wp;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++
++	mmc-pwrseq = <&emmc_pwrseq>;
++	vmmc-supply = <&vcc_3v3>;
++	vqmmc-supply = <&vddio_boot>;
++};
++
++&pwm_ef {
++	status = "okay";
++	pinctrl-0 = <&pwm_e_pins>;
++	pinctrl-names = "default";
++	clocks = <&clkc CLKID_FCLK_DIV4>;
++	clock-names = "clkin0";
++};
 -- 
 1.9.1
-
