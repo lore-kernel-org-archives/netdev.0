@@ -1,53 +1,43 @@
-From: Henri Roosen <henri.roosen@ginzinger.com>
-Subject: commit-3ac72b7b63d5 breaks networking on iMX28
-Date: Fri, 21 Oct 2016 11:19:50 +0200
-Message-ID: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH] net: cpsw: fix obtaining mac address for am3517
+Date: Fri, 21 Oct 2016 02:51:38 -0700
+Message-ID: <20161021095137.ypyr7wnwzhum65ua@atomide.com>
+References: <1476993351-23065-1-git-send-email-jhofstee@victronenergy.com>
+ <20161021063851.6frul6pemo52i7ot@atomide.com>
+ <b713c697-3e42-4621-5d65-ab69c979d8be@victronenergy.com>
+ <20161021075317.767cu7qkmcn4k4e4@atomide.com>
+ <6dbeca0a-65ad-3a1c-2fe5-60023d83dabd@victronenergy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8BIT
-To: <eric@nelint.com>, <fugang.duan@nxp.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ginzinger.com ([31.193.165.229]:48413 "EHLO
-        mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933608AbcJUJTz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 05:19:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeroen Hofstee <jhofstee@victronenergy.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <6dbeca0a-65ad-3a1c-2fe5-60023d83dabd@victronenergy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+* Jeroen Hofstee <jhofstee@victronenergy.com> [161021 02:31]:
+> Aaah, lets wait a sec. I just saw there is another user of this function,
+> so above is simply not true....
+> 
+>     if (of_machine_is_compatible("ti,dra7"))
+>         return davinci_emac_3517_get_macid(dev, 0x514, slave, mac_addr);
 
-Unfortunately commit-3ac72b7b63d5 "net: fec: align IP header in
-hardware" breaks networking on an iMX28 system.
+Oh OK, then this will produce duplicate macs.
 
-The commit seems valid for iMX6, where it is tested okay and solves the
-unaligned accesses.
+> So let me check if I don't break that one..... or better, let me send a v2,
+> which
+> changes the caller to pass slave as 0 here?
+> 
+>     if (of_device_is_compatible(dev->of_node, "ti,am3517-emac"))
+>         return davinci_emac_3517_get_macid(dev, 0x110, slave, mac_addr);
+> 
 
-On iMX28 I still see unaligned accesses and networking is broken. Can
-anyone confirm this?
+Yeah that sounds good to me.
 
-Thanks,
-Henri
+Regards,
 
-________________________________
-
-Ginzinger electronic systems GmbH
-Gewerbegebiet Pirath 16
-4952 Weng im Innkreis
-www.ginzinger.com
-
-Firmenbuchnummer: FN 364958d
-Firmenbuchgericht: Ried im Innkreis
-UID-Nr.: ATU66521089
-
-
-________________________________
-
-Kommende Events:
-
-08.-11. November 2016: Besuchen Sie uns auf der electronica in München -> Halle B1 Stand 538
-16. November 2016: Nachmittagsseminar mit unserem Partner Irlbacher zum Thema „Glas als innovatives Material für moderne HMI’s“
-17. November 2016: Juristisches Seminar in Linz: Einsatz von Open Source-Software in der Industrie
-06. Dezember 2016: Nachmittagsseminar mit unserem Partner sequality software engineering zum Thema Usability
-
->> Weitere Informationen zu diesen Veranstaltungen und Neuigkeiten aus der Elektronikbranche finden Sie auf www.ginzinger.com/techtalk
+Tony
