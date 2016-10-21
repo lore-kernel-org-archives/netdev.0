@@ -1,61 +1,46 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH net] net: fec: Call swap_buffer() prior to IP header alignment
-Date: Fri, 21 Oct 2016 09:34:29 -0200
-Message-ID: <1477049669-25101-1-git-send-email-festevam@gmail.com>
-Cc: fugang.duan@nxp.com, henri.roosen@ginzinger.com, eric@nelint.com,
-        kernel@pengutronix.de, rmk@armlinux.org.uk, netdev@vger.kernel.org,
-        Fabio Estevam <fabio.estevam@nxp.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35405 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753088AbcJULey (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 07:34:54 -0400
-Received: by mail-qk0-f196.google.com with SMTP id v138so6852262qka.2
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 04:34:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sched: make default fifo qdiscs appear in the dump
+Date: Fri, 21 Oct 2016 04:36:57 -0700
+Message-ID: <1477049817.7065.56.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <alpine.LNX.2.00.1610211024400.31629@cbobk.fhfr.pm>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Phil Sutter <phil@nwl.cc>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1610211024400.31629@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <fabio.estevam@nxp.com>
+On Fri, 2016-10-21 at 10:45 +0200, Jiri Kosina wrote:
+> The original reason [1] for having hidden qdiscs (potential scalability 
+> issues in qdisc_match_from_root() with single linked list in case of large 
+> amount of qdiscs) has been invalidated by 59cc1f61f0 ("net: sched: convert 
+> qdisc linked list to hashtable").
+> 
+> This allows us for bringing more clarity and determinism into the dump by 
+> making default pfifo qdiscs visible.
+> 
+> [1] http://lkml.kernel.org/r/1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com
+> 
+> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+> ---
 
-Commit 3ac72b7b63d5 ("net: fec: align IP header in hardware") breaks
-networking on mx28.
+Some of us are dealing with huge HTB hierarchies, so adding default fifo
+in the dump will add more data pumped from the kernel.
 
-There is an erratum on mx28 (ENGR121613 - ENET big endian mode
-not compatible with ARM little endian) that requires an additional
-byte-swap operation to workaround this problem.
+BwE [1] for instance dumps qdisc/classes every 5 seconds.
 
-So call swap_buffer() prior to performing the IP header alignment
-to restore network functionality on mx28. 
+I guess we'll need to not pull this patch in our kernels.
 
-Fixes: 3ac72b7b63d5 ("net: fec: align IP header in hardware")
-Reported-and-tested-by: Henri Roosen <henri.roosen@ginzinger.com>
-Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+This reminds me of an HTB patch to avoid dumping rate estimates for HTB.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 4ce8179..3c888be 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1430,14 +1430,14 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
- 		skb_put(skb, pkt_len - 4);
- 		data = skb->data;
+I will send it today.
  
-+		if (!is_copybreak && need_swap)
-+			swap_buffer(data, pkt_len);
-+
- #if !defined(CONFIG_M5272)
- 		if (fep->quirks & FEC_QUIRK_HAS_RACC)
- 			data = skb_pull_inline(skb, 2);
- #endif
- 
--		if (!is_copybreak && need_swap)
--			swap_buffer(data, pkt_len);
--
- 		/* Extract the enhanced buffer descriptor */
- 		ebdp = NULL;
- 		if (fep->bufdesc_ex)
--- 
-2.7.4
+[1]
+http://static.googleusercontent.com/media/research.google.com/en//pubs/archive/43838.pdf
