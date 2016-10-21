@@ -1,81 +1,91 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v6 2/3] udp: implement memory accounting helpers
-Date: Fri, 21 Oct 2016 05:24:02 -0700
-Message-ID: <1477052642.7065.63.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1477043395.git.pabeni@redhat.com>
-         <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: sctp, forbid negative length
+Date: Fri, 21 Oct 2016 08:39:27 -0400
+Message-ID: <20161021123927.GA25597@hmsreliant.think-freely.org>
+References: <20161021121324.13942-1-jslaby@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161021121324.13942-1-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-10-21 at 13:55 +0200, Paolo Abeni wrote:
-> Avoid using the generic helpers.
-> Use the receive queue spin lock to protect the memory
-> accounting operation, both on enqueue and on dequeue.
+On Fri, Oct 21, 2016 at 02:13:24PM +0200, Jiri Slaby wrote:
+> Most of getsockopt handlers in net/sctp/socket.c check len against
+> sizeof some structure like:
+>         if (len < sizeof(int))
+>                 return -EINVAL;
 > 
-> On dequeue perform partial memory reclaiming, trying to
-> leave a quantum of forward allocated memory.
+> On the first look, the check seems to be correct. But since len is int
+> and sizeof returns size_t, int gets promoted to unsigned size_t too. So
+> the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
+> false.
 > 
-> On enqueue use a custom helper, to allow some optimizations:
-> - use a plain spin_lock() variant instead of the slightly
->   costly spin_lock_irqsave(),
-> - avoid dst_force check, since the calling code has already
->   dropped the skb dst
-> - avoid orphaning the skb, since skb_steal_sock() already did
->   the work for us
-
+> Fix this in sctp by explicitly checking len < 0 before any getsockopt
+> handler is called.
+> 
+> Note that sctp_getsockopt_events already handled the negative case.
+> Since we added the < 0 check elsewhere, this one can be removed.
+> 
+> If not checked, this is the result:
+> UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
+> shift exponent 52 is too large for 32-bit type 'int'
+> CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
+>  0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
+>  ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
+>  0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
+> Call Trace:
+>  [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
+> ...
+>  [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
+>  [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
+>  [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
+>  [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
+>  [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
+>  [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
+>  [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
+> 
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: linux-sctp@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> ---
+>  net/sctp/socket.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index fb02c7033307..9fbb6feb8c27 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4687,7 +4687,7 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
+>  static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
+>  				  int __user *optlen)
+>  {
+> -	if (len <= 0)
+> +	if (len == 0)
+>  		return -EINVAL;
+>  	if (len > sizeof(struct sctp_event_subscribe))
+>  		len = sizeof(struct sctp_event_subscribe);
+> @@ -6430,6 +6430,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+>  	if (get_user(len, optlen))
+>  		return -EFAULT;
 >  
-> +static void udp_rmem_release(struct sock *sk, int size, int partial)
-> +{
-> +	int amt;
+> +	if (len < 0)
+> +		return -EINVAL;
 > +
-> +	atomic_sub(size, &sk->sk_rmem_alloc);
-> +
-> +	spin_lock_bh(&sk->sk_receive_queue.lock);
-> +	sk->sk_forward_alloc += size;
-> +	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
-> +	sk->sk_forward_alloc -= amt;
-> +	spin_unlock_bh(&sk->sk_receive_queue.lock);
-> +
-> +	if (amt)
-> +		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-> +}
-> +
-> +static void udp_rmem_free(struct sk_buff *skb)
-> +{
-> +	udp_rmem_release(skb->sk, skb->truesize, 1);
-> +}
-> +
-
-
-It looks like you are acquiring/releasing sk_receive_queue.lock twice
-per packet in recvmsg() (the second time in the destructor above)
-
-We could do slightly better if :
-
-We do not set skb->destructor at all, and manage
-sk_rmem_alloc/sk_forward_alloc changes at the time we dequeue skb
- (if !MSG_PEEK), before copy to user space.
-
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  	lock_sock(sk);
+>  
+>  	switch (optname) {
+> -- 
+> 2.10.1
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
