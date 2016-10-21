@@ -1,58 +1,140 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: remove MTU limits on a few ether_setup callers
-Date: Thu, 20 Oct 2016 20:42:46 -0700
-Message-ID: <ebcdfc7f-5d91-c64f-19f4-99f58614caae@gmail.com>
-References: <20161021032527.12954-1-jarod@redhat.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v12 5/9] openvswitch: add processing of L3 packets
+Date: Thu, 20 Oct 2016 21:19:14 -0700
+Message-ID: <CAOrHB_Co3DaYJPbrcDRrnQ1P18X9B=n867uWEiaFqJcKPHs=2A@mail.gmail.com>
+References: <cover.1476708212.git.jbenc@redhat.com> <a4590d690c169e0021031405463c8629a6e9ecb8.1476708213.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-        Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>,
-        R Parameswaran <parameswaran.r7@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161021032527.12954-1-jarod@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        ovs dev <dev@openvswitch.org>,
+        Lorand Jakab <lojakab@cisco.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:52349 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752208AbcJUETW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 00:19:22 -0400
+Received: from mfilter34-d.gandi.net (mfilter34-d.gandi.net [217.70.178.165])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 7A5FA17209A
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 06:19:18 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter34-d.gandi.net (mfilter34-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id CEr3nRjbNhcA for <netdev@vger.kernel.org>;
+        Fri, 21 Oct 2016 06:19:17 +0200 (CEST)
+Received: from mail-it0-f43.google.com (mail-it0-f43.google.com [209.85.214.43])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id E7724172097
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 06:19:16 +0200 (CEST)
+Received: by mail-it0-f43.google.com with SMTP id 139so202440455itm.1
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 21:19:16 -0700 (PDT)
+In-Reply-To: <a4590d690c169e0021031405463c8629a6e9ecb8.1476708213.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 20/10/2016 à 20:25, Jarod Wilson a écrit :
-> These few drivers call ether_setup(), but have no ndo_change_mtu, and thus
-> were overlooked for changes to MTU range checking behavior. They
-> previously had no range checks, so for feature-parity, set their min_mtu
-> to 0 and max_mtu to ETH_MAX_MTU (65535), instead of the 68 and 1500
-> inherited from the ether_setup() changes. Fine-tuning can come after we get
-> back to full feature-parity here.
-> 
-> CC: netdev@vger.kernel.org
-> Reported-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
-> CC: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
-> CC: R Parameswaran <parameswaran.r7@gmail.com>
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+On Mon, Oct 17, 2016 at 6:02 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> Support receiving, extracting flow key and sending of L3 packets (packets
+> without an Ethernet header).
+>
+> Note that even after this patch, non-Ethernet interfaces are still not
+> allowed to be added to bridges. Similarly, netlink interface for sending and
+> receiving L3 packets to/from user space is not in place yet.
+>
+> Based on previous versions by Lorand Jakab and Simon Horman.
+>
+> Signed-off-by: Lorand Jakab <lojakab@cisco.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 > ---
+>  net/openvswitch/datapath.c |  17 ++------
+>  net/openvswitch/flow.c     | 101 ++++++++++++++++++++++++++++++++++-----------
+>  net/openvswitch/vport.c    |  16 +++++++
+>  3 files changed, 96 insertions(+), 38 deletions(-)
+>
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 4d67ea856067..c5b719fca8d4 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+...
+...
+> @@ -609,8 +597,10 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
+>
+>         err = ovs_flow_key_extract_userspace(net, a[OVS_PACKET_ATTR_KEY],
+>                                              packet, &flow->key, log);
+> -       if (err)
+> +       if (err) {
+> +               packet = NULL;
+>                 goto err_flow_free;
+> +       }
+>
+Why packet is set to NULL? This would leak skb memory in case of error.
 
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 68714a5..d0c7bce 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -1247,6 +1247,8 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->  	slave_dev->priv_flags |= IFF_NO_QUEUE;
->  	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
->  	slave_dev->switchdev_ops = &dsa_slave_switchdev_ops;
-> +	slave_dev->min_mtu = 0;
-> +	slave_dev->max_mtu = ETH_MAX_MTU;
->  	SET_NETDEV_DEVTYPE(slave_dev, &dsa_type);
+>         err = ovs_nla_copy_actions(net, a[OVS_PACKET_ATTR_ACTIONS],
+>                                    &flow->key, &acts, log);
+...
+> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+> index 96c8c4716603..7aee6e273765 100644
+> --- a/net/openvswitch/flow.c
+> +++ b/net/openvswitch/flow.c
+...
 
-Actually for DSA, a reasonable minimum is probably 68 for the following
-reasons: ETH_ZLEN of 60 bytes + FCS (4 bytes) + 2/4/8 bytes of Ethernet
-switch tag (which is dependent on the tagging protocol used). Such an
-Ethernet interface would submit packets through the conduit interface
-which is connected to an Ethernet switches, and those typically discard
-packets smaller than 64 bytes +/- their custom tag length.
+> @@ -721,6 +734,20 @@ int ovs_flow_key_update(struct sk_buff *skb, struct sw_flow_key *key)
+>         return key_extract(skb, key);
+>  }
+>
+> +static u8 key_extract_mac_proto(struct sk_buff *skb)
+> +{
+> +       switch (skb->dev->type) {
+> +       case ARPHRD_ETHER:
+> +               return MAC_PROTO_ETHERNET;
+> +       case ARPHRD_NONE:
+> +               if (skb->protocol == htons(ETH_P_TEB))
+> +                       return MAC_PROTO_ETHERNET;
+> +               return MAC_PROTO_NONE;
+> +       }
+> +       WARN_ON_ONCE(1);
+> +       return MAC_PROTO_ETHERNET;
+This packet should be dropped.
 
-One driver for sure pads the packets to the appropriate length:
-bcmsysport, but I don't know about e1000e or e.g: mv643xx_eth which are
-also commonly used for the same purposes.
--- 
-Florian
+> +}
+> +
+>  int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
+>                          struct sk_buff *skb, struct sw_flow_key *key)
+>  {
+....
+
+> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+> index dc0e2212edfc..8361b62a47c2 100644
+> --- a/net/openvswitch/vport.c
+> +++ b/net/openvswitch/vport.c
+> @@ -502,6 +502,22 @@ void ovs_vport_send(struct vport *vport, struct sk_buff *skb, u8 mac_proto)
+>  {
+>         int mtu = vport->dev->mtu;
+>
+> +       switch (vport->dev->type) {
+> +       case ARPHRD_NONE:
+> +               if (mac_proto != MAC_PROTO_NONE) {
+> +                       WARN_ON_ONCE(mac_proto != MAC_PROTO_ETHERNET);
+> +
+It would be easy to read if you check mac_proto for MAC_PROTO_ETHERNET
+and then warn otherwise.
+another issue is the packet is not dropped if mac_proto is not
+MAC_PROTO_ETHERNET
+
+> +                       skb_reset_network_header(skb);
+> +                       skb_reset_mac_len(skb);
+> +                       skb->protocol = htons(ETH_P_TEB);
+> +               }
+> +               break;
+> +       case ARPHRD_ETHER:
+> +               if (mac_proto != MAC_PROTO_ETHERNET)
+> +                       goto drop;
+> +               break;
+> +       }
+> +
+>         if (unlikely(packet_length(skb, vport->dev) > mtu &&
+>                      !skb_is_gso(skb))) {
+>                 net_warn_ratelimited("%s: dropped over-mtu packet: %d > %d\n",
+> --
+> 1.8.3.1
+>
