@@ -1,38 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 1/2] Revert "kexec: Export kexec_in_progress to modules"
-Date: Fri, 21 Oct 2016 14:21:55 -0700
-Message-ID: <1477084916-26327-2-git-send-email-f.fainelli@gmail.com>
-References: <1477084916-26327-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-        ebiederm@xmission.com, kexec@lists.infradead.org,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477084916-26327-1-git-send-email-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net 0/2] net: dsa: bcm_sf2: Do not rely on kexec_in_progress
+Date: Fri, 21 Oct 2016 14:21:54 -0700
+Message-ID: <1477084916-26327-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+ kexec-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <kexec-bounces+glkk-kexec=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/kexec>,
+ <mailto:kexec-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/kexec/>
+List-Post: <mailto:kexec-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:kexec-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/kexec>,
+ <mailto:kexec-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "kexec" <kexec-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: kexec-bounces+glkk-kexec=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This reverts commit 97dcaa0fcfd24daa9a36c212c1ad1d5a97759212. Based on
-the review discussion with Eric, we will come up with a different fix
-for the bcm_sf2 driver which does not make it rely on the
-kexec_in_progress value.
+David, Eric,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- kernel/kexec_core.c | 1 -
- 1 file changed, 1 deletion(-)
+These are the two patches following the discussing we had on kexec_in_progress.
 
-diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
-index 786ab85a5452..561675589511 100644
---- a/kernel/kexec_core.c
-+++ b/kernel/kexec_core.c
-@@ -59,7 +59,6 @@ size_t vmcoreinfo_max_size = sizeof(vmcoreinfo_data);
- 
- /* Flag to indicate we are going to kexec a new kernel */
- bool kexec_in_progress = false;
--EXPORT_SYMBOL_GPL(kexec_in_progress);
- 
- 
- /* Location of the reserved area for the crash kernel */
+Feel free to apply or discard them, thanks!
+
+Florian Fainelli (2):
+  Revert "kexec: Export kexec_in_progress to modules"
+  net: dsa: bcm_sf2: Do not rely on kexec_in_progress
+
+ drivers/net/dsa/bcm_sf2.c | 5 +++--
+ kernel/kexec_core.c       | 1 -
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
 -- 
 2.7.4
