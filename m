@@ -1,100 +1,60 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v6 2/3] udp: implement memory accounting helpers
-Date: Fri, 21 Oct 2016 15:34:01 +0200
-Message-ID: <1477056841.4606.36.camel@redhat.com>
-References: <cover.1477043395.git.pabeni@redhat.com>
-         <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni@redhat.com>
-         <1477052642.7065.63.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Nelson <eric@nelint.com>
+Subject: Re: commit-3ac72b7b63d5 breaks networking on iMX28
+Date: Fri, 21 Oct 2016 06:39:35 -0700
+Message-ID: <fea86fa6-d74a-43ff-cf60-0d375336a5ba@nelint.com>
+References: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477052642.7065.63.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Henri Roosen <henri.roosen@ginzinger.com>, fugang.duan@nxp.com,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33587 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933183AbcJUNji (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 09:39:38 -0400
+Received: by mail-pf0-f174.google.com with SMTP id 128so57533779pfz.0
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 06:39:38 -0700 (PDT)
+In-Reply-To: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-10-21 at 05:24 -0700, Eric Dumazet wrote:
-> On Fri, 2016-10-21 at 13:55 +0200, Paolo Abeni wrote:
-> > Avoid using the generic helpers.
-> > Use the receive queue spin lock to protect the memory
-> > accounting operation, both on enqueue and on dequeue.
-> > 
-> > On dequeue perform partial memory reclaiming, trying to
-> > leave a quantum of forward allocated memory.
-> > 
-> > On enqueue use a custom helper, to allow some optimizations:
-> > - use a plain spin_lock() variant instead of the slightly
-> >   costly spin_lock_irqsave(),
-> > - avoid dst_force check, since the calling code has already
-> >   dropped the skb dst
-> > - avoid orphaning the skb, since skb_steal_sock() already did
-> >   the work for us
+Hi Henri,
+
+On 10/21/2016 02:19 AM, Henri Roosen wrote:
+> Hi,
 > 
-> >  
-> > +static void udp_rmem_release(struct sock *sk, int size, int partial)
-> > +{
-> > +	int amt;
-> > +
-> > +	atomic_sub(size, &sk->sk_rmem_alloc);
-> > +
-> > +	spin_lock_bh(&sk->sk_receive_queue.lock);
-> > +	sk->sk_forward_alloc += size;
-> > +	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
-> > +	sk->sk_forward_alloc -= amt;
-> > +	spin_unlock_bh(&sk->sk_receive_queue.lock);
-> > +
-> > +	if (amt)
-> > +		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
-> > +}
-> > +
-> > +static void udp_rmem_free(struct sk_buff *skb)
-> > +{
-> > +	udp_rmem_release(skb->sk, skb->truesize, 1);
-> > +}
-> > +
+> Unfortunately commit-3ac72b7b63d5 "net: fec: align IP header in
+> hardware" breaks networking on an iMX28 system.
 > 
+> The commit seems valid for iMX6, where it is tested okay and solves the
+> unaligned accesses.
 > 
-> It looks like you are acquiring/releasing sk_receive_queue.lock twice
-> per packet in recvmsg() (the second time in the destructor above)
+> On iMX28 I still see unaligned accesses and networking is broken. Can
+> anyone confirm this?
 > 
-> We could do slightly better if :
-> 
-> We do not set skb->destructor at all, and manage
-> sk_rmem_alloc/sk_forward_alloc changes at the time we dequeue skb
->  (if !MSG_PEEK), before copy to user space.
 
-Thank you again for reviewing this!
+Reading the i.MX28 reference manual, it appears that this SoC doesn't
+have the RACC bit, and I missed removal of the FEC_QUIRK_HAS_RACC flag.
 
-Updating sk_rmem_alloc would still need an atomic operation,
-because it is touched also by the error queue path: we will end up
-adding an atomic operation (or two, when reclaiming the fwd allocated
-memory) inside the critical section. The contention will likely
-increase.
+Can you try with this patch?
 
-The above is going to be quite intrusive: we need to pass an
-additional argument all the way up to __skb_try_recv_datagram() and
-change the function behavior according to its value.
+diff --git a/drivers/net/ethernet/freescale/fec_main.c
+b/drivers/net/ethernet/freescale/fec_main.c
+index 692ee24..db5eee9 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -96,7 +96,7 @@ static struct platform_device_id fec_devtype[] = {
+}, {
+.name = "imx28-fec",
+.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME |
+- FEC_QUIRK_SINGLE_MDIO | FEC_QUIRK_HAS_RACC,
++ FEC_QUIRK_SINGLE_MDIO,
+}, {
+.name = "imx6q-fec",
+.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
 
-If you are otherwise satisfied with the series in the current shape,
-can't we instead build incrementally on top of it ? it will simplify
-both reviews and re-factor tasks.
-
-Thank you,
-
-Paolo
+Please advise,
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Eric
