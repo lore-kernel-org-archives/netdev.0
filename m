@@ -1,349 +1,203 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH] net: stmmac: Add OXNAS Glue Driver
-Date: Fri, 21 Oct 2016 10:44:45 +0200
-Message-ID: <20161021084445.24989-1-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>, netdev@vger.kernel.org,
-        linux-oxnas@lists.tuxfamily.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+From: Jiri Kosina <jikos@kernel.org>
+Subject: [PATCH] net: sched: make default fifo qdiscs appear in the dump
+Date: Fri, 21 Oct 2016 10:45:33 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1610211024400.31629@cbobk.fhfr.pm>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Phil Sutter <phil@nwl.cc>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add Synopsys Designware MAC Glue layer for the Oxford Semiconductor OX820.
+The original reason [1] for having hidden qdiscs (potential scalability 
+issues in qdisc_match_from_root() with single linked list in case of large 
+amount of qdiscs) has been invalidated by 59cc1f61f0 ("net: sched: convert 
+qdisc linked list to hashtable").
 
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+This allows us for bringing more clarity and determinism into the dump by 
+making default pfifo qdiscs visible.
+
+[1] http://lkml.kernel.org/r/1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com
+
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 ---
- .../devicetree/bindings/net/oxnas-dwmac.txt        |  44 +++++
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 ++
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c  | 219 +++++++++++++++++++++
- 4 files changed, 275 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/oxnas-dwmac.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
 
-Changes since RFC at https://patchwork.kernel.org/patch/9387257 :
- - Drop init/exit callbacks
- - Implement proper remove and PM callback
- - Call init from probe
- - Disable/Unprepare clock if stmmac probe fails
+Tested for cbq, htb and tbf.
 
-diff --git a/Documentation/devicetree/bindings/net/oxnas-dwmac.txt b/Documentation/devicetree/bindings/net/oxnas-dwmac.txt
-new file mode 100644
-index 0000000..5d2696c
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/oxnas-dwmac.txt
-@@ -0,0 +1,44 @@
-+* Oxford Semiconductor OXNAS DWMAC Ethernet controller
-+
-+The device inherits all the properties of the dwmac/stmmac devices
-+described in the file stmmac.txt in the current directory with the
-+following changes.
-+
-+Required properties on all platforms:
-+
-+- compatible:	Depending on the platform this should be one of:
-+			- "oxsemi,ox820-dwmac"
-+		Additionally "snps,dwmac" and any applicable more
-+		detailed version number described in net/stmmac.txt
-+		should be used.
-+
-+- reg:	The first register range should be the one of the DWMAC
-+	controller.
-+
-+- clocks: Should contain phandles to the following clocks
-+- clock-names:	Should contain the following:
-+		- "stmmaceth" - see stmmac.txt
-+		- "gmac" - peripheral gate clock
-+
-+- oxsemi,sys-ctrl: a phandle to the system controller syscon node
-+
-+Example :
-+
-+etha: ethernet@40400000 {
-+	compatible = "oxsemi,ox820-dwmac", "snps,dwmac";
-+	reg = <0x40400000 0x2000>;
-+	interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
-+		     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
-+	interrupt-names = "macirq", "eth_wake_irq";
-+	mac-address = [000000000000]; /* Filled in by U-Boot */
-+	phy-mode = "rgmii";
-+
-+	clocks = <&stdclk CLK_820_ETHA>, <&gmacclk>;
-+	clock-names = "gmac", "stmmaceth";
-+	resets = <&reset RESET_MAC>;
-+
-+	/* Regmap for sys registers */
-+	oxsemi,sys-ctrl = <&sys>;
-+
-+	status = "disabled";
-+};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 3818c5e..27ed913 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -62,6 +62,7 @@ config DWMAC_MESON
- 	tristate "Amlogic Meson dwmac support"
- 	default ARCH_MESON
- 	depends on OF && COMMON_CLK && (ARCH_MESON || COMPILE_TEST)
-+	select MFD_SYSCON
- 	help
- 	  Support for Ethernet controller on Amlogic Meson SoCs.
+ net/sched/sch_cbq.c    | 4 ++++
+ net/sched/sch_drr.c    | 2 ++
+ net/sched/sch_dsmark.c | 1 +
+ net/sched/sch_hfsc.c   | 2 ++
+ net/sched/sch_htb.c    | 1 +
+ net/sched/sch_multiq.c | 1 +
+ net/sched/sch_prio.c   | 4 +++-
+ net/sched/sch_qfq.c    | 1 +
+ net/sched/sch_red.c    | 1 +
+ net/sched/sch_sfb.c    | 1 +
+ net/sched/sch_tbf.c    | 1 +
+ 11 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index beb554a..3c85e8d 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -1161,6 +1161,8 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (!q->link.q)
+ 		q->link.q = &noop_qdisc;
  
-@@ -69,6 +70,16 @@ config DWMAC_MESON
- 	  the stmmac device driver. This driver is used for Meson6,
- 	  Meson8, Meson8b and GXBB SoCs.
++	qdisc_hash_add(q->link.q);
++
+ 	q->link.priority = TC_CBQ_MAXPRIO - 1;
+ 	q->link.priority2 = TC_CBQ_MAXPRIO - 1;
+ 	q->link.cpriority = TC_CBQ_MAXPRIO - 1;
+@@ -1606,6 +1608,8 @@ static void cbq_put(struct Qdisc *sch, unsigned long arg)
+ 	cl->quantum = cl->allot;
+ 	cl->weight = cl->R_tab->rate.rate;
  
-+config DWMAC_OXNAS
-+	tristate "Oxford Semiconductor OXNAS dwmac support"
-+	default ARCH_OXNAS
-+	depends on OF && COMMON_CLK && (ARCH_OXNAS || COMPILE_TEST)
-+	help
-+	  Support for Ethernet controller on Oxford Semiconductor OXNAS SoCs.
++	qdisc_hash_add(cl->q);
 +
-+	  This selects the Oxford Semiconductor OXNASSoC glue layer support for
-+	  the stmmac device driver. This driver is used for OX820.
+ 	sch_tree_lock(sch);
+ 	cbq_link_class(cl);
+ 	cl->borrow = cl->tparent;
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index 8af5c59..1d33b94 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -118,6 +118,8 @@ static int drr_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
+ 
++	qdisc_hash_add(cl->qdisc);
 +
- config DWMAC_ROCKCHIP
- 	tristate "Rockchip dwmac support"
- 	default ARCH_ROCKCHIP
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index 5d6ece5..8f83a86 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -10,6 +10,7 @@ obj-$(CONFIG_STMMAC_PLATFORM)	+= stmmac-platform.o
- obj-$(CONFIG_DWMAC_IPQ806X)	+= dwmac-ipq806x.o
- obj-$(CONFIG_DWMAC_LPC18XX)	+= dwmac-lpc18xx.o
- obj-$(CONFIG_DWMAC_MESON)	+= dwmac-meson.o dwmac-meson8b.o
-+obj-$(CONFIG_DWMAC_OXNAS)	+= dwmac-oxnas.o
- obj-$(CONFIG_DWMAC_ROCKCHIP)	+= dwmac-rk.o
- obj-$(CONFIG_DWMAC_SOCFPGA)	+= dwmac-altr-socfpga.o
- obj-$(CONFIG_DWMAC_STI)		+= dwmac-sti.o
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
-new file mode 100644
-index 0000000..40fd845
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
-@@ -0,0 +1,219 @@
-+/*
-+ * Oxford Semiconductor OXNAS DWMAC glue layer
-+ *
-+ * Copyright (C) 2016 Neil Armstrong <narmstrong@baylibre.com>
-+ * Copyright (C) 2014 Daniel Golle <daniel@makrotopia.org>
-+ * Copyright (C) 2013 Ma Haijun <mahaijuns@gmail.com>
-+ * Copyright (C) 2012 John Crispin <blogic@openwrt.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include <linux/device.h>
-+#include <linux/io.h>
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/platform_device.h>
-+#include <linux/regmap.h>
-+#include <linux/mfd/syscon.h>
-+#include <linux/stmmac.h>
-+
-+#include "stmmac_platform.h"
-+
-+/* System Control regmap offsets */
-+#define OXNAS_DWMAC_CTRL_REGOFFSET	0x78
-+#define OXNAS_DWMAC_DELAY_REGOFFSET	0x100
-+
-+/* Control Register */
-+#define DWMAC_CKEN_RX_IN        14
-+#define DWMAC_CKEN_RXN_OUT      13
-+#define DWMAC_CKEN_RX_OUT       12
-+#define DWMAC_CKEN_TX_IN        10
-+#define DWMAC_CKEN_TXN_OUT      9
-+#define DWMAC_CKEN_TX_OUT       8
-+#define DWMAC_RX_SOURCE         7
-+#define DWMAC_TX_SOURCE         6
-+#define DWMAC_LOW_TX_SOURCE     4
-+#define DWMAC_AUTO_TX_SOURCE    3
-+#define DWMAC_RGMII             2
-+#define DWMAC_SIMPLE_MUX        1
-+#define DWMAC_CKEN_GTX          0
-+
-+/* Delay register */
-+#define DWMAC_TX_VARDELAY_SHIFT		0
-+#define DWMAC_TXN_VARDELAY_SHIFT	8
-+#define DWMAC_RX_VARDELAY_SHIFT		16
-+#define DWMAC_RXN_VARDELAY_SHIFT	24
-+#define DWMAC_TX_VARDELAY(d)		((d) << DWMAC_TX_VARDELAY_SHIFT)
-+#define DWMAC_TXN_VARDELAY(d)		((d) << DWMAC_TXN_VARDELAY_SHIFT)
-+#define DWMAC_RX_VARDELAY(d)		((d) << DWMAC_RX_VARDELAY_SHIFT)
-+#define DWMAC_RXN_VARDELAY(d)		((d) << DWMAC_RXN_VARDELAY_SHIFT)
-+
-+struct oxnas_dwmac {
-+	struct device	*dev;
-+	struct clk	*clk;
-+	struct regmap	*regmap;
-+};
-+
-+static int oxnas_dwmac_init(struct oxnas_dwmac *dwmac)
-+{
-+	unsigned int value;
-+	int ret;
-+
-+	/* Reset HW here before changing the glue configuration */
-+	ret = device_reset(dwmac->dev);
-+	if (ret)
-+		return ret;
-+
-+	clk_prepare_enable(dwmac->clk);
-+
-+	ret = regmap_read(dwmac->regmap, OXNAS_DWMAC_CTRL_REGOFFSET, &value);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* Enable GMII_GTXCLK to follow GMII_REFCLK, required for gigabit PHY */
-+	value |= BIT(DWMAC_CKEN_GTX);
-+	/* Use simple mux for 25/125 Mhz clock switching */
-+	value |= BIT(DWMAC_SIMPLE_MUX);
-+	/* set auto switch tx clock source */
-+	value |= BIT(DWMAC_AUTO_TX_SOURCE);
-+	/* enable tx & rx vardelay */
-+	value |= BIT(DWMAC_CKEN_TX_OUT);
-+	value |= BIT(DWMAC_CKEN_TXN_OUT);
-+	value |= BIT(DWMAC_CKEN_TX_IN);
-+	value |= BIT(DWMAC_CKEN_RX_OUT);
-+	value |= BIT(DWMAC_CKEN_RXN_OUT);
-+	value |= BIT(DWMAC_CKEN_RX_IN);
-+	regmap_write(dwmac->regmap, OXNAS_DWMAC_CTRL_REGOFFSET, value);
-+
-+	/* set tx & rx vardelay */
-+	value = DWMAC_TX_VARDELAY(4);
-+	value |= DWMAC_TXN_VARDELAY(2);
-+	value |= DWMAC_RX_VARDELAY(10);
-+	value |= DWMAC_RXN_VARDELAY(8);
-+	regmap_write(dwmac->regmap, OXNAS_DWMAC_DELAY_REGOFFSET, value);
-+
-+	return 0;
-+}
-+
-+static int oxnas_dwmac_probe(struct platform_device *pdev)
-+{
-+	struct plat_stmmacenet_data *plat_dat;
-+	struct stmmac_resources stmmac_res;
-+	struct device_node *sysctrl;
-+	struct oxnas_dwmac *dwmac;
-+	int ret;
-+
-+	sysctrl = of_parse_phandle(pdev->dev.of_node, "oxsemi,sys-ctrl", 0);
-+	if (!sysctrl) {
-+		dev_err(&pdev->dev, "failed to get sys-ctrl node\n");
-+		return -EINVAL;
+ 	if (tca[TCA_RATE]) {
+ 		err = gen_replace_estimator(&cl->bstats, NULL, &cl->rate_est,
+ 					    NULL,
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 1308bbf..d0bffd6 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -367,6 +367,7 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
+ 	p->q = qdisc_create_dflt(sch->dev_queue, &pfifo_qdisc_ops, sch->handle);
+ 	if (p->q == NULL)
+ 		p->q = &noop_qdisc;
++	qdisc_hash_add(p->q);
+ 
+ 	pr_debug("%s: qdisc %p\n", __func__, p->q);
+ 
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 000f1d3..a75710e 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -1066,6 +1066,7 @@ struct hfsc_sched {
+ 				      &pfifo_qdisc_ops, classid);
+ 	if (cl->qdisc == NULL)
+ 		cl->qdisc = &noop_qdisc;
++	qdisc_hash_add(cl->qdisc);
+ 	INIT_LIST_HEAD(&cl->children);
+ 	cl->vt_tree = RB_ROOT;
+ 	cl->cf_tree = RB_ROOT;
+@@ -1425,6 +1426,7 @@ struct hfsc_sched {
+ 					  sch->handle);
+ 	if (q->root.qdisc == NULL)
+ 		q->root.qdisc = &noop_qdisc;
++	qdisc_hash_add(q->root.qdisc);
+ 	INIT_LIST_HEAD(&q->root.children);
+ 	q->root.vt_tree = RB_ROOT;
+ 	q->root.cf_tree = RB_ROOT;
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index c798d0d..421d0a9 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1459,6 +1459,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		qdisc_class_hash_insert(&q->clhash, &cl->common);
+ 		if (parent)
+ 			parent->children++;
++		qdisc_hash_add(cl->un.leaf.q);
+ 	} else {
+ 		if (tca[TCA_RATE]) {
+ 			err = gen_replace_estimator(&cl->bstats, NULL,
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index 9ffbb02..9266e9c 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -217,6 +217,7 @@ static int multiq_tune(struct Qdisc *sch, struct nlattr *opt)
+ 				sch_tree_lock(sch);
+ 				old = q->queues[i];
+ 				q->queues[i] = child;
++				qdisc_hash_add(child);
+ 
+ 				if (old != &noop_qdisc) {
+ 					qdisc_tree_reduce_backlog(old,
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 8f57589..604a817 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -192,8 +192,10 @@ static int prio_tune(struct Qdisc *sch, struct nlattr *opt)
+ 		qdisc_destroy(child);
+ 	}
+ 
+-	for (i = oldbands; i < q->bands; i++)
++	for (i = oldbands; i < q->bands; i++) {
+ 		q->queues[i] = queues[i];
++		qdisc_hash_add(q->queues[i]);
 +	}
-+
-+	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
-+	if (ret)
-+		return ret;
-+
-+	plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
-+	if (IS_ERR(plat_dat))
-+		return PTR_ERR(plat_dat);
-+
-+	dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
-+	if (!dwmac)
-+		return -ENOMEM;
-+
-+	dwmac->dev = &pdev->dev;
-+	plat_dat->bsp_priv = dwmac;
-+
-+	dwmac->regmap = syscon_node_to_regmap(sysctrl);
-+	if (IS_ERR(dwmac->regmap)) {
-+		dev_err(&pdev->dev, "failed to have sysctrl regmap\n");
-+		return PTR_ERR(dwmac->regmap);
-+	}
-+
-+	dwmac->clk = devm_clk_get(&pdev->dev, "gmac");
-+	if (IS_ERR(dwmac->clk))
-+		return PTR_ERR(dwmac->clk);
-+
-+	ret = oxnas_dwmac_init(dwmac);
-+	if (ret)
-+		return ret;
-+
-+	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-+	if (ret)
-+		clk_disable_unprepare(dwmac->clk);
-+
-+	return ret;
-+}
-+
-+static int oxnas_dwmac_remove(struct platform_device *pdev)
-+{
-+	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct stmmac_priv *priv = netdev_priv(ndev);
-+	struct oxnas_dwmac *dwmac = priv->plat->bsp_priv;
-+	int ret = stmmac_dvr_remove(&pdev->dev);
-+
-+	clk_disable_unprepare(dwmac->clk);
-+
-+	return ret;
-+}
-+
-+#ifdef CONFIG_PM_SLEEP
-+static int oxnas_dwmac_suspend(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct stmmac_priv *priv = netdev_priv(ndev);
-+	struct oxnas_dwmac *dwmac = priv->plat->bsp_priv;
-+	int ret;
-+
-+	ret = stmmac_suspend(dev);
-+	clk_disable_unprepare(dwmac->clk);
-+
-+	return ret;
-+}
-+
-+static int oxnas_dwmac_resume(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct stmmac_priv *priv = netdev_priv(ndev);
-+	struct oxnas_dwmac *dwmac = priv->plat->bsp_priv;
-+	int ret;
-+
-+	ret = oxnas_dwmac_init(dwmac);
-+	if (ret)
-+		return ret;
-+
-+	ret = stmmac_resume(dev);
-+
-+	return ret;
-+}
-+#endif /* CONFIG_PM_SLEEP */
-+
-+static SIMPLE_DEV_PM_OPS(oxnas_dwmac_pm_ops,
-+	oxnas_dwmac_suspend, oxnas_dwmac_resume);
-+
-+static const struct of_device_id oxnas_dwmac_match[] = {
-+	{ .compatible = "oxsemi,ox820-dwmac" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, oxnas_dwmac_match);
-+
-+static struct platform_driver oxnas_dwmac_driver = {
-+	.probe  = oxnas_dwmac_probe,
-+	.remove = oxnas_dwmac_remove,
-+	.driver = {
-+		.name           = "oxnas-dwmac",
-+		.pm		= &oxnas_dwmac_pm_ops,
-+		.of_match_table = oxnas_dwmac_match,
-+	},
-+};
-+module_platform_driver(oxnas_dwmac_driver);
-+
-+MODULE_AUTHOR("Neil Armstrong <narmstrong@baylibre.com>");
-+MODULE_DESCRIPTION("Oxford Semiconductor OXNAS DWMAC glue layer");
-+MODULE_LICENSE("GPL v2");
+ 
+ 	sch_tree_unlock(sch);
+ 	return 0;
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index ca0516e..f29676c 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -494,6 +494,7 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 			goto destroy_class;
+ 	}
+ 
++	qdisc_hash_add(cl->qdisc);
+ 	sch_tree_lock(sch);
+ 	qdisc_class_hash_insert(&q->clhash, &cl->common);
+ 	sch_tree_unlock(sch);
+diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
+index 249b2a1..cad2370 100644
+--- a/net/sched/sch_red.c
++++ b/net/sched/sch_red.c
+@@ -191,6 +191,7 @@ static int red_change(struct Qdisc *sch, struct nlattr *opt)
+ 			return PTR_ERR(child);
+ 	}
+ 
++	qdisc_hash_add(child);
+ 	sch_tree_lock(sch);
+ 	q->flags = ctl->flags;
+ 	q->limit = ctl->limit;
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 20a350b..a0a9829 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -512,6 +512,7 @@ static int sfb_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (IS_ERR(child))
+ 		return PTR_ERR(child);
+ 
++	qdisc_hash_add(child);
+ 	sch_tree_lock(sch);
+ 
+ 	qdisc_tree_reduce_backlog(q->qdisc, q->qdisc->q.qlen,
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 303355c..7e23392 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -396,6 +396,7 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 					  q->qdisc->qstats.backlog);
+ 		qdisc_destroy(q->qdisc);
+ 		q->qdisc = child;
++		qdisc_hash_add(child);
+ 	}
+ 	q->limit = qopt->limit;
+ 	if (tb[TCA_TBF_PBURST])
 -- 
-2.7.0
+Jiri Kosina
+SUSE Labs
