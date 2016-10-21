@@ -1,7 +1,7 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH 09/13] net: phy: Add Meson GXL Internal PHY driver
-Date: Fri, 21 Oct 2016 16:40:34 +0200
-Message-ID: <1477060838-14164-10-git-send-email-narmstrong@baylibre.com>
+Subject: [RFC PATCH 08/13] dwmac-meson8b: add support for phy selection
+Date: Fri, 21 Oct 2016 16:40:33 +0200
+Message-ID: <1477060838-14164-9-git-send-email-narmstrong@baylibre.com>
 References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
 Cc: Neil Armstrong <narmstrong@baylibre.com>,
         linux-gpio@vger.kernel.org, devicetree@vger.kernel.org,
@@ -9,237 +9,82 @@ Cc: Neil Armstrong <narmstrong@baylibre.com>,
         linux-amlogic@lists.infradead.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
 To: khilman@baylibre.com, carlo@caione.org, linus.walleij@linaro.org
-Return-path: <linux-gpio-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:36199 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934430AbcJUOlA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 10:41:00 -0400
+Received: by mail-lf0-f49.google.com with SMTP id b75so146327386lfg.3
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 07:40:59 -0700 (PDT)
 In-Reply-To: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add driver for the Internal RMII PHY found in the Amlogic Meson GXL SoCs.
+The Meson GXL dwmac Glue Layer also provides switching between an external PHY
+and an internal RMII 10/100 PHY.
+Add a way to setup the correct PHY switching from a device tree attribute.
 
-This PHY seems to only implement some standard registers and need some
-workarounds to provide autoneg values from vendor registers.
-
-Some magic values are currently used to configure the PHY, and this a
-temporary setup until clarification about these registers names and
-registers fields are provided by Amlogic.
+Currently, the register format is unknown and this is a temporary workaround
+until a clarification on the registers fields is received from Amlogic.
 
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- drivers/net/phy/Kconfig     |   5 ++
- drivers/net/phy/Makefile    |   1 +
- drivers/net/phy/meson-gxl.c | 175 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 181 insertions(+)
- create mode 100644 drivers/net/phy/meson-gxl.c
+ .../net/ethernet/stmicro/stmmac/dwmac-meson8b.c    | 25 ++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 2651c8d..09342b6 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -226,6 +226,11 @@ config DP83867_PHY
- 	---help---
- 	  Currently supports the DP83867 PHY.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
+index 250e4ce..875cd7c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
+@@ -53,10 +53,15 @@
  
-+config MESON_GXL_PHY
-+	tristate "Amlogic Meson GXL Internal PHY"
-+	---help---
-+	  Currently has a driver for the Amlogic Meson GXL Internal PHY
+ #define MUX_CLK_NUM_PARENTS		2
+ 
++#define PHYSEL_REG0			0x0
++#define PHYSEL_REG0_VALUE		0x10110181
++#define PHYSEL_REG1			0x4
 +
- config FIXED_PHY
- 	tristate "MDIO Bus/PHY emulation with fixed speed/link PHYs"
- 	depends on PHYLIB
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index e58667d..1511b3e 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -44,6 +44,7 @@ obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
- obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
- obj-$(CONFIG_MICREL_PHY)	+= micrel.o
- obj-$(CONFIG_MICROCHIP_PHY)	+= microchip.o
-+obj-$(CONFIG_MESON_GXL_PHY)	+= meson-gxl.o
- obj-$(CONFIG_MICROSEMI_PHY)	+= mscc.o
- obj-$(CONFIG_NATIONAL_PHY)	+= national.o
- obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
-diff --git a/drivers/net/phy/meson-gxl.c b/drivers/net/phy/meson-gxl.c
-new file mode 100644
-index 0000000..4de3404
---- /dev/null
-+++ b/drivers/net/phy/meson-gxl.c
-@@ -0,0 +1,175 @@
-+/*
-+ * Amlogic Meson GXL Internal PHY Driver
-+ *
-+ * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
-+ * Copyright (C) 2016 BayLibre, SAS. All rights reserved.
-+ * Author: Neil Armstrong <narmstrong@baylibre.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ */
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+#include <linux/netdevice.h>
+ struct meson8b_dwmac {
+ 	struct platform_device	*pdev;
+ 
+ 	void __iomem		*regs;
++	void __iomem		*physel_regs;
+ 
+ 	phy_interface_t		phy_mode;
+ 
+@@ -244,6 +249,23 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
+ 	meson8b_dwmac_mask_bits(dwmac, PRG_ETH0, PRG_ETH0_TX_AND_PHY_REF_CLK,
+ 				PRG_ETH0_TX_AND_PHY_REF_CLK);
+ 
++	/* Select PHY, either internal or external if specified */
++	if (!IS_ERR(dwmac->physel_regs) &&
++	    of_find_property(dwmac->pdev->dev.of_node,
++			     "amlogic,phy-select", NULL)) {
++		u32 val;
 +
-+#define GXL_REG_ANEG	0x1f
-+
-+#define REG_ANEG_FDUPLEX	0x10
-+#define REG_ANEG_SPEED10	0x4
-+#define REG_ANEG_SPEED100	0x8
-+#define REG_ANEG_SPEED_MASK	0xc
-+
-+static void meson_gxl_phy_config(struct phy_device *phydev)
-+{
-+	/* Enable Analog and DSP register Bank access by */
-+	phy_write(phydev, 0x14, 0x0000);
-+	phy_write(phydev, 0x14, 0x0400);
-+	phy_write(phydev, 0x14, 0x0000);
-+	phy_write(phydev, 0x14, 0x0400);
-+
-+	/* Write Analog register 23 */
-+	phy_write(phydev, 0x17, 0x8E0D);
-+	phy_write(phydev, 0x14, 0x4417);
-+
-+	/* Enable fractional PLL */
-+	phy_write(phydev, 0x17, 0x0005);
-+	phy_write(phydev, 0x14, 0x5C1B);
-+
-+	/* Program fraction FR_PLL_DIV1 */
-+	phy_write(phydev, 0x17, 0x029A);
-+	phy_write(phydev, 0x14, 0x5C1D);
-+
-+	/* Program fraction FR_PLL_DIV1 */
-+	phy_write(phydev, 0x17, 0xAAAA);
-+	phy_write(phydev, 0x14, 0x5C1C);
-+}
-+
-+static int meson_gxl_config_init(struct phy_device *phydev)
-+{
-+	int val;
-+	u32 features;
-+
-+	meson_gxl_phy_config(phydev);
-+
-+	features = SUPPORTED_MII;
-+
-+	/* Do we support autonegotiation? */
-+	val = phy_read(phydev, MII_BMSR);
-+	if (val < 0)
-+		return val;
-+
-+	if (val & BMSR_ANEGCAPABLE)
-+		features |= SUPPORTED_Autoneg;
-+	if (val & BMSR_100FULL)
-+		features |= SUPPORTED_100baseT_Full;
-+	if (val & BMSR_100HALF)
-+		features |= SUPPORTED_100baseT_Half;
-+	if (val & BMSR_10FULL)
-+		features |= SUPPORTED_10baseT_Full;
-+	if (val & BMSR_10HALF)
-+		features |= SUPPORTED_10baseT_Half;
-+
-+	phydev->supported = features;
-+	phydev->advertising = features;
-+
-+	return 0;
-+}
-+
-+static int meson_gxl_phy_read_status(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Update the link, but return if there was an error */
-+	err = genphy_update_link(phydev);
-+	if (err)
-+		return err;
-+
-+	phydev->lp_advertising = 0;
-+	phydev->pause = 0;
-+	phydev->asym_pause = 0;
-+
-+	if (phydev->autoneg == AUTONEG_ENABLE) {
-+		unsigned int speed;
-+		int reg = phy_read(phydev, GXL_REG_ANEG);
-+
-+		if (reg < 0)
-+			return reg;
-+
-+		speed = reg & REG_ANEG_SPEED_MASK;
-+
-+		if (reg & REG_ANEG_FDUPLEX)
-+			phydev->duplex = DUPLEX_FULL;
-+		else
-+			phydev->duplex = DUPLEX_HALF;
-+
-+		if ((reg & REG_ANEG_SPEED_MASK) == REG_ANEG_SPEED10)
-+			phydev->speed = SPEED_10;
-+		else if ((reg & REG_ANEG_SPEED_MASK) == REG_ANEG_SPEED100)
-+			phydev->speed = SPEED_100;
-+	} else {
-+		int bmcr = phy_read(phydev, MII_BMCR);
-+
-+		if (bmcr < 0)
-+			return bmcr;
-+
-+		if (bmcr & BMCR_FULLDPLX)
-+			phydev->duplex = DUPLEX_FULL;
-+		else
-+			phydev->duplex = DUPLEX_HALF;
-+
-+		if (bmcr & BMCR_SPEED1000)
-+			phydev->speed = SPEED_1000;
-+		else if (bmcr & BMCR_SPEED100)
-+			phydev->speed = SPEED_100;
-+		else
-+			phydev->speed = SPEED_10;
++		ret = of_property_read_u32(dwmac->pdev->dev.of_node,
++					   "amlogic,phy-select", &val);
++		if (ret) {
++			dev_err(&dwmac->pdev->dev, "invalid phy-select property\n");
++		} else {
++			writel(PHYSEL_REG0_VALUE,
++			       dwmac->physel_regs + PHYSEL_REG0);
++			writel(val, dwmac->physel_regs + PHYSEL_REG1);
++		}
 +	}
 +
-+	return 0;
-+}
+ 	return 0;
+ }
+ 
+@@ -272,6 +294,9 @@ static int meson8b_dwmac_probe(struct platform_device *pdev)
+ 	if (IS_ERR(dwmac->regs))
+ 		return PTR_ERR(dwmac->regs);
+ 
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
++	dwmac->physel_regs = devm_ioremap_resource(&pdev->dev, res);
 +
-+static struct phy_driver meson_gxl_phy = {
-+	.phy_id		= 0x01814400,
-+	.name		= "Meson GXL Internal PHY",
-+	.phy_id_mask	= 0x0fffffff,
-+	.features	= 0,
-+	.config_init	= meson_gxl_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= meson_gxl_phy_read_status,
-+};
-+
-+static int __init meson_gxl_init(void)
-+{
-+	return phy_driver_register(&meson_gxl_phy, THIS_MODULE);
-+}
-+
-+static void __exit meson_gxl_exit(void)
-+{
-+	phy_driver_unregister(&meson_gxl_phy);
-+}
-+
-+static struct mdio_device_id __maybe_unused meson_gxl_tbl[] = {
-+	{ 0x01814400, 0x0fffffff },
-+	{ }
-+};
-+
-+MODULE_DEVICE_TABLE(mdio, meson_gxl_tbl);
-+
-+module_init(meson_gxl_init);
-+module_exit(meson_gxl_exit);
-+
-+MODULE_DESCRIPTION("Amlogic Meson GXL Internal PHY driver");
-+MODULE_AUTHOR("Baoqi wang");
-+MODULE_AUTHOR("Neil Armstrong <narmstrong@baylibre.com>");
-+MODULE_LICENSE("GPL");
+ 	dwmac->pdev = pdev;
+ 	dwmac->phy_mode = of_get_phy_mode(pdev->dev.of_node);
+ 	if (dwmac->phy_mode < 0) {
 -- 
 1.9.1
-
