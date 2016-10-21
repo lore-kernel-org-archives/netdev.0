@@ -1,95 +1,73 @@
-From: Henri Roosen <henri.roosen@ginzinger.com>
-Subject: Re: commit-3ac72b7b63d5 breaks networking on iMX28
-Date: Fri, 21 Oct 2016 13:09:39 +0200
-Message-ID: <bab803d5-b35b-da82-63f2-a5932f5a2e7e@ginzinger.com>
-References: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
- <CAOMZO5ADSSUkTwi3WDHHGX-i-Jm+YbrVzES0BDtGsR1kFTxO+Q@mail.gmail.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next] hv_netvsc: fix a race between netvsc_send() and
+ netvsc_init_buf()
+Date: Fri, 21 Oct 2016 13:15:53 +0200
+Message-ID: <87d1iuymty.fsf@vitty.brq.redhat.com>
+References: <1476885181-3456-1-git-send-email-vkuznets@redhat.com>
+ <BLUPR0301MB2098D6A07F0D465E63988D9FCCD50@BLUPR0301MB2098.namprd03.prod.outlook.com>
+ <8737jr1k07.fsf@vitty.brq.redhat.com>
+ <20161020.140300.122827393647670926.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Nelson <eric@nelint.com>, Fugang Duan <fugang.duan@nxp.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ginzinger.com ([31.193.165.229]:49605 "EHLO
-        mail.ginzinger.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932199AbcJULJo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 07:09:44 -0400
-In-Reply-To: <CAOMZO5ADSSUkTwi3WDHHGX-i-Jm+YbrVzES0BDtGsR1kFTxO+Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sthemmin@microsoft.com, netdev@vger.kernel.org, haiyangz@microsoft.com,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20161020.140300.122827393647670926.davem@davemloft.net> (David
+ Miller's message of "Thu, 20 Oct 2016 14:03:00 -0400 (EDT)")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Fabio,
+David Miller <davem@davemloft.net> writes:
 
-On 10/21/2016 12:55 PM, Fabio Estevam wrote:
-> Hi Henri,
+> From: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Date: Thu, 20 Oct 2016 10:51:04 +0200
 >
-> 2016-10-21 7:19 GMT-02:00 Henri Roosen <henri.roosen@ginzinger.com>:
->> Hi,
->>
->> Unfortunately commit-3ac72b7b63d5 "net: fec: align IP header in
->> hardware" breaks networking on an iMX28 system.
->>
->> The commit seems valid for iMX6, where it is tested okay and solves the
->> unaligned accesses.
->>
->> On iMX28 I still see unaligned accesses and networking is broken. Can
->> anyone confirm this?
+>> Stephen Hemminger <sthemmin@microsoft.com> writes:
+>> 
+>>> Do we need ACCESS_ONCE() here to avoid check/use issues?
+>>>
+>> 
+>> I think we don't: this is the only place in the function where we read
+>> the variable so we'll get normal read. We're not trying to syncronize
+>> with netvsc_init_buf() as that would require locking, if we read stale
+>> NULL value after it was already updated on a different CPU we're fine,
+>> we'll just return -EAGAIN.
 >
-> Does this fix the problem?
+> The concern is if we race with netvsc_destroy_buf() and this pointer
+> becomes NULL after the test you are adding.
 
-Yes, this fixes the problem.
-Note: only tested on iMX28.
+Thanks, this is interesting.
 
-Thanks,
-Henri
->
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 4ce8179..d1cefe1 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1430,14 +1430,15 @@ fec_enet_rx_queue(struct net_device *ndev, int
-> budget, u16 queue_id)
->                 skb_put(skb, pkt_len - 4);
->                 data = skb->data;
->
-> +               if (!is_copybreak && need_swap)
-> +                       swap_buffer(data, pkt_len);
-> +
-> +
->  #if !defined(CONFIG_M5272)
->                 if (fep->quirks & FEC_QUIRK_HAS_RACC)
->                         data = skb_pull_inline(skb, 2);
->  #endif
->
-> -               if (!is_copybreak && need_swap)
-> -                       swap_buffer(data, pkt_len);
-> -
->                 /* Extract the enhanced buffer descriptor */
->                 ebdp = NULL;
->                 if (fep->bufdesc_ex)
->
+We may reach to netvsc_destroy_buf() by 3 pathes:
 
-________________________________
+1) cleanup path in netvsc_init_buf(). It is never called with
+send_section_map being not NULL so it seems we're safe.
 
-Ginzinger electronic systems GmbH
-Gewerbegebiet Pirath 16
-4952 Weng im Innkreis
-www.ginzinger.com
+2) from netvsc_remove() when the device is being removed. As far as I
+understand we can't be on the transmit path after we call
+unregister_netdev() so we're safe.
 
-Firmenbuchnummer: FN 364958d
-Firmenbuchgericht: Ried im Innkreis
-UID-Nr.: ATU66521089
+3) from netvsc_change_mtu() and netvsc_set_channels(). These pathes are
+specific to netvsc driver as basically we need to remove the device and
+add it back to change mtu/number of channels. The underligning 'struct
+net_device' stays but the rest is being removed and added back. On both
+pathes we first call netvsc_close() which does netif_tx_disable() and as
+far as I understand (I may be wrong) this guarantees that we won't be in
+netvsc_send().
 
+So *I think* that we can't ever free send_section_map while in
+netvsc_send() and we can't even get to netvsc_send() after it is freed
+but I may have missed something.
 
-________________________________
-
-Kommende Events:
-
-08.-11. November 2016: Besuchen Sie uns auf der electronica in München -> Halle B1 Stand 538
-16. November 2016: Nachmittagsseminar mit unserem Partner Irlbacher zum Thema „Glas als innovatives Material für moderne HMI’s“
-17. November 2016: Juristisches Seminar in Linz: Einsatz von Open Source-Software in der Industrie
-06. Dezember 2016: Nachmittagsseminar mit unserem Partner sequality software engineering zum Thema Usability
-
->> Weitere Informationen zu diesen Veranstaltungen und Neuigkeiten aus der Elektronikbranche finden Sie auf www.ginzinger.com/techtalk
+-- 
+  Vitaly
