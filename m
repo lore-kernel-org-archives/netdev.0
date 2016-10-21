@@ -1,153 +1,85 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH 12/13] ARM64: dts: meson-gxl-p23x: Add SD/SDIO/MMC and PWM nodes
-Date: Fri, 21 Oct 2016 16:40:37 +0200
-Message-ID: <1477060838-14164-13-git-send-email-narmstrong@baylibre.com>
-References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>,
-        linux-gpio@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-amlogic@lists.infradead.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: khilman@baylibre.com, carlo@caione.org, linus.walleij@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: pull request: bluetooth 2016-10-21
+Date: Fri, 21 Oct 2016 17:40:53 +0300
+Message-ID: <20161021144053.GA14245@x1c.dominarus.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="2fHTh5uZTiUOsy+g"
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add SD/SDIO/MMC nodes and PWM 32768Hz clock configuration to provide
-storage and WiFi functionality on the p23x boards.
 
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+--2fHTh5uZTiUOsy+g
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Dave,
+
+Here are some more Bluetooth fixes for the 4.9 kernel:
+
+ - Fix to btwilink driver probe function return value
+ - Power management fix to hci_bcm
+ - Fix to encoding name in scan response data
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
 ---
- .../boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi     | 112 +++++++++++++++++++++
- 1 file changed, 112 insertions(+)
+The following changes since commit 6d3a4c404648e415e7d96e285d723936d4df7ed0:
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
-index 02faccc..77637ce 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
-@@ -56,6 +56,46 @@
- 		device_type = "memory";
- 		reg = <0x0 0x0 0x0 0x80000000>;
- 	};
-+
-+	vddio_boot: regulator-vddio_boot {
-+		compatible = "regulator-fixed";
-+		regulator-name = "VDDIO_BOOT";
-+		regulator-min-microvolt = <1800000>;
-+		regulator-max-microvolt = <1800000>;
-+	};
-+
-+	vddao_3v3: regulator-vddao_3v3 {
-+		compatible = "regulator-fixed";
-+		regulator-name = "VDDAO_3V3";
-+		regulator-min-microvolt = <3300000>;
-+		regulator-max-microvolt = <3300000>;
-+	};
-+
-+	vcc_3v3: regulator-vcc_3v3 {
-+		compatible = "regulator-fixed";
-+		regulator-name = "VCC_3V3";
-+		regulator-min-microvolt = <3300000>;
-+		regulator-max-microvolt = <3300000>;
-+	};
-+
-+	emmc_pwrseq: emmc-pwrseq {
-+		compatible = "mmc-pwrseq-emmc";
-+		reset-gpios = <&gpio BOOT_9 GPIO_ACTIVE_LOW>;
-+	};
-+
-+	wifi32k: wifi32k {
-+		compatible = "pwm-clock";
-+		#clock-cells = <0>;
-+		clock-frequency = <32768>;
-+		pwms = <&pwm_ef 0 30518 0>; /* PWM_E at 32.768KHz */
-+	};
-+
-+	sdio_pwrseq: sdio-pwrseq {
-+		compatible = "mmc-pwrseq-simple";
-+		reset-gpios = <&gpio GPIOX_6 GPIO_ACTIVE_LOW>;
-+		clocks = <&wifi32k>;
-+		clock-names = "ext_clock";
-+	};
- };
- 
- /* This UART is brought out to the DB9 connector */
-@@ -68,3 +108,75 @@
- &ethmac {
- 	status = "okay";
- };
-+
-+/* Wireless SDIO Module */
-+&sd_emmc_a {
-+	status = "okay";
-+	pinctrl-0 = <&sdio_pins>;
-+	pinctrl-names = "default";
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+
-+	bus-width = <4>;
-+	cap-sd-highspeed;
-+	max-frequency = <100000000>;
-+
-+	non-removable;
-+	disable-wp;
-+
-+	mmc-pwrseq = <&sdio_pwrseq>;
-+
-+	vmmc-supply = <&vddao_3v3>;
-+	vqmmc-supply = <&vddio_boot>;
-+
-+	brcmf: bcrmf@1 {
-+		reg = <1>;
-+		compatible = "brcm,bcm4329-fmac";
-+	};
-+};
-+
-+/* SD card */
-+&sd_emmc_b {
-+	status = "okay";
-+	pinctrl-0 = <&sdcard_pins>;
-+	pinctrl-names = "default";
-+
-+	bus-width = <4>;
-+	cap-sd-highspeed;
-+	max-frequency = <100000000>;
-+	disable-wp;
-+
-+	cd-gpios = <&gpio CARD_6 GPIO_ACTIVE_HIGH>;
-+	cd-inverted;
-+
-+	vmmc-supply = <&vddao_3v3>;
-+	vqmmc-supply = <&vddio_boot>;
-+};
-+
-+/* eMMC */
-+&sd_emmc_c {
-+	status = "okay";
-+	pinctrl-0 = <&emmc_pins>;
-+	pinctrl-names = "default";
-+
-+	bus-width = <8>;
-+	cap-sd-highspeed;
-+	cap-mmc-highspeed;
-+	max-frequency = <200000000>;
-+	non-removable;
-+	disable-wp;
-+	mmc-ddr-1_8v;
-+	mmc-hs200-1_8v;
-+
-+	mmc-pwrseq = <&emmc_pwrseq>;
-+	vmmc-supply = <&vcc_3v3>;
-+	vqmmc-supply = <&vddio_boot>;
-+};
-+
-+&pwm_ef {
-+	status = "okay";
-+	pinctrl-0 = <&pwm_e_pins>;
-+	pinctrl-names = "default";
-+	clocks = <&clkc CLKID_FCLK_DIV4>;
-+	clock-names = "clkin0";
-+};
--- 
-1.9.1
+  strparser: Propagate correct error code in strp_recv() (2016-10-12 01:51:=
+49 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for=
+-upstream
+
+for you to fetch changes up to 6add49fff9233a5c43011eb42b521257cbaa9bda:
+
+  Bluetooth: btwilink: Fix probe return value (2016-10-20 10:14:49 +0200)
+
+----------------------------------------------------------------
+Jacob Siverskog (1):
+      Bluetooth: btwilink: Fix probe return value
+
+J=C3=A9r=C3=B4me de Bretagne (1):
+      Bluetooth: hci_bcm: Fix autosuspend PM for Lenovo ThinkPad 8
+
+Micha=C5=82 Narajowski (1):
+      Bluetooth: Fix append max 11 bytes of name to scan rsp data
+
+ drivers/bluetooth/btwilink.c |  2 +-
+ drivers/bluetooth/hci_bcm.c  |  8 +++++
+ net/bluetooth/hci_request.c  | 49 +++++++++++++--------------
+ net/bluetooth/hci_request.h  |  2 ++
+ net/bluetooth/mgmt.c         | 26 +++++++++-----
+ 5 files changed, 51 insertions(+), 36 deletions(-)
+
+--2fHTh5uZTiUOsy+g
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJYCij1AAoJECQj9vv5qNQSAbcP/3GRNUaB+O535KBd8dbpH7TL
+ZT2qgPktzS0d6ND3hvGJKT6xsq+ZOJHcIu1jQq2oa/igSPf4q8YFzal186dwABFr
+ey61FC7DsaAMhHzuyYfcGQgfhTztu3lMOYsqCiRroZrUC0Ohg8Rc+y1F+CnDaSq5
+FC23Dwpo+4ApDdrAr2pffMt41YR8ZLsV9WVTDprl+sxBDBa2DwDqRVyka44d7Vbf
+UQ2hZU0VluFuCDhIQh+pJrf5cXvirzXOr/xycJkNZTweayrnB6g3Z799wdppp5NV
+ThO62r+dd6CKvCUXdNx9UKM1lVmsGvpyiOCzjIdPBeqwrCQYp3M8EyK8POAKGlRk
+op6UCI9xaD33D7Ch7d7fsJmjAJVpqkCv+M5/2GfEb4pt9LQu1eoPUguVWKDG/6mn
+f1olJoJ77bBEkKHSkFKFsLRKT4omcZ6sILYr6armStgHrbBrIT55AMXyWKc5xFpC
+s4ap86PM+otnUI6KuXTEDyXXwd5kBq1yCpZ3ruk5Jayu8OtKQxjY9vp1N5vx5VA0
+L/IVTEuz3Xj8xPJKj7Q9QLJpoSahr/zVGNnS3Ht3PwDk/3YxIOWgbiKIQvqmw3aU
+KV8m/s4aHOroa8vCdOySTGDlSU0qKdtqEHUlPgCAk2Q9u26UNLf1l77l6jEY0e/0
+2Cv0UWVSN6nf8N28FXUA
+=1VCX
+-----END PGP SIGNATURE-----
+
+--2fHTh5uZTiUOsy+g--
