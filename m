@@ -1,55 +1,50 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] flow_dissector: avoid uninitialized variable access
-Date: Fri, 21 Oct 2016 23:05:45 +0200
-Message-ID: <5467015.N4DG5uA0DU@wuerfel>
-References: <20161021155626.4020344-1-arnd@arndb.de> <20161021163118.GA2155@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v6 1/3] net/socket: factor out helpers for
+ memory and queue manipulation
+Date: Fri, 21 Oct 2016 14:13:03 -0700
+Message-ID: <1477084383.7065.87.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1477043395.git.pabeni@redhat.com>
+         <14784e6382342c2184929ef2959e7c11faf8ff8e.1477043395.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Gao Feng <fgao@ikuai8.com>, Eric Garver <e@erig.me>,
-        Amir Vadai <amir@vadai.me>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161021163118.GA2155@nanopsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <14784e6382342c2184929ef2959e7c11faf8ff8e.1477043395.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, October 21, 2016 6:31:18 PM CEST Jiri Pirko wrote:
-> Fri, Oct 21, 2016 at 05:55:53PM CEST, arnd@arndb.de wrote:
-> >gcc warns about an uninitialized pointer dereference in the vlan
-> >priority handling:
-> >
-> >net/core/flow_dissector.c: In function '__skb_flow_dissect':
-> >net/core/flow_dissector.c:281:61: error: 'vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> >
-> >From all I can tell, this warning is about a real bug, and we
-> >should not attempt look up the vlan header if there was
-> >no vlan tag.
+On Fri, 2016-10-21 at 13:55 +0200, Paolo Abeni wrote:
+> Basic sock operations that udp code can use with its own
+> memory accounting schema. No functional change is introduced
+> in the existing APIs.
 > 
-> I don't see how vlan could be used uninitialized. But I understand that
-> this is impossible for gcc to track it. Please just use uninitialized_var()
+> v4 -> v5:
+>   - avoid whitespace changes
 > 
+> v2 -> v4:
+>   - avoid exporting __sock_enqueue_skb
+> 
+> v1 -> v2:
+>   - avoid export sock_rmem_free
+> 
+> Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+> Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
 
-I usually try to avoid uninitialized_var(), as making it obvious to
-the compiler why something is known tends to result in more readable
-source code and better object code.
+Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
-Can you explain why "dissector_uses_key(flow_dissector,
-FLOW_DISSECTOR_KEY_VLAN) && skb_vlan_tag_present(skb)" implies
-"eth_type_vlan(proto))"?
 
-If I add uninitialized_var() here, I would at least put that in
-a comment here.
-
-On a related note, I also don't see how
-"dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_VLAN)"
-implies that skb is non-NULL. I guess this is related to the
-first one.
-
-	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
