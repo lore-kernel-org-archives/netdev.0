@@ -1,7 +1,7 @@
 From: <sudarsana.kalluru@cavium.com>
-Subject: [PATCH net 2/7] qede: Do not allow RSS config for 100G devices
-Date: Fri, 21 Oct 2016 04:43:40 -0400
-Message-ID: <1477039425-31341-3-git-send-email-sudarsana.kalluru@cavium.com>
+Subject: [PATCH net 3/7] qede: Loopback implementation should ignore the normal traffic
+Date: Fri, 21 Oct 2016 04:43:41 -0400
+Message-ID: <1477039425-31341-4-git-send-email-sudarsana.kalluru@cavium.com>
 References: <1477039425-31341-1-git-send-email-sudarsana.kalluru@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,40 +10,160 @@ Cc: <netdev@vger.kernel.org>, <Ariel.Elior@cavium.com>,
         Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49048 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:49055 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S934497AbcJUJaC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 05:30:02 -0400
+        by vger.kernel.org with ESMTP id S933400AbcJUJaJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 05:30:09 -0400
 In-Reply-To: <1477039425-31341-1-git-send-email-sudarsana.kalluru@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 
-RSS configuration is not supported for 100G adapters.
+During the execution of loopback test, driver may receive the packets which
+are not originated by this test, loopback implementation need to skip those
+packets.
 
 Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/qlogic/qede/qede.h         |  1 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 80 +++++++++++++++----------
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  3 +-
+ 3 files changed, 49 insertions(+), 35 deletions(-)
 
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 28c0e9f..d6a4a9a5 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -348,6 +348,7 @@ void qede_reload(struct qede_dev *edev,
+ int qede_txq_has_work(struct qede_tx_queue *txq);
+ void qede_recycle_rx_bd_ring(struct qede_rx_queue *rxq, struct qede_dev *edev,
+ 			     u8 count);
++void qede_update_rx_prod(struct qede_dev *edev, struct qede_rx_queue *rxq);
+ 
+ #define RX_RING_SIZE_POW	13
+ #define RX_RING_SIZE		((u16)BIT(RX_RING_SIZE_POW))
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 16a1a47..bf04fb9 100644
+index bf04fb9..7da184c 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -1055,6 +1055,12 @@ static int qede_set_rxfh(struct net_device *dev, const u32 *indir,
- 	struct qede_dev *edev = netdev_priv(dev);
- 	int i;
+@@ -1207,8 +1207,8 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
+ 	struct qede_rx_queue *rxq = NULL;
+ 	struct sw_rx_data *sw_rx_data;
+ 	union eth_rx_cqe *cqe;
++	int i, rc = 0;
+ 	u8 *data_ptr;
+-	int i;
  
-+	if (edev->dev_info.common.num_hwfns > 1) {
-+		DP_INFO(edev,
-+			"RSS configuration is not supported for 100G devices\n");
-+		return -EOPNOTSUPP;
-+	}
+ 	for_each_queue(i) {
+ 		if (edev->fp_array[i].type & QEDE_FASTPATH_RX) {
+@@ -1227,46 +1227,60 @@ static int qede_selftest_receive_traffic(struct qede_dev *edev)
+ 	 * queue and that the loopback traffic is not IP.
+ 	 */
+ 	for (i = 0; i < QEDE_SELFTEST_POLL_COUNT; i++) {
+-		if (qede_has_rx_work(rxq))
++		if (!qede_has_rx_work(rxq)) {
++			usleep_range(100, 200);
++			continue;
++		}
 +
- 	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
- 		return -EOPNOTSUPP;
++		hw_comp_cons = le16_to_cpu(*rxq->hw_cons_ptr);
++		sw_comp_cons = qed_chain_get_cons_idx(&rxq->rx_comp_ring);
++
++		/* Memory barrier to prevent the CPU from doing speculative
++		 * reads of CQE/BD before reading hw_comp_cons. If the CQE is
++		 * read before it is written by FW, then FW writes CQE and SB,
++		 * and then the CPU reads the hw_comp_cons, it will use an old
++		 * CQE.
++		 */
++		rmb();
++
++		/* Get the CQE from the completion ring */
++		cqe = (union eth_rx_cqe *)qed_chain_consume(&rxq->rx_comp_ring);
++
++		/* Get the data from the SW ring */
++		sw_rx_index = rxq->sw_rx_cons & NUM_RX_BDS_MAX;
++		sw_rx_data = &rxq->sw_rx_ring[sw_rx_index];
++		fp_cqe = &cqe->fast_path_regular;
++		len =  le16_to_cpu(fp_cqe->len_on_first_bd);
++		data_ptr = (u8 *)(page_address(sw_rx_data->data) +
++				  fp_cqe->placement_offset +
++				  sw_rx_data->page_offset);
++		if (ether_addr_equal(data_ptr,  edev->ndev->dev_addr) &&
++		    ether_addr_equal(data_ptr + ETH_ALEN,
++				     edev->ndev->dev_addr)) {
++			for (i = ETH_HLEN; i < len; i++)
++				if (data_ptr[i] != (unsigned char)(i & 0xff)) {
++					rc = -1;
++					break;
++				}
++
++			qede_recycle_rx_bd_ring(rxq, edev, 1);
++			qed_chain_recycle_consumed(&rxq->rx_comp_ring);
+ 			break;
+-		usleep_range(100, 200);
++		}
++
++		DP_INFO(edev, "Not the transmitted packet\n");
++		qede_recycle_rx_bd_ring(rxq, edev, 1);
++		qed_chain_recycle_consumed(&rxq->rx_comp_ring);
+ 	}
  
+-	if (!qede_has_rx_work(rxq)) {
++	if (i == QEDE_SELFTEST_POLL_COUNT) {
+ 		DP_NOTICE(edev, "Failed to receive the traffic\n");
+ 		return -1;
+ 	}
+ 
+-	hw_comp_cons = le16_to_cpu(*rxq->hw_cons_ptr);
+-	sw_comp_cons = qed_chain_get_cons_idx(&rxq->rx_comp_ring);
+-
+-	/* Memory barrier to prevent the CPU from doing speculative reads of CQE
+-	 * / BD before reading hw_comp_cons. If the CQE is read before it is
+-	 * written by FW, then FW writes CQE and SB, and then the CPU reads the
+-	 * hw_comp_cons, it will use an old CQE.
+-	 */
+-	rmb();
+-
+-	/* Get the CQE from the completion ring */
+-	cqe = (union eth_rx_cqe *)qed_chain_consume(&rxq->rx_comp_ring);
+-
+-	/* Get the data from the SW ring */
+-	sw_rx_index = rxq->sw_rx_cons & NUM_RX_BDS_MAX;
+-	sw_rx_data = &rxq->sw_rx_ring[sw_rx_index];
+-	fp_cqe = &cqe->fast_path_regular;
+-	len =  le16_to_cpu(fp_cqe->len_on_first_bd);
+-	data_ptr = (u8 *)(page_address(sw_rx_data->data) +
+-		     fp_cqe->placement_offset + sw_rx_data->page_offset);
+-	for (i = ETH_HLEN; i < len; i++)
+-		if (data_ptr[i] != (unsigned char)(i & 0xff)) {
+-			DP_NOTICE(edev, "Loopback test failed\n");
+-			qede_recycle_rx_bd_ring(rxq, edev, 1);
+-			return -1;
+-		}
+-
+-	qede_recycle_rx_bd_ring(rxq, edev, 1);
++	qede_update_rx_prod(edev, rxq);
+ 
+-	return 0;
++	return rc;
+ }
+ 
+ static int qede_selftest_run_loopback(struct qede_dev *edev, u32 loopback_mode)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 343038c..da8ef69 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -943,8 +943,7 @@ static inline int qede_realloc_rx_buffer(struct qede_dev *edev,
+ 	return 0;
+ }
+ 
+-static inline void qede_update_rx_prod(struct qede_dev *edev,
+-				       struct qede_rx_queue *rxq)
++void qede_update_rx_prod(struct qede_dev *edev, struct qede_rx_queue *rxq)
+ {
+ 	u16 bd_prod = qed_chain_get_prod_idx(&rxq->rx_bd_ring);
+ 	u16 cqe_prod = qed_chain_get_prod_idx(&rxq->rx_comp_ring);
 -- 
 1.8.3.1
