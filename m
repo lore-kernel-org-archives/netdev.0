@@ -1,120 +1,75 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/13] Netfilter fixes for net
-Date: Fri, 21 Oct 2016 12:12:10 +0200
-Message-ID: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/13] netfilter: xt_hashlimit: Add missing ULL suffixes for 64-bit constants
+Date: Fri, 21 Oct 2016 12:12:11 +0200
+Message-ID: <1477044743-18948-2-git-send-email-pablo@netfilter.org>
+References: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:36284 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754853AbcJUKMn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Oct 2016 06:12:43 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id C5AD626E0D
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:41 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B2C6DBAC30
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:41 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 0EB33BAC27
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:36 +0200 (CEST)
+In-Reply-To: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Geert Uytterhoeven <geert@linux-m68k.org>
 
-The following patchset contains Netfilter fixes for your net tree,
-they are:
+On 32-bit (e.g. with m68k-linux-gnu-gcc-4.1):
 
-1) Fix compilation warning in xt_hashlimit on m68k 32-bits, from
-   Geert Uytterhoeven.
+    net/netfilter/xt_hashlimit.c: In function ‘user2credits’:
+    net/netfilter/xt_hashlimit.c:476: warning: integer constant is too large for ‘long’ type
+    ...
+    net/netfilter/xt_hashlimit.c:478: warning: integer constant is too large for ‘long’ type
+    ...
+    net/netfilter/xt_hashlimit.c:480: warning: integer constant is too large for ‘long’ type
+    ...
 
-2) Fix wrong timeout in set elements added from packet path via
-   nft_dynset, from Anders K. Pedersen.
+    net/netfilter/xt_hashlimit.c: In function ‘rateinfo_recalc’:
+    net/netfilter/xt_hashlimit.c:513: warning: integer constant is too large for ‘long’ type
 
-3) Remove obsolete nf_conntrack_events_retry_timeout sysctl
-   documentation, from Nicolas Dichtel.
+Fixes: 11d5f15723c9f39d ("netfilter: xt_hashlimit: Create revision 2 to support higher pps rates")
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Vishwanath Pai <vpai@akamai.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/xt_hashlimit.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-4) Ensure proper initialization of log flags via xt_LOG, from
-   Liping Zhang.
-
-5) Missing alias to autoload ipcomp, also from Liping Zhang.
-
-6) Missing NFTA_HASH_OFFSET attribute validation, again from Liping.
-
-7) Wrong integer type in the new nft_parse_u32_check() function,
-   from Dan Carpenter.
-
-8) Another wrong integer type declaration in nft_exthdr_init, also
-   from Dan Carpenter.
-
-9) Fix insufficient mode validation in nft_range.
-
-10) Fix compilation warning in nft_range due to possible uninitialized
-    value, from Arnd Bergmann.
-
-11) Zero nf_hook_ops allocated via xt_hook_alloc() in x_tables to
-    calm down kmemcheck, from Florian Westphal.
-
-12) Schedule gc_worker() to run again if GC_MAX_EVICTS quota is reached,
-    from Nicolas Dichtel.
-
-13) Fix nf_queue() after conversion to single-linked hook list, related
-    to incorrect bypass flag handling and incorrect hook point of
-    reinjection.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 6d3a4c404648e415e7d96e285d723936d4df7ed0:
-
-  strparser: Propagate correct error code in strp_recv() (2016-10-12 01:51:49 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to 7034b566a4e7d550621c2dfafd380b77b3787cd9:
-
-  netfilter: fix nf_queue handling (2016-10-20 19:59:59 +0200)
-
-----------------------------------------------------------------
-Anders K. Pedersen (1):
-      netfilter: nft_dynset: fix element timeout for HZ != 1000
-
-Arnd Bergmann (1):
-      netfilter: nf_tables: avoid uninitialized variable warning
-
-Dan Carpenter (2):
-      netfilter: nf_tables: underflow in nft_parse_u32_check()
-      netfilter: nft_exthdr: fix error handling in nft_exthdr_init()
-
-Florian Westphal (1):
-      netfilter: x_tables: suppress kmemcheck warning
-
-Geert Uytterhoeven (1):
-      netfilter: xt_hashlimit: Add missing ULL suffixes for 64-bit constants
-
-Liping Zhang (3):
-      netfilter: xt_NFLOG: fix unexpected truncated packet
-      netfilter: xt_ipcomp: add "ip[6]t_ipcomp" module alias name
-      netfilter: nft_hash: add missing NFTA_HASH_OFFSET's nla_policy
-
-Nicolas Dichtel (2):
-      netfilter: conntrack: remove obsolete sysctl (nf_conntrack_events_retry_timeout)
-      netfilter: conntrack: restart gc immediately if GC_MAX_EVICTS is reached
-
-Pablo Neira Ayuso (2):
-      netfilter: nft_range: validate operation netlink attribute
-      netfilter: fix nf_queue handling
-
- Documentation/networking/nf_conntrack-sysctl.txt | 18 ---------
- net/netfilter/core.c                             | 13 ++-----
- net/netfilter/nf_conntrack_core.c                |  2 +-
- net/netfilter/nf_internals.h                     |  2 +-
- net/netfilter/nf_queue.c                         | 48 ++++++++++++++++--------
- net/netfilter/nf_tables_api.c                    |  2 +-
- net/netfilter/nft_dynset.c                       |  6 ++-
- net/netfilter/nft_exthdr.c                       |  3 +-
- net/netfilter/nft_hash.c                         |  1 +
- net/netfilter/nft_range.c                        | 26 +++++++++----
- net/netfilter/x_tables.c                         |  2 +-
- net/netfilter/xt_NFLOG.c                         |  1 +
- net/netfilter/xt_hashlimit.c                     |  4 +-
- net/netfilter/xt_ipcomp.c                        |  2 +
- 14 files changed, 70 insertions(+), 60 deletions(-)
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 2fab0c65aa94..b89b688e9d01 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -431,7 +431,7 @@ static void htable_put(struct xt_hashlimit_htable *hinfo)
+    CREDITS_PER_JIFFY*HZ*60*60*24 < 2^32 ie.
+ */
+ #define MAX_CPJ_v1 (0xFFFFFFFF / (HZ*60*60*24))
+-#define MAX_CPJ (0xFFFFFFFFFFFFFFFF / (HZ*60*60*24))
++#define MAX_CPJ (0xFFFFFFFFFFFFFFFFULL / (HZ*60*60*24))
+ 
+ /* Repeated shift and or gives us all 1s, final shift and add 1 gives
+  * us the power of 2 below the theoretical max, so GCC simply does a
+@@ -473,7 +473,7 @@ static u64 user2credits(u64 user, int revision)
+ 		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
+ 				 XT_HASHLIMIT_SCALE);
+ 	} else {
+-		if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
++		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
+ 			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
+ 				* HZ * CREDITS_PER_JIFFY;
+ 
+-- 
+2.1.4
