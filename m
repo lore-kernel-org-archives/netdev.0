@@ -1,41 +1,72 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] ipv6: do not increment mac header when it's unset
-Date: Fri, 21 Oct 2016 17:39:54 +0900
-Message-ID: <20161021083954.20941-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, pageexec@gmail.com,
-        re.emese@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:41301 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752915AbcJUIkL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 04:40:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: remove MTU limits on a few ether_setup callers
+Date: Fri, 21 Oct 2016 10:44:41 +0200
+Message-ID: <20161021084441.GC16974@lunn.ch>
+References: <20161021032527.12954-1-jarod@redhat.com>
+ <ebcdfc7f-5d91-c64f-19f4-99f58614caae@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>,
+        R Parameswaran <parameswaran.r7@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ebcdfc7f-5d91-c64f-19f4-99f58614caae@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Otherwise we'll overflow the integer. This occurs when layer 3 tunneled
-packets are handed off to the IPv6 layer.
+On Thu, Oct 20, 2016 at 08:42:46PM -0700, Florian Fainelli wrote:
+> Le 20/10/2016 à 20:25, Jarod Wilson a écrit :
+> > These few drivers call ether_setup(), but have no ndo_change_mtu, and thus
+> > were overlooked for changes to MTU range checking behavior. They
+> > previously had no range checks, so for feature-parity, set their min_mtu
+> > to 0 and max_mtu to ETH_MAX_MTU (65535), instead of the 68 and 1500
+> > inherited from the ether_setup() changes. Fine-tuning can come after we get
+> > back to full feature-parity here.
+> > 
+> > CC: netdev@vger.kernel.org
+> > Reported-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> > CC: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> > CC: R Parameswaran <parameswaran.r7@gmail.com>
+> > Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> > ---
+> 
+> > diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> > index 68714a5..d0c7bce 100644
+> > --- a/net/dsa/slave.c
+> > +++ b/net/dsa/slave.c
+> > @@ -1247,6 +1247,8 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+> >  	slave_dev->priv_flags |= IFF_NO_QUEUE;
+> >  	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
+> >  	slave_dev->switchdev_ops = &dsa_slave_switchdev_ops;
+> > +	slave_dev->min_mtu = 0;
+> > +	slave_dev->max_mtu = ETH_MAX_MTU;
+> >  	SET_NETDEV_DEVTYPE(slave_dev, &dsa_type);
+> 
+> Actually for DSA, a reasonable minimum is probably 68 for the following
+> reasons: ETH_ZLEN of 60 bytes + FCS (4 bytes) + 2/4/8 bytes of
+> Ethernet switch tag (which is dependent on the tagging protocol
+> used).
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- net/ipv6/reassembly.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Humm, isn't the switch tag added by the layer below this? So this
+should be - 2/4/8 bytes, so that the assembled frame that actually
+hits the conduit interface has an MTU of 64.
 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index e2ea311..431d69d 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -456,7 +456,8 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 	skb_network_header(head)[nhoff] = skb_transport_header(head)[0];
- 	memmove(head->head + sizeof(struct frag_hdr), head->head,
- 		(head->data - head->head) - sizeof(struct frag_hdr));
--	head->mac_header += sizeof(struct frag_hdr);
-+	if (skb_mac_header_was_set(skb))
-+		head->mac_header += sizeof(struct frag_hdr);
- 	head->network_header += sizeof(struct frag_hdr);
- 
- 	skb_reset_transport_header(head);
--- 
-2.10.1
+> Such an Ethernet interface would submit packets through the conduit
+> interface which is connected to an Ethernet switches, and those
+> typically discard packets smaller than 64 bytes +/- their custom tag
+> length.
+
+I have a purely theoretical observation, i.e. i have not checked the
+datasheets. You can also control some of the Marvell switches by
+sending it ethernet frames containing commands. Most commands are 4
+bytes long. So an Ethernet header + 4 bytes is < 64. I expect the
+switch will accept command frames which are padded to stop them being
+runts. Also, such frames will be submitted to the conduit interface,
+not the slave interface.
+
+    Andrew
