@@ -1,46 +1,53 @@
-From: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] net: skip genenerating uevents for network namespaces
-	that are exiting
-Date: Thu, 20 Oct 2016 22:25:08 -0700
-Message-ID: <CANaxB-zo4YW7o-Ebe08B_L_f8Wyp6tMWc-rBRt8-4sSc1Y=tgg@mail.gmail.com>
-References: <1477017986-18889-1-git-send-email-avagin@openvz.org>
-	<CAM_iQpVA=W3su_a3OUVSD+19A72TMANnCX4dt9UyLOmVoRuBjQ@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] kexec: Export kexec_in_progress to modules
+Date: Fri, 21 Oct 2016 00:26:55 -0500
+Message-ID: <871szagtls.fsf@xmission.com>
+References: <1477012516-20470-1-git-send-email-f.fainelli@gmail.com>
+        <20161020.215410.650162338407203719.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CAM_iQpVA=W3su_a3OUVSD+19A72TMANnCX4dt9UyLOmVoRuBjQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        kexec@lists.infradead.org, linux-kernel@vger.kernel.org,
+        sfr@canb.auug.org.au
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161020.215410.650162338407203719.davem@davemloft.net> (David
+        Miller's message of "Thu, 20 Oct 2016 21:54:10 -0400 (EDT)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 8:10 PM, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Thu, Oct 20, 2016 at 7:46 PM, Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
->> No one can see these events, because a network namespace can not be
->> destroyed, if it has sockets.
->>
+David Miller <davem@davemloft.net> writes:
+
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Thu, 20 Oct 2016 18:15:16 -0700
 >
-> Are you sure? kobject_uevent_env() seems sending uevents to all
-> network namespaces.
+>> The bcm_sf2 driver uses kexec_in_progress to know whether it can power
+>> down an integrated PHY during shutdown, and can be built as a module.
+>> Other modules may be using this in the future, so export it.
+>> 
+>> Fixes: 2399d6143f85 ("net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd kernels")
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>> Eric, David, Stephen,
+>> 
+>> The offending commit is in David's net.git tree, so it would probably make
+>> sense to route the fix through the same tree.
+>
+> Ok, I'll apply this, thanks Florian.
 
-kobj_bcast_filter() checks that a kobject namespace is equal to a
-socket namespace.
+Florian
 
+I am completely confused why any driver would want to do this.
 
-> _______________________________________________
-> Containers mailing list
-> Containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-> https://lists.linuxfoundation.org/mailman/listinfo/containers
+A reboot is semantically identical to a kexec restart.  Always has been.
+That is pwoering down your hardware during reboot is not safe.
+
+The only thing that might save you is the hardware reset line being
+toggled at which point your hardware is powered up again anyway.
+
+So as far as I can tell you are advocating for a change to support a
+driver doing something that is completely pointless.  So no let's not
+export this symbol.  Please fix the driver to do something less
+pointless instead.
+
+Eric
