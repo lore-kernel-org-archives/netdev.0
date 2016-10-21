@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/13] netfilter: conntrack: remove obsolete sysctl (nf_conntrack_events_retry_timeout)
-Date: Fri, 21 Oct 2016 12:12:13 +0200
-Message-ID: <1477044743-18948-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/13] netfilter: nft_range: validate operation netlink attribute
+Date: Fri, 21 Oct 2016 12:12:19 +0200
+Message-ID: <1477044743-18948-10-git-send-email-pablo@netfilter.org>
 References: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,47 +10,50 @@ In-Reply-To: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Use nft_parse_u32_check() to make sure we don't get a value over the
+unsigned 8-bit integer. Moreover, make sure this value doesn't go over
+the two supported range comparison modes.
 
-This entry has been removed in commit 9500507c6138.
-
-Fixes: 9500507c6138 ("netfilter: conntrack: remove timer from ecache extension")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Acked-by: Florian Westphal <fw@strlen.de>
+Fixes: 9286c2eb1fda ("netfilter: nft_range: validate operation netlink attribute")
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- Documentation/networking/nf_conntrack-sysctl.txt | 18 ------------------
- 1 file changed, 18 deletions(-)
+ net/netfilter/nft_range.c | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/networking/nf_conntrack-sysctl.txt b/Documentation/networking/nf_conntrack-sysctl.txt
-index 4fb51d32fccc..399e4e866a9c 100644
---- a/Documentation/networking/nf_conntrack-sysctl.txt
-+++ b/Documentation/networking/nf_conntrack-sysctl.txt
-@@ -33,24 +33,6 @@ nf_conntrack_events - BOOLEAN
- 	If this option is enabled, the connection tracking code will
- 	provide userspace with connection tracking events via ctnetlink.
+diff --git a/net/netfilter/nft_range.c b/net/netfilter/nft_range.c
+index c6d5358482d1..9bc4586c3006 100644
+--- a/net/netfilter/nft_range.c
++++ b/net/netfilter/nft_range.c
+@@ -59,6 +59,7 @@ static int nft_range_init(const struct nft_ctx *ctx, const struct nft_expr *expr
+ 	struct nft_range_expr *priv = nft_expr_priv(expr);
+ 	struct nft_data_desc desc_from, desc_to;
+ 	int err;
++	u32 op;
  
--nf_conntrack_events_retry_timeout - INTEGER (seconds)
--	default 15
--
--	This option is only relevant when "reliable connection tracking
--	events" are used.  Normally, ctnetlink is "lossy", that is,
--	events are normally dropped when userspace listeners can't keep up.
--
--	Userspace can request "reliable event mode".  When this mode is
--	active, the conntrack will only be destroyed after the event was
--	delivered.  If event delivery fails, the kernel periodically
--	re-tries to send the event to userspace.
--
--	This is the maximum interval the kernel should use when re-trying
--	to deliver the destroy event.
--
--	A higher number means there will be fewer delivery retries and it
--	will take longer for a backlog to be processed.
--
- nf_conntrack_expect_max - INTEGER
- 	Maximum size of expectation table.  Default value is
- 	nf_conntrack_buckets / 256. Minimum is 1.
+ 	err = nft_data_init(NULL, &priv->data_from, sizeof(priv->data_from),
+ 			    &desc_from, tb[NFTA_RANGE_FROM_DATA]);
+@@ -80,7 +81,20 @@ static int nft_range_init(const struct nft_ctx *ctx, const struct nft_expr *expr
+ 	if (err < 0)
+ 		goto err2;
+ 
+-	priv->op  = ntohl(nla_get_be32(tb[NFTA_RANGE_OP]));
++	err = nft_parse_u32_check(tb[NFTA_RANGE_OP], U8_MAX, &op);
++	if (err < 0)
++		goto err2;
++
++	switch (op) {
++	case NFT_RANGE_EQ:
++	case NFT_RANGE_NEQ:
++		break;
++	default:
++		err = -EINVAL;
++		goto err2;
++	}
++
++	priv->op  = op;
+ 	priv->len = desc_from.len;
+ 	return 0;
+ err2:
 -- 
 2.1.4
 
