@@ -1,77 +1,46 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net: saving irq context for peernet2id()
-Date: Thu, 20 Oct 2016 21:47:42 -0700
-Message-ID: <CAM_iQpUHoJP6b+qj6CEq7TjXWKuhZpAVGv-MuXGx9D7fUNGTxw@mail.gmail.com>
-References: <1476946352-15770-1-git-send-email-xiyou.wangcong@gmail.com>
- <2707c52d-88ec-7b93-f96e-eeaffc952c9c@tycho.nsa.gov> <CAM_iQpWD3WiX1ZX+3LJ8vbJc42K1jZcZ4-f6MO5kzZY-+Szkqw@mail.gmail.com>
- <CAHC9VhSronk914-0QZd7cPBEAOvSzN++Umc=_aueeCuOB9iG8Q@mail.gmail.com> <CAM_iQpVFWzUm2BJZUs+-LWpKA8kubuKhzyE01_V69TEsrFnm-Q@mail.gmail.com>
+From: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] net: skip genenerating uevents for network namespaces
+	that are exiting
+Date: Thu, 20 Oct 2016 22:25:08 -0700
+Message-ID: <CANaxB-zo4YW7o-Ebe08B_L_f8Wyp6tMWc-rBRt8-4sSc1Y=tgg@mail.gmail.com>
+References: <1477017986-18889-1-git-send-email-avagin@openvz.org>
+	<CAM_iQpVA=W3su_a3OUVSD+19A72TMANnCX4dt9UyLOmVoRuBjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Smalley <sds@tycho.nsa.gov>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Elad Raz <e@eladraz.com>, Richard Guy Briggs <rgb@redhat.com>
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:33754 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751259AbcJUEsI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 00:48:08 -0400
-Received: by mail-it0-f67.google.com with SMTP id k64so9432280itb.0
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2016 21:48:08 -0700 (PDT)
-In-Reply-To: <CAM_iQpVFWzUm2BJZUs+-LWpKA8kubuKhzyE01_V69TEsrFnm-Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CAM_iQpVA=W3su_a3OUVSD+19A72TMANnCX4dt9UyLOmVoRuBjQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 4:35 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Since you want to test SELinux anyway, please test the attached one.
+On Thu, Oct 20, 2016 at 8:10 PM, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Thu, Oct 20, 2016 at 7:46 PM, Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
+>> No one can see these events, because a network namespace can not be
+>> destroyed, if it has sockets.
+>>
 >
+> Are you sure? kobject_uevent_env() seems sending uevents to all
+> network namespaces.
 
-Finally my kernel config is friendly to SELinux, and now there are several
-tests fails:
-
-
-Test Summary Report
--------------------
-sysctl/test           (Wstat: 0 Tests: 4 Failed: 2)
-  Failed tests:  1-2
-mmap/test             (Wstat: 0 Tests: 44 Failed: 2)
-  Failed tests:  20, 26
-overlay/test          (Wstat: 65280 Tests: 0 Failed: 0)
-  Non-zero exit status: 255
-  Parse errors: Bad plan.  You planned 121 tests but ran 0.
-Files=44, Tests=306, 47 wallclock secs ( 0.23 usr  0.30 sys +  1.00
-cusr  7.35 csys =  8.88 CPU)
-Result: FAIL
-
-Seems not related to my patch?
-
-And, there is a kernel warning which is totally unrelated to my code:
+kobj_bcast_filter() checks that a kobject namespace is equal to a
+socket namespace.
 
 
-[  136.788836] ------------[ cut here ]------------
-[  136.793046] WARNING: CPU: 1 PID: 1345 at fs/locks.c:615
-locks_unlink_lock_ctx+0xc7/0xcc
-[  136.799829] CPU: 1 PID: 1345 Comm: test_lease Not tainted 4.8.0+ #271
-[  136.803814] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  136.803814]  ffffc900036bfd38 ffffffff8152c08e 0000000000000000
-0000000000000000
-[  136.803814]  ffffc900036bfd78 ffffffff810841c0 00000267036bfc88
-ffff8800db2371e8
-[  136.803814]  ffff8800db26f4c0 ffffc900036bfe00 ffffc900036bfe00
-ffff8800db239240
-[  136.803814] Call Trace:
-[  136.803814]  [<ffffffff8152c08e>] dump_stack+0x67/0x90
-[  136.803814]  [<ffffffff810841c0>] __warn+0xbd/0xd8
-[  136.803814]  [<ffffffff81084297>] warn_slowpath_null+0x1d/0x1f
-[  136.803814]  [<ffffffff8121b9cb>] locks_unlink_lock_ctx+0xc7/0xcc
-[  136.803814]  [<ffffffff8121bd9e>] locks_delete_lock_ctx+0x17/0x3a
-[  136.803814]  [<ffffffff8121be71>] lease_modify+0xb0/0xb9
-[  136.803814]  [<ffffffff8121e868>] locks_remove_file+0x93/0xbd
-[  136.803814]  [<ffffffff811d903d>] __fput+0xd0/0x19b
-[  136.803814]  [<ffffffff811d913e>] ____fput+0xe/0x10
-[  136.803814]  [<ffffffff8109ff86>] task_work_run+0x6c/0x97
-[  136.803814]  [<ffffffff8100188a>] prepare_exit_to_usermode+0xb0/0xcc
-[  136.803814]  [<ffffffff81001a04>] syscall_return_slowpath+0x15e/0x1c2
-[  136.803814]  [<ffffffff81001ad7>] do_syscall_64+0x6f/0x76
-[  136.803814]  [<ffffffff81b22424>] entry_SYSCALL64_slow_path+0x25/0x25
-[  138.538370] ---[ end trace 90914a16bd3272b8 ]---
+> _______________________________________________
+> Containers mailing list
+> Containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+> https://lists.linuxfoundation.org/mailman/listinfo/containers
