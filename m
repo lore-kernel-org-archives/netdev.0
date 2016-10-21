@@ -1,122 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v2 6/9] net: use core MTU range checking in virt
-	drivers
-Date: Fri, 21 Oct 2016 06:36:25 +0300
-Message-ID: <20161021063505-mutt-send-email-mst@kernel.org>
-References: <20161019023333.15760-1-jarod@redhat.com>
-	<20161020175524.6184-1-jarod@redhat.com>
-	<20161020175524.6184-7-jarod@redhat.com>
-	<20161020231559-mutt-send-email-mst@kernel.org>
-	<20161021023720.GA11396@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: remove MTU limits on a few ether_setup callers
+Date: Thu, 20 Oct 2016 20:42:46 -0700
+Message-ID: <ebcdfc7f-5d91-c64f-19f4-99f58614caae@gmail.com>
+References: <20161021032527.12954-1-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Aaron Conole <aconole@bytheb.org>,
-	David Kershner <david.kershner@unisys.com>,
-	Wei Liu <wei.liu2@citrix.com>, "VMware,
-	Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
-	Haiyang Zhang <haiyangz@microsoft.com>, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Paul Durrant <paul.durrant@citrix.com>,
-	Shrikrishna Khare <skhare@vmware.com>
-To: Jarod Wilson <jarod@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20161021023720.GA11396@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+        Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>,
+        R Parameswaran <parameswaran.r7@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161021032527.12954-1-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2016 at 10:37:20PM -0400, Jarod Wilson wrote:
-> On Thu, Oct 20, 2016 at 11:23:54PM +0300, Michael S. Tsirkin wrote:
-> > On Thu, Oct 20, 2016 at 01:55:21PM -0400, Jarod Wilson wrote:
-> ...
-> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > > index fad84f3..720809f 100644
-> > > --- a/drivers/net/virtio_net.c
-> > > +++ b/drivers/net/virtio_net.c
-> > > @@ -1419,17 +1419,6 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
-> > >  	.set_settings = virtnet_set_settings,
-> > >  };
-> > >  
-> > > -#define MIN_MTU 68
-> > > -#define MAX_MTU 65535
-> > > -
-> > > -static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
-> > > -{
-> > > -	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
-> > > -		return -EINVAL;
-> > > -	dev->mtu = new_mtu;
-> > > -	return 0;
-> > > -}
-> > > -
-> > >  static const struct net_device_ops virtnet_netdev = {
-> > >  	.ndo_open            = virtnet_open,
-> > >  	.ndo_stop   	     = virtnet_close,
-> > > @@ -1437,7 +1426,6 @@ static const struct net_device_ops virtnet_netdev = {
-> > >  	.ndo_validate_addr   = eth_validate_addr,
-> > >  	.ndo_set_mac_address = virtnet_set_mac_address,
-> > >  	.ndo_set_rx_mode     = virtnet_set_rx_mode,
-> > > -	.ndo_change_mtu	     = virtnet_change_mtu,
-> > >  	.ndo_get_stats64     = virtnet_stats,
-> > >  	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
-> > >  	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
-> > > @@ -1748,6 +1736,9 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
-> > >  	return true;
-> > >  }
-> > >  
-> > > +#define MIN_MTU ETH_MIN_MTU
-> > > +#define MAX_MTU ETH_MAX_MTU
-> > > +
-> > 
-> > Can we drop these btw?
+Le 20/10/2016 à 20:25, Jarod Wilson a écrit :
+> These few drivers call ether_setup(), but have no ndo_change_mtu, and thus
+> were overlooked for changes to MTU range checking behavior. They
+> previously had no range checks, so for feature-parity, set their min_mtu
+> to 0 and max_mtu to ETH_MAX_MTU (65535), instead of the 68 and 1500
+> inherited from the ether_setup() changes. Fine-tuning can come after we get
+> back to full feature-parity here.
 > 
-> Bah. Yeah. Should have just used them directly. I didn't add ETH_MAX_MTU
-> until after doing the virtio_net changes, so I missed that.
-> 
-> > >  static int virtnet_probe(struct virtio_device *vdev)
-> > >  {
-> > >  	int i, err;
-> > > @@ -1821,6 +1812,10 @@ static int virtnet_probe(struct virtio_device *vdev)
-> > >  
-> > >  	dev->vlan_features = dev->features;
-> > >  
-> > > +	/* MTU range: 68 - 65535 */
-> > > +	dev->min_mtu = MIN_MTU;
-> > > +	dev->max_mtu = MAX_MTU;
-> > > +
-> > >  	/* Configuration may specify what MAC to use.  Otherwise random. */
-> > >  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
-> > >  		virtio_cread_bytes(vdev,
-> > > @@ -1875,8 +1870,10 @@ static int virtnet_probe(struct virtio_device *vdev)
-> > >  		mtu = virtio_cread16(vdev,
-> > >  				     offsetof(struct virtio_net_config,
-> > >  					      mtu));
-> > > -		if (virtnet_change_mtu(dev, mtu))
-> > > +		if (mtu < dev->min_mtu || mtu > dev->max_mtu)
-> > 
-> > In fact the > max_mtu branch does not make sense since a 16 bit
-> > value can't exceed MAX_MTU.
-> 
-> Hm. mtu is declared as an int, not sure if there's any sort of type
-> promotion to be worried about (not an area I know much/anything about).
+> CC: netdev@vger.kernel.org
+> Reported-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> CC: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+> CC: R Parameswaran <parameswaran.r7@gmail.com>
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
 
-Not by design, that's for sure.
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 68714a5..d0c7bce 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -1247,6 +1247,8 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+>  	slave_dev->priv_flags |= IFF_NO_QUEUE;
+>  	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
+>  	slave_dev->switchdev_ops = &dsa_slave_switchdev_ops;
+> +	slave_dev->min_mtu = 0;
+> +	slave_dev->max_mtu = ETH_MAX_MTU;
+>  	SET_NETDEV_DEVTYPE(slave_dev, &dsa_type);
 
-> Certainly something that could be looked into as a minor optimization,
-> though it's only in a probe path and shouldn't hurt anything, so ... meh?
+Actually for DSA, a reasonable minimum is probably 68 for the following
+reasons: ETH_ZLEN of 60 bytes + FCS (4 bytes) + 2/4/8 bytes of Ethernet
+switch tag (which is dependent on the tagging protocol used). Such an
+Ethernet interface would submit packets through the conduit interface
+which is connected to an Ethernet switches, and those typically discard
+packets smaller than 64 bytes +/- their custom tag length.
 
-Right. Aaron said he's working on a patch that essentially does
-dev->max_mtu = mtu after validation, so this part will look
-a bit silly there.
-
-> -- 
-> Jarod Wilson
-> jarod@redhat.com
+One driver for sure pads the packets to the appropriate length:
+bcmsysport, but I don't know about e1000e or e.g: mv643xx_eth which are
+also commonly used for the same purposes.
+-- 
+Florian
