@@ -1,75 +1,53 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/13] netfilter: xt_hashlimit: Add missing ULL suffixes for 64-bit constants
-Date: Fri, 21 Oct 2016 12:12:11 +0200
-Message-ID: <1477044743-18948-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/13] netfilter: conntrack: restart gc immediately if GC_MAX_EVICTS is reached
+Date: Fri, 21 Oct 2016 12:12:22 +0200
+Message-ID: <1477044743-18948-13-git-send-email-pablo@netfilter.org>
 References: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36284 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:36318 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754853AbcJUKMn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 06:12:43 -0400
+        id S1754916AbcJUKMr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Oct 2016 06:12:47 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id C5AD626E0D
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:41 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 969F026E20
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:46 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B2C6DBAC30
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:41 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 86B10DA84E
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:46 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 0EB33BAC27
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:36 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 16F0CDA858
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 12:12:44 +0200 (CEST)
 In-Reply-To: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-On 32-bit (e.g. with m68k-linux-gnu-gcc-4.1):
+When the maximum evictions number is reached, do not wait 5 seconds before
+the next run.
 
-    net/netfilter/xt_hashlimit.c: In function ‘user2credits’:
-    net/netfilter/xt_hashlimit.c:476: warning: integer constant is too large for ‘long’ type
-    ...
-    net/netfilter/xt_hashlimit.c:478: warning: integer constant is too large for ‘long’ type
-    ...
-    net/netfilter/xt_hashlimit.c:480: warning: integer constant is too large for ‘long’ type
-    ...
-
-    net/netfilter/xt_hashlimit.c: In function ‘rateinfo_recalc’:
-    net/netfilter/xt_hashlimit.c:513: warning: integer constant is too large for ‘long’ type
-
-Fixes: 11d5f15723c9f39d ("netfilter: xt_hashlimit: Create revision 2 to support higher pps rates")
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Vishwanath Pai <vpai@akamai.com>
+CC: Florian Westphal <fw@strlen.de>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Acked-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_hashlimit.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 2fab0c65aa94..b89b688e9d01 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -431,7 +431,7 @@ static void htable_put(struct xt_hashlimit_htable *hinfo)
-    CREDITS_PER_JIFFY*HZ*60*60*24 < 2^32 ie.
- */
- #define MAX_CPJ_v1 (0xFFFFFFFF / (HZ*60*60*24))
--#define MAX_CPJ (0xFFFFFFFFFFFFFFFF / (HZ*60*60*24))
-+#define MAX_CPJ (0xFFFFFFFFFFFFFFFFULL / (HZ*60*60*24))
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index ba6a1d421222..df2f5a3901df 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -983,7 +983,7 @@ static void gc_worker(struct work_struct *work)
+ 		return;
  
- /* Repeated shift and or gives us all 1s, final shift and add 1 gives
-  * us the power of 2 below the theoretical max, so GCC simply does a
-@@ -473,7 +473,7 @@ static u64 user2credits(u64 user, int revision)
- 		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
- 				 XT_HASHLIMIT_SCALE);
- 	} else {
--		if (user > 0xFFFFFFFFFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
-+		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
- 			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
- 				* HZ * CREDITS_PER_JIFFY;
+ 	ratio = scanned ? expired_count * 100 / scanned : 0;
+-	if (ratio >= 90)
++	if (ratio >= 90 || expired_count == GC_MAX_EVICTS)
+ 		next_run = 0;
  
+ 	gc_work->last_bucket = i;
 -- 
 2.1.4
