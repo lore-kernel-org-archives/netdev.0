@@ -1,7 +1,8 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v6 0/3] udp: refactor memory accounting
-Date: Fri, 21 Oct 2016 13:55:44 +0200
-Message-ID: <cover.1477043395.git.pabeni@redhat.com>
+Subject: [PATCH net-next v6 2/3] udp: implement memory accounting helpers
+Date: Fri, 21 Oct 2016 13:55:46 +0200
+Message-ID: <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni@redhat.com>
+References: <cover.1477043395.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         James Morris <jmorris@namei.org>,
         Trond Myklebust <trond.myklebust@primarydata.com>,
@@ -13,68 +14,197 @@ Cc: "David S. Miller" <davem@davemloft.net>,
         Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54992 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52018 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753669AbcJULz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 07:55:57 -0400
+        id S1755085AbcJUL4B (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Oct 2016 07:56:01 -0400
+In-Reply-To: <cover.1477043395.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series refactor the udp memory accounting, replacing the
-generic implementation with a custom one, in order to remove the needs for
-locking the socket on the enqueue and dequeue operations. The socket backlog
-usage is dropped, as well.
+Avoid using the generic helpers.
+Use the receive queue spin lock to protect the memory
+accounting operation, both on enqueue and on dequeue.
 
-The first patch factor out pieces of some queue and memory management
-socket helpers, so that they can later be used by the udp memory accounting
-functions.
-The second patch adds the memory account helpers, without using them.
-The third patch replacse the old rx memory accounting path for udp over ipv4 and
-udp over ipv6. In kernel UDP users are updated, as well.
+On dequeue perform partial memory reclaiming, trying to
+leave a quantum of forward allocated memory.
 
-The memory accounting schema is described in detail in the individual patch
-commit message.
+On enqueue use a custom helper, to allow some optimizations:
+- use a plain spin_lock() variant instead of the slightly
+  costly spin_lock_irqsave(),
+- avoid dst_force check, since the calling code has already
+  dropped the skb dst
+- avoid orphaning the skb, since skb_steal_sock() already did
+  the work for us
 
-The performance gain depends on the specific scenario; with few flows (and
-little contention in the original code) the differences are in the noise range,
-while with several flows contending the same socket, the measured speed-up
-is relevant (e.g. even over 100% in case of extreme contention)
-
-Many thanks to Eric Dumazet for the reiterated reviews and suggestions.
+The above needs custom memory reclaiming on shutdown, provided
+by the udp_destruct_sock().
 
 v5 -> v6:
- - do not orphan the skb on enqueue, skb_steal_sock() already did
-   the work for us
+  - don't orphan the skb on enqueue
 
 v4 -> v5:
- - use the receive queue spin lock to protect the memory accounting
- - several minor clean-up
+  - replace the mem_lock with the receive queue spin lock
+  - ensure that the bh is always allowed to enqueue at least
+    a skb, even if sk_rcvbuf is exceeded
 
 v3 -> v4:
- - simplified the locking schema, always use a plain spinlock
-
-v2 -> v3:
- - do not set the now unsed backlog_rcv callback
+  - reworked memory accunting, simplifying the schema
+  - provide an helper for both memory scheduling and enqueuing
 
 v1 -> v2:
- - changed slighly the memory accounting schema, we now perform lazy reclaim
- - fixed forward_alloc updating issue
- - fixed memory counter integer overflows
+  - use a udp specific destrctor to perform memory reclaiming
+  - remove a couple of helpers, unneeded after the above cleanup
+  - do not reclaim memory on dequeue if not under memory
+    pressure
+  - reworked the fwd accounting schema to avoid potential
+    integer overflow
 
-Paolo Abeni (3):
-  net/socket: factor out helpers for memory and queue manipulation
-  udp: implement memory accounting helpers
-  udp: use it's own memory accounting schema
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/udp.h |   4 +++
+ net/ipv4/udp.c    | 106 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 110 insertions(+)
 
- include/net/sock.h    |   4 ++
- include/net/udp.h     |   4 ++
- net/core/datagram.c   |  36 +++++++-----
- net/core/sock.c       |  64 +++++++++++++++-------
- net/ipv4/udp.c        | 149 ++++++++++++++++++++++++++++++++++++++------------
- net/ipv6/udp.c        |  34 +++---------
- net/sunrpc/svcsock.c  |  20 +++++--
- net/sunrpc/xprtsock.c |   2 +-
- 8 files changed, 214 insertions(+), 99 deletions(-)
-
+diff --git a/include/net/udp.h b/include/net/udp.h
+index ea53a87..18f1e6b 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -246,6 +246,9 @@ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
+ }
+ 
+ /* net/ipv4/udp.c */
++void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len);
++int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb);
++
+ void udp_v4_early_demux(struct sk_buff *skb);
+ int udp_get_port(struct sock *sk, unsigned short snum,
+ 		 int (*saddr_cmp)(const struct sock *,
+@@ -258,6 +261,7 @@ int udp_get_port(struct sock *sk, unsigned short snum,
+ void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst);
+ int udp_rcv(struct sk_buff *skb);
+ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
++int udp_init_sock(struct sock *sk);
+ int udp_disconnect(struct sock *sk, int flags);
+ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait);
+ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 7d96dc2..e137e1d 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1172,6 +1172,112 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ 	return ret;
+ }
+ 
++static void udp_rmem_release(struct sock *sk, int size, int partial)
++{
++	int amt;
++
++	atomic_sub(size, &sk->sk_rmem_alloc);
++
++	spin_lock_bh(&sk->sk_receive_queue.lock);
++	sk->sk_forward_alloc += size;
++	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
++	sk->sk_forward_alloc -= amt;
++	spin_unlock_bh(&sk->sk_receive_queue.lock);
++
++	if (amt)
++		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
++}
++
++static void udp_rmem_free(struct sk_buff *skb)
++{
++	udp_rmem_release(skb->sk, skb->truesize, 1);
++}
++
++int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
++{
++	struct sk_buff_head *list = &sk->sk_receive_queue;
++	int rmem, delta, amt, err = -ENOMEM;
++	int size = skb->truesize;
++
++	/* try to avoid the costly atomic add/sub pair when the receive
++	 * queue is full; always allow at least a packet
++	 */
++	rmem = atomic_read(&sk->sk_rmem_alloc);
++	if (rmem && (rmem + size > sk->sk_rcvbuf))
++		goto drop;
++
++	/* we drop only if the receive buf is full and the receive
++	 * queue contains some other skb
++	 */
++	rmem = atomic_add_return(size, &sk->sk_rmem_alloc);
++	if ((rmem > sk->sk_rcvbuf) && (rmem > size))
++		goto uncharge_drop;
++
++	spin_lock(&list->lock);
++	if (size >= sk->sk_forward_alloc) {
++		amt = sk_mem_pages(size);
++		delta = amt << SK_MEM_QUANTUM_SHIFT;
++		if (!__sk_mem_raise_allocated(sk, delta, amt, SK_MEM_RECV)) {
++			err = -ENOBUFS;
++			spin_unlock(&list->lock);
++			goto uncharge_drop;
++		}
++
++		sk->sk_forward_alloc += delta;
++	}
++
++	sk->sk_forward_alloc -= size;
++
++	/* the skb owner in now the udp socket */
++	skb->sk = sk;
++	skb->destructor = udp_rmem_free;
++	skb->dev = NULL;
++	sock_skb_set_dropcount(sk, skb);
++
++	__skb_queue_tail(list, skb);
++	spin_unlock(&list->lock);
++
++	if (!sock_flag(sk, SOCK_DEAD))
++		sk->sk_data_ready(sk);
++
++	return 0;
++
++uncharge_drop:
++	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
++
++drop:
++	atomic_inc(&sk->sk_drops);
++	return err;
++}
++EXPORT_SYMBOL_GPL(__udp_enqueue_schedule_skb);
++
++static void udp_destruct_sock(struct sock *sk)
++{
++	/* reclaim completely the forward allocated memory */
++	__skb_queue_purge(&sk->sk_receive_queue);
++	udp_rmem_release(sk, 0, 0);
++	inet_sock_destruct(sk);
++}
++
++int udp_init_sock(struct sock *sk)
++{
++	sk->sk_destruct = udp_destruct_sock;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(udp_init_sock);
++
++void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
++{
++	if (unlikely(READ_ONCE(sk->sk_peek_off) >= 0)) {
++		bool slow = lock_sock_fast(sk);
++
++		sk_peek_offset_bwd(sk, len);
++		unlock_sock_fast(sk, slow);
++	}
++	consume_skb(skb);
++}
++EXPORT_SYMBOL_GPL(skb_consume_udp);
++
+ /**
+  *	first_packet_length	- return length of first packet in receive queue
+  *	@sk: socket
 -- 
 1.8.3.1
