@@ -1,59 +1,30 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 2/2] net: dsa: bcm_sf2: Do not rely on kexec_in_progress
-Date: Fri, 21 Oct 2016 14:21:56 -0700
-Message-ID: <1477084916-26327-3-git-send-email-f.fainelli@gmail.com>
-References: <1477084916-26327-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-        ebiederm@xmission.com, kexec@lists.infradead.org,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35133 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935516AbcJUVWH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 17:22:07 -0400
-In-Reply-To: <1477084916-26327-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH 1/2] net: phy: broadcom: Update Auxiliary Control Register
+ macros
+Date: Fri, 21 Oct 2016 14:27:11 -0700
+Message-ID: <24327979-0ff4-c4ed-d1c4-8724c65860b8@gmail.com>
+References: <1477070413-92621-1-git-send-email-xow@google.com>
+ <1477070413-92621-2-git-send-email-xow@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jaedon.shin@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, openbmc@lists.ozlabs.org,
+        joel@jms.id.au
+To: Xo Wang <xow@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477070413-92621-2-git-send-email-xow@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After discussing with Eric, it turns out that, while using
-kexec_in_progress is a nice optimization, which prevents us from always
-powering on the integrated PHY, let's just turn it on in the shutdown
-path.
+On 10/21/2016 10:20 AM, Xo Wang wrote:
+> Add the RXD-to-RXC skew (delay) time bit in the Miscellaneous Control
+> shadow register and a mask for the shadow selector field.
+> 
+> Remove a re-definition of MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL.
+> 
+> Signed-off-by: Xo Wang <xow@google.com>
 
-This removes a dependency on kexec_in_progress which, according to Eric
-should not be used by modules
-
-Fixes: 2399d6143f85 ("net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd kernels")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 077a24541584..e3ee27ce13dd 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -30,7 +30,6 @@
- #include <linux/etherdevice.h>
- #include <net/switchdev.h>
- #include <linux/platform_data/b53.h>
--#include <linux/kexec.h>
- 
- #include "bcm_sf2.h"
- #include "bcm_sf2_regs.h"
-@@ -1141,9 +1140,11 @@ static void bcm_sf2_sw_shutdown(struct platform_device *pdev)
- 	/* For a kernel about to be kexec'd we want to keep the GPHY on for a
- 	 * successful MDIO bus scan to occur. If we did turn off the GPHY
- 	 * before (e.g: port_disable), this will also power it back on.
-+	 *
-+	 * Do not rely on kexec_in_progress, just power the PHY on.
- 	 */
- 	if (priv->hw_params.num_gphy == 1)
--		bcm_sf2_gphy_enable_set(priv->dev->ds, kexec_in_progress);
-+		bcm_sf2_gphy_enable_set(priv->dev->ds, true);
- }
- 
- #ifdef CONFIG_PM_SLEEP
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-2.7.4
+Florian
