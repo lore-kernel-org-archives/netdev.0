@@ -1,287 +1,237 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: stmmac: Add OXNAS Glue Driver
-Date: Fri, 21 Oct 2016 13:53:21 +0200
-Message-ID: <474261f0-1cb7-5932-4c9f-0cbcc705fa61@st.com>
-References: <20161021084445.24989-1-narmstrong@baylibre.com>
- <CAGhQ9Vxe8fe8kfF_WY40xdh6YX9TuxQ3-Dd6pBG=AHpLtrHnMA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <alexandre.torgue@st.com>, netdev <netdev@vger.kernel.org>,
-        <linux-oxnas@lists.tuxfamily.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        devicetree <devicetree@vger.kernel.org>
-To: Joachim Eastwood <manabian@gmail.com>,
-        Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGhQ9Vxe8fe8kfF_WY40xdh6YX9TuxQ3-Dd6pBG=AHpLtrHnMA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next v6 1/3] net/socket: factor out helpers for memory and queue manipulation
+Date: Fri, 21 Oct 2016 13:55:45 +0200
+Message-ID: <14784e6382342c2184929ef2959e7c11faf8ff8e.1477043395.git.pabeni@redhat.com>
+References: <cover.1477043395.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        James Morris <jmorris@namei.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Edward Cree <ecree@solarflare.com>, linux-nfs@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42589 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754962AbcJULz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Oct 2016 07:55:59 -0400
+In-Reply-To: <cover.1477043395.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello
+Basic sock operations that udp code can use with its own
+memory accounting schema. No functional change is introduced
+in the existing APIs.
 
-some my minor cents below
+v4 -> v5:
+  - avoid whitespace changes
 
-On 10/21/2016 12:20 PM, Joachim Eastwood wrote:
-> Hi Neil,
->
-> On 21 October 2016 at 10:44, Neil Armstrong <narmstrong@baylibre.com> wrote:
->> Add Synopsys Designware MAC Glue layer for the Oxford Semiconductor OX820.
->>
->> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
->> ---
->>  .../devicetree/bindings/net/oxnas-dwmac.txt        |  44 +++++
->>  drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 ++
->>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
->>  drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c  | 219 +++++++++++++++++++++
->>  4 files changed, 275 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/net/oxnas-dwmac.txt
->>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
->>
->> Changes since RFC at https://patchwork.kernel.org/patch/9387257 :
->>  - Drop init/exit callbacks
->>  - Implement proper remove and PM callback
->>  - Call init from probe
->>  - Disable/Unprepare clock if stmmac probe fails
->
-> <snip>
->
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
->> @@ -0,0 +1,219 @@
->> +/*
->> + * Oxford Semiconductor OXNAS DWMAC glue layer
->> + *
->> + * Copyright (C) 2016 Neil Armstrong <narmstrong@baylibre.com>
->> + * Copyright (C) 2014 Daniel Golle <daniel@makrotopia.org>
->> + * Copyright (C) 2013 Ma Haijun <mahaijuns@gmail.com>
->> + * Copyright (C) 2012 John Crispin <blogic@openwrt.org>
->> + *
->> + * This program is free software; you can redistribute it and/or modify
->> + * it under the terms of the GNU General Public License version 2 as
->> + * published by the Free Software Foundation.
->> + *
->> + * You should have received a copy of the GNU General Public License
->> + * along with this program. If not, see <http://www.gnu.org/licenses/>.
->> + */
->> +
->> +#include <linux/device.h>
->> +#include <linux/io.h>
->> +#include <linux/module.h>
->> +#include <linux/of.h>
->> +#include <linux/platform_device.h>
->> +#include <linux/regmap.h>
->> +#include <linux/mfd/syscon.h>
->> +#include <linux/stmmac.h>
->> +
->> +#include "stmmac_platform.h"
->> +
->> +/* System Control regmap offsets */
->> +#define OXNAS_DWMAC_CTRL_REGOFFSET     0x78
->> +#define OXNAS_DWMAC_DELAY_REGOFFSET    0x100
->> +
->> +/* Control Register */
->> +#define DWMAC_CKEN_RX_IN        14
->> +#define DWMAC_CKEN_RXN_OUT      13
->> +#define DWMAC_CKEN_RX_OUT       12
->> +#define DWMAC_CKEN_TX_IN        10
->> +#define DWMAC_CKEN_TXN_OUT      9
->> +#define DWMAC_CKEN_TX_OUT       8
->> +#define DWMAC_RX_SOURCE         7
->> +#define DWMAC_TX_SOURCE         6
->> +#define DWMAC_LOW_TX_SOURCE     4
->> +#define DWMAC_AUTO_TX_SOURCE    3
->> +#define DWMAC_RGMII             2
->> +#define DWMAC_SIMPLE_MUX        1
->> +#define DWMAC_CKEN_GTX          0
->> +
->> +/* Delay register */
->> +#define DWMAC_TX_VARDELAY_SHIFT                0
->> +#define DWMAC_TXN_VARDELAY_SHIFT       8
->> +#define DWMAC_RX_VARDELAY_SHIFT                16
->> +#define DWMAC_RXN_VARDELAY_SHIFT       24
->> +#define DWMAC_TX_VARDELAY(d)           ((d) << DWMAC_TX_VARDELAY_SHIFT)
->> +#define DWMAC_TXN_VARDELAY(d)          ((d) << DWMAC_TXN_VARDELAY_SHIFT)
->> +#define DWMAC_RX_VARDELAY(d)           ((d) << DWMAC_RX_VARDELAY_SHIFT)
->> +#define DWMAC_RXN_VARDELAY(d)          ((d) << DWMAC_RXN_VARDELAY_SHIFT)
->> +
->> +struct oxnas_dwmac {
->> +       struct device   *dev;
->> +       struct clk      *clk;
->> +       struct regmap   *regmap;
->> +};
->> +
->> +static int oxnas_dwmac_init(struct oxnas_dwmac *dwmac)
->> +{
->> +       unsigned int value;
->> +       int ret;
->> +
->> +       /* Reset HW here before changing the glue configuration */
->> +       ret = device_reset(dwmac->dev);
->> +       if (ret)
->> +               return ret;
->> +
->> +       clk_prepare_enable(dwmac->clk);
->
-> You might want to check the return value from clk_prepare_enable() as well.
->
->> +
->> +       ret = regmap_read(dwmac->regmap, OXNAS_DWMAC_CTRL_REGOFFSET, &value);
->> +       if (ret < 0)
->> +               return ret;
->> +
->> +       /* Enable GMII_GTXCLK to follow GMII_REFCLK, required for gigabit PHY */
->> +       value |= BIT(DWMAC_CKEN_GTX);
->> +       /* Use simple mux for 25/125 Mhz clock switching */
->> +       value |= BIT(DWMAC_SIMPLE_MUX);
->> +       /* set auto switch tx clock source */
->> +       value |= BIT(DWMAC_AUTO_TX_SOURCE);
->> +       /* enable tx & rx vardelay */
->> +       value |= BIT(DWMAC_CKEN_TX_OUT);
->> +       value |= BIT(DWMAC_CKEN_TXN_OUT);
->> +       value |= BIT(DWMAC_CKEN_TX_IN);
->> +       value |= BIT(DWMAC_CKEN_RX_OUT);
->> +       value |= BIT(DWMAC_CKEN_RXN_OUT);
->> +       value |= BIT(DWMAC_CKEN_RX_IN);
->> +       regmap_write(dwmac->regmap, OXNAS_DWMAC_CTRL_REGOFFSET, value);
->> +
->> +       /* set tx & rx vardelay */
->> +       value = DWMAC_TX_VARDELAY(4);
->> +       value |= DWMAC_TXN_VARDELAY(2);
->> +       value |= DWMAC_RX_VARDELAY(10);
->> +       value |= DWMAC_RXN_VARDELAY(8);
->> +       regmap_write(dwmac->regmap, OXNAS_DWMAC_DELAY_REGOFFSET, value);
+v2 -> v4:
+  - avoid exporting __sock_enqueue_skb
 
+v1 -> v2:
+  - avoid export sock_rmem_free
 
-there is no if condition so, I can suggest you, to hardwire
-value with macros instead of computing at runtime:
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/sock.h  |  4 ++++
+ net/core/datagram.c | 36 ++++++++++++++++++------------
+ net/core/sock.c     | 64 +++++++++++++++++++++++++++++++++++++----------------
+ 3 files changed, 71 insertions(+), 33 deletions(-)
 
-e.g.
-
-var = DWMAC_VARDELAY where
-  #define DWMAC_VARDELAY (DWMAC_TX_VARDELAY(4) | ...)
-
-... same for OXNAS_DWMAC_CTRL_REGOFFSET where
-BIT(DWMAC_CKEN_ ... ) should be re-organized as macros,
-I mean:
-#define DWMAC_CKEN_.. 	BIT(xxx)
-
->> +
->> +       return 0;
->> +}
->> +
->> +static int oxnas_dwmac_probe(struct platform_device *pdev)
->> +{
->> +       struct plat_stmmacenet_data *plat_dat;
->> +       struct stmmac_resources stmmac_res;
->> +       struct device_node *sysctrl;
->> +       struct oxnas_dwmac *dwmac;
->> +       int ret;
->> +
->> +       sysctrl = of_parse_phandle(pdev->dev.of_node, "oxsemi,sys-ctrl", 0);
->> +       if (!sysctrl) {
->> +               dev_err(&pdev->dev, "failed to get sys-ctrl node\n");
->> +               return -EINVAL;
->> +       }
->> +
->> +       ret = stmmac_get_platform_resources(pdev, &stmmac_res);
->> +       if (ret)
->> +               return ret;
->> +
->> +       plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
->> +       if (IS_ERR(plat_dat))
->> +               return PTR_ERR(plat_dat);
->> +
->> +       dwmac = devm_kzalloc(&pdev->dev, sizeof(*dwmac), GFP_KERNEL);
->> +       if (!dwmac)
->> +               return -ENOMEM;
->> +
->> +       dwmac->dev = &pdev->dev;
->> +       plat_dat->bsp_priv = dwmac;
->> +
->> +       dwmac->regmap = syscon_node_to_regmap(sysctrl);
->> +       if (IS_ERR(dwmac->regmap)) {
->> +               dev_err(&pdev->dev, "failed to have sysctrl regmap\n");
->> +               return PTR_ERR(dwmac->regmap);
->> +       }
->> +
->> +       dwmac->clk = devm_clk_get(&pdev->dev, "gmac");
->> +       if (IS_ERR(dwmac->clk))
->> +               return PTR_ERR(dwmac->clk);
->> +
->> +       ret = oxnas_dwmac_init(dwmac);
->> +       if (ret)
->> +               return ret;
->> +
->> +       ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
->> +       if (ret)
->> +               clk_disable_unprepare(dwmac->clk);
->> +
->> +       return ret;
->> +}
->> +
->> +static int oxnas_dwmac_remove(struct platform_device *pdev)
->> +{
->> +       struct net_device *ndev = platform_get_drvdata(pdev);
->> +       struct stmmac_priv *priv = netdev_priv(ndev);
->> +       struct oxnas_dwmac *dwmac = priv->plat->bsp_priv;
->
-> Instead of this long dance of variables use the get_stmmac_bsp_priv()-helper.
->
-> You can take a look at dwmac-meson8b.c for reference.
->
->
->> +       int ret = stmmac_dvr_remove(&pdev->dev);
->> +
->> +       clk_disable_unprepare(dwmac->clk);
->> +
->> +       return ret;
->> +}
->> +
->> +#ifdef CONFIG_PM_SLEEP
->> +static int oxnas_dwmac_suspend(struct device *dev)
->> +{
->> +       struct net_device *ndev = dev_get_drvdata(dev);
->> +       struct stmmac_priv *priv = netdev_priv(ndev);
->> +       struct oxnas_dwmac *dwmac = priv->plat->bsp_priv;
->
-> get_stmmac_bsp_priv()
->
->
->> +       int ret;
->> +
->> +       ret = stmmac_suspend(dev);
->> +       clk_disable_unprepare(dwmac->clk);
->> +
->> +       return ret;
->> +}
->> +
->> +static int oxnas_dwmac_resume(struct device *dev)
->> +{
->> +       struct net_device *ndev = dev_get_drvdata(dev);
->> +       struct stmmac_priv *priv = netdev_priv(ndev);
->> +       struct oxnas_dwmac *dwmac = priv->plat->bsp_priv;
->
-> get_stmmac_bsp_priv()
->
->
->> +       int ret;
->> +
->> +       ret = oxnas_dwmac_init(dwmac);
->> +       if (ret)
->> +               return ret;
->> +
->> +       ret = stmmac_resume(dev);
->> +
->> +       return ret;
->> +}
->> +#endif /* CONFIG_PM_SLEEP */
->
-> With these changes:
-> Acked-by: Joachim Eastwood <manabian@gmail.com>
->
->
-> best regards,
-> Joachim Eastwood
->
+diff --git a/include/net/sock.h b/include/net/sock.h
+index ebf75db..2764895 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1274,7 +1274,9 @@ static inline struct inode *SOCK_INODE(struct socket *socket)
+ /*
+  * Functions for memory accounting
+  */
++int __sk_mem_raise_allocated(struct sock *sk, int size, int amt, int kind);
+ int __sk_mem_schedule(struct sock *sk, int size, int kind);
++void __sk_mem_reduce_allocated(struct sock *sk, int amount);
+ void __sk_mem_reclaim(struct sock *sk, int amount);
+ 
+ #define SK_MEM_QUANTUM ((int)PAGE_SIZE)
+@@ -1950,6 +1952,8 @@ void sk_reset_timer(struct sock *sk, struct timer_list *timer,
+ 
+ void sk_stop_timer(struct sock *sk, struct timer_list *timer);
+ 
++int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
++			unsigned int flags);
+ int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ 
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index b7de71f..bfb973a 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -323,6 +323,27 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
+ }
+ EXPORT_SYMBOL(__skb_free_datagram_locked);
+ 
++int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
++			unsigned int flags)
++{
++	int err = 0;
++
++	if (flags & MSG_PEEK) {
++		err = -ENOENT;
++		spin_lock_bh(&sk->sk_receive_queue.lock);
++		if (skb == skb_peek(&sk->sk_receive_queue)) {
++			__skb_unlink(skb, &sk->sk_receive_queue);
++			atomic_dec(&skb->users);
++			err = 0;
++		}
++		spin_unlock_bh(&sk->sk_receive_queue.lock);
++	}
++
++	atomic_inc(&sk->sk_drops);
++	return err;
++}
++EXPORT_SYMBOL(__sk_queue_drop_skb);
++
+ /**
+  *	skb_kill_datagram - Free a datagram skbuff forcibly
+  *	@sk: socket
+@@ -346,23 +367,10 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
+ 
+ int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags)
+ {
+-	int err = 0;
+-
+-	if (flags & MSG_PEEK) {
+-		err = -ENOENT;
+-		spin_lock_bh(&sk->sk_receive_queue.lock);
+-		if (skb == skb_peek(&sk->sk_receive_queue)) {
+-			__skb_unlink(skb, &sk->sk_receive_queue);
+-			atomic_dec(&skb->users);
+-			err = 0;
+-		}
+-		spin_unlock_bh(&sk->sk_receive_queue.lock);
+-	}
++	int err = __sk_queue_drop_skb(sk, skb, flags);
+ 
+ 	kfree_skb(skb);
+-	atomic_inc(&sk->sk_drops);
+ 	sk_mem_reclaim_partial(sk);
+-
+ 	return err;
+ }
+ EXPORT_SYMBOL(skb_kill_datagram);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index c73e28f..d8e4532e 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2091,24 +2091,18 @@ int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb)
+ EXPORT_SYMBOL(sk_wait_data);
+ 
+ /**
+- *	__sk_mem_schedule - increase sk_forward_alloc and memory_allocated
++ *	__sk_mem_raise_allocated - increase memory_allocated
+  *	@sk: socket
+  *	@size: memory size to allocate
++ *	@amt: pages to allocate
+  *	@kind: allocation type
+  *
+- *	If kind is SK_MEM_SEND, it means wmem allocation. Otherwise it means
+- *	rmem allocation. This function assumes that protocols which have
+- *	memory_pressure use sk_wmem_queued as write buffer accounting.
++ *	Similar to __sk_mem_schedule(), but does not update sk_forward_alloc
+  */
+-int __sk_mem_schedule(struct sock *sk, int size, int kind)
++int __sk_mem_raise_allocated(struct sock *sk, int size, int amt, int kind)
+ {
+ 	struct proto *prot = sk->sk_prot;
+-	int amt = sk_mem_pages(size);
+-	long allocated;
+-
+-	sk->sk_forward_alloc += amt * SK_MEM_QUANTUM;
+-
+-	allocated = sk_memory_allocated_add(sk, amt);
++	long allocated = sk_memory_allocated_add(sk, amt);
+ 
+ 	if (mem_cgroup_sockets_enabled && sk->sk_memcg &&
+ 	    !mem_cgroup_charge_skmem(sk->sk_memcg, amt))
+@@ -2169,9 +2163,6 @@ int __sk_mem_schedule(struct sock *sk, int size, int kind)
+ 
+ 	trace_sock_exceed_buf_limit(sk, prot, allocated);
+ 
+-	/* Alas. Undo changes. */
+-	sk->sk_forward_alloc -= amt * SK_MEM_QUANTUM;
+-
+ 	sk_memory_allocated_sub(sk, amt);
+ 
+ 	if (mem_cgroup_sockets_enabled && sk->sk_memcg)
+@@ -2179,18 +2170,40 @@ int __sk_mem_schedule(struct sock *sk, int size, int kind)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(__sk_mem_raise_allocated);
++
++/**
++ *	__sk_mem_schedule - increase sk_forward_alloc and memory_allocated
++ *	@sk: socket
++ *	@size: memory size to allocate
++ *	@kind: allocation type
++ *
++ *	If kind is SK_MEM_SEND, it means wmem allocation. Otherwise it means
++ *	rmem allocation. This function assumes that protocols which have
++ *	memory_pressure use sk_wmem_queued as write buffer accounting.
++ */
++int __sk_mem_schedule(struct sock *sk, int size, int kind)
++{
++	int ret, amt = sk_mem_pages(size);
++
++	sk->sk_forward_alloc += amt << SK_MEM_QUANTUM_SHIFT;
++	ret = __sk_mem_raise_allocated(sk, size, amt, kind);
++	if (!ret)
++		sk->sk_forward_alloc -= amt << SK_MEM_QUANTUM_SHIFT;
++	return ret;
++}
+ EXPORT_SYMBOL(__sk_mem_schedule);
+ 
+ /**
+- *	__sk_mem_reclaim - reclaim memory_allocated
++ *	__sk_mem_reduce_allocated - reclaim memory_allocated
+  *	@sk: socket
+- *	@amount: number of bytes (rounded down to a SK_MEM_QUANTUM multiple)
++ *	@amount: number of quanta
++ *
++ *	Similar to __sk_mem_reclaim(), but does not update sk_forward_alloc
+  */
+-void __sk_mem_reclaim(struct sock *sk, int amount)
++void __sk_mem_reduce_allocated(struct sock *sk, int amount)
+ {
+-	amount >>= SK_MEM_QUANTUM_SHIFT;
+ 	sk_memory_allocated_sub(sk, amount);
+-	sk->sk_forward_alloc -= amount << SK_MEM_QUANTUM_SHIFT;
+ 
+ 	if (mem_cgroup_sockets_enabled && sk->sk_memcg)
+ 		mem_cgroup_uncharge_skmem(sk->sk_memcg, amount);
+@@ -2199,6 +2212,19 @@ void __sk_mem_reclaim(struct sock *sk, int amount)
+ 	    (sk_memory_allocated(sk) < sk_prot_mem_limits(sk, 0)))
+ 		sk_leave_memory_pressure(sk);
+ }
++EXPORT_SYMBOL(__sk_mem_reduce_allocated);
++
++/**
++ *	__sk_mem_reclaim - reclaim sk_forward_alloc and memory_allocated
++ *	@sk: socket
++ *	@amount: number of bytes (rounded down to a SK_MEM_QUANTUM multiple)
++ */
++void __sk_mem_reclaim(struct sock *sk, int amount)
++{
++	amount >>= SK_MEM_QUANTUM_SHIFT;
++	sk->sk_forward_alloc -= amount << SK_MEM_QUANTUM_SHIFT;
++	__sk_mem_reduce_allocated(sk, amount);
++}
+ EXPORT_SYMBOL(__sk_mem_reclaim);
+ 
+ int sk_set_peek_off(struct sock *sk, int val)
+-- 
+1.8.3.1
