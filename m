@@ -1,30 +1,48 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH] net: cpsw: fix obtaining mac address for am3517
-Date: Thu, 20 Oct 2016 23:38:52 -0700
-Message-ID: <20161021063851.6frul6pemo52i7ot@atomide.com>
-References: <1476993351-23065-1-git-send-email-jhofstee@victronenergy.com>
+From: <Sony.Chacko@cavium.com>
+Subject: [PATCH net 1/1] bnx2x: Use the correct divisor value for PHC clock readings.
+Date: Fri, 21 Oct 2016 02:09:17 -0400
+Message-ID: <1477030157-30700-1-git-send-email-Sony.Chacko@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeroen Hofstee <jhofstee@victronenergy.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1476993351-23065-1-git-send-email-jhofstee@victronenergy.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@cavium.com>,
+        <Yuval.Mintz@cavium.com>,
+        Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:45563 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754086AbcJUGzD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 02:55:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Jeroen Hofstee <jhofstee@victronenergy.com> [161020 12:57]:
-> Commit b6745f6e4e63 ("drivers: net: cpsw: davinci_emac: move reading mac
-> id to common file") did not only move the code for an am3517, it also
-> added the slave parameter, resulting in a invalid (all zero) mac address
-> being returned. So change it back to always read from slave zero, so it
-> works again.
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 
-Hmm doesn't this now break it for cpsw with two instances? We may need
-am3517 specific quirk flag instead?
+Time Sync (PTP) implementation uses the divisor/shift value for converting
+the clock ticks to nanoseconds. Driver currently defines shift value as 1,
+this results in the nanoseconds value to be calculated as half the actual
+value. Hence the user application fails to synchronize the device clock
+value with the PTP master device clock. Need to use the 'shift' value of 0.
 
-Regards,
+Signed-off-by: Sony.Chacko <Sony.Chacko@cavium.com>
+Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Tony
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 20fe6a8..0cee4c0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -15241,7 +15241,7 @@ static void bnx2x_init_cyclecounter(struct bnx2x *bp)
+ 	memset(&bp->cyclecounter, 0, sizeof(bp->cyclecounter));
+ 	bp->cyclecounter.read = bnx2x_cyclecounter_read;
+ 	bp->cyclecounter.mask = CYCLECOUNTER_MASK(64);
+-	bp->cyclecounter.shift = 1;
++	bp->cyclecounter.shift = 0;
+ 	bp->cyclecounter.mult = 1;
+ }
+ 
+-- 
+1.8.3.1
