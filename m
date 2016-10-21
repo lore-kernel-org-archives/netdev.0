@@ -1,180 +1,62 @@
-From: Tobias Regnery <tobias.regnery@gmail.com>
-Subject: [PATCH net-next 7/9] alx: prepare tx path for multi queue support
-Date: Fri, 21 Oct 2016 12:49:50 +0200
-Message-ID: <f665a9951cb5bb81eff2e347b8ef3b7626b0d915.1477044921.git.tobias.regnery@gmail.com>
-References: <cover.1477044917.git.tobias.regnery@gmail.com>
-Cc: davem@davemloft.net, Tobias Regnery <tobias.regnery@gmail.com>
-To: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: commit-3ac72b7b63d5 breaks networking on iMX28
+Date: Fri, 21 Oct 2016 08:55:36 -0200
+Message-ID: <CAOMZO5ADSSUkTwi3WDHHGX-i-Jm+YbrVzES0BDtGsR1kFTxO+Q@mail.gmail.com>
+References: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Nelson <eric@nelint.com>, Fugang Duan <fugang.duan@nxp.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Henri Roosen <henri.roosen@ginzinger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36343 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755094AbcJUKuj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 06:50:39 -0400
-Received: by mail-lf0-f66.google.com with SMTP id b75so5243460lfg.3
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 03:50:38 -0700 (PDT)
-In-Reply-To: <cover.1477044917.git.tobias.regnery@gmail.com>
-In-Reply-To: <cover.1477044917.git.tobias.regnery@gmail.com>
-References: <cover.1477044917.git.tobias.regnery@gmail.com>
+Received: from mail-vk0-f44.google.com ([209.85.213.44]:33077 "EHLO
+        mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754253AbcJUKzi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 06:55:38 -0400
+Received: by mail-vk0-f44.google.com with SMTP id 83so110853673vkd.0
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 03:55:37 -0700 (PDT)
+In-Reply-To: <bc6aa851-3f52-2274-47dc-4933662648a1@ginzinger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares the tx path to send data on multiple tx queues. It
-introduces per queue register adresses and uses them in the alx_tx_queue
-structs.
+Hi Henri,
 
-There are new helper functions for the queue mapping in the tx path.
+2016-10-21 7:19 GMT-02:00 Henri Roosen <henri.roosen@ginzinger.com>:
+> Hi,
+>
+> Unfortunately commit-3ac72b7b63d5 "net: fec: align IP header in
+> hardware" breaks networking on an iMX28 system.
+>
+> The commit seems valid for iMX6, where it is tested okay and solves the
+> unaligned accesses.
+>
+> On iMX28 I still see unaligned accesses and networking is broken. Can
+> anyone confirm this?
 
-Based on the downstream driver at github.com/qca/alx
+Does this fix the problem?
 
-Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
----
- drivers/net/ethernet/atheros/alx/main.c | 58 +++++++++++++++++++++++++--------
- 1 file changed, 45 insertions(+), 13 deletions(-)
+diff --git a/drivers/net/ethernet/freescale/fec_main.c
+b/drivers/net/ethernet/freescale/fec_main.c
+index 4ce8179..d1cefe1 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1430,14 +1430,15 @@ fec_enet_rx_queue(struct net_device *ndev, int
+budget, u16 queue_id)
+                skb_put(skb, pkt_len - 4);
+                data = skb->data;
 
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 19812bdf3e53..39f6247cbbd0 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -143,6 +143,22 @@ static int alx_refill_rx_ring(struct alx_priv *alx, gfp_t gfp)
- 	return count;
- }
- 
-+static struct alx_tx_queue *alx_tx_queue_mapping(struct alx_priv *alx,
-+						 struct sk_buff *skb)
-+{
-+	unsigned int r_idx = skb->queue_mapping;
++               if (!is_copybreak && need_swap)
++                       swap_buffer(data, pkt_len);
 +
-+	if (r_idx >= alx->num_txq)
-+		r_idx = r_idx % alx->num_txq;
 +
-+	return alx->qnapi[r_idx]->txq;
-+}
-+
-+static struct netdev_queue *alx_get_tx_queue(const struct alx_tx_queue *txq)
-+{
-+	return netdev_get_tx_queue(txq->netdev, txq->queue_idx);
-+}
-+
- static inline int alx_tpd_avail(struct alx_tx_queue *txq)
- {
- 	if (txq->write_idx >= txq->read_idx)
-@@ -153,14 +169,16 @@ static inline int alx_tpd_avail(struct alx_tx_queue *txq)
- static bool alx_clean_tx_irq(struct alx_tx_queue *txq)
- {
- 	struct alx_priv *alx;
-+	struct netdev_queue *tx_queue;
- 	u16 hw_read_idx, sw_read_idx;
- 	unsigned int total_bytes = 0, total_packets = 0;
- 	int budget = ALX_DEFAULT_TX_WORK;
- 
- 	alx = netdev_priv(txq->netdev);
-+	tx_queue = alx_get_tx_queue(txq);
- 
- 	sw_read_idx = txq->read_idx;
--	hw_read_idx = alx_read_mem16(&alx->hw, ALX_TPD_PRI0_CIDX);
-+	hw_read_idx = alx_read_mem16(&alx->hw, txq->c_reg);
- 
- 	if (sw_read_idx != hw_read_idx) {
- 		while (sw_read_idx != hw_read_idx && budget > 0) {
-@@ -180,12 +198,12 @@ static bool alx_clean_tx_irq(struct alx_tx_queue *txq)
- 		}
- 		txq->read_idx = sw_read_idx;
- 
--		netdev_completed_queue(txq->netdev, total_packets, total_bytes);
-+		netdev_tx_completed_queue(tx_queue, total_packets, total_bytes);
- 	}
- 
--	if (netif_queue_stopped(txq->netdev) && netif_carrier_ok(txq->netdev) &&
-+	if (netif_tx_queue_stopped(tx_queue) && netif_carrier_ok(alx->dev) &&
- 	    alx_tpd_avail(txq) > txq->count / 4)
--		netif_wake_queue(txq->netdev);
-+		netif_tx_wake_queue(tx_queue);
- 
- 	return sw_read_idx == hw_read_idx;
- }
-@@ -487,7 +505,7 @@ static void alx_free_txring_buf(struct alx_tx_queue *txq)
- 	txq->write_idx = 0;
- 	txq->read_idx = 0;
- 
--	netdev_reset_queue(txq->netdev);
-+	netdev_tx_reset_queue(alx_get_tx_queue(txq));
- }
- 
- static void alx_free_rxring_buf(struct alx_rx_queue *rxq)
-@@ -714,6 +732,10 @@ static void alx_free_napis(struct alx_priv *alx)
- 	}
- }
- 
-+static const u16 tx_pidx_reg[] = {ALX_TPD_PRI0_PIDX, ALX_TPD_PRI1_PIDX,
-+				  ALX_TPD_PRI2_PIDX, ALX_TPD_PRI3_PIDX};
-+static const u16 tx_cidx_reg[] = {ALX_TPD_PRI0_CIDX, ALX_TPD_PRI1_CIDX,
-+				  ALX_TPD_PRI2_CIDX, ALX_TPD_PRI3_CIDX};
- static const u32 tx_vect_mask[] = {ALX_ISR_TX_Q0, ALX_ISR_TX_Q1,
- 				   ALX_ISR_TX_Q2, ALX_ISR_TX_Q3};
- static const u32 rx_vect_mask[] = {ALX_ISR_RX_Q0, ALX_ISR_RX_Q1,
-@@ -749,6 +771,8 @@ static int alx_alloc_napis(struct alx_priv *alx)
- 			goto err_out;
- 
- 		np->txq = txq;
-+		txq->p_reg = tx_pidx_reg[i];
-+		txq->c_reg = tx_cidx_reg[i];
- 		txq->queue_idx = i;
- 		txq->count = alx->tx_ringsz;
- 		txq->netdev = alx->dev;
-@@ -1501,16 +1525,17 @@ static int alx_map_tx_skb(struct alx_tx_queue *txq, struct sk_buff *skb)
- 	return -ENOMEM;
- }
- 
--static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
--				  struct net_device *netdev)
-+static netdev_tx_t alx_start_xmit_ring(struct sk_buff *skb,
-+				       struct alx_tx_queue *txq)
- {
--	struct alx_priv *alx = netdev_priv(netdev);
--	struct alx_tx_queue *txq = alx->qnapi[0]->txq;
-+	struct alx_priv *alx;
- 	struct alx_txd *first;
- 	int tso;
- 
-+	alx = netdev_priv(txq->netdev);
-+
- 	if (alx_tpd_avail(txq) < alx_tpd_req(skb)) {
--		netif_stop_queue(txq->netdev);
-+		netif_tx_stop_queue(alx_get_tx_queue(txq));
- 		goto drop;
- 	}
- 
-@@ -1526,14 +1551,14 @@ static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
- 	if (alx_map_tx_skb(txq, skb) < 0)
- 		goto drop;
- 
--	netdev_sent_queue(txq->netdev, skb->len);
-+	netdev_tx_sent_queue(alx_get_tx_queue(txq), skb->len);
- 
- 	/* flush updates before updating hardware */
- 	wmb();
--	alx_write_mem16(&alx->hw, ALX_TPD_PRI0_PIDX, txq->write_idx);
-+	alx_write_mem16(&alx->hw, txq->p_reg, txq->write_idx);
- 
- 	if (alx_tpd_avail(txq) < txq->count / 8)
--		netif_stop_queue(txq->netdev);
-+		netif_tx_stop_queue(alx_get_tx_queue(txq));
- 
- 	return NETDEV_TX_OK;
- 
-@@ -1542,6 +1567,13 @@ static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- }
- 
-+static netdev_tx_t alx_start_xmit(struct sk_buff *skb,
-+				  struct net_device *netdev)
-+{
-+	struct alx_priv *alx = netdev_priv(netdev);
-+	return alx_start_xmit_ring(skb, alx_tx_queue_mapping(alx, skb));
-+}
-+
- static void alx_tx_timeout(struct net_device *dev)
- {
- 	struct alx_priv *alx = netdev_priv(dev);
--- 
-2.7.4
+ #if !defined(CONFIG_M5272)
+                if (fep->quirks & FEC_QUIRK_HAS_RACC)
+                        data = skb_pull_inline(skb, 2);
+ #endif
+
+-               if (!is_copybreak && need_swap)
+-                       swap_buffer(data, pkt_len);
+-
+                /* Extract the enhanced buffer descriptor */
+                ebdp = NULL;
+                if (fep->bufdesc_ex)
