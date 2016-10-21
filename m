@@ -1,30 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] Netfilter fixes for net
-Date: Fri, 21 Oct 2016 10:25:44 -0400 (EDT)
-Message-ID: <20161021.102544.1840570273265740605.davem@davemloft.net>
-References: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55460 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932814AbcJUOZr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 10:25:47 -0400
-In-Reply-To: <1477044743-18948-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: [RFC PATCH 04/13] ARM64: dts: meson-gxl: Add clock nodes
+Date: Fri, 21 Oct 2016 16:40:29 +0200
+Message-ID: <1477060838-14164-5-git-send-email-narmstrong@baylibre.com>
+References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
+Cc: Neil Armstrong <narmstrong@baylibre.com>,
+        linux-gpio@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-amlogic@lists.infradead.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: khilman@baylibre.com, carlo@caione.org, linus.walleij@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 21 Oct 2016 12:12:10 +0200
+Add clock node for Amlogic Meson GXL.
+The GXBB compatible is retained since the GXBB clock tree is used for now.
 
-> The following patchset contains Netfilter fixes for your net tree,
-> they are:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+---
+ arch/arm64/boot/dts/amlogic/meson-gxl.dtsi | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-Pulled, thanks!
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
+index ce7f550..33d0506 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
+@@ -42,6 +42,7 @@
+  */
+ 
+ #include "meson-gx.dtsi"
++#include <dt-bindings/clock/gxbb-clkc.h>
+ #include <dt-bindings/gpio/meson-gxl-gpio.h>
+ 
+ / {
+@@ -214,3 +215,11 @@
+ 		};
+ 	};
+ };
++
++&hiubus {
++	clkc: clock-controller@0 {
++		compatible = "amlogic,gxl-clkc", "amlogic,gxbb-clkc";
++		#clock-cells = <1>;
++		reg = <0x0 0x0 0x0 0x3db>;
++	};
++};
+-- 
+1.9.1
