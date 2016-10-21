@@ -1,35 +1,81 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v12 7/9] openvswitch: add Ethernet push and pop
- actions
-Date: Fri, 21 Oct 2016 14:21:01 +0200
-Message-ID: <20161021142101.6e6307df@griffin>
-References: <cover.1476708212.git.jbenc@redhat.com>
-        <bf8e49c178a2f8ed9adb02e30470be5163d46296.1476708213.git.jbenc@redhat.com>
-        <CAOrHB_Bj+0DNePDKQ64Gtx9SyxS4cy20Y-1RLC4Dpd3DKJpsjA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v6 2/3] udp: implement memory accounting helpers
+Date: Fri, 21 Oct 2016 05:24:02 -0700
+Message-ID: <1477052642.7065.63.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1477043395.git.pabeni@redhat.com>
+         <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>,
-        Lorand Jakab <lojakab@cisco.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35004 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932247AbcJUMVG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 08:21:06 -0400
-In-Reply-To: <CAOrHB_Bj+0DNePDKQ64Gtx9SyxS4cy20Y-1RLC4Dpd3DKJpsjA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4d2e0fc8f5c3d1309b0fb71bc65a2719a8e82825.1477043395.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Oct 2016 21:22:21 -0700, Pravin Shelar wrote:
-> The eth pop substracts ETH_HLEN but here the length is set. I think it
-> should be consistent with respect to eth-pop.
+On Fri, 2016-10-21 at 13:55 +0200, Paolo Abeni wrote:
+> Avoid using the generic helpers.
+> Use the receive queue spin lock to protect the memory
+> accounting operation, both on enqueue and on dequeue.
+> 
+> On dequeue perform partial memory reclaiming, trying to
+> leave a quantum of forward allocated memory.
+> 
+> On enqueue use a custom helper, to allow some optimizations:
+> - use a plain spin_lock() variant instead of the slightly
+>   costly spin_lock_irqsave(),
+> - avoid dst_force check, since the calling code has already
+>   dropped the skb dst
+> - avoid orphaning the skb, since skb_steal_sock() already did
+>   the work for us
 
-Agreed. Will use skb_reset_mac_len in both, that better reflects what's
-going on.
+>  
+> +static void udp_rmem_release(struct sock *sk, int size, int partial)
+> +{
+> +	int amt;
+> +
+> +	atomic_sub(size, &sk->sk_rmem_alloc);
+> +
+> +	spin_lock_bh(&sk->sk_receive_queue.lock);
+> +	sk->sk_forward_alloc += size;
+> +	amt = (sk->sk_forward_alloc - partial) & ~(SK_MEM_QUANTUM - 1);
+> +	sk->sk_forward_alloc -= amt;
+> +	spin_unlock_bh(&sk->sk_receive_queue.lock);
+> +
+> +	if (amt)
+> +		__sk_mem_reduce_allocated(sk, amt >> SK_MEM_QUANTUM_SHIFT);
+> +}
+> +
+> +static void udp_rmem_free(struct sk_buff *skb)
+> +{
+> +	udp_rmem_release(skb->sk, skb->truesize, 1);
+> +}
+> +
 
-Thanks,
 
- Jiri
+It looks like you are acquiring/releasing sk_receive_queue.lock twice
+per packet in recvmsg() (the second time in the destructor above)
+
+We could do slightly better if :
+
+We do not set skb->destructor at all, and manage
+sk_rmem_alloc/sk_forward_alloc changes at the time we dequeue skb
+ (if !MSG_PEEK), before copy to user space.
+
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
