@@ -1,91 +1,46 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: sctp, forbid negative length
-Date: Fri, 21 Oct 2016 08:39:27 -0400
-Message-ID: <20161021123927.GA25597@hmsreliant.think-freely.org>
-References: <20161021121324.13942-1-jslaby@suse.cz>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: [PATCH] net: sched: make default fifo qdiscs appear in the
+ dump
+Date: Fri, 21 Oct 2016 14:56:33 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1610211450440.31629@cbobk.fhfr.pm>
+References: <alpine.LNX.2.00.1610211024400.31629@cbobk.fhfr.pm> <1477049817.7065.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-kernel@vger.kernel.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Phil Sutter <phil@nwl.cc>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
         "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Jiri Slaby <jslaby@suse.cz>
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161021121324.13942-1-jslaby@suse.cz>
+In-Reply-To: <1477049817.7065.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 21, 2016 at 02:13:24PM +0200, Jiri Slaby wrote:
-> Most of getsockopt handlers in net/sctp/socket.c check len against
-> sizeof some structure like:
->         if (len < sizeof(int))
->                 return -EINVAL;
+On Fri, 21 Oct 2016, Eric Dumazet wrote:
+
+> Some of us are dealing with huge HTB hierarchies, so adding default fifo
+> in the dump will add more data pumped from the kernel.
 > 
-> On the first look, the check seems to be correct. But since len is int
-> and sizeof returns size_t, int gets promoted to unsigned size_t too. So
-> the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
-> false.
+> BwE [1] for instance dumps qdisc/classes every 5 seconds.
 > 
-> Fix this in sctp by explicitly checking len < 0 before any getsockopt
-> handler is called.
-> 
-> Note that sctp_getsockopt_events already handled the negative case.
-> Since we added the < 0 check elsewhere, this one can be removed.
-> 
-> If not checked, this is the result:
-> UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
-> shift exponent 52 is too large for 32-bit type 'int'
-> CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
->  0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
->  ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
->  0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
-> Call Trace:
->  [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
-> ...
->  [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
->  [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
->  [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
->  [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
->  [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
->  [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
->  [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
-> 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux-sctp@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> ---
->  net/sctp/socket.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index fb02c7033307..9fbb6feb8c27 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4687,7 +4687,7 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
->  static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
->  				  int __user *optlen)
->  {
-> -	if (len <= 0)
-> +	if (len == 0)
->  		return -EINVAL;
->  	if (len > sizeof(struct sctp_event_subscribe))
->  		len = sizeof(struct sctp_event_subscribe);
-> @@ -6430,6 +6430,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
->  	if (get_user(len, optlen))
->  		return -EFAULT;
->  
-> +	if (len < 0)
-> +		return -EINVAL;
-> +
->  	lock_sock(sk);
->  
->  	switch (optname) {
-> -- 
-> 2.10.1
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> I guess we'll need to not pull this patch in our kernels.
+
+Okay, so I probably misunderstood you here:
+
+	https://marc.info/?l=linux-kernel&m=146073234818214&w=2
+
+as I thought that as long as we move towards the hashtable, you wouldn't 
+have any issues with this.
+
+I'd really like to unhide the default qdiscs, it makes little sense to be 
+inconsistent in this way.
+
+Random shot into darkness -- how about making this a 
+CONFIG/sysctl-selectable?
+
+Thanks,
+
+-- 
+Jiri Kosina
+SUSE Labs
