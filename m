@@ -1,43 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH] kexec: Export kexec_in_progress to modules
-Date: Thu, 20 Oct 2016 18:15:16 -0700
-Message-ID: <1477012516-20470-1-git-send-email-f.fainelli@gmail.com>
-Cc: ebiederm@xmission.com, kexec@lists.infradead.org,
-        linux-kernel@vger.kernel.org, davem@davemloft.net,
-        sfr@canb.auug.org.au, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net-next tree
+Date: Fri, 21 Oct 2016 12:21:45 +1100
+Message-ID: <20161021122145.0139d5a3@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Jarod Wilson <jarod@redhat.com>,
+        Sergio Paracuellos <sergio.paracuellos@gmail.com>
+To: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The bcm_sf2 driver uses kexec_in_progress to know whether it can power
-down an integrated PHY during shutdown, and can be built as a module.
-Other modules may be using this in the future, so export it.
+Hi Greg,
 
-Fixes: 2399d6143f85 ("net: dsa: bcm_sf2: Prevent GPHY shutdown for kexec'd kernels")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Eric, David, Stephen,
+Today's linux-next merge of the staging tree got a conflict in:
 
-The offending commit is in David's net.git tree, so it would probably make
-sense to route the fix through the same tree.
+  drivers/staging/wlan-ng/p80211netdev.c
 
-Thanks!
+between commit:
 
- kernel/kexec_core.c | 1 +
- 1 file changed, 1 insertion(+)
+  9c22b4a34edd ("net: use core MTU range checking in wireless drivers")
 
-diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
-index 561675589511..786ab85a5452 100644
---- a/kernel/kexec_core.c
-+++ b/kernel/kexec_core.c
-@@ -59,6 +59,7 @@ size_t vmcoreinfo_max_size = sizeof(vmcoreinfo_data);
- 
- /* Flag to indicate we are going to kexec a new kernel */
- bool kexec_in_progress = false;
-+EXPORT_SYMBOL_GPL(kexec_in_progress);
- 
- 
- /* Location of the reserved area for the crash kernel */
+from the net-next tree and commit:
+
+  84ad1efa7d2b ("staging: wlan-ng: fix block comment warnings in p80211netdev.c")
+
+from the staging tree.
+
+I fixed it up (the former removed the code updates by the latter, so I
+just did that) and can carry the fix as necessary. This is now fixed as
+far as linux-next is concerned, but any non trivial conflicts should be
+mentioned to your upstream maintainer when your tree is submitted for
+merging.  You may also want to consider cooperating with the maintainer
+of the conflicting tree to minimise any particularly complex conflicts.
+
 -- 
-2.7.4
+Cheers,
+Stephen Rothwell
