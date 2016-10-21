@@ -1,21 +1,30 @@
-From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-Subject: network packet kernel rate limit
-Date: Fri, 21 Oct 2016 06:17:06 +0000
-Message-ID: <8729016553E3654398EA69218DA29EEF5CB42C@cnshjmbx02>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH] net: cpsw: fix obtaining mac address for am3517
+Date: Thu, 20 Oct 2016 23:38:52 -0700
+Message-ID: <20161021063851.6frul6pemo52i7ot@atomide.com>
+References: <1476993351-23065-1-git-send-email-jhofstee@victronenergy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:53847 "EHLO
-        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750856AbcJUGcf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 02:32:35 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeroen Hofstee <jhofstee@victronenergy.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1476993351-23065-1-git-send-email-jhofstee@victronenergy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-User space application require linux kernel to do rate limit to some type of Ethernet packet(ARP, ICMP, TCP, for example 1000 packet/s) when system run under Ethernet packet flooding test.
-Do you know if kernel already exist a feature to implement this requirement?
+* Jeroen Hofstee <jhofstee@victronenergy.com> [161020 12:57]:
+> Commit b6745f6e4e63 ("drivers: net: cpsw: davinci_emac: move reading mac
+> id to common file") did not only move the code for an am3517, it also
+> added the slave parameter, resulting in a invalid (all zero) mac address
+> being returned. So change it back to always read from slave zero, so it
+> works again.
 
-Thanks
+Hmm doesn't this now break it for cpsw with two instances? We may need
+am3517 specific quirk flag instead?
+
+Regards,
+
+Tony
