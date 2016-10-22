@@ -1,161 +1,74 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH] netns: revert "netns: avoid disabling irq for netns id"
-Date: Fri, 21 Oct 2016 21:49:14 -0400
-Message-ID: <147710095406.17836.12069093425270216381.stgit@localhost>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [Patch net] net: saving irq context for peernet2id()
+Date: Fri, 21 Oct 2016 21:55:53 -0400
+Message-ID: <CAHC9VhTzYQ3ZTnecZNQe7v5VTqSWsJeRCL+Qhwfk-nEuRQ-D5Q@mail.gmail.com>
+References: <CAM_iQpV0vfwsToR=maxhGM+fvQLX9zqcpp14A-C9JNzLfKJy9g@mail.gmail.com>
+ <20161021193951.GS23701@madcap2.tricolour.ca> <CAHC9VhSm21f-HurdGi7+D0LmHNkkKRyAsT-OHJEyOZgoJVYUNg@mail.gmail.com>
+ <20161021.163342.2187677530255875866.davem@davemloft.net> <CAHC9VhTm7Qc0FwEE35c5uyfWz-5DH1mKQtHGYrNVhPHm9ze34Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, Elad Raz <e@eladraz.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: rgb@redhat.com, xiyou.wangcong@gmail.com,
+        Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+        e@eladraz.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47212 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755550AbcJVBtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Oct 2016 21:49:16 -0400
+Received: from mail-ua0-f195.google.com ([209.85.217.195]:36413 "EHLO
+        mail-ua0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754909AbcJVBzy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2016 21:55:54 -0400
+Received: by mail-ua0-f195.google.com with SMTP id 38so427932uaj.3
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2016 18:55:54 -0700 (PDT)
+In-Reply-To: <CAHC9VhTm7Qc0FwEE35c5uyfWz-5DH1mKQtHGYrNVhPHm9ze34Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul@paul-moore.com>
+On Fri, Oct 21, 2016 at 4:53 PM, Paul Moore <paul@paul-moore.com> wrote:
+> On Fri, Oct 21, 2016 at 4:33 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Paul Moore <paul@paul-moore.com>
+>> Date: Fri, 21 Oct 2016 16:15:00 -0400
+>>
+>>> However, that's not the case is it?  Unless I missed something, the
+>>> fix that Cong Wang is advocating (rework the audit multicast code), is
+>>> a change that I have said I'm not going to accept during the -rc
+>>> phase.  It has been a few days now and no alternate fix has been
+>>> proposed, I'll give it a few more hours ...
+>>
+>> It really is the right way to fix this though.
+>>
+>> Nothing should be emitting netlink messages, potentially en-masse
+>> to a multicast group or broadcast, in hardware interrupt context.
+>>
+>> I know it's been said that only systemd receives these things, so
+>> that point doesn't need to be remade again.
+>
+> I think it is also worth noting that this code has been doing it this
+> way for some time now.  I say this not to advocate that it is correct,
+> only that there hasn't been a demonstrated problem until Cong Wang's
+> patch.
+>
+>> We have many weeks until -final is released so I really don't
+>> understand the reluctance at a slightly more involved fix in -rc2.  In
+>> fact this is the most optimal time to try it this way, as we'll have
+>> the maximum amount of time for it to have exposure for testing before
+>> -final.
+>
+> Well, I understand what you are trying to say, but the maximum amount
+> of time for exposure/testing would be to put it in -next.  The audit
+> netlink code needs a rework, but introducing such a change in the -rc
+> kernels is not something I'm going to do, especially when the change
+> which triggered the regression is an optimization that can be easily
+> reverted ... or fixed, but the only two options I've heard mentioned
+> are the audit multicast rework and the revert; if someone has a third
+> option I'm listening ...
 
-This reverts commit bc51dddf98c9 ("netns: avoid disabling irq for
-netns id") as it was found to cause problems with systems running
-SELinux/audit, see the mailing list thread below:
+It's the end of my day, and commitments over the weekend will limit
+how much additional testing/work I can do so I went ahead and just
+posted a simple revert to netdev, it should be in your inbox already.
+Please fix this, either through a revert, or preferably some other fix
+we haven't thought of yet, in time for -rc2.
 
- * http://marc.info/?t=147694653900002&r=1&w=2
+Thanks.
 
-Eventually we should be able to reintroduce this code once we have
-rewritten the audit multicast code to queue messages much the same
-way we do for unicast messages.  A tracking issue for this can be
-found below:
-
- * https://github.com/linux-audit/audit-kernel/issues/23
-
-Reported-by: Stephen Smalley <sds@tycho.nsa.gov>
-Reported-by: Elad Raz <e@eladraz.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Paul Moore <paul@paul-moore.com>
----
- net/core/net_namespace.c |   35 ++++++++++++++++++++---------------
- 1 file changed, 20 insertions(+), 15 deletions(-)
-
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 989434f..f61c0e0 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -215,13 +215,14 @@ static void rtnl_net_notifyid(struct net *net, int cmd, int id);
-  */
- int peernet2id_alloc(struct net *net, struct net *peer)
- {
-+	unsigned long flags;
- 	bool alloc;
- 	int id;
- 
--	spin_lock_bh(&net->nsid_lock);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	alloc = atomic_read(&peer->count) == 0 ? false : true;
- 	id = __peernet2id_alloc(net, peer, &alloc);
--	spin_unlock_bh(&net->nsid_lock);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	if (alloc && id >= 0)
- 		rtnl_net_notifyid(net, RTM_NEWNSID, id);
- 	return id;
-@@ -230,11 +231,12 @@ int peernet2id_alloc(struct net *net, struct net *peer)
- /* This function returns, if assigned, the id of a peer netns. */
- int peernet2id(struct net *net, struct net *peer)
- {
-+	unsigned long flags;
- 	int id;
- 
--	spin_lock_bh(&net->nsid_lock);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	id = __peernet2id(net, peer);
--	spin_unlock_bh(&net->nsid_lock);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	return id;
- }
- EXPORT_SYMBOL(peernet2id);
-@@ -249,17 +251,18 @@ bool peernet_has_id(struct net *net, struct net *peer)
- 
- struct net *get_net_ns_by_id(struct net *net, int id)
- {
-+	unsigned long flags;
- 	struct net *peer;
- 
- 	if (id < 0)
- 		return NULL;
- 
- 	rcu_read_lock();
--	spin_lock_bh(&net->nsid_lock);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	peer = idr_find(&net->netns_ids, id);
- 	if (peer)
- 		get_net(peer);
--	spin_unlock_bh(&net->nsid_lock);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	rcu_read_unlock();
- 
- 	return peer;
-@@ -422,17 +425,17 @@ static void cleanup_net(struct work_struct *work)
- 		for_each_net(tmp) {
- 			int id;
- 
--			spin_lock_bh(&tmp->nsid_lock);
-+			spin_lock_irq(&tmp->nsid_lock);
- 			id = __peernet2id(tmp, net);
- 			if (id >= 0)
- 				idr_remove(&tmp->netns_ids, id);
--			spin_unlock_bh(&tmp->nsid_lock);
-+			spin_unlock_irq(&tmp->nsid_lock);
- 			if (id >= 0)
- 				rtnl_net_notifyid(tmp, RTM_DELNSID, id);
- 		}
--		spin_lock_bh(&net->nsid_lock);
-+		spin_lock_irq(&net->nsid_lock);
- 		idr_destroy(&net->netns_ids);
--		spin_unlock_bh(&net->nsid_lock);
-+		spin_unlock_irq(&net->nsid_lock);
- 
- 	}
- 	rtnl_unlock();
-@@ -561,6 +564,7 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
- 	struct net *net = sock_net(skb->sk);
- 	struct nlattr *tb[NETNSA_MAX + 1];
-+	unsigned long flags;
- 	struct net *peer;
- 	int nsid, err;
- 
-@@ -581,15 +585,15 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (IS_ERR(peer))
- 		return PTR_ERR(peer);
- 
--	spin_lock_bh(&net->nsid_lock);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	if (__peernet2id(net, peer) >= 0) {
--		spin_unlock_bh(&net->nsid_lock);
-+		spin_unlock_irqrestore(&net->nsid_lock, flags);
- 		err = -EEXIST;
- 		goto out;
- 	}
- 
- 	err = alloc_netid(net, peer, nsid);
--	spin_unlock_bh(&net->nsid_lock);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	if (err >= 0) {
- 		rtnl_net_notifyid(net, RTM_NEWNSID, err);
- 		err = 0;
-@@ -711,10 +715,11 @@ static int rtnl_net_dumpid(struct sk_buff *skb, struct netlink_callback *cb)
- 		.idx = 0,
- 		.s_idx = cb->args[0],
- 	};
-+	unsigned long flags;
- 
--	spin_lock_bh(&net->nsid_lock);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	idr_for_each(&net->netns_ids, rtnl_net_dumpid_one, &net_cb);
--	spin_unlock_bh(&net->nsid_lock);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 
- 	cb->args[0] = net_cb.idx;
- 	return skb->len;
+-- 
+paul moore
+www.paul-moore.com
