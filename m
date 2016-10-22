@@ -1,33 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v6 0/3] udp: refactor memory accounting
-Date: Sat, 22 Oct 2016 16:50:28 -0400 (EDT)
-Message-ID: <20161022.165028.1826469214601163183.davem@davemloft.net>
-References: <cover.1477043395.git.pabeni@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] Add BPF numa id helper
+Date: Sat, 22 Oct 2016 16:52:26 -0400 (EDT)
+Message-ID: <20161022.165226.1575235148081585915.davem@davemloft.net>
+References: <cover.1477002095.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
-        trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org,
-        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
-        hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
-        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1477043395.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, edumazet@google.com,
+        netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46052 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756006AbcJVUw2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 16:52:28 -0400
+In-Reply-To: <cover.1477002095.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Fri, 21 Oct 2016 13:55:44 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 21 Oct 2016 00:30:25 +0200
 
-> This patch series refactor the udp memory accounting, replacing the
-> generic implementation with a custom one, in order to remove the needs for
-> locking the socket on the enqueue and dequeue operations. The socket backlog
-> usage is dropped, as well.
- ...
+> This patch set adds a helper for retrieving current numa node
+> id and a test case for SO_REUSEPORT.
 
-Series applied, thank you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied.
