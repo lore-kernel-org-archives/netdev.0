@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: skip genenerating uevents for network namespaces
- that are exiting
-Date: Sat, 22 Oct 2016 17:00:04 -0400 (EDT)
-Message-ID: <20161022.170004.211874574494014545.davem@davemloft.net>
-References: <1477017986-18889-1-git-send-email-avagin@openvz.org>
+Subject: Re: [PATCH net 0/7] qed*: fix series.
+Date: Sat, 22 Oct 2016 17:18:32 -0400 (EDT)
+Message-ID: <20161022.171832.4477771741120645.davem@davemloft.net>
+References: <1477039425-31341-1-git-send-email-sudarsana.kalluru@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, containers@lists.linux-foundation.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: avagin@openvz.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@cavium.com,
+        Yuval.Mintz@cavium.com, manish.chopra@cavium.com
+To: sudarsana.kalluru@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46130 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46302 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754877AbcJVVAG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 17:00:06 -0400
-In-Reply-To: <1477017986-18889-1-git-send-email-avagin@openvz.org>
+        with ESMTP id S1755877AbcJVVSf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 17:18:35 -0400
+In-Reply-To: <1477039425-31341-1-git-send-email-sudarsana.kalluru@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrei Vagin <avagin@openvz.org>
-Date: Thu, 20 Oct 2016 19:46:26 -0700
+From: <sudarsana.kalluru@cavium.com>
+Date: Fri, 21 Oct 2016 04:43:38 -0400
 
-> @@ -1525,6 +1530,9 @@ void netdev_unregister_kobject(struct net_device *ndev)
->  {
->  	struct device *dev = &(ndev->dev);
->  
-> +	if (!list_empty(&dev_net(ndev)->exit_list))
-> +		dev->kobj.uevent_suppress = 1;
-> +
+> The patch series contains several minor bug fixes for qed/qede modules.
+> Please consider applying this to 'net' branch.
 
-Please use "dev_set_uevent_suppress(dev, 1);"
+Series applied, thanks.
