@@ -1,40 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] ipv4: use the right lock for ping_group_range
-Date: Sat, 22 Oct 2016 16:24:12 -0400 (EDT)
-Message-ID: <20161022.162412.770873082924010369.davem@davemloft.net>
-References: <1476998386-20935-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v6 0/3] udp: refactor memory accounting
+Date: Sat, 22 Oct 2016 16:50:28 -0400 (EDT)
+Message-ID: <20161022.165028.1826469214601163183.davem@davemloft.net>
+References: <cover.1477043395.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, salo@google.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45748 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754877AbcJVUYN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 16:24:13 -0400
-In-Reply-To: <1476998386-20935-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+        trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, aduyck-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org,
+        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org,
+        hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1477043395.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 20 Oct 2016 14:19:46 -0700
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Fri, 21 Oct 2016 13:55:44 +0200
 
-> This reverts commit a681574c99be23e4d20b769bf0e543239c364af5
-> ("ipv4: disable BH in set_ping_group_range()") because we never
-> read ping_group_range in BH context (unlike local_port_range).
-> 
-> Then, since we already have a lock for ping_group_range, those
-> using ip_local_ports.lock for ping_group_range are clearly typos.
-> 
-> We might consider to share a same lock for both ping_group_range
-> and local_port_range w.r.t. space saving, but that should be for
-> net-next.
-> 
-> Fixes: a681574c99be ("ipv4: disable BH in set_ping_group_range()")
-> Fixes: ba6b918ab234 ("ping: move ping_group_range out of CONFIG_SYSCTL")
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Eric Salo <salo@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> This patch series refactor the udp memory accounting, replacing the
+> generic implementation with a custom one, in order to remove the needs for
+> locking the socket on the enqueue and dequeue operations. The socket backlog
+> usage is dropped, as well.
+ ...
 
-Applied and queued up for -stable, thanks.
+Series applied, thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
