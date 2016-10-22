@@ -1,57 +1,72 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [Patch net] net: saving irq context for peernet2id()
-Date: Sat, 22 Oct 2016 15:02:56 -0400
-Message-ID: <CAHC9VhSNjx65rDKHLGy3ziZeoDzzBNUzXzWDOczDn=1Uh92+wQ@mail.gmail.com>
-References: <1476946352-15770-1-git-send-email-xiyou.wangcong@gmail.com>
- <2707c52d-88ec-7b93-f96e-eeaffc952c9c@tycho.nsa.gov> <CAM_iQpWD3WiX1ZX+3LJ8vbJc42K1jZcZ4-f6MO5kzZY-+Szkqw@mail.gmail.com>
- <CAHC9VhSronk914-0QZd7cPBEAOvSzN++Umc=_aueeCuOB9iG8Q@mail.gmail.com>
- <CAM_iQpVFWzUm2BJZUs+-LWpKA8kubuKhzyE01_V69TEsrFnm-Q@mail.gmail.com>
- <CAHC9VhQWWDHnQGv+feXZ_CDrkftuRkKLtKvXkpN0pqh6e6hMPQ@mail.gmail.com>
- <CAM_iQpV0vfwsToR=maxhGM+fvQLX9zqcpp14A-C9JNzLfKJy9g@mail.gmail.com>
- <CAHC9VhRQ9YAr9eHYg2HWusuCZd714tK6SSr3Et8beb77w37TUA@mail.gmail.com> <CAM_iQpWfVWmG3egCXwbHSPEibtnh6G62xcFC9XXBNdojBqYCOg@mail.gmail.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH net-next v2 7/9] net: use core MTU range checking in
+ misc drivers
+Date: Sat, 22 Oct 2016 21:16:06 +0200
+Message-ID: <20161022211606.3b5d137d@kant>
+References: <20161019023333.15760-1-jarod@redhat.com>
+        <20161020175524.6184-1-jarod@redhat.com>
+        <20161020175524.6184-8-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Smalley <sds@tycho.nsa.gov>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Elad Raz <e@eladraz.com>, Richard Guy Briggs <rgb@redhat.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, Faisal Latif <faisal.latif@intel.com>,
+        Cliff Whickman <cpw@sgi.com>,
+        Robin Holt <robinmholt@gmail.com>,
+        Jes Sorensen <jes@trained-monkey.org>,
+        Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>,
+        Antonio Quartulli <a@unstable.cc>,
+        Sathya Prakash <sathya.prakash@broadcom.com>,
+        Chaitra P B <chaitra.basappa@broadcom.com>,
+        Suganath Prabu Subramani
+        <suganath-prabu.subramani@broadcom.com>,
+        MPT-FusionLinux.pdl@broadcom.com,
+        Sebastian Reichel <sre@kernel.org>,
+        Felipe Balbi <balbi@kernel.org>,
+        Arvid Brodin <arvid.brodin@alten.se>,
+        Remi Denis-Courmont <courmisch@gmail.com>
+To: Jarod Wilson <jarod@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f173.google.com ([209.85.217.173]:34447 "EHLO
-        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752726AbcJVTC6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 15:02:58 -0400
-Received: by mail-ua0-f173.google.com with SMTP id m26so17581257uaa.1
-        for <netdev@vger.kernel.org>; Sat, 22 Oct 2016 12:02:57 -0700 (PDT)
-In-Reply-To: <CAM_iQpWfVWmG3egCXwbHSPEibtnh6G62xcFC9XXBNdojBqYCOg@mail.gmail.com>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:50594 "EHLO
+        einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754493AbcJVTRD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 15:17:03 -0400
+In-Reply-To: <20161020175524.6184-8-jarod@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 21, 2016 at 11:26 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Fri, Oct 21, 2016 at 1:03 PM, Paul Moore <paul@paul-moore.com> wrote:
->> On Fri, Oct 21, 2016 at 2:02 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>> On Fri, Oct 21, 2016 at 9:19 AM, Paul Moore <paul@paul-moore.com> wrote:
->>>> On Thu, Oct 20, 2016 at 7:35 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>>>> This is what I did in the follow up patch. I attach the updated version
->>>>> in this email for you to review ...
->>>>
->>>> I think there is still some confusion.  The second patch you posted
->>>> still has two queues with potentially duplicated (minus the length
->>>> tweaks) skbs.
->>>
->>> The current code without my patch is already this, the only difference
->>> is there is no queue for multicast case, duplication is already there.
->>
->> The difference is the period of time where the skbs are duplicated.
->> You patch duplicates the skb and then queues them, I'm suggesting
->> putting a single skb in the queue and then only duplicating it once it
->> has been pulled off the queue.
->
-> I never disagree, the only thing you never explain is why we must do
-> it in this patch rather than a patch later?
+On Oct 20 Jarod Wilson wrote:
+> firewire-net:
+> - set min/max_mtu
+> - remove fwnet_change_mtu
+[...]
+> --- a/drivers/firewire/net.c
+> +++ b/drivers/firewire/net.c
+[...]
+> @@ -1478,9 +1467,10 @@ static int fwnet_probe(struct fw_unit *unit,
+>  	 * Use the RFC 2734 default 1500 octets or the maximum payload
+>  	 * as initial MTU
+>  	 */
+> -	max_mtu = (1 << (card->max_receive + 1))
+> -		  - sizeof(struct rfc2734_header) - IEEE1394_GASP_HDR_SIZE;
+> -	net->mtu = min(1500U, max_mtu);
+> +	net->max_mtu = (1 << (card->max_receive + 1))
+> +		       - sizeof(struct rfc2734_header) - IEEE1394_GASP_HDR_SIZE;
+> +	net->mtu = min(1500U, net->max_mtu);
+> +	net->min_mtu = ETH_MIN_MTU;
+>  
+>  	/* Set our hardware address while we're at it */
+>  	ha = (union fwnet_hwaddr *)net->dev_addr;
 
-It seems obvious: if you do the skb_copy() before you queue the skbs
-you are doubling the amount of memory used which is undesirable.
+Please preserve the current behavior, i.e. do not enforce any particular
+upper bound.  (Especially none based on the local link layer controller's
+max_receive parameter.)
 
+BTW, after having read RFC 2734, RFC 3146, and the code, I am convinced
+that net->mtu should be initialized to 1500, not less.  But such a change
+should be done in a separate patch.
 -- 
-paul moore
-www.paul-moore.com
+Stefan Richter
+-======----- =-=- =-==-
+http://arcgraph.de/sr/
