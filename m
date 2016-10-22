@@ -1,65 +1,52 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH net-next 09/15] ethernet/dlink: use core min/max MTU
- checking
-Date: Sat, 22 Oct 2016 11:54:32 +0200
-Message-ID: <20161022115432.5936df44@kant>
-References: <20161017195417.48259-1-jarod@redhat.com>
-        <20161017195417.48259-10-jarod@redhat.com>
-        <CAOJe8K0Yme_do82WgD7L+eWsvbC2nSQr13Kohj0Jd3coAeHfrg@mail.gmail.com>
-        <20161018150452.GU14983@redhat.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] net: netcp: drop kfree for memory allocated with devm_kzalloc
+Date: Sat, 22 Oct 2016 12:32:04 +0000
+Message-ID: <1477139524-26359-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Denis Kirjanov <kda@linux-powerpc.org>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Wingman Kwok <w-kwok2@ti.com>,
+        Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:58580 "EHLO
-        einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934407AbcJVJym (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 05:54:42 -0400
-In-Reply-To: <20161018150452.GU14983@redhat.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35365 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932718AbcJVMcM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 08:32:12 -0400
+Received: by mail-pf0-f193.google.com with SMTP id s8so11274252pfj.2
+        for <netdev@vger.kernel.org>; Sat, 22 Oct 2016 05:32:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Oct 18 Jarod Wilson wrote:
-> On Tue, Oct 18, 2016 at 04:45:51PM +0300, Denis Kirjanov wrote:
-> > On 10/17/16, Jarod Wilson <jarod@redhat.com> wrote:
-[...]
-> > > --- a/drivers/net/ethernet/dlink/sundance.c
-> > > +++ b/drivers/net/ethernet/dlink/sundance.c
-> > > @@ -580,6 +580,10 @@ static int sundance_probe1(struct pci_dev *pdev,
-> > >  	dev->ethtool_ops = &ethtool_ops;
-> > >  	dev->watchdog_timeo = TX_TIMEOUT;
-> > >
-> > > +	/* MTU range: 68 - 8191 */
-> > > +	dev->min_mtu = ETH_MIN_MTU;
-> > > +	dev->max_mtu = 8191;
-> > > +  
-> > ICPlus datasheet defines the max frame size like 0x1514 or 0x4491
-> > based on the RcvLargeFrames bit in the MACCtrl0 register  
-> 
-> I do anticipate this patchset might bring to light some inaccuracies in
-> min/max mtu values currently implemented in various drivers, but for the
-> moment, I'm going for 100% identical behavior with what's currently in the
-> driver, and if you'll look down below...
-> 
-> > >  	pci_set_drvdata(pdev, dev);
-> > >
-> > >  	i = register_netdev(dev);
-> > > @@ -713,8 +717,6 @@ static int sundance_probe1(struct pci_dev *pdev,
-> > >
-> > >  static int change_mtu(struct net_device *dev, int new_mtu)
-> > >  {
-> > > -	if ((new_mtu < 68) || (new_mtu > 8191)) /* Set by RxDMAFrameLen */  
-> 
->                                          ^^^^
-> The 8191 was simply transplanted from right here. I think altering the
-> value should be the subject of a separate patch.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-You transplanted the value but dropped the comment.  Though Denis' reply
-sounds like the comment should have been /* FIXME, set by RxDMAFrameLen */.
--- 
-Stefan Richter
--======----- =-=- =-==-
-http://arcgraph.de/sr/
+It's not necessary to free memory allocated with devm_kzalloc in the
+remove path and using kfree leads to a double free.
+
+Fixes: 84640e27f230 ("net: netcp: Add Keystone NetCP core ethernet
+driver")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/ti/netcp_core.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 11609d5..2fb5b6d 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -2058,7 +2058,6 @@ static void netcp_delete_interface(struct netcp_device *netcp_device,
+ 		if (module->release)
+ 			module->release(intf_modpriv->module_priv);
+ 		list_del(&intf_modpriv->intf_list);
+-		kfree(intf_modpriv);
+ 	}
+ 	WARN(!list_empty(&netcp->module_head), "%s interface module list is not empty!\n",
+ 	     ndev->name);
+@@ -2153,7 +2152,6 @@ static int netcp_remove(struct platform_device *pdev)
+ 		dev_dbg(&pdev->dev, "Removing module \"%s\"\n", module->name);
+ 		module->remove(netcp_device, inst_modpriv->module_priv);
+ 		list_del(&inst_modpriv->inst_list);
+-		kfree(inst_modpriv);
+ 	}
+ 
+ 	/* now that all modules are removed, clean up the interfaces */
