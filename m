@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/1] driver: tun: Forbid to set IFF_TUN and
- IFF_TAP at the same time
-Date: Sun, 23 Oct 2016 17:40:43 -0400 (EDT)
-Message-ID: <20161023.174043.122548847583183053.davem@davemloft.net>
-References: <1477047735-26003-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH net] net: fec: Call swap_buffer() prior to IP header
+ alignment
+Date: Sun, 23 Oct 2016 17:42:27 -0400 (EDT)
+Message-ID: <20161023.174227.853585114262094271.davem@davemloft.net>
+References: <1477049669-25101-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, edumazet@google.com, pabeni@redhat.com,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: fugang.duan@nxp.com, henri.roosen@ginzinger.com, eric@nelint.com,
+        kernel@pengutronix.de, rmk@armlinux.org.uk, netdev@vger.kernel.org,
+        fabio.estevam@nxp.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56424 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56450 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756745AbcJWVkp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 17:40:45 -0400
-In-Reply-To: <1477047735-26003-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S1751027AbcJWVm3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 17:42:29 -0400
+In-Reply-To: <1477049669-25101-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fgao@ikuai8.com
-Date: Fri, 21 Oct 2016 19:02:15 +0800
+From: Fabio Estevam <festevam@gmail.com>
+Date: Fri, 21 Oct 2016 09:34:29 -0200
 
-> From: Gao Feng <fgao@ikuai8.com>
+> From: Fabio Estevam <fabio.estevam@nxp.com>
 > 
-> Current tun driver permits the ifr_flags is set with IFF_TUN and
-> IFF_TAP at the same time. But actually there is only IFF_TUN flag
-> works. And it does not make sense these two flags are set, so add
-> this check.
+> Commit 3ac72b7b63d5 ("net: fec: align IP header in hardware") breaks
+> networking on mx28.
 > 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> There is an erratum on mx28 (ENGR121613 - ENET big endian mode
+> not compatible with ARM little endian) that requires an additional
+> byte-swap operation to workaround this problem.
+> 
+> So call swap_buffer() prior to performing the IP header alignment
+> to restore network functionality on mx28. 
+> 
+> Fixes: 3ac72b7b63d5 ("net: fec: align IP header in hardware")
+> Reported-and-tested-by: Henri Roosen <henri.roosen@ginzinger.com>
+> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
 
-We've allowed this for too long to start failing on it now, sorry.
+Applied, thank you.
