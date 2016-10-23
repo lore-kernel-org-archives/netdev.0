@@ -1,45 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/sched: em_meta: Fix 'meta vlan' to
- correctly recognize zero VID frames
-Date: Sun, 23 Oct 2016 17:31:54 -0400 (EDT)
-Message-ID: <20161023.173154.271949515698909625.davem@davemloft.net>
-References: <1476998288-13341-1-git-send-email-shmulik.ladkani@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] net: allow to kill a task which waits
+	net_mutex in copy_new_ns
+Date: Sun, 23 Oct 2016 17:34:12 -0400 (EDT)
+Message-ID: <20161023.173412.980399329363842342.davem@davemloft.net>
+References: <1477017943-18786-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org, jiri@resnulli.us,
-        eric.dumazet@gmail.com, stephen@networkplumber.org
-To: shmulik.ladkani@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56324 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752448AbcJWVb7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 17:31:59 -0400
-In-Reply-To: <1476998288-13341-1-git-send-email-shmulik.ladkani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1477017943-18786-1-git-send-email-avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Date: Fri, 21 Oct 2016 00:18:08 +0300
+From: Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Date: Thu, 20 Oct 2016 19:45:43 -0700
 
-> META_COLLECTOR int_vlan_tag() assumes that if the accel tag (vlan_tci)
-> is zero, then no vlan accel tag is present.
+> From: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 > 
-> This is incorrect for zero VID vlan accel packets, making the following
-> match fail:
->   tc filter add ... basic match 'meta(vlan mask 0xfff eq 0)' ...
+> net_mutex can be locked for a long time. It may be because many
+> namespaces are being destroyed or many processes decide to create
+> a network namespace.
 > 
-> Apparently 'int_vlan_tag' was implemented prior VLAN_TAG_PRESENT was
-> introduced in 05423b2 "vlan: allow null VLAN ID to be used"
-> (and at time introduced, the 'vlan_tx_tag_get' call in em_meta was not
->  adapted).
+> Both these operations are heavy, so it is better to have an ability to
+> kill a process which is waiting net_mutex.
 > 
-> Fix, testing skb_vlan_tag_present instead of testing skb_vlan_tag_get's
-> value.
-> 
-> Fixes: 05423b2413 ("vlan: allow null VLAN ID to be used")
-> Fixes: 1a31f2042e ("netsched: Allow meta match on vlan tag on receive")
-> 
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 
 Applied, thanks.
