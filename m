@@ -1,31 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth 2016-10-21
-Date: Sun, 23 Oct 2016 17:52:22 -0400 (EDT)
-Message-ID: <20161023.175222.1175393214281620455.davem@davemloft.net>
-References: <20161021144053.GA14245@x1c.dominarus.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net 1/1] net sched filters: fix notification of filter
+ delete with proper handle
+Date: Mon, 24 Oct 2016 00:30:44 +0200
+Message-ID: <580D3A14.5010705@iogearbox.net>
+References: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: johan.hedberg@gmail.com
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56522 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754380AbcJWVwY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 17:52:24 -0400
-In-Reply-To: <20161021144053.GA14245@x1c.dominarus.com>
+Received: from www62.your-server.de ([213.133.104.62]:34176 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754380AbcJWWat (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 18:30:49 -0400
+In-Reply-To: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Fri, 21 Oct 2016 17:40:53 +0300
+On 10/23/2016 05:35 PM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
 
-> Here are some more Bluetooth fixes for the 4.9 kernel:
-> 
->  - Fix to btwilink driver probe function return value
->  - Power management fix to hci_bcm
->  - Fix to encoding name in scan response data
-> 
-> Please let me know if there are any issues pulling. Thanks.
+An actual commit message would be good especially if it's a fix
+for -net tree plus stable. Thanks.
 
-Pulled, thanks Johan.
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
+>   net/sched/cls_api.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+> index 2ee29a3..2b2a797 100644
+> --- a/net/sched/cls_api.c
+> +++ b/net/sched/cls_api.c
+> @@ -345,7 +345,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+>   			if (err == 0) {
+>   				struct tcf_proto *next = rtnl_dereference(tp->next);
+>
+> -				tfilter_notify(net, skb, n, tp, fh,
+> +				tfilter_notify(net, skb, n, tp,
+> +					       t->tcm_handle,
+>   					       RTM_DELTFILTER, false);
+>   				if (tcf_destroy(tp, false))
+>   					RCU_INIT_POINTER(*back, next);
+>
