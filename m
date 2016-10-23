@@ -1,84 +1,51 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH net-next 2/2] firewire: net: set initial MTU = 1500
-	unconditionally, fix IPv6 on some CardBus cards
-Date: Sun, 23 Oct 2016 16:30:56 +0200
-Message-ID: <20161023163056.6bc38610@kant>
-References: <20161019023333.15760-1-jarod@redhat.com>
-	<20161020175524.6184-1-jarod@redhat.com>
-	<20161020175524.6184-8-jarod@redhat.com>
-	<20161022211606.3b5d137d@kant> <20161022212759.228c7642@kant>
-	<20161023011824.GE32569@redhat.com> <20161023162903.4166a35d@kant>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net] sched, cls: don't dump kernel addr into tc monitors
+ on delete event
+Date: Sun, 23 Oct 2016 11:24:36 -0400
+Message-ID: <9f962150-0ca8-7712-be4a-14cfe1dcc3f4@mojatatu.com>
+References: <f7e28cd6ec298a90dc33fcc85e7361eb92025690.1476821268.git.daniel@iogearbox.net>
+ <c02ce4f1-ba99-f54c-d35d-ca81cc771c8a@mojatatu.com>
+ <CAM_iQpW4RdVo72=nQVaehkUCA98yq8+PyFQUTxis-Bx7XgVkFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, Jarod
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20161023162903.4166a35d@kant>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:33937 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753174AbcJWPYi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 11:24:38 -0400
+Received: by mail-it0-f68.google.com with SMTP id e203so7072987itc.1
+        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 08:24:38 -0700 (PDT)
+In-Reply-To: <CAM_iQpW4RdVo72=nQVaehkUCA98yq8+PyFQUTxis-Bx7XgVkFw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-firewire-net, like the older eth1394 driver, reduced the initial MTU to
-less than 1500 octets if the local link layer controller's asynchronous
-packet reception limit was lower.
+On 16-10-18 07:14 PM, Cong Wang wrote:
+> On Tue, Oct 18, 2016 at 2:21 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> I was sitting on this patch I was going to send ;->
+>> Does this resolve it?
+>
+> Your patch makes more sense to me. Maybe we can remove the
+> event != RTM_DELTFILTER special case too?
+>
 
-This is bogus, since this reception limit does not have anything to do
-with the transmission limit.  Neither did this reduction affect the TX
-path positively, nor could it prevent link fragmentation at the RX path.
+We cant entirely get rid of that. Events other than
+deletion require that a dump follows.
+Probably what you mean is:
+We could remove extra line inside "if (RTM_DELTFILTER != event)"
+which does "tcm->tcm_handle = 0;"
+It would be more reasonable to actually audit the callers of
+tcf_fill_node() and make sure they pass the correct fh.
 
-Many FireWire CardBus cards have a max_rec of 9, causing an initial MTU
-of 1024 - 16 = 1008.  RFC 2734 and RFC 3146 allow a minimum max_rec = 8,
-which would result in an initial MTU of 512 - 16 = 496.  On such cards,
-IPv6 could only be employed if the MTU was manually increased to 1280 or
-more, i.e. IPv6 would not work without intervention from userland.
+In any case, can we make that a followup - because this is a bug
+fix?
+I will send it and you could still comment if you dont find that
+sufficient.
 
-We now always initialize the MTU to 1500, which is the default according
-to RFC 2734 and RFC 3146.
-
-On a VIA VT6316 based CardBus card which was affected by this, changing
-the MTU from 1008 to 1500 also increases TX bandwidth by 6 %.
-RX remains unaffected.
-
-CC: netdev@vger.kernel.org
-CC: linux1394-devel@lists.sourceforge.net
-CC: Jarod Wilson <jarod@redhat.com>
-Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
----
- drivers/firewire/net.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
-
-diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-index 99379542b263..03715e7d9d92 100644
---- a/drivers/firewire/net.c
-+++ b/drivers/firewire/net.c
-@@ -1463,13 +1463,7 @@ static int fwnet_probe(struct fw_unit *unit,
- 		goto out;
- 	dev->local_fifo = dev->handler.offset;
- 
--	/*
--	 * Use the RFC 2734 default 1500 octets or the maximum payload
--	 * as initial MTU
--	 */
--	net->mtu = min(1500U,
--		       (1U << (card->max_receive + 1))
--		       - RFC2374_FRAG_HDR_SIZE - IEEE1394_GASP_HDR_SIZE);
-+	net->mtu = 1500U;
- 	net->min_mtu = ETH_MIN_MTU;
- 	net->max_mtu = ETH_MAX_MTU;
- 
--- 
-Stefan Richter
--======----- =-=- =-===
-http://arcgraph.de/sr/
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most 
-engaging tech sites, SlashDot.org! http://sdm.link/slashdot
+cheers,
+jamal
