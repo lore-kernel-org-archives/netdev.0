@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] lwt: Remove unused len field
-Date: Sun, 23 Oct 2016 17:45:25 -0400 (EDT)
-Message-ID: <20161023.174525.1420508806882731468.davem@davemloft.net>
-References: <fb52764c89fa8c11ec832bd4ddf7595b6a673ce1.1477058913.git.tgraf@suug.ch>
+Subject: Re: pull request: bluetooth 2016-10-21
+Date: Sun, 23 Oct 2016 17:52:22 -0400 (EDT)
+Message-ID: <20161023.175222.1175393214281620455.davem@davemloft.net>
+References: <20161021144053.GA14245@x1c.dominarus.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, roopa@cumulusnetworks.com,
-        netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56486 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56522 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756740AbcJWVp0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 17:45:26 -0400
-In-Reply-To: <fb52764c89fa8c11ec832bd4ddf7595b6a673ce1.1477058913.git.tgraf@suug.ch>
+        with ESMTP id S1754380AbcJWVwY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 17:52:24 -0400
+In-Reply-To: <20161021144053.GA14245@x1c.dominarus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Fri, 21 Oct 2016 16:10:22 +0200
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Fri, 21 Oct 2016 17:40:53 +0300
 
-> The field is initialized by ILA and MPLS but never used. Remove it.
+> Here are some more Bluetooth fixes for the 4.9 kernel:
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>  - Fix to btwilink driver probe function return value
+>  - Power management fix to hci_bcm
+>  - Fix to encoding name in scan response data
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied, thanks Thomas.
+Pulled, thanks Johan.
