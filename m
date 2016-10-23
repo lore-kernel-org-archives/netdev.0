@@ -1,67 +1,65 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] doc: update docbook annotations for socket and skb
-Date: Sun, 23 Oct 2016 09:28:29 -0700
-Message-ID: <20161023092829.3c2bc1f2@xeon-e3>
+Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
+Date: Sun, 23 Oct 2016 09:38:08 -0700
+Message-ID: <20161023093808.161535f3@xeon-e3>
+References: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: mst@redhat.com, tom@herbertland.com, netdev@vger.kernel.org,
+        shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com
+To: Shrijeet Mukherjee <shrijeet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34749 "EHLO
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35946 "EHLO
         mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752171AbcJWQ2O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 12:28:14 -0400
-Received: by mail-pf0-f177.google.com with SMTP id r16so84013555pfg.1
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 09:28:13 -0700 (PDT)
+        with ESMTP id S1754861AbcJWQhz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 12:37:55 -0400
+Received: by mail-pf0-f177.google.com with SMTP id e6so84051560pfk.3
+        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 09:37:55 -0700 (PDT)
+In-Reply-To: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Overall, I am glad to see XDP support more widely available. Minor stuff
+in implementation.
 
-From: Stephen Hemminger <sthemmin@microsoft.com>
+>  
+> +/* this function is not called from the receive_buf path directly as
+> + * we want to use the page model for rx merge buffer and big buffers
+> + * and not use the fast path for driving skb's around
+> + */
+> +static inline u32 do_xdp_prog(struct virtnet_info *vi,
+> +			      struct receive_queue *rq,
+> +			      void *buf, int offset, int len)
+> +{
 
-The skbuff and sock structure both had missing parameter annotation
-values.
+Do not mark non-trivial static functions as inline. The compiler will
+do it anyway if it thinks it is appropriate.
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- include/linux/skbuff.h | 1 +
- include/net/sock.h     | 4 +++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
++static int virtnet_xdp_query(struct net_device *dev)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 601258f..32810f2 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -936,6 +936,7 @@ struct sk_buff_fclones {
- 
- /**
-  *	skb_fclone_busy - check if fclone is busy
-+ *	@sk: socket
-  *	@skb: buffer
-  *
-  * Returns true if skb is a fast clone, and its clone is not freed.
-diff --git a/include/net/sock.h b/include/net/sock.h
-index ebf75db..73c6b00 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -252,6 +252,7 @@ struct sock_common {
-   *	@sk_pacing_rate: Pacing rate (if supported by transport/packet scheduler)
-   *	@sk_max_pacing_rate: Maximum pacing rate (%SO_MAX_PACING_RATE)
-   *	@sk_sndbuf: size of send buffer in bytes
-+  *	@sk_padding: unused element for alignment
-   *	@sk_no_check_tx: %SO_NO_CHECK setting, set checksum in TX packets
-   *	@sk_no_check_rx: allow zero checksum in RX packets
-   *	@sk_route_caps: route capabilities (e.g. %NETIF_F_TSO)
-@@ -302,7 +303,8 @@ struct sock_common {
-   *	@sk_backlog_rcv: callback to process the backlog
-   *	@sk_destruct: called at sock freeing time, i.e. when all refcnt == 0
-   *	@sk_reuseport_cb: reuseport group container
-- */
-+  *	@sk_rcu: used during RCU grace period
-+  */
- struct sock {
- 	/*
- 	 * Now struct inet_timewait_sock also uses sock_common, so please just
--- 
-2.9.3
+Use bool here.
+
+@@ -366,13 +420,22 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+...
+
+ 	if (unlikely(!curr_skb))
+ 		goto err_skb;
++
+ 	while (--num_buf) {
+ 		int num_skb_frags;
+
+@@ -1878,7 +2000,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		if (virtnet_change_mtu(dev, mtu))
+ 			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
+ 	}
+-
+ 	if (vi->any_header_sg)
+ 		dev->needed_headroom = vi->hdr_len;
+
+This parts of the patch is white space creep. I.e other edits you did
+that stayed around.
+
+Do you have any performance numbers? Does the receive into pages hurt
+the non XDP performance?
