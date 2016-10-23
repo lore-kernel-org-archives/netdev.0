@@ -1,65 +1,65 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Sun, 23 Oct 2016 09:38:08 -0700
-Message-ID: <20161023093808.161535f3@xeon-e3>
-References: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, tom@herbertland.com, netdev@vger.kernel.org,
-        shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com
-To: Shrijeet Mukherjee <shrijeet@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: fix the panic caused by route update
+Date: Mon, 24 Oct 2016 01:01:09 +0800
+Message-ID: <a0659fd9a23fc95fe9a586be4b57c8032c8a6060.1477242069.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35946 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754861AbcJWQhz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 12:37:55 -0400
-Received: by mail-pf0-f177.google.com with SMTP id e6so84051560pfk.3
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 09:37:55 -0700 (PDT)
-In-Reply-To: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35285 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753156AbcJWRBV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 13:01:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Overall, I am glad to see XDP support more widely available. Minor stuff
-in implementation.
+Commit 7303a1475008 ("sctp: identify chunks that need to be fragmented
+at IP level") made the chunk be fragmented at IP level in the next round
+if it's size exceed PMTU.
 
->  
-> +/* this function is not called from the receive_buf path directly as
-> + * we want to use the page model for rx merge buffer and big buffers
-> + * and not use the fast path for driving skb's around
-> + */
-> +static inline u32 do_xdp_prog(struct virtnet_info *vi,
-> +			      struct receive_queue *rq,
-> +			      void *buf, int offset, int len)
-> +{
+But there still is another case, PMTU can be updated if transport's dst
+expires and transport's pmtu_pending is set in sctp_packet_transmit. If
+the new PMTU is less than the chunk, the same issue with that commit can
+be triggered.
 
-Do not mark non-trivial static functions as inline. The compiler will
-do it anyway if it thinks it is appropriate.
+So we should drop this packet and let it retransmit in another round
+where it would be fragmented at IP level.
 
-+static int virtnet_xdp_query(struct net_device *dev)
+This patch is to fix it by checking the chunk size after PMTU may be
+updated and dropping this packet if it's size exceed PMTU.
 
-Use bool here.
+Fixes: 90017accff61 ("sctp: Add GSO support")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/output.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-@@ -366,13 +420,22 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
-...
-
- 	if (unlikely(!curr_skb))
- 		goto err_skb;
-+
- 	while (--num_buf) {
- 		int num_skb_frags;
-
-@@ -1878,7 +2000,6 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		if (virtnet_change_mtu(dev, mtu))
- 			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
- 	}
--
- 	if (vi->any_header_sg)
- 		dev->needed_headroom = vi->hdr_len;
-
-This parts of the patch is white space creep. I.e other edits you did
-that stayed around.
-
-Do you have any performance numbers? Does the receive into pages hurt
-the non XDP performance?
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 2a5c189..6cb0df8 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -418,6 +418,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 	__u8 has_data = 0;
+ 	int gso = 0;
+ 	int pktcount = 0;
++	int auth_len = 0;
+ 	struct dst_entry *dst;
+ 	unsigned char *auth = NULL;	/* pointer to auth in skb data */
+ 
+@@ -510,7 +511,12 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 			list_for_each_entry(chunk, &packet->chunk_list, list) {
+ 				int padded = SCTP_PAD4(chunk->skb->len);
+ 
+-				if (pkt_size + padded > tp->pathmtu)
++				if (chunk == packet->auth)
++					auth_len = padded;
++				else if (auth_len + padded + packet->overhead >
++					 tp->pathmtu)
++					goto nomem;
++				else if (pkt_size + padded > tp->pathmtu)
+ 					break;
+ 				pkt_size += padded;
+ 			}
+-- 
+2.1.0
