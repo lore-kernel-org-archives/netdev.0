@@ -1,42 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/9] alx: refactor descriptor allocation
-Date: Sun, 23 Oct 2016 11:50:12 -0400 (EDT)
-Message-ID: <20161023.115012.1557996279582284252.davem@davemloft.net>
-References: <cover.1477044917.git.tobias.regnery@gmail.com>
-        <cover.1477044917.git.tobias.regnery@gmail.com>
-        <4118b3b705404f4ce27aaa389697c12f5319aaef.1477044918.git.tobias.regnery@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH -next] net: dsa: mv88e6xxx: use setup_timer to simplify
+ the code
+Date: Sun, 23 Oct 2016 17:54:40 +0200
+Message-ID: <20161023155440.GA1110@lunn.ch>
+References: <1477146480-28003-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org
-To: tobias.regnery@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54038 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753174AbcJWPuU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 11:50:20 -0400
-In-Reply-To: <4118b3b705404f4ce27aaa389697c12f5319aaef.1477044918.git.tobias.regnery@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:51990 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755833AbcJWPys (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 23 Oct 2016 11:54:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1477146480-28003-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Regnery <tobias.regnery@gmail.com>
-Date: Fri, 21 Oct 2016 12:49:44 +0200
+On Sat, Oct 22, 2016 at 02:28:00PM +0000, Wei Yongjun wrote:
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> Use setup_timer function instead of initializing timer with the function
+> and data fields.
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-> +	txq->tpd = alx->descmem.virt + offset;
-> +	txq->tpd_dma = alx->descmem.dma + offset;
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-If all the crazy casting isn't necessary here...
-
-> +	rxq->rrd = (void *)((u8 *)alx->descmem.virt + offset);
-> +	rxq->rrd_dma = alx->descmem.dma + offset;
-> +	offset += sizeof(struct alx_rrd) * alx->rx_ringsz;
-> +
-> +	rxq->rfd = (void *)((u8 *)alx->descmem.virt + offset);
-> +	rxq->rfd_dma = alx->descmem.dma + offset;
-> +	offset += sizeof(struct alx_rfd) * alx->rx_ringsz;
-
-Then it certainly isn't necessary here either.
-
-Void pointer arithmatic is very clearly defined as operating on byte
-quantities, so the cast is not necessary for the arithmetic nor the
-final pointer type.
+    Andrew
