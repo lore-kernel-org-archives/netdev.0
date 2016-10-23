@@ -1,41 +1,42 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net 1/1] net sched filters: fix notification of filter delete with proper handle
-Date: Sun, 23 Oct 2016 11:35:12 -0400
-Message-ID: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, eric.dumazet@gmail.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] devlink: Prevent port_type_set() callback when it's not needed
+Date: Sun, 23 Oct 2016 17:43:05 +0200
+Message-ID: <1477237385-1991-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, eladr@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:36354 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754618AbcJWPfT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 11:35:19 -0400
-Received: by mail-it0-f65.google.com with SMTP id m138so187129itm.3
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 08:35:19 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34353 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753174AbcJWPnJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 11:43:09 -0400
+Received: by mail-wm0-f67.google.com with SMTP id d199so6180527wmd.1
+        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 08:43:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Elad Raz <eladr@mellanox.com>
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+When a port_type_set() is been called and the new port type set is the same
+as the old one, just return success.
+
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_api.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/core/devlink.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 2ee29a3..2b2a797 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -345,7 +345,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
- 			if (err == 0) {
- 				struct tcf_proto *next = rtnl_dereference(tp->next);
- 
--				tfilter_notify(net, skb, n, tp, fh,
-+				tfilter_notify(net, skb, n, tp,
-+					       t->tcm_handle,
- 					       RTM_DELTFILTER, false);
- 				if (tcf_destroy(tp, false))
- 					RCU_INIT_POINTER(*back, next);
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 1b50630..d2fd736 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -608,6 +608,8 @@ static int devlink_port_type_set(struct devlink *devlink,
+ 	if (devlink->ops && devlink->ops->port_type_set) {
+ 		if (port_type == DEVLINK_PORT_TYPE_NOTSET)
+ 			return -EINVAL;
++		if (port_type == devlink_port->type)
++			return 0;
+ 		err = devlink->ops->port_type_set(devlink_port, port_type);
+ 		if (err)
+ 			return err;
 -- 
-1.9.1
+2.5.5
