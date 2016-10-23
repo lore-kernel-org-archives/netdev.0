@@ -1,54 +1,96 @@
 From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH] batman-adv: Revert "use core MTU range checking in misc
- drivers"
-Date: Sat, 22 Oct 2016 21:08:26 -0400
-Message-ID: <20161023010826.GD32569@redhat.com>
-References: <20161022074624.30033-1-sven@narfation.org>
+Subject: Re: [PATCH net-next v2 7/9] net: use core MTU range checking in misc
+ drivers
+Date: Sat, 22 Oct 2016 21:18:24 -0400
+Message-ID: <20161023011824.GE32569@redhat.com>
+References: <20161019023333.15760-1-jarod@redhat.com>
+ <20161020175524.6184-1-jarod@redhat.com>
+ <20161020175524.6184-8-jarod@redhat.com>
+ <20161022211606.3b5d137d@kant>
+ <20161022212759.228c7642@kant>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        b.a.t.m.a.n@lists.open-mesh.org, linux-kernel@vger.kernel.org
-To: Sven Eckelmann <sven@narfation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f176.google.com ([209.85.216.176]:35557 "EHLO
-        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756164AbcJWBIb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2016 21:08:31 -0400
-Received: by mail-qt0-f176.google.com with SMTP id f6so112060402qtd.2
-        for <netdev@vger.kernel.org>; Sat, 22 Oct 2016 18:08:30 -0700 (PDT)
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux1394-devel@lists.sourceforge.net
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161022074624.30033-1-sven@narfation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161022212759.228c7642@kant>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 22, 2016 at 09:46:24AM +0200, Sven Eckelmann wrote:
-> The maximum MTU is defined via the slave devices of an batman-adv
-> interface. Thus it is not possible to calculate the max_mtu during the
-> creation of the batman-adv device when no slave devices are attached. Doing
-> so would for example break non-fragmentation setups which then
-> (incorrectly) allow an MTU of 1500 even when underlying device cannot
-> transport 1500 bytes + batman-adv headers.
+On Sat, Oct 22, 2016 at 09:27:59PM +0200, Stefan Richter wrote:
+> Adding Cc: linux1394-devel, dropping several Ccs, no additional comment.
 > 
-> Checking the dynamically calculated max_mtu via the minimum of the slave
-> devices MTU during .ndo_change_mtu is also used by the bridge interface.
-> 
-> Cc: Jarod Wilson <jarod@redhat.com>
-> Fixes: b3e3893e1253 ("net: use core MTU range checking in misc drivers")
-> Signed-off-by: Sven Eckelmann <sven@narfation.org>
-> ---
-> Original patch + my comment: https://patchwork.ozlabs.org/patch/684722/
-> 
-> I just got informed about this patch when it was already applied in net-next.
-> So I can only ask for an revet of the batman-adv parts
+> On Oct 22 Stefan Richter wrote:
+> > On Oct 20 Jarod Wilson wrote:
+> > > firewire-net:
+> > > - set min/max_mtu
+> > > - remove fwnet_change_mtu  
+> > [...]
+> > > --- a/drivers/firewire/net.c
+> > > +++ b/drivers/firewire/net.c
+> > > @@ -1349,15 +1349,6 @@ static netdev_tx_t fwnet_tx(struct sk_buff
+> > > *skb, struct net_device *net) return NETDEV_TX_OK;
+> > >  }
+> > >  
+> > > -static int fwnet_change_mtu(struct net_device *net, int new_mtu)
+> > > -{
+> > > -	if (new_mtu < 68)
+> > > -		return -EINVAL;
+> > > -
+> > > -	net->mtu = new_mtu;
+> > > -	return 0;
+> > > -}
+> > > -
+> > >  static const struct ethtool_ops fwnet_ethtool_ops = {
+> > >  	.get_link	= ethtool_op_get_link,
+> > >  };
+> > > @@ -1366,7 +1357,6 @@ static const struct net_device_ops
+> > > fwnet_netdev_ops = { .ndo_open       = fwnet_open,
+> > >  	.ndo_stop	= fwnet_stop,
+> > >  	.ndo_start_xmit = fwnet_tx,
+> > > -	.ndo_change_mtu = fwnet_change_mtu,
+> > >  };
+> > >  
+> > >  static void fwnet_init_dev(struct net_device *net)
+> > > @@ -1435,7 +1425,6 @@ static int fwnet_probe(struct fw_unit *unit,
+> > >  	struct net_device *net;
+> > >  	bool allocated_netdev = false;
+> > >  	struct fwnet_device *dev;
+> > > -	unsigned max_mtu;
+> > >  	int ret;
+> > >  	union fwnet_hwaddr *ha;
+> > >  
+> > > @@ -1478,9 +1467,10 @@ static int fwnet_probe(struct fw_unit *unit,
+> > >  	 * Use the RFC 2734 default 1500 octets or the maximum payload
+> > >  	 * as initial MTU
+> > >  	 */
+> > > -	max_mtu = (1 << (card->max_receive + 1))
+> > > -		  - sizeof(struct rfc2734_header) - IEEE1394_GASP_HDR_SIZE;
+> > > -	net->mtu = min(1500U, max_mtu);
+> > > +	net->max_mtu = (1 << (card->max_receive + 1))
+> > > +		       - sizeof(struct rfc2734_header) - IEEE1394_GASP_HDR_SIZE;
+> > > +	net->mtu = min(1500U, net->max_mtu);
+> > > +	net->min_mtu = ETH_MIN_MTU;
+> > >  
+> > >  	/* Set our hardware address while we're at it */
+> > >  	ha = (union fwnet_hwaddr *)net->dev_addr;
+> > 
+> > Please preserve the current behavior, i.e. do not enforce any particular
+> > upper bound.  (Especially none based on the local link layer controller's
+> > max_receive parameter.)
+> > 
+> > BTW, after having read RFC 2734, RFC 3146, and the code, I am convinced
+> > that net->mtu should be initialized to 1500, not less.  But such a change
+> > should be done in a separate patch.
 
-Apologies, I tried to cc everyone I could find in MAINTAINERS, but your
-name wasn't one of the three listed for batman devices. You're going to
-need more than just this revert though, since batman-adv calls
-ether_setup, which will set min_mtu = 68, max_mtu = 1500, unless
-batadv_hardif_min_mtu() always returns something 1500 or less. Actually,
-looking at that, you could omit the mtu < 68 bit from
-batadv_interface_change_mtu() too, since that'll already get done in the
-core, but I have no clue what you need for max_mtu.
+Okay, since it's already merged in net-next, I can do a follow-up patch
+here to set max_mtu to ETH_MAX_MTU (65535), which is the largest possible
+size the kernel can handle, so far as I can tell. But as long as I'm going
+to be in here, if we just want to use an initial mtu of 1500, I could
+clean that up at the same time, and entirely remove the max_mtu
+calculation stuff, if that's what you think is more correct here.
 
 -- 
 Jarod Wilson
