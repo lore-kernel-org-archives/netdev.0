@@ -1,75 +1,75 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH] batman-adv: Revert "use core MTU range
-	checking in misc drivers"
-Date: Sun, 23 Oct 2016 09:17:50 +0200
-Message-ID: <2358358.cV5hCSMD7y@sven-edge>
-References: <20161022074624.30033-1-sven@narfation.org>
- <20161023010826.GD32569@redhat.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v4 01/10] ethernet: add sun8i-emac driver
+Date: Sun, 23 Oct 2016 10:55:39 +0200
+Message-ID: <20161023085539.GB9001@Red>
+References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1475828757-926-2-git-send-email-clabbe.montjoie@gmail.com>
+ <1475852559.1945.2.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart2805415.6Z7vPSiFGp";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jarod Wilson <jarod-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161023010826.GD32569-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, davem@davemloft.net, f.fainelli@gmail.com,
+        andrew@lunn.ch, netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1475852559.1945.2.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2805415.6Z7vPSiFGp
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+On Fri, Oct 07, 2016 at 08:02:39AM -0700, Joe Perches wrote:
+> On Fri, 2016-10-07 at 10:25 +0200, Corentin Labbe wrote:
+> > This patch add support for sun8i-emac ethernet MAC hardware.
+> > It could be found in Allwinner H3/A83T/A64 SoCs.
+> 
+> trivial notes:
+> 
+> > diff --git a/drivers/net/ethernet/allwinner/sun8i-emac.c b/drivers/net/ethernet/allwinner/sun8i-emac.c
+> []
+> > +static const char const estats_str[][ETH_GSTRING_LEN] = {
+> 
+> one too many const
+> 
+> > +/* MAGIC value for knowing if a descriptor is available or not */
+> > +#define DCLEAN cpu_to_le32(BIT(16) | BIT(14) | BIT(12) | BIT(10) | BIT(9))
+> 
+> Aren't there #defines for these bits?
+> 
+> > +static void sun8i_emac_flow_ctrl(struct sun8i_emac_priv *priv, int duplex,
+> > +				 int fc)
+> > +{
+> > +	u32 flow = 0;
+> > +
+> > +	flow = readl(priv->base + EMAC_RX_CTL0);
+> > +	if (fc & EMAC_FLOW_RX)
+> > +		flow |= BIT(16);
+> > +	else
+> > +		flow &= ~BIT(16);
+> > +	writel(flow, priv->base + EMAC_RX_CTL0);
+> > +
+> > +	flow = readl(priv->base + EMAC_TX_FLOW_CTL);
+> > +	if (fc & EMAC_FLOW_TX)
+> > +		flow |= BIT(0);
+> > +	else
+> > +		flow &= ~BIT(0);
+> 
+> more magic bits that could be #defines
+> 
+> > +static int sun8i_emac_rx_from_ddesc(struct net_device *ndev, int i)
+> > +{
+> > []
+> > +	/* the checksum or length of received frame's payload is wrong*/
+> > +	if (dstatus & BIT(0)) {
+> []
+> > +	if (dstatus & BIT(1)) {
+> []
+> > +	if ((dstatus & BIT(3))) {
+> 
+> etc...
 
-On Samstag, 22. Oktober 2016 21:08:26 CEST Jarod Wilson wrote:
-[...]
-> You're going to
-> need more than just this revert though, since batman-adv calls
-> ether_setup, which will set min_mtu = 68, max_mtu = 1500, unless
-> batadv_hardif_min_mtu() always returns something 1500 or less.
+Thanks for the review, I will fix all thoses issue.
 
-It does only returns 1500 or less at the moment.
-
-    return min_t(int, min_mtu - batadv_max_header_len(), ETH_DATA_LEN);
-
-> Actually,
-> looking at that, you could omit the mtu < 68 bit from
-> batadv_interface_change_mtu() too, since that'll already get done in the
-> core, but I have no clue what you need for max_mtu.
-
-I would like to get this revert through net-next.git before anything else.
-
-Kind regards,
-	Sven
---nextPart2805415.6Z7vPSiFGp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABCgAGBQJYDGQeAAoJEF2HCgfBJntGuVIQAIzsbzEegMhBUWxVyUQSaa/9
-2hrcGTEvAZIkpONvw0b88RAO2OYKRvpI8SgPHCZ49DoGrorE1+Gt9vfSApIWaxrD
-OMydAEtHzDjAGIxIu5ht2/vS4TzCWhun6lUzZDP+qGCSw1GDRcDQ1VSwhhj2D+TL
-pwPRF655f78nWQAsO5sXBHakOHzdg+Vqvem1Mpn9Q6or7Svzurtxqm4ZglHpyLTZ
-uRcpcl9FjFlGkyBn3LSXxhDBoU/UcwlYCFt5hDy616eFJVMsmVaVU3QXQqM/PbTa
-jCoEjzYyIRE1XAplf86pe+B2QZiIg1/zRs7uCISNTDZ9eRh3yO2bjOuHOjhE/8Br
-whEXr4ZZbLvO8OgtJaKMqRcx6BRx9tYXGork2vg3ILUfdOa8ivQEFVVZpW2ZObaq
-LV0f8SmbPtI90pcKM2EH34Z3XhGM4xEBBK3VN/n2Z6ZjOKZaZoearaW+Bm7m9DyO
-owpAcgMI/oxkaJPVkBMkBwe5QIGFRJKn3TWeSVYRIUU2gdHBlXwZMWbypaNqsQ/I
-diWyp+c6yiyKqIUOIssiGA9WQeJPzaXnn0Q6pLJWmKxadW4yHmyAoKUKJVhD0+6K
-Iz40mBAizFdGB7UhF582veriMzsNtWNWFRjHzknbCx+FuF5AO0TXIivjryxVTHKG
-i+yjQyWLdO8iKiKAP9zb
-=kdmv
------END PGP SIGNATURE-----
-
---nextPart2805415.6Z7vPSiFGp--
+Regards
+Corentin Labbe
