@@ -1,75 +1,60 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
+From: Rami Rosen <roszenrami-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH v4 01/10] ethernet: add sun8i-emac driver
-Date: Sun, 23 Oct 2016 10:55:39 +0200
-Message-ID: <20161023085539.GB9001@Red>
-References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com>
- <1475828757-926-2-git-send-email-clabbe.montjoie@gmail.com>
- <1475852559.1945.2.camel@perches.com>
+Date: Sun, 23 Oct 2016 15:08:56 +0300
+Message-ID: <CAKoUAr=HmzYHq53i1bAzgOYd8RNzO_xBi30HW41KVZ=W4-Pdvg@mail.gmail.com>
+References: <1475828757-926-1-git-send-email-clabbe.montjoie@gmail.com> <1475828757-926-2-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, davem@davemloft.net, f.fainelli@gmail.com,
-        andrew@lunn.ch, netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1475852559.1945.2.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, andrew-g2DYL2Zd6BY@public.gmane.org,
+        Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1475828757-926-2-git-send-email-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 07, 2016 at 08:02:39AM -0700, Joe Perches wrote:
-> On Fri, 2016-10-07 at 10:25 +0200, Corentin Labbe wrote:
-> > This patch add support for sun8i-emac ethernet MAC hardware.
-> > It could be found in Allwinner H3/A83T/A64 SoCs.
-> 
-> trivial notes:
-> 
-> > diff --git a/drivers/net/ethernet/allwinner/sun8i-emac.c b/drivers/net/ethernet/allwinner/sun8i-emac.c
-> []
-> > +static const char const estats_str[][ETH_GSTRING_LEN] = {
-> 
-> one too many const
-> 
-> > +/* MAGIC value for knowing if a descriptor is available or not */
-> > +#define DCLEAN cpu_to_le32(BIT(16) | BIT(14) | BIT(12) | BIT(10) | BIT(9))
-> 
-> Aren't there #defines for these bits?
-> 
-> > +static void sun8i_emac_flow_ctrl(struct sun8i_emac_priv *priv, int duplex,
-> > +				 int fc)
-> > +{
-> > +	u32 flow = 0;
-> > +
-> > +	flow = readl(priv->base + EMAC_RX_CTL0);
-> > +	if (fc & EMAC_FLOW_RX)
-> > +		flow |= BIT(16);
-> > +	else
-> > +		flow &= ~BIT(16);
-> > +	writel(flow, priv->base + EMAC_RX_CTL0);
-> > +
-> > +	flow = readl(priv->base + EMAC_TX_FLOW_CTL);
-> > +	if (fc & EMAC_FLOW_TX)
-> > +		flow |= BIT(0);
-> > +	else
-> > +		flow &= ~BIT(0);
-> 
-> more magic bits that could be #defines
-> 
-> > +static int sun8i_emac_rx_from_ddesc(struct net_device *ndev, int i)
-> > +{
-> > []
-> > +	/* the checksum or length of received frame's payload is wrong*/
-> > +	if (dstatus & BIT(0)) {
-> []
-> > +	if (dstatus & BIT(1)) {
-> []
-> > +	if ((dstatus & BIT(3))) {
-> 
-> etc...
+Hi Corentin,
 
-Thanks for the review, I will fix all thoses issue.
 
-Regards
-Corentin Labbe
+Trivial comment: rx_saf_fai and rx_daf_fail are not used. This implies that also
+rx_saf_error and rx_daf_error should be removed:
+
+> +static const char const estats_str[][ETH_GSTRING_LEN] = {
+...
+> +       "rx_header_error",
+> +       "rx_overflow_error",
+> +       "rx_saf_error",
+> +       "rx_daf_error",
+> +       "rx_buf_error",
+...
+
+> +
+> +struct sun8i_emac_stats {
+> +       u64 rx_payload_error;
+...
+> +       u64 rx_overflow_error;
+> +       u64 rx_saf_fail;
+> +       u64 rx_daf_fail;
+
+> +       u64 tx_used_desc;
+> +       u64 napi_schedule;
+> +       u64 napi_underflow;
+> +};
+> +
+
+Trivial: typo, should be: can transfer
+
+> +/* The datasheet said that each descriptor can transfers up to 4096bytes
+> + * But latter, a register documentation reduce that value to 2048
+
+Regards,
+Rami Rosen
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
