@@ -1,42 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] net: allow to kill a task which waits
-	net_mutex in copy_new_ns
-Date: Sun, 23 Oct 2016 17:34:12 -0400 (EDT)
-Message-ID: <20161023.173412.980399329363842342.davem@davemloft.net>
-References: <1477017943-18786-1-git-send-email-avagin@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] bnx2x: Use the correct divisor value for PHC
+ clock readings.
+Date: Sun, 23 Oct 2016 17:35:36 -0400 (EDT)
+Message-ID: <20161023.173536.1788951887292966152.davem@davemloft.net>
+References: <1477030157-30700-1-git-send-email-Sony.Chacko@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1477017943-18786-1-git-send-email-avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@cavium.com,
+        Yuval.Mintz@cavium.com, sudarsana.kalluru@cavium.com
+To: Sony.Chacko@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56368 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754130AbcJWVfh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 17:35:37 -0400
+In-Reply-To: <1477030157-30700-1-git-send-email-Sony.Chacko@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Date: Thu, 20 Oct 2016 19:45:43 -0700
+From: <Sony.Chacko@cavium.com>
+Date: Fri, 21 Oct 2016 02:09:17 -0400
 
-> From: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+> From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
 > 
-> net_mutex can be locked for a long time. It may be because many
-> namespaces are being destroyed or many processes decide to create
-> a network namespace.
+> Time Sync (PTP) implementation uses the divisor/shift value for converting
+> the clock ticks to nanoseconds. Driver currently defines shift value as 1,
+> this results in the nanoseconds value to be calculated as half the actual
+> value. Hence the user application fails to synchronize the device clock
+> value with the PTP master device clock. Need to use the 'shift' value of 0.
 > 
-> Both these operations are heavy, so it is better to have an ability to
-> kill a process which is waiting net_mutex.
-> 
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Sony.Chacko <Sony.Chacko@cavium.com>
+> Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 
 Applied, thanks.
