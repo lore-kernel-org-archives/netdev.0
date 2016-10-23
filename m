@@ -1,48 +1,56 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 1/1] net sched filters: fix notification of filter
- delete with proper handle
-Date: Mon, 24 Oct 2016 00:30:44 +0200
-Message-ID: <580D3A14.5010705@iogearbox.net>
-References: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 24 Oct 2016 10:34:16 +1100
+Message-ID: <20161024103416.02bef8bb@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34176 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754380AbcJWWat (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 18:30:49 -0400
-In-Reply-To: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Paolo Abeni <pabeni@redhat.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/23/2016 05:35 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
+Hi all,
 
-An actual commit message would be good especially if it's a fix
-for -net tree plus stable. Thanks.
+Today's linux-next merge of the net-next tree got a conflict in:
 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->   net/sched/cls_api.c | 3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-> index 2ee29a3..2b2a797 100644
-> --- a/net/sched/cls_api.c
-> +++ b/net/sched/cls_api.c
-> @@ -345,7 +345,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
->   			if (err == 0) {
->   				struct tcf_proto *next = rtnl_dereference(tp->next);
->
-> -				tfilter_notify(net, skb, n, tp, fh,
-> +				tfilter_notify(net, skb, n, tp,
-> +					       t->tcm_handle,
->   					       RTM_DELTFILTER, false);
->   				if (tcf_destroy(tp, false))
->   					RCU_INIT_POINTER(*back, next);
->
+  include/net/udp.h
+
+between commit:
+
+  286c72deabaa ("udp: must lock the socket in udp_disconnect()")
+
+from the net tree and commit:
+
+  f970bd9e3a06 ("udp: implement memory accounting helpers")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc include/net/udp.h
+index 4948790d393d,18f1e6b91927..000000000000
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@@ -258,7 -261,7 +261,8 @@@ void udp_flush_pending_frames(struct so
+  void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst);
+  int udp_rcv(struct sk_buff *skb);
+  int udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
++ int udp_init_sock(struct sock *sk);
+ +int __udp_disconnect(struct sock *sk, int flags);
+  int udp_disconnect(struct sock *sk, int flags);
+  unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait);
+  struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
