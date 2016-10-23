@@ -1,65 +1,57 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: fix the panic caused by route update
-Date: Mon, 24 Oct 2016 01:01:09 +0800
-Message-ID: <a0659fd9a23fc95fe9a586be4b57c8032c8a6060.1477242069.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
+Subject: Re: send/sendmsg ENOMEM errors WAS(Re: [PATCH net 6/6] sctp: not
+ return ENOMEM err back in sctp_packet_transmit
+Date: Mon, 24 Oct 2016 02:20:51 +0800
+Message-ID: <CADvbK_ci-aaX6-mgXTgR0mJm9ww7+48DmXH+m5R+-0PyMDH16g@mail.gmail.com>
+References: <c15cc225-608d-5268-d179-6a997c3cad62@mojatatu.com> <daecd6b5-47cf-c5de-90f5-445e0038dfce@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+        Vlad Yasevich <vyasevic@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Michael Tuexen <Michael.Tuexen@lurchi.franken.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Brenda Butler <bjb@mojatatu.com>, gabor@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35285 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753156AbcJWRBV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 13:01:21 -0400
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:34911 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756494AbcJWSUx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 14:20:53 -0400
+In-Reply-To: <daecd6b5-47cf-c5de-90f5-445e0038dfce@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7303a1475008 ("sctp: identify chunks that need to be fragmented
-at IP level") made the chunk be fragmented at IP level in the next round
-if it's size exceed PMTU.
+> I think the specific use case this patch addresses
+> seems to have bitten us in an older kernel sctp (3.11?).
+> A send() on a loaded network box caused the skb to
+> alloc in what appears to be this code path and fail (problem
+> is intermittent, so not 100% sure). errno seen was ENOMEM.
+> Unfortunately the manpage for sendxxx sucks.
+> It says "no memory available".
+> [We'll fix the manpage if there is an appropriate answer].
+>
+> Two questions:
+> a) Seems like we can safely ignore ENOMEM in user space
+> at least for this use case. i.e the kernel will retry and
+> eventually send this message. Is there any other scenario
+> where we have to worry about ENOMEM showing up in user space?
+>
+> b) What is the general view of what sendXXX reaction oughta
+> be from user space in presence of ENOMEM?
+>
+This patch doesn't ignore all the ENOMEN cases, only after msg is
+enqueued in out queue/send queue, in the lower layer, when alloc
+new skb and copy data from old skb, if it fails to alloc new skb, sctp
+will ignore this ENOMEM, as this msg will be taken care by retransmit
+mechanism, it's reasonable and also safe, user can't feel that.
 
-But there still is another case, PMTU can be updated if transport's dst
-expires and transport's pmtu_pending is set in sctp_packet_transmit. If
-the new PMTU is less than the chunk, the same issue with that commit can
-be triggered.
+But for the cases before enqueue, like in sctp_sendmsg,
+sctp_datamsg_from_user may return ENOMEM, this err will return
+back to user, and can't be ignored.
 
-So we should drop this packet and let it retransmit in another round
-where it would be fragmented at IP level.
-
-This patch is to fix it by checking the chunk size after PMTU may be
-updated and dropping this packet if it's size exceed PMTU.
-
-Fixes: 90017accff61 ("sctp: Add GSO support")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/output.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 2a5c189..6cb0df8 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -418,6 +418,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 	__u8 has_data = 0;
- 	int gso = 0;
- 	int pktcount = 0;
-+	int auth_len = 0;
- 	struct dst_entry *dst;
- 	unsigned char *auth = NULL;	/* pointer to auth in skb data */
- 
-@@ -510,7 +511,12 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 			list_for_each_entry(chunk, &packet->chunk_list, list) {
- 				int padded = SCTP_PAD4(chunk->skb->len);
- 
--				if (pkt_size + padded > tp->pathmtu)
-+				if (chunk == packet->auth)
-+					auth_len = padded;
-+				else if (auth_len + padded + packet->overhead >
-+					 tp->pathmtu)
-+					goto nomem;
-+				else if (pkt_size + padded > tp->pathmtu)
- 					break;
- 				pkt_size += padded;
- 			}
--- 
-2.1.0
+So I don't really think we should change something in manpage, what
+do you think ? maybe a little explanation there is also nice, :)
