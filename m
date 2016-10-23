@@ -1,42 +1,42 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] devlink: Prevent port_type_set() callback when it's not needed
-Date: Sun, 23 Oct 2016 17:43:05 +0200
-Message-ID: <1477237385-1991-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, eladr@mellanox.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/9] alx: refactor descriptor allocation
+Date: Sun, 23 Oct 2016 11:50:12 -0400 (EDT)
+Message-ID: <20161023.115012.1557996279582284252.davem@davemloft.net>
+References: <cover.1477044917.git.tobias.regnery@gmail.com>
+        <cover.1477044917.git.tobias.regnery@gmail.com>
+        <4118b3b705404f4ce27aaa389697c12f5319aaef.1477044918.git.tobias.regnery@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org
+To: tobias.regnery@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34353 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753174AbcJWPnJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 11:43:09 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d199so6180527wmd.1
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 08:43:08 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:54038 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753174AbcJWPuU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 11:50:20 -0400
+In-Reply-To: <4118b3b705404f4ce27aaa389697c12f5319aaef.1477044918.git.tobias.regnery@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Raz <eladr@mellanox.com>
+From: Tobias Regnery <tobias.regnery@gmail.com>
+Date: Fri, 21 Oct 2016 12:49:44 +0200
 
-When a port_type_set() is been called and the new port type set is the same
-as the old one, just return success.
+> +	txq->tpd = alx->descmem.virt + offset;
+> +	txq->tpd_dma = alx->descmem.dma + offset;
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/core/devlink.c | 2 ++
- 1 file changed, 2 insertions(+)
+If all the crazy casting isn't necessary here...
 
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 1b50630..d2fd736 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -608,6 +608,8 @@ static int devlink_port_type_set(struct devlink *devlink,
- 	if (devlink->ops && devlink->ops->port_type_set) {
- 		if (port_type == DEVLINK_PORT_TYPE_NOTSET)
- 			return -EINVAL;
-+		if (port_type == devlink_port->type)
-+			return 0;
- 		err = devlink->ops->port_type_set(devlink_port, port_type);
- 		if (err)
- 			return err;
--- 
-2.5.5
+> +	rxq->rrd = (void *)((u8 *)alx->descmem.virt + offset);
+> +	rxq->rrd_dma = alx->descmem.dma + offset;
+> +	offset += sizeof(struct alx_rrd) * alx->rx_ringsz;
+> +
+> +	rxq->rfd = (void *)((u8 *)alx->descmem.virt + offset);
+> +	rxq->rfd_dma = alx->descmem.dma + offset;
+> +	offset += sizeof(struct alx_rfd) * alx->rx_ringsz;
+
+Then it certainly isn't necessary here either.
+
+Void pointer arithmatic is very clearly defined as operating on byte
+quantities, so the cast is not necessary for the arithmetic nor the
+final pointer type.
