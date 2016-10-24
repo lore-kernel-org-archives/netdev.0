@@ -1,82 +1,75 @@
-From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Sun, 23 Oct 2016 18:51:53 -0700
-Message-ID: <CAJmoNQFJhvc4VSdTRWcTZD7T2E1LQ_2BZoMQhZM18jFH8hpQCQ@mail.gmail.com>
-References: <1477109243-29520-1-git-send-email-shrijeet@gmail.com> <20161023093808.161535f3@xeon-e3>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] netvsc: fix incorrect receive checksum offloading
+Date: Sun, 23 Oct 2016 21:32:47 -0700
+Message-ID: <20161023213247.75d43c48@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Shrijeet Mukherjee <shrijeet@gmail.com>, mst@redhat.com,
-        Tom Herbert <tom@herbertland.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+        KY Srinivasan <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:35368 "EHLO
-        mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752313AbcJXBwf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2016 21:52:35 -0400
-Received: by mail-vk0-f41.google.com with SMTP id q126so160371990vkd.2
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 18:52:34 -0700 (PDT)
-In-Reply-To: <20161023093808.161535f3@xeon-e3>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:36775 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752087AbcJXEe4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 00:34:56 -0400
+Received: by mail-pf0-f178.google.com with SMTP id e6so90778700pfk.3
+        for <netdev@vger.kernel.org>; Sun, 23 Oct 2016 21:34:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 23, 2016 at 9:38 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> Overall, I am glad to see XDP support more widely available. Minor stuff
-> in implementation.
->
->>
->> +/* this function is not called from the receive_buf path directly as
->> + * we want to use the page model for rx merge buffer and big buffers
->> + * and not use the fast path for driving skb's around
->> + */
->> +static inline u32 do_xdp_prog(struct virtnet_info *vi,
->> +                           struct receive_queue *rq,
->> +                           void *buf, int offset, int len)
->> +{
->
-> Do not mark non-trivial static functions as inline. The compiler will
-> do it anyway if it thinks it is appropriate.
->
-> +static int virtnet_xdp_query(struct net_device *dev)
->
-> Use bool here.
->
+From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Ack on the bool.
+The Hyper-V netvsc driver was looking at the incorrect status bits
+in the checksum info. It was setting the receive checksum unnecessary
+flag based on the IP header checksum being correct. The checksum
+flag is skb is about TCP and UDP checksum status. Because of this
+bug, any packet received with bad TCP checksum would be passed
+up the stack and to the application causing data corruption.
+The problem is reproducible via netcat and netem.
 
-the inline was my feeble attempt to minimize the overhead in the
-"normal" path as currently I need a rcu deref followed by a
-conditional. Wanted to ensure that we don't incur a call stack
-overhead as well. But I will trust the compiler :)
+This had a side effect of not doing receive checksum offload
+on IPv6. The driver was also also always doing checksum offload
+independent of the checksum setting done via ethtool.
 
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+Please apply to -stable as well!
 
-> @@ -366,13 +420,22 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
-hdr_len;
->
-> This parts of the patch is white space creep. I.e other edits you did
-> that stayed around.
+ drivers/net/hyperv/netvsc_drv.c | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
 
-Will clean up, thought I did .. but something must have come through.
-
->
-> Do you have any performance numbers? Does the receive into pages hurt
-> the non XDP performance?
->
-
-No perf yet, on my limited env (laptop) I see higher packet drop rates
-using the xdp_drop example, which is no surprise .. but I did not
-change anything to recv into pages and instead opted to not support
-the skb direct recv at all. And the other two modes were receiving
-into pages and then forming skb's which is what I skipped if anything
-other than XDP_PASS was returned.
-
-The main goal of this patch was to start that discussion. My v2 patch
-rejects the ndo op if neither of rx_mergeable or big_buffers are set.
-Does that sound like a good tradeoff ? Don't know enough about who
-turns these features off and why.
-
-I can say that virtualbox always has the device features enabled .. so
-seems like a good tradeoff ?
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 5d6e75a..c71d966 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -607,15 +607,18 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
+ 	       packet->total_data_buflen);
+ 
+ 	skb->protocol = eth_type_trans(skb, net);
+-	if (csum_info) {
+-		/* We only look at the IP checksum here.
+-		 * Should we be dropping the packet if checksum
+-		 * failed? How do we deal with other checksums - TCP/UDP?
+-		 */
+-		if (csum_info->receive.ip_checksum_succeeded)
++
++	/* skb is already created with CHECKSUM_NONE */
++	skb_checksum_none_assert(skb);
++
++	/*
++	 * In Linux, the IP checksum is always checked.
++	 * Do L4 checksum offload if enabled and present.
++	 */
++	if (csum_info && (net->features & NETIF_F_RXCSUM)) {
++		if (csum_info->receive.tcp_checksum_succeeded ||
++		    csum_info->receive.udp_checksum_succeeded)
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-		else
+-			skb->ip_summed = CHECKSUM_NONE;
+ 	}
+ 
+ 	if (vlan_tci & VLAN_TAG_PRESENT)
+-- 
+2.9.3
