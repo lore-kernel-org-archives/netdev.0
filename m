@@ -1,116 +1,116 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] wireless: fix bogus maybe-uninitialized warning
-Date: Mon, 24 Oct 2016 17:38:35 +0200
-Message-ID: <20161024153918.2810634-2-arnd@arndb.de>
-References: <20161024153918.2810634-1-arnd@arndb.de>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/ipv4: warning in inet_sock_destruct
+Date: Mon, 24 Oct 2016 17:40:41 +0200
+Message-ID: <CAAeHK+xvURmftN0oBWH7q_jz0JB6Nmyy+YRiBR96DxTazMYE_Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>,
-        Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-        Jouni Malinen <j@w1.fi>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161024153918.2810634-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The hostap_80211_rx() function is supposed to set up the mac addresses
-for four possible cases, based on two bits of input data. For
-some reason, gcc decides that it's possible that none of the these
-four cases apply and the addresses remain uninitialized:
+Hi,
 
-drivers/net/wireless/intersil/hostap/hostap_80211_rx.c: In function ‘hostap_80211_rx’:
-arch/x86/include/asm/string_32.h:77:14: warning: ‘src’ may be used uninitialized in this function [-Wmaybe-uninitialized]
-drivers/net/wireless/intel/ipw2x00/libipw_rx.c: In function ‘libipw_rx’:
-arch/x86/include/asm/string_32.h:77:14: error: ‘dst’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-arch/x86/include/asm/string_32.h:78:22: error: ‘*((void *)&dst+4)’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+I've got the following error report while running the syzkaller fuzzer:
 
-This warning is clearly nonsense, but changing the last case into
-'default' makes it obvious to the compiler too, which avoids the
-warning and probably leads to better object code too.
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 0 at net/ipv4/af_inet.c:153[<        none
+>] inet_sock_destruct+0x64d/0x810 net/ipv4/af_inet.c:153
+Modules linked in:
+CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.9.0-rc2+ #301
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffff88006cd07d88 ffffffff81b47264 0000000000000000 0000000000000000
+ ffffffff84465d80 0000000000000000 ffff88006cd07dd0 ffffffff81111237
+ ffff88006cd19100[   60.531224]  0000000000000099 ffffffff84465d80
+0000000000000099
+Call Trace:
+ <IRQ> [   60.531224]  [<ffffffff81b47264>] dump_stack+0xb3/0x10f
+ [<ffffffff81111237>] __warn+0x1a7/0x1f0 kernel/panic.c:550
+ [<ffffffff8111144c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
+ [<ffffffff8316e64d>] inet_sock_destruct+0x64d/0x810 net/ipv4/af_inet.c:153
+ [<ffffffff82b7c3a1>] __sk_destruct+0x51/0x480 net/core/sock.c:1422
+ [<     inline     >] __rcu_reclaim kernel/rcu/rcu.h:118
+ [<     inline     >] rcu_do_batch kernel/rcu/tree.c:2776
+ [<     inline     >] invoke_rcu_callbacks kernel/rcu/tree.c:3040
+ [<     inline     >] __rcu_process_callbacks kernel/rcu/tree.c:3007
+ [<ffffffff8125e090>] rcu_process_callbacks+0xa40/0x1190 kernel/rcu/tree.c:3024
+ [<ffffffff83fc376f>] __do_softirq+0x23f/0x8e5 kernel/softirq.c:284
+ [<     inline     >] invoke_softirq kernel/softirq.c:364
+ [<ffffffff811262b7>] irq_exit+0x1a7/0x1e0 kernel/softirq.c:405
+ [<     inline     >] exiting_irq ./arch/x86/include/asm/apic.h:659
+ [<ffffffff83fc309b>] smp_apic_timer_interrupt+0x7b/0xa0
+arch/x86/kernel/apic/apic.c:960
+ [<ffffffff83fc214c>] apic_timer_interrupt+0x8c/0xa0
+ <EOI> [   60.531224]  [<ffffffff83fbf866>] ? native_safe_halt+0x6/0x10
+ [<     inline     >] arch_safe_halt ./arch/x86/include/asm/paravirt.h:103
+ [<ffffffff83fbef92>] default_idle+0x22/0x2d0 arch/x86/kernel/process.c:308
+ [<ffffffff8106ef6a>] arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:299
+ [<ffffffff83fbfc16>] default_idle_call+0x36/0x60 kernel/sched/idle.c:96
+ [<     inline     >] cpuidle_idle_call kernel/sched/idle.c:154
+ [<     inline     >] cpu_idle_loop kernel/sched/idle.c:247
+ [<ffffffff811f8024>] cpu_startup_entry+0x244/0x300 kernel/sched/idle.c:302
+ [<ffffffff810b3ec0>] start_secondary+0x250/0x2d0 arch/x86/kernel/smpboot.c:263
+---[ end trace 3cd7480984cd70d8 ]---
 
-The same code is duplicated several times in the kernel, so this
-patch uses the same workaround for all copies. The exact configuration
-was hit only very rarely in randconfig builds and I only saw it
-in three drivers, but I assume that all of them are potentially
-affected, and it's better to keep the code consistent.
+===============================
+[ INFO: suspicious RCU usage. ]
+4.9.0-rc2+ #301 Tainted: G        W
+-------------------------------
+net/core/sock.c:1425 suspicious rcu_dereference_check() usage!
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/wireless/ath/ath6kl/wmi.c                  | 8 ++++----
- drivers/net/wireless/intel/ipw2x00/libipw_rx.c         | 2 +-
- drivers/net/wireless/intersil/hostap/hostap_80211_rx.c | 2 +-
- net/wireless/lib80211_crypt_tkip.c                     | 2 +-
- 4 files changed, 7 insertions(+), 7 deletions(-)
+other info that might help us debug this:
 
-diff --git a/drivers/net/wireless/ath/ath6kl/wmi.c b/drivers/net/wireless/ath/ath6kl/wmi.c
-index 3fd1cc98fd2f..84a6d12c3f8a 100644
---- a/drivers/net/wireless/ath/ath6kl/wmi.c
-+++ b/drivers/net/wireless/ath/ath6kl/wmi.c
-@@ -421,10 +421,6 @@ int ath6kl_wmi_dot11_hdr_remove(struct wmi *wmi, struct sk_buff *skb)
- 
- 	switch ((le16_to_cpu(wh.frame_control)) &
- 		(IEEE80211_FCTL_FROMDS | IEEE80211_FCTL_TODS)) {
--	case 0:
--		memcpy(eth_hdr.h_dest, wh.addr1, ETH_ALEN);
--		memcpy(eth_hdr.h_source, wh.addr2, ETH_ALEN);
--		break;
- 	case IEEE80211_FCTL_TODS:
- 		memcpy(eth_hdr.h_dest, wh.addr3, ETH_ALEN);
- 		memcpy(eth_hdr.h_source, wh.addr2, ETH_ALEN);
-@@ -435,6 +431,10 @@ int ath6kl_wmi_dot11_hdr_remove(struct wmi *wmi, struct sk_buff *skb)
- 		break;
- 	case IEEE80211_FCTL_FROMDS | IEEE80211_FCTL_TODS:
- 		break;
-+	default:
-+		memcpy(eth_hdr.h_dest, wh.addr1, ETH_ALEN);
-+		memcpy(eth_hdr.h_source, wh.addr2, ETH_ALEN);
-+		break;
- 	}
- 
- 	skb_pull(skb, sizeof(struct ath6kl_llc_snap_hdr));
-diff --git a/drivers/net/wireless/intel/ipw2x00/libipw_rx.c b/drivers/net/wireless/intel/ipw2x00/libipw_rx.c
-index cef7f7d79cd9..1c1ec7bb9302 100644
---- a/drivers/net/wireless/intel/ipw2x00/libipw_rx.c
-+++ b/drivers/net/wireless/intel/ipw2x00/libipw_rx.c
-@@ -507,7 +507,7 @@ int libipw_rx(struct libipw_device *ieee, struct sk_buff *skb,
- 		memcpy(dst, hdr->addr3, ETH_ALEN);
- 		memcpy(src, hdr->addr4, ETH_ALEN);
- 		break;
--	case 0:
-+	default:
- 		memcpy(dst, hdr->addr1, ETH_ALEN);
- 		memcpy(src, hdr->addr2, ETH_ALEN);
- 		break;
-diff --git a/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c b/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c
-index 599f30f22841..34dbddbf3f9b 100644
---- a/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c
-+++ b/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c
-@@ -855,7 +855,7 @@ void hostap_80211_rx(struct net_device *dev, struct sk_buff *skb,
- 		memcpy(dst, hdr->addr3, ETH_ALEN);
- 		memcpy(src, hdr->addr4, ETH_ALEN);
- 		break;
--	case 0:
-+	default:
- 		memcpy(dst, hdr->addr1, ETH_ALEN);
- 		memcpy(src, hdr->addr2, ETH_ALEN);
- 		break;
-diff --git a/net/wireless/lib80211_crypt_tkip.c b/net/wireless/lib80211_crypt_tkip.c
-index 71447cf86306..ba0a1f398ce5 100644
---- a/net/wireless/lib80211_crypt_tkip.c
-+++ b/net/wireless/lib80211_crypt_tkip.c
-@@ -556,7 +556,7 @@ static void michael_mic_hdr(struct sk_buff *skb, u8 * hdr)
- 		memcpy(hdr, hdr11->addr3, ETH_ALEN);	/* DA */
- 		memcpy(hdr + ETH_ALEN, hdr11->addr4, ETH_ALEN);	/* SA */
- 		break;
--	case 0:
-+	default:
- 		memcpy(hdr, hdr11->addr1, ETH_ALEN);	/* DA */
- 		memcpy(hdr + ETH_ALEN, hdr11->addr2, ETH_ALEN);	/* SA */
- 		break;
--- 
-2.9.0
+
+rcu_scheduler_active = 1, debug_locks = 0
+1 lock held by swapper/1/0:
+ #0: [   60.560631]  (
+rcu_callback[   60.560930] ){......}
+, at: [   60.561271] [<ffffffff8125e03b>] rcu_process_callbacks+0x9eb/0x1190
+
+stack backtrace:
+CPU: 1 PID: 0 Comm: swapper/1 Tainted: G        W       4.9.0-rc2+ #301
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffff88006cd07e20 ffffffff81b47264 ffff88006c180000 0000000000000000
+ 0000000000000001 ffffffff843fe660 ffff88006cd07e50 ffffffff81204a4f
+ ffff880066438440 ffff880066438000 ffff8800664381b0 0000000000000000
+Call Trace:
+ <IRQ> [   60.563304]  [<ffffffff81b47264>] dump_stack+0xb3/0x10f
+ [<ffffffff81204a4f>] lockdep_rcu_suspicious+0x13f/0x190
+kernel/locking/lockdep.c:4445
+ [<ffffffff82b7c710>] __sk_destruct+0x3c0/0x480 net/core/sock.c:1424
+ [<     inline     >] __rcu_reclaim kernel/rcu/rcu.h:118
+ [<     inline     >] rcu_do_batch kernel/rcu/tree.c:2776
+ [<     inline     >] invoke_rcu_callbacks kernel/rcu/tree.c:3040
+ [<     inline     >] __rcu_process_callbacks kernel/rcu/tree.c:3007
+ [<ffffffff8125e090>] rcu_process_callbacks+0xa40/0x1190 kernel/rcu/tree.c:3024
+ [<ffffffff83fc376f>] __do_softirq+0x23f/0x8e5 kernel/softirq.c:284
+ [<     inline     >] invoke_softirq kernel/softirq.c:364
+ [<ffffffff811262b7>] irq_exit+0x1a7/0x1e0 kernel/softirq.c:405
+ [<     inline     >] exiting_irq ./arch/x86/include/asm/apic.h:659
+ [<ffffffff83fc309b>] smp_apic_timer_interrupt+0x7b/0xa0
+arch/x86/kernel/apic/apic.c:960
+ [<ffffffff83fc214c>] apic_timer_interrupt+0x8c/0xa0
+ <EOI> [   60.563304]  [<ffffffff83fbf866>] ? native_safe_halt+0x6/0x10
+ [<     inline     >] arch_safe_halt ./arch/x86/include/asm/paravirt.h:103
+ [<ffffffff83fbef92>] default_idle+0x22/0x2d0 arch/x86/kernel/process.c:308
+ [<ffffffff8106ef6a>] arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:299
+ [<ffffffff83fbfc16>] default_idle_call+0x36/0x60 kernel/sched/idle.c:96
+ [<     inline     >] cpuidle_idle_call kernel/sched/idle.c:154
+ [<     inline     >] cpu_idle_loop kernel/sched/idle.c:247
+ [<ffffffff811f8024>] cpu_startup_entry+0x244/0x300 kernel/sched/idle.c:302
+ [<ffffffff810b3ec0>] start_secondary+0x250/0x2d0 arch/x86/kernel/smpboot.c:263
+
+
+
+On commit 07d9a380680d1c0eb51ef87ff2eab5c994949e69 (Oct 23).
