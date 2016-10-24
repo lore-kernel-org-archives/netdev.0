@@ -1,42 +1,58 @@
-From: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-Subject: [PATCH v2 2/3] ARM: dts: stm32f429: Fix Ethernet node on Eval Board
-Date: Mon, 24 Oct 2016 10:40:05 +0200
-Message-ID: <1477298406-22805-3-git-send-email-alexandre.torgue@st.com>
-References: <1477298406-22805-1-git-send-email-alexandre.torgue@st.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net 1/1] net sched filters: fix notification of filter
+ delete with proper handle
+Date: Mon, 24 Oct 2016 10:48:58 +0200
+Message-ID: <20161024084858.GD2781@nanopsycho>
+References: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
+ <580D3A14.5010705@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>,
-        <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477298406-22805-1-git-send-email-alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33802 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934737AbcJXItB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 04:49:01 -0400
+Received: by mail-wm0-f66.google.com with SMTP id d199so8723304wmd.1
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 01:49:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <580D3A14.5010705@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"phy-handle" entry is mandatory when mdio subnode is used in
-Ethernet node.
+Mon, Oct 24, 2016 at 12:30:44AM CEST, daniel@iogearbox.net wrote:
+>On 10/23/2016 05:35 PM, Jamal Hadi Salim wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> 
+>
+>An actual commit message would be good especially if it's a fix
+>for -net tree plus stable. Thanks.
 
-Signed-off-by: Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+Also a "Fixes:" tag would be nice to have :)
 
-diff --git a/arch/arm/boot/dts/stm32429i-eval.dts b/arch/arm/boot/dts/stm32429i-eval.dts
-index fa30bf1..a11b108 100644
---- a/arch/arm/boot/dts/stm32429i-eval.dts
-+++ b/arch/arm/boot/dts/stm32429i-eval.dts
-@@ -99,7 +99,7 @@
- 	pinctrl-0	= <&ethernet_mii>;
- 	pinctrl-names	= "default";
- 	phy-mode	= "mii";
--
-+	phy-handle	= <&phy1>;
- 	mdio0 {
- 		#address-cells = <1>;
- 		#size-cells = <0>;
--- 
-1.9.1
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>> ---
+>>   net/sched/cls_api.c | 3 ++-
+>>   1 file changed, 2 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+>> index 2ee29a3..2b2a797 100644
+>> --- a/net/sched/cls_api.c
+>> +++ b/net/sched/cls_api.c
+>> @@ -345,7 +345,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+>>   			if (err == 0) {
+>>   				struct tcf_proto *next = rtnl_dereference(tp->next);
+>> 
+>> -				tfilter_notify(net, skb, n, tp, fh,
+>> +				tfilter_notify(net, skb, n, tp,
+>> +					       t->tcm_handle,
+>>   					       RTM_DELTFILTER, false);
+>>   				if (tcf_destroy(tp, false))
+>>   					RCU_INIT_POINTER(*back, next);
+>> 
+>
