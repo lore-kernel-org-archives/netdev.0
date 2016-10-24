@@ -1,52 +1,53 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net] macsec: Fix header length if SCI is added if
- explicitily disabled
-Date: Mon, 24 Oct 2016 13:28:22 +0200
-Message-ID: <20161024112822.GA28497@bistromath.localdomain>
-References: <bfb9f7ef-39b1-269f-48de-d7caf5c54c2f@strongswan.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net 1/1] net sched filters: fix notification of filter
+ delete with proper handle
+Date: Mon, 24 Oct 2016 07:28:35 -0400
+Message-ID: <52a22009-ac8e-f90f-5713-ed508aec125e@mojatatu.com>
+References: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
+ <580D3A14.5010705@iogearbox.net> <20161024084858.GD2781@nanopsycho>
+ <580DCE57.6070606@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tobias Brunner <tobias@strongswan.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44072 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756858AbcJXL20 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Oct 2016 07:28:26 -0400
-Content-Disposition: inline
-In-Reply-To: <bfb9f7ef-39b1-269f-48de-d7caf5c54c2f@strongswan.org>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:34557 "EHLO
+        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756858AbcJXL2j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 07:28:39 -0400
+Received: by mail-yw0-f195.google.com with SMTP id u124so8800140ywg.1
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 04:28:38 -0700 (PDT)
+In-Reply-To: <580DCE57.6070606@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-10-21, 13:11:37 +0200, Tobias Brunner wrote:
-> Even if sending SCIs is explicitly disabled, the code that creates the
-> Security Tag might still decide to add it (e.g. if multiple RX SCs are
-> defined on the MACsec interface).
-> But because the header length so far only depended on the configuration
-> option the SCI might not actually have ended up in the packet, while the
-> SC flag in the TCI field of the Security Tag was still set, resulting
-> in invalid MACsec frames.
+On 16-10-24 05:03 AM, Daniel Borkmann wrote:
+> On 10/24/2016 10:48 AM, Jiri Pirko wrote:
+>> Mon, Oct 24, 2016 at 12:30:44AM CEST, daniel@iogearbox.net wrote:
+>>> On 10/23/2016 05:35 PM, Jamal Hadi Salim wrote:
+>>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>>
+>>> An actual commit message would be good especially if it's a fix
+>>> for -net tree plus stable. Thanks.
+>>
+>> Also a "Fixes:" tag would be nice to have :)
+>
+> This kernel address leakage dates back to history tree:
+>
+> Fixes: 4e54c4816bfe ("[NET]: Add tc extensions infrastructure.")
 
-Or overwriting the original frame's contents (ethertype and eg
-beginning of the IP header) if !encrypt.
+Was this from bitkeeper?
+Unfortunately - I think this changed somewhere after inception of
+tc, pre-git. But i cant find any way to trace that. So we could point a
+finger and say this bug "has always been there from day one"
+and we need a way to annotate that.
 
+Also, please suggest a good commit message.
+I could point to iproute2 patch or cutnpaste the novel i wrote
+there.
 
-Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-
-
-[snip]
-> @@ -440,12 +448,12 @@ static void macsec_fill_sectag(struct macsec_eth_header *h,
->  			       const struct macsec_secy *secy, u32 pn)
->  {
->  	const struct macsec_tx_sc *tx_sc = &secy->tx_sc;
-> +	bool sci_present = send_sci(secy);
-
-You're already computing this in macsec_encrypt() just before calling
-macsec_fill_sectag(), so you could pass it as argument instead of
-recomputing it.
-
-Other than that, LGTM, thanks!
-
-
--- 
-Sabrina
+cheers,
+jamal
