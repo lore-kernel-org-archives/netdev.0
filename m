@@ -1,62 +1,35 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: [PATCH net-next 1/5] ipv6: Fold rt6_info_hash_nhsfn() into its only caller
-Date: Mon, 24 Oct 2016 11:28:48 +0200
-Message-ID: <1477301332-23954-2-git-send-email-jkbs@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/5] net: Extend struct flowi6 with multipath
+ hash
+Date: Mon, 24 Oct 2016 11:39:29 +0200
+Message-ID: <68209ce2-749c-ef7e-08a7-6414d2ba680c@stressinduktion.org>
 References: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
+ <1477301332-23954-3-git-send-email-jkbs@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "David S. Miller" <davem@davemloft.net>
+To: Jakub Sitnicki <jkbs@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:51445 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755264AbcJXJjc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 05:39:32 -0400
+In-Reply-To: <1477301332-23954-3-git-send-email-jkbs@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 644d0e656958 ("ipv6 Use get_hash_from_flowi6 for rt6 hash") has
-turned rt6_info_hash_nhsfn() into a one-liner, so it no longer makes
-sense to keep it around.
+On 24.10.2016 11:28, Jakub Sitnicki wrote:
+> Allow for functions that fill out the IPv6 flow info to also pass a hash
+> computed over the skb contents. The hash value will drive the multipath
+> routing decisions.
+> 
+> This is intended for special treatment of ICMPv6 errors, where we would
+> like to make a routing decision based on the flow identifying the
+> offending IPv6 datagram that triggered the error, rather than the flow
+> of the ICMP error itself.
+> 
+> Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
 
-Also the accompanying documentation comment has become outdated, so just
-remove it altogether.
-
-Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
 Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/route.c | 12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index bdbc38e..0514b35 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -425,16 +425,6 @@ static bool rt6_check_expired(const struct rt6_info *rt)
- 	return false;
- }
- 
--/* Multipath route selection:
-- *   Hash based function using packet header and flowlabel.
-- * Adapted from fib_info_hashfn()
-- */
--static int rt6_info_hash_nhsfn(unsigned int candidate_count,
--			       const struct flowi6 *fl6)
--{
--	return get_hash_from_flowi6(fl6) % candidate_count;
--}
--
- static struct rt6_info *rt6_multipath_select(struct rt6_info *match,
- 					     struct flowi6 *fl6, int oif,
- 					     int strict)
-@@ -442,7 +432,7 @@ static struct rt6_info *rt6_multipath_select(struct rt6_info *match,
- 	struct rt6_info *sibling, *next_sibling;
- 	int route_choosen;
- 
--	route_choosen = rt6_info_hash_nhsfn(match->rt6i_nsiblings + 1, fl6);
-+	route_choosen = get_hash_from_flowi6(fl6) % (match->rt6i_nsiblings + 1);
- 	/* Don't change the route, if route_choosen == 0
- 	 * (siblings does not include ourself)
- 	 */
--- 
-2.7.4
