@@ -1,37 +1,42 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH v2 net] macsec: Fix header length if SCI is added if
- explicitly disabled
-Date: Mon, 24 Oct 2016 16:50:24 +0200
-Message-ID: <20161024145024.GA17050@bistromath.localdomain>
-References: <77d75a4a-2307-6e3d-a4bb-7d7ff61bf3e8@strongswan.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tobias Brunner <tobias@strongswan.org>
+From: Eli Cooper <elicooper@gmx.com>
+Subject: [PATCH] ip6_tunnel: Clear IP6CB(skb)->frag_max_size in ip4ip6_tnl_xmit()
+Date: Mon, 24 Oct 2016 23:07:12 +0800
+Message-ID: <20161024150712.5133-1-elicooper@gmx.com>
+To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53788 "EHLO mx1.redhat.com"
+Received: from mout.gmx.net ([212.227.17.21]:58718 "EHLO mout.gmx.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938646AbcJXOu2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Oct 2016 10:50:28 -0400
-Content-Disposition: inline
-In-Reply-To: <77d75a4a-2307-6e3d-a4bb-7d7ff61bf3e8@strongswan.org>
+        id S938646AbcJXPHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Oct 2016 11:07:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-10-24, 15:44:26 +0200, Tobias Brunner wrote:
-> Even if sending SCIs is explicitly disabled, the code that creates the
-> Security Tag might still decide to add it (e.g. if multiple RX SCs are
-> defined on the MACsec interface).
-> But because the header length so far only depended on the configuration
-> option the SCI overwrote the original frame's contents (EtherType and
-> e.g. the beginning of the IP header) and if encrypted did not visibly
-> end up in the packet, while the SC flag in the TCI field of the Security
-> Tag was still set, resulting in invalid MACsec frames.
-> 
-> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-> Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+skb->cb may contain data from previous layers, as shown in 5146d1f1511
+("tunnel: Clear IPCB(skb)->opt before dst_link_failure called").
+However, for ipip6 tunnels, clearing IPCB(skb)->opt alone is not enough,
+because skb->cb is later misinterpreted as IP6CB(skb)->frag_max_size.
 
-Acked-by: Sabrina Dubroca <sd@queasysnail.net>
+In the observed scenario, the garbage data made the max fragment size so
+so small that packets sent through the tunnel are mistakenly fragmented.
 
+This patch clears IP6CB(skb)->frag_max_size for ipip6 tunnels.
+
+Signed-off-by: Eli Cooper <elicooper@gmx.com>
+---
+ net/ipv6/ip6_tunnel.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 202d16a..4110562 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1205,6 +1205,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int err;
+ 
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++	IP6CB(skb)->frag_max_size = 0;
+ 
+ 	tproto = ACCESS_ONCE(t->parms.proto);
+ 	if (tproto != IPPROTO_IPIP && tproto != 0)
 -- 
-Sabrina
+2.10.1
