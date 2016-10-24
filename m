@@ -1,39 +1,59 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net 1/1] net sched filters: fix notification of filter
- delete with proper handle
-Date: Mon, 24 Oct 2016 10:02:29 -0700
-Message-ID: <CAM_iQpVyC9X9W5sOhy+q8ycTDsspWWcCK3BLXj3a1i-kN75K9g@mail.gmail.com>
-References: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
+From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net: skip genenerating uevents for network namespaces
+	that are exiting
+Date: Mon, 24 Oct 2016 10:17:12 -0700
+Message-ID: <CAM_iQpUznmhpZ=N5_x5AD_DivdEFcLJKV69br12fv2zpd4sqjQ@mail.gmail.com>
+References: <1477017986-18889-1-git-send-email-avagin@openvz.org>
+	<CAM_iQpVA=W3su_a3OUVSD+19A72TMANnCX4dt9UyLOmVoRuBjQ@mail.gmail.com>
+	<CANaxB-zo4YW7o-Ebe08B_L_f8Wyp6tMWc-rBRt8-4sSc1Y=tgg@mail.gmail.com>
+	<CANaxB-wvJsts7RUEg1pouD0xMLTQAoVMaWaXZ2wLFT9XE1E1Mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36349 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752197AbcJXRCu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 13:02:50 -0400
-Received: by mail-oi0-f66.google.com with SMTP id e12so2957746oib.3
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 10:02:50 -0700 (PDT)
-In-Reply-To: <1477236912-5789-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CANaxB-wvJsts7RUEg1pouD0xMLTQAoVMaWaXZ2wLFT9XE1E1Mw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 23, 2016 at 8:35 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Sat, Oct 22, 2016 at 12:37 AM, Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
+> Hi Cong,
 >
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> On Thu, Oct 20, 2016 at 10:25 PM, Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
+>> On Thu, Oct 20, 2016 at 8:10 PM, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> On Thu, Oct 20, 2016 at 7:46 PM, Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
+>>>> No one can see these events, because a network namespace can not be
+>>>> destroyed, if it has sockets.
+>>>>
+>>>
+>>> Are you sure? kobject_uevent_env() seems sending uevents to all
+>>> network namespaces.
+>>
+>> kobj_bcast_filter() checks that a kobject namespace is equal to a
+>> socket namespace.
+>
+> Today I've checked that it really works as I read from the source code.
+> I use this tool to read events:
+> https://gist.github.com/avagin/430ba431fc2972002df40ebe6a048b36
+>
+> And I see that events from non-network devices are delivered to all sockets,
+> but events from network devices are delivered only to sockets from
+> a network namespace where a device is operated.
 
-We definitely need a serious changelog, even just a short one. ;)
+I missed it, it makes sense now. Please consider adding a comment in
+the code or expanding your changelog for reference.
 
-Other than this,
-
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-We can address the "if (RTM_DELTFILTER != event)" in a separated patch
-if needed.
-
-Thanks.
+Thanks!
