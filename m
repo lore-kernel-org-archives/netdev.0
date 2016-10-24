@@ -1,71 +1,131 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: send/sendmsg ENOMEM errors WAS(Re: [PATCH net 6/6] sctp: not
- return ENOMEM err back in sctp_packet_transmit
-Date: Mon, 24 Oct 2016 14:30:07 +0800
-Message-ID: <CADvbK_cvYhCfzuJCcoUC3+Ghv+VYLoyRGo0mt9UccjYpSBYD0g@mail.gmail.com>
-References: <c15cc225-608d-5268-d179-6a997c3cad62@mojatatu.com>
- <daecd6b5-47cf-c5de-90f5-445e0038dfce@mojatatu.com> <CADvbK_ci-aaX6-mgXTgR0mJm9ww7+48DmXH+m5R+-0PyMDH16g@mail.gmail.com>
- <2fa21505-59c2-fb8b-6e89-11fccc953d25@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevic@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Michael Tuexen <Michael.Tuexen@lurchi.franken.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Brenda Butler <bjb@mojatatu.com>, gabor@mojatatu.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36217 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754938AbcJXGaI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 02:30:08 -0400
-In-Reply-To: <2fa21505-59c2-fb8b-6e89-11fccc953d25@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Kardashevskiy <aik@ozlabs.ru>
+Subject: [PATCH kernel v3] PCI: Enable access to custom VPD for Chelsio devices (cxgb3)
+Date: Mon, 24 Oct 2016 18:04:17 +1100
+Message-ID: <1477292657-3021-1-git-send-email-aik@ozlabs.ru>
+Cc: Alexey Kardashevskiy <aik@ozlabs.ru>, linux-pci@vger.kernel.org,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Santosh Raspatur <santosh@chelsio.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[1]
->> This patch doesn't ignore all the ENOMEN cases, only after msg is
->> enqueued in out queue/send queue, in the lower layer, when alloc
->> new skb and copy data from old skb, if it fails to alloc new skb, sctp
->> will ignore this ENOMEM, as this msg will be taken care by retransmit
->> mechanism, it's reasonable and also safe, user can't feel that.
->>
->
-> Yes, that part i got.
->
+There is at least one Chelsio 10Gb card which uses VPD area to store
+some custom blocks (example below). However pci_vpd_size() returns
+the length of the first block only assuming that there can be only
+one VPD "End Tag" and VFIO blocks access beyond that offset
+(since 4e1a63555) which leads to the situation when the guest "cxgb3"
+driver fails to probe the device. The host system does not have this
+problem as the drives accesses the config space directly without
+pci_read_vpd()/...
 
-[2]
->> But for the cases before enqueue, like in sctp_sendmsg,
->> sctp_datamsg_from_user may return ENOMEM, this err will return
->> back to user, and can't be ignored.
->>
->
-> The hard part is distinguishing between the above case and real
-> failure.
-> I am assuming in the case above user is _not_ required to send
-> again. But in the general case they are required to send again.
-> Correct?
-in case [1], user can't see the ENOMEM, ENOMEM is more like
-a internal err.
+This adds a quirk to override the VPD size to a bigger value.
+The maximum size is taken from EEPROMSIZE in
+drivers/net/ethernet/chelsio/cxgb3/common.h. We do not read the tag
+as the cxgb3 driver does as the driver supports writing to EEPROM/VPD
+and when it writes, it only checks for 8192 bytes boundary. The quirk
+is registerted for all devices supported by the cxgb3 driver.
 
-in case [2], user will got the ENOMEM, they should resend this msg,
-It's the the general case mentioned-above
+This adds a quirk to the PCI layer (not to the cxgb3 driver) as
+the cxgb3 driver itself accesses VPD directly and the problem only exists
+with the vfio-pci driver (when cxgb3 is not running on the host and
+may not be even loaded) which blocks accesses beyond the first block
+of VPD data. However vfio-pci itself does not have quirks mechanism so
+we add it to PCI.
 
->
->> So I don't really think we should change something in manpage, what
->> do you think ? maybe a little explanation there is also nice, :)
->
->
-> Yes, that would help. In particular it should be clear what user space
-> is expected to do. While this is about sctp - I am assuming equivalent
-> behavior for all callers of sendxxx() regardless of protocol.
-here sctp's behavior is actually same with tcp's, in tcp, tcp_transmit_skb
-also may fail to alloc skb, but it doesn't return any err to user, just like
-sctp_packet_transmit. That's why I don't think we should change something
-in manpage, as here sctp is consistent with tcp now.
+This is the controller:
+Ethernet controller [0200]: Chelsio Communications Inc T310 10GbE Single Port Adapter [1425:0030]
 
-make sense ?
+This is what I parsed from its vpd:
+===
+b'\x82*\x0010 Gigabit Ethernet-SR PCI Express Adapter\x90J\x00EC\x07D76809 FN\x0746K'
+ 0000 Large item 42 bytes; name 0x2 Identifier String
+	b'10 Gigabit Ethernet-SR PCI Express Adapter'
+ 002d Large item 74 bytes; name 0x10
+	#00 [EC] len=7: b'D76809 '
+	#0a [FN] len=7: b'46K7897'
+	#14 [PN] len=7: b'46K7897'
+	#1e [MN] len=4: b'1037'
+	#25 [FC] len=4: b'5769'
+	#2c [SN] len=12: b'YL102035603V'
+	#3b [NA] len=12: b'00145E992ED1'
+ 007a Small item 1 bytes; name 0xf End Tag
+
+ 0c00 Large item 16 bytes; name 0x2 Identifier String
+	b'S310E-SR-X      '
+ 0c13 Large item 234 bytes; name 0x10
+	#00 [PN] len=16: b'TBD             '
+	#13 [EC] len=16: b'110107730D2     '
+	#26 [SN] len=16: b'97YL102035603V  '
+	#39 [NA] len=12: b'00145E992ED1'
+	#48 [V0] len=6: b'175000'
+	#51 [V1] len=6: b'266666'
+	#5a [V2] len=6: b'266666'
+	#63 [V3] len=6: b'2000  '
+	#6c [V4] len=2: b'1 '
+	#71 [V5] len=6: b'c2    '
+	#7a [V6] len=6: b'0     '
+	#83 [V7] len=2: b'1 '
+	#88 [V8] len=2: b'0 '
+	#8d [V9] len=2: b'0 '
+	#92 [VA] len=2: b'0 '
+	#97 [RV] len=80: b's\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
+ 0d00 Large item 252 bytes; name 0x11
+	#00 [VC] len=16: b'122310_1222 dp  '
+	#13 [VD] len=16: b'610-0001-00 H1\x00\x00'
+	#26 [VE] len=16: b'122310_1353 fp  '
+	#39 [VF] len=16: b'610-0001-00 H1\x00\x00'
+	#4c [RW] len=173: b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'...
+ 0dff Small item 0 bytes; name 0xf End Tag
+
+10f3 Large item 13315 bytes; name 0x62
+!!! unknown item name 98: b'\xd0\x03\x00@`\x0c\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+===
+
+Signed-off-by: Alexey Kardashevskiy <aik@ozlabs.ru>
+---
+Changes:
+v3:
+* unconditionally set VPD size to 8192
+
+v2:
+* used pci_set_vpd_size() helper
+* added explicit list of IDs from cxgb3 driver
+* added a note in the commit log why the quirk is not in cxgb3
+---
+ drivers/pci/quirks.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index c232729..bc7c541 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -3255,6 +3255,25 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_4C
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_PORT_RIDGE,
+ 			quirk_thunderbolt_hotplug_msi);
+ 
++static void quirk_chelsio_extend_vpd(struct pci_dev *dev)
++{
++	pci_set_vpd_size(dev, 8192);
++}
++
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x20, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x21, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x22, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x23, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x24, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x25, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x26, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x30, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x31, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x32, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x35, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x36, quirk_chelsio_extend_vpd);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_CHELSIO, 0x37, quirk_chelsio_extend_vpd);
++
+ #ifdef CONFIG_ACPI
+ /*
+  * Apple: Shutdown Cactus Ridge Thunderbolt controller.
+-- 
+2.5.0.rc3
