@@ -1,92 +1,79 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH RFC 04/26] arch/arm: Add option to skip sync on DMA
+Subject: [net-next PATCH RFC 07/26] arch/c6x: Add option to skip sync on DMA
  map and unmap
-Date: Mon, 24 Oct 2016 08:04:47 -0400
-Message-ID: <20161024120447.16276.50401.stgit@ahduyck-blue-test.jf.intel.com>
+Date: Mon, 24 Oct 2016 08:05:03 -0400
+Message-ID: <20161024120503.16276.44357.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Russell King <linux@armlinux.org.uk>,
- davem@davemloft.net
+Cc: brouer@redhat.com, davem@davemloft.net, Mark Salter <msalter@redhat.com>,
+ linux-c6x-dev@linux-c6x.org, Aurelien Jacquiot <a-jacquiot@ti.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The use of DMA_ATTR_SKIP_CPU_SYNC was not consistent across all of the DMA
-APIs in the arch/arm folder.  This change is meant to correct that so that
-we get consistent behavior.
+This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
+avoid invoking cache line invalidation if the driver will just handle it
+later via a sync_for_cpu or sync_for_device call.
 
-Cc: Russell King <linux@armlinux.org.uk>
+Cc: Mark Salter <msalter@redhat.com>
+Cc: Aurelien Jacquiot <a-jacquiot@ti.com>
+Cc: linux-c6x-dev@linux-c6x.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/arm/common/dmabounce.c |   16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+ arch/c6x/kernel/dma.c |   16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm/common/dmabounce.c b/arch/arm/common/dmabounce.c
-index 3012816..75055df 100644
---- a/arch/arm/common/dmabounce.c
-+++ b/arch/arm/common/dmabounce.c
-@@ -243,7 +243,8 @@ static int needs_bounce(struct device *dev, dma_addr_t dma_addr, size_t size)
+diff --git a/arch/c6x/kernel/dma.c b/arch/c6x/kernel/dma.c
+index db4a6a3..d28df74 100644
+--- a/arch/c6x/kernel/dma.c
++++ b/arch/c6x/kernel/dma.c
+@@ -42,14 +42,17 @@ static dma_addr_t c6x_dma_map_page(struct device *dev, struct page *page,
+ {
+ 	dma_addr_t handle = virt_to_phys(page_address(page) + offset);
+ 
+-	c6x_dma_sync(handle, size, dir);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		c6x_dma_sync(handle, size, dir);
++
+ 	return handle;
  }
  
- static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
--		enum dma_data_direction dir)
-+				    enum dma_data_direction dir,
-+				    unsigned long attrs)
+ static void c6x_dma_unmap_page(struct device *dev, dma_addr_t handle,
+ 		size_t size, enum dma_data_direction dir, unsigned long attrs)
  {
- 	struct dmabounce_device_info *device_info = dev->archdata.dmabounce;
- 	struct safe_buffer *buf;
-@@ -262,7 +263,8 @@ static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
- 		__func__, buf->ptr, virt_to_dma(dev, buf->ptr),
- 		buf->safe, buf->safe_dma_addr);
- 
--	if (dir == DMA_TO_DEVICE || dir == DMA_BIDIRECTIONAL) {
-+	if ((dir == DMA_TO_DEVICE || dir == DMA_BIDIRECTIONAL) &&
-+	    !(attrs & DMA_ATTR_SKIP_CPU_SYNC)) {
- 		dev_dbg(dev, "%s: copy unsafe %p to safe %p, size %d\n",
- 			__func__, ptr, buf->safe, size);
- 		memcpy(buf->safe, ptr, size);
-@@ -272,7 +274,8 @@ static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
+-	c6x_dma_sync(handle, size, dir);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		c6x_dma_sync(handle, size, dir);
  }
  
- static inline void unmap_single(struct device *dev, struct safe_buffer *buf,
--		size_t size, enum dma_data_direction dir)
-+				size_t size, enum dma_data_direction dir,
-+				unsigned long attrs)
- {
- 	BUG_ON(buf->size != size);
- 	BUG_ON(buf->direction != dir);
-@@ -283,7 +286,8 @@ static inline void unmap_single(struct device *dev, struct safe_buffer *buf,
+ static int c6x_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+@@ -60,7 +63,8 @@ static int c6x_dma_map_sg(struct device *dev, struct scatterlist *sglist,
  
- 	DO_STATS(dev->archdata.dmabounce->bounce_count++);
- 
--	if (dir == DMA_FROM_DEVICE || dir == DMA_BIDIRECTIONAL) {
-+	if ((dir == DMA_FROM_DEVICE || dir == DMA_BIDIRECTIONAL) &&
-+	    !(attrs & DMA_ATTR_SKIP_CPU_SYNC)) {
- 		void *ptr = buf->ptr;
- 
- 		dev_dbg(dev, "%s: copy back safe %p to unsafe %p size %d\n",
-@@ -334,7 +338,7 @@ static dma_addr_t dmabounce_map_page(struct device *dev, struct page *page,
- 		return DMA_ERROR_CODE;
+ 	for_each_sg(sglist, sg, nents, i) {
+ 		sg->dma_address = sg_phys(sg);
+-		c6x_dma_sync(sg->dma_address, sg->length, dir);
++		if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++			c6x_dma_sync(sg->dma_address, sg->length, dir);
  	}
  
--	return map_single(dev, page_address(page) + offset, size, dir);
-+	return map_single(dev, page_address(page) + offset, size, dir, attrs);
+ 	return nents;
+@@ -72,8 +76,10 @@ static void c6x_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
+ 	struct scatterlist *sg;
+ 	int i;
+ 
+-	for_each_sg(sglist, sg, nents, i)
+-		c6x_dma_sync(sg_dma_address(sg), sg->length, dir);
++	for_each_sg(sglist, sg, nents, i) {
++		if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++			c6x_dma_sync(sg_dma_address(sg), sg->length, dir);
++	}
+ 
  }
  
- /*
-@@ -357,7 +361,7 @@ static void dmabounce_unmap_page(struct device *dev, dma_addr_t dma_addr, size_t
- 		return;
- 	}
- 
--	unmap_single(dev, buf, size, dir);
-+	unmap_single(dev, buf, size, dir, attrs);
- }
- 
- static int __dmabounce_sync_for_cpu(struct device *dev, dma_addr_t addr,
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
