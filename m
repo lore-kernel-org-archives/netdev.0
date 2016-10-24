@@ -1,42 +1,69 @@
-From: Eli Cooper <elicooper@gmx.com>
-Subject: [PATCH] ip6_tunnel: Clear IP6CB(skb)->frag_max_size in ip4ip6_tnl_xmit()
-Date: Mon, 24 Oct 2016 23:07:12 +0800
-Message-ID: <20161024150712.5133-1-elicooper@gmx.com>
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: [PATCH v2 RESEND] xen-netback: prefer xenbus_scanf() over
+ xenbus_gather()
+Date: Mon, 24 Oct 2016 09:08:16 -0600
+Message-ID: <580E40000200007800119234@prv-mh.provo.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <david.vrabel@citrix.com>, <xen-devel@lists.xenproject.org>,
+        <boris.ostrovsky@oracle.com>, "Juergen Gross" <JGross@suse.com>,
+        <netdev@vger.kernel.org>
+To: "Paul Durrant" <paul.durrant@citrix.com>,
+        "Wei Liu" <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:58718 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938646AbcJXPHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Oct 2016 11:07:25 -0400
+Received: from prv-mh.provo.novell.com ([137.65.248.74]:54864 "EHLO
+        prv-mh.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S939720AbcJXPIU (ORCPT
+        <rfc822;groupwise-netdev@vger.kernel.org:5:1>);
+        Mon, 24 Oct 2016 11:08:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb->cb may contain data from previous layers, as shown in 5146d1f1511
-("tunnel: Clear IPCB(skb)->opt before dst_link_failure called").
-However, for ipip6 tunnels, clearing IPCB(skb)->opt alone is not enough,
-because skb->cb is later misinterpreted as IP6CB(skb)->frag_max_size.
+For single items being collected this should be preferred as being more
+typesafe (as the compiler can check format string and to-be-written-to
+variable match) and more efficient (requiring one less parameter to be
+passed).
 
-In the observed scenario, the garbage data made the max fragment size so
-so small that packets sent through the tunnel are mistakenly fragmented.
-
-This patch clears IP6CB(skb)->frag_max_size for ipip6 tunnels.
-
-Signed-off-by: Eli Cooper <elicooper@gmx.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
 ---
- net/ipv6/ip6_tunnel.c | 1 +
- 1 file changed, 1 insertion(+)
+v2: Avoid commit message to continue from subject.
+---
+ drivers/net/xen-netback/xenbus.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 202d16a..4110562 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1205,6 +1205,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+--- 4.9-rc2/drivers/net/xen-netback/xenbus.c
++++ 4.9-rc2-xen-netback-prefer-xenbus_scanf/drivers/net/xen-netback/xenbus.c
+@@ -889,16 +889,16 @@ static int connect_ctrl_ring(struct back
+ 	unsigned int evtchn;
  	int err;
  
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+	IP6CB(skb)->frag_max_size = 0;
+-	err = xenbus_gather(XBT_NIL, dev->otherend,
+-			    "ctrl-ring-ref", "%u", &val, NULL);
+-	if (err)
++	err = xenbus_scanf(XBT_NIL, dev->otherend,
++			   "ctrl-ring-ref", "%u", &val);
++	if (err <= 0)
+ 		goto done; /* The frontend does not have a control ring */
  
- 	tproto = ACCESS_ONCE(t->parms.proto);
- 	if (tproto != IPPROTO_IPIP && tproto != 0)
--- 
-2.10.1
+ 	ring_ref = val;
+ 
+-	err = xenbus_gather(XBT_NIL, dev->otherend,
+-			    "event-channel-ctrl", "%u", &val, NULL);
+-	if (err) {
++	err = xenbus_scanf(XBT_NIL, dev->otherend,
++			   "event-channel-ctrl", "%u", &val);
++	if (err <= 0) {
+ 		xenbus_dev_fatal(dev, err,
+ 				 "reading %s/event-channel-ctrl",
+ 				 dev->otherend);
+@@ -919,7 +919,7 @@ done:
+ 	return 0;
+ 
+ fail:
+-	return err;
++	return err ?: -ENODATA;
+ }
+ 
+ static void connect(struct backend_info *be)
