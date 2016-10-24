@@ -1,102 +1,63 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH RFC 16/26] arch/parisc: Add option to skip DMA sync
- as a part of map and unmap
-Date: Mon, 24 Oct 2016 08:05:51 -0400
-Message-ID: <20161024120551.16276.97665.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH RFC 12/26] arch/microblaze: Add option to skip DMA
+ sync as a part of map and unmap
+Date: Mon, 24 Oct 2016 08:05:30 -0400
+Message-ID: <20161024120529.16276.23335.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Helge Deller <deller@gmx.de>, brouer@redhat.com,
- "James E.J. Bottomley" <jejb@parisc-linux.org>, linux-parisc@vger.kernel.org,
- davem@davemloft.net
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
-Return-path: <owner-linux-mm@kvack.org>
+Cc: Michal Simek <monstr@monstr.eu>, davem@davemloft.net,
+        brouer@redhat.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-mm@kvack.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
-Sender: owner-linux-mm@kvack.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 via a sync_for_cpu or sync_for_device call.
 
-Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
-Cc: Helge Deller <deller@gmx.de>
-Cc: linux-parisc@vger.kernel.org
+Cc: Michal Simek <monstr@monstr.eu>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/parisc/kernel/pci-dma.c |   20 +++++++++++++++-----
- 1 file changed, 15 insertions(+), 5 deletions(-)
+ arch/microblaze/kernel/dma.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/arch/parisc/kernel/pci-dma.c b/arch/parisc/kernel/pci-dma.c
-index 02d9ed0..be55ede 100644
---- a/arch/parisc/kernel/pci-dma.c
-+++ b/arch/parisc/kernel/pci-dma.c
-@@ -459,7 +459,9 @@ static dma_addr_t pa11_dma_map_page(struct device *dev, struct page *page,
- 	void *addr = page_address(page) + offset;
- 	BUG_ON(direction == DMA_NONE);
- 
--	flush_kernel_dcache_range((unsigned long) addr, size);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		flush_kernel_dcache_range((unsigned long) addr, size);
-+
- 	return virt_to_phys(addr);
- }
- 
-@@ -469,8 +471,11 @@ static void pa11_dma_unmap_page(struct device *dev, dma_addr_t dma_handle,
- {
- 	BUG_ON(direction == DMA_NONE);
- 
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return;
-+
- 	if (direction == DMA_TO_DEVICE)
--	    return;
-+		return;
- 
- 	/*
- 	 * For PCI_DMA_FROMDEVICE this flush is not necessary for the
-@@ -479,7 +484,6 @@ static void pa11_dma_unmap_page(struct device *dev, dma_addr_t dma_handle,
- 	 */
- 
- 	flush_kernel_dcache_range((unsigned long) phys_to_virt(dma_handle), size);
--	return;
- }
- 
- static int pa11_dma_map_sg(struct device *dev, struct scatterlist *sglist,
-@@ -496,6 +500,10 @@ static int pa11_dma_map_sg(struct device *dev, struct scatterlist *sglist,
- 
- 		sg_dma_address(sg) = (dma_addr_t) virt_to_phys(vaddr);
- 		sg_dma_len(sg) = sg->length;
+diff --git a/arch/microblaze/kernel/dma.c b/arch/microblaze/kernel/dma.c
+index ec04dc1..818daf2 100644
+--- a/arch/microblaze/kernel/dma.c
++++ b/arch/microblaze/kernel/dma.c
+@@ -61,6 +61,10 @@ static int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	/* FIXME this part of code is untested */
+ 	for_each_sg(sgl, sg, nents, i) {
+ 		sg->dma_address = sg_phys(sg);
 +
 +		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
 +			continue;
 +
- 		flush_kernel_dcache_range(vaddr, sg->length);
+ 		__dma_sync(page_to_phys(sg_page(sg)) + sg->offset,
+ 							sg->length, direction);
  	}
- 	return nents;
-@@ -510,14 +518,16 @@ static void pa11_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 
- 	BUG_ON(direction == DMA_NONE);
- 
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return;
-+
- 	if (direction == DMA_TO_DEVICE)
--	    return;
-+		return;
- 
- 	/* once we do combining we'll need to use phys_to_virt(sg_dma_address(sglist)) */
- 
- 	for_each_sg(sglist, sg, nents, i)
- 		flush_kernel_vmap_range(sg_virt(sg), sg->length);
--	return;
+@@ -80,7 +84,8 @@ static inline dma_addr_t dma_direct_map_page(struct device *dev,
+ 					     enum dma_data_direction direction,
+ 					     unsigned long attrs)
+ {
+-	__dma_sync(page_to_phys(page) + offset, size, direction);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		__dma_sync(page_to_phys(page) + offset, size, direction);
+ 	return page_to_phys(page) + offset;
  }
  
- static void pa11_dma_sync_single_for_cpu(struct device *dev,
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+@@ -95,7 +100,8 @@ static inline void dma_direct_unmap_page(struct device *dev,
+  * phys_to_virt is here because in __dma_sync_page is __virt_to_phys and
+  * dma_address is physical address
+  */
+-	__dma_sync(dma_address, size, direction);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		__dma_sync(dma_address, size, direction);
+ }
+ 
+ static inline void
