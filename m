@@ -1,54 +1,50 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next] flow_dissector: fix vlan tag handling
-Date: Mon, 24 Oct 2016 18:00:32 +0200
-Message-ID: <28288577.YZfdMibjpz@wuerfel>
-References: <20161021155626.4020344-1-arnd@arndb.de> <3590200.oN5tv3ZPpc@wuerfel> <20161024081736.GB2781@nanopsycho>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/can: warning in bcm_connect/proc_register
+Date: Mon, 24 Oct 2016 18:21:27 +0200
+Message-ID: <CAAeHK+x6w+Lg1GoCZXdjPtM6n72dpUbF_Bvtg80YNK-Wh8YJ4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>,
-        Amir Vadai <amir@vadai.me>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161024081736.GB2781@nanopsycho>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, October 24, 2016 10:17:36 AM CEST Jiri Pirko wrote:
-> Sat, Oct 22, 2016 at 10:30:08PM CEST, arnd@arndb.de wrote:
-> >diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> >index 44e6ba9d3a6b..17be1b66cc41 100644
-> >--- a/net/core/flow_dissector.c
-> >+++ b/net/core/flow_dissector.c
-> >@@ -246,13 +246,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
-> > 	case htons(ETH_P_8021AD):
-> > 	case htons(ETH_P_8021Q): {
-> > 		const struct vlan_hdr *vlan;
-> >+		struct vlan_hdr _vlan;
-> >+		bool vlan_tag_present = (skb && skb_vlan_tag_present(skb));
-> 
-> Drop the unnecessary "()"
+Hi,
 
-ok
+I've got the following error report while running the syzkaller fuzzer:
 
-> > 
-> >-		if (skb && skb_vlan_tag_present(skb))
-> >-			proto = skb->protocol;
-> 
-> This does not look correct. I believe that you need to set proto for
-> further processing.
-> 
+WARNING: CPU: 0 PID: 32451 at fs/proc/generic.c:345 proc_register+0x25e/0x300
+proc_dir_entry 'can-bcm/249757' already registered
+Kernel panic - not syncing: panic_on_warn set ...
 
-Ah, of course. I only looked at the usage in this 'case' statement,
-but the variable is also used after the 'goto again' and at
-the end of the function.
+CPU: 0 PID: 32451 Comm: syz-executor Not tainted 4.9.0-rc1+ #293
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffff880037d8fae0 ffffffff81b474f4 0000000000000003 dffffc0000000000
+ ffffffff840cbf00 ffff880037d8fb04 ffff880037d8fba8 ffffffff8140c06a
+ 0000000041b58ab3 ffffffff8479ab7d ffffffff8140beae ffffffff00000032
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff81b474f4>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
+ [<ffffffff8140c06a>] panic+0x1bc/0x39d kernel/panic.c:179
+ [<ffffffff8111125c>] __warn+0x1cc/0x1f0 kernel/panic.c:542
+ [<ffffffff8111132c>] warn_slowpath_fmt+0xac/0xd0 kernel/panic.c:565
+ [<ffffffff8167d6ee>] proc_register+0x25e/0x300 fs/proc/generic.c:344
+ [<ffffffff8167dc01>] proc_create_data+0x101/0x1a0 fs/proc/generic.c:507
+ [<ffffffff835729ce>] bcm_connect+0x16e/0x380 net/can/bcm.c:1585
+ [<ffffffff82b725e4>] SYSC_connect+0x244/0x2f0 net/socket.c:1533
+ [<ffffffff82b74dd4>] SyS_connect+0x24/0x30 net/socket.c:1514
+ [<ffffffff83fc19c1>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Kernel Offset: disabled
 
-	Arnd
+On commit 07d9a380680d1c0eb51ef87ff2eab5c994949e69 (Oct 23).
