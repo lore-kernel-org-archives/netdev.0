@@ -1,67 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] LSO feature added to Cadence GEM driver
-Date: Mon, 24 Oct 2016 08:40:56 -0700
-Message-ID: <1477323656.7065.130.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1477315088-28396-1-git-send-email-rafalo@cadence.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] cw1200: fix bogus maybe-uninitialized warning
+Date: Mon, 24 Oct 2016 17:41:49 +0200
+Message-ID: <20161024154215.2863586-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Rafal Ozieblo <rafalo@cadence.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477315088-28396-1-git-send-email-rafalo@cadence.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-10-24 at 14:18 +0100, Rafal Ozieblo wrote:
-> New Cadence GEM hardware support Large Segment Offload (LSO):
-> TCP segmentation offload (TSO) as well as UDP fragmentation
-> offload (UFO). Support for those features was added to the driver.
-> 
-> Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
+On x86, the cw1200 driver produces a rather silly warning about the
+possible use of the 'ret' variable without an initialization
+presumably after being confused by the architecture specific definition
+of WARN_ON:
 
-...
->  
-> +static int macb_lso_check_compatibility(struct sk_buff *skb, unsigned int hdrlen)
-> +{
-> +	unsigned int nr_frags, f;
-> +
-> +	if (skb_shinfo(skb)->gso_size == 0)
-> +		/* not LSO */
-> +		return -EPERM;
-> +
-> +	/* there is only one buffer */
-> +	if (!skb_is_nonlinear(skb))
-> +		return 0;
-> +
-> +	/* For LSO:
-> +	 * When software supplies two or more payload buffers all payload buffers
-> +	 * apart from the last must be a multiple of 8 bytes in size.
-> +	 */
-> +	if (!IS_ALIGNED(skb_headlen(skb) - hdrlen, MACB_TX_LEN_ALIGN))
-> +		return -EPERM;
-> +
-> +	nr_frags = skb_shinfo(skb)->nr_frags;
-> +	/* No need to check last fragment */
-> +	nr_frags--;
-> +	for (f = 0; f < nr_frags; f++) {
-> +		const skb_frag_t *frag = &skb_shinfo(skb)->frags[f];
-> +
-> +		if (!IS_ALIGNED(skb_frag_size(frag), MACB_TX_LEN_ALIGN))
-> +			return -EPERM;
-> +	}
-> +	return 0;
-> +}
-> +
+drivers/net/wireless/st/cw1200/wsm.c: In function ‘wsm_handle_rx’:
+drivers/net/wireless/st/cw1200/wsm.c:1457:9: error: ‘ret’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-Very strange hardware requirements ;(
+As the driver just checks the same variable twice here, we can simplify
+it by removing the second condition, which makes it more readable and
+avoids the warning.
 
-You should implement an .ndo_features_check method
-to perform the checks from core networking stack, and not from your
-ndo_start_xmit()
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+---
+ drivers/net/wireless/st/cw1200/wsm.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-This has the huge advantage of not falling back to skb_linearize(skb)
-which is very likely to fail with ~64 KB skbs anyway.
-
-(Your ndo_features_check() would request software GSO instead ...)
+diff --git a/drivers/net/wireless/st/cw1200/wsm.c b/drivers/net/wireless/st/cw1200/wsm.c
+index 680d60eabc75..094e6637ade2 100644
+--- a/drivers/net/wireless/st/cw1200/wsm.c
++++ b/drivers/net/wireless/st/cw1200/wsm.c
+@@ -385,14 +385,13 @@ static int wsm_multi_tx_confirm(struct cw1200_common *priv,
+ 	if (WARN_ON(count <= 0))
+ 		return -EINVAL;
+ 
+-	if (count > 1) {
+-		/* We already released one buffer, now for the rest */
+-		ret = wsm_release_tx_buffer(priv, count - 1);
+-		if (ret < 0)
+-			return ret;
+-		else if (ret > 0)
+-			cw1200_bh_wakeup(priv);
+-	}
++	/* We already released one buffer, now for the rest */
++	ret = wsm_release_tx_buffer(priv, count - 1);
++	if (ret < 0)
++		return ret;
++
++	if (ret > 0)
++		cw1200_bh_wakeup(priv);
+ 
+ 	cw1200_debug_txed_multi(priv, count);
+ 	for (i = 0; i < count; ++i) {
+-- 
+2.9.0
