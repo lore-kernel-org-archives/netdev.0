@@ -1,79 +1,74 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: fix the panic caused by route update
-Date: Mon, 24 Oct 2016 10:05:11 -0400
-Message-ID: <20161024140511.GA23714@hmsreliant.think-freely.org>
-References: <a0659fd9a23fc95fe9a586be4b57c8032c8a6060.1477242069.git.lucien.xin@gmail.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: UDP does not autobind on recv
+Date: Mon, 24 Oct 2016 16:23:00 +0200
+Message-ID: <fc4ce236-7f34-601a-79f0-7ac9e087e7f9@suse.cz>
+References: <5d0f78b4-f850-4f73-dbb7-6c3d15d99c86@suse.cz>
+ <1477314180.7065.108.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: ML netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33215 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935741AbcJXOFb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 10:05:31 -0400
-Content-Disposition: inline
-In-Reply-To: <a0659fd9a23fc95fe9a586be4b57c8032c8a6060.1477242069.git.lucien.xin@gmail.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35533 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941123AbcJXOXD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 10:23:03 -0400
+Received: by mail-wm0-f44.google.com with SMTP id c78so107086126wme.0
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 07:23:02 -0700 (PDT)
+In-Reply-To: <1477314180.7065.108.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 24, 2016 at 01:01:09AM +0800, Xin Long wrote:
-> Commit 7303a1475008 ("sctp: identify chunks that need to be fragmented
-> at IP level") made the chunk be fragmented at IP level in the next round
-> if it's size exceed PMTU.
+On 10/24/2016, 03:03 PM, Eric Dumazet wrote:
+> On Mon, 2016-10-24 at 14:54 +0200, Jiri Slaby wrote:
+>> Hello,
+>>
+>> as per man 7 udp:
+>>   In order to receive packets, the socket can be bound to
+>>   a local  address first  by using bind(2).  Otherwise,
+>>   the socket layer will automatically assign a free local
+>>   port out of the range defined by /proc/sys/net/ipv4
+>>   /ip_local_port_range and bind the socket to INADDR_ANY.
+>>
+>> I did not know that bind is unneeded, so I tried that. But it does not
+>> work with this piece of code:
+>> int main()
+>> {
+>>     char buf[128];
+>>     int fd = socket(AF_INET, SOCK_DGRAM, 0);
+>>     recv(fd, buf, sizeof(buf), 0);
+>> }
 > 
-> But there still is another case, PMTU can be updated if transport's dst
-> expires and transport's pmtu_pending is set in sctp_packet_transmit. If
-> the new PMTU is less than the chunk, the same issue with that commit can
-> be triggered.
+> autobind makes little sense at recv() time really.
 > 
-> So we should drop this packet and let it retransmit in another round
-> where it would be fragmented at IP level.
-> 
-> This patch is to fix it by checking the chunk size after PMTU may be
-> updated and dropping this packet if it's size exceed PMTU.
-> 
-> Fixes: 90017accff61 ("sctp: Add GSO support")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/output.c | 8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 2a5c189..6cb0df8 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -418,6 +418,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  	__u8 has_data = 0;
->  	int gso = 0;
->  	int pktcount = 0;
-> +	int auth_len = 0;
->  	struct dst_entry *dst;
->  	unsigned char *auth = NULL;	/* pointer to auth in skb data */
->  
-> @@ -510,7 +511,12 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
->  			list_for_each_entry(chunk, &packet->chunk_list, list) {
->  				int padded = SCTP_PAD4(chunk->skb->len);
->  
-> -				if (pkt_size + padded > tp->pathmtu)
-> +				if (chunk == packet->auth)
-> +					auth_len = padded;
-> +				else if (auth_len + padded + packet->overhead >
-> +					 tp->pathmtu)
-> +					goto nomem;
-> +				else if (pkt_size + padded > tp->pathmtu)
->  					break;
->  				pkt_size += padded;
->  			}
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@txudriver.com>
+> How an application could expect to receive a frame to 'some socket'
+> without even knowing its port ?
+
+For example
+        struct sockaddr_storage sa;
+        socklen_t slen = sizeof(sa);
+        recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
+        getsockname(fd, (struct sockaddr *)&sa, &slen);
+        recv(fd, buf, sizeof(buf), 0);
+works.
+
+> How useful would that be exactly ?
+
+No need for finding a free port and checking, for example.
+
+> How TCP behaves ?
+
+TCP is a completely different story. bind is documented to be required
+there. (And listen and accept.)
+
+> I would say, fix the documentation if it is not correct.
+
+I don't have a problem with either. I have only found, that the
+implementation differs from the documentation :). Is there some
+supervisor documentation (like POSIX) which should we be in conformance to?
+
+thanks,
+-- 
+js
+suse labs
