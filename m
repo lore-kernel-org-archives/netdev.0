@@ -1,50 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP does not autobind on recv
-Date: Mon, 24 Oct 2016 06:03:00 -0700
-Message-ID: <1477314180.7065.108.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5d0f78b4-f850-4f73-dbb7-6c3d15d99c86@suse.cz>
+From: Tobias Brunner <tobias@strongswan.org>
+Subject: Re: [PATCH net] macsec: Fix header length if SCI is added if
+ explicitily disabled
+Date: Mon, 24 Oct 2016 15:32:40 +0200
+Message-ID: <253edab5-98e6-60e0-0c29-2f1205a4dd1a@strongswan.org>
+References: <bfb9f7ef-39b1-269f-48de-d7caf5c54c2f@strongswan.org>
+ <20161024112822.GA28497@bistromath.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ML netdev <netdev@vger.kernel.org>
-To: Jiri Slaby <jslaby@suse.cz>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34108 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935271AbcJXNDC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 09:03:02 -0400
-Received: by mail-pf0-f181.google.com with SMTP id r16so98754378pfg.1
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 06:03:02 -0700 (PDT)
-In-Reply-To: <5d0f78b4-f850-4f73-dbb7-6c3d15d99c86@suse.cz>
+Received: from sitav-80046.hsr.ch ([152.96.80.46]:57924 "EHLO
+        mail.strongswan.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934973AbcJXNco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 09:32:44 -0400
+In-Reply-To: <20161024112822.GA28497@bistromath.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-10-24 at 14:54 +0200, Jiri Slaby wrote:
-> Hello,
+> [snip]
+>> @@ -440,12 +448,12 @@ static void macsec_fill_sectag(struct macsec_eth_header *h,
+>>  			       const struct macsec_secy *secy, u32 pn)
+>>  {
+>>  	const struct macsec_tx_sc *tx_sc = &secy->tx_sc;
+>> +	bool sci_present = send_sci(secy);
 > 
-> as per man 7 udp:
->   In order to receive packets, the socket can be bound to
->   a local  address first  by using bind(2).  Otherwise,
->   the socket layer will automatically assign a free local
->   port out of the range defined by /proc/sys/net/ipv4
->   /ip_local_port_range and bind the socket to INADDR_ANY.
-> 
-> I did not know that bind is unneeded, so I tried that. But it does not
-> work with this piece of code:
-> int main()
-> {
->     char buf[128];
->     int fd = socket(AF_INET, SOCK_DGRAM, 0);
->     recv(fd, buf, sizeof(buf), 0);
-> }
+> You're already computing this in macsec_encrypt() just before calling
+> macsec_fill_sectag(), so you could pass it as argument instead of
+> recomputing it.
 
-autobind makes little sense at recv() time really.
+Right, I'll send a v2.  Would you like me to inline the send_sci()
+function, as it will only be called once afterwards.
 
-How an application could expect to receive a frame to 'some socket'
-without even knowing its port ?
-
-How useful would that be exactly ?
-
-How TCP behaves ?
-
-I would say, fix the documentation if it is not correct.
+Regards,
+Tobias
