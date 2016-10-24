@@ -1,73 +1,78 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH RFC 19/26] arch/sparc: Add option to skip DMA sync
+Subject: [net-next PATCH RFC 14/26] arch/nios2: Add option to skip DMA sync
  as a part of map and unmap
-Date: Mon, 24 Oct 2016 08:06:07 -0400
-Message-ID: <20161024120607.16276.5989.stgit@ahduyck-blue-test.jf.intel.com>
+Date: Mon, 24 Oct 2016 08:05:40 -0400
+Message-ID: <20161024120540.16276.15769.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, davem@davemloft.net, brouer@redhat.com
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Ley Foon Tan <lftan@altera.com>, davem@davemloft.net, brouer@redhat.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 via a sync_for_cpu or sync_for_device call.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: sparclinux@vger.kernel.org
+Cc: Ley Foon Tan <lftan@altera.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/sparc/kernel/iommu.c  |    4 ++--
- arch/sparc/kernel/ioport.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ arch/nios2/mm/dma-mapping.c |   14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/arch/sparc/kernel/iommu.c b/arch/sparc/kernel/iommu.c
-index 5c615ab..8fda4e4 100644
---- a/arch/sparc/kernel/iommu.c
-+++ b/arch/sparc/kernel/iommu.c
-@@ -415,7 +415,7 @@ static void dma_4u_unmap_page(struct device *dev, dma_addr_t bus_addr,
- 		ctx = (iopte_val(*base) & IOPTE_CONTEXT) >> 47UL;
+diff --git a/arch/nios2/mm/dma-mapping.c b/arch/nios2/mm/dma-mapping.c
+index d800fad..b83e723 100644
+--- a/arch/nios2/mm/dma-mapping.c
++++ b/arch/nios2/mm/dma-mapping.c
+@@ -102,7 +102,9 @@ static int nios2_dma_map_sg(struct device *dev, struct scatterlist *sg,
  
- 	/* Step 1: Kick data out of streaming buffers if necessary. */
--	if (strbuf->strbuf_enabled)
-+	if (strbuf->strbuf_enabled && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 		strbuf_flush(strbuf, iommu, bus_addr, ctx,
- 			     npages, direction);
- 
-@@ -640,7 +640,7 @@ static void dma_4u_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 		base = iommu->page_table + entry;
- 
- 		dma_handle &= IO_PAGE_MASK;
--		if (strbuf->strbuf_enabled)
-+		if (strbuf->strbuf_enabled && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 			strbuf_flush(strbuf, iommu, dma_handle, ctx,
- 				     npages, direction);
- 
-diff --git a/arch/sparc/kernel/ioport.c b/arch/sparc/kernel/ioport.c
-index 2344103..6ffaec4 100644
---- a/arch/sparc/kernel/ioport.c
-+++ b/arch/sparc/kernel/ioport.c
-@@ -527,7 +527,7 @@ static dma_addr_t pci32_map_page(struct device *dev, struct page *page,
- static void pci32_unmap_page(struct device *dev, dma_addr_t ba, size_t size,
- 			     enum dma_data_direction dir, unsigned long attrs)
+ 		addr = sg_virt(sg);
+ 		if (addr) {
+-			__dma_sync_for_device(addr, sg->length, direction);
++			if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++				__dma_sync_for_device(addr, sg->length,
++						      direction);
+ 			sg->dma_address = sg_phys(sg);
+ 		}
+ 	}
+@@ -117,7 +119,9 @@ static dma_addr_t nios2_dma_map_page(struct device *dev, struct page *page,
  {
--	if (dir != PCI_DMA_TODEVICE)
-+	if (dir != PCI_DMA_TODEVICE && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 		dma_make_coherent(ba, PAGE_ALIGN(size));
+ 	void *addr = page_address(page) + offset;
+ 
+-	__dma_sync_for_device(addr, size, direction);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		__dma_sync_for_device(addr, size, direction);
++
+ 	return page_to_phys(page) + offset;
  }
  
-@@ -572,7 +572,7 @@ static void pci32_unmap_sg(struct device *dev, struct scatterlist *sgl,
- 	struct scatterlist *sg;
- 	int n;
+@@ -125,7 +129,8 @@ static void nios2_dma_unmap_page(struct device *dev, dma_addr_t dma_address,
+ 		size_t size, enum dma_data_direction direction,
+ 		unsigned long attrs)
+ {
+-	__dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		__dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
+ }
  
--	if (dir != PCI_DMA_TODEVICE) {
-+	if (dir != PCI_DMA_TODEVICE && !(attrs & DMA_ATTR_SKIP_CPU_SYNC)) {
- 		for_each_sg(sgl, sg, nents, n) {
- 			dma_make_coherent(sg_phys(sg), PAGE_ALIGN(sg->length));
- 		}
+ static void nios2_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
+@@ -138,6 +143,9 @@ static void nios2_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
+ 	if (direction == DMA_TO_DEVICE)
+ 		return;
+ 
++	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++		return;
++
+ 	for_each_sg(sg, sg, nhwentries, i) {
+ 		addr = sg_virt(sg);
+ 		if (addr)
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
