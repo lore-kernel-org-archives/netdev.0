@@ -1,14 +1,13 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH RFC 18/26] arch/sh: Add option to skip DMA sync as
- a part of mapping
-Date: Mon, 24 Oct 2016 08:06:01 -0400
-Message-ID: <20161024120601.16276.5500.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH RFC 21/26] arch/xtensa: Add option to skip DMA sync
+ as a part of mapping
+Date: Mon, 24 Oct 2016 08:06:17 -0400
+Message-ID: <20161024120617.16276.40617.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Rich Felker <dalias@libc.org>, davem@davemloft.net,
- Yoshinori Sato <ysato@users.sourceforge.jp>, linux-sh@vger.kernel.org
+Cc: Max Filippov <jcmvbkbc@gmail.com>, davem@davemloft.net, brouer@redhat.com
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
@@ -19,39 +18,37 @@ This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 via a sync_for_cpu or sync_for_device call.
 
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Cc: Rich Felker <dalias@libc.org>
-Cc: linux-sh@vger.kernel.org
+Cc: Max Filippov <jcmvbkbc@gmail.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/sh/kernel/dma-nommu.c |    7 +++++--
+ arch/xtensa/kernel/pci-dma.c |    7 +++++--
  1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/arch/sh/kernel/dma-nommu.c b/arch/sh/kernel/dma-nommu.c
-index eadb669..47fee3b 100644
---- a/arch/sh/kernel/dma-nommu.c
-+++ b/arch/sh/kernel/dma-nommu.c
-@@ -18,7 +18,9 @@ static dma_addr_t nommu_map_page(struct device *dev, struct page *page,
- 	dma_addr_t addr = page_to_phys(page) + offset;
+diff --git a/arch/xtensa/kernel/pci-dma.c b/arch/xtensa/kernel/pci-dma.c
+index 1e68806..6a16dec 100644
+--- a/arch/xtensa/kernel/pci-dma.c
++++ b/arch/xtensa/kernel/pci-dma.c
+@@ -189,7 +189,9 @@ static dma_addr_t xtensa_map_page(struct device *dev, struct page *page,
+ {
+ 	dma_addr_t dma_handle = page_to_phys(page) + offset;
  
- 	WARN_ON(size == 0);
--	dma_cache_sync(dev, page_address(page) + offset, size, dir);
-+
+-	xtensa_sync_single_for_device(dev, dma_handle, size, dir);
 +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		dma_cache_sync(dev, page_address(page) + offset, size, dir);
- 
- 	return addr;
++		xtensa_sync_single_for_device(dev, dma_handle, size, dir);
++
+ 	return dma_handle;
  }
-@@ -35,7 +37,8 @@ static int nommu_map_sg(struct device *dev, struct scatterlist *sg,
- 	for_each_sg(sg, s, nents, i) {
- 		BUG_ON(!sg_page(s));
  
--		dma_cache_sync(dev, sg_virt(s), s->length, dir);
-+		if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+			dma_cache_sync(dev, sg_virt(s), s->length, dir);
+@@ -197,7 +199,8 @@ static void xtensa_unmap_page(struct device *dev, dma_addr_t dma_handle,
+ 			      size_t size, enum dma_data_direction dir,
+ 			      unsigned long attrs)
+ {
+-	xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
+ }
  
- 		s->dma_address = sg_phys(s);
- 		s->dma_length = s->length;
+ static int xtensa_map_sg(struct device *dev, struct scatterlist *sg,
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
