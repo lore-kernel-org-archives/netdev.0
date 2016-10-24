@@ -1,92 +1,170 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/dccp: warning in dccp_set_state
-Date: Mon, 24 Oct 2016 05:52:35 -0700
-Message-ID: <1477313555.7065.105.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
-         <1477313260.7065.104.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477313260.7065.104.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <a@unstable.cc>
+Subject: [PATCH v4] skbedit: allow the user to specify bitmask for mark
+Date: Mon, 24 Oct 2016 20:32:57 +0800
+Message-ID: <20161024123257.18228-1-a@unstable.cc>
+References: <20140724.180708.1613882522982264262.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, eric.dumazet@gmail.com,
+        sergei.shtylyov@cogentembedded.com, cwang@twopensource.com,
+        Antonio Quartulli <a@unstable.cc>,
+        Antonio Quartulli <antonio@open-mesh.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s2.neomailbox.net ([5.148.176.60]:43516 "EHLO s2.neomailbox.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934905AbcJXMxB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Oct 2016 08:53:01 -0400
+In-Reply-To: <20140724.180708.1613882522982264262.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-10-24 at 05:47 -0700, Eric Dumazet wrote:
-> On Mon, 2016-10-24 at 14:23 +0200, Andrey Konovalov wrote:
-> > Hi,
-> > 
-> > I've got the following error report while running the syzkaller fuzzer:
-> > 
-> > WARNING: CPU: 1 PID: 21072 at net/dccp/proto.c:83 dccp_set_state+0x229/0x290
-> > Kernel panic - not syncing: panic_on_warn set ...
-> > 
-> > CPU: 1 PID: 21072 Comm: syz-executor Not tainted 4.9.0-rc1+ #293
-> > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> >  ffff88003d4c7738 ffffffff81b474f4 0000000000000003 dffffc0000000000
-> >  ffffffff844f8b00 ffff88003d4c7804 ffff88003d4c7800 ffffffff8140c06a
-> >  0000000041b58ab3 ffffffff8479ab7d ffffffff8140beae ffffffff8140cd00
-> > Call Trace:
-> >  [<     inline     >] __dump_stack lib/dump_stack.c:15
-> >  [<ffffffff81b474f4>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
-> >  [<ffffffff8140c06a>] panic+0x1bc/0x39d kernel/panic.c:179
-> >  [<ffffffff8111125c>] __warn+0x1cc/0x1f0 kernel/panic.c:542
-> >  [<ffffffff8111144c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
-> >  [<ffffffff8389e5d9>] dccp_set_state+0x229/0x290 net/dccp/proto.c:83
-> >  [<ffffffff838a0aa2>] dccp_close+0x612/0xc10 net/dccp/proto.c:1016
-> >  [<ffffffff8316bf1f>] inet_release+0xef/0x1c0 net/ipv4/af_inet.c:415
-> >  [<ffffffff82b6e89e>] sock_release+0x8e/0x1d0 net/socket.c:570
-> >  [<ffffffff82b6e9f6>] sock_close+0x16/0x20 net/socket.c:1017
-> >  [<ffffffff815256ad>] __fput+0x29d/0x720 fs/file_table.c:208
-> >  [<ffffffff81525bb5>] ____fput+0x15/0x20 fs/file_table.c:244
-> >  [<ffffffff811727d8>] task_work_run+0xf8/0x170 kernel/task_work.c:116
-> >  [<     inline     >] exit_task_work include/linux/task_work.h:21
-> >  [<ffffffff8111bc53>] do_exit+0x883/0x2ac0 kernel/exit.c:828
-> >  [<ffffffff811221fe>] do_group_exit+0x10e/0x340 kernel/exit.c:931
-> >  [<ffffffff81143c94>] get_signal+0x634/0x15a0 kernel/signal.c:2307
-> >  [<ffffffff81054aad>] do_signal+0x8d/0x1a30 arch/x86/kernel/signal.c:807
-> >  [<ffffffff81003a05>] exit_to_usermode_loop+0xe5/0x130
-> > arch/x86/entry/common.c:156
-> >  [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
-> >  [<ffffffff81006298>] syscall_return_slowpath+0x1a8/0x1e0
-> > arch/x86/entry/common.c:259
-> >  [<ffffffff83fc1a62>] entry_SYSCALL_64_fastpath+0xc0/0xc2
-> > Dumping ftrace buffer:
-> >    (ftrace buffer empty)
-> > Kernel Offset: disabled
-> > 
-> > On commit 1a1891d762d6e64daf07b5be4817e3fbb29e3c59 (Oct 18).
-> 
-> Not sure we we keep around DCCP. David could we kill it ?
-> 
-> TCP seems to have an additional check, missing in DCCP.
-> 
-> diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-> index 41e65804ddf5..9fe25bf63296 100644
-> --- a/net/dccp/proto.c
-> +++ b/net/dccp/proto.c
-> @@ -1009,6 +1009,10 @@ void dccp_close(struct sock *sk, long timeout)
->  		__kfree_skb(skb);
->  	}
->  
-> +	/* If socket has been already reset kill it. */
-> +	if (sk->sk_state == DCCP_CLOSED)
-> +		goto adjudge_to_death;
-> +
->  	if (data_was_unread) {
->  		/* Unread data was tossed, send an appropriate Reset Code */
->  		DCCP_WARN("ABORT with %u bytes unread\n", data_was_unread);
-> 
+The user may want to use only some bits of the skb mark in
+his skbedit rules because the remaining part might be used by
+something else.
 
-The equivalent tcp fix was : 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=565b7b2d2e632b5792879c0c9cccdd9eecd31195
+Introduce the "mask" parameter to the skbedit actor in order
+to implement such functionality.
+
+When the mask is specified, only those bits selected by the
+latter are altered really changed by the actor, while the
+rest is left untouched.
+
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+---
+
+This patch has been sleeping for a while although it was basically ready for
+being merged. I hope it can still be merged.
+
+Checkpatch is now complaining about this:
+
+CHECK: Comparison to NULL could be written "tb[TCA_SKBEDIT_MASK]"
+#112: FILE: net/sched/act_skbedit.c:114:
++	if (tb[TCA_SKBEDIT_MASK] != NULL) {
+
+However the surrounding code does not use this codestyle. Please, let me know if
+I should rearrange this line.
+
+
+Thanks!
+
+
+
+Changes from v3:
+- rebase on top of net-next
+- fix syntax error in if statement
+
+Changes from v2:
+- remove useless comments
+- use nla_put_u32() and fix typ0
+
+Changes from v1:
+- use '&=' tcf_skbedit() to clean the mark
+- extend tcf_skbedit_dump() in order to send the mask as well
+
+ include/net/tc_act/tc_skbedit.h        |  1 +
+ include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
+ net/sched/act_skbedit.c                | 21 ++++++++++++++++++---
+ 3 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+index 5767e9dbcf92..19cd3d345804 100644
+--- a/include/net/tc_act/tc_skbedit.h
++++ b/include/net/tc_act/tc_skbedit.h
+@@ -27,6 +27,7 @@ struct tcf_skbedit {
+ 	u32		flags;
+ 	u32		priority;
+ 	u32		mark;
++	u32		mask;
+ 	u16		queue_mapping;
+ 	u16		ptype;
+ };
+diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+index a4d00c608d8f..2884425738ce 100644
+--- a/include/uapi/linux/tc_act/tc_skbedit.h
++++ b/include/uapi/linux/tc_act/tc_skbedit.h
+@@ -28,6 +28,7 @@
+ #define SKBEDIT_F_QUEUE_MAPPING		0x2
+ #define SKBEDIT_F_MARK			0x4
+ #define SKBEDIT_F_PTYPE			0x8
++#define SKBEDIT_F_MASK			0x10
+ 
+ struct tc_skbedit {
+ 	tc_gen;
+@@ -42,6 +43,7 @@ enum {
+ 	TCA_SKBEDIT_MARK,
+ 	TCA_SKBEDIT_PAD,
+ 	TCA_SKBEDIT_PTYPE,
++	TCA_SKBEDIT_MASK,
+ 	__TCA_SKBEDIT_MAX
+ };
+ #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index a133dcb82132..024f3a3afeff 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -46,8 +46,10 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
+ 	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
+ 	    skb->dev->real_num_tx_queues > d->queue_mapping)
+ 		skb_set_queue_mapping(skb, d->queue_mapping);
+-	if (d->flags & SKBEDIT_F_MARK)
+-		skb->mark = d->mark;
++	if (d->flags & SKBEDIT_F_MARK) {
++		skb->mark &= ~d->mask;
++		skb->mark |= d->mark & d->mask;
++	}
+ 	if (d->flags & SKBEDIT_F_PTYPE)
+ 		skb->pkt_type = d->ptype;
+ 
+@@ -61,6 +63,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
+ 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
+ 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
+ 	[TCA_SKBEDIT_PTYPE]		= { .len = sizeof(u16) },
++	[TCA_SKBEDIT_MASK]		= { .len = sizeof(u32) },
+ };
+ 
+ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+@@ -71,7 +74,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
+ 	struct tc_skbedit *parm;
+ 	struct tcf_skbedit *d;
+-	u32 flags = 0, *priority = NULL, *mark = NULL;
++	u32 flags = 0, *priority = NULL, *mark = NULL, *mask = NULL;
+ 	u16 *queue_mapping = NULL, *ptype = NULL;
+ 	bool exists = false;
+ 	int ret = 0, err;
+@@ -108,6 +111,11 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
+ 	}
+ 
++	if (tb[TCA_SKBEDIT_MASK] != NULL) {
++		flags |= SKBEDIT_F_MASK;
++		mask = nla_data(tb[TCA_SKBEDIT_MASK]);
++	}
++
+ 	parm = nla_data(tb[TCA_SKBEDIT_PARMS]);
+ 
+ 	exists = tcf_hash_check(tn, parm->index, a, bind);
+@@ -145,6 +153,10 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		d->mark = *mark;
+ 	if (flags & SKBEDIT_F_PTYPE)
+ 		d->ptype = *ptype;
++	/* default behaviour is to use all the bits */
++	d->mask = 0xffffffff;
++	if (flags & SKBEDIT_F_MASK)
++		d->mask = *mask;
+ 
+ 	d->tcf_action = parm->action;
+ 
+@@ -182,6 +194,9 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+ 	if ((d->flags & SKBEDIT_F_PTYPE) &&
+ 	    nla_put_u16(skb, TCA_SKBEDIT_PTYPE, d->ptype))
+ 		goto nla_put_failure;
++	if ((d->flags & SKBEDIT_F_MASK) &&
++	    nla_put_u32(skb, TCA_SKBEDIT_MASK, d->mask))
++		goto nla_put_failure;
+ 
+ 	tcf_tm_dump(&t, &d->tcf_tm);
+ 	if (nla_put_64bit(skb, TCA_SKBEDIT_TM, sizeof(t), &t, TCA_SKBEDIT_PAD))
+-- 
+2.10.1
