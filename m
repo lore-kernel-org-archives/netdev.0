@@ -1,82 +1,93 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized warning
-Date: Mon, 24 Oct 2016 22:21:59 +0200
-Message-ID: <12460209.DFK3VxnryE@wuerfel>
-References: <20161024153454.2766113-1-arnd@arndb.de> <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Quentin Armitage <quentin@armitage.org.uk>,
-        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+Subject: [PATCH v3 net] flow_dissector: fix vlan tag handling
+Date: Mon, 24 Oct 2016 23:40:30 +0200
+Message-ID: <20161024214058.1896091-1-arnd@arndb.de>
+Cc: Eric Garver <e@erig.me>, Hadar Hen Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>, Arnd Bergmann <arnd@arndb.de>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:57447 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756713AbcJXVlN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 17:41:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, October 24, 2016 10:47:54 PM CEST Julian Anastasov wrote:
-> > diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> > index 1b07578bedf3..9350530c16c1 100644
-> > --- a/net/netfilter/ipvs/ip_vs_sync.c
-> > +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> > @@ -283,6 +283,7 @@ struct ip_vs_sync_buff {
-> >   */
-> >  static void ntoh_seq(struct ip_vs_seq *no, struct ip_vs_seq *ho)
-> >  {
-> > +     memset(ho, 0, sizeof(*ho));
-> >       ho->init_seq       = get_unaligned_be32(&no->init_seq);
-> >       ho->delta          = get_unaligned_be32(&no->delta);
-> >       ho->previous_delta = get_unaligned_be32(&no->previous_delta);
-> 
->         So, now there is a double write here?
+gcc warns about an uninitialized pointer dereference in the vlan
+priority handling:
 
-Correct. I would hope that a sane version of gcc would just not
-perform the first write. What happens instead is that the version
-that produces the warning here moves the initialization to the
-top of the calling function.
+net/core/flow_dissector.c: In function '__skb_flow_dissect':
+net/core/flow_dissector.c:281:61: error: 'vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
->         What about such constructs?:
-> 
->         *ho = (struct ip_vs_seq) {
->                 .init_seq       = get_unaligned_be32(&no->init_seq),
->                 ...
->         };
-> 
->         Any difference in the compiled code or warnings?
+As pointed out by Jiri Pirko, the variable is never actually used
+without being initialized first as the only way it end up uninitialized
+is with skb_vlan_tag_present(skb)==true, and that means it does not
+get accessed.
 
-Yes, it's one of many things I tried. What happens here is that
-the warning remains as long as all fields are initialized together,
-e.g. these two produces the same warning:
+However, the warning hints at some related issues that I'm addressing
+here:
 
-a)
-    ho->init_seq       = get_unaligned_be32(&no->init_seq);
-    ho->delta          = get_unaligned_be32(&no->delta);
-    ho->previous_delta = get_unaligned_be32(&no->previous_delta);
+- the second check for the vlan tag is different from the first one
+  that tests the skb for being NULL first, causing both the warning
+  and a possible NULL pointer dereference that was not entirely fixed.
+- The same patch that introduced the NULL pointer check dropped an
+  earlier optimization that skipped the repeated check of the
+  protocol type
+- The local '_vlan' variable is referenced through the 'vlan' pointer
+  but the variable has gone out of scope by the time that it is
+  accessed, causing undefined behavior
 
-b)
-   *ho = (struct ip_vs_seq) {
-       .init_seq       = get_unaligned_be32(&no->init_seq);
-       .delta          = get_unaligned_be32(&no->delta);
-       .previous_delta = get_unaligned_be32(&no->previous_delta);
-   };
+Caching the result of the 'skb && skb_vlan_tag_present(skb)' check
+in a local variable allows the compiler to further optimize the
+later check. With those changes, the warning also disappears.
 
-but this one does not:
+Fixes: 3805a938a6c2 ("flow_dissector: Check skb for VLAN only if skb specified.")
+Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+v3: set 'proto' variable correct again
+    mark it for net, rather than net-next, as both patches that
+      introduced the bugs are in mainline or in net/master
 
-c)
-   *ho = (struct ip_vs_seq) {
-       .delta          = get_unaligned_be32(&no->delta);
-       .previous_delta = get_unaligned_be32(&no->previous_delta);
-   };
-   ho->init_seq       = get_unaligned_be32(&no->init_seq);
+v2: fix multiple issues found in the initial review beyond the
+    uninitialized access that turned out to be ok
 
-I have absolutely no idea what is going on inside of gcc here.
+ net/core/flow_dissector.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-	Arnd
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 44e6ba9d3a6b..ab193e5def07 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -246,13 +246,13 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 	case htons(ETH_P_8021AD):
+ 	case htons(ETH_P_8021Q): {
+ 		const struct vlan_hdr *vlan;
++		struct vlan_hdr _vlan;
++		bool vlan_tag_present = skb && skb_vlan_tag_present(skb);
+ 
+-		if (skb && skb_vlan_tag_present(skb))
++		if (vlan_tag_present)
+ 			proto = skb->protocol;
+ 
+-		if (eth_type_vlan(proto)) {
+-			struct vlan_hdr _vlan;
+-
++		if (!vlan_tag_present || eth_type_vlan(skb->protocol)) {
+ 			vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan),
+ 						    data, hlen, &_vlan);
+ 			if (!vlan)
+@@ -270,7 +270,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 							     FLOW_DISSECTOR_KEY_VLAN,
+ 							     target_container);
+ 
+-			if (skb_vlan_tag_present(skb)) {
++			if (vlan_tag_present) {
+ 				key_vlan->vlan_id = skb_vlan_tag_get_id(skb);
+ 				key_vlan->vlan_priority =
+ 					(skb_vlan_tag_get_prio(skb) >> VLAN_PRIO_SHIFT);
+-- 
+2.9.0
