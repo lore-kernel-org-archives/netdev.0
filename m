@@ -1,99 +1,136 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH] can: fix warning in bcm_connect/proc_register
-Date: Mon, 24 Oct 2016 21:11:26 +0200
-Message-ID: <20161024191126.30256-1-socketcan@hartkopp.net>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
-        kcc@google.com, glider@google.com, dvyukov@google.com,
-        edumazet@google.com, Oliver Hartkopp <socketcan@hartkopp.net>
-To: andreyknvl@google.com, xiyou.wangcong@gmail.com,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH RFC 02/26] swiotlb: Add support for DMA_ATTR_SKIP_CPU_SYNC
+Date: Mon, 24 Oct 2016 12:16:16 -0700
+Message-ID: <CAKgT0UfTSmWGBqE0uDG40sAm-LVwCJ6zM1AFJ8o_tWu+XJvfVw@mail.gmail.com>
+References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161024120437.16276.68349.stgit@ahduyck-blue-test.jf.intel.com> <20161024180934.GA24840@char.us.oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+	Jesper Dangaard Brouer <brouer@redhat.com>, David Miller <davem@davemloft.net>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161024180934.GA24840@char.us.oracle.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Konovalov reported an issue with proc_register in bcm.c.
-As suggested by Cong Wang this patch adds a lock_sock() protection and
-a check for unsuccessful proc_create_data() in bcm_connect().
+On Mon, Oct 24, 2016 at 11:09 AM, Konrad Rzeszutek Wilk
+<konrad.wilk@oracle.com> wrote:
+> On Mon, Oct 24, 2016 at 08:04:37AM -0400, Alexander Duyck wrote:
+>> As a first step to making DMA_ATTR_SKIP_CPU_SYNC apply to architectures
+>> beyond just ARM I need to make it so that the swiotlb will respect the
+>> flag.  In order to do that I also need to update the swiotlb-xen since it
+>> heavily makes use of the functionality.
+>>
+>> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> ---
+>>  drivers/xen/swiotlb-xen.c |   40 ++++++++++++++++++++++----------------
+>>  include/linux/swiotlb.h   |    6 ++++--
+>>  lib/swiotlb.c             |   48 +++++++++++++++++++++++++++------------------
+>>  3 files changed, 56 insertions(+), 38 deletions(-)
+>>
+>> diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
+>> index 87e6035..cf047d8 100644
+>> --- a/drivers/xen/swiotlb-xen.c
+>> +++ b/drivers/xen/swiotlb-xen.c
+>> @@ -405,7 +405,8 @@ dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
+>>        */
+>>       trace_swiotlb_bounced(dev, dev_addr, size, swiotlb_force);
+>>
+>> -     map = swiotlb_tbl_map_single(dev, start_dma_addr, phys, size, dir);
+>> +     map = swiotlb_tbl_map_single(dev, start_dma_addr, phys, size, dir,
+>> +                                  attrs);
+>>       if (map == SWIOTLB_MAP_ERROR)
+>>               return DMA_ERROR_CODE;
+>>
+>> @@ -416,11 +417,13 @@ dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
+>>       /*
+>>        * Ensure that the address returned is DMA'ble
+>>        */
+>> -     if (!dma_capable(dev, dev_addr, size)) {
+>> -             swiotlb_tbl_unmap_single(dev, map, size, dir);
+>> -             dev_addr = 0;
+>> -     }
+>> -     return dev_addr;
+>> +     if (dma_capable(dev, dev_addr, size))
+>> +             return dev_addr;
+>> +
+>> +     swiotlb_tbl_unmap_single(dev, map, size, dir,
+>> +                              attrs | DMA_ATTR_SKIP_CPU_SYNC);
+>> +
+>> +     return DMA_ERROR_CODE;
+>
+> Why? This change (re-ordering the code - and returning DMA_ERROR_CODE instead
+> of 0) does not have anything to do with the title.
+>
+> If you really feel strongly about it - then please send it as a seperate patch.
 
-Reference: http://marc.info/?l=linux-netdev&m=147732648731237
+Okay I can do that.  This was mostly just to clean up the formatting
+because I was over 80 characters when I added the attribute.  Changing
+the return value to DMA_ERROR_CODE from 0 was based on the fact that
+earlier in the function that is the value you return if there is a
+mapping error.
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
----
- net/can/bcm.c | 32 +++++++++++++++++++++++---------
- 1 file changed, 23 insertions(+), 9 deletions(-)
+>>  }
+>>  EXPORT_SYMBOL_GPL(xen_swiotlb_map_page);
+>>
+>> @@ -444,7 +447,7 @@ static void xen_unmap_single(struct device *hwdev, dma_addr_t dev_addr,
+>>
+>>       /* NOTE: We use dev_addr here, not paddr! */
+>>       if (is_xen_swiotlb_buffer(dev_addr)) {
+>> -             swiotlb_tbl_unmap_single(hwdev, paddr, size, dir);
+>> +             swiotlb_tbl_unmap_single(hwdev, paddr, size, dir, attrs);
+>>               return;
+>>       }
+>>
+>> @@ -557,16 +560,9 @@ void xen_swiotlb_unmap_page(struct device *hwdev, dma_addr_t dev_addr,
+>>                                                                start_dma_addr,
+>>                                                                sg_phys(sg),
+>>                                                                sg->length,
+>> -                                                              dir);
+>> -                     if (map == SWIOTLB_MAP_ERROR) {
+>> -                             dev_warn(hwdev, "swiotlb buffer is full\n");
+>> -                             /* Don't panic here, we expect map_sg users
+>> -                                to do proper error handling. */
+>> -                             xen_swiotlb_unmap_sg_attrs(hwdev, sgl, i, dir,
+>> -                                                        attrs);
+>> -                             sg_dma_len(sgl) = 0;
+>> -                             return 0;
+>> -                     }
+>> +                                                              dir, attrs);
+>> +                     if (map == SWIOTLB_MAP_ERROR)
+>> +                             goto map_error;
+>>                       xen_dma_map_page(hwdev, pfn_to_page(map >> PAGE_SHIFT),
+>>                                               dev_addr,
+>>                                               map & ~PAGE_MASK,
+>> @@ -589,6 +585,16 @@ void xen_swiotlb_unmap_page(struct device *hwdev, dma_addr_t dev_addr,
+>>               sg_dma_len(sg) = sg->length;
+>>       }
+>>       return nelems;
+>> +map_error:
+>> +     dev_warn(hwdev, "swiotlb buffer is full\n");
+>> +     /*
+>> +      * Don't panic here, we expect map_sg users
+>> +      * to do proper error handling.
+>> +      */
+>> +     xen_swiotlb_unmap_sg_attrs(hwdev, sgl, i, dir,
+>> +                                attrs | DMA_ATTR_SKIP_CPU_SYNC);
+>> +     sg_dma_len(sgl) = 0;
+>> +     return 0;
+>>  }
+>
+> This too. Why can't that be part of the existing code that was there?
 
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 8e999ff..8af9d25 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -1549,24 +1549,31 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
- 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
- 	struct sock *sk = sock->sk;
- 	struct bcm_sock *bo = bcm_sk(sk);
-+	int ret = 0;
- 
- 	if (len < sizeof(*addr))
- 		return -EINVAL;
- 
--	if (bo->bound)
--		return -EISCONN;
-+	lock_sock(sk);
-+
-+	if (bo->bound) {
-+		ret = -EISCONN;
-+		goto fail;
-+	}
- 
- 	/* bind a device to this socket */
- 	if (addr->can_ifindex) {
- 		struct net_device *dev;
- 
- 		dev = dev_get_by_index(&init_net, addr->can_ifindex);
--		if (!dev)
--			return -ENODEV;
--
-+		if (!dev) {
-+			ret = -ENODEV;
-+			goto fail;
-+		}
- 		if (dev->type != ARPHRD_CAN) {
- 			dev_put(dev);
--			return -ENODEV;
-+			ret = -ENODEV;
-+			goto fail;
- 		}
- 
- 		bo->ifindex = dev->ifindex;
-@@ -1577,17 +1584,24 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
- 		bo->ifindex = 0;
- 	}
- 
--	bo->bound = 1;
--
- 	if (proc_dir) {
- 		/* unique socket address as filename */
- 		sprintf(bo->procname, "%lu", sock_i_ino(sk));
- 		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
- 						     proc_dir,
- 						     &bcm_proc_fops, sk);
-+		if (!bo->bcm_proc_read) {
-+			ret = -ENOMEM;
-+			goto fail;
-+		}
- 	}
- 
--	return 0;
-+	bo->bound = 1;
-+
-+fail:
-+	release_sock(sk);
-+
-+	return ret;
- }
- 
- static int bcm_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
--- 
-2.9.3
+Once again it was a formatting thing.  I was indented too far and
+adding the attribute pushed me over 80 characters so I broke it out to
+a label to avoid the problem.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
