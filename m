@@ -1,50 +1,54 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] kalmia: avoid potential uninitialized variable use
-Date: Mon, 24 Oct 2016 17:54:18 +0200
-Message-ID: <20161024155430.3077348-1-arnd@arndb.de>
+Subject: Re: [PATCH net-next] flow_dissector: fix vlan tag handling
+Date: Mon, 24 Oct 2016 18:00:32 +0200
+Message-ID: <28288577.YZfdMibjpz@wuerfel>
+References: <20161021155626.4020344-1-arnd@arndb.de> <3590200.oN5tv3ZPpc@wuerfel> <20161024081736.GB2781@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-usb@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>,
+        Amir Vadai <amir@vadai.me>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161024081736.GB2781@nanopsycho>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The kalmia_send_init_packet() returns zero or a negative return
-code, but gcc has no way of knowing that there cannot be a
-positive return code, so it determines that copying the ethernet
-address at the end of kalmia_bind() will access uninitialized
-data:
+On Monday, October 24, 2016 10:17:36 AM CEST Jiri Pirko wrote:
+> Sat, Oct 22, 2016 at 10:30:08PM CEST, arnd@arndb.de wrote:
+> >diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> >index 44e6ba9d3a6b..17be1b66cc41 100644
+> >--- a/net/core/flow_dissector.c
+> >+++ b/net/core/flow_dissector.c
+> >@@ -246,13 +246,10 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+> > 	case htons(ETH_P_8021AD):
+> > 	case htons(ETH_P_8021Q): {
+> > 		const struct vlan_hdr *vlan;
+> >+		struct vlan_hdr _vlan;
+> >+		bool vlan_tag_present = (skb && skb_vlan_tag_present(skb));
+> 
+> Drop the unnecessary "()"
 
-drivers/net/usb/kalmia.c: In function ‘kalmia_bind’:
-arch/x86/include/asm/string_32.h:78:22: error: ‘*((void *)&ethernet_addr+4)’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-   *((short *)to + 2) = *((short *)from + 2);
-                      ^
-drivers/net/usb/kalmia.c:138:5: note: ‘*((void *)&ethernet_addr+4)’ was declared here
+ok
 
-This warning is harmless, but for consistency, we should make
-the check for the return code match what the driver does everywhere
-else and just progate it, which then gets rid of the warning.
+> > 
+> >-		if (skb && skb_vlan_tag_present(skb))
+> >-			proto = skb->protocol;
+> 
+> This does not look correct. I believe that you need to set proto for
+> further processing.
+> 
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/usb/kalmia.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Ah, of course. I only looked at the usage in this 'case' statement,
+but the variable is also used after the 'goto again' and at
+the end of the function.
 
-diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
-index 5662babf0583..3e37724d30ae 100644
---- a/drivers/net/usb/kalmia.c
-+++ b/drivers/net/usb/kalmia.c
-@@ -151,7 +151,7 @@ kalmia_bind(struct usbnet *dev, struct usb_interface *intf)
- 
- 	status = kalmia_init_and_get_ethernet_addr(dev, ethernet_addr);
- 
--	if (status < 0) {
-+	if (status) {
- 		usb_set_intfdata(intf, NULL);
- 		usb_driver_release_interface(driver_of(intf), intf);
- 		return status;
--- 
-2.9.0
+	Arnd
