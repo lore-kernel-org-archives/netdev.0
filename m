@@ -1,170 +1,115 @@
-From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2/3] mwifiex: Introduce mwifiex_probe_of() to parse common properties
-Date: Mon, 24 Oct 2016 10:56:52 -0700
-Message-ID: <1477331813-42151-3-git-send-email-rajatja@google.com>
-References: <1477331813-42151-1-git-send-email-rajatja@google.com>
-Cc: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477331813-42151-1-git-send-email-rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next PATCH RFC 00/26] Add support for DMA writable pages being
+ writable by the network stack
+Date: Mon, 24 Oct 2016 08:04:26 -0400
+Message-ID: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, brouer@redhat.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Introduce function mwifiex_probe_of() to parse common properties.
-Since the interface drivers get to decide whether or not the device
-tree node was a valid one (depending on the compatible property),
-let the interface drivers pass a flag to indicate whether the device
-tree node was a valid one.
+The first 21 patches in the set add support for the DMA attribute
+DMA_ATTR_SKIP_CPU_SYNC on multiple platforms/architectures.  This is needed
+so that we can flag the calls to dma_map/unmap_page so that we do not
+invalidate cache lines that do not currently belong to the device.  Instead
+we have to take care of this in the driver via a call to
+sync_single_range_for_cpu prior to freeing the Rx page.
 
-The function mwifiex_probe_of()nodetself is currently only a place
-holder with the next patch adding content to it.
+Patch 22 adds support for dma_map_page_attrs and dma_unmap_page_attrs so
+that we can unmap and map a page using the DMA_ATTR_SKIP_CPU_SYNC
+attribute.
 
-Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Patch 23 adds support for freeing a page that has multiple references being
+held by a single caller.  This way we can free page fragments that were
+allocated by a given driver.
+
+The last 3 patches use these updates in the igb driver to allow for us to
+reimplement the use of build_skb which hands a writable page off to the
+stack.
+
+My hope is to get the series accepted into the net-next tree as I have a
+number of other Intel drivers I could then begin updating once these
+patches are accepted.
+
+Any feedback is welcome.  Specifically if there is something I overlooked
+design-wise or an architecture I missed please let me know and I will add
+it to this patch set.  If needed I can look into breaking this into a
+smaller set of patches but this set is all that should be needed to then
+start looking at putting together a DMA page pool per device which I know
+is something Jesper has been working on.
+
 ---
- drivers/net/wireless/marvell/mwifiex/main.c    | 15 ++++++++++++++-
- drivers/net/wireless/marvell/mwifiex/main.h    |  2 +-
- drivers/net/wireless/marvell/mwifiex/pcie.c    |  4 +++-
- drivers/net/wireless/marvell/mwifiex/sdio.c    |  4 +++-
- drivers/net/wireless/marvell/mwifiex/sta_cmd.c |  5 +----
- drivers/net/wireless/marvell/mwifiex/usb.c     |  2 +-
- 6 files changed, 23 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
-index dcceab2..b2f3d96 100644
---- a/drivers/net/wireless/marvell/mwifiex/main.c
-+++ b/drivers/net/wireless/marvell/mwifiex/main.c
-@@ -1552,6 +1552,16 @@ void mwifiex_do_flr(struct mwifiex_adapter *adapter, bool prepare)
- }
- EXPORT_SYMBOL_GPL(mwifiex_do_flr);
- 
-+static void mwifiex_probe_of(struct mwifiex_adapter *adapter)
-+{
-+	struct device *dev = adapter->dev;
-+
-+	if (!dev->of_node)
-+		return;
-+
-+	adapter->dt_node = dev->of_node;
-+}
-+
- /*
-  * This function adds the card.
-  *
-@@ -1568,7 +1578,7 @@ EXPORT_SYMBOL_GPL(mwifiex_do_flr);
- int
- mwifiex_add_card(void *card, struct semaphore *sem,
- 		 struct mwifiex_if_ops *if_ops, u8 iface_type,
--		 struct device *dev)
-+		 struct device *dev, bool of_node_valid)
- {
- 	struct mwifiex_adapter *adapter;
- 
-@@ -1581,6 +1591,9 @@ mwifiex_add_card(void *card, struct semaphore *sem,
- 	}
- 
- 	adapter->dev = dev;
-+	if (of_node_valid)
-+		mwifiex_probe_of(adapter);
-+
- 	adapter->iface_type = iface_type;
- 	adapter->card_sem = sem;
- 
-diff --git a/drivers/net/wireless/marvell/mwifiex/main.h b/drivers/net/wireless/marvell/mwifiex/main.h
-index 91218a1..83e0776 100644
---- a/drivers/net/wireless/marvell/mwifiex/main.h
-+++ b/drivers/net/wireless/marvell/mwifiex/main.h
-@@ -1412,7 +1412,7 @@ static inline u8 mwifiex_is_tdls_link_setup(u8 status)
- int mwifiex_init_shutdown_fw(struct mwifiex_private *priv,
- 			     u32 func_init_shutdown);
- int mwifiex_add_card(void *, struct semaphore *, struct mwifiex_if_ops *, u8,
--		     struct device *);
-+		     struct device *, bool);
- int mwifiex_remove_card(struct mwifiex_adapter *, struct semaphore *);
- 
- void mwifiex_get_version(struct mwifiex_adapter *adapter, char *version,
-diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
-index 49b5835..ea423d5 100644
---- a/drivers/net/wireless/marvell/mwifiex/pcie.c
-+++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
-@@ -194,6 +194,7 @@ static int mwifiex_pcie_probe(struct pci_dev *pdev,
- 					const struct pci_device_id *ent)
- {
- 	struct pcie_service_card *card;
-+	bool valid_of_node = false;
- 	int ret;
- 
- 	pr_debug("info: vendor=0x%4.04X device=0x%4.04X rev=%d\n",
-@@ -221,10 +222,11 @@ static int mwifiex_pcie_probe(struct pci_dev *pdev,
- 		ret = mwifiex_pcie_probe_of(&pdev->dev);
- 		if (ret)
- 			goto err_free;
-+		valid_of_node = true;
- 	}
- 
- 	ret = mwifiex_add_card(card, &add_remove_card_sem, &pcie_ops,
--			       MWIFIEX_PCIE, &pdev->dev);
-+			       MWIFIEX_PCIE, &pdev->dev, valid_of_node);
- 	if (ret) {
- 		pr_err("%s failed\n", __func__);
- 		goto err_free;
-diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
-index c95f41f..558743a 100644
---- a/drivers/net/wireless/marvell/mwifiex/sdio.c
-+++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
-@@ -156,6 +156,7 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
- {
- 	int ret;
- 	struct sdio_mmc_card *card = NULL;
-+	bool valid_of_node = false;
- 
- 	pr_debug("info: vendor=0x%4.04X device=0x%4.04X class=%d function=%d\n",
- 		 func->vendor, func->device, func->class, func->num);
-@@ -203,10 +204,11 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
- 			dev_err(&func->dev, "SDIO dt node parse failed\n");
- 			goto err_disable;
- 		}
-+		valid_of_node = true;
- 	}
- 
- 	ret = mwifiex_add_card(card, &add_remove_card_sem, &sdio_ops,
--			       MWIFIEX_SDIO, &func->dev);
-+			       MWIFIEX_SDIO, &func->dev, valid_of_node);
- 	if (ret) {
- 		dev_err(&func->dev, "add card failed\n");
- 		goto err_disable;
-diff --git a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
-index c8dccf5..73e337e 100644
---- a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
-+++ b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
-@@ -2218,10 +2218,7 @@ int mwifiex_sta_init_cmd(struct mwifiex_private *priv, u8 first_sta, bool init)
- 		 * The cal-data can be read from device tree and/or
- 		 * a configuration file and downloaded to firmware.
- 		 */
--		if ((priv->adapter->iface_type == MWIFIEX_SDIO ||
--		    priv->adapter->iface_type == MWIFIEX_PCIE) &&
--		    adapter->dev->of_node) {
--			adapter->dt_node = adapter->dev->of_node;
-+		if (adapter->dt_node) {
- 			if (of_property_read_u32(adapter->dt_node,
- 						 "marvell,wakeup-pin",
- 						 &data) == 0) {
-diff --git a/drivers/net/wireless/marvell/mwifiex/usb.c b/drivers/net/wireless/marvell/mwifiex/usb.c
-index f847fff..11c9629 100644
---- a/drivers/net/wireless/marvell/mwifiex/usb.c
-+++ b/drivers/net/wireless/marvell/mwifiex/usb.c
-@@ -476,7 +476,7 @@ static int mwifiex_usb_probe(struct usb_interface *intf,
- 	usb_set_intfdata(intf, card);
- 
- 	ret = mwifiex_add_card(card, &add_remove_card_sem, &usb_ops,
--			       MWIFIEX_USB, &card->udev->dev);
-+			       MWIFIEX_USB, &card->udev->dev, false);
- 	if (ret) {
- 		pr_err("%s: mwifiex_add_card failed: %d\n", __func__, ret);
- 		usb_reset_device(udev);
--- 
-2.8.0.rc3.226.g39d4020
+Alexander Duyck (26):
+      swiotlb: Drop unused function swiotlb_map_sg
+      swiotlb: Add support for DMA_ATTR_SKIP_CPU_SYNC
+      arch/arc: Add option to skip sync on DMA mapping
+      arch/arm: Add option to skip sync on DMA map and unmap
+      arch/avr32: Add option to skip sync on DMA map
+      arch/blackfin: Add option to skip sync on DMA map
+      arch/c6x: Add option to skip sync on DMA map and unmap
+      arch/frv: Add option to skip sync on DMA map
+      arch/hexagon: Add option to skip DMA sync as a part of mapping
+      arch/m68k: Add option to skip DMA sync as a part of mapping
+      arch/metag: Add option to skip DMA sync as a part of map and unmap
+      arch/microblaze: Add option to skip DMA sync as a part of map and unmap
+      arch/mips: Add option to skip DMA sync as a part of map and unmap
+      arch/nios2: Add option to skip DMA sync as a part of map and unmap
+      arch/openrisc: Add option to skip DMA sync as a part of mapping
+      arch/parisc: Add option to skip DMA sync as a part of map and unmap
+      arch/powerpc: Add option to skip DMA sync as a part of mapping
+      arch/sh: Add option to skip DMA sync as a part of mapping
+      arch/sparc: Add option to skip DMA sync as a part of map and unmap
+      arch/tile: Add option to skip DMA sync as a part of map and unmap
+      arch/xtensa: Add option to skip DMA sync as a part of mapping
+      dma: Add calls for dma_map_page_attrs and dma_unmap_page_attrs
+      mm: Add support for releasing multiple instances of a page
+      igb: Update driver to make use of DMA_ATTR_SKIP_CPU_SYNC
+      igb: Update code to better handle incrementing page count
+      igb: Revert "igb: Revert support for build_skb in igb"
+
+
+ arch/arc/mm/dma.c                         |    3 
+ arch/arm/common/dmabounce.c               |   16 +-
+ arch/avr32/mm/dma-coherent.c              |    7 +
+ arch/blackfin/kernel/dma-mapping.c        |    7 +
+ arch/c6x/kernel/dma.c                     |   16 ++
+ arch/frv/mb93090-mb00/pci-dma-nommu.c     |   16 ++
+ arch/frv/mb93090-mb00/pci-dma.c           |    7 +
+ arch/hexagon/kernel/dma.c                 |    6 +
+ arch/m68k/kernel/dma.c                    |    8 +
+ arch/metag/kernel/dma.c                   |   16 ++
+ arch/microblaze/kernel/dma.c              |   10 +
+ arch/mips/loongson64/common/dma-swiotlb.c |    2 
+ arch/mips/mm/dma-default.c                |    8 +
+ arch/nios2/mm/dma-mapping.c               |   14 ++
+ arch/openrisc/kernel/dma.c                |    3 
+ arch/parisc/kernel/pci-dma.c              |   20 ++-
+ arch/powerpc/kernel/dma.c                 |    9 +
+ arch/sh/kernel/dma-nommu.c                |    7 +
+ arch/sparc/kernel/iommu.c                 |    4 -
+ arch/sparc/kernel/ioport.c                |    4 -
+ arch/tile/kernel/pci-dma.c                |   12 +-
+ arch/xtensa/kernel/pci-dma.c              |    7 +
+ drivers/net/ethernet/intel/igb/igb.h      |   36 ++++-
+ drivers/net/ethernet/intel/igb/igb_main.c |  207 +++++++++++++++++++++++------
+ drivers/xen/swiotlb-xen.c                 |   40 +++---
+ include/linux/dma-mapping.h               |   20 ++-
+ include/linux/gfp.h                       |    2 
+ include/linux/swiotlb.h                   |   10 +
+ lib/swiotlb.c                             |   56 ++++----
+ mm/page_alloc.c                           |   14 ++
+ 30 files changed, 435 insertions(+), 152 deletions(-)
+
+--
+Signature
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
