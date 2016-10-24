@@ -1,16 +1,16 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: ipv6: Fix processing of RAs in presence of VRF
-Date: Mon, 24 Oct 2016 10:39:02 -0700
-Message-ID: <1477330742-9310-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH v2] net: ipv6: Fix processing of RAs in presence of VRF
+Date: Mon, 24 Oct 2016 10:52:35 -0700
+Message-ID: <1477331555-9438-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34708 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752054AbcJXRjJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 13:39:09 -0400
-Received: by mail-pf0-f179.google.com with SMTP id r16so102593651pfg.1
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 10:39:09 -0700 (PDT)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33877 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752030AbcJXRwn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 13:52:43 -0400
+Received: by mail-pf0-f182.google.com with SMTP id r16so102757113pfg.1
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 10:52:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -29,8 +29,12 @@ default table, rt6_purge_dflt_routers needs to be updated as well to
 look at all tables. To handle that efficiently, add a flag to the table
 denoting if it is has a default route via RA.
 
+Fixes: ca254490c8dfd ("net: Add VRF support to IPv6 stack")
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
+v2
+- added Fixes to commit message
+
  include/net/ip6_fib.h |  2 ++
  net/ipv6/route.c      | 68 ++++++++++++++++++++++++++++++++++++---------------
  2 files changed, 50 insertions(+), 20 deletions(-)
