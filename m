@@ -1,40 +1,43 @@
-From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC PATCH 01/13] pinctrl: meson: Add GXL pinctrl definitions
-Date: Mon, 24 Oct 2016 03:03:27 +0200
-Message-ID: <CACRpkdZ5VG2NGRh5CmYcYzwCp0LYSsgxHogCFa+6W7BDDBXOYg@mail.gmail.com>
-References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com> <1477060838-14164-2-git-send-email-narmstrong@baylibre.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH] batman-adv: Revert "use core MTU range checking in misc
+ drivers"
+Date: Sun, 23 Oct 2016 21:48:23 -0400
+Message-ID: <20161024014823.GA42084@redhat.com>
+References: <20161022074624.30033-1-sven@narfation.org>
+ <20161023010826.GD32569@redhat.com>
+ <2358358.cV5hCSMD7y@sven-edge>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
-        "linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        "open list:ARM/Amlogic Meson..." <linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477060838-14164-2-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        b.a.t.m.a.n@lists.open-mesh.org, linux-kernel@vger.kernel.org
+To: Sven Eckelmann <sven@narfation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <2358358.cV5hCSMD7y@sven-edge>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 21, 2016 at 4:40 PM, Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org> wrote:
+On Sun, Oct 23, 2016 at 09:17:50AM +0200, Sven Eckelmann wrote:
+> On Samstag, 22. Oktober 2016 21:08:26 CEST Jarod Wilson wrote:
+> [...]
+> > You're going to
+> > need more than just this revert though, since batman-adv calls
+> > ether_setup, which will set min_mtu = 68, max_mtu = 1500, unless
+> > batadv_hardif_min_mtu() always returns something 1500 or less.
+> 
+> It does only returns 1500 or less at the moment.
+> 
+>     return min_t(int, min_mtu - batadv_max_header_len(), ETH_DATA_LEN);
+> 
+> > Actually,
+> > looking at that, you could omit the mtu < 68 bit from
+> > batadv_interface_change_mtu() too, since that'll already get done in the
+> > core, but I have no clue what you need for max_mtu.
+> 
+> I would like to get this revert through net-next.git before anything else.
 
-> Add support for the Amlogic Meson GXL SoC, this is a partially complete
-> definition only based on the Amlogic Vendor tree.
->
-> This definition differs a lot from the GXBB and needs a separate entry.
->
-> Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Looks like that should work fine then.
 
-Looks good to me. Tell me when I may apply it, it looks orthogonal
-to the rest of the patches.
-
-Yours,
-Linus Walleij
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Jarod Wilson
+jarod@redhat.com
