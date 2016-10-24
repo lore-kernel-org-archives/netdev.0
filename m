@@ -1,131 +1,71 @@
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net] MAINTAINERS: Update qlogic networking drivers
-Date: Mon, 24 Oct 2016 08:48:09 +0300
-Message-ID: <1477288089-3894-1-git-send-email-Yuval.Mintz@cavium.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: send/sendmsg ENOMEM errors WAS(Re: [PATCH net 6/6] sctp: not
+ return ENOMEM err back in sctp_packet_transmit
+Date: Mon, 24 Oct 2016 14:30:07 +0800
+Message-ID: <CADvbK_cvYhCfzuJCcoUC3+Ghv+VYLoyRGo0mt9UccjYpSBYD0g@mail.gmail.com>
+References: <c15cc225-608d-5268-d179-6a997c3cad62@mojatatu.com>
+ <daecd6b5-47cf-c5de-90f5-445e0038dfce@mojatatu.com> <CADvbK_ci-aaX6-mgXTgR0mJm9ww7+48DmXH+m5R+-0PyMDH16g@mail.gmail.com>
+ <2fa21505-59c2-fb8b-6e89-11fccc953d25@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ameen.rahman@cavium.com>, <Ariel.Elior@cavium.com>,
-        <harish.patil@cavium.com>, <rasesh.mody@cavium.com>,
-        <Manish.Chopra@cavium.com>, <Sudarsana.Kalluru@cavium.com>,
-        <rahul.verma@cavium.com>, Yuval Mintz <Yuval.Mintz@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevic@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Michael Tuexen <Michael.Tuexen@lurchi.franken.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Brenda Butler <bjb@mojatatu.com>, gabor@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:55455 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750849AbcJXFsy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 01:48:54 -0400
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36217 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754938AbcJXGaI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 02:30:08 -0400
+In-Reply-To: <2fa21505-59c2-fb8b-6e89-11fccc953d25@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following Cavium's acquisition of qlogic we need to update all the qlogic
-drivers maintainer's entries to point to our new e-mail addresses,
-as well as update some of the driver's maintainers as those are no longer
-working for Cavium.
+[1]
+>> This patch doesn't ignore all the ENOMEN cases, only after msg is
+>> enqueued in out queue/send queue, in the lower layer, when alloc
+>> new skb and copy data from old skb, if it fails to alloc new skb, sctp
+>> will ignore this ENOMEM, as this msg will be taken care by retransmit
+>> mechanism, it's reasonable and also safe, user can't feel that.
+>>
+>
+> Yes, that part i got.
+>
 
-I would like to thank Sony Chacko and Rajesh Borundia for their support
-and development of our various networking drivers.
+[2]
+>> But for the cases before enqueue, like in sctp_sendmsg,
+>> sctp_datamsg_from_user may return ENOMEM, this err will return
+>> back to user, and can't be ignored.
+>>
+>
+> The hard part is distinguishing between the above case and real
+> failure.
+> I am assuming in the case above user is _not_ required to send
+> again. But in the general case they are required to send again.
+> Correct?
+in case [1], user can't see the ENOMEM, ENOMEM is more like
+a internal err.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
----
+in case [2], user will got the ENOMEM, they should resend this msg,
+It's the the general case mentioned-above
 
- MAINTAINERS | 41 ++++++++++++++++++++++-------------------
- 1 file changed, 22 insertions(+), 19 deletions(-)
+>
+>> So I don't really think we should change something in manpage, what
+>> do you think ? maybe a little explanation there is also nice, :)
+>
+>
+> Yes, that would help. In particular it should be clear what user space
+> is expected to do. While this is about sctp - I am assuming equivalent
+> behavior for all callers of sendxxx() regardless of protocol.
+here sctp's behavior is actually same with tcp's, in tcp, tcp_transmit_skb
+also may fail to alloc skb, but it doesn't return any err to user, just like
+sctp_packet_transmit. That's why I don't think we should change something
+in manpage, as here sctp is consistent with tcp now.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1fc66f0a..af299a7 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2543,15 +2543,18 @@ S:	Supported
- F:	drivers/net/ethernet/broadcom/genet/
- 
- BROADCOM BNX2 GIGABIT ETHERNET DRIVER
--M:	Sony Chacko <sony.chacko@qlogic.com>
--M:	Dept-HSGLinuxNICDev@qlogic.com
-+M:	Rasesh Mody <rasesh.mody@cavium.com>
-+M:	Harish Patil <harish.patil@cavium.com>
-+M:	Dept-GELinuxNICDev@cavium.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/broadcom/bnx2.*
- F:	drivers/net/ethernet/broadcom/bnx2_*
- 
- BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
--M:	Ariel Elior <ariel.elior@qlogic.com>
-+M:	Yuval Mintz <Yuval.Mintz@cavium.com>
-+M:	Ariel Elior <ariel.elior@cavium.com>
-+M:	everest-linux-l2@cavium.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/broadcom/bnx2x/
-@@ -2758,7 +2761,9 @@ S:	Supported
- F:	drivers/scsi/bfa/
- 
- BROCADE BNA 10 GIGABIT ETHERNET DRIVER
--M:	Rasesh Mody <rasesh.mody@qlogic.com>
-+M:	Rasesh Mody <rasesh.mody@cavium.com>
-+M:	Sudarsana Kalluru <sudarsana.kalluru@cavium.com>
-+M:	Dept-GELinuxNICDev@cavium.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/brocade/bna/
-@@ -8492,11 +8497,10 @@ F:	Documentation/devicetree/bindings/net/wireless/
- F:	drivers/net/wireless/
- 
- NETXEN (1/10) GbE SUPPORT
--M:	Manish Chopra <manish.chopra@qlogic.com>
--M:	Sony Chacko <sony.chacko@qlogic.com>
--M:	Rajesh Borundia <rajesh.borundia@qlogic.com>
-+M:	Manish Chopra <manish.chopra@cavium.com>
-+M:	Rahul Verma <rahul.verma@cavium.com>
-+M:	Dept-GELinuxNICDev@cavium.com
- L:	netdev@vger.kernel.org
--W:	http://www.qlogic.com
- S:	Supported
- F:	drivers/net/ethernet/qlogic/netxen/
- 
-@@ -9873,33 +9877,32 @@ F:	Documentation/scsi/LICENSE.qla4xxx
- F:	drivers/scsi/qla4xxx/
- 
- QLOGIC QLA3XXX NETWORK DRIVER
--M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
--M:	Ron Mercer <ron.mercer@qlogic.com>
--M:	linux-driver@qlogic.com
-+M:	Dept-GELinuxNICDev@cavium.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	Documentation/networking/LICENSE.qla3xxx
- F:	drivers/net/ethernet/qlogic/qla3xxx.*
- 
- QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
--M:	Dept-GELinuxNICDev@qlogic.com
-+M:	Harish Patil <harish.patil@cavium.com>
-+M:	Manish Chopra <manish.chopra@cavium.com>
-+M:	Dept-GELinuxNICDev@cavium.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/qlogic/qlcnic/
- 
- QLOGIC QLGE 10Gb ETHERNET DRIVER
--M:	Harish Patil <harish.patil@qlogic.com>
--M:	Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>
--M:	Dept-GELinuxNICDev@qlogic.com
--M:	linux-driver@qlogic.com
-+M:	Harish Patil <harish.patil@cavium.com>
-+M:	Manish Chopra <manish.chopra@cavium.com>
-+M:	Dept-GELinuxNICDev@cavium.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/qlogic/qlge/
- 
- QLOGIC QL4xxx ETHERNET DRIVER
--M:	Yuval Mintz <Yuval.Mintz@qlogic.com>
--M:	Ariel Elior <Ariel.Elior@qlogic.com>
--M:	everest-linux-l2@qlogic.com
-+M:	Yuval Mintz <Yuval.Mintz@cavium.com>
-+M:	Ariel Elior <Ariel.Elior@cavium.com>
-+M:	everest-linux-l2@cavium.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/qlogic/qed/
--- 
-1.9.3
+make sense ?
