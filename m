@@ -1,100 +1,115 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/dccp: warning in dccp_set_state
-Date: Mon, 24 Oct 2016 15:41:34 +0200
-Message-ID: <CAAeHK+y5XmobRWLkiQLkYdogafQRSJM7X5Katc-3KDQ8fFP9Qw@mail.gmail.com>
-References: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
- <1477313260.7065.104.camel@edumazet-glaptop3.roam.corp.google.com> <1477313555.7065.105.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tobias Brunner <tobias@strongswan.org>
+Subject: [PATCH v2 net] macsec: Fix header length if SCI is added if
+ explicitly disabled
+Date: Mon, 24 Oct 2016 15:44:26 +0200
+Message-ID: <77d75a4a-2307-6e3d-a4bb-7d7ff61bf3e8@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477313555.7065.105.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sabrina Dubroca <sd@queasysnail.net>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sitav-80046.hsr.ch ([152.96.80.46]:58212 "EHLO
+        mail.strongswan.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938809AbcJXNoa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 09:44:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Even if sending SCIs is explicitly disabled, the code that creates the
+Security Tag might still decide to add it (e.g. if multiple RX SCs are
+defined on the MACsec interface).
+But because the header length so far only depended on the configuration
+option the SCI overwrote the original frame's contents (EtherType and
+e.g. the beginning of the IP header) and if encrypted did not visibly
+end up in the packet, while the SC flag in the TCI field of the Security
+Tag was still set, resulting in invalid MACsec frames.
 
-I can confirm that with your patch the warning goes away.
+Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+---
+ drivers/net/macsec.c | 26 ++++++++++++++++++--------
+ 1 file changed, 18 insertions(+), 8 deletions(-)
 
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-
-On Mon, Oct 24, 2016 at 2:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2016-10-24 at 05:47 -0700, Eric Dumazet wrote:
->> On Mon, 2016-10-24 at 14:23 +0200, Andrey Konovalov wrote:
->> > Hi,
->> >
->> > I've got the following error report while running the syzkaller fuzzer:
->> >
->> > WARNING: CPU: 1 PID: 21072 at net/dccp/proto.c:83 dccp_set_state+0x229/0x290
->> > Kernel panic - not syncing: panic_on_warn set ...
->> >
->> > CPU: 1 PID: 21072 Comm: syz-executor Not tainted 4.9.0-rc1+ #293
->> > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> >  ffff88003d4c7738 ffffffff81b474f4 0000000000000003 dffffc0000000000
->> >  ffffffff844f8b00 ffff88003d4c7804 ffff88003d4c7800 ffffffff8140c06a
->> >  0000000041b58ab3 ffffffff8479ab7d ffffffff8140beae ffffffff8140cd00
->> > Call Trace:
->> >  [<     inline     >] __dump_stack lib/dump_stack.c:15
->> >  [<ffffffff81b474f4>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
->> >  [<ffffffff8140c06a>] panic+0x1bc/0x39d kernel/panic.c:179
->> >  [<ffffffff8111125c>] __warn+0x1cc/0x1f0 kernel/panic.c:542
->> >  [<ffffffff8111144c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
->> >  [<ffffffff8389e5d9>] dccp_set_state+0x229/0x290 net/dccp/proto.c:83
->> >  [<ffffffff838a0aa2>] dccp_close+0x612/0xc10 net/dccp/proto.c:1016
->> >  [<ffffffff8316bf1f>] inet_release+0xef/0x1c0 net/ipv4/af_inet.c:415
->> >  [<ffffffff82b6e89e>] sock_release+0x8e/0x1d0 net/socket.c:570
->> >  [<ffffffff82b6e9f6>] sock_close+0x16/0x20 net/socket.c:1017
->> >  [<ffffffff815256ad>] __fput+0x29d/0x720 fs/file_table.c:208
->> >  [<ffffffff81525bb5>] ____fput+0x15/0x20 fs/file_table.c:244
->> >  [<ffffffff811727d8>] task_work_run+0xf8/0x170 kernel/task_work.c:116
->> >  [<     inline     >] exit_task_work include/linux/task_work.h:21
->> >  [<ffffffff8111bc53>] do_exit+0x883/0x2ac0 kernel/exit.c:828
->> >  [<ffffffff811221fe>] do_group_exit+0x10e/0x340 kernel/exit.c:931
->> >  [<ffffffff81143c94>] get_signal+0x634/0x15a0 kernel/signal.c:2307
->> >  [<ffffffff81054aad>] do_signal+0x8d/0x1a30 arch/x86/kernel/signal.c:807
->> >  [<ffffffff81003a05>] exit_to_usermode_loop+0xe5/0x130
->> > arch/x86/entry/common.c:156
->> >  [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
->> >  [<ffffffff81006298>] syscall_return_slowpath+0x1a8/0x1e0
->> > arch/x86/entry/common.c:259
->> >  [<ffffffff83fc1a62>] entry_SYSCALL_64_fastpath+0xc0/0xc2
->> > Dumping ftrace buffer:
->> >    (ftrace buffer empty)
->> > Kernel Offset: disabled
->> >
->> > On commit 1a1891d762d6e64daf07b5be4817e3fbb29e3c59 (Oct 18).
->>
->> Not sure we we keep around DCCP. David could we kill it ?
->>
->> TCP seems to have an additional check, missing in DCCP.
->>
->> diff --git a/net/dccp/proto.c b/net/dccp/proto.c
->> index 41e65804ddf5..9fe25bf63296 100644
->> --- a/net/dccp/proto.c
->> +++ b/net/dccp/proto.c
->> @@ -1009,6 +1009,10 @@ void dccp_close(struct sock *sk, long timeout)
->>               __kfree_skb(skb);
->>       }
->>
->> +     /* If socket has been already reset kill it. */
->> +     if (sk->sk_state == DCCP_CLOSED)
->> +             goto adjudge_to_death;
->> +
->>       if (data_was_unread) {
->>               /* Unread data was tossed, send an appropriate Reset Code */
->>               DCCP_WARN("ABORT with %u bytes unread\n", data_was_unread);
->>
->
-> The equivalent tcp fix was :
-> https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=565b7b2d2e632b5792879c0c9cccdd9eecd31195
->
->
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 3ea47f28e143..d2e61e002926 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -397,6 +397,14 @@ static struct macsec_cb *macsec_skb_cb(struct sk_buff *skb)
+ #define DEFAULT_ENCRYPT false
+ #define DEFAULT_ENCODING_SA 0
+ 
++static bool send_sci(const struct macsec_secy *secy)
++{
++	const struct macsec_tx_sc *tx_sc = &secy->tx_sc;
++
++	return tx_sc->send_sci ||
++		(secy->n_rx_sc > 1 && !tx_sc->end_station && !tx_sc->scb);
++}
++
+ static sci_t make_sci(u8 *addr, __be16 port)
+ {
+ 	sci_t sci;
+@@ -437,15 +445,15 @@ static unsigned int macsec_extra_len(bool sci_present)
+ 
+ /* Fill SecTAG according to IEEE 802.1AE-2006 10.5.3 */
+ static void macsec_fill_sectag(struct macsec_eth_header *h,
+-			       const struct macsec_secy *secy, u32 pn)
++			       const struct macsec_secy *secy, u32 pn,
++			       bool sci_present)
+ {
+ 	const struct macsec_tx_sc *tx_sc = &secy->tx_sc;
+ 
+-	memset(&h->tci_an, 0, macsec_sectag_len(tx_sc->send_sci));
++	memset(&h->tci_an, 0, macsec_sectag_len(sci_present));
+ 	h->eth.h_proto = htons(ETH_P_MACSEC);
+ 
+-	if (tx_sc->send_sci ||
+-	    (secy->n_rx_sc > 1 && !tx_sc->end_station && !tx_sc->scb)) {
++	if (sci_present) {
+ 		h->tci_an |= MACSEC_TCI_SC;
+ 		memcpy(&h->secure_channel_id, &secy->sci,
+ 		       sizeof(h->secure_channel_id));
+@@ -650,6 +658,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 	struct macsec_tx_sc *tx_sc;
+ 	struct macsec_tx_sa *tx_sa;
+ 	struct macsec_dev *macsec = macsec_priv(dev);
++	bool sci_present;
+ 	u32 pn;
+ 
+ 	secy = &macsec->secy;
+@@ -687,7 +696,8 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 
+ 	unprotected_len = skb->len;
+ 	eth = eth_hdr(skb);
+-	hh = (struct macsec_eth_header *)skb_push(skb, macsec_extra_len(tx_sc->send_sci));
++	sci_present = send_sci(secy);
++	hh = (struct macsec_eth_header *)skb_push(skb, macsec_extra_len(sci_present));
+ 	memmove(hh, eth, 2 * ETH_ALEN);
+ 
+ 	pn = tx_sa_update_pn(tx_sa, secy);
+@@ -696,7 +706,7 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 		kfree_skb(skb);
+ 		return ERR_PTR(-ENOLINK);
+ 	}
+-	macsec_fill_sectag(hh, secy, pn);
++	macsec_fill_sectag(hh, secy, pn, sci_present);
+ 	macsec_set_shortlen(hh, unprotected_len - 2 * ETH_ALEN);
+ 
+ 	skb_put(skb, secy->icv_len);
+@@ -726,10 +736,10 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
+ 	skb_to_sgvec(skb, sg, 0, skb->len);
+ 
+ 	if (tx_sc->encrypt) {
+-		int len = skb->len - macsec_hdr_len(tx_sc->send_sci) -
++		int len = skb->len - macsec_hdr_len(sci_present) -
+ 			  secy->icv_len;
+ 		aead_request_set_crypt(req, sg, sg, len, iv);
+-		aead_request_set_ad(req, macsec_hdr_len(tx_sc->send_sci));
++		aead_request_set_ad(req, macsec_hdr_len(sci_present));
+ 	} else {
+ 		aead_request_set_crypt(req, sg, sg, 0, iv);
+ 		aead_request_set_ad(req, skb->len - secy->icv_len);
+-- 
+1.9.1
