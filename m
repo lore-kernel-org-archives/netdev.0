@@ -1,59 +1,70 @@
-From: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: skip genenerating uevents for network namespaces
-	that are exiting
-Date: Mon, 24 Oct 2016 10:17:12 -0700
-Message-ID: <CAM_iQpUznmhpZ=N5_x5AD_DivdEFcLJKV69br12fv2zpd4sqjQ@mail.gmail.com>
-References: <1477017986-18889-1-git-send-email-avagin@openvz.org>
-	<CAM_iQpVA=W3su_a3OUVSD+19A72TMANnCX4dt9UyLOmVoRuBjQ@mail.gmail.com>
-	<CANaxB-zo4YW7o-Ebe08B_L_f8Wyp6tMWc-rBRt8-4sSc1Y=tgg@mail.gmail.com>
-	<CANaxB-wvJsts7RUEg1pouD0xMLTQAoVMaWaXZ2wLFT9XE1E1Mw@mail.gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/can: warning in bcm_connect/proc_register
+Date: Mon, 24 Oct 2016 19:31:49 +0200
+Message-ID: <CAAeHK+xPUAcao+xufvBfLRZcCR4oDY-WfV-CJspYqArh0cqYUg@mail.gmail.com>
+References: <CAAeHK+x6w+Lg1GoCZXdjPtM6n72dpUbF_Bvtg80YNK-Wh8YJ4w@mail.gmail.com>
+ <CAM_iQpUAw6R1P-CQ-YJAYzb-HJXqUKAhJ5rLwp1L-ie3VkprSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CANaxB-wvJsts7RUEg1pouD0xMLTQAoVMaWaXZ2wLFT9XE1E1Mw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpUAw6R1P-CQ-YJAYzb-HJXqUKAhJ5rLwp1L-ie3VkprSQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 22, 2016 at 12:37 AM, Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
-> Hi Cong,
->
-> On Thu, Oct 20, 2016 at 10:25 PM, Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
->> On Thu, Oct 20, 2016 at 8:10 PM, Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>> On Thu, Oct 20, 2016 at 7:46 PM, Andrei Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
->>>> No one can see these events, because a network namespace can not be
->>>> destroyed, if it has sockets.
->>>>
->>>
->>> Are you sure? kobject_uevent_env() seems sending uevents to all
->>> network namespaces.
->>
->> kobj_bcast_filter() checks that a kobject namespace is equal to a
->> socket namespace.
->
-> Today I've checked that it really works as I read from the source code.
-> I use this tool to read events:
-> https://gist.github.com/avagin/430ba431fc2972002df40ebe6a048b36
->
-> And I see that events from non-network devices are delivered to all sockets,
-> but events from network devices are delivered only to sockets from
-> a network namespace where a device is operated.
+Hi Cong,
 
-I missed it, it makes sense now. Please consider adding a comment in
-the code or expanding your changelog for reference.
+I'm able to reproduce it by running
+https://gist.github.com/xairy/33f2eb6bf807b004e643bae36c3d02d7 in a
+tight parallel loop with stress
+(https://godoc.org/golang.org/x/tools/cmd/stress):
+$ gcc -lpthread tmp.c
+$ ./stress ./a.out
+
+The C program was generated from the following syzkaller prog:
+mmap(&(0x7f0000000000/0x991000)=nil, (0x991000), 0x3, 0x32,
+0xffffffffffffffff, 0x0)
+socket(0x1d, 0x80002, 0x2)
+r0 = socket(0x1d, 0x80002, 0x2)
+connect$nfc_llcp(r0, &(0x7f000000c000)={0x27, 0x100000000, 0x0, 0x5,
+0x100000000, 0x1,
+"341b3a01b257849ca1d7d1ff9f999d8127b185f88d1d775d59c88a3aa6a8ddacdf2bdc324ea6578a21b85114610186c3817c34b05eaffd2c3f54f57fa81ba0",
+0x1ff}, 0x60)
+connect$nfc_llcp(r0, &(0x7f0000991000-0x60)={0x27, 0x100000000, 0x1,
+0x5, 0xfffffffffffffffd, 0x0,
+"341b3a01b257849ca1d7d1ff9f999d8127b185f88d1d775dbec88a3aa6a8ddacdf2bdc324ea6578a21b85114610186c3817c34b05eaffd2c3f54f57fa81ba0",
+0x1ff}, 0x60)
+
+Unfortunately I wasn't able to create a simpler reproducer.
 
 Thanks!
+
+On Mon, Oct 24, 2016 at 6:58 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Mon, Oct 24, 2016 at 9:21 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> Hi,
+>>
+>> I've got the following error report while running the syzkaller fuzzer:
+>>
+>> WARNING: CPU: 0 PID: 32451 at fs/proc/generic.c:345 proc_register+0x25e/0x300
+>> proc_dir_entry 'can-bcm/249757' already registered
+>> Kernel panic - not syncing: panic_on_warn set ...
+>
+> Looks like we have two problems here:
+>
+> 1) A check for bo->bcm_proc_read != NULL seems missing
+> 2) We need to lock the sock in bcm_connect().
+>
+> I will work on a patch. Meanwhile, it would help a lot if you could provide
+> a reproducer.
+>
+> Thanks!
