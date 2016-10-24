@@ -1,78 +1,55 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH RFC 07/26] arch/c6x: Add option to skip sync on DMA
- map and unmap
-Date: Mon, 24 Oct 2016 08:05:03 -0400
-Message-ID: <20161024120503.16276.44357.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH RFC 05/26] arch/avr32: Add option to skip sync on
+ DMA map
+Date: Mon, 24 Oct 2016 08:04:53 -0400
+Message-ID: <20161024120452.16276.9594.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, davem@davemloft.net, Mark Salter <msalter@redhat.com>,
- linux-c6x-dev@linux-c6x.org, Aurelien Jacquiot <a-jacquiot@ti.com>
+Cc: brouer@redhat.com, Haavard Skinnemoen <hskinnemoen@gmail.com>,
+ davem@davemloft.net, Hans-Christian Egtvedt <egtvedt@samfundet.no>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
-avoid invoking cache line invalidation if the driver will just handle it
-later via a sync_for_cpu or sync_for_device call.
+The use of DMA_ATTR_SKIP_CPU_SYNC was not consistent across all of the DMA
+APIs in the arch/arm folder.  This change is meant to correct that so that
+we get consistent behavior.
 
-Cc: Mark Salter <msalter@redhat.com>
-Cc: Aurelien Jacquiot <a-jacquiot@ti.com>
-Cc: linux-c6x-dev@linux-c6x.org
+Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>
+Cc: Hans-Christian Egtvedt <egtvedt@samfundet.no>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/c6x/kernel/dma.c |   16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+ arch/avr32/mm/dma-coherent.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/arch/c6x/kernel/dma.c b/arch/c6x/kernel/dma.c
-index db4a6a3..d28df74 100644
---- a/arch/c6x/kernel/dma.c
-+++ b/arch/c6x/kernel/dma.c
-@@ -42,14 +42,17 @@ static dma_addr_t c6x_dma_map_page(struct device *dev, struct page *page,
+diff --git a/arch/avr32/mm/dma-coherent.c b/arch/avr32/mm/dma-coherent.c
+index 58610d0..54534e5 100644
+--- a/arch/avr32/mm/dma-coherent.c
++++ b/arch/avr32/mm/dma-coherent.c
+@@ -146,7 +146,8 @@ static dma_addr_t avr32_dma_map_page(struct device *dev, struct page *page,
  {
- 	dma_addr_t handle = virt_to_phys(page_address(page) + offset);
+ 	void *cpu_addr = page_address(page) + offset;
  
--	c6x_dma_sync(handle, size, dir);
+-	dma_cache_sync(dev, cpu_addr, size, direction);
 +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		c6x_dma_sync(handle, size, dir);
++		dma_cache_sync(dev, cpu_addr, size, direction);
+ 	return virt_to_bus(cpu_addr);
+ }
+ 
+@@ -162,6 +163,10 @@ static int avr32_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+ 
+ 		sg->dma_address = page_to_bus(sg_page(sg)) + sg->offset;
+ 		virt = sg_virt(sg);
 +
- 	return handle;
- }
- 
- static void c6x_dma_unmap_page(struct device *dev, dma_addr_t handle,
- 		size_t size, enum dma_data_direction dir, unsigned long attrs)
- {
--	c6x_dma_sync(handle, size, dir);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		c6x_dma_sync(handle, size, dir);
- }
- 
- static int c6x_dma_map_sg(struct device *dev, struct scatterlist *sglist,
-@@ -60,7 +63,8 @@ static int c6x_dma_map_sg(struct device *dev, struct scatterlist *sglist,
- 
- 	for_each_sg(sglist, sg, nents, i) {
- 		sg->dma_address = sg_phys(sg);
--		c6x_dma_sync(sg->dma_address, sg->length, dir);
-+		if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+			c6x_dma_sync(sg->dma_address, sg->length, dir);
++		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++			continue;
++
+ 		dma_cache_sync(dev, virt, sg->length, direction);
  	}
- 
- 	return nents;
-@@ -72,8 +76,10 @@ static void c6x_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 	struct scatterlist *sg;
- 	int i;
- 
--	for_each_sg(sglist, sg, nents, i)
--		c6x_dma_sync(sg_dma_address(sg), sg->length, dir);
-+	for_each_sg(sglist, sg, nents, i) {
-+		if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+			c6x_dma_sync(sg_dma_address(sg), sg->length, dir);
-+	}
- 
- }
  
 
 --
