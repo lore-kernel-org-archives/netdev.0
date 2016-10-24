@@ -1,54 +1,90 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH net-next] ethernet: fix min/max MTU typos
-Date: Mon, 24 Oct 2016 14:42:26 +0200
-Message-ID: <20161024144226.70480d4b@kant>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/dccp: warning in dccp_set_state
+Date: Mon, 24 Oct 2016 05:47:40 -0700
+Message-ID: <1477313260.7065.104.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jarod Wilson <jarod@redhat.com>,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36496 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934917AbcJXMrm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 08:47:42 -0400
+In-Reply-To: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fixes: d894be57ca92('ethernet: use net core MTU range checking in more drivers')
-CC: Jarod Wilson <jarod@redhat.com>
-CC: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
----
- drivers/net/ethernet/broadcom/sb1250-mac.c | 2 +-
- drivers/net/ethernet/ibm/ibmveth.c         | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+On Mon, 2016-10-24 at 14:23 +0200, Andrey Konovalov wrote:
+> Hi,
+> 
+> I've got the following error report while running the syzkaller fuzzer:
+> 
+> WARNING: CPU: 1 PID: 21072 at net/dccp/proto.c:83 dccp_set_state+0x229/0x290
+> Kernel panic - not syncing: panic_on_warn set ...
+> 
+> CPU: 1 PID: 21072 Comm: syz-executor Not tainted 4.9.0-rc1+ #293
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>  ffff88003d4c7738 ffffffff81b474f4 0000000000000003 dffffc0000000000
+>  ffffffff844f8b00 ffff88003d4c7804 ffff88003d4c7800 ffffffff8140c06a
+>  0000000041b58ab3 ffffffff8479ab7d ffffffff8140beae ffffffff8140cd00
+> Call Trace:
+>  [<     inline     >] __dump_stack lib/dump_stack.c:15
+>  [<ffffffff81b474f4>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
+>  [<ffffffff8140c06a>] panic+0x1bc/0x39d kernel/panic.c:179
+>  [<ffffffff8111125c>] __warn+0x1cc/0x1f0 kernel/panic.c:542
+>  [<ffffffff8111144c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
+>  [<ffffffff8389e5d9>] dccp_set_state+0x229/0x290 net/dccp/proto.c:83
+>  [<ffffffff838a0aa2>] dccp_close+0x612/0xc10 net/dccp/proto.c:1016
+>  [<ffffffff8316bf1f>] inet_release+0xef/0x1c0 net/ipv4/af_inet.c:415
+>  [<ffffffff82b6e89e>] sock_release+0x8e/0x1d0 net/socket.c:570
+>  [<ffffffff82b6e9f6>] sock_close+0x16/0x20 net/socket.c:1017
+>  [<ffffffff815256ad>] __fput+0x29d/0x720 fs/file_table.c:208
+>  [<ffffffff81525bb5>] ____fput+0x15/0x20 fs/file_table.c:244
+>  [<ffffffff811727d8>] task_work_run+0xf8/0x170 kernel/task_work.c:116
+>  [<     inline     >] exit_task_work include/linux/task_work.h:21
+>  [<ffffffff8111bc53>] do_exit+0x883/0x2ac0 kernel/exit.c:828
+>  [<ffffffff811221fe>] do_group_exit+0x10e/0x340 kernel/exit.c:931
+>  [<ffffffff81143c94>] get_signal+0x634/0x15a0 kernel/signal.c:2307
+>  [<ffffffff81054aad>] do_signal+0x8d/0x1a30 arch/x86/kernel/signal.c:807
+>  [<ffffffff81003a05>] exit_to_usermode_loop+0xe5/0x130
+> arch/x86/entry/common.c:156
+>  [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
+>  [<ffffffff81006298>] syscall_return_slowpath+0x1a8/0x1e0
+> arch/x86/entry/common.c:259
+>  [<ffffffff83fc1a62>] entry_SYSCALL_64_fastpath+0xc0/0xc2
+> Dumping ftrace buffer:
+>    (ftrace buffer empty)
+> Kernel Offset: disabled
+> 
+> On commit 1a1891d762d6e64daf07b5be4817e3fbb29e3c59 (Oct 18).
 
-diff --git a/drivers/net/ethernet/broadcom/sb1250-mac.c b/drivers/net/ethernet/broadcom/sb1250-mac.c
-index cb312e4c89f4..435a2e4739d1 100644
---- a/drivers/net/ethernet/broadcom/sb1250-mac.c
-+++ b/drivers/net/ethernet/broadcom/sb1250-mac.c
-@@ -2219,7 +2219,7 @@ static int sbmac_init(struct platform_device *pldev, long long base)
- 
- 	dev->netdev_ops = &sbmac_netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	dev->max_mtu = 0;
-+	dev->min_mtu = 0;
- 	dev->max_mtu = ENET_PACKET_SIZE;
- 
- 	netif_napi_add(dev, &sc->napi, sbmac_poll, 16);
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 29c05d0d79a9..4a81c892fc31 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -1549,7 +1549,7 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+Not sure we we keep around DCCP. David could we kill it ?
+
+TCP seems to have an additional check, missing in DCCP.
+
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 41e65804ddf5..9fe25bf63296 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1009,6 +1009,10 @@ void dccp_close(struct sock *sk, long timeout)
+ 		__kfree_skb(skb);
  	}
  
- 	netdev->min_mtu = IBMVETH_MIN_MTU;
--	netdev->min_mtu = ETH_MAX_MTU;
-+	netdev->max_mtu = ETH_MAX_MTU;
- 
- 	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
- 
--- 
-Stefan Richter
--======----- =-=- ==---
-http://arcgraph.de/sr/
++	/* If socket has been already reset kill it. */
++	if (sk->sk_state == DCCP_CLOSED)
++		goto adjudge_to_death;
++
+ 	if (data_was_unread) {
+ 		/* Unread data was tossed, send an appropriate Reset Code */
+ 		DCCP_WARN("ABORT with %u bytes unread\n", data_was_unread);
