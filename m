@@ -1,64 +1,99 @@
-From: Hans-Christian Noren Egtvedt <egtvedt@samfundet.no>
-Subject: Re: [net-next PATCH RFC 05/26] arch/avr32: Add option to skip sync
- on DMA map
-Date: Mon, 24 Oct 2016 20:27:40 +0200
-Message-ID: <20161024182739.GA19445@samfundet.no>
-References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
- <20161024120452.16276.9594.stgit@ahduyck-blue-test.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org, brouer@redhat.com,
-        Haavard Skinnemoen <hskinnemoen@gmail.com>, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH] can: fix warning in bcm_connect/proc_register
+Date: Mon, 24 Oct 2016 21:11:26 +0200
+Message-ID: <20161024191126.30256-1-socketcan@hartkopp.net>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, syzkaller@googlegroups.com,
+        kcc@google.com, glider@google.com, dvyukov@google.com,
+        edumazet@google.com, Oliver Hartkopp <socketcan@hartkopp.net>
+To: andreyknvl@google.com, xiyou.wangcong@gmail.com,
+        davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161024120452.16276.9594.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Around Mon 24 Oct 2016 08:04:53 -0400 or thereabout, Alexander Duyck wrote:
-> The use of DMA_ATTR_SKIP_CPU_SYNC was not consistent across all of the DMA
-> APIs in the arch/arm folder.  This change is meant to correct that so that
-> we get consistent behavior.
+Andrey Konovalov reported an issue with proc_register in bcm.c.
+As suggested by Cong Wang this patch adds a lock_sock() protection and
+a check for unsuccessful proc_create_data() in bcm_connect().
 
-Looks good (-:
+Reference: http://marc.info/?l=linux-netdev&m=147732648731237
 
-> Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>
-> Cc: Hans-Christian Egtvedt <egtvedt@samfundet.no>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+---
+ net/can/bcm.c | 32 +++++++++++++++++++++++---------
+ 1 file changed, 23 insertions(+), 9 deletions(-)
 
-Acked-by: Hans-Christian Noren Egtvedt <egtvedt@samfundet.no>
-
-> ---
->  arch/avr32/mm/dma-coherent.c |    7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/arch/avr32/mm/dma-coherent.c b/arch/avr32/mm/dma-coherent.c
-> index 58610d0..54534e5 100644
-> --- a/arch/avr32/mm/dma-coherent.c
-> +++ b/arch/avr32/mm/dma-coherent.c
-> @@ -146,7 +146,8 @@ static dma_addr_t avr32_dma_map_page(struct device *dev, struct page *page,
->  {
->  	void *cpu_addr = page_address(page) + offset;
->  
-> -	dma_cache_sync(dev, cpu_addr, size, direction);
-> +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-> +		dma_cache_sync(dev, cpu_addr, size, direction);
->  	return virt_to_bus(cpu_addr);
->  }
->  
-> @@ -162,6 +163,10 @@ static int avr32_dma_map_sg(struct device *dev, struct scatterlist *sglist,
->  
->  		sg->dma_address = page_to_bus(sg_page(sg)) + sg->offset;
->  		virt = sg_virt(sg);
-> +
-> +		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-> +			continue;
-> +
->  		dma_cache_sync(dev, virt, sg->length, direction);
->  	}
->  
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 8e999ff..8af9d25 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1549,24 +1549,31 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
+ 	struct sock *sk = sock->sk;
+ 	struct bcm_sock *bo = bcm_sk(sk);
++	int ret = 0;
+ 
+ 	if (len < sizeof(*addr))
+ 		return -EINVAL;
+ 
+-	if (bo->bound)
+-		return -EISCONN;
++	lock_sock(sk);
++
++	if (bo->bound) {
++		ret = -EISCONN;
++		goto fail;
++	}
+ 
+ 	/* bind a device to this socket */
+ 	if (addr->can_ifindex) {
+ 		struct net_device *dev;
+ 
+ 		dev = dev_get_by_index(&init_net, addr->can_ifindex);
+-		if (!dev)
+-			return -ENODEV;
+-
++		if (!dev) {
++			ret = -ENODEV;
++			goto fail;
++		}
+ 		if (dev->type != ARPHRD_CAN) {
+ 			dev_put(dev);
+-			return -ENODEV;
++			ret = -ENODEV;
++			goto fail;
+ 		}
+ 
+ 		bo->ifindex = dev->ifindex;
+@@ -1577,17 +1584,24 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 		bo->ifindex = 0;
+ 	}
+ 
+-	bo->bound = 1;
+-
+ 	if (proc_dir) {
+ 		/* unique socket address as filename */
+ 		sprintf(bo->procname, "%lu", sock_i_ino(sk));
+ 		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
+ 						     proc_dir,
+ 						     &bcm_proc_fops, sk);
++		if (!bo->bcm_proc_read) {
++			ret = -ENOMEM;
++			goto fail;
++		}
+ 	}
+ 
+-	return 0;
++	bo->bound = 1;
++
++fail:
++	release_sock(sk);
++
++	return ret;
+ }
+ 
+ static int bcm_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
 -- 
-mvh
-Hans-Christian Noren Egtvedt
+2.9.3
