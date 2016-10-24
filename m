@@ -1,88 +1,73 @@
 From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: [PATCH net-next 4/5] ipv6: Compute multipath hash for sent ICMP errors from offending packet
-Date: Mon, 24 Oct 2016 11:28:51 +0200
-Message-ID: <1477301332-23954-5-git-send-email-jkbs@redhat.com>
+Subject: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded ICMP errors from offending packet
+Date: Mon, 24 Oct 2016 11:28:52 +0200
+Message-ID: <1477301332-23954-6-git-send-email-jkbs@redhat.com>
 References: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
 Cc: linux-kernel@vger.kernel.org,
         "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         James Morris <jmorris@namei.org>,
         Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Eric Dumazet <edumazet@google.com>
+        Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Improve debuggability with tools like traceroute and make PMTUD work in
-setups that make use of ECMP routing by sending ICMP errors down the
-same path as the offending packet would travel, if it was going in the
-opposite direction.
-
-There is a caveat, flows in both directions need use the same
-label. Otherwise packets from flow in the opposite direction and ICMP
-errors will not be routed over the same ECMP link.
-
-Export the function for calculating the multipath hash so that we can
-use it also on receive side, when forwarding ICMP errors.
+Same as for the transmit path, let's do our best to ensure that received
+ICMP errors that may be subject to forwarding will be routed the same
+path as flow that triggered the error, if it was going in the opposite
+direction.
 
 Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
 ---
- include/linux/icmpv6.h |  2 ++
- net/ipv6/icmp.c        | 21 +++++++++++++++++++++
- 2 files changed, 23 insertions(+)
+ net/ipv6/route.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
 
-diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
-index 57086e9..6282e03 100644
---- a/include/linux/icmpv6.h
-+++ b/include/linux/icmpv6.h
-@@ -45,4 +45,6 @@ extern void				icmpv6_flow_init(struct sock *sk,
- 							 const struct in6_addr *saddr,
- 							 const struct in6_addr *daddr,
- 							 int oif);
-+struct ipv6hdr;
-+extern u32				icmpv6_multipath_hash(const struct ipv6hdr *iph);
- #endif
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index bd59c34..ab376b3d1 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -385,6 +385,26 @@ static struct dst_entry *icmpv6_route_lookup(struct net *net,
- 	return ERR_PTR(err);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 1184c2b..c0f38ea 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1150,6 +1150,30 @@ struct dst_entry *ip6_route_input_lookup(struct net *net,
  }
+ EXPORT_SYMBOL_GPL(ip6_route_input_lookup);
  
-+u32 icmpv6_multipath_hash(const struct ipv6hdr *iph)
++static u32 ip6_multipath_icmp_hash(const struct sk_buff *skb)
 +{
-+	struct flowi6 fl6;
++	const struct icmp6hdr *icmph = icmp6_hdr(skb);
++	const struct ipv6hdr *inner_iph;
++	struct ipv6hdr _inner_iph;
 +
-+	/* Calculate the multipath hash from the offending IP datagram that
-+	 * triggered the ICMP error. The source and destination addresses are
-+	 * swapped as we do our best to route the ICMP message together with the
-+	 * flow it belongs to. However, flows in both directions have to have
-+	 * the same label (e.g. by using flow label reflection) for it to
-+	 * happen.
-+	 */
-+	memset(&fl6, 0, sizeof(fl6));
-+	fl6.daddr = iph->saddr;
-+	fl6.saddr = iph->daddr;
-+	fl6.flowlabel = ip6_flowinfo(iph);
-+	fl6.flowi6_proto = iph->nexthdr;
++	if (icmph->icmp6_type != ICMPV6_DEST_UNREACH &&
++	    icmph->icmp6_type != ICMPV6_PKT_TOOBIG &&
++	    icmph->icmp6_type != ICMPV6_TIME_EXCEED &&
++	    icmph->icmp6_type != ICMPV6_PARAMPROB)
++		goto standard_hash;
 +
-+	return get_hash_from_flowi6(&fl6);
++	inner_iph = skb_header_pointer(
++		skb, skb_transport_offset(skb) + sizeof(*icmph),
++		sizeof(_inner_iph), &_inner_iph);
++	if (!inner_iph)
++		goto standard_hash;
++
++	return icmpv6_multipath_hash(inner_iph);
++
++standard_hash:
++	return 0; /* compute it later, if needed */
 +}
 +
- /*
-  *	Send an ICMP message in response to a packet in error
-  */
-@@ -484,6 +504,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
- 	fl6.flowi6_oif = iif;
- 	fl6.fl6_icmp_type = type;
- 	fl6.fl6_icmp_code = code;
-+	fl6.mp_hash = icmpv6_multipath_hash(hdr);
- 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
- 
- 	sk = icmpv6_xmit_lock(net);
+ void ip6_route_input(struct sk_buff *skb)
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+@@ -1168,6 +1192,8 @@ void ip6_route_input(struct sk_buff *skb)
+ 	tun_info = skb_tunnel_info(skb);
+ 	if (tun_info && !(tun_info->mode & IP_TUNNEL_INFO_TX))
+ 		fl6.flowi6_tun_key.tun_id = tun_info->key.tun_id;
++	if (unlikely(fl6.flowi6_proto == IPPROTO_ICMPV6))
++		fl6.mp_hash = ip6_multipath_icmp_hash(skb);
+ 	skb_dst_drop(skb);
+ 	skb_dst_set(skb, ip6_route_input_lookup(net, skb->dev, &fl6, flags));
+ }
 -- 
 2.7.4
