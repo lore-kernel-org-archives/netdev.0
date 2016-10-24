@@ -1,13 +1,14 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH RFC 14/26] arch/nios2: Add option to skip DMA sync
- as a part of map and unmap
-Date: Mon, 24 Oct 2016 08:05:40 -0400
-Message-ID: <20161024120540.16276.15769.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH RFC 18/26] arch/sh: Add option to skip DMA sync as
+ a part of mapping
+Date: Mon, 24 Oct 2016 08:06:01 -0400
+Message-ID: <20161024120601.16276.5500.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ley Foon Tan <lftan@altera.com>, davem@davemloft.net, brouer@redhat.com
+Cc: brouer@redhat.com, Rich Felker <dalias@libc.org>, davem@davemloft.net,
+ Yoshinori Sato <ysato@users.sourceforge.jp>, linux-sh@vger.kernel.org
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
@@ -18,58 +19,39 @@ This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 via a sync_for_cpu or sync_for_device call.
 
-Cc: Ley Foon Tan <lftan@altera.com>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Cc: Rich Felker <dalias@libc.org>
+Cc: linux-sh@vger.kernel.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/nios2/mm/dma-mapping.c |   14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
+ arch/sh/kernel/dma-nommu.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/arch/nios2/mm/dma-mapping.c b/arch/nios2/mm/dma-mapping.c
-index d800fad..b83e723 100644
---- a/arch/nios2/mm/dma-mapping.c
-+++ b/arch/nios2/mm/dma-mapping.c
-@@ -102,7 +102,9 @@ static int nios2_dma_map_sg(struct device *dev, struct scatterlist *sg,
+diff --git a/arch/sh/kernel/dma-nommu.c b/arch/sh/kernel/dma-nommu.c
+index eadb669..47fee3b 100644
+--- a/arch/sh/kernel/dma-nommu.c
++++ b/arch/sh/kernel/dma-nommu.c
+@@ -18,7 +18,9 @@ static dma_addr_t nommu_map_page(struct device *dev, struct page *page,
+ 	dma_addr_t addr = page_to_phys(page) + offset;
  
- 		addr = sg_virt(sg);
- 		if (addr) {
--			__dma_sync_for_device(addr, sg->length, direction);
-+			if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+				__dma_sync_for_device(addr, sg->length,
-+						      direction);
- 			sg->dma_address = sg_phys(sg);
- 		}
- 	}
-@@ -117,7 +119,9 @@ static dma_addr_t nios2_dma_map_page(struct device *dev, struct page *page,
- {
- 	void *addr = page_address(page) + offset;
- 
--	__dma_sync_for_device(addr, size, direction);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		__dma_sync_for_device(addr, size, direction);
+ 	WARN_ON(size == 0);
+-	dma_cache_sync(dev, page_address(page) + offset, size, dir);
 +
- 	return page_to_phys(page) + offset;
- }
- 
-@@ -125,7 +129,8 @@ static void nios2_dma_unmap_page(struct device *dev, dma_addr_t dma_address,
- 		size_t size, enum dma_data_direction direction,
- 		unsigned long attrs)
- {
--	__dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
 +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		__dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
++		dma_cache_sync(dev, page_address(page) + offset, size, dir);
+ 
+ 	return addr;
  }
+@@ -35,7 +37,8 @@ static int nommu_map_sg(struct device *dev, struct scatterlist *sg,
+ 	for_each_sg(sg, s, nents, i) {
+ 		BUG_ON(!sg_page(s));
  
- static void nios2_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
-@@ -138,6 +143,9 @@ static void nios2_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
- 	if (direction == DMA_TO_DEVICE)
- 		return;
+-		dma_cache_sync(dev, sg_virt(s), s->length, dir);
++		if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++			dma_cache_sync(dev, sg_virt(s), s->length, dir);
  
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return;
-+
- 	for_each_sg(sg, sg, nhwentries, i) {
- 		addr = sg_virt(sg);
- 		if (addr)
+ 		s->dma_address = sg_phys(s);
+ 		s->dma_length = s->length;
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
