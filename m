@@ -1,50 +1,69 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/can: warning in bcm_connect/proc_register
-Date: Mon, 24 Oct 2016 18:21:27 +0200
-Message-ID: <CAAeHK+x6w+Lg1GoCZXdjPtM6n72dpUbF_Bvtg80YNK-Wh8YJ4w@mail.gmail.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: Redundancy support through HSR and PRP
+Date: Mon, 24 Oct 2016 12:35:32 -0400
+Message-ID: <580E3854.4030009@ti.com>
+References: <57FBDF33.1060606@ti.com> <5808F9FC.1080802@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, <arvid.brodin@alten.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([198.47.19.12]:34749 "EHLO arroyo.ext.ti.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756345AbcJXQfm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Oct 2016 12:35:42 -0400
+In-Reply-To: <5808F9FC.1080802@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 10/20/2016 01:08 PM, Murali Karicheri wrote:
+> David,
+> 
+> On 10/10/2016 02:34 PM, Murali Karicheri wrote:
+>> All,
+>>
+>> Wondering if there plan to add PRP driver support, like HSR in Linux? AFAIK, PRP
+>> adds trailor to Ethernet frame and is used for Redundancy management like HSR.
+>> So wondering why this is not supported.
+>>
+>> Thanks
+>>
+> I need to work on a prp driver for Linux. So if there is already someone working
+> on this, I would like to join and contribute. Either way please respond so that
+> I can work to add this support. 
+> 
+> I am also working to add support for offload HSR functions to hardware and will
+> need to modify the hsr driver to support the same. So any suggestion as to how this
+> can be done, will be appreciated.
+> 
+> Here is what I believe should happen to support this at a higher level
+> 
+> hsr capable NIC (with firmware support) may able to
+>  - duplicate packets at the egress. So only one copy needs to be forwarded to the
+>    NIC
+>  - Discard the duplicate at the ingress. So forward only one to copy to the ethernet
+>    driver
+>  - Manage supervision of the network. Keep node list and their status
+> 
+> It could be a subset of the above. So I am hoping this can be published by the Ethernet
+> driver as a set of features. The hsr driver can then look at this features and
+> decide to offload and disable same functionality at the hsr driver. Also the node list/status
+> has to be polled from the underlying hardware.
+> 
+> PRP is similar to HSR in many respect. Redundancy management uses a suffix tag to the MAC
+> frame instead of prefix used by HSR. So they are more transparently handled by 
+> switches or routers. Probably i need to do
+>   - rename net/hsr to net/hsr-prp
+>   - restructure the current set of files to add prp support 
+> 
+> Thanks
+> 
++ Arvid
 
-I've got the following error report while running the syzkaller fuzzer:
+Didn't copy HSR owner in my original email. Copying now.
 
-WARNING: CPU: 0 PID: 32451 at fs/proc/generic.c:345 proc_register+0x25e/0x300
-proc_dir_entry 'can-bcm/249757' already registered
-Kernel panic - not syncing: panic_on_warn set ...
 
-CPU: 0 PID: 32451 Comm: syz-executor Not tainted 4.9.0-rc1+ #293
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffff880037d8fae0 ffffffff81b474f4 0000000000000003 dffffc0000000000
- ffffffff840cbf00 ffff880037d8fb04 ffff880037d8fba8 ffffffff8140c06a
- 0000000041b58ab3 ffffffff8479ab7d ffffffff8140beae ffffffff00000032
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff81b474f4>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
- [<ffffffff8140c06a>] panic+0x1bc/0x39d kernel/panic.c:179
- [<ffffffff8111125c>] __warn+0x1cc/0x1f0 kernel/panic.c:542
- [<ffffffff8111132c>] warn_slowpath_fmt+0xac/0xd0 kernel/panic.c:565
- [<ffffffff8167d6ee>] proc_register+0x25e/0x300 fs/proc/generic.c:344
- [<ffffffff8167dc01>] proc_create_data+0x101/0x1a0 fs/proc/generic.c:507
- [<ffffffff835729ce>] bcm_connect+0x16e/0x380 net/can/bcm.c:1585
- [<ffffffff82b725e4>] SYSC_connect+0x244/0x2f0 net/socket.c:1533
- [<ffffffff82b74dd4>] SyS_connect+0x24/0x30 net/socket.c:1514
- [<ffffffff83fc19c1>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Kernel Offset: disabled
-
-On commit 07d9a380680d1c0eb51ef87ff2eab5c994949e69 (Oct 23).
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
