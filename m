@@ -1,51 +1,86 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: question about function igmp_stop_timer() in net/ipv4/igmp.c
-Date: Mon, 24 Oct 2016 17:32:00 +0200
-Message-ID: <20161024153200.GM1110@lunn.ch>
-References: <580DF574.6070905@hisilicon.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized warning
+Date: Mon, 24 Oct 2016 17:34:32 +0200
+Message-ID: <20161024153454.2766113-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Dongpo Li <lidongpo@hisilicon.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52648 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935768AbcJXPcE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Oct 2016 11:32:04 -0400
-Content-Disposition: inline
-In-Reply-To: <580DF574.6070905@hisilicon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Quentin Armitage <quentin@armitage.org.uk>,
+        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 24, 2016 at 07:50:12PM +0800, Dongpo Li wrote:
-> Hello
-> 
-> We encountered a multicast problem when two set-top box(STB) join the same multicast group and leave.
-> The two boxes can join the same multicast group
-> but only one box can send the IGMP leave group message when leave,
-> the other box does not send the IGMP leave message.
-> Our boxes use the IGMP version 2.
-> 
-> I added some debug info and found the whole procedure is like this:
-> (1) Box A joins the multicast group 225.1.101.145 and send the IGMP v2 membership report(join group).
-> (2) Box B joins the same multicast group 225.1.101.145 and also send the IGMP v2 membership report(join group).
-> (3) Box A receives the IGMP membership report from Box B and kernel calls igmp_heard_report().
->     This function will call igmp_stop_timer(im).
->     In function igmp_stop_timer(im), it tries to delete IGMP timer and does the following:
->         im->tm_running = 0;
->         im->reporter = 0;
-> (4) Box A leaves the multicast group 225.1.101.145 and kernel calls
->     ip_mc_leave_group -> ip_mc_dec_group -> igmp_group_dropped.
->     But in function igmp_group_dropped(), the im->reporter is 0, so the kernel does not send the IGMP leave message.
+Building the ip_vs_sync code with CONFIG_OPTIMIZE_INLINING on x86
+confuses the compiler to the point where it produces a rather
+dubious warning message:
 
-RFC 2236 says:
+net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  struct ip_vs_sync_conn_options opt;
+                                 ^~~
+net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-2.  Introduction
+The problem appears to be a combination of a number of factors, including
+the __builtin_bswap32 compiler builtin being slightly odd, having a large
+amount of code inlined into a single function, and the way that some
+functions only get partially inlined here.
 
-   The Internet Group Management Protocol (IGMP) is used by IP hosts to
-   report their multicast group memberships to any immediately-
-   neighboring multicast routers.
+I've spent way too much time trying to work out a way to improve the
+code, but the best I've come up with is to add an explicit memset
+right before the ip_vs_seq structure is first initialized here. When
+the compiler works correctly, this has absolutely no effect, but in the
+case that produces the warning, the warning disappears.
 
-Are Box A or B multicast routers?
+In the process of analysing this warning, I also noticed that
+we use memcpy to copy the larger ip_vs_sync_conn_options structure
+over two members of the ip_vs_conn structure. This works because
+the layout is identical, but seems error-prone, so I'm changing
+this in the process to directly copy the two members. This change
+seemed to have no effect on the object code or the warning, but
+it deals with the same data, so I kept the two changes together.
 
-    Andrew
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/netfilter/ipvs/ip_vs_sync.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 1b07578bedf3..9350530c16c1 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -283,6 +283,7 @@ struct ip_vs_sync_buff {
+  */
+ static void ntoh_seq(struct ip_vs_seq *no, struct ip_vs_seq *ho)
+ {
++	memset(ho, 0, sizeof(*ho));
+ 	ho->init_seq       = get_unaligned_be32(&no->init_seq);
+ 	ho->delta          = get_unaligned_be32(&no->delta);
+ 	ho->previous_delta = get_unaligned_be32(&no->previous_delta);
+@@ -917,8 +918,10 @@ static void ip_vs_proc_conn(struct netns_ipvs *ipvs, struct ip_vs_conn_param *pa
+ 			kfree(param->pe_data);
+ 	}
+ 
+-	if (opt)
+-		memcpy(&cp->in_seq, opt, sizeof(*opt));
++	if (opt) {
++		cp->in_seq = opt->in_seq;
++		cp->out_seq = opt->out_seq;
++	}
+ 	atomic_set(&cp->in_pkts, sysctl_sync_threshold(ipvs));
+ 	cp->state = state;
+ 	cp->old_state = cp->state;
+-- 
+2.9.0
