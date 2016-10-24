@@ -1,128 +1,39 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized
- warning
-Date: Mon, 24 Oct 2016 22:47:54 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
-References: <20161024153454.2766113-1-arnd@arndb.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] can: fix warning in bcm_connect/proc_register
+Date: Mon, 24 Oct 2016 13:10:39 -0700
+Message-ID: <CAM_iQpXj3ktALCmjwaPKJuf0SDEc6Txk-yYkRzZ79LFEsxOx3w@mail.gmail.com>
+References: <20161024191126.30256-1-socketcan@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1337701874-1477338476=:2276"
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Quentin Armitage <quentin@armitage.org.uk>,
-        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20161024153454.2766113-1-arnd@arndb.de>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        David Miller <davem@davemloft.net>, linux-can@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20161024191126.30256-1-socketcan@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Mon, Oct 24, 2016 at 12:11 PM, Oliver Hartkopp
+<socketcan@hartkopp.net> wrote:
+>         if (proc_dir) {
+>                 /* unique socket address as filename */
+>                 sprintf(bo->procname, "%lu", sock_i_ino(sk));
+>                 bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
+>                                                      proc_dir,
+>                                                      &bcm_proc_fops, sk);
+> +               if (!bo->bcm_proc_read) {
+> +                       ret = -ENOMEM;
+> +                       goto fail;
+> +               }
 
----1463811672-1337701874-1477338476=:2276
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+Well, I meant we need to call proc_create_data() once per socket,
+so we need a check before proc_create_data() too.
 
-
-	Hello,
-
-On Mon, 24 Oct 2016, Arnd Bergmann wrote:
-
-> Building the ip_vs_sync code with CONFIG_OPTIMIZE_INLINING on x86
-> confuses the compiler to the point where it produces a rather
-> dubious warning message:
-> 
-> net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
->   struct ip_vs_sync_conn_options opt;
->                                  ^~~
-> net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> The problem appears to be a combination of a number of factors, including
-> the __builtin_bswap32 compiler builtin being slightly odd, having a large
-> amount of code inlined into a single function, and the way that some
-> functions only get partially inlined here.
-> 
-> I've spent way too much time trying to work out a way to improve the
-> code, but the best I've come up with is to add an explicit memset
-> right before the ip_vs_seq structure is first initialized here. When
-> the compiler works correctly, this has absolutely no effect, but in the
-> case that produces the warning, the warning disappears.
-> 
-> In the process of analysing this warning, I also noticed that
-> we use memcpy to copy the larger ip_vs_sync_conn_options structure
-> over two members of the ip_vs_conn structure. This works because
-> the layout is identical, but seems error-prone, so I'm changing
-> this in the process to directly copy the two members. This change
-> seemed to have no effect on the object code or the warning, but
-> it deals with the same data, so I kept the two changes together.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-	OK,
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-	I guess, Simon will take the patch for ipvs-next.
-
-> ---
->  net/netfilter/ipvs/ip_vs_sync.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index 1b07578bedf3..9350530c16c1 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -283,6 +283,7 @@ struct ip_vs_sync_buff {
->   */
->  static void ntoh_seq(struct ip_vs_seq *no, struct ip_vs_seq *ho)
->  {
-> +	memset(ho, 0, sizeof(*ho));
->  	ho->init_seq       = get_unaligned_be32(&no->init_seq);
->  	ho->delta          = get_unaligned_be32(&no->delta);
->  	ho->previous_delta = get_unaligned_be32(&no->previous_delta);
-
-	So, now there is a double write here?
-
-	What about such constructs?:
-
-	*ho = (struct ip_vs_seq) {
-		.init_seq	= get_unaligned_be32(&no->init_seq),
-		...
-	};
-
-	Any difference in the compiled code or warnings?
-
-> @@ -917,8 +918,10 @@ static void ip_vs_proc_conn(struct netns_ipvs *ipvs, struct ip_vs_conn_param *pa
->  			kfree(param->pe_data);
->  	}
->  
-> -	if (opt)
-> -		memcpy(&cp->in_seq, opt, sizeof(*opt));
-> +	if (opt) {
-> +		cp->in_seq = opt->in_seq;
-> +		cp->out_seq = opt->out_seq;
-
-	This fix is fine.
-
-> +	}
->  	atomic_set(&cp->in_pkts, sysctl_sync_threshold(ipvs));
->  	cp->state = state;
->  	cp->old_state = cp->state;
-> -- 
-> 2.9.0
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
----1463811672-1337701874-1477338476=:2276--
+Thanks.
