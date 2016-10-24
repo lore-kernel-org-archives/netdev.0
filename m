@@ -1,41 +1,52 @@
 From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: [PATCH net-next 2/5] net: Extend struct flowi6 with multipath hash
-Date: Mon, 24 Oct 2016 11:28:49 +0200
-Message-ID: <1477301332-23954-3-git-send-email-jkbs@redhat.com>
+Subject: [PATCH net-next 3/5] ipv6: Use multipath hash from flow info if available
+Date: Mon, 24 Oct 2016 11:28:50 +0200
+Message-ID: <1477301332-23954-4-git-send-email-jkbs@redhat.com>
 References: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
 Cc: linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:36425 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757214AbcJXJ27 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 05:28:59 -0400
+Received: by mail-wm0-f42.google.com with SMTP id b80so92915287wme.1
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 02:28:58 -0700 (PDT)
 In-Reply-To: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Allow for functions that fill out the IPv6 flow info to also pass a hash
-computed over the skb contents. The hash value will drive the multipath
-routing decisions.
-
-This is intended for special treatment of ICMPv6 errors, where we would
-like to make a routing decision based on the flow identifying the
-offending IPv6 datagram that triggered the error, rather than the flow
-of the ICMP error itself.
+Allow our callers to influence the choice of ECMP link by honoring the
+hash passed together with the flow info. This will allow for special
+treatment of ICMP errors which we would like to route over the same link
+as the IP datagram that triggered the error.
 
 Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
 ---
- include/net/flow.h | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv6/route.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 035aa77..73ee3aa 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -143,6 +143,7 @@ struct flowi6 {
- #define fl6_ipsec_spi		uli.spi
- #define fl6_mh_type		uli.mht.type
- #define fl6_gre_key		uli.gre_key
-+	__u32			mp_hash;
- } __attribute__((__aligned__(BITS_PER_LONG/8)));
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 0514b35..1184c2b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -430,9 +430,11 @@ static struct rt6_info *rt6_multipath_select(struct rt6_info *match,
+ 					     int strict)
+ {
+ 	struct rt6_info *sibling, *next_sibling;
++	unsigned int hash;
+ 	int route_choosen;
  
- struct flowidn {
+-	route_choosen = get_hash_from_flowi6(fl6) % (match->rt6i_nsiblings + 1);
++	hash = fl6->mp_hash ? : get_hash_from_flowi6(fl6);
++	route_choosen = hash % (match->rt6i_nsiblings + 1);
+ 	/* Don't change the route, if route_choosen == 0
+ 	 * (siblings does not include ourself)
+ 	 */
 -- 
 2.7.4
