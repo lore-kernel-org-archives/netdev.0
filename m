@@ -1,62 +1,50 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] cw1200: fix bogus maybe-uninitialized warning
-Date: Mon, 24 Oct 2016 17:41:49 +0200
-Message-ID: <20161024154215.2863586-1-arnd@arndb.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] kalmia: avoid potential uninitialized variable use
+Date: Mon, 24 Oct 2016 17:54:18 +0200
+Message-ID: <20161024155430.3077348-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On x86, the cw1200 driver produces a rather silly warning about the
-possible use of the 'ret' variable without an initialization
-presumably after being confused by the architecture specific definition
-of WARN_ON:
+The kalmia_send_init_packet() returns zero or a negative return
+code, but gcc has no way of knowing that there cannot be a
+positive return code, so it determines that copying the ethernet
+address at the end of kalmia_bind() will access uninitialized
+data:
 
-drivers/net/wireless/st/cw1200/wsm.c: In function ‘wsm_handle_rx’:
-drivers/net/wireless/st/cw1200/wsm.c:1457:9: error: ‘ret’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+drivers/net/usb/kalmia.c: In function ‘kalmia_bind’:
+arch/x86/include/asm/string_32.h:78:22: error: ‘*((void *)&ethernet_addr+4)’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+   *((short *)to + 2) = *((short *)from + 2);
+                      ^
+drivers/net/usb/kalmia.c:138:5: note: ‘*((void *)&ethernet_addr+4)’ was declared here
 
-As the driver just checks the same variable twice here, we can simplify
-it by removing the second condition, which makes it more readable and
-avoids the warning.
+This warning is harmless, but for consistency, we should make
+the check for the return code match what the driver does everywhere
+else and just progate it, which then gets rid of the warning.
 
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/wireless/st/cw1200/wsm.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/usb/kalmia.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/st/cw1200/wsm.c b/drivers/net/wireless/st/cw1200/wsm.c
-index 680d60eabc75..094e6637ade2 100644
---- a/drivers/net/wireless/st/cw1200/wsm.c
-+++ b/drivers/net/wireless/st/cw1200/wsm.c
-@@ -385,14 +385,13 @@ static int wsm_multi_tx_confirm(struct cw1200_common *priv,
- 	if (WARN_ON(count <= 0))
- 		return -EINVAL;
+diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
+index 5662babf0583..3e37724d30ae 100644
+--- a/drivers/net/usb/kalmia.c
++++ b/drivers/net/usb/kalmia.c
+@@ -151,7 +151,7 @@ kalmia_bind(struct usbnet *dev, struct usb_interface *intf)
  
--	if (count > 1) {
--		/* We already released one buffer, now for the rest */
--		ret = wsm_release_tx_buffer(priv, count - 1);
--		if (ret < 0)
--			return ret;
--		else if (ret > 0)
--			cw1200_bh_wakeup(priv);
--	}
-+	/* We already released one buffer, now for the rest */
-+	ret = wsm_release_tx_buffer(priv, count - 1);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (ret > 0)
-+		cw1200_bh_wakeup(priv);
+ 	status = kalmia_init_and_get_ethernet_addr(dev, ethernet_addr);
  
- 	cw1200_debug_txed_multi(priv, count);
- 	for (i = 0; i < count; ++i) {
+-	if (status < 0) {
++	if (status) {
+ 		usb_set_intfdata(intf, NULL);
+ 		usb_driver_release_interface(driver_of(intf), intf);
+ 		return status;
 -- 
 2.9.0
