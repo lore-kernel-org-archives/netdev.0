@@ -1,84 +1,116 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] staging: rtl8192x: fix bogus maybe-uninitialized warning
-Date: Mon, 24 Oct 2016 17:38:34 +0200
-Message-ID: <20161024153918.2810634-1-arnd@arndb.de>
+Subject: [PATCH] wireless: fix bogus maybe-uninitialized warning
+Date: Mon, 24 Oct 2016 17:38:35 +0200
+Message-ID: <20161024153918.2810634-2-arnd@arndb.de>
+References: <20161024153918.2810634-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: devel@driverdev.osuosl.org, Arnd Bergmann <arnd@arndb.de>,
- netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
- linux-kernel@vger.kernel.org, Kurt Kanzenbach <kurt@kmk-computers.de>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>,
+        Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+        Jouni Malinen <j@w1.fi>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161024153918.2810634-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIHJ0bGxpYl9yeF9leHRyYWN0X2FkZHIoKSBpcyBzdXBwb3NlZCB0byBzZXQgdXAgdGhlIG1h
-YyBhZGRyZXNzZXMKZm9yIGZvdXIgcG9zc2libGUgY2FzZXMsIGJhc2VkIG9uIHR3byBiaXRzIG9m
-IGlucHV0IGRhdGEuIEZvcgpzb21lIHJlYXNvbiwgZ2NjIGRlY2lkZXMgdGhhdCBpdCdzIHBvc3Np
-YmxlIHRoYXQgbm9uZSBvZiB0aGUgdGhlc2UKZm91ciBjYXNlcyBhcHBseSBhbmQgdGhlIGFkZHJl
-c3NlcyByZW1haW4gdW5pbml0aWFsaXplZDoKCmRyaXZlcnMvc3RhZ2luZy9ydGw4MTkyZS9ydGxs
-aWJfcnguYzogSW4gZnVuY3Rpb24g4oCYcnRsbGliX3J4X0luZnJhQWRob2PigJk6CmluY2x1ZGUv
-bGludXgvZXRoZXJkZXZpY2UuaDozMTY6NjE6IGVycm9yOiDigJgqKCh2b2lkICopJmRzdCs0KeKA
-mSBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XZXJyb3I9bWF5
-YmUtdW5pbml0aWFsaXplZF0KZHJpdmVycy9zdGFnaW5nL3J0bDgxOTJlL3J0bGxpYl9yeC5jOjEz
-MTg6NTogbm90ZTog4oCYKigodm9pZCAqKSZkc3QrNCnigJkgd2FzIGRlY2xhcmVkIGhlcmUKZGVk
-IGZyb20gL2dpdC9hcm0tc29jL2RyaXZlcnMvc3RhZ2luZy9ydGw4MTkyZS9ydGxsaWJfcnguYzo0
-MDowOgppbmNsdWRlL2xpbnV4L2V0aGVyZGV2aWNlLmg6MzE2OjM2OiBlcnJvcjog4oCYZHN04oCZ
-IG1heSBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVdlcnJvcj1tYXli
-ZS11bmluaXRpYWxpemVkXQpkcml2ZXJzL3N0YWdpbmcvcnRsODE5MmUvcnRsbGliX3J4LmM6MTMx
-ODo1OiBub3RlOiDigJhkc3TigJkgd2FzIGRlY2xhcmVkIGhlcmUKClRoaXMgd2FybmluZyBpcyBj
-bGVhcmx5IG5vbnNlbnNlLCBidXQgY2hhbmdpbmcgdGhlIGxhc3QgY2FzZSBpbnRvCidkZWZhdWx0
-JyBtYWtlcyBpdCBvYnZpb3VzIHRvIHRoZSBjb21waWxlciB0b28sIHdoaWNoIGF2b2lkcyB0aGUK
-d2FybmluZyBhbmQgcHJvYmFibHkgbGVhZHMgdG8gYmV0dGVyIG9iamVjdCBjb2RlIHRvby4KCkFz
-IHRoZSBzYW1lIHdhcm5pbmcgYXBwZWFycyBpbiBvdGhlciBmaWxlcyB0aGF0IGhhdmUgdGhlIGV4
-YWN0CnNhbWUgY29kZSwgSSdtIGZpeGluZyBpdCBpbiBib3RoIHJ0bDgxOTJlIGFuZCBydGw4MTky
-dSwgZXZlbgp0aG91Z2ggSSBkaWQgbm90IG9ic2VydmUgaXQgZm9yIHRoZSBsYXR0ZXIuCgpTaWdu
-ZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgotLS0KIGRyaXZlcnMvc3Rh
-Z2luZy9ydGw4MTkyZS9ydGxsaWJfcnguYyAgICAgICAgICAgICAgICAgICAgICB8IDIgKy0KIGRy
-aXZlcnMvc3RhZ2luZy9ydGw4MTkydS9pZWVlODAyMTEvaWVlZTgwMjExX2NyeXB0X3RraXAuYyB8
-IDIgKy0KIGRyaXZlcnMvc3RhZ2luZy9ydGw4MTkydS9pZWVlODAyMTEvaWVlZTgwMjExX3J4LmMg
-ICAgICAgICB8IDIgKy0KIDMgZmlsZXMgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCAzIGRlbGV0
-aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvc3RhZ2luZy9ydGw4MTkyZS9ydGxsaWJfcngu
-YyBiL2RyaXZlcnMvc3RhZ2luZy9ydGw4MTkyZS9ydGxsaWJfcnguYwppbmRleCBjNzQzMTgyYjkz
-M2UuLmQ2Nzc3ZWNkYTY0ZCAxMDA2NDQKLS0tIGEvZHJpdmVycy9zdGFnaW5nL3J0bDgxOTJlL3J0
-bGxpYl9yeC5jCisrKyBiL2RyaXZlcnMvc3RhZ2luZy9ydGw4MTkyZS9ydGxsaWJfcnguYwpAQCAt
-OTg2LDcgKzk4Niw3IEBAIHN0YXRpYyB2b2lkIHJ0bGxpYl9yeF9leHRyYWN0X2FkZHIoc3RydWN0
-IHJ0bGxpYl9kZXZpY2UgKmllZWUsCiAJCWV0aGVyX2FkZHJfY29weShzcmMsIGhkci0+YWRkcjQp
-OwogCQlldGhlcl9hZGRyX2NvcHkoYnNzaWQsIGllZWUtPmN1cnJlbnRfbmV0d29yay5ic3NpZCk7
-CiAJCWJyZWFrOwotCWNhc2UgMDoKKwlkZWZhdWx0OgogCQlldGhlcl9hZGRyX2NvcHkoZHN0LCBo
-ZHItPmFkZHIxKTsKIAkJZXRoZXJfYWRkcl9jb3B5KHNyYywgaGRyLT5hZGRyMik7CiAJCWV0aGVy
-X2FkZHJfY29weShic3NpZCwgaGRyLT5hZGRyMyk7CmRpZmYgLS1naXQgYS9kcml2ZXJzL3N0YWdp
-bmcvcnRsODE5MnUvaWVlZTgwMjExL2llZWU4MDIxMV9jcnlwdF90a2lwLmMgYi9kcml2ZXJzL3N0
-YWdpbmcvcnRsODE5MnUvaWVlZTgwMjExL2llZWU4MDIxMV9jcnlwdF90a2lwLmMKaW5kZXggNmZh
-OTZkNTdkMzE2Li5lNjg4NTA4OTdhZGYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvc3RhZ2luZy9ydGw4
-MTkydS9pZWVlODAyMTEvaWVlZTgwMjExX2NyeXB0X3RraXAuYworKysgYi9kcml2ZXJzL3N0YWdp
-bmcvcnRsODE5MnUvaWVlZTgwMjExL2llZWU4MDIxMV9jcnlwdF90a2lwLmMKQEAgLTU1Myw3ICs1
-NTMsNyBAQCBzdGF0aWMgdm9pZCBtaWNoYWVsX21pY19oZHIoc3RydWN0IHNrX2J1ZmYgKnNrYiwg
-dTggKmhkcikKIAkJbWVtY3B5KGhkciwgaGRyMTEtPmFkZHIzLCBFVEhfQUxFTik7IC8qIERBICov
-CiAJCW1lbWNweShoZHIgKyBFVEhfQUxFTiwgaGRyMTEtPmFkZHI0LCBFVEhfQUxFTik7IC8qIFNB
-ICovCiAJCWJyZWFrOwotCWNhc2UgMDoKKwlkZWZhdWx0OgogCQltZW1jcHkoaGRyLCBoZHIxMS0+
-YWRkcjEsIEVUSF9BTEVOKTsgLyogREEgKi8KIAkJbWVtY3B5KGhkciArIEVUSF9BTEVOLCBoZHIx
-MS0+YWRkcjIsIEVUSF9BTEVOKTsgLyogU0EgKi8KIAkJYnJlYWs7CmRpZmYgLS1naXQgYS9kcml2
-ZXJzL3N0YWdpbmcvcnRsODE5MnUvaWVlZTgwMjExL2llZWU4MDIxMV9yeC5jIGIvZHJpdmVycy9z
-dGFnaW5nL3J0bDgxOTJ1L2llZWU4MDIxMS9pZWVlODAyMTFfcnguYwppbmRleCA4OWNiYzA3N2E0
-OGQuLjJlNGQyZDdiYzJlNyAxMDA2NDQKLS0tIGEvZHJpdmVycy9zdGFnaW5nL3J0bDgxOTJ1L2ll
-ZWU4MDIxMS9pZWVlODAyMTFfcnguYworKysgYi9kcml2ZXJzL3N0YWdpbmcvcnRsODE5MnUvaWVl
-ZTgwMjExL2llZWU4MDIxMV9yeC5jCkBAIC0xMDc5LDcgKzEwNzksNyBAQCBpbnQgaWVlZTgwMjEx
-X3J4KHN0cnVjdCBpZWVlODAyMTFfZGV2aWNlICppZWVlLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAog
-CQltZW1jcHkoc3JjLCBoZHItPmFkZHI0LCBFVEhfQUxFTik7CiAJCW1lbWNweShic3NpZCwgaWVl
-ZS0+Y3VycmVudF9uZXR3b3JrLmJzc2lkLCBFVEhfQUxFTik7CiAJCWJyZWFrOwotCWNhc2UgMDoK
-KwlkZWZhdWx0OgogCQltZW1jcHkoZHN0LCBoZHItPmFkZHIxLCBFVEhfQUxFTik7CiAJCW1lbWNw
-eShzcmMsIGhkci0+YWRkcjIsIEVUSF9BTEVOKTsKIAkJbWVtY3B5KGJzc2lkLCBoZHItPmFkZHIz
-LCBFVEhfQUxFTik7Ci0tIAoyLjkuMAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KZGV2ZWwgbWFpbGluZyBsaXN0CmRldmVsQGxpbnV4ZHJpdmVycHJvamVj
-dC5vcmcKaHR0cDovL2RyaXZlcmRldi5saW51eGRyaXZlcnByb2plY3Qub3JnL21haWxtYW4vbGlz
-dGluZm8vZHJpdmVyZGV2LWRldmVsCg==
+The hostap_80211_rx() function is supposed to set up the mac addresses
+for four possible cases, based on two bits of input data. For
+some reason, gcc decides that it's possible that none of the these
+four cases apply and the addresses remain uninitialized:
+
+drivers/net/wireless/intersil/hostap/hostap_80211_rx.c: In function ‘hostap_80211_rx’:
+arch/x86/include/asm/string_32.h:77:14: warning: ‘src’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+drivers/net/wireless/intel/ipw2x00/libipw_rx.c: In function ‘libipw_rx’:
+arch/x86/include/asm/string_32.h:77:14: error: ‘dst’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+arch/x86/include/asm/string_32.h:78:22: error: ‘*((void *)&dst+4)’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+
+This warning is clearly nonsense, but changing the last case into
+'default' makes it obvious to the compiler too, which avoids the
+warning and probably leads to better object code too.
+
+The same code is duplicated several times in the kernel, so this
+patch uses the same workaround for all copies. The exact configuration
+was hit only very rarely in randconfig builds and I only saw it
+in three drivers, but I assume that all of them are potentially
+affected, and it's better to keep the code consistent.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/wireless/ath/ath6kl/wmi.c                  | 8 ++++----
+ drivers/net/wireless/intel/ipw2x00/libipw_rx.c         | 2 +-
+ drivers/net/wireless/intersil/hostap/hostap_80211_rx.c | 2 +-
+ net/wireless/lib80211_crypt_tkip.c                     | 2 +-
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath6kl/wmi.c b/drivers/net/wireless/ath/ath6kl/wmi.c
+index 3fd1cc98fd2f..84a6d12c3f8a 100644
+--- a/drivers/net/wireless/ath/ath6kl/wmi.c
++++ b/drivers/net/wireless/ath/ath6kl/wmi.c
+@@ -421,10 +421,6 @@ int ath6kl_wmi_dot11_hdr_remove(struct wmi *wmi, struct sk_buff *skb)
+ 
+ 	switch ((le16_to_cpu(wh.frame_control)) &
+ 		(IEEE80211_FCTL_FROMDS | IEEE80211_FCTL_TODS)) {
+-	case 0:
+-		memcpy(eth_hdr.h_dest, wh.addr1, ETH_ALEN);
+-		memcpy(eth_hdr.h_source, wh.addr2, ETH_ALEN);
+-		break;
+ 	case IEEE80211_FCTL_TODS:
+ 		memcpy(eth_hdr.h_dest, wh.addr3, ETH_ALEN);
+ 		memcpy(eth_hdr.h_source, wh.addr2, ETH_ALEN);
+@@ -435,6 +431,10 @@ int ath6kl_wmi_dot11_hdr_remove(struct wmi *wmi, struct sk_buff *skb)
+ 		break;
+ 	case IEEE80211_FCTL_FROMDS | IEEE80211_FCTL_TODS:
+ 		break;
++	default:
++		memcpy(eth_hdr.h_dest, wh.addr1, ETH_ALEN);
++		memcpy(eth_hdr.h_source, wh.addr2, ETH_ALEN);
++		break;
+ 	}
+ 
+ 	skb_pull(skb, sizeof(struct ath6kl_llc_snap_hdr));
+diff --git a/drivers/net/wireless/intel/ipw2x00/libipw_rx.c b/drivers/net/wireless/intel/ipw2x00/libipw_rx.c
+index cef7f7d79cd9..1c1ec7bb9302 100644
+--- a/drivers/net/wireless/intel/ipw2x00/libipw_rx.c
++++ b/drivers/net/wireless/intel/ipw2x00/libipw_rx.c
+@@ -507,7 +507,7 @@ int libipw_rx(struct libipw_device *ieee, struct sk_buff *skb,
+ 		memcpy(dst, hdr->addr3, ETH_ALEN);
+ 		memcpy(src, hdr->addr4, ETH_ALEN);
+ 		break;
+-	case 0:
++	default:
+ 		memcpy(dst, hdr->addr1, ETH_ALEN);
+ 		memcpy(src, hdr->addr2, ETH_ALEN);
+ 		break;
+diff --git a/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c b/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c
+index 599f30f22841..34dbddbf3f9b 100644
+--- a/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c
++++ b/drivers/net/wireless/intersil/hostap/hostap_80211_rx.c
+@@ -855,7 +855,7 @@ void hostap_80211_rx(struct net_device *dev, struct sk_buff *skb,
+ 		memcpy(dst, hdr->addr3, ETH_ALEN);
+ 		memcpy(src, hdr->addr4, ETH_ALEN);
+ 		break;
+-	case 0:
++	default:
+ 		memcpy(dst, hdr->addr1, ETH_ALEN);
+ 		memcpy(src, hdr->addr2, ETH_ALEN);
+ 		break;
+diff --git a/net/wireless/lib80211_crypt_tkip.c b/net/wireless/lib80211_crypt_tkip.c
+index 71447cf86306..ba0a1f398ce5 100644
+--- a/net/wireless/lib80211_crypt_tkip.c
++++ b/net/wireless/lib80211_crypt_tkip.c
+@@ -556,7 +556,7 @@ static void michael_mic_hdr(struct sk_buff *skb, u8 * hdr)
+ 		memcpy(hdr, hdr11->addr3, ETH_ALEN);	/* DA */
+ 		memcpy(hdr + ETH_ALEN, hdr11->addr4, ETH_ALEN);	/* SA */
+ 		break;
+-	case 0:
++	default:
+ 		memcpy(hdr, hdr11->addr1, ETH_ALEN);	/* DA */
+ 		memcpy(hdr + ETH_ALEN, hdr11->addr2, ETH_ALEN);	/* SA */
+ 		break;
+-- 
+2.9.0
