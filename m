@@ -1,41 +1,82 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] can: fix warning in bcm_connect/proc_register
-Date: Mon, 24 Oct 2016 13:17:19 -0700
-Message-ID: <CAM_iQpVmhH_9vQcTw+wP1qmPLOijZZrMZrq=_e4i5fUXYDON0Q@mail.gmail.com>
-References: <20161024191126.30256-1-socketcan@hartkopp.net> <CAM_iQpXj3ktALCmjwaPKJuf0SDEc6Txk-yYkRzZ79LFEsxOx3w@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized warning
+Date: Mon, 24 Oct 2016 22:21:59 +0200
+Message-ID: <12460209.DFK3VxnryE@wuerfel>
+References: <20161024153454.2766113-1-arnd@arndb.de> <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        David Miller <davem@davemloft.net>, linux-can@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXj3ktALCmjwaPKJuf0SDEc6Txk-yYkRzZ79LFEsxOx3w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Quentin Armitage <quentin@armitage.org.uk>,
+        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 24, 2016 at 1:10 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Mon, Oct 24, 2016 at 12:11 PM, Oliver Hartkopp
-> <socketcan@hartkopp.net> wrote:
->>         if (proc_dir) {
->>                 /* unique socket address as filename */
->>                 sprintf(bo->procname, "%lu", sock_i_ino(sk));
->>                 bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
->>                                                      proc_dir,
->>                                                      &bcm_proc_fops, sk);
->> +               if (!bo->bcm_proc_read) {
->> +                       ret = -ENOMEM;
->> +                       goto fail;
->> +               }
->
-> Well, I meant we need to call proc_create_data() once per socket,
-> so we need a check before proc_create_data() too.
+On Monday, October 24, 2016 10:47:54 PM CEST Julian Anastasov wrote:
+> > diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> > index 1b07578bedf3..9350530c16c1 100644
+> > --- a/net/netfilter/ipvs/ip_vs_sync.c
+> > +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> > @@ -283,6 +283,7 @@ struct ip_vs_sync_buff {
+> >   */
+> >  static void ntoh_seq(struct ip_vs_seq *no, struct ip_vs_seq *ho)
+> >  {
+> > +     memset(ho, 0, sizeof(*ho));
+> >       ho->init_seq       = get_unaligned_be32(&no->init_seq);
+> >       ho->delta          = get_unaligned_be32(&no->delta);
+> >       ho->previous_delta = get_unaligned_be32(&no->previous_delta);
+> 
+>         So, now there is a double write here?
 
-Hmm, bo->bound should guarantee it, so never mind, your patch
-looks fine.
+Correct. I would hope that a sane version of gcc would just not
+perform the first write. What happens instead is that the version
+that produces the warning here moves the initialization to the
+top of the calling function.
+
+>         What about such constructs?:
+> 
+>         *ho = (struct ip_vs_seq) {
+>                 .init_seq       = get_unaligned_be32(&no->init_seq),
+>                 ...
+>         };
+> 
+>         Any difference in the compiled code or warnings?
+
+Yes, it's one of many things I tried. What happens here is that
+the warning remains as long as all fields are initialized together,
+e.g. these two produces the same warning:
+
+a)
+    ho->init_seq       = get_unaligned_be32(&no->init_seq);
+    ho->delta          = get_unaligned_be32(&no->delta);
+    ho->previous_delta = get_unaligned_be32(&no->previous_delta);
+
+b)
+   *ho = (struct ip_vs_seq) {
+       .init_seq       = get_unaligned_be32(&no->init_seq);
+       .delta          = get_unaligned_be32(&no->delta);
+       .previous_delta = get_unaligned_be32(&no->previous_delta);
+   };
+
+but this one does not:
+
+c)
+   *ho = (struct ip_vs_seq) {
+       .delta          = get_unaligned_be32(&no->delta);
+       .previous_delta = get_unaligned_be32(&no->previous_delta);
+   };
+   ho->init_seq       = get_unaligned_be32(&no->init_seq);
+
+I have absolutely no idea what is going on inside of gcc here.
+
+	Arnd
