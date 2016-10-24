@@ -1,46 +1,58 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: bgmac: fix spelling mistake: "connecton" -> "connection"
-Date: Mon, 24 Oct 2016 23:46:18 +0100
-Message-ID: <20161024224618.10383-1-colin.king@canonical.com>
+From: Daniel William <escale-toulouse@airalgerie.dz>
+Subject: RE
+Date: Mon, 24 Oct 2016 23:29:40 +0100
+Message-ID: <20161024232940.Horde.MPsOKKGdvammBe-VpHz47bv@mail.airalgerie.dz>
+Reply-To: sunloan613@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:59631 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755768AbcJXWqX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 18:46:23 -0400
+Received: from mail.airalgerie.dz ([80.246.2.147]:30025 "EHLO
+        mail.airalgerie.dz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753140AbcJXX0j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 19:26:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Hello.
 
-trivial fix to spelling mistake in dev_err message
+Do you need a loan to pay off your dept or loan to buy a house or loan  
+to start up a business? have you been denied by any bank or loan  
+company,worry no more,we give loan with 2% interest rate,with a  
+repayment
+plans of 1 to 35 years.Fill the below loan application form and get  
+your loan contact email sunloan613@gmail.com
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/broadcom/bgmac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 856379c..31ca204 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1449,7 +1449,7 @@ static int bgmac_phy_connect(struct bgmac *bgmac)
- 	phy_dev = phy_connect(bgmac->net_dev, bus_id, &bgmac_adjust_link,
- 			      PHY_INTERFACE_MODE_MII);
- 	if (IS_ERR(phy_dev)) {
--		dev_err(bgmac->dev, "PHY connecton failed\n");
-+		dev_err(bgmac->dev, "PHY connection failed\n");
- 		return PTR_ERR(phy_dev);
- 	}
- 
--- 
-2.9.3
+The following details are required from you as the loan Applicant.
+
+INFORMATION REQUIRED
+
+PERSONAL DETAIL
+
+Full name:
+Age
+Phone number:
+Marital Status:
+Sex
+Occupation :
+Contact Address:
+Country of residence:
+Alternate Email:
+
+LOAN DETAIL
+
+Loan amount:
+Duration:
+Monthly Income:
+Have you applied for loans online in the past
+Purpose of loan
+
+Note:  Send a scanned copy of either your Driver license or Working ID  
+card will be required for loan approval
+
+We hope to provide our service to you.
+
+Regards
+Thanks and GOD BLESS
