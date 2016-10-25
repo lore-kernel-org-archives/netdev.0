@@ -1,116 +1,117 @@
-From: Jonathan Maxwell <jmaxwell37@gmail.com>
-Subject: Re: [PATCH net-next] ibmveth: calculate correct gso_size and set gso_type
-Date: Wed, 26 Oct 2016 08:20:26 +1100
-Message-ID: <CAGHK07Dtzr-o7zOAMA7ykiWXjHoY4+HFJwQoFmhgeh93SyexxA@mail.gmail.com>
-References: <1477372421-11656-1-git-send-email-jmaxwell37@gmail.com> <20161025103126.GW2948@localhost.localdomain>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next PATCH 00/27] Add support for DMA writable pages being
+ writable by the network stack
+Date: Tue, 25 Oct 2016 11:36:48 -0400
+Message-ID: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: tlfalcon@linux.vnet.ibm.com, benh@kernel.crashing.org,
-        paulus@samba.org, mpe@ellerman.id.au,
-        David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>, jarod@redhat.com,
-        hofrat@osadl.org, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-        Jon Maxwell <jmaxwell@redhat.com>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161025103126.GW2948@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, brouer@redhat.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+ linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
->> +     u16 hdr_len = ETH_HLEN + sizeof(struct tcphdr);
+The first 22 patches in the set add support for the DMA attribute
+DMA_ATTR_SKIP_CPU_SYNC on multiple platforms/architectures.  This is needed
+so that we can flag the calls to dma_map/unmap_page so that we do not
+invalidate cache lines that do not currently belong to the device.  Instead
+we have to take care of this in the driver via a call to
+sync_single_range_for_cpu prior to freeing the Rx page.
 
-> Compiler may optmize this, but maybe move hdr_len to [*] ?>
+Patch 23 adds support for dma_map_page_attrs and dma_unmap_page_attrs so
+that we can unmap and map a page using the DMA_ATTR_SKIP_CPU_SYNC
+attribute.
 
-There are other places in the stack where a u16 is used for the
-same purpose. So I'll rather stick to that convention.
+Patch 24 adds support for freeing a page that has multiple references being
+held by a single caller.  This way we can free page fragments that were
+allocated by a given driver.
 
-I'll make the other formatting changes you suggested and
-resubmit as v1.
+The last 3 patches use these updates in the igb driver to allow for us to
+reimpelement the use of build_skb.
 
-Thanks
+My hope is to get the series accepted into the net-next tree as I have a
+number of other Intel drivers I could then begin updating once these
+patches are accepted.
 
-Jon
+v1: Split out changes DMA_ERROR_CODE fix for swiotlb-xen
+    Minor fixes based on issues found by kernel build bot
+    Few minor changes for issues found on code review
+    Added Acked-by for patches that were acked and not changed
 
-On Tue, Oct 25, 2016 at 9:31 PM, Marcelo Ricardo Leitner
-<mleitner@redhat.com> wrote:
-> On Tue, Oct 25, 2016 at 04:13:41PM +1100, Jon Maxwell wrote:
->> We recently encountered a bug where a few customers using ibmveth on the
->> same LPAR hit an issue where a TCP session hung when large receive was
->> enabled. Closer analysis revealed that the session was stuck because the
->> one side was advertising a zero window repeatedly.
->>
->> We narrowed this down to the fact the ibmveth driver did not set gso_size
->> which is translated by TCP into the MSS later up the stack. The MSS is
->> used to calculate the TCP window size and as that was abnormally large,
->> it was calculating a zero window, even although the sockets receive buffer
->> was completely empty.
->>
->> We were able to reproduce this and worked with IBM to fix this. Thanks Tom
->> and Marcelo for all your help and review on this.
->>
->> The patch fixes both our internal reproduction tests and our customers tests.
->>
->> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
->> ---
->>  drivers/net/ethernet/ibm/ibmveth.c | 19 +++++++++++++++++++
->>  1 file changed, 19 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
->> index 29c05d0..3028c33 100644
->> --- a/drivers/net/ethernet/ibm/ibmveth.c
->> +++ b/drivers/net/ethernet/ibm/ibmveth.c
->> @@ -1182,6 +1182,8 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
->>       int frames_processed = 0;
->>       unsigned long lpar_rc;
->>       struct iphdr *iph;
->> +     bool large_packet = 0;
->> +     u16 hdr_len = ETH_HLEN + sizeof(struct tcphdr);
->
-> Compiler may optmize this, but maybe move hdr_len to [*] ?
->
->>
->>  restart_poll:
->>       while (frames_processed < budget) {
->> @@ -1236,10 +1238,27 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
->>                                               iph->check = 0;
->>                                               iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
->>                                               adapter->rx_large_packets++;
->> +                                             large_packet = 1;
->>                                       }
->>                               }
->>                       }
->>
->> +                     if (skb->len > netdev->mtu) {
->
-> [*]
->
->> +                             iph = (struct iphdr *)skb->data;
->> +                             if (be16_to_cpu(skb->protocol) == ETH_P_IP && iph->protocol == IPPROTO_TCP) {
->
-> The if line above is too long, should be broken in two.
->
->> +                                     hdr_len += sizeof(struct iphdr);
->> +                                     skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
->> +                                     skb_shinfo(skb)->gso_size = netdev->mtu - hdr_len;
->> +                             } else if (be16_to_cpu(skb->protocol) == ETH_P_IPV6 &&
->> +                                     iph->protocol == IPPROTO_TCP) {
->                                         ^
-> And this one should start 3 spaces later, right below be16_....
->
->   Marcelo
->
->> +                                     hdr_len += sizeof(struct ipv6hdr);
->> +                                     skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->> +                                     skb_shinfo(skb)->gso_size = netdev->mtu - hdr_len;
->> +                             }
->> +                             if (!large_packet)
->> +                                     adapter->rx_large_packets++;
->> +                     }
->> +
->>                       napi_gro_receive(napi, skb);    /* send it up */
->>
->>                       netdev->stats.rx_packets++;
->> --
->> 1.8.3.1
->>
+---
+
+Alexander Duyck (27):
+      swiotlb: Drop unused function swiotlb_map_sg
+      swiotlb-xen: Enforce return of DMA_ERROR_CODE in mapping function
+      swiotlb: Add support for DMA_ATTR_SKIP_CPU_SYNC
+      arch/arc: Add option to skip sync on DMA mapping
+      arch/arm: Add option to skip sync on DMA map and unmap
+      arch/avr32: Add option to skip sync on DMA map
+      arch/blackfin: Add option to skip sync on DMA map
+      arch/c6x: Add option to skip sync on DMA map and unmap
+      arch/frv: Add option to skip sync on DMA map
+      arch/hexagon: Add option to skip DMA sync as a part of mapping
+      arch/m68k: Add option to skip DMA sync as a part of mapping
+      arch/metag: Add option to skip DMA sync as a part of map and unmap
+      arch/microblaze: Add option to skip DMA sync as a part of map and unmap
+      arch/mips: Add option to skip DMA sync as a part of map and unmap
+      arch/nios2: Add option to skip DMA sync as a part of map and unmap
+      arch/openrisc: Add option to skip DMA sync as a part of mapping
+      arch/parisc: Add option to skip DMA sync as a part of map and unmap
+      arch/powerpc: Add option to skip DMA sync as a part of mapping
+      arch/sh: Add option to skip DMA sync as a part of mapping
+      arch/sparc: Add option to skip DMA sync as a part of map and unmap
+      arch/tile: Add option to skip DMA sync as a part of map and unmap
+      arch/xtensa: Add option to skip DMA sync as a part of mapping
+      dma: Add calls for dma_map_page_attrs and dma_unmap_page_attrs
+      mm: Add support for releasing multiple instances of a page
+      igb: Update driver to make use of DMA_ATTR_SKIP_CPU_SYNC
+      igb: Update code to better handle incrementing page count
+      igb: Revert "igb: Revert support for build_skb in igb"
+
+
+ arch/arc/mm/dma.c                         |    5 +
+ arch/arm/common/dmabounce.c               |   16 +-
+ arch/arm/xen/mm.c                         |    1 
+ arch/avr32/mm/dma-coherent.c              |    7 +
+ arch/blackfin/kernel/dma-mapping.c        |    8 +
+ arch/c6x/kernel/dma.c                     |   14 +-
+ arch/frv/mb93090-mb00/pci-dma-nommu.c     |   14 +-
+ arch/frv/mb93090-mb00/pci-dma.c           |    9 +
+ arch/hexagon/kernel/dma.c                 |    6 +
+ arch/m68k/kernel/dma.c                    |    8 +
+ arch/metag/kernel/dma.c                   |   16 ++
+ arch/microblaze/kernel/dma.c              |   10 +
+ arch/mips/loongson64/common/dma-swiotlb.c |    2 
+ arch/mips/mm/dma-default.c                |    8 +
+ arch/nios2/mm/dma-mapping.c               |   26 +++-
+ arch/openrisc/kernel/dma.c                |    3 
+ arch/parisc/kernel/pci-dma.c              |   20 ++-
+ arch/powerpc/kernel/dma.c                 |    9 +
+ arch/sh/kernel/dma-nommu.c                |    7 +
+ arch/sparc/kernel/iommu.c                 |    4 -
+ arch/sparc/kernel/ioport.c                |    4 -
+ arch/tile/kernel/pci-dma.c                |   12 +-
+ arch/x86/xen/pci-swiotlb-xen.c            |    1 
+ arch/xtensa/kernel/pci-dma.c              |    7 +
+ drivers/net/ethernet/intel/igb/igb.h      |   36 ++++-
+ drivers/net/ethernet/intel/igb/igb_main.c |  207 +++++++++++++++++++++++------
+ drivers/xen/swiotlb-xen.c                 |   27 ++--
+ include/linux/dma-mapping.h               |   20 ++-
+ include/linux/gfp.h                       |    2 
+ include/linux/swiotlb.h                   |   10 +
+ include/xen/swiotlb-xen.h                 |    3 
+ lib/swiotlb.c                             |   56 ++++----
+ mm/page_alloc.c                           |   14 ++
+ 33 files changed, 433 insertions(+), 159 deletions(-)
+
+--
+Signature
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
