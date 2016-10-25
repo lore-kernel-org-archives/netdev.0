@@ -1,49 +1,31 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: [PATCH] can: fix warning in bcm_connect/proc_register
-Date: Tue, 25 Oct 2016 14:12:57 +0200
-Message-ID: <CAAeHK+yJA=h7znkP0s2pQbXif3+7rGSgtpOO0EaP3kW-JZGjeA@mail.gmail.com>
-References: <20161024191126.30256-1-socketcan@hartkopp.net>
- <CAM_iQpXj3ktALCmjwaPKJuf0SDEc6Txk-yYkRzZ79LFEsxOx3w@mail.gmail.com> <CAM_iQpVmhH_9vQcTw+wP1qmPLOijZZrMZrq=_e4i5fUXYDON0Q@mail.gmail.com>
+From: pamela.alvarez@qaliwarma.gob.pe
+Subject: =?utf-8?q?Donation_of_=C2=A31=2E5_Million_Pounds!!?=
+Date: Tue, 25 Oct 2016 06:48:31 -0500
+Message-ID: <20161025120800.AFEF33F7791A4@mail.qaliwarma.gob.pe>
+Reply-To: colinsweir008@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-        David Miller <davem@davemloft.net>, linux-can@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpVmhH_9vQcTw+wP1qmPLOijZZrMZrq=_e4i5fUXYDON0Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <pamela.alvarez@qaliwarma.gob.pe>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.qaliwarma.gob.pe ([190.116.61.217]:56232 "EHLO
+        mail.qaliwarma.gob.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750785AbcJYMSJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 08:18:09 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Oliver,
+My wife and I have awarded you with a donation of £1.5 million Pounds
+from part of our Jackpot Lottery of 161,653,000 Million Pounds, send your
+name,address, phone for claims.
 
-I can confirm that your patch fixes the warnings for me.
+View http://www.bbc.co.uk/news/uk-scotland-glasgow-west-18801698
 
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
+We await your earliest response and God Bless you.
 
-On Mon, Oct 24, 2016 at 10:17 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Mon, Oct 24, 2016 at 1:10 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Mon, Oct 24, 2016 at 12:11 PM, Oliver Hartkopp
->> <socketcan@hartkopp.net> wrote:
->>>         if (proc_dir) {
->>>                 /* unique socket address as filename */
->>>                 sprintf(bo->procname, "%lu", sock_i_ino(sk));
->>>                 bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
->>>                                                      proc_dir,
->>>                                                      &bcm_proc_fops, sk);
->>> +               if (!bo->bcm_proc_read) {
->>> +                       ret = -ENOMEM;
->>> +                       goto fail;
->>> +               }
->>
->> Well, I meant we need to call proc_create_data() once per socket,
->> so we need a check before proc_create_data() too.
->
-> Hmm, bo->bound should guarantee it, so never mind, your patch
-> looks fine.
+Best of luck.
+
+Chris Colin & Weir
+
+Reply E-mail:colinsweir008@qq.com
