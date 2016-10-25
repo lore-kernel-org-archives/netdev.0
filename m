@@ -1,26 +1,58 @@
-From: Richard Robert <mprrmpttud11@gmail.com>
-Subject: =?UTF-8?B?0K8g0LMt0L0g0KDQuNGH0LDRgNC0INCg0L7QsdC10YDRgiwg0Y8g0Y7RgNC40YHRgiDQvw==?=
-        =?UTF-8?B?0L4g0L/RgNC+0YTQtdGB0YHQuNC4LCDRgyDQvNC10L3RjyDQtdGB0YLRjCDRh9Cw0YHRgtC90YvQuSA=?=
-        =?UTF-8?B?0L/RgNC10LTQstCw0YDQuNGC0LXQu9GM0L3Ri9C5INC30LDQutCw0Lcg0L7RgiDQvNC+0LXQs9C+INC+?=
-        =?UTF-8?B?0YTQuNGB0LAg0LIg0L7RgtC90L7RiNC10L3QuNC4INC80L7QtdCz0L4g0L/QvtC60L7QudC90L7Qs9C+?=
-        =?UTF-8?B?INC60LvQuNC10L3RgtCwLCDQs9GA0LDQttC00LDQvdC40L0g0LLQsNGI0LXQuSDRgdGC0YDQsNC90Ysg?=
-        =?UTF-8?B?0YEg0YLQvtC5INC20LUg0YTQsNC80LjQu9C40LXQuSDRgSDQstCw0LzQuCwg0LrQvtGC0L7RgNGL0Lkg?=
-        =?UTF-8?B?0YPQvNC10YAg0L3QtdGB0LrQvtC70YzQutC+INC70LXRgiDQvdCw0LfQsNC0LCDQvtGB0YLQsNCy0Lg=?=
-        =?UTF-8?B?0LIg0L/QvtC30LDQtNC4INGB0LLQvtC40YUg0YHQstC+0LnRgdGC0LIg0Lgg0L7Qs9GA0L7QvNC90L4=?=
-        =?UTF-8?B?0LUg0LrQvtC70LjRh9C10YHRgtCy0L4g0LTQtdC90LXQsyDQsiDQsdCw0L3QuiDQsiDQvNC+0LXQuSA=?
-Date: Tue, 25 Oct 2016 14:38:57 +0100
-Message-ID: <CALr2nR75dLKBCDxqu=DiLhP00yWntERjQZ-jB9OXbB3O_USevg@mail.gmail.com>
-Reply-To: mprrmp101734655@gmail.com
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: Re: [PATCH] net: bgmac: fix spelling mistake: "connecton" ->
+ "connection"
+Date: Tue, 25 Oct 2016 09:42:32 -0400
+Message-ID: <20161025134231.GA30754@broadcom.com>
+References: <20161024224618.10383-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:38183 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932522AbcJYNjA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 09:39:00 -0400
-Received: by mail-lf0-f43.google.com with SMTP id d20so14593892lfj.5
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 06:38:59 -0700 (PDT)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34432 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934325AbcJYNmq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 09:42:46 -0400
+Received: by mail-pf0-f178.google.com with SMTP id n85so3420105pfi.1
+        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 06:42:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20161024224618.10383-1-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Oct 24, 2016 at 11:46:18PM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> trivial fix to spelling mistake in dev_err message
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+One of these days I'll learn to spell.
+
+Acked-by: Jon Mason <jon.mason@broadcom.com>
+
+> ---
+>  drivers/net/ethernet/broadcom/bgmac.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index 856379c..31ca204 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -1449,7 +1449,7 @@ static int bgmac_phy_connect(struct bgmac *bgmac)
+>  	phy_dev = phy_connect(bgmac->net_dev, bus_id, &bgmac_adjust_link,
+>  			      PHY_INTERFACE_MODE_MII);
+>  	if (IS_ERR(phy_dev)) {
+> -		dev_err(bgmac->dev, "PHY connecton failed\n");
+> +		dev_err(bgmac->dev, "PHY connection failed\n");
+>  		return PTR_ERR(phy_dev);
+>  	}
+>  
+> -- 
+> 2.9.3
+> 
