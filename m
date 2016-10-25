@@ -1,39 +1,56 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/5] genetlink: statically initialize families
-Date: Tue, 25 Oct 2016 11:25:38 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0209D95@AcuExch.aculab.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 3/5] genetlink: statically initialize families
+Date: Tue, 25 Oct 2016 13:38:28 +0200
+Message-ID: <1477395508.4390.23.camel@sipsolutions.net>
 References: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
          <1477312805-7110-4-git-send-email-johannes@sipsolutions.net>
-         (sfid-20161024_144032_073312_7524B853)
- <1477313733.4085.11.camel@sipsolutions.net>
+         (sfid-20161024_144032_073312_7524B853) <1477313733.4085.11.camel@sipsolutions.net>
+         <063D6719AE5E284EB5DD2968C1650D6DB0209D95@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: 'Johannes Berg' <johannes@sipsolutions.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: David Laight <David.Laight@ACULAB.COM>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.195]:63351 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752711AbcJYL2V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 07:28:21 -0400
-In-Reply-To: <1477313733.4085.11.camel@sipsolutions.net>
-Content-Language: en-US
+Received: from s3.sipsolutions.net ([5.9.151.49]:36242 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752711AbcJYLif (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Oct 2016 07:38:35 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0209D95@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSm9oYW5uZXMgQmVyZw0KPiBTZW50OiAyNCBPY3RvYmVyIDIwMTYgMTM6NTYNCj4gT24g
-TW9uLCAyMDE2LTEwLTI0IGF0IDE0OjQwICswMjAwLCBKb2hhbm5lcyBCZXJnIHdyb3RlOg0KPiA+
-IEZyb206IEpvaGFubmVzIEJlcmcgPGpvaGFubmVzLmJlcmdAaW50ZWwuY29tPg0KPiA+DQo+ID4g
-SW5zdGVhZCBvZiBwcm92aWRpbmcgbWFjcm9zL2lubGluZSBmdW5jdGlvbnMgdG8gaW5pdGlhbGl6
-ZQ0KPiA+IHRoZSBmYW1pbGllcywgbWFrZSBhbGwgdXNlcnMgaW5pdGlhbGl6ZSB0aGVtIHN0YXRp
-Y2FsbHkgYW5kDQo+ID4gZ2V0IHJpZCBvZiB0aGUgbWFjcm9zLg0KPiA+DQo+ID4gVGhpcyByZWR1
-Y2VzIHRoZSBrZXJuZWwgY29kZSBzaXplIGJ5IGFib3V0IDEuNmsgb24geDg2LTY0DQo+ID4gKHdp
-dGggYWxseWVzY29uZmlnKS4NCj4gDQo+IEFjdHVhbGx5LCB3aXRoIHRoZSBuZXcgc3lzdGVtIHdo
-ZXJlIGl0J3Mgbm90IGNvbnN0LCBJIGNvdWxkIGV2ZW4gc3BsaXQNCj4gdGhpcyB1cCBhbmQgc3Vi
-bWl0IHBlciBzdWJzeXN0ZW0sIGkuZS4gdGhlIGZvdXJ0aCBwYXRjaCBkb2Vzbid0IGRlcGVuZA0K
-PiBvbiBpdC4gSSB0aG91Z2h0IGl0IHdvdWxkLCBzaW5jZSBJIHdhbnRlZCB0byBtYWtlIGl0IGNv
-bnN0LCBidXQgc2luY2UgSQ0KPiBmYWlsZWQgaXQgZG9lc24ndCBhY3R1YWxseSBoYXZlIHRoYXQg
-ZGVwZW5kZW5jeS4NCg0KQWN0dWFsbHksIHdoeSBhcmVuJ3QgdGhlIHN0cnVjdHVyZXMgJ2NvbnN0
-JyA/DQoNCllvdSBjb3VsZCB1c2UgYSAjZGVmaW5lIHRvIHNldCB0aGUgLm9wcyBhbmQgLm5fb3Bz
-IGZpZWxkcy4NCihhbmQgbWF5YmUgLm1vZHVsZSA9IFRISVNfTU9EVUxFIGFzIHdlbGwpLg0KDQoJ
-RGF2aWQNCg0K
+On Tue, 2016-10-25 at 11:25 +0000, David Laight wrote:
+
+> > Actually, with the new system where it's not const, I could even
+> > split this up and submit per subsystem, i.e. the fourth patch
+> > doesn't depend on it. I thought it would, since I wanted to make it
+> > const, but since I failed it doesn't actually have that dependency.
+> 
+> Actually, why aren't the structures 'const' ?
+> 
+> You could use a #define to set the .ops and .n_ops fields.
+> (and maybe .module = THIS_MODULE as well).
+
+This stuff isn't the problem - after this patch these are of course
+statically initialized and const.
+
+The problem is that the struct members family->id, family->mcgrp_offset 
+and family->attrbuf, are only determined at genl_register_family().
+
+I considered simply moving them into a new struct, that contains just
+those along with a pointer to the family, but then I have essentially
+two choices:
+
+1) look up the registration struct by the family every time I need the
+   family ID, which is all the time; that would be rather inefficient
+
+2) change *all* genetlink code to not pass the family but rather pass a
+   pointer returned by genl_register_family(); that's a massive change
+
+So on the whole, I decided that __ro_after_init was entirely reasonable
+and then even this patch isn't really necessary, but since I had it
+anyway it still seemed to make sense, even if I had to add all those
+forward declarations.
+
+johannes
