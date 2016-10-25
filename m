@@ -1,70 +1,67 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 03/12] net/mlx5: Keep autogroups list ordered
-Date: Tue, 25 Oct 2016 18:36:26 +0300
-Message-ID: <1477409795-28807-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 07/12] net/mlx5e: Unregister netdev before detaching it
+Date: Tue, 25 Oct 2016 18:36:30 +0300
+Message-ID: <1477409795-28807-8-git-send-email-saeedm@mellanox.com>
 References: <1477409795-28807-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Leon Romanovsky <leonro@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>,
+        Mohamad Haj Yahia <mohamad@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40901 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40946 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755498AbcJYPiV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 11:38:21 -0400
+        with ESMTP id S932951AbcJYPiZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 11:38:25 -0400
 In-Reply-To: <1477409795-28807-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Blakey <paulb@mellanox.com>
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Finding a new autogroup range is done by going over a group list
-sorted by each group start index. The search is stopped after finding
-the first free range. Adding the newly created group to the list is
-wrongly added to the end of the list regardless of its start index as
-the parameter of where to insert it is ignored.
+Detaching the netdev before unregistering it cause some netdev cleanup
+ndos to fail because they check presence of the netdev, so we need to
+unregister the netdev first.
 
-This commit makes sure to use that unused parameter to insert
-it where requested.
-
-Fixes: f0d22d187473 ('net/mlx5_core: Introduce flow steering autogrouped flow table')
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
+Fixes: 26e59d8077a3 ('net/mlx5e: Implement mlx5e interface attach/detach callbacks')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 5da2cc8..17559c8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -879,7 +879,7 @@ static struct mlx5_flow_group *create_flow_group_common(struct mlx5_flow_table *
- 	tree_init_node(&fg->node, !is_auto_fg, del_flow_group);
- 	tree_add_node(&fg->node, &ft->node);
- 	/* Add node to group list */
--	list_add(&fg->node.list, ft->node.children.prev);
-+	list_add(&fg->node.list, prev_fg);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 5c8ab3e..f4c687c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -4048,7 +4048,6 @@ void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *priv)
+ 	const struct mlx5e_profile *profile = priv->profile;
+ 	struct net_device *netdev = priv->netdev;
  
- 	return fg;
+-	unregister_netdev(netdev);
+ 	destroy_workqueue(priv->wq);
+ 	if (profile->cleanup)
+ 		profile->cleanup(priv);
+@@ -4065,6 +4064,7 @@ static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
+ 	for (vport = 1; vport < total_vfs; vport++)
+ 		mlx5_eswitch_unregister_vport_rep(esw, vport);
+ 
++	unregister_netdev(priv->netdev);
+ 	mlx5e_detach(mdev, vpriv);
+ 	mlx5e_destroy_netdev(mdev, priv);
  }
-@@ -893,7 +893,7 @@ struct mlx5_flow_group *mlx5_create_flow_group(struct mlx5_flow_table *ft,
- 		return ERR_PTR(-EPERM);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 3c97da1..7fe6559 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -457,6 +457,7 @@ void mlx5e_vport_rep_unload(struct mlx5_eswitch *esw,
+ 	struct mlx5e_priv *priv = rep->priv_data;
+ 	struct net_device *netdev = priv->netdev;
  
- 	lock_ref_node(&ft->node);
--	fg = create_flow_group_common(ft, fg_in, &ft->node.children, false);
-+	fg = create_flow_group_common(ft, fg_in, ft->node.children.prev, false);
- 	unlock_ref_node(&ft->node);
- 
- 	return fg;
-@@ -1012,7 +1012,7 @@ static struct mlx5_flow_group *create_autogroup(struct mlx5_flow_table *ft,
- 						u32 *match_criteria)
- {
- 	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
--	struct list_head *prev = &ft->node.children;
-+	struct list_head *prev = ft->node.children.prev;
- 	unsigned int candidate_index = 0;
- 	struct mlx5_flow_group *fg;
- 	void *match_criteria_addr;
++	unregister_netdev(netdev);
+ 	mlx5e_detach_netdev(esw->dev, netdev);
+ 	mlx5e_destroy_netdev(esw->dev, priv);
+ }
 -- 
 2.7.4
