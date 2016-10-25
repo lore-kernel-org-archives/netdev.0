@@ -1,56 +1,84 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 3/5] genetlink: statically initialize families
-Date: Tue, 25 Oct 2016 13:38:28 +0200
-Message-ID: <1477395508.4390.23.camel@sipsolutions.net>
-References: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
-         <1477312805-7110-4-git-send-email-johannes@sipsolutions.net>
-         (sfid-20161024_144032_073312_7524B853) <1477313733.4085.11.camel@sipsolutions.net>
-         <063D6719AE5E284EB5DD2968C1650D6DB0209D95@AcuExch.aculab.com>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: Re: question about function igmp_stop_timer() in net/ipv4/igmp.c
+Date: Tue, 25 Oct 2016 19:50:53 +0800
+Message-ID: <580F471D.5050204@hisilicon.com>
+References: <580DF574.6070905@hisilicon.com> <20161024153200.GM1110@lunn.ch>
+ <580EB1D2.3010309@hisilicon.com> <20161025073913.GA20223@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:36242 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752711AbcJYLif (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Oct 2016 07:38:35 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0209D95@AcuExch.aculab.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:59896 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753536AbcJYLxC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 07:53:02 -0400
+In-Reply-To: <20161025073913.GA20223@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-10-25 at 11:25 +0000, David Laight wrote:
 
-> > Actually, with the new system where it's not const, I could even
-> > split this up and submit per subsystem, i.e. the fourth patch
-> > doesn't depend on it. I thought it would, since I wanted to make it
-> > const, but since I failed it doesn't actually have that dependency.
+
+On 2016/10/25 15:39, Andrew Lunn wrote:
+> On Tue, Oct 25, 2016 at 09:13:54AM +0800, Dongpo Li wrote:
+>> Hi Andrew,
+>>
+>> On 2016/10/24 23:32, Andrew Lunn wrote:
+>>> On Mon, Oct 24, 2016 at 07:50:12PM +0800, Dongpo Li wrote:
+>>>> Hello
+>>>>
+>>>> We encountered a multicast problem when two set-top box(STB) join the same multicast group and leave.
+>>>> The two boxes can join the same multicast group
+>>>> but only one box can send the IGMP leave group message when leave,
+>>>> the other box does not send the IGMP leave message.
+>>>> Our boxes use the IGMP version 2.
+>>>>
+>>>> I added some debug info and found the whole procedure is like this:
+>>>> (1) Box A joins the multicast group 225.1.101.145 and send the IGMP v2 membership report(join group).
+>>>> (2) Box B joins the same multicast group 225.1.101.145 and also send the IGMP v2 membership report(join group).
+>>>> (3) Box A receives the IGMP membership report from Box B and kernel calls igmp_heard_report().
+>>>>     This function will call igmp_stop_timer(im).
+>>>>     In function igmp_stop_timer(im), it tries to delete IGMP timer and does the following:
+>>>>         im->tm_running = 0;
+>>>>         im->reporter = 0;
+>>>> (4) Box A leaves the multicast group 225.1.101.145 and kernel calls
+>>>>     ip_mc_leave_group -> ip_mc_dec_group -> igmp_group_dropped.
+>>>>     But in function igmp_group_dropped(), the im->reporter is 0, so the kernel does not send the IGMP leave message.
+>>>
+>>> RFC 2236 says:
+>>>
+>>> 2.  Introduction
+>>>
+>>>    The Internet Group Management Protocol (IGMP) is used by IP hosts to
+>>>    report their multicast group memberships to any immediately-
+>>>    neighboring multicast routers.
+>>>
+>>> Are Box A or B multicast routers?
+>> Thank you for your comments.
+>> Both Box A and B are IP hosts, not multicast routers.
+>> And the RFC says: IGMP is used by "IP hosts" to report their multicast group membership.
 > 
-> Actually, why aren't the structures 'const' ?
+> They report their membership to gateways, not to each other. The
+> gateway will then arrange for multicast traffic for the group from
+> other subnets to be forwarded to this subnet. You don't need IGMP to
+> receive local traffic.
 > 
-> You could use a #define to set the .ops and .n_ops fields.
-> (and maybe .module = THIS_MODULE as well).
+> Also, this timer is to do with responding to IGMP querier, typically
+> the multicast gateway. The querier keeps track of if a group is in use
+> within a subnet. It listens to group joins and optionally leaves. It
+> also periodically sends out IGMP querier requests, asking who is
+> interested in what groups. The hosts use a random delay before
+> answering, and if some other hosts replies about a group they are a
+> member of, they don't send a response themselves. One is enough.
+> 
+Of course, this timer is to do with responding to IGMP querier.
+I mean, if the timer has expired, the host must have sent the IGMP responding message,
+maybe IGMP join group message or responding router's IGMP querier.
+So the function igmp_stop_timer() should not set im->reporter to 0 if the timer has expired.
+Otherwise the host can't send IGMP leave message when it leaves the group because the im->reporter is 0.
 
-This stuff isn't the problem - after this patch these are of course
-statically initialized and const.
+    Regards,
+    Dongpo
 
-The problem is that the struct members family->id, family->mcgrp_offset 
-and family->attrbuf, are only determined at genl_register_family().
-
-I considered simply moving them into a new struct, that contains just
-those along with a pointer to the family, but then I have essentially
-two choices:
-
-1) look up the registration struct by the family every time I need the
-   family ID, which is all the time; that would be rather inefficient
-
-2) change *all* genetlink code to not pass the family but rather pass a
-   pointer returned by genl_register_family(); that's a massive change
-
-So on the whole, I decided that __ro_after_init was entirely reasonable
-and then even this patch isn't really necessary, but since I had it
-anyway it still seemed to make sense, even if I had to add all those
-forward declarations.
-
-johannes
+.
