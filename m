@@ -1,48 +1,30 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 05/12] net/mlx5: Correctly initialize last use of flow counters
-Date: Tue, 25 Oct 2016 18:36:28 +0300
-Message-ID: <1477409795-28807-6-git-send-email-saeedm@mellanox.com>
-References: <1477409795-28807-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
+Date: Tue, 25 Oct 2016 08:40:05 -0700
+Message-ID: <75a02d2e-9dfe-6c6c-bf76-0b3c606a51be@hpe.com>
+References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
+ <aa771485-b733-49fa-765c-9c2914d65605@hpe.com>
+ <fb79b944-a190-3c30-45eb-eacd51be9e7f@molgen.mpg.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Baoquan He <bhe@redhat.com>
+To: Paul Menzel <pmenzel@molgen.mpg.de>,
+        Sony Chacko <sony.chacko@qlogic.com>,
+        Dept-HSGLinuxNICDev@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40904 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754872AbcJYPiU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 11:38:20 -0400
-In-Reply-To: <1477409795-28807-1-git-send-email-saeedm@mellanox.com>
+Received: from g2t2352.austin.hpe.com ([15.233.44.25]:25982 "EHLO
+        g2t2352.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941817AbcJYPkH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 11:40:07 -0400
+In-Reply-To: <fb79b944-a190-3c30-45eb-eacd51be9e7f@molgen.mpg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Blakey <paulb@mellanox.com>
+On 10/25/2016 08:31 AM, Paul Menzel wrote:
+> To my knowledge, the firmware files haven’t changed since years [1].
 
-Currently, last use timestamp is initialized to zero.
-This is not the expected value by higher layers such as
-when we do TC action offloading. To fix that, set it to
-the current time, e.g when the counter/rule is offloaded.
-This is the same behaviour of non-offloaded TC actions.
+Indeed - it looks like I read "bnx2" and thought "bnx2x"  Must remember 
+to hold-off on replying until after the morning orange juice is consumed :)
 
-Fixes: 43a335e055bb ('mlx5_core: Flow counters infrastructure')
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-index 3a9195b..3b026c1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-@@ -218,6 +218,7 @@ struct mlx5_fc *mlx5_fc_create(struct mlx5_core_dev *dev, bool aging)
- 		goto err_out;
- 
- 	if (aging) {
-+		counter->cache.lastuse = jiffies;
- 		counter->aging = true;
- 
- 		spin_lock(&fc_stats->addlist_lock);
--- 
-2.7.4
+rick
