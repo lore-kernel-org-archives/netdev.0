@@ -1,57 +1,54 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: Re: Redundancy support through HSR and PRP
-Date: Tue, 25 Oct 2016 15:03:33 +0200
-Message-ID: <580F5825.9080109@alten.se>
-References: <57FBDF33.1060606@ti.com> <5808F9FC.1080802@ti.com>
- <580E3854.4030009@ti.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH] cw1200: fix bogus maybe-uninitialized warning
+Date: Tue, 25 Oct 2016 13:24:55 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0209E9A@AcuExch.aculab.com>
+References: <20161024154215.2863586-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-        "David Miller" <davem@davemloft.net>,
-        "Heise, Peter" <peter.heise@airbus.com>
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.webland.nu ([37.26.152.132]:40985 "HELO mx03.webland.nu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-        id S965886AbcJYNT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Oct 2016 09:19:27 -0400
-In-Reply-To: <580E3854.4030009@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: 'Arnd Bergmann' <arnd-r2nGTMty4D4@public.gmane.org>,
+        Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161024154215.2863586-1-arnd-r2nGTMty4D4@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2016-10-24 18:35, Murali Karicheri wrote:
->> On 10/10/2016 02:34 PM, Murali Karicheri wrote:
->>> All,
->>>
->>> Wondering if there plan to add PRP driver support, like HSR in Linux? AFAIK, PRP
->>> adds trailor to Ethernet frame and is used for Redundancy management like HSR.
->>> So wondering why this is not supported.
->>>
->>> Thanks
->>>
->> I need to work on a prp driver for Linux. So if there is already someone working
->> on this, I would like to join and contribute. Either way please respond so that
->> I can work to add this support. 
->>
-> + Arvid
-> 
-> Didn't copy HSR owner in my original email. Copying now.
-> 
-
-Hi Murali,
-
-I'm not aware of anyone working on PRP support.
-
-I will have very little time, if any, to help out with this (or even test changes).
-In fact, if you want to send a patch for the MAINTAINERS file to take over 
-maintainership of the HSR/PRP driver, that would probably be a good thing.
-
-(I'm CC'ing also Peter Heise to this conversation, since he's done some recent work 
-on the HSR driver, and might want to keep updated.)
-
-
--- 
-Arvid Brodin
-Linux Consultant
-ALTEN Sweden
+RnJvbTogT2YgQXJuZCBCZXJnbWFubg0KPiBTZW50OiAyNCBPY3RvYmVyIDIwMTYgMTY6NDINCiAN
+Cj4gT24geDg2LCB0aGUgY3cxMjAwIGRyaXZlciBwcm9kdWNlcyBhIHJhdGhlciBzaWxseSB3YXJu
+aW5nIGFib3V0IHRoZQ0KPiBwb3NzaWJsZSB1c2Ugb2YgdGhlICdyZXQnIHZhcmlhYmxlIHdpdGhv
+dXQgYW4gaW5pdGlhbGl6YXRpb24NCj4gcHJlc3VtYWJseSBhZnRlciBiZWluZyBjb25mdXNlZCBi
+eSB0aGUgYXJjaGl0ZWN0dXJlIHNwZWNpZmljIGRlZmluaXRpb24NCj4gb2YgV0FSTl9PTjoNCj4g
+DQo+IGRyaXZlcnMvbmV0L3dpcmVsZXNzL3N0L2N3MTIwMC93c20uYzogSW4gZnVuY3Rpb24gd3Nt
+X2hhbmRsZV9yeDoNCj4gZHJpdmVycy9uZXQvd2lyZWxlc3Mvc3QvY3cxMjAwL3dzbS5jOjE0NTc6
+OTogZXJyb3I6IHJldCBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24g
+Wy0NCj4gV2Vycm9yPW1heWJlLXVuaW5pdGlhbGl6ZWRdDQo+IA0KPiBBcyB0aGUgZHJpdmVyIGp1
+c3QgY2hlY2tzIHRoZSBzYW1lIHZhcmlhYmxlIHR3aWNlIGhlcmUsIHdlIGNhbiBzaW1wbGlmeQ0K
+PiBpdCBieSByZW1vdmluZyB0aGUgc2Vjb25kIGNvbmRpdGlvbiwgd2hpY2ggbWFrZXMgaXQgbW9y
+ZSByZWFkYWJsZSBhbmQNCj4gYXZvaWRzIHRoZSB3YXJuaW5nLg0KPiANCj4gU2lnbmVkLW9mZi1i
+eTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC93
+aXJlbGVzcy9zdC9jdzEyMDAvd3NtLmMgfCAxNSArKysrKysrLS0tLS0tLS0NCj4gIDEgZmlsZSBj
+aGFuZ2VkLCA3IGluc2VydGlvbnMoKyksIDggZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvd2lyZWxlc3Mvc3QvY3cxMjAwL3dzbS5jIGIvZHJpdmVycy9uZXQvd2ly
+ZWxlc3Mvc3QvY3cxMjAwL3dzbS5jDQo+IGluZGV4IDY4MGQ2MGVhYmM3NS4uMDk0ZTY2MzdhZGUy
+IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9zdC9jdzEyMDAvd3NtLmMNCj4g
+KysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3Mvc3QvY3cxMjAwL3dzbS5jDQo+IEBAIC0zODUsMTQg
+KzM4NSwxMyBAQCBzdGF0aWMgaW50IHdzbV9tdWx0aV90eF9jb25maXJtKHN0cnVjdCBjdzEyMDBf
+Y29tbW9uICpwcml2LA0KPiAgCWlmIChXQVJOX09OKGNvdW50IDw9IDApKQ0KPiAgCQlyZXR1cm4g
+LUVJTlZBTDsNCj4gDQo+IC0JaWYgKGNvdW50ID4gMSkgew0KPiAtCQkvKiBXZSBhbHJlYWR5IHJl
+bGVhc2VkIG9uZSBidWZmZXIsIG5vdyBmb3IgdGhlIHJlc3QgKi8NCj4gLQkJcmV0ID0gd3NtX3Jl
+bGVhc2VfdHhfYnVmZmVyKHByaXYsIGNvdW50IC0gMSk7DQo+IC0JCWlmIChyZXQgPCAwKQ0KPiAt
+CQkJcmV0dXJuIHJldDsNCj4gLQkJZWxzZSBpZiAocmV0ID4gMCkNCj4gLQkJCWN3MTIwMF9iaF93
+YWtldXAocHJpdik7DQo+IC0JfQ0KPiArCS8qIFdlIGFscmVhZHkgcmVsZWFzZWQgb25lIGJ1ZmZl
+ciwgbm93IGZvciB0aGUgcmVzdCAqLw0KPiArCXJldCA9IHdzbV9yZWxlYXNlX3R4X2J1ZmZlcihw
+cml2LCBjb3VudCAtIDEpOw0KPiArCWlmIChyZXQgPCAwKQ0KPiArCQlyZXR1cm4gcmV0Ow0KPiAr
+DQo+ICsJaWYgKHJldCA+IDApDQo+ICsJCWN3MTIwMF9iaF93YWtldXAocHJpdik7DQoNClRoYXQg
+ZG9lc24ndCBsb29rIGVxdWl2YWxlbnQgdG8gbWUgKHdoZW4gY291bnQgPT0gMSkuDQoNCj4gDQo+
+ICAJY3cxMjAwX2RlYnVnX3R4ZWRfbXVsdGkocHJpdiwgY291bnQpOw0KPiAgCWZvciAoaSA9IDA7
+IGkgPCBjb3VudDsgKytpKSB7DQoNCkNvbnZlcnQgdGhpcyBsb29wIGludG8gYSBkbyAuLi4gd2hp
+bGUgc28gdGhlIGJvZHkgZXhlY3V0ZXMgYXQgbGVhc3Qgb25jZS4NCg0KCURhdmlkDQoNCg==
