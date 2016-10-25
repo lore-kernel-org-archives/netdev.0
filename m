@@ -1,94 +1,157 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 12/12] net/mlx5: Avoid passing dma address 0 to firmware
-Date: Tue, 25 Oct 2016 18:36:35 +0300
-Message-ID: <1477409795-28807-13-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 10/12] net/mlx5: Fix race between PCI error handlers and health work
+Date: Tue, 25 Oct 2016 18:36:33 +0300
+Message-ID: <1477409795-28807-11-git-send-email-saeedm@mellanox.com>
 References: <1477409795-28807-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Leon Romanovsky <leonro@mellanox.com>,
-        Noa Osherovich <noaos@mellanox.com>,
+        Mohamad Haj Yahia <mohamad@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40965 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40968 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932696AbcJYPi3 (ORCPT
+        with ESMTP id S936330AbcJYPi3 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 11:38:29 -0400
 In-Reply-To: <1477409795-28807-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Noa Osherovich <noaos@mellanox.com>
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Currently the firmware can't work with a page with dma address 0.
-Passing such an address to the firmware will cause the give_pages
-command to fail.
+Currently there is a race between the health care work and the kernel
+pci error handlers because both of them detect the error, the first one
+to be called will do the error handling.
+There is a chance that health care will disable the pci after resuming
+pci slot.
+Also create a separate WQ because now we will have two types of health
+works, one for the error detection and one for the recovery.
 
-To avoid this, in case we get a 0 dma address of a page from the
-dma engine, we avoid passing it to FW by remapping to get an address
-other than 0.
-
-Fixes: bf0bf77f6519 ('mlx5: Support communicating arbitrary host...')
-Signed-off-by: Noa Osherovich <noaos@mellanox.com>
+Fixes: 89d44f0a6c73 ('net/mlx5_core: Add pci error handlers to mlx5_core driver')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/pagealloc.c    | 26 +++++++++++++++-------
- 1 file changed, 18 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 30 +++++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c   |  9 +++++--
+ include/linux/mlx5/driver.h                      |  4 ++++
+ 3 files changed, 38 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index cc4fd61..a57d5a8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -209,6 +209,7 @@ static void free_4k(struct mlx5_core_dev *dev, u64 addr)
- static int alloc_system_page(struct mlx5_core_dev *dev, u16 func_id)
- {
- 	struct page *page;
-+	u64 zero_addr = 1;
- 	u64 addr;
- 	int err;
- 	int nid = dev_to_node(&dev->pdev->dev);
-@@ -218,26 +219,35 @@ static int alloc_system_page(struct mlx5_core_dev *dev, u16 func_id)
- 		mlx5_core_warn(dev, "failed to allocate page\n");
- 		return -ENOMEM;
- 	}
-+map:
- 	addr = dma_map_page(&dev->pdev->dev, page, 0,
- 			    PAGE_SIZE, DMA_BIDIRECTIONAL);
- 	if (dma_mapping_error(&dev->pdev->dev, addr)) {
- 		mlx5_core_warn(dev, "failed dma mapping page\n");
- 		err = -ENOMEM;
--		goto out_alloc;
-+		goto err_mapping;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 2cb4094..2d00022 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -64,6 +64,10 @@ enum {
+ 	MLX5_NIC_IFC_NO_DRAM_NIC	= 2
+ };
+ 
++enum {
++	MLX5_DROP_NEW_HEALTH_WORK,
++};
 +
-+	/* Firmware doesn't support page with physical address 0 */
-+	if (addr == 0) {
-+		zero_addr = addr;
-+		goto map;
+ static u8 get_nic_interface(struct mlx5_core_dev *dev)
+ {
+ 	return (ioread32be(&dev->iseg->cmdq_addr_l_sz) >> 8) & 3;
+@@ -272,7 +276,13 @@ static void poll_health(unsigned long data)
+ 	if (in_fatal(dev) && !health->sick) {
+ 		health->sick = true;
+ 		print_health_info(dev);
+-		schedule_work(&health->work);
++		spin_lock(&health->wq_lock);
++		if (!test_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags))
++			queue_work(health->wq, &health->work);
++		else
++			dev_err(&dev->pdev->dev,
++				"new health works are not permitted at this stage\n");
++		spin_unlock(&health->wq_lock);
+ 	}
+ }
+ 
+@@ -282,6 +292,7 @@ void mlx5_start_health_poll(struct mlx5_core_dev *dev)
+ 
+ 	init_timer(&health->timer);
+ 	health->sick = 0;
++	clear_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags);
+ 	health->health = &dev->iseg->health;
+ 	health->health_counter = &dev->iseg->health_counter;
+ 
+@@ -298,11 +309,21 @@ void mlx5_stop_health_poll(struct mlx5_core_dev *dev)
+ 	del_timer_sync(&health->timer);
+ }
+ 
++void mlx5_drain_health_wq(struct mlx5_core_dev *dev)
++{
++	struct mlx5_core_health *health = &dev->priv.health;
++
++	spin_lock(&health->wq_lock);
++	set_bit(MLX5_DROP_NEW_HEALTH_WORK, &health->flags);
++	spin_unlock(&health->wq_lock);
++	cancel_work_sync(&health->work);
++}
++
+ void mlx5_health_cleanup(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_core_health *health = &dev->priv.health;
+ 
+-	flush_work(&health->work);
++	destroy_workqueue(health->wq);
+ }
+ 
+ int mlx5_health_init(struct mlx5_core_dev *dev)
+@@ -317,8 +338,11 @@ int mlx5_health_init(struct mlx5_core_dev *dev)
+ 
+ 	strcpy(name, "mlx5_health");
+ 	strcat(name, dev_name(&dev->pdev->dev));
++	health->wq = create_singlethread_workqueue(name);
+ 	kfree(name);
+-
++	if (!health->wq)
++		return -ENOMEM;
++	spin_lock_init(&health->wq_lock);
+ 	INIT_WORK(&health->work, health_care);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 8a63910..9f90226 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1315,8 +1315,13 @@ static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
+ 	dev_info(&pdev->dev, "%s was called\n", __func__);
+ 	mlx5_enter_error_state(dev);
+ 	mlx5_unload_one(dev, priv, false);
+-	pci_save_state(pdev);
+-	mlx5_pci_disable_device(dev);
++	/* In case of kernel call save the pci state and drain health wq */
++	if (state) {
++		pci_save_state(pdev);
++		mlx5_drain_health_wq(dev);
++		mlx5_pci_disable_device(dev);
 +	}
 +
- 	err = insert_page(dev, addr, page, func_id);
- 	if (err) {
- 		mlx5_core_err(dev, "failed to track allocated page\n");
--		goto out_mapping;
-+		dma_unmap_page(&dev->pdev->dev, addr, PAGE_SIZE,
-+			       DMA_BIDIRECTIONAL);
- 	}
- 
--	return 0;
--
--out_mapping:
--	dma_unmap_page(&dev->pdev->dev, addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
-+err_mapping:
-+	if (err)
-+		__free_page(page);
- 
--out_alloc:
--	__free_page(page);
-+	if (zero_addr == 0)
-+		dma_unmap_page(&dev->pdev->dev, zero_addr, PAGE_SIZE,
-+			       DMA_BIDIRECTIONAL);
- 
- 	return err;
+ 	return state == pci_channel_io_perm_failure ?
+ 		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
  }
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 5dbda60..7d9a5d0 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -418,7 +418,10 @@ struct mlx5_core_health {
+ 	u32				prev;
+ 	int				miss_counter;
+ 	bool				sick;
++	/* wq spinlock to synchronize draining */
++	spinlock_t			wq_lock;
+ 	struct workqueue_struct	       *wq;
++	unsigned long			flags;
+ 	struct work_struct		work;
+ };
+ 
+@@ -778,6 +781,7 @@ void mlx5_health_cleanup(struct mlx5_core_dev *dev);
+ int mlx5_health_init(struct mlx5_core_dev *dev);
+ void mlx5_start_health_poll(struct mlx5_core_dev *dev);
+ void mlx5_stop_health_poll(struct mlx5_core_dev *dev);
++void mlx5_drain_health_wq(struct mlx5_core_dev *dev);
+ int mlx5_buf_alloc_node(struct mlx5_core_dev *dev, int size,
+ 			struct mlx5_buf *buf, int node);
+ int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, struct mlx5_buf *buf);
 -- 
 2.7.4
