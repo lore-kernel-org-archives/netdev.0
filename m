@@ -1,68 +1,26 @@
-From: "HEISE, Peter P" <peter.heise@airbus.com>
-Subject: AW: Redundancy support through HSR and PRP
-Date: Tue, 25 Oct 2016 13:24:11 +0000
-Message-ID: <5027_1477401856_580F5D00_5027_1483_1_48dbc6a7637e4ed8a1bec40e850061b8@DE0-03DAG08-P03.central.mail.corp>
-References: <57FBDF33.1060606@ti.com> <5808F9FC.1080802@ti.com>
- <580E3854.4030009@ti.com>
- <6075_1477400598_580F5816_6075_378_9_580F5825.9080109@alten.se>
+From: Richard Robert <mprrmpttud11@gmail.com>
+Subject: =?UTF-8?B?0K8g0LMt0L0g0KDQuNGH0LDRgNC0INCg0L7QsdC10YDRgiwg0Y8g0Y7RgNC40YHRgiDQvw==?=
+        =?UTF-8?B?0L4g0L/RgNC+0YTQtdGB0YHQuNC4LCDRgyDQvNC10L3RjyDQtdGB0YLRjCDRh9Cw0YHRgtC90YvQuSA=?=
+        =?UTF-8?B?0L/RgNC10LTQstCw0YDQuNGC0LXQu9GM0L3Ri9C5INC30LDQutCw0Lcg0L7RgiDQvNC+0LXQs9C+INC+?=
+        =?UTF-8?B?0YTQuNGB0LAg0LIg0L7RgtC90L7RiNC10L3QuNC4INC80L7QtdCz0L4g0L/QvtC60L7QudC90L7Qs9C+?=
+        =?UTF-8?B?INC60LvQuNC10L3RgtCwLCDQs9GA0LDQttC00LDQvdC40L0g0LLQsNGI0LXQuSDRgdGC0YDQsNC90Ysg?=
+        =?UTF-8?B?0YEg0YLQvtC5INC20LUg0YTQsNC80LjQu9C40LXQuSDRgSDQstCw0LzQuCwg0LrQvtGC0L7RgNGL0Lkg?=
+        =?UTF-8?B?0YPQvNC10YAg0L3QtdGB0LrQvtC70YzQutC+INC70LXRgiDQvdCw0LfQsNC0LCDQvtGB0YLQsNCy0Lg=?=
+        =?UTF-8?B?0LIg0L/QvtC30LDQtNC4INGB0LLQvtC40YUg0YHQstC+0LnRgdGC0LIg0Lgg0L7Qs9GA0L7QvNC90L4=?=
+        =?UTF-8?B?0LUg0LrQvtC70LjRh9C10YHRgtCy0L4g0LTQtdC90LXQsyDQsiDQsdCw0L3QuiDQsiDQvNC+0LXQuSA=?
+Date: Tue, 25 Oct 2016 14:38:57 +0100
+Message-ID: <CALr2nR75dLKBCDxqu=DiLhP00yWntERjQZ-jB9OXbB3O_USevg@mail.gmail.com>
+Reply-To: mprrmp101734655@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-        "David Miller" <davem@davemloft.net>
-To: Arvid Brodin <arvid.brodin@alten.se>,
-        Murali Karicheri <m-karicheri2@ti.com>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from airbus-sf5.airbus.gmessaging.net ([81.252.56.21]:56064 "EHLO
-        airbus-sf5.airbus.gmessaging.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933363AbcJYNdP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 09:33:15 -0400
-In-Reply-To: <6075_1477400598_580F5816_6075_378_9_580F5825.9080109@alten.se>
-Content-Language: de-DE
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:38183 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932522AbcJYNjA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 09:39:00 -0400
+Received: by mail-lf0-f43.google.com with SMTP id d20so14593892lfj.5
+        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 06:38:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgTXVyYWxpLCBoaSBBcnZpZCwNCg0KYWxzbyBubyB3b3JrIG9uIFBSUCBmcm9tIG15IHNpZGUu
-DQoNClNob3VsZCBiZSBwcmV0dHkgc3RyYWlnaHQgZm9yd2FyZCB0byBnZXQgUFJQIHN1cHBvcnQg
-ZnJvbSB0aGUgZXhpc3RpbmcgSFNSIGNvZGUuDQoNCg0KLS0tLS1VcnNwcsO8bmdsaWNoZSBOYWNo
-cmljaHQtLS0tLQ0KVm9uOiBBcnZpZCBCcm9kaW4gW21haWx0bzphcnZpZC5icm9kaW5AYWx0ZW4u
-c2VdIA0KR2VzZW5kZXQ6IERpZW5zdGFnLCAyNS4gT2t0b2JlciAyMDE2IDE1OjA0DQpBbjogTXVy
-YWxpIEthcmljaGVyaQ0KQ2M6IG9wZW4gbGlzdDpUSSBORVRDUCBFVEhFUk5FVCBEUklWRVI7IERh
-dmlkIE1pbGxlcjsgSEVJU0UsIFBldGVyIFANCkJldHJlZmY6IFJlOiBSZWR1bmRhbmN5IHN1cHBv
-cnQgdGhyb3VnaCBIU1IgYW5kIFBSUA0KDQpPbiAyMDE2LTEwLTI0IDE4OjM1LCBNdXJhbGkgS2Fy
-aWNoZXJpIHdyb3RlOg0KPj4gT24gMTAvMTAvMjAxNiAwMjozNCBQTSwgTXVyYWxpIEthcmljaGVy
-aSB3cm90ZToNCj4+PiBBbGwsDQo+Pj4NCj4+PiBXb25kZXJpbmcgaWYgdGhlcmUgcGxhbiB0byBh
-ZGQgUFJQIGRyaXZlciBzdXBwb3J0LCBsaWtlIEhTUiBpbiANCj4+PiBMaW51eD8gQUZBSUssIFBS
-UCBhZGRzIHRyYWlsb3IgdG8gRXRoZXJuZXQgZnJhbWUgYW5kIGlzIHVzZWQgZm9yIFJlZHVuZGFu
-Y3kgbWFuYWdlbWVudCBsaWtlIEhTUi4NCj4+PiBTbyB3b25kZXJpbmcgd2h5IHRoaXMgaXMgbm90
-IHN1cHBvcnRlZC4NCj4+Pg0KPj4+IFRoYW5rcw0KPj4+DQo+PiBJIG5lZWQgdG8gd29yayBvbiBh
-IHBycCBkcml2ZXIgZm9yIExpbnV4LiBTbyBpZiB0aGVyZSBpcyBhbHJlYWR5IA0KPj4gc29tZW9u
-ZSB3b3JraW5nIG9uIHRoaXMsIEkgd291bGQgbGlrZSB0byBqb2luIGFuZCBjb250cmlidXRlLiBF
-aXRoZXIgDQo+PiB3YXkgcGxlYXNlIHJlc3BvbmQgc28gdGhhdCBJIGNhbiB3b3JrIHRvIGFkZCB0
-aGlzIHN1cHBvcnQuDQo+Pg0KPiArIEFydmlkDQo+IA0KPiBEaWRuJ3QgY29weSBIU1Igb3duZXIg
-aW4gbXkgb3JpZ2luYWwgZW1haWwuIENvcHlpbmcgbm93Lg0KPiANCg0KSGkgTXVyYWxpLA0KDQpJ
-J20gbm90IGF3YXJlIG9mIGFueW9uZSB3b3JraW5nIG9uIFBSUCBzdXBwb3J0Lg0KDQpJIHdpbGwg
-aGF2ZSB2ZXJ5IGxpdHRsZSB0aW1lLCBpZiBhbnksIHRvIGhlbHAgb3V0IHdpdGggdGhpcyAob3Ig
-ZXZlbiB0ZXN0IGNoYW5nZXMpLg0KSW4gZmFjdCwgaWYgeW91IHdhbnQgdG8gc2VuZCBhIHBhdGNo
-IGZvciB0aGUgTUFJTlRBSU5FUlMgZmlsZSB0byB0YWtlIG92ZXIgbWFpbnRhaW5lcnNoaXAgb2Yg
-dGhlIEhTUi9QUlAgZHJpdmVyLCB0aGF0IHdvdWxkIHByb2JhYmx5IGJlIGEgZ29vZCB0aGluZy4N
-Cg0KKEknbSBDQydpbmcgYWxzbyBQZXRlciBIZWlzZSB0byB0aGlzIGNvbnZlcnNhdGlvbiwgc2lu
-Y2UgaGUncyBkb25lIHNvbWUgcmVjZW50IHdvcmsgb24gdGhlIEhTUiBkcml2ZXIsIGFuZCBtaWdo
-dCB3YW50IHRvIGtlZXAgdXBkYXRlZC4pDQoNCg0KLS0gDQpBcnZpZCBCcm9kaW4NCkxpbnV4IENv
-bnN1bHRhbnQNCkFMVEVOIFN3ZWRlbg0KDQoNClRoaXMgbWFpbCBoYXMgb3JpZ2luYXRlZCBvdXRz
-aWRlIHlvdXIgb3JnYW5pemF0aW9uLCBlaXRoZXIgZnJvbSBhbiBleHRlcm5hbCBwYXJ0bmVyIG9y
-IHRoZSBHbG9iYWwgSW50ZXJuZXQuDQpLZWVwIHRoaXMgaW4gbWluZCBpZiB5b3UgYW5zd2VyIHRo
-aXMgbWVzc2FnZS4NCg0KDQoKVGhlIGluZm9ybWF0aW9uIGluIHRoaXMgZS1tYWlsIGlzIGNvbmZp
-ZGVudGlhbC4gVGhlIGNvbnRlbnRzIG1heSBub3QgYmUgZGlzY2xvc2VkIG9yIHVzZWQgYnkgYW55
-b25lIG90aGVyIHRoYW4gdGhlIGFkZHJlc3NlZS4gQWNjZXNzIHRvIHRoaXMgZS1tYWlsIGJ5IGFu
-eW9uZSBlbHNlIGlzIHVuYXV0aG9yaXNlZC4KSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJl
-Y2lwaWVudCwgcGxlYXNlIG5vdGlmeSBBaXJidXMgaW1tZWRpYXRlbHkgYW5kIGRlbGV0ZSB0aGlz
-IGUtbWFpbC4KQWlyYnVzIGNhbm5vdCBhY2NlcHQgYW55IHJlc3BvbnNpYmlsaXR5IGZvciB0aGUg
-YWNjdXJhY3kgb3IgY29tcGxldGVuZXNzIG9mIHRoaXMgZS1tYWlsIGFzIGl0IGhhcyBiZWVuIHNl
-bnQgb3ZlciBwdWJsaWMgbmV0d29ya3MuIElmIHlvdSBoYXZlIGFueSBjb25jZXJucyBvdmVyIHRo
-ZSBjb250ZW50IG9mIHRoaXMgbWVzc2FnZSBvciBpdHMgQWNjdXJhY3kgb3IgSW50ZWdyaXR5LCBw
-bGVhc2UgY29udGFjdCBBaXJidXMgaW1tZWRpYXRlbHkuCkFsbCBvdXRnb2luZyBlLW1haWxzIGZy
-b20gQWlyYnVzIGFyZSBjaGVja2VkIHVzaW5nIHJlZ3VsYXJseSB1cGRhdGVkIHZpcnVzIHNjYW5u
-aW5nIHNvZnR3YXJlIGJ1dCB5b3Ugc2hvdWxkIHRha2Ugd2hhdGV2ZXIgbWVhc3VyZXMgeW91IGRl
-ZW0gdG8gYmUgYXBwcm9wcmlhdGUgdG8gZW5zdXJlIHRoYXQgdGhpcyBtZXNzYWdlIGFuZCBhbnkg
-YXR0YWNobWVudHMgYXJlIHZpcnVzIGZyZWUuCgo=
