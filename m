@@ -1,62 +1,58 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Subject: Re: [net-next PATCH 04/27] arch/arc: Add option to skip sync on DMA
- mapping
-Date: Tue, 25 Oct 2016 15:00:55 -0700
-Message-ID: <64b46a7b-7ad4-5d09-5a0b-22dfaed8855e@synopsys.com>
-References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
- <20161025153709.4815.82720.stgit@ahduyck-blue-test.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	"linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
-	"davem@davemloft.net" <davem@davemloft.net>, "brouer@redhat.com"
-	<brouer@redhat.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>, "intel-wired-lan@lists.osuosl.org"
-	<intel-wired-lan@lists.osuosl.org>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161025153709.4815.82720.stgit@ahduyck-blue-test.jf.intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net] inet: Fix missing return value in inet6_hash
+Date: Tue, 25 Oct 2016 18:08:49 -0400
+Message-ID: <1477433329-165391-1-git-send-email-kraigatgoog@gmail.com>
+Cc: Soheil Hassas Yeganeh <soheil@google.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:32919 "EHLO
+        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752476AbcJYWIx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 18:08:53 -0400
+Received: by mail-qk0-f177.google.com with SMTP id n189so270026509qke.0
+        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 15:08:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2016 02:38 PM, Alexander Duyck wrote:
-> This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
-> avoid invoking cache line invalidation if the driver will just handle it
-> later via a sync_for_cpu or sync_for_device call.
->
-> Cc: Vineet Gupta <vgupta@synopsys.com>
-> Cc: linux-snps-arc@lists.infradead.org
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
->  arch/arc/mm/dma.c |    5 ++++-
+From: Craig Gallek <kraig@google.com>
 
-Acked-by: Vineet Gupta <vgupta@synopsys.com>
+As part of a series to implement faster SO_REUSEPORT lookups,
+commit 086c653f5862 ("sock: struct proto hash function may error")
+added return values to protocol hash functions and
+commit 496611d7b5ea ("inet: create IPv6-equivalent inet_hash function")
+implemented a new hash function for IPv6.  However, the latter does
+not respect the former's convention.
 
->  1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/arch/arc/mm/dma.c b/arch/arc/mm/dma.c
-> index 20afc65..6303c34 100644
-> --- a/arch/arc/mm/dma.c
-> +++ b/arch/arc/mm/dma.c
-> @@ -133,7 +133,10 @@ static dma_addr_t arc_dma_map_page(struct device *dev, struct page *page,
->  		unsigned long attrs)
->  {
->  	phys_addr_t paddr = page_to_phys(page) + offset;
-> -	_dma_cache_sync(paddr, size, dir);
-> +
-> +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-> +		_dma_cache_sync(paddr, size, dir);
-> +
->  	return plat_phys_to_dma(dev, paddr);
->  }
->  
->
->
+This properly propagates the hash errors in the IPv6 case.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Fixes: 496611d7b5ea ("inet: create IPv6-equivalent inet_hash function")
+Reported-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
+ net/ipv6/inet6_hashtables.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index 2fd0374a35b1..02761c9fe43e 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -264,13 +264,15 @@ EXPORT_SYMBOL_GPL(inet6_hash_connect);
+ 
+ int inet6_hash(struct sock *sk)
+ {
++	int err = 0;
++
+ 	if (sk->sk_state != TCP_CLOSE) {
+ 		local_bh_disable();
+-		__inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
++		err = __inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
+ 		local_bh_enable();
+ 	}
+ 
+-	return 0;
++	return err;
+ }
+ EXPORT_SYMBOL_GPL(inet6_hash);
+ 
+-- 
+2.8.0.rc3.226.g39d4020
