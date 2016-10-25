@@ -1,70 +1,71 @@
-From: Solomon Peachy <pizza@shaftnet.org>
-Subject: Re: [PATCH] cw1200: fix bogus maybe-uninitialized warning
-Date: Tue, 25 Oct 2016 14:13:52 -0400
-Message-ID: <20161025181352.GB28536@shaftnet.org>
-References: <20161024154215.2863586-1-arnd@arndb.de>
- <063D6719AE5E284EB5DD2968C1650D6DB0209E9A@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="b5gNqxB1S1yM7hjW"
-Cc: "'Arnd Bergmann'" <arnd@arndb.de>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Johannes Berg <johannes.berg@intel.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] netfilter: fix type mismatch with error return from nft_parse_u32_check
+Date: Tue, 25 Oct 2016 15:08:04 -0400
+Message-ID: <1477422484-27030-1-git-send-email-linville@tuxdriver.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Laura Garcia Liebana <nevola@gmail.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Dan Carpenter <dan.carpenter@oracle.com>
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 162-17-110-37-static.hfc.comcastbusiness.net ([162.17.110.37]:46726
-        "EHLO stuffed.shaftnet.org" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753827AbcJYSer (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 14:34:47 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0209E9A@AcuExch.aculab.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60707 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753282AbcJYTPZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 15:15:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Commit 36b701fae12ac ("netfilter: nf_tables: validate maximum value of
+u32 netlink attributes") introduced nft_parse_u32_check with a return
+value of "unsigned int", yet on error it returns "-ERANGE".
 
---b5gNqxB1S1yM7hjW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch corrects the mismatch by changing the return value to "int",
+which happens to match the actual users of nft_parse_u32_check already.
 
-On Tue, Oct 25, 2016 at 01:24:55PM +0000, David Laight wrote:
-> > -	if (count > 1) {
-> > -		/* We already released one buffer, now for the rest */
-> > -		ret =3D wsm_release_tx_buffer(priv, count - 1);
-> > -		if (ret < 0)
-> > -			return ret;
-> > -		else if (ret > 0)
-> > -			cw1200_bh_wakeup(priv);
-> > -	}
-> > +	/* We already released one buffer, now for the rest */
-> > +	ret =3D wsm_release_tx_buffer(priv, count - 1);
-> > +	if (ret < 0)
-> > +		return ret;
-> > +
-> > +	if (ret > 0)
-> > +		cw1200_bh_wakeup(priv);
->=20
-> That doesn't look equivalent to me (when count =3D=3D 1).
+Found by Coverity, CID 1373930.
 
-I concur, this patch should not be applied in its current form.
+Note that commit 21a9e0f1568ea ("netfilter: nft_exthdr: fix error
+handling in nft_exthdr_init()) attempted to address the issue, but
+did not address the return type of nft_parse_u32_check.
 
- - Solomon
---=20
-Solomon Peachy        		       pizza at shaftnet dot org
-Delray Beach, FL                          ^^ (email/xmpp) ^^
-Quidquid latine dictum sit, altum viditur.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Cc: Laura Garcia Liebana <nevola@gmail.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Fixes: 0eadf37afc250 ("netfilter: nf_tables: validate maximum value...")
+---
+ include/net/netfilter/nf_tables.h | 2 +-
+ net/netfilter/nf_tables_api.c     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
---b5gNqxB1S1yM7hjW
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iEYEABECAAYFAlgPoN8ACgkQPuLgii2759AS3gCfUKNTMDFd/WctTiPJIi6IyXuY
-C30AnR9RZTG8b8EJBU+CbZHPfwFyz4WZ
-=5eri
------END PGP SIGNATURE-----
-
---b5gNqxB1S1yM7hjW--
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 5031e072567b..da43f50b39c6 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -145,7 +145,7 @@ static inline enum nft_registers nft_type_to_reg(enum nft_data_types type)
+ 	return type == NFT_DATA_VERDICT ? NFT_REG_VERDICT : NFT_REG_1 * NFT_REG_SIZE / NFT_REG32_SIZE;
+ }
+ 
+-unsigned int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest);
++int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest);
+ unsigned int nft_parse_register(const struct nlattr *attr);
+ int nft_dump_register(struct sk_buff *skb, unsigned int attr, unsigned int reg);
+ 
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 24db22257586..32fa4f08444a 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -4421,7 +4421,7 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
+  *	Otherwise a 0 is returned and the attribute value is stored in the
+  *	destination variable.
+  */
+-unsigned int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
++int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
+ {
+ 	u32 val;
+ 
+-- 
+2.7.4
