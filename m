@@ -1,69 +1,61 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] sctp: validate chunk len before actually using it
-Date: Tue, 25 Oct 2016 14:27:39 -0200
-Message-ID: <06d1d4f21f959784823d7c7e31c3ea7e7360cb99.1477410525.git.marcelo.leitner@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
-        edumazet@google.com, dvyukov@google.com, andreyknvl@google.com,
-        marcelo.leitner@gmail.com
-To: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40478 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932543AbcJYQ14 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Oct 2016 12:27:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aaron Conole <aconole@redhat.com>
+Subject: [PATCH] virtio-net: Update the mtu code to match virtio spec
+Date: Tue, 25 Oct 2016 12:35:35 -0400
+Message-ID: <1477413335-17296-1-git-send-email-aconole@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jarod Wilson <jarod@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Andrey Konovalov reported that KASAN detected that SCTP was using a slab
-beyond the boundaries. It was caused because when handling out of the
-blue packets in function sctp_sf_ootb() it was checking the chunk len
-only after already processing the first chunk, validating only for the
-2nd and subsequent ones.
+From: Aaron Conole <aconole@bytheb.org>
 
-The fix is to just move the check upwards so it's also validated for the
-1st chunk.
+The virtio committee recently ratified a change, VIRTIO-152, which
+defines the mtu field to be 'max' MTU, not simply desired MTU.
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+This commit brings the virtio-net device in compliance with VIRTIO-152.
+
+Additionally, drop the max_mtu branch - it cannot be taken since the u16
+returned by virtio_cread16 will never exceed the initial value of
+max_mtu.
+
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Signed-off-by: Aaron Conole <aconole@redhat.com>
 ---
+ drivers/net/virtio_net.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Hi. Please consider this to -stable too. Thanks
-
- net/sctp/sm_statefuns.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 026e3bca4a94bd34b418d5e6947f7182c1512358..8ec20a64a3f8055a0c3576627c5ec5dad7e99ca8 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3422,6 +3422,12 @@ sctp_disposition_t sctp_sf_ootb(struct net *net,
- 			return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
- 						  commands);
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 720809f..2cafd12 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1870,10 +1870,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		mtu = virtio_cread16(vdev,
+ 				     offsetof(struct virtio_net_config,
+ 					      mtu));
+-		if (mtu < dev->min_mtu || mtu > dev->max_mtu)
++		if (mtu < dev->min_mtu) {
+ 			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
+-		else
++		} else {
+ 			dev->mtu = mtu;
++			dev->max_mtu = mtu;
++		}
+ 	}
  
-+		/* Report violation if chunk len overflows */
-+		ch_end = ((__u8 *)ch) + SCTP_PAD4(ntohs(ch->length));
-+		if (ch_end > skb_tail_pointer(skb))
-+			return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
-+						  commands);
-+
- 		/* Now that we know we at least have a chunk header,
- 		 * do things that are type appropriate.
- 		 */
-@@ -3453,12 +3459,6 @@ sctp_disposition_t sctp_sf_ootb(struct net *net,
- 			}
- 		}
- 
--		/* Report violation if chunk len overflows */
--		ch_end = ((__u8 *)ch) + SCTP_PAD4(ntohs(ch->length));
--		if (ch_end > skb_tail_pointer(skb))
--			return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
--						  commands);
--
- 		ch = (sctp_chunkhdr_t *) ch_end;
- 	} while (ch_end < skb_tail_pointer(skb));
- 
+ 	if (vi->any_header_sg)
 -- 
 2.7.4
