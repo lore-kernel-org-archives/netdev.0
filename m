@@ -1,68 +1,116 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net] inet: Fix missing return value in inet6_hash
-Date: Tue, 25 Oct 2016 18:36:37 -0400
-Message-ID: <CACSApvbWRQkRwRLFi0Tq8-dMjg28gX4ybm607FgLkU6MFYK0HA@mail.gmail.com>
-References: <1477433329-165391-1-git-send-email-kraigatgoog@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Craig Gallek <kraigatgoog@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix samples to add fake KBUILD_MODNAME
+Date: Wed, 26 Oct 2016 00:37:53 +0200
+Message-ID: <1fdac65566ed6e0cff486507c5019f45807d1e89.1477434641.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f180.google.com ([209.85.213.180]:36786 "EHLO
-        mail-yb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753657AbcJYWhT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 18:37:19 -0400
-Received: by mail-yb0-f180.google.com with SMTP id f133so6402218ybc.3
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 15:37:18 -0700 (PDT)
-In-Reply-To: <1477433329-165391-1-git-send-email-kraigatgoog@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:41014 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752511AbcJYWiG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 18:38:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 25, 2016 at 6:08 PM, Craig Gallek <kraigatgoog@gmail.com> wrote:
-> From: Craig Gallek <kraig@google.com>
->
-> As part of a series to implement faster SO_REUSEPORT lookups,
-> commit 086c653f5862 ("sock: struct proto hash function may error")
-> added return values to protocol hash functions and
-> commit 496611d7b5ea ("inet: create IPv6-equivalent inet_hash function")
-> implemented a new hash function for IPv6.  However, the latter does
-> not respect the former's convention.
->
-> This properly propagates the hash errors in the IPv6 case.
->
-> Fixes: 496611d7b5ea ("inet: create IPv6-equivalent inet_hash function")
-> Reported-by: Soheil Hassas Yeganeh <soheil@google.com>
-> Signed-off-by: Craig Gallek <kraig@google.com>
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+Some of the sample files are causing issues when they are loaded with tc
+and cls_bpf, meaning tc bails out while trying to parse the resulting ELF
+file as program/map/etc sections are not present, which can be easily
+spotted with readelf(1).
 
-> ---
->  net/ipv6/inet6_hashtables.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-> index 2fd0374a35b1..02761c9fe43e 100644
-> --- a/net/ipv6/inet6_hashtables.c
-> +++ b/net/ipv6/inet6_hashtables.c
-> @@ -264,13 +264,15 @@ EXPORT_SYMBOL_GPL(inet6_hash_connect);
->
->  int inet6_hash(struct sock *sk)
->  {
-> +       int err = 0;
-> +
->         if (sk->sk_state != TCP_CLOSE) {
->                 local_bh_disable();
-> -               __inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
-> +               err = __inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
->                 local_bh_enable();
->         }
->
-> -       return 0;
-> +       return err;
->  }
->  EXPORT_SYMBOL_GPL(inet6_hash);
+Currently, BPF samples are including some of the kernel headers and mid
+term we should change them to refrain from this, really. When dynamic
+debugging is enabled, we bail out due to undeclared KBUILD_MODNAME, which
+is easily overlooked in the build as clang spills this along with other
+noisy warnings from various header includes, and llc still generates an
+ELF file with mentioned characteristics. For just playing around with BPF
+examples, this can be a bit of a hurdle to take.
 
-Thanks for the fix!
+Just add a fake KBUILD_MODNAME as a band-aid to fix the issue, same is
+done in xdp*_kern samples already.
 
-> --
-> 2.8.0.rc3.226.g39d4020
->
+Fixes: 65d472fb007d ("samples/bpf: add 'pointer to packet' tests")
+Fixes: 6afb1e28b859 ("samples/bpf: Add tunnel set/get tests.")
+Fixes: a3f74617340b ("cgroup: bpf: Add an example to do cgroup checking in BPF")
+Reported-by: Chandrasekar Kannan <ckannan@console.to>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ samples/bpf/parse_ldabs.c        | 1 +
+ samples/bpf/parse_simple.c       | 1 +
+ samples/bpf/parse_varlen.c       | 1 +
+ samples/bpf/tcbpf1_kern.c        | 1 +
+ samples/bpf/tcbpf2_kern.c        | 1 +
+ samples/bpf/test_cgrp2_tc_kern.c | 1 +
+ 6 files changed, 6 insertions(+)
+
+diff --git a/samples/bpf/parse_ldabs.c b/samples/bpf/parse_ldabs.c
+index d175501..6db6b21 100644
+--- a/samples/bpf/parse_ldabs.c
++++ b/samples/bpf/parse_ldabs.c
+@@ -4,6 +4,7 @@
+  * modify it under the terms of version 2 of the GNU General Public
+  * License as published by the Free Software Foundation.
+  */
++#define KBUILD_MODNAME "foo"
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/in.h>
+diff --git a/samples/bpf/parse_simple.c b/samples/bpf/parse_simple.c
+index cf2511c..10af53d 100644
+--- a/samples/bpf/parse_simple.c
++++ b/samples/bpf/parse_simple.c
+@@ -4,6 +4,7 @@
+  * modify it under the terms of version 2 of the GNU General Public
+  * License as published by the Free Software Foundation.
+  */
++#define KBUILD_MODNAME "foo"
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/in.h>
+diff --git a/samples/bpf/parse_varlen.c b/samples/bpf/parse_varlen.c
+index edab34d..95c1632 100644
+--- a/samples/bpf/parse_varlen.c
++++ b/samples/bpf/parse_varlen.c
+@@ -4,6 +4,7 @@
+  * modify it under the terms of version 2 of the GNU General Public
+  * License as published by the Free Software Foundation.
+  */
++#define KBUILD_MODNAME "foo"
+ #include <linux/if_ether.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+diff --git a/samples/bpf/tcbpf1_kern.c b/samples/bpf/tcbpf1_kern.c
+index fa051b3..274c884 100644
+--- a/samples/bpf/tcbpf1_kern.c
++++ b/samples/bpf/tcbpf1_kern.c
+@@ -1,3 +1,4 @@
++#define KBUILD_MODNAME "foo"
+ #include <uapi/linux/bpf.h>
+ #include <uapi/linux/if_ether.h>
+ #include <uapi/linux/if_packet.h>
+diff --git a/samples/bpf/tcbpf2_kern.c b/samples/bpf/tcbpf2_kern.c
+index 3303bb8..9c823a6 100644
+--- a/samples/bpf/tcbpf2_kern.c
++++ b/samples/bpf/tcbpf2_kern.c
+@@ -5,6 +5,7 @@
+  * modify it under the terms of version 2 of the GNU General Public
+  * License as published by the Free Software Foundation.
+  */
++#define KBUILD_MODNAME "foo"
+ #include <uapi/linux/bpf.h>
+ #include <uapi/linux/if_ether.h>
+ #include <uapi/linux/if_packet.h>
+diff --git a/samples/bpf/test_cgrp2_tc_kern.c b/samples/bpf/test_cgrp2_tc_kern.c
+index 10ff734..1547b36 100644
+--- a/samples/bpf/test_cgrp2_tc_kern.c
++++ b/samples/bpf/test_cgrp2_tc_kern.c
+@@ -4,6 +4,7 @@
+  * modify it under the terms of version 2 of the GNU General Public
+  * License as published by the Free Software Foundation.
+  */
++#define KBUILD_MODNAME "foo"
+ #include <uapi/linux/if_ether.h>
+ #include <uapi/linux/in6.h>
+ #include <uapi/linux/ipv6.h>
+-- 
+1.9.3
