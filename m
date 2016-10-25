@@ -1,58 +1,68 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] cw1200: fix bogus maybe-uninitialized warning
-Date: Tue, 25 Oct 2016 22:19:49 +0200
-Message-ID: <14428343.0Jf5tZk0Ep@wuerfel>
-References: <20161024154215.2863586-1-arnd@arndb.de> <063D6719AE5E284EB5DD2968C1650D6DB0209E9A@AcuExch.aculab.com>
+Subject: [PATCH v2] cw1200: fix bogus maybe-uninitialized warning
+Date: Tue, 25 Oct 2016 22:21:04 +0200
+Message-ID: <20161025202121.1070879-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Solomon Peachy <pizza@shaftnet.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+        Arnd Bergmann <arnd@arndb.de>,
         Johannes Berg <johannes.berg@intel.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Solomon Peachy <pizza@shaftnet.org>,
+        Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0209E9A@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, October 25, 2016 1:24:55 PM CEST David Laight wrote:
-> > diff --git a/drivers/net/wireless/st/cw1200/wsm.c b/drivers/net/wireless/st/cw1200/wsm.c
-> > index 680d60eabc75..094e6637ade2 100644
-> > --- a/drivers/net/wireless/st/cw1200/wsm.c
-> > +++ b/drivers/net/wireless/st/cw1200/wsm.c
-> > @@ -385,14 +385,13 @@ static int wsm_multi_tx_confirm(struct cw1200_common *priv,
-> >       if (WARN_ON(count <= 0))
-> >               return -EINVAL;
-> > 
-> > -     if (count > 1) {
-> > -             /* We already released one buffer, now for the rest */
-> > -             ret = wsm_release_tx_buffer(priv, count - 1);
-> > -             if (ret < 0)
-> > -                     return ret;
-> > -             else if (ret > 0)
-> > -                     cw1200_bh_wakeup(priv);
-> > -     }
-> > +     /* We already released one buffer, now for the rest */
-> > +     ret = wsm_release_tx_buffer(priv, count - 1);
-> > +     if (ret < 0)
-> > +             return ret;
-> > +
-> > +     if (ret > 0)
-> > +             cw1200_bh_wakeup(priv);
-> 
-> That doesn't look equivalent to me (when count == 1).
+On x86, the cw1200 driver produces a rather silly warning about the
+possible use of the 'ret' variable without an initialization
+presumably after being confused by the architecture specific definition
+of WARN_ON:
 
-Ah, that's what I missed, thanks for pointing that out!
+drivers/net/wireless/st/cw1200/wsm.c: In function ‘wsm_handle_rx’:
+drivers/net/wireless/st/cw1200/wsm.c:1457:9: error: ‘ret’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-> > 
-> >       cw1200_debug_txed_multi(priv, count);
-> >       for (i = 0; i < count; ++i) {
-> 
-> Convert this loop into a do ... while so the body executes at least once.
+We have already checked that 'count' is larger than 0 here, so
+we know that 'ret' is initialized. Changing the 'for' loop
+into do/while also makes this clear to the compiler.
 
-Good idea. Version 2 coming now.
+Suggested-by: David Laight <David.Laight@ACULAB.COM>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/wireless/st/cw1200/wsm.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-	Arnd
+v2: rewrite based on David Laight's suggestion, the first version
+    was completely wrong.
+
+diff --git a/drivers/net/wireless/st/cw1200/wsm.c b/drivers/net/wireless/st/cw1200/wsm.c
+index 680d60eabc75..ed93bf3474ec 100644
+--- a/drivers/net/wireless/st/cw1200/wsm.c
++++ b/drivers/net/wireless/st/cw1200/wsm.c
+@@ -379,7 +379,6 @@ static int wsm_multi_tx_confirm(struct cw1200_common *priv,
+ {
+ 	int ret;
+ 	int count;
+-	int i;
+ 
+ 	count = WSM_GET32(buf);
+ 	if (WARN_ON(count <= 0))
+@@ -395,11 +394,10 @@ static int wsm_multi_tx_confirm(struct cw1200_common *priv,
+ 	}
+ 
+ 	cw1200_debug_txed_multi(priv, count);
+-	for (i = 0; i < count; ++i) {
++	do {
+ 		ret = wsm_tx_confirm(priv, buf, link_id);
+-		if (ret)
+-			return ret;
+-	}
++	} while (!ret && --count);
++
+ 	return ret;
+ 
+ underflow:
+-- 
+2.9.0
