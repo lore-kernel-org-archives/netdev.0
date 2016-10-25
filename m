@@ -1,56 +1,57 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/1] driver: tun: Use new macro SOCK_IOC_MAGIC instead of literal number 0x89
-Date: Tue, 25 Oct 2016 20:56:19 +0800
-Message-ID: <1477400179-32200-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, jasowang@redhat.com, edumazet@google.com,
-        pabeni@redhat.com, netdev@vger.kernel.org
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: Re: Redundancy support through HSR and PRP
+Date: Tue, 25 Oct 2016 15:03:33 +0200
+Message-ID: <580F5825.9080109@alten.se>
+References: <57FBDF33.1060606@ti.com> <5808F9FC.1080802@ti.com>
+ <580E3854.4030009@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+        "David Miller" <davem@davemloft.net>,
+        "Heise, Peter" <peter.heise@airbus.com>
+To: Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg342.qq.com ([14.17.44.37]:49143 "EHLO smtpbg342.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932241AbcJYM5j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Oct 2016 08:57:39 -0400
+Received: from mx03.webland.nu ([37.26.152.132]:40985 "HELO mx03.webland.nu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+        id S965886AbcJYNT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Oct 2016 09:19:27 -0400
+In-Reply-To: <580E3854.4030009@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On 2016-10-24 18:35, Murali Karicheri wrote:
+>> On 10/10/2016 02:34 PM, Murali Karicheri wrote:
+>>> All,
+>>>
+>>> Wondering if there plan to add PRP driver support, like HSR in Linux? AFAIK, PRP
+>>> adds trailor to Ethernet frame and is used for Redundancy management like HSR.
+>>> So wondering why this is not supported.
+>>>
+>>> Thanks
+>>>
+>> I need to work on a prp driver for Linux. So if there is already someone working
+>> on this, I would like to join and contribute. Either way please respond so that
+>> I can work to add this support. 
+>>
+> + Arvid
+> 
+> Didn't copy HSR owner in my original email. Copying now.
+> 
 
-The current codes use _IOC_TYPE(cmd) == 0x89 to check if the cmd is one
-socket ioctl command like SIOCGIFHWADDR. But the literal number 0x89 may
-confuse readers. So create one macro SOCK_IOC_MAGIC like SPI_IOC_MAGIC to
-enhance the readability.
+Hi Murali,
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- drivers/net/tun.c            | 2 +-
- include/uapi/linux/sockios.h | 2 ++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+I'm not aware of anyone working on PRP support.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9328568..9efd185 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1985,7 +1985,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	int le;
- 	int ret;
- 
--	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
-+	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == SOCK_IOC_MAGIC) {
- 		if (copy_from_user(&ifr, argp, ifreq_len))
- 			return -EFAULT;
- 	} else {
-diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
-index 8e7890b..b8f42f2 100644
---- a/include/uapi/linux/sockios.h
-+++ b/include/uapi/linux/sockios.h
-@@ -24,6 +24,8 @@
- #define SIOCINQ		FIONREAD
- #define SIOCOUTQ	TIOCOUTQ        /* output queue size (not sent + not acked) */
- 
-+#define SOCK_IOC_MAGIC	0x89
-+
- /* Routing table calls. */
- #define SIOCADDRT	0x890B		/* add routing table entry	*/
- #define SIOCDELRT	0x890C		/* delete routing table entry	*/
+I will have very little time, if any, to help out with this (or even test changes).
+In fact, if you want to send a patch for the MAINTAINERS file to take over 
+maintainership of the HSR/PRP driver, that would probably be a good thing.
+
+(I'm CC'ing also Peter Heise to this conversation, since he's done some recent work 
+on the HSR driver, and might want to keep updated.)
+
+
 -- 
-1.9.1
+Arvid Brodin
+Linux Consultant
+ALTEN Sweden
