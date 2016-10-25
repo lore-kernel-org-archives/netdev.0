@@ -1,49 +1,47 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for-next 05/14] IB/mlx5: Skip handling unknown events
-Date: Tue, 25 Oct 2016 18:00:08 +0300
-Message-ID: <1477407617-20745-6-git-send-email-saeedm@mellanox.com>
-References: <1477407617-20745-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477407617-20745-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH -next] amd-xgbe: Fix error return code in xgbe_probe()
+Date: Tue, 25 Oct 2016 06:47:16 -0500
+Message-ID: <c4ee17d6-a826-35c9-ed2a-4d2adad1a3b3@amd.com>
+References: <1477146930-727-1-git-send-email-weiyj.lk@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0064.outbound.protection.outlook.com ([104.47.34.64]:25824
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932696AbcJYPXE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Oct 2016 11:23:04 -0400
+In-Reply-To: <1477146930-727-1-git-send-email-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do not dispatch unknown mlx5 core events on mlx5_ib_event.
+On 10/22/2016 09:35 AM, Wei Yongjun wrote:
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> Fix to return error code -ENODEV from the DMA is not supported error
+> handling case instead of 0, as done elsewhere in this function.
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
----
- drivers/infiniband/hw/mlx5/main.c | 2 ++
- 1 file changed, 2 insertions(+)
+Acked-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index 2217477..d02341e 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -2358,6 +2358,8 @@ static void mlx5_ib_event(struct mlx5_core_dev *dev, void *context,
- 		ibev.event = IB_EVENT_CLIENT_REREGISTER;
- 		port = (u8)param;
- 		break;
-+	default:
-+		return;
- 	}
- 
- 	ibev.device	      = &ibdev->ib_dev;
--- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+>  drivers/net/ethernet/amd/xgbe/xgbe-main.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> index 667e120..6997f11 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> @@ -613,6 +613,7 @@ static int xgbe_probe(struct platform_device *pdev)
+>  	attr = device_get_dma_attr(dev);
+>  	if (attr == DEV_DMA_NOT_SUPPORTED) {
+>  		dev_err(dev, "DMA is not supported");
+> +		ret = -ENODEV;
+>  		goto err_io;
+>  	}
+>  	pdata->coherent = (attr == DEV_DMA_COHERENT);
+> 
