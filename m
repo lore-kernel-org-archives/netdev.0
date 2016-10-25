@@ -1,83 +1,33 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net-next] ibmveth: calculate correct gso_size and set gso_type
-Date: Tue, 25 Oct 2016 16:13:41 +1100
-Message-ID: <1477372421-11656-1-git-send-email-jmaxwell37@gmail.com>
-Cc: benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
-        davem@davemloft.net, tom@herbertland.com, jarod@redhat.com,
-        hofrat@osadl.org, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-        mleitner@redhat.com, jmaxwell@redhat.com,
-        Jon Maxwell <jmaxwell37@gmail.com>
-To: tlfalcon@linux.vnet.ibm.com
+From: David VomLehn <vomlehn@texas.net>
+Subject: Suggestions for new Ethernet driver?
+Date: Mon, 24 Oct 2016 22:10:25 -0700
+Message-ID: <20161025051025.GA27184@gracie>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Linux networking mailing list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36246 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754078AbcJYFOD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 01:14:03 -0400
+Received: from barracuda6.aus1.datafoundry.com ([209.99.124.137]:42118 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1758007AbcJYF2g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 01:28:36 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We recently encountered a bug where a few customers using ibmveth on the 
-same LPAR hit an issue where a TCP session hung when large receive was
-enabled. Closer analysis revealed that the session was stuck because the 
-one side was advertising a zero window repeatedly.
+I'm working with Aquantia to add a new 2.5/5 Gbps driver to the kernel.
+It looks like it's going to one of the biggest drivers in
+drivers/net/ethernet. The team that developed the driver is new to
+kernel development processes, but are working to make it
+checkpatch-clean and addressing sparse issues. Right now we're working
+to split the code into small chunks for review. The sequence of patches
+first targets basic functionality, then adding a feature at a time. Still,
+it's going to be a lot of work to review.
 
-We narrowed this down to the fact the ibmveth driver did not set gso_size 
-which is translated by TCP into the MSS later up the stack. The MSS is 
-used to calculate the TCP window size and as that was abnormally large, 
-it was calculating a zero window, even although the sockets receive buffer 
-was completely empty. 
+Aquantia is committed to doing the work to add this to the mainline
+kernel but it's clearly going to be a substantial amount of work not
+only for them, but for reviewers. So, my question: what can we do to
+make this process easy for the networking community in addition to the
+basics that are already under way? I welcome any and all suggestions.
 
-We were able to reproduce this and worked with IBM to fix this. Thanks Tom 
-and Marcelo for all your help and review on this.
-
-The patch fixes both our internal reproduction tests and our customers tests.
-
-Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
----
- drivers/net/ethernet/ibm/ibmveth.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
-
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index 29c05d0..3028c33 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -1182,6 +1182,8 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
- 	int frames_processed = 0;
- 	unsigned long lpar_rc;
- 	struct iphdr *iph;
-+	bool large_packet = 0;
-+	u16 hdr_len = ETH_HLEN + sizeof(struct tcphdr);
- 
- restart_poll:
- 	while (frames_processed < budget) {
-@@ -1236,10 +1238,27 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
- 						iph->check = 0;
- 						iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
- 						adapter->rx_large_packets++;
-+						large_packet = 1;
- 					}
- 				}
- 			}
- 
-+			if (skb->len > netdev->mtu) {
-+				iph = (struct iphdr *)skb->data;
-+				if (be16_to_cpu(skb->protocol) == ETH_P_IP && iph->protocol == IPPROTO_TCP) {
-+					hdr_len += sizeof(struct iphdr);
-+					skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+					skb_shinfo(skb)->gso_size = netdev->mtu - hdr_len;
-+				} else if (be16_to_cpu(skb->protocol) == ETH_P_IPV6 &&
-+					iph->protocol == IPPROTO_TCP) {
-+					hdr_len += sizeof(struct ipv6hdr);
-+					skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+					skb_shinfo(skb)->gso_size = netdev->mtu - hdr_len;
-+				}
-+				if (!large_packet)
-+					adapter->rx_large_packets++;
-+			}
-+
- 			napi_gro_receive(napi, skb);	/* send it up */
- 
- 			netdev->stats.rx_packets++;
--- 
-1.8.3.1
+Thanks!
