@@ -1,13 +1,13 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 16/27] arch/openrisc: Add option to skip DMA sync
- as a part of mapping
-Date: Tue, 25 Oct 2016 11:38:13 -0400
-Message-ID: <20161025153813.4815.18848.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH 24/27] mm: Add support for releasing multiple
+ instances of a page
+Date: Tue, 25 Oct 2016 11:38:55 -0400
+Message-ID: <20161025153855.4815.81208.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jonas Bonn <jonas@southpole.se>, davem@davemloft.net, brouer@redhat.com
+Cc: davem@davemloft.net, brouer@redhat.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
  linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
@@ -15,30 +15,58 @@ In-Reply-To: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
-avoid invoking cache line invalidation if the driver will just handle it
-via a sync_for_cpu or sync_for_device call.
+This patch adds a function that allows us to batch free a page that has
+multiple references outstanding.  Specifically this function can be used to
+drop a page being used in the page frag alloc cache.  With this drivers can
+make use of functionality similar to the page frag alloc cache without
+having to do any workarounds for the fact that there is no function that
+frees multiple references.
 
-Cc: Jonas Bonn <jonas@southpole.se>
+Cc: linux-mm@kvack.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/openrisc/kernel/dma.c |    3 +++
- 1 file changed, 3 insertions(+)
+ include/linux/gfp.h |    2 ++
+ mm/page_alloc.c     |   14 ++++++++++++++
+ 2 files changed, 16 insertions(+)
 
-diff --git a/arch/openrisc/kernel/dma.c b/arch/openrisc/kernel/dma.c
-index 140c991..906998b 100644
---- a/arch/openrisc/kernel/dma.c
-+++ b/arch/openrisc/kernel/dma.c
-@@ -141,6 +141,9 @@
- 	unsigned long cl;
- 	dma_addr_t addr = page_to_phys(page) + offset;
+diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+index f8041f9de..4175dca 100644
+--- a/include/linux/gfp.h
++++ b/include/linux/gfp.h
+@@ -506,6 +506,8 @@ extern struct page *alloc_pages_vma(gfp_t gfp_mask, int order,
+ extern void free_hot_cold_page_list(struct list_head *list, bool cold);
  
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return addr;
+ struct page_frag_cache;
++extern void __page_frag_drain(struct page *page, unsigned int order,
++			      unsigned int count);
+ extern void *__alloc_page_frag(struct page_frag_cache *nc,
+ 			       unsigned int fragsz, gfp_t gfp_mask);
+ extern void __free_page_frag(void *addr);
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index ca423cc..253046a 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -3883,6 +3883,20 @@ static struct page *__page_frag_refill(struct page_frag_cache *nc,
+ 	return page;
+ }
+ 
++void __page_frag_drain(struct page *page, unsigned int order,
++		       unsigned int count)
++{
++	VM_BUG_ON_PAGE(page_ref_count(page) == 0, page);
 +
- 	switch (dir) {
- 	case DMA_TO_DEVICE:
- 		/* Flush the dcache for the requested range */
++	if (page_ref_sub_and_test(page, count)) {
++		if (order == 0)
++			free_hot_cold_page(page, false);
++		else
++			__free_pages_ok(page, order);
++	}
++}
++EXPORT_SYMBOL(__page_frag_drain);
++
+ void *__alloc_page_frag(struct page_frag_cache *nc,
+ 			unsigned int fragsz, gfp_t gfp_mask)
+ {
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
