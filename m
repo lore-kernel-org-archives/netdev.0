@@ -1,53 +1,60 @@
-From: "Kouame Ganzrin Hugues." <officeofffile670@ciudad.com.ar>
-Subject: payment Compensation
-Date: Tue, 25 Oct 2016 08:11:08 -0300 (ART)
-Message-ID: <696038463.67419610.1477393868372.JavaMail.zimbra@ciudad.com.ar>
-References: <612074412.67417690.1477393743015.JavaMail.zimbra@ciudad.com.ar>
-Reply-To: "dhlcompeny1234@gmail.com" <dhlcompeny1234@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net caif: insert missing spaces in pr_* messages and unbreak multi-line strings
+Date: Tue, 25 Oct 2016 12:18:42 +0100
+Message-ID: <20161025111842.8110-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6.ciudad.com.ar ([200.42.138.211]:43904 "EHLO
-        relay6.ciudad.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755986AbcJYLSe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 07:18:34 -0400
-Received: from localhost (unknown [10.5.0.19])
-        by relay6.ciudad.com.ar (Postfix) with ESMTP id DB40820DD4E2
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 08:11:59 -0300 (ART)
-In-Reply-To: <612074412.67417690.1477393743015.JavaMail.zimbra@ciudad.com.ar>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Scam Victim Compensation
-You are receiving this message from Economic and Financial Crimes 
-Commission (EFCC) in alliance with economic community of West African 
-states (ECOWAS).  We have been working towards the eradication of 
-fraudsters and scam Artists in Western part of Africa With the help of 
-United States Government and the United Nations. We have been able to track 
-down so many of this scam artist in various parts of African countries and 
-they are all in our custody.
+From: Colin Ian King <colin.king@canonical.com>
+
+Some of the pr_* messages are missing spaces, so insert these and also
+unbreak multi-line literal strings in pr_* messages
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/caif/cfcnfg.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
+index fa39fc2..273cb07 100644
+--- a/net/caif/cfcnfg.c
++++ b/net/caif/cfcnfg.c
+@@ -390,8 +390,7 @@ cfcnfg_linkup_rsp(struct cflayer *layer, u8 channel_id, enum cfctrl_srv serv,
+ 	rcu_read_lock();
  
-We have been able to recover so much money from these scam artists. The 
-United Nation Anti-crime commission and the United State Government have 
-ordered the money recovered from the Scammers to be shared among 100 Lucky 
-people around the globe. This email is been directed to you because your 
-email address was found in one of the scam Artists file and computer hard 
-disk in our custody here. You are therefore being compensated with $500,000 
-Five Hundred Thousand Dollars. We have also arrested all those who claim to 
-be barristers, bank officials, Lottery Agents who has money for such funds 
-which do not exist.
-
-Since your name appeared among the lucky beneficiaries who will receive a 
-compensation of $1.500, 000 One Million Five Hundred Thousand Dollars, we 
-have arranged your payment through Bank draft check. So feel free to 
-contact the delivery company for the processing delivery of your bank draft 
-check. DHL Delivery Company contact Details
-
-Name: Dr Albert Godwin  
-Email: dhlcompeny1234@gmail.com
-Phone: +229 688-669-49
-
-Best Regard,
-Mr. Kouame Ganzrin Hugues.
+ 	if (adapt_layer == NULL) {
+-		pr_debug("link setup response but no client exist,"
+-				"send linkdown back\n");
++		pr_debug("link setup response but no client exist, send linkdown back\n");
+ 		cfctrl_linkdown_req(cnfg->ctrl, channel_id, NULL);
+ 		goto unlock;
+ 	}
+@@ -401,8 +400,7 @@ cfcnfg_linkup_rsp(struct cflayer *layer, u8 channel_id, enum cfctrl_srv serv,
+ 
+ 	phyinfo = cfcnfg_get_phyinfo_rcu(cnfg, phyid);
+ 	if (phyinfo == NULL) {
+-		pr_err("ERROR: Link Layer Device disappeared"
+-				"while connecting\n");
++		pr_err("ERROR: Link Layer Device disappeared while connecting\n");
+ 		goto unlock;
+ 	}
+ 
+@@ -436,8 +434,7 @@ cfcnfg_linkup_rsp(struct cflayer *layer, u8 channel_id, enum cfctrl_srv serv,
+ 		servicel = cfdbgl_create(channel_id, &phyinfo->dev_info);
+ 		break;
+ 	default:
+-		pr_err("Protocol error. Link setup response "
+-				"- unknown channel type\n");
++		pr_err("Protocol error. Link setup response - unknown channel type\n");
+ 		goto unlock;
+ 	}
+ 	if (!servicel)
+-- 
+2.9.3
