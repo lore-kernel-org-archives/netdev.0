@@ -1,46 +1,84 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/3] bpf: Refactor cgroups code in prep for new
- type
-Date: Tue, 25 Oct 2016 17:04:41 -0600
-Message-ID: <22db4876-eb97-bc1b-5d56-7d24bf43b960@cumulusnetworks.com>
-References: <1477434613-3169-1-git-send-email-dsa@cumulusnetworks.com>
- <1477434613-3169-2-git-send-email-dsa@cumulusnetworks.com>
- <580FE44F.2030403@iogearbox.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/3] bpf: Add new cgroups prog type to enable
+ sock modifications
+Date: Wed, 26 Oct 2016 01:28:24 +0200
+Message-ID: <580FEA98.1090809@iogearbox.net>
+References: <1477434613-3169-1-git-send-email-dsa@cumulusnetworks.com> <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: daniel@zonque.org, ast@fb.com
-To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34535 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754103AbcJYXEo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 19:04:44 -0400
-Received: by mail-pf0-f182.google.com with SMTP id n85so10457451pfi.1
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 16:04:44 -0700 (PDT)
-In-Reply-To: <580FE44F.2030403@iogearbox.net>
+Received: from www62.your-server.de ([213.133.104.62]:45453 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754304AbcJYX22 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 19:28:28 -0400
+In-Reply-To: <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/25/16 5:01 PM, Daniel Borkmann wrote:
->> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
->> index a0ab43f264b0..918c01a6f129 100644
->> --- a/kernel/bpf/cgroup.c
->> +++ b/kernel/bpf/cgroup.c
->> @@ -117,6 +117,19 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
->>       }
->>   }
->>
->> +static int __cgroup_bpf_run_filter_skb(struct sk_buff *skb,
->> +                       struct bpf_prog *prog)
->> +{
->> +    unsigned int offset = skb->data - skb_network_header(skb);
->> +    int ret;
->> +
->> +    __skb_push(skb, offset);
->> +    ret = bpf_prog_run_clear_cb(prog, skb) == 1 ? 0 : -EPERM;
-> 
-> Original code save skb->cb[], this one clears it.
-> 
+On 10/26/2016 12:30 AM, David Ahern wrote:
+> Add new cgroup based program type, BPF_PROG_TYPE_CGROUP_SOCK. Similar to
+> BPF_PROG_TYPE_CGROUP_SKB programs can be attached to a cgroup and run
+> any time a process in the cgroup opens an AF_INET or AF_INET6 socket.
+> Currently only sk_bound_dev_if is exported to userspace for modification
+> by a bpf program.
+>
+> This allows a cgroup to be configured such that AF_INET{6} sockets opened
+> by processes are automatically bound to a specific device. In turn, this
+> enables the running of programs that do not support SO_BINDTODEVICE in a
+> specific VRF context / L3 domain.
+>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+[...]
+> @@ -524,6 +535,10 @@ struct bpf_tunnel_key {
+>   	__u32 tunnel_label;
+>   };
+>
+> +struct bpf_sock {
+> +	__u32 bound_dev_if;
+> +};
+> +
+>   /* User return codes for XDP prog type.
+>    * A valid XDP program must return one of these defined values. All other
+>    * return codes are reserved for future use. Unknown return codes will result
+[...]
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 4552b8c93b99..775802881b01 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2482,6 +2482,27 @@ static const struct bpf_func_proto bpf_xdp_event_output_proto = {
+>   	.arg5_type	= ARG_CONST_STACK_SIZE,
+>   };
+>
+> +BPF_CALL_3(bpf_sock_store_u32, struct sock *, sk, u32, offset, u32, val)
+> +{
+> +	u8 *ptr = (u8 *)sk;
+> +
+> +	if (unlikely(offset > sizeof(*sk)))
+> +		return -EFAULT;
+> +
+> +	*((u32 *)ptr) = val;
+> +
+> +	return 0;
+> +}
 
-ah, it changed in Daniel's v6 to v7 code and I missed it. Will fix. Thanks for pointing it out.
+Seems strange to me. So, this helper allows to overwrite arbitrary memory
+of a struct sock instance. Potentially we could crash the kernel.
+
+And in your sock_filter_convert_ctx_access(), you already implement inline
+read/write for the context ...
+
+Your demo code does in pseudocode:
+
+   r1 = sk
+   r2 = offsetof(struct bpf_sock, bound_dev_if)
+   r3 = idx
+   r1->sk_bound_dev_if = idx
+   sock_store_u32(r1, r2, r3) // updates sk_bound_dev_if again to idx
+   return 1
+
+Dropping that helper from the patch, the only thing a program can do here
+is to read/write the sk_bound_dev_if helper per cgroup. Hmm ... dunno. So
+this really has to be for cgroups v2, right?
