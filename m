@@ -1,49 +1,66 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Mon, 24 Oct 2016 18:10:13 -0700
-Message-ID: <20161025011011.GA25766@ast-mbp.thefacebook.com>
-References: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
- <20161023093808.161535f3@xeon-e3>
- <CAJmoNQFJhvc4VSdTRWcTZD7T2E1LQ_2BZoMQhZM18jFH8hpQCQ@mail.gmail.com>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: Re: question about function igmp_stop_timer() in net/ipv4/igmp.c
+Date: Tue, 25 Oct 2016 09:13:54 +0800
+Message-ID: <580EB1D2.3010309@hisilicon.com>
+References: <580DF574.6070905@hisilicon.com> <20161024153200.GM1110@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Shrijeet Mukherjee <shrijeet@gmail.com>, mst@redhat.com,
-        Tom Herbert <tom@herbertland.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33492 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758032AbcJYBKS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 21:10:18 -0400
-Received: by mail-pf0-f194.google.com with SMTP id i85so17901832pfa.0
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2016 18:10:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJmoNQFJhvc4VSdTRWcTZD7T2E1LQ_2BZoMQhZM18jFH8hpQCQ@mail.gmail.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:48864 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756474AbcJYBQa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2016 21:16:30 -0400
+In-Reply-To: <20161024153200.GM1110@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 23, 2016 at 06:51:53PM -0700, Shrijeet Mukherjee wrote:
-> 
-> The main goal of this patch was to start that discussion. My v2 patch
-> rejects the ndo op if neither of rx_mergeable or big_buffers are set.
-> Does that sound like a good tradeoff ? Don't know enough about who
-> turns these features off and why.
-> 
-> I can say that virtualbox always has the device features enabled .. so
-> seems like a good tradeoff ?
+Hi Andrew,
 
-If virtio can be taught to work with xdp that would be awesome.
-I've looked at it from xdp prog debugging point of view, but amount of
-complexity related to mergeable/big/etc was too much, so I went with e1k+xdp.
-Are you sure that if mergeable/big disabled than buf is contiguous?
-Also my understanding that buf is not writeable?
-I don't see how to do TX either... May be it's all solvable somehow.
+On 2016/10/24 23:32, Andrew Lunn wrote:
+> On Mon, Oct 24, 2016 at 07:50:12PM +0800, Dongpo Li wrote:
+>> Hello
+>>
+>> We encountered a multicast problem when two set-top box(STB) join the same multicast group and leave.
+>> The two boxes can join the same multicast group
+>> but only one box can send the IGMP leave group message when leave,
+>> the other box does not send the IGMP leave message.
+>> Our boxes use the IGMP version 2.
+>>
+>> I added some debug info and found the whole procedure is like this:
+>> (1) Box A joins the multicast group 225.1.101.145 and send the IGMP v2 membership report(join group).
+>> (2) Box B joins the same multicast group 225.1.101.145 and also send the IGMP v2 membership report(join group).
+>> (3) Box A receives the IGMP membership report from Box B and kernel calls igmp_heard_report().
+>>     This function will call igmp_stop_timer(im).
+>>     In function igmp_stop_timer(im), it tries to delete IGMP timer and does the following:
+>>         im->tm_running = 0;
+>>         im->reporter = 0;
+>> (4) Box A leaves the multicast group 225.1.101.145 and kernel calls
+>>     ip_mc_leave_group -> ip_mc_dec_group -> igmp_group_dropped.
+>>     But in function igmp_group_dropped(), the im->reporter is 0, so the kernel does not send the IGMP leave message.
+> 
+> RFC 2236 says:
+> 
+> 2.  Introduction
+> 
+>    The Internet Group Management Protocol (IGMP) is used by IP hosts to
+>    report their multicast group memberships to any immediately-
+>    neighboring multicast routers.
+> 
+> Are Box A or B multicast routers?
+Thank you for your comments.
+Both Box A and B are IP hosts, not multicast routers.
+And the RFC says: IGMP is used by "IP hosts" to report their multicast group membership.
 
-There was a discussion to convert raw dma buffer in mlx/intel directly
-into vhost to avoid skb. This will allow host to send packets into
-VMs quickly. Then if we can have fast virtio in the guest then
-even more interesting use cases will be solved.
+> 
+>     Andrew
+> 
+> .
+> 
+
+    Regards,
+    Dongpo
+
+.
