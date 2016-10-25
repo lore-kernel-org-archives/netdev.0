@@ -1,44 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [net-next] net: ip, diag: include net/inet_sock.h
-Date: Tue, 25 Oct 2016 17:53:22 +0200
-Message-ID: <20161025155339.9892-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH] [net-next] net: ip, diag: include net/inet_sock.h
+Date: Tue, 25 Oct 2016 19:06:02 +0300
+Message-ID: <20161025160602.GZ1847@uranus.lan>
+References: <20161025155339.9892-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         James Morris <jmorris@namei.org>,
         Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Cyrill Gorcunov <gorcunov@gmail.com>, netdev@vger.kernel.org,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161025155339.9892-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The newly added raw_diag.c fails to build in some configurations
-unless we include this header:
+On Tue, Oct 25, 2016 at 05:53:22PM +0200, Arnd Bergmann wrote:
+> The newly added raw_diag.c fails to build in some configurations
+> unless we include this header:
+> 
+> In file included from net/ipv4/raw_diag.c:6:0:
+> include/net/raw.h:71:21: error: field 'inet' has incomplete type
+> net/ipv4/raw_diag.c: In function 'raw_diag_dump':
+> net/ipv4/raw_diag.c:166:29: error: implicit declaration of function 'inet_sk'
+> 
+> Fixes: 432490f9d455 ("net: ip, diag -- Add diag interface for raw sockets")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-In file included from net/ipv4/raw_diag.c:6:0:
-include/net/raw.h:71:21: error: field 'inet' has incomplete type
-net/ipv4/raw_diag.c: In function 'raw_diag_dump':
-net/ipv4/raw_diag.c:166:29: error: implicit declaration of function 'inet_sk'
-
-Fixes: 432490f9d455 ("net: ip, diag -- Add diag interface for raw sockets")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- net/ipv4/raw_diag.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/raw_diag.c b/net/ipv4/raw_diag.c
-index ef3bea061b75..be930908bcf9 100644
---- a/net/ipv4/raw_diag.c
-+++ b/net/ipv4/raw_diag.c
-@@ -3,6 +3,7 @@
- #include <linux/inet_diag.h>
- #include <linux/sock_diag.h>
- 
-+#include <net/inet_sock.h>
- #include <net/raw.h>
- #include <net/rawv6.h>
- 
--- 
-2.9.0
+Thank you! And sorry for this, it didn't trigger on my testing.
