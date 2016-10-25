@@ -1,30 +1,44 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
-Date: Tue, 25 Oct 2016 08:40:05 -0700
-Message-ID: <75a02d2e-9dfe-6c6c-bf76-0b3c606a51be@hpe.com>
-References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
- <aa771485-b733-49fa-765c-9c2914d65605@hpe.com>
- <fb79b944-a190-3c30-45eb-eacd51be9e7f@molgen.mpg.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Baoquan He <bhe@redhat.com>
-To: Paul Menzel <pmenzel@molgen.mpg.de>,
-        Sony Chacko <sony.chacko@qlogic.com>,
-        Dept-HSGLinuxNICDev@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2352.austin.hpe.com ([15.233.44.25]:25982 "EHLO
-        g2t2352.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941817AbcJYPkH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 11:40:07 -0400
-In-Reply-To: <fb79b944-a190-3c30-45eb-eacd51be9e7f@molgen.mpg.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] net: ip, diag: include net/inet_sock.h
+Date: Tue, 25 Oct 2016 17:53:22 +0200
+Message-ID: <20161025155339.9892-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Cyrill Gorcunov <gorcunov@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/25/2016 08:31 AM, Paul Menzel wrote:
-> To my knowledge, the firmware files haven’t changed since years [1].
+The newly added raw_diag.c fails to build in some configurations
+unless we include this header:
 
-Indeed - it looks like I read "bnx2" and thought "bnx2x"  Must remember 
-to hold-off on replying until after the morning orange juice is consumed :)
+In file included from net/ipv4/raw_diag.c:6:0:
+include/net/raw.h:71:21: error: field 'inet' has incomplete type
+net/ipv4/raw_diag.c: In function 'raw_diag_dump':
+net/ipv4/raw_diag.c:166:29: error: implicit declaration of function 'inet_sk'
 
-rick
+Fixes: 432490f9d455 ("net: ip, diag -- Add diag interface for raw sockets")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/ipv4/raw_diag.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/raw_diag.c b/net/ipv4/raw_diag.c
+index ef3bea061b75..be930908bcf9 100644
+--- a/net/ipv4/raw_diag.c
++++ b/net/ipv4/raw_diag.c
+@@ -3,6 +3,7 @@
+ #include <linux/inet_diag.h>
+ #include <linux/sock_diag.h>
+ 
++#include <net/inet_sock.h>
+ #include <net/raw.h>
+ #include <net/rawv6.h>
+ 
+-- 
+2.9.0
