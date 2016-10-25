@@ -1,46 +1,58 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: Re: [PATCH] virtio-net: Update the mtu code to match virtio spec
-Date: Tue, 25 Oct 2016 16:14:34 -0400
-Message-ID: <f7tpomo5gph.fsf@redhat.com>
-References: <1477413335-17296-1-git-send-email-aconole@redhat.com>
-        <f7ta8ds9ory.fsf@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] cw1200: fix bogus maybe-uninitialized warning
+Date: Tue, 25 Oct 2016 22:19:49 +0200
+Message-ID: <14428343.0Jf5tZk0Ep@wuerfel>
+References: <20161024154215.2863586-1-arnd@arndb.de> <063D6719AE5E284EB5DD2968C1650D6DB0209E9A@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: virtualization@lists.linux-foundation.org,
-        linux-kernel@vger.kernel.org,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jarod Wilson <jarod@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52552 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750806AbcJYUOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Oct 2016 16:14:36 -0400
-In-Reply-To: <f7ta8ds9ory.fsf@redhat.com> (Aaron Conole's message of "Tue, 25
-        Oct 2016 16:06:41 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Solomon Peachy <pizza@shaftnet.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Johannes Berg <johannes.berg@intel.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0209E9A@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Aaron Conole <aconole@redhat.com> writes:
+On Tuesday, October 25, 2016 1:24:55 PM CEST David Laight wrote:
+> > diff --git a/drivers/net/wireless/st/cw1200/wsm.c b/drivers/net/wireless/st/cw1200/wsm.c
+> > index 680d60eabc75..094e6637ade2 100644
+> > --- a/drivers/net/wireless/st/cw1200/wsm.c
+> > +++ b/drivers/net/wireless/st/cw1200/wsm.c
+> > @@ -385,14 +385,13 @@ static int wsm_multi_tx_confirm(struct cw1200_common *priv,
+> >       if (WARN_ON(count <= 0))
+> >               return -EINVAL;
+> > 
+> > -     if (count > 1) {
+> > -             /* We already released one buffer, now for the rest */
+> > -             ret = wsm_release_tx_buffer(priv, count - 1);
+> > -             if (ret < 0)
+> > -                     return ret;
+> > -             else if (ret > 0)
+> > -                     cw1200_bh_wakeup(priv);
+> > -     }
+> > +     /* We already released one buffer, now for the rest */
+> > +     ret = wsm_release_tx_buffer(priv, count - 1);
+> > +     if (ret < 0)
+> > +             return ret;
+> > +
+> > +     if (ret > 0)
+> > +             cw1200_bh_wakeup(priv);
+> 
+> That doesn't look equivalent to me (when count == 1).
 
->> From: Aaron Conole <aconole@bytheb.org>
->>
->> The virtio committee recently ratified a change, VIRTIO-152, which
->> defines the mtu field to be 'max' MTU, not simply desired MTU.
->>
->> This commit brings the virtio-net device in compliance with VIRTIO-152.
->>
->> Additionally, drop the max_mtu branch - it cannot be taken since the u16
->> returned by virtio_cread16 will never exceed the initial value of
->> max_mtu.
->>
->> Cc: "Michael S. Tsirkin" <mst@redhat.com>
->> Cc: Jarod Wilson <jarod@redhat.com>
->> Signed-off-by: Aaron Conole <aconole@redhat.com>
->> ---
->
-> Sorry about the subject line, David.  This is targetted at net-next, and
-> it appears my from was mangled.  Would you like me to resubmit with
-> these details corrected?
+Ah, that's what I missed, thanks for pointing that out!
 
-I answered my own question.  Sorry for the noise.
+> > 
+> >       cw1200_debug_txed_multi(priv, count);
+> >       for (i = 0; i < count; ++i) {
+> 
+> Convert this loop into a do ... while so the body executes at least once.
+
+Good idea. Version 2 coming now.
+
+	Arnd
