@@ -1,52 +1,83 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 04/27] arch/arc: Add option to skip sync on DMA
- mapping
-Date: Tue, 25 Oct 2016 11:37:09 -0400
-Message-ID: <20161025153709.4815.82720.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH 12/27] arch/metag: Add option to skip DMA sync as a
+ part of map and unmap
+Date: Tue, 25 Oct 2016 11:37:51 -0400
+Message-ID: <20161025153751.4815.28856.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vineet Gupta <vgupta@synopsys.com>, linux-snps-arc@lists.infradead.org,
- davem@davemloft.net, brouer@redhat.com
+Cc: brouer@redhat.com, James Hogan <james.hogan@imgtec.com>,
+ linux-metag@vger.kernel.org, davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
  linux-kernel@vger.kernel.org, linux-mm@kvack.org
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
-later via a sync_for_cpu or sync_for_device call.
+via a sync_for_cpu or sync_for_device call.
 
-Cc: Vineet Gupta <vgupta@synopsys.com>
-Cc: linux-snps-arc@lists.infradead.org
+Cc: James Hogan <james.hogan@imgtec.com>
+Cc: linux-metag@vger.kernel.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/arc/mm/dma.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ arch/metag/kernel/dma.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arc/mm/dma.c b/arch/arc/mm/dma.c
-index 20afc65..6303c34 100644
---- a/arch/arc/mm/dma.c
-+++ b/arch/arc/mm/dma.c
-@@ -133,7 +133,10 @@ static dma_addr_t arc_dma_map_page(struct device *dev, struct page *page,
+diff --git a/arch/metag/kernel/dma.c b/arch/metag/kernel/dma.c
+index 0db31e2..91968d9 100644
+--- a/arch/metag/kernel/dma.c
++++ b/arch/metag/kernel/dma.c
+@@ -484,8 +484,9 @@ static dma_addr_t metag_dma_map_page(struct device *dev, struct page *page,
+ 		unsigned long offset, size_t size,
+ 		enum dma_data_direction direction, unsigned long attrs)
+ {
+-	dma_sync_for_device((void *)(page_to_phys(page) + offset), size,
+-			    direction);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		dma_sync_for_device((void *)(page_to_phys(page) + offset),
++				    size, direction);
+ 	return page_to_phys(page) + offset;
+ }
+ 
+@@ -493,7 +494,8 @@ static void metag_dma_unmap_page(struct device *dev, dma_addr_t dma_address,
+ 		size_t size, enum dma_data_direction direction,
  		unsigned long attrs)
  {
- 	phys_addr_t paddr = page_to_phys(page) + offset;
--	_dma_cache_sync(paddr, size, dir);
-+
+-	dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
 +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		_dma_cache_sync(paddr, size, dir);
-+
- 	return plat_phys_to_dma(dev, paddr);
++		dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
  }
+ 
+ static int metag_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+@@ -507,6 +509,10 @@ static int metag_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+ 		BUG_ON(!sg_page(sg));
+ 
+ 		sg->dma_address = sg_phys(sg);
++
++		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++			continue;
++
+ 		dma_sync_for_device(sg_virt(sg), sg->length, direction);
+ 	}
+ 
+@@ -525,6 +531,10 @@ static void metag_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
+ 		BUG_ON(!sg_page(sg));
+ 
+ 		sg->dma_address = sg_phys(sg);
++
++		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++			continue;
++
+ 		dma_sync_for_cpu(sg_virt(sg), sg->length, direction);
+ 	}
+ }
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
