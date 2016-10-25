@@ -1,58 +1,54 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [PATCH] net: bgmac: fix spelling mistake: "connecton" ->
- "connection"
-Date: Tue, 25 Oct 2016 09:42:32 -0400
-Message-ID: <20161025134231.GA30754@broadcom.com>
-References: <20161024224618.10383-1-colin.king@canonical.com>
+From: Eric Garver <e@erig.me>
+Subject: Re: [PATCH v3 net] flow_dissector: fix vlan tag handling
+Date: Tue, 25 Oct 2016 09:50:36 -0400
+Message-ID: <20161025135036.GE12603@egarver>
+References: <20161024214058.1896091-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34432 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934325AbcJYNmq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 09:42:46 -0400
-Received: by mail-pf0-f178.google.com with SMTP id n85so3420105pfi.1
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 06:42:45 -0700 (PDT)
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161024224618.10383-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161024214058.1896091-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 24, 2016 at 11:46:18PM +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On Mon, Oct 24, 2016 at 11:40:30PM +0200, Arnd Bergmann wrote:
+> gcc warns about an uninitialized pointer dereference in the vlan
+> priority handling:
 > 
-> trivial fix to spelling mistake in dev_err message
+> net/core/flow_dissector.c: In function '__skb_flow_dissect':
+> net/core/flow_dissector.c:281:61: error: 'vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> As pointed out by Jiri Pirko, the variable is never actually used
+> without being initialized first as the only way it end up uninitialized
+> is with skb_vlan_tag_present(skb)==true, and that means it does not
+> get accessed.
+> 
+> However, the warning hints at some related issues that I'm addressing
+> here:
+> 
+> - the second check for the vlan tag is different from the first one
+>   that tests the skb for being NULL first, causing both the warning
+>   and a possible NULL pointer dereference that was not entirely fixed.
+> - The same patch that introduced the NULL pointer check dropped an
+>   earlier optimization that skipped the repeated check of the
+>   protocol type
+> - The local '_vlan' variable is referenced through the 'vlan' pointer
+>   but the variable has gone out of scope by the time that it is
+>   accessed, causing undefined behavior
+> 
+> Caching the result of the 'skb && skb_vlan_tag_present(skb)' check
+> in a local variable allows the compiler to further optimize the
+> later check. With those changes, the warning also disappears.
+> 
+> Fixes: 3805a938a6c2 ("flow_dissector: Check skb for VLAN only if skb specified.")
+> Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-One of these days I'll learn to spell.
-
-Acked-by: Jon Mason <jon.mason@broadcom.com>
-
-> ---
->  drivers/net/ethernet/broadcom/bgmac.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-> index 856379c..31ca204 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -1449,7 +1449,7 @@ static int bgmac_phy_connect(struct bgmac *bgmac)
->  	phy_dev = phy_connect(bgmac->net_dev, bus_id, &bgmac_adjust_link,
->  			      PHY_INTERFACE_MODE_MII);
->  	if (IS_ERR(phy_dev)) {
-> -		dev_err(bgmac->dev, "PHY connecton failed\n");
-> +		dev_err(bgmac->dev, "PHY connection failed\n");
->  		return PTR_ERR(phy_dev);
->  	}
->  
-> -- 
-> 2.9.3
-> 
+Acked-by: Eric Garver <e@erig.me>
