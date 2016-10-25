@@ -1,47 +1,56 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] netfilter: fix type mismatch with error return from
- nft_parse_u32_check
-Date: Tue, 25 Oct 2016 15:55:56 -0400
-Message-ID: <20161025195556.GA10443@tuxdriver.com>
-References: <1477422484-27030-1-git-send-email-linville@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] udp: fix IP_CHECKSUM handling
+Date: Tue, 25 Oct 2016 13:05:21 -0700
+Message-ID: <1477425921.7065.139.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1477270986.7065.102.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAF=yD-+zykFwYUzhOZGcs6ywaGR3x2Qnvf1J4GYUYRf5gfTPTw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Laura Garcia Liebana <nevola@gmail.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Dan Carpenter <dan.carpenter@oracle.com>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1477422484-27030-1-git-send-email-linville@tuxdriver.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Sam Kumar <samanthakumar@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Tom Herbert <tom@herbertland.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:32852 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934222AbcJYUFX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 16:05:23 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i85so20491571pfa.0
+        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 13:05:23 -0700 (PDT)
+In-Reply-To: <CAF=yD-+zykFwYUzhOZGcs6ywaGR3x2Qnvf1J4GYUYRf5gfTPTw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 25, 2016 at 03:08:04PM -0400, John W. Linville wrote:
-> Commit 36b701fae12ac ("netfilter: nf_tables: validate maximum value of
-> u32 netlink attributes") introduced nft_parse_u32_check with a return
-> value of "unsigned int", yet on error it returns "-ERANGE".
+On Tue, 2016-10-25 at 15:43 -0400, Willem de Bruijn wrote:
+> On Sun, Oct 23, 2016 at 9:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > First bug was added in commit ad6f939ab193 ("ip: Add offset parameter to
+> > ip_cmsg_recv") : Tom missed that ipv4 udp messages could be received on
+> > AF_INET6 socket. ip_cmsg_recv(msg, skb) should have been replaced by
+> > ip_cmsg_recv_offset(msg, skb, sizeof(struct udphdr));
+> >
+> > Then commit e6afc8ace6dd ("udp: remove headers from UDP packets before
+> > queueing") forgot to adjust the offsets now UDP headers are pulled
+> > before skb are put in receive queue.
+> >
+> > Fixes: ad6f939ab193 ("ip: Add offset parameter to ip_cmsg_recv")
+> > Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Cc: Sam Kumar <samanthakumar@google.com>
+> > Cc: Willem de Bruijn <willemb@google.com>
+> > ---
+> > Tom, I would appreciate your feedback on this patch, I presume
+> > you have tests to verify IP_CHECKSUM feature ? Thanks !
+> >
 > 
-> This patch corrects the mismatch by changing the return value to "int",
-> which happens to match the actual users of nft_parse_u32_check already.
+> Tested-by: Willem de Bruijn <willemb@google.com>
 > 
-> Found by Coverity, CID 1373930.
+> Thanks for fixing, Eric.
 > 
-> Note that commit 21a9e0f1568ea ("netfilter: nft_exthdr: fix error
-> handling in nft_exthdr_init()) attempted to address the issue, but
-> did not address the return type of nft_parse_u32_check.
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> Cc: Laura Garcia Liebana <nevola@gmail.com>
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: Dan Carpenter <dan.carpenter@oracle.com>
-> Fixes: 0eadf37afc250 ("netfilter: nf_tables: validate maximum value...")
+> Tested with https://github.com/wdebruij/kerneltools/blob/master/tests/recv_cmsg_ipchecksum.c
 
-The Fixes line is incorrect -- corrected patch to follow!
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Thanks a lot Willem for cooking this test !
