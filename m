@@ -1,92 +1,54 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH v2 RESEND] xen-netback: prefer xenbus_scanf() over
- xenbus_gather()
-Date: Tue, 25 Oct 2016 07:52:39 +0000
-Message-ID: <8cc49b57d5d64a439ddc99b94c99f9a3@AMSPEX02CL03.citrite.net>
-References: <580E40000200007800119234@prv-mh.provo.novell.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v3 net] flow_dissector: fix vlan tag handling
+Date: Tue, 25 Oct 2016 10:11:12 +0200
+Message-ID: <20161025081112.GB1672@nanopsycho.orion>
+References: <20161024214058.1896091-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Vrabel <david.vrabel@citrix.com>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-        "boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-        Juergen Gross <JGross@suse.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>, Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:20573 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758567AbcJYHwn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 03:52:43 -0400
-In-Reply-To: <580E40000200007800119234@prv-mh.provo.novell.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, Eric Garver <e@erig.me>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161024214058.1896091-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Jan Beulich [mailto:JBeulich@suse.com]
-> Sent: 24 October 2016 16:08
-> To: Paul Durrant <Paul.Durrant@citrix.com>; Wei Liu <wei.liu2@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>; xen-devel@lists.xenproject.org;
-> boris.ostrovsky@oracle.com; Juergen Gross <JGross@suse.com>;
-> netdev@vger.kernel.org
-> Subject: [PATCH v2 RESEND] xen-netback: prefer xenbus_scanf() over
-> xenbus_gather()
-> 
-> For single items being collected this should be preferred as being more
-> typesafe (as the compiler can check format string and to-be-written-to
-> variable match) and more efficient (requiring one less parameter to be
-> passed).
-> 
-> Signed-off-by: Jan Beulich <jbeulich@suse.com>
-> ---
-> v2: Avoid commit message to continue from subject.
-> ---
->  drivers/net/xen-netback/xenbus.c |   14 +++++++-------
->  1 file changed, 7 insertions(+), 7 deletions(-)
-> 
-> --- 4.9-rc2/drivers/net/xen-netback/xenbus.c
-> +++ 4.9-rc2-xen-netback-prefer-xenbus_scanf/drivers/net/xen-
-> netback/xenbus.c
-> @@ -889,16 +889,16 @@ static int connect_ctrl_ring(struct back
->  	unsigned int evtchn;
->  	int err;
-> 
-> -	err = xenbus_gather(XBT_NIL, dev->otherend,
-> -			    "ctrl-ring-ref", "%u", &val, NULL);
-> -	if (err)
-> +	err = xenbus_scanf(XBT_NIL, dev->otherend,
-> +			   "ctrl-ring-ref", "%u", &val);
-> +	if (err <= 0)
+Mon, Oct 24, 2016 at 11:40:30PM CEST, arnd@arndb.de wrote:
+>gcc warns about an uninitialized pointer dereference in the vlan
+>priority handling:
+>
+>net/core/flow_dissector.c: In function '__skb_flow_dissect':
+>net/core/flow_dissector.c:281:61: error: 'vlan' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+>
+>As pointed out by Jiri Pirko, the variable is never actually used
+>without being initialized first as the only way it end up uninitialized
+>is with skb_vlan_tag_present(skb)==true, and that means it does not
+>get accessed.
+>
+>However, the warning hints at some related issues that I'm addressing
+>here:
+>
+>- the second check for the vlan tag is different from the first one
+>  that tests the skb for being NULL first, causing both the warning
+>  and a possible NULL pointer dereference that was not entirely fixed.
+>- The same patch that introduced the NULL pointer check dropped an
+>  earlier optimization that skipped the repeated check of the
+>  protocol type
+>- The local '_vlan' variable is referenced through the 'vlan' pointer
+>  but the variable has gone out of scope by the time that it is
+>  accessed, causing undefined behavior
+>
+>Caching the result of the 'skb && skb_vlan_tag_present(skb)' check
+>in a local variable allows the compiler to further optimize the
+>later check. With those changes, the warning also disappears.
+>
+>Fixes: 3805a938a6c2 ("flow_dissector: Check skb for VLAN only if skb specified.")
+>Fixes: d5709f7ab776 ("flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci")
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Looking at other uses of xenbus_scanf() in the same code I think the check here should be if (err < 0). It's a nit, since xenbus_scanf() cannot return 0, but it would be better for consistency I think.
-
->  		goto done; /* The frontend does not have a control ring */
-> 
->  	ring_ref = val;
-> 
-> -	err = xenbus_gather(XBT_NIL, dev->otherend,
-> -			    "event-channel-ctrl", "%u", &val, NULL);
-> -	if (err) {
-> +	err = xenbus_scanf(XBT_NIL, dev->otherend,
-> +			   "event-channel-ctrl", "%u", &val);
-> +	if (err <= 0) {
->  		xenbus_dev_fatal(dev, err,
->  				 "reading %s/event-channel-ctrl",
->  				 dev->otherend);
-> @@ -919,7 +919,7 @@ done:
->  	return 0;
-> 
->  fail:
-> -	return err;
-> +	return err ?: -ENODATA;
-
-I don't think you need this.
-
-  Paul
-
->  }
-> 
->  static void connect(struct backend_info *be)
-> 
-> 
+Acked-by: Jiri Pirko <jiri@mellanox.com>
