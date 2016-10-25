@@ -1,58 +1,63 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] IB/mlx4: avoid a -Wmaybe-uninitialize warning
-Date: Tue, 25 Oct 2016 18:16:20 +0200
-Message-ID: <20161025161632.411899-1-arnd@arndb.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized
+ warning
+Date: Tue, 25 Oct 2016 16:15:16 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB020A210@AcuExch.aculab.com>
+References: <20161024153454.2766113-1-arnd@arndb.de>
+ <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
+ <12460209.DFK3VxnryE@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
         "David S. Miller" <davem@davemloft.net>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Moshe Shemesh <moshe@mellanox.com>,
-        Christophe Jaillet <christophe.jaillet@wanadoo.fr>,
-        Moni Shoua <monis@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yishai Hadas <yishaih@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Quentin Armitage <quentin@armitage.org.uk>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+        "coreteam@netfilter.org" <coreteam@netfilter.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Arnd Bergmann' <arnd@arndb.de>, Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.182]:55854 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758992AbcJYQSJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 12:18:09 -0400
+In-Reply-To: <12460209.DFK3VxnryE@wuerfel>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is an old warning about mlx4_SW2HW_EQ_wrapper on x86:
+From: Arnd Bergmann
+> Sent: 24 October 2016 21:22
+> On Monday, October 24, 2016 10:47:54 PM CEST Julian Anastasov wrote:
+> > > diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> > > index 1b07578bedf3..9350530c16c1 100644
+> > > --- a/net/netfilter/ipvs/ip_vs_sync.c
+> > > +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> > > @@ -283,6 +283,7 @@ struct ip_vs_sync_buff {
+> > >   */
+> > >  static void ntoh_seq(struct ip_vs_seq *no, struct ip_vs_seq *ho)
+> > >  {
+> > > +     memset(ho, 0, sizeof(*ho));
+> > >       ho->init_seq       = get_unaligned_be32(&no->init_seq);
+> > >       ho->delta          = get_unaligned_be32(&no->delta);
+> > >       ho->previous_delta = get_unaligned_be32(&no->previous_delta);
+> >
+> >         So, now there is a double write here?
+> 
+> Correct. I would hope that a sane version of gcc would just not
+> perform the first write. What happens instead is that the version
+> that produces the warning here moves the initialization to the
+> top of the calling function.
 
-ethernet/mellanox/mlx4/resource_tracker.c: In function ‘mlx4_SW2HW_EQ_wrapper’:
-ethernet/mellanox/mlx4/resource_tracker.c:3071:10: error: ‘eq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+Maybe doing the 3 get_unaligned_be32() before the memset will stop
+the double-writes.
+The problem is that the compiler doesn't know that the two structures
+don't alias each other.
 
-The problem here is that gcc won't track the state of the variable
-across a spin_unlock. Moving the assignment out of the lock is
-safe here and avoids the warning.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 84d7857ccc27..c548beaaf910 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -1605,13 +1605,14 @@ static int eq_res_start_move_to(struct mlx4_dev *dev, int slave, int index,
- 			r->com.from_state = r->com.state;
- 			r->com.to_state = state;
- 			r->com.state = RES_EQ_BUSY;
--			if (eq)
--				*eq = r;
- 		}
- 	}
- 
- 	spin_unlock_irq(mlx4_tlock(dev));
- 
-+	if (!err && eq)
-+		*eq = r;
-+
- 	return err;
- }
- 
--- 
-2.9.0
+	David
