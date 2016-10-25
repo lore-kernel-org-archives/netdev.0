@@ -1,14 +1,13 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 21/27] arch/tile: Add option to skip DMA sync as a
- part of map and unmap
-Date: Tue, 25 Oct 2016 11:38:39 -0400
-Message-ID: <20161025153839.4815.7016.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH 26/27] igb: Update code to better handle
+ incrementing page count
+Date: Tue, 25 Oct 2016 11:39:06 -0400
+Message-ID: <20161025153906.4815.61652.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Chris Metcalf <cmetcalf@mellanox.com>,
- davem@davemloft.net
+Cc: davem@davemloft.net, brouer@redhat.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
  linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
@@ -16,62 +15,116 @@ In-Reply-To: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
-avoid invoking cache line invalidation if the driver will just handle it
-via a sync_for_cpu or sync_for_device call.
+This patch updates the driver code so that we do bulk updates of the page
+reference count instead of just incrementing it by one reference at a time.
+The advantage to doing this is that we cut down on atomic operations and
+this in turn should give us a slight improvement in cycles per packet.  In
+addition if we eventually move this over to using build_skb the gains will
+be more noticeable.
 
-Cc: Chris Metcalf <cmetcalf@mellanox.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/tile/kernel/pci-dma.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    7 ++++++-
+ drivers/net/ethernet/intel/igb/igb_main.c |   24 +++++++++++++++++-------
+ 2 files changed, 23 insertions(+), 8 deletions(-)
 
-diff --git a/arch/tile/kernel/pci-dma.c b/arch/tile/kernel/pci-dma.c
-index 09bb774..24e0f8c 100644
---- a/arch/tile/kernel/pci-dma.c
-+++ b/arch/tile/kernel/pci-dma.c
-@@ -213,10 +213,12 @@ static int tile_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index d11093d..acbc3ab 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -210,7 +210,12 @@ struct igb_tx_buffer {
+ struct igb_rx_buffer {
+ 	dma_addr_t dma;
+ 	struct page *page;
+-	unsigned int page_offset;
++#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
++	__u32 page_offset;
++#else
++	__u16 page_offset;
++#endif
++	__u16 pagecnt_bias;
+ };
  
- 	for_each_sg(sglist, sg, nents, i) {
- 		sg->dma_address = sg_phys(sg);
--		__dma_prep_pa_range(sg->dma_address, sg->length, direction);
- #ifdef CONFIG_NEED_SG_DMA_LENGTH
- 		sg->dma_length = sg->length;
- #endif
-+		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+			continue;
-+		__dma_prep_pa_range(sg->dma_address, sg->length, direction);
+ struct igb_tx_queue_stats {
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index c8c458c..5e66cde 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3962,7 +3962,8 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 				     PAGE_SIZE,
+ 				     DMA_FROM_DEVICE,
+ 				     DMA_ATTR_SKIP_CPU_SYNC);
+-		__free_page(buffer_info->page);
++		__page_frag_drain(buffer_info->page, 0,
++				  buffer_info->pagecnt_bias);
+ 
+ 		buffer_info->page = NULL;
  	}
- 
- 	return nents;
-@@ -232,6 +234,8 @@ static void tile_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 	BUG_ON(!valid_dma_direction(direction));
- 	for_each_sg(sglist, sg, nents, i) {
- 		sg->dma_address = sg_phys(sg);
-+		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+			continue;
- 		__dma_complete_pa_range(sg->dma_address, sg->length,
- 					direction);
- 	}
-@@ -245,7 +249,8 @@ static dma_addr_t tile_dma_map_page(struct device *dev, struct page *page,
- 	BUG_ON(!valid_dma_direction(direction));
- 
- 	BUG_ON(offset + size > PAGE_SIZE);
--	__dma_prep_page(page, offset, size, direction);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		__dma_prep_page(page, offset, size, direction);
- 
- 	return page_to_pa(page) + offset;
- }
-@@ -256,6 +261,9 @@ static void tile_dma_unmap_page(struct device *dev, dma_addr_t dma_address,
+@@ -6830,13 +6831,15 @@ static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
+ 				  struct page *page,
+ 				  unsigned int truesize)
  {
- 	BUG_ON(!valid_dma_direction(direction));
- 
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return;
++	unsigned int pagecnt_bias = rx_buffer->pagecnt_bias--;
 +
- 	__dma_complete_page(pfn_to_page(PFN_DOWN(dma_address)),
- 			    dma_address & (PAGE_SIZE - 1), size, direction);
+ 	/* avoid re-using remote pages */
+ 	if (unlikely(igb_page_is_reserved(page)))
+ 		return false;
+ 
+ #if (PAGE_SIZE < 8192)
+ 	/* if we are only owner of page we can reuse it */
+-	if (unlikely(page_count(page) != 1))
++	if (unlikely(page_ref_count(page) != pagecnt_bias))
+ 		return false;
+ 
+ 	/* flip page offset to other buffer */
+@@ -6849,10 +6852,14 @@ static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
+ 		return false;
+ #endif
+ 
+-	/* Even if we own the page, we are not allowed to use atomic_set()
+-	 * This would break get_page_unless_zero() users.
++	/* If we have drained the page fragment pool we need to update
++	 * the pagecnt_bias and page count so that we fully restock the
++	 * number of references the driver holds.
+ 	 */
+-	page_ref_inc(page);
++	if (unlikely(pagecnt_bias == 1)) {
++		page_ref_add(page, USHRT_MAX);
++		rx_buffer->pagecnt_bias = USHRT_MAX;
++	}
+ 
+ 	return true;
+ }
+@@ -6904,7 +6911,6 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
+ 			return true;
+ 
+ 		/* this page cannot be reused so discard it */
+-		__free_page(page);
+ 		return false;
+ 	}
+ 
+@@ -6975,10 +6981,13 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+ 		/* hand second half of page back to the ring */
+ 		igb_reuse_rx_page(rx_ring, rx_buffer);
+ 	} else {
+-		/* we are not reusing the buffer so unmap it */
++		/* We are not reusing the buffer so unmap it and free
++		 * any references we are holding to it
++		 */
+ 		dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
+ 				     PAGE_SIZE, DMA_FROM_DEVICE,
+ 				     DMA_ATTR_SKIP_CPU_SYNC);
++		__page_frag_drain(page, 0, rx_buffer->pagecnt_bias);
+ 	}
+ 
+ 	/* clear contents of rx_buffer */
+@@ -7252,6 +7261,7 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
+ 	bi->dma = dma;
+ 	bi->page = page;
+ 	bi->page_offset = 0;
++	bi->pagecnt_bias = 1;
+ 
+ 	return true;
  }
 
 --
