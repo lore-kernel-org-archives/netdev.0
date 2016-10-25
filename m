@@ -1,31 +1,33 @@
-From: pamela.alvarez@qaliwarma.gob.pe
-Subject: =?utf-8?q?Donation_of_=C2=A31=2E5_Million_Pounds!!?=
-Date: Tue, 25 Oct 2016 06:48:31 -0500
-Message-ID: <20161025120800.AFEF33F7791A4@mail.qaliwarma.gob.pe>
-Reply-To: colinsweir008@qq.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: question about function igmp_stop_timer() in net/ipv4/igmp.c
+Date: Tue, 25 Oct 2016 14:19:36 +0200
+Message-ID: <20161025121936.GI22417@lunn.ch>
+References: <580DF574.6070905@hisilicon.com>
+ <20161024153200.GM1110@lunn.ch>
+ <580EB1D2.3010309@hisilicon.com>
+ <20161025073913.GA20223@lunn.ch>
+ <580F471D.5050204@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <pamela.alvarez@qaliwarma.gob.pe>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Dongpo Li <lidongpo@hisilicon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.qaliwarma.gob.pe ([190.116.61.217]:56232 "EHLO
-        mail.qaliwarma.gob.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750785AbcJYMSJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 08:18:09 -0400
-Content-Description: Mail message body
+Received: from vps0.lunn.ch ([178.209.37.122]:53602 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752975AbcJYMTj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Oct 2016 08:19:39 -0400
+Content-Disposition: inline
+In-Reply-To: <580F471D.5050204@hisilicon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My wife and I have awarded you with a donation of £1.5 million Pounds
-from part of our Jackpot Lottery of 161,653,000 Million Pounds, send your
-name,address, phone for claims.
+> Otherwise the host can't send IGMP leave message when it leaves the
+> group because the im->reporter is 0.
 
-View http://www.bbc.co.uk/news/uk-scotland-glasgow-west-18801698
+Leave is optional for IGMP v2, so net sending it is fine. And only a
+querier is going to take any notice of it.
 
-We await your earliest response and God Bless you.
+What happens when you have a querier in your network and you are using
+IGMPv3. That is the use case which matters.
 
-Best of luck.
-
-Chris Colin & Weir
-
-Reply E-mail:colinsweir008@qq.com
+     Andrew
