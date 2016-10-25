@@ -1,13 +1,15 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 22/27] arch/xtensa: Add option to skip DMA sync as
- a part of mapping
-Date: Tue, 25 Oct 2016 11:38:45 -0400
-Message-ID: <20161025153845.4815.95895.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH 17/27] arch/parisc: Add option to skip DMA sync as
+ a part of map and unmap
+Date: Tue, 25 Oct 2016 11:38:18 -0400
+Message-ID: <20161025153818.4815.15885.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Max Filippov <jcmvbkbc@gmail.com>, davem@davemloft.net, brouer@redhat.com
+Cc: Helge Deller <deller@gmx.de>, brouer@redhat.com,
+ "James E.J. Bottomley" <jejb@parisc-linux.org>, linux-parisc@vger.kernel.org,
+ davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
  linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
@@ -19,37 +21,80 @@ This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 via a sync_for_cpu or sync_for_device call.
 
-Cc: Max Filippov <jcmvbkbc@gmail.com>
+Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
+Cc: Helge Deller <deller@gmx.de>
+Cc: linux-parisc@vger.kernel.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/xtensa/kernel/pci-dma.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ arch/parisc/kernel/pci-dma.c |   20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/arch/xtensa/kernel/pci-dma.c b/arch/xtensa/kernel/pci-dma.c
-index 1e68806..6a16dec 100644
---- a/arch/xtensa/kernel/pci-dma.c
-+++ b/arch/xtensa/kernel/pci-dma.c
-@@ -189,7 +189,9 @@ static dma_addr_t xtensa_map_page(struct device *dev, struct page *page,
- {
- 	dma_addr_t dma_handle = page_to_phys(page) + offset;
+diff --git a/arch/parisc/kernel/pci-dma.c b/arch/parisc/kernel/pci-dma.c
+index 02d9ed0..be55ede 100644
+--- a/arch/parisc/kernel/pci-dma.c
++++ b/arch/parisc/kernel/pci-dma.c
+@@ -459,7 +459,9 @@ static dma_addr_t pa11_dma_map_page(struct device *dev, struct page *page,
+ 	void *addr = page_address(page) + offset;
+ 	BUG_ON(direction == DMA_NONE);
  
--	xtensa_sync_single_for_device(dev, dma_handle, size, dir);
+-	flush_kernel_dcache_range((unsigned long) addr, size);
 +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		xtensa_sync_single_for_device(dev, dma_handle, size, dir);
++		flush_kernel_dcache_range((unsigned long) addr, size);
 +
- 	return dma_handle;
+ 	return virt_to_phys(addr);
  }
  
-@@ -197,7 +199,8 @@ static void xtensa_unmap_page(struct device *dev, dma_addr_t dma_handle,
- 			      size_t size, enum dma_data_direction dir,
- 			      unsigned long attrs)
+@@ -469,8 +471,11 @@ static void pa11_dma_unmap_page(struct device *dev, dma_addr_t dma_handle,
  {
--	xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
+ 	BUG_ON(direction == DMA_NONE);
+ 
++	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++		return;
++
+ 	if (direction == DMA_TO_DEVICE)
+-	    return;
++		return;
+ 
+ 	/*
+ 	 * For PCI_DMA_FROMDEVICE this flush is not necessary for the
+@@ -479,7 +484,6 @@ static void pa11_dma_unmap_page(struct device *dev, dma_addr_t dma_handle,
+ 	 */
+ 
+ 	flush_kernel_dcache_range((unsigned long) phys_to_virt(dma_handle), size);
+-	return;
  }
  
- static int xtensa_map_sg(struct device *dev, struct scatterlist *sg,
+ static int pa11_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+@@ -496,6 +500,10 @@ static int pa11_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+ 
+ 		sg_dma_address(sg) = (dma_addr_t) virt_to_phys(vaddr);
+ 		sg_dma_len(sg) = sg->length;
++
++		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++			continue;
++
+ 		flush_kernel_dcache_range(vaddr, sg->length);
+ 	}
+ 	return nents;
+@@ -510,14 +518,16 @@ static void pa11_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
+ 
+ 	BUG_ON(direction == DMA_NONE);
+ 
++	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++		return;
++
+ 	if (direction == DMA_TO_DEVICE)
+-	    return;
++		return;
+ 
+ 	/* once we do combining we'll need to use phys_to_virt(sg_dma_address(sglist)) */
+ 
+ 	for_each_sg(sglist, sg, nents, i)
+ 		flush_kernel_vmap_range(sg_virt(sg), sg->length);
+-	return;
+ }
+ 
+ static void pa11_dma_sync_single_for_cpu(struct device *dev,
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
