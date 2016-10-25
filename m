@@ -1,48 +1,54 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH] virtio-net: Update the mtu code to match virtio spec
-Date: Tue, 25 Oct 2016 13:09:29 -0400
-Message-ID: <20161025170929.GW42084@redhat.com>
-References: <1477413335-17296-1-git-send-email-aconole@redhat.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 0/2] at803x: don't power-down SGMII link
+Date: Tue, 25 Oct 2016 12:31:21 -0500
+Message-ID: <580F96E9.8090208@codeaurora.org>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Aaron Conole <aconole@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1477413335-17296-1-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: andrew@lunn.ch, f.fainelli@gmail.com
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:50551 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938295AbcJYRbX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 13:31:23 -0400
+In-Reply-To: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 25, 2016 at 12:35:35PM -0400, Aaron Conole wrote:
-> From: Aaron Conole <aconole@bytheb.org>
-> 
-> The virtio committee recently ratified a change, VIRTIO-152, which
-> defines the mtu field to be 'max' MTU, not simply desired MTU.
-> 
-> This commit brings the virtio-net device in compliance with VIRTIO-152.
-> 
-> Additionally, drop the max_mtu branch - it cannot be taken since the u16
-> returned by virtio_cread16 will never exceed the initial value of
-> max_mtu.
-> 
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: Jarod Wilson <jarod@redhat.com>
-> Signed-off-by: Aaron Conole <aconole@redhat.com>
+Zefir Kurtisi wrote:
+> In a device where the ar8031 operates in SGMII mode, we
+> observed that after a suspend-resume cycle in very rare
+> cases the copper side autonegotiation secceeds but the
+> SGMII side fails to come up.
+>
+> As a work-around, a patch was provided that on suspend and
+> resume powers the SGMII link down and up along with the
+> copper side. This fixed the observed failure, but
+> introduced a regression Timur Tabi observed: once the SGMII
+> is powered down, the PHY is inaccessible by the CPU and
+> with that e.g. can't be re-initialized after suspend.
+>
+> Since the original issue could not be reproduced by others,
+> this series provides an alternative handling:
+> * the first patch reverts the prvious fix that powers down
+>    SGMII
+> * the second patch adds double-checking for the observed
+>    failure condition
+>
+> Zefir Kurtisi (2):
+>    Revert "at803x: fix suspend/resume for SGMII link"
+>    at803x: double check SGMII side autoneg
 
-Worksforme.
+Tested-by: Timur Tabi <timur@codeaurora.org>
 
-Acked-by: Jarod Wilson <jarod@redhat.com>
+With these patches, the problem I was seeing no longer occurs, and the 
+new code does not appear to break anything.  As before, I still have 
+never seen the original problem, but this patchset seems to work for 
+both of us.
 
 -- 
-Jarod Wilson
-jarod@redhat.com
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
