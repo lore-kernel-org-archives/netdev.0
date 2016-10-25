@@ -1,12 +1,14 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH 09/27] arch/frv: Add option to skip sync on DMA map
-Date: Tue, 25 Oct 2016 11:37:36 -0400
-Message-ID: <20161025153736.4815.49992.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH 10/27] arch/hexagon: Add option to skip DMA sync as
+ a part of mapping
+Date: Tue, 25 Oct 2016 11:37:41 -0400
+Message-ID: <20161025153741.4815.68818.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, brouer@redhat.com
+Cc: linux-hexagon@vger.kernel.org, brouer@redhat.com, davem@davemloft.net,
+ Richard Kuo <rkuo@codeaurora.org>
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
  linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
@@ -14,88 +16,41 @@ In-Reply-To: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The use of DMA_ATTR_SKIP_CPU_SYNC was not consistent across all of the DMA
-APIs in the arch/arm folder.  This change is meant to correct that so that
-we get consistent behavior.
+This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
+avoid invoking cache line invalidation if the driver will just handle it
+later via a sync_for_cpu or sync_for_device call.
 
+Cc: Richard Kuo <rkuo@codeaurora.org>
+Cc: linux-hexagon@vger.kernel.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/frv/mb93090-mb00/pci-dma-nommu.c |   14 ++++++++++----
- arch/frv/mb93090-mb00/pci-dma.c       |    9 +++++++--
- 2 files changed, 17 insertions(+), 6 deletions(-)
+ arch/hexagon/kernel/dma.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/arch/frv/mb93090-mb00/pci-dma-nommu.c b/arch/frv/mb93090-mb00/pci-dma-nommu.c
-index 90f2e4c..1876881 100644
---- a/arch/frv/mb93090-mb00/pci-dma-nommu.c
-+++ b/arch/frv/mb93090-mb00/pci-dma-nommu.c
-@@ -109,16 +109,19 @@ static int frv_dma_map_sg(struct device *dev, struct scatterlist *sglist,
- 		int nents, enum dma_data_direction direction,
- 		unsigned long attrs)
- {
--	int i;
- 	struct scatterlist *sg;
-+	int i;
-+
-+	BUG_ON(direction == DMA_NONE);
-+
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return nents;
+diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
+index b901778..dbc4f10 100644
+--- a/arch/hexagon/kernel/dma.c
++++ b/arch/hexagon/kernel/dma.c
+@@ -119,6 +119,9 @@ static int hexagon_map_sg(struct device *hwdev, struct scatterlist *sg,
  
- 	for_each_sg(sglist, sg, nents, i) {
- 		frv_cache_wback_inv(sg_dma_address(sg),
- 				    sg_dma_address(sg) + sg_dma_len(sg));
+ 		s->dma_length = s->length;
+ 
++		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++			continue;
++
+ 		flush_dcache_range(dma_addr_to_virt(s->dma_address),
+ 				   dma_addr_to_virt(s->dma_address + s->length));
  	}
+@@ -180,7 +183,8 @@ static dma_addr_t hexagon_map_page(struct device *dev, struct page *page,
+ 	if (!check_addr("map_single", dev, bus, size))
+ 		return bad_dma_address;
  
--	BUG_ON(direction == DMA_NONE);
--
- 	return nents;
- }
- 
-@@ -127,7 +130,10 @@ static dma_addr_t frv_dma_map_page(struct device *dev, struct page *page,
- 		enum dma_data_direction direction, unsigned long attrs)
- {
- 	BUG_ON(direction == DMA_NONE);
--	flush_dcache_page(page);
-+
+-	dma_sync(dma_addr_to_virt(bus), size, dir);
 +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		flush_dcache_page(page);
-+
- 	return (dma_addr_t) page_to_phys(page) + offset;
++		dma_sync(dma_addr_to_virt(bus), size, dir);
+ 
+ 	return bus;
  }
- 
-diff --git a/arch/frv/mb93090-mb00/pci-dma.c b/arch/frv/mb93090-mb00/pci-dma.c
-index f585745..dba7df9 100644
---- a/arch/frv/mb93090-mb00/pci-dma.c
-+++ b/arch/frv/mb93090-mb00/pci-dma.c
-@@ -40,13 +40,16 @@ static int frv_dma_map_sg(struct device *dev, struct scatterlist *sglist,
- 		int nents, enum dma_data_direction direction,
- 		unsigned long attrs)
- {
-+	struct scatterlist *sg;
- 	unsigned long dampr2;
- 	void *vaddr;
- 	int i;
--	struct scatterlist *sg;
- 
- 	BUG_ON(direction == DMA_NONE);
- 
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return nents;
-+
- 	dampr2 = __get_DAMPR(2);
- 
- 	for_each_sg(sglist, sg, nents, i) {
-@@ -70,7 +73,9 @@ static dma_addr_t frv_dma_map_page(struct device *dev, struct page *page,
- 		unsigned long offset, size_t size,
- 		enum dma_data_direction direction, unsigned long attrs)
- {
--	flush_dcache_page(page);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		flush_dcache_page(page);
-+
- 	return (dma_addr_t) page_to_phys(page) + offset;
- }
- 
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
