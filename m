@@ -1,43 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [Intel-wired-lan] [net-next PATCH 26/27] igb: Update code to
- better handle incrementing page count
-Date: Wed, 26 Oct 2016 10:21:52 -0700
-Message-ID: <1477502512.2431.1.camel@intel.com>
+Subject: Re: [Intel-wired-lan] [net-next PATCH 27/27] igb: Revert "igb:
+ Revert support for build_skb in igb"
+Date: Wed, 26 Oct 2016 10:22:41 -0700
+Message-ID: <1477502561.2431.2.camel@intel.com>
 References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
-	 <20161025153906.4815.61652.stgit@ahduyck-blue-test.jf.intel.com>
+	 <20161025153911.4815.45366.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-0f++dvhAy/23Xp0vvR9u"
+	protocol="application/pgp-signature"; boundary="=-wex7WfIy8s6ac7Ui8G+1"
 Cc: davem@davemloft.net, brouer@redhat.com
 To: Alexander Duyck <alexander.h.duyck@intel.com>, netdev@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org, linux-kernel@vger.kernel.org,
 	linux-mm@kvack.org
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161025153906.4815.61652.stgit@ahduyck-blue-test.jf.intel.com>
+In-Reply-To: <20161025153911.4815.45366.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 
---=-0f++dvhAy/23Xp0vvR9u
+--=-wex7WfIy8s6ac7Ui8G+1
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Tue, 2016-10-25 at 11:39 -0400, Alexander Duyck wrote:
-> This patch updates the driver code so that we do bulk updates of the page
-> reference count instead of just incrementing it by one reference at a
-> time.
-> The advantage to doing this is that we cut down on atomic operations and
-> this in turn should give us a slight improvement in cycles per packet.=C2=
-=A0
-> In
-> addition if we eventually move this over to using build_skb the gains
-> will
-> be more noticeable.
+> This reverts commit f9d40f6a9921 ("igb: Revert support for build_skb in
+> igb") and adds a few changes to update it to work with the latest version
+> of igb. We are now able to revert the removal of this due to the fact
+> that with the recent changes to the page count and the use of
+> DMA_ATTR_SKIP_CPU_SYNC we can make the pages writable so we should not be
+> invalidating the additional data added when we call build_skb.
+>=20
+> The biggest risk with this change is that we are now not able to support
+> full jumbo frames when using build_skb.=C2=A0 Instead we can only support=
+ up
+> to
+> 2K minus the skb overhead and padding offset.
 >=20
 > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
 Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
---=-0f++dvhAy/23Xp0vvR9u
+--=-wex7WfIy8s6ac7Ui8G+1
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -45,22 +47,22 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJYEOYwAAoJEOVv75VaS+3O+90P/RzEWysXswEA6WCLQghQzin4
-AyEx54yCGcDsov1babvWDe1tg/IO3SCwEL/VHT0ku3CznqYlHfQZntTZrxD+DSPt
-Ao0cD7AxdS925Q+qJcyzrhY0bzkVkL+V14VrpmWAIBMTUDuRliPPor37J0VPpvYC
-CGFfe7lOr50pGcABz9RyXdGxqXGma2hZ2a2b953cBaLlkv5ovG0aBgC0hCaZFpmj
-Apiatjc8prktsiP0qWwrjqKaqRcmWa9PJ2Qtt2WH1Gseg9ZGqIYkZSxT6dcF2qfs
-4RK7fxxClZVOdnIYASkOkztpW8sAVztgrAflJ4QU6eH8GOBv3zBOlWfYcqPzSaHd
-1otUncjOcAaA/wo/nrytXjIwJ0kKLjVlTlb8nslhFuXqFHAskUJ8hLp03lHtMkHz
-pRxM5A4CtXaFSmrxjOc2LQUkGpDTgki6iLt3adJNa15+Jju1yI45zTrxwMouMskY
-KkvCC2ueLD1z7fBLL8g00e/MjeNGH9oq8ONxQQQN6SHBVStrTt7jwskJCXHYAJ7t
-99mivUy6aNu0cdPWYzzf/SNxof4pMPq+qiIWAQgjeDMEwZJlLx/97ThBvkG/8f38
-gdHFG5gcdcM5b/riTJjcPCYm9ty71fbs2pVlHx/TkX7ZOH5sFyLf0IMijw8cxdon
-ilygxstkUcu9eASLDNUj
-=u6jM
+iQIcBAABCgAGBQJYEOZhAAoJEOVv75VaS+3O1Z4P/3uP7RW04IQailTXeebXSC9w
+osoxi2WMndGEiu6REpQbeJreVxozinrl6RF2+7+UUTVXZQxP1MO/XIJZPFaL/WGS
+OfvM1SUb0Ej6tjLfNSt8DGmRiH1a/OH37bfMwmu9+On3myoszZ2BkF19jcKRMGGp
++tWgfwh37VJlTbJtFcTggrgery1nPNmfSeX6qbv/OoThatzP3U011vYOwVFj7+Z9
+PmA275pxKEUEt8uuoUZDAtOzLxNvje2XcXhnkSfClORDOSbOvWLzwLpy3l8A52gt
+TropL1WH4Gj/cLfPXLv2JGq/cnCFG0+WzEp8/ysxCIa/EAACPle5YPJEgDawAXV3
+jhTP6GAXZIaEeS/bqOvon0tBf1tTTjk8Hb4on/UXcxS9AjvMVpKh7QFhTDubhYMS
+0q/WPWE1OXFNF7PJpX81E59CzYeXX6RdAPbvuB+jiFdX+rnlZGoHuhX8wvewNAHr
+P4QT0cJ91z98FVDuTWRer+XC0eWAO3t9hhy5xUQC9KS0XmQH7x6h1bxH8dyZAXTP
+N4YMGOUpfqFSVLZZHX6lcT3LYlG1QFx1IhTv1jltZJ9bymIAQdPUT/ti7TNjFfLK
+qJjBxCk/bj/Rdjgg/MHlSAoJPKyr0huINvebx2UERVyH815m7XmcIqlbikeUJivl
+min/nOpPIkRxNkNW8Trt
+=0Bmz
 -----END PGP SIGNATURE-----
 
---=-0f++dvhAy/23Xp0vvR9u--
+--=-wex7WfIy8s6ac7Ui8G+1--
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
