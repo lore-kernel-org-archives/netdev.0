@@ -1,47 +1,44 @@
-From: idosch@idosch.org
-Subject: [PATCH net-next] switchdev: Remove redundant variable
-Date: Wed, 26 Oct 2016 12:03:03 +0300
-Message-ID: <1477472583-11710-1-git-send-email-idosch@idosch.org>
-Cc: netdev@vger.kernel.org, mlxsw@mellanox.com,
-        Ido Schimmel <idosch@mellanox.com>
-To: davem@davemloft.net, jiri@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:53197 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932302AbcJZJDo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 05:03:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: concurrent rhashtable test failure
+Date: Wed, 26 Oct 2016 11:11:46 +0200
+Message-ID: <CAMuHMdVNXLxkAdxZxHt_YWpqaZnijpjEanCCud5euC+Duon_GA@mail.gmail.com>
+References: <CAMuHMdWTqXaJAM-O+mmha=JbuyvvNxYyHuV6e4YK7oUkh9rCkA@mail.gmail.com>
+ <20161026073337.GM5640@orbyte.nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: Phil Sutter <phil@nwl.cc>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Thomas Graf <tgraf@suug.ch>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        linux-m68k <linux-m68k@lists.linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <20161026073337.GM5640@orbyte.nwl.cc>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Wed, Oct 26, 2016 at 9:33 AM, Phil Sutter <phil@nwl.cc> wrote:
+> On Mon, Oct 24, 2016 at 02:11:32PM +0200, Geert Uytterhoeven wrote:
+>> On m68k/ARAnyM, test_rhashtable fails with:
+>>
+>>     Test failed: thread 0 returned: -4
+>>
+>> (-4 = -EINTR)
+>
+> How reproducible is this? I wonder why out of the ten threads only the
+> first one fails.
 
-Instead of storing return value in 'err' and returning, just return
-directly.
+100% reproducible.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
----
- net/switchdev/switchdev.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+Does it need SMP?
 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 02beb35..6f145b5 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -624,13 +624,10 @@ EXPORT_SYMBOL_GPL(unregister_switchdev_notifier);
- int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- 			     struct switchdev_notifier_info *info)
- {
--	int err;
--
- 	ASSERT_RTNL();
- 
- 	info->dev = dev;
--	err = raw_notifier_call_chain(&switchdev_notif_chain, val, info);
--	return err;
-+	return raw_notifier_call_chain(&switchdev_notif_chain, val, info);
- }
- EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
- 
--- 
-2.7.4
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
