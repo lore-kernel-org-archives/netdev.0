@@ -1,47 +1,41 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [PATCH] rtl8xxxu: mark symbol static where possible
-Date: Wed, 26 Oct 2016 14:37:15 +0200
-Message-ID: <87twbz2sn8.fsf@redhat.com>
-References: <1477474370-31383-1-git-send-email-baoyou.xie@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, arnd@arndb.de, xie.baoyou@zte.com.cn,
-        han.fei@zte.com.cn, tang.qiang007@zte.com.cn
-To: Baoyou Xie <baoyou.xie@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1477474370-31383-1-git-send-email-baoyou.xie@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] net_sched actions: use nla_parse_nested()
+Date: Wed, 26 Oct 2016 14:44:33 +0200
+Message-ID: <1477485873-32598-1-git-send-email-johannes@sipsolutions.net>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:52046 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S942418AbcJZMoj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Oct 2016 08:44:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 26, 2016 at 09:32 AM GMT, Baoyou Xie wrote:
-> We get 1 warning when building kernel with W=1:
-> drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c:1557:6: warning: no previous prototype for 'rtl8192eu_power_off' [-Wmissing-prototypes]
->
-> In fact, this function is only used in the file in which it is
-> declared and don't need a declaration, but can be made static.
-> So this patch marks this function with 'static'.
->
-> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 883fd98..4d975f0 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -2701,7 +2701,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
->  	return mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
->  }
->  
-> -int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
-> +static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
->  {
->  	int err;
+From: Johannes Berg <johannes.berg@intel.com>
 
-Probably a mix-up - your patch doesn't match the description.
+Use nla_parse_nested instead of open-coding the call to
+nla_parse() with the attribute data/len.
 
-Thanks,
-Jakub
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/sched/act_api.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index c9102172ce3b..ef89ec1d51fb 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -1025,8 +1025,7 @@ static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
+ 
+ 	if (tb[1] == NULL)
+ 		return NULL;
+-	if (nla_parse(tb2, TCA_ACT_MAX, nla_data(tb[1]),
+-		      nla_len(tb[1]), NULL) < 0)
++	if (nla_parse_nested(tb2, TCA_ACT_MAX, tb[1], NULL) < 0)
+ 		return NULL;
+ 	kind = tb2[TCA_ACT_KIND];
+ 
+-- 
+2.8.1
