@@ -1,56 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtl8xxxu: mark symbol static where possible
-Date: Wed, 26 Oct 2016 11:56:13 -0400 (EDT)
-Message-ID: <20161026.115613.576903872557968242.davem@davemloft.net>
-References: <1477474370-31383-1-git-send-email-baoyou.xie@linaro.org>
-        <87twbz2sn8.fsf@redhat.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [PATCH v2 0/9] net: add support for IPv6 Segment Routing
+Date: Wed, 26 Oct 2016 18:03:39 +0200
+Message-ID: <5810D3DB.4040503@uclouvain.be>
+References: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: baoyou.xie@linaro.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        arnd@arndb.de, xie.baoyou@zte.com.cn, han.fei@zte.com.cn,
-        tang.qiang007@zte.com.cn
-To: jkbs@redhat.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="NFirG3jVTCnQmKv8E28X3vBmVbvEt0uPW"
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36884 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751260AbcJZP4P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:56:15 -0400
-In-Reply-To: <87twbz2sn8.fsf@redhat.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:35896 "EHLO
+        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932188AbcJZQCF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 12:02:05 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp2.sgsi.ucl.ac.be (Postfix) with ESMTPS id 086FF67DC40
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 18:01:56 +0200 (CEST)
+In-Reply-To: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Sitnicki <jkbs@redhat.com>
-Date: Wed, 26 Oct 2016 14:37:15 +0200
+--NFirG3jVTCnQmKv8E28X3vBmVbvEt0uPW
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> On Wed, Oct 26, 2016 at 09:32 AM GMT, Baoyou Xie wrote:
->> We get 1 warning when building kernel with W=1:
->> drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c:1557:6: warning: no previous prototype for 'rtl8192eu_power_off' [-Wmissing-prototypes]
->>
->> In fact, this function is only used in the file in which it is
->> declared and don't need a declaration, but can be made static.
->> So this patch marks this function with 'static'.
->>
->> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
->> ---
->>  drivers/net/dsa/mv88e6xxx/chip.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
->> index 883fd98..4d975f0 100644
->> --- a/drivers/net/dsa/mv88e6xxx/chip.c
->> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
->> @@ -2701,7 +2701,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
->>  	return mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
->>  }
->>  
->> -int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
->> +static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
->>  {
->>  	int err;
-> 
-> Probably a mix-up - your patch doesn't match the description.
+On 10/26/2016 05:54 PM, David Lebrun wrote:
+> struct ipv6_sr_hdr {
+>         __u8    nexthdr;
+>         __u8    hdrlen;
+>         __u8    type;
+>         __u8    segments_left;
+>         __u8    first_segment;
+>         __be16  flags;
+>         __u8    reserved;
+>=20
+>         struct in6_addr segments[0];
+> } __attribute__((packed));
 
-Agreed, please fix your subject line and commit message.
+I forgot to update the struct in the cover letter description, please
+disregard. Actual struct is:
+
+struct ipv6_sr_hdr {
+        __u8    nexthdr;
+        __u8    hdrlen;
+        __u8    type;
+        __u8    segments_left;
+        __u8    first_segment;
+        __u8    flag_1;
+        __u8    flag_2;
+        __u8    reserved;
+
+        struct in6_addr segments[0];
+};
+
+
+--NFirG3jVTCnQmKv8E28X3vBmVbvEt0uPW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iEYEARECAAYFAlgQ09wACgkQjbzn67sZ6APQ/wCdF/yY5XC2bod1bciSSgVUlgxn
+vUgAn0vrZJEMzhl1OWvcL0iwrxDNcSfY
+=Xx2X
+-----END PGP SIGNATURE-----
+
+--NFirG3jVTCnQmKv8E28X3vBmVbvEt0uPW--
