@@ -1,89 +1,393 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [RFC v4 12/18] bpf: Cosmetic change for bpf_prog_attach()
-Date: Wed, 26 Oct 2016 08:56:48 +0200
-Message-ID: <20161026065654.19166-13-mic@digikod.net>
-References: <20161026065654.19166-1-mic@digikod.net>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: fix samples to add fake KBUILD_MODNAME
+Date: Wed, 26 Oct 2016 09:01:48 +0200
+Message-ID: <581054DC.5000904@iogearbox.net>
+References: <1fdac65566ed6e0cff486507c5019f45807d1e89.1477434641.git.daniel@iogearbox.net> <20161026011713.GA35732@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/mixed;
+ boundary="------------080103040102020907010405"
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:48107 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753396AbcJZHBz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 03:01:55 -0400
+In-Reply-To: <20161026011713.GA35732@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------080103040102020907010405
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+
+On 10/26/2016 03:17 AM, Alexei Starovoitov wrote:
+> On Wed, Oct 26, 2016 at 12:37:53AM +0200, Daniel Borkmann wrote:
+>> Some of the sample files are causing issues when they are loaded with tc
+>> and cls_bpf, meaning tc bails out while trying to parse the resulting ELF
+>> file as program/map/etc sections are not present, which can be easily
+>> spotted with readelf(1).
+>>
+>> Currently, BPF samples are including some of the kernel headers and mid
+>> term we should change them to refrain from this, really. When dynamic
+>> debugging is enabled, we bail out due to undeclared KBUILD_MODNAME, which
+>> is easily overlooked in the build as clang spills this along with other
+>> noisy warnings from various header includes, and llc still generates an
+>> ELF file with mentioned characteristics. For just playing around with BPF
+>> examples, this can be a bit of a hurdle to take.
+>>
+>> Just add a fake KBUILD_MODNAME as a band-aid to fix the issue, same is
+>> done in xdp*_kern samples already.
+>>
+>> Fixes: 65d472fb007d ("samples/bpf: add 'pointer to packet' tests")
+>> Fixes: 6afb1e28b859 ("samples/bpf: Add tunnel set/get tests.")
+>> Fixes: a3f74617340b ("cgroup: bpf: Add an example to do cgroup checking in BPF")
+>> Reported-by: Chandrasekar Kannan <ckannan@console.to>
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>> ---
+>>   samples/bpf/parse_ldabs.c        | 1 +
+>>   samples/bpf/parse_simple.c       | 1 +
+>>   samples/bpf/parse_varlen.c       | 1 +
+>>   samples/bpf/tcbpf1_kern.c        | 1 +
+>>   samples/bpf/tcbpf2_kern.c        | 1 +
+>>   samples/bpf/test_cgrp2_tc_kern.c | 1 +
+>>   6 files changed, 6 insertions(+)
+>
+> It's also needed for all of tracex*_kern.c, right?
+
+Rest compiles just fine for me and readelf output looks good on all
+tracex*_kern.o, too.
+
+I see just warnings coming from various kernel header inclusions (see
+log), but no errors anymore.
+
+--------------080103040102020907010405
+Content-Type: text/plain; charset=UTF-8;
+ name="log"
 Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
-        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-        cgroups@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-5029-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161026065654.19166-1-mic@digikod.net>
-List-Id: netdev.vger.kernel.org
+Content-Disposition: attachment;
+ filename="log"
 
-Move code outside a switch/case to ease code factoring (cf. next
-commit).
+/home/darkstar/net/samples/bpf/trace_output_user.c:64:6: warning: no previous prototype for ‘perf_event_read’ [-Wmissing-prototypes]
+ void perf_event_read(print_fn fn)
+      ^
+In file included from /home/darkstar/net/samples/bpf/sockex2_kern.c:8:
+In file included from ./include/uapi/linux/if_tunnel.h:6:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/sockex2_kern.c:8:
+In file included from ./include/uapi/linux/if_tunnel.h:6:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/sockex3_kern.c:14:
+In file included from ./include/uapi/linux/if_tunnel.h:6:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/sockex3_kern.c:14:
+In file included from ./include/uapi/linux/if_tunnel.h:6:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/tracex1_kern.c:7:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/tracex1_kern.c:7:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/tracex2_kern.c:7:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/tracex2_kern.c:7:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/tracex3_kern.c:7:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/tracex3_kern.c:7:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/tracex4_kern.c:7:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/tracex5_kern.c:7:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/tracex6_kern.c:1:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/test_probe_write_user_kern.c:7:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/test_probe_write_user_kern.c:7:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/trace_output_kern.c:1:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/tcbpf2_kern.c:18:
+In file included from ./include/net/ipv6.h:16:
+In file included from ./include/linux/ipv6.h:76:
+In file included from ./include/linux/icmpv6.h:4:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/tcbpf2_kern.c:18:
+In file included from ./include/net/ipv6.h:16:
+In file included from ./include/linux/ipv6.h:76:
+In file included from ./include/linux/icmpv6.h:4:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/lathist_kern.c:9:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/offwaketime_kern.c:12:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/spintest_kern.c:7:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/spintest_kern.c:7:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/map_perf_test_kern.c:7:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/map_perf_test_kern.c:7:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/test_overhead_kprobe_kern.c:8:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/parse_varlen.c:8:
+In file included from ./include/linux/if_ether.h:23:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/parse_varlen.c:8:
+In file included from ./include/linux/if_ether.h:23:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/parse_simple.c:8:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/parse_simple.c:8:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/parse_ldabs.c:8:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/parse_ldabs.c:8:
+In file included from ./include/linux/ip.h:20:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/xdp1_kern.c:10:
+In file included from ./include/linux/if_ether.h:23:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/xdp1_kern.c:10:
+In file included from ./include/linux/if_ether.h:23:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/xdp2_kern.c:10:
+In file included from ./include/linux/if_ether.h:23:
+In file included from ./include/linux/skbuff.h:29:
+In file included from ./include/linux/net.h:28:
+./include/linux/fs.h:2693:9: warning: comparison of unsigned enum expression < 0 is always false [-Wtautological-compare]
+        if (id < 0 || id >= READING_MAX_ID)
+            ~~ ^ ~
+In file included from /home/darkstar/net/samples/bpf/xdp2_kern.c:10:
+In file included from ./include/linux/if_ether.h:23:
+In file included from ./include/linux/skbuff.h:30:
+In file included from ./include/linux/textsearch.h:8:
+In file included from ./include/linux/slab.h:118:
+In file included from ./include/linux/kasan.h:4:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+2 warnings generated.
+In file included from /home/darkstar/net/samples/bpf/test_current_task_under_cgroup_kern.c:8:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/trace_event_kern.c:7:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
+In file included from /home/darkstar/net/samples/bpf/sampleip_kern.c:8:
+In file included from ./include/linux/ptrace.h:5:
+In file included from ./include/linux/sched.h:61:
+./include/linux/cgroup-defs.h:322:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+        struct cgroup cgrp;
+                      ^
+1 warning generated.
 
-This apply on Daniel Mack's "Add eBPF hooks for cgroups" v7:
-https://lkml.kernel.org/r/1477390454-12553-1-git-send-email-daniel@zonque.org
-
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Daniel Mack <daniel@zonque.org>
----
- kernel/bpf/syscall.c | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
-
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 0f7faa9d2262..ac4cbb98596d 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -843,23 +843,24 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- 	case BPF_CGROUP_INET_EGRESS:
- 		prog = bpf_prog_get_type(attr->attach_bpf_fd,
- 					 BPF_PROG_TYPE_CGROUP_SKB);
--		if (IS_ERR(prog))
--			return PTR_ERR(prog);
--
--		cgrp = cgroup_get_from_fd(attr->target_fd);
--		if (IS_ERR(cgrp)) {
--			bpf_prog_put(prog);
--			return PTR_ERR(cgrp);
--		}
--
--		cgroup_bpf_update(cgrp, prog, attr->attach_type);
--		cgroup_put(cgrp);
- 		break;
- 
- 	default:
- 		return -EINVAL;
- 	}
- 
-+	if (IS_ERR(prog))
-+		return PTR_ERR(prog);
-+
-+	cgrp = cgroup_get_from_fd(attr->target_fd);
-+	if (IS_ERR(cgrp)) {
-+		bpf_prog_put(prog);
-+		return PTR_ERR(cgrp);
-+	}
-+
-+	cgroup_bpf_update(cgrp, prog, attr->attach_type);
-+	cgroup_put(cgrp);
-+
- 	return 0;
- }
- 
--- 
-2.9.3
+--------------080103040102020907010405--
