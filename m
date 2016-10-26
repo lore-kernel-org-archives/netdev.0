@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 1/9] liquidio CN23XX: HW config for VF support
-Date: Tue, 25 Oct 2016 17:57:02 -0700
-Message-ID: <1477443430-27170-2-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 2/9] liquidio CN23XX: sysfs VF config support
+Date: Tue, 25 Oct 2016 17:57:03 -0700
+Message-ID: <1477443430-27170-3-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1477443430-27170-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,310 +16,198 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-sn1nam01on0086.outbound.protection.outlook.com ([104.47.32.86]:36960
         "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754631AbcJZBNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Oct 2016 21:13:36 -0400
+        id S1755796AbcJZBNf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Oct 2016 21:13:35 -0400
 In-Reply-To: <1477443430-27170-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for configuring HW for creating VFs.
+Adds sysfs based support for enabling or disabling VFs.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 125 ++++++++++++++++-----
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  23 ++++
- .../net/ethernet/cavium/liquidio/octeon_config.h   |   6 +
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  12 +-
- 4 files changed, 135 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 98 ++++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_config.h   |  3 +
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |  8 ++
+ 3 files changed, 109 insertions(+)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-index 380a641..2c7cf89 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-@@ -40,11 +40,6 @@
-  */
- #define CN23XX_INPUT_JABBER 64600
- 
--#define LIOLUT_RING_DISTRIBUTION 9
--const int liolut_num_vfs_to_rings_per_vf[LIOLUT_RING_DISTRIBUTION] = {
--	0, 8, 4, 2, 2, 2, 1, 1, 1
--};
--
- void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct)
- {
- 	int i = 0;
-@@ -309,9 +304,10 @@ u32 cn23xx_pf_get_oq_ticks(struct octeon_device *oct, u32 time_intr_in_us)
- 
- static void cn23xx_setup_global_mac_regs(struct octeon_device *oct)
- {
--	u64 reg_val;
- 	u16 mac_no = oct->pcie_port;
- 	u16 pf_num = oct->pf_num;
-+	u64 reg_val;
-+	u64 temp;
- 
- 	/* programming SRN and TRS for each MAC(0..3)  */
- 
-@@ -333,6 +329,14 @@ static void cn23xx_setup_global_mac_regs(struct octeon_device *oct)
- 	/* setting TRS <23:16> */
- 	reg_val = reg_val |
- 		  (oct->sriov_info.trs << CN23XX_PKT_MAC_CTL_RINFO_TRS_BIT_POS);
-+	/* setting RPVF <39:32> */
-+	temp = oct->sriov_info.rings_per_vf & 0xff;
-+	reg_val |= (temp << CN23XX_PKT_MAC_CTL_RINFO_RPVF_BIT_POS);
-+
-+	/* setting NVFS <55:48> */
-+	temp = oct->sriov_info.max_vfs & 0xff;
-+	reg_val |= (temp << CN23XX_PKT_MAC_CTL_RINFO_NVFS_BIT_POS);
-+
- 	/* write these settings to MAC register */
- 	octeon_write_csr64(oct, CN23XX_SLI_PKT_MAC_RINFO64(mac_no, pf_num),
- 			   reg_val);
-@@ -399,11 +403,12 @@ static int cn23xx_reset_io_queues(struct octeon_device *oct)
- 
- static int cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
- {
-+	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
-+	struct octeon_instr_queue *iq;
-+	u64 intr_threshold, reg_val;
- 	u32 q_no, ern, srn;
- 	u64 pf_num;
--	u64 intr_threshold, reg_val;
--	struct octeon_instr_queue *iq;
--	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
-+	u64 vf_num;
- 
- 	pf_num = oct->pf_num;
- 
-@@ -420,6 +425,16 @@ static int cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
- 	*/
- 	for (q_no = 0; q_no < ern; q_no++) {
- 		reg_val = oct->pcie_port << CN23XX_PKT_INPUT_CTL_MAC_NUM_POS;
-+
-+		/* for VF assigned queues. */
-+		if (q_no < oct->sriov_info.pf_srn) {
-+			vf_num = q_no / oct->sriov_info.rings_per_vf;
-+			vf_num += 1; /* VF1, VF2,........ */
-+		} else {
-+			vf_num = 0;
-+		}
-+
-+		reg_val |= vf_num << CN23XX_PKT_INPUT_CTL_VF_NUM_POS;
- 		reg_val |= pf_num << CN23XX_PKT_INPUT_CTL_PF_NUM_POS;
- 
- 		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
-@@ -1048,50 +1063,100 @@ static void cn23xx_setup_reg_address(struct octeon_device *oct)
- 
- static int cn23xx_sriov_config(struct octeon_device *oct)
- {
--	u32 total_rings;
- 	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
--	/* num_vfs is already filled for us */
-+	u32 max_rings, total_rings, max_vfs;
- 	u32 pf_srn, num_pf_rings;
-+	u32 max_possible_vfs;
-+	u32 rings_per_vf = 0;
- 
- 	cn23xx->conf =
--	    (struct octeon_config *)oct_get_config_info(oct, LIO_23XX);
-+		(struct octeon_config *)oct_get_config_info(oct, LIO_23XX);
- 	switch (oct->rev_id) {
- 	case OCTEON_CN23XX_REV_1_0:
--		total_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_0;
-+		max_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_0;
-+		max_possible_vfs = CN23XX_MAX_VFS_PER_PF_PASS_1_0;
- 		break;
- 	case OCTEON_CN23XX_REV_1_1:
--		total_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_1;
-+		max_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_1;
-+		max_possible_vfs = CN23XX_MAX_VFS_PER_PF_PASS_1_1;
- 		break;
- 	default:
--		total_rings = CN23XX_MAX_RINGS_PER_PF;
-+		max_rings = CN23XX_MAX_RINGS_PER_PF;
-+		max_possible_vfs = CN23XX_MAX_VFS_PER_PF;
- 		break;
- 	}
--	if (!oct->sriov_info.num_pf_rings) {
--		if (total_rings > num_present_cpus())
--			num_pf_rings = num_present_cpus();
--		else
--			num_pf_rings = total_rings;
--	} else {
--		num_pf_rings = oct->sriov_info.num_pf_rings;
- 
--		if (num_pf_rings > total_rings) {
-+	if (!oct->sriov_info.rings_per_vf) {
-+		dev_dbg(&oct->pci_dev->dev, "rings_per_vf is zero, will derive based on number of pf rings\n");
-+
-+		if (!oct->sriov_info.num_pf_rings) {
-+			num_pf_rings = min_t(u32, max_rings,
-+					     num_present_cpus());
-+		} else {
-+			num_pf_rings = oct->sriov_info.num_pf_rings;
-+
-+			if (num_pf_rings > max_rings) {
-+				num_pf_rings = min_t(u32, max_rings,
-+						     num_present_cpus());
-+				dev_warn(&oct->pci_dev->dev,
-+					 "num_queues_per_pf:%u is invalid. Using num_pf_rings:%u\n",
-+					  oct->sriov_info.num_pf_rings,
-+					  num_pf_rings);
-+			}
-+		}
-+
-+		max_vfs = min_t(u32,
-+				(max_rings - num_pf_rings), max_possible_vfs);
-+		if (max_vfs)
-+			rings_per_vf = 1;
-+	} else {
-+		rings_per_vf = oct->sriov_info.rings_per_vf;
-+		if ((rings_per_vf > CN23XX_MAX_RINGS_PER_VF) ||
-+		    (rings_per_vf & (rings_per_vf - 1))) {
-+			rings_per_vf = 1;
- 			dev_warn(&oct->pci_dev->dev,
--				 "num_queues_per_pf requested %u is more than available rings. Reducing to %u\n",
--				 num_pf_rings, total_rings);
--			num_pf_rings = total_rings;
-+				 "Invalid num_queues_per_vf:%u requested. Using default num_queues_per_vf:%u\n",
-+				 oct->sriov_info.rings_per_vf,
-+				 rings_per_vf);
-+		}
-+
-+		if (oct->sriov_info.num_pf_rings) {
-+			num_pf_rings = oct->sriov_info.num_pf_rings;
-+			if ((num_pf_rings + rings_per_vf > max_rings) ||
-+			    (num_pf_rings < 1)) {
-+				num_pf_rings = 1;
-+				dev_warn(&oct->pci_dev->dev,
-+					 "num_queues_per_pf:%u is invalid. Using num_pf_rings:%u\n",
-+					 oct->sriov_info.num_pf_rings,
-+					 num_pf_rings);
-+			}
-+			max_vfs = (max_rings - num_pf_rings) / rings_per_vf;
-+			max_vfs = min_t(u32, max_vfs, max_possible_vfs);
-+		} else {
-+			num_pf_rings = min_t(u32, (max_rings - rings_per_vf),
-+					     num_present_cpus());
-+			max_vfs = (max_rings - num_pf_rings) / rings_per_vf;
-+			max_vfs = min_t(u32, max_vfs, max_possible_vfs);
- 		}
- 	}
- 
--	total_rings = num_pf_rings;
-+	total_rings = num_pf_rings + (max_vfs * rings_per_vf);
-+
- 	/* the first ring of the pf */
- 	pf_srn = total_rings - num_pf_rings;
- 
- 	oct->sriov_info.trs = total_rings;
-+	oct->sriov_info.max_vfs = max_vfs;
-+	oct->sriov_info.rings_per_vf = rings_per_vf;
- 	oct->sriov_info.pf_srn = pf_srn;
- 	oct->sriov_info.num_pf_rings = num_pf_rings;
--	dev_dbg(&oct->pci_dev->dev, "trs:%d pf_srn:%d num_pf_rings:%d\n",
--		oct->sriov_info.trs, oct->sriov_info.pf_srn,
--		oct->sriov_info.num_pf_rings);
-+	dev_notice(&oct->pci_dev->dev, "trs:%d max_vfs:%d rings_per_vf:%d pf_srn:%d num_pf_rings:%d\n",
-+		   oct->sriov_info.trs, oct->sriov_info.max_vfs,
-+		   oct->sriov_info.rings_per_vf, oct->sriov_info.pf_srn,
-+		   oct->sriov_info.num_pf_rings);
-+
-+	oct->sriov_info.sriov_enabled = 0;
-+
- 	return 0;
- }
- 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 71d01a7..d25746f 100644
+index d25746f..51ed875 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -69,6 +69,20 @@
- module_param(conf_type, int, 0);
- MODULE_PARM_DESC(conf_type, "select octeon configuration 0 default 1 ovs");
- 
-+/* In non-default case if user wants to have multiple queues then because of
-+ * the way Liquidio HW works we need num_queues_per_pf and num_queues_per_vf
-+ * module parameters at HW/module init time. This is because in multi-queues per
-+ * VF scenario, HW has to carve these queues before FW can start communicating
-+ * with PF/VF host drivers.
-+ */
-+static unsigned int num_queues_per_pf[2] = { 0, 0 };
-+module_param_array(num_queues_per_pf, uint, NULL, 0444);
-+MODULE_PARM_DESC(num_queues_per_pf, "two comma-separated unsigned integers that specify number of queues per PF0 (left of the comma) and PF1 (right of the comma); for 23xx only. Valid range is 1 to 64.");
-+
-+static unsigned int num_queues_per_vf[2] = { 0, 0 };
-+module_param_array(num_queues_per_vf, uint, NULL, 0444);
-+MODULE_PARM_DESC(num_queues_per_vf, "two comma-separated unsigned integers that specify number of queues per PF0 (left of the comma) and PF1 (right of the comma); for 23xx only. Valid values are 1, 2, 4 and 8. ");
-+
- static int ptp_enable = 1;
- 
- /* Bit mask values for lio->ifstate */
-@@ -1730,6 +1744,15 @@ static int octeon_chip_specific_setup(struct octeon_device *oct)
- 
- 	case OCTEON_CN23XX_PCIID_PF:
- 		oct->chip_id = OCTEON_CN23XX_PF_VID;
-+		if (num_queues_per_pf[oct->pci_dev->devfn] > 0) {
-+			oct->sriov_info.num_pf_rings =
-+			    num_queues_per_pf[oct->pci_dev->devfn];
-+		}
-+		if (num_queues_per_vf[oct->pci_dev->devfn] > 0) {
-+			oct->sriov_info.rings_per_vf =
-+				num_queues_per_vf[oct->pci_dev->devfn];
-+		}
-+
- 		ret = setup_cn23xx_octeon_pf_device(oct);
- 		s = "CN23XX";
- 		break;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-index c765568..512bca5 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-@@ -65,9 +65,15 @@
- #define   DEFAULT_NUM_NIC_PORTS_68XX_210NV  2
- 
- /* CN23xx  IQ configuration macros */
-+#define   CN23XX_MAX_VFS_PER_PF_PASS_1_0 8
-+#define   CN23XX_MAX_VFS_PER_PF_PASS_1_1 31
-+#define   CN23XX_MAX_VFS_PER_PF          63
-+#define   CN23XX_MAX_RINGS_PER_VF        8
-+
- #define   CN23XX_MAX_RINGS_PER_PF_PASS_1_0 12
- #define   CN23XX_MAX_RINGS_PER_PF_PASS_1_1 32
- #define   CN23XX_MAX_RINGS_PER_PF          64
-+#define   CN23XX_MAX_RINGS_PER_VF          8
- 
- #define   CN23XX_MAX_INPUT_QUEUES	CN23XX_MAX_RINGS_PER_PF
- #define   CN23XX_MAX_IQ_DESCRIPTORS	2048
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index da15c2a..751d3b6 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -322,11 +322,21 @@ struct octeon_pf_vf_hs_word {
+@@ -194,6 +194,8 @@ struct octeon_device_priv {
+ 	unsigned long napi_mask;
  };
  
- struct octeon_sriov_info {
-+	/* Number of rings assigned to VF */
-+	u32	rings_per_vf;
++static int liquidio_enable_sriov(struct pci_dev *dev, int num_vfs);
 +
-+	/** Max Number of VF devices that can be enabled. This variable can
-+	 *  specified during load time or it will be derived after allocating
-+	 *  PF queues. When max_vfs is derived then each VF will get one queue
-+	 **/
-+	u32	max_vfs;
+ static int octeon_device_init(struct octeon_device *);
+ static int liquidio_stop(struct net_device *netdev);
+ static void liquidio_remove(struct pci_dev *pdev);
+@@ -532,6 +534,7 @@ static int liquidio_resume(struct pci_dev *pdev __attribute__((unused)))
+ 	.suspend	= liquidio_suspend,
+ 	.resume		= liquidio_resume,
+ #endif
++	.sriov_configure = liquidio_enable_sriov,
+ };
+ 
+ /**
+@@ -1486,6 +1489,8 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 				continue;
+ 			octeon_delete_instr_queue(oct, i);
+ 		}
++		if (oct->sriov_info.sriov_enabled)
++			pci_disable_sriov(oct->pci_dev);
+ 		/* fallthrough */
+ 	case OCT_DEV_SC_BUFF_POOL_INIT_DONE:
+ 		octeon_free_sc_buffer_pool(oct);
+@@ -4013,6 +4018,99 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 	return -ENODEV;
+ }
+ 
++static int octeon_enable_sriov(struct octeon_device *oct)
++{
++	unsigned int num_vfs_alloced = oct->sriov_info.num_vfs_alloced;
++	struct pci_dev *vfdev;
++	int err;
++	u32 u;
++
++	if (OCTEON_CN23XX_PF(oct) && num_vfs_alloced) {
++		err = pci_enable_sriov(oct->pci_dev,
++				       oct->sriov_info.num_vfs_alloced);
++		if (err) {
++			dev_err(&oct->pci_dev->dev,
++				"OCTEON: Failed to enable PCI sriov: %d\n",
++				err);
++			oct->sriov_info.num_vfs_alloced = 0;
++			return err;
++		}
++		oct->sriov_info.sriov_enabled = 1;
++
++		/* init lookup table that maps DPI ring number to VF pci_dev
++		 * struct pointer
++		 */
++		u = 0;
++		vfdev = pci_get_device(PCI_VENDOR_ID_CAVIUM,
++				       OCTEON_CN23XX_VF_VID, NULL);
++		while (vfdev) {
++			if (vfdev->is_virtfn &&
++			    (vfdev->physfn == oct->pci_dev)) {
++				oct->sriov_info.dpiring_to_vfpcidev_lut[u] =
++					vfdev;
++				u += oct->sriov_info.rings_per_vf;
++			}
++			vfdev = pci_get_device(PCI_VENDOR_ID_CAVIUM,
++					       OCTEON_CN23XX_VF_VID, vfdev);
++		}
++	}
++
++	return num_vfs_alloced;
++}
++
++static int lio_pci_sriov_disable(struct octeon_device *oct)
++{
++	int u;
++
++	if (pci_vfs_assigned(oct->pci_dev)) {
++		dev_err(&oct->pci_dev->dev, "VFs are still assigned to VMs.\n");
++		return -EPERM;
++	}
++
++	pci_disable_sriov(oct->pci_dev);
++
++	u = 0;
++	while (u < MAX_POSSIBLE_VFS) {
++		oct->sriov_info.dpiring_to_vfpcidev_lut[u] = NULL;
++		u += oct->sriov_info.rings_per_vf;
++	}
++
++	oct->sriov_info.num_vfs_alloced = 0;
++	dev_info(&oct->pci_dev->dev, "oct->pf_num:%d disabled VFs\n",
++		 oct->pf_num);
++
++	return 0;
++}
++
++static int liquidio_enable_sriov(struct pci_dev *dev, int num_vfs)
++{
++	struct octeon_device *oct = pci_get_drvdata(dev);
++	int ret = 0;
++
++	if ((num_vfs == oct->sriov_info.num_vfs_alloced) &&
++	    (oct->sriov_info.sriov_enabled)) {
++		dev_info(&oct->pci_dev->dev, "oct->pf_num:%d already enabled num_vfs:%d\n",
++			 oct->pf_num, num_vfs);
++		return 0;
++	}
++
++	if (!num_vfs) {
++		ret = lio_pci_sriov_disable(oct);
++	} else if (num_vfs > oct->sriov_info.max_vfs) {
++		dev_err(&oct->pci_dev->dev,
++			"OCTEON: Max allowed VFs:%d user requested:%d",
++			oct->sriov_info.max_vfs, num_vfs);
++		ret = -EPERM;
++	} else {
++		oct->sriov_info.num_vfs_alloced = num_vfs;
++		ret = octeon_enable_sriov(oct);
++		dev_info(&oct->pci_dev->dev, "oct->pf_num:%d enabled num_vfs:%d\n",
++			 oct->pf_num, num_vfs);
++	}
++
++	return ret;
++}
++
+ /**
+  * \brief initialize the NIC
+  * @param oct octeon device
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+index 512bca5..71daf82 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+@@ -472,4 +472,7 @@ struct octeon_config {
+ 
+ #define MAX_POSSIBLE_OCTEON_INSTR_QUEUES	CN23XX_MAX_INPUT_QUEUES
+ #define MAX_POSSIBLE_OCTEON_OUTPUT_QUEUES	CN23XX_MAX_OUTPUT_QUEUES
++
++#define MAX_POSSIBLE_VFS			64
++
+ #endif /* __OCTEON_CONFIG_H__  */
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 751d3b6..cfd12ec 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -38,6 +38,7 @@
+ #define  OCTEON_CN68XX                0x0091
+ #define  OCTEON_CN66XX                0x0092
+ #define  OCTEON_CN23XX_PF_VID         0x9702
++#define  OCTEON_CN23XX_VF_VID         0x9712
+ 
+ /**RevisionId for the chips */
+ #define  OCTEON_CN23XX_REV_1_0        0x00
+@@ -331,6 +332,9 @@ struct octeon_sriov_info {
+ 	 **/
+ 	u32	max_vfs;
+ 
++	/** Number of VF devices enabled using sysfs. */
++	u32	num_vfs_alloced;
 +
  	/* Actual rings left for PF device */
  	u32	num_pf_rings;
  
--	/* SRN of PF usable IO queues   */
-+	/* SRN of PF usable IO queues */
- 	u32	pf_srn;
-+
+@@ -340,6 +344,10 @@ struct octeon_sriov_info {
  	/* total pf rings */
  	u32	trs;
  
++	u32	sriov_enabled;
++
++	/*lookup table that maps DPI ring number to VF pci_dev struct pointer*/
++	struct pci_dev *dpiring_to_vfpcidev_lut[MAX_POSSIBLE_VFS];
+ };
+ 
+ struct octeon_ioq_vector {
 -- 
 1.8.3.1
