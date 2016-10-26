@@ -1,86 +1,61 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: nfs NULL-dereferencing in net-next
-Date: Wed, 26 Oct 2016 19:08:40 +0100
-Message-ID: <20161026190840.3d46dad8@jkicinski-Precision-T1700>
-References: <20161017201943.64529739@jkicinski-Precision-T1700>
-        <DB3PR05MB0764DF28BC53A4A4E78A4DD8ACA80@DB3PR05MB0764.eurprd05.prod.outlook.com>
-        <817e43c5-d88d-e616-7074-5715de29d319@Netapp.com>
-        <DB3PR05MB0764B39F6EDF851A8A52EBACACAB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v3] iproute2: macvlan: add "source" mode
+Date: Wed, 26 Oct 2016 11:11:46 -0700
+Message-ID: <20161026111146.702e8559@xeon-e3>
+References: <1474830535-12689-1-git-send-email-michael-dev@fami-braun.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Yotam Gigi <yotamg@mellanox.com>, Andy Adamson <andros@netapp.com>,
-        "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Trond Myklebust <Trond.Myklebust@netapp.com>,
-        Yotam Gigi <yotam.gi@gmail.com>, mlxsw <mlxsw@mellanox.com>
-To: Anna Schumaker <Anna.Schumaker@Netapp.com>
+Cc: netdev@vger.kernel.org, projekt-wlan@fem.tu-ilmenau.de,
+        steweg@gmail.com
+To: Michael Braun <michael-dev@fami-braun.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:5316 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752618AbcJZSIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 14:08:47 -0400
-In-Reply-To: <DB3PR05MB0764B39F6EDF851A8A52EBACACAB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35237 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933846AbcJZSLa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 14:11:30 -0400
+Received: by mail-pf0-f181.google.com with SMTP id s8so997648pfj.2
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 11:11:30 -0700 (PDT)
+In-Reply-To: <1474830535-12689-1-git-send-email-michael-dev@fami-braun.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 26 Oct 2016 16:15:24 +0000, Yotam Gigi wrote:
-> >-----Original Message-----
-> >From: Anna Schumaker [mailto:Anna.Schumaker@Netapp.com]
-> >Sent: Wednesday, October 26, 2016 5:40 PM
-> >To: Yotam Gigi <yotamg@mellanox.com>; Jakub Kicinski <kubakici@wp.pl>; Andy
-> >Adamson <andros@netapp.com>; Anna Schumaker
-> ><Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
-> >Cc: netdev@vger.kernel.org; Trond Myklebust <Trond.Myklebust@netapp.com>;
-> >Yotam Gigi <yotam.gi@gmail.com>; mlxsw <mlxsw@mellanox.com>
-> >Subject: Re: nfs NULL-dereferencing in net-next
-> >
-> >On 10/25/2016 01:19 PM, Yotam Gigi wrote:  
-> >>  
-> >>> -----Original Message-----
-> >>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]  
-> >On  
-> >>> Behalf Of Jakub Kicinski
-> >>> Sent: Monday, October 17, 2016 10:20 PM
-> >>> To: Andy Adamson <andros@netapp.com>; Anna Schumaker
-> >>> <Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
-> >>> Cc: netdev@vger.kernel.org; Trond Myklebust  
-> ><Trond.Myklebust@netapp.com>  
-> >>> Subject: nfs NULL-dereferencing in net-next
-> >>>
-> >>> Hi!
-> >>>
-> >>> I'm hitting this reliably on net-next, HEAD at 3f3177bb680f
-> >>> ("fsl/fman: fix error return code in mac_probe()").  
-> >>
-> >>
-> >> I see the same thing. It happens constantly on some of my machines, making  
-> >them  
-> >> completely unusable.
-> >>
-> >> I bisected it and got to the commit:
-> >>
-> >> commit 04ea1b3e6d8ed4978bb608c1748530af3de8c274
-> >> Author: Andy Adamson <andros@netapp.com>
-> >> Date:   Fri Sep 9 09:22:27 2016 -0400
-> >>
-> >>     NFS add xprt switch addrs test to match client
-> >>
-> >>     Signed-off-by: Andy Adamson <andros@netapp.com>
-> >>     Signed-off-by: Anna Schumaker <Anna.Schumaker@Netapp.com>  
-> >
-> >Thanks for reporting on this everyone!  Does this patch help?  
+On Sun, 25 Sep 2016 21:08:55 +0200
+Michael Braun <michael-dev@fami-braun.de> wrote:
+
+> Adjusting iproute2 utility to support new macvlan link type mode called
+> "source".
 > 
-> Actually, I still see the same bug with the same trace.
+> Example of commands that can be applied:
+>   ip link add link eth0 name macvlan0 type macvlan mode source
+>   ip link set link dev macvlan0 type macvlan macaddr add 00:11:11:11:11:11
+>   ip link set link dev macvlan0 type macvlan macaddr del 00:11:11:11:11:11
+>   ip link set link dev macvlan0 type macvlan macaddr flush
+>   ip -details link show dev macvlan0
+> 
+> Based on previous work of Stefan Gula <steweg@gmail.com>
+> 
+> Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
+> 
+> Cc: steweg@gmail.com
+> --
+> v3: fix coding style, sorry for the noise
+> ---
+>  include/linux/if_link.h |   2 +
+>  ip/iplink_macvlan.c     | 103 ++++++++++++++++++++++++++++++++++++++++++++++--
+>  man/man8/ip-link.8.in   |  57 +++++++++++++++++++++++++++
+>  3 files changed, 158 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> index 1feb708..ec5e64e 100644
+> --- a/include/linux/if_link.h
+> +++ b/include/linux/if_link.h
+> @@ -401,6 +401,8 @@ enum macvlan_macaddr_mode {
+>  };
+>  
+>  #define MACVLAN_FLAG_NOPROMISC	1
+> +#define MACVLAN_FLAG_UNICAST	2
+> +#define MACVLAN_FLAG_UNICAST_ALL	4
 
-I rebuild the latest net-next and I'm not seeing the trace any more...
-I'm only seeing this (with or without your patch):
-
-[   23.465877] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-[   23.473784] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-[   23.588890] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-[   23.596746] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-[   23.781574] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-[   23.789599] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-
-HTH
+These header changes are not in upstream source. Sorry, you have to get the kernel
+changes in first. I am backing this out of iproute2
