@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Broadcom BCM54612E support
-Date: Wed, 26 Oct 2016 17:16:05 -0400 (EDT)
-Message-ID: <20161026.171605.2216738980188763095.davem@davemloft.net>
-References: <1477070413-92621-1-git-send-email-xow@google.com>
+Subject: Re: [PATCH] batman-adv: Revert "use core MTU range checking in
+ misc drivers"
+Date: Wed, 26 Oct 2016 17:20:14 -0400 (EDT)
+Message-ID: <20161026.172014.1445485460255687424.davem@davemloft.net>
+References: <20161022074624.30033-1-sven@narfation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, jaedon.shin@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        openbmc@lists.ozlabs.org, joel@jms.id.au
-To: xow@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42036 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754127AbcJZVQJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 17:16:09 -0400
-In-Reply-To: <1477070413-92621-1-git-send-email-xow@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        linux-kernel@vger.kernel.org, jarod@redhat.com
+To: sven@narfation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161022074624.30033-1-sven@narfation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xo Wang <xow@google.com>
-Date: Fri, 21 Oct 2016 10:20:11 -0700
+From: Sven Eckelmann <sven@narfation.org>
+Date: Sat, 22 Oct 2016 09:46:24 +0200
 
-> This series is based on tip of torvalds/master.
+> The maximum MTU is defined via the slave devices of an batman-adv
+> interface. Thus it is not possible to calculate the max_mtu during the
+> creation of the batman-adv device when no slave devices are attached. Doing
+> so would for example break non-fragmentation setups which then
+> (incorrectly) allow an MTU of 1500 even when underlying device cannot
+> transport 1500 bytes + batman-adv headers.
 > 
-> The first patch adds register definitions from Broadcom docs.
+> Checking the dynamically calculated max_mtu via the minimum of the slave
+> devices MTU during .ndo_change_mtu is also used by the bridge interface.
 > 
-> The second patch adds the BCM54612E PHY ID, flags, and device-specific
-> RGMII internal delay initialization.
-> 
-> I tested on a custom board with an Aspeed AST2500 SOC with its second
-> MAC connected to this PHY.
+> Cc: Jarod Wilson <jarod@redhat.com>
+> Fixes: b3e3893e1253 ("net: use core MTU range checking in misc drivers")
+> Signed-off-by: Sven Eckelmann <sven@narfation.org>
 
-Series applied to net-next, thanks.
+Applied, thanks.
