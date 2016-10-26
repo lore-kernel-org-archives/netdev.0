@@ -1,114 +1,67 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH v2 7/9] ipv6: add source address argument for ipv6_push_nfrag_opts
-Date: Wed, 26 Oct 2016 17:56:15 +0200
-Message-ID: <1477497377-22372-3-git-send-email-david.lebrun@uclouvain.be>
-References: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 0/3] pull request for net: batman-adv
+	2016-10-26
+Date: Wed, 26 Oct 2016 17:55:12 +0200
+Message-ID: <20161026155515.18075-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:58440 "EHLO
-        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933654AbcJZPyj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:54:39 -0400
-Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by smtp6.sgsi.ucl.ac.be (Postfix) with ESMTPS id 6DFF967DBB5
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 17:54:29 +0200 (CEST)
-In-Reply-To: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This patch prepares for insertion of SRH through setsockopt().
-The new source address argument is used when an HMAC field is
-present in the SRH, which must be filled. The HMAC signature
-process requires the source address as input text.
+Hi David,
 
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
----
- include/net/ipv6.h    | 3 ++-
- net/ipv6/exthdrs.c    | 6 +++---
- net/ipv6/ip6_output.c | 5 +++--
- net/ipv6/ip6_tunnel.c | 2 +-
- 4 files changed, 9 insertions(+), 7 deletions(-)
+here are some bugfix patches which we would like to have integrated
+into net.
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 8fed1cd..0a3622b 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -932,7 +932,8 @@ int ip6_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
-  */
- 
- void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
--			  u8 *proto, struct in6_addr **daddr_p);
-+			  u8 *proto, struct in6_addr **daddr_p,
-+			  struct in6_addr *saddr);
- void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
- 			 u8 *proto);
- 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 9b63932..28d2629 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -874,7 +874,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
- 
- static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
- 			    struct ipv6_rt_hdr *opt,
--			    struct in6_addr **addr_p)
-+			    struct in6_addr **addr_p, struct in6_addr *saddr)
- {
- 	struct rt0_hdr *phdr, *ihdr;
- 	int hops;
-@@ -908,10 +908,10 @@ static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv
- 
- void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
- 			  u8 *proto,
--			  struct in6_addr **daddr)
-+			  struct in6_addr **daddr, struct in6_addr *saddr)
- {
- 	if (opt->srcrt) {
--		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr);
-+		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr, saddr);
- 		/*
- 		 * IPV6_RTHDRDSTOPTS is ignored
- 		 * unless IPV6_RTHDR is set (RFC3542).
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6001e78..ddc878d 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -203,7 +203,8 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
- 		if (opt->opt_flen)
- 			ipv6_push_frag_opts(skb, opt, &proto);
- 		if (opt->opt_nflen)
--			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
-+			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop,
-+					     &fl6->saddr);
- 	}
- 
- 	skb_push(skb, sizeof(struct ipv6hdr));
-@@ -1672,7 +1673,7 @@ struct sk_buff *__ip6_make_skb(struct sock *sk,
- 	if (opt && opt->opt_flen)
- 		ipv6_push_frag_opts(skb, opt, &proto);
- 	if (opt && opt->opt_nflen)
--		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
-+		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst, &fl6->saddr);
- 
- 	skb_push(skb, sizeof(struct ipv6hdr));
- 	skb_reset_network_header(skb);
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 3a70567..9c894c9 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1155,7 +1155,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 
- 	if (encap_limit >= 0) {
- 		init_tel_txopt(&opt, encap_limit);
--		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
-+		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
- 	}
- 
- 	/* Calculate max headroom for all the headers and adjust
--- 
-2.7.3
+Please pull or let me know of any problem!
+
+Thank you,
+      Simon
+
+The following changes since commit 29fbff8698fc0ac1a1d74584b258e0bf18b469f9:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-10-13 21:40:23 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20161026
+
+for you to fetch changes up to 9799c50372b23ed774791bdb87d700f1286ee8a9:
+
+  batman-adv: fix splat on disabling an interface (2016-10-21 14:47:02 +0200)
+
+----------------------------------------------------------------
+Here are three batman-adv bugfix patches:
+
+ - Fix RCU usage for neighbor list, by Sven Eckelmann
+
+ - Fix BATADV_DBG_ALL loglevel to include TP Meter messages, by Sven Eckelmann
+
+ - Fix possible splat when disabling an interface, by Linus Luessing
+
+----------------------------------------------------------------
+Linus Lüssing (1):
+      batman-adv: fix splat on disabling an interface
+
+Sven Eckelmann (2):
+      batman-adv: Modify neigh_list only with rcu-list functions
+      batman-adv: Add BATADV_DBG_TP_METER to BATADV_DBG_ALL
+
+ net/batman-adv/hard-interface.c | 1 -
+ net/batman-adv/log.h            | 2 +-
+ net/batman-adv/originator.c     | 2 +-
+ 3 files changed, 2 insertions(+), 3 deletions(-)
