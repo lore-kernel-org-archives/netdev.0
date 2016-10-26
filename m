@@ -1,83 +1,37 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH] net: bonding: use new api ethtool_{get|set}_link_ksettings
-Date: Wed, 26 Oct 2016 11:00:25 -0700
-Message-ID: <11572.1477504825@famine>
-References: <1477413691-10894-1-git-send-email-tremyfr@gmail.com>
-Cc: vfalico@gmail.com, andy@greyhouse.net, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1477413691-10894-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: mv643xx_eth: Fetch the phy connection type from DT
+Date: Wed, 26 Oct 2016 11:05:13 -0700
+Message-ID: <de64deed-c2c3-ad20-b141-961c3d655f53@gmail.com>
+References: <20161026174702.GB24717@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34358 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932993AbcJZSFQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 14:05:16 -0400
+In-Reply-To: <20161026174702.GB24717@obsidianresearch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Philippe Reynes <tremyfr@gmail.com> wrote:
+On 10/26/2016 10:47 AM, Jason Gunthorpe wrote:
+> The MAC is capable of RGMII mode and that is probably a more typical
+> connection type than GMII today (eg it is used by Marvell Reference
+> designs for several SOCs). Let DT users specify the standard
+> 
+>    phy-connection-type = "rgmii-id";
+> 
+> On a phy node.
+> 
+> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 
->The ethtool api {get|set}_settings is deprecated.
->We move this driver to new api {get|set}_link_ksettings.
+Took a little while to understand the re-ordering of SET_NETDEV_DEV() to
+come earlier was necessary to access mp->dev->dev.parent.
 
-	This is just an API change, i.e., no change to functionality?
-
-	-J
-
->Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
->---
-> drivers/net/bonding/bond_main.c |   16 ++++++++--------
-> 1 files changed, 8 insertions(+), 8 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index c9944d8..5708f17 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -4080,16 +4080,16 @@ static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> 	return ret;
-> }
-> 
->-static int bond_ethtool_get_settings(struct net_device *bond_dev,
->-				     struct ethtool_cmd *ecmd)
->+static int bond_ethtool_get_link_ksettings(struct net_device *bond_dev,
->+					   struct ethtool_link_ksettings *cmd)
-> {
-> 	struct bonding *bond = netdev_priv(bond_dev);
-> 	unsigned long speed = 0;
-> 	struct list_head *iter;
-> 	struct slave *slave;
-> 
->-	ecmd->duplex = DUPLEX_UNKNOWN;
->-	ecmd->port = PORT_OTHER;
->+	cmd->base.duplex = DUPLEX_UNKNOWN;
->+	cmd->base.port = PORT_OTHER;
-> 
-> 	/* Since bond_slave_can_tx returns false for all inactive or down slaves, we
-> 	 * do not need to check mode.  Though link speed might not represent
->@@ -4100,12 +4100,12 @@ static int bond_ethtool_get_settings(struct net_device *bond_dev,
-> 		if (bond_slave_can_tx(slave)) {
-> 			if (slave->speed != SPEED_UNKNOWN)
-> 				speed += slave->speed;
->-			if (ecmd->duplex == DUPLEX_UNKNOWN &&
->+			if (cmd->base.duplex == DUPLEX_UNKNOWN &&
-> 			    slave->duplex != DUPLEX_UNKNOWN)
->-				ecmd->duplex = slave->duplex;
->+				cmd->base.duplex = slave->duplex;
-> 		}
-> 	}
->-	ethtool_cmd_speed_set(ecmd, speed ? : SPEED_UNKNOWN);
->+	cmd->base.speed = speed ? : SPEED_UNKNOWN;
-> 
-> 	return 0;
-> }
->@@ -4121,8 +4121,8 @@ static void bond_ethtool_get_drvinfo(struct net_device *bond_dev,
-> 
-> static const struct ethtool_ops bond_ethtool_ops = {
-> 	.get_drvinfo		= bond_ethtool_get_drvinfo,
->-	.get_settings		= bond_ethtool_get_settings,
-> 	.get_link		= ethtool_op_get_link,
->+	.get_link_ksettings	= bond_ethtool_get_link_ksettings,
-> };
-> 
-> static const struct net_device_ops bond_netdev_ops = {
->-- 
->1.7.4.4
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
