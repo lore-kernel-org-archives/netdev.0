@@ -1,63 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Wed, 26 Oct 2016 20:07:19 +0300
-Message-ID: <20161026200153-mutt-send-email-mst@kernel.org>
-References: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
- <20161026155202.5d99d935@redhat.com>
- <20161026185743-mutt-send-email-mst@kernel.org>
- <20161026.125245.1630138589657247338.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Reset skb to network header in neigh_hh_output
+Date: Wed, 26 Oct 2016 10:08:31 -0700
+Message-ID: <1477501711.7065.198.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1579f7f0f4f.114457ec828613.4349884782265574217@abahmed.com>
+         <1475874656.28155.268.camel@edumazet-glaptop3.roam.corp.google.com>
+         <157fe46f382.10e50a6d8188917.494328765811573491@abahmed.com>
+         <1477440742.7065.161.camel@edumazet-glaptop3.roam.corp.google.com>
+         <15801e95765.f826e84d266359.4807464957002677781@abahmed.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: brouer@redhat.com, shrijeet@gmail.com, tom@herbertland.com,
-        netdev@vger.kernel.org, shm@cumulusnetworks.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41114 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755000AbcJZRHV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 13:07:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20161026.125245.1630138589657247338.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: Abdelrhman Ahmed <ab@abahmed.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <15801e95765.f826e84d266359.4807464957002677781@abahmed.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 26, 2016 at 12:52:45PM -0400, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Wed, 26 Oct 2016 19:36:45 +0300
+On Wed, 2016-10-26 at 18:53 +0200, Abdelrhman Ahmed wrote:
+> I think it's at the right place as the current one is a little different from the
+> commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c.
 > 
-> > On Wed, Oct 26, 2016 at 03:52:02PM +0200, Jesper Dangaard Brouer wrote:
-> >> On Sat, 22 Oct 2016 04:07:23 +0000
-> >> Shrijeet Mukherjee <shrijeet@gmail.com> wrote:
-> >> 
-> >> > This patch adds support for xdp ndo and also inserts the xdp program
-> >> > call into the merged RX buffers and big buffers paths
-> >> 
-> >> I really appreciate you are doing this for virtio_net.
-> >> 
-> >> My first question is: Is the (packet) page data writable?
-> >> (MST might be able to answer?)
-> >> 
-> >> As this is currently an XDP requirement[1].  
-> > 
-> > I'm not sure I understand what does writable mean.
-> > Could you explain a bit more pls?
-> > We do copy data into skb ATM but I plan to change that.
+> In the next lines, skb_push is called after copying the hardware header and there
+> is no change to the data pointer inside the retry loop. We only need to reset
+> before this loop.
 > 
-> The packet data area must be writable,
+> __skb_pull(skb, skb_network_offset(skb));
+> 
+> do {
+> 	seq = read_seqbegin(&hh->hh_lock);
+> 	hh_len = hh->hh_len;
+> 	if (likely(hh_len <= HH_DATA_MOD)) {
+> 		/* this is inlined by gcc */
+> 		memcpy(skb->data - HH_DATA_MOD, hh->hh_data, HH_DATA_MOD);
+> 	} else {
+> 		int hh_alen = HH_DATA_ALIGN(hh_len);
+> 
+> 		memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
+> 	}
+> } while (read_seqretry(&hh->hh_lock, seq));
+> 
+> skb_push(skb, hh_len);
+> 
+> In the commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c, dev_hard_header which
+> calls create method for adding hardware header (uses skb_push) so it was
+> required to reset to network header in the beginning of the retry loop.
 
-This is the part I don't fully understand.
-It's in RAM so of course it's writeable.
+Right you are, thanks for the clarification !
 
-> and the page it lives in must
-> not be shared with any other entity in the system.
+Back to the cause of the bug then.
 
-We share pages between arbitrary multiple packets. I think that's
-OK - or is there an assumption that multiple programs
-will be attached with different priveledges?
+If netfilter is the only case this might be needed, can't this be fixed
+in netfilter ?
 
-> This is because the eBPF program that executes via XDP must be able
-> to modify and read arbitrary parts of the packet area.
-
--- 
-MST
+neigh_hh_output() is in fast path, it is quite annoying adding this
+operation.
