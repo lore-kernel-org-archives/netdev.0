@@ -1,103 +1,102 @@
-From: Abdelrhman Ahmed <ab@abahmed.com>
-Subject: Re: [PATCH] net: Reset skb to network header in neigh_hh_output
-Date: Wed, 26 Oct 2016 18:53:39 +0200
-Message-ID: <15801e95765.f826e84d266359.4807464957002677781@abahmed.com>
-References: <1579f7f0f4f.114457ec828613.4349884782265574217@abahmed.com>
-         <1475874656.28155.268.camel@edumazet-glaptop3.roam.corp.google.com>
-         <157fe46f382.10e50a6d8188917.494328765811573491@abahmed.com> <1477440742.7065.161.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
+Date: Wed, 26 Oct 2016 18:56:45 +0200
+Message-ID: <5810E04D.9020300@digikod.net>
+References: <20161026065654.19166-1-mic@digikod.net>
+ <20161026145207.GM3334@pc.thejh.net>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem" <davem@davemloft.net>, "netdev" <netdev@vger.kernel.org>,
-        "linux-kernel" <linux-kernel@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477440742.7065.161.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="0g9em9kJcG2OCn0j7tG2Msjx06pnKq8aR"
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Daniel Borkmann
+ <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller"
+ <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+        Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
+        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+        cgroups@vger.kernel.org
+To: Jann Horn <jann@thejh.net>
+Return-path: <kernel-hardening-return-5048-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20161026145207.GM3334@pc.thejh.net>
 List-Id: netdev.vger.kernel.org
 
-I think it's at the right place as the current one is a little different from the
-commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--0g9em9kJcG2OCn0j7tG2Msjx06pnKq8aR
+Content-Type: multipart/mixed; boundary="xSVaUqj13fXmEGcgfmugKc4o5kKiWNwan";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Jann Horn <jann@thejh.net>
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+ Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann
+ <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
+ David Drysdale <drysdale@google.com>, "David S . Miller"
+ <davem@davemloft.net>, "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
+ Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
+ kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
+ linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+ cgroups@vger.kernel.org
+Message-ID: <5810E04D.9020300@digikod.net>
+Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
+References: <20161026065654.19166-1-mic@digikod.net>
+ <20161026145207.GM3334@pc.thejh.net>
+In-Reply-To: <20161026145207.GM3334@pc.thejh.net>
 
-In the next lines, skb_push is called after copying the hardware header and there
-is no change to the data pointer inside the retry loop. We only need to reset
-before this loop.
-
-__skb_pull(skb, skb_network_offset(skb));
-
-do {
-	seq = read_seqbegin(&hh->hh_lock);
-	hh_len = hh->hh_len;
-	if (likely(hh_len <= HH_DATA_MOD)) {
-		/* this is inlined by gcc */
-		memcpy(skb->data - HH_DATA_MOD, hh->hh_data, HH_DATA_MOD);
-	} else {
-		int hh_alen = HH_DATA_ALIGN(hh_len);
-
-		memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
-	}
-} while (read_seqretry(&hh->hh_lock, seq));
-
-skb_push(skb, hh_len);
-
-In the commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c, dev_hard_header which
-calls create method for adding hardware header (uses skb_push) so it was
-required to reset to network header in the beginning of the retry loop.
+--xSVaUqj13fXmEGcgfmugKc4o5kKiWNwan
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
 
- ---- On Wed, 26 Oct 2016 02:12:22 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote ---- 
- > On Wed, 2016-10-26 at 01:57 +0200, Abdelrhman Ahmed wrote: 
- > >  > What is the issue you want to fix exactly ?  
- > >  > Please describe the use case.  
- > >  
- > > When netfilter hook uses skb_push to add a specific header between network 
- > > header and hardware header. 
- > > For the first time(s) before caching hardware header, this header will be 
- > > removed / overwritten by hardware header due to resetting to network header. 
- > > After using the cached hardware header, this header will be kept as we do not 
- > > reset. I think this behavior is inconsistent, so we need to reset in both cases. 
- > >  
- > >  > Otherwise, your fix is in fact adding a critical bug.  
- > >  
- > > Could you explain more as it's not clear to me? 
- > >  
- >  
- > Maybe my wording was not good here. 
- >  
- > What I intended to say is that the  
- > __skb_pull(skb, skb_network_offset(skb)) might not be at the right 
- > place. 
- >  
- > Look at commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c to find the 
- > reason. 
- >  
- >  
- > >  
- > >  
- > >  ---- On Fri, 07 Oct 2016 23:10:56 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote ----  
- > >  > On Fri, 2016-10-07 at 16:14 +0200, Abdelrhman Ahmed wrote:  
- > >  > > When hardware header is added without using cached one, neigh_resolve_output  
- > >  > > and neigh_connected_output reset skb to network header before adding it.  
- > >  > > When cached one is used, neigh_hh_output does not reset the skb to network  
- > >  > > header.  
- > >  > >   
- > >  > > The fix is to reset skb to network header before adding cached hardware header  
- > >  > > to keep the behavior consistent in all cases.  
- > >  >   
- > >  > What is the issue you want to fix exactly ?  
- > >  >   
- > >  > Please describe the use case.  
- > >  >   
- > >  > I highly suggest you take a look at commit  
- > >  >   
- > >  > e1f165032c8bade3a6bdf546f8faf61fda4dd01c  
- > >  > ("net: Fix skb_under_panic oops in neigh_resolve_output")  
- > >  >   
- > >  > Otherwise, your fix is in fact adding a critical bug.  
- > >  >   
- > >  >   
- > >  >  
- > >  
- >  
- >  
- > 
+On 26/10/2016 16:52, Jann Horn wrote:
+> On Wed, Oct 26, 2016 at 08:56:36AM +0200, Micka=EBl Sala=FCn wrote:
+>> The loaded Landlock eBPF programs can be triggered by a seccomp filter=
+
+>> returning RET_LANDLOCK. In addition, a cookie (16-bit value) can be pa=
+ssed from
+>> a seccomp filter to eBPF programs. This allow flexible security polici=
+es
+>> between seccomp and Landlock.
+>=20
+> Is this still up to date, or was that removed in v3?
+>=20
+
+I forgot to remove this part. In this v4 series, as describe in the
+(small) patch 11/18, a Landlock rule cannot be triggered by a seccomp
+filter. So there is no more RET_LANDLOCK nor cookie.
+
+
+--xSVaUqj13fXmEGcgfmugKc4o5kKiWNwan--
+
+--0g9em9kJcG2OCn0j7tG2Msjx06pnKq8aR
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJYEOBNAAoJECLe/t9zvWqVnG0H/36cN8uCe1TJ6AvbhMlqxv+e
+7PmLgdJv/k1IXIFF8MDnna4TN7zsdL6mfNWPMtnOisRavTG+K2jUX66d01xmmP03
+s97b7jxvMEh9/pBiUTeGW/5B6Q/7syt7O5hNJfawAGQQgpSvubay0FDYGCEubNaC
+bSCG3yOJZ9dDvpx8SpyU7x9MaUaTjpG6NufHeMiF3LEmz195TmkCW9bWOOY/n5Po
+iHKLB6PME0oYywX+T+F9Lct5iZ8nosNyz3iE2TB3sQTyI05ha2QxCUe6+qEzqYcM
+NwTj1S/+rPWJnLeIP3RnNmm/z4hmwtH9Mpix2UptkC/z+zGWLBJQwmnRARuG3Ew=
+=eMq7
+-----END PGP SIGNATURE-----
+
+--0g9em9kJcG2OCn0j7tG2Msjx06pnKq8aR--
