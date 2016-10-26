@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] batman-adv: Revert "use core MTU range checking in
- misc drivers"
-Date: Wed, 26 Oct 2016 17:20:14 -0400 (EDT)
-Message-ID: <20161026.172014.1445485460255687424.davem@davemloft.net>
-References: <20161022074624.30033-1-sven@narfation.org>
+Subject: Re: [PATCH -next] rocker: fix error return code in
+ rocker_world_check_init()
+Date: Wed, 26 Oct 2016 17:21:05 -0400 (EDT)
+Message-ID: <20161026.172105.9384376046107523.davem@davemloft.net>
+References: <1477146666-29671-1-git-send-email-weiyj.lk@gmail.com>
+        <20161022153429.GA3657@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        linux-kernel@vger.kernel.org, jarod@redhat.com
-To: sven@narfation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161022074624.30033-1-sven@narfation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: weiyj.lk@gmail.com, weiyongjun1@huawei.com, netdev@vger.kernel.org
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42148 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932977AbcJZVVK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 17:21:10 -0400
+In-Reply-To: <20161022153429.GA3657@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
-Date: Sat, 22 Oct 2016 09:46:24 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat, 22 Oct 2016 17:34:29 +0200
 
-> The maximum MTU is defined via the slave devices of an batman-adv
-> interface. Thus it is not possible to calculate the max_mtu during the
-> creation of the batman-adv device when no slave devices are attached. Doing
-> so would for example break non-fragmentation setups which then
-> (incorrectly) allow an MTU of 1500 even when underlying device cannot
-> transport 1500 bytes + batman-adv headers.
+> Sat, Oct 22, 2016 at 04:31:06PM CEST, weiyj.lk@gmail.com wrote:
+>>From: Wei Yongjun <weiyongjun1@huawei.com>
+>>
+>>Fix to return error code -EINVAL from the error handling
+>>case instead of 0, as done elsewhere in this function.
+>>
+>>Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> Checking the dynamically calculated max_mtu via the minimum of the slave
-> devices MTU during .ndo_change_mtu is also used by the bridge interface.
+> Fixes: e420114eef4a ("rocker: introduce worlds infrastructure")
+> Acked-by: Jiri Pirko <jiri@mellanox.com>
 > 
-> Cc: Jarod Wilson <jarod@redhat.com>
-> Fixes: b3e3893e1253 ("net: use core MTU range checking in misc drivers")
-> Signed-off-by: Sven Eckelmann <sven@narfation.org>
+> Dave, you can queue this to -net.
 
-Applied, thanks.
+Done, thanks.
