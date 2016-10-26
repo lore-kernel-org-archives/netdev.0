@@ -1,48 +1,63 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] packet: on direct_xmit, limit tso and csum to supported
- devices
-Date: Wed, 26 Oct 2016 12:47:22 +0200
-Message-ID: <581089BA.4090309@iogearbox.net>
-References: <1477441683-68242-1-git-send-email-willemdebruijn.kernel@gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 19/28] brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
+Date: Wed, 26 Oct 2016 14:11:23 +0300
+Message-ID: <87funj5pr8.fsf@kamboji.qca.qualcomm.com>
+References: <20161017220342.1627073-1-arnd@arndb.de>
+        <20161017221355.1861551-7-arnd@arndb.de>
+        <87zilr61ux.fsf@kamboji.qca.qualcomm.com> <3406231.8mt2808XDi@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39901 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752353AbcJZKr0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 06:47:26 -0400
-In-Reply-To: <1477441683-68242-1-git-send-email-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        "Franky \(Zhenhui\) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <3406231.8mt2808XDi@wuerfel> (Arnd Bergmann's message of "Wed, 26
+        Oct 2016 11:57:23 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/26/2016 02:28 AM, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
->
-> When transmitting on a packet socket with PACKET_VNET_HDR and
-> PACKET_QDISC_BYPASS, validate device support for features requested
-> in vnet_hdr.
->
-> Drop TSO packets sent to devices that do not support TSO or have the
-> feature disabled. Note that the latter currently do process those
-> packets correctly, regardless of not advertising the feature.
->
-> Because of SKB_GSO_DODGY, it is not sufficient to test device features
-> with netif_needs_gso. Full validate_xmit_skb is needed.
->
-> Switch to software checksum for non-TSO packets that request checksum
-> offload if that device feature is unsupported or disabled. Note that
-> similar to the TSO case, device drivers may perform checksum offload
-> correctly even when not advertising it.
->
-> When switching to software checksum, packets hit skb_checksum_help,
-> which has two BUG_ON checksum not in linear segment. Packet sockets
-> always allocate at least up to csum_start + csum_off + 2 as linear.
+Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
 
-Ok, for the tpacket_fill_skb() case with SOCK_RAW, it's guaranteed,
-because if we have a vnet header, then copylen would cover that here
-(as opposed to just dev->hard_header_len). With Eric's suggestion,
-looks good to me. Thanks, Willem!
+> On Wednesday, October 26, 2016 9:49:58 AM CEST Kalle Valo wrote:
+>> Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
+>>=20
+>> > A bugfix added a sanity check around the assignment and use of the
+>> > 'is_11d' variable, which looks correct to me, but as the function is
+>> > rather complex already, this confuses the compiler to the point where
+>> > it can no longer figure out if the variable is always initialized
+>> > correctly:
+>> >
+>> > brcm80211/brcmfmac/cfg80211.c: In function =E2=80=98brcmf_cfg80211_sta=
+rt_ap=E2=80=99:
+>> > brcm80211/brcmfmac/cfg80211.c:4586:10: error: =E2=80=98is_11d=E2=80=99=
+ may be used uninitialized in this function [-Werror=3Dmaybe-uninitialized]
+>> >
+>> > This adds an initialization for the newly introduced case in which
+>> > the variable should not really be used, in order to make the warning
+>> > go away.
+>> >
+>> > Fixes: b3589dfe0212 ("brcmfmac: ignore 11d configuration errors")
+>> > Cc: Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> > Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>> > Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+>> > Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+>>=20
+>> Via which tree are you planning to submit this? Should I take it?
+>
+> I'd prefer if you can take it and forward it along with your other
+> bugfixes. I'll try to take care of the ones that nobody else
+> picked up.
+
+Ok, I'll take it. I'm planning to push this to 4.9.
+
+--=20
+Kalle Valo
