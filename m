@@ -1,215 +1,58 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 3/3] stmmac: fix PTP type ethtool stats
-Date: Wed, 26 Oct 2016 08:56:04 +0200
-Message-ID: <1477464964-5960-4-git-send-email-peppe.cavallaro@st.com>
-References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC v4 02/18] bpf: Move u64_to_ptr() to BPF headers and inline it
+Date: Wed, 26 Oct 2016 09:19:08 +0200
+Message-ID: <4045933.vGduYR3PCp@wuerfel>
+References: <20161026065654.19166-1-mic@digikod.net> <20161026065654.19166-3-mic@digikod.net>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <alexandre.torgue@st.com>, <rayagond@vayavyalabs.com>,
-        <richardcochran@gmail.com>, <linux-kernel@vger.kernel.org>,
-        <seraphin.bonnaffe@st.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>, Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>, "Eric W . Biederman" <ebiederm@xmission.com>, James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>, Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>, "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org, linux-security-module@vger.kernel.org, netdev@vger.kernel.org, cgroups@vger.kernel.org
+To: =?ISO-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <kernel-hardening-return-5036-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20161026065654.19166-3-mic@digikod.net>
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the ethtool stats for PTP frames; previous
-version does not take care about some message types: i.e.
-announce, management and signaling. It also provided a
-broken statistic in case of "No PTP message received".
+On Wednesday, October 26, 2016 8:56:38 AM CEST Micka=EBl Sala=FCn wrote:
+>  include/linux/bpf.h  | 6 ++++++
+>  kernel/bpf/syscall.c | 6 ------
+>  2 files changed, 6 insertions(+), 6 deletions(-)
+>=20
+> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> index c201017b5730..cf87db6daf27 100644
+> --- a/include/linux/bpf.h
+> +++ b/include/linux/bpf.h
+> @@ -283,6 +283,12 @@ static inline void bpf_long_memcpy(void *dst, const =
+void *src, u32 size)
+> =20
+>  /* verify correctness of eBPF program */
+>  int bpf_check(struct bpf_prog **fp, union bpf_attr *attr);
+> +
+> +/* helper to convert user pointers passed inside __aligned_u64 fields */
+> +static inline void __user *u64_to_ptr(__u64 val)
+> +{
+> +       return (void __user *) (unsigned long) val;
+> +}
+>  #else
+>=20
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Alexandre TORGUE <alexandre.torgue@st.com>
-Cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h       | 19 ++++++++-------
- drivers/net/ethernet/stmicro/stmmac/descs.h        | 20 +++++++++-------
- drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 27 +++++++++++++--------
- drivers/net/ethernet/stmicro/stmmac/enh_desc.c     | 28 ++++++++++++++--------
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   | 19 ++++++++-------
- 5 files changed, 69 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 6fc214c..6d2de4e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -120,14 +120,17 @@ struct stmmac_extra_stats {
- 	unsigned long ip_csum_bypassed;
- 	unsigned long ipv4_pkt_rcvd;
- 	unsigned long ipv6_pkt_rcvd;
--	unsigned long rx_msg_type_ext_no_ptp;
--	unsigned long rx_msg_type_sync;
--	unsigned long rx_msg_type_follow_up;
--	unsigned long rx_msg_type_delay_req;
--	unsigned long rx_msg_type_delay_resp;
--	unsigned long rx_msg_type_pdelay_req;
--	unsigned long rx_msg_type_pdelay_resp;
--	unsigned long rx_msg_type_pdelay_follow_up;
-+	unsigned long no_ptp_rx_msg_type_ext;
-+	unsigned long ptp_rx_msg_type_sync;
-+	unsigned long ptp_rx_msg_type_follow_up;
-+	unsigned long ptp_rx_msg_type_delay_req;
-+	unsigned long ptp_rx_msg_type_delay_resp;
-+	unsigned long ptp_rx_msg_type_pdelay_req;
-+	unsigned long ptp_rx_msg_type_pdelay_resp;
-+	unsigned long ptp_rx_msg_type_pdelay_follow_up;
-+	unsigned long ptp_rx_msg_type_announce;
-+	unsigned long ptp_rx_msg_type_management;
-+	unsigned long ptp_rx_msg_pkt_reserved_type;
- 	unsigned long ptp_frame_type;
- 	unsigned long ptp_ver;
- 	unsigned long timestamp_dropped;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
-index 2e4c171..e3c86d4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/descs.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/descs.h
-@@ -155,14 +155,18 @@
- #define	ERDES4_L3_L4_FILT_NO_MATCH_MASK	GENMASK(27, 26)
- 
- /* Extended RDES4 message type definitions */
--#define RDES_EXT_NO_PTP			0
--#define RDES_EXT_SYNC			1
--#define RDES_EXT_FOLLOW_UP		2
--#define RDES_EXT_DELAY_REQ		3
--#define RDES_EXT_DELAY_RESP		4
--#define RDES_EXT_PDELAY_REQ		5
--#define RDES_EXT_PDELAY_RESP		6
--#define RDES_EXT_PDELAY_FOLLOW_UP	7
-+#define RDES_EXT_NO_PTP			0x0
-+#define RDES_EXT_SYNC			0x1
-+#define RDES_EXT_FOLLOW_UP		0x2
-+#define RDES_EXT_DELAY_REQ		0x3
-+#define RDES_EXT_DELAY_RESP		0x4
-+#define RDES_EXT_PDELAY_REQ		0x5
-+#define RDES_EXT_PDELAY_RESP		0x6
-+#define RDES_EXT_PDELAY_FOLLOW_UP	0x7
-+#define RDES_PTP_ANNOUNCE		0x8
-+#define RDES_PTP_MANAGEMENT		0x9
-+#define RDES_PTP_SIGNALING		0xa
-+#define RDES_PTP_PKT_RESERVED_TYPE	0xf
- 
- /* Basic descriptor structure for normal and alternate descriptors */
- struct dma_desc {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-index 2ef2f0c..a601f8d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-@@ -123,22 +123,29 @@ static int dwmac4_wrback_get_rx_status(void *data, struct stmmac_extra_stats *x,
- 		x->ipv4_pkt_rcvd++;
- 	if (rdes1 & RDES1_IPV6_HEADER)
- 		x->ipv6_pkt_rcvd++;
--	if (message_type == RDES_EXT_SYNC)
--		x->rx_msg_type_sync++;
-+
-+	if (message_type == RDES_EXT_NO_PTP)
-+		x->no_ptp_rx_msg_type_ext++;
-+	else if (message_type == RDES_EXT_SYNC)
-+		x->ptp_rx_msg_type_sync++;
- 	else if (message_type == RDES_EXT_FOLLOW_UP)
--		x->rx_msg_type_follow_up++;
-+		x->ptp_rx_msg_type_follow_up++;
- 	else if (message_type == RDES_EXT_DELAY_REQ)
--		x->rx_msg_type_delay_req++;
-+		x->ptp_rx_msg_type_delay_req++;
- 	else if (message_type == RDES_EXT_DELAY_RESP)
--		x->rx_msg_type_delay_resp++;
-+		x->ptp_rx_msg_type_delay_resp++;
- 	else if (message_type == RDES_EXT_PDELAY_REQ)
--		x->rx_msg_type_pdelay_req++;
-+		x->ptp_rx_msg_type_pdelay_req++;
- 	else if (message_type == RDES_EXT_PDELAY_RESP)
--		x->rx_msg_type_pdelay_resp++;
-+		x->ptp_rx_msg_type_pdelay_resp++;
- 	else if (message_type == RDES_EXT_PDELAY_FOLLOW_UP)
--		x->rx_msg_type_pdelay_follow_up++;
--	else
--		x->rx_msg_type_ext_no_ptp++;
-+		x->ptp_rx_msg_type_pdelay_follow_up++;
-+	else if (message_type == RDES_PTP_ANNOUNCE)
-+		x->ptp_rx_msg_type_announce++;
-+	else if (message_type == RDES_PTP_MANAGEMENT)
-+		x->ptp_rx_msg_type_management++;
-+	else if (message_type == RDES_PTP_PKT_RESERVED_TYPE)
-+		x->ptp_rx_msg_pkt_reserved_type++;
- 
- 	if (rdes1 & RDES1_PTP_PACKET_TYPE)
- 		x->ptp_frame_type++;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-index 38f19c9..e755493 100644
---- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-@@ -150,22 +150,30 @@ static void enh_desc_get_ext_status(void *data, struct stmmac_extra_stats *x,
- 			x->ipv4_pkt_rcvd++;
- 		if (rdes4 & ERDES4_IPV6_PKT_RCVD)
- 			x->ipv6_pkt_rcvd++;
--		if (message_type == RDES_EXT_SYNC)
--			x->rx_msg_type_sync++;
-+
-+		if (message_type == RDES_EXT_NO_PTP)
-+			x->no_ptp_rx_msg_type_ext++;
-+		else if (message_type == RDES_EXT_SYNC)
-+			x->ptp_rx_msg_type_sync++;
- 		else if (message_type == RDES_EXT_FOLLOW_UP)
--			x->rx_msg_type_follow_up++;
-+			x->ptp_rx_msg_type_follow_up++;
- 		else if (message_type == RDES_EXT_DELAY_REQ)
--			x->rx_msg_type_delay_req++;
-+			x->ptp_rx_msg_type_delay_req++;
- 		else if (message_type == RDES_EXT_DELAY_RESP)
--			x->rx_msg_type_delay_resp++;
-+			x->ptp_rx_msg_type_delay_resp++;
- 		else if (message_type == RDES_EXT_PDELAY_REQ)
--			x->rx_msg_type_pdelay_req++;
-+			x->ptp_rx_msg_type_pdelay_req++;
- 		else if (message_type == RDES_EXT_PDELAY_RESP)
--			x->rx_msg_type_pdelay_resp++;
-+			x->ptp_rx_msg_type_pdelay_resp++;
- 		else if (message_type == RDES_EXT_PDELAY_FOLLOW_UP)
--			x->rx_msg_type_pdelay_follow_up++;
--		else
--			x->rx_msg_type_ext_no_ptp++;
-+			x->ptp_rx_msg_type_pdelay_follow_up++;
-+		else if (message_type == RDES_PTP_ANNOUNCE)
-+			x->ptp_rx_msg_type_announce++;
-+		else if (message_type == RDES_PTP_MANAGEMENT)
-+			x->ptp_rx_msg_type_management++;
-+		else if (message_type == RDES_PTP_PKT_RESERVED_TYPE)
-+			x->ptp_rx_msg_pkt_reserved_type++;
-+
- 		if (rdes4 & ERDES4_PTP_FRAME_TYPE)
- 			x->ptp_frame_type++;
- 		if (rdes4 & ERDES4_PTP_VER)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 1e06173..c5d0142 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -115,14 +115,17 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(ip_csum_bypassed),
- 	STMMAC_STAT(ipv4_pkt_rcvd),
- 	STMMAC_STAT(ipv6_pkt_rcvd),
--	STMMAC_STAT(rx_msg_type_ext_no_ptp),
--	STMMAC_STAT(rx_msg_type_sync),
--	STMMAC_STAT(rx_msg_type_follow_up),
--	STMMAC_STAT(rx_msg_type_delay_req),
--	STMMAC_STAT(rx_msg_type_delay_resp),
--	STMMAC_STAT(rx_msg_type_pdelay_req),
--	STMMAC_STAT(rx_msg_type_pdelay_resp),
--	STMMAC_STAT(rx_msg_type_pdelay_follow_up),
-+	STMMAC_STAT(no_ptp_rx_msg_type_ext),
-+	STMMAC_STAT(ptp_rx_msg_type_sync),
-+	STMMAC_STAT(ptp_rx_msg_type_follow_up),
-+	STMMAC_STAT(ptp_rx_msg_type_delay_req),
-+	STMMAC_STAT(ptp_rx_msg_type_delay_resp),
-+	STMMAC_STAT(ptp_rx_msg_type_pdelay_req),
-+	STMMAC_STAT(ptp_rx_msg_type_pdelay_resp),
-+	STMMAC_STAT(ptp_rx_msg_type_pdelay_follow_up),
-+	STMMAC_STAT(ptp_rx_msg_type_announce),
-+	STMMAC_STAT(ptp_rx_msg_type_management),
-+	STMMAC_STAT(ptp_rx_msg_pkt_reserved_type),
- 	STMMAC_STAT(ptp_frame_type),
- 	STMMAC_STAT(ptp_ver),
- 	STMMAC_STAT(timestamp_dropped),
--- 
-2.7.4
+We already have at least six copies of this helper:
+
+fs/btrfs/qgroup.c:#define u64_to_ptr(x) ((struct btrfs_qgroup *)(uintptr_t)=
+x)
+kernel/bpf/syscall.c:static void __user *u64_to_ptr(__u64 val)
+drivers/staging/android/ion/ion_test.c:#define u64_to_uptr(x) ((void __user=
+ *)(unsigned long)(x))
+drivers/firewire/core-cdev.c:static void __user *u64_to_uptr(u64 value)
+drivers/staging/android/ion/ion_test.c:#define u64_to_uptr(x) ((void __user=
+ *)(unsigned long)(x))
+include/linux/kernel.h:#define u64_to_user_ptr(x) (            \
+
+Just use the one in linux/kernel.h
+
+	Arnd
