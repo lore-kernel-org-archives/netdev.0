@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [RFC v4 05/18] bpf,landlock: Define an eBPF program type for Landlock
-Date: Wed, 26 Oct 2016 08:56:41 +0200
-Message-ID: <20161026065654.19166-6-mic@digikod.net>
+Subject: [RFC v4 09/18] landlock: Add manager functions
+Date: Wed, 26 Oct 2016 08:56:45 +0200
+Message-ID: <20161026065654.19166-10-mic@digikod.net>
 References: <20161026065654.19166-1-mic@digikod.net>
 Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
@@ -23,7 +23,7 @@ Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
         cgroups@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-5021-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-5023-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -31,217 +31,64 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <20161026065654.19166-1-mic@digikod.net>
 List-Id: netdev.vger.kernel.org
 
-Add a new type of eBPF program used by Landlock rules and the functions
-to verify and evaluate them.
+This is the main code usable by the seccomp and cgroup managers. This
+allow to manage the landlock_hooks, landlock_node and landlock_rule
+structs.
+
+Landlock rules can be tied to a LSM hook. When such a hook is triggered,
+a tree of rules can be evaluated. A tree is created with a first node.
+This node reference a list of rules and an optional parent node. Each
+rule return a 32-bit value which can interrupt the evaluation with a
+non-zero value. This value is then returned by the syscall as an ERRNO
+code. If every rules returned zero, the evaluation continues with the
+rule list of the parent node, until the end of the tree.
 
 Changes since v3:
 * split commit
+* new design to be able to inherit on the fly the parent rules
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@kernel.org>
 Cc: Andy Lutomirski <luto@amacapital.net>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: David S. Miller <davem@davemloft.net>
 Cc: James Morris <james.l.morris@oracle.com>
 Cc: Kees Cook <keescook@chromium.org>
 Cc: Serge E. Hallyn <serge@hallyn.com>
 ---
- include/linux/landlock.h   |  76 +++++++++++++++++++
- include/uapi/linux/bpf.h   |  20 +++++
- kernel/bpf/syscall.c       |  10 ++-
- security/Makefile          |   2 +
- security/landlock/Makefile |   3 +
- security/landlock/common.h |  27 +++++++
- security/landlock/lsm.c    | 181 +++++++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 317 insertions(+), 2 deletions(-)
- create mode 100644 include/linux/landlock.h
- create mode 100644 security/landlock/Makefile
- create mode 100644 security/landlock/common.h
- create mode 100644 security/landlock/lsm.c
+ include/linux/landlock.h    |   2 +
+ security/landlock/Makefile  |   2 +-
+ security/landlock/manager.c | 265 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 268 insertions(+), 1 deletion(-)
+ create mode 100644 security/landlock/manager.c
 
 diff --git a/include/linux/landlock.h b/include/linux/landlock.h
-new file mode 100644
-index 000000000000..2ab2be8e3e6e
---- /dev/null
+index 2ab2be8e3e6e..263be3cf0b48 100644
+--- a/include/linux/landlock.h
 +++ b/include/linux/landlock.h
-@@ -0,0 +1,76 @@
-+/*
-+ * Landlock LSM - Public headers
-+ *
-+ * Copyright (C) 2016  Mickaël Salaün <mic@digikod.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2, as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#ifndef _LINUX_LANDLOCK_H
-+#define _LINUX_LANDLOCK_H
-+#ifdef CONFIG_SECURITY_LANDLOCK
-+
-+#include <linux/bpf.h>	/* _LANDLOCK_HOOK_LAST */
-+#include <linux/types.h> /* atomic_t */
-+
-+#ifdef CONFIG_SECCOMP_FILTER
-+#include <linux/seccomp.h> /* struct seccomp_filter */
-+#endif /* CONFIG_SECCOMP_FILTER */
-+
-+struct landlock_rule;
-+
-+/**
-+ * struct landlock_node - node in the rule hierarchy
-+ *
-+ * This is created when a task insert its first rule in the Landlock rule
-+ * hierarchy. The set of Landlock rules referenced by this node is then
-+ * enforced for all the task that inherit this node. However, if a task is
-+ * cloned before inserting new rules, it doesn't get a dedicated node and its
-+ * children will not inherit this new rules.
-+ *
-+ * @usage: reference count to manage the node lifetime.
-+ * @rule: list of Landlock rules managed by this node.
-+ * @prev: reference the parent node.
-+ * @owner: reference the address of the node in the struct landlock_hooks. This
-+ *         is needed to know if we need to append a rule to the current node or
-+ *         create a new node.
-+ */
-+struct landlock_node {
-+	atomic_t usage;
-+	struct landlock_rule *rule;
-+	struct landlock_node *prev;
-+	struct landlock_node **owner;
-+};
-+
-+struct landlock_rule {
-+	atomic_t usage;
-+	struct landlock_rule *prev;
-+	struct bpf_prog *prog;
-+};
-+
-+/**
-+ * struct landlock_hooks - Landlock hook programs enforced on a thread
-+ *
-+ * This is used for low performance impact when forking a process. Instead of
-+ * copying the full array and incrementing the usage field of each entries,
-+ * only create a pointer to struct landlock_hooks and increment the usage
-+ * field.
-+ *
-+ * A new struct landlock_hooks must be created thanks to a call to
-+ * new_landlock_hooks().
-+ *
-+ * @usage: reference count to manage the object lifetime. When a thread need to
-+ *         add Landlock programs and if @usage is greater than 1, then the
-+ *         thread must duplicate struct landlock_hooks to not change the
-+ *         children' rules as well. FIXME
-+ * @nodes: array of non-NULL struct landlock_node pointers.
-+ */
-+struct landlock_hooks {
-+	atomic_t usage;
-+	struct landlock_node *nodes[_LANDLOCK_HOOK_LAST];
-+};
-+
-+#endif /* CONFIG_SECURITY_LANDLOCK */
-+#endif /* _LINUX_LANDLOCK_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 06621c401bc0..335616ab63ff 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -111,6 +111,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_XDP,
- 	BPF_PROG_TYPE_PERF_EVENT,
- 	BPF_PROG_TYPE_CGROUP_SKB,
-+	BPF_PROG_TYPE_LANDLOCK,
+@@ -72,5 +72,7 @@ struct landlock_hooks {
+ 	struct landlock_node *nodes[_LANDLOCK_HOOK_LAST];
  };
  
- enum bpf_attach_type {
-@@ -559,6 +560,12 @@ struct xdp_md {
- 	__u32 data_end;
- };
- 
-+/* LSM hooks */
-+enum landlock_hook {
-+	LANDLOCK_HOOK_UNSPEC,
-+};
-+#define _LANDLOCK_HOOK_LAST LANDLOCK_HOOK_UNSPEC
++void put_landlock_hooks(struct landlock_hooks *hooks);
 +
- /* eBPF context and functions allowed for a rule */
- #define _LANDLOCK_SUBTYPE_ACCESS_MASK		((1ULL << 0) - 1)
- 
-@@ -577,4 +584,17 @@ struct landlock_handle {
- 	};
- } __attribute__((aligned(8)));
- 
-+/**
-+ * struct landlock_data
-+ *
-+ * @hook: LSM hook ID (e.g. BPF_PROG_TYPE_LANDLOCK_FILE_OPEN)
-+ * @args: LSM hook arguments, see include/linux/lsm_hooks.h for there
-+ *        description and the LANDLOCK_HOOK* definitions from
-+ *        security/landlock/lsm.c for their types.
-+ */
-+struct landlock_data {
-+	__u32 hook; /* enum landlock_hook */
-+	__u64 args[6];
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 6eef1da1e8a3..0f7faa9d2262 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -739,8 +739,14 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	    attr->kern_version != LINUX_VERSION_CODE)
- 		return -EINVAL;
- 
--	if (type != BPF_PROG_TYPE_SOCKET_FILTER && !capable(CAP_SYS_ADMIN))
--		return -EPERM;
-+	switch (type) {
-+	case BPF_PROG_TYPE_SOCKET_FILTER:
-+	case BPF_PROG_TYPE_LANDLOCK:
-+		break;
-+	default:
-+		if (!capable(CAP_SYS_ADMIN))
-+			return -EPERM;
-+	}
- 
- 	/* plain bpf_prog allocation */
- 	prog = bpf_prog_alloc(bpf_prog_size(attr->insn_cnt), GFP_USER);
-diff --git a/security/Makefile b/security/Makefile
-index f2d71cdb8e19..3fdc2f19dc48 100644
---- a/security/Makefile
-+++ b/security/Makefile
-@@ -9,6 +9,7 @@ subdir-$(CONFIG_SECURITY_TOMOYO)        += tomoyo
- subdir-$(CONFIG_SECURITY_APPARMOR)	+= apparmor
- subdir-$(CONFIG_SECURITY_YAMA)		+= yama
- subdir-$(CONFIG_SECURITY_LOADPIN)	+= loadpin
-+subdir-$(CONFIG_SECURITY_LANDLOCK)		+= landlock
- 
- # always enable default capabilities
- obj-y					+= commoncap.o
-@@ -24,6 +25,7 @@ obj-$(CONFIG_SECURITY_TOMOYO)		+= tomoyo/
- obj-$(CONFIG_SECURITY_APPARMOR)		+= apparmor/
- obj-$(CONFIG_SECURITY_YAMA)		+= yama/
- obj-$(CONFIG_SECURITY_LOADPIN)		+= loadpin/
-+obj-$(CONFIG_SECURITY_LANDLOCK)	+= landlock/
- obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
- 
- # Object integrity file lists
+ #endif /* CONFIG_SECURITY_LANDLOCK */
+ #endif /* _LINUX_LANDLOCK_H */
 diff --git a/security/landlock/Makefile b/security/landlock/Makefile
-new file mode 100644
-index 000000000000..59669d70bc7e
---- /dev/null
+index 27f359a8cfaa..1a77e54d8041 100644
+--- a/security/landlock/Makefile
 +++ b/security/landlock/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_SECURITY_LANDLOCK) := landlock.o
-+
-+landlock-y := lsm.o
-diff --git a/security/landlock/common.h b/security/landlock/common.h
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_SECURITY_LANDLOCK) := landlock.o
+ 
+-landlock-y := lsm.o checker_fs.o
++landlock-y := lsm.o checker_fs.o manager.o
+diff --git a/security/landlock/manager.c b/security/landlock/manager.c
 new file mode 100644
-index 000000000000..0b5aad4a7aaa
+index 000000000000..f3f03b64ebef
 --- /dev/null
-+++ b/security/landlock/common.h
-@@ -0,0 +1,27 @@
++++ b/security/landlock/manager.c
+@@ -0,0 +1,265 @@
 +/*
-+ * Landlock LSM - private headers
++ * Landlock LSM - seccomp and cgroups managers
 + *
 + * Copyright (C) 2016  Mickaël Salaün <mic@digikod.net>
 + *
@@ -250,209 +97,260 @@ index 000000000000..0b5aad4a7aaa
 + * published by the Free Software Foundation.
 + */
 +
-+#ifndef _SECURITY_LANDLOCK_COMMON_H
-+#define _SECURITY_LANDLOCK_COMMON_H
-+
-+#include <linux/bpf.h> /* enum landlock_hook */
-+
-+/**
-+ * get_index - get an index for the rules of struct landlock_hooks
-+ *
-+ * @hook: a Landlock hook ID
-+ */
-+static inline int get_index(enum landlock_hook hook)
-+{
-+	/* hook ID > 0 for loaded programs */
-+	return hook - 1;
-+}
-+
-+#endif /* _SECURITY_LANDLOCK_COMMON_H */
-diff --git a/security/landlock/lsm.c b/security/landlock/lsm.c
-new file mode 100644
-index 000000000000..d7564540c493
---- /dev/null
-+++ b/security/landlock/lsm.c
-@@ -0,0 +1,181 @@
-+/*
-+ * Landlock LSM
-+ *
-+ * Copyright (C) 2016  Mickaël Salaün <mic@digikod.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2, as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/bpf.h> /* enum bpf_reg_type, struct landlock_data */
-+#include <linux/cred.h>
-+#include <linux/err.h> /* MAX_ERRNO */
-+#include <linux/filter.h> /* struct bpf_prog, BPF_PROG_RUN() */
-+#include <linux/kernel.h> /* FIELD_SIZEOF() */
++#include <asm/page.h> /* PAGE_SIZE */
++#include <linux/atomic.h> /* atomic_*(), smp_store_release() */
++#include <linux/bpf.h> /* bpf_prog_put() */
++#include <linux/filter.h> /* struct bpf_prog */
++#include <linux/kernel.h> /* round_up() */
 +#include <linux/landlock.h>
-+#include <linux/lsm_hooks.h>
++#include <linux/slab.h> /* alloc(), kfree() */
++#include <linux/types.h> /* atomic_t */
 +
 +#include "common.h"
 +
-+/**
-+ * landlock_run_prog - run Landlock program for a syscall
-+ *
-+ * @hook_idx: hook index in the rules array
-+ * @ctx: non-NULL eBPF context
-+ * @hooks: Landlock hooks pointer
-+ */
-+static u32 landlock_run_prog(u32 hook_idx, const struct landlock_data *ctx,
-+		struct landlock_hooks *hooks)
++static void put_landlock_rule(struct landlock_rule *rule)
 +{
-+	struct landlock_node *node;
-+	u32 ret = 0;
++	struct landlock_rule *orig = rule;
 +
-+	if (!hooks)
-+		return 0;
++	/* clean up single-reference branches iteratively */
++	while (orig && atomic_dec_and_test(&orig->usage)) {
++		struct landlock_rule *freeme = orig;
 +
-+	for (node = hooks->nodes[hook_idx]; node; node = node->prev) {
-+		struct landlock_rule *rule;
-+
-+		for (rule = node->rule; rule; rule = rule->prev) {
-+			if (WARN_ON(!rule->prog))
-+				continue;
-+			rcu_read_lock();
-+			ret = BPF_PROG_RUN(rule->prog, (void *)ctx);
-+			rcu_read_unlock();
-+			if (ret) {
-+				if (ret > MAX_ERRNO)
-+					ret = MAX_ERRNO;
-+				goto out;
-+			}
-+		}
++		bpf_prog_put(orig->prog);
++		orig = orig->prev;
++		kfree(freeme);
 +	}
++}
 +
-+out:
++static void put_landlock_node(struct landlock_node *node)
++{
++	struct landlock_node *orig = node;
++
++	/* clean up single-reference branches iteratively */
++	while (orig && atomic_dec_and_test(&orig->usage)) {
++		struct landlock_node *freeme = orig;
++
++		put_landlock_rule(orig->rule);
++		orig = orig->prev;
++		kfree(freeme);
++	}
++}
++
++void put_landlock_hooks(struct landlock_hooks *hooks)
++{
++	if (hooks && atomic_dec_and_test(&hooks->usage)) {
++		size_t i;
++
++		/* XXX: Do we need to use lockless_dereference() here? */
++		for (i = 0; i < ARRAY_SIZE(hooks->nodes); i++) {
++			if (!hooks->nodes[i])
++				continue;
++			/* Are we the owner of this node? */
++			if (hooks->nodes[i]->owner == &hooks->nodes[i])
++				hooks->nodes[i]->owner = NULL;
++			put_landlock_node(hooks->nodes[i]);
++		}
++		kfree(hooks);
++	}
++}
++
++static struct landlock_hooks *new_raw_landlock_hooks(void)
++{
++	struct landlock_hooks *ret;
++
++	/* array filled with NULL values */
++	ret = kzalloc(sizeof(*ret), GFP_KERNEL);
++	if (!ret)
++		return ERR_PTR(-ENOMEM);
++	atomic_set(&ret->usage, 1);
 +	return ret;
 +}
 +
-+static int landlock_enforce(enum landlock_hook hook, __u64 args[6])
++static struct landlock_hooks *new_filled_landlock_hooks(void)
 +{
-+	u32 ret = 0;
-+	u32 hook_idx = get_index(hook);
++	size_t i;
++	struct landlock_hooks *ret;
 +
-+	struct landlock_data ctx = {
-+		.hook = hook,
-+		.args[0] = args[0],
-+		.args[1] = args[1],
-+		.args[2] = args[2],
-+		.args[3] = args[3],
-+		.args[4] = args[4],
-+		.args[5] = args[5],
-+	};
++	ret = new_raw_landlock_hooks();
++	if (IS_ERR(ret))
++		return ret;
++	/*
++	 * We need to initially allocate every nodes to be able to update the
++	 * rules they are pointing to, across every (future) children of the
++	 * current task.
++	 */
++	for (i = 0; i < ARRAY_SIZE(ret->nodes); i++) {
++		struct landlock_node *node;
 +
-+	/* placeholder for seccomp and cgroup managers */
-+	ret = landlock_run_prog(hook_idx, &ctx, NULL);
-+
-+	return -ret;
-+}
-+
-+static const struct bpf_func_proto *bpf_landlock_func_proto(
-+		enum bpf_func_id func_id, union bpf_prog_subtype *prog_subtype)
-+{
-+	switch (func_id) {
-+	default:
-+		return NULL;
++		node = kzalloc(sizeof(*node), GFP_KERNEL);
++		if (!node)
++			goto put_hooks;
++		atomic_set(&node->usage, 1);
++		/* We are the owner of this node. */
++		node->owner = &ret->nodes[i];
++		ret->nodes[i] = node;
 +	}
++	return ret;
++
++put_hooks:
++	put_landlock_hooks(ret);
++	return ERR_PTR(-ENOMEM);
 +}
 +
-+static bool __is_valid_access(int off, int size, enum bpf_access_type type,
-+		enum bpf_reg_type *reg_type,
-+		enum bpf_reg_type arg_types[6],
-+		union bpf_prog_subtype *prog_subtype)
++static void add_landlock_rule(struct landlock_hooks *hooks,
++		struct landlock_rule *rule)
 +{
-+	int arg_nb, expected_size;
++	/* subtype.landlock_rule.hook > 0 for loaded programs */
++	u32 hook_idx = get_index(rule->prog->subtype.landlock_rule.hook);
 +
-+	if (type != BPF_READ)
-+		return false;
-+	if (off < 0 || off >= sizeof(struct landlock_data))
-+		return false;
-+
-+	/* check size */
-+	switch (off) {
-+	case offsetof(struct landlock_data, hook):
-+		expected_size = sizeof(__u32);
-+		break;
-+	case offsetof(struct landlock_data, args[0]) ...
-+			offsetof(struct landlock_data, args[5]):
-+		expected_size = sizeof(__u64);
-+		break;
-+	default:
-+		return false;
-+	}
-+	if (expected_size != size)
-+		return false;
-+
-+	/* check pointer access and set pointer type */
-+	switch (off) {
-+	case offsetof(struct landlock_data, args[0]) ...
-+			offsetof(struct landlock_data, args[5]):
-+		arg_nb = (off - offsetof(struct landlock_data, args[0]))
-+			/ FIELD_SIZEOF(struct landlock_data, args[0]);
-+		*reg_type = arg_types[arg_nb];
-+		if (*reg_type == NOT_INIT)
-+			return false;
-+		break;
-+	}
-+
-+	return true;
++	rule->prev = hooks->nodes[hook_idx]->rule;
++	WARN_ON(atomic_read(&rule->usage));
++	atomic_set(&rule->usage, 1);
++	/* do not increment the previous rule usage */
++	smp_store_release(&hooks->nodes[hook_idx]->rule, rule);
 +}
 +
-+static inline bool bpf_landlock_is_valid_access(int off, int size,
-+		enum bpf_access_type type, enum bpf_reg_type *reg_type,
-+		union bpf_prog_subtype *prog_subtype)
++/* Limit Landlock hooks to 256KB. */
++#define LANDLOCK_HOOKS_MAX_PAGES (1 << 6)
++
++/**
++ * landlock_append_prog - attach a Landlock program to @current_hooks
++ *
++ * @current_hooks: landlock_hooks pointer, must be locked (if needed) to
++ *                 prevent a concurrent put/free. This pointer must not be
++ *                 freed after the call.
++ * @prog: non-NULL Landlock program to append to @current_hooks. @prog will be
++ *        owned by landlock_append_prog() and freed if an error happened.
++ *
++ * Return @current_hooks or a new pointer when OK. Return a pointer error
++ * otherwise.
++ */
++static struct landlock_hooks *landlock_append_prog(
++		struct landlock_hooks *current_hooks, struct bpf_prog *prog)
 +{
-+	enum landlock_hook hook = prog_subtype->landlock_rule.hook;
++	struct landlock_hooks *new_hooks = current_hooks;
++	unsigned long pages;
++	struct landlock_rule *rule;
++	u32 hook_idx;
 +
-+	switch (hook) {
-+	case LANDLOCK_HOOK_UNSPEC:
-+	default:
-+		return false;
++	if (prog->type != BPF_PROG_TYPE_LANDLOCK) {
++		new_hooks = ERR_PTR(-EINVAL);
++		goto put_prog;
 +	}
-+}
 +
-+static inline bool bpf_landlock_is_valid_subtype(
-+		union bpf_prog_subtype *prog_subtype)
-+{
-+	enum landlock_hook hook = prog_subtype->landlock_rule.hook;
++	/* validate memory size allocation */
++	pages = prog->pages;
++	if (current_hooks) {
++		size_t i;
 +
-+	switch (hook) {
-+	case LANDLOCK_HOOK_UNSPEC:
-+	default:
-+		return false;
++		for (i = 0; i < ARRAY_SIZE(current_hooks->nodes); i++) {
++			struct landlock_node *walker_n;
++
++			for (walker_n = current_hooks->nodes[i];
++					walker_n;
++					walker_n = walker_n->prev) {
++				struct landlock_rule *walker_r;
++
++				for (walker_r = walker_n->rule;
++						walker_r;
++						walker_r = walker_r->prev)
++					pages += walker_r->prog->pages;
++			}
++		}
++		/* count a struct landlock_hooks if we need to allocate one */
++		if (atomic_read(&current_hooks->usage) != 1)
++			pages += round_up(sizeof(*current_hooks), PAGE_SIZE) /
++				PAGE_SIZE;
 +	}
-+	if (!prog_subtype->landlock_rule.hook ||
-+			prog_subtype->landlock_rule.hook > _LANDLOCK_HOOK_LAST)
-+		return false;
-+	if (prog_subtype->landlock_rule.access & ~_LANDLOCK_SUBTYPE_ACCESS_MASK)
-+		return false;
-+	if (prog_subtype->landlock_rule.option & ~_LANDLOCK_SUBTYPE_OPTION_MASK)
-+		return false;
++	if (pages > LANDLOCK_HOOKS_MAX_PAGES) {
++		new_hooks = ERR_PTR(-E2BIG);
++		goto put_prog;
++	}
 +
-+	return true;
++	rule = kzalloc(sizeof(*rule), GFP_KERNEL);
++	if (!rule) {
++		new_hooks = ERR_PTR(-ENOMEM);
++		goto put_prog;
++	}
++	rule->prog = prog;
++
++	/* subtype.landlock_rule.hook > 0 for loaded programs */
++	hook_idx = get_index(rule->prog->subtype.landlock_rule.hook);
++
++	if (!current_hooks) {
++		/* add a new landlock_hooks, if needed */
++		new_hooks = new_filled_landlock_hooks();
++		if (IS_ERR(new_hooks))
++			goto put_rule;
++		add_landlock_rule(new_hooks, rule);
++	} else {
++		if (new_hooks->nodes[hook_idx]->owner == &new_hooks->nodes[hook_idx]) {
++			/* We are the owner, we can then update the node. */
++			add_landlock_rule(new_hooks, rule);
++		} else if (atomic_read(&current_hooks->usage) == 1) {
++			WARN_ON(new_hooks->nodes[hook_idx]->owner);
++			/*
++			 * We can become the new owner if no other task use it.
++			 * This avoid an unnecessary allocation.
++			 */
++			new_hooks->nodes[hook_idx]->owner =
++				&new_hooks->nodes[hook_idx];
++			add_landlock_rule(new_hooks, rule);
++		} else {
++			/*
++			 * We are not the owner, we need to fork current_hooks
++			 * and then add a new node.
++			 */
++			struct landlock_node *node;
++			size_t i;
++
++			node = kmalloc(sizeof(*node), GFP_KERNEL);
++			if (!node) {
++				new_hooks = ERR_PTR(-ENOMEM);
++				goto put_rule;
++			}
++			atomic_set(&node->usage, 1);
++			/* set the previous node after the new_hooks allocation */
++			node->prev = NULL;
++			/* do not increment the previous node usage */
++			node->owner = &new_hooks->nodes[hook_idx];
++			/* rule->prev is already NULL */
++			atomic_set(&rule->usage, 1);
++			node->rule = rule;
++
++			new_hooks = new_raw_landlock_hooks();
++			if (IS_ERR(new_hooks)) {
++				/* put the rule as well */
++				put_landlock_node(node);
++				return ERR_PTR(-ENOMEM);
++			}
++			for (i = 0; i < ARRAY_SIZE(new_hooks->nodes); i++) {
++				new_hooks->nodes[i] = lockless_dereference(current_hooks->nodes[i]);
++				if (i == hook_idx)
++					node->prev = new_hooks->nodes[i];
++				if (!WARN_ON(!new_hooks->nodes[i]))
++					atomic_inc(&new_hooks->nodes[i]->usage);
++			}
++			new_hooks->nodes[hook_idx] = node;
++
++			/*
++			 * @current_hooks will not be freed here because it's usage
++			 * field is > 1. It is only prevented to be freed by another
++			 * subject thanks to the caller of landlock_append_prog() which
++			 * should be locked if needed.
++			 */
++			put_landlock_hooks(current_hooks);
++		}
++	}
++	return new_hooks;
++
++put_prog:
++	bpf_prog_put(prog);
++	return new_hooks;
++
++put_rule:
++	put_landlock_rule(rule);
++	return new_hooks;
 +}
-+
-+static const struct bpf_verifier_ops bpf_landlock_ops = {
-+	.get_func_proto	= bpf_landlock_func_proto,
-+	.is_valid_access = bpf_landlock_is_valid_access,
-+	.is_valid_subtype = bpf_landlock_is_valid_subtype,
-+};
-+
-+static struct bpf_prog_type_list bpf_landlock_type __read_mostly = {
-+	.ops	= &bpf_landlock_ops,
-+	.type	= BPF_PROG_TYPE_LANDLOCK,
-+};
-+
-+static int __init register_landlock_filter_ops(void)
-+{
-+	bpf_register_prog_type(&bpf_landlock_type);
-+	return 0;
-+}
-+
-+late_initcall(register_landlock_filter_ops);
 -- 
 2.9.3
