@@ -1,70 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
 Subject: Re: [PATCH net-next 2/3] bpf: Add new cgroups prog type to enable
  sock modifications
-Date: Tue, 25 Oct 2016 19:48:23 -0700
-Message-ID: <1477450103.7065.175.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Tue, 25 Oct 2016 21:09:34 -0600
+Message-ID: <031349ab-4608-0530-d3ef-6fc156c7788f@cumulusnetworks.com>
 References: <1477434613-3169-1-git-send-email-dsa@cumulusnetworks.com>
-         <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com>
-         <1477438787.7065.158.camel@edumazet-glaptop3.roam.corp.google.com>
-         <fdeb1f5b-d122-36d8-4866-42cb5f29f0e2@cumulusnetworks.com>
+ <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com>
+ <1477438787.7065.158.camel@edumazet-glaptop3.roam.corp.google.com>
+ <fdeb1f5b-d122-36d8-4866-42cb5f29f0e2@cumulusnetworks.com>
+ <1477450103.7065.175.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
         daniel@iogearbox.net
-To: David Ahern <dsa@cumulusnetworks.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33804 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750997AbcJZCsZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 22:48:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id u84so872639pfj.1
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 19:48:25 -0700 (PDT)
-In-Reply-To: <fdeb1f5b-d122-36d8-4866-42cb5f29f0e2@cumulusnetworks.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34295 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750997AbcJZDJh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 23:09:37 -0400
+Received: by mail-pf0-f176.google.com with SMTP id n85so14034519pfi.1
+        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 20:09:37 -0700 (PDT)
+In-Reply-To: <1477450103.7065.175.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-10-25 at 20:21 -0600, David Ahern wrote:
-> On 10/25/16 5:39 PM, Eric Dumazet wrote:
-> > On Tue, 2016-10-25 at 15:30 -0700, David Ahern wrote:
-> >> Add new cgroup based program type, BPF_PROG_TYPE_CGROUP_SOCK. Similar to
-> >> BPF_PROG_TYPE_CGROUP_SKB programs can be attached to a cgroup and run
-> >> any time a process in the cgroup opens an AF_INET or AF_INET6 socket.
-> >> Currently only sk_bound_dev_if is exported to userspace for modification
-> >> by a bpf program.
-> >>
-> >> This allows a cgroup to be configured such that AF_INET{6} sockets opened
-> >> by processes are automatically bound to a specific device. In turn, this
-> >> enables the running of programs that do not support SO_BINDTODEVICE in a
-> >> specific VRF context / L3 domain.
-> > 
-> > Does this mean that these programs no longer can use loopback ?
+On 10/25/16 8:48 PM, Eric Dumazet wrote:
+> Maybe I do not understand how you plan to use this.
 > 
-> I am probably misunderstanding your question, so I'll ramble a bit and
-> see if I cover it.
+> Let say you want a filter to force a BIND_TO_DEVICE xxx because a task
+> runs in a cgroup yyy
 > 
-> This patch set generically allows sk_bound_dev_if to be set to any
-> value. It does not check that an index corresponds to a device at that
-> moment (either bpf prog install or execution of the filter), and even
-> if it did the device can be deleted at any moment. That seems to be
-> standard operating procedure with bpf filters (user mistakes mean
-> packets go no where and in this case a socket is bound to a
-> non-existent device).
-> 
-> The index can be any interface (e.g., eth0) or an L3 device (e.g., a
-> VRF). Loopback and index=1 is allowed.
-> 
-> The VRF device is the loopback device for the domain, so binding to it
-> covers addresses on the VRF device as well as interfaces enslaved to
-> it.
-> 
-> Did you mean something else?
+> Then a program doing a socket() + connect (127.0.0.1)  will fail ?
 
-Maybe I do not understand how you plan to use this.
+maybe. VRF devices can have 127.0.0.1 address in which case the connect would succeed. ntpq uses 127.0.0.1 to talk to ntpd for example. If ntpd is bound to a Management VRF, then you need this context for ntpq to talk to it.
 
-Let say you want a filter to force a BIND_TO_DEVICE xxx because a task
-runs in a cgroup yyy
+> 
+> I do not see how a BPF filter at socket() time can be selective.
 
-Then a program doing a socket() + connect (127.0.0.1)  will fail ?
+Here's my use case - and this is what we are doing today with the l3mdev cgroup (a patch which has not been accepted upstream):
 
-I do not see how a BPF filter at socket() time can be selective.
+1. create VRF device
+
+2. create cgroup and configure it
+
+   in this case it means load the bpf program that sets the sk_bound_dev_if to the vrf device that was just created
+
+3. Add shell to cgroup
+
+   For Management VRF this can be done automatically at login so a user does not need to take any action.
+
+At this point any command run in the shell runs in the VRF context (PS1 for bash can show the VRF to keep you from going crazy on why a connect fails :-)) so any ipv4/ipv6 sockets have that VRF scope.
+
+For example, if the VRF is a management VRF, sockets opened by apt-get are automatically bound to the VRF at create time, so requests go out the eth0 (management) interface.
+
+In a similar fashion, using a cgroup and assigning tasks to it allows automated launch of systemd services with instances running in a VRF context - one dhcrelay in vrf red, one in vrf blue with both using a parameterized instance file.
