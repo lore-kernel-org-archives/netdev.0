@@ -1,29 +1,38 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH net-next] netlink: Add nla_memdup() to wrap kmemdup()
- use on nlattr
-Date: Wed, 26 Oct 2016 10:59:36 +0200
-Message-ID: <1477472376.4059.23.camel@sipsolutions.net>
-References: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf@suug.ch>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH (net.git) 0/3] stmmac: fix PTP support
+Date: Wed, 26 Oct 2016 10:58:13 +0200
+Message-ID: <20161026085812.GD11974@localhost.localdomain>
+References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf-G/eBtMaohhA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, alexandre.torgue@st.com,
+        rayagond@vayavyalabs.com, linux-kernel@vger.kernel.org,
+        seraphin.bonnaffe@st.com
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:39079 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757384AbcJZI6S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 04:58:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 26, 2016 at 08:56:01AM +0200, Giuseppe Cavallaro wrote:
+> This subset of patches aim to fix the PTP support
+> for the stmmac and especially for 4.x chip series.
+> While setting PTP on an ST box with 4.00a Ethernet
+> core, the kernel panics due to a broken settings
+> of the descriptors. The patches review the
+> register configuration, the algo used for configuring
+> the protocol, the way to get the timestamp inside
+> the RX/TX descriptors and, in the end, the statistics
+> displayed by ethtool.
+> 
+> Giuseppe Cavallaro (3):
+>   stmmac: update the PTP header file
+>   stmmac: fix PTP support for GMAC4
+>   stmmac: fix PTP type ethtool stats
 
->  /**
-> + * nla_memdup - duplicate attribute memory (kmemdup)
-> + * @src: netlink attribute to duplicate from
-> + * @gfp: GFP mask
-
-Actually, is there any point in passing a GFP mask? None of the current
-users need it, and it seems fairly unlikely to be needed since this is
-typically used on the netlink input path, where you surely shouldn't
-need GFP_ATOMIC or so?
-
-johannes
+Acked-by: Richard Cochran <richardcochran@gmail.com>
