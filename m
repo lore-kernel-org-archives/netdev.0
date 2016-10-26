@@ -1,56 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/3] bpf: Add new cgroups prog type to enable
- sock modifications
-Date: Wed, 26 Oct 2016 09:44:16 -0600
-Message-ID: <a7550e57-bbe3-af38-22d8-77f7c73bf879@cumulusnetworks.com>
-References: <1477434613-3169-1-git-send-email-dsa@cumulusnetworks.com>
- <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com>
- <580FEA98.1090809@iogearbox.net>
- <660435c4-6cea-9648-0106-afb3ab6910fc@cumulusnetworks.com>
- <58106A72.4050306@iogearbox.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 00/27] Add support for DMA writable pages being
+ writable by the network stack
+Date: Wed, 26 Oct 2016 17:45:42 +0200
+Message-ID: <20161026174542.334798db@redhat.com>
+References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: daniel@zonque.org, ast@fb.com
-To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:32771 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932692AbcJZPoT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:44:19 -0400
-Received: by mail-pf0-f169.google.com with SMTP id 197so17764971pfu.0
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 08:44:19 -0700 (PDT)
-In-Reply-To: <58106A72.4050306@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org, davem@davemloft.net,
+        brouer@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 10/26/16 2:33 AM, Daniel Borkmann wrote:
-> Sure, I understand that, and I know it was brought up at netconf, I'm
-> just still wondering in general if BPF is a good fit here in the sense
-> that what the program can do is just really really limited (at least
-> right now). Hmm, just trying to understand where this would go long term.
-> Probably okay'ish, if it's guaranteed that it can also integrate various
-> other use cases as well for the new program type like the ones proposed
-> by Anoop from net cgroup.
+On Tue, 25 Oct 2016 11:36:48 -0400
+Alexander Duyck <alexander.h.duyck@intel.com> wrote:
+
+> The first 22 patches in the set add support for the DMA attribute
+> DMA_ATTR_SKIP_CPU_SYNC on multiple platforms/architectures.  This is needed
+> so that we can flag the calls to dma_map/unmap_page so that we do not
+> invalidate cache lines that do not currently belong to the device.  Instead
+> we have to take care of this in the driver via a call to
+> sync_single_range_for_cpu prior to freeing the Rx page.
 > 
-> If that would reuse BPF_PROG_TYPE_CGROUP_SOCK from not only sk_alloc()
-> hook, programs can thus change sk_bound_dev_if also from elsewhere since
-> it's a fixed part of the context, and attaching to the cgroup comes after
-> program was verified and returned a program fd back to the user. I guess
-> it might be expected, right?
-
-sure.
-
+> Patch 23 adds support for dma_map_page_attrs and dma_unmap_page_attrs so
+> that we can unmap and map a page using the DMA_ATTR_SKIP_CPU_SYNC
+> attribute.
 > 
-> I mean non-cooperative processes in that cgroup could already overwrite
-> the policy set in sk_alloc() anyway with SO_BINDTODEVICE, no? What is the
+> Patch 24 adds support for freeing a page that has multiple references being
+> held by a single caller.  This way we can free page fragments that were
+> allocated by a given driver.
+> 
+> The last 3 patches use these updates in the igb driver to allow for us to
+> reimpelement the use of build_skb.
+> 
+> My hope is to get the series accepted into the net-next tree as I have a
+> number of other Intel drivers I could then begin updating once these
+> patches are accepted.
+> 
+> v1: Split out changes DMA_ERROR_CODE fix for swiotlb-xen
+>     Minor fixes based on issues found by kernel build bot
+>     Few minor changes for issues found on code review
+>     Added Acked-by for patches that were acked and not changed
 
-yes. If a process running as root is invoked/wants to change the binding it can. For example a shell is set in Management VRF context and the user wants to ping out a data plane port the -I arg would do that.
+I really appreciate you are doing this work Alex, thanks! And I do
+think it fits into my page pool plans. Thanks!
 
-> expectation if processes are moved from one cgroup to another one? Is it 
-> expected that also sk_bound_dev_if updates (not yet seeing how that would
-> work from a BPF program)? If sk_bound_dev_if is enforced from cgroup side,
-> should that lock out processes from changing it (maybe similar to what we
-> do in SOCK_FILTER_LOCKED)?
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
 
-existing sockets would not be affected by the cgroup program.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
