@@ -1,98 +1,58 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH v2 6/9] ipv6: sr: add calls to verify and insert HMAC signatures
-Date: Wed, 26 Oct 2016 17:56:14 +0200
-Message-ID: <1477497377-22372-2-git-send-email-david.lebrun@uclouvain.be>
+Subject: [PATCH v2 9/9] ipv6: sr: add documentation file for per-interface sysctls
+Date: Wed, 26 Oct 2016 17:56:17 +0200
+Message-ID: <1477497377-22372-5-git-send-email-david.lebrun@uclouvain.be>
 References: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:55038 "EHLO
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:55039 "EHLO
         smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932174AbcJZPyi (ORCPT
+        with ESMTP id S933213AbcJZPyi (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:54:38 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id 45E6567DA39
+        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id BFC0C67DAA7
         for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 17:54:29 +0200 (CEST)
 In-Reply-To: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the verification of the HMAC signature for transiting
-SR-enabled packets, and its insertion on encapsulated/injected SRH.
+This patch adds documentation for some SR-related per-interface
+sysctls.
 
 Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- net/ipv6/exthdrs.c       | 10 ++++++++++
- net/ipv6/seg6_iptunnel.c | 18 ++++++++++++++++++
- 2 files changed, 28 insertions(+)
+ Documentation/networking/seg6-sysctl.txt | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+ create mode 100644 Documentation/networking/seg6-sysctl.txt
 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index cf9f338..9b63932 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -48,6 +48,9 @@
- #include <net/xfrm.h>
- #endif
- #include <linux/seg6.h>
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+#include <net/seg6_hmac.h>
-+#endif
- 
- #include <linux/uaccess.h>
- 
-@@ -358,6 +361,13 @@ static int ipv6_srh_rcv(struct sk_buff *skb)
- 		return -1;
- 	}
- 
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (!seg6_hmac_validate_skb(skb)) {
-+		kfree_skb(skb);
-+		return -1;
-+	}
-+#endif
+diff --git a/Documentation/networking/seg6-sysctl.txt b/Documentation/networking/seg6-sysctl.txt
+new file mode 100644
+index 0000000..bdbde23
+--- /dev/null
++++ b/Documentation/networking/seg6-sysctl.txt
+@@ -0,0 +1,18 @@
++/proc/sys/net/conf/<iface>/seg6_* variables:
 +
- looped_back:
- 	if (hdr->segments_left > 0) {
- 		if (hdr->nexthdr != NEXTHDR_IPV6 && hdr->segments_left == 1 &&
-diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
-index caae8ab..2c53991 100644
---- a/net/ipv6/seg6_iptunnel.c
-+++ b/net/ipv6/seg6_iptunnel.c
-@@ -126,6 +126,14 @@ static int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
- 	hdr->daddr = isrh->segments[isrh->first_segment];
- 	set_tun_src(net, skb->dev, &hdr->daddr, &hdr->saddr);
- 
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (sr_has_hmac(isrh)) {
-+		err = seg6_push_hmac(net, &hdr->saddr, isrh);
-+		if (unlikely(err))
-+			return err;
-+	}
-+#endif
++seg6_enabled - BOOL
++	Accept or drop SR-enabled IPv6 packets on this interface.
 +
- 	skb_postpush_rcsum(skb, hdr, tot_len);
- 
- 	return 0;
-@@ -167,6 +175,16 @@ static int seg6_do_srh_inline(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
- 	isrh->segments[0] = hdr->daddr;
- 	hdr->daddr = isrh->segments[isrh->first_segment];
- 
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (sr_has_hmac(isrh)) {
-+		struct net *net = dev_net(skb_dst(skb)->dev);
++	Relevant packets are those with SRH present and DA = local.
 +
-+		err = seg6_push_hmac(net, &hdr->saddr, isrh);
-+		if (unlikely(err))
-+			return err;
-+	}
-+#endif
++	0 - disabled (default)
++	not 0 - enabled
 +
- 	skb_postpush_rcsum(skb, hdr, sizeof(struct ipv6hdr) + hdrlen);
- 
- 	return 0;
++seg6_require_hmac - INTEGER
++	Define HMAC policy for ingress SR-enabled packets on this interface.
++
++	-1 - Ignore HMAC field
++	0 - Accept SR packets without HMAC, validate SR packets with HMAC
++	1 - Drop SR packets without HMAC, validate SR packets with HMAC
++
++	Default is 0.
 -- 
 2.7.3
