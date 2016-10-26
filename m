@@ -1,60 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Wed, 26 Oct 2016 19:36:45 +0300
-Message-ID: <20161026185743-mutt-send-email-mst@kernel.org>
-References: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
- <20161026155202.5d99d935@redhat.com>
+From: Fabio Estevam <fabio.estevam@nxp.com>
+Subject: [PATCH net-next] net: phy: at803x: Add a definition for PHY ID mask
+Date: Wed, 26 Oct 2016 14:03:54 -0200
+Message-ID: <1477497834-9964-1-git-send-email-fabio.estevam@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shrijeet Mukherjee <shrijeet@gmail.com>, tom@herbertland.com,
-        netdev@vger.kernel.org, shm@cumulusnetworks.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41202 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932275AbcJZQgv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 12:36:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20161026155202.5d99d935@redhat.com>
+Received: from mail-sn1nam02on0075.outbound.protection.outlook.com ([104.47.36.75]:21600
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933807AbcJZQhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Oct 2016 12:37:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 26, 2016 at 03:52:02PM +0200, Jesper Dangaard Brouer wrote:
-> On Sat, 22 Oct 2016 04:07:23 +0000
-> Shrijeet Mukherjee <shrijeet@gmail.com> wrote:
-> 
-> > This patch adds support for xdp ndo and also inserts the xdp program
-> > call into the merged RX buffers and big buffers paths
-> 
-> I really appreciate you are doing this for virtio_net.
-> 
-> My first question is: Is the (packet) page data writable?
-> (MST might be able to answer?)
-> 
-> As this is currently an XDP requirement[1].  
+Add a definition for PHY ID mask for improving code readability.
 
-I'm not sure I understand what does writable mean.
-Could you explain a bit more pls?
-We do copy data into skb ATM but I plan to change that.
+Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+---
+ drivers/net/phy/at803x.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-
-> 
-> > * The small packet skb receive is skipped for now
-> > * No TX for now
-> 
-> I do see more and more valid use-cases for only implementing XDP_DROP
-> and not necessarily also implementing XDP_TX.  This does requires that
-> we implement some kind of feature/capabilities negotiation mechanism[2].
-> 
-> 
-> [1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/requirements.html#write-access-to-packet-data
-> 
-> [2] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/design.html#capabilities-negotiation
-> 
-> -- 
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index f279a89..dd47b69 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -58,6 +58,7 @@
+ #define ATH8030_PHY_ID 0x004dd076
+ #define ATH8031_PHY_ID 0x004dd074
+ #define ATH8035_PHY_ID 0x004dd072
++#define AT803X_PHY_ID_MASK			0xffffffef
+ 
+ MODULE_DESCRIPTION("Atheros 803x PHY driver");
+ MODULE_AUTHOR("Matus Ujhelyi");
+@@ -386,7 +387,7 @@ static struct phy_driver at803x_driver[] = {
+ 	/* ATHEROS 8035 */
+ 	.phy_id			= ATH8035_PHY_ID,
+ 	.name			= "Atheros 8035 ethernet",
+-	.phy_id_mask		= 0xffffffef,
++	.phy_id_mask		= AT803X_PHY_ID_MASK,
+ 	.probe			= at803x_probe,
+ 	.config_init		= at803x_config_init,
+ 	.set_wol		= at803x_set_wol,
+@@ -403,7 +404,7 @@ static struct phy_driver at803x_driver[] = {
+ 	/* ATHEROS 8030 */
+ 	.phy_id			= ATH8030_PHY_ID,
+ 	.name			= "Atheros 8030 ethernet",
+-	.phy_id_mask		= 0xffffffef,
++	.phy_id_mask		= AT803X_PHY_ID_MASK,
+ 	.probe			= at803x_probe,
+ 	.config_init		= at803x_config_init,
+ 	.link_change_notify	= at803x_link_change_notify,
+@@ -421,7 +422,7 @@ static struct phy_driver at803x_driver[] = {
+ 	/* ATHEROS 8031 */
+ 	.phy_id			= ATH8031_PHY_ID,
+ 	.name			= "Atheros 8031 ethernet",
+-	.phy_id_mask		= 0xffffffef,
++	.phy_id_mask		= AT803X_PHY_ID_MASK,
+ 	.probe			= at803x_probe,
+ 	.config_init		= at803x_config_init,
+ 	.set_wol		= at803x_set_wol,
+@@ -439,9 +440,9 @@ static struct phy_driver at803x_driver[] = {
+ module_phy_driver(at803x_driver);
+ 
+ static struct mdio_device_id __maybe_unused atheros_tbl[] = {
+-	{ ATH8030_PHY_ID, 0xffffffef },
+-	{ ATH8031_PHY_ID, 0xffffffef },
+-	{ ATH8035_PHY_ID, 0xffffffef },
++	{ ATH8030_PHY_ID, AT803X_PHY_ID_MASK },
++	{ ATH8031_PHY_ID, AT803X_PHY_ID_MASK },
++	{ ATH8035_PHY_ID, AT803X_PHY_ID_MASK },
+ 	{ }
+ };
+ 
+-- 
+2.7.4
