@@ -1,98 +1,39 @@
-From: Anna Schumaker <Anna.Schumaker@Netapp.com>
-Subject: Re: nfs NULL-dereferencing in net-next
-Date: Wed, 26 Oct 2016 14:17:14 -0400
-Message-ID: <0ab5021c-84eb-cb9f-c7f5-4d856fdb0f4b@Netapp.com>
-References: <20161017201943.64529739@jkicinski-Precision-T1700>
- <DB3PR05MB0764DF28BC53A4A4E78A4DD8ACA80@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <817e43c5-d88d-e616-7074-5715de29d319@Netapp.com>
- <DB3PR05MB0764B39F6EDF851A8A52EBACACAB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <20161026190840.3d46dad8@jkicinski-Precision-T1700>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next] tc: m_mirred: Add support for ingress
+ redirect/mirror
+Date: Wed, 26 Oct 2016 11:21:35 -0700
+Message-ID: <20161026112135.395f9983@xeon-e3>
+References: <20161019141409.23172-1-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Yotam Gigi <yotamg@mellanox.com>, Andy Adamson <andros@netapp.com>,
-        "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Trond Myklebust <Trond.Myklebust@netapp.com>,
-        Yotam Gigi <yotam.gi@gmail.com>, mlxsw <mlxsw@mellanox.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx144.netapp.com ([216.240.21.25]:25344 "EHLO mx144.netapp.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751129AbcJZSR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 14:17:29 -0400
-In-Reply-To: <20161026190840.3d46dad8@jkicinski-Precision-T1700>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33754 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751129AbcJZSVU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 14:21:20 -0400
+Received: by mail-pf0-f172.google.com with SMTP id 197so1167746pfu.0
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 11:21:20 -0700 (PDT)
+In-Reply-To: <20161019141409.23172-1-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/26/2016 02:08 PM, Jakub Kicinski wrote:
-> On Wed, 26 Oct 2016 16:15:24 +0000, Yotam Gigi wrote:
->>> -----Original Message-----
->>> From: Anna Schumaker [mailto:Anna.Schumaker@Netapp.com]
->>> Sent: Wednesday, October 26, 2016 5:40 PM
->>> To: Yotam Gigi <yotamg@mellanox.com>; Jakub Kicinski <kubakici@wp.pl>; Andy
->>> Adamson <andros@netapp.com>; Anna Schumaker
->>> <Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
->>> Cc: netdev@vger.kernel.org; Trond Myklebust <Trond.Myklebust@netapp.com>;
->>> Yotam Gigi <yotam.gi@gmail.com>; mlxsw <mlxsw@mellanox.com>
->>> Subject: Re: nfs NULL-dereferencing in net-next
->>>
->>> On 10/25/2016 01:19 PM, Yotam Gigi wrote:  
->>>>  
->>>>> -----Original Message-----
->>>>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]  
->>> On  
->>>>> Behalf Of Jakub Kicinski
->>>>> Sent: Monday, October 17, 2016 10:20 PM
->>>>> To: Andy Adamson <andros@netapp.com>; Anna Schumaker
->>>>> <Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
->>>>> Cc: netdev@vger.kernel.org; Trond Myklebust  
->>> <Trond.Myklebust@netapp.com>  
->>>>> Subject: nfs NULL-dereferencing in net-next
->>>>>
->>>>> Hi!
->>>>>
->>>>> I'm hitting this reliably on net-next, HEAD at 3f3177bb680f
->>>>> ("fsl/fman: fix error return code in mac_probe()").  
->>>>
->>>>
->>>> I see the same thing. It happens constantly on some of my machines, making  
->>> them  
->>>> completely unusable.
->>>>
->>>> I bisected it and got to the commit:
->>>>
->>>> commit 04ea1b3e6d8ed4978bb608c1748530af3de8c274
->>>> Author: Andy Adamson <andros@netapp.com>
->>>> Date:   Fri Sep 9 09:22:27 2016 -0400
->>>>
->>>>     NFS add xprt switch addrs test to match client
->>>>
->>>>     Signed-off-by: Andy Adamson <andros@netapp.com>
->>>>     Signed-off-by: Anna Schumaker <Anna.Schumaker@Netapp.com>  
->>>
->>> Thanks for reporting on this everyone!  Does this patch help?  
->>
->> Actually, I still see the same bug with the same trace.
+On Wed, 19 Oct 2016 17:14:09 +0300
+Shmulik Ladkani <shmulik.ladkani@gmail.com> wrote:
 
-Well, it was worth a shot.  I'll keep poking at it.
-
+> So far, only the 'egress' direction was implemented.
 > 
-> I rebuild the latest net-next and I'm not seeing the trace any more...
-> I'm only seeing this (with or without your patch):
+> Allow specifying 'ingress' as the direction packet appears on the target
+> interface.
 > 
-> [   23.465877] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> [   23.473784] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> [   23.588890] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> [   23.596746] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> [   23.781574] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> [   23.789599] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-
-Interesting, I get that too when I try to use NFS v4.1.  It's weird that the crash would stop happening like that, so maybe something is racy in this area.
-
-Thanks for testing, Yotam and Jakub!
-Anna
-
+> For example, this takes incoming 802.1q frames on veth0 and redirects
+> them for input on dummy0:
 > 
-> HTH
+>  # tc filter add dev veth0 parent ffff: pref 1 protocol 802.1q basic \
+>      action mirred ingress redirect dev dummy0
 > 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+
+Applied to net-next branch
