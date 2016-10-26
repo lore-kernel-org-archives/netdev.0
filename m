@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sch_htb: do not report fake rate estimators
-Date: Wed, 26 Oct 2016 17:14:40 -0400 (EDT)
-Message-ID: <20161026.171440.638427532009685965.davem@davemloft.net>
-References: <1477065763.7065.84.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH 0/2] Broadcom BCM54612E support
+Date: Wed, 26 Oct 2016 17:16:05 -0400 (EDT)
+Message-ID: <20161026.171605.2216738980188763095.davem@davemloft.net>
+References: <1477070413-92621-1-git-send-email-xow@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jikos@kernel.org, jhs@mojatatu.com
-To: eric.dumazet@gmail.com
+Cc: f.fainelli@gmail.com, jaedon.shin@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        openbmc@lists.ozlabs.org, joel@jms.id.au
+To: xow@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42008 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42036 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751334AbcJZVPL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 17:15:11 -0400
-In-Reply-To: <1477065763.7065.84.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1754127AbcJZVQJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 17:16:09 -0400
+In-Reply-To: <1477070413-92621-1-git-send-email-xow@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 21 Oct 2016 09:02:43 -0700
+From: Xo Wang <xow@google.com>
+Date: Fri, 21 Oct 2016 10:20:11 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> This series is based on tip of torvalds/master.
 > 
-> When I prepared commit d250a5f90e53 ("pkt_sched: gen_estimator: Dont
-> report fake rate estimators"), htb still had an implicit rate estimator
-> for all its classes.
+> The first patch adds register definitions from Broadcom docs.
 > 
-> Then later, I made this rate estimator optional in commit 64153ce0a7b6
-> ("net_sched: htb: do not setup default rate estimators"), but I forgot
-> to update htb use of gnet_stats_copy_rate_est()
+> The second patch adds the BCM54612E PHY ID, flags, and device-specific
+> RGMII internal delay initialization.
 > 
-> After this patch, "tc -s qdisc ..." no longer report fake rate
-> estimators for HTB classes.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> I tested on a custom board with an Aspeed AST2500 SOC with its second
+> MAC connected to this PHY.
 
-Applied, thanks Eric.
+Series applied to net-next, thanks.
