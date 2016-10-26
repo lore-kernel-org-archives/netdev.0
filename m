@@ -1,74 +1,107 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] Revert "hv_netvsc: report vmbus name in ethtool"
-Date: Wed, 26 Oct 2016 08:30:29 -0700
-Message-ID: <20161026083029.68a876d0@xeon-e3>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: [PATCH] net: mv643xx_eth: Fetch the phy connection type from DT
+Date: Wed, 26 Oct 2016 11:47:02 -0600
+Message-ID: <20161026174702.GB24717@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        KY Srinivasan <kys@microsoft.com>,
-        Vitaly Kuznetsov <vkuznets@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36510 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932960AbcJZR0a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 13:26:30 -0400
-Received: by mail-pf0-f180.google.com with SMTP id e6so402376pfk.3
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 10:26:29 -0700 (PDT)
+Received: from quartz.orcorp.ca ([184.70.90.242]:60704 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932334AbcJZRrF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Oct 2016 13:47:05 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <sthemmin@microsoft.com>
+The MAC is capable of RGMII mode and that is probably a more typical
+connection type than GMII today (eg it is used by Marvell Reference
+designs for several SOCs). Let DT users specify the standard
 
-This reverts commit e3f74b841d48
-("hv_netvsc: report vmbus name in ethtool")'
-because of problem introduced by commit f9a56e5d6a0ba
-("Drivers: hv: make VMBus bus ids persistent").
-This changed the format of the vmbus name and this new format is too
-long to fit in the bus_info field of ethtool.
+   phy-connection-type = "rgmii-id";
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+On a phy node.
 
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 4 ----
- include/linux/hyperv.h          | 7 -------
- 2 files changed, 11 deletions(-)
+ .../devicetree/bindings/net/marvell-orion-net.txt  |  1 +
+ drivers/net/ethernet/marvell/mv643xx_eth.c         | 23 ++++++++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index c71d966..f638215 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -699,12 +699,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- static void netvsc_get_drvinfo(struct net_device *net,
- 			       struct ethtool_drvinfo *info)
- {
--	struct net_device_context *net_device_ctx = netdev_priv(net);
--	struct hv_device *dev = net_device_ctx->device_ctx;
--
- 	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
- 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
--	strlcpy(info->bus_info, vmbus_dev_name(dev), sizeof(info->bus_info));
+diff --git a/Documentation/devicetree/bindings/net/marvell-orion-net.txt b/Documentation/devicetree/bindings/net/marvell-orion-net.txt
+index bce52b2ec55e..6fd988c84c4f 100644
+--- a/Documentation/devicetree/bindings/net/marvell-orion-net.txt
++++ b/Documentation/devicetree/bindings/net/marvell-orion-net.txt
+@@ -49,6 +49,7 @@ Optional port properties:
+ and
+ 
+  - phy-handle: See ethernet.txt file in the same directory.
++ - phy-mode: See ethernet.txt file in the same directory.
+ 
+ or
+ 
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 55831188bc32..bf5cc55ba24c 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2968,6 +2968,22 @@ static void set_params(struct mv643xx_eth_private *mp,
+ 	mp->txq_count = pd->tx_queue_count ? : 1;
  }
  
- static void netvsc_get_channels(struct net_device *net,
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 6824556..cd184bd 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -1169,13 +1169,6 @@ int __must_check __vmbus_driver_register(struct hv_driver *hv_driver,
- 					 const char *mod_name);
- void vmbus_driver_unregister(struct hv_driver *hv_driver);
++static int get_phy_mode(struct mv643xx_eth_private *mp)
++{
++	struct device *dev = mp->dev->dev.parent;
++	int iface = -1;
++
++	if (dev->of_node)
++		iface = of_get_phy_mode(dev->of_node);
++
++	/* Historical default if unspecified. We could also read/write
++	 * the interface state in the PSC1
++	 */
++	if (iface < 0)
++		iface = PHY_INTERFACE_MODE_GMII;
++	return iface;
++}
++
+ static struct phy_device *phy_scan(struct mv643xx_eth_private *mp,
+ 				   int phy_addr)
+ {
+@@ -2994,7 +3010,7 @@ static struct phy_device *phy_scan(struct mv643xx_eth_private *mp,
+ 				"orion-mdio-mii", addr);
  
--static inline const char *vmbus_dev_name(const struct hv_device *device_obj)
--{
--	const struct kobject *kobj = &device_obj->device.kobj;
--
--	return kobj->name;
--}
--
- void vmbus_hvsock_device_unregister(struct vmbus_channel *channel);
+ 		phydev = phy_connect(mp->dev, phy_id, mv643xx_eth_adjust_link,
+-				PHY_INTERFACE_MODE_GMII);
++				     get_phy_mode(mp));
+ 		if (!IS_ERR(phydev)) {
+ 			phy_addr_set(mp, addr);
+ 			break;
+@@ -3090,6 +3106,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	if (!dev)
+ 		return -ENOMEM;
  
- int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
++	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	mp = netdev_priv(dev);
+ 	platform_set_drvdata(pdev, mp);
+ 
+@@ -3129,7 +3146,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	if (pd->phy_node) {
+ 		mp->phy = of_phy_connect(mp->dev, pd->phy_node,
+ 					 mv643xx_eth_adjust_link, 0,
+-					 PHY_INTERFACE_MODE_GMII);
++					 get_phy_mode(mp));
+ 		if (!mp->phy)
+ 			err = -ENODEV;
+ 		else
+@@ -3187,8 +3204,6 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
+ 	dev->gso_max_segs = MV643XX_MAX_TSO_SEGS;
+ 
+-	SET_NETDEV_DEV(dev, &pdev->dev);
+-
+ 	if (mp->shared->win_protect)
+ 		wrl(mp, WINDOW_PROTECT(mp->port_num), mp->shared->win_protect);
+ 
 -- 
-2.9.3
+2.1.4
