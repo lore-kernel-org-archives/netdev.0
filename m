@@ -1,56 +1,47 @@
-From: Baoquan He <bhe@redhat.com>
-Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
-Date: Wed, 26 Oct 2016 20:00:21 +0800
-Message-ID: <20161026120021.GA4402@x1>
-References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
- <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH] rtl8xxxu: mark symbol static where possible
+Date: Wed, 26 Oct 2016 14:37:15 +0200
+Message-ID: <87twbz2sn8.fsf@redhat.com>
+References: <1477474370-31383-1-git-send-email-baoyou.xie@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-To: Paul Menzel <pmenzel@molgen.mpg.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39920 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932090AbcJZMA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 08:00:26 -0400
-Content-Disposition: inline
-In-Reply-To: <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@arndb.de, xie.baoyou@zte.com.cn,
+        han.fei@zte.com.cn, tang.qiang007@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1477474370-31383-1-git-send-email-baoyou.xie@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Paul,
+On Wed, Oct 26, 2016 at 09:32 AM GMT, Baoyou Xie wrote:
+> We get 1 warning when building kernel with W=1:
+> drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c:1557:6: warning: no previous prototype for 'rtl8192eu_power_off' [-Wmissing-prototypes]
+>
+> In fact, this function is only used in the file in which it is
+> declared and don't need a declaration, but can be made static.
+> So this patch marks this function with 'static'.
+>
+> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+> ---
+>  drivers/net/dsa/mv88e6xxx/chip.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> index 883fd98..4d975f0 100644
+> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+> @@ -2701,7 +2701,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+>  	return mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
+>  }
+>  
+> -int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+> +static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+>  {
+>  	int err;
 
-Sorry for this.
+Probably a mix-up - your patch doesn't match the description.
 
-
-On 10/26/16 at 12:31pm, Paul Menzel wrote:
-> > >         dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
-> > > @@ -8607,6 +8608,7 @@ bnx2_init_one(struct pci_dev *pdev, const struct
-> > > pci_device_id *ent)
-> > >         return 0;
-> > > 
-> > >  error:
-> > > +       bnx2_release_firmware(bp);
-> > >         pci_iounmap(pdev, bp->regview);
-> > >         pci_release_regions(pdev);
-> > >         pci_disable_device(pdev);
-> 
-> Baoquan, could you please fix this regression. My suggestion is, that you
-> add the old code back, but check if the firmware has been loaded. If it
-> hasn’t, load it again.
-> 
-> That way, people can update their Linux kernel, and it continues working
-> without changing the initramfs, or anything else.
-
-I saw your mail but I am also not familiar with bnx2 driver. As the
-commit log says I just tried to make bnx2 driver reset itself earlier.
-
-So you did a git bisect and found this commit caused the regression,
-right? If yes, and network developers have no action, I will look into
-the code and see if I have idea to fix it.
-
-Thanks
-Baoquan
+Thanks,
+Jakub
