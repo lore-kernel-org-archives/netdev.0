@@ -1,38 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH (net.git) 0/3] stmmac: fix PTP support
-Date: Wed, 26 Oct 2016 10:58:13 +0200
-Message-ID: <20161026085812.GD11974@localhost.localdomain>
-References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, alexandre.torgue@st.com,
-        rayagond@vayavyalabs.com, linux-kernel@vger.kernel.org,
-        seraphin.bonnaffe@st.com
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+From: idosch@idosch.org
+Subject: [PATCH net-next] switchdev: Remove redundant variable
+Date: Wed, 26 Oct 2016 12:03:03 +0300
+Message-ID: <1477472583-11710-1-git-send-email-idosch@idosch.org>
+Cc: netdev@vger.kernel.org, mlxsw@mellanox.com,
+        Ido Schimmel <idosch@mellanox.com>
+To: davem@davemloft.net, jiri@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:39079 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757384AbcJZI6S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 04:58:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:53197 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932302AbcJZJDo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 05:03:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 26, 2016 at 08:56:01AM +0200, Giuseppe Cavallaro wrote:
-> This subset of patches aim to fix the PTP support
-> for the stmmac and especially for 4.x chip series.
-> While setting PTP on an ST box with 4.00a Ethernet
-> core, the kernel panics due to a broken settings
-> of the descriptors. The patches review the
-> register configuration, the algo used for configuring
-> the protocol, the way to get the timestamp inside
-> the RX/TX descriptors and, in the end, the statistics
-> displayed by ethtool.
-> 
-> Giuseppe Cavallaro (3):
->   stmmac: update the PTP header file
->   stmmac: fix PTP support for GMAC4
->   stmmac: fix PTP type ethtool stats
+From: Ido Schimmel <idosch@mellanox.com>
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Instead of storing return value in 'err' and returning, just return
+directly.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/switchdev/switchdev.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 02beb35..6f145b5 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -624,13 +624,10 @@ EXPORT_SYMBOL_GPL(unregister_switchdev_notifier);
+ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
+ 			     struct switchdev_notifier_info *info)
+ {
+-	int err;
+-
+ 	ASSERT_RTNL();
+ 
+ 	info->dev = dev;
+-	err = raw_notifier_call_chain(&switchdev_notif_chain, val, info);
+-	return err;
++	return raw_notifier_call_chain(&switchdev_notif_chain, val, info);
+ }
+ EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
+ 
+-- 
+2.7.4
