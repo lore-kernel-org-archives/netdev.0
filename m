@@ -1,67 +1,54 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH v2 5/5] posix-timers: make it configurable
-Date: Wed, 26 Oct 2016 09:56:13 -0400 (EDT)
-Message-ID: <alpine.LFD.2.20.1610260941520.14694@knanqh.ubzr>
-References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org> <1477448931-29051-6-git-send-email-nicolas.pitre@linaro.org> <20161026085102.GC11974@localhost.localdomain>
+From: Dario Ernst <Dario.Ernst@riverbed.com>
+Subject: Question: Why only 1 VTI per src/dest-pair allowed
+Date: Wed, 26 Oct 2016 15:45:51 +0200
+Message-ID: <8884c89f-81f9-509b-4cde-2c6ca1dfb76a@riverbed.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: John Stultz <john.stultz@linaro.org>,
-        "Yann E. MORIN" <yann.morin.1998@free.fr>,
-        Michal Marek <mmarek@suse.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161026085102.GC11974@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.riverbed.com ([208.70.196.45]:15929 "EHLO
+        smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751260AbcJZN4l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 09:56:41 -0400
+Received: from [100.64.0.230] (unknown [5.158.136.57])
+        (using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+        (No client certificate requested)
+        by tlssmtp (Postfix) with ESMTP id 285A06B8BF
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 06:45:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 26 Oct 2016, Richard Cochran wrote:
+Hi,
 
-> On Tue, Oct 25, 2016 at 10:28:51PM -0400, Nicolas Pitre wrote:
-> > +config POSIX_TIMERS
-> > +	bool "Posix Clocks & timers" if EXPERT
-> > +	default y
-> > +	help
-> > +	  This includes native support for POSIX timers to the kernel.
-> > +	  Most embedded systems may have no use for them and therefore they
-> > +	  can be configured out to reduce the size of the kernel image.
-> 
-> Can you please fix this sentence?  It doesn't make any sense.  "Most"
-> is making a definite statement of fact, while "may have no use" is
-> not.
+I’m currently running into a limitation where I’d like to have multiple 
+VTI interfaces with the same source / destination address. It seems like 
+that this is not possible by default.
 
-I'm not a native speaker. I'm afraid I just don't appreciate such 
-nuances.
+To elaborate a bit on my use-case: I’m trying to set up multiple tunnels 
+(SAs) between two endpoints, be it for load-balancing and fail-over, or 
+for complex routing in software-defined networking scenarios — or simply 
+multiple different peers behind a NAT. I would like to retain the 
+flexibility (and debuggability) that having a VTI provides.
 
-> Either you mean:
-> 
->   1. Most embedded systems have no use for them.
-> 
->   2. Embedded systems may have no use for them.
-> 
-> or expressing #2 in other words:
-> 
->   3. Many embedded systems have no use for them.
-> 
->   4. Some embedded systems have no use for them.
-> 
-> Take your pick.  (But I doubt #1 is really true, and so I would like
-> to see some numbers to back up that claim.)
+I’ve been digging the ip_vti.c and ip_tunnel.c sources a bit — and 
+please excuse my kernel-illiteracy, I’m a complete kernel-newbie. I’m 
+creating a 2nd VTI through the IOCTL (as »iproute2« does), with the same 
+src/dst as an existing VTI, but with a different ikey and okey. The 
+condition that seems to break and throw -EEXIST is ip_tunnel_key_match. 
+This checks whether TUNNEL_KEY (0x04) is set, however, from what I’ve 
+seen only GRE_KEY (0x2000) is set — by vti_tunnel_ioctl. Also, in 
+iproute2, I’ve not found that TUNNEL_KEY gets set.
 
-I used 4 to match the commit message, which incidentally is the result 
-of a prior suggestion from you. Sorry for not being consistent then.
+So from what I *think* I’ve read it’s deliberate that the check doesn’t 
+actually compare the keys — and thus forbids creating tunnel devices 
+with same src/same dst/different key.
 
-As for numbers... I don't have any, but I probably mentioned already 
-that I can run a copy of Fedora on top of a kernel with POSIX timers 
-disabled and none of the warnings about those disabled syscalls are 
-triggered. So if my Fedora usage doesn't need them, we can infer that 
-the number of embedded systems also not needing them might tend towards 
-a high percentage. But let's be conservative and say "some".
+Now, my final questions on this is: What is the design decision behind 
+this? Is there a finer point that I’m missing? And … is it actually 
+sufficient to modify ip_tunnel_key_match to actually compare the keys, 
+should they be set?
 
-Thanks for your review.
-
-
-Nicolas
+Thanks for all your great work, and thanks for reading this far :-).
+Best Regards,
+-Dario Ernst
