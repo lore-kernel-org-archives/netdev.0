@@ -1,54 +1,82 @@
-From: Dario Ernst <Dario.Ernst@riverbed.com>
-Subject: Question: Why only 1 VTI per src/dest-pair allowed
-Date: Wed, 26 Oct 2016 15:45:51 +0200
-Message-ID: <8884c89f-81f9-509b-4cde-2c6ca1dfb76a@riverbed.com>
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH net-next 1/1] driver: tun: Use new macro SOCK_IOC_MAGIC
+ instead of literal number 0x89
+Date: Wed, 26 Oct 2016 22:10:47 +0800
+Message-ID: <CA+6hz4rB5zJDLqhf0bQVhp9=EyZ7kjO3hu-6QtvMmGx-wszNaQ@mail.gmail.com>
+References: <1477400179-32200-1-git-send-email-fgao@ikuai8.com> <063D6719AE5E284EB5DD2968C1650D6DB020AC7B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "jasowang@redhat.com" <jasowang@redhat.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "pabeni@redhat.com" <pabeni@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.riverbed.com ([208.70.196.45]:15929 "EHLO
-        smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751260AbcJZN4l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 09:56:41 -0400
-Received: from [100.64.0.230] (unknown [5.158.136.57])
-        (using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-        (No client certificate requested)
-        by tlssmtp (Postfix) with ESMTP id 285A06B8BF
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 06:45:52 -0700 (PDT)
+Received: from smtpbg202.qq.com ([184.105.206.29]:48627 "EHLO smtpbg202.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754265AbcJZOLA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Oct 2016 10:11:00 -0400
+Received: from mail-ua0-f179.google.com (unknown [209.85.217.179])
+        by esmtp4.qq.com (ESMTP) with SMTP id 0
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 22:10:48 +0800 (CST)
+Received: by mail-ua0-f179.google.com with SMTP id b35so5110843uaa.4
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 07:10:49 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB020AC7B@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi David,
 
-I’m currently running into a limitation where I’d like to have multiple 
-VTI interfaces with the same source / destination address. It seems like 
-that this is not possible by default.
+On Wed, Oct 26, 2016 at 7:12 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: fgao@ikuai8.com
+>> Sent: 25 October 2016 13:56
+>> The current codes use _IOC_TYPE(cmd) == 0x89 to check if the cmd is one
+>> socket ioctl command like SIOCGIFHWADDR. But the literal number 0x89 may
+>> confuse readers. So create one macro SOCK_IOC_MAGIC like SPI_IOC_MAGIC to
+>> enhance the readability.
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>>  drivers/net/tun.c            | 2 +-
+>>  include/uapi/linux/sockios.h | 2 ++
+>>  2 files changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index 9328568..9efd185 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1985,7 +1985,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+>>       int le;
+>>       int ret;
+>>
+>> -     if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
+>> +     if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == SOCK_IOC_MAGIC) {
+>>               if (copy_from_user(&ifr, argp, ifreq_len))
+>>                       return -EFAULT;
+>>       } else {
+>> diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
+>> index 8e7890b..b8f42f2 100644
+>> --- a/include/uapi/linux/sockios.h
+>> +++ b/include/uapi/linux/sockios.h
+>> @@ -24,6 +24,8 @@
+>>  #define SIOCINQ              FIONREAD
+>>  #define SIOCOUTQ     TIOCOUTQ        /* output queue size (not sent + not acked) */
+>>
+>> +#define SOCK_IOC_MAGIC       0x89
+>> +
+>>  /* Routing table calls. */
+>>  #define SIOCADDRT    0x890B          /* add routing table entry      */
+>>  #define SIOCDELRT    0x890C          /* delete routing table entry   */
+>
+> Shouldn't these constants be defined in terms of SOCK_IOC_MAGIC?
+> And there must be a better name!
+>
+>         David
+>
 
-To elaborate a bit on my use-case: I’m trying to set up multiple tunnels 
-(SAs) between two endpoints, be it for load-balancing and fail-over, or 
-for complex routing in software-defined networking scenarios — or simply 
-multiple different peers behind a NAT. I would like to retain the 
-flexibility (and debuggability) that having a VTI provides.
+How about the SOCK_IOC_TYPE or SOCK_IOC_BASE ?
+There are ETRAXGPIO_IOCTYPE and HARDWALL_IOCTL_BASE already.
 
-I’ve been digging the ip_vti.c and ip_tunnel.c sources a bit — and 
-please excuse my kernel-illiteracy, I’m a complete kernel-newbie. I’m 
-creating a 2nd VTI through the IOCTL (as »iproute2« does), with the same 
-src/dst as an existing VTI, but with a different ikey and okey. The 
-condition that seems to break and throw -EEXIST is ip_tunnel_key_match. 
-This checks whether TUNNEL_KEY (0x04) is set, however, from what I’ve 
-seen only GRE_KEY (0x2000) is set — by vti_tunnel_ioctl. Also, in 
-iproute2, I’ve not found that TUNNEL_KEY gets set.
-
-So from what I *think* I’ve read it’s deliberate that the check doesn’t 
-actually compare the keys — and thus forbids creating tunnel devices 
-with same src/same dst/different key.
-
-Now, my final questions on this is: What is the design decision behind 
-this? Is there a finer point that I’m missing? And … is it actually 
-sufficient to modify ip_tunnel_key_match to actually compare the keys, 
-should they be set?
-
-Thanks for all your great work, and thanks for reading this far :-).
-Best Regards,
--Dario Ernst
+Regards
+Feng
