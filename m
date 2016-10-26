@@ -1,7 +1,7 @@
 From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: [PATCH v2 1/5] kconfig: introduce the "imply" keyword
-Date: Tue, 25 Oct 2016 22:28:47 -0400
-Message-ID: <1477448931-29051-2-git-send-email-nicolas.pitre@linaro.org>
+Subject: [PATCH v2 5/5] posix-timers: make it configurable
+Date: Tue, 25 Oct 2016 22:28:51 -0400
+Message-ID: <1477448931-29051-6-git-send-email-nicolas.pitre@linaro.org>
 References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
 Cc: Thomas Gleixner <tglx@linutronix.de>,
         Josh Triplett <josh@joshtriplett.org>,
@@ -11,389 +11,338 @@ To: John Stultz <john.stultz@linaro.org>,
         Richard Cochran <richardcochran@gmail.com>,
         "Yann E. MORIN" <yann.morin.1998@free.fr>,
         Michal Marek <mmarek@suse.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alt13.smtp-out.videotron.ca ([135.19.0.26]:41813 "EHLO
+        alt12.smtp-out.videotron.ca" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754389AbcJZCoE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 22:44:04 -0400
 In-Reply-To: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The "imply" keyword is a weak version of "select" where the target
-config symbol can still be turned off, avoiding those pitfalls that come
-with the "select" keyword.
+Some embedded systems have no use for them.  This removes about
+22KB from the kernel binary size when configured out.
 
-This is useful e.g. with multiple drivers that want to indicate their
-ability to hook into a given subsystem while still being able to
-configure that subsystem out and keep those drivers selected.
+Corresponding syscalls are routed to a stub logging the attempt to
+use those syscalls which should be enough of a clue if they were
+disabled without proper consideration. They are: timer_create,
+timer_gettime: timer_getoverrun, timer_settime, timer_delete,
+clock_adjtime.
 
-Currently, the same effect can almost be achieved with:
-
-config DRIVER_A
-	tristate
-
-config DRIVER_B
-	tristate
-
-config DRIVER_C
-	tristate
-
-config DRIVER_D
-	tristate
-
-[...]
-
-config SUBSYSTEM_X
-	tristate
-	default DRIVER_A || DRIVER_B || DRIVER_C || DRIVER_D || [...]
-
-This is unwieldly to maintain especially with a large number of drivers.
-Furthermore, there is no easy way to restrict the choice for SUBSYSTEM_X
-to y or n, excluding m, when some drivers are built-in. The "select"
-keyword allows for excluding m, but it excludes n as well. Hence
-this "imply" keyword.  The above becomes:
-
-config DRIVER_A
-	tristate
-	imply SUBSYSTEM_X
-
-config DRIVER_B
-	tristate
-	imply SUBSYSTEM_X
-
-[...]
-
-config SUBSYSTEM_X
-	tristate
-
-This is much cleaner, and way more flexible than "select". SUBSYSTEM_X
-can still be configured out, and it can be set as a module when none of
-the drivers are selected or all of them are also modular.
+The clock_settime, clock_gettime, clock_getres and clock_nanosleep
+syscalls are replaced by simple wrappers compatible with CLOCK_REALTIME,
+CLOCK_MONOTONIC and CLOCK_BOOTTIME only which should cover the vast
+majority of use cases with very little code.
 
 Signed-off-by: Nicolas Pitre <nico@linaro.org>
 Reviewed-by: Josh Triplett <josh@joshtriplett.org>
 ---
- Documentation/kbuild/kconfig-language.txt | 28 ++++++++++++++++
- scripts/kconfig/expr.h                    |  2 ++
- scripts/kconfig/menu.c                    | 55 ++++++++++++++++++++++---------
- scripts/kconfig/symbol.c                  | 24 +++++++++++++-
- scripts/kconfig/zconf.gperf               |  1 +
- scripts/kconfig/zconf.y                   | 16 +++++++--
- 6 files changed, 107 insertions(+), 19 deletions(-)
+ drivers/ptp/Kconfig          |   2 +-
+ include/linux/posix-timers.h |  28 +++++++++-
+ include/linux/sched.h        |  10 ++++
+ init/Kconfig                 |  17 +++++++
+ kernel/signal.c              |   4 ++
+ kernel/time/Makefile         |  10 +++-
+ kernel/time/posix-stubs.c    | 118 +++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 184 insertions(+), 5 deletions(-)
+ create mode 100644 kernel/time/posix-stubs.c
 
-diff --git a/Documentation/kbuild/kconfig-language.txt b/Documentation/kbuild/kconfig-language.txt
-index 069fcb3eef..5ee0dd3c85 100644
---- a/Documentation/kbuild/kconfig-language.txt
-+++ b/Documentation/kbuild/kconfig-language.txt
-@@ -113,6 +113,33 @@ applicable everywhere (see syntax).
- 	That will limit the usefulness but on the other hand avoid
- 	the illegal configurations all over.
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index 0f7492f8ea..bdce332911 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -6,7 +6,7 @@ menu "PTP clock support"
  
-+- weak reverse dependencies: "imply" <symbol> ["if" <expr>]
-+  This is similar to "select" as it enforces a lower limit on another
-+  symbol except that the "implied" config symbol's value may still be
-+  set to n from a direct dependency or with a visible prompt.
-+  Given the following example:
-+
-+  config FOO
-+	tristate
-+	imply BAZ
-+
-+  config BAZ
-+	tristate
-+	depends on BAR
-+
-+  The following values are possible:
-+
-+	FOO		BAR		BAZ's default	choice for BAZ
-+	---		---		-------------	--------------
-+	n		y		n		N/m/y
-+	m		y		m		M/y/n
-+	y		y		y		Y/n
-+	y		n		*		N
-+
-+  This is useful e.g. with multiple drivers that want to indicate their
-+  ability to hook into a given subsystem while still being able to
-+  configure that subsystem out and keep those drivers selected.
-+
- - limiting menu display: "visible if" <expr>
-   This attribute is only applicable to menu blocks, if the condition is
-   false, the menu block is not displayed to the user (the symbols
-@@ -481,6 +508,7 @@ historical issues resolved through these different solutions.
-   b) Match dependency semantics:
- 	b1) Swap all "select FOO" to "depends on FOO" or,
- 	b2) Swap all "depends on FOO" to "select FOO"
-+  c) Consider the use of "imply" instead of "select"
+ config PTP_1588_CLOCK
+ 	tristate "PTP clock support"
+-	depends on NET
++	depends on NET && POSIX_TIMERS
+ 	select PPS
+ 	select NET_PTP_CLASSIFY
+ 	help
+diff --git a/include/linux/posix-timers.h b/include/linux/posix-timers.h
+index 62d44c1760..2288c5c557 100644
+--- a/include/linux/posix-timers.h
++++ b/include/linux/posix-timers.h
+@@ -118,6 +118,8 @@ struct k_clock {
+ extern struct k_clock clock_posix_cpu;
+ extern struct k_clock clock_posix_dynamic;
  
- The resolution to a) can be tested with the sample Kconfig file
- Documentation/kbuild/Kconfig.recursion-issue-01 through the removal
-diff --git a/scripts/kconfig/expr.h b/scripts/kconfig/expr.h
-index 973b6f7333..a73f762c48 100644
---- a/scripts/kconfig/expr.h
-+++ b/scripts/kconfig/expr.h
-@@ -85,6 +85,7 @@ struct symbol {
- 	struct property *prop;
- 	struct expr_value dir_dep;
- 	struct expr_value rev_dep;
-+	struct expr_value implied;
- };
- 
- #define for_all_symbols(i, sym) for (i = 0; i < SYMBOL_HASHSIZE; i++) for (sym = symbol_hash[i]; sym; sym = sym->next) if (sym->type != S_OTHER)
-@@ -136,6 +137,7 @@ enum prop_type {
- 	P_DEFAULT,  /* default y */
- 	P_CHOICE,   /* choice value */
- 	P_SELECT,   /* select BAR */
-+	P_IMPLY,    /* imply BAR */
- 	P_RANGE,    /* range 7..100 (for a symbol) */
- 	P_ENV,      /* value from environment variable */
- 	P_SYMBOL,   /* where a symbol is defined */
-diff --git a/scripts/kconfig/menu.c b/scripts/kconfig/menu.c
-index aed678e8a7..e9357931b4 100644
---- a/scripts/kconfig/menu.c
-+++ b/scripts/kconfig/menu.c
-@@ -233,6 +233,8 @@ static void sym_check_prop(struct symbol *sym)
- {
- 	struct property *prop;
- 	struct symbol *sym2;
-+	char *use;
++#ifdef CONFIG_POSIX_TIMERS
 +
- 	for (prop = sym->prop; prop; prop = prop->next) {
- 		switch (prop->type) {
- 		case P_DEFAULT:
-@@ -252,18 +254,20 @@ static void sym_check_prop(struct symbol *sym)
- 			}
- 			break;
- 		case P_SELECT:
-+		case P_IMPLY:
-+			use = prop->type == P_SELECT ? "select" : "imply";
- 			sym2 = prop_get_symbol(prop);
- 			if (sym->type != S_BOOLEAN && sym->type != S_TRISTATE)
- 				prop_warn(prop,
--				    "config symbol '%s' uses select, but is "
--				    "not boolean or tristate", sym->name);
-+				    "config symbol '%s' uses %s, but is "
-+				    "not boolean or tristate", sym->name, use);
- 			else if (sym2->type != S_UNKNOWN &&
- 				 sym2->type != S_BOOLEAN &&
- 				 sym2->type != S_TRISTATE)
- 				prop_warn(prop,
--				    "'%s' has wrong type. 'select' only "
-+				    "'%s' has wrong type. '%s' only "
- 				    "accept arguments of boolean and "
--				    "tristate type", sym2->name);
-+				    "tristate type", sym2->name, use);
- 			break;
- 		case P_RANGE:
- 			if (sym->type != S_INT && sym->type != S_HEX)
-@@ -333,6 +337,10 @@ void menu_finalize(struct menu *parent)
- 					struct symbol *es = prop_get_symbol(prop);
- 					es->rev_dep.expr = expr_alloc_or(es->rev_dep.expr,
- 							expr_alloc_and(expr_alloc_symbol(menu->sym), expr_copy(dep)));
-+				} else if (prop->type == P_IMPLY) {
-+					struct symbol *es = prop_get_symbol(prop);
-+					es->implied.expr = expr_alloc_or(es->implied.expr,
-+							expr_alloc_and(expr_alloc_symbol(menu->sym), expr_copy(dep)));
- 				}
- 			}
- 		}
-@@ -612,13 +620,30 @@ static struct property *get_symbol_prop(struct symbol *sym)
- 	return prop;
+ void posix_timers_register_clock(const clockid_t clock_id, struct k_clock *new_clock);
+ 
+ /* function to call to trigger timer event */
+@@ -131,8 +133,30 @@ void posix_cpu_timers_exit_group(struct task_struct *task);
+ void set_process_cpu_timer(struct task_struct *task, unsigned int clock_idx,
+ 			   cputime_t *newval, cputime_t *oldval);
+ 
+-long clock_nanosleep_restart(struct restart_block *restart_block);
+-
+ void update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new);
+ 
++#else
++
++#include <linux/random.h>
++
++static inline void posix_timers_register_clock(const clockid_t clock_id,
++					       struct k_clock *new_clock) {}
++static inline int posix_timer_event(struct k_itimer *timr, int si_private)
++{ return 0; }
++static inline void run_posix_cpu_timers(struct task_struct *task) {}
++static inline void posix_cpu_timers_exit(struct task_struct *task)
++{
++	add_device_randomness((const void*) &task->se.sum_exec_runtime,
++			      sizeof(unsigned long long));
++}
++static inline void posix_cpu_timers_exit_group(struct task_struct *task) {}
++static inline void set_process_cpu_timer(struct task_struct *task,
++		unsigned int clock_idx, cputime_t *newval, cputime_t *oldval) {}
++static inline void update_rlimit_cpu(struct task_struct *task,
++				     unsigned long rlim_new) {}
++
++#endif
++
++long clock_nanosleep_restart(struct restart_block *restart_block);
++
+ #endif
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 348f51b0ec..ad716d5559 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2946,8 +2946,13 @@ static inline void exit_thread(struct task_struct *tsk)
+ extern void exit_files(struct task_struct *);
+ extern void __cleanup_sighand(struct sighand_struct *);
+ 
++#ifdef CONFIG_POSIX_TIMERS
+ extern void exit_itimers(struct signal_struct *);
+ extern void flush_itimer_signals(void);
++#else
++static inline void exit_itimers(struct signal_struct *s) {}
++static inline void flush_itimer_signals(void) {}
++#endif
+ 
+ extern void do_group_exit(int);
+ 
+@@ -3450,7 +3455,12 @@ static __always_inline bool need_resched(void)
+  * Thread group CPU time accounting.
+  */
+ void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times);
++#ifdef CONFIG_POSIX_TIMERS
+ void thread_group_cputimer(struct task_struct *tsk, struct task_cputime *times);
++#else
++static inline void thread_group_cputimer(struct task_struct *tsk,
++					 struct task_cputime *times) {}
++#endif
+ 
+ /*
+  * Reevaluate whether the task has signals pending delivery.
+diff --git a/init/Kconfig b/init/Kconfig
+index 34407f15e6..351d422252 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1445,6 +1445,23 @@ config SYSCTL_SYSCALL
+ 
+ 	  If unsure say N here.
+ 
++config POSIX_TIMERS
++	bool "Posix Clocks & timers" if EXPERT
++	default y
++	help
++	  This includes native support for POSIX timers to the kernel.
++	  Most embedded systems may have no use for them and therefore they
++	  can be configured out to reduce the size of the kernel image.
++
++	  When this option is disabled, the following syscalls won't be
++	  available: timer_create, timer_gettime: timer_getoverrun,
++	  timer_settime, timer_delete, clock_adjtime. Furthermore, the
++	  clock_settime, clock_gettime, clock_getres and clock_nanosleep
++	  syscalls will be limited to CLOCK_REALTIME and CLOCK_MONOTONIC
++	  only.
++
++	  If unsure say y.
++
+ config KALLSYMS
+ 	 bool "Load all symbols for debugging/ksymoops" if EXPERT
+ 	 default y
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 75761acc77..0a38c9d646 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -427,6 +427,7 @@ void flush_signals(struct task_struct *t)
+ 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
  }
  
-+static void get_symbol_props_str(struct gstr *r, struct symbol *sym,
-+				 enum prop_type tok, const char *prefix)
-+{
-+	bool hit = false;
-+	struct property *prop;
++#ifdef CONFIG_POSIX_TIMERS
+ static void __flush_itimer_signals(struct sigpending *pending)
+ {
+ 	sigset_t signal, retain;
+@@ -460,6 +461,7 @@ void flush_itimer_signals(void)
+ 	__flush_itimer_signals(&tsk->signal->shared_pending);
+ 	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
+ }
++#endif
+ 
+ void ignore_signals(struct task_struct *t)
+ {
+@@ -611,6 +613,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
+ 		 */
+ 		current->jobctl |= JOBCTL_STOP_DEQUEUED;
+ 	}
++#ifdef CONFIG_POSIX_TIMERS
+ 	if ((info->si_code & __SI_MASK) == __SI_TIMER && info->si_sys_private) {
+ 		/*
+ 		 * Release the siglock to ensure proper locking order
+@@ -622,6 +625,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
+ 		do_schedule_next_timer(info);
+ 		spin_lock(&tsk->sighand->siglock);
+ 	}
++#endif
+ 	return signr;
+ }
+ 
+diff --git a/kernel/time/Makefile b/kernel/time/Makefile
+index 49eca0beed..fc26c308f5 100644
+--- a/kernel/time/Makefile
++++ b/kernel/time/Makefile
+@@ -1,6 +1,12 @@
+-obj-y += time.o timer.o hrtimer.o itimer.o posix-timers.o posix-cpu-timers.o
++obj-y += time.o timer.o hrtimer.o itimer.o
+ obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o
+-obj-y += timeconv.o timecounter.o posix-clock.o alarmtimer.o
++obj-y += timeconv.o timecounter.o alarmtimer.o
 +
-+	for_all_properties(sym, prop, tok) {
-+		if (!hit) {
-+			str_append(r, prefix);
-+			hit = true;
-+		} else
-+			str_printf(r, " && ");
-+		expr_gstr_print(prop->expr, r);
-+	}
-+	if (hit)
-+		str_append(r, "\n");
++ifeq ($(CONFIG_POSIX_TIMERS),y)
++ obj-y += posix-timers.o posix-cpu-timers.o posix-clock.o
++else
++ obj-y += posix-stubs.o
++endif
+ 
+ obj-$(CONFIG_GENERIC_CLOCKEVENTS)		+= clockevents.o tick-common.o
+ ifeq ($(CONFIG_GENERIC_CLOCKEVENTS_BROADCAST),y)
+diff --git a/kernel/time/posix-stubs.c b/kernel/time/posix-stubs.c
+new file mode 100644
+index 0000000000..fe857bd4a0
+--- /dev/null
++++ b/kernel/time/posix-stubs.c
+@@ -0,0 +1,118 @@
++/*
++ * Dummy stubs used when CONFIG_POSIX_TIMERS=n
++ *
++ * Created by:  Nicolas Pitre, July 2016
++ * Copyright:   (C) 2016 Linaro Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/linkage.h>
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/errno.h>
++#include <linux/syscalls.h>
++#include <linux/ktime.h>
++#include <linux/timekeeping.h>
++#include <linux/posix-timers.h>
++
++asmlinkage long sys_ni_posix_timers(void)
++{
++	pr_err_once("process %d (%s) attempted a POSIX timer syscall "
++		    "while CONFIG_POSIX_TIMERS is not set\n",
++		    current->pid, current->comm);
++	return -ENOSYS;
 +}
 +
- /*
-  * head is optional and may be NULL
-  */
- static void get_symbol_str(struct gstr *r, struct symbol *sym,
- 		    struct list_head *head)
- {
--	bool hit;
- 	struct property *prop;
- 
- 	if (sym && sym->name) {
-@@ -648,22 +673,20 @@ static void get_symbol_str(struct gstr *r, struct symbol *sym,
- 		}
- 	}
- 
--	hit = false;
--	for_all_properties(sym, prop, P_SELECT) {
--		if (!hit) {
--			str_append(r, "  Selects: ");
--			hit = true;
--		} else
--			str_printf(r, " && ");
--		expr_gstr_print(prop->expr, r);
--	}
--	if (hit)
--		str_append(r, "\n");
-+	get_symbol_props_str(r, sym, P_SELECT, _("  Selects: "));
- 	if (sym->rev_dep.expr) {
- 		str_append(r, _("  Selected by: "));
- 		expr_gstr_print(sym->rev_dep.expr, r);
- 		str_append(r, "\n");
- 	}
++#define SYS_NI(name)  SYSCALL_ALIAS(sys_##name, sys_ni_posix_timers)
 +
-+	get_symbol_props_str(r, sym, P_IMPLY, _("  Implies: "));
-+	if (sym->implied.expr) {
-+		str_append(r, _("  Implied by: "));
-+		expr_gstr_print(sym->implied.expr, r);
-+		str_append(r, "\n");
-+	}
++SYS_NI(timer_create);
++SYS_NI(timer_gettime);
++SYS_NI(timer_getoverrun);
++SYS_NI(timer_settime);
++SYS_NI(timer_delete);
++SYS_NI(clock_adjtime);
 +
- 	str_append(r, "\n\n");
- }
- 
-diff --git a/scripts/kconfig/symbol.c b/scripts/kconfig/symbol.c
-index 2432298487..20136ffefb 100644
---- a/scripts/kconfig/symbol.c
-+++ b/scripts/kconfig/symbol.c
-@@ -258,6 +258,15 @@ static void sym_calc_visibility(struct symbol *sym)
- 		sym->rev_dep.tri = tri;
- 		sym_set_changed(sym);
- 	}
-+	tri = no;
-+	if (sym->implied.expr && sym->dir_dep.tri != no)
-+		tri = expr_calc_value(sym->implied.expr);
-+	if (tri == mod && sym_get_type(sym) == S_BOOLEAN)
-+		tri = yes;
-+	if (sym->implied.tri != tri) {
-+		sym->implied.tri = tri;
-+		sym_set_changed(sym);
-+	}
- }
- 
- /*
-@@ -397,6 +406,10 @@ void sym_calc_value(struct symbol *sym)
- 					newval.tri = EXPR_AND(expr_calc_value(prop->expr),
- 							      prop->visible.tri);
- 				}
-+				if (sym->implied.tri != no) {
-+					sym->flags |= SYMBOL_WRITE;
-+					newval.tri = EXPR_OR(newval.tri, sym->implied.tri);
-+				}
- 			}
- 		calc_newval:
- 			if (sym->dir_dep.tri == no && sym->rev_dep.tri != no) {
-@@ -413,7 +426,8 @@ void sym_calc_value(struct symbol *sym)
- 			}
- 			newval.tri = EXPR_OR(newval.tri, sym->rev_dep.tri);
- 		}
--		if (newval.tri == mod && sym_get_type(sym) == S_BOOLEAN)
-+		if (newval.tri == mod &&
-+		    (sym_get_type(sym) == S_BOOLEAN || sym->implied.tri == yes))
- 			newval.tri = yes;
- 		break;
- 	case S_STRING:
-@@ -498,6 +512,8 @@ bool sym_tristate_within_range(struct symbol *sym, tristate val)
- 		return false;
- 	if (sym->visible <= sym->rev_dep.tri)
- 		return false;
-+	if (sym->implied.tri == yes && val == mod)
-+		return false;
- 	if (sym_is_choice_value(sym) && sym->visible == yes)
- 		return val == yes;
- 	return val >= sym->rev_dep.tri && val <= sym->visible;
-@@ -750,6 +766,10 @@ const char *sym_get_string_default(struct symbol *sym)
- 	if (sym->type == S_BOOLEAN && val == mod)
- 		val = yes;
- 
-+	/* adjust the default value if this symbol is implied by another */
-+	if (val < sym->implied.tri)
-+		val = sym->implied.tri;
++/*
++ * We preserve minimal support for CLOCK_REALTIME and CLOCK_MONOTONIC
++ * as it is easy to remain compatible with little code. CLOCK_BOOTTIME
++ * is also included for convenience as at least systemd uses it.
++ */
 +
- 	switch (sym->type) {
- 	case S_BOOLEAN:
- 	case S_TRISTATE:
-@@ -1352,6 +1372,8 @@ const char *prop_get_type_name(enum prop_type type)
- 		return "choice";
- 	case P_SELECT:
- 		return "select";
-+	case P_IMPLY:
-+		return "imply";
- 	case P_RANGE:
- 		return "range";
- 	case P_SYMBOL:
-diff --git a/scripts/kconfig/zconf.gperf b/scripts/kconfig/zconf.gperf
-index ac498f01b4..ead02edec9 100644
---- a/scripts/kconfig/zconf.gperf
-+++ b/scripts/kconfig/zconf.gperf
-@@ -38,6 +38,7 @@ int,		T_TYPE,		TF_COMMAND, S_INT
- hex,		T_TYPE,		TF_COMMAND, S_HEX
- string,		T_TYPE,		TF_COMMAND, S_STRING
- select,		T_SELECT,	TF_COMMAND
-+imply,		T_IMPLY,	TF_COMMAND
- range,		T_RANGE,	TF_COMMAND
- visible,	T_VISIBLE,	TF_COMMAND
- option,		T_OPTION,	TF_COMMAND
-diff --git a/scripts/kconfig/zconf.y b/scripts/kconfig/zconf.y
-index 71bf8bff69..001305fa08 100644
---- a/scripts/kconfig/zconf.y
-+++ b/scripts/kconfig/zconf.y
-@@ -31,7 +31,7 @@ struct symbol *symbol_hash[SYMBOL_HASHSIZE];
- static struct menu *current_menu, *current_entry;
- 
- %}
--%expect 30
-+%expect 32
- 
- %union
- {
-@@ -62,6 +62,7 @@ static struct menu *current_menu, *current_entry;
- %token <id>T_TYPE
- %token <id>T_DEFAULT
- %token <id>T_SELECT
-+%token <id>T_IMPLY
- %token <id>T_RANGE
- %token <id>T_VISIBLE
- %token <id>T_OPTION
-@@ -124,7 +125,7 @@ stmt_list:
- ;
- 
- option_name:
--	T_DEPENDS | T_PROMPT | T_TYPE | T_SELECT | T_OPTIONAL | T_RANGE | T_DEFAULT | T_VISIBLE
-+	T_DEPENDS | T_PROMPT | T_TYPE | T_SELECT | T_IMPLY | T_OPTIONAL | T_RANGE | T_DEFAULT | T_VISIBLE
- ;
- 
- common_stmt:
-@@ -216,6 +217,12 @@ config_option: T_SELECT T_WORD if_expr T_EOL
- 	printd(DEBUG_PARSE, "%s:%d:select\n", zconf_curname(), zconf_lineno());
- };
- 
-+config_option: T_IMPLY T_WORD if_expr T_EOL
++SYSCALL_DEFINE2(clock_settime, const clockid_t, which_clock,
++		const struct timespec __user *, tp)
 +{
-+	menu_add_symbol(P_IMPLY, sym_lookup($2, 0), $3);
-+	printd(DEBUG_PARSE, "%s:%d:imply\n", zconf_curname(), zconf_lineno());
-+};
++	struct timespec new_tp;
 +
- config_option: T_RANGE symbol symbol if_expr T_EOL
- {
- 	menu_add_expr(P_RANGE, expr_alloc_comp(E_RANGE,$2, $3), $4);
-@@ -664,6 +671,11 @@ static void print_symbol(FILE *out, struct menu *menu)
- 			expr_fprint(prop->expr, out);
- 			fputc('\n', out);
- 			break;
-+		case P_IMPLY:
-+			fputs( "  imply ", out);
-+			expr_fprint(prop->expr, out);
-+			fputc('\n', out);
-+			break;
- 		case P_RANGE:
- 			fputs( "  range ", out);
- 			expr_fprint(prop->expr, out);
++	if (which_clock != CLOCK_REALTIME)
++		return -EINVAL;
++	if (copy_from_user(&new_tp, tp, sizeof (*tp)))
++		return -EFAULT;
++	return do_sys_settimeofday(&new_tp, NULL);
++}
++
++SYSCALL_DEFINE2(clock_gettime, const clockid_t, which_clock,
++		struct timespec __user *,tp)
++{
++	struct timespec kernel_tp;
++
++	switch (which_clock) {
++	case CLOCK_REALTIME: ktime_get_real_ts(&kernel_tp); break;
++	case CLOCK_MONOTONIC: ktime_get_ts(&kernel_tp); break;
++	case CLOCK_BOOTTIME: get_monotonic_boottime(&kernel_tp); break;
++	default: return -EINVAL;
++	}
++	if (copy_to_user(tp, &kernel_tp, sizeof (kernel_tp)))
++		return -EFAULT;
++	return 0;
++}
++
++SYSCALL_DEFINE2(clock_getres, const clockid_t, which_clock, struct timespec __user *, tp)
++{
++	struct timespec rtn_tp = {
++		.tv_sec = 0,
++		.tv_nsec = hrtimer_resolution,
++	};
++
++	switch (which_clock) {
++	case CLOCK_REALTIME:
++	case CLOCK_MONOTONIC:
++	case CLOCK_BOOTTIME:
++		if (copy_to_user(tp, &rtn_tp, sizeof(rtn_tp)))
++			return -EFAULT;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++SYSCALL_DEFINE4(clock_nanosleep, const clockid_t, which_clock, int, flags,
++		const struct timespec __user *, rqtp,
++		struct timespec __user *, rmtp)
++{
++	struct timespec t;
++
++	switch (which_clock) {
++	case CLOCK_REALTIME:
++	case CLOCK_MONOTONIC:
++	case CLOCK_BOOTTIME:
++		if (copy_from_user(&t, rqtp, sizeof (struct timespec)))
++			return -EFAULT;
++		if (!timespec_valid(&t))
++			return -EINVAL;
++		return hrtimer_nanosleep(&t, rmtp, flags & TIMER_ABSTIME ?
++					 HRTIMER_MODE_ABS : HRTIMER_MODE_REL,
++					 which_clock);
++	default:
++		return -EINVAL;
++	}
++}
++
++#ifdef CONFIG_COMPAT
++long clock_nanosleep_restart(struct restart_block *restart_block)
++{
++	return hrtimer_nanosleep_restart(restart_block);
++}
++#endif
 -- 
 2.7.4
-
