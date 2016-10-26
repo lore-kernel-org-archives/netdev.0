@@ -1,70 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Reset skb to network header in neigh_hh_output
-Date: Tue, 25 Oct 2016 17:12:22 -0700
-Message-ID: <1477440742.7065.161.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1579f7f0f4f.114457ec828613.4349884782265574217@abahmed.com>
-         <1475874656.28155.268.camel@edumazet-glaptop3.roam.corp.google.com>
-         <157fe46f382.10e50a6d8188917.494328765811573491@abahmed.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Abdelrhman Ahmed <ab@abahmed.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <157fe46f382.10e50a6d8188917.494328765811573491@abahmed.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net] packet: on direct_xmit, limit tso and csum to supported devices
+Date: Tue, 25 Oct 2016 20:28:03 -0400
+Message-ID: <1477441683-68242-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, daniel@iogearbox.net,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36676 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756317AbcJZA20 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 20:28:26 -0400
+Received: by mail-qk0-f193.google.com with SMTP id z190so16850244qkc.3
+        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 17:28:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-26 at 01:57 +0200, Abdelrhman Ahmed wrote:
->  > What is the issue you want to fix exactly ? 
->  > Please describe the use case. 
-> 
-> When netfilter hook uses skb_push to add a specific header between network
-> header and hardware header.
-> For the first time(s) before caching hardware header, this header will be
-> removed / overwritten by hardware header due to resetting to network header.
-> After using the cached hardware header, this header will be kept as we do not
-> reset. I think this behavior is inconsistent, so we need to reset in both cases.
-> 
->  > Otherwise, your fix is in fact adding a critical bug. 
-> 
-> Could you explain more as it's not clear to me?
-> 
+From: Willem de Bruijn <willemb@google.com>
 
-Maybe my wording was not good here.
+When transmitting on a packet socket with PACKET_VNET_HDR and
+PACKET_QDISC_BYPASS, validate device support for features requested
+in vnet_hdr.
 
-What I intended to say is that the 
-__skb_pull(skb, skb_network_offset(skb)) might not be at the right
-place.
+Drop TSO packets sent to devices that do not support TSO or have the
+feature disabled. Note that the latter currently do process those
+packets correctly, regardless of not advertising the feature.
 
-Look at commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c to find the
-reason.
+Because of SKB_GSO_DODGY, it is not sufficient to test device features
+with netif_needs_gso. Full validate_xmit_skb is needed.
 
+Switch to software checksum for non-TSO packets that request checksum
+offload if that device feature is unsupported or disabled. Note that
+similar to the TSO case, device drivers may perform checksum offload
+correctly even when not advertising it.
 
-> 
-> 
->  ---- On Fri, 07 Oct 2016 23:10:56 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote ---- 
->  > On Fri, 2016-10-07 at 16:14 +0200, Abdelrhman Ahmed wrote: 
->  > > When hardware header is added without using cached one, neigh_resolve_output 
->  > > and neigh_connected_output reset skb to network header before adding it. 
->  > > When cached one is used, neigh_hh_output does not reset the skb to network 
->  > > header. 
->  > >  
->  > > The fix is to reset skb to network header before adding cached hardware header 
->  > > to keep the behavior consistent in all cases. 
->  >  
->  > What is the issue you want to fix exactly ? 
->  >  
->  > Please describe the use case. 
->  >  
->  > I highly suggest you take a look at commit 
->  >  
->  > e1f165032c8bade3a6bdf546f8faf61fda4dd01c 
->  > ("net: Fix skb_under_panic oops in neigh_resolve_output") 
->  >  
->  > Otherwise, your fix is in fact adding a critical bug. 
->  >  
->  >  
->  > 
-> 
+When switching to software checksum, packets hit skb_checksum_help,
+which has two BUG_ON checksum not in linear segment. Packet sockets
+always allocate at least up to csum_start + csum_off + 2 as linear.
+
+Tested by running github.com/wdebruij/kerneltools/psock_txring_vnet.c
+
+  ethtool -K eth0 tso off tx on
+  psock_txring_vnet -d $dst -s $src -i eth0 -l 2000 -n 1 -q -v
+  psock_txring_vnet -d $dst -s $src -i eth0 -l 2000 -n 1 -q -v -N
+
+  ethtool -K eth0 tx off
+  psock_txring_vnet -d $dst -s $src -i eth0 -l 1000 -n 1 -q -v -G
+  psock_txring_vnet -d $dst -s $src -i eth0 -l 1000 -n 1 -q -v -G -N
+
+Fixes: d346a3fae3ff ("packet: introduce PACKET_QDISC_BYPASS socket option")
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 11db0d6..d2238b2 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -250,7 +250,7 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po);
+ static int packet_direct_xmit(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+-	netdev_features_t features;
++	struct sk_buff *orig_skb = skb;
+ 	struct netdev_queue *txq;
+ 	int ret = NETDEV_TX_BUSY;
+ 
+@@ -258,9 +258,8 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 		     !netif_carrier_ok(dev)))
+ 		goto drop;
+ 
+-	features = netif_skb_features(skb);
+-	if (skb_needs_linearize(skb, features) &&
+-	    __skb_linearize(skb))
++	skb = validate_xmit_skb_list(skb, dev);
++	if (skb != orig_skb)
+ 		goto drop;
+ 
+ 	txq = skb_get_tx_queue(dev, skb);
+@@ -280,7 +279,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 	return ret;
+ drop:
+ 	atomic_long_inc(&dev->tx_dropped);
+-	kfree_skb(skb);
++	kfree_skb_list(skb);
+ 	return NET_XMIT_DROP;
+ }
+ 
+-- 
+2.8.0.rc3.226.g39d4020
