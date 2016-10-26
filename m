@@ -1,44 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/1] ISDN: eicon: replace custom hex_dump_to_buffer()
-Date: Wed, 26 Oct 2016 17:27:24 -0400 (EDT)
-Message-ID: <20161026.172724.1119265167460783757.davem@davemloft.net>
-References: <20161022173705.170520-1-andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH net-next 1/2] firewire: net: fix maximum possible MTU
+Date: Wed, 26 Oct 2016 17:29:09 -0400 (EDT)
+Message-ID: <20161026.172909.588275737782880653.davem@davemloft.net>
+References: <20161022212759.228c7642@kant> <20161023011824.GE32569@redhat.com>
+	<20161023162903.4166a35d@kant>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: mac@melware.de, netdev@vger.kernel.org, isdn@linux-pingi.de
-To: andriy.shevchenko@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42236 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933756AbcJZV10 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 17:27:26 -0400
-In-Reply-To: <20161022173705.170520-1-andriy.shevchenko@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, jarod@redhat.com
+To: stefanr@s5r6.in-berlin.de
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20161023162903.4166a35d@kant>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQW5keSBTaGV2Y2hlbmtvIDxhbmRyaXkuc2hldmNoZW5rb0BsaW51eC5pbnRlbC5jb20+
-DQpEYXRlOiBTYXQsIDIyIE9jdCAyMDE2IDIwOjM3OjA1ICswMzAwDQoNCj4gSW5zdGVhZCBvZiBj
-dXN0b20gYXBwcm9hY2ggcmUtdXNlIGdlbmVyaWMgaGVscGVyIHRvIGNvbnZlcnQgYnl0ZXMgdG8g
-aGV4DQo+IGZvcm1hdC4NCj4gDQo+IFRoZSBvdXRwdXQgaXMgc2xpZ2h0bHkgY2hhbmdlZCwgbmFt
-ZWx5IHN0cmluZyBzdGFydHMgZnJvbSB0aGUgZmlyc3QgZHdvcmQNCj4gdmFsdWUuDQo+IA0KPiBT
-aWduZWQtb2ZmLWJ5OiBBbmR5IFNoZXZjaGVua28gPGFuZHJpeS5zaGV2Y2hlbmtvQGxpbnV4Lmlu
-dGVsLmNvbT4NCg0KVGhpcyBhZGRzIGEgd2FybmluZy4NCg0KUmVhbGx5LCBpZiB5b3UncmUgbm90
-IGV2ZW4gZ29pbmcgdG8gY2hlY2sgaWYgdGhlIGNvbXBpbGVyIHdhcm5zDQp3aGVuIHlvdSB0cnkg
-dG8gImNsZWFuIHVwIiBzdWNoIGFuY2llbnQgZHJpdmVycyBsaWtlIHRoaXMgb25lLA0KZG9uJ3Qg
-ZXZlbiBib3RoZXIuDQoNCmRyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9tZXNzYWdlLmM6IElu
-IGZ1bmN0aW9uIKFkdW1wX2NfaW5kX21hc2uiOg0KZHJpdmVycy9pc2RuL2hhcmR3YXJlL2VpY29u
-L21lc3NhZ2UuYzoxMTU2OjIyOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDEgb2YgoWhleF9k
-dW1wX3RvX2J1ZmZlcqIgbWFrZXMgcG9pbnRlciBmcm9tIGludGVnZXIgd2l0aG91dCBhIGNhc3Qg
-Wy1XaW50LWNvbnZlcnNpb25dDQogICBoZXhfZHVtcF90b19idWZmZXIocGxjaS0+Y19pbmRfbWFz
-a190YWJsZVtpXSwgaiwgMTYsIDQsIGJ1Ziwgc2l6ZW9mKGJ1ZiksIGZhbHNlKTsNCiAgICAgICAg
-ICAgICAgICAgICAgICBefn5+DQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gLi9pbmNsdWRlL2xpbnV4
-L2tlcm5lbC5oOjEzOjAsDQogICAgICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRlL2xpbnV4L2xp
-c3QuaDo4LA0KICAgICAgICAgICAgICAgICBmcm9tIC4vaW5jbHVkZS9saW51eC9tb2R1bGUuaDo5
-LA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9wbGF0
-Zm9ybS5oOjIxLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaXNkbi9oYXJkd2FyZS9l
-aWNvbi9tZXNzYWdlLmM6MzA6DQouL2luY2x1ZGUvbGludXgvcHJpbnRrLmg6NDU3OjEyOiBub3Rl
-OiBleHBlY3RlZCChY29uc3Qgdm9pZCAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChdTMyIHth
-a2EgdW5zaWduZWQgaW50faINCiBleHRlcm4gaW50IGhleF9kdW1wX3RvX2J1ZmZlcihjb25zdCB2
-b2lkICpidWYsIHNpemVfdCBsZW4sIGludCByb3dzaXplLA0KICAgICAgICAgICAgXn5+fn5+fn5+
-fn5+fn5+fn5+DQoNCg==
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Date: Sun, 23 Oct 2016 16:29:03 +0200
+
+> Commit b3e3893e1253 ("net: use core MTU range checking in misc drivers")
+> mistakenly introduced an upper limit for firewire-net's MTU based on the
+> local link layer controller's reception capability.  Revert this.  Neither
+> RFC 2734 nor our implementation impose any particular upper limit.
+> 
+> Actually, to be on the safe side and to make the code explicit, set
+> ETH_MAX_MTU = 65535 as upper limit now.
+> 
+> (I replaced sizeof(struct rfc2734_header) by the equivalent
+> RFC2374_FRAG_HDR_SIZE in order to avoid distracting long/int conversions.)
+> 
+> Fixes: b3e3893e1253('net: use core MTU range checking in misc drivers')
+> CC: netdev@vger.kernel.org
+> CC: linux1394-devel@lists.sourceforge.net
+> CC: Jarod Wilson <jarod@redhat.com>
+> Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
+
+Applied.
+
+------------------------------------------------------------------------------
+The Command Line: Reinvented for Modern Developers
+Did the resurgence of CLI tooling catch you by surprise?
+Reconnect with the command line and become more productive. 
+Learn the new .NET and ASP.NET CLI. Get your free copy!
+http://sdm.link/telerik
