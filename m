@@ -1,152 +1,114 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH v2 8/9] ipv6: sr: add support for SRH injection through setsockopt
-Date: Wed, 26 Oct 2016 17:56:16 +0200
-Message-ID: <1477497377-22372-4-git-send-email-david.lebrun@uclouvain.be>
+Subject: [PATCH v2 7/9] ipv6: add source address argument for ipv6_push_nfrag_opts
+Date: Wed, 26 Oct 2016 17:56:15 +0200
+Message-ID: <1477497377-22372-3-git-send-email-david.lebrun@uclouvain.be>
 References: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:58413 "EHLO
-        smtp3.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933290AbcJZPyi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:54:38 -0400
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:58440 "EHLO
+        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933654AbcJZPyj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:54:39 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp3.sgsi.ucl.ac.be (Postfix) with ESMTPS id 9AC0967DA2F
+        by smtp6.sgsi.ucl.ac.be (Postfix) with ESMTPS id 6DFF967DBB5
         for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 17:54:29 +0200 (CEST)
 In-Reply-To: <1477497292-22155-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for per-socket SRH injection with the setsockopt
-system call through the IPPROTO_IPV6, IPV6_RTHDR options.
-The SRH is pushed through the ipv6_push_nfrag_opts function.
+This patch prepares for insertion of SRH through setsockopt().
+The new source address argument is used when an HMAC field is
+present in the SRH, which must be filled. The HMAC signature
+process requires the source address as input text.
 
 Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- net/ipv6/exthdrs.c       | 79 +++++++++++++++++++++++++++++++++++++++++++++---
- net/ipv6/ipv6_sockglue.c |  2 ++
- 2 files changed, 77 insertions(+), 4 deletions(-)
+ include/net/ipv6.h    | 3 ++-
+ net/ipv6/exthdrs.c    | 6 +++---
+ net/ipv6/ip6_output.c | 5 +++--
+ net/ipv6/ip6_tunnel.c | 2 +-
+ 4 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 28d2629..489f9ea 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -872,9 +872,9 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
-  *	for headers.
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8fed1cd..0a3622b 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -932,7 +932,8 @@ int ip6_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
   */
  
--static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
--			    struct ipv6_rt_hdr *opt,
--			    struct in6_addr **addr_p, struct in6_addr *saddr)
-+static void ipv6_push_rthdr0(struct sk_buff *skb, u8 *proto,
-+			     struct ipv6_rt_hdr *opt,
-+			     struct in6_addr **addr_p, struct in6_addr *saddr)
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+-			  u8 *proto, struct in6_addr **daddr_p);
++			  u8 *proto, struct in6_addr **daddr_p,
++			  struct in6_addr *saddr);
+ void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			 u8 *proto);
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 9b63932..28d2629 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -874,7 +874,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
+ 
+ static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
+ 			    struct ipv6_rt_hdr *opt,
+-			    struct in6_addr **addr_p)
++			    struct in6_addr **addr_p, struct in6_addr *saddr)
  {
  	struct rt0_hdr *phdr, *ihdr;
  	int hops;
-@@ -897,6 +897,62 @@ static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
- 	*proto = NEXTHDR_ROUTING;
- }
+@@ -908,10 +908,10 @@ static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv
  
-+static void ipv6_push_rthdr4(struct sk_buff *skb, u8 *proto,
-+			     struct ipv6_rt_hdr *opt,
-+			     struct in6_addr **addr_p, struct in6_addr *saddr)
-+{
-+	struct ipv6_sr_hdr *sr_phdr, *sr_ihdr;
-+	int plen, hops;
-+
-+	sr_ihdr = (struct ipv6_sr_hdr *)opt;
-+	plen = (sr_ihdr->hdrlen + 1) << 3;
-+
-+	sr_phdr = (struct ipv6_sr_hdr *)skb_push(skb, plen);
-+	memcpy(sr_phdr, sr_ihdr, sizeof(struct ipv6_sr_hdr));
-+
-+	hops = sr_ihdr->first_segment + 1;
-+	memcpy(sr_phdr->segments + 1, sr_ihdr->segments + 1,
-+	       (hops - 1) * sizeof(struct in6_addr));
-+
-+	sr_phdr->segments[0] = **addr_p;
-+	*addr_p = &sr_ihdr->segments[hops - 1];
-+
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (sr_has_hmac(sr_phdr)) {
-+		struct net *net = NULL;
-+
-+		if (skb->dev)
-+			net = dev_net(skb->dev);
-+		else if (skb->sk)
-+			net = sock_net(skb->sk);
-+
-+		WARN_ON(!net);
-+
-+		if (net)
-+			seg6_push_hmac(net, saddr, sr_phdr);
-+	}
-+#endif
-+
-+	sr_phdr->nexthdr = *proto;
-+	*proto = NEXTHDR_ROUTING;
-+}
-+
-+static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
-+			    struct ipv6_rt_hdr *opt,
-+			    struct in6_addr **addr_p, struct in6_addr *saddr)
-+{
-+	switch (opt->type) {
-+	case IPV6_SRCRT_TYPE_0:
-+		ipv6_push_rthdr0(skb, proto, opt, addr_p, saddr);
-+		break;
-+	case IPV6_SRCRT_TYPE_4:
-+		ipv6_push_rthdr4(skb, proto, opt, addr_p, saddr);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
- static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv6_opt_hdr *opt)
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			  u8 *proto,
+-			  struct in6_addr **daddr)
++			  struct in6_addr **daddr, struct in6_addr *saddr)
  {
- 	struct ipv6_opt_hdr *h = (struct ipv6_opt_hdr *)skb_push(skb, ipv6_optlen(opt));
-@@ -1138,7 +1194,22 @@ struct in6_addr *fl6_update_dst(struct flowi6 *fl6,
- 		return NULL;
+ 	if (opt->srcrt) {
+-		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr);
++		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr, saddr);
+ 		/*
+ 		 * IPV6_RTHDRDSTOPTS is ignored
+ 		 * unless IPV6_RTHDR is set (RFC3542).
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6001e78..ddc878d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -203,7 +203,8 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 		if (opt->opt_flen)
+ 			ipv6_push_frag_opts(skb, opt, &proto);
+ 		if (opt->opt_nflen)
+-			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
++			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop,
++					     &fl6->saddr);
+ 	}
  
- 	*orig = fl6->daddr;
--	fl6->daddr = *((struct rt0_hdr *)opt->srcrt)->addr;
-+
-+	switch (opt->srcrt->type) {
-+	case IPV6_SRCRT_TYPE_0:
-+		fl6->daddr = *((struct rt0_hdr *)opt->srcrt)->addr;
-+		break;
-+	case IPV6_SRCRT_TYPE_4:
-+	{
-+		struct ipv6_sr_hdr *srh = (struct ipv6_sr_hdr *)opt->srcrt;
-+
-+		fl6->daddr = srh->segments[srh->first_segment];
-+		break;
-+	}
-+	default:
-+		return NULL;
-+	}
-+
- 	return orig;
- }
- EXPORT_SYMBOL_GPL(fl6_update_dst);
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 5330262..3fd6371 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -429,6 +429,8 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+@@ -1672,7 +1673,7 @@ struct sk_buff *__ip6_make_skb(struct sock *sk,
+ 	if (opt && opt->opt_flen)
+ 		ipv6_push_frag_opts(skb, opt, &proto);
+ 	if (opt && opt->opt_nflen)
+-		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
++		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst, &fl6->saddr);
  
- 				break;
- #endif
-+			case IPV6_SRCRT_TYPE_4:
-+				break;
- 			default:
- 				goto sticky_done;
- 			}
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 3a70567..9c894c9 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1155,7 +1155,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 
+ 	if (encap_limit >= 0) {
+ 		init_tel_txopt(&opt, encap_limit);
+-		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
++		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
+ 	}
+ 
+ 	/* Calculate max headroom for all the headers and adjust
 -- 
 2.7.3
