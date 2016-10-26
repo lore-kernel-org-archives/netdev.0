@@ -1,38 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: netcp: drop kfree for memory allocated with
- devm_kzalloc
-Date: Wed, 26 Oct 2016 17:25:26 -0400 (EDT)
-Message-ID: <20161026.172526.1027774423832279952.davem@davemloft.net>
-References: <1477139524-26359-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH v1 1/1] ISDN: eicon: replace custom hex_dump_to_buffer()
+Date: Wed, 26 Oct 2016 17:27:24 -0400 (EDT)
+Message-ID: <20161026.172724.1119265167460783757.davem@davemloft.net>
+References: <20161022173705.170520-1-andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: w-kwok2@ti.com, m-karicheri2@ti.com, weiyongjun1@huawei.com,
-        netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: mac@melware.de, netdev@vger.kernel.org, isdn@linux-pingi.de
+To: andriy.shevchenko@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42180 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42236 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932716AbcJZVZ2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 17:25:28 -0400
-In-Reply-To: <1477139524-26359-1-git-send-email-weiyj.lk@gmail.com>
+        with ESMTP id S933756AbcJZV10 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 17:27:26 -0400
+In-Reply-To: <20161022173705.170520-1-andriy.shevchenko@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-None of your patches apply to the net-next tree.
-
-I'm getting extremely troubled by the quality of your submissions and
-the effort you are not putting into making sure you submit patches
-which will apply cleanly against the net-next tree.
-
-I think I'm at the point where it is extremely fair for me to warn you
-that if this continues any further I reserve the right to start
-ignoring your submissions completely because they are having a
-negative effect on my ability to process the pending patch queue for
-networking.
-
-You have been warned, and so please do not make any excuses or be
-surprised in the future if less attention is paid to your submissions.
-
-Thank you.
+RnJvbTogQW5keSBTaGV2Y2hlbmtvIDxhbmRyaXkuc2hldmNoZW5rb0BsaW51eC5pbnRlbC5jb20+
+DQpEYXRlOiBTYXQsIDIyIE9jdCAyMDE2IDIwOjM3OjA1ICswMzAwDQoNCj4gSW5zdGVhZCBvZiBj
+dXN0b20gYXBwcm9hY2ggcmUtdXNlIGdlbmVyaWMgaGVscGVyIHRvIGNvbnZlcnQgYnl0ZXMgdG8g
+aGV4DQo+IGZvcm1hdC4NCj4gDQo+IFRoZSBvdXRwdXQgaXMgc2xpZ2h0bHkgY2hhbmdlZCwgbmFt
+ZWx5IHN0cmluZyBzdGFydHMgZnJvbSB0aGUgZmlyc3QgZHdvcmQNCj4gdmFsdWUuDQo+IA0KPiBT
+aWduZWQtb2ZmLWJ5OiBBbmR5IFNoZXZjaGVua28gPGFuZHJpeS5zaGV2Y2hlbmtvQGxpbnV4Lmlu
+dGVsLmNvbT4NCg0KVGhpcyBhZGRzIGEgd2FybmluZy4NCg0KUmVhbGx5LCBpZiB5b3UncmUgbm90
+IGV2ZW4gZ29pbmcgdG8gY2hlY2sgaWYgdGhlIGNvbXBpbGVyIHdhcm5zDQp3aGVuIHlvdSB0cnkg
+dG8gImNsZWFuIHVwIiBzdWNoIGFuY2llbnQgZHJpdmVycyBsaWtlIHRoaXMgb25lLA0KZG9uJ3Qg
+ZXZlbiBib3RoZXIuDQoNCmRyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9tZXNzYWdlLmM6IElu
+IGZ1bmN0aW9uIKFkdW1wX2NfaW5kX21hc2uiOg0KZHJpdmVycy9pc2RuL2hhcmR3YXJlL2VpY29u
+L21lc3NhZ2UuYzoxMTU2OjIyOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDEgb2YgoWhleF9k
+dW1wX3RvX2J1ZmZlcqIgbWFrZXMgcG9pbnRlciBmcm9tIGludGVnZXIgd2l0aG91dCBhIGNhc3Qg
+Wy1XaW50LWNvbnZlcnNpb25dDQogICBoZXhfZHVtcF90b19idWZmZXIocGxjaS0+Y19pbmRfbWFz
+a190YWJsZVtpXSwgaiwgMTYsIDQsIGJ1Ziwgc2l6ZW9mKGJ1ZiksIGZhbHNlKTsNCiAgICAgICAg
+ICAgICAgICAgICAgICBefn5+DQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gLi9pbmNsdWRlL2xpbnV4
+L2tlcm5lbC5oOjEzOjAsDQogICAgICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRlL2xpbnV4L2xp
+c3QuaDo4LA0KICAgICAgICAgICAgICAgICBmcm9tIC4vaW5jbHVkZS9saW51eC9tb2R1bGUuaDo5
+LA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaXNkbi9oYXJkd2FyZS9laWNvbi9wbGF0
+Zm9ybS5oOjIxLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvaXNkbi9oYXJkd2FyZS9l
+aWNvbi9tZXNzYWdlLmM6MzA6DQouL2luY2x1ZGUvbGludXgvcHJpbnRrLmg6NDU3OjEyOiBub3Rl
+OiBleHBlY3RlZCChY29uc3Qgdm9pZCAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChdTMyIHth
+a2EgdW5zaWduZWQgaW50faINCiBleHRlcm4gaW50IGhleF9kdW1wX3RvX2J1ZmZlcihjb25zdCB2
+b2lkICpidWYsIHNpemVfdCBsZW4sIGludCByb3dzaXplLA0KICAgICAgICAgICAgXn5+fn5+fn5+
+fn5+fn5+fn5+DQoNCg==
