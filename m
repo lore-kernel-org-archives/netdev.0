@@ -1,40 +1,49 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] netlink: Add nla_memdup() to wrap kmemdup() use
- on nlattr
-Date: Wed, 26 Oct 2016 11:52:38 +0200
-Message-ID: <20161026095238.GB16590@pox.localdomain>
-References: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf@suug.ch>
- <1477472376.4059.23.camel@sipsolutions.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: hns: mark symbols static where possible
+Date: Wed, 26 Oct 2016 11:53:06 +0200
+Message-ID: <21348245.KSjHuUMv5P@wuerfel>
+References: <1477474968-13123-1-git-send-email-baoyou.xie@linaro.org> <CA+DQWkw5HkraYgMNtCJ+-VQKcxoVV+AzfnkjQEbRcNLnBcGkaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        davem@davemloft.net, yankejian@huawei.com,
+        huangdaode@hisilicon.com, lisheng011@huawei.com, fabf@skynet.be,
+        xieqianqian@huawei.com, lipeng321@huawei.com,
+        Colin King <colin.king@canonical.com>, weiyongjun1@huawei.com,
+        oulijun@huawei.com, vinod.koul@intel.com, andrew@lunn.ch,
+        Philippe Reynes <tremyfr@gmail.com>, xypron.glpk@gmx.de,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        xie.baoyou@zte.com.cn, han.fei@zte.com.cn, tang.qiang007@zte.com.cn
+To: Baoyou Xie <baoyou.xie@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:35329 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752681AbcJZJwl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 05:52:41 -0400
-Received: by mail-wm0-f54.google.com with SMTP id e69so16292752wmg.0
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 02:52:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1477472376.4059.23.camel@sipsolutions.net>
+Received: from mout.kundenserver.de ([212.227.17.24]:53151 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752681AbcJZJzl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 05:55:41 -0400
+In-Reply-To: <CA+DQWkw5HkraYgMNtCJ+-VQKcxoVV+AzfnkjQEbRcNLnBcGkaQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/26/16 at 10:59am, Johannes Berg wrote:
+On Wednesday, October 26, 2016 5:48:32 PM CEST Baoyou Xie wrote:
+> In fact, last month I sent a similar patch to fix the warnings, but this
+> older patch is based on linux-next, not net git tree, so the patch didn't
+> apply.
 > 
-> >  /**
-> > + * nla_memdup - duplicate attribute memory (kmemdup)
-> > + * @src: netlink attribute to duplicate from
-> > + * @gfp: GFP mask
-> 
-> Actually, is there any point in passing a GFP mask? None of the current
-> users need it, and it seems fairly unlikely to be needed since this is
-> typically used on the netlink input path, where you surely shouldn't
-> need GFP_ATOMIC or so?
+> now, I rework the patch base on git://
+> git.kernel.org/pub/scm/linux/kernel/git/davem/net.git.
 
-I'm fine either way. I didn't want to make assumptions which need
-later changes. It's not hurting either and the function prototype
-is very small.
+I think I see the mistake that led to the confusion before: you should
+base cleanups for network drivers on net-next.git, not net.git.
+The correct URL is
+
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+
+and it is usually very close to linux-next, except for patches that
+just got applied and have not made it into the latest linux-next.
+
+Only if you find a serious bug, use net.git instead so the fix can
+go into the mainline kernel.
+
+	Arnd
