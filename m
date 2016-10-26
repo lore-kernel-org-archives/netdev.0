@@ -1,154 +1,94 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/5] net: ethernet: bgmac: add NS2 support
-Date: Wed, 26 Oct 2016 14:50:39 -0700
-Message-ID: <eff0c717-ec4b-1dce-992a-ad5e958800f5@gmail.com>
-References: <1477510561-17035-1-git-send-email-jon.mason@broadcom.com>
- <1477510561-17035-5-git-send-email-jon.mason@broadcom.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: iproute: ss truncates abstract unix domain socket embedding
+ null
+Date: Wed, 26 Oct 2016 15:22:17 -0700
+Message-ID: <20161026152217.4058fcaa@xeon-e3>
+References: <CAC-fF8SMUsj8pPJO+VYdRSQAOcwyBpJY1C9V3VEk3zrFS=Jy4Q@mail.gmail.com>
+        <CAC-fF8SdbDHPMZbOwHg=cOpsy+4ewTq9KGi-Cp=uaaG0hEJ8Fg@mail.gmail.com>
+        <20161026101554.15d8d37b@xeon-e3>
+        <CAC-fF8SuSWabeCW-nBUwn6VsgFyMfQF9s1f0XZhdjAgiSGzVTw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477510561-17035-5-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Isaac Boukris <iboukris@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:34919 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935650AbcJZWWe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 18:22:34 -0400
+Received: by mail-pf0-f171.google.com with SMTP id s8so4002266pfj.2
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 15:22:03 -0700 (PDT)
+In-Reply-To: <CAC-fF8SuSWabeCW-nBUwn6VsgFyMfQF9s1f0XZhdjAgiSGzVTw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/26/2016 12:36 PM, Jon Mason wrote:
-> Add support for the variant of amac hardware present in the Broadcom
-> Northstar2 based SoCs.  Northstar2 requires an additional register to be
-> configured with the port speed/duplexity (NICPM).  This can be added to
-> the link callback to hide it from the instances that do not use this.
-> Also, the bgmac_chip_reset() was intentionally removed to prevent the
-> resetting of the chip to the default values on open.  Finally, clearing
-> of the pending interrupts on init is required due to observed issues on
-> some platforms.
+On Wed, 26 Oct 2016 21:49:35 +0300
+Isaac Boukris <iboukris@gmail.com> wrote:
+
+> Hi Stephen, thanks for looking into this.
 > 
-> Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> ---
+> On Wed, Oct 26, 2016 at 8:15 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> > On Tue, 18 Oct 2016 21:46:48 +0300
+> > Isaac Boukris <iboukris@gmail.com> wrote:
+> >  
+> >> Hi again,
+> >>
+> >> On Sun, Oct 16, 2016 at 11:43 PM, Isaac Boukris <iboukris@gmail.com> wrote:  
+> >> > Hello,
+> >> >
+> >> > The unix(7) man page says that null have no special meaning in
+> >> > abstract unix domain socket address (the length is specified
+> >> > therefore).
+> >> >
+> >> > However, when such name (embedding null) is used, ss (and netstat)
+> >> > will only show up to the first null occurrence (second technically, if
+> >> > we count the null prefix).
+> >> > e.g. the name "\0/tmp/fo\0.sock" is displayed as: "@/tmp/fo" (whilst
+> >> > strace tool shows it as: sun_path=@"/tmp/fo\0.sock").
+> >> >
+> >> > Would it be more useful if it printed the whole name and escaped the null?
+> >> > If so, would '\0' be ok for escaping the null?  
+> >>
+> >>
+> >> Meanwhile, I've got it to escape the null character with with '\0' as suggested.
+> >> Can anyone take a look and advise if I'm on the right track? Thanks!  
+> >
+> > I did a little investigation and current ss behavior matches the output
+> > of other commands (netstat and lsof).  Therefore I really can't see the motivation
+> > to fix this.  
+> 
+> The motivation behind the fix is because the usage of abstract unix
+> domain socket is somewhat tricky.
+> I've seen it being used incorrectly where for example the addrlen was
+> specified as 'sizeof(struct sockaddr_un)' which is ok for regular unix
+> sockets because their names are null-terminated, but with abstract
+> sockets it causes extra null padding which leads to interoperability
+> problems.
+> On another occasion, addrlen was incremented to account for an
+> additional null-termination byte.
+> 
+> I was thinking therefore, it could help if the diagnostic tools would
+> show all the significant bytes of the name in order to make it clear
+> and easy to distinguish.
+> 
+> On the other hand, I think I've complicated it a little bit with the
+> '\0' escaping.
+> Perhaps it would suffice to substitute each null character with an '@'
+> sign, the same way we do for the null prefix.
+> 
+> As regarding netstat, I have in fact made a patch for it, but then I
+> realized it perhaps isn't its fault as it prints what it reads from
+> '/proc/net/unix' which prints the null prefix as '@' but leaves
+> subsequent nulls as is (literally, can be seen with 'cat -A').
+> So I'm trying to see if '/proc/net/unix' can be fixed to translate all
+> null occurrences to '@' sign (not only the prefix).
+> This should fix netstat and also (I think) the alternative 'proc' base
+> implementation in ss (unix_use_proc).
+> 
+> What do you think?
 
-> +static void bgmac_nicpm_speed_set(struct net_device *net_dev)
-> +{
-> +	struct bgmac *bgmac = netdev_priv(net_dev);
-> +	u32 val;
-> +
-> +	if (!bgmac->plat.nicpm_base)
-> +		return;
-> +
-> +	val = NICPM_IOMUX_CTRL_INIT_VAL;
-> +	switch (bgmac->net_dev->phydev->speed) {
-> +	default:
-> +		pr_err("Unsupported speed.  Defaulting to 1000Mb\n");
-> +	case SPEED_1000:
-> +		val |= NICPM_IOMUX_CTRL_SPD_1000M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-> +		break;
-> +	case SPEED_100:
-> +		val |= NICPM_IOMUX_CTRL_SPD_100M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-> +		break;
-> +	case SPEED_10:
-> +		val |= NICPM_IOMUX_CTRL_SPD_10M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-> +		break;
-> +	}
-> +
-> +	writel(val, bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
-> +
-> +	usleep_range(10, 100);
-
-Does not seem like a good idea, do you need that sleep?
-
-> +
-> +	bgmac_adjust_link(bgmac->net_dev);
-> +}
-> +
->  static int platform_phy_connect(struct bgmac *bgmac)
->  {
->  	struct phy_device *phy_dev;
->  
-> -	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
-> -					 bgmac_adjust_link);
-> +	if (bgmac->plat.nicpm_base)
-> +		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-> +						 bgmac->dev->of_node,
-> +						 bgmac_nicpm_speed_set);
-> +	else
-> +		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-> +						 bgmac->dev->of_node,
-> +						 bgmac_adjust_link);
->  	if (!phy_dev) {
->  		dev_err(bgmac->dev, "Phy connect failed\n");
->  		return -ENODEV;
->  	}
->  
-> +	if (bgmac->feature_flags & BGMAC_FEAT_LANE_SWAP)
-> +		phy_dev->dev_flags |= PHY_BRCM_EXP_LANE_SWAP;
-> +
->  	return 0;
->  }
->  
-> @@ -140,6 +188,9 @@ static int bgmac_probe(struct platform_device *pdev)
->  
->  	platform_set_drvdata(pdev, bgmac);
->  
-> +	if (of_property_read_bool(np, "brcm,enet-phy-lane-swap"))
-> +		bgmac->feature_flags |= BGMAC_FEAT_LANE_SWAP;
-> +
->  	/* Set the features of the 4707 family */
->  	bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
->  	bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
-> @@ -182,6 +233,14 @@ static int bgmac_probe(struct platform_device *pdev)
->  	if (IS_ERR(bgmac->plat.idm_base))
->  		return PTR_ERR(bgmac->plat.idm_base);
->  
-> +	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");
-> +	if (regs) {
-> +		bgmac->plat.nicpm_base = devm_ioremap_resource(&pdev->dev,
-> +							       regs);
-> +		if (IS_ERR(bgmac->plat.nicpm_base))
-> +			return PTR_ERR(bgmac->plat.nicpm_base);
-> +	}
-> +
->  	bgmac->read = platform_bgmac_read;
->  	bgmac->write = platform_bgmac_write;
->  	bgmac->idm_read = platform_bgmac_idm_read;
-> @@ -213,6 +272,7 @@ static int bgmac_remove(struct platform_device *pdev)
->  static const struct of_device_id bgmac_of_enet_match[] = {
->  	{.compatible = "brcm,amac",},
->  	{.compatible = "brcm,nsp-amac",},
-> +	{.compatible = "brcm,ns2-amac",},
->  	{},
->  };
->  
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-> index 38876ec..1796208 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -1082,6 +1082,9 @@ static void bgmac_enable(struct bgmac *bgmac)
->  /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
->  static void bgmac_chip_init(struct bgmac *bgmac)
->  {
-> +	/* Clear any erroneously pending interrupts */
-> +	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
-> +
->  	/* 1 interrupt per received frame */
->  	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
->  
-> @@ -1158,8 +1161,6 @@ static int bgmac_open(struct net_device *net_dev)
->  	struct bgmac *bgmac = netdev_priv(net_dev);
->  	int err = 0;
->  
-> -	bgmac_chip_reset(bgmac);
-> -
-
-Is this removal intentional? Maybe it should be special cased with
-checking for a NS2 BGMAC instance and not do it in that case?
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Just translating all null characters to @ seems the most consistent and
+logical. Also translating other all non-printing characters to something (maybe '?')
+might be wise. It would be nice if all utilities output the same thing.
