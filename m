@@ -1,53 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 19/28] brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
-Date: Wed, 26 Oct 2016 11:57:23 +0200
-Message-ID: <3406231.8mt2808XDi@wuerfel>
-References: <20161017220342.1627073-1-arnd@arndb.de> <20161017221355.1861551-7-arnd@arndb.de> <87zilr61ux.fsf@kamboji.qca.qualcomm.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH net-next] netlink: Add nla_memdup() to wrap kmemdup()
+ use on nlattr
+Date: Wed, 26 Oct 2016 12:18:47 +0200
+Message-ID: <1477477127.4059.27.camel@sipsolutions.net>
+References: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf@suug.ch>
+         <1477472376.4059.23.camel@sipsolutions.net>
+         <20161026095238.GB16590@pox.localdomain>
+         (sfid-20161026_115243_626103_4ED9717E)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        linux-kernel@vger.kernel.org,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        "Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-        =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87zilr61ux.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161026095238.GB16590-4EA/1caXOu0mYvmMESoHnA@public.gmane.org> (sfid-20161026_115243_626103_4ED9717E)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, October 26, 2016 9:49:58 AM CEST Kalle Valo wrote:
-> Arnd Bergmann <arnd@arndb.de> writes:
+On Wed, 2016-10-26 at 11:52 +0200, Thomas Graf wrote:
+> On 10/26/16 at 10:59am, Johannes Berg wrote:
+> > 
+> > 
+> > > 
+> > >  /**
+> > > + * nla_memdup - duplicate attribute memory (kmemdup)
+> > > + * @src: netlink attribute to duplicate from
+> > > + * @gfp: GFP mask
+> > 
+> > Actually, is there any point in passing a GFP mask? None of the
+> > current
+> > users need it, and it seems fairly unlikely to be needed since this
+> > is
+> > typically used on the netlink input path, where you surely
+> > shouldn't
+> > need GFP_ATOMIC or so?
 > 
-> > A bugfix added a sanity check around the assignment and use of the
-> > 'is_11d' variable, which looks correct to me, but as the function is
-> > rather complex already, this confuses the compiler to the point where
-> > it can no longer figure out if the variable is always initialized
-> > correctly:
-> >
-> > brcm80211/brcmfmac/cfg80211.c: In function ‘brcmf_cfg80211_start_ap’:
-> > brcm80211/brcmfmac/cfg80211.c:4586:10: error: ‘is_11d’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> >
-> > This adds an initialization for the newly introduced case in which
-> > the variable should not really be used, in order to make the warning
-> > go away.
-> >
-> > Fixes: b3589dfe0212 ("brcmfmac: ignore 11d configuration errors")
-> > Cc: Hante Meuleman <hante.meuleman@broadcom.com>
-> > Cc: Arend van Spriel <arend.vanspriel@broadcom.com>
-> > Cc: Kalle Valo <kvalo@codeaurora.org>
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> Via which tree are you planning to submit this? Should I take it?
+> I'm fine either way. I didn't want to make assumptions which need
+> later changes. It's not hurting either and the function prototype
+> is very small.
 
-I'd prefer if you can take it and forward it along with your other
-bugfixes. I'll try to take care of the ones that nobody else
-picked up.
+Yeah, I don't really care much - just wondered.
 
-	Arnd
+johannes
