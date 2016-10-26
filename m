@@ -1,137 +1,74 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
-Date: Wed, 26 Oct 2016 19:24:31 +0200
-Message-ID: <5810E6CF.1080406@digikod.net>
-References: <20161026065654.19166-1-mic@digikod.net>
- <20161026145207.GM3334@pc.thejh.net> <5810E04D.9020300@digikod.net>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] Revert "hv_netvsc: report vmbus name in ethtool"
+Date: Wed, 26 Oct 2016 08:30:29 -0700
+Message-ID: <20161026083029.68a876d0@xeon-e3>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Oe20C1XpLU2VVbrSVHltQJH8iHbH2u3aC"
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Daniel Borkmann
- <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-        "David S . Miller"
- <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
-        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-        cgroups@vger.kernel.org
-To: Jann Horn <jann@thejh.net>
-Return-path: <kernel-hardening-return-5049-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <5810E04D.9020300@digikod.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+        KY Srinivasan <kys@microsoft.com>,
+        Vitaly Kuznetsov <vkuznets@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36510 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932960AbcJZR0a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 13:26:30 -0400
+Received: by mail-pf0-f180.google.com with SMTP id e6so402376pfk.3
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 10:26:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Oe20C1XpLU2VVbrSVHltQJH8iHbH2u3aC
-Content-Type: multipart/mixed; boundary="b3xwEvxfADrG84CVmJpSWaJffwLtlfomS";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Jann Horn <jann@thejh.net>
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
- Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann
- <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
- David Drysdale <drysdale@google.com>, "David S . Miller"
- <davem@davemloft.net>, "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
- Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
- "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
- Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
- kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
- linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
- cgroups@vger.kernel.org
-Message-ID: <5810E6CF.1080406@digikod.net>
-Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
-References: <20161026065654.19166-1-mic@digikod.net>
- <20161026145207.GM3334@pc.thejh.net> <5810E04D.9020300@digikod.net>
-In-Reply-To: <5810E04D.9020300@digikod.net>
+From: Stephen Hemminger <sthemmin@microsoft.com>
 
---b3xwEvxfADrG84CVmJpSWaJffwLtlfomS
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+This reverts commit e3f74b841d48
+("hv_netvsc: report vmbus name in ethtool")'
+because of problem introduced by commit f9a56e5d6a0ba
+("Drivers: hv: make VMBus bus ids persistent").
+This changed the format of the vmbus name and this new format is too
+long to fit in the bus_info field of ethtool.
 
-On 26/10/2016 18:56, Micka=EBl Sala=FCn wrote:
->=20
-> On 26/10/2016 16:52, Jann Horn wrote:
->> On Wed, Oct 26, 2016 at 08:56:36AM +0200, Micka=EBl Sala=FCn wrote:
->>> The loaded Landlock eBPF programs can be triggered by a seccomp filte=
-r
->>> returning RET_LANDLOCK. In addition, a cookie (16-bit value) can be p=
-assed from
->>> a seccomp filter to eBPF programs. This allow flexible security polic=
-ies
->>> between seccomp and Landlock.
->>
->> Is this still up to date, or was that removed in v3?
->>
->=20
-> I forgot to remove this part. In this v4 series, as describe in the
-> (small) patch 11/18, a Landlock rule cannot be triggered by a seccomp
-> filter. So there is no more RET_LANDLOCK nor cookie.
->=20
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Here is an up-to-date version:
+---
+ drivers/net/hyperv/netvsc_drv.c | 4 ----
+ include/linux/hyperv.h          | 7 -------
+ 2 files changed, 11 deletions(-)
 
-# Use case scenario
-
-First, a process needs to create a new dedicated eBPF map containing hand=
-les.
-This handles are references to system resources (e.g. file or directory).=
- They
-are grouped in one or multiple maps to be efficiently managed and checked=
- in
-batches. This kind of map can be passed to Landlock eBPF functions to com=
-pare,
-for example, with a file access request.
-
-First, a task need to create or receive a Landlock rule. This rule is a
-dedicated eBPF program tied to one of the Landlock hooks, which are a sub=
-set of
-LSM hooks. Once loaded, a Landlock rule can be enforced through the secco=
-mp(2)
-syscall for the current thread and its (future) children, like a seccomp
-filter.
-
-Another way to enforce a Landlock security policy is to attach Landlock r=
-ules
-to a cgroup. All the processes in this cgroup will then be subject to thi=
-s
-policy.
-
-A triggered Landlock eBPF program can allow or deny an access, according =
-to
-its subtype (i.e. LSM hook), thanks to errno return values.
-
-
-
---b3xwEvxfADrG84CVmJpSWaJffwLtlfomS--
-
---Oe20C1XpLU2VVbrSVHltQJH8iHbH2u3aC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJYEObPAAoJECLe/t9zvWqVpIgH/jvnYyJy2FhNeNF0K4fH76VU
-hBu8OW2pOFgqMGe0b4qWpOmms8mym/hsUYmM3+ElCWtGputo0EchqRyF8tIGZXX0
-eIRK8PAAILJOYuAP+sF+y6kt6gg7gDakJFTQlX392BymLiMmB8Iz+/wAWTJ+lhiG
-4PATNIjZHJnxSWqeWyRu5jGvMmhMb9xLBJWu67xbr8DPwC5VhdXJTZnMUr0urV27
-5q9ZrEOR7M2rOS3KBW1FfcfDc9SJ+LyOhoPGBKEPWu/+uOaybhzLR6VDiPvBItGH
-NLeEqDxpwJsZgHwpHi7jukbApId5NIhXKG9g0K1BG/2DtlOkPOkZyAcrZziQvjg=
-=JnCs
------END PGP SIGNATURE-----
-
---Oe20C1XpLU2VVbrSVHltQJH8iHbH2u3aC--
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index c71d966..f638215 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -699,12 +699,8 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ static void netvsc_get_drvinfo(struct net_device *net,
+ 			       struct ethtool_drvinfo *info)
+ {
+-	struct net_device_context *net_device_ctx = netdev_priv(net);
+-	struct hv_device *dev = net_device_ctx->device_ctx;
+-
+ 	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+ 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
+-	strlcpy(info->bus_info, vmbus_dev_name(dev), sizeof(info->bus_info));
+ }
+ 
+ static void netvsc_get_channels(struct net_device *net,
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 6824556..cd184bd 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1169,13 +1169,6 @@ int __must_check __vmbus_driver_register(struct hv_driver *hv_driver,
+ 					 const char *mod_name);
+ void vmbus_driver_unregister(struct hv_driver *hv_driver);
+ 
+-static inline const char *vmbus_dev_name(const struct hv_device *device_obj)
+-{
+-	const struct kobject *kobj = &device_obj->device.kobj;
+-
+-	return kobj->name;
+-}
+-
+ void vmbus_hvsock_device_unregister(struct vmbus_channel *channel);
+ 
+ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+-- 
+2.9.3
