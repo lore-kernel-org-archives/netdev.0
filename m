@@ -1,49 +1,64 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp/dccp: drop SYN packets if accept queue is full
-Date: Wed, 26 Oct 2016 12:42:43 -0700
-Message-ID: <CAK6E8=cuTtOJfMH5sXM3LFKeq_30cqbZ6W8PoS1VXWBFs+FJmg@mail.gmail.com>
-References: <1477499277.7065.193.camel@edumazet-glaptop3.roam.corp.google.com> <CADVnQy=f==Ffk_=xPN7hOHyu5sHqhgi3rUw89rTYn1fxF7HdqQ@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v7 0/6] Add eBPF hooks for cgroups
+Date: Wed, 26 Oct 2016 21:59:33 +0200
+Message-ID: <20161026195933.GA2031@salvia>
+References: <1477390454-12553-1-git-send-email-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
+        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
+To: Daniel Mack <daniel@zonque.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:35231 "EHLO
-        mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755085AbcJZTnZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 15:43:25 -0400
-Received: by mail-yw0-f169.google.com with SMTP id h14so18145300ywa.2
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 12:43:25 -0700 (PDT)
-In-Reply-To: <CADVnQy=f==Ffk_=xPN7hOHyu5sHqhgi3rUw89rTYn1fxF7HdqQ@mail.gmail.com>
+Received: from mail.us.es ([193.147.175.20]:44674 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934533AbcJZT7m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Oct 2016 15:59:42 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 5D011C882D
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 21:59:37 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 4DEA3DA849
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 21:59:37 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id F06B1DA853
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 21:59:34 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1477390454-12553-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 26, 2016 at 11:39 AM, Neal Cardwell <ncardwell@google.com> wrote:
->
-> On Wed, Oct 26, 2016 at 12:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > Per listen(fd, backlog) rules, there is really no point accepting a SYN,
-> > sending a SYNACK, and dropping the following ACK packet if accept queue
-> > is full, because application is not draining accept queue fast enough.
-> >
-> > This behavior is fooling TCP clients that believe they established a
-> > flow, while there is nothing at server side. They might then send about
-> > 10 MSS (if using IW10) that will be dropped anyway while server is under
-> > stress.
-> >
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
->
-> Acked-by: Neal Cardwell <ncardwell@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+On Tue, Oct 25, 2016 at 12:14:08PM +0200, Daniel Mack wrote:
+[...]
+>   Dumping programs once they are installed is problematic because of
+>   the internal optimizations done to the eBPF program during its
+>   lifetime. Also, the references to maps etc. would need to be
+>   restored during the dump.
+> 
+>   Just exposing whether or not a program is attached would be
+>   trivial to do, however, most easily through another bpf(2)
+>   command. That can be added later on though.
 
-It's too bad the git has no history of the extra young sockets check.
-it seemed to be some kind bandaid fix before syn-cookie was invented?
+I don't know if anyone told you, but during last netconf, this topic
+took a bit of time of discussion and it was controversial, I would say
+1/3 of netdev hackers there showed their concerns, and that's
+something that should not be skipped IMO.
 
->
-> Great. Thanks, Eric!
->
-> neal
+While xdp is pushing bpf programs at the very early packet path, not
+interfering with the stack, before even entering the generic ingress
+path. But this is adding hooks to push bpf programs in the middle of
+our generic stack, this is way different domain.
+
+I would really like to explore way earlier filtering, by extending
+socket lookup facilities. So far the problem seems to be that we need
+to lookup for broadcast/multicast UDP sockets and those cannot be
+attach via the usual skb->sk. I think it would be possible to wrap
+around this socket code in functions so we can invoke it. I guess
+filtering of UDP and TCP should be good for you at this stage. This
+would require more work though, but this would come with no hooks in
+the stack and packets will not have to consume *lots of cycles* just
+to be dropped before entering the socket queue.
+
+How useful can be to drop lots of unwanted traffic at such a late
+stage? How would the performance numbers to drop packets would look
+like? Extremely bad, I predict.
