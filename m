@@ -1,53 +1,67 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Wed, 26 Oct 2016 15:52:02 +0200
-Message-ID: <20161026155202.5d99d935@redhat.com>
-References: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH v2 5/5] posix-timers: make it configurable
+Date: Wed, 26 Oct 2016 09:56:13 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1610260941520.14694@knanqh.ubzr>
+References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org> <1477448931-29051-6-git-send-email-nicolas.pitre@linaro.org> <20161026085102.GC11974@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, mst@redhat.com, tom@herbertland.com,
-        netdev@vger.kernel.org, shm@cumulusnetworks.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: Shrijeet Mukherjee <shrijeet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40632 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933484AbcJZNwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 09:52:08 -0400
-In-Reply-To: <1477109243-29520-1-git-send-email-shrijeet@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: John Stultz <john.stultz@linaro.org>,
+        "Yann E. MORIN" <yann.morin.1998@free.fr>,
+        Michal Marek <mmarek@suse.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161026085102.GC11974@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 22 Oct 2016 04:07:23 +0000
-Shrijeet Mukherjee <shrijeet@gmail.com> wrote:
+On Wed, 26 Oct 2016, Richard Cochran wrote:
 
-> This patch adds support for xdp ndo and also inserts the xdp program
-> call into the merged RX buffers and big buffers paths
+> On Tue, Oct 25, 2016 at 10:28:51PM -0400, Nicolas Pitre wrote:
+> > +config POSIX_TIMERS
+> > +	bool "Posix Clocks & timers" if EXPERT
+> > +	default y
+> > +	help
+> > +	  This includes native support for POSIX timers to the kernel.
+> > +	  Most embedded systems may have no use for them and therefore they
+> > +	  can be configured out to reduce the size of the kernel image.
+> 
+> Can you please fix this sentence?  It doesn't make any sense.  "Most"
+> is making a definite statement of fact, while "may have no use" is
+> not.
 
-I really appreciate you are doing this for virtio_net.
+I'm not a native speaker. I'm afraid I just don't appreciate such 
+nuances.
 
-My first question is: Is the (packet) page data writable?
-(MST might be able to answer?)
+> Either you mean:
+> 
+>   1. Most embedded systems have no use for them.
+> 
+>   2. Embedded systems may have no use for them.
+> 
+> or expressing #2 in other words:
+> 
+>   3. Many embedded systems have no use for them.
+> 
+>   4. Some embedded systems have no use for them.
+> 
+> Take your pick.  (But I doubt #1 is really true, and so I would like
+> to see some numbers to back up that claim.)
 
-As this is currently an XDP requirement[1].  
+I used 4 to match the commit message, which incidentally is the result 
+of a prior suggestion from you. Sorry for not being consistent then.
+
+As for numbers... I don't have any, but I probably mentioned already 
+that I can run a copy of Fedora on top of a kernel with POSIX timers 
+disabled and none of the warnings about those disabled syscalls are 
+triggered. So if my Fedora usage doesn't need them, we can infer that 
+the number of embedded systems also not needing them might tend towards 
+a high percentage. But let's be conservative and say "some".
+
+Thanks for your review.
 
 
-> * The small packet skb receive is skipped for now
-> * No TX for now
-
-I do see more and more valid use-cases for only implementing XDP_DROP
-and not necessarily also implementing XDP_TX.  This does requires that
-we implement some kind of feature/capabilities negotiation mechanism[2].
-
-
-[1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/requirements.html#write-access-to-packet-data
-
-[2] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/design/design.html#capabilities-negotiation
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Nicolas
