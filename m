@@ -1,50 +1,56 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 2/3] batman-adv: Add BATADV_DBG_TP_METER to
-	BATADV_DBG_ALL
-Date: Wed, 26 Oct 2016 17:55:14 +0200
-Message-ID: <20161026155515.18075-3-sw@simonwunderlich.de>
-References: <20161026155515.18075-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161026155515.18075-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rtl8xxxu: mark symbol static where possible
+Date: Wed, 26 Oct 2016 11:56:13 -0400 (EDT)
+Message-ID: <20161026.115613.576903872557968242.davem@davemloft.net>
+References: <1477474370-31383-1-git-send-email-baoyou.xie@linaro.org>
+        <87twbz2sn8.fsf@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: baoyou.xie@linaro.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        arnd@arndb.de, xie.baoyou@zte.com.cn, han.fei@zte.com.cn,
+        tang.qiang007@zte.com.cn
+To: jkbs@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36884 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751260AbcJZP4P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:56:15 -0400
+In-Reply-To: <87twbz2sn8.fsf@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Date: Wed, 26 Oct 2016 14:37:15 +0200
 
-The BATADV_DBG_ALL has to contain the bit of BATADV_DBG_TP_METER to really
-support all available debug messages.
+> On Wed, Oct 26, 2016 at 09:32 AM GMT, Baoyou Xie wrote:
+>> We get 1 warning when building kernel with W=1:
+>> drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c:1557:6: warning: no previous prototype for 'rtl8192eu_power_off' [-Wmissing-prototypes]
+>>
+>> In fact, this function is only used in the file in which it is
+>> declared and don't need a declaration, but can be made static.
+>> So this patch marks this function with 'static'.
+>>
+>> Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+>> ---
+>>  drivers/net/dsa/mv88e6xxx/chip.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+>> index 883fd98..4d975f0 100644
+>> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+>> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+>> @@ -2701,7 +2701,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+>>  	return mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, 0x0000);
+>>  }
+>>  
+>> -int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+>> +static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+>>  {
+>>  	int err;
+> 
+> Probably a mix-up - your patch doesn't match the description.
 
-Fixes: 33a3bb4a3345 ("batman-adv: throughput meter implementation")
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
----
- net/batman-adv/log.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/batman-adv/log.h b/net/batman-adv/log.h
-index e0e1a88..d2905a8 100644
---- a/net/batman-adv/log.h
-+++ b/net/batman-adv/log.h
-@@ -63,7 +63,7 @@ enum batadv_dbg_level {
- 	BATADV_DBG_NC		= BIT(5),
- 	BATADV_DBG_MCAST	= BIT(6),
- 	BATADV_DBG_TP_METER	= BIT(7),
--	BATADV_DBG_ALL		= 127,
-+	BATADV_DBG_ALL		= 255,
- };
- 
- #ifdef CONFIG_BATMAN_ADV_DEBUG
--- 
-2.10.1
+Agreed, please fix your subject line and commit message.
