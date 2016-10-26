@@ -1,16 +1,19 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 0/3] pull request for net: batman-adv
-	2016-10-26
-Date: Wed, 26 Oct 2016 17:55:12 +0200
-Message-ID: <20161026155515.18075-1-sw@simonwunderlich.de>
+Subject: [PATCH 1/3] batman-adv: Modify neigh_list only with
+	rcu-list functions
+Date: Wed, 26 Oct 2016 17:55:13 +0200
+Message-ID: <20161026155515.18075-2-sw@simonwunderlich.de>
+References: <20161026155515.18075-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Sven Eckelmann <sven.eckelmann-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161026155515.18075-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
  <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
@@ -22,46 +25,34 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Sven Eckelmann <sven.eckelmann-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
 
-here are some bugfix patches which we would like to have integrated
-into net.
+The batadv_hard_iface::neigh_list is accessed via rcu based primitives.
+Thus all operations done on it have to fulfill the requirements by RCU. So
+using non-RCU mechanisms like hlist_add_head is not allowed because it
+misses the barriers required to protect concurrent readers when accessing
+the data behind the pointer.
 
-Please pull or let me know of any problem!
+Fixes: cef63419f7db ("batman-adv: add list of unique single hop neighbors per hard-interface")
+Signed-off-by: Sven Eckelmann <sven.eckelmann-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org>
+Acked-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+---
+ net/batman-adv/originator.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thank you,
-      Simon
-
-The following changes since commit 29fbff8698fc0ac1a1d74584b258e0bf18b469f9:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-10-13 21:40:23 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20161026
-
-for you to fetch changes up to 9799c50372b23ed774791bdb87d700f1286ee8a9:
-
-  batman-adv: fix splat on disabling an interface (2016-10-21 14:47:02 +0200)
-
-----------------------------------------------------------------
-Here are three batman-adv bugfix patches:
-
- - Fix RCU usage for neighbor list, by Sven Eckelmann
-
- - Fix BATADV_DBG_ALL loglevel to include TP Meter messages, by Sven Eckelmann
-
- - Fix possible splat when disabling an interface, by Linus Luessing
-
-----------------------------------------------------------------
-Linus Lüssing (1):
-      batman-adv: fix splat on disabling an interface
-
-Sven Eckelmann (2):
-      batman-adv: Modify neigh_list only with rcu-list functions
-      batman-adv: Add BATADV_DBG_TP_METER to BATADV_DBG_ALL
-
- net/batman-adv/hard-interface.c | 1 -
- net/batman-adv/log.h            | 2 +-
- net/batman-adv/originator.c     | 2 +-
- 3 files changed, 2 insertions(+), 3 deletions(-)
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 5f3bfc4..7c8d160 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -544,7 +544,7 @@ batadv_hardif_neigh_create(struct batadv_hard_iface *hard_iface,
+ 	if (bat_priv->algo_ops->neigh.hardif_init)
+ 		bat_priv->algo_ops->neigh.hardif_init(hardif_neigh);
+ 
+-	hlist_add_head(&hardif_neigh->list, &hard_iface->neigh_list);
++	hlist_add_head_rcu(&hardif_neigh->list, &hard_iface->neigh_list);
+ 
+ out:
+ 	spin_unlock_bh(&hard_iface->neigh_list_lock);
+-- 
+2.10.1
