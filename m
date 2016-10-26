@@ -1,72 +1,73 @@
-From: Jann Horn <jann@thejh.net>
-Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
-Date: Wed, 26 Oct 2016 16:52:07 +0200
-Message-ID: <20161026145207.GM3334@pc.thejh.net>
-References: <20161026065654.19166-1-mic@digikod.net>
-Reply-To: kernel-hardening@lists.openwall.com
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: core: Traverse the adjacency list from
+ first entry
+Date: Wed, 26 Oct 2016 09:05:35 -0600
+Message-ID: <0ddd89b6-a9ec-29b5-2e0a-18d11fac5e4e@cumulusnetworks.com>
+References: <1477463962-2802-1-git-send-email-idosch@idosch.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="yaap9KN+GmBP785v"
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Daniel Mack <daniel@zonque.org>,
-	David Drysdale <drysdale@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	"Eric W . Biederman" <ebiederm@xmission.com>,
-	James Morris <james.l.morris@oracle.com>,
-	Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-	Sargun Dhillon <sargun@sargun.me>,
-	"Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
-	kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	cgroups@vger.kernel.org
-To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-5047-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <20161026065654.19166-1-mic@digikod.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mlxsw@mellanox.com,
+        Ido Schimmel <idosch@mellanox.com>
+To: idosch@idosch.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33861 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932601AbcJZPFi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:05:38 -0400
+Received: by mail-pf0-f170.google.com with SMTP id n85so24738458pfi.1
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 08:05:38 -0700 (PDT)
+In-Reply-To: <1477463962-2802-1-git-send-email-idosch@idosch.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 10/26/16 12:39 AM, idosch@idosch.org wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
+> 
+> netdev_next_lower_dev() returns NULL when we finished traversing the
+> adjacency list ('iter' points to the list's head). Therefore, we must
+> start traversing the list from the first entry and not its head.
+> 
+> Fixes: 1a3f060c1a47 ("net: Introduce new api for walking upper and lower devices")
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> ---
+>  net/core/dev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index f55fb45..d9c937f 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5419,7 +5419,7 @@ int netdev_walk_all_lower_dev(struct net_device *dev,
+>  	struct list_head *iter;
+>  	int ret;
+>  
+> -	for (iter = &dev->adj_list.lower,
+> +	for (iter = dev->adj_list.lower.next,
+>  	     ldev = netdev_next_lower_dev(dev, &iter);
+>  	     ldev;
+>  	     ldev = netdev_next_lower_dev(dev, &iter)) {
+> 
+
+How about this instead? It keeps the 3 walk functions in sync modulo the rcu reference:
 
 
---yaap9KN+GmBP785v
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f55fb4536016..6aa43cd8cbb5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5400,12 +5400,12 @@ static struct net_device *netdev_next_lower_dev(struct net_device *dev,
+ {
+	struct netdev_adjacent *lower;
 
-On Wed, Oct 26, 2016 at 08:56:36AM +0200, Micka=EBl Sala=FCn wrote:
-> The loaded Landlock eBPF programs can be triggered by a seccomp filter
-> returning RET_LANDLOCK. In addition, a cookie (16-bit value) can be passe=
-d from
-> a seccomp filter to eBPF programs. This allow flexible security policies
-> between seccomp and Landlock.
+-	lower = list_entry(*iter, struct netdev_adjacent, list);
++	lower = list_entry((*iter)->next, struct netdev_adjacent, list);
 
-Is this still up to date, or was that removed in v3?
+ 	if (&lower->list == &dev->adj_list.lower)
+ 		return NULL;
 
---yaap9KN+GmBP785v
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+-	*iter = lower->list.next;
++	*iter = &lower->list;
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJYEMMXAAoJED4KNFJOeCOonusQAM5j2Ow/y58PGiGJA7wIc6Cn
-QaKfhNQ94fZ6c3jA63hsTT0Ojd4TWUyFwlX23GDPOmIEhEDYZhz56eE7Yn5nnF24
-F0joLIR0v1ONtZEIm6830MzkTtyT4YY9H2Fu00xRIZ6ZGM2IyRe9Il/X8/ZZ9L3t
-2Nl0KYiIhO37DDh5sCE64U094jdLkhoWKiN1mYenRm7ScyvI4lnhdvhm7wyhSiE4
-oL5HBaAArwvYoydag6zUWEjUOguFelNzCcoA1dRhqllhkDrgSSceTv34xXLOjeVM
-Umb8CVjdmm3vM3lxl2eZHIkR/Lz6dyFoUNJZuVBZ9A9U3yv5glpeuPhEyUISD4Ii
-hZpne98TxDZeOCNN8EbKhDXrsAYe/9M2Cy+853ns0ZUdFX/mxfADROjmd1Ev3EpF
-KG9TsYi4M28BB0OUJta/rcEM3wDHhSjBGF5TTMpOoYL3DgjRm7jxbemxkpDdlrOn
-YUO/9iBnaWyf6ZqJm1RspcIo+iosBtKFXAZCLm39xmwRxWyCpbPfsPa36QA6CdB5
-WBNpvrbrnY6Dnayj6ZNDWEgusuIxoABplvG9N7p8t1yHwZkVs2Ak7ZyvaHS8Gx32
-HIhHXXQjrLqQXPK5sxrI+RU5ThJFXCHiTnCGOWw3OkW/pezPjYGY7xgUnmHHFTZk
-3ZyIbEzOKKzhXWYG1Alv
-=QX63
------END PGP SIGNATURE-----
-
---yaap9KN+GmBP785v--
+ 	return lower->dev;
+ }
