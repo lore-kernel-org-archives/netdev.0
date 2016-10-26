@@ -1,119 +1,78 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net] cxgb4: Fix error handling in alloc_uld_rxqs().
-Date: Wed, 26 Oct 2016 13:26:38 +0530
-Message-ID: <1477468598-11296-1-git-send-email-ganeshgr@chelsio.com>
-Cc: hariprasad@chelsio.com, nirranjan@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/3] bpf: Add new cgroups prog type to enable
+ sock modifications
+Date: Wed, 26 Oct 2016 10:33:54 +0200
+Message-ID: <58106A72.4050306@iogearbox.net>
+References: <1477434613-3169-1-git-send-email-dsa@cumulusnetworks.com> <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com> <580FEA98.1090809@iogearbox.net> <660435c4-6cea-9648-0106-afb3ab6910fc@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: daniel@zonque.org, ast@fb.com
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:59016 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752353AbcJZH4x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 03:56:53 -0400
+Received: from www62.your-server.de ([213.133.104.62]:56828 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752666AbcJZId7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 04:33:59 -0400
+In-Reply-To: <660435c4-6cea-9648-0106-afb3ab6910fc@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix to release resources properly in error handling path of
-alloc_uld_rxqs(), This patch also removes unwanted arguments
-and avoids calling the same function twice.
+On 10/26/2016 04:05 AM, David Ahern wrote:
+> On 10/25/16 5:28 PM, Daniel Borkmann wrote:
+>>> +BPF_CALL_3(bpf_sock_store_u32, struct sock *, sk, u32, offset, u32, val)
+>>> +{
+>>> +    u8 *ptr = (u8 *)sk;
+>>> +
+>>> +    if (unlikely(offset > sizeof(*sk)))
+>>> +        return -EFAULT;
+>>> +
+>>> +    *((u32 *)ptr) = val;
+>>> +
+>>> +    return 0;
+>>> +}
+>>
+>> Seems strange to me. So, this helper allows to overwrite arbitrary memory
+>> of a struct sock instance. Potentially we could crash the kernel.
+>>
+>> And in your sock_filter_convert_ctx_access(), you already implement inline
+>> read/write for the context ...
+>>
+>> Your demo code does in pseudocode:
+>>
+>>    r1 = sk
+>>    r2 = offsetof(struct bpf_sock, bound_dev_if)
+>>    r3 = idx
+>>    r1->sk_bound_dev_if = idx
+>>    sock_store_u32(r1, r2, r3) // updates sk_bound_dev_if again to idx
+>>    return 1
+>>
+>> Dropping that helper from the patch, the only thing a program can do here
+>> is to read/write the sk_bound_dev_if helper per cgroup. Hmm ... dunno. So
+>> this really has to be for cgroups v2, right?
+>
+> Showing my inexperience with the bpf code. The helper can be dropped. I'll do that for v2.
+>
+> Yes, Daniel's patch set provides the infra for this one and it has a cgroups v2 limitation.
 
-Fixes: 94cdb8bb993a (cxgb4: Add support for dynamic allocation
-       of resources for ULD
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 40 ++++++++++++--------------
- 1 file changed, 18 insertions(+), 22 deletions(-)
+Sure, I understand that, and I know it was brought up at netconf, I'm
+just still wondering in general if BPF is a good fit here in the sense
+that what the program can do is just really really limited (at least
+right now). Hmm, just trying to understand where this would go long term.
+Probably okay'ish, if it's guaranteed that it can also integrate various
+other use cases as well for the new program type like the ones proposed
+by Anoop from net cgroup.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index 0945fa4..2471ff4 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -135,15 +135,17 @@ static int uldrx_handler(struct sge_rspq *q, const __be64 *rsp,
- }
- 
- static int alloc_uld_rxqs(struct adapter *adap,
--			  struct sge_uld_rxq_info *rxq_info,
--			  unsigned int nq, unsigned int offset, bool lro)
-+			  struct sge_uld_rxq_info *rxq_info, bool lro)
- {
- 	struct sge *s = &adap->sge;
--	struct sge_ofld_rxq *q = rxq_info->uldrxq + offset;
--	unsigned short *ids = rxq_info->rspq_id + offset;
--	unsigned int per_chan = nq / adap->params.nports;
-+	unsigned int nq = rxq_info->nrxq + rxq_info->nciq;
-+	struct sge_ofld_rxq *q = rxq_info->uldrxq;
-+	unsigned short *ids = rxq_info->rspq_id;
- 	unsigned int bmap_idx = 0;
--	int i, err, msi_idx;
-+	unsigned int per_chan;
-+	int i, err, msi_idx, que_idx = 0;
-+
-+	per_chan = rxq_info->nrxq / adap->params.nports;
- 
- 	if (adap->flags & USING_MSIX)
- 		msi_idx = 1;
-@@ -151,12 +153,18 @@ static int alloc_uld_rxqs(struct adapter *adap,
- 		msi_idx = -((int)s->intrq.abs_id + 1);
- 
- 	for (i = 0; i < nq; i++, q++) {
-+		if (i == rxq_info->nrxq) {
-+			/* start allocation of concentrator queues */
-+			per_chan = rxq_info->nciq / adap->params.nports;
-+			que_idx = 0;
-+		}
-+
- 		if (msi_idx >= 0) {
- 			bmap_idx = get_msix_idx_from_bmap(adap);
- 			msi_idx = adap->msix_info_ulds[bmap_idx].idx;
- 		}
- 		err = t4_sge_alloc_rxq(adap, &q->rspq, false,
--				       adap->port[i / per_chan],
-+				       adap->port[que_idx++ / per_chan],
- 				       msi_idx,
- 				       q->fl.size ? &q->fl : NULL,
- 				       uldrx_handler,
-@@ -165,29 +173,19 @@ static int alloc_uld_rxqs(struct adapter *adap,
- 		if (err)
- 			goto freeout;
- 		if (msi_idx >= 0)
--			rxq_info->msix_tbl[i + offset] = bmap_idx;
-+			rxq_info->msix_tbl[i] = bmap_idx;
- 		memset(&q->stats, 0, sizeof(q->stats));
- 		if (ids)
- 			ids[i] = q->rspq.abs_id;
- 	}
- 	return 0;
- freeout:
--	q = rxq_info->uldrxq + offset;
-+	q = rxq_info->uldrxq;
- 	for ( ; i; i--, q++) {
- 		if (q->rspq.desc)
- 			free_rspq_fl(adap, &q->rspq,
- 				     q->fl.size ? &q->fl : NULL);
- 	}
--
--	/* We need to free rxq also in case of ciq allocation failure */
--	if (offset) {
--		q = rxq_info->uldrxq + offset;
--		for ( ; i; i--, q++) {
--			if (q->rspq.desc)
--				free_rspq_fl(adap, &q->rspq,
--					     q->fl.size ? &q->fl : NULL);
--		}
--	}
- 	return err;
- }
- 
-@@ -205,9 +203,7 @@ setup_sge_queues_uld(struct adapter *adap, unsigned int uld_type, bool lro)
- 			return -ENOMEM;
- 	}
- 
--	ret = !(!alloc_uld_rxqs(adap, rxq_info, rxq_info->nrxq, 0, lro) &&
--		 !alloc_uld_rxqs(adap, rxq_info, rxq_info->nciq,
--				 rxq_info->nrxq, lro));
-+	ret = !(!alloc_uld_rxqs(adap, rxq_info, lro));
- 
- 	/* Tell uP to route control queue completions to rdma rspq */
- 	if (adap->flags & FULL_INIT_DONE &&
--- 
-2.1.0
+If that would reuse BPF_PROG_TYPE_CGROUP_SOCK from not only sk_alloc()
+hook, programs can thus change sk_bound_dev_if also from elsewhere since
+it's a fixed part of the context, and attaching to the cgroup comes after
+program was verified and returned a program fd back to the user. I guess
+it might be expected, right?
+
+I mean non-cooperative processes in that cgroup could already overwrite
+the policy set in sk_alloc() anyway with SO_BINDTODEVICE, no? What is the
+expectation if processes are moved from one cgroup to another one? Is it
+expected that also sk_bound_dev_if updates (not yet seeing how that would
+work from a BPF program)? If sk_bound_dev_if is enforced from cgroup side,
+should that lock out processes from changing it (maybe similar to what we
+do in SOCK_FILTER_LOCKED)?
