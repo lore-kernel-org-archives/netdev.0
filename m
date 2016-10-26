@@ -1,63 +1,37 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH] drivers/net/usb/r8152 fix broken rx checksums
-Date: Wed, 26 Oct 2016 18:54:26 -0400
-Message-ID: <ada8c79f-06df-97e3-2b29-9867bf473ea2@pobox.com>
-References: <987cfbab-2b48-e28c-1706-967cb2051d63@pobox.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH v2 0/5] make POSIX timers optional with some Kconfig help
+Date: Thu, 27 Oct 2016 01:14:29 +0200
+Message-ID: <1477523669.2121.8.camel@tiscali.nl>
+References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org
-To: nic_swsd@realtek.com, netdev@vger.kernel.org,
-        Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <987cfbab-2b48-e28c-1706-967cb2051d63@pobox.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: John Stultz <john.stultz@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Michal Marek <mmarek@suse.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lb2-smtp-cloud3.xs4all.net ([194.109.24.26]:35842 "EHLO
+        lb2-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933418AbcJZXOf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 19:14:35 -0400
+In-Reply-To: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-10-26 06:36 PM, Mark Lord wrote:
-> The r8152 driver has been broken since (approx) 3.6.16,
+On Tue, 2016-10-25 at 22:28 -0400, Nicolas Pitre wrote:
+> From: Nicolas Pitre <nicolas.pitre@linaro.org>
+> Subject: [PATCH v2 0/5] make POSIX timers optional with some Kconfig help
 
-Correction:  broken since 3.16.xx.
+This doesn't work. I received this message with an empty subject.
 
-> when support was added for hardware rx checksum on newer chip versions.
-> Symptoms include random segfaults and silent data corruption over NFS.
->
-> This does not work on the VER_02 dongle I have here
-> when used with a slow embedded system CPU.
-> Google reveals others reporting similar issues on Raspberry Pi.
->
-> So, disable hardware rx checksum for VER_02, and fix
-> an obvious coding error for IPV6 checksums in the same function.
->
-> Because this bug results in silent data corruption,
-> it is a good candidate for back-porting to -stable >= 3.16.xx.
-> Patch attached (to deal with buggy mailer) and also below for review.
->
-> Signed-off-by: Mark Lord <mlord@pobox.com>
->
-> --- old/drivers/net/usb/r8152.c    2016-09-30 04:20:43.000000000 -0400
-> +++ linux/drivers/net/usb/r8152.c    2016-10-26 14:15:44.932517676 -0400
-> @@ -1645,7 +1645,7 @@
->      u8 checksum = CHECKSUM_NONE;
->      u32 opts2, opts3;
->
-> -    if (tp->version == RTL_VER_01)
-> +    if (tp->version == RTL_VER_01 || tp->version == RTL_VER_02)
->          goto return_result;
->
->      opts2 = le32_to_cpu(rx_desc->opts2);
-> @@ -1660,7 +1660,7 @@
->              checksum = CHECKSUM_NONE;
->          else
->              checksum = CHECKSUM_UNNECESSARY;
-> -    } else if (RD_IPV6_CS) {
-> +    } else if (opts2 & RD_IPV6_CS) {
->          if ((opts2 & RD_UDP_CS) && !(opts3 & UDPF))
->              checksum = CHECKSUM_UNNECESSARY;
->          else if ((opts2 & RD_TCP_CS) && !(opts3 & TCPF))
+If you'll have to send another update don't bother including Yann. Yann
+hasn't be heard of in years. MAINTAINERS doesn't reflect reality for
+kconfig.
 
 
--- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+Paul Bolle
