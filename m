@@ -1,79 +1,119 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: concurrent rhashtable test failure
-Date: Wed, 26 Oct 2016 09:33:37 +0200
-Message-ID: <20161026073337.GM5640@orbyte.nwl.cc>
-References: <CAMuHMdWTqXaJAM-O+mmha=JbuyvvNxYyHuV6e4YK7oUkh9rCkA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-m68k <linux-m68k@lists.linux-m68k.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net] cxgb4: Fix error handling in alloc_uld_rxqs().
+Date: Wed, 26 Oct 2016 13:26:38 +0530
+Message-ID: <1477468598-11296-1-git-send-email-ganeshgr@chelsio.com>
+Cc: hariprasad@chelsio.com, nirranjan@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35684 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753369AbcJZHdj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 03:33:39 -0400
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdWTqXaJAM-O+mmha=JbuyvvNxYyHuV6e4YK7oUkh9rCkA@mail.gmail.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:59016 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752353AbcJZH4x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 03:56:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Geert,
+Fix to release resources properly in error handling path of
+alloc_uld_rxqs(), This patch also removes unwanted arguments
+and avoids calling the same function twice.
 
-On Mon, Oct 24, 2016 at 02:11:32PM +0200, Geert Uytterhoeven wrote:
-> On m68k/ARAnyM, test_rhashtable fails with:
-> 
->     Test failed: thread 0 returned: -4
-> 
-> (-4 = -EINTR)
+Fixes: 94cdb8bb993a (cxgb4: Add support for dynamic allocation
+       of resources for ULD
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 40 ++++++++++++--------------
+ 1 file changed, 18 insertions(+), 22 deletions(-)
 
-How reproducible is this? I wonder why out of the ten threads only the
-first one fails.
-
-> I traced this back to your commit f4a3e90ba5739cfd ("rhashtable-test: extend
-> to test concurrency"), which added that part of the test.
-> 
-> Diff of the test output between the failing commit and its parent:
-> 
->  Running rhashtable test nelem=8, max_size=65536, shrinking=0
->  Test 00:
->    Adding 50000 keys
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Deleting 50000 keys
-> -  Duration of test: 1029960000 ns
-> +  Duration of test: 990000000 ns
->  Test 01:
->    Adding 50000 keys
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Deleting 50000 keys
-> -  Duration of test: 990000000 ns
-> +  Duration of test: 720000000 ns
->  Test 02:
->    Adding 50000 keys
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Deleting 50000 keys
-> -  Duration of test: 1130000000 ns
-> +  Duration of test: 700000000 ns
->  Test 03:
->    Adding 50000 keys
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
->    Deleting 50000 keys
-> -  Duration of test: 1080000000 ns
-> -Average test time: 1057490000
-> +  Duration of test: 700000000 ns
-> +Average test time: 777500000
-> +Testing concurrent rhashtable access from 10 threads
-> +Test failed: thread 0 returned: -4
-> +Started 10 threads, 1 failed
-> 
-> Do you have any clue?
-
-Not really, I merely implemented the test.
-
-Thanks, Phil
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+index 0945fa4..2471ff4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+@@ -135,15 +135,17 @@ static int uldrx_handler(struct sge_rspq *q, const __be64 *rsp,
+ }
+ 
+ static int alloc_uld_rxqs(struct adapter *adap,
+-			  struct sge_uld_rxq_info *rxq_info,
+-			  unsigned int nq, unsigned int offset, bool lro)
++			  struct sge_uld_rxq_info *rxq_info, bool lro)
+ {
+ 	struct sge *s = &adap->sge;
+-	struct sge_ofld_rxq *q = rxq_info->uldrxq + offset;
+-	unsigned short *ids = rxq_info->rspq_id + offset;
+-	unsigned int per_chan = nq / adap->params.nports;
++	unsigned int nq = rxq_info->nrxq + rxq_info->nciq;
++	struct sge_ofld_rxq *q = rxq_info->uldrxq;
++	unsigned short *ids = rxq_info->rspq_id;
+ 	unsigned int bmap_idx = 0;
+-	int i, err, msi_idx;
++	unsigned int per_chan;
++	int i, err, msi_idx, que_idx = 0;
++
++	per_chan = rxq_info->nrxq / adap->params.nports;
+ 
+ 	if (adap->flags & USING_MSIX)
+ 		msi_idx = 1;
+@@ -151,12 +153,18 @@ static int alloc_uld_rxqs(struct adapter *adap,
+ 		msi_idx = -((int)s->intrq.abs_id + 1);
+ 
+ 	for (i = 0; i < nq; i++, q++) {
++		if (i == rxq_info->nrxq) {
++			/* start allocation of concentrator queues */
++			per_chan = rxq_info->nciq / adap->params.nports;
++			que_idx = 0;
++		}
++
+ 		if (msi_idx >= 0) {
+ 			bmap_idx = get_msix_idx_from_bmap(adap);
+ 			msi_idx = adap->msix_info_ulds[bmap_idx].idx;
+ 		}
+ 		err = t4_sge_alloc_rxq(adap, &q->rspq, false,
+-				       adap->port[i / per_chan],
++				       adap->port[que_idx++ / per_chan],
+ 				       msi_idx,
+ 				       q->fl.size ? &q->fl : NULL,
+ 				       uldrx_handler,
+@@ -165,29 +173,19 @@ static int alloc_uld_rxqs(struct adapter *adap,
+ 		if (err)
+ 			goto freeout;
+ 		if (msi_idx >= 0)
+-			rxq_info->msix_tbl[i + offset] = bmap_idx;
++			rxq_info->msix_tbl[i] = bmap_idx;
+ 		memset(&q->stats, 0, sizeof(q->stats));
+ 		if (ids)
+ 			ids[i] = q->rspq.abs_id;
+ 	}
+ 	return 0;
+ freeout:
+-	q = rxq_info->uldrxq + offset;
++	q = rxq_info->uldrxq;
+ 	for ( ; i; i--, q++) {
+ 		if (q->rspq.desc)
+ 			free_rspq_fl(adap, &q->rspq,
+ 				     q->fl.size ? &q->fl : NULL);
+ 	}
+-
+-	/* We need to free rxq also in case of ciq allocation failure */
+-	if (offset) {
+-		q = rxq_info->uldrxq + offset;
+-		for ( ; i; i--, q++) {
+-			if (q->rspq.desc)
+-				free_rspq_fl(adap, &q->rspq,
+-					     q->fl.size ? &q->fl : NULL);
+-		}
+-	}
+ 	return err;
+ }
+ 
+@@ -205,9 +203,7 @@ setup_sge_queues_uld(struct adapter *adap, unsigned int uld_type, bool lro)
+ 			return -ENOMEM;
+ 	}
+ 
+-	ret = !(!alloc_uld_rxqs(adap, rxq_info, rxq_info->nrxq, 0, lro) &&
+-		 !alloc_uld_rxqs(adap, rxq_info, rxq_info->nciq,
+-				 rxq_info->nrxq, lro));
++	ret = !(!alloc_uld_rxqs(adap, rxq_info, lro));
+ 
+ 	/* Tell uP to route control queue completions to rdma rspq */
+ 	if (adap->flags & FULL_INIT_DONE &&
+-- 
+2.1.0
