@@ -1,51 +1,32 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: dev: Fix non-RCU based lower dev walker
-Date: Wed, 26 Oct 2016 13:21:33 -0700
-Message-ID: <1477513293-10117-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: idosch@mellanox.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH net-next 2/3] bpf: Add new cgroups prog type to enable
+ sock modifications
+Date: Wed, 26 Oct 2016 14:42:09 -0600
+Message-ID: <35265f1e-67ba-bd91-9583-00f39ffd07f2@cumulusnetworks.com>
+References: <1477434613-3169-1-git-send-email-dsa@cumulusnetworks.com>
+ <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com>
+ <580FEA98.1090809@iogearbox.net>
+ <CAF2d9jhE0OHgWrDfHwYzRk2tDbnmK_=ZdgFd2-ccpbTjdQzqmQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-netdev <netdev@vger.kernel.org>, daniel@zonque.org,
+        ast@fb.com
+To: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS1?=
+         =?UTF-8?B?4KS+4KSwKQ==?= <maheshb@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35181 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932320AbcJZU2t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 16:28:49 -0400
-Received: by mail-pf0-f174.google.com with SMTP id s8so2637250pfj.2
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 13:28:49 -0700 (PDT)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35240 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932768AbcJZUmM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 16:42:12 -0400
+Received: by mail-pf0-f177.google.com with SMTP id s8so2795617pfj.2
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 13:42:11 -0700 (PDT)
+In-Reply-To: <CAF2d9jhE0OHgWrDfHwYzRk2tDbnmK_=ZdgFd2-ccpbTjdQzqmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev_walk_all_lower_dev is not properly walking the lower device
-list.  Commit 1a3f060c1a47 made netdev_walk_all_lower_dev similar
-to netdev_walk_all_upper_dev_rcu and netdev_walk_all_lower_dev_rcu
-but failed to update its netdev_next_lower_dev iterator. This patch
-fixes that.
+On 10/26/16 2:31 PM, Mahesh Bandewar (महेश बंडेवार) wrote:
+> The hook insertion in sk_alloc() may not solve all control-path checks as not much can be done (probably apart for changing sk_bound_dev_if) during allocation but hooks in bind(), listen(), setsockopt() etc. (not a complete list) will be needed. Also pushing this change (changing sk_bound_dev_if) later (than sk_alloc()) you might avoid the case dumazet@ has mentioned.
 
-Fixes: 1a3f060c1a47 ("net: Introduce new api for walking upper and
-                     lower devices")
-Reported-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/core/dev.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f55fb4536016..6aa43cd8cbb5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5400,12 +5400,12 @@ static struct net_device *netdev_next_lower_dev(struct net_device *dev,
- {
- 	struct netdev_adjacent *lower;
- 
--	lower = list_entry(*iter, struct netdev_adjacent, list);
-+	lower = list_entry((*iter)->next, struct netdev_adjacent, list);
- 
- 	if (&lower->list == &dev->adj_list.lower)
- 		return NULL;
- 
--	*iter = lower->list.next;
-+	*iter = &lower->list;
- 
- 	return lower->dev;
- }
--- 
-2.1.4
+For v2 I moved the running of the filter to the end of inet{6}_create.
