@@ -1,38 +1,39 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net] packet: on direct_xmit, limit tso and csum to
- supported devices
-Date: Wed, 26 Oct 2016 00:29:25 -0400
-Message-ID: <CAF=yD-KbxKZeC2e6CnrMPTgjkF1TuDGHJ3FjJcMESLspY_HJ2w@mail.gmail.com>
-References: <1477441683-68242-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <1477443451.7065.163.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: validate chunk len before actually using it
+Date: Wed, 26 Oct 2016 13:54:03 +0800
+Message-ID: <CADvbK_d4ZJB0HXgmtio3HNGMGkNbOG+Af_74r+kuc=ovjxFffw@mail.gmail.com>
+References: <06d1d4f21f959784823d7c7e31c3ea7e7360cb99.1477410525.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        syzkaller <syzkaller@googlegroups.com>, kcc@google.com,
+        glider@google.com, Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>, andreyknvl@google.com
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f68.google.com ([209.85.213.68]:33323 "EHLO
-        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751036AbcJZEaG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 00:30:06 -0400
-Received: by mail-vk0-f68.google.com with SMTP id h7so1278408vkf.0
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 21:30:06 -0700 (PDT)
-In-Reply-To: <1477443451.7065.163.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-qt0-f172.google.com ([209.85.216.172]:40218 "EHLO
+        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750866AbcJZFyF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 01:54:05 -0400
+In-Reply-To: <06d1d4f21f959784823d7c7e31c3ea7e7360cb99.1477410525.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 25, 2016 at 8:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2016-10-25 at 20:28 -0400, Willem de Bruijn wrote:
->> From: Willem de Bruijn <willemb@google.com>
->>
->> When transmitting on a packet socket with PACKET_VNET_HDR and
->> PACKET_QDISC_BYPASS, validate device support for features requested
->> in vnet_hdr.
+On Wed, Oct 26, 2016 at 12:27 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> Andrey Konovalov reported that KASAN detected that SCTP was using a slab
+> beyond the boundaries. It was caused because when handling out of the
+> blue packets in function sctp_sf_ootb() it was checking the chunk len
+> only after already processing the first chunk, validating only for the
+> 2nd and subsequent ones.
 >
+> The fix is to just move the check upwards so it's also validated for the
+> 1st chunk.
 >
-> You probably need to add an EXPORT_SYMBOL(validate_xmit_skb_list)
-> because af_packet might be modular.
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Thanks, Eric. I'll send a v2.
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
