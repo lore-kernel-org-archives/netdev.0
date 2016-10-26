@@ -1,49 +1,231 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/3] bpf: Add new cgroups prog type to enable
- sock modifications
-Date: Tue, 25 Oct 2016 20:21:24 -0600
-Message-ID: <fdeb1f5b-d122-36d8-4866-42cb5f29f0e2@cumulusnetworks.com>
-References: <1477434613-3169-1-git-send-email-dsa@cumulusnetworks.com>
- <1477434613-3169-3-git-send-email-dsa@cumulusnetworks.com>
- <1477438787.7065.158.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
-        daniel@iogearbox.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:36000 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751015AbcJZCV2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2016 22:21:28 -0400
-Received: by mail-pf0-f175.google.com with SMTP id e6so129569726pfk.3
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2016 19:21:27 -0700 (PDT)
-In-Reply-To: <1477438787.7065.158.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: [PATCH v2 2/5] kconfig: introduce the "suggest" keyword
+Date: Tue, 25 Oct 2016 22:28:48 -0400
+Message-ID: <1477448931-29051-3-git-send-email-nicolas.pitre@linaro.org>
+References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: John Stultz <john.stultz@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        "Yann E. MORIN" <yann.morin.1998@free.fr>,
+        Michal Marek <mmarek@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/25/16 5:39 PM, Eric Dumazet wrote:
-> On Tue, 2016-10-25 at 15:30 -0700, David Ahern wrote:
->> Add new cgroup based program type, BPF_PROG_TYPE_CGROUP_SOCK. Similar to
->> BPF_PROG_TYPE_CGROUP_SKB programs can be attached to a cgroup and run
->> any time a process in the cgroup opens an AF_INET or AF_INET6 socket.
->> Currently only sk_bound_dev_if is exported to userspace for modification
->> by a bpf program.
->>
->> This allows a cgroup to be configured such that AF_INET{6} sockets opened
->> by processes are automatically bound to a specific device. In turn, this
->> enables the running of programs that do not support SO_BINDTODEVICE in a
->> specific VRF context / L3 domain.
-> 
-> Does this mean that these programs no longer can use loopback ?
+Similar to "imply" but with no added restrictions on the target symbol's
+value. Useful for providing a default value to another symbol.
 
-I am probably misunderstanding your question, so I'll ramble a bit and see if I cover it.
+Suggested by Edward Cree.
 
-This patch set generically allows sk_bound_dev_if to be set to any value. It does not check that an index corresponds to a device at that moment (either bpf prog install or execution of the filter), and even if it did the device can be deleted at any moment. That seems to be standard operating procedure with bpf filters (user mistakes mean packets go no where and in this case a socket is bound to a non-existent device).
+Signed-off-by: Nicolas Pitre <nico@linaro.org>
+---
+ Documentation/kbuild/kconfig-language.txt |  6 ++++++
+ scripts/kconfig/expr.h                    |  2 ++
+ scripts/kconfig/menu.c                    | 15 ++++++++++++++-
+ scripts/kconfig/symbol.c                  | 20 +++++++++++++++++++-
+ scripts/kconfig/zconf.gperf               |  1 +
+ scripts/kconfig/zconf.y                   | 16 ++++++++++++++--
+ 6 files changed, 56 insertions(+), 4 deletions(-)
 
-The index can be any interface (e.g., eth0) or an L3 device (e.g., a VRF). Loopback and index=1 is allowed.
-
-The VRF device is the loopback device for the domain, so binding to it covers addresses on the VRF device as well as interfaces enslaved to it.
-
-Did you mean something else?
+diff --git a/Documentation/kbuild/kconfig-language.txt b/Documentation/kbuild/kconfig-language.txt
+index 5ee0dd3c85..b7f4f0ca1d 100644
+--- a/Documentation/kbuild/kconfig-language.txt
++++ b/Documentation/kbuild/kconfig-language.txt
+@@ -140,6 +140,12 @@ applicable everywhere (see syntax).
+   ability to hook into a given subsystem while still being able to
+   configure that subsystem out and keep those drivers selected.
+ 
++- even weaker reverse dependencies: "suggest" <symbol> ["if" <expr>]
++  This is similar to "imply" except that this doesn't add any restrictions
++  on the value the suggested symbol may use. In other words this only
++  provides a default for the specified symbol based on the value for the
++  config entry where this is used.
++
+ - limiting menu display: "visible if" <expr>
+   This attribute is only applicable to menu blocks, if the condition is
+   false, the menu block is not displayed to the user (the symbols
+diff --git a/scripts/kconfig/expr.h b/scripts/kconfig/expr.h
+index a73f762c48..eea3aa3c7a 100644
+--- a/scripts/kconfig/expr.h
++++ b/scripts/kconfig/expr.h
+@@ -86,6 +86,7 @@ struct symbol {
+ 	struct expr_value dir_dep;
+ 	struct expr_value rev_dep;
+ 	struct expr_value implied;
++	struct expr_value suggested;
+ };
+ 
+ #define for_all_symbols(i, sym) for (i = 0; i < SYMBOL_HASHSIZE; i++) for (sym = symbol_hash[i]; sym; sym = sym->next) if (sym->type != S_OTHER)
+@@ -138,6 +139,7 @@ enum prop_type {
+ 	P_CHOICE,   /* choice value */
+ 	P_SELECT,   /* select BAR */
+ 	P_IMPLY,    /* imply BAR */
++	P_SUGGEST,  /* suggest BAR */
+ 	P_RANGE,    /* range 7..100 (for a symbol) */
+ 	P_ENV,      /* value from environment variable */
+ 	P_SYMBOL,   /* where a symbol is defined */
+diff --git a/scripts/kconfig/menu.c b/scripts/kconfig/menu.c
+index e9357931b4..3abc5c85ac 100644
+--- a/scripts/kconfig/menu.c
++++ b/scripts/kconfig/menu.c
+@@ -255,7 +255,9 @@ static void sym_check_prop(struct symbol *sym)
+ 			break;
+ 		case P_SELECT:
+ 		case P_IMPLY:
+-			use = prop->type == P_SELECT ? "select" : "imply";
++		case P_SUGGEST:
++			use = prop->type == P_SELECT ? "select" :
++			      prop->type == P_IMPLY ? "imply" : "suggest";
+ 			sym2 = prop_get_symbol(prop);
+ 			if (sym->type != S_BOOLEAN && sym->type != S_TRISTATE)
+ 				prop_warn(prop,
+@@ -341,6 +343,10 @@ void menu_finalize(struct menu *parent)
+ 					struct symbol *es = prop_get_symbol(prop);
+ 					es->implied.expr = expr_alloc_or(es->implied.expr,
+ 							expr_alloc_and(expr_alloc_symbol(menu->sym), expr_copy(dep)));
++				} else if (prop->type == P_SUGGEST) {
++					struct symbol *es = prop_get_symbol(prop);
++					es->suggested.expr = expr_alloc_or(es->suggested.expr,
++							expr_alloc_and(expr_alloc_symbol(menu->sym), expr_copy(dep)));
+ 				}
+ 			}
+ 		}
+@@ -687,6 +693,13 @@ static void get_symbol_str(struct gstr *r, struct symbol *sym,
+ 		str_append(r, "\n");
+ 	}
+ 
++	get_symbol_props_str(r, sym, P_SUGGEST, _("  Suggests: "));
++	if (sym->suggested.expr) {
++		str_append(r, _("  Suggested by: "));
++		expr_gstr_print(sym->suggested.expr, r);
++		str_append(r, "\n");
++	}
++
+ 	str_append(r, "\n\n");
+ }
+ 
+diff --git a/scripts/kconfig/symbol.c b/scripts/kconfig/symbol.c
+index 20136ffefb..4a8094a63c 100644
+--- a/scripts/kconfig/symbol.c
++++ b/scripts/kconfig/symbol.c
+@@ -267,6 +267,16 @@ static void sym_calc_visibility(struct symbol *sym)
+ 		sym->implied.tri = tri;
+ 		sym_set_changed(sym);
+ 	}
++	tri = no;
++	if (sym->suggested.expr)
++		tri = expr_calc_value(sym->suggested.expr);
++	tri = EXPR_AND(tri, sym->visible);
++	if (tri == mod && sym_get_type(sym) == S_BOOLEAN)
++		tri = yes;
++	if (sym->suggested.tri != tri) {
++		sym->suggested.tri = tri;
++		sym_set_changed(sym);
++	}
+ }
+ 
+ /*
+@@ -406,6 +416,10 @@ void sym_calc_value(struct symbol *sym)
+ 					newval.tri = EXPR_AND(expr_calc_value(prop->expr),
+ 							      prop->visible.tri);
+ 				}
++				if (sym->suggested.tri != no) {
++					sym->flags |= SYMBOL_WRITE;
++					newval.tri = EXPR_OR(newval.tri, sym->suggested.tri);
++				}
+ 				if (sym->implied.tri != no) {
+ 					sym->flags |= SYMBOL_WRITE;
+ 					newval.tri = EXPR_OR(newval.tri, sym->implied.tri);
+@@ -766,7 +780,9 @@ const char *sym_get_string_default(struct symbol *sym)
+ 	if (sym->type == S_BOOLEAN && val == mod)
+ 		val = yes;
+ 
+-	/* adjust the default value if this symbol is implied by another */
++	/* adjust the default value if this symbol is suggested/implied */
++	if (val < sym->suggested.tri)
++		val = sym->suggested.tri;
+ 	if (val < sym->implied.tri)
+ 		val = sym->implied.tri;
+ 
+@@ -1374,6 +1390,8 @@ const char *prop_get_type_name(enum prop_type type)
+ 		return "select";
+ 	case P_IMPLY:
+ 		return "imply";
++	case P_SUGGEST:
++		return "suggest";
+ 	case P_RANGE:
+ 		return "range";
+ 	case P_SYMBOL:
+diff --git a/scripts/kconfig/zconf.gperf b/scripts/kconfig/zconf.gperf
+index ead02edec9..0c244a8e95 100644
+--- a/scripts/kconfig/zconf.gperf
++++ b/scripts/kconfig/zconf.gperf
+@@ -39,6 +39,7 @@ hex,		T_TYPE,		TF_COMMAND, S_HEX
+ string,		T_TYPE,		TF_COMMAND, S_STRING
+ select,		T_SELECT,	TF_COMMAND
+ imply,		T_IMPLY,	TF_COMMAND
++suggest,	T_SUGGEST,	TF_COMMAND
+ range,		T_RANGE,	TF_COMMAND
+ visible,	T_VISIBLE,	TF_COMMAND
+ option,		T_OPTION,	TF_COMMAND
+diff --git a/scripts/kconfig/zconf.y b/scripts/kconfig/zconf.y
+index 001305fa08..277415540a 100644
+--- a/scripts/kconfig/zconf.y
++++ b/scripts/kconfig/zconf.y
+@@ -31,7 +31,7 @@ struct symbol *symbol_hash[SYMBOL_HASHSIZE];
+ static struct menu *current_menu, *current_entry;
+ 
+ %}
+-%expect 32
++%expect 34
+ 
+ %union
+ {
+@@ -63,6 +63,7 @@ static struct menu *current_menu, *current_entry;
+ %token <id>T_DEFAULT
+ %token <id>T_SELECT
+ %token <id>T_IMPLY
++%token <id>T_SUGGEST
+ %token <id>T_RANGE
+ %token <id>T_VISIBLE
+ %token <id>T_OPTION
+@@ -125,7 +126,7 @@ stmt_list:
+ ;
+ 
+ option_name:
+-	T_DEPENDS | T_PROMPT | T_TYPE | T_SELECT | T_IMPLY | T_OPTIONAL | T_RANGE | T_DEFAULT | T_VISIBLE
++	T_DEPENDS | T_PROMPT | T_TYPE | T_SELECT | T_IMPLY | T_SUGGEST | T_OPTIONAL | T_RANGE | T_DEFAULT | T_VISIBLE
+ ;
+ 
+ common_stmt:
+@@ -223,6 +224,12 @@ config_option: T_IMPLY T_WORD if_expr T_EOL
+ 	printd(DEBUG_PARSE, "%s:%d:imply\n", zconf_curname(), zconf_lineno());
+ };
+ 
++config_option: T_SUGGEST T_WORD if_expr T_EOL
++{
++	menu_add_symbol(P_SUGGEST, sym_lookup($2, 0), $3);
++	printd(DEBUG_PARSE, "%s:%d:suggest\n", zconf_curname(), zconf_lineno());
++};
++
+ config_option: T_RANGE symbol symbol if_expr T_EOL
+ {
+ 	menu_add_expr(P_RANGE, expr_alloc_comp(E_RANGE,$2, $3), $4);
+@@ -676,6 +683,11 @@ static void print_symbol(FILE *out, struct menu *menu)
+ 			expr_fprint(prop->expr, out);
+ 			fputc('\n', out);
+ 			break;
++		case P_SUGGEST:
++			fputs( "  suggest ", out);
++			expr_fprint(prop->expr, out);
++			fputc('\n', out);
++			break;
+ 		case P_RANGE:
+ 			fputs( "  range ", out);
+ 			expr_fprint(prop->expr, out);
+-- 
+2.7.4
