@@ -1,107 +1,69 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net v2] packet: on direct_xmit, limit tso and csum to supported devices
-Date: Wed, 26 Oct 2016 11:23:07 -0400
-Message-ID: <1477495387-36861-1-git-send-email-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, daniel@iogearbox.net,
+Subject: Re: [PATCH net] packet: on direct_xmit, limit tso and csum to
+ supported devices
+Date: Wed, 26 Oct 2016 11:32:55 -0400
+Message-ID: <CAF=yD-JP5re8oq9qLEAAnQW3SxHDLOt1PedPEKw8UsUJ6KNq6w@mail.gmail.com>
+References: <1477441683-68242-1-git-send-email-willemdebruijn.kernel@gmail.com>
+ <581089BA.4090309@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
         Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:40328 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752208AbcJZPXd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:23:33 -0400
-Received: by mail-qk0-f196.google.com with SMTP id z82so506759qkb.7
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 08:23:32 -0700 (PDT)
+Received: from mail-vk0-f68.google.com ([209.85.213.68]:33831 "EHLO
+        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754339AbcJZPdg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 11:33:36 -0400
+Received: by mail-vk0-f68.google.com with SMTP id 14so266616vke.1
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 08:33:36 -0700 (PDT)
+In-Reply-To: <581089BA.4090309@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On Wed, Oct 26, 2016 at 6:47 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 10/26/2016 02:28 AM, Willem de Bruijn wrote:
+>>
+>> From: Willem de Bruijn <willemb@google.com>
+>>
+>> When transmitting on a packet socket with PACKET_VNET_HDR and
+>> PACKET_QDISC_BYPASS, validate device support for features requested
+>> in vnet_hdr.
+>>
+>> Drop TSO packets sent to devices that do not support TSO or have the
+>> feature disabled. Note that the latter currently do process those
+>> packets correctly, regardless of not advertising the feature.
+>>
+>> Because of SKB_GSO_DODGY, it is not sufficient to test device features
+>> with netif_needs_gso. Full validate_xmit_skb is needed.
+>>
+>> Switch to software checksum for non-TSO packets that request checksum
+>> offload if that device feature is unsupported or disabled. Note that
+>> similar to the TSO case, device drivers may perform checksum offload
+>> correctly even when not advertising it.
+>>
+>> When switching to software checksum, packets hit skb_checksum_help,
+>> which has two BUG_ON checksum not in linear segment. Packet sockets
+>> always allocate at least up to csum_start + csum_off + 2 as linear.
+>
+>
+> Ok, for the tpacket_fill_skb() case with SOCK_RAW, it's guaranteed,
+> because if we have a vnet header, then copylen would cover that here
+> (as opposed to just dev->hard_header_len). With Eric's suggestion,
+> looks good to me. Thanks, Willem!
 
-When transmitting on a packet socket with PACKET_VNET_HDR and
-PACKET_QDISC_BYPASS, validate device support for features requested
-in vnet_hdr.
+Right. For skb_checksum_help, the important check is that it is only entered
+when ip_summed == CHECKSUM_PARTIAL. Packet sockets only set that
+field after ensuring hdr_len exceeds the checksum.
 
-Drop TSO packets sent to devices that do not support TSO or have the
-feature disabled. Note that the latter currently do process those
-packets correctly, regardless of not advertising the feature.
+But in general, linear headers are not guaranteed. A particularly fun
+edge case is a device with mtu > PAGE_SIZE, which allows
+packet_alloc_skb to create a packet with any linear length > 0 as long
+as it does not ask for checksum offload or gso.
 
-Because of SKB_GSO_DODGY, it is not sufficient to test device features
-with netif_needs_gso. Full validate_xmit_skb is needed.
+I plan to send a patch to net-next to always allocate headers in the
+linear segment. skb_probe_transport_header is called in the send path,
+but after allocation, so we may have to settle for simpler MAX_HEADER.
 
-Switch to software checksum for non-TSO packets that request checksum
-offload if that device feature is unsupported or disabled. Note that
-similar to the TSO case, device drivers may perform checksum offload
-correctly even when not advertising it.
-
-When switching to software checksum, packets hit skb_checksum_help,
-which has two BUG_ON checksum not in linear segment. Packet sockets
-always allocate at least up to csum_start + csum_off + 2 as linear.
-
-Tested by running github.com/wdebruij/kerneltools/psock_txring_vnet.c
-
-  ethtool -K eth0 tso off tx on
-  psock_txring_vnet -d $dst -s $src -i eth0 -l 2000 -n 1 -q -v
-  psock_txring_vnet -d $dst -s $src -i eth0 -l 2000 -n 1 -q -v -N
-
-  ethtool -K eth0 tx off
-  psock_txring_vnet -d $dst -s $src -i eth0 -l 1000 -n 1 -q -v -G
-  psock_txring_vnet -d $dst -s $src -i eth0 -l 1000 -n 1 -q -v -G -N
-
-v2:
-  - add EXPORT_SYMBOL_GPL(validate_xmit_skb_list)
-
-Fixes: d346a3fae3ff ("packet: introduce PACKET_QDISC_BYPASS socket option")
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/core/dev.c         | 1 +
- net/packet/af_packet.c | 9 ++++-----
- 2 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dbc8713..f745112 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3035,6 +3035,7 @@ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *d
- 	}
- 	return head;
- }
-+EXPORT_SYMBOL_GPL(validate_xmit_skb_list);
- 
- static void qdisc_pkt_len_init(struct sk_buff *skb)
- {
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 11db0d6..d2238b2 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -250,7 +250,7 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po);
- static int packet_direct_xmit(struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dev;
--	netdev_features_t features;
-+	struct sk_buff *orig_skb = skb;
- 	struct netdev_queue *txq;
- 	int ret = NETDEV_TX_BUSY;
- 
-@@ -258,9 +258,8 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 		     !netif_carrier_ok(dev)))
- 		goto drop;
- 
--	features = netif_skb_features(skb);
--	if (skb_needs_linearize(skb, features) &&
--	    __skb_linearize(skb))
-+	skb = validate_xmit_skb_list(skb, dev);
-+	if (skb != orig_skb)
- 		goto drop;
- 
- 	txq = skb_get_tx_queue(dev, skb);
-@@ -280,7 +279,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	return ret;
- drop:
- 	atomic_long_inc(&dev->tx_dropped);
--	kfree_skb(skb);
-+	kfree_skb_list(skb);
- 	return NET_XMIT_DROP;
- }
- 
--- 
-2.8.0.rc3.226.g39d4020
+Thanks for reviewing, Daniel!
