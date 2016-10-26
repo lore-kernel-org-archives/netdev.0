@@ -1,26 +1,30 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
 Subject: Re: [PATCH net-next] netlink: Add nla_memdup() to wrap kmemdup()
  use on nlattr
-Date: Wed, 26 Oct 2016 10:56:25 +0200
-Message-ID: <1477472185.4059.22.camel@sipsolutions.net>
+Date: Wed, 26 Oct 2016 10:57:44 +0200
+Message-ID: <58107008.2080907@iogearbox.net>
 References: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf-G/eBtMaohhA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:58797 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756418AbcJZI5t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 04:57:49 -0400
+In-Reply-To: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-10-26 at 10:53 +0200, Thomas Graf wrote:
+On 10/26/2016 10:53 AM, Thomas Graf wrote:
 > Wrap several common instances of:
 > 	kmemdup(nla_data(attr), nla_len(attr), GFP_KERNEL);
+>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Makes sense
+Thanks!
 
-Acked-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-
-johannes
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
