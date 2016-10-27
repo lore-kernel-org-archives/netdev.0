@@ -1,49 +1,37 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] net: phy: at803x: the Atheros 8031 supports pause frames
-Date: Thu, 27 Oct 2016 17:05:01 -0500
-Message-ID: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
-To: netdev@vger.kernel.org, zefir.kurtisi@neratec.com,
-        scampbel@codeaurora.org, alokc@codeaurora.org,
-        shankerd@codeaurora.org, andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:47490 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933375AbcJ0WFJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 18:05:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded ICMP errors from offending packet
+Date: Fri, 28 Oct 2016 00:10:32 +0200
+Message-ID: <87funhv3xj.fsf@redhat.com>
+References: <20161027.112525.2290598329610980726.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20161027.112525.2290598329610980726.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Atheros 8031 PHY supports the 802.3 extension for symmetric and
-asymmetric pause frames, so set that to the list of features supported
-by the phy.
+On Thu, Oct 27, 2016 at 03:25 PM GMT, David Miller wrote:
+> From: Jakub Sitnicki <jkbs@redhat.com>
+> Date: Mon, 24 Oct 2016 11:28:52 +0200
+>
+>> +	inner_iph = skb_header_pointer(
+>> +		skb, skb_transport_offset(skb) + sizeof(*icmph),
+>> +		sizeof(_inner_iph), &_inner_iph);
+>
+> Please do not style this call like this, put as many arguments as
+> you can on the first line.
+>
+> 	inner_iph = skb_header_pointer(skb,
+> 				       skb_transport_offset(skb) + sizeof(*icmph),
+> 				       sizeof(_inner_iph), &_inner_iph);
+>
+> And on the second and subsequent lines, indent to the first column after
+> the openning parenthesis of the first line.
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
+FWIW, I had it styled like that and then changed it. Will change back.
 
-Without this patch, my NIC (the Qualcomm EMAC) receives a lot of frame
-check sequence (aka CRC) errors, resulting in about 10% packet loss.
-Can someone help me understand why?  Because of this patch, I can't use
-the generic phy driver in phylib.  Why would a MAC controller require
-its PHY to support pause frames?
-
- drivers/net/phy/at803x.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index a52b560..fb80413 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -440,7 +440,8 @@ static struct phy_driver at803x_driver[] = {
- 	.get_wol		= at803x_get_wol,
- 	.suspend		= at803x_suspend,
- 	.resume			= at803x_resume,
--	.features		= PHY_GBIT_FEATURES,
-+	.features		= PHY_GBIT_FEATURES |
-+				  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
- 	.flags			= PHY_HAS_INTERRUPT,
- 	.config_aneg		= genphy_config_aneg,
- 	.read_status		= genphy_read_status,
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+In my defense - checkpatch.pl made me do it, Your Honor! (line too long)
