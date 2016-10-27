@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] macsec: Fix header length if SCI is added if
- explicitly disabled
-Date: Thu, 27 Oct 2016 16:21:53 -0400 (EDT)
-Message-ID: <20161027.162153.2102538919251888970.davem@davemloft.net>
-References: <77d75a4a-2307-6e3d-a4bb-7d7ff61bf3e8@strongswan.org>
+Subject: Re: [PATCH] ip6_tunnel: Clear IP6CB(skb)->frag_max_size in
+ ip4ip6_tnl_xmit()
+Date: Thu, 27 Oct 2016 16:25:14 -0400 (EDT)
+Message-ID: <20161027.162514.2259363994362412217.davem@davemloft.net>
+References: <20161024150712.5133-1-elicooper@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sd@queasysnail.net, netdev@vger.kernel.org
-To: tobias@strongswan.org
+Cc: netdev@vger.kernel.org
+To: elicooper@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33650 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33708 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933826AbcJ0UV6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:21:58 -0400
-In-Reply-To: <77d75a4a-2307-6e3d-a4bb-7d7ff61bf3e8@strongswan.org>
+        with ESMTP id S935293AbcJ0UZQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:25:16 -0400
+In-Reply-To: <20161024150712.5133-1-elicooper@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Brunner <tobias@strongswan.org>
-Date: Mon, 24 Oct 2016 15:44:26 +0200
+From: Eli Cooper <elicooper@gmx.com>
+Date: Mon, 24 Oct 2016 23:07:12 +0800
 
-> Even if sending SCIs is explicitly disabled, the code that creates the
-> Security Tag might still decide to add it (e.g. if multiple RX SCs are
-> defined on the MACsec interface).
-> But because the header length so far only depended on the configuration
-> option the SCI overwrote the original frame's contents (EtherType and
-> e.g. the beginning of the IP header) and if encrypted did not visibly
-> end up in the packet, while the SC flag in the TCI field of the Security
-> Tag was still set, resulting in invalid MACsec frames.
-> 
-> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-> Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+> index 202d16a..4110562 100644
+> --- a/net/ipv6/ip6_tunnel.c
+> +++ b/net/ipv6/ip6_tunnel.c
+> @@ -1205,6 +1205,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	int err;
+>  
+>  	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+> +	IP6CB(skb)->frag_max_size = 0;
+>  
+>  	tproto = ACCESS_ONCE(t->parms.proto);
+>  	if (tproto != IPPROTO_IPIP && tproto != 0)
 
-Applied and queued up for -stable.
+This doesn't look right at all.
+
+Either skb->cb is interpreted as IPCB() past this point, or
+it is interpreted as IP6CB().
+
+So pick which structure is used, and simply clear that specific
+structure.
