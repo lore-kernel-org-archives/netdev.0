@@ -1,49 +1,100 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 08/17] batman-adv: Remove unused batadv_icmp_user_cmd_type
-Date: Thu, 27 Oct 2016 21:01:41 +0200
-Message-ID: <20161027190150.7880-9-sw@simonwunderlich.de>
+Subject: [PATCH 10/17] batman-adv: remove unsed argument from batadv_dbg_arp() function
+Date: Thu, 27 Oct 2016 21:01:43 +0200
+Message-ID: <20161027190150.7880-11-sw@simonwunderlich.de>
 References: <20161027190150.7880-1-sw@simonwunderlich.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Antonio Quartulli <a@unstable.cc>,
         Sven Eckelmann <sven@narfation.org>,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:38354 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:38363 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935890AbcJ0TB5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 15:01:57 -0400
+        with ESMTP id S936248AbcJ0TB6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 15:01:58 -0400
 In-Reply-To: <20161027190150.7880-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+From: Antonio Quartulli <a@unstable.cc>
 
+The argument "type" passed to the batadv_dbg_arp() function is
+never used. Remove it.
+
+Signed-off-by: Antonio Quartulli <a@unstable.cc>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/packet.h | 10 ----------
- 1 file changed, 10 deletions(-)
+ net/batman-adv/distributed-arp-table.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 6afc0b8..d2e9bbd 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -252,16 +252,6 @@ struct batadv_elp_packet {
- #define BATADV_ELP_HLEN sizeof(struct batadv_elp_packet)
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index e257efd..cbb4f32 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -369,12 +369,11 @@ static void batadv_dat_entry_add(struct batadv_priv *bat_priv, __be32 ip,
+  * batadv_dbg_arp - print a debug message containing all the ARP packet details
+  * @bat_priv: the bat priv with all the soft interface information
+  * @skb: ARP packet
+- * @type: ARP type
+  * @hdr_size: size of the possible header before the ARP packet
+  * @msg: message to print together with the debugging information
+  */
+ static void batadv_dbg_arp(struct batadv_priv *bat_priv, struct sk_buff *skb,
+-			   u16 type, int hdr_size, char *msg)
++			   int hdr_size, char *msg)
+ {
+ 	struct batadv_unicast_4addr_packet *unicast_4addr_packet;
+ 	struct batadv_bcast_packet *bcast_pkt;
+@@ -441,7 +440,7 @@ static void batadv_dbg_arp(struct batadv_priv *bat_priv, struct sk_buff *skb,
+ #else
  
- /**
-- * enum batadv_icmp_user_cmd_type - types for batman-adv icmp cmd modes
-- * @BATADV_TP_START: start a throughput meter run
-- * @BATADV_TP_STOP: stop a throughput meter run
-- */
--enum batadv_icmp_user_cmd_type {
--	BATADV_TP_START		= 0,
--	BATADV_TP_STOP		= 2,
--};
--
--/**
-  * struct batadv_icmp_header - common members among all the ICMP packets
-  * @packet_type: batman-adv packet type, part of the general header
-  * @version: batman-adv protocol version, part of the genereal header
+ static void batadv_dbg_arp(struct batadv_priv *bat_priv, struct sk_buff *skb,
+-			   u16 type, int hdr_size, char *msg)
++			   int hdr_size, char *msg)
+ {
+ }
+ 
+@@ -983,8 +982,7 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
+ 	if (type != ARPOP_REQUEST)
+ 		goto out;
+ 
+-	batadv_dbg_arp(bat_priv, skb, type, hdr_size,
+-		       "Parsing outgoing ARP REQUEST");
++	batadv_dbg_arp(bat_priv, skb, hdr_size, "Parsing outgoing ARP REQUEST");
+ 
+ 	ip_src = batadv_arp_ip_src(skb, hdr_size);
+ 	hw_src = batadv_arp_hw_src(skb, hdr_size);
+@@ -1075,8 +1073,7 @@ bool batadv_dat_snoop_incoming_arp_request(struct batadv_priv *bat_priv,
+ 	ip_src = batadv_arp_ip_src(skb, hdr_size);
+ 	ip_dst = batadv_arp_ip_dst(skb, hdr_size);
+ 
+-	batadv_dbg_arp(bat_priv, skb, type, hdr_size,
+-		       "Parsing incoming ARP REQUEST");
++	batadv_dbg_arp(bat_priv, skb, hdr_size, "Parsing incoming ARP REQUEST");
+ 
+ 	batadv_dat_entry_add(bat_priv, ip_src, hw_src, vid);
+ 
+@@ -1149,8 +1146,7 @@ void batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
+ 	if (type != ARPOP_REPLY)
+ 		return;
+ 
+-	batadv_dbg_arp(bat_priv, skb, type, hdr_size,
+-		       "Parsing outgoing ARP REPLY");
++	batadv_dbg_arp(bat_priv, skb, hdr_size, "Parsing outgoing ARP REPLY");
+ 
+ 	hw_src = batadv_arp_hw_src(skb, hdr_size);
+ 	ip_src = batadv_arp_ip_src(skb, hdr_size);
+@@ -1195,8 +1191,7 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
+ 	if (type != ARPOP_REPLY)
+ 		goto out;
+ 
+-	batadv_dbg_arp(bat_priv, skb, type, hdr_size,
+-		       "Parsing incoming ARP REPLY");
++	batadv_dbg_arp(bat_priv, skb, hdr_size, "Parsing incoming ARP REPLY");
+ 
+ 	hw_src = batadv_arp_hw_src(skb, hdr_size);
+ 	ip_src = batadv_arp_ip_src(skb, hdr_size);
 -- 
 2.10.1
