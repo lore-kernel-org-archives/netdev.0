@@ -1,83 +1,128 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next] tcp_bbr: add a state transition diagram and accompanying comment
-Date: Thu, 27 Oct 2016 13:26:37 -0400
-Message-ID: <1477589197-18123-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: David Miller <davem@davemloft.net>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net v2 1/2] ibmvnic: Fix releasing of sub-CRQ IRQs in interrupt context
+Date: Thu, 27 Oct 2016 12:28:51 -0500
+Message-ID: <1477589332-513-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:35526 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934322AbcJ0R0z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 13:26:55 -0400
-Received: by mail-qk0-f182.google.com with SMTP id z190so55268621qkc.2
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 10:26:55 -0700 (PDT)
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46914 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S934046AbcJ0R26 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 13:28:58 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9RHSg4F138051
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 13:28:58 -0400
+Received: from e34.co.us.ibm.com (e34.co.us.ibm.com [32.97.110.152])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 26bnk0a43r-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 13:28:57 -0400
+Received: from localhost
+        by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Thu, 27 Oct 2016 11:28:57 -0600
+Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
+        by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 9541719D803F
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 11:28:18 -0600 (MDT)
+Received: from b03ledav006.gho.boulder.ibm.com (b03ledav006.gho.boulder.ibm.com [9.17.130.237])
+        by b03cxnp08025.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u9RHSrx47864640
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 10:28:53 -0700
+Received: from b03ledav006.gho.boulder.ibm.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 23742C6037
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 11:28:52 -0600 (MDT)
+Received: from tlfalcon-workstation.ibm.com (unknown [9.65.84.52])
+        by b03ledav006.gho.boulder.ibm.com (Postfix) with ESMTP id C28CCC603E
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 11:28:51 -0600 (MDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Document the possible state transitions for a BBR flow, and also add a
-prose summary of the state machine, covering the life of a typical BBR
-flow.
+Schedule these XPORT event tasks in the shared workqueue
+so that IRQs are not freed in an interrupt context when
+sub-CRQs are released.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 ---
- net/ipv4/tcp_bbr.c | 32 +++++++++++++++++++++++++++++++-
- 1 file changed, 31 insertions(+), 1 deletion(-)
+v2: correct warnings by kbuild bot
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 35 ++++++++++++++++++++++++-----------
+ drivers/net/ethernet/ibm/ibmvnic.h |  1 +
+ 2 files changed, 25 insertions(+), 11 deletions(-)
 
-diff --git a/net/ipv4/tcp_bbr.c b/net/ipv4/tcp_bbr.c
-index 0ea66c2..b89bce4 100644
---- a/net/ipv4/tcp_bbr.c
-+++ b/net/ipv4/tcp_bbr.c
-@@ -14,6 +14,36 @@
-  * observed, or adjust the sending rate if it estimates there is a
-  * traffic policer, in order to keep the drop rate reasonable.
-  *
-+ * Here is a state transition diagram for BBR:
-+ *
-+ *             |
-+ *             V
-+ *    +---> STARTUP  ----+
-+ *    |        |         |
-+ *    |        V         |
-+ *    |      DRAIN   ----+
-+ *    |        |         |
-+ *    |        V         |
-+ *    +---> PROBE_BW ----+
-+ *    |      ^    |      |
-+ *    |      |    |      |
-+ *    |      +----+      |
-+ *    |                  |
-+ *    +---- PROBE_RTT <--+
-+ *
-+ * A BBR flow starts in STARTUP, and ramps up its sending rate quickly.
-+ * When it estimates the pipe is full, it enters DRAIN to drain the queue.
-+ * In steady state a BBR flow only uses PROBE_BW and PROBE_RTT.
-+ * A long-lived BBR flow spends the vast majority of its time remaining
-+ * (repeatedly) in PROBE_BW, fully probing and utilizing the pipe's bandwidth
-+ * in a fair manner, with a small, bounded queue. *If* a flow has been
-+ * continuously sending for the entire min_rtt window, and hasn't seen an RTT
-+ * sample that matches or decreases its min_rtt estimate for 10 seconds, then
-+ * it briefly enters PROBE_RTT to cut inflight to a minimum value to re-probe
-+ * the path's two-way propagation delay (min_rtt). When exiting PROBE_RTT, if
-+ * we estimated that we reached the full bw of the pipe then we enter PROBE_BW;
-+ * otherwise we enter STARTUP to try to fill the pipe.
-+ *
-  * BBR is described in detail in:
-  *   "BBR: Congestion-Based Congestion Control",
-  *   Neal Cardwell, Yuchung Cheng, C. Stephen Gunn, Soheil Hassas Yeganeh,
-@@ -51,7 +81,7 @@ enum bbr_mode {
- 	BBR_STARTUP,	/* ramp up sending rate rapidly to fill pipe */
- 	BBR_DRAIN,	/* drain any queue created during startup */
- 	BBR_PROBE_BW,	/* discover, share bw: pace around estimated bw */
--	BBR_PROBE_RTT,	/* cut cwnd to min to probe min_rtt */
-+	BBR_PROBE_RTT,	/* cut inflight to min to probe min_rtt */
- };
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 213162d..a922fb9 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -3232,6 +3232,27 @@ static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
+ 	spin_unlock_irqrestore(&adapter->inflight_lock, flags);
+ }
  
- /* BBR congestion control block */
++static void ibmvnic_xport_event(struct work_struct *work)
++{
++	struct ibmvnic_adapter *adapter = container_of(work,
++						       struct ibmvnic_adapter,
++						       ibmvnic_xport);
++	struct device *dev = &adapter->vdev->dev;
++	long rc;
++
++	ibmvnic_free_inflight(adapter);
++	release_sub_crqs(adapter);
++	if (adapter->migrated) {
++		rc = ibmvnic_reenable_crq_queue(adapter);
++		if (rc)
++			dev_err(dev, "Error after enable rc=%ld\n", rc);
++		adapter->migrated = false;
++		rc = ibmvnic_send_crq_init(adapter);
++		if (rc)
++			dev_err(dev, "Error sending init rc=%ld\n", rc);
++	}
++}
++
+ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
+ 			       struct ibmvnic_adapter *adapter)
+ {
+@@ -3267,15 +3288,7 @@ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
+ 		if (gen_crq->cmd == IBMVNIC_PARTITION_MIGRATED) {
+ 			dev_info(dev, "Re-enabling adapter\n");
+ 			adapter->migrated = true;
+-			ibmvnic_free_inflight(adapter);
+-			release_sub_crqs(adapter);
+-			rc = ibmvnic_reenable_crq_queue(adapter);
+-			if (rc)
+-				dev_err(dev, "Error after enable rc=%ld\n", rc);
+-			adapter->migrated = false;
+-			rc = ibmvnic_send_crq_init(adapter);
+-			if (rc)
+-				dev_err(dev, "Error sending init rc=%ld\n", rc);
++			schedule_work(&adapter->ibmvnic_xport);
+ 		} else if (gen_crq->cmd == IBMVNIC_DEVICE_FAILOVER) {
+ 			dev_info(dev, "Backing device failover detected\n");
+ 			netif_carrier_off(netdev);
+@@ -3284,8 +3297,7 @@ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
+ 			/* The adapter lost the connection */
+ 			dev_err(dev, "Virtual Adapter failed (rc=%d)\n",
+ 				gen_crq->cmd);
+-			ibmvnic_free_inflight(adapter);
+-			release_sub_crqs(adapter);
++			schedule_work(&adapter->ibmvnic_xport);
+ 		}
+ 		return;
+ 	case IBMVNIC_CRQ_CMD_RSP:
+@@ -3726,6 +3738,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	SET_NETDEV_DEV(netdev, &dev->dev);
+ 
+ 	INIT_WORK(&adapter->vnic_crq_init, handle_crq_init_rsp);
++	INIT_WORK(&adapter->ibmvnic_xport, ibmvnic_xport_event);
+ 
+ 	spin_lock_init(&adapter->stats_lock);
+ 
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
+index 878e2c0..dd775d9 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.h
++++ b/drivers/net/ethernet/ibm/ibmvnic.h
+@@ -1048,5 +1048,6 @@ struct ibmvnic_adapter {
+ 	u8 map_id;
+ 
+ 	struct work_struct vnic_crq_init;
++	struct work_struct ibmvnic_xport;
+ 	bool failover;
+ };
 -- 
-2.8.0.rc3.226.g39d4020
+2.7.4
