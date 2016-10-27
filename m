@@ -1,51 +1,53 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 04/10] net/mlx4_en: Resolve dividing by zero in 32-bit system
-Date: Thu, 27 Oct 2016 16:27:16 +0300
-Message-ID: <1477574842-29688-5-git-send-email-tariqt@mellanox.com>
-References: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Eugenia Emantayev <eugenia@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57539 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S941570AbcJ0NyW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 09:54:22 -0400
-In-Reply-To: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2016-10-27
+Date: Thu, 27 Oct 2016 10:05:49 +0200
+Message-ID: <20161027080550.31309-1-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+Hi Dave,
 
-When doing roundup_pow_of_two for large enough number with
-bit 31, an overflow will occur and a value equal to 1 will
-be returned. In this case 1 will be subtracted from the return
-value and division by zero will be reached.
+Before I go off for LPC and the workshop and everything, I have
+two fixes. Neither is very important, but I figured I'd get them
+out since I won't have any others soon.
 
-Fixes: 31c128b66e5b ("net/mlx4_en: Choose time-stamping shift value according to HW frequency")
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_clock.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Let me know if there's any problem.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-index 08fc5fc56d43..a5fc46bbcbe2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -245,8 +245,11 @@ static u32 freq_to_shift(u16 freq)
- {
- 	u32 freq_khz = freq * 1000;
- 	u64 max_val_cycles = freq_khz * 1000 * MLX4_EN_WRAP_AROUND_SEC;
-+	u64 tmp_rounded =
-+		roundup_pow_of_two(max_val_cycles) > max_val_cycles ?
-+		roundup_pow_of_two(max_val_cycles) - 1 : UINT_MAX;
- 	u64 max_val_cycles_rounded = is_power_of_2(max_val_cycles + 1) ?
--		max_val_cycles : roundup_pow_of_two(max_val_cycles) - 1;
-+		max_val_cycles : tmp_rounded;
- 	/* calculate max possible multiplier in order to fit in 64bit */
- 	u64 max_mul = div_u64(0xffffffffffffffffULL, max_val_cycles_rounded);
- 
--- 
-1.8.3.1
+Thanks,
+johannes
+
+
+
+The following changes since commit b4f0fd4baa90ecce798e0d26d1cce8f4457f2028:
+
+  qed: Use list_move_tail instead of list_del/list_add_tail (2016-10-18 16:40:41 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-10-27
+
+for you to fetch changes up to b4f7f4ad425a84fd5d40da21aff8681997b25ff9:
+
+  mac80211: fix some sphinx warnings (2016-10-26 08:01:07 +0200)
+
+----------------------------------------------------------------
+Just two fixes:
+ * a fix to process all events while suspending, so any
+   potential calls into the driver are done before it is
+   suspended
+ * small markup fixes for the sphinx documentation conversion
+   that's coming into the tree via the doc tree
+
+----------------------------------------------------------------
+Jani Nikula (1):
+      mac80211: fix some sphinx warnings
+
+Johannes Berg (1):
+      cfg80211: process events caused by suspend before suspending
+
+ include/net/mac80211.h | 21 +++++++++++++--------
+ net/wireless/sysfs.c   |  5 ++++-
+ 2 files changed, 17 insertions(+), 9 deletions(-)
