@@ -1,183 +1,68 @@
-From: Ray Jui <ray.jui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 4/5] net: ethernet: bgmac: add NS2 support
-Date: Thu, 27 Oct 2016 15:21:39 -0700
-Message-ID: <ccbaf726-b1fc-975a-215c-17e2870328a6@broadcom.com>
-References: <1477510561-17035-1-git-send-email-jon.mason@broadcom.com>
- <1477510561-17035-5-git-send-email-jon.mason@broadcom.com>
- <eff0c717-ec4b-1dce-992a-ad5e958800f5@gmail.com>
- <20161027205117.GA24397@broadcom.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] net: phy: at803x: the Atheros 8031 supports pause frames
+Date: Thu, 27 Oct 2016 17:24:14 -0500
+Message-ID: <58127E8E.4020301@codeaurora.org>
+References: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
+ <f34cd143-bf04-c17f-b3d6-e3077715a72a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161027205117.GA24397-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        zefir.kurtisi@neratec.com, scampbel@codeaurora.org,
+        alokc@codeaurora.org, shankerd@codeaurora.org, andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:55392 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941575AbcJ0WYf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 18:24:35 -0400
+In-Reply-To: <f34cd143-bf04-c17f-b3d6-e3077715a72a@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Florian Fainelli wrote:
 
+> Hu? In my experience that should not come from supporting Pause frames
+> or not, but rather properly configuring a (RG)MII delay, but your
+> mileage may vary.
 
-On 10/27/2016 1:51 PM, Jon Mason wrote:
-> On Wed, Oct 26, 2016 at 02:50:39PM -0700, Florian Fainelli wrote:
->> On 10/26/2016 12:36 PM, Jon Mason wrote:
->>> Add support for the variant of amac hardware present in the Broadcom
->>> Northstar2 based SoCs.  Northstar2 requires an additional register to be
->>> configured with the port speed/duplexity (NICPM).  This can be added to
->>> the link callback to hide it from the instances that do not use this.
->>> Also, the bgmac_chip_reset() was intentionally removed to prevent the
->>> resetting of the chip to the default values on open.  Finally, clearing
->>> of the pending interrupts on init is required due to observed issues on
->>> some platforms.
->>>
->>> Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
->>> ---
->>
->>> +static void bgmac_nicpm_speed_set(struct net_device *net_dev)
->>> +{
->>> +	struct bgmac *bgmac = netdev_priv(net_dev);
->>> +	u32 val;
->>> +
->>> +	if (!bgmac->plat.nicpm_base)
->>> +		return;
->>> +
->>> +	val = NICPM_IOMUX_CTRL_INIT_VAL;
->>> +	switch (bgmac->net_dev->phydev->speed) {
->>> +	default:
->>> +		pr_err("Unsupported speed.  Defaulting to 1000Mb\n");
->>> +	case SPEED_1000:
->>> +		val |= NICPM_IOMUX_CTRL_SPD_1000M << NICPM_IOMUX_CTRL_SPD_SHIFT;
->>> +		break;
->>> +	case SPEED_100:
->>> +		val |= NICPM_IOMUX_CTRL_SPD_100M << NICPM_IOMUX_CTRL_SPD_SHIFT;
->>> +		break;
->>> +	case SPEED_10:
->>> +		val |= NICPM_IOMUX_CTRL_SPD_10M << NICPM_IOMUX_CTRL_SPD_SHIFT;
->>> +		break;
->>> +	}
->>> +
->>> +	writel(val, bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
->>> +
->>> +	usleep_range(10, 100);
->>
->> Does not seem like a good idea, do you need that sleep?
-> 
-> Oops, that's not supposed to be there.  Removed.
-> 
-> 
->>> +
->>> +	bgmac_adjust_link(bgmac->net_dev);
->>> +}
->>> +
->>>  static int platform_phy_connect(struct bgmac *bgmac)
->>>  {
->>>  	struct phy_device *phy_dev;
->>>  
->>> -	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
->>> -					 bgmac_adjust_link);
->>> +	if (bgmac->plat.nicpm_base)
->>> +		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
->>> +						 bgmac->dev->of_node,
->>> +						 bgmac_nicpm_speed_set);
->>> +	else
->>> +		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
->>> +						 bgmac->dev->of_node,
->>> +						 bgmac_adjust_link);
->>>  	if (!phy_dev) {
->>>  		dev_err(bgmac->dev, "Phy connect failed\n");
->>>  		return -ENODEV;
->>>  	}
->>>  
->>> +	if (bgmac->feature_flags & BGMAC_FEAT_LANE_SWAP)
->>> +		phy_dev->dev_flags |= PHY_BRCM_EXP_LANE_SWAP;
->>> +
->>>  	return 0;
->>>  }
->>>  
->>> @@ -140,6 +188,9 @@ static int bgmac_probe(struct platform_device *pdev)
->>>  
->>>  	platform_set_drvdata(pdev, bgmac);
->>>  
->>> +	if (of_property_read_bool(np, "brcm,enet-phy-lane-swap"))
->>> +		bgmac->feature_flags |= BGMAC_FEAT_LANE_SWAP;
->>> +
->>>  	/* Set the features of the 4707 family */
->>>  	bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
->>>  	bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
->>> @@ -182,6 +233,14 @@ static int bgmac_probe(struct platform_device *pdev)
->>>  	if (IS_ERR(bgmac->plat.idm_base))
->>>  		return PTR_ERR(bgmac->plat.idm_base);
->>>  
->>> +	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");
->>> +	if (regs) {
->>> +		bgmac->plat.nicpm_base = devm_ioremap_resource(&pdev->dev,
->>> +							       regs);
->>> +		if (IS_ERR(bgmac->plat.nicpm_base))
->>> +			return PTR_ERR(bgmac->plat.nicpm_base);
->>> +	}
->>> +
->>>  	bgmac->read = platform_bgmac_read;
->>>  	bgmac->write = platform_bgmac_write;
->>>  	bgmac->idm_read = platform_bgmac_idm_read;
->>> @@ -213,6 +272,7 @@ static int bgmac_remove(struct platform_device *pdev)
->>>  static const struct of_device_id bgmac_of_enet_match[] = {
->>>  	{.compatible = "brcm,amac",},
->>>  	{.compatible = "brcm,nsp-amac",},
->>> +	{.compatible = "brcm,ns2-amac",},
->>>  	{},
->>>  };
->>>  
->>> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
->>> index 38876ec..1796208 100644
->>> --- a/drivers/net/ethernet/broadcom/bgmac.c
->>> +++ b/drivers/net/ethernet/broadcom/bgmac.c
->>> @@ -1082,6 +1082,9 @@ static void bgmac_enable(struct bgmac *bgmac)
->>>  /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
->>>  static void bgmac_chip_init(struct bgmac *bgmac)
->>>  {
->>> +	/* Clear any erroneously pending interrupts */
->>> +	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
->>> +
->>>  	/* 1 interrupt per received frame */
->>>  	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
->>>  
->>> @@ -1158,8 +1161,6 @@ static int bgmac_open(struct net_device *net_dev)
->>>  	struct bgmac *bgmac = netdev_priv(net_dev);
->>>  	int err = 0;
->>>  
->>> -	bgmac_chip_reset(bgmac);
->>> -
->>
->> Is this removal intentional? Maybe it should be special cased with
->> checking for a NS2 BGMAC instance and not do it in that case?
-> 
-> The reset seems completely unnecessary.  There is already 2 resets in
-> the probe routine, another reset serves no purpose.  I can add it
-> back, as it does not seem to have the negative effect I was seeing
-> before.
+I can assure you, I'm more confused than you.  I've been working in this 
+for almost two weeks, and not only does this patch align with other phy 
+drivers, but it does fix my bug.  Without this patch, phylib does not 
+set the pause frame bits (10 and 11) in MII_ADVERTISE.
 
-After repeated ifconfig down/up, does Ethernet still work with this
-reset removed?
+> It does not, support for Pause frames is a MAC-level feature, yet,
+> PHYLIB (and that's been on my todo for a while now) insists on reporting
+> the confusing phydev->pause and phydev->asym_pause, which really is what
+> has been determined from auto-negotiating with your partner, as opposed
+> to being a supported thing or not. The PHY has absolutely not business
+> in that.
 
-Thanks.
+But there are pause frame bits in the MII_ADVERTISE register, and this 
+setting directly impacts whether those bits are set.  I don't see how 
+this is a MAC-level feature.
 
-> 
-> Of course, if I remove this one I should remove the reset in the close
-> too (which seems even more unnecessary, but I didn't remove it).
-> 
-> Thanks,
-> Jon
-> 
->> -- 
->> Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Your change should probably be in the Ethernet MAC driver, when you have
+> successfully connected to the PHY, update phydev->supported to include
+> SUPPORTED_Pause | SUPPORTED_Asym_pause.
+
+The phylib documentation (networking/phy.txt) says:
+
+  Now just make sure that phydev->supported and phydev->advertising have any
+  values pruned from them which don't make sense for your controller (a 
+10/100
+  controller may be connected to a gigabit capable PHY, so you would need to
+  mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for 
+definitions
+  for these bitfields.
+
+and then it says:
+
+> Note that you should not SET any bits, or the PHY may
+>  get put into an unsupported state.
+
+So are you sure I'm supposed to set those bits?
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
