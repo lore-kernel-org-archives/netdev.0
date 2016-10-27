@@ -1,90 +1,98 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded
- ICMP errors from offending packet
-Date: Thu, 27 Oct 2016 15:35:27 -0700
-Message-ID: <CALx6S35BrV_KTgbwSKc-CiW4RRwHinKXJNhB+gmU9kQgvfTC+w@mail.gmail.com>
-References: <1477301332-23954-1-git-send-email-jkbs@redhat.com> <1477301332-23954-6-git-send-email-jkbs@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: at803x: the Atheros 8031 supports pause frames
+Date: Thu, 27 Oct 2016 15:39:20 -0700
+Message-ID: <9b817af9-a519-9010-e57b-8de8972088b8@gmail.com>
+References: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
+ <f34cd143-bf04-c17f-b3d6-e3077715a72a@gmail.com>
+ <58127E8E.4020301@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
-To: Jakub Sitnicki <jkbs@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477301332-23954-6-git-send-email-jkbs@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+        zefir.kurtisi@neratec.com, scampbel@codeaurora.org,
+        alokc@codeaurora.org, shankerd@codeaurora.org, andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33093 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943004AbcJ0WjY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 18:39:24 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i85so3732732pfa.0
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 15:39:24 -0700 (PDT)
+In-Reply-To: <58127E8E.4020301@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 24, 2016 at 2:28 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
-> Same as for the transmit path, let's do our best to ensure that received
-> ICMP errors that may be subject to forwarding will be routed the same
-> path as flow that triggered the error, if it was going in the opposite
-> direction.
->
-Unfortunately our ability to do this is generally quite limited. This
-patch will select the route for multipath, but I don't believe sets
-the same link in LAG and definitely can't help switches doing ECMP to
-route the ICMP packet in the same way as the flow would be. Did you
-see a problem that warrants solving this case?
+On 10/27/2016 03:24 PM, Timur Tabi wrote:
+> Florian Fainelli wrote:
+> 
+>> Hu? In my experience that should not come from supporting Pause frames
+>> or not, but rather properly configuring a (RG)MII delay, but your
+>> mileage may vary.
+> 
+> I can assure you, I'm more confused than you.  I've been working in this
+> for almost two weeks, and not only does this patch align with other phy
+> drivers, but it does fix my bug.  Without this patch, phylib does not
+> set the pause frame bits (10 and 11) in MII_ADVERTISE.
 
-Tom
+And that's expected, but if your MAC does not act upon phydev->pause and
+phydev->asym_pause, then chances are that you can indeed lose packets
+every once in a while.
 
+The part that is totally crappy about Pause frames and PHYLIB is that we
+need some information about whether this should be supported or not,
+such that we can change MII_ADVERTISE accordingly to reflect that, and
+what best way to do this than use one of these SUPPORTED_* bits to set
+that, except, that unlike speed (which is both a MAC and PHY property),
+Pause is exclusively MAC, yet, it transpires in PHYLIB.
 
-> Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
-> ---
->  net/ipv6/route.c | 26 ++++++++++++++++++++++++++
->  1 file changed, 26 insertions(+)
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 1184c2b..c0f38ea 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1150,6 +1150,30 @@ struct dst_entry *ip6_route_input_lookup(struct net *net,
->  }
->  EXPORT_SYMBOL_GPL(ip6_route_input_lookup);
->
-> +static u32 ip6_multipath_icmp_hash(const struct sk_buff *skb)
-> +{
-> +       const struct icmp6hdr *icmph = icmp6_hdr(skb);
-> +       const struct ipv6hdr *inner_iph;
-> +       struct ipv6hdr _inner_iph;
-> +
-> +       if (icmph->icmp6_type != ICMPV6_DEST_UNREACH &&
-> +           icmph->icmp6_type != ICMPV6_PKT_TOOBIG &&
-> +           icmph->icmp6_type != ICMPV6_TIME_EXCEED &&
-> +           icmph->icmp6_type != ICMPV6_PARAMPROB)
-> +               goto standard_hash;
-> +
-> +       inner_iph = skb_header_pointer(
-> +               skb, skb_transport_offset(skb) + sizeof(*icmph),
-> +               sizeof(_inner_iph), &_inner_iph);
-> +       if (!inner_iph)
-> +               goto standard_hash;
-> +
-> +       return icmpv6_multipath_hash(inner_iph);
-> +
-> +standard_hash:
-> +       return 0; /* compute it later, if needed */
-> +}
-> +
->  void ip6_route_input(struct sk_buff *skb)
->  {
->         const struct ipv6hdr *iph = ipv6_hdr(skb);
-> @@ -1168,6 +1192,8 @@ void ip6_route_input(struct sk_buff *skb)
->         tun_info = skb_tunnel_info(skb);
->         if (tun_info && !(tun_info->mode & IP_TUNNEL_INFO_TX))
->                 fl6.flowi6_tun_key.tun_id = tun_info->key.tun_id;
-> +       if (unlikely(fl6.flowi6_proto == IPPROTO_ICMPV6))
-> +               fl6.mp_hash = ip6_multipath_icmp_hash(skb);
+MACs that I work with for instance need to be told to ignore pause
+frames, or not ignore them, it all depends on what you want to
+advertise/support.
 
-I will point out that this is only
->         skb_dst_drop(skb);
->         skb_dst_set(skb, ip6_route_input_lookup(net, skb->dev, &fl6, flags));
->  }
-> --
-> 2.7.4
->
+> 
+>> It does not, support for Pause frames is a MAC-level feature, yet,
+>> PHYLIB (and that's been on my todo for a while now) insists on reporting
+>> the confusing phydev->pause and phydev->asym_pause, which really is what
+>> has been determined from auto-negotiating with your partner, as opposed
+>> to being a supported thing or not. The PHY has absolutely not business
+>> in that.
+> 
+> But there are pause frame bits in the MII_ADVERTISE register, and this
+> setting directly impacts whether those bits are set.  I don't see how
+> this is a MAC-level feature.
+
+This is a MAC level feature, that needs to be auto-negotiated with your
+link partner, which is why there is room for this in MII_ADVERTISE, but
+the PHY absolutely does not participate in Pause frames, other than
+passing them through the MAC, like normal frames. Whether your MAC acts
+upon that or not is a MAC dependent feature.
+
+> 
+>> Your change should probably be in the Ethernet MAC driver, when you have
+>> successfully connected to the PHY, update phydev->supported to include
+>> SUPPORTED_Pause | SUPPORTED_Asym_pause.
+> 
+> The phylib documentation (networking/phy.txt) says:
+> 
+>  Now just make sure that phydev->supported and phydev->advertising have any
+>  values pruned from them which don't make sense for your controller (a
+> 10/100
+>  controller may be connected to a gigabit capable PHY, so you would need to
+>  mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for
+> definitions
+>  for these bitfields.
+> 
+> and then it says:
+> 
+>> Note that you should not SET any bits, or the PHY may
+>>  get put into an unsupported state.
+> 
+> So are you sure I'm supposed to set those bits?
+
+Yes I am sure you should set these bits, the documentation is not
+necessarily the authoritative source here (although it should). What
+this probably meant to be written is something like: don't set any bits
+that are not defined in ethtool.h, i.e: do not use this to store
+persistent states.
+-- 
+Florian
