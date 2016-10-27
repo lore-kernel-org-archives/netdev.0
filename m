@@ -1,72 +1,66 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCHv2 iproute2 net-next] tc: m_mirred: Fix parsing of 'index'
- optional argument
-Date: Thu, 27 Oct 2016 16:56:43 +0200
-Message-ID: <20161027145643.GS5640@orbyte.nwl.cc>
-References: <20161027073606.6112-1-shmulik.ladkani@gmail.com>
- <20161027094633.GR5640@orbyte.nwl.cc>
- <20161027172239.7bf5cc40@pixies>
+From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
+Subject: ICMP redirects behavior
+Date: Thu, 27 Oct 2016 11:01:21 -0400
+Message-ID: <20161027150121.GB30102@ssuryaputra-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53237 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936544AbcJ0O4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Oct 2016 10:56:45 -0400
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:35080 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932442AbcJ0PBZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 11:01:25 -0400
+Received: by mail-qt0-f196.google.com with SMTP id 23so999799qtp.2
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 08:01:25 -0700 (PDT)
+Received: from ssuryaputra-desktop ([12.38.14.193])
+        by smtp.gmail.com with ESMTPSA id i5sm3798564qtb.14.2016.10.27.08.01.23
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 27 Oct 2016 08:01:23 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20161027172239.7bf5cc40@pixies>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 27, 2016 at 05:22:39PM +0300, Shmulik Ladkani wrote:
-> Hi Phil,
-> 
-> On Thu, 27 Oct 2016 11:46:33 +0200, phil@nwl.cc wrote:
-> > According to the action's help text (and the man page which is based
-> > upon that), this behaviour is perfectly fine:
-> > 
-> > | Usage: mirred <DIRECTION> <ACTION> [index INDEX] <dev DEVICENAME>
-> > 
-> > So first argument *must* be the direction, second one *must* be the
-> > action, then an optional index and the last one *must* be the interface.
-> 
-> There is an inconsistency betweem man/help and code.
-> 
-> Actual code, since first committed, attempts to parse "index" as 1st
-> argument (without success), see parse_mirred():
-> 
-> 	if (matches(*argv, "egress") == 0 || matches(*argv, "index") == 0) {
-> 		int ret = parse_egress(a, &argc, &argv, tca_id, n);
+Hi, All,
 
-Oh, I missed that! But to me this looks like the author wanted to avoid
-erroring out with "mirred option not supported index" in case of missing
-'egress' keyword.
+I noticed through code inspection that ICMP redirects behavior is
+different after commit 5943634fc5592037db0693b261f7f4bea6bb9457.
 
->From that perspective, I think parse_direction() really should be
-removed and it's content made part of parse_mirred() itself.
+In v2.6 kernel, it used to be that ip_rt_redirect() calls
+arp_bind_neighbour() which returns 0 and then the state of the neigh for
+the new_gw is checked. If the state isn't valid then the redirected
+route is deleted. From what I can tell, this behavior is maintained up
+to v3.5.7 by check_peer_redirect() because rt->rt_gateway is assigned to
+peer->redirect_learned.a4 before calling ipv4_neigh_lookup().
 
-> > While I don't see a problem with changing that (apart from that I don't
-> > think it's necessary)
-> 
-> Not "changing" per-se, but rather "fixing", at least according code
-> author's intention :)
+After the commit, ipv4_neigh_lookup() is performed without the
+rt_gateway assigned to the new_gw. In my case since rt_gateway (old_gw)
+isn't zero, the function uses it as the key. The neigh is valid since
+that gateway is the one that sends the ICMP redirect message. Then the
+new_gw is assigned. The problem is: the new_gw ARP never gets resolved 
+and the traffic is blackholed. My version is v3.18.24.
 
-I still think we don't fully know the author's intention. :)
+Is there a justification for this behavioral change? I traced the origin
+of the code to v2.1.15 where the check is performed when
+rfc1620_redirects is set. I propose the following patch to restore the
+previous behavior.
 
-> As I suggested in the notes part of the commit log,
-> 
-> >> An alternative solution: banning "index" as 1st argument in parse_mirred
-> 
-> I ok with removing the code trying to support "index" as 1st argument as
-> well.
-> I only assumed one might want this behaviour due to intention expressed
-> by original code.
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 62d4d90..510045c 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -753,7 +753,9 @@ static void __ip_do_redirect(struct rtable *rt,
+struct sk_buff *skb, struct flow
+                        goto reject_redirect;
+        }
 
-Yeah, I'd go with least effort approach, i.e. not adding any additional
-flexibility in arg parsing. Since the docs never stated otherwise, I
-don't think it was a real issue for users.
++       rt->rt_gateway = 0;
+        n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
++       rt->rt_gateway = old_gw;
+        if (!IS_ERR(n)) {
+                if (!(n->nud_state & NUD_VALID)) {
+                        neigh_event_send(n, NULL);
 
-Cheers, Phil
+Regards,
+
+Stephen.
