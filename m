@@ -1,64 +1,56 @@
-From: shamir.rabinovitch@oracle.com
-Subject: [PATCH RDS v1] rds: debug messages are enabled by default
-Date: Thu, 27 Oct 2016 05:46:38 -0400
-Message-ID: <1477561598-20186-1-git-send-email-shamir.rabinovitch@oracle.com>
-Cc: shamir.rabinovitch@oracle.com, santosh.shilimkar@oracle.com,
-        davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:48839 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933120AbcJ0PGV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 11:06:21 -0400
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u9R9l2qT017762
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 09:47:03 GMT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [19/28] brcmfmac: avoid maybe-uninitialized warning in
+ brcmf_cfg80211_start_ap
+Date: Thu, 27 Oct 2016 15:05:23 +0000 (UTC)
+Message-ID: <20161027150523.B600361656@smtp.codeaurora.org>
+References: <20161017221355.1861551-7-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        "Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161017221355.1861551-7-arnd-r2nGTMty4D4@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> A bugfix added a sanity check around the assignment and use of the
+> 'is_11d' variable, which looks correct to me, but as the function is
+> rather complex already, this confuses the compiler to the point where
+> it can no longer figure out if the variable is always initialized
+> correctly:
+> 
+> brcm80211/brcmfmac/cfg80211.c: In function ‘brcmf_cfg80211_start_ap’:
+> brcm80211/brcmfmac/cfg80211.c:4586:10: error: ‘is_11d’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> This adds an initialization for the newly introduced case in which
+> the variable should not really be used, in order to make the warning
+> go away.
+> 
+> Fixes: b3589dfe0212 ("brcmfmac: ignore 11d configuration errors")
+> Cc: Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 
-rds use Kconfig option called "RDS_DEBUG" to enable rds debug messages.
-This option cause the rds Makefile to add -DDEBUG to the rds gcc command
-line.
+Patch applied to wireless-drivers.git, thanks.
 
-When CONFIG_DYNAMIC_DEBUG is enabled, the "DEBUG" macro is used by
-include/linux/dynamic_debug.h to decide if dynamic debug prints should
-be sent by default to the kernel log.
+d3532ea6ce4e brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
 
-rds should not enable this macro for production builds. rds dynamic
-debug work as expected follow this fix.
-
-Signed-off-by: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
----
- net/rds/Makefile |    2 +-
- net/rds/rds.h    |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/rds/Makefile b/net/rds/Makefile
-index 0e72bec..56c7d27 100644
---- a/net/rds/Makefile
-+++ b/net/rds/Makefile
-@@ -13,5 +13,5 @@ obj-$(CONFIG_RDS_TCP) += rds_tcp.o
- rds_tcp-y :=		tcp.o tcp_connect.o tcp_listen.o tcp_recv.o \
- 			tcp_send.o tcp_stats.o
- 
--ccflags-$(CONFIG_RDS_DEBUG)	:=	-DDEBUG
-+ccflags-$(CONFIG_RDS_DEBUG)	:=	-DRDS_DEBUG
- 
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index 25532a4..4121e18 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -33,7 +33,7 @@
- #define KERNEL_HAS_ATOMIC64
- #endif
- 
--#ifdef DEBUG
-+#ifdef RDS_DEBUG
- #define rdsdebug(fmt, args...) pr_debug("%s(): " fmt, __func__ , ##args)
- #else
- /* sigh, pr_debug() causes unused variable warnings */
 -- 
-1.7.1
+https://patchwork.kernel.org/patch/9380763/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
