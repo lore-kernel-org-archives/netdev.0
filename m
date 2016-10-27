@@ -1,82 +1,57 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] net: smsc911x: Synchronize the runtime PM status during
- system suspend
-Date: Thu, 27 Oct 2016 13:54:47 +0200
-Message-ID: <CAMuHMdV_aybcUGu+g-8uNj5k1MtoyJ5s8CfujC+iJrxs7h5eAA@mail.gmail.com>
-References: <1477567434-5128-1-git-send-email-ulf.hansson@linaro.org>
- <CAMuHMdUbU07t2kB6J0rSOiOTbDkegP73FAAEenViuDjQUFE-Jg@mail.gmail.com> <CAPDyKFprWcita5sbdwTqbdi2CMW4gx7_UB7+kMd9R2rqXdcALQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Alan Stern <stern@rowland.harvard.edu>,
-        Linux PM list <linux-pm@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-        Kevin Hilman <khilman@kernel.org>,
-        Lina Iyer <lina.iyer@linaro.org>,
-        Jon Hunter <jonathanh@nvidia.com>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        Steve Glendinning <steve.glendinning@shawell.net>
-To: Ulf Hansson <ulf.hansson@linaro.org>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CAPDyKFprWcita5sbdwTqbdi2CMW4gx7_UB7+kMd9R2rqXdcALQ@mail.gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net] arch/powerpc: Update parameters for csum_tcpudp_magic & csum_tcpudp_nofold
+Date: Thu, 27 Oct 2016 16:30:06 +0200
+Message-ID: <1477578606-27562-1-git-send-email-ivecera@redhat.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41928 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S942928AbcJ0OaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Oct 2016 10:30:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ulf,
+Commit 01cfbad "ipv4: Update parameters for csum_tcpudp_magic to their
+original types" changed parameters for csum_tcpudp_magic and
+csum_tcpudp_nofold for many platforms but not for PowerPC.
 
-On Thu, Oct 27, 2016 at 1:53 PM, Ulf Hansson <ulf.hansson@linaro.org> wrote:
-> On 27 October 2016 at 13:41, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->> On Thu, Oct 27, 2016 at 1:23 PM, Ulf Hansson <ulf.hansson@linaro.org> wrote:
->>> The smsc911c driver puts its device into low power state when entering
->>> system suspend. Although it doesn't update the device's runtime PM status
->>> to RPM_SUSPENDED, which causes problems for a parent device.
->>>
->>> In particular, when the runtime PM status of the parent is requested to be
->>> updated to RPM_SUSPENDED, the runtime PM core prevent this, because it's
->>> forbidden to runtime suspend a device, which has an active child.
->>>
->>> Fix this by updating the runtime PM status of the smsc911x device to
->>> RPM_SUSPENDED during system suspend. In system resume, let's reverse that
->>> action by runtime resuming the device and thus also the parent.
->>
->> Thanks for your patch!
->>
->> The changelog sounds quite innocent, but this does fix a system crash
->> during resume from s2ram.
->>
->>> Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
->>> Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
->>> Cc: Steve Glendinning <steve.glendinning@shawell.net>
->>> Fixes: 8b1107b85efd ("PM / Runtime: Don't allow to suspend a device with an active child")
->>
->> While the abovementioned commit made the problem visible, the root cause
->> was present before, right?
->
-> Yes.
->
->>> ---
->>>
->>> Note that the commit this change fixes is currently queued for 4.10 via
->>> Rafael's linux-pm tree. So this fix should go via that tree as well.
->>
->> Alternatively, this could go in in v4.9 to avoid the problem from ever
->> appearing in upstream?
->
-> Makes perfect sense! In that case we should remove the fixes tag.
->
-> Rafael, can you pick this up for 4.9 rc[n]?
+Fixes: 01cfbad "ipv4: Update parameters for csum_tcpudp_magic to their original types"
+Cc: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ arch/powerpc/include/asm/checksum.h | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-Actually I was thinking about DaveM and the network tree instead.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/arch/powerpc/include/asm/checksum.h b/arch/powerpc/include/asm/checksum.h
+index ee655ed..1e8fceb 100644
+--- a/arch/powerpc/include/asm/checksum.h
++++ b/arch/powerpc/include/asm/checksum.h
+@@ -53,10 +53,8 @@ static inline __sum16 csum_fold(__wsum sum)
+ 	return (__force __sum16)(~((__force u32)sum + tmp) >> 16);
+ }
+ 
+-static inline __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
+-                                     unsigned short len,
+-                                     unsigned short proto,
+-                                     __wsum sum)
++static inline __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr, __u32 len,
++					__u8 proto, __wsum sum)
+ {
+ #ifdef __powerpc64__
+ 	unsigned long s = (__force u32)sum;
+@@ -83,10 +81,8 @@ static inline __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
+  * computes the checksum of the TCP/UDP pseudo-header
+  * returns a 16-bit checksum, already complemented
+  */
+-static inline __sum16 csum_tcpudp_magic(__be32 saddr, __be32 daddr,
+-					unsigned short len,
+-					unsigned short proto,
+-					__wsum sum)
++static inline __sum16 csum_tcpudp_magic(__be32 saddr, __be32 daddr, __u32 len,
++					__u8 proto, __wsum sum)
+ {
+ 	return csum_fold(csum_tcpudp_nofold(saddr, daddr, len, proto, sum));
+ }
+-- 
+2.7.3
