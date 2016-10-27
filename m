@@ -1,44 +1,57 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 10/10] net/mlx4_en: Save slave ethtool stats command
-Date: Thu, 27 Oct 2016 16:27:22 +0300
-Message-ID: <1477574842-29688-11-git-send-email-tariqt@mellanox.com>
-References: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57543 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932748AbcJ0Ny1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 09:54:27 -0400
-In-Reply-To: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Subject: Re: [PATCH (net.git) 2/3] stmmac: fix PTP support for GMAC4
+Date: Thu, 27 Oct 2016 16:21:23 +0530
+Message-ID: <CAJ3bTp7YON-+EiXCY+eaBP6NhtGJTngh2pLaKXdp2YPP1i+C6w@mail.gmail.com>
+References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
+ <1477464964-5960-3-git-send-email-peppe.cavallaro@st.com> <CAJ3bTp6Q4XF+nogBNf0ZBq73wr=btmNSgrCg=Kv8kvgsVf2jQg@mail.gmail.com>
+ <743ffe4a-2c8f-e5f7-f93c-6be16a8a0350@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, alexandre.torgue@st.com,
+        Richard Cochran <richardcochran@gmail.com>,
+        linux-kernel@vger.kernel.org, seraphin.bonnaffe@st.com
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <743ffe4a-2c8f-e5f7-f93c-6be16a8a0350@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Following the previous patch, as an optimization, the slave will
-not even bother sending the DUMP_ETH_STATS command over the
-comm channel.
+On Thu, Oct 27, 2016 at 4:02 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+> Hello Rayagond !
+>
+> On 10/27/2016 12:25 PM, Rayagond Kokatanur wrote:
+>>>
+>>> +static int dwmac4_wrback_get_rx_timestamp_status(void *desc, u32 ats)
+>>> >  {
+>>> >         struct dma_desc *p = (struct dma_desc *)desc;
+>>> > +       int ret = -EINVAL;
+>>> > +
+>>> > +       /* Get the status from normal w/b descriptor */
+>>> > +       if (likely(p->des3 & TDES3_RS1V)) {
+>>> > +               if (likely(p->des1 & RDES1_TIMESTAMP_AVAILABLE)) {
+>>> > +                       int i = 0;
+>>> > +
+>>> > +                       /* Check if timestamp is OK from context
+>>> > descriptor */
+>>> > +                       do {
+>>> > +                               ret = dwmac4_rx_check_timestamp(desc);
+>>
+>> Here, "desc" is not pointing to next descriptor (ie context
+>> descriptor). Driver should check the context descriptor.
+>
+>
+> you are right and this is done by the caller:  stmmac_get_rx_hwtstamp
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Yes.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 314f54c8dbed..12c99a2655f2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1917,8 +1917,9 @@ static void mlx4_en_clear_stats(struct net_device *dev)
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	int i;
- 
--	if (mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 1))
--		en_dbg(HW, priv, "Failed dumping statistics\n");
-+	if (!mlx4_is_slave(mdev->dev))
-+		if (mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 1))
-+			en_dbg(HW, priv, "Failed dumping statistics\n");
- 
- 	memset(&priv->pstats, 0, sizeof(priv->pstats));
- 	memset(&priv->pkstats, 0, sizeof(priv->pkstats));
+>
+> Cheers
+> peppe
+>
+
+
+
 -- 
-1.8.3.1
+wwr
+Rayagond
