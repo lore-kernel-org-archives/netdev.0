@@ -1,60 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v1 13/16] tipc: create TIPC_DISCONNECTING as a
- new sk_state
-Date: Thu, 27 Oct 2016 08:03:23 -0700
-Message-ID: <1477580603.7065.210.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1477578157-13256-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-         <1477578157-13256-14-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-        jon.maloy@ericsson.com, maloy@donjonn.com, ying.xue@windriver.com
-To: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+From: shamir.rabinovitch@oracle.com
+Subject: [PATCH RDS v1] rds: debug messages are enabled by default
+Date: Thu, 27 Oct 2016 05:46:38 -0400
+Message-ID: <1477561598-20186-1-git-send-email-shamir.rabinovitch@oracle.com>
+Cc: shamir.rabinovitch@oracle.com, santosh.shilimkar@oracle.com,
+        davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34241 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933120AbcJ0PDZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 11:03:25 -0400
-Received: by mail-pf0-f194.google.com with SMTP id u84so2898220pfj.1
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 08:03:25 -0700 (PDT)
-In-Reply-To: <1477578157-13256-14-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Received: from userp1050.oracle.com ([156.151.31.82]:48839 "EHLO
+        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933120AbcJ0PGV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 11:06:21 -0400
+Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
+        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u9R9l2qT017762
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 09:47:03 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-10-27 at 16:22 +0200, Parthasarathy Bhuvaragan wrote:
-> In this commit, we create a new tipc socket state TIPC_DISCONNECTING in
-> sk_state. TIPC_DISCONNECTING is replacing the socket connection status
-> update using SS_DISCONNECTING.
-> TIPC_DISCONNECTING is set for connection oriented sockets at:
-> - tipc_shutdown()
-> - connection probe timeout
-> - when we receive an error message on the connection.
-> 
-> There is no functional change in this commit.
-> 
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-> ---
->  include/uapi/linux/tipc.h |  1 +
->  net/tipc/socket.c         | 39 +++++++++++++++++++++++----------------
->  2 files changed, 24 insertions(+), 16 deletions(-)
-> 
-> diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
-> index ae45de5e0d93..f5c03fdfc8a8 100644
-> --- a/include/uapi/linux/tipc.h
-> +++ b/include/uapi/linux/tipc.h
-> @@ -184,6 +184,7 @@ enum {
->  	TIPC_PROBING,
->  	TIPC_ESTABLISHED,
->  	TIPC_OPEN,
-> +	TIPC_DISCONNECTING,
->  };
+From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
 
+rds use Kconfig option called "RDS_DEBUG" to enable rds debug messages.
+This option cause the rds Makefile to add -DDEBUG to the rds gcc command
+line.
 
-Note that all these TIPC socket states might conflict with 
-sk_fullsock(), sk_listener(), inet6_sk(), ip_skb_dst_mtu(),
-sk_const_to_full_sk() , skb_to_full_sk() helpers.
+When CONFIG_DYNAMIC_DEBUG is enabled, the "DEBUG" macro is used by
+include/linux/dynamic_debug.h to decide if dynamic debug prints should
+be sent by default to the kernel log.
 
-So there is definitely a high risk.
+rds should not enable this macro for production builds. rds dynamic
+debug work as expected follow this fix.
+
+Signed-off-by: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
+---
+ net/rds/Makefile |    2 +-
+ net/rds/rds.h    |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/rds/Makefile b/net/rds/Makefile
+index 0e72bec..56c7d27 100644
+--- a/net/rds/Makefile
++++ b/net/rds/Makefile
+@@ -13,5 +13,5 @@ obj-$(CONFIG_RDS_TCP) += rds_tcp.o
+ rds_tcp-y :=		tcp.o tcp_connect.o tcp_listen.o tcp_recv.o \
+ 			tcp_send.o tcp_stats.o
+ 
+-ccflags-$(CONFIG_RDS_DEBUG)	:=	-DDEBUG
++ccflags-$(CONFIG_RDS_DEBUG)	:=	-DRDS_DEBUG
+ 
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 25532a4..4121e18 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -33,7 +33,7 @@
+ #define KERNEL_HAS_ATOMIC64
+ #endif
+ 
+-#ifdef DEBUG
++#ifdef RDS_DEBUG
+ #define rdsdebug(fmt, args...) pr_debug("%s(): " fmt, __func__ , ##args)
+ #else
+ /* sigh, pr_debug() causes unused variable warnings */
+-- 
+1.7.1
