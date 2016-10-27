@@ -1,126 +1,160 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 00/17] pull request for net-next: batman-adv
-	2016-10-27
-Date: Thu, 27 Oct 2016 21:01:33 +0200
-Message-ID: <20161027190150.7880-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 13/17] batman-adv: Remove needless init of variables on stack
+Date: Thu, 27 Oct 2016 21:01:46 +0200
+Message-ID: <20161027190150.7880-14-sw@simonwunderlich.de>
+References: <20161027190150.7880-1-sw@simonwunderlich.de>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Sven Eckelmann <sven@narfation.org>,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:38354 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942661AbcJ0TB7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 15:01:59 -0400
+In-Reply-To: <20161027190150.7880-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Sven Eckelmann <sven@narfation.org>
 
-this is our first feature pull request for batman-adv (mostly containing
-code cleanup stuff), there are at least two more to come.
+Some variables are overwritten immediatelly in a functions. These don't
+have to be initialized to a specific value on the stack because the value
+will be overwritten before they will be used anywhere.
 
-Please pull or let me know of any problem!
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+---
+ net/batman-adv/bat_v.c          | 2 +-
+ net/batman-adv/bat_v_ogm.c      | 4 ++--
+ net/batman-adv/fragmentation.c  | 4 ++--
+ net/batman-adv/gateway_client.c | 2 +-
+ net/batman-adv/originator.c     | 8 ++++----
+ net/batman-adv/send.c           | 2 +-
+ 6 files changed, 11 insertions(+), 11 deletions(-)
 
-Thank you,
-      Simon
-
-The following changes since commit 29fbff8698fc0ac1a1d74584b258e0bf18b469f9:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2016-10-13 21:40:23 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20161027
-
-for you to fetch changes up to 4c7da0f6dbcde2431d773ce03cde5e7abede54e0:
-
-  batman-adv: Avoid precedence issues in macros (2016-10-19 08:37:54 +0200)
-
-----------------------------------------------------------------
-This code cleanup patchset includes the following changes (chronological
-order):
-
- - bump version strings, by Simon Wunderlich
-
- - README updates/clean up, by Sven Eckelmann (4 patches)
-
- - Code clean up and restructuring by Sven Eckelmann (2 patches)
-
- - Kerneldoc fix in forw_packet structure, by Linus Luessing
-
- - Remove unused argument in dbg_arp, by Antonio Quartulli
-
- - Add support to build batman-adv without wireless, by Linus Luessing
-
- - Restructure error handling for is_ap_isolated, by Markus Elfring
-
- - Remove unused initialization in various functions, by Sven Eckelmann
-
- - Use better names for fragment and gateway list heads, by Sven
-   Eckelmann (2 patches)
-
- - Convert to octal permissions for files, by Sven Eckelmann
-
- - Avoid precedence issues for some macros, by Sven Eckelmann
-
-----------------------------------------------------------------
-Antonio Quartulli (1):
-      batman-adv: remove unsed argument from batadv_dbg_arp() function
-
-Linus Lüssing (2):
-      batman-adv: fix batadv_forw_packet kerneldoc for list attribute
-      batman-adv: Allow selecting BATMAN V if CFG80211 is not built
-
-Markus Elfring (1):
-      batman-adv: Less function calls in batadv_is_ap_isolated() after error detection
-
-Simon Wunderlich (1):
-      batman-adv: Start new development cycle
-
-Sven Eckelmann (12):
-      batman-adv: Add B.A.T.M.A.N. V sysfs files to README
-      batman-adv: Add network_coding and mcast sysfs files to README
-      batman-adv: Add dat, mcast, nc and neighbor debugfs files to README
-      batman-adv: Document new nc, mcast and tpmeter log levels
-      batman-adv: Remove unused function batadv_hash_delete
-      batman-adv: Move batadv_sum_counter to soft-interface.c
-      batman-adv: Remove unused batadv_icmp_user_cmd_type
-      batman-adv: Remove needless init of variables on stack
-      batman-adv: Use proper name for fragments list head
-      batman-adv: Use proper name for gateway list head
-      batman-adv: Use octal permissions instead of macros
-      batman-adv: Avoid precedence issues in macros
-
- Documentation/networking/batman-adv.txt | 35 ++++++++++++----------
- net/batman-adv/Kconfig                  |  2 +-
- net/batman-adv/bat_iv_ogm.c             |  6 ++--
- net/batman-adv/bat_v.c                  |  8 ++---
- net/batman-adv/bat_v_ogm.c              |  4 +--
- net/batman-adv/debugfs.c                | 26 ++++++++--------
- net/batman-adv/distributed-arp-table.c  | 17 ++++-------
- net/batman-adv/fragmentation.c          | 18 +++++------
- net/batman-adv/fragmentation.h          |  2 +-
- net/batman-adv/gateway_client.c         |  9 +++---
- net/batman-adv/hash.h                   | 30 -------------------
- net/batman-adv/icmp_socket.c            |  5 ++--
- net/batman-adv/log.c                    |  4 +--
- net/batman-adv/log.h                    | 12 ++++----
- net/batman-adv/main.c                   |  2 +-
- net/batman-adv/main.h                   | 27 ++---------------
- net/batman-adv/network-coding.c         |  8 ++---
- net/batman-adv/originator.c             | 10 +++----
- net/batman-adv/packet.h                 | 12 +-------
- net/batman-adv/send.c                   |  2 +-
- net/batman-adv/soft-interface.c         | 21 +++++++++++++
- net/batman-adv/sysfs.c                  | 53 ++++++++++++++-------------------
- net/batman-adv/translation-table.c      | 25 +++++++---------
- net/batman-adv/types.h                  | 16 +++++-----
- 24 files changed, 149 insertions(+), 205 deletions(-)
+diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
+index e79f6f0..57c795c 100644
+--- a/net/batman-adv/bat_v.c
++++ b/net/batman-adv/bat_v.c
+@@ -787,7 +787,7 @@ static bool batadv_v_gw_is_eligible(struct batadv_priv *bat_priv,
+ 				    struct batadv_orig_node *curr_gw_orig,
+ 				    struct batadv_orig_node *orig_node)
+ {
+-	struct batadv_gw_node *curr_gw = NULL, *orig_gw = NULL;
++	struct batadv_gw_node *curr_gw, *orig_gw = NULL;
+ 	u32 gw_throughput, orig_throughput, threshold;
+ 	bool ret = false;
+ 
+diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
+index 1aeeadc..61ff5f8 100644
+--- a/net/batman-adv/bat_v_ogm.c
++++ b/net/batman-adv/bat_v_ogm.c
+@@ -401,7 +401,7 @@ static int batadv_v_ogm_metric_update(struct batadv_priv *bat_priv,
+ 				      struct batadv_hard_iface *if_incoming,
+ 				      struct batadv_hard_iface *if_outgoing)
+ {
+-	struct batadv_orig_ifinfo *orig_ifinfo = NULL;
++	struct batadv_orig_ifinfo *orig_ifinfo;
+ 	struct batadv_neigh_ifinfo *neigh_ifinfo = NULL;
+ 	bool protection_started = false;
+ 	int ret = -EINVAL;
+@@ -486,7 +486,7 @@ static bool batadv_v_ogm_route_update(struct batadv_priv *bat_priv,
+ 				      struct batadv_hard_iface *if_outgoing)
+ {
+ 	struct batadv_neigh_node *router = NULL;
+-	struct batadv_orig_node *orig_neigh_node = NULL;
++	struct batadv_orig_node *orig_neigh_node;
+ 	struct batadv_neigh_node *orig_neigh_router = NULL;
+ 	struct batadv_neigh_ifinfo *router_ifinfo = NULL, *neigh_ifinfo = NULL;
+ 	u32 router_throughput, neigh_throughput;
+diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
+index 0934730..1b2f5b9 100644
+--- a/net/batman-adv/fragmentation.c
++++ b/net/batman-adv/fragmentation.c
+@@ -252,7 +252,7 @@ batadv_frag_merge_packets(struct hlist_head *chain)
+ {
+ 	struct batadv_frag_packet *packet;
+ 	struct batadv_frag_list_entry *entry;
+-	struct sk_buff *skb_out = NULL;
++	struct sk_buff *skb_out;
+ 	int size, hdr_size = sizeof(struct batadv_frag_packet);
+ 
+ 	/* Remove first entry, as this is the destination for the rest of the
+@@ -352,7 +352,7 @@ bool batadv_frag_skb_fwd(struct sk_buff *skb,
+ 			 struct batadv_orig_node *orig_node_src)
+ {
+ 	struct batadv_priv *bat_priv = netdev_priv(recv_if->soft_iface);
+-	struct batadv_orig_node *orig_node_dst = NULL;
++	struct batadv_orig_node *orig_node_dst;
+ 	struct batadv_neigh_node *neigh_node = NULL;
+ 	struct batadv_frag_packet *packet;
+ 	u16 total_size;
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index de055d6..69bfe98 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -704,7 +704,7 @@ bool batadv_gw_out_of_range(struct batadv_priv *bat_priv,
+ {
+ 	struct batadv_neigh_node *neigh_curr = NULL;
+ 	struct batadv_neigh_node *neigh_old = NULL;
+-	struct batadv_orig_node *orig_dst_node = NULL;
++	struct batadv_orig_node *orig_dst_node;
+ 	struct batadv_gw_node *gw_node = NULL;
+ 	struct batadv_gw_node *curr_gw = NULL;
+ 	struct batadv_neigh_ifinfo *curr_ifinfo, *old_ifinfo;
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 5f3bfc4..6af87c9 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -364,7 +364,7 @@ struct batadv_orig_ifinfo *
+ batadv_orig_ifinfo_new(struct batadv_orig_node *orig_node,
+ 		       struct batadv_hard_iface *if_outgoing)
+ {
+-	struct batadv_orig_ifinfo *orig_ifinfo = NULL;
++	struct batadv_orig_ifinfo *orig_ifinfo;
+ 	unsigned long reset_time;
+ 
+ 	spin_lock_bh(&orig_node->neigh_list_lock);
+@@ -520,7 +520,7 @@ batadv_hardif_neigh_create(struct batadv_hard_iface *hard_iface,
+ 			   const u8 *neigh_addr)
+ {
+ 	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
+-	struct batadv_hardif_neigh_node *hardif_neigh = NULL;
++	struct batadv_hardif_neigh_node *hardif_neigh;
+ 
+ 	spin_lock_bh(&hard_iface->neigh_list_lock);
+ 
+@@ -563,7 +563,7 @@ static struct batadv_hardif_neigh_node *
+ batadv_hardif_neigh_get_or_create(struct batadv_hard_iface *hard_iface,
+ 				  const u8 *neigh_addr)
+ {
+-	struct batadv_hardif_neigh_node *hardif_neigh = NULL;
++	struct batadv_hardif_neigh_node *hardif_neigh;
+ 
+ 	/* first check without locking to avoid the overhead */
+ 	hardif_neigh = batadv_hardif_neigh_get(hard_iface, neigh_addr);
+@@ -683,7 +683,7 @@ batadv_neigh_node_get_or_create(struct batadv_orig_node *orig_node,
+ 				struct batadv_hard_iface *hard_iface,
+ 				const u8 *neigh_addr)
+ {
+-	struct batadv_neigh_node *neigh_node = NULL;
++	struct batadv_neigh_node *neigh_node;
+ 
+ 	/* first check without locking to avoid the overhead */
+ 	neigh_node = batadv_neigh_node_get(orig_node, hard_iface, neigh_addr);
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 8d4e1f5..e1e9136 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -562,7 +562,7 @@ int batadv_add_bcast_packet_to_list(struct batadv_priv *bat_priv,
+ 				    const struct sk_buff *skb,
+ 				    unsigned long delay)
+ {
+-	struct batadv_hard_iface *primary_if = NULL;
++	struct batadv_hard_iface *primary_if;
+ 	struct batadv_forw_packet *forw_packet;
+ 	struct batadv_bcast_packet *bcast_packet;
+ 	struct sk_buff *newskb;
+-- 
+2.10.1
