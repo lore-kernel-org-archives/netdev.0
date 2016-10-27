@@ -1,72 +1,92 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC net-next iproute2 1/2] libnetlink: Add test for error code
- returned from netlink reply
-Date: Thu, 27 Oct 2016 09:52:53 +0300
-Message-ID: <20161027065253.GB1867@uranus.lan>
-References: <1477510208-20292-1-git-send-email-gorcunov@gmail.com>
- <1477510208-20292-2-git-send-email-gorcunov@gmail.com>
- <20161026205256.162e1d25@xeon-e3>
+From: Yotam Gigi <yotamg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: nfs NULL-dereferencing in net-next
+Date: Thu, 27 Oct 2016 06:50:22 +0000
+Message-ID: <DB3PR05MB0764F0409AE75E0172ABFE2EACAA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <20161017201943.64529739@jkicinski-Precision-T1700>
+ <DB3PR05MB0764DF28BC53A4A4E78A4DD8ACA80@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <817e43c5-d88d-e616-7074-5715de29d319@Netapp.com>
+ <DB3PR05MB0764B39F6EDF851A8A52EBACACAB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <20161026190840.3d46dad8@jkicinski-Precision-T1700>
+ <0ab5021c-84eb-cb9f-c7f5-4d856fdb0f4b@Netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Andrey Vagin <avagin@openvz.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:33762 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933466AbcJ0Gw4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 02:52:56 -0400
-Received: by mail-lf0-f67.google.com with SMTP id n3so1398901lfn.0
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 23:52:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20161026205256.162e1d25@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        Yotam Gigi <yotam.gi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, mlxsw <mlxsw-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>,
+        Jakub Kicinski <kubakici-5tc4TXWwyLM@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0ab5021c-84eb-cb9f-c7f5-4d856fdb0f4b-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 26, 2016 at 08:52:56PM -0700, Stephen Hemminger wrote:
-> On Wed, 26 Oct 2016 22:30:07 +0300
-> Cyrill Gorcunov <gorcunov@gmail.com> wrote:
-> 
-> >  
-> >  				if (h->nlmsg_type == NLMSG_DONE) {
-> > +					int len;
-> > +
-> > +					/*
-> > +					 * The kernel reports if there is
-> > +					 * no inet-diag module present in
-> > +					 * the system via negative length
-> > +					 * as error code.
-> > +					 */
-> > +					if (h->nlmsg_len < NLMSG_LENGTH(sizeof(int))) {
-> > +						fprintf(stderr, "Truncated length reply\n");
-> > +						return -1;
-> > +					}
-> > +					len = *(int *)NLMSG_DATA(h);
-> > +					if (len < 0) {
-> > +						errno = -len;
-> > +						if (errno == ENOENT ||
-> > +						    errno == EOPNOTSUPP)
-> > +							return -1;
-> > +						perror("RTNETLINK answers");
-> > +						return len;
-> > +					}
-> >  					found_done = 1;
-> >  					break; /* process next filter */
-> >  				
-> 
-> This looks like a mistake in how you implemented the functionality in the kernel.
-> Despite what it looks like, all netlink request/reply functionality reports
-> errors in current implementation by returning error to the sendmsg request.
-> 
-> What you added implies that the new kernel api is wrong, or many other usages
-> are wrong.  Please fix the kernel.
-
-No. This is not my code. This code has been in kernel for the really long time.
-I don't know why you've not been doing such test in libnetlink before.
-
-Actually I've hit this problem accidentaly -- I made a patch 2 from this
-set and run it on the machine where kernel was unpatched, ie without
-raw-diag module, and I found that we can't figure out if kernel notified
-us that some diag module simply not present in the system. And here is
-the only way to find it out.
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEFubmEgU2NodW1ha2VyIFtt
+YWlsdG86QW5uYS5TY2h1bWFrZXJATmV0YXBwLmNvbV0NCj5TZW50OiBXZWRuZXNkYXksIE9jdG9i
+ZXIgMjYsIDIwMTYgOToxNyBQTQ0KPlRvOiBKYWt1YiBLaWNpbnNraSA8a3ViYWtpY2lAd3AucGw+
+DQo+Q2M6IFlvdGFtIEdpZ2kgPHlvdGFtZ0BtZWxsYW5veC5jb20+OyBBbmR5IEFkYW1zb24gPGFu
+ZHJvc0BuZXRhcHAuY29tPjsNCj5saW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnOyBUcm9uZCBNeWtsZWJ1c3QNCj48VHJvbmQuTXlrbGVidXN0QG5ldGFwcC5j
+b20+OyBZb3RhbSBHaWdpIDx5b3RhbS5naUBnbWFpbC5jb20+OyBtbHhzdw0KPjxtbHhzd0BtZWxs
+YW5veC5jb20+DQo+U3ViamVjdDogUmU6IG5mcyBOVUxMLWRlcmVmZXJlbmNpbmcgaW4gbmV0LW5l
+eHQNCj4NCj5PbiAxMC8yNi8yMDE2IDAyOjA4IFBNLCBKYWt1YiBLaWNpbnNraSB3cm90ZToNCj4+
+IE9uIFdlZCwgMjYgT2N0IDIwMTYgMTY6MTU6MjQgKzAwMDAsIFlvdGFtIEdpZ2kgd3JvdGU6DQo+
+Pj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+Pj4+IEZyb206IEFubmEgU2NodW1ha2Vy
+IFttYWlsdG86QW5uYS5TY2h1bWFrZXJATmV0YXBwLmNvbV0NCj4+Pj4gU2VudDogV2VkbmVzZGF5
+LCBPY3RvYmVyIDI2LCAyMDE2IDU6NDAgUE0NCj4+Pj4gVG86IFlvdGFtIEdpZ2kgPHlvdGFtZ0Bt
+ZWxsYW5veC5jb20+OyBKYWt1YiBLaWNpbnNraSA8a3ViYWtpY2lAd3AucGw+Ow0KPkFuZHkNCj4+
+Pj4gQWRhbXNvbiA8YW5kcm9zQG5ldGFwcC5jb20+OyBBbm5hIFNjaHVtYWtlcg0KPj4+PiA8QW5u
+YS5TY2h1bWFrZXJATmV0YXBwLmNvbT47IGxpbnV4LW5mc0B2Z2VyLmtlcm5lbC5vcmcNCj4+Pj4g
+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFRyb25kIE15a2xlYnVzdA0KPjxUcm9uZC5NeWts
+ZWJ1c3RAbmV0YXBwLmNvbT47DQo+Pj4+IFlvdGFtIEdpZ2kgPHlvdGFtLmdpQGdtYWlsLmNvbT47
+IG1seHN3IDxtbHhzd0BtZWxsYW5veC5jb20+DQo+Pj4+IFN1YmplY3Q6IFJlOiBuZnMgTlVMTC1k
+ZXJlZmVyZW5jaW5nIGluIG5ldC1uZXh0DQo+Pj4+DQo+Pj4+IE9uIDEwLzI1LzIwMTYgMDE6MTkg
+UE0sIFlvdGFtIEdpZ2kgd3JvdGU6DQo+Pj4+Pg0KPj4+Pj4+IC0tLS0tT3JpZ2luYWwgTWVzc2Fn
+ZS0tLS0tDQo+Pj4+Pj4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRv
+Om5ldGRldi0NCj5vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+Pj4+IE9uDQo+Pj4+Pj4gQmVoYWxm
+IE9mIEpha3ViIEtpY2luc2tpDQo+Pj4+Pj4gU2VudDogTW9uZGF5LCBPY3RvYmVyIDE3LCAyMDE2
+IDEwOjIwIFBNDQo+Pj4+Pj4gVG86IEFuZHkgQWRhbXNvbiA8YW5kcm9zQG5ldGFwcC5jb20+OyBB
+bm5hIFNjaHVtYWtlcg0KPj4+Pj4+IDxBbm5hLlNjaHVtYWtlckBOZXRhcHAuY29tPjsgbGludXgt
+bmZzQHZnZXIua2VybmVsLm9yZw0KPj4+Pj4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBU
+cm9uZCBNeWtsZWJ1c3QNCj4+Pj4gPFRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tPg0KPj4+Pj4+
+IFN1YmplY3Q6IG5mcyBOVUxMLWRlcmVmZXJlbmNpbmcgaW4gbmV0LW5leHQNCj4+Pj4+Pg0KPj4+
+Pj4+IEhpIQ0KPj4+Pj4+DQo+Pj4+Pj4gSSdtIGhpdHRpbmcgdGhpcyByZWxpYWJseSBvbiBuZXQt
+bmV4dCwgSEVBRCBhdCAzZjMxNzdiYjY4MGYNCj4+Pj4+PiAoImZzbC9mbWFuOiBmaXggZXJyb3Ig
+cmV0dXJuIGNvZGUgaW4gbWFjX3Byb2JlKCkiKS4NCj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gSSBzZWUg
+dGhlIHNhbWUgdGhpbmcuIEl0IGhhcHBlbnMgY29uc3RhbnRseSBvbiBzb21lIG9mIG15IG1hY2hp
+bmVzLCBtYWtpbmcNCj4+Pj4gdGhlbQ0KPj4+Pj4gY29tcGxldGVseSB1bnVzYWJsZS4NCj4+Pj4+
+DQo+Pj4+PiBJIGJpc2VjdGVkIGl0IGFuZCBnb3QgdG8gdGhlIGNvbW1pdDoNCj4+Pj4+DQo+Pj4+
+PiBjb21taXQgMDRlYTFiM2U2ZDhlZDQ5NzhiYjYwOGMxNzQ4NTMwYWYzZGU4YzI3NA0KPj4+Pj4g
+QXV0aG9yOiBBbmR5IEFkYW1zb24gPGFuZHJvc0BuZXRhcHAuY29tPg0KPj4+Pj4gRGF0ZTogICBG
+cmkgU2VwIDkgMDk6MjI6MjcgMjAxNiAtMDQwMA0KPj4+Pj4NCj4+Pj4+ICAgICBORlMgYWRkIHhw
+cnQgc3dpdGNoIGFkZHJzIHRlc3QgdG8gbWF0Y2ggY2xpZW50DQo+Pj4+Pg0KPj4+Pj4gICAgIFNp
+Z25lZC1vZmYtYnk6IEFuZHkgQWRhbXNvbiA8YW5kcm9zQG5ldGFwcC5jb20+DQo+Pj4+PiAgICAg
+U2lnbmVkLW9mZi1ieTogQW5uYSBTY2h1bWFrZXIgPEFubmEuU2NodW1ha2VyQE5ldGFwcC5jb20+
+DQo+Pj4+DQo+Pj4+IFRoYW5rcyBmb3IgcmVwb3J0aW5nIG9uIHRoaXMgZXZlcnlvbmUhICBEb2Vz
+IHRoaXMgcGF0Y2ggaGVscD8NCj4+Pg0KPj4+IEFjdHVhbGx5LCBJIHN0aWxsIHNlZSB0aGUgc2Ft
+ZSBidWcgd2l0aCB0aGUgc2FtZSB0cmFjZS4NCj4NCj5XZWxsLCBpdCB3YXMgd29ydGggYSBzaG90
+LiAgSSdsbCBrZWVwIHBva2luZyBhdCBpdC4NCj4NCj4+DQo+PiBJIHJlYnVpbGQgdGhlIGxhdGVz
+dCBuZXQtbmV4dCBhbmQgSSdtIG5vdCBzZWVpbmcgdGhlIHRyYWNlIGFueSBtb3JlLi4uDQo+PiBJ
+J20gb25seSBzZWVpbmcgdGhpcyAod2l0aCBvciB3aXRob3V0IHlvdXIgcGF0Y2gpOg0KPj4NCj4+
+IFsgICAyMy40NjU4NzddIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9m
+bGFncyAweDANCj4+IFsgICAyMy40NzM3ODRdIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBj
+bF9leGNoYW5nZV9mbGFncyAweDANCj4+IFsgICAyMy41ODg4OTBdIE5GUzogc2V0X3BuZnNfbGF5
+b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9mbGFncyAweDANCj4+IFsgICAyMy41OTY3NDZdIE5GUzog
+c2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9mbGFncyAweDANCj4+IFsgICAyMy43
+ODE1NzRdIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9mbGFncyAweDAN
+Cj4+IFsgICAyMy43ODk1OTldIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5n
+ZV9mbGFncyAweDANCj4NCj5JbnRlcmVzdGluZywgSSBnZXQgdGhhdCB0b28gd2hlbiBJIHRyeSB0
+byB1c2UgTkZTIHY0LjEuICBJdCdzIHdlaXJkIHRoYXQgdGhlIGNyYXNoIHdvdWxkDQo+c3RvcCBo
+YXBwZW5pbmcgbGlrZSB0aGF0LCBzbyBtYXliZSBzb21ldGhpbmcgaXMgcmFjeSBpbiB0aGlzIGFy
+ZWEuDQo+DQo+VGhhbmtzIGZvciB0ZXN0aW5nLCBZb3RhbSBhbmQgSmFrdWIhDQo+QW5uYQ0KDQpJ
+IGp1c3QgZm91bmQgb3V0IHRoYXQgaXQgaGFwcGVucyBvbiBhbnkgb2YgbXkgbWFjaGluZXMsIG9u
+Y2UgSSBwdXQgdHdvIG5mcyBlbnRyaWVzIGluDQpteSBmc3RhYi4gSWYgSSBwdXQgb25seSBvbmUs
+IEkgZG9uJ3Qgc2VlIHRoZSBwcm9ibGVtLiANCg0KSSBob3BlIGl0IG1pZ2h0IGJlIGhlbHBmdWwg
+OikNCg0KPg0KPj4NCj4+IEhUSA0KPj4NCg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
