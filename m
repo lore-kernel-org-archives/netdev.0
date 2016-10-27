@@ -1,92 +1,51 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH v6 4/4] mac80211: multicast to unicast conversion
-Date: Thu, 27 Oct 2016 14:29:53 +0200
-Message-ID: <1477571393.4534.11.camel@sipsolutions.net>
-References: <1476119543-24509-1-git-send-email-michael-dev@fami-braun.de>
-         <1476119543-24509-4-git-send-email-michael-dev@fami-braun.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, projekt-wlan-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1476119543-24509-4-git-send-email-michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 04/10] net/mlx4_en: Resolve dividing by zero in 32-bit system
+Date: Thu, 27 Oct 2016 16:27:16 +0300
+Message-ID: <1477574842-29688-5-git-send-email-tariqt@mellanox.com>
+References: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Eugenia Emantayev <eugenia@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57539 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S941570AbcJ0NyW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 09:54:22 -0400
+In-Reply-To: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-> @@ -2242,6 +2242,20 @@ static int ieee80211_set_wds_peer(struct wiphy
-> *wiphy, struct net_device *dev,
->  	return 0;
->  }
->  
-> +static int ieee80211_set_multicast_to_unicast(struct wiphy *wiphy,
-> +					      struct net_device
-> *dev,
-> +					      const bool enabled)
+When doing roundup_pow_of_two for large enough number with
+bit 31, an overflow will occur and a value equal to 1 will
+be returned. In this case 1 will be subtracted from the return
+value and division by zero will be reached.
 
-I don't understand why you put this with set_wds_peer, please add it
-here also at the end like anywhere else - I've changed that for you in
-the cfg80211 patch.
+Fixes: 31c128b66e5b ("net/mlx4_en: Choose time-stamping shift value according to HW frequency")
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> +	struct ieee80211_sub_if_data *sdata =
-> IEEE80211_DEV_TO_SUB_IF(dev);
-> +
-> +	if (sdata->vif.type != NL80211_IFTYPE_AP)
-> +		return -1;
-
-Not needed. Also, don't ever just blindly return -1 in the kernel, that
-means -EPERM, i.e. permission denied.
-
-> +/* rewrite destination mac address */
-
-that's a pretty useless comment ...
-
-> +/* Check if multicast to unicast conversion is needed and do it.
-> + * Returns 1 if skb was freed and should not be send out.
-
-Follow kernel convention of returning a negative error code, e.g.
--ENOTCONN in this case, and remove this comment.
-
-> +	/* clone packets and update destination mac */
-> +	list_for_each_entry_rcu(sta, &local->sta_list, list) {
-> +		if (sdata != sta->sdata)
-> +			continue;
-> +		if (unlikely(!ether_addr_equal(eth->h_source, sta-
-> >sta.addr)))
-> +			/* do not send back to source */
-> +			continue;
-> +		if (!prev) {
-> +			prev = sta;
-> +			continue;
-> +		}
-> +		cloned_skb = skb_clone(skb, GFP_ATOMIC);
-> +		if (unlikely(ieee80211_change_da(cloned_skb, prev)))
-> {
-> +			dev_kfree_skb(cloned_skb);
-> +			continue;
-> +		}
-> +		__ieee80211_subif_start_xmit(cloned_skb, cloned_skb-
-> >dev, 0);
-
-I don't like the recursion here.
-
-I think we can call this from ieee80211_subif_start_xmit(), and then do
-something like
-
-if (unlikely(multicast)) {
-	struct skb_queue queue;
-
-	__skb_queue_head_init(&queue);
-	convert_frames(
-	while ((skb = __skb_dequeue(&queue))
-		__ieee80211_subif_start_xmit(...);
-} else {
-	__ieee80211_subif_start_xmit(...);
-}
-
-Yes, that's a little less efficient (RCU stuff, although that could
-even move in theory), but it avoids the recursion which imho is better.
-
-johannes
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index 08fc5fc56d43..a5fc46bbcbe2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -245,8 +245,11 @@ static u32 freq_to_shift(u16 freq)
+ {
+ 	u32 freq_khz = freq * 1000;
+ 	u64 max_val_cycles = freq_khz * 1000 * MLX4_EN_WRAP_AROUND_SEC;
++	u64 tmp_rounded =
++		roundup_pow_of_two(max_val_cycles) > max_val_cycles ?
++		roundup_pow_of_two(max_val_cycles) - 1 : UINT_MAX;
+ 	u64 max_val_cycles_rounded = is_power_of_2(max_val_cycles + 1) ?
+-		max_val_cycles : roundup_pow_of_two(max_val_cycles) - 1;
++		max_val_cycles : tmp_rounded;
+ 	/* calculate max possible multiplier in order to fit in 64bit */
+ 	u64 max_mul = div_u64(0xffffffffffffffffULL, max_val_cycles_rounded);
+ 
+-- 
+1.8.3.1
