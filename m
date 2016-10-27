@@ -1,8 +1,8 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 05/16] tipc: rename
-	tsk->remote to tsk->peer for consistent naming
-Date: Thu, 27 Oct 2016 16:22:26 +0200
-Message-ID: <1477578157-13256-6-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 12/16] tipc: create TIPC_OPEN
+	as a new sk_state
+Date: Thu, 27 Oct 2016 16:22:33 +0200
+Message-ID: <1477578157-13256-13-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1477578157-13256-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,75 +21,229 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Until now, the peer information for connect is stored in tsk->remote
-but the rest of code uses the name peer for peer/remote.
-
-In this commit, we rename tsk->remote to tsk->peer to align with
-naming convention followed in the rest of the code.
-
-There is no functional change in this commit.
+In this commit, we create a new tipc socket state TIPC_OPEN in
+sk_state. We primarily replace the SS_UNCONNECTED sock->state with
+TIPC_OPEN.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/socket.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ include/uapi/linux/tipc.h |  1 +
+ net/tipc/socket.c         | 94 ++++++++++++++++++++---------------------------
+ 2 files changed, 41 insertions(+), 54 deletions(-)
 
+diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
+index 189bfed0363c..ae45de5e0d93 100644
+--- a/include/uapi/linux/tipc.h
++++ b/include/uapi/linux/tipc.h
+@@ -183,6 +183,7 @@ enum {
+ 	TIPC_LISTEN = 1,
+ 	TIPC_PROBING,
+ 	TIPC_ESTABLISHED,
++	TIPC_OPEN,
+ };
+ 
+ /*
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 6e3774a7c831..8bc9c32c41b5 100644
+index 04d388c063a6..da7f7e8244f2 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -65,7 +65,6 @@
-  * @max_pkt: maximum packet size "hint" used when building messages sent by port
-  * @portid: unique port identity in TIPC socket hash table
-  * @phdr: preformatted message header used when sending messages
-- * @port_list: adjacent ports in TIPC's global list of ports
-  * @publications: list of publications for port
-  * @pub_count: total # of publications port has made during its lifetime
-  * @probing_state:
-@@ -75,7 +74,7 @@
-  * @link_cong: non-zero if owner must sleep because of link congestion
-  * @sent_unacked: # messages sent by socket, and not yet acked by peer
-  * @rcv_unacked: # messages read by user, but not yet acked back to peer
-- * @remote: 'connected' peer for dgram/rdm
-+ * @peer: 'connected' peer for dgram/rdm
-  * @node: hash table node
-  * @rcu: rcu struct for tipc_sock
-  */
-@@ -101,7 +100,7 @@ struct tipc_sock {
- 	u16 peer_caps;
- 	u16 rcv_unacked;
- 	u16 rcv_win;
--	struct sockaddr_tipc remote;
-+	struct sockaddr_tipc peer;
- 	struct rhash_head node;
- 	struct rcu_head rcu;
- };
-@@ -904,7 +903,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 		return -EMSGSIZE;
- 	if (unlikely(!dest)) {
- 		if (tsk->connected && sock->state == SS_READY)
--			dest = &tsk->remote;
-+			dest = &tsk->peer;
- 		else
- 			return -EDESTADDRREQ;
- 	} else if (unlikely(m->msg_namelen < sizeof(*dest)) ||
-@@ -1939,12 +1938,12 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
- 	/* DGRAM/RDM connect(), just save the destaddr */
- 	if (sock->state == SS_READY) {
- 		if (dst->family == AF_UNSPEC) {
--			memset(&tsk->remote, 0, sizeof(struct sockaddr_tipc));
-+			memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
- 			tsk->connected = 0;
- 		} else if (destlen != sizeof(struct sockaddr_tipc)) {
- 			res = -EINVAL;
- 		} else {
--			memcpy(&tsk->remote, dest, destlen);
-+			memcpy(&tsk->peer, dest, destlen);
- 			tsk->connected = 1;
- 		}
+@@ -347,8 +347,11 @@ static int tipc_set_sk_state(struct sock *sk, int state)
+ 	int res = -EINVAL;
+ 
+ 	switch (state) {
++	case TIPC_OPEN:
++		res = 0;
++		break;
+ 	case TIPC_LISTEN:
+-		if (oldstate == SS_UNCONNECTED)
++		if (oldsk_state == TIPC_OPEN)
+ 			res = 0;
+ 		break;
+ 	case TIPC_PROBING:
+@@ -359,7 +362,7 @@ static int tipc_set_sk_state(struct sock *sk, int state)
+ 		if (oldsk_state == TIPC_PROBING ||
+ 		    oldsk_state == TIPC_ESTABLISHED ||
+ 		    oldstate == SS_CONNECTING ||
+-		    oldstate == SS_UNCONNECTED)
++		    oldsk_state == TIPC_OPEN)
+ 			res = 0;
+ 		break;
+ 	}
+@@ -426,8 +429,8 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 
+ 	/* Finish initializing socket data structures */
+ 	sock->ops = ops;
+-	sock->state = SS_UNCONNECTED;
+ 	sock_init_data(sock, sk);
++	tipc_set_sk_state(sk, TIPC_OPEN);
+ 	if (tipc_sk_insert(tsk)) {
+ 		pr_warn("Socket create failed; port number exhausted\n");
+ 		return -EINVAL;
+@@ -451,6 +454,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 		if (sock->type == SOCK_DGRAM)
+ 			tsk_set_unreliable(tsk, true);
+ 	}
++
+ 	return 0;
+ }
+ 
+@@ -655,28 +659,6 @@ static int tipc_getname(struct socket *sock, struct sockaddr *uaddr,
+  * exits.  TCP and other protocols seem to rely on higher level poll routines
+  * to handle any preventable race conditions, so TIPC will do the same ...
+  *
+- * TIPC sets the returned events as follows:
+- *
+- * socket state		flags set
+- * ------------		---------
+- * unconnected		no read flags
+- *			POLLOUT if port is not congested
+- *
+- * connecting		POLLIN/POLLRDNORM if ACK/NACK in rx queue
+- *			no write flags
+- *
+- * connected		POLLIN/POLLRDNORM if data in rx queue
+- *			POLLOUT if port is not congested
+- *
+- * disconnecting	POLLIN/POLLRDNORM/POLLHUP
+- *			no write flags
+- *
+- * listening		POLLIN if SYN in rx queue
+- *			no write flags
+- *
+- * ready		POLLIN/POLLRDNORM if data in rx queue
+- * [connectionless]	POLLOUT (since port cannot be congested)
+- *
+  * IMPORTANT: The fact that a read or write operation is indicated does NOT
+  * imply that the operation will succeed, merely that it should be performed
+  * and will not block.
+@@ -690,27 +672,7 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
+ 
+ 	sock_poll_wait(file, sk_sleep(sk), wait);
+ 
+-	if (tipc_sk_type_connectionless(sk)) {
+-		if (!tsk->link_cong)
+-			mask |= POLLOUT;
+-		if (!skb_queue_empty(&sk->sk_receive_queue))
+-			mask |= (POLLIN | POLLRDNORM);
+-		return mask;
+-	}
+-
+ 	switch ((int)sock->state) {
+-	case SS_UNCONNECTED:
+-		switch (sk->sk_state) {
+-		case TIPC_LISTEN:
+-			if (!skb_queue_empty(&sk->sk_receive_queue))
+-				mask |= (POLLIN | POLLRDNORM);
+-			break;
+-		default:
+-			if (!tsk->link_cong)
+-				mask |= POLLOUT;
+-			break;
+-		}
+-		break;
+ 	case SS_CONNECTED:
+ 		if (!tsk->link_cong && !tsk_conn_cong(tsk))
+ 			mask |= POLLOUT;
+@@ -722,6 +684,20 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
+ 	case SS_DISCONNECTING:
+ 		mask = (POLLIN | POLLRDNORM | POLLHUP);
+ 		break;
++	default:
++		switch (sk->sk_state) {
++		case TIPC_OPEN:
++			if (!tsk->link_cong)
++				mask |= POLLOUT;
++			if (tipc_sk_type_connectionless(sk) &&
++			    (!skb_queue_empty(&sk->sk_receive_queue)))
++				mask |= (POLLIN | POLLRDNORM);
++			break;
++		case TIPC_LISTEN:
++			if (!skb_queue_empty(&sk->sk_receive_queue))
++				mask |= (POLLIN | POLLRDNORM);
++			break;
++		}
+ 	}
+ 
+ 	return mask;
+@@ -969,7 +945,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
+ 	if (!is_connectionless) {
+ 		if (sk->sk_state == TIPC_LISTEN)
+ 			return -EPIPE;
+-		if (sock->state != SS_UNCONNECTED)
++		if (sk->sk_state != TIPC_OPEN)
+ 			return -EISCONN;
+ 		if (tsk->published)
+ 			return -EOPNOTSUPP;
+@@ -1404,7 +1380,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m, size_t buf_len,
+ 
+ 	lock_sock(sk);
+ 
+-	if (!is_connectionless && unlikely(sock->state == SS_UNCONNECTED)) {
++	if (!is_connectionless && unlikely(sk->sk_state == TIPC_OPEN)) {
+ 		res = -ENOTCONN;
  		goto exit;
+ 	}
+@@ -1501,7 +1477,7 @@ static int tipc_recv_stream(struct socket *sock, struct msghdr *m,
+ 
+ 	lock_sock(sk);
+ 
+-	if (unlikely(sock->state == SS_UNCONNECTED)) {
++	if (unlikely(sk->sk_state == TIPC_OPEN)) {
+ 		res = -ENOTCONN;
+ 		goto exit;
+ 	}
+@@ -1693,17 +1669,22 @@ static bool filter_connect(struct tipc_sock *tsk, struct sk_buff *skb)
+ 		msg_set_dest_droppable(hdr, 1);
+ 		return false;
+ 
+-	case SS_UNCONNECTED:
++	case SS_DISCONNECTING:
++		break;
++	}
+ 
++	switch (sk->sk_state) {
++	case TIPC_OPEN:
++		break;
++	case TIPC_LISTEN:
+ 		/* Accept only SYN message */
+ 		if (!msg_connected(hdr) && !(msg_errcode(hdr)))
+ 			return true;
+ 		break;
+-	case SS_DISCONNECTING:
+-		break;
+ 	default:
+-		pr_err("Unknown socket state %u\n", sock->state);
++		pr_err("Unknown sk_state %u\n", sk->sk_state);
+ 	}
++
+ 	return false;
+ }
+ 
+@@ -2012,8 +1993,9 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
+ 	}
+ 
+ 	previous = sock->state;
+-	switch (sock->state) {
+-	case SS_UNCONNECTED:
++
++	switch (sk->sk_state) {
++	case TIPC_OPEN:
+ 		/* Send a 'SYN-' to destination */
+ 		m.msg_name = dest;
+ 		m.msg_namelen = destlen;
+@@ -2033,6 +2015,10 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
+ 		 * case is EINPROGRESS, rather than EALREADY.
+ 		 */
+ 		res = -EINPROGRESS;
++		break;
++	}
++
++	switch (sock->state) {
+ 	case SS_CONNECTING:
+ 		if (previous == SS_CONNECTING)
+ 			res = -EALREADY;
 -- 
 2.1.4
 
