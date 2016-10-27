@@ -1,66 +1,60 @@
-From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
-Subject: ICMP redirects behavior
-Date: Thu, 27 Oct 2016 11:01:21 -0400
-Message-ID: <20161027150121.GB30102@ssuryaputra-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v1 13/16] tipc: create TIPC_DISCONNECTING as a
+ new sk_state
+Date: Thu, 27 Oct 2016 08:03:23 -0700
+Message-ID: <1477580603.7065.210.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1477578157-13256-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+         <1477578157-13256-14-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+        jon.maloy@ericsson.com, maloy@donjonn.com, ying.xue@windriver.com
+To: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:35080 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932442AbcJ0PBZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 11:01:25 -0400
-Received: by mail-qt0-f196.google.com with SMTP id 23so999799qtp.2
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 08:01:25 -0700 (PDT)
-Received: from ssuryaputra-desktop ([12.38.14.193])
-        by smtp.gmail.com with ESMTPSA id i5sm3798564qtb.14.2016.10.27.08.01.23
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Thu, 27 Oct 2016 08:01:23 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34241 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933120AbcJ0PDZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 11:03:25 -0400
+Received: by mail-pf0-f194.google.com with SMTP id u84so2898220pfj.1
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 08:03:25 -0700 (PDT)
+In-Reply-To: <1477578157-13256-14-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, All,
+On Thu, 2016-10-27 at 16:22 +0200, Parthasarathy Bhuvaragan wrote:
+> In this commit, we create a new tipc socket state TIPC_DISCONNECTING in
+> sk_state. TIPC_DISCONNECTING is replacing the socket connection status
+> update using SS_DISCONNECTING.
+> TIPC_DISCONNECTING is set for connection oriented sockets at:
+> - tipc_shutdown()
+> - connection probe timeout
+> - when we receive an error message on the connection.
+> 
+> There is no functional change in this commit.
+> 
+> Acked-by: Ying Xue <ying.xue@windriver.com>
+> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+> ---
+>  include/uapi/linux/tipc.h |  1 +
+>  net/tipc/socket.c         | 39 +++++++++++++++++++++++----------------
+>  2 files changed, 24 insertions(+), 16 deletions(-)
+> 
+> diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
+> index ae45de5e0d93..f5c03fdfc8a8 100644
+> --- a/include/uapi/linux/tipc.h
+> +++ b/include/uapi/linux/tipc.h
+> @@ -184,6 +184,7 @@ enum {
+>  	TIPC_PROBING,
+>  	TIPC_ESTABLISHED,
+>  	TIPC_OPEN,
+> +	TIPC_DISCONNECTING,
+>  };
 
-I noticed through code inspection that ICMP redirects behavior is
-different after commit 5943634fc5592037db0693b261f7f4bea6bb9457.
 
-In v2.6 kernel, it used to be that ip_rt_redirect() calls
-arp_bind_neighbour() which returns 0 and then the state of the neigh for
-the new_gw is checked. If the state isn't valid then the redirected
-route is deleted. From what I can tell, this behavior is maintained up
-to v3.5.7 by check_peer_redirect() because rt->rt_gateway is assigned to
-peer->redirect_learned.a4 before calling ipv4_neigh_lookup().
+Note that all these TIPC socket states might conflict with 
+sk_fullsock(), sk_listener(), inet6_sk(), ip_skb_dst_mtu(),
+sk_const_to_full_sk() , skb_to_full_sk() helpers.
 
-After the commit, ipv4_neigh_lookup() is performed without the
-rt_gateway assigned to the new_gw. In my case since rt_gateway (old_gw)
-isn't zero, the function uses it as the key. The neigh is valid since
-that gateway is the one that sends the ICMP redirect message. Then the
-new_gw is assigned. The problem is: the new_gw ARP never gets resolved 
-and the traffic is blackholed. My version is v3.18.24.
-
-Is there a justification for this behavioral change? I traced the origin
-of the code to v2.1.15 where the check is performed when
-rfc1620_redirects is set. I propose the following patch to restore the
-previous behavior.
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 62d4d90..510045c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -753,7 +753,9 @@ static void __ip_do_redirect(struct rtable *rt,
-struct sk_buff *skb, struct flow
-                        goto reject_redirect;
-        }
-
-+       rt->rt_gateway = 0;
-        n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
-+       rt->rt_gateway = old_gw;
-        if (!IS_ERR(n)) {
-                if (!(n->nud_state & NUD_VALID)) {
-                        neigh_event_send(n, NULL);
-
-Regards,
-
-Stephen.
+So there is definitely a high risk.
