@@ -1,43 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip6_tunnel: Clear IP6CB(skb)->frag_max_size in
- ip4ip6_tnl_xmit()
-Date: Thu, 27 Oct 2016 16:25:14 -0400 (EDT)
-Message-ID: <20161027.162514.2259363994362412217.davem@davemloft.net>
-References: <20161024150712.5133-1-elicooper@gmx.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] rocker: set physical device for port netdevice
+Date: Thu, 27 Oct 2016 22:26:12 +0200
+Message-ID: <20161027202612.GA1752@nanopsycho>
+References: <1477571469-14818-1-git-send-email-jiri@resnulli.us>
+ <201610280444.f8Gzv3LA%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: elicooper@gmx.com
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org, davem@davemloft.net
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33708 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935293AbcJ0UZQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:25:16 -0400
-In-Reply-To: <20161024150712.5133-1-elicooper@gmx.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33936 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964821AbcJ0U0P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:26:15 -0400
+Received: by mail-wm0-f67.google.com with SMTP id y138so4382908wme.1
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 13:26:14 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <201610280444.f8Gzv3LA%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cooper <elicooper@gmx.com>
-Date: Mon, 24 Oct 2016 23:07:12 +0800
+Thu, Oct 27, 2016 at 10:03:46PM CEST, lkp@intel.com wrote:
+>Hi Jiri,
+>
+>[auto build test WARNING on net-next/master]
+>
+>url:    https://github.com/0day-ci/linux/commits/Jiri-Pirko/rocker-set-physical-device-for-port-netdevice/20161028-030044
+>config: tile-allmodconfig (attached as .config)
+>compiler: tilegx-linux-gcc (GCC) 4.6.2
+>reproduce:
+>        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>        chmod +x ~/bin/make.cross
+>        # save the attached .config to linux build tree
+>        make.cross ARCH=tile 
+>
+>All warnings (new ones prefixed by >>):
+>
+>   drivers/net/ethernet/rocker/rocker_main.c: In function 'rocker_probe_port':
+>>> drivers/net/ethernet/rocker/rocker_main.c:2545:2: warning: assignment discards 'const' qualifier from pointer target type [enabled by default]
+>
 
-> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-> index 202d16a..4110562 100644
-> --- a/net/ipv6/ip6_tunnel.c
-> +++ b/net/ipv6/ip6_tunnel.c
-> @@ -1205,6 +1205,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
->  	int err;
->  
->  	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-> +	IP6CB(skb)->frag_max_size = 0;
->  
->  	tproto = ACCESS_ONCE(t->parms.proto);
->  	if (tproto != IPPROTO_IPIP && tproto != 0)
-
-This doesn't look right at all.
-
-Either skb->cb is interpreted as IPCB() past this point, or
-it is interpreted as IP6CB().
-
-So pick which structure is used, and simply clear that specific
-structure.
+Sigh, sending v2. 
