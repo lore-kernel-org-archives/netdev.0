@@ -1,91 +1,110 @@
-From: Aaron Young <Aaron.Young@oracle.com>
-Subject: [PATCH net-next]ldmvsw: tx queue stuck in stopped state after LDC reset
-Date: Wed, 26 Oct 2016 20:15:22 -0400
-Message-ID: <b8d6abc7188e5cac885905854067444cb89a5f3b.1477503707.git.Aaron.Young@oracle.com>
-Cc: sowmini.varadhan@oracle.com, aaron.young@oracle.com,
-        Aaron Young <Aaron.Young@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 4/5] samples: bpf: Add prog_subtype to bpf_prog_load
+Date: Wed, 26 Oct 2016 17:58:41 -0700
+Message-ID: <1477529922-4806-5-git-send-email-dsa@cumulusnetworks.com>
+References: <1477529922-4806-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
+        maheshb@google.com, tgraf@suug.ch,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:46770 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935233AbcJ0ARQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 20:17:16 -0400
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35102 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934576AbcJ0A6x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 20:58:53 -0400
+Received: by mail-pf0-f179.google.com with SMTP id s8so6054368pfj.2
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 17:58:53 -0700 (PDT)
+In-Reply-To: <1477529922-4806-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-   From: Aaron Young <aaron.young@oracle.com>
+Add bpf_prog_subtype argument to bpf_prog_load. If arg is non-NULL,
+it is added to the attr passed to the bpf system call.
 
-   The following patch fixes an issue with the ldmvsw driver where
-   the network connection of a guest domain becomes non-functional after
-   a guest domain has panic'd and rebooted (resulting in a LDC reset).
-
-  The root cause was determined to be from the following series of
-  events:
-
-  1. Guest domain panics - resulting in the guest no longer fielding
-     network packets from the ldmvsw driver
-  2. The ldmvsw driver (in the control domain) eventually exerts flow
-     control due to no more available tx drings and stops the tx queue
-     for the guest domain
-  3. The LDC of the network connection for the guest is reset when
-     the guest domain reboots after the panic.
-  4. The LDC reset event is received by the ldmvsw driver and the ldmvsw
-     responds by clearing the tx queue for the guest.
-  5. The guest is eventually rebooted and ldmvsw waits indefinitely for a
-     DATA ACK from the guest - which is the normal method to re-enable
-     the tx queue. But the ACK never comes because the tx queue was cleared
-     due to the LDC reset.
-
-  Fix is, in addition to clearing the tx queue, to re-enable the tx queue
-  on a LDC reset. This prevents the ldmvsw from getting caught in this deadlocked
-  state of waiting for a DATA ACK which will never come.
-
-Signed-off-by: Aaron Young <Aaron.Young@oracle.com>
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/ethernet/sun/sunvnet_common.c |   16 +++++++++++++---
- 1 files changed, 13 insertions(+), 3 deletions(-)
+ samples/bpf/bpf_load.c     | 2 +-
+ samples/bpf/fds_example.c  | 2 +-
+ samples/bpf/libbpf.c       | 5 ++++-
+ samples/bpf/libbpf.h       | 3 ++-
+ samples/bpf/sock_example.c | 2 +-
+ 5 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 58efe69..8878b75 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -704,9 +704,8 @@ static int handle_mcast(struct vnet_port *port, void *msgbuf)
- 	return 0;
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index 97913e109b14..634fcd7f7498 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -77,7 +77,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 		return -1;
+ 	}
+ 
+-	fd = bpf_prog_load(prog_type, prog, size, license, kern_version);
++	fd = bpf_prog_load(prog_type, prog, size, license, kern_version, NULL);
+ 	if (fd < 0) {
+ 		printf("bpf_prog_load() err=%d\n%s", errno, bpf_log_buf);
+ 		return -1;
+diff --git a/samples/bpf/fds_example.c b/samples/bpf/fds_example.c
+index 625e797be6ef..df38b68f3586 100644
+--- a/samples/bpf/fds_example.c
++++ b/samples/bpf/fds_example.c
+@@ -59,7 +59,7 @@ static int bpf_prog_create(const char *object)
+ 		return prog_fd[0];
+ 	} else {
+ 		return bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER,
+-				     insns, sizeof(insns), "GPL", 0);
++				     insns, sizeof(insns), "GPL", 0, NULL);
+ 	}
  }
  
--/* Got back a STOPPED LDC message on port. If the queue is stopped,
-- * wake it up so that we'll send out another START message at the
-- * next TX.
-+/* If the queue is stopped, wake it up so that we'll
-+ * send out another START message at the next TX.
-  */
- static void maybe_tx_wakeup(struct vnet_port *port)
- {
-@@ -734,6 +733,7 @@ bool sunvnet_port_is_up_common(struct vnet_port *vnet)
+diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
+index 9ce707bf02a7..53987b1ab191 100644
+--- a/samples/bpf/libbpf.c
++++ b/samples/bpf/libbpf.c
+@@ -82,7 +82,8 @@ char bpf_log_buf[LOG_BUF_SIZE];
  
- static int vnet_event_napi(struct vnet_port *port, int budget)
+ int bpf_prog_load(enum bpf_prog_type prog_type,
+ 		  const struct bpf_insn *insns, int prog_len,
+-		  const char *license, int kern_version)
++		  const char *license, int kern_version,
++		  union bpf_prog_subtype *prog_subtype)
  {
-+	struct net_device *dev = VNET_PORT_TO_NET_DEVICE(port);
- 	struct vio_driver_state *vio = &port->vio;
- 	int tx_wakeup, err;
- 	int npkts = 0;
-@@ -747,6 +747,16 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
- 		if (event == LDC_EVENT_RESET) {
- 			vnet_port_reset(port);
- 			vio_port_up(vio);
-+
-+			/* If the device is running but its tx queue was
-+			 * stopped (due to flow control), restart it.
-+			 * This is necessary since vnet_port_reset()
-+			 * clears the tx drings and thus we may never get
-+			 * back a VIO_TYPE_DATA ACK packet - which is
-+			 * the normal mechanism to restart the tx queue.
-+			 */
-+			if (netif_running(dev))
-+				maybe_tx_wakeup(port);
- 		}
- 		port->rx_event = 0;
- 		return 0;
+ 	union bpf_attr attr = {
+ 		.prog_type = prog_type,
+@@ -98,6 +99,8 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
+ 	 * padding is zero initialized
+ 	 */
+ 	attr.kern_version = kern_version;
++	if (prog_subtype)
++		attr.prog_subtype = *prog_subtype;
+ 
+ 	bpf_log_buf[0] = 0;
+ 
+diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
+index d0a799a52eaf..949c89c85c70 100644
+--- a/samples/bpf/libbpf.h
++++ b/samples/bpf/libbpf.h
+@@ -13,7 +13,8 @@ int bpf_get_next_key(int fd, void *key, void *next_key);
+ 
+ int bpf_prog_load(enum bpf_prog_type prog_type,
+ 		  const struct bpf_insn *insns, int insn_len,
+-		  const char *license, int kern_version);
++		  const char *license, int kern_version,
++		  union bpf_prog_subtype *prog_subtype);
+ 
+ int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
+ int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
+diff --git a/samples/bpf/sock_example.c b/samples/bpf/sock_example.c
+index 28b60baa9fa8..521f918ab34d 100644
+--- a/samples/bpf/sock_example.c
++++ b/samples/bpf/sock_example.c
+@@ -56,7 +56,7 @@ static int test_sock(void)
+ 	};
+ 
+ 	prog_fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, prog, sizeof(prog),
+-				"GPL", 0);
++				"GPL", 0, NULL);
+ 	if (prog_fd < 0) {
+ 		printf("failed to load prog '%s'\n", strerror(errno));
+ 		goto cleanup;
 -- 
-1.7.1
+2.1.4
