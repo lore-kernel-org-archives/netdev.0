@@ -1,57 +1,77 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCHv2 iproute2 net-next] tc: m_mirred: Fix parsing of
- 'index' optional argument
-Date: Thu, 27 Oct 2016 17:22:39 +0300
-Message-ID: <20161027172239.7bf5cc40@pixies>
-References: <20161027073606.6112-1-shmulik.ladkani@gmail.com>
-        <20161027094633.GR5640@orbyte.nwl.cc>
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Subject: Re: [PATCH] net: smsc911x: Synchronize the runtime PM status during
+ system suspend
+Date: Thu, 27 Oct 2016 13:53:03 +0200
+Message-ID: <CAPDyKFprWcita5sbdwTqbdi2CMW4gx7_UB7+kMd9R2rqXdcALQ@mail.gmail.com>
+References: <1477567434-5128-1-git-send-email-ulf.hansson@linaro.org> <CAMuHMdUbU07t2kB6J0rSOiOTbDkegP73FAAEenViuDjQUFE-Jg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+        Linux PM list <linux-pm@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+        Kevin Hilman <khilman@kernel.org>,
+        Lina Iyer <lina.iyer@linaro.org>,
+        Jon Hunter <jonathanh@nvidia.com>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Steve Glendinning <steve.glendinning@shawell.net>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35322 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941393AbcJ0OWs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 10:22:48 -0400
-Received: by mail-wm0-f44.google.com with SMTP id e69so38129411wmg.0
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 07:22:47 -0700 (PDT)
-In-Reply-To: <20161027094633.GR5640@orbyte.nwl.cc>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:38171 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942650AbcJ0O37 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 10:29:59 -0400
+Received: by mail-wm0-f48.google.com with SMTP id n67so46989255wme.1
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 07:29:59 -0700 (PDT)
+In-Reply-To: <CAMuHMdUbU07t2kB6J0rSOiOTbDkegP73FAAEenViuDjQUFE-Jg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Phil,
+On 27 October 2016 at 13:41, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+> Hi Ulf,
+>
+> On Thu, Oct 27, 2016 at 1:23 PM, Ulf Hansson <ulf.hansson@linaro.org> wrote:
+>> The smsc911c driver puts its device into low power state when entering
+>> system suspend. Although it doesn't update the device's runtime PM status
+>> to RPM_SUSPENDED, which causes problems for a parent device.
+>>
+>> In particular, when the runtime PM status of the parent is requested to be
+>> updated to RPM_SUSPENDED, the runtime PM core prevent this, because it's
+>> forbidden to runtime suspend a device, which has an active child.
+>>
+>> Fix this by updating the runtime PM status of the smsc911x device to
+>> RPM_SUSPENDED during system suspend. In system resume, let's reverse that
+>> action by runtime resuming the device and thus also the parent.
+>
+> Thanks for your patch!
+>
+> The changelog sounds quite innocent, but this does fix a system crash
+> during resume from s2ram.
+>
+>> Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
+>> Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
+>> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+>> Fixes: 8b1107b85efd ("PM / Runtime: Don't allow to suspend a device with an active child")
+>
+> While the abovementioned commit made the problem visible, the root cause
+> was present before, right?
 
-On Thu, 27 Oct 2016 11:46:33 +0200, phil@nwl.cc wrote:
-> According to the action's help text (and the man page which is based
-> upon that), this behaviour is perfectly fine:
-> 
-> | Usage: mirred <DIRECTION> <ACTION> [index INDEX] <dev DEVICENAME>
-> 
-> So first argument *must* be the direction, second one *must* be the
-> action, then an optional index and the last one *must* be the interface.
+Yes.
 
-There is an inconsistency betweem man/help and code.
+>
+>> ---
+>>
+>> Note that the commit this change fixes is currently queued for 4.10 via
+>> Rafael's linux-pm tree. So this fix should go via that tree as well.
+>
+> Alternatively, this could go in in v4.9 to avoid the problem from ever
+> appearing in upstream?
 
-Actual code, since first committed, attempts to parse "index" as 1st
-argument (without success), see parse_mirred():
+Makes perfect sense! In that case we should remove the fixes tag.
 
-	if (matches(*argv, "egress") == 0 || matches(*argv, "index") == 0) {
-		int ret = parse_egress(a, &argc, &argv, tca_id, n);
+Rafael, can you pick this up for 4.9 rc[n]?
 
-> While I don't see a problem with changing that (apart from that I don't
-> think it's necessary)
-
-Not "changing" per-se, but rather "fixing", at least according code
-author's intention :)
-
-As I suggested in the notes part of the commit log,
-
->> An alternative solution: banning "index" as 1st argument in parse_mirred
-
-I ok with removing the code trying to support "index" as 1st argument as
-well.
-I only assumed one might want this behaviour due to intention expressed
-by original code.
+Kind regards
+Uffe
