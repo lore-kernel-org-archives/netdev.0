@@ -1,196 +1,102 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: fix broadcast link
-	synchronization problem
-Date: Thu, 27 Oct 2016 18:51:55 -0400
-Message-ID: <1477608715-28003-1-git-send-email-jon.maloy@ericsson.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: AW: Redundancy support through HSR and PRP
+Date: Thu, 27 Oct 2016 18:54:13 -0400
+Message-ID: <58128595.8090708@ti.com>
+References: <57FBDF33.1060606@ti.com> <5808F9FC.1080802@ti.com>
+ <580E3854.4030009@ti.com>
+ <6075_1477400598_580F5816_6075_378_9_580F5825.9080109@alten.se>
+ <5027_1477401856_580F5D00_5027_1483_1_48dbc6a7637e4ed8a1bec40e850061b8@DE0-03DAG08-P03.central.mail.corp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: "HEISE, Peter P" <peter.heise@airbus.com>,
+        Arvid Brodin <arvid.brodin@alten.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:37599 "EHLO comal.ext.ti.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935281AbcJ0WyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Oct 2016 18:54:23 -0400
+In-Reply-To: <5027_1477401856_580F5D00_5027_1483_1_48dbc6a7637e4ed8a1bec40e850061b8@DE0-03DAG08-P03.central.mail.corp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit 2d18ac4ba745 ("tipc: extend broadcast link initialization
-criteria") we tried to fix a problem with the initial synchronization
-of broadcast link acknowledge values. Unfortunately that solution is
-not sufficient to solve the issue.
+On 10/25/2016 09:24 AM, HEISE, Peter P wrote:
+> Hi Murali, hi Arvid,
+> 
+> also no work on PRP from my side.
+> 
+> Should be pretty straight forward to get PRP support from the existing HSR code.
 
-We have seen it happen that LINK_PROTOCOL/STATE packets with a valid
-non-zero unicast acknowledge number may bypass BCAST_PROTOCOL
-initialization, NAME_DISTRIBUTOR and other STATE packets with invalid
-broadcast acknowledge numbers, leading to premature opening of the
-broadcast link. When the bypassed packets finally arrive, they are
-inadvertently accepted, and the already correctly initialized
-acknowledge number in the broadcast receive link is overwritten by
-the invalid (zero) value of the said packets. After this the broadcast
-link goes stale.
+Thanks Arvid and Peter!
 
-We now fix this by marking the packets where we know the acknowledge
-value is or may be invalid, and then ignoring the acks from those.
+Basically I have following to be done w.r.t HSR/PRP.
 
-To this purpose, we claim an unused bit in the header to indicate that
-the value is invalid. We set the bit to 1 in the initial BCAST_PROTOCOL
-synchronization packet and all initial ("bulk") NAME_DISTRIBUTOR
-packets, plus those LINK_PROTOCOL packets sent out before the broadcast
-links are fully synchronized.
+1. Add PRP support
+2. Add h/w offload some of the rx/tx redundancy and L2 forward handling to firmware.
 
-This minor protocol update is fully backwards compatible.
+If you have any thoughts on 2, please let me know. Our hardware is a switch
+with HSR/PRP support. So I believe I need to have L2 offload done using the DSA
+and run the hsr/prp driver on top of that. The MIB handling is done in the
+firmware. So that has to be offloaded as well. My work has just begun and I hope
+to come up with an RFC patch for HSR offload first followed by PRP support.
 
-Reported-by: John Thompson <thompa.atl@gmail.com>
-Tested-by: John Thompson <thompa.atl@gmail.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bcast.c      | 14 ++++++++++----
- net/tipc/bcast.h      |  3 ++-
- net/tipc/link.c       |  2 ++
- net/tipc/msg.h        | 17 +++++++++++++++++
- net/tipc/name_distr.c |  1 +
- net/tipc/node.c       |  2 +-
- 6 files changed, 33 insertions(+), 6 deletions(-)
+>From high level, it appears to be a straight forward to add the PRP support.
+I might have to rename the net/hsr to something like net/hsr-prp ??
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 753f774..aa1babb 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -247,11 +247,17 @@ int tipc_bcast_rcv(struct net *net, struct tipc_link *l, struct sk_buff *skb)
-  *
-  * RCU is locked, no other locks set
-  */
--void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l, u32 acked)
-+void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l,
-+			struct tipc_msg *hdr)
- {
- 	struct sk_buff_head *inputq = &tipc_bc_base(net)->inputq;
-+	u16 acked = msg_bcast_ack(hdr);
- 	struct sk_buff_head xmitq;
- 
-+	/* Ignore bc acks sent by peer before bcast synch point was received */
-+	if (msg_bc_ack_invalid(hdr))
-+		return;
-+
- 	__skb_queue_head_init(&xmitq);
- 
- 	tipc_bcast_lock(net);
-@@ -279,11 +285,11 @@ int tipc_bcast_sync_rcv(struct net *net, struct tipc_link *l,
- 	__skb_queue_head_init(&xmitq);
- 
- 	tipc_bcast_lock(net);
--	if (msg_type(hdr) == STATE_MSG) {
-+	if (msg_type(hdr) != STATE_MSG) {
-+		tipc_link_bc_init_rcv(l, hdr);
-+	} else if (!msg_bc_ack_invalid(hdr)) {
- 		tipc_link_bc_ack_rcv(l, msg_bcast_ack(hdr), &xmitq);
- 		rc = tipc_link_bc_sync_rcv(l, hdr, &xmitq);
--	} else {
--		tipc_link_bc_init_rcv(l, hdr);
- 	}
- 	tipc_bcast_unlock(net);
- 
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 5ffe344..855d53c 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -55,7 +55,8 @@ void tipc_bcast_dec_bearer_dst_cnt(struct net *net, int bearer_id);
- int  tipc_bcast_get_mtu(struct net *net);
- int tipc_bcast_xmit(struct net *net, struct sk_buff_head *list);
- int tipc_bcast_rcv(struct net *net, struct tipc_link *l, struct sk_buff *skb);
--void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l, u32 acked);
-+void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l,
-+			struct tipc_msg *hdr);
- int tipc_bcast_sync_rcv(struct net *net, struct tipc_link *l,
- 			struct tipc_msg *hdr);
- int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg);
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index b36e16c..1055164 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1312,6 +1312,7 @@ static void tipc_link_build_proto_msg(struct tipc_link *l, int mtyp, bool probe,
- 	msg_set_next_sent(hdr, l->snd_nxt);
- 	msg_set_ack(hdr, l->rcv_nxt - 1);
- 	msg_set_bcast_ack(hdr, bcl->rcv_nxt - 1);
-+	msg_set_bc_ack_invalid(hdr, !node_up);
- 	msg_set_last_bcast(hdr, l->bc_sndlink->snd_nxt - 1);
- 	msg_set_link_tolerance(hdr, tolerance);
- 	msg_set_linkprio(hdr, priority);
-@@ -1574,6 +1575,7 @@ static void tipc_link_build_bc_init_msg(struct tipc_link *l,
- 	__skb_queue_head_init(&list);
- 	if (!tipc_link_build_bc_proto_msg(l->bc_rcvlink, false, 0, &list))
- 		return;
-+	msg_set_bc_ack_invalid(buf_msg(skb_peek(&list)), true);
- 	tipc_link_xmit(l, &list, xmitq);
- }
- 
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index c3832cd..50a7398 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -714,6 +714,23 @@ static inline void msg_set_peer_stopping(struct tipc_msg *m, u32 s)
- 	msg_set_bits(m, 5, 13, 0x1, s);
- }
- 
-+static inline bool msg_bc_ack_invalid(struct tipc_msg *m)
-+{
-+	switch (msg_user(m)) {
-+	case BCAST_PROTOCOL:
-+	case NAME_DISTRIBUTOR:
-+	case LINK_PROTOCOL:
-+		return msg_bits(m, 5, 14, 0x1);
-+	default:
-+		return false;
-+	}
-+}
-+
-+static inline void msg_set_bc_ack_invalid(struct tipc_msg *m, bool invalid)
-+{
-+	msg_set_bits(m, 5, 14, 0x1, invalid);
-+}
-+
- static inline char *msg_media_addr(struct tipc_msg *m)
- {
- 	return (char *)&m->hdr[TIPC_MEDIA_INFO_OFFSET];
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index a04fe9b..c1cfd92 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -156,6 +156,7 @@ static void named_distribute(struct net *net, struct sk_buff_head *list,
- 				pr_warn("Bulk publication failure\n");
- 				return;
- 			}
-+			msg_set_bc_ack_invalid(buf_msg(skb), true);
- 			item = (struct distr_item *)msg_data(buf_msg(skb));
- 		}
- 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 7ef14e2..9d2f4c2 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -1535,7 +1535,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
- 	if (unlikely(usr == LINK_PROTOCOL))
- 		tipc_node_bc_sync_rcv(n, hdr, bearer_id, &xmitq);
- 	else if (unlikely(tipc_link_acked(n->bc_entry.link) != bc_ack))
--		tipc_bcast_ack_rcv(net, n->bc_entry.link, bc_ack);
-+		tipc_bcast_ack_rcv(net, n->bc_entry.link, hdr);
- 
- 	/* Receive packet directly if conditions permit */
- 	tipc_node_read_lock(n);
+Also restructure the code a bit to support PRP
+
+I have brought up HSR driver on my platform (HSRv0 and HSRv1) and it seems to work.
+So I might be able to regress the existing once I add my change.
+
+Peter,
+
+Do you think you could help me do some testing in the future when patches become
+available?
+
+Murali
+
+> 
+> 
+> -----Ursprüngliche Nachricht-----
+> Von: Arvid Brodin [mailto:arvid.brodin@alten.se] 
+> Gesendet: Dienstag, 25. Oktober 2016 15:04
+> An: Murali Karicheri
+> Cc: open list:TI NETCP ETHERNET DRIVER; David Miller; HEISE, Peter P
+> Betreff: Re: Redundancy support through HSR and PRP
+> 
+> On 2016-10-24 18:35, Murali Karicheri wrote:
+>>> On 10/10/2016 02:34 PM, Murali Karicheri wrote:
+>>>> All,
+>>>>
+>>>> Wondering if there plan to add PRP driver support, like HSR in 
+>>>> Linux? AFAIK, PRP adds trailor to Ethernet frame and is used for Redundancy management like HSR.
+>>>> So wondering why this is not supported.
+>>>>
+>>>> Thanks
+>>>>
+>>> I need to work on a prp driver for Linux. So if there is already 
+>>> someone working on this, I would like to join and contribute. Either 
+>>> way please respond so that I can work to add this support.
+>>>
+>> + Arvid
+>>
+>> Didn't copy HSR owner in my original email. Copying now.
+>>
+> 
+> Hi Murali,
+> 
+> I'm not aware of anyone working on PRP support.
+> 
+> I will have very little time, if any, to help out with this (or even test changes).
+> In fact, if you want to send a patch for the MAINTAINERS file to take over maintainership of the HSR/PRP driver, that would probably be a good thing.
+> 
+> (I'm CC'ing also Peter Heise to this conversation, since he's done some recent work on the HSR driver, and might want to keep updated.)
+> 
+> 
+
+
 -- 
-2.7.4
-
-
-------------------------------------------------------------------------------
-The Command Line: Reinvented for Modern Developers
-Did the resurgence of CLI tooling catch you by surprise?
-Reconnect with the command line and become more productive. 
-Learn the new .NET and ASP.NET CLI. Get your free copy!
-http://sdm.link/telerik
+Murali Karicheri
+Linux Kernel, Keystone
