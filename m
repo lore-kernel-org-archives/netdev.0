@@ -1,33 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] Revert "at803x: fix suspend/resume for SGMII link"
-Date: Thu, 27 Oct 2016 16:05:55 -0400 (EDT)
-Message-ID: <20161027.160555.484554256733814943.davem@davemloft.net>
-References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
-        <1477305654-11328-2-git-send-email-zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH v4] skbedit: allow the user to specify bitmask for mark
+Date: Thu, 27 Oct 2016 16:09:00 -0400 (EDT)
+Message-ID: <20161027.160900.97747790865479168.davem@davemloft.net>
+References: <20140724.180708.1613882522982264262.davem@davemloft.net>
+        <20161024123257.18228-1-a@unstable.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, timur@codeaurora.org, andrew@lunn.ch,
-        f.fainelli@gmail.com
-To: zefir.kurtisi@neratec.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, eric.dumazet@gmail.com,
+        sergei.shtylyov@cogentembedded.com, cwang@twopensource.com,
+        antonio@open-mesh.com
+To: a@unstable.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33404 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33436 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754447AbcJ0UF5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:05:57 -0400
-In-Reply-To: <1477305654-11328-2-git-send-email-zefir.kurtisi@neratec.com>
+        with ESMTP id S932887AbcJ0UJD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:09:03 -0400
+In-Reply-To: <20161024123257.18228-1-a@unstable.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Date: Mon, 24 Oct 2016 12:40:53 +0200
+From: Antonio Quartulli <a@unstable.cc>
+Date: Mon, 24 Oct 2016 20:32:57 +0800
 
-> This reverts commit 98267311fe3b334ae7c107fa0e2413adcf3ba735.
+> The user may want to use only some bits of the skb mark in
+> his skbedit rules because the remaining part might be used by
+> something else.
 > 
-> Suspending the SGMII alongside the copper side
-> made the at803x inaccessable while powered down,
-> e.g. it can't be re-probed after suspend.
+> Introduce the "mask" parameter to the skbedit actor in order
+> to implement such functionality.
 > 
-> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+> When the mask is specified, only those bits selected by the
+> latter are altered really changed by the actor, while the
+> rest is left untouched.
+> 
+> Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Applied.
+Applied, thanks.
