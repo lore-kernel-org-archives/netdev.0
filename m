@@ -1,43 +1,135 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/5] mlxsw: spectrum: Set physical device for port netdevice
-Date: Thu, 27 Oct 2016 15:13:00 +0200
-Message-ID: <1477573981-26546-5-git-send-email-jiri@resnulli.us>
-References: <1477573981-26546-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34268 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936467AbcJ0OUm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 10:20:42 -0400
-Received: by mail-wm0-f67.google.com with SMTP id y138so2951462wme.1
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 07:19:24 -0700 (PDT)
-In-Reply-To: <1477573981-26546-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 00/16] tipc: socket layer
+	improvements
+Date: Thu, 27 Oct 2016 16:22:21 +0200
+Message-ID: <1477578157-13256-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+The following issues with the current socket layer hinders socket diagnostics
+implementation, which led to this patch series.
 
-Do this so the sysfs has "device" link correctly set.
+1. tipc socket state is derived from multiple variables like
+   sock->state, tsk->probing_state and tsk->connected. This style forces
+   us to export multiple attributes to the user space, which has to be
+   backward compatible.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 1 +
- 1 file changed, 1 insertion(+)
+2. Abuse of sock->state cannot be exported to user-space without
+   requiring tipc specific hacks in the user-space.
+   - For connection less (CL) sockets sock->state is overloaded to
+     tipc state SS_READY.
+   - For connection oriented (CO) listening socket sock->state is
+     overloaded to tipc state SS_LISTEN.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 7805240..d652f7f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2222,6 +2222,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 	dev = alloc_etherdev(sizeof(struct mlxsw_sp_port));
- 	if (!dev)
- 		return -ENOMEM;
-+	SET_NETDEV_DEV(dev, mlxsw_sp->bus_info->dev);
- 	mlxsw_sp_port = netdev_priv(dev);
- 	mlxsw_sp_port->dev = dev;
- 	mlxsw_sp_port->mlxsw_sp = mlxsw_sp;
+This series is split into four:
+1. Bug fixes in patch #1,2,3.
+2. Minor cleanups in patch#4-5.
+3. Express all tipc states using a single variable in patch#6-8.
+4. Migrate the new tipc states to sk->sk_state in patch#9-16.
+
+The figures below represents the FSM after this series:
+
+For connectionless sockets:
++-----------+       +--------------+
+| TIPC_OPEN |------>| TIPC_CLOSING |
++-----------+       +--------------+
+
+Stream Server Listening Socket:
++-----------+       +-------------+
+| TIPC_OPEN |------>| TIPC_LISTEN |
++-----------+       +-------------+
+                            |
++--------------+            |
+| TIPC_CLOSING |<-----------+
++--------------+
+
+Stream Server Data Socket:
++-----------+       +------------------+
+| TIPC_OPEN |------>| TIPC_ESTABLISHED |<---+
++-----------+       +------------------+    |
+                        ^   |    |          |
+                        |   |    +----------+
+                        |   v
+                    +--------------+
+                    | TIPC_PROBING |
+                    +--------------+
+                           |
+                           |
+                           v
++--------------+    +--------------------+
+| TIPC_CLOSING |<---| TIPC_DISCONNECTING |
++--------------+    +--------------------+
+
+Stream Socket Client:
++-----------+       +-----------------+
+| TIPC_OPEN |------>| TIPC_CONNECTING |
++-----------+       +-----------------+
+                            |
+                            |
+                            v
+                    +------------------+
+                    | TIPC_ESTABLISHED |<---+
+                    +------------------+    |
+                         ^   |    |         |
+                         |   |    +---------+
+                         |   v
+                    +--------------+
+                    | TIPC_PROBING |
+                    +--------------+
+                           |
+                           |
+                           v
++--------------+    +--------------------+
+| TIPC_CLOSING |<---| TIPC_DISCONNECTING |
++--------------+    +--------------------+
+
+NOTE:
+This is just a base refractoring required for socket diagnostics.
+TIPC socket diagnostics support will be introduced in a later series.
+
+Parthasarathy Bhuvaragan (16):
+  tipc: return early for non-blocking sockets at link congestion
+  tipc: wakeup sleeping users at disconnect
+  tipc: set kern=0 in sk_alloc() during tipc_accept()
+  tipc: rename struct tipc_skb_cb member handle to bytes_read
+  tipc: rename tsk->remote to tsk->peer for consistent naming
+  tipc: remove tsk->connected for connectionless sockets
+  tipc: remove tsk->connected from tipc_sock
+  tipc: remove probing_intv from tipc_sock
+  tipc: remove socket state SS_READY
+  tipc: create TIPC_LISTEN as a new sk_state
+  tipc: create TIPC_PROBING/TIPC_ESTABLISHED as new sk_states
+  tipc: create TIPC_OPEN as a new sk_state
+  tipc: create TIPC_DISCONNECTING as a new sk_state
+  tipc: create TIPC_CLOSING as a new sk_state
+  tipc: create TIPC_CONNECTING as a new sk_state
+  tipc: remove SS_CONNECTED sock state
+
+ include/uapi/linux/tipc.h |  13 ++
+ net/tipc/msg.h            |   2 +-
+ net/tipc/socket.c         | 385 +++++++++++++++++++++++++---------------------
+ 3 files changed, 222 insertions(+), 178 deletions(-)
+
 -- 
-2.5.5
+2.1.4
+
+
+------------------------------------------------------------------------------
+The Command Line: Reinvented for Modern Developers
+Did the resurgence of CLI tooling catch you by surprise?
+Reconnect with the command line and become more productive. 
+Learn the new .NET and ASP.NET CLI. Get your free copy!
+http://sdm.link/telerik
