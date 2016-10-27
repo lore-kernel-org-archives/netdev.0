@@ -1,53 +1,62 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2016-10-27
-Date: Thu, 27 Oct 2016 10:05:49 +0200
-Message-ID: <20161027080550.31309-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 02/10] net/mlx4_core: Avoid setting ports to auto when only one port type is supported
+Date: Thu, 27 Oct 2016 16:27:14 +0300
+Message-ID: <1477574842-29688-3-git-send-email-tariqt@mellanox.com>
+References: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Maor Gottlieb <maorg@mellanox.com>,
+        Moshe Shemesh <moshe@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57524 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S941447AbcJ0NyR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 09:54:17 -0400
+In-Reply-To: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Maor Gottlieb <maorg@mellanox.com>
 
-Before I go off for LPC and the workshop and everything, I have
-two fixes. Neither is very important, but I figured I'd get them
-out since I won't have any others soon.
+When only one port type is supported, it should be read only.
+We reject changing requests, even to the auto sense mode.
 
-Let me know if there's any problem.
+Fixes: 27bf91d6a0d5 ("mlx4_core: Add link type autosensing")
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-Thanks,
-johannes
-
-
-
-The following changes since commit b4f0fd4baa90ecce798e0d26d1cce8f4457f2028:
-
-  qed: Use list_move_tail instead of list_del/list_add_tail (2016-10-18 16:40:41 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-10-27
-
-for you to fetch changes up to b4f7f4ad425a84fd5d40da21aff8681997b25ff9:
-
-  mac80211: fix some sphinx warnings (2016-10-26 08:01:07 +0200)
-
-----------------------------------------------------------------
-Just two fixes:
- * a fix to process all events while suspending, so any
-   potential calls into the driver are done before it is
-   suspended
- * small markup fixes for the sphinx documentation conversion
-   that's coming into the tree via the doc tree
-
-----------------------------------------------------------------
-Jani Nikula (1):
-      mac80211: fix some sphinx warnings
-
-Johannes Berg (1):
-      cfg80211: process events caused by suspend before suspending
-
- include/net/mac80211.h | 21 +++++++++++++--------
- net/wireless/sysfs.c   |  5 ++++-
- 2 files changed, 17 insertions(+), 9 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 7183ac4135d2..6f4e67bc3538 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1102,6 +1102,14 @@ static int __set_port_type(struct mlx4_port_info *info,
+ 	int i;
+ 	int err = 0;
+ 
++	if ((port_type & mdev->caps.supported_type[info->port]) != port_type) {
++		mlx4_err(mdev,
++			 "Requested port type for port %d is not supported on this HCA\n",
++			 info->port);
++		err = -EINVAL;
++		goto err_sup;
++	}
++
+ 	mlx4_stop_sense(mdev);
+ 	mutex_lock(&priv->port_mutex);
+ 	info->tmp_type = port_type;
+@@ -1147,7 +1155,7 @@ static int __set_port_type(struct mlx4_port_info *info,
+ out:
+ 	mlx4_start_sense(mdev);
+ 	mutex_unlock(&priv->port_mutex);
+-
++err_sup:
+ 	return err;
+ }
+ 
+-- 
+1.8.3.1
