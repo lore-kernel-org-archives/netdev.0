@@ -1,66 +1,92 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 00/10] mlx4 misc fixes for 4.9
-Date: Thu, 27 Oct 2016 16:27:12 +0300
-Message-ID: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57522 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S941405AbcJ0NyR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 09:54:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH v6 4/4] mac80211: multicast to unicast conversion
+Date: Thu, 27 Oct 2016 14:29:53 +0200
+Message-ID: <1477571393.4534.11.camel@sipsolutions.net>
+References: <1476119543-24509-1-git-send-email-michael-dev@fami-braun.de>
+         <1476119543-24509-4-git-send-email-michael-dev@fami-braun.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, projekt-wlan-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1476119543-24509-4-git-send-email-michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
 
-This patchset contains several bug fixes from the team to the
-mlx4 Eth and Core drivers.
+> @@ -2242,6 +2242,20 @@ static int ieee80211_set_wds_peer(struct wiphy
+> *wiphy, struct net_device *dev,
+>  	return 0;
+>  }
+>  
+> +static int ieee80211_set_multicast_to_unicast(struct wiphy *wiphy,
+> +					      struct net_device
+> *dev,
+> +					      const bool enabled)
 
-Series generated against net commit:
-ecc515d7238f 'sctp: fix the panic caused by route update'
+I don't understand why you put this with set_wds_peer, please add it
+here also at the end like anywhere else - I've changed that for you in
+the cfg80211 patch.
 
-Thanks,
-Tariq.
+> +	struct ieee80211_sub_if_data *sdata =
+> IEEE80211_DEV_TO_SUB_IF(dev);
+> +
+> +	if (sdata->vif.type != NL80211_IFTYPE_AP)
+> +		return -1;
 
-Erez Shitrit (1):
-  net/mlx4_en: Process all completions in RX rings after port goes up
+Not needed. Also, don't ever just blindly return -1 in the kernel, that
+means -EPERM, i.e. permission denied.
 
-Eugenia Emantayev (3):
-  net/mlx4_en: Resolve dividing by zero in 32-bit system
-  net/mlx4_en: Fix panic during reboot
-  net/mlx4: Fix firmware command timeout during interrupt test
+> +/* rewrite destination mac address */
 
-Jack Morgenstein (3):
-  net/mlx4_core: Fix the resource-type enum in res tracker to conform to
-    FW spec
-  net/mlx4_core: Do not access comm channel if it has not yet been
-    initialized
-  net/mlx4_en: Fix potential deadlock in port statistics flow
+that's a pretty useless comment ...
 
-Maor Gottlieb (1):
-  net/mlx4_core: Avoid setting ports to auto when only one port type is
-    supported
+> +/* Check if multicast to unicast conversion is needed and do it.
+> + * Returns 1 if skb was freed and should not be send out.
 
-Moshe Lazer (1):
-  net/mlx4_core: Change the default value of enable_qos
+Follow kernel convention of returning a negative error code, e.g.
+-ENOTCONN in this case, and remove this comment.
 
-Tariq Toukan (1):
-  net/mlx4_en: Save slave ethtool stats command
+> +	/* clone packets and update destination mac */
+> +	list_for_each_entry_rcu(sta, &local->sta_list, list) {
+> +		if (sdata != sta->sdata)
+> +			continue;
+> +		if (unlikely(!ether_addr_equal(eth->h_source, sta-
+> >sta.addr)))
+> +			/* do not send back to source */
+> +			continue;
+> +		if (!prev) {
+> +			prev = sta;
+> +			continue;
+> +		}
+> +		cloned_skb = skb_clone(skb, GFP_ATOMIC);
+> +		if (unlikely(ieee80211_change_da(cloned_skb, prev)))
+> {
+> +			dev_kfree_skb(cloned_skb);
+> +			continue;
+> +		}
+> +		__ieee80211_subif_start_xmit(cloned_skb, cloned_skb-
+> >dev, 0);
 
- drivers/net/ethernet/mellanox/mlx4/cmd.c         |  9 ++++
- drivers/net/ethernet/mellanox/mlx4/en_clock.c    |  5 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 13 ++++-
- drivers/net/ethernet/mellanox/mlx4/en_port.c     |  4 +-
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c | 26 +++++++++-
- drivers/net/ethernet/mellanox/mlx4/eq.c          | 62 +++++++++++-------------
- drivers/net/ethernet/mellanox/mlx4/fw.c          |  4 +-
- drivers/net/ethernet/mellanox/mlx4/main.c        | 10 +++-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h        |  5 +-
- drivers/net/ethernet/mellanox/mlx4/port.c        | 13 +----
- include/linux/mlx4/device.h                      |  3 +-
- 11 files changed, 95 insertions(+), 59 deletions(-)
+I don't like the recursion here.
 
--- 
-1.8.3.1
+I think we can call this from ieee80211_subif_start_xmit(), and then do
+something like
+
+if (unlikely(multicast)) {
+	struct skb_queue queue;
+
+	__skb_queue_head_init(&queue);
+	convert_frames(
+	while ((skb = __skb_dequeue(&queue))
+		__ieee80211_subif_start_xmit(...);
+} else {
+	__ieee80211_subif_start_xmit(...);
+}
+
+Yes, that's a little less efficient (RCU stuff, although that could
+even move in theory), but it avoids the recursion which imho is better.
+
+johannes
