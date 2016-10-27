@@ -1,54 +1,55 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC net-next iproute2 1/2] libnetlink: Add test for error code
- returned from netlink reply
-Date: Thu, 27 Oct 2016 11:24:04 +0300
-Message-ID: <20161027082404.GC1867@uranus.lan>
-References: <1477510208-20292-1-git-send-email-gorcunov@gmail.com>
- <1477510208-20292-2-git-send-email-gorcunov@gmail.com>
- <20161026205256.162e1d25@xeon-e3>
- <20161027065253.GB1867@uranus.lan>
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH 0/2] at803x: don't power-down SGMII link
+Date: Thu, 27 Oct 2016 10:05:22 +0200
+Message-ID: <2bf6fe19-5d18-ba96-5bf9-5030ace0ee89@neratec.com>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <580F96E9.8090208@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Andrey Vagin <avagin@openvz.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, f.fainelli@gmail.com
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36444 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942438AbcJ0OM1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 10:12:27 -0400
-Received: by mail-lf0-f66.google.com with SMTP id b75so2030410lfg.3
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 07:12:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20161027065253.GB1867@uranus.lan>
+Received: from mail.neratec.com ([46.140.151.2]:11078 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S942349AbcJ0OEv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Oct 2016 10:04:51 -0400
+In-Reply-To: <580F96E9.8090208@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 27, 2016 at 09:52:53AM +0300, Cyrill Gorcunov wrote:
-...
-> > 
-> > This looks like a mistake in how you implemented the functionality in the kernel.
-> > Despite what it looks like, all netlink request/reply functionality reports
-> > errors in current implementation by returning error to the sendmsg request.
-> > 
-> > What you added implies that the new kernel api is wrong, or many other usages
-> > are wrong.  Please fix the kernel.
+On 10/25/2016 07:31 PM, Timur Tabi wrote:
+> Zefir Kurtisi wrote:
+>> In a device where the ar8031 operates in SGMII mode, we
+>> observed that after a suspend-resume cycle in very rare
+>> cases the copper side autonegotiation secceeds but the
+>> SGMII side fails to come up.
+>>
+>> As a work-around, a patch was provided that on suspend and
+>> resume powers the SGMII link down and up along with the
+>> copper side. This fixed the observed failure, but
+>> introduced a regression Timur Tabi observed: once the SGMII
+>> is powered down, the PHY is inaccessible by the CPU and
+>> with that e.g. can't be re-initialized after suspend.
+>>
+>> Since the original issue could not be reproduced by others,
+>> this series provides an alternative handling:
+>> * the first patch reverts the prvious fix that powers down
+>>    SGMII
+>> * the second patch adds double-checking for the observed
+>>    failure condition
+>>
+>> Zefir Kurtisi (2):
+>>    Revert "at803x: fix suspend/resume for SGMII link"
+>>    at803x: double check SGMII side autoneg
 > 
-> No. This is not my code. This code has been in kernel for the really long time.
-> I don't know why you've not been doing such test in libnetlink before.
+> Tested-by: Timur Tabi <timur@codeaurora.org>
 > 
-> Actually I've hit this problem accidentaly -- I made a patch 2 from this
-> set and run it on the machine where kernel was unpatched, ie without
-> raw-diag module, and I found that we can't figure out if kernel notified
-> us that some diag module simply not present in the system. And here is
-> the only way to find it out.
+> With these patches, the problem I was seeing no longer occurs, and the new code
+> does not appear to break anything.  As before, I still have never seen the
+> original problem, but this patchset seems to work for both of us.
+> 
+Thanks for testing.
 
-Also, drop this series for a while, I'll resend new one: the status of
-diag should not be tested unconditionally with NLMSG_DONE because the
-rtnl_dump_filter_l helper is used not only for diag talks but overall
-the iproute2, thus I need to test for status only for specified requests.
-And I need to narrow down why not all device bound interfaces are killed
-in one pass.
-
-	Cyrill
+I could make the double checking configurable and disabled by default, but this
+would render it useless to detect the potential issue in the field.
