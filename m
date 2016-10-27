@@ -1,74 +1,51 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 06/17] batman-adv: Remove unused function
-	batadv_hash_delete
-Date: Thu, 27 Oct 2016 21:01:39 +0200
-Message-ID: <20161027190150.7880-7-sw@simonwunderlich.de>
-References: <20161027190150.7880-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161027190150.7880-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Zach Brown <zach.brown@ni.com>
+Subject: Re: Pure polling mode for netdevices
+Date: Thu, 27 Oct 2016 13:29:10 -0500
+Message-ID: <20161027182909.GA4892@zach-desktop>
+References: <20161021180316.GA305@zach-desktop>
+ <1477075306.7065.86.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-rt-users@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1477075306.7065.86.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+On Fri, Oct 21, 2016 at 11:41:46AM -0700, Eric Dumazet wrote:
+> On Fri, 2016-10-21 at 13:03 -0500, Zach Brown wrote:
+> > Is there a way to get NAPI to poll all the time?
+> > Or just any way to get netdevices to use only polling and no interrupts?
+> > 
+> > We have some rt targets where the jitter can be improved by disabling
+> > interrupts and using just polling. In these cases we're okay with the
+> > performance downsides that come with polling.
+> > 
+> > In particular we already have an implementation for the cadence macb driver
+> > that does only polling mode and have verified that it improves the
+> > jitter.
+> > 
+> > We're hoping for a more general existing solution or at the very least a
+> > solution that would be accepted upstream. Any thoughts?
+> 
+> This is not yet done, although you could use busy poll infrastructure to
+> get this without a kernel change.
+> 
+> Open as many TCP flows are necessary to traverse all the queues you care
+> about, then loop on recvmsg() to trigger NAPI polling.
+> 
+> 
 
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
----
- net/batman-adv/hash.h | 30 ------------------------------
- 1 file changed, 30 deletions(-)
+I looked into the busy poll infrastructure and I don't think it meets our
+needs. We're not interested in minimizing the latency of the ethernet device,
+but rather diminishing if not eliminating the system jitter cause by ethernet
+interrupts. Not to mention that some interfaces like macb don't provide a lot
+of the config options to make busy polling really work well. For example,
+interrupt coalescing configuration. 
 
-diff --git a/net/batman-adv/hash.h b/net/batman-adv/hash.h
-index cbbf870..557a704 100644
---- a/net/batman-adv/hash.h
-+++ b/net/batman-adv/hash.h
-@@ -61,36 +61,6 @@ void batadv_hash_set_lock_class(struct batadv_hashtable *hash,
- /* free only the hashtable and the hash itself. */
- void batadv_hash_destroy(struct batadv_hashtable *hash);
- 
--/* remove the hash structure. if hashdata_free_cb != NULL, this function will be
-- * called to remove the elements inside of the hash.  if you don't remove the
-- * elements, memory might be leaked.
-- */
--static inline void batadv_hash_delete(struct batadv_hashtable *hash,
--				      batadv_hashdata_free_cb free_cb,
--				      void *arg)
--{
--	struct hlist_head *head;
--	struct hlist_node *node, *node_tmp;
--	spinlock_t *list_lock; /* spinlock to protect write access */
--	u32 i;
--
--	for (i = 0; i < hash->size; i++) {
--		head = &hash->table[i];
--		list_lock = &hash->list_locks[i];
--
--		spin_lock_bh(list_lock);
--		hlist_for_each_safe(node, node_tmp, head) {
--			hlist_del_rcu(node);
--
--			if (free_cb)
--				free_cb(node, arg);
--		}
--		spin_unlock_bh(list_lock);
--	}
--
--	batadv_hash_destroy(hash);
--}
--
- /**
-  *	batadv_hash_add - adds data to the hashtable
-  *	@hash: storage hash table
--- 
-2.10.1
+I was thinking more along the lines of an extenstion to the NAPI interface that
+drivers can opt into that allows them to enter NAPI polling mode and never
+leave when configured to do so.  
