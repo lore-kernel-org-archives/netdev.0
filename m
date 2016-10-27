@@ -1,8 +1,8 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 03/16] tipc: set kern=0 in
-	sk_alloc() during tipc_accept()
-Date: Thu, 27 Oct 2016 16:22:24 +0200
-Message-ID: <1477578157-13256-4-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 01/16] tipc: return early for
+	non-blocking sockets at link congestion
+Date: Thu, 27 Oct 2016 16:22:22 +0200
+Message-ID: <1477578157-13256-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1477578157-13256-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,33 +21,45 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Until now, tipc_accept() calls sk_alloc() with kern=1. This is
-incorrect as the data socket's owner is the user application.
-Thus for these accepted data sockets the network namespace
-refcount is skipped.
+Until now, in stream/mcast send() we pass the message to the link
+layer even when the link is congested and add the socket to the
+link's wakeup queue. This is unnecessary for non-blocking sockets.
+If a socket is set to non-blocking and sends multicast with zero
+back off time while receiving EAGAIN, we exhaust the memory.
 
-In this commit, we fix this by setting kern=0.
+In this commit, we return immediately at stream/mcast send() for
+non-blocking sockets.
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/socket.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/tipc/socket.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index cd01deb1da9c..82aec2eb8497 100644
+index f9f5f3c3dab5..adf3e6ecf61e 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -2093,7 +2093,7 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
+@@ -697,6 +697,9 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
+ 	uint mtu;
+ 	int rc;
  
- 	buf = skb_peek(&sk->sk_receive_queue);
++	if (!timeo && tsk->link_cong)
++		return -ELINKCONG;
++
+ 	msg_set_type(mhdr, TIPC_MCAST_MSG);
+ 	msg_set_lookup_scope(mhdr, TIPC_CLUSTER_SCOPE);
+ 	msg_set_destport(mhdr, 0);
+@@ -1072,6 +1075,9 @@ static int __tipc_send_stream(struct socket *sock, struct msghdr *m, size_t dsz)
+ 	}
  
--	res = tipc_sk_create(sock_net(sock->sk), new_sock, 0, 1);
-+	res = tipc_sk_create(sock_net(sock->sk), new_sock, 0, 0);
- 	if (res)
- 		goto exit;
- 	security_sk_clone(sock->sk, new_sock->sk);
+ 	timeo = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
++	if (!timeo && tsk->link_cong)
++		return -ELINKCONG;
++
+ 	dnode = tsk_peer_node(tsk);
+ 	skb_queue_head_init(&pktchain);
+ 
 -- 
 2.1.4
 
