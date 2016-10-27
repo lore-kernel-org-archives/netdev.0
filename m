@@ -1,114 +1,44 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net-next v3 7/9] ipv6: add source address argument for ipv6_push_nfrag_opts
-Date: Thu, 27 Oct 2016 15:35:02 +0200
-Message-ID: <1477575304-11375-3-git-send-email-david.lebrun@uclouvain.be>
-References: <1477575239-11228-1-git-send-email-david.lebrun@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 10/10] net/mlx4_en: Save slave ethtool stats command
+Date: Thu, 27 Oct 2016 16:27:22 +0300
+Message-ID: <1477574842-29688-11-git-send-email-tariqt@mellanox.com>
+References: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:33365 "EHLO
-        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934863AbcJ0Nwi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 09:52:38 -0400
-Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by smtp1.sgsi.ucl.ac.be (Postfix) with ESMTPS id 40AD767DDBF
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 15:33:19 +0200 (CEST)
-In-Reply-To: <1477575239-11228-1-git-send-email-david.lebrun@uclouvain.be>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57543 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932748AbcJ0Ny1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 09:54:27 -0400
+In-Reply-To: <1477574842-29688-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch prepares for insertion of SRH through setsockopt().
-The new source address argument is used when an HMAC field is
-present in the SRH, which must be filled. The HMAC signature
-process requires the source address as input text.
+Following the previous patch, as an optimization, the slave will
+not even bother sending the DUMP_ETH_STATS command over the
+comm channel.
 
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- include/net/ipv6.h    | 3 ++-
- net/ipv6/exthdrs.c    | 6 +++---
- net/ipv6/ip6_output.c | 5 +++--
- net/ipv6/ip6_tunnel.c | 2 +-
- 4 files changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 8fed1cd..0a3622b 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -932,7 +932,8 @@ int ip6_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
-  */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 314f54c8dbed..12c99a2655f2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1917,8 +1917,9 @@ static void mlx4_en_clear_stats(struct net_device *dev)
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int i;
  
- void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
--			  u8 *proto, struct in6_addr **daddr_p);
-+			  u8 *proto, struct in6_addr **daddr_p,
-+			  struct in6_addr *saddr);
- void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
- 			 u8 *proto);
+-	if (mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 1))
+-		en_dbg(HW, priv, "Failed dumping statistics\n");
++	if (!mlx4_is_slave(mdev->dev))
++		if (mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 1))
++			en_dbg(HW, priv, "Failed dumping statistics\n");
  
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 9b63932..28d2629 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -874,7 +874,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
- 
- static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
- 			    struct ipv6_rt_hdr *opt,
--			    struct in6_addr **addr_p)
-+			    struct in6_addr **addr_p, struct in6_addr *saddr)
- {
- 	struct rt0_hdr *phdr, *ihdr;
- 	int hops;
-@@ -908,10 +908,10 @@ static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv
- 
- void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
- 			  u8 *proto,
--			  struct in6_addr **daddr)
-+			  struct in6_addr **daddr, struct in6_addr *saddr)
- {
- 	if (opt->srcrt) {
--		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr);
-+		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr, saddr);
- 		/*
- 		 * IPV6_RTHDRDSTOPTS is ignored
- 		 * unless IPV6_RTHDR is set (RFC3542).
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6001e78..ddc878d 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -203,7 +203,8 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
- 		if (opt->opt_flen)
- 			ipv6_push_frag_opts(skb, opt, &proto);
- 		if (opt->opt_nflen)
--			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
-+			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop,
-+					     &fl6->saddr);
- 	}
- 
- 	skb_push(skb, sizeof(struct ipv6hdr));
-@@ -1672,7 +1673,7 @@ struct sk_buff *__ip6_make_skb(struct sock *sk,
- 	if (opt && opt->opt_flen)
- 		ipv6_push_frag_opts(skb, opt, &proto);
- 	if (opt && opt->opt_nflen)
--		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
-+		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst, &fl6->saddr);
- 
- 	skb_push(skb, sizeof(struct ipv6hdr));
- 	skb_reset_network_header(skb);
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 3a70567..9c894c9 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1155,7 +1155,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 
- 	if (encap_limit >= 0) {
- 		init_tel_txopt(&opt, encap_limit);
--		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
-+		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
- 	}
- 
- 	/* Calculate max headroom for all the headers and adjust
+ 	memset(&priv->pstats, 0, sizeof(priv->pstats));
+ 	memset(&priv->pkstats, 0, sizeof(priv->pkstats));
 -- 
-2.7.3
+1.8.3.1
