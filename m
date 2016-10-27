@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] kalmia: avoid potential uninitialized variable use
-Date: Thu, 27 Oct 2016 16:28:06 -0400 (EDT)
-Message-ID: <20161027.162806.122471124625949377.davem@davemloft.net>
-References: <20161024155430.3077348-1-arnd@arndb.de>
+Subject: Re: [PATCH v2] net: ipv6: Fix processing of RAs in presence of VRF
+Date: Thu, 27 Oct 2016 16:31:33 -0400 (EDT)
+Message-ID: <20161027.163133.1965258218187053284.davem@davemloft.net>
+References: <1477331555-9438-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161024155430.3077348-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33844 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935293AbcJ0Ube (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:31:34 -0400
+In-Reply-To: <1477331555-9438-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCkRhdGU6IE1vbiwgMjQgT2N0IDIw
-MTYgMTc6NTQ6MTggKzAyMDANCg0KPiBUaGUga2FsbWlhX3NlbmRfaW5pdF9wYWNrZXQoKSByZXR1
-cm5zIHplcm8gb3IgYSBuZWdhdGl2ZSByZXR1cm4NCj4gY29kZSwgYnV0IGdjYyBoYXMgbm8gd2F5
-IG9mIGtub3dpbmcgdGhhdCB0aGVyZSBjYW5ub3QgYmUgYQ0KPiBwb3NpdGl2ZSByZXR1cm4gY29k
-ZSwgc28gaXQgZGV0ZXJtaW5lcyB0aGF0IGNvcHlpbmcgdGhlIGV0aGVybmV0DQo+IGFkZHJlc3Mg
-YXQgdGhlIGVuZCBvZiBrYWxtaWFfYmluZCgpIHdpbGwgYWNjZXNzIHVuaW5pdGlhbGl6ZWQNCj4g
-ZGF0YToNCj4gDQo+IGRyaXZlcnMvbmV0L3VzYi9rYWxtaWEuYzogSW4gZnVuY3Rpb24goWthbG1p
-YV9iaW5kojoNCj4gYXJjaC94ODYvaW5jbHVkZS9hc20vc3RyaW5nXzMyLmg6Nzg6MjI6IGVycm9y
-OiChKigodm9pZCAqKSZldGhlcm5ldF9hZGRyKzQpoiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVk
-IGluIHRoaXMgZnVuY3Rpb24gWy1XZXJyb3I9bWF5YmUtdW5pbml0aWFsaXplZF0NCj4gICAgKigo
-c2hvcnQgKil0byArIDIpID0gKigoc2hvcnQgKilmcm9tICsgMik7DQo+ICAgICAgICAgICAgICAg
-ICAgICAgICBeDQo+IGRyaXZlcnMvbmV0L3VzYi9rYWxtaWEuYzoxMzg6NTogbm90ZTogoSooKHZv
-aWQgKikmZXRoZXJuZXRfYWRkcis0KaIgd2FzIGRlY2xhcmVkIGhlcmUNCj4gDQo+IFRoaXMgd2Fy
-bmluZyBpcyBoYXJtbGVzcywgYnV0IGZvciBjb25zaXN0ZW5jeSwgd2Ugc2hvdWxkIG1ha2UNCj4g
-dGhlIGNoZWNrIGZvciB0aGUgcmV0dXJuIGNvZGUgbWF0Y2ggd2hhdCB0aGUgZHJpdmVyIGRvZXMg
-ZXZlcnl3aGVyZQ0KPiBlbHNlIGFuZCBqdXN0IHByb2dhdGUgaXQsIHdoaWNoIHRoZW4gZ2V0cyBy
-aWQgb2YgdGhlIHdhcm5pbmcuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxh
-cm5kQGFybmRiLmRlPg0KDQpBcHBsaWVkLCB0aGFua3MuDQo=
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 24 Oct 2016 10:52:35 -0700
+
+> rt6_add_route_info and rt6_add_dflt_router were updated to pull the FIB
+> table from the device index, but the corresponding rt6_get_route_info
+> and rt6_get_dflt_router functions were not leading to the failure to
+> process RA's:
+> 
+>     ICMPv6: RA: ndisc_router_discovery failed to add default route
+> 
+> Fix the 'get' functions by using the table id associated with the
+> device when applicable.
+> 
+> Also, now that default routes can be added to tables other than the
+> default table, rt6_purge_dflt_routers needs to be updated as well to
+> look at all tables. To handle that efficiently, add a flag to the table
+> denoting if it is has a default route via RA.
+> 
+> Fixes: ca254490c8dfd ("net: Add VRF support to IPv6 stack")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+
+Applied and queued up for -stable, thanks.
