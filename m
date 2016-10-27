@@ -1,40 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] skbedit: allow the user to specify bitmask for mark
-Date: Thu, 27 Oct 2016 16:09:00 -0400 (EDT)
-Message-ID: <20161027.160900.97747790865479168.davem@davemloft.net>
-References: <20140724.180708.1613882522982264262.davem@davemloft.net>
-        <20161024123257.18228-1-a@unstable.cc>
+Subject: Re: [PATCH 0/5] genetlink improvements
+Date: Thu, 27 Oct 2016 16:16:39 -0400 (EDT)
+Message-ID: <20161027.161639.1547619291092385890.davem@davemloft.net>
+References: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, eric.dumazet@gmail.com,
-        sergei.shtylyov@cogentembedded.com, cwang@twopensource.com,
-        antonio@open-mesh.com
-To: a@unstable.cc
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33436 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33556 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932887AbcJ0UJD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:09:03 -0400
-In-Reply-To: <20161024123257.18228-1-a@unstable.cc>
+        with ESMTP id S1750823AbcJ0UQl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 16:16:41 -0400
+In-Reply-To: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <a@unstable.cc>
-Date: Mon, 24 Oct 2016 20:32:57 +0800
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Mon, 24 Oct 2016 14:40:00 +0200
 
-> The user may want to use only some bits of the skb mark in
-> his skbedit rules because the remaining part might be used by
-> something else.
-> 
-> Introduce the "mask" parameter to the skbedit actor in order
-> to implement such functionality.
-> 
-> When the mask is specified, only those bits selected by the
-> latter are altered really changed by the actor, while the
-> rest is left untouched.
-> 
-> Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> This series contains some generic netlink improvements, making
+> the API safer to use, and making the function pointers in the
+> family struct safer by allowing it to be __ro_after_init.
 
-Applied, thanks.
+Looks great, series applied, thanks!
