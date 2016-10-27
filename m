@@ -1,171 +1,96 @@
-From: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 4/5] net: ethernet: bgmac: add NS2 support
-Date: Thu, 27 Oct 2016 16:51:21 -0400
-Message-ID: <20161027205117.GA24397@broadcom.com>
-References: <1477510561-17035-1-git-send-email-jon.mason@broadcom.com>
- <1477510561-17035-5-git-send-email-jon.mason@broadcom.com>
- <eff0c717-ec4b-1dce-992a-ad5e958800f5@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
+Date: Thu, 27 Oct 2016 14:09:08 -0700
+Message-ID: <58126CF4.5090500@gmail.com>
+References: <20161026185743-mutt-send-email-mst@kernel.org>
+ <20161026.125245.1630138589657247338.davem@davemloft.net>
+ <20161026200153-mutt-send-email-mst@kernel.org>
+ <20161026.131122.318218609871320141.davem@davemloft.net>
+ <20161027105514.4c0374dd@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <eff0c717-ec4b-1dce-992a-ad5e958800f5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, shrijeet@gmail.com, tom@herbertland.com,
+        netdev@vger.kernel.org, shm@cumulusnetworks.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34027 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934631AbcJ0VJZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 17:09:25 -0400
+Received: by mail-pf0-f196.google.com with SMTP id u84so3577615pfj.1
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 14:09:25 -0700 (PDT)
+In-Reply-To: <20161027105514.4c0374dd@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 26, 2016 at 02:50:39PM -0700, Florian Fainelli wrote:
-> On 10/26/2016 12:36 PM, Jon Mason wrote:
-> > Add support for the variant of amac hardware present in the Broadcom
-> > Northstar2 based SoCs.  Northstar2 requires an additional register to be
-> > configured with the port speed/duplexity (NICPM).  This can be added to
-> > the link callback to hide it from the instances that do not use this.
-> > Also, the bgmac_chip_reset() was intentionally removed to prevent the
-> > resetting of the chip to the default values on open.  Finally, clearing
-> > of the pending interrupts on init is required due to observed issues on
-> > some platforms.
-> > 
-> > Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> > ---
+On 16-10-27 01:55 AM, Jesper Dangaard Brouer wrote:
+> On Wed, 26 Oct 2016 13:11:22 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> > +static void bgmac_nicpm_speed_set(struct net_device *net_dev)
-> > +{
-> > +	struct bgmac *bgmac = netdev_priv(net_dev);
-> > +	u32 val;
-> > +
-> > +	if (!bgmac->plat.nicpm_base)
-> > +		return;
-> > +
-> > +	val = NICPM_IOMUX_CTRL_INIT_VAL;
-> > +	switch (bgmac->net_dev->phydev->speed) {
-> > +	default:
-> > +		pr_err("Unsupported speed.  Defaulting to 1000Mb\n");
-> > +	case SPEED_1000:
-> > +		val |= NICPM_IOMUX_CTRL_SPD_1000M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-> > +		break;
-> > +	case SPEED_100:
-> > +		val |= NICPM_IOMUX_CTRL_SPD_100M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-> > +		break;
-> > +	case SPEED_10:
-> > +		val |= NICPM_IOMUX_CTRL_SPD_10M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-> > +		break;
-> > +	}
-> > +
-> > +	writel(val, bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
-> > +
-> > +	usleep_range(10, 100);
+>> From: "Michael S. Tsirkin" <mst@redhat.com>
+>> Date: Wed, 26 Oct 2016 20:07:19 +0300
+>>
+>>> On Wed, Oct 26, 2016 at 12:52:45PM -0400, David Miller wrote:  
+>>>> From: "Michael S. Tsirkin" <mst@redhat.com>
+>>>> Date: Wed, 26 Oct 2016 19:36:45 +0300
+>>>>   
+>>>>> On Wed, Oct 26, 2016 at 03:52:02PM +0200, Jesper Dangaard Brouer wrote:  
+>>>>>> On Sat, 22 Oct 2016 04:07:23 +0000
+>>>>>> Shrijeet Mukherjee <shrijeet@gmail.com> wrote:
+>>>>>>   
+>>>>>>> This patch adds support for xdp ndo and also inserts the xdp program
+>>>>>>> call into the merged RX buffers and big buffers paths  
+>>>>>>
+>>>>>> I really appreciate you are doing this for virtio_net.
+>>>>>>
+>>>>>> My first question is: Is the (packet) page data writable?
+>>>>>> (MST might be able to answer?)
+>>>>>>
+>>>>>> As this is currently an XDP requirement[1].    
+>>>>>
+>>>>> I'm not sure I understand what does writable mean.
+>>>>> Could you explain a bit more pls?
+>>>>> We do copy data into skb ATM but I plan to change that.  
+>>>>
+>>>> The packet data area must be writable,  
+>>>
+>>> This is the part I don't fully understand.
+>>> It's in RAM so of course it's writeable.  
+>>
+>> Pages in SKB frag lists are not usually writable, because they share
+>> space with data from other packets the way drivers usually carve up
+>> pages to receive packets into.
+>>
+>> It is therefore illegal for the networking code to write into SKB frag
+>> pages.
+>>
+>> Pages used for XDP processed packets must not have this restriction.
+>>
+>>> We share pages between arbitrary multiple packets. I think that's
+>>> OK  
+>>
+>> That's exactly what is not allowed with XDP.
+>>
+>> Each packet must be the sole user of a page, otherwise the semantics
+>> required by XDP are not met.
 > 
-> Does not seem like a good idea, do you need that sleep?
-
-Oops, that's not supposed to be there.  Removed.
-
-
-> > +
-> > +	bgmac_adjust_link(bgmac->net_dev);
-> > +}
-> > +
-> >  static int platform_phy_connect(struct bgmac *bgmac)
-> >  {
-> >  	struct phy_device *phy_dev;
-> >  
-> > -	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
-> > -					 bgmac_adjust_link);
-> > +	if (bgmac->plat.nicpm_base)
-> > +		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-> > +						 bgmac->dev->of_node,
-> > +						 bgmac_nicpm_speed_set);
-> > +	else
-> > +		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-> > +						 bgmac->dev->of_node,
-> > +						 bgmac_adjust_link);
-> >  	if (!phy_dev) {
-> >  		dev_err(bgmac->dev, "Phy connect failed\n");
-> >  		return -ENODEV;
-> >  	}
-> >  
-> > +	if (bgmac->feature_flags & BGMAC_FEAT_LANE_SWAP)
-> > +		phy_dev->dev_flags |= PHY_BRCM_EXP_LANE_SWAP;
-> > +
-> >  	return 0;
-> >  }
-> >  
-> > @@ -140,6 +188,9 @@ static int bgmac_probe(struct platform_device *pdev)
-> >  
-> >  	platform_set_drvdata(pdev, bgmac);
-> >  
-> > +	if (of_property_read_bool(np, "brcm,enet-phy-lane-swap"))
-> > +		bgmac->feature_flags |= BGMAC_FEAT_LANE_SWAP;
-> > +
-> >  	/* Set the features of the 4707 family */
-> >  	bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
-> >  	bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
-> > @@ -182,6 +233,14 @@ static int bgmac_probe(struct platform_device *pdev)
-> >  	if (IS_ERR(bgmac->plat.idm_base))
-> >  		return PTR_ERR(bgmac->plat.idm_base);
-> >  
-> > +	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");
-> > +	if (regs) {
-> > +		bgmac->plat.nicpm_base = devm_ioremap_resource(&pdev->dev,
-> > +							       regs);
-> > +		if (IS_ERR(bgmac->plat.nicpm_base))
-> > +			return PTR_ERR(bgmac->plat.nicpm_base);
-> > +	}
-> > +
-> >  	bgmac->read = platform_bgmac_read;
-> >  	bgmac->write = platform_bgmac_write;
-> >  	bgmac->idm_read = platform_bgmac_idm_read;
-> > @@ -213,6 +272,7 @@ static int bgmac_remove(struct platform_device *pdev)
-> >  static const struct of_device_id bgmac_of_enet_match[] = {
-> >  	{.compatible = "brcm,amac",},
-> >  	{.compatible = "brcm,nsp-amac",},
-> > +	{.compatible = "brcm,ns2-amac",},
-> >  	{},
-> >  };
-> >  
-> > diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-> > index 38876ec..1796208 100644
-> > --- a/drivers/net/ethernet/broadcom/bgmac.c
-> > +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> > @@ -1082,6 +1082,9 @@ static void bgmac_enable(struct bgmac *bgmac)
-> >  /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
-> >  static void bgmac_chip_init(struct bgmac *bgmac)
-> >  {
-> > +	/* Clear any erroneously pending interrupts */
-> > +	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
-> > +
-> >  	/* 1 interrupt per received frame */
-> >  	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
-> >  
-> > @@ -1158,8 +1161,6 @@ static int bgmac_open(struct net_device *net_dev)
-> >  	struct bgmac *bgmac = netdev_priv(net_dev);
-> >  	int err = 0;
-> >  
-> > -	bgmac_chip_reset(bgmac);
-> > -
+> Looking at the virtio_net.c code, the function call receive_big() might
+> actually be okay for XDP, unless the incoming packet is larger than
+> PAGE_SIZE and thus uses several pages (via a linked list in page->private).
 > 
-> Is this removal intentional? Maybe it should be special cased with
-> checking for a NS2 BGMAC instance and not do it in that case?
+> The receive_mergeable() does not look compatible with XDP.
+> 
 
-The reset seems completely unnecessary.  There is already 2 resets in
-the probe routine, another reset serves no purpose.  I can add it
-back, as it does not seem to have the negative effect I was seeing
-before.
+Looks to me the correct conditions can be met by getting the correct
+feature negotiation to happen, specifically no VIRTIO_NET_F_MRG_RXBUF
+and one of the TSO/ECN/GSO feature bits set the big_packets flag as
+Jesper notes.
 
-Of course, if I remove this one I should remove the reset in the close
-too (which seems even more unnecessary, but I didn't remove it).
+Srijeet, are you going to give this a try? I'm trying to get the device
+side working by the way on the vhost interface.
 
 Thanks,
-Jon
-
-> -- 
-> Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+John
