@@ -1,138 +1,196 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [PATCH 1/5] net: phy: broadcom: Add BCM54810 phy entry
-Date: Thu, 27 Oct 2016 18:43:44 -0400
-Message-ID: <20161027224341.GB25693@broadcom.com>
-References: <1477510561-17035-1-git-send-email-jon.mason@broadcom.com>
- <1477510561-17035-2-git-send-email-jon.mason@broadcom.com>
- <20161027091505.GB12841@lunn.ch>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: fix broadcast link
+	synchronization problem
+Date: Thu, 27 Oct 2016 18:51:55 -0400
+Message-ID: <1477608715-28003-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, rafal@milecki.pl,
-        Vikas Soni <vsoni@broadcom.com>,
-        linux-arm-kernel@lists.infradead.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161027091505.GB12841@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 27, 2016 at 11:15:05AM +0200, Andrew Lunn wrote:
-> On Wed, Oct 26, 2016 at 03:35:57PM -0400, Jon Mason wrote:
-> > From: Vikas Soni <vsoni@broadcom.com>
-> > 
-> > Add BCM54810 phy entry
-> 
-> Hi Jon, Vikis
-> 
-> The subject line is a bit misleading. It does more than add a PHY ID
-> entry.
+In commit 2d18ac4ba745 ("tipc: extend broadcast link initialization
+criteria") we tried to fix a problem with the initial synchronization
+of broadcast link acknowledge values. Unfortunately that solution is
+not sufficient to solve the issue.
 
-All of the parts are related to adding the BCM54810 Phy, but I agree it
-could be more verbose about what is happening.
+We have seen it happen that LINK_PROTOCOL/STATE packets with a valid
+non-zero unicast acknowledge number may bypass BCAST_PROTOCOL
+initialization, NAME_DISTRIBUTOR and other STATE packets with invalid
+broadcast acknowledge numbers, leading to premature opening of the
+broadcast link. When the bypassed packets finally arrive, they are
+inadvertently accepted, and the already correctly initialized
+acknowledge number in the broadcast receive link is overwritten by
+the invalid (zero) value of the said packets. After this the broadcast
+link goes stale.
 
-> > Signed-off-by: Vikas Soni <vsoni@broadcom.com>
-> > Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-> > ---
-> >  drivers/net/phy/Kconfig    |  2 +-
-> >  drivers/net/phy/broadcom.c | 65 ++++++++++++++++++++++++++++++++++++++++++++++
-> >  include/linux/brcmphy.h    |  7 +++++
-> >  3 files changed, 73 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> > index 45f68ea..31967ca 100644
-> > --- a/drivers/net/phy/Kconfig
-> > +++ b/drivers/net/phy/Kconfig
-> > @@ -217,7 +217,7 @@ config BROADCOM_PHY
-> >  	select BCM_NET_PHYLIB
-> >  	---help---
-> >  	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S, BCM5464,
-> > -	  BCM5481 and BCM5482 PHYs.
-> > +	  BCM5481, BCM54810 and BCM5482 PHYs.
-> >  
-> >  config CICADA_PHY
-> >  	tristate "Cicada PHYs"
-> > diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-> > index 870327e..cdce761 100644
-> > --- a/drivers/net/phy/broadcom.c
-> > +++ b/drivers/net/phy/broadcom.c
-> > @@ -35,6 +35,35 @@ static int bcm54xx_auxctl_write(struct phy_device *phydev, u16 regnum, u16 val)
-> >  	return phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum | val);
-> >  }
-> >  
-> > +static int bcm54810_config(struct phy_device *phydev)
-> > +{
-> > +	int rc;
-> > +
-> > +	/* Disable BroadR-Reach */
-> > +	rc = bcm_phy_write_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL, 0);
-> > +	if (rc < 0)
-> > +		return rc;
-> > +
-> > +	/* SKEW DISABLE */
-> > +	rc = bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
-> > +				  0xF0E0);
-> > +	if (rc < 0)
-> > +		return rc;
-> > +
-> > +	/* DELAY DISABLE */
-> > +	rc = bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
-> > +				  0x7000);
-> 
-> This driver mostly uses symbolic names, not #defines. Please can you
-> use #defines here and else were in this patch.
+We now fix this by marking the packets where we know the acknowledge
+value is or may be invalid, and then ignoring the acks from those.
 
-Will do.  After looking at this, this appears to be setup for a read
-that doesn't follow.  I'll audit this, clean it up and resend.
+To this purpose, we claim an unused bit in the header to indicate that
+the value is invalid. We set the bit to 1 in the initial BCAST_PROTOCOL
+synchronization packet and all initial ("bulk") NAME_DISTRIBUTOR
+packets, plus those LINK_PROTOCOL packets sent out before the broadcast
+links are fully synchronized.
 
+This minor protocol update is fully backwards compatible.
+
+Reported-by: John Thompson <thompa.atl@gmail.com>
+Tested-by: John Thompson <thompa.atl@gmail.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bcast.c      | 14 ++++++++++----
+ net/tipc/bcast.h      |  3 ++-
+ net/tipc/link.c       |  2 ++
+ net/tipc/msg.h        | 17 +++++++++++++++++
+ net/tipc/name_distr.c |  1 +
+ net/tipc/node.c       |  2 +-
+ 6 files changed, 33 insertions(+), 6 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 753f774..aa1babb 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -247,11 +247,17 @@ int tipc_bcast_rcv(struct net *net, struct tipc_link *l, struct sk_buff *skb)
+  *
+  * RCU is locked, no other locks set
+  */
+-void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l, u32 acked)
++void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l,
++			struct tipc_msg *hdr)
+ {
+ 	struct sk_buff_head *inputq = &tipc_bc_base(net)->inputq;
++	u16 acked = msg_bcast_ack(hdr);
+ 	struct sk_buff_head xmitq;
  
-> > +	if (rc < 0)
-> > +		return rc;
-> > +
-> > +	/* DELAY DISABLE */
-> > +	rc = bcm_phy_write_shadow(phydev, BCM54810_SHD_CLK_CTL, 0);
-> > +	if (rc < 0)
-> > +		return rc;
-> 
-> Twice the same comment?
->
-> > +
-> > +	return 0;
-> > +}
-> > +
-> >  /* Needs SMDSP clock enabled via bcm54xx_phydsp_config() */
-> >  static int bcm50610_a0_workaround(struct phy_device *phydev)
-> >  {
-> > @@ -207,6 +236,20 @@ static int bcm54xx_config_init(struct phy_device *phydev)
-> >  	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
-> >  		bcm54xx_adjust_rxrefclk(phydev);
-> >  
-> > +	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810) {
-> > +		err = bcm54810_config(phydev);
-> > +		if (err)
-> > +			return err;
-> > +
-> > +		reg = phy_read(phydev, MII_BMCR);
-> > +		if (reg < 0)
-> > +			return reg;
-> > +
-> > +		err = phy_write(phydev, MII_BMCR, reg & ~BMCR_PDOWN);
-> > +		if (err)
-> > +			return err;
-> 
-> This seems a bit odd. I would expect the PHY core correctly handles
-> the PHY being powered down. Can you explain this a bit more, why it is
-> needed.
++	/* Ignore bc acks sent by peer before bcast synch point was received */
++	if (msg_bc_ack_invalid(hdr))
++		return;
++
+ 	__skb_queue_head_init(&xmitq);
+ 
+ 	tipc_bcast_lock(net);
+@@ -279,11 +285,11 @@ int tipc_bcast_sync_rcv(struct net *net, struct tipc_link *l,
+ 	__skb_queue_head_init(&xmitq);
+ 
+ 	tipc_bcast_lock(net);
+-	if (msg_type(hdr) == STATE_MSG) {
++	if (msg_type(hdr) != STATE_MSG) {
++		tipc_link_bc_init_rcv(l, hdr);
++	} else if (!msg_bc_ack_invalid(hdr)) {
+ 		tipc_link_bc_ack_rcv(l, msg_bcast_ack(hdr), &xmitq);
+ 		rc = tipc_link_bc_sync_rcv(l, hdr, &xmitq);
+-	} else {
+-		tipc_link_bc_init_rcv(l, hdr);
+ 	}
+ 	tipc_bcast_unlock(net);
+ 
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index 5ffe344..855d53c 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -55,7 +55,8 @@ void tipc_bcast_dec_bearer_dst_cnt(struct net *net, int bearer_id);
+ int  tipc_bcast_get_mtu(struct net *net);
+ int tipc_bcast_xmit(struct net *net, struct sk_buff_head *list);
+ int tipc_bcast_rcv(struct net *net, struct tipc_link *l, struct sk_buff *skb);
+-void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l, u32 acked);
++void tipc_bcast_ack_rcv(struct net *net, struct tipc_link *l,
++			struct tipc_msg *hdr);
+ int tipc_bcast_sync_rcv(struct net *net, struct tipc_link *l,
+ 			struct tipc_msg *hdr);
+ int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index b36e16c..1055164 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1312,6 +1312,7 @@ static void tipc_link_build_proto_msg(struct tipc_link *l, int mtyp, bool probe,
+ 	msg_set_next_sent(hdr, l->snd_nxt);
+ 	msg_set_ack(hdr, l->rcv_nxt - 1);
+ 	msg_set_bcast_ack(hdr, bcl->rcv_nxt - 1);
++	msg_set_bc_ack_invalid(hdr, !node_up);
+ 	msg_set_last_bcast(hdr, l->bc_sndlink->snd_nxt - 1);
+ 	msg_set_link_tolerance(hdr, tolerance);
+ 	msg_set_linkprio(hdr, priority);
+@@ -1574,6 +1575,7 @@ static void tipc_link_build_bc_init_msg(struct tipc_link *l,
+ 	__skb_queue_head_init(&list);
+ 	if (!tipc_link_build_bc_proto_msg(l->bc_rcvlink, false, 0, &list))
+ 		return;
++	msg_set_bc_ack_invalid(buf_msg(skb_peek(&list)), true);
+ 	tipc_link_xmit(l, &list, xmitq);
+ }
+ 
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index c3832cd..50a7398 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -714,6 +714,23 @@ static inline void msg_set_peer_stopping(struct tipc_msg *m, u32 s)
+ 	msg_set_bits(m, 5, 13, 0x1, s);
+ }
+ 
++static inline bool msg_bc_ack_invalid(struct tipc_msg *m)
++{
++	switch (msg_user(m)) {
++	case BCAST_PROTOCOL:
++	case NAME_DISTRIBUTOR:
++	case LINK_PROTOCOL:
++		return msg_bits(m, 5, 14, 0x1);
++	default:
++		return false;
++	}
++}
++
++static inline void msg_set_bc_ack_invalid(struct tipc_msg *m, bool invalid)
++{
++	msg_set_bits(m, 5, 14, 0x1, invalid);
++}
++
+ static inline char *msg_media_addr(struct tipc_msg *m)
+ {
+ 	return (char *)&m->hdr[TIPC_MEDIA_INFO_OFFSET];
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index a04fe9b..c1cfd92 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -156,6 +156,7 @@ static void named_distribute(struct net *net, struct sk_buff_head *list,
+ 				pr_warn("Bulk publication failure\n");
+ 				return;
+ 			}
++			msg_set_bc_ack_invalid(buf_msg(skb), true);
+ 			item = (struct distr_item *)msg_data(buf_msg(skb));
+ 		}
+ 
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 7ef14e2..9d2f4c2 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1535,7 +1535,7 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
+ 	if (unlikely(usr == LINK_PROTOCOL))
+ 		tipc_node_bc_sync_rcv(n, hdr, bearer_id, &xmitq);
+ 	else if (unlikely(tipc_link_acked(n->bc_entry.link) != bc_ack))
+-		tipc_bcast_ack_rcv(net, n->bc_entry.link, bc_ack);
++		tipc_bcast_ack_rcv(net, n->bc_entry.link, hdr);
+ 
+ 	/* Receive packet directly if conditions permit */
+ 	tipc_node_read_lock(n);
+-- 
+2.7.4
 
-I believe it was needed in earlier versions of the code, but doesn't
-seem to be needed anymore.  Removing.
 
-> 
-> 	Thanks
-> 		Andrew
+------------------------------------------------------------------------------
+The Command Line: Reinvented for Modern Developers
+Did the resurgence of CLI tooling catch you by surprise?
+Reconnect with the command line and become more productive. 
+Learn the new .NET and ASP.NET CLI. Get your free copy!
+http://sdm.link/telerik
