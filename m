@@ -1,61 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC net-next iproute2 1/2] libnetlink: Add test for error code
- returned from netlink reply
-Date: Wed, 26 Oct 2016 20:52:56 -0700
-Message-ID: <20161026205256.162e1d25@xeon-e3>
-References: <1477510208-20292-1-git-send-email-gorcunov@gmail.com>
-        <1477510208-20292-2-git-send-email-gorcunov@gmail.com>
+From: zhongjiang <zhongjiang@huawei.com>
+Subject: [PATCH] net: avoid uninitialized variable
+Date: Thu, 27 Oct 2016 11:56:09 +0800
+Message-ID: <1477540569-12199-1-git-send-email-zhongjiang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Andrey Vagin <avagin@openvz.org>
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34062 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932802AbcJ0Dwn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 23:52:43 -0400
-Received: by mail-pf0-f170.google.com with SMTP id n85so8793620pfi.1
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 20:52:43 -0700 (PDT)
-In-Reply-To: <1477510208-20292-2-git-send-email-gorcunov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>, <aduyck@mirantis.com>,
+        <tom@herbertland.com>, <jiri@mellanox.com>, <fgao@ikuai8.com>,
+        <hadarh@mellanox.com>, <amir@vadai.me>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Oct 2016 22:30:07 +0300
-Cyrill Gorcunov <gorcunov@gmail.com> wrote:
+From: zhong jiang <zhongjiang@huawei.com>
 
->  
->  				if (h->nlmsg_type == NLMSG_DONE) {
-> +					int len;
-> +
-> +					/*
-> +					 * The kernel reports if there is
-> +					 * no inet-diag module present in
-> +					 * the system via negative length
-> +					 * as error code.
-> +					 */
-> +					if (h->nlmsg_len < NLMSG_LENGTH(sizeof(int))) {
-> +						fprintf(stderr, "Truncated length reply\n");
-> +						return -1;
-> +					}
-> +					len = *(int *)NLMSG_DATA(h);
-> +					if (len < 0) {
-> +						errno = -len;
-> +						if (errno == ENOENT ||
-> +						    errno == EOPNOTSUPP)
-> +							return -1;
-> +						perror("RTNETLINK answers");
-> +						return len;
-> +					}
->  					found_done = 1;
->  					break; /* process next filter */
->  				
+when I compiler the newest kernel, I hit the following error with
+Werror=may-uninitalized.
 
-This looks like a mistake in how you implemented the functionality in the kernel.
-Despite what it looks like, all netlink request/reply functionality reports
-errors in current implementation by returning error to the sendmsg request.
+net/core/flow_dissector.c: In function ?._skb_flow_dissect?
+include/uapi/linux/swab.h:100:46: error: ?.lan?.may be used uninitialized in this function [-Werror=maybe-uninitialized]
+net/core/flow_dissector.c:248:26: note: ?.lan?.was declared here
 
-What you added implies that the new kernel api is wrong, or many other usages
-are wrong.  Please fix the kernel.
+This adds an additional check for proto to explicitly tell the compiler
+that vlan pointer have the correct value before it is used.
+
+Signed-off-by: zhong jiang <zhongjiang@huawei.com>
+---
+ net/core/flow_dissector.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 1a7b80f..a04d9cf 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -245,7 +245,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 	}
+ 	case htons(ETH_P_8021AD):
+ 	case htons(ETH_P_8021Q): {
+-		const struct vlan_hdr *vlan;
++		const struct vlan_hdr *vlan = NULL;
+ 
+ 		if (skb_vlan_tag_present(skb))
+ 			proto = skb->protocol;
+@@ -276,7 +276,8 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 				key_vlan->vlan_id = skb_vlan_tag_get_id(skb);
+ 				key_vlan->vlan_priority =
+ 					(skb_vlan_tag_get_prio(skb) >> VLAN_PRIO_SHIFT);
+-			} else {
++			} else if (proto == cpu_to_be16(ETH_P_8021Q) ||
++						proto == cpu_to_be16(ETH_P_8021AD)) {
+ 				key_vlan->vlan_id = ntohs(vlan->h_vlan_TCI) &
+ 					VLAN_VID_MASK;
+ 				key_vlan->vlan_priority =
+-- 
+1.8.3.1
