@@ -1,56 +1,34 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [19/28] brcmfmac: avoid maybe-uninitialized warning in
- brcmf_cfg80211_start_ap
-Date: Thu, 27 Oct 2016 15:05:23 +0000 (UTC)
-Message-ID: <20161027150523.B600361656@smtp.codeaurora.org>
-References: <20161017221355.1861551-7-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] Route ICMPv6 errors with the flow when
+ ECMP in use
+Date: Thu, 27 Oct 2016 11:23:31 -0400 (EDT)
+Message-ID: <20161027.112331.1872860838376990837.davem@davemloft.net>
+References: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        "Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161017221355.1861551-7-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jkbs@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53722 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933351AbcJ0PXn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 11:23:43 -0400
+In-Reply-To: <1477301332-23954-1-git-send-email-jkbs@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> A bugfix added a sanity check around the assignment and use of the
-> 'is_11d' variable, which looks correct to me, but as the function is
-> rather complex already, this confuses the compiler to the point where
-> it can no longer figure out if the variable is always initialized
-> correctly:
-> 
-> brcm80211/brcmfmac/cfg80211.c: In function ‘brcmf_cfg80211_start_ap’:
-> brcm80211/brcmfmac/cfg80211.c:4586:10: error: ‘is_11d’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> This adds an initialization for the newly introduced case in which
-> the variable should not really be used, in order to make the warning
-> go away.
-> 
-> Fixes: b3589dfe0212 ("brcmfmac: ignore 11d configuration errors")
-> Cc: Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Date: Mon, 24 Oct 2016 11:28:47 +0200
 
-Patch applied to wireless-drivers.git, thanks.
+> However, for it to work IPv6 flow labels have to be same in both
+> directions (i.e. reflected) or need to be chosen in a manner that
+> ensures that the flow going in the opposite direction would actually
+> be routed to a given path.
 
-d3532ea6ce4e brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
+My understanding is that this is not really guaranteed, and that
+entities are nearly encouraged to set the flow label in whatever
+manner makes sense for their use case.
 
--- 
-https://patchwork.kernel.org/patch/9380763/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+I think we really cannot have any kind of hard dependency on how
+flow labels are set and used by the internet.
