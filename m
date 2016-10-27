@@ -1,58 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/4][pull request] Intel Wired LAN Driver Updates 2016-10-27
-Date: Thu, 27 Oct 2016 14:27:53 -0700
-Message-ID: <1477603677-39957-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net 1/4] ixgbe: fix panic when using macvlan with l2-fwd-offload enabled
+Date: Thu, 27 Oct 2016 14:27:54 -0700
+Message-ID: <1477603677-39957-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1477603677-39957-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga06.intel.com ([134.134.136.31]:29768 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1031934AbcJ0V17 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Oct 2016 17:27:59 -0400
+        id S1032107AbcJ0V2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Oct 2016 17:28:00 -0400
+In-Reply-To: <1477603677-39957-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains fixes to ixgbe and i40e.
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Emil fixes a NULL pointer dereference when a macvlan interface is brought
-up while the PF is still down.
+Fix NULL pointer dereference in the case where a macvlan interface is
+brought up while the PF is still down:
 
-David root caused the original panic that was fixed by commit id
-(a036244c068612 "i40e: Fix kernel panic on enable/disable LLDP") and the
-fix was not quite correct, so removed the get_default_tc() and replaced
-it with a #define since there is only one TC supported as a default.
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
+IP: [<ffffffffa0170fb2>] ixgbe_alloc_rx_buffers+0x42/0x1a0 [ixgbe]
 
-Guilherme Piccoli fixes an issue where if we modprobe the driver module
-without enough MSI-X interrupts, then unload the module and reload it
-again, the kernel would crash.  So if we fail to allocate enough MSI-X
-interrupts, we should disable them since they were previously enabled.
+Call Trace:
+[<ffffffffa017336b>] ixgbe_configure_rx_ring+0x2eb/0x3d0 [ixgbe]
+[<ffffffffa0173811>] ixgbe_fwd_ring_up+0xd1/0x380 [ixgbe]
+[<ffffffffa0179709>] ixgbe_fwd_add+0x149/0x230 [ixgbe]
+[<ffffffffa0113480>] macvlan_open+0x260/0x2b0 [macvlan]
 
-Huaibin Wang found that the order of the arguments for
-ndo_dflt_bridge_getlink() were in the correct order, so fix the order.
+Reported-by: Matthew Garrett <mjg59@coreos.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-The following are changes since commit d5d32e4b76687f4df9ad3ba8d3702b7347f51fa6:
-  net: ipv6: Do not consider link state for nexthop validation
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue 40GbE
-
-David Ertman (1):
-  i40e: Fix configure TCs after initial DCB disable
-
-Emil Tantilov (1):
-  ixgbe: fix panic when using macvlan with l2-fwd-offload enabled
-
-Guilherme G Piccoli (1):
-  i40e: disable MSI-X interrupts if we cannot reserve enough vectors
-
-Huaibin Wang (1):
-  i40e: fix call of ndo_dflt_bridge_getlink()
-
- drivers/net/ethernet/intel/i40e/i40e.h        |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c   | 34 +++++----------------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 12 ++++++----
- 3 files changed, 15 insertions(+), 32 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index a244d9a..bd93d82 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9135,10 +9135,14 @@ static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
+ 		goto fwd_add_err;
+ 	fwd_adapter->pool = pool;
+ 	fwd_adapter->real_adapter = adapter;
+-	err = ixgbe_fwd_ring_up(vdev, fwd_adapter);
+-	if (err)
+-		goto fwd_add_err;
+-	netif_tx_start_all_queues(vdev);
++
++	if (netif_running(pdev)) {
++		err = ixgbe_fwd_ring_up(vdev, fwd_adapter);
++		if (err)
++			goto fwd_add_err;
++		netif_tx_start_all_queues(vdev);
++	}
++
+ 	return fwd_adapter;
+ fwd_add_err:
+ 	/* unwind counter and free adapter struct */
 -- 
 2.7.4
