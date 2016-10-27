@@ -1,142 +1,383 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net-next 1/3] net: core: Add a UID field to struct sock.
-Date: Fri, 28 Oct 2016 02:20:39 +0900
-Message-ID: <1477588841-140767-2-git-send-email-lorenzo@google.com>
+Subject: [PATCH net-next 2/3] net: core: add UID to flows, rules, and routes
+Date: Fri, 28 Oct 2016 02:20:40 +0900
+Message-ID: <1477588841-140767-3-git-send-email-lorenzo@google.com>
 References: <1477588841-140767-1-git-send-email-lorenzo@google.com>
 Cc: davem@davemloft.net, ek@google.com, eric.dumazet@gmail.com,
         zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34340 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933406AbcJ0RU4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 13:20:56 -0400
-Received: by mail-pf0-f174.google.com with SMTP id n85so21389188pfi.1
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 10:20:56 -0700 (PDT)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:32875 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933406AbcJ0RVC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 13:21:02 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 197so21465945pfu.0
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 10:21:02 -0700 (PDT)
 In-Reply-To: <1477588841-140767-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Protocol sockets (struct sock) don't have UIDs, but most of the
-time, they map 1:1 to userspace sockets (struct socket) which do.
-
-Various operations such as the iptables xt_owner match need
-access to the "UID of a socket", and do so by following the
-backpointer to the struct socket. This involves taking
-sk_callback_lock and doesn't work when there is no socket
-because userspace has already called close().
-
-Simplify this by adding a sk_uid field to struct sock whose value
-matches the UID of the corresponding struct socket. The semantics
-are as follows:
-
-1. Whenever sk_socket is non-null: sk_uid is the same as the UID
-   in sk_socket, i.e., matches the return value of sock_i_uid.
-   Specifically, the UID is set when userspace calls socket(),
-   fchown(), or accept().
-2. When sk_socket is null, sk_uid is defined as follows:
-   - For a socket that no longer has a sk_socket because
-     userspace has called close(): the previous UID.
-   - For a cloned socket (e.g., an incoming connection that is
-     established but on which userspace has not yet called
-     accept): the UID of the socket it was cloned from.
-   - For a socket that has never had an sk_socket (e.g., a kernel
-     ICMP socket): UID 0 inside the user namespace corresponding
-     to the network namespace the socket belongs to. This is
-     arguably better than GLOBAL_ROOT_UID because it allows
-     "--owner-uid 0" to match kernel-originated packets in
-     non-root namespaces.
+- Define a new FIB rule attributes, FRA_UID_RANGE, to describe a
+  range of UIDs.
+- Define a RTA_UID attribute for per-UID route lookups and dumps.
+- Support passing these attributes to and from userspace via
+  rtnetlink. The value INVALID_UID indicates no UID was
+  specified.
+- Add a UID field to the flow structures.
 
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- include/net/sock.h |  7 +++++++
- net/core/sock.c    |  6 +++++-
- net/socket.c       | 14 ++++++++++++++
- 3 files changed, 26 insertions(+), 1 deletion(-)
+ include/net/fib_rules.h        |  9 ++++-
+ include/net/flow.h             |  5 +++
+ include/uapi/linux/fib_rules.h |  6 ++++
+ include/uapi/linux/rtnetlink.h |  1 +
+ net/core/fib_rules.c           | 74 ++++++++++++++++++++++++++++++++++++++++--
+ net/ipv4/fib_frontend.c        |  1 +
+ net/ipv4/route.c               | 11 +++++++
+ net/ipv6/route.c               |  7 ++++
+ 8 files changed, 111 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 2764895..2086922 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -417,6 +417,7 @@ struct sock {
- 	u32			sk_max_ack_backlog;
- 	__u32			sk_priority;
- 	__u32			sk_mark;
-+	kuid_t			sk_uid;
- 	struct pid		*sk_peer_pid;
- 	const struct cred	*sk_peer_cred;
- 	long			sk_rcvtimeo;
-@@ -1651,6 +1652,7 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
- 	sk->sk_wq = parent->wq;
- 	parent->sk = sk;
- 	sk_set_socket(sk, parent);
-+	sk->sk_uid = SOCK_INODE(parent)->i_uid;
- 	security_sock_graft(sk, parent);
- 	write_unlock_bh(&sk->sk_callback_lock);
- }
-@@ -1658,6 +1660,11 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
- kuid_t sock_i_uid(struct sock *sk);
- unsigned long sock_i_ino(struct sock *sk);
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 456e4a6..8dbfdf7 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -8,6 +8,11 @@
+ #include <net/flow.h>
+ #include <net/rtnetlink.h>
  
-+static inline kuid_t sock_net_uid(struct net *net, const struct sock *sk)
-+{
-+	return sk ? sk->sk_uid : make_kuid(net->user_ns, 0);
-+}
++struct fib_kuid_range {
++	kuid_t start;
++	kuid_t end;
++};
 +
- static inline u32 net_tx_rndhash(void)
- {
- 	u32 v = prandom_u32();
-diff --git a/net/core/sock.c b/net/core/sock.c
-index d8e4532e..831e4e8 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1570,6 +1570,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 		 */
- 		sk_refcnt_debug_inc(newsk);
- 		sk_set_socket(newsk, NULL);
-+		newsk->sk_uid = sk->sk_uid;
- 		newsk->sk_wq = NULL;
- 
- 		if (newsk->sk_prot->sockets_allocated)
-@@ -2460,8 +2461,11 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 		sk->sk_type	=	sock->type;
- 		sk->sk_wq	=	sock->wq;
- 		sock->sk	=	sk;
--	} else
-+		sk->sk_uid	=	SOCK_INODE(sock)->i_uid;
-+	} else {
- 		sk->sk_wq	=	NULL;
-+		sk->sk_uid	=	make_kuid(sock_net(sk)->user_ns, 0);
-+	}
- 
- 	rwlock_init(&sk->sk_callback_lock);
- 	lockdep_set_class_and_name(&sk->sk_callback_lock,
-diff --git a/net/socket.c b/net/socket.c
-index 5a9bf5e..5a4747e 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -518,8 +518,22 @@ static ssize_t sockfs_listxattr(struct dentry *dentry, char *buffer,
- 	return used;
- }
- 
-+int sockfs_setattr(struct dentry *dentry, struct iattr *iattr)
-+{
-+	int err = simple_setattr(dentry, iattr);
-+
-+	if (!err) {
-+		struct socket *sock = SOCKET_I(d_inode(dentry));
-+
-+		sock->sk->sk_uid = iattr->ia_uid;
-+	}
-+
-+	return err;
-+}
-+
- static const struct inode_operations sockfs_inode_ops = {
- 	.listxattr = sockfs_listxattr,
-+	.setattr = sockfs_setattr,
+ struct fib_rule {
+ 	struct list_head	list;
+ 	int			iifindex;
+@@ -30,6 +35,7 @@ struct fib_rule {
+ 	int			suppress_prefixlen;
+ 	char			iifname[IFNAMSIZ];
+ 	char			oifname[IFNAMSIZ];
++	struct fib_kuid_range	uid_range;
+ 	struct rcu_head		rcu;
  };
  
- /**
+@@ -92,7 +98,8 @@ struct fib_rules_ops {
+ 	[FRA_SUPPRESS_PREFIXLEN] = { .type = NLA_U32 }, \
+ 	[FRA_SUPPRESS_IFGROUP] = { .type = NLA_U32 }, \
+ 	[FRA_GOTO]	= { .type = NLA_U32 }, \
+-	[FRA_L3MDEV]	= { .type = NLA_U8 }
++	[FRA_L3MDEV]	= { .type = NLA_U8 }, \
++	[FRA_UID_RANGE]	= { .len = sizeof(struct fib_rule_uid_range) }
+ 
+ static inline void fib_rule_get(struct fib_rule *rule)
+ {
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 035aa77..51373f3 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -11,6 +11,7 @@
+ #include <linux/in6.h>
+ #include <linux/atomic.h>
+ #include <net/flow_dissector.h>
++#include <linux/uidgid.h>
+ 
+ /*
+  * ifindex generation is per-net namespace, and loopback is
+@@ -37,6 +38,7 @@ struct flowi_common {
+ #define FLOWI_FLAG_SKIP_NH_OIF		0x04
+ 	__u32	flowic_secid;
+ 	struct flowi_tunnel flowic_tun_key;
++	kuid_t  flowic_uid;
+ };
+ 
+ union flowi_uli {
+@@ -74,6 +76,7 @@ struct flowi4 {
+ #define flowi4_flags		__fl_common.flowic_flags
+ #define flowi4_secid		__fl_common.flowic_secid
+ #define flowi4_tun_key		__fl_common.flowic_tun_key
++#define flowi4_uid		__fl_common.flowic_uid
+ 
+ 	/* (saddr,daddr) must be grouped, same order as in IP header */
+ 	__be32			saddr;
+@@ -131,6 +134,7 @@ struct flowi6 {
+ #define flowi6_flags		__fl_common.flowic_flags
+ #define flowi6_secid		__fl_common.flowic_secid
+ #define flowi6_tun_key		__fl_common.flowic_tun_key
++#define flowi6_uid		__fl_common.flowic_uid
+ 	struct in6_addr		daddr;
+ 	struct in6_addr		saddr;
+ 	/* Note: flowi6_tos is encoded in flowlabel, too. */
+@@ -176,6 +180,7 @@ struct flowi {
+ #define flowi_flags	u.__fl_common.flowic_flags
+ #define flowi_secid	u.__fl_common.flowic_secid
+ #define flowi_tun_key	u.__fl_common.flowic_tun_key
++#define flowi_uid	u.__fl_common.flowic_uid
+ } __attribute__((__aligned__(BITS_PER_LONG/8)));
+ 
+ static inline struct flowi *flowi4_to_flowi(struct flowi4 *fl4)
+diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
+index 14404b3..bbf02a6 100644
+--- a/include/uapi/linux/fib_rules.h
++++ b/include/uapi/linux/fib_rules.h
+@@ -29,6 +29,11 @@ struct fib_rule_hdr {
+ 	__u32		flags;
+ };
+ 
++struct fib_rule_uid_range {
++	__u32		start;
++	__u32		end;
++};
++
+ enum {
+ 	FRA_UNSPEC,
+ 	FRA_DST,	/* destination address */
+@@ -51,6 +56,7 @@ enum {
+ 	FRA_OIFNAME,
+ 	FRA_PAD,
+ 	FRA_L3MDEV,	/* iif or oif is l3mdev goto its table */
++	FRA_UID_RANGE,	/* UID range */
+ 	__FRA_MAX
+ };
+ 
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 262f037..bb85e78 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -318,6 +318,7 @@ enum rtattr_type_t {
+ 	RTA_ENCAP,
+ 	RTA_EXPIRES,
+ 	RTA_PAD,
++	RTA_UID,
+ 	__RTA_MAX
+ };
+ 
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index be4629c..5de436a 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -18,6 +18,11 @@
+ #include <net/fib_rules.h>
+ #include <net/ip_tunnels.h>
+ 
++static const struct fib_kuid_range fib_kuid_range_unset = {
++	KUIDT_INIT(0),
++	KUIDT_INIT(~0),
++};
++
+ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 			 u32 pref, u32 table, u32 flags)
+ {
+@@ -33,6 +38,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
+ 	r->table = table;
+ 	r->flags = flags;
+ 	r->fr_net = ops->fro_net;
++	r->uid_range = fib_kuid_range_unset;
+ 
+ 	r->suppress_prefixlen = -1;
+ 	r->suppress_ifgroup = -1;
+@@ -172,6 +178,34 @@ void fib_rules_unregister(struct fib_rules_ops *ops)
+ }
+ EXPORT_SYMBOL_GPL(fib_rules_unregister);
+ 
++static int uid_range_set(struct fib_kuid_range *range)
++{
++	return uid_valid(range->start) && uid_valid(range->end);
++}
++
++static struct fib_kuid_range nla_get_kuid_range(struct nlattr **tb)
++{
++	struct fib_rule_uid_range *in;
++	struct fib_kuid_range out;
++
++	in = (struct fib_rule_uid_range *)nla_data(tb[FRA_UID_RANGE]);
++
++	out.start = make_kuid(current_user_ns(), in->start);
++	out.end = make_kuid(current_user_ns(), in->end);
++
++	return out;
++}
++
++static int nla_put_uid_range(struct sk_buff *skb, struct fib_kuid_range *range)
++{
++	struct fib_rule_uid_range out = {
++		from_kuid_munged(current_user_ns(), range->start),
++		from_kuid_munged(current_user_ns(), range->end)
++	};
++
++	return nla_put(skb, FRA_UID_RANGE, sizeof(out), &out);
++}
++
+ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
+ 			  struct flowi *fl, int flags,
+ 			  struct fib_lookup_arg *arg)
+@@ -193,6 +227,10 @@ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
+ 	if (rule->l3mdev && !l3mdev_fib_rule_match(rule->fr_net, fl, arg))
+ 		goto out;
+ 
++	if (uid_lt(fl->flowi_uid, rule->uid_range.start) ||
++	    uid_gt(fl->flowi_uid, rule->uid_range.end))
++		goto out;
++
+ 	ret = ops->match(rule, fl, flags);
+ out:
+ 	return (rule->flags & FIB_RULE_INVERT) ? !ret : ret;
+@@ -429,6 +467,21 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (rule->l3mdev && rule->table)
+ 		goto errout_free;
+ 
++	if (tb[FRA_UID_RANGE]) {
++		if (current_user_ns() != net->user_ns) {
++			err = -EPERM;
++			goto errout_free;
++		}
++
++		rule->uid_range = nla_get_kuid_range(tb);
++
++		if (!uid_range_set(&rule->uid_range) ||
++		    !uid_lte(rule->uid_range.start, rule->uid_range.end))
++			goto errout_free;
++	} else {
++		rule->uid_range = fib_kuid_range_unset;
++	}
++
+ 	if ((nlh->nlmsg_flags & NLM_F_EXCL) &&
+ 	    rule_exists(ops, frh, tb, rule)) {
+ 		err = -EEXIST;
+@@ -497,6 +550,7 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct fib_rules_ops *ops = NULL;
+ 	struct fib_rule *rule, *tmp;
+ 	struct nlattr *tb[FRA_MAX+1];
++	struct fib_kuid_range range;
+ 	int err = -EINVAL;
+ 
+ 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
+@@ -516,6 +570,14 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (err < 0)
+ 		goto errout;
+ 
++	if (tb[FRA_UID_RANGE]) {
++		range = nla_get_kuid_range(tb);
++		if (!uid_range_set(&range))
++			goto errout;
++	} else {
++		range = fib_kuid_range_unset;
++	}
++
+ 	list_for_each_entry(rule, &ops->rules_list, list) {
+ 		if (frh->action && (frh->action != rule->action))
+ 			continue;
+@@ -552,6 +614,11 @@ int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		    (rule->l3mdev != nla_get_u8(tb[FRA_L3MDEV])))
+ 			continue;
+ 
++		if (uid_range_set(&range) &&
++		    (!uid_eq(rule->uid_range.start, range.start) ||
++		     !uid_eq(rule->uid_range.end, range.end)))
++			continue;
++
+ 		if (!ops->compare(rule, frh, tb))
+ 			continue;
+ 
+@@ -619,7 +686,8 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
+ 			 + nla_total_size(4) /* FRA_SUPPRESS_IFGROUP */
+ 			 + nla_total_size(4) /* FRA_FWMARK */
+ 			 + nla_total_size(4) /* FRA_FWMASK */
+-			 + nla_total_size_64bit(8); /* FRA_TUN_ID */
++			 + nla_total_size_64bit(8) /* FRA_TUN_ID */
++			 + nla_total_size(sizeof(struct fib_kuid_range));
+ 
+ 	if (ops->nlmsg_payload)
+ 		payload += ops->nlmsg_payload(rule);
+@@ -679,7 +747,9 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
+ 	    (rule->tun_id &&
+ 	     nla_put_be64(skb, FRA_TUN_ID, rule->tun_id, FRA_PAD)) ||
+ 	    (rule->l3mdev &&
+-	     nla_put_u8(skb, FRA_L3MDEV, rule->l3mdev)))
++	     nla_put_u8(skb, FRA_L3MDEV, rule->l3mdev)) ||
++	    (uid_range_set(&rule->uid_range) &&
++	     nla_put_uid_range(skb, &rule->uid_range)))
+ 		goto nla_put_failure;
+ 
+ 	if (rule->suppress_ifgroup != -1) {
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index c3b8047..d93eea8 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -610,6 +610,7 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX + 1] = {
+ 	[RTA_FLOW]		= { .type = NLA_U32 },
+ 	[RTA_ENCAP_TYPE]	= { .type = NLA_U16 },
+ 	[RTA_ENCAP]		= { .type = NLA_NESTED },
++	[RTA_UID]		= { .type = NLA_U32 },
+ };
+ 
+ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 62d4d90..0a42dc0 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2493,6 +2493,11 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
+ 	    nla_put_u32(skb, RTA_MARK, fl4->flowi4_mark))
+ 		goto nla_put_failure;
+ 
++	if (!uid_eq(fl4->flowi4_uid, INVALID_UID) &&
++	    nla_put_u32(skb, RTA_UID,
++			from_kuid_munged(current_user_ns(), fl4->flowi4_uid)))
++		goto nla_put_failure;
++
+ 	error = rt->dst.error;
+ 
+ 	if (rt_is_input_route(rt)) {
+@@ -2545,6 +2550,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	int mark;
+ 	struct sk_buff *skb;
+ 	u32 table_id = RT_TABLE_MAIN;
++	kuid_t uid;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv4_policy);
+ 	if (err < 0)
+@@ -2572,6 +2578,10 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	dst = tb[RTA_DST] ? nla_get_in_addr(tb[RTA_DST]) : 0;
+ 	iif = tb[RTA_IIF] ? nla_get_u32(tb[RTA_IIF]) : 0;
+ 	mark = tb[RTA_MARK] ? nla_get_u32(tb[RTA_MARK]) : 0;
++	if (tb[RTA_UID])
++		uid = make_kuid(current_user_ns(), nla_get_u32(tb[RTA_UID]));
++	else
++		uid = (iif ? INVALID_UID : current_uid());
+ 
+ 	memset(&fl4, 0, sizeof(fl4));
+ 	fl4.daddr = dst;
+@@ -2579,6 +2589,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	fl4.flowi4_tos = rtm->rtm_tos;
+ 	fl4.flowi4_oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0;
+ 	fl4.flowi4_mark = mark;
++	fl4.flowi4_uid = uid;
+ 
+ 	if (iif) {
+ 		struct net_device *dev;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index bdbc38e..cd84ded 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2767,6 +2767,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
+ 	[RTA_ENCAP_TYPE]	= { .type = NLA_U16 },
+ 	[RTA_ENCAP]		= { .type = NLA_NESTED },
+ 	[RTA_EXPIRES]		= { .type = NLA_U32 },
++	[RTA_UID]		= { .type = NLA_U32 },
+ };
+ 
+ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -3341,6 +3342,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	if (tb[RTA_MARK])
+ 		fl6.flowi6_mark = nla_get_u32(tb[RTA_MARK]);
+ 
++	if (tb[RTA_UID])
++		fl6.flowi6_uid = make_kuid(current_user_ns(),
++					   nla_get_u32(tb[RTA_UID]));
++	else
++		fl6.flowi6_uid = iif ? INVALID_UID : current_uid();
++
+ 	if (iif) {
+ 		struct net_device *dev;
+ 		int flags = 0;
 -- 
 2.8.0.rc3.226.g39d4020
