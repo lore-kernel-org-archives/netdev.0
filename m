@@ -1,142 +1,54 @@
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
-Date: Thu, 27 Oct 2016 15:21:08 +0200
-Message-ID: <f055c961-58ca-ea81-46d8-610fa055cce8@molgen.mpg.de>
-References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
- <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
- <20161026120021.GA4402@x1>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC net-next iproute2 1/2] libnetlink: Add test for error code
+ returned from netlink reply
+Date: Thu, 27 Oct 2016 11:24:04 +0300
+Message-ID: <20161027082404.GC1867@uranus.lan>
+References: <1477510208-20292-1-git-send-email-gorcunov@gmail.com>
+ <1477510208-20292-2-git-send-email-gorcunov@gmail.com>
+ <20161026205256.162e1d25@xeon-e3>
+ <20161027065253.GB1867@uranus.lan>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------CA61ACE019A8D79D7AB40719"
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, dvteam@molgen.mpg.de
-To: Baoquan He <bhe@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Andrey Vagin <avagin@openvz.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.molgen.mpg.de ([141.14.17.9]:42229 "EHLO mx1.molgen.mpg.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S964996AbcJ0OKK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Oct 2016 10:10:10 -0400
-In-Reply-To: <20161026120021.GA4402@x1>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:36444 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942438AbcJ0OM1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 10:12:27 -0400
+Received: by mail-lf0-f66.google.com with SMTP id b75so2030410lfg.3
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 07:12:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20161027065253.GB1867@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------CA61ACE019A8D79D7AB40719
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
+On Thu, Oct 27, 2016 at 09:52:53AM +0300, Cyrill Gorcunov wrote:
+...
+> > 
+> > This looks like a mistake in how you implemented the functionality in the kernel.
+> > Despite what it looks like, all netlink request/reply functionality reports
+> > errors in current implementation by returning error to the sendmsg request.
+> > 
+> > What you added implies that the new kernel api is wrong, or many other usages
+> > are wrong.  Please fix the kernel.
+> 
+> No. This is not my code. This code has been in kernel for the really long time.
+> I don't know why you've not been doing such test in libnetlink before.
+> 
+> Actually I've hit this problem accidentaly -- I made a patch 2 from this
+> set and run it on the machine where kernel was unpatched, ie without
+> raw-diag module, and I found that we can't figure out if kernel notified
+> us that some diag module simply not present in the system. And here is
+> the only way to find it out.
 
-Dear Baoquan,
+Also, drop this series for a while, I'll resend new one: the status of
+diag should not be tested unconditionally with NLMSG_DONE because the
+rtnl_dump_filter_l helper is used not only for diag talks but overall
+the iproute2, thus I need to test for status only for specified requests.
+And I need to narrow down why not all device bound interfaces are killed
+in one pass.
 
-
-On 10/26/16 14:00, Baoquan He wrote:
-
-> On 10/26/16 at 12:31pm, Paul Menzel wrote:
->>>>         dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
->>>> @@ -8607,6 +8608,7 @@ bnx2_init_one(struct pci_dev *pdev, const struct
->>>> pci_device_id *ent)
->>>>         return 0;
->>>>
->>>>  error:
->>>> +       bnx2_release_firmware(bp);
->>>>         pci_iounmap(pdev, bp->regview);
->>>>         pci_release_regions(pdev);
->>>>         pci_disable_device(pdev);
->>
->> Baoquan, could you please fix this regression. My suggestion is, that you
->> add the old code back, but check if the firmware has been loaded. If it
->> hasn’t, load it again.
->>
->> That way, people can update their Linux kernel, and it continues working
->> without changing the initramfs, or anything else.
->
-> I saw your mail but I am also not familiar with bnx2 driver. As the
-> commit log says I just tried to make bnx2 driver reset itself earlier.
->
-> So you did a git bisect and found this commit caused the regression,
-> right? If yes, and network developers have no action, I will look into
-> the code and see if I have idea to fix it.
-
-Well, I looked through the commits and found that one, which would 
-explain the changed behavior.
-
-To be sure, and to follow your request, I took Linux 4.8.4 and reverted 
-your commit (attached). Then I deleted the firmware again from the 
-initramfs, and rebooted. The devices showed up just fine as before.
-
-So to summarize, the commit is indeed the culprit.
-
-Thank you for looking into this.
-
-
-Kind regards,
-
-Paul
-
---------------CA61ACE019A8D79D7AB40719
-Content-Type: text/x-patch;
- name="0001-Revert-bnx2-Reset-device-during-driver-initializatio.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-Revert-bnx2-Reset-device-during-driver-initializatio.pa";
- filename*1="tch"
-
->From 61b8dac8796343a797858b4a2eb0a59a0cfcd735 Mon Sep 17 00:00:00 2001
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Date: Thu, 27 Oct 2016 11:34:52 +0200
-Subject: [PATCH] Revert "bnx2: Reset device during driver initialization"
-
-This reverts commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c.
----
- drivers/net/ethernet/broadcom/bnx2.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 27f11a5..ecd357d 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -6356,6 +6356,10 @@ bnx2_open(struct net_device *dev)
- 	struct bnx2 *bp = netdev_priv(dev);
- 	int rc;
- 
-+	rc = bnx2_request_firmware(bp);
-+	if (rc < 0)
-+		goto out;
-+
- 	netif_carrier_off(dev);
- 
- 	bnx2_disable_int(bp);
-@@ -6424,6 +6428,7 @@ bnx2_open(struct net_device *dev)
- 	bnx2_free_irq(bp);
- 	bnx2_free_mem(bp);
- 	bnx2_del_napi(bp);
-+	bnx2_release_firmware(bp);
- 	goto out;
- }
- 
-@@ -8570,12 +8575,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	pci_set_drvdata(pdev, dev);
- 
--	rc = bnx2_request_firmware(bp);
--	if (rc < 0)
--		goto error;
--
--
--	bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
- 	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
- 
- 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
-@@ -8608,7 +8607,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	return 0;
- 
- error:
--	bnx2_release_firmware(bp);
- 	pci_iounmap(pdev, bp->regview);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
--- 
-2.4.1
-
-
---------------CA61ACE019A8D79D7AB40719--
+	Cyrill
