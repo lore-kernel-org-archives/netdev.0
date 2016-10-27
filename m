@@ -1,96 +1,80 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Thu, 27 Oct 2016 14:09:08 -0700
-Message-ID: <58126CF4.5090500@gmail.com>
-References: <20161026185743-mutt-send-email-mst@kernel.org>
- <20161026.125245.1630138589657247338.davem@davemloft.net>
- <20161026200153-mutt-send-email-mst@kernel.org>
- <20161026.131122.318218609871320141.davem@davemloft.net>
- <20161027105514.4c0374dd@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net 1/1] net sched filters: fix notification of
+ filter delete with proper handle
+Date: Thu, 27 Oct 2016 17:12:56 -0400 (EDT)
+Message-ID: <20161027.171256.1801600228800981297.davem@davemloft.net>
+References: <1477354707-7210-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, shrijeet@gmail.com, tom@herbertland.com,
-        netdev@vger.kernel.org, shm@cumulusnetworks.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com, jiri@resnulli.us
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34027 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934631AbcJ0VJZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 17:09:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id u84so3577615pfj.1
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 14:09:25 -0700 (PDT)
-In-Reply-To: <20161027105514.4c0374dd@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34656 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964799AbcJ0VNA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 17:13:00 -0400
+In-Reply-To: <1477354707-7210-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-10-27 01:55 AM, Jesper Dangaard Brouer wrote:
-> On Wed, 26 Oct 2016 13:11:22 -0400 (EDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> From: "Michael S. Tsirkin" <mst@redhat.com>
->> Date: Wed, 26 Oct 2016 20:07:19 +0300
->>
->>> On Wed, Oct 26, 2016 at 12:52:45PM -0400, David Miller wrote:  
->>>> From: "Michael S. Tsirkin" <mst@redhat.com>
->>>> Date: Wed, 26 Oct 2016 19:36:45 +0300
->>>>   
->>>>> On Wed, Oct 26, 2016 at 03:52:02PM +0200, Jesper Dangaard Brouer wrote:  
->>>>>> On Sat, 22 Oct 2016 04:07:23 +0000
->>>>>> Shrijeet Mukherjee <shrijeet@gmail.com> wrote:
->>>>>>   
->>>>>>> This patch adds support for xdp ndo and also inserts the xdp program
->>>>>>> call into the merged RX buffers and big buffers paths  
->>>>>>
->>>>>> I really appreciate you are doing this for virtio_net.
->>>>>>
->>>>>> My first question is: Is the (packet) page data writable?
->>>>>> (MST might be able to answer?)
->>>>>>
->>>>>> As this is currently an XDP requirement[1].    
->>>>>
->>>>> I'm not sure I understand what does writable mean.
->>>>> Could you explain a bit more pls?
->>>>> We do copy data into skb ATM but I plan to change that.  
->>>>
->>>> The packet data area must be writable,  
->>>
->>> This is the part I don't fully understand.
->>> It's in RAM so of course it's writeable.  
->>
->> Pages in SKB frag lists are not usually writable, because they share
->> space with data from other packets the way drivers usually carve up
->> pages to receive packets into.
->>
->> It is therefore illegal for the networking code to write into SKB frag
->> pages.
->>
->> Pages used for XDP processed packets must not have this restriction.
->>
->>> We share pages between arbitrary multiple packets. I think that's
->>> OK  
->>
->> That's exactly what is not allowed with XDP.
->>
->> Each packet must be the sole user of a page, otherwise the semantics
->> required by XDP are not met.
-> 
-> Looking at the virtio_net.c code, the function call receive_big() might
-> actually be okay for XDP, unless the incoming packet is larger than
-> PAGE_SIZE and thus uses several pages (via a linked list in page->private).
-> 
-> The receive_mergeable() does not look compatible with XDP.
-> 
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Mon, 24 Oct 2016 20:18:27 -0400
 
-Looks to me the correct conditions can be met by getting the correct
-feature negotiation to happen, specifically no VIRTIO_NET_F_MRG_RXBUF
-and one of the TSO/ECN/GSO feature bits set the big_packets flag as
-Jesper notes.
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> Daniel says:
+> 
+> While trying out [1][2], I noticed that tc monitor doesn't show the
+> correct handle on delete:
+> 
+> $ tc monitor
+> qdisc clsact ffff: dev eno1 parent ffff:fff1
+> filter dev eno1 ingress protocol all pref 49152 bpf handle 0x2a [...]
+> deleted filter dev eno1 ingress protocol all pref 49152 bpf handle 0xf3be0c80
+> 
+> some context to explain the above:
+> The user identity of any tc filter is represented by a 32-bit
+> identifier encoded in tcm->tcm_handle. Example 0x2a in the bpf filter
+> above. A user wishing to delete, get or even modify a specific filter
+> uses this handle to reference it.
+> Every classifier is free to provide its own semantics for the 32 bit handle.
+> Example: classifiers like u32 use schemes like 800:1:801 to describe
+> the semantics of their filters represented as hash table, bucket and
+> node ids etc.
+> Classifiers also have internal per-filter representation which is different
+> from this externally visible identity. Most classifiers set this
+> internal representation to be a pointer address (which allows fast retrieval
+> of said filters in their implementations). This internal representation
+> is referenced with the "fh" variable in the kernel control code.
+> 
+> When a user successfuly deletes a specific filter, by specifying the correct
+> tcm->tcm_handle, an event is generated to user space which indicates
+> which specific filter was deleted.
+> 
+> Before this patch, the "fh" value was sent to user space as the identity.
+> As an example what is shown in the sample bpf filter delete event above
+> is 0xf3be0c80. This is infact a 32-bit truncation of 0xffff8807f3be0c80
+> which happens to be a 64-bit memory address of the internal filter
+> representation (address of the corresponding filter's struct cls_bpf_prog);
+> 
+> After this patch the appropriate user identifiable handle as encoded
+> in the originating request tcm->tcm_handle is generated in the event.
+> One of the cardinal rules of netlink rules is to be able to take an
+> event (such as a delete in this case) and reflect it back to the
+> kernel and successfully delete the filter. This patch achieves that.
+> 
+> Note, this issue has existed since the original TC action
+> infrastructure code patch back in 2004 as found in:
+> https://git.kernel.org/cgit/linux/kernel/git/history/history.git/commit/
+> 
+> [1] http://patchwork.ozlabs.org/patch/682828/
+> [2] http://patchwork.ozlabs.org/patch/682829/
+> 
+> Fixes: 4e54c4816bfe ("[NET]: Add tc extensions infrastructure.")
+> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Srijeet, are you going to give this a try? I'm trying to get the device
-side working by the way on the vhost interface.
-
-Thanks,
-John
+Applied and queued up for -stable, thanks Jamal.
