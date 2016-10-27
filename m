@@ -1,65 +1,75 @@
-From: Greg <gvrose8192@gmail.com>
-Subject: Re: [net 4/4] i40e: fix call of ndo_dflt_bridge_getlink()
-Date: Thu, 27 Oct 2016 15:13:39 -0700
-Message-ID: <1477606419.3832.1.camel@gmail.com>
-References: <1477603677-39957-1-git-send-email-jeffrey.t.kirsher@intel.com>
-         <1477603677-39957-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: at803x: the Atheros 8031 supports pause frames
+Date: Thu, 27 Oct 2016 15:12:54 -0700
+Message-ID: <f34cd143-bf04-c17f-b3d6-e3077715a72a@gmail.com>
+References: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Huaibin Wang <huaibin.wang@6wind.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Carolyn Wyborny <carolyn.wyborny@intel.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+        zefir.kurtisi@neratec.com, scampbel@codeaurora.org,
+        alokc@codeaurora.org, shankerd@codeaurora.org, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35341 "EHLO
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36048 "EHLO
         mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034172AbcJ0WNl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 18:13:41 -0400
-Received: by mail-pf0-f193.google.com with SMTP id s8so3678634pfj.2
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 15:13:41 -0700 (PDT)
-In-Reply-To: <1477603677-39957-5-git-send-email-jeffrey.t.kirsher@intel.com>
+        with ESMTP id S1030461AbcJ0WM6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 18:12:58 -0400
+Received: by mail-pf0-f193.google.com with SMTP id n85so3675540pfi.3
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 15:12:57 -0700 (PDT)
+In-Reply-To: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-10-27 at 14:27 -0700, Jeff Kirsher wrote:
-> From: Huaibin Wang <huaibin.wang@6wind.com>
+On 10/27/2016 03:05 PM, Timur Tabi wrote:
+> The Atheros 8031 PHY supports the 802.3 extension for symmetric and
+> asymmetric pause frames, so set that to the list of features supported
+> by the phy.
 > 
-> Order of arguments is wrong.
-> The wrong code has been introduced by commit 7d4f8d871ab1, but is compiled
-> only since commit 9df70b66418e.
-> 
-> Note that this may break netlink dumps.
-> 
-> Fixes: 9df70b66418e ("i40e: Remove incorrect #ifdef's")
-> Fixes: 7d4f8d871ab1 ("switchdev; add VLAN support for port's bridge_getlink")
-> CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Signed-off-by: Huaibin Wang <huaibin.wang@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
 > ---
->  drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 6abc130..31c97e3 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -9034,7 +9034,7 @@ static int i40e_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->  		return 0;
->  
->  	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, veb->bridge_mode,
-> -				       nlflags, 0, 0, filter_mask, NULL);
-> +				       0, 0, nlflags, filter_mask, NULL);
+> Without this patch, my NIC (the Qualcomm EMAC) receives a lot of frame
+> check sequence (aka CRC) errors, resulting in about 10% packet loss.
 
-Yikes!  And NDO function with 10 parameters?  No wonder they get mixed
-up.
+Hu? In my experience that should not come from supporting Pause frames
+or not, but rather properly configuring a (RG)MII delay, but your
+mileage may vary.
 
-- Greg
+> Can someone help me understand why?  Because of this patch, I can't use
+> the generic phy driver in phylib.  Why would a MAC controller require
+> its PHY to support pause frames?
 
->  }
->  
->  /* Hardware supports L4 tunnel length of 128B (=2^7) which includes
+It does not, support for Pause frames is a MAC-level feature, yet,
+PHYLIB (and that's been on my todo for a while now) insists on reporting
+the confusing phydev->pause and phydev->asym_pause, which really is what
+has been determined from auto-negotiating with your partner, as opposed
+to being a supported thing or not. The PHY has absolutely not business
+in that.
+
+Your change should probably be in the Ethernet MAC driver, when you have
+successfully connected to the PHY, update phydev->supported to include
+SUPPORTED_Pause | SUPPORTED_Asym_pause.
+
+> 
+>  drivers/net/phy/at803x.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+> index a52b560..fb80413 100644
+> --- a/drivers/net/phy/at803x.c
+> +++ b/drivers/net/phy/at803x.c
+> @@ -440,7 +440,8 @@ static struct phy_driver at803x_driver[] = {
+>  	.get_wol		= at803x_get_wol,
+>  	.suspend		= at803x_suspend,
+>  	.resume			= at803x_resume,
+> -	.features		= PHY_GBIT_FEATURES,
+> +	.features		= PHY_GBIT_FEATURES |
+> +				  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+>  	.flags			= PHY_HAS_INTERRUPT,
+>  	.config_aneg		= genphy_config_aneg,
+>  	.read_status		= genphy_read_status,
+> 
+
+
+-- 
+Florian
