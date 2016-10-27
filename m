@@ -1,57 +1,72 @@
-From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Subject: Re: [PATCH (net.git) 2/3] stmmac: fix PTP support for GMAC4
-Date: Thu, 27 Oct 2016 16:21:23 +0530
-Message-ID: <CAJ3bTp7YON-+EiXCY+eaBP6NhtGJTngh2pLaKXdp2YPP1i+C6w@mail.gmail.com>
-References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
- <1477464964-5960-3-git-send-email-peppe.cavallaro@st.com> <CAJ3bTp6Q4XF+nogBNf0ZBq73wr=btmNSgrCg=Kv8kvgsVf2jQg@mail.gmail.com>
- <743ffe4a-2c8f-e5f7-f93c-6be16a8a0350@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, alexandre.torgue@st.com,
-        Richard Cochran <richardcochran@gmail.com>,
-        linux-kernel@vger.kernel.org, seraphin.bonnaffe@st.com
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <743ffe4a-2c8f-e5f7-f93c-6be16a8a0350@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Subject: [PATCH] net: smsc911x: Synchronize the runtime PM status during system suspend
+Date: Thu, 27 Oct 2016 13:23:54 +0200
+Message-ID: <1477567434-5128-1-git-send-email-ulf.hansson@linaro.org>
+Cc: Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+        Kevin Hilman <khilman@kernel.org>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Lina Iyer <lina.iyer@linaro.org>,
+        Jon Hunter <jonathanh@nvidia.com>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Steve Glendinning <steve.glendinning@shawell.net>
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        Alan Stern <stern@rowland.harvard.edu>,
+        Ulf Hansson <ulf.hansson@linaro.org>, linux-pm@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-pm-owner@vger.kernel.org>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 27, 2016 at 4:02 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> Hello Rayagond !
->
-> On 10/27/2016 12:25 PM, Rayagond Kokatanur wrote:
->>>
->>> +static int dwmac4_wrback_get_rx_timestamp_status(void *desc, u32 ats)
->>> >  {
->>> >         struct dma_desc *p = (struct dma_desc *)desc;
->>> > +       int ret = -EINVAL;
->>> > +
->>> > +       /* Get the status from normal w/b descriptor */
->>> > +       if (likely(p->des3 & TDES3_RS1V)) {
->>> > +               if (likely(p->des1 & RDES1_TIMESTAMP_AVAILABLE)) {
->>> > +                       int i = 0;
->>> > +
->>> > +                       /* Check if timestamp is OK from context
->>> > descriptor */
->>> > +                       do {
->>> > +                               ret = dwmac4_rx_check_timestamp(desc);
->>
->> Here, "desc" is not pointing to next descriptor (ie context
->> descriptor). Driver should check the context descriptor.
->
->
-> you are right and this is done by the caller:  stmmac_get_rx_hwtstamp
+The smsc911c driver puts its device into low power state when entering
+system suspend. Although it doesn't update the device's runtime PM status
+to RPM_SUSPENDED, which causes problems for a parent device.
 
-Yes.
+In particular, when the runtime PM status of the parent is requested to be
+updated to RPM_SUSPENDED, the runtime PM core prevent this, because it's
+forbidden to runtime suspend a device, which has an active child.
 
->
-> Cheers
-> peppe
->
+Fix this by updating the runtime PM status of the smsc911x device to
+RPM_SUSPENDED during system suspend. In system resume, let's reverse that
+action by runtime resuming the device and thus also the parent.
 
+Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
+Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+Fixes: 8b1107b85efd ("PM / Runtime: Don't allow to suspend a device with an active child")
+---
 
+Note that the commit this change fixes is currently queued for 4.10 via
+Rafael's linux-pm tree. So this fix should go via that tree as well.
 
+---
+ drivers/net/ethernet/smsc/smsc911x.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index e9b8579..65fca9c 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2584,6 +2584,9 @@ static int smsc911x_suspend(struct device *dev)
+ 		PMT_CTRL_PM_MODE_D1_ | PMT_CTRL_WOL_EN_ |
+ 		PMT_CTRL_ED_EN_ | PMT_CTRL_PME_EN_);
+ 
++	pm_runtime_disable(dev);
++	pm_runtime_set_suspended(dev);
++
+ 	return 0;
+ }
+ 
+@@ -2593,6 +2596,9 @@ static int smsc911x_resume(struct device *dev)
+ 	struct smsc911x_data *pdata = netdev_priv(ndev);
+ 	unsigned int to = 100;
+ 
++	pm_runtime_enable(dev);
++	pm_runtime_resume(dev);
++
+ 	/* Note 3.11 from the datasheet:
+ 	 * 	"When the LAN9220 is in a power saving state, a write of any
+ 	 * 	 data to the BYTE_TEST register will wake-up the device."
 -- 
-wwr
-Rayagond
+1.9.1
+
