@@ -1,58 +1,49 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next v2 1/1] driver: tun: Use new macro SOCK_IOC_TYPE instead of literal number 0x89
-Date: Thu, 27 Oct 2016 09:05:22 +0800
-Message-ID: <1477530322-29021-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, jasowang@redhat.com, edumazet@google.com,
-        pabeni@redhat.com, netdev@vger.kernel.org
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH v2 2/5] kconfig: introduce the "suggest" keyword
+Date: Wed, 26 Oct 2016 22:39:11 -0400 (EDT)
+Message-ID: <alpine.LFD.2.20.1610262232220.14694@knanqh.ubzr>
+References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org> <1477448931-29051-3-git-send-email-nicolas.pitre@linaro.org> <1477527045.2121.26.camel@tiscali.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: John Stultz <john.stultz@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Michal Marek <mmarek@suse.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg320.qq.com ([14.17.32.29]:60791 "EHLO smtpbg320.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751839AbcJ0BGh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Oct 2016 21:06:37 -0400
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:34820 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933903AbcJ0CjO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2016 22:39:14 -0400
+Received: by mail-qk0-f173.google.com with SMTP id z190so27635597qkc.2
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2016 19:39:13 -0700 (PDT)
+In-Reply-To: <1477527045.2121.26.camel@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On Thu, 27 Oct 2016, Paul Bolle wrote:
 
-The current codes use _IOC_TYPE(cmd) == 0x89 to check if the cmd is one
-socket ioctl command like SIOCGIFHWADDR. But the literal number 0x89 may
-confuse readers. So create one macro SOCK_IOC_TYPE to enhance the readability.
+> On Tue, 2016-10-25 at 22:28 -0400, Nicolas Pitre wrote:
+> > Similar to "imply" but with no added restrictions on the target symbol's
+> > value. Useful for providing a default value to another symbol.
+> > 
+> > Suggested by Edward Cree.
+> > 
+> > Signed-off-by: Nicolas Pitre <nico@linaro.org>
+> 
+> As far as I can see this series doesn't add a user of "suggest". So I
+> see no reason to add it.
+> 
+> NAK.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v2: Rename the macro SOCK_IOC_MAGIC to SOCK_IOC_TYPE
- v1: Initial version
+Fine.
 
- drivers/net/tun.c            | 2 +-
- include/uapi/linux/sockios.h | 2 ++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+Given the discussion from the "imply" patch I thought "suggest" could 
+become popular. But if/when someone actually wants it then this patch 
+could be picked up later.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9328568..bb49ccb 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1985,7 +1985,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	int le;
- 	int ret;
- 
--	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
-+	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == SOCK_IOC_TYPE) {
- 		if (copy_from_user(&ifr, argp, ifreq_len))
- 			return -EFAULT;
- 	} else {
-diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
-index 8e7890b..c977d0e 100644
---- a/include/uapi/linux/sockios.h
-+++ b/include/uapi/linux/sockios.h
-@@ -24,6 +24,8 @@
- #define SIOCINQ		FIONREAD
- #define SIOCOUTQ	TIOCOUTQ        /* output queue size (not sent + not acked) */
- 
-+#define SOCK_IOC_TYPE	0x89
-+
- /* Routing table calls. */
- #define SIOCADDRT	0x890B		/* add routing table entry	*/
- #define SIOCDELRT	0x890C		/* delete routing table entry	*/
--- 
-1.9.1
+
+Nicolas
