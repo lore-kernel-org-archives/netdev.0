@@ -1,43 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] net: core: Add a UID field to struct sock.
-Date: Thu, 27 Oct 2016 10:36:26 -0700
-Message-ID: <1477589786.7065.220.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1477588841-140767-1-git-send-email-lorenzo@google.com>
-         <1477588841-140767-2-git-send-email-lorenzo@google.com>
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Subject: Re: [PATCH] net: smsc911x: Synchronize the runtime PM status during
+ system suspend
+Date: Thu, 27 Oct 2016 19:47:45 +0200
+Message-ID: <CAPDyKFo6zJ0oM26cjEVDW-vhRdTiGYyJM3QwVxDiKdG7=qzKfw@mail.gmail.com>
+References: <1477567434-5128-1-git-send-email-ulf.hansson@linaro.org>
+ <CAMuHMdUbU07t2kB6J0rSOiOTbDkegP73FAAEenViuDjQUFE-Jg@mail.gmail.com>
+ <CAPDyKFprWcita5sbdwTqbdi2CMW4gx7_UB7+kMd9R2rqXdcALQ@mail.gmail.com> <CAMuHMdV_aybcUGu+g-8uNj5k1MtoyJ5s8CfujC+iJrxs7h5eAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, ek@google.com,
-        zenczykowski@gmail.com
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33286 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751845AbcJ0Rg3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 13:36:29 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i85so3189531pfa.0
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 10:36:29 -0700 (PDT)
-In-Reply-To: <1477588841-140767-2-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+        Linux PM list <linux-pm@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+        Kevin Hilman <khilman@kernel.org>,
+        Lina Iyer <lina.iyer@linaro.org>,
+        Jon Hunter <jonathanh@nvidia.com>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Steve Glendinning <steve.glendinning@shawell.net>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdV_aybcUGu+g-8uNj5k1MtoyJ5s8CfujC+iJrxs7h5eAA@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-10-28 at 02:20 +0900, Lorenzo Colitti wrote:
+On 27 October 2016 at 13:54, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+> Hi Ulf,
+>
+> On Thu, Oct 27, 2016 at 1:53 PM, Ulf Hansson <ulf.hansson@linaro.org> wrote:
+>> On 27 October 2016 at 13:41, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+>>> On Thu, Oct 27, 2016 at 1:23 PM, Ulf Hansson <ulf.hansson@linaro.org> wrote:
+>>>> The smsc911c driver puts its device into low power state when entering
+>>>> system suspend. Although it doesn't update the device's runtime PM status
+>>>> to RPM_SUSPENDED, which causes problems for a parent device.
+>>>>
+>>>> In particular, when the runtime PM status of the parent is requested to be
+>>>> updated to RPM_SUSPENDED, the runtime PM core prevent this, because it's
+>>>> forbidden to runtime suspend a device, which has an active child.
+>>>>
+>>>> Fix this by updating the runtime PM status of the smsc911x device to
+>>>> RPM_SUSPENDED during system suspend. In system resume, let's reverse that
+>>>> action by runtime resuming the device and thus also the parent.
+>>>
+>>> Thanks for your patch!
+>>>
+>>> The changelog sounds quite innocent, but this does fix a system crash
+>>> during resume from s2ram.
+>>>
+>>>> Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
+>>>> Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
+>>>> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+>>>> Fixes: 8b1107b85efd ("PM / Runtime: Don't allow to suspend a device with an active child")
+>>>
+>>> While the abovementioned commit made the problem visible, the root cause
+>>> was present before, right?
+>>
+>> Yes.
+>>
+>>>> ---
+>>>>
+>>>> Note that the commit this change fixes is currently queued for 4.10 via
+>>>> Rafael's linux-pm tree. So this fix should go via that tree as well.
+>>>
+>>> Alternatively, this could go in in v4.9 to avoid the problem from ever
+>>> appearing in upstream?
+>>
+>> Makes perfect sense! In that case we should remove the fixes tag.
+>>
+>> Rafael, can you pick this up for 4.9 rc[n]?
+>
+> Actually I was thinking about DaveM and the network tree instead.
 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index d8e4532e..831e4e8 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1570,6 +1570,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
->  		 */
->  		sk_refcnt_debug_inc(newsk);
->  		sk_set_socket(newsk, NULL);
-> +		newsk->sk_uid = sk->sk_uid;
+Well, that would work as well.
 
-Not sure why this is needed ?
+Although, perhaps it becomes easier if Rafael deals with this, as it
+gives him better control of when below change also can go in.
+https://patchwork.kernel.org/patch/9375061
 
-sk_clone_lock() already copies sk to newsk, using sock_copy(newsk, sk);
+Rafael, please tell what you prefer?
 
->  		newsk->sk_wq = NULL;
->  
->  		if (newsk->sk_prot->sockets_allocated)
-> @@ -2460,8 +2461,11 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+Kind regards
+Uffe
