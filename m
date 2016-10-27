@@ -1,92 +1,59 @@
-From: Yotam Gigi <yotamg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: RE: nfs NULL-dereferencing in net-next
-Date: Thu, 27 Oct 2016 06:50:22 +0000
-Message-ID: <DB3PR05MB0764F0409AE75E0172ABFE2EACAA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <20161017201943.64529739@jkicinski-Precision-T1700>
- <DB3PR05MB0764DF28BC53A4A4E78A4DD8ACA80@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <817e43c5-d88d-e616-7074-5715de29d319@Netapp.com>
- <DB3PR05MB0764B39F6EDF851A8A52EBACACAB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <20161026190840.3d46dad8@jkicinski-Precision-T1700>
- <0ab5021c-84eb-cb9f-c7f5-4d856fdb0f4b@Netapp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        Yotam Gigi <yotam.gi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, mlxsw <mlxsw-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>,
-        Jakub Kicinski <kubakici-5tc4TXWwyLM@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0ab5021c-84eb-cb9f-c7f5-4d856fdb0f4b-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Steve Bennett <steveb@workware.net.au>
+Subject: Bug in cadence macb driver
+Date: Thu, 27 Oct 2016 17:22:12 +1000
+Message-ID: <3DDE7A42-84A6-44DC-9919-C0D9166E87EF@workware.net.au>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+        Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36754 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750748AbcJ0HWS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 03:22:18 -0400
+Received: by mail-pf0-f176.google.com with SMTP id e6so12254534pfk.3
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 00:22:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEFubmEgU2NodW1ha2VyIFtt
-YWlsdG86QW5uYS5TY2h1bWFrZXJATmV0YXBwLmNvbV0NCj5TZW50OiBXZWRuZXNkYXksIE9jdG9i
-ZXIgMjYsIDIwMTYgOToxNyBQTQ0KPlRvOiBKYWt1YiBLaWNpbnNraSA8a3ViYWtpY2lAd3AucGw+
-DQo+Q2M6IFlvdGFtIEdpZ2kgPHlvdGFtZ0BtZWxsYW5veC5jb20+OyBBbmR5IEFkYW1zb24gPGFu
-ZHJvc0BuZXRhcHAuY29tPjsNCj5saW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnOyBUcm9uZCBNeWtsZWJ1c3QNCj48VHJvbmQuTXlrbGVidXN0QG5ldGFwcC5j
-b20+OyBZb3RhbSBHaWdpIDx5b3RhbS5naUBnbWFpbC5jb20+OyBtbHhzdw0KPjxtbHhzd0BtZWxs
-YW5veC5jb20+DQo+U3ViamVjdDogUmU6IG5mcyBOVUxMLWRlcmVmZXJlbmNpbmcgaW4gbmV0LW5l
-eHQNCj4NCj5PbiAxMC8yNi8yMDE2IDAyOjA4IFBNLCBKYWt1YiBLaWNpbnNraSB3cm90ZToNCj4+
-IE9uIFdlZCwgMjYgT2N0IDIwMTYgMTY6MTU6MjQgKzAwMDAsIFlvdGFtIEdpZ2kgd3JvdGU6DQo+
-Pj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+Pj4+IEZyb206IEFubmEgU2NodW1ha2Vy
-IFttYWlsdG86QW5uYS5TY2h1bWFrZXJATmV0YXBwLmNvbV0NCj4+Pj4gU2VudDogV2VkbmVzZGF5
-LCBPY3RvYmVyIDI2LCAyMDE2IDU6NDAgUE0NCj4+Pj4gVG86IFlvdGFtIEdpZ2kgPHlvdGFtZ0Bt
-ZWxsYW5veC5jb20+OyBKYWt1YiBLaWNpbnNraSA8a3ViYWtpY2lAd3AucGw+Ow0KPkFuZHkNCj4+
-Pj4gQWRhbXNvbiA8YW5kcm9zQG5ldGFwcC5jb20+OyBBbm5hIFNjaHVtYWtlcg0KPj4+PiA8QW5u
-YS5TY2h1bWFrZXJATmV0YXBwLmNvbT47IGxpbnV4LW5mc0B2Z2VyLmtlcm5lbC5vcmcNCj4+Pj4g
-Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFRyb25kIE15a2xlYnVzdA0KPjxUcm9uZC5NeWts
-ZWJ1c3RAbmV0YXBwLmNvbT47DQo+Pj4+IFlvdGFtIEdpZ2kgPHlvdGFtLmdpQGdtYWlsLmNvbT47
-IG1seHN3IDxtbHhzd0BtZWxsYW5veC5jb20+DQo+Pj4+IFN1YmplY3Q6IFJlOiBuZnMgTlVMTC1k
-ZXJlZmVyZW5jaW5nIGluIG5ldC1uZXh0DQo+Pj4+DQo+Pj4+IE9uIDEwLzI1LzIwMTYgMDE6MTkg
-UE0sIFlvdGFtIEdpZ2kgd3JvdGU6DQo+Pj4+Pg0KPj4+Pj4+IC0tLS0tT3JpZ2luYWwgTWVzc2Fn
-ZS0tLS0tDQo+Pj4+Pj4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRv
-Om5ldGRldi0NCj5vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+Pj4+IE9uDQo+Pj4+Pj4gQmVoYWxm
-IE9mIEpha3ViIEtpY2luc2tpDQo+Pj4+Pj4gU2VudDogTW9uZGF5LCBPY3RvYmVyIDE3LCAyMDE2
-IDEwOjIwIFBNDQo+Pj4+Pj4gVG86IEFuZHkgQWRhbXNvbiA8YW5kcm9zQG5ldGFwcC5jb20+OyBB
-bm5hIFNjaHVtYWtlcg0KPj4+Pj4+IDxBbm5hLlNjaHVtYWtlckBOZXRhcHAuY29tPjsgbGludXgt
-bmZzQHZnZXIua2VybmVsLm9yZw0KPj4+Pj4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBU
-cm9uZCBNeWtsZWJ1c3QNCj4+Pj4gPFRyb25kLk15a2xlYnVzdEBuZXRhcHAuY29tPg0KPj4+Pj4+
-IFN1YmplY3Q6IG5mcyBOVUxMLWRlcmVmZXJlbmNpbmcgaW4gbmV0LW5leHQNCj4+Pj4+Pg0KPj4+
-Pj4+IEhpIQ0KPj4+Pj4+DQo+Pj4+Pj4gSSdtIGhpdHRpbmcgdGhpcyByZWxpYWJseSBvbiBuZXQt
-bmV4dCwgSEVBRCBhdCAzZjMxNzdiYjY4MGYNCj4+Pj4+PiAoImZzbC9mbWFuOiBmaXggZXJyb3Ig
-cmV0dXJuIGNvZGUgaW4gbWFjX3Byb2JlKCkiKS4NCj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gSSBzZWUg
-dGhlIHNhbWUgdGhpbmcuIEl0IGhhcHBlbnMgY29uc3RhbnRseSBvbiBzb21lIG9mIG15IG1hY2hp
-bmVzLCBtYWtpbmcNCj4+Pj4gdGhlbQ0KPj4+Pj4gY29tcGxldGVseSB1bnVzYWJsZS4NCj4+Pj4+
-DQo+Pj4+PiBJIGJpc2VjdGVkIGl0IGFuZCBnb3QgdG8gdGhlIGNvbW1pdDoNCj4+Pj4+DQo+Pj4+
-PiBjb21taXQgMDRlYTFiM2U2ZDhlZDQ5NzhiYjYwOGMxNzQ4NTMwYWYzZGU4YzI3NA0KPj4+Pj4g
-QXV0aG9yOiBBbmR5IEFkYW1zb24gPGFuZHJvc0BuZXRhcHAuY29tPg0KPj4+Pj4gRGF0ZTogICBG
-cmkgU2VwIDkgMDk6MjI6MjcgMjAxNiAtMDQwMA0KPj4+Pj4NCj4+Pj4+ICAgICBORlMgYWRkIHhw
-cnQgc3dpdGNoIGFkZHJzIHRlc3QgdG8gbWF0Y2ggY2xpZW50DQo+Pj4+Pg0KPj4+Pj4gICAgIFNp
-Z25lZC1vZmYtYnk6IEFuZHkgQWRhbXNvbiA8YW5kcm9zQG5ldGFwcC5jb20+DQo+Pj4+PiAgICAg
-U2lnbmVkLW9mZi1ieTogQW5uYSBTY2h1bWFrZXIgPEFubmEuU2NodW1ha2VyQE5ldGFwcC5jb20+
-DQo+Pj4+DQo+Pj4+IFRoYW5rcyBmb3IgcmVwb3J0aW5nIG9uIHRoaXMgZXZlcnlvbmUhICBEb2Vz
-IHRoaXMgcGF0Y2ggaGVscD8NCj4+Pg0KPj4+IEFjdHVhbGx5LCBJIHN0aWxsIHNlZSB0aGUgc2Ft
-ZSBidWcgd2l0aCB0aGUgc2FtZSB0cmFjZS4NCj4NCj5XZWxsLCBpdCB3YXMgd29ydGggYSBzaG90
-LiAgSSdsbCBrZWVwIHBva2luZyBhdCBpdC4NCj4NCj4+DQo+PiBJIHJlYnVpbGQgdGhlIGxhdGVz
-dCBuZXQtbmV4dCBhbmQgSSdtIG5vdCBzZWVpbmcgdGhlIHRyYWNlIGFueSBtb3JlLi4uDQo+PiBJ
-J20gb25seSBzZWVpbmcgdGhpcyAod2l0aCBvciB3aXRob3V0IHlvdXIgcGF0Y2gpOg0KPj4NCj4+
-IFsgICAyMy40NjU4NzddIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9m
-bGFncyAweDANCj4+IFsgICAyMy40NzM3ODRdIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBj
-bF9leGNoYW5nZV9mbGFncyAweDANCj4+IFsgICAyMy41ODg4OTBdIE5GUzogc2V0X3BuZnNfbGF5
-b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9mbGFncyAweDANCj4+IFsgICAyMy41OTY3NDZdIE5GUzog
-c2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9mbGFncyAweDANCj4+IFsgICAyMy43
-ODE1NzRdIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5nZV9mbGFncyAweDAN
-Cj4+IFsgICAyMy43ODk1OTldIE5GUzogc2V0X3BuZnNfbGF5b3V0ZHJpdmVyOiBjbF9leGNoYW5n
-ZV9mbGFncyAweDANCj4NCj5JbnRlcmVzdGluZywgSSBnZXQgdGhhdCB0b28gd2hlbiBJIHRyeSB0
-byB1c2UgTkZTIHY0LjEuICBJdCdzIHdlaXJkIHRoYXQgdGhlIGNyYXNoIHdvdWxkDQo+c3RvcCBo
-YXBwZW5pbmcgbGlrZSB0aGF0LCBzbyBtYXliZSBzb21ldGhpbmcgaXMgcmFjeSBpbiB0aGlzIGFy
-ZWEuDQo+DQo+VGhhbmtzIGZvciB0ZXN0aW5nLCBZb3RhbSBhbmQgSmFrdWIhDQo+QW5uYQ0KDQpJ
-IGp1c3QgZm91bmQgb3V0IHRoYXQgaXQgaGFwcGVucyBvbiBhbnkgb2YgbXkgbWFjaGluZXMsIG9u
-Y2UgSSBwdXQgdHdvIG5mcyBlbnRyaWVzIGluDQpteSBmc3RhYi4gSWYgSSBwdXQgb25seSBvbmUs
-IEkgZG9uJ3Qgc2VlIHRoZSBwcm9ibGVtLiANCg0KSSBob3BlIGl0IG1pZ2h0IGJlIGhlbHBmdWwg
-OikNCg0KPg0KPj4NCj4+IEhUSA0KPj4NCg0K
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi,
+
+We are seeing the following problem in the cadence macb driver.
+
+BUG: scheduling while atomic: kworker/0:1/44/0x00000002
+Modules linked in: 8021q of_serial beacon_sigproc io_processor emsattr =
+ems_dma_fifo xaxi_dma libgpioreg leds_gpio
+CPU: 0 PID: 44 Comm: kworker/0:1 Not tainted 4.4.0 #1
+Hardware name: Xilinx Zynq Platform
+Workqueue: events macb_tx_error_task
+[<c0016a18>] (unwind_backtrace) from [<c0012ad4>] (show_stack+0x10/0x14)
+[<c0012ad4>] (show_stack) from [<c01b089c>] (dump_stack+0x88/0xd8)
+[<c01b089c>] (dump_stack) from [<c008e94c>] (__schedule_bug+0x48/0x60)
+[<c008e94c>] (__schedule_bug) from [<c03592d4>] (__schedule+0x80/0x4c4)
+[<c03592d4>] (__schedule) from [<c0359968>] (schedule+0xac/0xd4)
+[<c0359968>] (schedule) from [<c035c284>] =
+(schedule_hrtimeout_range_clock+0xc0/0xf4)
+[<c035c284>] (schedule_hrtimeout_range_clock) from [<c035bebc>] =
+(usleep_range+0x44/0x48)
+[<c035bebc>] (usleep_range) from [<c025ec48>] =
+(macb_tx_error_task+0xa0/0x270)
+[<c025ec48>] (macb_tx_error_task) from [<c0035b6c>] =
+(process_one_work+0x1b8/0x2f0)
+[<c0035b6c>] (process_one_work) from [<c0035fb4>] =
+(worker_thread+0x2e4/0x3f0)
+[<c0035fb4>] (worker_thread) from [<c003ac94>] (kthread+0xdc/0xf0)
+[<c003ac94>] (kthread) from [<c000f698>] (ret_from_fork+0x14/0x3c)
+
+Here we are running at 10M half duplex, so tx is slow.
+The problem was introduced in e4bfd971b where a spinlock is taken before
+calling macb_halt_tx() which may then sleep waiting for the current =
+packet to finish
+transmitting.
+
+We don't need the spinlock on our platform since we don't have multiple =
+queues, but
+this should be fixed properly in the general case.
+
+Cheers,
+Steve
