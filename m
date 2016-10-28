@@ -1,86 +1,51 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized
- warning
-Date: Fri, 28 Oct 2016 14:16:16 +0200
-Message-ID: <20161028121616.GA30850@salvia>
-References: <20161024153454.2766113-1-arnd@arndb.de>
- <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
- <20161028093422.GA29559@salvia>
- <20161028114020.GA4041@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Julian Anastasov <ja@ssi.bg>, Arnd Bergmann <arnd@arndb.de>,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Quentin Armitage <quentin@armitage.org.uk>,
-        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-kernel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161028114020.GA4041@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: [PATCH net-next v2 3/5] ipv6: Use multipath hash from flow info if available
+Date: Fri, 28 Oct 2016 14:32:33 +0200
+Message-ID: <1477657955-5157-4-git-send-email-jkbs@redhat.com>
+References: <1477657955-5157-1-git-send-email-jkbs@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38900 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756384AbcJ1Mcl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 08:32:41 -0400
+Received: by mail-wm0-f51.google.com with SMTP id n67so110944562wme.1
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 05:32:41 -0700 (PDT)
+In-Reply-To: <1477657955-5157-1-git-send-email-jkbs@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 28, 2016 at 01:40:23PM +0200, Simon Horman wrote:
-> On Fri, Oct 28, 2016 at 11:34:22AM +0200, Pablo Neira Ayuso wrote:
-> > On Mon, Oct 24, 2016 at 10:47:54PM +0300, Julian Anastasov wrote:
-> > > 
-> > > 	Hello,
-> > > 
-> > > On Mon, 24 Oct 2016, Arnd Bergmann wrote:
-> > > 
-> > > > Building the ip_vs_sync code with CONFIG_OPTIMIZE_INLINING on x86
-> > > > confuses the compiler to the point where it produces a rather
-> > > > dubious warning message:
-> > > > 
-> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > > >   struct ip_vs_sync_conn_options opt;
-> > > >                                  ^~~
-> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > > > 
-> > > > The problem appears to be a combination of a number of factors, including
-> > > > the __builtin_bswap32 compiler builtin being slightly odd, having a large
-> > > > amount of code inlined into a single function, and the way that some
-> > > > functions only get partially inlined here.
-> > > > 
-> > > > I've spent way too much time trying to work out a way to improve the
-> > > > code, but the best I've come up with is to add an explicit memset
-> > > > right before the ip_vs_seq structure is first initialized here. When
-> > > > the compiler works correctly, this has absolutely no effect, but in the
-> > > > case that produces the warning, the warning disappears.
-> > > > 
-> > > > In the process of analysing this warning, I also noticed that
-> > > > we use memcpy to copy the larger ip_vs_sync_conn_options structure
-> > > > over two members of the ip_vs_conn structure. This works because
-> > > > the layout is identical, but seems error-prone, so I'm changing
-> > > > this in the process to directly copy the two members. This change
-> > > > seemed to have no effect on the object code or the warning, but
-> > > > it deals with the same data, so I kept the two changes together.
-> > > > 
-> > > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > > 
-> > > 	OK,
-> > > 
-> > > Acked-by: Julian Anastasov <ja@ssi.bg>
-> > > 
-> > > 	I guess, Simon will take the patch for ipvs-next.
-> > 
-> > @Simon: If you have no more pending updates, I can save you one pull
-> > request for this small fix by placing this.
-> 
-> Thanks Pablo, please do.
+Allow our callers to influence the choice of ECMP link by honoring the
+hash passed together with the flow info. This will allow for special
+treatment of ICMP errors which we would like to route over the same link
+as the IP datagram that triggered the error.
 
-Thanks Simon, feel free to exercise this path anytime.
+Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/route.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-
-Applied to nf, thanks!
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 0514b35..1184c2b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -430,9 +430,11 @@ static struct rt6_info *rt6_multipath_select(struct rt6_info *match,
+ 					     int strict)
+ {
+ 	struct rt6_info *sibling, *next_sibling;
++	unsigned int hash;
+ 	int route_choosen;
+ 
+-	route_choosen = get_hash_from_flowi6(fl6) % (match->rt6i_nsiblings + 1);
++	hash = fl6->mp_hash ? : get_hash_from_flowi6(fl6);
++	route_choosen = hash % (match->rt6i_nsiblings + 1);
+ 	/* Don't change the route, if route_choosen == 0
+ 	 * (siblings does not include ourself)
+ 	 */
+-- 
+2.7.4
