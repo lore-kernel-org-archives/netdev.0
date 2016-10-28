@@ -1,7 +1,7 @@
 From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v2 6/6] arm64: dts: NS2: add AMAC ethernet support
-Date: Fri, 28 Oct 2016 16:56:59 -0400
-Message-ID: <1477688219-3871-7-git-send-email-jon.mason@broadcom.com>
+Subject: [PATCH v2 3/6] Documentation: devicetree: net: add NS2 bindings to amac
+Date: Fri, 28 Oct 2016 16:56:56 -0400
+Message-ID: <1477688219-3871-4-git-send-email-jon.mason@broadcom.com>
 References: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
 Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
         netdev@vger.kernel.org, devicetree@vger.kernel.org,
@@ -10,65 +10,40 @@ To: David Miller <davem@davemloft.net>,
         Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34111 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761943AbcJ1U5Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 16:57:16 -0400
+Received: by mail-pf0-f177.google.com with SMTP id n85so42904271pfi.1
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 13:57:15 -0700 (PDT)
 In-Reply-To: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Add support for the AMAC ethernet to the Broadcom Northstar2 SoC device
-tree
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 ---
- arch/arm64/boot/dts/broadcom/ns2-svk.dts |  5 +++++
- arch/arm64/boot/dts/broadcom/ns2.dtsi    | 12 ++++++++++++
- 2 files changed, 17 insertions(+)
+ Documentation/devicetree/bindings/net/brcm,amac.txt | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/broadcom/ns2-svk.dts b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-index 2d7872a..9e5c3c9 100644
---- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-+++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-@@ -56,6 +56,10 @@
- 	};
- };
+diff --git a/Documentation/devicetree/bindings/net/brcm,amac.txt b/Documentation/devicetree/bindings/net/brcm,amac.txt
+index ba5ecc1..f2b194e 100644
+--- a/Documentation/devicetree/bindings/net/brcm,amac.txt
++++ b/Documentation/devicetree/bindings/net/brcm,amac.txt
+@@ -2,11 +2,12 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
+ -------------------------------------------------------------
  
-+&enet {
-+	status = "ok";
-+};
-+
- &pci_phy0 {
- 	status = "ok";
- };
-@@ -172,6 +176,7 @@
- &mdio_mux_iproc {
- 	mdio@10 {
- 		gphy0: eth-phy@10 {
-+			brcm,enet-phy-lane-swap;
- 			reg = <0x10>;
- 		};
- 	};
-diff --git a/arch/arm64/boot/dts/broadcom/ns2.dtsi b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-index d95dc40..773ed59 100644
---- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
-+++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-@@ -191,6 +191,18 @@
+ Required properties:
+- - compatible:	"brcm,amac" or "brcm,nsp-amac"
++ - compatible:	"brcm,amac", "brcm,nsp-amac", or "brcm,ns2-amac"
+  - reg:		Address and length of the GMAC registers,
+ 		Address and length of the GMAC IDM registers
++		Address and length of the NIC Port Manager registers (optional)
+  - reg-names:	Names of the registers.  Must have both "amac_base" and
+-		"idm_base"
++		"idm_base". "nicpm_base" is optional (required for NS2)
+  - interrupts:	Interrupt number
  
- 		#include "ns2-clock.dtsi"
- 
-+		enet: ethernet@61000000 {
-+			compatible = "brcm,ns2-amac";
-+			reg = <0x61000000 0x1000>,
-+			      <0x61090000 0x1000>,
-+			      <0x61030000 0x100>;
-+			reg-names = "amac_base", "idm_base", "nicpm_base";
-+			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
-+			phy-handle = <&gphy0>;
-+			phy-mode = "rgmii";
-+			status = "disabled";
-+		};
-+
- 		dma0: dma@61360000 {
- 			compatible = "arm,pl330", "arm,primecell";
- 			reg = <0x61360000 0x1000>;
+ Optional properties:
 -- 
 2.7.4
