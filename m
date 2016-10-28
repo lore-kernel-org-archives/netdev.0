@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH v2 2/4] net: Add sysfs value to determine queue
- traffic class
-Date: Fri, 28 Oct 2016 11:43:49 -0400
-Message-ID: <20161028154325.67826.19139.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [net-next PATCH v2 3/4] net: Refactor removal of queues from XPS
+ map and apply on num_tc changes
+Date: Fri, 28 Oct 2016 11:46:49 -0400
+Message-ID: <20161028154354.67826.38525.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161028154126.67826.76735.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,119 +11,164 @@ Cc: john.r.fastabend@intel.com, tom@herbertland.com,
         davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:50318 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:33722 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1761935AbcJ1Voc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Oct 2016 17:44:32 -0400
+        id S1756113AbcJ1Vrd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Oct 2016 17:47:33 -0400
 In-Reply-To: <20161028154126.67826.76735.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a sysfs attribute for a Tx queue that allows us to determine the
-traffic class for a given queue.  This will allow us to more easily
-determine this in the future.  It is needed as XPS will take the traffic
-class for a group of queues into account in order to avoid pulling traffic
-from one traffic class into another.
+This patch updates the code for removing queues from the XPS map and makes
+it so that we can apply the code any time we change either the number of
+traffic classes or the mapping of a given block of queues.  This way we
+avoid having queues pulling traffic from a foreign traffic class.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
-v2: Added this patch to the series.
+v2: Replaced do/while with for loop
+    Changed order for remove_xps_queue_cpu loop
+    Updated i to reflect count, j to be temporary offset
+    Updated test to check for i < 0 instead of i < offset
 
- include/linux/netdevice.h |    1 +
- net/core/dev.c            |   17 +++++++++++++++++
- net/core/net-sysfs.c      |   20 +++++++++++++++++++-
- 3 files changed, 37 insertions(+), 1 deletion(-)
+ net/core/dev.c |   73 ++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 50 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d045432..b60a156 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1920,6 +1920,7 @@ int netdev_set_prio_tc_map(struct net_device *dev, u8 prio, u8 tc)
- 	return 0;
- }
- 
-+int netdev_txq_to_tc(struct net_device *dev, unsigned int txq);
- void netdev_reset_tc(struct net_device *dev);
- int netdev_set_tc_queue(struct net_device *dev, u8 tc, u16 count, u16 offset);
- int netdev_set_num_tc(struct net_device *dev, u8 num_tc);
 diff --git a/net/core/dev.c b/net/core/dev.c
-index d4d45bf..08ed625 100644
+index 08ed625..fea7061 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1948,6 +1948,23 @@ static void netif_setup_tc(struct net_device *dev, unsigned int txq)
+@@ -1970,32 +1970,50 @@ int netdev_txq_to_tc(struct net_device *dev, unsigned int txq)
+ #define xmap_dereference(P)		\
+ 	rcu_dereference_protected((P), lockdep_is_held(&xps_map_mutex))
+ 
+-static struct xps_map *remove_xps_queue(struct xps_dev_maps *dev_maps,
+-					int cpu, u16 index)
++static bool remove_xps_queue(struct xps_dev_maps *dev_maps,
++			     int tci, u16 index)
+ {
+ 	struct xps_map *map = NULL;
+ 	int pos;
+ 
+ 	if (dev_maps)
+-		map = xmap_dereference(dev_maps->cpu_map[cpu]);
++		map = xmap_dereference(dev_maps->cpu_map[tci]);
++	if (!map)
++		return false;
+ 
+-	for (pos = 0; map && pos < map->len; pos++) {
+-		if (map->queues[pos] == index) {
+-			if (map->len > 1) {
+-				map->queues[pos] = map->queues[--map->len];
+-			} else {
+-				RCU_INIT_POINTER(dev_maps->cpu_map[cpu], NULL);
+-				kfree_rcu(map, rcu);
+-				map = NULL;
+-			}
++	for (pos = map->len; pos--;) {
++		if (map->queues[pos] != index)
++			continue;
++
++		if (map->len > 1) {
++			map->queues[pos] = map->queues[--map->len];
+ 			break;
+ 		}
++
++		RCU_INIT_POINTER(dev_maps->cpu_map[tci], NULL);
++		kfree_rcu(map, rcu);
++		return false;
  	}
+ 
+-	return map;
++	return true;
  }
  
-+int netdev_txq_to_tc(struct net_device *dev, unsigned int txq)
+-static void netif_reset_xps_queues_gt(struct net_device *dev, u16 index)
++static bool remove_xps_queue_cpu(struct net_device *dev,
++				 struct xps_dev_maps *dev_maps,
++				 int cpu, u16 offset, u16 count)
 +{
-+	if (dev->num_tc) {
-+		struct netdev_tc_txq *tc = &dev->tc_to_txq[0];
-+		int i;
++	int i, j;
 +
-+		for (i = 0; i < TC_MAX_QUEUE; i++, tc++) {
-+			if ((txq - tc->offset) < tc->count)
-+				return i;
-+		}
-+
-+		return -1;
++	for (i = count, j = offset; i--; j++) {
++		if (!remove_xps_queue(dev_maps, cpu, j))
++			break;
 +	}
 +
-+	return 0;
++	return i < 0;
 +}
 +
- #ifdef CONFIG_XPS
- static DEFINE_MUTEX(xps_map_mutex);
- #define xmap_dereference(P)		\
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 6e4f347..c4e4e7d 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1021,7 +1021,6 @@ static ssize_t show_trans_timeout(struct netdev_queue *queue,
- 	return sprintf(buf, "%lu", trans_timeout);
- }
- 
--#ifdef CONFIG_XPS
- static unsigned int get_netdev_queue_index(struct netdev_queue *queue)
++static void netif_reset_xps_queues(struct net_device *dev, u16 offset,
++				   u16 count)
  {
- 	struct net_device *dev = queue->dev;
-@@ -1033,6 +1032,21 @@ static unsigned int get_netdev_queue_index(struct netdev_queue *queue)
- 	return i;
+ 	struct xps_dev_maps *dev_maps;
+ 	int cpu, i;
+@@ -2007,21 +2025,16 @@ static void netif_reset_xps_queues_gt(struct net_device *dev, u16 index)
+ 	if (!dev_maps)
+ 		goto out_no_maps;
+ 
+-	for_each_possible_cpu(cpu) {
+-		for (i = index; i < dev->num_tx_queues; i++) {
+-			if (!remove_xps_queue(dev_maps, cpu, i))
+-				break;
+-		}
+-		if (i == dev->num_tx_queues)
+-			active = true;
+-	}
++	for_each_possible_cpu(cpu)
++		active |= remove_xps_queue_cpu(dev, dev_maps, cpu,
++					       offset, count);
+ 
+ 	if (!active) {
+ 		RCU_INIT_POINTER(dev->xps_maps, NULL);
+ 		kfree_rcu(dev_maps, rcu);
+ 	}
+ 
+-	for (i = index; i < dev->num_tx_queues; i++)
++	for (i = offset + (count - 1); count--; i--)
+ 		netdev_queue_numa_node_write(netdev_get_tx_queue(dev, i),
+ 					     NUMA_NO_NODE);
+ 
+@@ -2029,6 +2042,11 @@ static void netif_reset_xps_queues_gt(struct net_device *dev, u16 index)
+ 	mutex_unlock(&xps_map_mutex);
  }
  
-+static ssize_t show_traffic_class(struct netdev_queue *queue,
-+				  struct netdev_queue_attribute *attribute,
-+				  char *buf)
++static void netif_reset_xps_queues_gt(struct net_device *dev, u16 index)
 +{
-+	struct net_device *dev = queue->dev;
-+	int index = get_netdev_queue_index(queue);
-+	int tc = netdev_txq_to_tc(dev, index);
-+
-+	if (tc < 0)
-+		return -EINVAL;
-+
-+	return sprintf(buf, "%u\n", tc);
++	netif_reset_xps_queues(dev, index, dev->num_tx_queues - index);
 +}
 +
+ static struct xps_map *expand_xps_map(struct xps_map *map,
+ 				      int cpu, u16 index)
+ {
+@@ -2192,6 +2210,9 @@ int netif_set_xps_queue(struct net_device *dev, const struct cpumask *mask,
+ #endif
+ void netdev_reset_tc(struct net_device *dev)
+ {
 +#ifdef CONFIG_XPS
- static ssize_t show_tx_maxrate(struct netdev_queue *queue,
- 			       struct netdev_queue_attribute *attribute,
- 			       char *buf)
-@@ -1075,6 +1089,9 @@ static ssize_t set_tx_maxrate(struct netdev_queue *queue,
- static struct netdev_queue_attribute queue_trans_timeout =
- 	__ATTR(tx_timeout, S_IRUGO, show_trans_timeout, NULL);
++	netif_reset_xps_queues_gt(dev, 0);
++#endif
+ 	dev->num_tc = 0;
+ 	memset(dev->tc_to_txq, 0, sizeof(dev->tc_to_txq));
+ 	memset(dev->prio_tc_map, 0, sizeof(dev->prio_tc_map));
+@@ -2203,6 +2224,9 @@ int netdev_set_tc_queue(struct net_device *dev, u8 tc, u16 count, u16 offset)
+ 	if (tc >= dev->num_tc)
+ 		return -EINVAL;
  
-+static struct netdev_queue_attribute queue_traffic_class =
-+	__ATTR(traffic_class, S_IRUGO, show_traffic_class, NULL);
-+
- #ifdef CONFIG_BQL
- /*
-  * Byte queue limits sysfs structures and functions.
-@@ -1260,6 +1277,7 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
++#ifdef CONFIG_XPS
++	netif_reset_xps_queues(dev, offset, count);
++#endif
+ 	dev->tc_to_txq[tc].count = count;
+ 	dev->tc_to_txq[tc].offset = offset;
+ 	return 0;
+@@ -2214,6 +2238,9 @@ int netdev_set_num_tc(struct net_device *dev, u8 num_tc)
+ 	if (num_tc > TC_MAX_QUEUE)
+ 		return -EINVAL;
  
- static struct attribute *netdev_queue_default_attrs[] = {
- 	&queue_trans_timeout.attr,
-+	&queue_traffic_class.attr,
- #ifdef CONFIG_XPS
- 	&xps_cpus_attribute.attr,
- 	&queue_tx_maxrate.attr,
++#ifdef CONFIG_XPS
++	netif_reset_xps_queues_gt(dev, 0);
++#endif
+ 	dev->num_tc = num_tc;
+ 	return 0;
+ }
