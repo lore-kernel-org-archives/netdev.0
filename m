@@ -1,98 +1,76 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: fix warning in bcm_connect/proc_register
-Date: Fri, 28 Oct 2016 10:58:53 +0200
-Message-ID: <29de7555-9a84-0b29-3e49-a96fa26390f0@pengutronix.de>
-References: <20161024191126.30256-1-socketcan@hartkopp.net>
- <CAM_iQpXj3ktALCmjwaPKJuf0SDEc6Txk-yYkRzZ79LFEsxOx3w@mail.gmail.com>
- <CAM_iQpVmhH_9vQcTw+wP1qmPLOijZZrMZrq=_e4i5fUXYDON0Q@mail.gmail.com>
- <d76a80c3-cbd2-a286-82de-4c26e372de56@pengutronix.de>
- <CAM_iQpUVB3g6gq9-RX0QAzM_ojOS0q+jq9n9objyFwyTHPAgkw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized
+ warning
+Date: Fri, 28 Oct 2016 11:34:22 +0200
+Message-ID: <20161028093422.GA29559@salvia>
+References: <20161024153454.2766113-1-arnd@arndb.de>
+ <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="mmPImgQOnaX5FFaHfoX1OIgMNKx6s8QKL"
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        David Miller <davem@davemloft.net>, linux-can@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48691 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1758920AbcJ1I7I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 04:59:08 -0400
-In-Reply-To: <CAM_iQpUVB3g6gq9-RX0QAzM_ojOS0q+jq9n9objyFwyTHPAgkw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---mmPImgQOnaX5FFaHfoX1OIgMNKx6s8QKL
-Content-Type: multipart/mixed; boundary="VljLi1BEOTdTUhReW5PUNBkHtEsXXivtq";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
- Andrey Konovalov <andreyknvl@google.com>, David Miller
- <davem@davemloft.net>, linux-can@vger.kernel.org,
- Linux Kernel Network Developers <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, syzkaller <syzkaller@googlegroups.com>,
- Kostya Serebryany <kcc@google.com>, Alexander Potapenko <glider@google.com>,
- Dmitry Vyukov <dvyukov@google.com>, Eric Dumazet <edumazet@google.com>
-Message-ID: <29de7555-9a84-0b29-3e49-a96fa26390f0@pengutronix.de>
-Subject: Re: [PATCH] can: fix warning in bcm_connect/proc_register
-References: <20161024191126.30256-1-socketcan@hartkopp.net>
- <CAM_iQpXj3ktALCmjwaPKJuf0SDEc6Txk-yYkRzZ79LFEsxOx3w@mail.gmail.com>
- <CAM_iQpVmhH_9vQcTw+wP1qmPLOijZZrMZrq=_e4i5fUXYDON0Q@mail.gmail.com>
- <d76a80c3-cbd2-a286-82de-4c26e372de56@pengutronix.de>
- <CAM_iQpUVB3g6gq9-RX0QAzM_ojOS0q+jq9n9objyFwyTHPAgkw@mail.gmail.com>
-In-Reply-To: <CAM_iQpUVB3g6gq9-RX0QAzM_ojOS0q+jq9n9objyFwyTHPAgkw@mail.gmail.com>
-
---VljLi1BEOTdTUhReW5PUNBkHtEsXXivtq
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Quentin Armitage <quentin@armitage.org.uk>,
+        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/27/2016 06:28 PM, Cong Wang wrote:
->>> Hmm, bo->bound should guarantee it, so never mind, your patch
->>> looks fine.
->>
->> Can I add your Acked-by?
->=20
-> Of course.
->=20
-> Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+On Mon, Oct 24, 2016 at 10:47:54PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Mon, 24 Oct 2016, Arnd Bergmann wrote:
+> 
+> > Building the ip_vs_sync code with CONFIG_OPTIMIZE_INLINING on x86
+> > confuses the compiler to the point where it produces a rather
+> > dubious warning message:
+> > 
+> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> >   struct ip_vs_sync_conn_options opt;
+> >                                  ^~~
+> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > 
+> > The problem appears to be a combination of a number of factors, including
+> > the __builtin_bswap32 compiler builtin being slightly odd, having a large
+> > amount of code inlined into a single function, and the way that some
+> > functions only get partially inlined here.
+> > 
+> > I've spent way too much time trying to work out a way to improve the
+> > code, but the best I've come up with is to add an explicit memset
+> > right before the ip_vs_seq structure is first initialized here. When
+> > the compiler works correctly, this has absolutely no effect, but in the
+> > case that produces the warning, the warning disappears.
+> > 
+> > In the process of analysing this warning, I also noticed that
+> > we use memcpy to copy the larger ip_vs_sync_conn_options structure
+> > over two members of the ip_vs_conn structure. This works because
+> > the layout is identical, but seems error-prone, so I'm changing
+> > this in the process to directly copy the two members. This change
+> > seemed to have no effect on the object code or the warning, but
+> > it deals with the same data, so I kept the two changes together.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> 	OK,
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> 
+> 	I guess, Simon will take the patch for ipvs-next.
 
-Thanks,
-Marc
+@Simon: If you have no more pending updates, I can save you one pull
+request for this small fix by placing this.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---VljLi1BEOTdTUhReW5PUNBkHtEsXXivtq--
-
---mmPImgQOnaX5FFaHfoX1OIgMNKx6s8QKL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJYExNNAAoJED07qiWsqSVqM1AH/0Aa7FBTruLSeEP98xIPVfqY
-ZFi57dsx3+QsIXHafpUEEH0vnSjbgkkWNhA8HDl9YFnPNpq5wj92P8rHMs34wzLm
-Kybc8MgXOQnktPC5YGXwO6II9KQMe3PelALivuZYnLxqg9ZnGAf3Bv6z4oD4Rp2r
-TUUXPUgXHEfnkMLI+d/S8JLbhXIJxNX34v7OtB73uSI1LjoZsP5vDeJ3qIZOI8wO
-8aLwOJcLsIw1GaaE2t7sknEB9NWaFy2FGqXRRMRi6v4gb2hT2JfTMaANEwtMBkBH
-fMH1t7xJ+lcF0w/Z7sNP2eAwLqlqQneSIpj4jMxm0tfVg9aX9l7uYe3pQMTwexs=
-=kHli
------END PGP SIGNATURE-----
-
---mmPImgQOnaX5FFaHfoX1OIgMNKx6s8QKL--
+Thanks!
