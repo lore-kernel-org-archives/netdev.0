@@ -1,80 +1,86 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v7 0/6] Add eBPF hooks for cgroups
-Date: Fri, 28 Oct 2016 14:07:13 +0200
-Message-ID: <b7f9cfb7-129b-afaa-8d56-47bc4ee65363@zonque.org>
-References: <1477390454-12553-1-git-send-email-daniel@zonque.org>
- <20161026195933.GA2031@salvia>
- <c9683122-d770-355b-e275-7c446e6d1d0f@zonque.org>
- <20161028115311.GB29798@salvia>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized
+ warning
+Date: Fri, 28 Oct 2016 14:16:16 +0200
+Message-ID: <20161028121616.GA30850@salvia>
+References: <20161024153454.2766113-1-arnd@arndb.de>
+ <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
+ <20161028093422.GA29559@salvia>
+ <20161028114020.GA4041@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
-        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:47620 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756575AbcJ1MHS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Oct 2016 08:07:18 -0400
-In-Reply-To: <20161028115311.GB29798@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Julian Anastasov <ja@ssi.bg>, Arnd Bergmann <arnd@arndb.de>,
+        Wensong Zhang <wensong@linux-vs.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Quentin Armitage <quentin@armitage.org.uk>,
+        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161028114020.GA4041@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/28/2016 01:53 PM, Pablo Neira Ayuso wrote:
-> On Thu, Oct 27, 2016 at 10:40:14AM +0200, Daniel Mack wrote:
-
->> It's not anything new. These hooks live on the very same level as
->> SO_ATTACH_FILTER. The only differences are that the BPF programs are
->> stored in the cgroup, and not in the socket, and that they exist for
->> egress as well.
+On Fri, Oct 28, 2016 at 01:40:23PM +0200, Simon Horman wrote:
+> On Fri, Oct 28, 2016 at 11:34:22AM +0200, Pablo Neira Ayuso wrote:
+> > On Mon, Oct 24, 2016 at 10:47:54PM +0300, Julian Anastasov wrote:
+> > > 
+> > > 	Hello,
+> > > 
+> > > On Mon, 24 Oct 2016, Arnd Bergmann wrote:
+> > > 
+> > > > Building the ip_vs_sync code with CONFIG_OPTIMIZE_INLINING on x86
+> > > > confuses the compiler to the point where it produces a rather
+> > > > dubious warning message:
+> > > > 
+> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > > >   struct ip_vs_sync_conn_options opt;
+> > > >                                  ^~~
+> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > > > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > > > 
+> > > > The problem appears to be a combination of a number of factors, including
+> > > > the __builtin_bswap32 compiler builtin being slightly odd, having a large
+> > > > amount of code inlined into a single function, and the way that some
+> > > > functions only get partially inlined here.
+> > > > 
+> > > > I've spent way too much time trying to work out a way to improve the
+> > > > code, but the best I've come up with is to add an explicit memset
+> > > > right before the ip_vs_seq structure is first initialized here. When
+> > > > the compiler works correctly, this has absolutely no effect, but in the
+> > > > case that produces the warning, the warning disappears.
+> > > > 
+> > > > In the process of analysing this warning, I also noticed that
+> > > > we use memcpy to copy the larger ip_vs_sync_conn_options structure
+> > > > over two members of the ip_vs_conn structure. This works because
+> > > > the layout is identical, but seems error-prone, so I'm changing
+> > > > this in the process to directly copy the two members. This change
+> > > > seemed to have no effect on the object code or the warning, but
+> > > > it deals with the same data, so I kept the two changes together.
+> > > > 
+> > > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > > 
+> > > 	OK,
+> > > 
+> > > Acked-by: Julian Anastasov <ja@ssi.bg>
+> > > 
+> > > 	I guess, Simon will take the patch for ipvs-next.
+> > 
+> > @Simon: If you have no more pending updates, I can save you one pull
+> > request for this small fix by placing this.
 > 
-> Can we agree this is going further than SO_ATTACH_FILTER?
+> Thanks Pablo, please do.
 
-It's the same level. Only the way of setting the program(s) is different.
+Thanks Simon, feel free to exercise this path anytime.
 
->> Adding it there would mean we need to early-demux *every* packet as soon
->> as there is *any* such rule installed, and that renders many
->> optimizations in the kernel to drop traffic that has no local receiver
->> useless.
-> 
-> I think such concern applies to doing early demux inconditionally in
-> all possible scenarios (such as UDP broadcast/multicast), that implies
-> wasted cycles for people not requiring this.
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-If you have a rule that acts on a condition based on a local receiver
-detail such as a cgroup membership, then the INPUT filter *must* know
-the local receiver for *all* packets passing by, otherwise it cannot act
-upon it. And that means that you have to early-demux in any case as long
-as at least one such a rule exists.
-
-> If we can do what demuxing in an optional way, ie. only when socket
-> filtering is required, then only those that need it would pay that
-> price. Actually, if we can do this demux very early, from ingress,
-> performance numbers would be also good to perform any socket-based
-> filtering.
-
-For multicast, rules have to be executed for each receiver, which is
-another reason why the INPUT path is the wrong place to solve to problem.
-
-You actually convinced me yourself about these details, but you seem to
-constantly change your opinion about all this. Why is this such a
-whack-a-mole game?
-
-> I guess you're using an old kernel and refering to iptables, this is
-> not true for some time, so we don't have any impact now with loaded
-> iptables modules.
-
-My point is that the performance decrease introduced by my patch set is
-not really measurable, even if you pipe all the wire-saturating test
-traffic through the example program. At least not with my setup here. If
-a local receiver has no applicable bpf in its cgroup, the logic bails
-out way earlier, leading a lot less overhead even. And if no cgroup has
-any program attached, the code is basically no-op thanks to the static
-branch. I really see no reason to block this patch set due to unfounded
-claims of bad performance.
-
-
-Thanks,
-Daniel
+Applied to nf, thanks!
