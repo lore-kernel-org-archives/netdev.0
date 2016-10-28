@@ -1,138 +1,181 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/16] mlxsw: switchx2: Add support for physical port names
-Date: Fri, 28 Oct 2016 21:35:50 +0200
-Message-ID: <1477683361-8011-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 07/16] mlxsw: reg: Add eth prefix to PTYS pack and unpack
+Date: Fri, 28 Oct 2016 21:35:52 +0200
+Message-ID: <1477683361-8011-7-git-send-email-jiri@resnulli.us>
 References: <1477682270-7903-1-git-send-email-jiri@resnulli.us>
  <1477683361-8011-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, eladr@mellanox.com, idosch@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33654 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761702AbcJ1TnC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 15:43:02 -0400
-Received: by mail-wm0-f67.google.com with SMTP id m83so8764715wmc.0
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 12:43:02 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35208 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756160AbcJ1Tnp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 15:43:45 -0400
+Received: by mail-wm0-f68.google.com with SMTP id 68so1986196wmz.2
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 12:43:44 -0700 (PDT)
 In-Reply-To: <1477683361-8011-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Elad Raz <eladr@mellanox.com>
 
-Export to userspace the front panel name of the port, so that udev can
-rename the ports accordingly. The convention suggested by switchdev
-documentation is used: pX
+We want to add Infiniband support to PTYS. In order to maintain proper
+conventions, we will change pack and unpack prefix to eth.
 
 Signed-off-by: Elad Raz <eladr@mellanox.com>
 Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 32 ++++++++++++++++++++++----
- 1 file changed, 27 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      | 11 ++++++-----
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 17 +++++++++--------
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 18 ++++++++++--------
+ 3 files changed, 25 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 6882e35..941393b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -81,6 +81,9 @@ struct mlxsw_sx_port {
- 	struct mlxsw_sx_port_pcpu_stats __percpu *pcpu_stats;
- 	struct mlxsw_sx *mlxsw_sx;
- 	u8 local_port;
-+	struct {
-+		u8 module;
-+	} mapping;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index debcf26..3ecf348 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -2131,8 +2131,8 @@ MLXSW_ITEM32(reg, ptys, eth_proto_oper, 0x24, 0, 32);
+  */
+ MLXSW_ITEM32(reg, ptys, eth_proto_lp_advertise, 0x30, 0, 32);
  
- /* tx_hdr_version
-@@ -257,7 +260,8 @@ mlxsw_sx_port_system_port_mapping_set(struct mlxsw_sx_port *mlxsw_sx_port)
+-static inline void mlxsw_reg_ptys_pack(char *payload, u8 local_port,
+-				       u32 proto_admin)
++static inline void mlxsw_reg_ptys_eth_pack(char *payload, u8 local_port,
++					   u32 proto_admin)
+ {
+ 	MLXSW_REG_ZERO(ptys, payload);
+ 	mlxsw_reg_ptys_local_port_set(payload, local_port);
+@@ -2140,9 +2140,10 @@ static inline void mlxsw_reg_ptys_pack(char *payload, u8 local_port,
+ 	mlxsw_reg_ptys_eth_proto_admin_set(payload, proto_admin);
  }
  
- static int mlxsw_sx_port_module_info_get(struct mlxsw_sx *mlxsw_sx,
--					 u8 local_port, u8 *p_width)
-+					 u8 local_port, u8 *p_module,
-+					 u8 *p_width)
+-static inline void mlxsw_reg_ptys_unpack(char *payload, u32 *p_eth_proto_cap,
+-					 u32 *p_eth_proto_adm,
+-					 u32 *p_eth_proto_oper)
++static inline void mlxsw_reg_ptys_eth_unpack(char *payload,
++					     u32 *p_eth_proto_cap,
++					     u32 *p_eth_proto_adm,
++					     u32 *p_eth_proto_oper)
  {
- 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
+ 	if (p_eth_proto_cap)
+ 		*p_eth_proto_cap = mlxsw_reg_ptys_eth_proto_cap_get(payload);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index d649064..d1c2f9f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2003,12 +2003,12 @@ static int mlxsw_sp_port_get_link_ksettings(struct net_device *dev,
  	int err;
-@@ -266,6 +270,7 @@ static int mlxsw_sx_port_module_info_get(struct mlxsw_sx *mlxsw_sx,
- 	err = mlxsw_reg_query(mlxsw_sx->core, MLXSW_REG(pmlp), pmlp_pl);
+ 
+ 	autoneg = mlxsw_sp_port->link.autoneg;
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sp_port->local_port, 0);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sp_port->local_port, 0);
+ 	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ptys), ptys_pl);
  	if (err)
  		return err;
-+	*p_module = mlxsw_reg_pmlp_module_get(pmlp_pl, 0);
- 	*p_width = mlxsw_reg_pmlp_width_get(pmlp_pl);
- 	return 0;
- }
-@@ -383,12 +388,26 @@ mlxsw_sx_port_get_stats64(struct net_device *dev,
- 	return stats;
- }
+-	mlxsw_reg_ptys_unpack(ptys_pl, &eth_proto_cap, &eth_proto_admin,
+-			      &eth_proto_oper);
++	mlxsw_reg_ptys_eth_unpack(ptys_pl, &eth_proto_cap, &eth_proto_admin,
++				  &eth_proto_oper);
  
-+static int mlxsw_sx_port_get_phys_port_name(struct net_device *dev, char *name,
-+					    size_t len)
-+{
-+	struct mlxsw_sx_port *mlxsw_sx_port = netdev_priv(dev);
-+	int err;
-+
-+	err = snprintf(name, len, "p%d", mlxsw_sx_port->mapping.module + 1);
-+	if (err >= len)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops mlxsw_sx_port_netdev_ops = {
- 	.ndo_open		= mlxsw_sx_port_open,
- 	.ndo_stop		= mlxsw_sx_port_stop,
- 	.ndo_start_xmit		= mlxsw_sx_port_xmit,
- 	.ndo_change_mtu		= mlxsw_sx_port_change_mtu,
- 	.ndo_get_stats64	= mlxsw_sx_port_get_stats64,
-+	.ndo_get_phys_port_name = mlxsw_sx_port_get_phys_port_name,
- };
+ 	mlxsw_sp_port_get_link_supported(eth_proto_cap, cmd);
  
- static void mlxsw_sx_port_get_drvinfo(struct net_device *dev,
-@@ -957,7 +976,8 @@ mlxsw_sx_port_mac_learning_mode_set(struct mlxsw_sx_port *mlxsw_sx_port,
- 	return mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(spmlr), spmlr_pl);
- }
- 
--static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
-+static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port,
-+				u8 module)
- {
- 	struct mlxsw_sx_port *mlxsw_sx_port;
- 	struct net_device *dev;
-@@ -971,6 +991,7 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
- 	mlxsw_sx_port->dev = dev;
- 	mlxsw_sx_port->mlxsw_sx = mlxsw_sx;
- 	mlxsw_sx_port->local_port = local_port;
-+	mlxsw_sx_port->mapping.module = module;
- 
- 	mlxsw_sx_port->pcpu_stats =
- 		netdev_alloc_pcpu_stats(struct mlxsw_sx_port_pcpu_stats);
-@@ -1119,7 +1140,7 @@ static void mlxsw_sx_ports_remove(struct mlxsw_sx *mlxsw_sx)
- static int mlxsw_sx_ports_create(struct mlxsw_sx *mlxsw_sx)
- {
- 	size_t alloc_size;
--	u8 width;
-+	u8 module, width;
- 	int i;
+@@ -2037,11 +2037,11 @@ mlxsw_sp_port_set_link_ksettings(struct net_device *dev,
+ 	bool autoneg;
  	int err;
  
-@@ -1129,12 +1150,13 @@ static int mlxsw_sx_ports_create(struct mlxsw_sx *mlxsw_sx)
- 		return -ENOMEM;
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sp_port->local_port, 0);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sp_port->local_port, 0);
+ 	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ptys), ptys_pl);
+ 	if (err)
+ 		return err;
+-	mlxsw_reg_ptys_unpack(ptys_pl, &eth_proto_cap, NULL, NULL);
++	mlxsw_reg_ptys_eth_unpack(ptys_pl, &eth_proto_cap, NULL, NULL);
  
- 	for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++) {
--		err = mlxsw_sx_port_module_info_get(mlxsw_sx, i, &width);
-+		err = mlxsw_sx_port_module_info_get(mlxsw_sx, i, &module,
-+						    &width);
- 		if (err)
- 			goto err_port_module_info_get;
- 		if (!width)
- 			continue;
--		err = mlxsw_sx_port_create(mlxsw_sx, i);
-+		err = mlxsw_sx_port_create(mlxsw_sx, i, module);
- 		if (err)
- 			goto err_port_create;
+ 	autoneg = cmd->base.autoneg == AUTONEG_ENABLE;
+ 	eth_proto_new = autoneg ?
+@@ -2054,7 +2054,8 @@ mlxsw_sp_port_set_link_ksettings(struct net_device *dev,
+ 		return -EINVAL;
  	}
+ 
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sp_port->local_port, eth_proto_new);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sp_port->local_port,
++				eth_proto_new);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ptys), ptys_pl);
+ 	if (err)
+ 		return err;
+@@ -2092,8 +2093,8 @@ mlxsw_sp_port_speed_by_width_set(struct mlxsw_sp_port *mlxsw_sp_port, u8 width)
+ 	u32 eth_proto_admin;
+ 
+ 	eth_proto_admin = mlxsw_sp_to_ptys_upper_speed(upper_speed);
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sp_port->local_port,
+-			    eth_proto_admin);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sp_port->local_port,
++				eth_proto_admin);
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ptys), ptys_pl);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index 44dae8d..7b74dcb 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -762,14 +762,14 @@ static int mlxsw_sx_port_get_settings(struct net_device *dev,
+ 	u32 eth_proto_oper;
+ 	int err;
+ 
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sx_port->local_port, 0);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sx_port->local_port, 0);
+ 	err = mlxsw_reg_query(mlxsw_sx->core, MLXSW_REG(ptys), ptys_pl);
+ 	if (err) {
+ 		netdev_err(dev, "Failed to get proto");
+ 		return err;
+ 	}
+-	mlxsw_reg_ptys_unpack(ptys_pl, &eth_proto_cap,
+-			      &eth_proto_admin, &eth_proto_oper);
++	mlxsw_reg_ptys_eth_unpack(ptys_pl, &eth_proto_cap,
++				  &eth_proto_admin, &eth_proto_oper);
+ 
+ 	cmd->supported = mlxsw_sx_from_ptys_supported_port(eth_proto_cap) |
+ 			 mlxsw_sx_from_ptys_supported_link(eth_proto_cap) |
+@@ -841,13 +841,14 @@ static int mlxsw_sx_port_set_settings(struct net_device *dev,
+ 		mlxsw_sx_to_ptys_advert_link(cmd->advertising) :
+ 		mlxsw_sx_to_ptys_speed(speed);
+ 
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sx_port->local_port, 0);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sx_port->local_port, 0);
+ 	err = mlxsw_reg_query(mlxsw_sx->core, MLXSW_REG(ptys), ptys_pl);
+ 	if (err) {
+ 		netdev_err(dev, "Failed to get proto");
+ 		return err;
+ 	}
+-	mlxsw_reg_ptys_unpack(ptys_pl, &eth_proto_cap, &eth_proto_admin, NULL);
++	mlxsw_reg_ptys_eth_unpack(ptys_pl, &eth_proto_cap, &eth_proto_admin,
++				  NULL);
+ 
+ 	eth_proto_new = eth_proto_new & eth_proto_cap;
+ 	if (!eth_proto_new) {
+@@ -857,7 +858,8 @@ static int mlxsw_sx_port_set_settings(struct net_device *dev,
+ 	if (eth_proto_new == eth_proto_admin)
+ 		return 0;
+ 
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sx_port->local_port, eth_proto_new);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sx_port->local_port,
++				eth_proto_new);
+ 	err = mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(ptys), ptys_pl);
+ 	if (err) {
+ 		netdev_err(dev, "Failed to set proto admin");
+@@ -977,8 +979,8 @@ mlxsw_sx_port_speed_by_width_set(struct mlxsw_sx_port *mlxsw_sx_port, u8 width)
+ 	u32 eth_proto_admin;
+ 
+ 	eth_proto_admin = mlxsw_sx_to_ptys_upper_speed(upper_speed);
+-	mlxsw_reg_ptys_pack(ptys_pl, mlxsw_sx_port->local_port,
+-			    eth_proto_admin);
++	mlxsw_reg_ptys_eth_pack(ptys_pl, mlxsw_sx_port->local_port,
++				eth_proto_admin);
+ 	return mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(ptys), ptys_pl);
+ }
+ 
 -- 
 2.5.5
