@@ -1,58 +1,38 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 2/3] sctp: return back transport in __sctp_rcv_init_lookup
-Date: Fri, 28 Oct 2016 18:10:53 +0800
-Message-ID: <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
-References: <cover.1477649076.git.lucien.xin@gmail.com>
- <a58ed3a60643e38876a12ed9193e60f7b38cba4d.1477649076.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH net-next 0/1] net: phy: Add support for Microsemi VSC 8530/40 Fast Ethernet PHY
+Date: Fri, 28 Oct 2016 12:10:10 +0200
+Message-ID: <1477649411-31036-1-git-send-email-allan.nielsen@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
+        <allan.nielsen@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32978 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758738AbcJ1KLL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 06:11:11 -0400
-In-Reply-To: <a58ed3a60643e38876a12ed9193e60f7b38cba4d.1477649076.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1477649076.git.lucien.xin@gmail.com>
-References: <cover.1477649076.git.lucien.xin@gmail.com>
+Received: from mail-cys01nam02on0066.outbound.protection.outlook.com ([104.47.37.66]:3768
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751913AbcJ1KKp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Oct 2016 06:10:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prior to this patch, it used a local variable to save the transport that is
-looked up by __sctp_lookup_association(), and didn't return it back. But in
-sctp_rcv, it is used to initialize chunk->transport. So when hitting this
-code, it was initializing chunk->transport with some random stack value
-instead.
+Hi All,
 
-This patch is to return the transport back through transport pointer
-that is from __sctp_rcv_lookup_harder().
+This patch adds support for VSC 8530/40 which is 10/100 Mbps variants of VSC
+8531/41.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/input.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Please review.
 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index a2ea1d1..8e0bc58 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -1021,7 +1021,6 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
- 	struct sctphdr *sh = sctp_hdr(skb);
- 	union sctp_params params;
- 	sctp_init_chunk_t *init;
--	struct sctp_transport *transport;
- 	struct sctp_af *af;
- 
- 	/*
-@@ -1052,7 +1051,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
- 
- 		af->from_addr_param(paddr, params.addr, sh->source, 0);
- 
--		asoc = __sctp_lookup_association(net, laddr, paddr, &transport);
-+		asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
- 		if (asoc)
- 			return asoc;
- 	}
+Best regards
+Allan and Raju
+
+
+Raju Lakkaraju (1):
+  net: phy: Add support for Microsemi VSC 8530/40 Fast Ethernet PHY
+
+ drivers/net/phy/Kconfig |  2 +-
+ drivers/net/phy/mscc.c  | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 1 deletion(-)
+
 -- 
-2.1.0
+2.7.3
