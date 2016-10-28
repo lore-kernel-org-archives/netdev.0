@@ -1,170 +1,94 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH v2 1/5] kconfig: introduce the "imply" keyword
-Date: Thu, 27 Oct 2016 23:10:46 -0400 (EDT)
-Message-ID: <alpine.LFD.2.20.1610272156050.14694@knanqh.ubzr>
-References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org> <1477448931-29051-2-git-send-email-nicolas.pitre@linaro.org> <1477613871.2121.92.camel@tiscali.nl>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v13, 0/8] Fix eSDHC host version register bug
+Date: Fri, 28 Oct 2016 11:32:26 +0800
+Message-ID: <1477625554-46700-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; BOUNDARY="8323328-463955964-1477623663=:14694"
-Cc: John Stultz <john.stultz@linaro.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Michal Marek <mmarek@suse.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477613871.2121.92.camel@tiscali.nl>
-Content-ID: <alpine.LFD.2.20.1610272305320.14694@knanqh.ubzr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	Minghuan Lian <minghuan.lian-3arQi8VN3Tc@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Scott Wood
+	<oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+eSDHC controller. To match the SoC version and revision, 10 previous version
+patchsets had tried many methods but all of them were rejected by reviewers.
+Such as
+	- dts compatible method
+	- syscon method
+	- ifdef PPC method
+	- GUTS driver getting SVR method
+Anrd suggested a soc_device_match method in v10, and this is the only available
+method left now. This v11 patchset introduces the soc_device_match interface in
+soc driver.
 
---8323328-463955964-1477623663=:14694
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.LFD.2.20.1610272305321.14694@knanqh.ubzr>
+The first six patches of Yangbo are to add the GUTS driver. This is used to
+register a soc device which contain soc version and revision information.
+The other two patches introduce the soc_device_match method in soc driver
+and apply it on esdhc driver to fix this bug.
 
-On Fri, 28 Oct 2016, Paul Bolle wrote:
+Arnd Bergmann (1):
+  base: soc: introduce soc_device_match() interface
 
-> On Tue, 2016-10-25 at 22:28 -0400, Nicolas Pitre wrote:
-> > The "imply" keyword is a weak version of "select" where the target
-> > config symbol can still be turned off, avoiding those pitfalls that come
-> > with the "select" keyword.
-> > 
-> > This is useful e.g. with multiple drivers that want to indicate their
-> > ability to hook into a given subsystem
-> 
-> "hook into a [...] subsystem" is rather vague.
+Yangbo Lu (7):
+  dt: bindings: update Freescale DCFG compatible
+  ARM64: dts: ls2080a: add device configuration node
+  dt: bindings: move guts devicetree doc out of powerpc directory
+  powerpc/fsl: move mpc85xx.h to include/linux/fsl
+  soc: fsl: add GUTS driver for QorIQ platforms
+  MAINTAINERS: add entry for Freescale SoC drivers
+  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
 
-You could say: benefit from, contribute to, register with, or any 
-combination of those. At some point there is no good way to remain 
-generic. At least none came to my mind.
+ Documentation/devicetree/bindings/arm/fsl.txt      |   6 +-
+ .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+ MAINTAINERS                                        |  11 +-
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 +
+ arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
+ arch/powerpc/sysdev/fsl_pci.c                      |   2 +-
+ drivers/base/Kconfig                               |   1 +
+ drivers/base/soc.c                                 |  66 ++++++
+ drivers/clk/clk-qoriq.c                            |   3 +-
+ drivers/i2c/busses/i2c-mpc.c                       |   2 +-
+ drivers/iommu/fsl_pamu.c                           |   3 +-
+ drivers/mmc/host/Kconfig                           |   1 +
+ drivers/mmc/host/sdhci-of-esdhc.c                  |  20 ++
+ drivers/net/ethernet/freescale/gianfar.c           |   2 +-
+ drivers/soc/Kconfig                                |   3 +-
+ drivers/soc/fsl/Kconfig                            |  18 ++
+ drivers/soc/fsl/Makefile                           |   1 +
+ drivers/soc/fsl/guts.c                             | 236 +++++++++++++++++++++
+ include/linux/fsl/guts.h                           | 125 ++++++-----
+ .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
+ include/linux/sys_soc.h                            |   3 +
+ 21 files changed, 456 insertions(+), 62 deletions(-)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/guts.c
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
 
-> >  while still being able to configure that subsystem out
-> 
-> s/being able to/allowing the user to/, correct? 
-
-Correct.
-
-> > and keep those drivers selected.
-> 
-> Perhaps replace that with: "without also having to unset these
-> drivers"?
-
-Sure. I currently have:
-
-  This is useful e.g. with multiple drivers that want to indicate their
-  ability to hook into an important secondary subsystem while allowing
-  the user to configure that subsystem out without also having to unset
-  these drivers.
-
-> > +- weak reverse dependencies: "imply" <symbol> ["if" <expr>]
-> 
-> You probably got "["if" <expr>]" for free by copying what's there for
-> select. But this series doesn't use it, so perhaps it would be better
-> to not document it yet. But that is rather sneaky. Dunno.
-
-If it is not documented then the chance that someone uses it are slim. 
-And since it comes "for free" I don't see the point of making the tool 
-less flexible. And not having this flexibility could make some 
-transitions from "select" to "imply" needlessly difficult.
-
-> > +  This is similar to "select" as it enforces a lower limit on another
-> > +  symbol except that the "implied" config symbol's value may still be
-> > +  set to n from a direct dependency or with a visible prompt.
-> 
-> This is seriously hard to parse. But it's late here, so it might just
-> be me.
-
-I tried to follow the existing style. I removed the word "config" from 
-that paragraph as it looked redundant. Other than that, any improvements 
-from someone more inspired than myself is welcome.
-
-> > +  Given the following example:
-> > +
-> > +  config FOO
-> > +	tristate
-> > +	imply BAZ
-> > +
-> > +  config BAZ
-> > +	tristate
-> > +	depends on BAR
-> > +
-> > +  The following values are possible:
-> > +
-> > +	FOO		BAR		BAZ's default	choice for BAZ
-> > +	---		---		-------------	--------------
-> > +	n		y		n		N/m/y
-> > +	m		y		m		M/y/n
-> > +	y		y		y		Y/n
-> 
-> Also
-> 	n		n		*		N
-> 	m		n		*		N
-> 
-> Is that right?
-
-Right.  Is it clearer if I list all combinations, or maybe:
-
-	*		n		*		N
-
-> > +	y		n		*		N
-> 
-> But what does '*' mean?
-
-It's a wildcard meaning either of n, m, or y.
-
-> What happens when a tristate symbol is implied by a symbol set to 'y'
-> and by a symbol set to 'm'?
-
-That's respectively the third and second rows in the table above.
-
-> And in your example BAR is bool, right? Does the above get more
-> complicated if BAR would be tristate?
-
-If BAR=m then implying BAZ from FOO=y will force BAZ to y or n, 
-bypassing the restriction provided by BAR like "select" does.  This is 
-somewhat questionable for "select" to do that, and the code emits a 
-warning when "select" bypasses a direct dependency set to n, but not 
-when set to m. For now "imply" simply tries to be consistent with 
-the "select" behavior.
-
-> How does setting a direct default for BAZ interfere with the implied
-> values?
-
-It doesn't. An implied symbol may be promoted to a higher value than the 
-default, not a lower value. So if the direct default is higher than the 
-implied value then the default wins.
-
-> >    b) Match dependency semantics:
-> >  	b1) Swap all "select FOO" to "depends on FOO" or,
-> >  	b2) Swap all "depends on FOO" to "select FOO"
-> > +  c) Consider the use of "imply" instead of "select"
-> 
-> If memory serves me right this text was added after a long discussion
-> with Luis Rodriguez. Luis might want to have a look at any 
-
-The "imply" statement doesn't create the kind of dependency conflicts as 
-"select" does. So I think it is worth mentioning as a possibility here.
-
-> Haven't looked at the code yet, sorry. I'm still trying to see whether
-> I can wrap my mind around this. It looks like just setting a default on
-> another symbol, but there could be a twist I missed.
-
-Setting a default was the purpose of my "suggest" patch. The "imply" 
-statement still imposes a restriction similar to "select" where the 
-implied symbol cannot be m if implied with y.
-
-Some people didn't like the fact that you could turn a driver from m to
-y and silently lose some features if they were provided by a subsystem
-that also used to be m, which arguably is not the same as being
-explicitly disabled.  With "select" this is not a problem as the target
-symbol is also promoted to y in that case, so I wanted to preserve that
-property with "imply".
-
-
-Nicolas
---8323328-463955964-1477623663=:14694--
+-- 
+2.1.0.27.g96db324
