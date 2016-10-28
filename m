@@ -1,110 +1,89 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] lan78xx: Use irq_domain for phy interrupt from
- USB Int. EP
-Date: Fri, 28 Oct 2016 12:01:30 -0700
-Message-ID: <919da0a4-3a5c-8c88-bab5-6fc2bf557a48@gmail.com>
-References: <9235D6609DB808459E95D78E17F2E43D40956B56@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com, davem@davemloft.net,
-        netdev@vger.kernel.org, andrew@lunn.ch
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 00/16] mlxsw: Add Infiniband support for Mellanox switches
+Date: Fri, 28 Oct 2016 21:17:34 +0200
+Message-ID: <1477682270-7903-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, eladr@mellanox.com, idosch@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35544 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755815AbcJ1TBd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 15:01:33 -0400
-Received: by mail-pf0-f193.google.com with SMTP id s8so1952373pfj.2
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 12:01:33 -0700 (PDT)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40956B56@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34239 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756330AbcJ1TSF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 15:18:05 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p190so2418899wmp.1
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 12:18:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/28/2016 11:54 AM, Woojung.Huh@microchip.com wrote:
-> From: Woojung Huh <woojung.huh@microchip.com>
-> 
-> To utilize phylib with interrupt fully than handling some of phy stuff in the MAC driver,
-> create irq_domain for USB interrupt EP of phy interrupt and
-> pass the irq number to phy_connect_direct() instead of PHY_IGNORE_INTERRUPT.
-> 
-> Idea comes from drivers/gpio/gpio-dl2.c
-> 
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
-> ---
+From: Jiri Pirko <jiri@mellanox.com>
 
-> +static void lan78xx_irq_mask(struct irq_data *irqd)
-> +{
-> +	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-> +	struct lan78xx_net *dev =
-> +			container_of(data, struct lan78xx_net, domain_data);
-> +	u32 buf;
-> +
-> +	lan78xx_read_reg(dev, INT_EP_CTL, &buf);
+This patchset adds basic Infiniband support for SwitchX-2, Switch-IB
+and Switch-IB-2 ASIC drivers.
 
-lan78xx_read_reg() uses kmalloc() with GFP_KERNEL, while
-irq_mask/irq_unmask can be called in atomic context AFAIR, you may need
-to pass down a specific gfp_t to lan78xx_read_reg.
+SwitchX-2 ASIC is VPI capable, which means each port can be either
+Ethernet or Infiniband. When the port is configured as Infiniband,
+the Subnet Management Agent (SMA) is managed by the SwitchX-2 firmware
+and not by the host. Port configuration, MTU and more are configured
+remotely by the Subnet Manager (SM).
 
-What about usb_submit_urb(), can that work in atomic context? Do you
-need to have lan78xx_read_reg() acquire a raw spinlock or something to
-serialize them?
+Usage:
+        $ devlink port show
+        pci/0000:03:00.0/1: type eth netdev eth0
+        pci/0000:03:00.0/3: type eth netdev eth1
+        pci/0000:03:00.0/5: type eth netdev eth2
+        pci/0000:03:00.0/6: type eth netdev eth3
+        pci/0000:03:00.0/8: type eth netdev eth4
 
-> +	buf &= ~INT_EP_PHY_INT_EN_;
+        $ devlink port set pci/0000:03:00.0/1 type ib
 
-Even though you may have only one interrupt line to deal with at the
-moment, better make this bit derived from irqd->hwirq instead of hard
-coding it here.
+        $ devlink port show
+        pci/0000:03:00.0/1: type ib
 
-> +	lan78xx_write_reg(dev, INT_EP_CTL, buf);
-> +}
-> +
-> +static void lan78xx_irq_unmask(struct irq_data *irqd)
-> +{
-> +	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-> +	struct lan78xx_net *dev =
-> +			container_of(data, struct lan78xx_net, domain_data);
-> +	u32 buf;
-> +
-> +	lan78xx_read_reg(dev, INT_EP_CTL, &buf);
-> +	buf |= INT_EP_PHY_INT_EN_;
+Switch-IB (FDR) and Switch-IB-2 (EDR 100Gbs) ASICs are Infiniband-only
+switches. The support provided in the mlxsw_switchib.ko driver is port
+initialization only. The firmware running in the Silicon implements
+the SMA.
 
-Same here, this should come from irqd->hwirq.
+Please note that this patchset does only very basic port initialization.
+ib_device or RDMA implementations are not part of this patchset.
 
-> +	lan78xx_write_reg(dev, INT_EP_CTL, buf);
-> +}
-> +
-> +static struct irq_chip lan78xx_irqchip = {
-> +	.name		= "lan78xx-phyirq",
-> +	.irq_mask	= lan78xx_irq_mask,
-> +	.irq_unmask	= lan78xx_irq_unmask,
-> +};
-> +
-> +static int lan78xx_setup_irq_domain(struct lan78xx_net *dev)
-> +{
-> +	struct device_node *of_node;
-> +	struct irq_domain *irqdomain;
-> +	unsigned int irq_base = 0;
-> +	int ret = 0;
-> +
-> +	of_node = dev->udev->dev.parent->of_node;
-> +
-> +	dev->domain_data.irqchip = &lan78xx_irqchip;
-> +	dev->domain_data.irq_handler = handle_simple_irq;
-> +
-> +	irqdomain = irq_domain_add_simple(of_node, 1, 0, &chip_domain_ops,
-> +					  &dev->domain_data);
+Elad Raz (12):
+  mlxsw: core: Zero payload buffers for couple of registers
+  mlxsw: switchx2: Add support for physical port names
+  mlxsw: switchx2: Fix port speed configuration
+  mlxsw: reg: Add eth prefix to PTYS pack and unpack
+  mlxsw: reg: Add Infiniband support to PTYS
+  mlxsw: reg: Add local-port to Infiniband port mapping
+  mlxsw: switchx2: Add Infiniband switch partition
+  mlxsw: core: Add "eth" prefix to mlxsw_core_port_set
+  mlxsw: core: Add port type (Eth/IB) set API
+  mlxsw: switchx2: Add eth prefix to port create and remove
+  mlxsw: switchx2: Add IB port support
+  mlxsw: switchib: Introduce SwitchIB and SwitchIB silicon driver
 
-Is there really just one interrupt associated with this peripheral here?
+Jiri Pirko (4):
+  mlxsw: switchx2: Check if port is usable before calling port create
+  mlxsw: switchx2: Move port used check outside port remove function
+  mlxsw: spectrum: Move port used check outside port remove function
+  mlxsw: Make devlink port instances independent of spectrum/switchx2
+    port instances
 
->  
-> +	if (lan78xx_setup_irq_domain(dev) < 0) {
-> +		netdev_warn(dev->net, "lan78xx_setup_irq_domain() failed");
-> +		return -EIO;
-> +	}
-
-Any reason not to propagate the error code from
-lan78xx_setup_irq_domain() here?
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig      |  11 +
+ drivers/net/ethernet/mellanox/mlxsw/Makefile     |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/core.c       | 123 ++++-
+ drivers/net/ethernet/mellanox/mlxsw/core.h       |  32 +-
+ drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c |   4 +-
+ drivers/net/ethernet/mellanox/mlxsw/ib.h         |  39 ++
+ drivers/net/ethernet/mellanox/mlxsw/pci.h        |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/port.h       |   4 +
+ drivers/net/ethernet/mellanox/mlxsw/reg.h        | 104 +++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c   |  95 ++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h   |   1 -
+ drivers/net/ethernet/mellanox/mlxsw/switchib.c   | 598 +++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c   | 380 +++++++++++---
+ 13 files changed, 1258 insertions(+), 137 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/ib.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/switchib.c
 
 -- 
-Florian
+2.5.5
