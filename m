@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net caif: insert missing spaces in pr_* messages and
- unbreak multi-line strings
-Date: Fri, 28 Oct 2016 13:47:47 -0400 (EDT)
-Message-ID: <20161028.134747.1907524803559536162.davem@davemloft.net>
-References: <20161025111842.8110-1-colin.king@canonical.com>
+Subject: Re: [PATCH v2] LSO feature added to Cadence GEM driver
+Date: Fri, 28 Oct 2016 13:49:36 -0400 (EDT)
+Message-ID: <20161028.134936.1247072115293393188.davem@davemloft.net>
+References: <1477315088-28396-1-git-send-email-rafalo@cadence.com>
+        <1477397130-24250-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36726 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756237AbcJ1Rrs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 13:47:48 -0400
-In-Reply-To: <20161025111842.8110-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: rafalo@cadence.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477397130-24250-1-git-send-email-rafalo@cadence.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Tue, 25 Oct 2016 12:18:42 +0100
+From: Rafal Ozieblo <rafalo@cadence.com>
+Date: Tue, 25 Oct 2016 13:05:30 +0100
 
-> From: Colin Ian King <colin.king@canonical.com>
+> New Cadence GEM hardware support Large Segment Offload (LSO):
+> TCP segmentation offload (TSO) as well as UDP fragmentation
+> offload (UFO). Support for those features was added to the driver.
 > 
-> Some of the pr_* messages are missing spaces, so insert these and also
-> unbreak multi-line literal strings in pr_* messages
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
 
-Applied.
+Patch does not apply cleanly to net-next, please respin.
+
+Also please fix your Subject line, it should be of the form:
+
+	[PATCH net-next v2] cadence: Add LSO support.
