@@ -1,89 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/16] mlxsw: Add Infiniband support for Mellanox switches
-Date: Fri, 28 Oct 2016 21:17:34 +0200
-Message-ID: <1477682270-7903-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, eladr@mellanox.com, idosch@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net 1/3] sctp: hold transport instead of assoc in
+ sctp_diag
+Date: Fri, 28 Oct 2016 17:25:29 -0200
+Message-ID: <20161028192529.GB4193@localhost.localdomain>
+References: <cover.1477649076.git.lucien.xin@gmail.com>
+ <a58ed3a60643e38876a12ed9193e60f7b38cba4d.1477649076.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+        daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34239 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756330AbcJ1TSF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 15:18:05 -0400
-Received: by mail-wm0-f65.google.com with SMTP id p190so2418899wmp.1
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 12:18:04 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:45244 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756330AbcJ1TZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Oct 2016 15:25:33 -0400
+Content-Disposition: inline
+In-Reply-To: <a58ed3a60643e38876a12ed9193e60f7b38cba4d.1477649076.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Fri, Oct 28, 2016 at 06:10:52PM +0800, Xin Long wrote:
+> In sctp_transport_lookup_process(), Commit 1cceda784980 ("sctp: fix
+> the issue sctp_diag uses lock_sock in rcu_read_lock") moved cb() out
+> of rcu lock, but it put transport and hold assoc instead, and ignore
+> that cb() still uses transport. It may cause a use-after-free issue.
+> 
+> This patch is to hold transport instead of assoc there.
+> 
+> Fixes: 1cceda784980 ("sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-This patchset adds basic Infiniband support for SwitchX-2, Switch-IB
-and Switch-IB-2 ASIC drivers.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-SwitchX-2 ASIC is VPI capable, which means each port can be either
-Ethernet or Infiniband. When the port is configured as Infiniband,
-the Subnet Management Agent (SMA) is managed by the SwitchX-2 firmware
-and not by the host. Port configuration, MTU and more are configured
-remotely by the Subnet Manager (SM).
-
-Usage:
-        $ devlink port show
-        pci/0000:03:00.0/1: type eth netdev eth0
-        pci/0000:03:00.0/3: type eth netdev eth1
-        pci/0000:03:00.0/5: type eth netdev eth2
-        pci/0000:03:00.0/6: type eth netdev eth3
-        pci/0000:03:00.0/8: type eth netdev eth4
-
-        $ devlink port set pci/0000:03:00.0/1 type ib
-
-        $ devlink port show
-        pci/0000:03:00.0/1: type ib
-
-Switch-IB (FDR) and Switch-IB-2 (EDR 100Gbs) ASICs are Infiniband-only
-switches. The support provided in the mlxsw_switchib.ko driver is port
-initialization only. The firmware running in the Silicon implements
-the SMA.
-
-Please note that this patchset does only very basic port initialization.
-ib_device or RDMA implementations are not part of this patchset.
-
-Elad Raz (12):
-  mlxsw: core: Zero payload buffers for couple of registers
-  mlxsw: switchx2: Add support for physical port names
-  mlxsw: switchx2: Fix port speed configuration
-  mlxsw: reg: Add eth prefix to PTYS pack and unpack
-  mlxsw: reg: Add Infiniband support to PTYS
-  mlxsw: reg: Add local-port to Infiniband port mapping
-  mlxsw: switchx2: Add Infiniband switch partition
-  mlxsw: core: Add "eth" prefix to mlxsw_core_port_set
-  mlxsw: core: Add port type (Eth/IB) set API
-  mlxsw: switchx2: Add eth prefix to port create and remove
-  mlxsw: switchx2: Add IB port support
-  mlxsw: switchib: Introduce SwitchIB and SwitchIB silicon driver
-
-Jiri Pirko (4):
-  mlxsw: switchx2: Check if port is usable before calling port create
-  mlxsw: switchx2: Move port used check outside port remove function
-  mlxsw: spectrum: Move port used check outside port remove function
-  mlxsw: Make devlink port instances independent of spectrum/switchx2
-    port instances
-
- drivers/net/ethernet/mellanox/mlxsw/Kconfig      |  11 +
- drivers/net/ethernet/mellanox/mlxsw/Makefile     |   2 +
- drivers/net/ethernet/mellanox/mlxsw/core.c       | 123 ++++-
- drivers/net/ethernet/mellanox/mlxsw/core.h       |  32 +-
- drivers/net/ethernet/mellanox/mlxsw/core_hwmon.c |   4 +-
- drivers/net/ethernet/mellanox/mlxsw/ib.h         |  39 ++
- drivers/net/ethernet/mellanox/mlxsw/pci.h        |   2 +
- drivers/net/ethernet/mellanox/mlxsw/port.h       |   4 +
- drivers/net/ethernet/mellanox/mlxsw/reg.h        | 104 +++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c   |  95 ++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h   |   1 -
- drivers/net/ethernet/mellanox/mlxsw/switchib.c   | 598 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c   | 380 +++++++++++---
- 13 files changed, 1258 insertions(+), 137 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/ib.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/switchib.c
-
--- 
-2.5.5
+> ---
+>  net/sctp/socket.c | 5 +----
+>  1 file changed, 1 insertion(+), 4 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 9fbb6fe..71b75f9 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4480,12 +4480,9 @@ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+>  	if (!transport || !sctp_transport_hold(transport))
+>  		goto out;
+>  
+> -	sctp_association_hold(transport->asoc);
+> -	sctp_transport_put(transport);
+> -
+>  	rcu_read_unlock();
+>  	err = cb(transport, p);
+> -	sctp_association_put(transport->asoc);
+> +	sctp_transport_put(transport);
+>  
+>  out:
+>  	return err;
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
