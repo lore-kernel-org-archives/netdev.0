@@ -1,52 +1,61 @@
-From: Yangbo Lu <yangbo.lu@nxp.com>
-Subject: [v14, 1/8] dt: bindings: update Freescale DCFG compatible
-Date: Fri, 28 Oct 2016 13:45:14 +0800
-Message-ID: <1477633521-7391-2-git-send-email-yangbo.lu@nxp.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v14, 2/8] ARM64: dts: ls2080a: add device configuration node
+Date: Fri, 28 Oct 2016 13:45:15 +0800
+Message-ID: <1477633521-7391-3-git-send-email-yangbo.lu@nxp.com>
 References: <1477633521-7391-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <devicetree@vger.kernel.org>,
-        <linux-arm-kernel@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>, <linux-clk@vger.kernel.org>,
-        <linux-i2c@vger.kernel.org>, <iommu@lists.linux-foundation.org>,
-        <netdev@vger.kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Russell King <linux@arm.linux.org.uk>,
-        Jochen Friedrich <jochen@scram.de>,
-        Joerg Roedel <joro@8bytes.org>,
-        Claudiu Manoil <claudiu.manoil@freescale.com>,
-        Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-        Qiang Zhao <qiang.zhao@nxp.com>,
-        Kumar Gala <galak@codeaurora.org>,
-        Santosh Shilimkar <ssantosh@kernel.org>,
-        Leo Li <leoyang.li@nxp.com>, Xiaobo Xie <xiaobo.xie@nxp.com>,
-        Minghuan Lian
-To: <linux-mmc@vger.kernel.org>, <ulf.hansson@linaro.org>,
-        Scott Wood <oss@buserror.net>, Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-i2c-owner@vger.kernel.org>
-In-Reply-To: <1477633521-7391-1-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-i2c-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	Minghuan Lian <minghuan.lian-3arQi8VN3Tc@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Scott Wood
+	<oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1477633521-7391-1-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Update Freescale DCFG compatible with 'fsl,<chip>-dcfg' instead
-of 'fsl,ls1021a-dcfg' to include more chips such as ls1021a,
-ls1043a, and ls2080a.
+Add the dts node for device configuration unit that provides
+general purpose configuration and status for the device.
 
-Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Scott Wood <oss@buserror.net>
+Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
 ---
-Changes for v8:
+Changes for v5:
 	- Added this patch
+Changes for v6:
+	- None
+Changes for v7:
+	- None
+Changes for v8:
+	- Added 'Acked-by: Scott Wood'
 Changes for v9:
-	- Added a list for the possible compatibles
+	- None
 Changes for v10:
 	- None
 Changes for v11:
-	- Added 'Acked-by: Rob Herring'
-	- Updated commit message by Scott
+	- None
 Changes for v12:
 	- None
 Changes for v13:
@@ -54,25 +63,25 @@ Changes for v13:
 Changes for v14:
 	- None
 ---
- Documentation/devicetree/bindings/arm/fsl.txt | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/arm/fsl.txt b/Documentation/devicetree/bindings/arm/fsl.txt
-index dbbc095..713c1ae 100644
---- a/Documentation/devicetree/bindings/arm/fsl.txt
-+++ b/Documentation/devicetree/bindings/arm/fsl.txt
-@@ -119,7 +119,11 @@ Freescale DCFG
- configuration and status for the device. Such as setting the secondary
- core start address and release the secondary core from holdoff and startup.
-   Required properties:
--  - compatible: should be "fsl,ls1021a-dcfg"
-+  - compatible: should be "fsl,<chip>-dcfg"
-+    Possible compatibles:
-+	"fsl,ls1021a-dcfg"
-+	"fsl,ls1043a-dcfg"
-+	"fsl,ls2080a-dcfg"
-   - reg : should contain base address and length of DCFG memory-mapped registers
+diff --git a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
+index 337da90..c03b099 100644
+--- a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
++++ b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
+@@ -215,6 +215,12 @@
+ 			clocks = <&sysclk>;
+ 		};
  
- Example:
++		dcfg: dcfg@1e00000 {
++			compatible = "fsl,ls2080a-dcfg", "syscon";
++			reg = <0x0 0x1e00000 0x0 0x10000>;
++			little-endian;
++		};
++
+ 		serial0: serial@21c0500 {
+ 			compatible = "fsl,ns16550", "ns16550a";
+ 			reg = <0x0 0x21c0500 0x0 0x100>;
 -- 
 2.1.0.27.g96db324
