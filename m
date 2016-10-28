@@ -1,45 +1,51 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ipv6: add mtu lock check in __ip6_rt_update_pmtu
-Date: Fri, 28 Oct 2016 18:18:01 +0800
-Message-ID: <0726e9078aea71d7f6332b4639985565c5e6491b.1477649881.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33035 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758641AbcJ1KSH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 06:18:07 -0400
-Received: by mail-pf0-f194.google.com with SMTP id i85so896768pfa.0
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 03:18:06 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] mac80211: fils_aead: fix encrypt error handling
+Date: Fri, 28 Oct 2016 12:25:53 +0200
+Message-ID: <20161028102621.1881878-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jouni Malinen <jouni@qca.qualcomm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Prior to this patch, ipv6 didn't do mtu lock check in ip6_update_pmtu.
-It leaded to that mtu lock doesn't really work when receiving the pkt
-of ICMPV6_PKT_TOOBIG.
+gcc -Wmaybe-uninitialized reports a bug in aes_siv_encryp:
 
-This patch is to add mtu lock check in __ip6_rt_update_pmtu just as ipv4
-did in __ip_rt_update_pmtu.
+net/mac80211/fils_aead.c: In function ‘aes_siv_encrypt.constprop’:
+net/mac80211/fils_aead.c:84:26: error: ‘tfm2’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+At the time that the memory allocation fails, 'tfm2' has not been
+allocated, so we should not attempt to free it later, and we can
+simply return an error.
+
+Fixes: 39404feee691 ("mac80211: FILS AEAD protection for station mode association frames")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- net/ipv6/route.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/mac80211/fils_aead.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 947ed1d..7403d90 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1364,6 +1364,9 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
- 	if (rt6->rt6i_flags & RTF_LOCAL)
- 		return;
+diff --git a/net/mac80211/fils_aead.c b/net/mac80211/fils_aead.c
+index b81b4f2472cf..ecfdd97758a3 100644
+--- a/net/mac80211/fils_aead.c
++++ b/net/mac80211/fils_aead.c
+@@ -110,10 +110,8 @@ static int aes_siv_encrypt(const u8 *key, size_t key_len,
+ 	 * overwriting this during AES-CTR.
+ 	 */
+ 	tmp = kmemdup(plain, plain_len, GFP_KERNEL);
+-	if (!tmp) {
+-		res = -ENOMEM;
+-		goto fail;
+-	}
++	if (!tmp)
++		return -ENOMEM;
  
-+	if (dst_metric_locked(dst, RTAX_MTU))
-+		return;
-+
- 	dst_confirm(dst);
- 	mtu = max_t(u32, mtu, IPV6_MIN_MTU);
- 	if (mtu >= dst_mtu(dst))
+ 	/* IV for CTR before encrypted data */
+ 	memcpy(out, v, AES_BLOCK_SIZE);
 -- 
-2.1.0
+2.9.0
