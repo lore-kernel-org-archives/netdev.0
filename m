@@ -1,10 +1,8 @@
 From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v2 0/6] add NS2 support to bgmac
-Date: Fri, 28 Oct 2016 16:56:53 -0400
-Message-ID: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH v2 1/6] net: phy: broadcom: add bcm54xx_auxctl_read
+Date: Fri, 28 Oct 2016 16:56:54 -0400
+Message-ID: <1477688219-3871-2-git-send-email-jon.mason@broadcom.com>
+References: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
 Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
         netdev@vger.kernel.org, devicetree@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
@@ -13,49 +11,51 @@ To: David Miller <davem@davemloft.net>,
         Mark Rutland <mark.rutland@arm.com>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changes in v2:
-* Remove the PHY power-on (per Andrew Lunn)
-* Misc PHY clean-ups regarding comments and #defines (per Andrew Lunn)
-  This results on none of the original PHY code from Vikas being
-  present.  So, I'm removing him as an author and giving him
-  "Inspired-by" credit.
-* Move PHY lane swapping to PHY driver (per Andrew Lunn and Florian
-  Fainelli)
-* Remove bgmac sleep (per Florian Fainelli)
-* Re-add bgmac chip reset (per Florian Fainelli and Ray Jui)
-* Rebased on latest net-next
-* Added patch for bcm54xx_auxctl_read, which is used in the BCM54810
+Add a helper function to read the AUXCTL register for the BCM54xx.  This
+mirrors the bcm54xx_auxctl_write function already present in the code.
 
+Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+---
+ drivers/net/phy/broadcom.c | 10 ++++++++++
+ include/linux/brcmphy.h    |  1 +
+ 2 files changed, 11 insertions(+)
 
-Add support for the amac found in the Broadcom Northstar2 SoC to the
-bgmac driver.  This necessitates adding support to connect to an
-externally defined phy (as described in the device tree) in the driver.
-These phy changes are in addition to the changes necessary to get NS2
-working.
-
-
-Jon Mason (6):
-  net: phy: broadcom: add bcm54xx_auxctl_read
-  net: phy: broadcom: Add BCM54810 PHY entry
-  Documentation: devicetree: net: add NS2 bindings to amac
-  net: ethernet: bgmac: device tree phy enablement
-  net: ethernet: bgmac: add NS2 support
-  arm64: dts: NS2: add AMAC ethernet support
-
- .../devicetree/bindings/net/brcm,amac.txt          |   5 +-
- arch/arm64/boot/dts/broadcom/ns2-svk.dts           |   5 ++
- arch/arm64/boot/dts/broadcom/ns2.dtsi              |  12 +++
- drivers/net/ethernet/broadcom/bgmac-bcma.c         |  48 ++++++++++
- drivers/net/ethernet/broadcom/bgmac-platform.c     | 100 ++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bgmac.c              |  55 ++----------
- drivers/net/ethernet/broadcom/bgmac.h              |   8 ++
- drivers/net/phy/Kconfig                            |   2 +-
- drivers/net/phy/broadcom.c                         |  68 +++++++++++++-
- include/linux/brcmphy.h                            |  11 +++
- 10 files changed, 260 insertions(+), 54 deletions(-)
-
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 583ef8a..3a64b3d 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -30,6 +30,16 @@ MODULE_DESCRIPTION("Broadcom PHY driver");
+ MODULE_AUTHOR("Maciej W. Rozycki");
+ MODULE_LICENSE("GPL");
+ 
++static int bcm54xx_auxctl_read(struct phy_device *phydev, u16 regnum)
++{
++	/* The register must be written to both the Shadow Register Select and
++	 * the Shadow Read Register Selector
++	 */
++	phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum |
++		  regnum << MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT);
++	return phy_read(phydev, MII_BCM54XX_AUX_CTL);
++}
++
+ static int bcm54xx_auxctl_write(struct phy_device *phydev, u16 regnum, u16 val)
+ {
+ 	return phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum | val);
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 60def78..0ed6691 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -110,6 +110,7 @@
+ #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
+ #define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
+ #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
++#define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
+ 
+ #define MII_BCM54XX_AUXCTL_SHDWSEL_MASK	0x0007
+ 
 -- 
 2.7.4
