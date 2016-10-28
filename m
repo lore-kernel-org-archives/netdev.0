@@ -1,45 +1,53 @@
-From: Stefan Schmidt <stefan@datenfreihafen.org>
-Subject: [PATCH iproute2] ip: update link types to show 6lowpan and ieee802.15.4 monitor
-Date: Fri, 28 Oct 2016 11:42:03 +0200
-Message-ID: <1477647723-14641-1-git-send-email-stefan@datenfreihafen.org>
-Cc: netdev@vger.kernel.org, linux-wpan@vger.kernel.org,
-        Stefan Schmidt <stefan@datenfreihafen.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 1/3] sctp: hold transport instead of assoc in sctp_diag
+Date: Fri, 28 Oct 2016 18:10:52 +0800
+Message-ID: <a58ed3a60643e38876a12ed9193e60f7b38cba4d.1477649076.git.lucien.xin@gmail.com>
+References: <cover.1477649076.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lasnet.de ([78.47.171.185]:59532 "EHLO
-        proxima.lasnet.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936169AbcJ1Jr1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 05:47:27 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:32958 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758738AbcJ1KLH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 06:11:07 -0400
+In-Reply-To: <cover.1477649076.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1477649076.git.lucien.xin@gmail.com>
+References: <cover.1477649076.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both types have been missing here and thus ip always showed
-only the numbers.
+In sctp_transport_lookup_process(), Commit 1cceda784980 ("sctp: fix
+the issue sctp_diag uses lock_sock in rcu_read_lock") moved cb() out
+of rcu lock, but it put transport and hold assoc instead, and ignore
+that cb() still uses transport. It may cause a use-after-free issue.
 
-Based on a suggestion from Alexander Aring.
+This patch is to hold transport instead of assoc there.
 
-Signed-off-by: Stefan Schmidt <stefan@datenfreihafen.org>
+Fixes: 1cceda784980 ("sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- lib/ll_types.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/sctp/socket.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/lib/ll_types.c b/lib/ll_types.c
-index 2c5bf8b..eca617f 100644
---- a/lib/ll_types.c
-+++ b/lib/ll_types.c
-@@ -100,11 +100,13 @@ __PF(IEEE80211,ieee802.11)
- __PF(IEEE80211_PRISM,ieee802.11/prism)
- __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
- __PF(IEEE802154, ieee802.15.4)
-+__PF(IEEE802154_MONITOR, ieee802.15.4/monitor)
- __PF(PHONET, phonet)
- __PF(PHONET_PIPE, phonet_pipe)
- __PF(CAIF, caif)
- __PF(IP6GRE, gre6)
- __PF(NETLINK, netlink)
-+__PF(6LOWPAN, 6lowpan)
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 9fbb6fe..71b75f9 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4480,12 +4480,9 @@ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+ 	if (!transport || !sctp_transport_hold(transport))
+ 		goto out;
  
- __PF(NONE, none)
- __PF(VOID,void)
+-	sctp_association_hold(transport->asoc);
+-	sctp_transport_put(transport);
+-
+ 	rcu_read_unlock();
+ 	err = cb(transport, p);
+-	sctp_association_put(transport->asoc);
++	sctp_transport_put(transport);
+ 
+ out:
+ 	return err;
 -- 
-2.5.5
+2.1.0
