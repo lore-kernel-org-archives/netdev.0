@@ -1,93 +1,78 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Fri, 28 Oct 2016 08:56:35 -0700
-Message-ID: <58137533.4030105@gmail.com>
-References: <20161028011739-mutt-send-email-mst@kernel.org>
- <20161027.213512.334468356710231957.davem@davemloft.net>
- <CAKgT0Ufe3QYtFpmtsL39-nbyy+YEt=gZKU_WUr9Wir+LTYLuEQ@mail.gmail.com>
- <20161027.221027.109834362557507518.davem@davemloft.net>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH v2] ip6_tunnel: Clear IP6CB in ip6_tnl_xmit() after
+ encapsulation
+Date: Fri, 28 Oct 2016 19:07:57 +0300
+Message-ID: <20161028190757.26be756c@halley>
+References: <20161028015241.23258-1-elicooper@gmx.com>
+        <CALx6S36O_MUQw4vWKUoW-ZgCTg9PJrPjNHwuEWTDG9t=BxQv3w@mail.gmail.com>
+        <9a1bb72b-246d-021a-236c-f523832964ac@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, brouer@redhat.com, shrijeet@gmail.com,
-        tom@herbertland.com, netdev@vger.kernel.org,
-        shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>, alexander.duyck@gmail.com
+Cc: Tom Herbert <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>
+To: Eli Cooper <elicooper@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35002 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761439AbcJ1P4w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 11:56:52 -0400
-Received: by mail-pf0-f193.google.com with SMTP id s8so1608329pfj.2
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 08:56:52 -0700 (PDT)
-In-Reply-To: <20161027.221027.109834362557507518.davem@davemloft.net>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38573 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756354AbcJ1QIL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 12:08:11 -0400
+Received: by mail-wm0-f42.google.com with SMTP id n67so124199273wme.1
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 09:08:10 -0700 (PDT)
+In-Reply-To: <9a1bb72b-246d-021a-236c-f523832964ac@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-10-27 07:10 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.duyck@gmail.com>
-> Date: Thu, 27 Oct 2016 18:43:59 -0700
-> 
->> On Thu, Oct 27, 2016 at 6:35 PM, David Miller <davem@davemloft.net> wrote:
->>> From: "Michael S. Tsirkin" <mst@redhat.com>
->>> Date: Fri, 28 Oct 2016 01:25:48 +0300
->>>
->>>> On Thu, Oct 27, 2016 at 05:42:18PM -0400, David Miller wrote:
->>>>> From: "Michael S. Tsirkin" <mst@redhat.com>
->>>>> Date: Fri, 28 Oct 2016 00:30:35 +0300
->>>>>
->>>>>> Something I'd like to understand is how does XDP address the
->>>>>> problem that 100Byte packets are consuming 4K of memory now.
->>>>>
->>>>> Via page pools.  We're going to make a generic one, but right now
->>>>> each and every driver implements a quick list of pages to allocate
->>>>> from (and thus avoid the DMA man/unmap overhead, etc.)
->>>>
->>>> So to clarify, ATM virtio doesn't attempt to avoid dma map/unmap
->>>> so there should be no issue with that even when using sub/page
->>>> regions, assuming DMA APIs support sub-page map/unmap correctly.
->>>
->>> That's not what I said.
->>>
->>> The page pools are meant to address the performance degradation from
->>> going to having one packet per page for the sake of XDP's
->>> requirements.
->>>
->>> You still need to have one packet per page for correct XDP operation
->>> whether you do page pools or not, and whether you have DMA mapping
->>> (or it's equivalent virutalization operation) or not.
->>
->> Maybe I am missing something here, but why do you need to limit things
->> to one packet per page for correct XDP operation?  Most of the drivers
->> out there now are usually storing something closer to at least 2
->> packets per page, and with the DMA API fixes I am working on there
->> should be no issue with changing the contents inside those pages since
->> we won't invalidate or overwrite the data after the DMA buffer has
->> been synchronized for use by the CPU.
-> 
-> Because with SKB's you can share the page with other packets.
-> 
-> With XDP you simply cannot.
-> 
-> It's software semantics that are the issue.  SKB frag list pages
-> are read only, XDP packets are writable.
-> 
-> This has nothing to do with "writability" of the pages wrt. DMA
-> mapping or cpu mappings.
-> 
+Hi,
 
-Sorry I'm not seeing it either. The current xdp_buff is defined
-by,
+On Fri, 28 Oct 2016 13:13:45 +0800 Eli Cooper <elicooper@gmx.com> wrote:
+> So I think it is best that all the
+> IP6CB gets cleared before it is pushed to the next layer.
 
-  struct xdp_buff {
-	void *data;
-	void *data_end;
-  };
+Just a comparison to the ipv4 world:
 
-The verifier has an xdp_is_valid_access() check to ensure we don't go
-past data_end. The page for now at least never leaves the driver. For
-the work to get xmit to other devices working I'm still not sure I see
-any issue.
+All tunnels (udp/ip based) end up calling iptunnel_xmit(), which:
+ - scrubs the skb
+ - clears any IPCB residues
+ - installs the iphdr
+ - invokes ip_local_out()
 
-.John
+OTOH ip6_tnl_xmit:
+ - scrubs the skb
+ - installs the ipv6hdr
+ - invokes ip6tunnel_xmit() - a thin wrapper to ip6_local_out()
+ * missing: clearing cb
+
+And OTOH udp_tunnel6_xmit_skb:
+ - clears IPCB(skb)->opt and some IPCB(skb)->flags
+   (why these 2 explicitly? and why at this point? and IPCB is no longer
+    relevant...)
+ - installs the ipv6hdr
+ - invokes ip6tunnel_xmit() - a thin wrapper to ip6_local_out()
+ * missing: scrub, clearing cb
+
+> Maybe we
+> should clear IP6CB in ip6tunnel_xmit(), rather than in every tunnel's codes?
+
+This seems reasonable.
+
+A potential issue might be whether it needs to be done earlier, although
+I've reviewed current versions of both 'ip6_tnl_xmit' and
+'udp_tunnel6_xmit_skb' and it looks okay. But please verify.
+
+> By the way, I don't see any point in setting IPCB(skb)->flags in
+> udp_tunnel6_xmit_skb(). It will not be interpreted as IPCB any further
+> past ip6tunnel_xmit(), even if it were not cleared. Plus, nothing seems
+> to use these flags anyway.
+
+This seems right.
+
+It was introduced in 6a93cc9052 "udp-tunnel: Add a few more UDP tunnel APIs".
+
+If you checkout that tree, you'll notice same treatment to
+IPCB(skb)->opt and IPCB(skb)->flags in l2tp_xmit_skb... maybe it was
+just copied ;-)
+
+Best,
+Shmulik
