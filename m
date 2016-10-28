@@ -1,34 +1,58 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 0/3]  sctp: a bunch of fixes by holding transport
-Date: Fri, 28 Oct 2016 18:10:51 +0800
-Message-ID: <cover.1477649076.git.lucien.xin@gmail.com>
+Subject: [PATCH net 2/3] sctp: return back transport in __sctp_rcv_init_lookup
+Date: Fri, 28 Oct 2016 18:10:53 +0800
+Message-ID: <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
+References: <cover.1477649076.git.lucien.xin@gmail.com>
+ <a58ed3a60643e38876a12ed9193e60f7b38cba4d.1477649076.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35300 "EHLO
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:32978 "EHLO
         mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758738AbcJ1KLB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 06:11:01 -0400
+        with ESMTP id S1758738AbcJ1KLL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 06:11:11 -0400
+In-Reply-To: <a58ed3a60643e38876a12ed9193e60f7b38cba4d.1477649076.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1477649076.git.lucien.xin@gmail.com>
+References: <cover.1477649076.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are several places where it holds assoc after getting transport by
-searching from transport rhashtable, it may cause use-after- free issue.
+Prior to this patch, it used a local variable to save the transport that is
+looked up by __sctp_lookup_association(), and didn't return it back. But in
+sctp_rcv, it is used to initialize chunk->transport. So when hitting this
+code, it was initializing chunk->transport with some random stack value
+instead.
 
-This patchset is to fix them by holding transport instead.
+This patch is to return the transport back through transport pointer
+that is from __sctp_rcv_lookup_harder().
 
-Xin Long (3):
-  sctp: hold transport instead of assoc in sctp_diag
-  sctp: return back transport in __sctp_rcv_init_lookup
-  sctp: hold transport instead of assoc when lookup assoc in rx path
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/input.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
- include/net/sctp/sctp.h |  2 +-
- net/sctp/input.c        | 35 +++++++++++++++++------------------
- net/sctp/ipv6.c         |  2 +-
- net/sctp/socket.c       |  5 +----
- 4 files changed, 20 insertions(+), 24 deletions(-)
-
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index a2ea1d1..8e0bc58 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -1021,7 +1021,6 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
+ 	struct sctphdr *sh = sctp_hdr(skb);
+ 	union sctp_params params;
+ 	sctp_init_chunk_t *init;
+-	struct sctp_transport *transport;
+ 	struct sctp_af *af;
+ 
+ 	/*
+@@ -1052,7 +1051,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
+ 
+ 		af->from_addr_param(paddr, params.addr, sh->source, 0);
+ 
+-		asoc = __sctp_lookup_association(net, laddr, paddr, &transport);
++		asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
+ 		if (asoc)
+ 			return asoc;
+ 	}
 -- 
 2.1.0
