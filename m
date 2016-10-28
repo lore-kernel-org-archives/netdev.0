@@ -1,51 +1,83 @@
-From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] mac80211: fix incorrect error return path on tmp allocation failure
-Date: Fri, 28 Oct 2016 19:08:24 +0100
-Message-ID: <20161028180824.7110-1-colin.king@canonical.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 03/27] swiotlb: Add support for DMA_ATTR_SKIP_CPU_SYNC
+Date: Fri, 28 Oct 2016 11:09:26 -0700
+Message-ID: <CAKgT0UeG7HXCx7xpyFa5u5ytUEd4s3oor5AX-8b8UbDrqvOgUw@mail.gmail.com>
+References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161025153703.4815.13673.stgit@ahduyck-blue-test.jf.intel.com> <20161028173430.GE5112@char.us.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+	Jesper Dangaard Brouer <brouer@redhat.com>, David Miller <davem@davemloft.net>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161028173430.GE5112@char.us.oracle.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+On Fri, Oct 28, 2016 at 10:34 AM, Konrad Rzeszutek Wilk
+<konrad.wilk@oracle.com> wrote:
+> On Tue, Oct 25, 2016 at 11:37:03AM -0400, Alexander Duyck wrote:
+>> As a first step to making DMA_ATTR_SKIP_CPU_SYNC apply to architectures
+>> beyond just ARM I need to make it so that the swiotlb will respect the
+>> flag.  In order to do that I also need to update the swiotlb-xen since it
+>> heavily makes use of the functionality.
+>>
+>> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+>
+> I am pretty sure I acked it the RFC. Was there a particular
+> reason (this is very different from the RFC?) you dropped my ACk?
+>
+> Thanks.
 
-The current exit path when tmp fails to be allocated is via the
-fail label which frees tfm2 which has not yet been allocated,
-which is problematic since tfm2 is not initialized and is a garbage
-pointer. Fix this by exiting directly to the return at the end
-of the function and hence avoiding the freeing of tfm2.
+If I recall you had acked patch 1, but for 2 you had some review
+comments on and suggested I change a few things.  What was patch 2 in
+the RFC was split out into patches 2 and 3.  That is why I didn't
+include an Ack from you for those patches.
 
-Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- net/mac80211/fils_aead.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Patch 2 is a fix for Xen to address the fact that you could return
+either 0 or ~0.  It was part of patch 2 originally and I pulled it out
+into a separate patch.
 
-diff --git a/net/mac80211/fils_aead.c b/net/mac80211/fils_aead.c
-index b81b4f24..c114737 100644
---- a/net/mac80211/fils_aead.c
-+++ b/net/mac80211/fils_aead.c
-@@ -112,7 +112,7 @@ static int aes_siv_encrypt(const u8 *key, size_t key_len,
- 	tmp = kmemdup(plain, plain_len, GFP_KERNEL);
- 	if (!tmp) {
- 		res = -ENOMEM;
--		goto fail;
-+		goto fail_ret;
- 	}
- 
- 	/* IV for CTR before encrypted data */
-@@ -150,6 +150,7 @@ static int aes_siv_encrypt(const u8 *key, size_t key_len,
- fail:
- 	kfree(tmp);
- 	crypto_free_skcipher(tfm2);
-+fail_ret:
- 	return res;
- }
- 
--- 
-2.9.3
+Patch 3 does most of what patch 2 in the RFC was doing before with
+fixes to address the fact that I was moving some code to avoid going
+over 80 characters.  I found a different way to fix that by just
+updating attrs before using it instead of ORing in the value when
+passing it as a parameter.
+
+>> @@ -558,11 +560,12 @@ void xen_swiotlb_unmap_page(struct device *hwdev, dma_addr_t dev_addr,
+>>                                                                start_dma_addr,
+>>                                                                sg_phys(sg),
+>>                                                                sg->length,
+>> -                                                              dir);
+>> +                                                              dir, attrs);
+>>                       if (map == SWIOTLB_MAP_ERROR) {
+>>                               dev_warn(hwdev, "swiotlb buffer is full\n");
+>>                               /* Don't panic here, we expect map_sg users
+>>                                  to do proper error handling. */
+>> +                             attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+>>                               xen_swiotlb_unmap_sg_attrs(hwdev, sgl, i, dir,
+>>                                                          attrs);
+>>                               sg_dma_len(sgl) = 0;
+
+The biggest difference from patch 2 in the RFC is right here.  This
+code before was moving this off to the end of the function and adding
+a label which I then jumped to.  I just ORed the
+DMA_ATTR_SKIP_CPU_SYNC into attrs and skipped the problem entirely.
+It should be harmless to do this way since attrs isn't used anywhere
+else once we have had the error.
+
+I hope that helps to clear it up.  So if you want I will add your
+Acked-by for patches 2 and 3, but I just wanted to make sure this
+worked with the changes you suggested.
+
+Thanks.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
