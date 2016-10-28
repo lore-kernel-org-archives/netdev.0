@@ -1,163 +1,220 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v2 5/6] net: ethernet: bgmac: add NS2 support
-Date: Fri, 28 Oct 2016 16:56:58 -0400
-Message-ID: <1477688219-3871-6-git-send-email-jon.mason@broadcom.com>
-References: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: at803x: the Atheros 8031 supports pause frames
+Date: Fri, 28 Oct 2016 14:03:59 -0700
+Message-ID: <144cc092-f04d-f5eb-503c-51e87c214b66@gmail.com>
+References: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
+ <f34cd143-bf04-c17f-b3d6-e3077715a72a@gmail.com>
+ <58127E8E.4020301@codeaurora.org>
+ <9b817af9-a519-9010-e57b-8de8972088b8@gmail.com>
+ <5813AFC1.50506@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+        zefir.kurtisi@neratec.com, scampbel@codeaurora.org,
+        alokc@codeaurora.org, shankerd@codeaurora.org, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33175 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965495AbcJ1U5U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 16:57:20 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 197so43077188pfu.0
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 13:57:20 -0700 (PDT)
-In-Reply-To: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34821 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761918AbcJ1VED (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 17:04:03 -0400
+Received: by mail-pf0-f193.google.com with SMTP id s8so2154969pfj.2
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 14:04:03 -0700 (PDT)
+In-Reply-To: <5813AFC1.50506@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the variant of amac hardware present in the Broadcom
-Northstar2 based SoCs.  Northstar2 requires an additional register to be
-configured with the port speed/duplexity (NICPM).  This can be added to
-the link callback to hide it from the instances that do not use this.
-Also, clearing of the pending interrupts on init is required due to
-observed issues on some platforms.
+On 10/28/2016 01:06 PM, Timur Tabi wrote:
+> Florian Fainelli wrote:
+>> On 10/27/2016 03:24 PM, Timur Tabi wrote:
+>>> Florian Fainelli wrote:
+>>>
+>>>> Hu? In my experience that should not come from supporting Pause frames
+>>>> or not, but rather properly configuring a (RG)MII delay, but your
+>>>> mileage may vary.
+>>>
+>>> I can assure you, I'm more confused than you.  I've been working in this
+>>> for almost two weeks, and not only does this patch align with other phy
+>>> drivers, but it does fix my bug.  Without this patch, phylib does not
+>>> set the pause frame bits (10 and 11) in MII_ADVERTISE.
+>>
+>> And that's expected, but if your MAC does not act upon phydev->pause and
+>> phydev->asym_pause, then chances are that you can indeed lose packets
+>> every once in a while.
+> 
+> Can you give me more details on that?  I'm not really an expert on our
+> MAC, so I'm not sure how it's supposed to work.  The MAC supports the
+> concept of "flow control".  The non-upstream version of my driver reads
+> PHY register 0x11, which apparently is a PHY-specific status register
+> that says whether or not "transmit pause" and "receive pause" is
+> enabled.  (The AT8031 datasheet is here, if you'd like to read it:
+> http://www.datasheet-pdf.com/datasheet/AtherosCommunications/734720/AR8031.pdf.html).
 
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
----
- drivers/net/ethernet/broadcom/bgmac-platform.c | 56 +++++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bgmac.c          |  3 ++
- drivers/net/ethernet/broadcom/bgmac.h          |  1 +
- 3 files changed, 58 insertions(+), 2 deletions(-)
+How it works is that you read phydev->pause and phydev->asym_pause to
+know what your link partner advertises in terms of flow control/pause
+frame (they are the same thing here). Based on that, and your local
+settings (from ethool -A) you advertise/enable flow control as well or
+don't do it, and the result is either both agree on what is being used,
+flow control is enabled, end-to-end, or it is not. It's exactly the same
+thing as speed, except that there is a possibly to do asymetric things,
+where flow control is only enabled in one direction or the other.
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
-index aed5dc5..f6d48c7 100644
---- a/drivers/net/ethernet/broadcom/bgmac-platform.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
-@@ -14,12 +14,21 @@
- #define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
- 
- #include <linux/bcma/bcma.h>
-+#include <linux/brcmphy.h>
- #include <linux/etherdevice.h>
- #include <linux/of_address.h>
- #include <linux/of_mdio.h>
- #include <linux/of_net.h>
- #include "bgmac.h"
- 
-+#define NICPM_IOMUX_CTRL		0x00000008
-+
-+#define NICPM_IOMUX_CTRL_INIT_VAL	0x3196e000
-+#define NICPM_IOMUX_CTRL_SPD_SHIFT	10
-+#define NICPM_IOMUX_CTRL_SPD_10M	0
-+#define NICPM_IOMUX_CTRL_SPD_100M	1
-+#define NICPM_IOMUX_CTRL_SPD_1000M	2
-+
- static u32 platform_bgmac_read(struct bgmac *bgmac, u16 offset)
- {
- 	return readl(bgmac->plat.base + offset);
-@@ -87,12 +96,46 @@ static void platform_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offset,
- 	WARN_ON(1);
- }
- 
-+static void bgmac_nicpm_speed_set(struct net_device *net_dev)
-+{
-+	struct bgmac *bgmac = netdev_priv(net_dev);
-+	u32 val;
-+
-+	if (!bgmac->plat.nicpm_base)
-+		return;
-+
-+	val = NICPM_IOMUX_CTRL_INIT_VAL;
-+	switch (bgmac->net_dev->phydev->speed) {
-+	default:
-+		pr_err("Unsupported speed.  Defaulting to 1000Mb\n");
-+	case SPEED_1000:
-+		val |= NICPM_IOMUX_CTRL_SPD_1000M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-+		break;
-+	case SPEED_100:
-+		val |= NICPM_IOMUX_CTRL_SPD_100M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-+		break;
-+	case SPEED_10:
-+		val |= NICPM_IOMUX_CTRL_SPD_10M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-+		break;
-+	}
-+
-+	writel(val, bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
-+
-+	bgmac_adjust_link(bgmac->net_dev);
-+}
-+
- static int platform_phy_connect(struct bgmac *bgmac)
- {
- 	struct phy_device *phy_dev;
- 
--	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
--					 bgmac_adjust_link);
-+	if (bgmac->plat.nicpm_base)
-+		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-+						 bgmac->dev->of_node,
-+						 bgmac_nicpm_speed_set);
-+	else
-+		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-+						 bgmac->dev->of_node,
-+						 bgmac_adjust_link);
- 	if (!phy_dev) {
- 		dev_err(bgmac->dev, "Phy connect failed\n");
- 		return -ENODEV;
-@@ -182,6 +225,14 @@ static int bgmac_probe(struct platform_device *pdev)
- 	if (IS_ERR(bgmac->plat.idm_base))
- 		return PTR_ERR(bgmac->plat.idm_base);
- 
-+	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");
-+	if (regs) {
-+		bgmac->plat.nicpm_base = devm_ioremap_resource(&pdev->dev,
-+							       regs);
-+		if (IS_ERR(bgmac->plat.nicpm_base))
-+			return PTR_ERR(bgmac->plat.nicpm_base);
-+	}
-+
- 	bgmac->read = platform_bgmac_read;
- 	bgmac->write = platform_bgmac_write;
- 	bgmac->idm_read = platform_bgmac_idm_read;
-@@ -213,6 +264,7 @@ static int bgmac_remove(struct platform_device *pdev)
- static const struct of_device_id bgmac_of_enet_match[] = {
- 	{.compatible = "brcm,amac",},
- 	{.compatible = "brcm,nsp-amac",},
-+	{.compatible = "brcm,ns2-amac",},
- 	{},
- };
- 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 4584958..a805cc8 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1082,6 +1082,9 @@ static void bgmac_enable(struct bgmac *bgmac)
- /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
- static void bgmac_chip_init(struct bgmac *bgmac)
- {
-+	/* Clear any erroneously pending interrupts */
-+	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
-+
- 	/* 1 interrupt per received frame */
- 	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
- 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index ea52ac3..b1820ea 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -463,6 +463,7 @@ struct bgmac {
- 		struct {
- 			void *base;
- 			void *idm_base;
-+			void *nicpm_base;
- 		} plat;
- 		struct {
- 			struct bcma_device *core;
+The way this works is this:
+
+You transmit data, faster than your link partner can process it (busy
+receiving, loaded, you name it), it sends back Pause frames back at you
+(see below for how this is typically implemented), your MAC gets these
+Pause frames back, which feed into the transmit logic, your TX
+completion interrupt gets signaled slower than the actual data rate you
+are pushing to your link partner, you call dev_kfree_skb() a little
+slower from your TX completion handler, the networking stack knows this
+means to back off, your transmission rate adjusts to your link partner's
+processing capability, no packets get lost.
+
+Conversely, if you were receiving a stream of packets that you have a
+hard time keeping up with, the part of your Ethernet MAC that fills
+system memory with packets should realize that it is producing them
+faster than you are consuming them, this triggers the flow control
+mechanism of your MAC receiver, and it sends Pause frames back at the
+link partner.
+
+> 
+> 
+> If both are enabled in the PHY, then the driver enables the same
+> features in the MAC.  Unfortunately, I don't have any documentation that
+> explains that that really means.  I've tried enabling and disabling this
+> feature in the MAC, and it makes no difference.  You would think that if
+> the feature is disabled in both the MAC and the PHY, then no packets
+> would be lost, but that's not the case.
+
+The PHY does not participate in flow control, other than passing frames
+through (and your Atheros PHY may have a register to control that
+passthrough, but that would be surprising, could not find one).
+
+> 
+>> The part that is totally crappy about Pause frames and PHYLIB is that we
+>> need some information about whether this should be supported or not,
+>> such that we can change MII_ADVERTISE accordingly to reflect that, and
+>> what best way to do this than use one of these SUPPORTED_* bits to set
+>> that, except, that unlike speed (which is both a MAC and PHY property),
+>> Pause is exclusively MAC, yet, it transpires in PHYLIB.
+> 
+> Then what do those bits in register 0x11 do?  If I don't set them, I
+> lose packets, no matter how my MAC is programmed.
+
+This is just a status register, as you can see, all bits are read-only,
+it just aggregates the resolution of what is advertised and what is
+negotiated, which is not without value, but PHYLIB does the same
+intersection here.
+
+> 
+> It's like that joke, "Doctor, if I hold my arm like this, then it
+> hurts!", "Well, then don't hold your arm like that."  If I don't program
+> those PHY register bits, then my hardware doesn't work.
+> 
+>> MACs that I work with for instance need to be told to ignore pause
+>> frames, or not ignore them, it all depends on what you want to
+>> advertise/support.
+> 
+> That's the problem, I don't know what I "want", except that I want my
+> hardware to work. :-)  99% of my knowledge of the hardware comes from
+> scanning the source code of the internal version of the driver that 1)
+> does not support phylib,  and 2) is hard-coded to initialize the Atheros
+> 8031 PHY.
+
+May I suggest reading about standards a bit more, or just looking at
+other drivers, like tg3.c.
+
+> 
+>>>> It does not, support for Pause frames is a MAC-level feature, yet,
+>>>> PHYLIB (and that's been on my todo for a while now) insists on
+>>>> reporting
+>>>> the confusing phydev->pause and phydev->asym_pause, which really is
+>>>> what
+>>>> has been determined from auto-negotiating with your partner, as opposed
+>>>> to being a supported thing or not. The PHY has absolutely not business
+>>>> in that.
+>>>
+>>> But there are pause frame bits in the MII_ADVERTISE register, and this
+>>> setting directly impacts whether those bits are set.  I don't see how
+>>> this is a MAC-level feature.
+>>
+>> This is a MAC level feature, that needs to be auto-negotiated with your
+>> link partner, which is why there is room for this in MII_ADVERTISE, but
+>> the PHY absolutely does not participate in Pause frames, other than
+>> passing them through the MAC, like normal frames. Whether your MAC acts
+>> upon that or not is a MAC dependent feature.
+> 
+> Ok, to me that means that the PHY driver must tell phylib whether or not
+> it supports pause frames.  The question becomes:
+> 
+> 1) Is my patch correct?
+> 2) Is my patch necessary?
+> 3) Is my patch sufficient?
+
+Your patch is correct but also insufficient, although, as indicated
+before, there is an misconception with PHY drivers that they should be
+setting SUPPORTED_*Pause* bits, the MAC should do that, based on what it
+does, anyway, but more importantly you need to have your Ethernet MAC
+react properly upon what the auto-negotiation and locally configured
+pause/flow control settings are, and configure the Ethernet MAC accordingly.
+
+When you want pause frames to be enabled, you need to advertise them,
+and in order to do so, you need to set phydev->supported to have
+SUPPORTED_Pause and SUPPORTED_AsymPause, and call genphy_restart_aneg()
+to transfer that to a write to the MII_ADVERTISE register, resulting in
+your link partner to see that you now support Pause frames. Since pause
+frames are now in use, you want your Ethernet MAC, not to ignore pause
+frames (have flow control enabled).
+
+> 
+> 1) I believe my patch is correct, because many other PHY drivers do the
+> same thing for the same reason.  If the PHY supports register 4 bits 10
+> and 11, then those SUPPORTED_xxx bits should be set.
+> 
+> 2) I don't know why my patch appears to be necessary, because I don't
+> understand why a 1Gb NIC on a 2Ghz processor drops frames.  I suspect
+> the program is not performance but rather a mis-programming.
+> 
+> 4) Is my patch sufficient?  The internal driver always enables pause
+> frame support in the PHY if the PHY says that pause frames are enabled.
+>  In fact, I can't even turn off flow control in the internal driver:
+
+Please stop abusing this "PHY says", the PHY advertises what it is being
+told to advertise, by the MAC...
+
+> 
+> $ sudo ethtool -A eth1 tx off rx off
+> $ sudo ethtool -a eth1
+> Pause parameters for eth1:
+> Autonegotiate:  on
+> RX:             on
+> TX:             on
+> 
+> The driver insists on leaving flow control enabled if autonegotiation is
+> enabled.
+
+Actually, the driver forces the enabling of flow control in the MAC,
+period, but does not do anything with the auto-negotiation results, or I
+could not spot it.
+
+This was spotted in the review, but not addressed, but your adjust_link
+callback seems completely bogus, it does a full MAC stop,
+reconfiguration and restart, that is at best unnecessary and costly, but
+it also misses a few things and does not act upon reading phydev->pause
+and phydev->asym_pause to set or clear TXFC and RXFC, that really seems
+to be your problem here.
+
+Here is what could possibly go wrong right now:
+
+- your Ethernet MAC unconditionally enables flow control at the MAC
+level, but does not advertise support for that in MII_ADVERTISE until
+you set SUPPORTED_Pause and SUPPORTED_Asym_Pause in the PHY driver, fair
+enough
+
+- the link partner you are testing against does not keep up well with
+your transmit rates, but supports flow control, so Pause frames that it
+sends back at you to tell you to stop transmitting so quickly just get
+ignored, because not being advertised, you experience packet loss
 -- 
-2.7.4
+Florian
