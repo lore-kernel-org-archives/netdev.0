@@ -1,61 +1,44 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [v15, 6/7] base: soc: introduce soc_device_match() interface
-Date: Fri, 28 Oct 2016 12:47:54 +0200
-Message-ID: <2572890.e6aV4hmMEL@wuerfel>
-References: <1477637418-38938-1-git-send-email-yangbo.lu@nxp.com>
-	<1477637418-38938-7-git-send-email-yangbo.lu@nxp.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [v15, 3/7] powerpc/fsl: move mpc85xx.h to include/linux/fsl
+Date: Fri, 28 Oct 2016 12:52:44 +0200
+Message-ID: <2723366.1bJeJ7SKI6@wuerfel>
+References: <1477637418-38938-1-git-send-email-yangbo.lu@nxp.com> <1477637418-38938-4-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Minghuan Lian <minghuan.lian-3arQi8VN3Tc@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
-	Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-To: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1477637418-38938-7-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Transfer-Encoding: 7Bit
+Cc: Yangbo Lu <yangbo.lu@nxp.com>, linux-mmc@vger.kernel.org,
+        ulf.hansson@linaro.org, Scott Wood <oss@buserror.net>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Xiaobo Xie <xiaobo.xie@nxp.com>,
+        Minghuan Lian <minghuan.lian@nxp.com>,
+        linux-i2c@vger.kernel.org, linux-clk@vger.kernel.org,
+        Qiang Zhao <qiang.zhao@nxp.com>,
+        Russell King <linux@arm.linux.org.uk>,
+        Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+        Joerg Roedel <joro@8bytes.org>,
+        Claudiu Manoil <claudiu.manoil@freescale.com>,
+        devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        Santosh Shilimkar <ssantosh@kernel.org>,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Leo Li <leoyang.li@nxp.com>,
+        iommu@lists.linux-fou
+To: linuxppc-dev@lists.ozlabs.org
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <1477637418-38938-4-git-send-email-yangbo.lu@nxp.com>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, October 28, 2016 2:50:17 PM CEST Yangbo Lu wrote:
-> +
-> +static int soc_device_match_one(struct device *dev, void *arg)
-> +{
-> +       struct soc_device *soc_dev = container_of(dev, struct soc_device, dev);
-> +       const struct soc_device_attribute *match = arg;
-> +
-> +       if (match->machine &&
-> +           !glob_match(match->machine, soc_dev->attr->machine))
-> +               return 0;
-> +
-> +       if (match->family &&
-> +           !glob_match(match->family, soc_dev->attr->family))
-> +               return 0;
-> +
+On Friday, October 28, 2016 2:50:14 PM CEST Yangbo Lu wrote:
+> Move mpc85xx.h to include/linux/fsl and rename it to svr.h as a common
+> header file.  This SVR numberspace is used on some ARM chips as well as
+> PPC, and even to check for a PPC SVR multi-arch drivers would otherwise
+> need to ifdef the header inclusion and all references to the SVR symbols.
+> 
 > 
 
-Geert found a bug in my code, and submitted a fix at
-https://patchwork.kernel.org/patch/9361395/
-
-I think you should include that one in your series.
+I don't see any of the contents of this header referenced by the soc driver
+any more. I think you can just drop this patch.
 
 	Arnd
+
