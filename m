@@ -1,63 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 17/17] batman-adv: Avoid precedence issues in macros
-Date: Fri, 28 Oct 2016 14:13:06 -0700
-Message-ID: <1477689186.23018.1.camel@perches.com>
-References: <20161027190150.7880-1-sw@simonwunderlich.de>
-         <20161027190150.7880-18-sw@simonwunderlich.de>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH net] net: clear sk_err_soft in sk_clone_lock()
+Date: Fri, 28 Oct 2016 17:25:58 -0400
+Message-ID: <CACSApvboAqh_PgTF7VWQfnm7qbo7f1W2EnMWzWVxzn6ri3wfCg@mail.gmail.com>
+References: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Sven Eckelmann <sven@narfation.org>
-To: Simon Wunderlich <sw@simonwunderlich.de>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0146.hostedemail.com ([216.40.44.146]:47190 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1761963AbcJ1VNR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 17:13:17 -0400
-In-Reply-To: <20161027190150.7880-18-sw@simonwunderlich.de>
+Received: from mail-yb0-f170.google.com ([209.85.213.170]:34295 "EHLO
+        mail-yb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941762AbcJ1V0j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 17:26:39 -0400
+Received: by mail-yb0-f170.google.com with SMTP id f97so42413331ybi.1
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 14:26:39 -0700 (PDT)
+In-Reply-To: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-10-27 at 21:01 +0200, Simon Wunderlich wrote:
-> From: Sven Eckelmann <sven@narfation.org>
-> 
-> It must be avoided that arguments to a macro are evaluated ungrouped (which
-> enforces normal operator precendence). Otherwise the result of the macro
-> is not well defined.
+On Fri, Oct 28, 2016 at 4:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> At accept() time, it is possible the parent has a non zero
+> sk_err_soft, leftover from a prior error.
+>
+> Make sure we do not leave this value in the child, as it
+> makes future getsockopt(SO_ERROR) calls quite unreliable.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
-Curiosity:
+> ---
+>  net/core/sock.c |    1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index d8e4532e89e7c28737c95c723e5f5b3d184a7805..662ccf1c40ed1b66ee253b063dcbfbd186deccee 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1543,6 +1543,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+>                 RCU_INIT_POINTER(newsk->sk_reuseport_cb, NULL);
+>
+>                 newsk->sk_err      = 0;
+> +               newsk->sk_err_soft = 0;
+>                 newsk->sk_priority = 0;
+>                 newsk->sk_incoming_cpu = raw_smp_processor_id();
+>                 atomic64_set(&newsk->sk_cookie, 0);
+>
+>
 
-in net/batman-adv/tp_meter.c
-
-static int batadv_tp_send(void *arg)
-{
-	struct batadv_tp_vars *tp_vars = arg;
-	struct batadv_priv *bat_priv = tp_vars->bat_priv;
-	struct batadv_hard_iface *primary_if = NULL;
-	struct batadv_orig_node *orig_node = NULL;
-	size_t payload_len, packet_len;
-	int err = 0;
-
-	if (unlikely(tp_vars->role != BATADV_TP_SENDER)) {
-		err = BATADV_TP_REASON_DST_UNREACHABLE;
-		tp_vars->reason = err;
-		goto out;
-	}
-
-	orig_node = batadv_orig_hash_find(bat_priv, tp_vars->other_end);
-	if (unlikely(!orig_node)) {
-		err = BATADV_TP_REASON_DST_UNREACHABLE;
-		tp_vars->reason = err;
-		goto out;
-	}
-
-	primary_if = batadv_primary_if_get_selected(bat_priv);
-	if (unlikely(!primary_if)) {
-		err = BATADV_TP_REASON_DST_UNREACHABLE;
-		goto out;
-	}
-
-err is not used in the out block
-
-Is the last if block supposed to set tp_vars->reason to err?
+Very nice catch! Thank you, Eric!
