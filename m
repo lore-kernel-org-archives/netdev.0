@@ -1,52 +1,42 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net] net: clear sk_err_soft in sk_clone_lock()
-Date: Fri, 28 Oct 2016 17:25:58 -0400
-Message-ID: <CACSApvboAqh_PgTF7VWQfnm7qbo7f1W2EnMWzWVxzn6ri3wfCg@mail.gmail.com>
-References: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH v2 1/5] kconfig: introduce the "imply" keyword
+Date: Fri, 28 Oct 2016 23:26:52 +0200
+Message-ID: <1477690012.2167.21.camel@tiscali.nl>
+References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
+         <1477448931-29051-2-git-send-email-nicolas.pitre@linaro.org>
+         <1477613871.2121.92.camel@tiscali.nl>
+         <alpine.LFD.2.20.1610272156050.14694@knanqh.ubzr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f170.google.com ([209.85.213.170]:34295 "EHLO
-        mail-yb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941762AbcJ1V0j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 17:26:39 -0400
-Received: by mail-yb0-f170.google.com with SMTP id f97so42413331ybi.1
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 14:26:39 -0700 (PDT)
-In-Reply-To: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: John Stultz <john.stultz@linaro.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Michal Marek <mmarek@suse.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.20.1610272156050.14694@knanqh.ubzr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 28, 2016 at 4:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> At accept() time, it is possible the parent has a non zero
-> sk_err_soft, leftover from a prior error.
->
-> Make sure we do not leave this value in the child, as it
-> makes future getsockopt(SO_ERROR) calls quite unreliable.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+On Thu, 2016-10-27 at 23:10 -0400, Nicolas Pitre wrote:
+> On Fri, 28 Oct 2016, Paul Bolle wrote:
+> > You probably got "["if" <expr>]" for free by copying what's there for
+> > select. But this series doesn't use it, so perhaps it would be better
+> > to not document it yet. But that is rather sneaky. Dunno.
+> 
+> If it is not documented then the chance that someone uses it are slim. 
+> And since it comes "for free" I don't see the point of making the tool 
+> less flexible. And not having this flexibility could make some 
+> transitions from "select" to "imply" needlessly difficult.
 
-> ---
->  net/core/sock.c |    1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index d8e4532e89e7c28737c95c723e5f5b3d184a7805..662ccf1c40ed1b66ee253b063dcbfbd186deccee 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1543,6 +1543,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
->                 RCU_INIT_POINTER(newsk->sk_reuseport_cb, NULL);
->
->                 newsk->sk_err      = 0;
-> +               newsk->sk_err_soft = 0;
->                 newsk->sk_priority = 0;
->                 newsk->sk_incoming_cpu = raw_smp_processor_id();
->                 atomic64_set(&newsk->sk_cookie, 0);
->
->
+My point is moot. I somehow missed that this series adds
+    imply PTP_1588_CLOCK if TILEGX
 
-Very nice catch! Thank you, Eric!
+So you are quite right in documenting this.
+
+
+Paul Bolle
