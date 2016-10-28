@@ -1,74 +1,105 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net 2/3] sctp: return back transport in
- __sctp_rcv_init_lookup
-Date: Fri, 28 Oct 2016 17:42:21 -0200
-Message-ID: <20161028194221.GC4193@localhost.localdomain>
-References: <cover.1477649076.git.lucien.xin@gmail.com>
- <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
-        daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 04/16] mlxsw: spectrum: Move port used check outside port remove function
+Date: Fri, 28 Oct 2016 21:35:49 +0200
+Message-ID: <1477683361-8011-4-git-send-email-jiri@resnulli.us>
+References: <1477682270-7903-1-git-send-email-jiri@resnulli.us>
+ <1477683361-8011-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, eladr@mellanox.com, idosch@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47612 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756698AbcJ1TmY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Oct 2016 15:42:24 -0400
-Content-Disposition: inline
-In-Reply-To: <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33448 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756632AbcJ1Tmp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 15:42:45 -0400
+Received: by mail-wm0-f68.google.com with SMTP id m83so8763802wmc.0
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 12:42:44 -0700 (PDT)
+In-Reply-To: <1477683361-8011-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 28, 2016 at 06:10:53PM +0800, Xin Long wrote:
-> Prior to this patch, it used a local variable to save the transport that is
-> looked up by __sctp_lookup_association(), and didn't return it back. But in
-> sctp_rcv, it is used to initialize chunk->transport. So when hitting this
-> code, it was initializing chunk->transport with some random stack value
-> instead.
-> 
-> This patch is to return the transport back through transport pointer
-> that is from __sctp_rcv_lookup_harder().
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Be symmentrical with create and do the check outside the remove function.
 
-transport pointer in sctp_rcv() is initialized to null and there are
-checks for it after this path, so this shouldn't be exploitable, just
-malfunction.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-> ---
->  net/sctp/input.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index a2ea1d1..8e0bc58 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -1021,7 +1021,6 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
->  	struct sctphdr *sh = sctp_hdr(skb);
->  	union sctp_params params;
->  	sctp_init_chunk_t *init;
-> -	struct sctp_transport *transport;
->  	struct sctp_af *af;
->  
->  	/*
-> @@ -1052,7 +1051,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
->  
->  		af->from_addr_param(paddr, params.addr, sh->source, 0);
->  
-> -		asoc = __sctp_lookup_association(net, laddr, paddr, &transport);
-> +		asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
->  		if (asoc)
->  			return asoc;
->  	}
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 2573faa..d649064 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2403,8 +2403,6 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp->ports[local_port];
+ 
+-	if (!mlxsw_sp_port)
+-		return;
+ 	cancel_delayed_work_sync(&mlxsw_sp_port->hw_stats.update_dw);
+ 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
+ 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
+@@ -2422,12 +2420,18 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	free_netdev(mlxsw_sp_port->dev);
+ }
+ 
++static bool mlxsw_sp_port_created(struct mlxsw_sp *mlxsw_sp, u8 local_port)
++{
++	return mlxsw_sp->ports[local_port] != NULL;
++}
++
+ static void mlxsw_sp_ports_remove(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	int i;
+ 
+ 	for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++)
+-		mlxsw_sp_port_remove(mlxsw_sp, i);
++		if (mlxsw_sp_port_created(mlxsw_sp, i))
++			mlxsw_sp_port_remove(mlxsw_sp, i);
+ 	kfree(mlxsw_sp->ports);
+ }
+ 
+@@ -2461,7 +2465,8 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
+ err_port_create:
+ err_port_module_info_get:
+ 	for (i--; i >= 1; i--)
+-		mlxsw_sp_port_remove(mlxsw_sp, i);
++		if (mlxsw_sp_port_created(mlxsw_sp, i))
++			mlxsw_sp_port_remove(mlxsw_sp, i);
+ 	kfree(mlxsw_sp->ports);
+ 	return err;
+ }
+@@ -2503,7 +2508,8 @@ static int mlxsw_sp_port_split_create(struct mlxsw_sp *mlxsw_sp, u8 base_port,
+ 
+ err_port_create:
+ 	for (i--; i >= 0; i--)
+-		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
++		if (mlxsw_sp_port_created(mlxsw_sp, base_port + i))
++			mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
+ 	i = count;
+ err_port_swid_set:
+ 	for (i--; i >= 0; i--)
+@@ -2593,7 +2599,8 @@ static int mlxsw_sp_port_split(struct mlxsw_core *mlxsw_core, u8 local_port,
+ 	}
+ 
+ 	for (i = 0; i < count; i++)
+-		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
++		if (mlxsw_sp_port_created(mlxsw_sp, base_port + i))
++			mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
+ 
+ 	err = mlxsw_sp_port_split_create(mlxsw_sp, base_port, module, count);
+ 	if (err) {
+@@ -2638,7 +2645,8 @@ static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
+ 		base_port = base_port + 2;
+ 
+ 	for (i = 0; i < count; i++)
+-		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
++		if (mlxsw_sp_port_created(mlxsw_sp, base_port + i))
++			mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
+ 
+ 	mlxsw_sp_port_unsplit_create(mlxsw_sp, base_port, count);
+ 
+-- 
+2.5.5
