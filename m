@@ -1,76 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: ip_vs_sync: fix bogus maybe-uninitialized
- warning
-Date: Fri, 28 Oct 2016 11:34:22 +0200
-Message-ID: <20161028093422.GA29559@salvia>
-References: <20161024153454.2766113-1-arnd@arndb.de>
- <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
+From: Roger Quadros <rogerq@ti.com>
+Subject: [PATCH] net: phy: dp83848: add dp83822 PHY support
+Date: Fri, 28 Oct 2016 12:40:20 +0300
+Message-ID: <1477647620-7315-1-git-send-email-rogerq@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Quentin Armitage <quentin@armitage.org.uk>,
-        netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-kernel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain
+Cc: <afd@ti.com>, <dmurphy@ti.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Roger Quadros <rogerq@ti.com>
+To: <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1610242226310.2276@ja.home.ssi.bg>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 24, 2016 at 10:47:54PM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Mon, 24 Oct 2016, Arnd Bergmann wrote:
-> 
-> > Building the ip_vs_sync code with CONFIG_OPTIMIZE_INLINING on x86
-> > confuses the compiler to the point where it produces a rather
-> > dubious warning message:
-> > 
-> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> >   struct ip_vs_sync_conn_options opt;
-> >                                  ^~~
-> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > 
-> > The problem appears to be a combination of a number of factors, including
-> > the __builtin_bswap32 compiler builtin being slightly odd, having a large
-> > amount of code inlined into a single function, and the way that some
-> > functions only get partially inlined here.
-> > 
-> > I've spent way too much time trying to work out a way to improve the
-> > code, but the best I've come up with is to add an explicit memset
-> > right before the ip_vs_seq structure is first initialized here. When
-> > the compiler works correctly, this has absolutely no effect, but in the
-> > case that produces the warning, the warning disappears.
-> > 
-> > In the process of analysing this warning, I also noticed that
-> > we use memcpy to copy the larger ip_vs_sync_conn_options structure
-> > over two members of the ip_vs_conn structure. This works because
-> > the layout is identical, but seems error-prone, so I'm changing
-> > this in the process to directly copy the two members. This change
-> > seemed to have no effect on the object code or the warning, but
-> > it deals with the same data, so I kept the two changes together.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> 	OK,
-> 
-> Acked-by: Julian Anastasov <ja@ssi.bg>
-> 
-> 	I guess, Simon will take the patch for ipvs-next.
+This PHY has a compatible register set with DP83848x so
+add support for it.
 
-@Simon: If you have no more pending updates, I can save you one pull
-request for this small fix by placing this.
+Acked-by: Andrew F. Davis <afd@ti.com>
+Signed-off-by: Roger Quadros <rogerq@ti.com>
+---
+ drivers/net/phy/dp83848.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Thanks!
+diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+index 03d54c4..800b39f 100644
+--- a/drivers/net/phy/dp83848.c
++++ b/drivers/net/phy/dp83848.c
+@@ -19,6 +19,7 @@
+ #define TI_DP83848C_PHY_ID		0x20005ca0
+ #define NS_DP83848C_PHY_ID		0x20005c90
+ #define TLK10X_PHY_ID			0x2000a210
++#define TI_DP83822_PHY_ID		0x2000a240
+ 
+ /* Registers */
+ #define DP83848_MICR			0x11 /* MII Interrupt Control Register */
+@@ -77,6 +78,7 @@ static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
+ 	{ TI_DP83848C_PHY_ID, 0xfffffff0 },
+ 	{ NS_DP83848C_PHY_ID, 0xfffffff0 },
+ 	{ TLK10X_PHY_ID, 0xfffffff0 },
++	{ TI_DP83822_PHY_ID, 0xfffffff0 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+@@ -105,6 +107,7 @@ static struct phy_driver dp83848_driver[] = {
+ 	DP83848_PHY_DRIVER(TI_DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
+ 	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "NS DP83848C 10/100 Mbps PHY"),
+ 	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
++	DP83848_PHY_DRIVER(TI_DP83822_PHY_ID, "TI DP83822 10/100 Mbps PHY"),
+ };
+ module_phy_driver(dp83848_driver);
+ 
+-- 
+2.7.4
