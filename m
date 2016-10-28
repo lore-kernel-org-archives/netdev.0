@@ -1,121 +1,61 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next 1/1] net: phy: Add support for Microsemi VSC 8530/40 Fast Ethernet PHY
-Date: Fri, 28 Oct 2016 12:10:11 +0200
-Message-ID: <1477649411-31036-2-git-send-email-allan.nielsen@microsemi.com>
-References: <1477649411-31036-1-git-send-email-allan.nielsen@microsemi.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [v15, 6/7] base: soc: introduce soc_device_match() interface
+Date: Fri, 28 Oct 2016 12:47:54 +0200
+Message-ID: <2572890.e6aV4hmMEL@wuerfel>
+References: <1477637418-38938-1-git-send-email-yangbo.lu@nxp.com>
+	<1477637418-38938-7-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
-        <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0044.outbound.protection.outlook.com ([104.47.40.44]:7515
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1756470AbcJ1Knq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Oct 2016 06:43:46 -0400
-In-Reply-To: <1477649411-31036-1-git-send-email-allan.nielsen@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Minghuan Lian <minghuan.lian-3arQi8VN3Tc@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+To: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1477637418-38938-7-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On Friday, October 28, 2016 2:50:17 PM CEST Yangbo Lu wrote:
+> +
+> +static int soc_device_match_one(struct device *dev, void *arg)
+> +{
+> +       struct soc_device *soc_dev = container_of(dev, struct soc_device, dev);
+> +       const struct soc_device_attribute *match = arg;
+> +
+> +       if (match->machine &&
+> +           !glob_match(match->machine, soc_dev->attr->machine))
+> +               return 0;
+> +
+> +       if (match->family &&
+> +           !glob_match(match->family, soc_dev->attr->family))
+> +               return 0;
+> +
+> 
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
----
- drivers/net/phy/Kconfig |  2 +-
- drivers/net/phy/mscc.c  | 42 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 43 insertions(+), 1 deletion(-)
+Geert found a bug in my code, and submitted a fix at
+https://patchwork.kernel.org/patch/9361395/
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 45f68ea..ff31c10 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -290,7 +290,7 @@ config MICROCHIP_PHY
- config MICROSEMI_PHY
- 	tristate "Microsemi PHYs"
- 	---help---
--	  Currently supports the VSC8531 and VSC8541 PHYs
-+	  Currently supports VSC8530, VSC8531, VSC8540 and VSC8541 PHYs
- 
- config NATIONAL_PHY
- 	tristate "National Semiconductor PHYs"
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index 113616b..d0026ab 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -65,7 +65,9 @@ enum rgmii_rx_clock_delay {
- #define SECURE_ON_PASSWD_LEN_4		  0x4000
- 
- /* Microsemi PHY ID's */
-+#define PHY_ID_VSC8530			  0x00070560
- #define PHY_ID_VSC8531			  0x00070570
-+#define PHY_ID_VSC8540			  0x00070760
- #define PHY_ID_VSC8541			  0x00070770
- 
- #define MSCC_VDDMAC_1500		  1500
-@@ -399,6 +401,25 @@ static int vsc85xx_probe(struct phy_device *phydev)
- /* Microsemi VSC85xx PHYs */
- static struct phy_driver vsc85xx_driver[] = {
- {
-+	.phy_id		= PHY_ID_VSC8530,
-+	.name		= "Microsemi FE VSC8530",
-+	.phy_id_mask	= 0xfffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.soft_reset	= &genphy_soft_reset,
-+	.config_init	= &vsc85xx_config_init,
-+	.config_aneg	= &genphy_config_aneg,
-+	.aneg_done	= &genphy_aneg_done,
-+	.read_status	= &genphy_read_status,
-+	.ack_interrupt	= &vsc85xx_ack_interrupt,
-+	.config_intr	= &vsc85xx_config_intr,
-+	.suspend	= &genphy_suspend,
-+	.resume		= &genphy_resume,
-+	.probe		= &vsc85xx_probe,
-+	.set_wol	= &vsc85xx_wol_set,
-+	.get_wol	= &vsc85xx_wol_get,
-+},
-+{
- 	.phy_id		= PHY_ID_VSC8531,
- 	.name		= "Microsemi VSC8531",
- 	.phy_id_mask    = 0xfffffff0,
-@@ -418,6 +439,25 @@ static struct phy_driver vsc85xx_driver[] = {
- 	.get_wol	= &vsc85xx_wol_get,
- },
- {
-+	.phy_id		= PHY_ID_VSC8540,
-+	.name		= "Microsemi FE VSC8540 SyncE",
-+	.phy_id_mask	= 0xfffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.soft_reset	= &genphy_soft_reset,
-+	.config_init	= &vsc85xx_config_init,
-+	.config_aneg	= &genphy_config_aneg,
-+	.aneg_done	= &genphy_aneg_done,
-+	.read_status	= &genphy_read_status,
-+	.ack_interrupt	= &vsc85xx_ack_interrupt,
-+	.config_intr	= &vsc85xx_config_intr,
-+	.suspend	= &genphy_suspend,
-+	.resume		= &genphy_resume,
-+	.probe		= &vsc85xx_probe,
-+	.set_wol	= &vsc85xx_wol_set,
-+	.get_wol	= &vsc85xx_wol_get,
-+},
-+{
- 	.phy_id		= PHY_ID_VSC8541,
- 	.name		= "Microsemi VSC8541 SyncE",
- 	.phy_id_mask    = 0xfffffff0,
-@@ -442,7 +482,9 @@ static struct phy_driver vsc85xx_driver[] = {
- module_phy_driver(vsc85xx_driver);
- 
- static struct mdio_device_id __maybe_unused vsc85xx_tbl[] = {
-+	{ PHY_ID_VSC8530, 0xfffffff0, },
- 	{ PHY_ID_VSC8531, 0xfffffff0, },
-+	{ PHY_ID_VSC8540, 0xfffffff0, },
- 	{ PHY_ID_VSC8541, 0xfffffff0, },
- 	{ }
- };
--- 
-2.7.3
+I think you should include that one in your series.
+
+	Arnd
