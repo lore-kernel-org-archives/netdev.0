@@ -1,33 +1,47 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Why do we need tasklet in IFB?
-Date: Fri, 28 Oct 2016 14:38:08 -0700
-Message-ID: <20161028143808.3134f296@xeon-e3>
-References: <CAAmHdhz_g5_+Uqp47cPm3NQd=8=9tCecddQLVCfHbChx=Tjhcw@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net 2/3] sctp: return back transport in
+ __sctp_rcv_init_lookup
+Date: Fri, 28 Oct 2016 19:39:43 -0200
+Message-ID: <20161028213943.GA14175@localhost.localdomain>
+References: <cover.1477649076.git.lucien.xin@gmail.com>
+ <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
+ <20161028194221.GC4193@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Michael Ma <make0818@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+        daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35330 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753749AbcJ1Vh4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 17:37:56 -0400
-Received: by mail-pf0-f180.google.com with SMTP id s8so43269233pfj.2
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 14:37:55 -0700 (PDT)
-In-Reply-To: <CAAmHdhz_g5_+Uqp47cPm3NQd=8=9tCecddQLVCfHbChx=Tjhcw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51960 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1761948AbcJ1Vjx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Oct 2016 17:39:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20161028194221.GC4193@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 28 Oct 2016 14:36:27 -0700
-Michael Ma <make0818@gmail.com> wrote:
-
-> Hi -
+On Fri, Oct 28, 2016 at 05:42:21PM -0200, Marcelo Ricardo Leitner wrote:
+> On Fri, Oct 28, 2016 at 06:10:53PM +0800, Xin Long wrote:
+> > Prior to this patch, it used a local variable to save the transport that is
+> > looked up by __sctp_lookup_association(), and didn't return it back. But in
+> > sctp_rcv, it is used to initialize chunk->transport. So when hitting this
+> > code, it was initializing chunk->transport with some random stack value
+> > instead.
+> > 
+> > This patch is to return the transport back through transport pointer
+> > that is from __sctp_rcv_lookup_harder().
+> > 
+> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 > 
-> Currently IFB uses tasklet to process tx/rx on the interface that
-> forwarded the packet to IFB. My understanding on why we're doing this
-> is that since dev_queue_xmit() can be invoked in interrupt, we want to
-> defer the processing of original tx/rx in case ifb_xmit() is called
-> from interrupt.
+> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> 
+> transport pointer in sctp_rcv() is initialized to null and there are
+> checks for it after this path, so this shouldn't be exploitable, just
+> malfunction.
 
-dev_queue_xmit is only called from interrupt if doing netconsole.
+This actually sort of contradicts the changelog.
+
+Xin, did I miss something here? Seems we need to update the changelog if
+not.
