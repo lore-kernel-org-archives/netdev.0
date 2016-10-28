@@ -1,45 +1,42 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH v2 1/5] kconfig: introduce the "imply" keyword
-Date: Sat, 29 Oct 2016 00:09:05 +0200
-Message-ID: <1477692545.2167.42.camel@tiscali.nl>
-References: <1477448931-29051-1-git-send-email-nicolas.pitre@linaro.org>
-         <1477448931-29051-2-git-send-email-nicolas.pitre@linaro.org>
-         <1477613871.2121.92.camel@tiscali.nl>
-         <alpine.LFD.2.20.1610272156050.14694@knanqh.ubzr>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Fri, 28 Oct 2016 17:24:10 -0500
+Message-ID: <5813D00A.8080005@codeaurora.org>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: John Stultz <john.stultz@linaro.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Michal Marek <mmarek@suse.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.20.1610272156050.14694@knanqh.ubzr>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:42248 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756697AbcJ1WYN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 18:24:13 -0400
+In-Reply-To: <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-10-27 at 23:10 -0400, Nicolas Pitre wrote:
-> On Fri, 28 Oct 2016, Paul Bolle wrote:
-> > And in your example BAR is bool, right? Does the above get more
-> > complicated if BAR would be tristate?
-> 
-> If BAR=m then implying BAZ from FOO=y will force BAZ to y or n, 
-> bypassing the restriction provided by BAR like "select" does.  This is 
-> somewhat questionable for "select" to do that, and the code emits a 
-> warning when "select" bypasses a direct dependency set to n, but not 
-> when set to m. For now "imply" simply tries to be consistent with 
-> the "select" behavior.
+Zefir Kurtisi wrote:
+> +	/* check if the SGMII link is OK. */
+> +	if (!(phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)) {
+> +		pr_warn("803x_aneg_done: SGMII link is not ok\n");
+> +		aneg_done = 0;
 
-Side note: yes, one can select a symbol that's missing one or more
-dependencies. But since Kconfig has two separate methods to describe
-relations (ie, selecting and depending) there's logically the
-possibility of conflict. So we need a rule to resolve that conflict.
-That rule is: "select" beats "depends on". I don't think that this rule
-is less plausible than the opposite rule.
+I see this message appear sometimes when bring up the interface via 
+ifup.  However, contrary to your patch description, everything seems to 
+work:
 
+$ iperf3 -c 192.168.1.1 -t 3600
+Connecting to host 192.168.1.1, port 5201
+[  4] local 192.168.1.2 port 52640 connected to 192.168.1.1 port 5201
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.00   sec   109 MBytes   909 Mbits/sec    0    485 KBytes
+[  4]   1.00-2.00   sec   108 MBytes   902 Mbits/sec    0    622 KBytes
 
-Paul Bolle
+I wonder if you're impacted with all of the pause frame problems I'm having.
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
