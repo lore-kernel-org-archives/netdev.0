@@ -1,40 +1,51 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH for-next 00/14][PULL request] Mellanox mlx5 core driver
- updates 2016-10-25
-Date: Fri, 28 Oct 2016 13:53:09 -0400 (EDT)
-Message-ID: <20161028.135309.1712496950641242201.davem@davemloft.net>
-References: <1477407617-20745-1-git-send-email-saeedm@mellanox.com>
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] mac80211: fix incorrect error return path on tmp allocation failure
+Date: Fri, 28 Oct 2016 19:08:24 +0100
+Message-ID: <20161028180824.7110-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477407617-20745-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-I really disalike pull requests of this form.
+The current exit path when tmp fails to be allocated is via the
+fail label which frees tfm2 which has not yet been allocated,
+which is problematic since tfm2 is not initialized and is a garbage
+pointer. Fix this by exiting directly to the return at the end
+of the function and hence avoiding the freeing of tfm2.
 
-You add lots of datastructures and helper functions but no actual
-users of these facilities to the driver.
+Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ net/mac80211/fils_aead.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Do this instead:
-
-	1) Add TSAR infrastructure
-	2) Add use of TSAR facilities to the driver
-
-That's one pull request.
-
-I don't care if this is hard, or if there are entanglements with
-Infiniband or whatever, you must submit changes in this manner.
-
-I will not accept additions to a driver that don't even get really
-used.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/mac80211/fils_aead.c b/net/mac80211/fils_aead.c
+index b81b4f24..c114737 100644
+--- a/net/mac80211/fils_aead.c
++++ b/net/mac80211/fils_aead.c
+@@ -112,7 +112,7 @@ static int aes_siv_encrypt(const u8 *key, size_t key_len,
+ 	tmp = kmemdup(plain, plain_len, GFP_KERNEL);
+ 	if (!tmp) {
+ 		res = -ENOMEM;
+-		goto fail;
++		goto fail_ret;
+ 	}
+ 
+ 	/* IV for CTR before encrypted data */
+@@ -150,6 +150,7 @@ static int aes_siv_encrypt(const u8 *key, size_t key_len,
+ fail:
+ 	kfree(tmp);
+ 	crypto_free_skcipher(tfm2);
++fail_ret:
+ 	return res;
+ }
+ 
+-- 
+2.9.3
