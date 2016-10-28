@@ -1,44 +1,67 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Fri, 28 Oct 2016 21:42:28 +0100
-Message-ID: <20161028214228.7200fef2@jkicinski-Precision-T1700>
-References: <20161028011739-mutt-send-email-mst@kernel.org>
-        <20161027.213512.334468356710231957.davem@davemloft.net>
-        <CAKgT0Ufe3QYtFpmtsL39-nbyy+YEt=gZKU_WUr9Wir+LTYLuEQ@mail.gmail.com>
-        <20161027.221027.109834362557507518.davem@davemloft.net>
-        <58137533.4030105@gmail.com>
-        <20161028171812.48073f1f@jkicinski-Precision-T1700>
-        <20161028182223.GA53930@ast-mbp.thefacebook.com>
-        <CAKgT0UfZJ1wP9f-ZFVqdDUXMw90DKsRp+NDuam9YnHzbD=Tuig@mail.gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next] lan78xx: Use irq_domain for phy interrupt from
+ USB Int. EP
+Date: Fri, 28 Oct 2016 20:50:49 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40956C59@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D40956B56@CHN-SV-EXMX02.mchp-main.com>
+ <919da0a4-3a5c-8c88-bab5-6fc2bf557a48@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        shrijeet@gmail.com, Tom Herbert <tom@herbertland.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-        roopa <roopa@cumulusnetworks.com>, nikolay@cumulusnetworks.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <UNGLinuxDriver@microchip.com>
+To: <f.fainelli@gmail.com>, <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:43863 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1761149AbcJ1Umg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Oct 2016 16:42:36 -0400
-In-Reply-To: <CAKgT0UfZJ1wP9f-ZFVqdDUXMw90DKsRp+NDuam9YnHzbD=Tuig@mail.gmail.com>
+Received: from smtpout.microchip.com ([198.175.253.82]:44598 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1756755AbcJ1Uuv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 16:50:51 -0400
+In-Reply-To: <919da0a4-3a5c-8c88-bab5-6fc2bf557a48@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 28 Oct 2016 13:35:02 -0700, Alexander Duyck wrote:
-> > At the same time XDP doesn't require to use 4k buffer in something like Netronome.
-> > If xdp bpf program can be offloaded into HW with 1800 byte buffers, great!  
-> 
-> So are you saying this is only really meant to be used with a full bpf
-> hardware offload then?
-
-I think Alexei just meant to say I don't have to worry about providing
-4k buffers when program is offloaded but on the host a page is the
-memory granularity for XDP...
+PiA+ICtzdGF0aWMgdm9pZCBsYW43OHh4X2lycV9tYXNrKHN0cnVjdCBpcnFfZGF0YSAqaXJxZCkN
+Cj4gPiArew0KPiA+ICsJc3RydWN0IGlycV9kb21haW5fZGF0YSAqZGF0YSA9IGlycV9kYXRhX2dl
+dF9pcnFfY2hpcF9kYXRhKGlycWQpOw0KPiA+ICsJc3RydWN0IGxhbjc4eHhfbmV0ICpkZXYgPQ0K
+PiA+ICsJCQljb250YWluZXJfb2YoZGF0YSwgc3RydWN0IGxhbjc4eHhfbmV0LCBkb21haW5fZGF0
+YSk7DQo+ID4gKwl1MzIgYnVmOw0KPiA+ICsNCj4gPiArCWxhbjc4eHhfcmVhZF9yZWcoZGV2LCBJ
+TlRfRVBfQ1RMLCAmYnVmKTsNCj4gDQo+IGxhbjc4eHhfcmVhZF9yZWcoKSB1c2VzIGttYWxsb2Mo
+KSB3aXRoIEdGUF9LRVJORUwsIHdoaWxlDQo+IGlycV9tYXNrL2lycV91bm1hc2sgY2FuIGJlIGNh
+bGxlZCBpbiBhdG9taWMgY29udGV4dCBBRkFJUiwgeW91IG1heSBuZWVkDQo+IHRvIHBhc3MgZG93
+biBhIHNwZWNpZmljIGdmcF90IHRvIGxhbjc4eHhfcmVhZF9yZWcuDQo+IA0KPiBXaGF0IGFib3V0
+IHVzYl9zdWJtaXRfdXJiKCksIGNhbiB0aGF0IHdvcmsgaW4gYXRvbWljIGNvbnRleHQ/IERvIHlv
+dQ0KPiBuZWVkIHRvIGhhdmUgbGFuNzh4eF9yZWFkX3JlZygpIGFjcXVpcmUgYSByYXcgc3Bpbmxv
+Y2sgb3Igc29tZXRoaW5nIHRvDQo+IHNlcmlhbGl6ZSB0aGVtPw0KPiANCj4gPiArCWJ1ZiAmPSB+
+SU5UX0VQX1BIWV9JTlRfRU5fOw0KPiANCj4gRXZlbiB0aG91Z2ggeW91IG1heSBoYXZlIG9ubHkg
+b25lIGludGVycnVwdCBsaW5lIHRvIGRlYWwgd2l0aCBhdCB0aGUNCj4gbW9tZW50LCBiZXR0ZXIg
+bWFrZSB0aGlzIGJpdCBkZXJpdmVkIGZyb20gaXJxZC0+aHdpcnEgaW5zdGVhZCBvZiBoYXJkDQo+
+IGNvZGluZyBpdCBoZXJlLg0KPiANCj4gPiArCWxhbjc4eHhfd3JpdGVfcmVnKGRldiwgSU5UX0VQ
+X0NUTCwgYnVmKTsNCj4gPiArfQ0KPiA+ICsNCj4gPiArc3RhdGljIHZvaWQgbGFuNzh4eF9pcnFf
+dW5tYXNrKHN0cnVjdCBpcnFfZGF0YSAqaXJxZCkNCj4gPiArew0KPiA+ICsJc3RydWN0IGlycV9k
+b21haW5fZGF0YSAqZGF0YSA9IGlycV9kYXRhX2dldF9pcnFfY2hpcF9kYXRhKGlycWQpOw0KPiA+
+ICsJc3RydWN0IGxhbjc4eHhfbmV0ICpkZXYgPQ0KPiA+ICsJCQljb250YWluZXJfb2YoZGF0YSwg
+c3RydWN0IGxhbjc4eHhfbmV0LCBkb21haW5fZGF0YSk7DQo+ID4gKwl1MzIgYnVmOw0KPiA+ICsN
+Cj4gPiArCWxhbjc4eHhfcmVhZF9yZWcoZGV2LCBJTlRfRVBfQ1RMLCAmYnVmKTsNCj4gPiArCWJ1
+ZiB8PSBJTlRfRVBfUEhZX0lOVF9FTl87DQo+IA0KPiBTYW1lIGhlcmUsIHRoaXMgc2hvdWxkIGNv
+bWUgZnJvbSBpcnFkLT5od2lycS4NCj4gDQo+ID4gKwlsYW43OHh4X3dyaXRlX3JlZyhkZXYsIElO
+VF9FUF9DVEwsIGJ1Zik7DQo+ID4gK30NCj4gPiArDQo+ID4gK3N0YXRpYyBzdHJ1Y3QgaXJxX2No
+aXAgbGFuNzh4eF9pcnFjaGlwID0gew0KPiA+ICsJLm5hbWUJCT0gImxhbjc4eHgtcGh5aXJxIiwN
+Cj4gPiArCS5pcnFfbWFzawk9IGxhbjc4eHhfaXJxX21hc2ssDQo+ID4gKwkuaXJxX3VubWFzawk9
+IGxhbjc4eHhfaXJxX3VubWFzaywNCj4gPiArfTsNCj4gPiArDQo+ID4gK3N0YXRpYyBpbnQgbGFu
+Nzh4eF9zZXR1cF9pcnFfZG9tYWluKHN0cnVjdCBsYW43OHh4X25ldCAqZGV2KQ0KPiA+ICt7DQo+
+ID4gKwlzdHJ1Y3QgZGV2aWNlX25vZGUgKm9mX25vZGU7DQo+ID4gKwlzdHJ1Y3QgaXJxX2RvbWFp
+biAqaXJxZG9tYWluOw0KPiA+ICsJdW5zaWduZWQgaW50IGlycV9iYXNlID0gMDsNCj4gPiArCWlu
+dCByZXQgPSAwOw0KPiA+ICsNCj4gPiArCW9mX25vZGUgPSBkZXYtPnVkZXYtPmRldi5wYXJlbnQt
+Pm9mX25vZGU7DQo+ID4gKw0KPiA+ICsJZGV2LT5kb21haW5fZGF0YS5pcnFjaGlwID0gJmxhbjc4
+eHhfaXJxY2hpcDsNCj4gPiArCWRldi0+ZG9tYWluX2RhdGEuaXJxX2hhbmRsZXIgPSBoYW5kbGVf
+c2ltcGxlX2lycTsNCj4gPiArDQo+ID4gKwlpcnFkb21haW4gPSBpcnFfZG9tYWluX2FkZF9zaW1w
+bGUob2Zfbm9kZSwgMSwgMCwNCj4gJmNoaXBfZG9tYWluX29wcywNCj4gPiArCQkJCQkgICZkZXYt
+PmRvbWFpbl9kYXRhKTsNCj4gDQo+IElzIHRoZXJlIHJlYWxseSBqdXN0IG9uZSBpbnRlcnJ1cHQg
+YXNzb2NpYXRlZCB3aXRoIHRoaXMgcGVyaXBoZXJhbCBoZXJlPw0KPiANCj4gPg0KPiA+ICsJaWYg
+KGxhbjc4eHhfc2V0dXBfaXJxX2RvbWFpbihkZXYpIDwgMCkgew0KPiA+ICsJCW5ldGRldl93YXJu
+KGRldi0+bmV0LCAibGFuNzh4eF9zZXR1cF9pcnFfZG9tYWluKCkNCj4gZmFpbGVkIik7DQo+ID4g
+KwkJcmV0dXJuIC1FSU87DQo+ID4gKwl9DQo+IA0KPiBBbnkgcmVhc29uIG5vdCB0byBwcm9wYWdh
+dGUgdGhlIGVycm9yIGNvZGUgZnJvbQ0KPiBsYW43OHh4X3NldHVwX2lycV9kb21haW4oKSBoZXJl
+Pw0KDQpUaGFua3MgZm9yIHByb21wdCByZXZpZXcuDQpJJ2xsIGxvb2sgaW50byBpdCBhbmQgc3Vi
+bWl0IHVwZGF0ZS4NCg0KVGhhbmtzLg0KLSBXb29qdW5nDQo=
