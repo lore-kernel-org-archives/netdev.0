@@ -1,191 +1,144 @@
-From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH] Revert "usb: dwc3: gadget: use allocated/queued reqs for
- LST bit"
-Date: Fri, 28 Oct 2016 19:33:32 +0300
-Message-ID: <20161028163332.GL4617@intel.com>
-References: <1475504282-13268-1-git-send-email-ville.syrjala@linux.intel.com>
- <87lgy5za7o.fsf@linux.intel.com>
- <20161004083855.GW4329@intel.com>
- <8760p8qp5b.fsf@linux.intel.com>
- <20161004132059.GX4329@intel.com>
- <87mvikp5wx.fsf@linux.intel.com>
- <87shsand3q.fsf@linux.intel.com>
- <20161006090826.GH4329@intel.com>
- <20161027154016.GD4617@intel.com>
- <87pomksrrm.fsf@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Felipe Balbi <felipe.balbi-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <87pomksrrm.fsf-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On Fri, Oct 28, 2016 at 01:16:13PM +0300, Felipe Balbi wrote:
-> 
-> Hi,
-> 
-> Ville Syrjälä <ville.syrjala-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> writes:
-> > On Thu, Oct 06, 2016 at 12:08:26PM +0300, Ville Syrjälä wrote:
-> >> On Thu, Oct 06, 2016 at 10:36:09AM +0300, Felipe Balbi wrote:
-> >> > 
-> >> > Hi,
-> >> > 
-> >> > Felipe Balbi <felipe.balbi-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> writes:
-> >> <snip>
-> >> > Okay, I have found a regression on dwc3 and another patch follows:
-> >> > 
-> >> > commit 5e1a2af3e46248c55098cdae643c4141851b703e
-> >> > Author: Felipe Balbi <felipe.balbi-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> >> > Date:   Wed Oct 5 14:24:37 2016 +0300
-> >> > 
-> >> >     usb: dwc3: gadget: properly account queued requests
-> >> >     
-> >> >     Some requests could be accounted for multiple
-> >> >     times. Let's fix that so each and every requests is
-> >> >     accounted for only once.
-> >> >     
-> >> >     Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v4.8
-> >> >     Fixes: 55a0237f8f47 ("usb: dwc3: gadget: use allocated/queued reqs for LST bit")
-> >> >     Signed-off-by: Felipe Balbi <felipe.balbi-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> >> > 
-> >> > diff --git a/drivers/usb/dwc3/gadget.c b/drivers/usb/dwc3/gadget.c
-> >> > index 07cc8929f271..3c3ced128c77 100644
-> >> > --- a/drivers/usb/dwc3/gadget.c
-> >> > +++ b/drivers/usb/dwc3/gadget.c
-> >> > @@ -783,6 +783,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
-> >> >  		req->trb = trb;
-> >> >  		req->trb_dma = dwc3_trb_dma_offset(dep, trb);
-> >> >  		req->first_trb_index = dep->trb_enqueue;
-> >> > +		dep->queued_requests++;
-> >> >  	}
-> >> >  
-> >> >  	dwc3_ep_inc_enq(dep);
-> >> > @@ -833,8 +834,6 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
-> >> >  
-> >> >  	trb->ctrl |= DWC3_TRB_CTRL_HWO;
-> >> >  
-> >> > -	dep->queued_requests++;
-> >> > -
-> >> >  	trace_dwc3_prepare_trb(dep, trb);
-> >> >  }
-> >> >  
-> >> > @@ -1861,8 +1860,11 @@ static int __dwc3_cleanup_done_trbs(struct dwc3 *dwc, struct dwc3_ep *dep,
-> >> >  	unsigned int		s_pkt = 0;
-> >> >  	unsigned int		trb_status;
-> >> >  
-> >> > -	dep->queued_requests--;
-> >> >  	dwc3_ep_inc_deq(dep);
-> >> > +
-> >> > +	if (req->trb == trb)
-> >> > +		dep->queued_requests--;
-> >> > +
-> >> >  	trace_dwc3_complete_trb(dep, trb);
-> >> >  
-> >> >  	/*
-> >> > 
-> >> > I have also built a branch which you can use for testing. Here's a pull
-> >> > request, once you tell me it works for you, then I can send proper
-> >> > patches out:
-> >> > 
-> >> > The following changes since commit c8d2bc9bc39ebea8437fd974fdbc21847bb897a3:
-> >> > 
-> >> >   Linux 4.8 (2016-10-02 16:24:33 -0700)
-> >> > 
-> >> > are available in the git repository at:
-> >> > 
-> >> >   git://git.kernel.org/pub/scm/linux/kernel/git/balbi/usb.git tmp-test-v4.8
-> >> > 
-> >> > for you to fetch changes up to c968b8d1effe64a7980802d1eef29f4e1922faca:
-> >> > 
-> >> >   usb: dwc3: gadget: properly account queued requests (2016-10-06 10:16:37 +0300)
-> >> > 
-> >> > ----------------------------------------------------------------
-> >> > Felipe Balbi (2):
-> >> >       usb: gadget: function: u_ether: don't starve tx request queue
-> >> >       usb: dwc3: gadget: properly account queued requests
-> >> > 
-> >> >  drivers/usb/dwc3/gadget.c             | 7 ++++---
-> >> >  drivers/usb/gadget/function/u_ether.c | 5 +++--
-> >> >  2 files changed, 7 insertions(+), 5 deletions(-)
-> >> 
-> >> Tried your branch, but unfortunately I'm still seeing the lags. New trace
-> >> attached.
-> >
-> > Just a reminder that the regressions is still there in 4.9-rc2.
-> > Unfortunateyly with all the stuff already piled on top, getting USB
-> > working on my device is no longer a simple matter of reverting the
-> > one commit. I had to revert 10 patches to get even a clean revert, but
-> > unfortunately that approach just lead to the transfer hanging immediately.
-> >
-> > So what I ended up doing is reverting all of this:
-> > git log --no-merges --format=oneline 55a0237f8f47957163125e20ee9260538c5c341c^..HEAD -- drivers/usb/dwc3/ include/linux/ulpi/interface.h drivers/usb/Kconfig drivers/usb/core/Kconfig
-> >
-> > which comes out at whopping 70 commits. Having to carry that around
-> > is going to be quite a pain especially as more stuff might be piled on
-> > top.
-> >
-> > /me thinks a stable backport of any fix (assuming one is found
-> > eventually) is going to be quite the challenge...
-> 
-> Yeah, I'm guessing we're gonna need some help from networking folks. The
-> only thing we did since v4.7 was actually respect req->no_interrupt flag
-> coming from u_ether itself. No idea why that causes so much trouble for
-> u_ether.
-> 
-> BTW, Instead of reverting so many patches, you can just remove
-> throttling:
-> 
-> diff --git a/drivers/usb/gadget/function/u_ether.c b/drivers/usb/gadget/function/u_ether.c
-> index f4a640216913..119a2e5848e8 100644
-> --- a/drivers/usb/gadget/function/u_ether.c
-> +++ b/drivers/usb/gadget/function/u_ether.c
-> @@ -589,14 +589,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
->  
->         req->length = length;
->  
-> -       /* throttle high/super speed IRQ rate back slightly */
-> -       if (gadget_is_dualspeed(dev->gadget))
-> -               req->no_interrupt = (((dev->gadget->speed == USB_SPEED_HIGH ||
-> -                                      dev->gadget->speed == USB_SPEED_SUPER)) &&
-> -                                       !list_empty(&dev->tx_reqs))
-> -                       ? ((atomic_read(&dev->tx_qlen) % dev->qmult) != 0)
-> -                       : 0;
-> -
->         retval = usb_ep_queue(in, req, GFP_ATOMIC);
->         switch (retval) {
->         default:
-
-Ah cool. That indeed fixes the problem for me.
-
-> 
-> I'm adding netdev and couple other folks to the loop.
-> 
-> Just to summarize, USB peripheral controller now actually throttles
-> interrupt when requested to do so and that causes lags for USB
-> networking gadgets.
-> 
-> Without throttle we, potentially, call netif_wake_queue() more
-> frequently than with throttling. I'm wondering if something changed in
-> NET layer within the past few years but the USB networking gadgets ended
-> up being forgotten.
-> 
-> Anyway, if anybody has any hints, I'd be glad to hear about them.
-> 
-> -- 
-> balbi
+From: Shanker Wang <miao.wang@tuna.tsinghua.edu.cn>
+Subject: Re: Bonding MAC address
+Date: Sat, 29 Oct 2016 00:39:46 +0800
+Message-ID: <C66AAC71-8864-4449-9D4D-1B79E0BEA2A9@tuna.tsinghua.edu.cn>
+References: <64717203-D02C-41D0-9D2B-EFEB4CF78146@nfware.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.1 \(3251\))
+Content-Type: multipart/signed;
+ boundary="Apple-Mail=_9BAFA470-6A1E-49D3-A6AF-74A2F376A425";
+ protocol="application/pkcs7-signature"; micalg=sha1
+Cc: netdev@vger.kernel.org
+To: Igor Ryzhov <iryzhov@nfware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36033 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965925AbcJ1Qju (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 12:39:50 -0400
+Received: by mail-pf0-f171.google.com with SMTP id e6so39817616pfk.3
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 09:39:50 -0700 (PDT)
+In-Reply-To: <64717203-D02C-41D0-9D2B-EFEB4CF78146@nfware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--Apple-Mail=_9BAFA470-6A1E-49D3-A6AF-74A2F376A425
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=gb2312
 
--- 
-Ville Syrjälä
-Intel OTC
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I think it is intentional. Because changing mac address of an=20
+interface would cause problems. As a result, if you find it=20
+necessary to change the mac address, it should be done manually.
+
+Consider these two example:
+
+* A host is connecting the internet through a bond interface,=20
+and obtain ip address from a dhcp server. Changing the mac=20
+address automatically would possibly lead to re-assigning a=20
+new IP address, which could not be expected.
+
+* A linux-box is acting as a gateway, providing service to=20
+hosts in the local lan. Changing mac address and not changing
+IP address of an interface would cause other hosts to fail
+to communicate with the gateway, since the old mac address is
+still in theirs arp cache table. The communication will recover
+after arp cache expires, which can be a short or long time.
+
+* The scene is the same to the second one. And consider if =20
+arp snooping or other mechanisms to protect hosts from being=20
+spoofed by a fake gateway are enabled in the local lan. After=20
+changing the mac address, the linux-box itself will be a=20
+=A1=B0spoofer=A1=B1 and may get blocked.=20
+
+So changing mac address of an interface could be dangerous and
+lead to network malfunction and cannot be done automatically.=20
+
+> =D4=DA 2016=C4=EA10=D4=C228=C8=D5=A3=AC19:09=A3=ACIgor Ryzhov =
+<iryzhov@nfware.com> =D0=B4=B5=C0=A3=BA
+>=20
+> Hello everyone,
+>=20
+> Studying the bonding driver I found that bonding device doesn't choose =
+a new MAC address when the slave which MAC is in use is released.
+> This is a warning about that - "the permanent HWaddr of slave is still =
+in use by bond - set the HWaddr of slave to a different address to avoid =
+conflicts".
+> Why not to choose a new MAC for bonding device? Is it intentional or =
+just not implemented?
+>=20
+> Best regards,
+> Igor
+
+
+--Apple-Mail=_9BAFA470-6A1E-49D3-A6AF-74A2F376A425
+Content-Disposition: attachment;
+	filename=smime.p7s
+Content-Type: application/pkcs7-signature;
+	name=smime.p7s
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIKCzCCBK8w
+ggOXoAMCAQICEQDgI8sVEoNTia1hbnpUZ2shMA0GCSqGSIb3DQEBCwUAMG8xCzAJBgNVBAYTAlNF
+MRQwEgYDVQQKEwtBZGRUcnVzdCBBQjEmMCQGA1UECxMdQWRkVHJ1c3QgRXh0ZXJuYWwgVFRQIE5l
+dHdvcmsxIjAgBgNVBAMTGUFkZFRydXN0IEV4dGVybmFsIENBIFJvb3QwHhcNMTQxMjIyMDAwMDAw
+WhcNMjAwNTMwMTA0ODM4WjCBmzELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hl
+c3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEaMBgGA1UEChMRQ09NT0RPIENBIExpbWl0ZWQxQTA/BgNV
+BAMTOENPTU9ETyBTSEEtMjU2IENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQgU2VjdXJlIEVtYWls
+IENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAibEN2npTGU5wUh28VqYGJre4SeCW
+51Gr8fBaE0kVo7SMG2C8elFCp3mMpCLfF2FOkdV2IwoU00oCf7YdCYBupQQ92bq7Fv6hh6kuQ1JD
+FnyvMlDIpk9a6QjYz5MlnHuI6DBk5qT4VoD9KiQUMxeZrETlaYujRgZLwjPU6UCfBrCxrJNAubUI
+kzqcKlOjENs9IGE8VQOO2U52JQIhKfqjfHF2T+7hX4Hp+1SA28N7NVK3hN4iPSwwLTF/Wb1SN7Az
+aS1D6/rWpfGXd2dRjNnuJ+u8pQc4doykqTj/34z1A6xJvsr3c5k6DzKrnJU6Ez0ORjpXdGFQvsZA
+P8vk4p+iIQIDAQABo4IBFzCCARMwHwYDVR0jBBgwFoAUrb2YejS0Jvf6xCZU7wO94CTLVBowHQYD
+VR0OBBYEFJJha4LhoqCqT+xn8cKj97SAAMHsMA4GA1UdDwEB/wQEAwIBhjASBgNVHRMBAf8ECDAG
+AQH/AgEAMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDARBgNVHSAECjAIMAYGBFUdIAAw
+RAYDVR0fBD0wOzA5oDegNYYzaHR0cDovL2NybC51c2VydHJ1c3QuY29tL0FkZFRydXN0RXh0ZXJu
+YWxDQVJvb3QuY3JsMDUGCCsGAQUFBwEBBCkwJzAlBggrBgEFBQcwAYYZaHR0cDovL29jc3AudXNl
+cnRydXN0LmNvbTANBgkqhkiG9w0BAQsFAAOCAQEAGypurFXBOquIxdjtzVXzqmthK8AJECOZD8Vm
+am+x9bS1d14PAmEA330F/hKzpICAAPz7HVtqcgIKQbwFusFY1SbC6tVNhPv+gpjPWBvjImOcUvi7
+BTarfVil3qs7Y+Xa1XPv7OD7e+Kj//BCI5zKto1NPuRLGAOyqC3U2LtCS5BphRDbpjc06HvgARCl
+nMo6x59PiDRuimXQGoq7qdzKyjbR9PzCZCk1r9axp3ER0gNDsY8+muyeMlP0dpLKhjQHuSzK5hxK
+2JkNwYbikJL7WkJqIyEQ6WXH9dW7fuqMhSACYurROgcsWcWZM/I4ieW26RZ6H3kU9koQGib6fIr7
+mzCCBVQwggQ8oAMCAQICEQCz7bOWGt837yf+2EEgYX7zMA0GCSqGSIb3DQEBCwUAMIGbMQswCQYD
+VQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRow
+GAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xpZW50
+IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0EwHhcNMTYwOTA3MDAwMDAwWhcNMTcw
+OTA3MjM1OTU5WjAvMS0wKwYJKoZIhvcNAQkBFh5taWFvLndhbmdAdHVuYS50c2luZ2h1YS5lZHUu
+Y24wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDF4JDX+lppNfAKjABahacSSWED1YTS
+IR/bmDzwV08VxvbfiQpqHMmsDbaNYHgoAS25JSAU9mN5dRPlfRfKnfLa67pO05FkrYoN2IHbXhqH
+lF+0M6MVcTkulUDzCDEviZLRmqZFw4oIlOzEjmZJ0GkhOOnzvuD0B8nfgp0ij4EPkRcNjWjrGDu4
+op8kxE3ceN9nF/jDYL1hISJQOuJx3afLt/ISzA7ynaD2MiiiIQviI4Rr1IxfF53smu2tXAwYXtrp
+zVlnf0QK5pZy/gxwgp3Mien0YgeeRJpSQ4mAI3L9ftEXXqpGz60R3/XZoRLX+m7TzjTIwZxE6sGP
+GxzkIS6zAgMBAAGjggH8MIIB+DAfBgNVHSMEGDAWgBSSYWuC4aKgqk/sZ/HCo/e0gADB7DAdBgNV
+HQ4EFgQU1T4lGv6gY6SWm/lc0xv+YsJJDMYwDgYDVR0PAQH/BAQDAgWgMAwGA1UdEwEB/wQCMAAw
+IAYDVR0lBBkwFwYIKwYBBQUHAwQGCysGAQQBsjEBAwUCMBEGCWCGSAGG+EIBAQQEAwIFIDBGBgNV
+HSAEPzA9MDsGDCsGAQQBsjEBAgEBATArMCkGCCsGAQUFBwIBFh1odHRwczovL3NlY3VyZS5jb21v
+ZG8ubmV0L0NQUzBdBgNVHR8EVjBUMFKgUKBOhkxodHRwOi8vY3JsLmNvbW9kb2NhLmNvbS9DT01P
+RE9TSEEyNTZDbGllbnRBdXRoZW50aWNhdGlvbmFuZFNlY3VyZUVtYWlsQ0EuY3JsMIGQBggrBgEF
+BQcBAQSBgzCBgDBYBggrBgEFBQcwAoZMaHR0cDovL2NydC5jb21vZG9jYS5jb20vQ09NT0RPU0hB
+MjU2Q2xpZW50QXV0aGVudGljYXRpb25hbmRTZWN1cmVFbWFpbENBLmNydDAkBggrBgEFBQcwAYYY
+aHR0cDovL29jc3AuY29tb2RvY2EuY29tMCkGA1UdEQQiMCCBHm1pYW8ud2FuZ0B0dW5hLnRzaW5n
+aHVhLmVkdS5jbjANBgkqhkiG9w0BAQsFAAOCAQEAWaTmII5zqDcKRwWt8TLDuXFiBP1EqE8obR3B
+YtWoJ60uQZQbVLH2R9dp1sh2DlHzxMYYOOt8vyMIJUw7gTuQ1KfeRgeGGLyXqIfa/TegUtCQPPQE
+fd4kVFBqp4v9wDCt1a1Tg5mphAyJTrppo76Pc6qefn5KvCyKhgoAK2UYeY7uxehe3QF+/tX+MJsa
+El1rDLg6mmSnvcTS6r7xets48FmfRkWHK2SrA+/4EBxeg+2TWL7h8+ztxWj/o5Di2V+0KsLqiwu/
+JIF3+IPU7AMNE/TqdqiE6nJDYZbe6RyG4c333N+f9ipkPq4jSupvpLGgEl+66dYyu/4fBVA31rlD
+WjGCA8YwggPCAgEBMIGxMIGbMQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVz
+dGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDFBMD8GA1UE
+AxM4Q09NT0RPIFNIQS0yNTYgQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwg
+Q0ECEQCz7bOWGt837yf+2EEgYX7zMAkGBSsOAwIaBQCgggHpMBgGCSqGSIb3DQEJAzELBgkqhkiG
+9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE2MTAyODE2Mzk0NlowIwYJKoZIhvcNAQkEMRYEFMk31tlt
+4BqfM6kTXgiVNiODy0bmMIHCBgkrBgEEAYI3EAQxgbQwgbEwgZsxCzAJBgNVBAYTAkdCMRswGQYD
+VQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9E
+TyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRp
+b24gYW5kIFNlY3VyZSBFbWFpbCBDQQIRALPts5Ya3zfvJ/7YQSBhfvMwgcQGCyqGSIb3DQEJEAIL
+MYG0oIGxMIGbMQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYD
+VQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDFBMD8GA1UEAxM4Q09NT0RP
+IFNIQS0yNTYgQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0ECEQCz7bOW
+Gt837yf+2EEgYX7zMA0GCSqGSIb3DQEBAQUABIIBAJqzA/J81jrI3TWT95eVy7k8F76+VIPDGVm1
+E/dEBLYoBhsG7EQ6eEl5Qy8462JH+IKkkgjGQ5/5iJvLPJcT2J/AP5wsmOAviNEGQ9//qUSW5+OQ
+6DEQfJGuZ0gFo8p3GHn5/55pCKeFzrF2nfzkf7vV+z+hwEFma14G1Qkm+gzi8/tZrXizhGU8uGlx
+b4ZErktlXR/rZGMBjbDYD7HIbAXe6rjpkZL7bm8Zs1oH4c31FvYsyLzMY5BOYO0ONzR+BoAYdCs+
+6IEVXsYM3zwqpzxF8PBY9wNlaXc/U41iWgKvv/ZaTGkit39v4qXW5cbInppf+K1f0TbFne0tpmzP
+tNcAAAAAAAA=
+--Apple-Mail=_9BAFA470-6A1E-49D3-A6AF-74A2F376A425--
