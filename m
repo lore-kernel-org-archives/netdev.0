@@ -1,38 +1,73 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] mac80211: Ignore VHT IE from peer with wrong rx_mcs_map
-Date: Fri, 28 Oct 2016 17:46:00 +0200
-Message-ID: <1477669560.4220.1.camel@sipsolutions.net>
-References: <1477665523-8970-1-git-send-email-filip.matusiak@tieto.com>
-         (sfid-20161028_163919_221476_0288EF78)
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 00/27] Add support for DMA writable pages being
+ writable by the network stack
+Date: Fri, 28 Oct 2016 08:48:01 -0700
+Message-ID: <CAKgT0UfOZuRnon84_8Bdn5muoi7=Xrwd7Kbxi4C8jiXpyX7-gg@mail.gmail.com>
+References: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: marek.kwaczynski-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Filip Matusiak <filip.matusiak-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477665523-8970-1-git-send-email-filip.matusiak-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org> (sfid-20161028_163919_221476_0288EF78)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+	Jesper Dangaard Brouer <brouer@redhat.com>, Alexander Duyck <alexander.h.duyck@intel.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161025153220.4815.61239.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-10-28 at 16:38 +0200, Filip Matusiak wrote:
-> This is a workaround for VHT-enabled STAs which break the spec
-> and have the VHT-MCS Rx map filled in with value 3 for all eight
-> spacial streams.
-> 
-> As per spec, in section 22.1.1 Introduction to the VHT PHY
-> A VHT STA shall support at least single spactial stream VHT-MCSs
-> 0 to 7 (transmit and receive) in all supported channel widths.
+On Tue, Oct 25, 2016 at 8:36 AM, Alexander Duyck
+<alexander.h.duyck@intel.com> wrote:
+> The first 22 patches in the set add support for the DMA attribute
+> DMA_ATTR_SKIP_CPU_SYNC on multiple platforms/architectures.  This is needed
+> so that we can flag the calls to dma_map/unmap_page so that we do not
+> invalidate cache lines that do not currently belong to the device.  Instead
+> we have to take care of this in the driver via a call to
+> sync_single_range_for_cpu prior to freeing the Rx page.
+>
+> Patch 23 adds support for dma_map_page_attrs and dma_unmap_page_attrs so
+> that we can unmap and map a page using the DMA_ATTR_SKIP_CPU_SYNC
+> attribute.
+>
+> Patch 24 adds support for freeing a page that has multiple references being
+> held by a single caller.  This way we can free page fragments that were
+> allocated by a given driver.
+>
+> The last 3 patches use these updates in the igb driver to allow for us to
+> reimpelement the use of build_skb.
+>
+> My hope is to get the series accepted into the net-next tree as I have a
+> number of other Intel drivers I could then begin updating once these
+> patches are accepted.
+>
+> v1: Split out changes DMA_ERROR_CODE fix for swiotlb-xen
+>     Minor fixes based on issues found by kernel build bot
+>     Few minor changes for issues found on code review
+>     Added Acked-by for patches that were acked and not changed
 
-Interesting, and also kinda dumb :)
+So the feedback for this set has been mostly just a few "Acked-by"s,
+and it looks like the series was marked as "Not Applicable" in
+patchwork.  I was wondering what the correct merge strategy for this
+patch set should be going forward?
 
-> +	/*
-> +	 * This is a workaround for VHT-enabled STAs which break the
-> 
+I was wondering if I should be looking at breaking up the set and
+splitting it over a few different trees, or if I should just hold onto
+it and resubmit it when the merge window opens?  My preference would
+be to submit it as a single set so I can know all the patches are
+present to avoid any possible regressions due to only part of the set
+being present.
 
-I find that it helps, in the future, if we know an example of a station
-that did this, so we can test other implementations etc. Can you change
-the comment accordingly?
+Anyway, I am just trying to figure out how best to proceed from here
+since these patch sets that touch multiple areas are always
+complicated to get submitted.
 
-johannes
+Thanks.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
