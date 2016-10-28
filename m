@@ -1,41 +1,51 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net/mlx4_en: Refactor the XDP forwarding
- rings scheme
-Date: Thu, 27 Oct 2016 18:07:02 -0700
-Message-ID: <20161028010701.GB49550@ast-mbp.thefacebook.com>
-References: <1477579924-32737-1-git-send-email-tariqt@mellanox.com>
- <1477579924-32737-3-git-send-email-tariqt@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
+Date: Thu, 27 Oct 2016 21:35:12 -0400 (EDT)
+Message-ID: <20161027.213512.334468356710231957.davem@davemloft.net>
+References: <20161028002814-mutt-send-email-mst@kernel.org>
+        <20161027.174218.654961317277160121.davem@davemloft.net>
+        <20161028011739-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>
-To: Tariq Toukan <tariqt@mellanox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, brouer@redhat.com, shrijeet@gmail.com,
+        tom@herbertland.com, netdev@vger.kernel.org,
+        shm@cumulusnetworks.com, roopa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33676 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943141AbcJ1BHH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 21:07:07 -0400
-Received: by mail-pf0-f170.google.com with SMTP id 197so27128889pfu.0
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2016 18:07:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1477579924-32737-3-git-send-email-tariqt@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49100 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933403AbcJ1BfS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2016 21:35:18 -0400
+In-Reply-To: <20161028011739-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 27, 2016 at 05:52:04PM +0300, Tariq Toukan wrote:
-> Separately manage the two types of TX rings: regular ones, and XDP.
-> Upon an XDP set, do not borrow regular TX rings and convert them
-> into XDP ones, but allocate new ones, unless we hit the max number
-> of rings.
-> Which means that in systems with smaller #cores we will not consume
-> the current TX rings for XDP, while we are still in the num TX limit.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Fri, 28 Oct 2016 01:25:48 +0300
 
-The commit log is too scarce for details...
-So questions:
-- Did you test with changing the number of channels after xdp prog is loaded?
-That was the recent bug that Brenden fixed.
-- does it still have 256 tx queue limit or xdp tx rings can go over?
-- Any performance implications ?
+> On Thu, Oct 27, 2016 at 05:42:18PM -0400, David Miller wrote:
+>> From: "Michael S. Tsirkin" <mst@redhat.com>
+>> Date: Fri, 28 Oct 2016 00:30:35 +0300
+>> 
+>> > Something I'd like to understand is how does XDP address the
+>> > problem that 100Byte packets are consuming 4K of memory now.
+>> 
+>> Via page pools.  We're going to make a generic one, but right now
+>> each and every driver implements a quick list of pages to allocate
+>> from (and thus avoid the DMA man/unmap overhead, etc.)
+> 
+> So to clarify, ATM virtio doesn't attempt to avoid dma map/unmap
+> so there should be no issue with that even when using sub/page
+> regions, assuming DMA APIs support sub-page map/unmap correctly.
 
-Brenden, could you please review this patch?
+That's not what I said.
+
+The page pools are meant to address the performance degradation from
+going to having one packet per page for the sake of XDP's
+requirements.
+
+You still need to have one packet per page for correct XDP operation
+whether you do page pools or not, and whether you have DMA mapping
+(or it's equivalent virutalization operation) or not.
