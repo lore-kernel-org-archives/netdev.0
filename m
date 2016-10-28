@@ -1,90 +1,103 @@
-From: Aaron Young <Aaron.Young@oracle.com>
-Subject: [PATCH net-next v3]ldmvsw: tx queue stuck in stopped state after LDC reset
-Date: Fri, 28 Oct 2016 14:26:19 -0400
-Message-ID: <b8d6abc7188e5cac885905854067444cb89a5f3b.1477678860.git.Aaron.Young@oracle.com>
-Cc: sowmini.varadhan@oracle.com, aaron.young@oracle.com,
-        Aaron Young <Aaron.Young@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Jeroen Hofstee <jhofstee@victronenergy.com>
+Subject: Re: [PATCH v2] net: cpsw: fix obtaining mac address for am3517
+Date: Fri, 28 Oct 2016 20:17:44 +0200
+Message-ID: <d8ad5cab-5183-cddf-fa9a-4e7b9b8c9377@victronenergy.com>
+References: <1477668756-2651-1-git-send-email-jhofstee@victronenergy.com>
+ <20161028155213.2t3nwwe3lqaynaer@atomide.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
+        "Grygorii Strashko" <grygorii.strashko@ti.com>,
+        "open list:TI ETHERNET SWITCH DRIVER (CPSW)"
+        <linux-omap@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Tony Lindgren <tony@atomide.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:25820 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032943AbcJ1S2U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 14:28:20 -0400
+Received: from mail-db5eur01on0096.outbound.protection.outlook.com ([104.47.2.96]:26784
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S941632AbcJ1ScZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Oct 2016 14:32:25 -0400
+In-Reply-To: <20161028155213.2t3nwwe3lqaynaer@atomide.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Young <aaron.young@oracle.com>
+Hello Tony,
 
-The following patch fixes an issue with the ldmvsw driver where
-the network connection of a guest domain becomes non-functional after
-the guest domain has panic'd and rebooted.
+On 28-10-16 17:52, Tony Lindgren wrote:
+> * Jeroen Hofstee <jhofstee@victronenergy.com> [161028 08:33]:
+>> Commit b6745f6e4e63 ("drivers: net: cpsw: davinci_emac: move reading mac
+>> id to common file") did not only move the code for an am3517, it also
+>> added the slave parameter, resulting in an invalid (all zero) mac address
+>> being returned for an am3517, since it only has a single emac and the slave
+>> parameter is pointing to the second. So simply always read the first and
+>> valid mac-address for a ti,am3517-emac.
+> And others davinci_emac.c users can have more than one. So is the
+> reason the slave parameter points to the second instance because
+> of the location in the hardware?
 
-The root cause was determined to be from the following series of
-events:
+Sort of, the slave parameter gets determined by the fact if there is one
+or two register range(s) associated with the davinci_emac. In davinci_emac.c
 
-1. Guest domain panics - resulting in the guest no longer processing
-   network packets (from ldmvsw driver)
-2. The ldmvsw driver (in the control domain) eventually exerts flow
-   control due to no more available tx drings and stops the tx queue
-   for the guest domain
-3. The LDC of the network connection for the guest is reset when
-   the guest domain reboots after the panic.
-4. The LDC reset event is received by the ldmvsw driver and the ldmvsw
-   responds by clearing the tx queue for the guest.
-5. ldmvsw waits indefinitely for a DATA ACK from the guest - which is
-   the normal method to re-enable the tx queue. But the ACK never comes
-   because the tx queue was cleared due to the LDC reset.
+     res_ctrl = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+     ...
+     rc = davinci_emac_try_get_mac(pdev, res_ctrl ? 0 : 1,
+                           priv->mac_addr);
 
-To fix this issue, in addition to clearing the tx queue, re-enable the
-tx queue on a LDC reset. This prevents the ldmvsw from getting caught in
-this deadlocked state of waiting for a DATA ACK which will never come.
+So it there are two ranges, the slave param becomes 0. It there is only 
+one, it
+will be 1. Since the am3517 only has a single regs entry it ends up with 
+slave 1,
+while there is only a single davinci_emac.
 
-Signed-off-by: Aaron Young <Aaron.Young@oracle.com>
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet_common.c |   16 +++++++++++++---
- 1 files changed, 13 insertions(+), 3 deletions(-)
+Regards,
+Jeroen
 
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 58efe69..8878b75 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -704,9 +704,8 @@ static int handle_mcast(struct vnet_port *port, void *msgbuf)
- 	return 0;
- }
- 
--/* Got back a STOPPED LDC message on port. If the queue is stopped,
-- * wake it up so that we'll send out another START message at the
-- * next TX.
-+/* If the queue is stopped, wake it up so that we'll
-+ * send out another START message at the next TX.
-  */
- static void maybe_tx_wakeup(struct vnet_port *port)
- {
-@@ -734,6 +733,7 @@ bool sunvnet_port_is_up_common(struct vnet_port *vnet)
- 
- static int vnet_event_napi(struct vnet_port *port, int budget)
- {
-+	struct net_device *dev = VNET_PORT_TO_NET_DEVICE(port);
- 	struct vio_driver_state *vio = &port->vio;
- 	int tx_wakeup, err;
- 	int npkts = 0;
-@@ -747,6 +747,16 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
- 		if (event == LDC_EVENT_RESET) {
- 			vnet_port_reset(port);
- 			vio_port_up(vio);
-+
-+			/* If the device is running but its tx queue was
-+			 * stopped (due to flow control), restart it.
-+			 * This is necessary since vnet_port_reset()
-+			 * clears the tx drings and thus we may never get
-+			 * back a VIO_TYPE_DATA ACK packet - which is
-+			 * the normal mechanism to restart the tx queue.
-+			 */
-+			if (netif_running(dev))
-+				maybe_tx_wakeup(port);
- 		}
- 		port->rx_event = 0;
- 		return 0;
--- 
-1.7.1
+arch/arm/boot/dts/dm816x.dtsi
+-----------------------------
+eth0: ethernet@4a100000 {
+     compatible = "ti,dm816-emac";
+     ti,hwmods = "emac0";
+     reg = <0x4a100000 0x800
+            0x4a100900 0x3700>;
+     clocks = <&sysclk24_ck>;
+     syscon = <&scm_conf>;
+     ti,davinci-ctrl-reg-offset = <0>;
+     ti,davinci-ctrl-mod-reg-offset = <0x900>;
+     ti,davinci-ctrl-ram-offset = <0x2000>;
+     ti,davinci-ctrl-ram-size = <0x2000>;
+     interrupts = <40 41 42 43>;
+     phy-handle = <&phy0>;
+};
+
+eth1: ethernet@4a120000 {
+     compatible = "ti,dm816-emac";
+     ti,hwmods = "emac1";
+     reg = <0x4a120000 0x4000>;
+     clocks = <&sysclk24_ck>;
+     syscon = <&scm_conf>;
+     ti,davinci-ctrl-reg-offset = <0>;
+     ti,davinci-ctrl-mod-reg-offset = <0x900>;
+     ti,davinci-ctrl-ram-offset = <0x2000>;
+     ti,davinci-ctrl-ram-size = <0x2000>;
+     interrupts = <44 45 46 47>;
+     phy-handle = <&phy1>;
+};
+
+arch/arm/boot/dts/am3517.dtsi
+-------------------------------
+davinci_emac: ethernet@0x5c000000 {
+     compatible = "ti,am3517-emac";
+     ti,hwmods = "davinci_emac";
+     status = "disabled";
+     reg = <0x5c000000 0x30000>;
+     interrupts = <67 68 69 70>;
+     syscon = <&scm_conf>;
+     ti,davinci-ctrl-reg-offset = <0x10000>;
+     ti,davinci-ctrl-mod-reg-offset = <0>;
+     ti,davinci-ctrl-ram-offset = <0x20000>;
+     ti,davinci-ctrl-ram-size = <0x2000>;
+     ti,davinci-rmii-en = /bits/ 8 <1>;
+     local-mac-address = [ 00 00 00 00 00 00 ];
+};
