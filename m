@@ -1,52 +1,45 @@
-From: Roger Quadros <rogerq@ti.com>
-Subject: [PATCH] net: phy: dp83848: add dp83822 PHY support
-Date: Fri, 28 Oct 2016 12:40:20 +0300
-Message-ID: <1477647620-7315-1-git-send-email-rogerq@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <afd@ti.com>, <dmurphy@ti.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Roger Quadros <rogerq@ti.com>
-To: <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Schmidt <stefan@datenfreihafen.org>
+Subject: [PATCH iproute2] ip: update link types to show 6lowpan and ieee802.15.4 monitor
+Date: Fri, 28 Oct 2016 11:42:03 +0200
+Message-ID: <1477647723-14641-1-git-send-email-stefan@datenfreihafen.org>
+Cc: netdev@vger.kernel.org, linux-wpan@vger.kernel.org,
+        Stefan Schmidt <stefan@datenfreihafen.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from proxima.lasnet.de ([78.47.171.185]:59532 "EHLO
+        proxima.lasnet.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936169AbcJ1Jr1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 05:47:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This PHY has a compatible register set with DP83848x so
-add support for it.
+Both types have been missing here and thus ip always showed
+only the numbers.
 
-Acked-by: Andrew F. Davis <afd@ti.com>
-Signed-off-by: Roger Quadros <rogerq@ti.com>
+Based on a suggestion from Alexander Aring.
+
+Signed-off-by: Stefan Schmidt <stefan@datenfreihafen.org>
 ---
- drivers/net/phy/dp83848.c | 3 +++
- 1 file changed, 3 insertions(+)
+ lib/ll_types.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
-index 03d54c4..800b39f 100644
---- a/drivers/net/phy/dp83848.c
-+++ b/drivers/net/phy/dp83848.c
-@@ -19,6 +19,7 @@
- #define TI_DP83848C_PHY_ID		0x20005ca0
- #define NS_DP83848C_PHY_ID		0x20005c90
- #define TLK10X_PHY_ID			0x2000a210
-+#define TI_DP83822_PHY_ID		0x2000a240
+diff --git a/lib/ll_types.c b/lib/ll_types.c
+index 2c5bf8b..eca617f 100644
+--- a/lib/ll_types.c
++++ b/lib/ll_types.c
+@@ -100,11 +100,13 @@ __PF(IEEE80211,ieee802.11)
+ __PF(IEEE80211_PRISM,ieee802.11/prism)
+ __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
+ __PF(IEEE802154, ieee802.15.4)
++__PF(IEEE802154_MONITOR, ieee802.15.4/monitor)
+ __PF(PHONET, phonet)
+ __PF(PHONET_PIPE, phonet_pipe)
+ __PF(CAIF, caif)
+ __PF(IP6GRE, gre6)
+ __PF(NETLINK, netlink)
++__PF(6LOWPAN, 6lowpan)
  
- /* Registers */
- #define DP83848_MICR			0x11 /* MII Interrupt Control Register */
-@@ -77,6 +78,7 @@ static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
- 	{ TI_DP83848C_PHY_ID, 0xfffffff0 },
- 	{ NS_DP83848C_PHY_ID, 0xfffffff0 },
- 	{ TLK10X_PHY_ID, 0xfffffff0 },
-+	{ TI_DP83822_PHY_ID, 0xfffffff0 },
- 	{ }
- };
- MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
-@@ -105,6 +107,7 @@ static struct phy_driver dp83848_driver[] = {
- 	DP83848_PHY_DRIVER(TI_DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
- 	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "NS DP83848C 10/100 Mbps PHY"),
- 	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
-+	DP83848_PHY_DRIVER(TI_DP83822_PHY_ID, "TI DP83822 10/100 Mbps PHY"),
- };
- module_phy_driver(dp83848_driver);
- 
+ __PF(NONE, none)
+ __PF(VOID,void)
 -- 
-2.7.4
+2.5.5
