@@ -1,126 +1,74 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/16] mlxsw: switchx2: Check if port is usable before calling port create
-Date: Fri, 28 Oct 2016 21:35:47 +0200
-Message-ID: <1477683361-8011-2-git-send-email-jiri@resnulli.us>
-References: <1477682270-7903-1-git-send-email-jiri@resnulli.us>
- <1477683361-8011-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, eladr@mellanox.com, idosch@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net 2/3] sctp: return back transport in
+ __sctp_rcv_init_lookup
+Date: Fri, 28 Oct 2016 17:42:21 -0200
+Message-ID: <20161028194221.GC4193@localhost.localdomain>
+References: <cover.1477649076.git.lucien.xin@gmail.com>
+ <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+        daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33778 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756618AbcJ1TmA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 15:42:00 -0400
-Received: by mail-wm0-f66.google.com with SMTP id m83so8760582wmc.0
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 12:41:37 -0700 (PDT)
-In-Reply-To: <1477683361-8011-1-git-send-email-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:47612 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756698AbcJ1TmY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Oct 2016 15:42:24 -0400
+Content-Disposition: inline
+In-Reply-To: <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Fri, Oct 28, 2016 at 06:10:53PM +0800, Xin Long wrote:
+> Prior to this patch, it used a local variable to save the transport that is
+> looked up by __sctp_lookup_association(), and didn't return it back. But in
+> sctp_rcv, it is used to initialize chunk->transport. So when hitting this
+> code, it was initializing chunk->transport with some random stack value
+> instead.
+> 
+> This patch is to return the transport back through transport pointer
+> that is from __sctp_rcv_lookup_harder().
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Do it in a same way we do it in spectrum. Check if port is usable first
-and only in that case create a port instance.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Elad Raz <eladr@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 32 +++++++++-----------------
- 1 file changed, 11 insertions(+), 21 deletions(-)
+transport pointer in sctp_rcv() is initialized to null and there are
+checks for it after this path, so this shouldn't be exploitable, just
+malfunction.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 8d11e5447..67f1b70 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -256,18 +256,17 @@ mlxsw_sx_port_system_port_mapping_set(struct mlxsw_sx_port *mlxsw_sx_port)
- 	return mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(sspr), sspr_pl);
- }
- 
--static int mlxsw_sx_port_module_check(struct mlxsw_sx_port *mlxsw_sx_port,
--				      bool *p_usable)
-+static int mlxsw_sx_port_module_info_get(struct mlxsw_sx *mlxsw_sx,
-+					 u8 local_port, u8 *p_width)
- {
--	struct mlxsw_sx *mlxsw_sx = mlxsw_sx_port->mlxsw_sx;
- 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
- 	int err;
- 
--	mlxsw_reg_pmlp_pack(pmlp_pl, mlxsw_sx_port->local_port);
-+	mlxsw_reg_pmlp_pack(pmlp_pl, local_port);
- 	err = mlxsw_reg_query(mlxsw_sx->core, MLXSW_REG(pmlp), pmlp_pl);
- 	if (err)
- 		return err;
--	*p_usable = mlxsw_reg_pmlp_width_get(pmlp_pl) ? true : false;
-+	*p_width = mlxsw_reg_pmlp_width_get(pmlp_pl);
- 	return 0;
- }
- 
-@@ -962,7 +961,6 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
- {
- 	struct mlxsw_sx_port *mlxsw_sx_port;
- 	struct net_device *dev;
--	bool usable;
- 	int err;
- 
- 	dev = alloc_etherdev(sizeof(struct mlxsw_sx_port));
-@@ -1005,19 +1003,6 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
- 	 */
- 	dev->needed_headroom = MLXSW_TXHDR_LEN;
- 
--	err = mlxsw_sx_port_module_check(mlxsw_sx_port, &usable);
--	if (err) {
--		dev_err(mlxsw_sx->bus_info->dev, "Port %d: Failed to check module\n",
--			mlxsw_sx_port->local_port);
--		goto err_port_module_check;
--	}
--
--	if (!usable) {
--		dev_dbg(mlxsw_sx->bus_info->dev, "Port %d: Not usable, skipping initialization\n",
--			mlxsw_sx_port->local_port);
--		goto port_not_usable;
--	}
--
- 	err = mlxsw_sx_port_system_port_mapping_set(mlxsw_sx_port);
- 	if (err) {
- 		dev_err(mlxsw_sx->bus_info->dev, "Port %d: Failed to set system port mapping\n",
-@@ -1097,8 +1082,6 @@ static int mlxsw_sx_port_create(struct mlxsw_sx *mlxsw_sx, u8 local_port)
- 	mlxsw_sx_port_swid_set(mlxsw_sx_port, MLXSW_PORT_SWID_DISABLED_PORT);
- err_port_swid_set:
- err_port_system_port_mapping_set:
--port_not_usable:
--err_port_module_check:
- err_dev_addr_get:
- 	free_percpu(mlxsw_sx_port->pcpu_stats);
- err_alloc_stats:
-@@ -1131,6 +1114,7 @@ static void mlxsw_sx_ports_remove(struct mlxsw_sx *mlxsw_sx)
- static int mlxsw_sx_ports_create(struct mlxsw_sx *mlxsw_sx)
- {
- 	size_t alloc_size;
-+	u8 width;
- 	int i;
- 	int err;
- 
-@@ -1140,6 +1124,11 @@ static int mlxsw_sx_ports_create(struct mlxsw_sx *mlxsw_sx)
- 		return -ENOMEM;
- 
- 	for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++) {
-+		err = mlxsw_sx_port_module_info_get(mlxsw_sx, i, &width);
-+		if (err)
-+			goto err_port_module_info_get;
-+		if (!width)
-+			continue;
- 		err = mlxsw_sx_port_create(mlxsw_sx, i);
- 		if (err)
- 			goto err_port_create;
-@@ -1147,6 +1136,7 @@ static int mlxsw_sx_ports_create(struct mlxsw_sx *mlxsw_sx)
- 	return 0;
- 
- err_port_create:
-+err_port_module_info_get:
- 	for (i--; i >= 1; i--)
- 		mlxsw_sx_port_remove(mlxsw_sx, i);
- 	kfree(mlxsw_sx->ports);
--- 
-2.5.5
+> ---
+>  net/sctp/input.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index a2ea1d1..8e0bc58 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -1021,7 +1021,6 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
+>  	struct sctphdr *sh = sctp_hdr(skb);
+>  	union sctp_params params;
+>  	sctp_init_chunk_t *init;
+> -	struct sctp_transport *transport;
+>  	struct sctp_af *af;
+>  
+>  	/*
+> @@ -1052,7 +1051,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
+>  
+>  		af->from_addr_param(paddr, params.addr, sh->source, 0);
+>  
+> -		asoc = __sctp_lookup_association(net, laddr, paddr, &transport);
+> +		asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
+>  		if (asoc)
+>  			return asoc;
+>  	}
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
