@@ -1,67 +1,61 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next] lan78xx: Use irq_domain for phy interrupt from
- USB Int. EP
-Date: Fri, 28 Oct 2016 20:50:49 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40956C59@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D40956B56@CHN-SV-EXMX02.mchp-main.com>
- <919da0a4-3a5c-8c88-bab5-6fc2bf557a48@gmail.com>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: [PATCH v2 0/6] add NS2 support to bgmac
+Date: Fri, 28 Oct 2016 16:56:53 -0400
+Message-ID: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <UNGLinuxDriver@microchip.com>
-To: <f.fainelli@gmail.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.microchip.com ([198.175.253.82]:44598 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756755AbcJ1Uuv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 16:50:51 -0400
-In-Reply-To: <919da0a4-3a5c-8c88-bab5-6fc2bf557a48@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+ICtzdGF0aWMgdm9pZCBsYW43OHh4X2lycV9tYXNrKHN0cnVjdCBpcnFfZGF0YSAqaXJxZCkN
-Cj4gPiArew0KPiA+ICsJc3RydWN0IGlycV9kb21haW5fZGF0YSAqZGF0YSA9IGlycV9kYXRhX2dl
-dF9pcnFfY2hpcF9kYXRhKGlycWQpOw0KPiA+ICsJc3RydWN0IGxhbjc4eHhfbmV0ICpkZXYgPQ0K
-PiA+ICsJCQljb250YWluZXJfb2YoZGF0YSwgc3RydWN0IGxhbjc4eHhfbmV0LCBkb21haW5fZGF0
-YSk7DQo+ID4gKwl1MzIgYnVmOw0KPiA+ICsNCj4gPiArCWxhbjc4eHhfcmVhZF9yZWcoZGV2LCBJ
-TlRfRVBfQ1RMLCAmYnVmKTsNCj4gDQo+IGxhbjc4eHhfcmVhZF9yZWcoKSB1c2VzIGttYWxsb2Mo
-KSB3aXRoIEdGUF9LRVJORUwsIHdoaWxlDQo+IGlycV9tYXNrL2lycV91bm1hc2sgY2FuIGJlIGNh
-bGxlZCBpbiBhdG9taWMgY29udGV4dCBBRkFJUiwgeW91IG1heSBuZWVkDQo+IHRvIHBhc3MgZG93
-biBhIHNwZWNpZmljIGdmcF90IHRvIGxhbjc4eHhfcmVhZF9yZWcuDQo+IA0KPiBXaGF0IGFib3V0
-IHVzYl9zdWJtaXRfdXJiKCksIGNhbiB0aGF0IHdvcmsgaW4gYXRvbWljIGNvbnRleHQ/IERvIHlv
-dQ0KPiBuZWVkIHRvIGhhdmUgbGFuNzh4eF9yZWFkX3JlZygpIGFjcXVpcmUgYSByYXcgc3Bpbmxv
-Y2sgb3Igc29tZXRoaW5nIHRvDQo+IHNlcmlhbGl6ZSB0aGVtPw0KPiANCj4gPiArCWJ1ZiAmPSB+
-SU5UX0VQX1BIWV9JTlRfRU5fOw0KPiANCj4gRXZlbiB0aG91Z2ggeW91IG1heSBoYXZlIG9ubHkg
-b25lIGludGVycnVwdCBsaW5lIHRvIGRlYWwgd2l0aCBhdCB0aGUNCj4gbW9tZW50LCBiZXR0ZXIg
-bWFrZSB0aGlzIGJpdCBkZXJpdmVkIGZyb20gaXJxZC0+aHdpcnEgaW5zdGVhZCBvZiBoYXJkDQo+
-IGNvZGluZyBpdCBoZXJlLg0KPiANCj4gPiArCWxhbjc4eHhfd3JpdGVfcmVnKGRldiwgSU5UX0VQ
-X0NUTCwgYnVmKTsNCj4gPiArfQ0KPiA+ICsNCj4gPiArc3RhdGljIHZvaWQgbGFuNzh4eF9pcnFf
-dW5tYXNrKHN0cnVjdCBpcnFfZGF0YSAqaXJxZCkNCj4gPiArew0KPiA+ICsJc3RydWN0IGlycV9k
-b21haW5fZGF0YSAqZGF0YSA9IGlycV9kYXRhX2dldF9pcnFfY2hpcF9kYXRhKGlycWQpOw0KPiA+
-ICsJc3RydWN0IGxhbjc4eHhfbmV0ICpkZXYgPQ0KPiA+ICsJCQljb250YWluZXJfb2YoZGF0YSwg
-c3RydWN0IGxhbjc4eHhfbmV0LCBkb21haW5fZGF0YSk7DQo+ID4gKwl1MzIgYnVmOw0KPiA+ICsN
-Cj4gPiArCWxhbjc4eHhfcmVhZF9yZWcoZGV2LCBJTlRfRVBfQ1RMLCAmYnVmKTsNCj4gPiArCWJ1
-ZiB8PSBJTlRfRVBfUEhZX0lOVF9FTl87DQo+IA0KPiBTYW1lIGhlcmUsIHRoaXMgc2hvdWxkIGNv
-bWUgZnJvbSBpcnFkLT5od2lycS4NCj4gDQo+ID4gKwlsYW43OHh4X3dyaXRlX3JlZyhkZXYsIElO
-VF9FUF9DVEwsIGJ1Zik7DQo+ID4gK30NCj4gPiArDQo+ID4gK3N0YXRpYyBzdHJ1Y3QgaXJxX2No
-aXAgbGFuNzh4eF9pcnFjaGlwID0gew0KPiA+ICsJLm5hbWUJCT0gImxhbjc4eHgtcGh5aXJxIiwN
-Cj4gPiArCS5pcnFfbWFzawk9IGxhbjc4eHhfaXJxX21hc2ssDQo+ID4gKwkuaXJxX3VubWFzawk9
-IGxhbjc4eHhfaXJxX3VubWFzaywNCj4gPiArfTsNCj4gPiArDQo+ID4gK3N0YXRpYyBpbnQgbGFu
-Nzh4eF9zZXR1cF9pcnFfZG9tYWluKHN0cnVjdCBsYW43OHh4X25ldCAqZGV2KQ0KPiA+ICt7DQo+
-ID4gKwlzdHJ1Y3QgZGV2aWNlX25vZGUgKm9mX25vZGU7DQo+ID4gKwlzdHJ1Y3QgaXJxX2RvbWFp
-biAqaXJxZG9tYWluOw0KPiA+ICsJdW5zaWduZWQgaW50IGlycV9iYXNlID0gMDsNCj4gPiArCWlu
-dCByZXQgPSAwOw0KPiA+ICsNCj4gPiArCW9mX25vZGUgPSBkZXYtPnVkZXYtPmRldi5wYXJlbnQt
-Pm9mX25vZGU7DQo+ID4gKw0KPiA+ICsJZGV2LT5kb21haW5fZGF0YS5pcnFjaGlwID0gJmxhbjc4
-eHhfaXJxY2hpcDsNCj4gPiArCWRldi0+ZG9tYWluX2RhdGEuaXJxX2hhbmRsZXIgPSBoYW5kbGVf
-c2ltcGxlX2lycTsNCj4gPiArDQo+ID4gKwlpcnFkb21haW4gPSBpcnFfZG9tYWluX2FkZF9zaW1w
-bGUob2Zfbm9kZSwgMSwgMCwNCj4gJmNoaXBfZG9tYWluX29wcywNCj4gPiArCQkJCQkgICZkZXYt
-PmRvbWFpbl9kYXRhKTsNCj4gDQo+IElzIHRoZXJlIHJlYWxseSBqdXN0IG9uZSBpbnRlcnJ1cHQg
-YXNzb2NpYXRlZCB3aXRoIHRoaXMgcGVyaXBoZXJhbCBoZXJlPw0KPiANCj4gPg0KPiA+ICsJaWYg
-KGxhbjc4eHhfc2V0dXBfaXJxX2RvbWFpbihkZXYpIDwgMCkgew0KPiA+ICsJCW5ldGRldl93YXJu
-KGRldi0+bmV0LCAibGFuNzh4eF9zZXR1cF9pcnFfZG9tYWluKCkNCj4gZmFpbGVkIik7DQo+ID4g
-KwkJcmV0dXJuIC1FSU87DQo+ID4gKwl9DQo+IA0KPiBBbnkgcmVhc29uIG5vdCB0byBwcm9wYWdh
-dGUgdGhlIGVycm9yIGNvZGUgZnJvbQ0KPiBsYW43OHh4X3NldHVwX2lycV9kb21haW4oKSBoZXJl
-Pw0KDQpUaGFua3MgZm9yIHByb21wdCByZXZpZXcuDQpJJ2xsIGxvb2sgaW50byBpdCBhbmQgc3Vi
-bWl0IHVwZGF0ZS4NCg0KVGhhbmtzLg0KLSBXb29qdW5nDQo=
+Changes in v2:
+* Remove the PHY power-on (per Andrew Lunn)
+* Misc PHY clean-ups regarding comments and #defines (per Andrew Lunn)
+  This results on none of the original PHY code from Vikas being
+  present.  So, I'm removing him as an author and giving him
+  "Inspired-by" credit.
+* Move PHY lane swapping to PHY driver (per Andrew Lunn and Florian
+  Fainelli)
+* Remove bgmac sleep (per Florian Fainelli)
+* Re-add bgmac chip reset (per Florian Fainelli and Ray Jui)
+* Rebased on latest net-next
+* Added patch for bcm54xx_auxctl_read, which is used in the BCM54810
+
+
+Add support for the amac found in the Broadcom Northstar2 SoC to the
+bgmac driver.  This necessitates adding support to connect to an
+externally defined phy (as described in the device tree) in the driver.
+These phy changes are in addition to the changes necessary to get NS2
+working.
+
+
+Jon Mason (6):
+  net: phy: broadcom: add bcm54xx_auxctl_read
+  net: phy: broadcom: Add BCM54810 PHY entry
+  Documentation: devicetree: net: add NS2 bindings to amac
+  net: ethernet: bgmac: device tree phy enablement
+  net: ethernet: bgmac: add NS2 support
+  arm64: dts: NS2: add AMAC ethernet support
+
+ .../devicetree/bindings/net/brcm,amac.txt          |   5 +-
+ arch/arm64/boot/dts/broadcom/ns2-svk.dts           |   5 ++
+ arch/arm64/boot/dts/broadcom/ns2.dtsi              |  12 +++
+ drivers/net/ethernet/broadcom/bgmac-bcma.c         |  48 ++++++++++
+ drivers/net/ethernet/broadcom/bgmac-platform.c     | 100 ++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bgmac.c              |  55 ++----------
+ drivers/net/ethernet/broadcom/bgmac.h              |   8 ++
+ drivers/net/phy/Kconfig                            |   2 +-
+ drivers/net/phy/broadcom.c                         |  68 +++++++++++++-
+ include/linux/brcmphy.h                            |  11 +++
+ 10 files changed, 260 insertions(+), 54 deletions(-)
+
+-- 
+2.7.4
