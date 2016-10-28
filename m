@@ -1,171 +1,124 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211-next 2016-10-28
-Date: Fri, 28 Oct 2016 09:06:13 +0200
-Message-ID: <20161028070614.17583-1-johannes@sipsolutions.net>
+From: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [v13, 5/8] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Fri, 28 Oct 2016 07:08:44 +0000
+Message-ID: <DB6PR0401MB2536E6A29246096648EEC890F8AD0@DB6PR0401MB2536.eurprd04.prod.outlook.com>
+References: <1477625554-46700-1-git-send-email-yangbo.lu@nxp.com>
+	<1477625554-46700-6-git-send-email-yangbo.lu@nxp.com>
+	<1477629956.6812.15.camel@buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:48616 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941635AbcJ1HGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Oct 2016 03:06:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"X.B. Xie" <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>, "M.H. Lian" <minghuan.lian-3arQi8VN3Tc@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs+mg8Ev75riOw@public.gmane.org
+To: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, "linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
+	<linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org"
+	<ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-First update for 4.10 - nothing major, new features as usual (FILS), and
-sometimes we deprecate old stuff (WDS).
-
-I don't have the fixes for the on-stack crypto/SG handling in this tree
-(you already have them via mac80211.git), but we did make sure that the
-fils_aead code doesn't re-introduce such an issue.
-
-Please pull and let me know if there's any problem.
-
-Thanks,
-johannes
-
-
-
-The following changes since commit 6b25e21fa6f26d0f0d45f161d169029411c84286:
-
-  Merge tag 'drm-for-v4.9' of git://people.freedesktop.org/~airlied/linux (2016-10-11 18:12:22 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2016-10-28
-
-for you to fetch changes up to 088e8df82f91a24728d49d9532cab7ebdee5117f:
-
-  cfg80211: Add support to update connection parameters (2016-10-27 16:03:28 +0200)
-
-----------------------------------------------------------------
-Among various cleanups and improvements, we have the following:
- * client FILS authentication support in mac80211 (Jouni)
- * AP/VLAN multicast improvements (Michael Braun)
- * config/advertising support for differing beacon intervals on
-   multiple virtual interfaces (Purushottam Kushwaha, myself)
- * deprecate the old WDS mode for cfg80211-based drivers, the
-   mode is hardly usable since it doesn't support any "modern"
-   features like WPA encryption (2003), HT (2009) or VHT (2014),
-   I'm not even sure WEP (introduced in 1997) could be done.
-
-----------------------------------------------------------------
-Andrei Otcheretianski (1):
-      cfg80211: allow vendor commands to be sent to nan interface
-
-Arend Van Spriel (1):
-      cfg80211: add generic helper to check interface is running
-
-Emmanuel Grumbach (2):
-      mac80211: allow the driver not to pass the tid to ieee80211_sta_uapsd_trigger
-      mac80211: uapsd_queues is in QoS IE order
-
-Ilan Peer (1):
-      cfg80211: allow aborting in-progress connection atttempts
-
-Johannes Berg (17):
-      mac80211: remove unnecessary mesh check
-      mac80211_hwsim: make multi-channel ops const
-      mac80211: preserve more bits when building QoS header
-      nl80211: correctly use nl80211_nan_srf_policy
-      nl80211: ifdef WoWLAN related policies
-      wireless: radiotap: fix timestamp sampling position values
-      mac80211: fix tid_agg_rx NULL dereference
-      mac80211: improve RX aggregation data in debugfs
-      wireless: deprecate WDS and disable by default
-      cfg80211: fix beacon interval in interface combination iteration
-      cfg80211: mesh: track (and thus validate) beacon interval
-      cfg80211: disallow beacon_int_min_gcd with IBSS
-      cfg80211: validate beacon int as part of iface combinations
-      mac80211: validate new interface's beacon intervals
-      nl80211: move unsplit command advertising to a separate function
-      nl80211: use nla_parse_nested() instead of nla_parse()
-      cfg80211: handle fragmented IEs in splitting
-
-Jouni Malinen (9):
-      cfg80211: Rename SAE_DATA to more generic AUTH_DATA
-      mac80211: Allow AUTH_DATA to be used for FILS
-      cfg80211: Add feature flag for Fast Initial Link Setup (FILS) as STA
-      cfg80211: Define IEEE P802.11ai (FILS) information elements
-      cfg80211: Add Fast Initial Link Setup (FILS) auth algs
-      cfg80211: Add KEK/nonces for FILS association frames
-      mac80211: Add FILS auth alg mapping
-      mac80211: FILS AEAD protection for station mode association frames
-      mac80211: Claim Fast Initial Link Setup (FILS) STA support
-
-Linus Lüssing (1):
-      mac80211_hwsim: suggest nl80211 instead of wext driver in documentation
-
-Michael Braun (5):
-      mac80211: remove unnecessary num_mcast_sta check
-      mac80211: filter multicast data packets on AP / AP_VLAN
-      mac80211: avoid extra memcpy in A-MSDU head creation
-      mac80211: fix A-MSDU outer SA/DA
-      cfg80211: configure multicast to unicast for AP interfaces
-
-Purushottam Kushwaha (2):
-      cfg80211: pass struct to interface combination check/iter
-      cfg80211: support virtual interfaces with different beacon intervals
-
-Sara Sharon (1):
-      mac80211: add a HW flag for supporting HW TX fragmentation
-
-Wei Yongjun (1):
-      cfg80211: fix possible memory leak in cfg80211_iter_combinations()
-
-vamsi krishna (1):
-      cfg80211: Add support to update connection parameters
-
- Documentation/networking/mac80211_hwsim/README     |   2 +-
- drivers/net/wireless/Kconfig                       |  13 +
- drivers/net/wireless/ath/ath10k/mac.c              |   1 +
- drivers/net/wireless/ath/ath9k/init.c              |   6 +
- drivers/net/wireless/broadcom/b43/main.c           |   2 +
- drivers/net/wireless/broadcom/b43legacy/main.c     |   2 +
- .../broadcom/brcm80211/brcmfmac/cfg80211.c         |  22 +-
- drivers/net/wireless/mac80211_hwsim.c              |  79 ++--
- drivers/net/wireless/ralink/rt2x00/rt2x00dev.c     |   6 +-
- drivers/net/wireless/ti/wlcore/main.c              |   1 +
- include/linux/ieee80211.h                          |  26 ++
- include/net/cfg80211.h                             | 150 +++++--
- include/net/ieee80211_radiotap.h                   |   4 +-
- include/net/mac80211.h                             |  19 +-
- include/uapi/linux/nl80211.h                       |  69 +++-
- net/mac80211/Makefile                              |   1 +
- net/mac80211/aes_cmac.c                            |   8 +-
- net/mac80211/aes_cmac.h                            |   4 +
- net/mac80211/agg-rx.c                              |   8 +-
- net/mac80211/cfg.c                                 |  35 +-
- net/mac80211/debugfs.c                             |   1 +
- net/mac80211/debugfs_netdev.c                      |  11 +
- net/mac80211/debugfs_sta.c                         |   9 +-
- net/mac80211/fils_aead.c                           | 344 ++++++++++++++++
- net/mac80211/fils_aead.h                           |  19 +
- net/mac80211/ieee80211_i.h                         |  26 +-
- net/mac80211/iface.c                               |  16 +
- net/mac80211/main.c                                |   5 +
- net/mac80211/mlme.c                                |  60 ++-
- net/mac80211/rx.c                                  |  11 +-
- net/mac80211/sta_info.c                            |  23 +-
- net/mac80211/sta_info.h                            |   4 +-
- net/mac80211/tx.c                                  |  55 ++-
- net/mac80211/util.c                                |  61 +--
- net/mac80211/wme.c                                 |  23 +-
- net/mac80211/wpa.c                                 |   2 +-
- net/wireless/core.c                                |  33 +-
- net/wireless/core.h                                |   4 +-
- net/wireless/mesh.c                                |   2 +
- net/wireless/mlme.c                                |   6 +-
- net/wireless/nl80211.c                             | 445 +++++++++++++--------
- net/wireless/rdev-ops.h                            |  24 ++
- net/wireless/sme.c                                 |   2 +-
- net/wireless/trace.h                               |  37 ++
- net/wireless/util.c                                | 125 ++++--
- 45 files changed, 1385 insertions(+), 421 deletions(-)
- create mode 100644 net/mac80211/fils_aead.c
- create mode 100644 net/mac80211/fils_aead.h
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBZLkIuIEx1DQo+IFNlbnQ6IEZy
+aWRheSwgT2N0b2JlciAyOCwgMjAxNiAyOjA2IFBNDQo+IFRvOiBZLkIuIEx1OyAnU2NvdHQgV29v
+ZCc7ICdsaW51eC1tbWNAdmdlci5rZXJuZWwub3JnJzsNCj4gJ3VsZi5oYW5zc29uQGxpbmFyby5v
+cmcnOyAnQXJuZCBCZXJnbWFubicNCj4gQ2M6ICdsaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9y
+Zyc7ICdkZXZpY2V0cmVlQHZnZXIua2VybmVsLm9yZyc7DQo+ICdsaW51eC1hcm0ta2VybmVsQGxp
+c3RzLmluZnJhZGVhZC5vcmcnOyAnbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZyc7DQo+ICds
+aW51eC1jbGtAdmdlci5rZXJuZWwub3JnJzsgJ2xpbnV4LWkyY0B2Z2VyLmtlcm5lbC5vcmcnOw0K
+PiAnaW9tbXVAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcnOyAnbmV0ZGV2QHZnZXIua2VybmVs
+Lm9yZyc7ICdHcmVnDQo+IEtyb2FoLUhhcnRtYW4nOyAnTWFyayBSdXRsYW5kJzsgJ1JvYiBIZXJy
+aW5nJzsgJ1J1c3NlbGwgS2luZyc7ICdKb2NoZW4NCj4gRnJpZWRyaWNoJzsgJ0pvZXJnIFJvZWRl
+bCc7ICdDbGF1ZGl1IE1hbm9pbCc7ICdCaHVwZXNoIFNoYXJtYSc7IFFpYW5nDQo+IFpoYW87ICdL
+dW1hciBHYWxhJzsgJ1NhbnRvc2ggU2hpbGlta2FyJzsgTGVvIExpOyBYLkIuIFhpZTsgTS5ILiBM
+aWFuDQo+IFN1YmplY3Q6IFJFOiBbdjEzLCA1LzhdIHNvYzogZnNsOiBhZGQgR1VUUyBkcml2ZXIg
+Zm9yIFFvcklRIHBsYXRmb3Jtcw0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0K
+PiA+IEZyb206IFkuQi4gTHUNCj4gPiBTZW50OiBGcmlkYXksIE9jdG9iZXIgMjgsIDIwMTYgMjow
+MCBQTQ0KPiA+IFRvOiAnU2NvdHQgV29vZCc7IGxpbnV4LW1tY0B2Z2VyLmtlcm5lbC5vcmc7IHVs
+Zi5oYW5zc29uQGxpbmFyby5vcmc7DQo+ID4gQXJuZCBCZXJnbWFubg0KPiA+IENjOiBsaW51eHBw
+Yy1kZXZAbGlzdHMub3psYWJzLm9yZzsgZGV2aWNldHJlZUB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4g
+bGludXgtYXJtLSBrZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZzsgbGludXgta2VybmVsQHZnZXIu
+a2VybmVsLm9yZzsNCj4gPiBsaW51eC0gY2xrQHZnZXIua2VybmVsLm9yZzsgbGludXgtaTJjQHZn
+ZXIua2VybmVsLm9yZzsNCj4gPiBpb21tdUBsaXN0cy5saW51eC0gZm91bmRhdGlvbi5vcmc7IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IEdyZWcNCj4gPiBLcm9haC1IYXJ0bWFuOyBNYXJrIFJ1dGxh
+bmQ7IFJvYiBIZXJyaW5nOyBSdXNzZWxsIEtpbmc7IEpvY2hlbg0KPiA+IEZyaWVkcmljaDsgSm9l
+cmcgUm9lZGVsOyBDbGF1ZGl1IE1hbm9pbDsgQmh1cGVzaCBTaGFybWE7IFFpYW5nIFpoYW87DQo+
+IEt1bWFyIEdhbGE7IFNhbnRvc2ggU2hpbGlta2FyOyBMZW8gTGk7IFguQi4NCj4gPiBYaWU7IE0u
+SC4gTGlhbg0KPiA+IFN1YmplY3Q6IFJFOiBbdjEzLCA1LzhdIHNvYzogZnNsOiBhZGQgR1VUUyBk
+cml2ZXIgZm9yIFFvcklRIHBsYXRmb3Jtcw0KPiA+DQo+ID4NCj4gPg0KPiA+ID4gLS0tLS1Pcmln
+aW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IGxpbnV4LW1tYy1vd25lckB2Z2VyLmtlcm5l
+bC5vcmcgW21haWx0bzpsaW51eC1tbWMtDQo+ID4gPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9u
+IEJlaGFsZiBPZiBTY290dCBXb29kDQo+ID4gPiBTZW50OiBGcmlkYXksIE9jdG9iZXIgMjgsIDIw
+MTYgMTI6NDYgUE0NCj4gPiA+IFRvOiBZLkIuIEx1OyBsaW51eC1tbWNAdmdlci5rZXJuZWwub3Jn
+OyB1bGYuaGFuc3NvbkBsaW5hcm8ub3JnOyBBcm5kDQo+ID4gPiBCZXJnbWFubg0KPiA+ID4gQ2M6
+IGxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOyBkZXZpY2V0cmVlQHZnZXIua2VybmVsLm9y
+ZzsNCj4gPiA+IGxpbnV4LWFybS0ga2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmc7IGxpbnV4LWtl
+cm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gPiBsaW51eC0gY2xrQHZnZXIua2VybmVsLm9yZzsg
+bGludXgtaTJjQHZnZXIua2VybmVsLm9yZzsNCj4gPiA+IGlvbW11QGxpc3RzLmxpbnV4LSBmb3Vu
+ZGF0aW9uLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgR3JlZw0KPiA+ID4gS3JvYWgtSGFy
+dG1hbjsgTWFyayBSdXRsYW5kOyBSb2IgSGVycmluZzsgUnVzc2VsbCBLaW5nOyBKb2NoZW4NCj4g
+PiA+IEZyaWVkcmljaDsgSm9lcmcgUm9lZGVsOyBDbGF1ZGl1IE1hbm9pbDsgQmh1cGVzaCBTaGFy
+bWE7IFFpYW5nIFpoYW87DQo+ID4gS3VtYXIgR2FsYTsgU2FudG9zaCBTaGlsaW1rYXI7IExlbyBM
+aTsgWC5CLg0KPiA+ID4gWGllOyBNLkguIExpYW4NCj4gPiA+IFN1YmplY3Q6IFJlOiBbdjEzLCA1
+LzhdIHNvYzogZnNsOiBhZGQgR1VUUyBkcml2ZXIgZm9yIFFvcklRDQo+ID4gPiBwbGF0Zm9ybXMN
+Cj4gPiA+DQo+ID4gPiBPbiBGcmksIDIwMTYtMTAtMjggYXQgMTE6MzIgKzA4MDAsIFlhbmdibyBM
+dSB3cm90ZToNCj4gPiA+ID4gKwlndXRzLT5yZWdzID0gb2ZfaW9tYXAobnAsIDApOw0KPiA+ID4g
+PiArCWlmICghZ3V0cy0+cmVncykNCj4gPiA+ID4gKwkJcmV0dXJuIC1FTk9NRU07DQo+ID4gPiA+
+ICsNCj4gPiA+ID4gKwkvKiBSZWdpc3RlciBzb2MgZGV2aWNlICovDQo+ID4gPiA+ICsJbWFjaGlu
+ZSA9IG9mX2ZsYXRfZHRfZ2V0X21hY2hpbmVfbmFtZSgpOw0KPiA+ID4gPiArCWlmIChtYWNoaW5l
+KQ0KPiA+ID4gPiArCQlzb2NfZGV2X2F0dHIubWFjaGluZSA9IGRldm1fa3N0cmR1cChkZXYsIG1h
+Y2hpbmUsDQo+ID4gPiA+IEdGUF9LRVJORUwpOw0KPiA+ID4gPiArDQo+ID4gPiA+ICsJc3ZyID0g
+ZnNsX2d1dHNfZ2V0X3N2cigpOw0KPiA+ID4gPiArCXNvY19kaWUgPSBmc2xfc29jX2RpZV9tYXRj
+aChzdnIsIGZzbF9zb2NfZGllKTsNCj4gPiA+ID4gKwlpZiAoc29jX2RpZSkgew0KPiA+ID4gPiAr
+CQlzb2NfZGV2X2F0dHIuZmFtaWx5ID0gZGV2bV9rYXNwcmludGYoZGV2LCBHRlBfS0VSTkVMLA0K
+PiA+ID4gPiArCQkJCQkJwqDCoMKgwqDCoCJRb3JJUSAlcyIsIHNvY19kaWUtDQo+ID4gPiA+ID5k
+aWUpOw0KPiA+ID4gPiArCX0gZWxzZSB7DQo+ID4gPiA+ICsJCXNvY19kZXZfYXR0ci5mYW1pbHkg
+PSBkZXZtX2thc3ByaW50ZihkZXYsIEdGUF9LRVJORUwsDQo+ID4gPiA+ICJRb3JJUSIpOw0KPiA+
+ID4gPiArCX0NCj4gPiA+ID4gKwlzb2NfZGV2X2F0dHIuc29jX2lkID0gZGV2bV9rYXNwcmludGYo
+ZGV2LCBHRlBfS0VSTkVMLA0KPiA+ID4gPiArCQkJCQnCoMKgwqDCoMKgInN2cjoweCUwOHgiLCBz
+dnIpOw0KPiA+ID4gPiArCXNvY19kZXZfYXR0ci5yZXZpc2lvbiA9IGRldm1fa2FzcHJpbnRmKGRl
+diwgR0ZQX0tFUk5FTCwNCj4gIiVkLiVkIiwNCj4gPiA+ID4gKwkJCQkJwqDCoMKgwqDCoMKgwqBT
+VlJfTUFKKHN2ciksIFNWUl9NSU4oc3ZyKSk7DQo+ID4gPiA+ICsNCj4gPiA+ID4gKwlzb2NfZGV2
+ID0gc29jX2RldmljZV9yZWdpc3Rlcigmc29jX2Rldl9hdHRyKTsNCj4gPiA+ID4gKwlpZiAoSVNf
+RVJSKHNvY19kZXYpKQ0KPiA+ID4gPiArCQlyZXR1cm4gUFRSX0VSUihzb2NfZGV2KTsNCj4gPiA+
+DQo+ID4gPiBpb3JlbWFwIGxlYWtzIG9uIHRoaXMgZXJyb3IgcGF0aC4gwqBVc2UgZGV2bV9pb3Jl
+bWFwX3Jlc291cmNlKCkuDQo+ID4gPg0KPiA+DQo+ID4gW0x1IFlhbmdiby1CNDcwOTNdIE9rLiBJ
+IGhhdmUgZml4ZWQgaXQgaW4gdjE0LiBUaGFua3MgOikNCj4gDQo+IFtMdSBZYW5nYm8tQjQ3MDkz
+XSBTb3JyeSwgdXNlZCB0aGUgd3JvbmcgZXJyb3IgY29kZS4uLiBXaWxsIHJlc2VudCBpdA0KDQpb
+THUgWWFuZ2JvLUI0NzA5M10gVGhlIHYxNSBoYWQgYmVlbiBzZW50LiBBbmQgZHJvcHBlZCBwYXRj
+aCAnZHQ6IGJpbmRpbmdzOiB1cGRhdGUgRnJlZXNjYWxlIERDRkcgY29tcGF0aWJsZScsDQpzaW5j
+ZSB0aGF0IHdvcmsgaGFzIGJlZW4gZG9uZSBieSBiZWxvdyBwYXRjaCBvbiBTaGF3bkd1bydzIGxp
+bnV4IHRyZWUuDQonZHQtYmluZGluZ3M6IGZzbDogYWRkIExTMTA0M0EvTFMxMDQ2QS9MUzIwODBB
+IGNvbXBhdGlibGUgZm9yIFNDRkcgYW5kIERDRkcnDQpodHRwczovL2dpdC5rZXJuZWwub3JnL2Nn
+aXQvbGludXgva2VybmVsL2dpdC9zaGF3bmd1by9saW51eC5naXQvY29tbWl0Lz9oPWlteC9kdDY0
+JmlkPTk4MTAzNGEyYmZjYWZmNWM5NWRhZmRlMjRkN2FiZmU3ZjkwMjVjMTkNCg0KVGhhbmtzLg0K
+DQo+IA0KPiA+DQo+ID4gPiAtU2NvdHQNCj4gPiA+DQo+ID4gPiAtLQ0KPiA+ID4gVG8gdW5zdWJz
+Y3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LW1t
+YyINCj4gPiA+IGluIHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJu
+ZWwub3JnIE1vcmUgbWFqb3Jkb21vDQo+ID4gPiBpbmZvIGF0IGh0dHA6Ly92Z2VyLmtlcm5lbC5v
+cmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KaW9tbXUgbWFpbGluZyBsaXN0CmlvbW11QGxpc3RzLmxpbnV4LWZvdW5k
+YXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3Rp
+bmZvL2lvbW11
