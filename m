@@ -1,123 +1,52 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/dccp: warning in dccp_feat_clone_sp_val/__might_sleep
-Date: Sat, 29 Oct 2016 19:06:52 +0200
-Message-ID: <CAAeHK+y9ENvGzJEQtRy_5DEzCfhGEYXR5CPpgwXy_FoOtFUf3Q@mail.gmail.com>
-References: <CAAeHK+z-SAq-YhHarfc94dguyXCJ_tv8n=ZVdLTRsYEy0cK-pQ@mail.gmail.com>
- <CAM_iQpX_xw35MUyd9aON5U=HmUoRafeoOF+_vSTHGYnrXd-CHg@mail.gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net 2/3] sctp: return back transport in __sctp_rcv_init_lookup
+Date: Sun, 30 Oct 2016 01:29:07 +0800
+Message-ID: <CADvbK_cwNsqFiHhWQM1g4XhK4v4rjZ7gEvtcYWKdZDnZmfeEnQ@mail.gmail.com>
+References: <cover.1477649076.git.lucien.xin@gmail.com> <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
+ <20161028194221.GC4193@localhost.localdomain> <20161028213943.GA14175@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpX_xw35MUyd9aON5U=HmUoRafeoOF+_vSTHGYnrXd-CHg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>, Vlad Yasevich <vyasevich@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:36742 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751412AbcJ2R3I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 13:29:08 -0400
+In-Reply-To: <20161028213943.GA14175@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Cong,
+On Sat, Oct 29, 2016 at 5:39 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Fri, Oct 28, 2016 at 05:42:21PM -0200, Marcelo Ricardo Leitner wrote:
+>> On Fri, Oct 28, 2016 at 06:10:53PM +0800, Xin Long wrote:
+>> > Prior to this patch, it used a local variable to save the transport that is
+>> > looked up by __sctp_lookup_association(), and didn't return it back. But in
+>> > sctp_rcv, it is used to initialize chunk->transport. So when hitting this
+>> > code, it was initializing chunk->transport with some random stack value
+>> > instead.
+here should be:
+So when hitting this, even if it found the transport, it was still initializing
+chunk->transport with null instead.
 
-Tested with your patch, still getting a warning, though it's a little different:
-
-------------[ cut here ]------------
-WARNING: CPU: 1 PID: 3876 at kernel/sched/core.c:7724
-__might_sleep+0x14c/0x1a0 kernel/sched/core.c:7719
-do not call blocking ops when !TASK_RUNNING; state=1 set at
-[<ffffffff811f5a5c>] prepare_to_wait+0xbc/0x210
-kernel/sched/wait.c:178
-Modules linked in:
-CPU: 1 PID: 3876 Comm: a.out Not tainted 4.9.0-rc2+ #325
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffff88006c2d7770 ffffffff81b46914 ffff88006c2d77e8 0000000000000000
- ffffffff84052960 0000000000000000 ffff88006c2d77b8 ffffffff81111237
- 0000000041b58ab3 ffffffff00001e2c ffffed000d85aef9 ffffffff84052960
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff81b46914>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
- [<ffffffff81111237>] __warn+0x1a7/0x1f0 kernel/panic.c:550
- [<ffffffff8111132c>] warn_slowpath_fmt+0xac/0xd0 kernel/panic.c:565
- [<ffffffff811922fc>] __might_sleep+0x14c/0x1a0 kernel/sched/core.c:7719
- [<     inline     >] slab_pre_alloc_hook mm/slab.h:393
- [<     inline     >] slab_alloc_node mm/slub.c:2634
- [<     inline     >] slab_alloc mm/slub.c:2716
- [<ffffffff815054fb>] kmem_cache_alloc_trace+0x1bb/0x270 mm/slub.c:2733
- [<     inline     >] kmalloc ./include/linux/slab.h:490
- [<ffffffff83889e62>] dccp_feat_entry_new+0x182/0x2a0 net/dccp/feat.c:468
- [<ffffffff8388a1ea>] dccp_feat_push_confirm+0x3a/0x270 net/dccp/feat.c:516
- [<     inline     >] dccp_feat_change_recv net/dccp/feat.c:1160
- [<ffffffff8388d587>] dccp_feat_parse_options+0xb37/0x13d0 net/dccp/feat.c:1412
- [<ffffffff83894f61>] dccp_parse_options+0x721/0x1010 net/dccp/options.c:128
- [<ffffffff838912e0>] dccp_rcv_state_process+0x200/0x15b0 net/dccp/input.c:644
- [<ffffffff838b8af4>] dccp_v4_do_rcv+0xf4/0x1a0 net/dccp/ipv4.c:681
- [<     inline     >] sk_backlog_rcv ./include/net/sock.h:872
- [<ffffffff82b7ceb6>] __release_sock+0x126/0x3a0 net/core/sock.c:2044
- [<ffffffff82b7d189>] release_sock+0x59/0x1c0 net/core/sock.c:2502
- [<     inline     >] inet_wait_for_connect net/ipv4/af_inet.c:547
- [<ffffffff8316b2a2>] __inet_stream_connect+0x5d2/0xbb0 net/ipv4/af_inet.c:617
- [<ffffffff8316b8d5>] inet_stream_connect+0x55/0xa0 net/ipv4/af_inet.c:656
- [<ffffffff82b705e4>] SYSC_connect+0x244/0x2f0 net/socket.c:1533
- [<ffffffff82b72dd4>] SyS_connect+0x24/0x30 net/socket.c:1514
- [<ffffffff83fbf781>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-arch/x86/entry/entry_64.S:209
----[ end trace c7e036cf4dc54077 ]---
-
-Thanks!
-
-On Sat, Oct 29, 2016 at 8:10 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Fri, Oct 28, 2016 at 5:40 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> Hi,
+>> >
+>> > This patch is to return the transport back through transport pointer
+>> > that is from __sctp_rcv_lookup_harder().
+>> >
+>> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 >>
->> I've got the following error report while running the syzkaller fuzzer:
+>> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 >>
->> ------------[ cut here ]------------
->> WARNING: CPU: 0 PID: 4608 at kernel/sched/core.c:7724
->> __might_sleep+0x14c/0x1a0 kernel/sched/core.c:7719
->> do not call blocking ops when !TASK_RUNNING; state=1 set at
->> [<ffffffff811f5a5c>] prepare_to_wait+0xbc/0x210
->> kernel/sched/wait.c:178
->> Modules linked in:
->> CPU: 0 PID: 4608 Comm: syz-executor Not tainted 4.9.0-rc2+ #320
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->>  ffff88006625f7a0 ffffffff81b46914 ffff88006625f818 0000000000000000
->>  ffffffff84052960 0000000000000000 ffff88006625f7e8 ffffffff81111237
->>  ffff88006aceac00 ffffffff00001e2c ffffed000cc4beff ffffffff84052960
->> Call Trace:
->>  [<     inline     >] __dump_stack lib/dump_stack.c:15
->>  [<ffffffff81b46914>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
->>  [<ffffffff81111237>] __warn+0x1a7/0x1f0 kernel/panic.c:550
->>  [<ffffffff8111132c>] warn_slowpath_fmt+0xac/0xd0 kernel/panic.c:565
->>  [<ffffffff811922fc>] __might_sleep+0x14c/0x1a0 kernel/sched/core.c:7719
->>  [<     inline     >] slab_pre_alloc_hook mm/slab.h:393
->>  [<     inline     >] slab_alloc_node mm/slub.c:2634
->>  [<     inline     >] slab_alloc mm/slub.c:2716
->>  [<ffffffff81508da0>] __kmalloc_track_caller+0x150/0x2a0 mm/slub.c:4240
->>  [<ffffffff8146be14>] kmemdup+0x24/0x50 mm/util.c:113
->>  [<ffffffff8388b2cf>] dccp_feat_clone_sp_val.part.5+0x4f/0xe0
->> net/dccp/feat.c:374
->>  [<     inline     >] dccp_feat_clone_sp_val net/dccp/feat.c:1141
->>  [<     inline     >] dccp_feat_change_recv net/dccp/feat.c:1141
->>  [<ffffffff8388d491>] dccp_feat_parse_options+0xaa1/0x13d0 net/dccp/feat.c:1411
->>  [<ffffffff83894f01>] dccp_parse_options+0x721/0x1010 net/dccp/options.c:128
->>  [<ffffffff83891280>] dccp_rcv_state_process+0x200/0x15b0 net/dccp/input.c:644
->>  [<ffffffff838b8a94>] dccp_v4_do_rcv+0xf4/0x1a0 net/dccp/ipv4.c:681
->>  [<     inline     >] sk_backlog_rcv ./include/net/sock.h:872
->>  [<ffffffff82b7ceb6>] __release_sock+0x126/0x3a0 net/core/sock.c:2044
->>  [<ffffffff82b7d189>] release_sock+0x59/0x1c0 net/core/sock.c:2502
->>  [<     inline     >] inet_wait_for_connect net/ipv4/af_inet.c:547
->>  [<ffffffff8316b2a2>] __inet_stream_connect+0x5d2/0xbb0 net/ipv4/af_inet.c:617
->>  [<ffffffff8316b8d5>] inet_stream_connect+0x55/0xa0 net/ipv4/af_inet.c:656
->>  [<ffffffff82b705e4>] SYSC_connect+0x244/0x2f0 net/socket.c:1533
->>  [<ffffffff82b72dd4>] SyS_connect+0x24/0x30 net/socket.c:1514
->>  [<ffffffff83fbf701>] entry_SYSCALL_64_fastpath+0x1f/0xc2
->> arch/x86/entry/entry_64.S:209
+>> transport pointer in sctp_rcv() is initialized to null and there are
+>> checks for it after this path, so this shouldn't be exploitable, just
+>> malfunction.
 >
-> Should be fixed the attached patch. I will verify it with your
-> reproducer tomorrow.
+> This actually sort of contradicts the changelog.
 >
-> Thanks!
+> Xin, did I miss something here? Seems we need to update the changelog if
+> not.
+>
+You're right, thanks, will repost.
