@@ -1,13 +1,19 @@
 From: Jakub Kicinski <kubakici@wp.pl>
 Subject: Re: Let's do P4
-Date: Sat, 29 Oct 2016 15:49:03 +0100
-Message-ID: <20161029154903.25deb6db@jkicinski-Precision-T1700>
+Date: Sat, 29 Oct 2016 15:54:21 +0100
+Message-ID: <20161029155421.02d81125@jkicinski-Precision-T1700>
 References: <20161029075328.GB1692@nanopsycho.orion>
+        <20161029093905.GA1810@pox.localdomain>
+        <20161029101003.GC1692@nanopsycho.orion>
+        <20161029111548.GB1810@pox.localdomain>
+        <20161029112834.GF1692@nanopsycho.orion>
+        <20161029120932.GD1810@pox.localdomain>
+        <20161029135855.GH1692@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
-        jhs@mojatatu.com, roopa@cumulusnetworks.com,
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+        davem@davemloft.net, jhs@mojatatu.com, roopa@cumulusnetworks.com,
         john.fastabend@gmail.com, simon.horman@netronome.com,
         ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
         hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
@@ -15,44 +21,95 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
         yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
         linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
         dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com,
-        Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
+        andrew@lunn.ch, ivecera@redhat.com
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:23641 "EHLO mx3.wp.pl"
+Received: from mx3.wp.pl ([212.77.101.9]:25639 "EHLO mx3.wp.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750827AbcJ2OtN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Oct 2016 10:49:13 -0400
-In-Reply-To: <20161029075328.GB1692@nanopsycho.orion>
+        id S1751075AbcJ2Oy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Oct 2016 10:54:28 -0400
+In-Reply-To: <20161029135855.GH1692@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 29 Oct 2016 09:53:28 +0200, Jiri Pirko wrote:
-> Hi all.
+On Sat, 29 Oct 2016 15:58:55 +0200, Jiri Pirko wrote:
+> Sat, Oct 29, 2016 at 02:09:32PM CEST, tgraf@suug.ch wrote:
+> >On 10/29/16 at 01:28pm, Jiri Pirko wrote:  
+> >> Sat, Oct 29, 2016 at 01:15:48PM CEST, tgraf@suug.ch wrote:  
+> >> >So given the SKIP_SW flag, the in-kernel compiler is optional anyway.
+> >> >Why even risk including a possibly incomplete compiler? Older kernels
+> >> >must be capable of running along newer hardware as long as eBPF can
+> >> >represent the software path. Having to upgrade to latest and greatest
+> >> >kernels is not an option for most people so they would simply have to
+> >> >fall back to SKIP_SW and do it in user space anyway.  
+> >> 
+> >> The thing is, if we needo to offload something, it needs to be
+> >> implemented in kernel first. Also, I believe that it is good to have
+> >> in-kernel p4 engine for testing and development purposes.  
+> >
+> >You lost me now :-) In an earlier email you said:
+> >  
+> >> It can be the other way around. The p4>ebpf compiler won't be complete
+> >> at the beginning so it is possible that HW could provide more features.
+> >> I don't think it is a problem. With SKIP_SW and SKIP_HW flags in TC,
+> >> the user can set different program to each. I think in real life, that
+> >> would be the most common case anyway.  
+> >
+> >If you allow to SKIP_SW and set different programs each to address
+> >this, then how is this any different.
+> >
+> >I completely agree that kernel must be able to provide the same
+> >functionality as HW with optional additional capabilities on top so
+> >the HW can always bail out and punt to SW.
+> >
+> >[...]
+> >  
+> >> >I'm not seeing how either of them is more or less variable. The main
+> >> >difference is whether to require configuring a single cls with both
+> >> >p4ast + bpf or two separate cls, one for each. I'd prefer the single
+> >> >cls approach simply because it is cleaner wither regard to offload
+> >> >directly off bpf vs off p4ast.  
+> >> 
+> >> That's the bundle that you asked me to forget earlier in this email? :)  
+> >
+> >I thought you referred to the "store in same object file" as bundle.
+> >I don't really care about that. What I care about is a single way to
+> >configure this that works for both ASIC and non-ASIC hardware.
+> >  
+> >> >My main point is to not include a IR to eBPF compiler in the kernel
+> >> >and let user space handle this instead.  
+> >> 
+> >> It we do it as you describe, we would be using 2 different APIs for
+> >> offloaded and non-offloaded path. I don't believe it is acceptable as
+> >> the offloaded features has to have kernel implementation. Therefore, I
+> >> believe that p4ast as a kernel API is the only possible option.  
+> >
+> >Yes, the kernel has the SW implementation in eBPF. I thought that is
+> >what you propose as well. The only difference is whether to generate
+> >that eBPF in kernel or user space.
+> >
+> >Not sure I understand the multiple APIs point for offload vs
+> >non-offload. There is a single API: tc. Both models require the user
+> >to provide additional metadata to allow programming ASIC HW: p4ast
+> >IR or whatever we agree on.  
 > 
-> The network world is divided into 2 general types of hw:
-> 1) network ASICs - network specific silicon, containing things like TCAM
->    These ASICs are suitable to be programmed by P4.
-> 2) network processors - basically a general purpose CPUs
->    These processors are suitable to be programmed by eBPF.
+> If you do p4>ebpf in userspace, you have 2 apis:
+> 1) to setup sw (in-kernel) p4 datapath, you push bpf.o to kernel
+> 2) to setup hw p4 datapath, you push program.p4ast to kernel
 > 
-> I believe that by now, the most people came to a conclusion that it is
-> very difficult to handle both types by either P4 or eBPF. And since
-> eBPF is part of the kernel, I would like to introduce P4 into kernel
-> as well. Here's a plan:
+> Those are 2 apis. Both wrapped up by TC, but still 2 apis.
 > 
-> 1) Define P4 intermediate representation
->    I cannot imagine loading P4 program (c-like syntax text file) into
->    kernel as is. That means that as the first step, we need find some
->    intermediate representation. I can imagine someting in a form of AST,
->    call it "p4ast". I don't really know how to do this exactly though,
->    it's just an idea.
+> What I believe is correct is to have one api:
+> 1) to setup sw (in-kernel) p4 datapath, you push program.p4ast to kernel
+> 2) to setup hw p4 datapath, you push program.p4ast to kernel
 > 
->    In the end there would be a userspace precompiler for this:
->    $ makep4ast example.p4 example.ast
+> In case of 1), the program.p4ast will be either interpreted by new p4
+> interpreter, of translated to bpf and interpreted by that. But this
+> translation code is part of kernel.
 
-Maybe stating the obvious, but IMHO defining the IR is the hardest part.
-eBPF *is* the IR, we can compile C, P4 or even JIT Lua to eBPF.  The
-AST/IR for switch pipelines should allow for similar flexibility.
-Looser coupling would also protect us from changes in spec of the high
-level language.
+Option 3) use a well structured subset of eBPF as user space ABI ;)
+
+In all seriousness, user space already has to have some knowledge about
+the underlaying hardware today with different vendors picking different
+TC classifiers for offload.  So I humbly agree that 2 APIs may be
+acceptable here.
