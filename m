@@ -1,58 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/17] i40e: fix confusing dmesg info for ethtool -L option
-Date: Sat, 29 Oct 2016 00:30:52 -0700
-Message-ID: <1477726258-111563-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/17] i40e: Removal of workaround for simple MAC address filter deletion
+Date: Sat, 29 Oct 2016 00:30:55 -0700
+Message-ID: <1477726258-111563-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Lihong Yang <lihong.yang@intel.com>, netdev@vger.kernel.org,
+Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:10821 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:50625 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751764AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752249AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sat, 29 Oct 2016 03:31:08 -0400
 In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lihong Yang <lihong.yang@intel.com>
+From: Filip Sadowski <filip.sadowski@intel.com>
 
-Ethtool -L option with the combined parameter is for changing the number of
-multi-purpose channels of the specified network device. The pre-set maximum
-for the combined channels is cpu dependent. Currently, for an i40e device,
-when the user sets a value between 64 and the maximum that the cpu can
-support for the combined parameter, the i40e driver displays the confusing
-info in dmesg to only show 64 as the RSS count regardless of what the
-accepted user input is as long as it is larger than 64.
+This is code refactoring. This patch removes the workaround which deleted
+a default MAC filter added by the firmware when the interface was brought
+up. This filter caused frames to pass disregarding the VLAN tagging.
+It used to be automatically applied after reset in pre-SRA FW versions.
+This workaround is not needed in production NICs and hence can be removed.
 
-This patch fixes the message in the i40e driver when the user uses
-ethtool -L to change the number of the combined channels to consistently
-display the user requested value if it is valid and accepted by ethtool.
-
-Change-ID: Ia80a68bc844b779a49e0f76e7d3dcc915032d9af
-Signed-off-by: Lihong Yang <lihong.yang@intel.com>
+Change-ID: I129fe1aae1f17b5a224c9b29a996d916aa1be1ec
+Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 41 -----------------------------
+ 1 file changed, 41 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c25247f..a4bae0a 100644
+index a4bae0a..2e787ff 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8400,8 +8400,8 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
- 
- 		i40e_pf_config_rss(pf);
- 	}
--	dev_info(&pf->pdev->dev, "RSS count/HW max RSS count:  %d/%d\n",
--		 pf->alloc_rss_size, pf->rss_size_max);
-+	dev_info(&pf->pdev->dev, "User requested queue count/HW max RSS count:  %d/%d\n",
-+		 vsi->req_queue_pairs, pf->rss_size_max);
- 	return pf->alloc_rss_size;
+@@ -1287,39 +1287,6 @@ int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, u8 *macaddr,
  }
  
+ /**
+- * i40e_rm_default_mac_filter - Remove the default MAC filter set by NVM
+- * @vsi: the PF Main VSI - inappropriate for any other VSI
+- * @macaddr: the MAC address
+- *
+- * Remove whatever filter the firmware set up so the driver can manage
+- * its own filtering intelligently.
+- **/
+-static void i40e_rm_default_mac_filter(struct i40e_vsi *vsi, u8 *macaddr)
+-{
+-	struct i40e_aqc_remove_macvlan_element_data element;
+-	struct i40e_pf *pf = vsi->back;
+-
+-	/* Only appropriate for the PF main VSI */
+-	if (vsi->type != I40E_VSI_MAIN)
+-		return;
+-
+-	memset(&element, 0, sizeof(element));
+-	ether_addr_copy(element.mac_addr, macaddr);
+-	element.vlan_tag = 0;
+-	/* Ignore error returns, some firmware does it this way... */
+-	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH;
+-	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
+-
+-	memset(&element, 0, sizeof(element));
+-	ether_addr_copy(element.mac_addr, macaddr);
+-	element.vlan_tag = 0;
+-	/* ...and some firmware does it this way. */
+-	element.flags = I40E_AQC_MACVLAN_DEL_PERFECT_MATCH |
+-			I40E_AQC_MACVLAN_DEL_IGNORE_VLAN;
+-	i40e_aq_remove_macvlan(&pf->hw, vsi->seid, &element, 1, NULL);
+-}
+-
+-/**
+  * i40e_add_filter - Add a mac/vlan filter to the VSI
+  * @vsi: the VSI to be searched
+  * @macaddr: the MAC address
+@@ -9218,12 +9185,6 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 	if (vsi->type == I40E_VSI_MAIN) {
+ 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
+ 		ether_addr_copy(mac_addr, hw->mac.perm_addr);
+-		/* The following steps are necessary to prevent reception
+-		 * of tagged packets - some older NVM configurations load a
+-		 * default a MAC-VLAN filter that accepts any tagged packet
+-		 * which must be replaced by a normal filter.
+-		 */
+-		i40e_rm_default_mac_filter(vsi, mac_addr);
+ 		spin_lock_bh(&vsi->mac_filter_list_lock);
+ 		i40e_add_filter(vsi, mac_addr, I40E_VLAN_ANY, false, true);
+ 		spin_unlock_bh(&vsi->mac_filter_list_lock);
+@@ -9741,8 +9702,6 @@ static struct i40e_vsi *i40e_vsi_reinit_setup(struct i40e_vsi *vsi)
+ 	pf->vsi[pf->lan_vsi]->tc_config.enabled_tc = 0;
+ 	pf->vsi[pf->lan_vsi]->seid = pf->main_vsi_seid;
+ 	i40e_vsi_config_tc(pf->vsi[pf->lan_vsi], enabled_tc);
+-	if (vsi->type == I40E_VSI_MAIN)
+-		i40e_rm_default_mac_filter(vsi, pf->hw.mac.perm_addr);
+ 
+ 	/* assign it some queues */
+ 	ret = i40e_alloc_rings(vsi);
 -- 
 2.7.4
