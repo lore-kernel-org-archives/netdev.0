@@ -1,58 +1,34 @@
 From: Isaac Boukris <iboukris@gmail.com>
-Subject: [PATCH] unix: escape all null bytes in abstract unix domain socket
-Date: Sat, 29 Oct 2016 22:20:20 +0300
-Message-ID: <1477768820-1295-2-git-send-email-iboukris@gmail.com>
-References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
-Cc: Isaac Boukris <iboukris@gmail.com>
-To: stephen@networkplumber.org, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: iproute: ss truncates abstract unix domain socket embedding null
+Date: Sat, 29 Oct 2016 22:35:21 +0300
+Message-ID: <CAC-fF8RzS1uYuYbs0xG5kUswH41EFKq7KEn1+HM8EjHNTapbEw@mail.gmail.com>
+References: <CAC-fF8SMUsj8pPJO+VYdRSQAOcwyBpJY1C9V3VEk3zrFS=Jy4Q@mail.gmail.com>
+ <CAC-fF8SdbDHPMZbOwHg=cOpsy+4ewTq9KGi-Cp=uaaG0hEJ8Fg@mail.gmail.com>
+ <20161026101554.15d8d37b@xeon-e3> <CAC-fF8SuSWabeCW-nBUwn6VsgFyMfQF9s1f0XZhdjAgiSGzVTw@mail.gmail.com>
+ <20161026152217.4058fcaa@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:33014 "EHLO
+        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751586AbcJ2TfY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 15:35:24 -0400
+Received: by mail-lf0-f50.google.com with SMTP id m193so3912463lfm.0
+        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 12:35:23 -0700 (PDT)
+In-Reply-To: <20161026152217.4058fcaa@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Abstract unix domain socket may embed null characters,
-these should be translated to '@' when printed out to
-proc the same way the null prefix is currently being
-translated.
+On Thu, Oct 27, 2016 at 1:22 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> Just translating all null characters to @ seems the most consistent and
+> logical. Also translating other all non-printing characters to something (maybe '?')
+> might be wise. It would be nice if all utilities output the same thing.
 
-This helps for tools such as netstat, lsof and the proc
-based implementation in ss to show all the significant
-bytes of the name (instead of getting cut at the first
-null occurrence).
+I've sent two patches to netdev with which all of ss, netstat and lsof
+would translate all null bytes the same way.
+I left out the other non-printable characters as I wasn't as confident about it.
 
-Signed-off-by: Isaac Boukris <iboukris@gmail.com>
----
- net/unix/af_unix.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 145082e..9250b03 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2805,14 +2805,19 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 
- 			i = 0;
- 			len = u->addr->len - sizeof(short);
--			if (!UNIX_ABSTRACT(s))
-+			if (!UNIX_ABSTRACT(s)) {
- 				len--;
--			else {
-+				for ( ; i < len; i++)
-+					seq_putc(seq,
-+						 u->addr->name->sun_path[i]);
-+			} else {
- 				seq_putc(seq, '@');
- 				i++;
-+				for ( ; i < len; i++)
-+					seq_putc(seq,
-+						 u->addr->name->sun_path[i] ?:
-+						 '@');
- 			}
--			for ( ; i < len; i++)
--				seq_putc(seq, u->addr->name->sun_path[i]);
- 		}
- 		unix_state_unlock(s);
- 		seq_putc(seq, '\n');
--- 
-2.7.4
+Thanks.
