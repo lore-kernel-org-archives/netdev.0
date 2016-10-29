@@ -1,28 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211-next 2016-10-28
-Date: Sat, 29 Oct 2016 17:27:24 -0400 (EDT)
-Message-ID: <20161029.172724.617624040118729651.davem@davemloft.net>
-References: <20161028070614.17583-1-johannes@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] net: phy: Add support for Microsemi VSC
+ 8530/40 Fast Ethernet PHY
+Date: Sat, 29 Oct 2016 17:31:14 -0400 (EDT)
+Message-ID: <20161029.173114.2081042559670184954.davem@davemloft.net>
+References: <1477649411-31036-1-git-send-email-allan.nielsen@microsemi.com>
+        <1477649411-31036-2-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161028070614.17583-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        raju.lakkaraju@microsemi.com
+To: allan.nielsen@microsemi.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53230 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752286AbcJ2VbQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 17:31:16 -0400
+In-Reply-To: <1477649411-31036-2-git-send-email-allan.nielsen@microsemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Fri, 28 Oct 2016 09:06:13 +0200
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Date: Fri, 28 Oct 2016 12:10:11 +0200
 
-> First update for 4.10 - nothing major, new features as usual (FILS), and
-> sometimes we deprecate old stuff (WDS).
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 > 
-> I don't have the fixes for the on-stack crypto/SG handling in this tree
-> (you already have them via mac80211.git), but we did make sure that the
-> fils_aead code doesn't re-introduce such an issue.
-> 
-> Please pull and let me know if there's any problem.
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
 
-Pulled, thanks Johannes.
+Applied.
