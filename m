@@ -1,45 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] virtio-net: Update the mtu code to match
-	virtio spec
-Date: Sat, 29 Oct 2016 12:01:02 -0400 (EDT)
-Message-ID: <20161029.120102.2254330014511044545.davem@davemloft.net>
-References: <1477426332-31093-1-git-send-email-aconole@redhat.com>
+Subject: Re: [PATCH net] inet: Fix missing return value in inet6_hash
+Date: Sat, 29 Oct 2016 12:02:11 -0400 (EDT)
+Message-ID: <20161029.120211.887919203026365142.davem@davemloft.net>
+References: <1477433329-165391-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarod@redhat.com, netdev@vger.kernel.org, mst@redhat.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: aconole@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1477426332-31093-1-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: soheil@google.com, netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48146 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751352AbcJ2QCM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 12:02:12 -0400
+In-Reply-To: <1477433329-165391-1-git-send-email-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Conole <aconole@redhat.com>
-Date: Tue, 25 Oct 2016 16:12:12 -0400
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Tue, 25 Oct 2016 18:08:49 -0400
 
-> The virtio committee recently ratified a change, VIRTIO-152, which
-> defines the mtu field to be 'max' MTU, not simply desired MTU.
+> From: Craig Gallek <kraig@google.com>
 > 
-> This commit brings the virtio-net device in compliance with VIRTIO-152.
+> As part of a series to implement faster SO_REUSEPORT lookups,
+> commit 086c653f5862 ("sock: struct proto hash function may error")
+> added return values to protocol hash functions and
+> commit 496611d7b5ea ("inet: create IPv6-equivalent inet_hash function")
+> implemented a new hash function for IPv6.  However, the latter does
+> not respect the former's convention.
 > 
-> Additionally, drop the max_mtu branch - it cannot be taken since the u16
-> returned by virtio_cread16 will never exceed the initial value of
-> max_mtu.
+> This properly propagates the hash errors in the IPv6 case.
 > 
-> Signed-off-by: Aaron Conole <aconole@redhat.com>
-> Acked-by: "Michael S. Tsirkin" <mst@redhat.com>
-> Acked-by: Jarod Wilson <jarod@redhat.com>
-> ---
-> Nothing code-wise has changed, but I've included the ACKs and fixed up the
-> subject line.
+> Fixes: 496611d7b5ea ("inet: create IPv6-equivalent inet_hash function")
+> Reported-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Craig Gallek <kraig@google.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thank you.
