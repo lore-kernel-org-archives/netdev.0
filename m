@@ -1,145 +1,150 @@
-From: Mao Wenan <maowenan@huawei.com>
-Subject: [PATCH] add one parameter wro_enable for IXGBE
-Date: Sat, 29 Oct 2016 15:08:52 +0800
-Message-ID: <1477724932-5440-2-git-send-email-maowenan@huawei.com>
-References: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <jeffrey.t.kirsher@intel.com>, <intel-wired-lan@lists.osuosl.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/17] i40e: reopen client after reset
+Date: Sat, 29 Oct 2016 00:30:47 -0700
+Message-ID: <1477726258-111563-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:22112 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752478AbcJ2HJe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 03:09:34 -0400
-In-Reply-To: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
+Received: from mga11.intel.com ([192.55.52.93]:50914 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751628AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Oct 2016 03:31:08 -0400
+In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h        |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 29 ++++++++++++++-----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 28 +++++++++++++-----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |  9 ++++++++
- 4 files changed, 41 insertions(+), 26 deletions(-)
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index b06e32d..9bc0be5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -1027,4 +1027,5 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 				  struct ixgbe_ring *tx_ring);
- u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter);
- void ixgbe_store_reta(struct ixgbe_adapter *adapter);
-+bool ixgbe_wro_enable(void);
- #endif /* _IXGBE_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index fb51be7..c312aaa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -186,20 +186,23 @@ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
- 	ret_val = ixgbe_start_hw_generic(hw);
- 
- #ifndef CONFIG_SPARC
--	/* Disable relaxed ordering */
--	for (i = 0; ((i < hw->mac.max_tx_queues) &&
--	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
--		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
--	}
-+	if(likely(!ixgbe_wro_enable())) {
-+
-+		/* Disable relaxed ordering */
-+		for (i = 0; ((i < hw->mac.max_tx_queues) &&
-+		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
-+			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
-+		}
- 
--	for (i = 0; ((i < hw->mac.max_rx_queues) &&
--	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
--		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
--			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		for (i = 0; ((i < hw->mac.max_rx_queues) &&
-+		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		}
+Allow the client interface to reopen existing clients if they were
+closed. This allows clients to recover from reset, which is essential
+for supporting VF RDMA. In one instance, the driver was not clearing the
+open bit when the client was closed. Add the code to clear this bit so
+that the state is accurate and the driver will not attempt to reopen
+already-open clients. Remove the ref_cnt variable; it was just getting
+in the way and was not being used consistently.
+
+Change-ID: Ic71af4553b096963ac0c56a997f887c9a4ed162d
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_client.c | 47 ++++++++++-----------------
+ drivers/net/ethernet/intel/i40e/i40e_client.h |  2 --
+ 2 files changed, 17 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index 417ac16..7fe72ab 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -287,6 +287,7 @@ void i40e_notify_client_of_netdev_close(struct i40e_vsi *vsi, bool reset)
+ 			}
+ 			cdev->client->ops->close(&cdev->lan_info, cdev->client,
+ 						 reset);
++			clear_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state);
+ 			i40e_client_release_qvlist(&cdev->lan_info);
+ 		}
  	}
- #endif
- 	if (ret_val)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 77d3039..7115dc0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -347,22 +347,24 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_FLUSH(hw);
+@@ -544,28 +545,27 @@ void i40e_client_subtask(struct i40e_pf *pf)
+ 			continue;
  
- #ifndef CONFIG_SPARC
--	/* Disable relaxed ordering */
--	for (i = 0; i < hw->mac.max_tx_queues; i++) {
--		u32 regval;
+ 		if (!existing) {
+-			/* Also up the ref_cnt for no. of instances of this
+-			 * client.
+-			 */
+-			atomic_inc(&client->ref_cnt);
+ 			dev_info(&pf->pdev->dev, "Added instance of Client %s to PF%d bus=0x%02x func=0x%02x\n",
+ 				 client->name, pf->hw.pf_id,
+ 				 pf->hw.bus.device, pf->hw.bus.func);
+-			mutex_lock(&i40e_client_instance_mutex);
+-			atomic_inc(&cdev->ref_cnt);
++		}
++
++		mutex_lock(&i40e_client_instance_mutex);
++		if (!test_bit(__I40E_CLIENT_INSTANCE_OPENED,
++			      &cdev->state)) {
++			/* Send an Open request to the client */
+ 			if (client->ops && client->ops->open)
+ 				ret = client->ops->open(&cdev->lan_info,
+ 							client);
+-			atomic_dec(&cdev->ref_cnt);
+-			if (ret < 0) {
+-				mutex_unlock(&i40e_client_instance_mutex);
++			if (!ret) {
++				set_bit(__I40E_CLIENT_INSTANCE_OPENED,
++					&cdev->state);
++			} else {
++				/* remove client instance */
+ 				i40e_client_del_instance(pf, client);
+-				atomic_dec(&client->ref_cnt);
+-				continue;
+ 			}
+-			set_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state);
+-			mutex_unlock(&i40e_client_instance_mutex);
+ 		}
++		mutex_unlock(&i40e_client_instance_mutex);
+ 	}
+ 	mutex_unlock(&i40e_client_mutex);
+ }
+@@ -660,10 +660,6 @@ static int i40e_client_release(struct i40e_client *client)
+ 			continue;
+ 		pf = (struct i40e_pf *)cdev->lan_info.pf;
+ 		if (test_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state)) {
+-			if (atomic_read(&cdev->ref_cnt) > 0) {
+-				ret = I40E_ERR_NOT_READY;
+-				goto out;
+-			}
+ 			if (client->ops && client->ops->close)
+ 				client->ops->close(&cdev->lan_info, client,
+ 						   false);
+@@ -676,11 +672,9 @@ static int i40e_client_release(struct i40e_client *client)
+ 		}
+ 		/* delete the client instance from the list */
+ 		list_move(&cdev->list, &cdevs_tmp);
+-		atomic_dec(&client->ref_cnt);
+ 		dev_info(&pf->pdev->dev, "Deleted client instance of Client %s\n",
+ 			 client->name);
+ 	}
+-out:
+ 	mutex_unlock(&i40e_client_instance_mutex);
+ 
+ 	/* free the client device and release its vsi */
+@@ -1006,17 +1000,10 @@ int i40e_unregister_client(struct i40e_client *client)
+ 		ret = -ENODEV;
+ 		goto out;
+ 	}
+-	if (atomic_read(&client->ref_cnt) == 0) {
+-		clear_bit(__I40E_CLIENT_REGISTERED, &client->state);
+-		list_del(&client->list);
+-		pr_info("i40e: Unregistered client %s with return code %d\n",
+-			client->name, ret);
+-	} else {
+-		ret = I40E_ERR_NOT_READY;
+-		pr_err("i40e: Client %s failed unregister - client has open instances\n",
+-		       client->name);
+-	}
 -
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
--		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
--	}
-+	if(likely(!ixgbe_wro_enable())) {
-+		/* Disable relaxed ordering */
-+		for (i = 0; i < hw->mac.max_tx_queues; i++) {
-+			u32 regval;
-+
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
-+			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
-+		}
++	clear_bit(__I40E_CLIENT_REGISTERED, &client->state);
++	list_del(&client->list);
++	pr_info("i40e: Unregistered client %s with return code %d\n",
++		client->name, ret);
+ out:
+ 	mutex_unlock(&i40e_client_mutex);
+ 	return ret;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.h b/drivers/net/ethernet/intel/i40e/i40e_client.h
+index 38a6c36..528bd79 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.h
+@@ -203,8 +203,6 @@ struct i40e_client_instance {
+ 	struct i40e_info lan_info;
+ 	struct i40e_client *client;
+ 	unsigned long  state;
+-	/* A count of all the in-progress calls to the client */
+-	atomic_t ref_cnt;
+ };
  
--	for (i = 0; i < hw->mac.max_rx_queues; i++) {
--		u32 regval;
-+		for (i = 0; i < hw->mac.max_rx_queues; i++) {
-+			u32 regval;
- 
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
--		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
--			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
- 		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		}
- 	}
- #endif
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a244d9a..79ebce3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -171,11 +171,20 @@ static int debug = -1;
- module_param(debug, int, 0);
- MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
- 
-+static bool wro_enable = 0;
-+module_param(wro_enable, bool, 0);
-+MODULE_PARM_DESC(wro_enable, "enable 82599 TX and RX's WRO attribute");
-+
- MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
- MODULE_DESCRIPTION("Intel(R) 10 Gigabit PCI Express Network Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
- 
-+bool ixgbe_wro_enable(void)
-+{
-+	return wro_enable;
-+}
-+
- static struct workqueue_struct *ixgbe_wq;
- 
- static bool ixgbe_check_cfg_remove(struct ixgbe_hw *hw, struct pci_dev *pdev);
+ struct i40e_client {
 -- 
-2.5.0
+2.7.4
