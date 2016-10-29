@@ -1,8 +1,9 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: Let's do P4
-Date: Sat, 29 Oct 2016 11:39:05 +0200
-Message-ID: <20161029093905.GA1810@pox.localdomain>
+Date: Sat, 29 Oct 2016 12:10:03 +0200
+Message-ID: <20161029101003.GC1692@nanopsycho.orion>
 References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029093905.GA1810@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
@@ -15,88 +16,115 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
         linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
         dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
         andrew@lunn.ch, ivecera@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37823 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933976AbcJ2JjI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 05:39:08 -0400
-Received: by mail-wm0-f43.google.com with SMTP id 140so109421943wmv.0
-        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 02:39:07 -0700 (PDT)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36230 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756531AbcJ2KKG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 06:10:06 -0400
+Received: by mail-wm0-f47.google.com with SMTP id p190so58781811wmp.1
+        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 03:10:05 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20161029075328.GB1692@nanopsycho.orion>
+In-Reply-To: <20161029093905.GA1810@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/29/16 at 09:53am, Jiri Pirko wrote:
-> Hi all.
-> 
-> The network world is divided into 2 general types of hw:
-> 1) network ASICs - network specific silicon, containing things like TCAM
->    These ASICs are suitable to be programmed by P4.
-> 2) network processors - basically a general purpose CPUs
->    These processors are suitable to be programmed by eBPF.
-> 
-> I believe that by now, the most people came to a conclusion that it is
-> very difficult to handle both types by either P4 or eBPF. And since
-> eBPF is part of the kernel, I would like to introduce P4 into kernel
-> as well. Here's a plan:
+Sat, Oct 29, 2016 at 11:39:05AM CEST, tgraf@suug.ch wrote:
+>On 10/29/16 at 09:53am, Jiri Pirko wrote:
+>> Hi all.
+>> 
+>> The network world is divided into 2 general types of hw:
+>> 1) network ASICs - network specific silicon, containing things like TCAM
+>>    These ASICs are suitable to be programmed by P4.
+>> 2) network processors - basically a general purpose CPUs
+>>    These processors are suitable to be programmed by eBPF.
+>> 
+>> I believe that by now, the most people came to a conclusion that it is
+>> very difficult to handle both types by either P4 or eBPF. And since
+>> eBPF is part of the kernel, I would like to introduce P4 into kernel
+>> as well. Here's a plan:
+>
+>For reference, last time I remember we discussed this in the BPF
+>offload context:
+>http://www.spinics.net/lists/netdev/msg356178.html
+>
+>> 1) Define P4 intermediate representation
+>>    I cannot imagine loading P4 program (c-like syntax text file) into
+>>    kernel as is. That means that as the first step, we need find some
+>>    intermediate representation. I can imagine someting in a form of AST,
+>>    call it "p4ast". I don't really know how to do this exactly though,
+>>    it's just an idea.
+>> 
+>>    In the end there would be a userspace precompiler for this:
+>>    $ makep4ast example.p4 example.ast
+>> 
+>> 2) Implement p4ast in-kernel interpreter 
+>>    A kernel module which takes a p4ast and emulates the pipeline.
+>>    This can be implemented from scratch. Or, p4ast could be compiled
+>>    to eBPF. I know there are already couple of p4>eBPF compilers.
+>>    Not sure how feasible it would be to put this compiler in kernel.
+>
+>+1 to using eBPF for emulation. Maybe the compiler doesn't need to be
+>in the kernel and user space can compile and provide the emulated
+>pipeline in eBPF directly. See next paragraph for an example where
+>this could be useful.
 
-For reference, last time I remember we discussed this in the BPF
-offload context:
-http://www.spinics.net/lists/netdev/msg356178.html
+Ditto.
 
-> 1) Define P4 intermediate representation
->    I cannot imagine loading P4 program (c-like syntax text file) into
->    kernel as is. That means that as the first step, we need find some
->    intermediate representation. I can imagine someting in a form of AST,
->    call it "p4ast". I don't really know how to do this exactly though,
->    it's just an idea.
-> 
->    In the end there would be a userspace precompiler for this:
->    $ makep4ast example.p4 example.ast
-> 
-> 2) Implement p4ast in-kernel interpreter 
->    A kernel module which takes a p4ast and emulates the pipeline.
->    This can be implemented from scratch. Or, p4ast could be compiled
->    to eBPF. I know there are already couple of p4>eBPF compilers.
->    Not sure how feasible it would be to put this compiler in kernel.
 
-+1 to using eBPF for emulation. Maybe the compiler doesn't need to be
-in the kernel and user space can compile and provide the emulated
-pipeline in eBPF directly. See next paragraph for an example where
-this could be useful.
+>
+>> 3) Expose the p4ast in-kernel interpreter to userspace
+>>    As the easiest way I see in to introduce a new TC classifier cls_p4.
+>> 
+>>    This can work in a very similar way cls_bpf is:
+>>    $ tc filter add dev eth0 ingress p4 da ast example.ast
+>> 
+>>    The TC cls_p4 will be also used for runtime table manipulation.
+>
+>I think this is a great model for the case where HW can provide all
+>of the required capabilities. Thinking about the case where HW
+>provides a subset and SW provides an extended version, i.e. the
+>reality we live in for hosts with ASIC NICs ;-) The hand off point
+>requires some understanding between p4ast and eBPF.
 
-> 3) Expose the p4ast in-kernel interpreter to userspace
->    As the easiest way I see in to introduce a new TC classifier cls_p4.
-> 
->    This can work in a very similar way cls_bpf is:
->    $ tc filter add dev eth0 ingress p4 da ast example.ast
-> 
->    The TC cls_p4 will be also used for runtime table manipulation.
+It can be the other way around. The p4>ebpf compiler won't be complete
+at the beginning so it is possible that HW could provide more features.
+I don't think it is a problem. With SKIP_SW and SKIP_HW flags in TC,
+the user can set different program to each. I think in real life, that
+would be the most common case anyway.
 
-I think this is a great model for the case where HW can provide all
-of the required capabilities. Thinking about the case where HW
-provides a subset and SW provides an extended version, i.e. the
-reality we live in for hosts with ASIC NICs ;-) The hand off point
-requires some understanding between p4ast and eBPF.
 
-Therefore another idea would be to use cls_bpf directly for this. The
-p4ast IR could be stored in a separate ELF section in the same object
-file with an existing eBPF program. The p4ast IR will match the
-eBPF prog if capabilities of HW and SW match. If HW is limited, the
-p4ast IR represents what the HW can do plus how to pass it to SW. The
-eBPF prog contains whatever logic is required to take over if the HW
-either bailed out or handed over deliberately. Then on top, all the
-missing pieces of functionality which can only be performed in SW.
+>
+>Therefore another idea would be to use cls_bpf directly for this. The
+>p4ast IR could be stored in a separate ELF section in the same object
+>file with an existing eBPF program. The p4ast IR will match the
 
-tc then loads 1) eBPF maps and prog through bpf() syscall
-              2) cls_bpf filter with p4ast IR plus ref to prog and
-                 maps
+I don't like this idea. The kernel API should be clean and simple.
+Bundling p4ast with bpf.o code, so the bpf.o is for kernel and p4ast is
+for driver does not look clean at all. The bundle does not make really
+sense as the programs may do different things for BPF and p4.
 
-> 4) Offload p4ast programs into hardware
->    The same p4ast program representation will be passed down
->    to drivers via existing TC offloading way - ndo_setup_tc.
->    Drivers will then parse it and setup the hardware
->    accordingly. Driver will also have possibility to error out
->    in case it does not support some requested feature.
+Plus, it's up to user to set this up like he wants. If he wants SW
+processing by BPF and at the same time HW processing by P4, he will use:
+cls_bpf instance with SKIP_HW
+cls_p4 instance with SKIP_SW.
+
+This is much more variable, clean and non-confusing approach, I believe.
+
+
+>eBPF prog if capabilities of HW and SW match. If HW is limited, the
+>p4ast IR represents what the HW can do plus how to pass it to SW. The
+>eBPF prog contains whatever logic is required to take over if the HW
+>either bailed out or handed over deliberately. Then on top, all the
+>missing pieces of functionality which can only be performed in SW.
+>
+>tc then loads 1) eBPF maps and prog through bpf() syscall
+>              2) cls_bpf filter with p4ast IR plus ref to prog and
+>                 maps
+>
+>> 4) Offload p4ast programs into hardware
+>>    The same p4ast program representation will be passed down
+>>    to drivers via existing TC offloading way - ndo_setup_tc.
+>>    Drivers will then parse it and setup the hardware
+>>    accordingly. Driver will also have possibility to error out
+>>    in case it does not support some requested feature.
