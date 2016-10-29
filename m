@@ -1,68 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/17] i40e: Rewrite Flow Director busy wait loop
-Date: Sat, 29 Oct 2016 00:30:43 -0700
-Message-ID: <1477726258-111563-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/17] i40e: group base mode VF offload flags
+Date: Sat, 29 Oct 2016 00:30:48 -0700
+Message-ID: <1477726258-111563-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Preethi Banala <preethi.banala@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10260 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:12932 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751028AbcJ2HbG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Oct 2016 03:31:06 -0400
+        id S1752312AbcJ2HbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Oct 2016 03:31:09 -0400
 In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Preethi Banala <preethi.banala@intel.com>
 
-We can reorder the busy wait loop at the start of the Flow Director
-transmit function to reduce the overall code size while still retaining the
-same functionality.  As such I am taking advantage of the opportunity to do
-so.
+Group together the minimum set of offload capabilities that are always
+supported by VF in base mode. This define would be used by PF to make
+sure VF in base mode gets minimum of base capabilities .
 
-Change-ID: I34c403ca001953c6ac9816e65d5305e73d869026
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Change-ID: Id5e8f22ba169c8f0a38d22fc36b2cb531c02582c
+Signed-off-by: Preethi Banala <preethi.banala@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h   | 4 ++++
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h | 4 ++++
+ 2 files changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 6287bf6..af36c44 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -122,7 +122,6 @@ static int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data,
- 	struct device *dev;
- 	dma_addr_t dma;
- 	u32 td_cmd = 0;
--	u16 delay = 0;
- 	u16 i;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+index f861d31..974ba2b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+@@ -165,6 +165,10 @@ struct i40e_virtchnl_vsi_resource {
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
+ #define I40E_VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM	0X00100000
  
- 	/* find existing FDIR VSI */
-@@ -137,15 +136,11 @@ static int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data,
- 	dev = tx_ring->dev;
++#define I40E_VF_BASE_MODE_OFFLOADS (I40E_VIRTCHNL_VF_OFFLOAD_L2 | \
++				    I40E_VIRTCHNL_VF_OFFLOAD_VLAN | \
++				    I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF)
++
+ struct i40e_virtchnl_vf_resource {
+ 	u16 num_vsis;
+ 	u16 num_queue_pairs;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+index bd691ad..fc374f8 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+@@ -162,6 +162,10 @@ struct i40e_virtchnl_vsi_resource {
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
+ #define I40E_VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM	0X00100000
  
- 	/* we need two descriptors to add/del a filter and we can wait */
--	do {
--		if (I40E_DESC_UNUSED(tx_ring) > 1)
--			break;
-+	for (i = I40E_FD_CLEAN_DELAY; I40E_DESC_UNUSED(tx_ring) < 2; i--) {
-+		if (!i)
-+			return -EAGAIN;
- 		msleep_interruptible(1);
--		delay++;
--	} while (delay < I40E_FD_CLEAN_DELAY);
--
--	if (!(I40E_DESC_UNUSED(tx_ring) > 1))
--		return -EAGAIN;
-+	}
- 
- 	dma = dma_map_single(dev, raw_packet,
- 			     I40E_FDIR_MAX_RAW_PACKET_SIZE, DMA_TO_DEVICE);
++#define I40E_VF_BASE_MODE_OFFLOADS (I40E_VIRTCHNL_VF_OFFLOAD_L2 | \
++				    I40E_VIRTCHNL_VF_OFFLOAD_VLAN | \
++				    I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF)
++
+ struct i40e_virtchnl_vf_resource {
+ 	u16 num_vsis;
+ 	u16 num_queue_pairs;
 -- 
 2.7.4
