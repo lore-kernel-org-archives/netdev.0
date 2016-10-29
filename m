@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 17/17] i40e: Clean up handling of msglevel flags and debug parameter
-Date: Sat, 29 Oct 2016 00:30:58 -0700
-Message-ID: <1477726258-111563-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/17] i40e: Remove unused function i40e_vsi_lookup
+Date: Sat, 29 Oct 2016 00:30:45 -0700
+Message-ID: <1477726258-111563-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -9,155 +9,83 @@ Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39490 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:12932 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752503AbcJ2HbK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Oct 2016 03:31:10 -0400
+        id S1751824AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Oct 2016 03:31:08 -0400
 In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-So the i40e driver had a really convoluted configuration for how to handle
-the debug flags contained in msg_level.  Part of the issue is that the
-driver has its own 32 bit mask that it was using to track a separate set of
-debug features.  From what I can tell it was trying to use the upper 4 bits
-to determine if the value was meant to represent a bit-mask or the numeric
-value provided by debug level.
+The function is not used so there is no need to carry it forward.  I have
+plans to add a slightly different function that can be inlined to handle
+the same kind of functionality.
 
-What this patch does is clean this up by compressing those 4 bits into bit
-31, as a result we just have to perform a check against the value being
-negative to determine if we are looking at a debug level (positive), or a
-debug mask (negative).  The debug level will populate the msg_level, and
-the debug mask will populate the debug_mask in the hardware struct.
-
-I added similar logic for ethtool.  If the value being provided has bit 31
-set we assume the value being provided is a debug mask, otherwise we assume
-it is a msg_enable mask.  For displaying we only provide the msg_enable,
-and if debug_mask is in use we will print it to the dmesg log.
-
-Lastly I removed the debugfs interface.  It is redundant with what we
-already have in ethtool and really doesn't belong anyway.
-
+Change-ID: Ie2dfcb189dc75e5fbc156bac23003e3b4210ae0f
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 19 -------------------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  7 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 23 ++++++++---------------
- 3 files changed, 14 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h        |  2 --
+ drivers/net/ethernet/intel/i40e/i40e_client.c | 31 ---------------------------
+ 2 files changed, 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 0c1875b..0354632 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1210,24 +1210,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			dev_info(&pf->pdev->dev,
- 				 "dump debug fwdata <cluster_id> <table_id> <index>\n");
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 2030d7c..34c7a5d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -728,8 +728,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi);
+ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ 				u16 uplink, u32 param1);
+ int i40e_vsi_release(struct i40e_vsi *vsi);
+-struct i40e_vsi *i40e_vsi_lookup(struct i40e_pf *pf, enum i40e_vsi_type type,
+-				 struct i40e_vsi *start_vsi);
+ #ifdef I40E_FCOE
+ void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 			      struct i40e_vsi_context *ctxt,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index 6ffac03..417ac16 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -406,37 +406,6 @@ int i40e_vf_client_capable(struct i40e_pf *pf, u32 vf_id,
+ }
+ 
+ /**
+- * i40e_vsi_lookup - finds a matching VSI from the PF list starting at start_vsi
+- * @pf: board private structure
+- * @type: vsi type
+- * @start_vsi: a VSI pointer from where to start the search
+- *
+- * Returns non NULL on success or NULL for failure
+- **/
+-struct i40e_vsi *i40e_vsi_lookup(struct i40e_pf *pf,
+-				 enum i40e_vsi_type type,
+-				 struct i40e_vsi *start_vsi)
+-{
+-	struct i40e_vsi *vsi;
+-	int i = 0;
 -
--	} else if (strncmp(cmd_buf, "msg_enable", 10) == 0) {
--		u32 level;
--		cnt = sscanf(&cmd_buf[10], "%i", &level);
--		if (cnt) {
--			if (I40E_DEBUG_USER & level) {
--				pf->hw.debug_mask = level;
--				dev_info(&pf->pdev->dev,
--					 "set hw.debug_mask = 0x%08x\n",
--					 pf->hw.debug_mask);
--			}
--			pf->msg_enable = level;
--			dev_info(&pf->pdev->dev, "set msg_enable = 0x%08x\n",
--				 pf->msg_enable);
--		} else {
--			dev_info(&pf->pdev->dev, "msg_enable = 0x%08x\n",
--				 pf->msg_enable);
+-	if (start_vsi) {
+-		for (i = 0; i < pf->num_alloc_vsi; i++) {
+-			vsi = pf->vsi[i];
+-			if (vsi == start_vsi)
+-				break;
 -		}
- 	} else if (strncmp(cmd_buf, "pfr", 3) == 0) {
- 		dev_info(&pf->pdev->dev, "debugfs: forcing PFR\n");
- 		i40e_do_reset_safe(pf, BIT(__I40E_PF_RESET_REQUESTED));
-@@ -1644,7 +1626,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		dev_info(&pf->pdev->dev, "  dump desc aq\n");
- 		dev_info(&pf->pdev->dev, "  dump reset stats\n");
- 		dev_info(&pf->pdev->dev, "  dump debug fwdata <cluster_id> <table_id> <index>\n");
--		dev_info(&pf->pdev->dev, "  msg_enable [level]\n");
- 		dev_info(&pf->pdev->dev, "  read <reg>\n");
- 		dev_info(&pf->pdev->dev, "  write <reg> <value>\n");
- 		dev_info(&pf->pdev->dev, "  clear_stats vsi [seid]\n");
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 3a1f91e..fb4fb52 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -978,6 +978,10 @@ static u32 i40e_get_msglevel(struct net_device *netdev)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_pf *pf = np->vsi->back;
-+	u32 debug_mask = pf->hw.debug_mask;
-+
-+	if (debug_mask)
-+		netdev_info(netdev, "i40e debug_mask: 0x%08X\n", debug_mask);
- 
- 	return pf->msg_enable;
- }
-@@ -989,7 +993,8 @@ static void i40e_set_msglevel(struct net_device *netdev, u32 data)
- 
- 	if (I40E_DEBUG_USER & data)
- 		pf->hw.debug_mask = data;
--	pf->msg_enable = data;
-+	else
-+		pf->msg_enable = data;
- }
- 
- static int i40e_get_regs_len(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 0c2328d..7fa535f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -93,8 +93,8 @@ MODULE_DEVICE_TABLE(pci, i40e_pci_tbl);
- 
- #define I40E_MAX_VF_COUNT 128
- static int debug = -1;
--module_param(debug, int, 0);
--MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
-+module_param(debug, uint, 0);
-+MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all), Debug mask (0x8XXXXXXX)");
- 
- MODULE_AUTHOR("Intel Corporation, <e1000-devel@lists.sourceforge.net>");
- MODULE_DESCRIPTION("Intel(R) Ethernet Connection XL710 Network Driver");
-@@ -8511,15 +8511,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	int err = 0;
- 	int size;
- 
--	pf->msg_enable = netif_msg_init(I40E_DEFAULT_MSG_ENABLE,
--				(NETIF_MSG_DRV|NETIF_MSG_PROBE|NETIF_MSG_LINK));
--	if (debug != -1 && debug != I40E_DEFAULT_MSG_ENABLE) {
--		if (I40E_DEBUG_USER & debug)
--			pf->hw.debug_mask = debug;
--		pf->msg_enable = netif_msg_init((debug & ~I40E_DEBUG_USER),
--						I40E_DEFAULT_MSG_ENABLE);
+-	}
+-	for (; i < pf->num_alloc_vsi; i++) {
+-		vsi = pf->vsi[i];
+-		if (vsi && vsi->type == type)
+-			return vsi;
 -	}
 -
- 	/* Set default capability flags */
- 	pf->flags = I40E_FLAG_RX_CSUM_ENABLED |
- 		    I40E_FLAG_MSI_ENABLED     |
-@@ -10825,10 +10816,12 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	mutex_init(&hw->aq.asq_mutex);
- 	mutex_init(&hw->aq.arq_mutex);
- 
--	if (debug != -1) {
--		pf->msg_enable = pf->hw.debug_mask;
--		pf->msg_enable = debug;
--	}
-+	pf->msg_enable = netif_msg_init(debug,
-+					NETIF_MSG_DRV |
-+					NETIF_MSG_PROBE |
-+					NETIF_MSG_LINK);
-+	if (debug < -1)
-+		pf->hw.debug_mask = debug;
- 
- 	/* do a special CORER for clearing PXE mode once at init */
- 	if (hw->revision_id == 0 &&
+-	return NULL;
+-}
+-
+-/**
+  * i40e_client_add_instance - add a client instance struct to the instance list
+  * @pf: pointer to the board struct
+  * @client: pointer to a client struct in the client list.
 -- 
 2.7.4
