@@ -1,48 +1,82 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/17] i40e: Bit test mask correction
-Date: Sat, 29 Oct 2016 00:30:44 -0700
-Message-ID: <1477726258-111563-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10260 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752213AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Oct 2016 03:31:08 -0400
-In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH] add one parameter wro_enable to enable relaxed ordering
+ for IXGBE
+Date: Sat, 29 Oct 2016 00:42:21 -0700
+Message-ID: <1477726941.2309.9.camel@intel.com>
+References: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-xfRoRUa23YDm6gMpY5g8"
+To: Mao Wenan <maowenan@huawei.com>, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Filip Sadowski <filip.sadowski@intel.com>
 
-Incorrect bit mask was used for testing "get link status" response.
-Instead of I40E_AQ_LSE_ENABLE (which is actually 0x03) it most probably
-should be I40E_AQ_LSE_IS_ENABLED (which is defined as 0x01).
+--=-xfRoRUa23YDm6gMpY5g8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Change-ID: Ia199142906720507f847de3a33a25c61a9781b2f
-Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Sat, 2016-10-29 at 15:08 +0800, Mao Wenan wrote:
+> This patch provides a way to enable relaxed ordering, where it helps with
+> performance in some architecture.
+> The default value of wro_enable is 0, if you want to enable relaxed
+> ordering, please set wro_enable=3D1.
+>=20
+> Mao Wenan (1):
+> =C2=A0 add one parameter wro_enable for IXGBE
+>=20
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0 |=C2=A0 1 +
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c=C2=A0 | 29 +++++++++=
++++++-----
+> ------
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 28 +++++++++++++-=
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> -------
+> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c=C2=A0=C2=A0 |=C2=A0 9=
+ ++++++++
+> =C2=A04 files changed, 41 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 2154a34..fe8100b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1849,7 +1849,7 @@ i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
- 	else
- 		hw_link_info->crc_enable = false;
- 
--	if (resp->command_flags & cpu_to_le16(I40E_AQ_LSE_ENABLE))
-+	if (resp->command_flags & cpu_to_le16(I40E_AQ_LSE_IS_ENABLED))
- 		hw_link_info->lse_enable = true;
- 	else
- 		hw_link_info->lse_enable = false;
--- 
-2.7.4
+Why have a title patch for only one patch? =C2=A0Better yet, the one patch =
+does
+not have a patch description. =C2=A0Get rid of the title patch and add the =
+above
+information into the patches description.
+
+In addition, module parameters are not kindly looked upon, one reason is
+that it cannot be standardized and enforced.
+
+I am also confused because you are stating that on some architectures, yet
+this code is only compiled in when SPARC is defined and that there are
+times when you want relaxed ordering enabled and other times disabled?
+=C2=A0Your gonna have to provide more data on why, because the code as is w=
+as
+resolving serious performance issues on SPARC when relaxed ordering was
+enabled.
+--=-xfRoRUa23YDm6gMpY5g8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJYFFLeAAoJEOVv75VaS+3OnOQQAJKjXO0N/qoEb3F/eBhLvAwX
+GsXRH2RhxQxdNSjjmlUhKQ4UUSw0+Ot1A+tuyLD5FfsDZYMqEHgzabMibNjKfsSQ
+tm6Xk/X/BR80l092n67QKejGDtovLUGgRIKduSed4NkAHGGFW+v4dISo0BUik2xW
+hhz3q7ILsj+kAd/e+s/lpsK/eJi4MxPI8W2BwXlSxMwyv9GR4pdxXXuY0U+tv4mh
+a9+jfaUDH8x8TwcsQAr61VSjznjeNcatx1K1VwmDcYCK3HUMcHvM//TPbu9fWjZQ
+4QUnFR7TnMjZFLkvzDIVastLd1wPzFXNLb7/agbtk2G9VfmS1G1DvMErD95719dy
+4hcFQyEZwT46ioYl5lvMtMCUlXHvEOURCMgayX73KkhXW/dtyME4LokL9SmKZ68Z
+SfDwWBPfqWUzuv6PcdyF7bRPqiCXMgIhMRE2ZxwUbMabu7rG8mhOxi9sX1xJ2ckH
+zyAN0oIDcOye6JElo8D/HGsEhgR/9CF06O6rLclgeEApCYM+VFuW9MSc7r0zn5wT
+uLuVAnVNT1kEjrnjwL23NUeEHeOUuYocvQLI4xs5G8e0QGwLD1jC/4G9voqfaB8p
+M07lD+dvrUfHLJblmp2rC1yYm2Cx1RwVFF8h0Ttlpy8daOUdNuWT0BYhPDfRk6BN
+VjCfKe00FrcCfPFFq630
+=c6s6
+-----END PGP SIGNATURE-----
+
+--=-xfRoRUa23YDm6gMpY5g8--
