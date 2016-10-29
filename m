@@ -1,80 +1,66 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v7 0/6] Add eBPF hooks for cgroups
-Date: Fri, 28 Oct 2016 23:24:47 -0700
-Message-ID: <20161029062442.GA61550@ast-mbp.thefacebook.com>
-References: <1477390454-12553-1-git-send-email-daniel@zonque.org>
- <20161026195933.GA2031@salvia>
- <c9683122-d770-355b-e275-7c446e6d1d0f@zonque.org>
- <CAKD1Yr2aRDNUxX8onReZyURufphxGoSTek=Fjk3Wswq9WOVp4w@mail.gmail.com>
- <20161029045107.GA61294@ast-mbp.thefacebook.com>
- <CAKD1Yr2pMk52h7BdRwTvGwnP5+ONmr4ac6cyUBoZ9P+Kt-B8jw@mail.gmail.com>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: Re: [PATCH 17/17] batman-adv: Avoid precedence
+	issues in macros
+Date: Sat, 29 Oct 2016 08:52:43 +0200
+Message-ID: <3985402.fhJmRBIMDx@sven-edge>
+References: <20161027190150.7880-1-sw@simonwunderlich.de>
+ <4261316.fWqmHPy2zE@sven-edge> <1477706184.23018.3.camel@perches.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>, ast-b10kYP2dOMg@public.gmane.org,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kafai-b10kYP2dOMg@public.gmane.org,
-        Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Lorenzo Colitti <lorenzo-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAKD1Yr2pMk52h7BdRwTvGwnP5+ONmr4ac6cyUBoZ9P+Kt-B8jw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; boundary="nextPart1972617.tELW80BBDr";
+ micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, Antonio Quartulli <a@unstable.cc>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1477706184.23018.3.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 29, 2016 at 01:59:23PM +0900, Lorenzo Colitti wrote:
-> On Sat, Oct 29, 2016 at 1:51 PM, Alexei Starovoitov
-> <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> >> What's the use case for egress?
-> >>
-> >> We (android networking) are currently looking at implementing network
-> >> accounting via eBPF in order to replace the out-of-tree xt_qtaguid
-> >> code. A per-cgroup eBPF program run on all traffic would be great. But
-> >> when we looked at this patchset we realized it would not be useful for
-> >> accounting purposes because even if a packet is counted here, it might
-> >> still be dropped by netfilter hooks.
-> >
-> > don't use out-of-tree and instead drop using this mechanism or
-> > any other in-kernel method? ;)
+--nextPart1972617.tELW80BBDr
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
+
+On Freitag, 28. Oktober 2016 18:56:24 CEST Joe Perches wrote:
+[...]
+> > But yes, looks to me like it is missing. Do you want to propose a patch or
+> > should I do?
 > 
-> Getting rid of out-of-tree code is the goal, yes. We do have a
-> requirement that things continue to work, though. Accounting for a
-> packet in ip{,6}_output is not correct if that packet ends up being
-> dropped by iptables later on.
+> As you are working on this file, perhaps you should.
 
-understood.
-it could be solved by swapping the order of cgroup_bpf_run_filter()
-and NF_INET_POST_ROUTING in patch 5. It was proposed some time back, but
-the current patch, I think, is more symmetrical.
-cgroup+bpf runs after nf hook on rx and runs before it on tx.
-imo it's more consistent.
-Regardless of this choice... are you going to backport cgroupv2 to
-android? Because this set is v2 only.
+Ok, I will submit a patch with you as Reported-by to
+the batman-adv mailing list
 
-> > We (facebook infrastructure) have been using iptables and bpf networking
-> > together with great success. They nicely co-exist and complement each other.
-> > There is no need to reinvent the wheel if existing solution works.
-> > iptables are great for their purpose.
-> 
-> That doesn't really answer my "what is the use case for egress"
-> question though, right? Or are you saying "we use this, but we can't
-> talk about how we use it"?
+Kind regards,
+	Sven
+--nextPart1972617.tELW80BBDr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
 
-if the question is "why patch 4 alone is not enough and patch 5 is needed"?
-Then it's symmetrical access. Accounting for RX only is a half done job.
+-----BEGIN PGP SIGNATURE-----
 
-> > there is iptables+cBPF support. It's being used in some cases already.
-> 
-> Adding eBPF support to the xt_bpf iptables code would be an option for
-> what we want to do, yes. I think this requires that the eBPF map to be
-> an fd that is available to the process that exec()s iptables, but we
-> could do that.
+iQIcBAABCgAGBQJYFEc7AAoJEF2HCgfBJntGeO0P/jviZDQ2K0NxvK4rbpNnoOTG
++vuTtE9vrD2UieZDrvZaHUJOEA5XApl0RoFzVbbpG3DyKytVZM+qyRCy6pRLHSr/
++fEZzptZlV+vpUsO3xb7fPQur/LQUyM3TijUAQPU+0HyUgZ5+pGDyhcmVl2Lae9b
+QHK6/Q+xtApVKq1ZQvmbl8D5+AIEqi+DCAIYaPCJ1NJhULKctEZOd05Ra8b1UhJF
+iVZD07rHRydlxUzm3w8Ia1hjVFBn1SoRqmH74WoB4pZjn7Q/6OI8dHVsbkdZ3svO
+CasLEcfAUuSk/7gaOhcLzuzQHDzmkpd5dYGCj/e/7FNeXTSNG1wtkcP1ezQB5Gb6
+Wppfg8RsensFJJPz8hyrsWGYJCzOCjO2c/pjTffwf2/CliHMRfakevG3a8p45xfF
+d3rlIeZWx+Xu0qPph6AbIIrONCdudhQ4zRZ6yodEPayDWygLpC4Z/3ty+tHrUlnj
+wE6S1KgKnOpf62iuz3wwXDyzPlBkHBVS/chn4DYT6S5DsXCj1lXXqXzlPEV25dG2
+GMrBHYezG3PiSFuSwOtkAqASiXBE2WTW6RYCel1nH2BuQz9KhKdEJklP0/LWc2mC
+cOfGaCVCP6wyh2mGfyg7wbgCD1JJjvbM4RTrNlHABsWtmaokAgsDLqi89f1vf9/A
+k0bTlWh3pXi6FILcHMOS
+=HyWF
+-----END PGP SIGNATURE-----
 
-yes. that's certainly doable, but sooner or later such approach will hit
-scalability issue when number of cgroups is large. Same issue we saw
-with cls_bpf and bpf_skb_under_cgroup(). Hence this patch set was needed
-that is centered around cgroups instead of hooks. Note, unlike, tc and nf
-there is no way to attach to a hook. The bpf program is attached to a cgroup.
-It's an important distinction vs everything that currently exists in the stack.
+--nextPart1972617.tELW80BBDr--
