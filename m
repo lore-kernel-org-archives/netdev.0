@@ -1,50 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/17] i40e: Make struct i40e_stats const
-Date: Sat, 29 Oct 2016 00:30:51 -0700
-Message-ID: <1477726258-111563-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/17] i40e: Fix bit logic error in failure case
+Date: Sat, 29 Oct 2016 00:30:57 -0700
+Message-ID: <1477726258-111563-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+Cc: David Ertman <david.m.ertman@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10260 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:50625 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752440AbcJ2HbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752443AbcJ2HbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sat, 29 Oct 2016 03:31:09 -0400
 In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+From: David Ertman <david.m.ertman@intel.com>
 
-Move some data to text
+Patch a036244c0686 "i40e: Fix kernel panic on enable/disable LLDP"
+introduced an error in bit logic.
 
-$ size drivers/net/ethernet/intel/i40e/i40e_ethtool.o*
-   text	   data	    bss	    dec	    hex	filename
-  25012	      0	     32	  25044	   61d4	drivers/net/ethernet/intel/i40e/i40e_ethtool.o.new
-  22868	   2120	     32	  25020	   61bc	drivers/net/ethernet/intel/i40e/i40e_ethtool.o.old
+Originally this bit manipulation was meant to clear two bits to indicate
+that DCB was not enabled or capable. An "&" was incorrectly used instead
+of an "|" bit operator to combine the two bitmasks into one.  This also
+created a static checker error since the resultant code was a no-op.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+This patch fixes the error by using the correct bit-wise operator.
+
+Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 92bc884..3a1f91e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -104,7 +104,7 @@ static const struct i40e_stats i40e_gstrings_misc_stats[] = {
-  * The PF_STATs are appended to the netdev stats only when ethtool -S
-  * is queried on the base PF netdev, not on the VMDq or FCoE netdev.
-  */
--static struct i40e_stats i40e_gstrings_stats[] = {
-+static const struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("rx_bytes", stats.eth.rx_bytes),
- 	I40E_PF_STAT("tx_bytes", stats.eth.tx_bytes),
- 	I40E_PF_STAT("rx_unicast", stats.eth.rx_unicast),
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 00c322d..0c2328d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -10970,7 +10970,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	err = i40e_init_pf_dcb(pf);
+ 	if (err) {
+ 		dev_info(&pdev->dev, "DCB init failed %d, disabled\n", err);
+-		pf->flags &= ~(I40E_FLAG_DCB_CAPABLE & I40E_FLAG_DCB_ENABLED);
++		pf->flags &= ~(I40E_FLAG_DCB_CAPABLE | I40E_FLAG_DCB_ENABLED);
+ 		/* Continue without DCB enabled */
+ 	}
+ #endif /* CONFIG_I40E_DCB */
 -- 
 2.7.4
