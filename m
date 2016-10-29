@@ -1,61 +1,94 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH 03/17] batman-adv: Add network_coding and
- mcast sysfs files to README
-Date: Sat, 29 Oct 2016 12:56:28 +0200
-Message-ID: <20161029105628.GE1692@nanopsycho.orion>
-References: <20161027190150.7880-1-sw@simonwunderlich.de>
- <20161027190150.7880-4-sw@simonwunderlich.de>
- <20161029103301.GD1692@nanopsycho.orion>
- <22392280.4UY6GoIrAk@sven-edge>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Let's do P4
+Date: Sat, 29 Oct 2016 13:15:48 +0200
+Message-ID: <20161029111548.GB1810@pox.localdomain>
+References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029093905.GA1810@pox.localdomain>
+ <20161029101003.GC1692@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
+        jakub.kicinski@netronome.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
+        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37848 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750840AbcJ2LPw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 07:15:52 -0400
+Received: by mail-wm0-f54.google.com with SMTP id 140so111690421wmv.0
+        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 04:15:51 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <22392280.4UY6GoIrAk@sven-edge>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20161029101003.GC1692@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sat, Oct 29, 2016 at 12:37:07PM CEST, sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org wrote:
->On Samstag, 29. Oktober 2016 12:33:01 CEST Jiri Pirko wrote:
->[...]
->> >--- a/Documentation/networking/batman-adv.txt
->> >+++ b/Documentation/networking/batman-adv.txt
->> >@@ -71,10 +71,11 @@ All  mesh  wide  settings  can be found in batman's own interface
->> > folder:
->> > 
->> > # ls /sys/class/net/bat0/mesh/
->> >-#aggregated_ogms        distributed_arp_table  gw_sel_class    orig_interval
->> >-#ap_isolation           fragmentation          hop_penalty     routing_algo
->> >-#bonding                gw_bandwidth           isolation_mark  vlan0
->> >-#bridge_loop_avoidance  gw_mode                log_level
->> >+# aggregated_ogms        fragmentation  isolation_mark  routing_algo
->> >+# ap_isolation           gw_bandwidth   log_level       vlan0
->> >+# bonding                gw_mode        multicast_mode
->> >+# bridge_loop_avoidance  gw_sel_class   network_coding
->> >+# distributed_arp_table  hop_penalty    orig_interval
->> 
->> I strongly believe it is a huge mistake to use sysfs for things like
->> this. This should be done via generic netlink api.
->
->This doesn't change the problem that it is already that way. This patch
->only adds the list of available files to the README.
+On 10/29/16 at 12:10pm, Jiri Pirko wrote:
+> Sat, Oct 29, 2016 at 11:39:05AM CEST, tgraf@suug.ch wrote:
+> >On 10/29/16 at 09:53am, Jiri Pirko wrote:
+> >> 3) Expose the p4ast in-kernel interpreter to userspace
+> >>    As the easiest way I see in to introduce a new TC classifier cls_p4.
+> >> 
+> >>    This can work in a very similar way cls_bpf is:
+> >>    $ tc filter add dev eth0 ingress p4 da ast example.ast
+> >> 
+> >>    The TC cls_p4 will be also used for runtime table manipulation.
+> >
+> >I think this is a great model for the case where HW can provide all
+> >of the required capabilities. Thinking about the case where HW
+> >provides a subset and SW provides an extended version, i.e. the
+> >reality we live in for hosts with ASIC NICs ;-) The hand off point
+> >requires some understanding between p4ast and eBPF.
+> 
+> It can be the other way around. The p4>ebpf compiler won't be complete
+> at the beginning so it is possible that HW could provide more features.
+> I don't think it is a problem. With SKIP_SW and SKIP_HW flags in TC,
+> the user can set different program to each. I think in real life, that
+> would be the most common case anyway.
 
-Sure. Just found out you did it like that. Therefore I commented. I
-suggest to rework the api to use genl entirely.
+So given the SKIP_SW flag, the in-kernel compiler is optional anyway.
+Why even risk including a possibly incomplete compiler? Older kernels
+must be capable of running along newer hardware as long as eBPF can
+represent the software path. Having to upgrade to latest and greatest
+kernels is not an option for most people so they would simply have to
+fall back to SKIP_SW and do it in user space anyway.
 
->
->Kind regards,
->	Sven
+> >Therefore another idea would be to use cls_bpf directly for this. The
+> >p4ast IR could be stored in a separate ELF section in the same object
+> >file with an existing eBPF program. The p4ast IR will match the
+> 
+> I don't like this idea. The kernel API should be clean and simple.
+> Bundling p4ast with bpf.o code, so the bpf.o is for kernel and p4ast is
+> for driver does not look clean at all. The bundle does not make really
+> sense as the programs may do different things for BPF and p4.
+
+I don't care strongly for the bundle. Let's forget about it for now.
+
+> Plus, it's up to user to set this up like he wants. If he wants SW
+> processing by BPF and at the same time HW processing by P4, he will use:
+> cls_bpf instance with SKIP_HW
+> cls_p4 instance with SKIP_SW.
+> 
+> This is much more variable, clean and non-confusing approach, I believe.
+
+Non ASIC hardware will want to do offload based on BPF though so your
+model would require the user to be aware of what is the preferred
+model for his hardware and then either load a cls_bpf only to work
+with a Netronome NIC or a cls_p4 + cls_bpf to work with an ASIC NIC,
+correct?
+
+I'm not seeing how either of them is more or less variable. The main
+difference is whether to require configuring a single cls with both
+p4ast + bpf or two separate cls, one for each. I'd prefer the single
+cls approach simply because it is cleaner wither regard to offload
+directly off bpf vs off p4ast.
+
+My main point is to not include a IR to eBPF compiler in the kernel
+and let user space handle this instead.
