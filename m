@@ -1,56 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: fix broadcast link synchronization
- problem
-Date: Sat, 29 Oct 2016 17:21:51 -0400 (EDT)
-Message-ID: <20161029.172151.2096765504289435592.davem@davemloft.net>
-References: <1477608715-28003-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net] enic: fix rq disable
+Date: Sat, 29 Oct 2016 17:25:38 -0400 (EDT)
+Message-ID: <20161029.172538.2219365495759907566.davem@davemloft.net>
+References: <20161027230103.35242-1-gvaradar@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-        parthasarathy.bhuvaragan@ericsson.com, ying.xue@windriver.com,
-        maloy@donjonn.com, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: netdev@vger.kernel.org, benve@cisco.com, _govind@gmx.com
+To: gvaradar@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53102 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53170 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751080AbcJ2VVx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 17:21:53 -0400
-In-Reply-To: <1477608715-28003-1-git-send-email-jon.maloy@ericsson.com>
+        with ESMTP id S1751098AbcJ2VZk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 17:25:40 -0400
+In-Reply-To: <20161027230103.35242-1-gvaradar@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 27 Oct 2016 18:51:55 -0400
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Date: Thu, 27 Oct 2016 16:01:03 -0700
 
-> In commit 2d18ac4ba745 ("tipc: extend broadcast link initialization
-> criteria") we tried to fix a problem with the initial synchronization
-> of broadcast link acknowledge values. Unfortunately that solution is
-> not sufficient to solve the issue.
+> When MTU is changed from 9000 to 1500 while there is burst of inbound 9000
+> bytes packets, adaptor sometimes delivers 9000 bytes packets to 1500 bytes
+> buffers. This causes memory corruption and sometimes crash.
 > 
-> We have seen it happen that LINK_PROTOCOL/STATE packets with a valid
-> non-zero unicast acknowledge number may bypass BCAST_PROTOCOL
-> initialization, NAME_DISTRIBUTOR and other STATE packets with invalid
-> broadcast acknowledge numbers, leading to premature opening of the
-> broadcast link. When the bypassed packets finally arrive, they are
-> inadvertently accepted, and the already correctly initialized
-> acknowledge number in the broadcast receive link is overwritten by
-> the invalid (zero) value of the said packets. After this the broadcast
-> link goes stale.
+> This is because of a race condition in adaptor between "RQ disable"
+> clearing descriptor mini-cache and mini-cache valid bit being set by
+> completion of descriptor fetch. This can result in stale RQ desc being
+> cached and used when packets arrive. In this case, the stale descriptor
+> have old MTU value.
 > 
-> We now fix this by marking the packets where we know the acknowledge
-> value is or may be invalid, and then ignoring the acks from those.
+> Solution is to write RQ->disable twice. The first write will stop any
+> further desc fetches, allowing the second disable to clear the mini-cache
+> valid bit without danger of a race.
 > 
-> To this purpose, we claim an unused bit in the header to indicate that
-> the value is invalid. We set the bit to 1 in the initial BCAST_PROTOCOL
-> synchronization packet and all initial ("bulk") NAME_DISTRIBUTOR
-> packets, plus those LINK_PROTOCOL packets sent out before the broadcast
-> links are fully synchronized.
+> Also, the check for rq->running becoming 0 after writing rq->enable to 0
+> is not done properly. When incoming packets are flooding the interface,
+> rq->running will pulse high for each dropped packet. Since the driver was
+> waiting for 10us between each poll, it is possible to see rq->running = 1
+> 1000 times in a row, even though it is not actually stuck running.
+> This results in false failure of vnic_rq_disable(). Fix is to try more
+> than 1000 time without delay between polls to ensure we do not miss when
+> running goes low.
 > 
-> This minor protocol update is fully backwards compatible.
+> In old adaptors rq->enable needs to be re-written to 0 when posted_index
+> is reset in vnic_rq_clean() in order to keep rq->prefetch_index in sync.
 > 
-> Reported-by: John Thompson <thompa.atl@gmail.com>
-> Tested-by: John Thompson <thompa.atl@gmail.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Applied, thanks Jon.
+Applied.
