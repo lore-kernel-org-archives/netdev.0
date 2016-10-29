@@ -1,32 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4: Fix error handling in alloc_uld_rxqs().
-Date: Sat, 29 Oct 2016 14:57:03 -0400 (EDT)
-Message-ID: <20161029.145703.1725700852324272916.davem@davemloft.net>
-References: <1477468598-11296-1-git-send-email-ganeshgr@chelsio.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] netlink: Add nla_memdup() to wrap kmemdup()
+ use on nlattr
+Date: Sat, 29 Oct 2016 14:57:54 -0400 (EDT)
+Message-ID: <20161029.145754.728917225207338115.davem@davemloft.net>
+References: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com,
-        nirranjan@chelsio.com
-To: ganeshgr@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51772 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750806AbcJ2S5F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 14:57:05 -0400
-In-Reply-To: <1477468598-11296-1-git-send-email-ganeshgr@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: tgraf-G/eBtMaohhA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2d0864c85200f1b42b1ebceee7c2dc60fe29f26a.1477471562.git.tgraf-G/eBtMaohhA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Wed, 26 Oct 2016 13:26:38 +0530
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Date: Wed, 26 Oct 2016 10:53:16 +0200
 
-> Fix to release resources properly in error handling path of
-> alloc_uld_rxqs(), This patch also removes unwanted arguments
-> and avoids calling the same function twice.
+> Wrap several common instances of:
+> 	kmemdup(nla_data(attr), nla_len(attr), GFP_KERNEL);
 > 
-> Fixes: 94cdb8bb993a (cxgb4: Add support for dynamic allocation
->        of resources for ULD
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 
 Applied.
