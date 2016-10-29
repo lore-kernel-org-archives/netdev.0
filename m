@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/17] i40e: Remove unused function i40e_vsi_lookup
-Date: Sat, 29 Oct 2016 00:30:45 -0700
-Message-ID: <1477726258-111563-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/17] i40e: Drop redundant Rx descriptor processing code
+Date: Sat, 29 Oct 2016 00:30:53 -0700
+Message-ID: <1477726258-111563-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -9,83 +9,151 @@ Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:12932 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6145 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751824AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Oct 2016 03:31:08 -0400
+        id S1752296AbcJ2HbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Oct 2016 03:31:09 -0400
 In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The function is not used so there is no need to carry it forward.  I have
-plans to add a slightly different function that can be inlined to handle
-the same kind of functionality.
+This patch cleans up several pieces of redundant code in the Rx clean-up
+paths.
 
-Change-ID: Ie2dfcb189dc75e5fbc156bac23003e3b4210ae0f
+The first bit is that hdr_addr and the status_err_len portions of the Rx
+descriptor represent the same value.  As such there is no point in setting
+them to 0 before setting them to 0.  I'm dropping the second spot where we
+are updating the value to 0 so that we only have 1 write for this value
+instead of 2.
+
+The second piece is the checking for the DD bit in the packet.  We only
+need to check for a non-zero value for the status_err_len because if the
+device is done with the descriptor it will have written something back and
+the DD is just one piece of it.  In addition I have moved the reading of
+the Rx descriptor bits related to rx_ptype down so that they are actually
+below the dma_rmb() call so that we are guaranteed that we don't have any
+funky 64b on 32b calls causing any ordering issues.
+
+Change-ID: I256e44a025d3c64a7224aaaec37c852bfcb1871b
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h        |  2 --
- drivers/net/ethernet/intel/i40e/i40e_client.c | 31 ---------------------------
- 2 files changed, 33 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 18 ++++++------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 18 ++++++------------
+ 2 files changed, 12 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 2030d7c..34c7a5d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -728,8 +728,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi);
- struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 				u16 uplink, u32 param1);
- int i40e_vsi_release(struct i40e_vsi *vsi);
--struct i40e_vsi *i40e_vsi_lookup(struct i40e_pf *pf, enum i40e_vsi_type type,
--				 struct i40e_vsi *start_vsi);
- #ifdef I40E_FCOE
- void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
- 			      struct i40e_vsi_context *ctxt,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index 6ffac03..417ac16 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -406,37 +406,6 @@ int i40e_vf_client_capable(struct i40e_pf *pf, u32 vf_id,
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 48e6533..daade4fe 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1220,7 +1220,6 @@ bool i40e_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 		 * because each write-back erases this info.
+ 		 */
+ 		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma + bi->page_offset);
+-		rx_desc->read.hdr_addr = 0;
  
- /**
-- * i40e_vsi_lookup - finds a matching VSI from the PF list starting at start_vsi
-- * @pf: board private structure
-- * @type: vsi type
-- * @start_vsi: a VSI pointer from where to start the search
-- *
-- * Returns non NULL on success or NULL for failure
-- **/
--struct i40e_vsi *i40e_vsi_lookup(struct i40e_pf *pf,
--				 enum i40e_vsi_type type,
--				 struct i40e_vsi *start_vsi)
--{
--	struct i40e_vsi *vsi;
--	int i = 0;
+ 		rx_desc++;
+ 		bi++;
+@@ -1741,7 +1740,6 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 	while (likely(total_rx_packets < budget)) {
+ 		union i40e_rx_desc *rx_desc;
+ 		struct sk_buff *skb;
+-		u32 rx_status;
+ 		u16 vlan_tag;
+ 		u8 rx_ptype;
+ 		u64 qword;
+@@ -1755,21 +1753,13 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 
+ 		rx_desc = I40E_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
+-			   I40E_RXD_QW1_PTYPE_SHIFT;
+-		rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
+-			    I40E_RXD_QW1_STATUS_SHIFT;
 -
--	if (start_vsi) {
--		for (i = 0; i < pf->num_alloc_vsi; i++) {
--			vsi = pf->vsi[i];
--			if (vsi == start_vsi)
--				break;
--		}
--	}
--	for (; i < pf->num_alloc_vsi; i++) {
--		vsi = pf->vsi[i];
--		if (vsi && vsi->type == type)
--			return vsi;
--	}
+-		if (!(rx_status & BIT(I40E_RX_DESC_STATUS_DD_SHIFT)))
+-			break;
 -
--	return NULL;
--}
+ 		/* status_error_len will always be zero for unused descriptors
+ 		 * because it's cleared in cleanup, and overlaps with hdr_addr
+ 		 * which is always zero because packet split isn't used, if the
+ 		 * hardware wrote DD then it will be non-zero
+ 		 */
+-		if (!rx_desc->wb.qword1.status_error_len)
++		if (!i40e_test_staterr(rx_desc,
++				       BIT(I40E_RX_DESC_STATUS_DD_SHIFT)))
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+@@ -1803,6 +1793,10 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+ 
++		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
++			   I40E_RXD_QW1_PTYPE_SHIFT;
++
+ 		/* populate checksum, VLAN, and protocol */
+ 		i40e_process_skb_fields(rx_ring, rx_desc, skb, rx_ptype);
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index dd8ad6b..e2d3622 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -705,7 +705,6 @@ bool i40evf_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 		 * because each write-back erases this info.
+ 		 */
+ 		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma + bi->page_offset);
+-		rx_desc->read.hdr_addr = 0;
+ 
+ 		rx_desc++;
+ 		bi++;
+@@ -1209,7 +1208,6 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 	while (likely(total_rx_packets < budget)) {
+ 		union i40e_rx_desc *rx_desc;
+ 		struct sk_buff *skb;
+-		u32 rx_status;
+ 		u16 vlan_tag;
+ 		u8 rx_ptype;
+ 		u64 qword;
+@@ -1223,21 +1221,13 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 
+ 		rx_desc = I40E_RX_DESC(rx_ring, rx_ring->next_to_clean);
+ 
+-		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
+-			   I40E_RXD_QW1_PTYPE_SHIFT;
+-		rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
+-			    I40E_RXD_QW1_STATUS_SHIFT;
 -
--/**
-  * i40e_client_add_instance - add a client instance struct to the instance list
-  * @pf: pointer to the board struct
-  * @client: pointer to a client struct in the client list.
+-		if (!(rx_status & BIT(I40E_RX_DESC_STATUS_DD_SHIFT)))
+-			break;
+-
+ 		/* status_error_len will always be zero for unused descriptors
+ 		 * because it's cleared in cleanup, and overlaps with hdr_addr
+ 		 * which is always zero because packet split isn't used, if the
+ 		 * hardware wrote DD then it will be non-zero
+ 		 */
+-		if (!rx_desc->wb.qword1.status_error_len)
++		if (!i40e_test_staterr(rx_desc,
++				       BIT(I40E_RX_DESC_STATUS_DD_SHIFT)))
+ 			break;
+ 
+ 		/* This memory barrier is needed to keep us from reading
+@@ -1271,6 +1261,10 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+ 
++		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
++			   I40E_RXD_QW1_PTYPE_SHIFT;
++
+ 		/* populate checksum, VLAN, and protocol */
+ 		i40evf_process_skb_fields(rx_ring, rx_desc, skb, rx_ptype);
+ 
 -- 
 2.7.4
