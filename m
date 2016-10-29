@@ -1,445 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/17] i40e/i40evf: fix interrupt affinity bug
-Date: Sat, 29 Oct 2016 00:30:49 -0700
-Message-ID: <1477726258-111563-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/17] i40e: fix confusing dmesg info for ethtool -L option
+Date: Sat, 29 Oct 2016 00:30:52 -0700
+Message-ID: <1477726258-111563-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+Cc: Lihong Yang <lihong.yang@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:50914 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:10821 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752262AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751764AbcJ2HbI (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sat, 29 Oct 2016 03:31:08 -0400
 In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Brady <alan.brady@intel.com>
+From: Lihong Yang <lihong.yang@intel.com>
 
-There exists a bug in which a 'perfect storm' can occur and cause
-interrupts to fail to be correctly affinitized. This causes unexpected
-behavior and has a substantial impact on performance when it happens.
+Ethtool -L option with the combined parameter is for changing the number of
+multi-purpose channels of the specified network device. The pre-set maximum
+for the combined channels is cpu dependent. Currently, for an i40e device,
+when the user sets a value between 64 and the maximum that the cpu can
+support for the combined parameter, the i40e driver displays the confusing
+info in dmesg to only show 64 as the RSS count regardless of what the
+accepted user input is as long as it is larger than 64.
 
-The bug occurs if there is heavy traffic, any number of CPUs that have
-an i40e interrupt are pegged at 100%, and the interrupt afffinity for
-those CPUs is changed.  Instead of moving to the new CPU, the interrupt
-continues to be polled while there is heavy traffic.
+This patch fixes the message in the i40e driver when the user uses
+ethtool -L to change the number of the combined channels to consistently
+display the user requested value if it is valid and accepted by ethtool.
 
-The bug is most readily realized as the driver is first brought up and
-all interrupts start on CPU0. If there is heavy traffic and the
-interrupt starts polling before the interrupt is affinitized, the
-interrupt will be stuck on CPU0 until traffic stops. The bug, however,
-can also be wrought out more simply by affinitizing all the interrupts
-to a single CPU and then attempting to move any of those interrupts off
-while there is heavy traffic.
-
-This patch fixes the bug by registering for update notifications from
-the kernel when the interrupt affinity changes. When that fires, we
-cache the intended affinity mask. Then, while polling, if the cpu is
-pegged at 100% and we failed to clean the rings, we check to make sure
-we have the correct affinity and stop polling if we're firing on the
-wrong CPU.  When the kernel successfully moves the interrupt, it will
-start polling on the correct CPU. The performance impact is minimal
-since the only time this section gets executed is when performance is
-already compromised by the CPU.
-
-Change-ID: I4410a880159b9dba1f8297aa72bef36dca34e830
-Signed-off-by: Alan Brady <alan.brady@intel.com>
+Change-ID: Ia80a68bc844b779a49e0f76e7d3dcc915032d9af
+Signed-off-by: Lihong Yang <lihong.yang@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h          |  2 +
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 64 +++++++++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c     | 36 ++++++++++---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c   | 31 +++++++++--
- drivers/net/ethernet/intel/i40evf/i40evf.h      |  3 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 71 +++++++++++++++++--------
- 6 files changed, 159 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 34c7a5d..01cce5b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -607,6 +607,8 @@ struct i40e_q_vector {
- 	unsigned long hung_detected; /* Set/Reset for hung_detection logic */
- 
- 	cpumask_t affinity_mask;
-+	struct irq_affinity_notify affinity_notify;
-+
- 	struct rcu_head rcu;	/* to avoid race with update stats on free */
- 	char name[I40E_INT_NAME_STR_LEN];
- 	bool arm_wb_state;
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 83edbe8..9382ba80 100644
+index c25247f..a4bae0a 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3317,6 +3317,33 @@ static irqreturn_t i40e_msix_clean_rings(int irq, void *data)
- }
+@@ -8400,8 +8400,8 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
  
- /**
-+ * i40e_irq_affinity_notify - Callback for affinity changes
-+ * @notify: context as to what irq was changed
-+ * @mask: the new affinity mask
-+ *
-+ * This is a callback function used by the irq_set_affinity_notifier function
-+ * so that we may register to receive changes to the irq affinity masks.
-+ **/
-+static void i40e_irq_affinity_notify(struct irq_affinity_notify *notify,
-+				     const cpumask_t *mask)
-+{
-+	struct i40e_q_vector *q_vector =
-+		container_of(notify, struct i40e_q_vector, affinity_notify);
-+
-+	q_vector->affinity_mask = *mask;
-+}
-+
-+/**
-+ * i40e_irq_affinity_release - Callback for affinity notifier release
-+ * @ref: internal core kernel usage
-+ *
-+ * This is a callback function used by the irq_set_affinity_notifier function
-+ * to inform the current notification subscriber that they will no longer
-+ * receive notifications.
-+ **/
-+static void i40e_irq_affinity_release(struct kref *ref) {}
-+
-+/**
-  * i40e_vsi_request_irq_msix - Initialize MSI-X interrupts
-  * @vsi: the VSI being configured
-  * @basename: name for the vector
-@@ -3331,10 +3358,13 @@ static int i40e_vsi_request_irq_msix(struct i40e_vsi *vsi, char *basename)
- 	int rx_int_idx = 0;
- 	int tx_int_idx = 0;
- 	int vector, err;
-+	int irq_num;
- 
- 	for (vector = 0; vector < q_vectors; vector++) {
- 		struct i40e_q_vector *q_vector = vsi->q_vectors[vector];
- 
-+		irq_num = pf->msix_entries[base + vector].vector;
-+
- 		if (q_vector->tx.ring && q_vector->rx.ring) {
- 			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
- 				 "%s-%s-%d", basename, "TxRx", rx_int_idx++);
-@@ -3349,7 +3379,7 @@ static int i40e_vsi_request_irq_msix(struct i40e_vsi *vsi, char *basename)
- 			/* skip this unused q_vector */
- 			continue;
- 		}
--		err = request_irq(pf->msix_entries[base + vector].vector,
-+		err = request_irq(irq_num,
- 				  vsi->irq_handler,
- 				  0,
- 				  q_vector->name,
-@@ -3359,9 +3389,13 @@ static int i40e_vsi_request_irq_msix(struct i40e_vsi *vsi, char *basename)
- 				 "MSIX request_irq failed, error: %d\n", err);
- 			goto free_queue_irqs;
- 		}
-+
-+		/* register for affinity change notifications */
-+		q_vector->affinity_notify.notify = i40e_irq_affinity_notify;
-+		q_vector->affinity_notify.release = i40e_irq_affinity_release;
-+		irq_set_affinity_notifier(irq_num, &q_vector->affinity_notify);
- 		/* assign the mask for this irq */
--		irq_set_affinity_hint(pf->msix_entries[base + vector].vector,
--				      &q_vector->affinity_mask);
-+		irq_set_affinity_hint(irq_num, &q_vector->affinity_mask);
+ 		i40e_pf_config_rss(pf);
  	}
- 
- 	vsi->irqs_ready = true;
-@@ -3370,10 +3404,10 @@ static int i40e_vsi_request_irq_msix(struct i40e_vsi *vsi, char *basename)
- free_queue_irqs:
- 	while (vector) {
- 		vector--;
--		irq_set_affinity_hint(pf->msix_entries[base + vector].vector,
--				      NULL);
--		free_irq(pf->msix_entries[base + vector].vector,
--			 &(vsi->q_vectors[vector]));
-+		irq_num = pf->msix_entries[base + vector].vector;
-+		irq_set_affinity_notifier(irq_num, NULL);
-+		irq_set_affinity_hint(irq_num, NULL);
-+		free_irq(irq_num, &vsi->q_vectors[vector]);
- 	}
- 	return err;
- }
-@@ -4012,19 +4046,23 @@ static void i40e_vsi_free_irq(struct i40e_vsi *vsi)
- 
- 		vsi->irqs_ready = false;
- 		for (i = 0; i < vsi->num_q_vectors; i++) {
--			u16 vector = i + base;
-+			int irq_num;
-+			u16 vector;
-+
-+			vector = i + base;
-+			irq_num = pf->msix_entries[vector].vector;
- 
- 			/* free only the irqs that were actually requested */
- 			if (!vsi->q_vectors[i] ||
- 			    !vsi->q_vectors[i]->num_ringpairs)
- 				continue;
- 
-+			/* clear the affinity notifier in the IRQ descriptor */
-+			irq_set_affinity_notifier(irq_num, NULL);
- 			/* clear the affinity_mask in the IRQ descriptor */
--			irq_set_affinity_hint(pf->msix_entries[vector].vector,
--					      NULL);
--			synchronize_irq(pf->msix_entries[vector].vector);
--			free_irq(pf->msix_entries[vector].vector,
--				 vsi->q_vectors[i]);
-+			irq_set_affinity_hint(irq_num, NULL);
-+			synchronize_irq(irq_num);
-+			free_irq(irq_num, vsi->q_vectors[i]);
- 
- 			/* Tear down the interrupt queue link list
- 			 *
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 7d160c9..48e6533 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1999,12 +1999,25 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 
- 	/* If work not completed, return budget and polling will return */
- 	if (!clean_complete) {
-+		const cpumask_t *aff_mask = &q_vector->affinity_mask;
-+		int cpu_id = smp_processor_id();
-+
-+		/* It is possible that the interrupt affinity has changed but,
-+		 * if the cpu is pegged at 100%, polling will never exit while
-+		 * traffic continues and the interrupt will be stuck on this
-+		 * cpu.  We check to make sure affinity is correct before we
-+		 * continue to poll, otherwise we must stop polling so the
-+		 * interrupt can move to the correct cpu.
-+		 */
-+		if (likely(cpumask_test_cpu(cpu_id, aff_mask) ||
-+			   !(vsi->back->flags & I40E_FLAG_MSIX_ENABLED))) {
- tx_only:
--		if (arm_wb) {
--			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
--			i40e_enable_wb_on_itr(vsi, q_vector);
-+			if (arm_wb) {
-+				q_vector->tx.ring[0].tx_stats.tx_force_wb++;
-+				i40e_enable_wb_on_itr(vsi, q_vector);
-+			}
-+			return budget;
- 		}
--		return budget;
- 	}
- 
- 	if (vsi->back->flags & I40E_TXR_FLAGS_WB_ON_ITR)
-@@ -2012,11 +2025,18 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 
- 	/* Work is done so exit the polling mode and re-enable the interrupt */
- 	napi_complete_done(napi, work_done);
--	if (vsi->back->flags & I40E_FLAG_MSIX_ENABLED) {
--		i40e_update_enable_itr(vsi, q_vector);
--	} else { /* Legacy mode */
-+
-+	/* If we're prematurely stopping polling to fix the interrupt
-+	 * affinity we want to make sure polling starts back up so we
-+	 * issue a call to i40e_force_wb which triggers a SW interrupt.
-+	 */
-+	if (!clean_complete)
-+		i40e_force_wb(vsi, q_vector);
-+	else if (!(vsi->back->flags & I40E_FLAG_MSIX_ENABLED))
- 		i40e_irq_dynamic_enable_icr0(vsi->back, false);
--	}
-+	else
-+		i40e_update_enable_itr(vsi, q_vector);
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 75f2a2c..dd8ad6b 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1461,12 +1461,24 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 
- 	/* If work not completed, return budget and polling will return */
- 	if (!clean_complete) {
-+		const cpumask_t *aff_mask = &q_vector->affinity_mask;
-+		int cpu_id = smp_processor_id();
-+
-+		/* It is possible that the interrupt affinity has changed but,
-+		 * if the cpu is pegged at 100%, polling will never exit while
-+		 * traffic continues and the interrupt will be stuck on this
-+		 * cpu.  We check to make sure affinity is correct before we
-+		 * continue to poll, otherwise we must stop polling so the
-+		 * interrupt can move to the correct cpu.
-+		 */
-+		if (likely(cpumask_test_cpu(cpu_id, aff_mask))) {
- tx_only:
--		if (arm_wb) {
--			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
--			i40e_enable_wb_on_itr(vsi, q_vector);
-+			if (arm_wb) {
-+				q_vector->tx.ring[0].tx_stats.tx_force_wb++;
-+				i40e_enable_wb_on_itr(vsi, q_vector);
-+			}
-+			return budget;
- 		}
--		return budget;
- 	}
- 
- 	if (vsi->back->flags & I40E_TXR_FLAGS_WB_ON_ITR)
-@@ -1474,7 +1486,16 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 
- 	/* Work is done so exit the polling mode and re-enable the interrupt */
- 	napi_complete_done(napi, work_done);
--	i40e_update_enable_itr(vsi, q_vector);
-+
-+	/* If we're prematurely stopping polling to fix the interrupt
-+	 * affinity we want to make sure polling starts back up so we
-+	 * issue a call to i40evf_force_wb which triggers a SW interrupt.
-+	 */
-+	if (!clean_complete)
-+		i40evf_force_wb(vsi, q_vector);
-+	else
-+		i40e_update_enable_itr(vsi, q_vector);
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index c5fd724..fffe4cf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -107,7 +107,8 @@ struct i40e_q_vector {
- 	int v_idx;	/* vector index in list */
- 	char name[IFNAMSIZ + 9];
- 	bool arm_wb_state;
--	cpumask_var_t affinity_mask;
-+	cpumask_t affinity_mask;
-+	struct irq_affinity_notify affinity_notify;
- };
- 
- /* Helper macros to switch between ints/sec and what the register uses.
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 777eb29..e95e873 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -496,6 +496,33 @@ static void i40evf_netpoll(struct net_device *netdev)
- 
- #endif
- /**
-+ * i40evf_irq_affinity_notify - Callback for affinity changes
-+ * @notify: context as to what irq was changed
-+ * @mask: the new affinity mask
-+ *
-+ * This is a callback function used by the irq_set_affinity_notifier function
-+ * so that we may register to receive changes to the irq affinity masks.
-+ **/
-+static void i40evf_irq_affinity_notify(struct irq_affinity_notify *notify,
-+				       const cpumask_t *mask)
-+{
-+	struct i40e_q_vector *q_vector =
-+		container_of(notify, struct i40e_q_vector, affinity_notify);
-+
-+	q_vector->affinity_mask = *mask;
-+}
-+
-+/**
-+ * i40evf_irq_affinity_release - Callback for affinity notifier release
-+ * @ref: internal core kernel usage
-+ *
-+ * This is a callback function used by the irq_set_affinity_notifier function
-+ * to inform the current notification subscriber that they will no longer
-+ * receive notifications.
-+ **/
-+static void i40evf_irq_affinity_release(struct kref *ref) {}
-+
-+/**
-  * i40evf_request_traffic_irqs - Initialize MSI-X interrupts
-  * @adapter: board private structure
-  *
-@@ -507,6 +534,7 @@ i40evf_request_traffic_irqs(struct i40evf_adapter *adapter, char *basename)
- {
- 	int vector, err, q_vectors;
- 	int rx_int_idx = 0, tx_int_idx = 0;
-+	int irq_num;
- 
- 	i40evf_irq_disable(adapter);
- 	/* Decrement for Other and TCP Timer vectors */
-@@ -514,6 +542,7 @@ i40evf_request_traffic_irqs(struct i40evf_adapter *adapter, char *basename)
- 
- 	for (vector = 0; vector < q_vectors; vector++) {
- 		struct i40e_q_vector *q_vector = &adapter->q_vectors[vector];
-+		irq_num = adapter->msix_entries[vector + NONQ_VECS].vector;
- 
- 		if (q_vector->tx.ring && q_vector->rx.ring) {
- 			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-@@ -532,21 +561,23 @@ i40evf_request_traffic_irqs(struct i40evf_adapter *adapter, char *basename)
- 			/* skip this unused q_vector */
- 			continue;
- 		}
--		err = request_irq(
--			adapter->msix_entries[vector + NONQ_VECS].vector,
--			i40evf_msix_clean_rings,
--			0,
--			q_vector->name,
--			q_vector);
-+		err = request_irq(irq_num,
-+				  i40evf_msix_clean_rings,
-+				  0,
-+				  q_vector->name,
-+				  q_vector);
- 		if (err) {
- 			dev_info(&adapter->pdev->dev,
- 				 "Request_irq failed, error: %d\n", err);
- 			goto free_queue_irqs;
- 		}
-+		/* register for affinity change notifications */
-+		q_vector->affinity_notify.notify = i40evf_irq_affinity_notify;
-+		q_vector->affinity_notify.release =
-+						   i40evf_irq_affinity_release;
-+		irq_set_affinity_notifier(irq_num, &q_vector->affinity_notify);
- 		/* assign the mask for this irq */
--		irq_set_affinity_hint(
--			adapter->msix_entries[vector + NONQ_VECS].vector,
--			q_vector->affinity_mask);
-+		irq_set_affinity_hint(irq_num, &q_vector->affinity_mask);
- 	}
- 
- 	return 0;
-@@ -554,11 +585,10 @@ i40evf_request_traffic_irqs(struct i40evf_adapter *adapter, char *basename)
- free_queue_irqs:
- 	while (vector) {
- 		vector--;
--		irq_set_affinity_hint(
--			adapter->msix_entries[vector + NONQ_VECS].vector,
--			NULL);
--		free_irq(adapter->msix_entries[vector + NONQ_VECS].vector,
--			 &adapter->q_vectors[vector]);
-+		irq_num = adapter->msix_entries[vector + NONQ_VECS].vector;
-+		irq_set_affinity_notifier(irq_num, NULL);
-+		irq_set_affinity_hint(irq_num, NULL);
-+		free_irq(irq_num, &adapter->q_vectors[vector]);
- 	}
- 	return err;
- }
-@@ -599,16 +629,15 @@ static int i40evf_request_misc_irq(struct i40evf_adapter *adapter)
-  **/
- static void i40evf_free_traffic_irqs(struct i40evf_adapter *adapter)
- {
--	int i;
--	int q_vectors;
-+	int vector, irq_num, q_vectors;
- 
- 	q_vectors = adapter->num_msix_vectors - NONQ_VECS;
- 
--	for (i = 0; i < q_vectors; i++) {
--		irq_set_affinity_hint(adapter->msix_entries[i+1].vector,
--				      NULL);
--		free_irq(adapter->msix_entries[i+1].vector,
--			 &adapter->q_vectors[i]);
-+	for (vector = 0; vector < q_vectors; vector++) {
-+		irq_num = adapter->msix_entries[vector + NONQ_VECS].vector;
-+		irq_set_affinity_notifier(irq_num, NULL);
-+		irq_set_affinity_hint(irq_num, NULL);
-+		free_irq(irq_num, &adapter->q_vectors[vector]);
- 	}
+-	dev_info(&pf->pdev->dev, "RSS count/HW max RSS count:  %d/%d\n",
+-		 pf->alloc_rss_size, pf->rss_size_max);
++	dev_info(&pf->pdev->dev, "User requested queue count/HW max RSS count:  %d/%d\n",
++		 vsi->req_queue_pairs, pf->rss_size_max);
+ 	return pf->alloc_rss_size;
  }
  
 -- 
