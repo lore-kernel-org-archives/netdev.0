@@ -1,63 +1,59 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 12/15] ptp: use permission-specific DEVICE_ATTR variants
-Date: Sat, 29 Oct 2016 21:37:06 +0200
-Message-ID: <1477769829-22230-13-git-send-email-Julia.Lawall@lip6.fr>
-References: <1477769829-22230-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477769829-22230-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: [PATCH net-next] firewire: net: really fix maximum possible MTU
+Date: Sat, 29 Oct 2016 22:16:58 +0200
+Message-ID: <20161029221658.03942ff6@kant>
+References: <20161019023333.15760-1-jarod@redhat.com>
+        <20161020175524.6184-1-jarod@redhat.com>
+        <20161020175524.6184-8-jarod@redhat.com>
+        <20161022211606.3b5d137d@kant>
+        <20161022212759.228c7642@kant>
+        <20161023011824.GE32569@redhat.com>
+        <20161023162903.4166a35d@kant>
+        <20161023163056.6bc38610@kant>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+        Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:41349 "EHLO
+        einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752794AbcJ2URT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 16:17:19 -0400
+In-Reply-To: <20161023163056.6bc38610@kant>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use DEVICE_ATTR_RO for read only attributes.  This simplifies the
-source code, improves readbility, and reduces the chance of
-inconsistencies.
+The maximum unicast datagram size /without/ link fragmentation is
+4096 - 4 = 4092 (max IEEE 1394 async payload size at >= S800 bus speed,
+minus unfragmented encapssulation header).  Max broadcast datagram size
+without fragmentation is 8 bytes less than that (due to GASP header).
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+The maximum datagram size /with/ link fragmentation is 0xfff = 4095
+for unicast and broadcast.  This is because the RFC 2734 fragment
+encapsulation header field for datagram size is only 12 bits wide.
 
-// <smpl>
-@ro@
-declarer name DEVICE_ATTR;
-identifier x,x_show;
-@@
-
-DEVICE_ATTR(x, \(0444\|S_IRUGO\), x_show, NULL);
-
-@script:ocaml@
-x << ro.x;
-x_show << ro.x_show;
-@@
-
-if not (x^"_show" = x_show) then Coccilib.include_match false
-
-@@
-declarer name DEVICE_ATTR_RO;
-identifier ro.x,ro.x_show;
-@@
-
-- DEVICE_ATTR(x, \(0444\|S_IRUGO\), x_show, NULL);
-+ DEVICE_ATTR_RO(x);
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
+Fixes: 5d48f00d836a('firewire: net: fix maximum possible MTU')
+Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 ---
- drivers/ptp/ptp_sysfs.c |    2 +-
+ drivers/firewire/net.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/ptp/ptp_sysfs.c b/drivers/ptp/ptp_sysfs.c
-index 302e626..53d4395 100644
---- a/drivers/ptp/ptp_sysfs.c
-+++ b/drivers/ptp/ptp_sysfs.c
-@@ -28,7 +28,7 @@ static ssize_t clock_name_show(struct device *dev,
- 	struct ptp_clock *ptp = dev_get_drvdata(dev);
- 	return snprintf(page, PAGE_SIZE-1, "%s\n", ptp->info->name);
- }
--static DEVICE_ATTR(clock_name, 0444, clock_name_show, NULL);
-+static DEVICE_ATTR_RO(clock_name);
+diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
+index 03715e7d9d92..363fc5ec1a4e 100644
+--- a/drivers/firewire/net.c
++++ b/drivers/firewire/net.c
+@@ -1465,7 +1465,7 @@ static int fwnet_probe(struct fw_unit *unit,
  
- #define PTP_SHOW_INT(name, var)						\
- static ssize_t var##_show(struct device *dev,				\
+ 	net->mtu = 1500U;
+ 	net->min_mtu = ETH_MIN_MTU;
+-	net->max_mtu = ETH_MAX_MTU;
++	net->max_mtu = 0xfff;
+ 
+ 	/* Set our hardware address while we're at it */
+ 	ha = (union fwnet_hwaddr *)net->dev_addr;
+-- 
+Stefan Richter
+-======----- =-=- ===-=
+http://arcgraph.de/sr/
