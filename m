@@ -1,52 +1,51 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net 2/3] sctp: return back transport in __sctp_rcv_init_lookup
-Date: Sun, 30 Oct 2016 01:29:07 +0800
-Message-ID: <CADvbK_cwNsqFiHhWQM1g4XhK4v4rjZ7gEvtcYWKdZDnZmfeEnQ@mail.gmail.com>
-References: <cover.1477649076.git.lucien.xin@gmail.com> <5ebf537ea021af594ca1b2538d28a3080d5c3ee7.1477649076.git.lucien.xin@gmail.com>
- <20161028194221.GC4193@localhost.localdomain> <20161028213943.GA14175@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/dccp: warning in dccp_feat_clone_sp_val/__might_sleep
+Date: Sat, 29 Oct 2016 10:43:01 -0700
+Message-ID: <1477762981.7065.272.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+z-SAq-YhHarfc94dguyXCJ_tv8n=ZVdLTRsYEy0cK-pQ@mail.gmail.com>
+         <CAM_iQpX_xw35MUyd9aON5U=HmUoRafeoOF+_vSTHGYnrXd-CHg@mail.gmail.com>
+         <CAAeHK+y9ENvGzJEQtRy_5DEzCfhGEYXR5CPpgwXy_FoOtFUf3Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem <davem@davemloft.net>, Vlad Yasevich <vyasevich@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36742 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751412AbcJ2R3I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 13:29:08 -0400
-In-Reply-To: <20161028213943.GA14175@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+y9ENvGzJEQtRy_5DEzCfhGEYXR5CPpgwXy_FoOtFUf3Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 29, 2016 at 5:39 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On Fri, Oct 28, 2016 at 05:42:21PM -0200, Marcelo Ricardo Leitner wrote:
->> On Fri, Oct 28, 2016 at 06:10:53PM +0800, Xin Long wrote:
->> > Prior to this patch, it used a local variable to save the transport that is
->> > looked up by __sctp_lookup_association(), and didn't return it back. But in
->> > sctp_rcv, it is used to initialize chunk->transport. So when hitting this
->> > code, it was initializing chunk->transport with some random stack value
->> > instead.
-here should be:
-So when hitting this, even if it found the transport, it was still initializing
-chunk->transport with null instead.
+On Sat, 2016-10-29 at 19:06 +0200, Andrey Konovalov wrote:
+> Hi Cong,
+> 
+> Tested with your patch, still getting a warning, though it's a little different:
+> 
+> ------------[ cut here ]------------
+> WARNING: CPU: 1 PID: 3876 at kernel/sched/core.c:7724
+> __might_sleep+0x14c/0x1a0 kernel/sched/core.c:7719
+> do not call blocking ops when !TASK_RUNNING; state=1 set at
+> [<ffffffff811f5a5c>] prepare_to_wait+0xbc/0x210
+> kernel/sched/wait.c:178
+> Modules linked in:
 
->> >
->> > This patch is to return the transport back through transport pointer
->> > that is from __sctp_rcv_lookup_harder().
->> >
->> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>
->> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
->>
->> transport pointer in sctp_rcv() is initialized to null and there are
->> checks for it after this path, so this shouldn't be exploitable, just
->> malfunction.
->
-> This actually sort of contradicts the changelog.
->
-> Xin, did I miss something here? Seems we need to update the changelog if
-> not.
->
-You're right, thanks, will repost.
+This looks like the following patch is needed, can you test it ?
+Thanks !
+
+diff --git a/net/dccp/output.c b/net/dccp/output.c
+index b66c84db0766..74d8583a0d52 100644
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -228,6 +228,7 @@ static int dccp_wait_for_ccid(struct sock *sk, unsigned long delay)
+ 
+ 	remaining = schedule_timeout(delay);
+ 
++	sched_annotate_sleep();
+ 	lock_sock(sk);
+ 	sk->sk_write_pending--;
+ 	finish_wait(sk_sleep(sk), &wait);
