@@ -1,31 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next still on 4.8.0?
-Date: Sat, 29 Oct 2016 08:50:04 -0400 (EDT)
-Message-ID: <20161029.085004.572838918499112643.davem@davemloft.net>
-References: <20161028185236.GA18361@lunn.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46344 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752520AbcJ2MuL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 08:50:11 -0400
-In-Reply-To: <20161028185236.GA18361@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Subject: [PATCH 4/4] isdn/eicon: use const strings with format arguments
+Date: Sat, 29 Oct 2016 14:56:05 +0200
+Message-ID: <20161029125605.13610-4-nicolas.iooss_linux@m4x.org>
+References: <20161029125605.13610-1-nicolas.iooss_linux@m4x.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+To: Armin Schindler <mac@melware.de>,
+        Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161029125605.13610-1-nicolas.iooss_linux@m4x.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Fri, 28 Oct 2016 20:52:36 +0200
+Functions using a printf format argument do not modify the value of this
+argument. These functions can therefore use type "const char *" instead
+of "char *".
 
-> During the merge window, you didn't close net-next. Trying something
-> new.
-> 
-> We are now at v4.9-rc2, yet net-next is still based on 4.8.0. Is this
-> also something new you are trying? Or do you still plan to rebase to
-> an -rcX at some point?
+This patch has only been compile-tested.
 
-I plan to rebase the next time I ask Linus to pull 'net' and he takes
-it in, which should be this weekend.
+Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+---
+ drivers/isdn/hardware/eicon/debug.c    | 14 +++++++-------
+ drivers/isdn/hardware/eicon/debuglib.h |  6 +++---
+ drivers/isdn/hardware/eicon/maintidi.c |  2 +-
+ 3 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/isdn/hardware/eicon/debug.c b/drivers/isdn/hardware/eicon/debug.c
+index cd8d70e3292d..b8772bbee872 100644
+--- a/drivers/isdn/hardware/eicon/debug.c
++++ b/drivers/isdn/hardware/eicon/debug.c
+@@ -14,9 +14,9 @@
+ 
+ static void DI_register(void *arg);
+ static void DI_deregister(pDbgHandle hDbg);
+-static void DI_format(int do_lock, word id, int type, char *format, va_list argument_list);
+-static void DI_format_locked(word id, int type, char *format, va_list argument_list);
+-static void DI_format_old(word id, char *format, va_list ap) { }
++static void DI_format(int do_lock, word id, int type, const char *format, va_list argument_list);
++static void DI_format_locked(word id, int type, const char *format, va_list argument_list);
++static void DI_format_old(word id, const char *format, va_list ap) { }
+ static void DiProcessEventLog(unsigned short id, unsigned long msgID, va_list ap) { }
+ static void single_p(byte *P, word *PLength, byte Id);
+ static void diva_maint_xdi_cb(ENTITY *e);
+@@ -25,7 +25,7 @@ static int diva_mnt_cmp_nmbr(const char *nmbr);
+ static void diva_free_dma_descriptor(IDI_CALL request, int nr);
+ static int diva_get_dma_descriptor(IDI_CALL request, dword *dma_magic);
+ __printf(3, 4)
+-void diva_mnt_internal_dprintf(dword drv_id, dword type, char *p, ...);
++void diva_mnt_internal_dprintf(dword drv_id, dword type, const char *p, ...);
+ 
+ static dword MaxDumpSize = 256;
+ static dword MaxXlogSize = 2 + 128;
+@@ -561,7 +561,7 @@ static void DI_deregister(pDbgHandle hDbg) {
+ 
+ static void DI_format_locked(unsigned short id,
+ 			     int type,
+-			     char *format,
++			     const char *format,
+ 			     va_list argument_list) {
+ 	DI_format(1, id, type, format, argument_list);
+ }
+@@ -569,7 +569,7 @@ static void DI_format_locked(unsigned short id,
+ static void DI_format(int do_lock,
+ 		      unsigned short id,
+ 		      int type,
+-		      char *format,
++		      const char *format,
+ 		      va_list ap) {
+ 	diva_os_spin_lock_magic_t old_irql;
+ 	dword sec, usec;
+@@ -1904,7 +1904,7 @@ static void diva_change_management_debug_mask(diva_maint_client_t *pC, dword old
+ }
+ 
+ 
+-void diva_mnt_internal_dprintf(dword drv_id, dword type, char *fmt, ...) {
++void diva_mnt_internal_dprintf(dword drv_id, dword type, const char *fmt, ...) {
+ 	va_list ap;
+ 
+ 	va_start(ap, fmt);
+diff --git a/drivers/isdn/hardware/eicon/debuglib.h b/drivers/isdn/hardware/eicon/debuglib.h
+index 6dcbf6afb8f9..2170de140335 100644
+--- a/drivers/isdn/hardware/eicon/debuglib.h
++++ b/drivers/isdn/hardware/eicon/debuglib.h
+@@ -230,10 +230,10 @@ extern void DbgSetLevel(unsigned long dbgMask);
+  */
+ typedef struct _DbgHandle_ *pDbgHandle;
+ typedef void (*DbgEnd)(pDbgHandle);
+-typedef void (*DbgLog)(unsigned short, int, char *, va_list);
+-typedef void (*DbgOld)(unsigned short, char *, va_list);
++typedef void (*DbgLog)(unsigned short, int, const char *, va_list);
++typedef void (*DbgOld)(unsigned short, const char *, va_list);
+ typedef void (*DbgEv)(unsigned short, unsigned long, va_list);
+-typedef void (*DbgIrq)(unsigned short, int, char *, va_list);
++typedef void (*DbgIrq)(unsigned short, int, const char *, va_list);
+ typedef struct _DbgHandle_
+ { char    Registered; /* driver successfully registered */
+ #define DBG_HANDLE_REG_NEW 0x01  /* this (new) structure    */
+diff --git a/drivers/isdn/hardware/eicon/maintidi.c b/drivers/isdn/hardware/eicon/maintidi.c
+index b2ed2939b4fa..a635595e9be3 100644
+--- a/drivers/isdn/hardware/eicon/maintidi.c
++++ b/drivers/isdn/hardware/eicon/maintidi.c
+@@ -31,7 +31,7 @@
+ 
+ 
+ extern __printf(3, 4)
+-void diva_mnt_internal_dprintf(dword drv_id, dword type, char *p, ...);
++void diva_mnt_internal_dprintf(dword drv_id, dword type, const char *p, ...);
+ 
+ #define MODEM_PARSE_ENTRIES  16 /* amount of variables of interest */
+ #define FAX_PARSE_ENTRIES    12 /* amount of variables of interest */
+-- 
+2.10.1
