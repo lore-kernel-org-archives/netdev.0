@@ -1,90 +1,371 @@
 From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Subject: [PATCH 2/4] isdn/eicon: fix some message formatting errors
-Date: Sat, 29 Oct 2016 14:56:03 +0200
-Message-ID: <20161029125605.13610-2-nicolas.iooss_linux@m4x.org>
+Subject: [PATCH 3/4] isdn/eicon: add some __printf attributes
+Date: Sat, 29 Oct 2016 14:56:04 +0200
+Message-ID: <20161029125605.13610-3-nicolas.iooss_linux@m4x.org>
 References: <20161029125605.13610-1-nicolas.iooss_linux@m4x.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Nicolas Iooss <nicolas.iooss_linux@m4x.org>
 To: Armin Schindler <mac@melware.de>,
         Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.polytechnique.org ([129.104.30.34]:43203 "EHLO
+Received: from mx1.polytechnique.org ([129.104.30.34]:60563 "EHLO
         mx1.polytechnique.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751586AbcJ2M5O (ORCPT
+        with ESMTP id S1751110AbcJ2M5O (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 08:57:14 -0400
 In-Reply-To: <20161029125605.13610-1-nicolas.iooss_linux@m4x.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are some inconsistent debug message formats in message.c. For
-example,
+Add __printf attributes to some functions. This helps detecting errors
+related to printf-formats at compile time.
 
-    dprintf("XDI CAPI: RC cancelled Id:0x02, Ch:%02x", e->Id, ch);
-
-wrongly reports an ID of 2 and prints the entity ID as the channel ID.
-There are also object pointers which are used instead of the IDs.
-
-All these inconsistent formats have been found by adding __printf
-attribute to myDbgPrint_...() functions (used by dbug()). As this makes
-the compiler to also complain about using "%ld" with unsigned int values
-(instead of "%u") and some other less-important format issues, this
-patch does not add any __printf attribute.
+When doing this, gcc reports some issues in debug.c. Fix them.
 
 This patch has only been compile-tested.
 
 Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
 ---
- drivers/isdn/hardware/eicon/message.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/isdn/hardware/eicon/debug.c    | 129 +++++++++++++++++----------------
+ drivers/isdn/hardware/eicon/maintidi.c |   3 +-
+ drivers/isdn/hardware/eicon/platform.h |   2 +-
+ 3 files changed, 68 insertions(+), 66 deletions(-)
 
-diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
-index 1a1d99704fe6..7cafa34c3464 100644
---- a/drivers/isdn/hardware/eicon/message.c
-+++ b/drivers/isdn/hardware/eicon/message.c
-@@ -1059,7 +1059,7 @@ static void plci_remove(PLCI *plci)
- 	}
- 	if (plci->Sig.Id == 0xff)
- 	{
--		dbug(1, dprintf("D-channel X.25 plci->NL.Id:%0x", plci->NL.Id));
-+		dbug(1, dprintf("D-channel X.25 plci->NL.Id:%02x", plci->NL.Id));
- 		if (plci->NL.Id && !plci->nl_remove_id)
- 		{
- 			nl_req_ncci(plci, REMOVE, 0);
-@@ -3109,7 +3109,7 @@ static byte data_b3_req(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+diff --git a/drivers/isdn/hardware/eicon/debug.c b/drivers/isdn/hardware/eicon/debug.c
+index 576b7b4a3278..cd8d70e3292d 100644
+--- a/drivers/isdn/hardware/eicon/debug.c
++++ b/drivers/isdn/hardware/eicon/debug.c
+@@ -24,6 +24,7 @@ static word SuperTraceCreateReadReq(byte *P, const char *path);
+ static int diva_mnt_cmp_nmbr(const char *nmbr);
+ static void diva_free_dma_descriptor(IDI_CALL request, int nr);
+ static int diva_get_dma_descriptor(IDI_CALL request, dword *dma_magic);
++__printf(3, 4)
+ void diva_mnt_internal_dprintf(dword drv_id, dword type, char *p, ...);
  
- 	Info = _WRONG_IDENTIFIER;
- 	ncci = (word)(Id >> 16);
--	dbug(1, dprintf("ncci=0x%x, plci=0x%x", ncci, plci));
-+	dbug(1, dprintf("ncci=0x%x, plci=0x%x", ncci, plci->Id));
- 
- 	if (plci && ncci)
- 	{
-@@ -3325,7 +3325,7 @@ static byte select_b_req(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
- 	else
- 	{
- 		dbug(1, dprintf("select_b_req[%d],PLCI=0x%x,Tel=0x%x,NL=0x%x,appl=0x%x,sstate=0x%x",
--				msg->length, plci->Id, plci->tel, plci->NL.Id, plci->appl, plci->SuppState));
-+				msg->length, plci->Id, plci->tel, plci->NL.Id, appl->Id, plci->SuppState));
- 		dbug(1, dprintf("PlciState=0x%x", plci->State));
- 		for (i = 0; i < 7; i++) bp_parms[i].length = 0;
- 
-@@ -3910,7 +3910,7 @@ void callback(ENTITY *e)
- 				if (no_cancel_rc && (a->FlowControlIdTable[ch] == e->Id) && e->Id) {
- 					a->FlowControlIdTable[ch] = 0;
- 					if ((rc == OK) && a->FlowControlSkipTable[ch]) {
--						dbug(3, dprintf("XDI CAPI: RC cancelled Id:0x02, Ch:%02x", e->Id, ch));
-+						dbug(3, dprintf("XDI CAPI: RC cancelled Id:%02x, Ch:%02x", e->Id, ch));
- 						return;
- 					}
- 				}
-@@ -9135,7 +9135,7 @@ static word AdvCodecSupport(DIVA_CAPI_ADAPTER *a, PLCI *plci, APPL *appl,
- 		{
- 			if (a->AdvSignalAppl != appl || a->AdvSignalPLCI)
- 			{
--				dbug(1, dprintf("AdvSigPlci=0x%x", a->AdvSignalPLCI));
-+				dbug(1, dprintf("AdvSigPlci=0x%x", a->AdvSignalPLCI->Id));
- 				return 0x2001; /* codec in use by another application */
+ static dword MaxDumpSize = 256;
+@@ -1514,29 +1515,29 @@ static void diva_maint_state_change_notify(void *user_context,
  			}
- 			if (plci != NULL)
+ 
+ 
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Ch    = %lu",
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Ch    = %u",
+ 						  (int)modem->ChannelNumber);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Event = %lu", modem->Event);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Norm  = %lu", modem->Norm);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Event = %u", modem->Event);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Norm  = %u", modem->Norm);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Opts. = 0x%08x", modem->Options);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Tx    = %lu Bps", modem->TxSpeed);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Rx    = %lu Bps", modem->RxSpeed);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM RT    = %lu mSec",
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Tx    = %u Bps", modem->TxSpeed);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Rx    = %u Bps", modem->RxSpeed);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM RT    = %u mSec",
+ 						  modem->RoundtripMsec);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Sr    = %lu", modem->SymbolRate);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Sr    = %u", modem->SymbolRate);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Rxl   = %d dBm", modem->RxLeveldBm);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM El    = %d dBm", modem->EchoLeveldBm);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM SNR   = %lu dB", modem->SNRdb);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM MAE   = %lu", modem->MAE);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM LRet  = %lu",
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM SNR   = %u dB", modem->SNRdb);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM MAE   = %u", modem->MAE);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM LRet  = %u",
+ 						  modem->LocalRetrains);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM RRet  = %lu",
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM RRet  = %u",
+ 						  modem->RemoteRetrains);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM LRes  = %lu", modem->LocalResyncs);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM RRes  = %lu",
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM LRes  = %u", modem->LocalResyncs);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM RRes  = %u",
+ 						  modem->RemoteResyncs);
+ 			if (modem->Event == 3) {
+-				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Disc  =  %lu", modem->DiscReason);
++				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "MDM Disc  =  %u", modem->DiscReason);
+ 			}
+ 		}
+ 		if ((modem->Event == 3) && (pC->hDbg->dbgMask & DIVA_MGT_DBG_MDM_STATISTICS)) {
+@@ -1560,20 +1561,20 @@ static void diva_maint_state_change_notify(void *user_context,
+ 				}
+ 			}
+ 
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Ch    = %lu", (int)fax->ChannelNumber);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Event = %lu",     fax->Event);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Pages = %lu",     fax->Page_Counter);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Ch    = %u", (int)fax->ChannelNumber);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Event = %u",     fax->Event);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Pages = %u",     fax->Page_Counter);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Feat. = 0x%08x",  fax->Features);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX ID    = <%s>",    &fax->Station_ID[0]);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Saddr = <%s>",    &fax->Subaddress[0]);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Pwd   = <%s>",    &fax->Password[0]);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Speed = %lu",     fax->Speed);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Speed = %u",     fax->Speed);
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Res.  = 0x%08x",  fax->Resolution);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Width = %lu",     fax->Paper_Width);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Length= %lu",     fax->Paper_Length);
+-			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX SLT   = %lu",     fax->Scanline_Time);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Width = %u",     fax->Paper_Width);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Length= %u",     fax->Paper_Length);
++			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX SLT   = %u",     fax->Scanline_Time);
+ 			if (fax->Event == 3) {
+-				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Disc  = %lu",     fax->Disc_Reason);
++				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_STAT, "FAX Disc  = %u",     fax->Disc_Reason);
+ 			}
+ 		}
+ 		if ((fax->Event == 3) && (pC->hDbg->dbgMask & DIVA_MGT_DBG_FAX_STATISTICS)) {
+@@ -1597,35 +1598,35 @@ static void diva_maint_state_change_notify(void *user_context,
+ 			*/
+ 			if (channel->pInterfaceStat->inc.Calls) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Calls                     =%lu", channel->pInterfaceStat->inc.Calls);
++							  "Inc Calls                     =%u", channel->pInterfaceStat->inc.Calls);
+ 			}
+ 			if (channel->pInterfaceStat->inc.Connected) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Connected                 =%lu", channel->pInterfaceStat->inc.Connected);
++							  "Inc Connected                 =%u", channel->pInterfaceStat->inc.Connected);
+ 			}
+ 			if (channel->pInterfaceStat->inc.User_Busy) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Busy                      =%lu", channel->pInterfaceStat->inc.User_Busy);
++							  "Inc Busy                      =%u", channel->pInterfaceStat->inc.User_Busy);
+ 			}
+ 			if (channel->pInterfaceStat->inc.Call_Rejected) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Rejected                  =%lu", channel->pInterfaceStat->inc.Call_Rejected);
++							  "Inc Rejected                  =%u", channel->pInterfaceStat->inc.Call_Rejected);
+ 			}
+ 			if (channel->pInterfaceStat->inc.Wrong_Number) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Wrong Nr                  =%lu", channel->pInterfaceStat->inc.Wrong_Number);
++							  "Inc Wrong Nr                  =%u", channel->pInterfaceStat->inc.Wrong_Number);
+ 			}
+ 			if (channel->pInterfaceStat->inc.Incompatible_Dst) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Incomp. Dest              =%lu", channel->pInterfaceStat->inc.Incompatible_Dst);
++							  "Inc Incomp. Dest              =%u", channel->pInterfaceStat->inc.Incompatible_Dst);
+ 			}
+ 			if (channel->pInterfaceStat->inc.Out_of_Order) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Out of Order              =%lu", channel->pInterfaceStat->inc.Out_of_Order);
++							  "Inc Out of Order              =%u", channel->pInterfaceStat->inc.Out_of_Order);
+ 			}
+ 			if (channel->pInterfaceStat->inc.Ignored) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Inc Ignored                   =%lu", channel->pInterfaceStat->inc.Ignored);
++							  "Inc Ignored                   =%u", channel->pInterfaceStat->inc.Ignored);
+ 			}
+ 
+ 			/*
+@@ -1633,31 +1634,31 @@ static void diva_maint_state_change_notify(void *user_context,
+ 			*/
+ 			if (channel->pInterfaceStat->outg.Calls) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Outg Calls                    =%lu", channel->pInterfaceStat->outg.Calls);
++							  "Outg Calls                    =%u", channel->pInterfaceStat->outg.Calls);
+ 			}
+ 			if (channel->pInterfaceStat->outg.Connected) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Outg Connected                =%lu", channel->pInterfaceStat->outg.Connected);
++							  "Outg Connected                =%u", channel->pInterfaceStat->outg.Connected);
+ 			}
+ 			if (channel->pInterfaceStat->outg.User_Busy) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Outg Busy                     =%lu", channel->pInterfaceStat->outg.User_Busy);
++							  "Outg Busy                     =%u", channel->pInterfaceStat->outg.User_Busy);
+ 			}
+ 			if (channel->pInterfaceStat->outg.No_Answer) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Outg No Answer                =%lu", channel->pInterfaceStat->outg.No_Answer);
++							  "Outg No Answer                =%u", channel->pInterfaceStat->outg.No_Answer);
+ 			}
+ 			if (channel->pInterfaceStat->outg.Wrong_Number) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Outg Wrong Nr                 =%lu", channel->pInterfaceStat->outg.Wrong_Number);
++							  "Outg Wrong Nr                 =%u", channel->pInterfaceStat->outg.Wrong_Number);
+ 			}
+ 			if (channel->pInterfaceStat->outg.Call_Rejected) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Outg Rejected                 =%lu", channel->pInterfaceStat->outg.Call_Rejected);
++							  "Outg Rejected                 =%u", channel->pInterfaceStat->outg.Call_Rejected);
+ 			}
+ 			if (channel->pInterfaceStat->outg.Other_Failures) {
+ 				diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-							  "Outg Other Failures           =%lu", channel->pInterfaceStat->outg.Other_Failures);
++							  "Outg Other Failures           =%u", channel->pInterfaceStat->outg.Other_Failures);
+ 			}
+ 		}
+ 		break;
+@@ -1665,114 +1666,114 @@ static void diva_maint_state_change_notify(void *user_context,
+ 	case DIVA_SUPER_TRACE_NOTIFY_MDM_STAT_CHANGE:
+ 		if (channel->pInterfaceStat->mdm.Disc_Normal) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Normal        = %lu", channel->pInterfaceStat->mdm.Disc_Normal);
++						  "MDM Disc Normal        = %u", channel->pInterfaceStat->mdm.Disc_Normal);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_Unspecified) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Unsp.         = %lu", channel->pInterfaceStat->mdm.Disc_Unspecified);
++						  "MDM Disc Unsp.         = %u", channel->pInterfaceStat->mdm.Disc_Unspecified);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_Busy_Tone) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Busy Tone     = %lu", channel->pInterfaceStat->mdm.Disc_Busy_Tone);
++						  "MDM Disc Busy Tone     = %u", channel->pInterfaceStat->mdm.Disc_Busy_Tone);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_Congestion) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Congestion    = %lu", channel->pInterfaceStat->mdm.Disc_Congestion);
++						  "MDM Disc Congestion    = %u", channel->pInterfaceStat->mdm.Disc_Congestion);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_Carr_Wait) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Carrier Wait  = %lu", channel->pInterfaceStat->mdm.Disc_Carr_Wait);
++						  "MDM Disc Carrier Wait  = %u", channel->pInterfaceStat->mdm.Disc_Carr_Wait);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_Trn_Timeout) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Trn. T.o.     = %lu", channel->pInterfaceStat->mdm.Disc_Trn_Timeout);
++						  "MDM Disc Trn. T.o.     = %u", channel->pInterfaceStat->mdm.Disc_Trn_Timeout);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_Incompat) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Incompatible  = %lu", channel->pInterfaceStat->mdm.Disc_Incompat);
++						  "MDM Disc Incompatible  = %u", channel->pInterfaceStat->mdm.Disc_Incompat);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_Frame_Rej) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc Frame Reject  = %lu", channel->pInterfaceStat->mdm.Disc_Frame_Rej);
++						  "MDM Disc Frame Reject  = %u", channel->pInterfaceStat->mdm.Disc_Frame_Rej);
+ 		}
+ 		if (channel->pInterfaceStat->mdm.Disc_V42bis) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "MDM Disc V.42bis       = %lu", channel->pInterfaceStat->mdm.Disc_V42bis);
++						  "MDM Disc V.42bis       = %u", channel->pInterfaceStat->mdm.Disc_V42bis);
+ 		}
+ 		break;
+ 
+ 	case DIVA_SUPER_TRACE_NOTIFY_FAX_STAT_CHANGE:
+ 		if (channel->pInterfaceStat->fax.Disc_Normal) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Normal        = %lu", channel->pInterfaceStat->fax.Disc_Normal);
++						  "FAX Disc Normal        = %u", channel->pInterfaceStat->fax.Disc_Normal);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Not_Ident) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Not Ident.    = %lu", channel->pInterfaceStat->fax.Disc_Not_Ident);
++						  "FAX Disc Not Ident.    = %u", channel->pInterfaceStat->fax.Disc_Not_Ident);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_No_Response) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc No Response   = %lu", channel->pInterfaceStat->fax.Disc_No_Response);
++						  "FAX Disc No Response   = %u", channel->pInterfaceStat->fax.Disc_No_Response);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Retries) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Max Retries   = %lu", channel->pInterfaceStat->fax.Disc_Retries);
++						  "FAX Disc Max Retries   = %u", channel->pInterfaceStat->fax.Disc_Retries);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Unexp_Msg) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Unexp. Msg.        = %lu", channel->pInterfaceStat->fax.Disc_Unexp_Msg);
++						  "FAX Unexp. Msg.        = %u", channel->pInterfaceStat->fax.Disc_Unexp_Msg);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_No_Polling) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc No Polling    = %lu", channel->pInterfaceStat->fax.Disc_No_Polling);
++						  "FAX Disc No Polling    = %u", channel->pInterfaceStat->fax.Disc_No_Polling);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Training) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Training      = %lu", channel->pInterfaceStat->fax.Disc_Training);
++						  "FAX Disc Training      = %u", channel->pInterfaceStat->fax.Disc_Training);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Unexpected) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Unexpected    = %lu", channel->pInterfaceStat->fax.Disc_Unexpected);
++						  "FAX Disc Unexpected    = %u", channel->pInterfaceStat->fax.Disc_Unexpected);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Application) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Application   = %lu", channel->pInterfaceStat->fax.Disc_Application);
++						  "FAX Disc Application   = %u", channel->pInterfaceStat->fax.Disc_Application);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Incompat) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Incompatible  = %lu", channel->pInterfaceStat->fax.Disc_Incompat);
++						  "FAX Disc Incompatible  = %u", channel->pInterfaceStat->fax.Disc_Incompat);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_No_Command) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc No Command    = %lu", channel->pInterfaceStat->fax.Disc_No_Command);
++						  "FAX Disc No Command    = %u", channel->pInterfaceStat->fax.Disc_No_Command);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Long_Msg) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Long Msg.     = %lu", channel->pInterfaceStat->fax.Disc_Long_Msg);
++						  "FAX Disc Long Msg.     = %u", channel->pInterfaceStat->fax.Disc_Long_Msg);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Supervisor) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Supervisor    = %lu", channel->pInterfaceStat->fax.Disc_Supervisor);
++						  "FAX Disc Supervisor    = %u", channel->pInterfaceStat->fax.Disc_Supervisor);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_SUB_SEP_PWD) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc SUP SEP PWD   = %lu", channel->pInterfaceStat->fax.Disc_SUB_SEP_PWD);
++						  "FAX Disc SUP SEP PWD   = %u", channel->pInterfaceStat->fax.Disc_SUB_SEP_PWD);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Invalid_Msg) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Invalid Msg.  = %lu", channel->pInterfaceStat->fax.Disc_Invalid_Msg);
++						  "FAX Disc Invalid Msg.  = %u", channel->pInterfaceStat->fax.Disc_Invalid_Msg);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Page_Coding) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Page Coding   = %lu", channel->pInterfaceStat->fax.Disc_Page_Coding);
++						  "FAX Disc Page Coding   = %u", channel->pInterfaceStat->fax.Disc_Page_Coding);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_App_Timeout) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Appl. T.o.    = %lu", channel->pInterfaceStat->fax.Disc_App_Timeout);
++						  "FAX Disc Appl. T.o.    = %u", channel->pInterfaceStat->fax.Disc_App_Timeout);
+ 		}
+ 		if (channel->pInterfaceStat->fax.Disc_Unspecified) {
+ 			diva_mnt_internal_dprintf(pC->hDbg->id, DLI_LOG,
+-						  "FAX Disc Unspec.       = %lu", channel->pInterfaceStat->fax.Disc_Unspecified);
++						  "FAX Disc Unspec.       = %u", channel->pInterfaceStat->fax.Disc_Unspecified);
+ 		}
+ 		break;
+ 	}
+diff --git a/drivers/isdn/hardware/eicon/maintidi.c b/drivers/isdn/hardware/eicon/maintidi.c
+index 2ee789f95867..b2ed2939b4fa 100644
+--- a/drivers/isdn/hardware/eicon/maintidi.c
++++ b/drivers/isdn/hardware/eicon/maintidi.c
+@@ -30,7 +30,8 @@
+ #include "man_defs.h"
+ 
+ 
+-extern void diva_mnt_internal_dprintf(dword drv_id, dword type, char *p, ...);
++extern __printf(3, 4)
++void diva_mnt_internal_dprintf(dword drv_id, dword type, char *p, ...);
+ 
+ #define MODEM_PARSE_ENTRIES  16 /* amount of variables of interest */
+ #define FAX_PARSE_ENTRIES    12 /* amount of variables of interest */
+diff --git a/drivers/isdn/hardware/eicon/platform.h b/drivers/isdn/hardware/eicon/platform.h
+index 62e2073c3690..efa574125d76 100644
+--- a/drivers/isdn/hardware/eicon/platform.h
++++ b/drivers/isdn/hardware/eicon/platform.h
+@@ -124,7 +124,7 @@
+ #define DIVAS_CONTAINING_RECORD(address, type, field)			\
+ 	((type *)((char *)(address) - (char *)(&((type *)0)->field)))
+ 
+-extern int sprintf(char *, const char *, ...);
++extern __printf(2, 3) int sprintf(char *, const char *, ...);
+ 
+ typedef void *LIST_ENTRY;
+ 
 -- 
 2.10.1
