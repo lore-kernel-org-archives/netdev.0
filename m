@@ -1,108 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Let's do P4
-Date: Sat, 29 Oct 2016 15:58:55 +0200
-Message-ID: <20161029135855.GH1692@nanopsycho.orion>
-References: <20161029075328.GB1692@nanopsycho.orion>
- <20161029093905.GA1810@pox.localdomain>
- <20161029101003.GC1692@nanopsycho.orion>
- <20161029111548.GB1810@pox.localdomain>
- <20161029112834.GF1692@nanopsycho.orion>
- <20161029120932.GD1810@pox.localdomain>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net] qede: Fix out-of-bound fastpath memory access
+Date: Sat, 29 Oct 2016 17:04:35 +0300
+Message-ID: <1477749875-30529-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
-        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:38427 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034453AbcJ2N67 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 09:58:59 -0400
-Received: by mail-wm0-f49.google.com with SMTP id n67so158457280wme.1
-        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 06:58:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20161029120932.GD1810@pox.localdomain>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:40367 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S966390AbcJ2OEp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 10:04:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Oct 29, 2016 at 02:09:32PM CEST, tgraf@suug.ch wrote:
->On 10/29/16 at 01:28pm, Jiri Pirko wrote:
->> Sat, Oct 29, 2016 at 01:15:48PM CEST, tgraf@suug.ch wrote:
->> >So given the SKIP_SW flag, the in-kernel compiler is optional anyway.
->> >Why even risk including a possibly incomplete compiler? Older kernels
->> >must be capable of running along newer hardware as long as eBPF can
->> >represent the software path. Having to upgrade to latest and greatest
->> >kernels is not an option for most people so they would simply have to
->> >fall back to SKIP_SW and do it in user space anyway.
->> 
->> The thing is, if we needo to offload something, it needs to be
->> implemented in kernel first. Also, I believe that it is good to have
->> in-kernel p4 engine for testing and development purposes.
->
->You lost me now :-) In an earlier email you said:
->
->> It can be the other way around. The p4>ebpf compiler won't be complete
->> at the beginning so it is possible that HW could provide more features.
->> I don't think it is a problem. With SKIP_SW and SKIP_HW flags in TC,
->> the user can set different program to each. I think in real life, that
->> would be the most common case anyway.
->
->If you allow to SKIP_SW and set different programs each to address
->this, then how is this any different.
->
->I completely agree that kernel must be able to provide the same
->functionality as HW with optional additional capabilities on top so
->the HW can always bail out and punt to SW.
->
->[...]
->
->> >I'm not seeing how either of them is more or less variable. The main
->> >difference is whether to require configuring a single cls with both
->> >p4ast + bpf or two separate cls, one for each. I'd prefer the single
->> >cls approach simply because it is cleaner wither regard to offload
->> >directly off bpf vs off p4ast.
->> 
->> That's the bundle that you asked me to forget earlier in this email? :)
->
->I thought you referred to the "store in same object file" as bundle.
->I don't really care about that. What I care about is a single way to
->configure this that works for both ASIC and non-ASIC hardware.
->
->> >My main point is to not include a IR to eBPF compiler in the kernel
->> >and let user space handle this instead.
->> 
->> It we do it as you describe, we would be using 2 different APIs for
->> offloaded and non-offloaded path. I don't believe it is acceptable as
->> the offloaded features has to have kernel implementation. Therefore, I
->> believe that p4ast as a kernel API is the only possible option.
->
->Yes, the kernel has the SW implementation in eBPF. I thought that is
->what you propose as well. The only difference is whether to generate
->that eBPF in kernel or user space.
->
->Not sure I understand the multiple APIs point for offload vs
->non-offload. There is a single API: tc. Both models require the user
->to provide additional metadata to allow programming ASIC HW: p4ast
->IR or whatever we agree on.
+Driver allocates a shadow array for transmitted SKBs with X entries;
+That means valid indices are {0,...,X - 1}. [X == 8191]
+Problem is the driver also uses X as a mask for a
+producer/consumer in order to choose the right entry in the
+array which allows access to entry X which is out of bounds.
 
-If you do p4>ebpf in userspace, you have 2 apis:
-1) to setup sw (in-kernel) p4 datapath, you push bpf.o to kernel
-2) to setup hw p4 datapath, you push program.p4ast to kernel
+To fix this, simply allocate X + 1 entries in the shadow array.
 
-Those are 2 apis. Both wrapped up by TC, but still 2 apis.
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+Hi Dave,
 
-What I believe is correct is to have one api:
-1) to setup sw (in-kernel) p4 datapath, you push program.p4ast to kernel
-2) to setup hw p4 datapath, you push program.p4ast to kernel
+Please consider applying this to `net'.
 
-In case of 1), the program.p4ast will be either interpreted by new p4
-interpreter, of translated to bpf and interpreted by that. But this
-translation code is part of kernel.
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 444b271..7def29a 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -2940,7 +2940,7 @@ static int qede_alloc_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
+ 	txq->num_tx_buffers = edev->q_num_tx_buffers;
+ 
+ 	/* Allocate the parallel driver ring for Tx buffers */
+-	size = sizeof(*txq->sw_tx_ring) * NUM_TX_BDS_MAX;
++	size = sizeof(*txq->sw_tx_ring) * TX_RING_SIZE;
+ 	txq->sw_tx_ring = kzalloc(size, GFP_KERNEL);
+ 	if (!txq->sw_tx_ring) {
+ 		DP_NOTICE(edev, "Tx buffers ring allocation failed\n");
+@@ -2951,7 +2951,7 @@ static int qede_alloc_mem_txq(struct qede_dev *edev, struct qede_tx_queue *txq)
+ 					    QED_CHAIN_USE_TO_CONSUME_PRODUCE,
+ 					    QED_CHAIN_MODE_PBL,
+ 					    QED_CHAIN_CNT_TYPE_U16,
+-					    NUM_TX_BDS_MAX,
++					    TX_RING_SIZE,
+ 					    sizeof(*p_virt), &txq->tx_pbl);
+ 	if (rc)
+ 		goto err;
+-- 
+1.9.3
