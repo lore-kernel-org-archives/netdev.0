@@ -1,77 +1,92 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH 03/17] batman-adv: Add network_coding and
-	mcast sysfs files to README
-Date: Sat, 29 Oct 2016 13:46:59 +0200
-Message-ID: <2528373.sE2IHzpoFy@sven-edge>
-References: <20161027190150.7880-1-sw@simonwunderlich.de>
- <22392280.4UY6GoIrAk@sven-edge> <20161029105628.GE1692@nanopsycho.orion>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Let's do P4
+Date: Sat, 29 Oct 2016 14:09:32 +0200
+Message-ID: <20161029120932.GD1810@pox.localdomain>
+References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029093905.GA1810@pox.localdomain>
+ <20161029101003.GC1692@nanopsycho.orion>
+ <20161029111548.GB1810@pox.localdomain>
+ <20161029112834.GF1692@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart3996215.GW0L9WpkYn";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161029105628.GE1692-6KJVSR23iU488b5SBfVpbw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
+        jakub.kicinski@netronome.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
+        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35182 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752404AbcJ2MJg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 08:09:36 -0400
+Received: by mail-wm0-f48.google.com with SMTP id e69so153284489wmg.0
+        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 05:09:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20161029112834.GF1692@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3996215.GW0L9WpkYn
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-On Samstag, 29. Oktober 2016 12:56:28 CEST Jiri Pirko wrote:
-[...]
-> >> I strongly believe it is a huge mistake to use sysfs for things like
-> >> this. This should be done via generic netlink api.
-> >
-> >This doesn't change the problem that it is already that way. This patch
-> >only adds the list of available files to the README.
+On 10/29/16 at 01:28pm, Jiri Pirko wrote:
+> Sat, Oct 29, 2016 at 01:15:48PM CEST, tgraf@suug.ch wrote:
+> >So given the SKIP_SW flag, the in-kernel compiler is optional anyway.
+> >Why even risk including a possibly incomplete compiler? Older kernels
+> >must be capable of running along newer hardware as long as eBPF can
+> >represent the software path. Having to upgrade to latest and greatest
+> >kernels is not an option for most people so they would simply have to
+> >fall back to SKIP_SW and do it in user space anyway.
 > 
-> Sure. Just found out you did it like that. Therefore I commented. I
-> suggest to rework the api to use genl entirely.
+> The thing is, if we needo to offload something, it needs to be
+> implemented in kernel first. Also, I believe that it is good to have
+> in-kernel p4 engine for testing and development purposes.
 
-Fair enough, I have added it to the issue tracker [1].
+You lost me now :-) In an earlier email you said:
 
-It seems there is no easy way to drop support for modifying batman-adv
-attributes of the interface or its ports via sysfs in the near
-future. But disallowing sysfs for new attributes might be a viable
-policy.
+> It can be the other way around. The p4>ebpf compiler won't be complete
+> at the beginning so it is possible that HW could provide more features.
+> I don't think it is a problem. With SKIP_SW and SKIP_HW flags in TC,
+> the user can set different program to each. I think in real life, that
+> would be the most common case anyway.
 
-Kind regards,
-	Sven
+If you allow to SKIP_SW and set different programs each to address
+this, then how is this any different.
 
-[1] https://www.open-mesh.org/issues/300
---nextPart3996215.GW0L9WpkYn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+I completely agree that kernel must be able to provide the same
+functionality as HW with optional additional capabilities on top so
+the HW can always bail out and punt to SW.
 
------BEGIN PGP SIGNATURE-----
+[...]
 
-iQIcBAABCgAGBQJYFIwzAAoJEF2HCgfBJntGWZwP/0ihDN/YbhoBU1CKEkSrOK5E
-HSGZcaQ+mhMdE4uGdrvqIRZDx/Gm8EQnIJFE0YnK2kak4YWgjIVHJvnM8Qryp63C
-U16XtnIgj2qCKDpZVPukKEK3bGouP68BLsaThwqsdzO4ncvLdT+lry+kRTtFNjU6
-76q5b0NtHDOF/sfmnsmzWGZoy9HUtrJcv0VDIDWv1abwkijIUZHADGmosrPQybWI
-Pjjo0rE2MnCW6xqc93/hjynuKp9juHTfv0eVMqaXeRbWkzb5h7ZevCTITqzNeeBg
-Nyp73SJaYcKe//YQoVUfrRTzZn7ZaexHQx7PUkFllsPVFDNr/ATQq6SWhxXa8JaC
-F+SiQw0V/cUEc+7oNgAvtN0zSYQ7ayYT2bxgKZew0BUpNjo+ujHD++gpS9jTaqMz
-mq5Y0/lW19eItBVJbIu6sS4XK3tXofBUyyFmWi4Rk/Zkw3N01LDWJVC4Ug9LZCfh
-AhNoq91XNJLgB22XUvdoDvu1VSYriCmOjb0oVsGwQVYlTwTGonG6cOxr4qiU3hVh
-6XblMGeqnCMw/0wPzLXXwxh0M7emHkoYBV/fcC9nWJ4g6anQ6sdqVRLiLCvfXKAP
-M1BBTIiJtQD6tPUPZF73Gu8Ub4MjXZK1zMjPRD4naJIC1cU6Ww6gYPojl5OkNv8Q
-2wcyddFPkQoyvF8/HbYD
-=rnzV
------END PGP SIGNATURE-----
+> >I'm not seeing how either of them is more or less variable. The main
+> >difference is whether to require configuring a single cls with both
+> >p4ast + bpf or two separate cls, one for each. I'd prefer the single
+> >cls approach simply because it is cleaner wither regard to offload
+> >directly off bpf vs off p4ast.
+> 
+> That's the bundle that you asked me to forget earlier in this email? :)
 
---nextPart3996215.GW0L9WpkYn--
+I thought you referred to the "store in same object file" as bundle.
+I don't really care about that. What I care about is a single way to
+configure this that works for both ASIC and non-ASIC hardware.
+
+> >My main point is to not include a IR to eBPF compiler in the kernel
+> >and let user space handle this instead.
+> 
+> It we do it as you describe, we would be using 2 different APIs for
+> offloaded and non-offloaded path. I don't believe it is acceptable as
+> the offloaded features has to have kernel implementation. Therefore, I
+> believe that p4ast as a kernel API is the only possible option.
+
+Yes, the kernel has the SW implementation in eBPF. I thought that is
+what you propose as well. The only difference is whether to generate
+that eBPF in kernel or user space.
+
+Not sure I understand the multiple APIs point for offload vs
+non-offload. There is a single API: tc. Both models require the user
+to provide additional metadata to allow programming ASIC HW: p4ast
+IR or whatever we agree on.
