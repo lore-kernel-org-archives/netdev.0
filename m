@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] pull request for net: batman-adv 2016-10-26
-Date: Sat, 29 Oct 2016 15:06:17 -0400 (EDT)
-Message-ID: <20161029.150617.1111183264374606917.davem@davemloft.net>
-References: <20161026155515.18075-1-sw@simonwunderlich.de>
+Subject: Re: [PATCH net-next] net: phy: at803x: Add a definition for PHY ID
+ mask
+Date: Sat, 29 Oct 2016 15:09:34 -0400 (EDT)
+Message-ID: <20161029.150934.1292965454780581540.davem@davemloft.net>
+References: <1477497834-9964-1-git-send-email-fabio.estevam@nxp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: sw@simonwunderlich.de
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: fabio.estevam@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51902 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51938 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751479AbcJ2TGW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 15:06:22 -0400
-In-Reply-To: <20161026155515.18075-1-sw@simonwunderlich.de>
+        with ESMTP id S1751609AbcJ2TJg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 15:09:36 -0400
+In-Reply-To: <1477497834-9964-1-git-send-email-fabio.estevam@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Date: Wed, 26 Oct 2016 17:55:12 +0200
+From: Fabio Estevam <fabio.estevam@nxp.com>
+Date: Wed, 26 Oct 2016 14:03:54 -0200
 
-> here are some bugfix patches which we would like to have integrated
-> into net.
+> Add a definition for PHY ID mask for improving code readability.
 > 
-> Please pull or let me know of any problem!
+> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
 
-Pulled, thanks Simon.
+Applied.
