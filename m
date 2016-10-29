@@ -1,76 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Let's do P4
-Date: Sat, 29 Oct 2016 09:53:28 +0200
-Message-ID: <20161029075328.GB1692@nanopsycho.orion>
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] udp: do fwd memory scheduling on dequeue
+Date: Sat, 29 Oct 2016 10:17:25 +0200
+Message-ID: <1477729045.5306.11.camel@redhat.com>
+References: <95bb1b780be2e35ff04fb9e1e2c41470a0a15582.1477660091.git.pabeni@redhat.com>
+         <1477674975.7065.245.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1477677030.7065.250.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, tgraf@suug.ch, jhs@mojatatu.com,
-        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
-        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34972 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751233AbcJ2Hxb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 03:53:31 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 68so3632903wmz.2
-        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 00:53:30 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1477677030.7065.250.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi all.
+On Fri, 2016-10-28 at 10:50 -0700, Eric Dumazet wrote:
+> On Fri, 2016-10-28 at 10:16 -0700, Eric Dumazet wrote:
+> > Nice !
+> > 
+> > I was working on this as well and my implementation was somewhat
+> > different.
+> 
+> This is my WIP
+> 
+> Note this can be split in two parts.
+> 
+> 1) One adding struct sock *sk param to ip_cmsg_recv_offset()
+>  
+>    This was because I left skb->sk NULL for skbs stored in receive
+> queue.
+>    You chose instead to set skb->sk, which is unusual (check
+> skb_orphan() BUG_ON())
+> 
+> 2) Udp changes.
+> 
+> Tell me what you think, thanks again !
 
-The network world is divided into 2 general types of hw:
-1) network ASICs - network specific silicon, containing things like TCAM
-   These ASICs are suitable to be programmed by P4.
-2) network processors - basically a general purpose CPUs
-   These processors are suitable to be programmed by eBPF.
+Thank you for working on this. 
 
-I believe that by now, the most people came to a conclusion that it is
-very difficult to handle both types by either P4 or eBPF. And since
-eBPF is part of the kernel, I would like to introduce P4 into kernel
-as well. Here's a plan:
+I just gave a very quick look (the WE has started, children are
+screaming ;-), overall the implementation seems quite similar to our
+one.
 
-1) Define P4 intermediate representation
-   I cannot imagine loading P4 program (c-like syntax text file) into
-   kernel as is. That means that as the first step, we need find some
-   intermediate representation. I can imagine someting in a form of AST,
-   call it "p4ast". I don't really know how to do this exactly though,
-   it's just an idea.
+I like the additional argument to  ip_cmsg_recv_offset() instead of
+keeping skb->sk set.
 
-   In the end there would be a userspace precompiler for this:
-   $ makep4ast example.p4 example.ast
+If I read udp_skb_destructor() correctly, the atomic manipulation of
+both sk_rmem_alloc and udp_memory_allocated will happen under the
+receive lock. In our experiments this increment measurably the
+contention on the lock in respect to moving said the operations outside
+the lock (as done in our patch). Do you foreseen any issues with that ?
+AFAICS every in kernel UDP user of skb_recv_datagram() needs to be
+updated with both implementation.
 
-2) Implement p4ast in-kernel interpreter 
-   A kernel module which takes a p4ast and emulates the pipeline.
-   This can be implemented from scratch. Or, p4ast could be compiled
-   to eBPF. I know there are already couple of p4>eBPF compilers.
-   Not sure how feasible it would be to put this compiler in kernel.
+Cheers,
 
-3) Expose the p4ast in-kernel interpreter to userspace
-   As the easiest way I see in to introduce a new TC classifier cls_p4.
+Paolo
 
-   This can work in a very similar way cls_bpf is:
-   $ tc filter add dev eth0 ingress p4 da ast example.ast
-
-   The TC cls_p4 will be also used for runtime table manipulation.
-
-4) Offload p4ast programs into hardware
-   The same p4ast program representation will be passed down
-   to drivers via existing TC offloading way - ndo_setup_tc.
-   Drivers will then parse it and setup the hardware
-   accordingly. Driver will also have possibility to error out
-   in case it does not support some requested feature.
-
-Thoughts? Ideas?
-
-Thanks,
-	Jiri
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
