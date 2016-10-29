@@ -1,114 +1,77 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Let's do P4
-Date: Sat, 29 Oct 2016 13:28:34 +0200
-Message-ID: <20161029112834.GF1692@nanopsycho.orion>
-References: <20161029075328.GB1692@nanopsycho.orion>
- <20161029093905.GA1810@pox.localdomain>
- <20161029101003.GC1692@nanopsycho.orion>
- <20161029111548.GB1810@pox.localdomain>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: Re: [PATCH 03/17] batman-adv: Add network_coding and
+	mcast sysfs files to README
+Date: Sat, 29 Oct 2016 13:46:59 +0200
+Message-ID: <2528373.sE2IHzpoFy@sven-edge>
+References: <20161027190150.7880-1-sw@simonwunderlich.de>
+ <22392280.4UY6GoIrAk@sven-edge> <20161029105628.GE1692@nanopsycho.orion>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
-        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35697 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752171AbcJ2L2h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 07:28:37 -0400
-Received: by mail-wm0-f50.google.com with SMTP id e69so152007739wmg.0
-        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 04:28:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20161029111548.GB1810@pox.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="nextPart3996215.GW0L9WpkYn";
+ micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161029105628.GE1692-6KJVSR23iU488b5SBfVpbw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Sat, Oct 29, 2016 at 01:15:48PM CEST, tgraf@suug.ch wrote:
->On 10/29/16 at 12:10pm, Jiri Pirko wrote:
->> Sat, Oct 29, 2016 at 11:39:05AM CEST, tgraf@suug.ch wrote:
->> >On 10/29/16 at 09:53am, Jiri Pirko wrote:
->> >> 3) Expose the p4ast in-kernel interpreter to userspace
->> >>    As the easiest way I see in to introduce a new TC classifier cls_p4.
->> >> 
->> >>    This can work in a very similar way cls_bpf is:
->> >>    $ tc filter add dev eth0 ingress p4 da ast example.ast
->> >> 
->> >>    The TC cls_p4 will be also used for runtime table manipulation.
->> >
->> >I think this is a great model for the case where HW can provide all
->> >of the required capabilities. Thinking about the case where HW
->> >provides a subset and SW provides an extended version, i.e. the
->> >reality we live in for hosts with ASIC NICs ;-) The hand off point
->> >requires some understanding between p4ast and eBPF.
->> 
->> It can be the other way around. The p4>ebpf compiler won't be complete
->> at the beginning so it is possible that HW could provide more features.
->> I don't think it is a problem. With SKIP_SW and SKIP_HW flags in TC,
->> the user can set different program to each. I think in real life, that
->> would be the most common case anyway.
->
->So given the SKIP_SW flag, the in-kernel compiler is optional anyway.
->Why even risk including a possibly incomplete compiler? Older kernels
->must be capable of running along newer hardware as long as eBPF can
->represent the software path. Having to upgrade to latest and greatest
->kernels is not an option for most people so they would simply have to
->fall back to SKIP_SW and do it in user space anyway.
+--nextPart3996215.GW0L9WpkYn
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-The thing is, if we needo to offload something, it needs to be
-implemented in kernel first. Also, I believe that it is good to have
-in-kernel p4 engine for testing and development purposes.
+On Samstag, 29. Oktober 2016 12:56:28 CEST Jiri Pirko wrote:
+[...]
+> >> I strongly believe it is a huge mistake to use sysfs for things like
+> >> this. This should be done via generic netlink api.
+> >
+> >This doesn't change the problem that it is already that way. This patch
+> >only adds the list of available files to the README.
+> 
+> Sure. Just found out you did it like that. Therefore I commented. I
+> suggest to rework the api to use genl entirely.
 
+Fair enough, I have added it to the issue tracker [1].
 
->
->> >Therefore another idea would be to use cls_bpf directly for this. The
->> >p4ast IR could be stored in a separate ELF section in the same object
->> >file with an existing eBPF program. The p4ast IR will match the
->> 
->> I don't like this idea. The kernel API should be clean and simple.
->> Bundling p4ast with bpf.o code, so the bpf.o is for kernel and p4ast is
->> for driver does not look clean at all. The bundle does not make really
->> sense as the programs may do different things for BPF and p4.
->
->I don't care strongly for the bundle. Let's forget about it for now.
->
->> Plus, it's up to user to set this up like he wants. If he wants SW
->> processing by BPF and at the same time HW processing by P4, he will use:
->> cls_bpf instance with SKIP_HW
->> cls_p4 instance with SKIP_SW.
->> 
->> This is much more variable, clean and non-confusing approach, I believe.
->
->Non ASIC hardware will want to do offload based on BPF though so your
->model would require the user to be aware of what is the preferred
->model for his hardware and then either load a cls_bpf only to work
->with a Netronome NIC or a cls_p4 + cls_bpf to work with an ASIC NIC,
->correct?
+It seems there is no easy way to drop support for modifying batman-adv
+attributes of the interface or its ports via sysfs in the near
+future. But disallowing sysfs for new attributes might be a viable
+policy.
 
-Correct
+Kind regards,
+	Sven
 
+[1] https://www.open-mesh.org/issues/300
+--nextPart3996215.GW0L9WpkYn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
 
->
->I'm not seeing how either of them is more or less variable. The main
->difference is whether to require configuring a single cls with both
->p4ast + bpf or two separate cls, one for each. I'd prefer the single
->cls approach simply because it is cleaner wither regard to offload
->directly off bpf vs off p4ast.
+-----BEGIN PGP SIGNATURE-----
 
-That's the bundle that you asked me to forget earlier in this email? :)
+iQIcBAABCgAGBQJYFIwzAAoJEF2HCgfBJntGWZwP/0ihDN/YbhoBU1CKEkSrOK5E
+HSGZcaQ+mhMdE4uGdrvqIRZDx/Gm8EQnIJFE0YnK2kak4YWgjIVHJvnM8Qryp63C
+U16XtnIgj2qCKDpZVPukKEK3bGouP68BLsaThwqsdzO4ncvLdT+lry+kRTtFNjU6
+76q5b0NtHDOF/sfmnsmzWGZoy9HUtrJcv0VDIDWv1abwkijIUZHADGmosrPQybWI
+Pjjo0rE2MnCW6xqc93/hjynuKp9juHTfv0eVMqaXeRbWkzb5h7ZevCTITqzNeeBg
+Nyp73SJaYcKe//YQoVUfrRTzZn7ZaexHQx7PUkFllsPVFDNr/ATQq6SWhxXa8JaC
+F+SiQw0V/cUEc+7oNgAvtN0zSYQ7ayYT2bxgKZew0BUpNjo+ujHD++gpS9jTaqMz
+mq5Y0/lW19eItBVJbIu6sS4XK3tXofBUyyFmWi4Rk/Zkw3N01LDWJVC4Ug9LZCfh
+AhNoq91XNJLgB22XUvdoDvu1VSYriCmOjb0oVsGwQVYlTwTGonG6cOxr4qiU3hVh
+6XblMGeqnCMw/0wPzLXXwxh0M7emHkoYBV/fcC9nWJ4g6anQ6sdqVRLiLCvfXKAP
+M1BBTIiJtQD6tPUPZF73Gu8Ub4MjXZK1zMjPRD4naJIC1cU6Ww6gYPojl5OkNv8Q
+2wcyddFPkQoyvF8/HbYD
+=rnzV
+-----END PGP SIGNATURE-----
 
->
->My main point is to not include a IR to eBPF compiler in the kernel
->and let user space handle this instead.
-
-It we do it as you describe, we would be using 2 different APIs for
-offloaded and non-offloaded path. I don't believe it is acceptable as
-the offloaded features has to have kernel implementation. Therefore, I
-believe that p4ast as a kernel API is the only possible option.
+--nextPart3996215.GW0L9WpkYn--
