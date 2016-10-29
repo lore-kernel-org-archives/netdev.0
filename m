@@ -1,82 +1,76 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] add one parameter wro_enable to enable relaxed ordering
- for IXGBE
-Date: Sat, 29 Oct 2016 00:42:21 -0700
-Message-ID: <1477726941.2309.9.camel@intel.com>
-References: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Let's do P4
+Date: Sat, 29 Oct 2016 09:53:28 +0200
+Message-ID: <20161029075328.GB1692@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-xfRoRUa23YDm6gMpY5g8"
-To: Mao Wenan <maowenan@huawei.com>, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, tgraf@suug.ch, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
+        jakub.kicinski@netronome.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
+        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34972 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751233AbcJ2Hxb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 03:53:31 -0400
+Received: by mail-wm0-f65.google.com with SMTP id 68so3632903wmz.2
+        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 00:53:30 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi all.
 
---=-xfRoRUa23YDm6gMpY5g8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The network world is divided into 2 general types of hw:
+1) network ASICs - network specific silicon, containing things like TCAM
+   These ASICs are suitable to be programmed by P4.
+2) network processors - basically a general purpose CPUs
+   These processors are suitable to be programmed by eBPF.
 
-On Sat, 2016-10-29 at 15:08 +0800, Mao Wenan wrote:
-> This patch provides a way to enable relaxed ordering, where it helps with
-> performance in some architecture.
-> The default value of wro_enable is 0, if you want to enable relaxed
-> ordering, please set wro_enable=3D1.
->=20
-> Mao Wenan (1):
-> =C2=A0 add one parameter wro_enable for IXGBE
->=20
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0 |=C2=A0 1 +
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c=C2=A0 | 29 +++++++++=
-+++++-----
-> ------
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 28 +++++++++++++-=
----
-> -------
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c=C2=A0=C2=A0 |=C2=A0 9=
- ++++++++
-> =C2=A04 files changed, 41 insertions(+), 26 deletions(-)
+I believe that by now, the most people came to a conclusion that it is
+very difficult to handle both types by either P4 or eBPF. And since
+eBPF is part of the kernel, I would like to introduce P4 into kernel
+as well. Here's a plan:
 
-Why have a title patch for only one patch? =C2=A0Better yet, the one patch =
-does
-not have a patch description. =C2=A0Get rid of the title patch and add the =
-above
-information into the patches description.
+1) Define P4 intermediate representation
+   I cannot imagine loading P4 program (c-like syntax text file) into
+   kernel as is. That means that as the first step, we need find some
+   intermediate representation. I can imagine someting in a form of AST,
+   call it "p4ast". I don't really know how to do this exactly though,
+   it's just an idea.
 
-In addition, module parameters are not kindly looked upon, one reason is
-that it cannot be standardized and enforced.
+   In the end there would be a userspace precompiler for this:
+   $ makep4ast example.p4 example.ast
 
-I am also confused because you are stating that on some architectures, yet
-this code is only compiled in when SPARC is defined and that there are
-times when you want relaxed ordering enabled and other times disabled?
-=C2=A0Your gonna have to provide more data on why, because the code as is w=
-as
-resolving serious performance issues on SPARC when relaxed ordering was
-enabled.
---=-xfRoRUa23YDm6gMpY5g8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+2) Implement p4ast in-kernel interpreter 
+   A kernel module which takes a p4ast and emulates the pipeline.
+   This can be implemented from scratch. Or, p4ast could be compiled
+   to eBPF. I know there are already couple of p4>eBPF compilers.
+   Not sure how feasible it would be to put this compiler in kernel.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+3) Expose the p4ast in-kernel interpreter to userspace
+   As the easiest way I see in to introduce a new TC classifier cls_p4.
 
-iQIcBAABCgAGBQJYFFLeAAoJEOVv75VaS+3OnOQQAJKjXO0N/qoEb3F/eBhLvAwX
-GsXRH2RhxQxdNSjjmlUhKQ4UUSw0+Ot1A+tuyLD5FfsDZYMqEHgzabMibNjKfsSQ
-tm6Xk/X/BR80l092n67QKejGDtovLUGgRIKduSed4NkAHGGFW+v4dISo0BUik2xW
-hhz3q7ILsj+kAd/e+s/lpsK/eJi4MxPI8W2BwXlSxMwyv9GR4pdxXXuY0U+tv4mh
-a9+jfaUDH8x8TwcsQAr61VSjznjeNcatx1K1VwmDcYCK3HUMcHvM//TPbu9fWjZQ
-4QUnFR7TnMjZFLkvzDIVastLd1wPzFXNLb7/agbtk2G9VfmS1G1DvMErD95719dy
-4hcFQyEZwT46ioYl5lvMtMCUlXHvEOURCMgayX73KkhXW/dtyME4LokL9SmKZ68Z
-SfDwWBPfqWUzuv6PcdyF7bRPqiCXMgIhMRE2ZxwUbMabu7rG8mhOxi9sX1xJ2ckH
-zyAN0oIDcOye6JElo8D/HGsEhgR/9CF06O6rLclgeEApCYM+VFuW9MSc7r0zn5wT
-uLuVAnVNT1kEjrnjwL23NUeEHeOUuYocvQLI4xs5G8e0QGwLD1jC/4G9voqfaB8p
-M07lD+dvrUfHLJblmp2rC1yYm2Cx1RwVFF8h0Ttlpy8daOUdNuWT0BYhPDfRk6BN
-VjCfKe00FrcCfPFFq630
-=c6s6
------END PGP SIGNATURE-----
+   This can work in a very similar way cls_bpf is:
+   $ tc filter add dev eth0 ingress p4 da ast example.ast
 
---=-xfRoRUa23YDm6gMpY5g8--
+   The TC cls_p4 will be also used for runtime table manipulation.
+
+4) Offload p4ast programs into hardware
+   The same p4ast program representation will be passed down
+   to drivers via existing TC offloading way - ndo_setup_tc.
+   Drivers will then parse it and setup the hardware
+   accordingly. Driver will also have possibility to error out
+   in case it does not support some requested feature.
+
+Thoughts? Ideas?
+
+Thanks,
+	Jiri
