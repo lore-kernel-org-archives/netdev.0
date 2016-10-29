@@ -1,117 +1,148 @@
-From: Baoquan He <bhe@redhat.com>
-Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
-Date: Sat, 29 Oct 2016 10:55:38 +0800
-Message-ID: <20161029025538.GA4099@x1>
-References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
- <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
- <20161026120021.GA4402@x1>
- <f055c961-58ca-ea81-46d8-610fa055cce8@molgen.mpg.de>
+From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Subject: RE: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
+Date: Fri, 28 Oct 2016 20:51:28 -0700
+Message-ID: <ec23c734c23d81884349484927140741@mail.gmail.com>
+References: <20161028011739-mutt-send-email-mst@kernel.org>
+ <20161027.213512.334468356710231957.davem@davemloft.net> <CAKgT0Ufe3QYtFpmtsL39-nbyy+YEt=gZKU_WUr9Wir+LTYLuEQ@mail.gmail.com>
+ <20161027.221027.109834362557507518.davem@davemloft.net> <58137533.4030105@gmail.com>
+ <20161028171812.48073f1f@jkicinski-Precision-T1700> <20161028182223.GA53930@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, dvteam@molgen.mpg.de
-To: Paul Menzel <pmenzel@molgen.mpg.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
+        mst@redhat.com, brouer@redhat.com, shrijeet@gmail.com,
+        tom@herbertland.com, netdev@vger.kernel.org,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51630 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752756AbcJ2Czo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Oct 2016 22:55:44 -0400
-Content-Disposition: inline
-In-Reply-To: <f055c961-58ca-ea81-46d8-610fa055cce8@molgen.mpg.de>
+Received: from mail-vk0-f42.google.com ([209.85.213.42]:33315 "EHLO
+        mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751223AbcJ2Dve (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2016 23:51:34 -0400
+Received: by mail-vk0-f42.google.com with SMTP id d65so41146937vkg.0
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2016 20:51:34 -0700 (PDT)
+In-Reply-To: <20161028182223.GA53930@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/27/16 at 03:21pm, Paul Menzel wrote:
-> Dear Baoquan,
-> > > Baoquan, could you please fix this regression. My suggestion is, that you
-> > > add the old code back, but check if the firmware has been loaded. If it
-> > > hasn’t, load it again.
-> > > 
-> > > That way, people can update their Linux kernel, and it continues working
-> > > without changing the initramfs, or anything else.
-> > 
-> > I saw your mail but I am also not familiar with bnx2 driver. As the
-> > commit log says I just tried to make bnx2 driver reset itself earlier.
-> > 
-> > So you did a git bisect and found this commit caused the regression,
-> > right? If yes, and network developers have no action, I will look into
-> > the code and see if I have idea to fix it.
-> 
-> Well, I looked through the commits and found that one, which would explain
-> the changed behavior.
-> 
-> To be sure, and to follow your request, I took Linux 4.8.4 and reverted your
-> commit (attached). Then I deleted the firmware again from the initramfs, and
-> rebooted. The devices showed up just fine as before.
-> 
-> So to summarize, the commit is indeed the culprit.
+> -----Original Message-----
+> From: Alexei Starovoitov [mailto:alexei.starovoitov@gmail.com]
+> Sent: Friday, October 28, 2016 11:22 AM
+> To: Jakub Kicinski <kubakici@wp.pl>
+> Cc: John Fastabend <john.fastabend@gmail.com>; David Miller
+> <davem@davemloft.net>; alexander.duyck@gmail.com; mst@redhat.com;
+> brouer@redhat.com; shrijeet@gmail.com; tom@herbertland.com;
+> netdev@vger.kernel.org; shm@cumulusnetworks.com;
+> roopa@cumulusnetworks.com; nikolay@cumulusnetworks.com
+> Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for
+virtio_net
+>
+> On Fri, Oct 28, 2016 at 05:18:12PM +0100, Jakub Kicinski wrote:
+> > On Fri, 28 Oct 2016 08:56:35 -0700, John Fastabend wrote:
+> > > On 16-10-27 07:10 PM, David Miller wrote:
+> > > > From: Alexander Duyck <alexander.duyck@gmail.com>
+> > > > Date: Thu, 27 Oct 2016 18:43:59 -0700
+> > > >
+> > > >> On Thu, Oct 27, 2016 at 6:35 PM, David Miller
+> <davem@davemloft.net> wrote:
+> > > >>> From: "Michael S. Tsirkin" <mst@redhat.com>
+> > > >>> Date: Fri, 28 Oct 2016 01:25:48 +0300
+> > > >>>
+> > > >>>> On Thu, Oct 27, 2016 at 05:42:18PM -0400, David Miller wrote:
+> > > >>>>> From: "Michael S. Tsirkin" <mst@redhat.com>
+> > > >>>>> Date: Fri, 28 Oct 2016 00:30:35 +0300
+> > > >>>>>
+> > > >>>>>> Something I'd like to understand is how does XDP address the
+> > > >>>>>> problem that 100Byte packets are consuming 4K of memory
+> now.
+> > > >>>>>
+> > > >>>>> Via page pools.  We're going to make a generic one, but right
+> > > >>>>> now each and every driver implements a quick list of pages to
+> > > >>>>> allocate from (and thus avoid the DMA man/unmap overhead,
+> > > >>>>> etc.)
+> > > >>>>
+> > > >>>> So to clarify, ATM virtio doesn't attempt to avoid dma
+> > > >>>> map/unmap so there should be no issue with that even when using
+> > > >>>> sub/page regions, assuming DMA APIs support sub-page
+> map/unmap correctly.
+> > > >>>
+> > > >>> That's not what I said.
+> > > >>>
+> > > >>> The page pools are meant to address the performance degradation
+> > > >>> from going to having one packet per page for the sake of XDP's
+> > > >>> requirements.
+> > > >>>
+> > > >>> You still need to have one packet per page for correct XDP
+> > > >>> operation whether you do page pools or not, and whether you have
+> > > >>> DMA mapping (or it's equivalent virutalization operation) or
+not.
+> > > >>
+> > > >> Maybe I am missing something here, but why do you need to limit
+> > > >> things to one packet per page for correct XDP operation?  Most of
+> > > >> the drivers out there now are usually storing something closer to
+> > > >> at least 2 packets per page, and with the DMA API fixes I am
+> > > >> working on there should be no issue with changing the contents
+> > > >> inside those pages since we won't invalidate or overwrite the
+> > > >> data after the DMA buffer has been synchronized for use by the
+CPU.
+> > > >
+> > > > Because with SKB's you can share the page with other packets.
+> > > >
+> > > > With XDP you simply cannot.
+> > > >
+> > > > It's software semantics that are the issue.  SKB frag list pages
+> > > > are read only, XDP packets are writable.
+> > > >
+> > > > This has nothing to do with "writability" of the pages wrt. DMA
+> > > > mapping or cpu mappings.
+> > > >
+> > >
+> > > Sorry I'm not seeing it either. The current xdp_buff is defined by,
+> > >
+> > >   struct xdp_buff {
+> > > 	void *data;
+> > > 	void *data_end;
+> > >   };
+> > >
+> > > The verifier has an xdp_is_valid_access() check to ensure we don't
+> > > go past data_end. The page for now at least never leaves the driver.
+> > > For the work to get xmit to other devices working I'm still not sure
+> > > I see any issue.
+> >
+> > +1
+> >
+> > Do we want to make the packet-per-page a requirement because it could
+> > be useful in the future from architectural standpoint?  I guess there
+> > is a trade-off here between having the comfort of people following
+> > this requirement today and making driver support for XDP even more
+> complex.
+>
+> It looks to me that packet per page makes drivers simpler instead of
+> complex.
+> ixgbe split-page and mlx* order-3/5 tricks are definitely complex.
+> The skb truesize concerns come from the host when data is delivered to
+> user space and we need to have precise memory accounting for different
+> applications and different users. XDP is all root and imo it's far away
+from
+> the days when multi-user non-root issues start to pop up.
+> At the same time XDP doesn't require to use 4k buffer in something like
+> Netronome.
+> If xdp bpf program can be offloaded into HW with 1800 byte buffers,
+great!
+> For x86 cpu the 4k byte is a natural allocation chunk. Anything lower
+> requires delicate dma tricks paired with even more complex slab
+allocator
+> and atomic recnts.
+> All of that can only drive the performance down.
+> Comparing to kernel bypass xdp is using 4k pages whereas dpdk has to use
+> huge pages, so xdp is saving a ton of memory already!
 
-Hi Paul,
+Generally agree, but SRIOV nics with multiple queues can end up in a bad
+spot if each buffer was 4K right ? I see a specific page pool to be used
+by queues which are enabled for XDP as the easiest to swing solution that
+way the memory overhead can be restricted to enabled queues and shared
+access issues can be restricted to skb's using that pool no ?
 
-Sorry for this.
-
-Could you tell the steps to reproduce? I will find a machine with bnx2
-NIC and check if there's other ways.
-
-Thanks
-Baoquan
-
-> From 61b8dac8796343a797858b4a2eb0a59a0cfcd735 Mon Sep 17 00:00:00 2001
-> From: Paul Menzel <pmenzel@molgen.mpg.de>
-> Date: Thu, 27 Oct 2016 11:34:52 +0200
-> Subject: [PATCH] Revert "bnx2: Reset device during driver initialization"
-> 
-> This reverts commit 3e1be7ad2d38c6bd6aeef96df9bd0a7822f4e51c.
-> ---
->  drivers/net/ethernet/broadcom/bnx2.c | 12 +++++-------
->  1 file changed, 5 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-> index 27f11a5..ecd357d 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2.c
-> @@ -6356,6 +6356,10 @@ bnx2_open(struct net_device *dev)
->  	struct bnx2 *bp = netdev_priv(dev);
->  	int rc;
->  
-> +	rc = bnx2_request_firmware(bp);
-> +	if (rc < 0)
-> +		goto out;
-> +
->  	netif_carrier_off(dev);
->  
->  	bnx2_disable_int(bp);
-> @@ -6424,6 +6428,7 @@ bnx2_open(struct net_device *dev)
->  	bnx2_free_irq(bp);
->  	bnx2_free_mem(bp);
->  	bnx2_del_napi(bp);
-> +	bnx2_release_firmware(bp);
->  	goto out;
->  }
->  
-> @@ -8570,12 +8575,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  
->  	pci_set_drvdata(pdev, dev);
->  
-> -	rc = bnx2_request_firmware(bp);
-> -	if (rc < 0)
-> -		goto error;
-> -
-> -
-> -	bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
->  	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
->  
->  	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
-> @@ -8608,7 +8607,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	return 0;
->  
->  error:
-> -	bnx2_release_firmware(bp);
->  	pci_iounmap(pdev, bp->regview);
->  	pci_release_regions(pdev);
->  	pci_disable_device(pdev);
-> -- 
-> 2.4.1
-> 
+Clearly as said later this will not apply to ebpf offload devices ..
