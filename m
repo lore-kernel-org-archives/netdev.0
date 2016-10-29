@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/17] i40e: Fix client interaction
-Date: Sat, 29 Oct 2016 00:30:42 -0700
-Message-ID: <1477726258-111563-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/17] i40e: Drop code for unsupported flow types
+Date: Sat, 29 Oct 2016 00:30:46 -0700
+Message-ID: <1477726258-111563-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,76 +11,91 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:10260 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751233AbcJ2HbG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Oct 2016 03:31:06 -0400
+        id S1751055AbcJ2HbH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Oct 2016 03:31:07 -0400
 In-Reply-To: <1477726258-111563-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch fixes a problem in the client interface that
-was causing random stack traces in RDMA driver load and
-unload tests.  This patch fixes the problem by checking
-for an existing client before trying to open it.  Without
-this patch, there is a timing related null pointer deref.
+We cannot currently support SCTP in the hardware, and IPV4_FLOW is not used
+anywhere by the software so we can go through and drop the functionality
+related to these two flow types.
 
-Change-ID: Ib73d30671a27f6f9770dd53b3e5292b88d6b62da
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+In addition we cannot support masking based on the protocol value so if the
+user is expecting a value other than TCP or UDP we should simply return an
+error rather then trying to allocate a filter for a rule that will only
+partially match what the user requested.
+
+Change-ID: I10d52bb97d8104d76255fe244551814ff9531a63
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_client.c | 29 ++++++++++++---------------
- 1 file changed, 13 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 31 +++++------------------------
+ 1 file changed, 5 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index 250db0b..6ffac03 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -565,7 +565,7 @@ void i40e_client_subtask(struct i40e_pf *pf)
- 			if (test_bit(__I40E_DOWN, &pf->vsi[pf->lan_vsi]->state))
- 				continue;
- 		} else {
--			dev_warn(&pf->pdev->dev, "This client %s is being instanciated at probe\n",
-+			dev_warn(&pf->pdev->dev, "This client %s is being instantiated at probe\n",
- 				 client->name);
- 		}
- 
-@@ -582,24 +582,21 @@ void i40e_client_subtask(struct i40e_pf *pf)
- 			dev_info(&pf->pdev->dev, "Added instance of Client %s to PF%d bus=0x%02x func=0x%02x\n",
- 				 client->name, pf->hw.pf_id,
- 				 pf->hw.bus.device, pf->hw.bus.func);
--		}
--
--		mutex_lock(&i40e_client_instance_mutex);
--		/* Send an Open request to the client */
--		atomic_inc(&cdev->ref_cnt);
--		if (client->ops && client->ops->open)
--			ret = client->ops->open(&cdev->lan_info, client);
--		atomic_dec(&cdev->ref_cnt);
--		if (!ret) {
-+			mutex_lock(&i40e_client_instance_mutex);
-+			atomic_inc(&cdev->ref_cnt);
-+			if (client->ops && client->ops->open)
-+				ret = client->ops->open(&cdev->lan_info,
-+							client);
-+			atomic_dec(&cdev->ref_cnt);
-+			if (ret < 0) {
-+				mutex_unlock(&i40e_client_instance_mutex);
-+				i40e_client_del_instance(pf, client);
-+				atomic_dec(&client->ref_cnt);
-+				continue;
-+			}
- 			set_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state);
--		} else {
--			/* remove client instance */
- 			mutex_unlock(&i40e_client_instance_mutex);
--			i40e_client_del_instance(pf, client);
--			atomic_dec(&client->ref_cnt);
--			continue;
- 		}
--		mutex_unlock(&i40e_client_instance_mutex);
- 	}
- 	mutex_unlock(&i40e_client_mutex);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index af36c44..7d160c9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -330,22 +330,6 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 	return err ? -EOPNOTSUPP : 0;
  }
+ 
+-/**
+- * i40e_add_del_fdir_sctpv4 - Add/Remove SCTPv4 Flow Director filters for
+- * a specific flow spec
+- * @vsi: pointer to the targeted VSI
+- * @fd_data: the flow director data required for the FDir descriptor
+- * @add: true adds a filter, false removes it
+- *
+- * Returns 0 if the filters were successfully added or removed
+- **/
+-static int i40e_add_del_fdir_sctpv4(struct i40e_vsi *vsi,
+-				    struct i40e_fdir_filter *fd_data,
+-				    bool add)
+-{
+-	return -EOPNOTSUPP;
+-}
+-
+ #define I40E_IP_DUMMY_PACKET_LEN 34
+ /**
+  * i40e_add_del_fdir_ipv4 - Add/Remove IPv4 Flow Director filters for
+@@ -428,12 +412,6 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ 	case UDP_V4_FLOW:
+ 		ret = i40e_add_del_fdir_udpv4(vsi, input, add);
+ 		break;
+-	case SCTP_V4_FLOW:
+-		ret = i40e_add_del_fdir_sctpv4(vsi, input, add);
+-		break;
+-	case IPV4_FLOW:
+-		ret = i40e_add_del_fdir_ipv4(vsi, input, add);
+-		break;
+ 	case IP_USER_FLOW:
+ 		switch (input->ip4_proto) {
+ 		case IPPROTO_TCP:
+@@ -442,15 +420,16 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ 		case IPPROTO_UDP:
+ 			ret = i40e_add_del_fdir_udpv4(vsi, input, add);
+ 			break;
+-		case IPPROTO_SCTP:
+-			ret = i40e_add_del_fdir_sctpv4(vsi, input, add);
+-			break;
+-		default:
++		case IPPROTO_IP:
+ 			ret = i40e_add_del_fdir_ipv4(vsi, input, add);
+ 			break;
++		default:
++			/* We cannot support masking based on protocol */
++			goto unsupported_flow;
+ 		}
+ 		break;
+ 	default:
++unsupported_flow:
+ 		dev_info(&pf->pdev->dev, "Could not specify spec type %d\n",
+ 			 input->flow_type);
+ 		ret = -EINVAL;
 -- 
 2.7.4
