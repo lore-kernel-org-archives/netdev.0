@@ -1,44 +1,90 @@
 From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Subject: [PATCH 1/4] isdn/eicon: remove unused argument in DBG_ERR call
-Date: Sat, 29 Oct 2016 14:56:02 +0200
-Message-ID: <20161029125605.13610-1-nicolas.iooss_linux@m4x.org>
+Subject: [PATCH 2/4] isdn/eicon: fix some message formatting errors
+Date: Sat, 29 Oct 2016 14:56:03 +0200
+Message-ID: <20161029125605.13610-2-nicolas.iooss_linux@m4x.org>
+References: <20161029125605.13610-1-nicolas.iooss_linux@m4x.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Nicolas Iooss <nicolas.iooss_linux@m4x.org>
 To: Armin Schindler <mac@melware.de>,
         Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.polytechnique.org ([129.104.30.34]:43203 "EHLO
+        mx1.polytechnique.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751586AbcJ2M5O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 08:57:14 -0400
+In-Reply-To: <20161029125605.13610-1-nicolas.iooss_linux@m4x.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diva_um_idi_read() can call DBG_ERR with 3 format arguments but using a
-format string which only uses 2 of them. Remove the last one.
+There are some inconsistent debug message formats in message.c. For
+example,
 
-This bug has been found by adding a __printf attribute to
-myDbgPrint_...() functions. As this addition leads the compiler to
-report a lot of -Wformat warnings (for example the compiler complains
-when "%08x" is used to format a pointer, as it is done with all usages
-of "E(%08x)" in um_idi.c), this patch does not add any __printf
-attribute.
+    dprintf("XDI CAPI: RC cancelled Id:0x02, Ch:%02x", e->Id, ch);
+
+wrongly reports an ID of 2 and prints the entity ID as the channel ID.
+There are also object pointers which are used instead of the IDs.
+
+All these inconsistent formats have been found by adding __printf
+attribute to myDbgPrint_...() functions (used by dbug()). As this makes
+the compiler to also complain about using "%ld" with unsigned int values
+(instead of "%u") and some other less-important format issues, this
+patch does not add any __printf attribute.
 
 This patch has only been compile-tested.
 
 Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
 ---
- drivers/isdn/hardware/eicon/um_idi.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/isdn/hardware/eicon/message.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/isdn/hardware/eicon/um_idi.c b/drivers/isdn/hardware/eicon/um_idi.c
-index e1519718ce67..13ef38fa6cb0 100644
---- a/drivers/isdn/hardware/eicon/um_idi.c
-+++ b/drivers/isdn/hardware/eicon/um_idi.c
-@@ -351,7 +351,7 @@ int diva_um_idi_read(void *entity,
- 			  Not enough space to read message
- 			*/
- 			DBG_ERR(("A: A(%d) E(%08x) read small buffer",
--				 a->adapter_nr, e, ret));
-+				 a->adapter_nr, e));
- 			diva_os_leave_spin_lock(&adapter_lock, &old_irql,
- 						"read");
- 			return (-2);
+diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
+index 1a1d99704fe6..7cafa34c3464 100644
+--- a/drivers/isdn/hardware/eicon/message.c
++++ b/drivers/isdn/hardware/eicon/message.c
+@@ -1059,7 +1059,7 @@ static void plci_remove(PLCI *plci)
+ 	}
+ 	if (plci->Sig.Id == 0xff)
+ 	{
+-		dbug(1, dprintf("D-channel X.25 plci->NL.Id:%0x", plci->NL.Id));
++		dbug(1, dprintf("D-channel X.25 plci->NL.Id:%02x", plci->NL.Id));
+ 		if (plci->NL.Id && !plci->nl_remove_id)
+ 		{
+ 			nl_req_ncci(plci, REMOVE, 0);
+@@ -3109,7 +3109,7 @@ static byte data_b3_req(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 
+ 	Info = _WRONG_IDENTIFIER;
+ 	ncci = (word)(Id >> 16);
+-	dbug(1, dprintf("ncci=0x%x, plci=0x%x", ncci, plci));
++	dbug(1, dprintf("ncci=0x%x, plci=0x%x", ncci, plci->Id));
+ 
+ 	if (plci && ncci)
+ 	{
+@@ -3325,7 +3325,7 @@ static byte select_b_req(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 	else
+ 	{
+ 		dbug(1, dprintf("select_b_req[%d],PLCI=0x%x,Tel=0x%x,NL=0x%x,appl=0x%x,sstate=0x%x",
+-				msg->length, plci->Id, plci->tel, plci->NL.Id, plci->appl, plci->SuppState));
++				msg->length, plci->Id, plci->tel, plci->NL.Id, appl->Id, plci->SuppState));
+ 		dbug(1, dprintf("PlciState=0x%x", plci->State));
+ 		for (i = 0; i < 7; i++) bp_parms[i].length = 0;
+ 
+@@ -3910,7 +3910,7 @@ void callback(ENTITY *e)
+ 				if (no_cancel_rc && (a->FlowControlIdTable[ch] == e->Id) && e->Id) {
+ 					a->FlowControlIdTable[ch] = 0;
+ 					if ((rc == OK) && a->FlowControlSkipTable[ch]) {
+-						dbug(3, dprintf("XDI CAPI: RC cancelled Id:0x02, Ch:%02x", e->Id, ch));
++						dbug(3, dprintf("XDI CAPI: RC cancelled Id:%02x, Ch:%02x", e->Id, ch));
+ 						return;
+ 					}
+ 				}
+@@ -9135,7 +9135,7 @@ static word AdvCodecSupport(DIVA_CAPI_ADAPTER *a, PLCI *plci, APPL *appl,
+ 		{
+ 			if (a->AdvSignalAppl != appl || a->AdvSignalPLCI)
+ 			{
+-				dbug(1, dprintf("AdvSigPlci=0x%x", a->AdvSignalPLCI));
++				dbug(1, dprintf("AdvSigPlci=0x%x", a->AdvSignalPLCI->Id));
+ 				return 0x2001; /* codec in use by another application */
+ 			}
+ 			if (plci != NULL)
 -- 
 2.10.1
