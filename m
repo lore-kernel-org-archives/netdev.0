@@ -1,92 +1,64 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Let's do P4
-Date: Sat, 29 Oct 2016 14:09:32 +0200
-Message-ID: <20161029120932.GD1810@pox.localdomain>
-References: <20161029075328.GB1692@nanopsycho.orion>
- <20161029093905.GA1810@pox.localdomain>
- <20161029101003.GC1692@nanopsycho.orion>
- <20161029111548.GB1810@pox.localdomain>
- <20161029112834.GF1692@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] udp: do fwd memory scheduling on dequeue
+Date: Sat, 29 Oct 2016 05:43:33 -0700
+Message-ID: <1477745013.7065.270.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <95bb1b780be2e35ff04fb9e1e2c41470a0a15582.1477660091.git.pabeni@redhat.com>
+         <1477674975.7065.245.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1477677030.7065.250.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1477729045.5306.11.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
-        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35182 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752404AbcJ2MJg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2016 08:09:36 -0400
-Received: by mail-wm0-f48.google.com with SMTP id e69so153284489wmg.0
-        for <netdev@vger.kernel.org>; Sat, 29 Oct 2016 05:09:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20161029112834.GF1692@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1477729045.5306.11.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/29/16 at 01:28pm, Jiri Pirko wrote:
-> Sat, Oct 29, 2016 at 01:15:48PM CEST, tgraf@suug.ch wrote:
-> >So given the SKIP_SW flag, the in-kernel compiler is optional anyway.
-> >Why even risk including a possibly incomplete compiler? Older kernels
-> >must be capable of running along newer hardware as long as eBPF can
-> >represent the software path. Having to upgrade to latest and greatest
-> >kernels is not an option for most people so they would simply have to
-> >fall back to SKIP_SW and do it in user space anyway.
+On Sat, 2016-10-29 at 10:17 +0200, Paolo Abeni wrote:
+
+> Thank you for working on this. 
 > 
-> The thing is, if we needo to offload something, it needs to be
-> implemented in kernel first. Also, I believe that it is good to have
-> in-kernel p4 engine for testing and development purposes.
-
-You lost me now :-) In an earlier email you said:
-
-> It can be the other way around. The p4>ebpf compiler won't be complete
-> at the beginning so it is possible that HW could provide more features.
-> I don't think it is a problem. With SKIP_SW and SKIP_HW flags in TC,
-> the user can set different program to each. I think in real life, that
-> would be the most common case anyway.
-
-If you allow to SKIP_SW and set different programs each to address
-this, then how is this any different.
-
-I completely agree that kernel must be able to provide the same
-functionality as HW with optional additional capabilities on top so
-the HW can always bail out and punt to SW.
-
-[...]
-
-> >I'm not seeing how either of them is more or less variable. The main
-> >difference is whether to require configuring a single cls with both
-> >p4ast + bpf or two separate cls, one for each. I'd prefer the single
-> >cls approach simply because it is cleaner wither regard to offload
-> >directly off bpf vs off p4ast.
+> I just gave a very quick look (the WE has started, children are
+> screaming ;-), overall the implementation seems quite similar to our
+> one.
 > 
-> That's the bundle that you asked me to forget earlier in this email? :)
-
-I thought you referred to the "store in same object file" as bundle.
-I don't really care about that. What I care about is a single way to
-configure this that works for both ASIC and non-ASIC hardware.
-
-> >My main point is to not include a IR to eBPF compiler in the kernel
-> >and let user space handle this instead.
+> I like the additional argument to  ip_cmsg_recv_offset() instead of
+> keeping skb->sk set.
 > 
-> It we do it as you describe, we would be using 2 different APIs for
-> offloaded and non-offloaded path. I don't believe it is acceptable as
-> the offloaded features has to have kernel implementation. Therefore, I
-> believe that p4ast as a kernel API is the only possible option.
+> If I read udp_skb_destructor() correctly, the atomic manipulation of
+> both sk_rmem_alloc and udp_memory_allocated will happen under the
+> receive lock. In our experiments this increment measurably the
+> contention on the lock in respect to moving said the operations outside
+> the lock (as done in our patch). Do you foreseen any issues with that ?
+> AFAICS every in kernel UDP user of skb_recv_datagram() needs to be
+> updated with both implementation.
 
-Yes, the kernel has the SW implementation in eBPF. I thought that is
-what you propose as well. The only difference is whether to generate
-that eBPF in kernel or user space.
+So if you look at tcp, we do not release forward allocation at every
+recvmsg(), but rather when we are under tcp memory pressure, or at timer
+firing when we know the flow has been idle for a while.
 
-Not sure I understand the multiple APIs point for offload vs
-non-offload. There is a single API: tc. Both models require the user
-to provide additional metadata to allow programming ASIC HW: p4ast
-IR or whatever we agree on.
+You hit contention on the lock, but the root cause is that right now udp
+is very conservative and also hits false sharing on
+udp_memory_allocated.
+
+So I believe this is another problem which needs a fix anyway.
+
+No need to make a complicated patch right now, if we know that this
+problem will be separately fixed, in another patch ?
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
