@@ -1,217 +1,183 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/dccp: warning in dccp_feat_clone_sp_val/__might_sleep
-Date: Sat, 29 Oct 2016 02:40:14 +0200
-Message-ID: <CAAeHK+z-SAq-YhHarfc94dguyXCJ_tv8n=ZVdLTRsYEy0cK-pQ@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v7 0/6] Add eBPF hooks for cgroups
+Date: Fri, 28 Oct 2016 18:42:23 -0700
+Message-ID: <20161029014219.GA58105@ast-mbp.thefacebook.com>
+References: <1477390454-12553-1-git-send-email-daniel@zonque.org>
+ <20161026195933.GA2031@salvia>
+ <20161027033502.GA43960@ast-mbp.thefacebook.com>
+ <20161028112839.GA29798@salvia>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a114119ece2e4ae053ff637f3
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>, htejun-b10kYP2dOMg@public.gmane.org,
+        daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161028112839.GA29798@salvia>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---001a114119ece2e4ae053ff637f3
-Content-Type: text/plain; charset=UTF-8
+On Fri, Oct 28, 2016 at 01:28:39PM +0200, Pablo Neira Ayuso wrote:
+> Hi Alexei,
+> 
+> On Wed, Oct 26, 2016 at 08:35:04PM -0700, Alexei Starovoitov wrote:
+> > On Wed, Oct 26, 2016 at 09:59:33PM +0200, Pablo Neira Ayuso wrote:
+> > > On Tue, Oct 25, 2016 at 12:14:08PM +0200, Daniel Mack wrote:
+> > > [...]
+> > > >   Dumping programs once they are installed is problematic because of
+> > > >   the internal optimizations done to the eBPF program during its
+> > > >   lifetime. Also, the references to maps etc. would need to be
+> > > >   restored during the dump.
+> > > > 
+> > > >   Just exposing whether or not a program is attached would be
+> > > >   trivial to do, however, most easily through another bpf(2)
+> > > >   command. That can be added later on though.
+> > > 
+> > > I don't know if anyone told you, but during last netconf, this topic
+> > > took a bit of time of discussion and it was controversial, I would say
+> > > 1/3 of netdev hackers there showed their concerns, and that's
+> > > something that should not be skipped IMO.
+> > 
+> > Though I attended netconf over hangouts, I think it was pretty
+> > clear that bpf needs 'introspection' of loaded bpf programs and it
+> > was a universal desire of everyone. Not 1/3 of hackers.
+> 
+> Introspection is a different thing, very useful, no doubt. But this
+> infrastructure is allowing way more than simple innocuous introspection.
 
-Hi,
+During netconf the discussion around bpf introspection was about
+making bpf more visible to user space.
+This patch does cgroup+bpf infrastructure which is orthogonal.
 
-I've got the following error report while running the syzkaller fuzzer:
+> > As commit log says it's an orthogonal work and over the last
+> > month we've been discussing pros and cons of different approaches.
+> > The audit infra, tracepoints and other ideas.
+> > We kept the discussion in private because, unfortunately, public
+> > discussions are not fruitful due to threads like this one.
+> 
+> We need to understand what people are trying to solve and it what way.
+> That's why we have all those conferences and places to meet and
+> discuss too. Please, don't think like that, this is sending the wrong
+> message to everyone here, that is kind of: bypass public discussions
+> and don't take time to describe what you're doing since it is a waste
+> of time. That's not good.
 
-------------[ cut here ]------------
-WARNING: CPU: 0 PID: 4608 at kernel/sched/core.c:7724
-__might_sleep+0x14c/0x1a0 kernel/sched/core.c:7719
-do not call blocking ops when !TASK_RUNNING; state=1 set at
-[<ffffffff811f5a5c>] prepare_to_wait+0xbc/0x210
-kernel/sched/wait.c:178
-Modules linked in:
-CPU: 0 PID: 4608 Comm: syz-executor Not tainted 4.9.0-rc2+ #320
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffff88006625f7a0 ffffffff81b46914 ffff88006625f818 0000000000000000
- ffffffff84052960 0000000000000000 ffff88006625f7e8 ffffffff81111237
- ffff88006aceac00 ffffffff00001e2c ffffed000cc4beff ffffffff84052960
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff81b46914>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
- [<ffffffff81111237>] __warn+0x1a7/0x1f0 kernel/panic.c:550
- [<ffffffff8111132c>] warn_slowpath_fmt+0xac/0xd0 kernel/panic.c:565
- [<ffffffff811922fc>] __might_sleep+0x14c/0x1a0 kernel/sched/core.c:7719
- [<     inline     >] slab_pre_alloc_hook mm/slab.h:393
- [<     inline     >] slab_alloc_node mm/slub.c:2634
- [<     inline     >] slab_alloc mm/slub.c:2716
- [<ffffffff81508da0>] __kmalloc_track_caller+0x150/0x2a0 mm/slub.c:4240
- [<ffffffff8146be14>] kmemdup+0x24/0x50 mm/util.c:113
- [<ffffffff8388b2cf>] dccp_feat_clone_sp_val.part.5+0x4f/0xe0
-net/dccp/feat.c:374
- [<     inline     >] dccp_feat_clone_sp_val net/dccp/feat.c:1141
- [<     inline     >] dccp_feat_change_recv net/dccp/feat.c:1141
- [<ffffffff8388d491>] dccp_feat_parse_options+0xaa1/0x13d0 net/dccp/feat.c:1411
- [<ffffffff83894f01>] dccp_parse_options+0x721/0x1010 net/dccp/options.c:128
- [<ffffffff83891280>] dccp_rcv_state_process+0x200/0x15b0 net/dccp/input.c:644
- [<ffffffff838b8a94>] dccp_v4_do_rcv+0xf4/0x1a0 net/dccp/ipv4.c:681
- [<     inline     >] sk_backlog_rcv ./include/net/sock.h:872
- [<ffffffff82b7ceb6>] __release_sock+0x126/0x3a0 net/core/sock.c:2044
- [<ffffffff82b7d189>] release_sock+0x59/0x1c0 net/core/sock.c:2502
- [<     inline     >] inet_wait_for_connect net/ipv4/af_inet.c:547
- [<ffffffff8316b2a2>] __inet_stream_connect+0x5d2/0xbb0 net/ipv4/af_inet.c:617
- [<ffffffff8316b8d5>] inet_stream_connect+0x55/0xa0 net/ipv4/af_inet.c:656
- [<ffffffff82b705e4>] SYSC_connect+0x244/0x2f0 net/socket.c:1533
- [<ffffffff82b72dd4>] SyS_connect+0x24/0x30 net/socket.c:1514
- [<ffffffff83fbf701>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-arch/x86/entry/entry_64.S:209
----[ end trace 0dc4109d69f4e51e ]---
+In general I agree that it's best to discuss technical topics
+on the mainling list and resolve personal conflicts in person
+during the conferences.
+Unfortunately the obstructionism seen in this thread forces people
+discuss in private to have constructive conversation.
+Anyway, neither your reply nor mine has nothing to do with this patch set
+and being typical example why I prefer to discuss bpf related
+ideas in private.
 
-On commit 14970f204b1993af7459d5bd34aaff38dfee6670 (Oct 27).
+> > The further points below were disputed many times in the past.
+> > Let's address them one more time:
+> > 
+> > > path. But this is adding hooks to push bpf programs in the middle of
+> > > our generic stack, this is way different domain.
+> > 
+> > incorrect. look at socket filters, cls_bpf.
+> 
+> Classic socket filters don't allow you to deploy a global policy in
+> such a fine grain way as this is doing. Then, cls_bpf is fine since it
+> is visible via tc command, so sysadmins can use tools they are
+> familiar with to inspect policies and say "oh look, some of the
+> processes I'm deploying have installed filters via cls_bpf". However,
+> this approach is visible in no way.
 
-A reproducer is attached.
+the audit and/or tracepoint infra that is being worked on in parallel
+will answer this question in full detail.
+It's no different from application using seccomp to control its children
+or cls_bpf doing policy enforcement of containers or xdp doing low
+level filtering.
+xdp has boolean "is program loaded" flag and it turned out
+to be not very useful for debuggability.
+It should be solved in a universal way for all bpf programs.
+We're not going to add something specific to this cgroup+bpf infra,
+since it will be just as clumsy as xdp's bool flag.
+Once again, audit/tracepoint for bpf prog introspection is a separate
+work orthogonal to this set.
 
---001a114119ece2e4ae053ff637f3
-Content-Type: application/octet-stream; name="dccp-feat-warn-poc.c"
-Content-Disposition: attachment; filename="dccp-feat-warn-poc.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_iuuhd74t0
+> [...]
+> > > around this socket code in functions so we can invoke it. I guess
+> > > filtering of UDP and TCP should be good for you at this stage.
+> > 
+> > DanielM mentioned few times that it's not only about UDP and TCP.
+> 
+> OK, since this is limited to the scope of inet sockets, let's revisit
+> what we have around: DCCP is hopeless, who cares. We also have SCTP,
+> that is deployed by telcos in datacenters, it cannot reach that domain
+> because many Internet gateways are broken for it, so you may not get
+> too far with it. Arguably it would be good to have SCTP support at
+> some point, but I guess this is not a priority now. Then, UDPlite
+> almost comes for free since it relies on the existing UDP
+> infrastructure, it's basically UDP with a bit more features. What
+> else?
 
-Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
-eXprYWxsZXIpCgojaWZuZGVmIF9fTlJfYmluZAojZGVmaW5lIF9fTlJfYmluZCA0OQojZW5kaWYK
-I2lmbmRlZiBfX05SX2xpc3RlbgojZGVmaW5lIF9fTlJfbGlzdGVuIDUwCiNlbmRpZgojaWZuZGVm
-IF9fTlJfc3l6X29wZW5fcHRzCiNkZWZpbmUgX19OUl9zeXpfb3Blbl9wdHMgMTAwMDAwMwojZW5k
-aWYKI2lmbmRlZiBfX05SX3N5el90ZXN0CiNkZWZpbmUgX19OUl9zeXpfdGVzdCAxMDAwMDAxCiNl
-bmRpZgojaWZuZGVmIF9fTlJfbW1hcAojZGVmaW5lIF9fTlJfbW1hcCA5CiNlbmRpZgojaWZuZGVm
-IF9fTlJfc29ja2V0CiNkZWZpbmUgX19OUl9zb2NrZXQgNDEKI2VuZGlmCiNpZm5kZWYgX19OUl9j
-b25uZWN0CiNkZWZpbmUgX19OUl9jb25uZWN0IDQyCiNlbmRpZgojaWZuZGVmIF9fTlJfc3l6X2Z1
-c2VfbW91bnQKI2RlZmluZSBfX05SX3N5el9mdXNlX21vdW50IDEwMDAwMDQKI2VuZGlmCiNpZm5k
-ZWYgX19OUl9zeXpfZnVzZWJsa19tb3VudAojZGVmaW5lIF9fTlJfc3l6X2Z1c2VibGtfbW91bnQg
-MTAwMDAwNQojZW5kaWYKI2lmbmRlZiBfX05SX3N5el9vcGVuX2RldgojZGVmaW5lIF9fTlJfc3l6
-X29wZW5fZGV2IDEwMDAwMDIKI2VuZGlmCgojaW5jbHVkZSA8c3lzL2lvY3RsLmg+CiNpbmNsdWRl
-IDxzeXMvc29ja2V0Lmg+CiNpbmNsdWRlIDxzeXMvc3RhdC5oPgojaW5jbHVkZSA8c3lzL3N5c2Nh
-bGwuaD4KI2luY2x1ZGUgPHN5cy90eXBlcy5oPgoKI2luY2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRl
-IDxlcnJvci5oPgojaW5jbHVkZSA8ZmNudGwuaD4KI2luY2x1ZGUgPHB0aHJlYWQuaD4KI2luY2x1
-ZGUgPHNldGptcC5oPgojaW5jbHVkZSA8c2lnbmFsLmg+CiNpbmNsdWRlIDxzdGRkZWYuaD4KI2lu
-Y2x1ZGUgPHN0ZGludC5oPgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN0ZGxpYi5oPgoj
-aW5jbHVkZSA8c3RyaW5nLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KCl9fdGhyZWFkIGludCBza2lw
-X3NlZ3Y7Cl9fdGhyZWFkIGptcF9idWYgc2Vndl9lbnY7CgpzdGF0aWMgdm9pZCBzZWd2X2hhbmRs
-ZXIoaW50IHNpZywgc2lnaW5mb190KiBpbmZvLCB2b2lkKiB1Y3R4KQp7CiAgaWYgKF9fYXRvbWlj
-X2xvYWRfbigmc2tpcF9zZWd2LCBfX0FUT01JQ19SRUxBWEVEKSkKICAgIF9sb25nam1wKHNlZ3Zf
-ZW52LCAxKTsKICBleGl0KHNpZyk7Cn0KCnN0YXRpYyB2b2lkIGluc3RhbGxfc2Vndl9oYW5kbGVy
-KCkKewogIHN0cnVjdCBzaWdhY3Rpb24gc2E7CiAgbWVtc2V0KCZzYSwgMCwgc2l6ZW9mKHNhKSk7
-CiAgc2Euc2Ffc2lnYWN0aW9uID0gc2Vndl9oYW5kbGVyOwogIHNhLnNhX2ZsYWdzID0gU0FfTk9E
-RUZFUiB8IFNBX1NJR0lORk87CiAgc2lnYWN0aW9uKFNJR1NFR1YsICZzYSwgTlVMTCk7CiAgc2ln
-YWN0aW9uKFNJR0JVUywgJnNhLCBOVUxMKTsKfQoKI2RlZmluZSBOT05GQUlMSU5HKC4uLikgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcCiAgeyAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgXAogICAgX19hdG9taWNfZmV0Y2hfYWRkKCZza2lwX3NlZ3YsIDEsIF9fQVRPTUlDX1NFUV9D
-U1QpOyAgICAgICAgICAgICAgIFwKICAgIGlmIChfc2V0am1wKHNlZ3ZfZW52KSA9PSAwKSB7ICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcCiAgICAgIF9fVkFfQVJHU19fOyAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAogICAg
-fSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIFwKICAgIF9fYXRvbWljX2ZldGNoX3N1Yigmc2tpcF9zZWd2LCAxLCBfX0FUT01J
-Q19TRVFfQ1NUKTsgICAgICAgICAgICAgICBcCiAgfQoKc3RhdGljIHVpbnRwdHJfdCBzeXpfb3Bl
-bl9kZXYodWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEsIHVpbnRwdHJfdCBhMikKewogIGlmIChh
-MCA9PSAweGMgfHwgYTAgPT0gMHhiKSB7CgogICAgY2hhciBidWZbMTI4XTsKICAgIHNwcmludGYo
-YnVmLCAiL2Rldi8lcy8lZDolZCIsIGEwID09IDB4YyA/ICJjaGFyIiA6ICJibG9jayIsCiAgICAg
-ICAgICAgICh1aW50OF90KWExLCAodWludDhfdClhMik7CiAgICByZXR1cm4gb3BlbihidWYsIE9f
-UkRXUiwgMCk7CiAgfSBlbHNlIHsKCiAgICBjaGFyIGJ1ZlsxMDI0XTsKICAgIGNoYXIqIGhhc2g7
-CiAgICBzdHJuY3B5KGJ1ZiwgKGNoYXIqKWEwLCBzaXplb2YoYnVmKSk7CiAgICBidWZbc2l6ZW9m
-KGJ1ZikgLSAxXSA9IDA7CiAgICB3aGlsZSAoKGhhc2ggPSBzdHJjaHIoYnVmLCAnIycpKSkgewog
-ICAgICAqaGFzaCA9ICcwJyArIChjaGFyKShhMSAlIDEwKTsKICAgICAgYTEgLz0gMTA7CiAgICB9
-CiAgICByZXR1cm4gb3BlbihidWYsIGEyLCAwKTsKICB9Cn0KCnN0YXRpYyB1aW50cHRyX3Qgc3l6
-X29wZW5fcHRzKHVpbnRwdHJfdCBhMCwgdWludHB0cl90IGExKQp7CgogIGludCBwdHlubyA9IDA7
-CiAgaWYgKGlvY3RsKGEwLCBUSU9DR1BUTiwgJnB0eW5vKSkKICAgIHJldHVybiAtMTsKICBjaGFy
-IGJ1ZlsxMjhdOwogIHNwcmludGYoYnVmLCAiL2Rldi9wdHMvJWQiLCBwdHlubyk7CiAgcmV0dXJu
-IG9wZW4oYnVmLCBhMSwgMCk7Cn0KCnN0YXRpYyB1aW50cHRyX3Qgc3l6X2Z1c2VfbW91bnQodWlu
-dHB0cl90IGEwLCB1aW50cHRyX3QgYTEsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-dWludHB0cl90IGEyLCB1aW50cHRyX3QgYTMsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgdWludHB0cl90IGE0LCB1aW50cHRyX3QgYTUpCnsKCiAgdWludDY0X3QgdGFyZ2V0ID0gYTA7
-CiAgdWludDY0X3QgbW9kZSA9IGExOwogIHVpbnQ2NF90IHVpZCA9IGEyOwogIHVpbnQ2NF90IGdp
-ZCA9IGEzOwogIHVpbnQ2NF90IG1heHJlYWQgPSBhNDsKICB1aW50NjRfdCBmbGFncyA9IGE1OwoK
-ICBpbnQgZmQgPSBvcGVuKCIvZGV2L2Z1c2UiLCBPX1JEV1IpOwogIGlmIChmZCA9PSAtMSkKICAg
-IHJldHVybiBmZDsKICBjaGFyIGJ1ZlsxMDI0XTsKICBzcHJpbnRmKGJ1ZiwgImZkPSVkLHVzZXJf
-aWQ9JWxkLGdyb3VwX2lkPSVsZCxyb290bW9kZT0wJW8iLCBmZCwKICAgICAgICAgIChsb25nKXVp
-ZCwgKGxvbmcpZ2lkLCAodW5zaWduZWQpbW9kZSAmIH4zdSk7CiAgaWYgKG1heHJlYWQgIT0gMCkK
-ICAgIHNwcmludGYoYnVmICsgc3RybGVuKGJ1ZiksICIsbWF4X3JlYWQ9JWxkIiwgKGxvbmcpbWF4
-cmVhZCk7CiAgaWYgKG1vZGUgJiAxKQogICAgc3RyY2F0KGJ1ZiwgIixkZWZhdWx0X3Blcm1pc3Np
-b25zIik7CiAgaWYgKG1vZGUgJiAyKQogICAgc3RyY2F0KGJ1ZiwgIixhbGxvd19vdGhlciIpOwog
-IHN5c2NhbGwoU1lTX21vdW50LCAiIiwgdGFyZ2V0LCAiZnVzZSIsIGZsYWdzLCBidWYpOwoKICBy
-ZXR1cm4gZmQ7Cn0KCnN0YXRpYyB1aW50cHRyX3Qgc3l6X2Z1c2VibGtfbW91bnQodWludHB0cl90
-IGEwLCB1aW50cHRyX3QgYTEsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdWlu
-dHB0cl90IGEyLCB1aW50cHRyX3QgYTMsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgdWludHB0cl90IGE0LCB1aW50cHRyX3QgYTUsCiAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgdWludHB0cl90IGE2LCB1aW50cHRyX3QgYTcpCnsKCiAgdWludDY0X3QgdGFyZ2V0
-ID0gYTA7CiAgdWludDY0X3QgYmxrZGV2ID0gYTE7CiAgdWludDY0X3QgbW9kZSA9IGEyOwogIHVp
-bnQ2NF90IHVpZCA9IGEzOwogIHVpbnQ2NF90IGdpZCA9IGE0OwogIHVpbnQ2NF90IG1heHJlYWQg
-PSBhNTsKICB1aW50NjRfdCBibGtzaXplID0gYTY7CiAgdWludDY0X3QgZmxhZ3MgPSBhNzsKCiAg
-aW50IGZkID0gb3BlbigiL2Rldi9mdXNlIiwgT19SRFdSKTsKICBpZiAoZmQgPT0gLTEpCiAgICBy
-ZXR1cm4gZmQ7CiAgaWYgKHN5c2NhbGwoU1lTX21rbm9kYXQsIEFUX0ZEQ1dELCBibGtkZXYsIFNf
-SUZCTEssIG1ha2VkZXYoNywgMTk5KSkpCiAgICByZXR1cm4gZmQ7CiAgY2hhciBidWZbMjU2XTsK
-ICBzcHJpbnRmKGJ1ZiwgImZkPSVkLHVzZXJfaWQ9JWxkLGdyb3VwX2lkPSVsZCxyb290bW9kZT0w
-JW8iLCBmZCwKICAgICAgICAgIChsb25nKXVpZCwgKGxvbmcpZ2lkLCAodW5zaWduZWQpbW9kZSAm
-IH4zdSk7CiAgaWYgKG1heHJlYWQgIT0gMCkKICAgIHNwcmludGYoYnVmICsgc3RybGVuKGJ1Ziks
-ICIsbWF4X3JlYWQ9JWxkIiwgKGxvbmcpbWF4cmVhZCk7CiAgaWYgKGJsa3NpemUgIT0gMCkKICAg
-IHNwcmludGYoYnVmICsgc3RybGVuKGJ1ZiksICIsYmxrc2l6ZT0lbGQiLCAobG9uZylibGtzaXpl
-KTsKICBpZiAobW9kZSAmIDEpCiAgICBzdHJjYXQoYnVmLCAiLGRlZmF1bHRfcGVybWlzc2lvbnMi
-KTsKICBpZiAobW9kZSAmIDIpCiAgICBzdHJjYXQoYnVmLCAiLGFsbG93X290aGVyIik7CiAgc3lz
-Y2FsbChTWVNfbW91bnQsIGJsa2RldiwgdGFyZ2V0LCAiZnVzZWJsayIsIGZsYWdzLCBidWYpOwoK
-ICByZXR1cm4gZmQ7Cn0KCnN0YXRpYyB1aW50cHRyX3QgZXhlY3V0ZV9zeXNjYWxsKGludCBuciwg
-dWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHVpbnRwdHJfdCBhMiwgdWludHB0cl90IGEzLAogICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICB1aW50cHRyX3QgYTQsIHVpbnRwdHJfdCBhNSwKICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgdWludHB0cl90IGE2LCB1aW50cHRyX3QgYTcsCiAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhOCkKewogIHN3aXRjaCAobnIpIHsKICBkZWZhdWx0
-OgogICAgcmV0dXJuIHN5c2NhbGwobnIsIGEwLCBhMSwgYTIsIGEzLCBhNCwgYTUpOwogIGNhc2Ug
-X19OUl9zeXpfdGVzdDoKICAgIHJldHVybiAwOwogIGNhc2UgX19OUl9zeXpfb3Blbl9kZXY6CiAg
-ICByZXR1cm4gc3l6X29wZW5fZGV2KGEwLCBhMSwgYTIpOwogIGNhc2UgX19OUl9zeXpfb3Blbl9w
-dHM6CiAgICByZXR1cm4gc3l6X29wZW5fcHRzKGEwLCBhMSk7CiAgY2FzZSBfX05SX3N5el9mdXNl
-X21vdW50OgogICAgcmV0dXJuIHN5el9mdXNlX21vdW50KGEwLCBhMSwgYTIsIGEzLCBhNCwgYTUp
-OwogIGNhc2UgX19OUl9zeXpfZnVzZWJsa19tb3VudDoKICAgIHJldHVybiBzeXpfZnVzZWJsa19t
-b3VudChhMCwgYTEsIGEyLCBhMywgYTQsIGE1LCBhNiwgYTcpOwogIH0KfQoKbG9uZyByWzI4XTsK
-dm9pZCogdGhyKHZvaWQqIGFyZykKewogIHN3aXRjaCAoKGxvbmcpYXJnKSB7CiAgY2FzZSAwOgog
-ICAgclswXSA9CiAgICAgICAgZXhlY3V0ZV9zeXNjYWxsKF9fTlJfbW1hcCwgMHgyMDAwMDAwMHVs
-LCAweGUyYjAwMHVsLCAweDN1bCwKICAgICAgICAgICAgICAgICAgICAgICAgMHgzMnVsLCAweGZm
-ZmZmZmZmZmZmZmZmZmZ1bCwgMHgwdWwsIDAsIDAsIDApOwogICAgYnJlYWs7CiAgY2FzZSAxOgog
-ICAgclsxXSA9IGV4ZWN1dGVfc3lzY2FsbChfX05SX3NvY2tldCwgMHgydWwsIDB4ODA2dWwsIDB4
-MHVsLCAwLCAwLCAwLAogICAgICAgICAgICAgICAgICAgICAgICAgICAwLCAwLCAwKTsKICAgIGJy
-ZWFrOwogIGNhc2UgMjoKICAgIE5PTkZBSUxJTkcoKih1aW50MTZfdCopMHgyMDRlODAwMCA9ICh1
-aW50MTZfdCkweDIpOwogICAgTk9ORkFJTElORygqKHVpbnQxNl90KikweDIwNGU4MDAyID0gKHVp
-bnQxNl90KTB4NDI0Mik7CiAgICBOT05GQUlMSU5HKCoodWludDMyX3QqKTB4MjA0ZTgwMDQgPSAo
-dWludDMyX3QpMHgwKTsKICAgIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDA4ID0gKHVp
-bnQ4X3QpMHgwKTsKICAgIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDA5ID0gKHVpbnQ4
-X3QpMHgwKTsKICAgIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDBhID0gKHVpbnQ4X3Qp
-MHgwKTsKICAgIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDBiID0gKHVpbnQ4X3QpMHgw
-KTsKICAgIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDBjID0gKHVpbnQ4X3QpMHgwKTsK
-ICAgIE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDBkID0gKHVpbnQ4X3QpMHgwKTsKICAg
-IE5PTkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDBlID0gKHVpbnQ4X3QpMHgwKTsKICAgIE5P
-TkZBSUxJTkcoKih1aW50OF90KikweDIwNGU4MDBmID0gKHVpbnQ4X3QpMHgwKTsKICAgIHJbMTNd
-ID0gZXhlY3V0ZV9zeXNjYWxsKF9fTlJfYmluZCwgclsxXSwgMHgyMDRlODAwMHVsLCAweDEwdWws
-IDAsIDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAwLCAwLCAwLCAwKTsKICAgIGJyZWFr
-OwogIGNhc2UgMzoKICAgIHJbMTRdID0KICAgICAgICBleGVjdXRlX3N5c2NhbGwoX19OUl9saXN0
-ZW4sIHJbMV0sIDB4MXVsLCAwLCAwLCAwLCAwLCAwLCAwLCAwKTsKICAgIGJyZWFrOwogIGNhc2Ug
-NDoKICAgIHJbMTVdID0gZXhlY3V0ZV9zeXNjYWxsKF9fTlJfc29ja2V0LCAweDJ1bCwgMHg2dWws
-IDB4MHVsLCAwLCAwLCAwLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgMCwgMCwgMCk7CiAg
-ICBicmVhazsKICBjYXNlIDU6CiAgICBOT05GQUlMSU5HKCoodWludDE2X3QqKTB4MjBlMjYwMDAg
-PSAodWludDE2X3QpMHgyKTsKICAgIE5PTkZBSUxJTkcoKih1aW50MTZfdCopMHgyMGUyNjAwMiA9
-ICh1aW50MTZfdCkweDQyNDIpOwogICAgTk9ORkFJTElORygqKHVpbnQzMl90KikweDIwZTI2MDA0
-ID0gKHVpbnQzMl90KTB4MCk7CiAgICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwOCA9
-ICh1aW50OF90KTB4MCk7CiAgICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwOSA9ICh1
-aW50OF90KTB4MCk7CiAgICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwYSA9ICh1aW50
-OF90KTB4MCk7CiAgICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwYiA9ICh1aW50OF90
-KTB4MCk7CiAgICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwYyA9ICh1aW50OF90KTB4
-MCk7CiAgICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwZCA9ICh1aW50OF90KTB4MCk7
-CiAgICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwZSA9ICh1aW50OF90KTB4MCk7CiAg
-ICBOT05GQUlMSU5HKCoodWludDhfdCopMHgyMGUyNjAwZiA9ICh1aW50OF90KTB4MCk7CiAgICBy
-WzI3XSA9IGV4ZWN1dGVfc3lzY2FsbChfX05SX2Nvbm5lY3QsIHJbMTVdLCAweDIwZTI2MDAwdWws
-IDB4MTB1bCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIDAsIDAsIDAsIDAsIDAsIDApOwog
-ICAgYnJlYWs7CiAgfQogIHJldHVybiAwOwp9CgppbnQgbWFpbigpCnsKICBsb25nIGk7CiAgcHRo
-cmVhZF90IHRoWzEyXTsKCiAgaW5zdGFsbF9zZWd2X2hhbmRsZXIoKTsKICBtZW1zZXQociwgLTEs
-IHNpemVvZihyKSk7CiAgc3JhbmQoZ2V0cGlkKCkpOwogIGZvciAoaSA9IDA7IGkgPCA2OyBpKysp
-IHsKICAgIHB0aHJlYWRfY3JlYXRlKCZ0aFtpXSwgMCwgdGhyLCAodm9pZCopaSk7CiAgICB1c2xl
-ZXAoMTAwMDApOwogIH0KICBmb3IgKGkgPSAwOyBpIDwgNjsgaSsrKSB7CiAgICBwdGhyZWFkX2Ny
-ZWF0ZSgmdGhbNiArIGldLCAwLCB0aHIsICh2b2lkKilpKTsKICAgIGlmIChyYW5kKCkgJSAyKQog
-ICAgICB1c2xlZXAocmFuZCgpICUgMTAwMDApOwogIH0KICB1c2xlZXAoMTAwMDAwKTsKICByZXR1
-cm4gMDsKfQo=
---001a114119ece2e4ae053ff637f3--
+thank you for nice description of current state of sctp,
+but it has nothing to do with this patch set. The goal is to
+monitor application networking activity at L3 level.
+
+> > > This would require more work though, but this would come with no
+> > > hooks in the stack and packets will not have to consume *lots of
+> > > cycles* just to be dropped before entering the socket queue.
+> > 
+> > packets don't consume 'lost of cycles'. This is not a typical
+> > n-tuple firewall framework. Not a DoS mitigation either. Please read
+> > the cover letter and earlier submissions.
+> > It's a framework centered around cgroups.
+> > _Nothing_ in the current stack provides cgroup based monitoring
+> > and application protection. Earlier cgroupv1 controllers don't
+> > scale and we really cannot have more of v1 net controllers.
+> > At the same time we've been brainstorming how this patch set
+> > can work with v1. It's not easy. We're not giving up though.
+> > For now it's v2 only.
+> > Note that another two patchsets depend on this core cgroup+bpf framework.
+> 
+> I saw those, I would really like to have a closer look at David
+> Ahern's usecase since that skb iif mangling looks kludgy to me, and
+> given this is exposing a new helper for general use, not only vrf, it
+> would be good to make sure helpers provide something useful for
+> everyone. So that new helper is questionable at this stage IMO. I'm
+> concerned that people may start using bpf as the adhesive tape to glue
+> things to solve probably design problems.
+
+the whole point of bpf is to be the fastest glue, so that kernel people
+(like you and me) move out of the way for others to make their
+own architectural choices for networking, DoS, firewalls, policy,
+tracing, security, sandboxing and so on.
+The job of the kernel is to be the best tool and not dictate
+how firewalls should be done. People who work on DoS prevention
+today have to use things like DPDK not only for performance reasons,
+but due to flexible design choices and ability to change them quickly.
+This cgroup+bpf set is a fundamental building block for all sorts of
+other things like lsm, vrf, port binding policy and whatever
+comes next. bpf is really nothing but the glue.
+
+> The other patchset, I guess you refer to the new lsm module: I would
+> suggest we address one thing at a time, I guess he can starts without
+> relying on this chunk, as it can follow up later anyway.
+
+lsm+bpf infra is only usable either via seccomp or via cgroup.
+For our use case seccomp way is a non starter, since we manage
+containers. Hence cgroup must be from the beginning. Therefore strong
+dependency on this set.
+
+> In general, I think bpf is very useful, but I think we have to
+> accomodate new things in a way that makes sense into what we have. We
+> have traditionally followed an "add in-kernel infrastructured +
+> provide userspace interface as control plane" approach for long time.
+> I have concerns (and my impression is that others were concerned in
+> netconf too) on if we can go from the existing approach to a fully
+> uninfrastructured use-bpf-everywhere, from one day to another without
+> even taking the time to discuss the consequences of this decision.
+
+bpf is already used everywhere and the work on bpf visibility is
+orthogonal. Arguing that cgroup+bpf is no good without it is only
+going to stall progress of everything that needs to be cgroup aware.
+Note we already have experience dealing with cgroups from cls_bpf
+via bpf_skb_under_cgroup() helper. And it didn't scale.
+Hence this patch set.
