@@ -1,293 +1,571 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Let's do P4
-Date: Sun, 30 Oct 2016 17:38:36 +0100
-Message-ID: <20161030163836.GC1686@nanopsycho.orion>
-References: <20161029075328.GB1692@nanopsycho.orion>
- <20161029154903.25deb6db@jkicinski-Precision-T1700>
- <5814D25D.9070200@gmail.com>
- <20161030074458.GB1686@nanopsycho.orion>
- <20161030102649.GE1810@pox.localdomain>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 7/7] qed: Learn resources from management firmware
+Date: Sun, 30 Oct 2016 18:38:37 +0200
+Message-ID: <1477845517-17228-8-git-send-email-Yuval.Mintz@cavium.com>
+References: <1477845517-17228-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
-        davem@davemloft.net, jhs@mojatatu.com, roopa@cumulusnetworks.com,
-        simon.horman@netronome.com, ast@kernel.org, daniel@iogearbox.net,
-        prem@barefootnetworks.com, hannes@stressinduktion.org,
-        jbenc@redhat.com, tom@herbertland.com, mattyk@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        nogahf@mellanox.com, ogerlitz@mellanox.com, linville@tuxdriver.com,
-        andy@greyhouse.net, f.fainelli@gmail.com, dsa@cumulusnetworks.com,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        ivecera@redhat.com,
-        Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain
+Cc: Tomer Tayar <Tomer.Tayar@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35948 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755825AbcJ3Qik (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:38:40 -0400
-Received: by mail-wm0-f46.google.com with SMTP id p190so106416575wmp.1
-        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 09:38:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20161030102649.GE1810@pox.localdomain>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:40988 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1757225AbcJ3QjA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:39:00 -0400
+In-Reply-To: <1477845517-17228-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Oct 30, 2016 at 11:26:49AM CET, tgraf@suug.ch wrote:
->On 10/30/16 at 08:44am, Jiri Pirko wrote:
->> Sat, Oct 29, 2016 at 06:46:21PM CEST, john.fastabend@gmail.com wrote:
->> >On 16-10-29 07:49 AM, Jakub Kicinski wrote:
->> >> On Sat, 29 Oct 2016 09:53:28 +0200, Jiri Pirko wrote:
->> >>> Hi all.
->> >>>
->> >>> The network world is divided into 2 general types of hw:
->> >>> 1) network ASICs - network specific silicon, containing things like TCAM
->> >>>    These ASICs are suitable to be programmed by P4.
->> >>> 2) network processors - basically a general purpose CPUs
->> >>>    These processors are suitable to be programmed by eBPF.
->> >>>
->> >>> I believe that by now, the most people came to a conclusion that it is
->> >>> very difficult to handle both types by either P4 or eBPF. And since
->> >>> eBPF is part of the kernel, I would like to introduce P4 into kernel
->> >>> as well. Here's a plan:
->> >>>
->> >>> 1) Define P4 intermediate representation
->> >>>    I cannot imagine loading P4 program (c-like syntax text file) into
->> >>>    kernel as is. That means that as the first step, we need find some
->> >>>    intermediate representation. I can imagine someting in a form of AST,
->> >>>    call it "p4ast". I don't really know how to do this exactly though,
->> >>>    it's just an idea.
->> >>>
->> >>>    In the end there would be a userspace precompiler for this:
->> >>>    $ makep4ast example.p4 example.ast
->> >> 
->> >> Maybe stating the obvious, but IMHO defining the IR is the hardest part.
->> >> eBPF *is* the IR, we can compile C, P4 or even JIT Lua to eBPF.  The
->> >> AST/IR for switch pipelines should allow for similar flexibility.
->> >> Looser coupling would also protect us from changes in spec of the high
->> >> level language.
->
->My assumption was that a new IR is defined which is easier to parse than
->eBPF which is targeted at execution on a CPU and not indented for pattern
->matching. Just looking at how llvm creates different patterns and reorders
->instructions, I'm not seeing how eBPF can serve as a general purpose IR
->if the objective is to allow fairly flexible generation of the bytecode.
->Hence the alternative IR serving as additional metadata complementing the
->eBPF program.
+From: Tomer Tayar <Tomer.Tayar@cavium.com>
 
-Agreed.
+Currently, each interfaces assumes it receives an equal portion
+of HW/FW resources, but this is wasteful - different partitions
+[and specifically, parititions exposing different protocol support]
+might require different resources.
 
+Implement a new resource learning scheme where the information is
+received directly from the management firmware [which has knowledge
+of all of the functions and can serve as arbiter].
 
-[...]
+Signed-off-by: Tomer Tayar <Tomer.Tayar@cavium.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed.h     |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c | 291 ++++++++++++++++++++++++------
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h |  46 +++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.c  |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c |  42 +++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h |  15 ++
+ include/linux/qed/qed_eth_if.h            |   2 +-
+ 7 files changed, 341 insertions(+), 63 deletions(-)
 
->> >... And merging threads here with Jiri's email ...
->> >
->> >> If you do p4>ebpf in userspace, you have 2 apis:
->> >> 1) to setup sw (in-kernel) p4 datapath, you push bpf.o to kernel
->> >> 2) to setup hw p4 datapath, you push program.p4ast to kernel
->> >> 
->> >> Those are 2 apis. Both wrapped up by TC, but still 2 apis.
->> >> 
->> >> What I believe is correct is to have one api:
->> >> 1) to setup sw (in-kernel) p4 datapath, you push program.p4ast to kernel
->> >> 2) to setup hw p4 datapath, you push program.p4ast to kernel
->
->I understand what you mean with two APIs now. You want a single IR
->block and divide the SW/HW part in the kernel rather than let llvm or
->something else do it.
-
-Exactly. Following drawing shows p4 pipeline setup for SW and Hw:
-
-                                 |
-                                 |               +--> ebpf engine
-                                 |               |
-                                 |               |
-                                 |           compilerB
-                                 |               ^
-                                 |               |
-p4src --> compilerA --> p4ast --TCNL--> cls_p4 --+-> driver -> compilerC -> HW
-                                 |
-                       userspace | kernel
-                                 |
-
-
-Now please consider runtime API for rule insertion/removal/stats/etc.
-Also, the single API is cls_p4 here:
-
-                        |
-                        |            
-                        |            
-                        |               
-                        |            ebpf map fillup
-                        |               ^
-                        |               |
-             p4 rule --TCNL--> cls_p4 --+-> driver -> HW table fillup
-                        |
-              userspace | kernel
-                        
-
-
-
->
->> >Couple comments around this, first adding yet another IR in the kernel
->> >and another JIT engine to map that IR on to eBPF or hardware vendor X
->> >doesn't get me excited. Its really much easier to write these as backend
->> >objects in LLVM. Not saying it can't be done just saying it is easier
->> >in LLVM. Also we already have the LLVM code for P4 to LLVM-IR to eBPF.
->> >In the end this would be a reasonably complex bit of code in
->> >the kernel only for hardware offload. I have doubts that folks would
->> >ever use it for software only cases. I'm happy to admit I'm wrong here
->> >though.
->> 
->> Well for hw offload, every driver has to parse the IR (whatever will it
->> be in) and program HW accordingly. Similar parsing and translation would
->> be needed for SW path, to translate into eBPF. I don't think it would be
->> more complex than in the drivers. Should be fine.
->
->I'm not sure I see why anyone would ever want to use an IR for SW
->purposes which is restricted to the lowest common denominator of HW.
->A good example here is OpenFlow and how some of its SW consumers
->have evolved with extensions which cannot be mappepd to HW easily.
->The same seems to happen with P4 as it introduces the concept of
->state and other concepts which are hard to map for dumb HW. P4 doesn't
->magically solve this problem, the fundamental difference in
->capabilities between HW and SW remain.
->
->> >So yes using llvm backends creates two paths a hardware mgmt and sw
->> >path but in the hardware + software case typical on the edge the
->> >orchestration and management planes have started to manage the hardware
->> >and software as two blocks of logic for performance SLA logic. Even on
->> >the edge it seems in most cases folks are selling SR-IOV ports and
->> >can't fall back to software and charge for the port. But this is just
->> >one use case I suspect others where it does make sense.
->> >
->> >> In case of 1), the program.p4ast will be either interpreted by new p4
->> >> interpreter, of translated to bpf and interpreted by that. But this
->> >> translation code is part of kernel.
->> >
->> >Finally a couple historic bits. The Flow-API proposed in Ottawa was
->> >mechanically generated from an original P4 draft. At the time I was
->> >working fairly closely with both the hardware and compiler folks. If
->> >there is interest we could use that as a base IR for hardware. It has
->> >a simple mapping to/from the original P4 spec. The newer P4 specs are
->> >significantly more complex by the way.
->> 
->> Yeah, I was also thinking about something similar to your Flow-API,
->> but we need something more generic I believe.
->> 
->> >We also have an emulated path also auto-generated from compiler tools
->> >that creates eBPF code from the IR so this would give you the software
->> >fall-back.
->> 
->> Btw, Flow-API was rejected because it was a clean kernel-bypass. In case
->> of p4, if we do what Thomas is suggesting, having x.bpf for SW and
->> x.p4ast for HW, that would be the very same kernel-bypass. Therefore I
->> strongly believe there should be a single kernel API for p4 SW+HW - for
->> both p4 program insertion and runtime configuration.
->
->I think you misunderstand me. This is not what I'm proposing at all.
->In either model, the kernel receives the same IR and can reject.
->
->The rule is very clear: we can't allow to program anything that the
->kernel is not capable of doing in SW, right? That was the key take
->away from that discussion.
-
-
-***
-Exactly. But if you treat p4ast as a "metadata" of ebpf program destined
-solely to setup HW, that in my opinion is a bypass. Because the ebpf part
-and p4ast part could have no relacionship with each other. So I see it as
-2 independent APIs. One for SW, one for HW. And having this kind od API
-for hw only is a bypass.
-
-Plus the thing I cannot imagine in the model you propose is table fillup.
-For ebpf, you use maps. For p4 you would have to have a separate HW-only
-API. This is very similar to the original John's Flow-API. And therefore
-a kernel bypass.
-
-
->
->Let's assume we do cls_p4ast HW+SW with an eBPF translator for SW. As a
->user of this, as my program becomes more complex I will hit the wall of
->HW capabilities at some point and either the IR is not expressive
->enough or the driver will reject the program.
-
-That can certainly happen, no matter what model we choose.
-
-
->
->I have at least three options now:
->
->  1) I move everything to SW and forget about HW programmability
->
->  2) I let HW bail out when HW can't support it and start parsing from
->     scratch in SW. I don't really care how much of it has been done
->     in HW, it's a best effort optimization. A use case for this might
->     be dropping of packets. This is easy to do with flow based
->     offloads as it can be best effort but already difficult when
->     programming based on a IR.
->
->  3) I let HW bail out but carry some metadata trying to preserve
->     some of the work done. A use case for this would be a router type
->     of work where the lookup itself can be expensive and the majority
->     of actions taken on packets are simple forwards but a subset of
->     actions performed are too complex for HW.  You still want to
->     preserve the savings from the expensive lookup already performed.
->
-
-You still have a choice to do this:
-use cls_bpf SKIP_HW for SW processing
-use cls_p4 SKIP_SW for HW processing
-That gives you flexibility to program the pipelines separatelly. If a driver
-is not capable of handling the selected p4 program, it will refuse to
-program the HW. Then it is up to the user to change the program according
-to the HW features.
-
-
->Even for the simpler 2) I can't just put everything I need into my
->p4ast program because the program will either load in its entirety or
->it won't.
->
->What I would likely end up doing is to write any number of subsets of
->my program which only contain various levels of pieces that are very
->likely to load on my target HW. I then load my full program with tc
->and want a notification if it also loaded into HW. If it HW failed,
->then I want tc to load subset programs with SKIP_SW starting from the
->one with most complexity. I need SKIP_SW because I already have the
->full program loaded and I don't want to go through both the partial
->and full program in case of a HW bail out. Is your proposal to not
->allow for the SKIP_SW?
-
-Definitelly not. User should be able to pass SKIP_SW and SKIP_HW as he is
-now able to do it for cls_u32, cls_flower and others.
-
-
->
->A more evolved form of this would be to expose capabilities of the HW
->and have the program writer include logic which results in the split
->based on the capabilities of the hardware.
-
-I wonder why p4 does not handle the HW capabilities. At least I did
-not find it. It would be certainly nice to have it.
-
-
->
->I I understand you correctly, you propose to make this split
->automatically in the kernel somehow.
->
->In either model the kernel receives the same new IR which it can
->reject. No difference. None of the models allow more or less.
->
->In either model, the program can be loaded with SKIP_SW to load a valid
->program into HW only.
->
->In either model, an eBPF program can be loaded at cls_bpf, or a new IR
->can be loaded with SKIP_HW to do SW only.
->
->The only difference I see between the models is whether to include a
->new IR => eBPF compiler in the kernel or not which is going to be
->optional anyway.
-
-The main dirrefence I see is the single API/kernel bypass problem
-I described earlier in this email (***)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index 6d3013f..50b8a01 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -154,7 +154,10 @@ struct qed_qm_iids {
+ 	u32 tids;
+ };
+ 
+-enum QED_RESOURCES {
++/* HW / FW resources, output of features supported below, most information
++ * is received from MFW.
++ */
++enum qed_resources {
+ 	QED_SB,
+ 	QED_L2_QUEUE,
+ 	QED_VPORT,
+@@ -166,6 +169,7 @@ enum QED_RESOURCES {
+ 	QED_RDMA_CNQ_RAM,
+ 	QED_ILT,
+ 	QED_LL2_QUEUE,
++	QED_CMDQS_CQS,
+ 	QED_RDMA_STATS_QUEUE,
+ 	QED_MAX_RESC,
+ };
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index b59da1a..edd9ad0 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -1511,47 +1511,240 @@ static void qed_hw_set_feat(struct qed_hwfn *p_hwfn)
+ 		   RESC_NUM(p_hwfn, QED_SB), num_features);
+ }
+ 
+-static int qed_hw_get_resc(struct qed_hwfn *p_hwfn)
++static enum resource_id_enum qed_hw_get_mfw_res_id(enum qed_resources res_id)
++{
++	enum resource_id_enum mfw_res_id = RESOURCE_NUM_INVALID;
++
++	switch (res_id) {
++	case QED_SB:
++		mfw_res_id = RESOURCE_NUM_SB_E;
++		break;
++	case QED_L2_QUEUE:
++		mfw_res_id = RESOURCE_NUM_L2_QUEUE_E;
++		break;
++	case QED_VPORT:
++		mfw_res_id = RESOURCE_NUM_VPORT_E;
++		break;
++	case QED_RSS_ENG:
++		mfw_res_id = RESOURCE_NUM_RSS_ENGINES_E;
++		break;
++	case QED_PQ:
++		mfw_res_id = RESOURCE_NUM_PQ_E;
++		break;
++	case QED_RL:
++		mfw_res_id = RESOURCE_NUM_RL_E;
++		break;
++	case QED_MAC:
++	case QED_VLAN:
++		/* Each VFC resource can accommodate both a MAC and a VLAN */
++		mfw_res_id = RESOURCE_VFC_FILTER_E;
++		break;
++	case QED_ILT:
++		mfw_res_id = RESOURCE_ILT_E;
++		break;
++	case QED_LL2_QUEUE:
++		mfw_res_id = RESOURCE_LL2_QUEUE_E;
++		break;
++	case QED_RDMA_CNQ_RAM:
++	case QED_CMDQS_CQS:
++		/* CNQ/CMDQS are the same resource */
++		mfw_res_id = RESOURCE_CQS_E;
++		break;
++	case QED_RDMA_STATS_QUEUE:
++		mfw_res_id = RESOURCE_RDMA_STATS_QUEUE_E;
++		break;
++	default:
++		break;
++	}
++
++	return mfw_res_id;
++}
++
++static u32 qed_hw_get_dflt_resc_num(struct qed_hwfn *p_hwfn,
++				    enum qed_resources res_id)
+ {
+-	u8 enabled_func_idx = p_hwfn->enabled_func_idx;
+-	u32 *resc_start = p_hwfn->hw_info.resc_start;
+ 	u8 num_funcs = p_hwfn->num_funcs_on_engine;
+-	u32 *resc_num = p_hwfn->hw_info.resc_num;
+ 	struct qed_sb_cnt_info sb_cnt_info;
+-	int i, max_vf_vlan_filters;
++	u32 dflt_resc_num = 0;
+ 
+-	memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
++	switch (res_id) {
++	case QED_SB:
++		memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
++		qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
++		dflt_resc_num = sb_cnt_info.sb_cnt;
++		break;
++	case QED_L2_QUEUE:
++		dflt_resc_num = MAX_NUM_L2_QUEUES_BB / num_funcs;
++		break;
++	case QED_VPORT:
++		dflt_resc_num = MAX_NUM_VPORTS_BB / num_funcs;
++		break;
++	case QED_RSS_ENG:
++		dflt_resc_num = ETH_RSS_ENGINE_NUM_BB / num_funcs;
++		break;
++	case QED_PQ:
++		/* The granularity of the PQs is 8 */
++		dflt_resc_num = MAX_QM_TX_QUEUES_BB / num_funcs;
++		dflt_resc_num &= ~0x7;
++		break;
++	case QED_RL:
++		dflt_resc_num = MAX_QM_GLOBAL_RLS / num_funcs;
++		break;
++	case QED_MAC:
++	case QED_VLAN:
++		/* Each VFC resource can accommodate both a MAC and a VLAN */
++		dflt_resc_num = ETH_NUM_MAC_FILTERS / num_funcs;
++		break;
++	case QED_ILT:
++		dflt_resc_num = PXP_NUM_ILT_RECORDS_BB / num_funcs;
++		break;
++	case QED_LL2_QUEUE:
++		dflt_resc_num = MAX_NUM_LL2_RX_QUEUES / num_funcs;
++		break;
++	case QED_RDMA_CNQ_RAM:
++	case QED_CMDQS_CQS:
++		/* CNQ/CMDQS are the same resource */
++		dflt_resc_num = NUM_OF_CMDQS_CQS / num_funcs;
++		break;
++	case QED_RDMA_STATS_QUEUE:
++		dflt_resc_num = RDMA_NUM_STATISTIC_COUNTERS_BB / num_funcs;
++		break;
++	default:
++		break;
++	}
+ 
+-#ifdef CONFIG_QED_SRIOV
+-	max_vf_vlan_filters = QED_ETH_MAX_VF_NUM_VLAN_FILTERS;
+-#else
+-	max_vf_vlan_filters = 0;
+-#endif
++	return dflt_resc_num;
++}
++
++static const char *qed_hw_get_resc_name(enum qed_resources res_id)
++{
++	switch (res_id) {
++	case QED_SB:
++		return "SB";
++	case QED_L2_QUEUE:
++		return "L2_QUEUE";
++	case QED_VPORT:
++		return "VPORT";
++	case QED_RSS_ENG:
++		return "RSS_ENG";
++	case QED_PQ:
++		return "PQ";
++	case QED_RL:
++		return "RL";
++	case QED_MAC:
++		return "MAC";
++	case QED_VLAN:
++		return "VLAN";
++	case QED_RDMA_CNQ_RAM:
++		return "RDMA_CNQ_RAM";
++	case QED_ILT:
++		return "ILT";
++	case QED_LL2_QUEUE:
++		return "LL2_QUEUE";
++	case QED_CMDQS_CQS:
++		return "CMDQS_CQS";
++	case QED_RDMA_STATS_QUEUE:
++		return "RDMA_STATS_QUEUE";
++	default:
++		return "UNKNOWN_RESOURCE";
++	}
++}
+ 
+-	qed_int_get_num_sbs(p_hwfn, &sb_cnt_info);
++static int qed_hw_set_resc_info(struct qed_hwfn *p_hwfn,
++				enum qed_resources res_id)
++{
++	u32 dflt_resc_num = 0, dflt_resc_start = 0, mcp_resp, mcp_param;
++	u32 *p_resc_num, *p_resc_start;
++	struct resource_info resc_info;
++	int rc;
++
++	p_resc_num = &RESC_NUM(p_hwfn, res_id);
++	p_resc_start = &RESC_START(p_hwfn, res_id);
++
++	/* Default values assumes that each function received equal share */
++	dflt_resc_num = qed_hw_get_dflt_resc_num(p_hwfn, res_id);
++	if (!dflt_resc_num) {
++		DP_ERR(p_hwfn,
++		       "Failed to get default amount for resource %d [%s]\n",
++		       res_id, qed_hw_get_resc_name(res_id));
++		return -EINVAL;
++	}
++	dflt_resc_start = dflt_resc_num * p_hwfn->enabled_func_idx;
++
++	memset(&resc_info, 0, sizeof(resc_info));
++	resc_info.res_id = qed_hw_get_mfw_res_id(res_id);
++	if (resc_info.res_id == RESOURCE_NUM_INVALID) {
++		DP_ERR(p_hwfn,
++		       "Failed to match resource %d [%s] with the MFW resources\n",
++		       res_id, qed_hw_get_resc_name(res_id));
++		return -EINVAL;
++	}
++
++	rc = qed_mcp_get_resc_info(p_hwfn, p_hwfn->p_main_ptt, &resc_info,
++				   &mcp_resp, &mcp_param);
++	if (rc) {
++		DP_NOTICE(p_hwfn,
++			  "MFW response failure for an allocation request for resource %d [%s]\n",
++			  res_id, qed_hw_get_resc_name(res_id));
++		return rc;
++	}
++
++	/* Default driver values are applied in the following cases:
++	 * - The resource allocation MB command is not supported by the MFW
++	 * - There is an internal error in the MFW while processing the request
++	 * - The resource ID is unknown to the MFW
++	 */
++	if (mcp_resp != FW_MSG_CODE_RESOURCE_ALLOC_OK &&
++	    mcp_resp != FW_MSG_CODE_RESOURCE_ALLOC_DEPRECATED) {
++		DP_NOTICE(p_hwfn,
++			  "Resource %d [%s]: No allocation info was received [mcp_resp 0x%x]. Applying default values [num %d, start %d].\n",
++			  res_id,
++			  qed_hw_get_resc_name(res_id),
++			  mcp_resp, dflt_resc_num, dflt_resc_start);
++		*p_resc_num = dflt_resc_num;
++		*p_resc_start = dflt_resc_start;
++		goto out;
++	}
++
++	/* Special handling for status blocks; Would be revised in future */
++	if (res_id == QED_SB) {
++		resc_info.size -= 1;
++		resc_info.offset -= p_hwfn->enabled_func_idx;
++	}
++
++	*p_resc_num = resc_info.size;
++	*p_resc_start = resc_info.offset;
++
++out:
++	/* PQs have to divide by 8 [that's the HW granularity].
++	 * Reduce number so it would fit.
++	 */
++	if ((res_id == QED_PQ) && ((*p_resc_num % 8) || (*p_resc_start % 8))) {
++		DP_INFO(p_hwfn,
++			"PQs need to align by 8; Number %08x --> %08x, Start %08x --> %08x\n",
++			*p_resc_num,
++			(*p_resc_num) & ~0x7,
++			*p_resc_start, (*p_resc_start) & ~0x7);
++		*p_resc_num &= ~0x7;
++		*p_resc_start &= ~0x7;
++	}
+ 
+-	resc_num[QED_SB] = min_t(u32,
+-				 (MAX_SB_PER_PATH_BB / num_funcs),
+-				 sb_cnt_info.sb_cnt);
+-	resc_num[QED_L2_QUEUE] = MAX_NUM_L2_QUEUES_BB / num_funcs;
+-	resc_num[QED_VPORT] = MAX_NUM_VPORTS_BB / num_funcs;
+-	resc_num[QED_RSS_ENG] = ETH_RSS_ENGINE_NUM_BB / num_funcs;
+-	resc_num[QED_PQ] = MAX_QM_TX_QUEUES_BB / num_funcs;
+-	resc_num[QED_RL] = min_t(u32, 64, resc_num[QED_VPORT]);
+-	resc_num[QED_MAC] = ETH_NUM_MAC_FILTERS / num_funcs;
+-	resc_num[QED_VLAN] = (ETH_NUM_VLAN_FILTERS - 1 /*For vlan0*/) /
+-			     num_funcs;
+-	resc_num[QED_ILT] = PXP_NUM_ILT_RECORDS_BB / num_funcs;
+-	resc_num[QED_LL2_QUEUE] = MAX_NUM_LL2_RX_QUEUES / num_funcs;
+-	resc_num[QED_RDMA_CNQ_RAM] = NUM_OF_CMDQS_CQS / num_funcs;
+-	resc_num[QED_RDMA_STATS_QUEUE] = RDMA_NUM_STATISTIC_COUNTERS_BB /
+-					 num_funcs;
+-
+-	for (i = 0; i < QED_MAX_RESC; i++)
+-		resc_start[i] = resc_num[i] * enabled_func_idx;
++	return 0;
++}
++
++static int qed_hw_get_resc(struct qed_hwfn *p_hwfn)
++{
++	u8 res_id;
++	int rc;
++
++	for (res_id = 0; res_id < QED_MAX_RESC; res_id++) {
++		rc = qed_hw_set_resc_info(p_hwfn, res_id);
++		if (rc)
++			return rc;
++	}
+ 
+ 	/* Sanity for ILT */
+-	if (RESC_END(p_hwfn, QED_ILT) > PXP_NUM_ILT_RECORDS_BB) {
++	if ((RESC_END(p_hwfn, QED_ILT) > PXP_NUM_ILT_RECORDS_BB)) {
+ 		DP_NOTICE(p_hwfn, "Can't assign ILT pages [%08x,...,%08x]\n",
+ 			  RESC_START(p_hwfn, QED_ILT),
+ 			  RESC_END(p_hwfn, QED_ILT) - 1);
+@@ -1561,34 +1754,12 @@ static int qed_hw_get_resc(struct qed_hwfn *p_hwfn)
+ 	qed_hw_set_feat(p_hwfn);
+ 
+ 	DP_VERBOSE(p_hwfn, NETIF_MSG_PROBE,
+-		   "The numbers for each resource are:\n"
+-		   "SB = %d start = %d\n"
+-		   "L2_QUEUE = %d start = %d\n"
+-		   "VPORT = %d start = %d\n"
+-		   "PQ = %d start = %d\n"
+-		   "RL = %d start = %d\n"
+-		   "MAC = %d start = %d\n"
+-		   "VLAN = %d start = %d\n"
+-		   "ILT = %d start = %d\n"
+-		   "LL2_QUEUE = %d start = %d\n",
+-		   p_hwfn->hw_info.resc_num[QED_SB],
+-		   p_hwfn->hw_info.resc_start[QED_SB],
+-		   p_hwfn->hw_info.resc_num[QED_L2_QUEUE],
+-		   p_hwfn->hw_info.resc_start[QED_L2_QUEUE],
+-		   p_hwfn->hw_info.resc_num[QED_VPORT],
+-		   p_hwfn->hw_info.resc_start[QED_VPORT],
+-		   p_hwfn->hw_info.resc_num[QED_PQ],
+-		   p_hwfn->hw_info.resc_start[QED_PQ],
+-		   p_hwfn->hw_info.resc_num[QED_RL],
+-		   p_hwfn->hw_info.resc_start[QED_RL],
+-		   p_hwfn->hw_info.resc_num[QED_MAC],
+-		   p_hwfn->hw_info.resc_start[QED_MAC],
+-		   p_hwfn->hw_info.resc_num[QED_VLAN],
+-		   p_hwfn->hw_info.resc_start[QED_VLAN],
+-		   p_hwfn->hw_info.resc_num[QED_ILT],
+-		   p_hwfn->hw_info.resc_start[QED_ILT],
+-		   RESC_NUM(p_hwfn, QED_LL2_QUEUE),
+-		   RESC_START(p_hwfn, QED_LL2_QUEUE));
++		   "The numbers for each resource are:\n");
++	for (res_id = 0; res_id < QED_MAX_RESC; res_id++)
++		DP_VERBOSE(p_hwfn, NETIF_MSG_PROBE, "%s = %d start = %d\n",
++			   qed_hw_get_resc_name(res_id),
++			   RESC_NUM(p_hwfn, res_id),
++			   RESC_START(p_hwfn, res_id));
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index 1d113ce..048f9a3 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -8529,6 +8529,41 @@ struct mdump_config_stc {
+ 	u32 valid_logs;
+ };
+ 
++enum resource_id_enum {
++	RESOURCE_NUM_SB_E = 0,
++	RESOURCE_NUM_L2_QUEUE_E = 1,
++	RESOURCE_NUM_VPORT_E = 2,
++	RESOURCE_NUM_VMQ_E = 3,
++	RESOURCE_FACTOR_NUM_RSS_PF_E = 4,
++	RESOURCE_FACTOR_RSS_PER_VF_E = 5,
++	RESOURCE_NUM_RL_E = 6,
++	RESOURCE_NUM_PQ_E = 7,
++	RESOURCE_NUM_VF_E = 8,
++	RESOURCE_VFC_FILTER_E = 9,
++	RESOURCE_ILT_E = 10,
++	RESOURCE_CQS_E = 11,
++	RESOURCE_GFT_PROFILES_E = 12,
++	RESOURCE_NUM_TC_E = 13,
++	RESOURCE_NUM_RSS_ENGINES_E = 14,
++	RESOURCE_LL2_QUEUE_E = 15,
++	RESOURCE_RDMA_STATS_QUEUE_E = 16,
++	RESOURCE_MAX_NUM,
++	RESOURCE_NUM_INVALID = 0xFFFFFFFF
++};
++
++/* Resource ID is to be filled by the driver in the MB request
++ * Size, offset & flags to be filled by the MFW in the MB response
++ */
++struct resource_info {
++	enum resource_id_enum res_id;
++	u32 size;		/* number of allocated resources */
++	u32 offset;		/* Offset of the 1st resource */
++	u32 vf_size;
++	u32 vf_offset;
++	u32 flags;
++#define RESOURCE_ELEMENT_STRICT (1 << 0)
++};
++
+ union drv_union_data {
+ 	u32 ver_str[MCP_DRV_VER_STR_SIZE_DWORD];
+ 	struct mcp_mac wol_mac;
+@@ -8549,6 +8584,7 @@ struct mdump_config_stc {
+ 	u64 reserved_stats[11];
+ 	struct ocbb_data_stc ocbb_info;
+ 	struct temperature_status_stc temp_info;
++	struct resource_info resource;
+ 	struct bist_nvm_image_att nvm_image_att;
+ 	struct mdump_config_stc mdump_config;
+ };
+@@ -8576,6 +8612,7 @@ struct public_drv_mb {
+ 
+ #define DRV_MSG_CODE_BW_UPDATE_ACK		0x32000000
+ #define DRV_MSG_CODE_NIG_DRAIN			0x30000000
++#define DRV_MSG_GET_RESOURCE_ALLOC_MSG          0x34000000
+ #define DRV_MSG_CODE_VF_DISABLED_DONE		0xc0000000
+ #define DRV_MSG_CODE_CFG_VF_MSIX		0xc0010000
+ #define DRV_MSG_CODE_NVM_GET_FILE_ATT		0x00030000
+@@ -8666,6 +8703,12 @@ struct public_drv_mb {
+ #define DRV_MB_PARAM_SET_LED_MODE_ON		0x1
+ #define DRV_MB_PARAM_SET_LED_MODE_OFF		0x2
+ 
++	/* Resource Allocation params - Driver version support */
++#define DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR_MASK	0xFFFF0000
++#define DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR_SHIFT	16
++#define DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR_MASK	0x0000FFFF
++#define DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR_SHIFT	0
++
+ #define DRV_MB_PARAM_BIST_REGISTER_TEST		1
+ #define DRV_MB_PARAM_BIST_CLOCK_TEST		2
+ #define DRV_MB_PARAM_BIST_NVM_TEST_NUM_IMAGES	3
+@@ -8694,6 +8737,9 @@ struct public_drv_mb {
+ #define FW_MSG_CODE_DRV_UNLOAD_PORT		0x20120000
+ #define FW_MSG_CODE_DRV_UNLOAD_FUNCTION		0x20130000
+ #define FW_MSG_CODE_DRV_UNLOAD_DONE		0x21100000
++#define FW_MSG_CODE_RESOURCE_ALLOC_OK           0x34000000
++#define FW_MSG_CODE_RESOURCE_ALLOC_UNKNOWN      0x35000000
++#define FW_MSG_CODE_RESOURCE_ALLOC_DEPRECATED   0x36000000
+ #define FW_MSG_CODE_DRV_CFG_VF_MSIX_DONE	0xb0010000
+ 
+ #define FW_MSG_CODE_NVM_OK			0x00010000
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index 6b0e22d..1e3a16e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -1691,7 +1691,7 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+ 		}
+ 
+ 		qed_vf_get_num_vlan_filters(&cdev->hwfns[0],
+-					    &info->num_vlan_filters);
++					    (u8 *)&info->num_vlan_filters);
+ 		qed_vf_get_port_mac(&cdev->hwfns[0], info->port_mac);
+ 
+ 		info->is_legacy = !!cdev->hwfns[0].vf_iov_info->b_pre_fp_hsi;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index 0927488..d8e499e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -1683,3 +1683,45 @@ int qed_mcp_bist_nvm_test_get_image_att(struct qed_hwfn *p_hwfn,
+ 
+ 	return rc;
+ }
++
++#define QED_RESC_ALLOC_VERSION_MAJOR    1
++#define QED_RESC_ALLOC_VERSION_MINOR    0
++#define QED_RESC_ALLOC_VERSION				     \
++	((QED_RESC_ALLOC_VERSION_MAJOR <<		     \
++	  DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MAJOR_SHIFT) | \
++	 (QED_RESC_ALLOC_VERSION_MINOR <<		     \
++	  DRV_MB_PARAM_RESOURCE_ALLOC_VERSION_MINOR_SHIFT))
++int qed_mcp_get_resc_info(struct qed_hwfn *p_hwfn,
++			  struct qed_ptt *p_ptt,
++			  struct resource_info *p_resc_info,
++			  u32 *p_mcp_resp, u32 *p_mcp_param)
++{
++	struct qed_mcp_mb_params mb_params;
++	union drv_union_data *p_union_data;
++	int rc;
++
++	memset(&mb_params, 0, sizeof(mb_params));
++	mb_params.cmd = DRV_MSG_GET_RESOURCE_ALLOC_MSG;
++	mb_params.param = QED_RESC_ALLOC_VERSION;
++	p_union_data = (union drv_union_data *)p_resc_info;
++	mb_params.p_data_src = p_union_data;
++	mb_params.p_data_dst = p_union_data;
++	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
++	if (rc)
++		return rc;
++
++	*p_mcp_resp = mb_params.mcp_resp;
++	*p_mcp_param = mb_params.mcp_param;
++
++	DP_VERBOSE(p_hwfn,
++		   QED_MSG_SP,
++		   "MFW resource_info: version 0x%x, res_id 0x%x, size 0x%x, offset 0x%x, vf_size 0x%x, vf_offset 0x%x, flags 0x%x\n",
++		   *p_mcp_param,
++		   p_resc_info->res_id,
++		   p_resc_info->size,
++		   p_resc_info->offset,
++		   p_resc_info->vf_size,
++		   p_resc_info->vf_offset, p_resc_info->flags);
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+index be8152d..407a2c1 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+@@ -689,4 +689,19 @@ int qed_mcp_ov_update_eswitch(struct qed_hwfn *p_hwfn,
+ 			      struct qed_ptt *p_ptt,
+ 			      enum qed_ov_eswitch eswitch);
+ 
++/**
++ * @brief - Gets the MFW allocation info for the given resource
++ *
++ *  @param p_hwfn
++ *  @param p_ptt
++ *  @param p_resc_info - descriptor of requested resource
++ *  @param p_mcp_resp
++ *  @param p_mcp_param
++ *
++ * @return int - 0 - operation was successful.
++ */
++int qed_mcp_get_resc_info(struct qed_hwfn *p_hwfn,
++			  struct qed_ptt *p_ptt,
++			  struct resource_info *p_resc_info,
++			  u32 *p_mcp_resp, u32 *p_mcp_param);
+ #endif
+diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
+index 1513080..9755a3f 100644
+--- a/include/linux/qed/qed_eth_if.h
++++ b/include/linux/qed/qed_eth_if.h
+@@ -22,7 +22,7 @@ struct qed_dev_eth_info {
+ 	u8	num_tc;
+ 
+ 	u8	port_mac[ETH_ALEN];
+-	u8	num_vlan_filters;
++	u16	num_vlan_filters;
+ 	u16	num_mac_filters;
+ 
+ 	/* Legacy VF - this affects the datapath, so qede has to know */
+-- 
+1.9.3
