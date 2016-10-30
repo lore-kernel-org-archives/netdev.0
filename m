@@ -1,418 +1,444 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 2/7] qed: Add nvram selftest
-Date: Sun, 30 Oct 2016 18:38:32 +0200
-Message-ID: <1477845517-17228-3-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 3/7] qed*: Add support for WoL
+Date: Sun, 30 Oct 2016 18:38:33 +0200
+Message-ID: <1477845517-17228-4-git-send-email-Yuval.Mintz@cavium.com>
 References: <1477845517-17228-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:40974 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:40972 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1757227AbcJ3Qiz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:38:55 -0400
+        by vger.kernel.org with ESMTP id S1755825AbcJ3Qiu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:38:50 -0400
 In-Reply-To: <1477845517-17228-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_hsi.h       |   4 +
- drivers/net/ethernet/qlogic/qed/qed_main.c      |   1 +
- drivers/net/ethernet/qlogic/qed/qed_mcp.c       |  94 ++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  41 ++++++++++
- drivers/net/ethernet/qlogic/qed/qed_selftest.c  | 101 ++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_selftest.h  |  10 +++
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |   7 ++
- include/linux/qed/qed_if.h                      |   9 +++
- 8 files changed, 267 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed.h           | 11 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c       | 19 ++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h       |  4 ++
+ drivers/net/ethernet/qlogic/qed/qed_main.c      | 29 +++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c       | 56 ++++++++++++++++++++++++-
+ drivers/net/ethernet/qlogic/qede/qede.h         |  2 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 41 ++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  9 ++++
+ include/linux/qed/qed_if.h                      | 10 +++++
+ 9 files changed, 176 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 36de87a..f7dfa2e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -8666,6 +8666,8 @@ struct public_drv_mb {
- 
- #define DRV_MB_PARAM_BIST_REGISTER_TEST		1
- #define DRV_MB_PARAM_BIST_CLOCK_TEST		2
-+#define DRV_MB_PARAM_BIST_NVM_TEST_NUM_IMAGES	3
-+#define DRV_MB_PARAM_BIST_NVM_TEST_IMAGE_BY_INDEX	4
- 
- #define DRV_MB_PARAM_BIST_RC_UNKNOWN		0
- #define DRV_MB_PARAM_BIST_RC_PASSED		1
-@@ -8674,6 +8676,8 @@ struct public_drv_mb {
- 
- #define DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT	0
- #define DRV_MB_PARAM_BIST_TEST_INDEX_MASK	0x000000FF
-+#define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_SHIFT	8
-+#define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_MASK		0x0000FF00
- 
- 	u32 fw_mb_header;
- #define FW_MSG_CODE_MASK			0xffff0000
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 937968b..612c094 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -1509,6 +1509,7 @@ struct qed_selftest_ops qed_selftest_ops_pass = {
- 	.selftest_interrupt = &qed_selftest_interrupt,
- 	.selftest_register = &qed_selftest_register,
- 	.selftest_clock = &qed_selftest_clock,
-+	.selftest_nvram = &qed_selftest_nvram,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index f20243c..8828ffa 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -195,6 +195,11 @@ enum qed_dev_cap {
+ 	QED_DEV_CAP_ROCE,
  };
  
- const struct qed_common_ops qed_common_ops_pass = {
++enum qed_wol_support {
++	QED_WOL_SUPPORT_NONE,
++	QED_WOL_SUPPORT_PME,
++};
++
+ struct qed_hw_info {
+ 	/* PCI personality */
+ 	enum qed_pci_personality	personality;
+@@ -227,6 +232,8 @@ struct qed_hw_info {
+ 	u32				hw_mode;
+ 	unsigned long		device_capabilities;
+ 	u16				mtu;
++
++	enum qed_wol_support b_wol_support;
+ };
+ 
+ struct qed_hw_cid_data {
+@@ -539,7 +546,9 @@ struct qed_dev {
+ 	u8				mcp_rev;
+ 	u8				boot_mode;
+ 
+-	u8				wol;
++	/* WoL related configurations */
++	u8 wol_config;
++	u8 wol_mac[ETH_ALEN];
+ 
+ 	u32				int_mode;
+ 	enum qed_coalescing_mode	int_coalescing_mode;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index 9ef6dfd..13833a5 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -1363,8 +1363,24 @@ int qed_hw_reset(struct qed_dev *cdev)
+ {
+ 	int rc = 0;
+ 	u32 unload_resp, unload_param;
++	u32 wol_param;
+ 	int i;
+ 
++	switch (cdev->wol_config) {
++	case QED_OV_WOL_DISABLED:
++		wol_param = DRV_MB_PARAM_UNLOAD_WOL_DISABLED;
++		break;
++	case QED_OV_WOL_ENABLED:
++		wol_param = DRV_MB_PARAM_UNLOAD_WOL_ENABLED;
++		break;
++	default:
++		DP_NOTICE(cdev,
++			  "Unknown WoL configuration %02x\n", cdev->wol_config);
++		/* Fallthrough */
++	case QED_OV_WOL_DEFAULT:
++		wol_param = DRV_MB_PARAM_UNLOAD_WOL_MCP;
++	}
++
+ 	for_each_hwfn(cdev, i) {
+ 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
+ 
+@@ -1393,8 +1409,7 @@ int qed_hw_reset(struct qed_dev *cdev)
+ 
+ 		/* Send unload command to MCP */
+ 		rc = qed_mcp_cmd(p_hwfn, p_hwfn->p_main_ptt,
+-				 DRV_MSG_CODE_UNLOAD_REQ,
+-				 DRV_MB_PARAM_UNLOAD_WOL_MCP,
++				 DRV_MSG_CODE_UNLOAD_REQ, wol_param,
+ 				 &unload_resp, &unload_param);
+ 		if (rc) {
+ 			DP_NOTICE(p_hwfn, "qed_hw_reset: UNLOAD_REQ failed\n");
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index f7dfa2e..fdb7a09 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -8601,6 +8601,7 @@ struct public_drv_mb {
+ 
+ #define DRV_MSG_CODE_BIST_TEST			0x001e0000
+ #define DRV_MSG_CODE_SET_LED_MODE		0x00200000
++#define DRV_MSG_CODE_OS_WOL			0x002e0000
+ 
+ #define DRV_MSG_SEQ_NUMBER_MASK			0x0000ffff
+ 
+@@ -8697,6 +8698,9 @@ struct public_drv_mb {
+ #define FW_MSG_CODE_NVM_OK			0x00010000
+ #define FW_MSG_CODE_OK				0x00160000
+ 
++#define FW_MSG_CODE_OS_WOL_SUPPORTED            0x00800000
++#define FW_MSG_CODE_OS_WOL_NOT_SUPPORTED        0x00810000
++
+ #define FW_MSG_SEQ_NUMBER_MASK			0x0000ffff
+ 
+ 	u32 fw_mb_param;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 612c094..a95a1af 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -223,6 +223,10 @@ int qed_fill_dev_info(struct qed_dev *cdev,
+ 		dev_info->fw_eng = FW_ENGINEERING_VERSION;
+ 		dev_info->mf_mode = cdev->mf_mode;
+ 		dev_info->tx_switching = true;
++
++		if (QED_LEADING_HWFN(cdev)->hw_info.b_wol_support ==
++		    QED_WOL_SUPPORT_PME)
++			dev_info->wol_support = true;
+ 	} else {
+ 		qed_vf_get_fw_version(&cdev->hwfns[0], &dev_info->fw_major,
+ 				      &dev_info->fw_minor, &dev_info->fw_rev,
+@@ -1504,6 +1508,30 @@ static int qed_update_mtu(struct qed_dev *cdev, u16 mtu)
+ 	return status;
+ }
+ 
++static int qed_update_wol(struct qed_dev *cdev, bool enabled)
++{
++	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
++	struct qed_ptt *ptt;
++	int rc = 0;
++
++	if (IS_VF(cdev))
++		return 0;
++
++	ptt = qed_ptt_acquire(hwfn);
++	if (!ptt)
++		return -EAGAIN;
++
++	rc = qed_mcp_ov_update_wol(hwfn, ptt, enabled ? QED_OV_WOL_ENABLED
++				   : QED_OV_WOL_DISABLED);
++	if (rc)
++		goto out;
++	rc = qed_mcp_ov_update_current_config(hwfn, ptt, QED_OV_CLIENT_DRV);
++
++out:
++	qed_ptt_release(hwfn, ptt);
++	return rc;
++}
++
+ struct qed_selftest_ops qed_selftest_ops_pass = {
+ 	.selftest_memory = &qed_selftest_memory,
+ 	.selftest_interrupt = &qed_selftest_interrupt,
+@@ -1542,6 +1570,7 @@ struct qed_selftest_ops qed_selftest_ops_pass = {
+ 	.update_drv_state = &qed_update_drv_state,
+ 	.update_mac = &qed_update_mac,
+ 	.update_mtu = &qed_update_mtu,
++	.update_wol = &qed_update_wol,
+ };
+ 
+ void qed_get_protocol_stats(struct qed_dev *cdev,
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index 98dc913..8be6157 100644
+index 8be6157..768b35b 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -1434,6 +1434,52 @@ int qed_mcp_mask_parities(struct qed_hwfn *p_hwfn,
- 	return rc;
- }
- 
-+int qed_mcp_nvm_read(struct qed_dev *cdev, u32 addr, u8 *p_buf, u32 len)
-+{
-+	u32 bytes_left = len, offset = 0, bytes_to_copy, read_len = 0;
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	u32 resp = 0, resp_param = 0;
-+	struct qed_ptt *p_ptt;
-+	int rc = 0;
-+
-+	p_ptt = qed_ptt_acquire(p_hwfn);
-+	if (!p_ptt)
-+		return -EBUSY;
-+
-+	while (bytes_left > 0) {
-+		bytes_to_copy = min_t(u32, bytes_left, MCP_DRV_NVM_BUF_LEN);
-+
-+		rc = qed_mcp_nvm_rd_cmd(p_hwfn, p_ptt,
-+					DRV_MSG_CODE_NVM_READ_NVRAM,
-+					addr + offset +
-+					(bytes_to_copy <<
-+					 DRV_MB_PARAM_NVM_LEN_SHIFT),
-+					&resp, &resp_param,
-+					&read_len,
-+					(u32 *)(p_buf + offset));
-+
-+		if (rc || (resp != FW_MSG_CODE_NVM_OK)) {
-+			DP_NOTICE(cdev, "MCP command rc = %d\n", rc);
-+			break;
-+		}
-+
-+		/* This can be a lengthy process, and it's possible scheduler
-+		 * isn't preemptable. Sleep a bit to prevent CPU hogging.
-+		 */
-+		if (bytes_left % 0x1000 <
-+		    (bytes_left - read_len) % 0x1000)
-+			usleep_range(1000, 2000);
-+
-+		offset += read_len;
-+		bytes_left -= read_len;
-+	}
-+
-+	cdev->mcp_nvm_resp = resp;
-+	qed_ptt_release(p_hwfn, p_ptt);
-+
-+	return rc;
-+}
-+
- int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+@@ -330,6 +330,7 @@ static int qed_mcp_cmd_and_union(struct qed_hwfn *p_hwfn,
+ 				 struct qed_mcp_mb_params *p_mb_params)
  {
- 	u32 drv_mb_param = 0, rsp, param;
-@@ -1475,3 +1521,51 @@ int qed_mcp_bist_clock_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 	u32 union_data_addr;
++
+ 	int rc;
  
- 	return rc;
- }
-+
-+int qed_mcp_bist_nvm_test_get_num_images(struct qed_hwfn *p_hwfn,
-+					 struct qed_ptt *p_ptt,
-+					 u32 *num_images)
-+{
-+	u32 drv_mb_param = 0, rsp;
-+	int rc = 0;
-+
-+	drv_mb_param = (DRV_MB_PARAM_BIST_NVM_TEST_NUM_IMAGES <<
-+			DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT);
-+
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_BIST_TEST,
-+			 drv_mb_param, &rsp, num_images);
-+	if (rc)
-+		return rc;
-+
-+	if (((rsp & FW_MSG_CODE_MASK) != FW_MSG_CODE_OK))
-+		rc = -EINVAL;
-+
-+	return rc;
-+}
-+
-+int qed_mcp_bist_nvm_test_get_image_att(struct qed_hwfn *p_hwfn,
-+					struct qed_ptt *p_ptt,
-+					struct bist_nvm_image_att *p_image_att,
-+					u32 image_index)
-+{
-+	u32 buf_size = 0, param, resp = 0, resp_param = 0;
-+	int rc;
-+
-+	param = DRV_MB_PARAM_BIST_NVM_TEST_IMAGE_BY_INDEX <<
-+		DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT;
-+	param |= image_index << DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_SHIFT;
-+
-+	rc = qed_mcp_nvm_rd_cmd(p_hwfn, p_ptt,
-+				DRV_MSG_CODE_BIST_TEST, param,
-+				&resp, &resp_param,
-+				&buf_size,
-+				(u32 *)p_image_att);
-+	if (rc)
-+		return rc;
-+
-+	if (((resp & FW_MSG_CODE_MASK) != FW_MSG_CODE_OK) ||
-+	    (p_image_att->return_code != 1))
-+		rc = -EINVAL;
-+
-+	return rc;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index 8950719..be8152d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -380,6 +380,18 @@ int qed_mcp_set_led(struct qed_hwfn *p_hwfn,
- 		    enum qed_led_mode mode);
+ 	/* MCP not initialized */
+@@ -375,11 +376,32 @@ int qed_mcp_cmd(struct qed_hwfn *p_hwfn,
+ 		u32 *o_mcp_param)
+ {
+ 	struct qed_mcp_mb_params mb_params;
++	union drv_union_data data_src;
+ 	int rc;
  
- /**
-+ * @brief Read from nvm
-+ *
-+ *  @param cdev
-+ *  @param addr - nvm offset
-+ *  @param p_buf - nvm read buffer
-+ *  @param len - buffer len
-+ *
-+ * @return int - 0 - operation was successful.
-+ */
-+int qed_mcp_nvm_read(struct qed_dev *cdev, u32 addr, u8 *p_buf, u32 len);
+ 	memset(&mb_params, 0, sizeof(mb_params));
++	memset(&data_src, 0, sizeof(data_src));
+ 	mb_params.cmd = cmd;
+ 	mb_params.param = param;
 +
-+/**
-  * @brief Bist register test
-  *
-  *  @param p_hwfn    - hw function
-@@ -401,6 +413,35 @@ int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn,
- int qed_mcp_bist_clock_test(struct qed_hwfn *p_hwfn,
- 			    struct qed_ptt *p_ptt);
- 
-+/**
-+ * @brief Bist nvm test - get number of images
-+ *
-+ *  @param p_hwfn       - hw function
-+ *  @param p_ptt        - PTT required for register access
-+ *  @param num_images   - number of images if operation was
-+ *			  successful. 0 if not.
-+ *
-+ * @return int - 0 - operation was successful.
-+ */
-+int qed_mcp_bist_nvm_test_get_num_images(struct qed_hwfn *p_hwfn,
-+					 struct qed_ptt *p_ptt,
-+					 u32 *num_images);
++	/* In case of UNLOAD_DONE, set the primary MAC */
++	if ((cmd == DRV_MSG_CODE_UNLOAD_DONE) &&
++	    (p_hwfn->cdev->wol_config == QED_OV_WOL_ENABLED)) {
++		u8 *p_mac = p_hwfn->cdev->wol_mac;
 +
-+/**
-+ * @brief Bist nvm test - get image attributes by index
-+ *
-+ *  @param p_hwfn      - hw function
-+ *  @param p_ptt       - PTT required for register access
-+ *  @param p_image_att - Attributes of image
-+ *  @param image_index - Index of image to get information for
-+ *
-+ * @return int - 0 - operation was successful.
-+ */
-+int qed_mcp_bist_nvm_test_get_image_att(struct qed_hwfn *p_hwfn,
-+					struct qed_ptt *p_ptt,
-+					struct bist_nvm_image_att *p_image_att,
-+					u32 image_index);
++		data_src.wol_mac.mac_upper = p_mac[0] << 8 | p_mac[1];
++		data_src.wol_mac.mac_lower = p_mac[2] << 24 | p_mac[3] << 16 |
++					     p_mac[4] << 8 | p_mac[5];
 +
- /* Using hwfn number (and not pf_num) is required since in CMT mode,
-  * same pf_num may be used by two different hwfn
-  * TODO - this shouldn't really be in .h file, but until all fields
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_selftest.c b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-index 9b7678f..48bfaec 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-@@ -1,3 +1,4 @@
-+#include <linux/crc32.h>
- #include "qed.h"
- #include "qed_dev_api.h"
- #include "qed_mcp.h"
-@@ -75,3 +76,103 @@ int qed_selftest_clock(struct qed_dev *cdev)
- 
- 	return rc;
- }
++		DP_VERBOSE(p_hwfn,
++			   (QED_MSG_SP | NETIF_MSG_IFDOWN),
++			   "Setting WoL MAC: %pM --> [%08x,%08x]\n",
++			   p_mac, data_src.wol_mac.mac_upper,
++			   data_src.wol_mac.mac_lower);
 +
-+int qed_selftest_nvram(struct qed_dev *cdev)
-+{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = qed_ptt_acquire(p_hwfn);
-+	u32 num_images, i, j, nvm_crc, calc_crc;
-+	struct bist_nvm_image_att image_att;
-+	u8 *buf = NULL;
-+	__be32 val;
-+	int rc;
-+
-+	if (!p_ptt) {
-+		DP_ERR(p_hwfn, "failed to acquire ptt\n");
-+		return -EBUSY;
++		mb_params.p_data_src = &data_src;
 +	}
 +
-+	/* Acquire from MFW the amount of available images */
-+	rc = qed_mcp_bist_nvm_test_get_num_images(p_hwfn, p_ptt, &num_images);
-+	if (rc || !num_images) {
-+		DP_ERR(p_hwfn, "Failed getting number of images\n");
+ 	rc = qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
+ 	if (rc)
+ 		return rc;
+@@ -1058,6 +1080,9 @@ int qed_mcp_fill_shmem_func_info(struct qed_hwfn *p_hwfn,
+ 		info->mac[3] = (u8)(shmem_info.mac_lower >> 16);
+ 		info->mac[4] = (u8)(shmem_info.mac_lower >> 8);
+ 		info->mac[5] = (u8)(shmem_info.mac_lower);
++
++		/* Store primary MAC for later possible WoL */
++		memcpy(&p_hwfn->cdev->wol_mac, info->mac, ETH_ALEN);
+ 	} else {
+ 		DP_NOTICE(p_hwfn, "MAC is 0 in shmem\n");
+ 	}
+@@ -1071,13 +1096,28 @@ int qed_mcp_fill_shmem_func_info(struct qed_hwfn *p_hwfn,
+ 
+ 	info->mtu = (u16)shmem_info.mtu_size;
+ 
++	p_hwfn->hw_info.b_wol_support = QED_WOL_SUPPORT_NONE;
++	p_hwfn->cdev->wol_config = (u8)QED_OV_WOL_DEFAULT;
++	if (qed_mcp_is_init(p_hwfn)) {
++		u32 resp = 0, param = 0;
++		int rc;
++
++		rc = qed_mcp_cmd(p_hwfn, p_ptt,
++				 DRV_MSG_CODE_OS_WOL, 0, &resp, &param);
++		if (rc)
++			return rc;
++		if (resp == FW_MSG_CODE_OS_WOL_SUPPORTED)
++			p_hwfn->hw_info.b_wol_support = QED_WOL_SUPPORT_PME;
++	}
++
+ 	DP_VERBOSE(p_hwfn, (QED_MSG_SP | NETIF_MSG_IFUP),
+-		   "Read configuration from shmem: pause_on_host %02x protocol %02x BW [%02x - %02x] MAC %02x:%02x:%02x:%02x:%02x:%02x wwn port %llx node %llx ovlan %04x\n",
++		   "Read configuration from shmem: pause_on_host %02x protocol %02x BW [%02x - %02x] MAC %02x:%02x:%02x:%02x:%02x:%02x wwn port %llx node %llx ovlan %04x wol %02x\n",
+ 		info->pause_on_host, info->protocol,
+ 		info->bandwidth_min, info->bandwidth_max,
+ 		info->mac[0], info->mac[1], info->mac[2],
+ 		info->mac[3], info->mac[4], info->mac[5],
+-		info->wwn_port, info->wwn_node, info->ovlan);
++		info->wwn_port, info->wwn_node,
++		info->ovlan, (u8)p_hwfn->hw_info.b_wol_support);
+ 
+ 	return 0;
+ }
+@@ -1322,6 +1362,9 @@ int qed_mcp_ov_update_mac(struct qed_hwfn *p_hwfn,
+ 	if (rc)
+ 		DP_ERR(p_hwfn, "Failed to send mac address, rc = %d\n", rc);
+ 
++	/* Store primary MAC for later possible WoL */
++	memcpy(p_hwfn->cdev->wol_mac, mac, ETH_ALEN);
++
+ 	return rc;
+ }
+ 
+@@ -1332,6 +1375,12 @@ int qed_mcp_ov_update_wol(struct qed_hwfn *p_hwfn,
+ 	u32 drv_mb_param;
+ 	int rc;
+ 
++	if (p_hwfn->hw_info.b_wol_support == QED_WOL_SUPPORT_NONE) {
++		DP_VERBOSE(p_hwfn, QED_MSG_SP,
++			   "Can't change WoL configuration when WoL isn't supported\n");
 +		return -EINVAL;
 +	}
 +
-+	/* Iterate over images and validate CRC */
-+	for (i = 0; i < num_images; i++) {
-+		/* This mailbox returns information about the image required for
-+		 * reading it.
-+		 */
-+		rc = qed_mcp_bist_nvm_test_get_image_att(p_hwfn, p_ptt,
-+							 &image_att, i);
-+		if (rc) {
-+			DP_ERR(p_hwfn,
-+			       "Failed getting image index %d attributes\n",
-+			       i);
-+			goto err0;
-+		}
-+
-+		/* After MFW crash dump is collected - the image's CRC stops
-+		 * being valid.
-+		 */
-+		if (image_att.image_type == NVM_TYPE_MDUMP)
-+			continue;
-+
-+		DP_VERBOSE(p_hwfn, QED_MSG_SP, "image index %d, size %x\n",
-+			   i, image_att.len);
-+
-+		/* Allocate a buffer for holding the nvram image */
-+		buf = kzalloc(image_att.len, GFP_KERNEL);
-+		if (!buf) {
-+			rc = -ENOMEM;
-+			goto err0;
-+		}
-+
-+		/* Read image into buffer */
-+		rc = qed_mcp_nvm_read(p_hwfn->cdev, image_att.nvm_start_addr,
-+				      buf, image_att.len);
-+		if (rc) {
-+			DP_ERR(p_hwfn,
-+			       "Failed reading image index %d from nvm.\n", i);
-+			goto err1;
-+		}
-+
-+		/* Convert the buffer into big-endian format (excluding the
-+		 * closing 4 bytes of CRC).
-+		 */
-+		for (j = 0; j < image_att.len - 4; j += 4) {
-+			val = cpu_to_be32(*(u32 *)&buf[j]);
-+			*(u32 *)&buf[j] = (__force u32)val;
-+		}
-+
-+		/* Calc CRC for the "actual" image buffer, i.e. not including
-+		 * the last 4 CRC bytes.
-+		 */
-+		nvm_crc = *(u32 *)(buf + image_att.len - 4);
-+		calc_crc = crc32(0xffffffff, buf, image_att.len - 4);
-+		calc_crc = (__force u32)~cpu_to_be32(calc_crc);
-+		DP_VERBOSE(p_hwfn, QED_MSG_SP,
-+			   "nvm crc 0x%x, calc_crc 0x%x\n", nvm_crc, calc_crc);
-+
-+		if (calc_crc != nvm_crc) {
-+			rc = -EINVAL;
-+			goto err1;
-+		}
-+
-+		/* Done with this image; Free to prevent double release
-+		 * on subsequent failure.
-+		 */
-+		kfree(buf);
-+		buf = NULL;
-+	}
-+
-+	qed_ptt_release(p_hwfn, p_ptt);
-+	return 0;
-+
-+err1:
-+	kfree(buf);
-+err0:
-+	qed_ptt_release(p_hwfn, p_ptt);
-+	return rc;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_selftest.h b/drivers/net/ethernet/qlogic/qed/qed_selftest.h
-index 50eb0b49..739ddb7 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_selftest.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_selftest.h
-@@ -37,4 +37,14 @@
-  * @return int
-  */
- int qed_selftest_clock(struct qed_dev *cdev);
-+
-+/**
-+ * @brief qed_selftest_nvram - Perform nvram test
-+ *
-+ * @param cdev
-+ *
-+ * @return int
-+ */
-+int qed_selftest_nvram(struct qed_dev *cdev);
-+
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 3e477734..fa658df 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -157,6 +157,7 @@ enum qede_ethtool_tests {
- 	QEDE_ETHTOOL_MEMORY_TEST,
- 	QEDE_ETHTOOL_REGISTER_TEST,
- 	QEDE_ETHTOOL_CLOCK_TEST,
-+	QEDE_ETHTOOL_NVRAM_TEST,
- 	QEDE_ETHTOOL_TEST_MAX
- };
+ 	switch (wol) {
+ 	case QED_OV_WOL_DEFAULT:
+ 		drv_mb_param = DRV_MB_PARAM_WOL_DEFAULT;
+@@ -1352,6 +1401,9 @@ int qed_mcp_ov_update_wol(struct qed_hwfn *p_hwfn,
+ 	if (rc)
+ 		DP_ERR(p_hwfn, "Failed to send wol mode, rc = %d\n", rc);
  
-@@ -166,6 +167,7 @@ enum qede_ethtool_tests {
- 	"Memory (online)\t\t",
- 	"Register (online)\t",
- 	"Clock (online)\t\t",
-+	"Nvram (online)\t\t",
- };
- 
- static void qede_get_strings_stats(struct qede_dev *edev, u8 *buf)
-@@ -1363,6 +1365,11 @@ static void qede_self_test(struct net_device *dev,
- 		buf[QEDE_ETHTOOL_CLOCK_TEST] = 1;
- 		etest->flags |= ETH_TEST_FL_FAILED;
- 	}
++	/* Store the WoL update for a future unload */
++	p_hwfn->cdev->wol_config = (u8)wol;
 +
-+	if (edev->ops->common->selftest->selftest_nvram(edev->cdev)) {
-+		buf[QEDE_ETHTOOL_NVRAM_TEST] = 1;
-+		etest->flags |= ETH_TEST_FL_FAILED;
-+	}
+ 	return rc;
  }
  
- static int qede_set_tunable(struct net_device *dev,
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index 634ae6f..696d22d 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -401,6 +401,15 @@ struct qed_selftest_ops {
-  * @return 0 on success, error otherwise.
-  */
- 	int (*selftest_clock)(struct qed_dev *cdev);
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 9135b9d..39e5a29 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -193,6 +193,8 @@ struct qede_dev {
+ 	u16				vxlan_dst_port;
+ 	u16				geneve_dst_port;
+ 
++	bool wol_enabled;
 +
-+/**
-+ * @brief selftest_nvram - Perform nvram test
-+ *
-+ * @param cdev
-+ *
-+ * @return 0 on success, error otherwise.
-+ */
-+	int (*selftest_nvram) (struct qed_dev *cdev);
+ 	struct qede_rdma_dev		rdma_info;
  };
  
- struct qed_common_ops {
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index fa658df..42d9739 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -483,6 +483,45 @@ static void qede_get_drvinfo(struct net_device *ndev,
+ 	strlcpy(info->bus_info, pci_name(edev->pdev), sizeof(info->bus_info));
+ }
+ 
++static void qede_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++
++	if (edev->dev_info.common.wol_support) {
++		wol->supported = WAKE_MAGIC;
++		wol->wolopts = edev->wol_enabled ? WAKE_MAGIC : 0;
++	}
++}
++
++static int qede_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++	bool wol_requested;
++	int rc;
++
++	if (wol->wolopts & ~WAKE_MAGIC) {
++		DP_INFO(edev,
++			"Can't support WoL options other than magic-packet\n");
++		return -EINVAL;
++	}
++
++	wol_requested = !!(wol->wolopts & WAKE_MAGIC);
++	if (wol_requested == edev->wol_enabled)
++		return 0;
++
++	/* Need to actually change configuration */
++	if (!edev->dev_info.common.wol_support) {
++		DP_INFO(edev, "Device doesn't support WoL\n");
++		return -EINVAL;
++	}
++
++	rc = edev->ops->common->update_wol(edev->cdev, wol_requested);
++	if (!rc)
++		edev->wol_enabled = wol_requested;
++
++	return rc;
++}
++
+ static u32 qede_get_msglevel(struct net_device *ndev)
+ {
+ 	struct qede_dev *edev = netdev_priv(ndev);
+@@ -1420,6 +1459,8 @@ static int qede_get_tunable(struct net_device *dev,
+ 	.get_drvinfo = qede_get_drvinfo,
+ 	.get_regs_len = qede_get_regs_len,
+ 	.get_regs = qede_get_regs,
++	.get_wol = qede_get_wol,
++	.set_wol = qede_set_wol,
+ 	.get_msglevel = qede_get_msglevel,
+ 	.set_msglevel = qede_set_msglevel,
+ 	.nway_reset = qede_nway_reset,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 5cded8f..e25168a 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -95,6 +95,7 @@ enum qede_pci_private {
+ #define TX_TIMEOUT		(5 * HZ)
+ 
+ static void qede_remove(struct pci_dev *pdev);
++static void qede_shutdown(struct pci_dev *pdev);
+ static int qede_alloc_rx_buffer(struct qede_dev *edev,
+ 				struct qede_rx_queue *rxq);
+ static void qede_link_update(void *dev, struct qed_link_output *link);
+@@ -166,6 +167,7 @@ static int qede_sriov_configure(struct pci_dev *pdev, int num_vfs_param)
+ 	.id_table = qede_pci_tbl,
+ 	.probe = qede_probe,
+ 	.remove = qede_remove,
++	.shutdown = qede_shutdown,
+ #ifdef CONFIG_QED_SRIOV
+ 	.sriov_configure = qede_sriov_configure,
+ #endif
+@@ -2706,6 +2708,8 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
+ 
+ 	/* Use global ops since we've freed edev */
+ 	qed_ops->common->slowpath_stop(cdev);
++	if (system_state == SYSTEM_POWER_OFF)
++		return;
+ 	qed_ops->common->remove(cdev);
+ 
+ 	dev_info(&pdev->dev, "Ending qede_remove successfully\n");
+@@ -2716,6 +2720,11 @@ static void qede_remove(struct pci_dev *pdev)
+ 	__qede_remove(pdev, QEDE_REMOVE_NORMAL);
+ }
+ 
++static void qede_shutdown(struct pci_dev *pdev)
++{
++	__qede_remove(pdev, QEDE_REMOVE_NORMAL);
++}
++
+ /* -------------------------------------------------------------------------
+  * START OF LOAD / UNLOAD
+  * -------------------------------------------------------------------------
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 696d22d..57a5f44 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -267,6 +267,8 @@ struct qed_dev_info {
+ 	bool		tx_switching;
+ 	bool		rdma_supported;
+ 	u16		mtu;
++
++	bool wol_support;
+ };
+ 
+ enum qed_sb_type {
+@@ -590,6 +592,14 @@ struct qed_common_ops {
+  *
+  */
+ 	int (*update_mtu)(struct qed_dev *cdev, u16 mtu);
++
++/**
++ * @brief update_wol - update of changes in the WoL configuration
++ *
++ * @param cdev
++ * @param enabled - true iff WoL should be enabled.
++ */
++	int (*update_wol) (struct qed_dev *cdev, bool enabled);
+ };
+ 
+ #define MASK_FIELD(_name, _value) \
 -- 
 1.9.3
