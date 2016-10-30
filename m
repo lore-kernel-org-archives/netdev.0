@@ -1,54 +1,35 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] sctp: return back transport in __sctp_rcv_init_lookup
-Date: Mon, 31 Oct 2016 00:42:35 +0800
-Message-ID: <8d72a86988a2c16c74c45c52dafbf2bbbe9c3b4d.1477845755.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] mlx4 XDP TX refactor
+Date: Sun, 30 Oct 2016 12:44:40 -0400 (EDT)
+Message-ID: <20161030.124440.1962738096545317259.davem@davemloft.net>
+References: <1477579924-32737-1-git-send-email-tariqt@mellanox.com>
+        <0773c58c-293d-38be-9844-e8f92d135aec@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tariqt@mellanox.com, netdev@vger.kernel.org, eranbe@mellanox.com
+To: ttoukan.linux@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33999 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757116AbcJ3Qml (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:42:41 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:33290 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932604AbcJ3Qoo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:44:44 -0400
+In-Reply-To: <0773c58c-293d-38be-9844-e8f92d135aec@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prior to this patch, it used a local variable to save the transport that is
-looked up by __sctp_lookup_association(), and didn't return it back. But in
-sctp_rcv, it is used to initialize chunk->transport. So when hitting this,
-even if it found the transport, it was still initializing chunk->transport
-with null instead.
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Date: Sun, 30 Oct 2016 18:21:26 +0200
 
-This patch is to return the transport back through transport pointer
-that is from __sctp_rcv_lookup_harder().
+> Hi Dave,
+> 
+> This series makes Brenden's fix unneeded:
+> 958b3d396d7f ("net/mlx4_en: fixup xdp tx irq to match rx")
+> 
+> The fix got into net, but yet to be in net-next.
+> 
+> Should I wait with this series and send a re-spin, with a revert of
+> the fix, once it gets into net-next?
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/input.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index a2ea1d1..8e0bc58 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -1021,7 +1021,6 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
- 	struct sctphdr *sh = sctp_hdr(skb);
- 	union sctp_params params;
- 	sctp_init_chunk_t *init;
--	struct sctp_transport *transport;
- 	struct sctp_af *af;
- 
- 	/*
-@@ -1052,7 +1051,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
- 
- 		af->from_addr_param(paddr, params.addr, sh->source, 0);
- 
--		asoc = __sctp_lookup_association(net, laddr, paddr, &transport);
-+		asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
- 		if (asoc)
- 			return asoc;
- 	}
--- 
-2.1.0
+I'm working on merging net into net-next right now, once that is
+pushed out you can respin.
