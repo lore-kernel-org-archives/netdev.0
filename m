@@ -1,70 +1,108 @@
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
-Date: Sun, 30 Oct 2016 12:05:31 +0100
-Message-ID: <1477825531.980.9.camel@molgen.mpg.de>
-References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
-         <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
-         <20161026120021.GA4402@x1>
-         <f055c961-58ca-ea81-46d8-610fa055cce8@molgen.mpg.de>
-         <20161029025538.GA4099@x1>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, dvteam@molgen.mpg.de
-To: Baoquan He <bhe@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 2/4] route: Set lwtstate for local traffic and cached input dsts
+Date: Sun, 30 Oct 2016 12:58:03 +0100
+Message-ID: <95388adeb3a4c6bdb08971b3e979aa8ef2f296e2.1477827877.git.tgraf@suug.ch>
+References: <cover.1477827877.git.tgraf@suug.ch>
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        tom@herbertland.com, netdev@vger.kernel.org,
+        roopa@cumulusnetworks.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.molgen.mpg.de ([141.14.17.9]:43609 "EHLO mx1.molgen.mpg.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752401AbcJ3LFf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Oct 2016 07:05:35 -0400
-In-Reply-To: <20161029025538.GA4099@x1>
+Received: from merlin.infradead.org ([205.233.59.134]:50734 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753776AbcJ3L6S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 07:58:18 -0400
+In-Reply-To: <cover.1477827877.git.tgraf@suug.ch>
+In-Reply-To: <cover.1477827877.git.tgraf@suug.ch>
+References: <cover.1477827877.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Baoquan,
+A route on the output path hitting a RTN_LOCAL route will keep the dst
+associated on its way through the loopback device. On the receive path,
+the dst_input() call will thus invoke the input handler of the route
+created in the output path. Thus, lwt redirection for input must be done
+for dsts allocated in the otuput path as well.
 
+Also, if a route is cached in the input path, the allocated dst should
+respect lwtunnel configuration on the nexthop as well.
 
-Am Samstag, den 29.10.2016, 10:55 +0800 schrieb Baoquan He:
-> On 10/27/16 at 03:21pm, Paul Menzel wrote:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/ipv4/route.c | 39 ++++++++++++++++++++++++++-------------
+ 1 file changed, 26 insertions(+), 13 deletions(-)
 
-> > > > Baoquan, could you please fix this regression. My suggestion is, that you
-> > > > add the old code back, but check if the firmware has been loaded. If it
-> > > > hasn’t, load it again.
-> > > > 
-> > > > That way, people can update their Linux kernel, and it continues working
-> > > > without changing the initramfs, or anything else.
-> > > 
-> > > I saw your mail but I am also not familiar with bnx2 driver. As the
-> > > commit log says I just tried to make bnx2 driver reset itself earlier.
-> > > 
-> > > So you did a git bisect and found this commit caused the regression,
-> > > right? If yes, and network developers have no action, I will look into
-> > > the code and see if I have idea to fix it.
-> > 
-> > Well, I looked through the commits and found that one, which would explain
-> > the changed behavior.
-> > 
-> > To be sure, and to follow your request, I took Linux 4.8.4 and reverted your
-> > commit (attached). Then I deleted the firmware again from the initramfs, and
-> > rebooted. The devices showed up just fine as before.
-> > 
-> > So to summarize, the commit is indeed the culprit.
-
-> Sorry for this.
-> 
-> Could you tell the steps to reproduce? I will find a machine with bnx2
-> NIC and check if there's other ways.
-
-Well, delete the bnx2 firmware files from the initramfs, and start the
-system.
-
-Did you read my proposal, to try to load the firmware twice, that means,
-basically revert only the deleted lines of your commit, and add an
-additional check?
-
-
-Kind regards,
-
-Paul
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 7da886e..44f5403 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1596,6 +1596,19 @@ static void ip_del_fnhe(struct fib_nh *nh, __be32 daddr)
+ 	spin_unlock_bh(&fnhe_lock);
+ }
+ 
++static void set_lwt_redirect(struct rtable *rth)
++{
++	if (lwtunnel_output_redirect(rth->dst.lwtstate)) {
++		rth->dst.lwtstate->orig_output = rth->dst.output;
++		rth->dst.output = lwtunnel_output;
++	}
++
++	if (lwtunnel_input_redirect(rth->dst.lwtstate)) {
++		rth->dst.lwtstate->orig_input = rth->dst.input;
++		rth->dst.input = lwtunnel_input;
++	}
++}
++
+ /* called in rcu_read_lock() section */
+ static int __mkroute_input(struct sk_buff *skb,
+ 			   const struct fib_result *res,
+@@ -1685,14 +1698,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->dst.input = ip_forward;
+ 
+ 	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
+-	if (lwtunnel_output_redirect(rth->dst.lwtstate)) {
+-		rth->dst.lwtstate->orig_output = rth->dst.output;
+-		rth->dst.output = lwtunnel_output;
+-	}
+-	if (lwtunnel_input_redirect(rth->dst.lwtstate)) {
+-		rth->dst.lwtstate->orig_input = rth->dst.input;
+-		rth->dst.input = lwtunnel_input;
+-	}
++	set_lwt_redirect(rth);
+ 	skb_dst_set(skb, &rth->dst);
+ out:
+ 	err = 0;
+@@ -1919,8 +1925,18 @@ out:	return err;
+ 		rth->dst.error= -err;
+ 		rth->rt_flags 	&= ~RTCF_LOCAL;
+ 	}
++
+ 	if (do_cache) {
+-		if (unlikely(!rt_cache_route(&FIB_RES_NH(res), rth))) {
++		struct fib_nh *nh = &FIB_RES_NH(res);
++
++		rth->dst.lwtstate = lwtstate_get(nh->nh_lwtstate);
++		if (lwtunnel_input_redirect(rth->dst.lwtstate)) {
++			WARN_ON(rth->dst.input == lwtunnel_input);
++			rth->dst.lwtstate->orig_input = rth->dst.input;
++			rth->dst.input = lwtunnel_input;
++		}
++
++		if (unlikely(!rt_cache_route(nh, rth))) {
+ 			rth->dst.flags |= DST_NOCACHE;
+ 			rt_add_uncached_list(rth);
+ 		}
+@@ -2138,10 +2154,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 	}
+ 
+ 	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0);
+-	if (lwtunnel_output_redirect(rth->dst.lwtstate)) {
+-		rth->dst.lwtstate->orig_output = rth->dst.output;
+-		rth->dst.output = lwtunnel_output;
+-	}
++	set_lwt_redirect(rth);
+ 
+ 	return rth;
+ }
+-- 
+2.7.4
