@@ -1,76 +1,835 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [net-next PATCH 5/7] stmmac: dwmac-sti: move clk_prepare_enable out of init and add error handling
-Date: Sun, 30 Oct 2016 21:05:05 +0100
-Message-ID: <20161030200507.851-6-manabian@gmail.com>
-References: <20161030200507.851-1-manabian@gmail.com>
-Cc: Joachim Eastwood <manabian@gmail.com>, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 3/4] bpf: BPF for lightweight tunnel encapsulation
+Date: Sun, 30 Oct 2016 13:34:41 -0700
+Message-ID: <CALx6S35PMvoMZ-L0bC4R=Q9qw=V5N7JY_Xbit0BffFccH0nMgw@mail.gmail.com>
+References: <cover.1477827877.git.tgraf@suug.ch> <2ab47e198828261438e8762ef484a6023481a756.1477827877.git.tgraf@suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        roopa <roopa@cumulusnetworks.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36445 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757326AbcJ3UGi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 16:06:38 -0400
-Received: by mail-lf0-f65.google.com with SMTP id o20so433780lfg.3
-        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 13:06:38 -0700 (PDT)
-In-Reply-To: <20161030200507.851-1-manabian@gmail.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:36153 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752707AbcJ3Uen (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 16:34:43 -0400
+Received: by mail-qk0-f194.google.com with SMTP id z190so8593032qkc.3
+        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 13:34:42 -0700 (PDT)
+In-Reply-To: <2ab47e198828261438e8762ef484a6023481a756.1477827877.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add clock error handling to probe and in the process move clock enabling
-out of sti_dwmac_init() to make this easier.
+On Sun, Oct 30, 2016 at 4:58 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> Register two new BPF prog types BPF_PROG_TYPE_LWT_IN and
+> BPF_PROG_TYPE_LWT_OUT which are invoked if a route contains a
+> LWT redirection of type LWTUNNEL_ENCAP_BPF.
+>
+> The separate program types are required because manipulation of
+> packet data is only allowed on the output and transmit path as
+> the subsequent dst_input() call path assumes an IP header
+> validated by ip_rcv(). The BPF programs will be handed an skb
+> with the L3 header attached and may return one of the following
+> return codes:
+>
+>  BPF_OK - Continue routing as per nexthop
+>  BPF_DROP - Drop skb and return EPERM
+>  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
+>                 (Only valid on lwtunnel_xmit() hook)
+>
+> The return codes are binary compatible with their TC_ACT_
+> relatives to ease compatibility.
+>
+> A new helper bpf_skb_push() is added which allows to preprend an
+> L2 header in front of the skb, extend the existing L3 header, or
+> both. This allows to address a wide range of issues:
+>  - Optimize L2 header construction when L2 information is always
+>    static to avoid ARP/NDisc lookup.
+>  - Extend IP header to add additional IP options.
+>  - Perform simple encapsulation where offload is of no concern.
+>    (The existing funtionality to attach a tunnel key to the skb
+>     and redirect to a tunnel net_device to allow for offload
+>     continues to work obviously).
+>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+>  include/linux/filter.h        |   2 +-
+>  include/uapi/linux/bpf.h      |  31 +++-
+>  include/uapi/linux/lwtunnel.h |  21 +++
+>  kernel/bpf/verifier.c         |  16 +-
+>  net/core/Makefile             |   2 +-
+>  net/core/filter.c             | 148 ++++++++++++++++-
+>  net/core/lwt_bpf.c            | 365 ++++++++++++++++++++++++++++++++++++++++++
+>  net/core/lwtunnel.c           |   1 +
+>  8 files changed, 579 insertions(+), 7 deletions(-)
+>  create mode 100644 net/core/lwt_bpf.c
+>
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 1f09c52..aad7f81 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -438,7 +438,7 @@ struct xdp_buff {
+>  };
+>
+>  /* compute the linear packet data range [data, data_end) which
+> - * will be accessed by cls_bpf and act_bpf programs
+> + * will be accessed by cls_bpf, act_bpf and lwt programs
+>   */
+>  static inline void bpf_compute_data_end(struct sk_buff *skb)
+>  {
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index e2f38e0..2ebaa3c 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -96,6 +96,9 @@ enum bpf_prog_type {
+>         BPF_PROG_TYPE_TRACEPOINT,
+>         BPF_PROG_TYPE_XDP,
+>         BPF_PROG_TYPE_PERF_EVENT,
+> +       BPF_PROG_TYPE_LWT_IN,
+> +       BPF_PROG_TYPE_LWT_OUT,
+> +       BPF_PROG_TYPE_LWT_XMIT,
+>  };
+>
+>  #define BPF_PSEUDO_MAP_FD      1
+> @@ -383,6 +386,16 @@ union bpf_attr {
+>   *
+>   * int bpf_get_numa_node_id()
+>   *     Return: Id of current NUMA node.
+> + *
+> + * int bpf_skb_push()
+> + *     Add room to beginning of skb and adjusts MAC header offset accordingly.
+> + *     Extends/reallocaes for needed skb headeroom automatically.
+> + *     May change skb data pointer and will thus invalidate any check done
+> + *     for direct packet access.
+> + *     @skb: pointer to skb
+> + *     @len: length of header to be pushed in front
+> + *     @flags: Flags (unused for now)
+> + *     Return: 0 on success or negative error
+>   */
+>  #define __BPF_FUNC_MAPPER(FN)          \
+>         FN(unspec),                     \
+> @@ -427,7 +440,8 @@ union bpf_attr {
+>         FN(skb_pull_data),              \
+>         FN(csum_update),                \
+>         FN(set_hash_invalid),           \
+> -       FN(get_numa_node_id),
+> +       FN(get_numa_node_id),           \
+> +       FN(skb_push),
+>
+>  /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+>   * function eBPF program intends to call
+> @@ -511,6 +525,21 @@ struct bpf_tunnel_key {
+>         __u32 tunnel_label;
+>  };
+>
+> +/* Generic BPF return codes which all BPF program types may support.
+> + * The values are binary compatible with their TC_ACT_* counter-part to
+> + * provide backwards compatibility with existing SCHED_CLS and SCHED_ACT
+> + * programs.
+> + *
+> + * XDP is handled seprately, see XDP_*.
+> + */
+> +enum bpf_ret_code {
+> +       BPF_OK = 0,
+> +       /* 1 reserved */
+> +       BPF_DROP = 2,
+> +       /* 3-6 reserved */
+> +       BPF_REDIRECT = 7,
+> +};
+> +
+>  /* User return codes for XDP prog type.
+>   * A valid XDP program must return one of these defined values. All other
+>   * return codes are reserved for future use. Unknown return codes will result
+> diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
+> index a478fe8..9354d997 100644
+> --- a/include/uapi/linux/lwtunnel.h
+> +++ b/include/uapi/linux/lwtunnel.h
+> @@ -9,6 +9,7 @@ enum lwtunnel_encap_types {
+>         LWTUNNEL_ENCAP_IP,
+>         LWTUNNEL_ENCAP_ILA,
+>         LWTUNNEL_ENCAP_IP6,
+> +       LWTUNNEL_ENCAP_BPF,
+>         __LWTUNNEL_ENCAP_MAX,
+>  };
+>
+> @@ -42,4 +43,24 @@ enum lwtunnel_ip6_t {
+>
+>  #define LWTUNNEL_IP6_MAX (__LWTUNNEL_IP6_MAX - 1)
+>
+> +enum {
+> +       LWT_BPF_PROG_UNSPEC,
+> +       LWT_BPF_PROG_FD,
+> +       LWT_BPF_PROG_NAME,
+> +       __LWT_BPF_PROG_MAX,
+> +};
+> +
+> +#define LWT_BPF_PROG_MAX (__LWT_BPF_PROG_MAX - 1)
+> +
+> +enum {
+> +       LWT_BPF_UNSPEC,
+> +       LWT_BPF_IN,
+> +       LWT_BPF_OUT,
+> +       LWT_BPF_XMIT,
+> +       __LWT_BPF_MAX,
+> +};
+> +
+> +#define LWT_BPF_MAX (__LWT_BPF_MAX - 1)
+> +
+> +
+>  #endif /* _UAPI_LWTUNNEL_H_ */
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 9002575..519b58e 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -633,12 +633,21 @@ static int check_map_access(struct bpf_verifier_env *env, u32 regno, int off,
+>  #define MAX_PACKET_OFF 0xffff
+>
+>  static bool may_access_direct_pkt_data(struct bpf_verifier_env *env,
+> -                                      const struct bpf_call_arg_meta *meta)
+> +                                      const struct bpf_call_arg_meta *meta,
+> +                                      enum bpf_access_type t)
+>  {
+>         switch (env->prog->type) {
+> +       case BPF_PROG_TYPE_LWT_IN:
+> +               /* dst_input() can't write for now, orig_input may depend on
+> +                * IP header parsed by ip_rcv().
+> +                */
+> +               if (t == BPF_WRITE)
+> +                       return false;
+>         case BPF_PROG_TYPE_SCHED_CLS:
+>         case BPF_PROG_TYPE_SCHED_ACT:
+>         case BPF_PROG_TYPE_XDP:
+> +       case BPF_PROG_TYPE_LWT_OUT:
+> +       case BPF_PROG_TYPE_LWT_XMIT:
+>                 if (meta)
+>                         return meta->pkt_access;
+>
+> @@ -837,7 +846,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
+>                         err = check_stack_read(state, off, size, value_regno);
+>                 }
+>         } else if (state->regs[regno].type == PTR_TO_PACKET) {
+> -               if (t == BPF_WRITE && !may_access_direct_pkt_data(env, NULL)) {
+> +               if (t == BPF_WRITE && !may_access_direct_pkt_data(env, NULL, t)) {
+>                         verbose("cannot write into packet\n");
+>                         return -EACCES;
+>                 }
+> @@ -970,7 +979,8 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 regno,
+>                 return 0;
+>         }
+>
+> -       if (type == PTR_TO_PACKET && !may_access_direct_pkt_data(env, meta)) {
+> +       if (type == PTR_TO_PACKET &&
+> +           !may_access_direct_pkt_data(env, meta, BPF_READ)) {
+>                 verbose("helper access to the packet is not allowed\n");
+>                 return -EACCES;
+>         }
+> diff --git a/net/core/Makefile b/net/core/Makefile
+> index d6508c2..a675fd3 100644
+> --- a/net/core/Makefile
+> +++ b/net/core/Makefile
+> @@ -23,7 +23,7 @@ obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
+>  obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
+>  obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
+>  obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
+> -obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
+> +obj-$(CONFIG_LWTUNNEL) += lwtunnel.o lwt_bpf.o
+>  obj-$(CONFIG_DST_CACHE) += dst_cache.o
+>  obj-$(CONFIG_HWBM) += hwbm.o
+>  obj-$(CONFIG_NET_DEVLINK) += devlink.o
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index cd9e2ba..325a9d8 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2138,6 +2138,43 @@ static const struct bpf_func_proto bpf_skb_change_tail_proto = {
+>         .arg3_type      = ARG_ANYTHING,
+>  };
+>
+> +BPF_CALL_3(bpf_skb_push, struct sk_buff *, skb, __u32, len, u64, flags)
+> +{
+> +       u32 new_len = skb->len + len;
+> +
+> +       /* restrict max skb size and check for overflow */
+> +       if (new_len > __bpf_skb_max_len(skb) || new_len < skb->len)
+> +               return -ERANGE;
+> +
+> +       if (flags)
+> +               return -EINVAL;
+> +
+> +       if (len > 0) {
+> +               int ret;
+> +
+> +               ret = skb_cow(skb, len);
+> +               if (unlikely(ret < 0))
+> +                       return ret;
+> +
+> +               __skb_push(skb, len);
+> +               memset(skb->data, 0, len);
+> +       }
+> +
+> +       skb_reset_mac_header(skb);
+> +
+> +       bpf_compute_data_end(skb);
+> +       return 0;
+> +}
+> +
+> +static const struct bpf_func_proto bpf_skb_push_proto = {
+> +       .func           = bpf_skb_push,
+> +       .gpl_only       = false,
+> +       .ret_type       = RET_INTEGER,
+> +       .arg1_type      = ARG_PTR_TO_CTX,
+> +       .arg2_type      = ARG_ANYTHING,
+> +       .arg3_type      = ARG_ANYTHING,
+> +};
+> +
+>  bool bpf_helper_changes_skb_data(void *func)
+>  {
+>         if (func == bpf_skb_vlan_push ||
+> @@ -2147,7 +2184,8 @@ bool bpf_helper_changes_skb_data(void *func)
+>             func == bpf_skb_change_tail ||
+>             func == bpf_skb_pull_data ||
+>             func == bpf_l3_csum_replace ||
+> -           func == bpf_l4_csum_replace)
+> +           func == bpf_l4_csum_replace ||
+> +           func == bpf_skb_push)
+>                 return true;
+>
+>         return false;
+> @@ -2578,6 +2616,75 @@ xdp_func_proto(enum bpf_func_id func_id)
+>         }
+>  }
+>
+> +static const struct bpf_func_proto *
+> +lwt_in_func_proto(enum bpf_func_id func_id)
+> +{
+> +       switch (func_id) {
+> +       case BPF_FUNC_skb_load_bytes:
+> +               return &bpf_skb_load_bytes_proto;
+> +       case BPF_FUNC_skb_pull_data:
+> +               return &bpf_skb_pull_data_proto;
+> +       case BPF_FUNC_csum_diff:
+> +               return &bpf_csum_diff_proto;
+> +       case BPF_FUNC_get_cgroup_classid:
+> +               return &bpf_get_cgroup_classid_proto;
+> +       case BPF_FUNC_get_route_realm:
+> +               return &bpf_get_route_realm_proto;
+> +       case BPF_FUNC_get_hash_recalc:
+> +               return &bpf_get_hash_recalc_proto;
+> +       case BPF_FUNC_perf_event_output:
+> +               return &bpf_skb_event_output_proto;
+> +       case BPF_FUNC_get_smp_processor_id:
+> +               return &bpf_get_smp_processor_id_proto;
+> +       case BPF_FUNC_skb_under_cgroup:
+> +               return &bpf_skb_under_cgroup_proto;
+> +       default:
+> +               return sk_filter_func_proto(func_id);
+> +       }
+> +}
+> +
+> +static const struct bpf_func_proto *
+> +lwt_out_func_proto(enum bpf_func_id func_id)
+> +{
+> +       switch (func_id) {
+> +       case BPF_FUNC_skb_store_bytes:
+> +               return &bpf_skb_store_bytes_proto;
+> +       case BPF_FUNC_csum_update:
+> +               return &bpf_csum_update_proto;
+> +       case BPF_FUNC_l3_csum_replace:
+> +               return &bpf_l3_csum_replace_proto;
+> +       case BPF_FUNC_l4_csum_replace:
+> +               return &bpf_l4_csum_replace_proto;
+> +       case BPF_FUNC_set_hash_invalid:
+> +               return &bpf_set_hash_invalid_proto;
+> +       default:
+> +               return lwt_in_func_proto(func_id);
+> +       }
+> +}
+> +
+> +static const struct bpf_func_proto *
+> +lwt_xmit_func_proto(enum bpf_func_id func_id)
+> +{
+> +       switch (func_id) {
+> +       case BPF_FUNC_skb_get_tunnel_key:
+> +               return &bpf_skb_get_tunnel_key_proto;
+> +       case BPF_FUNC_skb_set_tunnel_key:
+> +               return bpf_get_skb_set_tunnel_proto(func_id);
+> +       case BPF_FUNC_skb_get_tunnel_opt:
+> +               return &bpf_skb_get_tunnel_opt_proto;
+> +       case BPF_FUNC_skb_set_tunnel_opt:
+> +               return bpf_get_skb_set_tunnel_proto(func_id);
+> +       case BPF_FUNC_redirect:
+> +               return &bpf_redirect_proto;
+> +       case BPF_FUNC_skb_change_tail:
+> +               return &bpf_skb_change_tail_proto;
+> +       case BPF_FUNC_skb_push:
+> +               return &bpf_skb_push_proto;
+> +       default:
+> +               return lwt_out_func_proto(func_id);
+> +       }
+> +}
+> +
+>  static bool __is_valid_access(int off, int size, enum bpf_access_type type)
+>  {
+>         if (off < 0 || off >= sizeof(struct __sk_buff))
+> @@ -2940,6 +3047,27 @@ static const struct bpf_verifier_ops xdp_ops = {
+>         .convert_ctx_access     = xdp_convert_ctx_access,
+>  };
+>
+> +static const struct bpf_verifier_ops lwt_in_ops = {
+> +       .get_func_proto         = lwt_in_func_proto,
+> +       .is_valid_access        = tc_cls_act_is_valid_access,
+> +       .convert_ctx_access     = sk_filter_convert_ctx_access,
+> +       .gen_prologue           = tc_cls_act_prologue,
+> +};
+> +
+> +static const struct bpf_verifier_ops lwt_out_ops = {
+> +       .get_func_proto         = lwt_out_func_proto,
+> +       .is_valid_access        = tc_cls_act_is_valid_access,
+> +       .convert_ctx_access     = sk_filter_convert_ctx_access,
+> +       .gen_prologue           = tc_cls_act_prologue,
+> +};
+> +
+> +static const struct bpf_verifier_ops lwt_xmit_ops = {
+> +       .get_func_proto         = lwt_xmit_func_proto,
+> +       .is_valid_access        = tc_cls_act_is_valid_access,
+> +       .convert_ctx_access     = sk_filter_convert_ctx_access,
+> +       .gen_prologue           = tc_cls_act_prologue,
+> +};
+> +
+>  static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+>         .ops    = &sk_filter_ops,
+>         .type   = BPF_PROG_TYPE_SOCKET_FILTER,
+> @@ -2960,12 +3088,30 @@ static struct bpf_prog_type_list xdp_type __read_mostly = {
+>         .type   = BPF_PROG_TYPE_XDP,
+>  };
+>
+> +static struct bpf_prog_type_list lwt_in_type __read_mostly = {
+> +       .ops    = &lwt_in_ops,
+> +       .type   = BPF_PROG_TYPE_LWT_IN,
+> +};
+> +
+> +static struct bpf_prog_type_list lwt_out_type __read_mostly = {
+> +       .ops    = &lwt_out_ops,
+> +       .type   = BPF_PROG_TYPE_LWT_OUT,
+> +};
+> +
+> +static struct bpf_prog_type_list lwt_xmit_type __read_mostly = {
+> +       .ops    = &lwt_xmit_ops,
+> +       .type   = BPF_PROG_TYPE_LWT_XMIT,
+> +};
+> +
+>  static int __init register_sk_filter_ops(void)
+>  {
+>         bpf_register_prog_type(&sk_filter_type);
+>         bpf_register_prog_type(&sched_cls_type);
+>         bpf_register_prog_type(&sched_act_type);
+>         bpf_register_prog_type(&xdp_type);
+> +       bpf_register_prog_type(&lwt_in_type);
+> +       bpf_register_prog_type(&lwt_out_type);
+> +       bpf_register_prog_type(&lwt_xmit_type);
+>
+>         return 0;
+>  }
+> diff --git a/net/core/lwt_bpf.c b/net/core/lwt_bpf.c
+> new file mode 100644
+> index 0000000..8404ac6
+> --- /dev/null
+> +++ b/net/core/lwt_bpf.c
+> @@ -0,0 +1,365 @@
+> +/* Copyright (c) 2016 Thomas Graf <tgraf@tgraf.ch>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of version 2 of the GNU General Public
+> + * License as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful, but
+> + * WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+> + * General Public License for more details.
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/types.h>
+> +#include <linux/bpf.h>
+> +#include <net/lwtunnel.h>
+> +
+> +struct bpf_lwt_prog {
+> +       struct bpf_prog *prog;
+> +       char *name;
+> +};
+> +
+> +struct bpf_lwt {
+> +       struct bpf_lwt_prog in;
+> +       struct bpf_lwt_prog out;
+> +       struct bpf_lwt_prog xmit;
+> +};
+> +
+> +#define MAX_PROG_NAME 256
+> +
+> +static inline struct bpf_lwt *bpf_lwt_lwtunnel(struct lwtunnel_state *lwt)
+> +{
+> +       return (struct bpf_lwt *)lwt->data;
+> +}
+> +
+> +#define NO_REDIRECT false
+> +#define CAN_REDIRECT true
+> +
+> +static int run_lwt_bpf(struct sk_buff *skb, struct bpf_lwt_prog *lwt,
+> +                      struct dst_entry *dst, bool can_redirect)
+> +{
+> +       int ret;
+> +
+> +       /* Preempt disable is needed to protect per-cpu redirect_info between
+> +        * BPF prog and skb_do_redirect(). The call_rcu in bpf_prog_put() and
+> +        * access to maps strictly require a rcu_read_lock() for protection,
+> +        * mixing with BH RCU lock doesn't work.
+> +        */
+> +       preempt_disable();
+> +       rcu_read_lock();
+> +       bpf_compute_data_end(skb);
+> +       ret = BPF_PROG_RUN(lwt->prog, skb);
+> +       rcu_read_unlock();
+> +
+> +       switch (ret) {
+> +       case BPF_OK:
+> +               break;
+> +
+> +       case BPF_REDIRECT:
+> +               if (!can_redirect) {
+> +                       WARN_ONCE(1, "Illegal redirect return code in prog %s\n",
+> +                                 lwt->name ? : "<unknown>");
+> +                       ret = BPF_OK;
+> +               } else {
+> +                       ret = skb_do_redirect(skb);
+> +                       if (ret == 0)
+> +                               ret = BPF_REDIRECT;
+> +               }
+> +               break;
+> +
+> +       case BPF_DROP:
+> +               kfree_skb(skb);
+> +               ret = -EPERM;
+> +               break;
+> +
+> +       default:
+> +               WARN_ONCE(1, "Illegal LWT BPF return value %u, expect packet loss\n",
+> +                         ret);
+> +               kfree_skb(skb);
+> +               ret = -EINVAL;
+> +               break;
+> +       }
+> +
+> +       preempt_enable();
+> +
+> +       return ret;
+> +}
+> +
+> +static int bpf_input(struct sk_buff *skb)
+> +{
+> +       struct dst_entry *dst = skb_dst(skb);
+> +       struct bpf_lwt *bpf;
+> +       int ret;
+> +
+> +       bpf = bpf_lwt_lwtunnel(dst->lwtstate);
+> +       if (bpf->in.prog) {
+> +               ret = run_lwt_bpf(skb, &bpf->in, dst, NO_REDIRECT);
+> +               if (ret < 0)
+> +                       return ret;
+> +       }
+> +
+> +       if (unlikely(!dst->lwtstate->orig_input)) {
+> +               WARN_ONCE(1, "orig_input not set on dst for prog %s\n",
+> +                         bpf->out.name);
+> +               kfree_skb(skb);
+> +               return -EINVAL;
+> +       }
+> +
+> +       return dst->lwtstate->orig_input(skb);
+> +}
+> +
+> +static int bpf_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+> +{
+> +       struct dst_entry *dst = skb_dst(skb);
+> +       struct bpf_lwt *bpf;
+> +       int ret;
+> +
+> +       bpf = bpf_lwt_lwtunnel(dst->lwtstate);
+> +       if (bpf->out.prog) {
+> +               ret = run_lwt_bpf(skb, &bpf->out, dst, NO_REDIRECT);
+> +               if (ret < 0)
+> +                       return ret;
+> +       }
+> +
+> +       if (unlikely(!dst->lwtstate->orig_output)) {
+> +               WARN_ONCE(1, "orig_output not set on dst for prog %s\n",
+> +                         bpf->out.name);
+> +               kfree_skb(skb);
+> +               return -EINVAL;
+> +       }
+> +
+> +       return dst->lwtstate->orig_output(net, sk, skb);
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
+Thomas,
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-index e814b68..aa75a27 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-@@ -237,8 +237,6 @@ static int sti_dwmac_init(struct platform_device *pdev, void *priv)
- 	u32 reg = dwmac->ctrl_reg;
- 	u32 val;
- 
--	clk_prepare_enable(dwmac->clk);
--
- 	if (dwmac->gmac_en)
- 		regmap_update_bits(regmap, reg, EN_MASK, EN);
- 
-@@ -348,11 +346,23 @@ static int sti_dwmac_probe(struct platform_device *pdev)
- 	plat_dat->bsp_priv = dwmac;
- 	plat_dat->fix_mac_speed = data->fix_retime_src;
- 
--	ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
-+	ret = clk_prepare_enable(dwmac->clk);
- 	if (ret)
- 		return ret;
- 
--	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-+	ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
-+	if (ret)
-+		goto disable_clk;
-+
-+	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-+	if (ret)
-+		goto disable_clk;
-+
-+	return 0;
-+
-+disable_clk:
-+	clk_disable_unprepare(dwmac->clk);
-+	return ret;
- }
- 
- static int sti_dwmac_remove(struct platform_device *pdev)
-@@ -381,6 +391,7 @@ static int sti_dwmac_resume(struct device *dev)
- 	struct sti_dwmac *dwmac = get_stmmac_bsp_priv(dev);
- 	struct platform_device *pdev = to_platform_device(dev);
- 
-+	clk_prepare_enable(dwmac->clk);
- 	sti_dwmac_init(pdev, dwmac);
- 
- 	return stmmac_resume(dev);
--- 
-2.10.1
+The BPF program may have changed the destination address so continuing
+with original route in skb may not be appropriate here. This was fixed
+in ila_lwt by calling ip6_route_output and we were able to dst cache
+facility to cache the route to avoid cost of looking it up on every
+packet. Since the kernel  has no insight into what the BPF program
+does to the packet I'd suggest 1) checking if destination address
+changed by BPF and if it did then call route_output to get new route
+2) If the LWT destination is a host route then try to keep a dst
+cache. This would entail checking destination address on return that
+it is the same one as kept in the dst cache.
+
+Tom
+
+> +}
+> +
+> +static int bpf_xmit(struct sk_buff *skb)
+> +{
+> +       struct dst_entry *dst = skb_dst(skb);
+> +       struct bpf_lwt *bpf;
+> +
+> +       bpf = bpf_lwt_lwtunnel(dst->lwtstate);
+> +       if (bpf->xmit.prog) {
+> +               int ret;
+> +
+> +               ret = run_lwt_bpf(skb, &bpf->xmit, dst, CAN_REDIRECT);
+> +               switch (ret) {
+> +               case BPF_OK:
+> +                       return LWTUNNEL_XMIT_CONTINUE;
+> +               case BPF_REDIRECT:
+> +                       return LWTUNNEL_XMIT_DONE;
+> +               default:
+> +                       return ret;
+> +               }
+> +       }
+> +
+> +       return LWTUNNEL_XMIT_CONTINUE;
+> +}
+> +
+> +static void bpf_lwt_prog_destroy(struct bpf_lwt_prog *prog)
+> +{
+> +       if (prog->prog)
+> +               bpf_prog_put(prog->prog);
+> +
+> +       kfree(prog->name);
+> +}
+> +
+> +static void bpf_destroy_state(struct lwtunnel_state *lwt)
+> +{
+> +       struct bpf_lwt *bpf = bpf_lwt_lwtunnel(lwt);
+> +
+> +       bpf_lwt_prog_destroy(&bpf->in);
+> +       bpf_lwt_prog_destroy(&bpf->out);
+> +       bpf_lwt_prog_destroy(&bpf->xmit);
+> +}
+> +
+> +static const struct nla_policy bpf_prog_policy[LWT_BPF_PROG_MAX + 1] = {
+> +       [LWT_BPF_PROG_FD] = { .type = NLA_U32, },
+> +       [LWT_BPF_PROG_NAME] = { .type = NLA_NUL_STRING,
+> +                               .len = MAX_PROG_NAME },
+> +};
+> +
+> +static int bpf_parse_prog(struct nlattr *attr, struct bpf_lwt_prog *prog,
+> +                         enum bpf_prog_type type)
+> +{
+> +       struct nlattr *tb[LWT_BPF_PROG_MAX + 1];
+> +       struct bpf_prog *p;
+> +       int ret;
+> +       u32 fd;
+> +
+> +       ret = nla_parse_nested(tb, LWT_BPF_PROG_MAX, attr, bpf_prog_policy);
+> +       if (ret < 0)
+> +               return ret;
+> +
+> +       if (!tb[LWT_BPF_PROG_FD] || !tb[LWT_BPF_PROG_NAME])
+> +               return -EINVAL;
+> +
+> +       prog->name = nla_memdup(tb[LWT_BPF_PROG_NAME], GFP_KERNEL);
+> +       if (!prog->name)
+> +               return -ENOMEM;
+> +
+> +       fd = nla_get_u32(tb[LWT_BPF_PROG_FD]);
+> +       p = bpf_prog_get_type(fd, type);
+> +       if (IS_ERR(p))
+> +               return PTR_ERR(p);
+> +
+> +       prog->prog = p;
+> +
+> +       return 0;
+> +}
+> +
+> +static const struct nla_policy bpf_nl_policy[LWT_BPF_MAX + 1] = {
+> +       [LWT_BPF_IN]   = { .type = NLA_NESTED, },
+> +       [LWT_BPF_OUT]  = { .type = NLA_NESTED, },
+> +       [LWT_BPF_XMIT] = { .type = NLA_NESTED, },
+> +};
+> +
+> +static int bpf_build_state(struct net_device *dev, struct nlattr *nla,
+> +                          unsigned int family, const void *cfg,
+> +                          struct lwtunnel_state **ts)
+> +{
+> +       struct nlattr *tb[LWT_BPF_MAX + 1];
+> +       struct lwtunnel_state *newts;
+> +       struct bpf_lwt *bpf;
+> +       int ret;
+> +
+> +       ret = nla_parse_nested(tb, LWT_BPF_MAX, nla, bpf_nl_policy);
+> +       if (ret < 0)
+> +               return ret;
+> +
+> +       if (!tb[LWT_BPF_IN] && !tb[LWT_BPF_OUT] && !tb[LWT_BPF_XMIT])
+> +               return -EINVAL;
+> +
+> +       newts = lwtunnel_state_alloc(sizeof(*bpf));
+> +       if (!newts)
+> +               return -ENOMEM;
+> +
+> +       newts->type = LWTUNNEL_ENCAP_BPF;
+> +       bpf = bpf_lwt_lwtunnel(newts);
+> +
+> +       if (tb[LWT_BPF_IN]) {
+> +               ret = bpf_parse_prog(tb[LWT_BPF_IN], &bpf->in,
+> +                                    BPF_PROG_TYPE_LWT_IN);
+> +               if (ret  < 0) {
+> +                       kfree(newts);
+> +                       return ret;
+> +               }
+> +
+> +               newts->flags |= LWTUNNEL_STATE_INPUT_REDIRECT;
+> +       }
+> +
+> +       if (tb[LWT_BPF_OUT]) {
+> +               ret = bpf_parse_prog(tb[LWT_BPF_OUT], &bpf->out,
+> +                                    BPF_PROG_TYPE_LWT_OUT);
+> +               if (ret < 0) {
+> +                       bpf_destroy_state(newts);
+> +                       kfree(newts);
+> +                       return ret;
+> +               }
+> +
+> +               newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT;
+> +       }
+> +
+> +       if (tb[LWT_BPF_XMIT]) {
+> +               ret = bpf_parse_prog(tb[LWT_BPF_XMIT], &bpf->xmit,
+> +                                    BPF_PROG_TYPE_LWT_XMIT);
+> +               if (ret < 0) {
+> +                       bpf_destroy_state(newts);
+> +                       kfree(newts);
+> +                       return ret;
+> +               }
+> +
+> +               newts->flags |= LWTUNNEL_STATE_XMIT_REDIRECT;
+> +       }
+> +
+> +       *ts = newts;
+> +
+> +       return 0;
+> +}
+> +
+> +static int bpf_fill_lwt_prog(struct sk_buff *skb, int attr,
+> +                            struct bpf_lwt_prog *prog)
+> +{
+> +       struct nlattr *nest;
+> +
+> +       if (!prog->prog)
+> +               return 0;
+> +
+> +       nest = nla_nest_start(skb, attr);
+> +       if (!nest)
+> +               return -EMSGSIZE;
+> +
+> +       if (prog->name &&
+> +           nla_put_string(skb, LWT_BPF_PROG_NAME, prog->name))
+> +               return -EMSGSIZE;
+> +
+> +       return nla_nest_end(skb, nest);
+> +}
+> +
+> +static int bpf_fill_encap_info(struct sk_buff *skb, struct lwtunnel_state *lwt)
+> +{
+> +       struct bpf_lwt *bpf = bpf_lwt_lwtunnel(lwt);
+> +
+> +       if (bpf_fill_lwt_prog(skb, LWT_BPF_IN, &bpf->in) < 0 ||
+> +           bpf_fill_lwt_prog(skb, LWT_BPF_OUT, &bpf->out) < 0 ||
+> +           bpf_fill_lwt_prog(skb, LWT_BPF_XMIT, &bpf->xmit) < 0)
+> +               return -EMSGSIZE;
+> +
+> +       return 0;
+> +}
+> +
+> +static int bpf_encap_nlsize(struct lwtunnel_state *lwtstate)
+> +{
+> +       int nest_len = nla_total_size(sizeof(struct nlattr)) +
+> +                      nla_total_size(MAX_PROG_NAME) + /* LWT_BPF_PROG_NAME */
+> +                      0;
+> +
+> +       return nest_len + /* LWT_BPF_IN */
+> +              nest_len + /* LWT_BPF_OUT */
+> +              nest_len + /* LWT_BPF_XMIT */
+> +              0;
+> +}
+> +
+> +int bpf_lwt_prog_cmp(struct bpf_lwt_prog *a, struct bpf_lwt_prog *b)
+> +{
+> +       /* FIXME:
+> +        * The LWT state is currently rebuilt for delete requests which
+> +        * results in a new bpf_prog instance. Comparing names for now.
+> +        */
+> +       if (!a->name && !b->name)
+> +               return 0;
+> +
+> +       if (!a->name || !b->name)
+> +               return 1;
+> +
+> +       return strcmp(a->name, b->name);
+> +}
+> +
+> +static int bpf_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
+> +{
+> +       struct bpf_lwt *a_bpf = bpf_lwt_lwtunnel(a);
+> +       struct bpf_lwt *b_bpf = bpf_lwt_lwtunnel(b);
+> +
+> +       return bpf_lwt_prog_cmp(&a_bpf->in, &b_bpf->in) ||
+> +              bpf_lwt_prog_cmp(&a_bpf->out, &b_bpf->out) ||
+> +              bpf_lwt_prog_cmp(&a_bpf->xmit, &b_bpf->xmit);
+> +}
+> +
+> +static const struct lwtunnel_encap_ops bpf_encap_ops = {
+> +       .build_state    = bpf_build_state,
+> +       .destroy_state  = bpf_destroy_state,
+> +       .input          = bpf_input,
+> +       .output         = bpf_output,
+> +       .xmit           = bpf_xmit,
+> +       .fill_encap     = bpf_fill_encap_info,
+> +       .get_encap_size = bpf_encap_nlsize,
+> +       .cmp_encap      = bpf_encap_cmp,
+> +};
+> +
+> +static int __init bpf_lwt_init(void)
+> +{
+> +       return lwtunnel_encap_add_ops(&bpf_encap_ops, LWTUNNEL_ENCAP_BPF);
+> +}
+> +
+> +subsys_initcall(bpf_lwt_init)
+> diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+> index 88fd642..554d901 100644
+> --- a/net/core/lwtunnel.c
+> +++ b/net/core/lwtunnel.c
+> @@ -39,6 +39,7 @@ static const char *lwtunnel_encap_str(enum lwtunnel_encap_types encap_type)
+>                 return "MPLS";
+>         case LWTUNNEL_ENCAP_ILA:
+>                 return "ILA";
+> +       case LWTUNNEL_ENCAP_BPF:
+>         case LWTUNNEL_ENCAP_IP6:
+>         case LWTUNNEL_ENCAP_IP:
+>         case LWTUNNEL_ENCAP_NONE:
+> --
+> 2.7.4
+>
