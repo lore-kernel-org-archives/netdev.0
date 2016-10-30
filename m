@@ -1,46 +1,50 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next V2 05/15] net/mlx5: Add ConnectX-5 PCIe 4.0 VF device ID
-Date: Sun, 30 Oct 2016 23:21:58 +0200
-Message-ID: <1477862528-4328-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH for-next V2 02/15] net/mlx5: Update struct mlx5_ifc_xrqc_bits
+Date: Sun, 30 Oct 2016 23:21:55 +0200
+Message-ID: <1477862528-4328-3-git-send-email-saeedm@mellanox.com>
 References: <1477862528-4328-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Leon Romanovsky <leonro@mellanox.com>,
         Tal Alon <talal@mellanox.com>,
         Matan Barak <matanb@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
+        Artemy Kovalyov <artemyko@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:60239 "EHLO mellanox.co.il"
-        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1756675AbcJ3VXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Oct 2016 17:23:43 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60251 "EHLO
+        mellanox.co.il" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1756356AbcJ3VXn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 17:23:43 -0400
 In-Reply-To: <1477862528-4328-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the mlx5 driver to support ConnectX-5 PCIe 4.0 VFs, we add the
-device ID "0x101a" to mlx5_core_pci_table.
+From: Artemy Kovalyov <artemyko@mellanox.com>
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Update struct mlx5_ifc_xrqc_bits according to last specification
+
+Signed-off-by: Artemy Kovalyov <artemyko@mellanox.com>
 Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 1 +
- 1 file changed, 1 insertion(+)
+ include/linux/mlx5/mlx5_ifc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index d9c3c70..197e04c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1422,6 +1422,7 @@ static const struct pci_device_id mlx5_core_pci_table[] = {
- 	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5, PCIe 3.0 */
- 	{ PCI_VDEVICE(MELLANOX, 0x1018), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 VF */
- 	{ PCI_VDEVICE(MELLANOX, 0x1019) },			/* ConnectX-5, PCIe 4.0 */
-+	{ PCI_VDEVICE(MELLANOX, 0x101a), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5, PCIe 4.0 VF */
- 	{ 0, }
- };
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 6045d4d..12f72e4 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -2844,7 +2844,7 @@ struct mlx5_ifc_xrqc_bits {
  
+ 	struct mlx5_ifc_tag_matching_topology_context_bits tag_matching_topology_context;
+ 
+-	u8         reserved_at_180[0x200];
++	u8         reserved_at_180[0x880];
+ 
+ 	struct mlx5_ifc_wq_bits wq;
+ };
 -- 
 2.7.4
