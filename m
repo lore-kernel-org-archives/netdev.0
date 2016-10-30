@@ -1,112 +1,83 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: spectrum: Fix incorrect reuse of MID entries
-Date: Sun, 30 Oct 2016 10:09:22 +0100
-Message-ID: <1477818562-30185-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, eladr@mellanox.com, idosch@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35151 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751284AbcJ3JJZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 05:09:25 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 68so7165797wmz.2
-        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 02:09:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers-next 2016-10-30
+Date: Sun, 30 Oct 2016 11:20:46 +0200
+Message-ID: <87insaw5u9.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+Hi Dave,
 
-In the device, a MID entry represents a group of local ports, which can
-later be bound to a MDB entry.
+few fixes for 4.9. I tagged this on the plane over a slow mosh
+connection while travelling to Plumbers so I might have done something
+wrong, please check more carefully than usually. For example I had to
+redo the signed tag because of some whitespace damage.
 
-The lookup of an existing MID entry is currently done using the provided
-MC MAC address and VID, from the Linux bridge. However, this can result
-in an incorrect reuse of the same MID index in different VLAN-unaware
-bridges (same IP MC group and VID 0).
+Please let me know if there are any problems.
 
-Fix this by performing the lookup based on FID instead of VID, which is
-unique across different bridges.
+Kalle
 
-Fixes: 3a49b4fde2a1 ("mlxsw: Adding layer 2 multicast support")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Acked-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h           |  2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 14 +++++++-------
- 2 files changed, 8 insertions(+), 8 deletions(-)
+The following changes since commit 67f0160fe34ec5391a428603b9832c9f99d8f3a1:
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 9b22863..97bbc1d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -115,7 +115,7 @@ struct mlxsw_sp_rif {
- struct mlxsw_sp_mid {
- 	struct list_head list;
- 	unsigned char addr[ETH_ALEN];
--	u16 vid;
-+	u16 fid;
- 	u16 mid;
- 	unsigned int ref_count;
- };
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 5e00c79..1e2c8ec 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -929,12 +929,12 @@ static int mlxsw_sp_port_smid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 mid,
- 
- static struct mlxsw_sp_mid *__mlxsw_sp_mc_get(struct mlxsw_sp *mlxsw_sp,
- 					      const unsigned char *addr,
--					      u16 vid)
-+					      u16 fid)
- {
- 	struct mlxsw_sp_mid *mid;
- 
- 	list_for_each_entry(mid, &mlxsw_sp->br_mids.list, list) {
--		if (ether_addr_equal(mid->addr, addr) && mid->vid == vid)
-+		if (ether_addr_equal(mid->addr, addr) && mid->fid == fid)
- 			return mid;
- 	}
- 	return NULL;
-@@ -942,7 +942,7 @@ static struct mlxsw_sp_mid *__mlxsw_sp_mc_get(struct mlxsw_sp *mlxsw_sp,
- 
- static struct mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
- 						const unsigned char *addr,
--						u16 vid)
-+						u16 fid)
- {
- 	struct mlxsw_sp_mid *mid;
- 	u16 mid_idx;
-@@ -958,7 +958,7 @@ static struct mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
- 
- 	set_bit(mid_idx, mlxsw_sp->br_mids.mapped);
- 	ether_addr_copy(mid->addr, addr);
--	mid->vid = vid;
-+	mid->fid = fid;
- 	mid->mid = mid_idx;
- 	mid->ref_count = 0;
- 	list_add_tail(&mid->list, &mlxsw_sp->br_mids.list);
-@@ -991,9 +991,9 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
- 	if (switchdev_trans_ph_prepare(trans))
- 		return 0;
- 
--	mid = __mlxsw_sp_mc_get(mlxsw_sp, mdb->addr, mdb->vid);
-+	mid = __mlxsw_sp_mc_get(mlxsw_sp, mdb->addr, fid);
- 	if (!mid) {
--		mid = __mlxsw_sp_mc_alloc(mlxsw_sp, mdb->addr, mdb->vid);
-+		mid = __mlxsw_sp_mc_alloc(mlxsw_sp, mdb->addr, fid);
- 		if (!mid) {
- 			netdev_err(dev, "Unable to allocate MC group\n");
- 			return -ENOMEM;
-@@ -1137,7 +1137,7 @@ static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
- 	u16 mid_idx;
- 	int err = 0;
- 
--	mid = __mlxsw_sp_mc_get(mlxsw_sp, mdb->addr, mdb->vid);
-+	mid = __mlxsw_sp_mc_get(mlxsw_sp, mdb->addr, fid);
- 	if (!mid) {
- 		netdev_err(dev, "Unable to remove port from MC DB\n");
- 		return -EINVAL;
--- 
-2.5.5
+  MAINTAINERS: Update qlogic networking drivers (2016-10-26 23:29:12 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-10-30
+
+for you to fetch changes up to d3532ea6ce4ea501e421d130555e59edc2945f99:
+
+  brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap (2016-10-27 18:04:54 +0300)
+
+----------------------------------------------------------------
+wireless-drivers fixes for 4.9
+
+iwlwifi
+
+* some fixes for suspend/resume with unified FW images
+* a fix for a false-positive lockdep report
+* a fix for multi-queue that caused an unnecessary 1 second latency
+* a fix for an ACPI parsing bug that caused a misleading error message
+
+brcmfmac
+
+* fix a variable uninitialised warning in brcmf_cfg80211_start_ap()
+
+----------------------------------------------------------------
+Arnd Bergmann (1):
+      brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
+
+Haim Dreyfuss (1):
+      iwlwifi: mvm: comply with fw_restart mod param on suspend
+
+Johannes Berg (1):
+      iwlwifi: pcie: mark command queue lock with separate lockdep class
+
+Kalle Valo (1):
+      Merge tag 'iwlwifi-for-kalle-2015-10-25' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+Luca Coelho (4):
+      iwlwifi: mvm: use ssize_t for len in iwl_debugfs_mem_read()
+      iwlwifi: mvm: fix d3_test with unified D0/D3 images
+      iwlwifi: pcie: fix SPLC structure parsing
+      iwlwifi: mvm: fix netdetect starting/stopping for unified images
+
+Sara Sharon (1):
+      iwlwifi: mvm: wake the wait queue when the RX sync counter is zero
+
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         |    2 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/d3.c        |   49 +++++++++---
+ drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c   |    4 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |    3 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |    1 +
+ drivers/net/wireless/intel/iwlwifi/mvm/ops.c       |    1 +
+ drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |    3 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/scan.c      |   33 ++++++--
+ drivers/net/wireless/intel/iwlwifi/pcie/drv.c      |   79 ++++++++++++--------
+ drivers/net/wireless/intel/iwlwifi/pcie/tx.c       |    8 ++
+ 10 files changed, 129 insertions(+), 54 deletions(-)
