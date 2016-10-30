@@ -1,79 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/dccp: warning in dccp_feat_clone_sp_val/__might_sleep
-Date: Sun, 30 Oct 2016 06:20:01 -0700
-Message-ID: <1477833601.7065.297.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+z-SAq-YhHarfc94dguyXCJ_tv8n=ZVdLTRsYEy0cK-pQ@mail.gmail.com>
-         <CAM_iQpX_xw35MUyd9aON5U=HmUoRafeoOF+_vSTHGYnrXd-CHg@mail.gmail.com>
-         <CAAeHK+y9ENvGzJEQtRy_5DEzCfhGEYXR5CPpgwXy_FoOtFUf3Q@mail.gmail.com>
-         <1477762981.7065.272.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAeHK+x6+CU+1KJNOpnoyyZoqH7_dcrWFVGU1KrJYVwJSzdxPg@mail.gmail.com>
-         <1477764328.7065.284.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAeHK+z2mqZCsZpPP_hNY2-bt_-WEU9rFmOd=jcWSBmVPDS_rA@mail.gmail.com>
+From: John Heenan <john@zgus.com>
+Subject: Re: [PATCH 2/2] rtl8xxxu: Fix for bogus data used to determine macpower
+Date: Sun, 30 Oct 2016 23:56:59 +1000
+Message-ID: <CAAye0QN0s1S25tDPNWdM6fsVNaO-wLuSy_RoOSoXeuSMeD4oNA@mail.gmail.com>
+References: <cover.1477769750.git.john@zgus.com> <20161030102112.GA5789@cube> <wrfjpomidp1v.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Peter Zijlstra <peterz@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:32965 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751594AbcJ3NUF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 09:20:05 -0400
-In-Reply-To: <CAAeHK+z2mqZCsZpPP_hNY2-bt_-WEU9rFmOd=jcWSBmVPDS_rA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jes Sorensen <Jes.Sorensen@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <wrfjpomidp1v.fsf@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-10-30 at 05:41 +0100, Andrey Konovalov wrote:
-> Sorry, the warning is still there.
-> 
-> I'm not sure adding sched_annotate_sleep() does anything, since it's
-> defined as (in case CONFIG_DEBUG_ATOMIC_SLEEP is not set):
-> # define sched_annotate_sleep() do { } while (0)
+Thanks for your reply.
 
-Thanks again for testing.
+The code was tested on a Cube i9 which has an internal rtl8723bu.
 
-But you do have CONFIG_DEBUG_ATOMIC_SLEEP set, which triggers a check in
-__might_sleep() :
+No other devices were tested.
 
-WARN_ONCE(current->state != TASK_RUNNING && current->task_state_change,
+I am happy to accept in an ideal context hard coding macpower is
+undesirable, the comment is undesirable and it is wrong to assume the
+issue is not unique to the rtl8723bu.
 
-Relevant commit is 00845eb968ead28007338b2bb852b8beef816583
-("sched: don't cause task state changes in nested sleep debugging")
+Your reply is idealistic. What can I do now?  I should of course have
+factored out other untested devices in my patches. The apparent
+concern you have with process over outcome is a useful lesson.
 
-Another relevant commit was 26cabd31259ba43f68026ce3f62b78094124333f
-("sched, net: Clean up sk_wait_event() vs. might_sleep()") 
+We are not in an ideal situation. The comment is of course relevant
+and useful to starting a process to fixing a real bug I do not have
+sufficient information to refine any further for and others do. In the
+circumstances nothing really more can be expected.
 
-Before release_sock() could process the backlog in process context, only
-lock_sock() could trigger the issue, so my fix at that time was commit
-cb7cf8a33ff73cf638481d1edf883d8968f934f8 ("inet: Clean up
-inet_csk_wait_for_connect() vs. might_sleep()")
+My patch cover letter, [PATCH 0/2] provides evidence of a mess with
+regard to determining macpower for the rtl8723bu and what is
+subsequently required. This is important.
 
-I guess we need something else now, because the following :
+The kernel driver code is very poorly documented and there is not a
+single source reference to device documentation. For example macpower
+is noting more than a setting that is true or false according to
+whether a read of a particular register return 0xef or not. Such value
+was never obtained so a full init sequence was never performed.
 
-static int dccp_wait_for_ccid(struct sock *sk, unsigned long delay)
-{
-        DEFINE_WAIT(wait);
-        long remaining;
+It would be helpful if you could provide a link to device references.
+As it is, how am I supposed to revise the patch without relevant
+information?
 
-        prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-        sk->sk_write_pending++;
-        release_sock(sk);
-	...
+My patch code works with the Cube i9, as is, despite a lack of
+adequate information. Before it did not. That is a powerful statement
+
+Have a nice day.
+
+John Heenan
 
 
-can now process the socket backlog in process context from
-release_sock(), so all GFP_KERNEL allocations might barf because of
-TASK_INTERRUPTIBLE being used at that point.
-
-sk_wait_event() probably also needs a fix.
-
-Peter, any idea how this can be done ?
-
-Thanks !
+On 30 October 2016 at 22:00, Jes Sorensen <Jes.Sorensen@redhat.com> wrote:
+> John Heenan <john@zgus.com> writes:
+>> Code tests show data returned by rtl8xxxu_read8(priv, REG_CR), used to set
+>> macpower, is never 0xea. It is only ever 0x01 (first time after modprobe)
+>> using wpa_supplicant and 0x00 thereafter using wpa_supplicant. These results
+>> occurs with 'Fix for authentication failure' [PATCH 1/2] in place.
+>>
+>> Whatever was returned, code tests always showed that at least
+>> rtl8xxxu_init_queue_reserved_page(priv);
+>> is always required. Not called if macpower set to true.
+>>
+>> Please see cover letter, [PATCH 0/2], for more information from tests.
+>>
+>
+> Sorry but this patch is neither serious nor acceptable. First of all,
+> hardcoding macpower like this right after an if statement is plain
+> wrong, second your comments violate all kernel rules.
+>
+> Second, you argue this was tested using code test - on which device? Did
+> you test it on all rtl8xxxu based devices or just rtl8723bu?
+>
+> NACK
+>
+> Jes
