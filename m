@@ -1,83 +1,74 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: pull-request: wireless-drivers-next 2016-10-30
-Date: Sun, 30 Oct 2016 11:20:46 +0200
-Message-ID: <87insaw5u9.fsf@kamboji.qca.qualcomm.com>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH for-next 00/14][PULL request] Mellanox mlx5 core driver
+ updates 2016-10-25
+Date: Sun, 30 Oct 2016 11:59:57 +0200
+Message-ID: <CALzJLG8cN0VUiTHDdkgibObA970UsAP+E7E=DSgY1RKNefSyzA@mail.gmail.com>
+References: <1477407617-20745-1-git-send-email-saeedm@mellanox.com> <20161028.135309.1712496950641242201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161028.135309.1712496950641242201.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Fri, Oct 28, 2016 at 7:53 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>
+> I really disalike pull requests of this form.
+>
+> You add lots of datastructures and helper functions but no actual
+> users of these facilities to the driver.
+>
+> Do this instead:
+>
+>         1) Add TSAR infrastructure
+>         2) Add use of TSAR facilities to the driver
+>
+> That's one pull request.
+>
+> I don't care if this is hard, or if there are entanglements with
+> Infiniband or whatever, you must submit changes in this manner.
+>
 
-few fixes for 4.9. I tagged this on the plane over a slow mosh
-connection while travelling to Plumbers so I might have done something
-wrong, please check more carefully than usually. For example I had to
-redo the signed tag because of some whitespace damage.
+It is not hard, it is just not right,  we have lots of IB and ETH
+features that we would like to submit in the same kernel cycle,
+with your suggestion I will have to almost submit every feature (core
+infrastructure and netdev/RDMA usage)
+to you and Doug.  Same for rdma features,  you will receive PULL
+request for them as well,
+I am sure you and the netdev list don't need such noise.  do not
+forget that this will slow down mlx5 progress since
+netde will block rdma and vise-versa.
 
-Please let me know if there are any problems.
+> I will not accept additions to a driver that don't even get really
+> used.
 
-Kalle
+For logic/helper functions containing patches such as "Add TSAR
+infrastructure" I agree and i can find a way to move some code around
+to
+avoid future conflicts and remove them from such pull requests.
 
-The following changes since commit 67f0160fe34ec5391a428603b9832c9f99d8f3a1:
+but you need to at least accept hardware related structures
+infrastructure patches for shared code such as
+include/linux/mlx5/mlx5_ifc.h where we have only hardware definitions
+and those patches are really minimal.
 
-  MAINTAINERS: Update qlogic networking drivers (2016-10-26 23:29:12 -0400)
+So bottom line, I will do my best to ensure future PULL requests will
+contain only include/linux/mlx5/*.h hardware related definitions
+or fully implemented features.
 
-are available in the git repository at:
+Can we agree on that ?
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-10-30
-
-for you to fetch changes up to d3532ea6ce4ea501e421d130555e59edc2945f99:
-
-  brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap (2016-10-27 18:04:54 +0300)
-
-----------------------------------------------------------------
-wireless-drivers fixes for 4.9
-
-iwlwifi
-
-* some fixes for suspend/resume with unified FW images
-* a fix for a false-positive lockdep report
-* a fix for multi-queue that caused an unnecessary 1 second latency
-* a fix for an ACPI parsing bug that caused a misleading error message
-
-brcmfmac
-
-* fix a variable uninitialised warning in brcmf_cfg80211_start_ap()
-
-----------------------------------------------------------------
-Arnd Bergmann (1):
-      brcmfmac: avoid maybe-uninitialized warning in brcmf_cfg80211_start_ap
-
-Haim Dreyfuss (1):
-      iwlwifi: mvm: comply with fw_restart mod param on suspend
-
-Johannes Berg (1):
-      iwlwifi: pcie: mark command queue lock with separate lockdep class
-
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2015-10-25' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
-Luca Coelho (4):
-      iwlwifi: mvm: use ssize_t for len in iwl_debugfs_mem_read()
-      iwlwifi: mvm: fix d3_test with unified D0/D3 images
-      iwlwifi: pcie: fix SPLC structure parsing
-      iwlwifi: mvm: fix netdetect starting/stopping for unified images
-
-Sara Sharon (1):
-      iwlwifi: mvm: wake the wait queue when the RX sync counter is zero
-
- .../broadcom/brcm80211/brcmfmac/cfg80211.c         |    2 +-
- drivers/net/wireless/intel/iwlwifi/mvm/d3.c        |   49 +++++++++---
- drivers/net/wireless/intel/iwlwifi/mvm/debugfs.c   |    4 +-
- drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |    3 +-
- drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |    1 +
- drivers/net/wireless/intel/iwlwifi/mvm/ops.c       |    1 +
- drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |    3 +-
- drivers/net/wireless/intel/iwlwifi/mvm/scan.c      |   33 ++++++--
- drivers/net/wireless/intel/iwlwifi/pcie/drv.c      |   79 ++++++++++++--------
- drivers/net/wireless/intel/iwlwifi/pcie/tx.c       |    8 ++
- 10 files changed, 129 insertions(+), 54 deletions(-)
+Thanks,
+Saeed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
