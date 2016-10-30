@@ -1,58 +1,70 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: RFC if==else in halbtc8723b1ant.c
-Date: Sun, 30 Oct 2016 11:03:12 +0000
-Message-ID: <20161030110312.GA26326@osadl.at>
+From: Paul Menzel <pmenzel@molgen.mpg.de>
+Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
+Date: Sun, 30 Oct 2016 12:05:31 +0100
+Message-ID: <1477825531.980.9.camel@molgen.mpg.de>
+References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
+         <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
+         <20161026120021.GA4402@x1>
+         <f055c961-58ca-ea81-46d8-610fa055cce8@molgen.mpg.de>
+         <20161029025538.GA4099@x1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, dvteam@molgen.mpg.de
+To: Baoquan He <bhe@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.molgen.mpg.de ([141.14.17.9]:43609 "EHLO mx1.molgen.mpg.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752401AbcJ3LFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Oct 2016 07:05:35 -0400
+In-Reply-To: <20161029025538.GA4099@x1>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Dear Baoquan,
 
 
-Hi !
+Am Samstag, den 29.10.2016, 10:55 +0800 schrieb Baoquan He:
+> On 10/27/16 at 03:21pm, Paul Menzel wrote:
 
- in your commit f5b586909581 ("rtlwifi: btcoexist: Modify driver to support 
- BT coexistence in rtl8723be") you introduced a if/else where both branches 
- are the same but the comment in the else branch suggests that this might be
- unintended.
+> > > > Baoquan, could you please fix this regression. My suggestion is, that you
+> > > > add the old code back, but check if the firmware has been loaded. If it
+> > > > hasnâ€™t, load it again.
+> > > > 
+> > > > That way, people can update their Linux kernel, and it continues working
+> > > > without changing the initramfs, or anything else.
+> > > 
+> > > I saw your mail but I am also not familiar with bnx2 driver. As the
+> > > commit log says I just tried to make bnx2 driver reset itself earlier.
+> > > 
+> > > So you did a git bisect and found this commit caused the regression,
+> > > right? If yes, and network developers have no action, I will look into
+> > > the code and see if I have idea to fix it.
+> > 
+> > Well, I looked through the commits and found that one, which would explain
+> > the changed behavior.
+> > 
+> > To be sure, and to follow your request, I took Linux 4.8.4 and reverted your
+> > commit (attached). Then I deleted the firmware again from the initramfs, and
+> > rebooted. The devices showed up just fine as before.
+> > 
+> > So to summarize, the commit is indeed the culprit.
 
- from code review only I can´t say what the intent is.
+> Sorry for this.
+> 
+> Could you tell the steps to reproduce? I will find a machine with bnx2
+> NIC and check if there's other ways.
 
-/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c:halbtc8723b1ant_action_wifi_connected_bt_acl_busy()
+Well, delete the bnx2 firmware files from the initramfs, and start the
+system.
 
-1838                 if ((bt_rssi_state == BTC_RSSI_STATE_HIGH) ||
-1839                     (bt_rssi_state == BTC_RSSI_STATE_STAY_HIGH)) {
-1840                         halbtc8723b1ant_ps_tdma(btcoexist, NORMAL_EXEC,
-1841                                                 true, 14);
-1842                         coex_dm->auto_tdma_adjust = false;
-1843                 } else { /*for low BT RSSI*/
-1844                         halbtc8723b1ant_ps_tdma(btcoexist, NORMAL_EXEC,
-1845                                                 true, 14);
-1846                         coex_dm->auto_tdma_adjust = false;
-1847                 }
+Did you read my proposal, to try to load the firmware twice, that means,
+basically revert only the deleted lines of your commit, and add an
+additional check?
 
-  basically the same construct is also in 
- halbtc8723b1ant_run_coexist_mechanism()
 
-2213                         if ((wifi_rssi_state == BTC_RSSI_STATE_HIGH) ||
-2214                             (wifi_rssi_state == BTC_RSSI_STATE_STAY_HIGH)) {
-2215                                 halbtc8723b1ant_limited_tx(btcoexist,
-2216                                                            NORMAL_EXEC,
-2217                                                            1, 1, 1, 1);
-2218                         } else {
-2219                                 halbtc8723b1ant_limited_tx(btcoexist,
-2220                                                            NORMAL_EXEC,
-2221                                                            1, 1, 1, 1);
-2222                         }
+Kind regards,
 
- where the if condition is the same so the else may also only apply to the
- low BT RSSI - and the if and else are again the same - if this is intended
- or not is not clear. If this is intended it should have appropriate comments.
-
-thx!
-hofrat
+Paul
