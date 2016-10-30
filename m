@@ -1,80 +1,68 @@
-From: John Heenan <john@zgus.com>
-Subject: Re: [PATCH 2/2] rtl8xxxu: Fix for bogus data used to determine macpower
-Date: Sun, 30 Oct 2016 23:56:59 +1000
-Message-ID: <CAAye0QN0s1S25tDPNWdM6fsVNaO-wLuSy_RoOSoXeuSMeD4oNA@mail.gmail.com>
-References: <cover.1477769750.git.john@zgus.com> <20161030102112.GA5789@cube> <wrfjpomidp1v.fsf@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH for-next 00/14][PULL request] Mellanox mlx5 core driver
+ updates 2016-10-25
+Date: Sun, 30 Oct 2016 12:02:28 -0400 (EDT)
+Message-ID: <20161030.120228.1925848506424477810.davem@davemloft.net>
+References: <1477407617-20745-1-git-send-email-saeedm@mellanox.com>
+        <20161028.135309.1712496950641242201.davem@davemloft.net>
+        <CALzJLG8cN0VUiTHDdkgibObA970UsAP+E7E=DSgY1RKNefSyzA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jes Sorensen <Jes.Sorensen@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <wrfjpomidp1v.fsf@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALzJLG8cN0VUiTHDdkgibObA970UsAP+E7E=DSgY1RKNefSyzA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for your reply.
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Date: Sun, 30 Oct 2016 11:59:57 +0200
 
-The code was tested on a Cube i9 which has an internal rtl8723bu.
-
-No other devices were tested.
-
-I am happy to accept in an ideal context hard coding macpower is
-undesirable, the comment is undesirable and it is wrong to assume the
-issue is not unique to the rtl8723bu.
-
-Your reply is idealistic. What can I do now?  I should of course have
-factored out other untested devices in my patches. The apparent
-concern you have with process over outcome is a useful lesson.
-
-We are not in an ideal situation. The comment is of course relevant
-and useful to starting a process to fixing a real bug I do not have
-sufficient information to refine any further for and others do. In the
-circumstances nothing really more can be expected.
-
-My patch cover letter, [PATCH 0/2] provides evidence of a mess with
-regard to determining macpower for the rtl8723bu and what is
-subsequently required. This is important.
-
-The kernel driver code is very poorly documented and there is not a
-single source reference to device documentation. For example macpower
-is noting more than a setting that is true or false according to
-whether a read of a particular register return 0xef or not. Such value
-was never obtained so a full init sequence was never performed.
-
-It would be helpful if you could provide a link to device references.
-As it is, how am I supposed to revise the patch without relevant
-information?
-
-My patch code works with the Cube i9, as is, despite a lack of
-adequate information. Before it did not. That is a powerful statement
-
-Have a nice day.
-
-John Heenan
-
-
-On 30 October 2016 at 22:00, Jes Sorensen <Jes.Sorensen@redhat.com> wrote:
-> John Heenan <john@zgus.com> writes:
->> Code tests show data returned by rtl8xxxu_read8(priv, REG_CR), used to set
->> macpower, is never 0xea. It is only ever 0x01 (first time after modprobe)
->> using wpa_supplicant and 0x00 thereafter using wpa_supplicant. These results
->> occurs with 'Fix for authentication failure' [PATCH 1/2] in place.
+> On Fri, Oct 28, 2016 at 7:53 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 >>
->> Whatever was returned, code tests always showed that at least
->> rtl8xxxu_init_queue_reserved_page(priv);
->> is always required. Not called if macpower set to true.
+>> I really disalike pull requests of this form.
 >>
->> Please see cover letter, [PATCH 0/2], for more information from tests.
+>> You add lots of datastructures and helper functions but no actual
+>> users of these facilities to the driver.
 >>
->
-> Sorry but this patch is neither serious nor acceptable. First of all,
-> hardcoding macpower like this right after an if statement is plain
-> wrong, second your comments violate all kernel rules.
->
-> Second, you argue this was tested using code test - on which device? Did
-> you test it on all rtl8xxxu based devices or just rtl8723bu?
->
-> NACK
->
-> Jes
+>> Do this instead:
+>>
+>>         1) Add TSAR infrastructure
+>>         2) Add use of TSAR facilities to the driver
+>>
+>> That's one pull request.
+>>
+>> I don't care if this is hard, or if there are entanglements with
+>> Infiniband or whatever, you must submit changes in this manner.
+>>
+> 
+> It is not hard, it is just not right,  we have lots of IB and ETH
+> features that we would like to submit in the same kernel cycle,
+> with your suggestion I will have to almost submit every feature (core
+> infrastructure and netdev/RDMA usage)
+> to you and Doug.
+
+Nobody can properly review an API addition without seeing how that
+API is _USED_.
+
+This is a simple fundamental fact.
+
+And I'm not pulling in code that can't be reviewed properly.
+
+Also, so many times people have added new junk to drivers and months
+later never added the users of that new code and interfaces.
+
+Forcing you to provide the use with the API addition makes sure that
+it is absolutely impossible for that to happen.
+
+Whatever issues you think prevent this are your issues, not mine.  I
+want high quality submissions that can be properly reviewed, and you
+have to find a way to satisfy that requirement.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
