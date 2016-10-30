@@ -1,58 +1,85 @@
-From: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] rtl8xxxu: Fix for bogus data used to determine macpower
-Date: Sun, 30 Oct 2016 08:00:44 -0400
-Message-ID: <wrfjpomidp1v.fsf@redhat.com>
-References: <cover.1477769750.git.john@zgus.com> <20161030102112.GA5789@cube>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded ICMP errors from offending packet
+Date: Sun, 30 Oct 2016 14:03:11 +0100
+Message-ID: <8760oa9egg.fsf@redhat.com>
+References: <CALx6S35qmAwFfK1TNAcJJs1jK7JgM8U4MCh3wC8hkuf2qae+sw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: John Heenan <john-AMlJbUfTsso@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161030102112.GA5789@cube> (John Heenan's message of "Sun, 30
-        Oct 2016 20:21:12 +1000")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <CALx6S35qmAwFfK1TNAcJJs1jK7JgM8U4MCh3wC8hkuf2qae+sw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John Heenan <john-AMlJbUfTsso@public.gmane.org> writes:
-> Code tests show data returned by rtl8xxxu_read8(priv, REG_CR), used to set
-> macpower, is never 0xea. It is only ever 0x01 (first time after modprobe)
-> using wpa_supplicant and 0x00 thereafter using wpa_supplicant. These results
-> occurs with 'Fix for authentication failure' [PATCH 1/2] in place.
->
-> Whatever was returned, code tests always showed that at least
-> rtl8xxxu_init_queue_reserved_page(priv);
-> is always required. Not called if macpower set to true.
->
-> Please see cover letter, [PATCH 0/2], for more information from tests.
->
-> For rtl8xxxu-devel branch of git.kernel.org/pub/scm/linux/kernel/git/jes/linux.git
->
-> Signed-off-by: John Heenan <john-AMlJbUfTsso@public.gmane.org>
-> ---
->  drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-> index f25b4df..aae05f3 100644
-> --- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-> +++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-> @@ -3904,6 +3904,7 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
->  		macpower = false;
->  	else
->  		macpower = true;
-> +	macpower = false; // Code testing shows macpower must always be set to false to avoid failure
->  
->  	ret = fops->power_on(priv);
->  	if (ret < 0) {
+On Fri, Oct 28, 2016 at 02:25 PM GMT, Tom Herbert wrote:
+> On Fri, Oct 28, 2016 at 1:32 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
+>> On Thu, Oct 27, 2016 at 10:35 PM GMT, Tom Herbert wrote:
+>>> On Mon, Oct 24, 2016 at 2:28 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
+>>>> Same as for the transmit path, let's do our best to ensure that received
+>>>> ICMP errors that may be subject to forwarding will be routed the same
+>>>> path as flow that triggered the error, if it was going in the opposite
+>>>> direction.
+>>>>
+>>> Unfortunately our ability to do this is generally quite limited. This
+>>> patch will select the route for multipath, but I don't believe sets
+>>> the same link in LAG and definitely can't help switches doing ECMP to
+>>> route the ICMP packet in the same way as the flow would be. Did you
+>>> see a problem that warrants solving this case?
+>>
+>> The motivation here is to bring IPv6 ECMP routing on par with IPv4 to
+>> enable its wider use, targeting anycast services. Forwarding ICMP errors
+>> back to the source host, at the L3 layer, is what we thought would be a
+>> step forward.
+>>
+>> Similar to change in IPv4 routing introduced in commit 79a131592dbb
+>> ("ipv4: ICMP packet inspection for multipath", [1]) we do our best at
+>> L3, leaving any potential problems with LAG at lower layer (L2)
+>> unaddressed.
+>>
+> ICMP will almost certainly take a different path in the network than
+> TCP or UDP due to ECMP. If we ever get proper flow label support for
+> ECMP then that could solve the problem if all the devices do a hash
+> just on <srcIP, destIP, FlowLabel>.
 
-Sorry but this patch is neither serious nor acceptable. First of all,
-hardcoding macpower like this right after an if statement is plain
-wrong, second your comments violate all kernel rules.
+Sorry for my late reply, I have been traveling.
 
-Second, you argue this was tested using code test - on which device? Did
-you test it on all rtl8xxxu based devices or just rtl8723bu?
+I think that either I am missing something here, or the proposed changes
+address just the problem that you have described.
 
-NACK
+Yes, if we compute the hash that drives the route choice over the IP
+header of the ICMP error, then there is no guarantee it will travel back
+to the sender of the offending packet that triggered the error.
 
-Jes
+That is why, we look at the offending packet carried by an ICMP error
+and hash over its fields, instead. We need, however, to take care of two
+things:
+
+1) swap the source with the destination address, because we are
+   forwarding the ICMP error in the opposite direction than the
+   offending packet was going (see icmpv6_multipath_hash() introduced in
+   patch 4/5); and
+
+2) ensure the flow labels used in both directions are the same (either
+   reflected by one side, or fixed, e.g. not used and set to 0), so that
+   the 4-tuple we hash over when forwarding, <src addr, dst addr, flow
+   label, next hdr>, is the same both ways, modulo the order of
+   addresses.
+
+> If this patch is being done to be compatible with IPv4 I guess that's
+> okay, but it would be false advertisement to say this makes ICMP
+> follow the same path as the flow being targeted in an error.
+> Fortunately, I doubt anyone can have a dependency on this for ICMP.
+
+I wouldn't want to propose anything that would be useless. If you think
+that this is the case here, I would very much like to understand what
+and why cannot work in practice.
+
+Thanks for reviewing this series,
+Jakub
