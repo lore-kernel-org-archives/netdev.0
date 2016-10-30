@@ -1,42 +1,113 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [net-next PATCH 0/7] stmmac: dwmac-sti refactor+cleanup
-Date: Sun, 30 Oct 2016 21:05:00 +0100
-Message-ID: <20161030200507.851-1-manabian@gmail.com>
+Subject: [net-next PATCH 3/7] stmmac: dwmac-sti: add PM ops and resume function
+Date: Sun, 30 Oct 2016 21:05:03 +0100
+Message-ID: <20161030200507.851-4-manabian@gmail.com>
+References: <20161030200507.851-1-manabian@gmail.com>
 Cc: Joachim Eastwood <manabian@gmail.com>, peppe.cavallaro@st.com,
         alexandre.torgue@st.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:36417 "EHLO
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:36439 "EHLO
         mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752842AbcJ3UGc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 16:06:32 -0400
-Received: by mail-lf0-f67.google.com with SMTP id o20so433600lfg.3
-        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 13:06:32 -0700 (PDT)
+        with ESMTP id S1752881AbcJ3UGg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 16:06:36 -0400
+Received: by mail-lf0-f67.google.com with SMTP id o20so433731lfg.3
+        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 13:06:35 -0700 (PDT)
+In-Reply-To: <20161030200507.851-1-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set aims to remove the init/exit callbacks from the 
-dwmac-sti driver and instead use standard PM callbacks. Doing this
-will also allow us to cleanup the driver.
+Implement PM callbacks and driver remove in the driver instead
+of relying on the init/exit hooks in stmmac_platform. This gives
+the driver more flexibility in how the code is organized.
 
-Eventually the init/exit callbacks will be deprecated and removed
-from all drivers dwmac-* except for dwmac-generic. Drivers will be
-refactored to use standard PM and remove callbacks.
+Eventually the init/exit callbacks will be deprecated in favor
+of the standard PM callbacks and driver remove function.
 
-Note that this patch set has only been test compiled and no functional
-change is intended.
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c | 46 +++++++++++++++++++------
+ 1 file changed, 36 insertions(+), 10 deletions(-)
 
-Joachim Eastwood (7):
-  stmmac: dwmac-sti: remove useless of_node check
-  stmmac: dwmac-sti: remove clk NULL checks
-  stmmac: dwmac-sti: add PM ops and resume function
-  stmmac: dwmac-sti: move st,gmac_en parsing to sti_dwmac_parse_data
-  stmmac: dwmac-sti: move clk_prepare_enable out of init and add error handling
-  stmmac: dwmac-sti: clean up and rename sti_dwmac_init
-  stmmac: dwmac-sti: remove unused priv dev member
-
- drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c | 86 ++++++++++++++++---------
- 1 file changed, 57 insertions(+), 29 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+index f009bf4..09dd2be 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+@@ -253,12 +253,6 @@ static int sti_dwmac_init(struct platform_device *pdev, void *priv)
+ 	return 0;
+ }
+ 
+-static void sti_dwmac_exit(struct platform_device *pdev, void *priv)
+-{
+-	struct sti_dwmac *dwmac = priv;
+-
+-	clk_disable_unprepare(dwmac->clk);
+-}
+ static int sti_dwmac_parse_data(struct sti_dwmac *dwmac,
+ 				struct platform_device *pdev)
+ {
+@@ -352,8 +346,6 @@ static int sti_dwmac_probe(struct platform_device *pdev)
+ 	dwmac->fix_retime_src = data->fix_retime_src;
+ 
+ 	plat_dat->bsp_priv = dwmac;
+-	plat_dat->init = sti_dwmac_init;
+-	plat_dat->exit = sti_dwmac_exit;
+ 	plat_dat->fix_mac_speed = data->fix_retime_src;
+ 
+ 	ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
+@@ -363,6 +355,40 @@ static int sti_dwmac_probe(struct platform_device *pdev)
+ 	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+ }
+ 
++static int sti_dwmac_remove(struct platform_device *pdev)
++{
++	struct sti_dwmac *dwmac = get_stmmac_bsp_priv(&pdev->dev);
++	int ret = stmmac_dvr_remove(&pdev->dev);
++
++	clk_disable_unprepare(dwmac->clk);
++
++	return ret;
++}
++
++#ifdef CONFIG_PM_SLEEP
++static int sti_dwmac_suspend(struct device *dev)
++{
++	struct sti_dwmac *dwmac = get_stmmac_bsp_priv(dev);
++	int ret = stmmac_suspend(dev);
++
++	clk_disable_unprepare(dwmac->clk);
++
++	return ret;
++}
++
++static int sti_dwmac_resume(struct device *dev)
++{
++	struct sti_dwmac *dwmac = get_stmmac_bsp_priv(dev);
++	struct platform_device *pdev = to_platform_device(dev);
++
++	sti_dwmac_init(pdev, dwmac);
++
++	return stmmac_resume(dev);
++}
++#endif /* CONFIG_PM_SLEEP */
++
++SIMPLE_DEV_PM_OPS(sti_dwmac_pm_ops, sti_dwmac_suspend, sti_dwmac_resume);
++
+ static const struct sti_dwmac_of_data stih4xx_dwmac_data = {
+ 	.fix_retime_src = stih4xx_fix_retime_src,
+ };
+@@ -382,10 +408,10 @@ MODULE_DEVICE_TABLE(of, sti_dwmac_match);
+ 
+ static struct platform_driver sti_dwmac_driver = {
+ 	.probe  = sti_dwmac_probe,
+-	.remove = stmmac_pltfr_remove,
++	.remove = sti_dwmac_remove,
+ 	.driver = {
+ 		.name           = "sti-dwmac",
+-		.pm		= &stmmac_pltfr_pm_ops,
++		.pm		= &sti_dwmac_pm_ops,
+ 		.of_match_table = sti_dwmac_match,
+ 	},
+ };
 -- 
 2.10.1
