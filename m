@@ -1,68 +1,53 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 2/2] net/mlx4_en: Refactor the XDP forwarding
- rings scheme
-Date: Mon, 31 Oct 2016 01:21:18 +0200
-Message-ID: <CALzJLG8O82kQPcCLiPmnz63sdO+UpmiCD3OQh2skmk2ZG5hW7w@mail.gmail.com>
-References: <1477579924-32737-1-git-send-email-tariqt@mellanox.com>
- <1477579924-32737-3-git-send-email-tariqt@mellanox.com> <20161028010701.GB49550@ast-mbp.thefacebook.com>
- <34ee2e3e-a2ad-2104-9444-ae9c7fed55b7@gmail.com> <20161030224434.GB6658@ast-mbp.hil-sfehihf.abq.wayport.net>
- <CALzJLG9HYriAiPE=M0+ObKNDFVKGfD6V63sGGDGa+JbhCjpKZQ@mail.gmail.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: [PATCH net] r8152: Fix broken RX checksums.
+Date: Sun, 30 Oct 2016 19:28:27 -0400
+Message-ID: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
+References: <987cfbab-2b48-e28c-1706-967cb2051d63@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tariq Toukan <ttoukan.linux@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:36013 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753745AbcJ3XVk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 19:21:40 -0400
-Received: by mail-lf0-f67.google.com with SMTP id o20so613417lfg.3
-        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 16:21:39 -0700 (PDT)
-In-Reply-To: <CALzJLG9HYriAiPE=M0+ObKNDFVKGfD6V63sGGDGa+JbhCjpKZQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: stable@vger.kernel.org
+To: nic_swsd@realtek.com, netdev@vger.kernel.org,
+        Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <987cfbab-2b48-e28c-1706-967cb2051d63@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 31, 2016 at 1:11 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Mon, Oct 31, 2016 at 12:44 AM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
->> On Sun, Oct 30, 2016 at 06:03:06PM +0200, Tariq Toukan wrote:
->>>
->>> Note that the XDP TX rings are no longer shown in ethtool -S.
->>
->> ouch. Can you make it to show them as some large TX numbers instead?
->> It would really sux to lose stats on them.
->>
->
-> Right, Tariq, how did we miss this ?
->
-> FYI, I don't think we need the whole TX queue stats for XDP tx rings,
-> it is just an overkill, there are only two active counters for XDP TX
-> ring (XDP_TX_FWD/XDP_TX_DROP).
->
-> XDP_TX_FWD or currently "tx_packets" will count successfully forwarded packets
-> XDP_TX_DROP or currently "tx_dropped" will count TX dropped packets
-> due to full ring.
->
-> do we need tx_bytes as well ? I think yes.
->
-> The whole idea of this refactoring i.e. differentiating between TXQ
-> netdev rings and XDP TX rings, that XDP is a fast path with minimal
-> system overhead, we don't need to have the full set of regular TXQ
-> counters for XDP TX rings.
+The r8152 driver has been broken since (approx) 3.16.xx
+when support was added for hardware RX checksums
+on newer chip versions.  Symptoms include random
+segfaults and silent data corruption over NFS.
 
-BTW in mlx5 we have the required xdp stats as a part of the rx ring,
+The hardware checksum logig does not work on the VER_02
+dongles I have here when used with a slow embedded system CPU.
+Google reveals others reporting similar issues on Raspberry Pi.
 
-static const struct counter_desc rq_stats_desc[] = {
-[...]
-{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, xdp_drop) },
-{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, xdp_tx) },
-{ MLX5E_DECLARE_RX_STAT(struct mlx5e_rq_stats, xdp_tx_full) },
-[...]
+So, disable hardware RX checksum support for VER_02, and fix
+an obvious coding error for IPV6 checksums in the same function.
 
-We should do the same here.
+Because this bug results in silent data corruption,
+it is a good candidate for back-porting to -stable >= 3.16.xx.
+
+Signed-off-by: Mark Lord <mlord@pobox.com>
+
+--- old/drivers/net/usb/r8152.c	2016-09-30 04:20:43.000000000 -0400
++++ linux/drivers/net/usb/r8152.c	2016-10-26 14:15:44.932517676 -0400
+@@ -1645,7 +1645,7 @@
+ 	u8 checksum = CHECKSUM_NONE;
+ 	u32 opts2, opts3;
+
+-	if (tp->version == RTL_VER_01)
++	if (tp->version == RTL_VER_01 || tp->version == RTL_VER_02)
+ 		goto return_result;
+
+ 	opts2 = le32_to_cpu(rx_desc->opts2);
+@@ -1660,7 +1660,7 @@
+ 			checksum = CHECKSUM_NONE;
+ 		else
+ 			checksum = CHECKSUM_UNNECESSARY;
+-	} else if (RD_IPV6_CS) {
++	} else if (opts2 & RD_IPV6_CS) {
+ 		if ((opts2 & RD_UDP_CS) && !(opts3 & UDPF))
+ 			checksum = CHECKSUM_UNNECESSARY;
+ 		else if ((opts2 & RD_TCP_CS) && !(opts3 & TCPF))
