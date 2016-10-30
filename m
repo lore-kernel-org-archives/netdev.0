@@ -1,35 +1,164 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] mlx4 XDP TX refactor
-Date: Sun, 30 Oct 2016 12:44:40 -0400 (EDT)
-Message-ID: <20161030.124440.1962738096545317259.davem@davemloft.net>
-References: <1477579924-32737-1-git-send-email-tariqt@mellanox.com>
-        <0773c58c-293d-38be-9844-e8f92d135aec@gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: Let's do P4
+Date: Sun, 30 Oct 2016 17:45:26 +0000
+Message-ID: <20161030174526.4947c424@laptop>
+References: <20161029075328.GB1692@nanopsycho.orion>
+        <20161029154903.25deb6db@jkicinski-Precision-T1700>
+        <5814D25D.9070200@gmail.com>
+        <20161030074458.GB1686@nanopsycho.orion>
+        <20161030102649.GE1810@pox.localdomain>
+        <20161030163836.GC1686@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tariqt@mellanox.com, netdev@vger.kernel.org, eranbe@mellanox.com
-To: ttoukan.linux@gmail.com
+Cc: Thomas Graf <tgraf@suug.ch>,
+        John Fastabend <john.fastabend@gmail.com>,
+        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
+        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com,
+        Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33290 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932604AbcJ3Qoo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:44:44 -0400
-In-Reply-To: <0773c58c-293d-38be-9844-e8f92d135aec@gmail.com>
+Received: from mx4.wp.pl ([212.77.101.11]:26755 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753268AbcJ3Rpi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Oct 2016 13:45:38 -0400
+In-Reply-To: <20161030163836.GC1686@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Date: Sun, 30 Oct 2016 18:21:26 +0200
+On Sun, 30 Oct 2016 17:38:36 +0100, Jiri Pirko wrote:
+> Sun, Oct 30, 2016 at 11:26:49AM CET, tgraf@suug.ch wrote:
+> >On 10/30/16 at 08:44am, Jiri Pirko wrote:  
+> >> Sat, Oct 29, 2016 at 06:46:21PM CEST, john.fastabend@gmail.com wrote:  
+>  [...]  
+>  [...]  
+>  [...]  
+>  [...]  
+> >
+> >My assumption was that a new IR is defined which is easier to parse than
+> >eBPF which is targeted at execution on a CPU and not indented for pattern
+> >matching. Just looking at how llvm creates different patterns and reorders
+> >instructions, I'm not seeing how eBPF can serve as a general purpose IR
+> >if the objective is to allow fairly flexible generation of the bytecode.
+> >Hence the alternative IR serving as additional metadata complementing the
+> >eBPF program.  
+> 
+> Agreed.
 
-> Hi Dave,
-> 
-> This series makes Brenden's fix unneeded:
-> 958b3d396d7f ("net/mlx4_en: fixup xdp tx irq to match rx")
-> 
-> The fix got into net, but yet to be in net-next.
-> 
-> Should I wait with this series and send a re-spin, with a revert of
-> the fix, once it gets into net-next?
+Just to clarify my intention here was not to suggest the use of eBPF as
+the IR.  I was merely cautioning against bundling the new API with P4,
+for multiple reasons.  As John mentioned P4 spec was evolving in the
+past.  The spec is designed for HW more capable than the switch ASICs we
+have today.  As vendors move to provide more configurability we may need
+to extend the API beyond P4.  We may want to extend this API to for SW
+hand-offs (as suggested by Thomas) which are not part of P4 spec.  Also
+John showed examples of matchd software which already uses P4 at the
+frontend today and translates it to different targets (eBPF, u32, HW).
+It may just be about the naming but I feel like calling the new API
+more generically, switch AST or some such may help to avoid unnecessary
+ties and confusion.
 
-I'm working on merging net into net-next right now, once that is
-pushed out you can respin.
+> >I understand what you mean with two APIs now. You want a single IR
+> >block and divide the SW/HW part in the kernel rather than let llvm or
+> >something else do it.  
+> 
+> Exactly. Following drawing shows p4 pipeline setup for SW and Hw:
+> 
+>                                  |
+>                                  |               +--> ebpf engine
+>                                  |               |
+>                                  |               |
+>                                  |           compilerB
+>                                  |               ^
+>                                  |               |
+> p4src --> compilerA --> p4ast --TCNL--> cls_p4 --+-> driver -> compilerC -> HW
+>                                  |
+>                        userspace | kernel
+>                                  |
+>
+> Now please consider runtime API for rule insertion/removal/stats/etc.
+> Also, the single API is cls_p4 here:
+> 
+>                         |
+>                         |            
+>                         |            
+>                         |               
+>                         |            ebpf map fillup
+>                         |               ^
+>                         |               |
+>              p4 rule --TCNL--> cls_p4 --+-> driver -> HW table fillup
+>                         |
+>               userspace | kernel
+>                         
+
+My understanding was that the main purpose of SW eBPF translation would
+be to piggy back on eBPF userspace map API.  This seems not to be the
+case here?  Is "P4 rule" being added via some new API?  From performance
+perspective the SW AST implementation would probably not be any slower
+than u32, so I don't think we need eBPF for performance.  I must be
+misreading this, if we want eBPF fallback we must extend eBPF with all
+the map types anyway... so we could just use eBPF map API?  I believe
+John has already done some work in this space (see his GitHub :))
+
+As for AST -> eBPF translator in the kernel, IMHO it could be very
+useful.  Since all the drivers will have to implement translators
+anyway, the eBPF translator may help to build a good shared
+infrastructure.  I mean - it could be a starting place for sharing code
+between drivers if done properly.
+
+> >> Well for hw offload, every driver has to parse the IR (whatever will it
+> >> be in) and program HW accordingly. Similar parsing and translation would
+> >> be needed for SW path, to translate into eBPF. I don't think it would be
+> >> more complex than in the drivers. Should be fine.  
+> >
+> >I'm not sure I see why anyone would ever want to use an IR for SW
+> >purposes which is restricted to the lowest common denominator of HW.
+> >A good example here is OpenFlow and how some of its SW consumers
+> >have evolved with extensions which cannot be mappepd to HW easily.
+> >The same seems to happen with P4 as it introduces the concept of
+> >state and other concepts which are hard to map for dumb HW. P4 doesn't
+> >magically solve this problem, the fundamental difference in
+> >capabilities between HW and SW remain.
+> >  
+>  [...]  
+>  [...]  
+>  [...]  
+> >> 
+> >> Yeah, I was also thinking about something similar to your Flow-API,
+> >> but we need something more generic I believe.
+> >>   
+>  [...]  
+> >> 
+> >> Btw, Flow-API was rejected because it was a clean kernel-bypass. In case
+> >> of p4, if we do what Thomas is suggesting, having x.bpf for SW and
+> >> x.p4ast for HW, that would be the very same kernel-bypass. Therefore I
+> >> strongly believe there should be a single kernel API for p4 SW+HW - for
+> >> both p4 program insertion and runtime configuration.  
+> >
+> >I think you misunderstand me. This is not what I'm proposing at all.
+> >In either model, the kernel receives the same IR and can reject.
+> >
+> >The rule is very clear: we can't allow to program anything that the
+> >kernel is not capable of doing in SW, right? That was the key take
+> >away from that discussion.  
+> 
+> 
+> ***
+> Exactly. But if you treat p4ast as a "metadata" of ebpf program destined
+> solely to setup HW, that in my opinion is a bypass. Because the ebpf part
+> and p4ast part could have no relacionship with each other. So I see it as
+> 2 independent APIs. One for SW, one for HW. And having this kind od API
+> for hw only is a bypass.
+
++1
+Adding metadata to eBPF programs usually fails because the verification
+that the metadata is correct in the kernel is usually not much easier
+than generating it in the first place.  And not verifying it opens up a
+way of kernel bypass.
