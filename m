@@ -1,84 +1,54 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH 2/2] rtl8xxxu: Fix for bogus data used to determine macpower
-Date: Sun, 30 Oct 2016 19:02:56 -0400
-Message-ID: <wrfjzillsan3.fsf@redhat.com>
-References: <cover.1477769750.git.john@zgus.com> <20161030102112.GA5789@cube>
-        <wrfjpomidp1v.fsf@redhat.com>
-        <CAAye0QN0s1S25tDPNWdM6fsVNaO-wLuSy_RoOSoXeuSMeD4oNA@mail.gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 2/2] net/mlx4_en: Refactor the XDP forwarding
+ rings scheme
+Date: Mon, 31 Oct 2016 01:11:34 +0200
+Message-ID: <CALzJLG9HYriAiPE=M0+ObKNDFVKGfD6V63sGGDGa+JbhCjpKZQ@mail.gmail.com>
+References: <1477579924-32737-1-git-send-email-tariqt@mellanox.com>
+ <1477579924-32737-3-git-send-email-tariqt@mellanox.com> <20161028010701.GB49550@ast-mbp.thefacebook.com>
+ <34ee2e3e-a2ad-2104-9444-ae9c7fed55b7@gmail.com> <20161030224434.GB6658@ast-mbp.hil-sfehihf.abq.wayport.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: John Heenan <john@zgus.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAye0QN0s1S25tDPNWdM6fsVNaO-wLuSy_RoOSoXeuSMeD4oNA@mail.gmail.com>
-        (John Heenan's message of "Sun, 30 Oct 2016 23:56:59 +1000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tariq Toukan <ttoukan.linux@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Brenden Blanco <bblanco@plumgrid.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:35985 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756048AbcJ3XL5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 19:11:57 -0400
+Received: by mail-lf0-f47.google.com with SMTP id t196so5547481lff.3
+        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 16:11:56 -0700 (PDT)
+In-Reply-To: <20161030224434.GB6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John Heenan <john@zgus.com> writes:
-> Thanks for your reply.
+On Mon, Oct 31, 2016 at 12:44 AM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Sun, Oct 30, 2016 at 06:03:06PM +0200, Tariq Toukan wrote:
+>>
+>> Note that the XDP TX rings are no longer shown in ethtool -S.
 >
-> The code was tested on a Cube i9 which has an internal rtl8723bu.
+> ouch. Can you make it to show them as some large TX numbers instead?
+> It would really sux to lose stats on them.
 >
-> No other devices were tested.
->
-> I am happy to accept in an ideal context hard coding macpower is
-> undesirable, the comment is undesirable and it is wrong to assume the
-> issue is not unique to the rtl8723bu.
->
-> Your reply is idealistic. What can I do now?  I should of course have
-> factored out other untested devices in my patches. The apparent
-> concern you have with process over outcome is a useful lesson.
->
-> We are not in an ideal situation. The comment is of course relevant
-> and useful to starting a process to fixing a real bug I do not have
-> sufficient information to refine any further for and others do. In the
-> circumstances nothing really more can be expected.
 
-Well you should start by reporting the issue and either providing a
-patch that only affects 8723bu, or work on a generic solution. I
-appreciate patches, but I do not appreciate patches that will make
-something work for one person and break for everyone else - I spent a
-lot of time making sure the driver works across the different devices.
+Right, Tariq, how did we miss this ?
 
-The comment violates all Linux standards - first rule when modifying
-code is to respect the style of the code you are dealing with.
+FYI, I don't think we need the whole TX queue stats for XDP tx rings,
+it is just an overkill, there are only two active counters for XDP TX
+ring (XDP_TX_FWD/XDP_TX_DROP).
 
-Code is 80 characters wide, and comments are /* */ never the ugly C++
-crap.
+XDP_TX_FWD or currently "tx_packets" will count successfully forwarded packets
+XDP_TX_DROP or currently "tx_dropped" will count TX dropped packets
+due to full ring.
 
-> My patch cover letter, [PATCH 0/2] provides evidence of a mess with
-> regard to determining macpower for the rtl8723bu and what is
-> subsequently required. This is important.
->
-> The kernel driver code is very poorly documented and there is not a
-> single source reference to device documentation. For example macpower
-> is noting more than a setting that is true or false according to
-> whether a read of a particular register return 0xef or not. Such value
-> was never obtained so a full init sequence was never performed.
+do we need tx_bytes as well ? I think yes.
 
-The kernel driver is documented with the information I have - there is
-NO device documentation because Realtek refuses to provide any. I have
-written the driver based on what I have retried by reading the vendor
-drivers. If you can provide better documentation, I certainly would love
-to get it.
-
-> It would be helpful if you could provide a link to device references.
-> As it is, how am I supposed to revise the patch without relevant
-> information?
-
-Look at the USB device table, it shows you which devices are supported.
-
-> My patch code works with the Cube i9, as is, despite a lack of
-> adequate information. Before it did not. That is a powerful statement
-
-The driver works with a lot of different devices in itself that is a
-powerful statement!
-
-Yes I want to see it work with as many devices as possible, but just
-moving things around without balancing it and not explaining why is not
-a fix. If we move more of the init sequence to _start() you also have to
-move matching pieces to _stop().
-
-Jes
+The whole idea of this refactoring i.e. differentiating between TXQ
+netdev rings and XDP TX rings, that XDP is a fast path with minimal
+system overhead, we don't need to have the full set of regular TXQ
+counters for XDP TX rings.
