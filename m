@@ -1,55 +1,63 @@
 From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net/mlx4_en: Refactor the XDP forwarding
- rings scheme
-Date: Sun, 30 Oct 2016 18:03:06 +0200
-Message-ID: <34ee2e3e-a2ad-2104-9444-ae9c7fed55b7@gmail.com>
+Subject: Re: [PATCH net-next 0/2] mlx4 XDP TX refactor
+Date: Sun, 30 Oct 2016 18:21:26 +0200
+Message-ID: <0773c58c-293d-38be-9844-e8f92d135aec@gmail.com>
 References: <1477579924-32737-1-git-send-email-tariqt@mellanox.com>
- <1477579924-32737-3-git-send-email-tariqt@mellanox.com>
- <20161028010701.GB49550@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35923 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754926AbcJ3QDK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:03:10 -0400
-Received: by mail-wm0-f66.google.com with SMTP id c17so14996873wmc.3
-        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 09:03:10 -0700 (PDT)
-In-Reply-To: <20161028010701.GB49550@ast-mbp.thefacebook.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34614 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755273AbcJ3QV3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2016 12:21:29 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p190so8787608wmp.1
+        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 09:21:28 -0700 (PDT)
+In-Reply-To: <1477579924-32737-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dave,
 
-On 28/10/2016 4:07 AM, Alexei Starovoitov wrote:
-> On Thu, Oct 27, 2016 at 05:52:04PM +0300, Tariq Toukan wrote:
->> Separately manage the two types of TX rings: regular ones, and XDP.
->> Upon an XDP set, do not borrow regular TX rings and convert them
->> into XDP ones, but allocate new ones, unless we hit the max number
->> of rings.
->> Which means that in systems with smaller #cores we will not consume
->> the current TX rings for XDP, while we are still in the num TX limit.
-> The commit log is too scarce for details...
-> So questions:
-> - Did you test with changing the number of channels after xdp prog is loaded?
-> That was the recent bug that Brenden fixed.
-Bug no longer exists, as the indices of the XDP TX rings now start from 
-0, each is identical to its respective RX ring.
-Brenden's fix didn't get to net-next yet, and it shouldn't once the 
-series is applied.
-I need to take this w Dave.
-> - does it still have 256 tx queue limit or xdp tx rings can go over?
-It still has the limit of 256 TX queues.
-> - Any performance implications ?
-I didn't see any performance implications.
-Note that the XDP TX rings are no longer shown in ethtool -S.
->
-> Brenden, could you please review this patch?
->
+This series makes Brenden's fix unneeded:
+958b3d396d7f ("net/mlx4_en: fixup xdp tx irq to match rx")
+
+The fix got into net, but yet to be in net-next.
+
+Should I wait with this series and send a re-spin, with a revert of the 
+fix, once it gets into net-next?
+
 Regards,
 Tariq
+
+
+On 27/10/2016 5:52 PM, Tariq Toukan wrote:
+> Hi Dave,
+>
+> This patchset refactors the XDP forwarding case, so that
+> its dedicated transmit queues are managed in a complete
+> separation from the other regular ones.
+>
+> Series generated against net-next commit:
+> 6edf10173a1f "devlink: Prevent port_type_set() callback when it's not needed"
+>
+> Thanks,
+> Tariq.
+>
+> Tariq Toukan (2):
+>    net/mlx4_en: Add TX_XDP for CQ types
+>    net/mlx4_en: Refactor the XDP forwarding rings scheme
+>
+>   drivers/net/ethernet/mellanox/mlx4/en_cq.c      |  18 +-
+>   drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  76 +++--
+>   drivers/net/ethernet/mellanox/mlx4/en_main.c    |   2 +-
+>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 378 ++++++++++++++----------
+>   drivers/net/ethernet/mellanox/mlx4/en_port.c    |   4 +-
+>   drivers/net/ethernet/mellanox/mlx4/en_rx.c      |   8 +-
+>   drivers/net/ethernet/mellanox/mlx4/en_tx.c      |   9 +-
+>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  18 +-
+>   8 files changed, 305 insertions(+), 208 deletions(-)
+>
