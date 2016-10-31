@@ -1,39 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: XDP question - how much can BPF change in xdp_buff?
-Date: Mon, 31 Oct 2016 14:57:34 -0400 (EDT)
-Message-ID: <20161031.145734.1243544464767231445.davem@davemloft.net>
-References: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: set SK_MEM_QUANTUM to 4096
+Date: Mon, 31 Oct 2016 11:58:40 -0700
+Message-ID: <1477940320.7065.312.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
+Cc: netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55940 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945655AbcJaS5g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:57:36 -0400
-In-Reply-To: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36720 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S945669AbcJaS6m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:58:42 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n85so9406205pfi.3
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 11:58:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Date: Mon, 31 Oct 2016 18:31:30 +0000
+From: Eric Dumazet <edumazet@google.com>
 
-> So I've [finally] started looking into implementing XDP
-> for qede, and there's one thing I feel like I'm missing in
-> regard to XDP_TX - what's the guarantee/requirement
-> that the bpf program isn't going to transmute some fields
-> of the rx packet in a way that would prevent the forwarding?
-> 
-> E.g., can a BPF change the TCP payload of an incoming packet
-> without correcting its TCP checksum, and then expect the
-> driver to transmit it [via XDP_TX]? If not, how is this enforced [if at all]?
-> 
-> [Looked at samples/bpf/xdp2_kern.c which manipulates the
-> UDP header; so I'm not certain what prevents it from doing
-> the same when checksum modifications would be required]
+Systems with large pages (64KB pages for example) do not always have
+huge quantity of memory.
 
-My understanding is that the eBPF program would be responsible
-for updating the checksum if it mangles the packet in such a
-way that such a fixup would be required.
+A big SK_MEM_QUANTUM value leads to fewer interactions with the
+global counters (like tcp_memory_allocated) but might trigger
+memory pressure much faster, thus suboptimal TCP performance
+since windows are lowered to ridiculous values.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/sock.h |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index f13ac87a8015cb18c5d3fe5fdcf2d6a0592428f4..d3409bb514e7f08b9cf183b7405d876bec18d732 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1281,7 +1281,10 @@ int __sk_mem_schedule(struct sock *sk, int size, int kind);
+ void __sk_mem_reduce_allocated(struct sock *sk, int amount);
+ void __sk_mem_reclaim(struct sock *sk, int amount);
+ 
+-#define SK_MEM_QUANTUM ((int)PAGE_SIZE)
++/* We used to have PAGE_SIZE here, but systems with 64KB pages
++ * do not necessarily have 16x time more memory than 4KB ones.
++ */
++#define SK_MEM_QUANTUM 4096
+ #define SK_MEM_QUANTUM_SHIFT ilog2(SK_MEM_QUANTUM)
+ #define SK_MEM_SEND	0
+ #define SK_MEM_RECV	1
