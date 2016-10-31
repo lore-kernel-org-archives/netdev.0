@@ -1,47 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: set SK_MEM_QUANTUM to 4096
-Date: Mon, 31 Oct 2016 12:08:48 -0700
-Message-ID: <1477940928.7065.313.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1477940320.7065.312.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CADVnQym2dWf8R7Gvx2c03nuiWFLHKrEZM8zOUbF6JFesSRuiCw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for
+ forwarded ICMP errors from offending packet
+Date: Mon, 31 Oct 2016 15:15:34 -0400 (EDT)
+Message-ID: <20161031.151534.329043104568805244.davem@davemloft.net>
+References: <CALx6S35qmAwFfK1TNAcJJs1jK7JgM8U4MCh3wC8hkuf2qae+sw@mail.gmail.com>
+        <8760oa9egg.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+Cc: tom@herbertland.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: jkbs@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36259 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S944785AbcJaTIu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:08:50 -0400
-Received: by mail-pf0-f196.google.com with SMTP id n85so9424183pfi.3
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 12:08:50 -0700 (PDT)
-In-Reply-To: <CADVnQym2dWf8R7Gvx2c03nuiWFLHKrEZM8zOUbF6JFesSRuiCw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56290 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S945816AbcJaTPg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:15:36 -0400
+In-Reply-To: <8760oa9egg.fsf@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-10-31 at 15:01 -0400, Neal Cardwell wrote:
-> On Mon, Oct 31, 2016 at 2:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > Systems with large pages (64KB pages for example) do not always have
-> > huge quantity of memory.
-> >
-> > A big SK_MEM_QUANTUM value leads to fewer interactions with the
-> > global counters (like tcp_memory_allocated) but might trigger
-> > memory pressure much faster, thus suboptimal TCP performance
-> > since windows are lowered to ridiculous values.
-> >
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> 
->  Acked-by: Neal Cardwell <ncardwell@google.com>
-> 
-> Thanks, Eric!
+From: Jakub Sitnicki <jkbs@redhat.com>
+Date: Sun, 30 Oct 2016 14:03:11 +0100
 
+> 2) ensure the flow labels used in both directions are the same (either
+>    reflected by one side, or fixed, e.g. not used and set to 0), so that
+>    the 4-tuple we hash over when forwarding, <src addr, dst addr, flow
+>    label, next hdr>, is the same both ways, modulo the order of
+>    addresses.
 
-Please disregard this patch, I need to change sk_prot_mem_limits() as
-well, since tcp_mem[] and udp_mem[] are given in page units.
+Even Linux, by default, does not do reflection.
+
+See the flowlabel_consistency sysctl, which we set by default to '1'.
+
+I think we need to think a lot more about how systems actually set and
+use flowlabels.
+
+Also, one issue I also had with this series was adding a new member
+to the flow label.  Is it possible to implement this like the ipv4
+side did, by simply passing a new parameter around to the necessary
+functions?
+
+Thanks.
