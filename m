@@ -1,46 +1,64 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [net-next PATCH RFC 04/26] arch/arm: Add option to skip sync on
- DMA map and unmap
-Date: Mon, 31 Oct 2016 10:20:57 +0000
-Message-ID: <20161031102057.GZ1041@n2100.armlinux.org.uk>
-References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
- <20161024120447.16276.50401.stgit@ahduyck-blue-test.jf.intel.com>
+From: =?UTF-8?B?QW5kcsOp?= Roth <neolynx@gmail.com>
+Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
+Date: Mon, 31 Oct 2016 11:25:24 +0100
+Message-ID: <20161031112524.4c4ee8f8@gmail.com>
+References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
+        <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
+        <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org, brouer@redhat.com, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20161024120447.16276.50401.stgit@ahduyck-blue-test.jf.intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Johnson Leung <r58129@freescale.com>, netdev@vger.kernel.org,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        linux-amlogic@lists.infradead.org
+To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:37739 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757545AbcJaKZ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 06:25:28 -0400
+Received: by mail-wm0-f45.google.com with SMTP id t79so40666265wmt.0
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 03:25:28 -0700 (PDT)
+In-Reply-To: <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 24, 2016 at 08:04:47AM -0400, Alexander Duyck wrote:
-> The use of DMA_ATTR_SKIP_CPU_SYNC was not consistent across all of the DMA
-> APIs in the arch/arm folder.  This change is meant to correct that so that
-> we get consistent behavior.
 
-I'm really not convinced that this is anywhere close to correct behaviour.
+Hi all,
+=20
+> on my device this results in:
+> [0xc9410018] =3D 0x2000000
+> [0xc9410030] =3D 0x0
+> [0xc941003c] =3D 0x0
+> [0xc9411000] =3D 0x1100802
+> [0xc9411018] =3D 0x2202006
+> [0xc9411028] =3D 0x0
+>=20
+> maybe someone else could try the command from above on his device
+> (running the original Amlogic kernel).
 
-If we're DMA-ing to a buffer, and we unmap it or sync_for_cpu, then we
-will want to access the DMA'd data - especially in the sync_for_cpu case,
-it's pointless to call sync_for_cpu if we're not going to access the
-data.
+those registers have the same value on an original image from
+hardkernel:=20
 
-So the idea of skipping the CPU copy when DMA_ATTR_SKIP_CPU_SYNC is set
-seems to be completely wrong - it means we end up reading the stale data
-that was in the buffer, completely ignoring whatever was DMA'd to it.
+Linux odroid64 3.14.65-65 #1 SMP PREEMPT Sat May 28
+02:50:51 BRT 2016 aarch64 aarch64 aarch64 GNU/Linux
 
-What's the use case for DMA_ATTR_SKIP_CPU_SYNC ?
+> please also state if ethernet is working properly on the original
+> kernel (and preferably which device/board this is).
 
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+yes, the ethernet works flawless in 100 and 1000 Mbit/s on the 3.14
+kernel.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I can now confirm that both 100 and 1000 Mbit/s do not work properly
+on the 4.8/integ branch. the network connection is interrupted after
+some outbound traffic. it can be recovered by running a ifdown/ifup
+which restarts dhclient, which I think is able to somehow reset the
+interface.=20
+
+Anything I can help to debug the issue further ?
+
+Regards,
+
+ Andr=C3=A9
+=20
