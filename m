@@ -1,98 +1,33 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded
- ICMP errors from offending packet
-Date: Mon, 31 Oct 2016 12:25:37 -0700
-Message-ID: <CALx6S36r0gzZ7ndmivsygZD9vX+EEv2sVEP=rmhQVzGB46Rkdg@mail.gmail.com>
-References: <CALx6S35qmAwFfK1TNAcJJs1jK7JgM8U4MCh3wC8hkuf2qae+sw@mail.gmail.com>
- <8760oa9egg.fsf@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: clear sk_err_soft in sk_clone_lock()
+Date: Mon, 31 Oct 2016 15:26:26 -0400 (EDT)
+Message-ID: <20161031.152626.935222118240640552.davem@davemloft.net>
+References: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
-To: Jakub Sitnicki <jkbs@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8760oa9egg.fsf@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, soheil@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56466 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S945584AbcJaT02 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:26:28 -0400
+In-Reply-To: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 30, 2016 at 6:03 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
-> On Fri, Oct 28, 2016 at 02:25 PM GMT, Tom Herbert wrote:
->> On Fri, Oct 28, 2016 at 1:32 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
->>> On Thu, Oct 27, 2016 at 10:35 PM GMT, Tom Herbert wrote:
->>>> On Mon, Oct 24, 2016 at 2:28 AM, Jakub Sitnicki <jkbs@redhat.com> wrote:
->>>>> Same as for the transmit path, let's do our best to ensure that received
->>>>> ICMP errors that may be subject to forwarding will be routed the same
->>>>> path as flow that triggered the error, if it was going in the opposite
->>>>> direction.
->>>>>
->>>> Unfortunately our ability to do this is generally quite limited. This
->>>> patch will select the route for multipath, but I don't believe sets
->>>> the same link in LAG and definitely can't help switches doing ECMP to
->>>> route the ICMP packet in the same way as the flow would be. Did you
->>>> see a problem that warrants solving this case?
->>>
->>> The motivation here is to bring IPv6 ECMP routing on par with IPv4 to
->>> enable its wider use, targeting anycast services. Forwarding ICMP errors
->>> back to the source host, at the L3 layer, is what we thought would be a
->>> step forward.
->>>
->>> Similar to change in IPv4 routing introduced in commit 79a131592dbb
->>> ("ipv4: ICMP packet inspection for multipath", [1]) we do our best at
->>> L3, leaving any potential problems with LAG at lower layer (L2)
->>> unaddressed.
->>>
->> ICMP will almost certainly take a different path in the network than
->> TCP or UDP due to ECMP. If we ever get proper flow label support for
->> ECMP then that could solve the problem if all the devices do a hash
->> just on <srcIP, destIP, FlowLabel>.
->
-> Sorry for my late reply, I have been traveling.
->
-> I think that either I am missing something here, or the proposed changes
-> address just the problem that you have described.
->
-> Yes, if we compute the hash that drives the route choice over the IP
-> header of the ICMP error, then there is no guarantee it will travel back
-> to the sender of the offending packet that triggered the error.
->
-> That is why, we look at the offending packet carried by an ICMP error
-> and hash over its fields, instead. We need, however, to take care of two
-> things:
->
-> 1) swap the source with the destination address, because we are
->    forwarding the ICMP error in the opposite direction than the
->    offending packet was going (see icmpv6_multipath_hash() introduced in
->    patch 4/5); and
->
-> 2) ensure the flow labels used in both directions are the same (either
->    reflected by one side, or fixed, e.g. not used and set to 0), so that
->    the 4-tuple we hash over when forwarding, <src addr, dst addr, flow
->    label, next hdr>, is the same both ways, modulo the order of
->    addresses.
->
->> If this patch is being done to be compatible with IPv4 I guess that's
->> okay, but it would be false advertisement to say this makes ICMP
->> follow the same path as the flow being targeted in an error.
->> Fortunately, I doubt anyone can have a dependency on this for ICMP.
->
-> I wouldn't want to propose anything that would be useless. If you think
-> that this is the case here, I would very much like to understand what
-> and why cannot work in practice.
->
-The normal hash for TCP or UDP using ECMP is over <protocol, srcIP,
-dstIP, srcPort, dstPort>. For an ICMP packet ECMP would most likely be
-done over <protocol, srcIP, dstIP>. There really is no way to ensure
-that an ICMP packet will follow the same path as TCP or any other
-protocol. Fortunately, this is really isn't so terrible. The Internet
-has worked this way ever since routers started using ports as input to
-ECMP and that hasn't caused any major meltdown.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 28 Oct 2016 13:40:24 -0700
 
-Tom
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> At accept() time, it is possible the parent has a non zero
+> sk_err_soft, leftover from a prior error.
+> 
+> Make sure we do not leave this value in the child, as it
+> makes future getsockopt(SO_ERROR) calls quite unreliable.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-> Thanks for reviewing this series,
-> Jakub
+Applied and queued up for -stable, thanks Eric.
