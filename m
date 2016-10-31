@@ -1,46 +1,55 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: XDP question - how much can BPF change in xdp_buff?
-Date: Mon, 31 Oct 2016 22:18:41 +0100
-Message-ID: <20161031211841.GG32374@pox.localdomain>
-References: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
- <20161031.145734.1243544464767231445.davem@davemloft.net>
- <581799F9.6060704@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
+ FIB notifier
+Date: Mon, 31 Oct 2016 14:24:06 -0700
+Message-ID: <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1477948427-9189-1-git-send-email-idosch@idosch.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Yuval.Mintz@cavium.com,
-        netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@mellanox.com,
+        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, Ido Schimmel <idosch@mellanox.com>
+To: idosch@idosch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35540 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947010AbcJaVSo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 17:18:44 -0400
-Received: by mail-wm0-f48.google.com with SMTP id a197so44475009wmd.0
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 14:18:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <581799F9.6060704@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35703 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S947017AbcJaVYJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 17:24:09 -0400
+Received: by mail-pf0-f196.google.com with SMTP id s8so9653121pfj.2
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 14:24:08 -0700 (PDT)
+In-Reply-To: <1477948427-9189-1-git-send-email-idosch@idosch.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/16 at 12:22pm, John Fastabend wrote:
-> On 16-10-31 11:57 AM, David Miller wrote:
-> > My understanding is that the eBPF program would be responsible
-> > for updating the checksum if it mangles the packet in such a
-> > way that such a fixup would be required.
-> > 
+On Mon, 2016-10-31 at 23:13 +0200, idosch@idosch.org wrote:
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
-> For XDP we will probably need to add support for at minimum the
-> following helpers,
+> When registering a FIB notifier block we should notify the caller of
+> already existing FIB entries and rules, as it would otherwise have an
+> incomplete view of the FIB tables. This is especially important for
+> switchdev drivers that support FIB offloads. Failing to notify them of
+> existing entries may lead to packet loss.
 > 
-> 	bpf_l3_csum_replace
-> 	bpf_l4_csum_replace
-	csum_diff
+> Upon registration, walk the leafs of all the routing tables and for each
+> leaf send notification of existing FIB aliases. Similarly, when
+> unregistering the notifier synthesize a deletion event, thereby
+> relieving potential callers from the need to perform cleanup.
+> 
+> The above is consistent with the netdevice notification chain, where
+> "registration and up events are replayed to the new notifier" upon
+> registration.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 
-We definitely want some visibility feature that can be enabled for
-troubleshooting and debugging which verifies the checksum in SW
-after the bpf program is done. Otherwise, if a XDP BPF program
-miscalculates the checksum, there is no way to figure it out whether
-the checksum is off without attaching another system to capture.
 
-Speaking from experience, getting the checksum right is one of the
-time sinks when developing more complex BPF programs.
+
+How well will this work for large FIB tables ?
+
+Holding rtnl while sending thousands of skb will prevent consumers to
+make progress ?
