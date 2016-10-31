@@ -1,78 +1,66 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH v2 4/5] ARM64: dts: meson-gxl-p23x: Enable ethernet
-Date: Mon, 31 Oct 2016 17:56:26 +0100
-Message-ID: <1477932987-27871-5-git-send-email-narmstrong@baylibre.com>
-References: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>, netdev@vger.kernel.org,
-        linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org
+Subject: [RFC PATCH v2 0/5] ARM64: Add Internal PHY support for Meson GXL
+Date: Mon, 31 Oct 2016 17:56:22 +0100
+Message-ID: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, Neil Armstrong <narmstrong@baylibre.com>,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-amlogic@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 To: f.fainelli@gmail.com, khilman@baylibre.com, carlo@caione.org,
-        andrew@lunn.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
+ andrew@lunn.ch
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Enable Ethernet on the p23x board, pinctrl attribute is only added for
-the p230 board since the p231 only uses the Internal PHY.
+The Amlogic Meson GXL SoCs have an internal RMII PHY that is muxed with the
+external RGMII pins.
 
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
----
- arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p230.dts  | 16 ++++++++++++++++
- arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p231.dts  |  6 ++++++
- arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi |  4 ++++
- 3 files changed, 26 insertions(+)
+In order to support switching between the two PHYs links, extended registers
+size for mdio-mux-mmioreg must be added.
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p230.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p230.dts
-index 3dfaa37..a569286 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p230.dts
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p230.dts
-@@ -49,3 +49,19 @@
- 	compatible = "amlogic,p230", "amlogic,s905d", "amlogic,meson-gxl";
- 	model = "Amlogic Meson GXL (S905D) P230 Development Board";
- };
-+
-+/* P230 has exclusive choice between internal or external PHY */
-+&ethmac {
-+	pinctrl-0 = <&eth_pins>;
-+	pinctrl-names = "default";
-+
-+	phy-handle = <&external_phy>;
-+};
-+
-+&external_mdio {
-+	external_phy: ethernet-phy@0 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <0>;
-+		max-speed = <1000>;
-+	};
-+};
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p231.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p231.dts
-index ade8d29..1cc8d49 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p231.dts
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p231.dts
-@@ -49,3 +49,9 @@
- 	compatible = "amlogic,p231", "amlogic,s905d", "amlogic,meson-gxl";
- 	model = "Amlogic Meson GXL (S905D) P231 Development Board";
- };
-+
-+/* P231 has only internal PHY port */
-+&ethmac {
-+	phy-mode = "rmii";
-+	phy-handle = <&internal_phy>;
-+};
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
-index bbe46a2..622ffbe 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi
-@@ -182,3 +182,7 @@
- 	clocks = <&clkc CLKID_FCLK_DIV4>;
- 	clock-names = "clkin0";
- };
-+
-+&ethmac {
-+	status = "okay";
-+};
+Finally, the internal PHY is added in the GXL dtsi and support for each
+board is added in intermediate board family dtsi or final dts.
+
+This patchset depends on ARM64 dts patch at [1]
+
+Changes since original RFC patchset at : [2]
+ - Remove meson8b experimental phy switching
+ - Switch to mdio-mux-mmioreg with extennded size support
+ - Add internal phy support for S905x and p231
+ - Add external PHY support for p230
+
+[1] http://lkml.kernel.org/r/1477932286-27482-1-git-send-email-narmstrong@baylibre.com
+[2] http://lkml.kernel.org/r/1477060838-14164-1-git-send-email-narmstrong@baylibre.com
+
+Neil Armstrong (5):
+  net: mdio-mux-mmioreg: Add support for 16bit and 32bit register sizes
+  net: phy: Add Meson GXL Internal PHY driver
+  ARM64: dts: meson-gxl: Add ethernet nodes with internal PHY
+  ARM64: dts: meson-gxl-p23x: Enable ethernet
+  ARM64: dts: meson-gxl-s905x: Enable internal ethernet PHY
+
+ .../devicetree/bindings/net/mdio-mux-mmioreg.txt   |  4 +-
+ .../boot/dts/amlogic/meson-gxl-s905d-p230.dts      | 16 +++++
+ .../boot/dts/amlogic/meson-gxl-s905d-p231.dts      |  6 ++
+ .../boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi     |  4 ++
+ arch/arm64/boot/dts/amlogic/meson-gxl-s905x.dtsi   |  6 ++
+ arch/arm64/boot/dts/amlogic/meson-gxl.dtsi         | 45 ++++++++++++
+ drivers/net/phy/Kconfig                            |  5 ++
+ drivers/net/phy/Makefile                           |  1 +
+ drivers/net/phy/mdio-mux-mmioreg.c                 | 60 ++++++++++++----
+ drivers/net/phy/meson-gxl.c                        | 81 ++++++++++++++++++++++
+ 10 files changed, 213 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/phy/meson-gxl.c
+
 -- 
 1.9.1
