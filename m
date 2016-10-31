@@ -1,72 +1,82 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH net-next] ipv4: fib: Replay events when registering FIB
- notifier
-Date: Mon, 31 Oct 2016 11:03:37 +0200
-Message-ID: <20161031090337.q4srbalxqdw4bd3o@splinter>
-References: <1477902578-20137-1-git-send-email-idosch@idosch.org>
- <201611010030.QbB5pF6n%fengguang.wu@intel.com>
+From: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [v15, 6/7] base: soc: introduce soc_device_match() interface
+Date: Mon, 31 Oct 2016 09:28:56 +0000
+Message-ID: <DB6PR0401MB2536CAD001BF3CAB4EDB15DCF8AE0@DB6PR0401MB2536.eurprd04.prod.outlook.com>
+References: <1477637418-38938-1-git-send-email-yangbo.lu@nxp.com>
+	<1477637418-38938-7-git-send-email-yangbo.lu@nxp.com>
+	<2572890.e6aV4hmMEL@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org, davem@davemloft.net,
-        jiri@mellanox.com, mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        andy@greyhouse.net, alexander.h.duyck@intel.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        andrew@lunn.ch, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net,
-        Ido Schimmel <idosch@mellanox.com>
-To: kbuild test robot <lkp@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:34011 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1763376AbcJaJDl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 05:03:41 -0400
-Content-Disposition: inline
-In-Reply-To: <201611010030.QbB5pF6n%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"M.H. Lian" <minghuan.lian-3arQi8VN3Tc@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Kumar
+	Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, "linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
+	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <2572890.e6aV4hmMEL@wuerfel>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 01, 2016 at 12:54:01AM +0800, kbuild test robot wrote:
-> Hi Ido,
+> -----Original Message-----
+> From: Arnd Bergmann [mailto:arnd-r2nGTMty4D4@public.gmane.org]
+> Sent: Friday, October 28, 2016 6:48 PM
+> To: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> Cc: Y.B. Lu; linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; Scott
+> Wood; Mark Rutland; Greg Kroah-Hartman; X.B. Xie; M.H. Lian; linux-
+> i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Qiang Zhao; Russell King;
+> Bhupesh Sharma; Joerg Roedel; Claudiu Manoil; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> Rob Herring; Santosh Shilimkar; linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org;
+> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Leo Li;
+> iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org; Kumar Gala; Geert Uytterhoeven
+> Subject: Re: [v15, 6/7] base: soc: introduce soc_device_match() interface
 > 
-> [auto build test ERROR on net-next/master]
+> On Friday, October 28, 2016 2:50:17 PM CEST Yangbo Lu wrote:
+> > +
+> > +static int soc_device_match_one(struct device *dev, void *arg) {
+> > +       struct soc_device *soc_dev = container_of(dev, struct
+> soc_device, dev);
+> > +       const struct soc_device_attribute *match = arg;
+> > +
+> > +       if (match->machine &&
+> > +           !glob_match(match->machine, soc_dev->attr->machine))
+> > +               return 0;
+> > +
+> > +       if (match->family &&
+> > +           !glob_match(match->family, soc_dev->attr->family))
+> > +               return 0;
+> > +
+> >
 > 
-> url:    https://github.com/0day-ci/linux/commits/idosch-idosch-org/ipv4-fib-Replay-events-when-registering-FIB-notifier/20161031-163334
-> config: x86_64-randconfig-x014-201644 (attached as .config)
-> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64 
+> Geert found a bug in my code, and submitted a fix at
+> https://patchwork.kernel.org/patch/9361395/
 > 
-> All errors (new ones prefixed by >>):
+> I think you should include that one in your series.
 > 
->    net/ipv4/fib_trie.c: In function 'register_fib_notifier':
-> >> net/ipv4/fib_trie.c:141:16: error: 'struct netns_ipv4' has no member named 'fib_has_custom_rules'
->       if (net->ipv4.fib_has_custom_rules)
->                    ^
->    net/ipv4/fib_trie.c: In function 'unregister_fib_notifier':
->    net/ipv4/fib_trie.c:178:16: error: 'struct netns_ipv4' has no member named 'fib_has_custom_rules'
->       if (net->ipv4.fib_has_custom_rules)
->                    ^
 
-Right, I missed that. Will send a v2.
+[Lu Yangbo-B47093] Ok, no problem. Thanks :)
 
-Thanks!
-
-> 
-> vim +141 net/ipv4/fib_trie.c
-> 
->    135		err = blocking_notifier_chain_register(&fib_chain, nb);
->    136		if (err)
->    137			goto unlock;
->    138		for_each_net(net) {
->    139			struct fib_notifier_info info;
->    140	
->  > 141			if (net->ipv4.fib_has_custom_rules)
->    142				call_fib_notifier(nb, net, FIB_EVENT_RULE_ADD, &info);
->    143			fib_notify(net, nb, FIB_EVENT_ENTRY_ADD);
->    144		}
-> 
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+> 	Arnd
