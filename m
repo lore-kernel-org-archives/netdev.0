@@ -1,64 +1,106 @@
-From: =?UTF-8?B?QW5kcsOp?= Roth <neolynx@gmail.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Mon, 31 Oct 2016 11:25:24 +0100
-Message-ID: <20161031112524.4c4ee8f8@gmail.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
-        <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
-        <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH] net: stmmac: Add OXNAS Glue Driver
+Date: Mon, 31 Oct 2016 11:25:43 +0100
+Message-ID: <29c3fe96-8593-eaae-5ffe-d74e687f3448@baylibre.com>
+References: <20161021084445.24989-1-narmstrong@baylibre.com>
+ <20161030204110.otvjlanmi7dv7fox@rob-hp-laptop>
+ <04b8ed79-8efa-cc10-a9a3-fdee10e0723c@baylibre.com>
+ <CAGhQ9Vxy+boEPV3pvRCAWAWh-Tie31oS0PG7F6ix5_Wf=JHxgg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Johnson Leung <r58129@freescale.com>, netdev@vger.kernel.org,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        linux-amlogic@lists.infradead.org
-To: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:37739 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757545AbcJaKZ2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 06:25:28 -0400
-Received: by mail-wm0-f45.google.com with SMTP id t79so40666265wmt.0
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 03:25:28 -0700 (PDT)
-In-Reply-To: <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh@kernel.org>,
+        "peppe.cavallaro" <peppe.cavallaro@st.com>,
+        alexandre.torgue@st.com, netdev <netdev@vger.kernel.org>,
+        linux-oxnas@lists.tuxfamily.org,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        devicetree <devicetree@vger.kernel.org>
+To: Joachim Eastwood <manabian@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGhQ9Vxy+boEPV3pvRCAWAWh-Tie31oS0PG7F6ix5_Wf=JHxgg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 10/31/2016 11:20 AM, Joachim Eastwood wrote:
+> Hi Neil,
+> 
+> On 31 October 2016 at 10:55, Neil Armstrong <narmstrong@baylibre.com> wrote:
+>> On 10/30/2016 09:41 PM, Rob Herring wrote:
+>>> On Fri, Oct 21, 2016 at 10:44:45AM +0200, Neil Armstrong wrote:
+>>>> Add Synopsys Designware MAC Glue layer for the Oxford Semiconductor OX820.
+>>>>
+>>>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+>>>> ---
+>>>>  .../devicetree/bindings/net/oxnas-dwmac.txt        |  44 +++++
+>>>
+>>> It's preferred that bindings are a separate patch.
+>>
+>> OK
+>>
+>>>
+>>>>  drivers/net/ethernet/stmicro/stmmac/Kconfig        |  11 ++
+>>>>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c  | 219 +++++++++++++++++++++
+>>>>  4 files changed, 275 insertions(+)
+>>>>  create mode 100644 Documentation/devicetree/bindings/net/oxnas-dwmac.txt
+>>>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
+>>>>
+>>>> Changes since RFC at https://patchwork.kernel.org/patch/9387257 :
+>>>>  - Drop init/exit callbacks
+>>>>  - Implement proper remove and PM callback
+>>>>  - Call init from probe
+>>>>  - Disable/Unprepare clock if stmmac probe fails
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/oxnas-dwmac.txt b/Documentation/devicetree/bindings/net/oxnas-dwmac.txt
+>>>> new file mode 100644
+>>>> index 0000000..5d2696c
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/oxnas-dwmac.txt
+>>>> @@ -0,0 +1,44 @@
+>>>> +* Oxford Semiconductor OXNAS DWMAC Ethernet controller
+>>>> +
+>>>> +The device inherits all the properties of the dwmac/stmmac devices
+>>>> +described in the file stmmac.txt in the current directory with the
+>>>> +following changes.
+>>>> +
+>>>> +Required properties on all platforms:
+>>>> +
+>>>> +- compatible:       Depending on the platform this should be one of:
+>>>> +                    - "oxsemi,ox820-dwmac"
+>>>> +            Additionally "snps,dwmac" and any applicable more
+>>>> +            detailed version number described in net/stmmac.txt
+>>>> +            should be used.
+>>>
+>>> You should be explicit what version applies to ox820. "snps,dwmac"
+>>> should probably be deprecated IMO. There are so many variations of DW
+>>> h/w.
+>>
+>> Well, to be honest I have absolutely no idea ! But I will try to find out...
+> 
+> You can see in the boot log:
+> 
+> From lpc18xx boot:
+> [    3.242253] stmmac - user ID: 0x11, Synopsys ID: 0x36
+> [    3.247653]  Ring mode enabled
+> [    3.251491]  DMA HW capability register supported
+> [    3.256336]  Enhanced/Alternate descriptors
+> [    3.261537]  Enabled extended descriptors
+> [    3.265968]  RX Checksum Offload Engine supported (type 2)
+> [    3.272249]  TX Checksum insertion supported
+> [    3.276874]  Wake-Up On Lan supported
+> [    3.283743]  Enable RX Mitigation via HW Watchdog Timer
+> [    3.326701] libphy: stmmac: probed
+> 
+> Synopsys ID: 0x36 and user UD: 0x11, gives us DWMAC version 3.611
+> 
+> 
+> regards,
+> Joachim Eastwood
+> 
+OK, thanks !
 
-Hi all,
-=20
-> on my device this results in:
-> [0xc9410018] =3D 0x2000000
-> [0xc9410030] =3D 0x0
-> [0xc941003c] =3D 0x0
-> [0xc9411000] =3D 0x1100802
-> [0xc9411018] =3D 0x2202006
-> [0xc9411028] =3D 0x0
->=20
-> maybe someone else could try the command from above on his device
-> (running the original Amlogic kernel).
+stmmac - user ID: 0x12, Synopsys ID: 0x35
 
-those registers have the same value on an original image from
-hardkernel:=20
-
-Linux odroid64 3.14.65-65 #1 SMP PREEMPT Sat May 28
-02:50:51 BRT 2016 aarch64 aarch64 aarch64 GNU/Linux
-
-> please also state if ethernet is working properly on the original
-> kernel (and preferably which device/board this is).
-
-yes, the ethernet works flawless in 100 and 1000 Mbit/s on the 3.14
-kernel.
-
-I can now confirm that both 100 and 1000 Mbit/s do not work properly
-on the 4.8/integ branch. the network connection is interrupted after
-some outbound traffic. it can be recovered by running a ifdown/ifup
-which restarts dhclient, which I think is able to somehow reset the
-interface.=20
-
-Anything I can help to debug the issue further ?
-
-Regards,
-
- Andr=C3=A9
-=20
+Neil
