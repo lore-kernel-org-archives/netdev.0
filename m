@@ -1,39 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2 0/4] Add support for XPS when using DCB
-Date: Mon, 31 Oct 2016 15:01:05 -0400 (EDT)
-Message-ID: <20161031.150105.1254982711155992939.davem@davemloft.net>
-References: <20161028154126.67826.76735.stgit@ahduyck-blue-test.jf.intel.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] net: set SK_MEM_QUANTUM to 4096
+Date: Mon, 31 Oct 2016 15:01:14 -0400
+Message-ID: <CADVnQym2dWf8R7Gvx2c03nuiWFLHKrEZM8zOUbF6JFesSRuiCw@mail.gmail.com>
+References: <1477940320.7065.312.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        john.r.fastabend@intel.com, tom@herbertland.com
-To: alexander.h.duyck@intel.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56068 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945423AbcJaTBH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:01:07 -0400
-In-Reply-To: <20161028154126.67826.76735.stgit@ahduyck-blue-test.jf.intel.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:33325 "EHLO
+        mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S945718AbcJaTBp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:01:45 -0400
+Received: by mail-oi0-f41.google.com with SMTP id 128so47556594oih.0
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 12:01:45 -0700 (PDT)
+In-Reply-To: <1477940320.7065.312.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Fri, 28 Oct 2016 11:42:45 -0400
+On Mon, Oct 31, 2016 at 2:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Systems with large pages (64KB pages for example) do not always have
+> huge quantity of memory.
+>
+> A big SK_MEM_QUANTUM value leads to fewer interactions with the
+> global counters (like tcp_memory_allocated) but might trigger
+> memory pressure much faster, thus suboptimal TCP performance
+> since windows are lowered to ridiculous values.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-> This patch series enables proper isolation between traffic classes when
-> using XPS while DCB is enabled.  Previously enabling XPS would cause the
-> traffic to be potentially pulled from one traffic class into another on
-> egress.  This change essentially multiplies the XPS map by the number of
-> traffic classes and allows us to do a lookup per traffic class for a given
-> CPU.
-> 
-> To guarantee the isolation I invalidate the XPS map for any queues that are
-> moved from one traffic class to another, or if we change the number of
-> traffic classes.
-> 
-> v2: Added sysfs to display traffic class
->     Replaced do/while with for loop
->     Cleaned up several other for for loops throughout the patch
+ Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Series applied, thanks Alex.
+Thanks, Eric!
+
+neal
