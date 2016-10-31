@@ -1,56 +1,80 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 10/14] nfp: create separate define for max number of vectors
-Date: Mon, 31 Oct 2016 20:43:18 +0000
-Message-ID: <1477946602-19644-11-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 12/14] nfp: remove nfp_net_irqs_wanted()
+Date: Mon, 31 Oct 2016 20:43:20 +0000
+Message-ID: <1477946602-19644-13-git-send-email-jakub.kicinski@netronome.com>
 References: <1477946602-19644-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:38397 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030447AbcJaUoI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:44:08 -0400
-Received: by mail-wm0-f41.google.com with SMTP id n67so251680728wme.1
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 13:44:08 -0700 (PDT)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37210 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1034043AbcJaUoJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:44:09 -0400
+Received: by mail-wm0-f54.google.com with SMTP id t79so72833535wmt.0
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 13:44:09 -0700 (PDT)
 In-Reply-To: <1477946602-19644-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are currently using define for max TX rings to allocate IRQ
-vectors.  It's OK since the max number of rings for TX and RX
-are currently the same, but lets make the code nicer by taking
-max of the two.
+nfp_net_irqs_wanted() doesn't really encapsulate much logic,
+remove it and inline the calculations.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 27 ++++------------------
+ 1 file changed, 4 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 9ca066b29f07..55a497c02237 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -87,6 +87,9 @@
- /* Queue/Ring definitions */
- #define NFP_NET_MAX_TX_RINGS	64	/* Max. # of Tx rings per device */
- #define NFP_NET_MAX_RX_RINGS	64	/* Max. # of Rx rings per device */
-+#define NFP_NET_MAX_R_VECS	(NFP_NET_MAX_TX_RINGS > NFP_NET_MAX_RX_RINGS ? \
-+				 NFP_NET_MAX_TX_RINGS : NFP_NET_MAX_RX_RINGS)
-+#define NFP_NET_MAX_IRQS	(NFP_NET_NON_Q_VECTORS + NFP_NET_MAX_R_VECS)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 49a1f54e0787..f26c3927746f 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -308,28 +308,6 @@ static int nfp_net_msix_alloc(struct nfp_net *nn, int nr_vecs)
+ }
  
- #define NFP_NET_MIN_TX_DESCS	256	/* Min. # of Tx descs per ring */
- #define NFP_NET_MIN_RX_DESCS	256	/* Min. # of Rx descs per ring */
-@@ -539,9 +542,8 @@ struct nfp_net {
+ /**
+- * nfp_net_irqs_wanted() - Work out how many interrupt vectors we want
+- * @nn:       NFP Network structure
+- *
+- * We want a vector per CPU (or ring), whatever is smaller plus
+- * NFP_NET_NON_Q_VECTORS for LSC etc.
+- *
+- * Return: Number of interrupts wanted
+- */
+-static int nfp_net_irqs_wanted(struct nfp_net *nn)
+-{
+-	unsigned int vecs;
+-	int ncpus;
+-
+-	ncpus = num_online_cpus();
+-
+-	vecs = max_t(int, nn->num_tx_rings, nn->num_rx_rings);
+-	vecs = min_t(int, vecs, ncpus);
+-
+-	return vecs + NFP_NET_NON_Q_VECTORS;
+-}
+-
+-/**
+  * nfp_net_irqs_alloc() - allocates MSI-X irqs
+  * @nn:       NFP Network structure
+  *
+@@ -339,7 +317,7 @@ int nfp_net_irqs_alloc(struct nfp_net *nn)
+ {
+ 	int wanted_irqs;
  
- 	u8 num_irqs;
- 	u8 num_r_vecs;
--	struct nfp_net_r_vector r_vecs[NFP_NET_MAX_TX_RINGS];
--	struct msix_entry irq_entries[NFP_NET_NON_Q_VECTORS +
--				      NFP_NET_MAX_TX_RINGS];
-+	struct nfp_net_r_vector r_vecs[NFP_NET_MAX_R_VECS];
-+	struct msix_entry irq_entries[NFP_NET_MAX_IRQS];
+-	wanted_irqs = nfp_net_irqs_wanted(nn);
++	wanted_irqs = nn->num_r_vecs + NFP_NET_NON_Q_VECTORS;
  
- 	irq_handler_t lsc_handler;
- 	char lsc_name[IFNAMSIZ + 8];
+ 	nn->num_irqs = nfp_net_msix_alloc(nn, wanted_irqs);
+ 	if (nn->num_irqs == 0) {
+@@ -2726,6 +2704,9 @@ struct nfp_net *nfp_net_netdev_alloc(struct pci_dev *pdev,
+ 	nn->num_tx_rings = min_t(int, nqs, max_tx_rings);
+ 	nn->num_rx_rings = min_t(int, nqs, max_rx_rings);
+ 
++	nn->num_r_vecs = max(nn->num_tx_rings, nn->num_rx_rings);
++	nn->num_r_vecs = min_t(unsigned int, nn->num_r_vecs, num_online_cpus());
++
+ 	nn->txd_cnt = NFP_NET_TX_DESCS_DEFAULT;
+ 	nn->rxd_cnt = NFP_NET_RX_DESCS_DEFAULT;
+ 
 -- 
 1.9.1
