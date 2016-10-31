@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/22] i40e: properly cleanup on allocation failure in i40e_sync_vsi_filters
-Date: Mon, 31 Oct 2016 15:29:39 -0700
-Message-ID: <1477952992-125662-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/22] i40e: correct check for reading TSYNINDX from the receive descriptor
+Date: Mon, 31 Oct 2016 15:29:43 -0700
+Message-ID: <1477952992-125662-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,108 +9,60 @@ Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:46390 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:28490 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034496AbcJaW36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 18:29:58 -0400
+        id S1034507AbcJaW37 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 18:29:59 -0400
 In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Currently, we fail to correctly restore filters on the temporary add
-list when we fail to allocate memory either for deletion or addition.
-Replace calls to "goto out;" with calls to a new location that correctly
-handles memory allocation failures.
+When hardware has taken a timestamp for a received packet, it indicates
+which RXTIME register the timestamp was placed in by some bits in the
+receive descriptor. It uses 3 bits, one to indicate if the descriptor
+index is valid (ie: there was a timestamp) and 2 bits to indicate which
+of the 4 registers to read. However, the driver currently does not check
+the TSYNVALID bit and only checks the index. It assumes a zero index
+means no timestamp, and a non zero index means a timestamp occurred.
+While this appears to be true, it prevents ever reading a timestamp in
+RXTIME[0], and causes the first timestamp the device captures to be
+ignored.
 
-Note that it is safe for us to call i40e_undo_filter_entries on the
-tmp_del_list even after we've deleted filters because at this point it
-will be empty, so we don't need to separate the logic for add and
-delete failure.
+Fix this by using the TSYNVALID bit correctly as the true indicator of
+whether the packet has an associated timestamp.
 
-Change-Id: Iee107fd219c6e03e2fd9645c2debf8e8384a8521
+Also rename the variable rsyn to tsyn as this is more descriptive and
+matches the register names.
+
+Change-ID: I4437e8f3a3df2c2ddb458b0fb61420f3dafc4c12
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 39 ++++++++++++++++-------------
- 1 file changed, 22 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ea4dc9f..35f06ba 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1683,15 +1683,16 @@ static void i40e_set_rx_mode(struct net_device *netdev)
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index daade4fe..c9eb6b8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1410,11 +1410,12 @@ void i40e_process_skb_fields(struct i40e_ring *rx_ring,
+ 	u64 qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+ 	u32 rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
+ 			I40E_RXD_QW1_STATUS_SHIFT;
+-	u32 rsyn = (rx_status & I40E_RXD_QW1_STATUS_TSYNINDX_MASK) >>
++	u32 tsynvalid = rx_status & I40E_RXD_QW1_STATUS_TSYNVALID_MASK;
++	u32 tsyn = (rx_status & I40E_RXD_QW1_STATUS_TSYNINDX_MASK) >>
+ 		   I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT;
  
- /**
-- * i40e_undo_del_filter_entries - Undo the changes made to MAC filter entries
-- * @vsi: pointer to vsi struct
-+ * i40e_undo_filter_entries - Undo the changes made to MAC filter entries
-+ * @vsi: Pointer to VSI struct
-  * @from: Pointer to list which contains MAC filter entries - changes to
-  *        those entries needs to be undone.
-  *
-- * MAC filter entries from list were slated to be removed from device.
-+ * MAC filter entries from list were slated to be sent to firmware, either for
-+ * addition or deletion.
-  **/
--static void i40e_undo_del_filter_entries(struct i40e_vsi *vsi,
--					 struct hlist_head *from)
-+static void i40e_undo_filter_entries(struct i40e_vsi *vsi,
-+				     struct hlist_head *from)
- {
- 	struct i40e_mac_filter *f;
- 	struct hlist_node *h;
-@@ -1840,14 +1841,8 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 		list_size = filter_list_len *
- 			    sizeof(struct i40e_aqc_remove_macvlan_element_data);
- 		del_list = kzalloc(list_size, GFP_ATOMIC);
--		if (!del_list) {
--			/* Undo VSI's MAC filter entry element updates */
--			spin_lock_bh(&vsi->mac_filter_hash_lock);
--			i40e_undo_del_filter_entries(vsi, &tmp_del_list);
--			spin_unlock_bh(&vsi->mac_filter_hash_lock);
--			retval = -ENOMEM;
--			goto out;
--		}
-+		if (!del_list)
-+			goto err_no_memory;
+-	if (unlikely(rsyn)) {
+-		i40e_ptp_rx_hwtstamp(rx_ring->vsi->back, skb, rsyn);
++	if (unlikely(tsynvalid)) {
++		i40e_ptp_rx_hwtstamp(rx_ring->vsi->back, skb, tsyn);
+ 		rx_ring->last_rx_timestamp = jiffies;
+ 	}
  
- 		hlist_for_each_entry_safe(f, h, &tmp_del_list, hlist) {
- 			cmd_flags = 0;
-@@ -1924,10 +1919,9 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 		list_size = filter_list_len *
- 			       sizeof(struct i40e_aqc_add_macvlan_element_data);
- 		add_list = kzalloc(list_size, GFP_ATOMIC);
--		if (!add_list) {
--			retval = -ENOMEM;
--			goto out;
--		}
-+		if (!add_list)
-+			goto err_no_memory;
-+
- 		num_add = 0;
- 		hlist_for_each_entry(f, &tmp_add_list, hlist) {
- 			if (test_bit(__I40E_FILTER_OVERFLOW_PROMISC,
-@@ -2152,6 +2146,17 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 
- 	clear_bit(__I40E_CONFIG_BUSY, &vsi->state);
- 	return retval;
-+
-+err_no_memory:
-+	/* Restore elements on the temporary add and delete lists */
-+	spin_lock_bh(&vsi->mac_filter_hash_lock);
-+	i40e_undo_filter_entries(vsi, &tmp_del_list);
-+	i40e_undo_filter_entries(vsi, &tmp_add_list);
-+	spin_unlock_bh(&vsi->mac_filter_hash_lock);
-+
-+	vsi->flags |= I40E_VSI_FLAG_FILTER_CHANGED;
-+	clear_bit(__I40E_CONFIG_BUSY, &vsi->state);
-+	return -ENOMEM;
- }
- 
- /**
 -- 
 2.7.4
