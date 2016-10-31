@@ -1,51 +1,170 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next v2 4/7] qede: Decouple ethtool caps from qed
-Date: Mon, 31 Oct 2016 07:14:24 +0200
-Message-ID: <1477890867-3789-5-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next v2 5/7] qed: Learn of RDMA capabilities per-device
+Date: Mon, 31 Oct 2016 07:14:25 +0200
+Message-ID: <1477890867-3789-6-git-send-email-Yuval.Mintz@cavium.com>
 References: <1477890867-3789-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:43713 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751261AbcJaFOs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 01:14:48 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:59665 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1758717AbcJaFOz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 01:14:55 -0400
 In-Reply-To: <1477890867-3789-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While the qed_lm_maps is closely tied with the QED_LM_* defines,
-when iterating over the array use actual size instead of the qed
-define to prevent future possible issues.
+Today, RDMA capabilities are learned from management firmware
+which provides a per-device indication for all interfaces.
+Newer management firmware is capable of providing a per-device
+indication [would later be extended to either RoCE/iWARP].
+
+Try using this newer learning mechanism, but fallback in case
+management firmware is too old to retain current functionality.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h |  7 +++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c | 78 +++++++++++++++++++++++++++----
+ 2 files changed, 77 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 327c614..fe7e7b8 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -320,7 +320,7 @@ struct qede_link_mode_mapping {
- {								\
- 	int i;							\
- 								\
--	for (i = 0; i < QED_LM_COUNT; i++) {			\
-+	for (i = 0; i < ARRAY_SIZE(qed_lm_map); i++) {		\
- 		if ((caps) & (qed_lm_map[i].qed_link_mode))	\
- 			__set_bit(qed_lm_map[i].ethtool_link_mode,\
- 				  lk_ksettings->link_modes.name); \
-@@ -331,7 +331,7 @@ struct qede_link_mode_mapping {
- {								\
- 	int i;							\
- 								\
--	for (i = 0; i < QED_LM_COUNT; i++) {			\
-+	for (i = 0; i < ARRAY_SIZE(qed_lm_map); i++) {		\
- 		if (test_bit(qed_lm_map[i].ethtool_link_mode,	\
- 			     lk_ksettings->link_modes.name))	\
- 			caps |= qed_lm_map[i].qed_link_mode;	\
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index fdb7a09..1d113ce 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -8601,6 +8601,7 @@ struct public_drv_mb {
+ 
+ #define DRV_MSG_CODE_BIST_TEST			0x001e0000
+ #define DRV_MSG_CODE_SET_LED_MODE		0x00200000
++#define DRV_MSG_CODE_GET_PF_RDMA_PROTOCOL	0x002b0000
+ #define DRV_MSG_CODE_OS_WOL			0x002e0000
+ 
+ #define DRV_MSG_SEQ_NUMBER_MASK			0x0000ffff
+@@ -8705,6 +8706,12 @@ struct public_drv_mb {
+ 
+ 	u32 fw_mb_param;
+ 
++	/* get pf rdma protocol command responce */
++#define FW_MB_PARAM_GET_PF_RDMA_NONE		0x0
++#define FW_MB_PARAM_GET_PF_RDMA_ROCE		0x1
++#define FW_MB_PARAM_GET_PF_RDMA_IWARP		0x2
++#define FW_MB_PARAM_GET_PF_RDMA_BOTH		0x3
++
+ 	u32 drv_pulse_mb;
+ #define DRV_PULSE_SEQ_MASK			0x00007fff
+ #define DRV_PULSE_SYSTEM_TIME_MASK		0xffff0000
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+index 768b35b..0927488 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
+@@ -1024,28 +1024,89 @@ int qed_mcp_get_media_type(struct qed_dev *cdev, u32 *p_media_type)
+ 	return 0;
+ }
+ 
++/* Old MFW has a global configuration for all PFs regarding RDMA support */
++static void
++qed_mcp_get_shmem_proto_legacy(struct qed_hwfn *p_hwfn,
++			       enum qed_pci_personality *p_proto)
++{
++	/* There wasn't ever a legacy MFW that published iwarp.
++	 * So at this point, this is either plain l2 or RoCE.
++	 */
++	if (test_bit(QED_DEV_CAP_ROCE, &p_hwfn->hw_info.device_capabilities))
++		*p_proto = QED_PCI_ETH_ROCE;
++	else
++		*p_proto = QED_PCI_ETH;
++
++	DP_VERBOSE(p_hwfn, NETIF_MSG_IFUP,
++		   "According to Legacy capabilities, L2 personality is %08x\n",
++		   (u32) *p_proto);
++}
++
++static int
++qed_mcp_get_shmem_proto_mfw(struct qed_hwfn *p_hwfn,
++			    struct qed_ptt *p_ptt,
++			    enum qed_pci_personality *p_proto)
++{
++	u32 resp = 0, param = 0;
++	int rc;
++
++	rc = qed_mcp_cmd(p_hwfn, p_ptt,
++			 DRV_MSG_CODE_GET_PF_RDMA_PROTOCOL, 0, &resp, &param);
++	if (rc)
++		return rc;
++	if (resp != FW_MSG_CODE_OK) {
++		DP_VERBOSE(p_hwfn, NETIF_MSG_IFUP,
++			   "MFW lacks support for command; Returns %08x\n",
++			   resp);
++		return -EINVAL;
++	}
++
++	switch (param) {
++	case FW_MB_PARAM_GET_PF_RDMA_NONE:
++		*p_proto = QED_PCI_ETH;
++		break;
++	case FW_MB_PARAM_GET_PF_RDMA_ROCE:
++		*p_proto = QED_PCI_ETH_ROCE;
++		break;
++	case FW_MB_PARAM_GET_PF_RDMA_BOTH:
++		DP_NOTICE(p_hwfn,
++			  "Current day drivers don't support RoCE & iWARP. Default to RoCE-only\n");
++		*p_proto = QED_PCI_ETH_ROCE;
++		break;
++	case FW_MB_PARAM_GET_PF_RDMA_IWARP:
++	default:
++		DP_NOTICE(p_hwfn,
++			  "MFW answers GET_PF_RDMA_PROTOCOL but param is %08x\n",
++			  param);
++		return -EINVAL;
++	}
++
++	DP_VERBOSE(p_hwfn,
++		   NETIF_MSG_IFUP,
++		   "According to capabilities, L2 personality is %08x [resp %08x param %08x]\n",
++		   (u32) *p_proto, resp, param);
++	return 0;
++}
++
+ static int
+ qed_mcp_get_shmem_proto(struct qed_hwfn *p_hwfn,
+ 			struct public_func *p_info,
++			struct qed_ptt *p_ptt,
+ 			enum qed_pci_personality *p_proto)
+ {
+ 	int rc = 0;
+ 
+ 	switch (p_info->config & FUNC_MF_CFG_PROTOCOL_MASK) {
+ 	case FUNC_MF_CFG_PROTOCOL_ETHERNET:
+-		if (test_bit(QED_DEV_CAP_ROCE,
+-			     &p_hwfn->hw_info.device_capabilities))
+-			*p_proto = QED_PCI_ETH_ROCE;
+-		else
+-			*p_proto = QED_PCI_ETH;
++		if (qed_mcp_get_shmem_proto_mfw(p_hwfn, p_ptt, p_proto))
++			qed_mcp_get_shmem_proto_legacy(p_hwfn, p_proto);
+ 		break;
+ 	case FUNC_MF_CFG_PROTOCOL_ISCSI:
+ 		*p_proto = QED_PCI_ISCSI;
+ 		break;
+ 	case FUNC_MF_CFG_PROTOCOL_ROCE:
+ 		DP_NOTICE(p_hwfn, "RoCE personality is not a valid value!\n");
+-		rc = -EINVAL;
+-		break;
++	/* Fallthrough */
+ 	default:
+ 		rc = -EINVAL;
+ 	}
+@@ -1065,7 +1126,8 @@ int qed_mcp_fill_shmem_func_info(struct qed_hwfn *p_hwfn,
+ 	info->pause_on_host = (shmem_info.config &
+ 			       FUNC_MF_CFG_PAUSE_ON_HOST_RING) ? 1 : 0;
+ 
+-	if (qed_mcp_get_shmem_proto(p_hwfn, &shmem_info, &info->protocol)) {
++	if (qed_mcp_get_shmem_proto(p_hwfn, &shmem_info, p_ptt,
++				    &info->protocol)) {
+ 		DP_ERR(p_hwfn, "Unknown personality %08x\n",
+ 		       (u32)(shmem_info.config & FUNC_MF_CFG_PROTOCOL_MASK));
+ 		return -EINVAL;
 -- 
 1.9.3
