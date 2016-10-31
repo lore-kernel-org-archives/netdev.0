@@ -1,55 +1,52 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: XDP question - how much can BPF change in xdp_buff?
-Date: Mon, 31 Oct 2016 13:29:23 -0700
-Message-ID: <CALx6S37bfMpMhWTSL-WzumGfqywi0oJPnLqj_yEUs61AtyLZKA@mail.gmail.com>
-References: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net] sctp: return back transport in
+ __sctp_rcv_init_lookup
+Date: Mon, 31 Oct 2016 16:30:44 -0400 (EDT)
+Message-ID: <20161031.163044.769708932828537399.davem@davemloft.net>
+References: <8d72a86988a2c16c74c45c52dafbf2bbbe9c3b4d.1477845755.git.lucien.xin@gmail.com>
+        <20161031.155348.689672413057243931.davem@davemloft.net>
+        <20161031201302.GB8514@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+        nhorman@tuxdriver.com
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:36235 "EHLO
-        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S946342AbcJaU3Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:29:25 -0400
-Received: by mail-qk0-f172.google.com with SMTP id o68so177336599qkf.3
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 13:29:25 -0700 (PDT)
-In-Reply-To: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57578 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S946373AbcJaUaq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:30:46 -0400
+In-Reply-To: <20161031201302.GB8514@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 31, 2016 at 11:31 AM, Mintz, Yuval <Yuval.Mintz@cavium.com> wrote:
-> So I've [finally] started looking into implementing XDP
-> for qede, and there's one thing I feel like I'm missing in
-> regard to XDP_TX - what's the guarantee/requirement
-> that the bpf program isn't going to transmute some fields
-> of the rx packet in a way that would prevent the forwarding?
->
-I think there are really two separate questions you're probably
-asking. 1) Can XDP modify a packet in such a way that it won't be
-forwarded by the driver when XDP_TX is returned, ie. driver would drop
-packet  2) Does anything prevent the BPF program from modifying the
-packet such that it becomes malformed (bad checksum, mangled headers,
-etc.).
+From: marcelo.leitner@gmail.com
+Date: Mon, 31 Oct 2016 18:13:02 -0200
 
-I believe the answer to #1 is "no", the XDP interface assumes raw
-packets. If program returns XDP_TX then the driver will forward the
-raw packet without any further consideration.
+> On Mon, Oct 31, 2016 at 03:53:48PM -0400, David Miller wrote:
+>> From: Xin Long <lucien.xin@gmail.com>
+>> Date: Mon, 31 Oct 2016 00:42:35 +0800
+>> 
+>> > Prior to this patch, it used a local variable to save the transport that is
+>> > looked up by __sctp_lookup_association(), and didn't return it back. But in
+>> > sctp_rcv, it is used to initialize chunk->transport. So when hitting this,
+>> > even if it found the transport, it was still initializing chunk->transport
+>> > with null instead.
+>> > 
+>> > This patch is to return the transport back through transport pointer
+>> > that is from __sctp_rcv_lookup_harder().
+>> > 
+>> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> 
+>> So do I apply this to 'net'?  If so I'd like to see explicit ACKs.
+>> 
+>> Thanks.
+> 
+> No. Xin reposted the patchset with this patch updated instead, so please
+> ignore this one. Thanks.
+> 
+> Patchset named: [PATCHv2 net 0/3] sctp: a bunch of fixes by holding transport
 
-The answer to #2 is "no", there is no check that packet produced is
-sensible. We assume that the user setting the XDP program knows what
-they are doing.
-
-> E.g., can a BPF change the TCP payload of an incoming packet
-> without correcting its TCP checksum, and then expect the
-> driver to transmit it [via XDP_TX]? If not, how is this enforced [if at all]?
->
-It's not enforced. If program doesn't update a checksum then we assume
-that forwarded packet is dropped at the receiver.
-
-> [Looked at samples/bpf/xdp2_kern.c which manipulates the
-> UDP header; so I'm not certain what prevents it from doing
-> the same when checksum modifications would be required]
->
->
->
+I got this now, thanks.
