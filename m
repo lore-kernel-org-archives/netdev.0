@@ -1,51 +1,52 @@
-From: Dongli Zhang <dongli.zhang@oracle.com>
-Subject: [PATCH 1/1] xen-netfront: do not cast grant table reference to signed short
-Date: Mon, 31 Oct 2016 13:38:29 +0800
-Message-ID: <1477892309-7150-1-git-send-email-dongli.zhang@oracle.com>
-Cc: boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
-        jgross@suse.com
-To: linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
-        netdev@vger.kernel.org
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: Let's do P4
+Date: Sun, 30 Oct 2016 23:03:53 -0700
+Message-ID: <CAHo-Ooz82uFsf6F=pU-jrR-KOADWuRmkiAfKaB_sQGc=4N7z4g@mail.gmail.com>
+References: <20161029075328.GB1692@nanopsycho.orion> <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
+ <20161030102649.GE1810@pox.localdomain> <20161030163836.GC1686@nanopsycho.orion>
+ <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Benc <jbenc@redhat.com>,
+        Tom Herbert <tom@herbertland.com>, mattyk@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, ogerlitz@mellanox.com,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        dsa@cumulusnetworks.com, vivien.d
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:34678 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758852AbcJaFkF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 01:40:05 -0400
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:34067 "EHLO
+        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759544AbcJaGDz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 02:03:55 -0400
+Received: by mail-yw0-f173.google.com with SMTP id w3so126908623ywg.1
+        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 23:03:54 -0700 (PDT)
+In-Reply-To: <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While grant reference is of type uint32_t, xen-netfront erroneously casts
-it to signed short in BUG_ON().
+One thing to consider...
 
-This would lead to the xen domU panic during boot-up or migration when it
-is attached with lots of paravirtual devices.
+Just because the compiler could be in the kernel, doesn't mean it has to be.
 
-Signed-off-by: Dongli Zhang <dongli.zhang@oracle.com>
----
- drivers/net/xen-netfront.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+One could envision a hotplug/modprobe like helper program that the
+kernel executes
+when it wants to translate from one encoding (say p4) to another (say [e]bpf).
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index e17879d..189a28d 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -304,7 +304,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
- 		queue->rx_skbs[id] = skb;
- 
- 		ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
--		BUG_ON((signed short)ref < 0);
-+		WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)ref));
- 		queue->grant_rx_ref[id] = ref;
- 
- 		page = skb_frag_page(&skb_shinfo(skb)->frags[0]);
-@@ -428,7 +428,7 @@ static void xennet_tx_setup_grant(unsigned long gfn, unsigned int offset,
- 	id = get_id_from_freelist(&queue->tx_skb_freelist, queue->tx_skbs);
- 	tx = RING_GET_REQUEST(&queue->tx, queue->tx.req_prod_pvt++);
- 	ref = gnttab_claim_grant_reference(&queue->gref_tx_head);
--	BUG_ON((signed short)ref < 0);
-+	WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)ref));
- 
- 	gnttab_grant_foreign_access_ref(ref, queue->info->xbdev->otherend_id,
- 					gfn, GNTMAP_readonly);
--- 
-2.7.4
+This keeps complexity (compiler) out of the kernel, while still
+allowing us to have
+the illusion of only one interface to sw/hw.  And it has the nice
+benefit of allowing us
+to use existing compiler toolchains...
