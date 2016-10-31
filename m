@@ -1,40 +1,38 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 0/2] drivers: net: xgene: Fix coalescing bugs
-Date: Mon, 31 Oct 2016 16:00:25 -0700
-Message-ID: <1477954827-9951-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-        Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] net: qcom/emac: use correct value for SGMII_LN_UCDR_SO_GAIN_MODE0
+Date: Mon, 31 Oct 2016 18:18:42 -0500
+Message-ID: <1477955922-18276-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:36592 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S947895AbcJaXAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 19:00:23 -0400
-Received: by mail-oi0-f53.google.com with SMTP id v84so97866339oie.3
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 16:00:18 -0700 (PDT)
+Received: from smtp.codeaurora.org ([198.145.29.96]:47616 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S946232AbcJaXSr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 19:18:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set fixes the following,
+The documentation says that SGMII_LN_UCDR_SO_GAIN_MODE0 should be
+set to 0, not 6, on the Qualcomm Technologies QDF2432.
 
-     1. Since ethernet v1 hardware has a bug related to coalescing,
-	disabling this feature
-     2. Fixing ethernet v2 hardware, interrupt trigger region
-	id to 2, to kickoff coalescing
-
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
 ---
+ drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Iyappan Subramanian (2):
-  drivers: net: xgene: fix: Disable coalescing on v1 hardware
-  drivers: net: xgene: fix: Coalescing values for v2 hardware
-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 12 ------------
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  2 ++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  |  3 ++-
- drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c | 12 +++++++-----
- 4 files changed, 11 insertions(+), 18 deletions(-)
-
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+index 8b3e6c3..3edb5a5 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+@@ -421,7 +421,7 @@ static const struct emac_reg_write sgmii_v2_laned[] = {
+ 	/* CDR Settings */
+ 	{EMAC_SGMII_LN_UCDR_FO_GAIN_MODE0,
+ 		UCDR_STEP_BY_TWO_MODE0 | UCDR_xO_GAIN_MODE(10)},
+-	{EMAC_SGMII_LN_UCDR_SO_GAIN_MODE0, UCDR_xO_GAIN_MODE(6)},
++	{EMAC_SGMII_LN_UCDR_SO_GAIN_MODE0, UCDR_xO_GAIN_MODE(0)},
+ 	{EMAC_SGMII_LN_UCDR_SO_CONFIG, UCDR_ENABLE | UCDR_SO_SATURATION(12)},
+ 
+ 	/* TX/RX Settings */
 -- 
-1.9.1
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
