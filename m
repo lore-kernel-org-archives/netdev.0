@@ -1,41 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add an ioctl to get a socket network
- namespace
-Date: Mon, 31 Oct 2016 10:58:08 -0400 (EDT)
-Message-ID: <20161031.105808.1717498783593722519.davem@davemloft.net>
-References: <1477358953-3547-1-git-send-email-avagin@openvz.org>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] udp: do fwd memory scheduling on dequeue
+Date: Mon, 31 Oct 2016 16:02:12 +0100
+Message-ID: <1477926132.6655.10.camel@redhat.com>
+References: <95bb1b780be2e35ff04fb9e1e2c41470a0a15582.1477660091.git.pabeni@redhat.com>
+         <1477674975.7065.245.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1477677030.7065.250.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1477729045.5306.11.camel@redhat.com>
+         <1477745013.7065.270.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, containers@lists.linux-foundation.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-api@vger.kernel.org
-To: avagin@openvz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477358953-3547-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        James Morris <jmorris@namei.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        linux-nfs@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51172 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S943816AbcJaPCS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 11:02:18 -0400
+In-Reply-To: <1477745013.7065.270.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrei Vagin <avagin@openvz.org>
-Date: Mon, 24 Oct 2016 18:29:13 -0700
+On Sat, 2016-10-29 at 05:43 -0700, Eric Dumazet wrote:
+> On Sat, 2016-10-29 at 10:17 +0200, Paolo Abeni wrote:
+> 
+> > Thank you for working on this. 
+> > 
+> > I just gave a very quick look (the WE has started, children are
+> > screaming ;-), overall the implementation seems quite similar to our
+> > one.
+> > 
+> > I like the additional argument to  ip_cmsg_recv_offset() instead of
+> > keeping skb->sk set.
+> > 
+> > If I read udp_skb_destructor() correctly, the atomic manipulation of
+> > both sk_rmem_alloc and udp_memory_allocated will happen under the
+> > receive lock. In our experiments this increment measurably the
+> > contention on the lock in respect to moving said the operations outside
+> > the lock (as done in our patch). Do you foreseen any issues with that ?
+> > AFAICS every in kernel UDP user of skb_recv_datagram() needs to be
+> > updated with both implementation.
+> 
+> So if you look at tcp, we do not release forward allocation at every
+> recvmsg(), but rather when we are under tcp memory pressure, or at timer
+> firing when we know the flow has been idle for a while.
+> 
+> You hit contention on the lock, but the root cause is that right now udp
+> is very conservative and also hits false sharing on
+> udp_memory_allocated.
+> 
+> So I believe this is another problem which needs a fix anyway.
+> 
+> No need to make a complicated patch right now, if we know that this
+> problem will be separately fixed, in another patch ?
 
-> From: Andrey Vagin <avagin@openvz.org>
-> 
-> Each socket operates in a network namespace where it has been created,
-> so if we want to dump and restore a socket, we have to know its network
-> namespace.
-> 
-> We have a socket_diag to get information about sockets, it doesn't
-> report sockets which are not bound or connected.
-> 
-> This patch introduces a new socket ioctl, which is called SIOCGSKNS
-> and used to get a file descriptor for a socket network namespace.
-> 
-> A task must have CAP_NET_ADMIN in a target network namespace to
-> use this ioctl.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Andrei Vagin <avagin@openvz.org>
+No problem at all with incremental patches ;-)
 
-Applied.
+In our experiment, touching udp_memory_allocated is only a part of the
+the source of contention, with the biggest source of contention being
+the sk_rmem_alloc update - which happens on every dequeue.
+
+We experimented doing fwd alloc of the whole sk_rcvbuf; even in that
+scenario we hit relevant contention if sk_rmem_alloc update was done
+under the lock, while full sk_rcvbuf forward allocation and
+sk_rmem_alloc update outside the spinlock gave very similar performance
+to our posted patch.
+
+I think that the next step (after the double lock on dequeue removal)
+should be moving sk_rmem_alloc outside the lock: the needed changes for
+doing that on top of double lock on dequeue removal are very small
+(would add ~10 lines of code).
+
+Paolo
