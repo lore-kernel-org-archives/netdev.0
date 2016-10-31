@@ -1,55 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ip6_tunnel: Clear IP6CB in ip6_tnl_xmit() after
- encapsulation
-Date: Mon, 31 Oct 2016 14:18:49 -0400 (EDT)
-Message-ID: <20161031.141849.2021537115231143799.davem@davemloft.net>
-References: <CALx6S36O_MUQw4vWKUoW-ZgCTg9PJrPjNHwuEWTDG9t=BxQv3w@mail.gmail.com>
-        <9a1bb72b-246d-021a-236c-f523832964ac@gmx.com>
-        <20161028190757.26be756c@halley>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: mv643xx_eth.c merge gone bad...
+Date: Mon, 31 Oct 2016 11:18:54 -0700
+Message-ID: <efd31e03-7d18-a41e-bf7f-3c77faa6e825@gmail.com>
+References: <20161031113349.GA8951@lunn.ch>
+ <20161031.091206.236633139585216348.davem@davemloft.net>
+ <20161031133538.GB9441@lunn.ch>
+ <20161031.103403.293968855937308643.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: elicooper@gmx.com, tom@herbertland.com, netdev@vger.kernel.org
-To: shmulik.ladkani@gmail.com
+Cc: jgunthorpe@obsidianresearch.com, jarod@redhat.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55060 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755682AbcJaSSv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:18:51 -0400
-In-Reply-To: <20161028190757.26be756c@halley>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34394 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943587AbcJaSS5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:18:57 -0400
+Received: by mail-pf0-f195.google.com with SMTP id y68so3480564pfb.1
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 11:18:57 -0700 (PDT)
+In-Reply-To: <20161031.103403.293968855937308643.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Date: Fri, 28 Oct 2016 19:07:57 +0300
+On 10/31/2016 07:34 AM, David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Mon, 31 Oct 2016 14:35:38 +0100
+> 
+>> On Mon, Oct 31, 2016 at 09:12:06AM -0400, David Miller wrote:
+>>> From: Andrew Lunn <andrew@lunn.ch>
+>>> Date: Mon, 31 Oct 2016 12:33:49 +0100
+>>>
+>>>> The merge of commit 27058af401e49d88a905df000dd26f443fcfa8ce for
+>>>> mv643xx_eth.c has gone bad:
+>>>
+>>> Sorry this should be fixed now.
+>>
+>> Hi David
+>>
+>> I think the SET_NETDEV_DEV() should be removed, which is what cause the merged conflict:
+>>
+>> http://patchwork.ozlabs.org/patch/687294/
 
-> On Fri, 28 Oct 2016 13:13:45 +0800 Eli Cooper <elicooper@gmx.com> wrote:
->> Maybe we
->> should clear IP6CB in ip6tunnel_xmit(), rather than in every tunnel's codes?
-> 
-> This seems reasonable.
-> 
-> A potential issue might be whether it needs to be done earlier, although
-> I've reviewed current versions of both 'ip6_tnl_xmit' and
-> 'udp_tunnel6_xmit_skb' and it looks okay. But please verify.
-> 
->> By the way, I don't see any point in setting IPCB(skb)->flags in
->> udp_tunnel6_xmit_skb(). It will not be interpreted as IPCB any further
->> past ip6tunnel_xmit(), even if it were not cleared. Plus, nothing seems
->> to use these flags anyway.
-> 
-> This seems right.
-> 
-> It was introduced in 6a93cc9052 "udp-tunnel: Add a few more UDP tunnel APIs".
-> 
-> If you checkout that tree, you'll notice same treatment to
-> IPCB(skb)->opt and IPCB(skb)->flags in l2tp_xmit_skb... maybe it was
-> just copied ;-)
+The SET_NETDEV_DEV() is required for Jason's change to work, since he is
+doing this:
 
-I think for now, we should clear IP6CB in ip6tunnel_xmit()
-unconditionally, and remove the IPCB() stuff from the UDP tunneling
-code.
++static int get_phy_mode(struct mv643xx_eth_private *mp)
++{
++	struct device *dev = mp->dev->dev.parent;
 
-If we need some kind of preservation of some of the IP6CB(skb)->flag
-bits for whatever reason, we can add that later.  Right now that
-code was producing essentially garbage.
+
+-- 
+Florian
