@@ -1,138 +1,239 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 21/22] i40e: Implementation of ERROR state for NVM update state machine
-Date: Mon, 31 Oct 2016 15:29:51 -0700
-Message-ID: <1477952992-125662-22-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/22] i40e: remove duplicate add/delete adminq command code for filters
+Date: Mon, 31 Oct 2016 15:29:42 -0700
+Message-ID: <1477952992-125662-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Maciej Sosin <maciej.sosin@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:28490 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:46390 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S947527AbcJaWaF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 18:30:05 -0400
+        id S1034506AbcJaW37 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 18:29:59 -0400
 In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maciej Sosin <maciej.sosin@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch adds I40E_NVMUPD_STATE_ERROR state for NVM update.
-Without this patch driver has no possibility to return NVM image write
-failure.This state is being set when ARQ rises error.
-arq_last_status is also updated every time when ARQ event comes,
-not only on error cases.
+We duplicate some code around adding and deleting filters using the
+adminq interface. This is prone to errors in case there are bugs. Use
+functions which extract the logic to their own portion so that we don't
+duplicate it twice in code.
 
-Change-ID: I67ce43ba22a240773c2821b436e96054db0b7c81
-Signed-off-by: Maciej Sosin <maciej.sosin@intel.com>
+Change-ID: I60d68aeb887976787dec00b23ab386a106e61465
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_nvm.c      | 16 ++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_type.h     |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c |  4 ++--
- drivers/net/ethernet/intel/i40evf/i40e_type.h   |  1 +
- 5 files changed, 22 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 156 +++++++++++++++-------------
+ 1 file changed, 84 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 738b42a..56fb272 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -964,11 +964,11 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
- 	desc = I40E_ADMINQ_DESC(hw->aq.arq, ntc);
- 	desc_idx = ntc;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b4529b5..5fe54e5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1783,6 +1783,80 @@ i40e_update_filter_state(int count,
+ }
  
-+	hw->aq.arq_last_status =
-+		(enum i40e_admin_queue_err)le16_to_cpu(desc->retval);
- 	flags = le16_to_cpu(desc->flags);
- 	if (flags & I40E_AQ_FLAG_ERR) {
- 		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
--		hw->aq.arq_last_status =
--			(enum i40e_admin_queue_err)le16_to_cpu(desc->retval);
- 		i40e_debug(hw,
- 			   I40E_DEBUG_AQ_MESSAGE,
- 			   "AQRX: Event received with error 0x%X.\n",
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 954efe3..38ee18f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -722,9 +722,20 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
- 			*((u16 *)&bytes[2]) = hw->nvm_wait_opcode;
- 		}
- 
-+		/* Clear error status on read */
-+		if (hw->nvmupd_state == I40E_NVMUPD_STATE_ERROR)
-+			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+ /**
++ * i40e_aqc_del_filters - Request firmware to delete a set of filters
++ * @vsi: ptr to the VSI
++ * @vsi_name: name to display in messages
++ * @list: the list of filters to send to firmware
++ * @num_del: the number of filters to delete
++ * @retval: Set to -EIO on failure to delete
++ *
++ * Send a request to firmware via AdminQ to delete a set of filters. Uses
++ * *retval instead of a return value so that success does not force ret_val to
++ * be set to 0. This ensures that a sequence of calls to this function
++ * preserve the previous value of *retval on successful delete.
++ */
++static
++void i40e_aqc_del_filters(struct i40e_vsi *vsi, const char *vsi_name,
++			  struct i40e_aqc_remove_macvlan_element_data *list,
++			  int num_del, int *retval)
++{
++	struct i40e_hw *hw = &vsi->back->hw;
++	i40e_status aq_ret;
++	int aq_err;
 +
- 		return 0;
- 	}
- 
-+	/* Clear status even it is not read and log */
-+	if (hw->nvmupd_state == I40E_NVMUPD_STATE_ERROR) {
-+		i40e_debug(hw, I40E_DEBUG_NVM,
-+			   "Clearing I40E_NVMUPD_STATE_ERROR state without reading\n");
-+		hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
++	aq_ret = i40e_aq_remove_macvlan(hw, vsi->seid, list, num_del, NULL);
++	aq_err = hw->aq.asq_last_status;
++
++	/* Explicitly ignore and do not report when firmware returns ENOENT */
++	if (aq_ret && !(aq_err == I40E_AQ_RC_ENOENT)) {
++		*retval = -EIO;
++		dev_info(&vsi->back->pdev->dev,
++			 "ignoring delete macvlan error on %s, err %s, aq_err %s\n",
++			 vsi_name, i40e_stat_str(hw, aq_ret),
++			 i40e_aq_str(hw, aq_err));
 +	}
++}
 +
- 	switch (hw->nvmupd_state) {
- 	case I40E_NVMUPD_STATE_INIT:
- 		status = i40e_nvmupd_state_init(hw, cmd, bytes, perrno);
-@@ -1074,6 +1085,11 @@ void i40e_nvmupd_check_wait_event(struct i40e_hw *hw, u16 opcode)
++/**
++ * i40e_aqc_add_filters - Request firmware to add a set of filters
++ * @vsi: ptr to the VSI
++ * @vsi_name: name to display in messages
++ * @list: the list of filters to send to firmware
++ * @add_head: Position in the add hlist
++ * @num_add: the number of filters to add
++ * @promisc_change: set to true on exit if promiscuous mode was forced on
++ *
++ * Send a request to firmware via AdminQ to add a chunk of filters. Will set
++ * promisc_changed to true if the firmware has run out of space for more
++ * filters.
++ */
++static
++void i40e_aqc_add_filters(struct i40e_vsi *vsi, const char *vsi_name,
++			  struct i40e_aqc_add_macvlan_element_data *list,
++			  struct i40e_mac_filter *add_head,
++			  int num_add, bool *promisc_changed)
++{
++	struct i40e_hw *hw = &vsi->back->hw;
++	i40e_status aq_ret;
++	int aq_err, fcnt;
++
++	aq_ret = i40e_aq_add_macvlan(hw, vsi->seid, list, num_add, NULL);
++	aq_err = hw->aq.asq_last_status;
++	fcnt = i40e_update_filter_state(num_add, list, add_head, aq_ret);
++	vsi->active_filters += fcnt;
++
++	if (fcnt != num_add) {
++		*promisc_changed = true;
++		set_bit(__I40E_FILTER_OVERFLOW_PROMISC, &vsi->state);
++		vsi->promisc_threshold = (vsi->active_filters * 3) / 4;
++		dev_warn(&vsi->back->pdev->dev,
++			 "Error %s adding RX filters on %s, promiscuous mode forced on\n",
++			 i40e_aq_str(hw, aq_err),
++			 vsi_name);
++	}
++}
++
++/**
+  * i40e_sync_vsi_filters - Update the VSI filter list to the HW
+  * @vsi: ptr to the VSI
+  *
+@@ -1808,10 +1882,8 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 	int num_add = 0;
+ 	int num_del = 0;
+ 	int retval = 0;
+-	int aq_err = 0;
+ 	u16 cmd_flags;
+ 	int list_size;
+-	int fcnt;
+ 	int bkt;
+ 
+ 	/* empty array typed pointers, kcalloc later */
+@@ -1948,24 +2020,10 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 
+ 			/* flush a full buffer */
+ 			if (num_del == filter_list_len) {
+-				aq_ret = i40e_aq_remove_macvlan(hw, vsi->seid,
+-								del_list,
+-								num_del, NULL);
+-				aq_err = hw->aq.asq_last_status;
+-				num_del = 0;
++				i40e_aqc_del_filters(vsi, vsi_name, del_list,
++						     num_del, &retval);
+ 				memset(del_list, 0, list_size);
+-
+-				/* Explicitly ignore and do not report when
+-				 * firmware returns ENOENT.
+-				 */
+-				if (aq_ret && !(aq_err == I40E_AQ_RC_ENOENT)) {
+-					retval = -EIO;
+-					dev_info(&pf->pdev->dev,
+-						 "ignoring delete macvlan error on %s, err %s, aq_err %s\n",
+-						 vsi_name,
+-						 i40e_stat_str(hw, aq_ret),
+-						 i40e_aq_str(hw, aq_err));
+-				}
++				num_del = 0;
+ 			}
+ 			/* Release memory for MAC filter entries which were
+ 			 * synced up with HW.
+@@ -1975,22 +2033,8 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
  		}
- 		hw->nvm_wait_opcode = 0;
  
-+		if (hw->aq.arq_last_status) {
-+			hw->nvmupd_state = I40E_NVMUPD_STATE_ERROR;
-+			return;
-+		}
-+
- 		switch (hw->nvmupd_state) {
- 		case I40E_NVMUPD_STATE_INIT_WAIT:
- 			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index bd5f13b..d9a2660 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -366,6 +366,7 @@ enum i40e_nvmupd_state {
- 	I40E_NVMUPD_STATE_WRITING,
- 	I40E_NVMUPD_STATE_INIT_WAIT,
- 	I40E_NVMUPD_STATE_WRITE_WAIT,
-+	I40E_NVMUPD_STATE_ERROR
- };
+ 		if (num_del) {
+-			aq_ret = i40e_aq_remove_macvlan(hw, vsi->seid, del_list,
+-							num_del, NULL);
+-			aq_err = hw->aq.asq_last_status;
+-			num_del = 0;
+-
+-			/* Explicitly ignore and do not report when firmware
+-			 * returns ENOENT.
+-			 */
+-			if (aq_ret && !(aq_err == I40E_AQ_RC_ENOENT)) {
+-				retval = -EIO;
+-				dev_info(&pf->pdev->dev,
+-					 "ignoring delete macvlan error on %s, err %s aq_err %s\n",
+-					 vsi_name,
+-					 i40e_stat_str(hw, aq_ret),
+-					 i40e_aq_str(hw, aq_err));
+-			}
++			i40e_aqc_del_filters(vsi, vsi_name, del_list,
++					     num_del, &retval);
+ 		}
  
- /* nvm_access definition and its masks/shifts need to be accessible to
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 44f7ed7..9638515 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -912,11 +912,11 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 	desc = I40E_ADMINQ_DESC(hw->aq.arq, ntc);
- 	desc_idx = ntc;
+ 		kfree(del_list);
+@@ -2041,48 +2085,16 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
  
-+	hw->aq.arq_last_status =
-+		(enum i40e_admin_queue_err)le16_to_cpu(desc->retval);
- 	flags = le16_to_cpu(desc->flags);
- 	if (flags & I40E_AQ_FLAG_ERR) {
- 		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
--		hw->aq.arq_last_status =
--			(enum i40e_admin_queue_err)le16_to_cpu(desc->retval);
- 		i40e_debug(hw,
- 			   I40E_DEBUG_AQ_MESSAGE,
- 			   "AQRX: Event received with error 0x%X.\n",
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 97f96e0..ca7afe5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -348,6 +348,7 @@ enum i40e_nvmupd_state {
- 	I40E_NVMUPD_STATE_WRITING,
- 	I40E_NVMUPD_STATE_INIT_WAIT,
- 	I40E_NVMUPD_STATE_WRITE_WAIT,
-+	I40E_NVMUPD_STATE_ERROR
- };
- 
- /* nvm_access definition and its masks/shifts need to be accessible to
+ 			/* flush a full buffer */
+ 			if (num_add == filter_list_len) {
+-				aq_ret = i40e_aq_add_macvlan(hw, vsi->seid,
+-							     add_list, num_add,
+-							     NULL);
+-				aq_err = hw->aq.asq_last_status;
+-				fcnt = i40e_update_filter_state(num_add,
+-								add_list,
+-								add_head,
+-								aq_ret);
+-				vsi->active_filters += fcnt;
+-
+-				if (fcnt != num_add) {
+-					promisc_changed = true;
+-					set_bit(__I40E_FILTER_OVERFLOW_PROMISC,
+-						&vsi->state);
+-					vsi->promisc_threshold =
+-						(vsi->active_filters * 3) / 4;
+-					dev_warn(&pf->pdev->dev,
+-						 "Error %s adding RX filters on %s, promiscuous mode forced on\n",
+-						 i40e_aq_str(hw, aq_err),
+-						 vsi_name);
+-				}
++				i40e_aqc_add_filters(vsi, vsi_name, add_list,
++						     add_head, num_add,
++						     &promisc_changed);
+ 				memset(add_list, 0, list_size);
+ 				num_add = 0;
+ 			}
+ 		}
+ 		if (num_add) {
+-			aq_ret = i40e_aq_add_macvlan(hw, vsi->seid,
+-						     add_list, num_add, NULL);
+-			aq_err = hw->aq.asq_last_status;
+-			fcnt = i40e_update_filter_state(num_add, add_list,
+-							add_head, aq_ret);
+-			vsi->active_filters += fcnt;
+-			if (fcnt != num_add) {
+-				promisc_changed = true;
+-				set_bit(__I40E_FILTER_OVERFLOW_PROMISC,
+-					&vsi->state);
+-				vsi->promisc_threshold =
+-						(vsi->active_filters * 3) / 4;
+-				dev_warn(&pf->pdev->dev,
+-					 "Error %s adding RX filters on %s, promiscuous mode forced on\n",
+-					 i40e_aq_str(hw, aq_err), vsi_name);
+-			}
++			i40e_aqc_add_filters(vsi, vsi_name, add_list, add_head,
++					     num_add, &promisc_changed);
+ 		}
+ 		/* Now move all of the filters from the temp add list back to
+ 		 * the VSI's list.
 -- 
 2.7.4
