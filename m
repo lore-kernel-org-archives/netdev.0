@@ -1,225 +1,59 @@
-From: idosch@idosch.org
-Subject: [PATCH net-next v2] ipv4: fib: Replay events when registering FIB notifier
-Date: Mon, 31 Oct 2016 23:13:47 +0200
-Message-ID: <1477948427-9189-1-git-send-email-idosch@idosch.org>
-Cc: davem@davemloft.net, jiri@mellanox.com, mlxsw@mellanox.com,
-        roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, andy@greyhouse.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, Ido Schimmel <idosch@mellanox.com>
-To: netdev@vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] net: phy: at803x: the Atheros 8031 supports pause frames
+Date: Mon, 31 Oct 2016 16:14:26 -0500
+Message-ID: <5817B432.7070304@codeaurora.org>
+References: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
+ <f34cd143-bf04-c17f-b3d6-e3077715a72a@gmail.com>
+ <58127E8E.4020301@codeaurora.org>
+ <9b817af9-a519-9010-e57b-8de8972088b8@gmail.com>
+ <5813AFC1.50506@codeaurora.org>
+ <144cc092-f04d-f5eb-503c-51e87c214b66@gmail.com>
+ <58177E17.6070704@codeaurora.org>
+ <39bda1bc-255b-64d0-3e7a-d3a6f00786c3@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        zefir.kurtisi@neratec.com, scampbel@codeaurora.org,
+        alokc@codeaurora.org, shankerd@codeaurora.org, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:60106 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S946965AbcJaVOg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 17:14:36 -0400
+Received: from smtp.codeaurora.org ([198.145.29.96]:38246 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S946965AbcJaVO3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 17:14:29 -0400
+In-Reply-To: <39bda1bc-255b-64d0-3e7a-d3a6f00786c3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+Florian Fainelli wrote:
+>>pause    asym_pause    enable tx?    enable rx?
+>>-----    ----------    ----------    ----------
+>>   0           0           No             No
+>>   0           1           Yes            No
+>>   1           0           Yes            Yes
+>>   1           1           No             Yes
+>>
+>>The last two seem backwards.  The internal driver enables RX and TX if
+>>pause and asym_pause is enabled.
 
-When registering a FIB notifier block we should notify the caller of
-already existing FIB entries and rules, as it would otherwise have an
-incomplete view of the FIB tables. This is especially important for
-switchdev drivers that support FIB offloads. Failing to notify them of
-existing entries may lead to packet loss.
+Is this chart correct?  I see drivers handle this differently.
 
-Upon registration, walk the leafs of all the routing tables and for each
-leaf send notification of existing FIB aliases. Similarly, when
-unregistering the notifier synthesize a deletion event, thereby
-relieving potential callers from the need to perform cleanup.
+nb8800_pause_config() has this:
 
-The above is consistent with the netdevice notification chain, where
-"registration and up events are replayed to the new notifier" upon
-registration.
+	priv->pause_rx = phydev->pause;
+	priv->pause_tx = phydev->pause ^ phydev->asym_pause;
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
----
-v1->v2:
-* Add #ifdef fixing compilation error reported by kbuild robot
----
- net/ipv4/fib_trie.c | 152 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 150 insertions(+), 2 deletions(-)
+But bcm_sf2_sw_adjust_link() does this:
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 31cef36..455d94b 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -86,15 +86,107 @@
- 
- static BLOCKING_NOTIFIER_HEAD(fib_chain);
- 
-+static int call_fib_notifier(struct notifier_block *nb, struct net *net,
-+			     enum fib_event_type event_type,
-+			     struct fib_notifier_info *info)
-+{
-+	info->net = net;
-+	return nb->notifier_call(nb, event_type, info);
-+}
-+
-+static void fib_rules_notify(struct net *net, struct notifier_block *nb,
-+			     enum fib_event_type event_type)
-+{
-+#ifdef CONFIG_IP_MULTIPLE_TABLES
-+	struct fib_notifier_info info;
-+
-+	if (net->ipv4.fib_has_custom_rules)
-+		call_fib_notifier(nb, net, event_type, &info);
-+#endif
-+}
-+
-+static void fib_notify(struct net *net, struct notifier_block *nb,
-+		       enum fib_event_type event_type);
-+
-+static int call_fib_entry_notifier(struct notifier_block *nb, struct net *net,
-+				   enum fib_event_type event_type, u32 dst,
-+				   int dst_len, struct fib_info *fi,
-+				   u8 tos, u8 type, u32 tb_id, u32 nlflags)
-+{
-+	struct fib_entry_notifier_info info = {
-+		.dst = dst,
-+		.dst_len = dst_len,
-+		.fi = fi,
-+		.tos = tos,
-+		.type = type,
-+		.tb_id = tb_id,
-+		.nlflags = nlflags,
-+	};
-+	return call_fib_notifier(nb, net, event_type, &info.info);
-+}
-+
-+/**
-+ *	register_fib_notifier - register a fib notifier block
-+ *	@nb: notifier
-+ *
-+ *	Register a notifier to be called when FIB entries or rules are
-+ *	added or removed. A negative errno code is returned on failure.
-+ *
-+ *	When registered, all FIB addition events are replayed to the new
-+ *	notifier to allow the caller to have a complete view of the FIB
-+ *	tables.
-+ */
-+
- int register_fib_notifier(struct notifier_block *nb)
- {
--	return blocking_notifier_chain_register(&fib_chain, nb);
-+	struct net *net;
-+	int err;
-+
-+	rtnl_lock();
-+	err = blocking_notifier_chain_register(&fib_chain, nb);
-+	if (err)
-+		goto unlock;
-+	for_each_net(net) {
-+		fib_rules_notify(net, nb, FIB_EVENT_RULE_ADD);
-+		fib_notify(net, nb, FIB_EVENT_ENTRY_ADD);
-+	}
-+
-+unlock:
-+	rtnl_unlock();
-+	return err;
- }
- EXPORT_SYMBOL(register_fib_notifier);
- 
-+/**
-+ *	unregister_fib_notifier - unregister a fib notifier block
-+ *	@nb: notifier
-+ *
-+ *	unregister a notifier previously registered by
-+ *	register_fib_notifier(). A negative errno code is returned on
-+ *	failure.
-+ *
-+ *	After unregistering, FIB deletion events are synthesized to the
-+ *	removed notifier for all present FIB entries. This removes the
-+ *	need for special case cleanup code.
-+ */
-+
- int unregister_fib_notifier(struct notifier_block *nb)
- {
--	return blocking_notifier_chain_unregister(&fib_chain, nb);
-+	struct net *net;
-+	int err;
-+
-+	rtnl_lock();
-+	err = blocking_notifier_chain_unregister(&fib_chain, nb);
-+	if (err)
-+		goto unlock;
-+	for_each_net(net) {
-+		fib_notify(net, nb, FIB_EVENT_ENTRY_DEL);
-+		fib_rules_notify(net, nb, FIB_EVENT_RULE_DEL);
-+	}
-+
-+unlock:
-+	rtnl_unlock();
-+	return err;
- }
- EXPORT_SYMBOL(unregister_fib_notifier);
- 
-@@ -1834,6 +1926,62 @@ int fib_table_flush(struct net *net, struct fib_table *tb)
- 	return found;
- }
- 
-+static void fib_leaf_notify(struct net *net, struct key_vector *l,
-+			    struct fib_table *tb, struct notifier_block *nb,
-+			    enum fib_event_type event_type)
-+{
-+	struct fib_alias *fa;
-+
-+	hlist_for_each_entry(fa, &l->leaf, fa_list) {
-+		struct fib_info *fi = fa->fa_info;
-+
-+		if (!fi)
-+			continue;
-+
-+		/* local and main table can share the same trie,
-+		 * so don't notify twice for the same entry.
-+		 */
-+		if (tb->tb_id != fa->tb_id)
-+			continue;
-+
-+		call_fib_entry_notifier(nb, net, event_type, l->key,
-+					KEYLENGTH - fa->fa_slen, fi, fa->fa_tos,
-+					fa->fa_type, fa->tb_id, 0);
-+	}
-+}
-+
-+static void fib_table_notify(struct net *net, struct fib_table *tb,
-+			     struct notifier_block *nb,
-+			     enum fib_event_type event_type)
-+{
-+	struct trie *t = (struct trie *)tb->tb_data;
-+	struct key_vector *l, *tp = t->kv;
-+	t_key key = 0;
-+
-+	while ((l = leaf_walk_rcu(&tp, key)) != NULL) {
-+		fib_leaf_notify(net, l, tb, nb, event_type);
-+
-+		key = l->key + 1;
-+		/* stop in case of wrap around */
-+		if (key < l->key)
-+			break;
-+	}
-+}
-+
-+static void fib_notify(struct net *net, struct notifier_block *nb,
-+		       enum fib_event_type event_type)
-+{
-+	unsigned int h;
-+
-+	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
-+		struct hlist_head *head = &net->ipv4.fib_table_hash[h];
-+		struct fib_table *tb;
-+
-+		hlist_for_each_entry(tb, head, tb_hlist)
-+			fib_table_notify(net, tb, nb, event_type);
-+	}
-+}
-+
- static void __trie_free_rcu(struct rcu_head *head)
- {
- 	struct fib_table *tb = container_of(head, struct fib_table, rcu);
+	if (phydev->pause) {
+		if (phydev->asym_pause)
+			reg |= TX_PAUSE_EN;
+		reg |= RX_PAUSE_EN;
+	}
+
+Which one is correct?
+
 -- 
-2.7.4
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
