@@ -1,55 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Why do we need tasklet in IFB?
-Date: Mon, 31 Oct 2016 14:10:47 -0400 (EDT)
-Message-ID: <20161031.141047.1551501937019100403.davem@davemloft.net>
-References: <20161028144803.4d3f5a2a@xeon-e3>
-        <CAAmHdhwWGygKtcNR2Bazh-TMoAahEaAf6N5CPWjnvun0BfUdLA@mail.gmail.com>
-        <CAAmHdhyC4DT+Ch2jAhAeCXKoUBH+_q-j96VcZFMO=oBhikN6cg@mail.gmail.com>
+Subject: Re: [PATCH v2] ip6_tunnel: Clear IP6CB in ip6_tnl_xmit() after
+ encapsulation
+Date: Mon, 31 Oct 2016 14:18:49 -0400 (EDT)
+Message-ID: <20161031.141849.2021537115231143799.davem@davemloft.net>
+References: <CALx6S36O_MUQw4vWKUoW-ZgCTg9PJrPjNHwuEWTDG9t=BxQv3w@mail.gmail.com>
+        <9a1bb72b-246d-021a-236c-f523832964ac@gmx.com>
+        <20161028190757.26be756c@halley>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-        jhs@mojatatu.com
-To: make0818@gmail.com
+Cc: elicooper@gmx.com, tom@herbertland.com, netdev@vger.kernel.org
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54964 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55060 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943348AbcJaSKw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:10:52 -0400
-In-Reply-To: <CAAmHdhyC4DT+Ch2jAhAeCXKoUBH+_q-j96VcZFMO=oBhikN6cg@mail.gmail.com>
+        with ESMTP id S1755682AbcJaSSv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:18:51 -0400
+In-Reply-To: <20161028190757.26be756c@halley>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Ma <make0818@gmail.com>
-Date: Mon, 31 Oct 2016 11:02:28 -0700
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Fri, 28 Oct 2016 19:07:57 +0300
 
-> 2016-10-28 14:52 GMT-07:00 Michael Ma <make0818@gmail.com>:
->> 2016-10-28 14:48 GMT-07:00 Stephen Hemminger <stephen@networkplumber.org>:
->>> On Fri, 28 Oct 2016 14:45:07 -0700
->>> Michael Ma <make0818@gmail.com> wrote:
->>>
->>>> 2016-10-28 14:38 GMT-07:00 Stephen Hemminger <stephen@networkplumber.org>:
->>>> > On Fri, 28 Oct 2016 14:36:27 -0700
->>>> > Michael Ma <make0818@gmail.com> wrote:
->>>> >
->>>> >> Hi -
->>>> >>
->>>> >> Currently IFB uses tasklet to process tx/rx on the interface that
->>>> >> forwarded the packet to IFB. My understanding on why we're doing this
->>>> >> is that since dev_queue_xmit() can be invoked in interrupt, we want to
->>>> >> defer the processing of original tx/rx in case ifb_xmit() is called
->>>> >> from interrupt.
->>>> >
->>>> > dev_queue_xmit is only called from interrupt if doing netconsole.
->>>>
+> On Fri, 28 Oct 2016 13:13:45 +0800 Eli Cooper <elicooper@gmx.com> wrote:
+>> Maybe we
+>> should clear IP6CB in ip6tunnel_xmit(), rather than in every tunnel's codes?
 > 
-> In fact this doesn't seem to explain since if the original path is tx
-> and the context is interrupt, IFB will call dev_queue_xmit as well so
-> the context can be interrupt in that case.
+> This seems reasonable.
 > 
-> Then tasklet is still unnecessary.
+> A potential issue might be whether it needs to be done earlier, although
+> I've reviewed current versions of both 'ip6_tnl_xmit' and
+> 'udp_tunnel6_xmit_skb' and it looks okay. But please verify.
+> 
+>> By the way, I don't see any point in setting IPCB(skb)->flags in
+>> udp_tunnel6_xmit_skb(). It will not be interpreted as IPCB any further
+>> past ip6tunnel_xmit(), even if it were not cleared. Plus, nothing seems
+>> to use these flags anyway.
+> 
+> This seems right.
+> 
+> It was introduced in 6a93cc9052 "udp-tunnel: Add a few more UDP tunnel APIs".
+> 
+> If you checkout that tree, you'll notice same treatment to
+> IPCB(skb)->opt and IPCB(skb)->flags in l2tp_xmit_skb... maybe it was
+> just copied ;-)
 
-Perhaps it's necessary to deal with potential recursion, that's my only
-guess at this point.
+I think for now, we should clear IP6CB in ip6tunnel_xmit()
+unconditionally, and remove the IPCB() stuff from the UDP tunneling
+code.
 
-Jamal, do you remember what went through your mind back in 2005? :-)
+If we need some kind of preservation of some of the IP6CB(skb)->flag
+bits for whatever reason, we can add that later.  Right now that
+code was producing essentially garbage.
