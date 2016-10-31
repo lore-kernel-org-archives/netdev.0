@@ -1,98 +1,101 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: [PATCH net-next 1/3] tools lib bpf: Sync {tools,}/include/uapi/linux/bpf.h
-Date: Mon, 31 Oct 2016 11:39:15 -0700
-Message-ID: <20161031183917.9938-2-joe@ovn.org>
-References: <20161031183917.9938-1-joe@ovn.org>
-Cc: wangnan0@huawei.com, ast@fb.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:60425 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945567AbcJaSq4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:46:56 -0400
-Received: from relay2-d.mail.gandi.net (relay2-d.mail.gandi.net [217.70.183.194])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 716F847AAE0
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 19:39:36 +0100 (CET)
-In-Reply-To: <20161031183917.9938-1-joe@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Revert "usb: dwc3: gadget: use allocated/queued reqs
+ for LST bit"
+Date: Mon, 31 Oct 2016 14:51:50 -0400 (EDT)
+Message-ID: <20161031.145150.1409050078488736200.davem@davemloft.net>
+References: <20161027154016.GD4617@intel.com>
+        <87pomksrrm.fsf@linux.intel.com>
+        <20161028163332.GL4617@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: felipe.balbi@linux.intel.com, linux-usb@vger.kernel.org,
+        stable@vger.kernel.org, oneukum@suse.com, netdev@vger.kernel.org
+To: ville.syrjala@linux.intel.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20161028163332.GL4617@intel.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The tools version of this header is out of date; update it to the latest
-version from the kernel headers.
+From: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Date: Fri, 28 Oct 2016 19:33:32 +0300
 
-Signed-off-by: Joe Stringer <joe@ovn.org>
----
- tools/include/uapi/linux/bpf.h | 51 ++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 51 insertions(+)
+> On Fri, Oct 28, 2016 at 01:16:13PM +0300, Felipe Balbi wrote:
+>> Yeah, I'm guessing we're gonna need some help from networking folks. The
+>> only thing we did since v4.7 was actually respect req->no_interrupt flag
+>> coming from u_ether itself. No idea why that causes so much trouble for
+>> u_ether.
+>> 
+>> BTW, Instead of reverting so many patches, you can just remove
+>> throttling:
+>> 
+>> diff --git a/drivers/usb/gadget/function/u_ether.c b/drivers/usb/gadget/function/u_ether.c
+>> index f4a640216913..119a2e5848e8 100644
+>> --- a/drivers/usb/gadget/function/u_ether.c
+>> +++ b/drivers/usb/gadget/function/u_ether.c
+>> @@ -589,14 +589,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
+>>  
+>>         req->length = length;
+>>  
+>> -       /* throttle high/super speed IRQ rate back slightly */
+>> -       if (gadget_is_dualspeed(dev->gadget))
+>> -               req->no_interrupt = (((dev->gadget->speed == USB_SPEED_HIGH ||
+>> -                                      dev->gadget->speed == USB_SPEED_SUPER)) &&
+>> -                                       !list_empty(&dev->tx_reqs))
+>> -                       ? ((atomic_read(&dev->tx_qlen) % dev->qmult) != 0)
+>> -                       : 0;
+>> -
+>>         retval = usb_ep_queue(in, req, GFP_ATOMIC);
+>>         switch (retval) {
+>>         default:
+> 
+> Ah cool. That indeed fixes the problem for me.
+> 
+>> 
+>> I'm adding netdev and couple other folks to the loop.
+>> 
+>> Just to summarize, USB peripheral controller now actually throttles
+>> interrupt when requested to do so and that causes lags for USB
+>> networking gadgets.
+>> 
+>> Without throttle we, potentially, call netif_wake_queue() more
+>> frequently than with throttling. I'm wondering if something changed in
+>> NET layer within the past few years but the USB networking gadgets ended
+>> up being forgotten.
+>> 
+>> Anyway, if anybody has any hints, I'd be glad to hear about them.
 
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 9e5fc168c8a3..f09c70b97eca 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -95,6 +95,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
- 	BPF_PROG_TYPE_XDP,
-+	BPF_PROG_TYPE_PERF_EVENT,
- };
- 
- #define BPF_PSEUDO_MAP_FD	1
-@@ -375,6 +376,56 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_probe_write_user,
- 
-+	/**
-+	 * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
-+	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
-+	 * @index: index of the cgroup in the bpf_map
-+	 * Return:
-+	 *   == 0 current failed the cgroup2 descendant test
-+	 *   == 1 current succeeded the cgroup2 descendant test
-+	 *    < 0 error
-+	 */
-+	BPF_FUNC_current_task_under_cgroup,
-+
-+	/**
-+	 * bpf_skb_change_tail(skb, len, flags)
-+	 * The helper will resize the skb to the given new size,
-+	 * to be used f.e. with control messages.
-+	 * @skb: pointer to skb
-+	 * @len: new skb length
-+	 * @flags: reserved
-+	 * Return: 0 on success or negative error
-+	 */
-+	BPF_FUNC_skb_change_tail,
-+
-+	/**
-+	 * bpf_skb_pull_data(skb, len)
-+	 * The helper will pull in non-linear data in case the
-+	 * skb is non-linear and not all of len are part of the
-+	 * linear section. Only needed for read/write with direct
-+	 * packet access.
-+	 * @skb: pointer to skb
-+	 * @len: len to make read/writeable
-+	 * Return: 0 on success or negative error
-+	 */
-+	BPF_FUNC_skb_pull_data,
-+
-+	/**
-+	 * bpf_csum_update(skb, csum)
-+	 * Adds csum into skb->csum in case of CHECKSUM_COMPLETE.
-+	 * @skb: pointer to skb
-+	 * @csum: csum to add
-+	 * Return: csum on success or negative error
-+	 */
-+	BPF_FUNC_csum_update,
-+
-+	/**
-+	 * bpf_set_hash_invalid(skb)
-+	 * Invalidate current skb>hash.
-+	 * @skb: pointer to skb
-+	 */
-+	BPF_FUNC_set_hash_invalid,
-+
- 	__BPF_FUNC_MAX_ID,
- };
- 
--- 
-2.9.3
+This throttling mechanism seems to have the same problem we've seen in
+the past with some ethernet drivers trying to do TX mitigation in
+software.
+
+If I understand correctly, the interrupt bit for TX completions is set
+only periodically.
+
+However, the networking stack has a hard requirement that all SKBs
+which are transmitted must have their completion signalled in a finite
+amount of time.  This is because, until the SKB is freed by the
+driver, it holds onto socket, netfilter, and other subsystem
+resources.
+
+So, for example, if your scheme is that only every 8th TX packet will
+generate an interrupt you run into problems if you suddenly have 7
+pending TX packets and no more traffic is generated for a long time.
+
+Those 7 packets will sit in the TX queue indefinitely, and this is the
+situation which drivers must avoid.
+
+Therefore, for devices with per-TX-queue-entry interrupt bit schemes,
+it's not easy to take advantage of this facility.  The safest thing to
+do is to interrupt for every queue entry.
+
+For the time being, this revert is the way to go and it should be
+submitted formally, with proper commit message and signoffs, via
+whatever tree this gadget driver's changes should be submitted via.
+
+It might be possible to elide TX queue entry interrupts using the
+skb->xmit_more state.  Basically, if the TX queue is not full and
+skb->xmit_more is set, you can skip the interrupt indication bit
+in the descriptor.
+
+Thanks.
