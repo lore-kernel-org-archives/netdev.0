@@ -1,53 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3]ldmvsw: tx queue stuck in stopped state
- after LDC reset
-Date: Mon, 31 Oct 2016 15:20:49 -0400 (EDT)
-Message-ID: <20161031.152049.1501627749475142269.davem@davemloft.net>
-References: <b8d6abc7188e5cac885905854067444cb89a5f3b.1477678860.git.Aaron.Young@oracle.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: XDP question - how much can BPF change in xdp_buff?
+Date: Mon, 31 Oct 2016 12:22:33 -0700
+Message-ID: <581799F9.6060704@gmail.com>
+References: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
+ <20161031.145734.1243544464767231445.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com
-To: Aaron.Young@oracle.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56390 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S944276AbcJaTUu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:20:50 -0400
-In-Reply-To: <b8d6abc7188e5cac885905854067444cb89a5f3b.1477678860.git.Aaron.Young@oracle.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33108 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S945757AbcJaTWn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:22:43 -0400
+Received: by mail-pf0-f176.google.com with SMTP id d2so6224163pfd.0
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 12:22:43 -0700 (PDT)
+In-Reply-To: <20161031.145734.1243544464767231445.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Young <Aaron.Young@oracle.com>
-Date: Fri, 28 Oct 2016 14:26:19 -0400
+On 16-10-31 11:57 AM, David Miller wrote:
+> From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+> Date: Mon, 31 Oct 2016 18:31:30 +0000
+> 
+>> So I've [finally] started looking into implementing XDP
+>> for qede, and there's one thing I feel like I'm missing in
+>> regard to XDP_TX - what's the guarantee/requirement
+>> that the bpf program isn't going to transmute some fields
+>> of the rx packet in a way that would prevent the forwarding?
+>>
+>> E.g., can a BPF change the TCP payload of an incoming packet
+>> without correcting its TCP checksum, and then expect the
+>> driver to transmit it [via XDP_TX]? If not, how is this enforced [if at all]?
+>>
+>> [Looked at samples/bpf/xdp2_kern.c which manipulates the
+>> UDP header; so I'm not certain what prevents it from doing
+>> the same when checksum modifications would be required]
+> 
+> My understanding is that the eBPF program would be responsible
+> for updating the checksum if it mangles the packet in such a
+> way that such a fixup would be required.
+> 
 
-> From: Aaron Young <aaron.young@oracle.com>
-> 
-> The following patch fixes an issue with the ldmvsw driver where
-> the network connection of a guest domain becomes non-functional after
-> the guest domain has panic'd and rebooted.
-> 
-> The root cause was determined to be from the following series of
-> events:
-> 
-> 1. Guest domain panics - resulting in the guest no longer processing
->    network packets (from ldmvsw driver)
-> 2. The ldmvsw driver (in the control domain) eventually exerts flow
->    control due to no more available tx drings and stops the tx queue
->    for the guest domain
-> 3. The LDC of the network connection for the guest is reset when
->    the guest domain reboots after the panic.
-> 4. The LDC reset event is received by the ldmvsw driver and the ldmvsw
->    responds by clearing the tx queue for the guest.
-> 5. ldmvsw waits indefinitely for a DATA ACK from the guest - which is
->    the normal method to re-enable the tx queue. But the ACK never comes
->    because the tx queue was cleared due to the LDC reset.
-> 
-> To fix this issue, in addition to clearing the tx queue, re-enable the
-> tx queue on a LDC reset. This prevents the ldmvsw from getting caught in
-> this deadlocked state of waiting for a DATA ACK which will never come.
-> 
-> Signed-off-by: Aaron Young <Aaron.Young@oracle.com>
-> Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+For XDP we will probably need to add support for at minimum the
+following helpers,
 
-Applied, thank you.
+	bpf_l3_csum_replace
+	bpf_l4_csum_replace
+
+Thanks,
+John
