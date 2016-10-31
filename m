@@ -1,356 +1,172 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v3 net-next] lan78xx: Use irq_domain for phy interrupt from
- USB Int. EP
-Date: Mon, 31 Oct 2016 21:44:37 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4095CACB@CHN-SV-EXMX02.mchp-main.com>
+From: John Heenan <john@zgus.com>
+Subject: Re: [PATCH] rtl8xxxu: Fix for agressive power saving by rtl8723bu
+ wireless IC
+Date: Tue, 1 Nov 2016 08:15:43 +1000
+Message-ID: <CAAye0QNtcb28q1HY-xAr=bQ0s_nEQuv1TM+Ax5i99Eds7xOb=Q@mail.gmail.com>
+References: <20161031183522.GA13315@cube> <wrfj1sywrz2f.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <UNGLinuxDriver@microchip.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <f.fainelli@gmail.com>, <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:64254 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933729AbcJaVol (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 17:44:41 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jes Sorensen <Jes.Sorensen@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <wrfj1sywrz2f.fsf@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Woojung Huh <woojung.huh@microchip.com>
+On 1 November 2016 at 07:25, Jes Sorensen <Jes.Sorensen@redhat.com> wrote:
+> John Heenan <john@zgus.com> writes:
+>> The rtl8723bu wireless IC shows evidence of a more agressive approach to
+>> power saving, powering down its RF side when there is no wireless
+>> interfacing but leaving USB interfacing intact. This makes the wireless
+>> IC more suitable for use in devices which need to keep their power use
+>> as low as practical, such as tablets and Surface Pro type devices.
+>>
+>> In effect this means that a full initialisation must be performed
+>> whenever a wireless interface is brought up. It also means that
+>> interpretations of power status from general wireless registers should
+>> not be relied on to influence an init sequence.
+>>
+>> The patch works by forcing a fuller initialisation and forcing it to
+>> occur more often in code paths (such as occurs during a low level
+>> authentication that initiates wireless interfacing).
+>>
+>> The initialisation sequence is now more consistent with code based
+>> directly on vendor code. For example while the vendor derived code
+>> interprets a register as indcating a particular powered state, it does
+>> not use this information to influence its init sequence.
+>>
+>> The rtl8723bu device has a unique USB VID and PID. This is taken
+>> advantage of for the patch to ensure only rtl8723bu devices are affected
+>> by this patch.
+>>
+>> With this patch wpa_supplicant reliably and consistently connects with
+>> an AP. Before a workaround such as executing rmmod and modprobe before
+>> each call to wpa_supplicant worked with some distributions.
+>>
+>> Signed-off-by: John Heenan <john@zgus.com>
+>> ---
+>>  .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c  | 24 ++++++++++++++++++----
+>>  1 file changed, 20 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+>> index 04141e5..f36e674 100644
+>> --- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+>> +++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+>> @@ -79,6 +79,8 @@ MODULE_PARM_DESC(dma_agg_pages, "Set DMA aggregation pages (range 1-127, 0 to di
+>>  #define RTL8XXXU_TX_URB_LOW_WATER    25
+>>  #define RTL8XXXU_TX_URB_HIGH_WATER   32
+>>
+>> +#define USB_PRODUCT_ID_RTL8723BU 0xb720
+>> +
+>
+> Absolutely not! You have no guarantee that this is the only id used for
+> 8723bu devices, and adding a #define for each is not going to happen.
 
-To utilize phylib with interrupt fully than handling some of phy stuff in the MAC driver,
-create irq_domain for USB interrupt EP of phy interrupt and
-pass the irq number to phy_connect_direct() instead of PHY_IGNORE_INTERRUPT.
+Thanks for you reply.
 
-Idea comes from drivers/gpio/gpio-dl2.c
+I have no problem with that. However the patch does get the point
+across in a minimalist and efficient way of what the issues are.
 
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
----
- drivers/net/usb/lan78xx.c | 214 ++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 188 insertions(+), 26 deletions(-)
+Currently there is no property available to determine the information required.
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index c4e748e..6230833 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -30,13 +30,17 @@
- #include <linux/ipv6.h>
- #include <linux/mdio.h>
- #include <net/ip6_checksum.h>
-+#include <linux/interrupt.h>
-+#include <linux/irqdomain.h>
-+#include <linux/irq.h>
-+#include <linux/irqchip/chained_irq.h>
- #include <linux/microchipphy.h>
- #include "lan78xx.h"
- 
- #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
- #define DRIVER_DESC	"LAN78XX USB 3.0 Gigabit Ethernet Devices"
- #define DRIVER_NAME	"lan78xx"
--#define DRIVER_VERSION	"1.0.4"
-+#define DRIVER_VERSION	"1.0.5"
- 
- #define TX_TIMEOUT_JIFFIES		(5 * HZ)
- #define THROTTLE_JIFFIES		(HZ / 8)
-@@ -89,6 +93,38 @@
- /* statistic update interval (mSec) */
- #define STAT_UPDATE_TIMER		(1 * 1000)
- 
-+/* defines interrupts from interrupt EP */
-+#define MAX_INT_EP			(32)
-+#define INT_EP_INTEP			(31)
-+#define INT_EP_OTP_WR_DONE		(28)
-+#define INT_EP_EEE_TX_LPI_START		(26)
-+#define INT_EP_EEE_TX_LPI_STOP		(25)
-+#define INT_EP_EEE_RX_LPI		(24)
-+#define INT_EP_MAC_RESET_TIMEOUT	(23)
-+#define INT_EP_RDFO			(22)
-+#define INT_EP_TXE			(21)
-+#define INT_EP_USB_STATUS		(20)
-+#define INT_EP_TX_DIS			(19)
-+#define INT_EP_RX_DIS			(18)
-+#define INT_EP_PHY			(17)
-+#define INT_EP_DP			(16)
-+#define INT_EP_MAC_ERR			(15)
-+#define INT_EP_TDFU			(14)
-+#define INT_EP_TDFO			(13)
-+#define INT_EP_UTX			(12)
-+#define INT_EP_GPIO_11			(11)
-+#define INT_EP_GPIO_10			(10)
-+#define INT_EP_GPIO_9			(9)
-+#define INT_EP_GPIO_8			(8)
-+#define INT_EP_GPIO_7			(7)
-+#define INT_EP_GPIO_6			(6)
-+#define INT_EP_GPIO_5			(5)
-+#define INT_EP_GPIO_4			(4)
-+#define INT_EP_GPIO_3			(3)
-+#define INT_EP_GPIO_2			(2)
-+#define INT_EP_GPIO_1			(1)
-+#define INT_EP_GPIO_0			(0)
-+
- static const char lan78xx_gstrings[][ETH_GSTRING_LEN] = {
- 	"RX FCS Errors",
- 	"RX Alignment Errors",
-@@ -296,6 +332,15 @@ struct statstage {
- 	struct lan78xx_statstage64	curr_stat;
- };
- 
-+struct irq_domain_data {
-+	struct irq_domain	*irqdomain;
-+	unsigned int		irq_base;
-+	struct irq_chip		*irqchip;
-+	irq_flow_handler_t	irq_handler;
-+	u32			irqenable;
-+	struct mutex		irq_lock;		/* for irq bus access */
-+};
-+
- struct lan78xx_net {
- 	struct net_device	*net;
- 	struct usb_device	*udev;
-@@ -351,6 +396,8 @@ struct lan78xx_net {
- 
- 	int			delta;
- 	struct statstage	stats;
-+
-+	struct irq_domain_data	domain_data;
- };
- 
- /* use ethtool to change the level for any given device */
-@@ -1096,11 +1143,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 	int ladv, radv, ret;
- 	u32 buf;
- 
--	/* clear PHY interrupt status */
--	ret = phy_read(phydev, LAN88XX_INT_STS);
--	if (unlikely(ret < 0))
--		return -EIO;
--
- 	/* clear LAN78xx interrupt status */
- 	ret = lan78xx_write_reg(dev, INT_STS, INT_STS_PHY_INT_);
- 	if (unlikely(ret < 0))
-@@ -1120,16 +1162,12 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 		if (unlikely(ret < 0))
- 			return -EIO;
- 
--		phy_mac_interrupt(phydev, 0);
--
- 		del_timer(&dev->stat_monitor);
- 	} else if (phydev->link && !dev->link_on) {
- 		dev->link_on = true;
- 
- 		phy_ethtool_ksettings_get(phydev, &ecmd);
- 
--		ret = phy_read(phydev, LAN88XX_INT_STS);
--
- 		if (dev->udev->speed == USB_SPEED_SUPER) {
- 			if (ecmd.base.speed == 1000) {
- 				/* disable U2 */
-@@ -1163,7 +1201,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 
- 		ret = lan78xx_update_flowcontrol(dev, ecmd.base.duplex, ladv,
- 						 radv);
--		phy_mac_interrupt(phydev, 1);
- 
- 		if (!timer_pending(&dev->stat_monitor)) {
- 			dev->delta = 1;
-@@ -1202,7 +1239,10 @@ static void lan78xx_status(struct lan78xx_net *dev, struct urb *urb)
- 
- 	if (intdata & INT_ENP_PHY_INT) {
- 		netif_dbg(dev, link, dev->net, "PHY INTR: 0x%08x\n", intdata);
--			  lan78xx_defer_kevent(dev, EVENT_LINK_RESET);
-+		lan78xx_defer_kevent(dev, EVENT_LINK_RESET);
-+
-+		if (dev->domain_data.irq_base > 0)
-+			generic_handle_irq(dev->domain_data.irq_base);
- 	} else
- 		netdev_warn(dev->net,
- 			    "unexpected interrupt: 0x%08x\n", intdata);
-@@ -1844,6 +1884,127 @@ static void lan78xx_link_status_change(struct net_device *net)
- 	}
- }
- 
-+static int irq_map(struct irq_domain *d, unsigned int irq,
-+		   irq_hw_number_t hwirq)
-+{
-+	struct irq_domain_data *data = d->host_data;
-+
-+	irq_set_chip_data(irq, data);
-+	irq_set_chip_and_handler(irq, data->irqchip, data->irq_handler);
-+	irq_set_noprobe(irq);
-+
-+	return 0;
-+}
-+
-+static void irq_unmap(struct irq_domain *d, unsigned int irq)
-+{
-+	irq_set_chip_and_handler(irq, NULL, NULL);
-+	irq_set_chip_data(irq, NULL);
-+}
-+
-+static const struct irq_domain_ops chip_domain_ops = {
-+	.map	= irq_map,
-+	.unmap	= irq_unmap,
-+};
-+
-+static void lan78xx_irq_mask(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+
-+	data->irqenable &= ~BIT(irqd_to_hwirq(irqd));
-+}
-+
-+static void lan78xx_irq_unmask(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+
-+	data->irqenable |= BIT(irqd_to_hwirq(irqd));
-+}
-+
-+static void lan78xx_irq_bus_lock(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+
-+	mutex_lock(&data->irq_lock);
-+}
-+
-+static void lan78xx_irq_bus_sync_unlock(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+	struct lan78xx_net *dev =
-+			container_of(data, struct lan78xx_net, domain_data);
-+	u32 buf;
-+	int ret;
-+
-+	/* call register access here because irq_bus_lock & irq_bus_sync_unlock
-+	 * are only two callbacks executed in non-atomic contex.
-+	 */
-+	ret = lan78xx_read_reg(dev, INT_EP_CTL, &buf);
-+	if (buf != data->irqenable)
-+		ret = lan78xx_write_reg(dev, INT_EP_CTL, data->irqenable);
-+
-+	mutex_unlock(&data->irq_lock);
-+}
-+
-+static struct irq_chip lan78xx_irqchip = {
-+	.name			= "lan78xx-phyirq",
-+	.irq_mask		= lan78xx_irq_mask,
-+	.irq_unmask		= lan78xx_irq_unmask,
-+	.irq_bus_lock		= lan78xx_irq_bus_lock,
-+	.irq_bus_sync_unlock	= lan78xx_irq_bus_sync_unlock,
-+};
-+
-+static int lan78xx_setup_irq_domain(struct lan78xx_net *dev)
-+{
-+	struct device_node *of_node;
-+	struct irq_domain *irqdomain;
-+	unsigned int irq_base = 0;
-+	u32 buf;
-+	int ret = 0;
-+
-+	of_node = dev->udev->dev.parent->of_node;
-+
-+	mutex_init(&dev->domain_data.irq_lock);
-+
-+	lan78xx_read_reg(dev, INT_EP_CTL, &buf);
-+	dev->domain_data.irqenable = buf;
-+
-+	dev->domain_data.irqchip = &lan78xx_irqchip;
-+	dev->domain_data.irq_handler = handle_simple_irq;
-+
-+	irqdomain = irq_domain_add_simple(of_node, MAX_INT_EP, 0,
-+					  &chip_domain_ops, &dev->domain_data);
-+	if (irqdomain) {
-+		/* create mapping for PHY interrupt */
-+		irq_base = irq_create_mapping(irqdomain, INT_EP_PHY);
-+		if (!irq_base) {
-+			irq_domain_remove(irqdomain);
-+
-+			irqdomain = NULL;
-+			ret = -EINVAL;
-+		}
-+	} else {
-+		ret = -EINVAL;
-+	}
-+
-+	dev->domain_data.irqdomain = irqdomain;
-+	dev->domain_data.irq_base = irq_base;
-+
-+	return ret;
-+}
-+
-+static void lan78xx_remove_irq_domain(struct lan78xx_net *dev)
-+{
-+	if (dev->domain_data.irq_base > 0) {
-+		irq_dispose_mapping(dev->domain_data.irq_base);
-+
-+		if (dev->domain_data.irqdomain)
-+			irq_domain_remove(dev->domain_data.irqdomain);
-+	}
-+	dev->domain_data.irq_base = 0;
-+	dev->domain_data.irqdomain = NULL;
-+}
-+
- static int lan78xx_phy_init(struct lan78xx_net *dev)
- {
- 	int ret;
-@@ -1856,15 +2017,12 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
- 		return -EIO;
- 	}
- 
--	/* Enable PHY interrupts.
--	 * We handle our own interrupt
--	 */
--	ret = phy_read(phydev, LAN88XX_INT_STS);
--	ret = phy_write(phydev, LAN88XX_INT_MASK,
--			LAN88XX_INT_MASK_MDINTPIN_EN_ |
--			LAN88XX_INT_MASK_LINK_CHANGE_);
--
--	phydev->irq = PHY_IGNORE_INTERRUPT;
-+	/* if irq_base is not set, use polling mode in phylib */
-+	if (dev->domain_data.irq_base > 0)
-+		phydev->irq = dev->domain_data.irq_base;
-+	else
-+		phydev->irq = 0;
-+	netdev_dbg(dev->net, "phydev->irq = %d\n", phydev->irq);
- 
- 	ret = phy_connect_direct(dev->net, phydev,
- 				 lan78xx_link_status_change,
-@@ -2255,11 +2413,6 @@ static int lan78xx_reset(struct lan78xx_net *dev)
- 	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
- 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
- 
--	/* enable PHY interrupts */
--	ret = lan78xx_read_reg(dev, INT_EP_CTL, &buf);
--	buf |= INT_ENP_PHY_INT;
--	ret = lan78xx_write_reg(dev, INT_EP_CTL, buf);
--
- 	ret = lan78xx_read_reg(dev, MAC_TX, &buf);
- 	buf |= MAC_TX_TXEN_;
- 	ret = lan78xx_write_reg(dev, MAC_TX, buf);
-@@ -2668,6 +2821,13 @@ static int lan78xx_bind(struct lan78xx_net *dev, struct usb_interface *intf)
- 
- 	dev->net->hw_features = dev->net->features;
- 
-+	ret = lan78xx_setup_irq_domain(dev);
-+	if (ret < 0) {
-+		netdev_warn(dev->net,
-+			    "lan78xx_setup_irq_domain() failed : %d", ret);
-+		return ret;
-+	}
-+
- 	/* Init all registers */
- 	ret = lan78xx_reset(dev);
- 
-@@ -2684,6 +2844,8 @@ static void lan78xx_unbind(struct lan78xx_net *dev, struct usb_interface *intf)
- {
- 	struct lan78xx_priv *pdata = (struct lan78xx_priv *)(dev->data[0]);
- 
-+	lan78xx_remove_irq_domain(dev);
-+
- 	lan78xx_remove_mdio(dev);
- 
- 	if (pdata) {
--- 
-2.7.4
+>
+>>  static int rtl8xxxu_submit_rx_urb(struct rtl8xxxu_priv *priv,
+>>                                 struct rtl8xxxu_rx_urb *rx_urb);
+>>
+>> @@ -3892,6 +3894,7 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
+>>       u8 val8;
+>>       u16 val16;
+>>       u32 val32;
+>> +  struct usb_device_descriptor *udesc = &priv->udev->descriptor;
+>
+> Indentaiton
+
+OK. Missed that one.
+
+>
+>>       /* Check if MAC is already powered on */
+>>       val8 = rtl8xxxu_read8(priv, REG_CR);
+>> @@ -3900,7 +3903,9 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
+>>        * Fix 92DU-VC S3 hang with the reason is that secondary mac is not
+>>        * initialized. First MAC returns 0xea, second MAC returns 0x00
+>>        */
+>> -     if (val8 == 0xea)
+>> +     if (val8 == 0xea
+>> +                     || (udesc->idVendor == USB_VENDOR_ID_REALTEK
+>> +                     &&  udesc->idProduct == USB_PRODUCT_ID_RTL8723BU))
+>>               macpower = false;
+>>       else
+>>               macpower = true;
+>
+> Please respect proper kernel coding style!
+
+I don't know what you mean. Your code has real tabs. My code has real
+tabs. The kernel style goes on about tabs being 8 spaces. So do you
+want: real tabs or real spaces?
+
+You said no lines over 80 columns long. This is what i have done.
+
+>
+>> @@ -5776,9 +5781,17 @@ static int rtl8xxxu_start(struct ieee80211_hw *hw)
+>>       struct rtl8xxxu_tx_urb *tx_urb;
+>>       unsigned long flags;
+>>       int ret, i;
+>> +     struct usb_device_descriptor *udesc = &priv->udev->descriptor;
+>>
+>>       ret = 0;
+>>
+>> +     if(udesc->idVendor == USB_VENDOR_ID_REALTEK
+>> +                     && udesc->idProduct == USB_PRODUCT_ID_RTL8723BU) {
+>> +             ret = rtl8xxxu_init_device(hw);
+>> +             if (ret)
+>> +                     goto error_out;
+>> +     }
+>> +
+>
+> As mentioned previously, if this is to be changed here, it has to be
+> matched in the _stop section too.
+
+I looked at this and could not find a matching function. I will have a
+look again.
+
+>  It also has to be investigated exactly
+> why this matters for 8723bu. It is possible this matters for other
+> devices, but we need to find out exactly what causes this not moving a
+> major block of init code around like this.
+
+I have no problem with this.
+
+Given what you said yesterday we are not going to get definitive
+answers. It is going to have to be trial and error while tracing
+through what vendor code does.
+
+Apparently as far as Realtek are concerned, we are nobodies and they
+want nothing to do with us.
+
+>
+>>       init_usb_anchor(&priv->rx_anchor);
+>>       init_usb_anchor(&priv->tx_anchor);
+>>       init_usb_anchor(&priv->int_anchor);
+>> @@ -6080,9 +6093,12 @@ static int rtl8xxxu_probe(struct usb_interface *interface,
+>>               goto exit;
+>>       }
+>>
+>> -     ret = rtl8xxxu_init_device(hw);
+>> -     if (ret)
+>> +     if(!(id->idVendor == USB_VENDOR_ID_REALTEK
+>> +                     && id->idProduct == USB_PRODUCT_ID_RTL8723BU)) {
+>> +             ret = rtl8xxxu_init_device(hw);
+>> +             if (ret)
+>>               goto exit;
+>> +     }
+>
+> Again, this coding style abuse will never go into this driver,
+
+As above, what abuse? I am not being facetious. Just puzzled.
+
+> Jes
+
+Again have a nice day!
+
+John
