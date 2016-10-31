@@ -1,55 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git)] net: phy: at803x: disable by default the
- hibernation feature
-Date: Mon, 31 Oct 2016 11:03:34 -0400 (EDT)
-Message-ID: <20161031.110334.1176462972951777560.davem@davemloft.net>
-References: <1477384282-17878-1-git-send-email-peppe.cavallaro@st.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 3/4] bpf: BPF for lightweight tunnel
+ encapsulation
+Date: Mon, 31 Oct 2016 16:06:40 +0100
+Message-ID: <20161031150640.GC32374@pox.localdomain>
+References: <cover.1477827877.git.tgraf@suug.ch>
+ <2ab47e198828261438e8762ef484a6023481a756.1477827877.git.tgraf@suug.ch>
+ <CALx6S35PMvoMZ-L0bC4R=Q9qw=V5N7JY_Xbit0BffFccH0nMgw@mail.gmail.com>
+ <20161030214717.GA27148@pox.localdomain>
+ <CALx6S35TOQumWFu1ha9nkNNOEwq2Y2VH6oCOK6F3HZg97omQgw@mail.gmail.com>
+ <20161031125906.GB32374@pox.localdomain>
+ <CALx6S34hHZDdtZgLBZzw-QiOc80tjrLAuAVBDeWRuUonR1MfXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ujhelyi.m@gmail.com
-To: peppe.cavallaro@st.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        roopa <roopa@cumulusnetworks.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48968 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943776AbcJaPDg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 11:03:36 -0400
-In-Reply-To: <1477384282-17878-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38839 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943632AbcJaPGn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 11:06:43 -0400
+Received: by mail-wm0-f51.google.com with SMTP id n67so234301365wme.1
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 08:06:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S34hHZDdtZgLBZzw-QiOc80tjrLAuAVBDeWRuUonR1MfXA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date: Tue, 25 Oct 2016 10:31:22 +0200
-
-> These PHY chips, by default, enable the hibernation feature
-> so, if the cable is unplugged the device enters in hibernation
-> mode after some time. This can generate problems on some cases.
-> It has been noticed, on some platforms that, if the phy enters
-> in hibernation, the missing of the rx clock signal can force
-> a mac to fail when setup some parts that need to be properly
-> clocked.
-> For example, while booting a Kernel the SYNP MAC (stmmac) fails
-> to initialize own DMA engine if the phy entered in hibernation
-> before.
+On 10/31/16 at 07:17am, Tom Herbert wrote:
+> On Mon, Oct 31, 2016 at 5:59 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> > Noticed while implementing this: How does ILA ensure that dst_output()
+> > is not invoked in a circular manner?
+> >
+> > dstA->output() -> dstB->otuput() -> dstA->output() -> ...
 > 
-> So, the patch just disables this feature by default when init
-> the PHY driver.
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Matus Ujhelyi <ujhelyi.m@gmail.com>
+> It doesn't. We'll need to add a check for that. Maybe the rule should
+> be that an skbuff is only allowed to hit one LWT route?
 
-Like Andrew, I think this is attacking the problem from the wrong
-side.
+I'll add a per cpu variable to do a recursion limit for dst_output()
+which callers to possibly recurse can use. ILA can use that as well.
 
-The stmmac driver, if it needs the proper PHY RX clocks to initialize
-properly, should do the work to make sure it is there.
+> Another scenario to consider: Suppose someone is doing protocol
+> translation like in RFC7915. This is one of operations we'd need with
+> ILA or GRE to implement an IPv4 overlay network over IPv6. Would this
+> be allowed/supported in LWT BPF?
 
-If this means forcing the PHY out of hibernation mode, so that it
-can initialize properly, this is what the stammc can do.
-
-After initialization, it can allow the chip to fall back into
-hibernation mode again if the cable is still unplugged.
-
-Disabling a whole feature of the PHY instead doesn't make a lot of
-sense when it certainly seems like stmmac can do what it needs to do
-in the presence of this feature being enabled.
+In lwtunnel_xmit() yes, input and output would not support this right
+now. It will need some logic as the orig_input and orig_output would
+obviously be expecting the same protocol. This is the reason why the
+xmit prog type currently has a wider set of allowed helpers.
