@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 22/22] i40e: removed unreachable code
-Date: Mon, 31 Oct 2016 15:29:52 -0700
-Message-ID: <1477952992-125662-23-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/22] i40e: When searching all MAC/VLAN filters, ignore removed filters
+Date: Mon, 31 Oct 2016 15:29:36 -0700
+Message-ID: <1477952992-125662-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,296 +11,74 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:46390 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S947644AbcJaWaF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 18:30:05 -0400
+        id S1034489AbcJaW35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 18:29:57 -0400
 In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Filip Sadowski <filip.sadowski@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Removed some of unnecessary if statements and unreachable code found by
-static code analysis tool.
-The return value of i40e_vsi_control_rings(..., false) is always 0. So,
-test for non-zero will never be true. The function has been split into
-"int i40e_vsi_start_rings()" and "void i40e_vsi_stop_rings()" for better
-understanding.
-Similarly, the function i40e_vsi_kill_vlan() never fails. So, checking
-for return value is also unnecessary. Function definition changed to void.
-The i40e_loopback_test() function is not implemented. The function and
-all references to loopback testing were removed.
+When adding new MAC address filters, the driver determines if it should
+behave in VLAN mode (where all MAC addresses get assigned to every
+existing VLAN) or in non-VLAN mode where MAC addresses get assigned the
+VLAN_ANY identifier. Under some circumstances it is possible that a VLAN
+has been marked for removal (such that all filters of that VLAN are set
+to I40E_FILTER_REMOVE), and a subsequent call to i40e_put_mac_in_vlan
+may occur prior to the driver subtask that syncs filters to the
+hardware.
 
-Change-ID: Id45cf66f6689ce2bc4e887de13f073e30e8431bd
-Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
+In this case, we may add filters to the new removed VLAN, even though it
+should have been removed. This is most obvious when first adding a new
+VLAN. We will delete all filters which are in I40E_VLAN_ANY (-1) and
+then re-add them as in VLAN 0 (untagged). Then before we sync filters,
+we will add new MAC address filter, which will be added to every VLAN
+that exists. Unfortunately, this will include I40E_VLAN_ANY, so we will
+end up incorrectly adding filters to the -1 VLAN. This can be fixed by
+simply skipping all filters which are marked for removal.
+
+A similar check is not necessary in i40e_del_mac_all_vlan, since we are
+deleting, and any filter which we find already marked for removal would
+simply be deleted again, which doesn't cause any issues.
+
+Change-Id: I7962154013ce02fe950584690aeeb3ed853d0086
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |  5 +--
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 18 ----------
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 41 ++++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 29 +++++----------
- 4 files changed, 33 insertions(+), 60 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index bb02280..29c2318 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -773,7 +773,8 @@ void i40e_service_event_schedule(struct i40e_pf *pf);
- void i40e_notify_client_of_vf_msg(struct i40e_vsi *vsi, u32 vf_id,
- 				  u8 *msg, u16 len);
- 
--int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool enable);
-+int i40e_vsi_start_rings(struct i40e_vsi *vsi);
-+void i40e_vsi_stop_rings(struct i40e_vsi *vsi);
- int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count);
- struct i40e_veb *i40e_veb_setup(struct i40e_pf *pf, u16 flags, u16 uplink_seid,
- 				u16 downlink_seid, u8 enabled_tc);
-@@ -849,7 +850,7 @@ int i40e_close(struct net_device *netdev);
- int i40e_vsi_open(struct i40e_vsi *vsi);
- void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
- int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
--int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
-+void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
- struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
- 					     const u8 *macaddr);
- int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, const u8 *macaddr);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 962a9bb..b9e1162 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -216,7 +216,6 @@ enum i40e_ethtool_test_id {
- 	I40E_ETH_TEST_REG = 0,
- 	I40E_ETH_TEST_EEPROM,
- 	I40E_ETH_TEST_INTR,
--	I40E_ETH_TEST_LOOPBACK,
- 	I40E_ETH_TEST_LINK,
- };
- 
-@@ -224,7 +223,6 @@ static const char i40e_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Register test  (offline)",
- 	"Eeprom test    (offline)",
- 	"Interrupt test (offline)",
--	"Loopback test  (offline)",
- 	"Link test   (on/offline)"
- };
- 
-@@ -1744,17 +1742,6 @@ static int i40e_intr_test(struct net_device *netdev, u64 *data)
- 	return *data;
- }
- 
--static int i40e_loopback_test(struct net_device *netdev, u64 *data)
--{
--	struct i40e_netdev_priv *np = netdev_priv(netdev);
--	struct i40e_pf *pf = np->vsi->back;
--
--	netif_info(pf, hw, netdev, "loopback test not implemented\n");
--	*data = 0;
--
--	return *data;
--}
--
- static inline bool i40e_active_vfs(struct i40e_pf *pf)
- {
- 	struct i40e_vf *vfs = pf->vf;
-@@ -1790,7 +1777,6 @@ static void i40e_diag_test(struct net_device *netdev,
- 			data[I40E_ETH_TEST_REG]		= 1;
- 			data[I40E_ETH_TEST_EEPROM]	= 1;
- 			data[I40E_ETH_TEST_INTR]	= 1;
--			data[I40E_ETH_TEST_LOOPBACK]	= 1;
- 			data[I40E_ETH_TEST_LINK]	= 1;
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 			clear_bit(__I40E_TESTING, &pf->state);
-@@ -1818,9 +1804,6 @@ static void i40e_diag_test(struct net_device *netdev,
- 		if (i40e_intr_test(netdev, &data[I40E_ETH_TEST_INTR]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		if (i40e_loopback_test(netdev, &data[I40E_ETH_TEST_LOOPBACK]))
--			eth_test->flags |= ETH_TEST_FL_FAILED;
--
- 		/* run reg test last, a reset is required after it */
- 		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
-@@ -1841,7 +1824,6 @@ static void i40e_diag_test(struct net_device *netdev,
- 		data[I40E_ETH_TEST_REG] = 0;
- 		data[I40E_ETH_TEST_EEPROM] = 0;
- 		data[I40E_ETH_TEST_INTR] = 0;
--		data[I40E_ETH_TEST_LOOPBACK] = 0;
- 	}
- 
- skip_ol_tests:
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 9ec977a..5c6a5ce 100644
+index c096093..86ad953 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2503,10 +2503,8 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
-  * i40e_vsi_kill_vlan - Remove vsi membership for given vlan
-  * @vsi: the vsi being configured
-  * @vid: vlan id to be removed (0 = untagged only , -1 = any)
-- *
-- * Return: 0 on success or negative otherwise
-  **/
--int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
-+void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- {
- 	struct net_device *netdev = vsi->netdev;
- 	struct i40e_mac_filter *f;
-@@ -2530,7 +2528,6 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- 	 * applying the new filter changes
- 	 */
- 	i40e_service_event_schedule(vsi->back);
--	return 0;
- }
+@@ -1328,6 +1328,8 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
+ 				       le16_to_cpu(vsi->info.pvid));
  
- /**
-@@ -4017,30 +4014,36 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
- }
- 
- /**
-- * i40e_vsi_control_rings - Start or stop a VSI's rings
-+ * i40e_vsi_start_rings - Start a VSI's rings
-  * @vsi: the VSI being configured
-- * @enable: start or stop the rings
-  **/
--int i40e_vsi_control_rings(struct i40e_vsi *vsi, bool request)
-+int i40e_vsi_start_rings(struct i40e_vsi *vsi)
- {
- 	int ret = 0;
- 
- 	/* do rx first for enable and last for disable */
--	if (request) {
--		ret = i40e_vsi_control_rx(vsi, request);
--		if (ret)
--			return ret;
--		ret = i40e_vsi_control_tx(vsi, request);
--	} else {
--		/* Ignore return value, we need to shutdown whatever we can */
--		i40e_vsi_control_tx(vsi, request);
--		i40e_vsi_control_rx(vsi, request);
--	}
-+	ret = i40e_vsi_control_rx(vsi, true);
-+	if (ret)
-+		return ret;
-+	ret = i40e_vsi_control_tx(vsi, true);
- 
- 	return ret;
- }
- 
- /**
-+ * i40e_vsi_stop_rings - Stop a VSI's rings
-+ * @vsi: the VSI being configured
-+ **/
-+void i40e_vsi_stop_rings(struct i40e_vsi *vsi)
-+{
-+	/* do rx first for enable and last for disable
-+	 * Ignore return value, we need to shutdown whatever we can
-+	 */
-+	i40e_vsi_control_tx(vsi, false);
-+	i40e_vsi_control_rx(vsi, false);
-+}
-+
-+/**
-  * i40e_vsi_free_irq - Free the irq association with the OS
-  * @vsi: the VSI being configured
-  **/
-@@ -5238,7 +5241,7 @@ static int i40e_up_complete(struct i40e_vsi *vsi)
- 		i40e_configure_msi_and_legacy(vsi);
- 
- 	/* start rings */
--	err = i40e_vsi_control_rings(vsi, true);
-+	err = i40e_vsi_start_rings(vsi);
- 	if (err)
- 		return err;
- 
-@@ -5335,7 +5338,7 @@ void i40e_down(struct i40e_vsi *vsi)
- 		netif_tx_disable(vsi->netdev);
- 	}
- 	i40e_vsi_disable_irq(vsi);
--	i40e_vsi_control_rings(vsi, false);
-+	i40e_vsi_stop_rings(vsi);
- 	i40e_napi_disable_all(vsi);
- 
- 	for (i = 0; i < vsi->num_queue_pairs; i++) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 69e184b..53b46553 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -991,7 +991,7 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 	if (vf->lan_vsi_idx == 0)
- 		goto complete_reset;
- 
--	i40e_vsi_control_rings(pf->vsi[vf->lan_vsi_idx], false);
-+	i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
- complete_reset:
- 	/* reallocate VF resources to reset the VSI state */
- 	i40e_free_vf_res(vf);
-@@ -1032,8 +1032,7 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 	i40e_notify_client_of_vf_enable(pf, 0);
- 	for (i = 0; i < pf->num_alloc_vfs; i++)
- 		if (test_bit(I40E_VF_STAT_INIT, &pf->vf[i].vf_states))
--			i40e_vsi_control_rings(pf->vsi[pf->vf[i].lan_vsi_idx],
--					       false);
-+			i40e_vsi_stop_rings(pf->vsi[pf->vf[i].lan_vsi_idx]);
- 
- 	/* Disable IOV before freeing resources. This lets any VF drivers
- 	 * running in the host get themselves cleaned up before we yank
-@@ -1759,7 +1758,7 @@ static int i40e_vc_enable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		goto error_param;
+ 	list_for_each_entry(f, &vsi->mac_filter_list, list) {
++		if (f->state == I40E_FILTER_REMOVE)
++			continue;
+ 		add = i40e_add_filter(vsi, macaddr, f->vlan);
+ 		if (!add)
+ 			return NULL;
+@@ -2271,6 +2273,8 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
  	}
  
--	if (i40e_vsi_control_rings(pf->vsi[vf->lan_vsi_idx], true))
-+	if (i40e_vsi_start_rings(pf->vsi[vf->lan_vsi_idx]))
- 		aq_ret = I40E_ERR_TIMEOUT;
- error_param:
- 	/* send the response to the VF */
-@@ -1798,8 +1797,7 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		goto error_param;
- 	}
- 
--	if (i40e_vsi_control_rings(pf->vsi[vf->lan_vsi_idx], false))
--		aq_ret = I40E_ERR_TIMEOUT;
-+	i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
- 
- error_param:
- 	/* send the response to the VF */
-@@ -2139,9 +2137,8 @@ static int i40e_vc_remove_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	}
- 
- 	for (i = 0; i < vfl->num_elements; i++) {
--		int ret = i40e_vsi_kill_vlan(vsi, vfl->vlan_id[i]);
--		if (!ret)
--			vf->num_vlan--;
-+		i40e_vsi_kill_vlan(vsi, vfl->vlan_id[i]);
-+		vf->num_vlan--;
- 
- 		if (test_bit(I40E_VF_STAT_UC_PROMISC, &vf->vf_states))
- 			i40e_aq_set_vsi_uc_promisc_on_vlan(&pf->hw, vsi->seid,
-@@ -2153,11 +2150,6 @@ static int i40e_vc_remove_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 							   false,
- 							   vfl->vlan_id[i],
- 							   NULL);
--
--		if (ret)
--			dev_err(&pf->pdev->dev,
--				"Unable to delete VLAN filter %d for VF %d, error %d\n",
--				vfl->vlan_id[i], vf->vf_id, ret);
- 	}
- 
- error_param:
-@@ -2835,13 +2827,8 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev, int vf_id,
- 
- 	if (vsi->info.pvid) {
- 		/* kill old VLAN */
--		ret = i40e_vsi_kill_vlan(vsi, (le16_to_cpu(vsi->info.pvid) &
--					       VLAN_VID_MASK));
--		if (ret) {
--			dev_info(&vsi->back->pdev->dev,
--				 "remove VLAN failed, ret=%d, aq_err=%d\n",
--				 ret, pf->hw.aq.asq_last_status);
--		}
-+		i40e_vsi_kill_vlan(vsi, (le16_to_cpu(vsi->info.pvid) &
-+					 VLAN_VID_MASK));
- 	}
- 	if (vlan_id || qos)
- 		ret = i40e_vsi_add_pvid(vsi, vlanprio);
+ 	list_for_each_entry_safe(f, ftmp, &vsi->mac_filter_list, list) {
++		if (f->state == I40E_FILTER_REMOVE)
++			continue;
+ 		add_f = i40e_add_filter(vsi, f->macaddr, vid);
+ 		if (!add_f) {
+ 			dev_info(&vsi->back->pdev->dev,
+@@ -2305,6 +2309,8 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ 	/* Do not assume that I40E_VLAN_ANY should be reset to VLAN 0 */
+ 	if (vid > 0 && !vsi->info.pvid) {
+ 		list_for_each_entry_safe(f, ftmp, &vsi->mac_filter_list, list) {
++			if (f->state == I40E_FILTER_REMOVE)
++				continue;
+ 			if (!i40e_find_filter(vsi, f->macaddr, I40E_VLAN_ANY))
+ 				continue;
+ 			i40e_del_filter(vsi, f->macaddr, I40E_VLAN_ANY);
 -- 
 2.7.4
