@@ -1,37 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: mangle zero checksum in skb_checksum_help()
-Date: Mon, 31 Oct 2016 15:29:32 -0400 (EDT)
-Message-ID: <20161031.152932.840383254132956388.davem@davemloft.net>
-References: <1477764156.7065.282.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] unix: escape all null bytes in abstract unix domain
+ socket
+Date: Mon, 31 Oct 2016 15:31:17 -0400 (EDT)
+Message-ID: <20161031.153117.1954668010224339938.davem@davemloft.net>
+References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
+        <1477768820-1295-2-git-send-email-iboukris@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maze@google.com, willemb@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56530 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945625AbcJaT3e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:29:34 -0400
-In-Reply-To: <1477764156.7065.282.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: iboukris@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477768820-1295-2-git-send-email-iboukris@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 29 Oct 2016 11:02:36 -0700
+From: Isaac Boukris <iboukris@gmail.com>
+Date: Sat, 29 Oct 2016 22:20:20 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
+> Abstract unix domain socket may embed null characters,
+> these should be translated to '@' when printed out to
+> proc the same way the null prefix is currently being
+> translated.
 > 
-> Sending zero checksum is ok for TCP, but not for UDP.
+> This helps for tools such as netstat, lsof and the proc
+> based implementation in ss to show all the significant
+> bytes of the name (instead of getting cut at the first
+> null occurrence).
 > 
-> UDPv6 receiver should by default drop a frame with a 0 checksum,
-> and UDPv4 would not verify the checksum and might accept a corrupted
-> packet.
-> 
-> Simply replace such checksum by 0xffff, regardless of transport.
-> 
-> This error was caught on SIT tunnels, but seems generic.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Isaac Boukris <iboukris@gmail.com>
+ ...
+> @@ -2805,14 +2805,19 @@ static int unix_seq_show(struct seq_file *seq, void *v)
+>  
+>  			i = 0;
+>  			len = u->addr->len - sizeof(short);
+> -			if (!UNIX_ABSTRACT(s))
+> +			if (!UNIX_ABSTRACT(s)) {
+>  				len--;
+> -			else {
+> +				for ( ; i < len; i++)
+> +					seq_putc(seq,
+> +						 u->addr->name->sun_path[i]);
+> +			} else {
+>  				seq_putc(seq, '@');
+>  				i++;
+> +				for ( ; i < len; i++)
+> +					seq_putc(seq,
+> +						 u->addr->name->sun_path[i] ?:
+> +						 '@');
+>  			}
+> -			for ( ; i < len; i++)
+> -				seq_putc(seq, u->addr->name->sun_path[i]);
 
-Applied and queued up for -stable, thanks.
+I think this patch is simpler if you just do the "@" translation
+unconditionally, if it'll never trigger for the !UNIX_ABSTRACT case
+that is perfectly fine.
