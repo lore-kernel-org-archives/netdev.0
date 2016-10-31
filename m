@@ -1,391 +1,225 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 18/22] i40e: Reorder logic for coalescing RS bits
-Date: Mon, 31 Oct 2016 15:29:48 -0700
-Message-ID: <1477952992-125662-19-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/22] i40e: fix MAC filters when removing VLANs
+Date: Mon, 31 Oct 2016 15:29:40 -0700
+Message-ID: <1477952992-125662-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:28490 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S947629AbcJaWaD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 18:30:03 -0400
+        id S1034497AbcJaW36 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 18:29:58 -0400
 In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-This patch reorders the logic at the end of i40e_tx_map to address the
-fact that the logic was rather convoluted and much larger than it needed
-to be.
+Currently there exists a bug where adding at least one VLAN and then
+removing all VLANs leaves the mac filters for the VSI with an incorrect
+value for 'vid' which indicates the mac filter's VLAN status.
 
-In order to try and coalesce the code paths I have updated some of the
-comments and repurposed some of the variables in order to reduce
-unnecessary overhead.
+The current implementation for handling the removal of VLANs is wrong
+for a couple reasons. The first is that when i40e_vsi_kill_vlan
+iterates through the MAC filters, it fails to account for the MAC filter
+status; i.e. it's not accommodating for filters that are about to be
+deleted. The second problem is that MAC filters can be deleted in other
+places (specifically i40e_set_rx_mode). Thus if it occurs that all the
+VLAN MAC filters get deleted we need to switch out of VLAN mode, but the
+code path through i40e_vsi_kill_vlan has already been executed and we're
+now stuck in VLAN mode.
 
-This patch does the following:
-1.  Quit tracking skb->xmit_more with a flag, just max out packet_stride
-2.  Drop tail_bump and do_rs and instead just use desc_count and td_cmd
-3.  Pull comments from ixgbe that make need for wmb() more explicit.
+This patch fixes the issue by removing the check from i40e_vsi_kill_vlan
+and puts the check instead in i40e_sync_vsi_filters where we're
+guaranteed to see all filter deletions and can properly detect when we
+need to switch out of VLAN mode.
 
-Change-ID: Ic7da85ec75043c634e87fef958109789bcc6317c
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Change-ID: Ib38fe6034b356eee9a0e20b8a9eeed5ff2debcd9
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 105 +++++++++++++-------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h   |   1 -
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 105 +++++++++++++-------------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h |   1 -
- 4 files changed, 108 insertions(+), 104 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 120 +++++++++++++++++-----------
+ 1 file changed, 72 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 75b8f5b..5544b50 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -616,7 +616,7 @@ u32 i40e_get_tx_pending(struct i40e_ring *ring, bool in_sw)
- 	return 0;
- }
- 
--#define WB_STRIDE 0x3
-+#define WB_STRIDE 4
- 
- /**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-@@ -732,7 +732,7 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 		unsigned int j = i40e_get_tx_pending(tx_ring, false);
- 
- 		if (budget &&
--		    ((j / (WB_STRIDE + 1)) == 0) && (j != 0) &&
-+		    ((j / WB_STRIDE) == 0) && (j > 0) &&
- 		    !test_bit(__I40E_DOWN, &vsi->state) &&
- 		    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
- 			tx_ring->arm_wb = true;
-@@ -2700,9 +2700,7 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	u32 td_tag = 0;
- 	dma_addr_t dma;
- 	u16 gso_segs;
--	u16 desc_count = 0;
--	bool tail_bump = true;
--	bool do_rs = false;
-+	u16 desc_count = 1;
- 
- 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
- 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
-@@ -2785,8 +2783,7 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
- 	}
- 
--	/* set next_to_watch value indicating a packet is present */
--	first->next_to_watch = tx_desc;
-+	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
- 
- 	i++;
- 	if (i == tx_ring->count)
-@@ -2794,66 +2791,72 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 	tx_ring->next_to_use = i;
- 
--	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
- 	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
- 
-+	/* write last descriptor with EOP bit */
-+	td_cmd |= I40E_TX_DESC_CMD_EOP;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 35f06ba..6cf9089 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1774,19 +1774,22 @@ i40e_update_filter_state(int count,
+  **/
+ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ {
+-	struct i40e_mac_filter *f, *add_head = NULL;
+ 	struct hlist_head tmp_add_list, tmp_del_list;
++	struct i40e_mac_filter *f, *add_head = NULL;
+ 	struct i40e_hw *hw = &vsi->back->hw;
++	unsigned int vlan_any_filters = 0;
++	unsigned int non_vlan_filters = 0;
++	unsigned int vlan_filters = 0;
+ 	bool promisc_changed = false;
+ 	char vsi_name[16] = "PF";
+ 	int filter_list_len = 0;
+-	u32 changed_flags = 0;
+ 	i40e_status aq_ret = 0;
++	u32 changed_flags = 0;
+ 	struct hlist_node *h;
+-	int retval = 0;
+ 	struct i40e_pf *pf;
+ 	int num_add = 0;
+ 	int num_del = 0;
++	int retval = 0;
+ 	int aq_err = 0;
+ 	u16 cmd_flags;
+ 	int list_size;
+@@ -1825,11 +1828,75 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 				hash_del(&f->hlist);
+ 				hlist_add_head(&f->hlist, &tmp_del_list);
+ 				vsi->active_filters--;
 +
-+	/* We can OR these values together as they both are checked against
-+	 * 4 below and at this point desc_count will be used as a boolean value
-+	 * after this if/else block.
-+	 */
-+	desc_count |= ++tx_ring->packet_stride;
++				/* Avoid counting removed filters */
++				continue;
+ 			}
+ 			if (f->state == I40E_FILTER_NEW) {
+ 				hash_del(&f->hlist);
+ 				hlist_add_head(&f->hlist, &tmp_add_list);
+ 			}
 +
- 	/* Algorithm to optimize tail and RS bit setting:
--	 * if xmit_more is supported
--	 *	if xmit_more is true
--	 *		do not update tail and do not mark RS bit.
--	 *	if xmit_more is false and last xmit_more was false
--	 *		if every packet spanned less than 4 desc
--	 *			then set RS bit on 4th packet and update tail
--	 *			on every packet
--	 *		else
--	 *			update tail and set RS bit on every packet.
--	 *	if xmit_more is false and last_xmit_more was true
--	 *		update tail and set RS bit.
-+	 * if queue is stopped
-+	 *	mark RS bit
-+	 *	reset packet counter
-+	 * else if xmit_more is supported and is true
-+	 *	advance packet counter to 4
-+	 *	reset desc_count to 0
- 	 *
--	 * Optimization: wmb to be issued only in case of tail update.
--	 * Also optimize the Descriptor WB path for RS bit with the same
--	 * algorithm.
-+	 * if desc_count >= 4
-+	 *	mark RS bit
-+	 *	reset packet counter
-+	 * if desc_count > 0
-+	 *	update tail
- 	 *
--	 * Note: If there are less than 4 packets
-+	 * Note: If there are less than 4 descriptors
- 	 * pending and interrupts were disabled the service task will
- 	 * trigger a force WB.
- 	 */
--	if (skb->xmit_more  &&
--	    !netif_xmit_stopped(txring_txq(tx_ring))) {
--		tx_ring->flags |= I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
--		tail_bump = false;
--	} else if (!skb->xmit_more &&
--		   !netif_xmit_stopped(txring_txq(tx_ring)) &&
--		   (!(tx_ring->flags & I40E_TXR_FLAGS_LAST_XMIT_MORE_SET)) &&
--		   (tx_ring->packet_stride < WB_STRIDE) &&
--		   (desc_count < WB_STRIDE)) {
--		tx_ring->packet_stride++;
--	} else {
-+	if (netif_xmit_stopped(txring_txq(tx_ring))) {
-+		goto do_rs;
-+	} else if (skb->xmit_more) {
-+		/* set stride to arm on next packet and reset desc_count */
-+		tx_ring->packet_stride = WB_STRIDE;
-+		desc_count = 0;
-+	} else if (desc_count >= WB_STRIDE) {
-+do_rs:
-+		/* write last descriptor with RS bit set */
-+		td_cmd |= I40E_TX_DESC_CMD_RS;
- 		tx_ring->packet_stride = 0;
--		tx_ring->flags &= ~I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
--		do_rs = true;
- 	}
--	if (do_rs)
--		tx_ring->packet_stride = 0;
- 
- 	tx_desc->cmd_type_offset_bsz =
--			build_ctob(td_cmd, td_offset, size, td_tag) |
--			cpu_to_le64((u64)(do_rs ? I40E_TXD_CMD :
--						  I40E_TX_DESC_CMD_EOP) <<
--						  I40E_TXD_QW1_CMD_SHIFT);
-+			build_ctob(td_cmd, td_offset, size, td_tag);
++			/* Count the number of each type of filter we have
++			 * remaining, ignoring any filters we're about to
++			 * delete.
++			 */
++			if (f->vlan > 0)
++				vlan_filters++;
++			else if (!f->vlan)
++				non_vlan_filters++;
++			else
++				vlan_any_filters++;
++		}
 +
-+	/* Force memory writes to complete before letting h/w know there
-+	 * are new descriptors to fetch.
-+	 *
-+	 * We also use this memory barrier to make certain all of the
-+	 * status bits have been updated before next_to_watch is written.
-+	 */
-+	wmb();
-+
-+	/* set next_to_watch value indicating a packet is present */
-+	first->next_to_watch = tx_desc;
- 
- 	/* notify HW of packet */
--	if (!tail_bump) {
--		prefetchw(tx_desc + 1);
--	} else {
--		/* Force memory writes to complete before letting h/w
--		 * know there are new descriptors to fetch.  (Only
--		 * applicable for weak-ordered memory model archs,
--		 * such as IA-64).
--		 */
--		wmb();
-+	if (desc_count) {
- 		writel(i, tx_ring->tail);
-+
-+		/* we need this if more than one processor can write to our tail
-+		 * at a time, it synchronizes IO on IA64/Altix systems
++		/* We should never have VLAN=-1 filters at the same time as we
++		 * have either VLAN=0 or VLAN>0 filters, so warn about this
++		 * case here to help catch any issues.
 +		 */
-+		mmiowb();
- 	}
++		WARN_ON(vlan_any_filters && (vlan_filters + non_vlan_filters));
 +
- 	return;
- 
- dma_error:
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 42f04d6..de8550f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -313,7 +313,6 @@ struct i40e_ring {
- 
- 	u16 flags;
- #define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
--#define I40E_TXR_FLAGS_LAST_XMIT_MORE_SET BIT(2)
- 
- 	/* stats structs */
- 	struct i40e_queue_stats	stats;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index e2d3622..c4b174a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -150,7 +150,7 @@ u32 i40evf_get_tx_pending(struct i40e_ring *ring, bool in_sw)
- 	return 0;
- }
- 
--#define WB_STRIDE 0x3
-+#define WB_STRIDE 4
- 
- /**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-@@ -266,7 +266,7 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
- 		unsigned int j = i40evf_get_tx_pending(tx_ring, false);
- 
- 		if (budget &&
--		    ((j / (WB_STRIDE + 1)) == 0) && (j > 0) &&
-+		    ((j / WB_STRIDE) == 0) && (j > 0) &&
- 		    !test_bit(__I40E_DOWN, &vsi->state) &&
- 		    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
- 			tx_ring->arm_wb = true;
-@@ -1950,9 +1950,7 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	u32 td_tag = 0;
- 	dma_addr_t dma;
- 	u16 gso_segs;
--	u16 desc_count = 0;
--	bool tail_bump = true;
--	bool do_rs = false;
-+	u16 desc_count = 1;
- 
- 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
- 		td_cmd |= I40E_TX_DESC_CMD_IL2TAG1;
-@@ -2035,8 +2033,7 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
- 	}
- 
--	/* set next_to_watch value indicating a packet is present */
--	first->next_to_watch = tx_desc;
-+	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
- 
- 	i++;
- 	if (i == tx_ring->count)
-@@ -2044,66 +2041,72 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 
- 	tx_ring->next_to_use = i;
- 
--	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
- 	i40e_maybe_stop_tx(tx_ring, DESC_NEEDED);
- 
-+	/* write last descriptor with EOP bit */
-+	td_cmd |= I40E_TX_DESC_CMD_EOP;
-+
-+	/* We can OR these values together as they both are checked against
-+	 * 4 below and at this point desc_count will be used as a boolean value
-+	 * after this if/else block.
-+	 */
-+	desc_count |= ++tx_ring->packet_stride;
-+
- 	/* Algorithm to optimize tail and RS bit setting:
--	 * if xmit_more is supported
--	 *	if xmit_more is true
--	 *		do not update tail and do not mark RS bit.
--	 *	if xmit_more is false and last xmit_more was false
--	 *		if every packet spanned less than 4 desc
--	 *			then set RS bit on 4th packet and update tail
--	 *			on every packet
--	 *		else
--	 *			update tail and set RS bit on every packet.
--	 *	if xmit_more is false and last_xmit_more was true
--	 *		update tail and set RS bit.
-+	 * if queue is stopped
-+	 *	mark RS bit
-+	 *	reset packet counter
-+	 * else if xmit_more is supported and is true
-+	 *	advance packet counter to 4
-+	 *	reset desc_count to 0
- 	 *
--	 * Optimization: wmb to be issued only in case of tail update.
--	 * Also optimize the Descriptor WB path for RS bit with the same
--	 * algorithm.
-+	 * if desc_count >= 4
-+	 *	mark RS bit
-+	 *	reset packet counter
-+	 * if desc_count > 0
-+	 *	update tail
- 	 *
--	 * Note: If there are less than 4 packets
-+	 * Note: If there are less than 4 descriptors
- 	 * pending and interrupts were disabled the service task will
- 	 * trigger a force WB.
- 	 */
--	if (skb->xmit_more  &&
--	    !netif_xmit_stopped(txring_txq(tx_ring))) {
--		tx_ring->flags |= I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
--		tail_bump = false;
--	} else if (!skb->xmit_more &&
--		   !netif_xmit_stopped(txring_txq(tx_ring)) &&
--		   (!(tx_ring->flags & I40E_TXR_FLAGS_LAST_XMIT_MORE_SET)) &&
--		   (tx_ring->packet_stride < WB_STRIDE) &&
--		   (desc_count < WB_STRIDE)) {
--		tx_ring->packet_stride++;
--	} else {
-+	if (netif_xmit_stopped(txring_txq(tx_ring))) {
-+		goto do_rs;
-+	} else if (skb->xmit_more) {
-+		/* set stride to arm on next packet and reset desc_count */
-+		tx_ring->packet_stride = WB_STRIDE;
-+		desc_count = 0;
-+	} else if (desc_count >= WB_STRIDE) {
-+do_rs:
-+		/* write last descriptor with RS bit set */
-+		td_cmd |= I40E_TX_DESC_CMD_RS;
- 		tx_ring->packet_stride = 0;
--		tx_ring->flags &= ~I40E_TXR_FLAGS_LAST_XMIT_MORE_SET;
--		do_rs = true;
- 	}
--	if (do_rs)
--		tx_ring->packet_stride = 0;
- 
- 	tx_desc->cmd_type_offset_bsz =
--			build_ctob(td_cmd, td_offset, size, td_tag) |
--			cpu_to_le64((u64)(do_rs ? I40E_TXD_CMD :
--						  I40E_TX_DESC_CMD_EOP) <<
--						  I40E_TXD_QW1_CMD_SHIFT);
-+			build_ctob(td_cmd, td_offset, size, td_tag);
-+
-+	/* Force memory writes to complete before letting h/w know there
-+	 * are new descriptors to fetch.
-+	 *
-+	 * We also use this memory barrier to make certain all of the
-+	 * status bits have been updated before next_to_watch is written.
-+	 */
-+	wmb();
-+
-+	/* set next_to_watch value indicating a packet is present */
-+	first->next_to_watch = tx_desc;
- 
- 	/* notify HW of packet */
--	if (!tail_bump) {
--		prefetchw(tx_desc + 1);
--	} else {
--		/* Force memory writes to complete before letting h/w
--		 * know there are new descriptors to fetch.  (Only
--		 * applicable for weak-ordered memory model archs,
--		 * such as IA-64).
--		 */
--		wmb();
-+	if (desc_count) {
- 		writel(i, tx_ring->tail);
-+
-+		/* we need this if more than one processor can write to our tail
-+		 * at a time, it synchronizes IO on IA64/Altix systems
++		/* If we only have VLAN=0 filters remaining, and don't have
++		 * any other VLAN filters, we need to convert these VLAN=0
++		 * filters into VLAN=-1 (I40E_VLAN_ANY) so that we operate
++		 * correctly in non-VLAN mode and receive all traffic tagged
++		 * or untagged.
 +		 */
-+		mmiowb();
- 	}
++		if (non_vlan_filters && !vlan_filters) {
++			hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f,
++					   hlist) {
++				/* Only replace VLAN=0 filters */
++				if (f->vlan)
++					continue;
 +
- 	return;
++				/* Allocate a replacement element */
++				add_head = kzalloc(sizeof(*add_head),
++						   GFP_KERNEL);
++				if (!add_head)
++					goto err_no_memory_locked;
++
++				/* Copy the filter, with new state and VLAN */
++				*add_head = *f;
++				add_head->state = I40E_FILTER_NEW;
++				add_head->vlan = I40E_VLAN_ANY;
++
++				/* Move the replacement to the add list */
++				INIT_HLIST_NODE(&add_head->hlist);
++				hlist_add_head(&add_head->hlist,
++					       &tmp_add_list);
++
++				/* Move the original to the delete list */
++				f->state = I40E_FILTER_REMOVE;
++				hash_del(&f->hlist);
++				hlist_add_head(&f->hlist, &tmp_del_list);
++				vsi->active_filters--;
++			}
++
++			/* Also update any filters on the tmp_add list */
++			hlist_for_each_entry(f, &tmp_add_list, hlist) {
++				if (!f->vlan)
++					f->vlan = I40E_VLAN_ANY;
++			}
++			add_head = NULL;
+ 		}
+ 		spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 	}
+@@ -2150,6 +2217,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ err_no_memory:
+ 	/* Restore elements on the temporary add and delete lists */
+ 	spin_lock_bh(&vsi->mac_filter_hash_lock);
++err_no_memory_locked:
+ 	i40e_undo_filter_entries(vsi, &tmp_del_list);
+ 	i40e_undo_filter_entries(vsi, &tmp_add_list);
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+@@ -2403,9 +2471,8 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
+ {
+ 	struct net_device *netdev = vsi->netdev;
+-	struct i40e_mac_filter *f, *add_f;
++	struct i40e_mac_filter *f;
+ 	struct hlist_node *h;
+-	int filter_count = 0;
+ 	int bkt;
  
- dma_error:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index abcdeca..a586e19 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -309,7 +309,6 @@ struct i40e_ring {
- 	bool ring_active;		/* is ring online or not */
- 	bool arm_wb;		/* do something to arm write back */
- 	u8 packet_stride;
--#define I40E_TXR_FLAGS_LAST_XMIT_MORE_SET BIT(2)
+ 	/* Locked once because all functions invoked below iterates list */
+@@ -2419,49 +2486,6 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
+ 			__i40e_del_filter(vsi, f);
+ 	}
  
- 	u16 flags;
- #define I40E_TXR_FLAGS_WB_ON_ITR	BIT(0)
+-	/* go through all the filters for this VSI and if there is only
+-	 * vid == 0 it means there are no other filters, so vid 0 must
+-	 * be replaced with -1. This signifies that we should from now
+-	 * on accept any traffic (with any tag present, or untagged)
+-	 */
+-	hash_for_each(vsi->mac_filter_hash, bkt, f, hlist) {
+-		if (vsi->netdev) {
+-			if (f->vlan &&
+-			    ether_addr_equal(netdev->dev_addr, f->macaddr))
+-				filter_count++;
+-		}
+-
+-		if (f->vlan)
+-			filter_count++;
+-	}
+-
+-	if (!filter_count && vsi->netdev) {
+-		i40e_del_filter(vsi, netdev->dev_addr, 0);
+-		f = i40e_add_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY);
+-		if (!f) {
+-			dev_info(&vsi->back->pdev->dev,
+-				 "Could not add filter %d for %pM\n",
+-				 I40E_VLAN_ANY, netdev->dev_addr);
+-			spin_unlock_bh(&vsi->mac_filter_hash_lock);
+-			return -ENOMEM;
+-		}
+-	}
+-
+-	if (!filter_count) {
+-		hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
+-			if (!f->vlan)
+-				__i40e_del_filter(vsi, f);
+-			add_f = i40e_add_filter(vsi, f->macaddr, I40E_VLAN_ANY);
+-			if (!add_f) {
+-				dev_info(&vsi->back->pdev->dev,
+-					 "Could not add filter %d for %pM\n",
+-					 I40E_VLAN_ANY, f->macaddr);
+-				spin_unlock_bh(&vsi->mac_filter_hash_lock);
+-				return -ENOMEM;
+-			}
+-		}
+-	}
+-
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 
+ 	/* schedule our worker thread which will take care of
 -- 
 2.7.4
