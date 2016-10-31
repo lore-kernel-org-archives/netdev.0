@@ -1,63 +1,88 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 3/6] Documentation: devicetree: net: add NS2 bindings
- to amac
-Date: Mon, 31 Oct 2016 01:20:35 -0500
-Message-ID: <20161031062035.5hzolwhjnwcs72kg@rob-hp-laptop>
-References: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
- <1477688219-3871-4-git-send-email-jon.mason@broadcom.com>
+From: Baoquan He <bhe@redhat.com>
+Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
+Date: Mon, 31 Oct 2016 14:38:16 +0800
+Message-ID: <20161031063816.GC7138@x1>
+References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
+ <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
+ <20161026120021.GA4402@x1>
+ <f055c961-58ca-ea81-46d8-610fa055cce8@molgen.mpg.de>
+ <20161029025538.GA4099@x1>
+ <1477825531.980.9.camel@molgen.mpg.de>
+ <20161031035930.GB7138@x1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, dvteam@molgen.mpg.de,
+        dyoung@redhat.com
+To: Paul Menzel <pmenzel@molgen.mpg.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42930 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1760650AbcJaGiX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 02:38:23 -0400
 Content-Disposition: inline
-In-Reply-To: <1477688219-3871-4-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20161031035930.GB7138@x1>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 28, 2016 at 04:56:56PM -0400, Jon Mason wrote:
-> Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> ---
->  Documentation/devicetree/bindings/net/brcm,amac.txt | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
+On 10/31/16 at 11:59am, Baoquan He wrote:
+> Hi Paul,
 > 
-> diff --git a/Documentation/devicetree/bindings/net/brcm,amac.txt b/Documentation/devicetree/bindings/net/brcm,amac.txt
-> index ba5ecc1..f2b194e 100644
-> --- a/Documentation/devicetree/bindings/net/brcm,amac.txt
-> +++ b/Documentation/devicetree/bindings/net/brcm,amac.txt
-> @@ -2,11 +2,12 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
->  -------------------------------------------------------------
->  
->  Required properties:
-> - - compatible:	"brcm,amac" or "brcm,nsp-amac"
-> + - compatible:	"brcm,amac", "brcm,nsp-amac", or "brcm,ns2-amac"
-
-One per line is preferred.
-
->   - reg:		Address and length of the GMAC registers,
->  		Address and length of the GMAC IDM registers
-> +		Address and length of the NIC Port Manager registers (optional)
->   - reg-names:	Names of the registers.  Must have both "amac_base" and
-> -		"idm_base"
-> +		"idm_base". "nicpm_base" is optional (required for NS2)
-
-Is nicpm_base optional on some SoCs? If not just say which ones it 
-applies to. A separate line will make that clearer.
-
-_base is kind of redundant too, but it's already done.
-
->   - interrupts:	Interrupt number
->  
->  Optional properties:
-> -- 
-> 2.7.4
+> On 10/30/16 at 12:05pm, Paul Menzel wrote:
+> > Dear Baoquan,
+> > 
+> > 
+> > Am Samstag, den 29.10.2016, 10:55 +0800 schrieb Baoquan He:
+> > > On 10/27/16 at 03:21pm, Paul Menzel wrote:
+> > 
+> > > > > > Baoquan, could you please fix this regression. My suggestion is, that you
+> > > > > > add the old code back, but check if the firmware has been loaded. If it
+> > > > > > hasn’t, load it again.
+> > > > > > 
+> > > > > > That way, people can update their Linux kernel, and it continues working
+> > > > > > without changing the initramfs, or anything else.
+> > > > > 
+> > > > > I saw your mail but I am also not familiar with bnx2 driver. As the
+> > > > > commit log says I just tried to make bnx2 driver reset itself earlier.
+> > > > > 
+> > > > > So you did a git bisect and found this commit caused the regression,
+> > > > > right? If yes, and network developers have no action, I will look into
+> > > > > the code and see if I have idea to fix it.
+> > > > 
+> > > > Well, I looked through the commits and found that one, which would explain
+> > > > the changed behavior.
+> > > > 
+> > > > To be sure, and to follow your request, I took Linux 4.8.4 and reverted your
+> > > > commit (attached). Then I deleted the firmware again from the initramfs, and
+> > > > rebooted. The devices showed up just fine as before.
+> > > > 
+> > > > So to summarize, the commit is indeed the culprit.
+> > 
+> > > Sorry for this.
+> > > 
+> > > Could you tell the steps to reproduce? I will find a machine with bnx2
+> > > NIC and check if there's other ways.
+> > 
+> > Well, delete the bnx2 firmware files from the initramfs, and start the
+> > system.
+> > 
+> > Did you read my proposal, to try to load the firmware twice, that means,
+> > basically revert only the deleted lines of your commit, and add an
+> > additional check?
 > 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please ignore this one, I have reproduced it. Will post a fix after
+test.
+> 
+> I got a x86_64 system with bnx2 NIC, and clone Linus's git tree into
+> that system. Then building a new kernel 4.9.0-rc3+ with new initramfs.
+> But when I uncompressed the new initramfs, didn't find bnx2 related
+> firmware, no bnx2 files under lib/firmware of uncompressed initramfs
+> folder. While I did see them in /lib/firmware/bnx2/bnx2-xxxxx.fw. Could
+> you please say it more specifically how I should do to reproduce the
+> failure you encountered? I think your proposal looks good, just need a
+> test before post.
+> 
+> Thanks
+> Baoquan
