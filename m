@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/22] i40e: When searching all MAC/VLAN filters, ignore removed filters
-Date: Mon, 31 Oct 2016 15:29:36 -0700
-Message-ID: <1477952992-125662-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/22] i40e: replace PTP Rx timestamp hang logic
+Date: Mon, 31 Oct 2016 15:29:45 -0700
+Message-ID: <1477952992-125662-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,76 +9,268 @@ Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:46390 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:28490 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034489AbcJaW35 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 18:29:57 -0400
+        id S947441AbcJaWaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 18:30:02 -0400
 In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-When adding new MAC address filters, the driver determines if it should
-behave in VLAN mode (where all MAC addresses get assigned to every
-existing VLAN) or in non-VLAN mode where MAC addresses get assigned the
-VLAN_ANY identifier. Under some circumstances it is possible that a VLAN
-has been marked for removal (such that all filters of that VLAN are set
-to I40E_FILTER_REMOVE), and a subsequent call to i40e_put_mac_in_vlan
-may occur prior to the driver subtask that syncs filters to the
-hardware.
+The current Rx timestamp hang logic is not very robust because it does
+not notice a register is hung until all four timestamps have been
+latched and we wait a full 5 seconds. Replace this logic with a newer Rx
+hang detection based on storing the jiffies when we first notice
+a receive timestamp event. We store each register's time separately,
+along with a flag indicating if it is currently latched. Upon first
+transitioning to latch, we will update the latch_events[i] jiffies
+value. This indicates the time we first noticed this event. The watchdog
+routine will simply check that the either the flag has been cleared, or
+we have passed at least one second. In this case, it is able to clear
+the Rx timestamp register under the assumption that it was for a dropped
+frame. The benefit if this strategy is that we should be able to
+detect and clear out stalled RXTIME_H registers before we exhaust the
+supply of 4, and avoid complete stall of Rx timestamp events.
 
-In this case, we may add filters to the new removed VLAN, even though it
-should have been removed. This is most obvious when first adding a new
-VLAN. We will delete all filters which are in I40E_VLAN_ANY (-1) and
-then re-add them as in VLAN 0 (untagged). Then before we sync filters,
-we will add new MAC address filter, which will be added to every VLAN
-that exists. Unfortunately, this will include I40E_VLAN_ANY, so we will
-end up incorrectly adding filters to the -1 VLAN. This can be fixed by
-simply skipping all filters which are marked for removal.
-
-A similar check is not necessary in i40e_del_mac_all_vlan, since we are
-deleting, and any filter which we find already marked for removal would
-simply be deleted again, which doesn't cause any issues.
-
-Change-Id: I7962154013ce02fe950584690aeeb3ed853d0086
+Change-ID: Id55458c0cd7a5dd0c951ff2b8ac0b2509364131f
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h      |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c  | 117 +++++++++++++++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h |   2 -
+ 4 files changed, 83 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c096093..86ad953 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1328,6 +1328,8 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
- 				       le16_to_cpu(vsi->info.pvid));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 21f2bb3..9121e46 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -429,11 +429,13 @@ struct i40e_pf {
+ 	struct ptp_clock_info ptp_caps;
+ 	struct sk_buff *ptp_tx_skb;
+ 	struct hwtstamp_config tstamp_config;
+-	unsigned long last_rx_ptp_check;
+ 	struct mutex tmreg_lock; /* Used to protect the SYSTIME registers. */
+ 	u64 ptp_base_adj;
+ 	u32 tx_hwtstamp_timeouts;
+ 	u32 rx_hwtstamp_cleared;
++	u32 latch_event_flags;
++	spinlock_t ptp_rx_lock; /* Used to protect Rx timestamp registers. */
++	unsigned long latch_events[4];
+ 	bool ptp_tx;
+ 	bool ptp_rx;
+ 	u16 rss_table_size; /* HW RSS table size */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index 177b7fb..5e2272c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -227,6 +227,47 @@ static int i40e_ptp_feature_enable(struct ptp_clock_info *ptp,
+ }
  
- 	list_for_each_entry(f, &vsi->mac_filter_list, list) {
-+		if (f->state == I40E_FILTER_REMOVE)
-+			continue;
- 		add = i40e_add_filter(vsi, macaddr, f->vlan);
- 		if (!add)
- 			return NULL;
-@@ -2271,6 +2273,8 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
+ /**
++ * i40e_ptp_update_latch_events - Read I40E_PRTTSYN_STAT_1 and latch events
++ * @pf: the PF data structure
++ *
++ * This function reads I40E_PRTTSYN_STAT_1 and updates the corresponding timers
++ * for noticed latch events. This allows the driver to keep track of the first
++ * time a latch event was noticed which will be used to help clear out Rx
++ * timestamps for packets that got dropped or lost.
++ *
++ * This function will return the current value of I40E_PRTTSYN_STAT_1 and is
++ * expected to be called only while under the ptp_rx_lock.
++ **/
++static u32 i40e_ptp_get_rx_events(struct i40e_pf *pf)
++{
++	struct i40e_hw *hw = &pf->hw;
++	u32 prttsyn_stat, new_latch_events;
++	int  i;
++
++	prttsyn_stat = rd32(hw, I40E_PRTTSYN_STAT_1);
++	new_latch_events = prttsyn_stat & ~pf->latch_event_flags;
++
++	/* Update the jiffies time for any newly latched timestamp. This
++	 * ensures that we store the time that we first discovered a timestamp
++	 * was latched by the hardware. The service task will later determine
++	 * if we should free the latch and drop that timestamp should too much
++	 * time pass. This flow ensures that we only update jiffies for new
++	 * events latched since the last time we checked, and not all events
++	 * currently latched, so that the service task accounting remains
++	 * accurate.
++	 */
++	for (i = 0; i < 4; i++) {
++		if (new_latch_events & BIT(i))
++			pf->latch_events[i] = jiffies;
++	}
++
++	/* Finally, we store the current status of the Rx timestamp latches */
++	pf->latch_event_flags = prttsyn_stat;
++
++	return prttsyn_stat;
++}
++
++/**
+  * i40e_ptp_rx_hang - Detect error case when Rx timestamp registers are hung
+  * @vsi: The VSI with the rings relevant to 1588
+  *
+@@ -239,10 +280,7 @@ void i40e_ptp_rx_hang(struct i40e_vsi *vsi)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct i40e_hw *hw = &pf->hw;
+-	struct i40e_ring *rx_ring;
+-	unsigned long rx_event;
+-	u32 prttsyn_stat;
+-	int n;
++	int i;
+ 
+ 	/* Since we cannot turn off the Rx timestamp logic if the device is
+ 	 * configured for Tx timestamping, we check if Rx timestamping is
+@@ -252,42 +290,30 @@ void i40e_ptp_rx_hang(struct i40e_vsi *vsi)
+ 	if (!(pf->flags & I40E_FLAG_PTP) || !pf->ptp_rx)
+ 		return;
+ 
+-	prttsyn_stat = rd32(hw, I40E_PRTTSYN_STAT_1);
++	spin_lock_bh(&pf->ptp_rx_lock);
+ 
+-	/* Unless all four receive timestamp registers are latched, we are not
+-	 * concerned about a possible PTP Rx hang, so just update the timeout
+-	 * counter and exit.
+-	 */
+-	if (!(prttsyn_stat & ((I40E_PRTTSYN_STAT_1_RXT0_MASK <<
+-			       I40E_PRTTSYN_STAT_1_RXT0_SHIFT) |
+-			      (I40E_PRTTSYN_STAT_1_RXT1_MASK <<
+-			       I40E_PRTTSYN_STAT_1_RXT1_SHIFT) |
+-			      (I40E_PRTTSYN_STAT_1_RXT2_MASK <<
+-			       I40E_PRTTSYN_STAT_1_RXT2_SHIFT) |
+-			      (I40E_PRTTSYN_STAT_1_RXT3_MASK <<
+-			       I40E_PRTTSYN_STAT_1_RXT3_SHIFT)))) {
+-		pf->last_rx_ptp_check = jiffies;
+-		return;
+-	}
++	/* Update current latch times for Rx events */
++	i40e_ptp_get_rx_events(pf);
+ 
+-	/* Determine the most recent watchdog or rx_timestamp event. */
+-	rx_event = pf->last_rx_ptp_check;
+-	for (n = 0; n < vsi->num_queue_pairs; n++) {
+-		rx_ring = vsi->rx_rings[n];
+-		if (time_after(rx_ring->last_rx_timestamp, rx_event))
+-			rx_event = rx_ring->last_rx_timestamp;
++	/* Check all the currently latched Rx events and see whether they have
++	 * been latched for over a second. It is assumed that any timestamp
++	 * should have been cleared within this time, or else it was captured
++	 * for a dropped frame that the driver never received. Thus, we will
++	 * clear any timestamp that has been latched for over 1 second.
++	 */
++	for (i = 0; i < 4; i++) {
++		if ((pf->latch_event_flags & BIT(i)) &&
++		    time_is_before_jiffies(pf->latch_events[i] + HZ)) {
++			rd32(hw, I40E_PRTTSYN_RXTIME_H(i));
++			pf->latch_event_flags &= ~BIT(i);
++			pf->rx_hwtstamp_cleared++;
++			dev_warn(&pf->pdev->dev,
++				 "Clearing a missed Rx timestamp event for RXTIME[%d]\n",
++				 i);
++		}
  	}
  
- 	list_for_each_entry_safe(f, ftmp, &vsi->mac_filter_list, list) {
-+		if (f->state == I40E_FILTER_REMOVE)
-+			continue;
- 		add_f = i40e_add_filter(vsi, f->macaddr, vid);
- 		if (!add_f) {
- 			dev_info(&vsi->back->pdev->dev,
-@@ -2305,6 +2309,8 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- 	/* Do not assume that I40E_VLAN_ANY should be reset to VLAN 0 */
- 	if (vid > 0 && !vsi->info.pvid) {
- 		list_for_each_entry_safe(f, ftmp, &vsi->mac_filter_list, list) {
-+			if (f->state == I40E_FILTER_REMOVE)
-+				continue;
- 			if (!i40e_find_filter(vsi, f->macaddr, I40E_VLAN_ANY))
- 				continue;
- 			i40e_del_filter(vsi, f->macaddr, I40E_VLAN_ANY);
+-	/* Only need to read the high RXSTMP register to clear the lock */
+-	if (time_is_before_jiffies(rx_event + 5 * HZ)) {
+-		rd32(hw, I40E_PRTTSYN_RXTIME_H(0));
+-		rd32(hw, I40E_PRTTSYN_RXTIME_H(1));
+-		rd32(hw, I40E_PRTTSYN_RXTIME_H(2));
+-		rd32(hw, I40E_PRTTSYN_RXTIME_H(3));
+-		pf->last_rx_ptp_check = jiffies;
+-		pf->rx_hwtstamp_cleared++;
+-		WARN_ONCE(1, "Detected Rx timestamp register hang\n");
+-	}
++	spin_unlock_bh(&pf->ptp_rx_lock);
+ }
+ 
+ /**
+@@ -350,14 +376,25 @@ void i40e_ptp_rx_hwtstamp(struct i40e_pf *pf, struct sk_buff *skb, u8 index)
+ 
+ 	hw = &pf->hw;
+ 
+-	prttsyn_stat = rd32(hw, I40E_PRTTSYN_STAT_1);
++	spin_lock_bh(&pf->ptp_rx_lock);
++
++	/* Get current Rx events and update latch times */
++	prttsyn_stat = i40e_ptp_get_rx_events(pf);
+ 
+-	if (!(prttsyn_stat & BIT(index)))
++	/* TODO: Should we warn about missing Rx timestamp event? */
++	if (!(prttsyn_stat & BIT(index))) {
++		spin_unlock_bh(&pf->ptp_rx_lock);
+ 		return;
++	}
++
++	/* Clear the latched event since we're about to read its register */
++	pf->latch_event_flags &= ~BIT(index);
+ 
+ 	lo = rd32(hw, I40E_PRTTSYN_RXTIME_L(index));
+ 	hi = rd32(hw, I40E_PRTTSYN_RXTIME_H(index));
+ 
++	spin_unlock_bh(&pf->ptp_rx_lock);
++
+ 	ns = (((u64)hi) << 32) | lo;
+ 
+ 	i40e_ptp_convert_to_hwtstamp(skb_hwtstamps(skb), ns);
+@@ -511,12 +548,15 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
+ 	}
+ 
+ 	/* Clear out all 1588-related registers to clear and unlatch them. */
++	spin_lock_bh(&pf->ptp_rx_lock);
+ 	rd32(hw, I40E_PRTTSYN_STAT_0);
+ 	rd32(hw, I40E_PRTTSYN_TXTIME_H);
+ 	rd32(hw, I40E_PRTTSYN_RXTIME_H(0));
+ 	rd32(hw, I40E_PRTTSYN_RXTIME_H(1));
+ 	rd32(hw, I40E_PRTTSYN_RXTIME_H(2));
+ 	rd32(hw, I40E_PRTTSYN_RXTIME_H(3));
++	pf->latch_event_flags = 0;
++	spin_unlock_bh(&pf->ptp_rx_lock);
+ 
+ 	/* Enable/disable the Tx timestamp interrupt based on user input. */
+ 	regval = rd32(hw, I40E_PRTTSYN_CTL0);
+@@ -656,6 +696,7 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 	}
+ 
+ 	mutex_init(&pf->tmreg_lock);
++	spin_lock_init(&pf->ptp_rx_lock);
+ 
+ 	/* ensure we have a clock device */
+ 	err = i40e_ptp_create_clock(pf);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index c9eb6b8..783ac4e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1414,10 +1414,8 @@ void i40e_process_skb_fields(struct i40e_ring *rx_ring,
+ 	u32 tsyn = (rx_status & I40E_RXD_QW1_STATUS_TSYNINDX_MASK) >>
+ 		   I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT;
+ 
+-	if (unlikely(tsynvalid)) {
++	if (unlikely(tsynvalid))
+ 		i40e_ptp_rx_hwtstamp(rx_ring->vsi->back, skb, tsyn);
+-		rx_ring->last_rx_timestamp = jiffies;
+-	}
+ 
+ 	i40e_rx_hash(rx_ring, rx_desc, skb, rx_ptype);
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 5088405..42f04d6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -307,8 +307,6 @@ struct i40e_ring {
+ 	u8 atr_sample_rate;
+ 	u8 atr_count;
+ 
+-	unsigned long last_rx_timestamp;
+-
+ 	bool ring_active;		/* is ring online or not */
+ 	bool arm_wb;		/* do something to arm write back */
+ 	u8 packet_stride;
 -- 
 2.7.4
