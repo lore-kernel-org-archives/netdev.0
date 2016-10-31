@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/7] stmmac: dwmac-sti refactor+cleanup
-Date: Mon, 31 Oct 2016 15:47:26 -0400 (EDT)
-Message-ID: <20161031.154726.460941249322981922.davem@davemloft.net>
-References: <20161030200507.851-1-manabian@gmail.com>
+Subject: Re: [PATCH net-next v2 0/7] qed*: Patch series
+Date: Mon, 31 Oct 2016 15:52:54 -0400 (EDT)
+Message-ID: <20161031.155254.2213369781807264171.davem@davemloft.net>
+References: <1477890867-3789-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org
-To: manabian@gmail.com
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56926 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56984 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S944198AbcJaTr2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:47:28 -0400
-In-Reply-To: <20161030200507.851-1-manabian@gmail.com>
+        with ESMTP id S945732AbcJaTw4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:52:56 -0400
+In-Reply-To: <1477890867-3789-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Sun, 30 Oct 2016 21:05:00 +0100
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Date: Mon, 31 Oct 2016 07:14:20 +0200
 
-> This patch set aims to remove the init/exit callbacks from the 
-> dwmac-sti driver and instead use standard PM callbacks. Doing this
-> will also allow us to cleanup the driver.
+> This series does several things. The bigger changes:
 > 
-> Eventually the init/exit callbacks will be deprecated and removed
-> from all drivers dwmac-* except for dwmac-generic. Drivers will be
-> refactored to use standard PM and remove callbacks.
+>  - Add new notification APIs [& Defaults] for various fields.
+> The series then utilizes some of those qed <-> qede APIs to bass WoL
+> support upon.
 > 
-> Note that this patch set has only been test compiled and no functional
-> change is intended.
+>  - Change the resource allocation scheme to receive the values from
+> management firmware, instead of equally sharing resources between
+> functions [that might not need those]. That would, e.g., allow us to
+> configure additional filters to network interfaces in presence of
+> storage [PCI] functions from same adapter.
 
-I would really like to see some review and testing before applying this
-series.
+Series applied, thanks.
