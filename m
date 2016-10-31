@@ -1,32 +1,38 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH] drivers/net/usb/r8152 fix broken rx checksums
-Date: Mon, 31 Oct 2016 00:48:28 +0100
-Message-ID: <1477871308.24337.4.camel@tiscali.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
+Date: Sun, 30 Oct 2016 20:57:55 -0400 (EDT)
+Message-ID: <20161030.205755.1198665157526465556.davem@davemloft.net>
 References: <987cfbab-2b48-e28c-1706-967cb2051d63@pobox.com>
-         <20161030.172222.1243045598122436637.davem@davemloft.net>
+        <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>, mlord@pobox.com
+To: mlord@pobox.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161030.172222.1243045598122436637.davem@davemloft.net>
+In-Reply-To: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-10-30 at 17:22 -0400, David Miller wrote:
->         3) "Fix broken RX checksums."  Commit header lines and commit
->            messages are proper English, therefore sentences should
->            begin with a capitalized letter and end with a period.
+From: Mark Lord <mlord@pobox.com>
+Date: Sun, 30 Oct 2016 19:28:27 -0400
 
-Commit messages should be proper English. But commit header lines
-should not end with a period. The vast majority doesn't. Yes, I've just
-checked.
+> The r8152 driver has been broken since (approx) 3.16.xx
+> when support was added for hardware RX checksums
+> on newer chip versions.  Symptoms include random
+> segfaults and silent data corruption over NFS.
+> 
+> The hardware checksum logig does not work on the VER_02
+> dongles I have here when used with a slow embedded system CPU.
+> Google reveals others reporting similar issues on Raspberry Pi.
+> 
+> So, disable hardware RX checksum support for VER_02, and fix
+> an obvious coding error for IPV6 checksums in the same function.
+> 
+> Because this bug results in silent data corruption,
+> it is a good candidate for back-porting to -stable >= 3.16.xx.
+> 
+> Signed-off-by: Mark Lord <mlord@pobox.com>
 
-How many newspaper headlines end with a period?
-
-Thanks,
-
-
-Paul Bolle
+Applied and queued up for -stable, thanks.
