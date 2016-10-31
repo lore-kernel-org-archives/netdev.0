@@ -1,72 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: at803x: the Atheros 8031 supports pause
- frames
-Date: Mon, 31 Oct 2016 13:48:39 -0400 (EDT)
-Message-ID: <20161031.134839.1774460363929061748.davem@davemloft.net>
-References: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2 net-next 1/5] bpf: Refactor cgroups code in prep for
+ new type
+Date: Mon, 31 Oct 2016 18:49:42 +0100
+Message-ID: <20161031174942.GF32374@pox.localdomain>
+References: <1477529922-4806-1-git-send-email-dsa@cumulusnetworks.com>
+ <1477529922-4806-2-git-send-email-dsa@cumulusnetworks.com>
+ <20161031.125801.874510216543796824.davem@davemloft.net>
+ <542e0d3e-2f57-96f9-1da1-b71e2c970395@zonque.org>
+ <44b37825-d001-c708-963f-cbdedb559710@cumulusnetworks.com>
+ <7d2a099d-1039-ef2d-86e6-2fca151d316c@zonque.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zefir.kurtisi@neratec.com,
-        scampbel@codeaurora.org, alokc@codeaurora.org,
-        shankerd@codeaurora.org, andrew@lunn.ch, f.fainelli@gmail.com
-To: timur@codeaurora.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        ast@fb.com, daniel@iogearbox.net, maheshb@google.com
+To: Daniel Mack <daniel@zonque.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53920 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759598AbcJaRsp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 13:48:45 -0400
-In-Reply-To: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37424 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S945046AbcJaRtp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 13:49:45 -0400
+Received: by mail-wm0-f42.google.com with SMTP id t79so64503481wmt.0
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 10:49:44 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <7d2a099d-1039-ef2d-86e6-2fca151d316c@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Thu, 27 Oct 2016 17:05:01 -0500
-
-> The Atheros 8031 PHY supports the 802.3 extension for symmetric and
-> asymmetric pause frames, so set that to the list of features supported
-> by the phy.
+On 10/31/16 at 06:16pm, Daniel Mack wrote:
+> On 10/31/2016 06:05 PM, David Ahern wrote:
+> > On 10/31/16 11:00 AM, Daniel Mack wrote:
+> >> Yeah, I'm confused too. I changed that name in my v7 from 
+> >> BPF_PROG_TYPE_CGROUP_SOCK to BPF_PROG_TYPE_CGROUP_SKB on David's
+> >> (Ahern) request. Why is it now renamed again?
+> > 
+> > Thomas pushed back on adding another program type in favor of using
+> > subtypes. So this makes the program type generic to CGROUP and patch
+> > 2 in this v2 set added Mickaël's subtype patch with the socket
+> > mangling done that way in patch 3.
+> > 
 > 
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
+> Fine for me. I can change it around again.
 
-It looks like Florian and you need to discuss this a little further
-but here are some comments on my part.
-
-First of all the PHY state for pause is merely a control for what gets
-advertised in negotiation and the result after negotiation completes,
-and that's about it.  Maybe is has an influence upon whether PAUSE
-frames are passed to/from the MAC, but that would be the largest
-extent of it even if so.
-
-The MAC does all of the actual PAUSE processing.  When the MAC sees a
-PAUSE frame is backs off it's transmitter.  When the amount of unused
-RX buffers in it's ring gets very low, the MAC emits a PAUSE frame.
-
-You also mentioned that you were surprised that getting 900MBit on a
-multi-core 2GHZ ARM without drops isn't happening.  Well, this is a
-very complex issue to analyze.  I can only give a few pointers after
-taking a quick look at this out-of-tree driver.
-
-Are you testing single-flow performance?  If so, even though this is a
-multi-queue NIC the traffic will be going over only one of the queues
-and thus all of those other cores are basically wasted, because only
-one core will be processing this flow's packets.
-
-Next, there are probably a lot of batching optimizations missing from
-the driver.  For example, unconditionally always posting replenished
-RX buffers ever time you process the RX ring is expensive.  Especially
-expensive is the MMIO write to post the new RX buffers.  You should
-batch them and only perform the MMIO write when say 8 or more new
-RX buffers have been posted.
-
-This is a pretty common optimization if you look at other drivers.
-
-Next, the DMA map/unmap operations could be (relatively) expensive
-on this platform and contribute to what packet rates are possible
-without drops.
-
-But all of this is speculation, you really need to look at "perf"
-output to see if the kernel is spending an excessive amount of time in
-one place or another during your tests.  At least this way you'll have
-some hard data to work with and have some kind of idea what might be
-the reason.
+I would like to hear from Daniel B and Alexei as well. We need to
+decide whether to use subtypes consistently and treat prog types as
+something more high level or whether to bluntly introduce a new prog
+type for every distinct set of verifier limits. I will change lwt_bpf
+as well accordingly.
