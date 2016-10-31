@@ -1,43 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: mv643xx_eth.c merge gone bad...
-Date: Mon, 31 Oct 2016 10:34:03 -0400 (EDT)
-Message-ID: <20161031.103403.293968855937308643.davem@davemloft.net>
-References: <20161031113349.GA8951@lunn.ch>
-        <20161031.091206.236633139585216348.davem@davemloft.net>
-        <20161031133538.GB9441@lunn.ch>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] genetlink: fix error return code in genl_register_family()
+Date: Mon, 31 Oct 2016 14:53:03 +0000
+Message-ID: <1477925583-7956-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jgunthorpe@obsidianresearch.com, jarod@redhat.com,
-        netdev@vger.kernel.org
-To: andrew@lunn.ch
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: stephen hemminger <stephen@networkplumber.org>,
+        Matti Vaittinen <matti.vaittinen@nokia.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        pravin shelar <pshelar@ovn.org>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47556 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942957AbcJaOeH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 10:34:07 -0400
-In-Reply-To: <20161031133538.GB9441@lunn.ch>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33382 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943611AbcJaOxU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 10:53:20 -0400
+Received: by mail-pf0-f196.google.com with SMTP id a136so5559008pfa.0
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 07:53:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Mon, 31 Oct 2016 14:35:38 +0100
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-> On Mon, Oct 31, 2016 at 09:12:06AM -0400, David Miller wrote:
->> From: Andrew Lunn <andrew@lunn.ch>
->> Date: Mon, 31 Oct 2016 12:33:49 +0100
->> 
->> > The merge of commit 27058af401e49d88a905df000dd26f443fcfa8ce for
->> > mv643xx_eth.c has gone bad:
->> 
->> Sorry this should be fixed now.
-> 
-> Hi David
-> 
-> I think the SET_NETDEV_DEV() should be removed, which is what cause the merged conflict:
-> 
-> http://patchwork.ozlabs.org/patch/687294/
+Fix to return error code -ENOMEM from the idr_alloc() error handling
+case instead of 0, as done elsewhere in this function.
 
-Indeed, fixed.
+Fixes: 2ae0f17df1cd ("genetlink: use idr to track families")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ net/netlink/genetlink.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Thanks Andrew.
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index caf04d7..305730d 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -362,8 +362,10 @@ int genl_register_family(struct genl_family *family)
+ 
+ 	family->id = idr_alloc(&genl_fam_idr, family,
+ 			       start, end + 1, GFP_KERNEL);
+-	if (!family->id)
++	if (!family->id) {
++		err = -ENOMEM;
+ 		goto errout_locked;
++	}
+ 
+ 	err = genl_validate_assign_mc_groups(family);
+ 	if (err)
