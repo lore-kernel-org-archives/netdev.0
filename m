@@ -1,75 +1,61 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH/RFC] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
-Date: Mon, 31 Oct 2016 18:13:38 +0100
-Message-ID: <1477934018-13968-1-git-send-email-geert+renesas@glider.be>
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH v2 net-next 1/5] bpf: Refactor cgroups code in prep for
+ new type
+Date: Mon, 31 Oct 2016 18:16:23 +0100
+Message-ID: <7d2a099d-1039-ef2d-86e6-2fca151d316c@zonque.org>
+References: <1477529922-4806-1-git-send-email-dsa@cumulusnetworks.com>
+ <1477529922-4806-2-git-send-email-dsa@cumulusnetworks.com>
+ <20161031.125801.874510216543796824.davem@davemloft.net>
+ <542e0d3e-2f57-96f9-1da1-b71e2c970395@zonque.org>
+ <44b37825-d001-c708-963f-cbdedb559710@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        maheshb@google.com, tgraf@suug.ch
+To: David Ahern <dsa@cumulusnetworks.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:47876 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1762253AbcJaRQ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 13:16:26 -0400
+In-Reply-To: <44b37825-d001-c708-963f-cbdedb559710@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The limitation to 10/100Mbit speeds on R-Car Gen3 is valid for R-Car H3
-ES1.0 only. Check for the exact SoC model to allow 1Gbps on newer
-revisions of R-Car H3, and on R-Car M3-W.
+On 10/31/2016 06:05 PM, David Ahern wrote:
+> On 10/31/16 11:00 AM, Daniel Mack wrote:
+>> On 10/31/2016 05:58 PM, David Miller wrote:
+>>> From: David Ahern <dsa@cumulusnetworks.com> Date: Wed, 26 Oct
+>>> 2016 17:58:38 -0700
+>>> 
+>>>> diff --git a/include/uapi/linux/bpf.h
+>>>> b/include/uapi/linux/bpf.h index 6b62ee9a2f78..73da296c2125
+>>>> 100644 --- a/include/uapi/linux/bpf.h +++
+>>>> b/include/uapi/linux/bpf.h @@ -98,7 +98,7 @@ enum bpf_prog_type
+>>>> { BPF_PROG_TYPE_TRACEPOINT, BPF_PROG_TYPE_XDP, 
+>>>> BPF_PROG_TYPE_PERF_EVENT, -	BPF_PROG_TYPE_CGROUP_SKB, +
+>>>> BPF_PROG_TYPE_CGROUP, };
+>>>> 
+>>>> enum bpf_attach_type {
+>>> 
+>>> If we do this then the cgroup-bpf series should use this value
+>>> rather than changing it after-the-fact in your series here.
+>>> 
+>> 
+>> Yeah, I'm confused too. I changed that name in my v7 from 
+>> BPF_PROG_TYPE_CGROUP_SOCK to BPF_PROG_TYPE_CGROUP_SKB on David's
+>> (Ahern) request. Why is it now renamed again?
+> 
+> Thomas pushed back on adding another program type in favor of using
+> subtypes. So this makes the program type generic to CGROUP and patch
+> 2 in this v2 set added Mickaël's subtype patch with the socket
+> mangling done that way in patch 3.
+> 
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
-Tested on:
-  - r8a7795/salvator-x with R-Car H3 ES1.0 (limited to 100Mbps),
-  - r8a7795/salvator-x with R-Car H3 ES1.1 (1Gbps),
-  - r8a7796/salvator-x with R-Car M3-W ES1.0 (1Gbps).
+Fine for me. I can change it around again.
 
-This is marked as an RFC because it depends on:
-  A) the soc_device_match() infrastructure,
-  B) Renesas SoC core ESx.y handling.
-Hence I think the best merge strategy is to let this patch go in through
-Simon's Renesas tree.
 
-David: If you agree, can you please provide your ack? Thanks!
----
- drivers/net/ethernet/renesas/ravb_main.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 27cfec3154c8e0f2..bf3109a413ac5721 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -31,6 +31,7 @@
- #include <linux/pm_runtime.h>
- #include <linux/slab.h>
- #include <linux/spinlock.h>
-+#include <linux/sys_soc.h>
- 
- #include <asm/div64.h>
- 
-@@ -977,6 +978,11 @@ static void ravb_adjust_link(struct net_device *ndev)
- 		phy_print_status(phydev);
- }
- 
-+static const struct soc_device_attribute r8a7795es10[] = {
-+	{ .soc_id = "r8a7795", .revision = "ES1.0", },
-+	{ /* sentinel */ }
-+};
-+
- /* PHY init function */
- static int ravb_phy_init(struct net_device *ndev)
- {
-@@ -1011,10 +1017,10 @@ static int ravb_phy_init(struct net_device *ndev)
- 		return -ENOENT;
- 	}
- 
--	/* This driver only support 10/100Mbit speeds on Gen3
-+	/* This driver only support 10/100Mbit speeds on R-Car H3 ES1.0
- 	 * at this time.
- 	 */
--	if (priv->chip_id == RCAR_GEN3) {
-+	if (soc_device_match(r8a7795es10)) {
- 		int err;
- 
- 		err = phy_set_max_speed(phydev, SPEED_100);
--- 
-1.9.1
+Thanks,
+Daniel
