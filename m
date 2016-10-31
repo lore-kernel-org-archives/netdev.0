@@ -1,53 +1,66 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Ethernet not working on a different SoC with same eth HW
-Date: Mon, 31 Oct 2016 17:28:24 +0100
-Message-ID: <58177128.8090403@free.fr>
-References: <58176355.7090200@free.fr> <20161031153704.GD9441@lunn.ch>
- <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v7 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
+Date: Mon, 31 Oct 2016 12:40:03 -0400 (EDT)
+Message-ID: <20161031.124003.1361406552151798940.davem@davemloft.net>
+References: <1477390454-12553-1-git-send-email-daniel@zonque.org>
+        <1477390454-12553-6-git-send-email-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Mans Rullgard <mans@mansr.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
-        Daniel Mack <zonque@gmail.com>,
-        Sebastian Frias <sf84@laposte.net>
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com, kafai@fb.com,
+        fw@strlen.de, pablo@netfilter.org, harald@redhat.com,
+        netdev@vger.kernel.org, sargun@sargun.me, cgroups@vger.kernel.org
+To: daniel@zonque.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:21413 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1762201AbcJaQ2w (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 12:28:52 -0400
-In-Reply-To: <20161031155334.GF9441@lunn.ch>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50674 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755757AbcJaQkH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 12:40:07 -0400
+In-Reply-To: <1477390454-12553-6-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31/10/2016 16:53, Andrew Lunn wrote:
+From: Daniel Mack <daniel@zonque.org>
+Date: Tue, 25 Oct 2016 12:14:13 +0200
 
->> I'll add a log for the request_irq call.
-> 
-> And take a look at /proc/interrupts
+> @@ -312,6 +314,13 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+>  	skb->dev = dev;
+>  	skb->protocol = htons(ETH_P_IP);
+>  
+> +	ret = cgroup_bpf_run_filter(sk_to_full_sk(sk), skb,
+> +				    BPF_CGROUP_INET_EGRESS);
+> +	if (ret) {
+> +		kfree_skb(skb);
+> +		return ret;
+> +	}
+> +
+>  	/*
+>  	 *	Multicasts are looped back for other local users
+>  	 */
+> @@ -364,12 +373,20 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+>  int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+>  {
+>  	struct net_device *dev = skb_dst(skb)->dev;
+> +	int ret;
+>  
+>  	IP_UPD_PO_STATS(net, IPSTATS_MIB_OUT, skb->len);
+>  
+>  	skb->dev = dev;
+>  	skb->protocol = htons(ETH_P_IP);
+>  
+> +	ret = cgroup_bpf_run_filter(sk_to_full_sk(sk), skb,
+> +				    BPF_CGROUP_INET_EGRESS);
+> +	if (ret) {
+> +		kfree_skb(skb);
+> +		return ret;
+> +	}
+> +
+>  	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
+>  			    net, sk, skb, NULL, dev,
+>  			    ip_finish_output,
 
-You're right, there does seem to be something wrong with the interrupts.
+The "sk" here is not necessarily the application socket.  It could be
+a UDP tunnel socket or similar encapsulation object.
 
-# cat /proc/interrupts 
-           CPU0       
- 20:      26285     GIC-0  29 Edge      twd
-IPI0:          0  CPU wakeup interrupts
-IPI1:          0  Timer broadcast interrupts
-IPI2:          0  Rescheduling interrupts
-IPI3:          0  Function call interrupts
-IPI4:          0  CPU stop interrupts
-IPI5:          0  IRQ work interrupts
-IPI6:          0  completion interrupts
-Err:          0
-
-None of the expected platform interrupts (eth, phy, uart) are registered.
-
-Thanks for pushing in a promising direction.
-
-Regards.
+"skb->sk" is always the application socket, so is probably what you
+need to pass down into the cgroup bpf run filter hook.
