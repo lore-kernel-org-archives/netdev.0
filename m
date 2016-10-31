@@ -1,48 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCHv2 net 0/3] sctp: a bunch of fixes by holding transport
-Date: Mon, 31 Oct 2016 09:25:46 -0400
-Message-ID: <20161031132546.GA15205@hmsreliant.think-freely.org>
-References: <cover.1477916928.git.lucien.xin@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: mv643xx_eth.c merge gone bad...
+Date: Mon, 31 Oct 2016 14:35:38 +0100
+Message-ID: <20161031133538.GB9441@lunn.ch>
+References: <20161031113349.GA8951@lunn.ch>
+ <20161031.091206.236633139585216348.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Cc: jgunthorpe@obsidianresearch.com, jarod@redhat.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39179 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942920AbcJaN0Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 09:26:16 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:58663 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S942988AbcJaNfr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 09:35:47 -0400
 Content-Disposition: inline
-In-Reply-To: <cover.1477916928.git.lucien.xin@gmail.com>
+In-Reply-To: <20161031.091206.236633139585216348.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 31, 2016 at 08:32:30PM +0800, Xin Long wrote:
-> There are several places where it holds assoc after getting transport by
-> searching from transport rhashtable, it may cause use-after-free issue.
+On Mon, Oct 31, 2016 at 09:12:06AM -0400, David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Mon, 31 Oct 2016 12:33:49 +0100
 > 
-> This patchset is to fix them by holding transport instead.
+> > The merge of commit 27058af401e49d88a905df000dd26f443fcfa8ce for
+> > mv643xx_eth.c has gone bad:
 > 
-> v1->v2:
->   Fix the changelog of patch 2/3
-> 
-> Xin Long (3):
->   sctp: hold transport instead of assoc in sctp_diag
->   sctp: return back transport in __sctp_rcv_init_lookup
->   sctp: hold transport instead of assoc when lookup assoc in rx path
-> 
->  include/net/sctp/sctp.h |  2 +-
->  net/sctp/input.c        | 35 +++++++++++++++++------------------
->  net/sctp/ipv6.c         |  2 +-
->  net/sctp/socket.c       |  5 +----
->  4 files changed, 20 insertions(+), 24 deletions(-)
-> 
-> -- 
-> 2.1.0
-> 
-> 
-Series
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Sorry this should be fixed now.
+
+Hi David
+
+I think the SET_NETDEV_DEV() should be removed, which is what cause the merged conflict:
+
+http://patchwork.ozlabs.org/patch/687294/
+
+	Andrew
