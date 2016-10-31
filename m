@@ -1,61 +1,48 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Let's do P4
-Date: Mon, 31 Oct 2016 08:47:51 +0100
-Message-ID: <20161031074751.GA1679@nanopsycho.orion>
-References: <20161029075328.GB1692@nanopsycho.orion>
- <20161029154903.25deb6db@jkicinski-Precision-T1700>
- <5814D25D.9070200@gmail.com>
- <20161030074458.GB1686@nanopsycho.orion>
- <20161030102649.GE1810@pox.localdomain>
- <20161030163836.GC1686@nanopsycho.orion>
- <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
- <CAHo-Ooz82uFsf6F=pU-jrR-KOADWuRmkiAfKaB_sQGc=4N7z4g@mail.gmail.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH 1/1] xen-netfront: do not cast grant
+ table reference to signed short
+Date: Mon, 31 Oct 2016 01:47:56 -0600
+Message-ID: <5817053C020000780011AE8F@prv-mh.provo.novell.com>
+References: <1477892309-7150-1-git-send-email-dongli.zhang@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jakub Kicinski <kubakici@wp.pl>,
-        Linux NetDev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        roopa@cumulusnetworks.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Tom Herbert <tom@herbertland.com>, mattyk@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        nogahf@mellanox.com, ogerlitz@mellanox.com,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        dsa@c
-To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <david.vrabel@citrix.com>, <xen-devel@lists.xenproject.org>,
+        <boris.ostrovsky@oracle.com>, "Juergen Gross" <JGross@suse.com>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Dongli Zhang" <dongli.zhang@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35178 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761614AbcJaHry (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 03:47:54 -0400
-Received: by mail-wm0-f48.google.com with SMTP id a197so3853735wmd.0
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 00:47:53 -0700 (PDT)
+Received: from prv-mh.provo.novell.com ([137.65.248.74]:43347 "EHLO
+        prv-mh.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761745AbcJaHsA (ORCPT
+        <rfc822;groupwise-netdev@vger.kernel.org:5:2>);
+        Mon, 31 Oct 2016 03:48:00 -0400
+In-Reply-To: <1477892309-7150-1-git-send-email-dongli.zhang@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <CAHo-Ooz82uFsf6F=pU-jrR-KOADWuRmkiAfKaB_sQGc=4N7z4g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 31, 2016 at 07:03:53AM CET, zenczykowski@gmail.com wrote:
->One thing to consider...
->
->Just because the compiler could be in the kernel, doesn't mean it has to be.
->
->One could envision a hotplug/modprobe like helper program that the
->kernel executes
->when it wants to translate from one encoding (say p4) to another (say [e]bpf).
->
->This keeps complexity (compiler) out of the kernel, while still
->allowing us to have
->the illusion of only one interface to sw/hw.  And it has the nice
->benefit of allowing us
->to use existing compiler toolchains...
+>>> On 31.10.16 at 06:38, <dongli.zhang@oracle.com> wrote:
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -304,7 +304,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+>  		queue->rx_skbs[id] = skb;
+>  
+>  		ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
+> -		BUG_ON((signed short)ref < 0);
+> +		WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)ref));
 
-This idea was repeatedly marked as unacceptable.
+You really need to cast to plain (or signed) long here - casting to
+unsigned long will work only in 32-bit configurations, as otherwise
+you lose the sign of the value.
+
+And then just issuing a warning here is insufficient, I think: Either
+you follow David's line of thought assuming that no failure here is
+possible at all (in which case the BUG_ON() can be ditched without
+replacement), or you follow your original one (which matches mine)
+that we can't exclude an error here because of a bug elsewhere,
+in which case this either needs to stay BUG_ON() or should be
+followed by some form of bailing out (so that the bad ref won't get
+stored, preventing its later use from causing further damage).
+
+Jan
