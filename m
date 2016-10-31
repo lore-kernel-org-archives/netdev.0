@@ -1,225 +1,166 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/22] i40e: fix MAC filters when removing VLANs
-Date: Mon, 31 Oct 2016 15:29:40 -0700
-Message-ID: <1477952992-125662-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 17/22] i40e: Add common function for finding VSI by type
+Date: Mon, 31 Oct 2016 15:29:47 -0700
+Message-ID: <1477952992-125662-18-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Bimmy Pujari <bimmy.pujari@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:28490 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:4577 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034497AbcJaW36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 18:29:58 -0400
+        id S947616AbcJaWaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 18:30:02 -0400
 In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Brady <alan.brady@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Currently there exists a bug where adding at least one VLAN and then
-removing all VLANs leaves the mac filters for the VSI with an incorrect
-value for 'vid' which indicates the mac filter's VLAN status.
+This patch adds a common method for finding a VSI by type.  The main
+motivation for doing this is that the Flow Director path actually had two
+ways of handling this, one stopped on first match and one did not.  This
+patch makes it so that all callers of this function will get the same
+approach for finding a VSI.
 
-The current implementation for handling the removal of VLANs is wrong
-for a couple reasons. The first is that when i40e_vsi_kill_vlan
-iterates through the MAC filters, it fails to account for the MAC filter
-status; i.e. it's not accommodating for filters that are about to be
-deleted. The second problem is that MAC filters can be deleted in other
-places (specifically i40e_set_rx_mode). Thus if it occurs that all the
-VLAN MAC filters get deleted we need to switch out of VLAN mode, but the
-code path through i40e_vsi_kill_vlan has already been executed and we're
-now stuck in VLAN mode.
-
-This patch fixes the issue by removing the check from i40e_vsi_kill_vlan
-and puts the check instead in i40e_sync_vsi_filters where we're
-guaranteed to see all filter deletions and can properly detect when we
-need to switch out of VLAN mode.
-
-Change-ID: Ib38fe6034b356eee9a0e20b8a9eeed5ff2debcd9
-Signed-off-by: Alan Brady <alan.brady@intel.com>
+Change-ID: Ibf25de8acd8466582520694424aa87da66965fbd
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Bimmy Pujari <bimmy.pujari@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 120 +++++++++++++++++-----------
- 1 file changed, 72 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         | 19 +++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 12 +-----------
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 21 ++++++---------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  5 +----
+ 4 files changed, 27 insertions(+), 30 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 9121e46..bb02280 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -723,6 +723,25 @@ int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size);
+ void i40e_fill_rss_lut(struct i40e_pf *pf, u8 *lut,
+ 		       u16 rss_table_size, u16 rss_size);
+ struct i40e_vsi *i40e_find_vsi_from_id(struct i40e_pf *pf, u16 id);
++/**
++ * i40e_find_vsi_by_type - Find and return Flow Director VSI
++ * @pf: PF to search for VSI
++ * @type: Value indicating type of VSI we are looking for
++ **/
++static inline struct i40e_vsi *
++i40e_find_vsi_by_type(struct i40e_pf *pf, u16 type)
++{
++	int i;
++
++	for (i = 0; i < pf->num_alloc_vsi; i++) {
++		struct i40e_vsi *vsi = pf->vsi[i];
++
++		if (vsi && vsi->type == type)
++			return vsi;
++	}
++
++	return NULL;
++}
+ void i40e_update_stats(struct i40e_vsi *vsi);
+ void i40e_update_eth_stats(struct i40e_vsi *vsi);
+ struct rtnl_link_stats64 *i40e_get_vsi_stats_struct(struct i40e_vsi *vsi);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index fb4fb52..962a9bb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1768,17 +1768,7 @@ static inline bool i40e_active_vfs(struct i40e_pf *pf)
+ 
+ static inline bool i40e_active_vmdqs(struct i40e_pf *pf)
+ {
+-	struct i40e_vsi **vsi = pf->vsi;
+-	int i;
+-
+-	for (i = 0; i < pf->num_alloc_vsi; i++) {
+-		if (!vsi[i])
+-			continue;
+-		if (vsi[i]->type == I40E_VSI_VMDQ2)
+-			return true;
+-	}
+-
+-	return false;
++	return !!i40e_find_vsi_by_type(pf, I40E_VSI_VMDQ2);
+ }
+ 
+ static void i40e_diag_test(struct net_device *netdev,
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 35f06ba..6cf9089 100644
+index 5fe54e5..9ec977a 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1774,19 +1774,22 @@ i40e_update_filter_state(int count,
+@@ -6718,7 +6718,6 @@ static int i40e_vsi_clear(struct i40e_vsi *vsi);
+ static void i40e_fdir_sb_setup(struct i40e_pf *pf)
+ {
+ 	struct i40e_vsi *vsi;
+-	int i;
+ 
+ 	/* quick workaround for an NVM issue that leaves a critical register
+ 	 * uninitialized
+@@ -6729,6 +6728,7 @@ static void i40e_fdir_sb_setup(struct i40e_pf *pf)
+ 			0xeacb7d61, 0xaa4f05b6, 0x9c5c89ed, 0xfc425ddb,
+ 			0xa4654832, 0xfc7461d4, 0x8f827619, 0xf5c63c21,
+ 			0x95b3a76d};
++		int i;
+ 
+ 		for (i = 0; i <= I40E_GLQF_HKEY_MAX_INDEX; i++)
+ 			wr32(&pf->hw, I40E_GLQF_HKEY(i), hkey[i]);
+@@ -6738,13 +6738,7 @@ static void i40e_fdir_sb_setup(struct i40e_pf *pf)
+ 		return;
+ 
+ 	/* find existing VSI and see if it needs configuring */
+-	vsi = NULL;
+-	for (i = 0; i < pf->num_alloc_vsi; i++) {
+-		if (pf->vsi[i] && pf->vsi[i]->type == I40E_VSI_FDIR) {
+-			vsi = pf->vsi[i];
+-			break;
+-		}
+-	}
++	vsi = i40e_find_vsi_by_type(pf, I40E_VSI_FDIR);
+ 
+ 	/* create a new VSI if none exists */
+ 	if (!vsi) {
+@@ -6766,15 +6760,12 @@ static void i40e_fdir_sb_setup(struct i40e_pf *pf)
   **/
- int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ static void i40e_fdir_teardown(struct i40e_pf *pf)
  {
--	struct i40e_mac_filter *f, *add_head = NULL;
- 	struct hlist_head tmp_add_list, tmp_del_list;
-+	struct i40e_mac_filter *f, *add_head = NULL;
- 	struct i40e_hw *hw = &vsi->back->hw;
-+	unsigned int vlan_any_filters = 0;
-+	unsigned int non_vlan_filters = 0;
-+	unsigned int vlan_filters = 0;
- 	bool promisc_changed = false;
- 	char vsi_name[16] = "PF";
- 	int filter_list_len = 0;
--	u32 changed_flags = 0;
- 	i40e_status aq_ret = 0;
-+	u32 changed_flags = 0;
- 	struct hlist_node *h;
--	int retval = 0;
- 	struct i40e_pf *pf;
- 	int num_add = 0;
- 	int num_del = 0;
-+	int retval = 0;
- 	int aq_err = 0;
- 	u16 cmd_flags;
- 	int list_size;
-@@ -1825,11 +1828,75 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- 				hash_del(&f->hlist);
- 				hlist_add_head(&f->hlist, &tmp_del_list);
- 				vsi->active_filters--;
-+
-+				/* Avoid counting removed filters */
-+				continue;
- 			}
- 			if (f->state == I40E_FILTER_NEW) {
- 				hash_del(&f->hlist);
- 				hlist_add_head(&f->hlist, &tmp_add_list);
- 			}
-+
-+			/* Count the number of each type of filter we have
-+			 * remaining, ignoring any filters we're about to
-+			 * delete.
-+			 */
-+			if (f->vlan > 0)
-+				vlan_filters++;
-+			else if (!f->vlan)
-+				non_vlan_filters++;
-+			else
-+				vlan_any_filters++;
-+		}
-+
-+		/* We should never have VLAN=-1 filters at the same time as we
-+		 * have either VLAN=0 or VLAN>0 filters, so warn about this
-+		 * case here to help catch any issues.
-+		 */
-+		WARN_ON(vlan_any_filters && (vlan_filters + non_vlan_filters));
-+
-+		/* If we only have VLAN=0 filters remaining, and don't have
-+		 * any other VLAN filters, we need to convert these VLAN=0
-+		 * filters into VLAN=-1 (I40E_VLAN_ANY) so that we operate
-+		 * correctly in non-VLAN mode and receive all traffic tagged
-+		 * or untagged.
-+		 */
-+		if (non_vlan_filters && !vlan_filters) {
-+			hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f,
-+					   hlist) {
-+				/* Only replace VLAN=0 filters */
-+				if (f->vlan)
-+					continue;
-+
-+				/* Allocate a replacement element */
-+				add_head = kzalloc(sizeof(*add_head),
-+						   GFP_KERNEL);
-+				if (!add_head)
-+					goto err_no_memory_locked;
-+
-+				/* Copy the filter, with new state and VLAN */
-+				*add_head = *f;
-+				add_head->state = I40E_FILTER_NEW;
-+				add_head->vlan = I40E_VLAN_ANY;
-+
-+				/* Move the replacement to the add list */
-+				INIT_HLIST_NODE(&add_head->hlist);
-+				hlist_add_head(&add_head->hlist,
-+					       &tmp_add_list);
-+
-+				/* Move the original to the delete list */
-+				f->state = I40E_FILTER_REMOVE;
-+				hash_del(&f->hlist);
-+				hlist_add_head(&f->hlist, &tmp_del_list);
-+				vsi->active_filters--;
-+			}
-+
-+			/* Also update any filters on the tmp_add list */
-+			hlist_for_each_entry(f, &tmp_add_list, hlist) {
-+				if (!f->vlan)
-+					f->vlan = I40E_VLAN_ANY;
-+			}
-+			add_head = NULL;
- 		}
- 		spin_unlock_bh(&vsi->mac_filter_hash_lock);
- 	}
-@@ -2150,6 +2217,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
- err_no_memory:
- 	/* Restore elements on the temporary add and delete lists */
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
-+err_no_memory_locked:
- 	i40e_undo_filter_entries(vsi, &tmp_del_list);
- 	i40e_undo_filter_entries(vsi, &tmp_add_list);
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
-@@ -2403,9 +2471,8 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
- int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- {
- 	struct net_device *netdev = vsi->netdev;
--	struct i40e_mac_filter *f, *add_f;
-+	struct i40e_mac_filter *f;
- 	struct hlist_node *h;
--	int filter_count = 0;
- 	int bkt;
+-	int i;
++	struct i40e_vsi *vsi;
  
- 	/* Locked once because all functions invoked below iterates list */
-@@ -2419,49 +2486,6 @@ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
- 			__i40e_del_filter(vsi, f);
- 	}
- 
--	/* go through all the filters for this VSI and if there is only
--	 * vid == 0 it means there are no other filters, so vid 0 must
--	 * be replaced with -1. This signifies that we should from now
--	 * on accept any traffic (with any tag present, or untagged)
--	 */
--	hash_for_each(vsi->mac_filter_hash, bkt, f, hlist) {
--		if (vsi->netdev) {
--			if (f->vlan &&
--			    ether_addr_equal(netdev->dev_addr, f->macaddr))
--				filter_count++;
--		}
--
--		if (f->vlan)
--			filter_count++;
--	}
--
--	if (!filter_count && vsi->netdev) {
--		i40e_del_filter(vsi, netdev->dev_addr, 0);
--		f = i40e_add_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY);
--		if (!f) {
--			dev_info(&vsi->back->pdev->dev,
--				 "Could not add filter %d for %pM\n",
--				 I40E_VLAN_ANY, netdev->dev_addr);
--			spin_unlock_bh(&vsi->mac_filter_hash_lock);
--			return -ENOMEM;
+ 	i40e_fdir_filter_exit(pf);
+-	for (i = 0; i < pf->num_alloc_vsi; i++) {
+-		if (pf->vsi[i] && pf->vsi[i]->type == I40E_VSI_FDIR) {
+-			i40e_vsi_release(pf->vsi[i]);
+-			break;
 -		}
 -	}
--
--	if (!filter_count) {
--		hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
--			if (!f->vlan)
--				__i40e_del_filter(vsi, f);
--			add_f = i40e_add_filter(vsi, f->macaddr, I40E_VLAN_ANY);
--			if (!add_f) {
--				dev_info(&vsi->back->pdev->dev,
--					 "Could not add filter %d for %pM\n",
--					 I40E_VLAN_ANY, f->macaddr);
--				spin_unlock_bh(&vsi->mac_filter_hash_lock);
--				return -ENOMEM;
--			}
--		}
--	}
--
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
++	vsi = i40e_find_vsi_by_type(pf, I40E_VSI_FDIR);
++	if (vsi)
++		i40e_vsi_release(vsi);
+ }
  
- 	/* schedule our worker thread which will take care of
+ /**
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 783ac4e..75b8f5b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -125,10 +125,7 @@ static int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data,
+ 	u16 i;
+ 
+ 	/* find existing FDIR VSI */
+-	vsi = NULL;
+-	for (i = 0; i < pf->num_alloc_vsi; i++)
+-		if (pf->vsi[i] && pf->vsi[i]->type == I40E_VSI_FDIR)
+-			vsi = pf->vsi[i];
++	vsi = i40e_find_vsi_by_type(pf, I40E_VSI_FDIR);
+ 	if (!vsi)
+ 		return -ENOENT;
+ 
 -- 
 2.7.4
