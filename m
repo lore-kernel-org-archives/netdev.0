@@ -1,27 +1,34 @@
-From: Debra_Farmer/SSB/HIDOE@notes.k12.hi.us
-Subject: (unknown)
-Date: Mon, 31 Oct 2016 03:59:02 -1000
-Message-ID: <OFF9E44DE6.C1E77D2D-ON0A25805D.004CD091-0A25805D.004CD0E5@notes.k12.hi.us>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Ethernet not working on a different SoC with same eth HW
+Date: Mon, 31 Oct 2016 16:53:34 +0100
+Message-ID: <20161031155334.GF9441@lunn.ch>
+References: <58176355.7090200@free.fr>
+ <20161031153704.GD9441@lunn.ch>
+ <581767BF.4020308@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
+        Daniel Mack <zonque@gmail.com>,
+        Sebastian Frias <sf84@laposte.net>
+To: Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa1.doe.iphmx.com ([68.232.140.36]:4122 "EHLO
-        esa1.doe.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S943769AbcJaPtd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 11:49:33 -0400
-Received: from smtp1.k12.hi.us (smtp1 [165.248.247.154])
-        by mailrelay.k12.hi.us (Postfix) with ESMTP id CD852160170
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 04:22:18 -1000 (HST)
-Received: from route1.k12.hi.us (unknown [165.248.10.147])
-        by smtp1.k12.hi.us (Postfix) with ESMTP id CB43315FAA7
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 04:22:18 -1000 (HST)
-In-Reply-To: 
-References: 
-Subject: 
+Received: from vps0.lunn.ch ([178.209.37.122]:58815 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S944060AbcJaPxg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 11:53:36 -0400
+Content-Disposition: inline
+In-Reply-To: <581767BF.4020308@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> I'll add a log for the request_irq call.
 
-I am Mrs. Gu Kailai and i intend to make a DONATION. Contact my personal E-mail Via: mrsgukailai@post.cz for more details:
+And take a look at /proc/interrupts
+
+    Andrew
