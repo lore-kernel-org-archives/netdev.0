@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] bridge: add support for PIM hello router
- ports
-Date: Mon, 31 Oct 2016 16:18:56 -0400 (EDT)
-Message-ID: <20161031.161856.1141050193618570322.davem@davemloft.net>
-References: <1477916465-20406-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 1/2] qede: Don't override priv_flags
+Date: Mon, 31 Oct 2016 22:26:53 +0200
+Message-ID: <1477945614-29133-2-git-send-email-Yuval.Mintz@cavium.com>
+References: <1477945614-29133-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        dwalton@cumulusnetworks.com, stephen@networkplumber.org
-To: nikolay@cumulusnetworks.com
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57434 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S946445AbcJaUS6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:18:58 -0400
-In-Reply-To: <1477916465-20406-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:57063 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S946177AbcJaU1E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:27:04 -0400
+In-Reply-To: <1477945614-29133-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Mon, 31 Oct 2016 13:21:01 +0100
+Driver is now setting the ndev's priv_flags instead of adding to it,
+causing pktgen failure to utilize various features due to the loss
+of the IFF_TX_SKB_SHARING indication.
 
-> The first 3 patches of this set do minor cleanups and add some helpers to
-> the PIM header file. Patch 4 adds a way to detect mcast router ports via
-> PIM hello messages, they're marked as temporary and are not considered for
-> querier. There's more detailed information in patch 4's commit message.
+Fixes: 7b7e70f979e3 ("qed*: Allow unicast filtering")
+Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Looks pretty straight-forward and reasonable, series applied, thanks
-Nikolay.
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 873f2eb..df02c45 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -2366,7 +2366,7 @@ static void qede_init_ndev(struct qede_dev *edev)
+ 
+ 	qede_set_ethtool_ops(ndev);
+ 
+-	ndev->priv_flags = IFF_UNICAST_FLT;
++	ndev->priv_flags |= IFF_UNICAST_FLT;
+ 
+ 	/* user-changeble features */
+ 	hw_features = NETIF_F_GRO | NETIF_F_SG |
+-- 
+1.9.3
