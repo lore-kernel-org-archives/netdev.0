@@ -1,35 +1,52 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: XDP question - how much can BPF change in xdp_buff?
-Date: Mon, 31 Oct 2016 18:31:30 +0000
-Message-ID: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Let's do P4
+Date: Mon, 31 Oct 2016 19:32:30 +0100
+Message-ID: <8285c4a4-791f-c081-7bbc-f6b884ce039a@stressinduktion.org>
+References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
+ <20161030102649.GE1810@pox.localdomain>
+ <20161030163836.GC1686@nanopsycho.orion>
+ <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+ <20161031093922.GA2895@nanopsycho.orion> <58177712.4000208@gmail.com>
+ <20161031171229.GB2895@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>, Jakub Kicinski <kubakici@wp.pl>,
+        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        jbenc@redhat.com, tom@herbertland.com, mattyk@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, ogerlitz@mellanox.com, linville@tuxdriver.com,
+        andy@greyhouse.net, f.fainelli@gmail.com, dsa@cumulusnetworks.com,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        ivecera@redhat.com,
+        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+        John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0067.outbound.protection.outlook.com ([104.47.42.67]:2410
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S944528AbcJaSbc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 14:31:32 -0400
-Content-Language: en-US
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52529 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S945506AbcJaSch (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:32:37 -0400
+In-Reply-To: <20161031171229.GB2895@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So I've [finally] started looking into implementing XDP
-for qede, and there's one thing I feel like I'm missing in
-regard to XDP_TX - what's the guarantee/requirement
-that the bpf program isn't going to transmute some fields
-of the rx packet in a way that would prevent the forwarding?
+On 31.10.2016 18:12, Jiri Pirko wrote:
+>> >
+>> >In the naive implementation only pipelines that map 1:1 will work. Maybe
+>> >this is what Alexei is noticing?
+> P4 is ment to program programable hw, not fixed pipeline.
 
-E.g., can a BPF change the TCP payload of an incoming packet
-without correcting its TCP checksum, and then expect the
-driver to transmit it [via XDP_TX]? If not, how is this enforced [if at all=
-]?
+Is it realistic to assume that future hardware might be programmed with
+a proprietary (FPGA-alike) bitstream where a generic API wouldn't fit
+anymore? I could imagine vendors shipping a higher abstracted
+VHDL/Verilog compiler in the future and expect the kernel just forward
+it to the hardware as-is.
 
-[Looked at samples/bpf/xdp2_kern.c which manipulates the
-UDP header; so I'm not certain what prevents it from doing
-the same when checksum modifications would be required]
-
-
-    =
+Bye,
+Hannes
