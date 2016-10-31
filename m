@@ -1,31 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH v2 1/5] net: mdio-mux-mmioreg: Add support for 16bit
- and 32bit register sizes
-Date: Mon, 31 Oct 2016 19:59:32 +0100
-Message-ID: <20161031185932.GJ9441@lunn.ch>
-References: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
- <1477932987-27871-2-git-send-email-narmstrong@baylibre.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v2 0/4] Add support for XPS when using DCB
+Date: Mon, 31 Oct 2016 15:01:05 -0400 (EDT)
+Message-ID: <20161031.150105.1254982711155992939.davem@davemloft.net>
+References: <20161028154126.67826.76735.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, khilman@baylibre.com, carlo@caione.org,
-        netdev@vger.kernel.org, linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1477932987-27871-2-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        john.r.fastabend@intel.com, tom@herbertland.com
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56068 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S945423AbcJaTBH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:01:07 -0400
+In-Reply-To: <20161028154126.67826.76735.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 31, 2016 at 05:56:23PM +0100, Neil Armstrong wrote:
-> In order to support PHY switching on Amlogic GXL SoCs, add support for
-> 16bit and 32bit registers sizes.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Fri, 28 Oct 2016 11:42:45 -0400
+
+> This patch series enables proper isolation between traffic classes when
+> using XPS while DCB is enabled.  Previously enabling XPS would cause the
+> traffic to be potentially pulled from one traffic class into another on
+> egress.  This change essentially multiplies the XPS map by the number of
+> traffic classes and allows us to do a lookup per traffic class for a given
+> CPU.
 > 
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> To guarantee the isolation I invalidate the XPS map for any queues that are
+> moved from one traffic class to another, or if we change the number of
+> traffic classes.
+> 
+> v2: Added sysfs to display traffic class
+>     Replaced do/while with for loop
+>     Cleaned up several other for for loops throughout the patch
 
-Nice.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+Series applied, thanks Alex.
