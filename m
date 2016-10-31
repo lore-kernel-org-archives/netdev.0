@@ -1,88 +1,61 @@
-From: Baoquan He <bhe@redhat.com>
-Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
-Date: Mon, 31 Oct 2016 14:38:16 +0800
-Message-ID: <20161031063816.GC7138@x1>
-References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
- <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
- <20161026120021.GA4402@x1>
- <f055c961-58ca-ea81-46d8-610fa055cce8@molgen.mpg.de>
- <20161029025538.GA4099@x1>
- <1477825531.980.9.camel@molgen.mpg.de>
- <20161031035930.GB7138@x1>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: Let's do P4
+Date: Mon, 31 Oct 2016 08:47:51 +0100
+Message-ID: <20161031074751.GA1679@nanopsycho.orion>
+References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com>
+ <20161030074458.GB1686@nanopsycho.orion>
+ <20161030102649.GE1810@pox.localdomain>
+ <20161030163836.GC1686@nanopsycho.orion>
+ <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+ <CAHo-Ooz82uFsf6F=pU-jrR-KOADWuRmkiAfKaB_sQGc=4N7z4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, dvteam@molgen.mpg.de,
-        dyoung@redhat.com
-To: Paul Menzel <pmenzel@molgen.mpg.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Benc <jbenc@redhat.com>,
+        Tom Herbert <tom@herbertland.com>, mattyk@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, ogerlitz@mellanox.com,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        dsa@c
+To: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42930 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1760650AbcJaGiX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 02:38:23 -0400
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35178 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761614AbcJaHry (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 03:47:54 -0400
+Received: by mail-wm0-f48.google.com with SMTP id a197so3853735wmd.0
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 00:47:53 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20161031035930.GB7138@x1>
+In-Reply-To: <CAHo-Ooz82uFsf6F=pU-jrR-KOADWuRmkiAfKaB_sQGc=4N7z4g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/16 at 11:59am, Baoquan He wrote:
-> Hi Paul,
-> 
-> On 10/30/16 at 12:05pm, Paul Menzel wrote:
-> > Dear Baoquan,
-> > 
-> > 
-> > Am Samstag, den 29.10.2016, 10:55 +0800 schrieb Baoquan He:
-> > > On 10/27/16 at 03:21pm, Paul Menzel wrote:
-> > 
-> > > > > > Baoquan, could you please fix this regression. My suggestion is, that you
-> > > > > > add the old code back, but check if the firmware has been loaded. If it
-> > > > > > hasn’t, load it again.
-> > > > > > 
-> > > > > > That way, people can update their Linux kernel, and it continues working
-> > > > > > without changing the initramfs, or anything else.
-> > > > > 
-> > > > > I saw your mail but I am also not familiar with bnx2 driver. As the
-> > > > > commit log says I just tried to make bnx2 driver reset itself earlier.
-> > > > > 
-> > > > > So you did a git bisect and found this commit caused the regression,
-> > > > > right? If yes, and network developers have no action, I will look into
-> > > > > the code and see if I have idea to fix it.
-> > > > 
-> > > > Well, I looked through the commits and found that one, which would explain
-> > > > the changed behavior.
-> > > > 
-> > > > To be sure, and to follow your request, I took Linux 4.8.4 and reverted your
-> > > > commit (attached). Then I deleted the firmware again from the initramfs, and
-> > > > rebooted. The devices showed up just fine as before.
-> > > > 
-> > > > So to summarize, the commit is indeed the culprit.
-> > 
-> > > Sorry for this.
-> > > 
-> > > Could you tell the steps to reproduce? I will find a machine with bnx2
-> > > NIC and check if there's other ways.
-> > 
-> > Well, delete the bnx2 firmware files from the initramfs, and start the
-> > system.
-> > 
-> > Did you read my proposal, to try to load the firmware twice, that means,
-> > basically revert only the deleted lines of your commit, and add an
-> > additional check?
-> 
-Please ignore this one, I have reproduced it. Will post a fix after
-test.
-> 
-> I got a x86_64 system with bnx2 NIC, and clone Linus's git tree into
-> that system. Then building a new kernel 4.9.0-rc3+ with new initramfs.
-> But when I uncompressed the new initramfs, didn't find bnx2 related
-> firmware, no bnx2 files under lib/firmware of uncompressed initramfs
-> folder. While I did see them in /lib/firmware/bnx2/bnx2-xxxxx.fw. Could
-> you please say it more specifically how I should do to reproduce the
-> failure you encountered? I think your proposal looks good, just need a
-> test before post.
-> 
-> Thanks
-> Baoquan
+Mon, Oct 31, 2016 at 07:03:53AM CET, zenczykowski@gmail.com wrote:
+>One thing to consider...
+>
+>Just because the compiler could be in the kernel, doesn't mean it has to be.
+>
+>One could envision a hotplug/modprobe like helper program that the
+>kernel executes
+>when it wants to translate from one encoding (say p4) to another (say [e]bpf).
+>
+>This keeps complexity (compiler) out of the kernel, while still
+>allowing us to have
+>the illusion of only one interface to sw/hw.  And it has the nice
+>benefit of allowing us
+>to use existing compiler toolchains...
+
+This idea was repeatedly marked as unacceptable.
