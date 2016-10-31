@@ -1,128 +1,92 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: nfs NULL-dereferencing in net-next
-Date: Mon, 31 Oct 2016 15:25:50 +0000
-Message-ID: <20161031152550.10acb7e0@jkicinski-Precision-T1700>
-References: <20161017201943.64529739@jkicinski-Precision-T1700>
-        <DB3PR05MB0764DF28BC53A4A4E78A4DD8ACA80@DB3PR05MB0764.eurprd05.prod.outlook.com>
-        <817e43c5-d88d-e616-7074-5715de29d319@Netapp.com>
-        <DB3PR05MB0764B39F6EDF851A8A52EBACACAB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-        <20161026190840.3d46dad8@jkicinski-Precision-T1700>
-        <0ab5021c-84eb-cb9f-c7f5-4d856fdb0f4b@Netapp.com>
-        <DB3PR05MB0764F0409AE75E0172ABFE2EACAA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH RFC 04/26] arch/arm: Add option to skip sync on
+ DMA map and unmap
+Date: Mon, 31 Oct 2016 08:26:30 -0700
+Message-ID: <CAKgT0Uf8vg-78T15EMtnZ7Muz5aRZ_0o2e0GZn8Pc+TjD3xn7w@mail.gmail.com>
+References: <20161024115737.16276.71059.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161024120447.16276.50401.stgit@ahduyck-blue-test.jf.intel.com> <20161031102057.GZ1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Yotam Gigi <yotamg@mellanox.com>, Andy Adamson <andros@netapp.com>,
-        "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        "Yotam Gigi" <yotam.gi@gmail.com>, mlxsw <mlxsw@mellanox.com>
-To: Anna Schumaker <Anna.Schumaker@Netapp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:17647 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S944028AbcJaP0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 11:26:00 -0400
-In-Reply-To: <DB3PR05MB0764F0409AE75E0172ABFE2EACAA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+	Jesper Dangaard Brouer <brouer@redhat.com>, David Miller <davem@davemloft.net>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161031102057.GZ1041@n2100.armlinux.org.uk>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Oct 2016 06:50:22 +0000, Yotam Gigi wrote:
-> >-----Original Message-----
-> >From: Anna Schumaker [mailto:Anna.Schumaker@Netapp.com]
-> >Sent: Wednesday, October 26, 2016 9:17 PM
-> >To: Jakub Kicinski <kubakici@wp.pl>
-> >Cc: Yotam Gigi <yotamg@mellanox.com>; Andy Adamson <andros@netapp.com>;
-> >linux-nfs@vger.kernel.org; netdev@vger.kernel.org; Trond Myklebust
-> ><Trond.Myklebust@netapp.com>; Yotam Gigi <yotam.gi@gmail.com>; mlxsw
-> ><mlxsw@mellanox.com>
-> >Subject: Re: nfs NULL-dereferencing in net-next
-> >
-> >On 10/26/2016 02:08 PM, Jakub Kicinski wrote:  
-> >> On Wed, 26 Oct 2016 16:15:24 +0000, Yotam Gigi wrote:  
-> >>>> -----Original Message-----
-> >>>> From: Anna Schumaker [mailto:Anna.Schumaker@Netapp.com]
-> >>>> Sent: Wednesday, October 26, 2016 5:40 PM
-> >>>> To: Yotam Gigi <yotamg@mellanox.com>; Jakub Kicinski <kubakici@wp.pl>;  
-> >Andy  
-> >>>> Adamson <andros@netapp.com>; Anna Schumaker
-> >>>> <Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
-> >>>> Cc: netdev@vger.kernel.org; Trond Myklebust  
-> ><Trond.Myklebust@netapp.com>;  
-> >>>> Yotam Gigi <yotam.gi@gmail.com>; mlxsw <mlxsw@mellanox.com>
-> >>>> Subject: Re: nfs NULL-dereferencing in net-next
-> >>>>
-> >>>> On 10/25/2016 01:19 PM, Yotam Gigi wrote:  
-> >>>>>  
-> >>>>>> -----Original Message-----
-> >>>>>> From: netdev-owner@vger.kernel.org [mailto:netdev-  
-> >owner@vger.kernel.org]  
-> >>>> On  
-> >>>>>> Behalf Of Jakub Kicinski
-> >>>>>> Sent: Monday, October 17, 2016 10:20 PM
-> >>>>>> To: Andy Adamson <andros@netapp.com>; Anna Schumaker
-> >>>>>> <Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
-> >>>>>> Cc: netdev@vger.kernel.org; Trond Myklebust  
-> >>>> <Trond.Myklebust@netapp.com>  
-> >>>>>> Subject: nfs NULL-dereferencing in net-next
-> >>>>>>
-> >>>>>> Hi!
-> >>>>>>
-> >>>>>> I'm hitting this reliably on net-next, HEAD at 3f3177bb680f
-> >>>>>> ("fsl/fman: fix error return code in mac_probe()").  
-> >>>>>
-> >>>>>
-> >>>>> I see the same thing. It happens constantly on some of my machines, making  
-> >>>> them  
-> >>>>> completely unusable.
-> >>>>>
-> >>>>> I bisected it and got to the commit:
-> >>>>>
-> >>>>> commit 04ea1b3e6d8ed4978bb608c1748530af3de8c274
-> >>>>> Author: Andy Adamson <andros@netapp.com>
-> >>>>> Date:   Fri Sep 9 09:22:27 2016 -0400
-> >>>>>
-> >>>>>     NFS add xprt switch addrs test to match client
-> >>>>>
-> >>>>>     Signed-off-by: Andy Adamson <andros@netapp.com>
-> >>>>>     Signed-off-by: Anna Schumaker <Anna.Schumaker@Netapp.com>  
-> >>>>
-> >>>> Thanks for reporting on this everyone!  Does this patch help?  
-> >>>
-> >>> Actually, I still see the same bug with the same trace.  
-> >
-> >Well, it was worth a shot.  I'll keep poking at it.
-> >  
-> >>
-> >> I rebuild the latest net-next and I'm not seeing the trace any more...
-> >> I'm only seeing this (with or without your patch):
-> >>
-> >> [   23.465877] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> >> [   23.473784] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> >> [   23.588890] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> >> [   23.596746] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> >> [   23.781574] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
-> >> [   23.789599] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0  
-> >
-> >Interesting, I get that too when I try to use NFS v4.1.  It's weird that the crash would
-> >stop happening like that, so maybe something is racy in this area.
-> >
-> >Thanks for testing, Yotam and Jakub!
-> >Anna  
-> 
-> I just found out that it happens on any of my machines, once I put two nfs entries in
-> my fstab. If I put only one, I don't see the problem. 
-> 
-> I hope it might be helpful :)
+On Mon, Oct 31, 2016 at 3:20 AM, Russell King - ARM Linux
+<linux@armlinux.org.uk> wrote:
+> On Mon, Oct 24, 2016 at 08:04:47AM -0400, Alexander Duyck wrote:
+>> The use of DMA_ATTR_SKIP_CPU_SYNC was not consistent across all of the DMA
+>> APIs in the arch/arm folder.  This change is meant to correct that so that
+>> we get consistent behavior.
+>
+> I'm really not convinced that this is anywhere close to correct behaviour.
+>
+> If we're DMA-ing to a buffer, and we unmap it or sync_for_cpu, then we
+> will want to access the DMA'd data - especially in the sync_for_cpu case,
+> it's pointless to call sync_for_cpu if we're not going to access the
+> data.
 
-Hi Anna,
+First, let me clarify.  The sync_for_cpu call will still work the
+same.  This only effects the map/unmap calls.
 
-any updates on this one?  The crash came back half an hour after I
-reported that it was gone...
+> So the idea of skipping the CPU copy when DMA_ATTR_SKIP_CPU_SYNC is set
+> seems to be completely wrong - it means we end up reading the stale data
+> that was in the buffer, completely ignoring whatever was DMA'd to it.
 
-Over the weekend David Miller rebased net-next on top of 4.9.0-rc3 and
-the bug is still there :(  FWIW I also have multiple nfs mounts on my
-setup, 2 in fstab and one in a startup script.  Following Yotam I
-dropped one of the fstab entries and things seem to be working (even
-though I still have multiple mounts, the other one just comes a bit
-later).
+I agree.  However this is meant to be used in the dma_unmap call only
+if sync_for_cpu has already been called for the regions that could
+have been updated by the device.
+
+> What's the use case for DMA_ATTR_SKIP_CPU_SYNC ?
+
+The main use case I have in mind is to allow for pseudo-static DMA
+mappings where we can share them between the network stack and the
+device driver.  I use igb as an example.
+
+1   allocate page, reset page_offset to 0
+2   map page while passing DMA_ATTR_SKIP_CPU_SYNC
+3   dma_sync_single_range_for_device starting at page_offset, length
+2K (largest possible write by device)
+4   device performs Rx DMA and updates Rx descriptor
+5   read length from Rx descriptor
+6   dma_sync_single_range_for_cpu starting at page_offset, length
+reported by descriptor
+7   if page_count == 1
+        7.1  update page_offset with xor 2K
+        7.2  hand page up to network stack
+        7.3  goto 3
+8   unmap page with DMA_ATTR_SKIP_CPU_SYNC
+9   hand page up to network stack
+10 goto 1
+
+The idea is we want to be able to have a page be accessible to the
+device, but be able to share it with the network stack which might try
+to write to the page.  By letting the driver handle the
+synchronization we get two main advantages. First we end up looping
+over fewer cache lines as we only have to invalidate the region
+updated by the device in steps 3 and 6 instead of the entire page.
+The other advantage is that the pages are writable by the network
+stack since step 8 will not invalidate the entire mapping.
+
+I am just as concerned about the possibility of stale data.  That is
+why I have gone through and made sure that any path in the igb driver
+called sync for the region held by the device before we might call
+unmap.  It isn't that I don't want the data to be kept fresh, it is a
+matter of wanting control over what we are invalidating.  Here is a
+link to the igb patch I have that was a part of this set.
+
+https://patchwork.ozlabs.org/patch/686747/
+
+Thanks.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
