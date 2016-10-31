@@ -1,54 +1,53 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] [v2 netfilter-next] netfilter: nf_tables: fib warnings
-Date: Mon, 31 Oct 2016 15:17:12 +0100
-Message-ID: <20161031141712.GA21444@salvia>
-References: <20161028201810.1076559-1-arnd@arndb.de>
- <20161028232612.GA30488@breakpoint.cc>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 3/4] bpf: BPF for lightweight tunnel encapsulation
+Date: Mon, 31 Oct 2016 07:17:41 -0700
+Message-ID: <CALx6S34hHZDdtZgLBZzw-QiOc80tjrLAuAVBDeWRuUonR1MfXA@mail.gmail.com>
+References: <cover.1477827877.git.tgraf@suug.ch> <2ab47e198828261438e8762ef484a6023481a756.1477827877.git.tgraf@suug.ch>
+ <CALx6S35PMvoMZ-L0bC4R=Q9qw=V5N7JY_Xbit0BffFccH0nMgw@mail.gmail.com>
+ <20161030214717.GA27148@pox.localdomain> <CALx6S35TOQumWFu1ha9nkNNOEwq2Y2VH6oCOK6F3HZg97omQgw@mail.gmail.com>
+ <20161031125906.GB32374@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161028232612.GA30488@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        roopa <roopa@cumulusnetworks.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36628 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S943378AbcJaORn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 10:17:43 -0400
+Received: by mail-qk0-f195.google.com with SMTP id z190so9956751qkc.3
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 07:17:43 -0700 (PDT)
+In-Reply-To: <20161031125906.GB32374@pox.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 29, 2016 at 01:26:12AM +0200, Florian Westphal wrote:
-> Arnd Bergmann <arnd@arndb.de> wrote:
-> > The newly added nft fib code produces two warnings:
-> > 
-> > net/ipv4/netfilter/nft_fib_ipv4.c: In function 'nft_fib4_eval':
-> > net/ipv4/netfilter/nft_fib_ipv4.c:80:6: error: unused variable 'i' [-Werror=unused-variable]
-> > net/ipv4/netfilter/nft_fib_ipv4.c: In function ‘nft_fib4_eval’:
-> > net/ipv4/netfilter/nft_fib_ipv4.c:137:6: error: ‘oif’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > 
-> > The first one is obvious as the only user of that variable is
-> > inside of an #ifdef
-> > 
-> > The second one is a bit trickier. It's clear that oif is in fact
-> > uninitialized when it gets used when neither NFTA_FIB_F_IIF nor
-> > NFTA_FIB_F_OIF are set, and just setting it to NULL won't work
-> > as it may later get dereferenced.
-> > 
-> > However, there is no need to search the result list if it is
-> > NULL, as Florian pointed out. This integrates his (untested)
-> > change to do so. I have confirmed that the combined patch
-> > solves both warnings, but as I don't fully understand Florian's
-> > change, I can't tell if it's correct.
-> > 
-> > Suggested-by: Florian Westphal <fw@strlen.de>
-> > Fixes: 84f5eedb983e ("netfilter: nf_tables: add fib expression")
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-[...] 
-> Tested-by: Florian Westphal <fw@strlen.de>
+On Mon, Oct 31, 2016 at 5:59 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 10/30/16 at 06:28pm, Tom Herbert wrote:
+>> Right, that's why we rely on a dst cache. Any use of LWT that
+>> encapsulates or tunnels to a fixed destination (ILA, VXLAN, IPIP,
+>> etc.) would want to use the dst cache optimization to avoid the second
+>> lookup. The ILA LWT code used to call orig output and that worked as
+>> long as we could set the default router as the gateway "via". It was
+>> something we were able to deploy, but not a general solution.
+>> Integrating properly with routing gives a much better solution IMO.
+>> Note that David Lebrun's latest LWT Segment Routing patch does the
+>> second lookup with the dst cache to try to avoid it.
+>
+> Noticed while implementing this: How does ILA ensure that dst_output()
+> is not invoked in a circular manner?
+>
+> dstA->output() -> dstB->otuput() -> dstA->output() -> ...
 
-Applied, thanks!
+It doesn't. We'll need to add a check for that. Maybe the rule should
+be that an skbuff is only allowed to hit one LWT route?
+
+Another scenario to consider: Suppose someone is doing protocol
+translation like in RFC7915. This is one of operations we'd need with
+ILA or GRE to implement an IPv4 overlay network over IPv6. Would this
+be allowed/supported in LWT BPF?
+
+Tom
