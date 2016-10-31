@@ -1,170 +1,418 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next v2 5/7] qed: Learn of RDMA capabilities per-device
-Date: Mon, 31 Oct 2016 07:14:25 +0200
-Message-ID: <1477890867-3789-6-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next v2 2/7] qed: Add nvram selftest
+Date: Mon, 31 Oct 2016 07:14:22 +0200
+Message-ID: <1477890867-3789-3-git-send-email-Yuval.Mintz@cavium.com>
 References: <1477890867-3789-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:59665 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1758717AbcJaFOz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 01:14:55 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:43709 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1758679AbcJaFOm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 01:14:42 -0400
 In-Reply-To: <1477890867-3789-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Today, RDMA capabilities are learned from management firmware
-which provides a per-device indication for all interfaces.
-Newer management firmware is capable of providing a per-device
-indication [would later be extended to either RoCE/iWARP].
-
-Try using this newer learning mechanism, but fallback in case
-management firmware is too old to retain current functionality.
-
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_hsi.h |  7 +++
- drivers/net/ethernet/qlogic/qed/qed_mcp.c | 78 +++++++++++++++++++++++++++----
- 2 files changed, 77 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h       |   4 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c       |  94 ++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h       |  41 ++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_selftest.c  | 101 ++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_selftest.h  |  10 +++
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |   7 ++
+ include/linux/qed/qed_if.h                      |   9 +++
+ 8 files changed, 267 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index fdb7a09..1d113ce 100644
+index 36de87a..f7dfa2e 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -8601,6 +8601,7 @@ struct public_drv_mb {
+@@ -8666,6 +8666,8 @@ struct public_drv_mb {
  
- #define DRV_MSG_CODE_BIST_TEST			0x001e0000
- #define DRV_MSG_CODE_SET_LED_MODE		0x00200000
-+#define DRV_MSG_CODE_GET_PF_RDMA_PROTOCOL	0x002b0000
- #define DRV_MSG_CODE_OS_WOL			0x002e0000
+ #define DRV_MB_PARAM_BIST_REGISTER_TEST		1
+ #define DRV_MB_PARAM_BIST_CLOCK_TEST		2
++#define DRV_MB_PARAM_BIST_NVM_TEST_NUM_IMAGES	3
++#define DRV_MB_PARAM_BIST_NVM_TEST_IMAGE_BY_INDEX	4
  
- #define DRV_MSG_SEQ_NUMBER_MASK			0x0000ffff
-@@ -8705,6 +8706,12 @@ struct public_drv_mb {
+ #define DRV_MB_PARAM_BIST_RC_UNKNOWN		0
+ #define DRV_MB_PARAM_BIST_RC_PASSED		1
+@@ -8674,6 +8676,8 @@ struct public_drv_mb {
  
- 	u32 fw_mb_param;
+ #define DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT	0
+ #define DRV_MB_PARAM_BIST_TEST_INDEX_MASK	0x000000FF
++#define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_SHIFT	8
++#define DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_MASK		0x0000FF00
  
-+	/* get pf rdma protocol command responce */
-+#define FW_MB_PARAM_GET_PF_RDMA_NONE		0x0
-+#define FW_MB_PARAM_GET_PF_RDMA_ROCE		0x1
-+#define FW_MB_PARAM_GET_PF_RDMA_IWARP		0x2
-+#define FW_MB_PARAM_GET_PF_RDMA_BOTH		0x3
-+
- 	u32 drv_pulse_mb;
- #define DRV_PULSE_SEQ_MASK			0x00007fff
- #define DRV_PULSE_SYSTEM_TIME_MASK		0xffff0000
+ 	u32 fw_mb_header;
+ #define FW_MSG_CODE_MASK			0xffff0000
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index d9fa52a..31f8e42 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -1508,6 +1508,7 @@ static int qed_update_mtu(struct qed_dev *cdev, u16 mtu)
+ 	.selftest_interrupt = &qed_selftest_interrupt,
+ 	.selftest_register = &qed_selftest_register,
+ 	.selftest_clock = &qed_selftest_clock,
++	.selftest_nvram = &qed_selftest_nvram,
+ };
+ 
+ const struct qed_common_ops qed_common_ops_pass = {
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index 768b35b..0927488 100644
+index 98dc913..8be6157 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -1024,28 +1024,89 @@ int qed_mcp_get_media_type(struct qed_dev *cdev, u32 *p_media_type)
- 	return 0;
+@@ -1434,6 +1434,52 @@ int qed_mcp_mask_parities(struct qed_hwfn *p_hwfn,
+ 	return rc;
  }
  
-+/* Old MFW has a global configuration for all PFs regarding RDMA support */
-+static void
-+qed_mcp_get_shmem_proto_legacy(struct qed_hwfn *p_hwfn,
-+			       enum qed_pci_personality *p_proto)
++int qed_mcp_nvm_read(struct qed_dev *cdev, u32 addr, u8 *p_buf, u32 len)
 +{
-+	/* There wasn't ever a legacy MFW that published iwarp.
-+	 * So at this point, this is either plain l2 or RoCE.
-+	 */
-+	if (test_bit(QED_DEV_CAP_ROCE, &p_hwfn->hw_info.device_capabilities))
-+		*p_proto = QED_PCI_ETH_ROCE;
-+	else
-+		*p_proto = QED_PCI_ETH;
++	u32 bytes_left = len, offset = 0, bytes_to_copy, read_len = 0;
++	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
++	u32 resp = 0, resp_param = 0;
++	struct qed_ptt *p_ptt;
++	int rc = 0;
 +
-+	DP_VERBOSE(p_hwfn, NETIF_MSG_IFUP,
-+		   "According to Legacy capabilities, L2 personality is %08x\n",
-+		   (u32) *p_proto);
++	p_ptt = qed_ptt_acquire(p_hwfn);
++	if (!p_ptt)
++		return -EBUSY;
++
++	while (bytes_left > 0) {
++		bytes_to_copy = min_t(u32, bytes_left, MCP_DRV_NVM_BUF_LEN);
++
++		rc = qed_mcp_nvm_rd_cmd(p_hwfn, p_ptt,
++					DRV_MSG_CODE_NVM_READ_NVRAM,
++					addr + offset +
++					(bytes_to_copy <<
++					 DRV_MB_PARAM_NVM_LEN_SHIFT),
++					&resp, &resp_param,
++					&read_len,
++					(u32 *)(p_buf + offset));
++
++		if (rc || (resp != FW_MSG_CODE_NVM_OK)) {
++			DP_NOTICE(cdev, "MCP command rc = %d\n", rc);
++			break;
++		}
++
++		/* This can be a lengthy process, and it's possible scheduler
++		 * isn't preemptable. Sleep a bit to prevent CPU hogging.
++		 */
++		if (bytes_left % 0x1000 <
++		    (bytes_left - read_len) % 0x1000)
++			usleep_range(1000, 2000);
++
++		offset += read_len;
++		bytes_left -= read_len;
++	}
++
++	cdev->mcp_nvm_resp = resp;
++	qed_ptt_release(p_hwfn, p_ptt);
++
++	return rc;
 +}
 +
-+static int
-+qed_mcp_get_shmem_proto_mfw(struct qed_hwfn *p_hwfn,
-+			    struct qed_ptt *p_ptt,
-+			    enum qed_pci_personality *p_proto)
-+{
-+	u32 resp = 0, param = 0;
-+	int rc;
+ int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ {
+ 	u32 drv_mb_param = 0, rsp, param;
+@@ -1475,3 +1521,51 @@ int qed_mcp_bist_clock_test(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 
+ 	return rc;
+ }
 +
-+	rc = qed_mcp_cmd(p_hwfn, p_ptt,
-+			 DRV_MSG_CODE_GET_PF_RDMA_PROTOCOL, 0, &resp, &param);
++int qed_mcp_bist_nvm_test_get_num_images(struct qed_hwfn *p_hwfn,
++					 struct qed_ptt *p_ptt,
++					 u32 *num_images)
++{
++	u32 drv_mb_param = 0, rsp;
++	int rc = 0;
++
++	drv_mb_param = (DRV_MB_PARAM_BIST_NVM_TEST_NUM_IMAGES <<
++			DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT);
++
++	rc = qed_mcp_cmd(p_hwfn, p_ptt, DRV_MSG_CODE_BIST_TEST,
++			 drv_mb_param, &rsp, num_images);
 +	if (rc)
 +		return rc;
-+	if (resp != FW_MSG_CODE_OK) {
-+		DP_VERBOSE(p_hwfn, NETIF_MSG_IFUP,
-+			   "MFW lacks support for command; Returns %08x\n",
-+			   resp);
-+		return -EINVAL;
-+	}
 +
-+	switch (param) {
-+	case FW_MB_PARAM_GET_PF_RDMA_NONE:
-+		*p_proto = QED_PCI_ETH;
-+		break;
-+	case FW_MB_PARAM_GET_PF_RDMA_ROCE:
-+		*p_proto = QED_PCI_ETH_ROCE;
-+		break;
-+	case FW_MB_PARAM_GET_PF_RDMA_BOTH:
-+		DP_NOTICE(p_hwfn,
-+			  "Current day drivers don't support RoCE & iWARP. Default to RoCE-only\n");
-+		*p_proto = QED_PCI_ETH_ROCE;
-+		break;
-+	case FW_MB_PARAM_GET_PF_RDMA_IWARP:
-+	default:
-+		DP_NOTICE(p_hwfn,
-+			  "MFW answers GET_PF_RDMA_PROTOCOL but param is %08x\n",
-+			  param);
-+		return -EINVAL;
-+	}
++	if (((rsp & FW_MSG_CODE_MASK) != FW_MSG_CODE_OK))
++		rc = -EINVAL;
 +
-+	DP_VERBOSE(p_hwfn,
-+		   NETIF_MSG_IFUP,
-+		   "According to capabilities, L2 personality is %08x [resp %08x param %08x]\n",
-+		   (u32) *p_proto, resp, param);
-+	return 0;
++	return rc;
 +}
 +
- static int
- qed_mcp_get_shmem_proto(struct qed_hwfn *p_hwfn,
- 			struct public_func *p_info,
-+			struct qed_ptt *p_ptt,
- 			enum qed_pci_personality *p_proto)
- {
- 	int rc = 0;
++int qed_mcp_bist_nvm_test_get_image_att(struct qed_hwfn *p_hwfn,
++					struct qed_ptt *p_ptt,
++					struct bist_nvm_image_att *p_image_att,
++					u32 image_index)
++{
++	u32 buf_size = 0, param, resp = 0, resp_param = 0;
++	int rc;
++
++	param = DRV_MB_PARAM_BIST_NVM_TEST_IMAGE_BY_INDEX <<
++		DRV_MB_PARAM_BIST_TEST_INDEX_SHIFT;
++	param |= image_index << DRV_MB_PARAM_BIST_TEST_IMAGE_INDEX_SHIFT;
++
++	rc = qed_mcp_nvm_rd_cmd(p_hwfn, p_ptt,
++				DRV_MSG_CODE_BIST_TEST, param,
++				&resp, &resp_param,
++				&buf_size,
++				(u32 *)p_image_att);
++	if (rc)
++		return rc;
++
++	if (((resp & FW_MSG_CODE_MASK) != FW_MSG_CODE_OK) ||
++	    (p_image_att->return_code != 1))
++		rc = -EINVAL;
++
++	return rc;
++}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+index 8950719..be8152d 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
+@@ -380,6 +380,18 @@ int qed_mcp_set_led(struct qed_hwfn *p_hwfn,
+ 		    enum qed_led_mode mode);
  
- 	switch (p_info->config & FUNC_MF_CFG_PROTOCOL_MASK) {
- 	case FUNC_MF_CFG_PROTOCOL_ETHERNET:
--		if (test_bit(QED_DEV_CAP_ROCE,
--			     &p_hwfn->hw_info.device_capabilities))
--			*p_proto = QED_PCI_ETH_ROCE;
--		else
--			*p_proto = QED_PCI_ETH;
-+		if (qed_mcp_get_shmem_proto_mfw(p_hwfn, p_ptt, p_proto))
-+			qed_mcp_get_shmem_proto_legacy(p_hwfn, p_proto);
- 		break;
- 	case FUNC_MF_CFG_PROTOCOL_ISCSI:
- 		*p_proto = QED_PCI_ISCSI;
- 		break;
- 	case FUNC_MF_CFG_PROTOCOL_ROCE:
- 		DP_NOTICE(p_hwfn, "RoCE personality is not a valid value!\n");
--		rc = -EINVAL;
--		break;
-+	/* Fallthrough */
- 	default:
- 		rc = -EINVAL;
+ /**
++ * @brief Read from nvm
++ *
++ *  @param cdev
++ *  @param addr - nvm offset
++ *  @param p_buf - nvm read buffer
++ *  @param len - buffer len
++ *
++ * @return int - 0 - operation was successful.
++ */
++int qed_mcp_nvm_read(struct qed_dev *cdev, u32 addr, u8 *p_buf, u32 len);
++
++/**
+  * @brief Bist register test
+  *
+  *  @param p_hwfn    - hw function
+@@ -401,6 +413,35 @@ int qed_mcp_bist_register_test(struct qed_hwfn *p_hwfn,
+ int qed_mcp_bist_clock_test(struct qed_hwfn *p_hwfn,
+ 			    struct qed_ptt *p_ptt);
+ 
++/**
++ * @brief Bist nvm test - get number of images
++ *
++ *  @param p_hwfn       - hw function
++ *  @param p_ptt        - PTT required for register access
++ *  @param num_images   - number of images if operation was
++ *			  successful. 0 if not.
++ *
++ * @return int - 0 - operation was successful.
++ */
++int qed_mcp_bist_nvm_test_get_num_images(struct qed_hwfn *p_hwfn,
++					 struct qed_ptt *p_ptt,
++					 u32 *num_images);
++
++/**
++ * @brief Bist nvm test - get image attributes by index
++ *
++ *  @param p_hwfn      - hw function
++ *  @param p_ptt       - PTT required for register access
++ *  @param p_image_att - Attributes of image
++ *  @param image_index - Index of image to get information for
++ *
++ * @return int - 0 - operation was successful.
++ */
++int qed_mcp_bist_nvm_test_get_image_att(struct qed_hwfn *p_hwfn,
++					struct qed_ptt *p_ptt,
++					struct bist_nvm_image_att *p_image_att,
++					u32 image_index);
++
+ /* Using hwfn number (and not pf_num) is required since in CMT mode,
+  * same pf_num may be used by two different hwfn
+  * TODO - this shouldn't really be in .h file, but until all fields
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_selftest.c b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
+index 9b7678f..48bfaec 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_selftest.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
+@@ -1,3 +1,4 @@
++#include <linux/crc32.h>
+ #include "qed.h"
+ #include "qed_dev_api.h"
+ #include "qed_mcp.h"
+@@ -75,3 +76,103 @@ int qed_selftest_clock(struct qed_dev *cdev)
+ 
+ 	return rc;
+ }
++
++int qed_selftest_nvram(struct qed_dev *cdev)
++{
++	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
++	struct qed_ptt *p_ptt = qed_ptt_acquire(p_hwfn);
++	u32 num_images, i, j, nvm_crc, calc_crc;
++	struct bist_nvm_image_att image_att;
++	u8 *buf = NULL;
++	__be32 val;
++	int rc;
++
++	if (!p_ptt) {
++		DP_ERR(p_hwfn, "failed to acquire ptt\n");
++		return -EBUSY;
++	}
++
++	/* Acquire from MFW the amount of available images */
++	rc = qed_mcp_bist_nvm_test_get_num_images(p_hwfn, p_ptt, &num_images);
++	if (rc || !num_images) {
++		DP_ERR(p_hwfn, "Failed getting number of images\n");
++		return -EINVAL;
++	}
++
++	/* Iterate over images and validate CRC */
++	for (i = 0; i < num_images; i++) {
++		/* This mailbox returns information about the image required for
++		 * reading it.
++		 */
++		rc = qed_mcp_bist_nvm_test_get_image_att(p_hwfn, p_ptt,
++							 &image_att, i);
++		if (rc) {
++			DP_ERR(p_hwfn,
++			       "Failed getting image index %d attributes\n",
++			       i);
++			goto err0;
++		}
++
++		/* After MFW crash dump is collected - the image's CRC stops
++		 * being valid.
++		 */
++		if (image_att.image_type == NVM_TYPE_MDUMP)
++			continue;
++
++		DP_VERBOSE(p_hwfn, QED_MSG_SP, "image index %d, size %x\n",
++			   i, image_att.len);
++
++		/* Allocate a buffer for holding the nvram image */
++		buf = kzalloc(image_att.len, GFP_KERNEL);
++		if (!buf) {
++			rc = -ENOMEM;
++			goto err0;
++		}
++
++		/* Read image into buffer */
++		rc = qed_mcp_nvm_read(p_hwfn->cdev, image_att.nvm_start_addr,
++				      buf, image_att.len);
++		if (rc) {
++			DP_ERR(p_hwfn,
++			       "Failed reading image index %d from nvm.\n", i);
++			goto err1;
++		}
++
++		/* Convert the buffer into big-endian format (excluding the
++		 * closing 4 bytes of CRC).
++		 */
++		for (j = 0; j < image_att.len - 4; j += 4) {
++			val = cpu_to_be32(*(u32 *)&buf[j]);
++			*(u32 *)&buf[j] = (__force u32)val;
++		}
++
++		/* Calc CRC for the "actual" image buffer, i.e. not including
++		 * the last 4 CRC bytes.
++		 */
++		nvm_crc = *(u32 *)(buf + image_att.len - 4);
++		calc_crc = crc32(0xffffffff, buf, image_att.len - 4);
++		calc_crc = (__force u32)~cpu_to_be32(calc_crc);
++		DP_VERBOSE(p_hwfn, QED_MSG_SP,
++			   "nvm crc 0x%x, calc_crc 0x%x\n", nvm_crc, calc_crc);
++
++		if (calc_crc != nvm_crc) {
++			rc = -EINVAL;
++			goto err1;
++		}
++
++		/* Done with this image; Free to prevent double release
++		 * on subsequent failure.
++		 */
++		kfree(buf);
++		buf = NULL;
++	}
++
++	qed_ptt_release(p_hwfn, p_ptt);
++	return 0;
++
++err1:
++	kfree(buf);
++err0:
++	qed_ptt_release(p_hwfn, p_ptt);
++	return rc;
++}
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_selftest.h b/drivers/net/ethernet/qlogic/qed/qed_selftest.h
+index 50eb0b49..739ddb7 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_selftest.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_selftest.h
+@@ -37,4 +37,14 @@
+  * @return int
+  */
+ int qed_selftest_clock(struct qed_dev *cdev);
++
++/**
++ * @brief qed_selftest_nvram - Perform nvram test
++ *
++ * @param cdev
++ *
++ * @return int
++ */
++int qed_selftest_nvram(struct qed_dev *cdev);
++
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 775fdaa..a809408 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -157,6 +157,7 @@ enum qede_ethtool_tests {
+ 	QEDE_ETHTOOL_MEMORY_TEST,
+ 	QEDE_ETHTOOL_REGISTER_TEST,
+ 	QEDE_ETHTOOL_CLOCK_TEST,
++	QEDE_ETHTOOL_NVRAM_TEST,
+ 	QEDE_ETHTOOL_TEST_MAX
+ };
+ 
+@@ -166,6 +167,7 @@ enum qede_ethtool_tests {
+ 	"Memory (online)\t\t",
+ 	"Register (online)\t",
+ 	"Clock (online)\t\t",
++	"Nvram (online)\t\t",
+ };
+ 
+ static void qede_get_strings_stats(struct qede_dev *edev, u8 *buf)
+@@ -1392,6 +1394,11 @@ static void qede_self_test(struct net_device *dev,
+ 		buf[QEDE_ETHTOOL_CLOCK_TEST] = 1;
+ 		etest->flags |= ETH_TEST_FL_FAILED;
  	}
-@@ -1065,7 +1126,8 @@ int qed_mcp_fill_shmem_func_info(struct qed_hwfn *p_hwfn,
- 	info->pause_on_host = (shmem_info.config &
- 			       FUNC_MF_CFG_PAUSE_ON_HOST_RING) ? 1 : 0;
++
++	if (edev->ops->common->selftest->selftest_nvram(edev->cdev)) {
++		buf[QEDE_ETHTOOL_NVRAM_TEST] = 1;
++		etest->flags |= ETH_TEST_FL_FAILED;
++	}
+ }
  
--	if (qed_mcp_get_shmem_proto(p_hwfn, &shmem_info, &info->protocol)) {
-+	if (qed_mcp_get_shmem_proto(p_hwfn, &shmem_info, p_ptt,
-+				    &info->protocol)) {
- 		DP_ERR(p_hwfn, "Unknown personality %08x\n",
- 		       (u32)(shmem_info.config & FUNC_MF_CFG_PROTOCOL_MASK));
- 		return -EINVAL;
+ static int qede_set_tunable(struct net_device *dev,
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 5c909cd..ffc2d2f 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -402,6 +402,15 @@ struct qed_selftest_ops {
+  * @return 0 on success, error otherwise.
+  */
+ 	int (*selftest_clock)(struct qed_dev *cdev);
++
++/**
++ * @brief selftest_nvram - Perform nvram test
++ *
++ * @param cdev
++ *
++ * @return 0 on success, error otherwise.
++ */
++	int (*selftest_nvram) (struct qed_dev *cdev);
+ };
+ 
+ struct qed_common_ops {
 -- 
 1.9.3
