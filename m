@@ -1,84 +1,217 @@
-From: Dongli Zhang <dongli.zhang@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 1/1] xen-netfront: do not cast grant table
- reference to signed short
-Date: Mon, 31 Oct 2016 01:28:48 -0700 (PDT)
-Message-ID: <21bd3cd7-68ed-45cd-9728-73c88c79fe65@default>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: <boris.ostrovsky@oracle.com>, <netdev@vger.kernel.org>,
-        <JGross@suse.com>, <xen-devel@lists.xenproject.org>,
-        <david.vrabel@citrix.com>, <linux-kernel@vger.kernel.org>
-To: <JBeulich@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: idosch@idosch.org
+Subject: [PATCH net-next] ipv4: fib: Replay events when registering FIB notifier
+Date: Mon, 31 Oct 2016 10:29:38 +0200
+Message-ID: <1477902578-20137-1-git-send-email-idosch@idosch.org>
+Cc: davem@davemloft.net, jiri@mellanox.com, mlxsw@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, andy@greyhouse.net,
+        alexander.h.duyck@intel.com, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        Ido Schimmel <idosch@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:58005 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1762219AbcJaIa2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 04:30:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >                  ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
-> > -                BUG_ON((signed short)ref < 0);
-> > +                WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)ref));
+From: Ido Schimmel <idosch@mellanox.com>
 
-> You really need to cast to plain (or signed) long here - casting to
-> unsigned long will work only in 32-bit configurations, as otherwise
-> you lose the sign of the value.
+When registering a FIB notifier block we should notify the caller of
+already existing FIB entries and rules, as it would otherwise have an
+incomplete view of the FIB tables. This is especially important for
+switchdev drivers that support FIB offloads. Failing to notify them of
+existing entries may lead to packet loss.
 
-Seems the sign of value would not be lost since casting to unsigned long will
-use signed extension. Is my understanding wrong or did I miss anything? I have
-verified this with both sample userspace helloworld program and a kernel
-module.
+Upon registration, walk the leafs of all the routing tables and for each
+leaf send notification of existing FIB aliases. Similarly, when
+unregistering the notifier synthesize a deletion event, thereby
+relieving potential callers from the need to perform cleanup.
 
-> And then just issuing a warning here is insufficient, I think: Either
-> you follow David's line of thought assuming that no failure here is
+The above is consistent with the netdevice notification chain, where
+"registration and up events are replayed to the new notifier" upon
+registration.
 
-Keeping this can help debug xen-netfront.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/ipv4/fib_trie.c | 147 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 145 insertions(+), 2 deletions(-)
 
-> possible at all (in which case the BUG_ON() can be ditched without
-> replacement), or you follow your original one (which matches mine)
-> that we can't exclude an error here because of a bug elsewhere,
-> in which case this either needs to stay BUG_ON() or should be
-> followed by some form of bailing out (so that the bad ref won't get
-> stored, preventing its later use from causing further damage).
-
-The reason I use warning instead BUG_ON is that Linus suggested use
-WARN_ON_ONCE() in a previous email:
-http://lkml.iu.edu/hypermail/linux/kernel/1610.0/00878.html
-
-I would change to BUG_ON() if it is OK to you.
-
-Thank you very much!
-
-Dongli Zhang 
-
-
------ Original Message -----
-From: JBeulich@suse.com
-To: dongli.zhang@oracle.com
-Cc: david.vrabel@citrix.com, xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com, JGross@suse.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Sent: Monday, October 31, 2016 3:48:03 PM GMT +08:00 Beijing / Chongqing / Hong Kong / Urumqi
-Subject: Re: [Xen-devel] [PATCH 1/1] xen-netfront: do not cast grant table reference to signed short
-
->>> On 31.10.16 at 06:38, <dongli.zhang@oracle.com> wrote:
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -304,7 +304,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
->  		queue->rx_skbs[id] = skb;
->  
->  		ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
-> -		BUG_ON((signed short)ref < 0);
-> +		WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)ref));
-
-You really need to cast to plain (or signed) long here - casting to
-unsigned long will work only in 32-bit configurations, as otherwise
-you lose the sign of the value.
-
-And then just issuing a warning here is insufficient, I think: Either
-you follow David's line of thought assuming that no failure here is
-possible at all (in which case the BUG_ON() can be ditched without
-replacement), or you follow your original one (which matches mine)
-that we can't exclude an error here because of a bug elsewhere,
-in which case this either needs to stay BUG_ON() or should be
-followed by some form of bailing out (so that the bad ref won't get
-stored, preventing its later use from causing further damage).
-
-Jan
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 31cef36..608f9d4 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -86,15 +86,102 @@
+ 
+ static BLOCKING_NOTIFIER_HEAD(fib_chain);
+ 
++static void fib_notify(struct net *net, struct notifier_block *nb,
++		       enum fib_event_type event_type);
++
++static int call_fib_notifier(struct notifier_block *nb, struct net *net,
++			     enum fib_event_type event_type,
++			     struct fib_notifier_info *info)
++{
++	info->net = net;
++	return nb->notifier_call(nb, event_type, info);
++}
++
++static int call_fib_entry_notifier(struct notifier_block *nb, struct net *net,
++				   enum fib_event_type event_type, u32 dst,
++				   int dst_len, struct fib_info *fi,
++				   u8 tos, u8 type, u32 tb_id, u32 nlflags)
++{
++	struct fib_entry_notifier_info info = {
++		.dst = dst,
++		.dst_len = dst_len,
++		.fi = fi,
++		.tos = tos,
++		.type = type,
++		.tb_id = tb_id,
++		.nlflags = nlflags,
++	};
++	return call_fib_notifier(nb, net, event_type, &info.info);
++}
++
++/**
++ *	register_fib_notifier - register a fib notifier block
++ *	@nb: notifier
++ *
++ *	Register a notifier to be called when FIB entries or rules are
++ *	added or removed. A negative errno code is returned on failure.
++ *
++ *	When registered, all FIB addition events are replayed to the new
++ *	notifier to allow the caller to have a complete view of the FIB
++ *	tables.
++ */
++
+ int register_fib_notifier(struct notifier_block *nb)
+ {
+-	return blocking_notifier_chain_register(&fib_chain, nb);
++	struct net *net;
++	int err;
++
++	rtnl_lock();
++	err = blocking_notifier_chain_register(&fib_chain, nb);
++	if (err)
++		goto unlock;
++	for_each_net(net) {
++		struct fib_notifier_info info;
++
++		if (net->ipv4.fib_has_custom_rules)
++			call_fib_notifier(nb, net, FIB_EVENT_RULE_ADD, &info);
++		fib_notify(net, nb, FIB_EVENT_ENTRY_ADD);
++	}
++
++unlock:
++	rtnl_unlock();
++	return err;
+ }
+ EXPORT_SYMBOL(register_fib_notifier);
+ 
++/**
++ *	unregister_fib_notifier - unregister a fib notifier block
++ *	@nb: notifier
++ *
++ *	unregister a notifier previously registered by
++ *	register_fib_notifier(). A negative errno code is returned on
++ *	failure.
++ *
++ *	After unregistering, FIB deletion events are synthesized to the
++ *	removed notifier for all present FIB entries. This removes the
++ *	need for special case cleanup code.
++ */
++
+ int unregister_fib_notifier(struct notifier_block *nb)
+ {
+-	return blocking_notifier_chain_unregister(&fib_chain, nb);
++	struct net *net;
++	int err;
++
++	rtnl_lock();
++	err = blocking_notifier_chain_unregister(&fib_chain, nb);
++	if (err)
++		goto unlock;
++	for_each_net(net) {
++		struct fib_notifier_info info;
++
++		fib_notify(net, nb, FIB_EVENT_ENTRY_DEL);
++		if (net->ipv4.fib_has_custom_rules)
++			call_fib_notifier(nb, net, FIB_EVENT_RULE_DEL, &info);
++	}
++
++unlock:
++	rtnl_unlock();
++	return err;
+ }
+ EXPORT_SYMBOL(unregister_fib_notifier);
+ 
+@@ -1834,6 +1921,62 @@ int fib_table_flush(struct net *net, struct fib_table *tb)
+ 	return found;
+ }
+ 
++static void fib_leaf_notify(struct net *net, struct key_vector *l,
++			    struct fib_table *tb, struct notifier_block *nb,
++			    enum fib_event_type event_type)
++{
++	struct fib_alias *fa;
++
++	hlist_for_each_entry(fa, &l->leaf, fa_list) {
++		struct fib_info *fi = fa->fa_info;
++
++		if (!fi)
++			continue;
++
++		/* local and main table can share the same trie,
++		 * so don't notify twice for the same entry.
++		 */
++		if (tb->tb_id != fa->tb_id)
++			continue;
++
++		call_fib_entry_notifier(nb, net, event_type, l->key,
++					KEYLENGTH - fa->fa_slen, fi, fa->fa_tos,
++					fa->fa_type, fa->tb_id, 0);
++	}
++}
++
++static void fib_table_notify(struct net *net, struct fib_table *tb,
++			     struct notifier_block *nb,
++			     enum fib_event_type event_type)
++{
++	struct trie *t = (struct trie *)tb->tb_data;
++	struct key_vector *l, *tp = t->kv;
++	t_key key = 0;
++
++	while ((l = leaf_walk_rcu(&tp, key)) != NULL) {
++		fib_leaf_notify(net, l, tb, nb, event_type);
++
++		key = l->key + 1;
++		/* stop in case of wrap around */
++		if (key < l->key)
++			break;
++	}
++}
++
++static void fib_notify(struct net *net, struct notifier_block *nb,
++		       enum fib_event_type event_type)
++{
++	unsigned int h;
++
++	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
++		struct hlist_head *head = &net->ipv4.fib_table_hash[h];
++		struct fib_table *tb;
++
++		hlist_for_each_entry(tb, head, tb_hlist)
++			fib_table_notify(net, tb, nb, event_type);
++	}
++}
++
+ static void __trie_free_rcu(struct rcu_head *head)
+ {
+ 	struct fib_table *tb = container_of(head, struct fib_table, rcu);
+-- 
+2.7.4
