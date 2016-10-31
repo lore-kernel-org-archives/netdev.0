@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V3 0/9] liquidio CN23XX VF support
-Date: Mon, 31 Oct 2016 08:53:56 -0400 (EDT)
-Message-ID: <20161031.085356.305731038030662065.davem@davemloft.net>
-References: <1477443430-27170-1-git-send-email-rvatsavayi@caviumnetworks.com>
-        <20161029.143126.1818409172503412109.davem@davemloft.net>
-        <DM3PR07MB21386FE887D71590E16ED59B81AE0@DM3PR07MB2138.namprd07.prod.outlook.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 3/4] bpf: BPF for lightweight tunnel
+ encapsulation
+Date: Mon, 31 Oct 2016 13:59:07 +0100
+Message-ID: <20161031125906.GB32374@pox.localdomain>
+References: <cover.1477827877.git.tgraf@suug.ch>
+ <2ab47e198828261438e8762ef484a6023481a756.1477827877.git.tgraf@suug.ch>
+ <CALx6S35PMvoMZ-L0bC4R=Q9qw=V5N7JY_Xbit0BffFccH0nMgw@mail.gmail.com>
+ <20161030214717.GA27148@pox.localdomain>
+ <CALx6S35TOQumWFu1ha9nkNNOEwq2Y2VH6oCOK6F3HZg97omQgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Raghu.Vatsavayi@cavium.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        roopa <roopa@cumulusnetworks.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45348 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942308AbcJaMyC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 08:54:02 -0400
-In-Reply-To: <DM3PR07MB21386FE887D71590E16ED59B81AE0@DM3PR07MB2138.namprd07.prod.outlook.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38732 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942322AbcJaM7K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 08:59:10 -0400
+Received: by mail-wm0-f42.google.com with SMTP id n67so227084486wme.1
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 05:59:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S35TOQumWFu1ha9nkNNOEwq2Y2VH6oCOK6F3HZg97omQgw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-Date: Mon, 31 Oct 2016 07:21:27 +0000
+On 10/30/16 at 06:28pm, Tom Herbert wrote:
+> Right, that's why we rely on a dst cache. Any use of LWT that
+> encapsulates or tunnels to a fixed destination (ILA, VXLAN, IPIP,
+> etc.) would want to use the dst cache optimization to avoid the second
+> lookup. The ILA LWT code used to call orig output and that worked as
+> long as we could set the default router as the gateway "via". It was
+> something we were able to deploy, but not a general solution.
+> Integrating properly with routing gives a much better solution IMO.
+> Note that David Lebrun's latest LWT Segment Routing patch does the
+> second lookup with the dst cache to try to avoid it.
 
-> So please confirm if you want us to remove these two parameters
-> num_queues_per_{p,v}f. Then I can remove these module parameters and
-> resubmit the patches.
+Noticed while implementing this: How does ILA ensure that dst_output()
+is not invoked in a circular manner?
 
-Yes.
-
-We cannot allow drivers to keep adding unique ways to configure these
-things.
-
-There has to be a generic, consistent, mechanism the user can use
-to control these parameters.  Rather than a per-driver unique one.
+dstA->output() -> dstB->otuput() -> dstA->output() -> ...
