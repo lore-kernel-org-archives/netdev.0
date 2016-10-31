@@ -1,52 +1,59 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v2 net-next 1/5] bpf: Refactor cgroups code in prep for
- new type
-Date: Mon, 31 Oct 2016 18:00:21 +0100
-Message-ID: <542e0d3e-2f57-96f9-1da1-b71e2c970395@zonque.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/5] Add bpf support to set sk_bound_dev_if
+Date: Mon, 31 Oct 2016 13:01:04 -0400 (EDT)
+Message-ID: <20161031.130104.2206412054220058623.davem@davemloft.net>
 References: <1477529922-4806-1-git-send-email-dsa@cumulusnetworks.com>
- <1477529922-4806-2-git-send-email-dsa@cumulusnetworks.com>
- <20161031.125801.874510216543796824.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
-        maheshb@google.com, tgraf@suug.ch
-To: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, daniel@zonque.org, ast@fb.com,
+        daniel@iogearbox.net, maheshb@google.com, tgraf@suug.ch
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:47412 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S944652AbcJaRAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 13:00:24 -0400
-In-Reply-To: <20161031.125801.874510216543796824.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51384 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S944774AbcJaRBJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 13:01:09 -0400
+In-Reply-To: <1477529922-4806-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/2016 05:58 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Wed, 26 Oct 2016 17:58:38 -0700
-> 
->> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
->> index 6b62ee9a2f78..73da296c2125 100644
->> --- a/include/uapi/linux/bpf.h
->> +++ b/include/uapi/linux/bpf.h
->> @@ -98,7 +98,7 @@ enum bpf_prog_type {
->>  	BPF_PROG_TYPE_TRACEPOINT,
->>  	BPF_PROG_TYPE_XDP,
->>  	BPF_PROG_TYPE_PERF_EVENT,
->> -	BPF_PROG_TYPE_CGROUP_SKB,
->> +	BPF_PROG_TYPE_CGROUP,
->>  };
->>  
->>  enum bpf_attach_type {
-> 
-> If we do this then the cgroup-bpf series should use this value rather than
-> changing it after-the-fact in your series here.
-> 
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 26 Oct 2016 17:58:37 -0700
 
-Yeah, I'm confused too. I changed that name in my v7 from
-BPF_PROG_TYPE_CGROUP_SOCK to BPF_PROG_TYPE_CGROUP_SKB on David's (Ahern)
-request. Why is it now renamed again?
+> The recently added VRF support in Linux leverages the bind-to-device
+> API for programs to specify an L3 domain for a socket. While
+> SO_BINDTODEVICE has been around for ages, not every ipv4/ipv6 capable
+> program has support for it. Even for those programs that do support it,
+> the API requires processes to be started as root (CAP_NET_RAW) which
+> is not desirable from a general security perspective.
+> 
+> This patch set leverages Daniel Mack's work to attach bpf programs to
+> a cgroup:
+> 
+>     https://www.mail-archive.com/netdev@vger.kernel.org/msg134028.html
+> 
+> to provide a capability to set sk_bound_dev_if for all AF_INET{6}
+> sockets opened by a process in a cgroup when the sockets are allocated.
+> 
+> This capability enables running any program in a VRF context and is key
+> to deploying Management VRF, a fundamental configuration for networking
+> gear, with any Linux OS installation.
 
+Ok, after some review I think I understand what's going on here.
 
-Thanks,
-Daniel
+It would initially seem simpler to just support forced sk_bound_dev_if
+in cgroups.  But I think I understand why you may have gone this way:
+
+1) The cgroup-bpf code always has the cgroup hierarchy propagation
+   logic.
+
+2) The may be use cases for doing things with other sock members.
+
+With respect to #2, do you know of any such planned use cases already?
+
+Also, any reason why you don't allow the cgroup bpf sk filter to return
+an error code so that the sock creation could be cancelled if the eBPF
+program desires that?  It could be useful, I suppose.
+
+Thanks.
