@@ -1,59 +1,62 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: mv643xx_eth.c merge gone bad...
-Date: Mon, 31 Oct 2016 19:22:01 +0100
-Message-ID: <20161031182201.GI9441@lunn.ch>
-References: <20161031113349.GA8951@lunn.ch>
- <20161031.091206.236633139585216348.davem@davemloft.net>
- <20161031133538.GB9441@lunn.ch>
- <20161031.103403.293968855937308643.davem@davemloft.net>
- <efd31e03-7d18-a41e-bf7f-3c77faa6e825@gmail.com>
+From: Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Subject: Re: [RFC PATCH 01/13] pinctrl: meson: Add GXL pinctrl definitions
+Date: Mon, 31 Oct 2016 12:23:54 -0600
+Message-ID: <m27f8o2x8l.fsf@baylibre.com>
+References: <1477060838-14164-1-git-send-email-narmstrong@baylibre.com>
+        <1477060838-14164-2-git-send-email-narmstrong@baylibre.com>
+        <CACRpkdZ5VG2NGRh5CmYcYzwCp0LYSsgxHogCFa+6W7BDDBXOYg@mail.gmail.com>
+        <b80010f7-196a-abeb-e4a2-5009f3b7f13b@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        jgunthorpe@obsidianresearch.com, jarod@redhat.com,
-        netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59012 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S943237AbcJaSWK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 14:22:10 -0400
-Content-Disposition: inline
-In-Reply-To: <efd31e03-7d18-a41e-bf7f-3c77faa6e825@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Carlo Caione <carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org>,
+        "linux-gpio\@vger.kernel.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree\@vger.kernel.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel\@lists.infradead.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "open list\:ARM\/Amlogic Meson..."
+        <linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <b80010f7-196a-abeb-e4a2-5009f3b7f13b-rdvid1DuHRBWk0Htik3J/w@public.gmane.org> (Neil
+        Armstrong's message of "Mon, 31 Oct 2016 10:40:24 +0100")
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 31, 2016 at 11:18:54AM -0700, Florian Fainelli wrote:
-> On 10/31/2016 07:34 AM, David Miller wrote:
-> > From: Andrew Lunn <andrew@lunn.ch>
-> > Date: Mon, 31 Oct 2016 14:35:38 +0100
-> > 
-> >> On Mon, Oct 31, 2016 at 09:12:06AM -0400, David Miller wrote:
-> >>> From: Andrew Lunn <andrew@lunn.ch>
-> >>> Date: Mon, 31 Oct 2016 12:33:49 +0100
-> >>>
-> >>>> The merge of commit 27058af401e49d88a905df000dd26f443fcfa8ce for
-> >>>> mv643xx_eth.c has gone bad:
-> >>>
-> >>> Sorry this should be fixed now.
-> >>
-> >> Hi David
-> >>
-> >> I think the SET_NETDEV_DEV() should be removed, which is what cause the merged conflict:
-> >>
-> >> http://patchwork.ozlabs.org/patch/687294/
-> 
-> The SET_NETDEV_DEV() is required for Jason's change to work, since he is
-> doing this:
-> 
-> +static int get_phy_mode(struct mv643xx_eth_private *mp)
-> +{
-> +	struct device *dev = mp->dev->dev.parent;
+Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org> writes:
 
-Hi Florian
+> On 10/24/2016 03:03 AM, Linus Walleij wrote:
+>> On Fri, Oct 21, 2016 at 4:40 PM, Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org> wrote:
+>> 
+>>> Add support for the Amlogic Meson GXL SoC, this is a partially complete
+>>> definition only based on the Amlogic Vendor tree.
+>>>
+>>> This definition differs a lot from the GXBB and needs a separate entry.
+>>>
+>>> Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+>> 
+>> Looks good to me. Tell me when I may apply it, it looks orthogonal
+>> to the rest of the patches.
+>> 
+>> Yours,
+>> Linus Walleij
+>> 
+>
+> Hi Linus,
+>
+> I'm ok to have it applied as soon as possible, but I can send a clean non-rfc patch if needed.
+>
 
-That requires the SET_NETDEV_DEV() which is in a different hunk of the
-original patch, moving it earlier. This is the old one which is being
-removed.
+Acked-by: Kevin Hilman <khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
 
-	Andrew
+I was hoping to have a bit clearer info from the vendor, but based on
+vendor BSP, I think we have most of the info, and can do the minor
+fixups if/when we get detailed documentation.
+
+Kevin
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
