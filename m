@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/22] i40e: refactor i40e_put_mac_in_vlan to avoid changing f->vlan
-Date: Mon, 31 Oct 2016 15:29:35 -0700
-Message-ID: <1477952992-125662-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/22] i40e: use a mutex instead of spinlock in PTP user entry points
+Date: Mon, 31 Oct 2016 15:29:44 -0700
+Message-ID: <1477952992-125662-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -11,89 +11,107 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:4577 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1034482AbcJaW35 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 18:29:57 -0400
+        id S1034489AbcJaWaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 18:30:02 -0400
 In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-When a PVID has been assigned to a VSI, the function
-i40e_put_mac_in_vlan arbitrarily modifies all filters
-to have the same VLAN. This is obviously incorrect
-because it could be modifying active filters without
-putting them into the NEW state. The correct method
-is to remove then re-add filters which is already done
-in the code where we assign the PVID.
+We need a locking mechanism to protect the hardware SYSTIME register
+which is split over 2 values, and has internal hardware latching. We
+can't allow multiple accesses at the same time. However....
 
-Fix this issue and a few other minor nits at the same
-time. First, when we have a PVID don't even bother
-looping and simply add the filter with the PVID immediately.
+The spinlock_t is overkill here, especially use of spin_lock_irqsave,
+since every PTP access will halt hardirqs. Notice that the only places
+which need the SYSTIME value are user context and are capable of sleeping.
+Thus, it is safe to use a mutex here instead of the spinlock.
 
-In the case of the loop, we now can remove several checks.
-We also don't need to use i40e_find_filter first before
-calling i40e_add_filter, since i40e_add_filter implicitly
-does a lookup already.
-
-Finally, update the return semantics of this function so
-that on failure to add a filter it returns NULL, but on
-success, it returns the last filter added. Otherwise,
-we're just returning the last filter in the list. An
-alternative fix might be to return 0 or an error code,
-but this is pretty invasive to every call site.
-
-Change-ID: I2325dfd843aec76d89fb0d7cb0e7c4f290a34840
+Change-ID: I971761a89b58c6aad953590162e85a327fbba232
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h     |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 20 +++++++-------------
+ 2 files changed, 8 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f7fe020..c096093 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1312,27 +1312,28 @@ void i40e_del_filter(struct i40e_vsi *vsi, const u8 *macaddr, s16 vlan)
-  * @vsi: the VSI to be searched
-  * @macaddr: the mac address to be filtered
-  *
-- * Goes through all the macvlan filters and adds a
-- * macvlan filter for each unique vlan that already exists
-+ * Goes through all the macvlan filters and adds a macvlan filter for each
-+ * unique vlan that already exists. If a PVID has been assigned, instead only
-+ * add the macaddr to that VLAN.
-  *
-- * Returns first filter found on success, else NULL
-+ * Returns last filter added on success, else NULL
-  **/
- struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
- 					     const u8 *macaddr)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 60dbb5b..21f2bb3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -430,7 +430,7 @@ struct i40e_pf {
+ 	struct sk_buff *ptp_tx_skb;
+ 	struct hwtstamp_config tstamp_config;
+ 	unsigned long last_rx_ptp_check;
+-	spinlock_t tmreg_lock; /* Used to protect the device time registers. */
++	struct mutex tmreg_lock; /* Used to protect the SYSTIME registers. */
+ 	u64 ptp_base_adj;
+ 	u32 tx_hwtstamp_timeouts;
+ 	u32 rx_hwtstamp_cleared;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index f1fecea..177b7fb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -159,16 +159,15 @@ static int i40e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
  {
--	struct i40e_mac_filter *f;
-+	struct i40e_mac_filter *f, *add = NULL;
-+
-+	if (vsi->info.pvid)
-+		return i40e_add_filter(vsi, macaddr,
-+				       le16_to_cpu(vsi->info.pvid));
+ 	struct i40e_pf *pf = container_of(ptp, struct i40e_pf, ptp_caps);
+ 	struct timespec64 now, then;
+-	unsigned long flags;
  
- 	list_for_each_entry(f, &vsi->mac_filter_list, list) {
--		if (vsi->info.pvid)
--			f->vlan = le16_to_cpu(vsi->info.pvid);
--		if (!i40e_find_filter(vsi, macaddr, f->vlan)) {
--			if (!i40e_add_filter(vsi, macaddr, f->vlan))
--				return NULL;
--		}
-+		add = i40e_add_filter(vsi, macaddr, f->vlan);
-+		if (!add)
-+			return NULL;
+ 	then = ns_to_timespec64(delta);
+-	spin_lock_irqsave(&pf->tmreg_lock, flags);
++	mutex_lock(&pf->tmreg_lock);
+ 
+ 	i40e_ptp_read(pf, &now);
+ 	now = timespec64_add(now, then);
+ 	i40e_ptp_write(pf, (const struct timespec64 *)&now);
+ 
+-	spin_unlock_irqrestore(&pf->tmreg_lock, flags);
++	mutex_unlock(&pf->tmreg_lock);
+ 
+ 	return 0;
+ }
+@@ -184,11 +183,10 @@ static int i40e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
+ static int i40e_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
+ {
+ 	struct i40e_pf *pf = container_of(ptp, struct i40e_pf, ptp_caps);
+-	unsigned long flags;
+ 
+-	spin_lock_irqsave(&pf->tmreg_lock, flags);
++	mutex_lock(&pf->tmreg_lock);
+ 	i40e_ptp_read(pf, ts);
+-	spin_unlock_irqrestore(&pf->tmreg_lock, flags);
++	mutex_unlock(&pf->tmreg_lock);
+ 
+ 	return 0;
+ }
+@@ -205,11 +203,10 @@ static int i40e_ptp_settime(struct ptp_clock_info *ptp,
+ 			    const struct timespec64 *ts)
+ {
+ 	struct i40e_pf *pf = container_of(ptp, struct i40e_pf, ptp_caps);
+-	unsigned long flags;
+ 
+-	spin_lock_irqsave(&pf->tmreg_lock, flags);
++	mutex_lock(&pf->tmreg_lock);
+ 	i40e_ptp_write(pf, ts);
+-	spin_unlock_irqrestore(&pf->tmreg_lock, flags);
++	mutex_unlock(&pf->tmreg_lock);
+ 
+ 	return 0;
+ }
+@@ -658,10 +655,7 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 		return;
  	}
  
--	return list_first_entry_or_null(&vsi->mac_filter_list,
--					struct i40e_mac_filter, list);
-+	return add;
- }
+-	/* we have to initialize the lock first, since we can't control
+-	 * when the user will enter the PHC device entry points
+-	 */
+-	spin_lock_init(&pf->tmreg_lock);
++	mutex_init(&pf->tmreg_lock);
  
- /**
+ 	/* ensure we have a clock device */
+ 	err = i40e_ptp_create_clock(pf);
 -- 
 2.7.4
