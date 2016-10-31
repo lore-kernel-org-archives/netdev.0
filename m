@@ -1,52 +1,63 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: Let's do P4
-Date: Sun, 30 Oct 2016 23:03:53 -0700
-Message-ID: <CAHo-Ooz82uFsf6F=pU-jrR-KOADWuRmkiAfKaB_sQGc=4N7z4g@mail.gmail.com>
-References: <20161029075328.GB1692@nanopsycho.orion> <20161029154903.25deb6db@jkicinski-Precision-T1700>
- <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
- <20161030102649.GE1810@pox.localdomain> <20161030163836.GC1686@nanopsycho.orion>
- <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v2 3/6] Documentation: devicetree: net: add NS2 bindings
+ to amac
+Date: Mon, 31 Oct 2016 01:20:35 -0500
+Message-ID: <20161031062035.5hzolwhjnwcs72kg@rob-hp-laptop>
+References: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
+ <1477688219-3871-4-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jakub Kicinski <kubakici@wp.pl>,
-        Linux NetDev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        roopa@cumulusnetworks.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        Tom Herbert <tom@herbertland.com>, mattyk@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        nogahf@mellanox.com, ogerlitz@mellanox.com,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        dsa@cumulusnetworks.com, vivien.d
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:34067 "EHLO
-        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759544AbcJaGDz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 02:03:55 -0400
-Received: by mail-yw0-f173.google.com with SMTP id w3so126908623ywg.1
-        for <netdev@vger.kernel.org>; Sun, 30 Oct 2016 23:03:54 -0700 (PDT)
-In-Reply-To: <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org,
+        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1477688219-3871-4-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-One thing to consider...
+On Fri, Oct 28, 2016 at 04:56:56PM -0400, Jon Mason wrote:
+> Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/brcm,amac.txt | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/brcm,amac.txt b/Documentation/devicetree/bindings/net/brcm,amac.txt
+> index ba5ecc1..f2b194e 100644
+> --- a/Documentation/devicetree/bindings/net/brcm,amac.txt
+> +++ b/Documentation/devicetree/bindings/net/brcm,amac.txt
+> @@ -2,11 +2,12 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
+>  -------------------------------------------------------------
+>  
+>  Required properties:
+> - - compatible:	"brcm,amac" or "brcm,nsp-amac"
+> + - compatible:	"brcm,amac", "brcm,nsp-amac", or "brcm,ns2-amac"
 
-Just because the compiler could be in the kernel, doesn't mean it has to be.
+One per line is preferred.
 
-One could envision a hotplug/modprobe like helper program that the
-kernel executes
-when it wants to translate from one encoding (say p4) to another (say [e]bpf).
+>   - reg:		Address and length of the GMAC registers,
+>  		Address and length of the GMAC IDM registers
+> +		Address and length of the NIC Port Manager registers (optional)
+>   - reg-names:	Names of the registers.  Must have both "amac_base" and
+> -		"idm_base"
+> +		"idm_base". "nicpm_base" is optional (required for NS2)
 
-This keeps complexity (compiler) out of the kernel, while still
-allowing us to have
-the illusion of only one interface to sw/hw.  And it has the nice
-benefit of allowing us
-to use existing compiler toolchains...
+Is nicpm_base optional on some SoCs? If not just say which ones it 
+applies to. A separate line will make that clearer.
+
+_base is kind of redundant too, but it's already done.
+
+>   - interrupts:	Interrupt number
+>  
+>  Optional properties:
+> -- 
+> 2.7.4
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
