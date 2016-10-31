@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: clear sk_err_soft in sk_clone_lock()
-Date: Mon, 31 Oct 2016 15:26:26 -0400 (EDT)
-Message-ID: <20161031.152626.935222118240640552.davem@davemloft.net>
-References: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] bpf, inode: add support for symlinks and fix
+ mtime/ctime
+Date: Mon, 31 Oct 2016 15:28:55 -0400 (EDT)
+Message-ID: <20161031.152855.2106913677135460954.davem@davemloft.net>
+References: <f94e5717c5c494ac054365dee59bf71624702a4a.1477700084.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, soheil@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, ast@kernel.org, tgraf@suug.ch
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56466 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56514 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945584AbcJaT02 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:26:28 -0400
-In-Reply-To: <1477687224.7065.261.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S945848AbcJaT25 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 15:28:57 -0400
+In-Reply-To: <f94e5717c5c494ac054365dee59bf71624702a4a.1477700084.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 28 Oct 2016 13:40:24 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sat, 29 Oct 2016 02:30:46 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> While commit bb35a6ef7da4 ("bpf, inode: allow for rename and link ops")
+> added support for hard links that can be used for prog and map nodes,
+> this work adds simple symlink support, which can be used f.e. for
+> directories also when unpriviledged and works with cmdline tooling that
+> understands S_IFLNK anyway. Since the switch in e27f4a942a0e ("bpf: Use
+> mount_nodev not mount_ns to mount the bpf filesystem"), there can be
+> various mount instances with mount_nodev() and thus hierarchy can be
+> flattened to facilitate object sharing. Thus, we can keep bpf tooling
+> also working by repointing paths.
 > 
-> At accept() time, it is possible the parent has a non zero
-> sk_err_soft, leftover from a prior error.
+> Most of the functionality can be used from vfs library operations. The
+> symlink is stored in the inode itself, that is in i_link, which is
+> sufficient in our case as opposed to storing it in the page cache.
+> While at it, I noticed that bpf_mkdir() and bpf_mkobj() don't update
+> the directories mtime and ctime, so add a common helper for it called
+> bpf_dentry_finalize() that takes care of it for all cases now.
 > 
-> Make sure we do not leave this value in the child, as it
-> makes future getsockopt(SO_ERROR) calls quite unreliable.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied and queued up for -stable, thanks Eric.
+Applied, thanks Daniel.
