@@ -1,12 +1,11 @@
 From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [RFC PATCH v2 1/5] net: mdio-mux-mmioreg: Add support for 16bit and 32bit register sizes
-Date: Mon, 31 Oct 2016 17:56:23 +0100
-Message-ID: <1477932987-27871-2-git-send-email-narmstrong@baylibre.com>
+Subject: [RFC PATCH v2 2/5] net: phy: Add Meson GXL Internal PHY driver
+Date: Mon, 31 Oct 2016 17:56:24 +0100
+Message-ID: <1477932987-27871-3-git-send-email-narmstrong@baylibre.com>
 References: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
 Cc: Neil Armstrong <narmstrong@baylibre.com>, netdev@vger.kernel.org,
         linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
 To: f.fainelli@gmail.com, khilman@baylibre.com, carlo@caione.org,
         andrew@lunn.ch
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -14,131 +13,137 @@ In-Reply-To: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to support PHY switching on Amlogic GXL SoCs, add support for
-16bit and 32bit registers sizes.
+Add driver for the Internal RMII PHY found in the Amlogic Meson GXL SoCs.
+
+This PHY seems to only implement some standard registers and need some
+workarounds to provide autoneg values from vendor registers.
+
+Some magic values are currently used to configure the PHY, and this a
+temporary setup until clarification about these registers names and
+registers fields are provided by Amlogic.
 
 Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
 ---
- .../devicetree/bindings/net/mdio-mux-mmioreg.txt   |  4 +-
- drivers/net/phy/mdio-mux-mmioreg.c                 | 60 +++++++++++++++++-----
- 2 files changed, 49 insertions(+), 15 deletions(-)
+ drivers/net/phy/Kconfig     |  5 +++
+ drivers/net/phy/Makefile    |  1 +
+ drivers/net/phy/meson-gxl.c | 81 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 87 insertions(+)
+ create mode 100644 drivers/net/phy/meson-gxl.c
 
-diff --git a/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt b/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
-index 8516929..065e8bd 100644
---- a/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
-+++ b/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
-@@ -3,7 +3,7 @@ Properties for an MDIO bus multiplexer controlled by a memory-mapped device
- This is a special case of a MDIO bus multiplexer.  A memory-mapped device,
- like an FPGA, is used to control which child bus is connected.  The mdio-mux
- node must be a child of the memory-mapped device.  The driver currently only
--supports devices with eight-bit registers.
-+supports devices with 8, 16 or 32-bit registers.
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 2651c8d..09342b6 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -226,6 +226,11 @@ config DP83867_PHY
+ 	---help---
+ 	  Currently supports the DP83867 PHY.
  
- Required properties in addition to the generic multiplexer properties:
- 
-@@ -11,7 +11,7 @@ Required properties in addition to the generic multiplexer properties:
- 
- - reg : integer, contains the offset of the register that controls the bus
- 	multiplexer.  The size field in the 'reg' property is the size of
--	register, and must therefore be 1.
-+	register, and must therefore be 1, 2, or 4.
- 
- - mux-mask : integer, contains an eight-bit mask that specifies which
- 	bits in the register control the actual bus multiplexer.  The
-diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
-index d0bed52..6a33646 100644
---- a/drivers/net/phy/mdio-mux-mmioreg.c
-+++ b/drivers/net/phy/mdio-mux-mmioreg.c
-@@ -21,7 +21,8 @@
- struct mdio_mux_mmioreg_state {
- 	void *mux_handle;
- 	phys_addr_t phys;
--	uint8_t mask;
-+	unsigned int iosize;
-+	unsigned int mask;
- };
- 
- /*
-@@ -47,17 +48,47 @@ static int mdio_mux_mmioreg_switch_fn(int current_child, int desired_child,
- 	struct mdio_mux_mmioreg_state *s = data;
- 
- 	if (current_child ^ desired_child) {
--		void __iomem *p = ioremap(s->phys, 1);
--		uint8_t x, y;
--
-+		void __iomem *p = ioremap(s->phys, s->iosize);
- 		if (!p)
- 			return -ENOMEM;
- 
--		x = ioread8(p);
--		y = (x & ~s->mask) | desired_child;
--		if (x != y) {
--			iowrite8((x & ~s->mask) | desired_child, p);
--			pr_debug("%s: %02x -> %02x\n", __func__, x, y);
-+		switch (s->iosize) {
-+		case sizeof(uint8_t): {
-+			uint8_t x, y;
++config MESON_GXL_PHY
++	tristate "Amlogic Meson GXL Internal PHY"
++	---help---
++	  Currently has a driver for the Amlogic Meson GXL Internal PHY
 +
-+			x = ioread8(p);
-+			y = (x & ~s->mask) | desired_child;
-+			if (x != y) {
-+				iowrite8((x & ~s->mask) | desired_child, p);
-+				pr_debug("%s: %02x -> %02x\n", __func__, x, y);
-+			}
+ config FIXED_PHY
+ 	tristate "MDIO Bus/PHY emulation with fixed speed/link PHYs"
+ 	depends on PHYLIB
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index e58667d..1511b3e 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -44,6 +44,7 @@ obj-$(CONFIG_MARVELL_PHY)	+= marvell.o
+ obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
+ obj-$(CONFIG_MICREL_PHY)	+= micrel.o
+ obj-$(CONFIG_MICROCHIP_PHY)	+= microchip.o
++obj-$(CONFIG_MESON_GXL_PHY)	+= meson-gxl.o
+ obj-$(CONFIG_MICROSEMI_PHY)	+= mscc.o
+ obj-$(CONFIG_NATIONAL_PHY)	+= national.o
+ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
+diff --git a/drivers/net/phy/meson-gxl.c b/drivers/net/phy/meson-gxl.c
+new file mode 100644
+index 0000000..1ea69b7
+--- /dev/null
++++ b/drivers/net/phy/meson-gxl.c
+@@ -0,0 +1,81 @@
++/*
++ * Amlogic Meson GXL Internal PHY Driver
++ *
++ * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
++ * Copyright (C) 2016 BayLibre, SAS. All rights reserved.
++ * Author: Neil Armstrong <narmstrong@baylibre.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++#include <linux/netdevice.h>
 +
-+			break;
-+		}
-+		case sizeof(uint16_t): {
-+			uint16_t x, y;
++static int meson_gxl_config_init(struct phy_device *phydev)
++{
++	/* Enable Analog and DSP register Bank access by */
++	phy_write(phydev, 0x14, 0x0000);
++	phy_write(phydev, 0x14, 0x0400);
++	phy_write(phydev, 0x14, 0x0000);
++	phy_write(phydev, 0x14, 0x0400);
 +
-+			x = ioread16(p);
-+			y = (x & ~s->mask) | desired_child;
-+			if (x != y) {
-+				iowrite16((x & ~s->mask) | desired_child, p);
-+				pr_debug("%s: %04x -> %04x\n", __func__, x, y);
-+			}
++	/* Write Analog register 23 */
++	phy_write(phydev, 0x17, 0x8E0D);
++	phy_write(phydev, 0x14, 0x4417);
 +
-+			break;
-+		}
-+		case sizeof(uint32_t): {
-+			uint32_t x, y;
++	/* Enable fractional PLL */
++	phy_write(phydev, 0x17, 0x0005);
++	phy_write(phydev, 0x14, 0x5C1B);
 +
-+			x = ioread32(p);
-+			y = (x & ~s->mask) | desired_child;
-+			if (x != y) {
-+				iowrite32((x & ~s->mask) | desired_child, p);
-+				pr_debug("%s: %08x -> %08x\n", __func__, x, y);
-+			}
++	/* Program fraction FR_PLL_DIV1 */
++	phy_write(phydev, 0x17, 0x029A);
++	phy_write(phydev, 0x14, 0x5C1D);
 +
-+			break;
-+		}
- 		}
- 
- 		iounmap(p);
-@@ -88,8 +119,11 @@ static int mdio_mux_mmioreg_probe(struct platform_device *pdev)
- 	}
- 	s->phys = res.start;
- 
--	if (resource_size(&res) != sizeof(uint8_t)) {
--		dev_err(&pdev->dev, "only 8-bit registers are supported\n");
-+	s->iosize = resource_size(&res);
-+	if (s->iosize != sizeof(uint8_t) &&
-+	    s->iosize != sizeof(uint16_t) &&
-+	    s->iosize != sizeof(uint32_t)) {
-+		dev_err(&pdev->dev, "only 8/16/32-bit registers are supported\n");
- 		return -EINVAL;
- 	}
- 
-@@ -98,8 +132,8 @@ static int mdio_mux_mmioreg_probe(struct platform_device *pdev)
- 		dev_err(&pdev->dev, "missing or invalid mux-mask property\n");
- 		return -ENODEV;
- 	}
--	if (be32_to_cpup(iprop) > 255) {
--		dev_err(&pdev->dev, "only 8-bit registers are supported\n");
-+	if (be32_to_cpup(iprop) >= BIT(s->iosize * 8)) {
-+		dev_err(&pdev->dev, "only 8/16/32-bit registers are supported\n");
- 		return -EINVAL;
- 	}
- 	s->mask = be32_to_cpup(iprop);
++	/* Program fraction FR_PLL_DIV1 */
++	phy_write(phydev, 0x17, 0xAAAA);
++	phy_write(phydev, 0x14, 0x5C1C);
++
++	return 0;
++}
++
++static struct phy_driver meson_gxl_phy[] = {
++	{
++		.phy_id		= 0x01814400,
++		.phy_id_mask	= 0xfffffff0,
++		.name		= "Meson GXL Internal PHY",
++		.features	= PHY_BASIC_FEATURES,
++		.flags		= PHY_IS_INTERNAL,
++		.config_init	= meson_gxl_config_init,
++		.config_aneg	= genphy_config_aneg,
++		.aneg_done      = genphy_aneg_done,
++		.read_status	= genphy_read_status,
++		.suspend        = genphy_suspend,
++		.resume         = genphy_resume,
++	},
++};
++
++static struct mdio_device_id __maybe_unused meson_gxl_tbl[] = {
++	{ 0x01814400, 0xfffffff0 },
++	{ }
++};
++
++module_phy_driver(meson_gxl_phy);
++
++MODULE_DEVICE_TABLE(mdio, meson_gxl_tbl);
++
++MODULE_DESCRIPTION("Amlogic Meson GXL Internal PHY driver");
++MODULE_AUTHOR("Baoqi wang");
++MODULE_AUTHOR("Neil Armstrong <narmstrong@baylibre.com>");
++MODULE_LICENSE("GPL");
 -- 
 1.9.1
