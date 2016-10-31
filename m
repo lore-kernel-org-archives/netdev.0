@@ -1,553 +1,220 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next] sctp: clean up sctp_packet_transmit
-Date: Tue,  1 Nov 2016 00:49:41 +0800
-Message-ID: <407056b761e77ecbd43603a17099bb9309a9a8ac.1477932581.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Let's do P4
+Date: Mon, 31 Oct 2016 09:53:38 -0700
+Message-ID: <58177712.4000208@gmail.com>
+References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
+ <20161030102649.GE1810@pox.localdomain>
+ <20161030163836.GC1686@nanopsycho.orion>
+ <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+ <20161031093922.GA2895@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, Jakub Kicinski <kubakici@wp.pl>,
+        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
+        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com,
+        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33705 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S944452AbcJaQts (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 12:49:48 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34634 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S944573AbcJaQy2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 12:54:28 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y68so3323432pfb.1
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 09:54:28 -0700 (PDT)
+In-Reply-To: <20161031093922.GA2895@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After adding sctp gso, sctp_packet_transmit is a quite big function now.
+On 16-10-31 02:39 AM, Jiri Pirko wrote:
+> Sun, Oct 30, 2016 at 11:39:05PM CET, alexei.starovoitov@gmail.com wrote:
+>> On Sun, Oct 30, 2016 at 05:38:36PM +0100, Jiri Pirko wrote:
+>>> Sun, Oct 30, 2016 at 11:26:49AM CET, tgraf@suug.ch wrote:
+>>>> On 10/30/16 at 08:44am, Jiri Pirko wrote:
+>>>>> Sat, Oct 29, 2016 at 06:46:21PM CEST, john.fastabend@gmail.com wrote:
+>>>>>> On 16-10-29 07:49 AM, Jakub Kicinski wrote:
+>>>>>>> On Sat, 29 Oct 2016 09:53:28 +0200, Jiri Pirko wrote:
+>>>>>>>> Hi all.
+>>>>>>>>
+>>
+>> sorry for delay. travelling to KS, so probably missed something in
+>> this thread and comments can be totally off...
+>>
+>> the subject "let's do P4" is imo misleading, since it reads like
+>> we don't do P4 at the moment, whereas the opposite is true.
+>> Several p4->bpf compilers is a proof.
+> 
+> We don't do p4 in kernel now, we don't do p4 offloading now. That is
+> the reason I started this discussion.
+> 
 
-This patch is to extract the codes for packing packet to sctp_packet_pack
-from sctp_packet_transmit, and add some comments, simplify the err path by
-freeing auth chunk when freeing packet chunk_list in out path and freeing
-head skb early if it fails to pack packet.
+The point here is P4 is a high level language likely we will never "do"
+P4 in the kernel nor offload it. P4 translates to eBPF and runs in
+kernel just fine. This can be offloaded to some devices but as you
+point out is challenging for a class of architecture to offload.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/output.c | 435 ++++++++++++++++++++----------------------------------
- 1 file changed, 158 insertions(+), 277 deletions(-)
+Also simple P4 programs can be offloaded into 'tc' cls_u32 for example
+and even cls_flower.
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 7b50e43..f5320a8 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -399,187 +399,72 @@ static void sctp_packet_set_owner_w(struct sk_buff *skb, struct sock *sk)
- 	atomic_inc(&sk->sk_wmem_alloc);
- }
- 
--/* All packets are sent to the network through this function from
-- * sctp_outq_tail().
-- *
-- * The return value is a normal kernel error return value.
-- */
--int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
-+static int sctp_packet_pack(struct sctp_packet *packet,
-+			    struct sk_buff *head, int gso, gfp_t gfp)
- {
- 	struct sctp_transport *tp = packet->transport;
--	struct sctp_association *asoc = tp->asoc;
--	struct sctphdr *sh;
--	struct sk_buff *nskb = NULL, *head = NULL;
-+	struct sctp_auth_chunk *auth = NULL;
- 	struct sctp_chunk *chunk, *tmp;
--	struct sock *sk;
--	int err = 0;
--	int padding;		/* How much padding do we need?  */
--	int pkt_size;
--	__u8 has_data = 0;
--	int gso = 0;
--	int pktcount = 0;
-+	int pkt_count = 0, pkt_size;
-+	struct sock *sk = head->sk;
-+	struct sk_buff *nskb;
- 	int auth_len = 0;
--	struct dst_entry *dst;
--	unsigned char *auth = NULL;	/* pointer to auth in skb data */
--
--	pr_debug("%s: packet:%p\n", __func__, packet);
- 
--	/* Do NOT generate a chunkless packet. */
--	if (list_empty(&packet->chunk_list))
--		return err;
--
--	/* Set up convenience variables... */
--	chunk = list_entry(packet->chunk_list.next, struct sctp_chunk, list);
--	sk = chunk->skb->sk;
--
--	/* Allocate the head skb, or main one if not in GSO */
--	if (packet->size > tp->pathmtu && !packet->ipfragok) {
--		if (sk_can_gso(sk)) {
--			gso = 1;
--			pkt_size = packet->overhead;
--		} else {
--			/* If this happens, we trash this packet and try
--			 * to build a new one, hopefully correct this
--			 * time. Application may notice this error.
--			 */
--			pr_err_once("Trying to GSO but underlying device doesn't support it.");
--			goto err;
--		}
--	} else {
--		pkt_size = packet->size;
--	}
--	head = alloc_skb(pkt_size + MAX_HEADER, gfp);
--	if (!head)
--		goto err;
- 	if (gso) {
--		NAPI_GRO_CB(head)->last = head;
- 		skb_shinfo(head)->gso_type = sk->sk_gso_type;
-+		NAPI_GRO_CB(head)->last = head;
-+	} else {
-+		nskb = head;
-+		pkt_size = packet->size;
-+		goto merge;
- 	}
- 
--	/* Make sure the outbound skb has enough header room reserved. */
--	skb_reserve(head, packet->overhead + MAX_HEADER);
--
--	/* Set the owning socket so that we know where to get the
--	 * destination IP address.
--	 */
--	sctp_packet_set_owner_w(head, sk);
--
--	if (!sctp_transport_dst_check(tp)) {
--		sctp_transport_route(tp, NULL, sctp_sk(sk));
--		if (asoc && (asoc->param_flags & SPP_PMTUD_ENABLE)) {
--			sctp_assoc_sync_pmtu(sk, asoc);
--		}
--	}
--	dst = dst_clone(tp->dst);
--	if (!dst) {
--		if (asoc)
--			IP_INC_STATS(sock_net(asoc->base.sk),
--				     IPSTATS_MIB_OUTNOROUTES);
--		goto nodst;
--	}
--	skb_dst_set(head, dst);
--
--	/* Build the SCTP header.  */
--	sh = (struct sctphdr *)skb_push(head, sizeof(struct sctphdr));
--	skb_reset_transport_header(head);
--	sh->source = htons(packet->source_port);
--	sh->dest   = htons(packet->destination_port);
--
--	/* From 6.8 Adler-32 Checksum Calculation:
--	 * After the packet is constructed (containing the SCTP common
--	 * header and one or more control or DATA chunks), the
--	 * transmitter shall:
--	 *
--	 * 1) Fill in the proper Verification Tag in the SCTP common
--	 *    header and initialize the checksum field to 0's.
--	 */
--	sh->vtag     = htonl(packet->vtag);
--	sh->checksum = 0;
--
--	pr_debug("***sctp_transmit_packet***\n");
--
- 	do {
--		/* Set up convenience variables... */
--		chunk = list_entry(packet->chunk_list.next, struct sctp_chunk, list);
--		pktcount++;
--
--		/* Calculate packet size, so it fits in PMTU. Leave
--		 * other chunks for the next packets.
--		 */
--		if (gso) {
--			pkt_size = packet->overhead;
--			list_for_each_entry(chunk, &packet->chunk_list, list) {
--				int padded = SCTP_PAD4(chunk->skb->len);
--
--				if (chunk == packet->auth)
--					auth_len = padded;
--				else if (auth_len + padded + packet->overhead >
--					 tp->pathmtu)
--					goto nomem;
--				else if (pkt_size + padded > tp->pathmtu)
--					break;
--				pkt_size += padded;
--			}
--
--			/* Allocate a new skb. */
--			nskb = alloc_skb(pkt_size + MAX_HEADER, gfp);
--			if (!nskb)
--				goto nomem;
-+		/* calculate the pkt_size and alloc nskb */
-+		pkt_size = packet->overhead;
-+		list_for_each_entry_safe(chunk, tmp, &packet->chunk_list,
-+					 list) {
-+			int padded = SCTP_PAD4(chunk->skb->len);
- 
--			/* Make sure the outbound skb has enough header
--			 * room reserved.
--			 */
--			skb_reserve(nskb, packet->overhead + MAX_HEADER);
--		} else {
--			nskb = head;
-+			if (chunk == packet->auth)
-+				auth_len = padded;
-+			else if (auth_len + padded + packet->overhead >
-+				 tp->pathmtu)
-+				return 0;
-+			else if (pkt_size + padded > tp->pathmtu)
-+				break;
-+			pkt_size += padded;
- 		}
-+		nskb = alloc_skb(pkt_size + MAX_HEADER, gfp);
-+		if (!nskb)
-+			return 0;
-+		skb_reserve(nskb, packet->overhead + MAX_HEADER);
- 
--		/**
--		 * 3.2  Chunk Field Descriptions
--		 *
--		 * The total length of a chunk (including Type, Length and
--		 * Value fields) MUST be a multiple of 4 bytes.  If the length
--		 * of the chunk is not a multiple of 4 bytes, the sender MUST
--		 * pad the chunk with all zero bytes and this padding is not
--		 * included in the chunk length field.  The sender should
--		 * never pad with more than 3 bytes.
--		 *
--		 * [This whole comment explains SCTP_PAD4() below.]
--		 */
--
-+merge:
-+		/* merge chunks into nskb and append nskb into head list */
- 		pkt_size -= packet->overhead;
- 		list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
-+			int padding;
-+
- 			list_del_init(&chunk->list);
- 			if (sctp_chunk_is_data(chunk)) {
--				/* 6.3.1 C4) When data is in flight and when allowed
--				 * by rule C5, a new RTT measurement MUST be made each
--				 * round trip.  Furthermore, new RTT measurements
--				 * SHOULD be made no more than once per round-trip
--				 * for a given destination transport address.
--				 */
--
- 				if (!sctp_chunk_retransmitted(chunk) &&
- 				    !tp->rto_pending) {
- 					chunk->rtt_in_progress = 1;
- 					tp->rto_pending = 1;
- 				}
--
--				has_data = 1;
- 			}
- 
- 			padding = SCTP_PAD4(chunk->skb->len) - chunk->skb->len;
- 			if (padding)
- 				memset(skb_put(chunk->skb, padding), 0, padding);
- 
--			/* if this is the auth chunk that we are adding,
--			 * store pointer where it will be added and put
--			 * the auth into the packet.
--			 */
- 			if (chunk == packet->auth)
--				auth = skb_tail_pointer(nskb);
-+				auth = (struct sctp_auth_chunk *)
-+							skb_tail_pointer(nskb);
- 
--			memcpy(skb_put(nskb, chunk->skb->len),
--			       chunk->skb->data, chunk->skb->len);
-+			memcpy(skb_put(nskb, chunk->skb->len), chunk->skb->data,
-+			       chunk->skb->len);
- 
- 			pr_debug("*** Chunk:%p[%s] %s 0x%x, length:%d, chunk->skb->len:%d, rtt_in_progress:%d\n",
- 				 chunk,
-@@ -589,11 +474,6 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 				 ntohs(chunk->chunk_hdr->length), chunk->skb->len,
- 				 chunk->rtt_in_progress);
- 
--			/* If this is a control chunk, this is our last
--			 * reference. Free data chunks after they've been
--			 * acknowledged or have failed.
--			 * Re-queue auth chunks if needed.
--			 */
- 			pkt_size -= SCTP_PAD4(chunk->skb->len);
- 
- 			if (!sctp_chunk_is_data(chunk) && chunk != packet->auth)
-@@ -603,160 +483,161 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 				break;
- 		}
- 
--		/* SCTP-AUTH, Section 6.2
--		 *    The sender MUST calculate the MAC as described in RFC2104 [2]
--		 *    using the hash function H as described by the MAC Identifier and
--		 *    the shared association key K based on the endpoint pair shared key
--		 *    described by the shared key identifier.  The 'data' used for the
--		 *    computation of the AUTH-chunk is given by the AUTH chunk with its
--		 *    HMAC field set to zero (as shown in Figure 6) followed by all
--		 *    chunks that are placed after the AUTH chunk in the SCTP packet.
--		 */
--		if (auth)
--			sctp_auth_calculate_hmac(asoc, nskb,
--						 (struct sctp_auth_chunk *)auth,
--						 gfp);
--
--		if (packet->auth) {
--			if (!list_empty(&packet->chunk_list)) {
--				/* We will generate more packets, so re-queue
--				 * auth chunk.
--				 */
-+		if (auth) {
-+			sctp_auth_calculate_hmac(tp->asoc, nskb, auth, gfp);
-+			/* free auth if no more chunks, or add it back */
-+			if (list_empty(&packet->chunk_list))
-+				sctp_chunk_free(packet->auth);
-+			else
- 				list_add(&packet->auth->list,
- 					 &packet->chunk_list);
--			} else {
--				sctp_chunk_free(packet->auth);
--				packet->auth = NULL;
--			}
- 		}
- 
--		if (!gso)
--			break;
--
--		if (skb_gro_receive(&head, nskb)) {
--			kfree_skb(nskb);
--			goto nomem;
-+		if (gso) {
-+			if (skb_gro_receive(&head, nskb)) {
-+				kfree_skb(nskb);
-+				return 0;
-+			}
-+			if (WARN_ON_ONCE(skb_shinfo(head)->gso_segs >=
-+					 sk->sk_gso_max_segs))
-+				return 0;
- 		}
--		nskb = NULL;
--		if (WARN_ON_ONCE(skb_shinfo(head)->gso_segs >=
--				 sk->sk_gso_max_segs))
--			goto nomem;
-+
-+		pkt_count++;
- 	} while (!list_empty(&packet->chunk_list));
- 
--	/* 2) Calculate the Adler-32 checksum of the whole packet,
--	 *    including the SCTP common header and all the
--	 *    chunks.
--	 *
--	 * Note: Adler-32 is no longer applicable, as has been replaced
--	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
--	 *
--	 * If it's a GSO packet, it's postponed to sctp_skb_segment.
--	 */
--	if (!sctp_checksum_disable || gso) {
--		if (!gso && (!(dst->dev->features & NETIF_F_SCTP_CRC) ||
--			     dst_xfrm(dst) || packet->ipfragok)) {
--			sh->checksum = sctp_compute_cksum(head, 0);
--		} else {
--			/* no need to seed pseudo checksum for SCTP */
--			head->ip_summed = CHECKSUM_PARTIAL;
--			head->csum_start = skb_transport_header(head) - head->head;
--			head->csum_offset = offsetof(struct sctphdr, checksum);
-+	if (gso) {
-+		memset(head->cb, 0, max(sizeof(struct inet_skb_parm),
-+					sizeof(struct inet6_skb_parm)));
-+		skb_shinfo(head)->gso_segs = pkt_count;
-+		skb_shinfo(head)->gso_size = GSO_BY_FRAGS;
-+		rcu_read_lock();
-+		if (skb_dst(head) != tp->dst) {
-+			dst_hold(tp->dst);
-+			sk_setup_caps(sk, tp->dst);
- 		}
-+		rcu_read_unlock();
-+		goto chksum;
- 	}
- 
--	/* IP layer ECN support
--	 * From RFC 2481
--	 *  "The ECN-Capable Transport (ECT) bit would be set by the
--	 *   data sender to indicate that the end-points of the
--	 *   transport protocol are ECN-capable."
--	 *
--	 * Now setting the ECT bit all the time, as it should not cause
--	 * any problems protocol-wise even if our peer ignores it.
--	 *
--	 * Note: The works for IPv6 layer checks this bit too later
--	 * in transmission.  See IP6_ECN_flow_xmit().
--	 */
--	tp->af_specific->ecn_capable(sk);
-+	if (sctp_checksum_disable)
-+		return 1;
- 
--	/* Set up the IP options.  */
--	/* BUG: not implemented
--	 * For v4 this all lives somewhere in sk->sk_opt...
--	 */
-+	if (!(skb_dst(head)->dev->features & NETIF_F_SCTP_CRC) ||
-+	    dst_xfrm(skb_dst(head)) || packet->ipfragok) {
-+		struct sctphdr *sh =
-+			(struct sctphdr *)skb_transport_header(head);
- 
--	/* Dump that on IP!  */
--	if (asoc) {
--		asoc->stats.opackets += pktcount;
--		if (asoc->peer.last_sent_to != tp)
--			/* Considering the multiple CPU scenario, this is a
--			 * "correcter" place for last_sent_to.  --xguo
--			 */
--			asoc->peer.last_sent_to = tp;
-+		sh->checksum = sctp_compute_cksum(head, 0);
-+	} else {
-+chksum:
-+		head->ip_summed = CHECKSUM_PARTIAL;
-+		head->csum_start = skb_transport_header(head) - head->head;
-+		head->csum_offset = offsetof(struct sctphdr, checksum);
- 	}
- 
--	if (has_data) {
--		struct timer_list *timer;
--		unsigned long timeout;
-+	return pkt_count;
-+}
-+
-+/* All packets are sent to the network through this function from
-+ * sctp_outq_tail().
-+ *
-+ * The return value is always 0 for now.
-+ */
-+int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
-+{
-+	struct sctp_transport *tp = packet->transport;
-+	struct sctp_association *asoc = tp->asoc;
-+	struct sctp_chunk *chunk, *tmp;
-+	int pkt_count, gso = 0;
-+	struct dst_entry *dst;
-+	struct sk_buff *head;
-+	struct sctphdr *sh;
-+	struct sock *sk;
- 
--		/* Restart the AUTOCLOSE timer when sending data. */
--		if (sctp_state(asoc, ESTABLISHED) &&
--		    asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE]) {
--			timer = &asoc->timers[SCTP_EVENT_TIMEOUT_AUTOCLOSE];
--			timeout = asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE];
-+	pr_debug("%s: packet:%p\n", __func__, packet);
-+	if (list_empty(&packet->chunk_list))
-+		return 0;
-+	chunk = list_entry(packet->chunk_list.next, struct sctp_chunk, list);
-+	sk = chunk->skb->sk;
- 
--			if (!mod_timer(timer, jiffies + timeout))
--				sctp_association_hold(asoc);
-+	/* check gso */
-+	if (packet->size > tp->pathmtu && !packet->ipfragok) {
-+		if (!sk_can_gso(sk)) {
-+			pr_err_once("Trying to GSO but underlying device doesn't support it.");
-+			goto out;
- 		}
-+		gso = 1;
-+	}
-+
-+	/* alloc head skb */
-+	head = alloc_skb((gso ? packet->overhead : packet->size) +
-+			 MAX_HEADER, gfp);
-+	if (!head)
-+		goto out;
-+	skb_reserve(head, packet->overhead + MAX_HEADER);
-+	sctp_packet_set_owner_w(head, sk);
-+
-+	/* set sctp header */
-+	sh = (struct sctphdr *)skb_push(head, sizeof(struct sctphdr));
-+	skb_reset_transport_header(head);
-+	sh->source = htons(packet->source_port);
-+	sh->dest = htons(packet->destination_port);
-+	sh->vtag = htonl(packet->vtag);
-+	sh->checksum = 0;
-+
-+	/* update dst if in need */
-+	if (!sctp_transport_dst_check(tp)) {
-+		sctp_transport_route(tp, NULL, sctp_sk(sk));
-+		if (asoc && asoc->param_flags & SPP_PMTUD_ENABLE)
-+			sctp_assoc_sync_pmtu(sk, asoc);
- 	}
-+	dst = dst_clone(tp->dst);
-+	if (!dst) {
-+		IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
-+		kfree_skb(head);
-+		goto out;
-+	}
-+	skb_dst_set(head, dst);
- 
-+	/* pack up chunks */
-+	pkt_count = sctp_packet_pack(packet, head, gso, gfp);
-+	if (!pkt_count) {
-+		kfree_skb(head);
-+		goto out;
-+	}
- 	pr_debug("***sctp_transmit_packet*** skb->len:%d\n", head->len);
- 
--	if (gso) {
--		/* Cleanup our debris for IP stacks */
--		memset(head->cb, 0, max(sizeof(struct inet_skb_parm),
--					sizeof(struct inet6_skb_parm)));
-+	/* start autoclose timer */
-+	if (packet->has_data && sctp_state(asoc, ESTABLISHED) &&
-+	    asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE]) {
-+		struct timer_list *timer =
-+			&asoc->timers[SCTP_EVENT_TIMEOUT_AUTOCLOSE];
-+		unsigned long timeout =
-+			asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE];
- 
--		skb_shinfo(head)->gso_segs = pktcount;
--		skb_shinfo(head)->gso_size = GSO_BY_FRAGS;
-+		if (!mod_timer(timer, jiffies + timeout))
-+			sctp_association_hold(asoc);
-+	}
- 
--		/* We have to refresh this in case we are xmiting to
--		 * more than one transport at a time
--		 */
--		rcu_read_lock();
--		if (__sk_dst_get(sk) != tp->dst) {
--			dst_hold(tp->dst);
--			sk_setup_caps(sk, tp->dst);
--		}
--		rcu_read_unlock();
-+	/* sctp xmit */
-+	tp->af_specific->ecn_capable(sk);
-+	if (asoc) {
-+		asoc->stats.opackets += pkt_count;
-+		if (asoc->peer.last_sent_to != tp)
-+			asoc->peer.last_sent_to = tp;
- 	}
- 	head->ignore_df = packet->ipfragok;
- 	tp->af_specific->sctp_xmit(head, tp);
--	goto out;
--
--nomem:
--	if (packet->auth && list_empty(&packet->auth->list))
--		sctp_chunk_free(packet->auth);
--
--nodst:
--	/* FIXME: Returning the 'err' will effect all the associations
--	 * associated with a socket, although only one of the paths of the
--	 * association is unreachable.
--	 * The real failure of a transport or association can be passed on
--	 * to the user via notifications. So setting this error may not be
--	 * required.
--	 */
--	 /* err = -EHOSTUNREACH; */
--	kfree_skb(head);
- 
--err:
-+out:
- 	list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
- 		list_del_init(&chunk->list);
- 		if (!sctp_chunk_is_data(chunk))
- 			sctp_chunk_free(chunk);
- 	}
--
--out:
- 	sctp_packet_reset(packet);
--	return err;
-+	return 0;
- }
- 
- /********************************************************************
--- 
-2.1.0
+> 
+>>
+>>> The network world is divided into 2 general types of hw:
+>>> 1) network ASICs - network specific silicon, containing things like TCAM
+>>>    These ASICs are suitable to be programmed by P4.
+>>
+>> i think the opposite is the case in case of P4.
+>> when hw asic has tcam it's still far far away from being usable with P4
+>> which requires fully programmable protocol parser, arbitrary tables and so on.
+>> P4 doesn't even define TCAM as a table type. The p4 program can declare
+>> a desired algorithm of search in the table and compiler has to figure out
+>> what HW resources to use to satisfy such p4 program.
+>>
+>>> 2) network processors - basically a general purpose CPUs
+>>>    These processors are suitable to be programmed by eBPF.
+>>
+>> I think this statement is also misleading, since it positions
+>> p4 and bpf as competitors whereas that's not the case.
+>> p4 is the language. bpf is an instruction set.
+> 
+> I wanted to say that we are having 2 approaches in silicon, 2 different
+> paradigms. Sure you can do p4>bpf. But hard to do it the opposite way.
+> 
+> 
+>>
+>>> Exactly. Following drawing shows p4 pipeline setup for SW and Hw:
+>>>
+>>>                                  |
+>>>                                  |               +--> ebpf engine
+>>>                                  |               |
+>>>                                  |               |
+>>>                                  |           compilerB
+>>>                                  |               ^
+>>>                                  |               |
+>>> p4src --> compilerA --> p4ast --TCNL--> cls_p4 --+-> driver -> compilerC -> HW
+>>>                                  |
+>>>                        userspace | kernel
+>>>                                  |
+>>
+>> frankly this diagram smells very much like kernel bypass to me,
+> 
+> what? That is well defined kernel API, in-kernel sw consumer and offload
+> in driver. Same API for both.
+> 
+> Alex, you have very odd sense about what's bypassing kernel. That kind
+> of freaks me out...
+> 
+
+I think the issue with offloading a P4-AST will be how much work goes
+into mapping this onto any particular hardware instance. And how much
+of the P4 language feature set is exposed.
+
+For example I suspect MLX switch has a different pipeline than MLX NIC
+and even different variations of the product lines. The same goes for
+Intel pipeline in NIC and switch and different products in same line.
+
+If P4-ast describes the exact instance of the hardware its an easy task
+the map is 1:1 but isn't exactly portable. Taking an N table onto a M
+table pipeline on the other hand is a bit more work and requires various
+transformations to occur in the runtime API. I'm guessing the class of
+devices we are talking about here can not reconfigure themselves to
+match the P4-ast.
+
+In the naive implementation only pipelines that map 1:1 will work. Maybe
+this is what Alexei is noticing?
+
+> 
+>> since I cannot see how one can put the whole p4 language compiler
+>> into the driver, so this last step of p4ast->hw, I presume, will be
+>> done by firmware, which will be running full compiler in an embedded cpu
+> 
+> In case of mlxsw, that compiler would be in driver.
+> 
+> 
+>> on the switch. To me that's precisely the kernel bypass, since we won't
+>> have a clue what HW capabilities actually are and won't be able to fine
+>> grain control them.
+>> Please correct me if I'm wrong.
+> 
+> You are wrong. By your definition, everything has to be figured out in
+> driver and FW does nothing. Otherwise it could do "something else" and
+> that would be a bypass? Does not make any sense to me whatsoever.
+> 
+> 
+>>
+>>> Plus the thing I cannot imagine in the model you propose is table fillup.
+>>> For ebpf, you use maps. For p4 you would have to have a separate HW-only
+>>> API. This is very similar to the original John's Flow-API. And therefore
+>>> a kernel bypass.
+>>
+>> I think John's flow api is a better way to expose mellanox switch capabilities.
+> 
+> We are under impression that p4 suits us nicely. But it is not about
+> us, it is about finding the common way to do this.
+> 
+
+I'll just poke at my FlowAPI question again. For fixed ASICS what is
+the Flow-API missing. We have a few proof points that show it is both
+sufficient and usable for the handful of use cases we care about.
+
+> 
+>> I also think it's not fair to call it 'bypass'. I see nothing in it
+>> that justify such 'swear word' ;)
+> 
+> John's Flow-API was a kernel bypass. Why? It was a API specifically
+> designed to directly work with HW tables, without kernel being involved.
+
+I don't think that is a fair definition of HW bypass. The SKIP_SW flag
+does exactly that for 'tc' based offloads and it was not rejected.
+
+The _real_ reason that seems to have fallen out of this and other
+discussion is the Flow-API didn't provide an in-kernel translation into
+an emulated patch. Note we always had a usermode translation to eBPF.
+A secondary reason appears to be overhead of adding yet another netlink
+family.
+
+> 
+> 
+>> The goal of flow api was to expose HW features to user space, so that
+>> user space can program it. For something simple as mellanox switch
+>> asic it fits perfectly well.
+> 
+> Again, this is not mlx-asic-specific. And again, that is a kernel bypass.
+> 
+> 
+>> Unless I misunderstand the bigger goal of this discussion and it's
+>> about programming ezchip devices.
+> 
+> No. For network processors, I believe that BPF is nicely offloadable, no
+> need to do the excercise for that.
+> 
+> 
+>>
+>> If the goal is to model hw tcam in the linux kernel then just introduce
+>> tcam bpf map type. It will be dog slow in user space, but it will
+>> match exactly what is happnening in the HW and user space can make
+>> sensible trade-offs.
+> 
+> No, you got me completely wrong. This is not about the TCAM. This is
+> about differences in the 2 words (p4/bpf).
+> Again, for "p4-ish" devices, you have to translate BPF. And as you
+> noted, it's an instruction set. Very hard if not impossible to parse in
+> order to get back the original semantics.
+> 
+
+I think in this discussion "p4-ish" devices means devices with multiple
+tables in a pipeline? Not devices that have programmable/configurable
+pipelines right? And if we get to talking about reconfigurable devices
+I believe this should be done out of band as it typically means
+reloading some ucode, etc.
+
+.John
