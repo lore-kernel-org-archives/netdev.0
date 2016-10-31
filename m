@@ -1,79 +1,46 @@
-From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Subject: [PATCH net] igb: re-assign hw address pointer on reset after PCI error
-Date: Mon, 31 Oct 2016 18:12:29 -0200
-Message-ID: <1477944749-22822-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Cc: jeffrey.t.kirsher@intel.com, gpiccoli@linux.vnet.ibm.com,
-        netdev@vger.kernel.org
-To: intel-wired-lan@lists.osuosl.org
+From: marcelo.leitner@gmail.com
+Subject: Re: [PATCHv2 net] sctp: return back transport in
+ __sctp_rcv_init_lookup
+Date: Mon, 31 Oct 2016 18:13:02 -0200
+Message-ID: <20161031201302.GB8514@localhost.localdomain>
+References: <8d72a86988a2c16c74c45c52dafbf2bbbe9c3b4d.1477845755.git.lucien.xin@gmail.com>
+ <20161031.155348.689672413057243931.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+        nhorman@tuxdriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:53036 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S946256AbcJaUMi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:12:38 -0400
-Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u9VK8cnF037808
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 16:12:38 -0400
-Received: from e24smtp03.br.ibm.com (e24smtp03.br.ibm.com [32.104.18.24])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 26e91agshd-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 16:12:37 -0400
-Received: from localhost
-        by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
-        Mon, 31 Oct 2016 18:12:34 -0200
-Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.18.232.225])
-        by d24dlp01.br.ibm.com (Postfix) with ESMTP id 261C8352005F
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 16:12:05 -0400 (EDT)
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-        by d24relay03.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u9VKCW0G34472096
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 18:12:32 -0200
-Received: from d24av04.br.ibm.com (localhost [127.0.0.1])
-        by d24av04.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u9VKCVYZ026481
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 18:12:32 -0200
+Received: from mx1.redhat.com ([209.132.183.28]:55692 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S946296AbcJaUNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 16:13:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20161031.155348.689672413057243931.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Whenever the igb driver detects the result of a read operation returns
-a value composed only by F's (like 0xFFFFFFFF), it will detach the
-net_device, clear the hw_addr pointer and warn to the user that adapter's
-link is lost - those steps happen on igb_rd32().
+On Mon, Oct 31, 2016 at 03:53:48PM -0400, David Miller wrote:
+> From: Xin Long <lucien.xin@gmail.com>
+> Date: Mon, 31 Oct 2016 00:42:35 +0800
+> 
+> > Prior to this patch, it used a local variable to save the transport that is
+> > looked up by __sctp_lookup_association(), and didn't return it back. But in
+> > sctp_rcv, it is used to initialize chunk->transport. So when hitting this,
+> > even if it found the transport, it was still initializing chunk->transport
+> > with null instead.
+> > 
+> > This patch is to return the transport back through transport pointer
+> > that is from __sctp_rcv_lookup_harder().
+> > 
+> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> 
+> So do I apply this to 'net'?  If so I'd like to see explicit ACKs.
+> 
+> Thanks.
 
-In case a PCI error happens on Power architecture, there's a recovery
-mechanism called EEH, that will reset the PCI slot and call driver's
-handlers to reset the adapter and network functionality as well.
+No. Xin reposted the patchset with this patch updated instead, so please
+ignore this one. Thanks.
 
-We observed that once hw_addr is NULL after the error is detected on
-igb_rd32(), it's never assigned back, so in the process of resetting
-the network functionality we got a NULL pointer dereference in both
-igb_configure_tx_ring() and igb_configure_rx_ring(). In order to avoid
-such bug, we re-assign the hw_addr value in the beginning of the
-function igb_reset(), in case the hw_addr is NULL when we reach that
-path.
-
-Reported-by: Anthony H. Thai <ahthai@us.ibm.com>
-Reported-by: Harsha Thyagaraja <hathyaga@in.ibm.com>
-Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index edc9a6a..c19119c 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1873,6 +1873,13 @@ void igb_reset(struct igb_adapter *adapter)
- 	struct e1000_fc_info *fc = &hw->fc;
- 	u32 pba, hwm;
- 
-+	/* In case of PCI error, adapter might have lost its HW
-+	 * address; if we reached this point after an error scenario,
-+	 * we should re-assign the hw_addr based on the saved io_addr.
-+	 */
-+	if (!hw->hw_addr)
-+		hw->hw_addr = adapter->io_addr;
-+
- 	/* Repartition Pba for greater than 9k mtu
- 	 * To take effect CTRL.RST is required.
- 	 */
--- 
-2.1.0
+Patchset named: [PATCHv2 net 0/3] sctp: a bunch of fixes by holding transport
