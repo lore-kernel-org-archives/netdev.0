@@ -1,52 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net] sctp: return back transport in
- __sctp_rcv_init_lookup
-Date: Mon, 31 Oct 2016 16:30:44 -0400 (EDT)
-Message-ID: <20161031.163044.769708932828537399.davem@davemloft.net>
-References: <8d72a86988a2c16c74c45c52dafbf2bbbe9c3b4d.1477845755.git.lucien.xin@gmail.com>
-        <20161031.155348.689672413057243931.davem@davemloft.net>
-        <20161031201302.GB8514@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] net: set SK_MEM_QUANTUM to 4096
+Date: Mon, 31 Oct 2016 13:32:55 -0700
+Message-ID: <1477945975.7065.317.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1477940320.7065.312.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-        nhorman@tuxdriver.com
-To: marcelo.leitner@gmail.com
+Cc: netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57578 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S946373AbcJaUaq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:30:46 -0400
-In-Reply-To: <20161031201302.GB8514@localhost.localdomain>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34430 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S946507AbcJaUc6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 16:32:58 -0400
+Received: by mail-pf0-f195.google.com with SMTP id y68so3714986pfb.1
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 13:32:57 -0700 (PDT)
+In-Reply-To: <1477940320.7065.312.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: marcelo.leitner@gmail.com
-Date: Mon, 31 Oct 2016 18:13:02 -0200
+From: Eric Dumazet <edumazet@google.com>
 
-> On Mon, Oct 31, 2016 at 03:53:48PM -0400, David Miller wrote:
->> From: Xin Long <lucien.xin@gmail.com>
->> Date: Mon, 31 Oct 2016 00:42:35 +0800
->> 
->> > Prior to this patch, it used a local variable to save the transport that is
->> > looked up by __sctp_lookup_association(), and didn't return it back. But in
->> > sctp_rcv, it is used to initialize chunk->transport. So when hitting this,
->> > even if it found the transport, it was still initializing chunk->transport
->> > with null instead.
->> > 
->> > This patch is to return the transport back through transport pointer
->> > that is from __sctp_rcv_lookup_harder().
->> > 
->> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> 
->> So do I apply this to 'net'?  If so I'd like to see explicit ACKs.
->> 
->> Thanks.
-> 
-> No. Xin reposted the patchset with this patch updated instead, so please
-> ignore this one. Thanks.
-> 
-> Patchset named: [PATCHv2 net 0/3] sctp: a bunch of fixes by holding transport
+Systems with large pages (64KB pages for example) do not always have
+huge quantity of memory.
 
-I got this now, thanks.
+A big SK_MEM_QUANTUM value leads to fewer interactions with the
+global counters (like tcp_memory_allocated) but might trigger
+memory pressure much faster, giving suboptimal TCP performance
+since windows are lowered to ridiculous values.
+
+Note that sysctl_mem units being in pages and in ABI, we also need
+to change sk_prot_mem_limits() accordingly.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/sock.h |   23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index f13ac87a8015cb18c5d3fe5fdcf2d6a0592428f4..d904d1835e06c970fea958c048d927137171477f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1162,11 +1162,6 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
+ 	sk->sk_prot->enter_memory_pressure(sk);
+ }
+ 
+-static inline long sk_prot_mem_limits(const struct sock *sk, int index)
+-{
+-	return sk->sk_prot->sysctl_mem[index];
+-}
+-
+ static inline long
+ sk_memory_allocated(const struct sock *sk)
+ {
+@@ -1281,11 +1276,27 @@ int __sk_mem_schedule(struct sock *sk, int size, int kind);
+ void __sk_mem_reduce_allocated(struct sock *sk, int amount);
+ void __sk_mem_reclaim(struct sock *sk, int amount);
+ 
+-#define SK_MEM_QUANTUM ((int)PAGE_SIZE)
++/* We used to have PAGE_SIZE here, but systems with 64KB pages
++ * do not necessarily have 16x time more memory than 4KB ones.
++ */
++#define SK_MEM_QUANTUM 4096
+ #define SK_MEM_QUANTUM_SHIFT ilog2(SK_MEM_QUANTUM)
+ #define SK_MEM_SEND	0
+ #define SK_MEM_RECV	1
+ 
++/* sysctl_mem values are in pages, we convert them in SK_MEM_QUANTUM units */
++static inline long sk_prot_mem_limits(const struct sock *sk, int index)
++{
++	long val = sk->sk_prot->sysctl_mem[index];
++
++#if PAGE_SIZE > SK_MEM_QUANTUM
++	val <<= PAGE_SHIFT - SK_MEM_QUANTUM_SHIFT;
++#elif PAGE_SIZE < SK_MEM_QUANTUM
++	val >>= SK_MEM_QUANTUM_SHIFT - PAGE_SHIFT;
++#endif
++	return val;
++}
++
+ static inline int sk_mem_pages(int amt)
+ {
+ 	return (amt + SK_MEM_QUANTUM - 1) >> SK_MEM_QUANTUM_SHIFT;
