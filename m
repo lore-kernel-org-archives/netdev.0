@@ -1,38 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2 net-next 0/5] Add bpf support to set sk_bound_dev_if
-Date: Mon, 31 Oct 2016 18:46:56 +0100
-Message-ID: <20161031174656.GE32374@pox.localdomain>
-References: <1477529922-4806-1-git-send-email-dsa@cumulusnetworks.com>
- <20161031.130104.2206412054220058623.davem@davemloft.net>
- <69b9c20b-9566-5f75-cebd-a0bd243c2d65@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: at803x: the Atheros 8031 supports pause
+ frames
+Date: Mon, 31 Oct 2016 13:48:39 -0400 (EDT)
+Message-ID: <20161031.134839.1774460363929061748.davem@davemloft.net>
+References: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
-        maheshb@google.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, zefir.kurtisi@neratec.com,
+        scampbel@codeaurora.org, alokc@codeaurora.org,
+        shankerd@codeaurora.org, andrew@lunn.ch, f.fainelli@gmail.com
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:38404 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945135AbcJaRq6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 13:46:58 -0400
-Received: by mail-wm0-f54.google.com with SMTP id n67so243201015wme.1
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 10:46:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <69b9c20b-9566-5f75-cebd-a0bd243c2d65@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53920 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759598AbcJaRsp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 13:48:45 -0400
+In-Reply-To: <1477605901-30906-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/16 at 11:16am, David Ahern wrote:
-> On 10/31/16 11:01 AM, David Miller wrote:
-> > Also, any reason why you don't allow the cgroup bpf sk filter to return
-> > an error code so that the sock creation could be cancelled if the eBPF
-> > program desires that?  It could be useful, I suppose.
-> 
-> My first draft at this feature had that but I removed it for simplicity now. Can certainly add it back.
+From: Timur Tabi <timur@codeaurora.org>
+Date: Thu, 27 Oct 2016 17:05:01 -0500
 
-We're trying to standardize on common return codes for all program
-types. The lwt bpf series defines BPF_ codes which are compatible
-with TC_ACT_* values to make lwt_bpf and cls_bpf compatible. Would
-be great to use the same return codes and implement the ones that
-make sense.
+> The Atheros 8031 PHY supports the 802.3 extension for symmetric and
+> asymmetric pause frames, so set that to the list of features supported
+> by the phy.
+> 
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
+
+It looks like Florian and you need to discuss this a little further
+but here are some comments on my part.
+
+First of all the PHY state for pause is merely a control for what gets
+advertised in negotiation and the result after negotiation completes,
+and that's about it.  Maybe is has an influence upon whether PAUSE
+frames are passed to/from the MAC, but that would be the largest
+extent of it even if so.
+
+The MAC does all of the actual PAUSE processing.  When the MAC sees a
+PAUSE frame is backs off it's transmitter.  When the amount of unused
+RX buffers in it's ring gets very low, the MAC emits a PAUSE frame.
+
+You also mentioned that you were surprised that getting 900MBit on a
+multi-core 2GHZ ARM without drops isn't happening.  Well, this is a
+very complex issue to analyze.  I can only give a few pointers after
+taking a quick look at this out-of-tree driver.
+
+Are you testing single-flow performance?  If so, even though this is a
+multi-queue NIC the traffic will be going over only one of the queues
+and thus all of those other cores are basically wasted, because only
+one core will be processing this flow's packets.
+
+Next, there are probably a lot of batching optimizations missing from
+the driver.  For example, unconditionally always posting replenished
+RX buffers ever time you process the RX ring is expensive.  Especially
+expensive is the MMIO write to post the new RX buffers.  You should
+batch them and only perform the MMIO write when say 8 or more new
+RX buffers have been posted.
+
+This is a pretty common optimization if you look at other drivers.
+
+Next, the DMA map/unmap operations could be (relatively) expensive
+on this platform and contribute to what packet rates are possible
+without drops.
+
+But all of this is speculation, you really need to look at "perf"
+output to see if the kernel is spending an excessive amount of time in
+one place or another during your tests.  At least this way you'll have
+some hard data to work with and have some kind of idea what might be
+the reason.
