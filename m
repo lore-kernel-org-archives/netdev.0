@@ -1,125 +1,80 @@
-From: John Heenan <john@zgus.com>
-Subject: [PATCH] rtl8xxxu: Fix for agressive power saving by rtl8723bu
- wireless IC
-Date: Tue, 1 Nov 2016 04:35:22 +1000
-Message-ID: <20161031183522.GA13315@cube>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/dccp: warning in dccp_feat_clone_sp_val/__might_sleep
+Date: Mon, 31 Oct 2016 11:40:16 -0700
+Message-ID: <1477939216.7065.305.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+z-SAq-YhHarfc94dguyXCJ_tv8n=ZVdLTRsYEy0cK-pQ@mail.gmail.com>
+         <CAM_iQpX_xw35MUyd9aON5U=HmUoRafeoOF+_vSTHGYnrXd-CHg@mail.gmail.com>
+         <CAAeHK+y9ENvGzJEQtRy_5DEzCfhGEYXR5CPpgwXy_FoOtFUf3Q@mail.gmail.com>
+         <1477762981.7065.272.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAAeHK+x6+CU+1KJNOpnoyyZoqH7_dcrWFVGU1KrJYVwJSzdxPg@mail.gmail.com>
+         <1477764328.7065.284.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAAeHK+z2mqZCsZpPP_hNY2-bt_-WEU9rFmOd=jcWSBmVPDS_rA@mail.gmail.com>
+         <1477833601.7065.297.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpWs1YvrZQF8JTzWR0u0V4t4f3b71WStStGWqDd7agHN_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: Jes Sorensen <Jes.Sorensen@redhat.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <CAM_iQpWs1YvrZQF8JTzWR0u0V4t4f3b71WStStGWqDd7agHN_w@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The rtl8723bu wireless IC shows evidence of a more agressive approach to
-power saving, powering down its RF side when there is no wireless
-interfacing but leaving USB interfacing intact. This makes the wireless
-IC more suitable for use in devices which need to keep their power use
-as low as practical, such as tablets and Surface Pro type devices.
+On Mon, 2016-10-31 at 11:00 -0700, Cong Wang wrote:
+> On Sun, Oct 30, 2016 at 6:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Sun, 2016-10-30 at 05:41 +0100, Andrey Konovalov wrote:
+> >> Sorry, the warning is still there.
+> >>
+> >> I'm not sure adding sched_annotate_sleep() does anything, since it's
+> >> defined as (in case CONFIG_DEBUG_ATOMIC_SLEEP is not set):
+> >> # define sched_annotate_sleep() do { } while (0)
+> >
+> > Thanks again for testing.
+> >
+> > But you do have CONFIG_DEBUG_ATOMIC_SLEEP set, which triggers a check in
+> > __might_sleep() :
+> >
+> > WARN_ONCE(current->state != TASK_RUNNING && current->task_state_change,
+> >
+> > Relevant commit is 00845eb968ead28007338b2bb852b8beef816583
+> > ("sched: don't cause task state changes in nested sleep debugging")
+> >
+> > Another relevant commit was 26cabd31259ba43f68026ce3f62b78094124333f
+> > ("sched, net: Clean up sk_wait_event() vs. might_sleep()")
+> >
+> > Before release_sock() could process the backlog in process context, only
+> > lock_sock() could trigger the issue, so my fix at that time was commit
+> > cb7cf8a33ff73cf638481d1edf883d8968f934f8 ("inet: Clean up
+> > inet_csk_wait_for_connect() vs. might_sleep()")
+> >
+> 
+> Thanks for the context, but isn't the original warning reported by Andrey is
+> from inet_wait_for_connect()? You seem only patch some dccp function
+> which is why it is still there?
+> 
+> It should be the following, no?
+> 
+> 
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 9648c97..bbd8159 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -544,6 +544,7 @@ static long inet_wait_for_connect(struct sock *sk,
+> long timeo, int writebias)
+>          * without closing the socket.
+>          */
+>         while ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
+> +               sched_annotate_sleep();
+>                 release_sock(sk);
+>                 timeo = schedule_timeout(timeo);
+>                 lock_sock(sk);
 
-In effect this means that a full initialisation must be performed
-whenever a wireless interface is brought up. It also means that
-interpretations of power status from general wireless registers should
-not be relied on to influence an init sequence.
-
-The patch works by forcing a fuller initialisation and forcing it to
-occur more often in code paths (such as occurs during a low level
-authentication that initiates wireless interfacing).
-
-The initialisation sequence is now more consistent with code based
-directly on vendor code. For example while the vendor derived code
-interprets a register as indcating a particular powered state, it does
-not use this information to influence its init sequence.
-
-The rtl8723bu device has a unique USB VID and PID. This is taken
-advantage of for the patch to ensure only rtl8723bu devices are affected
-by this patch.
-
-With this patch wpa_supplicant reliably and consistently connects with
-an AP. Before a workaround such as executing rmmod and modprobe before
-each call to wpa_supplicant worked with some distributions.
-
-Signed-off-by: John Heenan <john@zgus.com>
----
- .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c  | 24 ++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-index 04141e5..f36e674 100644
---- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-+++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-@@ -79,6 +79,8 @@ MODULE_PARM_DESC(dma_agg_pages, "Set DMA aggregation pages (range 1-127, 0 to di
- #define RTL8XXXU_TX_URB_LOW_WATER	25
- #define RTL8XXXU_TX_URB_HIGH_WATER	32
- 
-+#define USB_PRODUCT_ID_RTL8723BU 0xb720
-+
- static int rtl8xxxu_submit_rx_urb(struct rtl8xxxu_priv *priv,
- 				  struct rtl8xxxu_rx_urb *rx_urb);
- 
-@@ -3892,6 +3894,7 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
- 	u8 val8;
- 	u16 val16;
- 	u32 val32;
-+  struct usb_device_descriptor *udesc = &priv->udev->descriptor;
- 
- 	/* Check if MAC is already powered on */
- 	val8 = rtl8xxxu_read8(priv, REG_CR);
-@@ -3900,7 +3903,9 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
- 	 * Fix 92DU-VC S3 hang with the reason is that secondary mac is not
- 	 * initialized. First MAC returns 0xea, second MAC returns 0x00
- 	 */
--	if (val8 == 0xea)
-+	if (val8 == 0xea
-+			|| (udesc->idVendor == USB_VENDOR_ID_REALTEK
-+			&&  udesc->idProduct == USB_PRODUCT_ID_RTL8723BU))
- 		macpower = false;
- 	else
- 		macpower = true;
-@@ -5776,9 +5781,17 @@ static int rtl8xxxu_start(struct ieee80211_hw *hw)
- 	struct rtl8xxxu_tx_urb *tx_urb;
- 	unsigned long flags;
- 	int ret, i;
-+	struct usb_device_descriptor *udesc = &priv->udev->descriptor;
- 
- 	ret = 0;
- 
-+	if(udesc->idVendor == USB_VENDOR_ID_REALTEK
-+			&& udesc->idProduct == USB_PRODUCT_ID_RTL8723BU) {
-+		ret = rtl8xxxu_init_device(hw);
-+		if (ret)
-+			goto error_out;
-+	}
-+
- 	init_usb_anchor(&priv->rx_anchor);
- 	init_usb_anchor(&priv->tx_anchor);
- 	init_usb_anchor(&priv->int_anchor);
-@@ -6080,9 +6093,12 @@ static int rtl8xxxu_probe(struct usb_interface *interface,
- 		goto exit;
- 	}
- 
--	ret = rtl8xxxu_init_device(hw);
--	if (ret)
-+	if(!(id->idVendor == USB_VENDOR_ID_REALTEK
-+			&& id->idProduct == USB_PRODUCT_ID_RTL8723BU)) {
-+		ret = rtl8xxxu_init_device(hw);
-+		if (ret)
- 		goto exit;
-+	}
- 
- 	hw->wiphy->max_scan_ssids = 1;
- 	hw->wiphy->max_scan_ie_len = IEEE80211_MAX_DATA_LEN;
-@@ -6191,7 +6207,7 @@ static struct usb_device_id dev_table[] = {
- /* Tested by Myckel Habets */
- {USB_DEVICE_AND_INTERFACE_INFO(0x2357, 0x0109, 0xff, 0xff, 0xff),
- 	.driver_info = (unsigned long)&rtl8192eu_fops},
--{USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_REALTEK, 0xb720, 0xff, 0xff, 0xff),
-+{USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_REALTEK, USB_PRODUCT_ID_RTL8723BU, 0xff, 0xff, 0xff),
- 	.driver_info = (unsigned long)&rtl8723bu_fops},
- #ifdef CONFIG_RTL8XXXU_UNTESTED
- /* Still supported by rtlwifi */
--- 
-2.10.1
+Yes, this would be one of the locations needing this.
