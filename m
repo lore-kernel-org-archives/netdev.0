@@ -1,38 +1,54 @@
-From: Sistemas administrador <administrator@ancol.com>
-Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
-Date: Mon, 31 Oct 2016 18:44:28 +0530
-Message-ID: <20161031131601.964EB1CE2F44@mail.surabaya.go.id.local>
-Reply-To: mailsss@mail2world.com
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] [v2 netfilter-next] netfilter: nf_tables: fib warnings
+Date: Mon, 31 Oct 2016 15:17:12 +0100
+Message-ID: <20161031141712.GA21444@salvia>
+References: <20161028201810.1076559-1-arnd@arndb.de>
+ <20161028232612.GA30488@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.surabaya.go.id ([222.124.212.34]:38132 "EHLO
-        mail.surabaya.go.id.local" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S943270AbcJaOEn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 10:04:43 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161028232612.GA30488@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ATENCIÓN;
+On Sat, Oct 29, 2016 at 01:26:12AM +0200, Florian Westphal wrote:
+> Arnd Bergmann <arnd@arndb.de> wrote:
+> > The newly added nft fib code produces two warnings:
+> > 
+> > net/ipv4/netfilter/nft_fib_ipv4.c: In function 'nft_fib4_eval':
+> > net/ipv4/netfilter/nft_fib_ipv4.c:80:6: error: unused variable 'i' [-Werror=unused-variable]
+> > net/ipv4/netfilter/nft_fib_ipv4.c: In function â€˜nft_fib4_evalâ€™:
+> > net/ipv4/netfilter/nft_fib_ipv4.c:137:6: error: â€˜oifâ€™ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > 
+> > The first one is obvious as the only user of that variable is
+> > inside of an #ifdef
+> > 
+> > The second one is a bit trickier. It's clear that oif is in fact
+> > uninitialized when it gets used when neither NFTA_FIB_F_IIF nor
+> > NFTA_FIB_F_OIF are set, and just setting it to NULL won't work
+> > as it may later get dereferenced.
+> > 
+> > However, there is no need to search the result list if it is
+> > NULL, as Florian pointed out. This integrates his (untested)
+> > change to do so. I have confirmed that the combined patch
+> > solves both warnings, but as I don't fully understand Florian's
+> > change, I can't tell if it's correct.
+> > 
+> > Suggested-by: Florian Westphal <fw@strlen.de>
+> > Fixes: 84f5eedb983e ("netfilter: nf_tables: add fib expression")
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+[...] 
+> Tested-by: Florian Westphal <fw@strlen.de>
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
-vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
-
-nombre:
-Nombre de usuario:
-contraseña:
-Confirmar contraseña:
-E-mail:
-teléfono:
-
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
-
-Disculpa las molestias.
-Código de verificación: es: 006524
-Correo Soporte Técnico © 2016
-
-¡gracias
-Sistemas administrador
+Applied, thanks!
