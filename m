@@ -1,78 +1,56 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/dccp: warning in dccp_feat_clone_sp_val/__might_sleep
-Date: Mon, 31 Oct 2016 11:00:54 -0700
-Message-ID: <CAM_iQpWs1YvrZQF8JTzWR0u0V4t4f3b71WStStGWqDd7agHN_w@mail.gmail.com>
-References: <CAAeHK+z-SAq-YhHarfc94dguyXCJ_tv8n=ZVdLTRsYEy0cK-pQ@mail.gmail.com>
- <CAM_iQpX_xw35MUyd9aON5U=HmUoRafeoOF+_vSTHGYnrXd-CHg@mail.gmail.com>
- <CAAeHK+y9ENvGzJEQtRy_5DEzCfhGEYXR5CPpgwXy_FoOtFUf3Q@mail.gmail.com>
- <1477762981.7065.272.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAeHK+x6+CU+1KJNOpnoyyZoqH7_dcrWFVGU1KrJYVwJSzdxPg@mail.gmail.com>
- <1477764328.7065.284.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAeHK+z2mqZCsZpPP_hNY2-bt_-WEU9rFmOd=jcWSBmVPDS_rA@mail.gmail.com> <1477833601.7065.297.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Michael Ma <make0818@gmail.com>
+Subject: Re: Why do we need tasklet in IFB?
+Date: Mon, 31 Oct 2016 11:02:28 -0700
+Message-ID: <CAAmHdhyC4DT+Ch2jAhAeCXKoUBH+_q-j96VcZFMO=oBhikN6cg@mail.gmail.com>
+References: <CAAmHdhz_g5_+Uqp47cPm3NQd=8=9tCecddQLVCfHbChx=Tjhcw@mail.gmail.com>
+ <20161028143808.3134f296@xeon-e3> <CAAmHdhxyrAQqKczaLyX8UmozdUdApbozM71vFv-j+YLnP1m21g@mail.gmail.com>
+ <20161028144803.4d3f5a2a@xeon-e3> <CAAmHdhwWGygKtcNR2Bazh-TMoAahEaAf6N5CPWjnvun0BfUdLA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34068 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S945310AbcJaSBP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:01:15 -0400
-In-Reply-To: <1477833601.7065.297.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:33896 "EHLO
+        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S944322AbcJaSC3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 14:02:29 -0400
+Received: by mail-oi0-f46.google.com with SMTP id 62so122010071oif.1
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2016 11:02:29 -0700 (PDT)
+In-Reply-To: <CAAmHdhwWGygKtcNR2Bazh-TMoAahEaAf6N5CPWjnvun0BfUdLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 30, 2016 at 6:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2016-10-30 at 05:41 +0100, Andrey Konovalov wrote:
->> Sorry, the warning is still there.
+2016-10-28 14:52 GMT-07:00 Michael Ma <make0818@gmail.com>:
+> 2016-10-28 14:48 GMT-07:00 Stephen Hemminger <stephen@networkplumber.org>:
+>> On Fri, 28 Oct 2016 14:45:07 -0700
+>> Michael Ma <make0818@gmail.com> wrote:
 >>
->> I'm not sure adding sched_annotate_sleep() does anything, since it's
->> defined as (in case CONFIG_DEBUG_ATOMIC_SLEEP is not set):
->> # define sched_annotate_sleep() do { } while (0)
->
-> Thanks again for testing.
->
-> But you do have CONFIG_DEBUG_ATOMIC_SLEEP set, which triggers a check in
-> __might_sleep() :
->
-> WARN_ONCE(current->state != TASK_RUNNING && current->task_state_change,
->
-> Relevant commit is 00845eb968ead28007338b2bb852b8beef816583
-> ("sched: don't cause task state changes in nested sleep debugging")
->
-> Another relevant commit was 26cabd31259ba43f68026ce3f62b78094124333f
-> ("sched, net: Clean up sk_wait_event() vs. might_sleep()")
->
-> Before release_sock() could process the backlog in process context, only
-> lock_sock() could trigger the issue, so my fix at that time was commit
-> cb7cf8a33ff73cf638481d1edf883d8968f934f8 ("inet: Clean up
-> inet_csk_wait_for_connect() vs. might_sleep()")
->
+>>> 2016-10-28 14:38 GMT-07:00 Stephen Hemminger <stephen@networkplumber.org>:
+>>> > On Fri, 28 Oct 2016 14:36:27 -0700
+>>> > Michael Ma <make0818@gmail.com> wrote:
+>>> >
+>>> >> Hi -
+>>> >>
+>>> >> Currently IFB uses tasklet to process tx/rx on the interface that
+>>> >> forwarded the packet to IFB. My understanding on why we're doing this
+>>> >> is that since dev_queue_xmit() can be invoked in interrupt, we want to
+>>> >> defer the processing of original tx/rx in case ifb_xmit() is called
+>>> >> from interrupt.
+>>> >
+>>> > dev_queue_xmit is only called from interrupt if doing netconsole.
+>>>
 
-Thanks for the context, but isn't the original warning reported by Andrey is
-from inet_wait_for_connect()? You seem only patch some dccp function
-which is why it is still there?
+In fact this doesn't seem to explain since if the original path is tx
+and the context is interrupt, IFB will call dev_queue_xmit as well so
+the context can be interrupt in that case.
 
-It should be the following, no?
+Then tasklet is still unnecessary.
 
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 9648c97..bbd8159 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -544,6 +544,7 @@ static long inet_wait_for_connect(struct sock *sk,
-long timeo, int writebias)
-         * without closing the socket.
-         */
-        while ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
-+               sched_annotate_sleep();
-                release_sock(sk);
-                timeo = schedule_timeout(timeo);
-                lock_sock(sk);
+>>> OK - so the reason is that netif_receive_skb() can only be invoked
+>>> from softirq and we have to use tasklet in IFB to guarantee this.
+>>>
+>>> Then if the original path is rx, tasklet is unnecessary because
+>>> ifb_xmit() is invoked from netif_receive_skb() which is always in the
+>>> softirq context, right?
+>>
+>> The other reason is to avoid deep kernel callstacks
