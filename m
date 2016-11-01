@@ -1,124 +1,84 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V2 1/3] net/mlx4_en: Add TX_XDP for CQ types
-Date: Tue,  1 Nov 2016 13:36:24 +0200
-Message-ID: <1478000186-5158-2-git-send-email-tariqt@mellanox.com>
-References: <1478000186-5158-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
+Date: Tue, 1 Nov 2016 11:36:47 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D2259D55C@eusaamb103.ericsson.se>
+References: <F73DA7D7DA7D984B81025139D7CADECC32B5234C@EX02.corp.qihoo.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: =?utf-8?B?5byg6LCm?= <zhangqian-c@360.cn>,
+        Ben Hutchings <ben@decadent.org.uk>,
+        Ying Xue <ying.xue0@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35841 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1423313AbcKALgu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 07:36:50 -0400
-In-Reply-To: <1478000186-5158-1-git-send-email-tariqt@mellanox.com>
+Received: from usplmg20.ericsson.net ([198.24.6.45]:53482 "EHLO
+        usplmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1423294AbcKALhA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 07:37:00 -0400
+In-Reply-To: <F73DA7D7DA7D984B81025139D7CADECC32B5234C@EX02.corp.qihoo.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support XDP CQ type, and refactor the CQ type enum.
-Rename the is_tx field to match the change.
-
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_cq.c   | 18 +++++++++---------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  7 ++++---
- 2 files changed, 13 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index e3be7e44ff51..1427311a9640 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -65,7 +65,7 @@ int mlx4_en_create_cq(struct mlx4_en_priv *priv,
- 	cq->buf_size = cq->size * mdev->dev->caps.cqe_size;
- 
- 	cq->ring = ring;
--	cq->is_tx = mode;
-+	cq->type = mode;
- 	cq->vector = mdev->dev->caps.num_comp_vectors;
- 
- 	/* Allocate HW buffers on provided NUMA node.
-@@ -104,7 +104,7 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 	*cq->mcq.arm_db    = 0;
- 	memset(cq->buf, 0, cq->buf_size);
- 
--	if (cq->is_tx == RX) {
-+	if (cq->type == RX) {
- 		if (!mlx4_is_eq_vector_valid(mdev->dev, priv->port,
- 					     cq->vector)) {
- 			cq->vector = cpumask_first(priv->rx_ring[cq->ring]->affinity_mask);
-@@ -141,11 +141,11 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 		cq->vector = rx_cq->vector;
- 	}
- 
--	if (!cq->is_tx)
-+	if (cq->type == RX)
- 		cq->size = priv->rx_ring[cq->ring]->actual_size;
- 
--	if ((cq->is_tx && priv->hwtstamp_config.tx_type) ||
--	    (!cq->is_tx && priv->hwtstamp_config.rx_filter))
-+	if ((cq->type != RX && priv->hwtstamp_config.tx_type) ||
-+	    (cq->type == RX && priv->hwtstamp_config.rx_filter))
- 		timestamp_en = 1;
- 
- 	err = mlx4_cq_alloc(mdev->dev, cq->size, &cq->wqres.mtt,
-@@ -154,10 +154,10 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 	if (err)
- 		goto free_eq;
- 
--	cq->mcq.comp  = cq->is_tx ? mlx4_en_tx_irq : mlx4_en_rx_irq;
-+	cq->mcq.comp  = cq->type != RX ? mlx4_en_tx_irq : mlx4_en_rx_irq;
- 	cq->mcq.event = mlx4_en_cq_event;
- 
--	if (cq->is_tx)
-+	if (cq->type != RX)
- 		netif_tx_napi_add(cq->dev, &cq->napi, mlx4_en_poll_tx_cq,
- 				  NAPI_POLL_WEIGHT);
- 	else
-@@ -181,7 +181,7 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
- 
- 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
- 	if (mlx4_is_eq_vector_valid(mdev->dev, priv->port, cq->vector) &&
--	    cq->is_tx == RX)
-+	    cq->type == RX)
- 		mlx4_release_eq(priv->mdev->dev, cq->vector);
- 	cq->vector = 0;
- 	cq->buf_size = 0;
-@@ -193,7 +193,7 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
- void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- {
- 	napi_disable(&cq->napi);
--	if (!cq->is_tx) {
-+	if (cq->type == RX) {
- 		napi_hash_del(&cq->napi);
- 		synchronize_rcu();
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index a3528dd1e72e..83c914a79f14 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -207,8 +207,9 @@ enum {
-  */
- 
- enum cq_type {
--	RX = 0,
--	TX = 1,
-+	TX,
-+	TX_XDP,
-+	RX,
- };
- 
- 
-@@ -361,7 +362,7 @@ struct mlx4_en_cq {
- 	int size;
- 	int buf_size;
- 	int vector;
--	enum cq_type is_tx;
-+	enum cq_type type;
- 	u16 moder_time;
- 	u16 moder_cnt;
- 	struct mlx4_cqe *buf;
--- 
-1.8.3.1
+SGksDQpJIHRoaW5rIHdlIGFsbCBhZ3JlZWQgaW4gdGhlIGVuZCB0aGF0IHRoaXMgaXMgYSBwb3Nz
+aWJsZSwgYnV0IGhpZ2hseSBpbXBsYXVzaWJsZSwgc2NlbmFyaW8sIGFuZCByYXRoZXIgYXMgYSBw
+b2ludCBvZiBleHBsb2l0IHRoYW4gYSBmdW5jdGlvbmFsIGJ1Zy4NClRoZSBzb2x1dGlvbiBpcyB2
+ZXJ5IHNpbXBsZSwgYW5kIGRlc2NyaWJlZCBmdXJ0aGVyIGRvd24gaW4gdGhpcyBtYWlsIHRocmVh
+ZC4gSSBoYXZlIG5vdCBkb25lIGFueXRoaW5nIHRvIGl0IHlldCwgYnV0IHlvdSBhcmUgd2VsY29t
+ZSB0byBjb250cmlidXRlLg0KDQpCUg0KLy8vam9uDQoNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3Nh
+Z2UtLS0tLQ0KPiBGcm9tOiDlvKDosKYgW21haWx0bzp6aGFuZ3FpYW4tY0AzNjAuY25dDQo+IFNl
+bnQ6IFR1ZXNkYXksIDAxIE5vdmVtYmVyLCAyMDE2IDAyOjM1DQo+IFRvOiBCZW4gSHV0Y2hpbmdz
+IDxiZW5AZGVjYWRlbnQub3JnLnVrPjsgSm9uIE1hbG95DQo+IDxqb24ubWFsb3lAZXJpY3Nzb24u
+Y29tPjsgWWluZyBYdWUgPHlpbmcueHVlMEBnbWFpbC5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnOyBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IFN1YmplY3Q6
+IFJlOiBbUEFUQ0ggbmV0XSB0aXBjOiBHdWFyZCBhZ2FpbnN0IHRpbnkgTVRVIGluIHRpcGNfbXNn
+X2J1aWxkKCkNCj4gDQo+IEhpIGFsbCwNCj4gSSBoYXZlIGFjY29tcGxpc2hlZCBhIFBvQyBjYW4g
+aGVscCB5b3UgdG8gY29uZmlybSB0aGlzIGlzc3VlLg0KPiANCj4gQW5kIHR3byB3ZWVrcyBwYXNz
+ZWQgZnJvbSB0aGUgbGFzdCBtYWlsLCBjYW4geW91IHRlbGwgbWUgdGhlIHByb2dyZXNzIG9mIHRo
+ZQ0KPiBwYXRjaCB0byB0aGlzIGZsYXc/DQo+IA0KPiBUaGFua3MuDQo+IA0KPiBRaWFuIFpoYW5n
+DQo+IE1hcnZlbCBUZWFtIFFpaG9vIDM2MA0KPiANCj4gDQo+IC0tLS0t6YKu5Lu25Y6f5Lu2LS0t
+LS0NCj4g5Y+R5Lu25Lq6OiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86YmVuQGRlY2FkZW50Lm9yZy51
+a10NCj4g5Y+R6YCB5pe26Ze0OiAyMDE25bm0MTDmnIgyMeaXpSAyMzowMA0KPiDmlLbku7bkuro6
+IEpvbiBNYWxveTsgWWluZyBYdWUNCj4g5oqE6YCBOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyDl
+vKDosKY7IEVyaWMgRHVtYXpldA0KPiDkuLvpopg6IFJlOiBbUEFUQ0ggbmV0XSB0aXBjOiBHdWFy
+ZCBhZ2FpbnN0IHRpbnkgTVRVIGluIHRpcGNfbXNnX2J1aWxkKCkNCj4gDQo+IE9uIEZyaSwgMjAx
+Ni0xMC0yMSBhdCAxNDo1NyArMDAwMCwgSm9uIE1hbG95IHdyb3RlOg0KPiA+ID4gLS0tLS1Pcmln
+aW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+ID4gPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86
+YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gPiA+IFNlbnQ6IFRodXJzZGF5LCAyMCBPY3RvYmVyLCAy
+MDE2IDEyOjQwDQo+ID4gPiA+ID4gVG86IEpvbiBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNv
+bT47IFlpbmcgWHVlDQo+ID4gPiA+ID4gPHlpbmcueHVlMEBnbWFpbC5jb20+DQo+ID4gPiA+ID4g
+PiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBRaWFuIFpoYW5nIDx6aGFuZ3FpYW4tY0Az
+NjAuY24+Ow0KPiA+ID4gPiA+ID4gPiBFcmljIER1bWF6ZXQNCj4gPiA+ID4gPiA8ZWR1bWF6ZXRA
+Z29vZ2xlLmNvbT4NCj4gPiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSB0aXBjOiBHdWFyZCBh
+Z2FpbnN0IHRpbnkgTVRVIGluDQo+ID4gPiB0aXBjX21zZ19idWlsZCgpDQo+ID4gPg0KPiA+ID4g
+T24gVGh1LCAyMDE2LTEwLTIwIGF0IDE0OjUxICswMDAwLCBKb24gTWFsb3kgd3JvdGU6DQo+ID4g
+PiBbLi4uXQ0KPiA+ID4gPiA+IEF0IHRoaXMgcG9pbnQgd2UncmUgYWJvdXQgdG8gY29weSBJTlRf
+SF9TSVpFICsgbWhzeiBieXRlcyBpbnRvDQo+ID4gPiA+ID4gdGhlIGZpcnN0IGZyYWdtZW50LiDC
+oElmIHRoYXQncyBhbHJlYWR5IGxpbWl0ZWQgdG8gYmUgbGVzcyB0aGFuDQo+ID4gPiA+ID4gb3Ig
+ZXF1YWwgdG8gTUFYX0hfU0laRSwgY29tcGFyaW5nIHdpdGggTUFYX0hfU0laRSB3b3VsZCBiZSBm
+aW5lLg0KPiA+ID4gPiA+IEJ1dCBpZg0KPiA+ID4NCj4gPiA+IE1BWF9IX1NJWkUNCj4gPiA+ID4g
+PiBpcyB0aGUgbWF4aW11bSB2YWx1ZSBvZiBtaHN6LCB0aGF0IHdvbid0IGJlIGdvb2QgZW5vdWdo
+Lg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiBNQVhfSF9TSVpFIGlzIDYwIGJ5
+dGVzLCBidXQgaW4gcHJhY3RpY2UgeW91IHdpbGwgbmV2ZXIgc2VlIGFuIG1oc3oNCj4gPiA+ID4g
+bGFyZ2VyIHRoYW4NCj4gPiA+DQo+ID4gPiB0aGUgYmlnZ2VzdCBoZWFkZXIgd2UgYXJlIGFjdHVh
+bGx5IHVzaW5nLCB3aGljaCBpcyBNQ0FTVF9IX1NJWkUgKD09NDQNCj4gYnl0ZXMpLg0KPiA+ID4g
+PiBJTlRfSF9TSVpFIGlzIDQwIGJ5dGVzLCBzbyB5b3UgYXJlIGluIHJlYWxpdHkgdGVzdGluZyBm
+b3Igd2hldGhlcg0KPiA+ID4gPiB3ZSBoYXZlIGFuIG10dQ0KPiA+ID4NCj4gPiA+IDwgODQgYnl0
+ZXMuDQo+ID4gPiA+IFlvdSB3b24ndCBmaW5kIGFueSBpbnRlcmZhY2VzIG9yIHByb3RvY29scyB0
+aGF0IGNvbWUgZXZlbiBjbG9zZSB0bw0KPiA+ID4gPiB0aGlzDQo+ID4gPg0KPiA+ID4gbGltaXRh
+dGlvbiwgc28gdG8gbWUgdGhpcyB0ZXN0IGlzIHJlZHVuZGFudC4NCj4gPiA+DQo+ID4gPiBCdXQg
+SSBjYW4gZWFzaWx5IGNyZWF0ZSBzdWNoIGFuIGludGVyZmFjZToNCj4gPiA+DQo+ID4gPiAkIHVu
+c2hhcmUgLW4gLVUgLXINCj4gPiA+ICMgaXAgbCBzZXQgbG8gbXR1IDENCj4gPiA+DQo+ID4gPiBC
+ZW4uDQo+ID4NCj4gPg0KPiA+IEl0IHdvbid0IGJlIHZlcnkgdXNlZnVsIHRob3VnaC4gQnV0IEkg
+YXNzdW1lIHlvdSBtZWFuIGl0IGNvdWxkIGJlIGENCj4gPiBwb3NzaWJsZSBleHBsb2l0LA0KPiAN
+Cj4gRXhhY3RseS4NCj4gDQo+ID4gIGFuZCBJIHN1c3BlY3QgYSBmZXcgb3RoZXIgdGhpbmdzIHdv
+dWxkIGJyZWFrIGJvdGggaW4gVElQQyBhbmQgaW4NCj4gPiBvdGhlciBzdGFja3MgaWYgeW91IGRv
+IGFueXRoaW5nIGxpa2UgdGhhdC4gSSB0aGluayB0aGUgc29sdXRpb24gdG8NCj4gPiB0aGlzIGlz
+IG5vdCB0byBmaXggYWxsIHBvc3NpYmxlIHBsYWNlcyBpbiB0aGUgY29kZSB3aGVyZSB0aGlzIGNh
+biBnbw0KPiA+IHdyb25nLCBidXQgcmF0aGVyIHRvIGhhdmUgYSBnZW5lcmljIHRlc3Qgd2hlcmUg
+d2UgcmVmdXNlIHRvIGF0dGFjaA0KPiA+IGJlYXJlcnMvaW50ZXJmYWNlcyBvZmZlcmluZyBhbiBt
+dHUgPCBlLmcuIDEwMDAgYnl0ZXMuIFRoaXMgY2FuIGVhc2lseQ0KPiA+IGJlIGRvbmUgaW4gdGlw
+Y19lbmFibGVfbDJfbWVkaWEoKS4NCj4gDQo+IFllcy4NCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+
+IEJlbiBIdXRjaGluZ3MNCj4gT25lIG9mIHRoZSBuaWNlIHRoaW5ncyBhYm91dCBzdGFuZGFyZHMg
+aXMgdGhhdCB0aGVyZSBhcmUgc28gbWFueSBvZiB0aGVtLg0KDQo=
