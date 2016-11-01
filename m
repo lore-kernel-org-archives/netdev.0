@@ -1,41 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: mv643xx_eth: ensure coalesce settings survive
- read-modify-write
-Date: Tue, 1 Nov 2016 12:10:23 +0100
-Message-ID: <20161101111023.GA4211@lunn.ch>
-References: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Tue, 1 Nov 2016 12:13:00 +0100
+Message-ID: <8a1372f4-4355-f27b-75a5-5aefedeb3ac1@neratec.com>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <5813D00A.8080005@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59739 "EHLO vps0.lunn.ch"
+Received: from mail.neratec.com ([46.140.151.2]:27395 "EHLO mail.neratec.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1168733AbcKALK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 07:10:26 -0400
-Content-Disposition: inline
-In-Reply-To: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
+        id S1168518AbcKALND (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 07:13:03 -0400
+In-Reply-To: <5813D00A.8080005@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 01, 2016 at 10:50:01AM +0000, Russell King wrote:
-> The coalesce settings behave badly when changing just one value:
+On 10/29/2016 12:24 AM, Timur Tabi wrote:
+> Zefir Kurtisi wrote:
+>> +    /* check if the SGMII link is OK. */
+>> +    if (!(phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)) {
+>> +        pr_warn("803x_aneg_done: SGMII link is not ok\n");
+>> +        aneg_done = 0;
 > 
-> ... # ethtool -c eth0
-> rx-usecs: 249
-> ... # ethtool -C eth0 tx-usecs 250
-> ... # ethtool -c eth0
-> rx-usecs: 248
+> I see this message appear sometimes when bring up the interface via ifup. 
+> However, contrary to your patch description, everything seems to work:
 > 
-> This occurs due to rounding errors when calculating the microseconds
-> value - the divisons round down.  This causes (eg) the rx-usecs to
-> decrease by one every time the tx-usecs value is set as per the above.
-> 
-> Fix this by making the divison round-to-nearest.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+Right so, seeing the message and still having the SGMII link up and working is
+what happens most. But randomly (in our setup it is in the order of 1%) we see
+that SGMII remains down after a suspend-resume cycle. This message is a required
+but not sufficient condition.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> $ iperf3 -c 192.168.1.1 -t 3600
+> Connecting to host 192.168.1.1, port 5201
+> [  4] local 192.168.1.2 port 52640 connected to 192.168.1.1 port 5201
+> [ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+> [  4]   0.00-1.00   sec   109 MBytes   909 Mbits/sec    0    485 KBytes
+> [  4]   1.00-2.00   sec   108 MBytes   902 Mbits/sec    0    622 KBytes
+> 
+> I wonder if you're impacted with all of the pause frame problems I'm having.
+> 
 
-    Andrew
+I doubt, since resetting SGMII link alone (via toggling MII_BMCR on fibre page)
+brings back the SGMII communication, I assume it to be below the MAC layer.
+
+Are you aware of any related erratas for the at803x? I am not and therefore left
+alone with my guesswork.
