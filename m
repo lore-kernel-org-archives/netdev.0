@@ -1,80 +1,70 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v4 7/7] arm64: dts: NS2: add AMAC ethernet support
-Date: Tue,  1 Nov 2016 16:04:42 -0400
-Message-ID: <1478030682-27012-8-git-send-email-jon.mason@broadcom.com>
-References: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35516 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932612AbcKAUFJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:05:09 -0400
-Received: by mail-pf0-f179.google.com with SMTP id i88so6822823pfk.2
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 13:05:09 -0700 (PDT)
-In-Reply-To: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: [PATCH] net: ip, diag -- Adjust raw_abort to use unlocked
+ __udp_disconnect
+Date: Tue, 1 Nov 2016 23:05:00 +0300
+Message-ID: <20161101200500.GA1852@uranus.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com,
+        jhs@mojatatu.com, linux-kernel@vger.kernel.org,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, avagin@openvz.org, stephen@networkplumber.org
+To: netdev@vger.kernel.org, eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for the AMAC ethernet to the Broadcom Northstar2 SoC device
-tree
+While being preparing patches for killing raw sockets via
+diag netlink interface I noticed that my runs are stuck:
 
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+ | [root@pcs7 ~]# cat /proc/`pidof ss`/stack
+ | [<ffffffff816d1a76>] __lock_sock+0x80/0xc4
+ | [<ffffffff816d206a>] lock_sock_nested+0x47/0x95
+ | [<ffffffff8179ded6>] udp_disconnect+0x19/0x33
+ | [<ffffffff8179b517>] raw_abort+0x33/0x42
+ | [<ffffffff81702322>] sock_diag_destroy+0x4d/0x52
+
+which has not been the case before. I narrowed it down to the commit
+
+ | commit 286c72deabaa240b7eebbd99496ed3324d69f3c0
+ | Author: Eric Dumazet <edumazet@google.com>
+ | Date:   Thu Oct 20 09:39:40 2016 -0700
+ | 
+ |     udp: must lock the socket in udp_disconnect()
+
+where we start locking the socket for different reason.
+
+So the raw_abort escaped the renaming and we have to
+fix this typo using __udp_disconnect instead.
+
+CC: David S. Miller <davem@davemloft.net>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: David Ahern <dsa@cumulusnetworks.com>
+CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+CC: James Morris <jmorris@namei.org>
+CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Andrey Vagin <avagin@openvz.org>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
- arch/arm64/boot/dts/broadcom/ns2-svk.dts |  5 +++++
- arch/arm64/boot/dts/broadcom/ns2.dtsi    | 12 ++++++++++++
- 2 files changed, 17 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/broadcom/ns2-svk.dts b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-index 2d7872a..2e4d90d 100644
---- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-+++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-@@ -56,6 +56,10 @@
- 	};
- };
+On top of net-next tree 22ca904ad70afc831d8503e80be1b6558a978759
+
+ net/ipv4/raw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-ml.git/net/ipv4/raw.c
+===================================================================
+--- linux-ml.git.orig/net/ipv4/raw.c
++++ linux-ml.git/net/ipv4/raw.c
+@@ -920,7 +920,7 @@ int raw_abort(struct sock *sk, int err)
  
-+&enet {
-+	status = "ok";
-+};
-+
- &pci_phy0 {
- 	status = "ok";
- };
-@@ -172,6 +176,7 @@
- &mdio_mux_iproc {
- 	mdio@10 {
- 		gphy0: eth-phy@10 {
-+			enet-phy-lane-swap;
- 			reg = <0x10>;
- 		};
- 	};
-diff --git a/arch/arm64/boot/dts/broadcom/ns2.dtsi b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-index d95dc40..773ed59 100644
---- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
-+++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-@@ -191,6 +191,18 @@
+ 	sk->sk_err = err;
+ 	sk->sk_error_report(sk);
+-	udp_disconnect(sk, 0);
++	__udp_disconnect(sk, 0);
  
- 		#include "ns2-clock.dtsi"
+ 	release_sock(sk);
  
-+		enet: ethernet@61000000 {
-+			compatible = "brcm,ns2-amac";
-+			reg = <0x61000000 0x1000>,
-+			      <0x61090000 0x1000>,
-+			      <0x61030000 0x100>;
-+			reg-names = "amac_base", "idm_base", "nicpm_base";
-+			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
-+			phy-handle = <&gphy0>;
-+			phy-mode = "rgmii";
-+			status = "disabled";
-+		};
-+
- 		dma0: dma@61360000 {
- 			compatible = "arm,pl330", "arm,primecell";
- 			reg = <0x61360000 0x1000>;
--- 
-2.7.4
