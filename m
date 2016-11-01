@@ -1,42 +1,46 @@
-From: Isaac Boukris <iboukris@gmail.com>
-Subject: [PATCH v2] unix: escape all null bytes in abstract unix domain socket
-Date: Tue,  1 Nov 2016 02:41:35 +0200
-Message-ID: <1477960895-1062-1-git-send-email-iboukris@gmail.com>
-Cc: Isaac Boukris <iboukris@gmail.com>
-To: davem@davemloft.net, stephen@networkplumber.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bgmac: stop clearing DMA receive control register
+ right after it is set
+Date: Mon, 31 Oct 2016 20:51:37 -0400 (EDT)
+Message-ID: <20161031.205137.959277684113173080.davem@davemloft.net>
+References: <1477935123-29638-1-git-send-email-gospo@broadcom.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hauke@hauke-m.de
+To: gospo@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:32804 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S948344AbcKAA4u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 20:56:50 -0400
+In-Reply-To: <1477935123-29638-1-git-send-email-gospo@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Abstract unix domain socket may embed null characters,
-these should be translated to '@' when printed out to
-proc the same way the null prefix is currently being
-translated.
+From: Andy Gospodarek <gospo@broadcom.com>
+Date: Mon, 31 Oct 2016 13:32:03 -0400
 
-This helps for tools such as netstat, lsof and the proc
-based implementation in ss to show all the significant
-bytes of the name (instead of getting cut at the first
-null occurrence).
+> Current bgmac code initializes some DMA settings in the receive control
+> register for some hardware and then immediately clears those settings.
+> Not clearing those settings results in ~420Mbps *improvement* in
+> throughput; this system can now receive frames at line-rate on Broadcom
+> 5871x hardware compared to ~520Mbps today.  I also tested a few other
+> values but found there to be no discernible difference in CPU
+> utilization even if burst size and prefetching values are different.
+> 
+> On the hardware tested there was no need to keep the code that cleared
+> all but bits 16-17, but since there is a wide variety of hardware that
+> used this driver (I did not look at all hardware docs for hardware using
+> this IP block), I find it wise to move this call up and clear bits just
+> after reading the default value from the hardware rather than completely
+> removing it.
+> 
+> This is a good candidate for -stable >=3.14 since that is when the code
+> that was supposed to improve performance (but did not) was introduced.
+> 
+> Signed-off-by: Andy Gospodarek <gospo@broadcom.com>
+> Fixes: 56ceecde1f29 ("bgmac: initialize the DMA controller of core...")
+> Cc: Hauke Mehrtens <hauke@hauke-m.de>
 
-Signed-off-by: Isaac Boukris <iboukris@gmail.com>
----
- net/unix/af_unix.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 145082e..5d1c14a 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2812,7 +2812,8 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 				i++;
- 			}
- 			for ( ; i < len; i++)
--				seq_putc(seq, u->addr->name->sun_path[i]);
-+				seq_putc(seq, u->addr->name->sun_path[i] ?:
-+					 '@');
- 		}
- 		unix_state_unlock(s);
- 		seq_putc(seq, '\n');
--- 
-2.7.4
+Applied and queued up for -stable, thanks.
