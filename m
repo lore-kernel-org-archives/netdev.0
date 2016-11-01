@@ -1,72 +1,47 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: new kmemleak reports (was: Re: [PATCH 0/5] genetlink
- improvements)
-Date: Tue, 1 Nov 2016 18:56:30 +0000
-Message-ID: <20161101185630.3c7d326f@jkicinski-Precision-T1700>
-References: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
-        <20161101172840.6d7d6278@jkicinski-Precision-T1700>
-        <CAM_iQpVeB+2M1MPxjRx++E=q4mDuo7XQqfQn3-160PqG8bNLdQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] [RFC] net: phy: phy drivers should not set
+ SUPPORTED_Pause or SUPPORTED_Asym_Pause
+Date: Tue, 1 Nov 2016 12:03:57 -0700
+Message-ID: <be1c80d3-654a-65c8-3c5b-9a7bfbf8817d@gmail.com>
+References: <1478020715-25578-1-git-send-email-timur@codeaurora.org>
+ <aa0224f1-814a-d281-ad26-6c8086e40658@gmail.com>
+ <5818E2B0.80902@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-        Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Timur Tabi <timur@codeaurora.org>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:18753 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751152AbcKAS4g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 14:56:36 -0400
-In-Reply-To: <CAM_iQpVeB+2M1MPxjRx++E=q4mDuo7XQqfQn3-160PqG8bNLdQ@mail.gmail.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33775 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750749AbcKATEA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 15:04:00 -0400
+Received: by mail-pf0-f173.google.com with SMTP id d2so24672152pfd.0
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 12:03:59 -0700 (PDT)
+In-Reply-To: <5818E2B0.80902@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Nov 2016 11:32:52 -0700, Cong Wang wrote:
-> On Tue, Nov 1, 2016 at 10:28 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> > unreferenced object 0xffff8807389cba28 (size 128):
-> >   comm "swapper/0", pid 1, jiffies 4294898463 (age 781.332s)
-> >   hex dump (first 32 bytes):
-> >     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> >     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-> >   backtrace:
-> >     [<ffffffff85decad8>] kmemleak_alloc+0x28/0x50
-> >     [<ffffffff84771246>] __kmalloc+0x206/0x5a0
-> >     [<ffffffff859e1261>] genl_register_family+0x711/0x11d0
-> >     [<ffffffff888d9524>] netlbl_mgmt_genl_init+0x10/0x12
-> >     [<ffffffff888d91e8>] netlbl_netlink_init+0x9/0x26
-> >     [<ffffffff888d9254>] netlbl_init+0x4f/0x85
-> >     [<ffffffff840022b7>] do_one_initcall+0xb7/0x2a0
-> >     [<ffffffff887f9102>] kernel_init_freeable+0x597/0x636
-> >     [<ffffffff85de7793>] kernel_init+0x13/0x140
-> >     [<ffffffff85e0246a>] ret_from_fork+0x2a/0x40  
+On 11/01/2016 11:45 AM, Timur Tabi wrote:
+> Florian Fainelli wrote:
+>> So in premise, this is good, and is exactly what I have in mind for the
+>> series that I am cooking, but if we apply this alone, without a change
+>> in drivers/net/phy/phy.c which adds SUPPORTED_Pause |
+>> SUPPORTED_AsymPause to phydev->features, we are basically breaking the
+>> Ethernet MAC drivers that don't explicitly override phydev->features and
+>> yet rely on that to get flow control to work.
 > 
-> Looks like we are missing a kfree(family->attrbuf); on error path,
-> but it is not related to Johannes' recent patches.
+> That's what I figured, but I wasn't sure how to handle that.  However,
+> isn't the ability to pass pause frames a feature that some PHYs do not
+> have?  That is, does every PHY support bits 10 and 11 in register 4?
 > 
-> Could the attached patch help?
-> 
-> Thanks.
 
-Still there:
-
-unreferenced object 0xffff88073fb204e8 (size 64):
-  comm "swapper/0", pid 1, jiffies 4294898455 (age 88.528s)
-  hex dump (first 32 bytes):
-    6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-    6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-  backtrace:
-    [<ffffffff93decbf8>] kmemleak_alloc+0x28/0x50
-    [<ffffffff92771246>] __kmalloc+0x206/0x5a0
-    [<ffffffff939e1471>] genl_register_family+0x921/0x1270
-    [<ffffffff968d0ecf>] genl_init+0x11/0x43
-    [<ffffffff920022b7>] do_one_initcall+0xb7/0x2a0
-    [<ffffffff967f9102>] kernel_init_freeable+0x597/0x636
-    [<ffffffff93de78b3>] kernel_init+0x13/0x140
-    [<ffffffff93e0256a>] ret_from_fork+0x2a/0x40
-    [<ffffffffffffffff>] 0xffffffffffffffff
-
-etc.
-
-I'm getting this quite reliably on every boot.
+The standard (IEEE Std 802.3-2008) describes this as the
+Auto-negotiation advertisement register and these bits are part of the
+Technology ability field register. These two bits A5 (PAUSE operation
+for full duplex links) and A6 (Asymetric PAUSE operation for full duplex
+links) have no cabling requirement, and earlier the paragraph mentions
+this is to be resolved by the "management" entity, so I don't think the
+PHY has any business in that other than reflecting what the MAC is
+capable of doing towards the link partner, but I could be reading the
+specification incorrectly.
