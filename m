@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 05/11] net: dsa: mv88e6xxx: add port PVID accessors
-Date: Tue,  1 Nov 2016 04:20:17 +0100
-Message-ID: <20161101032023.32762-6-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 08/11] net: dsa: mv88e6xxx: add port duplex setter
+Date: Tue,  1 Nov 2016 04:20:20 +0100
+Message-ID: <20161101032023.32762-9-vivien.didelot@savoirfairelinux.com>
 References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,167 +9,241 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:39994 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161632AbcKADWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 23:22:13 -0400
 In-Reply-To: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add port functions to access the ports default VID.
+Similarly to port's link, add setter to force port's half duplex, full
+duplex or let normal duplex detection occurs.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 51 ++++------------------------------------
- drivers/net/dsa/mv88e6xxx/port.c | 38 ++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/port.h |  3 +++
- 3 files changed, 45 insertions(+), 47 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 17 +++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  7 +++++++
+ drivers/net/dsa/mv88e6xxx/port.c      | 34 ++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  2 ++
+ 4 files changed, 60 insertions(+)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 20f59f1..9c0a028 100644
+index cc43e6f..49a6935 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1288,49 +1288,6 @@ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
- 		netdev_err(ds->ports[port].netdev, "failed to flush ATU\n");
- }
+@@ -3161,6 +3161,7 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
--static int _mv88e6xxx_port_pvid(struct mv88e6xxx_chip *chip, int port,
--				u16 *new, u16 *old)
--{
--	struct dsa_switch *ds = chip->ds;
--	u16 pvid, reg;
--	int err;
--
--	err = mv88e6xxx_port_read(chip, port, PORT_DEFAULT_VLAN, &reg);
--	if (err)
--		return err;
--
--	pvid = reg & PORT_DEFAULT_VLAN_MASK;
--
--	if (new) {
--		reg &= ~PORT_DEFAULT_VLAN_MASK;
--		reg |= *new & PORT_DEFAULT_VLAN_MASK;
--
--		err = mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, reg);
--		if (err)
--			return err;
--
--		netdev_dbg(ds->ports[port].netdev,
--			   "DefaultVID %d (was %d)\n", *new, pvid);
--	}
--
--	if (old)
--		*old = pvid;
--
--	return 0;
--}
--
--static int _mv88e6xxx_port_pvid_get(struct mv88e6xxx_chip *chip,
--				    int port, u16 *pvid)
--{
--	return _mv88e6xxx_port_pvid(chip, port, NULL, pvid);
--}
--
--static int _mv88e6xxx_port_pvid_set(struct mv88e6xxx_chip *chip,
--				    int port, u16 pvid)
--{
--	return _mv88e6xxx_port_pvid(chip, port, &pvid, NULL);
--}
--
- static int _mv88e6xxx_vtu_wait(struct mv88e6xxx_chip *chip)
- {
- 	return mv88e6xxx_g1_wait(chip, GLOBAL_VTU_OP, GLOBAL_VTU_OP_BUSY);
-@@ -1510,7 +1467,7 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+ static const struct mv88e6xxx_ops mv88e6095_ops = {
+@@ -3168,6 +3169,7 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
- 	mutex_lock(&chip->reg_lock);
+ static const struct mv88e6xxx_ops mv88e6123_ops = {
+@@ -3175,6 +3177,7 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ 	.phy_read = mv88e6xxx_read,
+ 	.phy_write = mv88e6xxx_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
--	err = _mv88e6xxx_port_pvid_get(chip, port, &pvid);
-+	err = mv88e6xxx_port_get_pvid(chip, port, &pvid);
- 	if (err)
- 		goto unlock;
+ static const struct mv88e6xxx_ops mv88e6131_ops = {
+@@ -3182,6 +3185,7 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
-@@ -1958,7 +1915,7 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 				   "failed to add VLAN %d%c\n",
- 				   vid, untagged ? 'u' : 't');
+ static const struct mv88e6xxx_ops mv88e6161_ops = {
+@@ -3189,6 +3193,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
+ 	.phy_read = mv88e6xxx_read,
+ 	.phy_write = mv88e6xxx_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
--	if (pvid && _mv88e6xxx_port_pvid_set(chip, port, vlan->vid_end))
-+	if (pvid && mv88e6xxx_port_set_pvid(chip, port, vlan->vid_end))
- 		netdev_err(ds->ports[port].netdev, "failed to set PVID %d\n",
- 			   vlan->vid_end);
+ static const struct mv88e6xxx_ops mv88e6165_ops = {
+@@ -3196,6 +3201,7 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
+ 	.phy_read = mv88e6xxx_read,
+ 	.phy_write = mv88e6xxx_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
-@@ -2013,7 +1970,7 @@ static int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ static const struct mv88e6xxx_ops mv88e6171_ops = {
+@@ -3203,6 +3209,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
- 	mutex_lock(&chip->reg_lock);
+ static const struct mv88e6xxx_ops mv88e6172_ops = {
+@@ -3212,6 +3219,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
--	err = _mv88e6xxx_port_pvid_get(chip, port, &pvid);
-+	err = mv88e6xxx_port_get_pvid(chip, port, &pvid);
- 	if (err)
- 		goto unlock;
+ static const struct mv88e6xxx_ops mv88e6175_ops = {
+@@ -3219,6 +3227,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
-@@ -2023,7 +1980,7 @@ static int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
- 			goto unlock;
+ static const struct mv88e6xxx_ops mv88e6176_ops = {
+@@ -3228,6 +3237,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
  
- 		if (vid == pvid) {
--			err = _mv88e6xxx_port_pvid_set(chip, port, 0);
-+			err = mv88e6xxx_port_set_pvid(chip, port, 0);
- 			if (err)
- 				goto unlock;
- 		}
+ static const struct mv88e6xxx_ops mv88e6185_ops = {
+@@ -3235,6 +3245,7 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6240_ops = {
+@@ -3244,6 +3255,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6320_ops = {
+@@ -3253,6 +3265,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6321_ops = {
+@@ -3262,6 +3275,7 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6350_ops = {
+@@ -3269,6 +3283,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6351_ops = {
+@@ -3276,6 +3291,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6352_ops = {
+@@ -3285,6 +3301,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ };
+ 
+ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index f55b829..35420ed 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -735,6 +735,13 @@ struct mv88e6xxx_ops {
+ 	 * otherwise force link up.
+ 	 */
+ 	int (*port_set_link)(struct mv88e6xxx_chip *chip, int port, int link);
++
++	/* Port's MAC duplex mode
++	 *
++	 * Use DUPLEX_HALF or DUPLEX_FULL to force half or full duplex, or
++	 * DUPLEX_UNKNOWN for normal duplex detection.
++	 */
++	int (*port_set_duplex)(struct mv88e6xxx_chip *chip, int port, int dup);
+ };
+ 
+ enum stat_type {
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index a7da812..104fe2d 100644
+index 3b6c7c0..386db46 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -152,3 +152,41 @@ int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid)
- 
+@@ -63,6 +63,40 @@ int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link)
  	return 0;
  }
-+
-+/* Offset 0x07: Default Port VLAN ID & Priority */
-+
-+int mv88e6xxx_port_get_pvid(struct mv88e6xxx_chip *chip, int port, u16 *pvid)
+ 
++int mv88e6xxx_port_set_duplex(struct mv88e6xxx_chip *chip, int port, int dup)
 +{
 +	u16 reg;
 +	int err;
 +
-+	err = mv88e6xxx_port_read(chip, port, PORT_DEFAULT_VLAN, &reg);
++	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
 +	if (err)
 +		return err;
 +
-+	*pvid = reg & PORT_DEFAULT_VLAN_MASK;
++	reg &= ~(PORT_PCS_CTRL_FORCE_DUPLEX | PORT_PCS_CTRL_DUPLEX_FULL);
++
++	switch (dup) {
++	case DUPLEX_HALF:
++		reg |= PORT_PCS_CTRL_FORCE_DUPLEX;
++		break;
++	case DUPLEX_FULL:
++		reg |= PORT_PCS_CTRL_FORCE_DUPLEX | PORT_PCS_CTRL_DUPLEX_FULL;
++		break;
++	case DUPLEX_UNKNOWN:
++		/* normal duplex detection */
++		break;
++	}
++
++	err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
++	if (err)
++		return err;
++
++	netdev_dbg(chip->ds->ports[port].netdev, "%s %s duplex\n",
++		   reg & PORT_PCS_CTRL_FORCE_DUPLEX ? "Force" : "Unforce",
++		   reg & PORT_PCS_CTRL_DUPLEX_FULL ? "full" : "half");
 +
 +	return 0;
 +}
 +
-+int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid)
-+{
-+	u16 reg;
-+	int err;
-+
-+	err = mv88e6xxx_port_read(chip, port, PORT_DEFAULT_VLAN, &reg);
-+	if (err)
-+		return err;
-+
-+	reg &= ~PORT_DEFAULT_VLAN_MASK;
-+	reg |= pvid & PORT_DEFAULT_VLAN_MASK;
-+
-+	err = mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, reg);
-+	if (err)
-+		return err;
-+
-+	netdev_dbg(chip->ds->ports[port].netdev, "DefaultVID set to %u\n",
-+		   pvid);
-+
-+	return 0;
-+}
+ /* Offset 0x04: Port Control Register */
+ 
+ static const char * const mv88e6xxx_port_state_names[] = {
 diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index 0df29b9..4489d9e 100644
+index 87e7249..f73e90e 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.h
 +++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -28,4 +28,7 @@ int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map);
- int mv88e6xxx_port_get_fid(struct mv88e6xxx_chip *chip, int port, u16 *fid);
- int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid);
+@@ -23,6 +23,8 @@ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
  
-+int mv88e6xxx_port_get_pvid(struct mv88e6xxx_chip *chip, int port, u16 *pvid);
-+int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid);
+ int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link);
+ 
++int mv88e6xxx_port_set_duplex(struct mv88e6xxx_chip *chip, int port, int dup);
 +
- #endif /* _MV88E6XXX_PORT_H */
+ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state);
+ 
+ int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map);
 -- 
 2.10.2
