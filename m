@@ -1,40 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mv643xx_eth: ensure coalesce settings survive
- read-modify-write
-Date: Tue, 01 Nov 2016 12:18:11 -0400 (EDT)
-Message-ID: <20161101.121811.1188428674232100128.davem@davemloft.net>
-References: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded
+ ICMP errors from offending packet
+Date: Tue, 1 Nov 2016 17:25:07 +0100
+Message-ID: <af3e302e-4fd0-e63c-4520-63a6e2341c22@stressinduktion.org>
+References: <CALx6S35qmAwFfK1TNAcJJs1jK7JgM8U4MCh3wC8hkuf2qae+sw@mail.gmail.com>
+ <8760oa9egg.fsf@redhat.com>
+ <CALx6S36r0gzZ7ndmivsygZD9vX+EEv2sVEP=rmhQVzGB46Rkdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org
-To: rmk+kernel@armlinux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47392 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751695AbcKAQSN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 12:18:13 -0400
-In-Reply-To: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>
+To: Tom Herbert <tom@herbertland.com>, Jakub Sitnicki <jkbs@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALx6S36r0gzZ7ndmivsygZD9vX+EEv2sVEP=rmhQVzGB46Rkdg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Tue, 01 Nov 2016 10:50:01 +0000
+On 31.10.2016 20:25, Tom Herbert wrote:
+> The normal hash for TCP or UDP using ECMP is over <protocol, srcIP,
+> dstIP, srcPort, dstPort>. For an ICMP packet ECMP would most likely be
+> done over <protocol, srcIP, dstIP>. There really is no way to ensure
+> that an ICMP packet will follow the same path as TCP or any other
+> protocol. Fortunately, this is really isn't so terrible. The Internet
+> has worked this way ever since routers started using ports as input to
+> ECMP and that hasn't caused any major meltdown.
 
-> The coalesce settings behave badly when changing just one value:
-> 
-> ... # ethtool -c eth0
-> rx-usecs: 249
-> ... # ethtool -C eth0 tx-usecs 250
-> ... # ethtool -c eth0
-> rx-usecs: 248
-> 
-> This occurs due to rounding errors when calculating the microseconds
-> value - the divisons round down.  This causes (eg) the rx-usecs to
-> decrease by one every time the tx-usecs value is set as per the above.
-> 
-> Fix this by making the divison round-to-nearest.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+The normal hash for forwarding is without srcPort or dstPort, so the
+same as ICMP and especially also because of fragmentation problematic I
+don't think a lot of routers use L4 port information for ECMP either.
 
-Applied, thanks.
+Bye,
+Hannes
