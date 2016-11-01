@@ -1,7 +1,7 @@
 From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v4 1/7] net: phy: broadcom: add bcm54xx_auxctl_read
-Date: Tue,  1 Nov 2016 16:04:36 -0400
-Message-ID: <1478030682-27012-2-git-send-email-jon.mason@broadcom.com>
+Subject: [PATCH v4 3/7] net: phy: broadcom: Add BCM54810 PHY entry
+Date: Tue,  1 Nov 2016 16:04:38 -0400
+Message-ID: <1478030682-27012-4-git-send-email-jon.mason@broadcom.com>
 References: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,47 +25,184 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Add a helper function to read the AUXCTL register for the BCM54xx.  This
-mirrors the bcm54xx_auxctl_write function already present in the code.
+The BCM54810 PHY requires some semi-unique configuration, which results
+in some additional configuration in addition to the standard config.
+Also, some users of the BCM54810 require the PHY lanes to be swapped.
+Since there is no way to detect this, add a device tree query to see if
+it is applicable.
 
+Inspired-by: Vikas Soni <vsoni@broadcom.com>
 Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 ---
- drivers/net/phy/broadcom.c | 10 ++++++++++
- include/linux/brcmphy.h    |  1 +
- 2 files changed, 11 insertions(+)
+ drivers/net/phy/Kconfig    |  2 +-
+ drivers/net/phy/broadcom.c | 58 +++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/brcmphy.h    |  9 +++++++
+ 3 files changed, 67 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 45f68ea..31967ca 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -217,7 +217,7 @@ config BROADCOM_PHY
+ 	select BCM_NET_PHYLIB
+ 	---help---
+ 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S, BCM5464,
+-	  BCM5481 and BCM5482 PHYs.
++	  BCM5481, BCM54810 and BCM5482 PHYs.
+ 
+ config CICADA_PHY
+ 	tristate "Cicada PHYs"
 diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 583ef8a..3a64b3d 100644
+index 3a64b3d..b1e32e9 100644
 --- a/drivers/net/phy/broadcom.c
 +++ b/drivers/net/phy/broadcom.c
-@@ -30,6 +30,16 @@ MODULE_DESCRIPTION("Broadcom PHY driver");
- MODULE_AUTHOR("Maciej W. Rozycki");
- MODULE_LICENSE("GPL");
+@@ -18,7 +18,7 @@
+ #include <linux/module.h>
+ #include <linux/phy.h>
+ #include <linux/brcmphy.h>
+-
++#include <linux/of.h>
  
-+static int bcm54xx_auxctl_read(struct phy_device *phydev, u16 regnum)
+ #define BRCM_PHY_MODEL(phydev) \
+ 	((phydev)->drv->phy_id & (phydev)->drv->phy_id_mask)
+@@ -45,6 +45,34 @@ static int bcm54xx_auxctl_write(struct phy_device *phydev, u16 regnum, u16 val)
+ 	return phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum | val);
+ }
+ 
++static int bcm54810_config(struct phy_device *phydev)
 +{
-+	/* The register must be written to both the Shadow Register Select and
-+	 * the Shadow Read Register Selector
-+	 */
-+	phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum |
-+		  regnum << MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT);
-+	return phy_read(phydev, MII_BCM54XX_AUX_CTL);
++	int rc, val;
++
++	val = bcm_phy_read_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL);
++	val &= ~BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN;
++	rc = bcm_phy_write_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL,
++			       val);
++	if (rc < 0)
++		return rc;
++
++	val = bcm54xx_auxctl_read(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
++	val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
++	val |= MII_BCM54XX_AUXCTL_MISC_WREN;
++	rc = bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
++				  val);
++	if (rc < 0)
++		return rc;
++
++	val = bcm_phy_read_shadow(phydev, BCM54810_SHD_CLK_CTL);
++	val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
++	rc = bcm_phy_write_shadow(phydev, BCM54810_SHD_CLK_CTL, val);
++	if (rc < 0)
++		return rc;
++
++	return 0;
 +}
 +
- static int bcm54xx_auxctl_write(struct phy_device *phydev, u16 regnum, u16 val)
+ /* Needs SMDSP clock enabled via bcm54xx_phydsp_config() */
+ static int bcm50610_a0_workaround(struct phy_device *phydev)
  {
- 	return phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum | val);
+@@ -217,6 +245,12 @@ static int bcm54xx_config_init(struct phy_device *phydev)
+ 	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
+ 		bcm54xx_adjust_rxrefclk(phydev);
+ 
++	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810) {
++		err = bcm54810_config(phydev);
++		if (err)
++			return err;
++	}
++
+ 	bcm54xx_phydsp_config(phydev);
+ 
+ 	return 0;
+@@ -314,6 +348,7 @@ static int bcm5482_read_status(struct phy_device *phydev)
+ 
+ static int bcm5481_config_aneg(struct phy_device *phydev)
+ {
++	struct device_node *np = phydev->mdio.dev.of_node;
+ 	int ret;
+ 
+ 	/* Aneg firsly. */
+@@ -344,6 +379,14 @@ static int bcm5481_config_aneg(struct phy_device *phydev)
+ 		phy_write(phydev, 0x18, reg);
+ 	}
+ 
++	if (of_property_read_bool(np, "enet-phy-lane-swap")) {
++		/* Lane Swap - Undocumented register...magic! */
++		ret = bcm_phy_write_exp(phydev, MII_BCM54XX_EXP_SEL_ER + 0x9,
++					0x11B);
++		if (ret < 0)
++			return ret;
++	}
++
+ 	return ret;
+ }
+ 
+@@ -578,6 +621,18 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.ack_interrupt	= bcm_phy_ack_intr,
+ 	.config_intr	= bcm_phy_config_intr,
+ }, {
++	.phy_id         = PHY_ID_BCM54810,
++	.phy_id_mask    = 0xfffffff0,
++	.name           = "Broadcom BCM54810",
++	.features       = PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init    = bcm54xx_config_init,
++	.config_aneg    = bcm5481_config_aneg,
++	.read_status    = genphy_read_status,
++	.ack_interrupt  = bcm_phy_ack_intr,
++	.config_intr    = bcm_phy_config_intr,
++}, {
+ 	.phy_id		= PHY_ID_BCM5482,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5482",
+@@ -661,6 +716,7 @@ static struct mdio_device_id __maybe_unused broadcom_tbl[] = {
+ 	{ PHY_ID_BCM54616S, 0xfffffff0 },
+ 	{ PHY_ID_BCM5464, 0xfffffff0 },
+ 	{ PHY_ID_BCM5481, 0xfffffff0 },
++	{ PHY_ID_BCM54810, 0xfffffff0 },
+ 	{ PHY_ID_BCM5482, 0xfffffff0 },
+ 	{ PHY_ID_BCM50610, 0xfffffff0 },
+ 	{ PHY_ID_BCM50610M, 0xfffffff0 },
 diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 60def78..0ed6691 100644
+index 0ed6691..848dc50 100644
 --- a/include/linux/brcmphy.h
 +++ b/include/linux/brcmphy.h
-@@ -110,6 +110,7 @@
- #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
+@@ -13,6 +13,7 @@
+ #define PHY_ID_BCM5241			0x0143bc30
+ #define PHY_ID_BCMAC131			0x0143bc70
+ #define PHY_ID_BCM5481			0x0143bca0
++#define PHY_ID_BCM54810			0x03625d00
+ #define PHY_ID_BCM5482			0x0143bcb0
+ #define PHY_ID_BCM5411			0x00206070
+ #define PHY_ID_BCM5421			0x002060e0
+@@ -56,6 +57,7 @@
+ #define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00002000
+ #define PHY_BRCM_CLEAR_RGMII_MODE	0x00004000
+ #define PHY_BRCM_DIS_TXCRXC_NOENRGY	0x00008000
++
+ /* Broadcom BCM7xxx specific workarounds */
+ #define PHY_BRCM_7XXX_REV(x)		(((x) >> 8) & 0xff)
+ #define PHY_BRCM_7XXX_PATCH(x)		((x) & 0xff)
+@@ -111,6 +113,7 @@
  #define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
  #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
-+#define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
+ #define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
++#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN	(1 << 8)
  
  #define MII_BCM54XX_AUXCTL_SHDWSEL_MASK	0x0007
  
+@@ -192,6 +195,12 @@
+ #define BCM5482_SSD_SGMII_SLAVE_EN	0x0002	/* Slave mode enable */
+ #define BCM5482_SSD_SGMII_SLAVE_AD	0x0001	/* Slave auto-detection */
+ 
++/* BCM54810 Registers */
++#define BCM54810_EXP_BROADREACH_LRE_MISC_CTL	(MII_BCM54XX_EXP_SEL_ER + 0x90)
++#define BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN	(1 << 0)
++#define BCM54810_SHD_CLK_CTL			0x3
++#define BCM54810_SHD_CLK_CTL_GTXCLK_EN		(1 << 9)
++
+ 
+ /*****************************************************************************/
+ /* Fast Ethernet Transceiver definitions. */
 -- 
 2.7.4
