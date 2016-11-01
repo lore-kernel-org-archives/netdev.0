@@ -1,51 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/6] net: phy: broadcom: Add BCM54810 PHY entry
-Date: Tue, 1 Nov 2016 17:26:48 +0100
-Message-ID: <20161101162648.GG10785@lunn.ch>
-References: <1477688219-3871-1-git-send-email-jon.mason@broadcom.com>
- <1477688219-3871-3-git-send-email-jon.mason@broadcom.com>
- <20161029081839.GA32579@lunn.ch>
- <20161101155950.GA19378@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 2/4] net: ethernet: ti: cpsw: fix device and
+ of_node leaks
+Date: Tue, 01 Nov 2016 12:27:11 -0400 (EDT)
+Message-ID: <20161101.122711.1685573538225505004.davem@davemloft.net>
+References: <1477998217-30143-1-git-send-email-johan@kernel.org>
+        <1477998217-30143-3-git-send-email-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, rafal@milecki.pl,
-        linux-arm-kernel@lists.infradead.org
-To: Jon Mason <jon.mason@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, yisen.zhuang@huawei.com,
+        salil.mehta@huawei.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: johan@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161101155950.GA19378@broadcom.com>
+In-Reply-To: <1477998217-30143-3-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > > +	if (of_property_read_bool(np, "brcm,enet-phy-lane-swap")) {
-> > > +		/* Lane Swap - Undocumented register...magic! */
-> > > +		ret = bcm_phy_write_exp(phydev, MII_BCM54XX_EXP_SEL_ER + 0x9,
-> > > +					0x11B);
-> > > +		if (ret < 0)
-> > > +			return ret;
-> > > +	}
-> > > +
-> > 
-> > I wounder if this property could be made generic? What exactly are you
-> > swapping? Rx and Tx lanes? Maybe we should add it to phy.txt?
-> 
-> Are you envisioning adding a DT check (similar to the
-> of_property_read_bool above, only with a more generic string) in
-> phy_device_create(), which will then set a PHY device flag?  This flag
-> would then be checked for in the PHY driver and the appropriate action
-> taken (in this case the bcm_phy_write_exp above).
+From: Johan Hovold <johan@kernel.org>
+Date: Tue,  1 Nov 2016 12:03:35 +0100
 
-I would keep the parsing of the property in the driver. But if we
-think other PHYs could also support this feature, it would be good to
-avoid having "brcm,enet-phy-lane-swap", "marvell,enet-phy-lane-swap",
-"davicom,enet-phy-lane-swap", etc. It would be better to have one well
-defined property documented in phy.txt which any PHY is free to
-implement.
+> diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+> index 054a8dd23dae..589beb843f56 100644
+> --- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
+> +++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+> @@ -176,8 +176,11 @@ void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave)
+>  	}
+>  
+>  	dev = bus_find_device(&platform_bus_type, NULL, node, match);
+> +	of_node_put(node);
+>  	priv = dev_get_drvdata(dev);
+>  
+> +	put_device(dev);
+> +
+>  	priv->cpsw_phy_sel(priv, phy_mode, slave);
+>  }
+>  EXPORT_SYMBOL_GPL(cpsw_phy_sel);
 
-	Andrew
+The only reference you have to 'dev' is the one obtained from the
+bus_find_device() call, therefore you must at least hold onto
+'dev' until after the priv->cpsw_phy_sel(priv, phy_mode, slave); call.
