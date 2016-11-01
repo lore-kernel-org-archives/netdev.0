@@ -1,53 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
-Date: Tue, 1 Nov 2016 10:32:17 +0100
-Message-ID: <20161101093216.GE28143@verge.net.au>
-References: <1477934018-13968-1-git-send-email-geert+renesas@glider.be>
- <20161031.132431.648834397805808388.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 04/11] net: dsa: mv88e6xxx: add port FID
+ accessors
+Date: Tue, 1 Nov 2016 10:38:19 +0100
+Message-ID: <20161101093819.GA2802@lunn.ch>
+References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
+ <20161101032023.32762-5-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: geert+renesas@glider.be, sergei.shtylyov@cogentembedded.com,
-        arnd@arndb.de, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56233 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1422780AbcKAJcX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 05:32:23 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:59658 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1168260AbcKAJiX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 05:38:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20161031.132431.648834397805808388.davem@davemloft.net>
+In-Reply-To: <20161101032023.32762-5-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 31, 2016 at 01:24:31PM -0400, David Miller wrote:
-> From: Geert Uytterhoeven <geert+renesas@glider.be>
-> Date: Mon, 31 Oct 2016 18:13:38 +0100
-> 
-> > The limitation to 10/100Mbit speeds on R-Car Gen3 is valid for R-Car H3
-> > ES1.0 only. Check for the exact SoC model to allow 1Gbps on newer
-> > revisions of R-Car H3, and on R-Car M3-W.
-> > 
-> > Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> > ---
-> > Tested on:
-> >   - r8a7795/salvator-x with R-Car H3 ES1.0 (limited to 100Mbps),
-> >   - r8a7795/salvator-x with R-Car H3 ES1.1 (1Gbps),
-> >   - r8a7796/salvator-x with R-Car M3-W ES1.0 (1Gbps).
-> > 
-> > This is marked as an RFC because it depends on:
-> >   A) the soc_device_match() infrastructure,
-> >   B) Renesas SoC core ESx.y handling.
-> > Hence I think the best merge strategy is to let this patch go in through
-> > Simon's Renesas tree.
-> > 
-> > David: If you agree, can you please provide your ack? Thanks!
-> 
-> Sure, no problem:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> --- a/drivers/net/dsa/mv88e6xxx/port.c
+> +++ b/drivers/net/dsa/mv88e6xxx/port.c
+> @@ -61,6 +61,8 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
+>  	return 0;
+>  }
+>  
+> +/* Offset 0x05: Port Control 1 */
+> +
+>  /* Offset 0x06: Port Based VLAN Map */
+>  
+>  int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
 
-Thanks Dave.
+Hi Vivien
 
-Geert, please repost or otherwise ping me once the dependencies are in
-place and I should queue this up.
+This comment seems in an odd place.
+
+     Andrew
