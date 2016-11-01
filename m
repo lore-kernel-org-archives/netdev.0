@@ -1,119 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] tcp: enhance tcp collapsing
-Date: Tue, 01 Nov 2016 10:53:42 -0700
-Message-ID: <1478022822.7065.351.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <VI1PR0502MB29577BA8C670D1379CC4F1B7D4A10@VI1PR0502MB2957.eurprd05.prod.outlook.com>
-         <1478007189.7065.331.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1478014346.7065.342.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Scott Branden <scott.branden@broadcom.com>
+Subject: Re: [PATCH v3 0/6] add NS2 support to bgmac
+Date: Tue, 1 Nov 2016 11:01:19 -0700
+Message-ID: <cc2554bf-2700-9d9b-b012-15e82681b31b@broadcom.com>
+References: <1478022694-25308-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:32783 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753835AbcKARxo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 13:53:44 -0400
-Received: by mail-pf0-f196.google.com with SMTP id a136so8832515pfa.0
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 10:53:44 -0700 (PDT)
-In-Reply-To: <1478014346.7065.342.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478022694-25308-1-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Jon,
 
-As Ilya Lesokhin suggested, we can collapse two skbs at retransmit
-time even if the skb at the right has fragments.
+On 16-11-01 10:51 AM, Jon Mason wrote:
+> Changes in v3:
+> * Clean-up the bgmac DT binding doc (per Rob Herring)
+> * Document the lane swap binding and make it generic (Per Andrew Lunn)
+Where is the documentation of the lane swap binding?
 
-We simply have to use more generic skb_copy_bits() instead of
-skb_copy_from_linear_data() in tcp_collapse_retrans()
-
-Also need to guard this skb_copy_bits() in case there is nothing to
-copy, otherwise skb_put() could panic if left skb has frags.
-
-Tested:
-
-Used following packetdrill test
-
-// Establish a connection.
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-   +0 bind(3, ..., ...) = 0
-   +0 listen(3, 1) = 0
-
-   +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
-   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
-+.100 < . 1:1(0) ack 1 win 257
-   +0 accept(3, ..., ...) = 4
-
-   +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
-   +0 write(4, ..., 200) = 200
-   +0 > P. 1:201(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 201:401(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 401:601(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 601:801(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 801:1001(200) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1001:1101(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1101:1201(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1201:1301(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1301:1401(100) ack 1
-
-+.100 < . 1:1(0) ack 1 win 257 <nop,nop,sack 1001:1401>
-// Check that TCP collapse works :
-   +0 > P. 1:1001(1000) ack 1
-
-
-Reported-by: Ilya Lesokhin <ilyal@mellanox.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_output.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 896e9dfbdb5cd9ca0fa003f6be2c5cd332dde7cf..f57b5aa51b59cf0a58975fe34a7dcdb886ea8c50 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2529,8 +2529,9 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
- 
- 	tcp_unlink_write_queue(next_skb, sk);
- 
--	skb_copy_from_linear_data(next_skb, skb_put(skb, next_skb_size),
--				  next_skb_size);
-+	if (next_skb_size)
-+		skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size),
-+			      next_skb_size);
- 
- 	if (next_skb->ip_summed == CHECKSUM_PARTIAL)
- 		skb->ip_summed = CHECKSUM_PARTIAL;
-@@ -2567,14 +2568,11 @@ static bool tcp_can_collapse(const struct sock *sk, const struct sk_buff *skb)
- {
- 	if (tcp_skb_pcount(skb) > 1)
- 		return false;
--	/* TODO: SACK collapsing could be used to remove this condition */
--	if (skb_shinfo(skb)->nr_frags != 0)
--		return false;
- 	if (skb_cloned(skb))
- 		return false;
- 	if (skb == tcp_send_head(sk))
- 		return false;
--	/* Some heurestics for collapsing over SACK'd could be invented */
-+	/* Some heuristics for collapsing over SACK'd could be invented */
- 	if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)
- 		return false;
- 
+>
+>
+> Changes in v2:
+> * Remove the PHY power-on (per Andrew Lunn)
+> * Misc PHY clean-ups regarding comments and #defines (per Andrew Lunn)
+>   This results on none of the original PHY code from Vikas being
+>   present.  So, I'm removing him as an author and giving him
+>   "Inspired-by" credit.
+> * Move PHY lane swapping to PHY driver (per Andrew Lunn and Florian
+>   Fainelli)
+> * Remove bgmac sleep (per Florian Fainelli)
+> * Re-add bgmac chip reset (per Florian Fainelli and Ray Jui)
+> * Rebased on latest net-next
+> * Added patch for bcm54xx_auxctl_read, which is used in the BCM54810
+>
+>
+> Add support for the amac found in the Broadcom Northstar2 SoC to the
+> bgmac driver.  This necessitates adding support to connect to an
+> externally defined phy (as described in the device tree) in the driver.
+> These phy changes are in addition to the changes necessary to get NS2
+> working.
+>
+>
+> Jon Mason (6):
+>   net: phy: broadcom: add bcm54xx_auxctl_read
+>   net: phy: broadcom: Add BCM54810 PHY entry
+>   Documentation: devicetree: net: add NS2 bindings to amac
+>   net: ethernet: bgmac: device tree phy enablement
+>   net: ethernet: bgmac: add NS2 support
+>   arm64: dts: NS2: add AMAC ethernet support
+>
+>  .../devicetree/bindings/net/brcm,amac.txt          |  16 ++--
+>  arch/arm64/boot/dts/broadcom/ns2-svk.dts           |   5 ++
+>  arch/arm64/boot/dts/broadcom/ns2.dtsi              |  12 +++
+>  drivers/net/ethernet/broadcom/bgmac-bcma.c         |  48 ++++++++++
+>  drivers/net/ethernet/broadcom/bgmac-platform.c     | 100 ++++++++++++++++++++-
+>  drivers/net/ethernet/broadcom/bgmac.c              |  55 ++----------
+>  drivers/net/ethernet/broadcom/bgmac.h              |   8 ++
+>  drivers/net/phy/Kconfig                            |   2 +-
+>  drivers/net/phy/broadcom.c                         |  68 +++++++++++++-
+>  include/linux/brcmphy.h                            |  11 +++
+>  10 files changed, 268 insertions(+), 57 deletions(-)
+>
