@@ -1,166 +1,84 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: 3com: typhoon: use new api ethtool_{get|set}_link_ksettings
-Date: Wed,  2 Nov 2016 00:11:51 +0100
-Message-ID: <1478041911-22188-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: dave@thedillows.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Subject: Re: [PATCH] net: smsc911x: Synchronize the runtime PM status during
+ system suspend
+Date: Wed, 2 Nov 2016 00:53:42 +0100
+Message-ID: <CAPDyKFpVmqNcPPsdSyFU4ZRh4TNHtKhiAEW6TCbf-LU7+3odrQ@mail.gmail.com>
+References: <1477567434-5128-1-git-send-email-ulf.hansson@linaro.org>
+ <CAMuHMdUbU07t2kB6J0rSOiOTbDkegP73FAAEenViuDjQUFE-Jg@mail.gmail.com>
+ <CAPDyKFprWcita5sbdwTqbdi2CMW4gx7_UB7+kMd9R2rqXdcALQ@mail.gmail.com> <3305877.UjuP622RYi@vostro.rjw.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+        Alan Stern <stern@rowland.harvard.edu>,
+        Linux PM list <linux-pm@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+        Kevin Hilman <khilman@kernel.org>,
+        Lina Iyer <lina.iyer@linaro.org>,
+        Jon Hunter <jonathanh@nvidia.com>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Steve Glendinning <steve.glendinning@shawell.net>
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <3305877.UjuP622RYi@vostro.rjw.lan>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On 1 November 2016 at 05:19, Rafael J. Wysocki <rjw@rjwysocki.net> wrote:
+> On Thursday, October 27, 2016 01:53:03 PM Ulf Hansson wrote:
+>> On 27 October 2016 at 13:41, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+>> > Hi Ulf,
+>> >
+>> > On Thu, Oct 27, 2016 at 1:23 PM, Ulf Hansson <ulf.hansson@linaro.org> wrote:
+>> >> The smsc911c driver puts its device into low power state when entering
+>> >> system suspend. Although it doesn't update the device's runtime PM status
+>> >> to RPM_SUSPENDED, which causes problems for a parent device.
+>> >>
+>> >> In particular, when the runtime PM status of the parent is requested to be
+>> >> updated to RPM_SUSPENDED, the runtime PM core prevent this, because it's
+>> >> forbidden to runtime suspend a device, which has an active child.
+>> >>
+>> >> Fix this by updating the runtime PM status of the smsc911x device to
+>> >> RPM_SUSPENDED during system suspend. In system resume, let's reverse that
+>> >> action by runtime resuming the device and thus also the parent.
+>> >
+>> > Thanks for your patch!
+>> >
+>> > The changelog sounds quite innocent, but this does fix a system crash
+>> > during resume from s2ram.
+>> >
+>> >> Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
+>> >> Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
+>> >> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+>> >> Fixes: 8b1107b85efd ("PM / Runtime: Don't allow to suspend a device with an active child")
+>> >
+>> > While the abovementioned commit made the problem visible, the root cause
+>> > was present before, right?
+>>
+>> Yes.
+>>
+>> >
+>> >> ---
+>> >>
+>> >> Note that the commit this change fixes is currently queued for 4.10 via
+>> >> Rafael's linux-pm tree. So this fix should go via that tree as well.
+>> >
+>> > Alternatively, this could go in in v4.9 to avoid the problem from ever
+>> > appearing in upstream?
+>>
+>> Makes perfect sense! In that case we should remove the fixes tag.
+>>
+>> Rafael, can you pick this up for 4.9 rc[n]?
+>
+> If that is to go into 4.9-rc, it really should go in via the networking tree,
+> because there is no PM dependency for it as of today.
+>
+> I can rearrange my 4.10 queue to put this one before the runtime PM commit
+> exposing the problem in smsc911x, though.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/3com/typhoon.c |   60 +++++++++++++++++-----------------
- 1 files changed, 30 insertions(+), 30 deletions(-)
+As we spoked at LPC today, I don't mind if you take care of this
+through your tree.
 
-diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
-index 506b507..dbdf06f 100644
---- a/drivers/net/ethernet/3com/typhoon.c
-+++ b/drivers/net/ethernet/3com/typhoon.c
-@@ -996,28 +996,30 @@ enum state_values {
- }
- 
- static int
--typhoon_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+typhoon_get_link_ksettings(struct net_device *dev,
-+			   struct ethtool_link_ksettings *cmd)
- {
- 	struct typhoon *tp = netdev_priv(dev);
-+	u32 supported, advertising;
- 
--	cmd->supported = SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
-+	supported = SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
- 				SUPPORTED_Autoneg;
- 
- 	switch (tp->xcvr_select) {
- 	case TYPHOON_XCVR_10HALF:
--		cmd->advertising = ADVERTISED_10baseT_Half;
-+		advertising = ADVERTISED_10baseT_Half;
- 		break;
- 	case TYPHOON_XCVR_10FULL:
--		cmd->advertising = ADVERTISED_10baseT_Full;
-+		advertising = ADVERTISED_10baseT_Full;
- 		break;
- 	case TYPHOON_XCVR_100HALF:
--		cmd->advertising = ADVERTISED_100baseT_Half;
-+		advertising = ADVERTISED_100baseT_Half;
- 		break;
- 	case TYPHOON_XCVR_100FULL:
--		cmd->advertising = ADVERTISED_100baseT_Full;
-+		advertising = ADVERTISED_100baseT_Full;
- 		break;
- 	case TYPHOON_XCVR_AUTONEG:
--		cmd->advertising = ADVERTISED_10baseT_Half |
-+		advertising = ADVERTISED_10baseT_Half |
- 					    ADVERTISED_10baseT_Full |
- 					    ADVERTISED_100baseT_Half |
- 					    ADVERTISED_100baseT_Full |
-@@ -1026,54 +1028,52 @@ enum state_values {
- 	}
- 
- 	if(tp->capabilities & TYPHOON_FIBER) {
--		cmd->supported |= SUPPORTED_FIBRE;
--		cmd->advertising |= ADVERTISED_FIBRE;
--		cmd->port = PORT_FIBRE;
-+		supported |= SUPPORTED_FIBRE;
-+		advertising |= ADVERTISED_FIBRE;
-+		cmd->base.port = PORT_FIBRE;
- 	} else {
--		cmd->supported |= SUPPORTED_10baseT_Half |
-+		supported |= SUPPORTED_10baseT_Half |
- 		    			SUPPORTED_10baseT_Full |
- 					SUPPORTED_TP;
--		cmd->advertising |= ADVERTISED_TP;
--		cmd->port = PORT_TP;
-+		advertising |= ADVERTISED_TP;
-+		cmd->base.port = PORT_TP;
- 	}
- 
- 	/* need to get stats to make these link speed/duplex valid */
- 	typhoon_do_get_stats(tp);
--	ethtool_cmd_speed_set(cmd, tp->speed);
--	cmd->duplex = tp->duplex;
--	cmd->phy_address = 0;
--	cmd->transceiver = XCVR_INTERNAL;
-+	cmd->base.speed = tp->speed;
-+	cmd->base.duplex = tp->duplex;
-+	cmd->base.phy_address = 0;
- 	if(tp->xcvr_select == TYPHOON_XCVR_AUTONEG)
--		cmd->autoneg = AUTONEG_ENABLE;
-+		cmd->base.autoneg = AUTONEG_ENABLE;
- 	else
--		cmd->autoneg = AUTONEG_DISABLE;
--	cmd->maxtxpkt = 1;
--	cmd->maxrxpkt = 1;
-+		cmd->base.autoneg = AUTONEG_DISABLE;
- 
- 	return 0;
- }
- 
- static int
--typhoon_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+typhoon_set_link_ksettings(struct net_device *dev,
-+			   const struct ethtool_link_ksettings *cmd)
- {
- 	struct typhoon *tp = netdev_priv(dev);
--	u32 speed = ethtool_cmd_speed(cmd);
-+	u32 speed = cmd->base.speed;
- 	struct cmd_desc xp_cmd;
- 	__le16 xcvr;
- 	int err;
- 
- 	err = -EINVAL;
--	if (cmd->autoneg == AUTONEG_ENABLE) {
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
- 		xcvr = TYPHOON_XCVR_AUTONEG;
- 	} else {
--		if (cmd->duplex == DUPLEX_HALF) {
-+		if (cmd->base.duplex == DUPLEX_HALF) {
- 			if (speed == SPEED_10)
- 				xcvr = TYPHOON_XCVR_10HALF;
- 			else if (speed == SPEED_100)
- 				xcvr = TYPHOON_XCVR_100HALF;
- 			else
- 				goto out;
--		} else if (cmd->duplex == DUPLEX_FULL) {
-+		} else if (cmd->base.duplex == DUPLEX_FULL) {
- 			if (speed == SPEED_10)
- 				xcvr = TYPHOON_XCVR_10FULL;
- 			else if (speed == SPEED_100)
-@@ -1091,12 +1091,12 @@ enum state_values {
- 		goto out;
- 
- 	tp->xcvr_select = xcvr;
--	if(cmd->autoneg == AUTONEG_ENABLE) {
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
- 		tp->speed = 0xff;	/* invalid */
- 		tp->duplex = 0xff;	/* invalid */
- 	} else {
- 		tp->speed = speed;
--		tp->duplex = cmd->duplex;
-+		tp->duplex = cmd->base.duplex;
- 	}
- 
- out:
-@@ -1145,13 +1145,13 @@ enum state_values {
- }
- 
- static const struct ethtool_ops typhoon_ethtool_ops = {
--	.get_settings		= typhoon_get_settings,
--	.set_settings		= typhoon_set_settings,
- 	.get_drvinfo		= typhoon_get_drvinfo,
- 	.get_wol		= typhoon_get_wol,
- 	.set_wol		= typhoon_set_wol,
- 	.get_link		= ethtool_op_get_link,
- 	.get_ringparam		= typhoon_get_ringparam,
-+	.get_link_ksettings	= typhoon_get_link_ksettings,
-+	.set_link_ksettings	= typhoon_set_link_ksettings,
- };
- 
- static int
--- 
-1.7.4.4
+Kind regards
+Uffe
