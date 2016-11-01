@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 07/11] net: dsa: mv88e6xxx: add port link setter
-Date: Tue,  1 Nov 2016 04:20:19 +0100
-Message-ID: <20161101032023.32762-8-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 11/11] net: dsa: mv88e6xxx: setup port's MAC
+Date: Tue,  1 Nov 2016 04:20:23 +0100
+Message-ID: <20161101032023.32762-12-vivien.didelot@savoirfairelinux.com>
 References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,224 +14,187 @@ In-Reply-To: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Most of the chips will have a port register control bits to force the
-port's link up, down, or let normal link detection occurs.
+Now that we have setters to configure the port's MAC, use them to
+refactor the port setup and adjust_link code.
 
-Implement such operation to use it later when setting duplex, etc.
+Note that port's MAC speed, duplex or RGMII delay must not be changed
+unless the port's link is forced down. So wrap all that in a
+mv88e6xxx_port_ctrl_mac function.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 17 +++++++++++++++++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  8 ++++++++
- drivers/net/dsa/mv88e6xxx/port.c      | 33 +++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/port.h      |  2 ++
- 4 files changed, 60 insertions(+)
+ drivers/net/dsa/mv88e6xxx/chip.c | 138 ++++++++++++++++-----------------------
+ 1 file changed, 58 insertions(+), 80 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 181d3b9..cc43e6f 100644
+index 23c05e3..56d60fd 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3160,42 +3160,49 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
- 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
- 	.phy_read = mv88e6xxx_phy_ppu_read,
- 	.phy_write = mv88e6xxx_phy_ppu_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6095_ops = {
- 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
- 	.phy_read = mv88e6xxx_phy_ppu_read,
- 	.phy_write = mv88e6xxx_phy_ppu_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6123_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_read,
- 	.phy_write = mv88e6xxx_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6131_ops = {
- 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
- 	.phy_read = mv88e6xxx_phy_ppu_read,
- 	.phy_write = mv88e6xxx_phy_ppu_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6161_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_read,
- 	.phy_write = mv88e6xxx_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6165_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_read,
- 	.phy_write = mv88e6xxx_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6171_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6172_ops = {
-@@ -3204,12 +3211,14 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6175_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6176_ops = {
-@@ -3218,12 +3227,14 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6185_ops = {
- 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
- 	.phy_read = mv88e6xxx_phy_ppu_read,
- 	.phy_write = mv88e6xxx_phy_ppu_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6240_ops = {
-@@ -3232,6 +3243,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6320_ops = {
-@@ -3240,6 +3252,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6321_ops = {
-@@ -3248,18 +3261,21 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6350_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6351_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_ops mv88e6352_ops = {
-@@ -3268,6 +3284,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
- 	.phy_read = mv88e6xxx_g2_smi_phy_read,
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
- };
- 
- static const struct mv88e6xxx_info mv88e6xxx_table[] = {
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 6f48e58..f55b829 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -727,6 +727,14 @@ struct mv88e6xxx_ops {
- 			u16 *val);
- 	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
- 			 u16 val);
-+
-+#define LINK_UNKNOWN	-1
-+
-+	/* Port's MAC link state
-+	 * LINK_UNKNOWN for normal link detection, 0 to force link down,
-+	 * otherwise force link up.
-+	 */
-+	int (*port_set_link)(struct mv88e6xxx_chip *chip, int port, int link);
- };
- 
- enum stat_type {
-diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 53d17e6..3b6c7c0 100644
---- a/drivers/net/dsa/mv88e6xxx/port.c
-+++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -30,6 +30,39 @@ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
- 	return mv88e6xxx_write(chip, addr, reg, val);
+@@ -701,6 +701,47 @@ static bool mv88e6xxx_6352_family(struct mv88e6xxx_chip *chip)
+ 	return chip->info->family == MV88E6XXX_FAMILY_6352;
  }
  
-+/* Offset 0x01: MAC (or PCS or Physical) Control Register
-+ *
-+ * Link, Duplex and Flow Control have one force bit, one value bit.
-+ */
-+
-+int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link)
++static int mv88e6xxx_port_ctrl_mac(struct mv88e6xxx_chip *chip, int port,
++				   int link, int speed, int duplex,
++				   phy_interface_t mode)
 +{
-+	u16 reg;
 +	int err;
 +
-+	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
++	if (!chip->info->ops->port_set_link)
++		return 0;
++
++	/* Port's MAC control must not be changed unless the link is down */
++	err = chip->info->ops->port_set_link(chip, port, 0);
 +	if (err)
 +		return err;
 +
-+	reg &= ~(PORT_PCS_CTRL_FORCE_LINK | PORT_PCS_CTRL_LINK_UP);
-+
-+	if (link != LINK_UNKNOWN) {
-+		reg |= PORT_PCS_CTRL_FORCE_LINK;
-+		if (link)
-+			reg |= PORT_PCS_CTRL_LINK_UP;
++	if (chip->info->ops->port_set_speed) {
++		err = chip->info->ops->port_set_speed(chip, port, speed);
++		if (err && err != -EOPNOTSUPP)
++			goto restore_link;
 +	}
 +
-+	err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
-+	if (err)
-+		return err;
++	if (chip->info->ops->port_set_duplex) {
++		err = chip->info->ops->port_set_duplex(chip, port, duplex);
++		if (err && err != -EOPNOTSUPP)
++			goto restore_link;
++	}
 +
-+	netdev_dbg(chip->ds->ports[port].netdev, "%s link %s\n",
-+		   reg & PORT_PCS_CTRL_FORCE_LINK ? "Force" : "Unforce",
-+		   reg & PORT_PCS_CTRL_LINK_UP ? "up" : "down");
++	if (chip->info->ops->port_set_rgmii_delay) {
++		err = chip->info->ops->port_set_rgmii_delay(chip, port, mode);
++		if (err && err != -EOPNOTSUPP)
++			goto restore_link;
++	}
 +
-+	return 0;
++	err = 0;
++restore_link:
++	if (chip->info->ops->port_set_link(chip, port, link))
++		netdev_err(chip->ds->ports[port].netdev,
++			   "failed to restore MAC's link\n");
++
++	return err;
 +}
 +
- /* Offset 0x04: Port Control Register */
+ /* We expect the switch to perform auto negotiation if there is a real
+  * phy. However, in the case of a fixed link phy, we force the port
+  * settings from the fixed link settings.
+@@ -709,64 +750,18 @@ static void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
+ 				  struct phy_device *phydev)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	u16 reg;
+ 	int err;
  
- static const char * const mv88e6xxx_port_state_names[] = {
-diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index 921eecf..87e7249 100644
---- a/drivers/net/dsa/mv88e6xxx/port.h
-+++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -21,6 +21,8 @@ int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
- int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
- 			 u16 val);
+ 	if (!phy_is_pseudo_fixed_link(phydev))
+ 		return;
  
-+int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link);
+ 	mutex_lock(&chip->reg_lock);
+-
+-	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
+-	if (err)
+-		goto out;
+-
+-	reg &= ~(PORT_PCS_CTRL_LINK_UP |
+-		 PORT_PCS_CTRL_FORCE_LINK |
+-		 PORT_PCS_CTRL_DUPLEX_FULL |
+-		 PORT_PCS_CTRL_FORCE_DUPLEX |
+-		 PORT_PCS_CTRL_SPEED_UNFORCED);
+-
+-	reg |= PORT_PCS_CTRL_FORCE_LINK;
+-	if (phydev->link)
+-		reg |= PORT_PCS_CTRL_LINK_UP;
+-
+-	if (mv88e6xxx_6065_family(chip) && phydev->speed > SPEED_100)
+-		goto out;
+-
+-	switch (phydev->speed) {
+-	case SPEED_1000:
+-		reg |= PORT_PCS_CTRL_SPEED_1000;
+-		break;
+-	case SPEED_100:
+-		reg |= PORT_PCS_CTRL_SPEED_100;
+-		break;
+-	case SPEED_10:
+-		reg |= PORT_PCS_CTRL_SPEED_10;
+-		break;
+-	default:
+-		pr_info("Unknown speed");
+-		goto out;
+-	}
+-
+-	reg |= PORT_PCS_CTRL_FORCE_DUPLEX;
+-	if (phydev->duplex == DUPLEX_FULL)
+-		reg |= PORT_PCS_CTRL_DUPLEX_FULL;
+-
+-	if ((mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip)) &&
+-	    (port >= mv88e6xxx_num_ports(chip) - 2)) {
+-		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
+-			reg |= PORT_PCS_CTRL_RGMII_DELAY_RXCLK;
+-		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
+-			reg |= PORT_PCS_CTRL_RGMII_DELAY_TXCLK;
+-		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+-			reg |= (PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
+-				PORT_PCS_CTRL_RGMII_DELAY_TXCLK);
+-	}
+-	mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
+-
+-out:
++	err = mv88e6xxx_port_ctrl_mac(chip, port, phydev->link, phydev->speed,
++				      phydev->duplex, phydev->interface);
+ 	mutex_unlock(&chip->reg_lock);
 +
- int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state);
++	if (err && err != -EOPNOTSUPP)
++		netdev_err(ds->ports[port].netdev, "failed to configure MAC\n");
+ }
  
- int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map);
+ static int _mv88e6xxx_stats_wait(struct mv88e6xxx_chip *chip)
+@@ -2409,35 +2404,18 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	int err;
+ 	u16 reg;
+ 
+-	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+-	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+-	    mv88e6xxx_6185_family(chip) || mv88e6xxx_6095_family(chip) ||
+-	    mv88e6xxx_6065_family(chip) || mv88e6xxx_6320_family(chip)) {
+-		/* MAC Forcing register: don't force link, speed,
+-		 * duplex or flow control state to any particular
+-		 * values on physical ports, but force the CPU port
+-		 * and all DSA ports to their maximum bandwidth and
+-		 * full duplex.
+-		 */
+-		err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
+-		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
+-			reg &= ~PORT_PCS_CTRL_SPEED_UNFORCED;
+-			reg |= PORT_PCS_CTRL_FORCE_LINK |
+-				PORT_PCS_CTRL_LINK_UP |
+-				PORT_PCS_CTRL_DUPLEX_FULL |
+-				PORT_PCS_CTRL_FORCE_DUPLEX;
+-			if (mv88e6xxx_6065_family(chip))
+-				reg |= PORT_PCS_CTRL_SPEED_100;
+-			else
+-				reg |= PORT_PCS_CTRL_SPEED_1000;
+-		} else {
+-			reg |= PORT_PCS_CTRL_SPEED_UNFORCED;
+-		}
+-
+-		err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
+-		if (err)
+-			return err;
+-	}
++	/* MAC Forcing register: don't force link, speed, duplex or flow control
++	 * state to any particular values on physical ports, but force the CPU
++	 * port and all DSA ports to their maximum bandwidth and full duplex.
++	 */
++	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
++		err = mv88e6xxx_port_ctrl_mac(chip, port, 1, SPEED_MAX,
++					      DUPLEX_FULL, 0);
++	else
++		err = mv88e6xxx_port_ctrl_mac(chip, port, LINK_UNKNOWN,
++					      SPEED_UNKNOWN, DUPLEX_UNKNOWN, 0);
++	if (err)
++		return err;
+ 
+ 	/* Port Control: disable Drop-on-Unlock, disable Drop-on-Lock,
+ 	 * disable Header mode, enable IGMP/MLD snooping, disable VLAN
 -- 
 2.10.2
