@@ -1,40 +1,224 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] mlxsw: switchib: Remove unused including <generated/utsrelease.h>
-Date: Tue,  1 Nov 2016 15:14:08 +0000
-Message-ID: <1478013248-9409-1-git-send-email-weiyj.lk@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Let's do P4
+Date: Tue, 1 Nov 2016 08:13:32 -0700
+Message-ID: <5818B11C.2040004@gmail.com>
+References: <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
+ <20161030102649.GE1810@pox.localdomain>
+ <20161030163836.GC1686@nanopsycho.orion>
+ <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+ <20161031093922.GA2895@nanopsycho.orion> <58177712.4000208@gmail.com>
+ <20161031171229.GB2895@nanopsycho.orion> <58179CE4.2080400@gmail.com>
+ <20161101084643.GA1707@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>, Jakub Kicinski <kubakici@wp.pl>,
+        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
+        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com,
+        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35401 "EHLO
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35041 "EHLO
         mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751000AbcKAP0b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:26:31 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i88so608715pfk.2
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 08:26:30 -0700 (PDT)
+        with ESMTP id S1751827AbcKAP3G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:29:06 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i88so613359pfk.2
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 08:29:06 -0700 (PDT)
+In-Reply-To: <20161101084643.GA1707@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+[...]
 
-Remove including <generated/utsrelease.h> that don't need it.
+>>> P4 is ment to program programable hw, not fixed pipeline.
+>>>
+>>
+>> I'm guessing there are no upstream drivers at the moment that support
+>> this though right? The rocker universe bits though could leverage this.
+> 
+> mlxsw. But this is naturaly not implemented yet, as there is no
+> infrastructure.
 
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/ethernet/mellanox/mlxsw/switchib.c | 1 -
- 1 file changed, 1 deletion(-)
+Really? What is re-programmable?
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchib.c b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-index ec0b27e..1552594 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-@@ -43,7 +43,6 @@
- #include <linux/skbuff.h>
- #include <linux/if_vlan.h>
- #include <net/switchdev.h>
--#include <generated/utsrelease.h>
- 
- #include "pci.h"
- #include "core.h"
+Can the parse graph support arbitrary parse graph?
+Can the table topology be reconfigured?
+Can new tables be created?
+What about "new" actions being defined at configuration time?
+
+Or is this just the normal TCAM configuration of defining key widths and
+fields.
+
+> 
+> 
+>>
+>>>
+>>>>
+>>>>>
+>>>>>> since I cannot see how one can put the whole p4 language compiler
+>>>>>> into the driver, so this last step of p4ast->hw, I presume, will be
+>>>>>> done by firmware, which will be running full compiler in an embedded cpu
+>>>>>
+>>>>> In case of mlxsw, that compiler would be in driver.
+>>>>>
+>>>>>
+>>>>>> on the switch. To me that's precisely the kernel bypass, since we won't
+>>>>>> have a clue what HW capabilities actually are and won't be able to fine
+>>>>>> grain control them.
+>>>>>> Please correct me if I'm wrong.
+>>>>>
+>>>>> You are wrong. By your definition, everything has to be figured out in
+>>>>> driver and FW does nothing. Otherwise it could do "something else" and
+>>>>> that would be a bypass? Does not make any sense to me whatsoever.
+>>>>>
+>>>>>
+>>>>>>
+>>>>>>> Plus the thing I cannot imagine in the model you propose is table fillup.
+>>>>>>> For ebpf, you use maps. For p4 you would have to have a separate HW-only
+>>>>>>> API. This is very similar to the original John's Flow-API. And therefore
+>>>>>>> a kernel bypass.
+>>>>>>
+>>>>>> I think John's flow api is a better way to expose mellanox switch capabilities.
+>>>>>
+>>>>> We are under impression that p4 suits us nicely. But it is not about
+>>>>> us, it is about finding the common way to do this.
+>>>>>
+>>>>
+>>>> I'll just poke at my FlowAPI question again. For fixed ASICS what is
+>>>> the Flow-API missing. We have a few proof points that show it is both
+>>>> sufficient and usable for the handful of use cases we care about.
+>>>
+>>> Yeah, it is most probably fine. Even for flex ASICs to some point. The
+>>> question is how it stands comparing to other alternatives, like p4
+>>>
+>>
+>> Just to be clear the Flow-API _was_ generated from the initial P4 spec.
+>> The header files and tools used with it were autogenerated ("compiled"
+>> in a loose sense) from the P4 program. The piece I never exposed
+>> was the set_* operations to reconfigure running systems. I'm not sure
+>> how valuable this is in practice though.
+>>
+>> Also there is a P4-16 spec that will be released shortly that is more
+>> flexible and also more complex.
+> 
+> Would it be able to easily extend the Flow-API to include the changes?
+> 
+
+P4-16 will allow externs, "functions" to execute in the control flow and
+possibly inside the parse graph. None of this was considered in the
+Flow-API. So none of this is supported.
+
+I still have the question are you trying to push the "programming" of
+the device via 'tc' or just the runtime configuration of tables? If it
+is just runtime Flow-API is sufficient IMO. If its programming the
+device using the complete P4-16 spec than no its not sufficient. But
+I don't believe vendors will expose the complete programmability of the
+device in the driver, this is going to look more like a fw update than
+a runtime change at least on the devices I'm aware of.
+
+> 
+>>
+>>>
+>>>>
+>>>>>
+>>>>>> I also think it's not fair to call it 'bypass'. I see nothing in it
+>>>>>> that justify such 'swear word' ;)
+>>>>>
+>>>>> John's Flow-API was a kernel bypass. Why? It was a API specifically
+>>>>> designed to directly work with HW tables, without kernel being involved.
+>>>>
+>>>> I don't think that is a fair definition of HW bypass. The SKIP_SW flag
+>>>> does exactly that for 'tc' based offloads and it was not rejected.
+>>>
+>>> No, no, no. You still have possibility to do the same thing in kernel,
+>>> same functionality, with the same API. That is a big difference.
+>>>
+>>>
+>>>>
+>>>> The _real_ reason that seems to have fallen out of this and other
+>>>> discussion is the Flow-API didn't provide an in-kernel translation into
+>>>> an emulated patch. Note we always had a usermode translation to eBPF.
+>>>> A secondary reason appears to be overhead of adding yet another netlink
+>>>> family.
+>>>
+>>> Yeah. Maybe you remember, back then when Flow-API was being discussed,
+>>> I suggested to wrap it under TC as cls_xflows and cls_xflowsaction of
+>>> some sort and do in-kernel datapath implementation. I believe that after
+>>> that, it would be acceptable.
+>>>
+>>
+>> As I understand the thread here that is exactly the proposal here right?
+>> With a discussion around if the structures/etc are sufficient or any
+>> alternative representations exist.
+> 
+> Might be the way, yes. But I fear that with other p4 extensions this
+> might not be easy to align with. Therefore I though about something more
+> generic, like the p4ast.
+> 
+
+Same question as above are we _really_ talking about pushing the entire
+programmability of the device via 'tc'. If so we need to have a vendor
+say they will support and implement this?
+
+> 
+>>
+>>>
+>>>>
+>>>>>
+>>>>>
+>>>>>> The goal of flow api was to expose HW features to user space, so that
+>>>>>> user space can program it. For something simple as mellanox switch
+>>>>>> asic it fits perfectly well.
+>>>>>
+>>>>> Again, this is not mlx-asic-specific. And again, that is a kernel bypass.
+>>>>>
+>>>>>
+>>>>>> Unless I misunderstand the bigger goal of this discussion and it's
+>>>>>> about programming ezchip devices.
+>>>>>
+>>>>> No. For network processors, I believe that BPF is nicely offloadable, no
+>>>>> need to do the excercise for that.
+>>>>>
+>>>>>
+>>>>>>
+>>>>>> If the goal is to model hw tcam in the linux kernel then just introduce
+>>>>>> tcam bpf map type. It will be dog slow in user space, but it will
+>>>>>> match exactly what is happnening in the HW and user space can make
+>>>>>> sensible trade-offs.
+>>>>>
+>>>>> No, you got me completely wrong. This is not about the TCAM. This is
+>>>>> about differences in the 2 words (p4/bpf).
+>>>>> Again, for "p4-ish" devices, you have to translate BPF. And as you
+>>>>> noted, it's an instruction set. Very hard if not impossible to parse in
+>>>>> order to get back the original semantics.
+>>>>>
+>>>>
+>>>> I think in this discussion "p4-ish" devices means devices with multiple
+>>>> tables in a pipeline? Not devices that have programmable/configurable
+>>>> pipelines right? And if we get to talking about reconfigurable devices
+>>>> I believe this should be done out of band as it typically means
+>>>> reloading some ucode, etc.
+>>>
+>>> I'm talking about both. But I think we should focus on reconfigurable
+>>> ones, as we probably won't see that much fixed ones in the future.
+>>>
+>>
+>> hmm maybe but the 10/40/100Gbps devices are going to be around for some
+>> time. So we need to ensure these work well.
+> 
+> Yes, but I would like to emphasize, if we are defining new api
+> the primary focus should be on new devices.
+> 
+> 
+
+What device though. Back to mlxsw question about actually supporting
+this stuff.
