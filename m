@@ -1,8 +1,8 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 07/16] tipc: remove
-	tsk->connected from tipc_sock
-Date: Tue, 1 Nov 2016 14:02:40 +0100
-Message-ID: <1478005369-17239-8-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 03/16] tipc: set kern=0 in
+	sk_alloc() during tipc_accept()
+Date: Tue, 1 Nov 2016 14:02:36 +0100
+Message-ID: <1478005369-17239-4-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1478005369-17239-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,188 +21,33 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Until now, we determine if a socket is connected or not based on
-tsk->connected, which is set once when the probing state is set
-to TIPC_CONN_OK. It is unset when the sock->state is updated from
-SS_CONNECTED to any other state.
+Until now, tipc_accept() calls sk_alloc() with kern=1. This is
+incorrect as the data socket's owner is the user application.
+Thus for these accepted data sockets the network namespace
+refcount is skipped.
 
-In this commit, we remove connected variable from tipc_sock and
-derive socket connection status from the following condition:
-sock->state == SS_CONNECTED => tsk->connected
-
-There is no functional change in this commit.
+In this commit, we fix this by setting kern=0.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/socket.c | 36 +++++++++++++++++++-----------------
- 1 file changed, 19 insertions(+), 17 deletions(-)
+ net/tipc/socket.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 524abe47560d..7b6a1847cf8a 100644
+index cd01deb1da9c..82aec2eb8497 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -58,7 +58,6 @@
- /**
-  * struct tipc_sock - TIPC socket structure
-  * @sk: socket - interacts with 'port' and with user via the socket API
-- * @connected: non-zero if port is currently connected to a peer port
-  * @conn_type: TIPC type used when connection was established
-  * @conn_instance: TIPC instance used when connection was established
-  * @published: non-zero if port has one or more associated names
-@@ -80,7 +79,6 @@
-  */
- struct tipc_sock {
- 	struct sock sk;
--	int connected;
- 	u32 conn_type;
- 	u32 conn_instance;
- 	int published;
-@@ -293,6 +291,11 @@ static void tsk_rej_rx_queue(struct sock *sk)
- 		tipc_sk_respond(sk, skb, TIPC_ERR_NO_PORT);
- }
+@@ -2093,7 +2093,7 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
  
-+static bool tipc_sk_connected(struct sock *sk)
-+{
-+	return sk->sk_socket->state == SS_CONNECTED;
-+}
-+
- /* tsk_peer_msg - verify if message was sent by connected port's peer
-  *
-  * Handles cases where the node's network address has changed from
-@@ -300,12 +303,13 @@ static void tsk_rej_rx_queue(struct sock *sk)
-  */
- static bool tsk_peer_msg(struct tipc_sock *tsk, struct tipc_msg *msg)
- {
--	struct tipc_net *tn = net_generic(sock_net(&tsk->sk), tipc_net_id);
-+	struct sock *sk = &tsk->sk;
-+	struct tipc_net *tn = net_generic(sock_net(sk), tipc_net_id);
- 	u32 peer_port = tsk_peer_port(tsk);
- 	u32 orig_node;
- 	u32 peer_node;
+ 	buf = skb_peek(&sk->sk_receive_queue);
  
--	if (unlikely(!tsk->connected))
-+	if (unlikely(!tipc_sk_connected(sk)))
- 		return false;
- 
- 	if (unlikely(msg_origport(msg) != peer_port))
-@@ -470,7 +474,6 @@ static int tipc_release(struct socket *sock)
- 			if ((sock->state == SS_CONNECTING) ||
- 			    (sock->state == SS_CONNECTED)) {
- 				sock->state = SS_DISCONNECTING;
--				tsk->connected = 0;
- 				tipc_node_remove_conn(net, dnode, tsk->portid);
- 			}
- 			tipc_sk_respond(sk, skb, TIPC_ERR_NO_PORT);
-@@ -480,7 +483,7 @@ static int tipc_release(struct socket *sock)
- 	tipc_sk_withdraw(tsk, 0, NULL);
- 	sk_stop_timer(sk, &sk->sk_timer);
- 	tipc_sk_remove(tsk);
--	if (tsk->connected) {
-+	if (tipc_sk_connected(sk)) {
- 		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE,
- 				      TIPC_CONN_MSG, SHORT_H_SIZE, 0, dnode,
- 				      tsk_own_node(tsk), tsk_peer_port(tsk),
-@@ -1010,7 +1013,7 @@ static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
- 		done = sk_wait_event(sk, timeo_p,
- 				     (!tsk->link_cong &&
- 				      !tsk_conn_cong(tsk)) ||
--				     !tsk->connected);
-+				      !tipc_sk_connected(sk));
- 		finish_wait(sk_sleep(sk), &wait);
- 	} while (!done);
- 	return 0;
-@@ -1152,7 +1155,6 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
- 
- 	tsk->probing_intv = CONN_PROBING_INTERVAL;
- 	tsk->probing_state = TIPC_CONN_OK;
--	tsk->connected = 1;
- 	sk_reset_timer(sk, &sk->sk_timer, jiffies + tsk->probing_intv);
- 	tipc_node_add_conn(net, peer_node, tsk->portid, peer_port);
- 	tsk->max_pkt = tipc_node_get_mtu(net, peer_node, tsk->portid);
-@@ -1261,13 +1263,14 @@ static int tipc_sk_anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
- 
- static void tipc_sk_send_ack(struct tipc_sock *tsk)
- {
--	struct net *net = sock_net(&tsk->sk);
-+	struct sock *sk = &tsk->sk;
-+	struct net *net = sock_net(sk);
- 	struct sk_buff *skb = NULL;
- 	struct tipc_msg *msg;
- 	u32 peer_port = tsk_peer_port(tsk);
- 	u32 dnode = tsk_peer_node(tsk);
- 
--	if (!tsk->connected)
-+	if (!tipc_sk_connected(sk))
- 		return;
- 	skb = tipc_msg_create(CONN_MANAGER, CONN_ACK, INT_H_SIZE, 0,
- 			      dnode, tsk_own_node(tsk), peer_port,
-@@ -1596,7 +1599,6 @@ static bool filter_connect(struct tipc_sock *tsk, struct sk_buff *skb)
- 
- 		if (unlikely(msg_errcode(hdr))) {
- 			sock->state = SS_DISCONNECTING;
--			tsk->connected = 0;
- 			/* Let timer expire on it's own */
- 			tipc_node_remove_conn(net, tsk_peer_node(tsk),
- 					      tsk->portid);
-@@ -2189,7 +2191,6 @@ static int tipc_shutdown(struct socket *sock, int how)
- 			if (skb)
- 				tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
- 		}
--		tsk->connected = 0;
- 		sock->state = SS_DISCONNECTING;
- 		tipc_node_remove_conn(net, dnode, tsk->portid);
- 		/* fall through */
-@@ -2221,7 +2222,7 @@ static void tipc_sk_timeout(unsigned long data)
- 	u32 own_node = tsk_own_node(tsk);
- 
- 	bh_lock_sock(sk);
--	if (!tsk->connected) {
-+	if (!tipc_sk_connected(sk)) {
- 		bh_unlock_sock(sk);
+-	res = tipc_sk_create(sock_net(sock->sk), new_sock, 0, 1);
++	res = tipc_sk_create(sock_net(sock->sk), new_sock, 0, 0);
+ 	if (res)
  		goto exit;
- 	}
-@@ -2231,7 +2232,6 @@ static void tipc_sk_timeout(unsigned long data)
- 	if (tsk->probing_state == TIPC_CONN_PROBING) {
- 		if (!sock_owned_by_user(sk)) {
- 			sk->sk_socket->state = SS_DISCONNECTING;
--			tsk->connected = 0;
- 			tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
- 					      tsk_peer_port(tsk));
- 			sk->sk_state_change(sk);
-@@ -2257,11 +2257,12 @@ static void tipc_sk_timeout(unsigned long data)
- static int tipc_sk_publish(struct tipc_sock *tsk, uint scope,
- 			   struct tipc_name_seq const *seq)
- {
--	struct net *net = sock_net(&tsk->sk);
-+	struct sock *sk = &tsk->sk;
-+	struct net *net = sock_net(sk);
- 	struct publication *publ;
- 	u32 key;
- 
--	if (tsk->connected)
-+	if (tipc_sk_connected(sk))
- 		return -EINVAL;
- 	key = tsk->portid + tsk->pub_count + 1;
- 	if (key == tsk->portid)
-@@ -2719,6 +2720,7 @@ static int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
- 	struct nlattr *attrs;
- 	struct net *net = sock_net(skb->sk);
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
-+	struct sock *sk = &tsk->sk;
- 
- 	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
- 			  &tipc_genl_family, NLM_F_MULTI, TIPC_NL_SOCK_GET);
-@@ -2733,7 +2735,7 @@ static int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
- 	if (nla_put_u32(skb, TIPC_NLA_SOCK_ADDR, tn->own_addr))
- 		goto attr_msg_cancel;
- 
--	if (tsk->connected) {
-+	if (tipc_sk_connected(sk)) {
- 		err = __tipc_nl_add_sk_con(skb, tsk);
- 		if (err)
- 			goto attr_msg_cancel;
+ 	security_sk_clone(sock->sk, new_sock->sk);
 -- 
 2.1.4
 
