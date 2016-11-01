@@ -1,69 +1,47 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH net 2/4] net: ethernet: ti: cpsw: fix device and of_node
- leaks
-Date: Tue, 1 Nov 2016 18:04:07 +0100
-Message-ID: <20161101170407.GD2664@localhost>
-References: <1477998217-30143-3-git-send-email-johan@kernel.org>
- <20161101.122711.1685573538225505004.davem@davemloft.net>
- <20161101164225.GC2664@localhost>
- <20161101.124848.1812844488411463169.davem@davemloft.net>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH v3 net-next] lan78xx: Use irq_domain for phy interrupt
+ from USB Int. EP
+Date: Tue, 1 Nov 2016 17:07:17 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D4095D227@CHN-SV-EXMX02.mchp-main.com>
+References: <9235D6609DB808459E95D78E17F2E43D4095CACB@CHN-SV-EXMX02.mchp-main.com>
+ <20161101.120322.716031785792281107.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johan@kernel.org, f.fainelli@gmail.com, mugunthanvnm@ti.com,
-        yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161101.124848.1812844488411463169.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>, <andrew@lunn.ch>,
+        <UNGLinuxDriver@microchip.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp03.microchip.com ([198.175.253.49]:45461 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753234AbcKARHh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 13:07:37 -0400
+In-Reply-To: <20161101.120322.716031785792281107.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 01, 2016 at 12:48:48PM -0400, David Miller wrote:
-> From: Johan Hovold <johan@kernel.org>
-> Date: Tue, 1 Nov 2016 17:42:25 +0100
+> > @@ -2668,6 +2821,13 @@ static int lan78xx_bind(struct lan78xx_net *dev,
+> struct usb_interface *intf)
+> >
+> >  	dev->net->hw_features = dev->net->features;
+> >
+> > +	ret = lan78xx_setup_irq_domain(dev);
+> > +	if (ret < 0) {
+> > +		netdev_warn(dev->net,
+> > +			    "lan78xx_setup_irq_domain() failed : %d", ret);
+> > +		return ret;
+> > +	}
+> > +
 > 
-> > On Tue, Nov 01, 2016 at 12:27:11PM -0400, David Miller wrote:
-> >> From: Johan Hovold <johan@kernel.org>
-> >> Date: Tue,  1 Nov 2016 12:03:35 +0100
-> >> 
-> >> > diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-> >> > index 054a8dd23dae..589beb843f56 100644
-> >> > --- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
-> >> > +++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-> >> > @@ -176,8 +176,11 @@ void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave)
-> >> >  	}
-> >> >  
-> >> >  	dev = bus_find_device(&platform_bus_type, NULL, node, match);
-> >> > +	of_node_put(node);
-> >> >  	priv = dev_get_drvdata(dev);
-> >> >  
-> >> > +	put_device(dev);
-> >> > +
-> >> >  	priv->cpsw_phy_sel(priv, phy_mode, slave);
-> >> >  }
-> >> >  EXPORT_SYMBOL_GPL(cpsw_phy_sel);
-> >> 
-> >> The only reference you have to 'dev' is the one obtained from the
-> >> bus_find_device() call, therefore you must at least hold onto
-> >> 'dev' until after the priv->cpsw_phy_sel(priv, phy_mode, slave); call.
-> > 
-> > As I mentioned in the commit message "...there is no guarantee that the
-> > devres-managed struct cpsw_phy_sel_priv will continue to be valid until
-> > this function returns regardless of this change".
-> > 
-> > Specifically, holding a reference to dev does not prevent the
-> > cpsw_phy_sel driver from being unbound and priv from being freed.
+> This error path leaks the memory allocated at the beginning of this function.
 > 
-> But you should at least hold onto the object while you call a function
-> pointer embedded in a data structure referred by it.
+> That would normally be freed up by lan78xx_unbind() but the caller will not
+> invoke that if lan78xx_bind() fails so you have to take care of the kfree
+> here.
 
-But there is no such reference to be held (currently). While priv is
-valid (i.e. dev has a driver bound), driver core will hold a reference
-to dev. If someone unbinds the driver, priv will be gone long before dev
-and all bets are off anyway.
+David,
+Thanks for review and finding.
+Will fix and post new patch.
 
-So I released the reference to dev before dereferencing priv on purpose
-to avoid having someone make false assumptions about the lifetime of priv.
-
-Johan
+- Woojung
