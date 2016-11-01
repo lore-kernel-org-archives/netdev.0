@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] xen-netfront: do not cast grant table reference to
- signed short
-Date: Tue, 01 Nov 2016 10:50:06 -0400 (EDT)
-Message-ID: <20161101.105006.2018567964878503860.davem@davemloft.net>
-References: <8eb8496b-16d7-4be7-bc43-6ff3f2b8708e@default>
+Subject: Re: [net-next 00/22][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2016-10-31
+Date: Tue, 01 Nov 2016 10:59:00 -0400 (EDT)
+Message-ID: <20161101.105900.1175669914040852587.davem@davemloft.net>
+References: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: JBeulich@suse.com, boris.ostrovsky@oracle.com, jgross@suse.com,
-        netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-        david.vrabel@citrix.com, linux-kernel@vger.kernel.org
-To: dongli.zhang@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8eb8496b-16d7-4be7-bc43-6ff3f2b8708e@default>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45432 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032996AbcKAO7G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:59:06 -0400
+In-Reply-To: <1477952992-125662-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dongli Zhang <dongli.zhang@oracle.com>
-Date: Mon, 31 Oct 2016 21:46:09 -0700 (PDT)
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 31 Oct 2016 15:29:30 -0700
 
-> David, I am very sorry for this error and I will be careful the next time.
-> Would you please let me know if I should resend a new patch or an incremental
-> based on previous one at 
-> https://git.kernel.org/cgit/linux/kernel/git/davem/net.git?
+> This series contains updates to i40e and i40evf.
 
-Incremental, please.
+Pulled, thanks a lot Jeff.
