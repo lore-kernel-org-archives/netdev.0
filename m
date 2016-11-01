@@ -1,72 +1,62 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: [PATCH net-next 2/2] net/sched: cls_flower: merge filter delete/destroy common code
-Date: Tue,  1 Nov 2016 16:08:29 +0200
-Message-ID: <1478009309-63180-3-git-send-email-roid@mellanox.com>
-References: <1478009309-63180-1-git-send-email-roid@mellanox.com>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
+ FIB notifier
+Date: Tue, 01 Nov 2016 07:19:59 -0700
+Message-ID: <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1477948427-9189-1-git-send-email-idosch@idosch.org>
+         <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20161031225737.7nfoy4ka3ydzhptq@splinter>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@mellanox.com,
+        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, Ido Schimmel <idosch@mellanox.com>
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35505 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S966027AbcKAOIi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:08:38 -0400
-In-Reply-To: <1478009309-63180-1-git-send-email-roid@mellanox.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34491 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966312AbcKAOUF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:20:05 -0400
+Received: by mail-pf0-f195.google.com with SMTP id y68so5943691pfb.1
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 07:20:05 -0700 (PDT)
+In-Reply-To: <20161031225737.7nfoy4ka3ydzhptq@splinter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move common code from fl_delete and fl_detroy to __fl_delete.
+On Tue, 2016-11-01 at 00:57 +0200, Ido Schimmel wrote:
+> On Mon, Oct 31, 2016 at 02:24:06PM -0700, Eric Dumazet wrote:
 
-Signed-off-by: Roi Dayan <roid@mellanox.com>
----
- net/sched/cls_flower.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
+> > How well will this work for large FIB tables ?
+> > 
+> > Holding rtnl while sending thousands of skb will prevent consumers to
+> > make progress ?
+> 
+> Can you please clarify what do you mean by "while sending thousands of
+> skb"? This patch doesn't generate notifications to user space, but
+> instead invokes notification routines inside the kernel. I probably
+> misunderstood you.
+> 
+> Are you suggesting this be done using RCU instead? Well, there are a
+> couple of reasons why I took RTNL here:
+> 
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index a5f6370..a8fb1ca 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -269,6 +269,14 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
- }
- 
-+static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
-+{
-+	list_del_rcu(&f->list);
-+	fl_hw_destroy_filter(tp, (unsigned long)f);
-+	tcf_unbind_filter(tp, &f->res);
-+	call_rcu(&f->rcu, fl_destroy_filter);
-+}
-+
- static bool fl_destroy(struct tcf_proto *tp, bool force)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
-@@ -277,12 +285,8 @@ static bool fl_destroy(struct tcf_proto *tp, bool force)
- 	if (!force && !list_empty(&head->filters))
- 		return false;
- 
--	list_for_each_entry_safe(f, next, &head->filters, list) {
--		fl_hw_destroy_filter(tp, (unsigned long)f);
--		list_del_rcu(&f->list);
--		tcf_unbind_filter(tp, &f->res);
--		call_rcu(&f->rcu, fl_destroy_filter);
--	}
-+	list_for_each_entry_safe(f, next, &head->filters, list)
-+		__fl_delete(tp, f);
- 	RCU_INIT_POINTER(tp->root, NULL);
- 	if (head->mask_assigned)
- 		rhashtable_destroy(&head->ht);
-@@ -742,10 +746,7 @@ static int fl_delete(struct tcf_proto *tp, unsigned long arg)
- 
- 	rhashtable_remove_fast(&head->ht, &f->ht_node,
- 			       head->ht_params);
--	list_del_rcu(&f->list);
--	fl_hw_destroy_filter(tp, (unsigned long)f);
--	tcf_unbind_filter(tp, &f->res);
--	call_rcu(&f->rcu, fl_destroy_filter);
-+	__fl_delete(tp, f);
- 	return 0;
- }
- 
--- 
-2.7.4
+No, I do not believe RCU is wanted here, in control path where we might
+sleep anyway.
+
+> 1) The FIB notification chain is blocking, so listeners are expected to
+> be able to sleep. This isn't possible if we use RCU. Note that this
+> chain is mainly useful for drivers that reflect the FIB table into a
+> capable device and hardware operations usually involve sleeping.
+> 
+> 2) The insertion of a single route is done with RTNL held. I didn't want
+> to differentiate between both cases. This property is really useful for
+> listeners, as they don't need to worry about locking in writer-side.
+> Access to data structs is serialized by RTNL.
+
+My concern was that for large iterations, you might hold RTNL and/or
+current cpu for hundred of ms or even seconds...
