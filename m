@@ -1,224 +1,111 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Let's do P4
-Date: Tue, 1 Nov 2016 08:13:32 -0700
-Message-ID: <5818B11C.2040004@gmail.com>
-References: <20161029154903.25deb6db@jkicinski-Precision-T1700>
- <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
- <20161030102649.GE1810@pox.localdomain>
- <20161030163836.GC1686@nanopsycho.orion>
- <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
- <20161031093922.GA2895@nanopsycho.orion> <58177712.4000208@gmail.com>
- <20161031171229.GB2895@nanopsycho.orion> <58179CE4.2080400@gmail.com>
- <20161101084643.GA1707@nanopsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: enhance tcp collapsing
+Date: Tue, 01 Nov 2016 08:32:26 -0700
+Message-ID: <1478014346.7065.342.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <VI1PR0502MB29577BA8C670D1379CC4F1B7D4A10@VI1PR0502MB2957.eurprd05.prod.outlook.com>
+         <1478007189.7065.331.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>, Jakub Kicinski <kubakici@wp.pl>,
-        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        roopa@cumulusnetworks.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
-        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com,
-        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: Ilya Lesokhin <ilyal@mellanox.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35041 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751827AbcKAP3G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:29:06 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i88so613359pfk.2
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 08:29:06 -0700 (PDT)
-In-Reply-To: <20161101084643.GA1707@nanopsycho.orion>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35861 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751261AbcKAPc2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:32:28 -0400
+Received: by mail-pf0-f196.google.com with SMTP id n85so11947009pfi.3
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 08:32:27 -0700 (PDT)
+In-Reply-To: <1478007189.7065.331.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[...]
+From: Eric Dumazet <edumazet@google.com>
 
->>> P4 is ment to program programable hw, not fixed pipeline.
->>>
->>
->> I'm guessing there are no upstream drivers at the moment that support
->> this though right? The rocker universe bits though could leverage this.
-> 
-> mlxsw. But this is naturaly not implemented yet, as there is no
-> infrastructure.
+As Ilya Lesokhin suggested, we can collapse two skbs at retransmit
+time even if the skb at the right has fragments.
 
-Really? What is re-programmable?
+We simply have to use more generic skb_copy_bits() instead of
+skb_copy_from_linear_data() in tcp_collapse_retrans()
 
-Can the parse graph support arbitrary parse graph?
-Can the table topology be reconfigured?
-Can new tables be created?
-What about "new" actions being defined at configuration time?
+Tested:
 
-Or is this just the normal TCAM configuration of defining key widths and
-fields.
+Used following packetdrill test
 
-> 
-> 
->>
->>>
->>>>
->>>>>
->>>>>> since I cannot see how one can put the whole p4 language compiler
->>>>>> into the driver, so this last step of p4ast->hw, I presume, will be
->>>>>> done by firmware, which will be running full compiler in an embedded cpu
->>>>>
->>>>> In case of mlxsw, that compiler would be in driver.
->>>>>
->>>>>
->>>>>> on the switch. To me that's precisely the kernel bypass, since we won't
->>>>>> have a clue what HW capabilities actually are and won't be able to fine
->>>>>> grain control them.
->>>>>> Please correct me if I'm wrong.
->>>>>
->>>>> You are wrong. By your definition, everything has to be figured out in
->>>>> driver and FW does nothing. Otherwise it could do "something else" and
->>>>> that would be a bypass? Does not make any sense to me whatsoever.
->>>>>
->>>>>
->>>>>>
->>>>>>> Plus the thing I cannot imagine in the model you propose is table fillup.
->>>>>>> For ebpf, you use maps. For p4 you would have to have a separate HW-only
->>>>>>> API. This is very similar to the original John's Flow-API. And therefore
->>>>>>> a kernel bypass.
->>>>>>
->>>>>> I think John's flow api is a better way to expose mellanox switch capabilities.
->>>>>
->>>>> We are under impression that p4 suits us nicely. But it is not about
->>>>> us, it is about finding the common way to do this.
->>>>>
->>>>
->>>> I'll just poke at my FlowAPI question again. For fixed ASICS what is
->>>> the Flow-API missing. We have a few proof points that show it is both
->>>> sufficient and usable for the handful of use cases we care about.
->>>
->>> Yeah, it is most probably fine. Even for flex ASICs to some point. The
->>> question is how it stands comparing to other alternatives, like p4
->>>
->>
->> Just to be clear the Flow-API _was_ generated from the initial P4 spec.
->> The header files and tools used with it were autogenerated ("compiled"
->> in a loose sense) from the P4 program. The piece I never exposed
->> was the set_* operations to reconfigure running systems. I'm not sure
->> how valuable this is in practice though.
->>
->> Also there is a P4-16 spec that will be released shortly that is more
->> flexible and also more complex.
-> 
-> Would it be able to easily extend the Flow-API to include the changes?
-> 
+// Establish a connection.
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 1) = 0
 
-P4-16 will allow externs, "functions" to execute in the control flow and
-possibly inside the parse graph. None of this was considered in the
-Flow-API. So none of this is supported.
+   +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
+   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
++.100 < . 1:1(0) ack 1 win 257
+   +0 accept(3, ..., ...) = 4
 
-I still have the question are you trying to push the "programming" of
-the device via 'tc' or just the runtime configuration of tables? If it
-is just runtime Flow-API is sufficient IMO. If its programming the
-device using the complete P4-16 spec than no its not sufficient. But
-I don't believe vendors will expose the complete programmability of the
-device in the driver, this is going to look more like a fw update than
-a runtime change at least on the devices I'm aware of.
+   +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+   +0 write(4, ..., 200) = 200
+   +0 > P. 1:201(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 201:401(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 401:601(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 601:801(200) ack 1
++.001 write(4, ..., 200) = 200
+   +0 > P. 801:1001(200) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1001:1101(100) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1101:1201(100) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1201:1301(100) ack 1
++.001 write(4, ..., 100) = 100
+   +0 > P. 1301:1401(100) ack 1
 
-> 
->>
->>>
->>>>
->>>>>
->>>>>> I also think it's not fair to call it 'bypass'. I see nothing in it
->>>>>> that justify such 'swear word' ;)
->>>>>
->>>>> John's Flow-API was a kernel bypass. Why? It was a API specifically
->>>>> designed to directly work with HW tables, without kernel being involved.
->>>>
->>>> I don't think that is a fair definition of HW bypass. The SKIP_SW flag
->>>> does exactly that for 'tc' based offloads and it was not rejected.
->>>
->>> No, no, no. You still have possibility to do the same thing in kernel,
->>> same functionality, with the same API. That is a big difference.
->>>
->>>
->>>>
->>>> The _real_ reason that seems to have fallen out of this and other
->>>> discussion is the Flow-API didn't provide an in-kernel translation into
->>>> an emulated patch. Note we always had a usermode translation to eBPF.
->>>> A secondary reason appears to be overhead of adding yet another netlink
->>>> family.
->>>
->>> Yeah. Maybe you remember, back then when Flow-API was being discussed,
->>> I suggested to wrap it under TC as cls_xflows and cls_xflowsaction of
->>> some sort and do in-kernel datapath implementation. I believe that after
->>> that, it would be acceptable.
->>>
->>
->> As I understand the thread here that is exactly the proposal here right?
->> With a discussion around if the structures/etc are sufficient or any
->> alternative representations exist.
-> 
-> Might be the way, yes. But I fear that with other p4 extensions this
-> might not be easy to align with. Therefore I though about something more
-> generic, like the p4ast.
-> 
++.100 < . 1:1(0) ack 1 win 257 <nop,nop,sack 1001:1401>
+// Check that TCP collapse works :
+   +0 > P. 1:1001(1000) ack 1
 
-Same question as above are we _really_ talking about pushing the entire
-programmability of the device via 'tc'. If so we need to have a vendor
-say they will support and implement this?
 
-> 
->>
->>>
->>>>
->>>>>
->>>>>
->>>>>> The goal of flow api was to expose HW features to user space, so that
->>>>>> user space can program it. For something simple as mellanox switch
->>>>>> asic it fits perfectly well.
->>>>>
->>>>> Again, this is not mlx-asic-specific. And again, that is a kernel bypass.
->>>>>
->>>>>
->>>>>> Unless I misunderstand the bigger goal of this discussion and it's
->>>>>> about programming ezchip devices.
->>>>>
->>>>> No. For network processors, I believe that BPF is nicely offloadable, no
->>>>> need to do the excercise for that.
->>>>>
->>>>>
->>>>>>
->>>>>> If the goal is to model hw tcam in the linux kernel then just introduce
->>>>>> tcam bpf map type. It will be dog slow in user space, but it will
->>>>>> match exactly what is happnening in the HW and user space can make
->>>>>> sensible trade-offs.
->>>>>
->>>>> No, you got me completely wrong. This is not about the TCAM. This is
->>>>> about differences in the 2 words (p4/bpf).
->>>>> Again, for "p4-ish" devices, you have to translate BPF. And as you
->>>>> noted, it's an instruction set. Very hard if not impossible to parse in
->>>>> order to get back the original semantics.
->>>>>
->>>>
->>>> I think in this discussion "p4-ish" devices means devices with multiple
->>>> tables in a pipeline? Not devices that have programmable/configurable
->>>> pipelines right? And if we get to talking about reconfigurable devices
->>>> I believe this should be done out of band as it typically means
->>>> reloading some ucode, etc.
->>>
->>> I'm talking about both. But I think we should focus on reconfigurable
->>> ones, as we probably won't see that much fixed ones in the future.
->>>
->>
->> hmm maybe but the 10/40/100Gbps devices are going to be around for some
->> time. So we need to ensure these work well.
-> 
-> Yes, but I would like to emphasize, if we are defining new api
-> the primary focus should be on new devices.
-> 
-> 
+Reported-by: Ilya Lesokhin <ilyal@mellanox.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+net/ipv4/tcp_output.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-What device though. Back to mlxsw question about actually supporting
-this stuff.
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 896e9dfbdb5cd9ca0fa003f6be2c5cd332dde7cf..ad668d97fbb1660a9ad44ddb459ea45e15a22de1 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2529,8 +2529,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+ 
+ 	tcp_unlink_write_queue(next_skb, sk);
+ 
+-	skb_copy_from_linear_data(next_skb, skb_put(skb, next_skb_size),
+-				  next_skb_size);
++	skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size), next_skb_size);
+ 
+ 	if (next_skb->ip_summed == CHECKSUM_PARTIAL)
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+@@ -2567,14 +2566,11 @@ static bool tcp_can_collapse(const struct sock *sk, const struct sk_buff *skb)
+ {
+ 	if (tcp_skb_pcount(skb) > 1)
+ 		return false;
+-	/* TODO: SACK collapsing could be used to remove this condition */
+-	if (skb_shinfo(skb)->nr_frags != 0)
+-		return false;
+ 	if (skb_cloned(skb))
+ 		return false;
+ 	if (skb == tcp_send_head(sk))
+ 		return false;
+-	/* Some heurestics for collapsing over SACK'd could be invented */
++	/* Some heuristics for collapsing over SACK'd could be invented */
+ 	if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)
+ 		return false;
+ 
