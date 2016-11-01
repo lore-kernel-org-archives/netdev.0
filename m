@@ -1,33 +1,48 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: Re: [PATCH net-next V2 1/3] net/mlx4_en: Add TX_XDP for CQ types
-Date: Tue, 1 Nov 2016 13:57:06 +0200
-Message-ID: <d8b10db9-4ec0-4d9d-c004-579f8fe0b0a3@mellanox.com>
-References: <1478000186-5158-1-git-send-email-tariqt@mellanox.com>
- <1478000186-5158-2-git-send-email-tariqt@mellanox.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCHv2 net 0/3] sctp: a bunch of fixes by holding transport
+Date: Tue, 1 Nov 2016 09:32:34 -0400
+Message-ID: <20161101133234.GA10666@hmsreliant.think-freely.org>
+References: <cover.1477916928.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Eran Ben Elisha <eranbe@mellanox.com>,
-        "Brenden Blanco" <bblanco@plumgrid.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0064.outbound.protection.outlook.com ([104.47.2.64]:64320
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1169178AbcKANaC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 09:30:02 -0400
-In-Reply-To: <1478000186-5158-2-git-send-email-tariqt@mellanox.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56384 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1169111AbcKANcy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 09:32:54 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1477916928.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 11/01/2016 01:36 PM, Tariq Toukan wrote:
-> Support XDP CQ type, and refactor the CQ type enum.
-> Rename the is_tx field to match the change.
->
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-
-Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+On Mon, Oct 31, 2016 at 08:32:30PM +0800, Xin Long wrote:
+> There are several places where it holds assoc after getting transport by
+> searching from transport rhashtable, it may cause use-after-free issue.
+> 
+> This patchset is to fix them by holding transport instead.
+> 
+> v1->v2:
+>   Fix the changelog of patch 2/3
+> 
+> Xin Long (3):
+>   sctp: hold transport instead of assoc in sctp_diag
+>   sctp: return back transport in __sctp_rcv_init_lookup
+>   sctp: hold transport instead of assoc when lookup assoc in rx path
+> 
+>  include/net/sctp/sctp.h |  2 +-
+>  net/sctp/input.c        | 35 +++++++++++++++++------------------
+>  net/sctp/ipv6.c         |  2 +-
+>  net/sctp/socket.c       |  5 +----
+>  4 files changed, 20 insertions(+), 24 deletions(-)
+> 
+> -- 
+> 2.1.0
+> 
+> 
+series
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
