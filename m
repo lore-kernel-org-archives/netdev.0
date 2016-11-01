@@ -1,42 +1,41 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded
- ICMP errors from offending packet
-Date: Tue, 1 Nov 2016 17:27:56 +0100
-Message-ID: <7f83a405-0520-a3ed-fc21-402d702483f9@stressinduktion.org>
-References: <20161031.151534.329043104568805244.davem@davemloft.net>
- <87bmxznsgg.fsf@redhat.com>
- <20161101.113505.1429989348222226550.davem@davemloft.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: Re: [PATCH net-next V2 3/3] net/mlx4_en: Add ethtool statistics for
+ XDP cases
+Date: Tue, 1 Nov 2016 13:57:58 +0200
+Message-ID: <fac4eb19-e2e4-4346-f5b0-a49caa6989ea@mellanox.com>
+References: <1478000186-5158-1-git-send-email-tariqt@mellanox.com>
+ <1478000186-5158-4-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>, jkbs@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161101.113505.1429989348222226550.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, Eran Ben Elisha <eranbe@mellanox.com>,
+        "Brenden Blanco" <bblanco@plumgrid.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0050.outbound.protection.outlook.com ([104.47.2.50]:2209
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751316AbcKAQ3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 12:29:52 -0400
+In-Reply-To: <1478000186-5158-4-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01.11.2016 16:35, David Miller wrote:
-> I have a really hard time accepting a "fix" that depends upon behavior
-> that the Linux ipv6 stack doesn't even have.
 
-We actually support this feature:
 
-commit df3687ffc6653e4d32168338b4dee20c164ed7c9
-Author: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Date:   Fri Jan 17 17:15:03 2014 +0100
+On 11/01/2016 01:36 PM, Tariq Toukan wrote:
+> XDP statistics are reported in ethtool as follows:
+> - xdp_drop: the number of packets dropped by xdp.
+> - xdp_tx: the number of packets forwarded by xdp.
+> - xdp_tx_full: the number of times an xdp forward failed
+> 	due to a full tx xdp ring.
+>
+> In addition, all packets that are dropped/forwarded by XDP
+> are no longer accounted in rx_packets/rx_bytes of the ring,
+> so that they count traffic that is passed to the stack.
+>
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 
-    ipv6: add the IPV6_FL_F_REFLECT flag to IPV6_FL_A_GET
-
-Add that time I tried to stick to the common practices at that time and
-was against any kind of global sysctl enabling a reflection mode for
-flowlabels. State of art was to keep some uniqueness in flowlabels, thus
-also the introduction of the flowlabel_consistency label.
-
-We basically can support reflection nowadays globally pretty easy, as we
-have soften these rules a lot.
-
-Bye,
-Hannes
+Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
