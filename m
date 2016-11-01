@@ -1,41 +1,60 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH] MAINTAINERS: Update MELLANOX MLX5 core VPI driver maintainers
-Date: Tue, 1 Nov 2016 15:09:58 +0200
-Message-ID: <1478005798-6473-1-git-send-email-saeedm@mellanox.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next v2] genetlink: fix error return code in genl_register_family()
+Date: Tue,  1 Nov 2016 14:45:52 +0000
+Message-ID: <1478011552-24957-1-git-send-email-weiyj.lk@gmail.com>
+References: <1477925583-7956-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
-        "Leon Romanovsky" <leonro@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        "Saeed Mahameed" <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Florian Westphal <fw@strlen.de>,
+        Johannes Berg <johannes.berg@intel.com>,
+        pravin shelar <pshelar@ovn.org>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        Matti Vaittinen <matti.vaittinen@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0065.outbound.protection.outlook.com ([104.47.0.65]:8652
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1033187AbcKAOoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 10:44:03 -0400
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36674 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1034847AbcKAOqJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:46:09 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n85so11856121pfi.3
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 07:46:08 -0700 (PDT)
+In-Reply-To: <1477925583-7956-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add myself as a maintainer for mlx5 core driver as well.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Fix to return a negative error code from the idr_alloc() error handling
+case instead of 0, as done elsewhere in this function.
+
+Also fix the return value check of idr_alloc() since idr_alloc return
+negative errors on failure, not zero.
+
+Fixes: 2ae0f17df1cd ("genetlink: use idr to track families")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 ---
- MAINTAINERS | 1 +
- 1 file changed, 1 insertion(+)
+v1 -> v2: fix the return value check and return idr_alloc's err code
+---
+ net/netlink/genetlink.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4012c2f..53964ad 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -8053,6 +8053,7 @@ F:	drivers/infiniband/hw/mlx4/
- F:	include/linux/mlx4/
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index caf04d7..bbd3bff 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -362,8 +362,10 @@ int genl_register_family(struct genl_family *family)
  
- MELLANOX MLX5 core VPI driver
-+M:	Saeed Mahameed <saeedm@mellanox.com>
- M:	Matan Barak <matanb@mellanox.com>
- M:	Leon Romanovsky <leonro@mellanox.com>
- L:	netdev@vger.kernel.org
--- 
-2.7.4
+ 	family->id = idr_alloc(&genl_fam_idr, family,
+ 			       start, end + 1, GFP_KERNEL);
+-	if (!family->id)
++	if (family->id < 0) {
++		err = family->id;
+ 		goto errout_locked;
++	}
+ 
+ 	err = genl_validate_assign_mc_groups(family);
+ 	if (err)
