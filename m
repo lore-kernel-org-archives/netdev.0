@@ -1,57 +1,85 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 3/5] bpf: BPF for lightweight tunnel
- encapsulation
-Date: Tue, 1 Nov 2016 14:11:58 -0600
-Message-ID: <0bfff5e0-cd4a-4d69-d54c-7d6dbf237db7@cumulusnetworks.com>
-References: <cover.1477959702.git.tgraf@suug.ch>
- <d8c7e07ac7d289a2846af8d659287f3512a4edec.1477959702.git.tgraf@suug.ch>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v2 0/5] bpf: BPF for lightweight tunnel encapsulation
+Date: Tue, 1 Nov 2016 13:33:37 -0700
+Message-ID: <CALx6S36o1ig4rhN3MTaD1OCJ3sQo_ghbkonde1JDf4S9X=YkZQ@mail.gmail.com>
+References: <cover.1477959702.git.tgraf@suug.ch> <CALx6S35BhiY7DVPetEDrLwgsR3sKTcm-bJ6og-6N329Znavkww@mail.gmail.com>
+ <CACby=pkPQC92t3Y9-p9RRUv1_WL2uZMM6DRJFUc5-KP4B41hAA@mail.gmail.com>
+ <CALx6S34ZVK1uHu_dYyh2w=k+8gP-H-nSPw-OgsMk9D2f4uE7jA@mail.gmail.com>
+ <CACby=pnLzihLCFzT-HvB3Ovo-hC1b79Dr6iO74y5mMqPspHFBg@mail.gmail.com>
+ <CALx6S35FYAQWk1p_PztBJ_ojio6OOdeYDb-AYQwZ0juxPj5gYQ@mail.gmail.com> <CACby=p=pjsSmu8EWWomm-MLE2E+H9BSs9Y2ZAiH2Jh67gScMsw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        tom@herbertland.com, roopa@cumulusnetworks.com,
-        netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        roopa <roopa@cumulusnetworks.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33126 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752596AbcKAUMB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:12:01 -0400
-Received: by mail-pf0-f179.google.com with SMTP id d2so25465969pfd.0
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 13:12:00 -0700 (PDT)
-In-Reply-To: <d8c7e07ac7d289a2846af8d659287f3512a4edec.1477959702.git.tgraf@suug.ch>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:35368 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750889AbcKAUdi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:33:38 -0400
+Received: by mail-qk0-f196.google.com with SMTP id v138so10162812qka.2
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 13:33:38 -0700 (PDT)
+In-Reply-To: <CACby=p=pjsSmu8EWWomm-MLE2E+H9BSs9Y2ZAiH2Jh67gScMsw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/16 6:37 PM, Thomas Graf wrote:
-> Register two new BPF prog types BPF_PROG_TYPE_LWT_IN and
-> BPF_PROG_TYPE_LWT_OUT which are invoked if a route contains a
-> LWT redirection of type LWTUNNEL_ENCAP_BPF.
-> 
-> The separate program types are required because manipulation of
-> packet data is only allowed on the output and transmit path as
-> the subsequent dst_input() call path assumes an IP header
-> validated by ip_rcv(). The BPF programs will be handed an skb
-> with the L3 header attached and may return one of the following
-> return codes:
-> 
->  BPF_OK - Continue routing as per nexthop
->  BPF_DROP - Drop skb and return EPERM
->  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
->                 (Only valid on lwtunnel_xmit() hook)
-> 
-> The return codes are binary compatible with their TC_ACT_
-> relatives to ease compatibility.
-> 
-> A new helper bpf_skb_push() is added which allows to preprend an
-> L2 header in front of the skb, extend the existing L3 header, or
-> both. This allows to address a wide range of issues:
->  - Optimize L2 header construction when L2 information is always
->    static to avoid ARP/NDisc lookup.
->  - Extend IP header to add additional IP options.
->  - Perform simple encapsulation where offload is of no concern.
->    (The existing funtionality to attach a tunnel key to the skb
->     and redirect to a tunnel net_device to allow for offload
->     continues to work obviously).
+On Tue, Nov 1, 2016 at 12:59 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 1 November 2016 at 12:27, Tom Herbert <tom@herbertland.com> wrote:
+>> On Tue, Nov 1, 2016 at 12:11 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>>> You can do the same with act_pedit or cls_bpf at dev_queue_xmit()
+>>> before or after you go into the encapsulation device. This is a tool
+>>> for root, if you install a drop all ssh rule then you won't be able to
+>>> log into the box anymore. If you modify the packet and render it
+>>> invalid, the packet will be dropped.
+>>> If you attach a VLAN header while VLAN offload is already set up, then
+>>> the hardware will add another VLAN header, this is what I would
+>>> expect. I truly hope that we don't have code which crashes if we
+>>> dev_queue_xmit() garbage into any device. That would be horrible.
+>>>
+>>> Do you have a specific example that could be a problem?
+>>
+>> I believe Alexander was dealing with problems where drivers were not
+>> properly handling IP extension headers. We regularly get reports about
+>
+> There are many ways to cause IP extension headers to be inserted. How
+> is this specific to BPF or this series?
+>
+>> driver checksum failures on edge conditions. Making a fully functional
+>
+> Not sure what an "edge condition" is? Untrusted networks? How is
+> drivers crashing on receive related to this series?
+>
+>> and efficient transmit data path is nontrivial, there are many
+>> assumptions being made some documented some not. When drivers crash we
+>> either fix the driver or the protocol stack that is doing something
+>> bad.
+>
+> Tom, we have a dozen ways to modify packet content already and we have
+> multiple ways to take raw packet data from userspace and inject them
+> at dev_queue_xmit() level and some even above. What is different for
+> lwtunnel_xmit()?
+>
+> This is entirely optional and nobody is forced to use any of this. If
+> you don't trust the BPF program then you better not run in. It's about
+> the same as trusting a random tc filter or iptables ruleset. The
+> important point is that integrity is maintained at all times.I would
+> love to address any specific concern.
 
-have you tested the adding of headers with large packets hitting gso and fragmentation? Wondering if mtu is used properly when headers are added and the lwt->headroom is not accounted. See 14972cbd34ff668c390cbd2e6497323484c9e812
+You need to show that is integrity is maintained with these patches.
+Part of this can be done, but part of this needs to be established in
+testing.
+
+I've already given specifics for at least one potential source of
+issues in routing issues. I would like to know what happens if someone
+rewrites an IPv4 packet into IPv6 packet or vice versa. AFAICT we
+would be send an IPv6 using an IPv4 route, or an IPv4 using an IPv6
+route. What is supposed to happen in these circumstances? What
+actually happens?
+
+Similarly, someone overwrites the whole packet with 0xff. What happens
+when we try to send that?
+
+Tom
