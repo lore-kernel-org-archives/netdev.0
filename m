@@ -1,62 +1,41 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net 4/4] net: hns: fix device reference leaks
-Date: Tue,  1 Nov 2016 12:03:37 +0100
-Message-ID: <1477998217-30143-5-git-send-email-johan@kernel.org>
-References: <1477998217-30143-1-git-send-email-johan@kernel.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Johan Hovold <johan@kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1477998217-30143-1-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: mv643xx_eth: ensure coalesce settings survive
+ read-modify-write
+Date: Tue, 1 Nov 2016 12:10:23 +0100
+Message-ID: <20161101111023.GA4211@lunn.ch>
+References: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        netdev@vger.kernel.org
+To: Russell King <rmk+kernel@armlinux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:59739 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1168733AbcKALK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 07:10:26 -0400
+Content-Disposition: inline
+In-Reply-To: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure to drop the reference taken by class_find_device() in
-hnae_get_handle() on errors and when later releasing the handle.
+On Tue, Nov 01, 2016 at 10:50:01AM +0000, Russell King wrote:
+> The coalesce settings behave badly when changing just one value:
+> 
+> ... # ethtool -c eth0
+> rx-usecs: 249
+> ... # ethtool -C eth0 tx-usecs 250
+> ... # ethtool -c eth0
+> rx-usecs: 248
+> 
+> This occurs due to rounding errors when calculating the microseconds
+> value - the divisons round down.  This causes (eg) the rx-usecs to
+> decrease by one every time the tx-usecs value is set as per the above.
+> 
+> Fix this by making the divison round-to-nearest.
+> 
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 
-Fixes: 6fe6611ff275 ("net: add Hisilicon Network Subsystem...")
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
- drivers/net/ethernet/hisilicon/hns/hnae.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index c54c6fac0d1d..b6ed818f78ff 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -332,8 +332,10 @@ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
- 		return ERR_PTR(-ENODEV);
- 
- 	handle = dev->ops->get_handle(dev, port_id);
--	if (IS_ERR(handle))
-+	if (IS_ERR(handle)) {
-+		put_device(&dev->cls_dev);
- 		return handle;
-+	}
- 
- 	handle->dev = dev;
- 	handle->owner_dev = owner_dev;
-@@ -356,6 +358,8 @@ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
- 	for (j = i - 1; j >= 0; j--)
- 		hnae_fini_queue(handle->qs[j]);
- 
-+	put_device(&dev->cls_dev);
-+
- 	return ERR_PTR(-ENOMEM);
- }
- EXPORT_SYMBOL(hnae_get_handle);
-@@ -377,6 +381,8 @@ void hnae_put_handle(struct hnae_handle *h)
- 		dev->ops->put_handle(h);
- 
- 	module_put(dev->owner);
-+
-+	put_device(&dev->cls_dev);
- }
- EXPORT_SYMBOL(hnae_put_handle);
- 
--- 
-2.7.3
+    Andrew
