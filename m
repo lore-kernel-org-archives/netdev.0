@@ -1,162 +1,48 @@
-From: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v3 5/6] net: ethernet: bgmac: add NS2 support
-Date: Tue,  1 Nov 2016 13:51:33 -0400
-Message-ID: <1478022694-25308-6-git-send-email-jon.mason@broadcom.com>
-References: <1478022694-25308-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1478022694-25308-1-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Matan Barak <matanb@mellanox.com>
+Subject: Re: [PATCH] net/mlx5: Simplify a test
+Date: Tue, 1 Nov 2016 11:38:18 +0200
+Message-ID: <025cb4e1-f5e8-8bc9-0d4f-3ee8f8d1bb5d@mellanox.com>
+References: <20161101071053.12486-1-christophe.jaillet@wanadoo.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        <leonro@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0057.outbound.protection.outlook.com ([104.47.2.57]:29968
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753835AbcKARxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 13:53:54 -0400
+In-Reply-To: <20161101071053.12486-1-christophe.jaillet@wanadoo.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for the variant of amac hardware present in the Broadcom
-Northstar2 based SoCs.  Northstar2 requires an additional register to be
-configured with the port speed/duplexity (NICPM).  This can be added to
-the link callback to hide it from the instances that do not use this.
-Also, clearing of the pending interrupts on init is required due to
-observed issues on some platforms.
+On 01/11/2016 09:10, Christophe JAILLET wrote:
+> 'create_root_ns()' does not return an error pointer, so the test can be
+> simplified to be more consistent.
+>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+> index 904853f9cf7a..330955f6badc 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+> @@ -1833,7 +1833,7 @@ static int init_root_ns(struct mlx5_flow_steering *steering)
+>  {
+>
+>  	steering->root_ns = create_root_ns(steering, FS_FT_NIC_RX);
+> -	if (IS_ERR_OR_NULL(steering->root_ns))
+> +	if (!steering->root_ns)
+>  		goto cleanup;
+>
+>  	if (init_root_tree(steering, &root_fs, &steering->root_ns->ns.node))
+>
 
-Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
----
- drivers/net/ethernet/broadcom/bgmac-platform.c | 56 +++++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bgmac.c          |  3 ++
- drivers/net/ethernet/broadcom/bgmac.h          |  1 +
- 3 files changed, 58 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
-index aed5dc5..f6d48c7 100644
---- a/drivers/net/ethernet/broadcom/bgmac-platform.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
-@@ -14,12 +14,21 @@
- #define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
- 
- #include <linux/bcma/bcma.h>
-+#include <linux/brcmphy.h>
- #include <linux/etherdevice.h>
- #include <linux/of_address.h>
- #include <linux/of_mdio.h>
- #include <linux/of_net.h>
- #include "bgmac.h"
- 
-+#define NICPM_IOMUX_CTRL		0x00000008
-+
-+#define NICPM_IOMUX_CTRL_INIT_VAL	0x3196e000
-+#define NICPM_IOMUX_CTRL_SPD_SHIFT	10
-+#define NICPM_IOMUX_CTRL_SPD_10M	0
-+#define NICPM_IOMUX_CTRL_SPD_100M	1
-+#define NICPM_IOMUX_CTRL_SPD_1000M	2
-+
- static u32 platform_bgmac_read(struct bgmac *bgmac, u16 offset)
- {
- 	return readl(bgmac->plat.base + offset);
-@@ -87,12 +96,46 @@ static void platform_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offset,
- 	WARN_ON(1);
- }
- 
-+static void bgmac_nicpm_speed_set(struct net_device *net_dev)
-+{
-+	struct bgmac *bgmac = netdev_priv(net_dev);
-+	u32 val;
-+
-+	if (!bgmac->plat.nicpm_base)
-+		return;
-+
-+	val = NICPM_IOMUX_CTRL_INIT_VAL;
-+	switch (bgmac->net_dev->phydev->speed) {
-+	default:
-+		pr_err("Unsupported speed.  Defaulting to 1000Mb\n");
-+	case SPEED_1000:
-+		val |= NICPM_IOMUX_CTRL_SPD_1000M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-+		break;
-+	case SPEED_100:
-+		val |= NICPM_IOMUX_CTRL_SPD_100M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-+		break;
-+	case SPEED_10:
-+		val |= NICPM_IOMUX_CTRL_SPD_10M << NICPM_IOMUX_CTRL_SPD_SHIFT;
-+		break;
-+	}
-+
-+	writel(val, bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
-+
-+	bgmac_adjust_link(bgmac->net_dev);
-+}
-+
- static int platform_phy_connect(struct bgmac *bgmac)
- {
- 	struct phy_device *phy_dev;
- 
--	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
--					 bgmac_adjust_link);
-+	if (bgmac->plat.nicpm_base)
-+		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-+						 bgmac->dev->of_node,
-+						 bgmac_nicpm_speed_set);
-+	else
-+		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
-+						 bgmac->dev->of_node,
-+						 bgmac_adjust_link);
- 	if (!phy_dev) {
- 		dev_err(bgmac->dev, "Phy connect failed\n");
- 		return -ENODEV;
-@@ -182,6 +225,14 @@ static int bgmac_probe(struct platform_device *pdev)
- 	if (IS_ERR(bgmac->plat.idm_base))
- 		return PTR_ERR(bgmac->plat.idm_base);
- 
-+	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");
-+	if (regs) {
-+		bgmac->plat.nicpm_base = devm_ioremap_resource(&pdev->dev,
-+							       regs);
-+		if (IS_ERR(bgmac->plat.nicpm_base))
-+			return PTR_ERR(bgmac->plat.nicpm_base);
-+	}
-+
- 	bgmac->read = platform_bgmac_read;
- 	bgmac->write = platform_bgmac_write;
- 	bgmac->idm_read = platform_bgmac_idm_read;
-@@ -213,6 +264,7 @@ static int bgmac_remove(struct platform_device *pdev)
- static const struct of_device_id bgmac_of_enet_match[] = {
- 	{.compatible = "brcm,amac",},
- 	{.compatible = "brcm,nsp-amac",},
-+	{.compatible = "brcm,ns2-amac",},
- 	{},
- };
- 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 4584958..a805cc8 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1082,6 +1082,9 @@ static void bgmac_enable(struct bgmac *bgmac)
- /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
- static void bgmac_chip_init(struct bgmac *bgmac)
- {
-+	/* Clear any erroneously pending interrupts */
-+	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
-+
- 	/* 1 interrupt per received frame */
- 	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
- 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index ea52ac3..b1820ea 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -463,6 +463,7 @@ struct bgmac {
- 		struct {
- 			void *base;
- 			void *idm_base;
-+			void *nicpm_base;
- 		} plat;
- 		struct {
- 			struct bcma_device *core;
--- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
+Acked-by: Matan Barak <matanb@mellanox.com>
