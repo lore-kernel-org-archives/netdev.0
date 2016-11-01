@@ -1,48 +1,35 @@
 From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
 Subject: RE: XDP question - how much can BPF change in xdp_buff?
-Date: Tue, 1 Nov 2016 06:45:47 +0000
-Message-ID: <BL2PR07MB2306ED437FAFA98CBA49E07F8DA10@BL2PR07MB2306.namprd07.prod.outlook.com>
+Date: Tue, 1 Nov 2016 07:06:02 +0000
+Message-ID: <BL2PR07MB230697FE88472B88AC400B808DA10@BL2PR07MB2306.namprd07.prod.outlook.com>
 References: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
  <CALx6S37bfMpMhWTSL-WzumGfqywi0oJPnLqj_yEUs61AtyLZKA@mail.gmail.com>
+ <BL2PR07MB2306ED437FAFA98CBA49E07F8DA10@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
 Cc: netdev <netdev@vger.kernel.org>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0043.outbound.protection.outlook.com ([104.47.34.43]:26006
+Received: from mail-by2nam01on0065.outbound.protection.outlook.com ([104.47.34.65]:24192
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1165026AbcKAGpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 02:45:50 -0400
-In-Reply-To: <CALx6S37bfMpMhWTSL-WzumGfqywi0oJPnLqj_yEUs61AtyLZKA@mail.gmail.com>
+        id S1752671AbcKAHGE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 03:06:04 -0400
+In-Reply-To: <BL2PR07MB2306ED437FAFA98CBA49E07F8DA10@BL2PR07MB2306.namprd07.prod.outlook.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+ID4gU28gSSd2ZSBbZmluYWxseV0gc3RhcnRlZCBsb29raW5nIGludG8gaW1wbGVtZW50aW5n
-IFhEUCBmb3IgcWVkZSwgYW5kDQo+ID4gdGhlcmUncyBvbmUgdGhpbmcgSSBmZWVsIGxpa2UgSSdt
-IG1pc3NpbmcgaW4gcmVnYXJkIHRvIFhEUF9UWCAtIHdoYXQncw0KPiA+IHRoZSBndWFyYW50ZWUv
-cmVxdWlyZW1lbnQgdGhhdCB0aGUgYnBmIHByb2dyYW0gaXNuJ3QgZ29pbmcgdG8NCj4gPiB0cmFu
-c211dGUgc29tZSBmaWVsZHMgb2YgdGhlIHJ4IHBhY2tldCBpbiBhIHdheSB0aGF0IHdvdWxkIHBy
-ZXZlbnQgdGhlDQo+ID4gZm9yd2FyZGluZz8NCj4gPg0KPiBJIHRoaW5rIHRoZXJlIGFyZSByZWFs
-bHkgdHdvIHNlcGFyYXRlIHF1ZXN0aW9ucyB5b3UncmUgcHJvYmFibHkgYXNraW5nLiAxKSBDYW4N
-Cj4gWERQIG1vZGlmeSBhIHBhY2tldCBpbiBzdWNoIGEgd2F5IHRoYXQgaXQgd29uJ3QgYmUgZm9y
-d2FyZGVkIGJ5IHRoZSBkcml2ZXIgd2hlbg0KPiBYRFBfVFggaXMgcmV0dXJuZWQsIGllLiBkcml2
-ZXIgd291bGQgZHJvcCBwYWNrZXQgIDIpIERvZXMgYW55dGhpbmcgcHJldmVudCB0aGUNCj4gQlBG
-IHByb2dyYW0gZnJvbSBtb2RpZnlpbmcgdGhlIHBhY2tldCBzdWNoIHRoYXQgaXQgYmVjb21lcyBt
-YWxmb3JtZWQgKGJhZA0KPiBjaGVja3N1bSwgbWFuZ2xlZCBoZWFkZXJzLCBldGMuKS4NCj4gDQo+
-IEkgYmVsaWV2ZSB0aGUgYW5zd2VyIHRvICMxIGlzICJubyIsIHRoZSBYRFAgaW50ZXJmYWNlIGFz
-c3VtZXMgcmF3IHBhY2tldHMuIElmDQo+IHByb2dyYW0gcmV0dXJucyBYRFBfVFggdGhlbiB0aGUg
-ZHJpdmVyIHdpbGwgZm9yd2FyZCB0aGUgcmF3IHBhY2tldCB3aXRob3V0IGFueQ0KPiBmdXJ0aGVy
-IGNvbnNpZGVyYXRpb24uDQo+IA0KPiBUaGUgYW5zd2VyIHRvICMyIGlzICJubyIsIHRoZXJlIGlz
-IG5vIGNoZWNrIHRoYXQgcGFja2V0IHByb2R1Y2VkIGlzIHNlbnNpYmxlLiBXZQ0KPiBhc3N1bWUg
-dGhhdCB0aGUgdXNlciBzZXR0aW5nIHRoZSBYRFAgcHJvZ3JhbSBrbm93cyB3aGF0IHRoZXkgYXJl
-IGRvaW5nLg0KDQpPLmsuLCB0aGFua3MgLSBzbyBJIGNhbiBzYWZlbHkgYXNzdW1lIGZvcndhcmRp
-bmcgd291bGRuJ3QgcmVxdWlyZSBhbnkgSFcgb2ZmbG9hZGluZy4NCg0KQlRXLCBhcmUgd2UgY29u
-c2lkZXJpbmcgc29tZSBvZmZsb2FkIHdoZXJlIHRoZSBlQlBGIHdvdWxkIHJldHVybiAgYSBzZXQN
-Cm9mIGNoYW5nZXMgW2Jhc2VkIG9uIHNvbWUgcHJlLXNldCBjYXBhYmlsaXRpZXMgc2V0IGJ5IGRy
-aXZlcl0gZG9uZSBvbiBidWZmZXINCmFuZCBsZXQgdGhlIEhXIG9mZmxvYWQgdGhvc2U/DQoNCkkg
-dW5kZXJzdGFuZCBlbmQgZ29hbCBpcyBlQlBGIGh3LW9mZmxvYWRpbmcsIGJ1dCBzZWVtcyBsaWtl
-IHRoZXJlIGFyZSBhIGxvdCBvZg0KZXhpc3Rpbmcgb2ZmbG9hZCBmYWNpbGl0aWVzIHRoYXQgbWln
-aHQgYmUgbGV2ZXJhZ2VkLg0K
+PiBCVFcsIGFyZSB3ZSBjb25zaWRlcmluZyBzb21lIG9mZmxvYWQgd2hlcmUgdGhlIGVCUEYgd291
+bGQgcmV0dXJuICBhIHNldCBvZg0KPiBjaGFuZ2VzIFtiYXNlZCBvbiBzb21lIHByZS1zZXQgY2Fw
+YWJpbGl0aWVzIHNldCBieSBkcml2ZXJdIGRvbmUgb24gYnVmZmVyIGFuZCBsZXQNCj4gdGhlIEhX
+IG9mZmxvYWQgdGhvc2U/DQo+IA0KPiBJIHVuZGVyc3RhbmQgZW5kIGdvYWwgaXMgZUJQRiBody1v
+ZmZsb2FkaW5nLCBidXQgc2VlbXMgbGlrZSB0aGVyZSBhcmUgYSBsb3Qgb2YNCj4gZXhpc3Rpbmcg
+b2ZmbG9hZCBmYWNpbGl0aWVzIHRoYXQgbWlnaHQgYmUgbGV2ZXJhZ2VkLg0KDQpPbiBzZWNvbmQg
+dGhvdWdodCwgZ2l2ZW4gdGhhdCB0aGUgcHJvZ3JhbSBpcyBsaWtlbHkgdG8gY2hhbmdlIG9ubHkg
+YQ0Kc21hbGwgc2V0IG9mIGZpZWxkcyBbYXMgb3Bwb3NlZCB0byBidWlsZGluZyB3aG9sZSBuZXcg
+YnVmZmVyc10sDQpwcm9iYWJseSBmaXhpbmcgdGhlIGNzdW0gaXNuJ3QgZ29pbmcgdG8gYmUgbXVj
+aCBjb3N0bGllciBbaWYgYXQgYWxsXSB0aGVuIHRoZSBsb2dpYw0KdGhhdCB3b3VsZCBiZSByZXF1
+aXJlZCB0byBkZXRlcm1pbmUgd2hldGhlciB0aGUgZGV2aWNlIHdvdWxkIGJlIGFibGUgdG8gb2Zm
+bG9hZA0KaXQuDQo=
