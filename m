@@ -1,81 +1,44 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [PATCH] net: smsc911x: Synchronize the runtime PM status during system suspend
-Date: Tue, 01 Nov 2016 05:19:25 +0100
-Message-ID: <3305877.UjuP622RYi@vostro.rjw.lan>
-References: <1477567434-5128-1-git-send-email-ulf.hansson@linaro.org> <CAMuHMdUbU07t2kB6J0rSOiOTbDkegP73FAAEenViuDjQUFE-Jg@mail.gmail.com> <CAPDyKFprWcita5sbdwTqbdi2CMW4gx7_UB7+kMd9R2rqXdcALQ@mail.gmail.com>
+From: Juergen Gross <jgross@suse.com>
+Subject: Re: [PATCH 00/12] xen: add common function for reading optional value
+Date: Tue, 1 Nov 2016 05:33:01 +0100
+Message-ID: <76a0c445-c345-fdf4-12b1-974491f6a77e@suse.com>
+References: <1477932510-28594-1-git-send-email-jgross@suse.com>
+ <20161031.130831.2006896157400677867.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-        Alan Stern <stern@rowland.harvard.edu>,
-        Linux PM list <linux-pm@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-        Kevin Hilman <khilman@kernel.org>,
-        Lina Iyer <lina.iyer@linaro.org>,
-        Jon Hunter <jonathanh@nvidia.com>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        Steve Glendinning <steve.glendinning@shawell.net>
-To: Ulf Hansson <ulf.hansson@linaro.org>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CAPDyKFprWcita5sbdwTqbdi2CMW4gx7_UB7+kMd9R2rqXdcALQ@mail.gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, xen-devel@lists.xen.org,
+        david.vrabel@citrix.com, boris.ostrovsky@oracle.com,
+        konrad.wilk@oracle.com, roger.pau@citrix.com, peterhuewe@gmx.de,
+        tpmdd@selhorst.net, jarkko.sakkinen@linux.intel.com,
+        jgunthorpe@obsidianresearch.com, tpmdd-devel@lists.sourceforge.net,
+        dmitry.torokhov@gmail.com, linux-input@vger.kernel.org,
+        wei.liu2@citrix.com, paul.durrant@citrix.com,
+        netdev@vger.kernel.org, bhelgaas@google.com,
+        linux-pci@vger.kernel.org, tomi.valkeinen@ti.com,
+        linux-fbdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20161031.130831.2006896157400677867.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, October 27, 2016 01:53:03 PM Ulf Hansson wrote:
-> On 27 October 2016 at 13:41, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-> > Hi Ulf,
-> >
-> > On Thu, Oct 27, 2016 at 1:23 PM, Ulf Hansson <ulf.hansson@linaro.org> wrote:
-> >> The smsc911c driver puts its device into low power state when entering
-> >> system suspend. Although it doesn't update the device's runtime PM status
-> >> to RPM_SUSPENDED, which causes problems for a parent device.
-> >>
-> >> In particular, when the runtime PM status of the parent is requested to be
-> >> updated to RPM_SUSPENDED, the runtime PM core prevent this, because it's
-> >> forbidden to runtime suspend a device, which has an active child.
-> >>
-> >> Fix this by updating the runtime PM status of the smsc911x device to
-> >> RPM_SUSPENDED during system suspend. In system resume, let's reverse that
-> >> action by runtime resuming the device and thus also the parent.
-> >
-> > Thanks for your patch!
-> >
-> > The changelog sounds quite innocent, but this does fix a system crash
-> > during resume from s2ram.
-> >
-> >> Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
-> >> Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> >> Cc: Steve Glendinning <steve.glendinning@shawell.net>
-> >> Fixes: 8b1107b85efd ("PM / Runtime: Don't allow to suspend a device with an active child")
-> >
-> > While the abovementioned commit made the problem visible, the root cause
-> > was present before, right?
+On 31/10/16 18:08, David Miller wrote:
+> From: Juergen Gross <jgross@suse.com>
+> Date: Mon, 31 Oct 2016 17:48:18 +0100
 > 
-> Yes.
+>> There are multiple instances of code reading an optional unsigned
+>> parameter from Xenstore via xenbus_scanf(). Instead of repeating the
+>> same code over and over add a service function doing the job and
+>> replace the call of xenbus_scanf() with the call of the new function
+>> where appropriate.
 > 
-> >
-> >> ---
-> >>
-> >> Note that the commit this change fixes is currently queued for 4.10 via
-> >> Rafael's linux-pm tree. So this fix should go via that tree as well.
-> >
-> > Alternatively, this could go in in v4.9 to avoid the problem from ever
-> > appearing in upstream?
+> As this seems to be a series that will go through some tree other
+> than mine, I assume the networking bits will be taken care of that
+> way.
 > 
-> Makes perfect sense! In that case we should remove the fixes tag.
-> 
-> Rafael, can you pick this up for 4.9 rc[n]?
 
-If that is to go into 4.9-rc, it really should go in via the networking tree,
-because there is no PM dependency for it as of today.
+If accepted I expect this series to go through the Xen tree.
 
-I can rearrange my 4.10 queue to put this one before the runtime PM commit
-exposing the problem in smsc911x, though.
 
-Let me know what you prefer.
-
-Thanks,
-Rafael
-
+Juergen
