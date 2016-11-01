@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 09/11] net: dsa: mv88e6xxx: add port's RGMII delay setter
-Date: Tue,  1 Nov 2016 04:20:21 +0100
-Message-ID: <20161101032023.32762-10-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 06/11] net: dsa: mv88e6xxx: add port 802.1Q mode setter
+Date: Tue,  1 Nov 2016 04:20:18 +0100
+Message-ID: <20161101032023.32762-7-vivien.didelot@savoirfairelinux.com>
 References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,158 +14,121 @@ In-Reply-To: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some chips such as 88E6352 and 88E6390 can be programmed to add delays
-to RXCLK for IND inputs or to GTXCLK for OUTD outputs when port is in
-RGMII mode.
-
-Add a port function to program such delays according to the provided PHY
-interface mode.
+Add port functions to set the port 802.1Q mode.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      |  4 +++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  6 ++++
- drivers/net/dsa/mv88e6xxx/port.c      | 58 +++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/port.h      |  5 +++
- 4 files changed, 73 insertions(+)
+ drivers/net/dsa/mv88e6xxx/chip.c | 33 ++-------------------------------
+ drivers/net/dsa/mv88e6xxx/port.c | 32 ++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h |  3 +++
+ 3 files changed, 37 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 49a6935..bb93d0a 100644
+index 9c0a028..181d3b9 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3220,6 +3220,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
- 	.port_set_link = mv88e6xxx_port_set_link,
- 	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
- };
+@@ -1806,48 +1806,19 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+ 	return err;
+ }
  
- static const struct mv88e6xxx_ops mv88e6175_ops = {
-@@ -3238,6 +3239,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
- 	.port_set_link = mv88e6xxx_port_set_link,
- 	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
- };
+-static const char * const mv88e6xxx_port_8021q_mode_names[] = {
+-	[PORT_CONTROL_2_8021Q_DISABLED] = "Disabled",
+-	[PORT_CONTROL_2_8021Q_FALLBACK] = "Fallback",
+-	[PORT_CONTROL_2_8021Q_CHECK] = "Check",
+-	[PORT_CONTROL_2_8021Q_SECURE] = "Secure",
+-};
+-
+ static int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+ 					 bool vlan_filtering)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	u16 old, new = vlan_filtering ? PORT_CONTROL_2_8021Q_SECURE :
++	u16 mode = vlan_filtering ? PORT_CONTROL_2_8021Q_SECURE :
+ 		PORT_CONTROL_2_8021Q_DISABLED;
+-	u16 reg;
+ 	int err;
  
- static const struct mv88e6xxx_ops mv88e6185_ops = {
-@@ -3256,6 +3258,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
- 	.port_set_link = mv88e6xxx_port_set_link,
- 	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
- };
+ 	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VTU))
+ 		return -EOPNOTSUPP;
  
- static const struct mv88e6xxx_ops mv88e6320_ops = {
-@@ -3302,6 +3305,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
- 	.phy_write = mv88e6xxx_g2_smi_phy_write,
- 	.port_set_link = mv88e6xxx_port_set_link,
- 	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
- };
+ 	mutex_lock(&chip->reg_lock);
+-
+-	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_2, &reg);
+-	if (err)
+-		goto unlock;
+-
+-	old = reg & PORT_CONTROL_2_8021Q_MASK;
+-
+-	if (new != old) {
+-		reg &= ~PORT_CONTROL_2_8021Q_MASK;
+-		reg |= new & PORT_CONTROL_2_8021Q_MASK;
+-
+-		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
+-		if (err)
+-			goto unlock;
+-
+-		netdev_dbg(ds->ports[port].netdev, "802.1Q Mode %s (was %s)\n",
+-			   mv88e6xxx_port_8021q_mode_names[new],
+-			   mv88e6xxx_port_8021q_mode_names[old]);
+-	}
+-
+-	err = 0;
+-unlock:
++	err = mv88e6xxx_port_set_8021q_mode(chip, port, mode);
+ 	mutex_unlock(&chip->reg_lock);
  
- static const struct mv88e6xxx_info mv88e6xxx_table[] = {
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 35420ed..0d3223b 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -728,6 +728,12 @@ struct mv88e6xxx_ops {
- 	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
- 			 u16 val);
- 
-+	/* RGMII Receive/Transmit Timing Control
-+	 * Add delay on PHY_INTERFACE_MODE_RGMII_*ID, no delay otherwise.
-+	 */
-+	int (*port_set_rgmii_delay)(struct mv88e6xxx_chip *chip, int port,
-+				    phy_interface_t mode);
-+
- #define LINK_UNKNOWN	-1
- 
- 	/* Port's MAC link state
+ 	return err;
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 386db46..ef6efc9 100644
+index 104fe2d..53d17e6 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -35,6 +35,64 @@ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
-  * Link, Duplex and Flow Control have one force bit, one value bit.
-  */
+@@ -190,3 +190,35 @@ int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid)
  
-+static int mv88e6xxx_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
-+					  phy_interface_t mode)
+ 	return 0;
+ }
++
++/* Offset 0x08: Port Control 2 Register */
++
++static const char * const mv88e6xxx_port_8021q_mode_names[] = {
++	[PORT_CONTROL_2_8021Q_DISABLED] = "Disabled",
++	[PORT_CONTROL_2_8021Q_FALLBACK] = "Fallback",
++	[PORT_CONTROL_2_8021Q_CHECK] = "Check",
++	[PORT_CONTROL_2_8021Q_SECURE] = "Secure",
++};
++
++int mv88e6xxx_port_set_8021q_mode(struct mv88e6xxx_chip *chip, int port,
++				  u16 mode)
 +{
 +	u16 reg;
 +	int err;
 +
-+	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
++	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_2, &reg);
 +	if (err)
 +		return err;
 +
-+	reg &= ~(PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
-+		 PORT_PCS_CTRL_RGMII_DELAY_TXCLK);
++	reg &= ~PORT_CONTROL_2_8021Q_MASK;
++	reg |= mode & PORT_CONTROL_2_8021Q_MASK;
 +
-+	switch (mode) {
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+		reg |= PORT_PCS_CTRL_RGMII_DELAY_RXCLK;
-+		break;
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
-+		reg |= PORT_PCS_CTRL_RGMII_DELAY_TXCLK;
-+		break;
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+		reg |= PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
-+			PORT_PCS_CTRL_RGMII_DELAY_TXCLK;
-+		break;
-+	default:
-+		/* no delay */
-+		break;
-+	}
-+
-+	err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
++	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
 +	if (err)
 +		return err;
 +
-+	netdev_dbg(chip->ds->ports[port].netdev, "delay RXCLK %s, TXCLK %s\n",
-+		   reg & PORT_PCS_CTRL_RGMII_DELAY_RXCLK ? "yes" : "no",
-+		   reg & PORT_PCS_CTRL_RGMII_DELAY_TXCLK ? "yes" : "no");
++	netdev_dbg(chip->ds->ports[port].netdev, "802.1QMode set to %s\n",
++		   mv88e6xxx_port_8021q_mode_names[mode]);
 +
 +	return 0;
 +}
-+
-+int mv88e6352_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
-+				   phy_interface_t mode)
-+{
-+	if (port < 5)
-+		return -EOPNOTSUPP;
-+
-+	return mv88e6xxx_port_set_rgmii_delay(chip, port, mode);
-+}
-+
-+int mv88e6390_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
-+				   phy_interface_t mode)
-+{
-+	if (port != 0)
-+		return -EOPNOTSUPP;
-+
-+	return mv88e6xxx_port_set_rgmii_delay(chip, port, mode);
-+}
-+
- int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link)
- {
- 	u16 reg;
 diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index f73e90e..3472b79 100644
+index 4489d9e..921eecf 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.h
 +++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -21,6 +21,11 @@ int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
- int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
- 			 u16 val);
+@@ -31,4 +31,7 @@ int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid);
+ int mv88e6xxx_port_get_pvid(struct mv88e6xxx_chip *chip, int port, u16 *pvid);
+ int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid);
  
-+int mv88e6352_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
-+				   phy_interface_t mode);
-+int mv88e6390_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
-+				   phy_interface_t mode);
++int mv88e6xxx_port_set_8021q_mode(struct mv88e6xxx_chip *chip, int port,
++				  u16 mode);
 +
- int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link);
- 
- int mv88e6xxx_port_set_duplex(struct mv88e6xxx_chip *chip, int port, int dup);
+ #endif /* _MV88E6XXX_PORT_H */
 -- 
 2.10.2
