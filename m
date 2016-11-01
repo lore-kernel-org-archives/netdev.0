@@ -1,86 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
- FIB notifier
-Date: Tue, 01 Nov 2016 11:36:50 -0400 (EDT)
-Message-ID: <20161101.113650.140429913221385583.davem@davemloft.net>
-References: <20161031225737.7nfoy4ka3ydzhptq@splinter>
-        <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
-        <5818B146.20209@cumulusnetworks.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v7 0/6] Add eBPF hooks for cgroups
+Date: Tue, 01 Nov 2016 11:38:33 -0400 (EDT)
+Message-ID: <20161101.113833.983996221243204456.davem@davemloft.net>
+References: <CAKD1Yr3QfL-biSjQfFgzjMFNoLV7FP9DSB=KNbp+_KyxyQmVMg@mail.gmail.com>
+        <581506C4.30902@iogearbox.net>
+        <CAKD1Yr02SCHvd-xZJL14d_Ta8Dk4evHZ60zytpU0h4r80FucwA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, idosch@idosch.org, netdev@vger.kernel.org,
-        jiri@mellanox.com, mlxsw@mellanox.com, dsa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, andy@greyhouse.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, idosch@mellanox.com
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46372 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751725AbcKAPgx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:36:53 -0400
-In-Reply-To: <5818B146.20209@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, htejun-b10kYP2dOMg@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org,
+        kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: lorenzo-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKD1Yr02SCHvd-xZJL14d_Ta8Dk4evHZ60zytpU0h4r80FucwA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Tue, 01 Nov 2016 08:14:14 -0700
+From: Lorenzo Colitti <lorenzo-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 2 Nov 2016 00:25:15 +0900
 
-> On 11/1/16, 7:19 AM, Eric Dumazet wrote:
->> On Tue, 2016-11-01 at 00:57 +0200, Ido Schimmel wrote:
->>> On Mon, Oct 31, 2016 at 02:24:06PM -0700, Eric Dumazet wrote:
->>>> How well will this work for large FIB tables ?
->>>>
->>>> Holding rtnl while sending thousands of skb will prevent consumers to
->>>> make progress ?
->>> Can you please clarify what do you mean by "while sending thousands of
->>> skb"? This patch doesn't generate notifications to user space, but
->>> instead invokes notification routines inside the kernel. I probably
->>> misunderstood you.
->>>
->>> Are you suggesting this be done using RCU instead? Well, there are a
->>> couple of reasons why I took RTNL here:
->>>
->> No, I do not believe RCU is wanted here, in control path where we might
->> sleep anyway.
->>
->>> 1) The FIB notification chain is blocking, so listeners are expected to
->>> be able to sleep. This isn't possible if we use RCU. Note that this
->>> chain is mainly useful for drivers that reflect the FIB table into a
->>> capable device and hardware operations usually involve sleeping.
->>>
->>> 2) The insertion of a single route is done with RTNL held. I didn't want
->>> to differentiate between both cases. This property is really useful for
->>> listeners, as they don't need to worry about locking in writer-side.
->>> Access to data structs is serialized by RTNL.
->> My concern was that for large iterations, you might hold RTNL and/or
->> current cpu for hundred of ms or even seconds...
->>
-> I have the same concern as Eric here.
-> 
-> I understand why you need it, but can the driver request for an initial dump and that
-> dump be made more efficient somehow ie not hold rtnl for the whole dump ?.
-> instead of making the fib notifier registration code doing it.
-> 
-> these routing table sizes can be huge and an analogy for this in user-space:
-> We do request a netlink dump of  routing tables at initialization (on driver starts or resets)...
-> but, existing netlink routing table dumps for that scale don't hold rtnl for the whole dump.
-> The dump is split into multiple responses to the user and hence it does not starve other rtnl users.
-> 
-> In-fact I don't think netlink routing table dumps from user-space hold rtnl_lock for the whole dump.
-> IIRC this was done to allow route add/dels to be allowed in parallel for performance reasons.
-> (I will need to double check to confirm this).
+> That way, if you want to modify the packet or do something
+> sophisticated in netfilter, you can still use the eBPF hook on the
+> results of that operation, and if you don't want to run netfilter, you
+> can write netfilter rules to skip the packet (and maybe still fix it
+> up later, perhaps in another netfilter chain).
 
-I've always had some reservations about using notifiers for getting
-the FIB entries down to the offloaded device.
-
-And this problem is just another symptom that it is the wrong
-mechanism for propagating this information.
-
-As suggested by Roopa here, perhaps we're looking at the problem from
-the wrong direction.  We tend to design NDO ops and notifiers, to
-"push" things to the driver, but maybe something more like a push+pull
-model is better.
+The downside is that we classify the packet twice.  This transactional
+cost adds up rather quickly.
