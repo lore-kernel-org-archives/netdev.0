@@ -1,208 +1,112 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v4 3/7] net: phy: broadcom: Add BCM54810 PHY entry
-Date: Tue,  1 Nov 2016 16:04:38 -0400
-Message-ID: <1478030682-27012-4-git-send-email-jon.mason@broadcom.com>
-References: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v2 0/5] bpf: BPF for lightweight tunnel
+ encapsulation
+Date: Tue, 01 Nov 2016 21:08:52 +0100
+Message-ID: <1478030932.3136562.774196097.1F1AD6FB@webmail.messagingengine.com>
+References: <cover.1477959702.git.tgraf@suug.ch>
+ <c220b6b2-3f20-09ff-2068-6ecfe0b47b9e@stressinduktion.org>
+ <CACby=pmK9Pj00LYx9PQrgWe95xmy=qFhpjSYZT=QDnLQ55J=8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
- rafal@milecki.pl, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>, Rob Herring <robh+dt@kernel.org>,
- Mark Rutland <mark.rutland@arm.com>,
- Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tom Herbert <tom@herbertland.com>,
+        roopa <roopa@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:41460 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932263AbcKAUIy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:08:54 -0400
+In-Reply-To: <CACby=pmK9Pj00LYx9PQrgWe95xmy=qFhpjSYZT=QDnLQ55J=8w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The BCM54810 PHY requires some semi-unique configuration, which results
-in some additional configuration in addition to the standard config.
-Also, some users of the BCM54810 require the PHY lanes to be swapped.
-Since there is no way to detect this, add a device tree query to see if
-it is applicable.
+On Tue, Nov 1, 2016, at 19:51, Thomas Graf wrote:
+> On 1 November 2016 at 03:54, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > I do fear the complexity and debugability introduced by this patch set
+> > quite a bit.
+> 
+> What is the complexity concern? This is pretty straight forward. I
+> agree on debugability. This is being worked on separately as Alexei
+> mentioned, to address this for all BPF integrations.
 
-Inspired-by: Vikas Soni <vsoni@broadcom.com>
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
----
- drivers/net/phy/Kconfig    |  2 +-
- drivers/net/phy/broadcom.c | 58 +++++++++++++++++++++++++++++++++++++++++++++-
- include/linux/brcmphy.h    |  9 +++++++
- 3 files changed, 67 insertions(+), 2 deletions(-)
+We have a multi-layered policy engine which is actually hard to inspect
+from user space already.
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 45f68ea..31967ca 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -217,7 +217,7 @@ config BROADCOM_PHY
- 	select BCM_NET_PHYLIB
- 	---help---
- 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S, BCM5464,
--	  BCM5481 and BCM5482 PHYs.
-+	  BCM5481, BCM54810 and BCM5482 PHYs.
- 
- config CICADA_PHY
- 	tristate "Cicada PHYs"
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 3a64b3d..b1e32e9 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -18,7 +18,7 @@
- #include <linux/module.h>
- #include <linux/phy.h>
- #include <linux/brcmphy.h>
--
-+#include <linux/of.h>
- 
- #define BRCM_PHY_MODEL(phydev) \
- 	((phydev)->drv->phy_id & (phydev)->drv->phy_id_mask)
-@@ -45,6 +45,34 @@ static int bcm54xx_auxctl_write(struct phy_device *phydev, u16 regnum, u16 val)
- 	return phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum | val);
- }
- 
-+static int bcm54810_config(struct phy_device *phydev)
-+{
-+	int rc, val;
-+
-+	val = bcm_phy_read_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL);
-+	val &= ~BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN;
-+	rc = bcm_phy_write_exp(phydev, BCM54810_EXP_BROADREACH_LRE_MISC_CTL,
-+			       val);
-+	if (rc < 0)
-+		return rc;
-+
-+	val = bcm54xx_auxctl_read(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
-+	val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
-+	val |= MII_BCM54XX_AUXCTL_MISC_WREN;
-+	rc = bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
-+				  val);
-+	if (rc < 0)
-+		return rc;
-+
-+	val = bcm_phy_read_shadow(phydev, BCM54810_SHD_CLK_CTL);
-+	val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
-+	rc = bcm_phy_write_shadow(phydev, BCM54810_SHD_CLK_CTL, val);
-+	if (rc < 0)
-+		return rc;
-+
-+	return 0;
-+}
-+
- /* Needs SMDSP clock enabled via bcm54xx_phydsp_config() */
- static int bcm50610_a0_workaround(struct phy_device *phydev)
- {
-@@ -217,6 +245,12 @@ static int bcm54xx_config_init(struct phy_device *phydev)
- 	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
- 		bcm54xx_adjust_rxrefclk(phydev);
- 
-+	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810) {
-+		err = bcm54810_config(phydev);
-+		if (err)
-+			return err;
-+	}
-+
- 	bcm54xx_phydsp_config(phydev);
- 
- 	return 0;
-@@ -314,6 +348,7 @@ static int bcm5482_read_status(struct phy_device *phydev)
- 
- static int bcm5481_config_aneg(struct phy_device *phydev)
- {
-+	struct device_node *np = phydev->mdio.dev.of_node;
- 	int ret;
- 
- 	/* Aneg firsly. */
-@@ -344,6 +379,14 @@ static int bcm5481_config_aneg(struct phy_device *phydev)
- 		phy_write(phydev, 0x18, reg);
- 	}
- 
-+	if (of_property_read_bool(np, "enet-phy-lane-swap")) {
-+		/* Lane Swap - Undocumented register...magic! */
-+		ret = bcm_phy_write_exp(phydev, MII_BCM54XX_EXP_SEL_ER + 0x9,
-+					0x11B);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
- 	return ret;
- }
- 
-@@ -578,6 +621,18 @@ static struct phy_driver broadcom_drivers[] = {
- 	.ack_interrupt	= bcm_phy_ack_intr,
- 	.config_intr	= bcm_phy_config_intr,
- }, {
-+	.phy_id         = PHY_ID_BCM54810,
-+	.phy_id_mask    = 0xfffffff0,
-+	.name           = "Broadcom BCM54810",
-+	.features       = PHY_GBIT_FEATURES |
-+			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
-+	.flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.config_init    = bcm54xx_config_init,
-+	.config_aneg    = bcm5481_config_aneg,
-+	.read_status    = genphy_read_status,
-+	.ack_interrupt  = bcm_phy_ack_intr,
-+	.config_intr    = bcm_phy_config_intr,
-+}, {
- 	.phy_id		= PHY_ID_BCM5482,
- 	.phy_id_mask	= 0xfffffff0,
- 	.name		= "Broadcom BCM5482",
-@@ -661,6 +716,7 @@ static struct mdio_device_id __maybe_unused broadcom_tbl[] = {
- 	{ PHY_ID_BCM54616S, 0xfffffff0 },
- 	{ PHY_ID_BCM5464, 0xfffffff0 },
- 	{ PHY_ID_BCM5481, 0xfffffff0 },
-+	{ PHY_ID_BCM54810, 0xfffffff0 },
- 	{ PHY_ID_BCM5482, 0xfffffff0 },
- 	{ PHY_ID_BCM50610, 0xfffffff0 },
- 	{ PHY_ID_BCM50610M, 0xfffffff0 },
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 0ed6691..848dc50 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -13,6 +13,7 @@
- #define PHY_ID_BCM5241			0x0143bc30
- #define PHY_ID_BCMAC131			0x0143bc70
- #define PHY_ID_BCM5481			0x0143bca0
-+#define PHY_ID_BCM54810			0x03625d00
- #define PHY_ID_BCM5482			0x0143bcb0
- #define PHY_ID_BCM5411			0x00206070
- #define PHY_ID_BCM5421			0x002060e0
-@@ -56,6 +57,7 @@
- #define PHY_BRCM_EXT_IBND_TX_ENABLE	0x00002000
- #define PHY_BRCM_CLEAR_RGMII_MODE	0x00004000
- #define PHY_BRCM_DIS_TXCRXC_NOENRGY	0x00008000
-+
- /* Broadcom BCM7xxx specific workarounds */
- #define PHY_BRCM_7XXX_REV(x)		(((x) >> 8) & 0xff)
- #define PHY_BRCM_7XXX_PATCH(x)		((x) & 0xff)
-@@ -111,6 +113,7 @@
- #define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
- #define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
-+#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN	(1 << 8)
- 
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MASK	0x0007
- 
-@@ -192,6 +195,12 @@
- #define BCM5482_SSD_SGMII_SLAVE_EN	0x0002	/* Slave mode enable */
- #define BCM5482_SSD_SGMII_SLAVE_AD	0x0001	/* Slave auto-detection */
- 
-+/* BCM54810 Registers */
-+#define BCM54810_EXP_BROADREACH_LRE_MISC_CTL	(MII_BCM54XX_EXP_SEL_ER + 0x90)
-+#define BCM54810_EXP_BROADREACH_LRE_MISC_CTL_EN	(1 << 0)
-+#define BCM54810_SHD_CLK_CTL			0x3
-+#define BCM54810_SHD_CLK_CTL_GTXCLK_EN		(1 << 9)
-+
- 
- /*****************************************************************************/
- /* Fast Ethernet Transceiver definitions. */
--- 
-2.7.4
+We first resolve the rules, with forwards us to the table_id, where we
+do the fib lookup, which in the end returns the eBPF program to use.
+
+> > I wonder if architecturally it would be more feasible to add a generic
+> > (bfp-)hook into into dst_output(_sk) and allow arbitrary metadata to be
+> > added into the dsts.
+> >
+> > BPF could then be able to access parts of the metadata in the attached
+> > metadata dst entries and performing the matching this way?
+> 
+> If I understand you correctly then a single BPF program would be
+> loaded which then applies to all dst_output() calls? This has a huge
+> drawback, instead of multiple small BPF programs which do exactly what
+> is required per dst, a large BPF program is needed which matches on
+> metadata. That's way slower and renders one of the biggest advantages
+> of BPF invalid, the ability to generate a a small program tailored to
+> a particular use. See Cilium.
+
+I thought more of hooks in the actual output/input functions specific to
+the protocol type (unfortunately again) protected by jump labels? Those
+hook get part of the dst_entry mapped so they can act on them.
+
+Another idea would be to put the eBPF hooks into the fib rules
+infrastructure. But I fear this wouldn't get you the hooks you were
+looking for? There they would only end up in the runtime path if
+actually activated.
+
+> > The reason why I would prefer an approach like this: irregardless of the
+> > routing lookup we would process the skb with bpf or not. This gives a
+> > single point to debug, where instead in your approach we first must
+> > figure out the corresponding bpf program and then check for it specifically.
+> 
+> Not sure I see what kind of advantage this actually provides. You can
+> dump the routes and see which programs get invoked and which section.
+
+Dumping and verifying which routes get used might actually already be
+quite complex on its own. Thus my fear.
+
+> If it's based on metadata then you need to know the program logic and
+> associate it with the metadata in the dst. It actually doesn't get
+> much easier than to debug one of the samples, they are completely
+> static once compiled and it's very simple to verify if they do what
+> they are supposed to do.
+
+At the same time you can have lots of those programs and you e.g. would
+also need to verify if they are acting on the same data structures or
+have the identical code.
+
+It all reminds me a bit on grepping in source code which makes heavy use
+of function pointers with very generic and short names.
+
+> If you like the single program approach, feel free to load the same
+> program for every dst. Perfectly acceptable but I don't see why we
+> should force everybody to use that model.
+
+I am concerned having 100ths of BPF programs, all specialized on a
+particular route, to debug. Looking at one code file and its associated
+tables seems still easier to me.
+
+E.g. imaging we have input routes and output routes with different BPF
+programs. We somehow must make sure all nodes kind of behave accordingly
+to "sane" network semantics. If you end up with an input route doing bpf
+processing and the according output node, which e.g. might be needed to
+reflect ICMP packets, doesn't behave accordingly you at least have two
+programs to debug already instead of a switch- or if-condition in one
+single code location. I would like to "force" this kind of symmetry to
+developers using eBPF, thus I thought meta-data manipulation and
+verification inside the kernel would be a better attack at this problem,
+no?
+
+Bye,
+Hannes
