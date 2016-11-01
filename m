@@ -1,112 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2 0/5] bpf: BPF for lightweight tunnel
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 3/5] bpf: BPF for lightweight tunnel
  encapsulation
-Date: Tue, 01 Nov 2016 21:08:52 +0100
-Message-ID: <1478030932.3136562.774196097.1F1AD6FB@webmail.messagingengine.com>
+Date: Tue, 1 Nov 2016 14:11:58 -0600
+Message-ID: <0bfff5e0-cd4a-4d69-d54c-7d6dbf237db7@cumulusnetworks.com>
 References: <cover.1477959702.git.tgraf@suug.ch>
- <c220b6b2-3f20-09ff-2068-6ecfe0b47b9e@stressinduktion.org>
- <CACby=pmK9Pj00LYx9PQrgWe95xmy=qFhpjSYZT=QDnLQ55J=8w@mail.gmail.com>
+ <d8c7e07ac7d289a2846af8d659287f3512a4edec.1477959702.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Tom Herbert <tom@herbertland.com>,
-        roopa <roopa@cumulusnetworks.com>,
-        netdev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        tom@herbertland.com, roopa@cumulusnetworks.com,
+        netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:41460 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932263AbcKAUIy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:08:54 -0400
-In-Reply-To: <CACby=pmK9Pj00LYx9PQrgWe95xmy=qFhpjSYZT=QDnLQ55J=8w@mail.gmail.com>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33126 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752596AbcKAUMB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:12:01 -0400
+Received: by mail-pf0-f179.google.com with SMTP id d2so25465969pfd.0
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 13:12:00 -0700 (PDT)
+In-Reply-To: <d8c7e07ac7d289a2846af8d659287f3512a4edec.1477959702.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 1, 2016, at 19:51, Thomas Graf wrote:
-> On 1 November 2016 at 03:54, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > I do fear the complexity and debugability introduced by this patch set
-> > quite a bit.
+On 10/31/16 6:37 PM, Thomas Graf wrote:
+> Register two new BPF prog types BPF_PROG_TYPE_LWT_IN and
+> BPF_PROG_TYPE_LWT_OUT which are invoked if a route contains a
+> LWT redirection of type LWTUNNEL_ENCAP_BPF.
 > 
-> What is the complexity concern? This is pretty straight forward. I
-> agree on debugability. This is being worked on separately as Alexei
-> mentioned, to address this for all BPF integrations.
-
-We have a multi-layered policy engine which is actually hard to inspect
-from user space already.
-
-We first resolve the rules, with forwards us to the table_id, where we
-do the fib lookup, which in the end returns the eBPF program to use.
-
-> > I wonder if architecturally it would be more feasible to add a generic
-> > (bfp-)hook into into dst_output(_sk) and allow arbitrary metadata to be
-> > added into the dsts.
-> >
-> > BPF could then be able to access parts of the metadata in the attached
-> > metadata dst entries and performing the matching this way?
+> The separate program types are required because manipulation of
+> packet data is only allowed on the output and transmit path as
+> the subsequent dst_input() call path assumes an IP header
+> validated by ip_rcv(). The BPF programs will be handed an skb
+> with the L3 header attached and may return one of the following
+> return codes:
 > 
-> If I understand you correctly then a single BPF program would be
-> loaded which then applies to all dst_output() calls? This has a huge
-> drawback, instead of multiple small BPF programs which do exactly what
-> is required per dst, a large BPF program is needed which matches on
-> metadata. That's way slower and renders one of the biggest advantages
-> of BPF invalid, the ability to generate a a small program tailored to
-> a particular use. See Cilium.
-
-I thought more of hooks in the actual output/input functions specific to
-the protocol type (unfortunately again) protected by jump labels? Those
-hook get part of the dst_entry mapped so they can act on them.
-
-Another idea would be to put the eBPF hooks into the fib rules
-infrastructure. But I fear this wouldn't get you the hooks you were
-looking for? There they would only end up in the runtime path if
-actually activated.
-
-> > The reason why I would prefer an approach like this: irregardless of the
-> > routing lookup we would process the skb with bpf or not. This gives a
-> > single point to debug, where instead in your approach we first must
-> > figure out the corresponding bpf program and then check for it specifically.
+>  BPF_OK - Continue routing as per nexthop
+>  BPF_DROP - Drop skb and return EPERM
+>  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
+>                 (Only valid on lwtunnel_xmit() hook)
 > 
-> Not sure I see what kind of advantage this actually provides. You can
-> dump the routes and see which programs get invoked and which section.
+> The return codes are binary compatible with their TC_ACT_
+> relatives to ease compatibility.
+> 
+> A new helper bpf_skb_push() is added which allows to preprend an
+> L2 header in front of the skb, extend the existing L3 header, or
+> both. This allows to address a wide range of issues:
+>  - Optimize L2 header construction when L2 information is always
+>    static to avoid ARP/NDisc lookup.
+>  - Extend IP header to add additional IP options.
+>  - Perform simple encapsulation where offload is of no concern.
+>    (The existing funtionality to attach a tunnel key to the skb
+>     and redirect to a tunnel net_device to allow for offload
+>     continues to work obviously).
 
-Dumping and verifying which routes get used might actually already be
-quite complex on its own. Thus my fear.
-
-> If it's based on metadata then you need to know the program logic and
-> associate it with the metadata in the dst. It actually doesn't get
-> much easier than to debug one of the samples, they are completely
-> static once compiled and it's very simple to verify if they do what
-> they are supposed to do.
-
-At the same time you can have lots of those programs and you e.g. would
-also need to verify if they are acting on the same data structures or
-have the identical code.
-
-It all reminds me a bit on grepping in source code which makes heavy use
-of function pointers with very generic and short names.
-
-> If you like the single program approach, feel free to load the same
-> program for every dst. Perfectly acceptable but I don't see why we
-> should force everybody to use that model.
-
-I am concerned having 100ths of BPF programs, all specialized on a
-particular route, to debug. Looking at one code file and its associated
-tables seems still easier to me.
-
-E.g. imaging we have input routes and output routes with different BPF
-programs. We somehow must make sure all nodes kind of behave accordingly
-to "sane" network semantics. If you end up with an input route doing bpf
-processing and the according output node, which e.g. might be needed to
-reflect ICMP packets, doesn't behave accordingly you at least have two
-programs to debug already instead of a switch- or if-condition in one
-single code location. I would like to "force" this kind of symmetry to
-developers using eBPF, thus I thought meta-data manipulation and
-verification inside the kernel would be a better attack at this problem,
-no?
-
-Bye,
-Hannes
+have you tested the adding of headers with large packets hitting gso and fragmentation? Wondering if mtu is used properly when headers are added and the lwt->headroom is not accounted. See 14972cbd34ff668c390cbd2e6497323484c9e812
