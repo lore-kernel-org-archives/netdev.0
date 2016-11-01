@@ -1,39 +1,74 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded
- ICMP errors from offending packet
-Date: Tue, 1 Nov 2016 17:25:07 +0100
-Message-ID: <af3e302e-4fd0-e63c-4520-63a6e2341c22@stressinduktion.org>
-References: <CALx6S35qmAwFfK1TNAcJJs1jK7JgM8U4MCh3wC8hkuf2qae+sw@mail.gmail.com>
- <8760oa9egg.fsf@redhat.com>
- <CALx6S36r0gzZ7ndmivsygZD9vX+EEv2sVEP=rmhQVzGB46Rkdg@mail.gmail.com>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for forwarded ICMP errors from offending packet
+Date: Tue, 01 Nov 2016 17:26:22 +0100
+Message-ID: <878tt3np3l.fsf@redhat.com>
+References: <20161101.113505.1429989348222226550.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
-To: Tom Herbert <tom@herbertland.com>, Jakub Sitnicki <jkbs@redhat.com>
+Content-Type: text/plain
+Cc: tom@herbertland.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALx6S36r0gzZ7ndmivsygZD9vX+EEv2sVEP=rmhQVzGB46Rkdg@mail.gmail.com>
+In-reply-to: <20161101.113505.1429989348222226550.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31.10.2016 20:25, Tom Herbert wrote:
-> The normal hash for TCP or UDP using ECMP is over <protocol, srcIP,
-> dstIP, srcPort, dstPort>. For an ICMP packet ECMP would most likely be
-> done over <protocol, srcIP, dstIP>. There really is no way to ensure
-> that an ICMP packet will follow the same path as TCP or any other
-> protocol. Fortunately, this is really isn't so terrible. The Internet
-> has worked this way ever since routers started using ports as input to
-> ECMP and that hasn't caused any major meltdown.
+On Tue, Nov 01, 2016 at 03:35 PM GMT, David Miller wrote:
+> From: Jakub Sitnicki <jkbs@redhat.com>
+> Date: Tue, 01 Nov 2016 16:13:51 +0100
+>
+>> On Mon, Oct 31, 2016 at 07:15 PM GMT, David Miller wrote:
+>>> From: Jakub Sitnicki <jkbs@redhat.com>
+>>> Date: Sun, 30 Oct 2016 14:03:11 +0100
+>>>
+>>>> 2) ensure the flow labels used in both directions are the same (either
+>>>>    reflected by one side, or fixed, e.g. not used and set to 0), so that
+>>>>    the 4-tuple we hash over when forwarding, <src addr, dst addr, flow
+>>>>    label, next hdr>, is the same both ways, modulo the order of
+>>>>    addresses.
+>>>
+>>> Even Linux, by default, does not do reflection.
+>>>
+>>> See the flowlabel_consistency sysctl, which we set by default to '1'.
+>> 
+>> Yes, unfortunately, if Linux-based hosts are used as sending/receiving
+>> IPv6, ICMP error forwarding will not work out of the box. Users will be
+>> burdened with adjusting the runtime network stack config, as you point
+>> out, or otherwise instructing the apps to set the flow label,
+>> e.g. traceroute6 -I <flow label> ...
+>
+> I'm pretty sure that sysctl default was choosen intentionally, and we
+> actively are _encouraging_ the world to not depend upon reflection in
+> any way, shape, or form.
+>
+> And it's kind of pointless to suggest a facility that can't work with
+> Linux endpoints out of the box.
+>
+> This was the point I'm trying to make.
+>
+> If the intentions of that sysctl default does pan out, the idea is for
+> the world to move towards arbitrary flow label settings, even perhaps
+> changing over time.  The intention is to make this more, not less,
+> common.  And the idea is to give maximum flexibility for endpoints to
+> set these flow labels, in order to increase entropy wherever possible.
+>
+> I have a really hard time accepting a "fix" that depends upon behavior
+> that the Linux ipv6 stack doesn't even have.
 
-The normal hash for forwarding is without srcPort or dstPort, so the
-same as ICMP and especially also because of fragmentation problematic I
-don't think a lot of routers use L4 port information for ECMP either.
+Fair enough. I'm not questioning the defaults or the benefits of
+widespread use of flow labels.
 
-Bye,
-Hannes
+I was trying to do this without changing as to how we hash the packets
+and balance traffic over multiple paths, but that does yield a solution
+that does not work out of the box with Linux endpoints. Hard to sell, I
+agree.
+
+As a potential way out, I can rework it so that we exclude the flow
+label from the multipath hash. That way we lose some entropy (not worse
+than IPv4), but do not depend any more on how flow labels are set
+(flexible). This could be made runtime configurable, as it changes
+existing behavior.
+
+Thanks,
+Jakub
