@@ -1,1048 +1,874 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/12] netfilter: nf_tables: add fib expression
-Date: Tue,  1 Nov 2016 22:26:28 +0100
-Message-ID: <1478035593-1362-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/12] netfilter: move socket lookup infrastructure to nf_socket_ipv{4,6}.c
+Date: Tue,  1 Nov 2016 22:26:30 +0100
+Message-ID: <1478035593-1362-10-git-send-email-pablo@netfilter.org>
 References: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52590 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:52630 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932275AbcKAV1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 17:27:07 -0400
+        id S932410AbcKAV1K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 17:27:10 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 64FA3168386
-        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:05 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id 6AEA01683A3
+        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:08 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 41891BAC27
-        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:05 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 4D042BAC35
+        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:08 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id EF99FBAC28
-        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:01 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 636AEBAC39
+        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:05 +0100 (CET)
 In-Reply-To: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+We need this split to reuse existing codebase for the upcoming nf_tables
+socket expression.
 
-Add FIB expression, supported for ipv4, ipv6 and inet family (the latter
-just dispatches to ipv4 or ipv6 one based on nfproto).
-
-Currently supports fetching output interface index/name and the
-rtm_type associated with an address.
-
-This can be used for adding path filtering. rtm_type is useful
-to e.g. enforce a strong-end host model where packets
-are only accepted if daddr is configured on the interface the
-packet arrived on.
-
-The fib expression is a native nftables alternative to the
-xtables addrtype and rp_filter matches.
-
-FIB result order for oif/oifname retrieval is as follows:
- - if packet is local (skb has rtable, RTF_LOCAL set, this
-   will also catch looped-back multicast packets), set oif to
-   the loopback interface.
- - if fib lookup returns an error, or result points to local,
-   store zero result.  This means '--local' option of -m rpfilter
-   is not supported. It is possible to use 'fib type local' or add
-   explicit saddr/daddr matching rules to create exceptions if this
-   is really needed.
- - store result in the destination register.
-   In case of multiple routes, search set for desired oif in case
-   strict matching is requested.
-
-ipv4 and ipv6 behave fib expressions are supposed to behave the same.
-
-[ I have collapsed Arnd Bergmann's ("netfilter: nf_tables: fib warnings")
-
-	http://patchwork.ozlabs.org/patch/688615/
-
-  to address fallout from this patch after rebasing nf-next, that was
-  posted to address compilation warnings. --pablo ]
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nft_fib.h          |  31 ++++
- include/uapi/linux/netfilter/nf_tables.h |  36 ++++
- net/ipv4/netfilter/Kconfig               |   8 +
- net/ipv4/netfilter/Makefile              |   1 +
- net/ipv4/netfilter/nft_fib_ipv4.c        | 238 ++++++++++++++++++++++++++
- net/ipv6/netfilter/Kconfig               |   8 +
- net/ipv6/netfilter/Makefile              |   1 +
- net/ipv6/netfilter/nft_fib_ipv6.c        | 275 +++++++++++++++++++++++++++++++
- net/netfilter/Kconfig                    |  13 ++
- net/netfilter/Makefile                   |   2 +
- net/netfilter/nft_fib.c                  | 159 ++++++++++++++++++
- net/netfilter/nft_fib_inet.c             |  82 +++++++++
- 12 files changed, 854 insertions(+)
- create mode 100644 include/net/netfilter/nft_fib.h
- create mode 100644 net/ipv4/netfilter/nft_fib_ipv4.c
- create mode 100644 net/ipv6/netfilter/nft_fib_ipv6.c
- create mode 100644 net/netfilter/nft_fib.c
- create mode 100644 net/netfilter/nft_fib_inet.c
+ include/net/netfilter/nf_socket.h   |  27 ++++
+ net/ipv4/netfilter/Kconfig          |   6 +
+ net/ipv4/netfilter/Makefile         |   2 +
+ net/ipv4/netfilter/nf_socket_ipv4.c | 163 +++++++++++++++++++
+ net/ipv6/netfilter/Kconfig          |   6 +
+ net/ipv6/netfilter/Makefile         |   2 +
+ net/ipv6/netfilter/nf_socket_ipv6.c | 151 ++++++++++++++++++
+ net/netfilter/Kconfig               |   3 +-
+ net/netfilter/xt_socket.c           | 305 ++----------------------------------
+ 9 files changed, 369 insertions(+), 296 deletions(-)
+ create mode 100644 include/net/netfilter/nf_socket.h
+ create mode 100644 net/ipv4/netfilter/nf_socket_ipv4.c
+ create mode 100644 net/ipv6/netfilter/nf_socket_ipv6.c
 
-diff --git a/include/net/netfilter/nft_fib.h b/include/net/netfilter/nft_fib.h
+diff --git a/include/net/netfilter/nf_socket.h b/include/net/netfilter/nf_socket.h
 new file mode 100644
-index 000000000000..cbedda077db2
+index 000000000000..f2fc39c97d43
 --- /dev/null
-+++ b/include/net/netfilter/nft_fib.h
-@@ -0,0 +1,31 @@
-+#ifndef _NFT_FIB_H_
-+#define _NFT_FIB_H_
++++ b/include/net/netfilter/nf_socket.h
+@@ -0,0 +1,27 @@
++#ifndef _NF_SOCK_H_
++#define _NF_SOCK_H_
 +
-+struct nft_fib {
-+	enum nft_registers	dreg:8;
-+	u8			result;
-+	u32			flags;
-+};
++struct net_device;
++struct sk_buff;
++struct sock;
++struct net;
 +
-+extern const struct nla_policy nft_fib_policy[];
++static inline bool nf_sk_is_transparent(struct sock *sk)
++{
++	switch (sk->sk_state) {
++	case TCP_TIME_WAIT:
++		return inet_twsk(sk)->tw_transparent;
++	case TCP_NEW_SYN_RECV:
++		return inet_rsk(inet_reqsk(sk))->no_srccheck;
++	default:
++		return inet_sk(sk)->transparent;
++	}
++}
 +
-+int nft_fib_dump(struct sk_buff *skb, const struct nft_expr *expr);
-+int nft_fib_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
-+		 const struct nlattr * const tb[]);
-+int nft_fib_validate(const struct nft_ctx *ctx, const struct nft_expr *expr,
-+		     const struct nft_data **data);
++struct sock *nf_sk_lookup_slow_v4(struct net *net, const struct sk_buff *skb,
++				  const struct net_device *indev);
 +
++struct sock *nf_sk_lookup_slow_v6(struct net *net, const struct sk_buff *skb,
++				  const struct net_device *indev);
 +
-+void nft_fib4_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
-+			const struct nft_pktinfo *pkt);
-+void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
-+		   const struct nft_pktinfo *pkt);
-+
-+void nft_fib6_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
-+			const struct nft_pktinfo *pkt);
-+void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
-+		   const struct nft_pktinfo *pkt);
-+
-+void nft_fib_store_result(void *reg, enum nft_fib_result r,
-+			  const struct nft_pktinfo *pkt, int index);
 +#endif
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index c6c4477c136b..a054ad2c8853 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1109,6 +1109,42 @@ enum nft_gen_attributes {
- };
- #define NFTA_GEN_MAX		(__NFTA_GEN_MAX - 1)
- 
-+/*
-+ * enum nft_fib_attributes - nf_tables fib expression netlink attributes
-+ *
-+ * @NFTA_FIB_DREG: destination register (NLA_U32)
-+ * @NFTA_FIB_RESULT: desired result (NLA_U32)
-+ * @NFTA_FIB_FLAGS: flowi fields to initialize when querying the FIB (NLA_U32)
-+ *
-+ * The FIB expression performs a route lookup according
-+ * to the packet data.
-+ */
-+enum nft_fib_attributes {
-+	NFTA_FIB_UNSPEC,
-+	NFTA_FIB_DREG,
-+	NFTA_FIB_RESULT,
-+	NFTA_FIB_FLAGS,
-+	__NFTA_FIB_MAX
-+};
-+#define NFTA_FIB_MAX (__NFTA_FIB_MAX - 1)
-+
-+enum nft_fib_result {
-+	NFT_FIB_RESULT_UNSPEC,
-+	NFT_FIB_RESULT_OIF,
-+	NFT_FIB_RESULT_OIFNAME,
-+	NFT_FIB_RESULT_ADDRTYPE,
-+	__NFT_FIB_RESULT_MAX
-+};
-+#define NFT_FIB_RESULT_MAX	(__NFT_FIB_RESULT_MAX - 1)
-+
-+enum nft_fib_flags {
-+	NFTA_FIB_F_SADDR	= 1 << 0,	/* look up src */
-+	NFTA_FIB_F_DADDR	= 1 << 1,	/* look up dst */
-+	NFTA_FIB_F_MARK		= 1 << 2,	/* use skb->mark */
-+	NFTA_FIB_F_IIF		= 1 << 3,	/* restrict to iif */
-+	NFTA_FIB_F_OIF		= 1 << 4,	/* restrict to oif */
-+};
-+
- /**
-  * enum nft_trace_attributes - nf_tables trace netlink attributes
-  *
 diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index d613309e3e5d..f80bb8f457c8 100644
+index f80bb8f457c8..c11eb1744ab1 100644
 --- a/net/ipv4/netfilter/Kconfig
 +++ b/net/ipv4/netfilter/Kconfig
-@@ -54,6 +54,14 @@ config NFT_DUP_IPV4
- 	help
- 	  This module enables IPv4 packet duplication support for nf_tables.
+@@ -25,6 +25,12 @@ config NF_CONNTRACK_IPV4
  
-+config NFT_FIB_IPV4
-+	select NFT_FIB
-+	tristate "nf_tables fib / ip route lookup support"
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NF_SOCKET_IPV4
++	tristate "IPv4 socket lookup support"
 +	help
-+	  This module enables IPv4 FIB lookups, e.g. for reverse path filtering.
-+	  It also allows query of the FIB for the route type, e.g. local, unicast,
-+	  multicast or blackhole.
++	  This option enables the IPv4 socket lookup infrastructure. This is
++	  is required by the iptables socket match.
 +
- endif # NF_TABLES_IPV4
+ if NF_TABLES
  
- config NF_TABLES_ARP
+ config NF_TABLES_IPV4
 diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 853328f8fd05..59d7786ddce1 100644
+index 59d7786ddce1..f462fee66ac8 100644
 --- a/net/ipv4/netfilter/Makefile
 +++ b/net/ipv4/netfilter/Makefile
-@@ -34,6 +34,7 @@ obj-$(CONFIG_NF_TABLES_IPV4) += nf_tables_ipv4.o
- obj-$(CONFIG_NFT_CHAIN_ROUTE_IPV4) += nft_chain_route_ipv4.o
- obj-$(CONFIG_NFT_CHAIN_NAT_IPV4) += nft_chain_nat_ipv4.o
- obj-$(CONFIG_NFT_REJECT_IPV4) += nft_reject_ipv4.o
-+obj-$(CONFIG_NFT_FIB_IPV4) += nft_fib_ipv4.o
- obj-$(CONFIG_NFT_MASQ_IPV4) += nft_masq_ipv4.o
- obj-$(CONFIG_NFT_REDIR_IPV4) += nft_redir_ipv4.o
- obj-$(CONFIG_NFT_DUP_IPV4) += nft_dup_ipv4.o
-diff --git a/net/ipv4/netfilter/nft_fib_ipv4.c b/net/ipv4/netfilter/nft_fib_ipv4.c
+@@ -14,6 +14,8 @@ obj-$(CONFIG_NF_NAT_IPV4) += nf_nat_ipv4.o
+ # defrag
+ obj-$(CONFIG_NF_DEFRAG_IPV4) += nf_defrag_ipv4.o
+ 
++obj-$(CONFIG_NF_SOCKET_IPV4) += nf_socket_ipv4.o
++
+ # logging
+ obj-$(CONFIG_NF_LOG_ARP) += nf_log_arp.o
+ obj-$(CONFIG_NF_LOG_IPV4) += nf_log_ipv4.o
+diff --git a/net/ipv4/netfilter/nf_socket_ipv4.c b/net/ipv4/netfilter/nf_socket_ipv4.c
 new file mode 100644
-index 000000000000..db91fd42db67
+index 000000000000..a83d558e1aae
 --- /dev/null
-+++ b/net/ipv4/netfilter/nft_fib_ipv4.c
-@@ -0,0 +1,238 @@
++++ b/net/ipv4/netfilter/nf_socket_ipv4.c
+@@ -0,0 +1,163 @@
 +/*
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/netlink.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables_core.h>
-+#include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nft_fib.h>
-+
-+#include <net/ip_fib.h>
-+#include <net/route.h>
-+
-+/* don't try to find route from mcast/bcast/zeronet */
-+static __be32 get_saddr(__be32 addr)
-+{
-+	if (ipv4_is_multicast(addr) || ipv4_is_lbcast(addr) ||
-+	    ipv4_is_zeronet(addr))
-+		return 0;
-+	return addr;
-+}
-+
-+static bool fib4_is_local(const struct sk_buff *skb)
-+{
-+	const struct rtable *rt = skb_rtable(skb);
-+
-+	return rt && (rt->rt_flags & RTCF_LOCAL);
-+}
-+
-+#define DSCP_BITS     0xfc
-+
-+void nft_fib4_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
-+			const struct nft_pktinfo *pkt)
-+{
-+	const struct nft_fib *priv = nft_expr_priv(expr);
-+	u32 *dst = &regs->data[priv->dreg];
-+	const struct net_device *dev = NULL;
-+	const struct iphdr *iph;
-+	__be32 addr;
-+
-+	if (priv->flags & NFTA_FIB_F_IIF)
-+		dev = pkt->in;
-+	else if (priv->flags & NFTA_FIB_F_OIF)
-+		dev = pkt->out;
-+
-+	iph = ip_hdr(pkt->skb);
-+	if (priv->flags & NFTA_FIB_F_DADDR)
-+		addr = iph->daddr;
-+	else
-+		addr = iph->saddr;
-+
-+	*dst = inet_dev_addr_type(pkt->net, dev, addr);
-+}
-+EXPORT_SYMBOL_GPL(nft_fib4_eval_type);
-+
-+static int get_ifindex(const struct net_device *dev)
-+{
-+	return dev ? dev->ifindex : 0;
-+}
-+
-+void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
-+		   const struct nft_pktinfo *pkt)
-+{
-+	const struct nft_fib *priv = nft_expr_priv(expr);
-+	u32 *dest = &regs->data[priv->dreg];
-+	const struct iphdr *iph;
-+	struct fib_result res;
-+	struct flowi4 fl4 = {
-+		.flowi4_scope = RT_SCOPE_UNIVERSE,
-+		.flowi4_iif = LOOPBACK_IFINDEX,
-+	};
-+	const struct net_device *oif;
-+	struct net_device *found;
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+	int i;
-+#endif
-+
-+	/*
-+	 * Do not set flowi4_oif, it restricts results (for example, asking
-+	 * for oif 3 will get RTN_UNICAST result even if the daddr exits
-+	 * on another interface.
-+	 *
-+	 * Search results for the desired outinterface instead.
-+	 */
-+	if (priv->flags & NFTA_FIB_F_OIF)
-+		oif = pkt->out;
-+	else if (priv->flags & NFTA_FIB_F_IIF)
-+		oif = pkt->in;
-+	else
-+		oif = NULL;
-+
-+	if (pkt->hook == NF_INET_PRE_ROUTING && fib4_is_local(pkt->skb)) {
-+		nft_fib_store_result(dest, priv->result, pkt, LOOPBACK_IFINDEX);
-+		return;
-+	}
-+
-+	iph = ip_hdr(pkt->skb);
-+	if (ipv4_is_multicast(iph->daddr) &&
-+	    ipv4_is_zeronet(iph->saddr) &&
-+	    ipv4_is_local_multicast(iph->daddr)) {
-+		nft_fib_store_result(dest, priv->result, pkt,
-+				     get_ifindex(pkt->skb->dev));
-+		return;
-+	}
-+
-+	if (priv->flags & NFTA_FIB_F_MARK)
-+		fl4.flowi4_mark = pkt->skb->mark;
-+
-+	fl4.flowi4_tos = iph->tos & DSCP_BITS;
-+
-+	if (priv->flags & NFTA_FIB_F_DADDR) {
-+		fl4.daddr = iph->daddr;
-+		fl4.saddr = get_saddr(iph->saddr);
-+	} else {
-+		fl4.daddr = iph->saddr;
-+		fl4.saddr = get_saddr(iph->daddr);
-+	}
-+
-+	if (fib_lookup(pkt->net, &fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE))
-+		return;
-+
-+	switch (res.type) {
-+	case RTN_UNICAST:
-+		break;
-+	case RTN_LOCAL:	/* should not appear here, see fib4_is_local() above */
-+		return;
-+	default:
-+		break;
-+	}
-+
-+       if (!oif) {
-+               found = FIB_RES_DEV(res);
-+               goto ok;
-+       }
-+
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+	for (i = 0; i < res.fi->fib_nhs; i++) {
-+		struct fib_nh *nh = &res.fi->fib_nh[i];
-+
-+		if (nh->nh_dev == oif) {
-+			found = nh->nh_dev;
-+			goto ok;
-+		}
-+	}
-+	return;
-+#else
-+	found = FIB_RES_DEV(res);
-+	if (found != oif)
-+		return;
-+#endif
-+ok:
-+	switch (priv->result) {
-+	case NFT_FIB_RESULT_OIF:
-+		*dest = found->ifindex;
-+		break;
-+	case NFT_FIB_RESULT_OIFNAME:
-+		strncpy((char *)dest, found->name, IFNAMSIZ);
-+		break;
-+	default:
-+		WARN_ON_ONCE(1);
-+		break;
-+	}
-+}
-+EXPORT_SYMBOL_GPL(nft_fib4_eval);
-+
-+static struct nft_expr_type nft_fib4_type;
-+
-+static const struct nft_expr_ops nft_fib4_type_ops = {
-+	.type		= &nft_fib4_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_fib)),
-+	.eval		= nft_fib4_eval_type,
-+	.init		= nft_fib_init,
-+	.dump		= nft_fib_dump,
-+	.validate	= nft_fib_validate,
-+};
-+
-+static const struct nft_expr_ops nft_fib4_ops = {
-+	.type		= &nft_fib4_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_fib)),
-+	.eval		= nft_fib4_eval,
-+	.init		= nft_fib_init,
-+	.dump		= nft_fib_dump,
-+	.validate	= nft_fib_validate,
-+};
-+
-+static const struct nft_expr_ops *
-+nft_fib4_select_ops(const struct nft_ctx *ctx,
-+		    const struct nlattr * const tb[])
-+{
-+	enum nft_fib_result result;
-+
-+	if (!tb[NFTA_FIB_RESULT])
-+		return ERR_PTR(-EINVAL);
-+
-+	result = htonl(nla_get_be32(tb[NFTA_FIB_RESULT]));
-+
-+	switch (result) {
-+	case NFT_FIB_RESULT_OIF:
-+		return &nft_fib4_ops;
-+	case NFT_FIB_RESULT_OIFNAME:
-+		return &nft_fib4_ops;
-+	case NFT_FIB_RESULT_ADDRTYPE:
-+		return &nft_fib4_type_ops;
-+	default:
-+		return ERR_PTR(-EOPNOTSUPP);
-+	}
-+}
-+
-+static struct nft_expr_type nft_fib4_type __read_mostly = {
-+	.name		= "fib",
-+	.select_ops	= &nft_fib4_select_ops,
-+	.policy		= nft_fib_policy,
-+	.maxattr	= NFTA_FIB_MAX,
-+	.family		= NFPROTO_IPV4,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int __init nft_fib4_module_init(void)
-+{
-+	return nft_register_expr(&nft_fib4_type);
-+}
-+
-+static void __exit nft_fib4_module_exit(void)
-+{
-+	nft_unregister_expr(&nft_fib4_type);
-+}
-+
-+module_init(nft_fib4_module_init);
-+module_exit(nft_fib4_module_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
-+MODULE_ALIAS_NFT_AF_EXPR(2, "fib");
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index e10a04c9cdc7..144f1de33836 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -54,6 +54,14 @@ config NFT_DUP_IPV6
- 	help
- 	  This module enables IPv6 packet duplication support for nf_tables.
- 
-+config NFT_FIB_IPV6
-+	tristate "nf_tables fib / ipv6 route lookup support"
-+	select NFT_FIB
-+	help
-+	  This module enables IPv6 FIB lookups, e.g. for reverse path filtering.
-+	  It also allows query of the FIB for the route type, e.g. local, unicast,
-+	  multicast or blackhole.
-+
- endif # NF_TABLES_IPV6
- endif # NF_TABLES
- 
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index b4f7d0b4e2af..7984f3071f05 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -40,6 +40,7 @@ obj-$(CONFIG_NFT_REJECT_IPV6) += nft_reject_ipv6.o
- obj-$(CONFIG_NFT_MASQ_IPV6) += nft_masq_ipv6.o
- obj-$(CONFIG_NFT_REDIR_IPV6) += nft_redir_ipv6.o
- obj-$(CONFIG_NFT_DUP_IPV6) += nft_dup_ipv6.o
-+obj-$(CONFIG_NFT_FIB_IPV6) += nft_fib_ipv6.o
- 
- # matches
- obj-$(CONFIG_IP6_NF_MATCH_AH) += ip6t_ah.o
-diff --git a/net/ipv6/netfilter/nft_fib_ipv6.c b/net/ipv6/netfilter/nft_fib_ipv6.c
-new file mode 100644
-index 000000000000..ff1f1b6b4a4a
---- /dev/null
-+++ b/net/ipv6/netfilter/nft_fib_ipv6.c
-@@ -0,0 +1,275 @@
-+/*
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/netlink.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter/nf_tables.h>
-+#include <linux/netfilter_ipv6.h>
-+#include <net/netfilter/nf_tables_core.h>
-+#include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nft_fib.h>
-+
-+#include <net/ip6_fib.h>
-+#include <net/ip6_route.h>
-+
-+static bool fib6_is_local(const struct sk_buff *skb)
-+{
-+	const struct rt6_info *rt = (const void *)skb_dst(skb);
-+
-+	return rt && (rt->rt6i_flags & RTF_LOCAL);
-+}
-+
-+static int get_ifindex(const struct net_device *dev)
-+{
-+	return dev ? dev->ifindex : 0;
-+}
-+
-+static int nft_fib6_flowi_init(struct flowi6 *fl6, const struct nft_fib *priv,
-+			       const struct nft_pktinfo *pkt,
-+			       const struct net_device *dev)
-+{
-+	const struct ipv6hdr *iph = ipv6_hdr(pkt->skb);
-+	int lookup_flags = 0;
-+
-+	if (priv->flags & NFTA_FIB_F_DADDR) {
-+		fl6->daddr = iph->daddr;
-+		fl6->saddr = iph->saddr;
-+	} else {
-+		fl6->daddr = iph->saddr;
-+		fl6->saddr = iph->daddr;
-+	}
-+
-+	if (ipv6_addr_type(&fl6->daddr) & IPV6_ADDR_LINKLOCAL) {
-+		lookup_flags |= RT6_LOOKUP_F_IFACE;
-+		fl6->flowi6_oif = get_ifindex(dev ? dev : pkt->skb->dev);
-+	}
-+
-+	if (ipv6_addr_type(&fl6->saddr) & IPV6_ADDR_UNICAST)
-+		lookup_flags |= RT6_LOOKUP_F_HAS_SADDR;
-+
-+	if (priv->flags & NFTA_FIB_F_MARK)
-+		fl6->flowi6_mark = pkt->skb->mark;
-+
-+	fl6->flowlabel = (*(__be32 *)iph) & IPV6_FLOWINFO_MASK;
-+
-+	return lookup_flags;
-+}
-+
-+static u32 __nft_fib6_eval_type(const struct nft_fib *priv,
-+				const struct nft_pktinfo *pkt)
-+{
-+	const struct net_device *dev = NULL;
-+	const struct nf_ipv6_ops *v6ops;
-+	const struct nf_afinfo *afinfo;
-+	int route_err, addrtype;
-+	struct rt6_info *rt;
-+	struct flowi6 fl6 = {
-+		.flowi6_iif = LOOPBACK_IFINDEX,
-+		.flowi6_proto = pkt->tprot,
-+	};
-+	u32 ret = 0;
-+
-+	afinfo = nf_get_afinfo(NFPROTO_IPV6);
-+	if (!afinfo)
-+		return RTN_UNREACHABLE;
-+
-+	if (priv->flags & NFTA_FIB_F_IIF)
-+		dev = pkt->in;
-+	else if (priv->flags & NFTA_FIB_F_OIF)
-+		dev = pkt->out;
-+
-+	nft_fib6_flowi_init(&fl6, priv, pkt, dev);
-+
-+	v6ops = nf_get_ipv6_ops();
-+	if (dev && v6ops && v6ops->chk_addr(pkt->net, &fl6.daddr, dev, true))
-+		ret = RTN_LOCAL;
-+
-+	route_err = afinfo->route(pkt->net, (struct dst_entry **)&rt,
-+				  flowi6_to_flowi(&fl6), false);
-+	if (route_err)
-+		goto err;
-+
-+	if (rt->rt6i_flags & RTF_REJECT) {
-+		route_err = rt->dst.error;
-+		dst_release(&rt->dst);
-+		goto err;
-+	}
-+
-+	if (ipv6_anycast_destination((struct dst_entry *)rt, &fl6.daddr))
-+		ret = RTN_ANYCAST;
-+	else if (!dev && rt->rt6i_flags & RTF_LOCAL)
-+		ret = RTN_LOCAL;
-+
-+	dst_release(&rt->dst);
-+
-+	if (ret)
-+		return ret;
-+
-+	addrtype = ipv6_addr_type(&fl6.daddr);
-+
-+	if (addrtype & IPV6_ADDR_MULTICAST)
-+		return RTN_MULTICAST;
-+	if (addrtype & IPV6_ADDR_UNICAST)
-+		return RTN_UNICAST;
-+
-+	return RTN_UNSPEC;
-+ err:
-+	switch (route_err) {
-+	case -EINVAL:
-+		return RTN_BLACKHOLE;
-+	case -EACCES:
-+		return RTN_PROHIBIT;
-+	case -EAGAIN:
-+		return RTN_THROW;
-+	default:
-+		break;
-+	}
-+
-+	return RTN_UNREACHABLE;
-+}
-+
-+void nft_fib6_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
-+			const struct nft_pktinfo *pkt)
-+{
-+	const struct nft_fib *priv = nft_expr_priv(expr);
-+	u32 *dest = &regs->data[priv->dreg];
-+
-+	*dest = __nft_fib6_eval_type(priv, pkt);
-+}
-+EXPORT_SYMBOL_GPL(nft_fib6_eval_type);
-+
-+void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
-+		   const struct nft_pktinfo *pkt)
-+{
-+	const struct nft_fib *priv = nft_expr_priv(expr);
-+	const struct net_device *oif = NULL;
-+	u32 *dest = &regs->data[priv->dreg];
-+	struct flowi6 fl6 = {
-+		.flowi6_iif = LOOPBACK_IFINDEX,
-+		.flowi6_proto = pkt->tprot,
-+	};
-+	struct rt6_info *rt;
-+	int lookup_flags;
-+
-+	if (priv->flags & NFTA_FIB_F_IIF)
-+		oif = pkt->in;
-+	else if (priv->flags & NFTA_FIB_F_OIF)
-+		oif = pkt->out;
-+
-+	lookup_flags = nft_fib6_flowi_init(&fl6, priv, pkt, oif);
-+
-+	if (pkt->hook == NF_INET_PRE_ROUTING && fib6_is_local(pkt->skb)) {
-+		nft_fib_store_result(dest, priv->result, pkt, LOOPBACK_IFINDEX);
-+		return;
-+	}
-+
-+	*dest = 0;
-+ again:
-+	rt = (void *)ip6_route_lookup(pkt->net, &fl6, lookup_flags);
-+	if (rt->dst.error)
-+		goto put_rt_err;
-+
-+	/* Should not see RTF_LOCAL here */
-+	if (rt->rt6i_flags & (RTF_REJECT | RTF_ANYCAST | RTF_LOCAL))
-+		goto put_rt_err;
-+
-+	if (oif && oif != rt->rt6i_idev->dev) {
-+		/* multipath route? Try again with F_IFACE */
-+		if ((lookup_flags & RT6_LOOKUP_F_IFACE) == 0) {
-+			lookup_flags |= RT6_LOOKUP_F_IFACE;
-+			fl6.flowi6_oif = oif->ifindex;
-+			ip6_rt_put(rt);
-+			goto again;
-+		}
-+	}
-+
-+	switch (priv->result) {
-+	case NFT_FIB_RESULT_OIF:
-+		*dest = rt->rt6i_idev->dev->ifindex;
-+		break;
-+	case NFT_FIB_RESULT_OIFNAME:
-+		strncpy((char *)dest, rt->rt6i_idev->dev->name, IFNAMSIZ);
-+		break;
-+	default:
-+		WARN_ON_ONCE(1);
-+		break;
-+	}
-+
-+ put_rt_err:
-+	ip6_rt_put(rt);
-+}
-+EXPORT_SYMBOL_GPL(nft_fib6_eval);
-+
-+static struct nft_expr_type nft_fib6_type;
-+
-+static const struct nft_expr_ops nft_fib6_type_ops = {
-+	.type		= &nft_fib6_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_fib)),
-+	.eval		= nft_fib6_eval_type,
-+	.init		= nft_fib_init,
-+	.dump		= nft_fib_dump,
-+	.validate	= nft_fib_validate,
-+};
-+
-+static const struct nft_expr_ops nft_fib6_ops = {
-+	.type		= &nft_fib6_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_fib)),
-+	.eval		= nft_fib6_eval,
-+	.init		= nft_fib_init,
-+	.dump		= nft_fib_dump,
-+	.validate	= nft_fib_validate,
-+};
-+
-+static const struct nft_expr_ops *
-+nft_fib6_select_ops(const struct nft_ctx *ctx,
-+		    const struct nlattr * const tb[])
-+{
-+	enum nft_fib_result result;
-+
-+	if (!tb[NFTA_FIB_RESULT])
-+		return ERR_PTR(-EINVAL);
-+
-+	result = htonl(nla_get_be32(tb[NFTA_FIB_RESULT]));
-+
-+	switch (result) {
-+	case NFT_FIB_RESULT_OIF:
-+		return &nft_fib6_ops;
-+	case NFT_FIB_RESULT_OIFNAME:
-+		return &nft_fib6_ops;
-+	case NFT_FIB_RESULT_ADDRTYPE:
-+		return &nft_fib6_type_ops;
-+	default:
-+		return ERR_PTR(-EOPNOTSUPP);
-+	}
-+}
-+
-+static struct nft_expr_type nft_fib6_type __read_mostly = {
-+	.name		= "fib",
-+	.select_ops	= &nft_fib6_select_ops,
-+	.policy		= nft_fib_policy,
-+	.maxattr	= NFTA_FIB_MAX,
-+	.family		= NFPROTO_IPV6,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int __init nft_fib6_module_init(void)
-+{
-+	return nft_register_expr(&nft_fib6_type);
-+}
-+
-+static void __exit nft_fib6_module_exit(void)
-+{
-+	nft_unregister_expr(&nft_fib6_type);
-+}
-+module_init(nft_fib6_module_init);
-+module_exit(nft_fib6_module_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
-+MODULE_ALIAS_NFT_AF_EXPR(10, "fib");
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index e8d56d9a4df2..9bcf899ce16e 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -581,6 +581,19 @@ config NFT_HASH
- 	  This option adds the "hash" expression that you can use to perform
- 	  a hash operation on registers.
- 
-+config NFT_FIB
-+	tristate
-+
-+config NFT_FIB_INET
-+	depends on NF_TABLES_INET
-+	depends on NFT_FIB_IPV4
-+	depends on NFT_FIB_IPV6
-+	tristate "Netfilter nf_tables fib inet support"
-+	help
-+	  This option allows using the FIB expression from the inet table.
-+	  The lookup will be delegated to the IPv4 or IPv6 FIB depending
-+	  on the protocol of the packet.
-+
- if NF_TABLES_NETDEV
- 
- config NF_DUP_NETDEV
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index c23c3c84416f..8faa36c0686d 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -96,6 +96,8 @@ obj-$(CONFIG_NFT_LOG)		+= nft_log.o
- obj-$(CONFIG_NFT_MASQ)		+= nft_masq.o
- obj-$(CONFIG_NFT_REDIR)		+= nft_redir.o
- obj-$(CONFIG_NFT_HASH)		+= nft_hash.o
-+obj-$(CONFIG_NFT_FIB)		+= nft_fib.o
-+obj-$(CONFIG_NFT_FIB_INET)	+= nft_fib_inet.o
- 
- # nf_tables netdev
- obj-$(CONFIG_NFT_DUP_NETDEV)	+= nft_dup_netdev.o
-diff --git a/net/netfilter/nft_fib.c b/net/netfilter/nft_fib.c
-new file mode 100644
-index 000000000000..4944a8b7f7a7
---- /dev/null
-+++ b/net/netfilter/nft_fib.c
-@@ -0,0 +1,159 @@
-+/*
++ * Copyright (C) 2007-2008 BalaBit IT Ltd.
++ * Author: Krisztian Kovacs
++ *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
 + * published by the Free Software Foundation.
 + *
-+ * Generic part shared by ipv4 and ipv6 backends.
 + */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +#include <linux/module.h>
-+#include <linux/netlink.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables_core.h>
-+#include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nft_fib.h>
++#include <linux/skbuff.h>
++#include <net/tcp.h>
++#include <net/udp.h>
++#include <net/icmp.h>
++#include <net/sock.h>
++#include <net/inet_sock.h>
++#include <net/netfilter/nf_socket.h>
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++#include <net/netfilter/nf_conntrack.h>
++#endif
 +
-+const struct nla_policy nft_fib_policy[NFTA_FIB_MAX + 1] = {
-+	[NFTA_FIB_DREG]		= { .type = NLA_U32 },
-+	[NFTA_FIB_RESULT]	= { .type = NLA_U32 },
-+	[NFTA_FIB_FLAGS]	= { .type = NLA_U32 },
-+};
-+EXPORT_SYMBOL(nft_fib_policy);
-+
-+#define NFTA_FIB_F_ALL (NFTA_FIB_F_SADDR | NFTA_FIB_F_DADDR | \
-+			NFTA_FIB_F_MARK | NFTA_FIB_F_IIF | NFTA_FIB_F_OIF)
-+
-+int nft_fib_validate(const struct nft_ctx *ctx, const struct nft_expr *expr,
-+		     const struct nft_data **data)
++static int
++extract_icmp4_fields(const struct sk_buff *skb, u8 *protocol,
++		     __be32 *raddr, __be32 *laddr,
++		     __be16 *rport, __be16 *lport)
 +{
-+	const struct nft_fib *priv = nft_expr_priv(expr);
-+	unsigned int hooks;
++	unsigned int outside_hdrlen = ip_hdrlen(skb);
++	struct iphdr *inside_iph, _inside_iph;
++	struct icmphdr *icmph, _icmph;
++	__be16 *ports, _ports[2];
 +
-+	switch (priv->result) {
-+	case NFT_FIB_RESULT_OIF: /* fallthrough */
-+	case NFT_FIB_RESULT_OIFNAME:
-+		hooks = (1 << NF_INET_PRE_ROUTING);
-+		break;
-+	case NFT_FIB_RESULT_ADDRTYPE:
-+		if (priv->flags & NFTA_FIB_F_IIF)
-+			hooks = (1 << NF_INET_PRE_ROUTING) |
-+				(1 << NF_INET_LOCAL_IN) |
-+				(1 << NF_INET_FORWARD);
-+		else if (priv->flags & NFTA_FIB_F_OIF)
-+			hooks = (1 << NF_INET_LOCAL_OUT) |
-+				(1 << NF_INET_POST_ROUTING) |
-+				(1 << NF_INET_FORWARD);
-+		else
-+			hooks = (1 << NF_INET_LOCAL_IN) |
-+				(1 << NF_INET_LOCAL_OUT) |
-+				(1 << NF_INET_FORWARD) |
-+				(1 << NF_INET_PRE_ROUTING) |
-+				(1 << NF_INET_POST_ROUTING);
++	icmph = skb_header_pointer(skb, outside_hdrlen,
++				   sizeof(_icmph), &_icmph);
++	if (icmph == NULL)
++		return 1;
 +
++	switch (icmph->type) {
++	case ICMP_DEST_UNREACH:
++	case ICMP_SOURCE_QUENCH:
++	case ICMP_REDIRECT:
++	case ICMP_TIME_EXCEEDED:
++	case ICMP_PARAMETERPROB:
 +		break;
 +	default:
-+		return -EINVAL;
++		return 1;
 +	}
 +
-+	return nft_chain_validate_hooks(ctx->chain, hooks);
-+}
-+EXPORT_SYMBOL_GPL(nft_fib_validate);
++	inside_iph = skb_header_pointer(skb, outside_hdrlen +
++					sizeof(struct icmphdr),
++					sizeof(_inside_iph), &_inside_iph);
++	if (inside_iph == NULL)
++		return 1;
 +
-+int nft_fib_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
-+		 const struct nlattr * const tb[])
-+{
-+	struct nft_fib *priv = nft_expr_priv(expr);
-+	unsigned int len;
-+	int err;
++	if (inside_iph->protocol != IPPROTO_TCP &&
++	    inside_iph->protocol != IPPROTO_UDP)
++		return 1;
 +
-+	if (!tb[NFTA_FIB_DREG] || !tb[NFTA_FIB_RESULT] || !tb[NFTA_FIB_FLAGS])
-+		return -EINVAL;
++	ports = skb_header_pointer(skb, outside_hdrlen +
++				   sizeof(struct icmphdr) +
++				   (inside_iph->ihl << 2),
++				   sizeof(_ports), &_ports);
++	if (ports == NULL)
++		return 1;
 +
-+	priv->flags = ntohl(nla_get_be32(tb[NFTA_FIB_FLAGS]));
-+
-+	if (priv->flags == 0 || (priv->flags & ~NFTA_FIB_F_ALL))
-+		return -EINVAL;
-+
-+	if ((priv->flags & (NFTA_FIB_F_SADDR | NFTA_FIB_F_DADDR)) ==
-+			   (NFTA_FIB_F_SADDR | NFTA_FIB_F_DADDR))
-+		return -EINVAL;
-+	if ((priv->flags & (NFTA_FIB_F_IIF | NFTA_FIB_F_OIF)) ==
-+			   (NFTA_FIB_F_IIF | NFTA_FIB_F_OIF))
-+		return -EINVAL;
-+	if ((priv->flags & (NFTA_FIB_F_SADDR | NFTA_FIB_F_DADDR)) == 0)
-+		return -EINVAL;
-+
-+	priv->result = htonl(nla_get_be32(tb[NFTA_FIB_RESULT]));
-+	priv->dreg = nft_parse_register(tb[NFTA_FIB_DREG]);
-+
-+	switch (priv->result) {
-+	case NFT_FIB_RESULT_OIF:
-+		if (priv->flags & NFTA_FIB_F_OIF)
-+			return -EINVAL;
-+		len = sizeof(int);
-+		break;
-+	case NFT_FIB_RESULT_OIFNAME:
-+		if (priv->flags & NFTA_FIB_F_OIF)
-+			return -EINVAL;
-+		len = IFNAMSIZ;
-+		break;
-+	case NFT_FIB_RESULT_ADDRTYPE:
-+		len = sizeof(u32);
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	err = nft_validate_register_store(ctx, priv->dreg, NULL,
-+					  NFT_DATA_VALUE, len);
-+	if (err < 0)
-+		return err;
-+
-+	return nft_fib_validate(ctx, expr, NULL);
-+}
-+EXPORT_SYMBOL_GPL(nft_fib_init);
-+
-+int nft_fib_dump(struct sk_buff *skb, const struct nft_expr *expr)
-+{
-+	const struct nft_fib *priv = nft_expr_priv(expr);
-+
-+	if (nft_dump_register(skb, NFTA_FIB_DREG, priv->dreg))
-+		return -1;
-+
-+	if (nla_put_be32(skb, NFTA_FIB_RESULT, htonl(priv->result)))
-+		return -1;
-+
-+	if (nla_put_be32(skb, NFTA_FIB_FLAGS, htonl(priv->flags)))
-+		return -1;
++	/* the inside IP packet is the one quoted from our side, thus
++	 * its saddr is the local address */
++	*protocol = inside_iph->protocol;
++	*laddr = inside_iph->saddr;
++	*lport = ports[0];
++	*raddr = inside_iph->daddr;
++	*rport = ports[1];
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(nft_fib_dump);
 +
-+void nft_fib_store_result(void *reg, enum nft_fib_result r,
-+			  const struct nft_pktinfo *pkt, int index)
++static struct sock *
++nf_socket_get_sock_v4(struct net *net, struct sk_buff *skb, const int doff,
++		      const u8 protocol,
++		      const __be32 saddr, const __be32 daddr,
++		      const __be16 sport, const __be16 dport,
++		      const struct net_device *in)
 +{
-+	struct net_device *dev;
-+	u32 *dreg = reg;
-+
-+	switch (r) {
-+	case NFT_FIB_RESULT_OIF:
-+		*dreg = index;
-+		break;
-+	case NFT_FIB_RESULT_OIFNAME:
-+		dev = dev_get_by_index_rcu(pkt->net, index);
-+		strncpy(reg, dev ? dev->name : "", IFNAMSIZ);
-+		break;
-+	default:
-+		WARN_ON_ONCE(1);
-+		*dreg = 0;
-+		break;
++	switch (protocol) {
++	case IPPROTO_TCP:
++		return inet_lookup(net, &tcp_hashinfo, skb, doff,
++				   saddr, sport, daddr, dport,
++				   in->ifindex);
++	case IPPROTO_UDP:
++		return udp4_lib_lookup(net, saddr, sport, daddr, dport,
++				       in->ifindex);
 +	}
++	return NULL;
 +}
-+EXPORT_SYMBOL_GPL(nft_fib_store_result);
++
++struct sock *nf_sk_lookup_slow_v4(struct net *net, const struct sk_buff *skb,
++				  const struct net_device *indev)
++{
++	__be32 uninitialized_var(daddr), uninitialized_var(saddr);
++	__be16 uninitialized_var(dport), uninitialized_var(sport);
++	const struct iphdr *iph = ip_hdr(skb);
++	struct sk_buff *data_skb = NULL;
++	u8 uninitialized_var(protocol);
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn const *ct;
++#endif
++	int doff = 0;
++
++	if (iph->protocol == IPPROTO_UDP || iph->protocol == IPPROTO_TCP) {
++		struct udphdr _hdr, *hp;
++
++		hp = skb_header_pointer(skb, ip_hdrlen(skb),
++					sizeof(_hdr), &_hdr);
++		if (hp == NULL)
++			return NULL;
++
++		protocol = iph->protocol;
++		saddr = iph->saddr;
++		sport = hp->source;
++		daddr = iph->daddr;
++		dport = hp->dest;
++		data_skb = (struct sk_buff *)skb;
++		doff = iph->protocol == IPPROTO_TCP ?
++			ip_hdrlen(skb) + __tcp_hdrlen((struct tcphdr *)hp) :
++			ip_hdrlen(skb) + sizeof(*hp);
++
++	} else if (iph->protocol == IPPROTO_ICMP) {
++		if (extract_icmp4_fields(skb, &protocol, &saddr, &daddr,
++					 &sport, &dport))
++			return NULL;
++	} else {
++		return NULL;
++	}
++
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++	/* Do the lookup with the original socket address in
++	 * case this is a reply packet of an established
++	 * SNAT-ted connection.
++	 */
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct && !nf_ct_is_untracked(ct) &&
++	    ((iph->protocol != IPPROTO_ICMP &&
++	      ctinfo == IP_CT_ESTABLISHED_REPLY) ||
++	     (iph->protocol == IPPROTO_ICMP &&
++	      ctinfo == IP_CT_RELATED_REPLY)) &&
++	    (ct->status & IPS_SRC_NAT_DONE)) {
++
++		daddr = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
++		dport = (iph->protocol == IPPROTO_TCP) ?
++			ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.tcp.port :
++			ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.udp.port;
++	}
++#endif
++
++	return nf_socket_get_sock_v4(net, data_skb, doff, protocol, saddr,
++				     daddr, sport, dport, indev);
++}
++EXPORT_SYMBOL_GPL(nf_sk_lookup_slow_v4);
 +
 +MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
-diff --git a/net/netfilter/nft_fib_inet.c b/net/netfilter/nft_fib_inet.c
++MODULE_AUTHOR("Krisztian Kovacs, Balazs Scheidler");
++MODULE_DESCRIPTION("Netfilter IPv4 socket lookup infrastructure");
+diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
+index 144f1de33836..6acb2eecd986 100644
+--- a/net/ipv6/netfilter/Kconfig
++++ b/net/ipv6/netfilter/Kconfig
+@@ -25,6 +25,12 @@ config NF_CONNTRACK_IPV6
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NF_SOCKET_IPV6
++	tristate "IPv6 socket lookup support"
++	help
++	  This option enables the IPv6 socket lookup infrastructure. This
++	  is used by the ip6tables socket match.
++
+ if NF_TABLES
+ 
+ config NF_TABLES_IPV6
+diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
+index 7984f3071f05..fe180c96040e 100644
+--- a/net/ipv6/netfilter/Makefile
++++ b/net/ipv6/netfilter/Makefile
+@@ -24,6 +24,8 @@ obj-$(CONFIG_NF_NAT_MASQUERADE_IPV6) += nf_nat_masquerade_ipv6.o
+ nf_defrag_ipv6-y := nf_defrag_ipv6_hooks.o nf_conntrack_reasm.o
+ obj-$(CONFIG_NF_DEFRAG_IPV6) += nf_defrag_ipv6.o
+ 
++obj-$(CONFIG_NF_SOCKET_IPV6) += nf_socket_ipv6.o
++
+ # logging
+ obj-$(CONFIG_NF_LOG_IPV6) += nf_log_ipv6.o
+ 
+diff --git a/net/ipv6/netfilter/nf_socket_ipv6.c b/net/ipv6/netfilter/nf_socket_ipv6.c
 new file mode 100644
-index 000000000000..fe8943b572b7
+index 000000000000..ebb2bf84232a
 --- /dev/null
-+++ b/net/netfilter/nft_fib_inet.c
-@@ -0,0 +1,82 @@
++++ b/net/ipv6/netfilter/nf_socket_ipv6.c
+@@ -0,0 +1,151 @@
 +/*
++ * Copyright (C) 2007-2008 BalaBit IT Ltd.
++ * Author: Krisztian Kovacs
++ *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
 + * published by the Free Software Foundation.
++ *
 + */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +#include <linux/module.h>
-+#include <linux/netlink.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables_core.h>
-+#include <net/netfilter/nf_tables.h>
++#include <linux/skbuff.h>
++#include <net/tcp.h>
++#include <net/udp.h>
++#include <net/icmp.h>
++#include <net/sock.h>
++#include <net/inet_sock.h>
++#include <net/inet6_hashtables.h>
++#include <net/netfilter/ipv6/nf_defrag_ipv6.h>
++#include <net/netfilter/nf_socket.h>
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++#include <net/netfilter/nf_conntrack.h>
++#endif
 +
-+#include <net/netfilter/nft_fib.h>
-+
-+static void nft_fib_inet_eval(const struct nft_expr *expr,
-+			      struct nft_regs *regs,
-+			      const struct nft_pktinfo *pkt)
++static int
++extract_icmp6_fields(const struct sk_buff *skb,
++		     unsigned int outside_hdrlen,
++		     int *protocol,
++		     const struct in6_addr **raddr,
++		     const struct in6_addr **laddr,
++		     __be16 *rport,
++		     __be16 *lport,
++		     struct ipv6hdr *ipv6_var)
 +{
-+	const struct nft_fib *priv = nft_expr_priv(expr);
++	const struct ipv6hdr *inside_iph;
++	struct icmp6hdr *icmph, _icmph;
++	__be16 *ports, _ports[2];
++	u8 inside_nexthdr;
++	__be16 inside_fragoff;
++	int inside_hdrlen;
 +
-+	switch (pkt->pf) {
-+	case NFPROTO_IPV4:
-+		switch (priv->result) {
-+		case NFT_FIB_RESULT_OIF:
-+		case NFT_FIB_RESULT_OIFNAME:
-+			return nft_fib4_eval(expr, regs, pkt);
-+		case NFT_FIB_RESULT_ADDRTYPE:
-+			return nft_fib4_eval_type(expr, regs, pkt);
-+		}
-+		break;
-+	case NFPROTO_IPV6:
-+		switch (priv->result) {
-+		case NFT_FIB_RESULT_OIF:
-+		case NFT_FIB_RESULT_OIFNAME:
-+			return nft_fib6_eval(expr, regs, pkt);
-+		case NFT_FIB_RESULT_ADDRTYPE:
-+			return nft_fib6_eval_type(expr, regs, pkt);
-+		}
-+		break;
++	icmph = skb_header_pointer(skb, outside_hdrlen,
++				   sizeof(_icmph), &_icmph);
++	if (icmph == NULL)
++		return 1;
++
++	if (icmph->icmp6_type & ICMPV6_INFOMSG_MASK)
++		return 1;
++
++	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph),
++					sizeof(*ipv6_var), ipv6_var);
++	if (inside_iph == NULL)
++		return 1;
++	inside_nexthdr = inside_iph->nexthdr;
++
++	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) +
++					      sizeof(*ipv6_var),
++					 &inside_nexthdr, &inside_fragoff);
++	if (inside_hdrlen < 0)
++		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
++
++	if (inside_nexthdr != IPPROTO_TCP &&
++	    inside_nexthdr != IPPROTO_UDP)
++		return 1;
++
++	ports = skb_header_pointer(skb, inside_hdrlen,
++				   sizeof(_ports), &_ports);
++	if (ports == NULL)
++		return 1;
++
++	/* the inside IP packet is the one quoted from our side, thus
++	 * its saddr is the local address */
++	*protocol = inside_nexthdr;
++	*laddr = &inside_iph->saddr;
++	*lport = ports[0];
++	*raddr = &inside_iph->daddr;
++	*rport = ports[1];
++
++	return 0;
++}
++
++static struct sock *
++nf_socket_get_sock_v6(struct net *net, struct sk_buff *skb, int doff,
++		      const u8 protocol,
++		      const struct in6_addr *saddr, const struct in6_addr *daddr,
++		      const __be16 sport, const __be16 dport,
++		      const struct net_device *in)
++{
++	switch (protocol) {
++	case IPPROTO_TCP:
++		return inet6_lookup(net, &tcp_hashinfo, skb, doff,
++				    saddr, sport, daddr, dport,
++				    in->ifindex);
++	case IPPROTO_UDP:
++		return udp6_lib_lookup(net, saddr, sport, daddr, dport,
++				       in->ifindex);
 +	}
 +
-+	regs->verdict.code = NF_DROP;
++	return NULL;
 +}
 +
-+static struct nft_expr_type nft_fib_inet_type;
-+static const struct nft_expr_ops nft_fib_inet_ops = {
-+	.type		= &nft_fib_inet_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_fib)),
-+	.eval		= nft_fib_inet_eval,
-+	.init		= nft_fib_init,
-+	.dump		= nft_fib_dump,
-+	.validate	= nft_fib_validate,
-+};
-+
-+static struct nft_expr_type nft_fib_inet_type __read_mostly = {
-+	.family		= NFPROTO_INET,
-+	.name		= "fib",
-+	.ops		= &nft_fib_inet_ops,
-+	.policy		= nft_fib_policy,
-+	.maxattr	= NFTA_FIB_MAX,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int __init nft_fib_inet_module_init(void)
++struct sock *nf_sk_lookup_slow_v6(struct net *net, const struct sk_buff *skb,
++				  const struct net_device *indev)
 +{
-+	return nft_register_expr(&nft_fib_inet_type);
-+}
++	__be16 uninitialized_var(dport), uninitialized_var(sport);
++	const struct in6_addr *daddr = NULL, *saddr = NULL;
++	struct ipv6hdr *iph = ipv6_hdr(skb);
++	struct sk_buff *data_skb = NULL;
++	int doff = 0;
++	int thoff = 0, tproto;
 +
-+static void __exit nft_fib_inet_module_exit(void)
-+{
-+	nft_unregister_expr(&nft_fib_inet_type);
-+}
++	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
++	if (tproto < 0) {
++		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
++		return NULL;
++	}
 +
-+module_init(nft_fib_inet_module_init);
-+module_exit(nft_fib_inet_module_exit);
++	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
++		struct udphdr _hdr, *hp;
++
++		hp = skb_header_pointer(skb, thoff, sizeof(_hdr), &_hdr);
++		if (hp == NULL)
++			return NULL;
++
++		saddr = &iph->saddr;
++		sport = hp->source;
++		daddr = &iph->daddr;
++		dport = hp->dest;
++		data_skb = (struct sk_buff *)skb;
++		doff = tproto == IPPROTO_TCP ?
++			thoff + __tcp_hdrlen((struct tcphdr *)hp) :
++			thoff + sizeof(*hp);
++
++	} else if (tproto == IPPROTO_ICMPV6) {
++		struct ipv6hdr ipv6_var;
++
++		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
++					 &sport, &dport, &ipv6_var))
++			return NULL;
++	} else {
++		return NULL;
++	}
++
++	return nf_socket_get_sock_v6(net, data_skb, doff, tproto, saddr, daddr,
++				     sport, dport, indev);
++}
++EXPORT_SYMBOL_GPL(nf_sk_lookup_slow_v6);
 +
 +MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
-+MODULE_ALIAS_NFT_AF_EXPR(1, "fib");
++MODULE_AUTHOR("Krisztian Kovacs, Balazs Scheidler");
++MODULE_DESCRIPTION("Netfilter IPv6 socket lookup infrastructure");
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 854dadb196a1..ed00ec114ea2 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -1426,9 +1426,10 @@ config NETFILTER_XT_MATCH_SOCKET
+ 	tristate '"socket" match support'
+ 	depends on NETFILTER_XTABLES
+ 	depends on NETFILTER_ADVANCED
+-	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	depends on IPV6 || IPV6=n
+ 	depends on IP6_NF_IPTABLES || IP6_NF_IPTABLES=n
++	depends on NF_SOCKET_IPV4
++	depends on NF_SOCKET_IPV6
+ 	select NF_DEFRAG_IPV4
+ 	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES != n
+ 	help
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index b10ade272b50..018c369c9f0d 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -22,76 +22,14 @@
+ #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
+ 
+ #if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+-#define XT_SOCKET_HAVE_IPV6 1
+ #include <linux/netfilter_ipv6/ip6_tables.h>
+ #include <net/inet6_hashtables.h>
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+ #endif
+ 
++#include <net/netfilter/nf_socket.h>
+ #include <linux/netfilter/xt_socket.h>
+ 
+-#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+-#define XT_SOCKET_HAVE_CONNTRACK 1
+-#include <net/netfilter/nf_conntrack.h>
+-#endif
+-
+-static int
+-extract_icmp4_fields(const struct sk_buff *skb,
+-		    u8 *protocol,
+-		    __be32 *raddr,
+-		    __be32 *laddr,
+-		    __be16 *rport,
+-		    __be16 *lport)
+-{
+-	unsigned int outside_hdrlen = ip_hdrlen(skb);
+-	struct iphdr *inside_iph, _inside_iph;
+-	struct icmphdr *icmph, _icmph;
+-	__be16 *ports, _ports[2];
+-
+-	icmph = skb_header_pointer(skb, outside_hdrlen,
+-				   sizeof(_icmph), &_icmph);
+-	if (icmph == NULL)
+-		return 1;
+-
+-	switch (icmph->type) {
+-	case ICMP_DEST_UNREACH:
+-	case ICMP_SOURCE_QUENCH:
+-	case ICMP_REDIRECT:
+-	case ICMP_TIME_EXCEEDED:
+-	case ICMP_PARAMETERPROB:
+-		break;
+-	default:
+-		return 1;
+-	}
+-
+-	inside_iph = skb_header_pointer(skb, outside_hdrlen +
+-					sizeof(struct icmphdr),
+-					sizeof(_inside_iph), &_inside_iph);
+-	if (inside_iph == NULL)
+-		return 1;
+-
+-	if (inside_iph->protocol != IPPROTO_TCP &&
+-	    inside_iph->protocol != IPPROTO_UDP)
+-		return 1;
+-
+-	ports = skb_header_pointer(skb, outside_hdrlen +
+-				   sizeof(struct icmphdr) +
+-				   (inside_iph->ihl << 2),
+-				   sizeof(_ports), &_ports);
+-	if (ports == NULL)
+-		return 1;
+-
+-	/* the inside IP packet is the one quoted from our side, thus
+-	 * its saddr is the local address */
+-	*protocol = inside_iph->protocol;
+-	*laddr = inside_iph->saddr;
+-	*lport = ports[0];
+-	*raddr = inside_iph->daddr;
+-	*rport = ports[1];
+-
+-	return 0;
+-}
+-
+ /* "socket" match based redirection (no specific rule)
+  * ===================================================
+  *
+@@ -111,104 +49,6 @@ extract_icmp4_fields(const struct sk_buff *skb,
+  *     then local services could intercept traffic going through the
+  *     box.
+  */
+-static struct sock *
+-xt_socket_get_sock_v4(struct net *net, struct sk_buff *skb, const int doff,
+-		      const u8 protocol,
+-		      const __be32 saddr, const __be32 daddr,
+-		      const __be16 sport, const __be16 dport,
+-		      const struct net_device *in)
+-{
+-	switch (protocol) {
+-	case IPPROTO_TCP:
+-		return inet_lookup(net, &tcp_hashinfo, skb, doff,
+-				   saddr, sport, daddr, dport,
+-				   in->ifindex);
+-	case IPPROTO_UDP:
+-		return udp4_lib_lookup(net, saddr, sport, daddr, dport,
+-				       in->ifindex);
+-	}
+-	return NULL;
+-}
+-
+-static bool xt_socket_sk_is_transparent(struct sock *sk)
+-{
+-	switch (sk->sk_state) {
+-	case TCP_TIME_WAIT:
+-		return inet_twsk(sk)->tw_transparent;
+-
+-	case TCP_NEW_SYN_RECV:
+-		return inet_rsk(inet_reqsk(sk))->no_srccheck;
+-
+-	default:
+-		return inet_sk(sk)->transparent;
+-	}
+-}
+-
+-static struct sock *xt_socket_lookup_slow_v4(struct net *net,
+-					     const struct sk_buff *skb,
+-					     const struct net_device *indev)
+-{
+-	const struct iphdr *iph = ip_hdr(skb);
+-	struct sk_buff *data_skb = NULL;
+-	int doff = 0;
+-	__be32 uninitialized_var(daddr), uninitialized_var(saddr);
+-	__be16 uninitialized_var(dport), uninitialized_var(sport);
+-	u8 uninitialized_var(protocol);
+-#ifdef XT_SOCKET_HAVE_CONNTRACK
+-	struct nf_conn const *ct;
+-	enum ip_conntrack_info ctinfo;
+-#endif
+-
+-	if (iph->protocol == IPPROTO_UDP || iph->protocol == IPPROTO_TCP) {
+-		struct udphdr _hdr, *hp;
+-
+-		hp = skb_header_pointer(skb, ip_hdrlen(skb),
+-					sizeof(_hdr), &_hdr);
+-		if (hp == NULL)
+-			return NULL;
+-
+-		protocol = iph->protocol;
+-		saddr = iph->saddr;
+-		sport = hp->source;
+-		daddr = iph->daddr;
+-		dport = hp->dest;
+-		data_skb = (struct sk_buff *)skb;
+-		doff = iph->protocol == IPPROTO_TCP ?
+-			ip_hdrlen(skb) + __tcp_hdrlen((struct tcphdr *)hp) :
+-			ip_hdrlen(skb) + sizeof(*hp);
+-
+-	} else if (iph->protocol == IPPROTO_ICMP) {
+-		if (extract_icmp4_fields(skb, &protocol, &saddr, &daddr,
+-					 &sport, &dport))
+-			return NULL;
+-	} else {
+-		return NULL;
+-	}
+-
+-#ifdef XT_SOCKET_HAVE_CONNTRACK
+-	/* Do the lookup with the original socket address in
+-	 * case this is a reply packet of an established
+-	 * SNAT-ted connection.
+-	 */
+-	ct = nf_ct_get(skb, &ctinfo);
+-	if (ct && !nf_ct_is_untracked(ct) &&
+-	    ((iph->protocol != IPPROTO_ICMP &&
+-	      ctinfo == IP_CT_ESTABLISHED_REPLY) ||
+-	     (iph->protocol == IPPROTO_ICMP &&
+-	      ctinfo == IP_CT_RELATED_REPLY)) &&
+-	    (ct->status & IPS_SRC_NAT_DONE)) {
+-
+-		daddr = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
+-		dport = (iph->protocol == IPPROTO_TCP) ?
+-			ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.tcp.port :
+-			ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.udp.port;
+-	}
+-#endif
+-
+-	return xt_socket_get_sock_v4(net, data_skb, doff, protocol, saddr,
+-				     daddr, sport, dport, indev);
+-}
+-
+ static bool
+ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 	     const struct xt_socket_mtinfo1 *info)
+@@ -217,7 +57,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 	struct sock *sk = skb->sk;
+ 
+ 	if (!sk)
+-		sk = xt_socket_lookup_slow_v4(par->net, skb, par->in);
++		sk = nf_sk_lookup_slow_v4(par->net, skb, par->in);
+ 	if (sk) {
+ 		bool wildcard;
+ 		bool transparent = true;
+@@ -233,7 +73,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 		 * if XT_SOCKET_TRANSPARENT is used
+ 		 */
+ 		if (info->flags & XT_SOCKET_TRANSPARENT)
+-			transparent = xt_socket_sk_is_transparent(sk);
++			transparent = nf_sk_is_transparent(sk);
+ 
+ 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
+ 		    transparent)
+@@ -265,132 +105,7 @@ socket_mt4_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
+ 	return socket_match(skb, par, par->matchinfo);
+ }
+ 
+-#ifdef XT_SOCKET_HAVE_IPV6
+-
+-static int
+-extract_icmp6_fields(const struct sk_buff *skb,
+-		     unsigned int outside_hdrlen,
+-		     int *protocol,
+-		     const struct in6_addr **raddr,
+-		     const struct in6_addr **laddr,
+-		     __be16 *rport,
+-		     __be16 *lport,
+-		     struct ipv6hdr *ipv6_var)
+-{
+-	const struct ipv6hdr *inside_iph;
+-	struct icmp6hdr *icmph, _icmph;
+-	__be16 *ports, _ports[2];
+-	u8 inside_nexthdr;
+-	__be16 inside_fragoff;
+-	int inside_hdrlen;
+-
+-	icmph = skb_header_pointer(skb, outside_hdrlen,
+-				   sizeof(_icmph), &_icmph);
+-	if (icmph == NULL)
+-		return 1;
+-
+-	if (icmph->icmp6_type & ICMPV6_INFOMSG_MASK)
+-		return 1;
+-
+-	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph),
+-					sizeof(*ipv6_var), ipv6_var);
+-	if (inside_iph == NULL)
+-		return 1;
+-	inside_nexthdr = inside_iph->nexthdr;
+-
+-	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) +
+-					      sizeof(*ipv6_var),
+-					 &inside_nexthdr, &inside_fragoff);
+-	if (inside_hdrlen < 0)
+-		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
+-
+-	if (inside_nexthdr != IPPROTO_TCP &&
+-	    inside_nexthdr != IPPROTO_UDP)
+-		return 1;
+-
+-	ports = skb_header_pointer(skb, inside_hdrlen,
+-				   sizeof(_ports), &_ports);
+-	if (ports == NULL)
+-		return 1;
+-
+-	/* the inside IP packet is the one quoted from our side, thus
+-	 * its saddr is the local address */
+-	*protocol = inside_nexthdr;
+-	*laddr = &inside_iph->saddr;
+-	*lport = ports[0];
+-	*raddr = &inside_iph->daddr;
+-	*rport = ports[1];
+-
+-	return 0;
+-}
+-
+-static struct sock *
+-xt_socket_get_sock_v6(struct net *net, struct sk_buff *skb, int doff,
+-		      const u8 protocol,
+-		      const struct in6_addr *saddr, const struct in6_addr *daddr,
+-		      const __be16 sport, const __be16 dport,
+-		      const struct net_device *in)
+-{
+-	switch (protocol) {
+-	case IPPROTO_TCP:
+-		return inet6_lookup(net, &tcp_hashinfo, skb, doff,
+-				    saddr, sport, daddr, dport,
+-				    in->ifindex);
+-	case IPPROTO_UDP:
+-		return udp6_lib_lookup(net, saddr, sport, daddr, dport,
+-				       in->ifindex);
+-	}
+-
+-	return NULL;
+-}
+-
+-static struct sock *xt_socket_lookup_slow_v6(struct net *net,
+-					     const struct sk_buff *skb,
+-					     const struct net_device *indev)
+-{
+-	__be16 uninitialized_var(dport), uninitialized_var(sport);
+-	const struct in6_addr *daddr = NULL, *saddr = NULL;
+-	struct ipv6hdr *iph = ipv6_hdr(skb);
+-	struct sk_buff *data_skb = NULL;
+-	int doff = 0;
+-	int thoff = 0, tproto;
+-
+-	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
+-	if (tproto < 0) {
+-		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
+-		return NULL;
+-	}
+-
+-	if (tproto == IPPROTO_UDP || tproto == IPPROTO_TCP) {
+-		struct udphdr _hdr, *hp;
+-
+-		hp = skb_header_pointer(skb, thoff, sizeof(_hdr), &_hdr);
+-		if (hp == NULL)
+-			return NULL;
+-
+-		saddr = &iph->saddr;
+-		sport = hp->source;
+-		daddr = &iph->daddr;
+-		dport = hp->dest;
+-		data_skb = (struct sk_buff *)skb;
+-		doff = tproto == IPPROTO_TCP ?
+-			thoff + __tcp_hdrlen((struct tcphdr *)hp) :
+-			thoff + sizeof(*hp);
+-
+-	} else if (tproto == IPPROTO_ICMPV6) {
+-		struct ipv6hdr ipv6_var;
+-
+-		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
+-					 &sport, &dport, &ipv6_var))
+-			return NULL;
+-	} else {
+-		return NULL;
+-	}
+-
+-	return xt_socket_get_sock_v6(net, data_skb, doff, tproto, saddr, daddr,
+-				     sport, dport, indev);
+-}
+-
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ static bool
+ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+@@ -399,7 +114,7 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
+ 	struct sock *sk = skb->sk;
+ 
+ 	if (!sk)
+-		sk = xt_socket_lookup_slow_v6(par->net, skb, par->in);
++		sk = nf_sk_lookup_slow_v6(par->net, skb, par->in);
+ 	if (sk) {
+ 		bool wildcard;
+ 		bool transparent = true;
+@@ -415,7 +130,7 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
+ 		 * if XT_SOCKET_TRANSPARENT is used
+ 		 */
+ 		if (info->flags & XT_SOCKET_TRANSPARENT)
+-			transparent = xt_socket_sk_is_transparent(sk);
++			transparent = nf_sk_is_transparent(sk);
+ 
+ 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
+ 		    transparent)
+@@ -488,7 +203,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 				  (1 << NF_INET_LOCAL_IN),
+ 		.me		= THIS_MODULE,
+ 	},
+-#ifdef XT_SOCKET_HAVE_IPV6
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ 	{
+ 		.name		= "socket",
+ 		.revision	= 1,
+@@ -512,7 +227,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 				  (1 << NF_INET_LOCAL_IN),
+ 		.me		= THIS_MODULE,
+ 	},
+-#ifdef XT_SOCKET_HAVE_IPV6
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ 	{
+ 		.name		= "socket",
+ 		.revision	= 2,
+@@ -536,7 +251,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+ 				  (1 << NF_INET_LOCAL_IN),
+ 		.me		= THIS_MODULE,
+ 	},
+-#ifdef XT_SOCKET_HAVE_IPV6
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ 	{
+ 		.name		= "socket",
+ 		.revision	= 3,
+@@ -554,7 +269,7 @@ static struct xt_match socket_mt_reg[] __read_mostly = {
+ static int __init socket_mt_init(void)
+ {
+ 	nf_defrag_ipv4_enable();
+-#ifdef XT_SOCKET_HAVE_IPV6
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+ 	nf_defrag_ipv6_enable();
+ #endif
+ 
 -- 
 2.1.4
