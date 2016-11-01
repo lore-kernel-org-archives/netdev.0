@@ -1,62 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
- FIB notifier
-Date: Tue, 01 Nov 2016 07:19:59 -0700
-Message-ID: <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1477948427-9189-1-git-send-email-idosch@idosch.org>
-         <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20161031225737.7nfoy4ka3ydzhptq@splinter>
+From: Sistemas administrador <administrator@ancol.com>
+Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
+Date: Tue, 01 Nov 2016 19:36:17 +0530
+Message-ID: <20161101141454.0D86C4724C9@mail.jabarprov.go.id>
+Reply-To: mailsss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@mellanox.com,
-        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, Ido Schimmel <idosch@mellanox.com>
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34491 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966312AbcKAOUF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:20:05 -0400
-Received: by mail-pf0-f195.google.com with SMTP id y68so5943691pfb.1
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 07:20:05 -0700 (PDT)
-In-Reply-To: <20161031225737.7nfoy4ka3ydzhptq@splinter>
+Received: from mail.jabarprov.go.id ([118.97.186.219]:56010 "EHLO
+        mail.jabarprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966390AbcKAOXR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:23:17 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-11-01 at 00:57 +0200, Ido Schimmel wrote:
-> On Mon, Oct 31, 2016 at 02:24:06PM -0700, Eric Dumazet wrote:
+ATENCIÓN;
 
-> > How well will this work for large FIB tables ?
-> > 
-> > Holding rtnl while sending thousands of skb will prevent consumers to
-> > make progress ?
-> 
-> Can you please clarify what do you mean by "while sending thousands of
-> skb"? This patch doesn't generate notifications to user space, but
-> instead invokes notification routines inside the kernel. I probably
-> misunderstood you.
-> 
-> Are you suggesting this be done using RCU instead? Well, there are a
-> couple of reasons why I took RTNL here:
-> 
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
+vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-No, I do not believe RCU is wanted here, in control path where we might
-sleep anyway.
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
 
-> 1) The FIB notification chain is blocking, so listeners are expected to
-> be able to sleep. This isn't possible if we use RCU. Note that this
-> chain is mainly useful for drivers that reflect the FIB table into a
-> capable device and hardware operations usually involve sleeping.
-> 
-> 2) The insertion of a single route is done with RTNL held. I didn't want
-> to differentiate between both cases. This property is really useful for
-> listeners, as they don't need to worry about locking in writer-side.
-> Access to data structs is serialized by RTNL.
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
 
-My concern was that for large iterations, you might hold RTNL and/or
-current cpu for hundred of ms or even seconds...
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico © 2016
+
+¡gracias
+Sistemas administrador
