@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 03/11] net: dsa: mv88e6xxx: add port vlan map setter
-Date: Tue,  1 Nov 2016 04:20:15 +0100
-Message-ID: <20161101032023.32762-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 09/11] net: dsa: mv88e6xxx: add port's RGMII delay setter
+Date: Tue,  1 Nov 2016 04:20:21 +0100
+Message-ID: <20161101032023.32762-10-vivien.didelot@savoirfairelinux.com>
 References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,96 +14,158 @@ In-Reply-To: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a port function to access the Port Based VLAN Map register.
+Some chips such as 88E6352 and 88E6390 can be programmed to add delays
+to RXCLK for IND inputs or to GTXCLK for OUTD outputs when port is in
+RGMII mode.
+
+Add a port function to program such delays according to the provided PHY
+interface mode.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 14 ++------------
- drivers/net/dsa/mv88e6xxx/port.c | 25 +++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/port.h |  2 ++
- 3 files changed, 29 insertions(+), 12 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      |  4 +++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  6 ++++
+ drivers/net/dsa/mv88e6xxx/port.c      | 58 +++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  5 +++
+ 4 files changed, 73 insertions(+)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 12c1175..0877777 100644
+index 49a6935..bb93d0a 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1218,16 +1218,13 @@ static int _mv88e6xxx_atu_remove(struct mv88e6xxx_chip *chip, u16 fid,
- static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
- {
- 	struct net_device *bridge = chip->ports[port].bridge_dev;
--	const u16 mask = (1 << mv88e6xxx_num_ports(chip)) - 1;
- 	struct dsa_switch *ds = chip->ds;
- 	u16 output_ports = 0;
--	u16 reg;
--	int err;
- 	int i;
+@@ -3220,6 +3220,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
++	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
+ };
  
- 	/* allow CPU port or DSA link(s) to send frames to every port */
- 	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
--		output_ports = mask;
-+		output_ports = ~0;
- 	} else {
- 		for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
- 			/* allow sending frames to every group member */
-@@ -1243,14 +1240,7 @@ static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
- 	/* prevent frames from going back out of the port they came in on */
- 	output_ports &= ~BIT(port);
+ static const struct mv88e6xxx_ops mv88e6175_ops = {
+@@ -3238,6 +3239,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
++	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
+ };
  
--	err = mv88e6xxx_port_read(chip, port, PORT_BASE_VLAN, &reg);
--	if (err)
--		return err;
--
--	reg &= ~mask;
--	reg |= output_ports & mask;
--
--	return mv88e6xxx_port_write(chip, port, PORT_BASE_VLAN, reg);
-+	return mv88e6xxx_port_set_vlan_map(chip, port, output_ports);
- }
+ static const struct mv88e6xxx_ops mv88e6185_ops = {
+@@ -3256,6 +3258,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
++	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
+ };
  
- static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ static const struct mv88e6xxx_ops mv88e6320_ops = {
+@@ -3302,6 +3305,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
+ 	.port_set_link = mv88e6xxx_port_set_link,
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
++	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
+ };
+ 
+ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 35420ed..0d3223b 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -728,6 +728,12 @@ struct mv88e6xxx_ops {
+ 	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
+ 			 u16 val);
+ 
++	/* RGMII Receive/Transmit Timing Control
++	 * Add delay on PHY_INTERFACE_MODE_RGMII_*ID, no delay otherwise.
++	 */
++	int (*port_set_rgmii_delay)(struct mv88e6xxx_chip *chip, int port,
++				    phy_interface_t mode);
++
+ #define LINK_UNKNOWN	-1
+ 
+ 	/* Port's MAC link state
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 8d59fe7..c6a22ae 100644
+index 386db46..ef6efc9 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -60,3 +60,28 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
+@@ -35,6 +35,64 @@ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
+  * Link, Duplex and Flow Control have one force bit, one value bit.
+  */
  
- 	return 0;
- }
-+
-+/* Offset 0x06: Port Based VLAN Map */
-+
-+int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
++static int mv88e6xxx_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
++					  phy_interface_t mode)
 +{
-+	const u16 mask = GENMASK(mv88e6xxx_num_ports(chip) - 1, 0);
 +	u16 reg;
 +	int err;
 +
-+	err = mv88e6xxx_port_read(chip, port, PORT_BASE_VLAN, &reg);
++	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
 +	if (err)
 +		return err;
 +
-+	reg &= ~mask;
-+	reg |= map & mask;
++	reg &= ~(PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
++		 PORT_PCS_CTRL_RGMII_DELAY_TXCLK);
 +
-+	err = mv88e6xxx_port_write(chip, port, PORT_BASE_VLAN, reg);
++	switch (mode) {
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++		reg |= PORT_PCS_CTRL_RGMII_DELAY_RXCLK;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_TXID:
++		reg |= PORT_PCS_CTRL_RGMII_DELAY_TXCLK;
++		break;
++	case PHY_INTERFACE_MODE_RGMII_ID:
++		reg |= PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
++			PORT_PCS_CTRL_RGMII_DELAY_TXCLK;
++		break;
++	default:
++		/* no delay */
++		break;
++	}
++
++	err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
 +	if (err)
 +		return err;
 +
-+	netdev_dbg(chip->ds->ports[port].netdev, "VLANTable set to %.3x\n",
-+		   map);
++	netdev_dbg(chip->ds->ports[port].netdev, "delay RXCLK %s, TXCLK %s\n",
++		   reg & PORT_PCS_CTRL_RGMII_DELAY_RXCLK ? "yes" : "no",
++		   reg & PORT_PCS_CTRL_RGMII_DELAY_TXCLK ? "yes" : "no");
 +
 +	return 0;
 +}
++
++int mv88e6352_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
++				   phy_interface_t mode)
++{
++	if (port < 5)
++		return -EOPNOTSUPP;
++
++	return mv88e6xxx_port_set_rgmii_delay(chip, port, mode);
++}
++
++int mv88e6390_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
++				   phy_interface_t mode)
++{
++	if (port != 0)
++		return -EOPNOTSUPP;
++
++	return mv88e6xxx_port_set_rgmii_delay(chip, port, mode);
++}
++
+ int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link)
+ {
+ 	u16 reg;
 diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index ac13988..037d638 100644
+index f73e90e..3472b79 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.h
 +++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -23,4 +23,6 @@ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
+@@ -21,6 +21,11 @@ int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
+ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
+ 			 u16 val);
  
- int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state);
- 
-+int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map);
++int mv88e6352_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
++				   phy_interface_t mode);
++int mv88e6390_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
++				   phy_interface_t mode);
 +
- #endif /* _MV88E6XXX_PORT_H */
+ int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link);
+ 
+ int mv88e6xxx_port_set_duplex(struct mv88e6xxx_chip *chip, int port, int dup);
 -- 
 2.10.2
