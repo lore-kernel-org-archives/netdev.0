@@ -1,33 +1,53 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: Why does tcp collapse behavior depend on nr_frags?
-Date: Tue, 1 Nov 2016 08:15:15 +0000
-Message-ID: <VI1PR0502MB29577BA8C670D1379CC4F1B7D4A10@VI1PR0502MB2957.eurprd05.prod.outlook.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH/RFC] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
+Date: Tue, 1 Nov 2016 10:32:17 +0100
+Message-ID: <20161101093216.GE28143@verge.net.au>
+References: <1477934018-13968-1-git-send-email-geert+renesas@glider.be>
+ <20161031.132431.648834397805808388.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        tls-fpga-sw-dev <tls-fpga-sw-dev@mellanox.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: geert+renesas@glider.be, sergei.shtylyov@cogentembedded.com,
+        arnd@arndb.de, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0059.outbound.protection.outlook.com ([104.47.2.59]:11136
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1168041AbcKAIsX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 04:48:23 -0400
-Content-Language: en-US
+Received: from kirsty.vergenet.net ([202.4.237.240]:56233 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1422780AbcKAJcX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 05:32:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20161031.132431.648834397805808388.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I've notice that tcp_can_collapse() returns false if skb_shinfo(skb)->nr_fr=
-ags !=3D 0.
-Is there a reason why we want to base the collapse decision in retransmissi=
-on on whether
-the data is located in a frag or the linear part?
+On Mon, Oct 31, 2016 at 01:24:31PM -0400, David Miller wrote:
+> From: Geert Uytterhoeven <geert+renesas@glider.be>
+> Date: Mon, 31 Oct 2016 18:13:38 +0100
+> 
+> > The limitation to 10/100Mbit speeds on R-Car Gen3 is valid for R-Car H3
+> > ES1.0 only. Check for the exact SoC model to allow 1Gbps on newer
+> > revisions of R-Car H3, and on R-Car M3-W.
+> > 
+> > Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> > ---
+> > Tested on:
+> >   - r8a7795/salvator-x with R-Car H3 ES1.0 (limited to 100Mbps),
+> >   - r8a7795/salvator-x with R-Car H3 ES1.1 (1Gbps),
+> >   - r8a7796/salvator-x with R-Car M3-W ES1.0 (1Gbps).
+> > 
+> > This is marked as an RFC because it depends on:
+> >   A) the soc_device_match() infrastructure,
+> >   B) Renesas SoC core ESx.y handling.
+> > Hence I think the best merge strategy is to let this patch go in through
+> > Simon's Renesas tree.
+> > 
+> > David: If you agree, can you please provide your ack? Thanks!
+> 
+> Sure, no problem:
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-The relevant commit is
-	 tcp: collapse more than two on retransmission  ('4a17fc3add594fcc1c778e93=
-a95b6ecf47f630e5')
+Thanks Dave.
 
-Thanks,
-Ilya
+Geert, please repost or otherwise ping me once the dependencies are in
+place and I should queue this up.
