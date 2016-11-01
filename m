@@ -1,46 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bgmac: stop clearing DMA receive control register
- right after it is set
-Date: Mon, 31 Oct 2016 20:51:37 -0400 (EDT)
-Message-ID: <20161031.205137.959277684113173080.davem@davemloft.net>
-References: <1477935123-29638-1-git-send-email-gospo@broadcom.com>
+From: Isaac Boukris <iboukris@gmail.com>
+Subject: Re: [PATCH] unix: escape all null bytes in abstract unix domain socket
+Date: Tue, 1 Nov 2016 02:56:59 +0200
+Message-ID: <CAC-fF8QA6KwXGsL2dx6PpQLqc0rDH2y57rVcRL7N-xAnVa3M6A@mail.gmail.com>
+References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
+ <1477768820-1295-2-git-send-email-iboukris@gmail.com> <20161031.153117.1954668010224339938.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de
-To: gospo@broadcom.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32804 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S948344AbcKAA4u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 20:56:50 -0400
-In-Reply-To: <1477935123-29638-1-git-send-email-gospo@broadcom.com>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:36492 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S948343AbcKAA5C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 20:57:02 -0400
+In-Reply-To: <20161031.153117.1954668010224339938.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <gospo@broadcom.com>
-Date: Mon, 31 Oct 2016 13:32:03 -0400
+Hi David, thanks for looking at it.
 
-> Current bgmac code initializes some DMA settings in the receive control
-> register for some hardware and then immediately clears those settings.
-> Not clearing those settings results in ~420Mbps *improvement* in
-> throughput; this system can now receive frames at line-rate on Broadcom
-> 5871x hardware compared to ~520Mbps today.  I also tested a few other
-> values but found there to be no discernible difference in CPU
-> utilization even if burst size and prefetching values are different.
-> 
-> On the hardware tested there was no need to keep the code that cleared
-> all but bits 16-17, but since there is a wide variety of hardware that
-> used this driver (I did not look at all hardware docs for hardware using
-> this IP block), I find it wise to move this call up and clear bits just
-> after reading the default value from the hardware rather than completely
-> removing it.
-> 
-> This is a good candidate for -stable >=3.14 since that is when the code
-> that was supposed to improve performance (but did not) was introduced.
-> 
-> Signed-off-by: Andy Gospodarek <gospo@broadcom.com>
-> Fixes: 56ceecde1f29 ("bgmac: initialize the DMA controller of core...")
-> Cc: Hauke Mehrtens <hauke@hauke-m.de>
+On Mon, Oct 31, 2016 at 9:31 PM, David Miller <davem@davemloft.net> wrote:
+> From: Isaac Boukris <iboukris@gmail.com>
+> Date: Sat, 29 Oct 2016 22:20:20 +0300
+>
+>> Abstract unix domain socket may embed null characters,
+>> these should be translated to '@' when printed out to
+>> proc the same way the null prefix is currently being
+>> translated.
+>>
+>> This helps for tools such as netstat, lsof and the proc
+>> based implementation in ss to show all the significant
+>> bytes of the name (instead of getting cut at the first
+>> null occurrence).
+>>
+>> Signed-off-by: Isaac Boukris <iboukris@gmail.com>
+>  ...
+>> @@ -2805,14 +2805,19 @@ static int unix_seq_show(struct seq_file *seq, void *v)
+>>
+>>                       i = 0;
+>>                       len = u->addr->len - sizeof(short);
+>> -                     if (!UNIX_ABSTRACT(s))
+>> +                     if (!UNIX_ABSTRACT(s)) {
+>>                               len--;
+>> -                     else {
+>> +                             for ( ; i < len; i++)
+>> +                                     seq_putc(seq,
+>> +                                              u->addr->name->sun_path[i]);
+>> +                     } else {
+>>                               seq_putc(seq, '@');
+>>                               i++;
+>> +                             for ( ; i < len; i++)
+>> +                                     seq_putc(seq,
+>> +                                              u->addr->name->sun_path[i] ?:
+>> +                                              '@');
+>>                       }
+>> -                     for ( ; i < len; i++)
+>> -                             seq_putc(seq, u->addr->name->sun_path[i]);
+>
+> I think this patch is simpler if you just do the "@" translation
+> unconditionally, if it'll never trigger for the !UNIX_ABSTRACT case
+> that is perfectly fine.
 
-Applied and queued up for -stable, thanks.
+I've sent an updated patch.
+Logically now, the 'else' block just above could be removed, but it
+isn't obvious from the code that 'sun_path[0] == 0' so I left it as
+is.
