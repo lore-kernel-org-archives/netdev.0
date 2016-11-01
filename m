@@ -1,40 +1,93 @@
-From: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-Subject: [PATCH] net/mlx5: Simplify a test
-Date: Tue,  1 Nov 2016 08:10:53 +0100
-Message-ID: <20161101071053.12486-1-christophe.jaillet@wanadoo.fr>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-To: matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: John Heenan <john@zgus.com>
+Subject: Re: [PATCH] rtl8xxxu: Fix for agressive power saving by rtl8723bu
+ wireless IC
+Date: Tue, 1 Nov 2016 17:24:33 +1000
+Message-ID: <CAAye0QNjYY5gBzSdc+0_rhy1OHk7iQ-CVp0Svph1DR7+mgVWGg@mail.gmail.com>
+References: <20161031183522.GA13315@cube> <wrfj1sywrz2f.fsf@redhat.com> <CAAye0QNtcb28q1HY-xAr=bQ0s_nEQuv1TM+Ax5i99Eds7xOb=Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jes Sorensen <Jes.Sorensen@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAye0QNtcb28q1HY-xAr=bQ0s_nEQuv1TM+Ax5i99Eds7xOb=Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-'create_root_ns()' does not return an error pointer, so the test can be
-simplified to be more consistent.
+I have a prepared another patch that is not USB VID/PID dependent for
+rtl8723bu devices. It is more elegant. I will send it after this
+email.
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If I have more patches is it preferable I just put them on github only
+and notify a link address until there might be some resolution?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 904853f9cf7a..330955f6badc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1833,7 +1833,7 @@ static int init_root_ns(struct mlx5_flow_steering *steering)
- {
- 
- 	steering->root_ns = create_root_ns(steering, FS_FT_NIC_RX);
--	if (IS_ERR_OR_NULL(steering->root_ns))
-+	if (!steering->root_ns)
- 		goto cleanup;
- 
- 	if (init_root_tree(steering, &root_fs, &steering->root_ns->ns.node))
--- 
-2.9.3
+What I meant below about not finding a matching function is that I
+cannot find matching actions to take on any function calls in
+rtl8xxxu_stop as for rtl8xxxu_start.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The function that is called later and potentially more than once for
+rtl8723bu devices is rtl8xxxu_init_device. There is no corresponding
+rtl8xxxu_deinit_device function.
+
+enable_rf is called in rtl8xxxu_start, not in the delayed call to
+rtl8xxxu_init_device. The corresponding disable_rf is called in
+rtl8xxxu_stop. So no matching issue here. However please see below for
+another potential issue.
+
+power_on is called in rtl8xxxu_init_device. power_off is called in
+rtl8xxxu_disconnect. Does not appear to be an issue if calling
+power_on has no real effect if already on.
+
+The following should be looked at though. For all devices enable_rf is
+only called once. For the proposed patch the first call to
+rtl8xxxu_init_device is called after the single call to enable_rf for
+rtl8723bu devices. Without the patch enable_rf is called after
+rtl8xxxu_init_device for all devices
+
+Perhaps enable_rf just configures RF modes to start up when RF is
+powered on or if called after power_on then enters requested RF modes.
+
+So I cannot see appropriate additional matching action to take.
+
+Below is some background for anyone interested
+
+rtl8xxxu_start and rtl8xxxu_stop are assigned to rtl8xxxu_ops.
+
+rtl8xxxu_probe assigns rtl8xxxu_ops to its driver layer with
+ieee80211_register_hw.
+
+rtl8xxxu_disconnect unassigns rtl8xxxu_ops from its driver layer with
+ieee80211_unregister_hw.
+
+rtl8xxxu_probe and rtl8xxxu_disconnect are USB driver functions
+
+John Heenan
+
+
+On 1 November 2016 at 08:15, John Heenan <john@zgus.com> wrote:
+> On 1 November 2016 at 07:25, Jes Sorensen <Jes.Sorensen@redhat.com> wrote:
+>> John Heenan <john@zgus.com> writes:
+>
+>>
+>>> @@ -5776,9 +5781,17 @@ static int rtl8xxxu_start(struct ieee80211_hw *hw)
+>>>       struct rtl8xxxu_tx_urb *tx_urb;
+>>>       unsigned long flags;
+>>>       int ret, i;
+>>> +     struct usb_device_descriptor *udesc = &priv->udev->descriptor;
+>>>
+>>>       ret = 0;
+>>>
+>>> +     if(udesc->idVendor == USB_VENDOR_ID_REALTEK
+>>> +                     && udesc->idProduct == USB_PRODUCT_ID_RTL8723BU) {
+>>> +             ret = rtl8xxxu_init_device(hw);
+>>> +             if (ret)
+>>> +                     goto error_out;
+>>> +     }
+>>> +
+>>
+>> As mentioned previously, if this is to be changed here, it has to be
+>> matched in the _stop section too.
+>
+> I looked at this and could not find a matching function. I will have a
+> look again.
+>
