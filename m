@@ -1,51 +1,75 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/12] netfilter: nfnetlink_log: Use GFP_NOWARN for skb allocation
-Date: Tue,  1 Nov 2016 22:26:23 +0100
-Message-ID: <1478035593-1362-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/12] netfilter: nf_tables: remove useless U8_MAX validation
+Date: Tue,  1 Nov 2016 22:26:32 +0100
+Message-ID: <1478035593-1362-12-git-send-email-pablo@netfilter.org>
 References: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52512 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:52640 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932207AbcKAV0s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 17:26:48 -0400
+        id S932451AbcKAV1K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 17:27:10 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 523231683A7
-        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:26:46 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id 6138E16839A
+        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:09 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3E2FDBAC26
-        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:26:46 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 51EA1BAC2A
+        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:09 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 29EECDA850
-        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:26:40 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 2FACBBAC2D
+        for <netdev@vger.kernel.org>; Tue,  1 Nov 2016 22:27:07 +0100 (CET)
 In-Reply-To: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Calvin Owens <calvinowens@fb.com>
+From: Liping Zhang <zlpnobody@gmail.com>
 
-Since the code explicilty falls back to a smaller allocation when the
-large one fails, we shouldn't complain when that happens.
+After call nft_data_init, size is already validated and desc.len will
+not exceed the sizeof(struct nft_data), i.e. 16 bytes. So it will never
+exceed U8_MAX.
 
-Signed-off-by: Calvin Owens <calvinowens@fb.com>
+Furthermore, in nft_immediate_init, we forget to call nft_data_uninit
+when desc.len exceeds U8_MAX, although this will not happen, but it's
+a logical mistake.
+
+Now remove these redundant validation introduced by commit 36b701fae12a
+("netfilter: nf_tables: validate maximum value of u32 netlink attributes")
+
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_log.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nft_cmp.c       | 3 ---
+ net/netfilter/nft_immediate.c | 3 ---
+ 2 files changed, 6 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index eb086a192c5a..7435505037b7 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -330,7 +330,7 @@ nfulnl_alloc_skb(struct net *net, u32 peer_portid, unsigned int inst_size,
- 	 * message.  WARNING: has to be <= 128k due to slab restrictions */
+diff --git a/net/netfilter/nft_cmp.c b/net/netfilter/nft_cmp.c
+index 2e53739812b1..e25b35d70e4d 100644
+--- a/net/netfilter/nft_cmp.c
++++ b/net/netfilter/nft_cmp.c
+@@ -84,9 +84,6 @@ static int nft_cmp_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+ 	if (err < 0)
+ 		return err;
  
- 	n = max(inst_size, pkt_size);
--	skb = alloc_skb(n, GFP_ATOMIC);
-+	skb = alloc_skb(n, GFP_ATOMIC | __GFP_NOWARN);
- 	if (!skb) {
- 		if (n > pkt_size) {
- 			/* try to allocate only as much as we need for current
+-	if (desc.len > U8_MAX)
+-		return -ERANGE;
+-
+ 	priv->op  = ntohl(nla_get_be32(tb[NFTA_CMP_OP]));
+ 	priv->len = desc.len;
+ 	return 0;
+diff --git a/net/netfilter/nft_immediate.c b/net/netfilter/nft_immediate.c
+index d17018ff54e6..4528adea7ede 100644
+--- a/net/netfilter/nft_immediate.c
++++ b/net/netfilter/nft_immediate.c
+@@ -54,9 +54,6 @@ static int nft_immediate_init(const struct nft_ctx *ctx,
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (desc.len > U8_MAX)
+-		return -ERANGE;
+-
+ 	priv->dlen = desc.len;
+ 
+ 	priv->dreg = nft_parse_register(tb[NFTA_IMMEDIATE_DREG]);
 -- 
 2.1.4
