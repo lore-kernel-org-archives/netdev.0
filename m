@@ -1,59 +1,86 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/5] ipv6: Compute multipath hash for
- forwarded ICMP errors from offending packet
-Date: Tue, 01 Nov 2016 11:35:05 -0400 (EDT)
-Message-ID: <20161101.113505.1429989348222226550.davem@davemloft.net>
-References: <20161031.151534.329043104568805244.davem@davemloft.net>
-        <87bmxznsgg.fsf@redhat.com>
+Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
+ FIB notifier
+Date: Tue, 01 Nov 2016 11:36:50 -0400 (EDT)
+Message-ID: <20161101.113650.140429913221385583.davem@davemloft.net>
+References: <20161031225737.7nfoy4ka3ydzhptq@splinter>
+        <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
+        <5818B146.20209@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: jkbs@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87bmxznsgg.fsf@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, idosch@idosch.org, netdev@vger.kernel.org,
+        jiri@mellanox.com, mlxsw@mellanox.com, dsa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, andy@greyhouse.net,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, idosch@mellanox.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46372 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751725AbcKAPgx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:36:53 -0400
+In-Reply-To: <5818B146.20209@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Sitnicki <jkbs@redhat.com>
-Date: Tue, 01 Nov 2016 16:13:51 +0100
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Tue, 01 Nov 2016 08:14:14 -0700
 
-> On Mon, Oct 31, 2016 at 07:15 PM GMT, David Miller wrote:
->> From: Jakub Sitnicki <jkbs@redhat.com>
->> Date: Sun, 30 Oct 2016 14:03:11 +0100
+> On 11/1/16, 7:19 AM, Eric Dumazet wrote:
+>> On Tue, 2016-11-01 at 00:57 +0200, Ido Schimmel wrote:
+>>> On Mon, Oct 31, 2016 at 02:24:06PM -0700, Eric Dumazet wrote:
+>>>> How well will this work for large FIB tables ?
+>>>>
+>>>> Holding rtnl while sending thousands of skb will prevent consumers to
+>>>> make progress ?
+>>> Can you please clarify what do you mean by "while sending thousands of
+>>> skb"? This patch doesn't generate notifications to user space, but
+>>> instead invokes notification routines inside the kernel. I probably
+>>> misunderstood you.
+>>>
+>>> Are you suggesting this be done using RCU instead? Well, there are a
+>>> couple of reasons why I took RTNL here:
+>>>
+>> No, I do not believe RCU is wanted here, in control path where we might
+>> sleep anyway.
 >>
->>> 2) ensure the flow labels used in both directions are the same (either
->>>    reflected by one side, or fixed, e.g. not used and set to 0), so that
->>>    the 4-tuple we hash over when forwarding, <src addr, dst addr, flow
->>>    label, next hdr>, is the same both ways, modulo the order of
->>>    addresses.
+>>> 1) The FIB notification chain is blocking, so listeners are expected to
+>>> be able to sleep. This isn't possible if we use RCU. Note that this
+>>> chain is mainly useful for drivers that reflect the FIB table into a
+>>> capable device and hardware operations usually involve sleeping.
+>>>
+>>> 2) The insertion of a single route is done with RTNL held. I didn't want
+>>> to differentiate between both cases. This property is really useful for
+>>> listeners, as they don't need to worry about locking in writer-side.
+>>> Access to data structs is serialized by RTNL.
+>> My concern was that for large iterations, you might hold RTNL and/or
+>> current cpu for hundred of ms or even seconds...
 >>
->> Even Linux, by default, does not do reflection.
->>
->> See the flowlabel_consistency sysctl, which we set by default to '1'.
+> I have the same concern as Eric here.
 > 
-> Yes, unfortunately, if Linux-based hosts are used as sending/receiving
-> IPv6, ICMP error forwarding will not work out of the box. Users will be
-> burdened with adjusting the runtime network stack config, as you point
-> out, or otherwise instructing the apps to set the flow label,
-> e.g. traceroute6 -I <flow label> ...
+> I understand why you need it, but can the driver request for an initial dump and that
+> dump be made more efficient somehow ie not hold rtnl for the whole dump ?.
+> instead of making the fib notifier registration code doing it.
+> 
+> these routing table sizes can be huge and an analogy for this in user-space:
+> We do request a netlink dump of  routing tables at initialization (on driver starts or resets)...
+> but, existing netlink routing table dumps for that scale don't hold rtnl for the whole dump.
+> The dump is split into multiple responses to the user and hence it does not starve other rtnl users.
+> 
+> In-fact I don't think netlink routing table dumps from user-space hold rtnl_lock for the whole dump.
+> IIRC this was done to allow route add/dels to be allowed in parallel for performance reasons.
+> (I will need to double check to confirm this).
 
-I'm pretty sure that sysctl default was choosen intentionally, and we
-actively are _encouraging_ the world to not depend upon reflection in
-any way, shape, or form.
+I've always had some reservations about using notifiers for getting
+the FIB entries down to the offloaded device.
 
-And it's kind of pointless to suggest a facility that can't work with
-Linux endpoints out of the box.
+And this problem is just another symptom that it is the wrong
+mechanism for propagating this information.
 
-This was the point I'm trying to make.
-
-If the intentions of that sysctl default does pan out, the idea is for
-the world to move towards arbitrary flow label settings, even perhaps
-changing over time.  The intention is to make this more, not less,
-common.  And the idea is to give maximum flexibility for endpoints to
-set these flow labels, in order to increase entropy wherever possible.
-
-I have a really hard time accepting a "fix" that depends upon behavior
-that the Linux ipv6 stack doesn't even have.
+As suggested by Roopa here, perhaps we're looking at the problem from
+the wrong direction.  We tend to design NDO ops and notifiers, to
+"push" things to the driver, but maybe something more like a push+pull
+model is better.
