@@ -1,130 +1,160 @@
-From: Baoquan He <bhe@redhat.com>
-Subject: Re: [bnx2] [Regression 4.8] Driver loading fails without firmware
-Date: Tue, 1 Nov 2016 10:40:58 +0800
-Message-ID: <20161101024058.GB20838@x1>
-References: <244cb42b-0fce-fe41-7b7c-babb51411e8c@molgen.mpg.de>
- <b0675854-41f9-e7b6-4ad0-85ff59b98977@molgen.mpg.de>
- <20161031100944.GE7138@x1>
- <b657c2f4-83b7-525a-f1f0-4c1a593c678b@molgen.mpg.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] rtl8xxxu: Fix for agressive power saving by rtl8723bu
+ wireless IC
+Date: Mon, 31 Oct 2016 20:01:54 -0700
+Message-ID: <1477969314.23018.24.camel@perches.com>
+References: <20161031183522.GA13315@cube> <wrfj1sywrz2f.fsf@redhat.com>
+         <CAAye0QNtcb28q1HY-xAr=bQ0s_nEQuv1TM+Ax5i99Eds7xOb=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 8bit
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-        Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, dyoung@redhat.com
-To: Paul Menzel <pmenzel@molgen.mpg.de>
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: John Heenan <john@zgus.com>, Jes Sorensen <Jes.Sorensen@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40808 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965298AbcKAClC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Oct 2016 22:41:02 -0400
-Content-Disposition: inline
-In-Reply-To: <b657c2f4-83b7-525a-f1f0-4c1a593c678b@molgen.mpg.de>
+Received: from smtprelay0020.hostedemail.com ([216.40.44.20]:56022 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S965298AbcKADCD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 23:02:03 -0400
+In-Reply-To: <CAAye0QNtcb28q1HY-xAr=bQ0s_nEQuv1TM+Ax5i99Eds7xOb=Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/16 at 11:43am, Paul Menzel wrote:
-> Dear Baoquan,
-> 
-> 
-> On 10/31/16 11:09, Baoquan He wrote:
-> 
-> > On 10/26/16 at 12:31pm, Paul Menzel wrote:
-> > > Baoquan, could you please fix this regression. My suggestion is, that you
-> > > add the old code back, but check if the firmware has been loaded. If it
-> > > hasnâ€™t, load it again.
+On Tue, 2016-11-01 at 08:15 +1000, John Heenan wrote:
+> > On 1 November 2016 at 07:25, Jes Sorensen <Jes.Sorensen@redhat.com> wrote:
+> > > > John Heenan <john@zgus.com> writes:
+> > > The rtl8723bu wireless IC shows evidence of a more agressive approach to
+> > > power saving, powering down its RF side when there is no wireless
+> > > interfacing but leaving USB interfacing intact. This makes the wireless
+> > > IC more suitable for use in devices which need to keep their power use
+> > > as low as practical, such as tablets and Surface Pro type devices.
 > > > 
-> > > That way, people can update their Linux kernel, and it continues working
-> > > without changing the initramfs, or anything else.
+> > > In effect this means that a full initialisation must be performed
+> > > whenever a wireless interface is brought up. It also means that
+> > > interpretations of power status from general wireless registers should
+> > > not be relied on to influence an init sequence.
+> > > 
+> > > The patch works by forcing a fuller initialisation and forcing it to
+> > > occur more often in code paths (such as occurs during a low level
+> > > authentication that initiates wireless interfacing).
+> > > 
+> > > The initialisation sequence is now more consistent with code based
+> > > directly on vendor code. For example while the vendor derived code
+> > > interprets a register as indcating a particular powered state, it does
+> > > not use this information to influence its init sequence.
+> > > 
+> > > The rtl8723bu device has a unique USB VID and PID. This is taken
+> > > advantage of for the patch to ensure only rtl8723bu devices are affected
+> > > by this patch.
+> > > 
+> > > With this patch wpa_supplicant reliably and consistently connects with
+> > > an AP. Before a workaround such as executing rmmod and modprobe before
+> > > each call to wpa_supplicant worked with some distributions.
+> > > 
+> > > > > > Signed-off-by: John Heenan <john@zgus.com>
+> > > ---
+> > >  .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c  | 24 ++++++++++++++++++----
+> > >  1 file changed, 20 insertions(+), 4 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+> > > index 04141e5..f36e674 100644
+> > > --- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+> > > +++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+> > > @@ -79,6 +79,8 @@ MODULE_PARM_DESC(dma_agg_pages, "Set DMA aggregation pages (range 1-127, 0 to di
+> > >  #define RTL8XXXU_TX_URB_LOW_WATER    25
+> > >  #define RTL8XXXU_TX_URB_HIGH_WATER   32
+> > > 
+> > > +#define USB_PRODUCT_ID_RTL8723BU 0xb720
+> > > +
 > > 
-> > I checked code and this looks good to me. I can post a patch with this
-> > change to upstream, see what maintainers and other reviewers say.
+> > Absolutely not! You have no guarantee that this is the only id used for
+> > 8723bu devices, and adding a #define for each is not going to happen.
+> 
+> Thanks for you reply.
+> 
+> I have no problem with that. However the patch does get the point
+> across in a minimalist and efficient way of what the issues are.
+> 
+> Currently there is no property available to determine the information required.
+> 
 > > 
-> > The thing is I don't understand quite well about your requirement. With
-> > my understanding, you just didn't add bnx2 firmware into initramfs, but
-> > later opening the interface can still request that firmware with "ifup
-> > eth-xxx" command. Is that correct? If yes, requesting firmware twice in
-> > probing path and opening path looks good.
+> > >  static int rtl8xxxu_submit_rx_urb(struct rtl8xxxu_priv *priv,
+> > >                                 struct rtl8xxxu_rx_urb *rx_urb);
+> > > 
+> > > @@ -3892,6 +3894,7 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
+> > >       u8 val8;
+> > >       u16 val16;
+> > >       u32 val32;
+> > > +  struct usb_device_descriptor *udesc = &priv->udev->descriptor;
 > > 
-> > However I am wondering what's your exact steps to do this.
+> > Indentaiton
+> 
+> OK. Missed that one.
+> 
 > > 
-> > What I tried to do is I execute command "dracut --add-drivers bnx2 -f
-> > /boot/initramfs-4.9.0-rc3+.img 4.9.0-rc3+" to build a new initramfs,
-> > meanwhile make sure bnx2.ko is included, then uncompressed initramfs and
-> > deleted bnx2 folder under lib/firmware/ of uncompressed initramfs. Then
-> > pack them to be /boot/initramfs-4.9.0-rc3+.img and restart. I did saw
-> > below failure message. But later how did you really make the bnx2
-> > network interface up? Could you say it more specifically?
+> > >       /* Check if MAC is already powered on */
+> > >       val8 = rtl8xxxu_read8(priv, REG_CR);
+> > > @@ -3900,7 +3903,9 @@ static int rtl8xxxu_init_device(struct ieee80211_hw *hw)
+> > >        * Fix 92DU-VC S3 hang with the reason is that secondary mac is not
+> > >        * initialized. First MAC returns 0xea, second MAC returns 0x00
+> > >        */
+> > > -     if (val8 == 0xea)
+> > > +     if (val8 == 0xea
+> > > +                     || (udesc->idVendor == USB_VENDOR_ID_REALTEK
+> > > +                     &&  udesc->idProduct == USB_PRODUCT_ID_RTL8723BU))
+> > >               macpower = false;
+> > >       else
+> > >               macpower = true;
 > > 
-> > [    7.364186] bnx2: QLogic bnx2 Gigabit Ethernet Driver v2.2.6 (January 29, 2014)
-> > [    7.371706] ACPI: PCI Interrupt Link [LN44] enabled at IRQ 44
-> > [    7.378128] bnx2 0000:01:00.0: Direct firmware load for bnx2/bnx2-mips-09-6.2.1b.fw failed with error -2
-> > [    7.387619] bnx2: Can't load firmware file "bnx2/bnx2-mips-09-6.2.1b.fw"
-> > [    7.387888] bnx2: probe of 0000:01:00.0 failed with error -2
-> > [    7.388990] ACPI: PCI Interrupt Link [LN45] enabled at IRQ 45
-> > [    7.389370] bnx2 0000:01:00.1: Direct firmware load for bnx2/bnx2-mips-09-6.2.1b.fw failed with error -2
-> > [    7.389371] bnx2: Can't load firmware file "bnx2/bnx2-mips-09-6.2.1b.fw"
-> > [    7.389475] bnx2: probe of 0000:01:00.1 failed with error -2
+> > Please respect proper kernel coding style!
 > 
-> Hopefully I understood your questions correctly, so that my answers make
-> sense.
+> I don't know what you mean. Your code has real tabs. My code has real
+> tabs. The kernel style goes on about tabs being 8 spaces. So do you
+> want: real tabs or real spaces?
 > 
-> First, sorry for not saying that earlier, on our system the driver is built
-> into the Linux kernel.
+> You said no lines over 80 columns long. This is what i have done.
 
-It's clear. So you built bnx2 driver into kernel and that makes bnx2
-probe earlier be executed in do_initcalls() when initramfs has not been
-uncompressed and mounted, surely requesting firmware will fail. While
-building it as kernel module makes bnx2 probe be executed after
-initramfs has been uncompressed and mounted, and firmware can be
-detected.
+Typical kernel style would be:
 
-Well, sometime code change is very easy, but it's very difficult to
-write patch log to make maintainers and reviewers easily understand why
-this patch is acceptable and user case is reasonalbe.
+	if (val == 0xea ||
+	    (udesc->idVendor == USB_VENDOR_ID_REALTEK &&
+	     udesc->idProduct == USB_PRODUCT_ID_RTL8723BU))
+		macpower = false;
+	else
+		macpower = true;
 
-I will post a patch to add the firmware requesting code back in
-bnx2_open.
+ie: logical continuations at EOL and indentation aligned to parentheses
+    using as many leading tabs as possible, then spaces where necessary
 
-Thanks for your detailed information, Paul.
+or maybe:
 
+	macpower = !(val == 0xea ||
+		     (idesc->idVendor == USB_VENDOR_ID_REALTEK &&
+		      udesc->idProduct == USB_PRODUCT_ID_RTL8723BU));
+
+but the first one seems easier to read.
+
+> > > @@ -6080,9 +6093,12 @@ static int rtl8xxxu_probe(struct usb_interface *interface,
+> > >               goto exit;
+> > >       }
+> > > 
+> > > -     ret = rtl8xxxu_init_device(hw);
+> > > -     if (ret)
+> > > +     if(!(id->idVendor == USB_VENDOR_ID_REALTEK
+> > > +                     && id->idProduct == USB_PRODUCT_ID_RTL8723BU)) {
+> > > +             ret = rtl8xxxu_init_device(hw);
+> > > +             if (ret)
+> > >               goto exit;
+> > > +     }
+> > 
+> > Again, this coding style abuse will never go into this driver,
 > 
-> ```
-> $ grep BNX2 /boot/config-4.8.4.mx64.112
-> # CONFIG_SCSI_BNX2_ISCSI is not set
-> CONFIG_BNX2=y
-> CONFIG_BNX2X=y
-> CONFIG_BNX2X_SRIOV=y
-> ```
-> 
-> Second, the filesystem driver is also built into the Linux kernel.
-> 
-> On our system, there is a systemd service unit, which sets up the network
-> device.
-> 
-> ```
-> $ more /etc/systemd/system/network.service
-> [Unit]
-> Description=Network Connectivity
-> DefaultDependencies=no
-> 
-> [Service]
-> Type=oneshot
-> RemainAfterExit=yes
-> ExecStart=/usr/sbin/mxnetctl start
-> ExecStart=/sbin/ip addr add XXX broadcast XXX dev net00
-> ExecStart=/sbin/ip link set up dev net00
-> ExecStop=/sbin/ip addr del XXX dev net00
-> StandardOutput=syslog
-> 
-> [Install]
-> WantedBy=network.target
-> ```
-> 
-> During that time, the hard drive has been detected, and the filesystem has
-> been mounted.
-> 
-> 
-> Kind regards,
-> 
-> Paul
+> As above, what abuse? I am not being facetious. Just puzzled.
+
+Same logical continuation and indentation alignment.
+
+>  Again have a nice day!
+
+That's pleasant of you but Jen's rarely seems pleasant in return via
+email.  I trust he's more personable over a beer though.  Perhaps one
+day we'll all have one together.
