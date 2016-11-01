@@ -1,43 +1,57 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: SNMP read-write MIBs
-Date: Tue, 1 Nov 2016 14:06:40 -0400
-Message-ID: <5818D9B0.60907@ti.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net/mlx5: Simplify a test
+Date: Tue, 01 Nov 2016 14:12:49 -0400 (EDT)
+Message-ID: <20161101.141249.1579276311119537608.davem@davemloft.net>
+References: <20161101071053.12486-1-christophe.jaillet@wanadoo.fr>
+        <025cb4e1-f5e8-8bc9-0d4f-3ee8f8d1bb5d@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:47951 "EHLO
-        devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751389AbcKASGh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 14:06:37 -0400
-Received: from dflxv15.itg.ti.com ([128.247.5.124])
-        by devils.ext.ti.com (8.13.7/8.13.7) with ESMTP id uA1I6ac1018018
-        for <netdev@vger.kernel.org>; Tue, 1 Nov 2016 13:06:36 -0500
-Received: from DLEE71.ent.ti.com (dlee71.ent.ti.com [157.170.170.114])
-        by dflxv15.itg.ti.com (8.14.3/8.13.8) with ESMTP id uA1I6asS014636
-        for <netdev@vger.kernel.org>; Tue, 1 Nov 2016 13:06:36 -0500
-Received: from [158.218.103.164] (ileax41-snat.itg.ti.com [10.172.224.153])     by
- dlep33.itg.ti.com (8.14.3/8.13.8) with ESMTP id uA1I6amE023406 for
- <netdev@vger.kernel.org>; Tue, 1 Nov 2016 13:06:36 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <025cb4e1-f5e8-8bc9-0d4f-3ee8f8d1bb5d-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello netdev experts,
+From: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Date: Tue, 1 Nov 2016 11:38:18 +0200
 
-I am investigating the requirements to support hsr/prp SNMP functions in kernel.
-Based on my investigation so far, the kernel include file include/net/snmp.h
-defines all of the SNMP MIBS related defines and structures. But the MIBs are
-read-only type MIBs. Is there any implementation of read-write MIBs in kernel?
+> On 01/11/2016 09:10, Christophe JAILLET wrote:
+>> 'create_root_ns()' does not return an error pointer, so the test can
+>> be
+>> simplified to be more consistent.
+>>
+>> Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+>> b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+>> index 904853f9cf7a..330955f6badc 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+>> @@ -1833,7 +1833,7 @@ static int init_root_ns(struct
+>> mlx5_flow_steering *steering)
+>>  {
+>>
+>>  	steering->root_ns = create_root_ns(steering, FS_FT_NIC_RX);
+>> -	if (IS_ERR_OR_NULL(steering->root_ns))
+>> +	if (!steering->root_ns)
+>>  		goto cleanup;
+>>
+>>  	if (init_root_tree(steering, &root_fs, &steering->root_ns->ns.node))
+>>
+> 
+> Thanks.
+> Acked-by: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> 
 
-One of the specs for MIBs that are investigating have read-write MIBs and
-wondering if we have any precedence of such MIBs implemented in kernel space.
-If not, what is the suggested way to implement these MIBs in kernel space?
-
-I assume that to implement read-only MIBs for hsr driver, I need to add
-them to snmp.h and use standard Macros in snmp.h to update them from the driver.
-
-Thanks
- 
-Murali Karicheri
-Linux Kernel, Keystone
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
