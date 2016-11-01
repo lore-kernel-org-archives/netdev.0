@@ -1,74 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [RFC PATCH v2 3/5] ARM64: dts: meson-gxl: Add ethernet nodes with
- internal PHY
-Date: Tue, 1 Nov 2016 12:48:06 +0300
-Message-ID: <52cb99f1-93ef-ea53-63c1-a661c2790538@cogentembedded.com>
-References: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
- <1477932987-27871-4-git-send-email-narmstrong@baylibre.com>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH] net: mv643xx_eth: ensure coalesce settings survive
+ read-modify-write
+Date: Tue, 01 Nov 2016 10:50:01 +0000
+Message-ID: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477932987-27871-4-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:45076 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1168617AbcKAKuH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 06:50:07 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The coalesce settings behave badly when changing just one value:
 
-On 10/31/2016 7:56 PM, Neil Armstrong wrote:
+... # ethtool -c eth0
+rx-usecs: 249
+... # ethtool -C eth0 tx-usecs 250
+... # ethtool -c eth0
+rx-usecs: 248
 
-> Add Ethernet node with Internal PHY selection for the Amlogic GXL SoCs
->
-> Signed-off-by: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-> ---
->  arch/arm64/boot/dts/amlogic/meson-gxl.dtsi | 45 ++++++++++++++++++++++++++++++
->  1 file changed, 45 insertions(+)
->
-> diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
-> index d1bf381..71670c3 100644
-> --- a/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
-> +++ b/arch/arm64/boot/dts/amlogic/meson-gxl.dtsi
-> @@ -47,6 +47,24 @@
->
->  / {
->  	compatible = "amlogic,meson-gxl";
-> +
-> +
+This occurs due to rounding errors when calculating the microseconds
+value - the divisons round down.  This causes (eg) the rx-usecs to
+decrease by one every time the tx-usecs value is set as per the above.
 
-    No need for these empty lines.
+Fix this by making the divison round-to-nearest.
 
-> +};
-> +
-> +&ethmac {
-> +	reg = <0x0 0xc9410000 0x0 0x10000
-> +	       0x0 0xc8834540 0x0 0x4>;
-> +
-> +	clocks = <&clkc CLKID_ETH>,
-> +		 <&clkc CLKID_FCLK_DIV2>,
-> +		 <&clkc CLKID_MPLL2>;
-> +	clock-names = "stmmaceth", "clkin0", "clkin1";
-> +
-> +	mdio0: mdio0 {
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-    Should be "mdio0: mdio {" in oprder to comply woth the DT spec.
-
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		compatible = "snps,dwmac-mdio";
-> +	};
->  };
->
->  &aobus {
-[...]
-
-MBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 2a85202de6da..8a472cbfda09 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1429,6 +1429,7 @@ static unsigned int get_rx_coal(struct mv643xx_eth_private *mp)
+ 		temp = (val & 0x003fff00) >> 8;
+ 
+ 	temp *= 64000000;
++	temp += mp->t_clk / 2;
+ 	do_div(temp, mp->t_clk);
+ 
+ 	return (unsigned int)temp;
+@@ -1465,6 +1466,7 @@ static unsigned int get_tx_coal(struct mv643xx_eth_private *mp)
+ 
+ 	temp = (rdlp(mp, TX_FIFO_URGENT_THRESHOLD) & 0x3fff0) >> 4;
+ 	temp *= 64000000;
++	temp += mp->t_clk / 2;
+ 	do_div(temp, mp->t_clk);
+ 
+ 	return (unsigned int)temp;
+-- 
+2.1.0
