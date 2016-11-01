@@ -1,264 +1,175 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/3] net: mii: add generic function to support ksetting support
-Date: Tue,  1 Nov 2016 16:32:25 +0100
-Message-ID: <1478014347-14994-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 3/3] net: 3c509: use new api ethtool_{get|set}_link_ksettings
+Date: Tue,  1 Nov 2016 16:32:27 +0100
+Message-ID: <1478014347-14994-3-git-send-email-tremyfr@gmail.com>
+References: <1478014347-14994-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Philippe Reynes <tremyfr@gmail.com>
 To: klassert@mathematik.tu-chemnitz.de, davem@davemloft.net,
         mugunthanvnm@ti.com, a@unstable.cc, fw@strlen.de, jarod@redhat.com,
         fabf@skynet.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34605 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751685AbcKAPcl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:32:41 -0400
+In-Reply-To: <1478014347-14994-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The old ethtool api (get_setting and set_setting) has generic mii
-functions mii_ethtool_sset and mii_ethtool_gset.
-
-To support the new ethtool api ({get|set}_link_ksettings), we add
-two generics mii function mii_ethtool_{get|set}_link_ksettings_get.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/mii.c   |  195 +++++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/mii.h |    4 +
- 2 files changed, 199 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/3com/3c509.c |   55 +++++++++++++++++++-----------------
+ 1 files changed, 29 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/mii.c b/drivers/net/mii.c
-index 993570b..0443546 100644
---- a/drivers/net/mii.c
-+++ b/drivers/net/mii.c
-@@ -135,6 +135,101 @@ int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
+diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+index 9f9a5f4..a753378 100644
+--- a/drivers/net/ethernet/3com/3c509.c
++++ b/drivers/net/ethernet/3com/3c509.c
+@@ -1040,67 +1040,68 @@ static void update_stats(struct net_device *dev)
  }
  
- /**
-+ * mii_ethtool_get_link_ksettings - get settings that are specified in @cmd
-+ * @mii: MII interface
-+ * @cmd: requested ethtool_link_ksettings
-+ *
-+ * The @cmd parameter is expected to have been cleared before calling
-+ * mii_ethtool_get_link_ksettings().
-+ *
-+ * Returns 0 for success, negative on error.
-+ */
-+int mii_ethtool_get_link_ksettings(struct mii_if_info *mii,
-+				   struct ethtool_link_ksettings *cmd)
-+{
-+	struct net_device *dev = mii->dev;
-+	u16 bmcr, bmsr, ctrl1000 = 0, stat1000 = 0;
-+	u32 nego, supported, advertising, lp_advertising;
-+
-+	supported = (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
-+		     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
-+		     SUPPORTED_Autoneg | SUPPORTED_TP | SUPPORTED_MII);
-+	if (mii->supports_gmii)
-+		supported |= SUPPORTED_1000baseT_Half |
-+			SUPPORTED_1000baseT_Full;
-+
-+	/* only supports twisted-pair */
-+	cmd->base.port = PORT_MII;
-+
-+	/* this isn't fully supported at higher layers */
-+	cmd->base.phy_address = mii->phy_id;
-+	cmd->base.mdio_support = ETH_MDIO_SUPPORTS_C22;
-+
-+	advertising = ADVERTISED_TP | ADVERTISED_MII;
-+
-+	bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
-+	bmsr = mii->mdio_read(dev, mii->phy_id, MII_BMSR);
-+	if (mii->supports_gmii) {
-+		ctrl1000 = mii->mdio_read(dev, mii->phy_id, MII_CTRL1000);
-+		stat1000 = mii->mdio_read(dev, mii->phy_id, MII_STAT1000);
-+	}
-+	if (bmcr & BMCR_ANENABLE) {
-+		advertising |= ADVERTISED_Autoneg;
-+		cmd->base.autoneg = AUTONEG_ENABLE;
-+
-+		advertising |= mii_get_an(mii, MII_ADVERTISE);
-+		if (mii->supports_gmii)
-+			advertising |= mii_ctrl1000_to_ethtool_adv_t(ctrl1000);
-+
-+		if (bmsr & BMSR_ANEGCOMPLETE) {
-+			lp_advertising = mii_get_an(mii, MII_LPA);
-+			lp_advertising |=
-+					mii_stat1000_to_ethtool_lpa_t(stat1000);
-+		} else {
-+			lp_advertising = 0;
-+		}
-+
-+		nego = advertising & lp_advertising;
-+
-+		if (nego & (ADVERTISED_1000baseT_Full |
-+			    ADVERTISED_1000baseT_Half)) {
-+			cmd->base.speed = SPEED_1000;
-+			cmd->base.duplex = !!(nego & ADVERTISED_1000baseT_Full);
-+		} else if (nego & (ADVERTISED_100baseT_Full |
-+				   ADVERTISED_100baseT_Half)) {
-+			cmd->base.speed = SPEED_100;
-+			cmd->base.duplex = !!(nego & ADVERTISED_100baseT_Full);
-+		} else {
-+			cmd->base.speed = SPEED_10;
-+			cmd->base.duplex = !!(nego & ADVERTISED_10baseT_Full);
-+		}
-+	} else {
-+		cmd->base.autoneg = AUTONEG_DISABLE;
-+
-+		cmd->base.speed = ((bmcr & BMCR_SPEED1000 &&
-+				    (bmcr & BMCR_SPEED100) == 0) ?
-+				   SPEED_1000 :
-+				   ((bmcr & BMCR_SPEED100) ?
-+				    SPEED_100 : SPEED_10));
-+		cmd->base.duplex = (bmcr & BMCR_FULLDPLX) ?
-+			DUPLEX_FULL : DUPLEX_HALF;
-+	}
-+
-+	mii->full_duplex = cmd->base.duplex;
-+
+ static int
+-el3_netdev_get_ecmd(struct net_device *dev, struct ethtool_cmd *ecmd)
++el3_netdev_get_ecmd(struct net_device *dev, struct ethtool_link_ksettings *cmd)
+ {
+ 	u16 tmp;
+ 	int ioaddr = dev->base_addr;
++	u32 supported;
+ 
+ 	EL3WINDOW(0);
+ 	/* obtain current transceiver via WN4_MEDIA? */
+ 	tmp = inw(ioaddr + WN0_ADDR_CONF);
+-	ecmd->transceiver = XCVR_INTERNAL;
+ 	switch (tmp >> 14) {
+ 	case 0:
+-		ecmd->port = PORT_TP;
++		cmd->base.port = PORT_TP;
+ 		break;
+ 	case 1:
+-		ecmd->port = PORT_AUI;
+-		ecmd->transceiver = XCVR_EXTERNAL;
++		cmd->base.port = PORT_AUI;
+ 		break;
+ 	case 3:
+-		ecmd->port = PORT_BNC;
++		cmd->base.port = PORT_BNC;
+ 	default:
+ 		break;
+ 	}
+ 
+-	ecmd->duplex = DUPLEX_HALF;
+-	ecmd->supported = 0;
++	cmd->base.duplex = DUPLEX_HALF;
++	supported = 0;
+ 	tmp = inw(ioaddr + WN0_CONF_CTRL);
+ 	if (tmp & (1<<13))
+-		ecmd->supported |= SUPPORTED_AUI;
++		supported |= SUPPORTED_AUI;
+ 	if (tmp & (1<<12))
+-		ecmd->supported |= SUPPORTED_BNC;
++		supported |= SUPPORTED_BNC;
+ 	if (tmp & (1<<9)) {
+-		ecmd->supported |= SUPPORTED_TP | SUPPORTED_10baseT_Half |
++		supported |= SUPPORTED_TP | SUPPORTED_10baseT_Half |
+ 				SUPPORTED_10baseT_Full;	/* hmm... */
+ 		EL3WINDOW(4);
+ 		tmp = inw(ioaddr + WN4_NETDIAG);
+ 		if (tmp & FD_ENABLE)
+-			ecmd->duplex = DUPLEX_FULL;
++			cmd->base.duplex = DUPLEX_FULL;
+ 	}
+ 
+-	ethtool_cmd_speed_set(ecmd, SPEED_10);
 +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
 +						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.lp_advertising,
-+						lp_advertising);
-+
-+	/* ignore maxtxpkt, maxrxpkt for now */
-+
-+	return 0;
-+}
-+
-+/**
-  * mii_ethtool_sset - set settings that are specified in @ecmd
-  * @mii: MII interface
-  * @ecmd: requested ethtool_cmd
-@@ -227,6 +322,104 @@ int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd)
++	cmd->base.speed = SPEED_10;
+ 	EL3WINDOW(1);
+ 	return 0;
  }
  
- /**
-+ * mii_ethtool_set_link_ksettings - set settings that are specified in @cmd
-+ * @mii: MII interfaces
-+ * @cmd: requested ethtool_link_ksettings
-+ *
-+ * Returns 0 for success, negative on error.
-+ */
-+int mii_ethtool_set_link_ksettings(struct mii_if_info *mii,
-+				   const struct ethtool_link_ksettings *cmd)
-+{
-+	struct net_device *dev = mii->dev;
-+	u32 speed = cmd->base.speed;
-+
-+	if (speed != SPEED_10 &&
-+	    speed != SPEED_100 &&
-+	    speed != SPEED_1000)
-+		return -EINVAL;
-+	if (cmd->base.duplex != DUPLEX_HALF && cmd->base.duplex != DUPLEX_FULL)
-+		return -EINVAL;
-+	if (cmd->base.port != PORT_MII)
-+		return -EINVAL;
-+	if (cmd->base.phy_address != mii->phy_id)
-+		return -EINVAL;
-+	if (cmd->base.autoneg != AUTONEG_DISABLE &&
-+	    cmd->base.autoneg != AUTONEG_ENABLE)
-+		return -EINVAL;
-+	if ((speed == SPEED_1000) && (!mii->supports_gmii))
-+		return -EINVAL;
-+
-+	/* ignore supported, maxtxpkt, maxrxpkt */
-+
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
-+		u32 bmcr, advert, tmp;
-+		u32 advert2 = 0, tmp2 = 0;
-+		u32 advertising;
-+
-+		ethtool_convert_link_mode_to_legacy_u32(
-+			&advertising, cmd->link_modes.advertising);
-+
-+		if ((advertising & (ADVERTISED_10baseT_Half |
-+				    ADVERTISED_10baseT_Full |
-+				    ADVERTISED_100baseT_Half |
-+				    ADVERTISED_100baseT_Full |
-+				    ADVERTISED_1000baseT_Half |
-+				    ADVERTISED_1000baseT_Full)) == 0)
-+			return -EINVAL;
-+
-+		/* advertise only what has been requested */
-+		advert = mii->mdio_read(dev, mii->phy_id, MII_ADVERTISE);
-+		tmp = advert & ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
-+		if (mii->supports_gmii) {
-+			advert2 = mii->mdio_read(dev, mii->phy_id,
-+						 MII_CTRL1000);
-+			tmp2 = advert2 &
-+				~(ADVERTISE_1000HALF | ADVERTISE_1000FULL);
-+		}
-+		tmp |= ethtool_adv_to_mii_adv_t(advertising);
-+
-+		if (mii->supports_gmii)
-+			tmp2 |= ethtool_adv_to_mii_ctrl1000_t(advertising);
-+		if (advert != tmp) {
-+			mii->mdio_write(dev, mii->phy_id, MII_ADVERTISE, tmp);
-+			mii->advertising = tmp;
-+		}
-+		if ((mii->supports_gmii) && (advert2 != tmp2))
-+			mii->mdio_write(dev, mii->phy_id, MII_CTRL1000, tmp2);
-+
-+		/* turn on autonegotiation, and force a renegotiate */
-+		bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
-+		bmcr |= (BMCR_ANENABLE | BMCR_ANRESTART);
-+		mii->mdio_write(dev, mii->phy_id, MII_BMCR, bmcr);
-+
-+		mii->force_media = 0;
-+	} else {
-+		u32 bmcr, tmp;
-+
-+		/* turn off auto negotiation, set speed and duplexity */
-+		bmcr = mii->mdio_read(dev, mii->phy_id, MII_BMCR);
-+		tmp = bmcr & ~(BMCR_ANENABLE | BMCR_SPEED100 |
-+			       BMCR_SPEED1000 | BMCR_FULLDPLX);
-+		if (speed == SPEED_1000)
-+			tmp |= BMCR_SPEED1000;
-+		else if (speed == SPEED_100)
-+			tmp |= BMCR_SPEED100;
-+		if (cmd->base.duplex == DUPLEX_FULL) {
-+			tmp |= BMCR_FULLDPLX;
-+			mii->full_duplex = 1;
-+		} else {
-+			mii->full_duplex = 0;
-+		}
-+		if (bmcr != tmp)
-+			mii->mdio_write(dev, mii->phy_id, MII_BMCR, tmp);
-+
-+		mii->force_media = 1;
-+	}
-+	return 0;
-+}
-+
-+/**
-  * mii_check_gmii_support - check if the MII supports Gb interfaces
-  * @mii: the MII interface
-  */
-@@ -466,7 +659,9 @@ int generic_mii_ioctl(struct mii_if_info *mii_if,
- EXPORT_SYMBOL(mii_link_ok);
- EXPORT_SYMBOL(mii_nway_restart);
- EXPORT_SYMBOL(mii_ethtool_gset);
-+EXPORT_SYMBOL(mii_ethtool_get_link_ksettings);
- EXPORT_SYMBOL(mii_ethtool_sset);
-+EXPORT_SYMBOL(mii_ethtool_set_link_ksettings);
- EXPORT_SYMBOL(mii_check_link);
- EXPORT_SYMBOL(mii_check_media);
- EXPORT_SYMBOL(mii_check_gmii_support);
-diff --git a/include/linux/mii.h b/include/linux/mii.h
-index 47492c9..1629a0c 100644
---- a/include/linux/mii.h
-+++ b/include/linux/mii.h
-@@ -31,7 +31,11 @@ struct mii_if_info {
- extern int mii_link_ok (struct mii_if_info *mii);
- extern int mii_nway_restart (struct mii_if_info *mii);
- extern int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd);
-+extern int mii_ethtool_get_link_ksettings(
-+	struct mii_if_info *mii, struct ethtool_link_ksettings *cmd);
- extern int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd);
-+extern int mii_ethtool_set_link_ksettings(
-+	struct mii_if_info *mii, const struct ethtool_link_ksettings *cmd);
- extern int mii_check_gmii_support(struct mii_if_info *mii);
- extern void mii_check_link (struct mii_if_info *mii);
- extern unsigned int mii_check_media (struct mii_if_info *mii,
+ static int
+-el3_netdev_set_ecmd(struct net_device *dev, struct ethtool_cmd *ecmd)
++el3_netdev_set_ecmd(struct net_device *dev,
++		    const struct ethtool_link_ksettings *cmd)
+ {
+ 	u16 tmp;
+ 	int ioaddr = dev->base_addr;
+ 
+-	if (ecmd->speed != SPEED_10)
++	if (cmd->base.speed != SPEED_10)
+ 		return -EINVAL;
+-	if ((ecmd->duplex != DUPLEX_HALF) && (ecmd->duplex != DUPLEX_FULL))
+-		return -EINVAL;
+-	if ((ecmd->transceiver != XCVR_INTERNAL) && (ecmd->transceiver != XCVR_EXTERNAL))
++	if ((cmd->base.duplex != DUPLEX_HALF) &&
++	    (cmd->base.duplex != DUPLEX_FULL))
+ 		return -EINVAL;
+ 
+ 	/* change XCVR type */
+ 	EL3WINDOW(0);
+ 	tmp = inw(ioaddr + WN0_ADDR_CONF);
+-	switch (ecmd->port) {
++	switch (cmd->base.port) {
+ 	case PORT_TP:
+ 		tmp &= ~(3<<14);
+ 		dev->if_port = 0;
+@@ -1130,7 +1131,7 @@ static void update_stats(struct net_device *dev)
+ 
+ 	EL3WINDOW(4);
+ 	tmp = inw(ioaddr + WN4_NETDIAG);
+-	if (ecmd->duplex == DUPLEX_FULL)
++	if (cmd->base.duplex == DUPLEX_FULL)
+ 		tmp |= FD_ENABLE;
+ 	else
+ 		tmp &= ~FD_ENABLE;
+@@ -1146,24 +1147,26 @@ static void el3_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+ }
+ 
+-static int el3_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int el3_get_link_ksettings(struct net_device *dev,
++				  struct ethtool_link_ksettings *cmd)
+ {
+ 	struct el3_private *lp = netdev_priv(dev);
+ 	int ret;
+ 
+ 	spin_lock_irq(&lp->lock);
+-	ret = el3_netdev_get_ecmd(dev, ecmd);
++	ret = el3_netdev_get_ecmd(dev, cmd);
+ 	spin_unlock_irq(&lp->lock);
+ 	return ret;
+ }
+ 
+-static int el3_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int el3_set_link_ksettings(struct net_device *dev,
++				  const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct el3_private *lp = netdev_priv(dev);
+ 	int ret;
+ 
+ 	spin_lock_irq(&lp->lock);
+-	ret = el3_netdev_set_ecmd(dev, ecmd);
++	ret = el3_netdev_set_ecmd(dev, cmd);
+ 	spin_unlock_irq(&lp->lock);
+ 	return ret;
+ }
+@@ -1191,11 +1194,11 @@ static void el3_set_msglevel(struct net_device *dev, u32 v)
+ 
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo = el3_get_drvinfo,
+-	.get_settings = el3_get_settings,
+-	.set_settings = el3_set_settings,
+ 	.get_link = el3_get_link,
+ 	.get_msglevel = el3_get_msglevel,
+ 	.set_msglevel = el3_set_msglevel,
++	.get_link_ksettings = el3_get_link_ksettings,
++	.set_link_ksettings = el3_set_link_ksettings,
+ };
+ 
+ static void
 -- 
 1.7.4.4
