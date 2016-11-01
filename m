@@ -1,35 +1,37 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v4 2/7] Documentation: devicetree: add PHY lane swap
- binding
-Date: Tue, 1 Nov 2016 21:48:26 +0100
-Message-ID: <20161101204826.GA21010@lunn.ch>
-References: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
- <1478030682-27012-3-git-send-email-jon.mason@broadcom.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/3] tools lib bpf: Synchronize implementations
+Date: Tue, 1 Nov 2016 14:51:41 -0600
+Message-ID: <66c782de-b2b0-1579-fbb0-634e05e6e511@cumulusnetworks.com>
+References: <20161031183917.9938-1-joe@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1478030682-27012-3-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: wangnan0@huawei.com, ast@fb.com
+To: Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36406 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750979AbcKAUvo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:51:44 -0400
+Received: by mail-pf0-f179.google.com with SMTP id 189so47403137pfz.3
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 13:51:43 -0700 (PDT)
+In-Reply-To: <20161031183917.9938-1-joe@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +- enet-phy-lane-swap: If set, indicates the PHY device requires swapping the
-> +  TX/RX lanes to function properly.
+On 10/31/16 12:39 PM, Joe Stringer wrote:
+> Update tools/lib/bpf to provide more functionality and improve interoperation
+> with other tools that generate and use eBPF code.
+> 
+> The kernel uapi headers are a bit newer than the version in the tools/
+> directory; synchronize those.
+> 
+> samples/bpf/libbpf* has a bit more functionality than tools/lib/bpf, so extend
+> tools/lib/bpf/bpf* with these functions to bring them into parity.
+> 
+> tools/lib/bpf cannot read ELFs that tc can read, and vice versa. Update the
+> map definition to be the same as in tc so the ELFs may be interchangeable
+> (at least for now; I don't have a long-term plan in mind to ensure this always
+> works).
 
-Is 'requires' the right word here? The PHY performs the actual swap of
-the Tx/Rx lanes.
-
-    Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+can samples/bpf be converted to use tools/lib/bpf/libbpf.a? 
