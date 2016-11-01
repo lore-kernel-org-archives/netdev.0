@@ -1,68 +1,57 @@
-From: Isaac Boukris <iboukris@gmail.com>
-Subject: Re: [PATCH] unix: escape all null bytes in abstract unix domain socket
-Date: Tue, 1 Nov 2016 02:56:59 +0200
-Message-ID: <CAC-fF8QA6KwXGsL2dx6PpQLqc0rDH2y57rVcRL7N-xAnVa3M6A@mail.gmail.com>
-References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
- <1477768820-1295-2-git-send-email-iboukris@gmail.com> <20161031.153117.1954668010224339938.davem@davemloft.net>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH -next] net: cris: make eth_v10.c explicitly non-modular
+Date: Mon, 31 Oct 2016 20:58:50 -0400 (EDT)
+Message-ID: <20161031.205850.2263808504938840791.davem@redhat.com>
+References: <20161031193216.28154-1-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, starvik@axis.com, jesper.nilsson@axis.com,
+        linux-cris-kernel@axis.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:36492 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S948343AbcKAA5C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2016 20:57:02 -0400
-In-Reply-To: <20161031.153117.1954668010224339938.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:38940 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S948402AbcKAA6w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Oct 2016 20:58:52 -0400
+In-Reply-To: <20161031193216.28154-1-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David, thanks for looking at it.
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 31 Oct 2016 15:32:16 -0400
 
-On Mon, Oct 31, 2016 at 9:31 PM, David Miller <davem@davemloft.net> wrote:
-> From: Isaac Boukris <iboukris@gmail.com>
-> Date: Sat, 29 Oct 2016 22:20:20 +0300
->
->> Abstract unix domain socket may embed null characters,
->> these should be translated to '@' when printed out to
->> proc the same way the null prefix is currently being
->> translated.
->>
->> This helps for tools such as netstat, lsof and the proc
->> based implementation in ss to show all the significant
->> bytes of the name (instead of getting cut at the first
->> null occurrence).
->>
->> Signed-off-by: Isaac Boukris <iboukris@gmail.com>
->  ...
->> @@ -2805,14 +2805,19 @@ static int unix_seq_show(struct seq_file *seq, void *v)
->>
->>                       i = 0;
->>                       len = u->addr->len - sizeof(short);
->> -                     if (!UNIX_ABSTRACT(s))
->> +                     if (!UNIX_ABSTRACT(s)) {
->>                               len--;
->> -                     else {
->> +                             for ( ; i < len; i++)
->> +                                     seq_putc(seq,
->> +                                              u->addr->name->sun_path[i]);
->> +                     } else {
->>                               seq_putc(seq, '@');
->>                               i++;
->> +                             for ( ; i < len; i++)
->> +                                     seq_putc(seq,
->> +                                              u->addr->name->sun_path[i] ?:
->> +                                              '@');
->>                       }
->> -                     for ( ; i < len; i++)
->> -                             seq_putc(seq, u->addr->name->sun_path[i]);
->
-> I think this patch is simpler if you just do the "@" translation
-> unconditionally, if it'll never trigger for the !UNIX_ABSTRACT case
-> that is perfectly fine.
+> The Makefile/Kconfig currently controlling compilation of this code is:
+> 
+> drivers/net/cris/Makefile:obj-$(CONFIG_ETRAX_ARCH_V10) += eth_v10.o
+> 
+> arch/cris/Kconfig:config ETRAX_ARCH_V10
+> arch/cris/Kconfig:       bool
+> 
+> ...meaning that it currently is not being built as a module by anyone.
+> 
+> Lets remove the couple traces of modular infrastructure use, so that
+> when reading the driver there is no doubt it is builtin-only.
+> 
+> Since module_init translates to device_initcall in the non-modular
+> case, the init ordering remains unchanged with this commit.
+> 
+> There was a one line wrapper for the int init function, which made no
+> sense; hence we just put the device_initcall on the true init function
+> itself and delete the pointless wrapper.  In doing that we get rid of
+> the following compile warning:
+> 
+>    WARNING: drivers/net/built-in.o(.text+0x1e28): Section mismatch in
+>    reference from the function etrax_init_module() to the function
+>    .init.text:etrax_ethernet_init()
+> 
+> We don't replace module.h with init.h since the file already has that.
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Mikael Starvik <starvik@axis.com>
+> Cc: Jesper Nilsson <jesper.nilsson@axis.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-cris-kernel@axis.com
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-I've sent an updated patch.
-Logically now, the 'else' block just above could be removed, but it
-isn't obvious from the code that 'sun_path[0] == 0' so I left it as
-is.
+Applied, thanks Paul.
