@@ -1,107 +1,97 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: Re: Why do we need tasklet in IFB?
-Date: Tue, 1 Nov 2016 11:49:48 -0700
-Message-ID: <CAAmHdhw0O7z-T_vtZjMXvXU43DvdiHDXQWzgcp0qacmTJZ2KZQ@mail.gmail.com>
-References: <20161028144803.4d3f5a2a@xeon-e3> <CAAmHdhwWGygKtcNR2Bazh-TMoAahEaAf6N5CPWjnvun0BfUdLA@mail.gmail.com>
- <CAAmHdhyC4DT+Ch2jAhAeCXKoUBH+_q-j96VcZFMO=oBhikN6cg@mail.gmail.com>
- <20161031.141047.1551501937019100403.davem@davemloft.net> <dc98e4d7-b076-66ca-a22f-5199b6d13ea9@mojatatu.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v2 0/5] bpf: BPF for lightweight tunnel encapsulation
+Date: Tue, 1 Nov 2016 11:51:18 -0700
+Message-ID: <CALx6S34ZVK1uHu_dYyh2w=k+8gP-H-nSPw-OgsMk9D2f4uE7jA@mail.gmail.com>
+References: <cover.1477959702.git.tgraf@suug.ch> <CALx6S35BhiY7DVPetEDrLwgsR3sKTcm-bJ6og-6N329Znavkww@mail.gmail.com>
+ <CACby=pkPQC92t3Y9-p9RRUv1_WL2uZMM6DRJFUc5-KP4B41hAA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        roopa <roopa@cumulusnetworks.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:37037 "EHLO
-        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751152AbcKAStt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 14:49:49 -0400
-Received: by mail-it0-f43.google.com with SMTP id u205so67169258itc.0
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 11:49:49 -0700 (PDT)
-In-Reply-To: <dc98e4d7-b076-66ca-a22f-5199b6d13ea9@mojatatu.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:36297 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751152AbcKASvU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 14:51:20 -0400
+Received: by mail-qk0-f194.google.com with SMTP id z190so12615046qkc.3
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 11:51:19 -0700 (PDT)
+In-Reply-To: <CACby=pkPQC92t3Y9-p9RRUv1_WL2uZMM6DRJFUc5-KP4B41hAA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-11-01 4:38 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
-> On 16-10-31 02:10 PM, David Miller wrote:
->>
->> From: Michael Ma <make0818@gmail.com>
->> Date: Mon, 31 Oct 2016 11:02:28 -0700
->>
->>> 2016-10-28 14:52 GMT-07:00 Michael Ma <make0818@gmail.com>:
->>>>
->>>> 2016-10-28 14:48 GMT-07:00 Stephen Hemminger
->>>> <stephen@networkplumber.org>:
->>>>>
->>>>> On Fri, 28 Oct 2016 14:45:07 -0700
->>>>> Michael Ma <make0818@gmail.com> wrote:
->>>>>
->>>>>> 2016-10-28 14:38 GMT-07:00 Stephen Hemminger
->>>>>> <stephen@networkplumber.org>:
->>>>>>>
->>>>>>> On Fri, 28 Oct 2016 14:36:27 -0700
->>>>>>> Michael Ma <make0818@gmail.com> wrote:
->>>>>>>
->>>>>>>> Hi -
->>>>>>>>
->>>>>>>> Currently IFB uses tasklet to process tx/rx on the interface that
->>>>>>>> forwarded the packet to IFB. My understanding on why we're doing
->>>>>>>> this
->>>>>>>> is that since dev_queue_xmit() can be invoked in interrupt, we want
->>>>>>>> to
->>>>>>>> defer the processing of original tx/rx in case ifb_xmit() is called
->>>>>>>> from interrupt.
->>>>>>>
->>>>>>>
->>>>>>> dev_queue_xmit is only called from interrupt if doing netconsole.
->>>>>>
->>>>>>
+On Tue, Nov 1, 2016 at 11:20 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 1 November 2016 at 09:17, Tom Herbert <tom@herbertland.com> wrote:
+>> On Mon, Oct 31, 2016 at 5:37 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>>> {Open question:
+>>>  Tom brought up the question on whether it is safe to modify the packet
+>>>  in artbirary ways before dst_output(). This is the equivalent to a raw
+>>>  socket injecting illegal headers. This v2 currently assumes that
+>>>  dst_output() is ready to accept invalid header values. This needs to be
+>>>  verified and if not the case, then raw sockets or dst_output() handlers
+>>>  must be fixed as well. Another option is to mark lwtunnel_output() as
+>>>  read-only for now.}
 >>>
->>> In fact this doesn't seem to explain since if the original path is tx
->>> and the context is interrupt, IFB will call dev_queue_xmit as well so
->>> the context can be interrupt in that case.
+>> The question might not be so much about illegal headers but whether
+>> fields in the skbuff related to the packet contents are kept correct.
+>> We have protocol, header offsets, offsets for inner protocols also,
+>> encapsulation settings, checksum status, checksum offset, checksum
+>
+> The headers cannot be extended or reduced so the offsets always remain
+> correct. What can happen is that the header contains invalid data.
+>
+If we can't add/remove headers then doesn't that really limit the
+utility of these patches? My assumption was that BPF+LWT is needed to
+allow users to define and implement their own encapsulations, EH
+insertion, packet modification, etc.
+
+>> complete value, vlan information. Any or all of which I believe could
+>> be turned into being incorrect if we allow the packet to be
+>> arbitrarily modified by BPF. This problem is different than raw
+>> sockets because LWT operates in the middle of the stack, the skbuff
+>> has already been set up which such things.
+>
+> You keep saying this "middle in the stack" but the point is exactly
+> the same as a raw socket with IPPROTO_RAW and hdrincl, see
+> rawv6_sendmsg() and rawv6_send_hdrincl(). An IPv6 raw socket can feed
+> arbitrary garbage into dst_output(). IPv4 does some minimal sanity
+> checks.
+>
+What I mean is that an admin can create a BPF program that run on any
+user packets (for instance default route could be set). This would be
+in the path of TCP, UDP, and other protocols tightly integrated with
+the stack. Packets being routed may be encapsulated, VLAN, have
+checksum offload, GORed set etc. They also might be looped back in
+which case the settings in skbuff become receive parameters.
+
+> If this is a concern I'm fine with making the dst_output path read-only for now.
+>
+The might be good. The ramifications around allowing an open ended
+method for users to modify L3/L2 packets needs more consideration.
+
+>>> This series implements BPF program invocation from dst entries via the
+>>> lightweight tunnels infrastructure. The BPF program can be attached to
+>>> lwtunnel_input(), lwtunnel_output() or lwtunnel_xmit() and sees an L3
+>>> skb as context. input is read-only, output can write, xmit can write,
+>>> push headers, and redirect.
 >>>
->>> Then tasklet is still unnecessary.
->>
->>
->> Perhaps it's necessary to deal with potential recursion, that's my only
->> guess at this point.
->>
->> Jamal, do you remember what went through your mind back in 2005? :-)
->>
+>>> Motiviation for this work:
+>>>  - Restricting outgoing routes beyond what the route tuple supports
+>>>  - Per route accounting byond realms
+>>>  - Fast attachment of L2 headers where header does not require resolving
+>>>    L2 addresses
+>>>  - ILA like uses cases where L3 addresses are resolved and then routed
+>>>    in an async manner
+>>>  - Fast encapsulation + redirect. For now limited to use cases where not
+>>>    setting inner and outer offset/protocol is OK.
+>>>
+>> Is checksum offload supported? By default, at least for Linux, we
+>> offload the outer UDP checksum in VXLAN and the other UDP
+>> encapsulations for performance.
 >
-> Certainly recursions (which were a huge issue in the original
-> implementations) as well as the need to have qdisc which shape traffic
-> (which implies they will sit on the queue for some period of time and
-> where accuracy of timing is important; therefore low latency of
-> scheduling was  needed).
->
-Thanks for the explanation - I can get the point of avoiding
-recursion. However latency wise if we don't have queue/tasklet in IFB
-and rely on the upstream/downstream part (either qdisc or tx/rx) to do
-the queueing, latency wouldn't be a problem anyway, or did I miss
-anything here?
-
-> I didnt follow the context of "tasklets are unnecessary":
-> Are tasklets bad or is the OP interested in replacing them with
-> something s/he thinks is better? IIRC, at some point the idea was to
-> infact use a softirq but it became obvious it was overkill.
-
-I was thinking of directly forwarding the packet in the thread context
-of IFB since it's really an intermediate forwarding component and
-additional queueing/tasklet doesn't seem to be necessary (let's put
-the consideration of too deep call stack/recursion problem aside).
-
-The problem that I have found is that queue selection on NIC will
-actually be inherited in IFB and that affects how packets are handled
-in tasklet since the tasklet is associated with each queue. We don't
-really have a strict one to one mapping of cpu core to queue in NIC,
-whereas in IFB case the queue is strictly mapped to tasklet/cpu core
-which can cause undesirable contention.
-
-The question here was raised mostly because I wanted to adopt the
-thread context of packet in IFB.
-
->
-> cheers,
-> jamal
+> No. UDP encap is done by setting a tunnel key through a helper and
+> letting the encapsulation device handle this. I don't currently see a
+> point in replicating all of that logic.
