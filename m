@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/12] netfilter: nft_ct: add notrack support
-Date: Tue,  1 Nov 2016 22:26:27 +0100
-Message-ID: <1478035593-1362-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/12] netfilter: xt_multiport: Use switch case instead of multiple condition checks
+Date: Tue,  1 Nov 2016 22:26:22 +0100
+Message-ID: <1478035593-1362-2-git-send-email-pablo@netfilter.org>
 References: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,100 +10,72 @@ In-Reply-To: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds notrack support.
+From: Gao Feng <fgao@ikuai8.com>
 
-I decided to add a new expression, given that this doesn't fit into the
-existing set operation. Notrack doesn't need a source register, and an
-hypothetical NFT_CT_NOTRACK key makes no sense since matching the
-untracked state is done through NFT_CT_STATE.
+There are multiple equality condition checks in the original codes, so it
+is better to use switch case instead of them.
 
-I'm placing this new notrack expression into nft_ct.c, I think a single
-module is too much.
-
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_ct.c | 50 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 49 insertions(+), 1 deletion(-)
+ net/netfilter/xt_multiport.c | 40 +++++++++++++++++++++-------------------
+ 1 file changed, 21 insertions(+), 19 deletions(-)
 
-diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-index d7b0d171172a..6837348c8993 100644
---- a/net/netfilter/nft_ct.c
-+++ b/net/netfilter/nft_ct.c
-@@ -1,5 +1,6 @@
- /*
-  * Copyright (c) 2008-2009 Patrick McHardy <kaber@trash.net>
-+ * Copyright (c) 2016 Pablo Neira Ayuso <pablo@netfilter.org>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -518,15 +519,61 @@ static struct nft_expr_type nft_ct_type __read_mostly = {
- 	.owner		= THIS_MODULE,
- };
+diff --git a/net/netfilter/xt_multiport.c b/net/netfilter/xt_multiport.c
+index ac1d3c3d09e7..ec06fb1cb16f 100644
+--- a/net/netfilter/xt_multiport.c
++++ b/net/netfilter/xt_multiport.c
+@@ -42,29 +42,31 @@ ports_match_v1(const struct xt_multiport_v1 *minfo,
+ 			e = minfo->ports[++i];
+ 			pr_debug("src or dst matches with %d-%d?\n", s, e);
  
-+static void nft_notrack_eval(const struct nft_expr *expr,
-+			     struct nft_regs *regs,
-+			     const struct nft_pktinfo *pkt)
-+{
-+	struct sk_buff *skb = pkt->skb;
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
-+
-+	ct = nf_ct_get(pkt->skb, &ctinfo);
-+	/* Previously seen (loopback or untracked)?  Ignore. */
-+	if (ct)
-+		return;
-+
-+	ct = nf_ct_untracked_get();
-+	atomic_inc(&ct->ct_general.use);
-+	skb->nfct = &ct->ct_general;
-+	skb->nfctinfo = IP_CT_NEW;
-+}
-+
-+static struct nft_expr_type nft_notrack_type;
-+static const struct nft_expr_ops nft_notrack_ops = {
-+	.type		= &nft_notrack_type,
-+	.size		= NFT_EXPR_SIZE(0),
-+	.eval		= nft_notrack_eval,
-+};
-+
-+static struct nft_expr_type nft_notrack_type __read_mostly = {
-+	.name		= "notrack",
-+	.ops		= &nft_notrack_ops,
-+	.owner		= THIS_MODULE,
-+};
-+
- static int __init nft_ct_module_init(void)
- {
-+	int err;
-+
- 	BUILD_BUG_ON(NF_CT_LABELS_MAX_SIZE > NFT_REG_SIZE);
+-			if (minfo->flags == XT_MULTIPORT_SOURCE
+-			    && src >= s && src <= e)
+-				return true ^ minfo->invert;
+-			if (minfo->flags == XT_MULTIPORT_DESTINATION
+-			    && dst >= s && dst <= e)
+-				return true ^ minfo->invert;
+-			if (minfo->flags == XT_MULTIPORT_EITHER
+-			    && ((dst >= s && dst <= e)
+-				|| (src >= s && src <= e)))
+-				return true ^ minfo->invert;
++			switch (minfo->flags) {
++			case XT_MULTIPORT_SOURCE:
++				return (src >= s && src <= e) ^ minfo->invert;
++			case XT_MULTIPORT_DESTINATION:
++				return (dst >= s && dst <= e) ^ minfo->invert;
++			case XT_MULTIPORT_EITHER:
++				return ((dst >= s && dst <= e) ||
++					(src >= s && src <= e)) ^ minfo->invert;
++			default:
++				break;
++			}
+ 		} else {
+ 			/* exact port matching */
+ 			pr_debug("src or dst matches with %d?\n", s);
  
--	return nft_register_expr(&nft_ct_type);
-+	err = nft_register_expr(&nft_ct_type);
-+	if (err < 0)
-+		return err;
-+
-+	err = nft_register_expr(&nft_notrack_type);
-+	if (err < 0)
-+		goto err1;
-+
-+	return 0;
-+err1:
-+	nft_unregister_expr(&nft_ct_type);
-+	return err;
- }
+-			if (minfo->flags == XT_MULTIPORT_SOURCE
+-			    && src == s)
+-				return true ^ minfo->invert;
+-			if (minfo->flags == XT_MULTIPORT_DESTINATION
+-			    && dst == s)
+-				return true ^ minfo->invert;
+-			if (minfo->flags == XT_MULTIPORT_EITHER
+-			    && (src == s || dst == s))
+-				return true ^ minfo->invert;
++			switch (minfo->flags) {
++			case XT_MULTIPORT_SOURCE:
++				return (src == s) ^ minfo->invert;
++			case XT_MULTIPORT_DESTINATION:
++				return (dst == s) ^ minfo->invert;
++			case XT_MULTIPORT_EITHER:
++				return (src == s || dst == s) ^ minfo->invert;
++			default:
++				break;
++			}
+ 		}
+ 	}
  
- static void __exit nft_ct_module_exit(void)
- {
-+	nft_unregister_expr(&nft_notrack_type);
- 	nft_unregister_expr(&nft_ct_type);
- }
- 
-@@ -536,3 +583,4 @@ module_exit(nft_ct_module_exit);
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
- MODULE_ALIAS_NFT_EXPR("ct");
-+MODULE_ALIAS_NFT_EXPR("notrack");
 -- 
 2.1.4
 
