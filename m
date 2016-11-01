@@ -1,48 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Enable support for VRF with ipv4
- multicast
-Date: Tue, 01 Nov 2016 11:54:57 -0400 (EDT)
-Message-ID: <20161101.115457.1305736308724331371.davem@davemloft.net>
-References: <1477954440-12339-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [net-next PATCH 0/7] stmmac: dwmac-sti refactor+cleanup
+Date: Tue, 01 Nov 2016 11:56:34 -0400 (EDT)
+Message-ID: <20161101.115634.415403364673533569.davem@davemloft.net>
+References: <20161030200507.851-1-manabian@gmail.com>
+        <20161031.154726.460941249322981922.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org
+To: manabian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46936 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46952 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750824AbcKAPy7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:54:59 -0400
-In-Reply-To: <1477954440-12339-1-git-send-email-dsa@cumulusnetworks.com>
+        with ESMTP id S1750720AbcKAP4f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:56:35 -0400
+In-Reply-To: <20161031.154726.460941249322981922.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Mon, 31 Oct 2016 15:54:00 -0700
+From: David Miller <davem@davemloft.net>
+Date: Mon, 31 Oct 2016 15:47:26 -0400 (EDT)
 
-> Enable support for IPv4 multicast:
-> - similar to unicast the flow struct is updated to L3 master device
->   if relevant prior to calling fib_rules_lookup. The table id is saved
->   to the lookup arg so the rule action for ipmr can return the table
->   associated with the device.
+> From: Joachim Eastwood <manabian@gmail.com>
+> Date: Sun, 30 Oct 2016 21:05:00 +0100
 > 
-> - ip_mr_forward needs to check for master device mismatch as well
->   since the skb->dev is set to it
+>> This patch set aims to remove the init/exit callbacks from the 
+>> dwmac-sti driver and instead use standard PM callbacks. Doing this
+>> will also allow us to cleanup the driver.
+>> 
+>> Eventually the init/exit callbacks will be deprecated and removed
+>> from all drivers dwmac-* except for dwmac-generic. Drivers will be
+>> refactored to use standard PM and remove callbacks.
+>> 
+>> Note that this patch set has only been test compiled and no functional
+>> change is intended.
 > 
-> - allow multicast address on VRF device for Rx by checking for the
->   daddr in the VRF device as well as the original ingress device
-> 
-> - on Tx need to drop to __mkroute_output when FIB lookup fails for
->   multicast destination address.
-> 
-> - if CONFIG_IP_MROUTE_MULTIPLE_TABLES is enabled VRF driver creates
->   IPMR FIB rules on first device create similar to FIB rules. In
->   addition the VRF driver does not divert IPv4 multicast packets:
->   it breaks on Tx since the fib lookup fails on the mcast address.
-> 
-> With this patch, ipmr forwarding and local rx/tx work.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> I would really like to see some review and testing before applying this
+> series.
 
-Applied, thanks David.
+Ping?
