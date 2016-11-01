@@ -1,84 +1,73 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
-Date: Tue, 1 Nov 2016 11:36:47 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D2259D55C@eusaamb103.ericsson.se>
-References: <F73DA7D7DA7D984B81025139D7CADECC32B5234C@EX02.corp.qihoo.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: Why do we need tasklet in IFB?
+Date: Tue, 1 Nov 2016 07:38:49 -0400
+Message-ID: <dc98e4d7-b076-66ca-a22f-5199b6d13ea9@mojatatu.com>
+References: <20161028144803.4d3f5a2a@xeon-e3>
+ <CAAmHdhwWGygKtcNR2Bazh-TMoAahEaAf6N5CPWjnvun0BfUdLA@mail.gmail.com>
+ <CAAmHdhyC4DT+Ch2jAhAeCXKoUBH+_q-j96VcZFMO=oBhikN6cg@mail.gmail.com>
+ <20161031.141047.1551501937019100403.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: =?utf-8?B?5byg6LCm?= <zhangqian-c@360.cn>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        Ying Xue <ying.xue0@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, make0818@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usplmg20.ericsson.net ([198.24.6.45]:53482 "EHLO
-        usplmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1423294AbcKALhA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 07:37:00 -0400
-In-Reply-To: <F73DA7D7DA7D984B81025139D7CADECC32B5234C@EX02.corp.qihoo.net>
-Content-Language: en-US
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:35676 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1168941AbcKALj4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 07:39:56 -0400
+Received: by mail-qk0-f180.google.com with SMTP id z190so194026992qkc.2
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 04:39:56 -0700 (PDT)
+In-Reply-To: <20161031.141047.1551501937019100403.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksDQpJIHRoaW5rIHdlIGFsbCBhZ3JlZWQgaW4gdGhlIGVuZCB0aGF0IHRoaXMgaXMgYSBwb3Nz
-aWJsZSwgYnV0IGhpZ2hseSBpbXBsYXVzaWJsZSwgc2NlbmFyaW8sIGFuZCByYXRoZXIgYXMgYSBw
-b2ludCBvZiBleHBsb2l0IHRoYW4gYSBmdW5jdGlvbmFsIGJ1Zy4NClRoZSBzb2x1dGlvbiBpcyB2
-ZXJ5IHNpbXBsZSwgYW5kIGRlc2NyaWJlZCBmdXJ0aGVyIGRvd24gaW4gdGhpcyBtYWlsIHRocmVh
-ZC4gSSBoYXZlIG5vdCBkb25lIGFueXRoaW5nIHRvIGl0IHlldCwgYnV0IHlvdSBhcmUgd2VsY29t
-ZSB0byBjb250cmlidXRlLg0KDQpCUg0KLy8vam9uDQoNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3Nh
-Z2UtLS0tLQ0KPiBGcm9tOiDlvKDosKYgW21haWx0bzp6aGFuZ3FpYW4tY0AzNjAuY25dDQo+IFNl
-bnQ6IFR1ZXNkYXksIDAxIE5vdmVtYmVyLCAyMDE2IDAyOjM1DQo+IFRvOiBCZW4gSHV0Y2hpbmdz
-IDxiZW5AZGVjYWRlbnQub3JnLnVrPjsgSm9uIE1hbG95DQo+IDxqb24ubWFsb3lAZXJpY3Nzb24u
-Y29tPjsgWWluZyBYdWUgPHlpbmcueHVlMEBnbWFpbC5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnOyBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IFN1YmplY3Q6
-IFJlOiBbUEFUQ0ggbmV0XSB0aXBjOiBHdWFyZCBhZ2FpbnN0IHRpbnkgTVRVIGluIHRpcGNfbXNn
-X2J1aWxkKCkNCj4gDQo+IEhpIGFsbCwNCj4gSSBoYXZlIGFjY29tcGxpc2hlZCBhIFBvQyBjYW4g
-aGVscCB5b3UgdG8gY29uZmlybSB0aGlzIGlzc3VlLg0KPiANCj4gQW5kIHR3byB3ZWVrcyBwYXNz
-ZWQgZnJvbSB0aGUgbGFzdCBtYWlsLCBjYW4geW91IHRlbGwgbWUgdGhlIHByb2dyZXNzIG9mIHRo
-ZQ0KPiBwYXRjaCB0byB0aGlzIGZsYXc/DQo+IA0KPiBUaGFua3MuDQo+IA0KPiBRaWFuIFpoYW5n
-DQo+IE1hcnZlbCBUZWFtIFFpaG9vIDM2MA0KPiANCj4gDQo+IC0tLS0t6YKu5Lu25Y6f5Lu2LS0t
-LS0NCj4g5Y+R5Lu25Lq6OiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86YmVuQGRlY2FkZW50Lm9yZy51
-a10NCj4g5Y+R6YCB5pe26Ze0OiAyMDE25bm0MTDmnIgyMeaXpSAyMzowMA0KPiDmlLbku7bkuro6
-IEpvbiBNYWxveTsgWWluZyBYdWUNCj4g5oqE6YCBOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyDl
-vKDosKY7IEVyaWMgRHVtYXpldA0KPiDkuLvpopg6IFJlOiBbUEFUQ0ggbmV0XSB0aXBjOiBHdWFy
-ZCBhZ2FpbnN0IHRpbnkgTVRVIGluIHRpcGNfbXNnX2J1aWxkKCkNCj4gDQo+IE9uIEZyaSwgMjAx
-Ni0xMC0yMSBhdCAxNDo1NyArMDAwMCwgSm9uIE1hbG95IHdyb3RlOg0KPiA+ID4gLS0tLS1Pcmln
-aW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+ID4gPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86
-YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gPiA+IFNlbnQ6IFRodXJzZGF5LCAyMCBPY3RvYmVyLCAy
-MDE2IDEyOjQwDQo+ID4gPiA+ID4gVG86IEpvbiBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNv
-bT47IFlpbmcgWHVlDQo+ID4gPiA+ID4gPHlpbmcueHVlMEBnbWFpbC5jb20+DQo+ID4gPiA+ID4g
-PiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBRaWFuIFpoYW5nIDx6aGFuZ3FpYW4tY0Az
-NjAuY24+Ow0KPiA+ID4gPiA+ID4gPiBFcmljIER1bWF6ZXQNCj4gPiA+ID4gPiA8ZWR1bWF6ZXRA
-Z29vZ2xlLmNvbT4NCj4gPiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSB0aXBjOiBHdWFyZCBh
-Z2FpbnN0IHRpbnkgTVRVIGluDQo+ID4gPiB0aXBjX21zZ19idWlsZCgpDQo+ID4gPg0KPiA+ID4g
-T24gVGh1LCAyMDE2LTEwLTIwIGF0IDE0OjUxICswMDAwLCBKb24gTWFsb3kgd3JvdGU6DQo+ID4g
-PiBbLi4uXQ0KPiA+ID4gPiA+IEF0IHRoaXMgcG9pbnQgd2UncmUgYWJvdXQgdG8gY29weSBJTlRf
-SF9TSVpFICsgbWhzeiBieXRlcyBpbnRvDQo+ID4gPiA+ID4gdGhlIGZpcnN0IGZyYWdtZW50LiDC
-oElmIHRoYXQncyBhbHJlYWR5IGxpbWl0ZWQgdG8gYmUgbGVzcyB0aGFuDQo+ID4gPiA+ID4gb3Ig
-ZXF1YWwgdG8gTUFYX0hfU0laRSwgY29tcGFyaW5nIHdpdGggTUFYX0hfU0laRSB3b3VsZCBiZSBm
-aW5lLg0KPiA+ID4gPiA+IEJ1dCBpZg0KPiA+ID4NCj4gPiA+IE1BWF9IX1NJWkUNCj4gPiA+ID4g
-PiBpcyB0aGUgbWF4aW11bSB2YWx1ZSBvZiBtaHN6LCB0aGF0IHdvbid0IGJlIGdvb2QgZW5vdWdo
-Lg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiBNQVhfSF9TSVpFIGlzIDYwIGJ5
-dGVzLCBidXQgaW4gcHJhY3RpY2UgeW91IHdpbGwgbmV2ZXIgc2VlIGFuIG1oc3oNCj4gPiA+ID4g
-bGFyZ2VyIHRoYW4NCj4gPiA+DQo+ID4gPiB0aGUgYmlnZ2VzdCBoZWFkZXIgd2UgYXJlIGFjdHVh
-bGx5IHVzaW5nLCB3aGljaCBpcyBNQ0FTVF9IX1NJWkUgKD09NDQNCj4gYnl0ZXMpLg0KPiA+ID4g
-PiBJTlRfSF9TSVpFIGlzIDQwIGJ5dGVzLCBzbyB5b3UgYXJlIGluIHJlYWxpdHkgdGVzdGluZyBm
-b3Igd2hldGhlcg0KPiA+ID4gPiB3ZSBoYXZlIGFuIG10dQ0KPiA+ID4NCj4gPiA+IDwgODQgYnl0
-ZXMuDQo+ID4gPiA+IFlvdSB3b24ndCBmaW5kIGFueSBpbnRlcmZhY2VzIG9yIHByb3RvY29scyB0
-aGF0IGNvbWUgZXZlbiBjbG9zZSB0bw0KPiA+ID4gPiB0aGlzDQo+ID4gPg0KPiA+ID4gbGltaXRh
-dGlvbiwgc28gdG8gbWUgdGhpcyB0ZXN0IGlzIHJlZHVuZGFudC4NCj4gPiA+DQo+ID4gPiBCdXQg
-SSBjYW4gZWFzaWx5IGNyZWF0ZSBzdWNoIGFuIGludGVyZmFjZToNCj4gPiA+DQo+ID4gPiAkIHVu
-c2hhcmUgLW4gLVUgLXINCj4gPiA+ICMgaXAgbCBzZXQgbG8gbXR1IDENCj4gPiA+DQo+ID4gPiBC
-ZW4uDQo+ID4NCj4gPg0KPiA+IEl0IHdvbid0IGJlIHZlcnkgdXNlZnVsIHRob3VnaC4gQnV0IEkg
-YXNzdW1lIHlvdSBtZWFuIGl0IGNvdWxkIGJlIGENCj4gPiBwb3NzaWJsZSBleHBsb2l0LA0KPiAN
-Cj4gRXhhY3RseS4NCj4gDQo+ID4gIGFuZCBJIHN1c3BlY3QgYSBmZXcgb3RoZXIgdGhpbmdzIHdv
-dWxkIGJyZWFrIGJvdGggaW4gVElQQyBhbmQgaW4NCj4gPiBvdGhlciBzdGFja3MgaWYgeW91IGRv
-IGFueXRoaW5nIGxpa2UgdGhhdC4gSSB0aGluayB0aGUgc29sdXRpb24gdG8NCj4gPiB0aGlzIGlz
-IG5vdCB0byBmaXggYWxsIHBvc3NpYmxlIHBsYWNlcyBpbiB0aGUgY29kZSB3aGVyZSB0aGlzIGNh
-biBnbw0KPiA+IHdyb25nLCBidXQgcmF0aGVyIHRvIGhhdmUgYSBnZW5lcmljIHRlc3Qgd2hlcmUg
-d2UgcmVmdXNlIHRvIGF0dGFjaA0KPiA+IGJlYXJlcnMvaW50ZXJmYWNlcyBvZmZlcmluZyBhbiBt
-dHUgPCBlLmcuIDEwMDAgYnl0ZXMuIFRoaXMgY2FuIGVhc2lseQ0KPiA+IGJlIGRvbmUgaW4gdGlw
-Y19lbmFibGVfbDJfbWVkaWEoKS4NCj4gDQo+IFllcy4NCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+
-IEJlbiBIdXRjaGluZ3MNCj4gT25lIG9mIHRoZSBuaWNlIHRoaW5ncyBhYm91dCBzdGFuZGFyZHMg
-aXMgdGhhdCB0aGVyZSBhcmUgc28gbWFueSBvZiB0aGVtLg0KDQo=
+On 16-10-31 02:10 PM, David Miller wrote:
+> From: Michael Ma <make0818@gmail.com>
+> Date: Mon, 31 Oct 2016 11:02:28 -0700
+>
+>> 2016-10-28 14:52 GMT-07:00 Michael Ma <make0818@gmail.com>:
+>>> 2016-10-28 14:48 GMT-07:00 Stephen Hemminger <stephen@networkplumber.org>:
+>>>> On Fri, 28 Oct 2016 14:45:07 -0700
+>>>> Michael Ma <make0818@gmail.com> wrote:
+>>>>
+>>>>> 2016-10-28 14:38 GMT-07:00 Stephen Hemminger <stephen@networkplumber.org>:
+>>>>>> On Fri, 28 Oct 2016 14:36:27 -0700
+>>>>>> Michael Ma <make0818@gmail.com> wrote:
+>>>>>>
+>>>>>>> Hi -
+>>>>>>>
+>>>>>>> Currently IFB uses tasklet to process tx/rx on the interface that
+>>>>>>> forwarded the packet to IFB. My understanding on why we're doing this
+>>>>>>> is that since dev_queue_xmit() can be invoked in interrupt, we want to
+>>>>>>> defer the processing of original tx/rx in case ifb_xmit() is called
+>>>>>>> from interrupt.
+>>>>>>
+>>>>>> dev_queue_xmit is only called from interrupt if doing netconsole.
+>>>>>
+>>
+>> In fact this doesn't seem to explain since if the original path is tx
+>> and the context is interrupt, IFB will call dev_queue_xmit as well so
+>> the context can be interrupt in that case.
+>>
+>> Then tasklet is still unnecessary.
+>
+> Perhaps it's necessary to deal with potential recursion, that's my only
+> guess at this point.
+>
+> Jamal, do you remember what went through your mind back in 2005? :-)
+>
+
+Certainly recursions (which were a huge issue in the original
+implementations) as well as the need to have qdisc which shape traffic
+(which implies they will sit on the queue for some period of time and
+where accuracy of timing is important; therefore low latency of
+scheduling was  needed).
+
+I didnt follow the context of "tasklets are unnecessary":
+Are tasklets bad or is the OP interested in replacing them with
+something s/he thinks is better? IIRC, at some point the idea was to
+infact use a softirq but it became obvious it was overkill.
+
+cheers,
+jamal
