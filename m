@@ -1,35 +1,40 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: XDP question - how much can BPF change in xdp_buff?
-Date: Tue, 1 Nov 2016 07:06:02 +0000
-Message-ID: <BL2PR07MB230697FE88472B88AC400B808DA10@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <BY2PR07MB23090DE460B0AE6AA23CD7368DAE0@BY2PR07MB2309.namprd07.prod.outlook.com>
- <CALx6S37bfMpMhWTSL-WzumGfqywi0oJPnLqj_yEUs61AtyLZKA@mail.gmail.com>
- <BL2PR07MB2306ED437FAFA98CBA49E07F8DA10@BL2PR07MB2306.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0065.outbound.protection.outlook.com ([104.47.34.65]:24192
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752671AbcKAHGE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 03:06:04 -0400
-In-Reply-To: <BL2PR07MB2306ED437FAFA98CBA49E07F8DA10@BL2PR07MB2306.namprd07.prod.outlook.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+Subject: [PATCH] net/mlx5: Simplify a test
+Date: Tue,  1 Nov 2016 08:10:53 +0100
+Message-ID: <20161101071053.12486-1-christophe.jaillet@wanadoo.fr>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+To: matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiBCVFcsIGFyZSB3ZSBjb25zaWRlcmluZyBzb21lIG9mZmxvYWQgd2hlcmUgdGhlIGVCUEYgd291
-bGQgcmV0dXJuICBhIHNldCBvZg0KPiBjaGFuZ2VzIFtiYXNlZCBvbiBzb21lIHByZS1zZXQgY2Fw
-YWJpbGl0aWVzIHNldCBieSBkcml2ZXJdIGRvbmUgb24gYnVmZmVyIGFuZCBsZXQNCj4gdGhlIEhX
-IG9mZmxvYWQgdGhvc2U/DQo+IA0KPiBJIHVuZGVyc3RhbmQgZW5kIGdvYWwgaXMgZUJQRiBody1v
-ZmZsb2FkaW5nLCBidXQgc2VlbXMgbGlrZSB0aGVyZSBhcmUgYSBsb3Qgb2YNCj4gZXhpc3Rpbmcg
-b2ZmbG9hZCBmYWNpbGl0aWVzIHRoYXQgbWlnaHQgYmUgbGV2ZXJhZ2VkLg0KDQpPbiBzZWNvbmQg
-dGhvdWdodCwgZ2l2ZW4gdGhhdCB0aGUgcHJvZ3JhbSBpcyBsaWtlbHkgdG8gY2hhbmdlIG9ubHkg
-YQ0Kc21hbGwgc2V0IG9mIGZpZWxkcyBbYXMgb3Bwb3NlZCB0byBidWlsZGluZyB3aG9sZSBuZXcg
-YnVmZmVyc10sDQpwcm9iYWJseSBmaXhpbmcgdGhlIGNzdW0gaXNuJ3QgZ29pbmcgdG8gYmUgbXVj
-aCBjb3N0bGllciBbaWYgYXQgYWxsXSB0aGVuIHRoZSBsb2dpYw0KdGhhdCB3b3VsZCBiZSByZXF1
-aXJlZCB0byBkZXRlcm1pbmUgd2hldGhlciB0aGUgZGV2aWNlIHdvdWxkIGJlIGFibGUgdG8gb2Zm
-bG9hZA0KaXQuDQo=
+'create_root_ns()' does not return an error pointer, so the test can be
+simplified to be more consistent.
+
+Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 904853f9cf7a..330955f6badc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1833,7 +1833,7 @@ static int init_root_ns(struct mlx5_flow_steering *steering)
+ {
+ 
+ 	steering->root_ns = create_root_ns(steering, FS_FT_NIC_RX);
+-	if (IS_ERR_OR_NULL(steering->root_ns))
++	if (!steering->root_ns)
+ 		goto cleanup;
+ 
+ 	if (init_root_tree(steering, &root_fs, &steering->root_ns->ns.node))
+-- 
+2.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
