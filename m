@@ -1,52 +1,40 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [PATCH net-next V2 3/3] net/mlx4_en: Add ethtool statistics for
- XDP cases
-Date: Tue, 1 Nov 2016 15:06:04 -0600
-Message-ID: <20161101210604.GA29427@gmail.com>
-References: <1478000186-5158-1-git-send-email-tariqt@mellanox.com>
- <1478000186-5158-4-git-send-email-tariqt@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v4 2/7] Documentation: devicetree: add PHY lane swap
+ binding
+Date: Tue, 1 Nov 2016 22:09:32 +0100
+Message-ID: <20161101210932.GB21010@lunn.ch>
+References: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
+ <1478030682-27012-3-git-send-email-jon.mason@broadcom.com>
+ <20161101204826.GA21010@lunn.ch>
+ <20161101205913.GA27191@broadcom.com>
+ <f56145b6-adb6-186b-0b75-45a9f3a6c58e@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: Tariq Toukan <tariqt@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35504 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932493AbcKAVGK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 17:06:10 -0400
-Received: by mail-pf0-f181.google.com with SMTP id i88so7532883pfk.2
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 14:06:09 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Jon Mason <jon.mason@broadcom.com>,
+ Rob Herring <robh+dt@kernel.org>, bcm-kernel-feedback-list@broadcom.com,
+ rafal@milecki.pl, David Miller <davem@davemloft.net>,
+ linux-arm-kernel@lists.infradead.org
+To: Scott Branden <scott.branden@broadcom.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1478000186-5158-4-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <f56145b6-adb6-186b-0b75-45a9f3a6c58e@broadcom.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 01, 2016 at 01:36:26PM +0200, Tariq Toukan wrote:
-> XDP statistics are reported in ethtool as follows:
-> - xdp_drop: the number of packets dropped by xdp.
-> - xdp_tx: the number of packets forwarded by xdp.
-> - xdp_tx_full: the number of times an xdp forward failed
-> 	due to a full tx xdp ring.
-> 
-> In addition, all packets that are dropped/forwarded by XDP
-> are no longer accounted in rx_packets/rx_bytes of the ring,
-> so that they count traffic that is passed to the stack.
-This seems like a step backwards, in that I now no longer have any
-statistic whatsoever that can count xdp packets per-ring. For instance,
-how would I validate that my flow-hash rules are operating correctly? I
-would suggest to restore the rxN_packet/bytes stat increment.
-> 
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 14 ++++++++++++++
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  4 ++++
->  drivers/net/ethernet/mellanox/mlx4/en_port.c    |  6 ++++++
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 12 +++++++-----
->  drivers/net/ethernet/mellanox/mlx4/en_tx.c      |  8 ++++----
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  7 ++++++-
->  drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h | 10 +++++++++-
->  7 files changed, 50 insertions(+), 11 deletions(-)
-[...]
+> If set, indicates the PHY will swap the TX/RX lanes to compensate
+> for the board being designed with the lanes swapped.
+
+Thanks, much better.
+
+	Andrew
