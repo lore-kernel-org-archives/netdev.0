@@ -1,44 +1,57 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: Re: [PATCH 00/12] xen: add common function for reading optional value
-Date: Tue, 1 Nov 2016 05:33:01 +0100
-Message-ID: <76a0c445-c345-fdf4-12b1-974491f6a77e@suse.com>
-References: <1477932510-28594-1-git-send-email-jgross@suse.com>
- <20161031.130831.2006896157400677867.davem@davemloft.net>
+From: Dongli Zhang <dongli.zhang@oracle.com>
+Subject: Re: [PATCH 1/1] xen-netfront: do not cast grant table
+ reference to signed short
+Date: Mon, 31 Oct 2016 21:46:09 -0700 (PDT)
+Message-ID: <8eb8496b-16d7-4be7-bc43-6ff3f2b8708e@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, xen-devel@lists.xen.org,
-        david.vrabel@citrix.com, boris.ostrovsky@oracle.com,
-        konrad.wilk@oracle.com, roger.pau@citrix.com, peterhuewe@gmx.de,
-        tpmdd@selhorst.net, jarkko.sakkinen@linux.intel.com,
-        jgunthorpe@obsidianresearch.com, tpmdd-devel@lists.sourceforge.net,
-        dmitry.torokhov@gmail.com, linux-input@vger.kernel.org,
-        wei.liu2@citrix.com, paul.durrant@citrix.com,
-        netdev@vger.kernel.org, bhelgaas@google.com,
-        linux-pci@vger.kernel.org, tomi.valkeinen@ti.com,
-        linux-fbdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20161031.130831.2006896157400677867.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ david.vrabel@citrix.com, xen-devel@lists.xenproject.org,
+ boris.ostrovsky@oracle.com
+To: <davem@davemloft.net>, JBeulich <JBeulich@suse.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-On 31/10/16 18:08, David Miller wrote:
-> From: Juergen Gross <jgross@suse.com>
-> Date: Mon, 31 Oct 2016 17:48:18 +0100
-> 
->> There are multiple instances of code reading an optional unsigned
->> parameter from Xenstore via xenbus_scanf(). Instead of repeating the
->> same code over and over add a service function doing the job and
->> replace the call of xenbus_scanf() with the call of the new function
->> where appropriate.
-> 
-> As this seems to be a series that will go through some tree other
-> than mine, I assume the networking bits will be taken care of that
-> way.
-> 
-
-If accepted I expect this series to go through the Xen tree.
-
-
-Juergen
+SGkgRGF2aWQgYW5kIEphbiwKCkkgZGlkIG1vcmUgdGVzdGluZyBvbiB0aGUgY29kZS4gQ2FzdGlu
+ZyB0byBlaXRoZXIgKGxvbmcpIG9yICh1bnNpZ25lZCBsb25nKQp3b3VsZCBiZSBmaW5lLgoKSG93
+ZXZlciwgdGhlcmUgaXMgc3RpbGwgYW4gaXNzdWUgdGhhdCByZWYgaXMgb2YgdHlwZSB1aW50MzJf
+dCBhbmQKSVNfRVJSX1ZBTFVFKCh1bnNpZ25lZCBsb25nKXJlZikgd291bGQgbm90IHJldHVybiB0
+cnVlIHdoZW4gcmVmPS1FTk9TUEMgKG9yCm90aGVyIGVycm9yIGNvZGUpLgoKSVNfRVJSX1ZBTFVF
+KChsb25nKXJlZikgd291bGQgcmV0dXJuIGZhbHNlIGFzIHdlbGwuCgpUaGUgc29sdXRpb24gaXMg
+dG8gY2FzdCByZWYgdG8gKGludCkgZmlyc3QgYXMgZm9sbG93czoKCi0gICBCVUdfT04oKHNpZ25l
+ZCBzaG9ydClyZWYgPCAwKTsKKyAgIFdBUk5fT05fT05DRShJU19FUlJfVkFMVUUoKHVuc2lnbmVk
+IGxvbmcpKGludClyZWYpKTsKCgpEYXZpZCwgSSBhbSB2ZXJ5IHNvcnJ5IGZvciB0aGlzIGVycm9y
+IGFuZCBJIHdpbGwgYmUgY2FyZWZ1bCB0aGUgbmV4dCB0aW1lLgpXb3VsZCB5b3UgcGxlYXNlIGxl
+dCBtZSBrbm93IGlmIEkgc2hvdWxkIHJlc2VuZCBhIG5ldyBwYXRjaCBvciBhbiBpbmNyZW1lbnRh
+bApiYXNlZCBvbiBwcmV2aW91cyBvbmUgYXQgCmh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9s
+aW51eC9rZXJuZWwvZ2l0L2RhdmVtL25ldC5naXQ/CgpUaGFuayB5b3UgdmVyeSBtdWNoIQoKRG9u
+Z2xpIFpoYW5nCgoKLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLQpGcm9tOiBkYXZlbUBkYXZl
+bWxvZnQubmV0ClRvOiBkb25nbGkuemhhbmdAb3JhY2xlLmNvbQpDYzogbGludXgta2VybmVsQHZn
+ZXIua2VybmVsLm9yZywgeGVuLWRldmVsQGxpc3RzLnhlbnByb2plY3Qub3JnLCBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnLCBib3Jpcy5vc3Ryb3Zza3lAb3JhY2xlLmNvbSwgZGF2aWQudnJhYmVsQGNp
+dHJpeC5jb20sIGpncm9zc0BzdXNlLmNvbQpTZW50OiBUdWVzZGF5LCBOb3ZlbWJlciAxLCAyMDE2
+IDQ6MDY6MjcgQU0gR01UICswODowMCBCZWlqaW5nIC8gQ2hvbmdxaW5nIC8gSG9uZyBLb25nIC8g
+VXJ1bXFpClN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8xXSB4ZW4tbmV0ZnJvbnQ6IGRvIG5vdCBjYXN0
+IGdyYW50IHRhYmxlIHJlZmVyZW5jZSB0byBzaWduZWQgc2hvcnQKCkZyb206IERvbmdsaSBaaGFu
+ZyA8ZG9uZ2xpLnpoYW5nQG9yYWNsZS5jb20+CkRhdGU6IE1vbiwgMzEgT2N0IDIwMTYgMTM6Mzg6
+MjkgKzA4MDAKCj4gV2hpbGUgZ3JhbnQgcmVmZXJlbmNlIGlzIG9mIHR5cGUgdWludDMyX3QsIHhl
+bi1uZXRmcm9udCBlcnJvbmVvdXNseSBjYXN0cwo+IGl0IHRvIHNpZ25lZCBzaG9ydCBpbiBCVUdf
+T04oKS4KPiAKPiBUaGlzIHdvdWxkIGxlYWQgdG8gdGhlIHhlbiBkb21VIHBhbmljIGR1cmluZyBi
+b290LXVwIG9yIG1pZ3JhdGlvbiB3aGVuIGl0Cj4gaXMgYXR0YWNoZWQgd2l0aCBsb3RzIG9mIHBh
+cmF2aXJ0dWFsIGRldmljZXMuCj4gCj4gU2lnbmVkLW9mZi1ieTogRG9uZ2xpIFpoYW5nIDxkb25n
+bGkuemhhbmdAb3JhY2xlLmNvbT4KClNpbmNlIHRoaXMgaXMgY29uc2lzdGVudCB3aXRoIGhvdyB0
+aGUgbWFjcm9zIGluIGxpbnV4L2Vyci5oIGhhbmRsZSAiaXMKdGhpcyBhbiBlcnJvciIgY2hlY2tz
+LCB0aGlzIGNoYW5nZSBsb29rcyBnb29kIHRvIG1lLgoKQXBwbGllZCwgdGhhbmtzLgoKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxp
+bmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVu
+LWRldmVsCg==
