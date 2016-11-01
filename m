@@ -1,38 +1,30 @@
-From: Sistemas administrador <administrator@ancol.com>
-Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
-Date: Tue, 01 Nov 2016 19:36:17 +0530
-Message-ID: <20161101141454.0D86C4724C9@mail.jabarprov.go.id>
-Reply-To: mailsss@mail2world.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 2/2] net/sched: cls_flower: merge filter
+ delete/destroy common code
+Date: Tue, 1 Nov 2016 15:23:31 +0100
+Message-ID: <20161101142331.GB1677@nanopsycho.orion>
+References: <1478009309-63180-1-git-send-email-roid@mellanox.com>
+ <1478009309-63180-3-git-send-email-roid@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>
+To: Roi Dayan <roid@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.jabarprov.go.id ([118.97.186.219]:56010 "EHLO
-        mail.jabarprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966390AbcKAOXR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:23:17 -0400
-Content-Description: Mail message body
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36823 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966399AbcKAOXe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 10:23:34 -0400
+Received: by mail-wm0-f66.google.com with SMTP id c17so22918337wmc.3
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 07:23:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1478009309-63180-3-git-send-email-roid@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ATENCIÓN;
+Tue, Nov 01, 2016 at 03:08:29PM CET, roid@mellanox.com wrote:
+>Move common code from fl_delete and fl_detroy to __fl_delete.
+>
+>Signed-off-by: Roi Dayan <roid@mellanox.com>
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
-vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
-
-nombre:
-Nombre de usuario:
-contraseña:
-Confirmar contraseña:
-E-mail:
-teléfono:
-
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
-
-Disculpa las molestias.
-Código de verificación: es: 006524
-Correo Soporte Técnico © 2016
-
-¡gracias
-Sistemas administrador
+Acked-by: Jiri Pirko <jiri@mellanox.com>
