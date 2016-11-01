@@ -1,97 +1,85 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/dccp: warning in dccp_feat_clone_sp_val/__might_sleep
-Date: Tue, 1 Nov 2016 17:33:58 +0100
-Message-ID: <CAAeHK+ywTY172Ls5e9NWvYmqn+Tg7F_VZut3K6Etr8u4p48U+Q@mail.gmail.com>
-References: <CAAeHK+z-SAq-YhHarfc94dguyXCJ_tv8n=ZVdLTRsYEy0cK-pQ@mail.gmail.com>
- <CAM_iQpX_xw35MUyd9aON5U=HmUoRafeoOF+_vSTHGYnrXd-CHg@mail.gmail.com>
- <CAAeHK+y9ENvGzJEQtRy_5DEzCfhGEYXR5CPpgwXy_FoOtFUf3Q@mail.gmail.com>
- <1477762981.7065.272.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAeHK+x6+CU+1KJNOpnoyyZoqH7_dcrWFVGU1KrJYVwJSzdxPg@mail.gmail.com>
- <1477764328.7065.284.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAAeHK+z2mqZCsZpPP_hNY2-bt_-WEU9rFmOd=jcWSBmVPDS_rA@mail.gmail.com>
- <1477833601.7065.297.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWs1YvrZQF8JTzWR0u0V4t4f3b71WStStGWqDd7agHN_w@mail.gmail.com> <1477939216.7065.305.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: enhance tcp collapsing
+Date: Tue, 1 Nov 2016 12:35:08 -0400
+Message-ID: <CADVnQymN18JsVSX-0wT3qSuP9+pB8_8js26SQ_XgRF1jM6raDw@mail.gmail.com>
+References: <VI1PR0502MB29577BA8C670D1379CC4F1B7D4A10@VI1PR0502MB2957.eurprd05.prod.outlook.com>
+ <1478007189.7065.331.camel@edumazet-glaptop3.roam.corp.google.com> <1478014346.7065.342.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        =?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+        Yuchung Cheng <ycheng@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:35024 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751399AbcKAQeB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 12:34:01 -0400
-Received: by mail-lf0-f49.google.com with SMTP id f134so125235966lfg.2
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 09:34:00 -0700 (PDT)
-In-Reply-To: <1477939216.7065.305.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:35086 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750918AbcKAQfk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 12:35:40 -0400
+Received: by mail-oi0-f45.google.com with SMTP id i127so303132820oia.2
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 09:35:40 -0700 (PDT)
+In-Reply-To: <1478014346.7065.342.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Cong,
-
-Yes, your patches fix the warnings.
-
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-
-Thanks!
-
-On Mon, Oct 31, 2016 at 7:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2016-10-31 at 11:00 -0700, Cong Wang wrote:
->> On Sun, Oct 30, 2016 at 6:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Sun, 2016-10-30 at 05:41 +0100, Andrey Konovalov wrote:
->> >> Sorry, the warning is still there.
->> >>
->> >> I'm not sure adding sched_annotate_sleep() does anything, since it's
->> >> defined as (in case CONFIG_DEBUG_ATOMIC_SLEEP is not set):
->> >> # define sched_annotate_sleep() do { } while (0)
->> >
->> > Thanks again for testing.
->> >
->> > But you do have CONFIG_DEBUG_ATOMIC_SLEEP set, which triggers a check in
->> > __might_sleep() :
->> >
->> > WARN_ONCE(current->state != TASK_RUNNING && current->task_state_change,
->> >
->> > Relevant commit is 00845eb968ead28007338b2bb852b8beef816583
->> > ("sched: don't cause task state changes in nested sleep debugging")
->> >
->> > Another relevant commit was 26cabd31259ba43f68026ce3f62b78094124333f
->> > ("sched, net: Clean up sk_wait_event() vs. might_sleep()")
->> >
->> > Before release_sock() could process the backlog in process context, only
->> > lock_sock() could trigger the issue, so my fix at that time was commit
->> > cb7cf8a33ff73cf638481d1edf883d8968f934f8 ("inet: Clean up
->> > inet_csk_wait_for_connect() vs. might_sleep()")
->> >
->>
->> Thanks for the context, but isn't the original warning reported by Andrey is
->> from inet_wait_for_connect()? You seem only patch some dccp function
->> which is why it is still there?
->>
->> It should be the following, no?
->>
->>
->> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
->> index 9648c97..bbd8159 100644
->> --- a/net/ipv4/af_inet.c
->> +++ b/net/ipv4/af_inet.c
->> @@ -544,6 +544,7 @@ static long inet_wait_for_connect(struct sock *sk,
->> long timeo, int writebias)
->>          * without closing the socket.
->>          */
->>         while ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
->> +               sched_annotate_sleep();
->>                 release_sock(sk);
->>                 timeo = schedule_timeout(timeo);
->>                 lock_sock(sk);
+On Tue, Nov 1, 2016 at 11:32 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> Yes, this would be one of the locations needing this.
+> From: Eric Dumazet <edumazet@google.com>
+>
+> As Ilya Lesokhin suggested, we can collapse two skbs at retransmit
+> time even if the skb at the right has fragments.
+>
+> We simply have to use more generic skb_copy_bits() instead of
+> skb_copy_from_linear_data() in tcp_collapse_retrans()
+>
+> Tested:
+>
+> Used following packetdrill test
+>
+> // Establish a connection.
+> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+>    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+>    +0 bind(3, ..., ...) = 0
+>    +0 listen(3, 1) = 0
+>
+>    +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
+>    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
+> +.100 < . 1:1(0) ack 1 win 257
+>    +0 accept(3, ..., ...) = 4
+>
+>    +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+>    +0 write(4, ..., 200) = 200
+>    +0 > P. 1:201(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 201:401(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 401:601(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 601:801(200) ack 1
+> +.001 write(4, ..., 200) = 200
+>    +0 > P. 801:1001(200) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1001:1101(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1101:1201(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1201:1301(100) ack 1
+> +.001 write(4, ..., 100) = 100
+>    +0 > P. 1301:1401(100) ack 1
+>
+> +.100 < . 1:1(0) ack 1 win 257 <nop,nop,sack 1001:1401>
+> // Check that TCP collapse works :
+>    +0 > P. 1:1001(1000) ack 1
 >
 >
->
+> Reported-by: Ilya Lesokhin <ilyal@mellanox.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+Thanks, Eric!
+
+neal
