@@ -1,35 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/2] net/sched: cls_flower: merge filter
- delete/destroy common code
-Date: Tue, 1 Nov 2016 19:17:55 +0300
-Message-ID: <f702d1a8-1bf0-a1b6-54e0-40f5e93fa989@cogentembedded.com>
-References: <1478009309-63180-1-git-send-email-roid@mellanox.com>
- <1478009309-63180-3-git-send-email-roid@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: mv643xx_eth: ensure coalesce settings survive
+ read-modify-write
+Date: Tue, 01 Nov 2016 12:18:11 -0400 (EDT)
+Message-ID: <20161101.121811.1188428674232100128.davem@davemloft.net>
+References: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>
-To: Roi Dayan <roid@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org
+To: rmk+kernel@armlinux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:36409 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750927AbcKAQR7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 12:17:59 -0400
-Received: by mail-lf0-f52.google.com with SMTP id t196so43839241lff.3
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 09:17:58 -0700 (PDT)
-In-Reply-To: <1478009309-63180-3-git-send-email-roid@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47392 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751695AbcKAQSN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 12:18:13 -0400
+In-Reply-To: <E1c1Wdl-0000tO-Ql@rmk-PC.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/01/2016 05:08 PM, Roi Dayan wrote:
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Date: Tue, 01 Nov 2016 10:50:01 +0000
 
-> Move common code from fl_delete and fl_detroy to __fl_delete.
+> The coalesce settings behave badly when changing just one value:
+> 
+> ... # ethtool -c eth0
+> rx-usecs: 249
+> ... # ethtool -C eth0 tx-usecs 250
+> ... # ethtool -c eth0
+> rx-usecs: 248
+> 
+> This occurs due to rounding errors when calculating the microseconds
+> value - the divisons round down.  This causes (eg) the rx-usecs to
+> decrease by one every time the tx-usecs value is set as per the above.
+> 
+> Fix this by making the divison round-to-nearest.
+> 
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 
-    fl_destroy().
-
-
-> Signed-off-by: Roi Dayan <roid@mellanox.com>
-[...]
-
-MBR, Sergei
+Applied, thanks.
