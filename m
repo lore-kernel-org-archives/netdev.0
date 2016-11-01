@@ -1,7 +1,7 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 02/16] tipc: wakeup sleeping users at disconnect
-Date: Tue, 1 Nov 2016 14:02:35 +0100
-Message-ID: <1478005369-17239-3-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 05/16] tipc: rename tsk->remote to tsk->peer for consistent naming
+Date: Tue, 1 Nov 2016 14:02:38 +0100
+Message-ID: <1478005369-17239-6-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1478005369-17239-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,41 +9,82 @@ Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
         <maloy@donjonn.com>, <ying.xue@windriver.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:64166 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424264AbcKANDH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 09:03:07 -0400
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:58796 "EHLO
+        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1423512AbcKANDh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 09:03:37 -0400
 In-Reply-To: <1478005369-17239-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Until now, in filter_connect() when we terminate a connection due to
-an error message from peer, we set the socket state to DISCONNECTING.
+Until now, the peer information for connect is stored in tsk->remote
+but the rest of code uses the name peer for peer/remote.
 
-The socket is notified about this broken connection using EPIPE when
-a user tries to send a message. However if a socket was waiting on a
-poll() while the connection is being terminated, we fail to wakeup
-that socket.
+In this commit, we rename tsk->remote to tsk->peer to align with
+naming convention followed in the rest of the code.
 
-In this commit, we wakeup sleeping sockets at connection termination.
+There is no functional change in this commit.
 
+Acked-by: Ying Xue <ying.xue@windriver.com>
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/socket.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/tipc/socket.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index adf3e6ecf61e..cd01deb1da9c 100644
+index c543ae6cbf65..0546556d3517 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1599,6 +1599,7 @@ static bool filter_connect(struct tipc_sock *tsk, struct sk_buff *skb)
- 			/* Let timer expire on it's own */
- 			tipc_node_remove_conn(net, tsk_peer_node(tsk),
- 					      tsk->portid);
-+			sk->sk_state_change(sk);
+@@ -65,7 +65,6 @@
+  * @max_pkt: maximum packet size "hint" used when building messages sent by port
+  * @portid: unique port identity in TIPC socket hash table
+  * @phdr: preformatted message header used when sending messages
+- * @port_list: adjacent ports in TIPC's global list of ports
+  * @publications: list of publications for port
+  * @pub_count: total # of publications port has made during its lifetime
+  * @probing_state:
+@@ -75,7 +74,7 @@
+  * @link_cong: non-zero if owner must sleep because of link congestion
+  * @sent_unacked: # messages sent by socket, and not yet acked by peer
+  * @rcv_unacked: # messages read by user, but not yet acked back to peer
+- * @remote: 'connected' peer for dgram/rdm
++ * @peer: 'connected' peer for dgram/rdm
+  * @node: hash table node
+  * @rcu: rcu struct for tipc_sock
+  */
+@@ -101,7 +100,7 @@ struct tipc_sock {
+ 	u16 peer_caps;
+ 	u16 rcv_unacked;
+ 	u16 rcv_win;
+-	struct sockaddr_tipc remote;
++	struct sockaddr_tipc peer;
+ 	struct rhash_head node;
+ 	struct rcu_head rcu;
+ };
+@@ -904,7 +903,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
+ 		return -EMSGSIZE;
+ 	if (unlikely(!dest)) {
+ 		if (tsk->connected && sock->state == SS_READY)
+-			dest = &tsk->remote;
++			dest = &tsk->peer;
+ 		else
+ 			return -EDESTADDRREQ;
+ 	} else if (unlikely(m->msg_namelen < sizeof(*dest)) ||
+@@ -1939,12 +1938,12 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
+ 	/* DGRAM/RDM connect(), just save the destaddr */
+ 	if (sock->state == SS_READY) {
+ 		if (dst->family == AF_UNSPEC) {
+-			memset(&tsk->remote, 0, sizeof(struct sockaddr_tipc));
++			memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
+ 			tsk->connected = 0;
+ 		} else if (destlen != sizeof(struct sockaddr_tipc)) {
+ 			res = -EINVAL;
+ 		} else {
+-			memcpy(&tsk->remote, dest, destlen);
++			memcpy(&tsk->peer, dest, destlen);
+ 			tsk->connected = 1;
  		}
- 		return true;
- 
+ 		goto exit;
 -- 
 2.1.4
