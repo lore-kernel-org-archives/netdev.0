@@ -1,50 +1,139 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Tue, 1 Nov 2016 12:13:00 +0100
-Message-ID: <8a1372f4-4355-f27b-75a5-5aefedeb3ac1@neratec.com>
-References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
- <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
- <5813D00A.8080005@codeaurora.org>
+From: Felipe Balbi <felipe.balbi@linux.intel.com>
+Subject: Re: [PATCH] Revert "usb: dwc3: gadget: use allocated/queued reqs for LST bit"
+Date: Tue, 01 Nov 2016 13:30:59 +0200
+Message-ID: <87ins7phcc.fsf@linux.intel.com>
+References: <20161027154016.GD4617@intel.com> <87pomksrrm.fsf@linux.intel.com> <20161028163332.GL4617@intel.com> <20161031.145150.1409050078488736200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
+Content-Type: multipart/signed; boundary="=-=-=";
+        micalg=pgp-sha256; protocol="application/pgp-signature"
+Cc: linux-usb@vger.kernel.org, stable@vger.kernel.org,
+        oneukum@suse.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, ville.syrjala@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:27395 "EHLO mail.neratec.com"
+Received: from mga07.intel.com ([134.134.136.100]:26290 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1168518AbcKALND (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Nov 2016 07:13:03 -0400
-In-Reply-To: <5813D00A.8080005@codeaurora.org>
+        id S1168914AbcKALbW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Nov 2016 07:31:22 -0400
+In-Reply-To: <20161031.145150.1409050078488736200.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/29/2016 12:24 AM, Timur Tabi wrote:
-> Zefir Kurtisi wrote:
->> +    /* check if the SGMII link is OK. */
->> +    if (!(phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)) {
->> +        pr_warn("803x_aneg_done: SGMII link is not ok\n");
->> +        aneg_done = 0;
-> 
-> I see this message appear sometimes when bring up the interface via ifup. 
-> However, contrary to your patch description, everything seems to work:
-> 
-Right so, seeing the message and still having the SGMII link up and working is
-what happens most. But randomly (in our setup it is in the order of 1%) we see
-that SGMII remains down after a suspend-resume cycle. This message is a required
-but not sufficient condition.
+--=-=-=
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> $ iperf3 -c 192.168.1.1 -t 3600
-> Connecting to host 192.168.1.1, port 5201
-> [  4] local 192.168.1.2 port 52640 connected to 192.168.1.1 port 5201
-> [ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
-> [  4]   0.00-1.00   sec   109 MBytes   909 Mbits/sec    0    485 KBytes
-> [  4]   1.00-2.00   sec   108 MBytes   902 Mbits/sec    0    622 KBytes
-> 
-> I wonder if you're impacted with all of the pause frame problems I'm having.
-> 
 
-I doubt, since resetting SGMII link alone (via toggling MII_BMCR on fibre page)
-brings back the SGMII communication, I assume it to be below the MAC layer.
+Hi,
 
-Are you aware of any related erratas for the at803x? I am not and therefore left
-alone with my guesswork.
+David Miller <davem@davemloft.net> writes:
+> From: Ville Syrj=C3=A4l=C3=A4 <ville.syrjala@linux.intel.com>
+> Date: Fri, 28 Oct 2016 19:33:32 +0300
+>
+>> On Fri, Oct 28, 2016 at 01:16:13PM +0300, Felipe Balbi wrote:
+>>> Yeah, I'm guessing we're gonna need some help from networking folks. The
+>>> only thing we did since v4.7 was actually respect req->no_interrupt flag
+>>> coming from u_ether itself. No idea why that causes so much trouble for
+>>> u_ether.
+>>>=20
+>>> BTW, Instead of reverting so many patches, you can just remove
+>>> throttling:
+>>>=20
+>>> diff --git a/drivers/usb/gadget/function/u_ether.c b/drivers/usb/gadget=
+/function/u_ether.c
+>>> index f4a640216913..119a2e5848e8 100644
+>>> --- a/drivers/usb/gadget/function/u_ether.c
+>>> +++ b/drivers/usb/gadget/function/u_ether.c
+>>> @@ -589,14 +589,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *=
+skb,
+>>>=20=20
+>>>         req->length =3D length;
+>>>=20=20
+>>> -       /* throttle high/super speed IRQ rate back slightly */
+>>> -       if (gadget_is_dualspeed(dev->gadget))
+>>> -               req->no_interrupt =3D (((dev->gadget->speed =3D=3D USB_=
+SPEED_HIGH ||
+>>> -                                      dev->gadget->speed =3D=3D USB_SP=
+EED_SUPER)) &&
+>>> -                                       !list_empty(&dev->tx_reqs))
+>>> -                       ? ((atomic_read(&dev->tx_qlen) % dev->qmult) !=
+=3D 0)
+>>> -                       : 0;
+>>> -
+>>>         retval =3D usb_ep_queue(in, req, GFP_ATOMIC);
+>>>         switch (retval) {
+>>>         default:
+>>=20
+>> Ah cool. That indeed fixes the problem for me.
+>>=20
+>>>=20
+>>> I'm adding netdev and couple other folks to the loop.
+>>>=20
+>>> Just to summarize, USB peripheral controller now actually throttles
+>>> interrupt when requested to do so and that causes lags for USB
+>>> networking gadgets.
+>>>=20
+>>> Without throttle we, potentially, call netif_wake_queue() more
+>>> frequently than with throttling. I'm wondering if something changed in
+>>> NET layer within the past few years but the USB networking gadgets ended
+>>> up being forgotten.
+>>>=20
+>>> Anyway, if anybody has any hints, I'd be glad to hear about them.
+>
+> This throttling mechanism seems to have the same problem we've seen in
+> The past with some ethernet drivers trying to do TX mitigation in
+> software.
+>
+> If I understand correctly, the interrupt bit for TX completions is set
+> only periodically.
+>
+> However, the networking stack has a hard requirement that all SKBs
+> which are transmitted must have their completion signalled in a finite
+> amount of time.  This is because, until the SKB is freed by the
+> driver, it holds onto socket, netfilter, and other subsystem
+> resources.
+>
+> So, for example, if your scheme is that only every 8th TX packet will
+> generate an interrupt you run into problems if you suddenly have 7
+> pending TX packets and no more traffic is generated for a long time.
+>
+> Those 7 packets will sit in the TX queue indefinitely, and this is the
+> situation which drivers must avoid.
+>
+> Therefore, for devices with per-TX-queue-entry interrupt bit schemes,
+> it's not easy to take advantage of this facility.  The safest thing to
+> do is to interrupt for every queue entry.
+>
+> For the time being, this revert is the way to go and it should be
+> submitted formally, with proper commit message and signoffs, via
+> whatever tree this gadget driver's changes should be submitted via.
+>
+> It might be possible to elide TX queue entry interrupts using the
+> skb->xmit_more state.  Basically, if the TX queue is not full and
+> skb->xmit_more is set, you can skip the interrupt indication bit
+> in the descriptor.
+
+thanks for confirming, patch removing throttling sent. You're in Cc.
+
+=2D-=20
+balbi
+
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJYGHzzAAoJEMy+uJnhGpkGKjsP/iTJWMOjYzZ0dccEYuI8Nxya
+Ur1gZiY5dKRwIsNZqZkk/9wT7QlolIo5DrwOw6N9Zwo4dk1nIcCMkQZCt5bumwrA
+DSrhlZdVetAJZCvqlVcdSNCrnbUaav1djWEo60Zl9f319/gWgXkIjLuT9BWhd/vl
+jCB8y4eBSANSnyiwoycwTRBQ+w4+YKNpAo7OJKMhZRDN2Wr+5BQoeKLfbyyOwCb/
+DJge5f4ZTxlrhJro9B4lu9c7oetBPU9+so2ZaRQzw5FZNnsJ5Lym1KEz1LySb+mn
+qHMpHHXMxg9CGmPSrtu2inxwTaCVYpXTCY8+N4VSZpLrnFR97ZCZ2QW+PFPxQSR1
+ggqLYouz3Ln8j1DNl3tyCJ1Y3nr6aaShLsat8Sn31hQ6Gz6rmKqM7i7Kf/t7da48
+/AMfKbKeUegbeE5UpqKEOfgeCr8lHrbaWbWATpBZfjOFeF1q7U1sgq1qO/iDfy8T
+JY2imgK170HKkAPfUiw0/W2Ny70cMcJ7+2HZssj+gro7bdEttT/+W5Q15IlNoJBq
+/5fVTrdRF1zww53kEM+HxED4HYxIg/hqXblIA4YGUk5d2HUsjal5r4l6jFSiPPO1
+y3k7pR7wxmJNEb5f0NrftKN60qQogEOG55Eqptj/yYzVa46zaaQ/vRcYKwh26YKr
+LjXv+Ot7VGhOQVFqYNCV
+=S5J3
+-----END PGP SIGNATURE-----
+--=-=-=--
