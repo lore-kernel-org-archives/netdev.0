@@ -1,79 +1,357 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [PATCH v3 0/6] add NS2 support to bgmac
-Date: Tue, 1 Nov 2016 16:01:02 -0400
-Message-ID: <20161101200101.GB26962@broadcom.com>
-References: <1478022694-25308-1-git-send-email-jon.mason@broadcom.com>
- <cc2554bf-2700-9d9b-b012-15e82681b31b@broadcom.com>
+From: <Woojung.Huh@microchip.com>
+Subject: [PATCH v4 net-next] lan78xx: Use irq_domain for phy interrupt from
+ USB Int. EP
+Date: Tue, 1 Nov 2016 20:02:00 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D4095D3D8@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>, rafal@milecki.pl,
-        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Scott Branden <scott.branden@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cc2554bf-2700-9d9b-b012-15e82681b31b@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <f.fainelli@gmail.com>, <andrew@lunn.ch>,
+        <UNGLinuxDriver@microchip.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exsmtp01.microchip.com ([198.175.253.37]:49095 "EHLO
+        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932356AbcKAUCC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:02:02 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 01, 2016 at 11:01:19AM -0700, Scott Branden wrote:
-> Hi Jon,
-> 
-> On 16-11-01 10:51 AM, Jon Mason wrote:
-> >Changes in v3:
-> >* Clean-up the bgmac DT binding doc (per Rob Herring)
-> >* Document the lane swap binding and make it generic (Per Andrew Lunn)
-> Where is the documentation of the lane swap binding?
+From: Woojung Huh <woojung.huh@microchip.com>
 
-Sent out the wrong branch :(
+To utilize phylib with interrupt fully than handling some of phy stuff in the MAC driver,
+create irq_domain for USB interrupt EP of phy interrupt and
+pass the irq number to phy_connect_direct() instead of PHY_IGNORE_INTERRUPT.
 
-Sending out v4 shortly with this patch.
+Idea comes from drivers/gpio/gpio-dl2.c
 
-> 
-> >
-> >
-> >Changes in v2:
-> >* Remove the PHY power-on (per Andrew Lunn)
-> >* Misc PHY clean-ups regarding comments and #defines (per Andrew Lunn)
-> >  This results on none of the original PHY code from Vikas being
-> >  present.  So, I'm removing him as an author and giving him
-> >  "Inspired-by" credit.
-> >* Move PHY lane swapping to PHY driver (per Andrew Lunn and Florian
-> >  Fainelli)
-> >* Remove bgmac sleep (per Florian Fainelli)
-> >* Re-add bgmac chip reset (per Florian Fainelli and Ray Jui)
-> >* Rebased on latest net-next
-> >* Added patch for bcm54xx_auxctl_read, which is used in the BCM54810
-> >
-> >
-> >Add support for the amac found in the Broadcom Northstar2 SoC to the
-> >bgmac driver.  This necessitates adding support to connect to an
-> >externally defined phy (as described in the device tree) in the driver.
-> >These phy changes are in addition to the changes necessary to get NS2
-> >working.
-> >
-> >
-> >Jon Mason (6):
-> >  net: phy: broadcom: add bcm54xx_auxctl_read
-> >  net: phy: broadcom: Add BCM54810 PHY entry
-> >  Documentation: devicetree: net: add NS2 bindings to amac
-> >  net: ethernet: bgmac: device tree phy enablement
-> >  net: ethernet: bgmac: add NS2 support
-> >  arm64: dts: NS2: add AMAC ethernet support
-> >
-> > .../devicetree/bindings/net/brcm,amac.txt          |  16 ++--
-> > arch/arm64/boot/dts/broadcom/ns2-svk.dts           |   5 ++
-> > arch/arm64/boot/dts/broadcom/ns2.dtsi              |  12 +++
-> > drivers/net/ethernet/broadcom/bgmac-bcma.c         |  48 ++++++++++
-> > drivers/net/ethernet/broadcom/bgmac-platform.c     | 100 ++++++++++++++++++++-
-> > drivers/net/ethernet/broadcom/bgmac.c              |  55 ++----------
-> > drivers/net/ethernet/broadcom/bgmac.h              |   8 ++
-> > drivers/net/phy/Kconfig                            |   2 +-
-> > drivers/net/phy/broadcom.c                         |  68 +++++++++++++-
-> > include/linux/brcmphy.h                            |  11 +++
-> > 10 files changed, 268 insertions(+), 57 deletions(-)
-> >
+Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+---
+ drivers/net/usb/lan78xx.c | 215 ++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 189 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index c4e748e..bcd9010 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -30,13 +30,17 @@
+ #include <linux/ipv6.h>
+ #include <linux/mdio.h>
+ #include <net/ip6_checksum.h>
++#include <linux/interrupt.h>
++#include <linux/irqdomain.h>
++#include <linux/irq.h>
++#include <linux/irqchip/chained_irq.h>
+ #include <linux/microchipphy.h>
+ #include "lan78xx.h"
+ 
+ #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
+ #define DRIVER_DESC	"LAN78XX USB 3.0 Gigabit Ethernet Devices"
+ #define DRIVER_NAME	"lan78xx"
+-#define DRIVER_VERSION	"1.0.4"
++#define DRIVER_VERSION	"1.0.5"
+ 
+ #define TX_TIMEOUT_JIFFIES		(5 * HZ)
+ #define THROTTLE_JIFFIES		(HZ / 8)
+@@ -89,6 +93,38 @@
+ /* statistic update interval (mSec) */
+ #define STAT_UPDATE_TIMER		(1 * 1000)
+ 
++/* defines interrupts from interrupt EP */
++#define MAX_INT_EP			(32)
++#define INT_EP_INTEP			(31)
++#define INT_EP_OTP_WR_DONE		(28)
++#define INT_EP_EEE_TX_LPI_START		(26)
++#define INT_EP_EEE_TX_LPI_STOP		(25)
++#define INT_EP_EEE_RX_LPI		(24)
++#define INT_EP_MAC_RESET_TIMEOUT	(23)
++#define INT_EP_RDFO			(22)
++#define INT_EP_TXE			(21)
++#define INT_EP_USB_STATUS		(20)
++#define INT_EP_TX_DIS			(19)
++#define INT_EP_RX_DIS			(18)
++#define INT_EP_PHY			(17)
++#define INT_EP_DP			(16)
++#define INT_EP_MAC_ERR			(15)
++#define INT_EP_TDFU			(14)
++#define INT_EP_TDFO			(13)
++#define INT_EP_UTX			(12)
++#define INT_EP_GPIO_11			(11)
++#define INT_EP_GPIO_10			(10)
++#define INT_EP_GPIO_9			(9)
++#define INT_EP_GPIO_8			(8)
++#define INT_EP_GPIO_7			(7)
++#define INT_EP_GPIO_6			(6)
++#define INT_EP_GPIO_5			(5)
++#define INT_EP_GPIO_4			(4)
++#define INT_EP_GPIO_3			(3)
++#define INT_EP_GPIO_2			(2)
++#define INT_EP_GPIO_1			(1)
++#define INT_EP_GPIO_0			(0)
++
+ static const char lan78xx_gstrings[][ETH_GSTRING_LEN] = {
+ 	"RX FCS Errors",
+ 	"RX Alignment Errors",
+@@ -296,6 +332,15 @@ struct statstage {
+ 	struct lan78xx_statstage64	curr_stat;
+ };
+ 
++struct irq_domain_data {
++	struct irq_domain	*irqdomain;
++	unsigned int		phyirq;
++	struct irq_chip		*irqchip;
++	irq_flow_handler_t	irq_handler;
++	u32			irqenable;
++	struct mutex		irq_lock;		/* for irq bus access */
++};
++
+ struct lan78xx_net {
+ 	struct net_device	*net;
+ 	struct usb_device	*udev;
+@@ -351,6 +396,8 @@ struct lan78xx_net {
+ 
+ 	int			delta;
+ 	struct statstage	stats;
++
++	struct irq_domain_data	domain_data;
+ };
+ 
+ /* use ethtool to change the level for any given device */
+@@ -1096,11 +1143,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 	int ladv, radv, ret;
+ 	u32 buf;
+ 
+-	/* clear PHY interrupt status */
+-	ret = phy_read(phydev, LAN88XX_INT_STS);
+-	if (unlikely(ret < 0))
+-		return -EIO;
+-
+ 	/* clear LAN78xx interrupt status */
+ 	ret = lan78xx_write_reg(dev, INT_STS, INT_STS_PHY_INT_);
+ 	if (unlikely(ret < 0))
+@@ -1120,16 +1162,12 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 		if (unlikely(ret < 0))
+ 			return -EIO;
+ 
+-		phy_mac_interrupt(phydev, 0);
+-
+ 		del_timer(&dev->stat_monitor);
+ 	} else if (phydev->link && !dev->link_on) {
+ 		dev->link_on = true;
+ 
+ 		phy_ethtool_ksettings_get(phydev, &ecmd);
+ 
+-		ret = phy_read(phydev, LAN88XX_INT_STS);
+-
+ 		if (dev->udev->speed == USB_SPEED_SUPER) {
+ 			if (ecmd.base.speed == 1000) {
+ 				/* disable U2 */
+@@ -1163,7 +1201,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
+ 
+ 		ret = lan78xx_update_flowcontrol(dev, ecmd.base.duplex, ladv,
+ 						 radv);
+-		phy_mac_interrupt(phydev, 1);
+ 
+ 		if (!timer_pending(&dev->stat_monitor)) {
+ 			dev->delta = 1;
+@@ -1202,7 +1239,10 @@ static void lan78xx_status(struct lan78xx_net *dev, struct urb *urb)
+ 
+ 	if (intdata & INT_ENP_PHY_INT) {
+ 		netif_dbg(dev, link, dev->net, "PHY INTR: 0x%08x\n", intdata);
+-			  lan78xx_defer_kevent(dev, EVENT_LINK_RESET);
++		lan78xx_defer_kevent(dev, EVENT_LINK_RESET);
++
++		if (dev->domain_data.phyirq > 0)
++			generic_handle_irq(dev->domain_data.phyirq);
+ 	} else
+ 		netdev_warn(dev->net,
+ 			    "unexpected interrupt: 0x%08x\n", intdata);
+@@ -1844,6 +1884,127 @@ static void lan78xx_link_status_change(struct net_device *net)
+ 	}
+ }
+ 
++static int irq_map(struct irq_domain *d, unsigned int irq,
++		   irq_hw_number_t hwirq)
++{
++	struct irq_domain_data *data = d->host_data;
++
++	irq_set_chip_data(irq, data);
++	irq_set_chip_and_handler(irq, data->irqchip, data->irq_handler);
++	irq_set_noprobe(irq);
++
++	return 0;
++}
++
++static void irq_unmap(struct irq_domain *d, unsigned int irq)
++{
++	irq_set_chip_and_handler(irq, NULL, NULL);
++	irq_set_chip_data(irq, NULL);
++}
++
++static const struct irq_domain_ops chip_domain_ops = {
++	.map	= irq_map,
++	.unmap	= irq_unmap,
++};
++
++static void lan78xx_irq_mask(struct irq_data *irqd)
++{
++	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
++
++	data->irqenable &= ~BIT(irqd_to_hwirq(irqd));
++}
++
++static void lan78xx_irq_unmask(struct irq_data *irqd)
++{
++	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
++
++	data->irqenable |= BIT(irqd_to_hwirq(irqd));
++}
++
++static void lan78xx_irq_bus_lock(struct irq_data *irqd)
++{
++	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
++
++	mutex_lock(&data->irq_lock);
++}
++
++static void lan78xx_irq_bus_sync_unlock(struct irq_data *irqd)
++{
++	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
++	struct lan78xx_net *dev =
++			container_of(data, struct lan78xx_net, domain_data);
++	u32 buf;
++	int ret;
++
++	/* call register access here because irq_bus_lock & irq_bus_sync_unlock
++	 * are only two callbacks executed in non-atomic contex.
++	 */
++	ret = lan78xx_read_reg(dev, INT_EP_CTL, &buf);
++	if (buf != data->irqenable)
++		ret = lan78xx_write_reg(dev, INT_EP_CTL, data->irqenable);
++
++	mutex_unlock(&data->irq_lock);
++}
++
++static struct irq_chip lan78xx_irqchip = {
++	.name			= "lan78xx-irqs",
++	.irq_mask		= lan78xx_irq_mask,
++	.irq_unmask		= lan78xx_irq_unmask,
++	.irq_bus_lock		= lan78xx_irq_bus_lock,
++	.irq_bus_sync_unlock	= lan78xx_irq_bus_sync_unlock,
++};
++
++static int lan78xx_setup_irq_domain(struct lan78xx_net *dev)
++{
++	struct device_node *of_node;
++	struct irq_domain *irqdomain;
++	unsigned int irqmap = 0;
++	u32 buf;
++	int ret = 0;
++
++	of_node = dev->udev->dev.parent->of_node;
++
++	mutex_init(&dev->domain_data.irq_lock);
++
++	lan78xx_read_reg(dev, INT_EP_CTL, &buf);
++	dev->domain_data.irqenable = buf;
++
++	dev->domain_data.irqchip = &lan78xx_irqchip;
++	dev->domain_data.irq_handler = handle_simple_irq;
++
++	irqdomain = irq_domain_add_simple(of_node, MAX_INT_EP, 0,
++					  &chip_domain_ops, &dev->domain_data);
++	if (irqdomain) {
++		/* create mapping for PHY interrupt */
++		irqmap = irq_create_mapping(irqdomain, INT_EP_PHY);
++		if (!irqmap) {
++			irq_domain_remove(irqdomain);
++
++			irqdomain = NULL;
++			ret = -EINVAL;
++		}
++	} else {
++		ret = -EINVAL;
++	}
++
++	dev->domain_data.irqdomain = irqdomain;
++	dev->domain_data.phyirq = irqmap;
++
++	return ret;
++}
++
++static void lan78xx_remove_irq_domain(struct lan78xx_net *dev)
++{
++	if (dev->domain_data.phyirq > 0) {
++		irq_dispose_mapping(dev->domain_data.phyirq);
++
++		if (dev->domain_data.irqdomain)
++			irq_domain_remove(dev->domain_data.irqdomain);
++	}
++	dev->domain_data.phyirq = 0;
++	dev->domain_data.irqdomain = NULL;
++}
++
+ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ {
+ 	int ret;
+@@ -1856,15 +2017,12 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+ 		return -EIO;
+ 	}
+ 
+-	/* Enable PHY interrupts.
+-	 * We handle our own interrupt
+-	 */
+-	ret = phy_read(phydev, LAN88XX_INT_STS);
+-	ret = phy_write(phydev, LAN88XX_INT_MASK,
+-			LAN88XX_INT_MASK_MDINTPIN_EN_ |
+-			LAN88XX_INT_MASK_LINK_CHANGE_);
+-
+-	phydev->irq = PHY_IGNORE_INTERRUPT;
++	/* if phyirq is not set, use polling mode in phylib */
++	if (dev->domain_data.phyirq > 0)
++		phydev->irq = dev->domain_data.phyirq;
++	else
++		phydev->irq = 0;
++	netdev_dbg(dev->net, "phydev->irq = %d\n", phydev->irq);
+ 
+ 	ret = phy_connect_direct(dev->net, phydev,
+ 				 lan78xx_link_status_change,
+@@ -2255,11 +2413,6 @@ static int lan78xx_reset(struct lan78xx_net *dev)
+ 	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
+ 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
+ 
+-	/* enable PHY interrupts */
+-	ret = lan78xx_read_reg(dev, INT_EP_CTL, &buf);
+-	buf |= INT_ENP_PHY_INT;
+-	ret = lan78xx_write_reg(dev, INT_EP_CTL, buf);
+-
+ 	ret = lan78xx_read_reg(dev, MAC_TX, &buf);
+ 	buf |= MAC_TX_TXEN_;
+ 	ret = lan78xx_write_reg(dev, MAC_TX, buf);
+@@ -2668,6 +2821,14 @@ static int lan78xx_bind(struct lan78xx_net *dev, struct usb_interface *intf)
+ 
+ 	dev->net->hw_features = dev->net->features;
+ 
++	ret = lan78xx_setup_irq_domain(dev);
++	if (ret < 0) {
++		netdev_warn(dev->net,
++			    "lan78xx_setup_irq_domain() failed : %d", ret);
++		kfree(pdata);
++		return ret;
++	}
++
+ 	/* Init all registers */
+ 	ret = lan78xx_reset(dev);
+ 
+@@ -2684,6 +2845,8 @@ static void lan78xx_unbind(struct lan78xx_net *dev, struct usb_interface *intf)
+ {
+ 	struct lan78xx_priv *pdata = (struct lan78xx_priv *)(dev->data[0]);
+ 
++	lan78xx_remove_irq_domain(dev);
++
+ 	lan78xx_remove_mdio(dev);
+ 
+ 	if (pdata) {
+-- 
+2.7.4
