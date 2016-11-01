@@ -1,357 +1,284 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v4 net-next] lan78xx: Use irq_domain for phy interrupt from
- USB Int. EP
-Date: Tue, 1 Nov 2016 20:02:00 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D4095D3D8@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <f.fainelli@gmail.com>, <andrew@lunn.ch>,
-        <UNGLinuxDriver@microchip.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp01.microchip.com ([198.175.253.37]:49095 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932356AbcKAUCC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 16:02:02 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v4 5/7] net: ethernet: bgmac: device tree phy enablement
+Date: Tue,  1 Nov 2016 16:04:40 -0400
+Message-ID: <1478030682-27012-6-git-send-email-jon.mason@broadcom.com>
+References: <1478030682-27012-1-git-send-email-jon.mason@broadcom.com>
+Cc: rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1478030682-27012-1-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Woojung Huh <woojung.huh@microchip.com>
+Change the bgmac driver to allow for phy's defined by the device tree
 
-To utilize phylib with interrupt fully than handling some of phy stuff in the MAC driver,
-create irq_domain for USB interrupt EP of phy interrupt and
-pass the irq number to phy_connect_direct() instead of PHY_IGNORE_INTERRUPT.
-
-Idea comes from drivers/gpio/gpio-dl2.c
-
-Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/usb/lan78xx.c | 215 ++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 189 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac-bcma.c     | 48 ++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bgmac-platform.c | 48 +++++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bgmac.c          | 52 ++------------------------
+ drivers/net/ethernet/broadcom/bgmac.h          |  7 ++++
+ 4 files changed, 105 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index c4e748e..bcd9010 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -30,13 +30,17 @@
- #include <linux/ipv6.h>
- #include <linux/mdio.h>
- #include <net/ip6_checksum.h>
-+#include <linux/interrupt.h>
-+#include <linux/irqdomain.h>
-+#include <linux/irq.h>
-+#include <linux/irqchip/chained_irq.h>
- #include <linux/microchipphy.h>
- #include "lan78xx.h"
- 
- #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
- #define DRIVER_DESC	"LAN78XX USB 3.0 Gigabit Ethernet Devices"
- #define DRIVER_NAME	"lan78xx"
--#define DRIVER_VERSION	"1.0.4"
-+#define DRIVER_VERSION	"1.0.5"
- 
- #define TX_TIMEOUT_JIFFIES		(5 * HZ)
- #define THROTTLE_JIFFIES		(HZ / 8)
-@@ -89,6 +93,38 @@
- /* statistic update interval (mSec) */
- #define STAT_UPDATE_TIMER		(1 * 1000)
- 
-+/* defines interrupts from interrupt EP */
-+#define MAX_INT_EP			(32)
-+#define INT_EP_INTEP			(31)
-+#define INT_EP_OTP_WR_DONE		(28)
-+#define INT_EP_EEE_TX_LPI_START		(26)
-+#define INT_EP_EEE_TX_LPI_STOP		(25)
-+#define INT_EP_EEE_RX_LPI		(24)
-+#define INT_EP_MAC_RESET_TIMEOUT	(23)
-+#define INT_EP_RDFO			(22)
-+#define INT_EP_TXE			(21)
-+#define INT_EP_USB_STATUS		(20)
-+#define INT_EP_TX_DIS			(19)
-+#define INT_EP_RX_DIS			(18)
-+#define INT_EP_PHY			(17)
-+#define INT_EP_DP			(16)
-+#define INT_EP_MAC_ERR			(15)
-+#define INT_EP_TDFU			(14)
-+#define INT_EP_TDFO			(13)
-+#define INT_EP_UTX			(12)
-+#define INT_EP_GPIO_11			(11)
-+#define INT_EP_GPIO_10			(10)
-+#define INT_EP_GPIO_9			(9)
-+#define INT_EP_GPIO_8			(8)
-+#define INT_EP_GPIO_7			(7)
-+#define INT_EP_GPIO_6			(6)
-+#define INT_EP_GPIO_5			(5)
-+#define INT_EP_GPIO_4			(4)
-+#define INT_EP_GPIO_3			(3)
-+#define INT_EP_GPIO_2			(2)
-+#define INT_EP_GPIO_1			(1)
-+#define INT_EP_GPIO_0			(0)
-+
- static const char lan78xx_gstrings[][ETH_GSTRING_LEN] = {
- 	"RX FCS Errors",
- 	"RX Alignment Errors",
-@@ -296,6 +332,15 @@ struct statstage {
- 	struct lan78xx_statstage64	curr_stat;
- };
- 
-+struct irq_domain_data {
-+	struct irq_domain	*irqdomain;
-+	unsigned int		phyirq;
-+	struct irq_chip		*irqchip;
-+	irq_flow_handler_t	irq_handler;
-+	u32			irqenable;
-+	struct mutex		irq_lock;		/* for irq bus access */
-+};
-+
- struct lan78xx_net {
- 	struct net_device	*net;
- 	struct usb_device	*udev;
-@@ -351,6 +396,8 @@ struct lan78xx_net {
- 
- 	int			delta;
- 	struct statstage	stats;
-+
-+	struct irq_domain_data	domain_data;
- };
- 
- /* use ethtool to change the level for any given device */
-@@ -1096,11 +1143,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 	int ladv, radv, ret;
- 	u32 buf;
- 
--	/* clear PHY interrupt status */
--	ret = phy_read(phydev, LAN88XX_INT_STS);
--	if (unlikely(ret < 0))
--		return -EIO;
--
- 	/* clear LAN78xx interrupt status */
- 	ret = lan78xx_write_reg(dev, INT_STS, INT_STS_PHY_INT_);
- 	if (unlikely(ret < 0))
-@@ -1120,16 +1162,12 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 		if (unlikely(ret < 0))
- 			return -EIO;
- 
--		phy_mac_interrupt(phydev, 0);
--
- 		del_timer(&dev->stat_monitor);
- 	} else if (phydev->link && !dev->link_on) {
- 		dev->link_on = true;
- 
- 		phy_ethtool_ksettings_get(phydev, &ecmd);
- 
--		ret = phy_read(phydev, LAN88XX_INT_STS);
--
- 		if (dev->udev->speed == USB_SPEED_SUPER) {
- 			if (ecmd.base.speed == 1000) {
- 				/* disable U2 */
-@@ -1163,7 +1201,6 @@ static int lan78xx_link_reset(struct lan78xx_net *dev)
- 
- 		ret = lan78xx_update_flowcontrol(dev, ecmd.base.duplex, ladv,
- 						 radv);
--		phy_mac_interrupt(phydev, 1);
- 
- 		if (!timer_pending(&dev->stat_monitor)) {
- 			dev->delta = 1;
-@@ -1202,7 +1239,10 @@ static void lan78xx_status(struct lan78xx_net *dev, struct urb *urb)
- 
- 	if (intdata & INT_ENP_PHY_INT) {
- 		netif_dbg(dev, link, dev->net, "PHY INTR: 0x%08x\n", intdata);
--			  lan78xx_defer_kevent(dev, EVENT_LINK_RESET);
-+		lan78xx_defer_kevent(dev, EVENT_LINK_RESET);
-+
-+		if (dev->domain_data.phyirq > 0)
-+			generic_handle_irq(dev->domain_data.phyirq);
- 	} else
- 		netdev_warn(dev->net,
- 			    "unexpected interrupt: 0x%08x\n", intdata);
-@@ -1844,6 +1884,127 @@ static void lan78xx_link_status_change(struct net_device *net)
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+index c16ec3a..3e3efde 100644
+--- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
++++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+@@ -80,6 +80,50 @@ static void bcma_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offset, u32 mask,
+ 	bcma_maskset32(bgmac->bcma.cmn, offset, mask, set);
  }
  
-+static int irq_map(struct irq_domain *d, unsigned int irq,
-+		   irq_hw_number_t hwirq)
++static int bcma_phy_connect(struct bgmac *bgmac)
 +{
-+	struct irq_domain_data *data = d->host_data;
++	struct phy_device *phy_dev;
++	char bus_id[MII_BUS_ID_SIZE + 3];
 +
-+	irq_set_chip_data(irq, data);
-+	irq_set_chip_and_handler(irq, data->irqchip, data->irq_handler);
-+	irq_set_noprobe(irq);
++	/* Connect to the PHY */
++	snprintf(bus_id, sizeof(bus_id), PHY_ID_FMT, bgmac->mii_bus->id,
++		 bgmac->phyaddr);
++	phy_dev = phy_connect(bgmac->net_dev, bus_id, bgmac_adjust_link,
++			      PHY_INTERFACE_MODE_MII);
++	if (IS_ERR(phy_dev)) {
++		dev_err(bgmac->dev, "PHY connecton failed\n");
++		return PTR_ERR(phy_dev);
++	}
 +
 +	return 0;
 +}
 +
-+static void irq_unmap(struct irq_domain *d, unsigned int irq)
++static int bcma_phy_direct_connect(struct bgmac *bgmac)
 +{
-+	irq_set_chip_and_handler(irq, NULL, NULL);
-+	irq_set_chip_data(irq, NULL);
-+}
++	struct fixed_phy_status fphy_status = {
++		.link = 1,
++		.speed = SPEED_1000,
++		.duplex = DUPLEX_FULL,
++	};
++	struct phy_device *phy_dev;
++	int err;
 +
-+static const struct irq_domain_ops chip_domain_ops = {
-+	.map	= irq_map,
-+	.unmap	= irq_unmap,
-+};
-+
-+static void lan78xx_irq_mask(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+
-+	data->irqenable &= ~BIT(irqd_to_hwirq(irqd));
-+}
-+
-+static void lan78xx_irq_unmask(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+
-+	data->irqenable |= BIT(irqd_to_hwirq(irqd));
-+}
-+
-+static void lan78xx_irq_bus_lock(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+
-+	mutex_lock(&data->irq_lock);
-+}
-+
-+static void lan78xx_irq_bus_sync_unlock(struct irq_data *irqd)
-+{
-+	struct irq_domain_data *data = irq_data_get_irq_chip_data(irqd);
-+	struct lan78xx_net *dev =
-+			container_of(data, struct lan78xx_net, domain_data);
-+	u32 buf;
-+	int ret;
-+
-+	/* call register access here because irq_bus_lock & irq_bus_sync_unlock
-+	 * are only two callbacks executed in non-atomic contex.
-+	 */
-+	ret = lan78xx_read_reg(dev, INT_EP_CTL, &buf);
-+	if (buf != data->irqenable)
-+		ret = lan78xx_write_reg(dev, INT_EP_CTL, data->irqenable);
-+
-+	mutex_unlock(&data->irq_lock);
-+}
-+
-+static struct irq_chip lan78xx_irqchip = {
-+	.name			= "lan78xx-irqs",
-+	.irq_mask		= lan78xx_irq_mask,
-+	.irq_unmask		= lan78xx_irq_unmask,
-+	.irq_bus_lock		= lan78xx_irq_bus_lock,
-+	.irq_bus_sync_unlock	= lan78xx_irq_bus_sync_unlock,
-+};
-+
-+static int lan78xx_setup_irq_domain(struct lan78xx_net *dev)
-+{
-+	struct device_node *of_node;
-+	struct irq_domain *irqdomain;
-+	unsigned int irqmap = 0;
-+	u32 buf;
-+	int ret = 0;
-+
-+	of_node = dev->udev->dev.parent->of_node;
-+
-+	mutex_init(&dev->domain_data.irq_lock);
-+
-+	lan78xx_read_reg(dev, INT_EP_CTL, &buf);
-+	dev->domain_data.irqenable = buf;
-+
-+	dev->domain_data.irqchip = &lan78xx_irqchip;
-+	dev->domain_data.irq_handler = handle_simple_irq;
-+
-+	irqdomain = irq_domain_add_simple(of_node, MAX_INT_EP, 0,
-+					  &chip_domain_ops, &dev->domain_data);
-+	if (irqdomain) {
-+		/* create mapping for PHY interrupt */
-+		irqmap = irq_create_mapping(irqdomain, INT_EP_PHY);
-+		if (!irqmap) {
-+			irq_domain_remove(irqdomain);
-+
-+			irqdomain = NULL;
-+			ret = -EINVAL;
-+		}
-+	} else {
-+		ret = -EINVAL;
++	phy_dev = fixed_phy_register(PHY_POLL, &fphy_status, -1, NULL);
++	if (!phy_dev || IS_ERR(phy_dev)) {
++		dev_err(bgmac->dev, "Failed to register fixed PHY device\n");
++		return -ENODEV;
 +	}
 +
-+	dev->domain_data.irqdomain = irqdomain;
-+	dev->domain_data.phyirq = irqmap;
-+
-+	return ret;
-+}
-+
-+static void lan78xx_remove_irq_domain(struct lan78xx_net *dev)
-+{
-+	if (dev->domain_data.phyirq > 0) {
-+		irq_dispose_mapping(dev->domain_data.phyirq);
-+
-+		if (dev->domain_data.irqdomain)
-+			irq_domain_remove(dev->domain_data.irqdomain);
++	err = phy_connect_direct(bgmac->net_dev, phy_dev, bgmac_adjust_link,
++				 PHY_INTERFACE_MODE_MII);
++	if (err) {
++		dev_err(bgmac->dev, "Connecting PHY failed\n");
++		return err;
 +	}
-+	dev->domain_data.phyirq = 0;
-+	dev->domain_data.irqdomain = NULL;
++
++	return err;
 +}
 +
- static int lan78xx_phy_init(struct lan78xx_net *dev)
- {
- 	int ret;
-@@ -1856,15 +2017,12 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
- 		return -EIO;
- 	}
- 
--	/* Enable PHY interrupts.
--	 * We handle our own interrupt
--	 */
--	ret = phy_read(phydev, LAN88XX_INT_STS);
--	ret = phy_write(phydev, LAN88XX_INT_MASK,
--			LAN88XX_INT_MASK_MDINTPIN_EN_ |
--			LAN88XX_INT_MASK_LINK_CHANGE_);
--
--	phydev->irq = PHY_IGNORE_INTERRUPT;
-+	/* if phyirq is not set, use polling mode in phylib */
-+	if (dev->domain_data.phyirq > 0)
-+		phydev->irq = dev->domain_data.phyirq;
+ static const struct bcma_device_id bgmac_bcma_tbl[] = {
+ 	BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_4706_MAC_GBIT,
+ 		  BCMA_ANY_REV, BCMA_ANY_CLASS),
+@@ -275,6 +319,10 @@ static int bgmac_probe(struct bcma_device *core)
+ 	bgmac->cco_ctl_maskset = bcma_bgmac_cco_ctl_maskset;
+ 	bgmac->get_bus_clock = bcma_bgmac_get_bus_clock;
+ 	bgmac->cmn_maskset32 = bcma_bgmac_cmn_maskset32;
++	if (bgmac->mii_bus)
++		bgmac->phy_connect = bcma_phy_connect;
 +	else
-+		phydev->irq = 0;
-+	netdev_dbg(dev->net, "phydev->irq = %d\n", phydev->irq);
++		bgmac->phy_connect = bcma_phy_direct_connect;
  
- 	ret = phy_connect_direct(dev->net, phydev,
- 				 lan78xx_link_status_change,
-@@ -2255,11 +2413,6 @@ static int lan78xx_reset(struct lan78xx_net *dev)
- 	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
- 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
+ 	err = bgmac_enet_probe(bgmac);
+ 	if (err)
+diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
+index be52f27..aed5dc5 100644
+--- a/drivers/net/ethernet/broadcom/bgmac-platform.c
++++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
+@@ -16,6 +16,7 @@
+ #include <linux/bcma/bcma.h>
+ #include <linux/etherdevice.h>
+ #include <linux/of_address.h>
++#include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+ #include "bgmac.h"
  
--	/* enable PHY interrupts */
--	ret = lan78xx_read_reg(dev, INT_EP_CTL, &buf);
--	buf |= INT_ENP_PHY_INT;
--	ret = lan78xx_write_reg(dev, INT_EP_CTL, buf);
--
- 	ret = lan78xx_read_reg(dev, MAC_TX, &buf);
- 	buf |= MAC_TX_TXEN_;
- 	ret = lan78xx_write_reg(dev, MAC_TX, buf);
-@@ -2668,6 +2821,14 @@ static int lan78xx_bind(struct lan78xx_net *dev, struct usb_interface *intf)
+@@ -86,6 +87,46 @@ static void platform_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offset,
+ 	WARN_ON(1);
+ }
  
- 	dev->net->hw_features = dev->net->features;
- 
-+	ret = lan78xx_setup_irq_domain(dev);
-+	if (ret < 0) {
-+		netdev_warn(dev->net,
-+			    "lan78xx_setup_irq_domain() failed : %d", ret);
-+		kfree(pdata);
-+		return ret;
++static int platform_phy_connect(struct bgmac *bgmac)
++{
++	struct phy_device *phy_dev;
++
++	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
++					 bgmac_adjust_link);
++	if (!phy_dev) {
++		dev_err(bgmac->dev, "Phy connect failed\n");
++		return -ENODEV;
 +	}
 +
- 	/* Init all registers */
- 	ret = lan78xx_reset(dev);
- 
-@@ -2684,6 +2845,8 @@ static void lan78xx_unbind(struct lan78xx_net *dev, struct usb_interface *intf)
- {
- 	struct lan78xx_priv *pdata = (struct lan78xx_priv *)(dev->data[0]);
- 
-+	lan78xx_remove_irq_domain(dev);
++	return 0;
++}
 +
- 	lan78xx_remove_mdio(dev);
++static int platform_phy_direct_connect(struct bgmac *bgmac)
++{
++	struct fixed_phy_status fphy_status = {
++		.link = 1,
++		.speed = SPEED_1000,
++		.duplex = DUPLEX_FULL,
++	};
++	struct phy_device *phy_dev;
++	int err;
++
++	phy_dev = fixed_phy_register(PHY_POLL, &fphy_status, -1, NULL);
++	if (!phy_dev || IS_ERR(phy_dev)) {
++		dev_err(bgmac->dev, "Failed to register fixed PHY device\n");
++		return -ENODEV;
++	}
++
++	err = phy_connect_direct(bgmac->net_dev, phy_dev, bgmac_adjust_link,
++				 PHY_INTERFACE_MODE_MII);
++	if (err) {
++		dev_err(bgmac->dev, "Connecting PHY failed\n");
++		return err;
++	}
++
++	return err;
++}
++
+ static int bgmac_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+@@ -102,7 +143,6 @@ static int bgmac_probe(struct platform_device *pdev)
+ 	/* Set the features of the 4707 family */
+ 	bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
+ 	bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
+-	bgmac->feature_flags |= BGMAC_FEAT_FORCE_SPEED_2500;
+ 	bgmac->feature_flags |= BGMAC_FEAT_CMDCFG_SR_REV4;
+ 	bgmac->feature_flags |= BGMAC_FEAT_TX_MASK_SETUP;
+ 	bgmac->feature_flags |= BGMAC_FEAT_RX_MASK_SETUP;
+@@ -151,6 +191,12 @@ static int bgmac_probe(struct platform_device *pdev)
+ 	bgmac->cco_ctl_maskset = platform_bgmac_cco_ctl_maskset;
+ 	bgmac->get_bus_clock = platform_bgmac_get_bus_clock;
+ 	bgmac->cmn_maskset32 = platform_bgmac_cmn_maskset32;
++	if (of_parse_phandle(np, "phy-handle", 0)) {
++		bgmac->phy_connect = platform_phy_connect;
++	} else {
++		bgmac->phy_connect = platform_phy_direct_connect;
++		bgmac->feature_flags |= BGMAC_FEAT_FORCE_SPEED_2500;
++	}
  
- 	if (pdata) {
+ 	return bgmac_enet_probe(bgmac);
+ }
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 856379c..4584958 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1388,7 +1388,7 @@ static const struct ethtool_ops bgmac_ethtool_ops = {
+  * MII
+  **************************************************/
+ 
+-static void bgmac_adjust_link(struct net_device *net_dev)
++void bgmac_adjust_link(struct net_device *net_dev)
+ {
+ 	struct bgmac *bgmac = netdev_priv(net_dev);
+ 	struct phy_device *phy_dev = net_dev->phydev;
+@@ -1411,50 +1411,7 @@ static void bgmac_adjust_link(struct net_device *net_dev)
+ 		phy_print_status(phy_dev);
+ 	}
+ }
+-
+-static int bgmac_phy_connect_direct(struct bgmac *bgmac)
+-{
+-	struct fixed_phy_status fphy_status = {
+-		.link = 1,
+-		.speed = SPEED_1000,
+-		.duplex = DUPLEX_FULL,
+-	};
+-	struct phy_device *phy_dev;
+-	int err;
+-
+-	phy_dev = fixed_phy_register(PHY_POLL, &fphy_status, -1, NULL);
+-	if (!phy_dev || IS_ERR(phy_dev)) {
+-		dev_err(bgmac->dev, "Failed to register fixed PHY device\n");
+-		return -ENODEV;
+-	}
+-
+-	err = phy_connect_direct(bgmac->net_dev, phy_dev, bgmac_adjust_link,
+-				 PHY_INTERFACE_MODE_MII);
+-	if (err) {
+-		dev_err(bgmac->dev, "Connecting PHY failed\n");
+-		return err;
+-	}
+-
+-	return err;
+-}
+-
+-static int bgmac_phy_connect(struct bgmac *bgmac)
+-{
+-	struct phy_device *phy_dev;
+-	char bus_id[MII_BUS_ID_SIZE + 3];
+-
+-	/* Connect to the PHY */
+-	snprintf(bus_id, sizeof(bus_id), PHY_ID_FMT, bgmac->mii_bus->id,
+-		 bgmac->phyaddr);
+-	phy_dev = phy_connect(bgmac->net_dev, bus_id, &bgmac_adjust_link,
+-			      PHY_INTERFACE_MODE_MII);
+-	if (IS_ERR(phy_dev)) {
+-		dev_err(bgmac->dev, "PHY connecton failed\n");
+-		return PTR_ERR(phy_dev);
+-	}
+-
+-	return 0;
+-}
++EXPORT_SYMBOL_GPL(bgmac_adjust_link);
+ 
+ int bgmac_enet_probe(struct bgmac *info)
+ {
+@@ -1507,10 +1464,7 @@ int bgmac_enet_probe(struct bgmac *info)
+ 
+ 	netif_napi_add(net_dev, &bgmac->napi, bgmac_poll, BGMAC_WEIGHT);
+ 
+-	if (!bgmac->mii_bus)
+-		err = bgmac_phy_connect_direct(bgmac);
+-	else
+-		err = bgmac_phy_connect(bgmac);
++	err = bgmac_phy_connect(bgmac);
+ 	if (err) {
+ 		dev_err(bgmac->dev, "Cannot connect to phy\n");
+ 		goto err_dma_free;
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index 80836b4..ea52ac3 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -513,10 +513,12 @@ struct bgmac {
+ 	u32 (*get_bus_clock)(struct bgmac *bgmac);
+ 	void (*cmn_maskset32)(struct bgmac *bgmac, u16 offset, u32 mask,
+ 			      u32 set);
++	int (*phy_connect)(struct bgmac *bgmac);
+ };
+ 
+ int bgmac_enet_probe(struct bgmac *info);
+ void bgmac_enet_remove(struct bgmac *bgmac);
++void bgmac_adjust_link(struct net_device *net_dev);
+ 
+ struct mii_bus *bcma_mdio_mii_register(struct bcma_device *core, u8 phyaddr);
+ void bcma_mdio_mii_unregister(struct mii_bus *mii_bus);
+@@ -583,4 +585,9 @@ static inline void bgmac_set(struct bgmac *bgmac, u16 offset, u32 set)
+ {
+ 	bgmac_maskset(bgmac, offset, ~0, set);
+ }
++
++static inline int bgmac_phy_connect(struct bgmac *bgmac)
++{
++	return bgmac->phy_connect(bgmac);
++}
+ #endif /* _BGMAC_H */
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
