@@ -1,27 +1,34 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 05/16] tipc: rename tsk->remote to tsk->peer for consistent naming
-Date: Tue, 1 Nov 2016 14:02:38 +0100
-Message-ID: <1478005369-17239-6-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 07/16] tipc: remove
+	tsk->connected from tipc_sock
+Date: Tue, 1 Nov 2016 14:02:40 +0100
+Message-ID: <1478005369-17239-8-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1478005369-17239-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-        <maloy@donjonn.com>, <ying.xue@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:58796 "EHLO
-        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1423512AbcKANDh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 09:03:37 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1478005369-17239-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Until now, the peer information for connect is stored in tsk->remote
-but the rest of code uses the name peer for peer/remote.
+Until now, we determine if a socket is connected or not based on
+tsk->connected, which is set once when the probing state is set
+to TIPC_CONN_OK. It is unset when the sock->state is updated from
+SS_CONNECTED to any other state.
 
-In this commit, we rename tsk->remote to tsk->peer to align with
-naming convention followed in the rest of the code.
+In this commit, we remove connected variable from tipc_sock and
+derive socket connection status from the following condition:
+sock->state == SS_CONNECTED => tsk->connected
 
 There is no functional change in this commit.
 
@@ -29,62 +36,180 @@ Acked-by: Ying Xue <ying.xue@windriver.com>
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/socket.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ net/tipc/socket.c | 36 +++++++++++++++++++-----------------
+ 1 file changed, 19 insertions(+), 17 deletions(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index c543ae6cbf65..0546556d3517 100644
+index 524abe47560d..7b6a1847cf8a 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -65,7 +65,6 @@
-  * @max_pkt: maximum packet size "hint" used when building messages sent by port
-  * @portid: unique port identity in TIPC socket hash table
-  * @phdr: preformatted message header used when sending messages
-- * @port_list: adjacent ports in TIPC's global list of ports
-  * @publications: list of publications for port
-  * @pub_count: total # of publications port has made during its lifetime
-  * @probing_state:
-@@ -75,7 +74,7 @@
-  * @link_cong: non-zero if owner must sleep because of link congestion
-  * @sent_unacked: # messages sent by socket, and not yet acked by peer
-  * @rcv_unacked: # messages read by user, but not yet acked back to peer
-- * @remote: 'connected' peer for dgram/rdm
-+ * @peer: 'connected' peer for dgram/rdm
-  * @node: hash table node
-  * @rcu: rcu struct for tipc_sock
+@@ -58,7 +58,6 @@
+ /**
+  * struct tipc_sock - TIPC socket structure
+  * @sk: socket - interacts with 'port' and with user via the socket API
+- * @connected: non-zero if port is currently connected to a peer port
+  * @conn_type: TIPC type used when connection was established
+  * @conn_instance: TIPC instance used when connection was established
+  * @published: non-zero if port has one or more associated names
+@@ -80,7 +79,6 @@
   */
-@@ -101,7 +100,7 @@ struct tipc_sock {
- 	u16 peer_caps;
- 	u16 rcv_unacked;
- 	u16 rcv_win;
--	struct sockaddr_tipc remote;
-+	struct sockaddr_tipc peer;
- 	struct rhash_head node;
- 	struct rcu_head rcu;
- };
-@@ -904,7 +903,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 		return -EMSGSIZE;
- 	if (unlikely(!dest)) {
- 		if (tsk->connected && sock->state == SS_READY)
--			dest = &tsk->remote;
-+			dest = &tsk->peer;
- 		else
- 			return -EDESTADDRREQ;
- 	} else if (unlikely(m->msg_namelen < sizeof(*dest)) ||
-@@ -1939,12 +1938,12 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
- 	/* DGRAM/RDM connect(), just save the destaddr */
- 	if (sock->state == SS_READY) {
- 		if (dst->family == AF_UNSPEC) {
--			memset(&tsk->remote, 0, sizeof(struct sockaddr_tipc));
-+			memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
- 			tsk->connected = 0;
- 		} else if (destlen != sizeof(struct sockaddr_tipc)) {
- 			res = -EINVAL;
- 		} else {
--			memcpy(&tsk->remote, dest, destlen);
-+			memcpy(&tsk->peer, dest, destlen);
- 			tsk->connected = 1;
+ struct tipc_sock {
+ 	struct sock sk;
+-	int connected;
+ 	u32 conn_type;
+ 	u32 conn_instance;
+ 	int published;
+@@ -293,6 +291,11 @@ static void tsk_rej_rx_queue(struct sock *sk)
+ 		tipc_sk_respond(sk, skb, TIPC_ERR_NO_PORT);
+ }
+ 
++static bool tipc_sk_connected(struct sock *sk)
++{
++	return sk->sk_socket->state == SS_CONNECTED;
++}
++
+ /* tsk_peer_msg - verify if message was sent by connected port's peer
+  *
+  * Handles cases where the node's network address has changed from
+@@ -300,12 +303,13 @@ static void tsk_rej_rx_queue(struct sock *sk)
+  */
+ static bool tsk_peer_msg(struct tipc_sock *tsk, struct tipc_msg *msg)
+ {
+-	struct tipc_net *tn = net_generic(sock_net(&tsk->sk), tipc_net_id);
++	struct sock *sk = &tsk->sk;
++	struct tipc_net *tn = net_generic(sock_net(sk), tipc_net_id);
+ 	u32 peer_port = tsk_peer_port(tsk);
+ 	u32 orig_node;
+ 	u32 peer_node;
+ 
+-	if (unlikely(!tsk->connected))
++	if (unlikely(!tipc_sk_connected(sk)))
+ 		return false;
+ 
+ 	if (unlikely(msg_origport(msg) != peer_port))
+@@ -470,7 +474,6 @@ static int tipc_release(struct socket *sock)
+ 			if ((sock->state == SS_CONNECTING) ||
+ 			    (sock->state == SS_CONNECTED)) {
+ 				sock->state = SS_DISCONNECTING;
+-				tsk->connected = 0;
+ 				tipc_node_remove_conn(net, dnode, tsk->portid);
+ 			}
+ 			tipc_sk_respond(sk, skb, TIPC_ERR_NO_PORT);
+@@ -480,7 +483,7 @@ static int tipc_release(struct socket *sock)
+ 	tipc_sk_withdraw(tsk, 0, NULL);
+ 	sk_stop_timer(sk, &sk->sk_timer);
+ 	tipc_sk_remove(tsk);
+-	if (tsk->connected) {
++	if (tipc_sk_connected(sk)) {
+ 		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE,
+ 				      TIPC_CONN_MSG, SHORT_H_SIZE, 0, dnode,
+ 				      tsk_own_node(tsk), tsk_peer_port(tsk),
+@@ -1010,7 +1013,7 @@ static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
+ 		done = sk_wait_event(sk, timeo_p,
+ 				     (!tsk->link_cong &&
+ 				      !tsk_conn_cong(tsk)) ||
+-				     !tsk->connected);
++				      !tipc_sk_connected(sk));
+ 		finish_wait(sk_sleep(sk), &wait);
+ 	} while (!done);
+ 	return 0;
+@@ -1152,7 +1155,6 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
+ 
+ 	tsk->probing_intv = CONN_PROBING_INTERVAL;
+ 	tsk->probing_state = TIPC_CONN_OK;
+-	tsk->connected = 1;
+ 	sk_reset_timer(sk, &sk->sk_timer, jiffies + tsk->probing_intv);
+ 	tipc_node_add_conn(net, peer_node, tsk->portid, peer_port);
+ 	tsk->max_pkt = tipc_node_get_mtu(net, peer_node, tsk->portid);
+@@ -1261,13 +1263,14 @@ static int tipc_sk_anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
+ 
+ static void tipc_sk_send_ack(struct tipc_sock *tsk)
+ {
+-	struct net *net = sock_net(&tsk->sk);
++	struct sock *sk = &tsk->sk;
++	struct net *net = sock_net(sk);
+ 	struct sk_buff *skb = NULL;
+ 	struct tipc_msg *msg;
+ 	u32 peer_port = tsk_peer_port(tsk);
+ 	u32 dnode = tsk_peer_node(tsk);
+ 
+-	if (!tsk->connected)
++	if (!tipc_sk_connected(sk))
+ 		return;
+ 	skb = tipc_msg_create(CONN_MANAGER, CONN_ACK, INT_H_SIZE, 0,
+ 			      dnode, tsk_own_node(tsk), peer_port,
+@@ -1596,7 +1599,6 @@ static bool filter_connect(struct tipc_sock *tsk, struct sk_buff *skb)
+ 
+ 		if (unlikely(msg_errcode(hdr))) {
+ 			sock->state = SS_DISCONNECTING;
+-			tsk->connected = 0;
+ 			/* Let timer expire on it's own */
+ 			tipc_node_remove_conn(net, tsk_peer_node(tsk),
+ 					      tsk->portid);
+@@ -2189,7 +2191,6 @@ static int tipc_shutdown(struct socket *sock, int how)
+ 			if (skb)
+ 				tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
  		}
+-		tsk->connected = 0;
+ 		sock->state = SS_DISCONNECTING;
+ 		tipc_node_remove_conn(net, dnode, tsk->portid);
+ 		/* fall through */
+@@ -2221,7 +2222,7 @@ static void tipc_sk_timeout(unsigned long data)
+ 	u32 own_node = tsk_own_node(tsk);
+ 
+ 	bh_lock_sock(sk);
+-	if (!tsk->connected) {
++	if (!tipc_sk_connected(sk)) {
+ 		bh_unlock_sock(sk);
  		goto exit;
+ 	}
+@@ -2231,7 +2232,6 @@ static void tipc_sk_timeout(unsigned long data)
+ 	if (tsk->probing_state == TIPC_CONN_PROBING) {
+ 		if (!sock_owned_by_user(sk)) {
+ 			sk->sk_socket->state = SS_DISCONNECTING;
+-			tsk->connected = 0;
+ 			tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
+ 					      tsk_peer_port(tsk));
+ 			sk->sk_state_change(sk);
+@@ -2257,11 +2257,12 @@ static void tipc_sk_timeout(unsigned long data)
+ static int tipc_sk_publish(struct tipc_sock *tsk, uint scope,
+ 			   struct tipc_name_seq const *seq)
+ {
+-	struct net *net = sock_net(&tsk->sk);
++	struct sock *sk = &tsk->sk;
++	struct net *net = sock_net(sk);
+ 	struct publication *publ;
+ 	u32 key;
+ 
+-	if (tsk->connected)
++	if (tipc_sk_connected(sk))
+ 		return -EINVAL;
+ 	key = tsk->portid + tsk->pub_count + 1;
+ 	if (key == tsk->portid)
+@@ -2719,6 +2720,7 @@ static int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
+ 	struct nlattr *attrs;
+ 	struct net *net = sock_net(skb->sk);
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
++	struct sock *sk = &tsk->sk;
+ 
+ 	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
+ 			  &tipc_genl_family, NLM_F_MULTI, TIPC_NL_SOCK_GET);
+@@ -2733,7 +2735,7 @@ static int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
+ 	if (nla_put_u32(skb, TIPC_NLA_SOCK_ADDR, tn->own_addr))
+ 		goto attr_msg_cancel;
+ 
+-	if (tsk->connected) {
++	if (tipc_sk_connected(sk)) {
+ 		err = __tipc_nl_add_sk_con(skb, tsk);
+ 		if (err)
+ 			goto attr_msg_cancel;
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
+Developer Access Program for Intel Xeon Phi Processors
+Access to Intel Xeon Phi processor-based developer platforms.
+With one year of Intel Parallel Studio XE.
+Training and support from Colfax.
+Order your platform today. http://sdm.link/xeonphi
