@@ -1,180 +1,237 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 13/16] tipc: create TIPC_DISCONNECTING as a new sk_state
-Date: Tue, 1 Nov 2016 14:02:46 +0100
-Message-ID: <1478005369-17239-14-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 09/16] tipc: remove socket
+	state SS_READY
+Date: Tue, 1 Nov 2016 14:02:42 +0100
+Message-ID: <1478005369-17239-10-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1478005369-17239-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-        <maloy@donjonn.com>, <ying.xue@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:64429 "EHLO
-        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1424340AbcKANEJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 09:04:09 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1478005369-17239-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-In this commit, we create a new tipc socket state TIPC_DISCONNECTING in
-sk_state. TIPC_DISCONNECTING is replacing the socket connection status
-update using SS_DISCONNECTING.
-TIPC_DISCONNECTING is set for connection oriented sockets at:
-- tipc_shutdown()
-- connection probe timeout
-- when we receive an error message on the connection.
+Until now, tipc socket state SS_READY declares that the socket is a
+connectionless socket.
 
-There is no functional change in this commit.
+In this commit, we remove the state SS_READY and replace it with a
+condition which returns true for datagram / connectionless sockets.
 
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
-v2: set TIPC_DISCONNECTING to TCP_CLOSE_WAIT.
----
- net/tipc/socket.c | 39 ++++++++++++++++++++++++---------------
- 1 file changed, 24 insertions(+), 15 deletions(-)
+ net/tipc/socket.c | 49 +++++++++++++++++++++++++++++++------------------
+ 1 file changed, 31 insertions(+), 18 deletions(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index b14dd2549980..a48c0c0676cf 100644
+index 1b1aa941cd06..a8c10764f2f6 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -54,6 +54,7 @@ enum {
- 	TIPC_LISTEN = TCP_LISTEN,
- 	TIPC_ESTABLISHED = TCP_ESTABLISHED,
- 	TIPC_OPEN = TCP_CLOSE,
-+	TIPC_DISCONNECTING = TCP_CLOSE_WAIT,
- };
+@@ -45,7 +45,6 @@
+ #include "netlink.h"
  
- /**
-@@ -362,10 +363,14 @@ static int tipc_set_sk_state(struct sock *sk, int state)
- 		break;
- 	case TIPC_ESTABLISHED:
- 		if (oldstate == SS_CONNECTING ||
--		    oldstate == SS_UNCONNECTED ||
- 		    oldsk_state == TIPC_OPEN)
- 			res = 0;
- 		break;
-+	case TIPC_DISCONNECTING:
-+		if (oldstate == SS_CONNECTING ||
-+		    oldsk_state == TIPC_ESTABLISHED)
-+			res = 0;
-+		break;
- 	}
+ #define SS_LISTENING		-1	/* socket is listening */
+-#define SS_READY		-2	/* socket is connectionless */
  
- 	if (!res)
-@@ -621,13 +626,14 @@ static int tipc_getname(struct socket *sock, struct sockaddr *uaddr,
- 			int *uaddr_len, int peer)
+ #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
+ #define CONN_PROBING_INTERVAL	msecs_to_jiffies(3600000)  /* [ms] => 1 h */
+@@ -294,6 +293,16 @@ static bool tipc_sk_connected(struct sock *sk)
+ 	return sk->sk_socket->state == SS_CONNECTED;
+ }
+ 
++/* tipc_sk_type_connectionless - check if the socket is datagram socket
++ * @sk: socket
++ *
++ * Returns true if connection less, false otherwise
++ */
++static bool tipc_sk_type_connectionless(struct sock *sk)
++{
++	return sk->sk_type == SOCK_RDM || sk->sk_type == SOCK_DGRAM;
++}
++
+ /* tsk_peer_msg - verify if message was sent by connected port's peer
+  *
+  * Handles cases where the node's network address has changed from
+@@ -345,7 +354,6 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
  {
- 	struct sockaddr_tipc *addr = (struct sockaddr_tipc *)uaddr;
--	struct tipc_sock *tsk = tipc_sk(sock->sk);
-+	struct sock *sk = sock->sk;
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct tipc_net *tn = net_generic(sock_net(sock->sk), tipc_net_id);
- 
- 	memset(addr, 0, sizeof(*addr));
- 	if (peer) {
- 		if ((sock->state != SS_CONNECTED) &&
--			((peer != 2) || (sock->state != SS_DISCONNECTING)))
-+		    ((peer != 2) || (sk->sk_state != TIPC_DISCONNECTING)))
- 			return -ENOTCONN;
- 		addr->addr.id.ref = tsk_peer_port(tsk);
- 		addr->addr.id.node = tsk_peer_node(tsk);
-@@ -693,6 +699,9 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 			    (!skb_queue_empty(&sk->sk_receive_queue)))
- 				mask |= (POLLIN | POLLRDNORM);
- 			break;
-+		case TIPC_DISCONNECTING:
-+			mask = (POLLIN | POLLRDNORM | POLLHUP);
-+			break;
- 		case TIPC_LISTEN:
- 			if (!skb_queue_empty(&sk->sk_receive_queue))
- 				mask |= (POLLIN | POLLRDNORM);
-@@ -1028,7 +1037,7 @@ static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
- 		int err = sock_error(sk);
- 		if (err)
- 			return err;
--		if (sock->state == SS_DISCONNECTING)
-+		if (sk->sk_state == TIPC_DISCONNECTING)
- 			return -EPIPE;
- 		else if (sock->state != SS_CONNECTED)
- 			return -ENOTCONN;
-@@ -1098,7 +1107,7 @@ static int __tipc_send_stream(struct socket *sock, struct msghdr *m, size_t dsz)
- 		return -EMSGSIZE;
- 
- 	if (unlikely(sock->state != SS_CONNECTED)) {
--		if (sock->state == SS_DISCONNECTING)
-+		if (sk->sk_state == TIPC_DISCONNECTING)
- 			return -EPIPE;
- 		else
- 			return -ENOTCONN;
-@@ -1626,7 +1635,7 @@ static bool filter_connect(struct tipc_sock *tsk, struct sk_buff *skb)
- 			return false;
- 
- 		if (unlikely(msg_errcode(hdr))) {
--			sock->state = SS_DISCONNECTING;
-+			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
- 			/* Let timer expire on it's own */
- 			tipc_node_remove_conn(net, tsk_peer_node(tsk),
- 					      tsk->portid);
-@@ -1641,13 +1650,13 @@ static bool filter_connect(struct tipc_sock *tsk, struct sk_buff *skb)
- 			return false;
- 
- 		if (unlikely(msg_errcode(hdr))) {
--			sock->state = SS_DISCONNECTING;
-+			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
- 			sk->sk_err = ECONNREFUSED;
- 			return true;
- 		}
- 
- 		if (unlikely(!msg_isdata(hdr))) {
--			sock->state = SS_DISCONNECTING;
-+			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
- 			sk->sk_err = EINVAL;
- 			return true;
- 		}
-@@ -1674,6 +1683,7 @@ static bool filter_connect(struct tipc_sock *tsk, struct sk_buff *skb)
- 
- 	switch (sk->sk_state) {
- 	case TIPC_OPEN:
-+	case TIPC_DISCONNECTING:
+ 	struct tipc_net *tn;
+ 	const struct proto_ops *ops;
+-	socket_state state;
+ 	struct sock *sk;
+ 	struct tipc_sock *tsk;
+ 	struct tipc_msg *msg;
+@@ -357,16 +365,13 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 	switch (sock->type) {
+ 	case SOCK_STREAM:
+ 		ops = &stream_ops;
+-		state = SS_UNCONNECTED;
  		break;
- 	case TIPC_LISTEN:
- 		/* Accept only SYN message */
-@@ -2195,9 +2205,7 @@ static int tipc_shutdown(struct socket *sock, int how)
+ 	case SOCK_SEQPACKET:
+ 		ops = &packet_ops;
+-		state = SS_UNCONNECTED;
+ 		break;
+ 	case SOCK_DGRAM:
+ 	case SOCK_RDM:
+ 		ops = &msg_ops;
+-		state = SS_READY;
+ 		break;
+ 	default:
+ 		return -EPROTOTYPE;
+@@ -387,7 +392,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 
+ 	/* Finish initializing socket data structures */
+ 	sock->ops = ops;
+-	sock->state = state;
++	sock->state = SS_UNCONNECTED;
+ 	sock_init_data(sock, sk);
+ 	if (tipc_sk_insert(tsk)) {
+ 		pr_warn("Socket create failed; port number exhausted\n");
+@@ -407,7 +412,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 	tsk->snd_win = tsk_adv_blocks(RCVBUF_MIN);
+ 	tsk->rcv_win = tsk->snd_win;
+ 
+-	if (sock->state == SS_READY) {
++	if (tipc_sk_type_connectionless(sk)) {
+ 		tsk_set_unreturnable(tsk, true);
+ 		if (sock->type == SOCK_DGRAM)
+ 			tsk_set_unreliable(tsk, true);
+@@ -651,12 +656,19 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
+ 
+ 	sock_poll_wait(file, sk_sleep(sk), wait);
+ 
++	if (tipc_sk_type_connectionless(sk)) {
++		if (!tsk->link_cong)
++			mask |= POLLOUT;
++		if (!skb_queue_empty(&sk->sk_receive_queue))
++			mask |= (POLLIN | POLLRDNORM);
++		return mask;
++	}
++
+ 	switch ((int)sock->state) {
+ 	case SS_UNCONNECTED:
+ 		if (!tsk->link_cong)
+ 			mask |= POLLOUT;
+ 		break;
+-	case SS_READY:
+ 	case SS_CONNECTED:
+ 		if (!tsk->link_cong && !tsk_conn_cong(tsk))
+ 			mask |= POLLOUT;
+@@ -893,6 +905,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
+ 	struct tipc_msg *mhdr = &tsk->phdr;
+ 	u32 dnode, dport;
+ 	struct sk_buff_head pktchain;
++	bool is_connectionless = tipc_sk_type_connectionless(sk);
+ 	struct sk_buff *skb;
+ 	struct tipc_name_seq *seq;
+ 	struct iov_iter save;
+@@ -903,7 +916,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
+ 	if (dsz > TIPC_MAX_USER_MSG_SIZE)
+ 		return -EMSGSIZE;
+ 	if (unlikely(!dest)) {
+-		if (sock->state == SS_READY && tsk->peer.family == AF_TIPC)
++		if (is_connectionless && tsk->peer.family == AF_TIPC)
+ 			dest = &tsk->peer;
+ 		else
+ 			return -EDESTADDRREQ;
+@@ -911,7 +924,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
+ 		   dest->family != AF_TIPC) {
+ 		return -EINVAL;
+ 	}
+-	if (unlikely(sock->state != SS_READY)) {
++	if (!is_connectionless) {
+ 		if (sock->state == SS_LISTENING)
+ 			return -EPIPE;
+ 		if (sock->state != SS_UNCONNECTED)
+@@ -966,7 +979,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
+ 		TIPC_SKB_CB(skb)->wakeup_pending = tsk->link_cong;
+ 		rc = tipc_node_xmit(net, &pktchain, dnode, tsk->portid);
+ 		if (likely(!rc)) {
+-			if (sock->state != SS_READY)
++			if (!is_connectionless)
+ 				sock->state = SS_CONNECTING;
+ 			return dsz;
+ 		}
+@@ -1337,6 +1350,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m, size_t buf_len,
+ 	struct tipc_sock *tsk = tipc_sk(sk);
+ 	struct sk_buff *buf;
+ 	struct tipc_msg *msg;
++	bool is_connectionless = tipc_sk_type_connectionless(sk);
+ 	long timeo;
+ 	unsigned int sz;
+ 	u32 err;
+@@ -1348,7 +1362,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m, size_t buf_len,
  
  	lock_sock(sk);
  
--	switch (sock->state) {
--	case SS_CONNECTING:
--	case SS_CONNECTED:
-+	if (sock->state == SS_CONNECTING || sock->state == SS_CONNECTED) {
+-	if (unlikely(sock->state == SS_UNCONNECTED)) {
++	if (!is_connectionless && unlikely(sock->state == SS_UNCONNECTED)) {
+ 		res = -ENOTCONN;
+ 		goto exit;
+ 	}
+@@ -1393,8 +1407,8 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m, size_t buf_len,
+ 			goto exit;
+ 		res = sz;
+ 	} else {
+-		if ((sock->state == SS_READY) ||
+-		    ((err == TIPC_CONN_SHUTDOWN) || m->msg_control))
++		if (is_connectionless || err == TIPC_CONN_SHUTDOWN ||
++		    m->msg_control)
+ 			res = 0;
+ 		else
+ 			res = -ECONNRESET;
+@@ -1403,7 +1417,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m, size_t buf_len,
+ 	if (unlikely(flags & MSG_PEEK))
+ 		goto exit;
  
- restart:
- 		dnode = tsk_peer_node(tsk);
-@@ -2218,11 +2226,12 @@ static int tipc_shutdown(struct socket *sock, int how)
- 			if (skb)
- 				tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
- 		}
--		sock->state = SS_DISCONNECTING;
-+		tipc_set_sk_state(sk, TIPC_DISCONNECTING);
- 		tipc_node_remove_conn(net, dnode, tsk->portid);
--		/* fall through */
-+	}
+-	if (likely(sock->state != SS_READY)) {
++	if (likely(!is_connectionless)) {
+ 		tsk->rcv_unacked += tsk_inc(tsk, hlen + sz);
+ 		if (unlikely(tsk->rcv_unacked >= (tsk->rcv_win / 4)))
+ 			tipc_sk_send_ack(tsk);
+@@ -1699,7 +1713,6 @@ static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *skb)
+ static bool filter_rcv(struct sock *sk, struct sk_buff *skb,
+ 		       struct sk_buff_head *xmitq)
+ {
+-	struct socket *sock = sk->sk_socket;
+ 	struct tipc_sock *tsk = tipc_sk(sk);
+ 	struct tipc_msg *hdr = buf_msg(skb);
+ 	unsigned int limit = rcvbuf_limit(sk, skb);
+@@ -1725,7 +1738,7 @@ static bool filter_rcv(struct sock *sk, struct sk_buff *skb,
+ 	}
  
--	case SS_DISCONNECTING:
-+	switch (sk->sk_state) {
-+	case TIPC_DISCONNECTING:
+ 	/* Reject if wrong message type for current socket state */
+-	if (unlikely(sock->state == SS_READY)) {
++	if (tipc_sk_type_connectionless(sk)) {
+ 		if (msg_connected(hdr)) {
+ 			err = TIPC_ERR_NO_PORT;
+ 			goto reject;
+@@ -1935,7 +1948,7 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
+ 	lock_sock(sk);
  
- 		/* Discard any unreceived messages */
- 		__skb_queue_purge(&sk->sk_receive_queue);
-@@ -2258,7 +2267,7 @@ static void tipc_sk_timeout(unsigned long data)
- 
- 	if (tsk->probe_unacked) {
- 		if (!sock_owned_by_user(sk)) {
--			sk->sk_socket->state = SS_DISCONNECTING;
-+			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
- 			tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
- 					      tsk_peer_port(tsk));
- 			sk->sk_state_change(sk);
+ 	/* DGRAM/RDM connect(), just save the destaddr */
+-	if (sock->state == SS_READY) {
++	if (tipc_sk_type_connectionless(sk)) {
+ 		if (dst->family == AF_UNSPEC) {
+ 			memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
+ 		} else if (destlen != sizeof(struct sockaddr_tipc)) {
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
+Developer Access Program for Intel Xeon Phi Processors
+Access to Intel Xeon Phi processor-based developer platforms.
+With one year of Intel Parallel Studio XE.
+Training and support from Colfax.
+Order your platform today. http://sdm.link/xeonphi
