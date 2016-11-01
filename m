@@ -1,111 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: enhance tcp collapsing
-Date: Tue, 01 Nov 2016 08:32:26 -0700
-Message-ID: <1478014346.7065.342.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <VI1PR0502MB29577BA8C670D1379CC4F1B7D4A10@VI1PR0502MB2957.eurprd05.prod.outlook.com>
-         <1478007189.7065.331.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35861 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751261AbcKAPc2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 11:32:28 -0400
-Received: by mail-pf0-f196.google.com with SMTP id n85so11947009pfi.3
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 08:32:27 -0700 (PDT)
-In-Reply-To: <1478007189.7065.331.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 2/3] net: 3c59x: use new api ethtool_{get|set}_link_ksettings
+Date: Tue,  1 Nov 2016 16:32:26 +0100
+Message-ID: <1478014347-14994-2-git-send-email-tremyfr@gmail.com>
+References: <1478014347-14994-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: klassert@mathematik.tu-chemnitz.de, davem@davemloft.net,
+        mugunthanvnm@ti.com, a@unstable.cc, fw@strlen.de, jarod@redhat.com,
+        fabf@skynet.be
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478014347-14994-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-As Ilya Lesokhin suggested, we can collapse two skbs at retransmit
-time even if the skb at the right has fragments.
-
-We simply have to use more generic skb_copy_bits() instead of
-skb_copy_from_linear_data() in tcp_collapse_retrans()
-
-Tested:
-
-Used following packetdrill test
-
-// Establish a connection.
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-   +0 bind(3, ..., ...) = 0
-   +0 listen(3, 1) = 0
-
-   +0 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 8>
-   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
-+.100 < . 1:1(0) ack 1 win 257
-   +0 accept(3, ..., ...) = 4
-
-   +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
-   +0 write(4, ..., 200) = 200
-   +0 > P. 1:201(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 201:401(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 401:601(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 601:801(200) ack 1
-+.001 write(4, ..., 200) = 200
-   +0 > P. 801:1001(200) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1001:1101(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1101:1201(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1201:1301(100) ack 1
-+.001 write(4, ..., 100) = 100
-   +0 > P. 1301:1401(100) ack 1
-
-+.100 < . 1:1(0) ack 1 win 257 <nop,nop,sack 1001:1401>
-// Check that TCP collapse works :
-   +0 > P. 1:1001(1000) ack 1
-
-
-Reported-by: Ilya Lesokhin <ilyal@mellanox.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
-net/ipv4/tcp_output.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/3com/3c59x.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 896e9dfbdb5cd9ca0fa003f6be2c5cd332dde7cf..ad668d97fbb1660a9ad44ddb459ea45e15a22de1 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2529,8 +2529,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 3ecf613..b3560a3 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -2907,18 +2907,20 @@ static int vortex_nway_reset(struct net_device *dev)
+ 	return mii_nway_restart(&vp->mii);
+ }
  
- 	tcp_unlink_write_queue(next_skb, sk);
- 
--	skb_copy_from_linear_data(next_skb, skb_put(skb, next_skb_size),
--				  next_skb_size);
-+	skb_copy_bits(next_skb, 0, skb_put(skb, next_skb_size), next_skb_size);
- 
- 	if (next_skb->ip_summed == CHECKSUM_PARTIAL)
- 		skb->ip_summed = CHECKSUM_PARTIAL;
-@@ -2567,14 +2566,11 @@ static bool tcp_can_collapse(const struct sock *sk, const struct sk_buff *skb)
+-static int vortex_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int vortex_get_link_ksettings(struct net_device *dev,
++				     struct ethtool_link_ksettings *cmd)
  {
- 	if (tcp_skb_pcount(skb) > 1)
- 		return false;
--	/* TODO: SACK collapsing could be used to remove this condition */
--	if (skb_shinfo(skb)->nr_frags != 0)
--		return false;
- 	if (skb_cloned(skb))
- 		return false;
- 	if (skb == tcp_send_head(sk))
- 		return false;
--	/* Some heurestics for collapsing over SACK'd could be invented */
-+	/* Some heuristics for collapsing over SACK'd could be invented */
- 	if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED)
- 		return false;
+ 	struct vortex_private *vp = netdev_priv(dev);
  
+-	return mii_ethtool_gset(&vp->mii, cmd);
++	return mii_ethtool_get_link_ksettings(&vp->mii, cmd);
+ }
+ 
+-static int vortex_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int vortex_set_link_ksettings(struct net_device *dev,
++				     const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 
+-	return mii_ethtool_sset(&vp->mii, cmd);
++	return mii_ethtool_set_link_ksettings(&vp->mii, cmd);
+ }
+ 
+ static u32 vortex_get_msglevel(struct net_device *dev)
+@@ -3031,13 +3033,13 @@ static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ 	.set_msglevel           = vortex_set_msglevel,
+ 	.get_ethtool_stats      = vortex_get_ethtool_stats,
+ 	.get_sset_count		= vortex_get_sset_count,
+-	.get_settings           = vortex_get_settings,
+-	.set_settings           = vortex_set_settings,
+ 	.get_link               = ethtool_op_get_link,
+ 	.nway_reset             = vortex_nway_reset,
+ 	.get_wol                = vortex_get_wol,
+ 	.set_wol                = vortex_set_wol,
+ 	.get_ts_info		= ethtool_op_get_ts_info,
++	.get_link_ksettings     = vortex_get_link_ksettings,
++	.set_link_ksettings     = vortex_set_link_ksettings,
+ };
+ 
+ #ifdef CONFIG_PCI
+-- 
+1.7.4.4
