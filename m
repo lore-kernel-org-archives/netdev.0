@@ -1,248 +1,137 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: Let's do P4
-Date: Wed, 2 Nov 2016 09:07:23 +0100
-Message-ID: <20161102080723.GD1713@nanopsycho.orion>
-References: <20161030074458.GB1686@nanopsycho.orion>
+Date: Wed, 2 Nov 2016 09:14:04 +0100
+Message-ID: <20161102081404.GE1713@nanopsycho.orion>
+References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com>
+ <20161030074458.GB1686@nanopsycho.orion>
  <20161030102649.GE1810@pox.localdomain>
  <20161030163836.GC1686@nanopsycho.orion>
  <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
  <20161031093922.GA2895@nanopsycho.orion>
- <58177712.4000208@gmail.com>
- <20161031171229.GB2895@nanopsycho.orion>
- <58179CE4.2080400@gmail.com>
- <20161101084643.GA1707@nanopsycho.orion>
- <5818B11C.2040004@gmail.com>
+ <58194F83.9020205@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>, Jakub Kicinski <kubakici@wp.pl>,
-        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        roopa@cumulusnetworks.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
-        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
-        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, ivecera@redhat.com,
+        Thomas Graf <tgraf@suug.ch>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
+        davem@davemloft.net, jhs@mojatatu.com, roopa@cumulusnetworks.com,
+        simon.horman@netronome.com, ast@kernel.org,
+        prem@barefootnetworks.com, hannes@stressinduktion.org,
+        jbenc@redhat.com, tom@herbertland.com, mattyk@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, ogerlitz@mellanox.com, linville@tuxdriver.com,
+        andy@greyhouse.net, f.fainelli@gmail.com, dsa@cumulusnetworks.com,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        ivecera@redhat.com,
         Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
-To: John Fastabend <john.fastabend@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37596 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753010AbcKBIH0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 04:07:26 -0400
-Received: by mail-wm0-f53.google.com with SMTP id t79so19562931wmt.0
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 01:07:25 -0700 (PDT)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37614 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750919AbcKBIOH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 04:14:07 -0400
+Received: by mail-wm0-f51.google.com with SMTP id t79so19904288wmt.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 01:14:06 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <5818B11C.2040004@gmail.com>
+In-Reply-To: <58194F83.9020205@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 01, 2016 at 04:13:32PM CET, john.fastabend@gmail.com wrote:
->[...]
->
->>>> P4 is ment to program programable hw, not fixed pipeline.
->>>>
->>>
->>> I'm guessing there are no upstream drivers at the moment that support
->>> this though right? The rocker universe bits though could leverage this.
+Wed, Nov 02, 2016 at 03:29:23AM CET, daniel@iogearbox.net wrote:
+>On 10/31/2016 10:39 AM, Jiri Pirko wrote:
+>> Sun, Oct 30, 2016 at 11:39:05PM CET, alexei.starovoitov@gmail.com wrote:
+>> > On Sun, Oct 30, 2016 at 05:38:36PM +0100, Jiri Pirko wrote:
+>> > > Sun, Oct 30, 2016 at 11:26:49AM CET, tgraf@suug.ch wrote:
+>> > > > On 10/30/16 at 08:44am, Jiri Pirko wrote:
+>> > > > > Sat, Oct 29, 2016 at 06:46:21PM CEST, john.fastabend@gmail.com wrote:
+>> > > > > > On 16-10-29 07:49 AM, Jakub Kicinski wrote:
+>> > > > > > > On Sat, 29 Oct 2016 09:53:28 +0200, Jiri Pirko wrote:
+>> > > > > > > > Hi all.
+>> > 
+>> > sorry for delay. travelling to KS, so probably missed something in
+>> > this thread and comments can be totally off...
+>> > 
+>> > the subject "let's do P4" is imo misleading, since it reads like
+>> > we don't do P4 at the moment, whereas the opposite is true.
+>> > Several p4->bpf compilers is a proof.
 >> 
->> mlxsw. But this is naturaly not implemented yet, as there is no
->> infrastructure.
->
->Really? What is re-programmable?
->
->Can the parse graph support arbitrary parse graph?
->Can the table topology be reconfigured?
->Can new tables be created?
->What about "new" actions being defined at configuration time?
->
->Or is this just the normal TCAM configuration of defining key widths and
->fields.
-
-At this point TCAM configuration.
-
-
->
+>> We don't do p4 in kernel now, we don't do p4 offloading now. That is
+>> the reason I started this discussion.
 >> 
+>> > > The network world is divided into 2 general types of hw:
+>> > > 1) network ASICs - network specific silicon, containing things like TCAM
+>> > >     These ASICs are suitable to be programmed by P4.
+>> > 
+>> > i think the opposite is the case in case of P4.
+>> > when hw asic has tcam it's still far far away from being usable with P4
+>> > which requires fully programmable protocol parser, arbitrary tables and so on.
+>> > P4 doesn't even define TCAM as a table type. The p4 program can declare
+>> > a desired algorithm of search in the table and compiler has to figure out
+>> > what HW resources to use to satisfy such p4 program.
+>> > 
+>> > > 2) network processors - basically a general purpose CPUs
+>> > >     These processors are suitable to be programmed by eBPF.
+>> > 
+>> > I think this statement is also misleading, since it positions
+>> > p4 and bpf as competitors whereas that's not the case.
+>> > p4 is the language. bpf is an instruction set.
 >> 
->>>
->>>>
->>>>>
->>>>>>
->>>>>>> since I cannot see how one can put the whole p4 language compiler
->>>>>>> into the driver, so this last step of p4ast->hw, I presume, will be
->>>>>>> done by firmware, which will be running full compiler in an embedded cpu
->>>>>>
->>>>>> In case of mlxsw, that compiler would be in driver.
->>>>>>
->>>>>>
->>>>>>> on the switch. To me that's precisely the kernel bypass, since we won't
->>>>>>> have a clue what HW capabilities actually are and won't be able to fine
->>>>>>> grain control them.
->>>>>>> Please correct me if I'm wrong.
->>>>>>
->>>>>> You are wrong. By your definition, everything has to be figured out in
->>>>>> driver and FW does nothing. Otherwise it could do "something else" and
->>>>>> that would be a bypass? Does not make any sense to me whatsoever.
->>>>>>
->>>>>>
->>>>>>>
->>>>>>>> Plus the thing I cannot imagine in the model you propose is table fillup.
->>>>>>>> For ebpf, you use maps. For p4 you would have to have a separate HW-only
->>>>>>>> API. This is very similar to the original John's Flow-API. And therefore
->>>>>>>> a kernel bypass.
->>>>>>>
->>>>>>> I think John's flow api is a better way to expose mellanox switch capabilities.
->>>>>>
->>>>>> We are under impression that p4 suits us nicely. But it is not about
->>>>>> us, it is about finding the common way to do this.
->>>>>>
->>>>>
->>>>> I'll just poke at my FlowAPI question again. For fixed ASICS what is
->>>>> the Flow-API missing. We have a few proof points that show it is both
->>>>> sufficient and usable for the handful of use cases we care about.
->>>>
->>>> Yeah, it is most probably fine. Even for flex ASICs to some point. The
->>>> question is how it stands comparing to other alternatives, like p4
->>>>
->>>
->>> Just to be clear the Flow-API _was_ generated from the initial P4 spec.
->>> The header files and tools used with it were autogenerated ("compiled"
->>> in a loose sense) from the P4 program. The piece I never exposed
->>> was the set_* operations to reconfigure running systems. I'm not sure
->>> how valuable this is in practice though.
->>>
->>> Also there is a P4-16 spec that will be released shortly that is more
->>> flexible and also more complex.
+>> I wanted to say that we are having 2 approaches in silicon, 2 different
+>> paradigms. Sure you can do p4>bpf. But hard to do it the opposite way.
 >> 
->> Would it be able to easily extend the Flow-API to include the changes?
->> 
+>> > > Exactly. Following drawing shows p4 pipeline setup for SW and Hw:
+>> > > 
+>> > >                                   |
+>> > >                                   |               +--> ebpf engine
+>> > >                                   |               |
+>> > >                                   |               |
+>> > >                                   |           compilerB
+>> > >                                   |               ^
+>> > >                                   |               |
+>> > > p4src --> compilerA --> p4ast --TCNL--> cls_p4 --+-> driver -> compilerC -> HW
+>> > >                                   |
+>> > >                         userspace | kernel
+>> > >                                   |
 >
->P4-16 will allow externs, "functions" to execute in the control flow and
->possibly inside the parse graph. None of this was considered in the
->Flow-API. So none of this is supported.
->
->I still have the question are you trying to push the "programming" of
->the device via 'tc' or just the runtime configuration of tables? If it
->is just runtime Flow-API is sufficient IMO. If its programming the
->device using the complete P4-16 spec than no its not sufficient. But
+>Sorry for jumping into the middle and the delay (plumbers this week). My
+>question would be, if the main target is for p4 *offloading* anyway, who
+>would use this sw fallback path? Mostly for testing purposes?
 
-Sure we need both.
-
-
->I don't believe vendors will expose the complete programmability of the
->device in the driver, this is going to look more like a fw update than
->a runtime change at least on the devices I'm aware of.
-
-Depends on driver. I think it is fine if driver processed it into come
-hw configuration sequence or it simply pushed the program down to fw.
-Both usecases are legit.
+Development and testing purposes, yes.
 
 
 >
->> 
->>>
->>>>
->>>>>
->>>>>>
->>>>>>> I also think it's not fair to call it 'bypass'. I see nothing in it
->>>>>>> that justify such 'swear word' ;)
->>>>>>
->>>>>> John's Flow-API was a kernel bypass. Why? It was a API specifically
->>>>>> designed to directly work with HW tables, without kernel being involved.
->>>>>
->>>>> I don't think that is a fair definition of HW bypass. The SKIP_SW flag
->>>>> does exactly that for 'tc' based offloads and it was not rejected.
->>>>
->>>> No, no, no. You still have possibility to do the same thing in kernel,
->>>> same functionality, with the same API. That is a big difference.
->>>>
->>>>
->>>>>
->>>>> The _real_ reason that seems to have fallen out of this and other
->>>>> discussion is the Flow-API didn't provide an in-kernel translation into
->>>>> an emulated patch. Note we always had a usermode translation to eBPF.
->>>>> A secondary reason appears to be overhead of adding yet another netlink
->>>>> family.
->>>>
->>>> Yeah. Maybe you remember, back then when Flow-API was being discussed,
->>>> I suggested to wrap it under TC as cls_xflows and cls_xflowsaction of
->>>> some sort and do in-kernel datapath implementation. I believe that after
->>>> that, it would be acceptable.
->>>>
->>>
->>> As I understand the thread here that is exactly the proposal here right?
->>> With a discussion around if the structures/etc are sufficient or any
->>> alternative representations exist.
->> 
->> Might be the way, yes. But I fear that with other p4 extensions this
->> might not be easy to align with. Therefore I though about something more
->> generic, like the p4ast.
->> 
->
->Same question as above are we _really_ talking about pushing the entire
->programmability of the device via 'tc'. If so we need to have a vendor
->say they will support and implement this?
+>I'm not sure about compilerB here and the complexity that needs to be
+>pushed into the kernel along with it. I would assume this would result
+>in slower code than what the existing P4 -> eBPF front ends for LLVM
+>would generate since it could perform all kind of optimizations there,
 
-We need some API, and I believe that TC is perfectly suitable for that.
-Why do you think it's a problem?
+The complexity would be similar to compilerC. For compilerB,
+optimizations does not really matter, as it it for testing mainly.
 
 
+>that might not be feasible for doing inside the kernel. Thus, if I'd want
+>to do that in sw, I'd just use the existing LLVM facilities instead and
+>go via cls_bpf in that case.
+>
+>What is your compilerA? Is that part of tc in user space? Maybe linked
 
->
->> 
->>>
->>>>
->>>>>
->>>>>>
->>>>>>
->>>>>>> The goal of flow api was to expose HW features to user space, so that
->>>>>>> user space can program it. For something simple as mellanox switch
->>>>>>> asic it fits perfectly well.
->>>>>>
->>>>>> Again, this is not mlx-asic-specific. And again, that is a kernel bypass.
->>>>>>
->>>>>>
->>>>>>> Unless I misunderstand the bigger goal of this discussion and it's
->>>>>>> about programming ezchip devices.
->>>>>>
->>>>>> No. For network processors, I believe that BPF is nicely offloadable, no
->>>>>> need to do the excercise for that.
->>>>>>
->>>>>>
->>>>>>>
->>>>>>> If the goal is to model hw tcam in the linux kernel then just introduce
->>>>>>> tcam bpf map type. It will be dog slow in user space, but it will
->>>>>>> match exactly what is happnening in the HW and user space can make
->>>>>>> sensible trade-offs.
->>>>>>
->>>>>> No, you got me completely wrong. This is not about the TCAM. This is
->>>>>> about differences in the 2 words (p4/bpf).
->>>>>> Again, for "p4-ish" devices, you have to translate BPF. And as you
->>>>>> noted, it's an instruction set. Very hard if not impossible to parse in
->>>>>> order to get back the original semantics.
->>>>>>
->>>>>
->>>>> I think in this discussion "p4-ish" devices means devices with multiple
->>>>> tables in a pipeline? Not devices that have programmable/configurable
->>>>> pipelines right? And if we get to talking about reconfigurable devices
->>>>> I believe this should be done out of band as it typically means
->>>>> reloading some ucode, etc.
->>>>
->>>> I'm talking about both. But I think we should focus on reconfigurable
->>>> ones, as we probably won't see that much fixed ones in the future.
->>>>
->>>
->>> hmm maybe but the 10/40/100Gbps devices are going to be around for some
->>> time. So we need to ensure these work well.
->> 
->> Yes, but I would like to emphasize, if we are defining new api
->> the primary focus should be on new devices.
->> 
->> 
->
->What device though. Back to mlxsw question about actually supporting
->this stuff.
->
+It is something that transforms original p4 source to some intermediate
+form, easy to be processed by in-kernel compilers.
+
+
+>against LLVM lib, for example? If you really want some sw path, can't tc
+>do this transparently from user space instead when it gets a netlink error
+>that it cannot get offloaded (and thus switch internally to f_bpf's loader)?
+
+In real life, user will most probably use p4 for hw programming, but the
+sw fallback will be done in bpf directly. In that case, he would use
+cls_bfp SKIP_HW
+cls_p4 SKIP_SW
+
+But in order to allow cls_p4 offloading to hw, we need in-kernel
+interpreter. That is purpose of compilerB to take agvantage of bpf, but
+the in-kernel interpreter could be implemented differently.
