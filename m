@@ -1,36 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v5 5/7] net: ethernet: bgmac: device tree phy enablement
-Date: Wed, 2 Nov 2016 10:16:39 -0700
-Message-ID: <a6a953b1-d8f1-20b9-aa46-5956affba0af@gmail.com>
-References: <1478106488-11779-1-git-send-email-jon.mason@broadcom.com>
- <1478106488-11779-6-git-send-email-jon.mason@broadcom.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv4: allow local fragmentation in
+ ip_finish_output_gso()
+Date: Wed, 02 Nov 2016 18:17:32 +0100
+Message-ID: <1478107052.1833947.775286313.0A06B9DC@webmail.messagingengine.com>
+References: <1478104158-9504-1-git-send-email-lrichard@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
- rafal@milecki.pl, linux-arm-kernel@lists.infradead.org
-To: Jon Mason <jon.mason@broadcom.com>, David Miller <davem@davemloft.net>,
- Rob Herring <robh+dt@kernel.org>, Mark Rutland <mark.rutland@arm.com>,
- Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1478106488-11779-6-git-send-email-jon.mason@broadcom.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+To: Lance Richardson <lrichard@redhat.com>, netdev@vger.kernel.org,
+        fw@strlen.de, jtluka@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:51383 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933374AbcKBRRd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 13:17:33 -0400
+In-Reply-To: <1478104158-9504-1-git-send-email-lrichard@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/02/2016 10:08 AM, Jon Mason wrote:
-> Change the bgmac driver to allow for phy's defined by the device tree
+On Wed, Nov 2, 2016, at 17:29, Lance Richardson wrote:
+> Some configurations (e.g. geneve interface with default
+> MTU of 1500 over an ethernet interface with 1500 MTU) result
+> in the transmission of packets that exceed the configured MTU.
+> While this should be considered to be a "bad" configuration,
+> it is still allowed and should not result in the sending
+> of packets that exceed the configured MTU.
 > 
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> Fix by dropping the assumption in ip_finish_output_gso() that
+> locally originated gso packets will never need fragmentation.
+> Basic testing using iperf (observing CPU usage and bandwidth)
+> have shown no measurable performance impact for traffic not
+> requiring fragmentation.
+> 
+> Fixes: c7ba65d7b649 ("net: ip: push gso skb forwarding handling down the
+> stack")
+> Reported-by: Jan Tluka <jtluka@redhat.com>
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
