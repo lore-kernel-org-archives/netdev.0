@@ -1,83 +1,103 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Wed, 2 Nov 2016 15:27:08 +0100
-Message-ID: <20161102152708.5cb40a0c@redhat.com>
-References: <20161028011739-mutt-send-email-mst@kernel.org>
-        <20161027.213512.334468356710231957.davem@davemloft.net>
-        <CAKgT0Ufe3QYtFpmtsL39-nbyy+YEt=gZKU_WUr9Wir+LTYLuEQ@mail.gmail.com>
-        <20161027.221027.109834362557507518.davem@davemloft.net>
-        <58137533.4030105@gmail.com>
-        <20161028171812.48073f1f@jkicinski-Precision-T1700>
-        <20161028182223.GA53930@ast-mbp.thefacebook.com>
-        <ec23c734c23d81884349484927140741@mail.gmail.com>
-        <20161029112514.GC1810@pox.localdomain>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
+ FIB notifier
+Date: Wed, 02 Nov 2016 07:35:03 -0700
+Message-ID: <5819F997.2000808@cumulusnetworks.com>
+References: <1477948427-9189-1-git-send-email-idosch@idosch.org> <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com> <20161031225737.7nfoy4ka3ydzhptq@splinter> <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com> <5818B146.20209@cumulusnetworks.com> <20161101170345.pq2ewecw35mrurkp@splinter> <58194BD6.5040406@cumulusnetworks.com> <20161102072032.GA1713@nanopsycho.orion> <CAJieiUjGHX0C7mG3Y8m2VZHPPq=Rz-2D8e_L9ZASi-bCs8nJJw@mail.gmail.com> <20161102134845.GI1713@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jakub Kicinski <kubakici@wp.pl>,
-        John Fastabend <john.fastabend@gmail.com>,
-        David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
-        mst@redhat.com, shrijeet@gmail.com, tom@herbertland.com,
-        netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
+Cc: Ido Schimmel <idosch@idosch.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>, mlxsw <mlxsw@mellanox.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
         Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        brouer@redhat.com
-To: Thomas Graf <tgraf@suug.ch>
+        Andy Gospodarek <andy@greyhouse.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        alexander.h.duyck@intel.com,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Ido Schimmel <idosch@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54526 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755715AbcKBO1R (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Nov 2016 10:27:17 -0400
-In-Reply-To: <20161029112514.GC1810@pox.localdomain>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33539 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbcKBOfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 10:35:07 -0400
+Received: by mail-pf0-f174.google.com with SMTP id d2so13174846pfd.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 07:35:06 -0700 (PDT)
+In-Reply-To: <20161102134845.GI1713@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 29 Oct 2016 13:25:14 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
-
-> On 10/28/16 at 08:51pm, Shrijeet Mukherjee wrote:
-> > Generally agree, but SRIOV nics with multiple queues can end up in a bad
-> > spot if each buffer was 4K right ? I see a specific page pool to be used
-> > by queues which are enabled for XDP as the easiest to swing solution that
-> > way the memory overhead can be restricted to enabled queues and shared
-> > access issues can be restricted to skb's using that pool no ?
-
-Yes, that is why that I've been arguing so strongly for having the
-flexibility to attach a XDP program per RX queue, as this only change
-the memory model for this one queue.
-
+On 11/2/16, 6:48 AM, Jiri Pirko wrote:
+> Wed, Nov 02, 2016 at 02:29:40PM CET, roopa@cumulusnetworks.com wrote:
+>> On Wed, Nov 2, 2016 at 12:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Wed, Nov 02, 2016 at 03:13:42AM CET, roopa@cumulusnetworks.com wrote:
+>> [snip]
+>>
+>>>> I understand..but, if you are adding some core infrastructure for switchdev ..it cannot be
+>>>> based on the number of simple use-cases or data you have today.
+>>>>
+>>>> I won't be surprised if tomorrow other switch drivers have a case where they need to
+>>>> reset the hw routing table state and reprogram all routes again. Re-registering the notifier to just
+>>>> get the routing state of the kernel will not scale. For the long term, since the driver does not maintain a cache,
+>>> Driver (mlxsw, rocker) maintain a cache. So I'm not sure why you say
+>>> otherwise.
+>>>
+>>>
+>>>> a pull api with efficient use of rtnl will be useful for other such cases as well.
+>>> How do you imagine this "pull API" should look like?
+>>
+>> Just like you already have added fib notifiers to parallel fib netlink
+>> notifications, the pull API is  a parallel to 'netlink dump'.
+>> Is my imagination too wild  ? :)
+> Perhaps I'm slow, but I don't understand what you mean.
  
-> Isn't this clearly a must anyway? I may be missing something
-> fundamental here so please enlighten me :-)
-> 
-> If we dedicate a page per packet, that could translate to 14M*4K worth
-> of memory being mapped per second for just a 10G NIC under DoS attack.
-> How can one protect such as system? Is the assumption that we can always
-> drop such packets quickly enough before we start dropping randomly due
-> to memory pressure? If a handshake is required to determine validity
-> of a packet then that is going to be difficult.
+>>>>
+>>>> If you don't want to get to the complexity of a new api right away because of the
+>>>> simple case of management interface routes you have, Can your driver register the notifier early  ?
+>>>> (I am sure you have probably already thought about this)
+>>> Register early? What it would resolve? I must be missing something. We
+>>> register as early as possible. But the thing is, we cannot register
+>>> in a past. And that is what this patch resolves.
+>> sure, you must be having a valid problem then. I was just curious why
+>> your driver is not up and initialized before any of the addresses or
+>> routes get configured in the system (even on a management port). Ours
+> If you unload the module and load it again for example. This is a valid
+> usecase.
 
-Under DoS attacks you don't run out of memory, because a diverse set of
-socket memory limits/accounting avoids that situation.  What does
-happen is the maximum achievable PPS rate is directly dependent on the
-time you spend on each packet.   This use of CPU resources (and
-hitting mem-limits-safe-guards) push-back on the drivers speed to
-process the RX ring.  In effect, packets are dropped in the NIC HW as
-RX-ring queue is not emptied fast-enough.
+I see, so you are optimizing for this use case. sure it is a valid use-case but a narrow one
+compared to the rtnl overhead the api may bring
+ (note that i am not saying you should not solve it).
 
-Given you don't control what HW drops, the attacker will "successfully"
-cause your good traffic to be among the dropped packets.
+>
+>
+>> does. But i agree there can be races and you cannot always guarantee
+>> (I was just responding to ido's comment about adding complexity for a
+>> small problem he has to solve for management routes). Our driver does
+>> a pull before it starts. This helps when we want to reset the hardware
+>> routing table state too.
+> Can you point me to you driver in the tree? I would like to see how you
+> do "the pull".
+:), you know all this... but, if i must explicitly say it, yes,  we don't have a driver in the tree and
+we don't own the hardware. My analogy here is of a netlink dump that we use heavily for the
+same scale that you will probably deploy.
+i do give you full credit for the hardware and the driver and switchdev support and all that!.
 
-This is where XDP change the picture. If you can express (by eBPF) a
-filter that can separate "bad" vs "good" traffic, then you can take
-back control.  Almost like controlling what traffic the HW should drop.
-Given the cost of XDP-eBPF filter + serving regular traffic does not
-use all of your CPU resources, you have overcome the attack.
+>
+>>
+>> But, my point was, when you are defining an API, you cannot quantify
+>> the 'past' to be just the very 'close past' or 'the past is just the
+>> management routes that were added' . Tomorrow the 'past' can be the
+>> full routing table if you need to reset the hardware state.
+> Sure.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+This pull api was a suggestion for an efficient use of rtnl ...similar to how the netlink
+routing dump handles it. If you cannot imagine an api like that..., sure, your call.
