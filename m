@@ -1,81 +1,80 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH v7 5/6] net: ipv4, ipv6: run cgroup eBPF egress programs
-Date: Wed, 02 Nov 2016 02:17:17 +0100
-Message-ID: <58193E9D.7040201@iogearbox.net>
-References: <1477390454-12553-1-git-send-email-daniel@zonque.org>       <1477390454-12553-6-git-send-email-daniel@zonque.org> <20161031.124003.1361406552151798940.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] inet: fix sleeping inside inet_wait_for_connect()
+Date: Tue, 01 Nov 2016 18:54:57 -0700
+Message-ID: <1478051697.7065.360.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1478041476-5568-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: htejun-b10kYP2dOMg@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, kafai-b10kYP2dOMg@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
-        pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, harald-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161031.124003.1361406552151798940.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Andrey Konovalov <andreyknvl@google.com>,
+        Peter Zijlstra <peterz@infradead.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35105 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753502AbcKBBzA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 21:55:00 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i88so203346pfk.2
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 18:55:00 -0700 (PDT)
+In-Reply-To: <1478041476-5568-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/31/2016 05:40 PM, David Miller wrote:
-> From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
-> Date: Tue, 25 Oct 2016 12:14:13 +0200
->
->> @@ -312,6 +314,13 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
->>   	skb->dev = dev;
->>   	skb->protocol = htons(ETH_P_IP);
->>
->> +	ret = cgroup_bpf_run_filter(sk_to_full_sk(sk), skb,
->> +				    BPF_CGROUP_INET_EGRESS);
->> +	if (ret) {
->> +		kfree_skb(skb);
->> +		return ret;
->> +	}
->> +
->>   	/*
->>   	 *	Multicasts are looped back for other local users
->>   	 */
->> @@ -364,12 +373,20 @@ int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb)
->>   int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
->>   {
->>   	struct net_device *dev = skb_dst(skb)->dev;
->> +	int ret;
->>
->>   	IP_UPD_PO_STATS(net, IPSTATS_MIB_OUT, skb->len);
->>
->>   	skb->dev = dev;
->>   	skb->protocol = htons(ETH_P_IP);
->>
->> +	ret = cgroup_bpf_run_filter(sk_to_full_sk(sk), skb,
->> +				    BPF_CGROUP_INET_EGRESS);
->> +	if (ret) {
->> +		kfree_skb(skb);
->> +		return ret;
->> +	}
->> +
->>   	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING,
->>   			    net, sk, skb, NULL, dev,
->>   			    ip_finish_output,
->
-> The "sk" here is not necessarily the application socket.  It could be
-> a UDP tunnel socket or similar encapsulation object.
->
-> "skb->sk" is always the application socket, so is probably what you
-> need to pass down into the cgroup bpf run filter hook.
+On Tue, 2016-11-01 at 16:04 -0700, Cong Wang wrote:
+> Andrey reported this kernel warning:
 
-Wouldn't that mean however, when you go through stacked devices that
-you'd run the same eBPF cgroup program for skb->sk multiple times?
-(Except for things like crossing netns due to the skb_orphan() there.)
+> Unlike commit 26cabd31259ba43f68026ce3f62b78094124333f
+> ("sched, net: Clean up sk_wait_event() vs. might_sleep()"), the
+> sleeping function is called before schedule_timeout(), this is indeed
+> a bug. Fix this by moving the wait logic to the new API, it is similar
+> to commit ff960a731788a7408b6f66ec4fd772ff18833211
+> ("netdev, sched/wait: Fix sleeping inside wait event").
+> 
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Cc: Andrey Konovalov <andreyknvl@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Peter Zijlstra <peterz@infradead.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
 
-For example, when you're doing accounting through this facility, then
-TX part is counted X times instead of ideally just once, and for RX
-afaik, we seem to short-cut sk_filter_trim_cap() on the encaps anyway.
 
-I guess one could work around this by marking the skb with a verdict
-once it was accounted for the first time, either from within eBPF prog
-or from stack side. For eBPF we'd need to implement our own .is_valid_access()
-callback for the verifier to allow writing into skb meta data like skb->mark
-(sk filter can only write into cb[] for passing data between tail calls)
-plus making sure in either case that no other user is mangling that flag
-further on; hmm, probably rather unintuitive and fragile.
+Excellent.
 
-Unless I'm missing something obvious, I would currently think that just
-passing "sk" might be more correct.
+I guess we could also define sk_wait_event_woken()
+and use it instead of sk_wait_event(), and also in
+inet_wait_for_connect()
+
++#define sk_wait_event_woken(__sk, __timeo, __condition, __wait)                \
++       ({      int __rc;                                               \
++               release_sock(__sk);                                     \
++               __rc = __condition;                                     \
++               if (!__rc) {                                            \
++                       *(__timeo) = wait_woken(__wait, TASK_INTERRUPTIBLE, \
++                                               *(__timeo));            \
++               }                                                       \
++               lock_sock(__sk);                                        \
++               __rc = __condition;                                     \
++               __rc;                                                   \
++       })
+
+sk_wait_data() would need :
+
+@@ -2078,14 +2080,14 @@ void __sk_flush_backlog(struct sock *sk)
+  */
+ int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb)
+ {
++       DEFINE_WAIT_FUNC(wait, woken_wake_function);
+        int rc;
+-       DEFINE_WAIT(wait);
+ 
+-       prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
++       add_wait_queue(sk_sleep(sk), &wait);
+        sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
+-       rc = sk_wait_event(sk, timeo, skb_peek_tail(&sk->sk_receive_queue) != skb);
++       rc = sk_wait_event_woken(sk, timeo, skb_peek_tail(&sk->sk_receive_queue) != skb, &wait);
+        sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
+-       finish_wait(sk_sleep(sk), &wait);
++       remove_wait_queue(sk_sleep(sk), &wait);
+        return rc;
+ }
+ EXPORT_SYMBOL(sk_wait_data);
