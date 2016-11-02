@@ -1,54 +1,32 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH RFC 0/2] ethtool: Add actual port speed reporting
-Date: Wed, 2 Nov 2016 15:50:25 +0000
-Message-ID: <BL2PR07MB23069B0DB17B981AA43775B18DA00@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1478100914-23610-1-git-send-email-galp@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/3] ipv4: add IP_RECVFRAGSIZE cmsg
+Date: Wed, 02 Nov 2016 08:52:08 -0700
+Message-ID: <1478101928.7065.372.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1478098938-124108-1-git-send-email-willemdebruijn.kernel@gmail.com>
+         <1478098938-124108-2-git-send-email-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: David Decotigny <decot@googlers.com>,
-        Ben Hutchings <ben@decadent.org.uk>
-To: Gal Pressman <galp@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        "Vidya Sagar Ravipati" <vidya@cumulusnetworks.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jdorfman@google.com, davem@davemloft.net,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0079.outbound.protection.outlook.com ([104.47.42.79]:47200
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752092AbcKBPu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Nov 2016 11:50:27 -0400
-In-Reply-To: <1478100914-23610-1-git-send-email-galp@mellanox.com>
-Content-Language: en-US
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:32931 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755028AbcKBPwK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:52:10 -0400
+Received: by mail-pf0-f195.google.com with SMTP id a136so2111882pfa.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 08:52:09 -0700 (PDT)
+In-Reply-To: <1478098938-124108-2-git-send-email-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Sending RFC to get feedback for the following ethtool proposal:
->=20
-> In some cases such as virtual machines and multi functions (SR-IOV), the =
-actual
-> bandwidth exposed for each machine is not accurately shown in ethtool.
-> Currently ethtool shows only physical port link speed.
-> In our case we would like to show the virtual port operational link speed=
- which
-> in some cases is less than the physical port speed.
->=20
-> This will give users better visibility for the actual speed running on th=
-eir device.
->=20
-> $ ethtool ens6
-> ...
-> Speed: 50000Mb/s
-> Actual speed: 25000Mb/s
+On Wed, 2016-11-02 at 11:02 -0400, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> The IP stack records the largest fragment of a reassembled packet
+> in IPCB(skb)->frag_max_size. When reading a datagram or raw packet
+> that arrived fragmented, expose the value to allow applications to
+> estimate receive path MTU.
 
-Not saying this is a bad thing, but where exactly is it listed that ethtool=
- has
-to show the physical port speed?
-E.g., bnx2x shows the logical speed instead, and has been doing that for ye=
-ars.
-[Perhaps that's a past wrongness, but that's how it goes].
-
-And besides, one can argue that in the SR-IOV scenario the VF has no busine=
-ss
-knowing the physical port speed.
+Acked-by: Eric Dumazet <edumazet@google.com>
