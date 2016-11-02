@@ -1,61 +1,79 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v5 1/7] net: phy: broadcom: add bcm54xx_auxctl_read
-Date: Wed,  2 Nov 2016 13:08:02 -0400
-Message-ID: <1478106488-11779-2-git-send-email-jon.mason@broadcom.com>
+From: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v5 7/7] arm64: dts: NS2: add AMAC ethernet support
+Date: Wed,  2 Nov 2016 13:08:08 -0400
+Message-ID: <1478106488-11779-8-git-send-email-jon.mason@broadcom.com>
 References: <1478106488-11779-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478106488-11779-1-git-send-email-jon.mason@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1478106488-11779-1-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a helper function to read the AUXCTL register for the BCM54xx.  This
-mirrors the bcm54xx_auxctl_write function already present in the code.
+Add support for the AMAC ethernet to the Broadcom Northstar2 SoC device
+tree
 
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+Signed-off-by: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/phy/broadcom.c | 10 ++++++++++
- include/linux/brcmphy.h    |  1 +
- 2 files changed, 11 insertions(+)
+ arch/arm64/boot/dts/broadcom/ns2-svk.dts |  5 +++++
+ arch/arm64/boot/dts/broadcom/ns2.dtsi    | 12 ++++++++++++
+ 2 files changed, 17 insertions(+)
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 583ef8a..3a64b3d 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -30,6 +30,16 @@ MODULE_DESCRIPTION("Broadcom PHY driver");
- MODULE_AUTHOR("Maciej W. Rozycki");
- MODULE_LICENSE("GPL");
+diff --git a/arch/arm64/boot/dts/broadcom/ns2-svk.dts b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+index 2d7872a..2e4d90d 100644
+--- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
++++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+@@ -56,6 +56,10 @@
+ 	};
+ };
  
-+static int bcm54xx_auxctl_read(struct phy_device *phydev, u16 regnum)
-+{
-+	/* The register must be written to both the Shadow Register Select and
-+	 * the Shadow Read Register Selector
-+	 */
-+	phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum |
-+		  regnum << MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT);
-+	return phy_read(phydev, MII_BCM54XX_AUX_CTL);
-+}
++&enet {
++	status = "ok";
++};
 +
- static int bcm54xx_auxctl_write(struct phy_device *phydev, u16 regnum, u16 val)
- {
- 	return phy_write(phydev, MII_BCM54XX_AUX_CTL, regnum | val);
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 60def78..0ed6691 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -110,6 +110,7 @@
- #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
- #define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
-+#define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
+ &pci_phy0 {
+ 	status = "ok";
+ };
+@@ -172,6 +176,7 @@
+ &mdio_mux_iproc {
+ 	mdio@10 {
+ 		gphy0: eth-phy@10 {
++			enet-phy-lane-swap;
+ 			reg = <0x10>;
+ 		};
+ 	};
+diff --git a/arch/arm64/boot/dts/broadcom/ns2.dtsi b/arch/arm64/boot/dts/broadcom/ns2.dtsi
+index d95dc40..773ed59 100644
+--- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
++++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
+@@ -191,6 +191,18 @@
  
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MASK	0x0007
+ 		#include "ns2-clock.dtsi"
  
++		enet: ethernet@61000000 {
++			compatible = "brcm,ns2-amac";
++			reg = <0x61000000 0x1000>,
++			      <0x61090000 0x1000>,
++			      <0x61030000 0x100>;
++			reg-names = "amac_base", "idm_base", "nicpm_base";
++			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
++			phy-handle = <&gphy0>;
++			phy-mode = "rgmii";
++			status = "disabled";
++		};
++
+ 		dma0: dma@61360000 {
+ 			compatible = "arm,pl330", "arm,primecell";
+ 			reg = <0x61360000 0x1000>;
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
