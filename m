@@ -1,14 +1,16 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [mm PATCH v2 22/26] arch/xtensa: Add option to skip DMA sync as a
+Subject: [mm PATCH v2 18/26] arch/powerpc: Add option to skip DMA sync as a
  part of mapping
-Date: Wed, 02 Nov 2016 07:15:52 -0400
-Message-ID: <20161102111549.79519.59449.stgit@ahduyck-blue-test.jf.intel.com>
+Date: Wed, 02 Nov 2016 07:15:18 -0400
+Message-ID: <20161102111513.79519.65315.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Max Filippov <jcmvbkbc@gmail.com>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ linux-kernel@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+ Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org,
+ linuxppc-dev@lists.ozlabs.org
 To: linux-mm@kvack.org, akpm@linux-foundation.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
@@ -19,37 +21,42 @@ This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 via a sync_for_cpu or sync_for_device call.
 
-Cc: Max Filippov <jcmvbkbc@gmail.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: linuxppc-dev@lists.ozlabs.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/xtensa/kernel/pci-dma.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ arch/powerpc/kernel/dma.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/arch/xtensa/kernel/pci-dma.c b/arch/xtensa/kernel/pci-dma.c
-index 1e68806..6a16dec 100644
---- a/arch/xtensa/kernel/pci-dma.c
-+++ b/arch/xtensa/kernel/pci-dma.c
-@@ -189,7 +189,9 @@ static dma_addr_t xtensa_map_page(struct device *dev, struct page *page,
- {
- 	dma_addr_t dma_handle = page_to_phys(page) + offset;
- 
--	xtensa_sync_single_for_device(dev, dma_handle, size, dir);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		xtensa_sync_single_for_device(dev, dma_handle, size, dir);
+diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+index e64a601..6877e3f 100644
+--- a/arch/powerpc/kernel/dma.c
++++ b/arch/powerpc/kernel/dma.c
+@@ -203,6 +203,10 @@ static int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	for_each_sg(sgl, sg, nents, i) {
+ 		sg->dma_address = sg_phys(sg) + get_dma_offset(dev);
+ 		sg->dma_length = sg->length;
 +
- 	return dma_handle;
- }
++		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++			continue;
++
+ 		__dma_sync_page(sg_page(sg), sg->offset, sg->length, direction);
+ 	}
  
-@@ -197,7 +199,8 @@ static void xtensa_unmap_page(struct device *dev, dma_addr_t dma_handle,
- 			      size_t size, enum dma_data_direction dir,
- 			      unsigned long attrs)
+@@ -235,7 +239,10 @@ static inline dma_addr_t dma_direct_map_page(struct device *dev,
+ 					     unsigned long attrs)
  {
--	xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
+ 	BUG_ON(dir == DMA_NONE);
+-	__dma_sync_page(page, offset, size, dir);
++
 +	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
++		__dma_sync_page(page, offset, size, dir);
++
+ 	return page_to_phys(page) + offset + get_dma_offset(dev);
  }
  
- static int xtensa_map_sg(struct device *dev, struct scatterlist *sg,
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
