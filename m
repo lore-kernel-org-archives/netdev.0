@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] xen-netfront: cast grant table reference first to
- type int
-Date: Wed, 02 Nov 2016 15:33:52 -0400 (EDT)
-Message-ID: <20161102.153352.177155711824743808.davem@davemloft.net>
-References: <1478048673-26284-1-git-send-email-dongli.zhang@oracle.com>
+Subject: Re: [PATCH net-next v2] mlxsw: Remove unused including
+ <generated/utsrelease.h>
+Date: Wed, 02 Nov 2016 15:35:28 -0400 (EDT)
+Message-ID: <20161102.153528.1375569647412522165.davem@davemloft.net>
+References: <1478013248-9409-1-git-send-email-weiyj.lk@gmail.com>
+        <1478090997-15020-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        xen-devel@lists.xenproject.org
-To: dongli.zhang@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478048673-26284-1-git-send-email-dongli.zhang@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jiri@mellanox.com, idosch@mellanox.com, weiyongjun1@huawei.com,
+        netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45828 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754467AbcKBTfa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 15:35:30 -0400
+In-Reply-To: <1478090997-15020-1-git-send-email-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dongli Zhang <dongli.zhang@oracle.com>
-Date: Wed,  2 Nov 2016 09:04:33 +0800
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed,  2 Nov 2016 12:49:57 +0000
 
-> IS_ERR_VALUE() in commit 87557efc27f6a50140fb20df06a917f368ce3c66
-> ("xen-netfront: do not cast grant table reference to signed short") would
-> not return true for error code unless we cast ref first to type int.
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> Signed-off-by: Dongli Zhang <dongli.zhang@oracle.com>
+> Remove including <generated/utsrelease.h> that don't need it.
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
 Applied.
