@@ -1,93 +1,96 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net-next 3/3] tools lib bpf: Sync bpf_map_def with tc
-Date: Tue, 1 Nov 2016 21:09:28 -0700
-Message-ID: <CAPWQB7GxA+imikeJEJ-JZVm+qWONM1Ronj7ucf0=QRBbrPM06g@mail.gmail.com>
-References: <20161031183917.9938-1-joe@ovn.org> <20161031183917.9938-4-joe@ovn.org>
- <581958D1.3010209@iogearbox.net>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: Let's do P4
+Date: Tue, 1 Nov 2016 22:06:27 -0700
+Message-ID: <CAHo-OoyFjsOxmjmsAA8FjiQf7DLbUHtW8z=JB1JRwJNaHsEWCg@mail.gmail.com>
+References: <20161029075328.GB1692@nanopsycho.orion> <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
+ <20161030102649.GE1810@pox.localdomain> <20161030163836.GC1686@nanopsycho.orion>
+ <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+ <20161031093922.GA2895@nanopsycho.orion> <58194F83.9020205@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, wangnan0@huawei.com, ast@fb.com
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>,
+        Linux NetDev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, prem@barefootnetworks.com,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jiri Benc <jbenc@redhat.com>,
+        Tom Herbert <tom@herbertland.com>, mattyk@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, ogerlitz@mellanox.com,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Florian Fainelli <f.fainelli@gmail.co
 To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:53450 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750744AbcKBEJz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 00:09:55 -0400
-Received: from mfilter15-d.gandi.net (mfilter15-d.gandi.net [217.70.178.143])
-        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 3935C1720A9
-        for <netdev@vger.kernel.org>; Wed,  2 Nov 2016 05:09:53 +0100 (CET)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-        by mfilter15-d.gandi.net (mfilter15-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 97zTf_y0iYeu for <netdev@vger.kernel.org>;
-        Wed,  2 Nov 2016 05:09:51 +0100 (CET)
-Received: from mail-oi0-f42.google.com (mail-oi0-f42.google.com [209.85.218.42])
-        (Authenticated sender: joe@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 7ABB2172094
-        for <netdev@vger.kernel.org>; Wed,  2 Nov 2016 05:09:50 +0100 (CET)
-Received: by mail-oi0-f42.google.com with SMTP id v84so4271463oie.3
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 21:09:50 -0700 (PDT)
-In-Reply-To: <581958D1.3010209@iogearbox.net>
+Received: from mail-yb0-f173.google.com ([209.85.213.173]:36591 "EHLO
+        mail-yb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750786AbcKBFG3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 01:06:29 -0400
+Received: by mail-yb0-f173.google.com with SMTP id v78so1518692ybe.3
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 22:06:29 -0700 (PDT)
+In-Reply-To: <58194F83.9020205@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1 November 2016 at 20:09, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 10/31/2016 07:39 PM, Joe Stringer wrote:
->>
->> TC uses a slightly different map layout in its ELFs. Update libbpf to
->> use the same definition so that ELFs may be built using libbpf and
->> loaded using tc.
->>
->> Signed-off-by: Joe Stringer <joe@ovn.org>
->> ---
->>   tools/lib/bpf/libbpf.h | 11 +++++++----
->>   1 file changed, 7 insertions(+), 4 deletions(-)
->>
->> diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
->> index dd7a513efb10..ea70c2744f8c 100644
->> --- a/tools/lib/bpf/libbpf.h
->> +++ b/tools/lib/bpf/libbpf.h
->> @@ -181,10 +181,13 @@ bool bpf_program__is_kprobe(struct bpf_program
->> *prog);
->>    * and will be treated as an error due to -Werror.
->>    */
->>   struct bpf_map_def {
->> -       unsigned int type;
->> -       unsigned int key_size;
->> -       unsigned int value_size;
->> -       unsigned int max_entries;
->> +       uint32_t type;
->> +       uint32_t key_size;
->> +       uint32_t value_size;
->> +       uint32_t max_entries;
->> +       uint32_t flags;
->> +       uint32_t id;
->> +       uint32_t pinning;
->>   };
->>
->>   /*
+> Sorry for jumping into the middle and the delay (plumbers this week). My
+> question would be, if the main target is for p4 *offloading* anyway, who
+> would use this sw fallback path? Mostly for testing purposes?
 >
+> I'm not sure about compilerB here and the complexity that needs to be
+> pushed into the kernel along with it. I would assume this would result
+> in slower code than what the existing P4 -> eBPF front ends for LLVM
+> would generate since it could perform all kind of optimizations there,
+> that might not be feasible for doing inside the kernel. Thus, if I'd want
+> to do that in sw, I'd just use the existing LLVM facilities instead and
+> go via cls_bpf in that case.
 >
-> I think the problem is that this would break existing obj files that have
-> been compiled with the current struct bpf_map_def (besides libbpf not having
-> a use for the last two members right now).
+> What is your compilerA? Is that part of tc in user space? Maybe linked
+> against LLVM lib, for example? If you really want some sw path, can't tc
+> do this transparently from user space instead when it gets a netlink error
+> that it cannot get offloaded (and thus switch internally to f_bpf's loader)?
 
-Right, this is a problem. I wasn't sure whether libbpf was yet at a
-stage where it tries to retain compatibility with binaries compiled
-against older kernels.
+Since we're jumping in the middle ;-)
 
-> For tc, we have a refactoring of the tc_bpf.c bits that generalizes them so
-> we can move these bits into iproute2 lib part and add new BPF types really
-> easily. What I did along with that is to implement a map compat mode, where
-> it detects the size of struct bpf_elf_map (or however you want to name it)
-> from the obj file and fixes up the missing members with some reasonable
-> default,
-> so these programs can still be loaded. Thus, the sample code using the
-> current
-> struct bpf_map_def will then work with tc as well. (I'll post the iproute2
-> patch early next week.)
+Ideally we'd have an interface where some generic like program is
+loaded into the kernel,
+and the kernel core fetches some sort of generic description of the
+hardware capabilities,
+translates the program and fits as much of it as it can into the hardware,
+possibly all of it, and emulates/executes the rest in software.
 
-Are you encoding the number of maps into the start of the maps section
-in the ELF then using that to divide out and determine the size?
+ie. if hardware can only match on 5 different 10 byte headers, but we
+need to match on 7 different 12 byte headers,
+we can still use the hardware to help us dispatch straight into 'check
+the last 2 bytes, then the last 2 headers' software emulation code.
 
-I look forward to your patches. Maybe if TC is more tolerant of other
-map definition sizes then this patch is less relevant.
+or maybe hardware can match, but can't count packets... so we need to
+implement counting in sw.
+
+or it can't do all types of encap/decap, so we need to sw encap in
+certain cases...
+
+Doing this via extracting such information out of a bpf program seems
+pretty hard.
+
+Or maybe I'm overestimating the true difficulty of taking a bpf
+program and extracting it into a TCAM...
+Maybe if the bpf program has a more 'standard' layout
+(ie. a tree doing packet parsing/matching, with 'actions' in the
+leaves) then it's not so hard?...
+
+Obviously real hardware has significantly more capabilities then just
+a tcam at the front of the pipeline...
+
+I'm afraid I lack the knowledge of what the real capabilities of
+current (and future...) hardware are...
+
+But maybe we could come up with some sufficiently generic description
+of *what* we want accomplished
+instead of the precise specifics of how.
