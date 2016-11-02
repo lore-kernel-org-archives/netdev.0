@@ -1,80 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net] inet: fix sleeping inside inet_wait_for_connect()
-Date: Tue, 01 Nov 2016 18:54:57 -0700
-Message-ID: <1478051697.7065.360.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1478041476-5568-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
+ FIB notifier
+Date: Tue, 01 Nov 2016 19:13:42 -0700
+Message-ID: <58194BD6.5040406@cumulusnetworks.com>
+References: <1477948427-9189-1-git-send-email-idosch@idosch.org> <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com> <20161031225737.7nfoy4ka3ydzhptq@splinter> <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com> <5818B146.20209@cumulusnetworks.com> <20161101170345.pq2ewecw35mrurkp@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrey Konovalov <andreyknvl@google.com>,
-        Peter Zijlstra <peterz@infradead.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        davem@davemloft.net, jiri@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, Ido Schimmel <idosch@mellanox.com>
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35105 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753502AbcKBBzA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 21:55:00 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i88so203346pfk.2
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 18:55:00 -0700 (PDT)
-In-Reply-To: <1478041476-5568-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:34799 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754155AbcKBCNp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 22:13:45 -0400
+Received: by mail-pf0-f174.google.com with SMTP id n85so1802096pfi.1
+        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 19:13:45 -0700 (PDT)
+In-Reply-To: <20161101170345.pq2ewecw35mrurkp@splinter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-11-01 at 16:04 -0700, Cong Wang wrote:
-> Andrey reported this kernel warning:
+On 11/1/16, 10:03 AM, Ido Schimmel wrote:
+> Hi Roopa,
+>
+> On Tue, Nov 01, 2016 at 08:14:14AM -0700, Roopa Prabhu wrote:
+>>
+[snip]
+>> I have the same concern as Eric here.
+>>
+>> I understand why you need it, but can the driver request for an initial dump and that
+>> dump be made more efficient somehow ie not hold rtnl for the whole dump ?.
+>> instead of making the fib notifier registration code doing it.
+> We can do what we suggested in the last bi-weekly meeting, which is
+> still holding rtnl, but moving the hardware operation to delayed work.
+> This is possible because upper layers always assume operation was
+> successful and driver is responsible for invoking its abort mechanism in
+> case of failure.
+>
+>> these routing table sizes can be huge and an analogy for this in user-space:
+>> We do request a netlink dump of  routing tables at initialization (on driver starts or resets)...
+>> but, existing netlink routing table dumps for that scale don't hold rtnl for the whole dump.
+>> The dump is split into multiple responses to the user and hence it does not starve other rtnl users.
+> In my reply to Eric I mentioned that when we register and unregister
+> from this chain the tables aren't really huge, but instead quite small.
+> I understand your concerns, but I don't wish to make things more
+> complicated than they should be only to address concerns that aren't
+> really realistic.
 
-> Unlike commit 26cabd31259ba43f68026ce3f62b78094124333f
-> ("sched, net: Clean up sk_wait_event() vs. might_sleep()"), the
-> sleeping function is called before schedule_timeout(), this is indeed
-> a bug. Fix this by moving the wait logic to the new API, it is similar
-> to commit ff960a731788a7408b6f66ec4fd772ff18833211
-> ("netdev, sched/wait: Fix sleeping inside wait event").
-> 
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Peter Zijlstra <peterz@infradead.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
+I understand..but, if you are adding some core infrastructure for switchdev ..it cannot be
+based on the number of simple use-cases or data you have today.
+
+I won't be surprised if tomorrow other switch drivers have a case where they need to
+reset the hw routing table state and reprogram all routes again. Re-registering the notifier to just
+get the routing state of the kernel will not scale. For the long term, since the driver does not maintain a cache,
+a pull api with efficient use of rtnl will be useful for other such cases as well.
 
 
-Excellent.
+If you don't want to get to the complexity of a new api right away because of the
+simple case of management interface routes you have, Can your driver register the notifier early  ?
+(I am sure you have probably already thought about this)
 
-I guess we could also define sk_wait_event_woken()
-and use it instead of sk_wait_event(), and also in
-inet_wait_for_connect()
-
-+#define sk_wait_event_woken(__sk, __timeo, __condition, __wait)                \
-+       ({      int __rc;                                               \
-+               release_sock(__sk);                                     \
-+               __rc = __condition;                                     \
-+               if (!__rc) {                                            \
-+                       *(__timeo) = wait_woken(__wait, TASK_INTERRUPTIBLE, \
-+                                               *(__timeo));            \
-+               }                                                       \
-+               lock_sock(__sk);                                        \
-+               __rc = __condition;                                     \
-+               __rc;                                                   \
-+       })
-
-sk_wait_data() would need :
-
-@@ -2078,14 +2080,14 @@ void __sk_flush_backlog(struct sock *sk)
-  */
- int sk_wait_data(struct sock *sk, long *timeo, const struct sk_buff *skb)
- {
-+       DEFINE_WAIT_FUNC(wait, woken_wake_function);
-        int rc;
--       DEFINE_WAIT(wait);
- 
--       prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-+       add_wait_queue(sk_sleep(sk), &wait);
-        sk_set_bit(SOCKWQ_ASYNC_WAITDATA, sk);
--       rc = sk_wait_event(sk, timeo, skb_peek_tail(&sk->sk_receive_queue) != skb);
-+       rc = sk_wait_event_woken(sk, timeo, skb_peek_tail(&sk->sk_receive_queue) != skb, &wait);
-        sk_clear_bit(SOCKWQ_ASYNC_WAITDATA, sk);
--       finish_wait(sk_sleep(sk), &wait);
-+       remove_wait_queue(sk_sleep(sk), &wait);
-        return rc;
- }
- EXPORT_SYMBOL(sk_wait_data);
+>
+> I believe current patch is quite simple and also consistent with other
+> notification chains in the kernel, such as the netdevice, where rtnl is
+> held during replay of events.
+> http://lxr.free-electrons.com/source/net/core/dev.c#L1535
+as you know, netdev and routing scale are not the same thing.
+Looking at the current code for netdevices (replay and rollback on failure),
+a pull api (equivalent to the netlink dump api) may end up being less complex...with an
+ability to batch in the future.
