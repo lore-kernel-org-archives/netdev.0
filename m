@@ -1,74 +1,49 @@
-From: Paul Blakey <paulb@mellanox.com>
-Subject: [PATCH iproute2] tc: flower: Fix usage message
-Date: Wed,  2 Nov 2016 17:09:58 +0200
-Message-ID: <1478099398-21639-1-git-send-email-paulb@mellanox.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [patch net-next 0/2] Fixes for raw diag sockets handling
+Date: Wed, 2 Nov 2016 09:10:32 -0600
+Message-ID: <2a540f59-4495-573c-7dda-0303f1810e6e@cumulusnetworks.com>
+References: <20161102123630.784612652@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrey Vagin <avagin@openvz.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Cyrill Gorcunov <gorcunov@openvz.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43834 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752592AbcKBPKL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:10:11 -0400
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34488 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752434AbcKBPKf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:10:35 -0400
+Received: by mail-pf0-f182.google.com with SMTP id n85so13559494pfi.1
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 08:10:35 -0700 (PDT)
+In-Reply-To: <20161102123630.784612652@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove left over usage from removal of eth_type argument.
+On 11/2/16 6:36 AM, Cyrill Gorcunov wrote:
+> Also I have a question about sockets lookup not for raw diag only
+> (though I didn't modify lookup procedure) but in general: the structure
+> inet_diag_req_v2 has inet_diag_sockid::idiag_if member which supposed to
+> carry interface index from userspace request.
+> 
+> Then for example in INET_MATCH (include/net/inet_hashtables.h),
+> the __dif parameter (which is @idiag_if) compared with @sk_bound_dev_if
+> *iif* the sk_bound_dev_if has been ever set. Thus if say someone
+> looks up for paticular device with specified index if the
+> rest of parameters match and SO_BINDTODEVICE never been called
+> for this device we return the socket even if idiag_if is not zero.
+> Is it supposed to be so? Or I miss something obvious?
+> 
+> I mean this snippet
+> 
+> 
+> 	 (!(__sk)->sk_bound_dev_if	||				\
+> 	   ((__sk)->sk_bound_dev_if == (__dif))) 	&&		\
+> 
+> when someone calls for destory sockets on particular interface and
+> @__dif != 0 the match may return socket where sk_bound_dev_if = 0
+> instead of completely matching one. Isn't it?
 
-Fixes: 488b41d020fb ('tc: flower no need to specify the ethertype')
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
----
- man/man8/tc-flower.8 | 9 ---------
- tc/f_flower.c        | 3 +--
- 2 files changed, 1 insertion(+), 11 deletions(-)
-
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 74f7664..16ef261 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -23,8 +23,6 @@ flower \- flow based traffic control filter
- .R " | { "
- .BR dst_mac " | " src_mac " } "
- .IR mac_address " | "
--.BR eth_type " { " ipv4 " | " ipv6 " | " 802.1Q " | "
--.IR ETH_TYPE " } | "
- .B vlan_id
- .IR VID " | "
- .B vlan_prio
-@@ -75,13 +73,6 @@ Do not process filter by hardware.
- .BI src_mac " mac_address"
- Match on source or destination MAC address.
- .TP
--.BI eth_type " ETH_TYPE"
--Match on the next protocol.
--.I ETH_TYPE
--may be either
--.BR ipv4 , ipv6 , 802.1Q ,
--or an unsigned 16bit value in hexadecimal format.
--.TP
- .BI vlan_id " VID"
- Match on vlan tag id.
- .I VID
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 2d31d1a..f39b1f7 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -36,7 +36,6 @@ static void explain(void)
- 	fprintf(stderr, "                       vlan_ethtype [ ipv4 | ipv6 | ETH-TYPE ] |\n");
- 	fprintf(stderr, "                       dst_mac MAC-ADDR |\n");
- 	fprintf(stderr, "                       src_mac MAC-ADDR |\n");
--	fprintf(stderr, "                       [ipv4 | ipv6 ] |\n");
- 	fprintf(stderr, "                       ip_proto [tcp | udp | IP-PROTO ] |\n");
- 	fprintf(stderr, "                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
- 	fprintf(stderr, "                       src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n");
-@@ -45,7 +44,7 @@ static void explain(void)
- 	fprintf(stderr,	"       FILTERID := X:Y:Z\n");
- 	fprintf(stderr,	"       ACTION-SPEC := ... look at individual actions\n");
- 	fprintf(stderr,	"\n");
--	fprintf(stderr,	"NOTE: CLASSID, ETH-TYPE, IP-PROTO are parsed as hexadecimal input.\n");
-+	fprintf(stderr,	"NOTE: CLASSID, IP-PROTO are parsed as hexadecimal input.\n");
- 	fprintf(stderr,	"NOTE: There can be only used one mask per one prio. If user needs\n");
- 	fprintf(stderr,	"      to specify different mask, he has to use different prio.\n");
- }
--- 
-1.8.3.1
+yes. I recently added an exact_dif to the lookup for listener sockets (see compute_score). Something like that could be added to INET_MATCH.
