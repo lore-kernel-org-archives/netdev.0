@@ -1,47 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: Check for fullsock in sock_i_uid()
-Date: Wed, 02 Nov 2016 10:18:27 -0700
-Message-ID: <1478107107.7065.379.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1478064420-11601-1-git-send-email-subashab@codeaurora.org>
-         <1478075943.7065.361.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f77e1a0d37ef82933503018a974cc07a@codeaurora.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5 4/7] Documentation: devicetree: net: add NS2 bindings
+ to amac
+Date: Wed, 2 Nov 2016 20:18:51 +0300
+Message-ID: <ab064a45-0172-fa28-4ac6-0d3159a26506@cogentembedded.com>
+References: <1478106488-11779-1-git-send-email-jon.mason@broadcom.com>
+ <1478106488-11779-5-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: subashab@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35827 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933405AbcKBRS3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 13:18:29 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i88so2272010pfk.2
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 10:18:29 -0700 (PDT)
-In-Reply-To: <f77e1a0d37ef82933503018a974cc07a@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478106488-11779-5-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-11-02 at 11:05 -0600, subashab@codeaurora.org wrote:
-> > This would be a bug in the caller.
-> > 
-> > Can you give us the complete stack trace leading to the problem you
-> > had ?
-> > 
-> > Thanks !
-> 
-> Thanks Eric for the clarification. In that case, the bug is in the 
-> IDLETIMER target in Android kernel.
-> https://android.googlesource.com/kernel/common/+/android-4.4/net/netfilter/xt_IDLETIMER.c#356
-> 
-> Here is the call stack.
+Hello.
 
-Sure, please fix Android, and not add ugly work around in linux kernel.
+On 11/02/2016 08:08 PM, Jon Mason wrote:
 
-Lorenzo, have'nt you already fixed all these bugs ?
+> Clean-up the documentation to the bgmac-amac driver, per suggestion by
+> Rob Herring, and add details for NS2 support.
+>
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> ---
+>  Documentation/devicetree/bindings/net/brcm,amac.txt | 16 +++++++++++-----
+>  1 file changed, 11 insertions(+), 5 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/brcm,amac.txt b/Documentation/devicetree/bindings/net/brcm,amac.txt
+> index ba5ecc1..2fefa1a 100644
+> --- a/Documentation/devicetree/bindings/net/brcm,amac.txt
+> +++ b/Documentation/devicetree/bindings/net/brcm,amac.txt
+> @@ -2,11 +2,17 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
+>  -------------------------------------------------------------
+>
+>  Required properties:
+> - - compatible:	"brcm,amac" or "brcm,nsp-amac"
+> - - reg:		Address and length of the GMAC registers,
+> -		Address and length of the GMAC IDM registers
+> - - reg-names:	Names of the registers.  Must have both "amac_base" and
+> -		"idm_base"
+> + - compatible:	"brcm,amac"
+> +		"brcm,nsp-amac"
+> +		"brcm,ns2-amac"
+> + - reg:		Address and length of the register set for the device. It
+> +		contains the information of registers in the same order as
+> +		described by reg-names
+> + - reg-names:	Names of the registers.
+> +		"amac_base":	Address and length of the GMAC registers
+> +		"idm_base":	Address and length of the GMAC IDM registers
+> +		"nicpm_base":	Address and length of the NIC Port Manager
+> +				registers (required for Northstar2)
 
-if (skb && skb->sk)
-	timer->uid = from_kuid_munged(current_user_ns(),
-				 sock_i_uid(skb_to_full_sk(skb)));
+   Why this "_base" suffix? It looks redundant...
 
-Thanks
+[...]
+
+MBR, Sergei
