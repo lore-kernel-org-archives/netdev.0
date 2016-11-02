@@ -1,14 +1,14 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [mm PATCH v2 20/26] arch/sparc: Add option to skip DMA sync as a
- part of map and unmap
-Date: Wed, 02 Nov 2016 07:15:36 -0400
-Message-ID: <20161102111532.79519.12125.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [mm PATCH v2 22/26] arch/xtensa: Add option to skip DMA sync as a
+ part of mapping
+Date: Wed, 02 Nov 2016 07:15:52 -0400
+Message-ID: <20161102111549.79519.59449.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org,
- "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
+Cc: Max Filippov <jcmvbkbc@gmail.com>, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org
 To: linux-mm@kvack.org, akpm@linux-foundation.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
@@ -19,58 +19,37 @@ This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 via a sync_for_cpu or sync_for_device call.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: sparclinux@vger.kernel.org
+Cc: Max Filippov <jcmvbkbc@gmail.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/sparc/kernel/iommu.c  |    4 ++--
- arch/sparc/kernel/ioport.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ arch/xtensa/kernel/pci-dma.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/arch/sparc/kernel/iommu.c b/arch/sparc/kernel/iommu.c
-index 5c615ab..8fda4e4 100644
---- a/arch/sparc/kernel/iommu.c
-+++ b/arch/sparc/kernel/iommu.c
-@@ -415,7 +415,7 @@ static void dma_4u_unmap_page(struct device *dev, dma_addr_t bus_addr,
- 		ctx = (iopte_val(*base) & IOPTE_CONTEXT) >> 47UL;
- 
- 	/* Step 1: Kick data out of streaming buffers if necessary. */
--	if (strbuf->strbuf_enabled)
-+	if (strbuf->strbuf_enabled && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 		strbuf_flush(strbuf, iommu, bus_addr, ctx,
- 			     npages, direction);
- 
-@@ -640,7 +640,7 @@ static void dma_4u_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 		base = iommu->page_table + entry;
- 
- 		dma_handle &= IO_PAGE_MASK;
--		if (strbuf->strbuf_enabled)
-+		if (strbuf->strbuf_enabled && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 			strbuf_flush(strbuf, iommu, dma_handle, ctx,
- 				     npages, direction);
- 
-diff --git a/arch/sparc/kernel/ioport.c b/arch/sparc/kernel/ioport.c
-index 2344103..6ffaec4 100644
---- a/arch/sparc/kernel/ioport.c
-+++ b/arch/sparc/kernel/ioport.c
-@@ -527,7 +527,7 @@ static dma_addr_t pci32_map_page(struct device *dev, struct page *page,
- static void pci32_unmap_page(struct device *dev, dma_addr_t ba, size_t size,
- 			     enum dma_data_direction dir, unsigned long attrs)
+diff --git a/arch/xtensa/kernel/pci-dma.c b/arch/xtensa/kernel/pci-dma.c
+index 1e68806..6a16dec 100644
+--- a/arch/xtensa/kernel/pci-dma.c
++++ b/arch/xtensa/kernel/pci-dma.c
+@@ -189,7 +189,9 @@ static dma_addr_t xtensa_map_page(struct device *dev, struct page *page,
  {
--	if (dir != PCI_DMA_TODEVICE)
-+	if (dir != PCI_DMA_TODEVICE && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 		dma_make_coherent(ba, PAGE_ALIGN(size));
+ 	dma_addr_t dma_handle = page_to_phys(page) + offset;
+ 
+-	xtensa_sync_single_for_device(dev, dma_handle, size, dir);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		xtensa_sync_single_for_device(dev, dma_handle, size, dir);
++
+ 	return dma_handle;
  }
  
-@@ -572,7 +572,7 @@ static void pci32_unmap_sg(struct device *dev, struct scatterlist *sgl,
- 	struct scatterlist *sg;
- 	int n;
+@@ -197,7 +199,8 @@ static void xtensa_unmap_page(struct device *dev, dma_addr_t dma_handle,
+ 			      size_t size, enum dma_data_direction dir,
+ 			      unsigned long attrs)
+ {
+-	xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		xtensa_sync_single_for_cpu(dev, dma_handle, size, dir);
+ }
  
--	if (dir != PCI_DMA_TODEVICE) {
-+	if (dir != PCI_DMA_TODEVICE && !(attrs & DMA_ATTR_SKIP_CPU_SYNC)) {
- 		for_each_sg(sgl, sg, nents, n) {
- 			dma_make_coherent(sg_phys(sg), PAGE_ALIGN(sg->length));
- 		}
+ static int xtensa_map_sg(struct device *dev, struct scatterlist *sg,
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
