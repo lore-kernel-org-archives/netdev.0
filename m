@@ -1,115 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
- FIB notifier
-Date: Wed, 2 Nov 2016 14:48:45 +0100
-Message-ID: <20161102134845.GI1713@nanopsycho.orion>
-References: <1477948427-9189-1-git-send-email-idosch@idosch.org>
- <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161031225737.7nfoy4ka3ydzhptq@splinter>
- <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
- <5818B146.20209@cumulusnetworks.com>
- <20161101170345.pq2ewecw35mrurkp@splinter>
- <58194BD6.5040406@cumulusnetworks.com>
- <20161102072032.GA1713@nanopsycho.orion>
- <CAJieiUjGHX0C7mG3Y8m2VZHPPq=Rz-2D8e_L9ZASi-bCs8nJJw@mail.gmail.com>
+From: Neil Armstrong <narmstrong@baylibre.com>
+Subject: Re: [PATCH v2 1/2] net: stmmac: Add OXNAS Glue Driver
+Date: Wed, 2 Nov 2016 14:54:51 +0100
+Message-ID: <dd54dc6a-85ba-b9b9-be52-36212405de66@baylibre.com>
+References: <20161031105345.16711-1-narmstrong@baylibre.com>
+ <20161031105442.17228-1-narmstrong@baylibre.com>
+ <CAGhQ9VyAaqUy06kb_Mxewo+BbJnxe=e6=x8pFsVSY0Z6C-h=cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@idosch.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>, mlxsw <mlxsw@mellanox.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        alexander.h.duyck@intel.com,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Ido Schimmel <idosch@mellanox.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "peppe.cavallaro" <peppe.cavallaro@st.com>,
+        alexandre.torgue@st.com, netdev <netdev@vger.kernel.org>,
+        linux-oxnas@lists.tuxfamily.org,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joachim Eastwood <manabian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35691 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754259AbcKBNss (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 09:48:48 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 68so3174827wmz.2
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 06:48:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJieiUjGHX0C7mG3Y8m2VZHPPq=Rz-2D8e_L9ZASi-bCs8nJJw@mail.gmail.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38463 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754176AbcKBNyz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 09:54:55 -0400
+Received: by mail-wm0-f50.google.com with SMTP id n67so39095289wme.1
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 06:54:54 -0700 (PDT)
+In-Reply-To: <CAGhQ9VyAaqUy06kb_Mxewo+BbJnxe=e6=x8pFsVSY0Z6C-h=cg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Nov 02, 2016 at 02:29:40PM CET, roopa@cumulusnetworks.com wrote:
->On Wed, Nov 2, 2016 at 12:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Wed, Nov 02, 2016 at 03:13:42AM CET, roopa@cumulusnetworks.com wrote:
->>>
->[snip]
->
->>>I understand..but, if you are adding some core infrastructure for switchdev ..it cannot be
->>>based on the number of simple use-cases or data you have today.
->>>
->>>I won't be surprised if tomorrow other switch drivers have a case where they need to
->>>reset the hw routing table state and reprogram all routes again. Re-registering the notifier to just
->>>get the routing state of the kernel will not scale. For the long term, since the driver does not maintain a cache,
+On 10/31/2016 12:12 PM, Joachim Eastwood wrote:
+> Hi Neil,
+> 
+> On 31 October 2016 at 11:54, Neil Armstrong <narmstrong@baylibre.com> wrote:
+>> Add Synopsys Designware MAC Glue layer for the Oxford Semiconductor OX820.
 >>
->> Driver (mlxsw, rocker) maintain a cache. So I'm not sure why you say
->> otherwise.
->>
->>
->>>a pull api with efficient use of rtnl will be useful for other such cases as well.
->>
->> How do you imagine this "pull API" should look like?
->
->
->Just like you already have added fib notifiers to parallel fib netlink
->notifications, the pull API is  a parallel to 'netlink dump'.
->Is my imagination too wild  ? :)
+>> Acked-by: Joachim Eastwood <manabian@gmail.com>
+>> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+>> ---
+>> +static int oxnas_dwmac_init(struct oxnas_dwmac *dwmac)
+>> +{
+>> +       unsigned int value;
+>> +       int ret;
+>> +
+>> +       /* Reset HW here before changing the glue configuration */
+>> +       ret = device_reset(dwmac->dev);
+>> +       if (ret)
+>> +               return ret;
+>> +
+>> +       ret = clk_prepare_enable(dwmac->clk);
+>> +       if (ret)
+>> +               return ret;
+>> +
+>> +       ret = regmap_read(dwmac->regmap, OXNAS_DWMAC_CTRL_REGOFFSET, &value);
+>> +       if (ret < 0)
+>> +               return ret;
+> 
+> If regmap reading fails here, the clock will be left on as probe fails.
+> 
 
-Perhaps I'm slow, but I don't understand what you mean.
+Indeed, thanks.
 
+Neil
 
->
->
->>
->>
->>>
->>>
->>>If you don't want to get to the complexity of a new api right away because of the
->>>simple case of management interface routes you have, Can your driver register the notifier early  ?
->>>(I am sure you have probably already thought about this)
->>
->> Register early? What it would resolve? I must be missing something. We
->> register as early as possible. But the thing is, we cannot register
->> in a past. And that is what this patch resolves.
->
->sure, you must be having a valid problem then. I was just curious why
->your driver is not up and initialized before any of the addresses or
->routes get configured in the system (even on a management port). Ours
-
-If you unload the module and load it again for example. This is a valid
-usecase.
-
-
->does. But i agree there can be races and you cannot always guarantee
->(I was just responding to ido's comment about adding complexity for a
->small problem he has to solve for management routes). Our driver does
->a pull before it starts. This helps when we want to reset the hardware
->routing table state too.
-
-Can you point me to you driver in the tree? I would like to see how you
-do "the pull".
-
-
->
->
->But, my point was, when you are defining an API, you cannot quantify
->the 'past' to be just the very 'close past' or 'the past is just the
->management routes that were added' . Tomorrow the 'past' can be the
->full routing table if you need to reset the hardware state.
-
-Sure.
+[...]
+> 
+> 
+> regards,
+> Joachim Eastwood
+> 
