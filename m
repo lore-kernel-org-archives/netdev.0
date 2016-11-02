@@ -1,83 +1,95 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 3/5] bpf: BPF for lightweight tunnel encapsulation
-Date: Wed, 02 Nov 2016 06:39:13 -0700
-Message-ID: <5819EC81.90405@cumulusnetworks.com>
-References: <cover.1477959702.git.tgraf@suug.ch> <d8c7e07ac7d289a2846af8d659287f3512a4edec.1477959702.git.tgraf@suug.ch>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
+ FIB notifier
+Date: Wed, 2 Nov 2016 15:44:53 +0200
+Message-ID: <20161102134453.ij5d4fdcmmlvnkzy@splinter>
+References: <1477948427-9189-1-git-send-email-idosch@idosch.org>
+ <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161031225737.7nfoy4ka3ydzhptq@splinter>
+ <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5818B146.20209@cumulusnetworks.com>
+ <20161101170345.pq2ewecw35mrurkp@splinter>
+ <58194BD6.5040406@cumulusnetworks.com>
+ <20161102072032.GA1713@nanopsycho.orion>
+ <CAJieiUjGHX0C7mG3Y8m2VZHPPq=Rz-2D8e_L9ZASi-bCs8nJJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net, tom@herbertland.com, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>, mlxsw <mlxsw@mellanox.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        alexander.h.duyck@intel.com,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Ido Schimmel <idosch@mellanox.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33401 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752971AbcKBNjQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 09:39:16 -0400
-Received: by mail-pf0-f180.google.com with SMTP id d2so12517849pfd.0
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 06:39:16 -0700 (PDT)
-In-Reply-To: <d8c7e07ac7d289a2846af8d659287f3512a4edec.1477959702.git.tgraf@suug.ch>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:48821 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751795AbcKBNo4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 09:44:56 -0400
+Content-Disposition: inline
+In-Reply-To: <CAJieiUjGHX0C7mG3Y8m2VZHPPq=Rz-2D8e_L9ZASi-bCs8nJJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/16, 5:37 PM, Thomas Graf wrote:
-> Register two new BPF prog types BPF_PROG_TYPE_LWT_IN and
-> BPF_PROG_TYPE_LWT_OUT which are invoked if a route contains a
-> LWT redirection of type LWTUNNEL_ENCAP_BPF.
->
-> The separate program types are required because manipulation of
-> packet data is only allowed on the output and transmit path as
-> the subsequent dst_input() call path assumes an IP header
-> validated by ip_rcv(). The BPF programs will be handed an skb
-> with the L3 header attached and may return one of the following
-> return codes:
->
->  BPF_OK - Continue routing as per nexthop
->  BPF_DROP - Drop skb and return EPERM
->  BPF_REDIRECT - Redirect skb to device as per redirect() helper.
->                 (Only valid on lwtunnel_xmit() hook)
->
-> The return codes are binary compatible with their TC_ACT_
-> relatives to ease compatibility.
->
-> A new helper bpf_skb_push() is added which allows to preprend an
-> L2 header in front of the skb, extend the existing L3 header, or
-> both. This allows to address a wide range of issues:
->  - Optimize L2 header construction when L2 information is always
->    static to avoid ARP/NDisc lookup.
->  - Extend IP header to add additional IP options.
->  - Perform simple encapsulation where offload is of no concern.
->    (The existing funtionality to attach a tunnel key to the skb
->     and redirect to a tunnel net_device to allow for offload
->     continues to work obviously).
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  
-[snip]
-> diff --git a/net/Kconfig b/net/Kconfig
-> index 7b6cd34..7554f12 100644
-> --- a/net/Kconfig
-> +++ b/net/Kconfig
-> @@ -396,6 +396,7 @@ source "net/nfc/Kconfig"
->  
->  config LWTUNNEL
->  	bool "Network light weight tunnels"
-> +	depends on IPV6 || IPV6=n
->  	---help---
->  	  This feature provides an infrastructure to support light weight
->  	  tunnels like mpls. There is no netdevice associated with a light
-> diff --git a/net/core/Makefile b/net/core/Makefile
-> index d6508c2..a675fd3 100644
-> --- a/net/core/Makefile
-> +++ b/net/core/Makefile
-> @@ -23,7 +23,7 @@ obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
->  obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
->  obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
->  obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
-> -obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
-> +obj-$(CONFIG_LWTUNNEL) += lwtunnel.o lwt_bpf.o
+On Wed, Nov 02, 2016 at 06:29:40AM -0700, Roopa Prabhu wrote:
+> On Wed, Nov 2, 2016 at 12:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> > Wed, Nov 02, 2016 at 03:13:42AM CET, roopa@cumulusnetworks.com wrote:
+> >>
+> [snip]
+> 
+> >>I understand..but, if you are adding some core infrastructure for switchdev ..it cannot be
+> >>based on the number of simple use-cases or data you have today.
+> >>
+> >>I won't be surprised if tomorrow other switch drivers have a case where they need to
+> >>reset the hw routing table state and reprogram all routes again. Re-registering the notifier to just
+> >>get the routing state of the kernel will not scale. For the long term, since the driver does not maintain a cache,
+> >
+> > Driver (mlxsw, rocker) maintain a cache. So I'm not sure why you say
+> > otherwise.
+> >
+> >
+> >>a pull api with efficient use of rtnl will be useful for other such cases as well.
+> >
+> > How do you imagine this "pull API" should look like?
+> 
+> 
+> Just like you already have added fib notifiers to parallel fib netlink
+> notifications, the pull API is  a parallel to 'netlink dump'.
+> Is my imagination too wild  ? :)
 
-Any reason you want to keep lwt bpf under the main CONFIG_LWTUNNEL infra config ?.
-since it is defined as yet another plug-gable encap function, seems like it will be better under a separate
-CONFIG_LWTUNNEL_BPF or CONFIG_LWT_BPF that depends on CONFIG_LWTUNNEL
+The question is more about the mechanics of this pull API, because it's
+not very clear to me how that should look like. You want consumers to
+dump the tables in batches, so that rtnl is held only during the batch
+but not in between them? How are the routes passed down? Does the fib
+code fill up some struct or does it use the fib chain?
+
+> >>If you don't want to get to the complexity of a new api right away because of the
+> >>simple case of management interface routes you have, Can your driver register the notifier early  ?
+> >>(I am sure you have probably already thought about this)
+> >
+> > Register early? What it would resolve? I must be missing something. We
+> > register as early as possible. But the thing is, we cannot register
+> > in a past. And that is what this patch resolves.
+> 
+> sure, you must be having a valid problem then. I was just curious why
+> your driver is not up and initialized before any of the addresses or
+> routes get configured in the system (even on a management port). Ours
+> does. But i agree there can be races and you cannot always guarantee
+> (I was just responding to ido's comment about adding complexity for a
+> small problem he has to solve for management routes). Our driver does
+> a pull before it starts. This helps when we want to reset the hardware
+> routing table state too.
+
+One can modprobe the module after routes are already present on other
+netdevs. That's actually how I tested the patch.
