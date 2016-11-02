@@ -1,65 +1,95 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next 3/3] ipv6: on reassembly, record frag_max_size
-Date: Wed,  2 Nov 2016 11:02:18 -0400
-Message-ID: <1478098938-124108-4-git-send-email-willemdebruijn.kernel@gmail.com>
-References: <1478098938-124108-1-git-send-email-willemdebruijn.kernel@gmail.com>
-Cc: jdorfman@google.com, eric.dumazet@gmail.com, davem@davemloft.net,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/3] tools lib bpf: Sync bpf_map_def with tc
+Date: Wed, 02 Nov 2016 16:08:05 +0100
+Message-ID: <581A0155.40302@iogearbox.net>
+References: <20161031183917.9938-1-joe@ovn.org> <20161031183917.9938-4-joe@ovn.org> <581958D1.3010209@iogearbox.net> <CAPWQB7GxA+imikeJEJ-JZVm+qWONM1Ronj7ucf0=QRBbrPM06g@mail.gmail.com> <5819F461.7050309@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, wangnan0@huawei.com, ast@fb.com
+To: Joe Stringer <joe@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:33926 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755430AbcKBPC3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:02:29 -0400
-Received: by mail-qk0-f193.google.com with SMTP id o68so1407610qkf.1
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 08:02:28 -0700 (PDT)
-In-Reply-To: <1478098938-124108-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:59451 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753055AbcKBPIL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:08:11 -0400
+In-Reply-To: <5819F461.7050309@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On 11/02/2016 03:12 PM, Daniel Borkmann wrote:
+> On 11/02/2016 05:09 AM, Joe Stringer wrote:
+>> On 1 November 2016 at 20:09, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>>> On 10/31/2016 07:39 PM, Joe Stringer wrote:
+>>>>
+>>>> TC uses a slightly different map layout in its ELFs. Update libbpf to
+>>>> use the same definition so that ELFs may be built using libbpf and
+>>>> loaded using tc.
+>>>>
+>>>> Signed-off-by: Joe Stringer <joe@ovn.org>
+>>>> ---
+>>>>    tools/lib/bpf/libbpf.h | 11 +++++++----
+>>>>    1 file changed, 7 insertions(+), 4 deletions(-)
+>>>>
+>>>> diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+>>>> index dd7a513efb10..ea70c2744f8c 100644
+>>>> --- a/tools/lib/bpf/libbpf.h
+>>>> +++ b/tools/lib/bpf/libbpf.h
+>>>> @@ -181,10 +181,13 @@ bool bpf_program__is_kprobe(struct bpf_program
+>>>> *prog);
+>>>>     * and will be treated as an error due to -Werror.
+>>>>     */
+>>>>    struct bpf_map_def {
+>>>> -       unsigned int type;
+>>>> -       unsigned int key_size;
+>>>> -       unsigned int value_size;
+>>>> -       unsigned int max_entries;
+>>>> +       uint32_t type;
+>>>> +       uint32_t key_size;
+>>>> +       uint32_t value_size;
+>>>> +       uint32_t max_entries;
+>>>> +       uint32_t flags;
+>>>> +       uint32_t id;
+>>>> +       uint32_t pinning;
+>>>>    };
+>>>>
+>>>>    /*
+>>>
+>>> I think the problem is that this would break existing obj files that have
+>>> been compiled with the current struct bpf_map_def (besides libbpf not having
+>>> a use for the last two members right now).
+>>
+>> Right, this is a problem. I wasn't sure whether libbpf was yet at a
+>> stage where it tries to retain compatibility with binaries compiled
+>> against older kernels.
+>>
+>>> For tc, we have a refactoring of the tc_bpf.c bits that generalizes them so
+>>> we can move these bits into iproute2 lib part and add new BPF types really
+>>> easily. What I did along with that is to implement a map compat mode, where
+>>> it detects the size of struct bpf_elf_map (or however you want to name it)
+>>> from the obj file and fixes up the missing members with some reasonable
+>>> default,
+>>> so these programs can still be loaded. Thus, the sample code using the
+>>> current
+>>> struct bpf_map_def will then work with tc as well. (I'll post the iproute2
+>>> patch early next week.)
+>>
+>> Are you encoding the number of maps into the start of the maps section
+>> in the ELF then using that to divide out and determine the size?
+>
+> No. It's walking the symbol table and simply counts the number of symbols
+> that are present in the maps section with correct st_info attribution. It
+> works because that section name is fixed ABI for all cases and really per
+> definition only map structs are present there. The minimum attributes which
+> are allowed to be loaded are type, key_size, value_size and max_entries.
+>
+>> I look forward to your patches. Maybe if TC is more tolerant of other
+>> map definition sizes then this patch is less relevant.
 
-IP6CB and IPCB have a frag_max_size field. In IPv6 this field is
-filled in when packets are reassembled by the connection tracking
-code. Also fill in when reassembling in the input path, to expose
-it through cmsg IPV6_RECVFRAGSIZE in all cases.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/ipv6/reassembly.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 3815e85..e1da5b8 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -211,7 +211,7 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- {
- 	struct sk_buff *prev, *next;
- 	struct net_device *dev;
--	int offset, end;
-+	int offset, end, fragsize;
- 	struct net *net = dev_net(skb_dst(skb)->dev);
- 	u8 ecn;
- 
-@@ -336,6 +336,10 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 	fq->ecn |= ecn;
- 	add_frag_mem_limit(fq->q.net, skb->truesize);
- 
-+	fragsize = -skb_network_offset(skb) + skb->len;
-+	if (fragsize > fq->q.max_size)
-+		fq->q.max_size = fragsize;
-+
- 	/* The first fragment.
- 	 * nhoffset is obtained from the first fragment, of course.
- 	 */
-@@ -495,6 +499,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 	ipv6_change_dsfield(ipv6_hdr(head), 0xff, ecn);
- 	IP6CB(head)->nhoff = nhoff;
- 	IP6CB(head)->flags |= IP6SKB_FRAGMENTED;
-+	IP6CB(head)->frag_max_size = fq->q.max_size;
- 
- 	/* Yes, and fold redundant checksum back. 8) */
- 	skb_postpush_rcsum(head, skb_network_header(head),
--- 
-2.8.0.rc3.226.g39d4020
+Just a thought (not really related to your set though): Perhaps it makes sense
+for the bpflib, to also add an option where the user passes a callback to parse
+the map section itself if something else than struct bpf_map_def is expected in
+the obj, and then have a way to access the meta data along with the fd via lib
+api later on. Perhaps that would also include another callback passed to the
+lib that would take care to invoke bpf(2) for map creation, which could be useful
+if some custom interaction with bpffs is desired.
