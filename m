@@ -1,41 +1,44 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 04/11] net: dsa: mv88e6xxx: add port FID accessors
-Date: Wed, 02 Nov 2016 02:01:20 +0100
-Message-ID: <87vaw64rvj.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com> <20161101032023.32762-5-vivien.didelot@savoirfairelinux.com> <20161101093819.GA2802@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Dongli Zhang <dongli.zhang@oracle.com>
+Subject: [PATCH 1/1] xen-netfront: cast grant table reference first to type int
+Date: Wed,  2 Nov 2016 09:04:33 +0800
+Message-ID: <1478048673-26284-1-git-send-email-dongli.zhang@oracle.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        xen-devel@lists.xenproject.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161101093819.GA2802@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+IS_ERR_VALUE() in commit 87557efc27f6a50140fb20df06a917f368ce3c66
+("xen-netfront: do not cast grant table reference to signed short") would
+not return true for error code unless we cast ref first to type int.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Signed-off-by: Dongli Zhang <dongli.zhang@oracle.com>
+---
+ drivers/net/xen-netfront.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
->> --- a/drivers/net/dsa/mv88e6xxx/port.c
->> +++ b/drivers/net/dsa/mv88e6xxx/port.c
->> @@ -61,6 +61,8 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
->>  	return 0;
->>  }
->>  
->> +/* Offset 0x05: Port Control 1 */
->> +
->>  /* Offset 0x06: Port Based VLAN Map */
->>  
->>  int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
->
-> This comment seems in an odd place.
-
-It isn't. Port's default FID uses register 0x05 and I document them
-above the related functions.
-
-Thanks,
-
-        Vivien
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 189a28d..bf2744e 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -304,7 +304,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 		queue->rx_skbs[id] = skb;
+ 
+ 		ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
+-		WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)ref));
++		WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)(int)ref));
+ 		queue->grant_rx_ref[id] = ref;
+ 
+ 		page = skb_frag_page(&skb_shinfo(skb)->frags[0]);
+@@ -428,7 +428,7 @@ static void xennet_tx_setup_grant(unsigned long gfn, unsigned int offset,
+ 	id = get_id_from_freelist(&queue->tx_skb_freelist, queue->tx_skbs);
+ 	tx = RING_GET_REQUEST(&queue->tx, queue->tx.req_prod_pvt++);
+ 	ref = gnttab_claim_grant_reference(&queue->gref_tx_head);
+-	WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)ref));
++	WARN_ON_ONCE(IS_ERR_VALUE((unsigned long)(int)ref));
+ 
+ 	gnttab_grant_foreign_access_ref(ref, queue->info->xbdev->otherend_id,
+ 					gfn, GNTMAP_readonly);
+-- 
+2.7.4
