@@ -1,47 +1,80 @@
 From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Subject: Re: [PATCH (net.git) 0/3] stmmac: fix PTP support
-Date: Wed, 2 Nov 2016 12:33:35 +0530
-Message-ID: <CAJ3bTp4df45o5bYZXR+LcdXscty-GoO-uN9mqGFF551FzpxiBQ@mail.gmail.com>
-References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com> <20161026085812.GD11974@localhost.localdomain>
+Subject: Re: [PATCH (net.git) 2/3] stmmac: fix PTP support for GMAC4
+Date: Wed, 2 Nov 2016 12:34:19 +0530
+Message-ID: <CAJ3bTp4ScTGFKFK+uAFo7ML-yPZLP=hxBCHqxJEnqKzwzVNnqw@mail.gmail.com>
+References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com>
+ <1477464964-5960-3-git-send-email-peppe.cavallaro@st.com> <CAJ3bTp6Q4XF+nogBNf0ZBq73wr=btmNSgrCg=Kv8kvgsVf2jQg@mail.gmail.com>
+ <743ffe4a-2c8f-e5f7-f93c-6be16a8a0350@st.com> <CAJ3bTp7YON-+EiXCY+eaBP6NhtGJTngh2pLaKXdp2YPP1i+C6w@mail.gmail.com>
+ <a0a8b469-2b5a-3a32-9896-e531ed281a6c@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        netdev <netdev@vger.kernel.org>, alexandre.torgue@st.com,
+Cc: netdev <netdev@vger.kernel.org>, alexandre.torgue@st.com,
+        Richard Cochran <richardcochran@gmail.com>,
         linux-kernel@vger.kernel.org,
         Seraphin Bonnaffe <seraphin.bonnaffe@st.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37347 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750786AbcKBHDh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 03:03:37 -0400
-Received: by mail-wm0-f41.google.com with SMTP id t79so16658600wmt.0
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 00:03:37 -0700 (PDT)
-In-Reply-To: <20161026085812.GD11974@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a0a8b469-2b5a-3a32-9896-e531ed281a6c@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 26, 2016 at 2:28 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Wed, Oct 26, 2016 at 08:56:01AM +0200, Giuseppe Cavallaro wrote:
->> This subset of patches aim to fix the PTP support
->> for the stmmac and especially for 4.x chip series.
->> While setting PTP on an ST box with 4.00a Ethernet
->> core, the kernel panics due to a broken settings
->> of the descriptors. The patches review the
->> register configuration, the algo used for configuring
->> the protocol, the way to get the timestamp inside
->> the RX/TX descriptors and, in the end, the statistics
->> displayed by ethtool.
->>
->> Giuseppe Cavallaro (3):
->>   stmmac: update the PTP header file
->>   stmmac: fix PTP support for GMAC4
->>   stmmac: fix PTP type ethtool stats
+On Wed, Nov 2, 2016 at 12:04 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+> Hello Rayagond
 >
-> Acked-by: Richard Cochran <richardcochran@gmail.com>
+> if patches are ok, can we consider you Acked-by ?
+Yes.
 
-Acked-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+>
+> Thx
+> Peppe
+>
+>
+> On 10/27/2016 12:51 PM, Rayagond Kokatanur wrote:
+>>
+>> On Thu, Oct 27, 2016 at 4:02 PM, Giuseppe CAVALLARO
+>> <peppe.cavallaro@st.com> wrote:
+>>>
+>>> Hello Rayagond !
+>>>
+>>> On 10/27/2016 12:25 PM, Rayagond Kokatanur wrote:
+>>>>>
+>>>>>
+>>>>> +static int dwmac4_wrback_get_rx_timestamp_status(void *desc, u32 ats)
+>>>>>>
+>>>>>>  {
+>>>>>>         struct dma_desc *p = (struct dma_desc *)desc;
+>>>>>> +       int ret = -EINVAL;
+>>>>>> +
+>>>>>> +       /* Get the status from normal w/b descriptor */
+>>>>>> +       if (likely(p->des3 & TDES3_RS1V)) {
+>>>>>> +               if (likely(p->des1 & RDES1_TIMESTAMP_AVAILABLE)) {
+>>>>>> +                       int i = 0;
+>>>>>> +
+>>>>>> +                       /* Check if timestamp is OK from context
+>>>>>> descriptor */
+>>>>>> +                       do {
+>>>>>> +                               ret = dwmac4_rx_check_timestamp(desc);
+>>>>
+>>>>
+>>>> Here, "desc" is not pointing to next descriptor (ie context
+>>>> descriptor). Driver should check the context descriptor.
+>>>
+>>>
+>>>
+>>> you are right and this is done by the caller:  stmmac_get_rx_hwtstamp
+>>
+>>
+>> Yes.
+>>
+>>>
+>>> Cheers
+>>> peppe
+>>>
+>>
+>>
+>>
+>
 
 
 
