@@ -1,88 +1,50 @@
 From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH net-next v2 0/5] bpf: BPF for lightweight tunnel encapsulation
-Date: Wed, 2 Nov 2016 16:54:44 -0600
-Message-ID: <CACby=pnSX15XGuKBcw2FJkLz_qZt6XE+JS4ySN1Z6OZ=+w_eoQ@mail.gmail.com>
+Date: Wed, 2 Nov 2016 16:57:36 -0600
+Message-ID: <CACby=p=Vnd96Y0g8xfOfz9j8jDNmhASBYV+yM7Fx7G=H=BSsRQ@mail.gmail.com>
 References: <cover.1477959702.git.tgraf@suug.ch> <c220b6b2-3f20-09ff-2068-6ecfe0b47b9e@stressinduktion.org>
  <CACby=pmK9Pj00LYx9PQrgWe95xmy=qFhpjSYZT=QDnLQ55J=8w@mail.gmail.com>
  <1478030932.3136562.774196097.1F1AD6FB@webmail.messagingengine.com>
- <CACby=p=sSPfh0Lxr2qqk+wQ1=LVQvDU785Z9eTnT1GcKK=RoxA@mail.gmail.com> <3f9e7de1-1e61-2fb5-9529-c46343ac39c9@stressinduktion.org>
+ <CACby=p=sSPfh0Lxr2qqk+wQ1=LVQvDU785Z9eTnT1GcKK=RoxA@mail.gmail.com>
+ <3f9e7de1-1e61-2fb5-9529-c46343ac39c9@stressinduktion.org> <CALx6S37s-pTxgqje9+FgmuvVgSZONGURAmJOemL6pOc6_Oepew@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "David S. Miller" <davem@davemloft.net>,
         Alexei Starovoitov <alexei.starovoitov@gmail.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        Tom Herbert <tom@herbertland.com>,
         roopa <roopa@cumulusnetworks.com>,
         netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f177.google.com ([209.85.217.177]:35808 "EHLO
-        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755857AbcKBWyq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 18:54:46 -0400
-Received: by mail-ua0-f177.google.com with SMTP id 12so25438473uas.2
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 15:54:46 -0700 (PDT)
-In-Reply-To: <3f9e7de1-1e61-2fb5-9529-c46343ac39c9@stressinduktion.org>
+Received: from mail-vk0-f42.google.com ([209.85.213.42]:35420 "EHLO
+        mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754442AbcKBW5i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 18:57:38 -0400
+Received: by mail-vk0-f42.google.com with SMTP id w194so25719362vkw.2
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 15:57:38 -0700 (PDT)
+In-Reply-To: <CALx6S37s-pTxgqje9+FgmuvVgSZONGURAmJOemL6pOc6_Oepew@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1 November 2016 at 16:12, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On 01.11.2016 21:59, Thomas Graf wrote:
->>> Dumping and verifying which routes get used might actually already be
->>> quite complex on its own. Thus my fear.
->>
->> We even have an API to query which route is used for a tuple. What
->> else would you like to see?
->
-> I am not sure here. Some ideas I had were to allow tcpdump (pf_packet)
-> sockets sniff at interfaces and also gather and dump the metadata to
-> user space (this would depend on bpf programs only doing the
-> modifications in metadata and not in the actual packet).
+On 1 November 2016 at 17:07, Tom Herbert <tom@herbertland.com> wrote:
+> On the other hand, I'm not really sure how to implement for this level
+> of performance this in LWT+BPF either. It seems like one way to do
+> that would be to create a program each destination and set it each
+> host. As you point out would create a million different programs which
+> doesn't seem manageable. I don't think the BPF map works either since
+> that implies we need a lookup (?). It seems like what we need is one
+> program but allow it to be parameterized with per destination
+> information saved in the route (LWT structure).
 
-Not sure I understand. Why does this depend on BPF?
+Attaching different BPF programs to millions of unique dsts doesn't
+make any sense. That will obivously will never scale and it's not
+supposed to scale. This is meant to be used for prefixes which
+represent a series of endpoints, f.e. all local containers, all
+non-internal traffic, all vpn traffic, etc. I'm also not sure why we
+are talking about ILA here, you have written a native implementation,
+why would you want to solve it with BPF again?
 
-> Or maybe just tracing support (without depending on the eBPF program
-> developer to have added debugging in the BPF program).
-
-Absolutely in favour of that.
-
->> This will be addressed with signing AFAIK.
->
-> This sounds a bit unrealistic. Signing lots of small programs can be a
-> huge burden to the entity doing the signing (if it is not on the same
-> computer). And as far as I understood the programs should be generated
-> dynamically?
-
-Right, for generated programs, a hash is a better fit and still sufficient.
-
->> Would it help if we allow to store the original source used for
->> bytecode generation. What would make it clear which program was used.
->
-> I would also be fine with just a strong hash of the bytecode, so the
-> program can be identified accurately. Maybe helps with deduplication
-> later on, too. ;)
-
-OK, I think we all already agreed on doing this.
-
-> Even though I read through the patchset I am not absolutely sure which
-> problem it really solves. Especially because lots of things can be done
-> already at the ingress vs. egress interface (I looked at patch 4 but I
-> am not sure how realistic they are).
-
-Filtering at egress requires to attach the BPF program to all
-potential outgoing interface and then pass every single packet through
-the program whereas with LWT BPF, I'm only taking the cost where
-actually needed.
-
->> I also don't see how this could possibly scale if all packets must go
->> through a single BPF program. The overhead will be tremendous if you
->> only want to filter a couple of prefixes.
->
-> In case of hash table lookup it should be fast. llvm will probably also
-> generate jump table for a few 100 ip addresses, no? Additionally the
-> routing table lookup could be not done at all.
-
-Why would I want to accept the overhead if I simply avoid it? Just
-parsing the header and doing the hash lookup will add cost, cost for
-each packet.
+If you want to run a single program for all dsts, feel free to run the
+same BPF program for each dst. Nobody is forcing you to attach
+individual programs.
