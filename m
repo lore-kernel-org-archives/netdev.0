@@ -1,52 +1,121 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] inet: fix sleeping inside inet_wait_for_connect()
-Date: Wed, 2 Nov 2016 13:01:11 -0700
-Message-ID: <CAM_iQpXp_an9xN2SObttO=f2ePp=MZdE1fb8fPuYqjrcZPCfJw@mail.gmail.com>
-References: <1478041476-5568-1-git-send-email-xiyou.wangcong@gmail.com> <1478051697.7065.360.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Peter Zijlstra <peterz@infradead.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: [PATCH net v2] ipv4: allow local fragmentation in ip_finish_output_gso()
+Date: Wed,  2 Nov 2016 16:05:24 -0400
+Message-ID: <1478117124-12462-1-git-send-email-lrichard@redhat.com>
+To: netdev@vger.kernel.org, fw@strlen.de, jtluka@redhat.com,
+        hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36433 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753009AbcKBUBd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 16:01:33 -0400
-Received: by mail-oi0-f67.google.com with SMTP id 128so2721267oih.3
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 13:01:32 -0700 (PDT)
-In-Reply-To: <1478051697.7065.360.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48054 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753009AbcKBUF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Nov 2016 16:05:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 1, 2016 at 6:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2016-11-01 at 16:04 -0700, Cong Wang wrote:
->> Andrey reported this kernel warning:
->
->> Unlike commit 26cabd31259ba43f68026ce3f62b78094124333f
->> ("sched, net: Clean up sk_wait_event() vs. might_sleep()"), the
->> sleeping function is called before schedule_timeout(), this is indeed
->> a bug. Fix this by moving the wait logic to the new API, it is similar
->> to commit ff960a731788a7408b6f66ec4fd772ff18833211
->> ("netdev, sched/wait: Fix sleeping inside wait event").
->>
->> Reported-by: Andrey Konovalov <andreyknvl@google.com>
->> Cc: Andrey Konovalov <andreyknvl@google.com>
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Cc: Peter Zijlstra <peterz@infradead.org>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->
->
-> Excellent.
->
-> I guess we could also define sk_wait_event_woken()
-> and use it instead of sk_wait_event(), and also in
-> inet_wait_for_connect()
+Some configurations (e.g. geneve interface with default
+MTU of 1500 over an ethernet interface with 1500 MTU) result
+in the transmission of packets that exceed the configured MTU.
+While this should be considered to be a "bad" configuration,
+it is still allowed and should not result in the sending
+of packets that exceed the configured MTU.
 
-Agreed, I will send some followup patches to address this,
-probably all release_sock() before a schedule_*() need
-to fix.
+Fix by dropping the assumption in ip_finish_output_gso() that
+locally originated gso packets will never need fragmentation.
+Basic testing using iperf (observing CPU usage and bandwidth)
+have shown no measurable performance impact for traffic not
+requiring fragmentation.
 
-Thanks!
+Fixes: c7ba65d7b649 ("net: ip: push gso skb forwarding handling down the stack")
+Reported-by: Jan Tluka <jtluka@redhat.com>
+Signed-off-by: Lance Richardson <lrichard@redhat.com>
+---
+ v2: IPSKB_FRAG_SEGS is no longer useful, remove it.
+
+ include/net/ip.h          |  3 +--
+ net/ipv4/ip_forward.c     |  2 +-
+ net/ipv4/ip_output.c      |  6 ++----
+ net/ipv4/ip_tunnel_core.c | 10 ----------
+ net/ipv4/ipmr.c           |  2 +-
+ 5 files changed, 5 insertions(+), 18 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 5413883..d3a1078 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -47,8 +47,7 @@ struct inet_skb_parm {
+ #define IPSKB_REROUTED		BIT(4)
+ #define IPSKB_DOREDIRECT	BIT(5)
+ #define IPSKB_FRAG_PMTU		BIT(6)
+-#define IPSKB_FRAG_SEGS		BIT(7)
+-#define IPSKB_L3SLAVE		BIT(8)
++#define IPSKB_L3SLAVE		BIT(7)
+ 
+ 	u16			frag_max_size;
+ };
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 8b4ffd2..9f0a7b9 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -117,7 +117,7 @@ int ip_forward(struct sk_buff *skb)
+ 	if (opt->is_strictroute && rt->rt_uses_gateway)
+ 		goto sr_failed;
+ 
+-	IPCB(skb)->flags |= IPSKB_FORWARDED | IPSKB_FRAG_SEGS;
++	IPCB(skb)->flags |= IPSKB_FORWARDED;
+ 	mtu = ip_dst_mtu_maybe_forward(&rt->dst, true);
+ 	if (ip_exceeds_mtu(skb, mtu)) {
+ 		IP_INC_STATS(net, IPSTATS_MIB_FRAGFAILS);
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 03e7f73..4971401 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -239,11 +239,9 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ 	struct sk_buff *segs;
+ 	int ret = 0;
+ 
+-	/* common case: fragmentation of segments is not allowed,
+-	 * or seglen is <= mtu
++	/* common case: seglen is <= mtu
+ 	 */
+-	if (((IPCB(skb)->flags & IPSKB_FRAG_SEGS) == 0) ||
+-	      skb_gso_validate_mtu(skb, mtu))
++	if (skb_gso_validate_mtu(skb, mtu))
+ 		return ip_finish_output2(net, sk, skb);
+ 
+ 	/* Slowpath -  GSO segment length is exceeding the dst MTU.
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 777bc18..0f6995b1 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -73,16 +73,6 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	skb_dst_set(skb, &rt->dst);
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 
+-	if (skb_iif && !(df & htons(IP_DF))) {
+-		/* Arrived from an ingress interface, got encapsulated, with
+-		 * fragmentation of encapulating frames allowed.
+-		 * If skb is gso, the resulting encapsulated network segments
+-		 * may exceed dst mtu.
+-		 * Allow IP Fragmentation of segments.
+-		 */
+-		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
+-	}
+-
+ 	/* Push down and install the IP header. */
+ 	skb_push(skb, sizeof(struct iphdr));
+ 	skb_reset_network_header(skb);
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 5f006e1..27089f5 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1749,7 +1749,7 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
+ 		vif->dev->stats.tx_bytes += skb->len;
+ 	}
+ 
+-	IPCB(skb)->flags |= IPSKB_FORWARDED | IPSKB_FRAG_SEGS;
++	IPCB(skb)->flags |= IPSKB_FORWARDED;
+ 
+ 	/* RFC1584 teaches, that DVMRP/PIM router must deliver packets locally
+ 	 * not only before forwarding, but after forwarding on all output
+-- 
+2.5.5
