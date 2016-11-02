@@ -1,72 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5 4/7] Documentation: devicetree: net: add NS2 bindings
- to amac
-Date: Wed, 2 Nov 2016 22:52:07 +0300
-Message-ID: <16b4fb52-ed13-c9d9-d82d-862ae34ce850@cogentembedded.com>
-References: <1478106488-11779-1-git-send-email-jon.mason@broadcom.com>
- <1478106488-11779-5-git-send-email-jon.mason@broadcom.com>
- <ab064a45-0172-fa28-4ac6-0d3159a26506@cogentembedded.com>
- <20161102172456.GA11881@broadcom.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] inet: fix sleeping inside inet_wait_for_connect()
+Date: Wed, 2 Nov 2016 13:01:11 -0700
+Message-ID: <CAM_iQpXp_an9xN2SObttO=f2ePp=MZdE1fb8fPuYqjrcZPCfJw@mail.gmail.com>
+References: <1478041476-5568-1-git-send-email-xiyou.wangcong@gmail.com> <1478051697.7065.360.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>, rafal@milecki.pl,
-        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Jon Mason <jon.mason@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161102172456.GA11881@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Peter Zijlstra <peterz@infradead.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36433 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753009AbcKBUBd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 16:01:33 -0400
+Received: by mail-oi0-f67.google.com with SMTP id 128so2721267oih.3
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 13:01:32 -0700 (PDT)
+In-Reply-To: <1478051697.7065.360.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/02/2016 08:24 PM, Jon Mason wrote:
-
->>> Clean-up the documentation to the bgmac-amac driver, per suggestion by
->>> Rob Herring, and add details for NS2 support.
->>>
->>> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
->>> ---
->>> Documentation/devicetree/bindings/net/brcm,amac.txt | 16 +++++++++++-----
->>> 1 file changed, 11 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/brcm,amac.txt b/Documentation/devicetree/bindings/net/brcm,amac.txt
->>> index ba5ecc1..2fefa1a 100644
->>> --- a/Documentation/devicetree/bindings/net/brcm,amac.txt
->>> +++ b/Documentation/devicetree/bindings/net/brcm,amac.txt
->>> @@ -2,11 +2,17 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
->>> -------------------------------------------------------------
->>>
->>> Required properties:
->>> - - compatible:	"brcm,amac" or "brcm,nsp-amac"
->>> - - reg:		Address and length of the GMAC registers,
->>> -		Address and length of the GMAC IDM registers
->>> - - reg-names:	Names of the registers.  Must have both "amac_base" and
->>> -		"idm_base"
->>> + - compatible:	"brcm,amac"
->>> +		"brcm,nsp-amac"
->>> +		"brcm,ns2-amac"
->>> + - reg:		Address and length of the register set for the device. It
->>> +		contains the information of registers in the same order as
->>> +		described by reg-names
->>> + - reg-names:	Names of the registers.
->>> +		"amac_base":	Address and length of the GMAC registers
->>> +		"idm_base":	Address and length of the GMAC IDM registers
->>> +		"nicpm_base":	Address and length of the NIC Port Manager
->>> +				registers (required for Northstar2)
->>
->>   Why this "_base" suffix? It looks redundant...
+On Tue, Nov 1, 2016 at 6:54 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2016-11-01 at 16:04 -0700, Cong Wang wrote:
+>> Andrey reported this kernel warning:
 >
-> Yes.  Rob Herring pointed out the same thing.  It is ugly, but follows
-> the existing binding.
+>> Unlike commit 26cabd31259ba43f68026ce3f62b78094124333f
+>> ("sched, net: Clean up sk_wait_event() vs. might_sleep()"), the
+>> sleeping function is called before schedule_timeout(), this is indeed
+>> a bug. Fix this by moving the wait logic to the new API, it is similar
+>> to commit ff960a731788a7408b6f66ec4fd772ff18833211
+>> ("netdev, sched/wait: Fix sleeping inside wait event").
+>>
+>> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+>> Cc: Andrey Konovalov <andreyknvl@google.com>
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>> Cc: Peter Zijlstra <peterz@infradead.org>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+>
+>
+> Excellent.
+>
+> I guess we could also define sk_wait_event_woken()
+> and use it instead of sk_wait_event(), and also in
+> inet_wait_for_connect()
 
-    Sorry, I didn't realize you're reformatting the existing bindings while 
-adding some new text...
+Agreed, I will send some followup patches to address this,
+probably all release_sock() before a schedule_*() need
+to fix.
 
-> Thanks,
-> Jon
-
-MBR, Sergei
+Thanks!
