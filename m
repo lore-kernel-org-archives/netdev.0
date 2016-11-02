@@ -1,58 +1,92 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: [PATCH net-next iproute2 1/2 v2] libnetlink: Add test for error code returned from netlink reply
-Date: Wed,  2 Nov 2016 16:14:55 +0300
-Message-ID: <1478092496-7540-2-git-send-email-gorcunov@gmail.com>
-References: <1478092496-7540-1-git-send-email-gorcunov@gmail.com>
-Cc: stephen@networkplumber.org, avagin@openvz.org,
-        Cyrill Gorcunov <gorcunov@gmail.com>
-To: netdev@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering FIB notifier
+Date: Wed, 2 Nov 2016 06:29:40 -0700
+Message-ID: <CAJieiUjGHX0C7mG3Y8m2VZHPPq=Rz-2D8e_L9ZASi-bCs8nJJw@mail.gmail.com>
+References: <1477948427-9189-1-git-send-email-idosch@idosch.org>
+ <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161031225737.7nfoy4ka3ydzhptq@splinter> <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5818B146.20209@cumulusnetworks.com> <20161101170345.pq2ewecw35mrurkp@splinter>
+ <58194BD6.5040406@cumulusnetworks.com> <20161102072032.GA1713@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Ido Schimmel <idosch@idosch.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>, mlxsw <mlxsw@mellanox.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        alexander.h.duyck@intel.com,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Ido Schimmel <idosch@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36294 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753543AbcKBNPF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 09:15:05 -0400
-Received: by mail-lf0-f65.google.com with SMTP id o20so959605lfg.3
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 06:15:04 -0700 (PDT)
-In-Reply-To: <1478092496-7540-1-git-send-email-gorcunov@gmail.com>
+Received: from mail-ua0-f175.google.com ([209.85.217.175]:36208 "EHLO
+        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754394AbcKBN3m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 09:29:42 -0400
+Received: by mail-ua0-f175.google.com with SMTP id b35so12403053uaa.3
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 06:29:41 -0700 (PDT)
+In-Reply-To: <20161102072032.GA1713@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case if some diag module is not present in the system,
-say the kernel is not modern enough, we simply skip the
-error code reported. Instead we should check for data
-length in NLMSG_DONE and process unsupported case.
+On Wed, Nov 2, 2016 at 12:20 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Wed, Nov 02, 2016 at 03:13:42AM CET, roopa@cumulusnetworks.com wrote:
+>>
+[snip]
 
-Signed-off-by: Cyrill Gorcunov <gorcunov@gmail.com>
----
- lib/libnetlink.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+>>I understand..but, if you are adding some core infrastructure for switchdev ..it cannot be
+>>based on the number of simple use-cases or data you have today.
+>>
+>>I won't be surprised if tomorrow other switch drivers have a case where they need to
+>>reset the hw routing table state and reprogram all routes again. Re-registering the notifier to just
+>>get the routing state of the kernel will not scale. For the long term, since the driver does not maintain a cache,
+>
+> Driver (mlxsw, rocker) maintain a cache. So I'm not sure why you say
+> otherwise.
+>
+>
+>>a pull api with efficient use of rtnl will be useful for other such cases as well.
+>
+> How do you imagine this "pull API" should look like?
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 2279935..232daee 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -312,6 +312,22 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
- 					dump_intr = 1;
- 
- 				if (h->nlmsg_type == NLMSG_DONE) {
-+					if (rth->proto == NETLINK_SOCK_DIAG) {
-+						if (h->nlmsg_len < NLMSG_LENGTH(sizeof(int))) {
-+							fprintf(stderr, "DONE truncated\n");
-+							return -1;
-+						} else {
-+							int len = *(int *)NLMSG_DATA(h);
-+							if (len < 0) {
-+								errno = -len;
-+								if (errno == ENOENT ||
-+								    errno == EOPNOTSUPP)
-+									return -1;
-+								perror("RTNETLINK answers");
-+								return len;
-+							}
-+						}
-+					}
- 					found_done = 1;
- 					break; /* process next filter */
- 				}
--- 
-2.7.4
+
+Just like you already have added fib notifiers to parallel fib netlink
+notifications, the pull API is  a parallel to 'netlink dump'.
+Is my imagination too wild  ? :)
+
+
+>
+>
+>>
+>>
+>>If you don't want to get to the complexity of a new api right away because of the
+>>simple case of management interface routes you have, Can your driver register the notifier early  ?
+>>(I am sure you have probably already thought about this)
+>
+> Register early? What it would resolve? I must be missing something. We
+> register as early as possible. But the thing is, we cannot register
+> in a past. And that is what this patch resolves.
+
+sure, you must be having a valid problem then. I was just curious why
+your driver is not up and initialized before any of the addresses or
+routes get configured in the system (even on a management port). Ours
+does. But i agree there can be races and you cannot always guarantee
+(I was just responding to ido's comment about adding complexity for a
+small problem he has to solve for management routes). Our driver does
+a pull before it starts. This helps when we want to reset the hardware
+routing table state too.
+
+
+But, my point was, when you are defining an API, you cannot quantify
+the 'past' to be just the very 'close past' or 'the past is just the
+management routes that were added' . Tomorrow the 'past' can be the
+full routing table if you need to reset the hardware state.
