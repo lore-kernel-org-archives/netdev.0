@@ -1,86 +1,145 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [mm PATCH v2 23/26] dma: Add calls for dma_map_page_attrs and
- dma_unmap_page_attrs
-Date: Wed, 02 Nov 2016 07:16:00 -0400
-Message-ID: <20161102111557.79519.77155.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [mm PATCH v2 25/26] igb: Update driver to make use of
+ DMA_ATTR_SKIP_CPU_SYNC
+Date: Wed, 02 Nov 2016 07:16:15 -0400
+Message-ID: <20161102111613.79519.8654.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ linux-kernel@vger.kernel.org
 To: linux-mm@kvack.org, akpm@linux-foundation.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Add support for mapping and unmapping a page with attributes.  The primary
-use for this is currently to allow for us to pass the
-DMA_ATTR_SKIP_CPU_SYNC attribute when mapping and unmapping a page.  On
-some architectures such as ARM the synchronization has significant overhead
-and if we are already taking care of the sync_for_cpu and sync_for_device
-from the driver there isn't much need to handle this in the map/unmap calls
-as well.
+The ARM architecture provides a mechanism for deferring cache line
+invalidation in the case of map/unmap.  This patch makes use of this
+mechanism to avoid unnecessary synchronization.
 
+A secondary effect of this change is that the portion of the page that has
+been synchronized for use by the CPU should be writable and could be passed
+up the stack (at least on ARM).
+
+The last bit that occurred to me is that on architectures where the
+sync_for_cpu call invalidates cache lines we were prefetching and then
+invalidating the first 128 bytes of the packet.  To avoid that I have moved
+the sync up to before we perform the prefetch and allocate the skbuff so
+that we can actually make use of it.
+
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- include/linux/dma-mapping.h |   20 +++++++++++++-------
- 1 file changed, 13 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c |   53 ++++++++++++++++++-----------
+ 1 file changed, 33 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
-index 08528af..10c5a17 100644
---- a/include/linux/dma-mapping.h
-+++ b/include/linux/dma-mapping.h
-@@ -243,29 +243,33 @@ static inline void dma_unmap_sg_attrs(struct device *dev, struct scatterlist *sg
- 		ops->unmap_sg(dev, sg, nents, dir, attrs);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 4feca69..c8c458c 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3947,10 +3947,21 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 		if (!buffer_info->page)
+ 			continue;
+ 
+-		dma_unmap_page(rx_ring->dev,
+-			       buffer_info->dma,
+-			       PAGE_SIZE,
+-			       DMA_FROM_DEVICE);
++		/* Invalidate cache lines that may have been written to by
++		 * device so that we avoid corrupting memory.
++		 */
++		dma_sync_single_range_for_cpu(rx_ring->dev,
++					      buffer_info->dma,
++					      buffer_info->page_offset,
++					      IGB_RX_BUFSZ,
++					      DMA_FROM_DEVICE);
++
++		/* free resources associated with mapping */
++		dma_unmap_page_attrs(rx_ring->dev,
++				     buffer_info->dma,
++				     PAGE_SIZE,
++				     DMA_FROM_DEVICE,
++				     DMA_ATTR_SKIP_CPU_SYNC);
+ 		__free_page(buffer_info->page);
+ 
+ 		buffer_info->page = NULL;
+@@ -6808,12 +6819,6 @@ static void igb_reuse_rx_page(struct igb_ring *rx_ring,
+ 
+ 	/* transfer page from old buffer to new buffer */
+ 	*new_buff = *old_buff;
+-
+-	/* sync the buffer for use by the device */
+-	dma_sync_single_range_for_device(rx_ring->dev, old_buff->dma,
+-					 old_buff->page_offset,
+-					 IGB_RX_BUFSZ,
+-					 DMA_FROM_DEVICE);
  }
  
--static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
--				      size_t offset, size_t size,
--				      enum dma_data_direction dir)
-+static inline dma_addr_t dma_map_page_attrs(struct device *dev,
-+					    struct page *page,
-+					    size_t offset, size_t size,
-+					    enum dma_data_direction dir,
-+					    unsigned long attrs)
- {
- 	struct dma_map_ops *ops = get_dma_ops(dev);
- 	dma_addr_t addr;
+ static inline bool igb_page_is_reserved(struct page *page)
+@@ -6934,6 +6939,13 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+ 	page = rx_buffer->page;
+ 	prefetchw(page);
  
- 	kmemcheck_mark_initialized(page_address(page) + offset, size);
- 	BUG_ON(!valid_dma_direction(dir));
--	addr = ops->map_page(dev, page, offset, size, dir, 0);
-+	addr = ops->map_page(dev, page, offset, size, dir, attrs);
- 	debug_dma_map_page(dev, page, offset, size, dir, addr, false);
++	/* we are reusing so sync this buffer for CPU use */
++	dma_sync_single_range_for_cpu(rx_ring->dev,
++				      rx_buffer->dma,
++				      rx_buffer->page_offset,
++				      size,
++				      DMA_FROM_DEVICE);
++
+ 	if (likely(!skb)) {
+ 		void *page_addr = page_address(page) +
+ 				  rx_buffer->page_offset;
+@@ -6958,21 +6970,15 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
+ 		prefetchw(skb->data);
+ 	}
  
- 	return addr;
- }
+-	/* we are reusing so sync this buffer for CPU use */
+-	dma_sync_single_range_for_cpu(rx_ring->dev,
+-				      rx_buffer->dma,
+-				      rx_buffer->page_offset,
+-				      size,
+-				      DMA_FROM_DEVICE);
+-
+ 	/* pull page into skb */
+ 	if (igb_add_rx_frag(rx_ring, rx_buffer, size, rx_desc, skb)) {
+ 		/* hand second half of page back to the ring */
+ 		igb_reuse_rx_page(rx_ring, rx_buffer);
+ 	} else {
+ 		/* we are not reusing the buffer so unmap it */
+-		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
+-			       PAGE_SIZE, DMA_FROM_DEVICE);
++		dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
++				     PAGE_SIZE, DMA_FROM_DEVICE,
++				     DMA_ATTR_SKIP_CPU_SYNC);
+ 	}
  
--static inline void dma_unmap_page(struct device *dev, dma_addr_t addr,
--				  size_t size, enum dma_data_direction dir)
-+static inline void dma_unmap_page_attrs(struct device *dev,
-+					dma_addr_t addr, size_t size,
-+					enum dma_data_direction dir,
-+					unsigned long attrs)
- {
- 	struct dma_map_ops *ops = get_dma_ops(dev);
+ 	/* clear contents of rx_buffer */
+@@ -7230,7 +7236,8 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
+ 	}
  
- 	BUG_ON(!valid_dma_direction(dir));
- 	if (ops->unmap_page)
--		ops->unmap_page(dev, addr, size, dir, 0);
-+		ops->unmap_page(dev, addr, size, dir, attrs);
- 	debug_dma_unmap_page(dev, addr, size, dir, false);
- }
+ 	/* map page for use */
+-	dma = dma_map_page(rx_ring->dev, page, 0, PAGE_SIZE, DMA_FROM_DEVICE);
++	dma = dma_map_page_attrs(rx_ring->dev, page, 0, PAGE_SIZE,
++				 DMA_FROM_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
  
-@@ -385,6 +389,8 @@ static inline void dma_sync_single_range_for_device(struct device *dev,
- #define dma_unmap_single(d, a, s, r) dma_unmap_single_attrs(d, a, s, r, 0)
- #define dma_map_sg(d, s, n, r) dma_map_sg_attrs(d, s, n, r, 0)
- #define dma_unmap_sg(d, s, n, r) dma_unmap_sg_attrs(d, s, n, r, 0)
-+#define dma_map_page(d, p, o, s, r) dma_map_page_attrs(d, p, o, s, r, 0)
-+#define dma_unmap_page(d, a, s, r) dma_unmap_page_attrs(d, a, s, r, 0)
+ 	/* if mapping failed free memory back to system since
+ 	 * there isn't much point in holding memory we can't use
+@@ -7271,6 +7278,12 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
+ 		if (!igb_alloc_mapped_page(rx_ring, bi))
+ 			break;
  
- extern int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
- 			   void *cpu_addr, dma_addr_t dma_addr, size_t size);
++		/* sync the buffer for use by the device */
++		dma_sync_single_range_for_device(rx_ring->dev, bi->dma,
++						 bi->page_offset,
++						 IGB_RX_BUFSZ,
++						 DMA_FROM_DEVICE);
++
+ 		/* Refresh the desc even if buffer_addrs didn't change
+ 		 * because each write-back erases this info.
+ 		 */
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
