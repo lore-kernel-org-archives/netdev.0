@@ -1,14 +1,14 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [mm PATCH v2 12/26] arch/metag: Add option to skip DMA sync as a
- part of map and unmap
-Date: Wed, 02 Nov 2016 07:14:24 -0400
-Message-ID: <20161102111422.79519.66263.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [mm PATCH v2 10/26] arch/hexagon: Add option to skip DMA sync as a
+ part of mapping
+Date: Wed, 02 Nov 2016 07:14:09 -0400
+Message-ID: <20161102111407.79519.26259.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James Hogan <james.hogan@imgtec.com>,
- linux-metag@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: linux-hexagon@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Richard Kuo <rkuo@codeaurora.org>
 To: linux-mm@kvack.org, akpm@linux-foundation.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
@@ -17,62 +17,38 @@ List-Id: netdev.vger.kernel.org
 
 This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
-via a sync_for_cpu or sync_for_device call.
+later via a sync_for_cpu or sync_for_device call.
 
-Cc: James Hogan <james.hogan@imgtec.com>
-Cc: linux-metag@vger.kernel.org
+Cc: Richard Kuo <rkuo@codeaurora.org>
+Cc: linux-hexagon@vger.kernel.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/metag/kernel/dma.c |   16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ arch/hexagon/kernel/dma.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/arch/metag/kernel/dma.c b/arch/metag/kernel/dma.c
-index 0db31e2..91968d9 100644
---- a/arch/metag/kernel/dma.c
-+++ b/arch/metag/kernel/dma.c
-@@ -484,8 +484,9 @@ static dma_addr_t metag_dma_map_page(struct device *dev, struct page *page,
- 		unsigned long offset, size_t size,
- 		enum dma_data_direction direction, unsigned long attrs)
- {
--	dma_sync_for_device((void *)(page_to_phys(page) + offset), size,
--			    direction);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		dma_sync_for_device((void *)(page_to_phys(page) + offset),
-+				    size, direction);
- 	return page_to_phys(page) + offset;
- }
+diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
+index b901778..dbc4f10 100644
+--- a/arch/hexagon/kernel/dma.c
++++ b/arch/hexagon/kernel/dma.c
+@@ -119,6 +119,9 @@ static int hexagon_map_sg(struct device *hwdev, struct scatterlist *sg,
  
-@@ -493,7 +494,8 @@ static void metag_dma_unmap_page(struct device *dev, dma_addr_t dma_address,
- 		size_t size, enum dma_data_direction direction,
- 		unsigned long attrs)
- {
--	dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		dma_sync_for_cpu(phys_to_virt(dma_address), size, direction);
- }
+ 		s->dma_length = s->length;
  
- static int metag_dma_map_sg(struct device *dev, struct scatterlist *sglist,
-@@ -507,6 +509,10 @@ static int metag_dma_map_sg(struct device *dev, struct scatterlist *sglist,
- 		BUG_ON(!sg_page(sg));
- 
- 		sg->dma_address = sg_phys(sg);
-+
 +		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
 +			continue;
 +
- 		dma_sync_for_device(sg_virt(sg), sg->length, direction);
+ 		flush_dcache_range(dma_addr_to_virt(s->dma_address),
+ 				   dma_addr_to_virt(s->dma_address + s->length));
  	}
+@@ -180,7 +183,8 @@ static dma_addr_t hexagon_map_page(struct device *dev, struct page *page,
+ 	if (!check_addr("map_single", dev, bus, size))
+ 		return bad_dma_address;
  
-@@ -525,6 +531,10 @@ static void metag_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 		BUG_ON(!sg_page(sg));
+-	dma_sync(dma_addr_to_virt(bus), size, dir);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		dma_sync(dma_addr_to_virt(bus), size, dir);
  
- 		sg->dma_address = sg_phys(sg);
-+
-+		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+			continue;
-+
- 		dma_sync_for_cpu(sg_virt(sg), sg->length, direction);
- 	}
+ 	return bus;
  }
 
 --
