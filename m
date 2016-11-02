@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 1/2] ip6_tunnel: Clear IP6CB in ip6tunnel_xmit()
-Date: Wed, 02 Nov 2016 15:19:21 -0400 (EDT)
-Message-ID: <20161102.151921.396879850539537934.davem@davemloft.net>
-References: <20161101154513.30347-1-elicooper@gmx.com>
+Subject: Re: [PATCH v4 net-next] lan78xx: Use irq_domain for phy interrupt
+ from USB Int. EP
+Date: Wed, 02 Nov 2016 15:24:41 -0400 (EDT)
+Message-ID: <20161102.152441.459205528111412700.davem@davemloft.net>
+References: <9235D6609DB808459E95D78E17F2E43D4095D3D8@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shmulik.ladkani@gmail.com,
-        tom@herbertland.com
-To: elicooper@gmx.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, andrew@lunn.ch,
+        UNGLinuxDriver@microchip.com
+To: Woojung.Huh@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45398 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45546 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756595AbcKBTTX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 15:19:23 -0400
-In-Reply-To: <20161101154513.30347-1-elicooper@gmx.com>
+        with ESMTP id S1755953AbcKBTYn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 15:24:43 -0400
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D4095D3D8@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cooper <elicooper@gmx.com>
-Date: Tue,  1 Nov 2016 23:45:12 +0800
+From: <Woojung.Huh@microchip.com>
+Date: Tue, 1 Nov 2016 20:02:00 +0000
 
-> skb->cb may contain data from previous layers. In the observed scenario,
-> the garbage data were misinterpreted as IP6CB(skb)->frag_max_size, so
-> that small packets sent through the tunnel are mistakenly fragmented.
+> From: Woojung Huh <woojung.huh@microchip.com>
 > 
-> This patch unconditionally clears the control buffer in ip6tunnel_xmit(),
-> which affects ip6_tunnel, ip6_udp_tunnel and ip6_gre. Currently none of
-> these tunnels set IP6CB(skb)->flags, otherwise it needs to be done earlier.
+> To utilize phylib with interrupt fully than handling some of phy stuff in the MAC driver,
+> create irq_domain for USB interrupt EP of phy interrupt and
+> pass the irq number to phy_connect_direct() instead of PHY_IGNORE_INTERRUPT.
 > 
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Eli Cooper <elicooper@gmx.com>
-> ---
-> v3: moves to ip6tunnel_xmit() and clears IP6CB unconditionally
-> v2: clears the whole IP6CB altogether and does it after encapsulation
+> Idea comes from drivers/gpio/gpio-dl2.c
+> 
+> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
 
-Applied and queued up for -stable.
+Applied.
