@@ -1,15 +1,15 @@
 From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: Let's do P4
-Date: Wed, 2 Nov 2016 08:18:06 -0700
-Message-ID: <581A03AE.8050006@gmail.com>
-References: <20161030074458.GB1686@nanopsycho.orion>
+Date: Wed, 2 Nov 2016 08:22:50 -0700
+Message-ID: <581A04CA.5020808@gmail.com>
+References: <20161029075328.GB1692@nanopsycho.orion>
+ <20161029154903.25deb6db@jkicinski-Precision-T1700>
+ <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion>
  <20161030102649.GE1810@pox.localdomain>
  <20161030163836.GC1686@nanopsycho.orion>
  <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
- <20161031093922.GA2895@nanopsycho.orion> <58177712.4000208@gmail.com>
- <20161031171229.GB2895@nanopsycho.orion> <58179CE4.2080400@gmail.com>
- <20161101084643.GA1707@nanopsycho.orion> <5818B11C.2040004@gmail.com>
- <20161102080723.GD1713@nanopsycho.orion>
+ <20161031093922.GA2895@nanopsycho.orion> <58194F83.9020205@iogearbox.net>
+ <20161102081404.GE1713@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -17,7 +17,7 @@ Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
         Thomas Graf <tgraf@suug.ch>, Jakub Kicinski <kubakici@wp.pl>,
         netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
         roopa@cumulusnetworks.com, simon.horman@netronome.com,
-        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        ast@kernel.org, prem@barefootnetworks.com,
         hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
         mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -25,101 +25,80 @@ Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
         dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
         andrew@lunn.ch, ivecera@redhat.com,
         =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+To: Jiri Pirko <jiri@resnulli.us>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33114 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755734AbcKBPSe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:18:34 -0400
-Received: by mail-pf0-f175.google.com with SMTP id d2so13715032pfd.0
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 08:18:34 -0700 (PDT)
-In-Reply-To: <20161102080723.GD1713@nanopsycho.orion>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35276 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754518AbcKBPXV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:23:21 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i88so2047189pfk.2
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 08:23:21 -0700 (PDT)
+In-Reply-To: <20161102081404.GE1713@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-11-02 01:07 AM, Jiri Pirko wrote:
-> Tue, Nov 01, 2016 at 04:13:32PM CET, john.fastabend@gmail.com wrote:
->> [...]
->>
->>>>> P4 is ment to program programable hw, not fixed pipeline.
+[...]
+
+>>>>> Exactly. Following drawing shows p4 pipeline setup for SW and Hw:
 >>>>>
->>>>
->>>> I'm guessing there are no upstream drivers at the moment that support
->>>> this though right? The rocker universe bits though could leverage this.
->>>
->>> mlxsw. But this is naturaly not implemented yet, as there is no
->>> infrastructure.
+>>>>>                                   |
+>>>>>                                   |               +--> ebpf engine
+>>>>>                                   |               |
+>>>>>                                   |               |
+>>>>>                                   |           compilerB
+>>>>>                                   |               ^
+>>>>>                                   |               |
+>>>>> p4src --> compilerA --> p4ast --TCNL--> cls_p4 --+-> driver -> compilerC -> HW
+>>>>>                                   |
+>>>>>                         userspace | kernel
+>>>>>                                   |
 >>
->> Really? What is re-programmable?
+>> Sorry for jumping into the middle and the delay (plumbers this week). My
+>> question would be, if the main target is for p4 *offloading* anyway, who
+>> would use this sw fallback path? Mostly for testing purposes?
+> 
+> Development and testing purposes, yes.
+> 
+> 
 >>
->> Can the parse graph support arbitrary parse graph?
->> Can the table topology be reconfigured?
->> Can new tables be created?
->> What about "new" actions being defined at configuration time?
+>> I'm not sure about compilerB here and the complexity that needs to be
+>> pushed into the kernel along with it. I would assume this would result
+>> in slower code than what the existing P4 -> eBPF front ends for LLVM
+>> would generate since it could perform all kind of optimizations there,
+> 
+> The complexity would be similar to compilerC. For compilerB,
+> optimizations does not really matter, as it it for testing mainly.
+> 
+> 
+>> that might not be feasible for doing inside the kernel. Thus, if I'd want
+>> to do that in sw, I'd just use the existing LLVM facilities instead and
+>> go via cls_bpf in that case.
 >>
->> Or is this just the normal TCAM configuration of defining key widths and
->> fields.
+>> What is your compilerA? Is that part of tc in user space? Maybe linked
 > 
-> At this point TCAM configuration.
+> It is something that transforms original p4 source to some intermediate
+> form, easy to be processed by in-kernel compilers.
 > 
-
-OK so before we go down the path to enable a full fledged P4 interface
-we need a consumer for sure. We shouldn't add all this complexity until
-someone steps up to use it. A runtime API is sufficient for TCAM config.
-
-[...]
-
->>
->> P4-16 will allow externs, "functions" to execute in the control flow and
->> possibly inside the parse graph. None of this was considered in the
->> Flow-API. So none of this is supported.
->>
->> I still have the question are you trying to push the "programming" of
->> the device via 'tc' or just the runtime configuration of tables? If it
->> is just runtime Flow-API is sufficient IMO. If its programming the
->> device using the complete P4-16 spec than no its not sufficient. But
 > 
-> Sure we need both.
+>> against LLVM lib, for example? If you really want some sw path, can't tc
+>> do this transparently from user space instead when it gets a netlink error
+>> that it cannot get offloaded (and thus switch internally to f_bpf's loader)?
+> 
+> In real life, user will most probably use p4 for hw programming, but the
+> sw fallback will be done in bpf directly. In that case, he would use
+> cls_bfp SKIP_HW
+> cls_p4 SKIP_SW
+> 
+> But in order to allow cls_p4 offloading to hw, we need in-kernel
+> interpreter. That is purpose of compilerB to take agvantage of bpf, but
+> the in-kernel interpreter could be implemented differently.
 > 
 
-See above.
-
-> 
->> I don't believe vendors will expose the complete programmability of the
->> device in the driver, this is going to look more like a fw update than
->> a runtime change at least on the devices I'm aware of.
-> 
-> Depends on driver. I think it is fine if driver processed it into come
-> hw configuration sequence or it simply pushed the program down to fw.
-> Both usecases are legit.
-> 
-
-At this point I don't think the entire P4 capabilities will be exposed
-as an API but more along the lines of an FPGA bitstream or firmware
-update.
-
-
-[...]
-
->>
->> Same question as above are we _really_ talking about pushing the entire
->> programmability of the device via 'tc'. If so we need to have a vendor
->> say they will support and implement this?
-> 
-> We need some API, and I believe that TC is perfectly suitable for that.
-> Why do you think it's a problem?
-> 
-
-For runtime configuration completely agree. For device configuration
-I don't see the advantage of adding an entire device specific compiler
-in the driver. The device is a set of CAMs, TCAMs, ALUs, instruction
-caches, etc. its not like a typical NIC/switch where you just bang
-some registers. Unless its all done in firmware but that creates an
-entirely different set of problems like how to update your compiler.
-
-Bottom line we need to have a proof point of a driver in kernel
-to see exactly how a P4 configuration would work. Again runtime config
-and device topology/capabilities discovery I'm completely on board.
-
-Thanks,
-John
+But this is the issue. We openly acknowledge it wont actually be used.
+We have multiple user space compilers that generate at least half way
+reasonable ebpf code that is being used in real deployments and
+works great for testing. This looks like pure overhead to satisfy this
+hw/sw parity checkbox and I can't see why anyone would use it or even
+maintain it. Looks like a checkbox and I like to avoid useless work that
+is likely to bit rot.
