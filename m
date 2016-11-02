@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] Netfilter updates for net-next
-Date: Wed, 02 Nov 2016 14:59:29 -0400 (EDT)
-Message-ID: <20161102.145929.172052998469857661.davem@davemloft.net>
-References: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next 0/2] misc TC/flower changes
+Date: Wed, 02 Nov 2016 15:01:03 -0400 (EDT)
+Message-ID: <20161102.150103.355373313855499159.davem@davemloft.net>
+References: <1478009309-63180-1-git-send-email-roid@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1478035593-1362-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jiri@mellanox.com
+To: roid@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44986 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756828AbcKBTBF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 15:01:05 -0400
+In-Reply-To: <1478009309-63180-1-git-send-email-roid@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue,  1 Nov 2016 22:26:21 +0100
+From: Roi Dayan <roid@mellanox.com>
+Date: Tue,  1 Nov 2016 16:08:27 +0200
 
-> The following patchset contains Netfilter updates for your net-next
-> tree. This includes better integration with the routing subsystem for
-> nf_tables, explicit notrack support and smaller updates. More
-> specifically, they are:
- ...
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> This series includes two small changes to the TC flower classifier.
 
-The nft fib module looks really cool.
-
-Pulled, thanks Pablo.
+Series applied, thanks!
