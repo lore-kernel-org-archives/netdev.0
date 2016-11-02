@@ -1,44 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v2 3/5] bpf: BPF for lightweight tunnel encapsulation
-Date: Wed, 2 Nov 2016 16:58:42 -0600
-Message-ID: <CACby=pn5=uhR12fv9ebat2Pkk3kzOUhxGVOWp+gn+jxf7ud2rA@mail.gmail.com>
-References: <cover.1477959702.git.tgraf@suug.ch> <d8c7e07ac7d289a2846af8d659287f3512a4edec.1477959702.git.tgraf@suug.ch>
- <5819EC81.90405@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 07/11] net: dsa: mv88e6xxx: add port link setter
+Date: Thu, 3 Nov 2016 00:05:17 +0100
+Message-ID: <20161102230517.GK384@lunn.ch>
+References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
+ <20161101032023.32762-8-vivien.didelot@savoirfairelinux.com>
+ <20161101094313.GB2802@lunn.ch>
+ <87shra4rlu.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+ <20161102091629.GA384@lunn.ch>
+ <8760o55x9j.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Tom Herbert <tom@herbertland.com>,
-        netdev <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f44.google.com ([209.85.213.44]:33223 "EHLO
-        mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754442AbcKBW6o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 18:58:44 -0400
-Received: by mail-vk0-f44.google.com with SMTP id d65so25963649vkg.0
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 15:58:43 -0700 (PDT)
-In-Reply-To: <5819EC81.90405@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8760o55x9j.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2 November 2016 at 07:39, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->> diff --git a/net/core/Makefile b/net/core/Makefile
->> index d6508c2..a675fd3 100644
->> --- a/net/core/Makefile
->> +++ b/net/core/Makefile
->> @@ -23,7 +23,7 @@ obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
->>  obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
->>  obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
->>  obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
->> -obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
->> +obj-$(CONFIG_LWTUNNEL) += lwtunnel.o lwt_bpf.o
->
-> Any reason you want to keep lwt bpf under the main CONFIG_LWTUNNEL infra config ?.
-> since it is defined as yet another plug-gable encap function, seems like it will be better under a separate
-> CONFIG_LWTUNNEL_BPF or CONFIG_LWT_BPF that depends on CONFIG_LWTUNNEL
+> Do you expect to return an error if adjust_link is called with
+> phydev->duplex == DUPLEX_UNKNOWN, or, do you expect to fallback to
+> unforced duplex when setting such value?
 
-The code was so minimal with no additional dependencies that I didn't
-see a need for a separate Kconfig. I'm fine adding that in the next
-iteration though. No objections.
+ethtool(1) itself does not allow you to specify "unknown". It only
+allows "full" or "half". So passing DUPLEX_UNKNOWN means using the API
+directly. The core ethtool code does not sanity check the request, so
+will pass on DUPLEX_UNKNOWN to the drivers.
+
+A quick search of the drivers, 99% seem to ignore DUPLEX_UNKNOWN. The
+1% is bnx2x, which has:
+
+        /* If received a request for an unknown duplex, assume full*/
+        if (cmd->duplex == DUPLEX_UNKNOWN)
+                cmd->duplex = DUPLEX_FULL;
+
+I personally would return -EINVAL, since it is unclear what
+DUPLEX_UNKNOWN means. It could be argued that falling back to Half is
+correct, since failed autoneg generally results in 10/Half. Every
+Ethernet can do that, where as a device needs to be 25 years or
+younger to support Full :-)
+
+	  Andrew
