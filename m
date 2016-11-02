@@ -1,33 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v5 2/7] Documentation: devicetree: add PHY lane swap
- binding
-Date: Wed, 2 Nov 2016 18:39:30 +0100
-Message-ID: <20161102173930.GG384@lunn.ch>
-References: <1478106488-11779-1-git-send-email-jon.mason@broadcom.com>
- <1478106488-11779-3-git-send-email-jon.mason@broadcom.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: net/tcp: null-ptr-deref in
+ __inet_lookup_listener/inet_exact_dif_match
+Date: Wed, 2 Nov 2016 12:31:20 -0600
+Message-ID: <f92b8a3e-9318-90c4-009a-15da3897ff6b@cumulusnetworks.com>
+References: <CAAeHK+z9bqpWqONBBL1rztkY-+NdzY4jfCzNzfnm63psxbW-2g@mail.gmail.com>
+ <1478107305.7065.382.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        bcm-kernel-feedback-list@broadcom.com, rafal@milecki.pl,
-        linux-arm-kernel@lists.infradead.org
-To: Jon Mason <jon.mason@broadcom.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1478106488-11779-3-git-send-email-jon.mason@broadcom.com>
+In-Reply-To: <1478107305.7065.382.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 02, 2016 at 01:08:03PM -0400, Jon Mason wrote:
-> Add the documentation for PHY lane swapping.  This is a boolean entry to
-> notify the phy device drivers that the TX/RX lanes need to be swapped.
+On 11/2/16 11:21 AM, Eric Dumazet wrote:
+> Thanks for your report.
 > 
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> David, please take a look.
+> 
+> TCP MD5 can call __inet_lookup_listener() with a NULL skb.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+interesting. I did not test md5 before sending, but doing so now I am not able to trigger the panic with any combination of passwords - correct, wrong, none, no listener, etc. perhaps I am missing a sysctl setting.
 
-    Andrew
+Will send a fix. I see the call to __inet_lookup_listener with null skb.
+
+> 
+> Bug added in commit a04a480d4392ea6efd117be2de564117b2a009c0
