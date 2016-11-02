@@ -1,94 +1,207 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/dccp: null-ptr-deref in dccp_v4_rcv/selinux_socket_sock_rcv_skb
-Date: Wed, 2 Nov 2016 19:44:12 +0100
-Message-ID: <CAAeHK+yZ4WF2eXATVFQbe_SKM-MFzXypA6VjGxwUxYV3_4xT9g@mail.gmail.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
+Date: Wed, 2 Nov 2016 14:29:58 -0400
+Message-ID: <008b7d7d-74af-0341-0c16-40aafde5a223@pobox.com>
+References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
+ <20161030.205755.1198665157526465556.davem@davemloft.net>
+ <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
+ <20161030.235342.134481656830778556.davem@davemloft.net>
+ <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:33422 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756244AbcKBSoP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 14:44:15 -0400
-Received: by mail-lf0-f48.google.com with SMTP id c13so20438603lfg.0
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 11:44:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 16-10-31 04:14 AM, Hayes Wang wrote:
+>>>>> The r8152 driver has been broken since (approx) 3.16.xx
+>>>>> when support was added for hardware RX checksums
+>>>>> on newer chip versions.  Symptoms include random
+>>>>> segfaults and silent data corruption over NFS.
+>>>>>
+>>>>> The hardware checksum logig does not work on the VER_02
+>>>>> dongles I have here when used with a slow embedded system CPU.
+>>>>> Google reveals others reporting similar issues on Raspberry Pi.
+...
+> Our hw engineer says only VER_01 has the issue about rx checksum.
+> I need more information for checking it.
 
-I've got the following error report while running the syzkaller fuzzer:
+I have poked at it some more, and thus far it appears that it is
+only necessary to disable TCP rx checksums.  The system doesn't crash
+when only IP/UDP checksums are enabled, but does when TCP checksums are on.
 
-IPv4: Attempt to release alive inet socket ffff880068e98940
-kasan: CONFIG_KASAN_INLINE enabled
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 1 PID: 3905 Comm: a.out Not tainted 4.9.0-rc3+ #333
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff88006b9e0000 task.stack: ffff880068770000
-RIP: 0010:[<ffffffff819ead5f>]  [<ffffffff819ead5f>]
-selinux_socket_sock_rcv_skb+0xff/0x6a0 security/selinux/hooks.c:4639
-RSP: 0018:ffff8800687771c8  EFLAGS: 00010202
-RAX: ffff88006b9e0000 RBX: 1ffff1000d0eee3f RCX: 1ffff1000d1d312a
-RDX: 1ffff1000d1d31a6 RSI: dffffc0000000000 RDI: 0000000000000010
-RBP: ffff880068777360 R08: 0000000000000000 R09: 0000000000000002
-R10: dffffc0000000000 R11: 0000000000000006 R12: ffff880068e98940
-R13: 0000000000000002 R14: ffff880068777338 R15: 0000000000000000
-FS:  00007f00ff760700(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000020008000 CR3: 000000006a308000 CR4: 00000000000006e0
-Stack:
- ffff8800687771e0 ffffffff812508a5 ffff8800686f3168 0000000000000007
- ffff88006ac8cdfc ffff8800665ea500 0000000041b58ab3 ffffffff847b5480
- ffffffff819eac60 ffff88006b9e0860 ffff88006b9e0868 ffff88006b9e07f0
-Call Trace:
- [<ffffffff819c8dd5>] security_sock_rcv_skb+0x75/0xb0 security/security.c:1317
- [<ffffffff82c2a9e7>] sk_filter_trim_cap+0x67/0x10e0 net/core/filter.c:81
- [<ffffffff82b81e60>] __sk_receive_skb+0x30/0xa00 net/core/sock.c:460
- [<ffffffff838bbf12>] dccp_v4_rcv+0xdb2/0x1910 net/dccp/ipv4.c:873
- [<ffffffff83069d22>] ip_local_deliver_finish+0x332/0xad0
-net/ipv4/ip_input.c:216
- [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
- [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
- [<ffffffff8306abd2>] ip_local_deliver+0x1c2/0x4b0 net/ipv4/ip_input.c:257
- [<     inline     >] dst_input ./include/net/dst.h:507
- [<ffffffff83068500>] ip_rcv_finish+0x750/0x1c40 net/ipv4/ip_input.c:396
- [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
- [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
- [<ffffffff8306b82f>] ip_rcv+0x96f/0x12f0 net/ipv4/ip_input.c:487
- [<ffffffff82bd9fb7>] __netif_receive_skb_core+0x1897/0x2a50 net/core/dev.c:4213
- [<ffffffff82bdb19a>] __netif_receive_skb+0x2a/0x170 net/core/dev.c:4251
- [<ffffffff82bdb493>] netif_receive_skb_internal+0x1b3/0x390 net/core/dev.c:4279
- [<ffffffff82bdb6b8>] netif_receive_skb+0x48/0x250 net/core/dev.c:4303
- [<ffffffff8241fc75>] tun_get_user+0xbd5/0x28a0 drivers/net/tun.c:1308
- [<ffffffff82421b5a>] tun_chr_write_iter+0xda/0x190 drivers/net/tun.c:1332
- [<     inline     >] new_sync_write fs/read_write.c:499
- [<ffffffff8151bd44>] __vfs_write+0x334/0x570 fs/read_write.c:512
- [<ffffffff8151f85b>] vfs_write+0x17b/0x500 fs/read_write.c:560
- [<     inline     >] SYSC_write fs/read_write.c:607
- [<ffffffff81523184>] SyS_write+0xd4/0x1a0 fs/read_write.c:599
- [<ffffffff83fc02c1>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-arch/x86/entry/entry_64.S:209
-Code: 31 45 84 c0 74 0a 41 80 f8 01 0f 8e 26 04 00 00 49 8d 7f 10 49
-ba 00 00 00 00 00 fc ff df 45 0f b7 6c 24 10 49 89 f9 49 c1 e9 03 <47>
-0f b6 1c 11 45 84 db 74 0a 41 80 fb 03 0f 8e 01 04 00 00 41
-RIP  [<ffffffff819ead5f>] selinux_socket_sock_rcv_skb+0xff/0x6a0
-security/selinux/hooks.c:4639
- RSP <ffff8800687771c8>
----[ end trace 6c39677dc406a11b ]---
-Kernel panic - not syncing: Fatal exception in interrupt
-Kernel Offset: disabled
----[ end Kernel panic - not syncing: Fatal exception in interrupt
+This happens regardless of whether RX_AGG is disabled or enabled,
+and increasing/decreasing the number of RX URBs (RTL8152_MAX_RX)
+doesn't seem to affect it.
 
-On commit 0c183d92b20b5c84ca655b45ef57b3318b83eb9e (Oct 31).
+lsusb -vv (from an x86 system, not the failing embedded system) follows:
 
-Thanks!
+Bus 001 Device 004: ID 0bda:8152 Realtek Semiconductor Corp.
+Device Descriptor:
+   bLength                18
+   bDescriptorType         1
+   bcdUSB               2.10
+   bDeviceClass            0 (Defined at Interface level)
+   bDeviceSubClass         0
+   bDeviceProtocol         0
+   bMaxPacketSize0        64
+   idVendor           0x0bda Realtek Semiconductor Corp.
+   idProduct          0x8152
+   bcdDevice           20.00
+   iManufacturer           1 Realtek
+   iProduct                2 USB 10/100 LAN
+   iSerial                 3 84E71400257D
+   bNumConfigurations      2
+   Configuration Descriptor:
+     bLength                 9
+     bDescriptorType         2
+     wTotalLength           39
+     bNumInterfaces          1
+     bConfigurationValue     1
+     iConfiguration          0
+     bmAttributes         0xa0
+       (Bus Powered)
+       Remote Wakeup
+     MaxPower              100mA
+     Interface Descriptor:
+       bLength                 9
+       bDescriptorType         4
+       bInterfaceNumber        0
+       bAlternateSetting       0
+       bNumEndpoints           3
+       bInterfaceClass       255 Vendor Specific Class
+       bInterfaceSubClass    255 Vendor Specific Subclass
+       bInterfaceProtocol      0
+       iInterface              0
+       Endpoint Descriptor:
+         bLength                 7
+         bDescriptorType         5
+         bEndpointAddress     0x81  EP 1 IN
+         bmAttributes            2
+           Transfer Type            Bulk
+           Synch Type               None
+           Usage Type               Data
+         wMaxPacketSize     0x0200  1x 512 bytes
+         bInterval               0
+       Endpoint Descriptor:
+         bLength                 7
+         bDescriptorType         5
+         bEndpointAddress     0x02  EP 2 OUT
+         bmAttributes            2
+           Transfer Type            Bulk
+           Synch Type               None
+           Usage Type               Data
+         wMaxPacketSize     0x0200  1x 512 bytes
+         bInterval               0
+       Endpoint Descriptor:
+         bLength                 7
+         bDescriptorType         5
+         bEndpointAddress     0x83  EP 3 IN
+         bmAttributes            3
+           Transfer Type            Interrupt
+           Synch Type               None
+           Usage Type               Data
+         wMaxPacketSize     0x0002  1x 2 bytes
+         bInterval               8
+   Configuration Descriptor:
+     bLength                 9
+     bDescriptorType         2
+     wTotalLength           80
+     bNumInterfaces          2
+     bConfigurationValue     2
+     iConfiguration          0
+     bmAttributes         0xa0
+       (Bus Powered)
+       Remote Wakeup
+     MaxPower              100mA
+     Interface Descriptor:
+       bLength                 9
+       bDescriptorType         4
+       bInterfaceNumber        0
+       bAlternateSetting       0
+       bNumEndpoints           1
+       bInterfaceClass         2 Communications
+       bInterfaceSubClass      6 Ethernet Networking
+       bInterfaceProtocol      0
+       iInterface              5 CDC Communications Control
+       CDC Header:
+         bcdCDC               1.10
+       CDC Union:
+         bMasterInterface        0
+         bSlaveInterface         1
+       CDC Ethernet:
+         iMacAddress                      3 84E71400257D
+         bmEthernetStatistics    0x00000000
+         wMaxSegmentSize               1514
+         wNumberMCFilters            0x0000
+         bNumberPowerFilters              0
+       Endpoint Descriptor:
+         bLength                 7
+         bDescriptorType         5
+         bEndpointAddress     0x83  EP 3 IN
+         bmAttributes            3
+           Transfer Type            Interrupt
+           Synch Type               None
+           Usage Type               Data
+         wMaxPacketSize     0x0010  1x 16 bytes
+         bInterval               8
+     Interface Descriptor:
+       bLength                 9
+       bDescriptorType         4
+       bInterfaceNumber        1
+       bAlternateSetting       0
+       bNumEndpoints           0
+       bInterfaceClass        10 CDC Data
+       bInterfaceSubClass      0 Unused
+       bInterfaceProtocol      0
+       iInterface              0
+     Interface Descriptor:
+       bLength                 9
+       bDescriptorType         4
+       bInterfaceNumber        1
+       bAlternateSetting       1
+       bNumEndpoints           2
+       bInterfaceClass        10 CDC Data
+       bInterfaceSubClass      0 Unused
+       bInterfaceProtocol      0
+       iInterface              4 Ethernet Data
+       Endpoint Descriptor:
+         bLength                 7
+         bDescriptorType         5
+         bEndpointAddress     0x81  EP 1 IN
+         bmAttributes            2
+           Transfer Type            Bulk
+           Synch Type               None
+           Usage Type               Data
+         wMaxPacketSize     0x0200  1x 512 bytes
+         bInterval               0
+       Endpoint Descriptor:
+         bLength                 7
+         bDescriptorType         5
+         bEndpointAddress     0x02  EP 2 OUT
+         bmAttributes            2
+           Transfer Type            Bulk
+           Synch Type               None
+           Usage Type               Data
+         wMaxPacketSize     0x0200  1x 512 bytes
+         bInterval               0
+Binary Object Store Descriptor:
+   bLength                 5
+   bDescriptorType        15
+   wTotalLength           12
+   bNumDeviceCaps          1
+   USB 2.0 Extension Device Capability:
+     bLength                 7
+     bDescriptorType        16
+     bDevCapabilityType      2
+     bmAttributes   0x00000002
+       Link Power Management (LPM) Supported
+Device Status:     0x0000
+   (Bus Powered)
