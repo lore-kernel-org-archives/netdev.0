@@ -1,56 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: Check for fullsock in sock_i_uid()
-Date: Wed, 02 Nov 2016 01:39:03 -0700
-Message-ID: <1478075943.7065.361.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1478064420-11601-1-git-send-email-subashab@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34935 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753044AbcKBIjG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 04:39:06 -0400
-Received: by mail-pf0-f194.google.com with SMTP id i88so1150492pfk.2
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 01:39:05 -0700 (PDT)
-In-Reply-To: <1478064420-11601-1-git-send-email-subashab@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Filip Matusiak <filip.matusiak@tieto.com>
+Subject: [PATCH V2] mac80211: Ignore VHT IE from peer with wrong rx_mcs_map
+Date: Wed,  2 Nov 2016 10:04:26 +0100
+Message-ID: <1478077466-4308-1-git-send-email-filip.matusiak@tieto.com>
+Cc: filip.matusiak@tieto.com, marek.kwaczynski@tieto.com,
+        johannes@sipsolutions.net, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-11-01 at 23:27 -0600, Subash Abhinov Kasiviswanathan wrote:
-> sock_i_uid() acquires the sk_callback_lock which does not exist
-> for sockets in TCP_NEW_SYN_RECV state. This results in errors
-> showing up as spinlock bad magic.
-> 
-> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> ---
->  net/core/sock.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index c73e28f..af15ef0 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1727,7 +1727,10 @@ void sock_efree(struct sk_buff *skb)
->  
->  kuid_t sock_i_uid(struct sock *sk)
->  {
-> -	kuid_t uid;
-> +	kuid_t uid = GLOBAL_ROOT_UID;
-> +
-> +	if (!sk_fullsock(sk))
-> +		return uid;
->  
->  	read_lock_bh(&sk->sk_callback_lock);
->  	uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : GLOBAL_ROOT_UID;
+This is a workaround for VHT-enabled STAs which break the spec
+and have the VHT-MCS Rx map filled in with value 3 for all eight
+spacial streams, an example is AR9462 in AP mode.
 
+As per spec, in section 22.1.1 Introduction to the VHT PHY
+A VHT STA shall support at least single spactial stream VHT-MCSs
+0 to 7 (transmit and receive) in all supported channel widths.
 
-This would be a bug in the caller.
+Some devices in STA mode will get firmware assert when trying to
+associate, examples are QCA9377 & QCA6174.
 
-Can you give us the complete stack trace leading to the problem you
-had ?
+Packet example of broken VHT Cap IE of AR9462:
 
-Thanks !
+Tag: VHT Capabilities (IEEE Std 802.11ac/D3.1)
+    Tag Number: VHT Capabilities (IEEE Std 802.11ac/D3.1) (191)
+    Tag length: 12
+    VHT Capabilities Info: 0x00000000
+    VHT Supported MCS Set
+        Rx MCS Map: 0xffff
+            .... .... .... ..11 = Rx 1 SS: Not Supported (0x0003)
+            .... .... .... 11.. = Rx 2 SS: Not Supported (0x0003)
+            .... .... ..11 .... = Rx 3 SS: Not Supported (0x0003)
+            .... .... 11.. .... = Rx 4 SS: Not Supported (0x0003)
+            .... ..11 .... .... = Rx 5 SS: Not Supported (0x0003)
+            .... 11.. .... .... = Rx 6 SS: Not Supported (0x0003)
+            ..11 .... .... .... = Rx 7 SS: Not Supported (0x0003)
+            11.. .... .... .... = Rx 8 SS: Not Supported (0x0003)
+        ...0 0000 0000 0000 = Rx Highest Long GI Data Rate (in Mb/s, 0 = subfield not in use): 0x0000
+        Tx MCS Map: 0xffff
+        ...0 0000 0000 0000 = Tx Highest Long GI Data Rate  (in Mb/s, 0 = subfield not in use): 0x0000
+
+Signed-off-by: Filip Matusiak <filip.matusiak@tieto.com>
+---
+ net/mac80211/vht.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/net/mac80211/vht.c b/net/mac80211/vht.c
+index ee71576..6832bf6 100644
+--- a/net/mac80211/vht.c
++++ b/net/mac80211/vht.c
+@@ -270,6 +270,22 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
+ 		vht_cap->vht_mcs.tx_mcs_map |= cpu_to_le16(peer_tx << i * 2);
+ 	}
+ 
++	/*
++	 * This is a workaround for VHT-enabled STAs which break the spec
++	 * and have the VHT-MCS Rx map filled in with value 3 for all eight
++	 * spacial streams, an example is AR9462.
++	 *
++	 * As per spec, in section 22.1.1 Introduction to the VHT PHY
++	 * A VHT STA shall support at least single spactial stream VHT-MCSs
++	 * 0 to 7 (transmit and receive) in all supported channel widths.
++	 */
++	if (vht_cap->vht_mcs.rx_mcs_map == cpu_to_le16(0xFFFF)) {
++		vht_cap->vht_supported = false;
++		sdata_info(sdata, "Ignoring VHT IE from %pM due to invalid rx_mcs_map\n",
++			   sta->addr);
++		return;
++	}
++
+ 	/* finally set up the bandwidth */
+ 	switch (vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK) {
+ 	case IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ:
+-- 
+2.7.4
