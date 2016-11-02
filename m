@@ -1,50 +1,212 @@
-From: Tyler Baicar <tbaicar@codeaurora.org>
-Subject: [PATCH] e1000e: free IRQ when the link is up or down
-Date: Wed,  2 Nov 2016 15:08:16 -0600
-Message-ID: <1478120896-5907-1-git-send-email-tbaicar@codeaurora.org>
-Cc: Tyler Baicar <tbaicar@codeaurora.org>
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        okaya@codeaurora.org, timur@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:39060 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757360AbcKBVIU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 17:08:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/ipv6: null-ptr-deref in inet6_bind
+Date: Wed, 2 Nov 2016 22:14:23 +0100
+Message-ID: <CAAeHK+y8AEQ7dM6GQa5fezgaQK+arqAfRjyVafq-K0+nqgUvGg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=94eb2c184a8ce103f1054057ecb6
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move IRQ free code so that it will happen regardless of the
-link state. Currently the e1000e driver only releases its IRQ
-if the link is up. This is not sufficient because it is
-possible for a link to go down without releasing the IRQ. A
-secondary bus reset can cause this case to happen.
+--94eb2c184a8ce103f1054057ecb6
+Content-Type: text/plain; charset=UTF-8
 
-Signed-off-by: Tyler Baicar <tbaicar@codeaurora.org>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hi,
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 7017281..36cfcb0 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4679,12 +4679,13 @@ int e1000e_close(struct net_device *netdev)
- 
- 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
- 		e1000e_down(adapter, true);
--		e1000_free_irq(adapter);
- 
- 		/* Link status message must follow this format */
- 		pr_info("%s NIC Link is Down\n", adapter->netdev->name);
- 	}
- 
-+	e1000_free_irq(adapter);
-+
- 	napi_disable(&adapter->napi);
- 
- 	e1000e_free_tx_resources(adapter->tx_ring);
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm Technologies, Inc.
-Qualcomm Technologies, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project.
+I've got the following error report while running the syzkaller fuzzer:
+
+BUG: unable to handle kernel NULL pointer dereference at           (null)
+IP: [<          (null)>]           (null)
+PGD 66b6f067 [  102.549865] PUD 66c6e067
+PMD 0 [  102.549865]
+Oops: 0010 [#1] SMP KASAN
+Modules linked in:
+CPU: 0 PID: 4143 Comm: a.out Not tainted 4.9.0-rc3+ #336
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff880066b1c200 task.stack: ffff880065b58000
+RIP: 0010:[<0000000000000000>]  [<          (null)>]           (null)
+RSP: 0018:ffff880065b5fbc0  EFLAGS: 00010246
+RAX: ffff880066b1c200 RBX: ffff88006873864a RCX: 0000000000000000
+RDX: 0000000000000001 RSI: ffff880068738640 RDI: ffff880063bd3200
+RBP: ffff880065b5fd20 R08: 1ffff1000c77a713 R09: dffffc0000000000
+R10: ffffffff844fc800 R11: 1ffff1000d0e70c9 R12: ffffffff84e7e040
+R13: ffff880068738640 R14: ffff880063bd3200 R15: ffffffff86836380
+FS:  00007f40b7acf700(0000) GS:ffff88006cc00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000000000 CR3: 000000006bb28000 CR4: 00000000000006f0
+Stack:
+ ffffffff83099988 ffffffff8479f7e8 ffffffff81208580 1ffff1000000000c
+ 0000000041b58ab3 ffffffff8479f7e8 ffffffff81208580 ffffffff812506ed
+ 0000000000000007 ffff880065b5fc18 ffffffff812506ed ffff880065b5fcd0
+Call Trace:
+ [<ffffffff832cf4fc>] inet6_bind+0x8ec/0x1020 net/ipv6/af_inet6.c:384
+ [<ffffffff82b7033c>] SYSC_bind+0x1ec/0x250 net/socket.c:1367
+ [<ffffffff82b72ae4>] SyS_bind+0x24/0x30 net/socket.c:1353
+ [<ffffffff83fc0401>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+arch/x86/entry/entry_64.S:209
+Code:  Bad RIP value.
+RIP  [<          (null)>]           (null)
+ RSP <ffff880065b5fbc0>
+CR2: 0000000000000000
+---[ end trace b5ec698ae4926a97 ]---
+Kernel panic - not syncing: Fatal exception in interrupt
+Kernel Offset: disabled
+---[ end Kernel panic - not syncing: Fatal exception in interrupt
+
+On commit 0c183d92b20b5c84ca655b45ef57b3318b83eb9e (Oct 31).
+
+I'm able to reproduce it with the attached program by running it as:
+$ gcc -lpthread inet6-bind-poc.c
+$ while true; do ./a.out; done
+
+Thanks!
+
+--94eb2c184a8ce103f1054057ecb6
+Content-Type: application/octet-stream; name="inet6-bind-poc.c"
+Content-Disposition: attachment; filename="inet6-bind-poc.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iv1f5o4y0
+
+Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
+eXprYWxsZXIpCgojaWZuZGVmIF9fTlJfc29ja2V0CiNkZWZpbmUgX19OUl9zb2NrZXQgNDEKI2Vu
+ZGlmCiNpZm5kZWYgX19OUl9iaW5kCiNkZWZpbmUgX19OUl9iaW5kIDQ5CiNlbmRpZgojaWZuZGVm
+IF9fTlJfc3l6X29wZW5fZGV2CiNkZWZpbmUgX19OUl9zeXpfb3Blbl9kZXYgMTAwMDAwMgojZW5k
+aWYKI2lmbmRlZiBfX05SX3N5el9vcGVuX3B0cwojZGVmaW5lIF9fTlJfc3l6X29wZW5fcHRzIDEw
+MDAwMDMKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpfdGVzdAojZGVmaW5lIF9fTlJfc3l6X3Rlc3Qg
+MTAwMDAwMQojZW5kaWYKI2lmbmRlZiBfX05SX21tYXAKI2RlZmluZSBfX05SX21tYXAgOQojZW5k
+aWYKI2lmbmRlZiBfX05SX2Nvbm5lY3QKI2RlZmluZSBfX05SX2Nvbm5lY3QgNDIKI2VuZGlmCiNp
+Zm5kZWYgX19OUl9zeXpfZnVzZV9tb3VudAojZGVmaW5lIF9fTlJfc3l6X2Z1c2VfbW91bnQgMTAw
+MDAwNAojZW5kaWYKI2lmbmRlZiBfX05SX3N5el9mdXNlYmxrX21vdW50CiNkZWZpbmUgX19OUl9z
+eXpfZnVzZWJsa19tb3VudCAxMDAwMDA1CiNlbmRpZgoKI2luY2x1ZGUgPHN5cy9pb2N0bC5oPgoj
+aW5jbHVkZSA8c3lzL3NvY2tldC5oPgojaW5jbHVkZSA8c3lzL3N0YXQuaD4KI2luY2x1ZGUgPHN5
+cy9zeXNjYWxsLmg+CiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4KCiNpbmNsdWRlIDxlcnJuby5oPgoj
+aW5jbHVkZSA8ZXJyb3IuaD4KI2luY2x1ZGUgPGZjbnRsLmg+CiNpbmNsdWRlIDxwdGhyZWFkLmg+
+CiNpbmNsdWRlIDxzZXRqbXAuaD4KI2luY2x1ZGUgPHNpZ25hbC5oPgojaW5jbHVkZSA8c3RkZGVm
+Lmg+CiNpbmNsdWRlIDxzdGRpbnQuaD4KI2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRs
+aWIuaD4KI2luY2x1ZGUgPHN0cmluZy5oPgojaW5jbHVkZSA8dW5pc3RkLmg+CgpfX3RocmVhZCBp
+bnQgc2tpcF9zZWd2OwpfX3RocmVhZCBqbXBfYnVmIHNlZ3ZfZW52OwoKc3RhdGljIHZvaWQgc2Vn
+dl9oYW5kbGVyKGludCBzaWcsIHNpZ2luZm9fdCogaW5mbywgdm9pZCogdWN0eCkKewogIGlmIChf
+X2F0b21pY19sb2FkX24oJnNraXBfc2VndiwgX19BVE9NSUNfUkVMQVhFRCkpCiAgICBfbG9uZ2pt
+cChzZWd2X2VudiwgMSk7CiAgZXhpdChzaWcpOwp9CgpzdGF0aWMgdm9pZCBpbnN0YWxsX3NlZ3Zf
+aGFuZGxlcigpCnsKICBzdHJ1Y3Qgc2lnYWN0aW9uIHNhOwogIG1lbXNldCgmc2EsIDAsIHNpemVv
+ZihzYSkpOwogIHNhLnNhX3NpZ2FjdGlvbiA9IHNlZ3ZfaGFuZGxlcjsKICBzYS5zYV9mbGFncyA9
+IFNBX05PREVGRVIgfCBTQV9TSUdJTkZPOwogIHNpZ2FjdGlvbihTSUdTRUdWLCAmc2EsIE5VTEwp
+OwogIHNpZ2FjdGlvbihTSUdCVVMsICZzYSwgTlVMTCk7Cn0KCiNkZWZpbmUgTk9ORkFJTElORygu
+Li4pICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAogIHsg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIFwKICAgIF9fYXRvbWljX2ZldGNoX2FkZCgmc2tpcF9zZWd2LCAxLCBfX0FUT01J
+Q19TRVFfQ1NUKTsgICAgICAgICAgICAgICBcCiAgICBpZiAoX3NldGptcChzZWd2X2VudikgPT0g
+MCkgeyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAogICAgICBfX1ZBX0FS
+R1NfXzsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IFwKICAgIH0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICBcCiAgICBfX2F0b21pY19mZXRjaF9zdWIoJnNraXBfc2VndiwgMSwg
+X19BVE9NSUNfU0VRX0NTVCk7ICAgICAgICAgICAgICAgXAogIH0KCnN0YXRpYyB1aW50cHRyX3Qg
+c3l6X29wZW5fZGV2KHVpbnRwdHJfdCBhMCwgdWludHB0cl90IGExLCB1aW50cHRyX3QgYTIpCnsK
+ICBpZiAoYTAgPT0gMHhjIHx8IGEwID09IDB4YikgewoKICAgIGNoYXIgYnVmWzEyOF07CiAgICBz
+cHJpbnRmKGJ1ZiwgIi9kZXYvJXMvJWQ6JWQiLCBhMCA9PSAweGMgPyAiY2hhciIgOiAiYmxvY2si
+LAogICAgICAgICAgICAodWludDhfdClhMSwgKHVpbnQ4X3QpYTIpOwogICAgcmV0dXJuIG9wZW4o
+YnVmLCBPX1JEV1IsIDApOwogIH0gZWxzZSB7CgogICAgY2hhciBidWZbMTAyNF07CiAgICBjaGFy
+KiBoYXNoOwogICAgc3RybmNweShidWYsIChjaGFyKilhMCwgc2l6ZW9mKGJ1ZikpOwogICAgYnVm
+W3NpemVvZihidWYpIC0gMV0gPSAwOwogICAgd2hpbGUgKChoYXNoID0gc3RyY2hyKGJ1ZiwgJyMn
+KSkpIHsKICAgICAgKmhhc2ggPSAnMCcgKyAoY2hhcikoYTEgJSAxMCk7CiAgICAgIGExIC89IDEw
+OwogICAgfQogICAgcmV0dXJuIG9wZW4oYnVmLCBhMiwgMCk7CiAgfQp9CgpzdGF0aWMgdWludHB0
+cl90IHN5el9vcGVuX3B0cyh1aW50cHRyX3QgYTAsIHVpbnRwdHJfdCBhMSkKewoKICBpbnQgcHR5
+bm8gPSAwOwogIGlmIChpb2N0bChhMCwgVElPQ0dQVE4sICZwdHlubykpCiAgICByZXR1cm4gLTE7
+CiAgY2hhciBidWZbMTI4XTsKICBzcHJpbnRmKGJ1ZiwgIi9kZXYvcHRzLyVkIiwgcHR5bm8pOwog
+IHJldHVybiBvcGVuKGJ1ZiwgYTEsIDApOwp9CgpzdGF0aWMgdWludHB0cl90IHN5el9mdXNlX21v
+dW50KHVpbnRwdHJfdCBhMCwgdWludHB0cl90IGExLAogICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIHVpbnRwdHJfdCBhMiwgdWludHB0cl90IGEzLAogICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIHVpbnRwdHJfdCBhNCwgdWludHB0cl90IGE1KQp7CgogIHVpbnQ2NF90IHRhcmdl
+dCA9IGEwOwogIHVpbnQ2NF90IG1vZGUgPSBhMTsKICB1aW50NjRfdCB1aWQgPSBhMjsKICB1aW50
+NjRfdCBnaWQgPSBhMzsKICB1aW50NjRfdCBtYXhyZWFkID0gYTQ7CiAgdWludDY0X3QgZmxhZ3Mg
+PSBhNTsKCiAgaW50IGZkID0gb3BlbigiL2Rldi9mdXNlIiwgT19SRFdSKTsKICBpZiAoZmQgPT0g
+LTEpCiAgICByZXR1cm4gZmQ7CiAgY2hhciBidWZbMTAyNF07CiAgc3ByaW50ZihidWYsICJmZD0l
+ZCx1c2VyX2lkPSVsZCxncm91cF9pZD0lbGQscm9vdG1vZGU9MCVvIiwgZmQsCiAgICAgICAgICAo
+bG9uZyl1aWQsIChsb25nKWdpZCwgKHVuc2lnbmVkKW1vZGUgJiB+M3UpOwogIGlmIChtYXhyZWFk
+ICE9IDApCiAgICBzcHJpbnRmKGJ1ZiArIHN0cmxlbihidWYpLCAiLG1heF9yZWFkPSVsZCIsIChs
+b25nKW1heHJlYWQpOwogIGlmIChtb2RlICYgMSkKICAgIHN0cmNhdChidWYsICIsZGVmYXVsdF9w
+ZXJtaXNzaW9ucyIpOwogIGlmIChtb2RlICYgMikKICAgIHN0cmNhdChidWYsICIsYWxsb3dfb3Ro
+ZXIiKTsKICBzeXNjYWxsKFNZU19tb3VudCwgIiIsIHRhcmdldCwgImZ1c2UiLCBmbGFncywgYnVm
+KTsKCiAgcmV0dXJuIGZkOwp9CgpzdGF0aWMgdWludHB0cl90IHN5el9mdXNlYmxrX21vdW50KHVp
+bnRwdHJfdCBhMCwgdWludHB0cl90IGExLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgIHVpbnRwdHJfdCBhMiwgdWludHB0cl90IGEzLAogICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIHVpbnRwdHJfdCBhNCwgdWludHB0cl90IGE1LAogICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhNiwgdWludHB0cl90IGE3KQp7CgogIHVpbnQ2NF90
+IHRhcmdldCA9IGEwOwogIHVpbnQ2NF90IGJsa2RldiA9IGExOwogIHVpbnQ2NF90IG1vZGUgPSBh
+MjsKICB1aW50NjRfdCB1aWQgPSBhMzsKICB1aW50NjRfdCBnaWQgPSBhNDsKICB1aW50NjRfdCBt
+YXhyZWFkID0gYTU7CiAgdWludDY0X3QgYmxrc2l6ZSA9IGE2OwogIHVpbnQ2NF90IGZsYWdzID0g
+YTc7CgogIGludCBmZCA9IG9wZW4oIi9kZXYvZnVzZSIsIE9fUkRXUik7CiAgaWYgKGZkID09IC0x
+KQogICAgcmV0dXJuIGZkOwogIGlmIChzeXNjYWxsKFNZU19ta25vZGF0LCBBVF9GRENXRCwgYmxr
+ZGV2LCBTX0lGQkxLLCBtYWtlZGV2KDcsIDE5OSkpKQogICAgcmV0dXJuIGZkOwogIGNoYXIgYnVm
+WzI1Nl07CiAgc3ByaW50ZihidWYsICJmZD0lZCx1c2VyX2lkPSVsZCxncm91cF9pZD0lbGQscm9v
+dG1vZGU9MCVvIiwgZmQsCiAgICAgICAgICAobG9uZyl1aWQsIChsb25nKWdpZCwgKHVuc2lnbmVk
+KW1vZGUgJiB+M3UpOwogIGlmIChtYXhyZWFkICE9IDApCiAgICBzcHJpbnRmKGJ1ZiArIHN0cmxl
+bihidWYpLCAiLG1heF9yZWFkPSVsZCIsIChsb25nKW1heHJlYWQpOwogIGlmIChibGtzaXplICE9
+IDApCiAgICBzcHJpbnRmKGJ1ZiArIHN0cmxlbihidWYpLCAiLGJsa3NpemU9JWxkIiwgKGxvbmcp
+Ymxrc2l6ZSk7CiAgaWYgKG1vZGUgJiAxKQogICAgc3RyY2F0KGJ1ZiwgIixkZWZhdWx0X3Blcm1p
+c3Npb25zIik7CiAgaWYgKG1vZGUgJiAyKQogICAgc3RyY2F0KGJ1ZiwgIixhbGxvd19vdGhlciIp
+OwogIHN5c2NhbGwoU1lTX21vdW50LCBibGtkZXYsIHRhcmdldCwgImZ1c2VibGsiLCBmbGFncywg
+YnVmKTsKCiAgcmV0dXJuIGZkOwp9CgpzdGF0aWMgdWludHB0cl90IGV4ZWN1dGVfc3lzY2FsbChp
+bnQgbnIsIHVpbnRwdHJfdCBhMCwgdWludHB0cl90IGExLAogICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICB1aW50cHRyX3QgYTIsIHVpbnRwdHJfdCBhMywKICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgdWludHB0cl90IGE0LCB1aW50cHRyX3QgYTUsCiAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhNiwgdWludHB0cl90IGE3LAogICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICB1aW50cHRyX3QgYTgpCnsKICBzd2l0Y2ggKG5yKSB7CiAg
+ZGVmYXVsdDoKICAgIHJldHVybiBzeXNjYWxsKG5yLCBhMCwgYTEsIGEyLCBhMywgYTQsIGE1KTsK
+ICBjYXNlIF9fTlJfc3l6X3Rlc3Q6CiAgICByZXR1cm4gMDsKICBjYXNlIF9fTlJfc3l6X29wZW5f
+ZGV2OgogICAgcmV0dXJuIHN5el9vcGVuX2RldihhMCwgYTEsIGEyKTsKICBjYXNlIF9fTlJfc3l6
+X29wZW5fcHRzOgogICAgcmV0dXJuIHN5el9vcGVuX3B0cyhhMCwgYTEpOwogIGNhc2UgX19OUl9z
+eXpfZnVzZV9tb3VudDoKICAgIHJldHVybiBzeXpfZnVzZV9tb3VudChhMCwgYTEsIGEyLCBhMywg
+YTQsIGE1KTsKICBjYXNlIF9fTlJfc3l6X2Z1c2VibGtfbW91bnQ6CiAgICByZXR1cm4gc3l6X2Z1
+c2VibGtfbW91bnQoYTAsIGExLCBhMiwgYTMsIGE0LCBhNSwgYTYsIGE3KTsKICB9Cn0KCmxvbmcg
+clsyMV07CnZvaWQqIHRocih2b2lkKiBhcmcpCnsKICBzd2l0Y2ggKChsb25nKWFyZykgewogIGNh
+c2UgMDoKICAgIHJbMF0gPQogICAgICAgIGV4ZWN1dGVfc3lzY2FsbChfX05SX21tYXAsIDB4MjAw
+MDAwMDB1bCwgMHhiODgwMDB1bCwgMHgzdWwsCiAgICAgICAgICAgICAgICAgICAgICAgIDB4MzJ1
+bCwgMHhmZmZmZmZmZmZmZmZmZmZmdWwsIDB4MHVsLCAwLCAwLCAwKTsKICAgIGJyZWFrOwogIGNh
+c2UgMToKICAgIHJbMV0gPSBleGVjdXRlX3N5c2NhbGwoX19OUl9zb2NrZXQsIDB4YXVsLCAweDZ1
+bCwgMHgwdWwsIDAsIDAsIDAsIDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgIDAsIDApOwog
+ICAgYnJlYWs7CiAgY2FzZSAyOgogICAgclsyXSA9CiAgICAgICAgZXhlY3V0ZV9zeXNjYWxsKF9f
+TlJfbW1hcCwgMHgyMGI4ODAwMHVsLCAweDEwMDB1bCwgMHgzdWwsCiAgICAgICAgICAgICAgICAg
+ICAgICAgIDB4MzJ1bCwgMHhmZmZmZmZmZmZmZmZmZmZmdWwsIDB4MHVsLCAwLCAwLCAwKTsKICAg
+IGJyZWFrOwogIGNhc2UgMzoKICAgIE5PTkZBSUxJTkcoKih1aW50MTZfdCopMHgyMGI4ODAwMCA9
+ICh1aW50MTZfdCkweGEpOwogICAgTk9ORkFJTElORygqKHVpbnQxNl90KikweDIwYjg4MDAyID0g
+KHVpbnQxNl90KTB4NDI0Mik7CiAgICBOT05GQUlMSU5HKCoodWludDMyX3QqKTB4MjBiODgwMDQg
+PSAodWludDMyX3QpMHgxKTsKICAgIE5PTkZBSUxJTkcoKih1aW50MzJfdCopMHgyMGI4ODAwOCA9
+ICh1aW50MzJfdCkweGZmZmZmZmZmKTsKICAgIE5PTkZBSUxJTkcoKih1aW50MzJfdCopMHgyMGI4
+ODAwYyA9ICh1aW50MzJfdCkweDEpOwogICAgTk9ORkFJTElORygqKHVpbnQzMl90KikweDIwYjg4
+MDEwID0gKHVpbnQzMl90KTB4NSk7CiAgICBOT05GQUlMSU5HKCoodWludDMyX3QqKTB4MjBiODgw
+MTQgPSAodWludDMyX3QpMHgwKTsKICAgIE5PTkZBSUxJTkcoKih1aW50MzJfdCopMHgyMGI4ODAx
+OCA9ICh1aW50MzJfdCkweDEwMDAwMDAwMCk7CiAgICByWzExXSA9IGV4ZWN1dGVfc3lzY2FsbChf
+X05SX2JpbmQsIHJbMV0sIDB4MjBiODgwMDB1bCwgMHgxY3VsLCAwLCAwLAogICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgMCwgMCwgMCwgMCk7CiAgICBicmVhazsKICBjYXNlIDQ6CiAgICBOT05G
+QUlMSU5HKCoodWludDE2X3QqKTB4MjAwMDAwMDAgPSAodWludDE2X3QpMHhhKTsKICAgIE5PTkZB
+SUxJTkcoKih1aW50MTZfdCopMHgyMDAwMDAwMiA9ICh1aW50MTZfdCkweDQyNDIpOwogICAgTk9O
+RkFJTElORygqKHVpbnQzMl90KikweDIwMDAwMDA0ID0gKHVpbnQzMl90KTB4NDAwKTsKICAgIE5P
+TkZBSUxJTkcoKih1aW50MzJfdCopMHgyMDAwMDAwOCA9ICh1aW50MzJfdCkweDEwMDAwMDAwMDAw
+MDAwMCk7CiAgICBOT05GQUlMSU5HKCoodWludDMyX3QqKTB4MjAwMDAwMGMgPSAodWludDMyX3Qp
+MHgxMDAwMDAwMDApOwogICAgTk9ORkFJTElORygqKHVpbnQzMl90KikweDIwMDAwMDEwID0gKHVp
+bnQzMl90KTB4ZmZmZmZmZmZmZmZmMDAwMCk7CiAgICBOT05GQUlMSU5HKCoodWludDMyX3QqKTB4
+MjAwMDAwMTQgPSAodWludDMyX3QpMHgwKTsKICAgIE5PTkZBSUxJTkcoKih1aW50MzJfdCopMHgy
+MDAwMDAxOCA9ICh1aW50MzJfdCkweGZmZmYpOwogICAgclsyMF0gPSBleGVjdXRlX3N5c2NhbGwo
+X19OUl9jb25uZWN0LCByWzFdLCAweDIwMDAwMDAwdWwsIDB4MWN1bCwgMCwKICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIDAsIDAsIDAsIDAsIDApOwogICAgYnJlYWs7CiAgfQogIHJldHVybiAw
+Owp9CgppbnQgbWFpbigpCnsKICBsb25nIGk7CiAgcHRocmVhZF90IHRoWzEwXTsKCiAgaW5zdGFs
+bF9zZWd2X2hhbmRsZXIoKTsKICBtZW1zZXQociwgLTEsIHNpemVvZihyKSk7CiAgc3JhbmQoZ2V0
+cGlkKCkpOwogIGZvciAoaSA9IDA7IGkgPCA1OyBpKyspIHsKICAgIHB0aHJlYWRfY3JlYXRlKCZ0
+aFtpXSwgMCwgdGhyLCAodm9pZCopaSk7CiAgICB1c2xlZXAoMTAwMDApOwogIH0KICBmb3IgKGkg
+PSAwOyBpIDwgNTsgaSsrKSB7CiAgICBwdGhyZWFkX2NyZWF0ZSgmdGhbNSArIGldLCAwLCB0aHIs
+ICh2b2lkKilpKTsKICAgIGlmIChyYW5kKCkgJSAyKQogICAgICB1c2xlZXAocmFuZCgpICUgMTAw
+MDApOwogIH0KICB1c2xlZXAoMTAwMDAwKTsKICByZXR1cm4gMDsKfQo=
+--94eb2c184a8ce103f1054057ecb6--
