@@ -1,77 +1,51 @@
-From: Filip Matusiak <filip.matusiak@tieto.com>
-Subject: [PATCH V2] mac80211: Ignore VHT IE from peer with wrong rx_mcs_map
-Date: Wed,  2 Nov 2016 10:04:26 +0100
-Message-ID: <1478077466-4308-1-git-send-email-filip.matusiak@tieto.com>
-Cc: filip.matusiak@tieto.com, marek.kwaczynski@tieto.com,
-        johannes@sipsolutions.net, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 07/11] net: dsa: mv88e6xxx: add port link setter
+Date: Wed, 2 Nov 2016 10:16:29 +0100
+Message-ID: <20161102091629.GA384@lunn.ch>
+References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
+ <20161101032023.32762-8-vivien.didelot@savoirfairelinux.com>
+ <20161101094313.GB2802@lunn.ch>
+ <87shra4rlu.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:34036 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754646AbcKBJQd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Nov 2016 05:16:33 -0400
+Content-Disposition: inline
+In-Reply-To: <87shra4rlu.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a workaround for VHT-enabled STAs which break the spec
-and have the VHT-MCS Rx map filled in with value 3 for all eight
-spacial streams, an example is AR9462 in AP mode.
+On Wed, Nov 02, 2016 at 02:07:09AM +0100, Vivien Didelot wrote:
+> Hi Andrew,
+> 
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+> >> +#define LINK_UNKNOWN	-1
+> >> +
+> >> +	/* Port's MAC link state
+> >> +	 * LINK_UNKNOWN for normal link detection, 0 to force link down,
+> >> +	 * otherwise force link up.
+> >> +	 */
+> >> +	int (*port_set_link)(struct mv88e6xxx_chip *chip, int port, int link);
+> >
+> > Maybe LINK_AUTO would be better than UNKNOWN? Or LINK_UNFORCED.
+> 
+> I used LINK_UNKNOWN to be consistent with the supported SPEED_UNKNOWN
+> and DUPLEX_UNKNOWN values of PHY devices.
 
-As per spec, in section 22.1.1 Introduction to the VHT PHY
-A VHT STA shall support at least single spactial stream VHT-MCSs
-0 to 7 (transmit and receive) in all supported channel widths.
+Hi Vivien
 
-Some devices in STA mode will get firmware assert when trying to
-associate, examples are QCA9377 & QCA6174.
+These are i think for reporting back to user space what duplex or link
+is currently being used. But here you are setting, not
+reporting. Setting something to an unknown state is rather odd, and in
+fact, it is not unknown, it is unforced.
 
-Packet example of broken VHT Cap IE of AR9462:
-
-Tag: VHT Capabilities (IEEE Std 802.11ac/D3.1)
-    Tag Number: VHT Capabilities (IEEE Std 802.11ac/D3.1) (191)
-    Tag length: 12
-    VHT Capabilities Info: 0x00000000
-    VHT Supported MCS Set
-        Rx MCS Map: 0xffff
-            .... .... .... ..11 = Rx 1 SS: Not Supported (0x0003)
-            .... .... .... 11.. = Rx 2 SS: Not Supported (0x0003)
-            .... .... ..11 .... = Rx 3 SS: Not Supported (0x0003)
-            .... .... 11.. .... = Rx 4 SS: Not Supported (0x0003)
-            .... ..11 .... .... = Rx 5 SS: Not Supported (0x0003)
-            .... 11.. .... .... = Rx 6 SS: Not Supported (0x0003)
-            ..11 .... .... .... = Rx 7 SS: Not Supported (0x0003)
-            11.. .... .... .... = Rx 8 SS: Not Supported (0x0003)
-        ...0 0000 0000 0000 = Rx Highest Long GI Data Rate (in Mb/s, 0 = subfield not in use): 0x0000
-        Tx MCS Map: 0xffff
-        ...0 0000 0000 0000 = Tx Highest Long GI Data Rate  (in Mb/s, 0 = subfield not in use): 0x0000
-
-Signed-off-by: Filip Matusiak <filip.matusiak@tieto.com>
----
- net/mac80211/vht.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
-
-diff --git a/net/mac80211/vht.c b/net/mac80211/vht.c
-index ee71576..6832bf6 100644
---- a/net/mac80211/vht.c
-+++ b/net/mac80211/vht.c
-@@ -270,6 +270,22 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
- 		vht_cap->vht_mcs.tx_mcs_map |= cpu_to_le16(peer_tx << i * 2);
- 	}
- 
-+	/*
-+	 * This is a workaround for VHT-enabled STAs which break the spec
-+	 * and have the VHT-MCS Rx map filled in with value 3 for all eight
-+	 * spacial streams, an example is AR9462.
-+	 *
-+	 * As per spec, in section 22.1.1 Introduction to the VHT PHY
-+	 * A VHT STA shall support at least single spactial stream VHT-MCSs
-+	 * 0 to 7 (transmit and receive) in all supported channel widths.
-+	 */
-+	if (vht_cap->vht_mcs.rx_mcs_map == cpu_to_le16(0xFFFF)) {
-+		vht_cap->vht_supported = false;
-+		sdata_info(sdata, "Ignoring VHT IE from %pM due to invalid rx_mcs_map\n",
-+			   sta->addr);
-+		return;
-+	}
-+
- 	/* finally set up the bandwidth */
- 	switch (vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK) {
- 	case IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ:
--- 
-2.7.4
+      Andrew
