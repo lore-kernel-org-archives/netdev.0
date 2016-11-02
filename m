@@ -1,167 +1,103 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next] net: remove unused argument in checksum unnecessary conversion
-Date: Wed,  2 Nov 2016 16:14:11 -0400
-Message-ID: <1478117651-24909-1-git-send-email-willemdebruijn.kernel@gmail.com>
-Cc: tom@herbertland.com, davem@davemloft.net,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [PATCH] net: tcp: check skb is non-NULL for exact match on lookups
+Date: Wed, 2 Nov 2016 21:13:51 +0100
+Message-ID: <CAAeHK+yJ04mjcTkAdiuiWwOB-eG9UhQYZ0iDV5-xH6thmzza6A@mail.gmail.com>
+References: <1478113705-16174-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:34564 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932366AbcKBUOP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 16:14:15 -0400
-Received: by mail-qt0-f196.google.com with SMTP id l20so965904qta.1
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 13:14:14 -0700 (PDT)
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:35377 "EHLO
+        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932268AbcKBUNy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 16:13:54 -0400
+Received: by mail-lf0-f50.google.com with SMTP id b14so22110519lfg.2
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 13:13:53 -0700 (PDT)
+In-Reply-To: <1478113705-16174-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+I can confirm that this fixes the null-ptr-deref I've been getting.
 
-The check argument is never used. This code has not changed since
-the original introduction in d96535a17dbb ("net: Infrastructure for
-checksum unnecessary conversions"). Remove the unused argument and
-update all callers.
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/linux/netdevice.h | 6 +++---
- include/linux/skbuff.h    | 8 +++-----
- net/ipv4/gre_demux.c      | 3 +--
- net/ipv4/gre_offload.c    | 2 +-
- net/ipv4/udp.c            | 2 +-
- net/ipv4/udp_offload.c    | 2 +-
- net/ipv6/udp.c            | 2 +-
- net/ipv6/udp_offload.c    | 2 +-
- 8 files changed, 12 insertions(+), 15 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 66fd61c..ede9e45 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2582,16 +2582,16 @@ static inline bool __skb_gro_checksum_convert_check(struct sk_buff *skb)
- }
- 
- static inline void __skb_gro_checksum_convert(struct sk_buff *skb,
--					      __sum16 check, __wsum pseudo)
-+					      __wsum pseudo)
- {
- 	NAPI_GRO_CB(skb)->csum = ~pseudo;
- 	NAPI_GRO_CB(skb)->csum_valid = 1;
- }
- 
--#define skb_gro_checksum_try_convert(skb, proto, check, compute_pseudo)	\
-+#define skb_gro_checksum_try_convert(skb, proto, compute_pseudo)	\
- do {									\
- 	if (__skb_gro_checksum_convert_check(skb))			\
--		__skb_gro_checksum_convert(skb, check,			\
-+		__skb_gro_checksum_convert(skb,				\
- 					   compute_pseudo(skb, proto));	\
- } while (0)
- 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index cc6e23e..e138591 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3492,18 +3492,16 @@ static inline bool __skb_checksum_convert_check(struct sk_buff *skb)
- 		skb->csum_valid && !skb->csum_bad);
- }
- 
--static inline void __skb_checksum_convert(struct sk_buff *skb,
--					  __sum16 check, __wsum pseudo)
-+static inline void __skb_checksum_convert(struct sk_buff *skb, __wsum pseudo)
- {
- 	skb->csum = ~pseudo;
- 	skb->ip_summed = CHECKSUM_COMPLETE;
- }
- 
--#define skb_checksum_try_convert(skb, proto, check, compute_pseudo)	\
-+#define skb_checksum_try_convert(skb, proto, compute_pseudo)		\
- do {									\
- 	if (__skb_checksum_convert_check(skb))				\
--		__skb_checksum_convert(skb, check,			\
--				       compute_pseudo(skb, proto));	\
-+		__skb_checksum_convert(skb, compute_pseudo(skb, proto));\
- } while (0)
- 
- static inline void skb_remcsum_adjust_partial(struct sk_buff *skb, void *ptr,
-diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-index b798862..05eecf0 100644
---- a/net/ipv4/gre_demux.c
-+++ b/net/ipv4/gre_demux.c
-@@ -91,8 +91,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 			return -EINVAL;
- 		}
- 
--		skb_checksum_try_convert(skb, IPPROTO_GRE, 0,
--					 null_compute_pseudo);
-+		skb_checksum_try_convert(skb, IPPROTO_GRE, null_compute_pseudo);
- 		options++;
- 	}
- 
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index d5cac99..600ecd7 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -190,7 +190,7 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
- 		if (skb_gro_checksum_simple_validate(skb))
- 			goto out_unlock;
- 
--		skb_gro_checksum_try_convert(skb, IPPROTO_GRE, 0,
-+		skb_gro_checksum_try_convert(skb, IPPROTO_GRE,
- 					     null_compute_pseudo);
- 	}
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 195992e..48bad11 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1869,7 +1869,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		int ret;
- 
- 		if (inet_get_convert_csum(sk) && uh->check && !IS_UDPLITE(sk))
--			skb_checksum_try_convert(skb, IPPROTO_UDP, uh->check,
-+			skb_checksum_try_convert(skb, IPPROTO_UDP,
- 						 inet_compute_pseudo);
- 
- 		ret = udp_queue_rcv_skb(sk, skb);
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index b2be1d9..96c2b44 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -321,7 +321,7 @@ static struct sk_buff **udp4_gro_receive(struct sk_buff **head,
- 						 inet_gro_compute_pseudo))
- 		goto flush;
- 	else if (uh->check)
--		skb_gro_checksum_try_convert(skb, IPPROTO_UDP, uh->check,
-+		skb_gro_checksum_try_convert(skb, IPPROTO_UDP,
- 					     inet_gro_compute_pseudo);
- skip:
- 	NAPI_GRO_CB(skb)->is_ipv6 = 0;
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index a7700bb..bf3e703 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -804,7 +804,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		}
- 
- 		if (inet_get_convert_csum(sk) && uh->check && !IS_UDPLITE(sk))
--			skb_checksum_try_convert(skb, IPPROTO_UDP, uh->check,
-+			skb_checksum_try_convert(skb, IPPROTO_UDP,
- 						 ip6_compute_pseudo);
- 
- 		ret = udpv6_queue_rcv_skb(sk, skb);
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index ac858c4..6df7be0 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -135,7 +135,7 @@ static struct sk_buff **udp6_gro_receive(struct sk_buff **head,
- 						 ip6_gro_compute_pseudo))
- 		goto flush;
- 	else if (uh->check)
--		skb_gro_checksum_try_convert(skb, IPPROTO_UDP, uh->check,
-+		skb_gro_checksum_try_convert(skb, IPPROTO_UDP,
- 					     ip6_gro_compute_pseudo);
- 
- skip:
--- 
-2.8.0.rc3.226.g39d4020
+On Wed, Nov 2, 2016 at 8:08 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> Andrey reported the following error report while running the syzkaller
+> fuzzer:
+>
+> general protection fault: 0000 [#1] SMP KASAN
+> Dumping ftrace buffer:
+>    (ftrace buffer empty)
+> Modules linked in:
+> CPU: 0 PID: 648 Comm: syz-executor Not tainted 4.9.0-rc3+ #333
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> task: ffff8800398c4480 task.stack: ffff88003b468000
+> RIP: 0010:[<ffffffff83091106>]  [<     inline     >]
+> inet_exact_dif_match include/net/tcp.h:808
+> RIP: 0010:[<ffffffff83091106>]  [<ffffffff83091106>]
+> __inet_lookup_listener+0xb6/0x500 net/ipv4/inet_hashtables.c:219
+> RSP: 0018:ffff88003b46f270  EFLAGS: 00010202
+> RAX: 0000000000000004 RBX: 0000000000004242 RCX: 0000000000000001
+> RDX: 0000000000000000 RSI: ffffc90000e3c000 RDI: 0000000000000054
+> RBP: ffff88003b46f2d8 R08: 0000000000004000 R09: ffffffff830910e7
+> R10: 0000000000000000 R11: 000000000000000a R12: ffffffff867fa0c0
+> R13: 0000000000004242 R14: 0000000000000003 R15: dffffc0000000000
+> FS:  00007fb135881700(0000) GS:ffff88003ec00000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 0000000020cc3000 CR3: 000000006d56a000 CR4: 00000000000006f0
+> Stack:
+>  0000000000000000 000000000601a8c0 0000000000000000 ffffffff00004242
+>  424200003b9083c2 ffff88003def4041 ffffffff84e7e040 0000000000000246
+>  ffff88003a0911c0 0000000000000000 ffff88003a091298 ffff88003b9083ae
+> Call Trace:
+>  [<ffffffff831100f4>] tcp_v4_send_reset+0x584/0x1700 net/ipv4/tcp_ipv4.c:643
+>  [<ffffffff83115b1b>] tcp_v4_rcv+0x198b/0x2e50 net/ipv4/tcp_ipv4.c:1718
+>  [<ffffffff83069d22>] ip_local_deliver_finish+0x332/0xad0
+> net/ipv4/ip_input.c:216
+> ...
+>
+> MD5 has a code path that calls __inet_lookup_listener with a null skb,
+> so inet{6}_exact_dif_match needs to check skb against null before pulling
+> the flag.
+>
+> Fixes: a04a480d4392 ("net: Require exact match for TCP socket lookups if
+>        dif is l3mdev")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> Dave: commit a04a480d4392 was queued for stable, so this needs to follow it.
+>
+>  include/linux/ipv6.h | 2 +-
+>  include/net/tcp.h    | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index ca1ad9ebbc92..a0649973ee5b 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -149,7 +149,7 @@ static inline bool inet6_exact_dif_match(struct net *net, struct sk_buff *skb)
+>  {
+>  #if defined(CONFIG_NET_L3_MASTER_DEV)
+>         if (!net->ipv4.sysctl_tcp_l3mdev_accept &&
+> -           ipv6_l3mdev_skb(IP6CB(skb)->flags))
+> +           skb && ipv6_l3mdev_skb(IP6CB(skb)->flags))
+>                 return true;
+>  #endif
+>         return false;
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 5b82d4d94834..304a8e17bc87 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -805,7 +805,7 @@ static inline bool inet_exact_dif_match(struct net *net, struct sk_buff *skb)
+>  {
+>  #if IS_ENABLED(CONFIG_NET_L3_MASTER_DEV)
+>         if (!net->ipv4.sysctl_tcp_l3mdev_accept &&
+> -           ipv4_l3mdev_skb(TCP_SKB_CB(skb)->header.h4.flags))
+> +           skb && ipv4_l3mdev_skb(TCP_SKB_CB(skb)->header.h4.flags))
+>                 return true;
+>  #endif
+>         return false;
+> --
+> 2.1.4
+>
