@@ -1,52 +1,61 @@
-From: Gal Pressman <galp@mellanox.com>
-Subject: [PATCH RFC 2/2] net/mlx5e: Add support for ethtool get actual speed callback
-Date: Wed,  2 Nov 2016 17:35:14 +0200
-Message-ID: <1478100914-23610-3-git-send-email-galp@mellanox.com>
-References: <1478100914-23610-1-git-send-email-galp@mellanox.com>
-Cc: David Decotigny <decot@googlers.com>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        Gal Pressman <galp@mellanox.com>
-To: netdev@vger.kernel.org,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [patch net-next 0/2] Fixes for raw diag sockets handling
+Date: Wed, 2 Nov 2016 18:45:38 +0300
+Message-ID: <20161102154537.GD1852@uranus.lan>
+References: <20161102123630.784612652@openvz.org>
+ <2a540f59-4495-573c-7dda-0303f1810e6e@cumulusnetworks.com>
+ <20161102152900.GC1852@uranus.lan>
+ <ec9f3fbe-c95c-6e07-1263-29784d9ba361@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrey Vagin <avagin@openvz.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47730 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755795AbcKBPgs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:36:48 -0400
-In-Reply-To: <1478100914-23610-1-git-send-email-galp@mellanox.com>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:36719 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932311AbcKBPpl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:45:41 -0400
+Received: by mail-lf0-f67.google.com with SMTP id o20so1199021lfg.3
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 08:45:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <ec9f3fbe-c95c-6e07-1263-29784d9ba361@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethtool DEVNAME will now show actual port speed in addition
-to physical port speed.
+On Wed, Nov 02, 2016 at 09:36:55AM -0600, David Ahern wrote:
+> 
+> Limited to raw sockets or are you looking at multiple spec options (dev, address, port)?
+> 
+> I have not seen issues with tcp or udp. Running:
+> 
+>     ss -aK 'dev == red' 
+> 
+> drops all sockets bound to device 'red' (or at least signaling the socket failure for the app to handle):
 
-Signed-off-by: Gal Pressman <galp@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+Limited to raw socket. I didn't modify lookup kernel code but use already existing helpers.
+The tcp/udp sockets do use port value in lookup (iirc, don't have code under my hand
+at moment), in turn raw lookup uses only net,raw-protocol, src/dst and device index.
+In my test case the sokets were unconnected so the have no address but bound to
+device and I hit mismatch. Then looking into inet matching code I found this weird
+snippet I posted previously.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 27ff401..933b687 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -1504,9 +1504,16 @@ static int mlx5e_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
- 	return err;
- }
- 
-+static int mlx5e_get_actual_speed(struct net_device *netdev)
-+{
-+	/* TODO: FW command to query the actual speed */
-+	return SPEED_25000;
-+}
-+
- const struct ethtool_ops mlx5e_ethtool_ops = {
- 	.get_drvinfo       = mlx5e_get_drvinfo,
- 	.get_link          = ethtool_op_get_link,
-+	.get_actual_speed  = mlx5e_get_actual_speed,
- 	.get_strings       = mlx5e_get_strings,
- 	.get_sset_count    = mlx5e_get_sset_count,
- 	.get_ethtool_stats = mlx5e_get_ethtool_stats,
--- 
-2.7.4
+> 
+> root@jessie4:~# ss -ap 'dev == red'
+> Netid  State      Recv-Q Send-Q     Local Address:Port                      Peer Address:Port
+> udp    UNCONN     0      0                  *%red:12345                                *:*                     users:(("vrf-test",pid=765,fd=3))
+> tcp    LISTEN     0      1                  *%red:12345                                *:*                     users:(("vrf-test",pid=766,fd=3))
+> tcp    ESTAB      0      0         10.100.1.4%red:ssh                       10.100.1.254:60298                 users:(("sshd",pid=738,fd=3))
+> 
+> root@jessie4:~# ss -aKp 'dev == red'
+> Netid State      Recv-Q Send-Q                      Local Address:Port                                       Peer Address:Port
+> udp   UNCONN     0      0                                   *%red:12345                                                 *:*                     users:(("vrf-test",pid=765,fd=3))
+> tcp   LISTEN     0      1                                   *%red:12345                                                 *:*                     users:(("vrf-test",pid=766,fd=3))
+> tcp   ESTAB      0      0                          10.100.1.4%red:ssh                                        10.100.1.254:60298                 users:(("sshd",pid=738,fd=3))
+> 
+> root@jessie4:~# ss -ap 'dev == red'
+> Netid State      Recv-Q Send-Q                      Local Address:Port                                       Peer Address:Port
+
+	Cyrill
