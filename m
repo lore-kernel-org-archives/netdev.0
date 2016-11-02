@@ -1,170 +1,247 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net-next v6 00/10] dpaa_eth: Add the QorIQ DPAA Ethernet driver
-Date: Wed, 2 Nov 2016 22:17:24 +0200
-Message-ID: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: madalin.bucur@nxp.com
+Subject: [PATCH net-next v6 06/10] dpaa_eth: add sysfs exports
+Date: Wed, 2 Nov 2016 22:17:30 +0200
+Message-ID: <1478117854-8952-7-git-send-email-madalin.bucur@nxp.com>
+References: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: pebolle@tiscali.nl, joakim.tjernlund@transmode.se,
- linux-kernel@vger.kernel.org, ppc@mindchasers.com, oss@buserror.net,
- joe@perches.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        <davem@davemloft.net>, <oss@buserror.net>, <ppc@mindchasers.com>,
+        <joe@perches.com>, <pebolle@tiscali.nl>,
+        <joakim.tjernlund@transmode.se>
 To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch series adds the Ethernet driver for the Freescale
-QorIQ Data Path Acceleration Architecture (DPAA).
+Export Frame Queue and Buffer Pool IDs through sysfs.
 
-This version includes changes following the feedback received
-on previous versions from Eric Dumazet, Bob Cochran, Joe Perches,
-Paul Bolle, Joakim Tjernlund, Scott Wood, David Miller - thank you.
-
-Together with the driver a managed version of alloc_percpu
-is provided that simplifies the release of per-CPU memory.
-
-The Freescale DPAA architecture consists in a series of hardware
-blocks that support the Ethernet connectivity. The Ethernet driver
-depends upon the following drivers that are currently in the Linux
-kernel:
- - Peripheral Access Memory Unit (PAMU)
-    drivers/iommu/fsl_*
- - Frame Manager (FMan) added in v4.4
-    drivers/net/ethernet/freescale/fman
- - Queue Manager (QMan), Buffer Manager (BMan) added in v4.9-rc1
-    drivers/soc/fsl/qbman
-
-dpaa_eth interfaces mapping to FMan MACs:
-
-  dpaa_eth       /eth0\     ...       /ethN\
-  driver        |      |             |      |
-  -------------   ----   -----------   ----   -------------
-       -Ports  / Tx  Rx \    ...    / Tx  Rx \
-  FMan        |          |         |          |
-       -MACs  |   MAC0   |         |   MACN   |
-             /   dtsec0   \  ...  /   dtsecN   \ (or tgec)
-            /              \     /              \(or memac)
-  ---------  --------------  ---  --------------  ---------
-      FMan, FMan Port, FMan SP, FMan MURAM drivers
-  ---------------------------------------------------------
-      FMan HW blocks: MURAM, MACs, Ports, SP
-  ---------------------------------------------------------
-
-dpaa_eth relation to QMan, FMan:
-              ________________________________
-  dpaa_eth   /            eth0                \
-  driver    /                                  \
-  ---------   -^-   -^-   -^-   ---    ---------
-  QMan driver / \   / \   / \  \   /  | BMan    |
-             |Rx | |Rx | |Tx | |Tx |  | driver  |
-  ---------  |Dfl| |Err| |Cnf| |FQs|  |         |
-  QMan HW    |FQ | |FQ | |FQ | |   |  |         |
-             /   \ /   \ /   \  \ /   |         |
-  ---------   ---   ---   ---   -v-    ---------
-            |        FMan QMI         |         |
-            | FMan HW       FMan BMI  | BMan HW |
-              -----------------------   --------
-
-where the acronyms used above (and in the code) are:
-DPAA = Data Path Acceleration Architecture
-FMan = DPAA Frame Manager
-QMan = DPAA Queue Manager
-BMan = DPAA Buffers Manager
-QMI = QMan interface in FMan
-BMI = BMan interface in FMan
-FMan SP = FMan Storage Profiles
-MURAM = Multi-user RAM in FMan
-FQ = QMan Frame Queue
-Rx Dfl FQ = default reception FQ
-Rx Err FQ = Rx error frames FQ
-Tx Cnf FQ = Tx confirmation FQ
-Tx FQs = transmission frame queues
-dtsec = datapath three speed Ethernet controller (10/100/1000 Mbps)
-tgec = ten gigabit Ethernet controller (10 Gbps)
-memac = multirate Ethernet MAC (10/100/1000/10000)
-
-Changes from v5:
- - adapt to the latest Q/BMan drivers API
- - use build_skb() on Rx path instead of buffer pool refill path
- - proper support for multiple buffer pools
- - align function, variable names, code cleanup
- - driver file structure cleanup
-
-Changes from v4:
- - addressed feedback from Scott Wood and Joe Perches
- - fixed spelling
- - fixed leak of uninitialized stack to userspace
- - fix prints
- - replace raw_cpu_ptr() with this_cpu_ptr()
- - remove _s from the end of structure names
- - remove underscores at start of functions, goto labels
- - remove likely in error paths
- - use container_of() instead of open casts
- - remove priv from the driver name
- - move return type on same line with function name
- - drop DPA_READ_SKB_PTR/DPA_WRITE_SKB_PTR
-
-Changes from v3:
- - removed bogus delay and comment in .ndo_stop implementation
- - addressed minor issues reported by David Miller
-
-Changes from v2:
- - removed debugfs, moved exports to ethtool statistics
- - removed congestion groups Kconfig params
-
-Changes from v1:
- - bpool level Kconfig options removed
- - print format using pr_fmt, cleaned up prints
- - __hot/__cold removed
- - gratuitous unlikely() removed
- - code style aligned, consistent spacing for declarations
- - comment formatting
-
-The changes are also available in the public git repository at
-git://git.freescale.com/ppc/upstream/linux.git on the branch dpaa_eth-next.
-
-Madalin Bucur (10):
-  devres: add devm_alloc_percpu()
-  dpaa_eth: add support for DPAA Ethernet
-  dpaa_eth: add option to use one buffer pool set
-  dpaa_eth: add ethtool functionality
-  dpaa_eth: add ethtool statistics
-  dpaa_eth: add sysfs exports
-  dpaa_eth: add trace points
-  arch/powerpc: Enable FSL_PAMU
-  arch/powerpc: Enable FSL_FMAN
-  arch/powerpc: Enable dpaa_eth
-
- Documentation/driver-model/devres.txt              |    4 +
- arch/powerpc/configs/dpaa.config                   |    3 +
- drivers/base/devres.c                              |   66 +
- drivers/net/ethernet/freescale/Kconfig             |    2 +
- drivers/net/ethernet/freescale/Makefile            |    1 +
- drivers/net/ethernet/freescale/dpaa/Kconfig        |   27 +
- drivers/net/ethernet/freescale/dpaa/Makefile       |   12 +
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 2833 ++++++++++++++++++++
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  185 ++
- .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  165 ++
- .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   |  141 +
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  417 +++
- include/linux/device.h                             |   19 +
- 13 files changed, 3875 insertions(+)
- create mode 100644 drivers/net/ethernet/freescale/dpaa/Kconfig
- create mode 100644 drivers/net/ethernet/freescale/dpaa/Makefile
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   2 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   4 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   4 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   | 165 +++++++++++++++++++++
+ 4 files changed, 174 insertions(+), 1 deletion(-)
  create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
 
+diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
+index 43a4cfd..bfb03d4 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Makefile
++++ b/drivers/net/ethernet/freescale/dpaa/Makefile
+@@ -8,4 +8,4 @@ ccflags-y += -I$(FMAN)
+ 
+ obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
+ 
+-fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o
++fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o dpaa_eth_sysfs.o
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index 3deb240..045b23b 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -2692,6 +2692,8 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto netdev_init_failed;
+ 
++	dpaa_eth_sysfs_init(&net_dev->dev);
++
+ 	netif_info(priv, probe, net_dev, "Probed interface %s\n",
+ 		   net_dev->name);
+ 
+@@ -2737,6 +2739,8 @@ static int dpaa_remove(struct platform_device *pdev)
+ 
+ 	priv = netdev_priv(net_dev);
+ 
++	dpaa_eth_sysfs_remove(dev);
++
+ 	dev_set_drvdata(dev, NULL);
+ 	unregister_netdev(net_dev);
+ 
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+index 711fb06..44323e2 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+@@ -177,4 +177,8 @@ struct dpaa_priv {
+ 
+ /* from dpaa_ethtool.c */
+ extern const struct ethtool_ops dpaa_ethtool_ops;
++
++/* from dpaa_eth_sysfs.c */
++void dpaa_eth_sysfs_remove(struct device *dev);
++void dpaa_eth_sysfs_init(struct device *dev);
+ #endif	/* __DPAA_H */
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+new file mode 100644
+index 0000000..93f0251
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+@@ -0,0 +1,165 @@
++/* Copyright 2008-2016 Freescale Semiconductor Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/io.h>
++#include <linux/of_net.h>
++#include "dpaa_eth.h"
++#include "mac.h"
++
++static ssize_t dpaa_eth_show_addr(struct device *dev,
++				  struct device_attribute *attr, char *buf)
++{
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	struct mac_device *mac_dev = priv->mac_dev;
++
++	if (mac_dev)
++		return sprintf(buf, "%llx",
++				(unsigned long long)mac_dev->res->start);
++	else
++		return sprintf(buf, "none");
++}
++
++static ssize_t dpaa_eth_show_fqids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	ssize_t bytes = 0;
++	int i = 0;
++	char *str;
++	struct dpaa_fq *fq;
++	struct dpaa_fq *tmp;
++	struct dpaa_fq *prev = NULL;
++	u32 first_fqid = 0;
++	u32 last_fqid = 0;
++	char *prevstr = NULL;
++
++	list_for_each_entry_safe(fq, tmp, &priv->dpaa_fq_list, list) {
++		switch (fq->fq_type) {
++		case FQ_TYPE_RX_DEFAULT:
++			str = "Rx default";
++			break;
++		case FQ_TYPE_RX_ERROR:
++			str = "Rx error";
++			break;
++		case FQ_TYPE_TX_CONFIRM:
++			str = "Tx default confirmation";
++			break;
++		case FQ_TYPE_TX_CONF_MQ:
++			str = "Tx confirmation (mq)";
++			break;
++		case FQ_TYPE_TX_ERROR:
++			str = "Tx error";
++			break;
++		case FQ_TYPE_TX:
++			str = "Tx";
++			break;
++		default:
++			str = "Unknown";
++		}
++
++		if (prev && (abs(fq->fqid - prev->fqid) != 1 ||
++			     str != prevstr)) {
++			if (last_fqid == first_fqid)
++				bytes += sprintf(buf + bytes,
++					"%s: %d\n", prevstr, prev->fqid);
++			else
++				bytes += sprintf(buf + bytes,
++					"%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++		}
++
++		if (prev && abs(fq->fqid - prev->fqid) == 1 &&
++		    str == prevstr) {
++			last_fqid = fq->fqid;
++		} else {
++			first_fqid = fq->fqid;
++			last_fqid = fq->fqid;
++		}
++
++		prev = fq;
++		prevstr = str;
++		i++;
++	}
++
++	if (prev) {
++		if (last_fqid == first_fqid)
++			bytes += sprintf(buf + bytes, "%s: %d\n", prevstr,
++					prev->fqid);
++		else
++			bytes += sprintf(buf + bytes, "%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++	}
++
++	return bytes;
++}
++
++static ssize_t dpaa_eth_show_bpids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	ssize_t bytes = 0;
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	int i = 0;
++
++	for (i = 0; i < DPAA_BPS_NUM; i++)
++		bytes += snprintf(buf + bytes, PAGE_SIZE - bytes, "%u\n",
++				  priv->dpaa_bps[i]->bpid);
++
++	return bytes;
++}
++
++static struct device_attribute dpaa_eth_attrs[] = {
++	__ATTR(device_addr, S_IRUGO, dpaa_eth_show_addr, NULL),
++	__ATTR(fqids, S_IRUGO, dpaa_eth_show_fqids, NULL),
++	__ATTR(bpids, S_IRUGO, dpaa_eth_show_bpids, NULL),
++};
++
++void dpaa_eth_sysfs_init(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		if (device_create_file(dev, &dpaa_eth_attrs[i])) {
++			dev_err(dev, "Error creating sysfs file\n");
++			while (i > 0)
++				device_remove_file(dev, &dpaa_eth_attrs[--i]);
++			return;
++		}
++}
++
++void dpaa_eth_sysfs_remove(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		device_remove_file(dev, &dpaa_eth_attrs[i]);
++}
 -- 
 2.1.0
