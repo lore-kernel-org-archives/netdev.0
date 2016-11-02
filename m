@@ -1,50 +1,50 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next PATCH 0/7] stmmac: dwmac-sti refactor+cleanup
-Date: Wed, 2 Nov 2016 07:39:32 +0100
-Message-ID: <f5f43786-92ea-fcc7-388c-9b87a47987f9@st.com>
-References: <20161030200507.851-1-manabian@gmail.com>
+From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Subject: Re: [PATCH (net.git) 0/3] stmmac: fix PTP support
+Date: Wed, 2 Nov 2016 12:33:35 +0530
+Message-ID: <CAJ3bTp4df45o5bYZXR+LcdXscty-GoO-uN9mqGFF551FzpxiBQ@mail.gmail.com>
+References: <1477464964-5960-1-git-send-email-peppe.cavallaro@st.com> <20161026085812.GD11974@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <alexandre.torgue@st.com>, <netdev@vger.kernel.org>
-To: Joachim Eastwood <manabian@gmail.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        netdev <netdev@vger.kernel.org>, alexandre.torgue@st.com,
+        linux-kernel@vger.kernel.org,
+        Seraphin Bonnaffe <seraphin.bonnaffe@st.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:34102 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750786AbcKBGjj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 02:39:39 -0400
-In-Reply-To: <20161030200507.851-1-manabian@gmail.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37347 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750786AbcKBHDh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 03:03:37 -0400
+Received: by mail-wm0-f41.google.com with SMTP id t79so16658600wmt.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 00:03:37 -0700 (PDT)
+In-Reply-To: <20161026085812.GD11974@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Joachim
+On Wed, Oct 26, 2016 at 2:28 PM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Wed, Oct 26, 2016 at 08:56:01AM +0200, Giuseppe Cavallaro wrote:
+>> This subset of patches aim to fix the PTP support
+>> for the stmmac and especially for 4.x chip series.
+>> While setting PTP on an ST box with 4.00a Ethernet
+>> core, the kernel panics due to a broken settings
+>> of the descriptors. The patches review the
+>> register configuration, the algo used for configuring
+>> the protocol, the way to get the timestamp inside
+>> the RX/TX descriptors and, in the end, the statistics
+>> displayed by ethtool.
+>>
+>> Giuseppe Cavallaro (3):
+>>   stmmac: update the PTP header file
+>>   stmmac: fix PTP support for GMAC4
+>>   stmmac: fix PTP type ethtool stats
+>
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-thx for this series, I will review them and test the changes
-on my board asap ... I let you known.
+Acked-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
 
-Peppe
 
-On 10/30/2016 9:05 PM, Joachim Eastwood wrote:
-> This patch set aims to remove the init/exit callbacks from the
-> dwmac-sti driver and instead use standard PM callbacks. Doing this
-> will also allow us to cleanup the driver.
->
-> Eventually the init/exit callbacks will be deprecated and removed
-> from all drivers dwmac-* except for dwmac-generic. Drivers will be
-> refactored to use standard PM and remove callbacks.
->
-> Note that this patch set has only been test compiled and no functional
-> change is intended.
->
-> Joachim Eastwood (7):
->   stmmac: dwmac-sti: remove useless of_node check
->   stmmac: dwmac-sti: remove clk NULL checks
->   stmmac: dwmac-sti: add PM ops and resume function
->   stmmac: dwmac-sti: move st,gmac_en parsing to sti_dwmac_parse_data
->   stmmac: dwmac-sti: move clk_prepare_enable out of init and add error handling
->   stmmac: dwmac-sti: clean up and rename sti_dwmac_init
->   stmmac: dwmac-sti: remove unused priv dev member
->
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c | 86 ++++++++++++++++---------
->  1 file changed, 57 insertions(+), 29 deletions(-)
->
+
+-- 
+wwr
+Rayagond
