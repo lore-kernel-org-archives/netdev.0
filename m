@@ -1,101 +1,248 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
- FIB notifier
-Date: Wed, 2 Nov 2016 08:35:02 +0100
-Message-ID: <20161102073502.GB1713@nanopsycho.orion>
-References: <20161031225737.7nfoy4ka3ydzhptq@splinter>
- <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com>
- <5818B146.20209@cumulusnetworks.com>
- <20161101.113650.140429913221385583.davem@davemloft.net>
+Subject: Re: Let's do P4
+Date: Wed, 2 Nov 2016 09:07:23 +0100
+Message-ID: <20161102080723.GD1713@nanopsycho.orion>
+References: <20161030074458.GB1686@nanopsycho.orion>
+ <20161030102649.GE1810@pox.localdomain>
+ <20161030163836.GC1686@nanopsycho.orion>
+ <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net>
+ <20161031093922.GA2895@nanopsycho.orion>
+ <58177712.4000208@gmail.com>
+ <20161031171229.GB2895@nanopsycho.orion>
+ <58179CE4.2080400@gmail.com>
+ <20161101084643.GA1707@nanopsycho.orion>
+ <5818B11C.2040004@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
-        idosch@idosch.org, netdev@vger.kernel.org, jiri@mellanox.com,
-        mlxsw@mellanox.com, dsa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, andy@greyhouse.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, idosch@mellanox.com
-To: David Miller <davem@davemloft.net>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>, Jakub Kicinski <kubakici@wp.pl>,
+        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        roopa@cumulusnetworks.com, simon.horman@netronome.com,
+        ast@kernel.org, daniel@iogearbox.net, prem@barefootnetworks.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, tom@herbertland.com,
+        mattyk@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        linville@tuxdriver.com, andy@greyhouse.net, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, ivecera@redhat.com,
+        Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36037 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751625AbcKBHfF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 03:35:05 -0400
-Received: by mail-wm0-f66.google.com with SMTP id c17so1519428wmc.3
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 00:35:04 -0700 (PDT)
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37596 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753010AbcKBIH0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 04:07:26 -0400
+Received: by mail-wm0-f53.google.com with SMTP id t79so19562931wmt.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 01:07:25 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20161101.113650.140429913221385583.davem@davemloft.net>
+In-Reply-To: <5818B11C.2040004@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Nov 01, 2016 at 04:36:50PM CET, davem@davemloft.net wrote:
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->Date: Tue, 01 Nov 2016 08:14:14 -0700
+Tue, Nov 01, 2016 at 04:13:32PM CET, john.fastabend@gmail.com wrote:
+>[...]
 >
->> On 11/1/16, 7:19 AM, Eric Dumazet wrote:
->>> On Tue, 2016-11-01 at 00:57 +0200, Ido Schimmel wrote:
->>>> On Mon, Oct 31, 2016 at 02:24:06PM -0700, Eric Dumazet wrote:
->>>>> How well will this work for large FIB tables ?
+>>>> P4 is ment to program programable hw, not fixed pipeline.
+>>>>
+>>>
+>>> I'm guessing there are no upstream drivers at the moment that support
+>>> this though right? The rocker universe bits though could leverage this.
+>> 
+>> mlxsw. But this is naturaly not implemented yet, as there is no
+>> infrastructure.
+>
+>Really? What is re-programmable?
+>
+>Can the parse graph support arbitrary parse graph?
+>Can the table topology be reconfigured?
+>Can new tables be created?
+>What about "new" actions being defined at configuration time?
+>
+>Or is this just the normal TCAM configuration of defining key widths and
+>fields.
+
+At this point TCAM configuration.
+
+
+>
+>> 
+>> 
+>>>
+>>>>
 >>>>>
->>>>> Holding rtnl while sending thousands of skb will prevent consumers to
->>>>> make progress ?
->>>> Can you please clarify what do you mean by "while sending thousands of
->>>> skb"? This patch doesn't generate notifications to user space, but
->>>> instead invokes notification routines inside the kernel. I probably
->>>> misunderstood you.
+>>>>>>
+>>>>>>> since I cannot see how one can put the whole p4 language compiler
+>>>>>>> into the driver, so this last step of p4ast->hw, I presume, will be
+>>>>>>> done by firmware, which will be running full compiler in an embedded cpu
+>>>>>>
+>>>>>> In case of mlxsw, that compiler would be in driver.
+>>>>>>
+>>>>>>
+>>>>>>> on the switch. To me that's precisely the kernel bypass, since we won't
+>>>>>>> have a clue what HW capabilities actually are and won't be able to fine
+>>>>>>> grain control them.
+>>>>>>> Please correct me if I'm wrong.
+>>>>>>
+>>>>>> You are wrong. By your definition, everything has to be figured out in
+>>>>>> driver and FW does nothing. Otherwise it could do "something else" and
+>>>>>> that would be a bypass? Does not make any sense to me whatsoever.
+>>>>>>
+>>>>>>
+>>>>>>>
+>>>>>>>> Plus the thing I cannot imagine in the model you propose is table fillup.
+>>>>>>>> For ebpf, you use maps. For p4 you would have to have a separate HW-only
+>>>>>>>> API. This is very similar to the original John's Flow-API. And therefore
+>>>>>>>> a kernel bypass.
+>>>>>>>
+>>>>>>> I think John's flow api is a better way to expose mellanox switch capabilities.
+>>>>>>
+>>>>>> We are under impression that p4 suits us nicely. But it is not about
+>>>>>> us, it is about finding the common way to do this.
+>>>>>>
+>>>>>
+>>>>> I'll just poke at my FlowAPI question again. For fixed ASICS what is
+>>>>> the Flow-API missing. We have a few proof points that show it is both
+>>>>> sufficient and usable for the handful of use cases we care about.
 >>>>
->>>> Are you suggesting this be done using RCU instead? Well, there are a
->>>> couple of reasons why I took RTNL here:
+>>>> Yeah, it is most probably fine. Even for flex ASICs to some point. The
+>>>> question is how it stands comparing to other alternatives, like p4
 >>>>
->>> No, I do not believe RCU is wanted here, in control path where we might
->>> sleep anyway.
 >>>
->>>> 1) The FIB notification chain is blocking, so listeners are expected to
->>>> be able to sleep. This isn't possible if we use RCU. Note that this
->>>> chain is mainly useful for drivers that reflect the FIB table into a
->>>> capable device and hardware operations usually involve sleeping.
->>>>
->>>> 2) The insertion of a single route is done with RTNL held. I didn't want
->>>> to differentiate between both cases. This property is really useful for
->>>> listeners, as they don't need to worry about locking in writer-side.
->>>> Access to data structs is serialized by RTNL.
->>> My concern was that for large iterations, you might hold RTNL and/or
->>> current cpu for hundred of ms or even seconds...
+>>> Just to be clear the Flow-API _was_ generated from the initial P4 spec.
+>>> The header files and tools used with it were autogenerated ("compiled"
+>>> in a loose sense) from the P4 program. The piece I never exposed
+>>> was the set_* operations to reconfigure running systems. I'm not sure
+>>> how valuable this is in practice though.
 >>>
->> I have the same concern as Eric here.
+>>> Also there is a P4-16 spec that will be released shortly that is more
+>>> flexible and also more complex.
 >> 
->> I understand why you need it, but can the driver request for an initial dump and that
->> dump be made more efficient somehow ie not hold rtnl for the whole dump ?.
->> instead of making the fib notifier registration code doing it.
+>> Would it be able to easily extend the Flow-API to include the changes?
 >> 
->> these routing table sizes can be huge and an analogy for this in user-space:
->> We do request a netlink dump of  routing tables at initialization (on driver starts or resets)...
->> but, existing netlink routing table dumps for that scale don't hold rtnl for the whole dump.
->> The dump is split into multiple responses to the user and hence it does not starve other rtnl users.
+>
+>P4-16 will allow externs, "functions" to execute in the control flow and
+>possibly inside the parse graph. None of this was considered in the
+>Flow-API. So none of this is supported.
+>
+>I still have the question are you trying to push the "programming" of
+>the device via 'tc' or just the runtime configuration of tables? If it
+>is just runtime Flow-API is sufficient IMO. If its programming the
+>device using the complete P4-16 spec than no its not sufficient. But
+
+Sure we need both.
+
+
+>I don't believe vendors will expose the complete programmability of the
+>device in the driver, this is going to look more like a fw update than
+>a runtime change at least on the devices I'm aware of.
+
+Depends on driver. I think it is fine if driver processed it into come
+hw configuration sequence or it simply pushed the program down to fw.
+Both usecases are legit.
+
+
+>
 >> 
->> In-fact I don't think netlink routing table dumps from user-space hold rtnl_lock for the whole dump.
->> IIRC this was done to allow route add/dels to be allowed in parallel for performance reasons.
->> (I will need to double check to confirm this).
+>>>
+>>>>
+>>>>>
+>>>>>>
+>>>>>>> I also think it's not fair to call it 'bypass'. I see nothing in it
+>>>>>>> that justify such 'swear word' ;)
+>>>>>>
+>>>>>> John's Flow-API was a kernel bypass. Why? It was a API specifically
+>>>>>> designed to directly work with HW tables, without kernel being involved.
+>>>>>
+>>>>> I don't think that is a fair definition of HW bypass. The SKIP_SW flag
+>>>>> does exactly that for 'tc' based offloads and it was not rejected.
+>>>>
+>>>> No, no, no. You still have possibility to do the same thing in kernel,
+>>>> same functionality, with the same API. That is a big difference.
+>>>>
+>>>>
+>>>>>
+>>>>> The _real_ reason that seems to have fallen out of this and other
+>>>>> discussion is the Flow-API didn't provide an in-kernel translation into
+>>>>> an emulated patch. Note we always had a usermode translation to eBPF.
+>>>>> A secondary reason appears to be overhead of adding yet another netlink
+>>>>> family.
+>>>>
+>>>> Yeah. Maybe you remember, back then when Flow-API was being discussed,
+>>>> I suggested to wrap it under TC as cls_xflows and cls_xflowsaction of
+>>>> some sort and do in-kernel datapath implementation. I believe that after
+>>>> that, it would be acceptable.
+>>>>
+>>>
+>>> As I understand the thread here that is exactly the proposal here right?
+>>> With a discussion around if the structures/etc are sufficient or any
+>>> alternative representations exist.
+>> 
+>> Might be the way, yes. But I fear that with other p4 extensions this
+>> might not be easy to align with. Therefore I though about something more
+>> generic, like the p4ast.
+>> 
 >
->I've always had some reservations about using notifiers for getting
->the FIB entries down to the offloaded device.
+>Same question as above are we _really_ talking about pushing the entire
+>programmability of the device via 'tc'. If so we need to have a vendor
+>say they will support and implement this?
 
-Yeah, me too. But there is no really other way to do it. I thought about
-it quite long. But maybe I missed something.
+We need some API, and I believe that TC is perfectly suitable for that.
+Why do you think it's a problem?
+
 
 
 >
->And this problem is just another symptom that it is the wrong
->mechanism for propagating this information.
+>> 
+>>>
+>>>>
+>>>>>
+>>>>>>
+>>>>>>
+>>>>>>> The goal of flow api was to expose HW features to user space, so that
+>>>>>>> user space can program it. For something simple as mellanox switch
+>>>>>>> asic it fits perfectly well.
+>>>>>>
+>>>>>> Again, this is not mlx-asic-specific. And again, that is a kernel bypass.
+>>>>>>
+>>>>>>
+>>>>>>> Unless I misunderstand the bigger goal of this discussion and it's
+>>>>>>> about programming ezchip devices.
+>>>>>>
+>>>>>> No. For network processors, I believe that BPF is nicely offloadable, no
+>>>>>> need to do the excercise for that.
+>>>>>>
+>>>>>>
+>>>>>>>
+>>>>>>> If the goal is to model hw tcam in the linux kernel then just introduce
+>>>>>>> tcam bpf map type. It will be dog slow in user space, but it will
+>>>>>>> match exactly what is happnening in the HW and user space can make
+>>>>>>> sensible trade-offs.
+>>>>>>
+>>>>>> No, you got me completely wrong. This is not about the TCAM. This is
+>>>>>> about differences in the 2 words (p4/bpf).
+>>>>>> Again, for "p4-ish" devices, you have to translate BPF. And as you
+>>>>>> noted, it's an instruction set. Very hard if not impossible to parse in
+>>>>>> order to get back the original semantics.
+>>>>>>
+>>>>>
+>>>>> I think in this discussion "p4-ish" devices means devices with multiple
+>>>>> tables in a pipeline? Not devices that have programmable/configurable
+>>>>> pipelines right? And if we get to talking about reconfigurable devices
+>>>>> I believe this should be done out of band as it typically means
+>>>>> reloading some ucode, etc.
+>>>>
+>>>> I'm talking about both. But I think we should focus on reconfigurable
+>>>> ones, as we probably won't see that much fixed ones in the future.
+>>>>
+>>>
+>>> hmm maybe but the 10/40/100Gbps devices are going to be around for some
+>>> time. So we need to ensure these work well.
+>> 
+>> Yes, but I would like to emphasize, if we are defining new api
+>> the primary focus should be on new devices.
+>> 
+>> 
 >
->As suggested by Roopa here, perhaps we're looking at the problem from
->the wrong direction.  We tend to design NDO ops and notifiers, to
->"push" things to the driver, but maybe something more like a push+pull
->model is better.
-
-How do you imagine this mode should looks like? Could you draw me some
-example?
-
-Thanks!
+>What device though. Back to mlxsw question about actually supporting
+>this stuff.
+>
