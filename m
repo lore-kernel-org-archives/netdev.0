@@ -1,129 +1,96 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: [PATCH net v3] ipv4: allow local fragmentation in ip_finish_output_gso()
-Date: Wed,  2 Nov 2016 16:36:17 -0400
-Message-ID: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
-To: netdev@vger.kernel.org, fw@strlen.de, jtluka@redhat.com,
-        hannes@stressinduktion.org
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/dccp: null-ptr-deref in dccp_parse_options
+Date: Wed, 2 Nov 2016 21:47:37 +0100
+Message-ID: <CAAeHK+xyYvvE=bNrJP6OXNMXWy_w_o3Sjw3AfeoUOmky3UG+FQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44650 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756031AbcKBUgU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Nov 2016 16:36:20 -0400
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:36656 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756929AbcKBUrk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 16:47:40 -0400
+Received: by mail-lf0-f43.google.com with SMTP id t196so22741147lff.3
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 13:47:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some configurations (e.g. geneve interface with default
-MTU of 1500 over an ethernet interface with 1500 MTU) result
-in the transmission of packets that exceed the configured MTU.
-While this should be considered to be a "bad" configuration,
-it is still allowed and should not result in the sending
-of packets that exceed the configured MTU.
+Hi,
 
-Fix by dropping the assumption in ip_finish_output_gso() that
-locally originated gso packets will never need fragmentation.
-Basic testing using iperf (observing CPU usage and bandwidth)
-have shown no measurable performance impact for traffic not
-requiring fragmentation.
+I've got the following error report while running the syzkaller fuzzer:
 
-Fixes: c7ba65d7b649 ("net: ip: push gso skb forwarding handling down the stack")
-Reported-by: Jan Tluka <jtluka@redhat.com>
-Signed-off-by: Lance Richardson <lrichard@redhat.com>
----
- v2: IPSKB_FRAG_SEGS is no longer useful, remove it.
- v3: Eliminate unused variable warning.
- include/net/ip.h          |  3 +--
- net/ipv4/ip_forward.c     |  2 +-
- net/ipv4/ip_output.c      |  6 ++----
- net/ipv4/ip_tunnel_core.c | 11 -----------
- net/ipv4/ipmr.c           |  2 +-
- 5 files changed, 5 insertions(+), 19 deletions(-)
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Modules linked in:
+CPU: 0 PID: 4677 Comm: syz-executor Not tainted 4.9.0-rc3+ #336
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff88006ac1d800 task.stack: ffff880067be0000
+RIP: 0010:[<ffffffff8389632c>]  [<     inline     >]
+ccid_hc_rx_parse_options net/dccp/ccid.h:217
+RIP: 0010:[<ffffffff8389632c>]  [<ffffffff8389632c>]
+dccp_parse_options+0x9dc/0x1010 net/dccp/options.c:218
+RSP: 0018:ffff880067be7368  EFLAGS: 00010246
+RAX: ffff88006ac1d800 RBX: ffff880066f5807d RCX: 0000000000000001
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff88006bc29bc0
+RBP: ffff880067be73f8 R08: 0000000000000000 R09: ffffffff838962fd
+R10: ffff88006bc29bc0 R11: 1ffff1000d785474 R12: 0000000000000080
+R13: 0000000000000000 R14: dffffc0000000000 R15: ffff880066f5807d
+FS:  00007fbc6b0e8700(0000) GS:ffff88006cc00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 00000000004aca30 CR3: 00000000683fa000 CR4: 00000000000006f0
+Stack:
+ ffffffff838909f8 0000000000000000 ffff88006bc2a3a8 ffff88006bc2a3b0
+ ffffed000d785475 ffff88006abbb900 09ff88006bc2a2f8 ffffffff00000080
+ ffff88006abbb8c0 ffff88006bc29bc0 0000000000000000 0000000000000000
+Call Trace:
+ [<ffffffff838923f0>] dccp_rcv_state_process+0x200/0x15b0 net/dccp/input.c:644
+ [<ffffffff838b9cb4>] dccp_v4_do_rcv+0xf4/0x1a0 net/dccp/ipv4.c:681
+ [<     inline     >] sk_backlog_rcv ./include/net/sock.h:874
+ [<ffffffff82b82082>] __sk_receive_skb+0x252/0xa20 net/core/sock.c:479
+ [<ffffffff838bc027>] dccp_v4_rcv+0xdb7/0x1920 net/dccp/ipv4.c:873
+ [<ffffffff83069d42>] ip_local_deliver_finish+0x332/0xad0
+net/ipv4/ip_input.c:216
+ [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
+ [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
+ [<ffffffff8306abf2>] ip_local_deliver+0x1c2/0x4b0 net/ipv4/ip_input.c:257
+ [<     inline     >] dst_input ./include/net/dst.h:507
+ [<ffffffff83068520>] ip_rcv_finish+0x750/0x1c40 net/ipv4/ip_input.c:396
+ [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
+ [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
+ [<ffffffff8306b84f>] ip_rcv+0x96f/0x12f0 net/ipv4/ip_input.c:487
+ [<ffffffff82bd9fd7>] __netif_receive_skb_core+0x1897/0x2a50 net/core/dev.c:4213
+ [<ffffffff82bdb1ba>] __netif_receive_skb+0x2a/0x170 net/core/dev.c:4251
+ [<ffffffff82bdb4b3>] netif_receive_skb_internal+0x1b3/0x390 net/core/dev.c:4279
+ [<ffffffff82bdb6d8>] netif_receive_skb+0x48/0x250 net/core/dev.c:4303
+ [<ffffffff8241fc75>] tun_get_user+0xbd5/0x28a0 drivers/net/tun.c:1308
+ [<ffffffff82421b5a>] tun_chr_write_iter+0xda/0x190 drivers/net/tun.c:1332
+ [<     inline     >] new_sync_write fs/read_write.c:499
+ [<ffffffff8151bd44>] __vfs_write+0x334/0x570 fs/read_write.c:512
+ [<ffffffff8151f85b>] vfs_write+0x17b/0x500 fs/read_write.c:560
+ [<     inline     >] SYSC_write fs/read_write.c:607
+ [<ffffffff81523184>] SyS_write+0xd4/0x1a0 fs/read_write.c:599
+ [<ffffffff83fc0401>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+arch/x86/entry/entry_64.S:209
+Code: 49 8d ba e0 07 00 00 49 89 fb 49 c1 eb 03 43 80 3c 33 00 0f 85
+59 05 00 00 48 8b 7d b8 4c 8b 87 e0 07 00 00 4c 89 c6 48 c1 ee 03 <42>
+80 3c 36 00 0f 85 d5 04 00 00 49 8b 10 48 8d ba 90 00 00 00
+RIP  [<     inline     >] ccid_hc_rx_parse_options net/dccp/ccid.h:217
+RIP  [<ffffffff8389632c>] dccp_parse_options+0x9dc/0x1010 net/dccp/options.c:218
+ RSP <ffff880067be7368>
+---[ end trace f4114105e77749ef ]---
+Kernel panic - not syncing: Fatal exception in interrupt
+Kernel Offset: disabled
+---[ end Kernel panic - not syncing: Fatal exception in interrupt
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 5413883..d3a1078 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -47,8 +47,7 @@ struct inet_skb_parm {
- #define IPSKB_REROUTED		BIT(4)
- #define IPSKB_DOREDIRECT	BIT(5)
- #define IPSKB_FRAG_PMTU		BIT(6)
--#define IPSKB_FRAG_SEGS		BIT(7)
--#define IPSKB_L3SLAVE		BIT(8)
-+#define IPSKB_L3SLAVE		BIT(7)
- 
- 	u16			frag_max_size;
- };
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 8b4ffd2..9f0a7b9 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -117,7 +117,7 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_uses_gateway)
- 		goto sr_failed;
- 
--	IPCB(skb)->flags |= IPSKB_FORWARDED | IPSKB_FRAG_SEGS;
-+	IPCB(skb)->flags |= IPSKB_FORWARDED;
- 	mtu = ip_dst_mtu_maybe_forward(&rt->dst, true);
- 	if (ip_exceeds_mtu(skb, mtu)) {
- 		IP_INC_STATS(net, IPSTATS_MIB_FRAGFAILS);
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 03e7f73..4971401 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -239,11 +239,9 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
- 	struct sk_buff *segs;
- 	int ret = 0;
- 
--	/* common case: fragmentation of segments is not allowed,
--	 * or seglen is <= mtu
-+	/* common case: seglen is <= mtu
- 	 */
--	if (((IPCB(skb)->flags & IPSKB_FRAG_SEGS) == 0) ||
--	      skb_gso_validate_mtu(skb, mtu))
-+	if (skb_gso_validate_mtu(skb, mtu))
- 		return ip_finish_output2(net, sk, skb);
- 
- 	/* Slowpath -  GSO segment length is exceeding the dst MTU.
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 777bc18..fed3d29 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -63,7 +63,6 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	int pkt_len = skb->len - skb_inner_network_offset(skb);
- 	struct net *net = dev_net(rt->dst.dev);
- 	struct net_device *dev = skb->dev;
--	int skb_iif = skb->skb_iif;
- 	struct iphdr *iph;
- 	int err;
- 
-@@ -73,16 +72,6 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	skb_dst_set(skb, &rt->dst);
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 
--	if (skb_iif && !(df & htons(IP_DF))) {
--		/* Arrived from an ingress interface, got encapsulated, with
--		 * fragmentation of encapulating frames allowed.
--		 * If skb is gso, the resulting encapsulated network segments
--		 * may exceed dst mtu.
--		 * Allow IP Fragmentation of segments.
--		 */
--		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
--	}
--
- 	/* Push down and install the IP header. */
- 	skb_push(skb, sizeof(struct iphdr));
- 	skb_reset_network_header(skb);
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 5f006e1..27089f5 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1749,7 +1749,7 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
- 		vif->dev->stats.tx_bytes += skb->len;
- 	}
- 
--	IPCB(skb)->flags |= IPSKB_FORWARDED | IPSKB_FRAG_SEGS;
-+	IPCB(skb)->flags |= IPSKB_FORWARDED;
- 
- 	/* RFC1584 teaches, that DVMRP/PIM router must deliver packets locally
- 	 * not only before forwarding, but after forwarding on all output
--- 
-2.5.5
+On commit 0c183d92b20b5c84ca655b45ef57b3318b83eb9e (Oct 31).
+
+Thanks!
