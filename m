@@ -1,40 +1,43 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next 2/2] [PATCH] net: ip, raw_diag -- Use jump for
- exiting from nested loop
-Date: Wed, 2 Nov 2016 08:56:26 -0600
-Message-ID: <46419696-e2bc-7ff9-0911-e63a4b63bc63@cumulusnetworks.com>
-References: <20161102125454.754267793@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrey Vagin <avagin@openvz.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Cyrill Gorcunov <gorcunov@openvz.org>, netdev@vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 0/3] ip: add RECVFRAGSIZE cmsg
+Date: Wed,  2 Nov 2016 11:02:15 -0400
+Message-ID: <1478098938-124108-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: jdorfman@google.com, eric.dumazet@gmail.com, davem@davemloft.net,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:35296 "EHLO
-        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752165AbcKBO50 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 10:57:26 -0400
-Received: by mail-it0-f54.google.com with SMTP id e187so85254752itc.0
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 07:57:26 -0700 (PDT)
-In-Reply-To: <20161102125454.754267793@openvz.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:32769 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752400AbcKBPCX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 11:02:23 -0400
+Received: by mail-qk0-f195.google.com with SMTP id x190so1411548qkb.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 08:02:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/2/16 6:36 AM, Cyrill Gorcunov wrote:
-> I managed to miss that sk_for_each is called under "for"
-> cycle so need to use goto here to return matching socket.
-> 
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: David Ahern <dsa@cumulusnetworks.com>
-> CC: Andrey Vagin <avagin@openvz.org>
-> CC: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-> ---
->  net/ipv4/raw_diag.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+From: Willem de Bruijn <willemb@google.com>
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+On IP datagrams and raw sockets, when packets arrive fragmented,
+expose the largest received fragment size through a new cmsg.
+
+Protocols implemented on top of these sockets may use this, for
+instance, to inform peers to lower MSS on platforms that silently
+allow send calls to exceed PMTU and cause fragmentation.
+
+Willem de Bruijn (3):
+  ipv4: add IP_RECVFRAGSIZE cmsg
+  ipv6: add IPV6_RECVFRAGSIZE cmsg
+  ipv6: on reassembly, record frag_max_size
+
+ include/linux/ipv6.h     |  5 +++--
+ include/net/inet_sock.h  |  1 +
+ include/uapi/linux/in.h  |  1 +
+ include/uapi/linux/in6.h |  1 +
+ net/ipv4/ip_sockglue.c   | 26 ++++++++++++++++++++++++++
+ net/ipv6/datagram.c      |  5 +++++
+ net/ipv6/ipv6_sockglue.c |  8 ++++++++
+ net/ipv6/reassembly.c    |  7 ++++++-
+ 8 files changed, 51 insertions(+), 3 deletions(-)
+
+-- 
+2.8.0.rc3.226.g39d4020
