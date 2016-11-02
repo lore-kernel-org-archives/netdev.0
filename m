@@ -1,165 +1,290 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/dccp: null-ptr-deref in
- dccp_v4_rcv/selinux_socket_sock_rcv_skb
-Date: Wed, 02 Nov 2016 13:16:56 -0700
-Message-ID: <1478117816.7065.386.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+yZ4WF2eXATVFQbe_SKM-MFzXypA6VjGxwUxYV3_4xT9g@mail.gmail.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH net-next v6 04/10] dpaa_eth: add ethtool functionality
+Date: Wed, 2 Nov 2016 22:17:28 +0200
+Message-ID: <1478117854-8952-5-git-send-email-madalin.bucur@nxp.com>
+References: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        <davem@davemloft.net>, <oss@buserror.net>, <ppc@mindchasers.com>,
+        <joe@perches.com>, <pebolle@tiscali.nl>,
+        <joakim.tjernlund@transmode.se>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+yZ4WF2eXATVFQbe_SKM-MFzXypA6VjGxwUxYV3_4xT9g@mail.gmail.com>
+In-Reply-To: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-11-02 at 19:44 +0100, Andrey Konovalov wrote:
-> Hi,
-> 
-> I've got the following error report while running the syzkaller fuzzer:
-> 
-> IPv4: Attempt to release alive inet socket ffff880068e98940
-> kasan: CONFIG_KASAN_INLINE enabled
-> kasan: GPF could be caused by NULL-ptr deref or user memory access
-> general protection fault: 0000 [#1] SMP KASAN
-> Modules linked in:
-> CPU: 1 PID: 3905 Comm: a.out Not tainted 4.9.0-rc3+ #333
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff88006b9e0000 task.stack: ffff880068770000
-> RIP: 0010:[<ffffffff819ead5f>]  [<ffffffff819ead5f>]
-> selinux_socket_sock_rcv_skb+0xff/0x6a0 security/selinux/hooks.c:4639
-> RSP: 0018:ffff8800687771c8  EFLAGS: 00010202
-> RAX: ffff88006b9e0000 RBX: 1ffff1000d0eee3f RCX: 1ffff1000d1d312a
-> RDX: 1ffff1000d1d31a6 RSI: dffffc0000000000 RDI: 0000000000000010
-> RBP: ffff880068777360 R08: 0000000000000000 R09: 0000000000000002
-> R10: dffffc0000000000 R11: 0000000000000006 R12: ffff880068e98940
-> R13: 0000000000000002 R14: ffff880068777338 R15: 0000000000000000
-> FS:  00007f00ff760700(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000020008000 CR3: 000000006a308000 CR4: 00000000000006e0
-> Stack:
->  ffff8800687771e0 ffffffff812508a5 ffff8800686f3168 0000000000000007
->  ffff88006ac8cdfc ffff8800665ea500 0000000041b58ab3 ffffffff847b5480
->  ffffffff819eac60 ffff88006b9e0860 ffff88006b9e0868 ffff88006b9e07f0
-> Call Trace:
->  [<ffffffff819c8dd5>] security_sock_rcv_skb+0x75/0xb0 security/security.c:1317
->  [<ffffffff82c2a9e7>] sk_filter_trim_cap+0x67/0x10e0 net/core/filter.c:81
->  [<ffffffff82b81e60>] __sk_receive_skb+0x30/0xa00 net/core/sock.c:460
->  [<ffffffff838bbf12>] dccp_v4_rcv+0xdb2/0x1910 net/dccp/ipv4.c:873
->  [<ffffffff83069d22>] ip_local_deliver_finish+0x332/0xad0
-> net/ipv4/ip_input.c:216
->  [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
->  [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
->  [<ffffffff8306abd2>] ip_local_deliver+0x1c2/0x4b0 net/ipv4/ip_input.c:257
->  [<     inline     >] dst_input ./include/net/dst.h:507
->  [<ffffffff83068500>] ip_rcv_finish+0x750/0x1c40 net/ipv4/ip_input.c:396
->  [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
->  [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
->  [<ffffffff8306b82f>] ip_rcv+0x96f/0x12f0 net/ipv4/ip_input.c:487
->  [<ffffffff82bd9fb7>] __netif_receive_skb_core+0x1897/0x2a50 net/core/dev.c:4213
->  [<ffffffff82bdb19a>] __netif_receive_skb+0x2a/0x170 net/core/dev.c:4251
->  [<ffffffff82bdb493>] netif_receive_skb_internal+0x1b3/0x390 net/core/dev.c:4279
->  [<ffffffff82bdb6b8>] netif_receive_skb+0x48/0x250 net/core/dev.c:4303
->  [<ffffffff8241fc75>] tun_get_user+0xbd5/0x28a0 drivers/net/tun.c:1308
->  [<ffffffff82421b5a>] tun_chr_write_iter+0xda/0x190 drivers/net/tun.c:1332
->  [<     inline     >] new_sync_write fs/read_write.c:499
->  [<ffffffff8151bd44>] __vfs_write+0x334/0x570 fs/read_write.c:512
->  [<ffffffff8151f85b>] vfs_write+0x17b/0x500 fs/read_write.c:560
->  [<     inline     >] SYSC_write fs/read_write.c:607
->  [<ffffffff81523184>] SyS_write+0xd4/0x1a0 fs/read_write.c:599
->  [<ffffffff83fc02c1>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-> arch/x86/entry/entry_64.S:209
-> Code: 31 45 84 c0 74 0a 41 80 f8 01 0f 8e 26 04 00 00 49 8d 7f 10 49
-> ba 00 00 00 00 00 fc ff df 45 0f b7 6c 24 10 49 89 f9 49 c1 e9 03 <47>
-> 0f b6 1c 11 45 84 db 74 0a 41 80 fb 03 0f 8e 01 04 00 00 41
-> RIP  [<ffffffff819ead5f>] selinux_socket_sock_rcv_skb+0xff/0x6a0
-> security/selinux/hooks.c:4639
->  RSP <ffff8800687771c8>
-> ---[ end trace 6c39677dc406a11b ]---
-> Kernel panic - not syncing: Fatal exception in interrupt
-> Kernel Offset: disabled
-> ---[ end Kernel panic - not syncing: Fatal exception in interrupt
-> 
-> On commit 0c183d92b20b5c84ca655b45ef57b3318b83eb9e (Oct 31).
-> 
-> Thanks!
+Add support for basic ethtool operations.
 
-Please try the following patch, thanks !
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   2 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   2 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   3 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 218 +++++++++++++++++++++
+ 4 files changed, 224 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 73c6b008f1b7..92b269709b9a 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1596,11 +1596,11 @@ static inline void sock_put(struct sock *sk)
- void sock_gen_put(struct sock *sk);
+diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
+index fc76029..43a4cfd 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Makefile
++++ b/drivers/net/ethernet/freescale/dpaa/Makefile
+@@ -8,4 +8,4 @@ ccflags-y += -I$(FMAN)
  
- int __sk_receive_skb(struct sock *sk, struct sk_buff *skb, const int nested,
--		     unsigned int trim_cap);
-+		     unsigned int trim_cap, bool refcounted);
- static inline int sk_receive_skb(struct sock *sk, struct sk_buff *skb,
- 				 const int nested)
- {
--	return __sk_receive_skb(sk, skb, nested, 1);
-+	return __sk_receive_skb(sk, skb, nested, 1, true);
- }
+ obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
  
- static inline void sk_tx_queue_set(struct sock *sk, int tx_queue)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index df171acfe232..5e3ca414357e 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -453,7 +453,7 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- EXPORT_SYMBOL(sock_queue_rcv_skb);
+-fsl_dpa-objs += dpaa_eth.o
++fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index 5e8c3df..681abf1 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -242,6 +242,8 @@ static int dpaa_netdev_init(struct net_device *net_dev,
+ 	memcpy(net_dev->perm_addr, mac_addr, net_dev->addr_len);
+ 	memcpy(net_dev->dev_addr, mac_addr, net_dev->addr_len);
  
- int __sk_receive_skb(struct sock *sk, struct sk_buff *skb,
--		     const int nested, unsigned int trim_cap)
-+		     const int nested, unsigned int trim_cap, bool refcounted)
- {
- 	int rc = NET_RX_SUCCESS;
++	net_dev->ethtool_ops = &dpaa_ethtool_ops;
++
+ 	net_dev->needed_headroom = priv->tx_headroom;
+ 	net_dev->watchdog_timeo = msecs_to_jiffies(tx_timeout);
  
-@@ -487,7 +487,8 @@ int __sk_receive_skb(struct sock *sk, struct sk_buff *skb,
- 
- 	bh_unlock_sock(sk);
- out:
--	sock_put(sk);
-+	if (refcounted)
-+		sock_put(sk);
- 	return rc;
- discard_and_relse:
- 	kfree_skb(skb);
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 345a3aeb8c7e..dff7cfab1da4 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -868,7 +868,7 @@ static int dccp_v4_rcv(struct sk_buff *skb)
- 		goto discard_and_relse;
- 	nf_reset(skb);
- 
--	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4);
-+	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4, refcounted);
- 
- no_dccp_socket:
- 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 3828f94b234c..09c4e19aa285 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -738,7 +738,8 @@ static int dccp_v6_rcv(struct sk_buff *skb)
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_and_relse;
- 
--	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4) ? -1 : 0;
-+	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4,
-+				refcounted) ? -1 : 0;
- 
- no_dccp_socket:
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+index fe98e08..d6ab335 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+@@ -141,4 +141,7 @@ struct dpaa_priv {
+ 	struct dpaa_buffer_layout buf_layout[2];
+ 	u16 rx_headroom;
+ };
++
++/* from dpaa_ethtool.c */
++extern const struct ethtool_ops dpaa_ethtool_ops;
+ #endif	/* __DPAA_H */
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+new file mode 100644
+index 0000000..f97f563
+--- /dev/null
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+@@ -0,0 +1,218 @@
++/* Copyright 2008-2016 Freescale Semiconductor, Inc.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
++ *
++ *
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/string.h>
++
++#include "dpaa_eth.h"
++#include "mac.h"
++
++static int dpaa_get_settings(struct net_device *net_dev,
++			     struct ethtool_cmd *et_cmd)
++{
++	int err;
++
++	if (!net_dev->phydev) {
++		netdev_dbg(net_dev, "phy device not initialized\n");
++		return 0;
++	}
++
++	err = phy_ethtool_gset(net_dev->phydev, et_cmd);
++
++	return err;
++}
++
++static int dpaa_set_settings(struct net_device *net_dev,
++			     struct ethtool_cmd *et_cmd)
++{
++	int err;
++
++	if (!net_dev->phydev) {
++		netdev_err(net_dev, "phy device not initialized\n");
++		return -ENODEV;
++	}
++
++	err = phy_ethtool_sset(net_dev->phydev, et_cmd);
++	if (err < 0)
++		netdev_err(net_dev, "phy_ethtool_sset() = %d\n", err);
++
++	return err;
++}
++
++static void dpaa_get_drvinfo(struct net_device *net_dev,
++			     struct ethtool_drvinfo *drvinfo)
++{
++	int len;
++
++	strlcpy(drvinfo->driver, KBUILD_MODNAME,
++		sizeof(drvinfo->driver));
++	len = snprintf(drvinfo->version, sizeof(drvinfo->version),
++		       "%X", 0);
++	len = snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
++		       "%X", 0);
++
++	if (len >= sizeof(drvinfo->fw_version)) {
++		/* Truncated output */
++		netdev_notice(net_dev, "snprintf() = %d\n", len);
++	}
++	strlcpy(drvinfo->bus_info, dev_name(net_dev->dev.parent->parent),
++		sizeof(drvinfo->bus_info));
++}
++
++static u32 dpaa_get_msglevel(struct net_device *net_dev)
++{
++	return ((struct dpaa_priv *)netdev_priv(net_dev))->msg_enable;
++}
++
++static void dpaa_set_msglevel(struct net_device *net_dev,
++			      u32 msg_enable)
++{
++	((struct dpaa_priv *)netdev_priv(net_dev))->msg_enable = msg_enable;
++}
++
++static int dpaa_nway_reset(struct net_device *net_dev)
++{
++	int err;
++
++	if (!net_dev->phydev) {
++		netdev_err(net_dev, "phy device not initialized\n");
++		return -ENODEV;
++	}
++
++	err = 0;
++	if (net_dev->phydev->autoneg) {
++		err = phy_start_aneg(net_dev->phydev);
++		if (err < 0)
++			netdev_err(net_dev, "phy_start_aneg() = %d\n",
++				   err);
++	}
++
++	return err;
++}
++
++static void dpaa_get_pauseparam(struct net_device *net_dev,
++				struct ethtool_pauseparam *epause)
++{
++	struct dpaa_priv *priv;
++	struct mac_device *mac_dev;
++
++	priv = netdev_priv(net_dev);
++	mac_dev = priv->mac_dev;
++
++	if (!net_dev->phydev) {
++		netdev_err(net_dev, "phy device not initialized\n");
++		return;
++	}
++
++	epause->autoneg = mac_dev->autoneg_pause;
++	epause->rx_pause = mac_dev->rx_pause_active;
++	epause->tx_pause = mac_dev->tx_pause_active;
++}
++
++static int dpaa_set_pauseparam(struct net_device *net_dev,
++			       struct ethtool_pauseparam *epause)
++{
++	struct dpaa_priv *priv;
++	struct mac_device *mac_dev;
++	struct phy_device *phydev;
++	int err;
++	u32 newadv, oldadv;
++	bool rx_pause, tx_pause;
++
++	priv = netdev_priv(net_dev);
++	mac_dev = priv->mac_dev;
++
++	phydev = net_dev->phydev;
++	if (!phydev) {
++		netdev_err(net_dev, "phy device not initialized\n");
++		return -ENODEV;
++	}
++
++	if (!(phydev->supported & SUPPORTED_Pause) ||
++	    (!(phydev->supported & SUPPORTED_Asym_Pause) &&
++	    (epause->rx_pause != epause->tx_pause)))
++		return -EINVAL;
++
++	/* The MAC should know how to handle PAUSE frame autonegotiation before
++	 * adjust_link is triggered by a forced renegotiation of sym/asym PAUSE
++	 * settings.
++	 */
++	mac_dev->autoneg_pause = !!epause->autoneg;
++	mac_dev->rx_pause_req = !!epause->rx_pause;
++	mac_dev->tx_pause_req = !!epause->tx_pause;
++
++	/* Determine the sym/asym advertised PAUSE capabilities from the desired
++	 * rx/tx pause settings.
++	 */
++	newadv = 0;
++	if (epause->rx_pause)
++		newadv = ADVERTISED_Pause | ADVERTISED_Asym_Pause;
++	if (epause->tx_pause)
++		newadv |= ADVERTISED_Asym_Pause;
++
++	oldadv = phydev->advertising &
++			(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
++
++	/* If there are differences between the old and the new advertised
++	 * values, restart PHY autonegotiation and advertise the new values.
++	 */
++	if (oldadv != newadv) {
++		phydev->advertising &= ~(ADVERTISED_Pause
++				| ADVERTISED_Asym_Pause);
++		phydev->advertising |= newadv;
++		if (phydev->autoneg) {
++			err = phy_start_aneg(phydev);
++			if (err < 0)
++				netdev_err(net_dev, "phy_start_aneg() = %d\n",
++					   err);
++		}
++	}
++
++	fman_get_pause_cfg(mac_dev, &rx_pause, &tx_pause);
++	err = fman_set_mac_active_pause(mac_dev, rx_pause, tx_pause);
++	if (err < 0)
++		netdev_err(net_dev, "set_mac_active_pause() = %d\n", err);
++
++	return err;
++}
++
++const struct ethtool_ops dpaa_ethtool_ops = {
++	.get_settings = dpaa_get_settings,
++	.set_settings = dpaa_set_settings,
++	.get_drvinfo = dpaa_get_drvinfo,
++	.get_msglevel = dpaa_get_msglevel,
++	.set_msglevel = dpaa_set_msglevel,
++	.nway_reset = dpaa_nway_reset,
++	.get_pauseparam = dpaa_get_pauseparam,
++	.set_pauseparam = dpaa_set_pauseparam,
++	.get_link = ethtool_op_get_link,
++};
+-- 
+2.1.0
