@@ -1,51 +1,132 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 07/11] net: dsa: mv88e6xxx: add port link setter
-Date: Wed, 2 Nov 2016 10:16:29 +0100
-Message-ID: <20161102091629.GA384@lunn.ch>
-References: <20161101032023.32762-1-vivien.didelot@savoirfairelinux.com>
- <20161101032023.32762-8-vivien.didelot@savoirfairelinux.com>
- <20161101094313.GB2802@lunn.ch>
- <87shra4rlu.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH v2 34/37] docs: fix locations of several documents that
+	got moved
+Date: Wed, 2 Nov 2016 10:31:54 +0100
+Message-ID: <20161102093154.GC23350@amd>
+References: <cover.1476801354.git.mchehab@s-opensource.com>
+	<28c1f5d3867174a7017e3f3d9e9e4ebb096ceed8.1476801354.git.mchehab@s-opensource.com>
+	<20161019103442.GD1461@amd> <20161019115918.1162d16e@vento.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34036 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754646AbcKBJQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Nov 2016 05:16:33 -0400
+Content-Type: multipart/mixed; boundary="===============7680369000982517778=="
+Cc: Nicolas Pitre <nicolas.pitre@linaro.org>,
+	Linus Walleij <linus.walleij@linaro.org>, Jaroslav Kysela <perex@perex.cz>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	Peter Loeffler <peter.loeffler@guruz.at>,
+	Finn Thain <fthain@telegraphics.com.au>,
+	Yaowei Bai <baiyaowei@cmss.chinamobile.com>,
+	Jakub Wilk <jwilk@jwilk.net>, linux-acpi@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Petr Mladek <pmladek@suse.com>, Jean Delvare <jdelvare@suse.com>,
+	linux-pm@vger.kernel.org, Alexander Viro <viro@zeniv.linux.org.uk>,
+	Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>,
+	Karsten Keil <isdn@linux-pingi.de>, Jiri Kosina <jkosina@suse.cz>,
+	"seokhoon.yoon" <iamyooon@gmail.com>,
+	Li Zefan <lizefan@huawei.com>, Ryan Swan <ryan@ryanswan.com>,
+	Joe Perches <joe@perches.com>, Andrew Morton <akpm@linux-foundation.org>,
+	Mark Rutland
+To: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20161019115918.1162d16e@vento.lan>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
+
+
+--===============7680369000982517778==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="+nBD6E3TurpgldQp"
 Content-Disposition: inline
-In-Reply-To: <87shra4rlu.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 02, 2016 at 02:07:09AM +0100, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> >> +#define LINK_UNKNOWN	-1
-> >> +
-> >> +	/* Port's MAC link state
-> >> +	 * LINK_UNKNOWN for normal link detection, 0 to force link down,
-> >> +	 * otherwise force link up.
-> >> +	 */
-> >> +	int (*port_set_link)(struct mv88e6xxx_chip *chip, int port, int link);
-> >
-> > Maybe LINK_AUTO would be better than UNKNOWN? Or LINK_UNFORCED.
-> 
-> I used LINK_UNKNOWN to be consistent with the supported SPEED_UNKNOWN
-> and DUPLEX_UNKNOWN values of PHY devices.
 
-Hi Vivien
+--+nBD6E3TurpgldQp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-These are i think for reporting back to user space what duplex or link
-is currently being used. But here you are setting, not
-reporting. Setting something to an unknown state is rather odd, and in
-fact, it is not unknown, it is unforced.
+Hi!
 
-      Andrew
+> > Dunno, but kernel-parameters.txt was already quite long... for a file
+> > that is referenced quite often. Adding admin-guide/ into the path does
+> > not really help.
+>=20
+> The big string name starts with Documentation/ :) There are some discussi=
+ons=20
+> about changing it to doc/ (or docs/). Also, as you said, kernel-parameters
+> is already a big name. Perhaps we could use, instead,
+> > "kernel-parms".
+
+cmdline?
+
+> If we rename kernel-parameters.rst to kernel-parms.rst, plus the doc/ ren=
+ame,
+> then the string size will actually reduce:
+>=20
+> -		(see Documentation/kernel-parameters.txt), the minimum possible
+> +		(see doc/admin-guide/kernel-parms.rst), the minimum possible
+>=20
+> > Maybe admin-guide should go directly into Documentation/ , as that's
+> > what our users are interested in?
+>=20
+> There are several problems if we keep them at Documentation/ dir:
+>=20
+> - We'll end by mixing documents already converted to ReST with documents
+>   not converted yet;
+>=20
+> - A rename is needed anyway, as Sphinx only accepts ReST files that end
+>   with the extension(s) defined at Documentation/conf.py (currently,
+>   .rst);
+>=20
+> - A partial documentation build is made by sub-directory. If we put
+>   files under /Documentation, there's no way to build just one
+>   book.
+
+Well, documentation is primarily for users. I'm sure tools can adapt...
+
+> > Plus, I'm not sure how many developers will figure out that process/
+> > is what describes kernel patch submission process. We have processes
+> > in the kernel, after all...
+>=20
+> Do you have a better idea?
+
+development/ ?
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--+nBD6E3TurpgldQp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlgZsooACgkQMOfwapXb+vKDEwCdEmlwjrrTY1HV6PoP/Pyie4I+
+oBMAnjN0WHtyXtQBydl/7WLL5tES6tZi
+=EDvv
+-----END PGP SIGNATURE-----
+
+--+nBD6E3TurpgldQp--
+
+--===============7680369000982517778==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============7680369000982517778==--
