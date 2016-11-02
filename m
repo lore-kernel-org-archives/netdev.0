@@ -1,48 +1,40 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/tcp: null-ptr-deref in __inet_lookup_listener/inet_exact_dif_match
-Date: Wed, 2 Nov 2016 19:36:47 +0100
-Message-ID: <CAAeHK+xve4FkRhk01CA0dq9iaYqcUi23dMd42GKNzT7+nt7FJw@mail.gmail.com>
-References: <CAAeHK+z9bqpWqONBBL1rztkY-+NdzY4jfCzNzfnm63psxbW-2g@mail.gmail.com>
- <1478107305.7065.382.camel@edumazet-glaptop3.roam.corp.google.com> <f92b8a3e-9318-90c4-009a-15da3897ff6b@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v5 3/7] net: phy: broadcom: Add BCM54810 PHY entry
+Date: Wed, 2 Nov 2016 19:37:14 +0100
+Message-ID: <20161102183714.GH384@lunn.ch>
+References: <1478106488-11779-1-git-send-email-jon.mason@broadcom.com>
+ <1478106488-11779-4-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f92b8a3e-9318-90c4-009a-15da3897ff6b@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        bcm-kernel-feedback-list@broadcom.com, rafal@milecki.pl,
+        linux-arm-kernel@lists.infradead.org
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:34638 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932385AbcKBShV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Nov 2016 14:37:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1478106488-11779-4-git-send-email-jon.mason@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Wed, Nov 02, 2016 at 01:08:04PM -0400, Jon Mason wrote:
+> The BCM54810 PHY requires some semi-unique configuration, which results
+> in some additional configuration in addition to the standard config.
+> Also, some users of the BCM54810 require the PHY lanes to be swapped.
+> Since there is no way to detect this, add a device tree query to see if
+> it is applicable.
+> 
+> Inspired-by: Vikas Soni <vsoni@broadcom.com>
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 
-I'm able to reproduce it, so I'd be happy to test your fix.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Thanks!
-
-On Wed, Nov 2, 2016 at 7:31 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 11/2/16 11:21 AM, Eric Dumazet wrote:
->> Thanks for your report.
->>
->> David, please take a look.
->>
->> TCP MD5 can call __inet_lookup_listener() with a NULL skb.
->
-> interesting. I did not test md5 before sending, but doing so now I am not able to trigger the panic with any combination of passwords - correct, wrong, none, no listener, etc. perhaps I am missing a sysctl setting.
->
-> Will send a fix. I see the call to __inet_lookup_listener with null skb.
->
->>
->> Bug added in commit a04a480d4392ea6efd117be2de564117b2a009c0
->
+    Andrew
