@@ -1,70 +1,71 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] e1000e: free IRQ when the link is up or down
-Date: Wed, 2 Nov 2016 14:44:32 -0700
-Message-ID: <CAKgT0UfQbKwyjP9e1MnR90S7re2ybxnTyBL5QajF-7kGNraS1A@mail.gmail.com>
-References: <1478120896-5907-1-git-send-email-tbaicar@codeaurora.org>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH net] tcp: fix return value for partial writes
+Date: Wed, 2 Nov 2016 17:47:23 -0400
+Message-ID: <CACSApvaoAdX+x_VPyKY7d72OOobw77JsrvfJW9u7f3pq-_fG4Q@mail.gmail.com>
+References: <1478122910.7065.396.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        okaya@codeaurora.org, timur@codeaurora.org
-To: Tyler Baicar <tbaicar@codeaurora.org>
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:35028 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932325AbcKBVoe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 17:44:34 -0400
-In-Reply-To: <1478120896-5907-1-git-send-email-tbaicar@codeaurora.org>
+Received: from mail-yb0-f171.google.com ([209.85.213.171]:33587 "EHLO
+        mail-yb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932325AbcKBVsE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 17:48:04 -0400
+Received: by mail-yb0-f171.google.com with SMTP id o7so10157423ybb.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 14:48:04 -0700 (PDT)
+In-Reply-To: <1478122910.7065.396.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 2, 2016 at 2:08 PM, Tyler Baicar <tbaicar@codeaurora.org> wrote:
-> Move IRQ free code so that it will happen regardless of the
-> link state. Currently the e1000e driver only releases its IRQ
-> if the link is up. This is not sufficient because it is
-> possible for a link to go down without releasing the IRQ. A
-> secondary bus reset can cause this case to happen.
+On Wed, Nov 2, 2016 at 5:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Signed-off-by: Tyler Baicar <tbaicar@codeaurora.org>
+> After my commit, tcp_sendmsg() might restart its loop after
+> processing socket backlog.
+>
+> If sk_err is set, we blindly return an error, even though we
+> copied data to user space before.
+>
+> We should instead return number of bytes that could be copied,
+> otherwise user space might resend data and corrupt the stream.
+>
+> This might happen if another thread is using recvmsg(MSG_ERRQUEUE)
+> to process timestamps.
+>
+> Issue was diagnosed by Soheil and Willem, big kudos to them !
+>
+> Fixes: d41a69f1d390f ("tcp: make tcp_sendmsg() aware of socket backlog")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: Soheil Hassas Yeganeh <soheil@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+
+Tested-by: Soheil Hassas Yeganeh <soheil@google.com>
+
 > ---
->  drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+>  net/ipv4/tcp.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index 7017281..36cfcb0 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -4679,12 +4679,13 @@ int e1000e_close(struct net_device *netdev)
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 3251fe71f39f..19e1468bf8ea 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -1164,7 +1164,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 >
->         if (!test_bit(__E1000_DOWN, &adapter->state)) {
->                 e1000e_down(adapter, true);
-> -               e1000_free_irq(adapter);
+>         err = -EPIPE;
+>         if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
+> -               goto out_err;
+> +               goto do_error;
 >
->                 /* Link status message must follow this format */
->                 pr_info("%s NIC Link is Down\n", adapter->netdev->name);
->         }
+>         sg = !!(sk->sk_route_caps & NETIF_F_SG);
 >
-> +       e1000_free_irq(adapter);
-> +
->         napi_disable(&adapter->napi);
 >
->         e1000e_free_tx_resources(adapter->tx_ring);
+>
 
-
-The __E1000_DOWN bit has nothing to do with link state.  It is
-basically there to make sure that we don't call e1000e_down multiple
-times on the same interface.
-
-With that being said the change itself is probably okay since from
-what I can tell e1000e_open doesn't do a check on the __E1000_DOWN bit
-before requesting the interrupt.  However, you may want to incorporate
-pieces of this change (http://patchwork.ozlabs.org/patch/690139/) that
-went in for ixgbevf.  Basically you need to keep the suspend code from
-racing with the close call.  The easiest way to do that is to wrap the
-bits that are also in e1000e_close in the rtnl_lock like we did for
-ixgbevf, and then you would need to check for netif_device_present
-before calling e1000_free_irq() just so you didn't call it twice.
-
-- Alex
+Nice fix. Thanks, Eric!
