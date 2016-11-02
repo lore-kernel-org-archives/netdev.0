@@ -1,77 +1,103 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] ipv4: fib: Replay events when registering
- FIB notifier
-Date: Tue, 01 Nov 2016 19:13:42 -0700
-Message-ID: <58194BD6.5040406@cumulusnetworks.com>
-References: <1477948427-9189-1-git-send-email-idosch@idosch.org> <1477949046.7065.320.camel@edumazet-glaptop3.roam.corp.google.com> <20161031225737.7nfoy4ka3ydzhptq@splinter> <1478009999.7065.334.camel@edumazet-glaptop3.roam.corp.google.com> <5818B146.20209@cumulusnetworks.com> <20161101170345.pq2ewecw35mrurkp@splinter>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: Let's do P4
+Date: Wed, 02 Nov 2016 03:29:23 +0100
+Message-ID: <58194F83.9020205@iogearbox.net>
+References: <20161029075328.GB1692@nanopsycho.orion> <20161029154903.25deb6db@jkicinski-Precision-T1700> <5814D25D.9070200@gmail.com> <20161030074458.GB1686@nanopsycho.orion> <20161030102649.GE1810@pox.localdomain> <20161030163836.GC1686@nanopsycho.orion> <20161030223903.GA6658@ast-mbp.hil-sfehihf.abq.wayport.net> <20161031093922.GA2895@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, jiri@mellanox.com, mlxsw@mellanox.com,
-        dsa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        andy@greyhouse.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, f.fainelli@gmail.com, alexander.h.duyck@intel.com,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, Ido Schimmel <idosch@mellanox.com>
-To: Ido Schimmel <idosch@idosch.org>
+Cc: Thomas Graf <tgraf@suug.ch>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
+        davem@davemloft.net, jhs@mojatatu.com, roopa@cumulusnetworks.com,
+        simon.horman@netronome.com, ast@kernel.org,
+        prem@barefootnetworks.com, hannes@stressinduktion.org,
+        jbenc@redhat.com, tom@herbertland.com, mattyk@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        nogahf@mellanox.com, ogerlitz@mellanox.com, linville@tuxdriver.com,
+        andy@greyhouse.net, f.fainelli@gmail.com, dsa@cumulusnetworks.com,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        ivecera@redhat.com,
+        =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <zenczykowski@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34799 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754155AbcKBCNp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 22:13:45 -0400
-Received: by mail-pf0-f174.google.com with SMTP id n85so1802096pfi.1
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2016 19:13:45 -0700 (PDT)
-In-Reply-To: <20161101170345.pq2ewecw35mrurkp@splinter>
+Received: from www62.your-server.de ([213.133.104.62]:57716 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754575AbcKBC36 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2016 22:29:58 -0400
+In-Reply-To: <20161031093922.GA2895@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/1/16, 10:03 AM, Ido Schimmel wrote:
-> Hi Roopa,
->
-> On Tue, Nov 01, 2016 at 08:14:14AM -0700, Roopa Prabhu wrote:
+On 10/31/2016 10:39 AM, Jiri Pirko wrote:
+> Sun, Oct 30, 2016 at 11:39:05PM CET, alexei.starovoitov@gmail.com wrote:
+>> On Sun, Oct 30, 2016 at 05:38:36PM +0100, Jiri Pirko wrote:
+>>> Sun, Oct 30, 2016 at 11:26:49AM CET, tgraf@suug.ch wrote:
+>>>> On 10/30/16 at 08:44am, Jiri Pirko wrote:
+>>>>> Sat, Oct 29, 2016 at 06:46:21PM CEST, john.fastabend@gmail.com wrote:
+>>>>>> On 16-10-29 07:49 AM, Jakub Kicinski wrote:
+>>>>>>> On Sat, 29 Oct 2016 09:53:28 +0200, Jiri Pirko wrote:
+>>>>>>>> Hi all.
 >>
-[snip]
->> I have the same concern as Eric here.
+>> sorry for delay. travelling to KS, so probably missed something in
+>> this thread and comments can be totally off...
 >>
->> I understand why you need it, but can the driver request for an initial dump and that
->> dump be made more efficient somehow ie not hold rtnl for the whole dump ?.
->> instead of making the fib notifier registration code doing it.
-> We can do what we suggested in the last bi-weekly meeting, which is
-> still holding rtnl, but moving the hardware operation to delayed work.
-> This is possible because upper layers always assume operation was
-> successful and driver is responsible for invoking its abort mechanism in
-> case of failure.
+>> the subject "let's do P4" is imo misleading, since it reads like
+>> we don't do P4 at the moment, whereas the opposite is true.
+>> Several p4->bpf compilers is a proof.
 >
->> these routing table sizes can be huge and an analogy for this in user-space:
->> We do request a netlink dump of  routing tables at initialization (on driver starts or resets)...
->> but, existing netlink routing table dumps for that scale don't hold rtnl for the whole dump.
->> The dump is split into multiple responses to the user and hence it does not starve other rtnl users.
-> In my reply to Eric I mentioned that when we register and unregister
-> from this chain the tables aren't really huge, but instead quite small.
-> I understand your concerns, but I don't wish to make things more
-> complicated than they should be only to address concerns that aren't
-> really realistic.
-
-I understand..but, if you are adding some core infrastructure for switchdev ..it cannot be
-based on the number of simple use-cases or data you have today.
-
-I won't be surprised if tomorrow other switch drivers have a case where they need to
-reset the hw routing table state and reprogram all routes again. Re-registering the notifier to just
-get the routing state of the kernel will not scale. For the long term, since the driver does not maintain a cache,
-a pull api with efficient use of rtnl will be useful for other such cases as well.
-
-
-If you don't want to get to the complexity of a new api right away because of the
-simple case of management interface routes you have, Can your driver register the notifier early  ?
-(I am sure you have probably already thought about this)
-
+> We don't do p4 in kernel now, we don't do p4 offloading now. That is
+> the reason I started this discussion.
 >
-> I believe current patch is quite simple and also consistent with other
-> notification chains in the kernel, such as the netdevice, where rtnl is
-> held during replay of events.
-> http://lxr.free-electrons.com/source/net/core/dev.c#L1535
-as you know, netdev and routing scale are not the same thing.
-Looking at the current code for netdevices (replay and rollback on failure),
-a pull api (equivalent to the netlink dump api) may end up being less complex...with an
-ability to batch in the future.
+>>> The network world is divided into 2 general types of hw:
+>>> 1) network ASICs - network specific silicon, containing things like TCAM
+>>>     These ASICs are suitable to be programmed by P4.
+>>
+>> i think the opposite is the case in case of P4.
+>> when hw asic has tcam it's still far far away from being usable with P4
+>> which requires fully programmable protocol parser, arbitrary tables and so on.
+>> P4 doesn't even define TCAM as a table type. The p4 program can declare
+>> a desired algorithm of search in the table and compiler has to figure out
+>> what HW resources to use to satisfy such p4 program.
+>>
+>>> 2) network processors - basically a general purpose CPUs
+>>>     These processors are suitable to be programmed by eBPF.
+>>
+>> I think this statement is also misleading, since it positions
+>> p4 and bpf as competitors whereas that's not the case.
+>> p4 is the language. bpf is an instruction set.
+>
+> I wanted to say that we are having 2 approaches in silicon, 2 different
+> paradigms. Sure you can do p4>bpf. But hard to do it the opposite way.
+>
+>>> Exactly. Following drawing shows p4 pipeline setup for SW and Hw:
+>>>
+>>>                                   |
+>>>                                   |               +--> ebpf engine
+>>>                                   |               |
+>>>                                   |               |
+>>>                                   |           compilerB
+>>>                                   |               ^
+>>>                                   |               |
+>>> p4src --> compilerA --> p4ast --TCNL--> cls_p4 --+-> driver -> compilerC -> HW
+>>>                                   |
+>>>                         userspace | kernel
+>>>                                   |
+
+Sorry for jumping into the middle and the delay (plumbers this week). My
+question would be, if the main target is for p4 *offloading* anyway, who
+would use this sw fallback path? Mostly for testing purposes?
+
+I'm not sure about compilerB here and the complexity that needs to be
+pushed into the kernel along with it. I would assume this would result
+in slower code than what the existing P4 -> eBPF front ends for LLVM
+would generate since it could perform all kind of optimizations there,
+that might not be feasible for doing inside the kernel. Thus, if I'd want
+to do that in sw, I'd just use the existing LLVM facilities instead and
+go via cls_bpf in that case.
+
+What is your compilerA? Is that part of tc in user space? Maybe linked
+against LLVM lib, for example? If you really want some sw path, can't tc
+do this transparently from user space instead when it gets a netlink error
+that it cannot get offloaded (and thus switch internally to f_bpf's loader)?
