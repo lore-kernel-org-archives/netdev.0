@@ -1,80 +1,105 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net 1/1] driver: veth: Return the actual value instead
- return NETDEV_TX_OK always
-Date: Wed, 2 Nov 2016 13:22:49 -0700
-Message-ID: <CAM_iQpW4HmtoSAiKSyq9o0MXpL1R8XL2-r3NsPH6xu9Pd4X8XA@mail.gmail.com>
-References: <1478080756-16789-1-git-send-email-fgao@ikuai8.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH net-next v6 03/10] dpaa_eth: add option to use one buffer pool
+ set
+Date: Wed, 2 Nov 2016 22:17:27 +0200
+Message-ID: <1478117854-8952-4-git-send-email-madalin.bucur@nxp.com>
+References: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Cong Wang <cwang@twopensource.com>,
-        Vijay Pandurangan <vijayp@vijayp.ca>,
-        Evan Jones <ej@evanjones.ca>, pabeni@redhat.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35178 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756309AbcKBUXK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 16:23:10 -0400
-Received: by mail-oi0-f66.google.com with SMTP id v84so2820752oie.2
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 13:23:10 -0700 (PDT)
-In-Reply-To: <1478080756-16789-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: pebolle@tiscali.nl, joakim.tjernlund@transmode.se,
+ linux-kernel@vger.kernel.org, ppc@mindchasers.com, oss@buserror.net,
+ joe@perches.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+To: <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 2, 2016 at 2:59 AM,  <fgao@ikuai8.com> wrote:
-> From: Gao Feng <fgao@ikuai8.com>
->
-> Current veth_xmit always returns NETDEV_TX_OK whatever if it is really
-> sent successfully. Now return the actual value instead of NETDEV_TX_OK
-> always.
->
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
->  drivers/net/veth.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-> index fbc853e..769a3bd 100644
-> --- a/drivers/net/veth.c
-> +++ b/drivers/net/veth.c
-> @@ -111,15 +111,18 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
->         struct veth_priv *priv = netdev_priv(dev);
->         struct net_device *rcv;
->         int length = skb->len;
-> +       int ret = NETDEV_TX_OK;
->
->         rcu_read_lock();
->         rcv = rcu_dereference(priv->peer);
->         if (unlikely(!rcv)) {
->                 kfree_skb(skb);
-> +               ret = NET_RX_DROP;
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/dpaa/Kconfig    |  6 ++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 23 +++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
 
-
-Returning NET_RX_DROP doesn't look correct in a xmit function.
-
-
->                 goto drop;
->         }
->
-> -       if (likely(dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) {
-> +       ret = dev_forward_skb(rcv, skb);
-> +       if (likely(ret == NET_RX_SUCCESS)) {
->                 struct pcpu_vstats *stats = this_cpu_ptr(dev->vstats);
->
->                 u64_stats_update_begin(&stats->syncp);
-> @@ -131,7 +134,7 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
->                 atomic64_inc(&priv->dropped);
->         }
->         rcu_read_unlock();
-> -       return NETDEV_TX_OK;
-> +       return ret;
->  }
->
->  /*
-> --
-> 1.9.1
->
->
+diff --git a/drivers/net/ethernet/freescale/dpaa/Kconfig b/drivers/net/ethernet/freescale/dpaa/Kconfig
+index 670e039..308fc21 100644
+--- a/drivers/net/ethernet/freescale/dpaa/Kconfig
++++ b/drivers/net/ethernet/freescale/dpaa/Kconfig
+@@ -18,4 +18,10 @@ config FSL_DPAA_ETH_FRIENDLY_IF_NAME
+ 	  The DPAA Ethernet netdevices are created for each FMan port available
+ 	  on a certain board. Enable this to get interface names derived from
+ 	  the underlying FMan hardware for a simple identification.
++config FSL_DPAA_ETH_COMMON_BPOOL
++	bool "Use a common buffer pool set for all the interfaces"
++	---help---
++	  The DPAA Ethernet netdevices require buffer pools for storing the buffers
++	  used by the FMan hardware for reception. One can use a single buffer pool
++	  set for all interfaces or a dedicated buffer pool set for each interface.
+ endif # FSL_DPAA_ETH
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index 55e89b7..5e8c3df 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -158,6 +158,11 @@ struct fm_port_fqs {
+ 	struct dpaa_fq *rx_errq;
+ };
+ 
++#ifdef CONFIG_FSL_DPAA_ETH_COMMON_BPOOL
++/* These bpools are shared by all the dpaa interfaces */
++static u8 dpaa_common_bpids[DPAA_BPS_NUM];
++#endif
++
+ /* All the dpa bps in use at any moment */
+ static struct dpaa_bp *dpaa_bp_array[BM_MAX_NUM_OF_POOLS];
+ 
+@@ -2527,6 +2532,12 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 	for (i = 0; i < DPAA_BPS_NUM; i++) {
+ 		int err;
+ 
++#ifdef CONFIG_FSL_DPAA_ETH_COMMON_BPOOL
++		/* if another interface probed the bps reuse those */
++		dpaa_bps[i] = (dpaa_common_bpids[i] != FSL_DPAA_BPID_INV) ?
++				dpaa_bpid2pool(dpaa_common_bpids[i]) : NULL;
++		if (!dpaa_bps[i]) {
++#endif
+ 		dpaa_bps[i] = dpaa_bp_alloc(dev);
+ 		if (IS_ERR(dpaa_bps[i]))
+ 			return PTR_ERR(dpaa_bps[i]);
+@@ -2542,6 +2553,11 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 			priv->dpaa_bps[i] = NULL;
+ 			goto bp_create_failed;
+ 		}
++#ifdef CONFIG_FSL_DPAA_ETH_COMMON_BPOOL
++		}
++		dpaa_common_bpids[i] = dpaa_bps[i]->bpid;
++		dpaa_bps[i] = (dpaa_bpid2pool(dpaa_common_bpids[i]));
++#endif
+ 		priv->dpaa_bps[i] = dpaa_bps[i];
+ 	}
+ 
+@@ -2716,6 +2732,13 @@ static int __init dpaa_load(void)
+ 	dpaa_rx_extra_headroom = fman_get_rx_extra_headroom();
+ 	dpaa_max_frm = fman_get_max_frm();
+ 
++#ifdef CONFIG_FSL_DPAA_ETH_COMMON_BPOOL
++	/* set initial invalid values, first interface probe will set correct
++	 * values that will be shared by the other interfaces
++	 */
++	memset(dpaa_common_bpids, FSL_DPAA_BPID_INV, sizeof(dpaa_common_bpids));
++#endif
++
+ 	err = platform_driver_register(&dpaa_driver);
+ 	if (err < 0)
+ 		pr_err("Error, platform_driver_register() = %d\n", err);
+-- 
+2.1.0
