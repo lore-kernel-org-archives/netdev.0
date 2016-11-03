@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 09/21] amd-xgbe: Update how to determine DMA
- channel status
-Date: Thu, 3 Nov 2016 08:29:14 -0500
-Message-ID: <20161103132914.3437.27657.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 12/21] amd-xgbe: Add a workaround for Tx
+ timestamp issue
+Date: Thu, 3 Nov 2016 08:29:47 -0500
+Message-ID: <20161103132947.3437.26130.stgit@tlendack-t1.amdoffice.net>
 References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,151 +11,82 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0073.outbound.protection.outlook.com ([104.47.42.73]:16202
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0047.outbound.protection.outlook.com ([104.47.40.47]:43732
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757215AbcKCNny (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:43:54 -0400
+        id S1756770AbcKCNoM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:44:12 -0400
 In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tx and Rx DMA channel status determiniation is different depending on the
-version of the hardware. Update the channel status processing code to
-account for the change.  Also, reduce the timeout value used when stopping
-the channels.
+Update the reading of the Tx timestamp to account for a hardware issue
+on how the fields and interrupt are cleared.  The "seconds" portion of
+the timestamp should be read first, followed by the "nanoseconds" portion.
+Reading the "nanoseconds" portion should clear the timestamp data and the
+interrupt.  Because of an issue with the hardware this order is reversed
+and reading the "seconds" portion actually clears the timestamp.  The code
+currently follows this workaround, but to guard against future versions
+where this is fixed add a field to the version data to indicate if the
+workaround is required or not.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |    4 ++
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   58 ++++++++++++++++++---------
- drivers/net/ethernet/amd/xgbe/xgbe.h        |    2 -
- 3 files changed, 43 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c      |   13 ++++++++++---
+ drivers/net/ethernet/amd/xgbe/xgbe-platform.c |    1 +
+ drivers/net/ethernet/amd/xgbe/xgbe.h          |    1 +
+ 3 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index 6c40915..8036ee5 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -790,6 +790,10 @@
- #define MTL_Q_RQOMR_RSF_WIDTH		1
- #define MTL_Q_RQOMR_RTC_INDEX		0
- #define MTL_Q_RQOMR_RTC_WIDTH		2
-+#define MTL_Q_TQDR_TRCSTS_INDEX		1
-+#define MTL_Q_TQDR_TRCSTS_WIDTH		2
-+#define MTL_Q_TQDR_TXQSTS_INDEX		4
-+#define MTL_Q_TQDR_TXQSTS_WIDTH		1
- #define MTL_Q_TQOMR_FTQ_INDEX		0
- #define MTL_Q_TQOMR_FTQ_WIDTH		1
- #define MTL_Q_TQOMR_Q2TCMAP_INDEX	8
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 056f38c..89764cb 100644
+index 698712b..ecc0d45 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2946,20 +2946,48 @@ static void xgbe_config_mmc(struct xgbe_prv_data *pdata)
- 	XGMAC_IOWRITE_BITS(pdata, MMC_CR, CR, 1);
- }
+@@ -1360,14 +1360,21 @@ static u64 xgbe_get_tstamp_time(struct xgbe_prv_data *pdata)
  
-+static void xgbe_txq_prepare_tx_stop(struct xgbe_prv_data *pdata,
-+				     unsigned int queue)
-+{
-+	unsigned int tx_status;
-+	unsigned long tx_timeout;
-+
-+	/* The Tx engine cannot be stopped if it is actively processing
-+	 * packets. Wait for the Tx queue to empty the Tx fifo.  Don't
-+	 * wait forever though...
-+	 */
-+	tx_timeout = jiffies + (XGBE_DMA_STOP_TIMEOUT * HZ);
-+	while (time_before(jiffies, tx_timeout)) {
-+		tx_status = XGMAC_MTL_IOREAD(pdata, queue, MTL_Q_TQDR);
-+		if ((XGMAC_GET_BITS(tx_status, MTL_Q_TQDR, TRCSTS) != 1) &&
-+		    (XGMAC_GET_BITS(tx_status, MTL_Q_TQDR, TXQSTS) == 0))
-+			break;
-+
-+		usleep_range(500, 1000);
+ static u64 xgbe_get_tx_tstamp(struct xgbe_prv_data *pdata)
+ {
+-	unsigned int tx_snr;
++	unsigned int tx_snr, tx_ssr;
+ 	u64 nsec;
+ 
+-	tx_snr = XGMAC_IOREAD(pdata, MAC_TXSNR);
++	if (pdata->vdata->tx_tstamp_workaround) {
++		tx_snr = XGMAC_IOREAD(pdata, MAC_TXSNR);
++		tx_ssr = XGMAC_IOREAD(pdata, MAC_TXSSR);
++	} else {
++		tx_ssr = XGMAC_IOREAD(pdata, MAC_TXSSR);
++		tx_snr = XGMAC_IOREAD(pdata, MAC_TXSNR);
 +	}
 +
-+	if (!time_before(jiffies, tx_timeout))
-+		netdev_info(pdata->netdev,
-+			    "timed out waiting for Tx queue %u to empty\n",
-+			    queue);
-+}
-+
- static void xgbe_prepare_tx_stop(struct xgbe_prv_data *pdata,
--				 struct xgbe_channel *channel)
-+				 unsigned int queue)
- {
- 	unsigned int tx_dsr, tx_pos, tx_qidx;
- 	unsigned int tx_status;
- 	unsigned long tx_timeout;
+ 	if (XGMAC_GET_BITS(tx_snr, MAC_TXSNR, TXTSSTSMIS))
+ 		return 0;
  
-+	if (XGMAC_GET_BITS(pdata->hw_feat.version, MAC_VR, SNPSVER) > 0x20)
-+		return xgbe_txq_prepare_tx_stop(pdata, queue);
-+
- 	/* Calculate the status register to read and the position within */
--	if (channel->queue_index < DMA_DSRX_FIRST_QUEUE) {
-+	if (queue < DMA_DSRX_FIRST_QUEUE) {
- 		tx_dsr = DMA_DSR0;
--		tx_pos = (channel->queue_index * DMA_DSR_Q_WIDTH) +
--			 DMA_DSR0_TPS_START;
-+		tx_pos = (queue * DMA_DSR_Q_WIDTH) + DMA_DSR0_TPS_START;
- 	} else {
--		tx_qidx = channel->queue_index - DMA_DSRX_FIRST_QUEUE;
-+		tx_qidx = queue - DMA_DSRX_FIRST_QUEUE;
+-	nsec = XGMAC_IOREAD(pdata, MAC_TXSSR);
++	nsec = tx_ssr;
+ 	nsec *= NSEC_PER_SEC;
+ 	nsec += tx_snr;
  
- 		tx_dsr = DMA_DSR1 + ((tx_qidx / DMA_DSRX_QPR) * DMA_DSRX_INC);
- 		tx_pos = ((tx_qidx % DMA_DSRX_QPR) * DMA_DSR_Q_WIDTH) +
-@@ -2984,7 +3012,7 @@ static void xgbe_prepare_tx_stop(struct xgbe_prv_data *pdata,
- 	if (!time_before(jiffies, tx_timeout))
- 		netdev_info(pdata->netdev,
- 			    "timed out waiting for Tx DMA channel %u to stop\n",
--			    channel->queue_index);
-+			    queue);
- }
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
+index 0edbcd5..7a701de 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
+@@ -581,6 +581,7 @@ static int xgbe_platform_resume(struct device *dev)
+ 	.xpcs_access			= XGBE_XPCS_ACCESS_V1,
+ 	.tx_max_fifo_size		= 81920,
+ 	.rx_max_fifo_size		= 81920,
++	.tx_tstamp_workaround		= 1,
+ };
  
- static void xgbe_enable_tx(struct xgbe_prv_data *pdata)
-@@ -3016,13 +3044,8 @@ static void xgbe_disable_tx(struct xgbe_prv_data *pdata)
- 	unsigned int i;
- 
- 	/* Prepare for Tx DMA channel stop */
--	channel = pdata->channel;
--	for (i = 0; i < pdata->channel_count; i++, channel++) {
--		if (!channel->tx_ring)
--			break;
--
--		xgbe_prepare_tx_stop(pdata, channel);
--	}
-+	for (i = 0; i < pdata->tx_q_count; i++)
-+		xgbe_prepare_tx_stop(pdata, i);
- 
- 	/* Disable MAC Tx */
- 	XGMAC_IOWRITE_BITS(pdata, MAC_TCR, TE, 0);
-@@ -3146,13 +3169,8 @@ static void xgbe_powerdown_tx(struct xgbe_prv_data *pdata)
- 	unsigned int i;
- 
- 	/* Prepare for Tx DMA channel stop */
--	channel = pdata->channel;
--	for (i = 0; i < pdata->channel_count; i++, channel++) {
--		if (!channel->tx_ring)
--			break;
--
--		xgbe_prepare_tx_stop(pdata, channel);
--	}
-+	for (i = 0; i < pdata->tx_q_count; i++)
-+		xgbe_prepare_tx_stop(pdata, i);
- 
- 	/* Disable MAC Tx */
- 	XGMAC_IOWRITE_BITS(pdata, MAC_TCR, TE, 0);
+ #ifdef CONFIG_ACPI
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 7cbf91b..d5cae15 100644
+index 0779247..8523779 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -159,7 +159,7 @@
- #define XGBE_MAX_DMA_CHANNELS	16
- #define XGBE_MAX_QUEUES		16
- #define XGBE_PRIORITY_QUEUES	8
--#define XGBE_DMA_STOP_TIMEOUT	5
-+#define XGBE_DMA_STOP_TIMEOUT	1
+@@ -805,6 +805,7 @@ struct xgbe_version_data {
+ 	unsigned int mmc_64bit;
+ 	unsigned int tx_max_fifo_size;
+ 	unsigned int rx_max_fifo_size;
++	unsigned int tx_tstamp_workaround;
+ };
  
- /* DMA cache settings - Outer sharable, write-back, write-allocate */
- #define XGBE_DMA_OS_AXDOMAIN	0x2
+ struct xgbe_prv_data {
