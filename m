@@ -1,121 +1,52 @@
-From: "Baicar, Tyler" <tbaicar@codeaurora.org>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: free IRQ when the link is up or
- down
-Date: Thu, 3 Nov 2016 09:54:15 -0600
-Message-ID: <9e978719-55f0-d3da-a149-046a344bd3c6@codeaurora.org>
-References: <1478120896-5907-1-git-send-email-tbaicar@codeaurora.org>
- <36CDDD56DDB4D44E911123902EFC26B06CD48342@HASMSX110.ger.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: dccp: add missing bind_conflict to
+ dccp_ipv6_mapped
+Date: Thu, 03 Nov 2016 08:59:46 -0700
+Message-ID: <1478188786.7065.453.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+y8AEQ7dM6GQa5fezgaQK+arqAfRjyVafq-K0+nqgUvGg@mail.gmail.com>
+         <CANn89i+YLvnFZFQTQyUA_jxYtZ1RE1NCCb3F4gqdia+w8wuK8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "okaya@codeaurora.org" <okaya@codeaurora.org>,
-        "timur@codeaurora.org" <timur@codeaurora.org>
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:38998 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756697AbcKCPyS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 11:54:18 -0400
-In-Reply-To: <36CDDD56DDB4D44E911123902EFC26B06CD48342@HASMSX110.ger.corp.intel.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33926 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758261AbcKCP7s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 11:59:48 -0400
+In-Reply-To: <CANn89i+YLvnFZFQTQyUA_jxYtZ1RE1NCCb3F4gqdia+w8wuK8A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/3/2016 2:09 AM, Ruinskiy, Dima wrote:
->> -----Original Message-----
->> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
->> Behalf Of Tyler Baicar
->> Sent: Wednesday, 02 November, 2016 23:08
->> To: Kirsher, Jeffrey T; intel-wired-lan@lists.osuosl.org;
->> netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
->> okaya@codeaurora.org; timur@codeaurora.org
->> Cc: Tyler Baicar
->> Subject: [Intel-wired-lan] [PATCH] e1000e: free IRQ when the link is up or
->> down
->>
->> Move IRQ free code so that it will happen regardless of the link state.
->> Currently the e1000e driver only releases its IRQ if the link is up. This is not
->> sufficient because it is possible for a link to go down without releasing the IRQ.
->> A secondary bus reset can cause this case to happen.
->>
->> Signed-off-by: Tyler Baicar <tbaicar@codeaurora.org>
->> ---
->> drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
->> 1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
->> b/drivers/net/ethernet/intel/e1000e/netdev.c
->> index 7017281..36cfcb0 100644
->> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
->> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->> @@ -4679,12 +4679,13 @@ int e1000e_close(struct net_device *netdev)
->>
->> 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
->> 		e1000e_down(adapter, true);
->> -		e1000_free_irq(adapter);
->>
->> 		/* Link status message must follow this format */
->> 		pr_info("%s NIC Link is Down\n", adapter->netdev->name);
->> 	}
->>
->> +	e1000_free_irq(adapter);
->> +
->> 	napi_disable(&adapter->napi);
->>
->> 	e1000e_free_tx_resources(adapter->tx_ring);
-> This is not correct. __E1000_DOWN has nothing to do with link state. It is an internal driver status bit that indicates that device shutdown is in progress.
->
-> I would not change this code without checking very carefully the driver state machine. This can cause a whole lot of issues. Did you encounter some particular problem that is resolved by this change?
-Hello Dima,
+From: Eric Dumazet <edumazet@google.com>
 
-The issue is that when a secondary bus reset occurs the current code 
-will not free the IRQ due to this __E1000_DOWN check. If the IRQ isn't 
-freed, then later in e1000_remove we run into a kernel bug:
+While fuzzing kernel with syzkaller, Andrey reported a nasty crash
+in inet6_bind() caused by DCCP lacking a required method.
 
-pcieport 0004:00:00.0: PCIe Bus Error: severity=Corrected, type=Physical 
-Layer, id=0000(Receiver ID)
-pcieport 0004:00:00.0:   device [17cb:0400] error 
-status/mask=00000001/00006000
-pcieport 0004:00:00.0:    [ 0] Receiver Error         (First)
-pcieport 0004:00:00.0: PCIe Bus Error: severity=Uncorrected (Non-Fatal), 
-type=Transaction Layer, id=0000(Requester ID)
-pcieport 0004:00:00.0:   device [17cb:0400] error 
-status/mask=00004000/00400000
-pcieport 0004:00:00.0:    [14] Completion Timeout     (First)
-ACPI: \_SB_.PCI4: Device has suffered a power fault
-kernel BUG at drivers/pci/msi.c:369!
+Fixes: ab1e0a13d7029 ("[SOCK] proto: Add hashinfo member to struct proto")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ net/dccp/ipv6.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-The stack dump is:
-
-free_msi_irqs+0x6c/0x1a8
-pci_disable_msi+0xb0/0x148
-e1000e_reset_interrupt_capability+0x60/0x78
-e1000_remove+0xc8/0x180
-pci_device_remove+0x48/0x118
-__device_release_driver+0x80/0x108
-device_release_driver+0x2c/0x40
-pci_stop_bus_device+0xa0/0xb0
-pci_stop_bus_device+0x3c/0xb0
-pci_stop_root_bus+0x54/0x80
-acpi_pci_root_remove+0x28/0x64
-acpi_bus_trim+0x6c/0xa4
-acpi_device_hotplug+0x19c/0x3f4
-acpi_hotplug_work_fn+0x28/0x3c
-process_one_work+0x150/0x460
-worker_thread+0x50/0x4b8
-kthread+0xd4/0xe8
-ret_from_fork+0x10/0x50
-
-This bug is hit because the IRQ still has action since it was never 
-freed. This patch resolves this issue.
-
-Thanks,
-Tyler
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm Technologies, Inc.
-Qualcomm Technologies, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project.
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 3828f94b234c..95353bdbfa7b 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -956,6 +956,7 @@ static const struct inet_connection_sock_af_ops
+dccp_ipv6_mapped = {
+ 	.getsockopt	   = ipv6_getsockopt,
+ 	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
+ 	.sockaddr_len	   = sizeof(struct sockaddr_in6),
++	.bind_conflict	   = inet6_csk_bind_conflict,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_ipv6_setsockopt,
+ 	.compat_getsockopt = compat_ipv6_getsockopt,
