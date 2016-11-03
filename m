@@ -1,46 +1,137 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net-next v2] net: inet: Support UID-based routing
-Date: Fri,  4 Nov 2016 02:23:40 +0900
-Message-ID: <1478193823-60516-1-git-send-email-lorenzo@google.com>
+Subject: [PATCH net-next v2 1/3] net: core: Add a UID field to struct sock.
+Date: Fri,  4 Nov 2016 02:23:41 +0900
+Message-ID: <1478193823-60516-2-git-send-email-lorenzo@google.com>
+References: <1478193823-60516-1-git-send-email-lorenzo@google.com>
 Cc: davem@davemloft.net, ek@google.com, eric.dumazet@gmail.com,
-        zenczykowski@gmail.com
+        zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:36210 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754218AbcKCRXu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:23:50 -0400
-Received: by mail-pf0-f169.google.com with SMTP id 189so35010532pfz.3
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:23:50 -0700 (PDT)
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36224 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758959AbcKCRXy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:23:54 -0400
+Received: by mail-pf0-f174.google.com with SMTP id 189so35011188pfz.3
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:23:53 -0700 (PDT)
+In-Reply-To: <1478193823-60516-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset adds support for per-UID routing. It allows the
-administrator to configure rules such as:
+Protocol sockets (struct sock) don't have UIDs, but most of the
+time, they map 1:1 to userspace sockets (struct socket) which do.
 
-  ip rule add uidrange 100-200 lookup 123
+Various operations such as the iptables xt_owner match need
+access to the "UID of a socket", and do so by following the
+backpointer to the struct socket. This involves taking
+sk_callback_lock and doesn't work when there is no socket
+because userspace has already called close().
 
-This functionality has been in use by all Android devices since
-5.0. It is primarily used to impose per-app routing policies (on
-Android, every app has its own UID) without having to resort to
-rerouting packets in iptables, which breaks getsockname() and
-MTU/MSS calculation, and generally disrupts end-to-end
-connectivity.
+Simplify this by adding a sk_uid field to struct sock whose value
+matches the UID of the corresponding struct socket. The semantics
+are as follows:
 
-This patch series is similar to the code currently used on
-Android, but has better correctness and performance because
-it stores the UID in the socket instead of calling sock_i_uid.
-This avoids contention on sk->sk_callback_lock, and makes it
-possible to correctly route a socket on which userspace has
-called close(), for which sock_i_uid will return 0.
+1. Whenever sk_socket is non-null: sk_uid is the same as the UID
+   in sk_socket, i.e., matches the return value of sock_i_uid.
+   Specifically, the UID is set when userspace calls socket(),
+   fchown(), or accept().
+2. When sk_socket is NULL, sk_uid is defined as follows:
+   - For a socket that no longer has a sk_socket because
+     userspace has called close(): the previous UID.
+   - For a cloned socket (e.g., an incoming connection that is
+     established but on which userspace has not yet called
+     accept): the UID of the socket it was cloned from.
+   - For a socket that has never had an sk_socket: UID 0 inside
+     the user namespace corresponding to the network namespace
+     the socket belongs to.
 
-Changes from v1:
-- Don't set the UID in sk_clone_lock, it's already set by
-  sock_copy.
-- For packets originated by kernel sockets, don't use the socket
-  UID. This is the UID that created the namespace, but it might
-  not be mapped in the namespace at all. Instead, use UID 0 in
-  the namespace, which is less surprising and consistent with
-  what happens in the root namespace.
-- Fix UID routing of IPv4 and IPv6 SYN_RECV sockets.
-- Fix UID routing of received IPv6 redirects.
+Kernel sockets created by sock_create_kern are a special case
+of #1 and sk_uid is the user that created them. For kernel
+sockets created at network namespace creation time, such as the
+per-processor ICMP and TCP sockets, this is the user that created
+the network namespace.
+
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ include/net/sock.h |  7 +++++++
+ net/core/sock.c    |  5 ++++-
+ net/socket.c       | 14 ++++++++++++++
+ 3 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 93331a1..cf617ee 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -419,6 +419,7 @@ struct sock {
+ 	u32			sk_max_ack_backlog;
+ 	__u32			sk_priority;
+ 	__u32			sk_mark;
++	kuid_t			sk_uid;
+ 	struct pid		*sk_peer_pid;
+ 	const struct cred	*sk_peer_cred;
+ 	long			sk_rcvtimeo;
+@@ -1664,6 +1665,7 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
+ 	sk->sk_wq = parent->wq;
+ 	parent->sk = sk;
+ 	sk_set_socket(sk, parent);
++	sk->sk_uid = SOCK_INODE(parent)->i_uid;
+ 	security_sock_graft(sk, parent);
+ 	write_unlock_bh(&sk->sk_callback_lock);
+ }
+@@ -1671,6 +1673,11 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
+ kuid_t sock_i_uid(struct sock *sk);
+ unsigned long sock_i_ino(struct sock *sk);
+ 
++static inline kuid_t sock_net_uid(const struct net *net, const struct sock *sk)
++{
++	return sk ? sk->sk_uid : make_kuid(net->user_ns, 0);
++}
++
+ static inline u32 net_tx_rndhash(void)
+ {
+ 	u32 v = prandom_u32();
+diff --git a/net/core/sock.c b/net/core/sock.c
+index d8e4532e..40dbc13 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2460,8 +2460,11 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+ 		sk->sk_type	=	sock->type;
+ 		sk->sk_wq	=	sock->wq;
+ 		sock->sk	=	sk;
+-	} else
++		sk->sk_uid	=	SOCK_INODE(sock)->i_uid;
++	} else {
+ 		sk->sk_wq	=	NULL;
++		sk->sk_uid	=	make_kuid(sock_net(sk)->user_ns, 0);
++	}
+ 
+ 	rwlock_init(&sk->sk_callback_lock);
+ 	lockdep_set_class_and_name(&sk->sk_callback_lock,
+diff --git a/net/socket.c b/net/socket.c
+index 970a7ea..4ce33c3 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -518,8 +518,22 @@ static ssize_t sockfs_listxattr(struct dentry *dentry, char *buffer,
+ 	return used;
+ }
+ 
++int sockfs_setattr(struct dentry *dentry, struct iattr *iattr)
++{
++	int err = simple_setattr(dentry, iattr);
++
++	if (!err) {
++		struct socket *sock = SOCKET_I(d_inode(dentry));
++
++		sock->sk->sk_uid = iattr->ia_uid;
++	}
++
++	return err;
++}
++
+ static const struct inode_operations sockfs_inode_ops = {
+ 	.listxattr = sockfs_listxattr,
++	.setattr = sockfs_setattr,
+ };
+ 
+ /**
+-- 
+2.8.0.rc3.226.g39d4020
