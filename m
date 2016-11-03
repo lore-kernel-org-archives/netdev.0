@@ -1,55 +1,68 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v2 0/5] bpf: BPF for lightweight tunnel encapsulation
-Date: Thu, 3 Nov 2016 09:20:01 -0600
-Message-ID: <CACby=pmSSG5P+7=wDvqwkVp_yXw9o8_pREZCLfDov_XFbueFAQ@mail.gmail.com>
-References: <cover.1477959702.git.tgraf@suug.ch> <c220b6b2-3f20-09ff-2068-6ecfe0b47b9e@stressinduktion.org>
- <CACby=pmK9Pj00LYx9PQrgWe95xmy=qFhpjSYZT=QDnLQ55J=8w@mail.gmail.com>
- <1478030932.3136562.774196097.1F1AD6FB@webmail.messagingengine.com>
- <CACby=p=sSPfh0Lxr2qqk+wQ1=LVQvDU785Z9eTnT1GcKK=RoxA@mail.gmail.com>
- <3f9e7de1-1e61-2fb5-9529-c46343ac39c9@stressinduktion.org>
- <CACby=pnSX15XGuKBcw2FJkLz_qZt6XE+JS4ySN1Z6OZ=+w_eoQ@mail.gmail.com> <c24f3ad9-764a-0ffa-51bf-2b42fb3ae585@stressinduktion.org>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/netlink: global-out-of-bounds in genl_family_rcv_msg/validate_nla
+Date: Thu, 3 Nov 2016 16:28:37 +0100
+Message-ID: <CAAeHK+xtgjBM6MOy3kmi7D70rkyUY_yZPygRUw12bjt+mBd_XA@mail.gmail.com>
+References: <CAAeHK+xm5_n-Ep2d4YEq=Yx=f5M2NpV-So0o7811LUk+pLr+rg@mail.gmail.com>
+ <CAM_iQpWBoEhaLfCYPaStZ-U8s-i5h9fmaG9JCW-q7QfjntfEOA@mail.gmail.com> <CAM_iQpXAqgW5LxAXmHbBqppM-eo1spyOJhyCpkkZ_3J7DRUUuw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Matti Vaittinen <matti.vaittinen@nokia.com>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        stephen hemminger <stephen@networkplumber.org>,
         Tom Herbert <tom@herbertland.com>,
-        roopa <roopa@cumulusnetworks.com>,
+        Florian Westphal <fw@strlen.de>,
         netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:34553 "EHLO
-        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756922AbcKCPUD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 11:20:03 -0400
-Received: by mail-vk0-f51.google.com with SMTP id x186so42445631vkd.1
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 08:20:03 -0700 (PDT)
-In-Reply-To: <c24f3ad9-764a-0ffa-51bf-2b42fb3ae585@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpXAqgW5LxAXmHbBqppM-eo1spyOJhyCpkkZ_3J7DRUUuw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3 November 2016 at 08:52, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On 02.11.2016 23:54, Thomas Graf wrote:
->> Why would I want to accept the overhead if I simply avoid it? Just
->> parsing the header and doing the hash lookup will add cost, cost for
->> each packet.
->
-> That is true, but in case you are outside of the namespace, you still
-> have to calculate the cost of doing the FIB lookup for the BPF program
-> each time, too.
->
-> E.g. given the lookup cost in a hash for a netnwork namespace pointer
-> vs. the cost of doing a FIB lookup to get a program that does a specific
-> transformation sounds at least in the big O-notiation to be in a better
-> place. ;)
->
-> If you have to do both anyway, probably your patchset will perform
-> better, I agree.
+Hi Cong,
 
-Most containers are unprivileged, the route inside the container's
-namespace is owned by the host and we can attach the BPF program
-directly to the default route inside the container and all packets
-egressing from the container will pass through it. That fib lookup is
-needed anyway so we can leverage the cost of that lookup. We can drop
-hostile packets early without ever going on L2 level.
+Yes, the last patch fixes the issue.
+
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+
+Thanks!
+
+On Thu, Nov 3, 2016 at 6:29 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Wed, Nov 2, 2016 at 10:25 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Wed, Nov 2, 2016 at 5:25 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>>> Hi,
+>>>
+>>> I've got the following error report while running the syzkaller fuzzer:
+>>>
+>>> ==================================================================
+>>> BUG: KASAN: global-out-of-bounds in validate_nla+0x49b/0x4e0 at addr
+>>> ffffffff8407e3ac
+>>> Read of size 2 by task a.out/3877
+>>> Address belongs to variable[<        none        >]
+>>> cgroupstats_cmd_get_policy+0xc/0x40 ??:?
+>>
+>> Seems taskstats doesn't use genetlink correctly, CGROUPSTATS_CMD_ATTR_FD
+>> is not within 0~TASKSTATS_CMD_ATTR_MAX.
+>>
+>> I guess we need the following patch, but it certainly breaks user-space... :-/
+>
+>
+> Wait, maybe just this one-line fix is enough:
+>
+> diff --git a/kernel/taskstats.c b/kernel/taskstats.c
+> index b3f05ee..e6b342e 100644
+> --- a/kernel/taskstats.c
+> +++ b/kernel/taskstats.c
+> @@ -54,7 +54,7 @@ static const struct nla_policy
+> taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1
+>         [TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
+>         [TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
+>
+> -static const struct nla_policy
+> cgroupstats_cmd_get_policy[CGROUPSTATS_CMD_ATTR_MAX+1] = {
+> +static const struct nla_policy
+> cgroupstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1] = {
+>         [CGROUPSTATS_CMD_ATTR_FD] = { .type = NLA_U32 },
+>  };
