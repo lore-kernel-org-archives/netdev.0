@@ -1,10 +1,12 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net v2 1/4] phy: fix device reference leaks
-Date: Thu,  3 Nov 2016 18:40:19 +0100
-Message-ID: <1478194822-29545-2-git-send-email-johan@kernel.org>
+Subject: [PATCH net v2 2/4] net: ethernet: ti: cpsw: fix device and of_node leaks
+Date: Thu,  3 Nov 2016 18:40:20 +0100
+Message-ID: <1478194822-29545-3-git-send-email-johan@kernel.org>
 References: <1478194822-29545-1-git-send-email-johan@kernel.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Johan Hovold <johan@kernel.org>
+        Johan Hovold <johan@kernel.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Yisen Zhuang <yisen.zhuang@huawei.com>,
@@ -15,38 +17,37 @@ In-Reply-To: <1478194822-29545-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure to drop the reference taken by bus_find_device_by_name()
-before returning from phy_connect() and phy_attach().
+Make sure to drop the references taken by of_get_child_by_name() and
+bus_find_device() before returning from cpsw_phy_sel().
 
-Note that both function still take a reference to the phy device
-through phy_attach_direct().
+Note that holding a reference to the cpsw-phy-sel device does not
+prevent the devres-managed private data from going away.
 
-Fixes: e13934563db0 ("[PATCH] PHY Layer fixup")
-Cc: Florian Fainelli <f.fainelli@gmail.com>
+Fixes: 5892cd135e16 ("drivers: net: cpsw-phy-sel: Add new driver...")
+Cc: Mugunthan V N <mugunthanvnm@ti.com>
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>
+Cc: linux-omap@vger.kernel.org
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/phy/phy_device.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/ti/cpsw-phy-sel.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index e977ba931878..1a4bf8acad78 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -723,6 +723,7 @@ struct phy_device *phy_connect(struct net_device *dev, const char *bus_id,
- 	phydev = to_phy_device(d);
+diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+index 054a8dd23dae..ba1e45ff6aae 100644
+--- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
++++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
+@@ -176,9 +176,12 @@ void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave)
+ 	}
  
- 	rc = phy_connect_direct(dev, phydev, handler, interface);
-+	put_device(d);
- 	if (rc)
- 		return ERR_PTR(rc);
+ 	dev = bus_find_device(&platform_bus_type, NULL, node, match);
++	of_node_put(node);
+ 	priv = dev_get_drvdata(dev);
  
-@@ -953,6 +954,7 @@ struct phy_device *phy_attach(struct net_device *dev, const char *bus_id,
- 	phydev = to_phy_device(d);
- 
- 	rc = phy_attach_direct(dev, phydev, phydev->dev_flags, interface);
-+	put_device(d);
- 	if (rc)
- 		return ERR_PTR(rc);
+ 	priv->cpsw_phy_sel(priv, phy_mode, slave);
++
++	put_device(dev);
+ }
+ EXPORT_SYMBOL_GPL(cpsw_phy_sel);
  
 -- 
 2.7.3
