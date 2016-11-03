@@ -1,41 +1,51 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: icmp6_send should use dst dev to determine L3 domain
-Date: Thu,  3 Nov 2016 16:17:26 -0700
-Message-ID: <1478215046-18806-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:36573 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751500AbcKCXRc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 19:17:32 -0400
-Received: by mail-pf0-f172.google.com with SMTP id 189so39345411pfz.3
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 16:17:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/netlink: another global-out-of-bounds in genl_family_rcv_msg/validate_nla
+Date: Thu, 3 Nov 2016 16:22:35 -0700
+Message-ID: <CAM_iQpVy+pEN23mtdeot5ReS+62L2bf=UX27WGDNVTnc-nK8Qg@mail.gmail.com>
+References: <CAAeHK+yzXs-JTNpEuEWyHZpJvfWHb5poP--M-vYTs-oQhQFdBQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Matti Vaittinen <matti.vaittinen@nokia.com>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Florian Westphal <fw@strlen.de>,
+        netdev <netdev@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+yzXs-JTNpEuEWyHZpJvfWHb5poP--M-vYTs-oQhQFdBQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-icmp6_send is called in response to some event. The skb may not have
-the device set (skb->dev is NULL), but it is expected to have a dst set.
-Update icmp6_send to use the dst on the skb to determine L3 domain.
+On Thu, Nov 3, 2016 at 4:04 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while running the syzkaller fuzzer:
+>
+> BUG: KASAN: global-out-of-bounds in validate_nla+0x49b/0x4e0 at addr
+> ffffffff84452de0
+> Read of size 2 by task syz-executor/19055
+> Address belongs to variable ip_vs_cmd_policy+0x20/0x40
 
-Fixes: ca254490c8dfd ("net: Add VRF support to IPv6 stack")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv6/icmp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+LOL, seems a typo
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index bd59c343d35f..7370ad2e693a 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -448,7 +448,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
- 	if (__ipv6_addr_needs_scope_id(addr_type))
- 		iif = skb->dev->ifindex;
- 	else
--		iif = l3mdev_master_ifindex(skb->dev);
-+		iif = l3mdev_master_ifindex(skb_dst(skb)->dev);
- 
- 	/*
- 	 *	Must not send error if the source does not uniquely
--- 
-2.1.4
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index c3c809b..a6e44ef 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2845,7 +2845,7 @@ static struct genl_family ip_vs_genl_family = {
+        .hdrsize        = 0,
+        .name           = IPVS_GENL_NAME,
+        .version        = IPVS_GENL_VERSION,
+-       .maxattr        = IPVS_CMD_MAX,
++       .maxattr        = IPVS_CMD_ATTR_MAX,
+        .netnsok        = true,         /* Make ipvsadm to work on netns */
+ };
