@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] net: stmmac: Add OXNAS DWMAC Glue
-Date: Thu, 03 Nov 2016 15:31:56 -0400 (EDT)
-Message-ID: <20161103.153156.970094178639051505.davem@davemloft.net>
-References: <20161102140237.6955-1-narmstrong@baylibre.com>
+Subject: Re: [PATCH net] tcp: fix potential memory corruption
+Date: Thu, 03 Nov 2016 15:34:57 -0400 (EDT)
+Message-ID: <20161103.153457.2072176771493256903.davem@davemloft.net>
+References: <1478098397.7065.370.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-oxnas@lists.tuxfamily.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: narmstrong@baylibre.com
+Cc: netdev@vger.kernel.org, hans.westgaard.ry@oracle.com,
+        haakon.bugge@oracle.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41476 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41598 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752754AbcKCTcC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 15:32:02 -0400
-In-Reply-To: <20161102140237.6955-1-narmstrong@baylibre.com>
+        with ESMTP id S1752308AbcKCTfB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 15:35:01 -0400
+In-Reply-To: <1478098397.7065.370.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Armstrong <narmstrong@baylibre.com>
-Date: Wed,  2 Nov 2016 15:02:35 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 Nov 2016 07:53:17 -0700
 
-> This patchset add support for the Sysnopsys DWMAC Gigabit Ethernet
-> controller Glue layer of the Oxford Semiconductor OX820 SoC.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Imagine initial value of max_skb_frags is 17, and last
+> skb in write queue has 15 frags.
+> 
+> Then max_skb_frags is lowered to 14 or smaller value.
+> 
+> tcp_sendmsg() will then be allowed to add additional page frags
+> and eventually go past MAX_SKB_FRAGS, overflowing struct
+> skb_shared_info.
+> 
+> Fixes: 5f74f82ea34c ("net:Add sysctl_max_skb_frags")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied to net-next, thanks.
+Applied and queued up for -stable, thanks.
