@@ -1,87 +1,136 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
- ip_finish_output_gso()
-Date: Thu, 3 Nov 2016 09:06:27 -0400 (EDT)
-Message-ID: <274982955.93728733.1478178387534.JavaMail.zimbra@redhat.com>
-References: <1478118977-19608-1-git-send-email-lrichard@redhat.com> <20161103094239.13ac8ac2@pixies>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, jtluka@redhat.com,
-        hannes@stressinduktion.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+From: fgao@ikuai8.com
+Subject: [PATCH net-next v2 1/1] driver: veth: Refine the statistics codes of veth driver
+Date: Thu,  3 Nov 2016 21:03:57 +0800
+Message-ID: <1478178237-23020-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, cwang@twopensource.com, vijayp@vijayp.ca,
+        ej@evanjones.ca, pabeni@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:59083 "EHLO
-        mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756642AbcKCNGl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 09:06:41 -0400
-In-Reply-To: <20161103094239.13ac8ac2@pixies>
+Received: from smtpbg291.qq.com ([113.108.11.223]:39055 "EHLO smtpbg291.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756753AbcKCNN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:13:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: "Shmulik Ladkani" <shmulik.ladkani@gmail.com>
-> To: "Lance Richardson" <lrichard@redhat.com>
-> Cc: netdev@vger.kernel.org, fw@strlen.de, jtluka@redhat.com, hannes@stressinduktion.org
-> Sent: Thursday, November 3, 2016 3:42:39 AM
-> Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in ip_finish_output_gso()
-> 
-> On Wed,  2 Nov 2016 16:36:17 -0400
-> Lance Richardson <lrichard@redhat.com> wrote:
-> 
-> > -	/* common case: fragmentation of segments is not allowed,
-> > -	 * or seglen is <= mtu
-> > +	/* common case: seglen is <= mtu
-> >  	 */
-> > -	if (((IPCB(skb)->flags & IPSKB_FRAG_SEGS) == 0) ||
-> > -	      skb_gso_validate_mtu(skb, mtu))
-> > +	if (skb_gso_validate_mtu(skb, mtu))
-> >  		return ip_finish_output2(net, sk, skb);
-> 
-> OK.
-> Resembles https://patchwork.ozlabs.org/patch/644724/ ;)
-> 
-> > -	if (skb_iif && !(df & htons(IP_DF))) {
-> > -		/* Arrived from an ingress interface, got encapsulated, with
-> > -		 * fragmentation of encapulating frames allowed.
-> > -		 * If skb is gso, the resulting encapsulated network segments
-> > -		 * may exceed dst mtu.
-> > -		 * Allow IP Fragmentation of segments.
-> > -		 */
-> > -		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
-> > -	}
-> 
-> The only potential issue I see removing this, is that the KNOWLEDGE of
-> the forwarding/tunnel-bridging usecases (that require a
-> skb_gso_validate_mtu check) is lost.
-> 
-> Meaning, if one decides (as claimed in the past) that locally generated
-> traffic must NOT go through fragmentation validation, then no one
-> remembers those other valid usecases (which are very specific and not
-> trivial to imagine) that MUST go through it; Therefore it can easily get
-> broken.
-> 
+From: Gao Feng <fgao@ikuai8.com>
 
-Hi Shmulik,
+The dropped count of veth is located in struct veth_priv, but other
+statistics like packets and bytes are in another struct pcpu_vstats.
+Now keep these three counters in the same struct.
 
-It is my understanding that the test to avoid fragmentation validation
-for locally originated packets was a performance optimization which was
-based on the premise that the IP stack will never produce locally originated
-packets with an MTU mismatch. Tunneling encapsulation breaks this premise.
-For correctness (honoring configured MTU), it seems we cannot avoid calling
-skb_gso_validate_mtu().
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v2: Use right "peer" instead of "dev";
+ v1: Initial version
 
-> Maybe we can elaborate in the comment above the call to
-> skb_gso_validate_mtu in ip_finish_output_gso?
+ drivers/net/veth.c | 32 ++++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 14 deletions(-)
 
-I'm not sure what could be added that would help, was there something
-specific you had in mind?
-
-Thanks for reviewing this.
-
-Regards,
-
-   Lance
-> 
-> Best,
-> Shmulik
-> 
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 0520952a..0d669b4 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -26,12 +26,12 @@
+ struct pcpu_vstats {
+ 	u64			packets;
+ 	u64			bytes;
++	u64			dropped;
+ 	struct u64_stats_sync	syncp;
+ };
+ 
+ struct veth_priv {
+ 	struct net_device __rcu	*peer;
+-	atomic64_t		dropped;
+ 	unsigned		requested_headroom;
+ };
+ 
+@@ -108,6 +108,8 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct veth_priv *priv = netdev_priv(dev);
+ 	struct net_device *rcv;
+ 	int length = skb->len;
++	struct pcpu_vstats *stats = this_cpu_ptr(dev->vstats);
++	int ret = NET_RX_DROP;
+ 
+ 	rcu_read_lock();
+ 	rcv = rcu_dereference(priv->peer);
+@@ -116,17 +118,16 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto drop;
+ 	}
+ 
+-	if (likely(dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) {
+-		struct pcpu_vstats *stats = this_cpu_ptr(dev->vstats);
+-
+-		u64_stats_update_begin(&stats->syncp);
++	ret = dev_forward_skb(rcv, skb);
++drop:
++	u64_stats_update_begin(&stats->syncp);
++	if (likely(ret == NET_RX_SUCCESS)) {
+ 		stats->bytes += length;
+ 		stats->packets++;
+-		u64_stats_update_end(&stats->syncp);
+ 	} else {
+-drop:
+-		atomic64_inc(&priv->dropped);
++		stats->dropped++;
+ 	}
++	u64_stats_update_end(&stats->syncp);
+ 	rcu_read_unlock();
+ 	return NETDEV_TX_OK;
+ }
+@@ -135,27 +136,28 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+  * general routines
+  */
+ 
+-static u64 veth_stats_one(struct pcpu_vstats *result, struct net_device *dev)
++static void veth_stats_one(struct pcpu_vstats *result, struct net_device *dev)
+ {
+-	struct veth_priv *priv = netdev_priv(dev);
+ 	int cpu;
+ 
+ 	result->packets = 0;
+ 	result->bytes = 0;
++	result->dropped = 0;
+ 	for_each_possible_cpu(cpu) {
+ 		struct pcpu_vstats *stats = per_cpu_ptr(dev->vstats, cpu);
+-		u64 packets, bytes;
++		u64 packets, bytes, dropped;
+ 		unsigned int start;
+ 
+ 		do {
+ 			start = u64_stats_fetch_begin_irq(&stats->syncp);
+ 			packets = stats->packets;
+ 			bytes = stats->bytes;
++			dropped = stats->dropped;
+ 		} while (u64_stats_fetch_retry_irq(&stats->syncp, start));
+ 		result->packets += packets;
+ 		result->bytes += bytes;
++		result->dropped += dropped;
+ 	}
+-	return atomic64_read(&priv->dropped);
+ }
+ 
+ static struct rtnl_link_stats64 *veth_get_stats64(struct net_device *dev,
+@@ -165,16 +167,18 @@ static struct rtnl_link_stats64 *veth_get_stats64(struct net_device *dev,
+ 	struct net_device *peer;
+ 	struct pcpu_vstats one;
+ 
+-	tot->tx_dropped = veth_stats_one(&one, dev);
++	veth_stats_one(&one, dev);
+ 	tot->tx_bytes = one.bytes;
+ 	tot->tx_packets = one.packets;
++	tot->tx_dropped = one.dropped;
+ 
+ 	rcu_read_lock();
+ 	peer = rcu_dereference(priv->peer);
+ 	if (peer) {
+-		tot->rx_dropped = veth_stats_one(&one, peer);
++		veth_stats_one(&one, peer);
+ 		tot->rx_bytes = one.bytes;
+ 		tot->rx_packets = one.packets;
++		tot->rx_dropped = one.dropped;
+ 	}
+ 	rcu_read_unlock();
+ 
+-- 
+1.9.1
