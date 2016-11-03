@@ -1,67 +1,58 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH net] ipv6: dccp: add missing bind_conflict to
- dccp_ipv6_mapped
-Date: Thu, 3 Nov 2016 10:22:19 -0600
-Message-ID: <20161103162219.GD5852@kernel.org>
-References: <CAAeHK+y8AEQ7dM6GQa5fezgaQK+arqAfRjyVafq-K0+nqgUvGg@mail.gmail.com>
- <CANn89i+YLvnFZFQTQyUA_jxYtZ1RE1NCCb3F4gqdia+w8wuK8A@mail.gmail.com>
- <1478188786.7065.453.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: Update raw socket bind to consider l3 domain
+Date: Thu,  3 Nov 2016 09:25:00 -0700
+Message-ID: <1478190300-14094-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:46906 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758559AbcKCQW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 12:22:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1478188786.7065.453.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34515 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758713AbcKCQZL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 12:25:11 -0400
+Received: by mail-pf0-f178.google.com with SMTP id n85so34196493pfi.1
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 09:25:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Nov 03, 2016 at 08:59:46AM -0700, Eric Dumazet escreveu:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> While fuzzing kernel with syzkaller, Andrey reported a nasty crash
-> in inet6_bind() caused by DCCP lacking a required method.
+Binding a raw socket to a local address fails if the socket is bound
+to an L3 domain:
 
-Ouch, thanks, forgot the mapped case :-)
+    $ vrf-test  -s -l 10.100.1.2 -R -I red
+    error binding socket: 99: Cannot assign requested address
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Update raw_bind to look consider if sk_bound_dev_if is bound to an L3
+domain and use inet_addr_type_table to lookup the address.
 
-- Arnaldo
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/raw.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 6a0bd68a565b..9ef2a602f052 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -695,12 +695,20 @@ static int raw_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct sockaddr_in *addr = (struct sockaddr_in *) uaddr;
++	u32 tb_id = RT_TABLE_LOCAL;
+ 	int ret = -EINVAL;
+ 	int chk_addr_ret;
  
-> Fixes: ab1e0a13d7029 ("[SOCK] proto: Add hashinfo member to struct proto")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-> ---
->  net/dccp/ipv6.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-> index 3828f94b234c..95353bdbfa7b 100644
-> --- a/net/dccp/ipv6.c
-> +++ b/net/dccp/ipv6.c
-> @@ -956,6 +956,7 @@ static const struct inet_connection_sock_af_ops
-> dccp_ipv6_mapped = {
->  	.getsockopt	   = ipv6_getsockopt,
->  	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
->  	.sockaddr_len	   = sizeof(struct sockaddr_in6),
-> +	.bind_conflict	   = inet6_csk_bind_conflict,
->  #ifdef CONFIG_COMPAT
->  	.compat_setsockopt = compat_ipv6_setsockopt,
->  	.compat_getsockopt = compat_ipv6_getsockopt,
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe dccp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	if (sk->sk_state != TCP_CLOSE || addr_len < sizeof(struct sockaddr_in))
+ 		goto out;
+-	chk_addr_ret = inet_addr_type(sock_net(sk), addr->sin_addr.s_addr);
++
++	if (sk->sk_bound_dev_if)
++		tb_id = l3mdev_fib_table_by_index(sock_net(sk),
++						 sk->sk_bound_dev_if) ? : tb_id;
++
++	chk_addr_ret = inet_addr_type_table(sock_net(sk), addr->sin_addr.s_addr,
++					    tb_id);
++
+ 	ret = -EADDRNOTAVAIL;
+ 	if (addr->sin_addr.s_addr && chk_addr_ret != RTN_LOCAL &&
+ 	    chk_addr_ret != RTN_MULTICAST && chk_addr_ret != RTN_BROADCAST)
+-- 
+2.1.4
