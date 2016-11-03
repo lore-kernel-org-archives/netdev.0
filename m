@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 08/21] amd-xgbe: Support for 64-bit management
- counter registers
-Date: Thu, 3 Nov 2016 08:29:04 -0500
-Message-ID: <20161103132904.3437.45057.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 11/21] amd-xgbe: Guard against incorrectly
+ generated interrupts
+Date: Thu, 3 Nov 2016 08:29:36 -0500
+Message-ID: <20161103132936.3437.85364.stgit@tlendack-t1.amdoffice.net>
 References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,82 +11,55 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0055.outbound.protection.outlook.com ([104.47.40.55]:8168
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0084.outbound.protection.outlook.com ([104.47.34.84]:21644
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754326AbcKCNpH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:45:07 -0400
+        id S1756507AbcKCNor (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:44:47 -0400
 In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for reading all management counter registers as 64-bit
-values.  The indication of whether to read the high 32-bits to form
-a 64-bit value is indicated in the version data.
+Due to a hardware issue, it is possible for interrupt events to be
+incorrectly generated when performing a soft reset.  To guard against
+this, perform the soft reset twice.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   36 ++++++++++++++++++++++--------
- drivers/net/ethernet/amd/xgbe/xgbe.h     |    1 +
- 2 files changed, 27 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 0d0da4c..056f38c 100644
+index 9d86112..698712b 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2590,17 +2590,33 @@ static u64 xgbe_mmc_read(struct xgbe_prv_data *pdata, unsigned int reg_lo)
- 	bool read_hi;
- 	u64 val;
+@@ -1897,7 +1897,7 @@ static int xgbe_disable_int(struct xgbe_channel *channel,
+ 	return 0;
+ }
  
--	switch (reg_lo) {
--	/* These registers are always 64 bit */
--	case MMC_TXOCTETCOUNT_GB_LO:
--	case MMC_TXOCTETCOUNT_G_LO:
--	case MMC_RXOCTETCOUNT_GB_LO:
--	case MMC_RXOCTETCOUNT_G_LO:
--		read_hi = true;
--		break;
-+	if (pdata->vdata->mmc_64bit) {
-+		switch (reg_lo) {
-+		/* These registers are always 32 bit */
-+		case MMC_RXRUNTERROR:
-+		case MMC_RXJABBERERROR:
-+		case MMC_RXUNDERSIZE_G:
-+		case MMC_RXOVERSIZE_G:
-+		case MMC_RXWATCHDOGERROR:
-+			read_hi = false;
-+			break;
+-static int xgbe_exit(struct xgbe_prv_data *pdata)
++static int __xgbe_exit(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int count = 2000;
  
--	default:
--		read_hi = false;
-+		default:
-+			read_hi = true;
-+		}
-+	} else {
-+		switch (reg_lo) {
-+		/* These registers are always 64 bit */
-+		case MMC_TXOCTETCOUNT_GB_LO:
-+		case MMC_TXOCTETCOUNT_G_LO:
-+		case MMC_RXOCTETCOUNT_GB_LO:
-+		case MMC_RXOCTETCOUNT_G_LO:
-+			read_hi = true;
-+			break;
+@@ -1919,6 +1919,20 @@ static int xgbe_exit(struct xgbe_prv_data *pdata)
+ 	return 0;
+ }
+ 
++static int xgbe_exit(struct xgbe_prv_data *pdata)
++{
++	int ret;
 +
-+		default:
-+			read_hi = false;
-+		}
- 	}
- 
- 	val = XGMAC_IOREAD(pdata, reg_lo);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 160b498..7cbf91b 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -804,6 +804,7 @@ struct xgbe_hw_features {
- struct xgbe_version_data {
- 	void (*init_function_ptrs_phy_impl)(struct xgbe_phy_if *);
- 	enum xgbe_xpcs_access xpcs_access;
-+	unsigned int mmc_64bit;
- };
- 
- struct xgbe_prv_data {
++	/* To guard against possible incorrectly generated interrupts,
++	 * issue the software reset twice.
++	 */
++	ret = __xgbe_exit(pdata);
++	if (ret)
++		return ret;
++
++	return __xgbe_exit(pdata);
++}
++
+ static int xgbe_flush_tx_queues(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int i, count;
