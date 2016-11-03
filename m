@@ -1,56 +1,57 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 0/6] Mellanox 100G mlx5 fixes 2016-11-04
-Date: Fri,  4 Nov 2016 01:48:41 +0200
-Message-ID: <1478216927-31328-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 6/6] net/mlx5: Fix invalid pointer reference when prof_sel parameter is invalid
+Date: Fri,  4 Nov 2016 01:48:47 +0200
+Message-ID: <1478216927-31328-7-git-send-email-saeedm@mellanox.com>
+References: <1478216927-31328-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Jesper Dangaard Brouer <brouer@redhat.com>,
+        Huy Nguyen <huyn@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37668 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37678 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933334AbcKCXuN (ORCPT
+        with ESMTP id S933612AbcKCXuN (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 19:50:13 -0400
+In-Reply-To: <1478216927-31328-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Huy Nguyen <huyn@mellanox.com>
 
-This series contains six hot fixes of the mlx5 core and mlx5e driver.
+When prof_sel is invalid, mlx5_core_warn is called but the
+mlx5_core_dev is not initialized yet. Solution is moving the prof_sel code
+after dev->pdev assignment
 
-Huy fixed an invalid pointer dereference on initialization flow for when
-the selected mlx5 load profile is out of range.
+Fixes: 2974ab6e8bd8 ('net/mlx5: Improve driver log messages')
+Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Or provided three eswitch offloads related fixes
- - Prevent changing NS of a VF representor. 
- - Handle matching on vlan priority for offloaded TC rules
- - Set the actions for offloaded rules properly
-
-On my part I here addressed the error flow related issues in
-mlx5e_open_channel reported by Jesper just this week.
-
-Thanks,
-Saeed.
-
-Huy Nguyen (1):
-  net/mlx5: Fix invalid pointer reference when prof_sel parameter is
-    invalid
-
-Or Gerlitz (3):
-  net/mlx5e: Disallow changing name-space for VF representors
-  net/mlx5e: Handle matching on vlan priority for offloaded TC rules
-  net/mlx5: E-Switch, Set the actions for offloaded rules properly
-
-Saeed Mahameed (2):
-  net/mlx5e: Fix XDP error path of mlx5e_open_channel()
-  net/mlx5e: Re-arrange XDP SQ/CQ creation
-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 31 +++++++++++-----------
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  5 +++-
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  3 ++-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  5 ++--
- 5 files changed, 26 insertions(+), 20 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index d5433c4..3eb9315 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1226,6 +1226,9 @@ static int init_one(struct pci_dev *pdev,
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
++	dev->pdev = pdev;
++	dev->event = mlx5_core_event;
++
+ 	if (prof_sel < 0 || prof_sel >= ARRAY_SIZE(profile)) {
+ 		mlx5_core_warn(dev,
+ 			       "selected profile out of range, selecting default (%d)\n",
+@@ -1233,8 +1236,6 @@ static int init_one(struct pci_dev *pdev,
+ 		prof_sel = MLX5_DEFAULT_PROF;
+ 	}
+ 	dev->profile = &profile[prof_sel];
+-	dev->pdev = pdev;
+-	dev->event = mlx5_core_event;
+ 
+ 	INIT_LIST_HEAD(&priv->ctx_list);
+ 	spin_lock_init(&priv->ctx_lock);
 -- 
 2.7.4
