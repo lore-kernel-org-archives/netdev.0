@@ -1,42 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: pci: Fix the FW ready mask length
-Date: Thu,  3 Nov 2016 09:41:55 +0100
-Message-ID: <1478162515-2910-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, eladr@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34323 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755631AbcKCIl6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 04:41:58 -0400
-Received: by mail-wm0-f68.google.com with SMTP id p190so6823581wmp.1
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 01:41:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net] r8152: Fix broken RX checksums.
+Date: Thu, 3 Nov 2016 08:56:30 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB20104878A@RTITMBSV03.realtek.com.tw>
+References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
+ <20161030.205755.1198665157526465556.davem@davemloft.net>
+ <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
+ <20161030.235342.134481656830778556.davem@davemloft.net>
+ <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
+ <201611030159.uA31x0np004648@rtits1.realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Mark Lord <mlord@pobox.com>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201611030159.uA31x0np004648@rtits1.realtek.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Elad Raz <eladr@mellanox.com>
+Mark Lord [mailto:mlord@pobox.com]
+> Sent: Thursday, November 03, 2016 2:30 AM
+> To: Hayes Wang; David Miller
+[...]
+> I have poked at it some more, and thus far it appears that it is
+> only necessary to disable TCP rx checksums.  The system doesn't crash
+> when only IP/UDP checksums are enabled, but does when TCP checksums are on.
+> 
+> This happens regardless of whether RX_AGG is disabled or enabled,
+> and increasing/decreasing the number of RX URBs (RTL8152_MAX_RX)
+> doesn't seem to affect it.
 
-The system-status register is actually 16-bit wide and not 8 bit-wide.
+I test Raspberry Pi v1, but I couldn't boot with NFSROOT through
+both onboard nic and RTL8152. I get following error.
 
-Fixes: 233fa44bd67ae ("mlxsw: pci: Implement reset done check")
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/pci_hw.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+   VFS: Unable to mount root fs via NFS, trying floppy.
+   Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(2,0)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h b/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-index 708736f..d147ddd 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci_hw.h
-@@ -60,7 +60,7 @@
- #define MLXSW_PCI_SW_RESET_RST_BIT		BIT(0)
- #define MLXSW_PCI_SW_RESET_TIMEOUT_MSECS	5000
- #define MLXSW_PCI_FW_READY			0xA1844
--#define MLXSW_PCI_FW_READY_MASK			0xFF
-+#define MLXSW_PCI_FW_READY_MASK			0xFFFF
- #define MLXSW_PCI_FW_READY_MAGIC		0x5E
- 
- #define MLXSW_PCI_DOORBELL_SDQ_OFFSET		0x000
--- 
-2.7.4
+However, if I start the system without NFSROOT, I could mount the nfs fs.
+Any idea?
+
+NFS server: Fedora 24
+Raspberry Pi OS: 2016-09-23-raspbian-jessie
+
+Content of /etc/exports:
+
+   /nfsexport *(rw,sync,no_root_squash)
+
+I change the cmdline.txt from
+
+   dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1
+   root=/dev/mmcblk0p2 rootfstype=ext4 elevator=deadline
+   fsck.repair=yes rootwait quiet splash plymouth.ignore-serial-consoles
+
+to
+
+   dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1
+   root=/dev/nfs nfsroot=192.168.94.2:/nfsexport ip=192.168.94.22
+   rw rootwait quiet splash plymouth.ignore-serial-consoles
+
+Best Regards,
+Hayes
