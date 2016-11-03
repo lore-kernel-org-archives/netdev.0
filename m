@@ -1,63 +1,124 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/1] driver: veth: Refine the statistics
- codes of veth driver
-Date: Thu, 03 Nov 2016 13:18:10 -0400 (EDT)
-Message-ID: <20161103.131810.2042355356026457407.davem@davemloft.net>
-References: <CA+6hz4r9zkPp7-mG7b98ocPvjTiheSnEBMjffSkLXD1MM-aMtg@mail.gmail.com>
-        <1478183516.7065.440.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CA+6hz4owi2WgeGWd98=8d=Q5DBPY4_ZtYAOgcM1V_0+OU8UHrw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, cwang@twopensource.com, vijayp@vijayp.ca,
-        ej@evanjones.ca, pabeni@redhat.com, netdev@vger.kernel.org
-To: fgao@ikuai8.com
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next resend 04/13] nfp: reuse ring helpers on .ndo_open() path
+Date: Thu,  3 Nov 2016 17:12:00 +0000
+Message-ID: <1478193129-23476-5-git-send-email-jakub.kicinski@netronome.com>
+References: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38938 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758423AbcKCRSM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:18:12 -0400
-In-Reply-To: <CA+6hz4owi2WgeGWd98=8d=Q5DBPY4_ZtYAOgcM1V_0+OU8UHrw@mail.gmail.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:38241 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759314AbcKCRTG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:19:06 -0400
+Received: by mail-wm0-f54.google.com with SMTP id n67so389767wme.1
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:19:06 -0700 (PDT)
+In-Reply-To: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
-Date: Thu, 3 Nov 2016 22:38:28 +0800
+Ring allocation helpers encapsulate all ring allocation and
+initialization steps nicely.  Reuse them on .ndo_open() path.
 
-> On Thu, Nov 3, 2016 at 10:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Thu, 2016-11-03 at 21:39 +0800, Gao Feng wrote:
->>> Hi Eric,
->>>
->>> On Thu, Nov 3, 2016 at 9:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>> > On Thu, 2016-11-03 at 21:03 +0800, fgao@ikuai8.com wrote:
->>> >> From: Gao Feng <fgao@ikuai8.com>
->>> >>
->>> >> The dropped count of veth is located in struct veth_priv, but other
->>> >> statistics like packets and bytes are in another struct pcpu_vstats.
->>> >> Now keep these three counters in the same struct.
->>> >>
->>> >> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->>> >> ---
->>> >>  v2: Use right "peer" instead of "dev";
->>> >>  v1: Initial version
->>> >
->>> > May I ask : Why ?
->>>
->>> Just because I think statistics should be in the same struct.
->>
->> That is not a good reason then.
-> 
-> Because other net devices put the statistics together.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 60 ++++++++--------------
+ 1 file changed, 20 insertions(+), 40 deletions(-)
 
-Organizational "prettyness" is not argument for this change, when the
-downsides are fundamentally clear:
-
-1) It is not a fast-path accessed statistic, so the per-cpu'ness is
-   not important.
-
-2) We aim to minimize the amount of per-cpu data in the kernel because
-   it is expensive.  So when not necessary, as is the case here, we
-   do not user per-cpu data.
-
-There are no good reasons to make this change, so I am dropping your
-patch.
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index b7b2851ebb6b..50aeaea9e318 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -2051,6 +2051,13 @@ static void nfp_net_open_stack(struct nfp_net *nn)
+ static int nfp_net_netdev_open(struct net_device *netdev)
+ {
+ 	struct nfp_net *nn = netdev_priv(netdev);
++	struct nfp_net_ring_set rx = {
++		.mtu = nn->netdev->mtu,
++		.dcnt = nn->rxd_cnt,
++	};
++	struct nfp_net_ring_set tx = {
++		.dcnt = nn->txd_cnt,
++	};
+ 	int err, r;
+ 
+ 	if (nn->ctrl & NFP_NET_CFG_CTRL_ENABLE) {
+@@ -2075,38 +2082,22 @@ static int nfp_net_netdev_open(struct net_device *netdev)
+ 		goto err_free_exn;
+ 	disable_irq(nn->irq_entries[NFP_NET_IRQ_LSC_IDX].vector);
+ 
+-	nn->rx_rings = kcalloc(nn->num_rx_rings, sizeof(*nn->rx_rings),
+-			       GFP_KERNEL);
+-	if (!nn->rx_rings) {
+-		err = -ENOMEM;
+-		goto err_free_lsc;
+-	}
+-	nn->tx_rings = kcalloc(nn->num_tx_rings, sizeof(*nn->tx_rings),
+-			       GFP_KERNEL);
+-	if (!nn->tx_rings) {
+-		err = -ENOMEM;
+-		goto err_free_rx_rings;
+-	}
+-
+ 	for (r = 0; r < nn->num_r_vecs; r++) {
+ 		err = nfp_net_prepare_vector(nn, &nn->r_vecs[r], r);
+ 		if (err)
+ 			goto err_cleanup_vec_p;
+ 	}
+-	for (r = 0; r < nn->num_tx_rings; r++) {
+-		err = nfp_net_tx_ring_alloc(nn->r_vecs[r].tx_ring, nn->txd_cnt);
+-		if (err)
+-			goto err_free_tx_ring_p;
++
++	nn->rx_rings = nfp_net_rx_ring_set_prepare(nn, &rx);
++	if (!nn->rx_rings) {
++		err = -ENOMEM;
++		goto err_cleanup_vec;
+ 	}
+-	for (r = 0; r < nn->num_rx_rings; r++) {
+-		err = nfp_net_rx_ring_alloc(nn->r_vecs[r].rx_ring,
+-					    nn->fl_bufsz, nn->rxd_cnt);
+-		if (err)
+-			goto err_flush_free_rx_ring_p;
+ 
+-		err = nfp_net_rx_ring_bufs_alloc(nn, nn->r_vecs[r].rx_ring);
+-		if (err)
+-			goto err_free_rx_ring_p;
++	nn->tx_rings = nfp_net_tx_ring_set_prepare(nn, &tx);
++	if (!nn->tx_rings) {
++		err = -ENOMEM;
++		goto err_free_rx_rings;
+ 	}
+ 
+ 	err = netif_set_real_num_tx_queues(netdev, nn->num_tx_rings);
+@@ -2139,25 +2130,14 @@ static int nfp_net_netdev_open(struct net_device *netdev)
+ 	return 0;
+ 
+ err_free_rings:
+-	r = nn->num_rx_rings;
+-err_flush_free_rx_ring_p:
+-	while (r--) {
+-		nfp_net_rx_ring_bufs_free(nn, nn->r_vecs[r].rx_ring);
+-err_free_rx_ring_p:
+-		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
+-	}
+-	r = nn->num_tx_rings;
+-err_free_tx_ring_p:
+-	while (r--)
+-		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
++	nfp_net_tx_ring_set_free(nn, &tx);
++err_free_rx_rings:
++	nfp_net_rx_ring_set_free(nn, &rx);
++err_cleanup_vec:
+ 	r = nn->num_r_vecs;
+ err_cleanup_vec_p:
+ 	while (r--)
+ 		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
+-	kfree(nn->tx_rings);
+-err_free_rx_rings:
+-	kfree(nn->rx_rings);
+-err_free_lsc:
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_LSC, NFP_NET_IRQ_LSC_IDX);
+ err_free_exn:
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_EXN, NFP_NET_IRQ_EXN_IDX);
+-- 
+1.9.1
