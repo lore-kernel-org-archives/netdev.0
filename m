@@ -1,56 +1,44 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
- ip_finish_output_gso()
-Date: Thu, 3 Nov 2016 22:27:51 +0200
-Message-ID: <20161103222751.5ae120ed@halley>
-References: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Time to revisit LISP?
+Date: Thu, 03 Nov 2016 16:37:58 -0400 (EDT)
+Message-ID: <20161103.163758.1592587767905993803.davem@davemloft.net>
+References: <CALx6S35cT6gn4W6iiaL5sAgTm=jJPZpyVP3pyGXfbyHHsKaciQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jtluka@redhat.com
-To: Lance Richardson <lrichard@redhat.com>, fw@strlen.de,
-        hannes@stressinduktion.org
+Cc: chris@logicalelegance.com, netdev@vger.kernel.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34516 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750970AbcKCU2C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:28:02 -0400
-Received: by mail-wm0-f65.google.com with SMTP id p190so749533wmp.1
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 13:28:02 -0700 (PDT)
-In-Reply-To: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43016 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751648AbcKCUiA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:38:00 -0400
+In-Reply-To: <CALx6S35cT6gn4W6iiaL5sAgTm=jJPZpyVP3pyGXfbyHHsKaciQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes, Lance,
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 3 Nov 2016 12:22:52 -0700
 
-On Wed,  2 Nov 2016 16:36:17 -0400 Lance Richardson <lrichard@redhat.com> wrote:
->  
-> -	if (skb_iif && !(df & htons(IP_DF))) {
-> -		/* Arrived from an ingress interface, got encapsulated, with
-> -		 * fragmentation of encapulating frames allowed.
-> -		 * If skb is gso, the resulting encapsulated network segments
-> -		 * may exceed dst mtu.
-> -		 * Allow IP Fragmentation of segments.
-> -		 */
-> -		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
-> -	}
+> For instance, one of the his questions is:
+> 
+> "What is to keep one from having to service a full Map-Request -->
+> Map-Reply cycle for every packet received?"
+> 
+> This can be solved by judicious rate limiting, for instance the
+> infrastructure I implemented to rate limit ILA resolver request could
+> be applied here.
 
-Thinking this over, I'm concerned of this change.
+All of these things work great if you have tables that are either very
+tiny or change infrequently.
 
-Few months back, we discussed this and got to the conclusion that in the
-"ingress,tunnel,egress" scenario, segments are allowed to be
-fragmented if the original inner ip packet does NOT have the DF.
+But once you run into anything seriously dynamic, it has the same
+problems that the routing cache had and OVS can have.
 
-See 
-  https://patchwork.ozlabs.org/patch/657132/
-  https://patchwork.ozlabs.org/patch/661219/
+And for this reason things like the flow cache are on the chopping
+block.  And frankly, I'd remove OVS from the kernel if I could.
 
-I think you expressed that those tunneled skbs already having DF set
-should go through pmtu discovery.
-
-Suggested patch unconditionally calls skb_gso_validate_mtu().
-
-Thus we're changing behavior for "ingress,tunnel,egress" scenario of
-the tunneled packets having DF set in the inner iph.
-
-WDYT?
+Userspace resolution of paths in response to data path signalling
+simply does not scale and is fundamentally an extremely poor design
+choice.  We're trying to move away from, rather than towards, these
+kinds of architectures.
