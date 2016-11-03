@@ -1,55 +1,49 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH net-next v2 1/1] driver: veth: Refine the statistics codes
- of veth driver
-Date: Thu, 3 Nov 2016 23:13:00 +0800
-Message-ID: <CA+6hz4r_9CPirG5H5QBgpzeE0Coee34RNmAr6jqW1vt3s4YDMg@mail.gmail.com>
-References: <1478178237-23020-1-git-send-email-fgao@ikuai8.com>
- <1478179858.7065.438.camel@edumazet-glaptop3.roam.corp.google.com>
- <CA+6hz4r9zkPp7-mG7b98ocPvjTiheSnEBMjffSkLXD1MM-aMtg@mail.gmail.com>
- <1478183516.7065.440.camel@edumazet-glaptop3.roam.corp.google.com>
- <CA+6hz4owi2WgeGWd98=8d=Q5DBPY4_ZtYAOgcM1V_0+OU8UHrw@mail.gmail.com> <1478185643.7065.446.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v1 17/21] amd-xgbe: Add I2C support for
+ determining SFP media types
+Date: Thu, 3 Nov 2016 16:18:48 +0100
+Message-ID: <20161103151848.GD1768@lunn.ch>
+References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
+ <20161103133036.3437.71231.stgit@tlendack-t1.amdoffice.net>
+ <20161103142815.GB1768@lunn.ch>
+ <1af561af-65e2-8422-1901-d4b1c317ad12@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <cwang@twopensource.com>,
-        Vijay Pandurangan <vijayp@vijayp.ca>,
-        Evan Jones <ej@evanjones.ca>, pabeni@redhat.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg65.qq.com ([103.7.28.233]:24454 "EHLO smtpbg65.qq.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:35626 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750970AbcKCPNW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 11:13:22 -0400
-Received: from mail-vk0-f47.google.com (unknown [209.85.213.47])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 23:13:02 +0800 (CST)
-Received: by mail-vk0-f47.google.com with SMTP id x186so42246937vkd.1
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 08:13:02 -0700 (PDT)
-In-Reply-To: <1478185643.7065.446.camel@edumazet-glaptop3.roam.corp.google.com>
+        id S1754355AbcKCPSv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 11:18:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1af561af-65e2-8422-1901-d4b1c317ad12@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+> There are a couple of things about this. Russel's work isn't part of
+> the kernel yet so I can't make use of it.
 
-On Thu, Nov 3, 2016 at 11:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-11-03 at 22:38 +0800, Gao Feng wrote:
->
->> Because other net devices put the statistics together.
->> Take tun/tap as example, it is a virtual device, but its all
->> statistics are percpu including dropped.
->
-> Take a look at 2681128f0ced8aa4e66f221197e183cc16d244fe
-> ("veth: reduce stat overhead")
->
-> Feel free to fix tun/tap, not bloat veth and undo my work,
-> without knowing why it was done this way.
->
-> Thanks.
->
->
+Well, you could guide it into the kernel. Part of it has already made
+the way in. And i know of other platforms which would benefit from it.
 
-Thanks your detail explanations.
+> Additionally, the I2C device is integrated into the IP of the
+> network device with register addresses being offsets of the network
+> device BAR so I'm not sure how I would go about getting it setup in
+> order to use the i2c infrastructure.
 
-Best Regards
-Feng
+Have you looked at the core i2c stuff? All you need is an
+i2c_algorithim structure:
+
+http://lxr.free-electrons.com/source/include/linux/i2c.h#L407
+
+and an i2c_adaptor structure:
+
+http://lxr.free-electrons.com/source/include/linux/i2c.h#L532
+
+and then you can call i2c_add_adapter() to register your i2c bus with
+the i2c core. Embedded such an i2c driver inside another driver is not
+a problem.
+
+  Andrew
