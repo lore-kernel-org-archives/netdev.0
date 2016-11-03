@@ -1,34 +1,40 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
- ip_finish_output_gso()
-Date: Thu, 3 Nov 2016 22:40:52 +0200
-Message-ID: <20161103224052.5e066584@halley>
-References: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
-        <20161103.161244.1518109748163260273.davem@davemloft.net>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [RFC] make kmemleak scan __ro_after_init section (was: Re:
+ [PATCH 0/5] genetlink improvements)
+Date: Thu, 3 Nov 2016 14:49:36 -0600
+Message-ID: <20161103204936.xntik7gkybxg34np@localhost>
+References: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
+ <20161101172840.6d7d6278@jkicinski-Precision-T1700>
+ <CAM_iQpVeB+2M1MPxjRx++E=q4mDuo7XQqfQn3-160PqG8bNLdQ@mail.gmail.com>
+ <20161101185630.3c7d326f@jkicinski-Precision-T1700>
+ <CAM_iQpV_0gyrJC0U6Qk9VSSaNOphe_0tq5o2kt8-r0UybLU5FA@mail.gmail.com>
+ <20161102234755.4381f528@jkicinski-Precision-T1700>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lrichard@redhat.com, netdev@vger.kernel.org, fw@strlen.de,
-        jtluka@redhat.com, hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35897 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756553AbcKCUk7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:40:59 -0400
-Received: by mail-wm0-f68.google.com with SMTP id c17so782863wmc.3
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 13:40:59 -0700 (PDT)
-In-Reply-To: <20161103.161244.1518109748163260273.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, linux-mm@kvack.org
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20161102234755.4381f528@jkicinski-Precision-T1700>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 03 Nov 2016 16:12:44 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
-> Applied and queued up for -stable.
+On Wed, Nov 02, 2016 at 11:47:55PM +0000, Jakub Kicinski wrote:
+> I realized that kmemleak is not scanning the __ro_after_init section...
+> Following patch solves the false positives but I wonder if it's the
+> right/acceptable solution.
 
-Dave, my response lagged your "Applied" by few minutes ;)
+Thanks for putting this together. I actually hit a similar issue on
+arm64 but didn't get the chance to fix it (also at LPC). With a proper
+commit message, feel free to add:
 
-This seems to deserve some more thought to make sure nothing got broken,
-as expressed last in https://patchwork.ozlabs.org/patch/690594/
+Reviewed-by: Catalin Marinas <catalin.marinas@arm.com>
 
-Best,
-Shmulik
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
