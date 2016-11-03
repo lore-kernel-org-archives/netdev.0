@@ -1,61 +1,51 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next resend 01/13] nfp: add support for ethtool .get_channels
-Date: Thu,  3 Nov 2016 17:11:57 +0000
-Message-ID: <1478193129-23476-2-git-send-email-jakub.kicinski@netronome.com>
-References: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: icmp_route_lookup should use rt dev to determine L3 domain
+Date: Thu,  3 Nov 2016 10:13:39 -0700
+Message-ID: <1478193219-5288-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35707 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758919AbcKCRMX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:12:23 -0400
-Received: by mail-wm0-f44.google.com with SMTP id a197so77580wmd.0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:12:22 -0700 (PDT)
-In-Reply-To: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:32945 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759055AbcKCRNo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:13:44 -0400
+Received: by mail-pf0-f178.google.com with SMTP id d2so34930139pfd.0
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:13:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Report number of rings via ethtool .get_channels API.
+icmp_send is called in response to some event. The skb may not have
+the device set (skb->dev is NULL), but it is expected to have an rt.
+Update icmp_route_lookup to use the rt on the skb to determine L3
+domain.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Fixes: 613d09b30f8b ("net: Use VRF device index for lookups on TX")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ net/ipv4/icmp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 3418f2277e9d..a7386d1b2883 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -614,6 +614,21 @@ static int nfp_net_set_coalesce(struct net_device *netdev,
- 	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_IRQMOD);
- }
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 38abe70e595f..774a15e9f041 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -477,7 +477,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	fl4->flowi4_proto = IPPROTO_ICMP;
+ 	fl4->fl4_icmp_type = type;
+ 	fl4->fl4_icmp_code = code;
+-	fl4->flowi4_oif = l3mdev_master_ifindex(skb_in->dev);
++	fl4->flowi4_oif = l3mdev_master_ifindex(skb_rtable(skb_in)->dst.dev);
  
-+static void nfp_net_get_channels(struct net_device *netdev,
-+				 struct ethtool_channels *channel)
-+{
-+	struct nfp_net *nn = netdev_priv(netdev);
-+
-+	channel->max_rx = min(nn->max_rx_rings, nn->max_r_vecs);
-+	channel->max_tx = min(nn->max_tx_rings, nn->max_r_vecs);
-+	channel->max_combined = min(channel->max_rx, channel->max_tx);
-+	channel->max_other = NFP_NET_NON_Q_VECTORS;
-+	channel->combined_count = min(nn->num_rx_rings, nn->num_tx_rings);
-+	channel->rx_count = nn->num_rx_rings - channel->combined_count;
-+	channel->tx_count = nn->num_tx_rings - channel->combined_count;
-+	channel->other_count = NFP_NET_NON_Q_VECTORS;
-+}
-+
- static const struct ethtool_ops nfp_net_ethtool_ops = {
- 	.get_drvinfo		= nfp_net_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-@@ -632,6 +647,7 @@ static int nfp_net_set_coalesce(struct net_device *netdev,
- 	.get_regs		= nfp_net_get_regs,
- 	.get_coalesce           = nfp_net_get_coalesce,
- 	.set_coalesce           = nfp_net_set_coalesce,
-+	.get_channels		= nfp_net_get_channels,
- };
+ 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
+ 	rt = __ip_route_output_key_hash(net, fl4,
+@@ -502,7 +502,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	if (err)
+ 		goto relookup_failed;
  
- void nfp_net_set_ethtool_ops(struct net_device *netdev)
+-	if (inet_addr_type_dev_table(net, skb_in->dev,
++	if (inet_addr_type_dev_table(net, skb_rtable(skb_in)->dst.dev,
+ 				     fl4_dec.saddr) == RTN_LOCAL) {
+ 		rt2 = __ip_route_output_key(net, &fl4_dec);
+ 		if (IS_ERR(rt2))
 -- 
-1.9.1
+2.1.4
