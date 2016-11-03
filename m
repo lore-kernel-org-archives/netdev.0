@@ -1,42 +1,78 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [mm PATCH v2 01/26] swiotlb: Drop unused functions
- swiotlb_map_sg and swiotlb_unmap_sg
-Date: Thu, 3 Nov 2016 10:29:52 -0400
-Message-ID: <20161103142952.GJ28691@localhost.localdomain>
-References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
- <20161102111211.79519.39931.stgit@ahduyck-blue-test.jf.intel.com>
- <20161103141446.GA29720@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 1/1] driver: veth: Refine the statistics
+ codes of veth driver
+Date: Thu, 03 Nov 2016 07:31:56 -0700
+Message-ID: <1478183516.7065.440.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1478178237-23020-1-git-send-email-fgao@ikuai8.com>
+         <1478179858.7065.438.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CA+6hz4r9zkPp7-mG7b98ocPvjTiheSnEBMjffSkLXD1MM-aMtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>, linux-mm@kvack.org,
-        akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20161103141446.GA29720@infradead.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <cwang@twopensource.com>,
+        Vijay Pandurangan <vijayp@vijayp.ca>,
+        Evan Jones <ej@evanjones.ca>, pabeni@redhat.com,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gao Feng <fgao@ikuai8.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34162 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750905AbcKCOcA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 10:32:00 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y68so5048269pfb.1
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 07:32:00 -0700 (PDT)
+In-Reply-To: <CA+6hz4r9zkPp7-mG7b98ocPvjTiheSnEBMjffSkLXD1MM-aMtg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 03, 2016 at 07:14:46AM -0700, Christoph Hellwig wrote:
-> On Wed, Nov 02, 2016 at 07:12:31AM -0400, Alexander Duyck wrote:
-> > There are no users for swiotlb_map_sg or swiotlb_unmap_sg so we might as
-> > well just drop them.
+On Thu, 2016-11-03 at 21:39 +0800, Gao Feng wrote:
+> Hi Eric,
 > 
-> FYI, I sent the same patch already on Sep, 11 and Konrad already ACKed
-> it:
+> On Thu, Nov 3, 2016 at 9:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Thu, 2016-11-03 at 21:03 +0800, fgao@ikuai8.com wrote:
+> >> From: Gao Feng <fgao@ikuai8.com>
+> >>
+> >> The dropped count of veth is located in struct veth_priv, but other
+> >> statistics like packets and bytes are in another struct pcpu_vstats.
+> >> Now keep these three counters in the same struct.
+> >>
+> >> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> >> ---
+> >>  v2: Use right "peer" instead of "dev";
+> >>  v1: Initial version
+> >
+> > May I ask : Why ?
 > 
-> https://lkml.org/lkml/2016/9/11/112
-> https://lkml.org/lkml/2016/9/16/474
+> Just because I think statistics should be in the same struct.
 
-Somehow I thought you wanted to put them through your tree (which
-is why I acked them).
+That is not a good reason then.
 
-I can take them and also the first couple of Alexander through
-my tree. Or if it makes it simpler - they can go through the -mm tree?
+> 
+> >
+> > We did that because there was no point making per-cpu requirements
+> > bigger, for a counter that is hardly ever updated.
+> >
+> > Do you have a real case where performance dropping packets in a driver
+> > is needed ?
+> 
+> No, I haven't met the performance issue now.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+OK then kill this patch.
+
+> 
+> >
+> > At some point we will have to stop dumb percpu explosion, when we have
+> > 128+ cores per host. Folding all these percpu counters is taking a lot
+> > of time too.
+> >
+> >
+> >
+> Ok, I get it. It is designed specially to put the dropped counter as
+> atomic counter, not percpu.
+> But I have one question that when put the counters as percpu, and when not?
+
+Because the regular fast path needs to be fast ?
+
+Try to _use_ veth without these percpu stats and be prepared to be
+shocked.
