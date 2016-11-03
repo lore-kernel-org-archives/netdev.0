@@ -1,171 +1,259 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
-Date: Thu, 3 Nov 2016 16:29:22 -0700
-Message-ID: <581BC852.7010304@gmail.com>
-References: <20161027.221027.109834362557507518.davem@davemloft.net>
- <58137533.4030105@gmail.com>
- <20161028171812.48073f1f@jkicinski-Precision-T1700>
- <20161028182223.GA53930@ast-mbp.thefacebook.com>
- <ec23c734c23d81884349484927140741@mail.gmail.com>
- <20161029112514.GC1810@pox.localdomain> <20161102152708.5cb40a0c@redhat.com>
- <b09333565b4ead1f90719cfb3643f6af@mail.gmail.com>
- <20161103041145.arylaxxssbdylfwn@redhat.com> <581ADCD1.3040404@gmail.com>
- <20161104002503-mutt-send-email-mst@kernel.org>
+From: Kast Bernd <kastbernd@gmx.de>
+Subject: [PATCH] r8169: Module parameter for opt-in of ASPM
+Date: Fri, 4 Nov 2016 00:33:06 +0100
+Message-ID: <20161103233306.GA9368@ASUS-Bernd.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Thomas Graf <tgraf@suug.ch>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jakub Kicinski <kubakici@wp.pl>,
-        David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
-        shrijeet@gmail.com, tom@herbertland.com, netdev@vger.kernel.org,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        aconole@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33720 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753958AbcKCX3m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 19:29:42 -0400
-Received: by mail-pf0-f171.google.com with SMTP id d2so39535751pfd.0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 16:29:42 -0700 (PDT)
-In-Reply-To: <20161104002503-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: nic_swsd@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[...]
+This patch adds a module parameter in order to activate ASPM. By that
+the CPU can enter deep sleep modes (PC6) and power consumption can be
+reduced (for example from 13W to 8W on my notebook with a Haswell CPU).
+Basically, it reapplies d64ec841517a25f6d468bde9f67e5b4cffdc67c7, which
+was reverted due to delayed link status detection and increased boot
+times on some systems. These bugs are avoided by two actions:
+        1) ASPM is turned off by default to avoid any problems with the
+	default	configuration.
+        2) Flags for ASPM and clock request are set after ephy_init,
+	which wasn't respected on the previous patch. Thus ASPM with
+	this patch could work even with previously failing systems.
 
->>> - when XDP is attached disable all LRO using VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET
->>>   (not used by driver so far, designed to allow dynamic LRO control with
->>>    ethtool)
->>
->> I see there is a UAPI bit for this but I guess we also need to add
->> support to vhost as well? Seems otherwise we may just drop a bunch
->> of packets on the floor out of handle_rx() when recvmsg returns larger
->> than a page size. Or did I read this wrong...
-> 
-> It's already supported host side. However you might
-> get some packets that were in flight when you attached.
-> 
+Signed-off-by: Kast Bernd <kastbernd@gmx.de>
+---
+ drivers/net/ethernet/realtek/r8169.c | 100 ++++++++++++++++++++++++++++++++---
+ 1 file changed, 92 insertions(+), 8 deletions(-)
 
-Really I must have missed it I don't see any *GUEST_FEATURES* flag in
-./drivers/vhost/?
-
->>> - start adding page-sized buffers
->>
->> I started to mangle add_recvbuf_big() and receive_big() here and this
->> didn't seem too bad.
-> 
-> I imagine it won't be ATM but I think we'll need to support
-> mrg buffers with time and then it will be messy.
-> Besides, it's not an architectural thing that receive_big
-> uses page sized buffers, it could use any size.
-> So a separate path just for xdp would be better imho.
-> 
->>> - do something with non-page-sized buffers added previously - what
->>>   exactly? copy I guess? What about LRO packets that are too large -
->>>   can we drop or can we split them up?
->>
->> hmm not sure I understand this here. With LRO disabled and mergeable
->> buffers disabled all packets should fit in a page correct?
-> 
-> Assuing F_MTU is negotiated and MTU field is small enough, yes.
-> But if you disable mrg buffers dynamically you will get some packets
-> in buffers that were added before the disable.
-> Similarly for disabling LRO dynamically.
-> 
->> With LRO enabled case I guess to start with we block XDP from being
->> loaded for the same reason we don't allow jumbo frames on physical
->> nics.
-> 
-> If you ask that host disables the capability, then yes, it's easy.
-> Let's do that for now, it's a start.
-> 
-> 
->>>
->>> I'm fine with disabling XDP for some configurations as the first step,
->>> and we can add that support later.
->>>
->>
->> In order for this to work though I guess we need to be able to
->> dynamically disable mergeable buffers at the moment I just commented
->> it out of the features list and fixed up virtio_has_features so it
->> wont bug_on.
-> 
-> For now we can just set mrg_rxbuf=off on qemu command line, and
-> fail XDP attach if not there. I think we'll be able to support it
-> long term but you will need host side changes, or fully reset
-> device and reconfigure it.
-
-see question below. I agree disabling mrg_rxbuff=off lro=off and an
-xdp receive path makes this relatively straight forward and clean with
-the MTU patch noted below as well.
-
-> 
->>> Ideas about mergeable buffers (optional):
->>>
->>> At the moment mergeable buffers can't be disabled dynamically.
->>> They do bring a small benefit for XDP if host MTU is large (see below)
->>> and aren't hard to support:
->>> - if header is by itself skip 1st page
->>> - otherwise copy all data into first page
->>> and it's nicer not to add random limitations that require guest reboot.
->>> It might make sense to add a command that disables/enabled
->>> mergeable buffers dynamically but that's for newer hosts.
->>
->> Yep it seems disabling mergeable buffers solves this but didn't look at
->> it too closely. I'll look closer tomorrow.
->>
->>>
->>> Spec does not require it but in practice most hosts put all data
->>> in the 1st page or all in the 2nd page so the copy will be nop
->>> for these cases.
->>>
->>> Large host MTU - newer hosts report the host MTU, older ones don't.
->>> Using mergeable buffers we can at least detect this case
->>> (and then what? drop I guess).
->>>
->>
->> The physical nics just refuse to load XDP with large MTU.
-> 
-> So let's do the same for now, unfortunately you don't know
-> the MTU unless _F_MTU is negitiated and QEMU does not
-> implement that yet, but it's easy to add.
-> In fact I suspect Aaron (cc) has an implementation since
-> he posted a patch implementing that.
-> Aaron could you post it pls?
-> 
-
-Great! Aaron if you want me to review/test at all let me know I have
-a few systems setup running this now so can help if needed.
-
->> Any reason
->> not to negotiate the mtu with the guest so that the guest can force
->> this?
-> 
-> There are generally many guests and many NICs on the host.
-> A big packet arrives, what do you want to do with it?
-
-Drop it just like a physical nic would do if packet is larger
-than MTU. Maybe splat a message in the log so user has some
-clue something got misconfigured.
-
-> We probably want to build propagating MTU across all VMs and NICs
-> but let's get a basic thing merged first.
-
-That feels like an orchestration/QEMU type problem to me. Just because
-some NIC has jumbo frames enabled doesn't necessarily mean they would
-ever get to any specific VM based on forwarding configuration.
-
-And if I try to merge the last email I sent out here. In mergeable and
-big_packets modes if LRO is off and MTU < PAGE_SIZE it seems we should
-always get physically contiguous data on a single page correct? It
-may be at some offset in a page however. But the offset should not
-matter to XDP. If I read this right we wouldn't need to add a new
-XDP mode and could just use the existing merge or big modes. This would
-seem cleaner to me than adding a new mode and requiring a qemu option.
-
-Thanks for all the pointers by the way its very helpful.
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index bf000d8..9d72198 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -346,6 +346,7 @@ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+ 
+ static int rx_buf_sz = 16383;
+ static int use_dac = -1;
++static int use_aspm;
+ static struct {
+ 	u32 msg_enable;
+ } debug = { -1 };
+@@ -509,6 +510,7 @@ enum rtl8168_registers {
+ #define PWM_EN				(1 << 22)
+ #define RXDV_GATED_EN			(1 << 19)
+ #define EARLY_TALLY_EN			(1 << 16)
++#define FORCE_CLK			(1 << 15) /* force clock request */
+ };
+ 
+ enum rtl_register_content {
+@@ -860,6 +862,8 @@ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
+ MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+ module_param(use_dac, int, 0);
+ MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
++module_param(use_aspm, int, 0000);
++MODULE_PARM_DESC(use_aspm, "Enable ASPM power saving. Unsafe on some systems");
+ module_param_named(debug, debug.msg_enable, int, 0);
+ MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
+ MODULE_LICENSE("GPL");
+@@ -5924,7 +5928,8 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MaxTxPacketSize, EarlySize);
+ 
+-	rtl_disable_clock_request(pdev);
++	if (!use_aspm)
++		rtl_disable_clock_request(pdev);
+ 
+ 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
+ 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
+@@ -5934,7 +5939,13 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
+ 	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
+-	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++
++	if (use_aspm) {
++		RTL_W8(Config5, (RTL_R8(Config5) & ~Spi_en) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++	} else {
++		RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++	}
+ }
+ 
+ static void rtl_hw_start_8168f(struct rtl8169_private *tp)
+@@ -5959,13 +5970,21 @@ static void rtl_hw_start_8168f(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MaxTxPacketSize, EarlySize);
+ 
+-	rtl_disable_clock_request(pdev);
++	if (!use_aspm)
++		rtl_disable_clock_request(pdev);
+ 
+ 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
+ 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
+-	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
+-	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++
++	if (use_aspm) {
++		RTL_W32(MISC, RTL_R32(MISC) | PWM_EN | FORCE_CLK);
++		RTL_W8(Config5, (RTL_R8(Config5) & ~Spi_en) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++	} else {
++		RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
++		RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++	}
+ }
+ 
+ static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
+@@ -6056,6 +6075,12 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
+ 	rtl_ephy_init(tp, e_info_8168g_1, ARRAY_SIZE(e_info_8168g_1));
++
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
+ }
+ 
+ static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
+@@ -6074,6 +6099,12 @@ static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
+ 	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
+ 	rtl_ephy_init(tp, e_info_8168g_2, ARRAY_SIZE(e_info_8168g_2));
++
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
+ }
+ 
+ static void rtl_hw_start_8411_2(struct rtl8169_private *tp)
+@@ -6093,6 +6124,12 @@ static void rtl_hw_start_8411_2(struct rtl8169_private *tp)
+ 	RTL_W8(Config2, RTL_R8(Config2) & ~ClkReqEn);
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
+ 	rtl_ephy_init(tp, e_info_8411_2, ARRAY_SIZE(e_info_8411_2));
++
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
+ }
+ 
+ static void rtl_hw_start_8168h_1(struct rtl8169_private *tp)
+@@ -6115,6 +6152,12 @@ static void rtl_hw_start_8168h_1(struct rtl8169_private *tp)
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
+ 	rtl_ephy_init(tp, e_info_8168h_1, ARRAY_SIZE(e_info_8168h_1));
+ 
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
++
+ 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
+ 
+ 	rtl_eri_write(tp, 0xc8, ERIAR_MASK_0101, 0x00080002, ERIAR_EXGMAC);
+@@ -6250,6 +6293,12 @@ static void rtl_hw_start_8168ep_1(struct rtl8169_private *tp)
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
+ 	rtl_ephy_init(tp, e_info_8168ep_1, ARRAY_SIZE(e_info_8168ep_1));
+ 
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
++
+ 	rtl_hw_start_8168ep(tp);
+ }
+ 
+@@ -6267,6 +6316,12 @@ static void rtl_hw_start_8168ep_2(struct rtl8169_private *tp)
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
+ 	rtl_ephy_init(tp, e_info_8168ep_2, ARRAY_SIZE(e_info_8168ep_2));
+ 
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
++
+ 	rtl_hw_start_8168ep(tp);
+ 
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
+@@ -6289,6 +6344,12 @@ static void rtl_hw_start_8168ep_3(struct rtl8169_private *tp)
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~ASPM_en);
+ 	rtl_ephy_init(tp, e_info_8168ep_3, ARRAY_SIZE(e_info_8168ep_3));
+ 
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
++
+ 	rtl_hw_start_8168ep(tp);
+ 
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
+@@ -6539,6 +6600,12 @@ static void rtl_hw_start_8105e_1(struct rtl8169_private *tp)
+ 
+ 	rtl_ephy_init(tp, e_info_8105e_1, ARRAY_SIZE(e_info_8105e_1));
+ 
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
++
+ 	rtl_pcie_state_l2l3_enable(tp, false);
+ }
+ 
+@@ -6566,6 +6633,12 @@ static void rtl_hw_start_8402(struct rtl8169_private *tp)
+ 
+ 	rtl_ephy_init(tp, e_info_8402, ARRAY_SIZE(e_info_8402));
+ 
++	if (use_aspm) {
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++		RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
++	}
++
+ 	rtl_tx_performance_tweak(tp->pci_dev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	rtl_eri_write(tp, 0xc8, ERIAR_MASK_1111, 0x00000002, ERIAR_EXGMAC);
+@@ -6586,7 +6659,16 @@ static void rtl_hw_start_8106(struct rtl8169_private *tp)
+ 	/* Force LAN exit from ASPM if Rx/Tx are not idle */
+ 	RTL_W32(FuncEvent, RTL_R32(FuncEvent) | 0x002800);
+ 
+-	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
++	if (use_aspm) {
++		RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN | FORCE_CLK) &
++			~EARLY_TALLY_EN);
++		RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++		RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++	} else {
++		RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) &
++			~EARLY_TALLY_EN);
++	}
++
+ 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
+ 
+@@ -8217,8 +8299,10 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	/* disable ASPM completely as that cause random device stop working
+ 	 * problems as well as full system hangs for some PCIe devices users */
+-	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
+-				     PCIE_LINK_STATE_CLKPM);
++	if (!use_aspm) {
++		pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
++			PCIE_LINK_STATE_L1 | PCIE_LINK_STATE_CLKPM);
++	}
+ 
+ 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
+ 	rc = pci_enable_device(pdev);
+-- 
+2.10.2
