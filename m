@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 3/3] qdisc: catch misconfig of attaching qdisc to
- tx_queue_len zero device
-Date: Thu, 03 Nov 2016 14:56:11 +0100
-Message-ID: <20161103135611.28737.39840.stgit@firesoul>
+Subject: [net-next PATCH 2/3] net/qdisc: IFF_NO_QUEUE drivers should use
+ consistent TX queue len
+Date: Thu, 03 Nov 2016 14:56:06 +0100
+Message-ID: <20161103135606.28737.67383.stgit@firesoul>
 References: <20161103135534.28737.37657.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,63 +12,55 @@ Cc: Phil Sutter <phil@nwl.cc>, Robert Olsson <robert@herjulf.se>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48564 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38434 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751944AbcKCN4O (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:56:14 -0400
+        id S1755687AbcKCN4I (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:56:08 -0400
 In-Reply-To: <20161103135534.28737.37657.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is a clear misconfiguration to attach a qdisc to a device with
-tx_queue_len zero, because some qdisc's (namely, pfifo, bfifo, gred,
-htb, plug and sfb) inherit/copy this value as their queue length.
+The flag IFF_NO_QUEUE marks virtual device drivers that doesn't need a
+default qdisc attached, given they will be backed by physical device,
+that already have a qdisc attached for pushback.
 
-Why should the kernel catch such a misconfiguration?  Because prior to
-introducing the IFF_NO_QUEUE device flag, userspace found a loophole
-in the qdisc config system that allowed them to achieve the equivalent
-of IFF_NO_QUEUE, which is to remove the qdisc code path entirely from
-a device.  The loophole on older kernels is setting tx_queue_len=0,
-*prior* to device qdisc init (the config time is significant, simply
-setting tx_queue_len=0 doesn't trigger the loophole).
+It is still supported to attach a qdisc to a IFF_NO_QUEUE device, as
+this can be useful for difference policy reasons (e.g. bandwidth
+limiting containers).  For this to work, the tx_queue_len need to have
+a sane value, because some qdiscs inherit/copy the tx_queue_len
+(namely, pfifo, bfifo, gred, htb, plug and sfb).
 
-This loophole is currently used by Docker[1] to get better performance
-and scalability out of the veth device.  The Docker developers were
-warned[1] that they needed to adjust the tx_queue_len if ever
-attaching a qdisc.  The OpenShift project didn't remember this warning
-and attached a qdisc, this were caught and fixed in[2].
+Commit a813104d9233 ("IFF_NO_QUEUE: Fix for drivers not calling
+ether_setup()") caught situations where some drivers didn't initialize
+tx_queue_len.  The problem with the commit was choosing 1 as the
+fallback value.
 
-[1] https://github.com/docker/libcontainer/pull/193
-[2] https://github.com/openshift/origin/pull/11126
+A qdisc queue length of 1 causes more harm than good, because it
+creates hard to debug situations for userspace. It gives userspace a
+false sense of a working config after attaching a qdisc.  As low
+volume traffic (that doesn't activate the qdisc policy) works,
+like ping, while traffic that e.g. needs shaping cannot reach the
+configured policy levels, given the queue length is too small.
 
-Instead of fixing every userspace program that used this loophole, and
-forgot to reset the tx_queue_len, prior to attaching a qdisc.  Let's
-catch the misconfiguration on the kernel side.
+This patch change the value to DEFAULT_TX_QUEUE_LEN, given other
+IFF_NO_QUEUE devices (that call ether_setup()) also use this value.
 
+Fixes: a813104d9233 ("IFF_NO_QUEUE: Fix for drivers not calling ether_setup()")
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- net/sched/sch_api.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
+ net/core/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 206dc24add3a..f337f1bdd1d4 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -960,6 +960,17 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f23e28668f32..0260ad314506 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7651,7 +7651,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
  
- 	sch->handle = handle;
- 
-+	/* This exist to keep backward compatible with a userspace
-+	 * loophole, what allowed userspace to get IFF_NO_QUEUE
-+	 * facility on older kernels by setting tx_queue_len=0 (prior
-+	 * to qdisc init), and then forgot to reinit tx_queue_len
-+	 * before again attaching a qdisc.
-+	 */
-+	if ((dev->priv_flags & IFF_NO_QUEUE) && (dev->tx_queue_len == 0)) {
+ 	if (!dev->tx_queue_len) {
+ 		dev->priv_flags |= IFF_NO_QUEUE;
+-		dev->tx_queue_len = 1;
 +		dev->tx_queue_len = DEFAULT_TX_QUEUE_LEN;
-+		netdev_info(dev, "Caught tx_queue_len zero misconfig\n");
-+	}
-+
- 	if (!ops->init || (err = ops->init(sch, tca[TCA_OPTIONS])) == 0) {
- 		if (qdisc_is_percpu_stats(sch)) {
- 			sch->cpu_bstats =
+ 	}
+ 
+ 	dev->num_tx_queues = txqs;
