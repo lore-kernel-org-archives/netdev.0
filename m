@@ -1,9 +1,15 @@
 From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/netlink: global-out-of-bounds in genl_family_rcv_msg/validate_nla
-Date: Thu, 3 Nov 2016 01:25:22 +0100
-Message-ID: <CAAeHK+xm5_n-Ep2d4YEq=Yx=f5M2NpV-So0o7811LUk+pLr+rg@mail.gmail.com>
+Subject: Fwd: net/netlink: global-out-of-bounds in genl_family_rcv_msg/validate_nla
+Date: Thu, 3 Nov 2016 01:26:12 +0100
+Message-ID: <CAAeHK+xYr-eczJ78V58es7PuA=8xvG8aKWauXYkNA=99jxGkGQ@mail.gmail.com>
+References: <CAAeHK+xm5_n-Ep2d4YEq=Yx=f5M2NpV-So0o7811LUk+pLr+rg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a113fbe32eb1ad805405a97ac
+Content-Type: multipart/mixed; boundary=001a11406a82e8980105405a9aef
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
 To: "David S. Miller" <davem@davemloft.net>,
         Nicolas Dichtel <nicolas.dichtel@6wind.com>,
         LKML <linux-kernel@vger.kernel.org>,
@@ -14,10 +20,11 @@ To: "David S. Miller" <davem@davemloft.net>,
         Florian Westphal <fw@strlen.de>,
         netdev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+xm5_n-Ep2d4YEq=Yx=f5M2NpV-So0o7811LUk+pLr+rg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---001a113fbe32eb1ad805405a97ac
+--001a11406a82e8980105405a9aef
 Content-Type: text/plain; charset=UTF-8
 
 Hi,
@@ -79,7 +86,7 @@ On commit 0c183d92b20b5c84ca655b45ef57b3318b83eb9e (Oct 31).
 
 Thanks!
 
---001a113fbe32eb1ad805405a97ac
+--001a11406a82e8980105405a9aef
 Content-Type: application/octet-stream; name="netlink-validate-oob-poc.c"
 Content-Disposition: attachment; filename="netlink-validate-oob-poc.c"
 Content-Transfer-Encoding: base64
@@ -197,4 +204,4 @@ ICAgICAgICAgICAgICAgICAgICAiXHhmZlx4ZjlceGE5XHg0N1x4ZTZceGU0IiwKICAgICAgICAg
 ICAgICAgICAgICA0MikpOwogIHJbNF0gPSBleGVjdXRlX3N5c2NhbGwoX19OUl93cml0ZSwgclsx
 XSwgMHgyMGYxYmZkNnVsLCAweDJhdWwsIDAsIDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAw
 LCAwLCAwLCAwKTsKICByZXR1cm4gMDsKfQo=
---001a113fbe32eb1ad805405a97ac--
+--001a11406a82e8980105405a9aef--
