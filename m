@@ -1,85 +1,92 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/2] rtl8xxxu: Fix for authentication failure
-Date: Wed, 2 Nov 2016 20:00:11 -0500
-Message-ID: <8dba6346-332e-84e6-89b2-02033a449f25@lwfinger.net>
-References: <cover.1477769750.git.john@zgus.com> <20161030102046.GA5784@cube>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] dccp: do not send reset to already closed sockets
+Date: Wed, 02 Nov 2016 18:04:24 -0700
+Message-ID: <1478135064.7065.409.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: John Heenan <john@zgus.com>,
-        Jes Sorensen <Jes.Sorensen@redhat.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161030102046.GA5784@cube>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34179 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751487AbcKCBE1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 21:04:27 -0400
+In-Reply-To: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2016 05:20 AM, John Heenan wrote:
-> This fix enables the same sequence of init behaviour as the alternative
-> working driver for the wireless rtl8723bu IC at
-> https://github.com/lwfinger/rtl8723bu
->
-> For exampe rtl8xxxu_init_device is now called each time
-> userspace wpa_supplicant is executed instead of just once when
-> modprobe is executed.
+From: Eric Dumazet <edumazet@google.com>
 
-After all the trouble you have had with your patches, I would expect you to use 
-more care when composing the commit message. Note the typo in the paragraph above.
+Andrey reported following warning while fuzzing with syzkaller
 
-> Along with 'Fix for bogus data used to determine macpower',
-> wpa_supplicant now reliably and successfully authenticates.
+WARNING: CPU: 1 PID: 21072 at net/dccp/proto.c:83 dccp_set_state+0x229/0x290
+Kernel panic - not syncing: panic_on_warn set ...
 
-I'm not sure this paragraph belongs in the permanent commit record.
+CPU: 1 PID: 21072 Comm: syz-executor Not tainted 4.9.0-rc1+ #293
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffff88003d4c7738 ffffffff81b474f4 0000000000000003 dffffc0000000000
+ ffffffff844f8b00 ffff88003d4c7804 ffff88003d4c7800 ffffffff8140c06a
+ 0000000041b58ab3 ffffffff8479ab7d ffffffff8140beae ffffffff8140cd00
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff81b474f4>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
+ [<ffffffff8140c06a>] panic+0x1bc/0x39d kernel/panic.c:179
+ [<ffffffff8111125c>] __warn+0x1cc/0x1f0 kernel/panic.c:542
+ [<ffffffff8111144c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
+ [<ffffffff8389e5d9>] dccp_set_state+0x229/0x290 net/dccp/proto.c:83
+ [<ffffffff838a0aa2>] dccp_close+0x612/0xc10 net/dccp/proto.c:1016
+ [<ffffffff8316bf1f>] inet_release+0xef/0x1c0 net/ipv4/af_inet.c:415
+ [<ffffffff82b6e89e>] sock_release+0x8e/0x1d0 net/socket.c:570
+ [<ffffffff82b6e9f6>] sock_close+0x16/0x20 net/socket.c:1017
+ [<ffffffff815256ad>] __fput+0x29d/0x720 fs/file_table.c:208
+ [<ffffffff81525bb5>] ____fput+0x15/0x20 fs/file_table.c:244
+ [<ffffffff811727d8>] task_work_run+0xf8/0x170 kernel/task_work.c:116
+ [<     inline     >] exit_task_work include/linux/task_work.h:21
+ [<ffffffff8111bc53>] do_exit+0x883/0x2ac0 kernel/exit.c:828
+ [<ffffffff811221fe>] do_group_exit+0x10e/0x340 kernel/exit.c:931
+ [<ffffffff81143c94>] get_signal+0x634/0x15a0 kernel/signal.c:2307
+ [<ffffffff81054aad>] do_signal+0x8d/0x1a30 arch/x86/kernel/signal.c:807
+ [<ffffffff81003a05>] exit_to_usermode_loop+0xe5/0x130
+arch/x86/entry/common.c:156
+ [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
+ [<ffffffff81006298>] syscall_return_slowpath+0x1a8/0x1e0
+arch/x86/entry/common.c:259
+ [<ffffffff83fc1a62>] entry_SYSCALL_64_fastpath+0xc0/0xc2
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Kernel Offset: disabled
 
-> For rtl8xxxu-devel branch of git.kernel.org/pub/scm/linux/kernel/git/jes/linux.git
+Fix this the same way we did for TCP in commit 565b7b2d2e63
+("tcp: do not send reset to already closed sockets")
 
-I know this line does not belong. If you want to include information like this, 
-include it after a line containing "---". Those lines will be available to 
-reviewers and maintainers, but will be stripped before it gets included in the 
-code base.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+---
+ net/dccp/proto.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-> Signed-off-by: John Heenan <john@zgus.com>
-> ---
->  drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-> index 04141e5..f25b4df 100644
-> --- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-> +++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-> @@ -5779,6 +5779,11 @@ static int rtl8xxxu_start(struct ieee80211_hw *hw)
->
->  	ret = 0;
->
-> +	ret = rtl8xxxu_init_device(hw);
-> +	if (ret)
-> +		goto error_out;
-> +
-> +
->  	init_usb_anchor(&priv->rx_anchor);
->  	init_usb_anchor(&priv->tx_anchor);
->  	init_usb_anchor(&priv->int_anchor);
-> @@ -6080,10 +6085,6 @@ static int rtl8xxxu_probe(struct usb_interface *interface,
->  		goto exit;
->  	}
->
-> -	ret = rtl8xxxu_init_device(hw);
-> -	if (ret)
-> -		goto exit;
-> -
->  	hw->wiphy->max_scan_ssids = 1;
->  	hw->wiphy->max_scan_ie_len = IEEE80211_MAX_DATA_LEN;
->  	hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION);
->
-
-I will let Jes comment on any side effects of this code change.
-
-Larry
-
--- 
-If I was stranded on an island and the only way to get off
-the island was to make a pretty UI, I’d die there.
-
-Linus Torvalds
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 41e65804ddf5..9fe25bf63296 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1009,6 +1009,10 @@ void dccp_close(struct sock *sk, long timeout)
+ 		__kfree_skb(skb);
+ 	}
+ 
++	/* If socket has been already reset kill it. */
++	if (sk->sk_state == DCCP_CLOSED)
++		goto adjudge_to_death;
++
+ 	if (data_was_unread) {
+ 		/* Unread data was tossed, send an appropriate Reset Code */
+ 		DCCP_WARN("ABORT with %u bytes unread\n", data_was_unread);
