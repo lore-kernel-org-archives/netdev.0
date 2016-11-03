@@ -1,38 +1,46 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 2/2] rtl8xxxu: Fix for bogus data used to determine
- macpower
-Date: Thu, 3 Nov 2016 10:43:27 -0500
-Message-ID: <73535909-c15e-a8c1-00e3-02b490ab2b1a@lwfinger.net>
-References: <cover.1477769750.git.john@zgus.com> <20161030102112.GA5789@cube>
- <wrfjpomidp1v.fsf@redhat.com>
- <CAAye0QN0s1S25tDPNWdM6fsVNaO-wLuSy_RoOSoXeuSMeD4oNA@mail.gmail.com>
- <wrfjzillsan3.fsf@redhat.com> <1478162497.1924.16.camel@perches.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] make kmemleak scan __ro_after_init section (was: Re:
+ [PATCH 0/5] genetlink improvements)
+Date: Thu, 03 Nov 2016 16:48:28 +0100
+Message-ID: <1478188108.4041.7.camel@sipsolutions.net>
+References: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
+         <20161101172840.6d7d6278@jkicinski-Precision-T1700>
+         <CAM_iQpVeB+2M1MPxjRx++E=q4mDuo7XQqfQn3-160PqG8bNLdQ@mail.gmail.com>
+         <20161101185630.3c7d326f@jkicinski-Precision-T1700>
+         <CAM_iQpV_0gyrJC0U6Qk9VSSaNOphe_0tq5o2kt8-r0UybLU5FA@mail.gmail.com>
+         <20161102234755.4381f528@jkicinski-Precision-T1700>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>,
-        Jes Sorensen <Jes.Sorensen@redhat.com>,
-        John Heenan <john@zgus.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>, linux-mm@kvack.org
+To: Jakub Kicinski <kubakici@wp.pl>,
+        Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478162497.1924.16.camel@perches.com>
+In-Reply-To: <20161102234755.4381f528@jkicinski-Precision-T1700>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/03/2016 03:41 AM, Joe Perches wrote:
-> On Sun, 2016-10-30 at 19:02 -0400, Jes Sorensen wrote:
->> Code is 80 characters wide, and comments are /* */ never the ugly C++
->> crap.
->
-> You might look at the recent Linus Torvalds authored commit
-> 5e467652ffef (?printk: re-organize log_output() to be more legible")
-> which does both of those: c99 // comments and > 80 columns.
->
-> Absolutes are for zealots.
+Hi,
 
-Of course, but who is going to criticize Linus? I have gently chided him when an 
-untested patch of his was inserted just before the final release, and broke my 
-laptop. At least the bisection was pretty quick. :)
+Sorry for not chipping in earlier - LPC is taking my time.
 
-Larry
+> > > > Looks like we are missing a kfree(family->attrbuf); on error
+> > > > path, but it is not related to Johannes' recent patches.
+
+Actually, I think it *is* related to my patch - I inserted the code
+there in the wrong place or so. I'll find a fix for that when I'm back
+home, or you (Cong) can submit yours. It wasn't likely that this was
+the problem though, since that's just an error path that should never
+happen (we have <30 genl families, and a 16-bit space for their IDs)
+
+> I realized that kmemleak is not scanning the __ro_after_init
+> section...
+> Following patch solves the false positives but I wonder if it's the
+> right/acceptable solution.
+
+Hah, makes sense to me, but I guess we really want Catalin to comment
+:)
+
+johannes
