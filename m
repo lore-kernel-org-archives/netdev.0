@@ -1,52 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: dccp: add missing bind_conflict to
- dccp_ipv6_mapped
-Date: Thu, 03 Nov 2016 08:59:46 -0700
-Message-ID: <1478188786.7065.453.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+y8AEQ7dM6GQa5fezgaQK+arqAfRjyVafq-K0+nqgUvGg@mail.gmail.com>
-         <CANn89i+YLvnFZFQTQyUA_jxYtZ1RE1NCCb3F4gqdia+w8wuK8A@mail.gmail.com>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: stmmac: GMAC_RGSMIIIS reports bogus values
+Date: Thu, 3 Nov 2016 16:17:56 +0000
+Message-ID: <1478189833.4072.65.camel@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33926 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758261AbcKCP7s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 11:59:48 -0400
-In-Reply-To: <CANn89i+YLvnFZFQTQyUA_jxYtZ1RE1NCCb3F4gqdia+w8wuK8A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "manabian@gmail.com" <manabian@gmail.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+        "fabrice.gasnier@st.com" <fabrice.gasnier@st.com>,
+        "linux-snps-arc@lists.infradead.org"
+        <linux-snps-arc@lists.infradead.org>,
+        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
+        "preid@electromag.com.au" <preid@electromag.com.au>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Content-ID: <5EBE6F8D4D6A53449DBD21CCE54E620C@internal.synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-While fuzzing kernel with syzkaller, Andrey reported a nasty crash
-in inet6_bind() caused by DCCP lacking a required method.
-
-Fixes: ab1e0a13d7029 ("[SOCK] proto: Add hashinfo member to struct proto")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/dccp/ipv6.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 3828f94b234c..95353bdbfa7b 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -956,6 +956,7 @@ static const struct inet_connection_sock_af_ops
-dccp_ipv6_mapped = {
- 	.getsockopt	   = ipv6_getsockopt,
- 	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
- 	.sockaddr_len	   = sizeof(struct sockaddr_in6),
-+	.bind_conflict	   = inet6_csk_bind_conflict,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_ipv6_setsockopt,
- 	.compat_getsockopt = compat_ipv6_getsockopt,
+SGVsbG8sDQoNCkknbSBzZWVpbmcgcHJldHR5IHN0cmFuZ2UgaXNzdWUgd2l0aCBHTUFDIHJlcG9y
+dGluZyBhIGxvdCBvZiBsaW5rIHN0YXRlIGNoYW5nZXMNCmJhc2VkIG9uIGJpdHMgaW4gR01BQ19S
+R1NNSUlJUy4gSXQgbG9va3MgbGlrZSB0aGF0Og0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0+
+OC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQpMaW5rIGlzIERvd24NCkxpbmsgaXMgVXAgLSAxMC9G
+dWxsDQpMaW5rIGlzIERvd24NCkxpbmsgaXMgVXAgLSAxMC9IYWxmDQpMaW5rIGlzIERvd24NCkxp
+bmsgaXMgRG93bg0KTGluayBpcyBVcCAtIDEwL0hhbGYNCkxpbmsgaXMgVXAgLQ0KMTAwMC9IYWxm
+DQpMaW5rIGlzIERvd24NCkxpbmsgaXMgRG93bg0KTGluayBpcyBEb3duDQpMaW5rIGlzIERvd24N
+CkxpbmsgaXMgVXAgLSAxMC9IYWxmDQpMaW5rIGlzIERvd24NCkxpbmsgaXMgRG93bg0KTGluayBp
+cyBVcCAtDQoxMDAwL0hhbGYNCkxpbmsgaXMgVXAgLSAxMDAwL0Z1bGwNCi0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tPjgtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KDQpXaGF0J3MgZXNwZWNpYWxs
+eSBpbnRlcmVzdGluZyBteSBib2FyZCB3aXRoIEdNQUMgaXMgY29ubmVjdGVkIHRvIDEwME1iaXQg
+ZGV2aWNlDQp3aGljaCBtZWFucyB0aGVyZSdzIG5vIGNoYW5jZSBmb3IgMUdiIG1vZGUgdG8gYmUg
+c2V0Lg0KDQpBbHNvIHRoaXMgaGFzIG5vdGhpbmcgdG8gZG8gd2l0aCBsaW5rIHN0YXRlIGRldGVj
+dGVkIGFuZCByZXBvcnRlZCBieSBQSFkgdmlhIE1ESU8uDQpTbyBvYnZpb3VzbHkgR01BQ19SR1NN
+SUlJUyBiaXRzIGFyZSB3cm9uZy4gQnV0IGdpdmVuIHRoZSBmYWN0IHRoYXQgR01BQ19SR1NNSUlJ
+UyBiaXRzDQphcmUgc2V0IGJhc2VkIG9uIHN0YXRlIG9mIFJYRFszOjBdIGxpbmVzIG9mIFJHTUlJ
+IEkgbWF5IG9ubHkgdGhpbmcgdGhhdCBpdCdzDQpQSFkgKGluIG15IGNhc2UgRFA4Mzg2NSkgd2hv
+J3PCoHNlbmRpbmcgcmFuZG9tIGRhdGEgb24gdGhlIFJYRCBkdXJpbmcgaW50ZXItZnJhbWUgZ2Fw
+Lg0KDQpOb3RlIGRhdGEgdHJhbnNmZXJyZWQgdGhyb3VnaCB0aGF0IG5ldHdvcmtpbmcgY29ubmVj
+dGlvbiBpcyBwZXJmZWN0bHkgY29ycmVjdCBhbmQNCmFjdHVhbGx5IEkgaGF2ZW4ndCBzZWUgdGhv
+c2UgbGluayBzdGF0ZSBwcmludHMgYmVmb3JlIGtlcm5lbCB2NC44IGJhc2ljYWxseQ0KYmVjYXVz
+ZSB0aGUgcHJpbnRzIGluIHF1ZXN0aW9uIHdlcmUgaW1wbGVtZW50ZWQgd2l0aCBwcl9kZWJ1Zygp
+IGFuZCB0aGVuIHdpdGggWzFdDQp3ZSBnb3QgcHJfaW5mbygpIHRoYXQgbWFkZSBwcmludHMgdmlz
+aWJsZSBieSBkZWZhdWx0Lg0KDQpTaW5jZSBJIGRvbid0IGhhdmUgYW55IG1lYW5zIHRvIGNhcHR1
+cmUgYWxsIHJlcXVpcmVkIEdNSUkgc2lnbmFscyB0byBkbyBiZXR0ZXINCmFuYWx5c2lzIGFuZCBt
+eSBkYXRhIGlzIG5vdCBjb3JydXB0ZWQgaW4gdGhlIGVuZCBJJ20gdGhpbmtpbmcgYWJvdXQgd2F5
+IGhvdyB0bw0KbXV0ZSB0aGVzZSBwcmV0dHkgc2Vuc2VsZXNzIG1lc3NhZ2VzLg0KDQpPbmUgdGhp
+bmcgSSBtYXkgdGhpbmsgb2Ygd2UgbWF5IGRpc2FibGUgY2hlY2tpbmcgb2YgR01BQ19SR1NNSUlJ
+UyBpZiBhIHBhcnRpY3VsYXINCmJvYXJkIHVzZXMgTURJTyBmb3IgUEhZIHNldHVwLiBTb21ldGhp
+bmcgbGlrZSB0aGF0Og0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0+OC0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tDQotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9kd21h
+YzEwMDBfY29yZS5jDQorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9k
+d21hYzEwMDBfY29yZS5jDQpAQCAtMzM3LDcgKzMzNyw3IEBAIHN0YXRpYyBpbnQgZHdtYWMxMDAw
+X2lycV9zdGF0dXMoc3RydWN0IG1hY19kZXZpY2VfaW5mbyAqaHcsDQrCoA0KwqDCoMKgwqDCoMKg
+wqDCoGR3bWFjX3Bjc19pc3IoaW9hZGRyLCBHTUFDX1BDU19CQVNFLCBpbnRyX3N0YXR1cywgeCk7
+DQrCoA0KLcKgwqDCoMKgwqDCoMKgaWYgKGludHJfc3RhdHVzICYgUENTX1JHU01JSUlTX0lSUSkN
+CivCoMKgwqDCoMKgwqDCoGlmICghcHJpdi0+dXNlX21kaW8gJiYgKGludHJfc3RhdHVzICYgUENT
+X1JHU01JSUlTX0lSUSkpDQrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGR3bWFjMTAw
+MF9yZ3NtaWkoaW9hZGRyLCB4KTsNCsKgDQrCoMKgwqDCoMKgwqDCoMKgcmV0dXJuIHJldDsNCmRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFp
+bi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21haW4uYw0K
+aW5kZXggNmM4NWI2MWFhYTBiLi4zNGU5ZGUwNDUwYmEgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFpbi5jDQorKysgYi9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFpbi5jDQpAQCAtMzM1NiwxMSArMzM1
+NiwxMyBAQCBpbnQgc3RtbWFjX2R2cl9wcm9iZShzdHJ1Y3QgZGV2aWNlICpkZXZpY2UsDQrCoA0K
+wqDCoMKgwqDCoMKgwqDCoHN0bW1hY19jaGVja19wY3NfbW9kZShwcml2KTsNCsKgDQorwqDCoMKg
+wqDCoMKgwqBwcml2LT51c2VfbWRpbyA9IDA7DQrCoMKgwqDCoMKgwqDCoMKgaWYgKHByaXYtPmh3
+LT5wY3MgIT0gU1RNTUFDX1BDU19SR01JScKgwqAmJg0KwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+cHJpdi0+aHctPnBjcyAhPSBTVE1NQUNfUENTX1RCSSAmJg0KwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgcHJpdi0+aHctPnBjcyAhPSBTVE1NQUNfUENTX1JUQkkpIHsNCsKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgLyogTURJTyBidXMgUmVnaXN0cmF0aW9uICovDQrCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoHJldCA9IHN0bW1hY19tZGlvX3JlZ2lzdGVyKG5kZXYpOw0KK8Kg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHByaXYtPnVzZV9tZGlvID0gMTsNCsKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaWYgKHJldCA8IDApIHsNCsKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHByX2RlYnVnKCIlczogTURJTyBidXMgKGlk
+OiAlZCkgcmVnaXN0cmF0aW9uIGZhaWxlZCIsDQrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBfX2Z1bmNfXywgcHJpdi0+cGxh
+dC0+YnVzX2lkKTsNCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tPjgtLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLQ0KDQpBbnkgdGhvdWdodHMgb24gdGhhdCBhcmUgbXVjaCBhcHByZWNpYXRlZCENCg0K
+UmVnYXJkcywNCkFsZXhleQ0KDQpbMV3CoGh0dHA6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4
+L2tlcm5lbC9naXQvdG9ydmFsZHMvbGludXguZ2l0L2NvbW1pdC8/aWQ9NzA1MjNlNjM5YmY4Y2Ew
+OWIzMzU3MzcxYzM1NDZjZWU1NWMwNjM1MQ==
