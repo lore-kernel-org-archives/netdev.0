@@ -1,64 +1,61 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 07/13] nfp: move RSS indirection table init into a separate function
-Date: Thu,  3 Nov 2016 13:58:52 +0000
-Message-ID: <1478181538-20778-8-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 01/13] nfp: add support for ethtool .get_channels
+Date: Thu,  3 Nov 2016 13:58:46 +0000
+Message-ID: <1478181538-20778-2-git-send-email-jakub.kicinski@netronome.com>
 References: <1478181538-20778-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:36151 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757785AbcKCN7W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 09:59:22 -0400
-Received: by mail-wm0-f48.google.com with SMTP id p190so335321919wmp.1
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 06:59:21 -0700 (PDT)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:35986 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757648AbcKCN7Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 09:59:16 -0400
+Received: by mail-wm0-f54.google.com with SMTP id p190so335314579wmp.1
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 06:59:15 -0700 (PDT)
 In-Reply-To: <1478181538-20778-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We will need to rerun the initialization of the RSS indirection table
-after the number of rings is changed.  Move the code to a separate
-function.
+Report number of rings via ethtool .get_channels API.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 2a4e1f1cb3c9..09cec6e2c6cf 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -2229,6 +2229,15 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
- 	nn->ctrl = new_ctrl;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 3418f2277e9d..a7386d1b2883 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -614,6 +614,21 @@ static int nfp_net_set_coalesce(struct net_device *netdev,
+ 	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_IRQMOD);
  }
  
-+static void nfp_net_rss_init_itbl(struct nfp_net *nn)
++static void nfp_net_get_channels(struct net_device *netdev,
++				 struct ethtool_channels *channel)
 +{
-+	int i;
++	struct nfp_net *nn = netdev_priv(netdev);
 +
-+	for (i = 0; i < sizeof(nn->rss_itbl); i++)
-+		nn->rss_itbl[i] =
-+			ethtool_rxfh_indir_default(i, nn->num_rx_rings);
++	channel->max_rx = min(nn->max_rx_rings, nn->max_r_vecs);
++	channel->max_tx = min(nn->max_tx_rings, nn->max_r_vecs);
++	channel->max_combined = min(channel->max_rx, channel->max_tx);
++	channel->max_other = NFP_NET_NON_Q_VECTORS;
++	channel->combined_count = min(nn->num_rx_rings, nn->num_tx_rings);
++	channel->rx_count = nn->num_rx_rings - channel->combined_count;
++	channel->tx_count = nn->num_tx_rings - channel->combined_count;
++	channel->other_count = NFP_NET_NON_Q_VECTORS;
 +}
 +
- static int
- nfp_net_ring_swap_enable(struct nfp_net *nn,
- 			 struct nfp_net_ring_set *rx,
-@@ -2707,13 +2716,9 @@ void nfp_net_netdev_free(struct nfp_net *nn)
-  */
- static void nfp_net_rss_init(struct nfp_net *nn)
- {
--	int i;
--
- 	netdev_rss_key_fill(nn->rss_key, NFP_NET_CFG_RSS_KEY_SZ);
+ static const struct ethtool_ops nfp_net_ethtool_ops = {
+ 	.get_drvinfo		= nfp_net_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+@@ -632,6 +647,7 @@ static int nfp_net_set_coalesce(struct net_device *netdev,
+ 	.get_regs		= nfp_net_get_regs,
+ 	.get_coalesce           = nfp_net_get_coalesce,
+ 	.set_coalesce           = nfp_net_set_coalesce,
++	.get_channels		= nfp_net_get_channels,
+ };
  
--	for (i = 0; i < sizeof(nn->rss_itbl); i++)
--		nn->rss_itbl[i] =
--			ethtool_rxfh_indir_default(i, nn->num_rx_rings);
-+	nfp_net_rss_init_itbl(nn);
- 
- 	/* Enable IPv4/IPv6 TCP by default */
- 	nn->rss_cfg = NFP_NET_CFG_RSS_IPV4_TCP |
+ void nfp_net_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.9.1
