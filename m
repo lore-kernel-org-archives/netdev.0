@@ -1,63 +1,84 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
- ip_finish_output_gso()
-Date: Thu, 3 Nov 2016 09:42:39 +0200
-Message-ID: <20161103094239.13ac8ac2@pixies>
-References: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
+From: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] e1000e: free IRQ when the link is up
+ or     down
+Date: Thu, 3 Nov 2016 08:09:27 +0000
+Message-ID: <36CDDD56DDB4D44E911123902EFC26B06CD48342@HASMSX110.ger.corp.intel.com>
+References: <1478120896-5907-1-git-send-email-tbaicar@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, jtluka@redhat.com,
-        hannes@stressinduktion.org
-To: Lance Richardson <lrichard@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33809 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753039AbcKCHmq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 03:42:46 -0400
-Received: by mail-wm0-f68.google.com with SMTP id p190so6597707wmp.1
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 00:42:45 -0700 (PDT)
-In-Reply-To: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Tyler Baicar <tbaicar@codeaurora.org>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "okaya@codeaurora.org" <okaya@codeaurora.org>,
+        "timur@codeaurora.org" <timur@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478120896-5907-1-git-send-email-tbaicar@codeaurora.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed,  2 Nov 2016 16:36:17 -0400
-Lance Richardson <lrichard@redhat.com> wrote:
+>-----Original Message-----
+>From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
+>Behalf Of Tyler Baicar
+>Sent: Wednesday, 02 November, 2016 23:08
+>To: Kirsher, Jeffrey T; intel-wired-lan@lists.osuosl.org;
+>netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+>okaya@codeaurora.org; timur@codeaurora.org
+>Cc: Tyler Baicar
+>Subject: [Intel-wired-lan] [PATCH] e1000e: free IRQ when the link is up or
+>down
+>
+>Move IRQ free code so that it will happen regardless of the link state.
+>Currently the e1000e driver only releases its IRQ if the link is up. This is not
+>sufficient because it is possible for a link to go down without releasing the IRQ.
+>A secondary bus reset can cause this case to happen.
+>
+>Signed-off-by: Tyler Baicar <tbaicar@codeaurora.org>
+>---
+> drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
+> 1 file changed, 2 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
+>b/drivers/net/ethernet/intel/e1000e/netdev.c
+>index 7017281..36cfcb0 100644
+>--- a/drivers/net/ethernet/intel/e1000e/netdev.c
+>+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+>@@ -4679,12 +4679,13 @@ int e1000e_close(struct net_device *netdev)
+>
+> 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
+> 		e1000e_down(adapter, true);
+>-		e1000_free_irq(adapter);
+>
+> 		/* Link status message must follow this format */
+> 		pr_info("%s NIC Link is Down\n", adapter->netdev->name);
+> 	}
+>
+>+	e1000_free_irq(adapter);
+>+
+> 	napi_disable(&adapter->napi);
+>
+> 	e1000e_free_tx_resources(adapter->tx_ring);
+>--
+>Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+>Technologies, Inc.
+>Qualcomm Technologies, Inc. is a member of the Code Aurora Forum, a Linux
+>Foundation Collaborative Project.
+>
+>_______________________________________________
+>Intel-wired-lan mailing list
+>Intel-wired-lan@lists.osuosl.org
+>http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
 
-> -	/* common case: fragmentation of segments is not allowed,
-> -	 * or seglen is <= mtu
-> +	/* common case: seglen is <= mtu
->  	 */
-> -	if (((IPCB(skb)->flags & IPSKB_FRAG_SEGS) == 0) ||
-> -	      skb_gso_validate_mtu(skb, mtu))
-> +	if (skb_gso_validate_mtu(skb, mtu))
->  		return ip_finish_output2(net, sk, skb);
+This is not correct. __E1000_DOWN has nothing to do with link state. It is an internal driver status bit that indicates that device shutdown is in progress.
 
-OK.
-Resembles https://patchwork.ozlabs.org/patch/644724/ ;)
+I would not change this code without checking very carefully the driver state machine. This can cause a whole lot of issues. Did you encounter some particular problem that is resolved by this change?
+---------------------------------------------------------------------
+Intel Israel (74) Limited
 
-> -	if (skb_iif && !(df & htons(IP_DF))) {
-> -		/* Arrived from an ingress interface, got encapsulated, with
-> -		 * fragmentation of encapulating frames allowed.
-> -		 * If skb is gso, the resulting encapsulated network segments
-> -		 * may exceed dst mtu.
-> -		 * Allow IP Fragmentation of segments.
-> -		 */
-> -		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
-> -	}
-
-The only potential issue I see removing this, is that the KNOWLEDGE of
-the forwarding/tunnel-bridging usecases (that require a
-skb_gso_validate_mtu check) is lost.
-
-Meaning, if one decides (as claimed in the past) that locally generated
-traffic must NOT go through fragmentation validation, then no one
-remembers those other valid usecases (which are very specific and not
-trivial to imagine) that MUST go through it; Therefore it can easily get
-broken.
-
-Maybe we can elaborate in the comment above the call to
-skb_gso_validate_mtu in ip_finish_output_gso?
-
-Best,
-Shmulik
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
