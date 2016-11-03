@@ -1,160 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] dccp: do not release listeners too soon
-Date: Wed, 02 Nov 2016 17:14:41 -0700
-Message-ID: <1478132081.7065.403.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+yZ4WF2eXATVFQbe_SKM-MFzXypA6VjGxwUxYV3_4xT9g@mail.gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/netlink: null-ptr-deref in netlink_dump/lock_acquire
+Date: Thu, 3 Nov 2016 01:15:30 +0100
+Message-ID: <CAAeHK+xCmN7n1MTocLK9A864YGkq-7a-1NESYkWyLYgLRScF=Q@mail.gmail.com>
+References: <CAAeHK+wM9yG3c9AksSyj7jYSY4ujssH+vTuV2nyz=-0enLrB8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>,
         Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+        David Decotigny <decot@googlers.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Dmitry Ivanov <dmitrijs.ivanovs@ubnt.com>,
         Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34323 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750824AbcKCAOu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 20:14:50 -0400
-In-Reply-To: <CAAeHK+yZ4WF2eXATVFQbe_SKM-MFzXypA6VjGxwUxYV3_4xT9g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Florian Westphal <fw@strlen.de>,
+        Greg Rose <grose@lightfleet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Matti Vaittinen <matti.vaittinen@nokia.com>,
+        Pravin B Shelar <pshelar@ovn.org>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+wM9yG3c9AksSyj7jYSY4ujssH+vTuV2nyz=-0enLrB8w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Oct 19, 2016 at 4:13 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while running the syzkaller fuzzer:
+>
+> kasan: CONFIG_KASAN_INLINE enabled
+> kasan: GPF could be caused by NULL-ptr deref or user memory access
+> general protection fault: 0000 [#1] SMP KASAN
+> Modules linked in:
+> CPU: 1 PID: 3933 Comm: syz-executor Not tainted 4.9.0-rc1+ #230
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> task: ffff88006b79d800 task.stack: ffff88006bbc0000
+> RIP: 0010:[<ffffffff8120872d>]  [<ffffffff8120872d>]
+> __lock_acquire+0x12d/0x3450 kernel/locking/lockdep.c:3221
+> RSP: 0018:ffff88006bbc7420  EFLAGS: 00010006
+> RAX: 0000000000000046 RBX: dffffc0000000000 RCX: 0000000000000000
+> RDX: 000000000000000c RSI: 0000000000000000 RDI: 0000000000000003
+> RBP: ffff88006bbc75c0 R08: 0000000000000001 R09: 0000000000000000
+> R10: 0000000000000000 R11: ffffffff85f42240 R12: ffff88006b79d800
+> R13: ffffffff84bfe4e0 R14: 0000000000000001 R15: 0000000000000060
+> FS:  00007fd9c41cc700(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 0000000000451f80 CR3: 00000000638f0000 CR4: 00000000000006e0
+> Stack:
+>  0000000000000000 ffff88006bbc0000 ffff88006bbc8000 0000000000000000
+>  0000000000000002 ffff88006b79d800 0000000000000000 ffff88006bbc7f48
+>  ffffffff852adc60 0000000000000000 ffffffff852adc64 1ffffffff0b40135
+> Call Trace:
+>  [<ffffffff8120c5ae>] lock_acquire+0x17e/0x340 kernel/locking/lockdep.c:3746
+>  [<     inline     >] __mutex_lock_common kernel/locking/mutex.c:521
+>  [<ffffffff83fb6fe1>] mutex_lock_nested+0xb1/0x890 kernel/locking/mutex.c:621
+>  [<ffffffff82db6fd0>] netlink_dump+0x50/0xac0 net/netlink/af_netlink.c:2067
+>  [<ffffffff82dba381>] __netlink_dump_start+0x501/0x770
+> net/netlink/af_netlink.c:2200
+>  [<ffffffff82dc35b2>] genl_family_rcv_msg+0xa02/0xc80
+> net/netlink/genetlink.c:595
+>  [<ffffffff82dc39e6>] genl_rcv_msg+0x1b6/0x270 net/netlink/genetlink.c:658
+>  [<ffffffff82dc1a70>] netlink_rcv_skb+0x2c0/0x3b0 net/netlink/af_netlink.c:2281
+>  [<ffffffff82dc2b98>] genl_rcv+0x28/0x40 net/netlink/genetlink.c:669
+>  [<     inline     >] netlink_unicast_kernel net/netlink/af_netlink.c:1214
+>  [<ffffffff82dc0329>] netlink_unicast+0x5a9/0x880 net/netlink/af_netlink.c:1240
+>  [<ffffffff82dc0fb7>] netlink_sendmsg+0x9b7/0xce0 net/netlink/af_netlink.c:1786
+>  [<     inline     >] sock_sendmsg_nosec net/socket.c:606
+>  [<ffffffff82b7075c>] sock_sendmsg+0xcc/0x110 net/socket.c:616
+>  [<ffffffff82b709c1>] sock_write_iter+0x221/0x3b0 net/socket.c:814
+>  [<     inline     >] new_sync_write fs/read_write.c:499
+>  [<ffffffff8151c944>] __vfs_write+0x334/0x570 fs/read_write.c:512
+>  [<ffffffff8152045b>] vfs_write+0x17b/0x500 fs/read_write.c:560
+>  [<     inline     >] SYSC_write fs/read_write.c:607
+>  [<ffffffff81523d84>] SyS_write+0xd4/0x1a0 fs/read_write.c:599
+>  [<ffffffff83fc0141>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+> arch/x86/entry/entry_64.S:209
+> Code: 0f 1f 44 00 00 f6 c4 02 0f 85 24 0a 00 00 44 8b 35 c9 61 8b 03
+> 45 85 f6 74 2c 4c 89 fa 48 bb 00 00 00 00 00 fc ff df 48 c1 ea 03 <80>
+> 3c 1a 00 0f 85 04 2f 00 00 49 81 3f a0 dc 2a 85 41 be 00 00
+> RIP  [<ffffffff8120872d>] __lock_acquire+0x12d/0x3450
+> kernel/locking/lockdep.c:3221
+>  RSP <ffff88006bbc7420>
+> ---[ end trace 685b3c182bf7f25c ]---
+>
+> The reproducer is attached.
+>
+> On commit 1a1891d762d6e64daf07b5be4817e3fbb29e3c59 (Oct 18).
 
-Andrey Konovalov reported following error while fuzzing with syzkaller :
+(Adding more maintainers)
 
-IPv4: Attempt to release alive inet socket ffff880068e98940
-kasan: CONFIG_KASAN_INLINE enabled
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 1 PID: 3905 Comm: a.out Not tainted 4.9.0-rc3+ #333
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-task: ffff88006b9e0000 task.stack: ffff880068770000
-RIP: 0010:[<ffffffff819ead5f>]  [<ffffffff819ead5f>]
-selinux_socket_sock_rcv_skb+0xff/0x6a0 security/selinux/hooks.c:4639
-RSP: 0018:ffff8800687771c8  EFLAGS: 00010202
-RAX: ffff88006b9e0000 RBX: 1ffff1000d0eee3f RCX: 1ffff1000d1d312a
-RDX: 1ffff1000d1d31a6 RSI: dffffc0000000000 RDI: 0000000000000010
-RBP: ffff880068777360 R08: 0000000000000000 R09: 0000000000000002
-R10: dffffc0000000000 R11: 0000000000000006 R12: ffff880068e98940
-R13: 0000000000000002 R14: ffff880068777338 R15: 0000000000000000
-FS:  00007f00ff760700(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000020008000 CR3: 000000006a308000 CR4: 00000000000006e0
-Stack:
- ffff8800687771e0 ffffffff812508a5 ffff8800686f3168 0000000000000007
- ffff88006ac8cdfc ffff8800665ea500 0000000041b58ab3 ffffffff847b5480
- ffffffff819eac60 ffff88006b9e0860 ffff88006b9e0868 ffff88006b9e07f0
-Call Trace:
- [<ffffffff819c8dd5>] security_sock_rcv_skb+0x75/0xb0 security/security.c:1317
- [<ffffffff82c2a9e7>] sk_filter_trim_cap+0x67/0x10e0 net/core/filter.c:81
- [<ffffffff82b81e60>] __sk_receive_skb+0x30/0xa00 net/core/sock.c:460
- [<ffffffff838bbf12>] dccp_v4_rcv+0xdb2/0x1910 net/dccp/ipv4.c:873
- [<ffffffff83069d22>] ip_local_deliver_finish+0x332/0xad0
-net/ipv4/ip_input.c:216
- [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
- [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
- [<ffffffff8306abd2>] ip_local_deliver+0x1c2/0x4b0 net/ipv4/ip_input.c:257
- [<     inline     >] dst_input ./include/net/dst.h:507
- [<ffffffff83068500>] ip_rcv_finish+0x750/0x1c40 net/ipv4/ip_input.c:396
- [<     inline     >] NF_HOOK_THRESH ./include/linux/netfilter.h:232
- [<     inline     >] NF_HOOK ./include/linux/netfilter.h:255
- [<ffffffff8306b82f>] ip_rcv+0x96f/0x12f0 net/ipv4/ip_input.c:487
- [<ffffffff82bd9fb7>] __netif_receive_skb_core+0x1897/0x2a50 net/core/dev.c:4213
- [<ffffffff82bdb19a>] __netif_receive_skb+0x2a/0x170 net/core/dev.c:4251
- [<ffffffff82bdb493>] netif_receive_skb_internal+0x1b3/0x390 net/core/dev.c:4279
- [<ffffffff82bdb6b8>] netif_receive_skb+0x48/0x250 net/core/dev.c:4303
- [<ffffffff8241fc75>] tun_get_user+0xbd5/0x28a0 drivers/net/tun.c:1308
- [<ffffffff82421b5a>] tun_chr_write_iter+0xda/0x190 drivers/net/tun.c:1332
- [<     inline     >] new_sync_write fs/read_write.c:499
- [<ffffffff8151bd44>] __vfs_write+0x334/0x570 fs/read_write.c:512
- [<ffffffff8151f85b>] vfs_write+0x17b/0x500 fs/read_write.c:560
- [<     inline     >] SYSC_write fs/read_write.c:607
- [<ffffffff81523184>] SyS_write+0xd4/0x1a0 fs/read_write.c:599
- [<ffffffff83fc02c1>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-
-It turns out DCCP calls __sk_receive_skb(), and this broke when
-lookups no longer took a reference on listeners.
-
-Fix this issue by adding a @refcounted parameter to __sk_receive_skb(),
-so that sock_put() is used only when needed.
-
-Fixes: 3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under synflood")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
----
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 73c6b008f1b7..92b269709b9a 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1596,11 +1596,11 @@ static inline void sock_put(struct sock *sk)
- void sock_gen_put(struct sock *sk);
- 
- int __sk_receive_skb(struct sock *sk, struct sk_buff *skb, const int nested,
--		     unsigned int trim_cap);
-+		     unsigned int trim_cap, bool refcounted);
- static inline int sk_receive_skb(struct sock *sk, struct sk_buff *skb,
- 				 const int nested)
- {
--	return __sk_receive_skb(sk, skb, nested, 1);
-+	return __sk_receive_skb(sk, skb, nested, 1, true);
- }
- 
- static inline void sk_tx_queue_set(struct sock *sk, int tx_queue)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index df171acfe232..5e3ca414357e 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -453,7 +453,7 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- EXPORT_SYMBOL(sock_queue_rcv_skb);
- 
- int __sk_receive_skb(struct sock *sk, struct sk_buff *skb,
--		     const int nested, unsigned int trim_cap)
-+		     const int nested, unsigned int trim_cap, bool refcounted)
- {
- 	int rc = NET_RX_SUCCESS;
- 
-@@ -487,7 +487,8 @@ int __sk_receive_skb(struct sock *sk, struct sk_buff *skb,
- 
- 	bh_unlock_sock(sk);
- out:
--	sock_put(sk);
-+	if (refcounted)
-+		sock_put(sk);
- 	return rc;
- discard_and_relse:
- 	kfree_skb(skb);
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 345a3aeb8c7e..dff7cfab1da4 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -868,7 +868,7 @@ static int dccp_v4_rcv(struct sk_buff *skb)
- 		goto discard_and_relse;
- 	nf_reset(skb);
- 
--	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4);
-+	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4, refcounted);
- 
- no_dccp_socket:
- 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 3828f94b234c..09c4e19aa285 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -738,7 +738,8 @@ static int dccp_v6_rcv(struct sk_buff *skb)
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_and_relse;
- 
--	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4) ? -1 : 0;
-+	return __sk_receive_skb(sk, skb, 1, dh->dccph_doff * 4,
-+				refcounted) ? -1 : 0;
- 
- no_dccp_socket:
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+Still seeing this on 0c183d92b20b5c84ca655b45ef57b3318b83eb9e (Oct 31).
