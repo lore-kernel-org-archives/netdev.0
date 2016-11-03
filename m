@@ -1,74 +1,102 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net-next] sock: do not set sk_err in sock_dequeue_err_skb
-Date: Thu,  3 Nov 2016 18:24:27 -0400
-Message-ID: <1478211867-24569-1-git-send-email-soheil.kdev@gmail.com>
-Cc: edumazet@google.com, willemb@google.com, ncardwell@google.com,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH for-next V2 00/15][PULL request] Mellanox mlx5 core driver
+ updates 2016-10-25
+Date: Thu, 3 Nov 2016 16:33:59 -0600
+Message-ID: <581BBB57.9090000@redhat.com>
+References: <1477862528-4328-1-git-send-email-saeedm@mellanox.com>
+ <20161030.173522.1563055187413070239.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="fxMUFpKOfGwVeuskNj5Jbe1F32UeiepNh"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+        "leonro@mellanox.com" <leonro@mellanox.com>,
+        "talal@mellanox.com" <talal@mellanox.com>,
+        "matanb@mellanox.com" <matanb@mellanox.com>
+To: David Miller <davem@davemloft.net>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36726 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752404AbcKCWYl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 18:24:41 -0400
-Received: by mail-qt0-f196.google.com with SMTP id n34so2210952qtb.3
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 15:24:41 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:56230 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752984AbcKCWeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 18:34:05 -0400
+In-Reply-To: <20161030.173522.1563055187413070239.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--fxMUFpKOfGwVeuskNj5Jbe1F32UeiepNh
+Content-Type: multipart/mixed; boundary="aWuMniRXUFFMwpp8tgmAaxUfltMAiuFeK";
+ protected-headers="v1"
+From: Doug Ledford <dledford@redhat.com>
+To: David Miller <davem@davemloft.net>,
+ "saeedm@mellanox.com" <saeedm@mellanox.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+ "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+ "leonro@mellanox.com" <leonro@mellanox.com>,
+ "talal@mellanox.com" <talal@mellanox.com>,
+ "matanb@mellanox.com" <matanb@mellanox.com>
+Message-ID: <581BBB57.9090000@redhat.com>
+Subject: Re: [PATCH for-next V2 00/15][PULL request] Mellanox mlx5 core driver
+ updates 2016-10-25
+References: <1477862528-4328-1-git-send-email-saeedm@mellanox.com>
+ <20161030.173522.1563055187413070239.davem@davemloft.net>
+In-Reply-To: <20161030.173522.1563055187413070239.davem@davemloft.net>
 
-Do not set sk_err when dequeuing errors from the error queue.
-Doing so results in:
-a) Bugs: By overwriting existing sk_err values, it possibly
-   hides legitimate errors. It is also incorrect when local
-   errors are queued with ip_local_error. That happens in the
-   context of a system call, which already returns the error
-   code.
-b) Inconsistent behavior: When there are pending errors on
-   the error queue, sk_err is sometimes 0 (e.g., for
-   the first timestamp on the error queue) and sometimes
-   set to an error code (after dequeuing the first
-   timestamp).
-c) Suboptimality: Setting sk_err to ENOMSG on simple
-   TX timestamps can abort parallel reads and writes.
+--aWuMniRXUFFMwpp8tgmAaxUfltMAiuFeK
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-Removing this line doesn't break userspace. This is because
-userspace code cannot rely on sk_err for detecting whether
-there is something on the error queue. Except for ICMP messages
-received for UDP and RAW, sk_err is not set at enqueue time,
-and as a result sk_err can be 0 while there are plenty of
-errors on the error queue.
+On 10/30/16 3:35 PM, David Miller wrote:
+> From: Saeed Mahameed <saeedm@mellanox.com>
+> Date: Sun, 30 Oct 2016 23:21:53 +0200
+>=20
+>> This series contains some updates and fixes of mlx5 core and
+>> IB drivers with the addition of two features that demand
+>> new low level commands and infrastructure updates.
+>>  - SRIOV VF max rate limit support
+>>  - mlx5e tc support for FWD rules with counter.
+>>
+>> Needed for both net and rdma subsystems.
+>=20
+> Pulled, thanks.
 
-For ICMP packets in UDP and RAW, sk_err is set when they are
-enqueued on the error queue, but that does not result in aborting
-reads and writes. For such cases, sk_err is only readable via
-getsockopt(SO_ERROR) which will reset the value of sk_err on
-its own. More importantly, prior to this patch,
-recvmsg(MSG_ERRQUEUE) has a race on setting sk_err (i.e.,
-sk_err is set by sock_dequeue_err_skb without atomic ops or
-locks) which can store 0 in sk_err even when we have ICMP
-messages pending. Removing this line from sock_dequeue_err_skb
-eliminates that race.
+Thanks, done here as well.
 
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/core/skbuff.c | 1 -
- 1 file changed, 1 deletion(-)
+--=20
+Doug Ledford <dledford@redhat.com>    GPG Key ID: 0E572FDD
+  Red Hat, Inc.
+  100 E. Davie St
+  Raleigh, NC 27601 USA
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1e3e008..0b2a6e9 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3725,7 +3725,6 @@ struct sk_buff *sock_dequeue_err_skb(struct sock *sk)
- 		err = SKB_EXT_ERR(skb_next)->ee.ee_errno;
- 	spin_unlock_irqrestore(&q->lock, flags);
- 
--	sk->sk_err = err;
- 	if (err)
- 		sk->sk_error_report(sk);
- 
--- 
-2.8.0.rc3.226.g39d4020
+
+--aWuMniRXUFFMwpp8tgmAaxUfltMAiuFeK--
+
+--fxMUFpKOfGwVeuskNj5Jbe1F32UeiepNh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - https://gpgtools.org
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCgAGBQJYG7tXAAoJELgmozMOVy/dAqYP/RhwYcIBM9XwjG5sS8n0JgFS
+/O6B08EL55xiURiK9NIdpXorgmIo9CVA3PIqWOBZqytXuRXZUxWvOOZ+wsYwot4T
+x5VmXV2QErdpKa8ecZgddDsJBYnJ6nbRAu0k2/gJHlD7EY0crgjiEvzSZfH3GoDM
+j6BJj6FwDcw3d1fzRhWSe7LAFItBd9NL5zKfJdAlMmk3O7ErA2lS/rUy2zMHJ2Ti
+jSKQA/QADrryT3zUa61gqZSHf8ejE1ZoTL9GvDeF43OIsrUvCn2aTf3U2em7lJm3
+4RJfb5lBJEpJFT2nM6RS/8s1aimW3bk7Tv50oVMHMGzVo3qaU7rPeb3Atu/7LehM
+WC3XAUy+mLmE4WDb92QHMuMudJg+Ci+PKTJFaDnr71hvppFhk61ROze1sUP1Xtj7
+xakxpi5CGj2NUCMmJRLDf+eoMf31Lpq2iVu1TLZLUZIiNx6B0JfAhVsgiJ38qw5B
+cLMozdIDOyiH0bTfTjjzNWXF7lcgLNHC1tag/XARMRaGRDWVQ6dtWld99UIoJyFs
+CSPH3bVk9HMNSEIHQzBDf2Nhh/w1x9LaQcZYkn2UhS57EG7NSFGd5lZVK1RLjyVU
+PZ1Ks0bZy0aqjw0vTp9ZZaEfi7SHiDqYfvP3KiEZxJzaGQcO5ERbMpkLcJ7A4pF4
+LDvjLrFxxQ2eaQhPtnj0
+=QTd3
+-----END PGP SIGNATURE-----
+
+--fxMUFpKOfGwVeuskNj5Jbe1F32UeiepNh--
