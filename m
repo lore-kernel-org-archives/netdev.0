@@ -1,68 +1,55 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/netlink: global-out-of-bounds in genl_family_rcv_msg/validate_nla
-Date: Thu, 3 Nov 2016 16:28:37 +0100
-Message-ID: <CAAeHK+xtgjBM6MOy3kmi7D70rkyUY_yZPygRUw12bjt+mBd_XA@mail.gmail.com>
-References: <CAAeHK+xm5_n-Ep2d4YEq=Yx=f5M2NpV-So0o7811LUk+pLr+rg@mail.gmail.com>
- <CAM_iQpWBoEhaLfCYPaStZ-U8s-i5h9fmaG9JCW-q7QfjntfEOA@mail.gmail.com> <CAM_iQpXAqgW5LxAXmHbBqppM-eo1spyOJhyCpkkZ_3J7DRUUuw@mail.gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/2] rtl8xxxu: Fix for authentication failure
+Date: Thu, 3 Nov 2016 10:39:14 -0500
+Message-ID: <6879f303-7cdc-6e0a-3943-44b541971b7d@lwfinger.net>
+References: <cover.1477769750.git.john@zgus.com> <20161030102046.GA5784@cube>
+ <8dba6346-332e-84e6-89b2-02033a449f25@lwfinger.net>
+ <CAAye0QNZYjg1NDmXmjMXNJqa7nsbvfgoX8et1g1+HT2S2O=L1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Matti Vaittinen <matti.vaittinen@nokia.com>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Florian Westphal <fw@strlen.de>,
-        netdev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXAqgW5LxAXmHbBqppM-eo1spyOJhyCpkkZ_3J7DRUUuw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jes Sorensen <Jes.Sorensen@redhat.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: John Heenan <john@zgus.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34697 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753398AbcKCPjR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 11:39:17 -0400
+In-Reply-To: <CAAye0QNZYjg1NDmXmjMXNJqa7nsbvfgoX8et1g1+HT2S2O=L1w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Cong,
-
-Yes, the last patch fixes the issue.
-
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-
-Thanks!
-
-On Thu, Nov 3, 2016 at 6:29 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Nov 2, 2016 at 10:25 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Wed, Nov 2, 2016 at 5:25 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->>> Hi,
+On 11/03/2016 02:10 AM, John Heenan wrote:
+> On 3 November 2016 at 11:00, Larry Finger <Larry.Finger@lwfinger.net> wrote:
+>> On 10/30/2016 05:20 AM, John Heenan wrote:
 >>>
->>> I've got the following error report while running the syzkaller fuzzer:
+>>> This fix enables the same sequence of init behaviour as the alternative
+>>> working driver for the wireless rtl8723bu IC at
+>>> https://github.com/lwfinger/rtl8723bu
 >>>
->>> ==================================================================
->>> BUG: KASAN: global-out-of-bounds in validate_nla+0x49b/0x4e0 at addr
->>> ffffffff8407e3ac
->>> Read of size 2 by task a.out/3877
->>> Address belongs to variable[<        none        >]
->>> cgroupstats_cmd_get_policy+0xc/0x40 ??:?
+>>> For exampe rtl8xxxu_init_device is now called each time
+>>> userspace wpa_supplicant is executed instead of just once when
+>>> modprobe is executed.
 >>
->> Seems taskstats doesn't use genetlink correctly, CGROUPSTATS_CMD_ATTR_FD
->> is not within 0~TASKSTATS_CMD_ATTR_MAX.
 >>
->> I guess we need the following patch, but it certainly breaks user-space... :-/
+>> After all the trouble you have had with your patches, I would expect you to
+>> use more care when composing the commit message. Note the typo in the
+>> paragraph above.
+>>
 >
+> OK, the nasty games continue and the message is not getting through.
 >
-> Wait, maybe just this one-line fix is enough:
->
-> diff --git a/kernel/taskstats.c b/kernel/taskstats.c
-> index b3f05ee..e6b342e 100644
-> --- a/kernel/taskstats.c
-> +++ b/kernel/taskstats.c
-> @@ -54,7 +54,7 @@ static const struct nla_policy
-> taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1
->         [TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
->         [TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
->
-> -static const struct nla_policy
-> cgroupstats_cmd_get_policy[CGROUPSTATS_CMD_ATTR_MAX+1] = {
-> +static const struct nla_policy
-> cgroupstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1] = {
->         [CGROUPSTATS_CMD_ATTR_FD] = { .type = NLA_U32 },
->  };
+> An appropriate response by a maintainer would have been to request I
+> revise the code according to the way it has currently and elegantly
+> revised in.
+
+I am NOT a maintainer for this driver. I do have an interest in it, but not in 
+any official capacity.
+
+If you cannot accept constructive criticism, you are in the wrong activity. 
+Please grow up!
+
+Larry
