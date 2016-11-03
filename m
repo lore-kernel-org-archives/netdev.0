@@ -1,30 +1,138 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 00/21] amd-xgbe: AMD XGBE driver updates
- 2016-11-01
-Date: Thu, 03 Nov 2016 13:14:05 -0400 (EDT)
-Message-ID: <20161103.131405.2110100650645460415.davem@davemloft.net>
-References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: thomas.lendacky@amd.com
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next resend 03/13] nfp: rename ring allocation helpers
+Date: Thu,  3 Nov 2016 17:11:59 +0000
+Message-ID: <1478193129-23476-4-git-send-email-jakub.kicinski@netronome.com>
+References: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38824 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758232AbcKCROH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:14:07 -0400
-In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:36699 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753398AbcKCRSC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:18:02 -0400
+Received: by mail-wm0-f49.google.com with SMTP id p190so283281wmp.1
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:18:01 -0700 (PDT)
+In-Reply-To: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+"Shadow" in ring helpers used to mean that the helper will allocate
+rings without touching existing configuration, this was used for
+reconfiguration while the device was running.  We will soon use
+the same helpers for .ndo_open() path, so replace "shadow" with
+"ring_set".
 
-20+ patches is too many to submit at one time.
+No functional changes.
 
-Making huge patch series submissions puts an unreasonable burdon on
-those developers who might decide to review your work, including me.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 26 +++++++++++-----------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
 
-Please keep your series down to a small, reasonable, size.  Perhaps
-10-15 patches maximum.
-
-I will not be looking at nor applying this series.
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index e58532d27c5b..b7b2851ebb6b 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1573,7 +1573,7 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring, u32 cnt)
+ }
+ 
+ static struct nfp_net_tx_ring *
+-nfp_net_shadow_tx_rings_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s)
++nfp_net_tx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+ 	struct nfp_net_tx_ring *rings;
+ 	unsigned int r;
+@@ -1599,7 +1599,7 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring, u32 cnt)
+ }
+ 
+ static void
+-nfp_net_shadow_tx_rings_swap(struct nfp_net *nn, struct nfp_net_ring_set *s)
++nfp_net_tx_ring_set_swap(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+ 	struct nfp_net_tx_ring *rings = s->rings;
+ 	struct nfp_net_ring_set new = *s;
+@@ -1616,7 +1616,7 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring, u32 cnt)
+ }
+ 
+ static void
+-nfp_net_shadow_tx_rings_free(struct nfp_net *nn, struct nfp_net_ring_set *s)
++nfp_net_tx_ring_set_free(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+ 	struct nfp_net_tx_ring *rings = s->rings;
+ 	unsigned int r;
+@@ -1693,7 +1693,7 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ }
+ 
+ static struct nfp_net_rx_ring *
+-nfp_net_shadow_rx_rings_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s)
++nfp_net_rx_ring_set_prepare(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+ 	unsigned int fl_bufsz =	nfp_net_calc_fl_bufsz(nn, s->mtu);
+ 	struct nfp_net_rx_ring *rings;
+@@ -1726,7 +1726,7 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ }
+ 
+ static void
+-nfp_net_shadow_rx_rings_swap(struct nfp_net *nn, struct nfp_net_ring_set *s)
++nfp_net_rx_ring_set_swap(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+ 	struct nfp_net_rx_ring *rings = s->rings;
+ 	struct nfp_net_ring_set new = *s;
+@@ -1746,7 +1746,7 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ }
+ 
+ static void
+-nfp_net_shadow_rx_rings_free(struct nfp_net *nn, struct nfp_net_ring_set *s)
++nfp_net_rx_ring_set_free(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+ 	struct nfp_net_rx_ring *rings = s->rings;
+ 	unsigned int r;
+@@ -2268,9 +2268,9 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
+ 			 struct nfp_net_ring_set *tx)
+ {
+ 	if (rx)
+-		nfp_net_shadow_rx_rings_swap(nn, rx);
++		nfp_net_rx_ring_set_swap(nn, rx);
+ 	if (tx)
+-		nfp_net_shadow_tx_rings_swap(nn, tx);
++		nfp_net_tx_ring_set_swap(nn, tx);
+ 
+ 	return __nfp_net_set_config_and_enable(nn);
+ }
+@@ -2299,11 +2299,11 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
+ 
+ 	/* Prepare new rings */
+ 	if (rx) {
+-		if (!nfp_net_shadow_rx_rings_prepare(nn, rx))
++		if (!nfp_net_rx_ring_set_prepare(nn, rx))
+ 			return -ENOMEM;
+ 	}
+ 	if (tx) {
+-		if (!nfp_net_shadow_tx_rings_prepare(nn, tx)) {
++		if (!nfp_net_tx_ring_set_prepare(nn, tx)) {
+ 			err = -ENOMEM;
+ 			goto err_free_rx;
+ 		}
+@@ -2327,9 +2327,9 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
+ 	}
+ 
+ 	if (rx)
+-		nfp_net_shadow_rx_rings_free(nn, rx);
++		nfp_net_rx_ring_set_free(nn, rx);
+ 	if (tx)
+-		nfp_net_shadow_tx_rings_free(nn, tx);
++		nfp_net_tx_ring_set_free(nn, tx);
+ 
+ 	nfp_net_open_stack(nn);
+ 
+@@ -2337,7 +2337,7 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
+ 
+ err_free_rx:
+ 	if (rx)
+-		nfp_net_shadow_rx_rings_free(nn, rx);
++		nfp_net_rx_ring_set_free(nn, rx);
+ 	return err;
+ }
+ 
+-- 
+1.9.1
