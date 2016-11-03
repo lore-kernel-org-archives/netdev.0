@@ -1,50 +1,131 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/sctp: use-after-free in __sctp_connect
-Date: Thu, 3 Nov 2016 18:11:01 +0100
-Message-ID: <CAAeHK+xxcV8XV1Pc2_eBrQWTDSp3ooc1LLX81jhCTCvk7hhaVg@mail.gmail.com>
-References: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
- <20161019165754.GD2958@localhost.localdomain> <CAAeHK+xaBVcZp7PfH-tYWaxs6rCiaNAivZj4xZLcawFShi6C1Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xaBVcZp7PfH-tYWaxs6rCiaNAivZj4xZLcawFShi6C1Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next resend 06/13] nfp: add helper to reassign rings to IRQ vectors
+Date: Thu,  3 Nov 2016 17:12:02 +0000
+Message-ID: <1478193129-23476-7-git-send-email-jakub.kicinski@netronome.com>
+References: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35792 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932545AbcKCRM0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:12:26 -0400
+Received: by mail-wm0-f41.google.com with SMTP id a197so81529wmd.0
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:12:25 -0700 (PDT)
+In-Reply-To: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 2, 2016 at 11:42 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> On Wed, Oct 19, 2016 at 6:57 PM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
->> On Wed, Oct 19, 2016 at 02:25:24PM +0200, Andrey Konovalov wrote:
->>> Hi,
->>>
->>> I've got the following error report while running the syzkaller fuzzer:
->>>
->>> ==================================================================
->>> BUG: KASAN: use-after-free in __sctp_connect+0xabe/0xbf0 at addr
->>> ffff88006b1dc610
->>
->> Seems this is the same that Dmitry Vyukov had reported back in Jan 13th.
->> So far I couldn't identify the reason.
->> "Good" to know it's still there, thanks for reporting it.
+Instead of fixing ring -> vector relations up in ring swap functions
+put the reassignment into a helper function which will reinit all
+links.
 
-Hi Marcelo,
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 40 +++++++++-------------
+ 1 file changed, 16 insertions(+), 24 deletions(-)
 
-So I've looked at the code.
-As far as I understand, the problem is a race condition between
-setsockopt(SCTP_SOCKOPT_CONNECTX) and shutdown on an sctp socket.
-setsockopt() calls sctp_wait_for_connect(), which exits the for loop
-on the sk->sk_shutdown & RCV_SHUTDOWN if clause, and then frees asoc
-with sctp_association_put() and returns err = 0.
-Then __sctp_connect() checks that err == 0 and reads asoc->assoc_id
-from the freed asoc.
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 97cc21eae466..2a4e1f1cb3c9 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1601,16 +1601,11 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring, u32 cnt)
+ static void
+ nfp_net_tx_ring_set_swap(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+-	struct nfp_net_tx_ring *rings = s->rings;
+ 	struct nfp_net_ring_set new = *s;
+-	unsigned int r;
+ 
+ 	s->dcnt = nn->txd_cnt;
+ 	s->rings = nn->tx_rings;
+ 
+-	for (r = 0; r < nn->num_tx_rings; r++)
+-		nn->tx_rings[r].r_vec->tx_ring = &rings[r];
+-
+ 	nn->txd_cnt = new.dcnt;
+ 	nn->tx_rings = new.rings;
+ }
+@@ -1728,17 +1723,12 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ static void
+ nfp_net_rx_ring_set_swap(struct nfp_net *nn, struct nfp_net_ring_set *s)
+ {
+-	struct nfp_net_rx_ring *rings = s->rings;
+ 	struct nfp_net_ring_set new = *s;
+-	unsigned int r;
+ 
+ 	s->mtu = nn->netdev->mtu;
+ 	s->dcnt = nn->rxd_cnt;
+ 	s->rings = nn->rx_rings;
+ 
+-	for (r = 0; r < nn->num_rx_rings; r++)
+-		nn->rx_rings[r].r_vec->rx_ring = &rings[r];
+-
+ 	nn->netdev->mtu = new.mtu;
+ 	nn->fl_bufsz = nfp_net_calc_fl_bufsz(nn, new.mtu);
+ 	nn->rxd_cnt = new.dcnt;
+@@ -1759,6 +1749,14 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ 	kfree(rings);
+ }
+ 
++static void
++nfp_net_vector_assign_rings(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
++			    int idx)
++{
++	r_vec->rx_ring = idx < nn->num_rx_rings ? &nn->rx_rings[idx] : NULL;
++	r_vec->tx_ring = idx < nn->num_tx_rings ? &nn->tx_rings[idx] : NULL;
++}
++
+ static int
+ nfp_net_prepare_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
+ 		       int idx)
+@@ -1766,20 +1764,6 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ 	struct msix_entry *entry = &nn->irq_entries[r_vec->irq_idx];
+ 	int err;
+ 
+-	if (idx < nn->num_tx_rings) {
+-		r_vec->tx_ring = &nn->tx_rings[idx];
+-		nfp_net_tx_ring_init(r_vec->tx_ring, r_vec, idx);
+-	} else {
+-		r_vec->tx_ring = NULL;
+-	}
+-
+-	if (idx < nn->num_rx_rings) {
+-		r_vec->rx_ring = &nn->rx_rings[idx];
+-		nfp_net_rx_ring_init(r_vec->rx_ring, r_vec, idx);
+-	} else {
+-		r_vec->rx_ring = NULL;
+-	}
+-
+ 	snprintf(r_vec->name, sizeof(r_vec->name),
+ 		 "%s-rxtx-%d", nn->netdev->name, idx);
+ 	err = request_irq(entry->vector, r_vec->handler, 0, r_vec->name, r_vec);
+@@ -2100,6 +2084,9 @@ static int nfp_net_netdev_open(struct net_device *netdev)
+ 		goto err_free_rx_rings;
+ 	}
+ 
++	for (r = 0; r < nn->max_r_vecs; r++)
++		nfp_net_vector_assign_rings(nn, &nn->r_vecs[r], r);
++
+ 	err = netif_set_real_num_tx_queues(netdev, nn->num_tx_rings);
+ 	if (err)
+ 		goto err_free_rings;
+@@ -2247,11 +2234,16 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
+ 			 struct nfp_net_ring_set *rx,
+ 			 struct nfp_net_ring_set *tx)
+ {
++	unsigned int r;
++
+ 	if (rx)
+ 		nfp_net_rx_ring_set_swap(nn, rx);
+ 	if (tx)
+ 		nfp_net_tx_ring_set_swap(nn, tx);
+ 
++	for (r = 0; r <	nn->max_r_vecs; r++)
++		nfp_net_vector_assign_rings(nn, &nn->r_vecs[r], r);
++
+ 	return __nfp_net_set_config_and_enable(nn);
+ }
+ 
+-- 
+1.9.1
