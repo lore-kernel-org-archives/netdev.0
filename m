@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: dccp: add missing bind_conflict to
- dccp_ipv6_mapped
-Date: Thu, 03 Nov 2016 16:51:07 -0400 (EDT)
-Message-ID: <20161103.165107.2230811543246914716.davem@davemloft.net>
-References: <CAAeHK+y8AEQ7dM6GQa5fezgaQK+arqAfRjyVafq-K0+nqgUvGg@mail.gmail.com>
-        <CANn89i+YLvnFZFQTQyUA_jxYtZ1RE1NCCb3F4gqdia+w8wuK8A@mail.gmail.com>
-        <1478188786.7065.453.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [Patch net] genetlink: fix a memory leak on error path
+Date: Thu, 03 Nov 2016 16:53:57 -0400 (EDT)
+Message-ID: <20161103.165357.1889984861158784546.davem@davemloft.net>
+References: <1478191356-10386-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andreyknvl@google.com, netdev@vger.kernel.org,
-        syzkaller@googlegroups.com, gerrit@erg.abdn.ac.uk,
-        dccp@vger.kernel.org, acme@redhat.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, kubakici@wp.pl, johannes@sipsolutions.net
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43320 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43372 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756663AbcKCUvJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:51:09 -0400
-In-Reply-To: <1478188786.7065.453.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1757998AbcKCUx7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:53:59 -0400
+In-Reply-To: <1478191356-10386-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Nov 2016 08:59:46 -0700
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Thu,  3 Nov 2016 09:42:35 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> In __genl_register_family(), when genl_validate_assign_mc_groups()
+> fails, we forget to free the memory we possibly allocate for
+> family->attrbuf.
 > 
-> While fuzzing kernel with syzkaller, Andrey reported a nasty crash
-> in inet6_bind() caused by DCCP lacking a required method.
+> Note, some callers call genl_unregister_family() to clean up
+> on error path, it doesn't work because the family is inserted
+> to the global list in the nearly last step.
 > 
-> Fixes: ab1e0a13d7029 ("[SOCK] proto: Add hashinfo member to struct proto")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Cc: Jakub Kicinski <kubakici@wp.pl>
+> Cc: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied and queued up for -stable, thanks Eric.
+Applied, thanks Cong.
