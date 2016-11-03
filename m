@@ -1,59 +1,57 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/netlink: global-out-of-bounds in genl_family_rcv_msg/validate_nla
-Date: Wed, 2 Nov 2016 22:29:47 -0700
-Message-ID: <CAM_iQpXAqgW5LxAXmHbBqppM-eo1spyOJhyCpkkZ_3J7DRUUuw@mail.gmail.com>
-References: <CAAeHK+xm5_n-Ep2d4YEq=Yx=f5M2NpV-So0o7811LUk+pLr+rg@mail.gmail.com>
- <CAM_iQpWBoEhaLfCYPaStZ-U8s-i5h9fmaG9JCW-q7QfjntfEOA@mail.gmail.com>
+Subject: Re: [RFC] make kmemleak scan __ro_after_init section (was: Re: [PATCH
+ 0/5] genetlink improvements)
+Date: Wed, 2 Nov 2016 22:40:17 -0700
+Message-ID: <CAM_iQpWHU_M3wYusHk6+4nY0kqGbqspLjvb6=YDVBdZCrUkdNg@mail.gmail.com>
+References: <1477312805-7110-1-git-send-email-johannes@sipsolutions.net>
+ <20161101172840.6d7d6278@jkicinski-Precision-T1700> <CAM_iQpVeB+2M1MPxjRx++E=q4mDuo7XQqfQn3-160PqG8bNLdQ@mail.gmail.com>
+ <20161101185630.3c7d326f@jkicinski-Precision-T1700> <CAM_iQpV_0gyrJC0U6Qk9VSSaNOphe_0tq5o2kt8-r0UybLU5FA@mail.gmail.com>
+ <20161102234755.4381f528@jkicinski-Precision-T1700>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Matti Vaittinen <matti.vaittinen@nokia.com>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Florian Westphal <fw@strlen.de>,
-        netdev <netdev@vger.kernel.org>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpWBoEhaLfCYPaStZ-U8s-i5h9fmaG9JCW-q7QfjntfEOA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Catalin Marinas <catalin.marinas@arm.com>, linux-mm@kvack.org
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161102234755.4381f528@jkicinski-Precision-T1700>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 2, 2016 at 10:25 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Nov 2, 2016 at 5:25 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> Hi,
->>
->> I've got the following error report while running the syzkaller fuzzer:
->>
->> ==================================================================
->> BUG: KASAN: global-out-of-bounds in validate_nla+0x49b/0x4e0 at addr
->> ffffffff8407e3ac
->> Read of size 2 by task a.out/3877
->> Address belongs to variable[<        none        >]
->> cgroupstats_cmd_get_policy+0xc/0x40 ??:?
+On Wed, Nov 2, 2016 at 4:47 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
 >
-> Seems taskstats doesn't use genetlink correctly, CGROUPSTATS_CMD_ATTR_FD
-> is not within 0~TASKSTATS_CMD_ATTR_MAX.
+> Thanks for looking into this!  Bisect led me to the following commit:
 >
-> I guess we need the following patch, but it certainly breaks user-space... :-/
+> commit 56989f6d8568c21257dcec0f5e644d5570ba3281
+> Author: Johannes Berg <johannes.berg@intel.com>
+> Date:   Mon Oct 24 14:40:05 2016 +0200
+>
+>     genetlink: mark families as __ro_after_init
+>
+>     Now genl_register_family() is the only thing (other than the
+>     users themselves, perhaps, but I didn't find any doing that)
+>     writing to the family struct.
+>
+>     In all families that I found, genl_register_family() is only
+>     called from __init functions (some indirectly, in which case
+>     I've add __init annotations to clarifly things), so all can
+>     actually be marked __ro_after_init.
+>
+>     This protects the data structure from accidental corruption.
+>
+>     Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>
+> I realized that kmemleak is not scanning the __ro_after_init section...
+> Following patch solves the false positives but I wonder if it's the
+> right/acceptable solution.
 
+Nice work! Looks reasonable to me, but I am definitely not familiar
+with kmemleak. ;)
 
-Wait, maybe just this one-line fix is enough:
-
-diff --git a/kernel/taskstats.c b/kernel/taskstats.c
-index b3f05ee..e6b342e 100644
---- a/kernel/taskstats.c
-+++ b/kernel/taskstats.c
-@@ -54,7 +54,7 @@ static const struct nla_policy
-taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1
-        [TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
-        [TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
-
--static const struct nla_policy
-cgroupstats_cmd_get_policy[CGROUPSTATS_CMD_ATTR_MAX+1] = {
-+static const struct nla_policy
-cgroupstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1] = {
-        [CGROUPSTATS_CMD_ATTR_FD] = { .type = NLA_U32 },
- };
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
