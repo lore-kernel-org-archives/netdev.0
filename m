@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 07/10] amd-xgbe: Prepare for a new PCS register
- access method
-Date: Thu, 3 Nov 2016 13:18:56 -0500
-Message-ID: <20161103181856.7383.12041.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 08/10] amd-xgbe: Support for 64-bit management
+ counter registers
+Date: Thu, 3 Nov 2016 13:19:07 -0500
+Message-ID: <20161103181907.7383.49229.stgit@tlendack-t1.amdoffice.net>
 References: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,255 +10,82 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0045.outbound.protection.outlook.com ([104.47.41.45]:26807
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0048.outbound.protection.outlook.com ([104.47.32.48]:35520
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1759317AbcKCSTE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 14:19:04 -0400
+        id S1757846AbcKCSTN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 14:19:13 -0400
 In-Reply-To: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prepare the code to be able to support accessing of the PCS registers
-in a new way, while maintaining the current access method. Provide a
-version specific field that indicates the method to use.
+Add support for reading all management counter registers as 64-bit
+values.  The indication of whether to read the high 32-bits to form
+a 64-bit value is indicated in the version data.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |   21 +++--
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |  107 +++++++++++++++++++++++++--
- drivers/net/ethernet/amd/xgbe/xgbe-main.c   |    1 
- drivers/net/ethernet/amd/xgbe/xgbe.h        |    9 ++
- 4 files changed, 119 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   36 ++++++++++++++++++++++--------
+ drivers/net/ethernet/amd/xgbe/xgbe.h     |    1 +
+ 2 files changed, 27 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index 8bcf4ef..6c40915 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -852,14 +852,9 @@
- #define MTL_TSA_SP			0x00
- #define MTL_TSA_ETS			0x02
- 
--/* PCS MMD select register offset
-- *  The MMD select register is used for accessing PCS registers
-- *  when the underlying APB3 interface is using indirect addressing.
-- *  Indirect addressing requires accessing registers in two phases,
-- *  an address phase and a data phase.  The address phases requires
-- *  writing an address selection value to the MMD select regiesters.
-- */
--#define PCS_MMD_SELECT			0xff
-+/* PCS register offsets */
-+#define PCS_V1_WINDOW_SELECT		0x03fc
-+#define PCS_V2_WINDOW_SELECT		0x9064
- 
- /* SerDes integration register offsets */
- #define SIR0_KR_RT_1			0x002c
-@@ -1241,12 +1236,18 @@
- /* Macros for building, reading or writing register values or bits
-  * within the register values of XPCS registers.
-  */
--#define XPCS_IOWRITE(_pdata, _off, _val)				\
-+#define XPCS32_IOWRITE(_pdata, _off, _val)				\
- 	iowrite32(_val, (_pdata)->xpcs_regs + (_off))
- 
--#define XPCS_IOREAD(_pdata, _off)					\
-+#define XPCS32_IOREAD(_pdata, _off)					\
- 	ioread32((_pdata)->xpcs_regs + (_off))
- 
-+#define XPCS16_IOWRITE(_pdata, _off, _val)				\
-+	iowrite16(_val, (_pdata)->xpcs_regs + (_off))
-+
-+#define XPCS16_IOREAD(_pdata, _off)					\
-+	ioread16((_pdata)->xpcs_regs + (_off))
-+
- /* Macros for building, reading or writing register values or bits
-  * within the register values of SerDes integration registers.
-  */
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 75c3df1..b8a04e7 100644
+index b8a04e7..fbd60ee 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1026,8 +1026,71 @@ static int xgbe_config_rx_mode(struct xgbe_prv_data *pdata)
- 	return 0;
- }
+@@ -2588,17 +2588,33 @@ static u64 xgbe_mmc_read(struct xgbe_prv_data *pdata, unsigned int reg_lo)
+ 	bool read_hi;
+ 	u64 val;
  
--static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
--			      int mmd_reg)
-+static int xgbe_read_mmd_regs_v2(struct xgbe_prv_data *pdata, int prtad,
-+				 int mmd_reg)
-+{
-+	unsigned long flags;
-+	unsigned int mmd_address, index, offset;
-+	int mmd_data;
-+
-+	if (mmd_reg & MII_ADDR_C45)
-+		mmd_address = mmd_reg & ~MII_ADDR_C45;
-+	else
-+		mmd_address = (pdata->mdio_mmd << 16) | (mmd_reg & 0xffff);
-+
-+	/* The PCS registers are accessed using mmio. The underlying
-+	 * management interface uses indirect addressing to access the MMD
-+	 * register sets. This requires accessing of the PCS register in two
-+	 * phases, an address phase and a data phase.
-+	 *
-+	 * The mmio interface is based on 16-bit offsets and values. All
-+	 * register offsets must therefore be adjusted by left shifting the
-+	 * offset 1 bit and reading 16 bits of data.
-+	 */
-+	mmd_address <<= 1;
-+	index = mmd_address & ~pdata->xpcs_window_mask;
-+	offset = pdata->xpcs_window + (mmd_address & pdata->xpcs_window_mask);
-+
-+	spin_lock_irqsave(&pdata->xpcs_lock, flags);
-+	XPCS32_IOWRITE(pdata, PCS_V2_WINDOW_SELECT, index);
-+	mmd_data = XPCS16_IOREAD(pdata, offset);
-+	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
-+
-+	return mmd_data;
-+}
-+
-+static void xgbe_write_mmd_regs_v2(struct xgbe_prv_data *pdata, int prtad,
-+				   int mmd_reg, int mmd_data)
-+{
-+	unsigned long flags;
-+	unsigned int mmd_address, index, offset;
-+
-+	if (mmd_reg & MII_ADDR_C45)
-+		mmd_address = mmd_reg & ~MII_ADDR_C45;
-+	else
-+		mmd_address = (pdata->mdio_mmd << 16) | (mmd_reg & 0xffff);
-+
-+	/* The PCS registers are accessed using mmio. The underlying
-+	 * management interface uses indirect addressing to access the MMD
-+	 * register sets. This requires accessing of the PCS register in two
-+	 * phases, an address phase and a data phase.
-+	 *
-+	 * The mmio interface is based on 16-bit offsets and values. All
-+	 * register offsets must therefore be adjusted by left shifting the
-+	 * offset 1 bit and writing 16 bits of data.
-+	 */
-+	mmd_address <<= 1;
-+	index = mmd_address & ~pdata->xpcs_window_mask;
-+	offset = pdata->xpcs_window + (mmd_address & pdata->xpcs_window_mask);
-+
-+	spin_lock_irqsave(&pdata->xpcs_lock, flags);
-+	XPCS32_IOWRITE(pdata, PCS_V2_WINDOW_SELECT, index);
-+	XPCS16_IOWRITE(pdata, offset, mmd_data);
-+	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
-+}
-+
-+static int xgbe_read_mmd_regs_v1(struct xgbe_prv_data *pdata, int prtad,
-+				 int mmd_reg)
- {
- 	unsigned long flags;
- 	unsigned int mmd_address;
-@@ -1048,15 +1111,15 @@ static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
- 	 * offset 2 bits and reading 32 bits of data.
- 	 */
- 	spin_lock_irqsave(&pdata->xpcs_lock, flags);
--	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
--	mmd_data = XPCS_IOREAD(pdata, (mmd_address & 0xff) << 2);
-+	XPCS32_IOWRITE(pdata, PCS_V1_WINDOW_SELECT, mmd_address >> 8);
-+	mmd_data = XPCS32_IOREAD(pdata, (mmd_address & 0xff) << 2);
- 	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
+-	switch (reg_lo) {
+-	/* These registers are always 64 bit */
+-	case MMC_TXOCTETCOUNT_GB_LO:
+-	case MMC_TXOCTETCOUNT_G_LO:
+-	case MMC_RXOCTETCOUNT_GB_LO:
+-	case MMC_RXOCTETCOUNT_G_LO:
+-		read_hi = true;
+-		break;
++	if (pdata->vdata->mmc_64bit) {
++		switch (reg_lo) {
++		/* These registers are always 32 bit */
++		case MMC_RXRUNTERROR:
++		case MMC_RXJABBERERROR:
++		case MMC_RXUNDERSIZE_G:
++		case MMC_RXOVERSIZE_G:
++		case MMC_RXWATCHDOGERROR:
++			read_hi = false;
++			break;
  
- 	return mmd_data;
- }
- 
--static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
--				int mmd_reg, int mmd_data)
-+static void xgbe_write_mmd_regs_v1(struct xgbe_prv_data *pdata, int prtad,
-+				   int mmd_reg, int mmd_data)
- {
- 	unsigned int mmd_address;
- 	unsigned long flags;
-@@ -1073,14 +1136,40 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
- 	 *
- 	 * The mmio interface is based on 32-bit offsets and values. All
- 	 * register offsets must therefore be adjusted by left shifting the
--	 * offset 2 bits and reading 32 bits of data.
-+	 * offset 2 bits and writing 32 bits of data.
- 	 */
- 	spin_lock_irqsave(&pdata->xpcs_lock, flags);
--	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
--	XPCS_IOWRITE(pdata, (mmd_address & 0xff) << 2, mmd_data);
-+	XPCS32_IOWRITE(pdata, PCS_V1_WINDOW_SELECT, mmd_address >> 8);
-+	XPCS32_IOWRITE(pdata, (mmd_address & 0xff) << 2, mmd_data);
- 	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
- }
- 
-+static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
-+			      int mmd_reg)
-+{
-+	switch (pdata->vdata->xpcs_access) {
-+	case XGBE_XPCS_ACCESS_V1:
-+		return xgbe_read_mmd_regs_v1(pdata, prtad, mmd_reg);
+-	default:
+-		read_hi = false;
++		default:
++			read_hi = true;
++		}
++	} else {
++		switch (reg_lo) {
++		/* These registers are always 64 bit */
++		case MMC_TXOCTETCOUNT_GB_LO:
++		case MMC_TXOCTETCOUNT_G_LO:
++		case MMC_RXOCTETCOUNT_GB_LO:
++		case MMC_RXOCTETCOUNT_G_LO:
++			read_hi = true;
++			break;
 +
-+	case XGBE_XPCS_ACCESS_V2:
-+	default:
-+		return xgbe_read_mmd_regs_v2(pdata, prtad, mmd_reg);
-+	}
-+}
-+
-+static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
-+				int mmd_reg, int mmd_data)
-+{
-+	switch (pdata->vdata->xpcs_access) {
-+	case XGBE_XPCS_ACCESS_V1:
-+		return xgbe_write_mmd_regs_v1(pdata, prtad, mmd_reg, mmd_data);
-+
-+	case XGBE_XPCS_ACCESS_V2:
-+	default:
-+		return xgbe_write_mmd_regs_v2(pdata, prtad, mmd_reg, mmd_data);
-+	}
-+}
-+
- static int xgbe_tx_complete(struct xgbe_ring_desc *rdesc)
- {
- 	return !XGMAC_GET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, OWN);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 38c5985..d9864f0 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -785,6 +785,7 @@ static int xgbe_resume(struct device *dev)
++		default:
++			read_hi = false;
++		}
+ 	}
  
- static const struct xgbe_version_data xgbe_v1 = {
- 	.init_function_ptrs_phy_impl	= xgbe_init_function_ptrs_phy_v1,
-+	.xpcs_access			= XGBE_XPCS_ACCESS_V1,
- };
- 
- #ifdef CONFIG_ACPI
+ 	val = XGMAC_IOREAD(pdata, reg_lo);
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 8cb4f20..160b498 100644
+index 160b498..7cbf91b 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -471,6 +471,11 @@ enum xgbe_speed {
- 	XGBE_SPEEDS,
- };
- 
-+enum xgbe_xpcs_access {
-+	XGBE_XPCS_ACCESS_V1 = 0,
-+	XGBE_XPCS_ACCESS_V2,
-+};
-+
- enum xgbe_an_mode {
- 	XGBE_AN_MODE_CL73 = 0,
- 	XGBE_AN_MODE_CL37,
-@@ -798,6 +803,7 @@ struct xgbe_hw_features {
- 
+@@ -804,6 +804,7 @@ struct xgbe_hw_features {
  struct xgbe_version_data {
  	void (*init_function_ptrs_phy_impl)(struct xgbe_phy_if *);
-+	enum xgbe_xpcs_access xpcs_access;
+ 	enum xgbe_xpcs_access xpcs_access;
++	unsigned int mmc_64bit;
  };
  
  struct xgbe_prv_data {
-@@ -826,6 +832,9 @@ struct xgbe_prv_data {
- 
- 	/* XPCS indirect addressing lock */
- 	spinlock_t xpcs_lock;
-+	unsigned int xpcs_window;
-+	unsigned int xpcs_window_size;
-+	unsigned int xpcs_window_mask;
- 
- 	/* RSS addressing mutex */
- 	struct mutex rss_mutex;
