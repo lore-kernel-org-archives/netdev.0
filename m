@@ -1,44 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Time to revisit LISP?
-Date: Thu, 03 Nov 2016 16:37:58 -0400 (EDT)
-Message-ID: <20161103.163758.1592587767905993803.davem@davemloft.net>
-References: <CALx6S35cT6gn4W6iiaL5sAgTm=jJPZpyVP3pyGXfbyHHsKaciQ@mail.gmail.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
+ ip_finish_output_gso()
+Date: Thu, 3 Nov 2016 22:40:52 +0200
+Message-ID: <20161103224052.5e066584@halley>
+References: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
+        <20161103.161244.1518109748163260273.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chris@logicalelegance.com, netdev@vger.kernel.org
-To: tom@herbertland.com
+Cc: lrichard@redhat.com, netdev@vger.kernel.org, fw@strlen.de,
+        jtluka@redhat.com, hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43016 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751648AbcKCUiA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:38:00 -0400
-In-Reply-To: <CALx6S35cT6gn4W6iiaL5sAgTm=jJPZpyVP3pyGXfbyHHsKaciQ@mail.gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35897 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756553AbcKCUk7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:40:59 -0400
+Received: by mail-wm0-f68.google.com with SMTP id c17so782863wmc.3
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 13:40:59 -0700 (PDT)
+In-Reply-To: <20161103.161244.1518109748163260273.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 3 Nov 2016 12:22:52 -0700
+On Thu, 03 Nov 2016 16:12:44 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+> Applied and queued up for -stable.
 
-> For instance, one of the his questions is:
-> 
-> "What is to keep one from having to service a full Map-Request -->
-> Map-Reply cycle for every packet received?"
-> 
-> This can be solved by judicious rate limiting, for instance the
-> infrastructure I implemented to rate limit ILA resolver request could
-> be applied here.
+Dave, my response lagged your "Applied" by few minutes ;)
 
-All of these things work great if you have tables that are either very
-tiny or change infrequently.
+This seems to deserve some more thought to make sure nothing got broken,
+as expressed last in https://patchwork.ozlabs.org/patch/690594/
 
-But once you run into anything seriously dynamic, it has the same
-problems that the routing cache had and OVS can have.
-
-And for this reason things like the flow cache are on the chopping
-block.  And frankly, I'd remove OVS from the kernel if I could.
-
-Userspace resolution of paths in response to data path signalling
-simply does not scale and is fundamentally an extremely poor design
-choice.  We're trying to move away from, rather than towards, these
-kinds of architectures.
+Best,
+Shmulik
