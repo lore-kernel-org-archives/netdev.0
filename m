@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 08/10] amd-xgbe: Support for 64-bit management
- counter registers
-Date: Thu, 3 Nov 2016 13:19:07 -0500
-Message-ID: <20161103181907.7383.49229.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 05/10] amd-xgbe: Prepare for introduction of
+ clause 37 autoneg
+Date: Thu, 3 Nov 2016 13:18:38 -0500
+Message-ID: <20161103181838.7383.60866.stgit@tlendack-t1.amdoffice.net>
 References: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,82 +10,610 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0048.outbound.protection.outlook.com ([104.47.32.48]:35520
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0079.outbound.protection.outlook.com ([104.47.34.79]:36842
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757846AbcKCSTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 14:19:13 -0400
+        id S1759953AbcKCSSo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 14:18:44 -0400
 In-Reply-To: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for reading all management counter registers as 64-bit
-values.  The indication of whether to read the high 32-bits to form
-a 64-bit value is indicated in the version data.
+Prepare for the future introduction of clause 37 auto-negotiation by
+updating the current auto-negotiation related functions to identify
+them as clause 73 functions. Move interrupt enablement to the
+enable/disable auto-negotiation functions. Update what will be common
+routines to check for the current type of AN and process accordingly.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   36 ++++++++++++++++++++++--------
- drivers/net/ethernet/amd/xgbe/xgbe.h     |    1 +
- 2 files changed, 27 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |    5 +
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |  235 ++++++++++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c |    7 +
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |   14 +-
+ 4 files changed, 176 insertions(+), 85 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index b8a04e7..fbd60ee 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2588,17 +2588,33 @@ static u64 xgbe_mmc_read(struct xgbe_prv_data *pdata, unsigned int reg_lo)
- 	bool read_hi;
- 	u64 val;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index bbef959..695e982 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -1052,6 +1052,11 @@
+ #endif
  
--	switch (reg_lo) {
--	/* These registers are always 64 bit */
--	case MMC_TXOCTETCOUNT_GB_LO:
--	case MMC_TXOCTETCOUNT_G_LO:
--	case MMC_RXOCTETCOUNT_GB_LO:
--	case MMC_RXOCTETCOUNT_G_LO:
--		read_hi = true;
--		break;
-+	if (pdata->vdata->mmc_64bit) {
-+		switch (reg_lo) {
-+		/* These registers are always 32 bit */
-+		case MMC_RXRUNTERROR:
-+		case MMC_RXJABBERERROR:
-+		case MMC_RXUNDERSIZE_G:
-+		case MMC_RXOVERSIZE_G:
-+		case MMC_RXWATCHDOGERROR:
-+			read_hi = false;
-+			break;
- 
--	default:
--		read_hi = false;
-+		default:
-+			read_hi = true;
-+		}
-+	} else {
-+		switch (reg_lo) {
-+		/* These registers are always 64 bit */
-+		case MMC_TXOCTETCOUNT_GB_LO:
-+		case MMC_TXOCTETCOUNT_G_LO:
-+		case MMC_RXOCTETCOUNT_GB_LO:
-+		case MMC_RXOCTETCOUNT_G_LO:
-+			read_hi = true;
-+			break;
+ /* MDIO mask values */
++#define XGBE_AN_CL73_INT_CMPLT		BIT(0)
++#define XGBE_AN_CL73_INC_LINK		BIT(1)
++#define XGBE_AN_CL73_PG_RCV		BIT(2)
++#define XGBE_AN_CL73_INT_MASK		0x07
 +
-+		default:
-+			read_hi = false;
-+		}
+ #define XGBE_XNP_MCF_NULL_MESSAGE	0x001
+ #define XGBE_XNP_ACK_PROCESSED		BIT(12)
+ #define XGBE_XNP_MP_FORMATTED		BIT(13)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+index 35c302f..d5bfbe4 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+@@ -125,7 +125,33 @@
+ #include "xgbe.h"
+ #include "xgbe-common.h"
+ 
+-static void xgbe_an_enable_kr_training(struct xgbe_prv_data *pdata)
++static void xgbe_an73_clear_interrupts(struct xgbe_prv_data *pdata)
++{
++	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
++}
++
++static void xgbe_an73_disable_interrupts(struct xgbe_prv_data *pdata)
++{
++	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
++}
++
++static void xgbe_an73_enable_interrupts(struct xgbe_prv_data *pdata)
++{
++	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, XGBE_AN_CL73_INT_MASK);
++}
++
++static void xgbe_an_enable_interrupts(struct xgbe_prv_data *pdata)
++{
++	switch (pdata->an_mode) {
++	case XGBE_AN_MODE_CL73:
++		xgbe_an73_enable_interrupts(pdata);
++		break;
++	default:
++		break;
++	}
++}
++
++static void xgbe_an73_enable_kr_training(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int reg;
+ 
+@@ -135,7 +161,7 @@ static void xgbe_an_enable_kr_training(struct xgbe_prv_data *pdata)
+ 	XMDIO_WRITE(pdata, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_PMD_CTRL, reg);
+ }
+ 
+-static void xgbe_an_disable_kr_training(struct xgbe_prv_data *pdata)
++static void xgbe_an73_disable_kr_training(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int reg;
+ 
+@@ -148,7 +174,7 @@ static void xgbe_an_disable_kr_training(struct xgbe_prv_data *pdata)
+ static void xgbe_kr_mode(struct xgbe_prv_data *pdata)
+ {
+ 	/* Enable KR training */
+-	xgbe_an_enable_kr_training(pdata);
++	xgbe_an73_enable_kr_training(pdata);
+ 
+ 	/* Set MAC to 10G speed */
+ 	pdata->hw_if.set_speed(pdata, SPEED_10000);
+@@ -160,7 +186,7 @@ static void xgbe_kr_mode(struct xgbe_prv_data *pdata)
+ static void xgbe_kx_2500_mode(struct xgbe_prv_data *pdata)
+ {
+ 	/* Disable KR training */
+-	xgbe_an_disable_kr_training(pdata);
++	xgbe_an73_disable_kr_training(pdata);
+ 
+ 	/* Set MAC to 2.5G speed */
+ 	pdata->hw_if.set_speed(pdata, SPEED_2500);
+@@ -172,7 +198,7 @@ static void xgbe_kx_2500_mode(struct xgbe_prv_data *pdata)
+ static void xgbe_kx_1000_mode(struct xgbe_prv_data *pdata)
+ {
+ 	/* Disable KR training */
+-	xgbe_an_disable_kr_training(pdata);
++	xgbe_an73_disable_kr_training(pdata);
+ 
+ 	/* Set MAC to 1G speed */
+ 	pdata->hw_if.set_speed(pdata, SPEED_1000);
+@@ -232,7 +258,8 @@ static bool xgbe_use_mode(struct xgbe_prv_data *pdata,
+ 	return pdata->phy_if.phy_impl.use_mode(pdata, mode);
+ }
+ 
+-static void xgbe_set_an(struct xgbe_prv_data *pdata, bool enable, bool restart)
++static void xgbe_an73_set(struct xgbe_prv_data *pdata, bool enable,
++			  bool restart)
+ {
+ 	unsigned int reg;
+ 
+@@ -248,22 +275,46 @@ static void xgbe_set_an(struct xgbe_prv_data *pdata, bool enable, bool restart)
+ 	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_CTRL1, reg);
+ }
+ 
+-static void xgbe_restart_an(struct xgbe_prv_data *pdata)
++static void xgbe_an73_restart(struct xgbe_prv_data *pdata)
+ {
+-	xgbe_set_an(pdata, true, true);
++	xgbe_an73_enable_interrupts(pdata);
++	xgbe_an73_set(pdata, true, true);
+ 
+-	netif_dbg(pdata, link, pdata->netdev, "AN enabled/restarted\n");
++	netif_dbg(pdata, link, pdata->netdev, "CL73 AN enabled/restarted\n");
+ }
+ 
+-static void xgbe_disable_an(struct xgbe_prv_data *pdata)
++static void xgbe_an73_disable(struct xgbe_prv_data *pdata)
+ {
+-	xgbe_set_an(pdata, false, false);
++	xgbe_an73_set(pdata, false, false);
++	xgbe_an73_disable_interrupts(pdata);
+ 
+-	netif_dbg(pdata, link, pdata->netdev, "AN disabled\n");
++	netif_dbg(pdata, link, pdata->netdev, "CL73 AN disabled\n");
+ }
+ 
+-static enum xgbe_an xgbe_an_tx_training(struct xgbe_prv_data *pdata,
+-					enum xgbe_rx *state)
++static void xgbe_an_restart(struct xgbe_prv_data *pdata)
++{
++	switch (pdata->an_mode) {
++	case XGBE_AN_MODE_CL73:
++		xgbe_an73_restart(pdata);
++		break;
++	default:
++		break;
++	}
++}
++
++static void xgbe_an_disable(struct xgbe_prv_data *pdata)
++{
++	switch (pdata->an_mode) {
++	case XGBE_AN_MODE_CL73:
++		xgbe_an73_disable(pdata);
++		break;
++	default:
++		break;
++	}
++}
++
++static enum xgbe_an xgbe_an73_tx_training(struct xgbe_prv_data *pdata,
++					  enum xgbe_rx *state)
+ {
+ 	unsigned int ad_reg, lp_reg, reg;
+ 
+@@ -304,8 +355,8 @@ static enum xgbe_an xgbe_an_tx_training(struct xgbe_prv_data *pdata,
+ 	return XGBE_AN_PAGE_RECEIVED;
+ }
+ 
+-static enum xgbe_an xgbe_an_tx_xnp(struct xgbe_prv_data *pdata,
+-				   enum xgbe_rx *state)
++static enum xgbe_an xgbe_an73_tx_xnp(struct xgbe_prv_data *pdata,
++				     enum xgbe_rx *state)
+ {
+ 	u16 msg;
+ 
+@@ -321,8 +372,8 @@ static enum xgbe_an xgbe_an_tx_xnp(struct xgbe_prv_data *pdata,
+ 	return XGBE_AN_PAGE_RECEIVED;
+ }
+ 
+-static enum xgbe_an xgbe_an_rx_bpa(struct xgbe_prv_data *pdata,
+-				   enum xgbe_rx *state)
++static enum xgbe_an xgbe_an73_rx_bpa(struct xgbe_prv_data *pdata,
++				     enum xgbe_rx *state)
+ {
+ 	unsigned int link_support;
+ 	unsigned int reg, ad_reg, lp_reg;
+@@ -341,12 +392,12 @@ static enum xgbe_an xgbe_an_rx_bpa(struct xgbe_prv_data *pdata,
+ 
+ 	return ((ad_reg & XGBE_XNP_NP_EXCHANGE) ||
+ 		(lp_reg & XGBE_XNP_NP_EXCHANGE))
+-	       ? xgbe_an_tx_xnp(pdata, state)
+-	       : xgbe_an_tx_training(pdata, state);
++	       ? xgbe_an73_tx_xnp(pdata, state)
++	       : xgbe_an73_tx_training(pdata, state);
+ }
+ 
+-static enum xgbe_an xgbe_an_rx_xnp(struct xgbe_prv_data *pdata,
+-				   enum xgbe_rx *state)
++static enum xgbe_an xgbe_an73_rx_xnp(struct xgbe_prv_data *pdata,
++				     enum xgbe_rx *state)
+ {
+ 	unsigned int ad_reg, lp_reg;
+ 
+@@ -356,11 +407,11 @@ static enum xgbe_an xgbe_an_rx_xnp(struct xgbe_prv_data *pdata,
+ 
+ 	return ((ad_reg & XGBE_XNP_NP_EXCHANGE) ||
+ 		(lp_reg & XGBE_XNP_NP_EXCHANGE))
+-	       ? xgbe_an_tx_xnp(pdata, state)
+-	       : xgbe_an_tx_training(pdata, state);
++	       ? xgbe_an73_tx_xnp(pdata, state)
++	       : xgbe_an73_tx_training(pdata, state);
+ }
+ 
+-static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
++static enum xgbe_an xgbe_an73_page_received(struct xgbe_prv_data *pdata)
+ {
+ 	enum xgbe_rx *state;
+ 	unsigned long an_timeout;
+@@ -379,7 +430,7 @@ static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
+ 			pdata->an_start = jiffies;
+ 
+ 			netif_dbg(pdata, link, pdata->netdev,
+-				  "AN timed out, resetting state\n");
++				  "CL73 AN timed out, resetting state\n");
+ 		}
  	}
  
- 	val = XGMAC_IOREAD(pdata, reg_lo);
+@@ -388,11 +439,11 @@ static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
+ 
+ 	switch (*state) {
+ 	case XGBE_RX_BPA:
+-		ret = xgbe_an_rx_bpa(pdata, state);
++		ret = xgbe_an73_rx_bpa(pdata, state);
+ 		break;
+ 
+ 	case XGBE_RX_XNP:
+-		ret = xgbe_an_rx_xnp(pdata, state);
++		ret = xgbe_an73_rx_xnp(pdata, state);
+ 		break;
+ 
+ 	default:
+@@ -402,7 +453,7 @@ static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
+ 	return ret;
+ }
+ 
+-static enum xgbe_an xgbe_an_incompat_link(struct xgbe_prv_data *pdata)
++static enum xgbe_an xgbe_an73_incompat_link(struct xgbe_prv_data *pdata)
+ {
+ 	/* Be sure we aren't looping trying to negotiate */
+ 	if (xgbe_in_kr_mode(pdata)) {
+@@ -424,23 +475,19 @@ static enum xgbe_an xgbe_an_incompat_link(struct xgbe_prv_data *pdata)
+ 			return XGBE_AN_NO_LINK;
+ 	}
+ 
+-	xgbe_disable_an(pdata);
++	xgbe_an73_disable(pdata);
+ 
+ 	xgbe_switch_mode(pdata);
+ 
+-	xgbe_restart_an(pdata);
++	xgbe_an73_restart(pdata);
+ 
+ 	return XGBE_AN_INCOMPAT_LINK;
+ }
+ 
+-static irqreturn_t xgbe_an_isr(int irq, void *data)
++static void xgbe_an73_isr(struct xgbe_prv_data *pdata)
+ {
+-	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
+-
+-	netif_dbg(pdata, intr, pdata->netdev, "AN interrupt received\n");
+-
+ 	/* Disable AN interrupts */
+-	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
++	xgbe_an73_disable_interrupts(pdata);
+ 
+ 	/* Save the interrupt(s) that fired */
+ 	pdata->an_int = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_INT);
+@@ -452,8 +499,22 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
+ 		queue_work(pdata->an_workqueue, &pdata->an_irq_work);
+ 	} else {
+ 		/* Enable AN interrupts */
+-		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK,
+-			    XGBE_AN_INT_MASK);
++		xgbe_an73_enable_interrupts(pdata);
++	}
++}
++
++static irqreturn_t xgbe_an_isr(int irq, void *data)
++{
++	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
++
++	netif_dbg(pdata, intr, pdata->netdev, "AN interrupt received\n");
++
++	switch (pdata->an_mode) {
++	case XGBE_AN_MODE_CL73:
++		xgbe_an73_isr(pdata);
++		break;
++	default:
++		break;
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -492,28 +553,23 @@ static const char *xgbe_state_as_string(enum xgbe_an state)
+ 	}
+ }
+ 
+-static void xgbe_an_state_machine(struct work_struct *work)
++static void xgbe_an73_state_machine(struct xgbe_prv_data *pdata)
+ {
+-	struct xgbe_prv_data *pdata = container_of(work,
+-						   struct xgbe_prv_data,
+-						   an_work);
+ 	enum xgbe_an cur_state = pdata->an_state;
+ 
+-	mutex_lock(&pdata->an_mutex);
+-
+ 	if (!pdata->an_int)
+-		goto out;
++		return;
+ 
+ next_int:
+-	if (pdata->an_int & XGBE_AN_PG_RCV) {
++	if (pdata->an_int & XGBE_AN_CL73_PG_RCV) {
+ 		pdata->an_state = XGBE_AN_PAGE_RECEIVED;
+-		pdata->an_int &= ~XGBE_AN_PG_RCV;
+-	} else if (pdata->an_int & XGBE_AN_INC_LINK) {
++		pdata->an_int &= ~XGBE_AN_CL73_PG_RCV;
++	} else if (pdata->an_int & XGBE_AN_CL73_INC_LINK) {
+ 		pdata->an_state = XGBE_AN_INCOMPAT_LINK;
+-		pdata->an_int &= ~XGBE_AN_INC_LINK;
+-	} else if (pdata->an_int & XGBE_AN_INT_CMPLT) {
++		pdata->an_int &= ~XGBE_AN_CL73_INC_LINK;
++	} else if (pdata->an_int & XGBE_AN_CL73_INT_CMPLT) {
+ 		pdata->an_state = XGBE_AN_COMPLETE;
+-		pdata->an_int &= ~XGBE_AN_INT_CMPLT;
++		pdata->an_int &= ~XGBE_AN_CL73_INT_CMPLT;
+ 	} else {
+ 		pdata->an_state = XGBE_AN_ERROR;
+ 	}
+@@ -521,7 +577,7 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 	pdata->an_result = pdata->an_state;
+ 
+ again:
+-	netif_dbg(pdata, link, pdata->netdev, "AN %s\n",
++	netif_dbg(pdata, link, pdata->netdev, "CL73 AN %s\n",
+ 		  xgbe_state_as_string(pdata->an_state));
+ 
+ 	cur_state = pdata->an_state;
+@@ -532,14 +588,14 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 		break;
+ 
+ 	case XGBE_AN_PAGE_RECEIVED:
+-		pdata->an_state = xgbe_an_page_received(pdata);
++		pdata->an_state = xgbe_an73_page_received(pdata);
+ 		pdata->an_supported++;
+ 		break;
+ 
+ 	case XGBE_AN_INCOMPAT_LINK:
+ 		pdata->an_supported = 0;
+ 		pdata->parallel_detect = 0;
+-		pdata->an_state = xgbe_an_incompat_link(pdata);
++		pdata->an_state = xgbe_an73_incompat_link(pdata);
+ 		break;
+ 
+ 	case XGBE_AN_COMPLETE:
+@@ -558,14 +614,14 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 
+ 	if (pdata->an_state == XGBE_AN_NO_LINK) {
+ 		pdata->an_int = 0;
+-		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
++		xgbe_an73_clear_interrupts(pdata);
+ 	} else if (pdata->an_state == XGBE_AN_ERROR) {
+ 		netdev_err(pdata->netdev,
+ 			   "error during auto-negotiation, state=%u\n",
+ 			   cur_state);
+ 
+ 		pdata->an_int = 0;
+-		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
++		xgbe_an73_clear_interrupts(pdata);
+ 	}
+ 
+ 	if (pdata->an_state >= XGBE_AN_COMPLETE) {
+@@ -575,7 +631,7 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 		pdata->kx_state = XGBE_RX_BPA;
+ 		pdata->an_start = 0;
+ 
+-		netif_dbg(pdata, link, pdata->netdev, "AN result: %s\n",
++		netif_dbg(pdata, link, pdata->netdev, "CL73 AN result: %s\n",
+ 			  xgbe_state_as_string(pdata->an_result));
+ 	}
+ 
+@@ -585,14 +641,29 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 	if (pdata->an_int)
+ 		goto next_int;
+ 
+-out:
+-	/* Enable AN interrupts on the way out */
+-	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, XGBE_AN_INT_MASK);
++	xgbe_an73_enable_interrupts(pdata);
++}
++
++static void xgbe_an_state_machine(struct work_struct *work)
++{
++	struct xgbe_prv_data *pdata = container_of(work,
++						   struct xgbe_prv_data,
++						   an_work);
++
++	mutex_lock(&pdata->an_mutex);
++
++	switch (pdata->an_mode) {
++	case XGBE_AN_MODE_CL73:
++		xgbe_an73_state_machine(pdata);
++		break;
++	default:
++		break;
++	}
+ 
+ 	mutex_unlock(&pdata->an_mutex);
+ }
+ 
+-static void xgbe_an_init(struct xgbe_prv_data *pdata)
++static void xgbe_an73_init(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int reg;
+ 
+@@ -637,7 +708,20 @@ static void xgbe_an_init(struct xgbe_prv_data *pdata)
+ 
+ 	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
+ 
+-	netif_dbg(pdata, link, pdata->netdev, "AN initialized\n");
++	netif_dbg(pdata, link, pdata->netdev, "CL73 AN initialized\n");
++}
++
++static void xgbe_an_init(struct xgbe_prv_data *pdata)
++{
++	/* Set up advertisement registers based on current settings */
++	pdata->an_mode = pdata->phy_if.phy_impl.an_mode(pdata);
++	switch (pdata->an_mode) {
++	case XGBE_AN_MODE_CL73:
++		xgbe_an73_init(pdata);
++		break;
++	default:
++		break;
++	}
+ }
+ 
+ static const char *xgbe_phy_fc_string(struct xgbe_prv_data *pdata)
+@@ -732,7 +816,7 @@ static int xgbe_phy_config_fixed(struct xgbe_prv_data *pdata)
+ 	netif_dbg(pdata, link, pdata->netdev, "fixed PHY configuration\n");
+ 
+ 	/* Disable auto-negotiation */
+-	xgbe_disable_an(pdata);
++	xgbe_an_disable(pdata);
+ 
+ 	/* Set specified mode for specified speed */
+ 	mode = pdata->phy_if.phy_impl.get_mode(pdata, pdata->phy.speed);
+@@ -781,10 +865,10 @@ static int __xgbe_phy_config_aneg(struct xgbe_prv_data *pdata)
+ 	}
+ 
+ 	/* Disable and stop any in progress auto-negotiation */
+-	xgbe_disable_an(pdata);
++	xgbe_an_disable(pdata);
+ 
+ 	/* Clear any auto-negotitation interrupts */
+-	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
++	xgbe_an73_clear_interrupts(pdata);
+ 
+ 	pdata->an_result = XGBE_AN_READY;
+ 	pdata->an_state = XGBE_AN_READY;
+@@ -794,11 +878,8 @@ static int __xgbe_phy_config_aneg(struct xgbe_prv_data *pdata)
+ 	/* Re-enable auto-negotiation interrupt */
+ 	enable_irq(pdata->an_irq);
+ 
+-	/* Set up advertisement registers based on current settings */
+ 	xgbe_an_init(pdata);
+-
+-	/* Enable and start auto-negotiation */
+-	xgbe_restart_an(pdata);
++	xgbe_an_restart(pdata);
+ 
+ 	return 0;
+ }
+@@ -926,10 +1007,7 @@ static void xgbe_phy_stop(struct xgbe_prv_data *pdata)
+ 	pdata->phy_started = 0;
+ 
+ 	/* Disable auto-negotiation */
+-	xgbe_disable_an(pdata);
+-
+-	/* Disable auto-negotiation interrupts */
+-	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
++	xgbe_an_disable(pdata);
+ 
+ 	devm_free_irq(pdata->dev, pdata->an_irq, pdata);
+ 
+@@ -977,11 +1055,8 @@ static int xgbe_phy_start(struct xgbe_prv_data *pdata)
+ 	/* Indicate the PHY is up and running */
+ 	pdata->phy_started = 1;
+ 
+-	/* Set up advertisement registers based on current settings */
+ 	xgbe_an_init(pdata);
+-
+-	/* Enable auto-negotiation interrupts */
+-	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0x07);
++	xgbe_an_enable_interrupts(pdata);
+ 
+ 	return xgbe_phy_config_aneg(pdata);
+ 
+@@ -1003,10 +1078,10 @@ static int xgbe_phy_reset(struct xgbe_prv_data *pdata)
+ 		return ret;
+ 
+ 	/* Disable auto-negotiation for now */
+-	xgbe_disable_an(pdata);
++	xgbe_an_disable(pdata);
+ 
+ 	/* Clear auto-negotiation interrupts */
+-	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
++	xgbe_an73_clear_interrupts(pdata);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
+index 20ccb99..9c913a0 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
+@@ -295,6 +295,11 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
+ 	return mode;
+ }
+ 
++static enum xgbe_an_mode xgbe_phy_an_mode(struct xgbe_prv_data *pdata)
++{
++	return XGBE_AN_MODE_CL73;
++}
++
+ static void xgbe_phy_pcs_power_cycle(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int reg;
+@@ -814,6 +819,8 @@ void xgbe_init_function_ptrs_phy_v1(struct xgbe_phy_if *phy_if)
+ 	phy_impl->switch_mode		= xgbe_phy_switch_mode;
+ 	phy_impl->cur_mode		= xgbe_phy_cur_mode;
+ 
++	phy_impl->an_mode		= xgbe_phy_an_mode;
++
+ 	phy_impl->an_outcome		= xgbe_phy_an_outcome;
+ 
+ 	phy_impl->kr_training_pre	= xgbe_phy_kr_training_pre;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 160b498..7cbf91b 100644
+index 0d33aef..d90ecbc 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -804,6 +804,7 @@ struct xgbe_hw_features {
- struct xgbe_version_data {
- 	void (*init_function_ptrs_phy_impl)(struct xgbe_phy_if *);
- 	enum xgbe_xpcs_access xpcs_access;
-+	unsigned int mmc_64bit;
+@@ -263,11 +263,6 @@
+ #define XGBE_AN_MS_TIMEOUT		500
+ #define XGBE_LINK_TIMEOUT		10
+ 
+-#define XGBE_AN_INT_CMPLT		0x01
+-#define XGBE_AN_INC_LINK		0x02
+-#define XGBE_AN_PG_RCV			0x04
+-#define XGBE_AN_INT_MASK		0x07
+-
+ struct xgbe_prv_data;
+ 
+ struct xgbe_packet_data {
+@@ -470,6 +465,11 @@ enum xgbe_speed {
+ 	XGBE_SPEEDS,
  };
  
- struct xgbe_prv_data {
++enum xgbe_an_mode {
++	XGBE_AN_MODE_CL73 = 0,
++	XGBE_AN_MODE_NONE,
++};
++
+ enum xgbe_an {
+ 	XGBE_AN_READY = 0,
+ 	XGBE_AN_PAGE_RECEIVED,
+@@ -699,6 +699,9 @@ struct xgbe_phy_impl_if {
+ 	/* Retrieve current mode */
+ 	enum xgbe_mode (*cur_mode)(struct xgbe_prv_data *);
+ 
++	/* Retrieve current auto-negotiation mode */
++	enum xgbe_an_mode (*an_mode)(struct xgbe_prv_data *);
++
+ 	/* Process results of auto-negotiation */
+ 	enum xgbe_mode (*an_outcome)(struct xgbe_prv_data *);
+ 
+@@ -968,6 +971,7 @@ struct xgbe_prv_data {
+ 	unsigned int parallel_detect;
+ 	unsigned int fec_ability;
+ 	unsigned long an_start;
++	enum xgbe_an_mode an_mode;
+ 
+ 	unsigned int lpm_ctrl;		/* CTRL1 for resume */
+ 
