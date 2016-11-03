@@ -1,69 +1,155 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH net-next v2 1/1] driver: veth: Refine the statistics codes
- of veth driver
-Date: Thu, 3 Nov 2016 21:39:11 +0800
-Message-ID: <CA+6hz4r9zkPp7-mG7b98ocPvjTiheSnEBMjffSkLXD1MM-aMtg@mail.gmail.com>
-References: <1478178237-23020-1-git-send-email-fgao@ikuai8.com> <1478179858.7065.438.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v1 02/21] amd-xgbe: Prepare for priority-based FIFO
+ allocation
+Date: Thu, 3 Nov 2016 08:28:04 -0500
+Message-ID: <20161103132804.3437.40002.stgit@tlendack-t1.amdoffice.net>
+References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <cwang@twopensource.com>,
-        Vijay Pandurangan <vijayp@vijayp.ca>,
-        Evan Jones <ej@evanjones.ca>, pabeni@redhat.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgau1.qq.com ([54.206.16.166]:58592 "EHLO smtpbgau1.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755005AbcKCNjb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:39:31 -0400
-Received: from mail-vk0-f51.google.com (unknown [209.85.213.51])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 21:39:12 +0800 (CST)
-Received: by mail-vk0-f51.google.com with SMTP id x186so39697020vkd.1
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 06:39:13 -0700 (PDT)
-In-Reply-To: <1478179858.7065.438.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-dm3nam03on0058.outbound.protection.outlook.com ([104.47.41.58]:55886
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755005AbcKCNm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:42:27 -0400
+In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Currently, the Rx and Tx fifos are evenly allocated between the hardware
+queues of the device.  As more queues are instantiated, the fifo memory
+needs to be able to be allocated based on queue priority. This allows for
+higher priority queues to have more fifo memory than lower priority
+queues. Prepare for this by modifying the current fifo calculation to
+assign the fifo queue allocation in an array that is then used to program
+the hardware.
 
-On Thu, Nov 3, 2016 at 9:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-11-03 at 21:03 +0800, fgao@ikuai8.com wrote:
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> The dropped count of veth is located in struct veth_priv, but other
->> statistics like packets and bytes are in another struct pcpu_vstats.
->> Now keep these three counters in the same struct.
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> ---
->>  v2: Use right "peer" instead of "dev";
->>  v1: Initial version
->
-> May I ask : Why ?
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   57 ++++++++++++++++++++++--------
+ drivers/net/ethernet/amd/xgbe/xgbe.h     |    3 +-
+ 2 files changed, 43 insertions(+), 17 deletions(-)
 
-Just because I think statistics should be in the same struct.
-
->
-> We did that because there was no point making per-cpu requirements
-> bigger, for a counter that is hardly ever updated.
->
-> Do you have a real case where performance dropping packets in a driver
-> is needed ?
-
-No, I haven't met the performance issue now.
-
->
-> At some point we will have to stop dumb percpu explosion, when we have
-> 128+ cores per host. Folding all these percpu counters is taking a lot
-> of time too.
->
->
->
-Ok, I get it. It is designed specially to put the dropped counter as
-atomic counter, not percpu.
-But I have one question that when put the counters as percpu, and when not?
-
-Regards
-Feng
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 1babcc1..b3bea63 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -2000,19 +2000,37 @@ static void xgbe_config_mtl_mode(struct xgbe_prv_data *pdata)
+ 	XGMAC_IOWRITE_BITS(pdata, MTL_OMR, RAA, MTL_RAA_SP);
+ }
+ 
+-static unsigned int xgbe_calculate_per_queue_fifo(unsigned int fifo_size,
+-						  unsigned int queue_count)
++static unsigned int xgbe_get_tx_fifo_size(struct xgbe_prv_data *pdata)
+ {
+-	unsigned int q_fifo_size;
+-	unsigned int p_fifo;
++	unsigned int fifo_size;
++
++	/* Calculate the configured fifo size */
++	fifo_size = 1 << (pdata->hw_feat.tx_fifo_size + 7);
++
++	/* The configured value may not be the actual amount of fifo RAM */
++	return min_t(unsigned int, XGMAC_FIFO_TX_MAX, fifo_size);
++}
++
++static unsigned int xgbe_get_rx_fifo_size(struct xgbe_prv_data *pdata)
++{
++	unsigned int fifo_size;
+ 
+ 	/* Calculate the configured fifo size */
+-	q_fifo_size = 1 << (fifo_size + 7);
++	fifo_size = 1 << (pdata->hw_feat.rx_fifo_size + 7);
+ 
+ 	/* The configured value may not be the actual amount of fifo RAM */
+-	q_fifo_size = min_t(unsigned int, XGBE_FIFO_MAX, q_fifo_size);
++	return min_t(unsigned int, XGMAC_FIFO_RX_MAX, fifo_size);
++}
++
++static void xgbe_calculate_equal_fifo(unsigned int fifo_size,
++				      unsigned int queue_count,
++				      unsigned int *fifo)
++{
++	unsigned int q_fifo_size;
++	unsigned int p_fifo;
++	unsigned int i;
+ 
+-	q_fifo_size = q_fifo_size / queue_count;
++	q_fifo_size = fifo_size / queue_count;
+ 
+ 	/* Each increment in the queue fifo size represents 256 bytes of
+ 	 * fifo, with 0 representing 256 bytes. Distribute the fifo equally
+@@ -2022,39 +2040,46 @@ static unsigned int xgbe_calculate_per_queue_fifo(unsigned int fifo_size,
+ 	if (p_fifo)
+ 		p_fifo--;
+ 
+-	return p_fifo;
++	for (i = 0; i < queue_count; i++)
++		fifo[i] = p_fifo;
++
++	return;
+ }
+ 
+ static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int fifo_size;
++	unsigned int fifo[XGBE_MAX_QUEUES];
+ 	unsigned int i;
+ 
+-	fifo_size = xgbe_calculate_per_queue_fifo(pdata->hw_feat.tx_fifo_size,
+-						  pdata->tx_q_count);
++	fifo_size = xgbe_get_tx_fifo_size(pdata);
++
++	xgbe_calculate_equal_fifo(fifo_size, pdata->tx_q_count, fifo);
+ 
+ 	for (i = 0; i < pdata->tx_q_count; i++)
+-		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo_size);
++		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo[i]);
+ 
+ 	netif_info(pdata, drv, pdata->netdev,
+ 		   "%d Tx hardware queues, %d byte fifo per queue\n",
+-		   pdata->tx_q_count, ((fifo_size + 1) * 256));
++		   pdata->tx_q_count, ((fifo[0] + 1) * 256));
+ }
+ 
+ static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int fifo_size;
++	unsigned int fifo[XGBE_MAX_QUEUES];
+ 	unsigned int i;
+ 
+-	fifo_size = xgbe_calculate_per_queue_fifo(pdata->hw_feat.rx_fifo_size,
+-						  pdata->rx_q_count);
++	fifo_size = xgbe_get_rx_fifo_size(pdata);
++
++	xgbe_calculate_equal_fifo(fifo_size, pdata->rx_q_count, fifo);
+ 
+ 	for (i = 0; i < pdata->rx_q_count; i++)
+-		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo_size);
++		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo[i]);
+ 
+ 	netif_info(pdata, drv, pdata->netdev,
+ 		   "%d Rx hardware queues, %d byte fifo per queue\n",
+-		   pdata->rx_q_count, ((fifo_size + 1) * 256));
++		   pdata->rx_q_count, ((fifo[0] + 1) * 256));
+ }
+ 
+ static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index 5dd17dc..d838b44 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -208,7 +208,8 @@
+ #define XGMAC_DRIVER_CONTEXT	1
+ #define XGMAC_IOCTL_CONTEXT	2
+ 
+-#define XGBE_FIFO_MAX		81920
++#define XGMAC_FIFO_RX_MAX	81920
++#define XGMAC_FIFO_TX_MAX	81920
+ 
+ #define XGBE_TC_MIN_QUANTUM	10
+ 
