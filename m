@@ -1,56 +1,171 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] netfilter: Update nf_send_reset6 to consider L3 domain
-Date: Thu,  3 Nov 2016 16:26:03 -0700
-Message-ID: <1478215563-25700-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, pablo@netfilter.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
+Date: Thu, 3 Nov 2016 16:29:22 -0700
+Message-ID: <581BC852.7010304@gmail.com>
+References: <20161027.221027.109834362557507518.davem@davemloft.net>
+ <58137533.4030105@gmail.com>
+ <20161028171812.48073f1f@jkicinski-Precision-T1700>
+ <20161028182223.GA53930@ast-mbp.thefacebook.com>
+ <ec23c734c23d81884349484927140741@mail.gmail.com>
+ <20161029112514.GC1810@pox.localdomain> <20161102152708.5cb40a0c@redhat.com>
+ <b09333565b4ead1f90719cfb3643f6af@mail.gmail.com>
+ <20161103041145.arylaxxssbdylfwn@redhat.com> <581ADCD1.3040404@gmail.com>
+ <20161104002503-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Thomas Graf <tgraf@suug.ch>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>,
+        David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
+        shrijeet@gmail.com, tom@herbertland.com, netdev@vger.kernel.org,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        aconole@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:32875 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933144AbcKCX0K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 19:26:10 -0400
-Received: by mail-pf0-f180.google.com with SMTP id d2so39489623pfd.0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 16:26:10 -0700 (PDT)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33720 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753958AbcKCX3m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 19:29:42 -0400
+Received: by mail-pf0-f171.google.com with SMTP id d2so39535751pfd.0
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 16:29:42 -0700 (PDT)
+In-Reply-To: <20161104002503-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nf_send_reset6 is not considering the L3 domain and lookups are sent
-to the wrong table. For example consider the following output rule:
+[...]
 
-ip6tables -A OUTPUT -p tcp --dport 12345 -j REJECT --reject-with tcp-reset
+>>> - when XDP is attached disable all LRO using VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET
+>>>   (not used by driver so far, designed to allow dynamic LRO control with
+>>>    ethtool)
+>>
+>> I see there is a UAPI bit for this but I guess we also need to add
+>> support to vhost as well? Seems otherwise we may just drop a bunch
+>> of packets on the floor out of handle_rx() when recvmsg returns larger
+>> than a page size. Or did I read this wrong...
+> 
+> It's already supported host side. However you might
+> get some packets that were in flight when you attached.
+> 
 
-using perf to analyze lookups via the fib6_table_lookup tracepoint shows:
+Really I must have missed it I don't see any *GUEST_FEATURES* flag in
+./drivers/vhost/?
 
-swapper     0 [001]   248.787816: fib6:fib6_table_lookup: table 255 oif 0 iif 1 src 2100:1::3 dst 2100:1:
-        ffffffff81439cdc perf_trace_fib6_table_lookup ([kernel.kallsyms])
-        ffffffff814c1ce3 trace_fib6_table_lookup ([kernel.kallsyms])
-        ffffffff814c3e89 ip6_pol_route ([kernel.kallsyms])
-        ffffffff814c40d5 ip6_pol_route_output ([kernel.kallsyms])
-        ffffffff814e7b6f fib6_rule_action ([kernel.kallsyms])
-        ffffffff81437f60 fib_rules_lookup ([kernel.kallsyms])
-        ffffffff814e7c79 fib6_rule_lookup ([kernel.kallsyms])
-        ffffffff814c2541 ip6_route_output_flags ([kernel.kallsyms])
-                     528 nf_send_reset6 ([nf_reject_ipv6])
+>>> - start adding page-sized buffers
+>>
+>> I started to mangle add_recvbuf_big() and receive_big() here and this
+>> didn't seem too bad.
+> 
+> I imagine it won't be ATM but I think we'll need to support
+> mrg buffers with time and then it will be messy.
+> Besides, it's not an architectural thing that receive_big
+> uses page sized buffers, it could use any size.
+> So a separate path just for xdp would be better imho.
+> 
+>>> - do something with non-page-sized buffers added previously - what
+>>>   exactly? copy I guess? What about LRO packets that are too large -
+>>>   can we drop or can we split them up?
+>>
+>> hmm not sure I understand this here. With LRO disabled and mergeable
+>> buffers disabled all packets should fit in a page correct?
+> 
+> Assuing F_MTU is negotiated and MTU field is small enough, yes.
+> But if you disable mrg buffers dynamically you will get some packets
+> in buffers that were added before the disable.
+> Similarly for disabling LRO dynamically.
+> 
+>> With LRO enabled case I guess to start with we block XDP from being
+>> loaded for the same reason we don't allow jumbo frames on physical
+>> nics.
+> 
+> If you ask that host disables the capability, then yes, it's easy.
+> Let's do that for now, it's a start.
+> 
+> 
+>>>
+>>> I'm fine with disabling XDP for some configurations as the first step,
+>>> and we can add that support later.
+>>>
+>>
+>> In order for this to work though I guess we need to be able to
+>> dynamically disable mergeable buffers at the moment I just commented
+>> it out of the features list and fixed up virtio_has_features so it
+>> wont bug_on.
+> 
+> For now we can just set mrg_rxbuf=off on qemu command line, and
+> fail XDP attach if not there. I think we'll be able to support it
+> long term but you will need host side changes, or fully reset
+> device and reconfigure it.
 
-Update nf_send_reset6 to pull the L3 domain from the dst currently
-attached to the skb.
+see question below. I agree disabling mrg_rxbuff=off lro=off and an
+xdp receive path makes this relatively straight forward and clean with
+the MTU patch noted below as well.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv6/netfilter/nf_reject_ipv6.c | 1 +
- 1 file changed, 1 insertion(+)
+> 
+>>> Ideas about mergeable buffers (optional):
+>>>
+>>> At the moment mergeable buffers can't be disabled dynamically.
+>>> They do bring a small benefit for XDP if host MTU is large (see below)
+>>> and aren't hard to support:
+>>> - if header is by itself skip 1st page
+>>> - otherwise copy all data into first page
+>>> and it's nicer not to add random limitations that require guest reboot.
+>>> It might make sense to add a command that disables/enabled
+>>> mergeable buffers dynamically but that's for newer hosts.
+>>
+>> Yep it seems disabling mergeable buffers solves this but didn't look at
+>> it too closely. I'll look closer tomorrow.
+>>
+>>>
+>>> Spec does not require it but in practice most hosts put all data
+>>> in the 1st page or all in the 2nd page so the copy will be nop
+>>> for these cases.
+>>>
+>>> Large host MTU - newer hosts report the host MTU, older ones don't.
+>>> Using mergeable buffers we can at least detect this case
+>>> (and then what? drop I guess).
+>>>
+>>
+>> The physical nics just refuse to load XDP with large MTU.
+> 
+> So let's do the same for now, unfortunately you don't know
+> the MTU unless _F_MTU is negitiated and QEMU does not
+> implement that yet, but it's easy to add.
+> In fact I suspect Aaron (cc) has an implementation since
+> he posted a patch implementing that.
+> Aaron could you post it pls?
+> 
 
-diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
-index a5400223fd74..10090400c72f 100644
---- a/net/ipv6/netfilter/nf_reject_ipv6.c
-+++ b/net/ipv6/netfilter/nf_reject_ipv6.c
-@@ -156,6 +156,7 @@ void nf_send_reset6(struct net *net, struct sk_buff *oldskb, int hook)
- 	fl6.daddr = oip6h->saddr;
- 	fl6.fl6_sport = otcph->dest;
- 	fl6.fl6_dport = otcph->source;
-+	fl6.flowi6_oif = l3mdev_master_ifindex(skb_dst(oldskb)->dev);
- 	security_skb_classify_flow(oldskb, flowi6_to_flowi(&fl6));
- 	dst = ip6_route_output(net, NULL, &fl6);
- 	if (dst->error) {
--- 
-2.1.4
+Great! Aaron if you want me to review/test at all let me know I have
+a few systems setup running this now so can help if needed.
+
+>> Any reason
+>> not to negotiate the mtu with the guest so that the guest can force
+>> this?
+> 
+> There are generally many guests and many NICs on the host.
+> A big packet arrives, what do you want to do with it?
+
+Drop it just like a physical nic would do if packet is larger
+than MTU. Maybe splat a message in the log so user has some
+clue something got misconfigured.
+
+> We probably want to build propagating MTU across all VMs and NICs
+> but let's get a basic thing merged first.
+
+That feels like an orchestration/QEMU type problem to me. Just because
+some NIC has jumbo frames enabled doesn't necessarily mean they would
+ever get to any specific VM based on forwarding configuration.
+
+And if I try to merge the last email I sent out here. In mergeable and
+big_packets modes if LRO is off and MTU < PAGE_SIZE it seems we should
+always get physically contiguous data on a single page correct? It
+may be at some offset in a page however. But the offset should not
+matter to XDP. If I read this right we wouldn't need to add a new
+XDP mode and could just use the existing merge or big modes. This would
+seem cleaner to me than adding a new mode and requiring a qemu option.
+
+Thanks for all the pointers by the way its very helpful.
