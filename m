@@ -1,63 +1,98 @@
-From: Douglas Miller <dougmill@linux.vnet.ibm.com>
-Subject: Re: [PATCH net] ehea: fix operation state report
-Date: Thu, 3 Nov 2016 07:19:50 -0500
-Message-ID: <8de471c6-a7c7-7c22-c4b7-cd029764e922@linux.vnet.ibm.com>
-References: <1478168180-18371-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: zhou@redhat.com
-To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH] net/sched: cls_flower: Support matching on SCTP ports
+Date: Thu,  3 Nov 2016 13:24:22 +0100
+Message-ID: <1478175862-28642-2-git-send-email-simon.horman@netronome.com>
+References: <1478175862-28642-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57303 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752280AbcKCMT5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 08:19:57 -0400
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uA3CJKhI088970
-        for <netdev@vger.kernel.org>; Thu, 3 Nov 2016 08:19:56 -0400
-Received: from e18.ny.us.ibm.com (e18.ny.us.ibm.com [129.33.205.208])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 26fx2xntc9-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 08:19:56 -0400
-Received: from localhost
-        by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <dougmill@linux.vnet.ibm.com>;
-        Thu, 3 Nov 2016 08:19:55 -0400
-In-Reply-To: <1478168180-18371-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37483 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755648AbcKCMYe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 08:24:34 -0400
+Received: by mail-wm0-f41.google.com with SMTP id t79so97330870wmt.0
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 05:24:33 -0700 (PDT)
+In-Reply-To: <1478175862-28642-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/03/2016 05:16 AM, Guilherme G. Piccoli wrote:
-> Currently the ehea driver is missing a call to netif_carrier_off()
-> before the interface bring-up; this is necessary in order to
-> initialize the __LINK_STATE_NOCARRIER bit in the net_device state
-> field. Otherwise, we observe state UNKNOWN on "ip address" command
-> output.
->
-> This patch adds a call to netif_carrier_off() on ehea's net device
-> open callback.
->
-> Reported-by: Xiong Zhou <zhou@redhat.com>
-> Reference-ID: IBM bz #137702, Red Hat bz #1089134
-> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
-> ---
->   drivers/net/ethernet/ibm/ehea/ehea_main.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> index 54efa9a..bd719e2 100644
-> --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> @@ -2446,6 +2446,8 @@ static int ehea_open(struct net_device *dev)
->
->   	netif_info(port, ifup, dev, "enabling port\n");
->
-> +	netif_carrier_off(dev);
-> +
->   	ret = ehea_up(dev);
->   	if (!ret) {
->   		port_napi_enable(port);
+Support matching on SCTP ports in the same way that matching
+on TCP and UDP ports is already supported.
 
-Signed-off-by: Douglas Miller <dougmill@linux.vnet.ibm.com>
+Example usage:
+
+tc qdisc add dev eth0 ingress
+
+tc filter add dev eth0 protocol ip parent ffff: \
+        flower indev eth0 ip_proto sctp dst_port 80 \
+        action drop
+
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ include/uapi/linux/pkt_cls.h |  5 +++++
+ net/sched/cls_flower.c       | 19 +++++++++++++++++++
+ 2 files changed, 24 insertions(+)
+
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 8fd715f806a2..eb94781757ee 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -447,6 +447,11 @@ enum {
+ 	TCA_FLOWER_KEY_TCP_DST_MASK,	/* be16 */
+ 	TCA_FLOWER_KEY_UDP_SRC_MASK,	/* be16 */
+ 	TCA_FLOWER_KEY_UDP_DST_MASK,	/* be16 */
++	TCA_FLOWER_KEY_SCTP_SRC_MASK,	/* be16 */
++	TCA_FLOWER_KEY_SCTP_DST_MASK,	/* be16 */
++
++	TCA_FLOWER_KEY_SCTP_SRC,	/* be16 */
++	TCA_FLOWER_KEY_SCTP_DST,	/* be16 */
+ 	__TCA_FLOWER_MAX,
+ };
+ 
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index a8fb1ca03b3e..db4cd882a989 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -344,6 +344,10 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_TCP_DST_MASK]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_UDP_SRC_MASK]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_UDP_DST_MASK]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_SCTP_SRC_MASK]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_SCTP_DST_MASK]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_SCTP_SRC]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_SCTP_DST]	= { .type = NLA_U16 },
+ };
+ 
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -453,6 +457,13 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_UDP_DST,
+ 			       &mask->tp.dst, TCA_FLOWER_KEY_UDP_DST_MASK,
+ 			       sizeof(key->tp.dst));
++	} else if (key->basic.ip_proto == IPPROTO_SCTP) {
++		fl_set_key_val(tb, &key->tp.src, TCA_FLOWER_KEY_SCTP_SRC,
++			       &mask->tp.src, TCA_FLOWER_KEY_SCTP_SRC_MASK,
++			       sizeof(key->tp.src));
++		fl_set_key_val(tb, &key->tp.dst, TCA_FLOWER_KEY_SCTP_DST,
++			       &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
++			       sizeof(key->tp.dst));
+ 	}
+ 
+ 	if (tb[TCA_FLOWER_KEY_ENC_IPV4_SRC] ||
+@@ -897,6 +908,14 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 				  &mask->tp.dst, TCA_FLOWER_KEY_UDP_DST_MASK,
+ 				  sizeof(key->tp.dst))))
+ 		goto nla_put_failure;
++	else if (key->basic.ip_proto == IPPROTO_SCTP &&
++		 (fl_dump_key_val(skb, &key->tp.src, TCA_FLOWER_KEY_SCTP_SRC,
++				  &mask->tp.src, TCA_FLOWER_KEY_SCTP_SRC_MASK,
++				  sizeof(key->tp.src)) ||
++		  fl_dump_key_val(skb, &key->tp.dst, TCA_FLOWER_KEY_SCTP_DST,
++				  &mask->tp.dst, TCA_FLOWER_KEY_SCTP_DST_MASK,
++				  sizeof(key->tp.dst))))
++		goto nla_put_failure;
+ 
+ 	if (key->enc_control.addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS &&
+ 	    (fl_dump_key_val(skb, &key->enc_ipv4.src,
+-- 
+2.7.0.rc3.207.g0ac5344
