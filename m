@@ -1,69 +1,61 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next resend 05/13] nfp: loosen relation between rings and IRQs vectors
-Date: Thu,  3 Nov 2016 17:12:01 +0000
-Message-ID: <1478193129-23476-6-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next resend 01/13] nfp: add support for ethtool .get_channels
+Date: Thu,  3 Nov 2016 17:11:57 +0000
+Message-ID: <1478193129-23476-2-git-send-email-jakub.kicinski@netronome.com>
 References: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:33517 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932578AbcKCRM0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:12:26 -0400
-Received: by mail-wm0-f51.google.com with SMTP id c184so4858624wmd.0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:12:25 -0700 (PDT)
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35707 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758919AbcKCRMX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:12:23 -0400
+Received: by mail-wm0-f44.google.com with SMTP id a197so77580wmd.0
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:12:22 -0700 (PDT)
 In-Reply-To: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Upcoming XDP support will break the assumption that one can iterate
-over IRQ vectors to get to all the rings easily.  Use nn->.x_ring
-arrays directly.
+Report number of rings via ethtool .get_channels API.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 50aeaea9e318..97cc21eae466 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1920,9 +1920,9 @@ static void nfp_net_clear_config_and_disable(struct nfp_net *nn)
- 		nn_err(nn, "Could not disable device: %d\n", err);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 3418f2277e9d..a7386d1b2883 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -614,6 +614,21 @@ static int nfp_net_set_coalesce(struct net_device *netdev,
+ 	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_IRQMOD);
+ }
  
- 	for (r = 0; r < nn->num_rx_rings; r++)
--		nfp_net_rx_ring_reset(nn->r_vecs[r].rx_ring);
-+		nfp_net_rx_ring_reset(&nn->rx_rings[r]);
- 	for (r = 0; r < nn->num_tx_rings; r++)
--		nfp_net_tx_ring_reset(nn, nn->r_vecs[r].tx_ring);
-+		nfp_net_tx_ring_reset(nn, &nn->tx_rings[r]);
- 	for (r = 0; r < nn->num_r_vecs; r++)
- 		nfp_net_vec_clear_ring_data(nn, r);
++static void nfp_net_get_channels(struct net_device *netdev,
++				 struct ethtool_channels *channel)
++{
++	struct nfp_net *nn = netdev_priv(netdev);
++
++	channel->max_rx = min(nn->max_rx_rings, nn->max_r_vecs);
++	channel->max_tx = min(nn->max_tx_rings, nn->max_r_vecs);
++	channel->max_combined = min(channel->max_rx, channel->max_tx);
++	channel->max_other = NFP_NET_NON_Q_VECTORS;
++	channel->combined_count = min(nn->num_rx_rings, nn->num_tx_rings);
++	channel->rx_count = nn->num_rx_rings - channel->combined_count;
++	channel->tx_count = nn->num_tx_rings - channel->combined_count;
++	channel->other_count = NFP_NET_NON_Q_VECTORS;
++}
++
+ static const struct ethtool_ops nfp_net_ethtool_ops = {
+ 	.get_drvinfo		= nfp_net_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+@@ -632,6 +647,7 @@ static int nfp_net_set_coalesce(struct net_device *netdev,
+ 	.get_regs		= nfp_net_get_regs,
+ 	.get_coalesce           = nfp_net_get_coalesce,
+ 	.set_coalesce           = nfp_net_set_coalesce,
++	.get_channels		= nfp_net_get_channels,
+ };
  
-@@ -2000,7 +2000,7 @@ static int __nfp_net_set_config_and_enable(struct nfp_net *nn)
- 	nn->ctrl = new_ctrl;
- 
- 	for (r = 0; r < nn->num_rx_rings; r++)
--		nfp_net_rx_ring_fill_freelist(nn->r_vecs[r].rx_ring);
-+		nfp_net_rx_ring_fill_freelist(&nn->rx_rings[r]);
- 
- 	/* Since reconfiguration requests while NFP is down are ignored we
- 	 * have to wipe the entire VXLAN configuration and reinitialize it.
-@@ -2173,11 +2173,11 @@ static void nfp_net_close_free_all(struct nfp_net *nn)
- 	unsigned int r;
- 
- 	for (r = 0; r < nn->num_rx_rings; r++) {
--		nfp_net_rx_ring_bufs_free(nn, nn->r_vecs[r].rx_ring);
--		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
-+		nfp_net_rx_ring_bufs_free(nn, &nn->rx_rings[r]);
-+		nfp_net_rx_ring_free(&nn->rx_rings[r]);
- 	}
- 	for (r = 0; r < nn->num_tx_rings; r++)
--		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
-+		nfp_net_tx_ring_free(&nn->tx_rings[r]);
- 	for (r = 0; r < nn->num_r_vecs; r++)
- 		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
- 
+ void nfp_net_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.9.1
