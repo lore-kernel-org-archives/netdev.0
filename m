@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 14/21] amd-xgbe: Allow for a greater number of
- Rx queues
-Date: Thu, 3 Nov 2016 08:30:08 -0500
-Message-ID: <20161103133008.3437.49103.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 08/21] amd-xgbe: Support for 64-bit management
+ counter registers
+Date: Thu, 3 Nov 2016 08:29:04 -0500
+Message-ID: <20161103132904.3437.45057.stgit@tlendack-t1.amdoffice.net>
 References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,35 +11,82 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0053.outbound.protection.outlook.com ([104.47.42.53]:48688
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0055.outbound.protection.outlook.com ([104.47.40.55]:8168
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754326AbcKCNpE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:45:04 -0400
+        id S1754326AbcKCNpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:45:07 -0400
 In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the call to netif_get_num_default_rss_queues() and replace it
-with num_online_cpus() to allow for the possibility of using all of
-the hardware DMA channels available.
+Add support for reading all management counter registers as 64-bit
+values.  The indication of whether to read the high 32-bits to form
+a 64-bit value is indicated in the version data.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   36 ++++++++++++++++++++++--------
+ drivers/net/ethernet/amd/xgbe/xgbe.h     |    1 +
+ 2 files changed, 27 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 697483a..7655753 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -236,8 +236,7 @@ void xgbe_set_counts(struct xgbe_prv_data *pdata)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 0d0da4c..056f38c 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -2590,17 +2590,33 @@ static u64 xgbe_mmc_read(struct xgbe_prv_data *pdata, unsigned int reg_lo)
+ 	bool read_hi;
+ 	u64 val;
  
- 	pdata->tx_q_count = pdata->tx_ring_count;
+-	switch (reg_lo) {
+-	/* These registers are always 64 bit */
+-	case MMC_TXOCTETCOUNT_GB_LO:
+-	case MMC_TXOCTETCOUNT_G_LO:
+-	case MMC_RXOCTETCOUNT_GB_LO:
+-	case MMC_RXOCTETCOUNT_G_LO:
+-		read_hi = true;
+-		break;
++	if (pdata->vdata->mmc_64bit) {
++		switch (reg_lo) {
++		/* These registers are always 32 bit */
++		case MMC_RXRUNTERROR:
++		case MMC_RXJABBERERROR:
++		case MMC_RXUNDERSIZE_G:
++		case MMC_RXOVERSIZE_G:
++		case MMC_RXWATCHDOGERROR:
++			read_hi = false;
++			break;
  
--	pdata->rx_ring_count = min_t(unsigned int,
--				     netif_get_num_default_rss_queues(),
-+	pdata->rx_ring_count = min_t(unsigned int, num_online_cpus(),
- 				     pdata->hw_feat.rx_ch_cnt);
- 	pdata->rx_ring_count = min_t(unsigned int, pdata->rx_ring_count,
- 				     pdata->rx_max_channel_count);
+-	default:
+-		read_hi = false;
++		default:
++			read_hi = true;
++		}
++	} else {
++		switch (reg_lo) {
++		/* These registers are always 64 bit */
++		case MMC_TXOCTETCOUNT_GB_LO:
++		case MMC_TXOCTETCOUNT_G_LO:
++		case MMC_RXOCTETCOUNT_GB_LO:
++		case MMC_RXOCTETCOUNT_G_LO:
++			read_hi = true;
++			break;
++
++		default:
++			read_hi = false;
++		}
+ 	}
+ 
+ 	val = XGMAC_IOREAD(pdata, reg_lo);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index 160b498..7cbf91b 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -804,6 +804,7 @@ struct xgbe_hw_features {
+ struct xgbe_version_data {
+ 	void (*init_function_ptrs_phy_impl)(struct xgbe_phy_if *);
+ 	enum xgbe_xpcs_access xpcs_access;
++	unsigned int mmc_64bit;
+ };
+ 
+ struct xgbe_prv_data {
