@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 01/10] amd-xgbe: Fix formatting of PCS register
- dump
-Date: Thu, 3 Nov 2016 13:17:38 -0500
-Message-ID: <20161103181738.7383.30314.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 02/10] amd-xgbe: Prepare for priority-based FIFO
+ allocation
+Date: Thu, 3 Nov 2016 13:17:48 -0500
+Message-ID: <20161103181748.7383.15351.stgit@tlendack-t1.amdoffice.net>
 References: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,70 +10,143 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0080.outbound.protection.outlook.com ([104.47.40.80]:31168
+Received: from mail-co1nam03on0072.outbound.protection.outlook.com ([104.47.40.72]:44960
         "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1758233AbcKCSRp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 14:17:45 -0400
+        id S1759718AbcKCSSM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 14:18:12 -0400
 In-Reply-To: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the length value used for the PCS register dump so that the full
-value can be displayed.
+Currently, the Rx and Tx fifos are evenly allocated between the hardware
+queues of the device.  As more queues are instantiated, the fifo memory
+needs to be able to be allocated based on queue priority. This allows for
+higher priority queues to have more fifo memory than lower priority
+queues. Prepare for this by modifying the current fifo calculation to
+assign the fifo queue allocation in an array that is then used to program
+the hardware.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c |   24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   55 +++++++++++++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe.h     |    3 +-
+ 2 files changed, 41 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 84c5d29..e9b01fc 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -1257,33 +1257,33 @@ static void xgbe_dump_phy_registers(struct xgbe_prv_data *pdata)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 1babcc1..18f8001 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -2000,19 +2000,37 @@ static void xgbe_config_mtl_mode(struct xgbe_prv_data *pdata)
+ 	XGMAC_IOWRITE_BITS(pdata, MTL_OMR, RAA, MTL_RAA_SP);
+ }
  
- 	dev_dbg(dev, "\n************* PHY Reg dump **********************\n");
+-static unsigned int xgbe_calculate_per_queue_fifo(unsigned int fifo_size,
+-						  unsigned int queue_count)
++static unsigned int xgbe_get_tx_fifo_size(struct xgbe_prv_data *pdata)
+ {
+-	unsigned int q_fifo_size;
+-	unsigned int p_fifo;
++	unsigned int fifo_size;
  
--	dev_dbg(dev, "PCS Control Reg (%#04x) = %#04x\n", MDIO_CTRL1,
-+	dev_dbg(dev, "PCS Control Reg (%#06x) = %#06x\n", MDIO_CTRL1,
- 		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_CTRL1));
--	dev_dbg(dev, "PCS Status Reg (%#04x) = %#04x\n", MDIO_STAT1,
-+	dev_dbg(dev, "PCS Status Reg (%#06x) = %#06x\n", MDIO_STAT1,
- 		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_STAT1));
--	dev_dbg(dev, "Phy Id (PHYS ID 1 %#04x)= %#04x\n", MDIO_DEVID1,
-+	dev_dbg(dev, "Phy Id (PHYS ID 1 %#06x)= %#06x\n", MDIO_DEVID1,
- 		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVID1));
--	dev_dbg(dev, "Phy Id (PHYS ID 2 %#04x)= %#04x\n", MDIO_DEVID2,
-+	dev_dbg(dev, "Phy Id (PHYS ID 2 %#06x)= %#06x\n", MDIO_DEVID2,
- 		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVID2));
--	dev_dbg(dev, "Devices in Package (%#04x)= %#04x\n", MDIO_DEVS1,
-+	dev_dbg(dev, "Devices in Package (%#06x)= %#06x\n", MDIO_DEVS1,
- 		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVS1));
--	dev_dbg(dev, "Devices in Package (%#04x)= %#04x\n", MDIO_DEVS2,
-+	dev_dbg(dev, "Devices in Package (%#06x)= %#06x\n", MDIO_DEVS2,
- 		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVS2));
+ 	/* Calculate the configured fifo size */
+-	q_fifo_size = 1 << (fifo_size + 7);
++	fifo_size = 1 << (pdata->hw_feat.tx_fifo_size + 7);
  
--	dev_dbg(dev, "Auto-Neg Control Reg (%#04x) = %#04x\n", MDIO_CTRL1,
-+	dev_dbg(dev, "Auto-Neg Control Reg (%#06x) = %#06x\n", MDIO_CTRL1,
- 		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_CTRL1));
--	dev_dbg(dev, "Auto-Neg Status Reg (%#04x) = %#04x\n", MDIO_STAT1,
-+	dev_dbg(dev, "Auto-Neg Status Reg (%#06x) = %#06x\n", MDIO_STAT1,
- 		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_STAT1));
--	dev_dbg(dev, "Auto-Neg Ad Reg 1 (%#04x) = %#04x\n",
-+	dev_dbg(dev, "Auto-Neg Ad Reg 1 (%#06x) = %#06x\n",
- 		MDIO_AN_ADVERTISE,
- 		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE));
--	dev_dbg(dev, "Auto-Neg Ad Reg 2 (%#04x) = %#04x\n",
-+	dev_dbg(dev, "Auto-Neg Ad Reg 2 (%#06x) = %#06x\n",
- 		MDIO_AN_ADVERTISE + 1,
- 		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1));
--	dev_dbg(dev, "Auto-Neg Ad Reg 3 (%#04x) = %#04x\n",
-+	dev_dbg(dev, "Auto-Neg Ad Reg 3 (%#06x) = %#06x\n",
- 		MDIO_AN_ADVERTISE + 2,
- 		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2));
--	dev_dbg(dev, "Auto-Neg Completion Reg (%#04x) = %#04x\n",
-+	dev_dbg(dev, "Auto-Neg Completion Reg (%#06x) = %#06x\n",
- 		MDIO_AN_COMP_STAT,
- 		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_COMP_STAT));
+ 	/* The configured value may not be the actual amount of fifo RAM */
+-	q_fifo_size = min_t(unsigned int, XGBE_FIFO_MAX, q_fifo_size);
++	return min_t(unsigned int, XGMAC_FIFO_TX_MAX, fifo_size);
++}
++
++static unsigned int xgbe_get_rx_fifo_size(struct xgbe_prv_data *pdata)
++{
++	unsigned int fifo_size;
+ 
+-	q_fifo_size = q_fifo_size / queue_count;
++	/* Calculate the configured fifo size */
++	fifo_size = 1 << (pdata->hw_feat.rx_fifo_size + 7);
++
++	/* The configured value may not be the actual amount of fifo RAM */
++	return min_t(unsigned int, XGMAC_FIFO_RX_MAX, fifo_size);
++}
++
++static void xgbe_calculate_equal_fifo(unsigned int fifo_size,
++				      unsigned int queue_count,
++				      unsigned int *fifo)
++{
++	unsigned int q_fifo_size;
++	unsigned int p_fifo;
++	unsigned int i;
++
++	q_fifo_size = fifo_size / queue_count;
+ 
+ 	/* Each increment in the queue fifo size represents 256 bytes of
+ 	 * fifo, with 0 representing 256 bytes. Distribute the fifo equally
+@@ -2022,39 +2040,44 @@ static unsigned int xgbe_calculate_per_queue_fifo(unsigned int fifo_size,
+ 	if (p_fifo)
+ 		p_fifo--;
+ 
+-	return p_fifo;
++	for (i = 0; i < queue_count; i++)
++		fifo[i] = p_fifo;
+ }
+ 
+ static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int fifo_size;
++	unsigned int fifo[XGBE_MAX_QUEUES];
+ 	unsigned int i;
+ 
+-	fifo_size = xgbe_calculate_per_queue_fifo(pdata->hw_feat.tx_fifo_size,
+-						  pdata->tx_q_count);
++	fifo_size = xgbe_get_tx_fifo_size(pdata);
++
++	xgbe_calculate_equal_fifo(fifo_size, pdata->tx_q_count, fifo);
+ 
+ 	for (i = 0; i < pdata->tx_q_count; i++)
+-		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo_size);
++		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo[i]);
+ 
+ 	netif_info(pdata, drv, pdata->netdev,
+ 		   "%d Tx hardware queues, %d byte fifo per queue\n",
+-		   pdata->tx_q_count, ((fifo_size + 1) * 256));
++		   pdata->tx_q_count, ((fifo[0] + 1) * 256));
+ }
+ 
+ static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int fifo_size;
++	unsigned int fifo[XGBE_MAX_QUEUES];
+ 	unsigned int i;
+ 
+-	fifo_size = xgbe_calculate_per_queue_fifo(pdata->hw_feat.rx_fifo_size,
+-						  pdata->rx_q_count);
++	fifo_size = xgbe_get_rx_fifo_size(pdata);
++
++	xgbe_calculate_equal_fifo(fifo_size, pdata->rx_q_count, fifo);
+ 
+ 	for (i = 0; i < pdata->rx_q_count; i++)
+-		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo_size);
++		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo[i]);
+ 
+ 	netif_info(pdata, drv, pdata->netdev,
+ 		   "%d Rx hardware queues, %d byte fifo per queue\n",
+-		   pdata->rx_q_count, ((fifo_size + 1) * 256));
++		   pdata->rx_q_count, ((fifo[0] + 1) * 256));
+ }
+ 
+ static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index 5dd17dc..d838b44 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -208,7 +208,8 @@
+ #define XGMAC_DRIVER_CONTEXT	1
+ #define XGMAC_IOCTL_CONTEXT	2
+ 
+-#define XGBE_FIFO_MAX		81920
++#define XGMAC_FIFO_RX_MAX	81920
++#define XGMAC_FIFO_TX_MAX	81920
+ 
+ #define XGBE_TC_MIN_QUANTUM	10
  
