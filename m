@@ -1,12 +1,10 @@
 From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net v2 2/4] net: ethernet: ti: cpsw: fix device and of_node leaks
-Date: Thu,  3 Nov 2016 18:40:20 +0100
-Message-ID: <1478194822-29545-3-git-send-email-johan@kernel.org>
+Subject: [PATCH net v2 4/4] net: hns: fix device reference leaks
+Date: Thu,  3 Nov 2016 18:40:22 +0100
+Message-ID: <1478194822-29545-5-git-send-email-johan@kernel.org>
 References: <1478194822-29545-1-git-send-email-johan@kernel.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Johan Hovold <johan@kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        linux-omap@vger.kernel.org
+        Johan Hovold <johan@kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Yisen Zhuang <yisen.zhuang@huawei.com>,
@@ -17,37 +15,50 @@ In-Reply-To: <1478194822-29545-1-git-send-email-johan@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make sure to drop the references taken by of_get_child_by_name() and
-bus_find_device() before returning from cpsw_phy_sel().
+Make sure to drop the reference taken by class_find_device() in
+hnae_get_handle() on errors and when later releasing the handle.
 
-Note that holding a reference to the cpsw-phy-sel device does not
-prevent the devres-managed private data from going away.
-
-Fixes: 5892cd135e16 ("drivers: net: cpsw-phy-sel: Add new driver...")
-Cc: Mugunthan V N <mugunthanvnm@ti.com>
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>
-Cc: linux-omap@vger.kernel.org
+Fixes: 6fe6611ff275 ("net: add Hisilicon Network Subsystem...")
+Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
+Cc: Salil Mehta <salil.mehta@huawei.com>
 Signed-off-by: Johan Hovold <johan@kernel.org>
 ---
- drivers/net/ethernet/ti/cpsw-phy-sel.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hnae.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw-phy-sel.c b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-index 054a8dd23dae..ba1e45ff6aae 100644
---- a/drivers/net/ethernet/ti/cpsw-phy-sel.c
-+++ b/drivers/net/ethernet/ti/cpsw-phy-sel.c
-@@ -176,9 +176,12 @@ void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave)
- 	}
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
+index c54c6fac0d1d..b6ed818f78ff 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.c
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
+@@ -332,8 +332,10 @@ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
+ 		return ERR_PTR(-ENODEV);
  
- 	dev = bus_find_device(&platform_bus_type, NULL, node, match);
-+	of_node_put(node);
- 	priv = dev_get_drvdata(dev);
+ 	handle = dev->ops->get_handle(dev, port_id);
+-	if (IS_ERR(handle))
++	if (IS_ERR(handle)) {
++		put_device(&dev->cls_dev);
+ 		return handle;
++	}
  
- 	priv->cpsw_phy_sel(priv, phy_mode, slave);
+ 	handle->dev = dev;
+ 	handle->owner_dev = owner_dev;
+@@ -356,6 +358,8 @@ struct hnae_handle *hnae_get_handle(struct device *owner_dev,
+ 	for (j = i - 1; j >= 0; j--)
+ 		hnae_fini_queue(handle->qs[j]);
+ 
++	put_device(&dev->cls_dev);
 +
-+	put_device(dev);
+ 	return ERR_PTR(-ENOMEM);
  }
- EXPORT_SYMBOL_GPL(cpsw_phy_sel);
+ EXPORT_SYMBOL(hnae_get_handle);
+@@ -377,6 +381,8 @@ void hnae_put_handle(struct hnae_handle *h)
+ 		dev->ops->put_handle(h);
+ 
+ 	module_put(dev->owner);
++
++	put_device(&dev->cls_dev);
+ }
+ EXPORT_SYMBOL(hnae_put_handle);
  
 -- 
 2.7.3
