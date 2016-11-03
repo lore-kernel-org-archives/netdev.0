@@ -1,69 +1,41 @@
-From: Tom Herbert <tom@herbertland.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Time to revisit LISP?
-Date: Thu, 3 Nov 2016 13:57:59 -0700
-Message-ID: <CALx6S34-b0dDL0xOvjU+uDzwsZHAt4QPfpHrpeauMmMh4MTKXA@mail.gmail.com>
+Date: Thu, 03 Nov 2016 17:00:18 -0400 (EDT)
+Message-ID: <20161103.170018.314857405677363551.davem@davemloft.net>
 References: <CALx6S35cT6gn4W6iiaL5sAgTm=jJPZpyVP3pyGXfbyHHsKaciQ@mail.gmail.com>
- <20161103.163758.1592587767905993803.davem@davemloft.net>
+        <20161103.163758.1592587767905993803.davem@davemloft.net>
+        <CALx6S34-b0dDL0xOvjU+uDzwsZHAt4QPfpHrpeauMmMh4MTKXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: chris@logicalelegance.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chris@logicalelegance.com, netdev@vger.kernel.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:33586 "EHLO
-        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755881AbcKCU6B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 16:58:01 -0400
-Received: by mail-qk0-f169.google.com with SMTP id x190so72216577qkb.0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 13:58:01 -0700 (PDT)
-In-Reply-To: <20161103.163758.1592587767905993803.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43586 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754148AbcKCVAU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 17:00:20 -0400
+In-Reply-To: <CALx6S34-b0dDL0xOvjU+uDzwsZHAt4QPfpHrpeauMmMh4MTKXA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 3, 2016 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Thu, 3 Nov 2016 12:22:52 -0700
->
->> For instance, one of the his questions is:
->>
->> "What is to keep one from having to service a full Map-Request -->
->> Map-Reply cycle for every packet received?"
->>
->> This can be solved by judicious rate limiting, for instance the
->> infrastructure I implemented to rate limit ILA resolver request could
->> be applied here.
->
-> All of these things work great if you have tables that are either very
-> tiny or change infrequently.
->
-> But once you run into anything seriously dynamic, it has the same
-> problems that the routing cache had and OVS can have.
->
-One way or another we are going to have to deal with this. If we want
-Linux to be serve as router for mobility it is going to have to scale
-for having bunches of host routes and they will be quite dynamic
-because of mobility.
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 3 Nov 2016 13:57:59 -0700
 
-> And for this reason things like the flow cache are on the chopping
-> block.  And frankly, I'd remove OVS from the kernel if I could.
->
-Quite frankly the DOS issues with OVS were obvious just by looking at
-the initial design-- it should have been done better. Yes, if you
-upcall every unresolved packet to userspace you're just inviting a DOS
-attack.
+> On Thu, Nov 3, 2016 at 1:37 PM, David Miller <davem@davemloft.net> wrote:
+>> Userspace resolution of paths in response to data path signalling
+>> simply does not scale and is fundamentally an extremely poor design
+>> choice.  We're trying to move away from, rather than towards, these
+>> kinds of architectures.
+> 
+> OVS is quite different I think. LISP is a specific resolution protocol
+> of identifier to locator as opposed to be some open ended mechanism to
+> resolve some arbitrary definition of flows like OVS. Also, I don't
+> think there's any specific requirement in LISP that prevents on from
+> implementing the mapping protocol in the kernel, it should just be a
+> simple UDP communication.
+> 
+> Do you see anything in the protocol itself that would be a showstopper?
 
-> Userspace resolution of paths in response to data path signalling
-> simply does not scale and is fundamentally an extremely poor design
-> choice.  We're trying to move away from, rather than towards, these
-> kinds of architectures.
-
-OVS is quite different I think. LISP is a specific resolution protocol
-of identifier to locator as opposed to be some open ended mechanism to
-resolve some arbitrary definition of flows like OVS. Also, I don't
-think there's any specific requirement in LISP that prevents on from
-implementing the mapping protocol in the kernel, it should just be a
-simple UDP communication.
-
-Do you see anything in the protocol itself that would be a showstopper?
-
-Tom
+I'd have to see the code and how it works.  I can't review hypothetical
+implementations.
