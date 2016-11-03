@@ -1,19 +1,17 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH] net/sched: cls_flower: Support matching on SCTP ports
-Date: Thu,  3 Nov 2016 13:24:22 +0100
-Message-ID: <1478175862-28642-2-git-send-email-simon.horman@netronome.com>
-References: <1478175862-28642-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next] net/sched: cls_flower: Support matching on SCTP ports
+Date: Thu,  3 Nov 2016 13:24:21 +0100
+Message-ID: <1478175862-28642-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37483 "EHLO
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:38536 "EHLO
         mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755648AbcKCMYe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 08:24:34 -0400
-Received: by mail-wm0-f41.google.com with SMTP id t79so97330870wmt.0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 05:24:33 -0700 (PDT)
-In-Reply-To: <1478175862-28642-1-git-send-email-simon.horman@netronome.com>
+        with ESMTP id S1752345AbcKCMYa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 08:24:30 -0400
+Received: by mail-wm0-f41.google.com with SMTP id n67so97592487wme.1
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 05:24:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
