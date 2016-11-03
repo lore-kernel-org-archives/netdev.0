@@ -1,84 +1,106 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH net 1/1] driver: veth: Return the actual value instead
- return NETDEV_TX_OK always
-Date: Thu, 3 Nov 2016 09:04:43 +0800
-Message-ID: <CA+6hz4rPRgK=mcBkSK=tYrv_KcrYKJrD=EJW=UizMBBMfCETZw@mail.gmail.com>
-References: <1478080756-16789-1-git-send-email-fgao@ikuai8.com>
- <CAM_iQpW4HmtoSAiKSyq9o0MXpL1R8XL2-r3NsPH6xu9Pd4X8XA@mail.gmail.com>
- <CA+6hz4rWLM_LkABr_cegdx66V2BBsR2Z7NuTMaDuBH2KZdOTSA@mail.gmail.com> <704bff33-d376-1825-07d1-b2e11775e9d4@gmail.com>
+From: Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Subject: RE: [PATCH net-next RFC WIP] Patch for XDP support for virtio_net
+Date: Wed, 2 Nov 2016 18:28:34 -0700
+Message-ID: <b09333565b4ead1f90719cfb3643f6af@mail.gmail.com>
+References: <20161028011739-mutt-send-email-mst@kernel.org>
+ <20161027.213512.334468356710231957.davem@davemloft.net>       <CAKgT0Ufe3QYtFpmtsL39-nbyy+YEt=gZKU_WUr9Wir+LTYLuEQ@mail.gmail.com>
+ <20161027.221027.109834362557507518.davem@davemloft.net>       <58137533.4030105@gmail.com>
+ <20161028171812.48073f1f@jkicinski-Precision-T1700>    <20161028182223.GA53930@ast-mbp.thefacebook.com>
+ <ec23c734c23d81884349484927140741@mail.gmail.com>      <20161029112514.GC1810@pox.localdomain>
+ <20161102152708.5cb40a0c@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Cong Wang <cwang@twopensource.com>,
-        Vijay Pandurangan <vijayp@vijayp.ca>,
-        Evan Jones <ej@evanjones.ca>, pabeni@redhat.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jakub Kicinski <kubakici@wp.pl>,
+        John Fastabend <john.fastabend@gmail.com>,
+        David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
+        mst@redhat.com, shrijeet@gmail.com, tom@herbertland.com,
+        netdev@vger.kernel.org, Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpproxy19.qq.com ([184.105.206.84]:57638 "EHLO
-        smtpproxy19.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751187AbcKCBEz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 21:04:55 -0400
-Received: from mail-ua0-f175.google.com (unknown [209.85.217.175])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 09:04:44 +0800 (CST)
-Received: by mail-ua0-f175.google.com with SMTP id b35so27241563uaa.3
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 18:04:45 -0700 (PDT)
-In-Reply-To: <704bff33-d376-1825-07d1-b2e11775e9d4@gmail.com>
+Received: from mail-vk0-f44.google.com ([209.85.213.44]:33003 "EHLO
+        mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755929AbcKCB2i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 21:28:38 -0400
+Received: by mail-vk0-f44.google.com with SMTP id d65so28132146vkg.0
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 18:28:36 -0700 (PDT)
+In-Reply-To: <20161102152708.5cb40a0c@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-
-On Thu, Nov 3, 2016 at 8:58 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 11/02/2016 05:52 PM, Gao Feng wrote:
->> Hi Cong,
->>
->> On Thu, Nov 3, 2016 at 4:22 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>> On Wed, Nov 2, 2016 at 2:59 AM,  <fgao@ikuai8.com> wrote:
->>>> From: Gao Feng <fgao@ikuai8.com>
->>>>
->>>> Current veth_xmit always returns NETDEV_TX_OK whatever if it is really
->>>> sent successfully. Now return the actual value instead of NETDEV_TX_OK
->>>> always.
->>>>
->>>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->>>> ---
->>>>  drivers/net/veth.c | 7 +++++--
->>>>  1 file changed, 5 insertions(+), 2 deletions(-)
->>>>
->>>> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
->>>> index fbc853e..769a3bd 100644
->>>> --- a/drivers/net/veth.c
->>>> +++ b/drivers/net/veth.c
->>>> @@ -111,15 +111,18 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
->>>>         struct veth_priv *priv = netdev_priv(dev);
->>>>         struct net_device *rcv;
->>>>         int length = skb->len;
->>>> +       int ret = NETDEV_TX_OK;
->>>>
->>>>         rcu_read_lock();
->>>>         rcv = rcu_dereference(priv->peer);
->>>>         if (unlikely(!rcv)) {
->>>>                 kfree_skb(skb);
->>>> +               ret = NET_RX_DROP;
->>>
->>>
->>> Returning NET_RX_DROP doesn't look correct in a xmit function.
->>
->> Yes. But I don't find good macro.
->> NETDEV_TX_BUSY or NET_RX_DROP, which is better ?
+> -----Original Message-----
+> From: Jesper Dangaard Brouer [mailto:brouer@redhat.com]
+> Sent: Wednesday, November 2, 2016 7:27 AM
+> To: Thomas Graf <tgraf@suug.ch>
+> Cc: Shrijeet Mukherjee <shm@cumulusnetworks.com>; Alexei Starovoitov
+> <alexei.starovoitov@gmail.com>; Jakub Kicinski <kubakici@wp.pl>; John
+> Fastabend <john.fastabend@gmail.com>; David Miller
+> <davem@davemloft.net>; alexander.duyck@gmail.com; mst@redhat.com;
+> shrijeet@gmail.com; tom@herbertland.com; netdev@vger.kernel.org;
+> Roopa Prabhu <roopa@cumulusnetworks.com>; Nikolay Aleksandrov
+> <nikolay@cumulusnetworks.com>; brouer@redhat.com
+> Subject: Re: [PATCH net-next RFC WIP] Patch for XDP support for
+virtio_net
 >
-> There is no much choice you need to return a correct value from the
-> netdev_tx_t enum, which NET_RX_DROP is not part of, so that probably
-> means using NETDEV_TX_OK here, the packet has been freed, and there is
-> no flow control problem mandating the return of NETDEV_TX_BUSY it seems...
+> On Sat, 29 Oct 2016 13:25:14 +0200
+> Thomas Graf <tgraf@suug.ch> wrote:
+>
+> > On 10/28/16 at 08:51pm, Shrijeet Mukherjee wrote:
+> > > Generally agree, but SRIOV nics with multiple queues can end up in a
+> > > bad spot if each buffer was 4K right ? I see a specific page pool to
+> > > be used by queues which are enabled for XDP as the easiest to swing
+> > > solution that way the memory overhead can be restricted to enabled
+> > > queues and shared access issues can be restricted to skb's using
+that
+> pool no ?
+>
+> Yes, that is why that I've been arguing so strongly for having the
+flexibility to
+> attach a XDP program per RX queue, as this only change the memory model
+> for this one queue.
+>
+>
+> > Isn't this clearly a must anyway? I may be missing something
+> > fundamental here so please enlighten me :-)
+> >
+> > If we dedicate a page per packet, that could translate to 14M*4K worth
+> > of memory being mapped per second for just a 10G NIC under DoS attack.
+> > How can one protect such as system? Is the assumption that we can
+> > always drop such packets quickly enough before we start dropping
+> > randomly due to memory pressure? If a handshake is required to
+> > determine validity of a packet then that is going to be difficult.
+>
+> Under DoS attacks you don't run out of memory, because a diverse set of
+> socket memory limits/accounting avoids that situation.  What does happen
+> is the maximum achievable PPS rate is directly dependent on the
+> time you spend on each packet.   This use of CPU resources (and
+> hitting mem-limits-safe-guards) push-back on the drivers speed to
+process
+> the RX ring.  In effect, packets are dropped in the NIC HW as RX-ring
+queue
+> is not emptied fast-enough.
+>
+> Given you don't control what HW drops, the attacker will "successfully"
+> cause your good traffic to be among the dropped packets.
+>
+> This is where XDP change the picture. If you can express (by eBPF) a
+filter
+> that can separate "bad" vs "good" traffic, then you can take back
+control.
+> Almost like controlling what traffic the HW should drop.
+> Given the cost of XDP-eBPF filter + serving regular traffic does not use
+all of
+> your CPU resources, you have overcome the attack.
+>
 > --
-> Florian
+Jesper,  John et al .. to make this a little concrete I am going to spin
+up a v2 which has only bigbuffers mode enabled for xdp acceleration, all
+other modes will reject the xdp ndo ..
 
-Thanks your explanation.
-It means the veth_xmit must return NETDEV_TX_OK.
+Do we have agreement on that model ?
 
-Regards
-Feng
+It will need that all vhost implementations will need to start with
+mergeable buffers disabled to get xdp goodness, but that sounds like a
+safe thing to do for now ..
