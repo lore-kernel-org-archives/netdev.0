@@ -1,133 +1,137 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/1] driver: veth: Refine the statistics codes of veth driver
-Date: Thu,  3 Nov 2016 20:50:14 +0800
-Message-ID: <1478177414-8034-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, cwang@twopensource.com, vijayp@vijayp.ca,
-        ej@evanjones.ca, pabeni@redhat.com, netdev@vger.kernel.org
+From: Anna Schumaker <Anna.Schumaker@Netapp.com>
+Subject: Re: nfs NULL-dereferencing in net-next
+Date: Thu, 3 Nov 2016 09:06:09 -0400
+Message-ID: <e80aa023-b8e3-c663-1ef4-110f8a1368ab@Netapp.com>
+References: <20161017201943.64529739@jkicinski-Precision-T1700>
+ <DB3PR05MB0764DF28BC53A4A4E78A4DD8ACA80@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <817e43c5-d88d-e616-7074-5715de29d319@Netapp.com>
+ <DB3PR05MB0764B39F6EDF851A8A52EBACACAB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <20161026190840.3d46dad8@jkicinski-Precision-T1700>
+ <0ab5021c-84eb-cb9f-c7f5-4d856fdb0f4b@Netapp.com>
+ <DB3PR05MB0764F0409AE75E0172ABFE2EACAA0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <20161031152550.10acb7e0@jkicinski-Precision-T1700>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Yotam Gigi <yotamg@mellanox.com>, Andy Adamson <andros@netapp.com>,
+        "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Yotam Gigi <yotam.gi@gmail.com>, mlxsw <mlxsw@mellanox.com>
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG179.QQ.COM ([119.147.194.222]:54394 "EHLO
-        smtpbg179.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757838AbcKCM7z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 08:59:55 -0400
+Received: from mx142.netapp.com ([216.240.21.19]:64480 "EHLO mx142.netapp.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756642AbcKCNGi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:06:38 -0400
+In-Reply-To: <20161031152550.10acb7e0@jkicinski-Precision-T1700>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On 10/31/2016 11:25 AM, Jakub Kicinski wrote:
+> On Thu, 27 Oct 2016 06:50:22 +0000, Yotam Gigi wrote:
+>>> -----Original Message-----
+>>> From: Anna Schumaker [mailto:Anna.Schumaker@Netapp.com]
+>>> Sent: Wednesday, October 26, 2016 9:17 PM
+>>> To: Jakub Kicinski <kubakici@wp.pl>
+>>> Cc: Yotam Gigi <yotamg@mellanox.com>; Andy Adamson <andros@netapp.com>;
+>>> linux-nfs@vger.kernel.org; netdev@vger.kernel.org; Trond Myklebust
+>>> <Trond.Myklebust@netapp.com>; Yotam Gigi <yotam.gi@gmail.com>; mlxsw
+>>> <mlxsw@mellanox.com>
+>>> Subject: Re: nfs NULL-dereferencing in net-next
+>>>
+>>> On 10/26/2016 02:08 PM, Jakub Kicinski wrote:  
+>>>> On Wed, 26 Oct 2016 16:15:24 +0000, Yotam Gigi wrote:  
+>>>>>> -----Original Message-----
+>>>>>> From: Anna Schumaker [mailto:Anna.Schumaker@Netapp.com]
+>>>>>> Sent: Wednesday, October 26, 2016 5:40 PM
+>>>>>> To: Yotam Gigi <yotamg@mellanox.com>; Jakub Kicinski <kubakici@wp.pl>;  
+>>> Andy  
+>>>>>> Adamson <andros@netapp.com>; Anna Schumaker
+>>>>>> <Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
+>>>>>> Cc: netdev@vger.kernel.org; Trond Myklebust  
+>>> <Trond.Myklebust@netapp.com>;  
+>>>>>> Yotam Gigi <yotam.gi@gmail.com>; mlxsw <mlxsw@mellanox.com>
+>>>>>> Subject: Re: nfs NULL-dereferencing in net-next
+>>>>>>
+>>>>>> On 10/25/2016 01:19 PM, Yotam Gigi wrote:  
+>>>>>>>  
+>>>>>>>> -----Original Message-----
+>>>>>>>> From: netdev-owner@vger.kernel.org [mailto:netdev-  
+>>> owner@vger.kernel.org]  
+>>>>>> On  
+>>>>>>>> Behalf Of Jakub Kicinski
+>>>>>>>> Sent: Monday, October 17, 2016 10:20 PM
+>>>>>>>> To: Andy Adamson <andros@netapp.com>; Anna Schumaker
+>>>>>>>> <Anna.Schumaker@Netapp.com>; linux-nfs@vger.kernel.org
+>>>>>>>> Cc: netdev@vger.kernel.org; Trond Myklebust  
+>>>>>> <Trond.Myklebust@netapp.com>  
+>>>>>>>> Subject: nfs NULL-dereferencing in net-next
+>>>>>>>>
+>>>>>>>> Hi!
+>>>>>>>>
+>>>>>>>> I'm hitting this reliably on net-next, HEAD at 3f3177bb680f
+>>>>>>>> ("fsl/fman: fix error return code in mac_probe()").  
+>>>>>>>
+>>>>>>>
+>>>>>>> I see the same thing. It happens constantly on some of my machines, making  
+>>>>>> them  
+>>>>>>> completely unusable.
+>>>>>>>
+>>>>>>> I bisected it and got to the commit:
+>>>>>>>
+>>>>>>> commit 04ea1b3e6d8ed4978bb608c1748530af3de8c274
+>>>>>>> Author: Andy Adamson <andros@netapp.com>
+>>>>>>> Date:   Fri Sep 9 09:22:27 2016 -0400
+>>>>>>>
+>>>>>>>     NFS add xprt switch addrs test to match client
+>>>>>>>
+>>>>>>>     Signed-off-by: Andy Adamson <andros@netapp.com>
+>>>>>>>     Signed-off-by: Anna Schumaker <Anna.Schumaker@Netapp.com>  
+>>>>>>
+>>>>>> Thanks for reporting on this everyone!  Does this patch help?  
+>>>>>
+>>>>> Actually, I still see the same bug with the same trace.  
+>>>
+>>> Well, it was worth a shot.  I'll keep poking at it.
+>>>  
+>>>>
+>>>> I rebuild the latest net-next and I'm not seeing the trace any more...
+>>>> I'm only seeing this (with or without your patch):
+>>>>
+>>>> [   23.465877] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
+>>>> [   23.473784] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
+>>>> [   23.588890] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
+>>>> [   23.596746] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
+>>>> [   23.781574] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0
+>>>> [   23.789599] NFS: set_pnfs_layoutdriver: cl_exchange_flags 0x0  
+>>>
+>>> Interesting, I get that too when I try to use NFS v4.1.  It's weird that the crash would
+>>> stop happening like that, so maybe something is racy in this area.
+>>>
+>>> Thanks for testing, Yotam and Jakub!
+>>> Anna  
+>>
+>> I just found out that it happens on any of my machines, once I put two nfs entries in
+>> my fstab. If I put only one, I don't see the problem. 
+>>
+>> I hope it might be helpful :)
+> 
+> Hi Anna,
+> 
+> any updates on this one?  The crash came back half an hour after I
+> reported that it was gone...
 
-The dropped count of veth is located in struct veth_priv, but other
-statistics like packets and bytes are in another struct pcpu_vstats.
-Now keep these three counters in the same struct.
+Aww, I was hoping that patch would work.  It still seemed to fix some issues for me when mounting multiple servers, so I'm planning to keep it.  Unfortunately I'm out of town this week, so I haven't had much of a chance to keep poking at this issue.  I should be able to get back to it next week!
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- drivers/net/veth.c | 32 ++++++++++++++++++--------------
- 1 file changed, 18 insertions(+), 14 deletions(-)
+Thanks for the update!
+Anna
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 0520952a..3d8326f 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -26,12 +26,12 @@
- struct pcpu_vstats {
- 	u64			packets;
- 	u64			bytes;
-+	u64			dropped;
- 	struct u64_stats_sync	syncp;
- };
- 
- struct veth_priv {
- 	struct net_device __rcu	*peer;
--	atomic64_t		dropped;
- 	unsigned		requested_headroom;
- };
- 
-@@ -108,6 +108,8 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct veth_priv *priv = netdev_priv(dev);
- 	struct net_device *rcv;
- 	int length = skb->len;
-+	struct pcpu_vstats *stats = this_cpu_ptr(dev->vstats);
-+	int ret = NET_RX_DROP;
- 
- 	rcu_read_lock();
- 	rcv = rcu_dereference(priv->peer);
-@@ -116,17 +118,16 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto drop;
- 	}
- 
--	if (likely(dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) {
--		struct pcpu_vstats *stats = this_cpu_ptr(dev->vstats);
--
--		u64_stats_update_begin(&stats->syncp);
-+	ret = dev_forward_skb(rcv, skb);
-+drop:
-+	u64_stats_update_begin(&stats->syncp);
-+	if (likely(ret == NET_RX_SUCCESS)) {
- 		stats->bytes += length;
- 		stats->packets++;
--		u64_stats_update_end(&stats->syncp);
- 	} else {
--drop:
--		atomic64_inc(&priv->dropped);
-+		stats->dropped++;
- 	}
-+	u64_stats_update_end(&stats->syncp);
- 	rcu_read_unlock();
- 	return NETDEV_TX_OK;
- }
-@@ -135,27 +136,28 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
-  * general routines
-  */
- 
--static u64 veth_stats_one(struct pcpu_vstats *result, struct net_device *dev)
-+static void veth_stats_one(struct pcpu_vstats *result, struct net_device *dev)
- {
--	struct veth_priv *priv = netdev_priv(dev);
- 	int cpu;
- 
- 	result->packets = 0;
- 	result->bytes = 0;
-+	result->dropped = 0;
- 	for_each_possible_cpu(cpu) {
- 		struct pcpu_vstats *stats = per_cpu_ptr(dev->vstats, cpu);
--		u64 packets, bytes;
-+		u64 packets, bytes, dropped;
- 		unsigned int start;
- 
- 		do {
- 			start = u64_stats_fetch_begin_irq(&stats->syncp);
- 			packets = stats->packets;
- 			bytes = stats->bytes;
-+			dropped = stats->dropped;
- 		} while (u64_stats_fetch_retry_irq(&stats->syncp, start));
- 		result->packets += packets;
- 		result->bytes += bytes;
-+		result->dropped += dropped;
- 	}
--	return atomic64_read(&priv->dropped);
- }
- 
- static struct rtnl_link_stats64 *veth_get_stats64(struct net_device *dev,
-@@ -165,16 +167,18 @@ static struct rtnl_link_stats64 *veth_get_stats64(struct net_device *dev,
- 	struct net_device *peer;
- 	struct pcpu_vstats one;
- 
--	tot->tx_dropped = veth_stats_one(&one, dev);
-+	veth_stats_one(&one, dev);
- 	tot->tx_bytes = one.bytes;
- 	tot->tx_packets = one.packets;
-+	tot->tx_dropped = one.dropped;
- 
- 	rcu_read_lock();
- 	peer = rcu_dereference(priv->peer);
- 	if (peer) {
--		tot->rx_dropped = veth_stats_one(&one, peer);
-+		veth_stats_one(&one, dev);
- 		tot->rx_bytes = one.bytes;
- 		tot->rx_packets = one.packets;
-+		tot->rx_dropped = one.dropped;
- 	}
- 	rcu_read_unlock();
- 
--- 
-1.9.1
+> 
+> Over the weekend David Miller rebased net-next on top of 4.9.0-rc3 and
+> the bug is still there :(  FWIW I also have multiple nfs mounts on my
+> setup, 2 in fstab and one in a startup script.  Following Yotam I
+> dropped one of the fstab entries and things seem to be working (even
+> though I still have multiple mounts, the other one just comes a bit
+> later).
+> 
