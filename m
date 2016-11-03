@@ -1,92 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] dccp: do not send reset to already closed sockets
-Date: Wed, 02 Nov 2016 18:04:24 -0700
-Message-ID: <1478135064.7065.409.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH net 1/1] driver: veth: Return the actual value instead
+ return NETDEV_TX_OK always
+Date: Thu, 3 Nov 2016 09:04:43 +0800
+Message-ID: <CA+6hz4rPRgK=mcBkSK=tYrv_KcrYKJrD=EJW=UizMBBMfCETZw@mail.gmail.com>
+References: <1478080756-16789-1-git-send-email-fgao@ikuai8.com>
+ <CAM_iQpW4HmtoSAiKSyq9o0MXpL1R8XL2-r3NsPH6xu9Pd4X8XA@mail.gmail.com>
+ <CA+6hz4rWLM_LkABr_cegdx66V2BBsR2Z7NuTMaDuBH2KZdOTSA@mail.gmail.com> <704bff33-d376-1825-07d1-b2e11775e9d4@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Andrey Konovalov <andreyknvl@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Cong Wang <cwang@twopensource.com>,
+        Vijay Pandurangan <vijayp@vijayp.ca>,
+        Evan Jones <ej@evanjones.ca>, pabeni@redhat.com,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34179 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751487AbcKCBE1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 21:04:27 -0400
-In-Reply-To: <CAAeHK+zBgPzp9KBCJb7_Q2Nm3n+t5HeuFwEFCDDc7cw234nREA@mail.gmail.com>
+Received: from smtpproxy19.qq.com ([184.105.206.84]:57638 "EHLO
+        smtpproxy19.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751187AbcKCBEz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 21:04:55 -0400
+Received: from mail-ua0-f175.google.com (unknown [209.85.217.175])
+        by esmtp4.qq.com (ESMTP) with SMTP id 0
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 09:04:44 +0800 (CST)
+Received: by mail-ua0-f175.google.com with SMTP id b35so27241563uaa.3
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2016 18:04:45 -0700 (PDT)
+In-Reply-To: <704bff33-d376-1825-07d1-b2e11775e9d4@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Florian,
 
-Andrey reported following warning while fuzzing with syzkaller
+On Thu, Nov 3, 2016 at 8:58 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 11/02/2016 05:52 PM, Gao Feng wrote:
+>> Hi Cong,
+>>
+>> On Thu, Nov 3, 2016 at 4:22 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> On Wed, Nov 2, 2016 at 2:59 AM,  <fgao@ikuai8.com> wrote:
+>>>> From: Gao Feng <fgao@ikuai8.com>
+>>>>
+>>>> Current veth_xmit always returns NETDEV_TX_OK whatever if it is really
+>>>> sent successfully. Now return the actual value instead of NETDEV_TX_OK
+>>>> always.
+>>>>
+>>>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>>>> ---
+>>>>  drivers/net/veth.c | 7 +++++--
+>>>>  1 file changed, 5 insertions(+), 2 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+>>>> index fbc853e..769a3bd 100644
+>>>> --- a/drivers/net/veth.c
+>>>> +++ b/drivers/net/veth.c
+>>>> @@ -111,15 +111,18 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+>>>>         struct veth_priv *priv = netdev_priv(dev);
+>>>>         struct net_device *rcv;
+>>>>         int length = skb->len;
+>>>> +       int ret = NETDEV_TX_OK;
+>>>>
+>>>>         rcu_read_lock();
+>>>>         rcv = rcu_dereference(priv->peer);
+>>>>         if (unlikely(!rcv)) {
+>>>>                 kfree_skb(skb);
+>>>> +               ret = NET_RX_DROP;
+>>>
+>>>
+>>> Returning NET_RX_DROP doesn't look correct in a xmit function.
+>>
+>> Yes. But I don't find good macro.
+>> NETDEV_TX_BUSY or NET_RX_DROP, which is better ?
+>
+> There is no much choice you need to return a correct value from the
+> netdev_tx_t enum, which NET_RX_DROP is not part of, so that probably
+> means using NETDEV_TX_OK here, the packet has been freed, and there is
+> no flow control problem mandating the return of NETDEV_TX_BUSY it seems...
+> --
+> Florian
 
-WARNING: CPU: 1 PID: 21072 at net/dccp/proto.c:83 dccp_set_state+0x229/0x290
-Kernel panic - not syncing: panic_on_warn set ...
+Thanks your explanation.
+It means the veth_xmit must return NETDEV_TX_OK.
 
-CPU: 1 PID: 21072 Comm: syz-executor Not tainted 4.9.0-rc1+ #293
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffff88003d4c7738 ffffffff81b474f4 0000000000000003 dffffc0000000000
- ffffffff844f8b00 ffff88003d4c7804 ffff88003d4c7800 ffffffff8140c06a
- 0000000041b58ab3 ffffffff8479ab7d ffffffff8140beae ffffffff8140cd00
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff81b474f4>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
- [<ffffffff8140c06a>] panic+0x1bc/0x39d kernel/panic.c:179
- [<ffffffff8111125c>] __warn+0x1cc/0x1f0 kernel/panic.c:542
- [<ffffffff8111144c>] warn_slowpath_null+0x2c/0x40 kernel/panic.c:585
- [<ffffffff8389e5d9>] dccp_set_state+0x229/0x290 net/dccp/proto.c:83
- [<ffffffff838a0aa2>] dccp_close+0x612/0xc10 net/dccp/proto.c:1016
- [<ffffffff8316bf1f>] inet_release+0xef/0x1c0 net/ipv4/af_inet.c:415
- [<ffffffff82b6e89e>] sock_release+0x8e/0x1d0 net/socket.c:570
- [<ffffffff82b6e9f6>] sock_close+0x16/0x20 net/socket.c:1017
- [<ffffffff815256ad>] __fput+0x29d/0x720 fs/file_table.c:208
- [<ffffffff81525bb5>] ____fput+0x15/0x20 fs/file_table.c:244
- [<ffffffff811727d8>] task_work_run+0xf8/0x170 kernel/task_work.c:116
- [<     inline     >] exit_task_work include/linux/task_work.h:21
- [<ffffffff8111bc53>] do_exit+0x883/0x2ac0 kernel/exit.c:828
- [<ffffffff811221fe>] do_group_exit+0x10e/0x340 kernel/exit.c:931
- [<ffffffff81143c94>] get_signal+0x634/0x15a0 kernel/signal.c:2307
- [<ffffffff81054aad>] do_signal+0x8d/0x1a30 arch/x86/kernel/signal.c:807
- [<ffffffff81003a05>] exit_to_usermode_loop+0xe5/0x130
-arch/x86/entry/common.c:156
- [<     inline     >] prepare_exit_to_usermode arch/x86/entry/common.c:190
- [<ffffffff81006298>] syscall_return_slowpath+0x1a8/0x1e0
-arch/x86/entry/common.c:259
- [<ffffffff83fc1a62>] entry_SYSCALL_64_fastpath+0xc0/0xc2
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Kernel Offset: disabled
-
-Fix this the same way we did for TCP in commit 565b7b2d2e63
-("tcp: do not send reset to already closed sockets")
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
----
- net/dccp/proto.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index 41e65804ddf5..9fe25bf63296 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -1009,6 +1009,10 @@ void dccp_close(struct sock *sk, long timeout)
- 		__kfree_skb(skb);
- 	}
- 
-+	/* If socket has been already reset kill it. */
-+	if (sk->sk_state == DCCP_CLOSED)
-+		goto adjudge_to_death;
-+
- 	if (data_was_unread) {
- 		/* Unread data was tossed, send an appropriate Reset Code */
- 		DCCP_WARN("ABORT with %u bytes unread\n", data_was_unread);
+Regards
+Feng
