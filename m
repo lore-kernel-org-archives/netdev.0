@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 10/21] amd-xgbe: Prepare for supporting PCI
- devices
-Date: Thu, 3 Nov 2016 08:29:24 -0500
-Message-ID: <20161103132924.3437.94212.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 07/21] amd-xgbe: Prepare for a new PCS register
+ access method
+Date: Thu, 3 Nov 2016 08:28:55 -0500
+Message-ID: <20161103132855.3437.6094.stgit@tlendack-t1.amdoffice.net>
 References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,1543 +11,255 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0088.outbound.protection.outlook.com ([104.47.41.88]:41376
+Received: from mail-dm3nam03on0070.outbound.protection.outlook.com ([104.47.41.70]:17216
         "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752397AbcKCNoC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:44:02 -0400
+        id S1756737AbcKCNom (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:44:42 -0400
 In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update the driver framework to separate out platform/ACPI specific code
-from general code during device initialization. This will allow for the
-introduction of PCI device support.
+Prepare the code to be able to support accessing of the PCS registers
+in a new way, while maintaining the current access method. Provide a
+version specific field that indicates the method to use.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/Makefile        |    3 
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c      |   16 -
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c      |   22 -
- drivers/net/ethernet/amd/xgbe/xgbe-main.c     |  569 ++++-------------------
- drivers/net/ethernet/amd/xgbe/xgbe-platform.c |  632 +++++++++++++++++++++++++
- drivers/net/ethernet/amd/xgbe/xgbe.h          |   23 +
- 6 files changed, 755 insertions(+), 510 deletions(-)
- create mode 100644 drivers/net/ethernet/amd/xgbe/xgbe-platform.c
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |   21 +++--
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |  107 +++++++++++++++++++++++++--
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c   |    1 
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |    9 ++
+ 4 files changed, 119 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/Makefile b/drivers/net/ethernet/amd/xgbe/Makefile
-index 60b4ae2..217d59e 100644
---- a/drivers/net/ethernet/amd/xgbe/Makefile
-+++ b/drivers/net/ethernet/amd/xgbe/Makefile
-@@ -3,7 +3,8 @@ obj-$(CONFIG_AMD_XGBE) += amd-xgbe.o
- amd-xgbe-objs := xgbe-main.o xgbe-drv.o xgbe-dev.o \
- 		 xgbe-desc.o xgbe-ethtool.o xgbe-mdio.o \
- 		 xgbe-ptp.o \
--		 xgbe-phy-v1.o
-+		 xgbe-phy-v1.o \
-+		 xgbe-platform.o
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index 8bcf4ef..6c40915 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -852,14 +852,9 @@
+ #define MTL_TSA_SP			0x00
+ #define MTL_TSA_ETS			0x02
  
- amd-xgbe-$(CONFIG_AMD_XGBE_DCB) += xgbe-dcb.o
- amd-xgbe-$(CONFIG_DEBUG_FS) += xgbe-debugfs.o
+-/* PCS MMD select register offset
+- *  The MMD select register is used for accessing PCS registers
+- *  when the underlying APB3 interface is using indirect addressing.
+- *  Indirect addressing requires accessing registers in two phases,
+- *  an address phase and a data phase.  The address phases requires
+- *  writing an address selection value to the MMD select regiesters.
+- */
+-#define PCS_MMD_SELECT			0xff
++/* PCS register offsets */
++#define PCS_V1_WINDOW_SELECT		0x03fc
++#define PCS_V2_WINDOW_SELECT		0x9064
+ 
+ /* SerDes integration register offsets */
+ #define SIR0_KR_RT_1			0x002c
+@@ -1241,12 +1236,18 @@
+ /* Macros for building, reading or writing register values or bits
+  * within the register values of XPCS registers.
+  */
+-#define XPCS_IOWRITE(_pdata, _off, _val)				\
++#define XPCS32_IOWRITE(_pdata, _off, _val)				\
+ 	iowrite32(_val, (_pdata)->xpcs_regs + (_off))
+ 
+-#define XPCS_IOREAD(_pdata, _off)					\
++#define XPCS32_IOREAD(_pdata, _off)					\
+ 	ioread32((_pdata)->xpcs_regs + (_off))
+ 
++#define XPCS16_IOWRITE(_pdata, _off, _val)				\
++	iowrite16(_val, (_pdata)->xpcs_regs + (_off))
++
++#define XPCS16_IOREAD(_pdata, _off)					\
++	ioread16((_pdata)->xpcs_regs + (_off))
++
+ /* Macros for building, reading or writing register values or bits
+  * within the register values of SerDes integration registers.
+  */
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 89764cb..9d86112 100644
+index 67aa987..0d0da4c 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -2088,24 +2088,16 @@ static void xgbe_config_flow_control_threshold(struct xgbe_prv_data *pdata)
- 
- static unsigned int xgbe_get_tx_fifo_size(struct xgbe_prv_data *pdata)
- {
--	unsigned int fifo_size;
--
--	/* Calculate the configured fifo size */
--	fifo_size = 1 << (pdata->hw_feat.tx_fifo_size + 7);
--
- 	/* The configured value may not be the actual amount of fifo RAM */
--	return min_t(unsigned int, XGMAC_FIFO_TX_MAX, fifo_size);
-+	return min_t(unsigned int, pdata->tx_max_fifo_size,
-+		     pdata->hw_feat.tx_fifo_size);
- }
- 
- static unsigned int xgbe_get_rx_fifo_size(struct xgbe_prv_data *pdata)
- {
--	unsigned int fifo_size;
--
--	/* Calculate the configured fifo size */
--	fifo_size = 1 << (pdata->hw_feat.rx_fifo_size + 7);
--
- 	/* The configured value may not be the actual amount of fifo RAM */
--	return min_t(unsigned int, XGMAC_FIFO_RX_MAX, fifo_size);
-+	return min_t(unsigned int, pdata->rx_max_fifo_size,
-+		     pdata->hw_feat.rx_fifo_size);
- }
- 
- static void xgbe_calculate_equal_fifo(unsigned int fifo_size,
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index dd166a0..a43e9303 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -114,7 +114,6 @@
-  *     THE POSSIBILITY OF SUCH DAMAGE.
-  */
- 
--#include <linux/platform_device.h>
- #include <linux/spinlock.h>
- #include <linux/tcp.h>
- #include <linux/if_vlan.h>
-@@ -160,18 +159,8 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
- 		channel->dma_regs = pdata->xgmac_regs + DMA_CH_BASE +
- 				    (DMA_CH_INC * i);
- 
--		if (pdata->per_channel_irq) {
--			/* Get the DMA interrupt (offset 1) */
--			ret = platform_get_irq(pdata->pdev, i + 1);
--			if (ret < 0) {
--				netdev_err(pdata->netdev,
--					   "platform_get_irq %u failed\n",
--					   i + 1);
--				goto err_irq;
--			}
--
--			channel->dma_irq = ret;
--		}
-+		if (pdata->per_channel_irq)
-+			channel->dma_irq = pdata->channel_irq[i];
- 
- 		if (i < pdata->tx_ring_count) {
- 			spin_lock_init(&tx_ring->lock);
-@@ -194,9 +183,6 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
- 
+@@ -1026,8 +1026,71 @@ static int xgbe_config_rx_mode(struct xgbe_prv_data *pdata)
  	return 0;
- 
--err_irq:
--	kfree(rx_ring);
--
- err_rx_ring:
- 	kfree(tx_ring);
- 
-@@ -590,6 +576,10 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
- 	hw_feat->tx_ch_cnt++;
- 	hw_feat->tc_cnt++;
- 
-+	/* Translate the fifo sizes into actual numbers */
-+	hw_feat->rx_fifo_size = 1 << (hw_feat->rx_fifo_size + 7);
-+	hw_feat->tx_fifo_size = 1 << (hw_feat->tx_fifo_size + 7);
-+
- 	DBGPR("<--xgbe_get_all_hw_features\n");
  }
  
+-static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+-			      int mmd_reg)
++static int xgbe_read_mmd_regs_v2(struct xgbe_prv_data *pdata, int prtad,
++				 int mmd_reg)
++{
++	unsigned long flags;
++	unsigned int mmd_address, index, offset;
++	int mmd_data;
++
++	if (mmd_reg & MII_ADDR_C45)
++		mmd_address = mmd_reg & ~MII_ADDR_C45;
++	else
++		mmd_address = (pdata->mdio_mmd << 16) | (mmd_reg & 0xffff);
++
++	/* The PCS registers are accessed using mmio. The underlying
++	 * management interface uses indirect addressing to access the MMD
++	 * register sets. This requires accessing of the PCS register in two
++	 * phases, an address phase and a data phase.
++	 *
++	 * The mmio interface is based on 16-bit offsets and values. All
++	 * register offsets must therefore be adjusted by left shifting the
++	 * offset 1 bit and reading 16 bits of data.
++	 */
++	mmd_address <<= 1;
++	index = mmd_address & ~pdata->xpcs_window_mask;
++	offset = pdata->xpcs_window + (mmd_address & pdata->xpcs_window_mask);
++
++	spin_lock_irqsave(&pdata->xpcs_lock, flags);
++	XPCS32_IOWRITE(pdata, PCS_V2_WINDOW_SELECT, index);
++	mmd_data = XPCS16_IOREAD(pdata, offset);
++	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
++
++	return mmd_data;
++}
++
++static void xgbe_write_mmd_regs_v2(struct xgbe_prv_data *pdata, int prtad,
++				   int mmd_reg, int mmd_data)
++{
++	unsigned long flags;
++	unsigned int mmd_address, index, offset;
++
++	if (mmd_reg & MII_ADDR_C45)
++		mmd_address = mmd_reg & ~MII_ADDR_C45;
++	else
++		mmd_address = (pdata->mdio_mmd << 16) | (mmd_reg & 0xffff);
++
++	/* The PCS registers are accessed using mmio. The underlying
++	 * management interface uses indirect addressing to access the MMD
++	 * register sets. This requires accessing of the PCS register in two
++	 * phases, an address phase and a data phase.
++	 *
++	 * The mmio interface is based on 16-bit offsets and values. All
++	 * register offsets must therefore be adjusted by left shifting the
++	 * offset 1 bit and writing 16 bits of data.
++	 */
++	mmd_address <<= 1;
++	index = mmd_address & ~pdata->xpcs_window_mask;
++	offset = pdata->xpcs_window + (mmd_address & pdata->xpcs_window_mask);
++
++	spin_lock_irqsave(&pdata->xpcs_lock, flags);
++	XPCS32_IOWRITE(pdata, PCS_V2_WINDOW_SELECT, index);
++	XPCS16_IOWRITE(pdata, offset, mmd_data);
++	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
++}
++
++static int xgbe_read_mmd_regs_v1(struct xgbe_prv_data *pdata, int prtad,
++				 int mmd_reg)
+ {
+ 	unsigned long flags;
+ 	unsigned int mmd_address;
+@@ -1048,15 +1111,15 @@ static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 	 * offset 2 bits and reading 32 bits of data.
+ 	 */
+ 	spin_lock_irqsave(&pdata->xpcs_lock, flags);
+-	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
+-	mmd_data = XPCS_IOREAD(pdata, (mmd_address & 0xff) << 2);
++	XPCS32_IOWRITE(pdata, PCS_V1_WINDOW_SELECT, mmd_address >> 8);
++	mmd_data = XPCS32_IOREAD(pdata, (mmd_address & 0xff) << 2);
+ 	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
+ 
+ 	return mmd_data;
+ }
+ 
+-static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+-				int mmd_reg, int mmd_data)
++static void xgbe_write_mmd_regs_v1(struct xgbe_prv_data *pdata, int prtad,
++				   int mmd_reg, int mmd_data)
+ {
+ 	unsigned int mmd_address;
+ 	unsigned long flags;
+@@ -1073,14 +1136,40 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 	 *
+ 	 * The mmio interface is based on 32-bit offsets and values. All
+ 	 * register offsets must therefore be adjusted by left shifting the
+-	 * offset 2 bits and reading 32 bits of data.
++	 * offset 2 bits and writing 32 bits of data.
+ 	 */
+ 	spin_lock_irqsave(&pdata->xpcs_lock, flags);
+-	XPCS_IOWRITE(pdata, PCS_MMD_SELECT << 2, mmd_address >> 8);
+-	XPCS_IOWRITE(pdata, (mmd_address & 0xff) << 2, mmd_data);
++	XPCS32_IOWRITE(pdata, PCS_V1_WINDOW_SELECT, mmd_address >> 8);
++	XPCS32_IOWRITE(pdata, (mmd_address & 0xff) << 2, mmd_data);
+ 	spin_unlock_irqrestore(&pdata->xpcs_lock, flags);
+ }
+ 
++static int xgbe_read_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
++			      int mmd_reg)
++{
++	switch (pdata->vdata->xpcs_access) {
++	case XGBE_XPCS_ACCESS_V1:
++		return xgbe_read_mmd_regs_v1(pdata, prtad, mmd_reg);
++
++	case XGBE_XPCS_ACCESS_V2:
++	default:
++		return xgbe_read_mmd_regs_v2(pdata, prtad, mmd_reg);
++	}
++}
++
++static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
++				int mmd_reg, int mmd_data)
++{
++	switch (pdata->vdata->xpcs_access) {
++	case XGBE_XPCS_ACCESS_V1:
++		return xgbe_write_mmd_regs_v1(pdata, prtad, mmd_reg, mmd_data);
++
++	case XGBE_XPCS_ACCESS_V2:
++	default:
++		return xgbe_write_mmd_regs_v2(pdata, prtad, mmd_reg, mmd_data);
++	}
++}
++
+ static int xgbe_tx_complete(struct xgbe_ring_desc *rdesc)
+ {
+ 	return !XGMAC_GET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, OWN);
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index d9864f0..c7187fc 100644
+index 38c5985..d9864f0 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -116,20 +116,10 @@
+@@ -785,6 +785,7 @@ static int xgbe_resume(struct device *dev)
  
- #include <linux/module.h>
- #include <linux/device.h>
--#include <linux/platform_device.h>
- #include <linux/spinlock.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/io.h>
--#include <linux/of.h>
--#include <linux/of_net.h>
--#include <linux/of_address.h>
--#include <linux/of_platform.h>
--#include <linux/of_device.h>
--#include <linux/clk.h>
--#include <linux/property.h>
--#include <linux/acpi.h>
--#include <linux/mdio.h>
- 
- #include "xgbe.h"
- #include "xgbe-common.h"
-@@ -176,196 +166,21 @@ static void xgbe_init_all_fptrs(struct xgbe_prv_data *pdata)
- 	pdata->vdata->init_function_ptrs_phy_impl(&pdata->phy_if);
- }
- 
--#ifdef CONFIG_ACPI
--static const struct acpi_device_id xgbe_acpi_match[];
--
--static struct xgbe_version_data *xgbe_acpi_vdata(struct xgbe_prv_data *pdata)
--{
--	const struct acpi_device_id *id;
--
--	id = acpi_match_device(xgbe_acpi_match, pdata->dev);
--
--	return id ? (struct xgbe_version_data *)id->driver_data : NULL;
--}
--
--static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
--{
--	struct device *dev = pdata->dev;
--	u32 property;
--	int ret;
--
--	/* Obtain the system clock setting */
--	ret = device_property_read_u32(dev, XGBE_ACPI_DMA_FREQ, &property);
--	if (ret) {
--		dev_err(dev, "unable to obtain %s property\n",
--			XGBE_ACPI_DMA_FREQ);
--		return ret;
--	}
--	pdata->sysclk_rate = property;
--
--	/* Obtain the PTP clock setting */
--	ret = device_property_read_u32(dev, XGBE_ACPI_PTP_FREQ, &property);
--	if (ret) {
--		dev_err(dev, "unable to obtain %s property\n",
--			XGBE_ACPI_PTP_FREQ);
--		return ret;
--	}
--	pdata->ptpclk_rate = property;
--
--	return 0;
--}
--#else   /* CONFIG_ACPI */
--static struct xgbe_version_data *xgbe_acpi_vdata(struct xgbe_prv_data *pdata)
--{
--	return NULL;
--}
--
--static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
--{
--	return -EINVAL;
--}
--#endif  /* CONFIG_ACPI */
--
--#ifdef CONFIG_OF
--static const struct of_device_id xgbe_of_match[];
--
--static struct xgbe_version_data *xgbe_of_vdata(struct xgbe_prv_data *pdata)
--{
--	const struct of_device_id *id;
--
--	id = of_match_device(xgbe_of_match, pdata->dev);
--
--	return id ? (struct xgbe_version_data *)id->data : NULL;
--}
--
--static int xgbe_of_support(struct xgbe_prv_data *pdata)
--{
--	struct device *dev = pdata->dev;
--
--	/* Obtain the system clock setting */
--	pdata->sysclk = devm_clk_get(dev, XGBE_DMA_CLOCK);
--	if (IS_ERR(pdata->sysclk)) {
--		dev_err(dev, "dma devm_clk_get failed\n");
--		return PTR_ERR(pdata->sysclk);
--	}
--	pdata->sysclk_rate = clk_get_rate(pdata->sysclk);
--
--	/* Obtain the PTP clock setting */
--	pdata->ptpclk = devm_clk_get(dev, XGBE_PTP_CLOCK);
--	if (IS_ERR(pdata->ptpclk)) {
--		dev_err(dev, "ptp devm_clk_get failed\n");
--		return PTR_ERR(pdata->ptpclk);
--	}
--	pdata->ptpclk_rate = clk_get_rate(pdata->ptpclk);
--
--	return 0;
--}
--
--static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
--{
--	struct device *dev = pdata->dev;
--	struct device_node *phy_node;
--	struct platform_device *phy_pdev;
--
--	phy_node = of_parse_phandle(dev->of_node, "phy-handle", 0);
--	if (phy_node) {
--		/* Old style device tree:
--		 *   The XGBE and PHY resources are separate
--		 */
--		phy_pdev = of_find_device_by_node(phy_node);
--		of_node_put(phy_node);
--	} else {
--		/* New style device tree:
--		 *   The XGBE and PHY resources are grouped together with
--		 *   the PHY resources listed last
--		 */
--		get_device(dev);
--		phy_pdev = pdata->pdev;
--	}
--
--	return phy_pdev;
--}
--#else   /* CONFIG_OF */
--static struct xgbe_version_data *xgbe_of_vdata(struct xgbe_prv_data *pdata)
--{
--	return NULL;
--}
--
--static int xgbe_of_support(struct xgbe_prv_data *pdata)
--{
--	return -EINVAL;
--}
--
--static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
--{
--	return NULL;
--}
--#endif  /* CONFIG_OF */
--
--static unsigned int xgbe_resource_count(struct platform_device *pdev,
--					unsigned int type)
--{
--	unsigned int count;
--	int i;
--
--	for (i = 0, count = 0; i < pdev->num_resources; i++) {
--		struct resource *res = &pdev->resource[i];
--
--		if (type == resource_type(res))
--			count++;
--	}
--
--	return count;
--}
--
--static struct platform_device *xgbe_get_phy_pdev(struct xgbe_prv_data *pdata)
--{
--	struct platform_device *phy_pdev;
--
--	if (pdata->use_acpi) {
--		get_device(pdata->dev);
--		phy_pdev = pdata->pdev;
--	} else {
--		phy_pdev = xgbe_of_get_phy_pdev(pdata);
--	}
--
--	return phy_pdev;
--}
--
--static struct xgbe_version_data *xgbe_get_vdata(struct xgbe_prv_data *pdata)
--{
--	return pdata->use_acpi ? xgbe_acpi_vdata(pdata)
--			       : xgbe_of_vdata(pdata);
--}
--
--static int xgbe_probe(struct platform_device *pdev)
-+struct xgbe_prv_data *xgbe_alloc_pdata(struct device *dev)
- {
- 	struct xgbe_prv_data *pdata;
- 	struct net_device *netdev;
--	struct device *dev = &pdev->dev;
--	struct platform_device *phy_pdev;
--	struct resource *res;
--	const char *phy_mode;
--	unsigned int i, phy_memnum, phy_irqnum;
--	enum dev_dma_attr attr;
--	int ret;
--
--	DBGPR("--> xgbe_probe\n");
- 
- 	netdev = alloc_etherdev_mq(sizeof(struct xgbe_prv_data),
- 				   XGBE_MAX_DMA_CHANNELS);
- 	if (!netdev) {
--		dev_err(dev, "alloc_etherdev failed\n");
--		ret = -ENOMEM;
--		goto err_alloc;
-+		dev_err(dev, "alloc_etherdev_mq failed\n");
-+		return ERR_PTR(-ENOMEM);
- 	}
- 	SET_NETDEV_DEV(netdev, dev);
- 	pdata = netdev_priv(netdev);
- 	pdata->netdev = netdev;
--	pdata->pdev = pdev;
--	pdata->adev = ACPI_COMPANION(dev);
- 	pdata->dev = dev;
--	platform_set_drvdata(pdev, netdev);
- 
- 	spin_lock_init(&pdata->lock);
- 	spin_lock_init(&pdata->xpcs_lock);
-@@ -376,186 +191,82 @@ static int xgbe_probe(struct platform_device *pdev)
- 
- 	set_bit(XGBE_DOWN, &pdata->dev_state);
- 
--	/* Check if we should use ACPI or DT */
--	pdata->use_acpi = dev->of_node ? 0 : 1;
-+	return pdata;
-+}
- 
--	/* Get the version data */
--	pdata->vdata = xgbe_get_vdata(pdata);
-+void xgbe_free_pdata(struct xgbe_prv_data *pdata)
-+{
-+	struct net_device *netdev = pdata->netdev;
- 
--	phy_pdev = xgbe_get_phy_pdev(pdata);
--	if (!phy_pdev) {
--		dev_err(dev, "unable to obtain phy device\n");
--		ret = -EINVAL;
--		goto err_phydev;
--	}
--	pdata->phy_pdev = phy_pdev;
--	pdata->phy_dev = &phy_pdev->dev;
--
--	if (pdev == phy_pdev) {
--		/* New style device tree or ACPI:
--		 *   The XGBE and PHY resources are grouped together with
--		 *   the PHY resources listed last
--		 */
--		phy_memnum = xgbe_resource_count(pdev, IORESOURCE_MEM) - 3;
--		phy_irqnum = xgbe_resource_count(pdev, IORESOURCE_IRQ) - 1;
--	} else {
--		/* Old style device tree:
--		 *   The XGBE and PHY resources are separate
--		 */
--		phy_memnum = 0;
--		phy_irqnum = 0;
--	}
-+	free_netdev(netdev);
-+}
- 
--	/* Set and validate the number of descriptors for a ring */
--	BUILD_BUG_ON_NOT_POWER_OF_2(XGBE_TX_DESC_CNT);
--	pdata->tx_desc_count = XGBE_TX_DESC_CNT;
--	if (pdata->tx_desc_count & (pdata->tx_desc_count - 1)) {
--		dev_err(dev, "tx descriptor count (%d) is not valid\n",
--			pdata->tx_desc_count);
--		ret = -EINVAL;
--		goto err_io;
--	}
--	BUILD_BUG_ON_NOT_POWER_OF_2(XGBE_RX_DESC_CNT);
--	pdata->rx_desc_count = XGBE_RX_DESC_CNT;
--	if (pdata->rx_desc_count & (pdata->rx_desc_count - 1)) {
--		dev_err(dev, "rx descriptor count (%d) is not valid\n",
--			pdata->rx_desc_count);
--		ret = -EINVAL;
--		goto err_io;
--	}
-+void xgbe_set_counts(struct xgbe_prv_data *pdata)
-+{
-+	/* Set all the function pointers */
-+	xgbe_init_all_fptrs(pdata);
- 
--	/* Obtain the mmio areas for the device */
--	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	pdata->xgmac_regs = devm_ioremap_resource(dev, res);
--	if (IS_ERR(pdata->xgmac_regs)) {
--		dev_err(dev, "xgmac ioremap failed\n");
--		ret = PTR_ERR(pdata->xgmac_regs);
--		goto err_io;
--	}
--	if (netif_msg_probe(pdata))
--		dev_dbg(dev, "xgmac_regs = %p\n", pdata->xgmac_regs);
--
--	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
--	pdata->xpcs_regs = devm_ioremap_resource(dev, res);
--	if (IS_ERR(pdata->xpcs_regs)) {
--		dev_err(dev, "xpcs ioremap failed\n");
--		ret = PTR_ERR(pdata->xpcs_regs);
--		goto err_io;
--	}
--	if (netif_msg_probe(pdata))
--		dev_dbg(dev, "xpcs_regs  = %p\n", pdata->xpcs_regs);
--
--	res = platform_get_resource(phy_pdev, IORESOURCE_MEM, phy_memnum++);
--	pdata->rxtx_regs = devm_ioremap_resource(dev, res);
--	if (IS_ERR(pdata->rxtx_regs)) {
--		dev_err(dev, "rxtx ioremap failed\n");
--		ret = PTR_ERR(pdata->rxtx_regs);
--		goto err_io;
--	}
--	if (netif_msg_probe(pdata))
--		dev_dbg(dev, "rxtx_regs  = %p\n", pdata->rxtx_regs);
--
--	res = platform_get_resource(phy_pdev, IORESOURCE_MEM, phy_memnum++);
--	pdata->sir0_regs = devm_ioremap_resource(dev, res);
--	if (IS_ERR(pdata->sir0_regs)) {
--		dev_err(dev, "sir0 ioremap failed\n");
--		ret = PTR_ERR(pdata->sir0_regs);
--		goto err_io;
--	}
--	if (netif_msg_probe(pdata))
--		dev_dbg(dev, "sir0_regs  = %p\n", pdata->sir0_regs);
--
--	res = platform_get_resource(phy_pdev, IORESOURCE_MEM, phy_memnum++);
--	pdata->sir1_regs = devm_ioremap_resource(dev, res);
--	if (IS_ERR(pdata->sir1_regs)) {
--		dev_err(dev, "sir1 ioremap failed\n");
--		ret = PTR_ERR(pdata->sir1_regs);
--		goto err_io;
--	}
--	if (netif_msg_probe(pdata))
--		dev_dbg(dev, "sir1_regs  = %p\n", pdata->sir1_regs);
--
--	/* Retrieve the MAC address */
--	ret = device_property_read_u8_array(dev, XGBE_MAC_ADDR_PROPERTY,
--					    pdata->mac_addr,
--					    sizeof(pdata->mac_addr));
--	if (ret || !is_valid_ether_addr(pdata->mac_addr)) {
--		dev_err(dev, "invalid %s property\n", XGBE_MAC_ADDR_PROPERTY);
--		if (!ret)
--			ret = -EINVAL;
--		goto err_io;
--	}
-+	/* Populate the hardware features */
-+	xgbe_get_all_hw_features(pdata);
- 
--	/* Retrieve the PHY mode - it must be "xgmii" */
--	ret = device_property_read_string(dev, XGBE_PHY_MODE_PROPERTY,
--					  &phy_mode);
--	if (ret || strcmp(phy_mode, phy_modes(PHY_INTERFACE_MODE_XGMII))) {
--		dev_err(dev, "invalid %s property\n", XGBE_PHY_MODE_PROPERTY);
--		if (!ret)
--			ret = -EINVAL;
--		goto err_io;
--	}
--	pdata->phy_mode = PHY_INTERFACE_MODE_XGMII;
-+	/* Set default max values if not provided */
-+	if (!pdata->tx_max_channel_count)
-+		pdata->tx_max_channel_count = pdata->hw_feat.tx_ch_cnt;
-+	if (!pdata->rx_max_channel_count)
-+		pdata->rx_max_channel_count = pdata->hw_feat.rx_ch_cnt;
- 
--	/* Check for per channel interrupt support */
--	if (device_property_present(dev, XGBE_DMA_IRQS_PROPERTY))
--		pdata->per_channel_irq = 1;
-+	if (!pdata->tx_max_q_count)
-+		pdata->tx_max_q_count = pdata->hw_feat.tx_q_cnt;
-+	if (!pdata->rx_max_q_count)
-+		pdata->rx_max_q_count = pdata->hw_feat.rx_q_cnt;
- 
--	/* Obtain device settings unique to ACPI/OF */
--	if (pdata->use_acpi)
--		ret = xgbe_acpi_support(pdata);
--	else
--		ret = xgbe_of_support(pdata);
--	if (ret)
--		goto err_io;
--
--	/* Set the DMA coherency values */
--	attr = device_get_dma_attr(dev);
--	if (attr == DEV_DMA_NOT_SUPPORTED) {
--		dev_err(dev, "DMA is not supported");
--		ret = -ENODEV;
--		goto err_io;
--	}
--	pdata->coherent = (attr == DEV_DMA_COHERENT);
--	if (pdata->coherent) {
--		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
--		pdata->arcache = XGBE_DMA_OS_ARCACHE;
--		pdata->awcache = XGBE_DMA_OS_AWCACHE;
--	} else {
--		pdata->axdomain = XGBE_DMA_SYS_AXDOMAIN;
--		pdata->arcache = XGBE_DMA_SYS_ARCACHE;
--		pdata->awcache = XGBE_DMA_SYS_AWCACHE;
--	}
-+	/* Calculate the number of Tx and Rx rings to be created
-+	 *  -Tx (DMA) Channels map 1-to-1 to Tx Queues so set
-+	 *   the number of Tx queues to the number of Tx channels
-+	 *   enabled
-+	 *  -Rx (DMA) Channels do not map 1-to-1 so use the actual
-+	 *   number of Rx queues or maximum allowed
-+	 */
-+	pdata->tx_ring_count = min_t(unsigned int, num_online_cpus(),
-+				     pdata->hw_feat.tx_ch_cnt);
-+	pdata->tx_ring_count = min_t(unsigned int, pdata->tx_ring_count,
-+				     pdata->tx_max_channel_count);
-+	pdata->tx_ring_count = min_t(unsigned int, pdata->tx_ring_count,
-+				     pdata->tx_max_q_count);
- 
--	/* Get the device interrupt */
--	ret = platform_get_irq(pdev, 0);
--	if (ret < 0) {
--		dev_err(dev, "platform_get_irq 0 failed\n");
--		goto err_io;
--	}
--	pdata->dev_irq = ret;
-+	pdata->tx_q_count = pdata->tx_ring_count;
-+
-+	pdata->rx_ring_count = min_t(unsigned int,
-+				     netif_get_num_default_rss_queues(),
-+				     pdata->hw_feat.rx_ch_cnt);
-+	pdata->rx_ring_count = min_t(unsigned int, pdata->rx_ring_count,
-+				     pdata->rx_max_channel_count);
-+
-+	pdata->rx_q_count = min_t(unsigned int, pdata->hw_feat.rx_q_cnt,
-+				  pdata->rx_max_q_count);
- 
--	/* Get the auto-negotiation interrupt */
--	ret = platform_get_irq(phy_pdev, phy_irqnum++);
--	if (ret < 0) {
--		dev_err(dev, "platform_get_irq phy 0 failed\n");
--		goto err_io;
-+	if (netif_msg_probe(pdata)) {
-+		dev_dbg(pdata->dev, "TX/RX DMA channel count = %u/%u\n",
-+			pdata->tx_ring_count, pdata->rx_ring_count);
-+		dev_dbg(pdata->dev, "TX/RX hardware queue count = %u/%u\n",
-+			pdata->tx_q_count, pdata->rx_q_count);
- 	}
--	pdata->an_irq = ret;
-+}
-+
-+int xgbe_config_netdev(struct xgbe_prv_data *pdata)
-+{
-+	struct net_device *netdev = pdata->netdev;
-+	struct device *dev = pdata->dev;
-+	unsigned int i;
-+	int ret;
- 
- 	netdev->irq = pdata->dev_irq;
- 	netdev->base_addr = (unsigned long)pdata->xgmac_regs;
- 	memcpy(netdev->dev_addr, pdata->mac_addr, netdev->addr_len);
- 
--	/* Set all the function pointers */
--	xgbe_init_all_fptrs(pdata);
--
- 	/* Issue software reset to device */
- 	pdata->hw_if.exit(pdata);
- 
--	/* Populate the hardware features */
--	xgbe_get_all_hw_features(pdata);
--
- 	/* Set default configuration data */
- 	xgbe_default_config(pdata);
- 
-@@ -564,33 +275,33 @@ static int xgbe_probe(struct platform_device *pdev)
- 					DMA_BIT_MASK(pdata->hw_feat.dma_width));
- 	if (ret) {
- 		dev_err(dev, "dma_set_mask_and_coherent failed\n");
--		goto err_io;
-+		return ret;
- 	}
- 
--	/* Calculate the number of Tx and Rx rings to be created
--	 *  -Tx (DMA) Channels map 1-to-1 to Tx Queues so set
--	 *   the number of Tx queues to the number of Tx channels
--	 *   enabled
--	 *  -Rx (DMA) Channels do not map 1-to-1 so use the actual
--	 *   number of Rx queues
--	 */
--	pdata->tx_ring_count = min_t(unsigned int, num_online_cpus(),
--				     pdata->hw_feat.tx_ch_cnt);
--	pdata->tx_q_count = pdata->tx_ring_count;
-+	/* Set default max values if not provided */
-+	if (!pdata->tx_max_fifo_size)
-+		pdata->tx_max_fifo_size = pdata->hw_feat.tx_fifo_size;
-+	if (!pdata->rx_max_fifo_size)
-+		pdata->rx_max_fifo_size = pdata->hw_feat.rx_fifo_size;
-+
-+	/* Set and validate the number of descriptors for a ring */
-+	BUILD_BUG_ON_NOT_POWER_OF_2(XGBE_TX_DESC_CNT);
-+	pdata->tx_desc_count = XGBE_TX_DESC_CNT;
-+
-+	BUILD_BUG_ON_NOT_POWER_OF_2(XGBE_RX_DESC_CNT);
-+	pdata->rx_desc_count = XGBE_RX_DESC_CNT;
-+
-+	/* Set the number of queues */
- 	ret = netif_set_real_num_tx_queues(netdev, pdata->tx_ring_count);
- 	if (ret) {
- 		dev_err(dev, "error setting real tx queue count\n");
--		goto err_io;
-+		return ret;
- 	}
- 
--	pdata->rx_ring_count = min_t(unsigned int,
--				     netif_get_num_default_rss_queues(),
--				     pdata->hw_feat.rx_ch_cnt);
--	pdata->rx_q_count = pdata->hw_feat.rx_q_cnt;
- 	ret = netif_set_real_num_rx_queues(netdev, pdata->rx_ring_count);
- 	if (ret) {
- 		dev_err(dev, "error setting real rx queue count\n");
--		goto err_io;
-+		return ret;
- 	}
- 
- 	/* Initialize RSS hash key and lookup table */
-@@ -607,7 +318,7 @@ static int xgbe_probe(struct platform_device *pdev)
- 	/* Call MDIO/PHY initialization routine */
- 	ret = pdata->phy_if.phy_init(pdata);
- 	if (ret)
--		goto err_io;
-+		return ret;
- 
- 	/* Set device operations */
- 	netdev->netdev_ops = xgbe_get_netdev_ops();
-@@ -654,7 +365,7 @@ static int xgbe_probe(struct platform_device *pdev)
- 	ret = register_netdev(netdev);
- 	if (ret) {
- 		dev_err(dev, "net device registration failed\n");
--		goto err_io;
-+		return ret;
- 	}
- 
- 	/* Create the PHY/ANEG name based on netdev name */
-@@ -682,10 +393,6 @@ static int xgbe_probe(struct platform_device *pdev)
- 
- 	xgbe_debugfs_init(pdata);
- 
--	netdev_notice(netdev, "net device enabled\n");
--
--	DBGPR("<-- xgbe_probe\n");
--
- 	return 0;
- 
- err_wq:
-@@ -694,24 +401,12 @@ static int xgbe_probe(struct platform_device *pdev)
- err_netdev:
- 	unregister_netdev(netdev);
- 
--err_io:
--	platform_device_put(phy_pdev);
--
--err_phydev:
--	free_netdev(netdev);
--
--err_alloc:
--	dev_notice(dev, "net device not enabled\n");
--
- 	return ret;
- }
- 
--static int xgbe_remove(struct platform_device *pdev)
-+void xgbe_deconfig_netdev(struct xgbe_prv_data *pdata)
- {
--	struct net_device *netdev = platform_get_drvdata(pdev);
--	struct xgbe_prv_data *pdata = netdev_priv(netdev);
--
--	DBGPR("-->xgbe_remove\n");
-+	struct net_device *netdev = pdata->netdev;
- 
- 	xgbe_debugfs_exit(pdata);
- 
-@@ -726,103 +421,23 @@ static int xgbe_remove(struct platform_device *pdev)
- 	destroy_workqueue(pdata->dev_workqueue);
- 
- 	unregister_netdev(netdev);
--
--	platform_device_put(pdata->phy_pdev);
--
--	free_netdev(netdev);
--
--	DBGPR("<--xgbe_remove\n");
--
--	return 0;
- }
- 
--#ifdef CONFIG_PM
--static int xgbe_suspend(struct device *dev)
-+static int __init xgbe_mod_init(void)
- {
--	struct net_device *netdev = dev_get_drvdata(dev);
--	struct xgbe_prv_data *pdata = netdev_priv(netdev);
--	int ret = 0;
--
--	DBGPR("-->xgbe_suspend\n");
--
--	if (netif_running(netdev))
--		ret = xgbe_powerdown(netdev, XGMAC_DRIVER_CONTEXT);
--
--	pdata->lpm_ctrl = XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_CTRL1);
--	pdata->lpm_ctrl |= MDIO_CTRL1_LPOWER;
--	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, pdata->lpm_ctrl);
-+	int ret;
- 
--	DBGPR("<--xgbe_suspend\n");
-+	ret = xgbe_platform_init();
-+	if (ret)
-+		return ret;
- 
--	return ret;
-+	return 0;
- }
- 
--static int xgbe_resume(struct device *dev)
-+static void __exit xgbe_mod_exit(void)
- {
--	struct net_device *netdev = dev_get_drvdata(dev);
--	struct xgbe_prv_data *pdata = netdev_priv(netdev);
--	int ret = 0;
--
--	DBGPR("-->xgbe_resume\n");
--
--	pdata->lpm_ctrl &= ~MDIO_CTRL1_LPOWER;
--	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, pdata->lpm_ctrl);
--
--	if (netif_running(netdev)) {
--		ret = xgbe_powerup(netdev, XGMAC_DRIVER_CONTEXT);
--
--		/* Schedule a restart in case the link or phy state changed
--		 * while we were powered down.
--		 */
--		schedule_work(&pdata->restart_work);
--	}
--
--	DBGPR("<--xgbe_resume\n");
--
--	return ret;
-+	xgbe_platform_exit();
- }
--#endif /* CONFIG_PM */
--
--static const struct xgbe_version_data xgbe_v1 = {
--	.init_function_ptrs_phy_impl	= xgbe_init_function_ptrs_phy_v1,
--	.xpcs_access			= XGBE_XPCS_ACCESS_V1,
--};
--
--#ifdef CONFIG_ACPI
--static const struct acpi_device_id xgbe_acpi_match[] = {
--	{ .id = "AMDI8001",
--	  .driver_data = (kernel_ulong_t)&xgbe_v1 },
--	{},
--};
--
--MODULE_DEVICE_TABLE(acpi, xgbe_acpi_match);
--#endif
--
--#ifdef CONFIG_OF
--static const struct of_device_id xgbe_of_match[] = {
--	{ .compatible = "amd,xgbe-seattle-v1a",
--	  .data = &xgbe_v1 },
--	{},
--};
--
--MODULE_DEVICE_TABLE(of, xgbe_of_match);
--#endif
--
--static SIMPLE_DEV_PM_OPS(xgbe_pm_ops, xgbe_suspend, xgbe_resume);
--
--static struct platform_driver xgbe_driver = {
--	.driver = {
--		.name = "amd-xgbe",
--#ifdef CONFIG_ACPI
--		.acpi_match_table = xgbe_acpi_match,
--#endif
--#ifdef CONFIG_OF
--		.of_match_table = xgbe_of_match,
--#endif
--		.pm = &xgbe_pm_ops,
--	},
--	.probe = xgbe_probe,
--	.remove = xgbe_remove,
--};
- 
--module_platform_driver(xgbe_driver);
-+module_init(xgbe_mod_init);
-+module_exit(xgbe_mod_exit);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-new file mode 100644
-index 0000000..0edbcd5
---- /dev/null
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-@@ -0,0 +1,632 @@
-+/*
-+ * AMD 10Gb Ethernet driver
-+ *
-+ * This file is available to you under your choice of the following two
-+ * licenses:
-+ *
-+ * License 1: GPLv2
-+ *
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-+ *
-+ * This file is free software; you may copy, redistribute and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation, either version 2 of the License, or (at
-+ * your option) any later version.
-+ *
-+ * This file is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ *
-+ * This file incorporates work covered by the following copyright and
-+ * permission notice:
-+ *     The Synopsys DWC ETHER XGMAC Software Driver and documentation
-+ *     (hereinafter "Software") is an unsupported proprietary work of Synopsys,
-+ *     Inc. unless otherwise expressly agreed to in writing between Synopsys
-+ *     and you.
-+ *
-+ *     The Software IS NOT an item of Licensed Software or Licensed Product
-+ *     under any End User Software License Agreement or Agreement for Licensed
-+ *     Product with Synopsys or any supplement thereto.  Permission is hereby
-+ *     granted, free of charge, to any person obtaining a copy of this software
-+ *     annotated with this license and the Software, to deal in the Software
-+ *     without restriction, including without limitation the rights to use,
-+ *     copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-+ *     of the Software, and to permit persons to whom the Software is furnished
-+ *     to do so, subject to the following conditions:
-+ *
-+ *     The above copyright notice and this permission notice shall be included
-+ *     in all copies or substantial portions of the Software.
-+ *
-+ *     THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS"
-+ *     BASIS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-+ *     TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-+ *     PARTICULAR PURPOSE ARE HEREBY DISCLAIMED. IN NO EVENT SHALL SYNOPSYS
-+ *     BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ *     CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ *     SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ *     INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ *     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ *     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
-+ *     THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ *
-+ * License 2: Modified BSD
-+ *
-+ * Copyright (c) 2014-2016 Advanced Micro Devices, Inc.
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *       notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *       notice, this list of conditions and the following disclaimer in the
-+ *       documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of Advanced Micro Devices, Inc. nor the
-+ *       names of its contributors may be used to endorse or promote products
-+ *       derived from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ * This file incorporates work covered by the following copyright and
-+ * permission notice:
-+ *     The Synopsys DWC ETHER XGMAC Software Driver and documentation
-+ *     (hereinafter "Software") is an unsupported proprietary work of Synopsys,
-+ *     Inc. unless otherwise expressly agreed to in writing between Synopsys
-+ *     and you.
-+ *
-+ *     The Software IS NOT an item of Licensed Software or Licensed Product
-+ *     under any End User Software License Agreement or Agreement for Licensed
-+ *     Product with Synopsys or any supplement thereto.  Permission is hereby
-+ *     granted, free of charge, to any person obtaining a copy of this software
-+ *     annotated with this license and the Software, to deal in the Software
-+ *     without restriction, including without limitation the rights to use,
-+ *     copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-+ *     of the Software, and to permit persons to whom the Software is furnished
-+ *     to do so, subject to the following conditions:
-+ *
-+ *     The above copyright notice and this permission notice shall be included
-+ *     in all copies or substantial portions of the Software.
-+ *
-+ *     THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS"
-+ *     BASIS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-+ *     TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-+ *     PARTICULAR PURPOSE ARE HEREBY DISCLAIMED. IN NO EVENT SHALL SYNOPSYS
-+ *     BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ *     CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ *     SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ *     INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ *     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ *     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
-+ *     THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/device.h>
-+#include <linux/platform_device.h>
-+#include <linux/spinlock.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/io.h>
-+#include <linux/of.h>
-+#include <linux/of_net.h>
-+#include <linux/of_address.h>
-+#include <linux/of_platform.h>
-+#include <linux/of_device.h>
-+#include <linux/clk.h>
-+#include <linux/property.h>
-+#include <linux/acpi.h>
-+#include <linux/mdio.h>
-+
-+#include "xgbe.h"
-+#include "xgbe-common.h"
-+
-+#ifdef CONFIG_ACPI
-+static const struct acpi_device_id xgbe_acpi_match[];
-+
-+static struct xgbe_version_data *xgbe_acpi_vdata(struct xgbe_prv_data *pdata)
-+{
-+	const struct acpi_device_id *id;
-+
-+	id = acpi_match_device(xgbe_acpi_match, pdata->dev);
-+
-+	return id ? (struct xgbe_version_data *)id->driver_data : NULL;
-+}
-+
-+static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
-+{
-+	struct device *dev = pdata->dev;
-+	u32 property;
-+	int ret;
-+
-+	/* Obtain the system clock setting */
-+	ret = device_property_read_u32(dev, XGBE_ACPI_DMA_FREQ, &property);
-+	if (ret) {
-+		dev_err(dev, "unable to obtain %s property\n",
-+			XGBE_ACPI_DMA_FREQ);
-+		return ret;
-+	}
-+	pdata->sysclk_rate = property;
-+
-+	/* Obtain the PTP clock setting */
-+	ret = device_property_read_u32(dev, XGBE_ACPI_PTP_FREQ, &property);
-+	if (ret) {
-+		dev_err(dev, "unable to obtain %s property\n",
-+			XGBE_ACPI_PTP_FREQ);
-+		return ret;
-+	}
-+	pdata->ptpclk_rate = property;
-+
-+	return 0;
-+}
-+#else   /* CONFIG_ACPI */
-+static struct xgbe_version_data *xgbe_acpi_vdata(struct xgbe_prv_data *pdata)
-+{
-+	return NULL;
-+}
-+
-+static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
-+{
-+	return -EINVAL;
-+}
-+#endif  /* CONFIG_ACPI */
-+
-+#ifdef CONFIG_OF
-+static const struct of_device_id xgbe_of_match[];
-+
-+static struct xgbe_version_data *xgbe_of_vdata(struct xgbe_prv_data *pdata)
-+{
-+	const struct of_device_id *id;
-+
-+	id = of_match_device(xgbe_of_match, pdata->dev);
-+
-+	return id ? (struct xgbe_version_data *)id->data : NULL;
-+}
-+
-+static int xgbe_of_support(struct xgbe_prv_data *pdata)
-+{
-+	struct device *dev = pdata->dev;
-+
-+	/* Obtain the system clock setting */
-+	pdata->sysclk = devm_clk_get(dev, XGBE_DMA_CLOCK);
-+	if (IS_ERR(pdata->sysclk)) {
-+		dev_err(dev, "dma devm_clk_get failed\n");
-+		return PTR_ERR(pdata->sysclk);
-+	}
-+	pdata->sysclk_rate = clk_get_rate(pdata->sysclk);
-+
-+	/* Obtain the PTP clock setting */
-+	pdata->ptpclk = devm_clk_get(dev, XGBE_PTP_CLOCK);
-+	if (IS_ERR(pdata->ptpclk)) {
-+		dev_err(dev, "ptp devm_clk_get failed\n");
-+		return PTR_ERR(pdata->ptpclk);
-+	}
-+	pdata->ptpclk_rate = clk_get_rate(pdata->ptpclk);
-+
-+	return 0;
-+}
-+
-+static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
-+{
-+	struct device *dev = pdata->dev;
-+	struct device_node *phy_node;
-+	struct platform_device *phy_pdev;
-+
-+	phy_node = of_parse_phandle(dev->of_node, "phy-handle", 0);
-+	if (phy_node) {
-+		/* Old style device tree:
-+		 *   The XGBE and PHY resources are separate
-+		 */
-+		phy_pdev = of_find_device_by_node(phy_node);
-+		of_node_put(phy_node);
-+	} else {
-+		/* New style device tree:
-+		 *   The XGBE and PHY resources are grouped together with
-+		 *   the PHY resources listed last
-+		 */
-+		get_device(dev);
-+		phy_pdev = pdata->platdev;
-+	}
-+
-+	return phy_pdev;
-+}
-+#else   /* CONFIG_OF */
-+static struct xgbe_version_data *xgbe_of_vdata(struct xgbe_prv_data *pdata)
-+{
-+	return NULL;
-+}
-+
-+static int xgbe_of_support(struct xgbe_prv_data *pdata)
-+{
-+	return -EINVAL;
-+}
-+
-+static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
-+{
-+	return NULL;
-+}
-+#endif  /* CONFIG_OF */
-+
-+static unsigned int xgbe_resource_count(struct platform_device *pdev,
-+					unsigned int type)
-+{
-+	unsigned int count;
-+	int i;
-+
-+	for (i = 0, count = 0; i < pdev->num_resources; i++) {
-+		struct resource *res = &pdev->resource[i];
-+
-+		if (type == resource_type(res))
-+			count++;
-+	}
-+
-+	return count;
-+}
-+
-+static struct platform_device *xgbe_get_phy_pdev(struct xgbe_prv_data *pdata)
-+{
-+	struct platform_device *phy_pdev;
-+
-+	if (pdata->use_acpi) {
-+		get_device(pdata->dev);
-+		phy_pdev = pdata->platdev;
-+	} else {
-+		phy_pdev = xgbe_of_get_phy_pdev(pdata);
-+	}
-+
-+	return phy_pdev;
-+}
-+
-+static struct xgbe_version_data *xgbe_get_vdata(struct xgbe_prv_data *pdata)
-+{
-+	return pdata->use_acpi ? xgbe_acpi_vdata(pdata)
-+			       : xgbe_of_vdata(pdata);
-+}
-+
-+static int xgbe_platform_probe(struct platform_device *pdev)
-+{
-+	struct xgbe_prv_data *pdata;
-+	struct device *dev = &pdev->dev;
-+	struct platform_device *phy_pdev;
-+	struct resource *res;
-+	const char *phy_mode;
-+	unsigned int phy_memnum, phy_irqnum;
-+	unsigned int dma_irqnum, dma_irqend;
-+	enum dev_dma_attr attr;
-+	int ret;
-+
-+	pdata = xgbe_alloc_pdata(dev);
-+	if (IS_ERR(pdata)) {
-+		ret = PTR_ERR(pdata);
-+		goto err_alloc;
-+	}
-+
-+	pdata->platdev = pdev;
-+	pdata->adev = ACPI_COMPANION(dev);
-+	platform_set_drvdata(pdev, pdata);
-+
-+	/* Check if we should use ACPI or DT */
-+	pdata->use_acpi = dev->of_node ? 0 : 1;
-+
-+	/* Get the version data */
-+	pdata->vdata = xgbe_get_vdata(pdata);
-+
-+	phy_pdev = xgbe_get_phy_pdev(pdata);
-+	if (!phy_pdev) {
-+		dev_err(dev, "unable to obtain phy device\n");
-+		ret = -EINVAL;
-+		goto err_phydev;
-+	}
-+	pdata->phy_platdev = phy_pdev;
-+	pdata->phy_dev = &phy_pdev->dev;
-+
-+	if (pdev == phy_pdev) {
-+		/* New style device tree or ACPI:
-+		 *   The XGBE and PHY resources are grouped together with
-+		 *   the PHY resources listed last
-+		 */
-+		phy_memnum = xgbe_resource_count(pdev, IORESOURCE_MEM) - 3;
-+		phy_irqnum = xgbe_resource_count(pdev, IORESOURCE_IRQ) - 1;
-+		dma_irqnum = 1;
-+		dma_irqend = phy_irqnum;
-+	} else {
-+		/* Old style device tree:
-+		 *   The XGBE and PHY resources are separate
-+		 */
-+		phy_memnum = 0;
-+		phy_irqnum = 0;
-+		dma_irqnum = 1;
-+		dma_irqend = xgbe_resource_count(pdev, IORESOURCE_IRQ);
-+	}
-+
-+	/* Obtain the mmio areas for the device */
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	pdata->xgmac_regs = devm_ioremap_resource(dev, res);
-+	if (IS_ERR(pdata->xgmac_regs)) {
-+		dev_err(dev, "xgmac ioremap failed\n");
-+		ret = PTR_ERR(pdata->xgmac_regs);
-+		goto err_io;
-+	}
-+	if (netif_msg_probe(pdata))
-+		dev_dbg(dev, "xgmac_regs = %p\n", pdata->xgmac_regs);
-+
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+	pdata->xpcs_regs = devm_ioremap_resource(dev, res);
-+	if (IS_ERR(pdata->xpcs_regs)) {
-+		dev_err(dev, "xpcs ioremap failed\n");
-+		ret = PTR_ERR(pdata->xpcs_regs);
-+		goto err_io;
-+	}
-+	if (netif_msg_probe(pdata))
-+		dev_dbg(dev, "xpcs_regs  = %p\n", pdata->xpcs_regs);
-+
-+	res = platform_get_resource(phy_pdev, IORESOURCE_MEM, phy_memnum++);
-+	pdata->rxtx_regs = devm_ioremap_resource(dev, res);
-+	if (IS_ERR(pdata->rxtx_regs)) {
-+		dev_err(dev, "rxtx ioremap failed\n");
-+		ret = PTR_ERR(pdata->rxtx_regs);
-+		goto err_io;
-+	}
-+	if (netif_msg_probe(pdata))
-+		dev_dbg(dev, "rxtx_regs  = %p\n", pdata->rxtx_regs);
-+
-+	res = platform_get_resource(phy_pdev, IORESOURCE_MEM, phy_memnum++);
-+	pdata->sir0_regs = devm_ioremap_resource(dev, res);
-+	if (IS_ERR(pdata->sir0_regs)) {
-+		dev_err(dev, "sir0 ioremap failed\n");
-+		ret = PTR_ERR(pdata->sir0_regs);
-+		goto err_io;
-+	}
-+	if (netif_msg_probe(pdata))
-+		dev_dbg(dev, "sir0_regs  = %p\n", pdata->sir0_regs);
-+
-+	res = platform_get_resource(phy_pdev, IORESOURCE_MEM, phy_memnum++);
-+	pdata->sir1_regs = devm_ioremap_resource(dev, res);
-+	if (IS_ERR(pdata->sir1_regs)) {
-+		dev_err(dev, "sir1 ioremap failed\n");
-+		ret = PTR_ERR(pdata->sir1_regs);
-+		goto err_io;
-+	}
-+	if (netif_msg_probe(pdata))
-+		dev_dbg(dev, "sir1_regs  = %p\n", pdata->sir1_regs);
-+
-+	/* Retrieve the MAC address */
-+	ret = device_property_read_u8_array(dev, XGBE_MAC_ADDR_PROPERTY,
-+					    pdata->mac_addr,
-+					    sizeof(pdata->mac_addr));
-+	if (ret || !is_valid_ether_addr(pdata->mac_addr)) {
-+		dev_err(dev, "invalid %s property\n", XGBE_MAC_ADDR_PROPERTY);
-+		if (!ret)
-+			ret = -EINVAL;
-+		goto err_io;
-+	}
-+
-+	/* Retrieve the PHY mode - it must be "xgmii" */
-+	ret = device_property_read_string(dev, XGBE_PHY_MODE_PROPERTY,
-+					  &phy_mode);
-+	if (ret || strcmp(phy_mode, phy_modes(PHY_INTERFACE_MODE_XGMII))) {
-+		dev_err(dev, "invalid %s property\n", XGBE_PHY_MODE_PROPERTY);
-+		if (!ret)
-+			ret = -EINVAL;
-+		goto err_io;
-+	}
-+	pdata->phy_mode = PHY_INTERFACE_MODE_XGMII;
-+
-+	/* Check for per channel interrupt support */
-+	if (device_property_present(dev, XGBE_DMA_IRQS_PROPERTY))
-+		pdata->per_channel_irq = 1;
-+
-+	/* Obtain device settings unique to ACPI/OF */
-+	if (pdata->use_acpi)
-+		ret = xgbe_acpi_support(pdata);
-+	else
-+		ret = xgbe_of_support(pdata);
-+	if (ret)
-+		goto err_io;
-+
-+	/* Set the DMA coherency values */
-+	attr = device_get_dma_attr(dev);
-+	if (attr == DEV_DMA_NOT_SUPPORTED) {
-+		dev_err(dev, "DMA is not supported");
-+		ret = -ENODEV;
-+		goto err_io;
-+	}
-+	pdata->coherent = (attr == DEV_DMA_COHERENT);
-+	if (pdata->coherent) {
-+		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
-+		pdata->arcache = XGBE_DMA_OS_ARCACHE;
-+		pdata->awcache = XGBE_DMA_OS_AWCACHE;
-+	} else {
-+		pdata->axdomain = XGBE_DMA_SYS_AXDOMAIN;
-+		pdata->arcache = XGBE_DMA_SYS_ARCACHE;
-+		pdata->awcache = XGBE_DMA_SYS_AWCACHE;
-+	}
-+
-+	/* Set the maximum fifo amounts */
-+	pdata->tx_max_fifo_size = pdata->vdata->tx_max_fifo_size;
-+	pdata->rx_max_fifo_size = pdata->vdata->rx_max_fifo_size;
-+
-+	/* Set the hardware channel and queue counts */
-+	xgbe_set_counts(pdata);
-+
-+	/* Get the device interrupt */
-+	ret = platform_get_irq(pdev, 0);
-+	if (ret < 0) {
-+		dev_err(dev, "platform_get_irq 0 failed\n");
-+		goto err_io;
-+	}
-+	pdata->dev_irq = ret;
-+
-+	/* Get the per channel DMA interrupts */
-+	if (pdata->per_channel_irq) {
-+		unsigned int i, max = ARRAY_SIZE(pdata->channel_irq);
-+
-+		for (i = 0; (i < max) && (dma_irqnum < dma_irqend); i++) {
-+			ret = platform_get_irq(pdata->platdev, dma_irqnum++);
-+			if (ret < 0) {
-+				netdev_err(pdata->netdev,
-+					   "platform_get_irq %u failed\n",
-+					   dma_irqnum - 1);
-+				goto err_io;
-+			}
-+
-+			pdata->channel_irq[i] = ret;
-+		}
-+	}
-+
-+	/* Get the auto-negotiation interrupt */
-+	ret = platform_get_irq(phy_pdev, phy_irqnum++);
-+	if (ret < 0) {
-+		dev_err(dev, "platform_get_irq phy 0 failed\n");
-+		goto err_io;
-+	}
-+	pdata->an_irq = ret;
-+
-+	/* Configure the netdev resource */
-+	ret = xgbe_config_netdev(pdata);
-+	if (ret)
-+		goto err_io;
-+
-+	netdev_notice(pdata->netdev, "net device enabled\n");
-+
-+	return 0;
-+
-+err_io:
-+	platform_device_put(phy_pdev);
-+
-+err_phydev:
-+	xgbe_free_pdata(pdata);
-+
-+err_alloc:
-+	dev_notice(dev, "net device not enabled\n");
-+
-+	return ret;
-+}
-+
-+static int xgbe_platform_remove(struct platform_device *pdev)
-+{
-+	struct xgbe_prv_data *pdata = platform_get_drvdata(pdev);
-+
-+	xgbe_deconfig_netdev(pdata);
-+
-+	platform_device_put(pdata->phy_platdev);
-+
-+	xgbe_free_pdata(pdata);
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_PM
-+static int xgbe_platform_suspend(struct device *dev)
-+{
-+	struct xgbe_prv_data *pdata = dev_get_drvdata(dev);
-+	struct net_device *netdev = pdata->netdev;
-+	int ret = 0;
-+
-+	DBGPR("-->xgbe_suspend\n");
-+
-+	if (netif_running(netdev))
-+		ret = xgbe_powerdown(netdev, XGMAC_DRIVER_CONTEXT);
-+
-+	pdata->lpm_ctrl = XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_CTRL1);
-+	pdata->lpm_ctrl |= MDIO_CTRL1_LPOWER;
-+	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, pdata->lpm_ctrl);
-+
-+	DBGPR("<--xgbe_suspend\n");
-+
-+	return ret;
-+}
-+
-+static int xgbe_platform_resume(struct device *dev)
-+{
-+	struct xgbe_prv_data *pdata = dev_get_drvdata(dev);
-+	struct net_device *netdev = pdata->netdev;
-+	int ret = 0;
-+
-+	DBGPR("-->xgbe_resume\n");
-+
-+	pdata->lpm_ctrl &= ~MDIO_CTRL1_LPOWER;
-+	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, pdata->lpm_ctrl);
-+
-+	if (netif_running(netdev)) {
-+		ret = xgbe_powerup(netdev, XGMAC_DRIVER_CONTEXT);
-+
-+		/* Schedule a restart in case the link or phy state changed
-+		 * while we were powered down.
-+		 */
-+		schedule_work(&pdata->restart_work);
-+	}
-+
-+	DBGPR("<--xgbe_resume\n");
-+
-+	return ret;
-+}
-+#endif /* CONFIG_PM */
-+
-+static const struct xgbe_version_data xgbe_v1 = {
-+	.init_function_ptrs_phy_impl	= xgbe_init_function_ptrs_phy_v1,
+ static const struct xgbe_version_data xgbe_v1 = {
+ 	.init_function_ptrs_phy_impl	= xgbe_init_function_ptrs_phy_v1,
 +	.xpcs_access			= XGBE_XPCS_ACCESS_V1,
-+	.tx_max_fifo_size		= 81920,
-+	.rx_max_fifo_size		= 81920,
-+};
-+
-+#ifdef CONFIG_ACPI
-+static const struct acpi_device_id xgbe_acpi_match[] = {
-+	{ .id = "AMDI8001",
-+	  .driver_data = (kernel_ulong_t)&xgbe_v1 },
-+	{},
-+};
-+
-+MODULE_DEVICE_TABLE(acpi, xgbe_acpi_match);
-+#endif
-+
-+#ifdef CONFIG_OF
-+static const struct of_device_id xgbe_of_match[] = {
-+	{ .compatible = "amd,xgbe-seattle-v1a",
-+	  .data = &xgbe_v1 },
-+	{},
-+};
-+
-+MODULE_DEVICE_TABLE(of, xgbe_of_match);
-+#endif
-+
-+static SIMPLE_DEV_PM_OPS(xgbe_platform_pm_ops,
-+			 xgbe_platform_suspend, xgbe_platform_resume);
-+
-+static struct platform_driver xgbe_driver = {
-+	.driver = {
-+		.name = "amd-xgbe",
-+#ifdef CONFIG_ACPI
-+		.acpi_match_table = xgbe_acpi_match,
-+#endif
-+#ifdef CONFIG_OF
-+		.of_match_table = xgbe_of_match,
-+#endif
-+		.pm = &xgbe_platform_pm_ops,
-+	},
-+	.probe = xgbe_platform_probe,
-+	.remove = xgbe_platform_remove,
-+};
-+
-+int xgbe_platform_init(void)
-+{
-+	return platform_driver_register(&xgbe_driver);
-+}
-+
-+void xgbe_platform_exit(void)
-+{
-+	platform_driver_unregister(&xgbe_driver);
-+}
+ };
+ 
+ #ifdef CONFIG_ACPI
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index d5cae15..0779247 100644
+index 8cb4f20..160b498 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -210,8 +210,6 @@
- #define XGMAC_DRIVER_CONTEXT	1
- #define XGMAC_IOCTL_CONTEXT	2
+@@ -471,6 +471,11 @@ enum xgbe_speed {
+ 	XGBE_SPEEDS,
+ };
  
--#define XGMAC_FIFO_RX_MAX	81920
--#define XGMAC_FIFO_TX_MAX	81920
- #define XGMAC_FIFO_MIN_ALLOC	2048
- #define XGMAC_FIFO_UNIT		256
- #define XGMAC_FIFO_ALIGN(_x)				\
-@@ -805,14 +803,16 @@ struct xgbe_version_data {
++enum xgbe_xpcs_access {
++	XGBE_XPCS_ACCESS_V1 = 0,
++	XGBE_XPCS_ACCESS_V2,
++};
++
+ enum xgbe_an_mode {
+ 	XGBE_AN_MODE_CL73 = 0,
+ 	XGBE_AN_MODE_CL37,
+@@ -798,6 +803,7 @@ struct xgbe_hw_features {
+ 
+ struct xgbe_version_data {
  	void (*init_function_ptrs_phy_impl)(struct xgbe_phy_if *);
- 	enum xgbe_xpcs_access xpcs_access;
- 	unsigned int mmc_64bit;
-+	unsigned int tx_max_fifo_size;
-+	unsigned int rx_max_fifo_size;
++	enum xgbe_xpcs_access xpcs_access;
  };
  
  struct xgbe_prv_data {
- 	struct net_device *netdev;
--	struct platform_device *pdev;
-+	struct platform_device *platdev;
- 	struct acpi_device *adev;
- 	struct device *dev;
--	struct platform_device *phy_pdev;
-+	struct platform_device *phy_platdev;
- 	struct device *phy_dev;
+@@ -826,6 +832,9 @@ struct xgbe_prv_data {
  
- 	/* Version related data */
-@@ -845,6 +845,7 @@ struct xgbe_prv_data {
+ 	/* XPCS indirect addressing lock */
+ 	spinlock_t xpcs_lock;
++	unsigned int xpcs_window;
++	unsigned int xpcs_window_size;
++	unsigned int xpcs_window_mask;
  
- 	int dev_irq;
- 	unsigned int per_channel_irq;
-+	int channel_irq[XGBE_MAX_DMA_CHANNELS];
- 
- 	struct xgbe_hw_if hw_if;
- 	struct xgbe_phy_if phy_if;
-@@ -863,12 +864,16 @@ struct xgbe_prv_data {
- 
- 	/* Rings for Tx/Rx on a DMA channel */
- 	struct xgbe_channel *channel;
-+	unsigned int tx_max_channel_count;
-+	unsigned int rx_max_channel_count;
- 	unsigned int channel_count;
- 	unsigned int tx_ring_count;
- 	unsigned int tx_desc_count;
- 	unsigned int rx_ring_count;
- 	unsigned int rx_desc_count;
- 
-+	unsigned int tx_max_q_count;
-+	unsigned int rx_max_q_count;
- 	unsigned int tx_q_count;
- 	unsigned int rx_q_count;
- 
-@@ -880,11 +885,13 @@ struct xgbe_prv_data {
- 	unsigned int tx_threshold;
- 	unsigned int tx_pbl;
- 	unsigned int tx_osp_mode;
-+	unsigned int tx_max_fifo_size;
- 
- 	/* Rx settings */
- 	unsigned int rx_sf_mode;
- 	unsigned int rx_threshold;
- 	unsigned int rx_pbl;
-+	unsigned int rx_max_fifo_size;
- 
- 	/* Tx coalescing settings */
- 	unsigned int tx_usecs;
-@@ -1005,6 +1012,14 @@ struct xgbe_prv_data {
- };
- 
- /* Function prototypes*/
-+struct xgbe_prv_data *xgbe_alloc_pdata(struct device *);
-+void xgbe_free_pdata(struct xgbe_prv_data *);
-+void xgbe_set_counts(struct xgbe_prv_data *);
-+int xgbe_config_netdev(struct xgbe_prv_data *);
-+void xgbe_deconfig_netdev(struct xgbe_prv_data *);
-+
-+int xgbe_platform_init(void);
-+void xgbe_platform_exit(void);
- 
- void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *);
- void xgbe_init_function_ptrs_phy(struct xgbe_phy_if *);
+ 	/* RSS addressing mutex */
+ 	struct mutex rss_mutex;
