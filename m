@@ -1,82 +1,136 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] netfilter: Update ip_route_me_harder to consider L3 domain
-Date: Thu,  3 Nov 2016 10:43:42 -0700
-Message-ID: <1478195022-5724-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, pablo@netfilter.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: net/sctp: use-after-free in __sctp_connect
+Date: Thu, 3 Nov 2016 15:52:20 -0200
+Message-ID: <20161103175220.GG8514@localhost.localdomain>
+References: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
+ <20161019165754.GD2958@localhost.localdomain>
+ <CAAeHK+xaBVcZp7PfH-tYWaxs6rCiaNAivZj4xZLcawFShi6C1Q@mail.gmail.com>
+ <CAAeHK+xxcV8XV1Pc2_eBrQWTDSp3ooc1LLX81jhCTCvk7hhaVg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35278 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932869AbcKCRny (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:43:54 -0400
-Received: by mail-pf0-f170.google.com with SMTP id i88so35041155pfk.2
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 10:43:53 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:49096 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759322AbcKCRwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 13:52:25 -0400
+Content-Disposition: inline
+In-Reply-To: <CAAeHK+xxcV8XV1Pc2_eBrQWTDSp3ooc1LLX81jhCTCvk7hhaVg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip_route_me_harder is not considering the L3 domain and sending lookups
-to the wrong table. For example consider the following output rule:
+On Thu, Nov 03, 2016 at 06:11:01PM +0100, Andrey Konovalov wrote:
+> On Wed, Nov 2, 2016 at 11:42 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> > On Wed, Oct 19, 2016 at 6:57 PM, Marcelo Ricardo Leitner
+> > <marcelo.leitner@gmail.com> wrote:
+> >> On Wed, Oct 19, 2016 at 02:25:24PM +0200, Andrey Konovalov wrote:
+> >>> Hi,
+> >>>
+> >>> I've got the following error report while running the syzkaller fuzzer:
+> >>>
+> >>> ==================================================================
+> >>> BUG: KASAN: use-after-free in __sctp_connect+0xabe/0xbf0 at addr
+> >>> ffff88006b1dc610
+> >>
+> >> Seems this is the same that Dmitry Vyukov had reported back in Jan 13th.
+> >> So far I couldn't identify the reason.
+> >> "Good" to know it's still there, thanks for reporting it.
+> 
+> Hi Marcelo,
+> 
 
-iptables -I OUTPUT -p tcp --dport 12345 -j REJECT --reject-with tcp-reset
+Hi
 
-using perf to analyze lookups via the fib_table_lookup tracepoint shows:
+> So I've looked at the code.
+> As far as I understand, the problem is a race condition between
+> setsockopt(SCTP_SOCKOPT_CONNECTX) and shutdown on an sctp socket.
+> setsockopt() calls sctp_wait_for_connect(), which exits the for loop
+> on the sk->sk_shutdown & RCV_SHUTDOWN if clause, and then frees asoc
+> with sctp_association_put() and returns err = 0.
+> Then __sctp_connect() checks that err == 0 and reads asoc->assoc_id
+> from the freed asoc.
 
-vrf-test  1187 [001] 46887.295927: fib:fib_table_lookup: table 255 oif 0 iif 0 src 0.0.0.0 dst 10.100.1.254 tos 0 scope 0 flags 0
-        ffffffff8143922c perf_trace_fib_table_lookup ([kernel.kallsyms])
-        ffffffff81493aac fib_table_lookup ([kernel.kallsyms])
-        ffffffff8148dda3 __inet_dev_addr_type ([kernel.kallsyms])
-        ffffffff8148ddf6 inet_addr_type ([kernel.kallsyms])
-        ffffffff8149e344 ip_route_me_harder ([kernel.kallsyms])
+Suddenly this seems familiar. Your description makes sense, thanks for
+looking deeper into this, Andrey.
 
-and
+This fix should do it, can you please try it? I'll post it properly
+if it works.
 
-vrf-test  1187 [001] 46887.295933: fib:fib_table_lookup: table 255 oif 0 iif 1 src 10.100.1.254 dst 10.100.1.2 tos 0 scope 0 flags
-        ffffffff8143922c perf_trace_fib_table_lookup ([kernel.kallsyms])
-        ffffffff81493aac fib_table_lookup ([kernel.kallsyms])
-        ffffffff814998ff fib4_rule_action ([kernel.kallsyms])
-        ffffffff81437f35 fib_rules_lookup ([kernel.kallsyms])
-        ffffffff81499758 __fib_lookup ([kernel.kallsyms])
-        ffffffff8144f010 fib_lookup.constprop.34 ([kernel.kallsyms])
-        ffffffff8144f759 __ip_route_output_key_hash ([kernel.kallsyms])
-        ffffffff8144fc6a ip_route_output_flow ([kernel.kallsyms])
-        ffffffff8149e39b ip_route_me_harder ([kernel.kallsyms])
+wait_for_connect is only used in two places, we can move the ref to a
+broader scope and cover that read too, instead of holding another ref.
 
-Updating both lookups to pull the L3 domain from the dst currently
-attached to the skb directs both lookups to the correct table.
+sendmsg path won't read anything from the asoc after waiting, so this
+should be enough for it too.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-Pablo: from a code review it seems ip_route_me_harder is only called in
-       the output path and after skb_dst is set.
+---8<---
 
- net/ipv4/netfilter.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+commit 7f7ba9b4fb834a61ab097dfd7c1f267e6a6d70a8
+Author: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date:   Thu Nov 3 15:47:45 2016 -0200
 
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index c3776ff6749f..b3cc1335adbc 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -24,10 +24,11 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
- 	struct flowi4 fl4 = {};
- 	__be32 saddr = iph->saddr;
- 	__u8 flags = skb->sk ? inet_sk_flowi_flags(skb->sk) : 0;
-+	struct net_device *dev = skb_dst(skb)->dev;
- 	unsigned int hh_len;
+    sctp: hold the asoc longer when associating
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 9fbb6feb8c27..aac271571930 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1214,9 +1214,11 @@ static int __sctp_connect(struct sock *sk,
  
- 	if (addr_type == RTN_UNSPEC)
--		addr_type = inet_addr_type(net, saddr);
-+		addr_type = inet_addr_type_dev_table(net, dev, saddr);
- 	if (addr_type == RTN_LOCAL || addr_type == RTN_UNICAST)
- 		flags |= FLOWI_FLAG_ANYSRC;
- 	else
-@@ -40,6 +41,8 @@ int ip_route_me_harder(struct net *net, struct sk_buff *skb, unsigned int addr_t
- 	fl4.saddr = saddr;
- 	fl4.flowi4_tos = RT_TOS(iph->tos);
- 	fl4.flowi4_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
-+	if (!fl4.flowi4_oif)
-+		fl4.flowi4_oif = l3mdev_master_ifindex(dev);
- 	fl4.flowi4_mark = skb->mark;
- 	fl4.flowi4_flags = flags;
- 	rt = ip_route_output_key(net, &fl4);
--- 
-2.1.4
+ 	timeo = sock_sndtimeo(sk, f_flags & O_NONBLOCK);
+ 
++	sctp_association_hold(asoc);
+ 	err = sctp_wait_for_connect(asoc, &timeo);
+ 	if ((err == 0 || err == -EINPROGRESS) && assoc_id)
+ 		*assoc_id = asoc->assoc_id;
++	sctp_association_put(asoc);
+ 
+ 	/* Don't free association on exit. */
+ 	asoc = NULL;
+@@ -1985,7 +1987,9 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
+ 
+ 	if (unlikely(wait_connect)) {
+ 		timeo = sock_sndtimeo(sk, msg_flags & MSG_DONTWAIT);
++		sctp_association_hold(asoc);
+ 		sctp_wait_for_connect(asoc, &timeo);
++		sctp_association_put(asoc);
+ 	}
+ 
+ 	/* If we are already past ASSOCIATE, the lower
+@@ -7501,6 +7505,7 @@ static int sctp_writeable(struct sock *sk)
+ 
+ /* Wait for an association to go into ESTABLISHED state. If timeout is 0,
+  * returns immediately with EINPROGRESS.
++ * Note: caller must hold a ref on asoc before calling this function.
+  */
+ static int sctp_wait_for_connect(struct sctp_association *asoc, long *timeo_p)
+ {
+@@ -7511,9 +7516,6 @@ static int sctp_wait_for_connect(struct sctp_association *asoc, long *timeo_p)
+ 
+ 	pr_debug("%s: asoc:%p, timeo:%ld\n", __func__, asoc, *timeo_p);
+ 
+-	/* Increment the association's refcnt.  */
+-	sctp_association_hold(asoc);
+-
+ 	for (;;) {
+ 		prepare_to_wait_exclusive(&asoc->wait, &wait,
+ 					  TASK_INTERRUPTIBLE);
+@@ -7543,9 +7545,6 @@ static int sctp_wait_for_connect(struct sctp_association *asoc, long *timeo_p)
+ out:
+ 	finish_wait(&asoc->wait, &wait);
+ 
+-	/* Release the association's refcnt.  */
+-	sctp_association_put(asoc);
+-
+ 	return err;
+ 
+ do_error:
