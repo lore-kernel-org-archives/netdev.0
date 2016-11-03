@@ -1,65 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: dccp: fix out of bound access in dccp_v6_err()
-Date: Wed, 02 Nov 2016 20:30:48 -0700
-Message-ID: <1478143848.7065.429.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1478138440.7065.419.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Mr Friedrich Mayrhofer <jenriquez@buenosaires.gob.ar>
+Subject: (unknown)
+Date: Thu, 03 Nov 2016 00:06:07 -0300
+Message-ID: <20161103000607.11247gir3pdx45gf@webmail.buenosaires.gob.ar>
+Reply-To: friedrich_mayrh1@yeah.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33366 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750970AbcKCDaw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 23:30:52 -0400
-In-Reply-To: <1478138440.7065.419.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtpgcba5.buenosaires.gob.ar ([200.16.89.92]:21199 "EHLO
+        smtpgcba5.buenosaires.gob.ar" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751088AbcKCEIA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 00:08:00 -0400
+Received: from webmail04 ([172.18.2.164]:32802 "EHLO webmail.gcba.gob.ar"
+        smtp-auth: "jenriquez@buenosaires.gob.ar" rhost-flags-OK-OK-OK-FAIL)
+        by mr4.buenosaires.gob.ar with ESMTPSA id S972414AbcKCDGN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 00:06:13 -0300
+Subject: 
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-dccp_v6_err() does not use pskb_may_pull() and might access garbage.
 
-We only need 4 bytes at the beginning of the DCCP header, like TCP,
-so the 8 bytes pulled in icmpv6_notify() are more than enough.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/dccp/ipv6.c |   15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+Good Day,
 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 3828f94b234c..3d35277a0b41 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -70,7 +70,7 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 			u8 type, u8 code, int offset, __be32 info)
- {
- 	const struct ipv6hdr *hdr = (const struct ipv6hdr *)skb->data;
--	const struct dccp_hdr *dh = (struct dccp_hdr *)(skb->data + offset);
-+	const struct dccp_hdr *dh;
- 	struct dccp_sock *dp;
- 	struct ipv6_pinfo *np;
- 	struct sock *sk;
-@@ -78,12 +78,13 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	__u64 seq;
- 	struct net *net = dev_net(skb->dev);
- 
--	if (skb->len < offset + sizeof(*dh) ||
--	    skb->len < offset + __dccp_basic_hdr_len(dh)) {
--		__ICMP6_INC_STATS(net, __in6_dev_get(skb->dev),
--				  ICMP6_MIB_INERRORS);
--		return;
--	}
-+	/* Only need dccph_dport & dccph_sport which are the first
-+	 * 4 bytes in dccp header.
-+	 * Our caller (icmpv6_notify()) already pulled 8 bytes for us.
-+	 */
-+	BUILD_BUG_ON(offsetofend(struct dccp_hdr, dccph_sport) > 8);
-+	BUILD_BUG_ON(offsetofend(struct dccp_hdr, dccph_dport) > 8);
-+	dh = (struct dccp_hdr *)(skb->data + offset);
- 
- 	sk = __inet6_lookup_established(net, &dccp_hashinfo,
- 					&hdr->daddr, dh->dccph_dport,
+This is the second time i am sending you this mail.
+
+I, Friedrich Mayrhofer Donate $ 1,000,000.00 to You, Email Me
+personally for more details.
+
+Regards.
+Friedrich Mayrhofer
