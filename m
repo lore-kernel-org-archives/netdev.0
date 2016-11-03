@@ -1,46 +1,50 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH RFC 0/2] ethtool: Add actual port speed reporting
-Date: Thu, 3 Nov 2016 10:09:08 -0700
-Message-ID: <fce609ee-3dfd-b71b-b9d9-528d80d18081@hpe.com>
-References: <1478100914-23610-1-git-send-email-galp@mellanox.com>
- <BL2PR07MB23069B0DB17B981AA43775B18DA00@BL2PR07MB2306.namprd07.prod.outlook.com>
- <7a681afa-a5fa-3039-873c-d13617484cc9@gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/sctp: use-after-free in __sctp_connect
+Date: Thu, 3 Nov 2016 18:11:01 +0100
+Message-ID: <CAAeHK+xxcV8XV1Pc2_eBrQWTDSp3ooc1LLX81jhCTCvk7hhaVg@mail.gmail.com>
+References: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
+ <20161019165754.GD2958@localhost.localdomain> <CAAeHK+xaBVcZp7PfH-tYWaxs6rCiaNAivZj4xZLcawFShi6C1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Decotigny <decot@googlers.com>,
-        Ben Hutchings <ben@decadent.org.uk>
-To: Gal Pressman <galp.dev@gmail.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        Gal Pressman <galp@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hpe.com ([15.241.140.73]:45217 "EHLO
-        g4t3427.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759000AbcKCRJM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 13:09:12 -0400
-In-Reply-To: <7a681afa-a5fa-3039-873c-d13617484cc9@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+xaBVcZp7PfH-tYWaxs6rCiaNAivZj4xZLcawFShi6C1Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> And besides, one can argue that in the SR-IOV scenario the VF has no business
->> knowing the physical port speed.
+On Wed, Nov 2, 2016 at 11:42 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> On Wed, Oct 19, 2016 at 6:57 PM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+>> On Wed, Oct 19, 2016 at 02:25:24PM +0200, Andrey Konovalov wrote:
+>>> Hi,
+>>>
+>>> I've got the following error report while running the syzkaller fuzzer:
+>>>
+>>> ==================================================================
+>>> BUG: KASAN: use-after-free in __sctp_connect+0xabe/0xbf0 at addr
+>>> ffff88006b1dc610
 >>
->
-> Good point, but there are more use-cases we should consider.
-> For example, when using Multi-Host/Flex-10/Multi-PF each PF should
-> be able to query both physical port speed and actual speed.
+>> Seems this is the same that Dmitry Vyukov had reported back in Jan 13th.
+>> So far I couldn't identify the reason.
+>> "Good" to know it's still there, thanks for reporting it.
 
-Despite my email address, I'm not fully versed on VC/Flex, but I have 
-always been under the impression that the flexnics created were, 
-conceptually, "distinct" NICs considered independently of the physical 
-port over which they operated.  Tossing another worm or three into the 
-can, while "back in the day" (when some of the first ethtool changes to 
-report speeds other than the "normal" ones went in) the speed of a 
-flexnic was fixed, today, it can actually operate in a range.  From a 
-minimum guarantee to an "if there is bandwidth available" cap.
+Hi Marcelo,
 
-rick jones
+So I've looked at the code.
+As far as I understand, the problem is a race condition between
+setsockopt(SCTP_SOCKOPT_CONNECTX) and shutdown on an sctp socket.
+setsockopt() calls sctp_wait_for_connect(), which exits the for loop
+on the sk->sk_shutdown & RCV_SHUTDOWN if clause, and then frees asoc
+with sctp_association_put() and returns err = 0.
+Then __sctp_connect() checks that err == 0 and reads asoc->assoc_id
+from the freed asoc.
