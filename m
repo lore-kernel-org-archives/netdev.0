@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 15/21] amd-xgbe: Add support for new DMA
- interrupt mode
-Date: Thu, 3 Nov 2016 08:30:17 -0500
-Message-ID: <20161103133017.3437.13786.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 20/21] amd-xgbe: Add support for MDIO attached
+ PHYs
+Date: Thu, 3 Nov 2016 08:31:07 -0500
+Message-ID: <20161103133107.3437.23922.stgit@tlendack-t1.amdoffice.net>
 References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,322 +11,901 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0088.outbound.protection.outlook.com ([104.47.34.88]:51523
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0072.outbound.protection.outlook.com ([104.47.38.72]:18023
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757877AbcKCNqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:46:25 -0400
+        id S1757297AbcKCNqf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:46:35 -0400
 In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current per channel DMA interrupt support is based on an edge
-triggered interrupt that is not maskable. This results in having to call
-the disable_irq/enable_irq functions in order to prevent interrupts
-during napi processing. The hardware now has a way to configure the per
-channel DMA interrupt that will allow for masking the interrupt which
-prevents calling disable_irq/enable_irq now. This patch makes use of
-this support.
+Use the phylib support in the kernel to communicate with and control an
+MDIO attached PHY. Use the hardware's MDIO communication mechanism to
+communicate with the PHY.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h   |    2 +
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c      |   15 +++-
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c      |   99 +++++++++++++++++--------
- drivers/net/ethernet/amd/xgbe/xgbe-pci.c      |    2 +
- drivers/net/ethernet/amd/xgbe/xgbe-platform.c |    4 +
- drivers/net/ethernet/amd/xgbe/xgbe.h          |    5 +
- 6 files changed, 91 insertions(+), 36 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |   37 +++
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |  113 ++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c    |   19 +
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c   |    1 
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |  386 ++++++++++++++++++++++++++-
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |   12 +
+ 6 files changed, 557 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index b54862b..516345c 100644
+index b7140f9..ecd4f4d 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -159,6 +159,8 @@
- #define DMA_ISR_MACIS_WIDTH		1
- #define DMA_ISR_MTLIS_INDEX		16
- #define DMA_ISR_MTLIS_WIDTH		1
-+#define DMA_MR_INTM_INDEX		12
-+#define DMA_MR_INTM_WIDTH		2
- #define DMA_MR_SWR_INDEX		0
- #define DMA_MR_SWR_WIDTH		1
- #define DMA_SBMR_EAME_INDEX		11
+@@ -311,6 +311,11 @@
+ #define MAC_HWF0R			0x011c
+ #define MAC_HWF1R			0x0120
+ #define MAC_HWF2R			0x0124
++#define MAC_MDIOSCAR			0x0200
++#define MAC_MDIOSCCDR			0x0204
++#define MAC_MDIOISR			0x0214
++#define MAC_MDIOIER			0x0218
++#define MAC_MDIOCL22R			0x0220
+ #define MAC_GPIOCR			0x0278
+ #define MAC_GPIOSR			0x027c
+ #define MAC_MACA0HR			0x0300
+@@ -411,10 +416,34 @@
+ #define MAC_ISR_MMCTXIS_WIDTH		1
+ #define MAC_ISR_PMTIS_INDEX		4
+ #define MAC_ISR_PMTIS_WIDTH		1
++#define MAC_ISR_SMI_INDEX		1
++#define MAC_ISR_SMI_WIDTH		1
+ #define MAC_ISR_TSIS_INDEX		12
+ #define MAC_ISR_TSIS_WIDTH		1
+ #define MAC_MACA1HR_AE_INDEX		31
+ #define MAC_MACA1HR_AE_WIDTH		1
++#define MAC_MDIOIER_SNGLCOMPIE_INDEX	12
++#define MAC_MDIOIER_SNGLCOMPIE_WIDTH	1
++#define MAC_MDIOISR_SNGLCOMPINT_INDEX	12
++#define MAC_MDIOISR_SNGLCOMPINT_WIDTH	1
++#define MAC_MDIOSCAR_DA_INDEX		21
++#define MAC_MDIOSCAR_DA_WIDTH		5
++#define MAC_MDIOSCAR_PA_INDEX		16
++#define MAC_MDIOSCAR_PA_WIDTH		5
++#define MAC_MDIOSCAR_RA_INDEX		0
++#define MAC_MDIOSCAR_RA_WIDTH		16
++#define MAC_MDIOSCAR_REG_INDEX		0
++#define MAC_MDIOSCAR_REG_WIDTH		21
++#define MAC_MDIOSCCDR_BUSY_INDEX	22
++#define MAC_MDIOSCCDR_BUSY_WIDTH	1
++#define MAC_MDIOSCCDR_CMD_INDEX		16
++#define MAC_MDIOSCCDR_CMD_WIDTH		2
++#define MAC_MDIOSCCDR_CR_INDEX		19
++#define MAC_MDIOSCCDR_CR_WIDTH		3
++#define MAC_MDIOSCCDR_DATA_INDEX	0
++#define MAC_MDIOSCCDR_DATA_WIDTH	16
++#define MAC_MDIOSCCDR_SADDR_INDEX	18
++#define MAC_MDIOSCCDR_SADDR_WIDTH	1
+ #define MAC_PFR_HMC_INDEX		2
+ #define MAC_PFR_HMC_WIDTH		1
+ #define MAC_PFR_HPF_INDEX		10
+@@ -1019,6 +1048,14 @@
+ #define XP_PROP_3_GPIO_TX_FAULT_WIDTH		4
+ #define XP_PROP_3_GPIO_ADDR_INDEX		8
+ #define XP_PROP_3_GPIO_ADDR_WIDTH		3
++#define XP_PROP_3_MDIO_RESET_INDEX		0
++#define XP_PROP_3_MDIO_RESET_WIDTH		2
++#define XP_PROP_3_MDIO_RESET_I2C_ADDR_INDEX	8
++#define XP_PROP_3_MDIO_RESET_I2C_ADDR_WIDTH	3
++#define XP_PROP_3_MDIO_RESET_I2C_GPIO_INDEX	12
++#define XP_PROP_3_MDIO_RESET_I2C_GPIO_WIDTH	4
++#define XP_PROP_3_MDIO_RESET_INT_GPIO_INDEX	4
++#define XP_PROP_3_MDIO_RESET_INT_GPIO_WIDTH	2
+ #define XP_PROP_4_MUX_ADDR_HI_INDEX		8
+ #define XP_PROP_4_MUX_ADDR_HI_WIDTH		5
+ #define XP_PROP_4_MUX_ADDR_LO_INDEX		0
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index ecc0d45..67bb40d 100644
+index 2997053..573f38f 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -646,6 +646,11 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- 	unsigned int dma_ch_isr, dma_ch_ier;
- 	unsigned int i;
- 
-+	/* Set the interrupt mode if supported */
-+	if (pdata->channel_irq_mode)
-+		XGMAC_IOWRITE_BITS(pdata, DMA_MR, INTM,
-+				   pdata->channel_irq_mode);
+@@ -722,6 +722,9 @@ static void xgbe_enable_mac_interrupts(struct xgbe_prv_data *pdata)
+ 	/* Enable all counter interrupts */
+ 	XGMAC_IOWRITE_BITS(pdata, MMC_RIER, ALL_INTERRUPTS, 0xffffffff);
+ 	XGMAC_IOWRITE_BITS(pdata, MMC_TIER, ALL_INTERRUPTS, 0xffffffff);
 +
- 	channel = pdata->channel;
- 	for (i = 0; i < pdata->channel_count; i++, channel++) {
- 		/* Clear all the interrupts which are set */
-@@ -667,19 +672,21 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- 		if (channel->tx_ring) {
- 			/* Enable the following Tx interrupts
- 			 *   TIE  - Transmit Interrupt Enable (unless using
--			 *          per channel interrupts)
-+			 *          per channel interrupts in edge triggered
-+			 *          mode)
- 			 */
--			if (!pdata->per_channel_irq)
-+			if (!pdata->per_channel_irq || pdata->channel_irq_mode)
- 				XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 1);
- 		}
- 		if (channel->rx_ring) {
- 			/* Enable following Rx interrupts
- 			 *   RBUE - Receive Buffer Unavailable Enable
- 			 *   RIE  - Receive Interrupt Enable (unless using
--			 *          per channel interrupts)
-+			 *          per channel interrupts in edge triggered
-+			 *          mode)
- 			 */
- 			XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RBUE, 1);
--			if (!pdata->per_channel_irq)
-+			if (!pdata->per_channel_irq || pdata->channel_irq_mode)
- 				XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 1);
- 		}
++	/* Enable MDIO single command completion interrupt */
++	XGMAC_IOWRITE_BITS(pdata, MAC_MDIOIER, SNGLCOMPIE, 1);
+ }
  
+ static void xgbe_enable_ecc_interrupts(struct xgbe_prv_data *pdata)
+@@ -1088,6 +1091,36 @@ static int xgbe_config_rx_mode(struct xgbe_prv_data *pdata)
+ 	return 0;
+ }
+ 
++static int xgbe_clr_gpio(struct xgbe_prv_data *pdata, unsigned int gpio)
++{
++	unsigned int reg;
++
++	if (gpio > 16)
++		return -EINVAL;
++
++	reg = XGMAC_IOREAD(pdata, MAC_GPIOSR);
++
++	reg &= ~(1 << (gpio + 16));
++	XGMAC_IOWRITE(pdata, MAC_GPIOSR, reg);
++
++	return 0;
++}
++
++static int xgbe_set_gpio(struct xgbe_prv_data *pdata, unsigned int gpio)
++{
++	unsigned int reg;
++
++	if (gpio > 16)
++		return -EINVAL;
++
++	reg = XGMAC_IOREAD(pdata, MAC_GPIOSR);
++
++	reg |= (1 << (gpio + 16));
++	XGMAC_IOWRITE(pdata, MAC_GPIOSR, reg);
++
++	return 0;
++}
++
+ static int xgbe_read_mmd_regs_v2(struct xgbe_prv_data *pdata, int prtad,
+ 				 int mmd_reg)
+ {
+@@ -1232,6 +1265,79 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 	}
+ }
+ 
++static int xgbe_write_ext_mii_regs(struct xgbe_prv_data *pdata, int addr,
++				   int reg, u16 val)
++{
++	unsigned int mdio_sca, mdio_sccd;
++
++	reinit_completion(&pdata->mdio_complete);
++
++	mdio_sca = 0;
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, REG, reg);
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, DA, addr);
++	XGMAC_IOWRITE(pdata, MAC_MDIOSCAR, mdio_sca);
++
++	mdio_sccd = 0;
++	XGMAC_SET_BITS(mdio_sccd, MAC_MDIOSCCDR, DATA, val);
++	XGMAC_SET_BITS(mdio_sccd, MAC_MDIOSCCDR, CMD, 1);
++	XGMAC_SET_BITS(mdio_sccd, MAC_MDIOSCCDR, BUSY, 1);
++	XGMAC_IOWRITE(pdata, MAC_MDIOSCCDR, mdio_sccd);
++
++	if (!wait_for_completion_timeout(&pdata->mdio_complete, HZ)) {
++		netdev_err(pdata->netdev, "mdio write operation timed out\n");
++		return -ETIMEDOUT;
++	}
++
++	return 0;
++}
++
++static int xgbe_read_ext_mii_regs(struct xgbe_prv_data *pdata, int addr,
++				  int reg)
++{
++	unsigned int mdio_sca, mdio_sccd;
++
++	reinit_completion(&pdata->mdio_complete);
++
++	mdio_sca = 0;
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, REG, reg);
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, DA, addr);
++	XGMAC_IOWRITE(pdata, MAC_MDIOSCAR, mdio_sca);
++
++	mdio_sccd = 0;
++	XGMAC_SET_BITS(mdio_sccd, MAC_MDIOSCCDR, CMD, 3);
++	XGMAC_SET_BITS(mdio_sccd, MAC_MDIOSCCDR, BUSY, 1);
++	XGMAC_IOWRITE(pdata, MAC_MDIOSCCDR, mdio_sccd);
++
++	if (!wait_for_completion_timeout(&pdata->mdio_complete, HZ)) {
++		netdev_err(pdata->netdev, "mdio read operation timed out\n");
++		return -ETIMEDOUT;
++	}
++
++	return XGMAC_IOREAD_BITS(pdata, MAC_MDIOSCCDR, DATA);
++}
++
++static int xgbe_set_ext_mii_mode(struct xgbe_prv_data *pdata, unsigned int port,
++				 enum xgbe_mdio_mode mode)
++{
++	unsigned int reg_val = 0;
++
++	switch (mode) {
++	case XGBE_MDIO_MODE_CL22:
++		if (port > XGMAC_MAX_C22_PORT)
++			return -EINVAL;
++		reg_val |= (1 << port);
++		break;
++	case XGBE_MDIO_MODE_CL45:
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	XGMAC_IOWRITE(pdata, MAC_MDIOCL22R, reg_val);
++
++	return 0;
++}
++
+ static int xgbe_tx_complete(struct xgbe_ring_desc *rdesc)
+ {
+ 	return !XGMAC_GET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, OWN);
+@@ -3384,6 +3490,13 @@ void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *hw_if)
+ 
+ 	hw_if->set_speed = xgbe_set_speed;
+ 
++	hw_if->set_ext_mii_mode = xgbe_set_ext_mii_mode;
++	hw_if->read_ext_mii_regs = xgbe_read_ext_mii_regs;
++	hw_if->write_ext_mii_regs = xgbe_write_ext_mii_regs;
++
++	hw_if->set_gpio = xgbe_set_gpio;
++	hw_if->clr_gpio = xgbe_clr_gpio;
++
+ 	hw_if->enable_tx = xgbe_enable_tx;
+ 	hw_if->disable_tx = xgbe_disable_tx;
+ 	hw_if->enable_rx = xgbe_enable_rx;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index efa01a5..490fdb5 100644
+index df69d21..a9fb5a4 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -252,48 +252,60 @@ static int xgbe_calc_rx_buf_size(struct net_device *netdev, unsigned int mtu)
- 	return rx_buf_size;
- }
- 
--static void xgbe_enable_rx_tx_ints(struct xgbe_prv_data *pdata)
-+static void xgbe_enable_rx_tx_int(struct xgbe_prv_data *pdata,
-+				  struct xgbe_channel *channel)
- {
+@@ -445,7 +445,7 @@ static irqreturn_t xgbe_isr(int irq, void *data)
  	struct xgbe_hw_if *hw_if = &pdata->hw_if;
--	struct xgbe_channel *channel;
- 	enum xgbe_int int_id;
-+
-+	if (channel->tx_ring && channel->rx_ring)
-+		int_id = XGMAC_INT_DMA_CH_SR_TI_RI;
-+	else if (channel->tx_ring)
-+		int_id = XGMAC_INT_DMA_CH_SR_TI;
-+	else if (channel->rx_ring)
-+		int_id = XGMAC_INT_DMA_CH_SR_RI;
-+	else
-+		return;
-+
-+	hw_if->enable_int(channel, int_id);
-+}
-+
-+static void xgbe_enable_rx_tx_ints(struct xgbe_prv_data *pdata)
-+{
-+	struct xgbe_channel *channel;
- 	unsigned int i;
- 
- 	channel = pdata->channel;
--	for (i = 0; i < pdata->channel_count; i++, channel++) {
--		if (channel->tx_ring && channel->rx_ring)
--			int_id = XGMAC_INT_DMA_CH_SR_TI_RI;
--		else if (channel->tx_ring)
--			int_id = XGMAC_INT_DMA_CH_SR_TI;
--		else if (channel->rx_ring)
--			int_id = XGMAC_INT_DMA_CH_SR_RI;
--		else
--			continue;
-+	for (i = 0; i < pdata->channel_count; i++, channel++)
-+		xgbe_enable_rx_tx_int(pdata, channel);
-+}
- 
--		hw_if->enable_int(channel, int_id);
--	}
-+static void xgbe_disable_rx_tx_int(struct xgbe_prv_data *pdata,
-+				   struct xgbe_channel *channel)
-+{
-+	struct xgbe_hw_if *hw_if = &pdata->hw_if;
-+	enum xgbe_int int_id;
-+
-+	if (channel->tx_ring && channel->rx_ring)
-+		int_id = XGMAC_INT_DMA_CH_SR_TI_RI;
-+	else if (channel->tx_ring)
-+		int_id = XGMAC_INT_DMA_CH_SR_TI;
-+	else if (channel->rx_ring)
-+		int_id = XGMAC_INT_DMA_CH_SR_RI;
-+	else
-+		return;
-+
-+	hw_if->disable_int(channel, int_id);
- }
- 
- static void xgbe_disable_rx_tx_ints(struct xgbe_prv_data *pdata)
- {
--	struct xgbe_hw_if *hw_if = &pdata->hw_if;
  	struct xgbe_channel *channel;
--	enum xgbe_int int_id;
+ 	unsigned int dma_isr, dma_ch_isr;
+-	unsigned int mac_isr, mac_tssr;
++	unsigned int mac_isr, mac_tssr, mac_mdioisr;
  	unsigned int i;
  
- 	channel = pdata->channel;
--	for (i = 0; i < pdata->channel_count; i++, channel++) {
--		if (channel->tx_ring && channel->rx_ring)
--			int_id = XGMAC_INT_DMA_CH_SR_TI_RI;
--		else if (channel->tx_ring)
--			int_id = XGMAC_INT_DMA_CH_SR_TI;
--		else if (channel->rx_ring)
--			int_id = XGMAC_INT_DMA_CH_SR_RI;
--		else
--			continue;
--
--		hw_if->disable_int(channel, int_id);
--	}
-+	for (i = 0; i < pdata->channel_count; i++, channel++)
-+		xgbe_disable_rx_tx_int(pdata, channel);
- }
+ 	/* The DMA interrupt status register also reports MAC and MTL
+@@ -505,6 +505,9 @@ static irqreturn_t xgbe_isr(int irq, void *data)
+ 	if (XGMAC_GET_BITS(dma_isr, DMA_ISR, MACIS)) {
+ 		mac_isr = XGMAC_IOREAD(pdata, MAC_ISR);
  
- static irqreturn_t xgbe_isr(int irq, void *data)
-@@ -339,6 +351,13 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 				/* Turn on polling */
- 				__napi_schedule_irqoff(&pdata->napi);
- 			}
-+		} else {
-+			/* Don't clear Rx/Tx status if doing per channel DMA
-+			 * interrupts, these will be cleared by the ISR for
-+			 * per channel DMA interrupts.
-+			 */
-+			XGMAC_SET_BITS(dma_ch_isr, DMA_CH_SR, TI, 0);
-+			XGMAC_SET_BITS(dma_ch_isr, DMA_CH_SR, RI, 0);
- 		}
- 
- 		if (XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, RBU))
-@@ -348,7 +367,7 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 		if (XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, FBE))
- 			schedule_work(&pdata->restart_work);
- 
--		/* Clear all interrupt signals */
-+		/* Clear interrupt signals */
- 		XGMAC_DMA_IOWRITE(channel, DMA_CH_SR, dma_ch_isr);
- 	}
- 
-@@ -385,18 +404,29 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- static irqreturn_t xgbe_dma_isr(int irq, void *data)
- {
- 	struct xgbe_channel *channel = data;
-+	struct xgbe_prv_data *pdata = channel->pdata;
-+	unsigned int dma_status;
- 
- 	/* Per channel DMA interrupts are enabled, so we use the per
- 	 * channel napi structure and not the private data napi structure
- 	 */
- 	if (napi_schedule_prep(&channel->napi)) {
- 		/* Disable Tx and Rx interrupts */
--		disable_irq_nosync(channel->dma_irq);
-+		if (pdata->channel_irq_mode)
-+			xgbe_disable_rx_tx_int(pdata, channel);
-+		else
-+			disable_irq_nosync(channel->dma_irq);
- 
- 		/* Turn on polling */
- 		__napi_schedule_irqoff(&channel->napi);
- 	}
- 
-+	/* Clear Tx/Rx signals */
-+	dma_status = 0;
-+	XGMAC_SET_BITS(dma_status, DMA_CH_SR, TI, 1);
-+	XGMAC_SET_BITS(dma_status, DMA_CH_SR, RI, 1);
-+	XGMAC_DMA_IOWRITE(channel, DMA_CH_SR, dma_status);
++		netif_dbg(pdata, intr, pdata->netdev, "MAC_ISR=%#010x\n",
++			  mac_isr);
 +
- 	return IRQ_HANDLED;
- }
+ 		if (XGMAC_GET_BITS(mac_isr, MAC_ISR, MMCTXIS))
+ 			hw_if->tx_mmc_int(pdata);
  
-@@ -413,7 +443,10 @@ static void xgbe_tx_timer(unsigned long data)
- 	if (napi_schedule_prep(napi)) {
- 		/* Disable Tx and Rx interrupts */
- 		if (pdata->per_channel_irq)
--			disable_irq_nosync(channel->dma_irq);
-+			if (pdata->channel_irq_mode)
-+				xgbe_disable_rx_tx_int(pdata, channel);
-+			else
-+				disable_irq_nosync(channel->dma_irq);
- 		else
- 			xgbe_disable_rx_tx_ints(pdata);
+@@ -514,6 +517,9 @@ static irqreturn_t xgbe_isr(int irq, void *data)
+ 		if (XGMAC_GET_BITS(mac_isr, MAC_ISR, TSIS)) {
+ 			mac_tssr = XGMAC_IOREAD(pdata, MAC_TSSR);
  
-@@ -2030,6 +2063,7 @@ static int xgbe_one_poll(struct napi_struct *napi, int budget)
- {
- 	struct xgbe_channel *channel = container_of(napi, struct xgbe_channel,
- 						    napi);
-+	struct xgbe_prv_data *pdata = channel->pdata;
- 	int processed = 0;
- 
- 	DBGPR("-->xgbe_one_poll: budget=%d\n", budget);
-@@ -2046,7 +2080,10 @@ static int xgbe_one_poll(struct napi_struct *napi, int budget)
- 		napi_complete_done(napi, processed);
- 
- 		/* Enable Tx and Rx interrupts */
--		enable_irq(channel->dma_irq);
-+		if (pdata->channel_irq_mode)
-+			xgbe_enable_rx_tx_int(pdata, channel);
-+		else
-+			enable_irq(channel->dma_irq);
++			netif_dbg(pdata, intr, pdata->netdev,
++				  "MAC_TSSR=%#010x\n", mac_tssr);
++
+ 			if (XGMAC_GET_BITS(mac_tssr, MAC_TSSR, TXTSC)) {
+ 				/* Read Tx Timestamp to clear interrupt */
+ 				pdata->tx_tstamp =
+@@ -522,6 +528,17 @@ static irqreturn_t xgbe_isr(int irq, void *data)
+ 					   &pdata->tx_tstamp_work);
+ 			}
+ 		}
++
++		if (XGMAC_GET_BITS(mac_isr, MAC_ISR, SMI)) {
++			mac_mdioisr = XGMAC_IOREAD(pdata, MAC_MDIOISR);
++
++			netif_dbg(pdata, intr, pdata->netdev,
++				  "MAC_MDIOISR=%#010x\n", mac_mdioisr);
++
++			if (XGMAC_GET_BITS(mac_mdioisr, MAC_MDIOISR,
++					   SNGLCOMPINT))
++				complete(&pdata->mdio_complete);
++		}
  	}
  
- 	DBGPR("<--xgbe_one_poll: received = %d\n", processed);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-index 311590d..8bc4e4e 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-@@ -163,6 +163,7 @@ static int xgbe_config_msi(struct xgbe_prv_data *pdata)
- 		pdata->channel_irq_count = j;
+ 	/* If there is not a separate AN irq, handle it here */
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 58a6bd6..788cf34 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -189,6 +189,7 @@ struct xgbe_prv_data *xgbe_alloc_pdata(struct device *dev)
+ 	spin_lock_init(&pdata->tstamp_lock);
+ 	mutex_init(&pdata->i2c_mutex);
+ 	init_completion(&pdata->i2c_complete);
++	init_completion(&pdata->mdio_complete);
  
- 		pdata->per_channel_irq = 1;
-+		pdata->channel_irq_mode = XGBE_IRQ_MODE_LEVEL;
- 	} else {
- 		pdata->smu_irq = pdata->pcidev->irq;
- 		pdata->i2c_irq = pdata->pcidev->irq;
-@@ -215,6 +216,7 @@ static int xgbe_config_msix(struct xgbe_prv_data *pdata)
- 	pdata->channel_irq_count = j;
+ 	pdata->msg_enable = netif_msg_init(debug, default_msg_level);
  
- 	pdata->per_channel_irq = 1;
-+	pdata->channel_irq_mode = XGBE_IRQ_MODE_LEVEL;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+index 3939d43..180e70e 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+@@ -269,6 +269,14 @@ struct xgbe_sfp_ascii {
+ 	} u;
+ };
  
- 	if (netif_msg_probe(pdata))
- 		dev_dbg(pdata->dev, "MSI-X interrupts enabled\n");
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-index 8d438c3..8c530dc 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-@@ -426,8 +426,10 @@ static int xgbe_platform_probe(struct platform_device *pdev)
- 	pdata->phy_mode = PHY_INTERFACE_MODE_XGMII;
++/* MDIO PHY reset types */
++enum xgbe_mdio_reset {
++	XGBE_MDIO_RESET_NONE = 0,
++	XGBE_MDIO_RESET_I2C_GPIO,
++	XGBE_MDIO_RESET_INT_GPIO,
++	XGBE_MDIO_RESET_MAX,
++};
++
+ /* PHY related configuration information */
+ struct xgbe_phy_data {
+ 	enum xgbe_port_mode port_mode;
+@@ -316,6 +324,9 @@ struct xgbe_phy_data {
+ 	enum xgbe_mdio_mode phydev_mode;
+ 	struct mii_bus *mii;
+ 	struct phy_device *phydev;
++	enum xgbe_mdio_reset mdio_reset;
++	unsigned int mdio_reset_addr;
++	unsigned int mdio_reset_gpio;
+ };
  
- 	/* Check for per channel interrupt support */
--	if (device_property_present(dev, XGBE_DMA_IRQS_PROPERTY))
-+	if (device_property_present(dev, XGBE_DMA_IRQS_PROPERTY)) {
- 		pdata->per_channel_irq = 1;
-+		pdata->channel_irq_mode = XGBE_IRQ_MODE_EDGE;
+ /* I2C, MDIO and GPIO lines are muxed, so only one device at a time */
+@@ -486,6 +497,22 @@ static int xgbe_phy_get_comm_ownership(struct xgbe_prv_data *pdata)
+ 	return -ETIMEDOUT;
+ }
+ 
++static int xgbe_phy_mdio_mii_write(struct xgbe_prv_data *pdata, int addr,
++				   int reg, u16 val)
++{
++	struct xgbe_phy_data *phy_data = pdata->phy_data;
++
++	if (reg & MII_ADDR_C45) {
++		if (phy_data->phydev_mode != XGBE_MDIO_MODE_CL45)
++			return -ENOTSUPP;
++	} else {
++		if (phy_data->phydev_mode != XGBE_MDIO_MODE_CL22)
++			return -ENOTSUPP;
 +	}
++
++	return pdata->hw_if.write_ext_mii_regs(pdata, addr, reg, val);
++}
++
+ static int xgbe_phy_i2c_mii_write(struct xgbe_prv_data *pdata, int reg, u16 val)
+ {
+ 	__be16 *mii_val;
+@@ -520,6 +547,8 @@ static int xgbe_phy_mii_write(struct mii_bus *mii, int addr, int reg, u16 val)
  
- 	/* Obtain device settings unique to ACPI/OF */
- 	if (pdata->use_acpi)
+ 	if (phy_data->conn_type == XGBE_CONN_TYPE_SFP)
+ 		ret = xgbe_phy_i2c_mii_write(pdata, reg, val);
++	else if (phy_data->conn_type & XGBE_CONN_TYPE_MDIO)
++		ret = xgbe_phy_mdio_mii_write(pdata, addr, reg, val);
+ 	else
+ 		ret = -ENOTSUPP;
+ 
+@@ -528,6 +557,22 @@ static int xgbe_phy_mii_write(struct mii_bus *mii, int addr, int reg, u16 val)
+ 	return ret;
+ }
+ 
++static int xgbe_phy_mdio_mii_read(struct xgbe_prv_data *pdata, int addr,
++				  int reg)
++{
++	struct xgbe_phy_data *phy_data = pdata->phy_data;
++
++	if (reg & MII_ADDR_C45) {
++		if (phy_data->phydev_mode != XGBE_MDIO_MODE_CL45)
++			return -ENOTSUPP;
++	} else {
++		if (phy_data->phydev_mode != XGBE_MDIO_MODE_CL22)
++			return -ENOTSUPP;
++	}
++
++	return pdata->hw_if.read_ext_mii_regs(pdata, addr, reg);
++}
++
+ static int xgbe_phy_i2c_mii_read(struct xgbe_prv_data *pdata, int reg)
+ {
+ 	__be16 mii_val;
+@@ -562,6 +607,8 @@ static int xgbe_phy_mii_read(struct mii_bus *mii, int addr, int reg)
+ 
+ 	if (phy_data->conn_type == XGBE_CONN_TYPE_SFP)
+ 		ret = xgbe_phy_i2c_mii_read(pdata, reg);
++	else if (phy_data->conn_type & XGBE_CONN_TYPE_MDIO)
++		ret = xgbe_phy_mdio_mii_read(pdata, addr, reg);
+ 	else
+ 		ret = -ENOTSUPP;
+ 
+@@ -1323,9 +1370,13 @@ static enum xgbe_an_mode xgbe_phy_an_mode(struct xgbe_prv_data *pdata)
+ 	case XGBE_PORT_MODE_BACKPLANE_2500:
+ 		return XGBE_AN_MODE_NONE;
+ 	case XGBE_PORT_MODE_1000BASE_T:
++		return XGBE_AN_MODE_CL37_SGMII;
+ 	case XGBE_PORT_MODE_1000BASE_X:
++		return XGBE_AN_MODE_CL37;
+ 	case XGBE_PORT_MODE_NBASE_T:
++		return XGBE_AN_MODE_CL37_SGMII;
+ 	case XGBE_PORT_MODE_10GBASE_T:
++		return XGBE_AN_MODE_CL73;
+ 	case XGBE_PORT_MODE_10GBASE_R:
+ 		return XGBE_AN_MODE_NONE;
+ 	case XGBE_PORT_MODE_SFP:
+@@ -1587,6 +1638,24 @@ static enum xgbe_mode xgbe_phy_cur_mode(struct xgbe_prv_data *pdata)
+ 	return phy_data->cur_mode;
+ }
+ 
++static enum xgbe_mode xgbe_phy_switch_baset_mode(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_phy_data *phy_data = pdata->phy_data;
++
++	/* No switching if not 10GBase-T */
++	if (phy_data->port_mode != XGBE_PORT_MODE_10GBASE_T)
++		return xgbe_phy_cur_mode(pdata);
++
++	switch (xgbe_phy_cur_mode(pdata)) {
++	case XGBE_MODE_SGMII_100:
++	case XGBE_MODE_SGMII_1000:
++		return XGBE_MODE_KR;
++	case XGBE_MODE_KR:
++	default:
++		return XGBE_MODE_SGMII_1000;
++	}
++}
++
+ static enum xgbe_mode xgbe_phy_switch_bp_2500_mode(struct xgbe_prv_data *pdata)
+ {
+ 	return XGBE_MODE_KX_2500;
+@@ -1614,11 +1683,11 @@ static enum xgbe_mode xgbe_phy_switch_mode(struct xgbe_prv_data *pdata)
+ 	case XGBE_PORT_MODE_BACKPLANE_2500:
+ 		return xgbe_phy_switch_bp_2500_mode(pdata);
+ 	case XGBE_PORT_MODE_1000BASE_T:
+-	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_NBASE_T:
+ 	case XGBE_PORT_MODE_10GBASE_T:
++		return xgbe_phy_switch_baset_mode(pdata);
++	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_10GBASE_R:
+-		return XGBE_MODE_UNKNOWN;
+ 	case XGBE_PORT_MODE_SFP:
+ 		/* No switching, so just return current mode */
+ 		return xgbe_phy_cur_mode(pdata);
+@@ -1627,6 +1696,34 @@ static enum xgbe_mode xgbe_phy_switch_mode(struct xgbe_prv_data *pdata)
+ 	}
+ }
+ 
++static enum xgbe_mode xgbe_phy_get_basex_mode(struct xgbe_phy_data *phy_data,
++					      int speed)
++{
++	switch (speed) {
++	case SPEED_1000:
++		return XGBE_MODE_X;
++	case SPEED_10000:
++		return XGBE_MODE_KR;
++	default:
++		return XGBE_MODE_UNKNOWN;
++	}
++}
++
++static enum xgbe_mode xgbe_phy_get_baset_mode(struct xgbe_phy_data *phy_data,
++					      int speed)
++{
++	switch (speed) {
++	case SPEED_100:
++		return XGBE_MODE_SGMII_100;
++	case SPEED_1000:
++		return XGBE_MODE_SGMII_1000;
++	case SPEED_10000:
++		return XGBE_MODE_KR;
++	default:
++		return XGBE_MODE_UNKNOWN;
++	}
++}
++
+ static enum xgbe_mode xgbe_phy_get_sfp_mode(struct xgbe_phy_data *phy_data,
+ 					    int speed)
+ {
+@@ -1679,11 +1776,12 @@ static enum xgbe_mode xgbe_phy_get_mode(struct xgbe_prv_data *pdata,
+ 	case XGBE_PORT_MODE_BACKPLANE_2500:
+ 		return xgbe_phy_get_bp_2500_mode(speed);
+ 	case XGBE_PORT_MODE_1000BASE_T:
+-	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_NBASE_T:
+ 	case XGBE_PORT_MODE_10GBASE_T:
++		return xgbe_phy_get_baset_mode(phy_data, speed);
++	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_10GBASE_R:
+-		return XGBE_MODE_UNKNOWN;
++		return xgbe_phy_get_basex_mode(phy_data, speed);
+ 	case XGBE_PORT_MODE_SFP:
+ 		return xgbe_phy_get_sfp_mode(phy_data, speed);
+ 	default:
+@@ -1737,6 +1835,39 @@ static bool xgbe_phy_check_mode(struct xgbe_prv_data *pdata,
+ 	return false;
+ }
+ 
++static bool xgbe_phy_use_basex_mode(struct xgbe_prv_data *pdata,
++				    enum xgbe_mode mode)
++{
++	switch (mode) {
++	case XGBE_MODE_X:
++		return xgbe_phy_check_mode(pdata, mode,
++					   ADVERTISED_1000baseT_Full);
++	case XGBE_MODE_KR:
++		return xgbe_phy_check_mode(pdata, mode,
++					   ADVERTISED_10000baseT_Full);
++	default:
++		return false;
++	}
++}
++
++static bool xgbe_phy_use_baset_mode(struct xgbe_prv_data *pdata,
++				    enum xgbe_mode mode)
++{
++	switch (mode) {
++	case XGBE_MODE_SGMII_100:
++		return xgbe_phy_check_mode(pdata, mode,
++					   ADVERTISED_100baseT_Full);
++	case XGBE_MODE_SGMII_1000:
++		return xgbe_phy_check_mode(pdata, mode,
++					   ADVERTISED_1000baseT_Full);
++	case XGBE_MODE_KR:
++		return xgbe_phy_check_mode(pdata, mode,
++					   ADVERTISED_10000baseT_Full);
++	default:
++		return false;
++	}
++}
++
+ static bool xgbe_phy_use_sfp_mode(struct xgbe_prv_data *pdata,
+ 				  enum xgbe_mode mode)
+ {
+@@ -1803,11 +1934,12 @@ static bool xgbe_phy_use_mode(struct xgbe_prv_data *pdata, enum xgbe_mode mode)
+ 	case XGBE_PORT_MODE_BACKPLANE_2500:
+ 		return xgbe_phy_use_bp_2500_mode(pdata, mode);
+ 	case XGBE_PORT_MODE_1000BASE_T:
+-	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_NBASE_T:
+ 	case XGBE_PORT_MODE_10GBASE_T:
++		return xgbe_phy_use_baset_mode(pdata, mode);
++	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_10GBASE_R:
+-		return false;
++		return xgbe_phy_use_basex_mode(pdata, mode);
+ 	case XGBE_PORT_MODE_SFP:
+ 		return xgbe_phy_use_sfp_mode(pdata, mode);
+ 	default:
+@@ -1815,6 +1947,33 @@ static bool xgbe_phy_use_mode(struct xgbe_prv_data *pdata, enum xgbe_mode mode)
+ 	}
+ }
+ 
++static bool xgbe_phy_valid_speed_basex_mode(struct xgbe_phy_data *phy_data,
++					    int speed)
++{
++	switch (speed) {
++	case SPEED_1000:
++		return (phy_data->port_mode == XGBE_PORT_MODE_1000BASE_X);
++	case SPEED_10000:
++		return (phy_data->port_mode == XGBE_PORT_MODE_10GBASE_R);
++	default:
++		return false;
++	}
++}
++
++static bool xgbe_phy_valid_speed_baset_mode(struct xgbe_phy_data *phy_data,
++					    int speed)
++{
++	switch (speed) {
++	case SPEED_100:
++	case SPEED_1000:
++		return true;
++	case SPEED_10000:
++		return (phy_data->port_mode == XGBE_PORT_MODE_10GBASE_T);
++	default:
++		return false;
++	}
++}
++
+ static bool xgbe_phy_valid_speed_sfp_mode(struct xgbe_phy_data *phy_data,
+ 					  int speed)
+ {
+@@ -1862,11 +2021,12 @@ static bool xgbe_phy_valid_speed(struct xgbe_prv_data *pdata, int speed)
+ 	case XGBE_PORT_MODE_BACKPLANE_2500:
+ 		return xgbe_phy_valid_speed_bp_2500_mode(speed);
+ 	case XGBE_PORT_MODE_1000BASE_T:
+-	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_NBASE_T:
+ 	case XGBE_PORT_MODE_10GBASE_T:
++		return xgbe_phy_valid_speed_baset_mode(phy_data, speed);
++	case XGBE_PORT_MODE_1000BASE_X:
+ 	case XGBE_PORT_MODE_10GBASE_R:
+-		return false;
++		return xgbe_phy_valid_speed_basex_mode(phy_data, speed);
+ 	case XGBE_PORT_MODE_SFP:
+ 		return xgbe_phy_valid_speed_sfp_mode(phy_data, speed);
+ 	default:
+@@ -1992,6 +2152,121 @@ static void xgbe_phy_sfp_setup(struct xgbe_prv_data *pdata)
+ 	xgbe_phy_sfp_gpio_setup(pdata);
+ }
+ 
++static int xgbe_phy_int_mdio_reset(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_phy_data *phy_data = pdata->phy_data;
++	unsigned int ret;
++
++	ret = pdata->hw_if.set_gpio(pdata, phy_data->mdio_reset_gpio);
++	if (ret)
++		return ret;
++
++	ret = pdata->hw_if.clr_gpio(pdata, phy_data->mdio_reset_gpio);
++
++	return ret;
++}
++
++static int xgbe_phy_i2c_mdio_reset(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_phy_data *phy_data = pdata->phy_data;
++	u8 gpio_reg, gpio_ports[2], gpio_data[3];
++	int ret;
++
++	/* Read the output port registers */
++	gpio_reg = 2;
++	ret = xgbe_phy_i2c_read(pdata, phy_data->mdio_reset_addr,
++				&gpio_reg, sizeof(gpio_reg),
++				gpio_ports, sizeof(gpio_ports));
++	if (ret)
++		return ret;
++
++	/* Prepare to write the GPIO data */
++	gpio_data[0] = 2;
++	gpio_data[1] = gpio_ports[0];
++	gpio_data[2] = gpio_ports[1];
++
++	/* Set the GPIO pin */
++	if (phy_data->mdio_reset_gpio < 8)
++		gpio_data[1] |= (1 << (phy_data->mdio_reset_gpio % 8));
++	else
++		gpio_data[2] |= (1 << (phy_data->mdio_reset_gpio % 8));
++
++	/* Write the output port registers */
++	ret = xgbe_phy_i2c_write(pdata, phy_data->mdio_reset_addr,
++				 gpio_data, sizeof(gpio_data));
++	if (ret)
++		return ret;
++
++	/* Clear the GPIO pin */
++	if (phy_data->mdio_reset_gpio < 8)
++		gpio_data[1] &= ~(1 << (phy_data->mdio_reset_gpio % 8));
++	else
++		gpio_data[2] &= ~(1 << (phy_data->mdio_reset_gpio % 8));
++
++	/* Write the output port registers */
++	ret = xgbe_phy_i2c_write(pdata, phy_data->mdio_reset_addr,
++				 gpio_data, sizeof(gpio_data));
++
++	return ret;
++}
++
++static int xgbe_phy_mdio_reset(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_phy_data *phy_data = pdata->phy_data;
++	int ret;
++
++	if (phy_data->conn_type != XGBE_CONN_TYPE_MDIO)
++		return 0;
++
++	ret = xgbe_phy_get_comm_ownership(pdata);
++	if (ret)
++		return ret;
++
++	if (phy_data->mdio_reset == XGBE_MDIO_RESET_I2C_GPIO)
++		ret = xgbe_phy_i2c_mdio_reset(pdata);
++	else if (phy_data->mdio_reset == XGBE_MDIO_RESET_INT_GPIO)
++		ret = xgbe_phy_int_mdio_reset(pdata);
++
++	xgbe_put_comm_ownership(pdata);
++
++	return ret;
++}
++
++static int xgbe_phy_mdio_reset_setup(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_phy_data *phy_data = pdata->phy_data;
++	unsigned int reg;
++
++	if (phy_data->conn_type != XGBE_CONN_TYPE_MDIO)
++		return 0;
++
++	reg = XP_IOREAD(pdata, XP_PROP_3);
++	phy_data->mdio_reset = XP_GET_BITS(reg, XP_PROP_3, MDIO_RESET);
++	switch (phy_data->mdio_reset) {
++	case XGBE_MDIO_RESET_NONE:
++	case XGBE_MDIO_RESET_I2C_GPIO:
++	case XGBE_MDIO_RESET_INT_GPIO:
++		break;
++	default:
++		dev_err(pdata->dev, "unsupported MDIO reset (%#x)\n",
++			phy_data->mdio_reset);
++		return -EINVAL;
++	}
++
++	if (phy_data->mdio_reset == XGBE_MDIO_RESET_I2C_GPIO) {
++		phy_data->mdio_reset_addr = XGBE_GPIO_ADDRESS_PCA9555 +
++					    XP_GET_BITS(reg, XP_PROP_3,
++							MDIO_RESET_I2C_ADDR);
++		phy_data->mdio_reset_gpio = XP_GET_BITS(reg, XP_PROP_3,
++							MDIO_RESET_I2C_GPIO);
++	} else if (phy_data->mdio_reset == XGBE_MDIO_RESET_INT_GPIO) {
++		phy_data->mdio_reset_gpio = XP_GET_BITS(reg, XP_PROP_3,
++							MDIO_RESET_INT_GPIO);
++	}
++
++	return 0;
++}
++
+ static bool xgbe_phy_port_mode_mismatch(struct xgbe_prv_data *pdata)
+ {
+ 	struct xgbe_phy_data *phy_data = pdata->phy_data;
+@@ -2022,7 +2297,8 @@ static bool xgbe_phy_port_mode_mismatch(struct xgbe_prv_data *pdata)
+ 			return false;
+ 		break;
+ 	case XGBE_PORT_MODE_10GBASE_T:
+-		if ((phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) ||
++		if ((phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) ||
++		    (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) ||
+ 		    (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000))
+ 			return false;
+ 		break;
+@@ -2142,6 +2418,7 @@ static int xgbe_phy_reset(struct xgbe_prv_data *pdata)
+ {
+ 	struct xgbe_phy_data *phy_data = pdata->phy_data;
+ 	enum xgbe_mode cur_mode;
++	int ret;
+ 
+ 	/* Reset by power cycling the PHY */
+ 	cur_mode = phy_data->cur_mode;
+@@ -2152,6 +2429,10 @@ static int xgbe_phy_reset(struct xgbe_prv_data *pdata)
+ 		return 0;
+ 
+ 	/* Reset the external PHY */
++	ret = xgbe_phy_mdio_reset(pdata);
++	if (ret)
++		return ret;
++
+ 	return phy_init_hw(phy_data->phydev);
+ }
+ 
+@@ -2213,6 +2494,11 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+ 		return -EINVAL;
+ 	}
+ 
++	/* Check for and validate MDIO reset support */
++	ret = xgbe_phy_mdio_reset_setup(pdata);
++	if (ret)
++		return ret;
++
+ 	/* Indicate current mode is unknown */
+ 	phy_data->cur_mode = XGBE_MODE_UNKNOWN;
+ 
+@@ -2220,6 +2506,7 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+ 	pdata->phy.supported = 0;
+ 
+ 	switch (phy_data->port_mode) {
++	/* Backplane support */
+ 	case XGBE_PORT_MODE_BACKPLANE:
+ 		pdata->phy.supported |= SUPPORTED_Autoneg;
+ 		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+@@ -2246,12 +2533,91 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+ 
+ 		phy_data->phydev_mode = XGBE_MDIO_MODE_NONE;
+ 		break;
++
++	/* MDIO 1GBase-T support */
+ 	case XGBE_PORT_MODE_1000BASE_T:
++		pdata->phy.supported |= SUPPORTED_Autoneg;
++		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++		pdata->phy.supported |= SUPPORTED_TP;
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) {
++			pdata->phy.supported |= SUPPORTED_100baseT_Full;
++			phy_data->start_mode = XGBE_MODE_SGMII_100;
++		}
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
++			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
++			phy_data->start_mode = XGBE_MODE_SGMII_1000;
++		}
++
++		phy_data->phydev_mode = XGBE_MDIO_MODE_CL22;
++		break;
++
++	/* MDIO Base-X support */
+ 	case XGBE_PORT_MODE_1000BASE_X:
++		pdata->phy.supported |= SUPPORTED_Autoneg;
++		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++		pdata->phy.supported |= SUPPORTED_FIBRE;
++		pdata->phy.supported |= SUPPORTED_1000baseT_Full;
++		phy_data->start_mode = XGBE_MODE_X;
++
++		phy_data->phydev_mode = XGBE_MDIO_MODE_CL22;
++		break;
++
++	/* MDIO NBase-T support */
+ 	case XGBE_PORT_MODE_NBASE_T:
++		pdata->phy.supported |= SUPPORTED_Autoneg;
++		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++		pdata->phy.supported |= SUPPORTED_TP;
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) {
++			pdata->phy.supported |= SUPPORTED_100baseT_Full;
++			phy_data->start_mode = XGBE_MODE_SGMII_100;
++		}
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
++			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
++			phy_data->start_mode = XGBE_MODE_SGMII_1000;
++		}
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_2500) {
++			pdata->phy.supported |= SUPPORTED_2500baseX_Full;
++			phy_data->start_mode = XGBE_MODE_KX_2500;
++		}
++
++		phy_data->phydev_mode = XGBE_MDIO_MODE_CL45;
++		break;
++
++	/* 10GBase-T support */
+ 	case XGBE_PORT_MODE_10GBASE_T:
++		pdata->phy.supported |= SUPPORTED_Autoneg;
++		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++		pdata->phy.supported |= SUPPORTED_TP;
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) {
++			pdata->phy.supported |= SUPPORTED_100baseT_Full;
++			phy_data->start_mode = XGBE_MODE_SGMII_100;
++		}
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
++			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
++			phy_data->start_mode = XGBE_MODE_SGMII_1000;
++		}
++		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000) {
++			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
++			phy_data->start_mode = XGBE_MODE_KR;
++		}
++
++		phy_data->phydev_mode = XGBE_MDIO_MODE_NONE;
++		break;
++
++	/* 10GBase-R support */
+ 	case XGBE_PORT_MODE_10GBASE_R:
+-		return -ENODEV;
++		pdata->phy.supported |= SUPPORTED_Autoneg;
++		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++		pdata->phy.supported |= SUPPORTED_TP;
++		pdata->phy.supported |= SUPPORTED_10000baseT_Full;
++		if (pdata->fec_ability & MDIO_PMA_10GBR_FECABLE_ABLE)
++			pdata->phy.supported |= SUPPORTED_10000baseR_FEC;
++		phy_data->start_mode = XGBE_MODE_SFI;
++
++		phy_data->phydev_mode = XGBE_MDIO_MODE_NONE;
++		break;
++
++	/* SFP support */
+ 	case XGBE_PORT_MODE_SFP:
+ 		pdata->phy.supported |= SUPPORTED_Autoneg;
+ 		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index cbefe9d..4047bc0 100644
+index d9c2545..f3cbdb4 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -171,6 +171,10 @@
- #define XGBE_DMA_SYS_ARCACHE	0x0
- #define XGBE_DMA_SYS_AWCACHE	0x0
+@@ -289,6 +289,9 @@
+ /* ECC correctable error notification window (seconds) */
+ #define XGBE_ECC_LIMIT			60
  
-+/* DMA channel interrupt modes */
-+#define XGBE_IRQ_MODE_EDGE	0
-+#define XGBE_IRQ_MODE_LEVEL	1
++/* MDIO port types */
++#define XGMAC_MAX_C22_PORT		3
 +
- #define XGBE_DMA_INTERRUPT_MASK	0x31c7
+ struct xgbe_prv_data;
  
- #define XGMAC_MIN_PACKET	60
-@@ -874,6 +878,7 @@ struct xgbe_prv_data {
- 	unsigned int irq_shared;
- 	unsigned int irq_count;
- 	unsigned int channel_irq_count;
-+	unsigned int channel_irq_mode;
+ struct xgbe_packet_data {
+@@ -675,6 +678,14 @@ struct xgbe_hw_if {
+ 	void (*write_mmd_regs)(struct xgbe_prv_data *, int, int, int);
+ 	int (*set_speed)(struct xgbe_prv_data *, int);
  
- 	struct xgbe_hw_if hw_if;
- 	struct xgbe_phy_if phy_if;
++	int (*set_ext_mii_mode)(struct xgbe_prv_data *, unsigned int,
++				enum xgbe_mdio_mode);
++	int (*read_ext_mii_regs)(struct xgbe_prv_data *, int, int);
++	int (*write_ext_mii_regs)(struct xgbe_prv_data *, int, int, u16);
++
++	int (*set_gpio)(struct xgbe_prv_data *, unsigned int);
++	int (*clr_gpio)(struct xgbe_prv_data *, unsigned int);
++
+ 	void (*enable_tx)(struct xgbe_prv_data *);
+ 	void (*disable_tx)(struct xgbe_prv_data *);
+ 	void (*enable_rx)(struct xgbe_prv_data *);
+@@ -1111,6 +1122,7 @@ struct xgbe_prv_data {
+ 	struct xgbe_phy phy;
+ 	int mdio_mmd;
+ 	unsigned long link_check;
++	struct completion mdio_complete;
+ 
+ 	char an_name[IFNAMSIZ + 32];
+ 	struct workqueue_struct *an_workqueue;
