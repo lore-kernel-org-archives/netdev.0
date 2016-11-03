@@ -1,52 +1,55 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 1/6] net/mlx5e: Fix XDP error path of mlx5e_open_channel()
-Date: Fri,  4 Nov 2016 01:48:42 +0200
-Message-ID: <1478216927-31328-2-git-send-email-saeedm@mellanox.com>
-References: <1478216927-31328-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix map not being uncharged during map creation failure
+Date: Fri,  4 Nov 2016 00:56:31 +0100
+Message-ID: <89c1a3a48ca9940a0fdc1298e11c03c4074a1c59.1478216947.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, ast@kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37677 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933616AbcKCXuO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 19:50:14 -0400
-In-Reply-To: <1478216927-31328-1-git-send-email-saeedm@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:48259 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758726AbcKCX4q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 19:56:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of mlx5e_open_rq fails the error handling will jump to
-label err_close_xdp_sq and will try to close the xdp_sq unconditionally.
-xdp_sq is valid only in case of XDP use cases, i.e priv->xdp_prog is
-not null.
+In map_create(), we first find and create the map, then once that
+suceeded, we charge it to the user's RLIMIT_MEMLOCK, and then fetch
+a new anon fd through anon_inode_getfd(). The problem is, once the
+latter fails f.e. due to RLIMIT_NOFILE limit, then we only destruct
+the map via map->ops->map_free(), but without uncharging the previously
+locked memory first. That means that the user_struct allocation is
+leaked as well as the accounted RLIMIT_MEMLOCK memory not released.
+Make the label names in the fix consistent with bpf_prog_load().
 
-To fix this in this patch we test xdp_sq validity prior to closing it.
-
-In addition we now close the xdp_sq.cq as well.
-
-Fixes: b5503b994ed5 ("net/mlx5e: XDP TX forwarding support")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ kernel/bpf/syscall.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index f4c687c..c83619d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1512,7 +1512,10 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 228f962..237f3d6 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -194,7 +194,7 @@ static int map_create(union bpf_attr *attr)
  
- 	return 0;
- err_close_xdp_sq:
--	mlx5e_close_sq(&c->xdp_sq);
-+	if (priv->xdp_prog) {
-+		mlx5e_close_sq(&c->xdp_sq);
-+		mlx5e_close_cq(&c->xdp_sq.cq);
-+	}
+ 	err = bpf_map_charge_memlock(map);
+ 	if (err)
+-		goto free_map;
++		goto free_map_nouncharge;
  
- err_close_sqs:
- 	mlx5e_close_sqs(c);
+ 	err = bpf_map_new_fd(map);
+ 	if (err < 0)
+@@ -204,6 +204,8 @@ static int map_create(union bpf_attr *attr)
+ 	return err;
+ 
+ free_map:
++	bpf_map_uncharge_memlock(map);
++free_map_nouncharge:
+ 	map->ops->map_free(map);
+ 	return err;
+ }
 -- 
-2.7.4
+1.9.3
