@@ -1,29 +1,34 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next v1 02/21] amd-xgbe: Prepare for priority-based
- FIFO allocation
-Date: Thu, 3 Nov 2016 13:51:49 +0000
-Message-ID: <BL2PR07MB23065CE0C48D76AB76E78ACF8DA30@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
- <20161103132804.3437.40002.stgit@tlendack-t1.amdoffice.net>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [mm PATCH v2 01/26] swiotlb: Drop unused functions
+ swiotlb_map_sg and swiotlb_unmap_sg
+Date: Thu, 3 Nov 2016 07:14:46 -0700
+Message-ID: <20161103141446.GA29720@infradead.org>
+References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161102111211.79519.39931.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
-To: Tom Lendacky <thomas.lendacky@amd.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0058.outbound.protection.outlook.com ([104.47.33.58]:54625
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754441AbcKCOHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 10:07:52 -0400
-In-Reply-To: <20161103132804.3437.40002.stgit@tlendack-t1.amdoffice.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20161102111211.79519.39931.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-PiArc3RhdGljIHZvaWQgeGdiZV9jYWxjdWxhdGVfZXF1YWxfZmlmbyh1bnNpZ25lZCBpbnQgZmlm
-b19zaXplLA0KPiArCQkJCSAgICAgIHVuc2lnbmVkIGludCBxdWV1ZV9jb3VudCwNCj4gKwkJCQkg
-ICAgICB1bnNpZ25lZCBpbnQgKmZpZm8pDQo+ICt7DQouLi4NCj4gKw0KPiArCXJldHVybjsNCj4g
-IH0NCg0KTm8gbmVlZCBmb3IgZXhwbGljaXQgcmV0dXJuLg0KDQo=
+On Wed, Nov 02, 2016 at 07:12:31AM -0400, Alexander Duyck wrote:
+> There are no users for swiotlb_map_sg or swiotlb_unmap_sg so we might as
+> well just drop them.
+
+FYI, I sent the same patch already on Sep, 11 and Konrad already ACKed
+it:
+
+https://lkml.org/lkml/2016/9/11/112
+https://lkml.org/lkml/2016/9/16/474
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
