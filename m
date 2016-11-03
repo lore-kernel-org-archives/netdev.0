@@ -1,64 +1,58 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] sctp: assign assoc_id earlier in __sctp_connect
-Date: Thu,  3 Nov 2016 17:03:41 -0200
-Message-ID: <9df38dcd0323ad92386eb6851a60dc128dd00b4e.1478199530.git.marcelo.leitner@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
-        edumazet@google.com, dvyukov@google.com, andreyknvl@google.com
-To: netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] netfilter: Update ip_route_me_harder to consider
+ L3 domain
+Date: Thu, 3 Nov 2016 13:17:04 -0600
+Message-ID: <5be3200f-d3c9-fa54-8ec4-749ed6d870e2@cumulusnetworks.com>
+References: <1478195022-5724-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54268 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751648AbcKCTDu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 15:03:50 -0400
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36209 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750796AbcKCTRG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 15:17:06 -0400
+Received: by mail-pf0-f182.google.com with SMTP id 189so36416503pfz.3
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 12:17:06 -0700 (PDT)
+In-Reply-To: <1478195022-5724-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp_wait_for_connect() currently already holds the asoc to keep it
-alive during the sleep, in case another thread release it. But Andrey
-Konovalov and Dmitry Vyukov reported an use-after-free in such
-situation.
+On 11/3/16 11:43 AM, David Ahern wrote:
+> ip_route_me_harder is not considering the L3 domain and sending lookups
+> to the wrong table. For example consider the following output rule:
+> 
+> iptables -I OUTPUT -p tcp --dport 12345 -j REJECT --reject-with tcp-reset
+> 
+> using perf to analyze lookups via the fib_table_lookup tracepoint shows:
+> 
+> vrf-test  1187 [001] 46887.295927: fib:fib_table_lookup: table 255 oif 0 iif 0 src 0.0.0.0 dst 10.100.1.254 tos 0 scope 0 flags 0
+>         ffffffff8143922c perf_trace_fib_table_lookup ([kernel.kallsyms])
+>         ffffffff81493aac fib_table_lookup ([kernel.kallsyms])
+>         ffffffff8148dda3 __inet_dev_addr_type ([kernel.kallsyms])
+>         ffffffff8148ddf6 inet_addr_type ([kernel.kallsyms])
+>         ffffffff8149e344 ip_route_me_harder ([kernel.kallsyms])
+> 
+> and
+> 
+> vrf-test  1187 [001] 46887.295933: fib:fib_table_lookup: table 255 oif 0 iif 1 src 10.100.1.254 dst 10.100.1.2 tos 0 scope 0 flags
+>         ffffffff8143922c perf_trace_fib_table_lookup ([kernel.kallsyms])
+>         ffffffff81493aac fib_table_lookup ([kernel.kallsyms])
+>         ffffffff814998ff fib4_rule_action ([kernel.kallsyms])
+>         ffffffff81437f35 fib_rules_lookup ([kernel.kallsyms])
+>         ffffffff81499758 __fib_lookup ([kernel.kallsyms])
+>         ffffffff8144f010 fib_lookup.constprop.34 ([kernel.kallsyms])
+>         ffffffff8144f759 __ip_route_output_key_hash ([kernel.kallsyms])
+>         ffffffff8144fc6a ip_route_output_flow ([kernel.kallsyms])
+>         ffffffff8149e39b ip_route_me_harder ([kernel.kallsyms])
+> 
+> Updating both lookups to pull the L3 domain from the dst currently
+> attached to the skb directs both lookups to the correct table.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> Pablo: from a code review it seems ip_route_me_harder is only called in
+>        the output path and after skb_dst is set.
 
-Problem is that __sctp_connect() doesn't get a ref on the asoc and will
-do a read on the asoc after calling sctp_wait_for_connect(), but by then
-another thread may have closed it and the _put on sctp_wait_for_connect
-will actually release it, causing the use-after-free.
-
-Fix is, instead of doing the read after waiting for the connect, do it
-before so, and avoid this issue as the socket is still locked by then.
-There should be no issue on returning the asoc id in case of failure as
-the application shouldn't trust on that number in such situations
-anyway.
-
-This issue doesn't exist in sctp_sendmsg() path.
-
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/socket.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 6cdc61c21438aa9b6dbdad93e70759071a4d6789..be1d9bb98230c9d77f676949db773b2dacd801a4 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1214,9 +1214,12 @@ static int __sctp_connect(struct sock *sk,
- 
- 	timeo = sock_sndtimeo(sk, f_flags & O_NONBLOCK);
- 
--	err = sctp_wait_for_connect(asoc, &timeo);
--	if ((err == 0 || err == -EINPROGRESS) && assoc_id)
-+	if (assoc_id)
- 		*assoc_id = asoc->assoc_id;
-+	err = sctp_wait_for_connect(asoc, &timeo);
-+	/* Note: the asoc may be freed after the return of
-+	 * sctp_wait_for_connect.
-+	 */
- 
- 	/* Don't free association on exit. */
- 	asoc = NULL;
--- 
-2.7.4
+Correction: the 'output path' comment is wrong, but dst appears to always be set for both rx and tx paths.
