@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 03/10] amd-xgbe: Perform priority-based hardware
- FIFO allocation
-Date: Thu, 3 Nov 2016 13:18:16 -0500
-Message-ID: <20161103181816.7383.95946.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 06/10] amd-xgbe: Add support for clause 37
+ auto-negotiation
+Date: Thu, 3 Nov 2016 13:18:47 -0500
+Message-ID: <20161103181847.7383.6968.stgit@tlendack-t1.amdoffice.net>
 References: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,747 +10,492 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0040.outbound.protection.outlook.com ([104.47.34.40]:15986
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0058.outbound.protection.outlook.com ([104.47.32.58]:2268
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751264AbcKCSSa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 14:18:30 -0400
+        id S1759317AbcKCSSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 14:18:53 -0400
 In-Reply-To: <20161103181727.7383.34446.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate the FIFO across the hardware Rx queues based on the priority
-of the queues.  Giving more FIFO resources to queues with a higher
-priority.  If PFC is active but not enabled for a queue, then less
-resources can allocated to the queue.
+Add support to be able to use clause 37 auto-negotiation.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |  547 ++++++++++++++++++++++--------
- drivers/net/ethernet/amd/xgbe/xgbe.h     |   26 +
- 2 files changed, 434 insertions(+), 139 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |   41 +++++
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |  242 ++++++++++++++++++++++++++-
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |   11 +
+ 3 files changed, 286 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 18f8001..f8fffea 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -123,6 +123,11 @@
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index 695e982..8bcf4ef 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -1027,6 +1027,10 @@
+ #define MDIO_PMA_10GBR_FECCTRL		0x00ab
+ #endif
+ 
++#ifndef MDIO_PCS_DIG_CTRL
++#define MDIO_PCS_DIG_CTRL		0x8000
++#endif
++
+ #ifndef MDIO_AN_XNP
+ #define MDIO_AN_XNP			0x0016
+ #endif
+@@ -1047,10 +1051,34 @@
+ #define MDIO_AN_INT			0x8002
+ #endif
+ 
++#ifndef MDIO_VEND2_AN_ADVERTISE
++#define MDIO_VEND2_AN_ADVERTISE		0x0004
++#endif
++
++#ifndef MDIO_VEND2_AN_LP_ABILITY
++#define MDIO_VEND2_AN_LP_ABILITY	0x0005
++#endif
++
++#ifndef MDIO_VEND2_AN_CTRL
++#define MDIO_VEND2_AN_CTRL		0x8001
++#endif
++
++#ifndef MDIO_VEND2_AN_STAT
++#define MDIO_VEND2_AN_STAT		0x8002
++#endif
++
+ #ifndef MDIO_CTRL1_SPEED1G
+ #define MDIO_CTRL1_SPEED1G		(MDIO_CTRL1_SPEED10G & ~BMCR_SPEED100)
+ #endif
+ 
++#ifndef MDIO_VEND2_CTRL1_AN_ENABLE
++#define MDIO_VEND2_CTRL1_AN_ENABLE	BIT(12)
++#endif
++
++#ifndef MDIO_VEND2_CTRL1_AN_RESTART
++#define MDIO_VEND2_CTRL1_AN_RESTART	BIT(9)
++#endif
++
+ /* MDIO mask values */
+ #define XGBE_AN_CL73_INT_CMPLT		BIT(0)
+ #define XGBE_AN_CL73_INC_LINK		BIT(1)
+@@ -1065,6 +1093,19 @@
+ #define XGBE_KR_TRAINING_START		BIT(0)
+ #define XGBE_KR_TRAINING_ENABLE		BIT(1)
+ 
++#define XGBE_PCS_CL37_BP		BIT(12)
++
++#define XGBE_AN_CL37_INT_CMPLT		BIT(0)
++#define XGBE_AN_CL37_INT_MASK		0x01
++
++#define XGBE_AN_CL37_HD_MASK		0x40
++#define XGBE_AN_CL37_FD_MASK		0x20
++
++#define XGBE_AN_CL37_PCS_MODE_MASK	0x06
++#define XGBE_AN_CL37_PCS_MODE_BASEX	0x00
++#define XGBE_AN_CL37_PCS_MODE_SGMII	0x04
++#define XGBE_AN_CL37_TX_CONFIG_MASK	0x08
++
+ /* Bit setting and getting macros
+  *  The get macro will extract the current bit field value from within
+  *  the variable
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+index d5bfbe4..723eb90 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+@@ -125,6 +125,41 @@
  #include "xgbe.h"
  #include "xgbe-common.h"
  
-+static inline unsigned int xgbe_get_max_frame(struct xgbe_prv_data *pdata)
++static void xgbe_an37_clear_interrupts(struct xgbe_prv_data *pdata)
 +{
-+	return pdata->netdev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
++	int reg;
++
++	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_STAT);
++	reg &= ~XGBE_AN_CL37_INT_MASK;
++	XMDIO_WRITE(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_STAT, reg);
 +}
 +
- static unsigned int xgbe_usec_to_riwt(struct xgbe_prv_data *pdata,
- 				      unsigned int usec)
++static void xgbe_an37_disable_interrupts(struct xgbe_prv_data *pdata)
++{
++	int reg;
++
++	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL);
++	reg &= ~XGBE_AN_CL37_INT_MASK;
++	XMDIO_WRITE(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL, reg);
++
++	reg = XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_PCS_DIG_CTRL);
++	reg &= ~XGBE_PCS_CL37_BP;
++	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_PCS_DIG_CTRL, reg);
++}
++
++static void xgbe_an37_enable_interrupts(struct xgbe_prv_data *pdata)
++{
++	int reg;
++
++	reg = XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_PCS_DIG_CTRL);
++	reg |= XGBE_PCS_CL37_BP;
++	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_PCS_DIG_CTRL, reg);
++
++	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL);
++	reg |= XGBE_AN_CL37_INT_MASK;
++	XMDIO_WRITE(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL, reg);
++}
++
+ static void xgbe_an73_clear_interrupts(struct xgbe_prv_data *pdata)
  {
-@@ -491,6 +496,27 @@ static void xgbe_config_rss(struct xgbe_prv_data *pdata)
- 			   "error configuring RSS, RSS disabled\n");
+ 	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
+@@ -146,11 +181,21 @@ static void xgbe_an_enable_interrupts(struct xgbe_prv_data *pdata)
+ 	case XGBE_AN_MODE_CL73:
+ 		xgbe_an73_enable_interrupts(pdata);
+ 		break;
++	case XGBE_AN_MODE_CL37:
++	case XGBE_AN_MODE_CL37_SGMII:
++		xgbe_an37_enable_interrupts(pdata);
++		break;
+ 	default:
+ 		break;
+ 	}
  }
  
-+static bool xgbe_is_pfc_queue(struct xgbe_prv_data *pdata,
-+			      unsigned int queue)
++static void xgbe_an_clear_interrupts_all(struct xgbe_prv_data *pdata)
 +{
-+	unsigned int prio, tc;
-+
-+	for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++) {
-+		/* Does this queue handle the priority? */
-+		if (pdata->prio2q_map[prio] != queue)
-+			continue;
-+
-+		/* Get the Traffic Class for this priority */
-+		tc = pdata->ets->prio_tc[prio];
-+
-+		/* Check if PFC is enabled for this traffic class */
-+		if (pdata->pfc->pfc_en & (1 << tc))
-+			return true;
-+	}
-+
-+	return false;
++	xgbe_an73_clear_interrupts(pdata);
++	xgbe_an37_clear_interrupts(pdata);
 +}
 +
- static int xgbe_disable_tx_flow_control(struct xgbe_prv_data *pdata)
+ static void xgbe_an73_enable_kr_training(struct xgbe_prv_data *pdata)
  {
- 	unsigned int max_q_count, q_count;
-@@ -528,27 +554,14 @@ static int xgbe_enable_tx_flow_control(struct xgbe_prv_data *pdata)
- 	for (i = 0; i < pdata->rx_q_count; i++) {
- 		unsigned int ehfc = 0;
+ 	unsigned int reg;
+@@ -258,6 +303,39 @@ static bool xgbe_use_mode(struct xgbe_prv_data *pdata,
+ 	return pdata->phy_if.phy_impl.use_mode(pdata, mode);
+ }
  
--		if (pfc && ets) {
--			unsigned int prio;
--
--			for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++) {
--				unsigned int tc;
--
--				/* Does this queue handle the priority? */
--				if (pdata->prio2q_map[prio] != i)
--					continue;
--
--				/* Get the Traffic Class for this priority */
--				tc = ets->prio_tc[prio];
--
--				/* Check if flow control should be enabled */
--				if (pfc->pfc_en & (1 << tc)) {
-+		if (pdata->rx_rfd[i]) {
-+			/* Flow control thresholds are established */
-+			if (pfc && ets) {
-+				if (xgbe_is_pfc_queue(pdata, i))
- 					ehfc = 1;
--					break;
--				}
-+			} else {
-+				ehfc = 1;
- 			}
--		} else {
--			ehfc = 1;
- 		}
++static void xgbe_an37_set(struct xgbe_prv_data *pdata, bool enable,
++			  bool restart)
++{
++	unsigned int reg;
++
++	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_CTRL1);
++	reg &= ~MDIO_VEND2_CTRL1_AN_ENABLE;
++
++	if (enable)
++		reg |= MDIO_VEND2_CTRL1_AN_ENABLE;
++
++	if (restart)
++		reg |= MDIO_VEND2_CTRL1_AN_RESTART;
++
++	XMDIO_WRITE(pdata, MDIO_MMD_VEND2, MDIO_CTRL1, reg);
++}
++
++static void xgbe_an37_restart(struct xgbe_prv_data *pdata)
++{
++	xgbe_an37_enable_interrupts(pdata);
++	xgbe_an37_set(pdata, true, true);
++
++	netif_dbg(pdata, link, pdata->netdev, "CL37 AN enabled/restarted\n");
++}
++
++static void xgbe_an37_disable(struct xgbe_prv_data *pdata)
++{
++	xgbe_an37_set(pdata, false, false);
++	xgbe_an37_disable_interrupts(pdata);
++
++	netif_dbg(pdata, link, pdata->netdev, "CL37 AN disabled\n");
++}
++
+ static void xgbe_an73_set(struct xgbe_prv_data *pdata, bool enable,
+ 			  bool restart)
+ {
+@@ -297,6 +375,10 @@ static void xgbe_an_restart(struct xgbe_prv_data *pdata)
+ 	case XGBE_AN_MODE_CL73:
+ 		xgbe_an73_restart(pdata);
+ 		break;
++	case XGBE_AN_MODE_CL37:
++	case XGBE_AN_MODE_CL37_SGMII:
++		xgbe_an37_restart(pdata);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -308,11 +390,21 @@ static void xgbe_an_disable(struct xgbe_prv_data *pdata)
+ 	case XGBE_AN_MODE_CL73:
+ 		xgbe_an73_disable(pdata);
+ 		break;
++	case XGBE_AN_MODE_CL37:
++	case XGBE_AN_MODE_CL37_SGMII:
++		xgbe_an37_disable(pdata);
++		break;
+ 	default:
+ 		break;
+ 	}
+ }
  
- 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, EHFC, ehfc);
-@@ -1327,106 +1340,6 @@ static int xgbe_config_tstamp(struct xgbe_prv_data *pdata,
++static void xgbe_an_disable_all(struct xgbe_prv_data *pdata)
++{
++	xgbe_an73_disable(pdata);
++	xgbe_an37_disable(pdata);
++}
++
+ static enum xgbe_an xgbe_an73_tx_training(struct xgbe_prv_data *pdata,
+ 					  enum xgbe_rx *state)
+ {
+@@ -484,6 +576,30 @@ static enum xgbe_an xgbe_an73_incompat_link(struct xgbe_prv_data *pdata)
+ 	return XGBE_AN_INCOMPAT_LINK;
+ }
+ 
++static void xgbe_an37_isr(struct xgbe_prv_data *pdata)
++{
++	unsigned int reg;
++
++	/* Disable AN interrupts */
++	xgbe_an37_disable_interrupts(pdata);
++
++	/* Save the interrupt(s) that fired */
++	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_STAT);
++	pdata->an_int = reg & XGBE_AN_CL37_INT_MASK;
++	pdata->an_status = reg & ~XGBE_AN_CL37_INT_MASK;
++
++	if (pdata->an_int) {
++		/* Clear the interrupt(s) that fired and process them */
++		reg &= ~XGBE_AN_CL37_INT_MASK;
++		XMDIO_WRITE(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_STAT, reg);
++
++		queue_work(pdata->an_workqueue, &pdata->an_irq_work);
++	} else {
++		/* Enable AN interrupts */
++		xgbe_an37_enable_interrupts(pdata);
++	}
++}
++
+ static void xgbe_an73_isr(struct xgbe_prv_data *pdata)
+ {
+ 	/* Disable AN interrupts */
+@@ -513,6 +629,10 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
+ 	case XGBE_AN_MODE_CL73:
+ 		xgbe_an73_isr(pdata);
+ 		break;
++	case XGBE_AN_MODE_CL37:
++	case XGBE_AN_MODE_CL37_SGMII:
++		xgbe_an37_isr(pdata);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -553,6 +673,64 @@ static const char *xgbe_state_as_string(enum xgbe_an state)
+ 	}
+ }
+ 
++static void xgbe_an37_state_machine(struct xgbe_prv_data *pdata)
++{
++	enum xgbe_an cur_state = pdata->an_state;
++
++	if (!pdata->an_int)
++		return;
++
++	if (pdata->an_int & XGBE_AN_CL37_INT_CMPLT) {
++		pdata->an_state = XGBE_AN_COMPLETE;
++		pdata->an_int &= ~XGBE_AN_CL37_INT_CMPLT;
++
++		/* If SGMII is enabled, check the link status */
++		if ((pdata->an_mode == XGBE_AN_MODE_CL37_SGMII) &&
++		    !(pdata->an_status & XGBE_SGMII_AN_LINK_STATUS))
++			pdata->an_state = XGBE_AN_NO_LINK;
++	}
++
++	netif_dbg(pdata, link, pdata->netdev, "CL37 AN %s\n",
++		  xgbe_state_as_string(pdata->an_state));
++
++	cur_state = pdata->an_state;
++
++	switch (pdata->an_state) {
++	case XGBE_AN_READY:
++		break;
++
++	case XGBE_AN_COMPLETE:
++		netif_dbg(pdata, link, pdata->netdev,
++			  "Auto negotiation successful\n");
++		break;
++
++	case XGBE_AN_NO_LINK:
++		break;
++
++	default:
++		pdata->an_state = XGBE_AN_ERROR;
++	}
++
++	if (pdata->an_state == XGBE_AN_ERROR) {
++		netdev_err(pdata->netdev,
++			   "error during auto-negotiation, state=%u\n",
++			   cur_state);
++
++		pdata->an_int = 0;
++		xgbe_an37_clear_interrupts(pdata);
++	}
++
++	if (pdata->an_state >= XGBE_AN_COMPLETE) {
++		pdata->an_result = pdata->an_state;
++		pdata->an_state = XGBE_AN_READY;
++
++		netif_dbg(pdata, link, pdata->netdev, "CL37 AN result: %s\n",
++			  xgbe_state_as_string(pdata->an_result));
++	}
++
++	xgbe_an37_enable_interrupts(pdata);
++}
++
+ static void xgbe_an73_state_machine(struct xgbe_prv_data *pdata)
+ {
+ 	enum xgbe_an cur_state = pdata->an_state;
+@@ -574,8 +752,6 @@ static void xgbe_an73_state_machine(struct xgbe_prv_data *pdata)
+ 		pdata->an_state = XGBE_AN_ERROR;
+ 	}
+ 
+-	pdata->an_result = pdata->an_state;
+-
+ again:
+ 	netif_dbg(pdata, link, pdata->netdev, "CL73 AN %s\n",
+ 		  xgbe_state_as_string(pdata->an_state));
+@@ -656,6 +832,10 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 	case XGBE_AN_MODE_CL73:
+ 		xgbe_an73_state_machine(pdata);
+ 		break;
++	case XGBE_AN_MODE_CL37:
++	case XGBE_AN_MODE_CL37_SGMII:
++		xgbe_an37_state_machine(pdata);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -663,6 +843,50 @@ static void xgbe_an_state_machine(struct work_struct *work)
+ 	mutex_unlock(&pdata->an_mutex);
+ }
+ 
++static void xgbe_an37_init(struct xgbe_prv_data *pdata)
++{
++	unsigned int reg;
++
++	/* Set up Advertisement register */
++	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_ADVERTISE);
++	if (pdata->phy.advertising & ADVERTISED_Pause)
++		reg |= 0x100;
++	else
++		reg &= ~0x100;
++
++	if (pdata->phy.advertising & ADVERTISED_Asym_Pause)
++		reg |= 0x80;
++	else
++		reg &= ~0x80;
++
++	/* Full duplex, but not half */
++	reg |= XGBE_AN_CL37_FD_MASK;
++	reg &= ~XGBE_AN_CL37_HD_MASK;
++
++	XMDIO_WRITE(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_ADVERTISE, reg);
++
++	/* Set up the Control register */
++	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL);
++	reg &= XGBE_AN_CL37_TX_CONFIG_MASK;
++	reg &= XGBE_AN_CL37_PCS_MODE_MASK;
++
++	switch (pdata->an_mode) {
++	case XGBE_AN_MODE_CL37:
++		reg |= XGBE_AN_CL37_PCS_MODE_BASEX;
++		break;
++	case XGBE_AN_MODE_CL37_SGMII:
++		reg |= XGBE_AN_CL37_PCS_MODE_SGMII;
++		break;
++	default:
++		break;
++	}
++
++	XMDIO_WRITE(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL, reg);
++
++	netif_dbg(pdata, link, pdata->netdev, "CL37 AN (%s) initialized\n",
++		  (pdata->an_mode == XGBE_AN_MODE_CL37) ? "BaseX" : "SGMII");
++}
++
+ static void xgbe_an73_init(struct xgbe_prv_data *pdata)
+ {
+ 	unsigned int reg;
+@@ -719,6 +943,10 @@ static void xgbe_an_init(struct xgbe_prv_data *pdata)
+ 	case XGBE_AN_MODE_CL73:
+ 		xgbe_an73_init(pdata);
+ 		break;
++	case XGBE_AN_MODE_CL37:
++	case XGBE_AN_MODE_CL37_SGMII:
++		xgbe_an37_init(pdata);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -865,10 +1093,10 @@ static int __xgbe_phy_config_aneg(struct xgbe_prv_data *pdata)
+ 	}
+ 
+ 	/* Disable and stop any in progress auto-negotiation */
+-	xgbe_an_disable(pdata);
++	xgbe_an_disable_all(pdata);
+ 
+ 	/* Clear any auto-negotitation interrupts */
+-	xgbe_an73_clear_interrupts(pdata);
++	xgbe_an_clear_interrupts_all(pdata);
+ 
+ 	pdata->an_result = XGBE_AN_READY;
+ 	pdata->an_state = XGBE_AN_READY;
+@@ -1007,7 +1235,7 @@ static void xgbe_phy_stop(struct xgbe_prv_data *pdata)
+ 	pdata->phy_started = 0;
+ 
+ 	/* Disable auto-negotiation */
+-	xgbe_an_disable(pdata);
++	xgbe_an_disable_all(pdata);
+ 
+ 	devm_free_irq(pdata->dev, pdata->an_irq, pdata);
+ 
+@@ -1078,10 +1306,10 @@ static int xgbe_phy_reset(struct xgbe_prv_data *pdata)
+ 		return ret;
+ 
+ 	/* Disable auto-negotiation for now */
+-	xgbe_an_disable(pdata);
++	xgbe_an_disable_all(pdata);
+ 
+ 	/* Clear auto-negotiation interrupts */
+-	xgbe_an73_clear_interrupts(pdata);
++	xgbe_an_clear_interrupts_all(pdata);
+ 
  	return 0;
  }
- 
--static void xgbe_config_tc(struct xgbe_prv_data *pdata)
--{
--	unsigned int offset, queue, prio;
--	u8 i;
--
--	netdev_reset_tc(pdata->netdev);
--	if (!pdata->num_tcs)
--		return;
--
--	netdev_set_num_tc(pdata->netdev, pdata->num_tcs);
--
--	for (i = 0, queue = 0, offset = 0; i < pdata->num_tcs; i++) {
--		while ((queue < pdata->tx_q_count) &&
--		       (pdata->q2tc_map[queue] == i))
--			queue++;
--
--		netif_dbg(pdata, drv, pdata->netdev, "TC%u using TXq%u-%u\n",
--			  i, offset, queue - 1);
--		netdev_set_tc_queue(pdata->netdev, i, queue - offset, offset);
--		offset = queue;
--	}
--
--	if (!pdata->ets)
--		return;
--
--	for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++)
--		netdev_set_prio_tc_map(pdata->netdev, prio,
--				       pdata->ets->prio_tc[prio]);
--}
--
--static void xgbe_config_dcb_tc(struct xgbe_prv_data *pdata)
--{
--	struct ieee_ets *ets = pdata->ets;
--	unsigned int total_weight, min_weight, weight;
--	unsigned int mask, reg, reg_val;
--	unsigned int i, prio;
--
--	if (!ets)
--		return;
--
--	/* Set Tx to deficit weighted round robin scheduling algorithm (when
--	 * traffic class is using ETS algorithm)
--	 */
--	XGMAC_IOWRITE_BITS(pdata, MTL_OMR, ETSALG, MTL_ETSALG_DWRR);
--
--	/* Set Traffic Class algorithms */
--	total_weight = pdata->netdev->mtu * pdata->hw_feat.tc_cnt;
--	min_weight = total_weight / 100;
--	if (!min_weight)
--		min_weight = 1;
--
--	for (i = 0; i < pdata->hw_feat.tc_cnt; i++) {
--		/* Map the priorities to the traffic class */
--		mask = 0;
--		for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++) {
--			if (ets->prio_tc[prio] == i)
--				mask |= (1 << prio);
--		}
--		mask &= 0xff;
--
--		netif_dbg(pdata, drv, pdata->netdev, "TC%u PRIO mask=%#x\n",
--			  i, mask);
--		reg = MTL_TCPM0R + (MTL_TCPM_INC * (i / MTL_TCPM_TC_PER_REG));
--		reg_val = XGMAC_IOREAD(pdata, reg);
--
--		reg_val &= ~(0xff << ((i % MTL_TCPM_TC_PER_REG) << 3));
--		reg_val |= (mask << ((i % MTL_TCPM_TC_PER_REG) << 3));
--
--		XGMAC_IOWRITE(pdata, reg, reg_val);
--
--		/* Set the traffic class algorithm */
--		switch (ets->tc_tsa[i]) {
--		case IEEE_8021QAZ_TSA_STRICT:
--			netif_dbg(pdata, drv, pdata->netdev,
--				  "TC%u using SP\n", i);
--			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_ETSCR, TSA,
--					       MTL_TSA_SP);
--			break;
--		case IEEE_8021QAZ_TSA_ETS:
--			weight = total_weight * ets->tc_tx_bw[i] / 100;
--			weight = clamp(weight, min_weight, total_weight);
--
--			netif_dbg(pdata, drv, pdata->netdev,
--				  "TC%u using DWRR (weight %u)\n", i, weight);
--			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_ETSCR, TSA,
--					       MTL_TSA_ETS);
--			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_QWR, QW,
--					       weight);
--			break;
--		}
--	}
--
--	xgbe_config_tc(pdata);
--}
--
--static void xgbe_config_dcb_pfc(struct xgbe_prv_data *pdata)
--{
--	xgbe_config_flow_control(pdata);
--}
--
- static void xgbe_tx_start_xmit(struct xgbe_channel *channel,
- 			       struct xgbe_ring *ring)
- {
-@@ -2000,6 +1913,96 @@ static void xgbe_config_mtl_mode(struct xgbe_prv_data *pdata)
- 	XGMAC_IOWRITE_BITS(pdata, MTL_OMR, RAA, MTL_RAA_SP);
- }
- 
-+static void xgbe_queue_flow_control_threshold(struct xgbe_prv_data *pdata,
-+					      unsigned int queue,
-+					      unsigned int q_fifo_size)
-+{
-+	unsigned int frame_fifo_size;
-+	unsigned int rfa, rfd;
-+
-+	frame_fifo_size = XGMAC_FLOW_CONTROL_ALIGN(xgbe_get_max_frame(pdata));
-+
-+	if (pdata->pfcq[queue] && (q_fifo_size > pdata->pfc_rfa)) {
-+		/* PFC is active for this queue */
-+		rfa = pdata->pfc_rfa;
-+		rfd = rfa + frame_fifo_size;
-+		if (rfd > XGMAC_FLOW_CONTROL_MAX)
-+			rfd = XGMAC_FLOW_CONTROL_MAX;
-+		if (rfa >= XGMAC_FLOW_CONTROL_MAX)
-+			rfa = XGMAC_FLOW_CONTROL_MAX - XGMAC_FLOW_CONTROL_UNIT;
-+	} else {
-+		/* This path deals with just maximum frame sizes which are
-+		 * limited to a jumbo frame of 9,000 (plus headers, etc.)
-+		 * so we can never exceed the maximum allowable RFA/RFD
-+		 * values.
-+		 */
-+		if (q_fifo_size <= 2048) {
-+			/* rx_rfd to zero to signal no flow control */
-+			pdata->rx_rfa[queue] = 0;
-+			pdata->rx_rfd[queue] = 0;
-+			return;
-+		}
-+
-+		if (q_fifo_size <= 4096) {
-+			/* Between 2048 and 4096 */
-+			pdata->rx_rfa[queue] = 0;	/* Full - 1024 bytes */
-+			pdata->rx_rfd[queue] = 1;	/* Full - 1536 bytes */
-+			return;
-+		}
-+
-+		if (q_fifo_size <= frame_fifo_size) {
-+			/* Between 4096 and max-frame */
-+			pdata->rx_rfa[queue] = 2;	/* Full - 2048 bytes */
-+			pdata->rx_rfd[queue] = 5;	/* Full - 3584 bytes */
-+			return;
-+		}
-+
-+		if (q_fifo_size <= (frame_fifo_size * 3)) {
-+			/* Between max-frame and 3 max-frames,
-+			 * trigger if we get just over a frame of data and
-+			 * resume when we have just under half a frame left.
-+			 */
-+			rfa = q_fifo_size - frame_fifo_size;
-+			rfd = rfa + (frame_fifo_size / 2);
-+		} else {
-+			/* Above 3 max-frames - trigger when just over
-+			 * 2 frames of space available
-+			 */
-+			rfa = frame_fifo_size * 2;
-+			rfa += XGMAC_FLOW_CONTROL_UNIT;
-+			rfd = rfa + frame_fifo_size;
-+		}
-+	}
-+
-+	pdata->rx_rfa[queue] = XGMAC_FLOW_CONTROL_VALUE(rfa);
-+	pdata->rx_rfd[queue] = XGMAC_FLOW_CONTROL_VALUE(rfd);
-+}
-+
-+static void xgbe_calculate_flow_control_threshold(struct xgbe_prv_data *pdata,
-+						  unsigned int *fifo)
-+{
-+	unsigned int q_fifo_size;
-+	unsigned int i;
-+
-+	for (i = 0; i < pdata->rx_q_count; i++) {
-+		q_fifo_size = (fifo[i] + 1) * XGMAC_FIFO_UNIT;
-+
-+		xgbe_queue_flow_control_threshold(pdata, i, q_fifo_size);
-+	}
-+}
-+
-+static void xgbe_config_flow_control_threshold(struct xgbe_prv_data *pdata)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < pdata->rx_q_count; i++) {
-+		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQFCR, RFA,
-+				       pdata->rx_rfa[i]);
-+		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQFCR, RFD,
-+				       pdata->rx_rfd[i]);
-+	}
-+}
-+
- static unsigned int xgbe_get_tx_fifo_size(struct xgbe_prv_data *pdata)
- {
- 	unsigned int fifo_size;
-@@ -2032,18 +2035,158 @@ static void xgbe_calculate_equal_fifo(unsigned int fifo_size,
- 
- 	q_fifo_size = fifo_size / queue_count;
- 
--	/* Each increment in the queue fifo size represents 256 bytes of
--	 * fifo, with 0 representing 256 bytes. Distribute the fifo equally
--	 * between the queues.
-+	/* Calculate the fifo setting by dividing the queue's fifo size
-+	 * by the fifo allocation increment (with 0 representing the
-+	 * base allocation increment so decrement the result by 1).
- 	 */
--	p_fifo = q_fifo_size / 256;
-+	p_fifo = q_fifo_size / XGMAC_FIFO_UNIT;
- 	if (p_fifo)
- 		p_fifo--;
- 
-+	/* Distribute the fifo equally amongst the queues */
- 	for (i = 0; i < queue_count; i++)
- 		fifo[i] = p_fifo;
- }
- 
-+static unsigned int xgbe_set_nonprio_fifos(unsigned int fifo_size,
-+					   unsigned int queue_count,
-+					   unsigned int *fifo)
-+{
-+	unsigned int i;
-+
-+	BUILD_BUG_ON_NOT_POWER_OF_2(XGMAC_FIFO_MIN_ALLOC);
-+
-+	if (queue_count <= IEEE_8021QAZ_MAX_TCS)
-+		return fifo_size;
-+
-+	/* Rx queues 9 and up are for specialized packets,
-+	 * such as PTP or DCB control packets, etc. and
-+	 * don't require a large fifo
-+	 */
-+	for (i = IEEE_8021QAZ_MAX_TCS; i < queue_count; i++) {
-+		fifo[i] = (XGMAC_FIFO_MIN_ALLOC / XGMAC_FIFO_UNIT) - 1;
-+		fifo_size -= XGMAC_FIFO_MIN_ALLOC;
-+	}
-+
-+	return fifo_size;
-+}
-+
-+static unsigned int xgbe_get_pfc_delay(struct xgbe_prv_data *pdata)
-+{
-+	unsigned int delay;
-+
-+	/* If a delay has been provided, use that */
-+	if (pdata->pfc->delay)
-+		return pdata->pfc->delay / 8;
-+
-+	/* Allow for two maximum size frames */
-+	delay = xgbe_get_max_frame(pdata);
-+	delay += XGMAC_ETH_PREAMBLE;
-+	delay *= 2;
-+
-+	/* Allow for PFC frame */
-+	delay += XGMAC_PFC_DATA_LEN;
-+	delay += ETH_HLEN + ETH_FCS_LEN;
-+	delay += XGMAC_ETH_PREAMBLE;
-+
-+	/* Allow for miscellaneous delays (LPI exit, cable, etc.) */
-+	delay += XGMAC_PFC_DELAYS;
-+
-+	return delay;
-+}
-+
-+static unsigned int xgbe_get_pfc_queues(struct xgbe_prv_data *pdata)
-+{
-+	unsigned int count, prio_queues;
-+	unsigned int i;
-+
-+	if (!pdata->pfc->pfc_en)
-+		return 0;
-+
-+	count = 0;
-+	prio_queues = XGMAC_PRIO_QUEUES(pdata->rx_q_count);
-+	for (i = 0; i < prio_queues; i++) {
-+		if (!xgbe_is_pfc_queue(pdata, i))
-+			continue;
-+
-+		pdata->pfcq[i] = 1;
-+		count++;
-+	}
-+
-+	return count;
-+}
-+
-+static void xgbe_calculate_dcb_fifo(struct xgbe_prv_data *pdata,
-+				    unsigned int fifo_size,
-+				    unsigned int *fifo)
-+{
-+	unsigned int q_fifo_size, rem_fifo, addn_fifo;
-+	unsigned int prio_queues;
-+	unsigned int pfc_count;
-+	unsigned int i;
-+
-+	q_fifo_size = XGMAC_FIFO_ALIGN(xgbe_get_max_frame(pdata));
-+	prio_queues = XGMAC_PRIO_QUEUES(pdata->rx_q_count);
-+	pfc_count = xgbe_get_pfc_queues(pdata);
-+
-+	if (!pfc_count || ((q_fifo_size * prio_queues) > fifo_size)) {
-+		/* No traffic classes with PFC enabled or can't do lossless */
-+		xgbe_calculate_equal_fifo(fifo_size, prio_queues, fifo);
-+		return;
-+	}
-+
-+	/* Calculate how much fifo we have to play with */
-+	rem_fifo = fifo_size - (q_fifo_size * prio_queues);
-+
-+	/* Calculate how much more than base fifo PFC needs, which also
-+	 * becomes the threshold activation point (RFA)
-+	 */
-+	pdata->pfc_rfa = xgbe_get_pfc_delay(pdata);
-+	pdata->pfc_rfa = XGMAC_FLOW_CONTROL_ALIGN(pdata->pfc_rfa);
-+
-+	if (pdata->pfc_rfa > q_fifo_size) {
-+		addn_fifo = pdata->pfc_rfa - q_fifo_size;
-+		addn_fifo = XGMAC_FIFO_ALIGN(addn_fifo);
-+	} else {
-+		addn_fifo = 0;
-+	}
-+
-+	/* Calculate DCB fifo settings:
-+	 *   - distribute remaining fifo between the VLAN priority
-+	 *     queues based on traffic class PFC enablement and overall
-+	 *     priority (0 is lowest priority, so start at highest)
-+	 */
-+	i = prio_queues;
-+	while (i > 0) {
-+		i--;
-+
-+		fifo[i] = (q_fifo_size / XGMAC_FIFO_UNIT) - 1;
-+
-+		if (!pdata->pfcq[i] || !addn_fifo)
-+			continue;
-+
-+		if (addn_fifo > rem_fifo) {
-+			netdev_warn(pdata->netdev,
-+				    "RXq%u cannot set needed fifo size\n", i);
-+			if (!rem_fifo)
-+				continue;
-+
-+			addn_fifo = rem_fifo;
-+		}
-+
-+		fifo[i] += (addn_fifo / XGMAC_FIFO_UNIT);
-+		rem_fifo -= addn_fifo;
-+	}
-+
-+	if (rem_fifo) {
-+		unsigned int inc_fifo = rem_fifo / prio_queues;
-+
-+		/* Distribute remaining fifo across queues */
-+		for (i = 0; i < prio_queues; i++)
-+			fifo[i] += (inc_fifo / XGMAC_FIFO_UNIT);
-+	}
-+}
-+
- static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
- {
- 	unsigned int fifo_size;
-@@ -2059,25 +2202,50 @@ static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
- 
- 	netif_info(pdata, drv, pdata->netdev,
- 		   "%d Tx hardware queues, %d byte fifo per queue\n",
--		   pdata->tx_q_count, ((fifo[0] + 1) * 256));
-+		   pdata->tx_q_count, ((fifo[0] + 1) * XGMAC_FIFO_UNIT));
- }
- 
- static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
- {
- 	unsigned int fifo_size;
- 	unsigned int fifo[XGBE_MAX_QUEUES];
-+	unsigned int prio_queues;
- 	unsigned int i;
- 
-+	/* Clear any DCB related fifo/queue information */
-+	memset(pdata->pfcq, 0, sizeof(pdata->pfcq));
-+	pdata->pfc_rfa = 0;
-+
- 	fifo_size = xgbe_get_rx_fifo_size(pdata);
-+	prio_queues = XGMAC_PRIO_QUEUES(pdata->rx_q_count);
-+
-+	/* Assign a minimum fifo to the non-VLAN priority queues */
-+	fifo_size = xgbe_set_nonprio_fifos(fifo_size, pdata->rx_q_count, fifo);
- 
--	xgbe_calculate_equal_fifo(fifo_size, pdata->rx_q_count, fifo);
-+	if (pdata->pfc && pdata->ets)
-+		xgbe_calculate_dcb_fifo(pdata, fifo_size, fifo);
-+	else
-+		xgbe_calculate_equal_fifo(fifo_size, prio_queues, fifo);
- 
- 	for (i = 0; i < pdata->rx_q_count; i++)
- 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo[i]);
- 
--	netif_info(pdata, drv, pdata->netdev,
--		   "%d Rx hardware queues, %d byte fifo per queue\n",
--		   pdata->rx_q_count, ((fifo[0] + 1) * 256));
-+	xgbe_calculate_flow_control_threshold(pdata, fifo);
-+	xgbe_config_flow_control_threshold(pdata);
-+
-+	if (pdata->pfc && pdata->ets && pdata->pfc->pfc_en) {
-+		netif_info(pdata, drv, pdata->netdev,
-+			   "%u Rx hardware queues\n", pdata->rx_q_count);
-+		for (i = 0; i < pdata->rx_q_count; i++)
-+			netif_info(pdata, drv, pdata->netdev,
-+				   "RxQ%u, %u byte fifo queue\n", i,
-+				   ((fifo[i] + 1) * XGMAC_FIFO_UNIT));
-+	} else {
-+		netif_info(pdata, drv, pdata->netdev,
-+			   "%u Rx hardware queues, %u byte fifo per queue\n",
-+			   pdata->rx_q_count,
-+			   ((fifo[0] + 1) * XGMAC_FIFO_UNIT));
-+	}
- }
- 
- static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
-@@ -2113,8 +2281,7 @@ static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
- 	}
- 
- 	/* Map the 8 VLAN priority values to available MTL Rx queues */
--	prio_queues = min_t(unsigned int, IEEE_8021QAZ_MAX_TCS,
--			    pdata->rx_q_count);
-+	prio_queues = XGMAC_PRIO_QUEUES(pdata->rx_q_count);
- 	ppq = IEEE_8021QAZ_MAX_TCS / prio_queues;
- 	ppq_extra = IEEE_8021QAZ_MAX_TCS % prio_queues;
- 
-@@ -2162,16 +2329,120 @@ static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
- 	}
- }
- 
--static void xgbe_config_flow_control_threshold(struct xgbe_prv_data *pdata)
-+static void xgbe_config_tc(struct xgbe_prv_data *pdata)
- {
--	unsigned int i;
-+	unsigned int offset, queue, prio;
-+	u8 i;
- 
--	for (i = 0; i < pdata->rx_q_count; i++) {
--		/* Activate flow control when less than 4k left in fifo */
--		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQFCR, RFA, 2);
-+	netdev_reset_tc(pdata->netdev);
-+	if (!pdata->num_tcs)
-+		return;
-+
-+	netdev_set_num_tc(pdata->netdev, pdata->num_tcs);
-+
-+	for (i = 0, queue = 0, offset = 0; i < pdata->num_tcs; i++) {
-+		while ((queue < pdata->tx_q_count) &&
-+		       (pdata->q2tc_map[queue] == i))
-+			queue++;
-+
-+		netif_dbg(pdata, drv, pdata->netdev, "TC%u using TXq%u-%u\n",
-+			  i, offset, queue - 1);
-+		netdev_set_tc_queue(pdata->netdev, i, queue - offset, offset);
-+		offset = queue;
-+	}
-+
-+	if (!pdata->ets)
-+		return;
-+
-+	for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++)
-+		netdev_set_prio_tc_map(pdata->netdev, prio,
-+				       pdata->ets->prio_tc[prio]);
-+}
-+
-+static void xgbe_config_dcb_tc(struct xgbe_prv_data *pdata)
-+{
-+	struct ieee_ets *ets = pdata->ets;
-+	unsigned int total_weight, min_weight, weight;
-+	unsigned int mask, reg, reg_val;
-+	unsigned int i, prio;
-+
-+	if (!ets)
-+		return;
-+
-+	/* Set Tx to deficit weighted round robin scheduling algorithm (when
-+	 * traffic class is using ETS algorithm)
-+	 */
-+	XGMAC_IOWRITE_BITS(pdata, MTL_OMR, ETSALG, MTL_ETSALG_DWRR);
-+
-+	/* Set Traffic Class algorithms */
-+	total_weight = pdata->netdev->mtu * pdata->hw_feat.tc_cnt;
-+	min_weight = total_weight / 100;
-+	if (!min_weight)
-+		min_weight = 1;
-+
-+	for (i = 0; i < pdata->hw_feat.tc_cnt; i++) {
-+		/* Map the priorities to the traffic class */
-+		mask = 0;
-+		for (prio = 0; prio < IEEE_8021QAZ_MAX_TCS; prio++) {
-+			if (ets->prio_tc[prio] == i)
-+				mask |= (1 << prio);
-+		}
-+		mask &= 0xff;
-+
-+		netif_dbg(pdata, drv, pdata->netdev, "TC%u PRIO mask=%#x\n",
-+			  i, mask);
-+		reg = MTL_TCPM0R + (MTL_TCPM_INC * (i / MTL_TCPM_TC_PER_REG));
-+		reg_val = XGMAC_IOREAD(pdata, reg);
- 
--		/* De-activate flow control when more than 6k left in fifo */
--		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQFCR, RFD, 4);
-+		reg_val &= ~(0xff << ((i % MTL_TCPM_TC_PER_REG) << 3));
-+		reg_val |= (mask << ((i % MTL_TCPM_TC_PER_REG) << 3));
-+
-+		XGMAC_IOWRITE(pdata, reg, reg_val);
-+
-+		/* Set the traffic class algorithm */
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			netif_dbg(pdata, drv, pdata->netdev,
-+				  "TC%u using SP\n", i);
-+			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_ETSCR, TSA,
-+					       MTL_TSA_SP);
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			weight = total_weight * ets->tc_tx_bw[i] / 100;
-+			weight = clamp(weight, min_weight, total_weight);
-+
-+			netif_dbg(pdata, drv, pdata->netdev,
-+				  "TC%u using DWRR (weight %u)\n", i, weight);
-+			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_ETSCR, TSA,
-+					       MTL_TSA_ETS);
-+			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_QWR, QW,
-+					       weight);
-+			break;
-+		}
-+	}
-+
-+	xgbe_config_tc(pdata);
-+}
-+
-+static void xgbe_config_dcb_pfc(struct xgbe_prv_data *pdata)
-+{
-+	if (!test_bit(XGBE_DOWN, &pdata->dev_state)) {
-+		/* Just stop the Tx queues while Rx fifo is changed */
-+		netif_tx_stop_all_queues(pdata->netdev);
-+
-+		/* Suspend Rx so that fifo's can be adjusted */
-+		pdata->hw_if.disable_rx(pdata);
-+	}
-+
-+	xgbe_config_rx_fifo_size(pdata);
-+	xgbe_config_flow_control(pdata);
-+
-+	if (!test_bit(XGBE_DOWN, &pdata->dev_state)) {
-+		/* Resume Rx */
-+		pdata->hw_if.enable_rx(pdata);
-+
-+		/* Resume Tx queues */
-+		netif_tx_start_all_queues(pdata->netdev);
- 	}
- }
- 
-@@ -2879,12 +3150,10 @@ static int xgbe_init(struct xgbe_prv_data *pdata)
- 	xgbe_config_rx_threshold(pdata, pdata->rx_threshold);
- 	xgbe_config_tx_fifo_size(pdata);
- 	xgbe_config_rx_fifo_size(pdata);
--	xgbe_config_flow_control_threshold(pdata);
- 	/*TODO: Error Packet and undersized good Packet forwarding enable
- 		(FEP and FUP)
- 	 */
- 	xgbe_config_dcb_tc(pdata);
--	xgbe_config_dcb_pfc(pdata);
- 	xgbe_enable_mtl_interrupts(pdata);
- 
- 	/*
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index d838b44..a4e1b8d 100644
+index d90ecbc..8cb4f20 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -158,6 +158,7 @@
+@@ -261,7 +261,13 @@
  
- #define XGBE_MAX_DMA_CHANNELS	16
- #define XGBE_MAX_QUEUES		16
-+#define XGBE_PRIORITY_QUEUES	8
- #define XGBE_DMA_STOP_TIMEOUT	5
- 
- /* DMA cache settings - Outer sharable, write-back, write-allocate */
-@@ -177,6 +178,13 @@
- #define XGMAC_MAX_STD_PACKET	1518
- #define XGMAC_JUMBO_PACKET_MTU	9000
- #define XGMAC_MAX_JUMBO_PACKET	9018
-+#define XGMAC_ETH_PREAMBLE	(12 + 8)	/* Inter-frame gap + preamble */
+ /* Auto-negotiation */
+ #define XGBE_AN_MS_TIMEOUT		500
+-#define XGBE_LINK_TIMEOUT		10
++#define XGBE_LINK_TIMEOUT		5
 +
-+#define XGMAC_PFC_DATA_LEN	46
-+#define XGMAC_PFC_DELAYS	14000
-+
-+#define XGMAC_PRIO_QUEUES(_cnt)					\
-+	min_t(unsigned int, IEEE_8021QAZ_MAX_TCS, (_cnt))
++#define XGBE_SGMII_AN_LINK_STATUS	BIT(1)
++#define XGBE_SGMII_AN_LINK_SPEED	(BIT(2) | BIT(3))
++#define XGBE_SGMII_AN_LINK_SPEED_100	0x04
++#define XGBE_SGMII_AN_LINK_SPEED_1000	0x08
++#define XGBE_SGMII_AN_LINK_DUPLEX	BIT(4)
  
- /* Common property names */
- #define XGBE_MAC_ADDR_PROPERTY	"mac-address"
-@@ -210,6 +218,12 @@
+ struct xgbe_prv_data;
  
- #define XGMAC_FIFO_RX_MAX	81920
- #define XGMAC_FIFO_TX_MAX	81920
-+#define XGMAC_FIFO_MIN_ALLOC	2048
-+#define XGMAC_FIFO_UNIT		256
-+#define XGMAC_FIFO_ALIGN(_x)				\
-+	(((_x) + XGMAC_FIFO_UNIT - 1) & ~(XGMAC_FIFO_UNIT - 1))
-+#define XGMAC_FIFO_FC_OFF	2048
-+#define XGMAC_FIFO_FC_MIN	4096
+@@ -467,6 +473,8 @@ enum xgbe_speed {
  
- #define XGBE_TC_MIN_QUANTUM	10
+ enum xgbe_an_mode {
+ 	XGBE_AN_MODE_CL73 = 0,
++	XGBE_AN_MODE_CL37,
++	XGBE_AN_MODE_CL37_SGMII,
+ 	XGBE_AN_MODE_NONE,
+ };
  
-@@ -234,6 +248,14 @@
- /* Flow control queue count */
- #define XGMAC_MAX_FLOW_CONTROL_QUEUES	8
+@@ -961,6 +969,7 @@ struct xgbe_prv_data {
  
-+/* Flow control threshold units */
-+#define XGMAC_FLOW_CONTROL_UNIT		512
-+#define XGMAC_FLOW_CONTROL_ALIGN(_x)				\
-+	(((_x) + XGMAC_FLOW_CONTROL_UNIT - 1) & ~(XGMAC_FLOW_CONTROL_UNIT - 1))
-+#define XGMAC_FLOW_CONTROL_VALUE(_x)				\
-+	(((_x) < 1024) ? 0 : ((_x) / XGMAC_FLOW_CONTROL_UNIT) - 2)
-+#define XGMAC_FLOW_CONTROL_MAX		33280
-+
- /* Maximum MAC address hash table size (256 bits = 8 bytes) */
- #define XGBE_MAC_HASH_TABLE_SIZE	8
- 
-@@ -843,6 +865,8 @@ struct xgbe_prv_data {
- 	unsigned int pause_autoneg;
- 	unsigned int tx_pause;
- 	unsigned int rx_pause;
-+	unsigned int rx_rfa[XGBE_MAX_QUEUES];
-+	unsigned int rx_rfd[XGBE_MAX_QUEUES];
- 
- 	/* Receive Side Scaling settings */
- 	u8 rss_key[XGBE_RSS_HASH_KEY_SIZE];
-@@ -882,6 +906,8 @@ struct xgbe_prv_data {
- 	struct ieee_pfc *pfc;
- 	unsigned int q2tc_map[XGBE_MAX_QUEUES];
- 	unsigned int prio2q_map[IEEE_8021QAZ_MAX_TCS];
-+	unsigned int pfcq[XGBE_MAX_QUEUES];
-+	unsigned int pfc_rfa;
- 	u8 num_tcs;
- 
- 	/* Hardware features of the device */
+ 	/* Auto-negotiation state machine support */
+ 	unsigned int an_int;
++	unsigned int an_status;
+ 	struct mutex an_mutex;
+ 	enum xgbe_an an_result;
+ 	enum xgbe_an an_state;
