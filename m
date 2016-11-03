@@ -1,49 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v1 17/21] amd-xgbe: Add I2C support for
- determining SFP media types
-Date: Thu, 3 Nov 2016 16:18:48 +0100
-Message-ID: <20161103151848.GD1768@lunn.ch>
-References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
- <20161103133036.3437.71231.stgit@tlendack-t1.amdoffice.net>
- <20161103142815.GB1768@lunn.ch>
- <1af561af-65e2-8422-1901-d4b1c317ad12@amd.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v2 0/5] bpf: BPF for lightweight tunnel encapsulation
+Date: Thu, 3 Nov 2016 09:20:01 -0600
+Message-ID: <CACby=pmSSG5P+7=wDvqwkVp_yXw9o8_pREZCLfDov_XFbueFAQ@mail.gmail.com>
+References: <cover.1477959702.git.tgraf@suug.ch> <c220b6b2-3f20-09ff-2068-6ecfe0b47b9e@stressinduktion.org>
+ <CACby=pmK9Pj00LYx9PQrgWe95xmy=qFhpjSYZT=QDnLQ55J=8w@mail.gmail.com>
+ <1478030932.3136562.774196097.1F1AD6FB@webmail.messagingengine.com>
+ <CACby=p=sSPfh0Lxr2qqk+wQ1=LVQvDU785Z9eTnT1GcKK=RoxA@mail.gmail.com>
+ <3f9e7de1-1e61-2fb5-9529-c46343ac39c9@stressinduktion.org>
+ <CACby=pnSX15XGuKBcw2FJkLz_qZt6XE+JS4ySN1Z6OZ=+w_eoQ@mail.gmail.com> <c24f3ad9-764a-0ffa-51bf-2b42fb3ae585@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
-To: Tom Lendacky <thomas.lendacky@amd.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tom Herbert <tom@herbertland.com>,
+        roopa <roopa@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35626 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754355AbcKCPSv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 11:18:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1af561af-65e2-8422-1901-d4b1c317ad12@amd.com>
+Received: from mail-vk0-f51.google.com ([209.85.213.51]:34553 "EHLO
+        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756922AbcKCPUD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 11:20:03 -0400
+Received: by mail-vk0-f51.google.com with SMTP id x186so42445631vkd.1
+        for <netdev@vger.kernel.org>; Thu, 03 Nov 2016 08:20:03 -0700 (PDT)
+In-Reply-To: <c24f3ad9-764a-0ffa-51bf-2b42fb3ae585@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> There are a couple of things about this. Russel's work isn't part of
-> the kernel yet so I can't make use of it.
+On 3 November 2016 at 08:52, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 02.11.2016 23:54, Thomas Graf wrote:
+>> Why would I want to accept the overhead if I simply avoid it? Just
+>> parsing the header and doing the hash lookup will add cost, cost for
+>> each packet.
+>
+> That is true, but in case you are outside of the namespace, you still
+> have to calculate the cost of doing the FIB lookup for the BPF program
+> each time, too.
+>
+> E.g. given the lookup cost in a hash for a netnwork namespace pointer
+> vs. the cost of doing a FIB lookup to get a program that does a specific
+> transformation sounds at least in the big O-notiation to be in a better
+> place. ;)
+>
+> If you have to do both anyway, probably your patchset will perform
+> better, I agree.
 
-Well, you could guide it into the kernel. Part of it has already made
-the way in. And i know of other platforms which would benefit from it.
-
-> Additionally, the I2C device is integrated into the IP of the
-> network device with register addresses being offsets of the network
-> device BAR so I'm not sure how I would go about getting it setup in
-> order to use the i2c infrastructure.
-
-Have you looked at the core i2c stuff? All you need is an
-i2c_algorithim structure:
-
-http://lxr.free-electrons.com/source/include/linux/i2c.h#L407
-
-and an i2c_adaptor structure:
-
-http://lxr.free-electrons.com/source/include/linux/i2c.h#L532
-
-and then you can call i2c_add_adapter() to register your i2c bus with
-the i2c core. Embedded such an i2c driver inside another driver is not
-a problem.
-
-  Andrew
+Most containers are unprivileged, the route inside the container's
+namespace is owned by the host and we can attach the BPF program
+directly to the default route inside the container and all packets
+egressing from the container will pass through it. That fib lookup is
+needed anyway so we can leverage the cost of that lookup. We can drop
+hostile packets early without ever going on L2 level.
