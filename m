@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/2] Fixes for raw diag sockets handling
-Date: Thu, 03 Nov 2016 15:26:50 -0400 (EDT)
-Message-ID: <20161103.152650.1086274425116533256.davem@davemloft.net>
-References: <20161102123630.784612652@openvz.org>
+Subject: Re: [PATCH v3 0/2] net: stmmac: Add OXNAS DWMAC Glue
+Date: Thu, 03 Nov 2016 15:31:56 -0400 (EDT)
+Message-ID: <20161103.153156.970094178639051505.davem@davemloft.net>
+References: <20161102140237.6955-1-narmstrong@baylibre.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-        dsa@cumulusnetworks.com, avagin@openvz.org,
-        stephen@networkplumber.org
-To: gorcunov@openvz.org
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-oxnas@lists.tuxfamily.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: narmstrong@baylibre.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41412 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41476 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752754AbcKCT0x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 15:26:53 -0400
-In-Reply-To: <20161102123630.784612652@openvz.org>
+        with ESMTP id S1752754AbcKCTcC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 15:32:02 -0400
+In-Reply-To: <20161102140237.6955-1-narmstrong@baylibre.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Date: Wed, 02 Nov 2016 15:36:30 +0300
+From: Neil Armstrong <narmstrong@baylibre.com>
+Date: Wed,  2 Nov 2016 15:02:35 +0100
 
-> Hi! Here are a few fixes for raw-diag sockets handling: missing
-> sock_put call and jump for exiting from nested cycle. I made
-> patches for iproute2 as well so will send them out soon.
+> This patchset add support for the Sysnopsys DWMAC Gigabit Ethernet
+> controller Glue layer of the Oxford Semiconductor OX820 SoC.
 
-Series applied, thanks.
+Series applied to net-next, thanks.
