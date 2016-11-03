@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 05/21] amd-xgbe: Prepare for introduction of
- clause 37 autoneg
-Date: Thu, 3 Nov 2016 08:28:33 -0500
-Message-ID: <20161103132833.3437.31889.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 09/21] amd-xgbe: Update how to determine DMA
+ channel status
+Date: Thu, 3 Nov 2016 08:29:14 -0500
+Message-ID: <20161103132914.3437.27657.stgit@tlendack-t1.amdoffice.net>
 References: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,610 +11,151 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0044.outbound.protection.outlook.com ([104.47.41.44]:27313
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0073.outbound.protection.outlook.com ([104.47.42.73]:16202
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752397AbcKCNoL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 09:44:11 -0400
+        id S1757215AbcKCNny (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Nov 2016 09:43:54 -0400
 In-Reply-To: <20161103132744.3437.27332.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prepare for the future introduction of clause 37 auto-negotiation by
-updating the current auto-negotiation related functions to identify
-them as clause 73 functions. Move interrupt enablement to the
-enable/disable auto-negotiation functions. Update what will be common
-routines to check for the current type of AN and process accordingly.
+Tx and Rx DMA channel status determiniation is different depending on the
+version of the hardware. Update the channel status processing code to
+account for the change.  Also, reduce the timeout value used when stopping
+the channels.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |    5 +
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |  235 ++++++++++++++++++---------
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c |    7 +
- drivers/net/ethernet/amd/xgbe/xgbe.h        |   14 +-
- 4 files changed, 176 insertions(+), 85 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |    4 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   58 ++++++++++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |    2 -
+ 3 files changed, 43 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index bbef959..695e982 100644
+index 6c40915..8036ee5 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -1052,6 +1052,11 @@
- #endif
+@@ -790,6 +790,10 @@
+ #define MTL_Q_RQOMR_RSF_WIDTH		1
+ #define MTL_Q_RQOMR_RTC_INDEX		0
+ #define MTL_Q_RQOMR_RTC_WIDTH		2
++#define MTL_Q_TQDR_TRCSTS_INDEX		1
++#define MTL_Q_TQDR_TRCSTS_WIDTH		2
++#define MTL_Q_TQDR_TXQSTS_INDEX		4
++#define MTL_Q_TQDR_TXQSTS_WIDTH		1
+ #define MTL_Q_TQOMR_FTQ_INDEX		0
+ #define MTL_Q_TQOMR_FTQ_WIDTH		1
+ #define MTL_Q_TQOMR_Q2TCMAP_INDEX	8
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 056f38c..89764cb 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -2946,20 +2946,48 @@ static void xgbe_config_mmc(struct xgbe_prv_data *pdata)
+ 	XGMAC_IOWRITE_BITS(pdata, MMC_CR, CR, 1);
+ }
  
- /* MDIO mask values */
-+#define XGBE_AN_CL73_INT_CMPLT		BIT(0)
-+#define XGBE_AN_CL73_INC_LINK		BIT(1)
-+#define XGBE_AN_CL73_PG_RCV		BIT(2)
-+#define XGBE_AN_CL73_INT_MASK		0x07
-+
- #define XGBE_XNP_MCF_NULL_MESSAGE	0x001
- #define XGBE_XNP_ACK_PROCESSED		BIT(12)
- #define XGBE_XNP_MP_FORMATTED		BIT(13)
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 35c302f..d5bfbe4 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -125,7 +125,33 @@
- #include "xgbe.h"
- #include "xgbe-common.h"
- 
--static void xgbe_an_enable_kr_training(struct xgbe_prv_data *pdata)
-+static void xgbe_an73_clear_interrupts(struct xgbe_prv_data *pdata)
++static void xgbe_txq_prepare_tx_stop(struct xgbe_prv_data *pdata,
++				     unsigned int queue)
 +{
-+	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
-+}
++	unsigned int tx_status;
++	unsigned long tx_timeout;
 +
-+static void xgbe_an73_disable_interrupts(struct xgbe_prv_data *pdata)
-+{
-+	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
-+}
++	/* The Tx engine cannot be stopped if it is actively processing
++	 * packets. Wait for the Tx queue to empty the Tx fifo.  Don't
++	 * wait forever though...
++	 */
++	tx_timeout = jiffies + (XGBE_DMA_STOP_TIMEOUT * HZ);
++	while (time_before(jiffies, tx_timeout)) {
++		tx_status = XGMAC_MTL_IOREAD(pdata, queue, MTL_Q_TQDR);
++		if ((XGMAC_GET_BITS(tx_status, MTL_Q_TQDR, TRCSTS) != 1) &&
++		    (XGMAC_GET_BITS(tx_status, MTL_Q_TQDR, TXQSTS) == 0))
++			break;
 +
-+static void xgbe_an73_enable_interrupts(struct xgbe_prv_data *pdata)
-+{
-+	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, XGBE_AN_CL73_INT_MASK);
-+}
-+
-+static void xgbe_an_enable_interrupts(struct xgbe_prv_data *pdata)
-+{
-+	switch (pdata->an_mode) {
-+	case XGBE_AN_MODE_CL73:
-+		xgbe_an73_enable_interrupts(pdata);
-+		break;
-+	default:
-+		break;
++		usleep_range(500, 1000);
 +	}
++
++	if (!time_before(jiffies, tx_timeout))
++		netdev_info(pdata->netdev,
++			    "timed out waiting for Tx queue %u to empty\n",
++			    queue);
 +}
 +
-+static void xgbe_an73_enable_kr_training(struct xgbe_prv_data *pdata)
+ static void xgbe_prepare_tx_stop(struct xgbe_prv_data *pdata,
+-				 struct xgbe_channel *channel)
++				 unsigned int queue)
  {
- 	unsigned int reg;
+ 	unsigned int tx_dsr, tx_pos, tx_qidx;
+ 	unsigned int tx_status;
+ 	unsigned long tx_timeout;
  
-@@ -135,7 +161,7 @@ static void xgbe_an_enable_kr_training(struct xgbe_prv_data *pdata)
- 	XMDIO_WRITE(pdata, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_PMD_CTRL, reg);
- }
- 
--static void xgbe_an_disable_kr_training(struct xgbe_prv_data *pdata)
-+static void xgbe_an73_disable_kr_training(struct xgbe_prv_data *pdata)
- {
- 	unsigned int reg;
- 
-@@ -148,7 +174,7 @@ static void xgbe_an_disable_kr_training(struct xgbe_prv_data *pdata)
- static void xgbe_kr_mode(struct xgbe_prv_data *pdata)
- {
- 	/* Enable KR training */
--	xgbe_an_enable_kr_training(pdata);
-+	xgbe_an73_enable_kr_training(pdata);
- 
- 	/* Set MAC to 10G speed */
- 	pdata->hw_if.set_speed(pdata, SPEED_10000);
-@@ -160,7 +186,7 @@ static void xgbe_kr_mode(struct xgbe_prv_data *pdata)
- static void xgbe_kx_2500_mode(struct xgbe_prv_data *pdata)
- {
- 	/* Disable KR training */
--	xgbe_an_disable_kr_training(pdata);
-+	xgbe_an73_disable_kr_training(pdata);
- 
- 	/* Set MAC to 2.5G speed */
- 	pdata->hw_if.set_speed(pdata, SPEED_2500);
-@@ -172,7 +198,7 @@ static void xgbe_kx_2500_mode(struct xgbe_prv_data *pdata)
- static void xgbe_kx_1000_mode(struct xgbe_prv_data *pdata)
- {
- 	/* Disable KR training */
--	xgbe_an_disable_kr_training(pdata);
-+	xgbe_an73_disable_kr_training(pdata);
- 
- 	/* Set MAC to 1G speed */
- 	pdata->hw_if.set_speed(pdata, SPEED_1000);
-@@ -232,7 +258,8 @@ static bool xgbe_use_mode(struct xgbe_prv_data *pdata,
- 	return pdata->phy_if.phy_impl.use_mode(pdata, mode);
- }
- 
--static void xgbe_set_an(struct xgbe_prv_data *pdata, bool enable, bool restart)
-+static void xgbe_an73_set(struct xgbe_prv_data *pdata, bool enable,
-+			  bool restart)
- {
- 	unsigned int reg;
- 
-@@ -248,22 +275,46 @@ static void xgbe_set_an(struct xgbe_prv_data *pdata, bool enable, bool restart)
- 	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_CTRL1, reg);
- }
- 
--static void xgbe_restart_an(struct xgbe_prv_data *pdata)
-+static void xgbe_an73_restart(struct xgbe_prv_data *pdata)
- {
--	xgbe_set_an(pdata, true, true);
-+	xgbe_an73_enable_interrupts(pdata);
-+	xgbe_an73_set(pdata, true, true);
- 
--	netif_dbg(pdata, link, pdata->netdev, "AN enabled/restarted\n");
-+	netif_dbg(pdata, link, pdata->netdev, "CL73 AN enabled/restarted\n");
- }
- 
--static void xgbe_disable_an(struct xgbe_prv_data *pdata)
-+static void xgbe_an73_disable(struct xgbe_prv_data *pdata)
- {
--	xgbe_set_an(pdata, false, false);
-+	xgbe_an73_set(pdata, false, false);
-+	xgbe_an73_disable_interrupts(pdata);
- 
--	netif_dbg(pdata, link, pdata->netdev, "AN disabled\n");
-+	netif_dbg(pdata, link, pdata->netdev, "CL73 AN disabled\n");
- }
- 
--static enum xgbe_an xgbe_an_tx_training(struct xgbe_prv_data *pdata,
--					enum xgbe_rx *state)
-+static void xgbe_an_restart(struct xgbe_prv_data *pdata)
-+{
-+	switch (pdata->an_mode) {
-+	case XGBE_AN_MODE_CL73:
-+		xgbe_an73_restart(pdata);
-+		break;
-+	default:
-+		break;
-+	}
-+}
++	if (XGMAC_GET_BITS(pdata->hw_feat.version, MAC_VR, SNPSVER) > 0x20)
++		return xgbe_txq_prepare_tx_stop(pdata, queue);
 +
-+static void xgbe_an_disable(struct xgbe_prv_data *pdata)
-+{
-+	switch (pdata->an_mode) {
-+	case XGBE_AN_MODE_CL73:
-+		xgbe_an73_disable(pdata);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+static enum xgbe_an xgbe_an73_tx_training(struct xgbe_prv_data *pdata,
-+					  enum xgbe_rx *state)
- {
- 	unsigned int ad_reg, lp_reg, reg;
- 
-@@ -304,8 +355,8 @@ static enum xgbe_an xgbe_an_tx_training(struct xgbe_prv_data *pdata,
- 	return XGBE_AN_PAGE_RECEIVED;
- }
- 
--static enum xgbe_an xgbe_an_tx_xnp(struct xgbe_prv_data *pdata,
--				   enum xgbe_rx *state)
-+static enum xgbe_an xgbe_an73_tx_xnp(struct xgbe_prv_data *pdata,
-+				     enum xgbe_rx *state)
- {
- 	u16 msg;
- 
-@@ -321,8 +372,8 @@ static enum xgbe_an xgbe_an_tx_xnp(struct xgbe_prv_data *pdata,
- 	return XGBE_AN_PAGE_RECEIVED;
- }
- 
--static enum xgbe_an xgbe_an_rx_bpa(struct xgbe_prv_data *pdata,
--				   enum xgbe_rx *state)
-+static enum xgbe_an xgbe_an73_rx_bpa(struct xgbe_prv_data *pdata,
-+				     enum xgbe_rx *state)
- {
- 	unsigned int link_support;
- 	unsigned int reg, ad_reg, lp_reg;
-@@ -341,12 +392,12 @@ static enum xgbe_an xgbe_an_rx_bpa(struct xgbe_prv_data *pdata,
- 
- 	return ((ad_reg & XGBE_XNP_NP_EXCHANGE) ||
- 		(lp_reg & XGBE_XNP_NP_EXCHANGE))
--	       ? xgbe_an_tx_xnp(pdata, state)
--	       : xgbe_an_tx_training(pdata, state);
-+	       ? xgbe_an73_tx_xnp(pdata, state)
-+	       : xgbe_an73_tx_training(pdata, state);
- }
- 
--static enum xgbe_an xgbe_an_rx_xnp(struct xgbe_prv_data *pdata,
--				   enum xgbe_rx *state)
-+static enum xgbe_an xgbe_an73_rx_xnp(struct xgbe_prv_data *pdata,
-+				     enum xgbe_rx *state)
- {
- 	unsigned int ad_reg, lp_reg;
- 
-@@ -356,11 +407,11 @@ static enum xgbe_an xgbe_an_rx_xnp(struct xgbe_prv_data *pdata,
- 
- 	return ((ad_reg & XGBE_XNP_NP_EXCHANGE) ||
- 		(lp_reg & XGBE_XNP_NP_EXCHANGE))
--	       ? xgbe_an_tx_xnp(pdata, state)
--	       : xgbe_an_tx_training(pdata, state);
-+	       ? xgbe_an73_tx_xnp(pdata, state)
-+	       : xgbe_an73_tx_training(pdata, state);
- }
- 
--static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
-+static enum xgbe_an xgbe_an73_page_received(struct xgbe_prv_data *pdata)
- {
- 	enum xgbe_rx *state;
- 	unsigned long an_timeout;
-@@ -379,7 +430,7 @@ static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
- 			pdata->an_start = jiffies;
- 
- 			netif_dbg(pdata, link, pdata->netdev,
--				  "AN timed out, resetting state\n");
-+				  "CL73 AN timed out, resetting state\n");
- 		}
- 	}
- 
-@@ -388,11 +439,11 @@ static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
- 
- 	switch (*state) {
- 	case XGBE_RX_BPA:
--		ret = xgbe_an_rx_bpa(pdata, state);
-+		ret = xgbe_an73_rx_bpa(pdata, state);
- 		break;
- 
- 	case XGBE_RX_XNP:
--		ret = xgbe_an_rx_xnp(pdata, state);
-+		ret = xgbe_an73_rx_xnp(pdata, state);
- 		break;
- 
- 	default:
-@@ -402,7 +453,7 @@ static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
- 	return ret;
- }
- 
--static enum xgbe_an xgbe_an_incompat_link(struct xgbe_prv_data *pdata)
-+static enum xgbe_an xgbe_an73_incompat_link(struct xgbe_prv_data *pdata)
- {
- 	/* Be sure we aren't looping trying to negotiate */
- 	if (xgbe_in_kr_mode(pdata)) {
-@@ -424,23 +475,19 @@ static enum xgbe_an xgbe_an_incompat_link(struct xgbe_prv_data *pdata)
- 			return XGBE_AN_NO_LINK;
- 	}
- 
--	xgbe_disable_an(pdata);
-+	xgbe_an73_disable(pdata);
- 
- 	xgbe_switch_mode(pdata);
- 
--	xgbe_restart_an(pdata);
-+	xgbe_an73_restart(pdata);
- 
- 	return XGBE_AN_INCOMPAT_LINK;
- }
- 
--static irqreturn_t xgbe_an_isr(int irq, void *data)
-+static void xgbe_an73_isr(struct xgbe_prv_data *pdata)
- {
--	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
--
--	netif_dbg(pdata, intr, pdata->netdev, "AN interrupt received\n");
--
- 	/* Disable AN interrupts */
--	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
-+	xgbe_an73_disable_interrupts(pdata);
- 
- 	/* Save the interrupt(s) that fired */
- 	pdata->an_int = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_INT);
-@@ -452,8 +499,22 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
- 		queue_work(pdata->an_workqueue, &pdata->an_irq_work);
+ 	/* Calculate the status register to read and the position within */
+-	if (channel->queue_index < DMA_DSRX_FIRST_QUEUE) {
++	if (queue < DMA_DSRX_FIRST_QUEUE) {
+ 		tx_dsr = DMA_DSR0;
+-		tx_pos = (channel->queue_index * DMA_DSR_Q_WIDTH) +
+-			 DMA_DSR0_TPS_START;
++		tx_pos = (queue * DMA_DSR_Q_WIDTH) + DMA_DSR0_TPS_START;
  	} else {
- 		/* Enable AN interrupts */
--		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK,
--			    XGBE_AN_INT_MASK);
-+		xgbe_an73_enable_interrupts(pdata);
-+	}
-+}
-+
-+static irqreturn_t xgbe_an_isr(int irq, void *data)
-+{
-+	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
-+
-+	netif_dbg(pdata, intr, pdata->netdev, "AN interrupt received\n");
-+
-+	switch (pdata->an_mode) {
-+	case XGBE_AN_MODE_CL73:
-+		xgbe_an73_isr(pdata);
-+		break;
-+	default:
-+		break;
- 	}
+-		tx_qidx = channel->queue_index - DMA_DSRX_FIRST_QUEUE;
++		tx_qidx = queue - DMA_DSRX_FIRST_QUEUE;
  
- 	return IRQ_HANDLED;
-@@ -492,28 +553,23 @@ static const char *xgbe_state_as_string(enum xgbe_an state)
- 	}
+ 		tx_dsr = DMA_DSR1 + ((tx_qidx / DMA_DSRX_QPR) * DMA_DSRX_INC);
+ 		tx_pos = ((tx_qidx % DMA_DSRX_QPR) * DMA_DSR_Q_WIDTH) +
+@@ -2984,7 +3012,7 @@ static void xgbe_prepare_tx_stop(struct xgbe_prv_data *pdata,
+ 	if (!time_before(jiffies, tx_timeout))
+ 		netdev_info(pdata->netdev,
+ 			    "timed out waiting for Tx DMA channel %u to stop\n",
+-			    channel->queue_index);
++			    queue);
  }
  
--static void xgbe_an_state_machine(struct work_struct *work)
-+static void xgbe_an73_state_machine(struct xgbe_prv_data *pdata)
- {
--	struct xgbe_prv_data *pdata = container_of(work,
--						   struct xgbe_prv_data,
--						   an_work);
- 	enum xgbe_an cur_state = pdata->an_state;
+ static void xgbe_enable_tx(struct xgbe_prv_data *pdata)
+@@ -3016,13 +3044,8 @@ static void xgbe_disable_tx(struct xgbe_prv_data *pdata)
+ 	unsigned int i;
  
--	mutex_lock(&pdata->an_mutex);
+ 	/* Prepare for Tx DMA channel stop */
+-	channel = pdata->channel;
+-	for (i = 0; i < pdata->channel_count; i++, channel++) {
+-		if (!channel->tx_ring)
+-			break;
 -
- 	if (!pdata->an_int)
--		goto out;
-+		return;
+-		xgbe_prepare_tx_stop(pdata, channel);
+-	}
++	for (i = 0; i < pdata->tx_q_count; i++)
++		xgbe_prepare_tx_stop(pdata, i);
  
- next_int:
--	if (pdata->an_int & XGBE_AN_PG_RCV) {
-+	if (pdata->an_int & XGBE_AN_CL73_PG_RCV) {
- 		pdata->an_state = XGBE_AN_PAGE_RECEIVED;
--		pdata->an_int &= ~XGBE_AN_PG_RCV;
--	} else if (pdata->an_int & XGBE_AN_INC_LINK) {
-+		pdata->an_int &= ~XGBE_AN_CL73_PG_RCV;
-+	} else if (pdata->an_int & XGBE_AN_CL73_INC_LINK) {
- 		pdata->an_state = XGBE_AN_INCOMPAT_LINK;
--		pdata->an_int &= ~XGBE_AN_INC_LINK;
--	} else if (pdata->an_int & XGBE_AN_INT_CMPLT) {
-+		pdata->an_int &= ~XGBE_AN_CL73_INC_LINK;
-+	} else if (pdata->an_int & XGBE_AN_CL73_INT_CMPLT) {
- 		pdata->an_state = XGBE_AN_COMPLETE;
--		pdata->an_int &= ~XGBE_AN_INT_CMPLT;
-+		pdata->an_int &= ~XGBE_AN_CL73_INT_CMPLT;
- 	} else {
- 		pdata->an_state = XGBE_AN_ERROR;
- 	}
-@@ -521,7 +577,7 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 	pdata->an_result = pdata->an_state;
+ 	/* Disable MAC Tx */
+ 	XGMAC_IOWRITE_BITS(pdata, MAC_TCR, TE, 0);
+@@ -3146,13 +3169,8 @@ static void xgbe_powerdown_tx(struct xgbe_prv_data *pdata)
+ 	unsigned int i;
  
- again:
--	netif_dbg(pdata, link, pdata->netdev, "AN %s\n",
-+	netif_dbg(pdata, link, pdata->netdev, "CL73 AN %s\n",
- 		  xgbe_state_as_string(pdata->an_state));
- 
- 	cur_state = pdata->an_state;
-@@ -532,14 +588,14 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 		break;
- 
- 	case XGBE_AN_PAGE_RECEIVED:
--		pdata->an_state = xgbe_an_page_received(pdata);
-+		pdata->an_state = xgbe_an73_page_received(pdata);
- 		pdata->an_supported++;
- 		break;
- 
- 	case XGBE_AN_INCOMPAT_LINK:
- 		pdata->an_supported = 0;
- 		pdata->parallel_detect = 0;
--		pdata->an_state = xgbe_an_incompat_link(pdata);
-+		pdata->an_state = xgbe_an73_incompat_link(pdata);
- 		break;
- 
- 	case XGBE_AN_COMPLETE:
-@@ -558,14 +614,14 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 
- 	if (pdata->an_state == XGBE_AN_NO_LINK) {
- 		pdata->an_int = 0;
--		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
-+		xgbe_an73_clear_interrupts(pdata);
- 	} else if (pdata->an_state == XGBE_AN_ERROR) {
- 		netdev_err(pdata->netdev,
- 			   "error during auto-negotiation, state=%u\n",
- 			   cur_state);
- 
- 		pdata->an_int = 0;
--		XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
-+		xgbe_an73_clear_interrupts(pdata);
- 	}
- 
- 	if (pdata->an_state >= XGBE_AN_COMPLETE) {
-@@ -575,7 +631,7 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 		pdata->kx_state = XGBE_RX_BPA;
- 		pdata->an_start = 0;
- 
--		netif_dbg(pdata, link, pdata->netdev, "AN result: %s\n",
-+		netif_dbg(pdata, link, pdata->netdev, "CL73 AN result: %s\n",
- 			  xgbe_state_as_string(pdata->an_result));
- 	}
- 
-@@ -585,14 +641,29 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 	if (pdata->an_int)
- 		goto next_int;
- 
--out:
--	/* Enable AN interrupts on the way out */
--	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, XGBE_AN_INT_MASK);
-+	xgbe_an73_enable_interrupts(pdata);
-+}
-+
-+static void xgbe_an_state_machine(struct work_struct *work)
-+{
-+	struct xgbe_prv_data *pdata = container_of(work,
-+						   struct xgbe_prv_data,
-+						   an_work);
-+
-+	mutex_lock(&pdata->an_mutex);
-+
-+	switch (pdata->an_mode) {
-+	case XGBE_AN_MODE_CL73:
-+		xgbe_an73_state_machine(pdata);
-+		break;
-+	default:
-+		break;
-+	}
- 
- 	mutex_unlock(&pdata->an_mutex);
- }
- 
--static void xgbe_an_init(struct xgbe_prv_data *pdata)
-+static void xgbe_an73_init(struct xgbe_prv_data *pdata)
- {
- 	unsigned int reg;
- 
-@@ -637,7 +708,20 @@ static void xgbe_an_init(struct xgbe_prv_data *pdata)
- 
- 	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
- 
--	netif_dbg(pdata, link, pdata->netdev, "AN initialized\n");
-+	netif_dbg(pdata, link, pdata->netdev, "CL73 AN initialized\n");
-+}
-+
-+static void xgbe_an_init(struct xgbe_prv_data *pdata)
-+{
-+	/* Set up advertisement registers based on current settings */
-+	pdata->an_mode = pdata->phy_if.phy_impl.an_mode(pdata);
-+	switch (pdata->an_mode) {
-+	case XGBE_AN_MODE_CL73:
-+		xgbe_an73_init(pdata);
-+		break;
-+	default:
-+		break;
-+	}
- }
- 
- static const char *xgbe_phy_fc_string(struct xgbe_prv_data *pdata)
-@@ -732,7 +816,7 @@ static int xgbe_phy_config_fixed(struct xgbe_prv_data *pdata)
- 	netif_dbg(pdata, link, pdata->netdev, "fixed PHY configuration\n");
- 
- 	/* Disable auto-negotiation */
--	xgbe_disable_an(pdata);
-+	xgbe_an_disable(pdata);
- 
- 	/* Set specified mode for specified speed */
- 	mode = pdata->phy_if.phy_impl.get_mode(pdata, pdata->phy.speed);
-@@ -781,10 +865,10 @@ static int __xgbe_phy_config_aneg(struct xgbe_prv_data *pdata)
- 	}
- 
- 	/* Disable and stop any in progress auto-negotiation */
--	xgbe_disable_an(pdata);
-+	xgbe_an_disable(pdata);
- 
- 	/* Clear any auto-negotitation interrupts */
--	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
-+	xgbe_an73_clear_interrupts(pdata);
- 
- 	pdata->an_result = XGBE_AN_READY;
- 	pdata->an_state = XGBE_AN_READY;
-@@ -794,11 +878,8 @@ static int __xgbe_phy_config_aneg(struct xgbe_prv_data *pdata)
- 	/* Re-enable auto-negotiation interrupt */
- 	enable_irq(pdata->an_irq);
- 
--	/* Set up advertisement registers based on current settings */
- 	xgbe_an_init(pdata);
+ 	/* Prepare for Tx DMA channel stop */
+-	channel = pdata->channel;
+-	for (i = 0; i < pdata->channel_count; i++, channel++) {
+-		if (!channel->tx_ring)
+-			break;
 -
--	/* Enable and start auto-negotiation */
--	xgbe_restart_an(pdata);
-+	xgbe_an_restart(pdata);
+-		xgbe_prepare_tx_stop(pdata, channel);
+-	}
++	for (i = 0; i < pdata->tx_q_count; i++)
++		xgbe_prepare_tx_stop(pdata, i);
  
- 	return 0;
- }
-@@ -926,10 +1007,7 @@ static void xgbe_phy_stop(struct xgbe_prv_data *pdata)
- 	pdata->phy_started = 0;
- 
- 	/* Disable auto-negotiation */
--	xgbe_disable_an(pdata);
--
--	/* Disable auto-negotiation interrupts */
--	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0);
-+	xgbe_an_disable(pdata);
- 
- 	devm_free_irq(pdata->dev, pdata->an_irq, pdata);
- 
-@@ -977,11 +1055,8 @@ static int xgbe_phy_start(struct xgbe_prv_data *pdata)
- 	/* Indicate the PHY is up and running */
- 	pdata->phy_started = 1;
- 
--	/* Set up advertisement registers based on current settings */
- 	xgbe_an_init(pdata);
--
--	/* Enable auto-negotiation interrupts */
--	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INTMASK, 0x07);
-+	xgbe_an_enable_interrupts(pdata);
- 
- 	return xgbe_phy_config_aneg(pdata);
- 
-@@ -1003,10 +1078,10 @@ static int xgbe_phy_reset(struct xgbe_prv_data *pdata)
- 		return ret;
- 
- 	/* Disable auto-negotiation for now */
--	xgbe_disable_an(pdata);
-+	xgbe_an_disable(pdata);
- 
- 	/* Clear auto-negotiation interrupts */
--	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_INT, 0);
-+	xgbe_an73_clear_interrupts(pdata);
- 
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-index 20ccb99..9c913a0 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-@@ -295,6 +295,11 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- 	return mode;
- }
- 
-+static enum xgbe_an_mode xgbe_phy_an_mode(struct xgbe_prv_data *pdata)
-+{
-+	return XGBE_AN_MODE_CL73;
-+}
-+
- static void xgbe_phy_pcs_power_cycle(struct xgbe_prv_data *pdata)
- {
- 	unsigned int reg;
-@@ -814,6 +819,8 @@ void xgbe_init_function_ptrs_phy_v1(struct xgbe_phy_if *phy_if)
- 	phy_impl->switch_mode		= xgbe_phy_switch_mode;
- 	phy_impl->cur_mode		= xgbe_phy_cur_mode;
- 
-+	phy_impl->an_mode		= xgbe_phy_an_mode;
-+
- 	phy_impl->an_outcome		= xgbe_phy_an_outcome;
- 
- 	phy_impl->kr_training_pre	= xgbe_phy_kr_training_pre;
+ 	/* Disable MAC Tx */
+ 	XGMAC_IOWRITE_BITS(pdata, MAC_TCR, TE, 0);
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 0d33aef..d90ecbc 100644
+index 7cbf91b..d5cae15 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -263,11 +263,6 @@
- #define XGBE_AN_MS_TIMEOUT		500
- #define XGBE_LINK_TIMEOUT		10
+@@ -159,7 +159,7 @@
+ #define XGBE_MAX_DMA_CHANNELS	16
+ #define XGBE_MAX_QUEUES		16
+ #define XGBE_PRIORITY_QUEUES	8
+-#define XGBE_DMA_STOP_TIMEOUT	5
++#define XGBE_DMA_STOP_TIMEOUT	1
  
--#define XGBE_AN_INT_CMPLT		0x01
--#define XGBE_AN_INC_LINK		0x02
--#define XGBE_AN_PG_RCV			0x04
--#define XGBE_AN_INT_MASK		0x07
--
- struct xgbe_prv_data;
- 
- struct xgbe_packet_data {
-@@ -470,6 +465,11 @@ enum xgbe_speed {
- 	XGBE_SPEEDS,
- };
- 
-+enum xgbe_an_mode {
-+	XGBE_AN_MODE_CL73 = 0,
-+	XGBE_AN_MODE_NONE,
-+};
-+
- enum xgbe_an {
- 	XGBE_AN_READY = 0,
- 	XGBE_AN_PAGE_RECEIVED,
-@@ -699,6 +699,9 @@ struct xgbe_phy_impl_if {
- 	/* Retrieve current mode */
- 	enum xgbe_mode (*cur_mode)(struct xgbe_prv_data *);
- 
-+	/* Retrieve current auto-negotiation mode */
-+	enum xgbe_an_mode (*an_mode)(struct xgbe_prv_data *);
-+
- 	/* Process results of auto-negotiation */
- 	enum xgbe_mode (*an_outcome)(struct xgbe_prv_data *);
- 
-@@ -968,6 +971,7 @@ struct xgbe_prv_data {
- 	unsigned int parallel_detect;
- 	unsigned int fec_ability;
- 	unsigned long an_start;
-+	enum xgbe_an_mode an_mode;
- 
- 	unsigned int lpm_ctrl;		/* CTRL1 for resume */
- 
+ /* DMA cache settings - Outer sharable, write-back, write-allocate */
+ #define XGBE_DMA_OS_AXDOMAIN	0x2
