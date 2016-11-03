@@ -1,107 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] netlink: netlink_diag_dump() runs without locks
-Date: Wed, 02 Nov 2016 20:21:20 -0700
-Message-ID: <1478143280.7065.427.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+wM9yG3c9AksSyj7jYSY4ujssH+vTuV2nyz=-0enLrB8w@mail.gmail.com>
-         <CAAeHK+xCmN7n1MTocLK9A864YGkq-7a-1NESYkWyLYgLRScF=Q@mail.gmail.com>
-         <CAAeHK+y_1CuCCMDz+sbwS0zG=G9tWvfcFunqgmY8UtR_D=xMww@mail.gmail.com>
-         <1478141906.7065.421.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAAeHK+xUFKMfW4WoYgyjJeYJZm_gAg3Nr3S0+8M-5H+6a=RVKw@mail.gmail.com>
+Subject: [PATCH net] ipv6: dccp: fix out of bound access in dccp_v6_err()
+Date: Wed, 02 Nov 2016 20:30:48 -0700
+Message-ID: <1478143848.7065.429.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1478138440.7065.419.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        David Decotigny <decot@googlers.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Dmitry Ivanov <dmitrijs.ivanovs@ubnt.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Florian Westphal <fw@strlen.de>,
-        Greg Rose <grose@lightfleet.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Matti Vaittinen <matti.vaittinen@nokia.com>,
-        Pravin B Shelar <pshelar@ovn.org>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xUFKMfW4WoYgyjJeYJZm_gAg3Nr3S0+8M-5H+6a=RVKw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33366 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750970AbcKCDaw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2016 23:30:52 -0400
+In-Reply-To: <1478138440.7065.419.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-A recent commit removed locking from netlink_diag_dump() but forgot
-one error case.
+dccp_v6_err() does not use pskb_may_pull() and might access garbage.
 
-=====================================
-[ BUG: bad unlock balance detected! ]
-4.9.0-rc3+ #336 Not tainted
--------------------------------------
-syz-executor/4018 is trying to release lock ([   36.220068] nl_table_lock
-) at:
-[<ffffffff82dc8683>] netlink_diag_dump+0x1a3/0x250 net/netlink/diag.c:182
-but there are no more locks to release!
+We only need 4 bytes at the beginning of the DCCP header, like TCP,
+so the 8 bytes pulled in icmpv6_notify() are more than enough.
 
-other info that might help us debug this:
-3 locks held by syz-executor/4018:
- #0: [   36.220068]  (
-sock_diag_mutex[   36.220068] ){+.+.+.}
-, at: [   36.220068] [<ffffffff82c3873b>] sock_diag_rcv+0x1b/0x40
- #1: [   36.220068]  (
-sock_diag_table_mutex[   36.220068] ){+.+.+.}
-, at: [   36.220068] [<ffffffff82c38e00>] sock_diag_rcv_msg+0x140/0x3a0
- #2: [   36.220068]  (
-nlk->cb_mutex[   36.220068] ){+.+.+.}
-, at: [   36.220068] [<ffffffff82db6600>] netlink_dump+0x50/0xac0
-
-stack backtrace:
-CPU: 1 PID: 4018 Comm: syz-executor Not tainted 4.9.0-rc3+ #336
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffff8800645df688 ffffffff81b46934 ffffffff84eb3e78 ffff88006ad85800
- ffffffff82dc8683 ffffffff84eb3e78 ffff8800645df6b8 ffffffff812043ca
- dffffc0000000000 ffff88006ad85ff8 ffff88006ad85fd0 00000000ffffffff
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff81b46934>] dump_stack+0xb3/0x10f lib/dump_stack.c:51
- [<ffffffff812043ca>] print_unlock_imbalance_bug+0x17a/0x1a0
-kernel/locking/lockdep.c:3388
- [<     inline     >] __lock_release kernel/locking/lockdep.c:3512
- [<ffffffff8120cfd8>] lock_release+0x8e8/0xc60 kernel/locking/lockdep.c:3765
- [<     inline     >] __raw_read_unlock ./include/linux/rwlock_api_smp.h:225
- [<ffffffff83fc001a>] _raw_read_unlock+0x1a/0x30 kernel/locking/spinlock.c:255
- [<ffffffff82dc8683>] netlink_diag_dump+0x1a3/0x250 net/netlink/diag.c:182
- [<ffffffff82db6947>] netlink_dump+0x397/0xac0 net/netlink/af_netlink.c:2110
-
-
-Fixes: ad202074320c ("netlink: Use rhashtable walk interface in diag dump")
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
 ---
- net/netlink/diag.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ net/dccp/ipv6.c |   15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-index b2f0e986a6f4..a5546249fb10 100644
---- a/net/netlink/diag.c
-+++ b/net/netlink/diag.c
-@@ -178,11 +178,8 @@ static int netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		}
- 		cb->args[1] = i;
- 	} else {
--		if (req->sdiag_protocol >= MAX_LINKS) {
--			read_unlock(&nl_table_lock);
--			rcu_read_unlock();
-+		if (req->sdiag_protocol >= MAX_LINKS)
- 			return -ENOENT;
--		}
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 3828f94b234c..3d35277a0b41 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -70,7 +70,7 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 			u8 type, u8 code, int offset, __be32 info)
+ {
+ 	const struct ipv6hdr *hdr = (const struct ipv6hdr *)skb->data;
+-	const struct dccp_hdr *dh = (struct dccp_hdr *)(skb->data + offset);
++	const struct dccp_hdr *dh;
+ 	struct dccp_sock *dp;
+ 	struct ipv6_pinfo *np;
+ 	struct sock *sk;
+@@ -78,12 +78,13 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	__u64 seq;
+ 	struct net *net = dev_net(skb->dev);
  
- 		err = __netlink_diag_dump(skb, cb, req->sdiag_protocol, s_num);
- 	}
+-	if (skb->len < offset + sizeof(*dh) ||
+-	    skb->len < offset + __dccp_basic_hdr_len(dh)) {
+-		__ICMP6_INC_STATS(net, __in6_dev_get(skb->dev),
+-				  ICMP6_MIB_INERRORS);
+-		return;
+-	}
++	/* Only need dccph_dport & dccph_sport which are the first
++	 * 4 bytes in dccp header.
++	 * Our caller (icmpv6_notify()) already pulled 8 bytes for us.
++	 */
++	BUILD_BUG_ON(offsetofend(struct dccp_hdr, dccph_sport) > 8);
++	BUILD_BUG_ON(offsetofend(struct dccp_hdr, dccph_dport) > 8);
++	dh = (struct dccp_hdr *)(skb->data + offset);
+ 
+ 	sk = __inet6_lookup_established(net, &dccp_hashinfo,
+ 					&hdr->daddr, dh->dccph_dport,
