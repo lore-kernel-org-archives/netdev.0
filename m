@@ -1,66 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] udp: do fwd memory scheduling on dequeue
-Date: Fri, 04 Nov 2016 05:38:28 -0700
-Message-ID: <1478263108.7065.460.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1478254512.git.pabeni@redhat.com>
-         <762f142043b48daf282316dd88ff099fbd9729e4.1478254512.git.pabeni@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next PATCH 3/3] qdisc: catch misconfig of attaching qdisc to
+ tx_queue_len zero device
+Date: Fri, 4 Nov 2016 15:53:50 +0300
+Message-ID: <deacab39-2828-fc5d-7a40-9189b1ceee8b@cogentembedded.com>
+References: <20161103135534.28737.37657.stgit@firesoul>
+ <20161103135611.28737.39840.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        linux-nfs@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: Phil Sutter <phil@nwl.cc>, Robert Olsson <robert@herjulf.se>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33447 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755967AbcKDMia (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 08:38:30 -0400
-In-Reply-To: <762f142043b48daf282316dd88ff099fbd9729e4.1478254512.git.pabeni@redhat.com>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:34811 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756405AbcKDMxw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 08:53:52 -0400
+Received: by mail-lf0-f42.google.com with SMTP id b81so62968996lfe.1
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 05:53:51 -0700 (PDT)
+In-Reply-To: <20161103135611.28737.39840.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-11-04 at 11:28 +0100, Paolo Abeni wrote:
-> A new argument is added to __skb_recv_datagram to provide
-> an explicit skb destructor, invoked under the receive queue
-> lock.
-> The UDP protocol uses such argument to perform memory
-> reclaiming on dequeue, so that the UDP protocol does not
-> set anymore skb->desctructor.
-> Instead explicit memory reclaiming is performed at close() time and
-> when skbs are removed from the receive queue.
-> The in kernel UDP protocol users now need to call a
-> skb_recv_udp() variant instead of skb_recv_datagram() to
-> properly perform memory accounting on dequeue.
-> 
-> Overall, this allows acquiring only once the receive queue
-> lock on dequeue.
-> 
-> Tested using pktgen with random src port, 64 bytes packet,
-> wire-speed on a 10G link as sender and udp_sink as the receiver,
-> using an l4 tuple rxhash to stress the contention, and one or more
-> udp_sink instances with reuseport.
-> 
-> nr sinks	vanilla		patched
-> 1		440		560
-> 3		2150		2300
-> 6		3650		3800
-> 9		4450		4600
-> 12		6250		6450
-> 
-> v1 -> v2:
->  - do rmem and allocated memory scheduling under the receive lock
->  - do bulk scheduling in first_packet_length() and in udp_destruct_sock()
->  - avoid the typdef for the dequeue callback
-> 
-> Suggested-by: Eric Dumazet <edumazet@google.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Hello.
+
+On 11/3/2016 4:56 PM, Jesper Dangaard Brouer wrote:
+
+> It is a clear misconfiguration to attach a qdisc to a device with
+> tx_queue_len zero, because some qdisc's (namely, pfifo, bfifo, gred,
+> htb, plug and sfb) inherit/copy this value as their queue length.
+>
+> Why should the kernel catch such a misconfiguration?  Because prior to
+> introducing the IFF_NO_QUEUE device flag, userspace found a loophole
+> in the qdisc config system that allowed them to achieve the equivalent
+> of IFF_NO_QUEUE, which is to remove the qdisc code path entirely from
+> a device.  The loophole on older kernels is setting tx_queue_len=0,
+> *prior* to device qdisc init (the config time is significant, simply
+> setting tx_queue_len=0 doesn't trigger the loophole).
+>
+> This loophole is currently used by Docker[1] to get better performance
+> and scalability out of the veth device.  The Docker developers were
+> warned[1] that they needed to adjust the tx_queue_len if ever
+> attaching a qdisc.  The OpenShift project didn't remember this warning
+> and attached a qdisc, this were caught and fixed in[2].
+>
+> [1] https://github.com/docker/libcontainer/pull/193
+> [2] https://github.com/openshift/origin/pull/11126
+>
+> Instead of fixing every userspace program that used this loophole, and
+> forgot to reset the tx_queue_len, prior to attaching a qdisc.  Let's
+> catch the misconfiguration on the kernel side.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > ---
-> @Eric, please add your signed off by when you feel comfortable with the patch
-> as you authored some of the code
+>  net/sched/sch_api.c |   11 +++++++++++
+>  1 file changed, 11 insertions(+)
+>
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index 206dc24add3a..f337f1bdd1d4 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -960,6 +960,17 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
+>
+>  	sch->handle = handle;
+>
+> +	/* This exist to keep backward compatible with a userspace
 
-SGTM, thanks Paolo and Hannes !
+    "Exists" and "compatibility".
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> +	 * loophole, what allowed userspace to get IFF_NO_QUEUE
+> +	 * facility on older kernels by setting tx_queue_len=0 (prior
+> +	 * to qdisc init), and then forgot to reinit tx_queue_len
+> +	 * before again attaching a qdisc.
+> +	 */
+> +	if ((dev->priv_flags & IFF_NO_QUEUE) && (dev->tx_queue_len == 0)) {
+> +		dev->tx_queue_len = DEFAULT_TX_QUEUE_LEN;
+> +		netdev_info(dev, "Caught tx_queue_len zero misconfig\n");
+> +	}
+> +
+>  	if (!ops->init || (err = ops->init(sch, tca[TCA_OPTIONS])) == 0) {
+>  		if (qdisc_is_percpu_stats(sch)) {
+>  			sch->cpu_bstats =
+
+MBR, Sergei
