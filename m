@@ -1,69 +1,46 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: [PATCH v2 2/2 ] net: ethernet: nb8800: handle all RGMII definitions
-Date: Fri, 4 Nov 2016 18:02:15 +0100
-Message-ID: <581CBF17.2010108@laposte.net>
-References: <581CA3D0.6080808@laposte.net>
- <8c491fff-4849-fa9b-0a0a-5a7a6870120d@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8c491fff-4849-fa9b-0a0a-5a7a6870120d@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 2/2] RDS: TCP: start multipath acceptor loop at 0
+Date: Fri,  4 Nov 2016 10:04:12 -0700
+Message-ID: <cb3d1ade3b57826eece20b0efae40d324332244b.1478276221.git.sowmini.varadhan@oracle.com>
+References: <cover.1478276221.git.sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+        sowmini.varadhan@oracle.com, santosh.shilimkar@oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:46129 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936456AbcKDREX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 13:04:23 -0400
+In-Reply-To: <cover.1478276221.git.sowmini.varadhan@oracle.com>
+In-Reply-To: <cover.1478276221.git.sowmini.varadhan@oracle.com>
+References: <cover.1478276221.git.sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit a999589ccaae ("phylib: add RGMII-ID interface mode definition")
-and commit 7d400a4c5897 ("phylib: add PHY interface modes for internal
-delay for tx and rx only") added several RGMII definitions:
-PHY_INTERFACE_MODE_RGMII_ID, PHY_INTERFACE_MODE_RGMII_RXID and
-PHY_INTERFACE_MODE_RGMII_TXID to deal with internal delays.
+The for() loop in rds_tcp_accept_one() assumes that the 0'th
+rds_tcp_conn_path is UP and starts multipath accepts at index 1.
+But this assumption may not always be true: if the 0'th path
+has failed (ERROR or DOWN state) an incoming connection request
+should be used to resurrect this path.
 
-Those are all RGMII modes (1Gbit) and must be considered that way when
-setting the MAC mode or the pad mode for the HW to work properly.
-
-Signed-off-by: Sebastian Frias <sf84@laposte.net>
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- drivers/net/ethernet/aurora/nb8800.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/rds/tcp_listen.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-index d2855c9..fba2699 100644
---- a/drivers/net/ethernet/aurora/nb8800.c
-+++ b/drivers/net/ethernet/aurora/nb8800.c
-@@ -598,6 +598,7 @@ static irqreturn_t nb8800_irq(int irq, void *dev_id)
- static void nb8800_mac_config(struct net_device *dev)
- {
- 	struct nb8800_priv *priv = netdev_priv(dev);
-+	struct phy_device *phydev = dev->phydev;
- 	bool gigabit = priv->speed == SPEED_1000;
- 	u32 mac_mode_mask = RGMII_MODE | HALF_DUPLEX | GMAC_MODE;
- 	u32 mac_mode = 0;
-@@ -609,7 +610,7 @@ static void nb8800_mac_config(struct net_device *dev)
- 		mac_mode |= HALF_DUPLEX;
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index e0b23fb..c9c4968 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -103,7 +103,7 @@ struct rds_tcp_connection *rds_tcp_accept_one_path(struct rds_connection *conn)
+ 	if (!peer_is_smaller)
+ 		return NULL;
  
- 	if (gigabit) {
--		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
-+		if (phy_interface_is_rgmii(phydev))
- 			mac_mode |= RGMII_MODE;
+-	for (i = 1; i < npaths; i++) {
++	for (i = 0; i < npaths; i++) {
+ 		struct rds_conn_path *cp = &conn->c_path[i];
  
- 		mac_mode |= GMAC_MODE;
-@@ -1278,9 +1279,8 @@ static int nb8800_tangox_init(struct net_device *dev)
- 		break;
- 
- 	case PHY_INTERFACE_MODE_RGMII:
--		pad_mode = PAD_MODE_RGMII;
--		break;
--
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
- 	case PHY_INTERFACE_MODE_RGMII_TXID:
- 		pad_mode = PAD_MODE_RGMII;
- 		break;
+ 		if (rds_conn_path_transition(cp, RDS_CONN_DOWN,
 -- 
-1.7.11.2
+1.7.1
