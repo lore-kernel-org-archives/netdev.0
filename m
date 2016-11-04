@@ -1,64 +1,52 @@
 From: Lance Richardson <lrichard@redhat.com>
 Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
  ip_finish_output_gso()
-Date: Fri, 4 Nov 2016 09:48:02 -0400 (EDT)
-Message-ID: <1292666010.97911366.1478267282598.JavaMail.zimbra@redhat.com>
-References: <1478118977-19608-1-git-send-email-lrichard@redhat.com> <20161103094239.13ac8ac2@pixies> <274982955.93728733.1478178387534.JavaMail.zimbra@redhat.com> <20161104112409.6277b7b0@halley>
+Date: Fri, 4 Nov 2016 09:49:13 -0400 (EDT)
+Message-ID: <1461381070.97911800.1478267353507.JavaMail.zimbra@redhat.com>
+References: <1478118977-19608-1-git-send-email-lrichard@redhat.com> <20161103222751.5ae120ed@halley> <1769078966.96766888.1478207154311.JavaMail.zimbra@redhat.com> <ce29c141-65d1-c1b2-dc45-a9752fb614d8@stressinduktion.org> <20161104114014.3dbb8684@halley>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, jtluka@redhat.com,
-        hannes@stressinduktion.org
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>, fw@strlen.de,
+        netdev@vger.kernel.org, jtluka@redhat.com
 To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3-phx2.redhat.com ([209.132.183.24]:36458 "EHLO
-        mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934360AbcKDNsP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 09:48:15 -0400
-In-Reply-To: <20161104112409.6277b7b0@halley>
+Received: from mx6-phx2.redhat.com ([209.132.183.39]:53187 "EHLO
+        mx6-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933535AbcKDNt1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 09:49:27 -0400
+In-Reply-To: <20161104114014.3dbb8684@halley>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 > From: "Shmulik Ladkani" <shmulik.ladkani@gmail.com>
-> To: "Lance Richardson" <lrichard@redhat.com>
-> Cc: netdev@vger.kernel.org, fw@strlen.de, jtluka@redhat.com, hannes@stressinduktion.org
-> Sent: Friday, November 4, 2016 5:24:09 AM
+> To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
+> Cc: "Lance Richardson" <lrichard@redhat.com>, fw@strlen.de, netdev@vger.kernel.org, jtluka@redhat.com
+> Sent: Friday, November 4, 2016 5:40:14 AM
 > Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in ip_finish_output_gso()
 > 
-> Hi,
+> On Thu, 3 Nov 2016 22:34:34 +0100 Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Correct, but we should maybe redefine the code a bit. From my
+> > understanding we can now create an ICMP storm in case every fragment gets.
 > 
-> On Thu, 3 Nov 2016 09:06:27 -0400 (EDT) Lance Richardson
-> <lrichard@redhat.com> wrote:
-> > I'm not sure what could be added that would help, was there something
-> > specific you had in mind?
+> Yes, you are right.
 > 
-> How about something like this (preliminary, feel free to massage):
+> Each segment gets into ip_fragment, and due to outer DF being set,
+> ICMP_FRAG_NEEDED is sent per segment.
 > 
-> @@ -248,10 +248,16 @@ static int ip_finish_output_gso(struct net *net, struct
-> sock *sk,
->  
->  	/* Slowpath -  GSO segment length is exceeding the dst MTU.
->  	 *
-> -	 * This can happen in two cases:
-> -	 * 1) TCP GRO packet, DF bit not set
-> -	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
-> -	 * from host network stack.
-> +	 * This can happen in several cases:
-> +	 *  - Forwarding of TCP GRO packet, DF bit not set
-> +	 *  - Forwarding of skb arrived in a virtualization environment (from
-> +	 *    virtio-net/vhost/tap) with TSO/GSO size set by other's network
-> +	 *    stack
-> +	 *  - Local GSO skb xmitted on an NETIF_F_TSO tunnel stacked over an
-> +	 *    interface with a smaller mtu
-> +	 *  - Arriving GRO skb (or GSO skb in a virtualized env) that gets L2
-> +	 *    bridged to a NETIF_F_TSO tunnel stacked over an interface with an
-> +	 *    insufficent mtu
->  	 */
->  	features = netif_skb_features(skb);
->  	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
+> BTW, suppose GRO is off, and sender actually did send a burst of
+> (non-gso) packets with outer DF set, and each was tunnel encapsulated,
+> resulting in oversized frames.
+> 
+> Would'nt the stack just send the ICMP_FRAG_NEEDED per encapsulated
+> frame?
+> 
+> If so, then the GRO behaviour is aligned, and there's nothing to fix.
 > 
 
-Thanks, that looks good to me. I can send a follow-up patch with this change,
-if you like (there seems to be agreement that the original patch is OK).
+Agree.
 
-   Lance
+> Best,
+> Shmulik
+> 
