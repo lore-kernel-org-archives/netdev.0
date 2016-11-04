@@ -1,73 +1,54 @@
-From: David VomLehn <vomlehn@texas.net>
-Subject: Re: Coding Style: Reverse XMAS tree declarations ? (was Re: [PATCH
- net-next v6 02/10] dpaa_eth: add support for DPAA Ethernet)
-Date: Fri, 4 Nov 2016 13:48:24 -0600
-Message-ID: <20161104194824.GA5533@gracie>
-References: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
- <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
- <20161103.155816.642712588084106823.davem@davemloft.net>
- <1478242438.1924.31.camel@perches.com>
- <5d4925c3-e6c1-8780-37bf-6d529f128cd9@infradead.org>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
+Date: Fri, 4 Nov 2016 16:13:04 -0400
+Message-ID: <fd873b26-e55e-981b-1351-da5538200929@pobox.com>
+References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
+ <20161030.205755.1198665157526465556.davem@davemloft.net>
+ <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
+ <20161030.235342.134481656830778556.davem@davemloft.net>
+ <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
+ <201611030159.uA31x0np004648@rtits1.realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20104878A@RTITMBSV03.realtek.com.tw>
+ <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
+ <d1ac848d-d36d-c81a-e0a2-4cab2d7382cd@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-        madalin.bucur@nxp.com, Andrew Morton <akpm@linux-foundation.org>,
-        Jonathan Corbet <corbet@lwn.net>, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-        oss@buserror.net, ppc@mindchasers.com, pebolle@tiscali.nl,
-        joakim.tjernlund@transmode.se
-To: Randy Dunlap <rdunlap@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda2.aus1.datafoundry.com ([209.99.124.133]:35215 "EHLO
-        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752794AbcKDTsa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 15:48:30 -0400
-Content-Disposition: inline
-In-Reply-To: <5d4925c3-e6c1-8780-37bf-6d529f128cd9@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d1ac848d-d36d-c81a-e0a2-4cab2d7382cd@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 04, 2016 at 10:05:15AM -0700, Randy Dunlap wrote:
-> On 11/03/16 23:53, Joe Perches wrote:
-> > On Thu, 2016-11-03 at 15:58 -0400, David Miller wrote:
-> >> From: Madalin Bucur <madalin.bucur@nxp.com>
-> >> Date: Wed, 2 Nov 2016 22:17:26 +0200
-> >>
-> >>> This introduces the Freescale Data Path Acceleration Architecture
-> >>> +static inline size_t bpool_buffer_raw_size(u8 index, u8 cnt)
-> >>> +{
-> >>> +     u8 i;
-> >>> +     size_t res = DPAA_BP_RAW_SIZE / 2;
-> >>
-> >> Always order local variable declarations from longest to shortest line,
-> >> also know as Reverse Christmas Tree Format.
-> > 
-> > I think this declaration sorting order is misguided but
-> > here's a possible change to checkpatch adding a test for it
-> > that does this test just for net/ and drivers/net/
+On 16-11-04 09:50 AM, Mark Lord wrote:
+> Yeah, the device or driver is definitely getting confused with rx_desc structures.
+> I added code to check for unlikely rx_desc values, and it found this for starters:
 > 
-> I agree with the misguided part.
-> That's not actually in CodingStyle AFAICT. Where did this come from?
+> rx_desc: 00480801 00480401 00480001 0048fc00 0048f800 0048f400 pkt_len=2045
+> rx_data: 00 f0 48 00 00 ec 48 00 00 e8 48 00 00 e4 48 00 00 e0 48 00 00 dc 48 00 00 d8 48 00 00 d4
+> 48 00
+> rx_data: 00 d0 48 00 00 cc 48 00 00 c8 48 00 00 c4 48 00 00 c0 48 00 00 bc 48 00 00 b8 48 00 00 b4
+> 48 00
+> rx_data: 00 b0 48 00 00 ac 48 00 00 01 00 00 81 ed 00 00 00 01 00 00 00 00 00 00 00 00 00 02 4d ac
+> 00 00
+> rx_data: 10 00 ff ff ff ff 00 00 01 28 83 d6 ff 6d 00 20 25 b1 58 1b 68 ff 00 05 20 01 56 41 17 35
+> 00 00
+> ...
 > 
+> The MTU/MRU on this link is the standard 1500 bytes, so a pkt_len of 2045 isn't valid here.
+> And the rx_desc values look an awful lot like the rx_data values that follow it.
 > 
-> thanks.
-> -- 
-> ~Randy
+> There's definitely more broken here than just TCP RX checksums.
 
-This puzzles me. The CodingStyle gives some pretty reasonable rationales
-for coding style over above the "it's easier to read if it all looks the
-same". I can see rationales for other approaches (and I am not proposing
-any of these):
+I spent a bit more time on this again today, and made progress.
+The issue seems to be stale rx buffers.
+I'll discuss further offline with Hayes Wang.
 
-alphabetic order        Easier to search for declarations
-complex to simple       As in, structs and unions, pointers to simple
-                        data (int, char), simple data. It seems like I
-                        can deduce the simple types from usage, but more
-                        complex I need to know things like the
-                        particular structure.
-group by usage          Mirror the ontological locality in the code
-
-Do we have a basis for thinking this is easier or more consistent than
-any other approach?
 -- 
-David VL
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
