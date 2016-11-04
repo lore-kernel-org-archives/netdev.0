@@ -1,41 +1,87 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
-Date: Fri, 4 Nov 2016 09:50:20 -0400
-Message-ID: <d1ac848d-d36d-c81a-e0a2-4cab2d7382cd@pobox.com>
-References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
- <20161030.205755.1198665157526465556.davem@davemloft.net>
- <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
- <20161030.235342.134481656830778556.davem@davemloft.net>
- <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
- <201611030159.uA31x0np004648@rtits1.realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20104878A@RTITMBSV03.realtek.com.tw>
- <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Ethernet not working on a different SoC with same eth HW
+Date: Fri, 4 Nov 2016 14:51:47 +0100
+Message-ID: <581C9273.906@free.fr>
+References: <58176355.7090200@free.fr> <20161031153704.GD9441@lunn.ch>
+ <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
+ <58177128.8090403@free.fr> <581C8691.2060306@free.fr>
+ <yw1xy40zjrcw.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
+        Daniel Mack <zonque@gmail.com>,
+        Sebastian Frias <sf84@laposte.net>
+To: Mans Rullgard <mans@mansr.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:62561 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755107AbcKDNwN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 09:52:13 -0400
+In-Reply-To: <yw1xy40zjrcw.fsf@unicorn.mansr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Yeah, the device or driver is definitely getting confused with rx_desc structures.
-I added code to check for unlikely rx_desc values, and it found this for starters:
+On 04/11/2016 14:40, Måns Rullgård wrote:
 
-rx_desc: 00480801 00480401 00480001 0048fc00 0048f800 0048f400 pkt_len=2045
-rx_data: 00 f0 48 00 00 ec 48 00 00 e8 48 00 00 e4 48 00 00 e0 48 00 00 dc 48 00 00 d8 48 00 00 d4 48 00
-rx_data: 00 d0 48 00 00 cc 48 00 00 c8 48 00 00 c4 48 00 00 c0 48 00 00 bc 48 00 00 b8 48 00 00 b4 48 00
-rx_data: 00 b0 48 00 00 ac 48 00 00 01 00 00 81 ed 00 00 00 01 00 00 00 00 00 00 00 00 00 02 4d ac 00 00
-rx_data: 10 00 ff ff ff ff 00 00 01 28 83 d6 ff 6d 00 20 25 b1 58 1b 68 ff 00 05 20 01 56 41 17 35 00 00
-...
+> Mason <slash.tmp@free.fr> writes:
+> 
+>> On 31/10/2016 17:28, Mason wrote:
+>>
+>>> On 31/10/2016 16:53, Andrew Lunn wrote:
+>>>
+>>>>> I'll add a log for the request_irq call.
+>>>>
+>>>> And take a look at /proc/interrupts
+>>>
+>>> You're right, there does seem to be something wrong with the interrupts.
+>>
+>> Having fixed that, I'm still unable to ping a box on the same
+>> ethernet segment... Still investigating.
+>>
+>> I think I may have spotted a potential issue in the Atheros driver.
+>>
+>> 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID ||
+>> 	    phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
+>> 		ret = at803x_enable_rx_delay(phydev);
+>> 		if (ret < 0)
+>> 			return ret;
+>> 	}
+>>
+>> Looking at this code, one might believe that "rgmii rx clock delay"
+>> is only enabled when the user requests it (through DT).
+>>
+>> http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
+>> cf. PDF page 48
+>>
+>> *However* this bit is set to 1 at reset (both HW and SW resets).
+>> Thus, "rgmii rx clock delay" is always enabled, whether the user
+>> requests it or not.
+>>
+>> Could someone knowledgeable comment on the expected behavior of
+>> enabling rgmii rx (and tx) clock delay?
+> 
+> Clock delay is sometimes (depending on PCB layout) required to achieve
+> the correct timing between clock and data signals.  The delay can be
+> applied at the MAC or the PHY.  I'd start by finding out what the PCB
+> design expects or check the signals with a fast oscilloscope if you have
+> one.
 
-The MTU/MRU on this link is the standard 1500 bytes, so a pkt_len of 2045 isn't valid here.
-And the rx_desc values look an awful lot like the rx_data values that follow it.
+Considering the ethernet DT bindings:
 
-There's definitely more broken here than just TCP RX checksums.
+https://www.kernel.org/doc/Documentation/devicetree/bindings/net/ethernet.txt
 
--ml
+Specifically, phy-mode values "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid".
+
+Assuming that "rxid" (rx internal delay) and "rx clock delay" are
+in fact the same concept with different names, do you agree that
+it would be unexpected for "rgmii rx clock delay" to be enabled
+when a DTB specifies "rgmii" or "rgmii-txid" ?
+
+Regards.
