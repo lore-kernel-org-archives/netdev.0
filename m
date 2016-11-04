@@ -1,59 +1,76 @@
-From: Kai-Heng Feng <kai.heng.feng-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe function
-Date: Fri,  4 Nov 2016 17:57:35 +0800
-Message-ID: <20161104095735.21071-1-kai.heng.feng@canonical.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Kai-Heng Feng <kai.heng.feng-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: oneukum-IBi9RG/b67k@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 3/3] qdisc: catch misconfig of attaching qdisc
+ to tx_queue_len zero device
+Date: Fri, 4 Nov 2016 11:10:42 +0100
+Message-ID: <20161104111042.12a361ca@redhat.com>
+References: <20161103135534.28737.37657.stgit@firesoul>
+        <20161103135611.28737.39840.stgit@firesoul>
+        <20161104093526.GM5640@orbyte.nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Robert Olsson <robert@herjulf.se>,
+        Jamal Hadi Salim <jhs@mojatatu.com>, brouer@redhat.com
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46996 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1760832AbcKDKKs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 06:10:48 -0400
+In-Reply-To: <20161104093526.GM5640@orbyte.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sometimes cdc_mbim failed to probe if runtime pm is enabled:
-[    9.305626] cdc_mbim: probe of 2-2:1.12 failed with error -22
 
-This can be solved by increase its pm usage counter.
+On Fri, 4 Nov 2016 10:35:26 +0100 Phil Sutter <phil@nwl.cc> wrote:
 
-Signed-off-by: Kai-Heng Feng <kai.heng.feng-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/usb/usbnet.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+> Hi,
+> 
+> On Thu, Nov 03, 2016 at 02:56:11PM +0100, Jesper Dangaard Brouer wrote:
+> [...]
+> > diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> > index 206dc24add3a..f337f1bdd1d4 100644
+> > --- a/net/sched/sch_api.c
+> > +++ b/net/sched/sch_api.c
+> > @@ -960,6 +960,17 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
+> >  
+> >  	sch->handle = handle;
+> >  
+> > +	/* This exist to keep backward compatible with a userspace
+> > +	 * loophole, what allowed userspace to get IFF_NO_QUEUE
+> > +	 * facility on older kernels by setting tx_queue_len=0 (prior
+> > +	 * to qdisc init), and then forgot to reinit tx_queue_len
+> > +	 * before again attaching a qdisc.
+> > +	 */
+> > +	if ((dev->priv_flags & IFF_NO_QUEUE) && (dev->tx_queue_len == 0)) {
+> > +		dev->tx_queue_len = DEFAULT_TX_QUEUE_LEN;
+> > +		netdev_info(dev, "Caught tx_queue_len zero misconfig\n");
+> > +	}  
+> 
+> I wonder why this is limited to IFF_NO_QUEUE devices. Do you think there
+> is a valid use case for physical ones?
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index d5071e3..f77b4bf 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1674,12 +1674,15 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	net->watchdog_timeo = TX_TIMEOUT_JIFFIES;
- 	net->ethtool_ops = &usbnet_ethtool_ops;
- 
-+	if (usb_autopm_get_interface(dev->intf) < 0)
-+		goto out1;
-+
- 	// allow device-specific bind/init procedures
- 	// NOTE net->name still not usable ...
- 	if (info->bind) {
- 		status = info->bind (dev, udev);
- 		if (status < 0)
--			goto out1;
-+			goto out2;
- 
- 		// heuristic:  "usb%d" for links we know are two-host,
- 		// else "eth%d" when there's reasonable doubt.  userspace
-@@ -1772,6 +1775,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- out3:
- 	if (info->unbind)
- 		info->unbind (dev, udev);
-+out2:
-+	usb_autopm_put_interface(dev->intf);
- out1:
- 	/* subdrivers must undo all they did in bind() if they
- 	 * fail it, but we may fail later and a deferred kevent
+Hmmm, I cannot come up with a useful use-case for physical devices, but
+I cannot see why we should save users that had used the loophole on
+physical devices, as that is clearly a faulty config to begin with.
+See net_crit_ratelimited warning here:
+ https://github.com/torvalds/linux/blob/v4.9-rc3/net/core/dev.c#L3403
+
+> Also, if we sanitize here, couldn't we then just get rid of the
+> sanitization you're fixing in patch 2?
+
+Without patch 2, then some IFF_NO_QUEUE devices would have a visible
+tx_queue_len 0 (e.g. the ones not calling ether_setup()), and that
+would be inconsistent (visible from userspace).
+
+> Apart from that, ACK to all the patches. Thanks for cleaning up my mess!
+> :)
+
+Thanks for the ACKs
+
 -- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
