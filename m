@@ -1,113 +1,67 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: net/sctp: use-after-free in __sctp_connect
-Date: Fri, 4 Nov 2016 08:59:58 -0400
-Message-ID: <20161104125958.GA13691@hmsreliant.think-freely.org>
-References: <CAAeHK+wX8yxVTpmg-Ps7MKTD-x_HS3GgpzX6yfGh51cQE0oPjA@mail.gmail.com>
- <20161019165754.GD2958@localhost.localdomain>
- <CAAeHK+xaBVcZp7PfH-tYWaxs6rCiaNAivZj4xZLcawFShi6C1Q@mail.gmail.com>
- <CAAeHK+xxcV8XV1Pc2_eBrQWTDSp3ooc1LLX81jhCTCvk7hhaVg@mail.gmail.com>
- <20161103175220.GG8514@localhost.localdomain>
- <CAAeHK+yHVYmyA4hNKNKyVrZQXkUmMNDF=WFz3F1VWMAA0gqwZA@mail.gmail.com>
- <20161103183533.GH8514@localhost.localdomain>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Ethernet not working on a different SoC with same eth HW
+Date: Fri, 4 Nov 2016 14:01:05 +0100
+Message-ID: <581C8691.2060306@free.fr>
+References: <58176355.7090200@free.fr> <20161031153704.GD9441@lunn.ch>
+ <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
+ <58177128.8090403@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
+        Daniel Mack <zonque@gmail.com>,
+        Sebastian Frias <sf84@laposte.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47175 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934676AbcKDNAW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 09:00:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20161103183533.GH8514@localhost.localdomain>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:40223 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934248AbcKDNBd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 09:01:33 -0400
+In-Reply-To: <58177128.8090403@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 03, 2016 at 04:35:33PM -0200, Marcelo Ricardo Leitner wrote:
-> On Thu, Nov 03, 2016 at 07:02:47PM +0100, Andrey Konovalov wrote:
-> > On Thu, Nov 3, 2016 at 6:52 PM, Marcelo Ricardo Leitner
-> > <marcelo.leitner@gmail.com> wrote:
-> > > On Thu, Nov 03, 2016 at 06:11:01PM +0100, Andrey Konovalov wrote:
-> > >> On Wed, Nov 2, 2016 at 11:42 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> > >> > On Wed, Oct 19, 2016 at 6:57 PM, Marcelo Ricardo Leitner
-> > >> > <marcelo.leitner@gmail.com> wrote:
-> > >> >> On Wed, Oct 19, 2016 at 02:25:24PM +0200, Andrey Konovalov wrote:
-> > >> >>> Hi,
-> > >> >>>
-> > >> >>> I've got the following error report while running the syzkaller fuzzer:
-> > >> >>>
-> > >> >>> ==================================================================
-> > >> >>> BUG: KASAN: use-after-free in __sctp_connect+0xabe/0xbf0 at addr
-> > >> >>> ffff88006b1dc610
-> > >> >>
-> > >> >> Seems this is the same that Dmitry Vyukov had reported back in Jan 13th.
-> > >> >> So far I couldn't identify the reason.
-> > >> >> "Good" to know it's still there, thanks for reporting it.
-> > >>
-> > >> Hi Marcelo,
-> > >>
-> > >
-> > > Hi
-> > >
-> > >> So I've looked at the code.
-> > >> As far as I understand, the problem is a race condition between
-> > >> setsockopt(SCTP_SOCKOPT_CONNECTX) and shutdown on an sctp socket.
-> > >> setsockopt() calls sctp_wait_for_connect(), which exits the for loop
-> > >> on the sk->sk_shutdown & RCV_SHUTDOWN if clause, and then frees asoc
-> > >> with sctp_association_put() and returns err = 0.
-> > >> Then __sctp_connect() checks that err == 0 and reads asoc->assoc_id
-> > >> from the freed asoc.
-> > >
-> > > Suddenly this seems familiar. Your description makes sense, thanks for
-> > > looking deeper into this, Andrey.
-> > >
-> > > This fix should do it, can you please try it? I'll post it properly
-> > > if it works.
-> > 
-> > Yes, it fixes the issue.
-> > 
-> > Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> > 
-> > Thanks for the fix!
+On 31/10/2016 17:28, Mason wrote:
+
+> On 31/10/2016 16:53, Andrew Lunn wrote:
 > 
-> Ahm this other fix looks better: do the read before calling
-> sctp_wait_for_connect() as that id won't change in this call and the
-> application shouldn't trust this number if an error is returned, so
-> there should be no issues by returning it in such situation.
+>>> I'll add a log for the request_irq call.
+>>
+>> And take a look at /proc/interrupts
 > 
-> Can you please confirm this one also works? Thanks!
-> 
-> ---8<---
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 6cdc61c21438..be1d9bb98230 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1214,9 +1214,12 @@ static int __sctp_connect(struct sock *sk,
->  
->  	timeo = sock_sndtimeo(sk, f_flags & O_NONBLOCK);
->  
-> -	err = sctp_wait_for_connect(asoc, &timeo);
-> -	if ((err == 0 || err == -EINPROGRESS) && assoc_id)
-> +	if (assoc_id)
->  		*assoc_id = asoc->assoc_id;
-> +	err = sctp_wait_for_connect(asoc, &timeo);
-> +	/* Note: the asoc may be freed after the return of
-> +	 * sctp_wait_for_connect.
-> +	 */
->  
->  	/* Don't free association on exit. */
->  	asoc = NULL;
-> 
-Agreed, this version looks better.  Please repost it with a proper changelog and
-I'll ack it.
-Neil
+> You're right, there does seem to be something wrong with the interrupts.
+
+Having fixed that, I'm still unable to ping a box on the same
+ethernet segment... Still investigating.
+
+I think I may have spotted a potential issue in the Atheros driver.
+
+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID ||
+	    phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
+		ret = at803x_enable_rx_delay(phydev);
+		if (ret < 0)
+			return ret;
+	}
+
+Looking at this code, one might believe that "rgmii rx clock delay"
+is only enabled when the user requests it (through DT).
+
+http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
+cf. PDF page 48
+
+*However* this bit is set to 1 at reset (both HW and SW resets).
+Thus, "rgmii rx clock delay" is always enabled, whether the user
+requests it or not.
+
+Could someone knowledgeable comment on the expected behavior of
+enabling rgmii rx (and tx) clock delay?
+
+https://en.wikipedia.org/wiki/Media-independent_interface#Reduced_gigabit_media-independent_interface
+
+Regards.
