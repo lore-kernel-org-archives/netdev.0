@@ -1,51 +1,37 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next 4/5] ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
-Date: Fri, 4 Nov 2016 11:35:41 +0100
-Message-ID: <1478255742-25693-5-git-send-email-allan.nielsen@microsemi.com>
-References: <1478255742-25693-1-git-send-email-allan.nielsen@microsemi.com>
+From: "Amir A. K" <test@stephita.com>
+Subject: From Amir A. K
+Date: Fri, 4 Nov 2016 07:42:53 -0300
+Message-ID: <d49afedefe3b276fac9390c7ce54a8d5.squirrel@webmail.stephita.com>
+Reply-To: amir2016@vera.com.uy
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <raju.lakkaraju@microsemi.com>, <allan.nielsen@microsemi.com>,
-        <cphealy@gmail.com>, <robh@kernel.org>,
-        "Raju Lakkaraju" <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: 013@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0062.outbound.protection.outlook.com ([104.47.33.62]:26752
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753494AbcKDLJt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 07:09:49 -0400
-In-Reply-To: <1478255742-25693-1-git-send-email-allan.nielsen@microsemi.com>
+Received: from vps23531.inmotionhosting.com ([70.39.235.185]:58893 "EHLO
+        vps23531.inmotionhosting.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754445AbcKDLKk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 07:10:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Adding validation support for the ETHTOOL_PHY_DOWNSHIFT. Functional
-implementation needs to be done in the individual PHY drivers.
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
----
- net/core/ethtool.c | 5 +++++
- 1 file changed, 5 insertions(+)
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 75f19ab..1a66faa 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -2425,6 +2425,11 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
- static int ethtool_phy_tunable_valid(const struct ethtool_tunable *tuna)
- {
- 	switch (tuna->id) {
-+	case ETHTOOL_PHY_DOWNSHIFT:
-+		if (tuna->len != sizeof(u8) ||
-+		    tuna->type_id != ETHTOOL_TUNABLE_U8)
-+			return -EINVAL;
-+		break;
- 	default:
- 		return -EINVAL;
- 	}
 -- 
-2.7.3
+Thanks for your last email response to me.
+The information required should include the following-:
+Your full names
+Your address
+Telephone number
+Your private email
+Occupation
+Age
+
+This is to enable my further discussion with you in confidence.
+Best regards and wishes to you.
+Amir A. Khanmammadov
+REPLY TO
+khanmammadov@vera.com.uy
+
+amir2016@vera.com.uy
