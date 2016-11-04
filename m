@@ -1,153 +1,81 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH for-next 07/11] IB/hns: Modify the macro for the timeout when cmd process
-Date: Fri, 4 Nov 2016 16:36:29 +0000
-Message-ID: <20161104163633.141880-8-salil.mehta@huawei.com>
-References: <20161104163633.141880-1-salil.mehta@huawei.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Ethernet not working on a different SoC with same eth HW
+Date: Fri, 4 Nov 2016 09:45:41 -0700
+Message-ID: <7b10d4f3-68be-f5d7-633b-21854532ac26@gmail.com>
+References: <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
+ <58177128.8090403@free.fr> <581C8691.2060306@free.fr>
+ <yw1xy40zjrcw.fsf@unicorn.mansr.com> <581C9273.906@free.fr>
+ <20161104135752.GC3600@lunn.ch> <yw1xtwbnjq88.fsf@unicorn.mansr.com>
+ <20161104142223.GD3600@lunn.ch> <yw1xpombjnfn.fsf@unicorn.mansr.com>
+ <20161104151744.GG3600@lunn.ch> <yw1xh97njmmw.fsf@unicorn.mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161104163633.141880-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>,
+        Timur Tabi <timur@codeaurora.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
+        Daniel Mack <zonque@gmail.com>,
+        Sebastian Frias <sf84@laposte.net>
+To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f173.google.com ([209.85.216.173]:34702 "EHLO
+        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932283AbcKDQpp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 12:45:45 -0400
+Received: by mail-qt0-f173.google.com with SMTP id n6so51753047qtd.1
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 09:45:45 -0700 (PDT)
+In-Reply-To: <yw1xh97njmmw.fsf@unicorn.mansr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
-This patch modified the macro for the timeout when cmd is
-processing as follows:
-Before modification:
- enum {
-	HNS_ROCE_CMD_TIME_CLASS_A       = 10000,
-	HNS_ROCE_CMD_TIME_CLASS_B       = 10000,
-	HNS_ROCE_CMD_TIME_CLASS_C       = 10000,
- };
-After modification:
- #define HNS_ROCE_CMD_TIMEOUT_MSECS	10000
 
-Signed-off-by: Wei Hu (Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Salil Mehta  <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
----
- drivers/infiniband/hw/hns/hns_roce_cmd.h   |    7 +------
- drivers/infiniband/hw/hns/hns_roce_cq.c    |    4 ++--
- drivers/infiniband/hw/hns/hns_roce_hw_v1.c |    8 ++++----
- drivers/infiniband/hw/hns/hns_roce_mr.c    |    4 ++--
- 4 files changed, 9 insertions(+), 14 deletions(-)
+On 11/04/2016 08:22 AM, Måns Rullgård wrote:
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+>> On Fri, Nov 04, 2016 at 03:05:00PM +0000, Måns Rullgård wrote:
+>>> Andrew Lunn <andrew@lunn.ch> writes:
+>>>
+>>>>>> I agree with you. But fixing it is likely to break boards which
+>>>>>> currently have "rgmii", but actually need the delay in order to work.
+>>>>>
+>>>>> Does the internal delay here refer to the PHY or the MAC?  It's a
+>>>>> property of the MAC node after all.
+>>>>
+>>>> It is the PHY which applies the delay.
+>>>
+>>> Says who?
+>>
+>> The source code.
+> 
+> There's source code that disagrees with that.  The Broadcom GENET
+> driver, for instance.
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_cmd.h b/drivers/infiniband/hw/hns/hns_roce_cmd.h
-index e3997d3..ed14ad3 100644
---- a/drivers/infiniband/hw/hns/hns_roce_cmd.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_cmd.h
-@@ -34,6 +34,7 @@
- #define _HNS_ROCE_CMD_H
- 
- #define HNS_ROCE_MAILBOX_SIZE		4096
-+#define HNS_ROCE_CMD_TIMEOUT_MSECS	10000
- 
- enum {
- 	/* TPT commands */
-@@ -57,12 +58,6 @@ enum {
- 	HNS_ROCE_CMD_QUERY_QP		= 0x22,
- };
- 
--enum {
--	HNS_ROCE_CMD_TIME_CLASS_A	= 10000,
--	HNS_ROCE_CMD_TIME_CLASS_B	= 10000,
--	HNS_ROCE_CMD_TIME_CLASS_C	= 10000,
--};
--
- struct hns_roce_cmd_mailbox {
- 	void		       *buf;
- 	dma_addr_t		dma;
-diff --git a/drivers/infiniband/hw/hns/hns_roce_cq.c b/drivers/infiniband/hw/hns/hns_roce_cq.c
-index 5dc8d92..461a273 100644
---- a/drivers/infiniband/hw/hns/hns_roce_cq.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_cq.c
-@@ -77,7 +77,7 @@ static int hns_roce_sw2hw_cq(struct hns_roce_dev *dev,
- 			     unsigned long cq_num)
- {
- 	return hns_roce_cmd_mbox(dev, mailbox->dma, 0, cq_num, 0,
--			    HNS_ROCE_CMD_SW2HW_CQ, HNS_ROCE_CMD_TIME_CLASS_A);
-+			    HNS_ROCE_CMD_SW2HW_CQ, HNS_ROCE_CMD_TIMEOUT_MSECS);
- }
- 
- static int hns_roce_cq_alloc(struct hns_roce_dev *hr_dev, int nent,
-@@ -176,7 +176,7 @@ static int hns_roce_hw2sw_cq(struct hns_roce_dev *dev,
- {
- 	return hns_roce_cmd_mbox(dev, 0, mailbox ? mailbox->dma : 0, cq_num,
- 				 mailbox ? 0 : 1, HNS_ROCE_CMD_HW2SW_CQ,
--				 HNS_ROCE_CMD_TIME_CLASS_A);
-+				 HNS_ROCE_CMD_TIMEOUT_MSECS);
- }
- 
- static void hns_roce_free_cq(struct hns_roce_dev *hr_dev,
-diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-index 2d48406..c39a9b2 100644
---- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
-@@ -1871,12 +1871,12 @@ static int hns_roce_v1_qp_modify(struct hns_roce_dev *hr_dev,
- 	if (op[cur_state][new_state] == HNS_ROCE_CMD_2RST_QP)
- 		return hns_roce_cmd_mbox(hr_dev, 0, 0, hr_qp->qpn, 2,
- 					 HNS_ROCE_CMD_2RST_QP,
--					 HNS_ROCE_CMD_TIME_CLASS_A);
-+					 HNS_ROCE_CMD_TIMEOUT_MSECS);
- 
- 	if (op[cur_state][new_state] == HNS_ROCE_CMD_2ERR_QP)
- 		return hns_roce_cmd_mbox(hr_dev, 0, 0, hr_qp->qpn, 2,
- 					 HNS_ROCE_CMD_2ERR_QP,
--					 HNS_ROCE_CMD_TIME_CLASS_A);
-+					 HNS_ROCE_CMD_TIMEOUT_MSECS);
- 
- 	mailbox = hns_roce_alloc_cmd_mailbox(hr_dev);
- 	if (IS_ERR(mailbox))
-@@ -1886,7 +1886,7 @@ static int hns_roce_v1_qp_modify(struct hns_roce_dev *hr_dev,
- 
- 	ret = hns_roce_cmd_mbox(hr_dev, mailbox->dma, 0, hr_qp->qpn, 0,
- 				op[cur_state][new_state],
--				HNS_ROCE_CMD_TIME_CLASS_C);
-+				HNS_ROCE_CMD_TIMEOUT_MSECS);
- 
- 	hns_roce_free_cmd_mailbox(hr_dev, mailbox);
- 	return ret;
-@@ -2681,7 +2681,7 @@ static int hns_roce_v1_query_qpc(struct hns_roce_dev *hr_dev,
- 
- 	ret = hns_roce_cmd_mbox(hr_dev, 0, mailbox->dma, hr_qp->qpn, 0,
- 				HNS_ROCE_CMD_QUERY_QP,
--				HNS_ROCE_CMD_TIME_CLASS_A);
-+				HNS_ROCE_CMD_TIMEOUT_MSECS);
- 	if (!ret)
- 		memcpy(hr_context, mailbox->buf, sizeof(*hr_context));
- 	else
-diff --git a/drivers/infiniband/hw/hns/hns_roce_mr.c b/drivers/infiniband/hw/hns/hns_roce_mr.c
-index d3dfb5f..2227962 100644
---- a/drivers/infiniband/hw/hns/hns_roce_mr.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_mr.c
-@@ -53,7 +53,7 @@ static int hns_roce_sw2hw_mpt(struct hns_roce_dev *hr_dev,
- {
- 	return hns_roce_cmd_mbox(hr_dev, mailbox->dma, 0, mpt_index, 0,
- 				 HNS_ROCE_CMD_SW2HW_MPT,
--				 HNS_ROCE_CMD_TIME_CLASS_B);
-+				 HNS_ROCE_CMD_TIMEOUT_MSECS);
- }
- 
- static int hns_roce_hw2sw_mpt(struct hns_roce_dev *hr_dev,
-@@ -62,7 +62,7 @@ static int hns_roce_hw2sw_mpt(struct hns_roce_dev *hr_dev,
- {
- 	return hns_roce_cmd_mbox(hr_dev, 0, mailbox ? mailbox->dma : 0,
- 				 mpt_index, !mailbox, HNS_ROCE_CMD_HW2SW_MPT,
--				 HNS_ROCE_CMD_TIME_CLASS_B);
-+				 HNS_ROCE_CMD_TIMEOUT_MSECS);
- }
- 
- static int hns_roce_buddy_alloc(struct hns_roce_buddy *buddy, int order,
+Correct, and in the case where the MAC adds the delay while transmitting
+(because it supports that) the expectation is that the PHY would remove
+such a delay internally, conversely, the PHY would introduce a delay
+while transmitting back to the PHY, in order to produce the desired 90
+degrees shift on the RGMII signals, and get reproduce the correct clock
+and data alignment internally.
+
+> 
+>>>  Some MACs can do it too.
+>>
+>> I'm sure they can. But look at the code. Nearly none do, and those
+>> that do are potentially broken.
+> 
+> Those few drivers that do anything differently based on these values
+> enable clock delay in the MAC.  That's why I wrote the NB8800 driver the
+> way I did.
+> 
+
+I don't really what is wrong with the nb8800 driver at the moment, so
+maybe this is just a configuration issue with the Atheros PHY driver,
+it's not like it has not given people headache judging by the recent
+discussions...
 -- 
-1.7.9.5
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Florian
