@@ -1,76 +1,84 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 2/3] net/qdisc: IFF_NO_QUEUE drivers should use
- consistent TX queue len
-Date: Fri, 4 Nov 2016 11:56:52 +0100
-Message-ID: <20161104115652.597b8067@redhat.com>
-References: <20161103135534.28737.37657.stgit@firesoul>
-        <20161103135606.28737.67383.stgit@firesoul>
-        <20161103205440.GB2940@templeofstupid.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] sctp: assign assoc_id earlier in __sctp_connect
+Date: Fri, 4 Nov 2016 10:55:31 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0215215@AcuExch.aculab.com>
+References: <9df38dcd0323ad92386eb6851a60dc128dd00b4e.1478199530.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>,
-        Robert Olsson <robert@herjulf.se>,
-        Jamal Hadi Salim <jhs@mojatatu.com>, brouer@redhat.com
-To: Krister Johansen <kjlx@templeofstupid.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "syzkaller@googlegroups.com" <syzkaller@googlegroups.com>,
+        "kcc@google.com" <kcc@google.com>,
+        "glider@google.com" <glider@google.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "dvyukov@google.com" <dvyukov@google.com>,
+        "andreyknvl@google.com" <andreyknvl@google.com>
+To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55016 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1761803AbcKDK45 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 06:56:57 -0400
-In-Reply-To: <20161103205440.GB2940@templeofstupid.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:59523 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760618AbcKDK65 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 06:58:57 -0400
+In-Reply-To: <9df38dcd0323ad92386eb6851a60dc128dd00b4e.1478199530.git.marcelo.leitner@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 3 Nov 2016 13:54:40 -0700
-Krister Johansen <kjlx@templeofstupid.com> wrote:
-
-> On Thu, Nov 03, 2016 at 02:56:06PM +0100, Jesper Dangaard Brouer wrote:
-> > The flag IFF_NO_QUEUE marks virtual device drivers that doesn't need a
-> > default qdisc attached, given they will be backed by physical device,
-> > that already have a qdisc attached for pushback.
-> > 
-> > It is still supported to attach a qdisc to a IFF_NO_QUEUE device, as
-> > this can be useful for difference policy reasons (e.g. bandwidth
-> > limiting containers).  For this to work, the tx_queue_len need to have
-> > a sane value, because some qdiscs inherit/copy the tx_queue_len
-> > (namely, pfifo, bfifo, gred, htb, plug and sfb).
-> > 
-> > Commit a813104d9233 ("IFF_NO_QUEUE: Fix for drivers not calling
-> > ether_setup()") caught situations where some drivers didn't initialize
-> > tx_queue_len.  The problem with the commit was choosing 1 as the
-> > fallback value.
-> > 
-> > A qdisc queue length of 1 causes more harm than good, because it
-> > creates hard to debug situations for userspace. It gives userspace a
-> > false sense of a working config after attaching a qdisc.  As low
-> > volume traffic (that doesn't activate the qdisc policy) works,
-> > like ping, while traffic that e.g. needs shaping cannot reach the
-> > configured policy levels, given the queue length is too small.  
+From: Of Marcelo Ricardo Leitner
+> Sent: 03 November 2016 19:04
+> sctp_wait_for_connect() currently already holds the asoc to keep it
+> alive during the sleep, in case another thread release it. But Andrey
+> Konovalov and Dmitry Vyukov reported an use-after-free in such
+> situation.
 > 
-> Thanks for fixing this.  I've run into this in the exact scenario you
-> describe -- bandwith limiting containers.  I'm pretty sure my vote
-> doesn't count, but I'm in favor of this change.
+> Problem is that __sctp_connect() doesn't get a ref on the asoc and will
+> do a read on the asoc after calling sctp_wait_for_connect(), but by then
+> another thread may have closed it and the _put on sctp_wait_for_connect
+> will actually release it, causing the use-after-free.
+> 
+> Fix is, instead of doing the read after waiting for the connect, do it
+> before so, and avoid this issue as the socket is still locked by then.
+> There should be no issue on returning the asoc id in case of failure as
+> the application shouldn't trust on that number in such situations
+> anyway.
+> 
+> This issue doesn't exist in sctp_sendmsg() path.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  net/sctp/socket.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 6cdc61c21438aa9b6dbdad93e70759071a4d6789..be1d9bb98230c9d77f676949db773b2dacd801a4 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -1214,9 +1214,12 @@ static int __sctp_connect(struct sock *sk,
+> 
+>  	timeo = sock_sndtimeo(sk, f_flags & O_NONBLOCK);
+> 
+> -	err = sctp_wait_for_connect(asoc, &timeo);
+> -	if ((err == 0 || err == -EINPROGRESS) && assoc_id)
+> +	if (assoc_id)
+>  		*assoc_id = asoc->assoc_id;
+> +	err = sctp_wait_for_connect(asoc, &timeo);
+> +	/* Note: the asoc may be freed after the return of
+> +	 * sctp_wait_for_connect.
+> +	 */
 
-Thanks for confirming the problem. You voice is actually very important
-in matters like this. It is important to know if people were actually
-hit by this.
+Is it worth ensuring that *assoc_id is NULL on error?
+Maybe change the code to:
+	assoc_id_val = asoc->assoc_id;
+	rval = sctp_wait_for_connect(asoc, &timeo);
+	if (err != 0 && err != -EINPROGRESS)
+		assoc_id_val = 0;
+	if (assoc_id)
+		*assoc_id = assoc_id_val;
 
-My own story is that I was hit by this subtle queue length 1 problem
-approx 11 years ago without noticing.  An ISP were doing qdisc shaping
-(with HTB) on VLAN devices.  The original guy who developed the system
-were fired because Internet customers were not getting the bandwidth
-they paid for.  I were hired to fix the problem, and unknowingly fixed
-it (and bufferbloat) by using SFQ instead of pfifo_fast as leaf qdisc.
-I actually didn't realize the root-cause until Oct 2014, see[1].
-(I also ended-up fixing other scalability issues in iptables[2])
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-[1] https://bugzilla.redhat.com/show_bug.cgi?id=1152231
-[2] http://people.netfilter.org/hawk/presentations/osd2008/
+	David
