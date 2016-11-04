@@ -1,31 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: mdio-mux-mmioreg: Add support for 16bit
- and 32bit register sizes
-Date: Fri, 4 Nov 2016 09:20:35 -0700
-Message-ID: <027827e7-4abc-ec2a-8af7-a54dc8ee4986@gmail.com>
-References: <1478274683-1503-1-git-send-email-narmstrong@baylibre.com>
- <1478274683-1503-2-git-send-email-narmstrong@baylibre.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Neil Armstrong <narmstrong@baylibre.com>, carlo@caione.org,
-        khilman@baylibre.com, andrew@lunn.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478274683-1503-2-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lance Richardson <lrichard@redhat.com>
+Subject: [PATCH net] ipv4: update comment to document GSO fragmentation cases.
+Date: Fri,  4 Nov 2016 12:22:38 -0400
+Message-ID: <1478276558-10974-1-git-send-email-lrichard@redhat.com>
+To: netdev@vger.kernel.org, shmulik.ladkani@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60278 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934743AbcKDQWk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 12:22:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This is a follow-up to commit eb96202f1e34 ("ipv4: allow local
+fragmentation in ip_finish_output_gso()"), updating the comment
+documenting cases in which fragmentation is needed for egress
+GSO packets.
 
+Suggested-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Signed-off-by: Lance Richardson <lrichard@redhat.com>
+---
+ net/ipv4/ip_output.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-On 11/04/2016 08:51 AM, Neil Armstrong wrote:
-> In order to support PHY switching on Amlogic GXL SoCs, add support for
-> 16bit and 32bit registers sizes.
-> 
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 4971401..c2dae40 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -244,12 +244,18 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ 	if (skb_gso_validate_mtu(skb, mtu))
+ 		return ip_finish_output2(net, sk, skb);
+ 
+-	/* Slowpath -  GSO segment length is exceeding the dst MTU.
++	/* Slowpath -  GSO segment length exceeds the egress MTU.
+ 	 *
+-	 * This can happen in two cases:
+-	 * 1) TCP GRO packet, DF bit not set
+-	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
+-	 * from host network stack.
++	 * This can happen in several cases:
++	 *  - Forwarding of a TCP GRO skb, when DF flag is not set.
++	 *  - Forwarding of an skb that arrived on a virtualization interface
++	 *    (virtio-net/vhost/tap) with TSO/GSO size set by other network
++	 *    stack.
++	 *  - Local GSO skb transmitted on an NETIF_F_TSO tunnel stacked over an
++	 *    interface with a smaller MTU.
++	 *  - Arriving GRO skb (or GSO skb in a virtualized environment) that is
++	 *    bridged to a NETIF_F_TSO tunnel stacked over an interface with an
++	 *    insufficent MTU.
+ 	 */
+ 	features = netif_skb_features(skb);
+ 	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
 -- 
-Florian
+2.5.5
