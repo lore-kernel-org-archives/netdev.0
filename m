@@ -1,46 +1,59 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
- ip_finish_output_gso()
-Date: Fri, 4 Nov 2016 11:40:14 +0200
-Message-ID: <20161104114014.3dbb8684@halley>
-References: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
-        <20161103222751.5ae120ed@halley>
-        <1769078966.96766888.1478207154311.JavaMail.zimbra@redhat.com>
-        <ce29c141-65d1-c1b2-dc45-a9752fb614d8@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Lance Richardson <lrichard@redhat.com>, fw@strlen.de,
-        netdev@vger.kernel.org, jtluka@redhat.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:38154 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753628AbcKDJkS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 05:40:18 -0400
-Received: by mail-wm0-f51.google.com with SMTP id n67so37743780wme.1
-        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 02:40:17 -0700 (PDT)
-In-Reply-To: <ce29c141-65d1-c1b2-dc45-a9752fb614d8@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kai-Heng Feng <kai.heng.feng-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe function
+Date: Fri,  4 Nov 2016 17:57:35 +0800
+Message-ID: <20161104095735.21071-1-kai.heng.feng@canonical.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Kai-Heng Feng <kai.heng.feng-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+To: oneukum-IBi9RG/b67k@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 3 Nov 2016 22:34:34 +0100 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> Correct, but we should maybe redefine the code a bit. From my
-> understanding we can now create an ICMP storm in case every fragment gets.
+Sometimes cdc_mbim failed to probe if runtime pm is enabled:
+[    9.305626] cdc_mbim: probe of 2-2:1.12 failed with error -22
 
-Yes, you are right.
+This can be solved by increase its pm usage counter.
 
-Each segment gets into ip_fragment, and due to outer DF being set,
-ICMP_FRAG_NEEDED is sent per segment.
+Signed-off-by: Kai-Heng Feng <kai.heng.feng-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ drivers/net/usb/usbnet.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-BTW, suppose GRO is off, and sender actually did send a burst of
-(non-gso) packets with outer DF set, and each was tunnel encapsulated,
-resulting in oversized frames.
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index d5071e3..f77b4bf 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1674,12 +1674,15 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	net->watchdog_timeo = TX_TIMEOUT_JIFFIES;
+ 	net->ethtool_ops = &usbnet_ethtool_ops;
+ 
++	if (usb_autopm_get_interface(dev->intf) < 0)
++		goto out1;
++
+ 	// allow device-specific bind/init procedures
+ 	// NOTE net->name still not usable ...
+ 	if (info->bind) {
+ 		status = info->bind (dev, udev);
+ 		if (status < 0)
+-			goto out1;
++			goto out2;
+ 
+ 		// heuristic:  "usb%d" for links we know are two-host,
+ 		// else "eth%d" when there's reasonable doubt.  userspace
+@@ -1772,6 +1775,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ out3:
+ 	if (info->unbind)
+ 		info->unbind (dev, udev);
++out2:
++	usb_autopm_put_interface(dev->intf);
+ out1:
+ 	/* subdrivers must undo all they did in bind() if they
+ 	 * fail it, but we may fail later and a deferred kevent
+-- 
+2.7.4
 
-Would'nt the stack just send the ICMP_FRAG_NEEDED per encapsulated
-frame?
-
-If so, then the GRO behaviour is aligned, and there's nothing to fix.
-
-Best,
-Shmulik
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
