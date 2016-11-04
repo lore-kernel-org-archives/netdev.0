@@ -1,8 +1,7 @@
 From: Sebastian Frias <sf84@laposte.net>
-Subject: [PATCH v3 1/2] net: ethernet: nb8800: Do not apply TX delay at MAC
- level
-Date: Fri, 4 Nov 2016 19:22:30 +0100
-Message-ID: <581CD1E6.60801@laposte.net>
+Subject: [PATCH v3 2/2] net: ethernet: nb8800: handle all RGMII definitions
+Date: Fri, 4 Nov 2016 19:23:12 +0100
+Message-ID: <581CD210.5060206@laposte.net>
 References: <581CD1AF.6030300@laposte.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -17,29 +16,52 @@ In-Reply-To: <581CD1AF.6030300@laposte.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The delay can be applied at PHY or MAC level, but since
-PHY drivers will apply the delay at PHY level when using
-one of the "internal delay" declinations of RGMII mode
-(like PHY_INTERFACE_MODE_RGMII_TXID), applying it again
-at MAC level causes issues.
+Commit a999589ccaae ("phylib: add RGMII-ID interface mode definition")
+and commit 7d400a4c5897 ("phylib: add PHY interface modes for internal
+delay for tx and rx only") added several RGMII definitions:
+PHY_INTERFACE_MODE_RGMII_ID, PHY_INTERFACE_MODE_RGMII_RXID and
+PHY_INTERFACE_MODE_RGMII_TXID to deal with internal delays.
+
+Those are all RGMII modes (1Gbit) and must be considered that way when
+setting the MAC mode or the pad mode for the HW to work properly.
 
 Signed-off-by: Sebastian Frias <sf84@laposte.net>
 ---
- drivers/net/ethernet/aurora/nb8800.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/aurora/nb8800.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-index b59aa35..d2855c9 100644
+index d2855c9..fba2699 100644
 --- a/drivers/net/ethernet/aurora/nb8800.c
 +++ b/drivers/net/ethernet/aurora/nb8800.c
-@@ -1282,7 +1282,7 @@ static int nb8800_tangox_init(struct net_device *dev)
+@@ -598,6 +598,7 @@ static irqreturn_t nb8800_irq(int irq, void *dev_id)
+ static void nb8800_mac_config(struct net_device *dev)
+ {
+ 	struct nb8800_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev = dev->phydev;
+ 	bool gigabit = priv->speed == SPEED_1000;
+ 	u32 mac_mode_mask = RGMII_MODE | HALF_DUPLEX | GMAC_MODE;
+ 	u32 mac_mode = 0;
+@@ -609,7 +610,7 @@ static void nb8800_mac_config(struct net_device *dev)
+ 		mac_mode |= HALF_DUPLEX;
+ 
+ 	if (gigabit) {
+-		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
++		if (phy_interface_is_rgmii(phydev))
+ 			mac_mode |= RGMII_MODE;
+ 
+ 		mac_mode |= GMAC_MODE;
+@@ -1278,9 +1279,8 @@ static int nb8800_tangox_init(struct net_device *dev)
  		break;
  
+ 	case PHY_INTERFACE_MODE_RGMII:
+-		pad_mode = PAD_MODE_RGMII;
+-		break;
+-
++	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
  	case PHY_INTERFACE_MODE_RGMII_TXID:
--		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
-+		pad_mode = PAD_MODE_RGMII;
+ 		pad_mode = PAD_MODE_RGMII;
  		break;
- 
- 	default:
 -- 
 1.7.11.2
