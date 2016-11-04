@@ -1,117 +1,74 @@
-From: =?gb2312?B?1cXHqw==?= <zhangqian-c@360.cn>
-Subject: Re: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
-Date: Fri, 4 Nov 2016 17:45:51 +0000
-Message-ID: <35A00A1C-3842-4BDB-8995-9176D5453469@360.cn>
-References: <F73DA7D7DA7D984B81025139D7CADECC32B5A1C6@EX02.corp.qihoo.net>,<A2BAEFC30C8FD34388F02C9B3121859D2259F9B9@eusaamb103.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-        Ying Xue <ying.xue0@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        "tyrande000@gmail.com" <tyrande000@gmail.com>
-To: Jon Maloy <jon.maloy@ericsson.com>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [net-next v2 2/7] stmmac: dwmac-sti: remove clk NULL checks
+Date: Fri,  4 Nov 2016 18:54:06 +0100
+Message-ID: <20161104175411.12943-3-manabian@gmail.com>
+References: <20161104175411.12943-1-manabian@gmail.com>
+Cc: Joachim Eastwood <manabian@gmail.com>, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtabjsc2.360.cn ([123.125.82.7]:37485 "EHLO mtabjsc2.360.cn"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934703AbcKDRp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 13:45:56 -0400
-In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D2259F9B9@eusaamb103.ericsson.se>
-Content-Language: en-US
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:36362 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934776AbcKDRz0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 13:55:26 -0400
+Received: by mail-lf0-f67.google.com with SMTP id o20so4992099lfg.3
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 10:55:25 -0700 (PDT)
+In-Reply-To: <20161104175411.12943-1-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-eWVzLCAgdGlwY19sMl9kZXZpY2VfZXZlbnQoKSBvbmx5IGNoYW5nZSBNVFUgb2YgYmVhcmVyIHJh
-dGhlciB0aGFuIHRoZSBNVFUgb2YgbGluaywgdGlwY19lbmFibGVfbDJfbWVkaWEoKSB3aWxsIGJl
-IHRoZSByaWdodCBwbGFjZSB0byB0ZXN0IGEgdGlueSBNVFUuDQoNClFpYW4NCg0KU2VudCBmcm9t
-IG15IGlQaG9uZQ0KDQpPbiA1IE5vdiAyMDE2LCBhdCAwMDowMCwgSm9uIE1hbG95IDxqb24ubWFs
-b3lAZXJpY3Nzb24uY29tPiB3cm90ZToNCg0KPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
-Cj4+IEZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3du
-ZXJAdmdlci5rZXJuZWwub3JnXQ0KPj4gT24gQmVoYWxmIE9mID8/DQo+PiBTZW50OiBGcmlkYXks
-IDA0IE5vdmVtYmVyLCAyMDE2IDAzOjI0DQo+PiBUbzogSm9uIE1hbG95IDxqb24ubWFsb3lAZXJp
-Y3Nzb24uY29tPjsgQmVuIEh1dGNoaW5ncw0KPj4gPGJlbkBkZWNhZGVudC5vcmcudWs+OyBZaW5n
-IFh1ZSA8eWluZy54dWUwQGdtYWlsLmNvbT4NCj4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-OyBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+PiBTdWJqZWN0OiBSZTogW1BB
-VENIIG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1UVSBpbiB0aXBjX21zZ19idWlsZCgp
-DQo+PiANCj4+IEhpLA0KPj4gSSB0aGluayBib3RoIHRpcGNfbDJfZGV2aWNlX2V2ZW50KCkgYW5k
-IHRpcGNfZW5hYmxlX2wyX21lZGlhKCkgbmVlZCB0byByZWZ1c2UgYQ0KPj4gdGlueSBNVFUgZm9y
-IFRJUEMgYmVhcmVycy4NCj4gDQo+IFJpZ2h0LCBleGNlcHQgdGhhdCB3aGVuIGxvb2tpbmcgaW50
-byB0aGUgY29kZSBmb3IgdGlwY19sMl9kZXZpY2VfZXZlbnQoKSBJIHJlYWxpemUgdGhhdCBpdCBj
-dXJyZW50bHkgZG9lc24ndCB0cnkgdG8gcmUtYWRhcHQgdG8gYSBuZXcgTVRVIGF0IGFsbC4gSXQg
-anVzdCBjYWxscyB0aXBjX3Jlc2V0X2JlYXJlcigpLCB3aGljaCBJIHN1c3BlY3QgaGFzIGNoYW5n
-ZWQgc29tZXdoZXJlIGFsb25nIHRoZSByb2FkIHRvIGlnbm9yZSB0aGUgTVRVLiBTbywgeW91IG9u
-bHkgbmVlZCB0byBjaGFuZ2UgdGlwY19lbmFibGVfbDJfbWVkaWEoKS4NCj4gDQo+IC8vL2pvbg0K
-PiANCj4+IA0KPj4gdGlwY19sMl9kZXZpY2VfZXZlbnQoKSB1c2VkIHRvIHVwZGF0ZSB0aGUgVElQ
-QyBNVFUgdmFsdWUgd2hlbiBleGVjdXRpbmcgYQ0KPj4gY29tbWFuZCBsaWtlICdpZmNvbmZpZyBl
-dGgwIE1UVSAxIHVwJy4NCj4+IHRpcGNfZW5hYmxlX2wyX21lZGlhKCkgd2lsbCBiZSBpbnZva2Vk
-IHdoZW4gdGhlIFRJUEMgbmV0d29yayBjcmVhdGVkLg0KPj4gDQo+PiBUaGFua3MuDQo+PiANCj4+
-IFFpYW4gWmhhbmcNCj4+IE1hcnZlbFRlYW0gUWlob28gMzYwDQo+PiANCj4+IA0KPj4gDQo+PiAt
-LS0tLdPKvP7Urbz+LS0tLS0NCj4+ILeivP7IyzogSm9uIE1hbG95IFttYWlsdG86am9uLm1hbG95
-QGVyaWNzc29uLmNvbV0NCj4+ILeiy83KsbzkOiAyMDE2xOoxMdTCMcjVIDE5OjM3DQo+PiDK1bz+
-yMs6INXFx6s7IEJlbiBIdXRjaGluZ3M7IFlpbmcgWHVlDQo+PiCzrcvNOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnOyBFcmljIER1bWF6ZXQNCj4+INb3zOI6IFJFOiBbUEFUQ0ggbmV0XSB0aXBjOiBH
-dWFyZCBhZ2FpbnN0IHRpbnkgTVRVIGluIHRpcGNfbXNnX2J1aWxkKCkNCj4+IA0KPj4gSGksDQo+
-PiBJIHRoaW5rIHdlIGFsbCBhZ3JlZWQgaW4gdGhlIGVuZCB0aGF0IHRoaXMgaXMgYSBwb3NzaWJs
-ZSwgYnV0IGhpZ2hseSBpbXBsYXVzaWJsZSwNCj4+IHNjZW5hcmlvLCBhbmQgcmF0aGVyIGFzIGEg
-cG9pbnQgb2YgZXhwbG9pdCB0aGFuIGEgZnVuY3Rpb25hbCBidWcuDQo+PiBUaGUgc29sdXRpb24g
-aXMgdmVyeSBzaW1wbGUsIGFuZCBkZXNjcmliZWQgZnVydGhlciBkb3duIGluIHRoaXMgbWFpbCB0
-aHJlYWQuIEkgaGF2ZQ0KPj4gbm90IGRvbmUgYW55dGhpbmcgdG8gaXQgeWV0LCBidXQgeW91IGFy
-ZSB3ZWxjb21lIHRvIGNvbnRyaWJ1dGUuDQo+PiANCj4+IEJSDQo+PiAvLy9qb24NCj4+IA0KPj4g
-DQo+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4+PiBGcm9tOiDVxcerIFttYWlsdG86
-emhhbmdxaWFuLWNAMzYwLmNuXQ0KPj4+IFNlbnQ6IFR1ZXNkYXksIDAxIE5vdmVtYmVyLCAyMDE2
-IDAyOjM1DQo+Pj4gVG86IEJlbiBIdXRjaGluZ3MgPGJlbkBkZWNhZGVudC5vcmcudWs+OyBKb24g
-TWFsb3kNCj4+PiA8am9uLm1hbG95QGVyaWNzc29uLmNvbT47IFlpbmcgWHVlIDx5aW5nLnh1ZTBA
-Z21haWwuY29tPg0KPj4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBFcmljIER1bWF6ZXQg
-PGVkdW1hemV0QGdvb2dsZS5jb20+DQo+Pj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHRpcGM6
-IEd1YXJkIGFnYWluc3QgdGlueSBNVFUgaW4NCj4+PiB0aXBjX21zZ19idWlsZCgpDQo+Pj4gDQo+
-Pj4gSGkgYWxsLA0KPj4+IEkgaGF2ZSBhY2NvbXBsaXNoZWQgYSBQb0MgY2FuIGhlbHAgeW91IHRv
-IGNvbmZpcm0gdGhpcyBpc3N1ZS4NCj4+PiANCj4+PiBBbmQgdHdvIHdlZWtzIHBhc3NlZCBmcm9t
-IHRoZSBsYXN0IG1haWwsIGNhbiB5b3UgdGVsbCBtZSB0aGUgcHJvZ3Jlc3MNCj4+PiBvZiB0aGUg
-cGF0Y2ggdG8gdGhpcyBmbGF3Pw0KPj4+IA0KPj4+IFRoYW5rcy4NCj4+PiANCj4+PiBRaWFuIFpo
-YW5nDQo+Pj4gTWFydmVsIFRlYW0gUWlob28gMzYwDQo+Pj4gDQo+Pj4gDQo+Pj4gLS0tLS3Tyrz+
-1K28/i0tLS0tDQo+Pj4gt6K8/sjLOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86YmVuQGRlY2FkZW50
-Lm9yZy51a10NCj4+PiC3osvNyrG85DogMjAxNsTqMTDUwjIxyNUgMjM6MDANCj4+PiDK1bz+yMs6
-IEpvbiBNYWxveTsgWWluZyBYdWUNCj4+PiCzrcvNOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyDV
-xcerOyBFcmljIER1bWF6ZXQNCj4+PiDW98ziOiBSZTogW1BBVENIIG5ldF0gdGlwYzogR3VhcmQg
-YWdhaW5zdCB0aW55IE1UVSBpbiB0aXBjX21zZ19idWlsZCgpDQo+Pj4gDQo+Pj4gT24gRnJpLCAy
-MDE2LTEwLTIxIGF0IDE0OjU3ICswMDAwLCBKb24gTWFsb3kgd3JvdGU6DQo+Pj4+PiAtLS0tLU9y
-aWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPj4+Pj4+PiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86
-YmVuQGRlY2FkZW50Lm9yZy51a10NCj4+Pj4+IFNlbnQ6IFRodXJzZGF5LCAyMCBPY3RvYmVyLCAy
-MDE2IDEyOjQwDQo+Pj4+Pj4+IFRvOiBKb24gTWFsb3kgPGpvbi5tYWxveUBlcmljc3Nvbi5jb20+
-OyBZaW5nIFh1ZQ0KPj4+Pj4+PiA8eWluZy54dWUwQGdtYWlsLmNvbT4NCj4+Pj4+Pj4+PiBDYzog
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgUWlhbiBaaGFuZw0KPj4+Pj4+Pj4+IDx6aGFuZ3FpYW4t
-Y0AzNjAuY24+OyBFcmljIER1bWF6ZXQNCj4+Pj4+Pj4gPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+
-Pj4+PiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1U
-VSBpbg0KPj4+Pj4gdGlwY19tc2dfYnVpbGQoKQ0KPj4+Pj4gDQo+Pj4+PiBPbiBUaHUsIDIwMTYt
-MTAtMjAgYXQgMTQ6NTEgKzAwMDAsIEpvbiBNYWxveSB3cm90ZToNCj4+Pj4+IFsuLi5dDQo+Pj4+
-Pj4+IEF0IHRoaXMgcG9pbnQgd2UncmUgYWJvdXQgdG8gY29weSBJTlRfSF9TSVpFICsgbWhzeiBi
-eXRlcyBpbnRvDQo+Pj4+Pj4+IHRoZSBmaXJzdCBmcmFnbWVudC4gIElmIHRoYXQncyBhbHJlYWR5
-IGxpbWl0ZWQgdG8gYmUgbGVzcyB0aGFuDQo+Pj4+Pj4+IG9yIGVxdWFsIHRvIE1BWF9IX1NJWkUs
-IGNvbXBhcmluZyB3aXRoIE1BWF9IX1NJWkUgd291bGQgYmUgZmluZS4NCj4+Pj4+Pj4gQnV0IGlm
-DQo+Pj4+PiANCj4+Pj4+IE1BWF9IX1NJWkUNCj4+Pj4+Pj4gaXMgdGhlIG1heGltdW0gdmFsdWUg
-b2YgbWhzeiwgdGhhdCB3b24ndCBiZSBnb29kIGVub3VnaC4NCj4+Pj4+PiANCj4+Pj4+PiANCj4+
-Pj4+PiANCj4+Pj4+PiBNQVhfSF9TSVpFIGlzIDYwIGJ5dGVzLCBidXQgaW4gcHJhY3RpY2UgeW91
-IHdpbGwgbmV2ZXIgc2VlIGFuDQo+Pj4+Pj4gbWhzeiBsYXJnZXIgdGhhbg0KPj4+Pj4gDQo+Pj4+
-PiB0aGUgYmlnZ2VzdCBoZWFkZXIgd2UgYXJlIGFjdHVhbGx5IHVzaW5nLCB3aGljaCBpcyBNQ0FT
-VF9IX1NJWkUNCj4+Pj4+ICg9PTQ0DQo+Pj4gYnl0ZXMpLg0KPj4+Pj4+IElOVF9IX1NJWkUgaXMg
-NDAgYnl0ZXMsIHNvIHlvdSBhcmUgaW4gcmVhbGl0eSB0ZXN0aW5nIGZvcg0KPj4+Pj4+IHdoZXRo
-ZXIgd2UgaGF2ZSBhbiBtdHUNCj4+Pj4+IA0KPj4+Pj4gPCA4NCBieXRlcy4NCj4+Pj4+PiBZb3Ug
-d29uJ3QgZmluZCBhbnkgaW50ZXJmYWNlcyBvciBwcm90b2NvbHMgdGhhdCBjb21lIGV2ZW4gY2xv
-c2UNCj4+Pj4+PiB0byB0aGlzDQo+Pj4+PiANCj4+Pj4+IGxpbWl0YXRpb24sIHNvIHRvIG1lIHRo
-aXMgdGVzdCBpcyByZWR1bmRhbnQuDQo+Pj4+PiANCj4+Pj4+IEJ1dCBJIGNhbiBlYXNpbHkgY3Jl
-YXRlIHN1Y2ggYW4gaW50ZXJmYWNlOg0KPj4+Pj4gDQo+Pj4+PiAkIHVuc2hhcmUgLW4gLVUgLXIN
-Cj4+Pj4+ICMgaXAgbCBzZXQgbG8gbXR1IDENCj4+Pj4+IA0KPj4+Pj4gQmVuLg0KPj4+PiANCj4+
-Pj4gDQo+Pj4+IEl0IHdvbid0IGJlIHZlcnkgdXNlZnVsIHRob3VnaC4gQnV0IEkgYXNzdW1lIHlv
-dSBtZWFuIGl0IGNvdWxkIGJlIGENCj4+Pj4gcG9zc2libGUgZXhwbG9pdCwNCj4+PiANCj4+PiBF
-eGFjdGx5Lg0KPj4+IA0KPj4+PiBhbmQgSSBzdXNwZWN0IGEgZmV3IG90aGVyIHRoaW5ncyB3b3Vs
-ZCBicmVhayBib3RoIGluIFRJUEMgYW5kIGluDQo+Pj4+IG90aGVyIHN0YWNrcyBpZiB5b3UgZG8g
-YW55dGhpbmcgbGlrZSB0aGF0LiBJIHRoaW5rIHRoZSBzb2x1dGlvbiB0bw0KPj4+PiB0aGlzIGlz
-IG5vdCB0byBmaXggYWxsIHBvc3NpYmxlIHBsYWNlcyBpbiB0aGUgY29kZSB3aGVyZSB0aGlzIGNh
-biBnbw0KPj4+PiB3cm9uZywgYnV0IHJhdGhlciB0byBoYXZlIGEgZ2VuZXJpYyB0ZXN0IHdoZXJl
-IHdlIHJlZnVzZSB0byBhdHRhY2gNCj4+Pj4gYmVhcmVycy9pbnRlcmZhY2VzIG9mZmVyaW5nIGFu
-IG10dSA8IGUuZy4gMTAwMCBieXRlcy4gVGhpcyBjYW4NCj4+Pj4gZWFzaWx5IGJlIGRvbmUgaW4g
-dGlwY19lbmFibGVfbDJfbWVkaWEoKS4NCj4+PiANCj4+PiBZZXMuDQo+Pj4gDQo+Pj4gQmVuLg0K
-Pj4+IA0KPj4+IC0tDQo+Pj4gQmVuIEh1dGNoaW5ncw0KPj4+IE9uZSBvZiB0aGUgbmljZSB0aGlu
-Z3MgYWJvdXQgc3RhbmRhcmRzIGlzIHRoYXQgdGhlcmUgYXJlIHNvIG1hbnkgb2YgdGhlbS4NCj4g
-DQo=
+Since sti_dwmac_parse_data() sets dwmac->clk to NULL if not clock was
+provided in DT and NULL is a valid clock there is no need to check for
+NULL before using this clock.
+
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Tested-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+index 075ed42..f009bf4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+@@ -191,7 +191,7 @@ static void stih4xx_fix_retime_src(void *priv, u32 spd)
+ 		}
+ 	}
+ 
+-	if (src == TX_RETIME_SRC_CLKGEN && dwmac->clk && freq)
++	if (src == TX_RETIME_SRC_CLKGEN && freq)
+ 		clk_set_rate(dwmac->clk, freq);
+ 
+ 	regmap_update_bits(dwmac->regmap, reg, STIH4XX_RETIME_SRC_MASK,
+@@ -222,7 +222,7 @@ static void stid127_fix_retime_src(void *priv, u32 spd)
+ 			freq = DWMAC_2_5MHZ;
+ 	}
+ 
+-	if (dwmac->clk && freq)
++	if (freq)
+ 		clk_set_rate(dwmac->clk, freq);
+ 
+ 	regmap_update_bits(dwmac->regmap, reg, STID127_RETIME_SRC_MASK, val);
+@@ -238,8 +238,7 @@ static int sti_dwmac_init(struct platform_device *pdev, void *priv)
+ 	u32 reg = dwmac->ctrl_reg;
+ 	u32 val;
+ 
+-	if (dwmac->clk)
+-		clk_prepare_enable(dwmac->clk);
++	clk_prepare_enable(dwmac->clk);
+ 
+ 	if (of_property_read_bool(np, "st,gmac_en"))
+ 		regmap_update_bits(regmap, reg, EN_MASK, EN);
+@@ -258,8 +257,7 @@ static void sti_dwmac_exit(struct platform_device *pdev, void *priv)
+ {
+ 	struct sti_dwmac *dwmac = priv;
+ 
+-	if (dwmac->clk)
+-		clk_disable_unprepare(dwmac->clk);
++	clk_disable_unprepare(dwmac->clk);
+ }
+ static int sti_dwmac_parse_data(struct sti_dwmac *dwmac,
+ 				struct platform_device *pdev)
+-- 
+2.10.2
