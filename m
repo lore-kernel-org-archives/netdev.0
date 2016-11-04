@@ -1,59 +1,73 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net] sock: fix sendmmsg for partial sendmsg
-Date: Fri,  4 Nov 2016 15:36:49 -0400
-Message-ID: <1478288209-30893-1-git-send-email-soheil.kdev@gmail.com>
-Cc: edumazet@google.com, willemb@google.com, ncardwell@google.com,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: David VomLehn <vomlehn@texas.net>
+Subject: Re: Coding Style: Reverse XMAS tree declarations ? (was Re: [PATCH
+ net-next v6 02/10] dpaa_eth: add support for DPAA Ethernet)
+Date: Fri, 4 Nov 2016 13:48:24 -0600
+Message-ID: <20161104194824.GA5533@gracie>
+References: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
+ <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
+ <20161103.155816.642712588084106823.davem@davemloft.net>
+ <1478242438.1924.31.camel@perches.com>
+ <5d4925c3-e6c1-8780-37bf-6d529f128cd9@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+        madalin.bucur@nxp.com, Andrew Morton <akpm@linux-foundation.org>,
+        Jonathan Corbet <corbet@lwn.net>, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+        oss@buserror.net, ppc@mindchasers.com, pebolle@tiscali.nl,
+        joakim.tjernlund@transmode.se
+To: Randy Dunlap <rdunlap@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33348 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752478AbcKDThF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 15:37:05 -0400
-Received: by mail-qk0-f195.google.com with SMTP id x190so6589126qkb.0
-        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 12:37:04 -0700 (PDT)
+Received: from barracuda2.aus1.datafoundry.com ([209.99.124.133]:35215 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752794AbcKDTsa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 15:48:30 -0400
+Content-Disposition: inline
+In-Reply-To: <5d4925c3-e6c1-8780-37bf-6d529f128cd9@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+On Fri, Nov 04, 2016 at 10:05:15AM -0700, Randy Dunlap wrote:
+> On 11/03/16 23:53, Joe Perches wrote:
+> > On Thu, 2016-11-03 at 15:58 -0400, David Miller wrote:
+> >> From: Madalin Bucur <madalin.bucur@nxp.com>
+> >> Date: Wed, 2 Nov 2016 22:17:26 +0200
+> >>
+> >>> This introduces the Freescale Data Path Acceleration Architecture
+> >>> +static inline size_t bpool_buffer_raw_size(u8 index, u8 cnt)
+> >>> +{
+> >>> +     u8 i;
+> >>> +     size_t res = DPAA_BP_RAW_SIZE / 2;
+> >>
+> >> Always order local variable declarations from longest to shortest line,
+> >> also know as Reverse Christmas Tree Format.
+> > 
+> > I think this declaration sorting order is misguided but
+> > here's a possible change to checkpatch adding a test for it
+> > that does this test just for net/ and drivers/net/
+> 
+> I agree with the misguided part.
+> That's not actually in CodingStyle AFAICT. Where did this come from?
+> 
+> 
+> thanks.
+> -- 
+> ~Randy
 
-Do not send the next message in sendmmsg for partial sendmsg
-invocations.
+This puzzles me. The CodingStyle gives some pretty reasonable rationales
+for coding style over above the "it's easier to read if it all looks the
+same". I can see rationales for other approaches (and I am not proposing
+any of these):
 
-sendmmsg assumes that it can continue sending the next message
-when the return value of the individual sendmsg invocations
-is positive. It results in corrupting the data for TCP,
-SCTP, and UNIX streams.
+alphabetic order        Easier to search for declarations
+complex to simple       As in, structs and unions, pointers to simple
+                        data (int, char), simple data. It seems like I
+                        can deduce the simple types from usage, but more
+                        complex I need to know things like the
+                        particular structure.
+group by usage          Mirror the ontological locality in the code
 
-For example, sendmmsg([["abcd"], ["efgh"]]) can result in a stream
-of "aefgh" if the first sendmsg invocation sends only the first
-byte while the second sendmsg goes through.
-
-Datagram sockets either send the entire datagram or fail, so
-this patch affects only sockets of type SOCK_STREAM and
-SOCK_SEQPACKET.
-
-Fixes: 228e548e6020 ("net: Add sendmmsg socket system call")
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/socket.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/socket.c b/net/socket.c
-index 5a9bf5e..272518b 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -2038,6 +2038,8 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
- 		if (err)
- 			break;
- 		++datagrams;
-+		if (msg_data_left(&msg_sys))
-+			break;
- 		cond_resched();
- 	}
- 
+Do we have a basis for thinking this is easier or more consistent than
+any other approach?
 -- 
-2.8.0.rc3.226.g39d4020
+David VL
