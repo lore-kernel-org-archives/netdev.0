@@ -1,64 +1,57 @@
 From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: Ethernet not working on a different SoC with same eth HW
-Date: Fri, 04 Nov 2016 15:22:15 +0000
-Message-ID: <yw1xh97njmmw.fsf@unicorn.mansr.com>
-References: <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
-        <58177128.8090403@free.fr> <581C8691.2060306@free.fr>
-        <yw1xy40zjrcw.fsf@unicorn.mansr.com> <581C9273.906@free.fr>
-        <20161104135752.GC3600@lunn.ch> <yw1xtwbnjq88.fsf@unicorn.mansr.com>
-        <20161104142223.GD3600@lunn.ch> <yw1xpombjnfn.fsf@unicorn.mansr.com>
-        <20161104151744.GG3600@lunn.ch>
+Subject: Re: [PATCH 1/2] net: ethernet: nb8800: Do not apply TX delay at MAC level
+Date: Fri, 04 Nov 2016 15:27:55 +0000
+Message-ID: <yw1xa8dfjmdg.fsf@unicorn.mansr.com>
+References: <581CA300.1060609@laposte.net> <20161104151151.GF3600@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8BIT
-Cc: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
-        Daniel Mack <zonque@gmail.com>,
-        Sebastian Frias <sf84@laposte.net>
+Cc: Sebastian Frias <sf84@laposte.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>
 To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:43670 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935370AbcKDPWR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 11:22:17 -0400
-In-Reply-To: <20161104151744.GG3600@lunn.ch> (Andrew Lunn's message of "Fri, 4
-        Nov 2016 16:17:44 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161104151151.GF3600@lunn.ch> (Andrew Lunn's message of "Fri, 4
+        Nov 2016 16:11:51 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Andrew Lunn <andrew@lunn.ch> writes:
 
-> On Fri, Nov 04, 2016 at 03:05:00PM +0000, Måns Rullgård wrote:
->> Andrew Lunn <andrew@lunn.ch> writes:
+> On Fri, Nov 04, 2016 at 04:02:24PM +0100, Sebastian Frias wrote:
+>> The delay can be applied at PHY or MAC level, but since
+>> PHY drivers will apply the delay at PHY level when using
+>> one of the "internal delay" declinations of RGMII mode
+>> (like PHY_INTERFACE_MODE_RGMII_TXID), applying it again
+>> at MAC level causes issues.
+
+If this is correct, most of the PHY drivers are broken.
+
+>> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+>> ---
+>>  drivers/net/ethernet/aurora/nb8800.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
 >> 
->> >> > I agree with you. But fixing it is likely to break boards which
->> >> > currently have "rgmii", but actually need the delay in order to work.
->> >> 
->> >> Does the internal delay here refer to the PHY or the MAC?  It's a
->> >> property of the MAC node after all.
->> >
->> > It is the PHY which applies the delay.
->> 
->> Says who?
+>> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+>> index b59aa35..d2855c9 100644
+>> --- a/drivers/net/ethernet/aurora/nb8800.c
+>> +++ b/drivers/net/ethernet/aurora/nb8800.c
+>> @@ -1282,7 +1282,7 @@ static int nb8800_tangox_init(struct net_device *dev)
+>>  		break;
+>>  
+>>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+>> -		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+>> +		pad_mode = PAD_MODE_RGMII;
+>>  		break;
 >
-> The source code.
-
-There's source code that disagrees with that.  The Broadcom GENET
-driver, for instance.
-
->>  Some MACs can do it too.
+> How many boards use this Ethernet driver? How many boards are your
+> potentially breaking, because they need this delay?
 >
-> I'm sure they can. But look at the code. Nearly none do, and those
-> that do are potentially broken.
+> I guess it is a small number, because doesn't it require the PHY is
+> also broken, not adding a delay when it should?
 
-Those few drivers that do anything differently based on these values
-enable clock delay in the MAC.  That's why I wrote the NB8800 driver the
-way I did.
+What if the PHY doesn't have that option?
 
 -- 
 Måns Rullgård
