@@ -1,8 +1,7 @@
 From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v6 4/7] Documentation: devicetree: net: add NS2 bindings to
- amac
-Date: Fri,  4 Nov 2016 01:10:59 -0400
-Message-ID: <1478236262-3351-5-git-send-email-jon.mason@broadcom.com>
+Subject: [PATCH v6 6/7] net: ethernet: bgmac: add NS2 support
+Date: Fri,  4 Nov 2016 01:11:01 -0400
+Message-ID: <1478236262-3351-7-git-send-email-jon.mason@broadcom.com>
 References: <1478236262-3351-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,41 +25,144 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Clean-up the documentation to the bgmac-amac driver, per suggestion by
-Rob Herring, and add details for NS2 support.
+Add support for the variant of amac hardware present in the Broadcom
+Northstar2 based SoCs.  Northstar2 requires an additional register to be
+configured with the port speed/duplexity (NICPM).  This can be added to
+the link callback to hide it from the instances that do not use this.
+Also, clearing of the pending interrupts on init is required due to
+observed issues on some platforms.
 
 Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- Documentation/devicetree/bindings/net/brcm,amac.txt | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac-platform.c | 56 +++++++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bgmac.c          |  3 ++
+ drivers/net/ethernet/broadcom/bgmac.h          |  1 +
+ 3 files changed, 58 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/brcm,amac.txt b/Documentation/devicetree/bindings/net/brcm,amac.txt
-index ba5ecc1..2fefa1a 100644
---- a/Documentation/devicetree/bindings/net/brcm,amac.txt
-+++ b/Documentation/devicetree/bindings/net/brcm,amac.txt
-@@ -2,11 +2,17 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
- -------------------------------------------------------------
+diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
+index 4642940..6f736c1 100644
+--- a/drivers/net/ethernet/broadcom/bgmac-platform.c
++++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
+@@ -14,12 +14,21 @@
+ #define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
  
- Required properties:
-- - compatible:	"brcm,amac" or "brcm,nsp-amac"
-- - reg:		Address and length of the GMAC registers,
--		Address and length of the GMAC IDM registers
-- - reg-names:	Names of the registers.  Must have both "amac_base" and
--		"idm_base"
-+ - compatible:	"brcm,amac"
-+		"brcm,nsp-amac"
-+		"brcm,ns2-amac"
-+ - reg:		Address and length of the register set for the device. It
-+		contains the information of registers in the same order as
-+		described by reg-names
-+ - reg-names:	Names of the registers.
-+		"amac_base":	Address and length of the GMAC registers
-+		"idm_base":	Address and length of the GMAC IDM registers
-+		"nicpm_base":	Address and length of the NIC Port Manager
-+				registers (required for Northstar2)
-  - interrupts:	Interrupt number
+ #include <linux/bcma/bcma.h>
++#include <linux/brcmphy.h>
+ #include <linux/etherdevice.h>
+ #include <linux/of_address.h>
+ #include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+ #include "bgmac.h"
  
- Optional properties:
++#define NICPM_IOMUX_CTRL		0x00000008
++
++#define NICPM_IOMUX_CTRL_INIT_VAL	0x3196e000
++#define NICPM_IOMUX_CTRL_SPD_SHIFT	10
++#define NICPM_IOMUX_CTRL_SPD_10M	0
++#define NICPM_IOMUX_CTRL_SPD_100M	1
++#define NICPM_IOMUX_CTRL_SPD_1000M	2
++
+ static u32 platform_bgmac_read(struct bgmac *bgmac, u16 offset)
+ {
+ 	return readl(bgmac->plat.base + offset);
+@@ -87,12 +96,46 @@ static void platform_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offset,
+ 	WARN_ON(1);
+ }
+ 
++static void bgmac_nicpm_speed_set(struct net_device *net_dev)
++{
++	struct bgmac *bgmac = netdev_priv(net_dev);
++	u32 val;
++
++	if (!bgmac->plat.nicpm_base)
++		return;
++
++	val = NICPM_IOMUX_CTRL_INIT_VAL;
++	switch (bgmac->net_dev->phydev->speed) {
++	default:
++		netdev_err(net_dev, "Unsupported speed. Defaulting to 1000Mb\n");
++	case SPEED_1000:
++		val |= NICPM_IOMUX_CTRL_SPD_1000M << NICPM_IOMUX_CTRL_SPD_SHIFT;
++		break;
++	case SPEED_100:
++		val |= NICPM_IOMUX_CTRL_SPD_100M << NICPM_IOMUX_CTRL_SPD_SHIFT;
++		break;
++	case SPEED_10:
++		val |= NICPM_IOMUX_CTRL_SPD_10M << NICPM_IOMUX_CTRL_SPD_SHIFT;
++		break;
++	}
++
++	writel(val, bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
++
++	bgmac_adjust_link(bgmac->net_dev);
++}
++
+ static int platform_phy_connect(struct bgmac *bgmac)
+ {
+ 	struct phy_device *phy_dev;
+ 
+-	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
+-					 bgmac_adjust_link);
++	if (bgmac->plat.nicpm_base)
++		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
++						 bgmac->dev->of_node,
++						 bgmac_nicpm_speed_set);
++	else
++		phy_dev = of_phy_get_and_connect(bgmac->net_dev,
++						 bgmac->dev->of_node,
++						 bgmac_adjust_link);
+ 	if (!phy_dev) {
+ 		dev_err(bgmac->dev, "PHY connection failed\n");
+ 		return -ENODEV;
+@@ -156,6 +199,14 @@ static int bgmac_probe(struct platform_device *pdev)
+ 	if (IS_ERR(bgmac->plat.idm_base))
+ 		return PTR_ERR(bgmac->plat.idm_base);
+ 
++	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");
++	if (regs) {
++		bgmac->plat.nicpm_base = devm_ioremap_resource(&pdev->dev,
++							       regs);
++		if (IS_ERR(bgmac->plat.nicpm_base))
++			return PTR_ERR(bgmac->plat.nicpm_base);
++	}
++
+ 	bgmac->read = platform_bgmac_read;
+ 	bgmac->write = platform_bgmac_write;
+ 	bgmac->idm_read = platform_bgmac_idm_read;
+@@ -187,6 +238,7 @@ static int bgmac_remove(struct platform_device *pdev)
+ static const struct of_device_id bgmac_of_enet_match[] = {
+ 	{.compatible = "brcm,amac",},
+ 	{.compatible = "brcm,nsp-amac",},
++	{.compatible = "brcm,ns2-amac",},
+ 	{},
+ };
+ 
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 7f66ea7..a29787f 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1082,6 +1082,9 @@ static void bgmac_enable(struct bgmac *bgmac)
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
+ static void bgmac_chip_init(struct bgmac *bgmac)
+ {
++	/* Clear any erroneously pending interrupts */
++	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
++
+ 	/* 1 interrupt per received frame */
+ 	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index bfd9f40..71f493f 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -463,6 +463,7 @@ struct bgmac {
+ 		struct {
+ 			void *base;
+ 			void *idm_base;
++			void *nicpm_base;
+ 		} plat;
+ 		struct {
+ 			struct bcma_device *core;
 -- 
 2.7.4
