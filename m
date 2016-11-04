@@ -1,108 +1,114 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net-next v4 6/9] ipv6: sr: add calls to verify and insert HMAC signatures
-Date: Fri, 4 Nov 2016 11:32:20 +0100
-Message-ID: <1478255543-32588-2-git-send-email-david.lebrun@uclouvain.be>
+Subject: [PATCH net-next v4 7/9] ipv6: add source address argument for ipv6_push_nfrag_opts
+Date: Fri, 4 Nov 2016 11:32:21 +0100
+Message-ID: <1478255543-32588-3-git-send-email-david.lebrun@uclouvain.be>
 References: <1478255388-32213-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:34723 "EHLO
-        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760185AbcKDKaj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 06:30:39 -0400
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:60741 "EHLO
+        smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760185AbcKDKah (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 06:30:37 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id 2910D67DA9A
+        by smtp4.sgsi.ucl.ac.be (Postfix) with ESMTPS id 47D9667DC0A
         for <netdev@vger.kernel.org>; Fri,  4 Nov 2016 11:30:27 +0100 (CET)
 In-Reply-To: <1478255388-32213-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the verification of the HMAC signature for transiting
-SR-enabled packets, and its insertion on encapsulated/injected SRH.
+This patch prepares for insertion of SRH through setsockopt().
+The new source address argument is used when an HMAC field is
+present in the SRH, which must be filled. The HMAC signature
+process requires the source address as input text.
 
 Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- net/ipv6/exthdrs.c       | 10 ++++++++++
- net/ipv6/seg6_iptunnel.c | 21 +++++++++++++++++++++
- 2 files changed, 31 insertions(+)
+ include/net/ipv6.h    | 3 ++-
+ net/ipv6/exthdrs.c    | 6 +++---
+ net/ipv6/ip6_output.c | 5 +++--
+ net/ipv6/ip6_tunnel.c | 2 +-
+ 4 files changed, 9 insertions(+), 7 deletions(-)
 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8fed1cd..0a3622b 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -932,7 +932,8 @@ int ip6_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
+  */
+ 
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+-			  u8 *proto, struct in6_addr **daddr_p);
++			  u8 *proto, struct in6_addr **daddr_p,
++			  struct in6_addr *saddr);
+ void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			 u8 *proto);
+ 
 diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 21a86cf..973a128e 100644
+index 973a128e..1690ace 100644
 --- a/net/ipv6/exthdrs.c
 +++ b/net/ipv6/exthdrs.c
-@@ -49,6 +49,9 @@
- #endif
- #include <linux/seg6.h>
- #include <net/seg6.h>
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+#include <net/seg6_hmac.h>
-+#endif
+@@ -856,7 +856,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
  
- #include <linux/uaccess.h>
+ static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
+ 			    struct ipv6_rt_hdr *opt,
+-			    struct in6_addr **addr_p)
++			    struct in6_addr **addr_p, struct in6_addr *saddr)
+ {
+ 	struct rt0_hdr *phdr, *ihdr;
+ 	int hops;
+@@ -890,10 +890,10 @@ static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv
  
-@@ -340,6 +343,13 @@ static int ipv6_srh_rcv(struct sk_buff *skb)
- 		return -1;
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			  u8 *proto,
+-			  struct in6_addr **daddr)
++			  struct in6_addr **daddr, struct in6_addr *saddr)
+ {
+ 	if (opt->srcrt) {
+-		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr);
++		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr, saddr);
+ 		/*
+ 		 * IPV6_RTHDRDSTOPTS is ignored
+ 		 * unless IPV6_RTHDR is set (RFC3542).
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6001e78..ddc878d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -203,7 +203,8 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 		if (opt->opt_flen)
+ 			ipv6_push_frag_opts(skb, opt, &proto);
+ 		if (opt->opt_nflen)
+-			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
++			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop,
++					     &fl6->saddr);
  	}
  
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (!seg6_hmac_validate_skb(skb)) {
-+		kfree_skb(skb);
-+		return -1;
-+	}
-+#endif
-+
- looped_back:
- 	if (hdr->segments_left > 0) {
- 		if (hdr->nexthdr != NEXTHDR_IPV6 && hdr->segments_left == 1 &&
-diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
-index 9abeb45..4a3f1ba 100644
---- a/net/ipv6/seg6_iptunnel.c
-+++ b/net/ipv6/seg6_iptunnel.c
-@@ -29,6 +29,9 @@
- #ifdef CONFIG_DST_CACHE
- #include <net/dst_cache.h>
- #endif
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+#include <net/seg6_hmac.h>
-+#endif
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+@@ -1672,7 +1673,7 @@ struct sk_buff *__ip6_make_skb(struct sock *sk,
+ 	if (opt && opt->opt_flen)
+ 		ipv6_push_frag_opts(skb, opt, &proto);
+ 	if (opt && opt->opt_nflen)
+-		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
++		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst, &fl6->saddr);
  
- struct seg6_lwt {
- #ifdef CONFIG_DST_CACHE
-@@ -130,6 +133,14 @@ static int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
- 	hdr->daddr = isrh->segments[isrh->first_segment];
- 	set_tun_src(net, skb->dev, &hdr->daddr, &hdr->saddr);
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 03e050d..d1561e7 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1157,7 +1157,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
  
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (sr_has_hmac(isrh)) {
-+		err = seg6_push_hmac(net, &hdr->saddr, isrh);
-+		if (unlikely(err))
-+			return err;
-+	}
-+#endif
-+
- 	skb_postpush_rcsum(skb, hdr, tot_len);
+ 	if (encap_limit >= 0) {
+ 		init_tel_txopt(&opt, encap_limit);
+-		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
++		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
+ 	}
  
- 	return 0;
-@@ -171,6 +182,16 @@ static int seg6_do_srh_inline(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
- 	isrh->segments[0] = hdr->daddr;
- 	hdr->daddr = isrh->segments[isrh->first_segment];
- 
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (sr_has_hmac(isrh)) {
-+		struct net *net = dev_net(skb_dst(skb)->dev);
-+
-+		err = seg6_push_hmac(net, &hdr->saddr, isrh);
-+		if (unlikely(err))
-+			return err;
-+	}
-+#endif
-+
- 	skb_postpush_rcsum(skb, hdr, sizeof(struct ipv6hdr) + hdrlen);
- 
- 	return 0;
+ 	/* Calculate max headroom for all the headers and adjust
 -- 
 2.7.3
