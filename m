@@ -1,55 +1,46 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH 3/3] qdisc: catch misconfig of attaching qdisc
- to tx_queue_len zero device
-Date: Fri, 4 Nov 2016 10:35:26 +0100
-Message-ID: <20161104093526.GM5640@orbyte.nwl.cc>
-References: <20161103135534.28737.37657.stgit@firesoul>
- <20161103135611.28737.39840.stgit@firesoul>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net v3] ipv4: allow local fragmentation in
+ ip_finish_output_gso()
+Date: Fri, 4 Nov 2016 11:40:14 +0200
+Message-ID: <20161104114014.3dbb8684@halley>
+References: <1478118977-19608-1-git-send-email-lrichard@redhat.com>
+        <20161103222751.5ae120ed@halley>
+        <1769078966.96766888.1478207154311.JavaMail.zimbra@redhat.com>
+        <ce29c141-65d1-c1b2-dc45-a9752fb614d8@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Robert Olsson <robert@herjulf.se>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Lance Richardson <lrichard@redhat.com>, fw@strlen.de,
+        netdev@vger.kernel.org, jtluka@redhat.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53423 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752736AbcKDJf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 05:35:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20161103135611.28737.39840.stgit@firesoul>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38154 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753628AbcKDJkS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 05:40:18 -0400
+Received: by mail-wm0-f51.google.com with SMTP id n67so37743780wme.1
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 02:40:17 -0700 (PDT)
+In-Reply-To: <ce29c141-65d1-c1b2-dc45-a9752fb614d8@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 3 Nov 2016 22:34:34 +0100 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> Correct, but we should maybe redefine the code a bit. From my
+> understanding we can now create an ICMP storm in case every fragment gets.
 
-On Thu, Nov 03, 2016 at 02:56:11PM +0100, Jesper Dangaard Brouer wrote:
-[...]
-> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> index 206dc24add3a..f337f1bdd1d4 100644
-> --- a/net/sched/sch_api.c
-> +++ b/net/sched/sch_api.c
-> @@ -960,6 +960,17 @@ static struct Qdisc *qdisc_create(struct net_device *dev,
->  
->  	sch->handle = handle;
->  
-> +	/* This exist to keep backward compatible with a userspace
-> +	 * loophole, what allowed userspace to get IFF_NO_QUEUE
-> +	 * facility on older kernels by setting tx_queue_len=0 (prior
-> +	 * to qdisc init), and then forgot to reinit tx_queue_len
-> +	 * before again attaching a qdisc.
-> +	 */
-> +	if ((dev->priv_flags & IFF_NO_QUEUE) && (dev->tx_queue_len == 0)) {
-> +		dev->tx_queue_len = DEFAULT_TX_QUEUE_LEN;
-> +		netdev_info(dev, "Caught tx_queue_len zero misconfig\n");
-> +	}
+Yes, you are right.
 
-I wonder why this is limited to IFF_NO_QUEUE devices. Do you think there
-is a valid use case for physical ones?
+Each segment gets into ip_fragment, and due to outer DF being set,
+ICMP_FRAG_NEEDED is sent per segment.
 
-Also, if we sanitize here, couldn't we then just get rid of the
-sanitization you're fixing in patch 2?
+BTW, suppose GRO is off, and sender actually did send a burst of
+(non-gso) packets with outer DF set, and each was tunnel encapsulated,
+resulting in oversized frames.
 
-Apart from that, ACK to all the patches. Thanks for cleaning up my mess!
-:)
+Would'nt the stack just send the ICMP_FRAG_NEEDED per encapsulated
+frame?
 
-Cheers, Phil
+If so, then the GRO behaviour is aligned, and there's nothing to fix.
+
+Best,
+Shmulik
