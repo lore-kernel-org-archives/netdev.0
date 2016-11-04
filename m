@@ -1,32 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] Documentation: networking: dsa: Update tagging protocols
-Date: Fri, 4 Nov 2016 13:31:02 +0100
-Message-ID: <20161104123102.GM13959@lunn.ch>
-References: <1478261774-14265-1-git-send-email-architekt@coding4coffee.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/2] net/sock: add an explicit sk argument
+ for ip_cmsg_recv_offset()
+Date: Fri, 04 Nov 2016 05:36:00 -0700
+Message-ID: <1478262960.7065.459.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1478254512.git.pabeni@redhat.com>
+         <1b4e5292a0c15494515423245e8eeb7adf2ebcea.1478254512.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jonathan Corbet <corbet@lwn.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Masanari Iida <standby24x7@gmail.com>,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Fabian Mewes <architekt@coding4coffee.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1478261774-14265-1-git-send-email-architekt@coding4coffee.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1b4e5292a0c15494515423245e8eeb7adf2ebcea.1478254512.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 04, 2016 at 01:16:14PM +0100, Fabian Mewes wrote:
-> Add Qualcomm QCA tagging introduced in cafdc45c9 to the
-> list of supported protocols.
+On Fri, 2016-11-04 at 11:28 +0100, Paolo Abeni wrote:
+> So that we can use it even after orphaining the skbuff.
 > 
-> Signed-off-by: Fabian Mewes <architekt@coding4coffee.org>
+> Suggested-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
+> @Eric, please add your signed off by when you feel comfortable with the patch
+> as you basically authored it
 
-Thanks
+> -void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb,
+> -			 int tlen, int offset)
+> +void ip_cmsg_recv_offset(struct msghdr *msg, struct sock *sk,
+> +			 struct sk_buff *skb, int tlen, int offset)
+>  {
+> -	struct inet_sock *inet = inet_sk(skb->sk);
+> +	struct inet_sock *inet = inet_sk(sk);
+>  	unsigned int flags = inet->cmsg_flags;
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+My final version had :
 
-    Andrew
+void ip_cmsg_recv_offset(struct msghdr *msg, const struct sock *sk,
+                         struct sk_buff *skb, int tlen, int offset)
+{
+	unsigned int flags = inet_sk(sk)->cmsg_flags;
+
+
+(Ie not using "struct inet_sock *inet = ...", and a const pointer for
+struct sock)
+
+Other than that minor details :
+
+Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+
+Thanks !
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
