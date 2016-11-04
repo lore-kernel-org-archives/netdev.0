@@ -1,90 +1,89 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: Coding Style: Reverse XMAS tree declarations ?
-Date: Fri, 4 Nov 2016 21:06:58 +0100
-Message-ID: <31ace8dd-1e42-2762-6367-028068d4d816@gmx.de>
-References: <20161103.155816.642712588084106823.davem@davemloft.net>
- <1478242438.1924.31.camel@perches.com> <581C6A7D.8030704@marvell.com>
- <20161104.110759.1093635654135143910.davem@davemloft.net>
- <1478281455.1924.41.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: madalin.bucur@nxp.com, akpm@linux-foundation.org, corbet@lwn.net,
-        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org, oss@buserror.net,
-        ppc@mindchasers.com, pebolle@tiscali.nl,
-        joakim.tjernlund@transmode.se, Randy Dunlap <rdunlap@infradead.org>
-To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-        lsanfil@marvell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478281455.1924.41.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@ovn.org>
+Subject: [PATCH net-next 1/7] vxlan: avoid vlan processing in vxlan device.
+Date: Fri,  4 Nov 2016 13:51:50 -0700
+Message-ID: <1478292716-54649-2-git-send-email-pshelar@ovn.org>
+References: <1478292716-54649-1-git-send-email-pshelar@ovn.org>
+Cc: Pravin B Shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:56848 "EHLO
+        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758698AbcKDUwC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 16:52:02 -0400
+In-Reply-To: <1478292716-54649-1-git-send-email-pshelar@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04.11.2016 18:44, Joe Perches wrote:
-> On Fri, 2016-11-04 at 11:07 -0400, David Miller wrote:
->> From: Lino Sanfilippo <lsanfil@marvell.com>
->> > On 04.11.2016 07:53, Joe Perches wrote:
->> >> CHECK:REVERSE_XMAS_TREE: Prefer ordering declarations longest to
->> >> shortest
->> >> #446: FILE: drivers/net/ethernet/ethoc.c:446:
->> >> +                    int size = bd.stat >> 16;
->> >> +                    struct sk_buff *skb;
->> > should not this case be valid? Optically the longer line is already
->> > before the shorter.
->> > I think that the whole point in using this reverse xmas tree ordering
->> > is to have
->> > the code optically tidied up and not to enforce ordering between
->> > variable name lengths.
->> 
->> That's correct.
-> 
-> And also another reason the whole reverse xmas tree
-> automatic declaration layout concept is IMO dubious.
-> 
-> Basically, you're looking not at the initial ordering
-> of automatics as important, but helping find a specific
-> automatic when reversing from reading code is not always
-> correct.
-> 
-> Something like:
-> 
-> static void function{args,...)
-> {
-> 	[longish list of reverse xmas tree identifiers...]
-> 	struct foo *bar = longish_function(args, ...);
-> 	struct foobarbaz *qux;
-> 	[more identifers]
-> 
-> 	[multiple screenfuls of code later...)
-> 
-> 	new_function(..., bar, ...);
-> 
-> 	[more code...]
-> }
-> 
-> and the reverse xmas tree helpfulness of looking up the
-> type of bar is neither obvious nor easy.
-> 
+VxLan device does not have special handling for vlan taging on egress.
+Therefore it does not make sense to expose vlan offloading feature.
 
-In this case it is IMHO rather the declaration + initialization that makes
-"bar" hard to find at one glance, not the use of RXT. You could do something like
+Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
+---
+ drivers/net/vxlan.c     |  9 +--------
+ include/linux/if_vlan.h | 16 ----------------
+ 2 files changed, 1 insertion(+), 24 deletions(-)
 
- 	[longish list of reverse xmas tree identifiers...]
- 	struct foobarbaz *qux;
- 	struct foo *bar;
-
- 	bar = longish_function(args, ...);
-
-to increase readability. 
-
-Personally I find it more readable to always use a separate line for initializations
-by means of functions (regardless of whether the RXT scheme is used or not). 
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index cb5cc7c..756d826 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1748,18 +1748,13 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+ 	}
  
-> My preference would be for a bar that serves coffee and alcohol.
-> 
-
-At least a bar like this should not be too hard to find :)
-
-Regards,
-Lino
+ 	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len
+-			+ VXLAN_HLEN + iphdr_len
+-			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
++			+ VXLAN_HLEN + iphdr_len;
+ 
+ 	/* Need space for new headers (invalidates iph ptr) */
+ 	err = skb_cow_head(skb, min_headroom);
+ 	if (unlikely(err))
+ 		goto out_free;
+ 
+-	skb = vlan_hwaccel_push_inside(skb);
+-	if (WARN_ON(!skb))
+-		return -ENOMEM;
+-
+ 	err = iptunnel_handle_offloads(skb, type);
+ 	if (err)
+ 		goto out_free;
+@@ -2527,10 +2522,8 @@ static void vxlan_setup(struct net_device *dev)
+ 	dev->features   |= NETIF_F_GSO_SOFTWARE;
+ 
+ 	dev->vlan_features = dev->features;
+-	dev->features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
+ 	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+ 	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
+-	dev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
+ 	netif_keep_dst(dev);
+ 	dev->priv_flags |= IFF_NO_QUEUE;
+ 
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 3319d97..8d5fcd6 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -399,22 +399,6 @@ static inline struct sk_buff *__vlan_hwaccel_push_inside(struct sk_buff *skb)
+ 		skb->vlan_tci = 0;
+ 	return skb;
+ }
+-/*
+- * vlan_hwaccel_push_inside - pushes vlan tag to the payload
+- * @skb: skbuff to tag
+- *
+- * Checks is tag is present in @skb->vlan_tci and if it is, it pushes the
+- * VLAN tag from @skb->vlan_tci inside to the payload.
+- *
+- * Following the skb_unshare() example, in case of error, the calling function
+- * doesn't have to worry about freeing the original skb.
+- */
+-static inline struct sk_buff *vlan_hwaccel_push_inside(struct sk_buff *skb)
+-{
+-	if (skb_vlan_tag_present(skb))
+-		skb = __vlan_hwaccel_push_inside(skb);
+-	return skb;
+-}
+ 
+ /**
+  * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
+-- 
+1.9.1
