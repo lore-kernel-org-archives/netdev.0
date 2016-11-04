@@ -1,81 +1,66 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v2 2/2 ] net: ethernet: nb8800: handle all RGMII definitions
-Date: Fri, 04 Nov 2016 17:12:52 +0000
-Message-ID: <yw1xshr7i2y3.fsf@unicorn.mansr.com>
-References: <581CA3D0.6080808@laposte.net>
-        <8c491fff-4849-fa9b-0a0a-5a7a6870120d@gmail.com>
-        <581CBF17.2010108@laposte.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Coding Style: Reverse XMAS tree declarations ?
+Date: Fri, 04 Nov 2016 10:44:15 -0700
+Message-ID: <1478281455.1924.41.camel@perches.com>
+References: <20161103.155816.642712588084106823.davem@davemloft.net>
+         <1478242438.1924.31.camel@perches.com> <581C6A7D.8030704@marvell.com>
+         <20161104.110759.1093635654135143910.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Sebastian Frias <sf84@laposte.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: madalin.bucur@nxp.com, akpm@linux-foundation.org, corbet@lwn.net,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, oss@buserror.net,
+        ppc@mindchasers.com, pebolle@tiscali.nl,
+        joakim.tjernlund@transmode.se, Randy Dunlap <rdunlap@infradead.org>
+To: David Miller <davem@davemloft.net>, lsanfil@marvell.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <581CBF17.2010108@laposte.net> (Sebastian Frias's message of
-        "Fri, 4 Nov 2016 18:02:15 +0100")
+In-Reply-To: <20161104.110759.1093635654135143910.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian Frias <sf84@laposte.net> writes:
+On Fri, 2016-11-04 at 11:07 -0400, David Miller wrote:
+> From: Lino Sanfilippo <lsanfil@marvell.com>
+> > On 04.11.2016 07:53, Joe Perches wrote:
+> >> CHECK:REVERSE_XMAS_TREE: Prefer ordering declarations longest to
+> >> shortest
+> >> #446: FILE: drivers/net/ethernet/ethoc.c:446:
+> >> +                    int size = bd.stat >> 16;
+> >> +                    struct sk_buff *skb;
+> > should not this case be valid? Optically the longer line is already
+> > before the shorter.
+> > I think that the whole point in using this reverse xmas tree ordering
+> > is to have
+> > the code optically tidied up and not to enforce ordering between
+> > variable name lengths.
+> 
+> That's correct.
 
-> Commit a999589ccaae ("phylib: add RGMII-ID interface mode definition")
-> and commit 7d400a4c5897 ("phylib: add PHY interface modes for internal
-> delay for tx and rx only") added several RGMII definitions:
-> PHY_INTERFACE_MODE_RGMII_ID, PHY_INTERFACE_MODE_RGMII_RXID and
-> PHY_INTERFACE_MODE_RGMII_TXID to deal with internal delays.
->
-> Those are all RGMII modes (1Gbit) and must be considered that way when
-> setting the MAC mode or the pad mode for the HW to work properly.
->
-> Signed-off-by: Sebastian Frias <sf84@laposte.net>
-> ---
->  drivers/net/ethernet/aurora/nb8800.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> index d2855c9..fba2699 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -598,6 +598,7 @@ static irqreturn_t nb8800_irq(int irq, void *dev_id)
->  static void nb8800_mac_config(struct net_device *dev)
->  {
->  	struct nb8800_priv *priv = netdev_priv(dev);
-> +	struct phy_device *phydev = dev->phydev;
->  	bool gigabit = priv->speed == SPEED_1000;
->  	u32 mac_mode_mask = RGMII_MODE | HALF_DUPLEX | GMAC_MODE;
->  	u32 mac_mode = 0;
-> @@ -609,7 +610,7 @@ static void nb8800_mac_config(struct net_device *dev)
->  		mac_mode |= HALF_DUPLEX;
->
->  	if (gigabit) {
-> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
-> +		if (phy_interface_is_rgmii(phydev))
->  			mac_mode |= RGMII_MODE;
->
->  		mac_mode |= GMAC_MODE;
+And also another reason the whole reverse xmas tree
+automatic declaration layout concept is IMO dubious.
 
-This part is correct regardless of the outcome of the delay setup
-discussion.
+Basically, you're looking not at the initial ordering
+of automatics as important, but helping find a specific
+automatic when reversing from reading code is not always
+correct.
 
-> @@ -1278,9 +1279,8 @@ static int nb8800_tangox_init(struct net_device *dev)
->  		break;
->
->  	case PHY_INTERFACE_MODE_RGMII:
-> -		pad_mode = PAD_MODE_RGMII;
-> -		break;
-> -
-> +	case PHY_INTERFACE_MODE_RGMII_ID:
-> +	case PHY_INTERFACE_MODE_RGMII_RXID:
->  	case PHY_INTERFACE_MODE_RGMII_TXID:
->  		pad_mode = PAD_MODE_RGMII;
->  		break;
-> -- 
-> 1.7.11.2
->
+Something like:
 
--- 
-Måns Rullgård
+static void function{args,...)
+{
+	[longish list of reverse xmas tree identifiers...]
+	struct foo *bar = longish_function(args, ...);
+	struct foobarbaz *qux;
+	[more identifers]
+
+	[multiple screenfuls of code later...)
+
+	new_function(..., bar, ...);
+
+	[more code...]
+}
+
+and the reverse xmas tree helpfulness of looking up the
+type of bar is neither obvious nor easy.
+
+My preference would be for a bar that serves coffee and alcohol.
