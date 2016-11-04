@@ -1,89 +1,96 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: Re: Ethernet not working on a different SoC with same eth HW
-Date: Fri, 4 Nov 2016 15:01:45 +0100
-Message-ID: <581C94C9.5080503@laposte.net>
-References: <58176355.7090200@free.fr> <20161031153704.GD9441@lunn.ch>
- <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
- <58177128.8090403@free.fr> <581C8691.2060306@free.fr>
- <yw1xy40zjrcw.fsf@unicorn.mansr.com> <581C9273.906@free.fr>
- <20161104135752.GC3600@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Mans Rullgard <mans@mansr.com>, netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
-        Daniel Mack <zonque@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>, Mason <slash.tmp@free.fr>
+From: Jason Baron <jbaron@akamai.com>
+Subject: [PATCH net] fib_trie: correct /proc/net/route for large read buffer
+Date: Fri,  4 Nov 2016 10:45:30 -0400
+Message-ID: <1478270730-11765-1-git-send-email-jbaron@akamai.com>
+Cc: netdev@vger.kernel.org, Andy Whitcroft <apw@canonical.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpoutz26.laposte.net ([194.117.213.101]:57145 "EHLO
-        smtp.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S934545AbcKDOZY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 10:25:24 -0400
-Received: from smtp.laposte.net (localhost [127.0.0.1])
-        by lpn-prd-vrout014 (Postfix) with ESMTP id 74A6B121331
-        for <netdev@vger.kernel.org>; Fri,  4 Nov 2016 15:01:47 +0100 (CET)
-Received: from smtp.laposte.net (localhost [127.0.0.1])
-        by lpn-prd-vrout014 (Postfix) with ESMTP id 65BEF121735
-        for <netdev@vger.kernel.org>; Fri,  4 Nov 2016 15:01:47 +0100 (CET)
-Received: from lpn-prd-vrin002 (lpn-prd-vrin002.prosodie [10.128.63.3])
-        by lpn-prd-vrout014 (Postfix) with ESMTP id 6156C121331
-        for <netdev@vger.kernel.org>; Fri,  4 Nov 2016 15:01:47 +0100 (CET)
-Received: from lpn-prd-vrin002 (localhost [127.0.0.1])
-        by lpn-prd-vrin002 (Postfix) with ESMTP id 4338C5BF2AC
-        for <netdev@vger.kernel.org>; Fri,  4 Nov 2016 15:01:47 +0100 (CET)
-In-Reply-To: <20161104135752.GC3600@lunn.ch>
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:52493 "EHLO
+        prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S934883AbcKDOqc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 10:46:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/04/2016 02:57 PM, Andrew Lunn wrote:
->> Considering the ethernet DT bindings:
->>
->> https://www.kernel.org/doc/Documentation/devicetree/bindings/net/ethernet.txt
->>
->> Specifically, phy-mode values "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid".
->>
->> Assuming that "rxid" (rx internal delay) and "rx clock delay" are
->> in fact the same concept with different names, do you agree that
->> it would be unexpected for "rgmii rx clock delay" to be enabled
->> when a DTB specifies "rgmii" or "rgmii-txid" ?
-> 
-> I agree with you. But fixing it is likely to break boards which
-> currently have "rgmii", but actually need the delay in order to work.
-> 
-> 	  Andrew
-> 
+From: Jason Baron <jbaron@akamai.com>
 
-I think you are right, if I disable the RX delay on 'drivers/net/phy/at803x.c'
-I get RX errors when using the 'drivers/net/ethernet/aurora/nb8800.c' driver,
-errors reported in function nb8800_poll()
+When read() is called on /proc/net/route requesting a size that is one
+entry size (128 bytes) less than m->size or greater, the resulting output
+has missing and/or duplicate entries. Since m->size is typically PAGE_SIZE,
+for a PAGE_SIZE of 4,096 this means that reads requesting more than 3,968
+bytes will see bogus output.
 
-if (IS_RX_ERROR(rxd->report))
-{
-   nb8800_rx_error(dev, rxd->report);
-}
+For example:
 
-(this is on the same board Mason is discussing about)
+for i in {100..200}; do
+	ip route add 192.168.1.$i dev eth0
+done
+dd if=/proc/net/route of=/tmp/good bs=1024
+dd if=/proc/net/route of=/tmp/bad bs=4096
 
-Another thing to note is that 'drivers/net/ethernet/aurora/nb8800.c' is
-currently checking PHY_INTERFACE_MODE_RGMII_TXID to add a TX clock output
-delay.
+# diff -q /tmp/good /tmp/bad
+Files /tmp/good and /tmp/bad differ
 
-Since a PHY, like the 'drivers/net/phy/at803x.c', will setup a TX delay if
-phy-connection-type="rgmii-txid" on DT, the code in 'nb8800.c' may be adding
-an additional (and possibly unwanted) delay, right?
+I think this has gone unnoticed, since the output of 'netstat -r' and
+'route' is generated by reading in 1,024 byte increments and thus not
+corrupted. Further, the number of entries in the route table needs to be
+sufficiently large in order to trigger the problematic case.
 
-Actually, I have a patch for 'nb8800.c' to remove the "additional" TX delay,
-and I did not see regressions with it. I can post the patch as RFC if
-you want.
+The issue arises because fib_route_get_idx() does not properly handle
+the case where pos equals iter->pos. This case only arises when we have
+a large read buffer size because we end up re-requesting the last entry
+that overflowed m->buf. In the case of a smaller read buffer size,
+we don't exceed the size of m->buf, and thus fib_route_get_idx() is called
+with pos greater than iter->pos.
 
-One more thing, the "tx" and "rx" concepts are in reference to what?
-Is "tx" at PHY driver to be matched by "rx" at Ethernet driver?
+Fix by properly handling the iter->pos == pos case.
 
-Best regards,
+Fixes: 25b97c016b26 ("ipv4: off-by-one in continuation handling in /proc/net/route")
+Cc: Andy Whitcroft <apw@canonical.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jason Baron <jbaron@akamai.com>
+---
+ net/ipv4/fib_trie.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-Sebastian
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 31cef3602585..1017533fc75c 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -2411,12 +2411,17 @@ static struct key_vector *fib_route_get_idx(struct fib_route_iter *iter,
+ 					    loff_t pos)
+ {
+ 	struct key_vector *l, **tp = &iter->tnode;
++	loff_t saved_pos = 0;
+ 	t_key key;
+ 
+ 	/* use cache location of next-to-find key */
+ 	if (iter->pos > 0 && pos >= iter->pos) {
+ 		pos -= iter->pos;
+ 		key = iter->key;
++		if (pos == 0) {
++			saved_pos = iter->pos;
++			key--;
++		}
+ 	} else {
+ 		iter->pos = 0;
+ 		key = 0;
+@@ -2436,10 +2441,13 @@ static struct key_vector *fib_route_get_idx(struct fib_route_iter *iter,
+ 			break;
+ 	}
+ 
+-	if (l)
++	if (l) {
+ 		iter->key = key;	/* remember it */
+-	else
++		if (saved_pos)
++			iter->pos = saved_pos;
++	} else {
+ 		iter->pos = 0;		/* forget it */
++	}
+ 
+ 	return l;
+ }
+-- 
+2.6.1
