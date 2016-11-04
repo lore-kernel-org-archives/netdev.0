@@ -1,43 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Coding Style: Reverse XMAS tree declarations ?
-Date: Fri, 04 Nov 2016 11:07:59 -0400 (EDT)
-Message-ID: <20161104.110759.1093635654135143910.davem@davemloft.net>
-References: <20161103.155816.642712588084106823.davem@davemloft.net>
-        <1478242438.1924.31.camel@perches.com>
-        <581C6A7D.8030704@marvell.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/2] net: ethernet: nb8800: Do not apply TX delay at MAC
+ level
+Date: Fri, 4 Nov 2016 16:11:51 +0100
+Message-ID: <20161104151151.GF3600@lunn.ch>
+References: <581CA300.1060609@laposte.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, madalin.bucur@nxp.com, akpm@linux-foundation.org,
-        corbet@lwn.net, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-        oss@buserror.net, ppc@mindchasers.com, pebolle@tiscali.nl,
-        joakim.tjernlund@transmode.se
-To: lsanfil@marvell.com
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>
+To: Sebastian Frias <sf84@laposte.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <581C6A7D.8030704@marvell.com>
+Content-Disposition: inline
+In-Reply-To: <581CA300.1060609@laposte.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lino Sanfilippo <lsanfil@marvell.com>
-Date: Fri, 4 Nov 2016 12:01:17 +0100
-
-> Hi,
+On Fri, Nov 04, 2016 at 04:02:24PM +0100, Sebastian Frias wrote:
+> The delay can be applied at PHY or MAC level, but since
+> PHY drivers will apply the delay at PHY level when using
+> one of the "internal delay" declinations of RGMII mode
+> (like PHY_INTERFACE_MODE_RGMII_TXID), applying it again
+> at MAC level causes issues.
 > 
-> On 04.11.2016 07:53, Joe Perches wrote:
->>
->> CHECK:REVERSE_XMAS_TREE: Prefer ordering declarations longest to
->> shortest
->> #446: FILE: drivers/net/ethernet/ethoc.c:446:
->> +			int size = bd.stat >> 16;
->> +			struct sk_buff *skb;
->>
+> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+> ---
+>  drivers/net/ethernet/aurora/nb8800.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> should not this case be valid? Optically the longer line is already
-> before the shorter.
-> I think that the whole point in using this reverse xmas tree ordering
-> is to have
-> the code optically tidied up and not to enforce ordering between
-> variable name lengths.
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+> index b59aa35..d2855c9 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.c
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+> @@ -1282,7 +1282,7 @@ static int nb8800_tangox_init(struct net_device *dev)
+>  		break;
+>  
+>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+> -		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+> +		pad_mode = PAD_MODE_RGMII;
+>  		break;
 
-That's correct.
+How many boards use this Ethernet driver? How many boards are your
+potentially breaking, because they need this delay?
+
+I guess it is a small number, because doesn't it require the PHY is
+also broken, not adding a delay when it should?
+
+     Andrew
