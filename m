@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 02/11] net: dsa: mv88e6xxx: add port state setter
-Date: Fri,  4 Nov 2016 03:23:27 +0100
-Message-ID: <20161104022336.14273-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 05/11] net: dsa: mv88e6xxx: add port PVID accessors
+Date: Fri,  4 Nov 2016 03:23:30 +0100
+Message-ID: <20161104022336.14273-6-vivien.didelot@savoirfairelinux.com>
 References: <20161104022336.14273-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,145 +9,170 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:51554 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757188AbcKDCYW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 22:24:22 -0400
 In-Reply-To: <20161104022336.14273-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add the port STP state setter to the port files.
+Add port functions to access the ports default VID.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 49 ++++------------------------------------
- drivers/net/dsa/mv88e6xxx/port.c | 31 +++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/port.h |  2 ++
- 3 files changed, 37 insertions(+), 45 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 51 ++++------------------------------------
+ drivers/net/dsa/mv88e6xxx/port.c | 38 ++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h |  3 +++
+ 3 files changed, 45 insertions(+), 47 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index b32b242..12c1175 100644
+index 20f59f1..9c0a028 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1215,41 +1215,6 @@ static int _mv88e6xxx_atu_remove(struct mv88e6xxx_chip *chip, u16 fid,
- 	return _mv88e6xxx_atu_move(chip, fid, port, 0x0f, static_too);
+@@ -1288,49 +1288,6 @@ static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
+ 		netdev_err(ds->ports[port].netdev, "failed to flush ATU\n");
  }
  
--static const char * const mv88e6xxx_port_state_names[] = {
--	[PORT_CONTROL_STATE_DISABLED] = "Disabled",
--	[PORT_CONTROL_STATE_BLOCKING] = "Blocking/Listening",
--	[PORT_CONTROL_STATE_LEARNING] = "Learning",
--	[PORT_CONTROL_STATE_FORWARDING] = "Forwarding",
--};
--
--static int _mv88e6xxx_port_state(struct mv88e6xxx_chip *chip, int port,
--				 u8 state)
+-static int _mv88e6xxx_port_pvid(struct mv88e6xxx_chip *chip, int port,
+-				u16 *new, u16 *old)
 -{
 -	struct dsa_switch *ds = chip->ds;
--	u16 reg;
+-	u16 pvid, reg;
 -	int err;
--	u8 oldstate;
 -
--	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL, &reg);
+-	err = mv88e6xxx_port_read(chip, port, PORT_DEFAULT_VLAN, &reg);
 -	if (err)
 -		return err;
 -
--	oldstate = reg & PORT_CONTROL_STATE_MASK;
+-	pvid = reg & PORT_DEFAULT_VLAN_MASK;
 -
--	reg &= ~PORT_CONTROL_STATE_MASK;
--	reg |= state;
+-	if (new) {
+-		reg &= ~PORT_DEFAULT_VLAN_MASK;
+-		reg |= *new & PORT_DEFAULT_VLAN_MASK;
 -
--	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
--	if (err)
--		return err;
+-		err = mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, reg);
+-		if (err)
+-			return err;
 -
--	netdev_dbg(ds->ports[port].netdev, "PortState %s (was %s)\n",
--		   mv88e6xxx_port_state_names[state],
--		   mv88e6xxx_port_state_names[oldstate]);
+-		netdev_dbg(ds->ports[port].netdev,
+-			   "DefaultVID %d (was %d)\n", *new, pvid);
+-	}
+-
+-	if (old)
+-		*old = pvid;
 -
 -	return 0;
 -}
 -
- static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int port)
+-static int _mv88e6xxx_port_pvid_get(struct mv88e6xxx_chip *chip,
+-				    int port, u16 *pvid)
+-{
+-	return _mv88e6xxx_port_pvid(chip, port, NULL, pvid);
+-}
+-
+-static int _mv88e6xxx_port_pvid_set(struct mv88e6xxx_chip *chip,
+-				    int port, u16 pvid)
+-{
+-	return _mv88e6xxx_port_pvid(chip, port, &pvid, NULL);
+-}
+-
+ static int _mv88e6xxx_vtu_wait(struct mv88e6xxx_chip *chip)
  {
- 	struct net_device *bridge = chip->ports[port].bridge_dev;
-@@ -1313,13 +1278,11 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- 	}
+ 	return mv88e6xxx_g1_wait(chip, GLOBAL_VTU_OP, GLOBAL_VTU_OP_BUSY);
+@@ -1510,7 +1467,7 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
  
  	mutex_lock(&chip->reg_lock);
--	err = _mv88e6xxx_port_state(chip, port, stp_state);
-+	err = mv88e6xxx_port_set_state(chip, port, stp_state);
- 	mutex_unlock(&chip->reg_lock);
  
+-	err = _mv88e6xxx_port_pvid_get(chip, port, &pvid);
++	err = mv88e6xxx_port_get_pvid(chip, port, &pvid);
  	if (err)
--		netdev_err(ds->ports[port].netdev,
--			   "failed to update state to %s\n",
--			   mv88e6xxx_port_state_names[stp_state]);
-+		netdev_err(ds->ports[port].netdev, "failed to update state\n");
- }
+ 		goto unlock;
  
- static void mv88e6xxx_port_fast_age(struct dsa_switch *ds, int port)
-@@ -2526,12 +2489,8 @@ static int mv88e6xxx_switch_reset(struct mv88e6xxx_chip *chip)
+@@ -1958,7 +1915,7 @@ static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+ 				   "failed to add VLAN %d%c\n",
+ 				   vid, untagged ? 'u' : 't');
  
- 	/* Set all ports to the disabled state. */
- 	for (i = 0; i < mv88e6xxx_num_ports(chip); i++) {
--		err = mv88e6xxx_port_read(chip, i, PORT_CONTROL, &reg);
--		if (err)
--			return err;
--
--		err = mv88e6xxx_port_write(chip, i, PORT_CONTROL,
--					   reg & 0xfffc);
-+		err = mv88e6xxx_port_set_state(chip, i,
-+					       PORT_CONTROL_STATE_DISABLED);
- 		if (err)
- 			return err;
- 	}
+-	if (pvid && _mv88e6xxx_port_pvid_set(chip, port, vlan->vid_end))
++	if (pvid && mv88e6xxx_port_set_pvid(chip, port, vlan->vid_end))
+ 		netdev_err(ds->ports[port].netdev, "failed to set PVID %d\n",
+ 			   vlan->vid_end);
+ 
+@@ -2013,7 +1970,7 @@ static int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 
+ 	mutex_lock(&chip->reg_lock);
+ 
+-	err = _mv88e6xxx_port_pvid_get(chip, port, &pvid);
++	err = mv88e6xxx_port_get_pvid(chip, port, &pvid);
+ 	if (err)
+ 		goto unlock;
+ 
+@@ -2023,7 +1980,7 @@ static int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 			goto unlock;
+ 
+ 		if (vid == pvid) {
+-			err = _mv88e6xxx_port_pvid_set(chip, port, 0);
++			err = mv88e6xxx_port_set_pvid(chip, port, 0);
+ 			if (err)
+ 				goto unlock;
+ 		}
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 3b36c92..8d59fe7 100644
+index a7da812..104fe2d 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -29,3 +29,34 @@ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
+@@ -152,3 +152,41 @@ int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid)
  
- 	return mv88e6xxx_write(chip, addr, reg, val);
+ 	return 0;
  }
 +
-+/* Offset 0x04: Port Control Register */
++/* Offset 0x07: Default Port VLAN ID & Priority */
 +
-+static const char * const mv88e6xxx_port_state_names[] = {
-+	[PORT_CONTROL_STATE_DISABLED] = "Disabled",
-+	[PORT_CONTROL_STATE_BLOCKING] = "Blocking/Listening",
-+	[PORT_CONTROL_STATE_LEARNING] = "Learning",
-+	[PORT_CONTROL_STATE_FORWARDING] = "Forwarding",
-+};
-+
-+int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
++int mv88e6xxx_port_get_pvid(struct mv88e6xxx_chip *chip, int port, u16 *pvid)
 +{
 +	u16 reg;
 +	int err;
 +
-+	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL, &reg);
++	err = mv88e6xxx_port_read(chip, port, PORT_DEFAULT_VLAN, &reg);
 +	if (err)
 +		return err;
 +
-+	reg &= ~PORT_CONTROL_STATE_MASK;
-+	reg |= state;
++	*pvid = reg & PORT_DEFAULT_VLAN_MASK;
 +
-+	err = mv88e6xxx_port_write(chip, port, PORT_CONTROL, reg);
++	return 0;
++}
++
++int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid)
++{
++	u16 reg;
++	int err;
++
++	err = mv88e6xxx_port_read(chip, port, PORT_DEFAULT_VLAN, &reg);
 +	if (err)
 +		return err;
 +
-+	netdev_dbg(chip->ds->ports[port].netdev, "PortState set to %s\n",
-+		   mv88e6xxx_port_state_names[state]);
++	reg &= ~PORT_DEFAULT_VLAN_MASK;
++	reg |= pvid & PORT_DEFAULT_VLAN_MASK;
++
++	err = mv88e6xxx_port_write(chip, port, PORT_DEFAULT_VLAN, reg);
++	if (err)
++		return err;
++
++	netdev_dbg(chip->ds->ports[port].netdev, "DefaultVID set to %u\n",
++		   pvid);
 +
 +	return 0;
 +}
 diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index ae1ae2b..ac13988 100644
+index 0df29b9..4489d9e 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.h
 +++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -21,4 +21,6 @@ int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
- int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
- 			 u16 val);
+@@ -28,4 +28,7 @@ int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map);
+ int mv88e6xxx_port_get_fid(struct mv88e6xxx_chip *chip, int port, u16 *fid);
+ int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid);
  
-+int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state);
++int mv88e6xxx_port_get_pvid(struct mv88e6xxx_chip *chip, int port, u16 *pvid);
++int mv88e6xxx_port_set_pvid(struct mv88e6xxx_chip *chip, int port, u16 pvid);
 +
  #endif /* _MV88E6XXX_PORT_H */
 -- 
