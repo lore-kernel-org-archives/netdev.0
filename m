@@ -1,54 +1,90 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
-Date: Fri, 4 Nov 2016 16:13:04 -0400
-Message-ID: <fd873b26-e55e-981b-1351-da5538200929@pobox.com>
-References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
- <20161030.205755.1198665157526465556.davem@davemloft.net>
- <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
- <20161030.235342.134481656830778556.davem@davemloft.net>
- <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
- <201611030159.uA31x0np004648@rtits1.realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20104878A@RTITMBSV03.realtek.com.tw>
- <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
- <d1ac848d-d36d-c81a-e0a2-4cab2d7382cd@pobox.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: Coding Style: Reverse XMAS tree declarations ?
+Date: Fri, 4 Nov 2016 21:06:58 +0100
+Message-ID: <31ace8dd-1e42-2762-6367-028068d4d816@gmx.de>
+References: <20161103.155816.642712588084106823.davem@davemloft.net>
+ <1478242438.1924.31.camel@perches.com> <581C6A7D.8030704@marvell.com>
+ <20161104.110759.1093635654135143910.davem@davemloft.net>
+ <1478281455.1924.41.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>,
-        David Miller <davem@davemloft.net>
+Cc: madalin.bucur@nxp.com, akpm@linux-foundation.org, corbet@lwn.net,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, oss@buserror.net,
+        ppc@mindchasers.com, pebolle@tiscali.nl,
+        joakim.tjernlund@transmode.se, Randy Dunlap <rdunlap@infradead.org>
+To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+        lsanfil@marvell.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d1ac848d-d36d-c81a-e0a2-4cab2d7382cd@pobox.com>
+In-Reply-To: <1478281455.1924.41.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16-11-04 09:50 AM, Mark Lord wrote:
-> Yeah, the device or driver is definitely getting confused with rx_desc structures.
-> I added code to check for unlikely rx_desc values, and it found this for starters:
+On 04.11.2016 18:44, Joe Perches wrote:
+> On Fri, 2016-11-04 at 11:07 -0400, David Miller wrote:
+>> From: Lino Sanfilippo <lsanfil@marvell.com>
+>> > On 04.11.2016 07:53, Joe Perches wrote:
+>> >> CHECK:REVERSE_XMAS_TREE: Prefer ordering declarations longest to
+>> >> shortest
+>> >> #446: FILE: drivers/net/ethernet/ethoc.c:446:
+>> >> +                    int size = bd.stat >> 16;
+>> >> +                    struct sk_buff *skb;
+>> > should not this case be valid? Optically the longer line is already
+>> > before the shorter.
+>> > I think that the whole point in using this reverse xmas tree ordering
+>> > is to have
+>> > the code optically tidied up and not to enforce ordering between
+>> > variable name lengths.
+>> 
+>> That's correct.
 > 
-> rx_desc: 00480801 00480401 00480001 0048fc00 0048f800 0048f400 pkt_len=2045
-> rx_data: 00 f0 48 00 00 ec 48 00 00 e8 48 00 00 e4 48 00 00 e0 48 00 00 dc 48 00 00 d8 48 00 00 d4
-> 48 00
-> rx_data: 00 d0 48 00 00 cc 48 00 00 c8 48 00 00 c4 48 00 00 c0 48 00 00 bc 48 00 00 b8 48 00 00 b4
-> 48 00
-> rx_data: 00 b0 48 00 00 ac 48 00 00 01 00 00 81 ed 00 00 00 01 00 00 00 00 00 00 00 00 00 02 4d ac
-> 00 00
-> rx_data: 10 00 ff ff ff ff 00 00 01 28 83 d6 ff 6d 00 20 25 b1 58 1b 68 ff 00 05 20 01 56 41 17 35
-> 00 00
-> ...
+> And also another reason the whole reverse xmas tree
+> automatic declaration layout concept is IMO dubious.
 > 
-> The MTU/MRU on this link is the standard 1500 bytes, so a pkt_len of 2045 isn't valid here.
-> And the rx_desc values look an awful lot like the rx_data values that follow it.
+> Basically, you're looking not at the initial ordering
+> of automatics as important, but helping find a specific
+> automatic when reversing from reading code is not always
+> correct.
 > 
-> There's definitely more broken here than just TCP RX checksums.
+> Something like:
+> 
+> static void function{args,...)
+> {
+> 	[longish list of reverse xmas tree identifiers...]
+> 	struct foo *bar = longish_function(args, ...);
+> 	struct foobarbaz *qux;
+> 	[more identifers]
+> 
+> 	[multiple screenfuls of code later...)
+> 
+> 	new_function(..., bar, ...);
+> 
+> 	[more code...]
+> }
+> 
+> and the reverse xmas tree helpfulness of looking up the
+> type of bar is neither obvious nor easy.
+> 
 
-I spent a bit more time on this again today, and made progress.
-The issue seems to be stale rx buffers.
-I'll discuss further offline with Hayes Wang.
+In this case it is IMHO rather the declaration + initialization that makes
+"bar" hard to find at one glance, not the use of RXT. You could do something like
 
--- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+ 	[longish list of reverse xmas tree identifiers...]
+ 	struct foobarbaz *qux;
+ 	struct foo *bar;
+
+ 	bar = longish_function(args, ...);
+
+to increase readability. 
+
+Personally I find it more readable to always use a separate line for initializations
+by means of functions (regardless of whether the RXT scheme is used or not). 
+ 
+> My preference would be for a bar that serves coffee and alcohol.
+> 
+
+At least a bar like this should not be too hard to find :)
+
+Regards,
+Lino
