@@ -1,46 +1,67 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
-Date: Fri, 4 Nov 2016 08:13:59 -0400
-Message-ID: <4365eeb3-8e83-4fdd-f277-25c84b7a5d37@pobox.com>
-References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
- <20161030.205755.1198665157526465556.davem@davemloft.net>
- <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
- <20161030.235342.134481656830778556.davem@davemloft.net>
- <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
- <008b7d7d-74af-0341-0c16-40aafde5a223@pobox.com>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: Re: [PATCH net-next 1/5] ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE
+ and ETHTOOL_PHY_STUNABLE
+Date: Fri, 4 Nov 2016 13:18:41 +0100
+Message-ID: <20161104121841.GA5676@microsemi.com>
+References: <1478255742-25693-1-git-send-email-allan.nielsen@microsemi.com>
+ <1478255742-25693-2-git-send-email-allan.nielsen@microsemi.com>
+ <20161104120343.GI13959@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <008b7d7d-74af-0341-0c16-40aafde5a223@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>, <cphealy@gmail.com>,
+        <robh@kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0071.outbound.protection.outlook.com ([104.47.36.71]:41766
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753178AbcKDMSt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 08:18:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20161104120343.GI13959@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-11-02 02:29 PM, Mark Lord wrote:
->
-> I have poked at it some more, and thus far it appears that it is
-> only necessary to disable TCP rx checksums.  The system doesn't crash
-> when only IP/UDP checksums are enabled, but does when TCP checksums are on.
->
-> This happens regardless of whether RX_AGG is disabled or enabled,
-> and increasing/decreasing the number of RX URBs (RTL8152_MAX_RX)
-> doesn't seem to affect it.
->
-..
+Hi,
 
-I noticed that BIT(20) was not defined as anything for "opts3",
-and so I added a line to rx_csum to check whether or not that bit
-was ever set.
+On 04/11/16 13:03, Andrew Lunn wrote:
+> On Fri, Nov 04, 2016 at 11:35:38AM +0100, Allan W. Nielsen wrote:
+> > From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> >
+> > Defines a generic API to get/set phy tunables. The API is using the
+> > existing ethtool_tunable/tunable_type_id types which is already being used
+> > for mac level tunables.
+> >
+> > Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> > Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> > ---
+> >  include/uapi/linux/ethtool.h | 7 ++++++-
+> >  1 file changed, 6 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> > index 8e54723..fd0bd36 100644
+> > --- a/include/uapi/linux/ethtool.h
+> > +++ b/include/uapi/linux/ethtool.h
+> > @@ -248,6 +248,10 @@ struct ethtool_tunable {
+> >       void    *data[0];
+> >  };
+> >
+> > +enum phy_tunable_id {
+> > +     ETHTOOL_PHY_ID_UNSPEC,
+> > +};
+> 
+> Do you have any idea what this is for? A grep for
+> ETHTOOL_TUNABLE_UNSPEC does not turn up anything.
+It is not used...
 
-It triggered after a few thousand reset/reboot cycles with opts3
-having the rather dubious looking value of an ASCII string: 0x5c7d7852.
+It was "just" to mimic how "tunable_type_id/ETHTOOL_TUNABLE_UNSPEC" (and other)
+is done.
 
-So to me, it appears that the rx_desc's are getting mixed-up with data somewhere,
-and when using hardware TCP checksums this doesn't get caught.  So perhaps the
-checksums themselves are fine, but there's another bug (driver or hardware?)
-that sneaks through when not doing software checksums.
+The thinking was that we did not want an "ID" of zero do to anything - because
+that could mean the programmer had forgot to set the field...
+
+I have on strong feelings about this, please let us know if you would like this
+done in an other way.
+
+/Allan
