@@ -1,62 +1,95 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Ethernet not working on a different SoC with same eth HW
-Date: Fri, 4 Nov 2016 15:13:45 +0100
-Message-ID: <581C9799.3040101@free.fr>
-References: <58176355.7090200@free.fr> <20161031153704.GD9441@lunn.ch>
- <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
- <58177128.8090403@free.fr> <581C8691.2060306@free.fr>
- <yw1xy40zjrcw.fsf@unicorn.mansr.com> <581C9273.906@free.fr>
- <20161104135752.GC3600@lunn.ch> <yw1xtwbnjq88.fsf@unicorn.mansr.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v4 3/9] ipv6: sr: add support for SRH
+ encapsulation and injection with lwtunnels
+Date: Fri, 4 Nov 2016 15:21:54 +0100
+Message-ID: <20161104142154.GA19947@pox.localdomain>
+References: <1478255388-32213-1-git-send-email-david.lebrun@uclouvain.be>
+ <1478255388-32213-4-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
-        Daniel Mack <zonque@gmail.com>,
-        Sebastian Frias <sf84@laposte.net>
-To: Mans Rullgard <mans@mansr.com>, Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Lebrun <david.lebrun@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:55265 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753185AbcKDOOO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 10:14:14 -0400
-In-Reply-To: <yw1xtwbnjq88.fsf@unicorn.mansr.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:35797 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758408AbcKDOV6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 10:21:58 -0400
+Received: by mail-wm0-f49.google.com with SMTP id a197so54163796wmd.0
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 07:21:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1478255388-32213-4-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2016 15:04, Måns Rullgård wrote:
+On 11/04/16 at 11:29am, David Lebrun wrote:
+> +/* insert an SRH within an IPv6 packet, just after the IPv6 header */
+> +static int seg6_do_srh_inline(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
+> +{
+> +	struct ipv6hdr *hdr, *oldhdr;
+> +	struct ipv6_sr_hdr *isrh;
+> +	int hdrlen, err;
+> +
+> +	hdrlen = (osrh->hdrlen + 1) << 3;
+> +
+> +	err = pskb_expand_head(skb, hdrlen, 0, GFP_ATOMIC);
+> +	if (unlikely(err))
+> +		return err;
+> +
+> +	oldhdr = ipv6_hdr(skb);
+> +
+> +	skb_pull(skb, sizeof(struct ipv6hdr));
+> +	skb_postpull_rcsum(skb, skb_network_header(skb),
+> +			   sizeof(struct ipv6hdr));
+> +
+> +	skb_push(skb, sizeof(struct ipv6hdr) + hdrlen);
+> +	skb_reset_network_header(skb);
+> +	skb_mac_header_rebuild(skb);
+> +
+> +	hdr = ipv6_hdr(skb);
+> +
+> +	memmove(hdr, oldhdr, sizeof(*hdr));
+> +
+> +	isrh = (void *)hdr + sizeof(*hdr);
+> +	memcpy(isrh, osrh, hdrlen);
+> +
+> +	isrh->nexthdr = hdr->nexthdr;
+> +	hdr->nexthdr = NEXTHDR_ROUTING;
+> +
+> +	isrh->segments[0] = hdr->daddr;
+> +	hdr->daddr = isrh->segments[isrh->first_segment];
 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
->>> Considering the ethernet DT bindings:
->>>
->>> https://www.kernel.org/doc/Documentation/devicetree/bindings/net/ethernet.txt
->>>
->>> Specifically, phy-mode values "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid".
->>>
->>> Assuming that "rxid" (rx internal delay) and "rx clock delay" are
->>> in fact the same concept with different names, do you agree that
->>> it would be unexpected for "rgmii rx clock delay" to be enabled
->>> when a DTB specifies "rgmii" or "rgmii-txid" ?
->>
->> I agree with you. But fixing it is likely to break boards which
->> currently have "rgmii", but actually need the delay in order to work.
-> 
-> Does the internal delay here refer to the PHY or the MAC?  It's a
-> property of the MAC node after all.
+Where do you verify that isrh->first_segment is not out of bounds?
 
-Isn't there a one-to-one correspondence between MAC and PHY?
+> +	skb_postpush_rcsum(skb, hdr, sizeof(struct ipv6hdr) + hdrlen);
+> +
+> +	return 0;
+> +}
+> +
+> +
+> +static int seg6_build_state(struct net_device *dev, struct nlattr *nla,
+> +			    unsigned int family, const void *cfg,
+> +			    struct lwtunnel_state **ts)
+> +{
+> +	struct nlattr *tb[SEG6_IPTUNNEL_MAX + 1];
+> +	struct seg6_iptunnel_encap *tuninfo;
+> +	struct lwtunnel_state *newts;
+> +	struct seg6_lwt *slwt;
+> +	int tuninfo_len;
+> +	int err;
+> +
+> +	err = nla_parse_nested(tb, SEG6_IPTUNNEL_MAX, nla,
+> +			       seg6_iptunnel_policy);
+> +
+> +	if (err < 0)
+> +		return err;
+> +
+> +	if (!tb[SEG6_IPTUNNEL_SRH])
+> +		return -EINVAL;
+> +
+> +	tuninfo = nla_data(tb[SEG6_IPTUNNEL_SRH]);
+> +	tuninfo_len = SEG6_IPTUN_ENCAP_SIZE(tuninfo);
 
-Can a MAC be connected to multiple PHYs?
-Can a PHY be connected to multiple MACs?
-
-If it is a one-to-one correspondence, then whether the
-property is specified in the MAC or PHY node is just a
-matter of presentation, IMHO.
-
-Regards.
+Nothing guarantees the size of the Netlink attribute right now. You
+need to add a minimal size requirement to seg6_iptunnel_policy and
+then check that the additional len provided in the struct itself does
+not exceed the Netlink attribute length.
