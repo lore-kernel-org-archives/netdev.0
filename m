@@ -1,72 +1,76 @@
-From: Neil Armstrong <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Subject: Re: [RFC PATCH v2 0/5] ARM64: Add Internal PHY support for Meson GXL
-Date: Fri, 4 Nov 2016 11:55:01 +0100
-Message-ID: <19618350-9a4b-2b4e-6853-720101e39932@baylibre.com>
-References: <1477932987-27871-1-git-send-email-narmstrong@baylibre.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 2/3] net/qdisc: IFF_NO_QUEUE drivers should use
+ consistent TX queue len
+Date: Fri, 4 Nov 2016 11:56:52 +0100
+Message-ID: <20161104115652.597b8067@redhat.com>
+References: <20161103135534.28737.37657.stgit@firesoul>
+        <20161103135606.28737.67383.stgit@firesoul>
+        <20161103205440.GB2940@templeofstupid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org,
-        andrew-g2DYL2Zd6BY@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1477932987-27871-1-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>,
+        Robert Olsson <robert@herjulf.se>,
+        Jamal Hadi Salim <jhs@mojatatu.com>, brouer@redhat.com
+To: Krister Johansen <kjlx@templeofstupid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55016 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1761803AbcKDK45 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 06:56:57 -0400
+In-Reply-To: <20161103205440.GB2940@templeofstupid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/31/2016 05:56 PM, Neil Armstrong wrote:
-> The Amlogic Meson GXL SoCs have an internal RMII PHY that is muxed with the
-> external RGMII pins.
-> 
-> In order to support switching between the two PHYs links, extended registers
-> size for mdio-mux-mmioreg must be added.
-> 
-> Finally, the internal PHY is added in the GXL dtsi and support for each
-> board is added in intermediate board family dtsi or final dts.
-> 
-> This patchset depends on ARM64 dts patch at [1]
-> 
-> Changes since original RFC patchset at : [2]
->  - Remove meson8b experimental phy switching
->  - Switch to mdio-mux-mmioreg with extennded size support
->  - Add internal phy support for S905x and p231
->  - Add external PHY support for p230
-> 
-> [1] http://lkml.kernel.org/r/1477932286-27482-1-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
-> [2] http://lkml.kernel.org/r/1477060838-14164-1-git-send-email-narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
-> 
-> Neil Armstrong (5):
->   net: mdio-mux-mmioreg: Add support for 16bit and 32bit register sizes
->   net: phy: Add Meson GXL Internal PHY driver
->   ARM64: dts: meson-gxl: Add ethernet nodes with internal PHY
->   ARM64: dts: meson-gxl-p23x: Enable ethernet
->   ARM64: dts: meson-gxl-s905x: Enable internal ethernet PHY
-> 
->  .../devicetree/bindings/net/mdio-mux-mmioreg.txt   |  4 +-
->  .../boot/dts/amlogic/meson-gxl-s905d-p230.dts      | 16 +++++
->  .../boot/dts/amlogic/meson-gxl-s905d-p231.dts      |  6 ++
->  .../boot/dts/amlogic/meson-gxl-s905d-p23x.dtsi     |  4 ++
->  arch/arm64/boot/dts/amlogic/meson-gxl-s905x.dtsi   |  6 ++
->  arch/arm64/boot/dts/amlogic/meson-gxl.dtsi         | 45 ++++++++++++
->  drivers/net/phy/Kconfig                            |  5 ++
->  drivers/net/phy/Makefile                           |  1 +
->  drivers/net/phy/mdio-mux-mmioreg.c                 | 60 ++++++++++++----
->  drivers/net/phy/meson-gxl.c                        | 81 ++++++++++++++++++++++
->  10 files changed, 213 insertions(+), 15 deletions(-)
->  create mode 100644 drivers/net/phy/meson-gxl.c
-> 
+On Thu, 3 Nov 2016 13:54:40 -0700
+Krister Johansen <kjlx@templeofstupid.com> wrote:
 
-Hi Florian, Andrew, Sergei,
+> On Thu, Nov 03, 2016 at 02:56:06PM +0100, Jesper Dangaard Brouer wrote:
+> > The flag IFF_NO_QUEUE marks virtual device drivers that doesn't need a
+> > default qdisc attached, given they will be backed by physical device,
+> > that already have a qdisc attached for pushback.
+> > 
+> > It is still supported to attach a qdisc to a IFF_NO_QUEUE device, as
+> > this can be useful for difference policy reasons (e.g. bandwidth
+> > limiting containers).  For this to work, the tx_queue_len need to have
+> > a sane value, because some qdiscs inherit/copy the tx_queue_len
+> > (namely, pfifo, bfifo, gred, htb, plug and sfb).
+> > 
+> > Commit a813104d9233 ("IFF_NO_QUEUE: Fix for drivers not calling
+> > ether_setup()") caught situations where some drivers didn't initialize
+> > tx_queue_len.  The problem with the commit was choosing 1 as the
+> > fallback value.
+> > 
+> > A qdisc queue length of 1 causes more harm than good, because it
+> > creates hard to debug situations for userspace. It gives userspace a
+> > false sense of a working config after attaching a qdisc.  As low
+> > volume traffic (that doesn't activate the qdisc policy) works,
+> > like ping, while traffic that e.g. needs shaping cannot reach the
+> > configured policy levels, given the queue length is too small.  
+> 
+> Thanks for fixing this.  I've run into this in the exact scenario you
+> describe -- bandwith limiting containers.  I'm pretty sure my vote
+> doesn't count, but I'm in favor of this change.
 
-Thanks for reviews,
+Thanks for confirming the problem. You voice is actually very important
+in matters like this. It is important to know if people were actually
+hit by this.
 
-Since the meson-gxl dtsi has a lot of changes pending, the patches 3, 4 & 5 will be sent in a separate patchset,
-and patches 1 & 2 will be send to netdev -next.
+My own story is that I was hit by this subtle queue length 1 problem
+approx 11 years ago without noticing.  An ISP were doing qdisc shaping
+(with HTB) on VLAN devices.  The original guy who developed the system
+were fired because Internet customers were not getting the bandwidth
+they paid for.  I were hired to fix the problem, and unknowingly fixed
+it (and bufferbloat) by using SFQ instead of pfifo_fast as leaf qdisc.
+I actually didn't realize the root-cause until Oct 2014, see[1].
+(I also ended-up fixing other scalability issues in iptables[2])
 
-Neil
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+[1] https://bugzilla.redhat.com/show_bug.cgi?id=1152231
+[2] http://people.netfilter.org/hawk/presentations/osd2008/
