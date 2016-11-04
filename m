@@ -1,61 +1,60 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: Ethernet not working on a different SoC with same eth HW
-Date: Fri, 04 Nov 2016 15:05:00 +0000
-Message-ID: <yw1xpombjnfn.fsf@unicorn.mansr.com>
-References: <58176355.7090200@free.fr> <20161031153704.GD9441@lunn.ch>
-        <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
-        <58177128.8090403@free.fr> <581C8691.2060306@free.fr>
-        <yw1xy40zjrcw.fsf@unicorn.mansr.com> <581C9273.906@free.fr>
-        <20161104135752.GC3600@lunn.ch> <yw1xtwbnjq88.fsf@unicorn.mansr.com>
-        <20161104142223.GD3600@lunn.ch>
+From: Sebastian Frias <sf84@laposte.net>
+Subject: [PATCH 2/2] net: ethernet: nb8800: handle all RGMII declinations
+Date: Fri, 4 Nov 2016 16:05:52 +0100
+Message-ID: <581CA3D0.6080808@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
-        Daniel Mack <zonque@gmail.com>,
-        Sebastian Frias <sf84@laposte.net>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:43610 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934595AbcKDPFH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 11:05:07 -0400
-In-Reply-To: <20161104142223.GD3600@lunn.ch> (Andrew Lunn's message of "Fri, 4
-        Nov 2016 15:22:23 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>,
+        Andrew Lunn <andrew@lunn.ch>
+To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Commit a999589ccaae ("phylib: add RGMII-ID interface mode definition")
+and commit 7d400a4c5897 ("phylib: add PHY interface modes for internal
+delay for tx and rx only") added several RGMII declinations:
+PHY_INTERFACE_MODE_RGMII_ID, PHY_INTERFACE_MODE_RGMII_RXID and
+PHY_INTERFACE_MODE_RGMII_TXID to deal with internal delays.
 
->> > I agree with you. But fixing it is likely to break boards which
->> > currently have "rgmii", but actually need the delay in order to work.
->> 
->> Does the internal delay here refer to the PHY or the MAC?  It's a
->> property of the MAC node after all.
->
-> It is the PHY which applies the delay.
+Those are all RGMII modes (1Gbit) and must be considered that way when
+setting the MAC Mode or the Pads Mode for the HW to work properly.
 
-Says who?  Some MACs can do it too.
+Signed-off-by: Sebastian Frias <sf84@laposte.net>
+---
+ drivers/net/ethernet/aurora/nb8800.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-> The phy-mode property is in the MAC part of the device tree binding,
-> but the delay is not the primary purpose of this property. Its primary
-> purpose, RGMII, RMII, SGMII, etc, is applicable to both the MAC and
-> the PHY. It probably would of been better to have the delays as a
-> separate property, but that is not how it is...
-
-The connection type is obviously the same at both ends, so it doesn't
-really matter where that is specified.  The delay can be applied at
-either end or not at all, and it's anything but clear what the
-properties are supposed to mean.
-
-There is also no way to specify the amount of delay required even though
-many devices support more than one value.
-
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index d2855c9..6230ace 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -609,7 +609,10 @@ static void nb8800_mac_config(struct net_device *dev)
+ 		mac_mode |= HALF_DUPLEX;
+ 
+ 	if (gigabit) {
+-		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
++		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII ||
++		    priv->phy_mode == PHY_INTERFACE_MODE_RGMII_ID ||
++		    priv->phy_mode == PHY_INTERFACE_MODE_RGMII_RXID ||
++		    priv->phy_mode == PHY_INTERFACE_MODE_RGMII_TXID)
+ 			mac_mode |= RGMII_MODE;
+ 
+ 		mac_mode |= GMAC_MODE;
+@@ -1278,9 +1281,8 @@ static int nb8800_tangox_init(struct net_device *dev)
+ 		break;
+ 
+ 	case PHY_INTERFACE_MODE_RGMII:
+-		pad_mode = PAD_MODE_RGMII;
+-		break;
+-
++	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
+ 	case PHY_INTERFACE_MODE_RGMII_TXID:
+ 		pad_mode = PAD_MODE_RGMII;
+ 		break;
 -- 
-Måns Rullgård
+1.7.11.2
