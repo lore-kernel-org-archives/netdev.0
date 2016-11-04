@@ -1,73 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: assign assoc_id earlier in __sctp_connect
-Date: Fri, 4 Nov 2016 09:28:53 -0400
-Message-ID: <20161104132852.GB13691@hmsreliant.think-freely.org>
-References: <9df38dcd0323ad92386eb6851a60dc128dd00b4e.1478199530.git.marcelo.leitner@gmail.com>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: Re: [PATCH ethtool 2/2] Ethtool: Implements
+ ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE and PHY downshift
+Date: Fri, 4 Nov 2016 14:28:27 +0100
+Message-ID: <20161104132827.GA11277@microsemi.com>
+References: <1478255805-25823-1-git-send-email-allan.nielsen@microsemi.com>
+ <1478255805-25823-3-git-send-email-allan.nielsen@microsemi.com>
+ <20161104115937.GH13959@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        syzkaller@googlegroups.com, kcc@google.com, glider@google.com,
-        edumazet@google.com, dvyukov@google.com, andreyknvl@google.com
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Cc: <netdev@vger.kernel.org>, <f.fainelli@gmail.com>,
+        <raju.lakkaraju@microsemi.com>, <cphealy@gmail.com>,
+        <robh@kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47507 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761557AbcKDN3Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 09:29:16 -0400
+Received: from mail-cys01nam02on0057.outbound.protection.outlook.com ([104.47.37.57]:65264
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753178AbcKDN3K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 09:29:10 -0400
 Content-Disposition: inline
-In-Reply-To: <9df38dcd0323ad92386eb6851a60dc128dd00b4e.1478199530.git.marcelo.leitner@gmail.com>
+In-Reply-To: <20161104115937.GH13959@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 03, 2016 at 05:03:41PM -0200, Marcelo Ricardo Leitner wrote:
-> sctp_wait_for_connect() currently already holds the asoc to keep it
-> alive during the sleep, in case another thread release it. But Andrey
-> Konovalov and Dmitry Vyukov reported an use-after-free in such
-> situation.
+On 04/11/16 12:59, Andrew Lunn wrote:
+> > +++ b/ethtool.8.in
+> > @@ -340,6 +340,14 @@ ethtool \- query or control network driver and hardware settings
+> >  .B2 tx-lpi on off
+> >  .BN tx-timer
+> >  .BN advertise
+> > +.HP
+> > +.B ethtool \-\-set\-phy\-tunable
+> > +.I devname
+> > +.B3 downshift on off N
+> > +.HP
 > 
-> Problem is that __sctp_connect() doesn't get a ref on the asoc and will
-> do a read on the asoc after calling sctp_wait_for_connect(), but by then
-> another thread may have closed it and the _put on sctp_wait_for_connect
-> will actually release it, causing the use-after-free.
+> I don't think there is any other option which is on|off|N. The general
+> pattern would be
 > 
-> Fix is, instead of doing the read after waiting for the connect, do it
-> before so, and avoid this issue as the socket is still locked by then.
-> There should be no issue on returning the asoc id in case of failure as
-> the application shouldn't trust on that number in such situations
-> anyway.
+> --set-phy-tunable downshift on|off [count N]
 > 
-> This issue doesn't exist in sctp_sendmsg() path.
+> With count being optional.
 > 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  net/sctp/socket.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
+> This also allows avoiding the ambiguity of what
 > 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 6cdc61c21438aa9b6dbdad93e70759071a4d6789..be1d9bb98230c9d77f676949db773b2dacd801a4 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1214,9 +1214,12 @@ static int __sctp_connect(struct sock *sk,
->  
->  	timeo = sock_sndtimeo(sk, f_flags & O_NONBLOCK);
->  
-> -	err = sctp_wait_for_connect(asoc, &timeo);
-> -	if ((err == 0 || err == -EINPROGRESS) && assoc_id)
-> +	if (assoc_id)
->  		*assoc_id = asoc->assoc_id;
-> +	err = sctp_wait_for_connect(asoc, &timeo);
-> +	/* Note: the asoc may be freed after the return of
-> +	 * sctp_wait_for_connect.
-> +	 */
->  
->  	/* Don't free association on exit. */
->  	asoc = NULL;
-> -- 
-> 2.7.4
+> --set-phy-tunable downshift 0
 > 
+> means. To me, that means downshift after 0 retries. But it actually
+> seems to mean never downshift. You can then error out when somebody
+> does
 > 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> --set-phy-tunable downshift on count 0
+> or
+> --set-phy-tunable downshift off count 42
+Okay, I do not have any strong feelings about the syntax here.
+
+We could not find any other signature which had the same need, so we have been
+looking for things that was "close" to...
+
+What is being proposed is similar to "-s [ mdix auto|on|off ]".
+
+What you request is similar to "-e|--eeprom-dump [ raw on|off ] [ offset N ]".
+
+So, unless there are other comments, then we will change this in the next
+version.
+
+> Please also add a few sentences about what downshift is, and what N
+> means. Is it tries, or retries?
+Sure.
+
+We will wait a few days to see what other comments we get.
+
+Thanks for reviewing.
+
+/Allan
