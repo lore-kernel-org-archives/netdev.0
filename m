@@ -1,59 +1,53 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH ethtool 2/2] Ethtool: Implements
- ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE and PHY downshift
-Date: Fri, 4 Nov 2016 12:59:37 +0100
-Message-ID: <20161104115937.GH13959@lunn.ch>
-References: <1478255805-25823-1-git-send-email-allan.nielsen@microsemi.com>
- <1478255805-25823-3-git-send-email-allan.nielsen@microsemi.com>
+Subject: Re: [PATCH net-next 1/5] ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE
+ and ETHTOOL_PHY_STUNABLE
+Date: Fri, 4 Nov 2016 13:03:43 +0100
+Message-ID: <20161104120343.GI13959@lunn.ch>
+References: <1478255742-25693-1-git-send-email-allan.nielsen@microsemi.com>
+ <1478255742-25693-2-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
         raju.lakkaraju@microsemi.com, cphealy@gmail.com, robh@kernel.org
 To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:36793 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:36801 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933105AbcKDL7l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 07:59:41 -0400
+        id S933126AbcKDMDp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Nov 2016 08:03:45 -0400
 Content-Disposition: inline
-In-Reply-To: <1478255805-25823-3-git-send-email-allan.nielsen@microsemi.com>
+In-Reply-To: <1478255742-25693-2-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Nov 04, 2016 at 11:35:38AM +0100, Allan W. Nielsen wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> 
+> Defines a generic API to get/set phy tunables. The API is using the
+> existing ethtool_tunable/tunable_type_id types which is already being used
+> for mac level tunables.
+> 
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> Signed-off-by: Allan W. Nielsen <allan.nielsen@microsemi.com>
+> ---
+>  include/uapi/linux/ethtool.h | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index 8e54723..fd0bd36 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -248,6 +248,10 @@ struct ethtool_tunable {
+>  	void	*data[0];
+>  };
+>  
+> +enum phy_tunable_id {
+> +	ETHTOOL_PHY_ID_UNSPEC,
+> +};
+
 Hi Allen
 
-> +++ b/ethtool.8.in
-> @@ -340,6 +340,14 @@ ethtool \- query or control network driver and hardware settings
->  .B2 tx-lpi on off
->  .BN tx-timer
->  .BN advertise
-> +.HP
-> +.B ethtool \-\-set\-phy\-tunable
-> +.I devname
-> +.B3 downshift on off N
-> +.HP
+Do you have any idea what this is for? A grep for
+ETHTOOL_TUNABLE_UNSPEC does not turn up anything.
 
-I don't think there is any other option which is on|off|N. The general
-pattern would be
-
---set-phy-tunable downshift on|off [count N]
-
-With count being optional.
-
-This also allows avoiding the ambiguity of what
-
---set-phy-tunable downshift 0
-
-means. To me, that means downshift after 0 retries. But it actually
-seems to mean never downshift. You can then error out when somebody
-does
-
---set-phy-tunable downshift on count 0
-or
---set-phy-tunable downshift off count 42
-
-Please also add a few sentences about what downshift is, and what N
-means. Is it tries, or retries?
-
-Thanks
        Andrew
