@@ -1,7 +1,8 @@
 From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v6 2/7] Documentation: devicetree: add PHY lane swap binding
-Date: Fri,  4 Nov 2016 01:10:57 -0400
-Message-ID: <1478236262-3351-3-git-send-email-jon.mason@broadcom.com>
+Subject: [PATCH v6 4/7] Documentation: devicetree: net: add NS2 bindings to
+ amac
+Date: Fri,  4 Nov 2016 01:10:59 -0400
+Message-ID: <1478236262-3351-5-git-send-email-jon.mason@broadcom.com>
 References: <1478236262-3351-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,30 +26,41 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Add the documentation for PHY lane swapping.  This is a boolean entry to
-notify the phy device drivers that the TX/RX lanes need to be swapped.
+Clean-up the documentation to the bgmac-amac driver, per suggestion by
+Rob Herring, and add details for NS2 support.
 
 Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- Documentation/devicetree/bindings/net/phy.txt | 4 ++++
- 1 file changed, 4 insertions(+)
+ Documentation/devicetree/bindings/net/brcm,amac.txt | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index bc1c3c8..4627da3 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -35,6 +35,10 @@ Optional Properties:
- - broken-turn-around: If set, indicates the PHY device does not correctly
-   release the turn around line low at the end of a MDIO transaction.
+diff --git a/Documentation/devicetree/bindings/net/brcm,amac.txt b/Documentation/devicetree/bindings/net/brcm,amac.txt
+index ba5ecc1..2fefa1a 100644
+--- a/Documentation/devicetree/bindings/net/brcm,amac.txt
++++ b/Documentation/devicetree/bindings/net/brcm,amac.txt
+@@ -2,11 +2,17 @@ Broadcom AMAC Ethernet Controller Device Tree Bindings
+ -------------------------------------------------------------
  
-+- enet-phy-lane-swap: If set, indicates the PHY will swap the TX/RX lanes to
-+  compensate for the board being designed with the lanes swapped.
-+
-+
- Example:
+ Required properties:
+- - compatible:	"brcm,amac" or "brcm,nsp-amac"
+- - reg:		Address and length of the GMAC registers,
+-		Address and length of the GMAC IDM registers
+- - reg-names:	Names of the registers.  Must have both "amac_base" and
+-		"idm_base"
++ - compatible:	"brcm,amac"
++		"brcm,nsp-amac"
++		"brcm,ns2-amac"
++ - reg:		Address and length of the register set for the device. It
++		contains the information of registers in the same order as
++		described by reg-names
++ - reg-names:	Names of the registers.
++		"amac_base":	Address and length of the GMAC registers
++		"idm_base":	Address and length of the GMAC IDM registers
++		"nicpm_base":	Address and length of the NIC Port Manager
++				registers (required for Northstar2)
+  - interrupts:	Interrupt number
  
- ethernet-phy@0 {
+ Optional properties:
 -- 
 2.7.4
