@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 04/11] net: dsa: mv88e6xxx: add port FID accessors
-Date: Fri,  4 Nov 2016 03:23:29 +0100
-Message-ID: <20161104022336.14273-5-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 07/11] net: dsa: mv88e6xxx: add port link setter
+Date: Fri,  4 Nov 2016 03:23:32 +0100
+Message-ID: <20161104022336.14273-8-vivien.didelot@savoirfairelinux.com>
 References: <20161104022336.14273-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,233 +9,239 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:51518 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753772AbcKDCYU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2016 22:24:20 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161104022336.14273-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add functions to port files to access the ports default FID.
+Most of the chips will have a port register control bits to force the
+port's link up, down, or let normal link detection occurs.
+
+Implement such operation to use it later when setting duplex, etc.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 77 +++-------------------------------------
- drivers/net/dsa/mv88e6xxx/port.c | 67 ++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/port.h |  3 ++
- 3 files changed, 74 insertions(+), 73 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 17 +++++++++++++++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 10 +++++++++
+ drivers/net/dsa/mv88e6xxx/port.c      | 41 +++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  2 ++
+ 4 files changed, 70 insertions(+)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 0877777..20f59f1 100644
+index 181d3b9..cc43e6f 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1674,75 +1674,6 @@ static int _mv88e6xxx_stu_loadpurge(struct mv88e6xxx_chip *chip,
- 	return _mv88e6xxx_vtu_cmd(chip, GLOBAL_VTU_OP_STU_LOAD_PURGE);
- }
+@@ -3160,42 +3160,49 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
  
--static int _mv88e6xxx_port_fid(struct mv88e6xxx_chip *chip, int port,
--			       u16 *new, u16 *old)
--{
--	struct dsa_switch *ds = chip->ds;
--	u16 upper_mask;
--	u16 fid;
--	u16 reg;
--	int err;
--
--	if (mv88e6xxx_num_databases(chip) == 4096)
--		upper_mask = 0xff;
--	else if (mv88e6xxx_num_databases(chip) == 256)
--		upper_mask = 0xf;
--	else
--		return -EOPNOTSUPP;
--
--	/* Port's default FID bits 3:0 are located in reg 0x06, offset 12 */
--	err = mv88e6xxx_port_read(chip, port, PORT_BASE_VLAN, &reg);
--	if (err)
--		return err;
--
--	fid = (reg & PORT_BASE_VLAN_FID_3_0_MASK) >> 12;
--
--	if (new) {
--		reg &= ~PORT_BASE_VLAN_FID_3_0_MASK;
--		reg |= (*new << 12) & PORT_BASE_VLAN_FID_3_0_MASK;
--
--		err = mv88e6xxx_port_write(chip, port, PORT_BASE_VLAN, reg);
--		if (err)
--			return err;
--	}
--
--	/* Port's default FID bits 11:4 are located in reg 0x05, offset 0 */
--	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_1, &reg);
--	if (err)
--		return err;
--
--	fid |= (reg & upper_mask) << 4;
--
--	if (new) {
--		reg &= ~upper_mask;
--		reg |= (*new >> 4) & upper_mask;
--
--		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_1, reg);
--		if (err)
--			return err;
--
--		netdev_dbg(ds->ports[port].netdev,
--			   "FID %d (was %d)\n", *new, fid);
--	}
--
--	if (old)
--		*old = fid;
--
--	return 0;
--}
--
--static int _mv88e6xxx_port_fid_get(struct mv88e6xxx_chip *chip,
--				   int port, u16 *fid)
--{
--	return _mv88e6xxx_port_fid(chip, port, NULL, fid);
--}
--
--static int _mv88e6xxx_port_fid_set(struct mv88e6xxx_chip *chip,
--				   int port, u16 fid)
--{
--	return _mv88e6xxx_port_fid(chip, port, &fid, NULL);
--}
--
- static int _mv88e6xxx_fid_new(struct mv88e6xxx_chip *chip, u16 *fid)
- {
- 	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
-@@ -1753,7 +1684,7 @@ static int _mv88e6xxx_fid_new(struct mv88e6xxx_chip *chip, u16 *fid)
+ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
  
- 	/* Set every FID bit used by the (un)bridged ports */
- 	for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
--		err = _mv88e6xxx_port_fid_get(chip, i, fid);
-+		err = mv88e6xxx_port_get_fid(chip, i, fid);
- 		if (err)
- 			return err;
+ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_read,
+ 	.phy_write = mv88e6xxx_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
  
-@@ -2203,7 +2134,7 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
+ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
  
- 	/* Null VLAN ID corresponds to the port private database */
- 	if (vid == 0)
--		err = _mv88e6xxx_port_fid_get(chip, port, &vlan.fid);
-+		err = mv88e6xxx_port_get_fid(chip, port, &vlan.fid);
- 	else
- 		err = _mv88e6xxx_vtu_get(chip, vid, &vlan, false);
- 	if (err)
-@@ -2379,7 +2310,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
- 	int err;
+ static const struct mv88e6xxx_ops mv88e6161_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_read,
+ 	.phy_write = mv88e6xxx_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
  
- 	/* Dump port's default Filtering Information Database (VLAN ID 0) */
--	err = _mv88e6xxx_port_fid_get(chip, port, &fid);
-+	err = mv88e6xxx_port_get_fid(chip, port, &fid);
- 	if (err)
- 		return err;
+ static const struct mv88e6xxx_ops mv88e6165_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_read,
+ 	.phy_write = mv88e6xxx_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
  
-@@ -2782,7 +2713,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- 	 * database, and allow bidirectional communication between the
- 	 * CPU and DSA port(s), and the other ports.
- 	 */
--	err = _mv88e6xxx_port_fid_set(chip, port, 0);
-+	err = mv88e6xxx_port_set_fid(chip, port, 0);
- 	if (err)
- 		return err;
+ static const struct mv88e6xxx_ops mv88e6171_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
  
+ static const struct mv88e6xxx_ops mv88e6172_ops = {
+@@ -3204,12 +3211,14 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6175_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6176_ops = {
+@@ -3218,12 +3227,14 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ 	.set_switch_mac = mv88e6xxx_g1_set_switch_mac,
+ 	.phy_read = mv88e6xxx_phy_ppu_read,
+ 	.phy_write = mv88e6xxx_phy_ppu_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6240_ops = {
+@@ -3232,6 +3243,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6320_ops = {
+@@ -3240,6 +3252,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6321_ops = {
+@@ -3248,18 +3261,21 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6350_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6352_ops = {
+@@ -3268,6 +3284,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
+ 	.phy_read = mv88e6xxx_g2_smi_phy_read,
+ 	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
+ };
+ 
+ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 6f48e58..474d16d 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -727,6 +727,16 @@ struct mv88e6xxx_ops {
+ 			u16 *val);
+ 	int (*phy_write)(struct mv88e6xxx_chip *chip, int addr, int reg,
+ 			 u16 val);
++
++#define LINK_FORCED_DOWN	0
++#define LINK_FORCED_UP		1
++#define LINK_UNFORCED		-2
++
++	/* Port's MAC link state
++	 * Use LINK_FORCED_UP or LINK_FORCED_DOWN to force link up or down,
++	 * or LINK_UNFORCED for normal link detection.
++	 */
++	int (*port_set_link)(struct mv88e6xxx_chip *chip, int port, int link);
+ };
+ 
+ enum stat_type {
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index c6a22ae..a7da812 100644
+index 53d17e6..09e25f9 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -61,6 +61,8 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state)
- 	return 0;
+@@ -30,6 +30,47 @@ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
+ 	return mv88e6xxx_write(chip, addr, reg, val);
  }
  
-+/* Offset 0x05: Port Control 1 */
++/* Offset 0x01: MAC (or PCS or Physical) Control Register
++ *
++ * Link, Duplex and Flow Control have one force bit, one value bit.
++ */
 +
- /* Offset 0x06: Port Based VLAN Map */
- 
- int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
-@@ -85,3 +87,68 @@ int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map)
- 
- 	return 0;
- }
-+
-+int mv88e6xxx_port_get_fid(struct mv88e6xxx_chip *chip, int port, u16 *fid)
++int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link)
 +{
-+	const u16 upper_mask = (mv88e6xxx_num_databases(chip) - 1) >> 4;
 +	u16 reg;
 +	int err;
 +
-+	/* Port's default FID lower 4 bits are located in reg 0x06, offset 12 */
-+	err = mv88e6xxx_port_read(chip, port, PORT_BASE_VLAN, &reg);
++	err = mv88e6xxx_port_read(chip, port, PORT_PCS_CTRL, &reg);
 +	if (err)
 +		return err;
 +
-+	*fid = (reg & 0xf000) >> 12;
++	reg &= ~(PORT_PCS_CTRL_FORCE_LINK | PORT_PCS_CTRL_LINK_UP);
 +
-+	/* Port's default FID upper bits are located in reg 0x05, offset 0 */
-+	if (upper_mask) {
-+		err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_1, &reg);
-+		if (err)
-+			return err;
-+
-+		*fid |= (reg & upper_mask) << 4;
-+	}
-+
-+	return 0;
-+}
-+
-+int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid)
-+{
-+	const u16 upper_mask = (mv88e6xxx_num_databases(chip) - 1) >> 4;
-+	u16 reg;
-+	int err;
-+
-+	if (fid >= mv88e6xxx_num_databases(chip))
++	switch (link) {
++	case LINK_FORCED_DOWN:
++		reg |= PORT_PCS_CTRL_FORCE_LINK;
++		break;
++	case LINK_FORCED_UP:
++		reg |= PORT_PCS_CTRL_FORCE_LINK | PORT_PCS_CTRL_LINK_UP;
++		break;
++	case LINK_UNFORCED:
++		/* normal link detection */
++		break;
++	default:
 +		return -EINVAL;
-+
-+	/* Port's default FID lower 4 bits are located in reg 0x06, offset 12 */
-+	err = mv88e6xxx_port_read(chip, port, PORT_BASE_VLAN, &reg);
-+	if (err)
-+		return err;
-+
-+	reg &= 0x0fff;
-+	reg |= (fid & 0x000f) << 12;
-+
-+	err = mv88e6xxx_port_write(chip, port, PORT_BASE_VLAN, reg);
-+	if (err)
-+		return err;
-+
-+	/* Port's default FID upper bits are located in reg 0x05, offset 0 */
-+	if (upper_mask) {
-+		err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_1, &reg);
-+		if (err)
-+			return err;
-+
-+		reg &= ~upper_mask;
-+		reg |= (fid >> 4) & upper_mask;
-+
-+		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_1, reg);
-+		if (err)
-+			return err;
 +	}
 +
-+	netdev_dbg(chip->ds->ports[port].netdev, "FID set to %u\n", fid);
++	err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
++	if (err)
++		return err;
++
++	netdev_dbg(chip->ds->ports[port].netdev, "%s link %s\n",
++		   reg & PORT_PCS_CTRL_FORCE_LINK ? "Force" : "Unforce",
++		   reg & PORT_PCS_CTRL_LINK_UP ? "up" : "down");
 +
 +	return 0;
 +}
++
+ /* Offset 0x04: Port Control Register */
+ 
+ static const char * const mv88e6xxx_port_state_names[] = {
 diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
-index 037d638..0df29b9 100644
+index 921eecf..87e7249 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.h
 +++ b/drivers/net/dsa/mv88e6xxx/port.h
-@@ -25,4 +25,7 @@ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state);
+@@ -21,6 +21,8 @@ int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port, int reg,
+ int mv88e6xxx_port_write(struct mv88e6xxx_chip *chip, int port, int reg,
+ 			 u16 val);
+ 
++int mv88e6xxx_port_set_link(struct mv88e6xxx_chip *chip, int port, int link);
++
+ int mv88e6xxx_port_set_state(struct mv88e6xxx_chip *chip, int port, u8 state);
  
  int mv88e6xxx_port_set_vlan_map(struct mv88e6xxx_chip *chip, int port, u16 map);
- 
-+int mv88e6xxx_port_get_fid(struct mv88e6xxx_chip *chip, int port, u16 *fid);
-+int mv88e6xxx_port_set_fid(struct mv88e6xxx_chip *chip, int port, u16 fid);
-+
- #endif /* _MV88E6XXX_PORT_H */
 -- 
 2.10.2
