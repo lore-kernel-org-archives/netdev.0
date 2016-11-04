@@ -1,113 +1,32 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
-Date: Fri, 4 Nov 2016 15:57:06 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D2259F9B9@eusaamb103.ericsson.se>
-References: <F73DA7D7DA7D984B81025139D7CADECC32B5A1C6@EX02.corp.qihoo.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] Documentation: networking: dsa: Update tagging protocols
+Date: Fri, 4 Nov 2016 09:08:49 -0700
+Message-ID: <d73940f1-02a1-a36f-1cfa-e2d243cf6f00@gmail.com>
+References: <1478261774-14265-1-git-send-email-architekt@coding4coffee.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: =?utf-8?B?5byg6LCm?= <zhangqian-c@360.cn>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        Ying Xue <ying.xue0@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usplmg21.ericsson.net ([198.24.6.65]:49060 "EHLO
-        usplmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935064AbcKDQA5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 12:00:57 -0400
-In-Reply-To: <F73DA7D7DA7D984B81025139D7CADECC32B5A1C6@EX02.corp.qihoo.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Masanari Iida <standby24x7@gmail.com>,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Fabian Mewes <architekt@coding4coffee.org>,
+        Jonathan Corbet <corbet@lwn.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1478261774-14265-1-git-send-email-architekt@coding4coffee.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mID8/DQo+IFNlbnQ6IEZyaWRheSwgMDQgTm92ZW1iZXIsIDIwMTYgMDM6MjQNCj4gVG86
-IEpvbiBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT47IEJlbiBIdXRjaGluZ3MNCj4gPGJl
-bkBkZWNhZGVudC5vcmcudWs+OyBZaW5nIFh1ZSA8eWluZy54dWUwQGdtYWlsLmNvbT4NCj4gQ2M6
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNv
-bT4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHRpcGM6IEd1YXJkIGFnYWluc3QgdGlueSBN
-VFUgaW4gdGlwY19tc2dfYnVpbGQoKQ0KPiANCj4gSGksDQo+IEkgdGhpbmsgYm90aCB0aXBjX2wy
-X2RldmljZV9ldmVudCgpIGFuZCB0aXBjX2VuYWJsZV9sMl9tZWRpYSgpIG5lZWQgdG8gcmVmdXNl
-IGENCj4gdGlueSBNVFUgZm9yIFRJUEMgYmVhcmVycy4NCg0KUmlnaHQsIGV4Y2VwdCB0aGF0IHdo
-ZW4gbG9va2luZyBpbnRvIHRoZSBjb2RlIGZvciB0aXBjX2wyX2RldmljZV9ldmVudCgpIEkgcmVh
-bGl6ZSB0aGF0IGl0IGN1cnJlbnRseSBkb2Vzbid0IHRyeSB0byByZS1hZGFwdCB0byBhIG5ldyBN
-VFUgYXQgYWxsLiBJdCBqdXN0IGNhbGxzIHRpcGNfcmVzZXRfYmVhcmVyKCksIHdoaWNoIEkgc3Vz
-cGVjdCBoYXMgY2hhbmdlZCBzb21ld2hlcmUgYWxvbmcgdGhlIHJvYWQgdG8gaWdub3JlIHRoZSBN
-VFUuIFNvLCB5b3Ugb25seSBuZWVkIHRvIGNoYW5nZSB0aXBjX2VuYWJsZV9sMl9tZWRpYSgpLg0K
-DQovLy9qb24NCg0KPiANCj4gdGlwY19sMl9kZXZpY2VfZXZlbnQoKSB1c2VkIHRvIHVwZGF0ZSB0
-aGUgVElQQyBNVFUgdmFsdWUgd2hlbiBleGVjdXRpbmcgYQ0KPiBjb21tYW5kIGxpa2UgJ2lmY29u
-ZmlnIGV0aDAgTVRVIDEgdXAnLg0KPiB0aXBjX2VuYWJsZV9sMl9tZWRpYSgpIHdpbGwgYmUgaW52
-b2tlZCB3aGVuIHRoZSBUSVBDIG5ldHdvcmsgY3JlYXRlZC4NCj4gDQo+IFRoYW5rcy4NCj4gDQo+
-IFFpYW4gWmhhbmcNCj4gTWFydmVsVGVhbSBRaWhvbyAzNjANCj4gDQo+IA0KPiANCj4gLS0tLS3p
-gq7ku7bljp/ku7YtLS0tLQ0KPiDlj5Hku7bkuro6IEpvbiBNYWxveSBbbWFpbHRvOmpvbi5tYWxv
-eUBlcmljc3Nvbi5jb21dDQo+IOWPkemAgeaXtumXtDogMjAxNuW5tDEx5pyIMeaXpSAxOTozNw0K
-PiDmlLbku7bkuro6IOW8oOiwpjsgQmVuIEh1dGNoaW5nczsgWWluZyBYdWUNCj4g5oqE6YCBOiBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnOyBFcmljIER1bWF6ZXQNCj4g5Li76aKYOiBSRTogW1BBVENI
-IG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1UVSBpbiB0aXBjX21zZ19idWlsZCgpDQo+
-IA0KPiBIaSwNCj4gSSB0aGluayB3ZSBhbGwgYWdyZWVkIGluIHRoZSBlbmQgdGhhdCB0aGlzIGlz
-IGEgcG9zc2libGUsIGJ1dCBoaWdobHkgaW1wbGF1c2libGUsDQo+IHNjZW5hcmlvLCBhbmQgcmF0
-aGVyIGFzIGEgcG9pbnQgb2YgZXhwbG9pdCB0aGFuIGEgZnVuY3Rpb25hbCBidWcuDQo+IFRoZSBz
-b2x1dGlvbiBpcyB2ZXJ5IHNpbXBsZSwgYW5kIGRlc2NyaWJlZCBmdXJ0aGVyIGRvd24gaW4gdGhp
-cyBtYWlsIHRocmVhZC4gSSBoYXZlDQo+IG5vdCBkb25lIGFueXRoaW5nIHRvIGl0IHlldCwgYnV0
-IHlvdSBhcmUgd2VsY29tZSB0byBjb250cmlidXRlLg0KPiANCj4gQlINCj4gLy8vam9uDQo+IA0K
-PiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IOW8oOiwpiBbbWFp
-bHRvOnpoYW5ncWlhbi1jQDM2MC5jbl0NCj4gPiBTZW50OiBUdWVzZGF5LCAwMSBOb3ZlbWJlciwg
-MjAxNiAwMjozNQ0KPiA+IFRvOiBCZW4gSHV0Y2hpbmdzIDxiZW5AZGVjYWRlbnQub3JnLnVrPjsg
-Sm9uIE1hbG95DQo+ID4gPGpvbi5tYWxveUBlcmljc3Nvbi5jb20+OyBZaW5nIFh1ZSA8eWluZy54
-dWUwQGdtYWlsLmNvbT4NCj4gPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRXJpYyBEdW1h
-emV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSB0
-aXBjOiBHdWFyZCBhZ2FpbnN0IHRpbnkgTVRVIGluDQo+ID4gdGlwY19tc2dfYnVpbGQoKQ0KPiA+
-DQo+ID4gSGkgYWxsLA0KPiA+IEkgaGF2ZSBhY2NvbXBsaXNoZWQgYSBQb0MgY2FuIGhlbHAgeW91
-IHRvIGNvbmZpcm0gdGhpcyBpc3N1ZS4NCj4gPg0KPiA+IEFuZCB0d28gd2Vla3MgcGFzc2VkIGZy
-b20gdGhlIGxhc3QgbWFpbCwgY2FuIHlvdSB0ZWxsIG1lIHRoZSBwcm9ncmVzcw0KPiA+IG9mIHRo
-ZSBwYXRjaCB0byB0aGlzIGZsYXc/DQo+ID4NCj4gPiBUaGFua3MuDQo+ID4NCj4gPiBRaWFuIFpo
-YW5nDQo+ID4gTWFydmVsIFRlYW0gUWlob28gMzYwDQo+ID4NCj4gPg0KPiA+IC0tLS0t6YKu5Lu2
-5Y6f5Lu2LS0tLS0NCj4gPiDlj5Hku7bkuro6IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiZW5AZGVj
-YWRlbnQub3JnLnVrXQ0KPiA+IOWPkemAgeaXtumXtDogMjAxNuW5tDEw5pyIMjHml6UgMjM6MDAN
-Cj4gPiDmlLbku7bkuro6IEpvbiBNYWxveTsgWWluZyBYdWUNCj4gPiDmioTpgIE6IG5ldGRldkB2
-Z2VyLmtlcm5lbC5vcmc7IOW8oOiwpjsgRXJpYyBEdW1hemV0DQo+ID4g5Li76aKYOiBSZTogW1BB
-VENIIG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1UVSBpbiB0aXBjX21zZ19idWlsZCgp
-DQo+ID4NCj4gPiBPbiBGcmksIDIwMTYtMTAtMjEgYXQgMTQ6NTcgKzAwMDAsIEpvbiBNYWxveSB3
-cm90ZToNCj4gPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+ID4gPiA+IEZy
-b206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiZW5AZGVjYWRlbnQub3JnLnVrXQ0KPiA+ID4gPiBT
-ZW50OiBUaHVyc2RheSwgMjAgT2N0b2JlciwgMjAxNiAxMjo0MA0KPiA+ID4gPiA+ID4gVG86IEpv
-biBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT47IFlpbmcgWHVlDQo+ID4gPiA+ID4gPiA8
-eWluZy54dWUwQGdtYWlsLmNvbT4NCj4gPiA+ID4gPiA+ID4gPiBDYzogbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsgUWlhbiBaaGFuZw0KPiA+ID4gPiA+ID4gPiA+IDx6aGFuZ3FpYW4tY0AzNjAuY24+
-OyBFcmljIER1bWF6ZXQNCj4gPiA+ID4gPiA+IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiA+ID4g
-PiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1UVSBp
-bg0KPiA+ID4gPiB0aXBjX21zZ19idWlsZCgpDQo+ID4gPiA+DQo+ID4gPiA+IE9uIFRodSwgMjAx
-Ni0xMC0yMCBhdCAxNDo1MSArMDAwMCwgSm9uIE1hbG95IHdyb3RlOg0KPiA+ID4gPiBbLi4uXQ0K
-PiA+ID4gPiA+ID4gQXQgdGhpcyBwb2ludCB3ZSdyZSBhYm91dCB0byBjb3B5IElOVF9IX1NJWkUg
-KyBtaHN6IGJ5dGVzIGludG8NCj4gPiA+ID4gPiA+IHRoZSBmaXJzdCBmcmFnbWVudC4gwqBJZiB0
-aGF0J3MgYWxyZWFkeSBsaW1pdGVkIHRvIGJlIGxlc3MgdGhhbg0KPiA+ID4gPiA+ID4gb3IgZXF1
-YWwgdG8gTUFYX0hfU0laRSwgY29tcGFyaW5nIHdpdGggTUFYX0hfU0laRSB3b3VsZCBiZSBmaW5l
-Lg0KPiA+ID4gPiA+ID4gQnV0IGlmDQo+ID4gPiA+DQo+ID4gPiA+IE1BWF9IX1NJWkUNCj4gPiA+
-ID4gPiA+IGlzIHRoZSBtYXhpbXVtIHZhbHVlIG9mIG1oc3osIHRoYXQgd29uJ3QgYmUgZ29vZCBl
-bm91Z2guDQo+ID4gPiA+ID4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gTUFYX0hf
-U0laRSBpcyA2MCBieXRlcywgYnV0IGluIHByYWN0aWNlIHlvdSB3aWxsIG5ldmVyIHNlZSBhbg0K
-PiA+ID4gPiA+IG1oc3ogbGFyZ2VyIHRoYW4NCj4gPiA+ID4NCj4gPiA+ID4gdGhlIGJpZ2dlc3Qg
-aGVhZGVyIHdlIGFyZSBhY3R1YWxseSB1c2luZywgd2hpY2ggaXMgTUNBU1RfSF9TSVpFDQo+ID4g
-PiA+ICg9PTQ0DQo+ID4gYnl0ZXMpLg0KPiA+ID4gPiA+IElOVF9IX1NJWkUgaXMgNDAgYnl0ZXMs
-IHNvIHlvdSBhcmUgaW4gcmVhbGl0eSB0ZXN0aW5nIGZvcg0KPiA+ID4gPiA+IHdoZXRoZXIgd2Ug
-aGF2ZSBhbiBtdHUNCj4gPiA+ID4NCj4gPiA+ID4gPCA4NCBieXRlcy4NCj4gPiA+ID4gPiBZb3Ug
-d29uJ3QgZmluZCBhbnkgaW50ZXJmYWNlcyBvciBwcm90b2NvbHMgdGhhdCBjb21lIGV2ZW4gY2xv
-c2UNCj4gPiA+ID4gPiB0byB0aGlzDQo+ID4gPiA+DQo+ID4gPiA+IGxpbWl0YXRpb24sIHNvIHRv
-IG1lIHRoaXMgdGVzdCBpcyByZWR1bmRhbnQuDQo+ID4gPiA+DQo+ID4gPiA+IEJ1dCBJIGNhbiBl
-YXNpbHkgY3JlYXRlIHN1Y2ggYW4gaW50ZXJmYWNlOg0KPiA+ID4gPg0KPiA+ID4gPiAkIHVuc2hh
-cmUgLW4gLVUgLXINCj4gPiA+ID4gIyBpcCBsIHNldCBsbyBtdHUgMQ0KPiA+ID4gPg0KPiA+ID4g
-PiBCZW4uDQo+ID4gPg0KPiA+ID4NCj4gPiA+IEl0IHdvbid0IGJlIHZlcnkgdXNlZnVsIHRob3Vn
-aC4gQnV0IEkgYXNzdW1lIHlvdSBtZWFuIGl0IGNvdWxkIGJlIGENCj4gPiA+IHBvc3NpYmxlIGV4
-cGxvaXQsDQo+ID4NCj4gPiBFeGFjdGx5Lg0KPiA+DQo+ID4gPiAgYW5kIEkgc3VzcGVjdCBhIGZl
-dyBvdGhlciB0aGluZ3Mgd291bGQgYnJlYWsgYm90aCBpbiBUSVBDIGFuZCBpbg0KPiA+ID4gb3Ro
-ZXIgc3RhY2tzIGlmIHlvdSBkbyBhbnl0aGluZyBsaWtlIHRoYXQuIEkgdGhpbmsgdGhlIHNvbHV0
-aW9uIHRvDQo+ID4gPiB0aGlzIGlzIG5vdCB0byBmaXggYWxsIHBvc3NpYmxlIHBsYWNlcyBpbiB0
-aGUgY29kZSB3aGVyZSB0aGlzIGNhbiBnbw0KPiA+ID4gd3JvbmcsIGJ1dCByYXRoZXIgdG8gaGF2
-ZSBhIGdlbmVyaWMgdGVzdCB3aGVyZSB3ZSByZWZ1c2UgdG8gYXR0YWNoDQo+ID4gPiBiZWFyZXJz
-L2ludGVyZmFjZXMgb2ZmZXJpbmcgYW4gbXR1IDwgZS5nLiAxMDAwIGJ5dGVzLiBUaGlzIGNhbg0K
-PiA+ID4gZWFzaWx5IGJlIGRvbmUgaW4gdGlwY19lbmFibGVfbDJfbWVkaWEoKS4NCj4gPg0KPiA+
-IFllcy4NCj4gPg0KPiA+IEJlbi4NCj4gPg0KPiA+IC0tDQo+ID4gQmVuIEh1dGNoaW5ncw0KPiA+
-IE9uZSBvZiB0aGUgbmljZSB0aGluZ3MgYWJvdXQgc3RhbmRhcmRzIGlzIHRoYXQgdGhlcmUgYXJl
-IHNvIG1hbnkgb2YgdGhlbS4NCg0K
+
+
+On 11/04/2016 05:16 AM, Fabian Mewes wrote:
+> Add Qualcomm QCA tagging introduced in cafdc45c9 to the
+> list of supported protocols.
+> 
+> Signed-off-by: Fabian Mewes <architekt@coding4coffee.org>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
