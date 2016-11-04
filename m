@@ -1,54 +1,75 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: [PATCH net] ipv4: update comment to document GSO fragmentation cases.
-Date: Fri,  4 Nov 2016 12:22:38 -0400
-Message-ID: <1478276558-10974-1-git-send-email-lrichard@redhat.com>
-To: netdev@vger.kernel.org, shmulik.ladkani@gmail.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] net: ethernet: nb8800: handle all RGMII declinations
+Date: Fri, 4 Nov 2016 09:23:20 -0700
+Message-ID: <8c491fff-4849-fa9b-0a0a-5a7a6870120d@gmail.com>
+References: <581CA3D0.6080808@laposte.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Sebastian Frias <sf84@laposte.net>,
+        =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60278 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934743AbcKDQWk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 12:22:40 -0400
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36424 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934730AbcKDQXW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 12:23:22 -0400
+In-Reply-To: <581CA3D0.6080808@laposte.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a follow-up to commit eb96202f1e34 ("ipv4: allow local
-fragmentation in ip_finish_output_gso()"), updating the comment
-documenting cases in which fragmentation is needed for egress
-GSO packets.
 
-Suggested-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Signed-off-by: Lance Richardson <lrichard@redhat.com>
----
- net/ipv4/ip_output.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 4971401..c2dae40 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -244,12 +244,18 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
- 	if (skb_gso_validate_mtu(skb, mtu))
- 		return ip_finish_output2(net, sk, skb);
- 
--	/* Slowpath -  GSO segment length is exceeding the dst MTU.
-+	/* Slowpath -  GSO segment length exceeds the egress MTU.
- 	 *
--	 * This can happen in two cases:
--	 * 1) TCP GRO packet, DF bit not set
--	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
--	 * from host network stack.
-+	 * This can happen in several cases:
-+	 *  - Forwarding of a TCP GRO skb, when DF flag is not set.
-+	 *  - Forwarding of an skb that arrived on a virtualization interface
-+	 *    (virtio-net/vhost/tap) with TSO/GSO size set by other network
-+	 *    stack.
-+	 *  - Local GSO skb transmitted on an NETIF_F_TSO tunnel stacked over an
-+	 *    interface with a smaller MTU.
-+	 *  - Arriving GRO skb (or GSO skb in a virtualized environment) that is
-+	 *    bridged to a NETIF_F_TSO tunnel stacked over an interface with an
-+	 *    insufficent MTU.
- 	 */
- 	features = netif_skb_features(skb);
- 	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
+On 11/04/2016 08:05 AM, Sebastian Frias wrote:
+> Commit a999589ccaae ("phylib: add RGMII-ID interface mode definition")
+> and commit 7d400a4c5897 ("phylib: add PHY interface modes for internal
+> delay for tx and rx only") added several RGMII declinations:
+> PHY_INTERFACE_MODE_RGMII_ID, PHY_INTERFACE_MODE_RGMII_RXID and
+> PHY_INTERFACE_MODE_RGMII_TXID to deal with internal delays.
+> 
+> Those are all RGMII modes (1Gbit) and must be considered that way when
+> setting the MAC Mode or the Pads Mode for the HW to work properly.
+> 
+> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+> ---
+>  drivers/net/ethernet/aurora/nb8800.c | 10 ++++++----
+>  1 file changed, 6 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+> index d2855c9..6230ace 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.c
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+> @@ -609,7 +609,10 @@ static void nb8800_mac_config(struct net_device *dev)
+>  		mac_mode |= HALF_DUPLEX;
+>  
+>  	if (gigabit) {
+> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
+> +		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII ||
+> +		    priv->phy_mode == PHY_INTERFACE_MODE_RGMII_ID ||
+> +		    priv->phy_mode == PHY_INTERFACE_MODE_RGMII_RXID ||
+> +		    priv->phy_mode == PHY_INTERFACE_MODE_RGMII_TXID)
+
+phy_interface_is_rgmii(phydev)?
+
+>  			mac_mode |= RGMII_MODE;
+>  
+>  		mac_mode |= GMAC_MODE;
+> @@ -1278,9 +1281,8 @@ static int nb8800_tangox_init(struct net_device *dev)
+>  		break;
+>  
+>  	case PHY_INTERFACE_MODE_RGMII:
+> -		pad_mode = PAD_MODE_RGMII;
+> -		break;
+> -
+> +	case PHY_INTERFACE_MODE_RGMII_ID:
+> +	case PHY_INTERFACE_MODE_RGMII_RXID:
+>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+>  		pad_mode = PAD_MODE_RGMII;
+>  		break;
+> 
+
 -- 
-2.5.5
+Florian
