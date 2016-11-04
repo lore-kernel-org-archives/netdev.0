@@ -1,58 +1,41 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next PATCH 0/7] stmmac: dwmac-sti refactor+cleanup
-Date: Fri, 4 Nov 2016 14:49:31 +0100
-Message-ID: <5eb811e8-0d1d-2e9e-245c-043a07c87bca@st.com>
-References: <20161030200507.851-1-manabian@gmail.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
+Date: Fri, 4 Nov 2016 09:50:20 -0400
+Message-ID: <d1ac848d-d36d-c81a-e0a2-4cab2d7382cd@pobox.com>
+References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
+ <20161030.205755.1198665157526465556.davem@davemloft.net>
+ <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
+ <20161030.235342.134481656830778556.davem@davemloft.net>
+ <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
+ <201611030159.uA31x0np004648@rtits1.realtek.com>
+ <0835B3720019904CB8F7AA43166CEEB20104878A@RTITMBSV03.realtek.com.tw>
+ <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <alexandre.torgue@st.com>, <netdev@vger.kernel.org>
-To: Joachim Eastwood <manabian@gmail.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:55871 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933535AbcKDNti (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 09:49:38 -0400
-In-Reply-To: <20161030200507.851-1-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nic_swsd <nic_swsd@realtek.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Joachim.
+Yeah, the device or driver is definitely getting confused with rx_desc structures.
+I added code to check for unlikely rx_desc values, and it found this for starters:
 
-I have tested the patches on STiH390 with GMAC4 and the driver is ok.
+rx_desc: 00480801 00480401 00480001 0048fc00 0048f800 0048f400 pkt_len=2045
+rx_data: 00 f0 48 00 00 ec 48 00 00 e8 48 00 00 e4 48 00 00 e0 48 00 00 dc 48 00 00 d8 48 00 00 d4 48 00
+rx_data: 00 d0 48 00 00 cc 48 00 00 c8 48 00 00 c4 48 00 00 c0 48 00 00 bc 48 00 00 b8 48 00 00 b4 48 00
+rx_data: 00 b0 48 00 00 ac 48 00 00 01 00 00 81 ed 00 00 00 01 00 00 00 00 00 00 00 00 00 02 4d ac 00 00
+rx_data: 10 00 ff ff ff ff 00 00 01 28 83 d6 ff 6d 00 20 25 b1 58 1b 68 ff 00 05 20 01 56 41 17 35 00 00
+...
 
-So you can add my Acked-by/Tested-by in the V2.
+The MTU/MRU on this link is the standard 1500 bytes, so a pkt_len of 2045 isn't valid here.
+And the rx_desc values look an awful lot like the rx_data values that follow it.
 
-I just ask you, when rename the sti_dwmac_init in sti_dwmac_set_phy_mode
-to use another name: sti_dwmac_set_mode could be good, IMO.
+There's definitely more broken here than just TCP RX checksums.
 
-In fact, this function is not strictly related to the PHY and the
-system config registers could touch different MAC/MII settings.
-
-Regards
-Peppe
-
-On 10/30/2016 9:05 PM, Joachim Eastwood wrote:
-> This patch set aims to remove the init/exit callbacks from the
-> dwmac-sti driver and instead use standard PM callbacks. Doing this
-> will also allow us to cleanup the driver.
->
-> Eventually the init/exit callbacks will be deprecated and removed
-> from all drivers dwmac-* except for dwmac-generic. Drivers will be
-> refactored to use standard PM and remove callbacks.
->
-> Note that this patch set has only been test compiled and no functional
-> change is intended.
->
-> Joachim Eastwood (7):
->   stmmac: dwmac-sti: remove useless of_node check
->   stmmac: dwmac-sti: remove clk NULL checks
->   stmmac: dwmac-sti: add PM ops and resume function
->   stmmac: dwmac-sti: move st,gmac_en parsing to sti_dwmac_parse_data
->   stmmac: dwmac-sti: move clk_prepare_enable out of init and add error handling
->   stmmac: dwmac-sti: clean up and rename sti_dwmac_init
->   stmmac: dwmac-sti: remove unused priv dev member
->
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c | 86 ++++++++++++++++---------
->  1 file changed, 57 insertions(+), 29 deletions(-)
->
+-ml
