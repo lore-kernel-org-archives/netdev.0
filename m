@@ -1,109 +1,40 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net 1/1] driver: macvlan: Destroy new macvlan port if macvlan_common_newlink failed.
-Date: Fri,  4 Nov 2016 10:28:49 +0800
-Message-ID: <1478226529-26766-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg340.qq.com ([14.17.44.35]:52599 "EHLO smtpbg340.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753772AbcKDCb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Nov 2016 22:31:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [mm PATCH v2 18/26] arch/powerpc: Add option to skip DMA sync as a part of mapping
+Date: Fri, 04 Nov 2016 14:16:01 +1100
+Message-ID: <87twbolytq.fsf@concordia.ellerman.id.au>
+References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com> <20161102111513.79519.65315.stgit@ahduyck-blue-test.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-kernel@vger.kernel.org, Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>, linux-mm@kvack.org, akpm@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161102111513.79519.65315.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+Alexander Duyck <alexander.h.duyck@intel.com> writes:
 
-When there is no existing macvlan port in lowdev, one new macvlan port
-would be created. But it doesn't be destoried when something failed later.
-It casues some memleak.
+> This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
+> avoid invoking cache line invalidation if the driver will just handle it
+> via a sync_for_cpu or sync_for_device call.
+>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: Michael Ellerman <mpe@ellerman.id.au>
+> Cc: linuxppc-dev@lists.ozlabs.org
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>  arch/powerpc/kernel/dma.c |    9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
 
-Now add one flag to indicate if new macvlan port is created.
+LGTM.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- drivers/net/macvlan.c | 31 ++++++++++++++++++++++---------
- 1 file changed, 22 insertions(+), 9 deletions(-)
+Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 3234fcd..d2d6f12 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1278,6 +1278,7 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	struct net_device *lowerdev;
- 	int err;
- 	int macmode;
-+	bool create = false;
- 
- 	if (!tb[IFLA_LINK])
- 		return -EINVAL;
-@@ -1304,12 +1305,18 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 		err = macvlan_port_create(lowerdev);
- 		if (err < 0)
- 			return err;
-+		create = true;
- 	}
- 	port = macvlan_port_get_rtnl(lowerdev);
- 
- 	/* Only 1 macvlan device can be created in passthru mode */
--	if (port->passthru)
--		return -EINVAL;
-+	if (port->passthru) {
-+		/* The macvlan port must be not created this time,
-+		 * still goto destroy_macvlan_port for readability.
-+		 */
-+		err = -EINVAL;
-+		goto destroy_macvlan_port;
-+	}
- 
- 	vlan->lowerdev = lowerdev;
- 	vlan->dev      = dev;
-@@ -1325,24 +1332,28 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 		vlan->flags = nla_get_u16(data[IFLA_MACVLAN_FLAGS]);
- 
- 	if (vlan->mode == MACVLAN_MODE_PASSTHRU) {
--		if (port->count)
--			return -EINVAL;
-+		if (port->count) {
-+			err = -EINVAL;
-+			goto destroy_macvlan_port;
-+		}
- 		port->passthru = true;
- 		eth_hw_addr_inherit(dev, lowerdev);
- 	}
- 
- 	if (data && data[IFLA_MACVLAN_MACADDR_MODE]) {
--		if (vlan->mode != MACVLAN_MODE_SOURCE)
--			return -EINVAL;
-+		if (vlan->mode != MACVLAN_MODE_SOURCE) {
-+			err = -EINVAL;
-+			goto destroy_macvlan_port;
-+		}
- 		macmode = nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE]);
- 		err = macvlan_changelink_sources(vlan, macmode, data);
- 		if (err)
--			return err;
-+			goto destroy_macvlan_port;
- 	}
- 
- 	err = register_netdevice(dev);
- 	if (err < 0)
--		return err;
-+		goto destroy_macvlan_port;
- 
- 	dev->priv_flags |= IFF_MACVLAN;
- 	err = netdev_upper_dev_link(lowerdev, dev);
-@@ -1357,7 +1368,9 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 
- unregister_netdev:
- 	unregister_netdevice(dev);
--
-+destroy_macvlan_port:
-+	if (create)
-+		macvlan_port_destroy(port->dev);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(macvlan_common_newlink);
--- 
-1.9.1
+cheers
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
