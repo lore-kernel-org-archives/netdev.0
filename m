@@ -1,150 +1,113 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: [PATCH net-next 1/2] net: mdio-mux-mmioreg: Add support for 16bit and 32bit register sizes
-Date: Fri,  4 Nov 2016 16:51:22 +0100
-Message-ID: <1478274683-1503-2-git-send-email-narmstrong@baylibre.com>
-References: <1478274683-1503-1-git-send-email-narmstrong@baylibre.com>
-Cc: Neil Armstrong <narmstrong@baylibre.com>, netdev@vger.kernel.org,
-        linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com, carlo@caione.org, khilman@baylibre.com,
-        andrew@lunn.ch
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net] tipc: Guard against tiny MTU in tipc_msg_build()
+Date: Fri, 4 Nov 2016 15:57:06 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D2259F9B9@eusaamb103.ericsson.se>
+References: <F73DA7D7DA7D984B81025139D7CADECC32B5A1C6@EX02.corp.qihoo.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: =?utf-8?B?5byg6LCm?= <zhangqian-c@360.cn>,
+        Ben Hutchings <ben@decadent.org.uk>,
+        Ying Xue <ying.xue0@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35749 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755401AbcKDPvb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 11:51:31 -0400
-Received: by mail-wm0-f43.google.com with SMTP id a197so59548609wmd.0
-        for <netdev@vger.kernel.org>; Fri, 04 Nov 2016 08:51:30 -0700 (PDT)
-In-Reply-To: <1478274683-1503-1-git-send-email-narmstrong@baylibre.com>
+Received: from usplmg21.ericsson.net ([198.24.6.65]:49060 "EHLO
+        usplmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935064AbcKDQA5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 12:00:57 -0400
+In-Reply-To: <F73DA7D7DA7D984B81025139D7CADECC32B5A1C6@EX02.corp.qihoo.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to support PHY switching on Amlogic GXL SoCs, add support for
-16bit and 32bit registers sizes.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
----
- .../devicetree/bindings/net/mdio-mux-mmioreg.txt   |  4 +-
- drivers/net/phy/mdio-mux-mmioreg.c                 | 60 +++++++++++++++++-----
- 2 files changed, 49 insertions(+), 15 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt b/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
-index 8516929..065e8bd 100644
---- a/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
-+++ b/Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
-@@ -3,7 +3,7 @@ Properties for an MDIO bus multiplexer controlled by a memory-mapped device
- This is a special case of a MDIO bus multiplexer.  A memory-mapped device,
- like an FPGA, is used to control which child bus is connected.  The mdio-mux
- node must be a child of the memory-mapped device.  The driver currently only
--supports devices with eight-bit registers.
-+supports devices with 8, 16 or 32-bit registers.
- 
- Required properties in addition to the generic multiplexer properties:
- 
-@@ -11,7 +11,7 @@ Required properties in addition to the generic multiplexer properties:
- 
- - reg : integer, contains the offset of the register that controls the bus
- 	multiplexer.  The size field in the 'reg' property is the size of
--	register, and must therefore be 1.
-+	register, and must therefore be 1, 2, or 4.
- 
- - mux-mask : integer, contains an eight-bit mask that specifies which
- 	bits in the register control the actual bus multiplexer.  The
-diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
-index d0bed52..6a33646 100644
---- a/drivers/net/phy/mdio-mux-mmioreg.c
-+++ b/drivers/net/phy/mdio-mux-mmioreg.c
-@@ -21,7 +21,8 @@
- struct mdio_mux_mmioreg_state {
- 	void *mux_handle;
- 	phys_addr_t phys;
--	uint8_t mask;
-+	unsigned int iosize;
-+	unsigned int mask;
- };
- 
- /*
-@@ -47,17 +48,47 @@ static int mdio_mux_mmioreg_switch_fn(int current_child, int desired_child,
- 	struct mdio_mux_mmioreg_state *s = data;
- 
- 	if (current_child ^ desired_child) {
--		void __iomem *p = ioremap(s->phys, 1);
--		uint8_t x, y;
--
-+		void __iomem *p = ioremap(s->phys, s->iosize);
- 		if (!p)
- 			return -ENOMEM;
- 
--		x = ioread8(p);
--		y = (x & ~s->mask) | desired_child;
--		if (x != y) {
--			iowrite8((x & ~s->mask) | desired_child, p);
--			pr_debug("%s: %02x -> %02x\n", __func__, x, y);
-+		switch (s->iosize) {
-+		case sizeof(uint8_t): {
-+			uint8_t x, y;
-+
-+			x = ioread8(p);
-+			y = (x & ~s->mask) | desired_child;
-+			if (x != y) {
-+				iowrite8((x & ~s->mask) | desired_child, p);
-+				pr_debug("%s: %02x -> %02x\n", __func__, x, y);
-+			}
-+
-+			break;
-+		}
-+		case sizeof(uint16_t): {
-+			uint16_t x, y;
-+
-+			x = ioread16(p);
-+			y = (x & ~s->mask) | desired_child;
-+			if (x != y) {
-+				iowrite16((x & ~s->mask) | desired_child, p);
-+				pr_debug("%s: %04x -> %04x\n", __func__, x, y);
-+			}
-+
-+			break;
-+		}
-+		case sizeof(uint32_t): {
-+			uint32_t x, y;
-+
-+			x = ioread32(p);
-+			y = (x & ~s->mask) | desired_child;
-+			if (x != y) {
-+				iowrite32((x & ~s->mask) | desired_child, p);
-+				pr_debug("%s: %08x -> %08x\n", __func__, x, y);
-+			}
-+
-+			break;
-+		}
- 		}
- 
- 		iounmap(p);
-@@ -88,8 +119,11 @@ static int mdio_mux_mmioreg_probe(struct platform_device *pdev)
- 	}
- 	s->phys = res.start;
- 
--	if (resource_size(&res) != sizeof(uint8_t)) {
--		dev_err(&pdev->dev, "only 8-bit registers are supported\n");
-+	s->iosize = resource_size(&res);
-+	if (s->iosize != sizeof(uint8_t) &&
-+	    s->iosize != sizeof(uint16_t) &&
-+	    s->iosize != sizeof(uint32_t)) {
-+		dev_err(&pdev->dev, "only 8/16/32-bit registers are supported\n");
- 		return -EINVAL;
- 	}
- 
-@@ -98,8 +132,8 @@ static int mdio_mux_mmioreg_probe(struct platform_device *pdev)
- 		dev_err(&pdev->dev, "missing or invalid mux-mask property\n");
- 		return -ENODEV;
- 	}
--	if (be32_to_cpup(iprop) > 255) {
--		dev_err(&pdev->dev, "only 8-bit registers are supported\n");
-+	if (be32_to_cpup(iprop) >= BIT(s->iosize * 8)) {
-+		dev_err(&pdev->dev, "only 8/16/32-bit registers are supported\n");
- 		return -EINVAL;
- 	}
- 	s->mask = be32_to_cpup(iprop);
--- 
-1.9.1
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mID8/DQo+IFNlbnQ6IEZyaWRheSwgMDQgTm92ZW1iZXIsIDIwMTYgMDM6MjQNCj4gVG86
+IEpvbiBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT47IEJlbiBIdXRjaGluZ3MNCj4gPGJl
+bkBkZWNhZGVudC5vcmcudWs+OyBZaW5nIFh1ZSA8eWluZy54dWUwQGdtYWlsLmNvbT4NCj4gQ2M6
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNv
+bT4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIHRpcGM6IEd1YXJkIGFnYWluc3QgdGlueSBN
+VFUgaW4gdGlwY19tc2dfYnVpbGQoKQ0KPiANCj4gSGksDQo+IEkgdGhpbmsgYm90aCB0aXBjX2wy
+X2RldmljZV9ldmVudCgpIGFuZCB0aXBjX2VuYWJsZV9sMl9tZWRpYSgpIG5lZWQgdG8gcmVmdXNl
+IGENCj4gdGlueSBNVFUgZm9yIFRJUEMgYmVhcmVycy4NCg0KUmlnaHQsIGV4Y2VwdCB0aGF0IHdo
+ZW4gbG9va2luZyBpbnRvIHRoZSBjb2RlIGZvciB0aXBjX2wyX2RldmljZV9ldmVudCgpIEkgcmVh
+bGl6ZSB0aGF0IGl0IGN1cnJlbnRseSBkb2Vzbid0IHRyeSB0byByZS1hZGFwdCB0byBhIG5ldyBN
+VFUgYXQgYWxsLiBJdCBqdXN0IGNhbGxzIHRpcGNfcmVzZXRfYmVhcmVyKCksIHdoaWNoIEkgc3Vz
+cGVjdCBoYXMgY2hhbmdlZCBzb21ld2hlcmUgYWxvbmcgdGhlIHJvYWQgdG8gaWdub3JlIHRoZSBN
+VFUuIFNvLCB5b3Ugb25seSBuZWVkIHRvIGNoYW5nZSB0aXBjX2VuYWJsZV9sMl9tZWRpYSgpLg0K
+DQovLy9qb24NCg0KPiANCj4gdGlwY19sMl9kZXZpY2VfZXZlbnQoKSB1c2VkIHRvIHVwZGF0ZSB0
+aGUgVElQQyBNVFUgdmFsdWUgd2hlbiBleGVjdXRpbmcgYQ0KPiBjb21tYW5kIGxpa2UgJ2lmY29u
+ZmlnIGV0aDAgTVRVIDEgdXAnLg0KPiB0aXBjX2VuYWJsZV9sMl9tZWRpYSgpIHdpbGwgYmUgaW52
+b2tlZCB3aGVuIHRoZSBUSVBDIG5ldHdvcmsgY3JlYXRlZC4NCj4gDQo+IFRoYW5rcy4NCj4gDQo+
+IFFpYW4gWmhhbmcNCj4gTWFydmVsVGVhbSBRaWhvbyAzNjANCj4gDQo+IA0KPiANCj4gLS0tLS3p
+gq7ku7bljp/ku7YtLS0tLQ0KPiDlj5Hku7bkuro6IEpvbiBNYWxveSBbbWFpbHRvOmpvbi5tYWxv
+eUBlcmljc3Nvbi5jb21dDQo+IOWPkemAgeaXtumXtDogMjAxNuW5tDEx5pyIMeaXpSAxOTozNw0K
+PiDmlLbku7bkuro6IOW8oOiwpjsgQmVuIEh1dGNoaW5nczsgWWluZyBYdWUNCj4g5oqE6YCBOiBu
+ZXRkZXZAdmdlci5rZXJuZWwub3JnOyBFcmljIER1bWF6ZXQNCj4g5Li76aKYOiBSRTogW1BBVENI
+IG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1UVSBpbiB0aXBjX21zZ19idWlsZCgpDQo+
+IA0KPiBIaSwNCj4gSSB0aGluayB3ZSBhbGwgYWdyZWVkIGluIHRoZSBlbmQgdGhhdCB0aGlzIGlz
+IGEgcG9zc2libGUsIGJ1dCBoaWdobHkgaW1wbGF1c2libGUsDQo+IHNjZW5hcmlvLCBhbmQgcmF0
+aGVyIGFzIGEgcG9pbnQgb2YgZXhwbG9pdCB0aGFuIGEgZnVuY3Rpb25hbCBidWcuDQo+IFRoZSBz
+b2x1dGlvbiBpcyB2ZXJ5IHNpbXBsZSwgYW5kIGRlc2NyaWJlZCBmdXJ0aGVyIGRvd24gaW4gdGhp
+cyBtYWlsIHRocmVhZC4gSSBoYXZlDQo+IG5vdCBkb25lIGFueXRoaW5nIHRvIGl0IHlldCwgYnV0
+IHlvdSBhcmUgd2VsY29tZSB0byBjb250cmlidXRlLg0KPiANCj4gQlINCj4gLy8vam9uDQo+IA0K
+PiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IOW8oOiwpiBbbWFp
+bHRvOnpoYW5ncWlhbi1jQDM2MC5jbl0NCj4gPiBTZW50OiBUdWVzZGF5LCAwMSBOb3ZlbWJlciwg
+MjAxNiAwMjozNQ0KPiA+IFRvOiBCZW4gSHV0Y2hpbmdzIDxiZW5AZGVjYWRlbnQub3JnLnVrPjsg
+Sm9uIE1hbG95DQo+ID4gPGpvbi5tYWxveUBlcmljc3Nvbi5jb20+OyBZaW5nIFh1ZSA8eWluZy54
+dWUwQGdtYWlsLmNvbT4NCj4gPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRXJpYyBEdW1h
+emV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSB0
+aXBjOiBHdWFyZCBhZ2FpbnN0IHRpbnkgTVRVIGluDQo+ID4gdGlwY19tc2dfYnVpbGQoKQ0KPiA+
+DQo+ID4gSGkgYWxsLA0KPiA+IEkgaGF2ZSBhY2NvbXBsaXNoZWQgYSBQb0MgY2FuIGhlbHAgeW91
+IHRvIGNvbmZpcm0gdGhpcyBpc3N1ZS4NCj4gPg0KPiA+IEFuZCB0d28gd2Vla3MgcGFzc2VkIGZy
+b20gdGhlIGxhc3QgbWFpbCwgY2FuIHlvdSB0ZWxsIG1lIHRoZSBwcm9ncmVzcw0KPiA+IG9mIHRo
+ZSBwYXRjaCB0byB0aGlzIGZsYXc/DQo+ID4NCj4gPiBUaGFua3MuDQo+ID4NCj4gPiBRaWFuIFpo
+YW5nDQo+ID4gTWFydmVsIFRlYW0gUWlob28gMzYwDQo+ID4NCj4gPg0KPiA+IC0tLS0t6YKu5Lu2
+5Y6f5Lu2LS0tLS0NCj4gPiDlj5Hku7bkuro6IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiZW5AZGVj
+YWRlbnQub3JnLnVrXQ0KPiA+IOWPkemAgeaXtumXtDogMjAxNuW5tDEw5pyIMjHml6UgMjM6MDAN
+Cj4gPiDmlLbku7bkuro6IEpvbiBNYWxveTsgWWluZyBYdWUNCj4gPiDmioTpgIE6IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmc7IOW8oOiwpjsgRXJpYyBEdW1hemV0DQo+ID4g5Li76aKYOiBSZTogW1BB
+VENIIG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1UVSBpbiB0aXBjX21zZ19idWlsZCgp
+DQo+ID4NCj4gPiBPbiBGcmksIDIwMTYtMTAtMjEgYXQgMTQ6NTcgKzAwMDAsIEpvbiBNYWxveSB3
+cm90ZToNCj4gPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+ID4gPiA+IEZy
+b206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiZW5AZGVjYWRlbnQub3JnLnVrXQ0KPiA+ID4gPiBT
+ZW50OiBUaHVyc2RheSwgMjAgT2N0b2JlciwgMjAxNiAxMjo0MA0KPiA+ID4gPiA+ID4gVG86IEpv
+biBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT47IFlpbmcgWHVlDQo+ID4gPiA+ID4gPiA8
+eWluZy54dWUwQGdtYWlsLmNvbT4NCj4gPiA+ID4gPiA+ID4gPiBDYzogbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZzsgUWlhbiBaaGFuZw0KPiA+ID4gPiA+ID4gPiA+IDx6aGFuZ3FpYW4tY0AzNjAuY24+
+OyBFcmljIER1bWF6ZXQNCj4gPiA+ID4gPiA+IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiA+ID4g
+PiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldF0gdGlwYzogR3VhcmQgYWdhaW5zdCB0aW55IE1UVSBp
+bg0KPiA+ID4gPiB0aXBjX21zZ19idWlsZCgpDQo+ID4gPiA+DQo+ID4gPiA+IE9uIFRodSwgMjAx
+Ni0xMC0yMCBhdCAxNDo1MSArMDAwMCwgSm9uIE1hbG95IHdyb3RlOg0KPiA+ID4gPiBbLi4uXQ0K
+PiA+ID4gPiA+ID4gQXQgdGhpcyBwb2ludCB3ZSdyZSBhYm91dCB0byBjb3B5IElOVF9IX1NJWkUg
+KyBtaHN6IGJ5dGVzIGludG8NCj4gPiA+ID4gPiA+IHRoZSBmaXJzdCBmcmFnbWVudC4gwqBJZiB0
+aGF0J3MgYWxyZWFkeSBsaW1pdGVkIHRvIGJlIGxlc3MgdGhhbg0KPiA+ID4gPiA+ID4gb3IgZXF1
+YWwgdG8gTUFYX0hfU0laRSwgY29tcGFyaW5nIHdpdGggTUFYX0hfU0laRSB3b3VsZCBiZSBmaW5l
+Lg0KPiA+ID4gPiA+ID4gQnV0IGlmDQo+ID4gPiA+DQo+ID4gPiA+IE1BWF9IX1NJWkUNCj4gPiA+
+ID4gPiA+IGlzIHRoZSBtYXhpbXVtIHZhbHVlIG9mIG1oc3osIHRoYXQgd29uJ3QgYmUgZ29vZCBl
+bm91Z2guDQo+ID4gPiA+ID4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gTUFYX0hf
+U0laRSBpcyA2MCBieXRlcywgYnV0IGluIHByYWN0aWNlIHlvdSB3aWxsIG5ldmVyIHNlZSBhbg0K
+PiA+ID4gPiA+IG1oc3ogbGFyZ2VyIHRoYW4NCj4gPiA+ID4NCj4gPiA+ID4gdGhlIGJpZ2dlc3Qg
+aGVhZGVyIHdlIGFyZSBhY3R1YWxseSB1c2luZywgd2hpY2ggaXMgTUNBU1RfSF9TSVpFDQo+ID4g
+PiA+ICg9PTQ0DQo+ID4gYnl0ZXMpLg0KPiA+ID4gPiA+IElOVF9IX1NJWkUgaXMgNDAgYnl0ZXMs
+IHNvIHlvdSBhcmUgaW4gcmVhbGl0eSB0ZXN0aW5nIGZvcg0KPiA+ID4gPiA+IHdoZXRoZXIgd2Ug
+aGF2ZSBhbiBtdHUNCj4gPiA+ID4NCj4gPiA+ID4gPCA4NCBieXRlcy4NCj4gPiA+ID4gPiBZb3Ug
+d29uJ3QgZmluZCBhbnkgaW50ZXJmYWNlcyBvciBwcm90b2NvbHMgdGhhdCBjb21lIGV2ZW4gY2xv
+c2UNCj4gPiA+ID4gPiB0byB0aGlzDQo+ID4gPiA+DQo+ID4gPiA+IGxpbWl0YXRpb24sIHNvIHRv
+IG1lIHRoaXMgdGVzdCBpcyByZWR1bmRhbnQuDQo+ID4gPiA+DQo+ID4gPiA+IEJ1dCBJIGNhbiBl
+YXNpbHkgY3JlYXRlIHN1Y2ggYW4gaW50ZXJmYWNlOg0KPiA+ID4gPg0KPiA+ID4gPiAkIHVuc2hh
+cmUgLW4gLVUgLXINCj4gPiA+ID4gIyBpcCBsIHNldCBsbyBtdHUgMQ0KPiA+ID4gPg0KPiA+ID4g
+PiBCZW4uDQo+ID4gPg0KPiA+ID4NCj4gPiA+IEl0IHdvbid0IGJlIHZlcnkgdXNlZnVsIHRob3Vn
+aC4gQnV0IEkgYXNzdW1lIHlvdSBtZWFuIGl0IGNvdWxkIGJlIGENCj4gPiA+IHBvc3NpYmxlIGV4
+cGxvaXQsDQo+ID4NCj4gPiBFeGFjdGx5Lg0KPiA+DQo+ID4gPiAgYW5kIEkgc3VzcGVjdCBhIGZl
+dyBvdGhlciB0aGluZ3Mgd291bGQgYnJlYWsgYm90aCBpbiBUSVBDIGFuZCBpbg0KPiA+ID4gb3Ro
+ZXIgc3RhY2tzIGlmIHlvdSBkbyBhbnl0aGluZyBsaWtlIHRoYXQuIEkgdGhpbmsgdGhlIHNvbHV0
+aW9uIHRvDQo+ID4gPiB0aGlzIGlzIG5vdCB0byBmaXggYWxsIHBvc3NpYmxlIHBsYWNlcyBpbiB0
+aGUgY29kZSB3aGVyZSB0aGlzIGNhbiBnbw0KPiA+ID4gd3JvbmcsIGJ1dCByYXRoZXIgdG8gaGF2
+ZSBhIGdlbmVyaWMgdGVzdCB3aGVyZSB3ZSByZWZ1c2UgdG8gYXR0YWNoDQo+ID4gPiBiZWFyZXJz
+L2ludGVyZmFjZXMgb2ZmZXJpbmcgYW4gbXR1IDwgZS5nLiAxMDAwIGJ5dGVzLiBUaGlzIGNhbg0K
+PiA+ID4gZWFzaWx5IGJlIGRvbmUgaW4gdGlwY19lbmFibGVfbDJfbWVkaWEoKS4NCj4gPg0KPiA+
+IFllcy4NCj4gPg0KPiA+IEJlbi4NCj4gPg0KPiA+IC0tDQo+ID4gQmVuIEh1dGNoaW5ncw0KPiA+
+IE9uZSBvZiB0aGUgbmljZSB0aGluZ3MgYWJvdXQgc3RhbmRhcmRzIGlzIHRoYXQgdGhlcmUgYXJl
+IHNvIG1hbnkgb2YgdGhlbS4NCg0K
