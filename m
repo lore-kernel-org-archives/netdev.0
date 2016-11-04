@@ -1,52 +1,75 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: assign assoc_id earlier in __sctp_connect
-Date: Fri, 4 Nov 2016 18:45:26 +0800
-Message-ID: <CADvbK_cy_FLHTu25utHwQCF4foY7_xGuCssO1qKLWs_4AXSCQg@mail.gmail.com>
-References: <9df38dcd0323ad92386eb6851a60dc128dd00b4e.1478199530.git.marcelo.leitner@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] virtio-net: drop legacy features in virtio 1 mode
+Date: Fri, 4 Nov 2016 12:55:36 +0200
+Message-ID: <1478256865-29003-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f179.google.com ([209.85.216.179]:33073 "EHLO
-        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760828AbcKDKp2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2016 06:45:28 -0400
-In-Reply-To: <9df38dcd0323ad92386eb6851a60dc128dd00b4e.1478199530.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 4, 2016 at 3:03 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> sctp_wait_for_connect() currently already holds the asoc to keep it
-> alive during the sleep, in case another thread release it. But Andrey
-> Konovalov and Dmitry Vyukov reported an use-after-free in such
-> situation.
->
-> Problem is that __sctp_connect() doesn't get a ref on the asoc and will
-> do a read on the asoc after calling sctp_wait_for_connect(), but by then
-> another thread may have closed it and the _put on sctp_wait_for_connect
-> will actually release it, causing the use-after-free.
->
-> Fix is, instead of doing the read after waiting for the connect, do it
-> before so, and avoid this issue as the socket is still locked by then.
-> There should be no issue on returning the asoc id in case of failure as
-> the application shouldn't trust on that number in such situations
-> anyway.
->
-> This issue doesn't exist in sctp_sendmsg() path.
->
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Virtio 1.0 spec says VIRTIO_F_ANY_LAYOUT and VIRTIO_NET_F_GSO are
+legacy-only feature bits. Do not negotiate them in virtio 1 mode.  Note
+this is a spec violation so we need to backport it to stable/downstream
+kernels.
 
-Reviewed-by: Xin Long <lucien.xin@gmail.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 30 ++++++++++++++++++++----------
+ 1 file changed, 20 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 7a00365..b19fb4d 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -2089,23 +2089,33 @@ static struct virtio_device_id id_table[] = {
+ 	{ 0 },
+ };
+ 
++#define VIRTNET_FEATURES \
++	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM, \
++	VIRTIO_NET_F_MAC, \
++	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6, \
++	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6, \
++	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO, \
++	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ, \
++	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, \
++	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ, \
++	VIRTIO_NET_F_CTRL_MAC_ADDR, \
++	VIRTIO_NET_F_MTU
++
+ static unsigned int features[] = {
+-	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
+-	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
+-	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
+-	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
+-	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
+-	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+-	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
+-	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+-	VIRTIO_NET_F_CTRL_MAC_ADDR,
++	VIRTNET_FEATURES,
++};
++
++static unsigned int features_legacy[] = {
++	VIRTNET_FEATURES,
++	VIRTIO_NET_F_GSO,
+ 	VIRTIO_F_ANY_LAYOUT,
+-	VIRTIO_NET_F_MTU,
+ };
+ 
+ static struct virtio_driver virtio_net_driver = {
+ 	.feature_table = features,
+ 	.feature_table_size = ARRAY_SIZE(features),
++	.feature_table_legacy = features_legacy,
++	.feature_table_size_legacy = ARRAY_SIZE(features_legacy),
+ 	.driver.name =	KBUILD_MODNAME,
+ 	.driver.owner =	THIS_MODULE,
+ 	.id_table =	id_table,
+-- 
+MST
