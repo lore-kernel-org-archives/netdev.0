@@ -1,86 +1,69 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: Ethernet not working on a different SoC with same eth HW
-Date: Fri, 04 Nov 2016 16:55:18 +0000
-Message-ID: <yw1xwpgji3rd.fsf@unicorn.mansr.com>
-References: <581767BF.4020308@free.fr> <20161031155334.GF9441@lunn.ch>
-        <58177128.8090403@free.fr> <581C8691.2060306@free.fr>
-        <yw1xy40zjrcw.fsf@unicorn.mansr.com> <581C9273.906@free.fr>
-        <20161104135752.GC3600@lunn.ch> <yw1xtwbnjq88.fsf@unicorn.mansr.com>
-        <20161104142223.GD3600@lunn.ch> <yw1xpombjnfn.fsf@unicorn.mansr.com>
-        <20161104151744.GG3600@lunn.ch> <yw1xh97njmmw.fsf@unicorn.mansr.com>
-        <7b10d4f3-68be-f5d7-633b-21854532ac26@gmail.com>
+From: Sebastian Frias <sf84@laposte.net>
+Subject: [PATCH v2 2/2 ] net: ethernet: nb8800: handle all RGMII definitions
+Date: Fri, 4 Nov 2016 18:02:15 +0100
+Message-ID: <581CBF17.2010108@laposte.net>
+References: <581CA3D0.6080808@laposte.net>
+ <8c491fff-4849-fa9b-0a0a-5a7a6870120d@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Andrew Lunn <andrew@lunn.ch>, Mason <slash.tmp@free.fr>,
-        netdev <netdev@vger.kernel.org>,
-        Timur Tabi <timur@codeaurora.org>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
-        Daniel Mack <zonque@gmail.com>,
-        Sebastian Frias <sf84@laposte.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:43814 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S964922AbcKDQzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Nov 2016 12:55:21 -0400
-In-Reply-To: <7b10d4f3-68be-f5d7-633b-21854532ac26@gmail.com> (Florian
-        Fainelli's message of "Fri, 4 Nov 2016 09:45:41 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8c491fff-4849-fa9b-0a0a-5a7a6870120d@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+Commit a999589ccaae ("phylib: add RGMII-ID interface mode definition")
+and commit 7d400a4c5897 ("phylib: add PHY interface modes for internal
+delay for tx and rx only") added several RGMII definitions:
+PHY_INTERFACE_MODE_RGMII_ID, PHY_INTERFACE_MODE_RGMII_RXID and
+PHY_INTERFACE_MODE_RGMII_TXID to deal with internal delays.
 
-> On 11/04/2016 08:22 AM, Måns Rullgård wrote:
->> Andrew Lunn <andrew@lunn.ch> writes:
->> 
->>> On Fri, Nov 04, 2016 at 03:05:00PM +0000, Måns Rullgård wrote:
->>>> Andrew Lunn <andrew@lunn.ch> writes:
->>>>
->>>>>>> I agree with you. But fixing it is likely to break boards which
->>>>>>> currently have "rgmii", but actually need the delay in order to work.
->>>>>>
->>>>>> Does the internal delay here refer to the PHY or the MAC?  It's a
->>>>>> property of the MAC node after all.
->>>>>
->>>>> It is the PHY which applies the delay.
->>>>
->>>> Says who?
->>>
->>> The source code.
->> 
->> There's source code that disagrees with that.  The Broadcom GENET
->> driver, for instance.
->
-> Correct, and in the case where the MAC adds the delay while transmitting
-> (because it supports that) the expectation is that the PHY would remove
-> such a delay internally, conversely, the PHY would introduce a delay
-> while transmitting back to the PHY, in order to produce the desired 90
-> degrees shift on the RGMII signals, and get reproduce the correct clock
-> and data alignment internally.
->
->> 
->>>>  Some MACs can do it too.
->>>
->>> I'm sure they can. But look at the code. Nearly none do, and those
->>> that do are potentially broken.
->> 
->> Those few drivers that do anything differently based on these values
->> enable clock delay in the MAC.  That's why I wrote the NB8800 driver the
->> way I did.
->> 
->
-> I don't really what is wrong with the nb8800 driver at the moment, so
-> maybe this is just a configuration issue with the Atheros PHY driver,
-> it's not like it has not given people headache judging by the recent
-> discussions...
+Those are all RGMII modes (1Gbit) and must be considered that way when
+setting the MAC mode or the pad mode for the HW to work properly.
 
-We don't even know if the problems Mason is having are caused by
-incorrect clock skew in the first place.  I'd suggest not patching
-anything at all until he gets it working.
+Signed-off-by: Sebastian Frias <sf84@laposte.net>
+---
+ drivers/net/ethernet/aurora/nb8800.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index d2855c9..fba2699 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -598,6 +598,7 @@ static irqreturn_t nb8800_irq(int irq, void *dev_id)
+ static void nb8800_mac_config(struct net_device *dev)
+ {
+ 	struct nb8800_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev = dev->phydev;
+ 	bool gigabit = priv->speed == SPEED_1000;
+ 	u32 mac_mode_mask = RGMII_MODE | HALF_DUPLEX | GMAC_MODE;
+ 	u32 mac_mode = 0;
+@@ -609,7 +610,7 @@ static void nb8800_mac_config(struct net_device *dev)
+ 		mac_mode |= HALF_DUPLEX;
+ 
+ 	if (gigabit) {
+-		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
++		if (phy_interface_is_rgmii(phydev))
+ 			mac_mode |= RGMII_MODE;
+ 
+ 		mac_mode |= GMAC_MODE;
+@@ -1278,9 +1279,8 @@ static int nb8800_tangox_init(struct net_device *dev)
+ 		break;
+ 
+ 	case PHY_INTERFACE_MODE_RGMII:
+-		pad_mode = PAD_MODE_RGMII;
+-		break;
+-
++	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
+ 	case PHY_INTERFACE_MODE_RGMII_TXID:
+ 		pad_mode = PAD_MODE_RGMII;
+ 		break;
 -- 
-Måns Rullgård
+1.7.11.2
