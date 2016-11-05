@@ -1,73 +1,70 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: amd8111e: use new api ethtool_{get|set}_link_ksettings
-Date: Sat,  5 Nov 2016 20:17:03 +0100
-Message-ID: <1478373423-15837-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, jarod@redhat.com, geert@linux-m68k.org,
-        javier@osg.samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33732 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755084AbcKETRL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 15:17:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Konrad Rzeszutek Wilk <konrad@darnok.org>
+Subject: Re: [mm PATCH v2 03/26] swiotlb: Add support for
+ DMA_ATTR_SKIP_CPU_SYNC
+Date: Sat, 5 Nov 2016 15:39:30 -0400
+Message-ID: <20161105193929.GA26349@localhost.localdomain>
+References: <20161102111031.79519.14741.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161102111252.79519.21950.stgit@ahduyck-blue-test.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20161102111252.79519.21950.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+.. snip..
+> @@ -561,6 +565,7 @@ void swiotlb_tbl_unmap_single(struct device *hwdev, phys_addr_t tlb_addr,
+>  	 * First, sync the memory before unmapping the entry
+>  	 */
+>  	if (orig_addr != INVALID_PHYS_ADDR &&
+> +	    !(attrs & DMA_ATTR_SKIP_CPU_SYNC) &&
+>  	    ((dir == DMA_FROM_DEVICE) || (dir == DMA_BIDIRECTIONAL)))
+>  		swiotlb_bounce(orig_addr, tlb_addr, size, DMA_FROM_DEVICE);
+>  
+> @@ -654,7 +659,8 @@ void swiotlb_tbl_sync_single(struct device *hwdev, phys_addr_t tlb_addr,
+>  		 * GFP_DMA memory; fall back on map_single(), which
+>  		 * will grab memory from the lowest available address range.
+>  		 */
+> -		phys_addr_t paddr = map_single(hwdev, 0, size, DMA_FROM_DEVICE);
+> +		phys_addr_t paddr = map_single(hwdev, 0, size,
+> +					       DMA_FROM_DEVICE, 0);
+>  		if (paddr == SWIOTLB_MAP_ERROR)
+>  			goto err_warn;
+>  
+> @@ -669,7 +675,8 @@ void swiotlb_tbl_sync_single(struct device *hwdev, phys_addr_t tlb_addr,
+>  
+>  			/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
+>  			swiotlb_tbl_unmap_single(hwdev, paddr,
+> -						 size, DMA_TO_DEVICE);
+> +						 size, DMA_TO_DEVICE,
+> +						 DMA_ATTR_SKIP_CPU_SYNC);
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/amd/amd8111e.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+This I believe is redundant. That is swiotlb_tbl_unmap_single only
+does an bounce if the dir is DMA_FROM_DEVICE or DMA_BIDIRECTIONAL.
 
-diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index 84b4ffb..11cf1e3 100644
---- a/drivers/net/ethernet/amd/amd8111e.c
-+++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -1421,21 +1421,23 @@ static void amd8111e_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 	amd8111e_read_regs(lp, buf);
- }
- 
--static int amd8111e_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int amd8111e_get_link_ksettings(struct net_device *dev,
-+				       struct ethtool_link_ksettings *cmd)
- {
- 	struct amd8111e_priv *lp = netdev_priv(dev);
- 	spin_lock_irq(&lp->lock);
--	mii_ethtool_gset(&lp->mii_if, ecmd);
-+	mii_ethtool_get_link_ksettings(&lp->mii_if, cmd);
- 	spin_unlock_irq(&lp->lock);
- 	return 0;
- }
- 
--static int amd8111e_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int amd8111e_set_link_ksettings(struct net_device *dev,
-+				       const struct ethtool_link_ksettings *cmd)
- {
- 	struct amd8111e_priv *lp = netdev_priv(dev);
- 	int res;
- 	spin_lock_irq(&lp->lock);
--	res = mii_ethtool_sset(&lp->mii_if, ecmd);
-+	res = mii_ethtool_set_link_ksettings(&lp->mii_if, cmd);
- 	spin_unlock_irq(&lp->lock);
- 	return res;
- }
-@@ -1482,12 +1484,12 @@ static int amd8111e_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol_
- 	.get_drvinfo = amd8111e_get_drvinfo,
- 	.get_regs_len = amd8111e_get_regs_len,
- 	.get_regs = amd8111e_get_regs,
--	.get_settings = amd8111e_get_settings,
--	.set_settings = amd8111e_set_settings,
- 	.nway_reset = amd8111e_nway_reset,
- 	.get_link = amd8111e_get_link,
- 	.get_wol = amd8111e_get_wol,
- 	.set_wol = amd8111e_set_wol,
-+	.get_link_ksettings = amd8111e_get_link_ksettings,
-+	.set_link_ksettings = amd8111e_set_link_ksettings,
- };
- 
- /* This function handles all the  ethtool ioctls. It gives driver info,
--- 
-1.7.4.4
+I added /* optional. */
+>  			goto err_warn;
+>  		}
+>  	}
+> @@ -699,7 +706,7 @@ void swiotlb_tbl_sync_single(struct device *hwdev, phys_addr_t tlb_addr,
+>  		free_pages((unsigned long)vaddr, get_order(size));
+>  	else
+>  		/* DMA_TO_DEVICE to avoid memcpy in swiotlb_tbl_unmap_single */
+> -		swiotlb_tbl_unmap_single(hwdev, paddr, size, DMA_TO_DEVICE);
+> +		swiotlb_tbl_unmap_single(hwdev, paddr, size, DMA_TO_DEVICE, 0);
+
+.. but here you choose to put 0? I changed that to
+DMA_ATTR_SKIP_CPU_SYNC and expanded the comment above.
+
+Time to test the patches.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
