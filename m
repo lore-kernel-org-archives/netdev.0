@@ -1,114 +1,73 @@
-From: Pravin B Shelar <pshelar@ovn.org>
-Subject: [PATCH net-next v2 2/7] vxlan: simplify exception handling
-Date: Sat,  5 Nov 2016 11:45:52 -0700
-Message-ID: <1478371557-71888-3-git-send-email-pshelar@ovn.org>
-References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
-Cc: Pravin B Shelar <pshelar@ovn.org>
-To: netdev@vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: amd8111e: use new api ethtool_{get|set}_link_ksettings
+Date: Sat,  5 Nov 2016 20:17:03 +0100
+Message-ID: <1478373423-15837-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, jarod@redhat.com, geert@linux-m68k.org,
+        javier@osg.samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:36644 "EHLO
-        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756140AbcKESqF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 14:46:05 -0400
-In-Reply-To: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33732 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755084AbcKETRL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 15:17:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vxlan egress path error handling has became complicated, it
-need to handle IPv4 and IPv6 tunnel cases.
-Earlier patch removes vlan handling from vxlan_build_skb(), so
-vxlan_build_skb does not need to free skb and we can simplify
-the xmit path by having single error handling for both type of
-tunnels.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/vxlan.c | 28 +++++++++++-----------------
- 1 file changed, 11 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/amd/amd8111e.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 756d826..a1e707f 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1789,7 +1789,7 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
+index 84b4ffb..11cf1e3 100644
+--- a/drivers/net/ethernet/amd/amd8111e.c
++++ b/drivers/net/ethernet/amd/amd8111e.c
+@@ -1421,21 +1421,23 @@ static void amd8111e_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 	amd8111e_read_regs(lp, buf);
+ }
+ 
+-static int amd8111e_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int amd8111e_get_link_ksettings(struct net_device *dev,
++				       struct ethtool_link_ksettings *cmd)
+ {
+ 	struct amd8111e_priv *lp = netdev_priv(dev);
+ 	spin_lock_irq(&lp->lock);
+-	mii_ethtool_gset(&lp->mii_if, ecmd);
++	mii_ethtool_get_link_ksettings(&lp->mii_if, cmd);
+ 	spin_unlock_irq(&lp->lock);
  	return 0;
- 
- out_free:
--	kfree_skb(skb);
-+	dst_release(dst);
- 	return err;
  }
  
-@@ -1927,7 +1927,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	struct ip_tunnel_info *info;
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct sock *sk;
--	struct rtable *rt = NULL;
- 	const struct iphdr *old_iph;
- 	union vxlan_addr *dst;
- 	union vxlan_addr remote_ip, local_ip;
-@@ -2009,6 +2008,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 	if (dst->sa.sa_family == AF_INET) {
- 		struct vxlan_sock *sock4 = rcu_dereference(vxlan->vn4_sock);
-+		struct rtable *rt;
- 
- 		if (!sock4)
- 			goto drop;
-@@ -2030,7 +2030,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			netdev_dbg(dev, "circular route to %pI4\n",
- 				   &dst->sin.sin_addr.s_addr);
- 			dev->stats.collisions++;
--			goto rt_tx_error;
-+			ip_rt_put(rt);
-+			goto tx_error;
- 		}
- 
- 		/* Bypass encapsulation if the destination is local */
-@@ -2058,7 +2059,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		err = vxlan_build_skb(skb, &rt->dst, sizeof(struct iphdr),
- 				      vni, md, flags, udp_sum);
- 		if (err < 0)
--			goto xmit_tx_error;
-+			goto tx_error;
- 
- 		udp_tunnel_xmit_skb(rt, sk, skb, src->sin.sin_addr.s_addr,
- 				    dst->sin.sin_addr.s_addr, tos, ttl, df,
-@@ -2117,11 +2118,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		skb_scrub_packet(skb, xnet);
- 		err = vxlan_build_skb(skb, ndst, sizeof(struct ipv6hdr),
- 				      vni, md, flags, udp_sum);
--		if (err < 0) {
--			dst_release(ndst);
--			dev->stats.tx_errors++;
--			return;
--		}
-+		if (err < 0)
-+			goto tx_error;
-+
- 		udp_tunnel6_xmit_skb(ndst, sk, skb, dev,
- 				     &src->sin6.sin6_addr,
- 				     &dst->sin6.sin6_addr, tos, ttl,
-@@ -2133,17 +2132,12 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- drop:
- 	dev->stats.tx_dropped++;
--	goto tx_free;
-+	dev_kfree_skb(skb);
-+	return;
- 
--xmit_tx_error:
--	/* skb is already freed. */
--	skb = NULL;
--rt_tx_error:
--	ip_rt_put(rt);
- tx_error:
- 	dev->stats.tx_errors++;
--tx_free:
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
+-static int amd8111e_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int amd8111e_set_link_ksettings(struct net_device *dev,
++				       const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct amd8111e_priv *lp = netdev_priv(dev);
+ 	int res;
+ 	spin_lock_irq(&lp->lock);
+-	res = mii_ethtool_sset(&lp->mii_if, ecmd);
++	res = mii_ethtool_set_link_ksettings(&lp->mii_if, cmd);
+ 	spin_unlock_irq(&lp->lock);
+ 	return res;
  }
+@@ -1482,12 +1484,12 @@ static int amd8111e_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol_
+ 	.get_drvinfo = amd8111e_get_drvinfo,
+ 	.get_regs_len = amd8111e_get_regs_len,
+ 	.get_regs = amd8111e_get_regs,
+-	.get_settings = amd8111e_get_settings,
+-	.set_settings = amd8111e_set_settings,
+ 	.nway_reset = amd8111e_nway_reset,
+ 	.get_link = amd8111e_get_link,
+ 	.get_wol = amd8111e_get_wol,
+ 	.set_wol = amd8111e_set_wol,
++	.get_link_ksettings = amd8111e_get_link_ksettings,
++	.set_link_ksettings = amd8111e_set_link_ksettings,
+ };
  
- /* Transmit local packets over Vxlan
+ /* This function handles all the  ethtool ioctls. It gives driver info,
 -- 
-1.9.1
+1.7.4.4
