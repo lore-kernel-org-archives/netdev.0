@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] ixgbe: do not use ixgbe specific mdio defines
-Date: Sat,  5 Nov 2016 00:54:10 -0700
-Message-ID: <1478332461-43147-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] ixgbe: use link instead of I2C combined abstraction
+Date: Sat,  5 Nov 2016 00:54:15 -0700
+Message-ID: <1478332461-43147-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1478332461-43147-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,363 +9,407 @@ Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:25789 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:65478 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753024AbcKEHyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 5 Nov 2016 03:54:25 -0400
+        id S1753831AbcKEHy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 5 Nov 2016 03:54:27 -0400
 In-Reply-To: <1478332461-43147-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Replace some ixgbe specific MDIO defines with their equivalent
-from the kernel.
+Introduce ixgbe_link_operations struct with the following changes:
+
+	read_i2c_combined		=> read_link
+	read_i2c_combined_unlocked	=> read_link_unlocked
+	write_i2c_combined		=> write_link
+	write_i2c_combined_unlocked	=> write_link_unlocked
+
+This will allow X550EM_a to override these methods for MDIO access
+while X550EM_x provides methods to use I2C combined access. This
+also adds a new structure, ixgbe_link_info, to hold information
+about the link. Initially this is just method pointers and a bus
+address.
+
+The functions involved in combined I2C accesses were moved from
+ixgbe_phy.c to ixgbe_x550.c. The underlying functions that carry
+out the combined I2C accesses were left in ixgbe_phy.c because
+they share some functions with other I2C methods.
+
+v2 - set hw->link.ops in probe.
+v3 - check ii->link_ops before setting it since we don't have it
+for all devices.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |  8 +---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 16 -------
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 65 +++++++++++++--------------
- 3 files changed, 33 insertions(+), 56 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |  68 +----------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h  |  12 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  26 +++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 106 +++++++++++++++++++++++---
+ 5 files changed, 124 insertions(+), 90 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index de634f0..9a62b55 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9507,6 +9507,8 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	hw->mac.ops   = *ii->mac_ops;
+ 	hw->mac.type  = ii->mac;
+ 	hw->mvals     = ii->mvals;
++	if (ii->link_ops)
++		hw->link.ops  = *ii->link_ops;
+ 
+ 	/* EEPROM */
+ 	hw->eeprom.ops = *ii->eeprom_ops;
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 648739a..ebf46af 100644
+index ebf46af..0c65814 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -2395,9 +2395,7 @@ s32 ixgbe_set_copper_phy_power(struct ixgbe_hw *hw, bool on)
- 	if (!on && ixgbe_mng_present(hw))
- 		return 0;
- 
--	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_VENDOR_SPECIFIC_1_CONTROL,
--				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
--				      &reg);
-+	status = hw->phy.ops.read_reg(hw, MDIO_CTRL1, MDIO_MMD_VEND1, &reg);
- 	if (status)
- 		return status;
- 
-@@ -2409,8 +2407,6 @@ s32 ixgbe_set_copper_phy_power(struct ixgbe_hw *hw, bool on)
- 		reg |= IXGBE_MDIO_PHY_SET_LOW_POWER_MODE;
- 	}
- 
--	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_VENDOR_SPECIFIC_1_CONTROL,
--				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
--				       reg);
-+	status = hw->phy.ops.write_reg(hw, MDIO_CTRL1, MDIO_MMD_VEND1, reg);
- 	return status;
+@@ -109,8 +109,8 @@ static u8 ixgbe_ones_comp_byte_add(u8 add1, u8 add2)
+  *
+  *  Returns an error code on error.
+  */
+-static s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
+-					       u16 reg, u16 *val, bool lock)
++s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
++					u16 reg, u16 *val, bool lock)
+ {
+ 	u32 swfw_mask = hw->phy.phy_semaphore_mask;
+ 	int max_retry = 10;
+@@ -178,36 +178,6 @@ static s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
  }
+ 
+ /**
+- *  ixgbe_read_i2c_combined_generic - Perform I2C read combined operation
+- *  @hw: pointer to the hardware structure
+- *  @addr: I2C bus address to read from
+- *  @reg: I2C device register to read from
+- *  @val: pointer to location to receive read value
+- *
+- *  Returns an error code on error.
+- */
+-s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
+-				    u16 reg, u16 *val)
+-{
+-	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, true);
+-}
+-
+-/**
+- *  ixgbe_read_i2c_combined_generic_unlocked - Unlocked I2C read combined
+- *  @hw: pointer to the hardware structure
+- *  @addr: I2C bus address to read from
+- *  @reg: I2C device register to read from
+- *  @val: pointer to location to receive read value
+- *
+- *  Returns an error code on error.
+- */
+-s32 ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
+-					     u16 reg, u16 *val)
+-{
+-	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, false);
+-}
+-
+-/**
+  *  ixgbe_write_i2c_combined_generic_int - Perform I2C write combined operation
+  *  @hw: pointer to the hardware structure
+  *  @addr: I2C bus address to write to
+@@ -217,8 +187,8 @@ s32 ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
+  *
+  *  Returns an error code on error.
+  */
+-static s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
+-						u16 reg, u16 val, bool lock)
++s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
++					 u16 reg, u16 val, bool lock)
+ {
+ 	u32 swfw_mask = hw->phy.phy_semaphore_mask;
+ 	int max_retry = 1;
+@@ -273,36 +243,6 @@ static s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
+ }
+ 
+ /**
+- *  ixgbe_write_i2c_combined_generic - Perform I2C write combined operation
+- *  @hw: pointer to the hardware structure
+- *  @addr: I2C bus address to write to
+- *  @reg: I2C device register to write to
+- *  @val: value to write
+- *
+- *  Returns an error code on error.
+- */
+-s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw,
+-				     u8 addr, u16 reg, u16 val)
+-{
+-	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, true);
+-}
+-
+-/**
+- *  ixgbe_write_i2c_combined_generic_unlocked - Unlocked I2C write combined
+- *  @hw: pointer to the hardware structure
+- *  @addr: I2C bus address to write to
+- *  @reg: I2C device register to write to
+- *  @val: value to write
+- *
+- *  Returns an error code on error.
+- */
+-s32 ixgbe_write_i2c_combined_generic_unlocked(struct ixgbe_hw *hw,
+-					      u8 addr, u16 reg, u16 val)
+-{
+-	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, false);
+-}
+-
+-/**
+  *  ixgbe_identify_phy_generic - Get physical layer module
+  *  @hw: pointer to hardware structure
+  *
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+index cc735ec..ecf05f8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+@@ -195,12 +195,8 @@ s32 ixgbe_read_i2c_sff8472_generic(struct ixgbe_hw *hw, u8 byte_offset,
+ 				   u8 *sff8472_data);
+ s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
+ 				   u8 eeprom_data);
+-s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
+-				    u16 reg, u16 *val);
+-s32 ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
+-					     u16 reg, u16 *val);
+-s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
+-				     u16 reg, u16 val);
+-s32 ixgbe_write_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
+-					      u16 reg, u16 val);
++s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *, u8 addr, u16 reg,
++					u16 *val, bool lock);
++s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *, u8 addr, u16 reg,
++					 u16 val, bool lock);
+ #endif /* _IXGBE_PHY_H_ */
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 82813f9..6886e57 100644
+index f2f60cc..fe9c6ae 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -874,19 +874,13 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_1GB	0x4 /* 1Gb/s */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STATUS_10GB	0x6 /* 10Gb/s */
+@@ -3396,16 +3396,28 @@ struct ixgbe_phy_operations {
+ 	s32 (*read_i2c_sff8472)(struct ixgbe_hw *, u8 , u8 *);
+ 	s32 (*read_i2c_eeprom)(struct ixgbe_hw *, u8 , u8 *);
+ 	s32 (*write_i2c_eeprom)(struct ixgbe_hw *, u8, u8);
+-	s32 (*read_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 *val);
+-	s32 (*write_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 val);
+ 	s32 (*check_overtemp)(struct ixgbe_hw *);
+ 	s32 (*set_phy_power)(struct ixgbe_hw *, bool on);
+ 	s32 (*enter_lplu)(struct ixgbe_hw *);
+ 	s32 (*handle_lasi)(struct ixgbe_hw *hw);
+-	s32 (*read_i2c_combined_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
+-					  u16 *value);
+-	s32 (*write_i2c_combined_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
+-					   u16 value);
++	s32 (*read_i2c_byte_unlocked)(struct ixgbe_hw *, u8 offset, u8 addr,
++				      u8 *value);
++	s32 (*write_i2c_byte_unlocked)(struct ixgbe_hw *, u8 offset, u8 addr,
++				       u8 value);
++};
++
++struct ixgbe_link_operations {
++	s32 (*read_link)(struct ixgbe_hw *, u8 addr, u16 reg, u16 *val);
++	s32 (*read_link_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
++				  u16 *val);
++	s32 (*write_link)(struct ixgbe_hw *, u8 addr, u16 reg, u16 val);
++	s32 (*write_link_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
++				   u16 val);
++};
++
++struct ixgbe_link_info {
++	struct ixgbe_link_operations ops;
++	u8 addr;
+ };
  
--#define IXGBE_MII_10GBASE_T_AUTONEG_CTRL_REG	0x20	/* 10G Control Reg */
- #define IXGBE_MII_AUTONEG_VENDOR_PROVISION_1_REG 0xC400	/* 1G Provisioning 1 */
- #define IXGBE_MII_AUTONEG_XNP_TX_REG		0x17	/* 1G XNP Transmit */
--#define IXGBE_MII_AUTONEG_ADVERTISE_REG		0x10	/* 100M Advertisement */
--#define IXGBE_MII_10GBASE_T_ADVERTISE		0x1000	/* full duplex, bit:12*/
- #define IXGBE_MII_1GBASE_T_ADVERTISE_XNP_TX	0x4000	/* full duplex, bit:14*/
- #define IXGBE_MII_1GBASE_T_ADVERTISE		0x8000	/* full duplex, bit:15*/
- #define IXGBE_MII_2_5GBASE_T_ADVERTISE		0x0400
- #define IXGBE_MII_5GBASE_T_ADVERTISE		0x0800
--#define IXGBE_MII_100BASE_T_ADVERTISE		0x0100	/* full duplex, bit:8 */
--#define IXGBE_MII_100BASE_T_ADVERTISE_HALF	0x0080	/* half duplex, bit:7 */
- #define IXGBE_MII_RESTART			0x200
--#define IXGBE_MII_AUTONEG_COMPLETE		0x20
- #define IXGBE_MII_AUTONEG_LINK_UP		0x04
- #define IXGBE_MII_AUTONEG_REG			0x0
+ struct ixgbe_eeprom_info {
+@@ -3510,6 +3522,7 @@ struct ixgbe_hw {
+ 	struct ixgbe_addr_filter_info	addr_ctrl;
+ 	struct ixgbe_fc_info		fc;
+ 	struct ixgbe_phy_info		phy;
++	struct ixgbe_link_info		link;
+ 	struct ixgbe_eeprom_info	eeprom;
+ 	struct ixgbe_bus_info		bus;
+ 	struct ixgbe_mbx_info		mbx;
+@@ -3533,6 +3546,7 @@ struct ixgbe_info {
+ 	const struct ixgbe_eeprom_operations	*eeprom_ops;
+ 	const struct ixgbe_phy_operations	*phy_ops;
+ 	const struct ixgbe_mbx_operations	*mbx_ops;
++	const struct ixgbe_link_operations	*link_ops;
+ 	const u32			*mvals;
+ };
  
-@@ -1320,30 +1314,20 @@ struct ixgbe_thermal_sensor_data {
- /* MDIO definitions */
- 
- #define IXGBE_MDIO_ZERO_DEV_TYPE		0x0
--#define IXGBE_MDIO_PMA_PMD_DEV_TYPE		0x1
- #define IXGBE_MDIO_PCS_DEV_TYPE		0x3
--#define IXGBE_MDIO_PHY_XS_DEV_TYPE		0x4
--#define IXGBE_MDIO_AUTO_NEG_DEV_TYPE		0x7
--#define IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE	0x1E   /* Device 30 */
- #define IXGBE_TWINAX_DEV			1
- 
- #define IXGBE_MDIO_COMMAND_TIMEOUT     100 /* PHY Timeout for 1 GB mode */
- 
--#define IXGBE_MDIO_VENDOR_SPECIFIC_1_CONTROL      0x0    /* VS1 Control Reg */
--#define IXGBE_MDIO_VENDOR_SPECIFIC_1_STATUS       0x1    /* VS1 Status Reg */
- #define IXGBE_MDIO_VENDOR_SPECIFIC_1_LINK_STATUS  0x0008 /* 1 = Link Up */
- #define IXGBE_MDIO_VENDOR_SPECIFIC_1_SPEED_STATUS 0x0010 /* 0 - 10G, 1 - 1G */
- #define IXGBE_MDIO_VENDOR_SPECIFIC_1_10G_SPEED    0x0018
- #define IXGBE_MDIO_VENDOR_SPECIFIC_1_1G_SPEED     0x0010
- 
--#define IXGBE_MDIO_AUTO_NEG_CONTROL	0x0 /* AUTO_NEG Control Reg */
--#define IXGBE_MDIO_AUTO_NEG_STATUS	0x1 /* AUTO_NEG Status Reg */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_STAT	0xC800 /* AUTO_NEG Vendor Status Reg */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_TX_ALARM  0xCC00 /* AUTO_NEG Vendor TX Reg */
- #define IXGBE_MDIO_AUTO_NEG_VENDOR_TX_ALARM2 0xCC01 /* AUTO_NEG Vendor Tx Reg */
- #define IXGBE_MDIO_AUTO_NEG_VEN_LSC	0x1 /* AUTO_NEG Vendor Tx LSC */
--#define IXGBE_MDIO_AUTO_NEG_ADVT	0x10 /* AUTO_NEG Advt Reg */
--#define IXGBE_MDIO_AUTO_NEG_LP		0x13 /* AUTO_NEG LP Status Reg */
- #define IXGBE_MDIO_AUTO_NEG_EEE_ADVT	0x3C /* AUTO_NEG EEE Advt Reg */
- 
- #define IXGBE_MDIO_PHY_SET_LOW_POWER_MODE	 0x0800 /* Set low power mode */
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index f4385fc..e9fa83b 100644
+index c6669c27..252e52d 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1571,8 +1571,7 @@ static s32 ixgbe_check_link_t_X550em(struct ixgbe_hw *hw,
- 	 /* MAC link is up, so check external PHY link.
- 	  * Read this twice back to back to indicate current status.
- 	  */
--	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_STATUS,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+	status = hw->phy.ops.read_reg(hw, MDIO_STAT1, MDIO_MMD_AN,
- 				      &autoneg_status);
- 	if (status)
- 		return status;
-@@ -1758,7 +1757,7 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
+@@ -36,6 +36,23 @@ static s32 ixgbe_get_invariants_X550_x(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_mac_info *mac = &hw->mac;
+ 	struct ixgbe_phy_info *phy = &hw->phy;
++	struct ixgbe_link_info *link = &hw->link;
++
++	/* Start with X540 invariants, since so simular */
++	ixgbe_get_invariants_X540(hw);
++
++	if (mac->ops.get_media_type(hw) != ixgbe_media_type_copper)
++		phy->ops.set_phy_power = NULL;
++
++	link->addr = IXGBE_CS4227;
++
++	return 0;
++}
++
++static s32 ixgbe_get_invariants_X550_a(struct ixgbe_hw *hw)
++{
++	struct ixgbe_mac_info *mac = &hw->mac;
++	struct ixgbe_phy_info *phy = &hw->phy;
  
- 	/* Vendor alarm triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_CHIP_STD_INT_FLAG,
--				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				      MDIO_MMD_VEND1,
- 				      &reg);
+ 	/* Start with X540 invariants, since so simular */
+ 	ixgbe_get_invariants_X540(hw);
+@@ -72,8 +89,7 @@ static void ixgbe_setup_mux_ctl(struct ixgbe_hw *hw)
+  */
+ static s32 ixgbe_read_cs4227(struct ixgbe_hw *hw, u16 reg, u16 *value)
+ {
+-	return hw->phy.ops.read_i2c_combined_unlocked(hw, IXGBE_CS4227, reg,
+-						      value);
++	return hw->link.ops.read_link_unlocked(hw, hw->link.addr, reg, value);
+ }
  
- 	if (status || !(reg & IXGBE_MDIO_GLOBAL_VEN_ALM_INT_EN))
-@@ -1766,7 +1765,7 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
+ /**
+@@ -86,8 +102,7 @@ static s32 ixgbe_read_cs4227(struct ixgbe_hw *hw, u16 reg, u16 *value)
+  */
+ static s32 ixgbe_write_cs4227(struct ixgbe_hw *hw, u16 reg, u16 value)
+ {
+-	return hw->phy.ops.write_i2c_combined_unlocked(hw, IXGBE_CS4227, reg,
+-						       value);
++	return hw->link.ops.write_link_unlocked(hw, hw->link.addr, reg, value);
+ }
  
- 	/* Vendor Auto-Neg alarm triggered or Global alarm 1 triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_CHIP_VEN_FLAG,
--				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				      MDIO_MMD_VEND1,
- 				      &reg);
+ /**
+@@ -325,6 +340,68 @@ static s32 ixgbe_write_phy_reg_x550em(struct ixgbe_hw *hw, u32 reg_addr,
+ 	return IXGBE_NOT_IMPLEMENTED;
+ }
  
- 	if (status || !(reg & (IXGBE_MDIO_GLOBAL_AN_VEN_ALM_INT_EN |
-@@ -1775,7 +1774,7 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
- 
- 	/* Global alarm triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_ALARM_1,
--				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				      MDIO_MMD_VEND1,
- 				      &reg);
- 
- 	if (status)
-@@ -1790,7 +1789,7 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
- 	if (reg & IXGBE_MDIO_GLOBAL_ALM_1_DEV_FAULT) {
- 		/*  device fault alarm triggered */
- 		status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_FAULT_MSG,
--					  IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+					  MDIO_MMD_VEND1,
- 					  &reg);
- 		if (status)
- 			return status;
-@@ -1805,14 +1804,14 @@ static s32 ixgbe_get_lasi_ext_t_x550em(struct ixgbe_hw *hw, bool *lsc)
- 
- 	/* Vendor alarm 2 triggered */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_CHIP_STD_INT_FLAG,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE, &reg);
-+				      MDIO_MMD_AN, &reg);
- 
- 	if (status || !(reg & IXGBE_MDIO_GLOBAL_STD_ALM2_INT))
- 		return status;
- 
- 	/* link connect/disconnect event occurred */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_VENDOR_TX_ALARM2,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE, &reg);
-+				      MDIO_MMD_AN, &reg);
- 
- 	if (status)
- 		return status;
-@@ -1844,20 +1843,20 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
- 
- 	/* Enable link status change alarm */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE, &reg);
-+				      MDIO_MMD_AN, &reg);
- 	if (status)
- 		return status;
- 
- 	reg |= IXGBE_MDIO_PMA_TX_VEN_LASI_INT_EN;
- 
- 	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
--				       IXGBE_MDIO_AUTO_NEG_DEV_TYPE, reg);
-+				       MDIO_MMD_AN, reg);
- 	if (status)
- 		return status;
- 
- 	/* Enable high temperature failure and global fault alarms */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
--				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				      MDIO_MMD_VEND1,
- 				      &reg);
- 	if (status)
- 		return status;
-@@ -1866,14 +1865,14 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
- 		IXGBE_MDIO_GLOBAL_INT_DEV_FAULT_EN);
- 
- 	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
--				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				       MDIO_MMD_VEND1,
- 				       reg);
- 	if (status)
- 		return status;
- 
- 	/* Enable vendor Auto-Neg alarm and Global Interrupt Mask 1 alarm */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_CHIP_VEN_MASK,
--				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				      MDIO_MMD_VEND1,
- 				      &reg);
- 	if (status)
- 		return status;
-@@ -1882,14 +1881,14 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
- 		IXGBE_MDIO_GLOBAL_ALARM_1_INT);
- 
- 	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_GLOBAL_INT_CHIP_VEN_MASK,
--				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				       MDIO_MMD_VEND1,
- 				       reg);
- 	if (status)
- 		return status;
- 
- 	/* Enable chip-wide vendor alarm */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_CHIP_STD_MASK,
--				      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				      MDIO_MMD_VEND1,
- 				      &reg);
- 	if (status)
- 		return status;
-@@ -1897,7 +1896,7 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
- 	reg |= IXGBE_MDIO_GLOBAL_VEN_ALM_INT_EN;
- 
- 	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_GLOBAL_INT_CHIP_STD_MASK,
--				       IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+				       MDIO_MMD_VEND1,
- 				       reg);
- 
++/**
++ * ixgbe_read_i2c_combined_generic - Perform I2C read combined operation
++ * @hw: pointer to the hardware structure
++ * @addr: I2C bus address to read from
++ * @reg: I2C device register to read from
++ * @val: pointer to location to receive read value
++ *
++ * Returns an error code on error.
++ **/
++static s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
++					   u16 reg, u16 *val)
++{
++	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, true);
++}
++
++/**
++ * ixgbe_read_i2c_combined_generic_unlocked - Do I2C read combined operation
++ * @hw: pointer to the hardware structure
++ * @addr: I2C bus address to read from
++ * @reg: I2C device register to read from
++ * @val: pointer to location to receive read value
++ *
++ * Returns an error code on error.
++ **/
++static s32
++ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
++					 u16 reg, u16 *val)
++{
++	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, false);
++}
++
++/**
++ * ixgbe_write_i2c_combined_generic - Perform I2C write combined operation
++ * @hw: pointer to the hardware structure
++ * @addr: I2C bus address to write to
++ * @reg: I2C device register to write to
++ * @val: value to write
++ *
++ * Returns an error code on error.
++ **/
++static s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw,
++					    u8 addr, u16 reg, u16 val)
++{
++	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, true);
++}
++
++/**
++ * ixgbe_write_i2c_combined_generic_unlocked - Do I2C write combined operation
++ * @hw: pointer to the hardware structure
++ * @addr: I2C bus address to write to
++ * @reg: I2C device register to write to
++ * @val: value to write
++ *
++ * Returns an error code on error.
++ **/
++static s32
++ixgbe_write_i2c_combined_generic_unlocked(struct ixgbe_hw *hw,
++					  u8 addr, u16 reg, u16 val)
++{
++	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, false);
++}
++
+ /** ixgbe_init_eeprom_params_X550 - Initialize EEPROM params
+  *  @hw: pointer to hardware structure
+  *
+@@ -1338,8 +1415,10 @@ ixgbe_setup_mac_link_sfp_x550em(struct ixgbe_hw *hw,
+ 		reg_val = (IXGBE_CS4227_EDC_MODE_CX1 << 1) | 0x1;
+ 	else
+ 		reg_val = (IXGBE_CS4227_EDC_MODE_SR << 1) | 0x1;
+-	status = ixgbe_write_i2c_combined_generic(hw, IXGBE_CS4227,
+-						  reg_slice, reg_val);
++
++	status = hw->link.ops.write_link(hw, hw->link.addr, reg_slice,
++					 reg_val);
++
  	return status;
-@@ -2038,14 +2037,12 @@ static s32 ixgbe_ext_phy_t_x550em_get_link(struct ixgbe_hw *hw, bool *link_up)
- 	*link_up = false;
- 
- 	/* read this twice back to back to indicate current status */
--	ret = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_STATUS,
--				   IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+	ret = hw->phy.ops.read_reg(hw, MDIO_STAT1, MDIO_MMD_AN,
- 				   &autoneg_status);
- 	if (ret)
- 		return ret;
- 
--	ret = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_STATUS,
--				   IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+	ret = hw->phy.ops.read_reg(hw, MDIO_STAT1, MDIO_MMD_AN,
- 				   &autoneg_status);
- 	if (ret)
- 		return ret;
-@@ -2091,7 +2088,7 @@ static s32 ixgbe_setup_internal_phy_t_x550em(struct ixgbe_hw *hw)
- 		return 0;
- 
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_VENDOR_STAT,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      MDIO_MMD_AN,
- 				      &speed);
- 	if (status)
- 		return status;
-@@ -2152,10 +2149,10 @@ static s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
- 
- 	/* To turn on the LED, set mode to ON. */
- 	hw->phy.ops.read_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
--			     IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, &phy_data);
-+			     MDIO_MMD_VEND1, &phy_data);
- 	phy_data |= IXGBE_X557_LED_MANUAL_SET_MASK;
- 	hw->phy.ops.write_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
--			      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, phy_data);
-+			      MDIO_MMD_VEND1, phy_data);
- 
- 	return 0;
  }
-@@ -2174,10 +2171,10 @@ static s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
  
- 	/* To turn on the LED, set mode to ON. */
- 	hw->phy.ops.read_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
--			     IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, &phy_data);
-+			     MDIO_MMD_VEND1, &phy_data);
- 	phy_data &= ~IXGBE_X557_LED_MANUAL_SET_MASK;
- 	hw->phy.ops.write_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
--			      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, phy_data);
-+			      MDIO_MMD_VEND1, phy_data);
+@@ -3216,11 +3295,6 @@ static const struct ixgbe_phy_operations phy_ops_X550EM_x = {
+ 	.identify		= &ixgbe_identify_phy_x550em,
+ 	.read_reg		= &ixgbe_read_phy_reg_generic,
+ 	.write_reg		= &ixgbe_write_phy_reg_generic,
+-	.read_i2c_combined	= &ixgbe_read_i2c_combined_generic,
+-	.write_i2c_combined	= &ixgbe_write_i2c_combined_generic,
+-	.read_i2c_combined_unlocked = &ixgbe_read_i2c_combined_generic_unlocked,
+-	.write_i2c_combined_unlocked =
+-				     &ixgbe_write_i2c_combined_generic_unlocked,
+ };
  
- 	return 0;
- }
-@@ -2198,7 +2195,7 @@ static s32 ixgbe_get_lcd_t_x550em(struct ixgbe_hw *hw,
- 	*lcd_speed = IXGBE_LINK_SPEED_UNKNOWN;
+ static const struct ixgbe_phy_operations phy_ops_x550em_a = {
+@@ -3233,6 +3307,13 @@ static const struct ixgbe_phy_operations phy_ops_x550em_a = {
+ 	.write_reg_mdi		= &ixgbe_write_phy_reg_mdi,
+ };
  
- 	status = hw->phy.ops.read_reg(hw, IXGBE_AUTO_NEG_LP_STATUS,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      MDIO_MMD_AN,
- 				      &an_lp_status);
- 	if (status)
- 		return status;
-@@ -2345,7 +2342,7 @@ static s32 ixgbe_enter_lplu_t_x550em(struct ixgbe_hw *hw)
- 		return ixgbe_set_copper_phy_power(hw, false);
++static const struct ixgbe_link_operations link_ops_x550em_x = {
++	.read_link		= &ixgbe_read_i2c_combined_generic,
++	.read_link_unlocked	= &ixgbe_read_i2c_combined_generic_unlocked,
++	.write_link		= &ixgbe_write_i2c_combined_generic,
++	.write_link_unlocked	= &ixgbe_write_i2c_combined_generic_unlocked,
++};
++
+ static const u32 ixgbe_mvals_X550[IXGBE_MVALS_IDX_LIMIT] = {
+ 	IXGBE_MVALS_INIT(X550)
+ };
+@@ -3263,11 +3344,12 @@ const struct ixgbe_info ixgbe_X550EM_x_info = {
+ 	.phy_ops		= &phy_ops_X550EM_x,
+ 	.mbx_ops		= &mbx_ops_generic,
+ 	.mvals			= ixgbe_mvals_X550EM_x,
++	.link_ops		= &link_ops_x550em_x,
+ };
  
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_VENDOR_STAT,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      MDIO_MMD_AN,
- 				      &speed);
- 	if (status)
- 		return status;
-@@ -2367,20 +2364,20 @@ static s32 ixgbe_enter_lplu_t_x550em(struct ixgbe_hw *hw)
- 
- 	/* Clear AN completed indication */
- 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_AUTO_NEG_VENDOR_TX_ALARM,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      MDIO_MMD_AN,
- 				      &autoneg_reg);
- 	if (status)
- 		return status;
- 
--	status = hw->phy.ops.read_reg(hw, IXGBE_MII_10GBASE_T_AUTONEG_CTRL_REG,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+	status = hw->phy.ops.read_reg(hw, MDIO_AN_10GBT_CTRL,
-+				      MDIO_MMD_AN,
- 				      &an_10g_cntl_reg);
- 	if (status)
- 		return status;
- 
- 	status = hw->phy.ops.read_reg(hw,
- 				      IXGBE_MII_AUTONEG_VENDOR_PROVISION_1_REG,
--				      IXGBE_MDIO_AUTO_NEG_DEV_TYPE,
-+				      MDIO_MMD_AN,
- 				      &autoneg_reg);
- 	if (status)
- 		return status;
-@@ -2538,7 +2535,7 @@ static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
- 
- 	status = hw->phy.ops.read_reg(hw,
- 				      IXGBE_MDIO_TX_VENDOR_ALARMS_3,
--				      IXGBE_MDIO_PMA_PMD_DEV_TYPE,
-+				      MDIO_MMD_PMAPMD,
- 				      &reg);
- 	if (status)
- 		return status;
-@@ -2549,7 +2546,7 @@ static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
- 	if (reg & IXGBE_MDIO_TX_VENDOR_ALARMS_3_RST_MASK) {
- 		status = hw->phy.ops.read_reg(hw,
- 					IXGBE_MDIO_GLOBAL_RES_PR_10,
--					IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+					MDIO_MMD_VEND1,
- 					&reg);
- 		if (status)
- 			return status;
-@@ -2558,7 +2555,7 @@ static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
- 
- 		status = hw->phy.ops.write_reg(hw,
- 					IXGBE_MDIO_GLOBAL_RES_PR_10,
--					IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE,
-+					MDIO_MMD_VEND1,
- 					reg);
- 		if (status)
- 			return status;
+ const struct ixgbe_info ixgbe_x550em_a_info = {
+ 	.mac			= ixgbe_mac_x550em_a,
+-	.get_invariants		= &ixgbe_get_invariants_X550_x,
++	.get_invariants		= &ixgbe_get_invariants_X550_a,
+ 	.mac_ops		= &mac_ops_x550em_a,
+ 	.eeprom_ops		= &eeprom_ops_X550EM_x,
+ 	.phy_ops		= &phy_ops_x550em_a,
 -- 
 2.7.4
