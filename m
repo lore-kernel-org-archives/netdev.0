@@ -1,146 +1,81 @@
 From: Pravin B Shelar <pshelar@ovn.org>
-Subject: [PATCH net-next v2 5/7] vxlan: simplify RTF_LOCAL handling.
-Date: Sat,  5 Nov 2016 11:45:55 -0700
-Message-ID: <1478371557-71888-6-git-send-email-pshelar@ovn.org>
+Subject: [PATCH net-next v2 3/7] vxlan: avoid checking socket multiple times.
+Date: Sat,  5 Nov 2016 11:45:53 -0700
+Message-ID: <1478371557-71888-4-git-send-email-pshelar@ovn.org>
 References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
 Cc: Pravin B Shelar <pshelar@ovn.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:56526 "EHLO
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:48633 "EHLO
         relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756224AbcKESqJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 14:46:09 -0400
+        with ESMTP id S1756209AbcKESqG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 14:46:06 -0400
 In-Reply-To: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid code duplicate code for handling RTF_LOCAL routes.
+Check the vxlan socket in vxlan6_getroute().
 
 Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
 ---
- drivers/net/vxlan.c | 85 +++++++++++++++++++++++++++++++----------------------
- 1 file changed, 50 insertions(+), 35 deletions(-)
+ drivers/net/vxlan.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index f106178..838be4c 100644
+index a1e707f..bd17ab5 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -1947,6 +1947,40 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
- 	}
- }
- 
-+static int check_route_rtf_local(struct sk_buff *skb, struct net_device *dev,
-+				 struct vxlan_dev *vxlan, union vxlan_addr *daddr,
-+				 __be32 dst_port, __be32 vni, struct dst_entry *dst,
-+				 u32 rt_flags)
-+{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	/* IPv6 rt-flags are checked against RTF_LOCAL, but the value of
-+	 * RTF_LOCAL is equal to RTCF_LOCAL. So to keep code simple
-+	 * we can use RTCF_LOCAL which works for ipv4 and ipv6 route entry.
-+	 */
-+	BUILD_BUG_ON(RTCF_LOCAL != RTF_LOCAL);
-+#endif
-+	/* Bypass encapsulation if the destination is local */
-+	if (rt_flags & RTCF_LOCAL &&
-+	    !(rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))) {
-+		struct vxlan_dev *dst_vxlan;
-+
-+		dst_release(dst);
-+		dst_vxlan = vxlan_find_vni(vxlan->net, vni,
-+					   daddr->sa.sa_family, dst_port,
-+					   vxlan->flags);
-+		if (!dst_vxlan) {
-+			dev->stats.tx_errors++;
-+			kfree_skb(skb);
-+
-+			return -ENOENT;
-+		}
-+		vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
- static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			   struct vxlan_rdst *rdst, bool did_rsc)
+@@ -944,7 +944,9 @@ static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
  {
-@@ -2047,26 +2081,16 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		if (IS_ERR(rt))
- 			goto tx_error;
+ 	struct vxlan_dev *vxlan;
+ 	struct vxlan_sock *sock4;
+-	struct vxlan_sock *sock6 = NULL;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct vxlan_sock *sock6;
++#endif
+ 	unsigned short family = dev->default_dst.remote_ip.sa.sa_family;
  
--		/* Bypass encapsulation if the destination is local */
--		if (!info && rt->rt_flags & RTCF_LOCAL &&
--		    !(rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))) {
--			struct vxlan_dev *dst_vxlan;
--
--			ip_rt_put(rt);
--			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port,
--						   vxlan->flags);
--			if (!dst_vxlan)
--				goto tx_error;
--			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
--			return;
--		}
--
--		if (!info)
-+		if (!info) {
-+			err = check_route_rtf_local(skb, dev, vxlan, dst,
-+						    dst_port, vni, &rt->dst,
-+						    rt->rt_flags);
-+			if (err)
-+				return;
- 			udp_sum = !(flags & VXLAN_F_UDP_ZERO_CSUM_TX);
--		else if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
-+		} else if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT) {
- 			df = htons(IP_DF);
--
-+		}
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
- 		err = vxlan_build_skb(skb, &rt->dst, sizeof(struct iphdr),
-@@ -2081,7 +2105,6 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	} else {
- 		struct vxlan_sock *sock6 = rcu_dereference(vxlan->vn6_sock);
+ 	sock4 = rtnl_dereference(dev->vn4_sock);
+@@ -1830,6 +1832,7 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
++					  struct vxlan_sock *sock6,
+ 					  struct sk_buff *skb, int oif, u8 tos,
+ 					  __be32 label,
+ 					  const struct in6_addr *daddr,
+@@ -1837,7 +1840,6 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
+ 					  struct dst_cache *dst_cache,
+ 					  const struct ip_tunnel_info *info)
+ {
+-	struct vxlan_sock *sock6 = rcu_dereference(vxlan->vn6_sock);
+ 	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
+ 	struct dst_entry *ndst;
+ 	struct flowi6 fl6;
+@@ -2070,11 +2072,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
  		struct dst_entry *ndst;
--		u32 rt6i_flags;
+ 		u32 rt6i_flags;
  
+-		if (!sock6)
+-			goto drop;
  		sk = sock6->sock->sk;
  
-@@ -2093,24 +2116,16 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+-		ndst = vxlan6_get_route(vxlan, skb,
++		ndst = vxlan6_get_route(vxlan, sock6, skb,
+ 					rdst ? rdst->remote_ifindex : 0, tos,
+ 					label, &dst->sin6.sin6_addr,
+ 					&src->sin6.sin6_addr,
+@@ -2426,9 +2426,10 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
+ 		ip_rt_put(rt);
+ 	} else {
+ #if IS_ENABLED(CONFIG_IPV6)
++		struct vxlan_sock *sock6 = rcu_dereference(vxlan->vn6_sock);
+ 		struct dst_entry *ndst;
+ 
+-		ndst = vxlan6_get_route(vxlan, skb, 0, info->key.tos,
++		ndst = vxlan6_get_route(vxlan, sock6, skb, 0, info->key.tos,
+ 					info->key.label, &info->key.u.ipv6.dst,
+ 					&info->key.u.ipv6.src, NULL, info);
  		if (IS_ERR(ndst))
- 			goto tx_error;
- 
--		/* Bypass encapsulation if the destination is local */
--		rt6i_flags = ((struct rt6_info *)ndst)->rt6i_flags;
--		if (!info && rt6i_flags & RTF_LOCAL &&
--		    !(rt6i_flags & (RTCF_BROADCAST | RTCF_MULTICAST))) {
--			struct vxlan_dev *dst_vxlan;
--
--			dst_release(ndst);
--			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port,
--						   vxlan->flags);
--			if (!dst_vxlan)
--				goto tx_error;
--			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
--			return;
--		}
-+		if (!info) {
-+			u32 rt6i_flags = ((struct rt6_info *)ndst)->rt6i_flags;
- 
--		if (!info)
-+			err = check_route_rtf_local(skb, dev, vxlan, dst,
-+						    dst_port, vni, ndst,
-+						    rt6i_flags);
-+			if (err)
-+				return;
- 			udp_sum = !(flags & VXLAN_F_UDP_ZERO_CSUM6_TX);
-+		}
- 
- 		tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
- 		ttl = ttl ? : ip6_dst_hoplimit(ndst);
 -- 
 1.9.1
