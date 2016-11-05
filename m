@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] ixgbe: Add X553 PHY FC autoneg support
-Date: Sat,  5 Nov 2016 00:54:12 -0700
-Message-ID: <1478332461-43147-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] ixgbe: Add support to retrieve and store LED link active
+Date: Sat,  5 Nov 2016 00:54:08 -0700
+Message-ID: <1478332461-43147-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1478332461-43147-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,443 +9,211 @@ Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:65478 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:56205 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753224AbcKEHyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 5 Nov 2016 03:54:25 -0400
+        id S1752877AbcKEHyY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 5 Nov 2016 03:54:24 -0400
 In-Reply-To: <1478332461-43147-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch adds X553 flow control auto negotiation for fiber and
-backplain.  To enable this new function pointers were added as well
-as creating a function to dynamically set function pointer we can't
-define only on MAC type.
+This patch adds support to get the LED link active via the LEDCTL
+register.  If the LEDCTL register does not have LED link active
+(LED mode field = 0x0100) set then default LED link active returned.
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h        |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  16 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   6 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 211 ++++++++++++++++++++++++
- 7 files changed, 232 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 46 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  4 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    |  3 ++
+ 8 files changed, 57 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index b06e32d..ef81c3d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -1027,4 +1027,6 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 				  struct ixgbe_ring *tx_ring);
- u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter);
- void ixgbe_store_reta(struct ixgbe_adapter *adapter);
-+s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
-+		       u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm);
- #endif /* _IXGBE_H_ */
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 506e346..805ab31 100644
+index fb51be7..506e346 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -367,7 +367,7 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw)
- 	}
- 
- 	/* Negotiate the fc mode to use */
--	ixgbe_fc_autoneg(hw);
-+	hw->mac.ops.fc_autoneg(hw);
- 
- 	/* Disable any previous flow control settings */
- 	fctrl_reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
-@@ -1194,6 +1194,7 @@ static const struct ixgbe_mac_operations mac_ops_82598 = {
- 	.set_vfta		= &ixgbe_set_vfta_82598,
- 	.fc_enable		= &ixgbe_fc_enable_82598,
- 	.setup_fc		= ixgbe_setup_fc_generic,
-+	.fc_autoneg		= ixgbe_fc_autoneg,
- 	.set_fw_drv_ver         = NULL,
- 	.acquire_swfw_sync      = &ixgbe_acquire_swfw_sync,
- 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
+@@ -1179,6 +1179,7 @@ static const struct ixgbe_mac_operations mac_ops_82598 = {
+ 	.get_link_capabilities	= &ixgbe_get_link_capabilities_82598,
+ 	.led_on			= &ixgbe_led_on_generic,
+ 	.led_off		= &ixgbe_led_off_generic,
++	.init_led_link_act	= ixgbe_init_led_link_act_generic,
+ 	.blink_led_start	= &ixgbe_blink_led_start_generic,
+ 	.blink_led_stop		= &ixgbe_blink_led_stop_generic,
+ 	.set_rar		= &ixgbe_set_rar_generic,
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 1c1076b..e00aaeb 100644
+index 63b2500..1c1076b 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -2220,6 +2220,7 @@ static const struct ixgbe_mac_operations mac_ops_82599 = {
- 	.set_vfta               = &ixgbe_set_vfta_generic,
- 	.fc_enable              = &ixgbe_fc_enable_generic,
- 	.setup_fc		= ixgbe_setup_fc_generic,
-+	.fc_autoneg		= ixgbe_fc_autoneg,
- 	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
- 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
- 	.setup_sfp              = &ixgbe_setup_sfp_modules_82599,
+@@ -2204,6 +2204,7 @@ static const struct ixgbe_mac_operations mac_ops_82599 = {
+ 	.get_link_capabilities  = &ixgbe_get_link_capabilities_82599,
+ 	.led_on                 = &ixgbe_led_on_generic,
+ 	.led_off                = &ixgbe_led_off_generic,
++	.init_led_link_act	= ixgbe_init_led_link_act_generic,
+ 	.blink_led_start        = &ixgbe_blink_led_start_generic,
+ 	.blink_led_stop         = &ixgbe_blink_led_stop_generic,
+ 	.set_rar                = &ixgbe_set_rar_generic,
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index f7600dd..8832df3 100644
+index 77d3039..f7600dd 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -298,10 +298,12 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_REG(hw, IXGBE_CTRL_EXT, ctrl_ext);
- 	IXGBE_WRITE_FLUSH(hw);
- 
--	/* Setup flow control */
--	ret_val = hw->mac.ops.setup_fc(hw);
--	if (ret_val)
--		return ret_val;
-+	/* Setup flow control if method for doing so */
-+	if (hw->mac.ops.setup_fc) {
-+		ret_val = hw->mac.ops.setup_fc(hw);
-+		if (ret_val)
-+			return ret_val;
-+	}
- 
- 	/* Cashe bit indicating need for crosstalk fix */
- 	switch (hw->mac.type) {
-@@ -2173,7 +2175,7 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw)
+@@ -390,6 +390,9 @@ s32 ixgbe_init_hw_generic(struct ixgbe_hw *hw)
+ 		status = hw->mac.ops.start_hw(hw);
  	}
  
- 	/* Negotiate the fc mode to use */
--	ixgbe_fc_autoneg(hw);
-+	hw->mac.ops.fc_autoneg(hw);
- 
- 	/* Disable any previous flow control settings */
- 	mflcn_reg = IXGBE_READ_REG(hw, IXGBE_MFLCN);
-@@ -2277,8 +2279,8 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw)
-  *  Find the intersection between advertised settings and link partner's
-  *  advertised settings
-  **/
--static s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
--			      u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm)
-+s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
-+		       u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm)
- {
- 	if ((!(adv_reg)) ||  (!(lp_reg)))
- 		return IXGBE_ERR_FC_NOT_NEGOTIATED;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 6886e57..f2f60cc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3357,6 +3357,7 @@ struct ixgbe_mac_operations {
- 	/* Flow Control */
- 	s32 (*fc_enable)(struct ixgbe_hw *);
- 	s32 (*setup_fc)(struct ixgbe_hw *);
-+	void (*fc_autoneg)(struct ixgbe_hw *);
- 
- 	/* Manageability interface */
- 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
-@@ -3579,10 +3580,12 @@ struct ixgbe_info {
- #define IXGBE_FUSES0_REV_MASK		(3u << 6)
- 
- #define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P) ? 0x8010 : 0x4010)
-+#define IXGBE_KRM_LINK_S1(P)		((P) ? 0x8200 : 0x4200)
- #define IXGBE_KRM_LINK_CTRL_1(P)	((P) ? 0x820C : 0x420C)
- #define IXGBE_KRM_AN_CNTL_1(P)		((P) ? 0x822C : 0x422C)
- #define IXGBE_KRM_AN_CNTL_8(P)		((P) ? 0x8248 : 0x4248)
- #define IXGBE_KRM_SGMII_CTRL(P)		((P) ? 0x82A0 : 0x42A0)
-+#define IXGBE_KRM_LP_BASE_PAGE_HIGH(P)	((P) ? 0x836C : 0x436C)
- #define IXGBE_KRM_DSP_TXFFE_STATE_4(P)	((P) ? 0x8634 : 0x4634)
- #define IXGBE_KRM_DSP_TXFFE_STATE_5(P)	((P) ? 0x8638 : 0x4638)
- #define IXGBE_KRM_RX_TRN_LINKUP_CTRL(P)	((P) ? 0x8B00 : 0x4B00)
-@@ -3604,6 +3607,7 @@ struct ixgbe_info {
- #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_KR		BIT(18)
- #define IXGBE_KRM_LINK_CTRL_1_TETH_EEE_CAP_KX		BIT(24)
- #define IXGBE_KRM_LINK_CTRL_1_TETH_EEE_CAP_KR		BIT(26)
-+#define IXGBE_KRM_LINK_S1_MAC_AN_COMPLETE		BIT(28)
- #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_ENABLE		BIT(29)
- #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_RESTART		BIT(31)
- 
-@@ -3613,6 +3617,8 @@ struct ixgbe_info {
- #define IXGBE_KRM_AN_CNTL_8_LINEAR			BIT(0)
- #define IXGBE_KRM_AN_CNTL_8_LIMITING			BIT(1)
- 
-+#define IXGBE_KRM_LP_BASE_PAGE_HIGH_SYM_PAUSE		BIT(10)
-+#define IXGBE_KRM_LP_BASE_PAGE_HIGH_ASM_PAUSE		BIT(11)
- #define IXGBE_KRM_SGMII_CTRL_MAC_TAR_FORCE_100_D	BIT(12)
- #define IXGBE_KRM_SGMII_CTRL_MAC_TAR_FORCE_10_D		BIT(19)
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 5bf1d49..e2ff823 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -867,6 +867,7 @@ static const struct ixgbe_mac_operations mac_ops_X540 = {
- 	.set_vfta               = &ixgbe_set_vfta_generic,
- 	.fc_enable              = &ixgbe_fc_enable_generic,
- 	.setup_fc		= ixgbe_setup_fc_generic,
-+	.fc_autoneg		= ixgbe_fc_autoneg,
- 	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
- 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
- 	.setup_sfp              = NULL,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 51b6ade..961ce3a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -28,6 +28,9 @@
- 
- static s32 ixgbe_setup_kr_speed_x550em(struct ixgbe_hw *, ixgbe_link_speed);
- static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *);
-+static void ixgbe_fc_autoneg_fiber_x550em_a(struct ixgbe_hw *);
-+static void ixgbe_fc_autoneg_backplane_x550em_a(struct ixgbe_hw *);
-+static s32 ixgbe_setup_fc_backplane_x550em_a(struct ixgbe_hw *);
- 
- static s32 ixgbe_get_invariants_X550_x(struct ixgbe_hw *hw)
- {
-@@ -1639,6 +1642,27 @@ ixgbe_setup_sgmii(struct ixgbe_hw *hw, __always_unused ixgbe_link_speed speed,
- 	return rc;
++	/* Initialize the LED link active for LED blink support */
++	hw->mac.ops.init_led_link_act(hw);
++
+ 	return status;
  }
  
-+/** ixgbe_init_mac_link_ops_X550em_a - Init mac link function pointers
-+ *  @hw: pointer to hardware structure
-+ **/
-+static void ixgbe_init_mac_link_ops_X550em_a(struct ixgbe_hw *hw)
-+{
-+	struct ixgbe_mac_info *mac = &hw->mac;
-+
-+	switch (mac->ops.get_media_type(hw)) {
-+	case ixgbe_media_type_fiber:
-+		mac->ops.setup_fc = NULL;
-+		mac->ops.fc_autoneg = ixgbe_fc_autoneg_fiber_x550em_a;
-+		break;
-+	case ixgbe_media_type_backplane:
-+		mac->ops.fc_autoneg = ixgbe_fc_autoneg_backplane_x550em_a;
-+		mac->ops.setup_fc = ixgbe_setup_fc_backplane_x550em_a;
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
- /** ixgbe_init_mac_link_ops_X550em - init mac link function pointers
-  *  @hw: pointer to hardware structure
-  **/
-@@ -1686,6 +1710,10 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
- 	default:
- 		break;
- 	}
-+
-+	/* Additional modification for X550em_a devices */
-+	if (hw->mac.type == ixgbe_mac_x550em_a)
-+		ixgbe_init_mac_link_ops_X550em_a(hw);
- }
- 
- /** ixgbe_setup_sfp_modules_X550em - Setup SFP module
-@@ -2301,6 +2329,90 @@ static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *hw)
- 	return rc;
- }
- 
-+/**
-+ *  ixgbe_fc_autoneg_backplane_x550em_a - Enable flow control IEEE clause 37
-+ *  @hw: pointer to hardware structure
-+ **/
-+static void ixgbe_fc_autoneg_backplane_x550em_a(struct ixgbe_hw *hw)
-+{
-+	u32 link_s1, lp_an_page_low, an_cntl_1;
-+	s32 status = IXGBE_ERR_FC_NOT_NEGOTIATED;
-+	ixgbe_link_speed speed;
-+	bool link_up;
-+
-+	/* AN should have completed when the cable was plugged in.
-+	 * Look for reasons to bail out.  Bail out if:
-+	 * - FC autoneg is disabled, or if
-+	 * - link is not up.
-+	 */
-+	if (hw->fc.disable_fc_autoneg) {
-+		hw_err(hw, "Flow control autoneg is disabled");
-+		goto out;
-+	}
-+
-+	hw->mac.ops.check_link(hw, &speed, &link_up, false);
-+	if (!link_up) {
-+		hw_err(hw, "The link is down");
-+		goto out;
-+	}
-+
-+	/* Check at auto-negotiation has completed */
-+	status = hw->mac.ops.read_iosf_sb_reg(hw,
-+					IXGBE_KRM_LINK_S1(hw->bus.lan_id),
-+					IXGBE_SB_IOSF_TARGET_KR_PHY, &link_s1);
-+
-+	if (status || (link_s1 & IXGBE_KRM_LINK_S1_MAC_AN_COMPLETE) == 0) {
-+		hw_dbg(hw, "Auto-Negotiation did not complete\n");
-+		status = IXGBE_ERR_FC_NOT_NEGOTIATED;
-+		goto out;
-+	}
-+
-+	/* Read the 10g AN autoc and LP ability registers and resolve
-+	 * local flow control settings accordingly
-+	 */
-+	status = hw->mac.ops.read_iosf_sb_reg(hw,
-+				IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
-+				IXGBE_SB_IOSF_TARGET_KR_PHY, &an_cntl_1);
-+
-+	if (status) {
-+		hw_dbg(hw, "Auto-Negotiation did not complete\n");
-+		goto out;
-+	}
-+
-+	status = hw->mac.ops.read_iosf_sb_reg(hw,
-+				IXGBE_KRM_LP_BASE_PAGE_HIGH(hw->bus.lan_id),
-+				IXGBE_SB_IOSF_TARGET_KR_PHY, &lp_an_page_low);
-+
-+	if (status) {
-+		hw_dbg(hw, "Auto-Negotiation did not complete\n");
-+		goto out;
-+	}
-+
-+	status = ixgbe_negotiate_fc(hw, an_cntl_1, lp_an_page_low,
-+				    IXGBE_KRM_AN_CNTL_1_SYM_PAUSE,
-+				    IXGBE_KRM_AN_CNTL_1_ASM_PAUSE,
-+				    IXGBE_KRM_LP_BASE_PAGE_HIGH_SYM_PAUSE,
-+				    IXGBE_KRM_LP_BASE_PAGE_HIGH_ASM_PAUSE);
-+
-+out:
-+	if (!status) {
-+		hw->fc.fc_was_autonegged = true;
-+	} else {
-+		hw->fc.fc_was_autonegged = false;
-+		hw->fc.current_mode = hw->fc.requested_mode;
-+	}
-+}
-+
-+/**
-+ *  ixgbe_fc_autoneg_fiber_x550em_a - passthrough FC settings
-+ *  @hw: pointer to hardware structure
-+ **/
-+static void ixgbe_fc_autoneg_fiber_x550em_a(struct ixgbe_hw *hw)
-+{
-+	hw->fc.fc_was_autonegged = false;
-+	hw->fc.current_mode = hw->fc.requested_mode;
-+}
-+
- /** ixgbe_enter_lplu_x550em - Transition to low power states
-  *  @hw: pointer to hardware structure
-  *
-@@ -2749,6 +2861,102 @@ static void ixgbe_set_source_address_pruning_X550(struct ixgbe_hw *hw,
+@@ -773,6 +776,49 @@ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw)
  }
  
  /**
-+ *  ixgbe_setup_fc_backplane_x550em_a - Set up flow control
++ *  ixgbe_init_led_link_act_generic - Store the LED index link/activity.
 + *  @hw: pointer to hardware structure
 + *
-+ *  Called at init time to set up flow control.
++ *  Store the index for the link active LED. This will be used to support
++ *  blinking the LED.
 + **/
-+static s32 ixgbe_setup_fc_backplane_x550em_a(struct ixgbe_hw *hw)
++s32 ixgbe_init_led_link_act_generic(struct ixgbe_hw *hw)
 +{
-+	s32 status = 0;
-+	u32 link_ctrl = 0;
-+	u32 an_cntl = 0;
++	struct ixgbe_mac_info *mac = &hw->mac;
++	u32 led_reg, led_mode;
++	u16 i;
 +
-+	/* Validate the requested mode */
-+	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
-+		hw_err(hw, "ixgbe_fc_rx_pause not valid in strict IEEE mode\n");
-+		return IXGBE_ERR_INVALID_LINK_SETTINGS;
++	led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
++
++	/* Get LED link active from the LEDCTL register */
++	for (i = 0; i < 4; i++) {
++		led_mode = led_reg >> IXGBE_LED_MODE_SHIFT(i);
++
++		if ((led_mode & IXGBE_LED_MODE_MASK_BASE) ==
++		    IXGBE_LED_LINK_ACTIVE) {
++			mac->led_link_act = i;
++			return 0;
++		}
 +	}
 +
-+	if (hw->fc.requested_mode == ixgbe_fc_default)
-+		hw->fc.requested_mode = ixgbe_fc_full;
-+
-+	/* Set up the 1G and 10G flow control advertisement registers so the
-+	 * HW will be able to do FC autoneg once the cable is plugged in.  If
-+	 * we link at 10G, the 1G advertisement is harmless and vice versa.
++	/* If LEDCTL register does not have the LED link active set, then use
++	 * known MAC defaults.
 +	 */
-+	status = hw->mac.ops.read_iosf_sb_reg(hw,
-+					IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
-+					IXGBE_SB_IOSF_TARGET_KR_PHY, &an_cntl);
-+
-+	if (status) {
-+		hw_dbg(hw, "Auto-Negotiation did not complete\n");
-+		return status;
-+	}
-+
-+	/* The possible values of fc.requested_mode are:
-+	 * 0: Flow control is completely disabled
-+	 * 1: Rx flow control is enabled (we can receive pause frames,
-+	 *    but not send pause frames).
-+	 * 2: Tx flow control is enabled (we can send pause frames but
-+	 *    we do not support receiving pause frames).
-+	 * 3: Both Rx and Tx flow control (symmetric) are enabled.
-+	 * other: Invalid.
-+	 */
-+	switch (hw->fc.requested_mode) {
-+	case ixgbe_fc_none:
-+		/* Flow control completely disabled by software override. */
-+		an_cntl &= ~(IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
-+			     IXGBE_KRM_AN_CNTL_1_ASM_PAUSE);
++	switch (hw->mac.type) {
++	case ixgbe_mac_x550em_a:
++		mac->led_link_act = 0;
 +		break;
-+	case ixgbe_fc_tx_pause:
-+		/* Tx Flow control is enabled, and Rx Flow control is
-+		 * disabled by software override.
-+		 */
-+		an_cntl |= IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
-+		an_cntl &= ~IXGBE_KRM_AN_CNTL_1_SYM_PAUSE;
-+		break;
-+	case ixgbe_fc_rx_pause:
-+		/* Rx Flow control is enabled and Tx Flow control is
-+		 * disabled by software override. Since there really
-+		 * isn't a way to advertise that we are capable of RX
-+		 * Pause ONLY, we will advertise that we support both
-+		 * symmetric and asymmetric Rx PAUSE, as such we fall
-+		 * through to the fc_full statement.  Later, we will
-+		 * disable the adapter's ability to send PAUSE frames.
-+		 */
-+	case ixgbe_fc_full:
-+		/* Flow control (both Rx and Tx) is enabled by SW override. */
-+		an_cntl |= IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
-+			   IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
++	case ixgbe_mac_X550EM_x:
++		mac->led_link_act = 1;
 +		break;
 +	default:
-+		hw_err(hw, "Flow control param set incorrectly\n");
-+		return IXGBE_ERR_CONFIG;
++		mac->led_link_act = 2;
 +	}
 +
-+	status = hw->mac.ops.write_iosf_sb_reg(hw,
-+					IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
-+					IXGBE_SB_IOSF_TARGET_KR_PHY, an_cntl);
-+
-+	/* Restart auto-negotiation. */
-+	status = hw->mac.ops.read_iosf_sb_reg(hw,
-+				IXGBE_KRM_LINK_CTRL_1(hw->bus.lan_id),
-+				IXGBE_SB_IOSF_TARGET_KR_PHY, &link_ctrl);
-+	if (status) {
-+		hw_dbg(hw, "Auto-Negotiation did not complete\n");
-+		return status;
-+	}
-+
-+	link_ctrl |= IXGBE_KRM_LINK_CTRL_1_TETH_AN_RESTART;
-+	status = hw->mac.ops.write_iosf_sb_reg(hw,
-+				IXGBE_KRM_LINK_CTRL_1(hw->bus.lan_id),
-+				IXGBE_SB_IOSF_TARGET_KR_PHY, link_ctrl);
-+
-+	return status;
++	return 0;
 +}
 +
 +/**
-  * ixgbe_set_mux - Set mux for port 1 access with CS4227
-  * @hw: pointer to hardware structure
-  * @state: set mux if 1, clear if 0
-@@ -2969,6 +3177,7 @@ static const struct ixgbe_mac_operations mac_ops_X550 = {
- 	.prot_autoc_read	= prot_autoc_read_generic,
- 	.prot_autoc_write	= prot_autoc_write_generic,
- 	.setup_fc		= ixgbe_setup_fc_generic,
-+	.fc_autoneg		= ixgbe_fc_autoneg,
+  *  ixgbe_led_on_generic - Turns on the software controllable LEDs.
+  *  @hw: pointer to hardware structure
+  *  @index: led number to turn on
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 6d4c260..5b3e3c6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -49,6 +49,7 @@ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw);
+ 
+ s32 ixgbe_led_on_generic(struct ixgbe_hw *hw, u32 index);
+ s32 ixgbe_led_off_generic(struct ixgbe_hw *hw, u32 index);
++s32 ixgbe_init_led_link_act_generic(struct ixgbe_hw *hw);
+ 
+ s32 ixgbe_init_eeprom_params_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_write_eeprom_generic(struct ixgbe_hw *hw, u16 offset, u16 data);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index f49f803..fd192bf 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2225,11 +2225,11 @@ static int ixgbe_set_phys_id(struct net_device *netdev,
+ 		return 2;
+ 
+ 	case ETHTOOL_ID_ON:
+-		hw->mac.ops.led_on(hw, hw->bus.func);
++		hw->mac.ops.led_on(hw, hw->mac.led_link_act);
+ 		break;
+ 
+ 	case ETHTOOL_ID_OFF:
+-		hw->mac.ops.led_off(hw, hw->bus.func);
++		hw->mac.ops.led_off(hw, hw->mac.led_link_act);
+ 		break;
+ 
+ 	case ETHTOOL_ID_INACTIVE:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 31d82e3..82813f9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -3352,6 +3352,7 @@ struct ixgbe_mac_operations {
+ 	s32 (*led_off)(struct ixgbe_hw *, u32);
+ 	s32 (*blink_led_start)(struct ixgbe_hw *, u32);
+ 	s32 (*blink_led_stop)(struct ixgbe_hw *, u32);
++	s32 (*init_led_link_act)(struct ixgbe_hw *);
+ 
+ 	/* RAR, Multicast, VLAN */
+ 	s32 (*set_rar)(struct ixgbe_hw *, u32, u8 *, u32, u32);
+@@ -3462,6 +3463,7 @@ struct ixgbe_mac_info {
+ 	u8				san_mac_rar_index;
+ 	struct ixgbe_thermal_sensor_data  thermal_sensor_data;
+ 	bool				set_lben;
++	u8				led_link_act;
  };
  
- static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
-@@ -2988,6 +3197,7 @@ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
- 	.release_swfw_sync	= &ixgbe_release_swfw_sync_X550em,
- 	.init_swfw_sync		= &ixgbe_init_swfw_sync_X540,
- 	.setup_fc		= NULL, /* defined later */
-+	.fc_autoneg		= ixgbe_fc_autoneg,
- 	.read_iosf_sb_reg	= ixgbe_read_iosf_sb_reg_x550,
- 	.write_iosf_sb_reg	= ixgbe_write_iosf_sb_reg_x550,
- };
-@@ -3008,6 +3218,7 @@ static struct ixgbe_mac_operations mac_ops_x550em_a = {
- 	.acquire_swfw_sync	= ixgbe_acquire_swfw_sync_x550em_a,
- 	.release_swfw_sync	= ixgbe_release_swfw_sync_x550em_a,
- 	.setup_fc		= ixgbe_setup_fc_x550em,
-+	.fc_autoneg		= NULL, /* defined later */
- 	.read_iosf_sb_reg	= ixgbe_read_iosf_sb_reg_x550a,
- 	.write_iosf_sb_reg	= ixgbe_write_iosf_sb_reg_x550a,
- };
+ struct ixgbe_phy_info {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index f2b1d48..5bf1d49 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -851,6 +851,7 @@ static const struct ixgbe_mac_operations mac_ops_X540 = {
+ 	.get_link_capabilities  = &ixgbe_get_copper_link_capabilities_generic,
+ 	.led_on                 = &ixgbe_led_on_generic,
+ 	.led_off                = &ixgbe_led_off_generic,
++	.init_led_link_act	= ixgbe_init_led_link_act_generic,
+ 	.blink_led_start        = &ixgbe_blink_led_start_X540,
+ 	.blink_led_stop         = &ixgbe_blink_led_stop_X540,
+ 	.set_rar                = &ixgbe_set_rar_generic,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 3e3458e..f4385fc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2952,6 +2952,7 @@ static const struct ixgbe_mac_operations mac_ops_X550 = {
+ 	X550_COMMON_MAC
+ 	.led_on			= ixgbe_led_on_generic,
+ 	.led_off		= ixgbe_led_off_generic,
++	.init_led_link_act	= ixgbe_init_led_link_act_generic,
+ 	.reset_hw		= &ixgbe_reset_hw_X540,
+ 	.get_media_type		= &ixgbe_get_media_type_X540,
+ 	.get_san_mac_addr	= &ixgbe_get_san_mac_addr_generic,
+@@ -2972,6 +2973,7 @@ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
+ 	X550_COMMON_MAC
+ 	.led_on			= ixgbe_led_on_t_x550em,
+ 	.led_off		= ixgbe_led_off_t_x550em,
++	.init_led_link_act	= ixgbe_init_led_link_act_generic,
+ 	.reset_hw		= &ixgbe_reset_hw_X550em,
+ 	.get_media_type		= &ixgbe_get_media_type_X550em,
+ 	.get_san_mac_addr	= NULL,
+@@ -2992,6 +2994,7 @@ static struct ixgbe_mac_operations mac_ops_x550em_a = {
+ 	X550_COMMON_MAC
+ 	.led_on			= ixgbe_led_on_t_x550em,
+ 	.led_off		= ixgbe_led_off_t_x550em,
++	.init_led_link_act	= ixgbe_init_led_link_act_generic,
+ 	.reset_hw		= ixgbe_reset_hw_X550em,
+ 	.get_media_type		= ixgbe_get_media_type_X550em,
+ 	.get_san_mac_addr	= NULL,
 -- 
 2.7.4
