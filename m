@@ -1,415 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] ixgbe: use link instead of I2C combined abstraction
-Date: Sat,  5 Nov 2016 00:54:15 -0700
-Message-ID: <1478332461-43147-10-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1478332461-43147-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:65478 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753831AbcKEHy1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 5 Nov 2016 03:54:27 -0400
-In-Reply-To: <1478332461-43147-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v6 7/7] arm64: dts: NS2: add AMAC ethernet support
+Date: Sat, 5 Nov 2016 13:33:31 +0300
+Message-ID: <c4a1b943-dce9-805d-30d4-4858b4a6ef23@cogentembedded.com>
+References: <1478236262-3351-1-git-send-email-jon.mason@broadcom.com>
+ <1478236262-3351-8-git-send-email-jon.mason@broadcom.com>
+ <69ecd9b9-d495-9dfa-ad26-4fa622d951a0@cogentembedded.com>
+ <20161104163024.GA6128@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>, rafal@milecki.pl,
+        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161104163024.GA6128@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+On 11/4/2016 7:30 PM, Jon Mason wrote:
 
-Introduce ixgbe_link_operations struct with the following changes:
+>>> Add support for the AMAC ethernet to the Broadcom Northstar2 SoC device
+>>> tree
+>>>
+>>> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+>>> ---
+>>> arch/arm64/boot/dts/broadcom/ns2-svk.dts |  5 +++++
+>>> arch/arm64/boot/dts/broadcom/ns2.dtsi    | 12 ++++++++++++
+>>> 2 files changed, 17 insertions(+)
+>>>
+>>> diff --git a/arch/arm64/boot/dts/broadcom/ns2-svk.dts b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+>>> index b09f3bc..c4d5442 100644
+>>> --- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+>>> +++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+>>> @@ -56,6 +56,10 @@
+>>> 	};
+>>> };
+>>>
+>>> +&enet {
+>>> +	status = "ok";
+>>
+>>    The spec dictates it should be "okay" (although "ok" is also recognized).
+>
+> The rest of the file uses "ok".  So, the addition above is consistent
+> with the other entries.
+>
+> Perhaps a patch outside this series to convert the entire file from
+> "ok" to "okay" would be acceptable to you.
 
-	read_i2c_combined		=> read_link
-	read_i2c_combined_unlocked	=> read_link_unlocked
-	write_i2c_combined		=> write_link
-	write_i2c_combined_unlocked	=> write_link_unlocked
+    OK, it would...
 
-This will allow X550EM_a to override these methods for MDIO access
-while X550EM_x provides methods to use I2C combined access. This
-also adds a new structure, ixgbe_link_info, to hold information
-about the link. Initially this is just method pointers and a bus
-address.
+>
+> Thanks,
+> Jon
 
-The functions involved in combined I2C accesses were moved from
-ixgbe_phy.c to ixgbe_x550.c. The underlying functions that carry
-out the combined I2C accesses were left in ixgbe_phy.c because
-they share some functions with other I2C methods.
-
-v2 - set hw->link.ops in probe.
-v3 - check ii->link_ops before setting it since we don't have it
-for all devices.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |  68 +----------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h  |  12 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  26 +++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 106 +++++++++++++++++++++++---
- 5 files changed, 124 insertions(+), 90 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index de634f0..9a62b55 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9507,6 +9507,8 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->mac.ops   = *ii->mac_ops;
- 	hw->mac.type  = ii->mac;
- 	hw->mvals     = ii->mvals;
-+	if (ii->link_ops)
-+		hw->link.ops  = *ii->link_ops;
- 
- 	/* EEPROM */
- 	hw->eeprom.ops = *ii->eeprom_ops;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index ebf46af..0c65814 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -109,8 +109,8 @@ static u8 ixgbe_ones_comp_byte_add(u8 add1, u8 add2)
-  *
-  *  Returns an error code on error.
-  */
--static s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
--					       u16 reg, u16 *val, bool lock)
-+s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
-+					u16 reg, u16 *val, bool lock)
- {
- 	u32 swfw_mask = hw->phy.phy_semaphore_mask;
- 	int max_retry = 10;
-@@ -178,36 +178,6 @@ static s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
- }
- 
- /**
-- *  ixgbe_read_i2c_combined_generic - Perform I2C read combined operation
-- *  @hw: pointer to the hardware structure
-- *  @addr: I2C bus address to read from
-- *  @reg: I2C device register to read from
-- *  @val: pointer to location to receive read value
-- *
-- *  Returns an error code on error.
-- */
--s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
--				    u16 reg, u16 *val)
--{
--	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, true);
--}
--
--/**
-- *  ixgbe_read_i2c_combined_generic_unlocked - Unlocked I2C read combined
-- *  @hw: pointer to the hardware structure
-- *  @addr: I2C bus address to read from
-- *  @reg: I2C device register to read from
-- *  @val: pointer to location to receive read value
-- *
-- *  Returns an error code on error.
-- */
--s32 ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
--					     u16 reg, u16 *val)
--{
--	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, false);
--}
--
--/**
-  *  ixgbe_write_i2c_combined_generic_int - Perform I2C write combined operation
-  *  @hw: pointer to the hardware structure
-  *  @addr: I2C bus address to write to
-@@ -217,8 +187,8 @@ s32 ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
-  *
-  *  Returns an error code on error.
-  */
--static s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
--						u16 reg, u16 val, bool lock)
-+s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
-+					 u16 reg, u16 val, bool lock)
- {
- 	u32 swfw_mask = hw->phy.phy_semaphore_mask;
- 	int max_retry = 1;
-@@ -273,36 +243,6 @@ static s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *hw, u8 addr,
- }
- 
- /**
-- *  ixgbe_write_i2c_combined_generic - Perform I2C write combined operation
-- *  @hw: pointer to the hardware structure
-- *  @addr: I2C bus address to write to
-- *  @reg: I2C device register to write to
-- *  @val: value to write
-- *
-- *  Returns an error code on error.
-- */
--s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw,
--				     u8 addr, u16 reg, u16 val)
--{
--	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, true);
--}
--
--/**
-- *  ixgbe_write_i2c_combined_generic_unlocked - Unlocked I2C write combined
-- *  @hw: pointer to the hardware structure
-- *  @addr: I2C bus address to write to
-- *  @reg: I2C device register to write to
-- *  @val: value to write
-- *
-- *  Returns an error code on error.
-- */
--s32 ixgbe_write_i2c_combined_generic_unlocked(struct ixgbe_hw *hw,
--					      u8 addr, u16 reg, u16 val)
--{
--	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, false);
--}
--
--/**
-  *  ixgbe_identify_phy_generic - Get physical layer module
-  *  @hw: pointer to hardware structure
-  *
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index cc735ec..ecf05f8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -195,12 +195,8 @@ s32 ixgbe_read_i2c_sff8472_generic(struct ixgbe_hw *hw, u8 byte_offset,
- 				   u8 *sff8472_data);
- s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
- 				   u8 eeprom_data);
--s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
--				    u16 reg, u16 *val);
--s32 ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
--					     u16 reg, u16 *val);
--s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
--				     u16 reg, u16 val);
--s32 ixgbe_write_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
--					      u16 reg, u16 val);
-+s32 ixgbe_read_i2c_combined_generic_int(struct ixgbe_hw *, u8 addr, u16 reg,
-+					u16 *val, bool lock);
-+s32 ixgbe_write_i2c_combined_generic_int(struct ixgbe_hw *, u8 addr, u16 reg,
-+					 u16 val, bool lock);
- #endif /* _IXGBE_PHY_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index f2f60cc..fe9c6ae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3396,16 +3396,28 @@ struct ixgbe_phy_operations {
- 	s32 (*read_i2c_sff8472)(struct ixgbe_hw *, u8 , u8 *);
- 	s32 (*read_i2c_eeprom)(struct ixgbe_hw *, u8 , u8 *);
- 	s32 (*write_i2c_eeprom)(struct ixgbe_hw *, u8, u8);
--	s32 (*read_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 *val);
--	s32 (*write_i2c_combined)(struct ixgbe_hw *, u8 addr, u16 reg, u16 val);
- 	s32 (*check_overtemp)(struct ixgbe_hw *);
- 	s32 (*set_phy_power)(struct ixgbe_hw *, bool on);
- 	s32 (*enter_lplu)(struct ixgbe_hw *);
- 	s32 (*handle_lasi)(struct ixgbe_hw *hw);
--	s32 (*read_i2c_combined_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
--					  u16 *value);
--	s32 (*write_i2c_combined_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
--					   u16 value);
-+	s32 (*read_i2c_byte_unlocked)(struct ixgbe_hw *, u8 offset, u8 addr,
-+				      u8 *value);
-+	s32 (*write_i2c_byte_unlocked)(struct ixgbe_hw *, u8 offset, u8 addr,
-+				       u8 value);
-+};
-+
-+struct ixgbe_link_operations {
-+	s32 (*read_link)(struct ixgbe_hw *, u8 addr, u16 reg, u16 *val);
-+	s32 (*read_link_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
-+				  u16 *val);
-+	s32 (*write_link)(struct ixgbe_hw *, u8 addr, u16 reg, u16 val);
-+	s32 (*write_link_unlocked)(struct ixgbe_hw *, u8 addr, u16 reg,
-+				   u16 val);
-+};
-+
-+struct ixgbe_link_info {
-+	struct ixgbe_link_operations ops;
-+	u8 addr;
- };
- 
- struct ixgbe_eeprom_info {
-@@ -3510,6 +3522,7 @@ struct ixgbe_hw {
- 	struct ixgbe_addr_filter_info	addr_ctrl;
- 	struct ixgbe_fc_info		fc;
- 	struct ixgbe_phy_info		phy;
-+	struct ixgbe_link_info		link;
- 	struct ixgbe_eeprom_info	eeprom;
- 	struct ixgbe_bus_info		bus;
- 	struct ixgbe_mbx_info		mbx;
-@@ -3533,6 +3546,7 @@ struct ixgbe_info {
- 	const struct ixgbe_eeprom_operations	*eeprom_ops;
- 	const struct ixgbe_phy_operations	*phy_ops;
- 	const struct ixgbe_mbx_operations	*mbx_ops;
-+	const struct ixgbe_link_operations	*link_ops;
- 	const u32			*mvals;
- };
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index c6669c27..252e52d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -36,6 +36,23 @@ static s32 ixgbe_get_invariants_X550_x(struct ixgbe_hw *hw)
- {
- 	struct ixgbe_mac_info *mac = &hw->mac;
- 	struct ixgbe_phy_info *phy = &hw->phy;
-+	struct ixgbe_link_info *link = &hw->link;
-+
-+	/* Start with X540 invariants, since so simular */
-+	ixgbe_get_invariants_X540(hw);
-+
-+	if (mac->ops.get_media_type(hw) != ixgbe_media_type_copper)
-+		phy->ops.set_phy_power = NULL;
-+
-+	link->addr = IXGBE_CS4227;
-+
-+	return 0;
-+}
-+
-+static s32 ixgbe_get_invariants_X550_a(struct ixgbe_hw *hw)
-+{
-+	struct ixgbe_mac_info *mac = &hw->mac;
-+	struct ixgbe_phy_info *phy = &hw->phy;
- 
- 	/* Start with X540 invariants, since so simular */
- 	ixgbe_get_invariants_X540(hw);
-@@ -72,8 +89,7 @@ static void ixgbe_setup_mux_ctl(struct ixgbe_hw *hw)
-  */
- static s32 ixgbe_read_cs4227(struct ixgbe_hw *hw, u16 reg, u16 *value)
- {
--	return hw->phy.ops.read_i2c_combined_unlocked(hw, IXGBE_CS4227, reg,
--						      value);
-+	return hw->link.ops.read_link_unlocked(hw, hw->link.addr, reg, value);
- }
- 
- /**
-@@ -86,8 +102,7 @@ static s32 ixgbe_read_cs4227(struct ixgbe_hw *hw, u16 reg, u16 *value)
-  */
- static s32 ixgbe_write_cs4227(struct ixgbe_hw *hw, u16 reg, u16 value)
- {
--	return hw->phy.ops.write_i2c_combined_unlocked(hw, IXGBE_CS4227, reg,
--						       value);
-+	return hw->link.ops.write_link_unlocked(hw, hw->link.addr, reg, value);
- }
- 
- /**
-@@ -325,6 +340,68 @@ static s32 ixgbe_write_phy_reg_x550em(struct ixgbe_hw *hw, u32 reg_addr,
- 	return IXGBE_NOT_IMPLEMENTED;
- }
- 
-+/**
-+ * ixgbe_read_i2c_combined_generic - Perform I2C read combined operation
-+ * @hw: pointer to the hardware structure
-+ * @addr: I2C bus address to read from
-+ * @reg: I2C device register to read from
-+ * @val: pointer to location to receive read value
-+ *
-+ * Returns an error code on error.
-+ **/
-+static s32 ixgbe_read_i2c_combined_generic(struct ixgbe_hw *hw, u8 addr,
-+					   u16 reg, u16 *val)
-+{
-+	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, true);
-+}
-+
-+/**
-+ * ixgbe_read_i2c_combined_generic_unlocked - Do I2C read combined operation
-+ * @hw: pointer to the hardware structure
-+ * @addr: I2C bus address to read from
-+ * @reg: I2C device register to read from
-+ * @val: pointer to location to receive read value
-+ *
-+ * Returns an error code on error.
-+ **/
-+static s32
-+ixgbe_read_i2c_combined_generic_unlocked(struct ixgbe_hw *hw, u8 addr,
-+					 u16 reg, u16 *val)
-+{
-+	return ixgbe_read_i2c_combined_generic_int(hw, addr, reg, val, false);
-+}
-+
-+/**
-+ * ixgbe_write_i2c_combined_generic - Perform I2C write combined operation
-+ * @hw: pointer to the hardware structure
-+ * @addr: I2C bus address to write to
-+ * @reg: I2C device register to write to
-+ * @val: value to write
-+ *
-+ * Returns an error code on error.
-+ **/
-+static s32 ixgbe_write_i2c_combined_generic(struct ixgbe_hw *hw,
-+					    u8 addr, u16 reg, u16 val)
-+{
-+	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, true);
-+}
-+
-+/**
-+ * ixgbe_write_i2c_combined_generic_unlocked - Do I2C write combined operation
-+ * @hw: pointer to the hardware structure
-+ * @addr: I2C bus address to write to
-+ * @reg: I2C device register to write to
-+ * @val: value to write
-+ *
-+ * Returns an error code on error.
-+ **/
-+static s32
-+ixgbe_write_i2c_combined_generic_unlocked(struct ixgbe_hw *hw,
-+					  u8 addr, u16 reg, u16 val)
-+{
-+	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, false);
-+}
-+
- /** ixgbe_init_eeprom_params_X550 - Initialize EEPROM params
-  *  @hw: pointer to hardware structure
-  *
-@@ -1338,8 +1415,10 @@ ixgbe_setup_mac_link_sfp_x550em(struct ixgbe_hw *hw,
- 		reg_val = (IXGBE_CS4227_EDC_MODE_CX1 << 1) | 0x1;
- 	else
- 		reg_val = (IXGBE_CS4227_EDC_MODE_SR << 1) | 0x1;
--	status = ixgbe_write_i2c_combined_generic(hw, IXGBE_CS4227,
--						  reg_slice, reg_val);
-+
-+	status = hw->link.ops.write_link(hw, hw->link.addr, reg_slice,
-+					 reg_val);
-+
- 	return status;
- }
- 
-@@ -3216,11 +3295,6 @@ static const struct ixgbe_phy_operations phy_ops_X550EM_x = {
- 	.identify		= &ixgbe_identify_phy_x550em,
- 	.read_reg		= &ixgbe_read_phy_reg_generic,
- 	.write_reg		= &ixgbe_write_phy_reg_generic,
--	.read_i2c_combined	= &ixgbe_read_i2c_combined_generic,
--	.write_i2c_combined	= &ixgbe_write_i2c_combined_generic,
--	.read_i2c_combined_unlocked = &ixgbe_read_i2c_combined_generic_unlocked,
--	.write_i2c_combined_unlocked =
--				     &ixgbe_write_i2c_combined_generic_unlocked,
- };
- 
- static const struct ixgbe_phy_operations phy_ops_x550em_a = {
-@@ -3233,6 +3307,13 @@ static const struct ixgbe_phy_operations phy_ops_x550em_a = {
- 	.write_reg_mdi		= &ixgbe_write_phy_reg_mdi,
- };
- 
-+static const struct ixgbe_link_operations link_ops_x550em_x = {
-+	.read_link		= &ixgbe_read_i2c_combined_generic,
-+	.read_link_unlocked	= &ixgbe_read_i2c_combined_generic_unlocked,
-+	.write_link		= &ixgbe_write_i2c_combined_generic,
-+	.write_link_unlocked	= &ixgbe_write_i2c_combined_generic_unlocked,
-+};
-+
- static const u32 ixgbe_mvals_X550[IXGBE_MVALS_IDX_LIMIT] = {
- 	IXGBE_MVALS_INIT(X550)
- };
-@@ -3263,11 +3344,12 @@ const struct ixgbe_info ixgbe_X550EM_x_info = {
- 	.phy_ops		= &phy_ops_X550EM_x,
- 	.mbx_ops		= &mbx_ops_generic,
- 	.mvals			= ixgbe_mvals_X550EM_x,
-+	.link_ops		= &link_ops_x550em_x,
- };
- 
- const struct ixgbe_info ixgbe_x550em_a_info = {
- 	.mac			= ixgbe_mac_x550em_a,
--	.get_invariants		= &ixgbe_get_invariants_X550_x,
-+	.get_invariants		= &ixgbe_get_invariants_X550_a,
- 	.mac_ops		= &mac_ops_x550em_a,
- 	.eeprom_ops		= &eeprom_ops_X550EM_x,
- 	.phy_ops		= &phy_ops_x550em_a,
--- 
-2.7.4
+MBR, Sergei
