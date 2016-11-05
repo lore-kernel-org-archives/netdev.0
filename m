@@ -1,78 +1,41 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v3 2/2] net: ethernet: nb8800: handle all RGMII definitions
-Date: Sat, 05 Nov 2016 12:58:53 +0000
-Message-ID: <yw1xoa1uhylu.fsf@unicorn.mansr.com>
-References: <581CD1AF.6030300@laposte.net> <581CD210.5060206@laposte.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Sebastian Frias <sf84@laposte.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <581CD210.5060206@laposte.net> (Sebastian Frias's message of
-        "Fri, 4 Nov 2016 19:23:12 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [PATCH net-next 0/4] stmmac: dwmac-rk: convert to standard PM/remove functions
+Date: Sat,  5 Nov 2016 14:04:48 +0100
+Message-ID: <20161105130452.24226-1-manabian@gmail.com>
+Cc: Joachim Eastwood <manabian@gmail.com>, heiko@sntech.de,
+        linux-rockchip@lists.infradead.org, vpalatin@chromium.org,
+        peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:36315 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752963AbcKENFM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 09:05:12 -0400
+Received: by mail-lf0-f67.google.com with SMTP id o20so6133150lfg.3
+        for <netdev@vger.kernel.org>; Sat, 05 Nov 2016 06:05:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sebastian Frias <sf84@laposte.net> writes:
+This patch set aims to remove the init/exit callbacks from the 
+dwmac-rk driver and instead use standard PM callbacks. Eventually
+the init/exit callbacks will be deprecated and removed from all
+drivers dwmac-* except for dwmac-generic. Drivers will be refactored
+to use standard PM and remove callbacks.
 
-> Commit a999589ccaae ("phylib: add RGMII-ID interface mode definition")
-> and commit 7d400a4c5897 ("phylib: add PHY interface modes for internal
-> delay for tx and rx only") added several RGMII definitions:
-> PHY_INTERFACE_MODE_RGMII_ID, PHY_INTERFACE_MODE_RGMII_RXID and
-> PHY_INTERFACE_MODE_RGMII_TXID to deal with internal delays.
->
-> Those are all RGMII modes (1Gbit) and must be considered that way when
-> setting the MAC mode or the pad mode for the HW to work properly.
->
-> Signed-off-by: Sebastian Frias <sf84@laposte.net>
-> ---
->  drivers/net/ethernet/aurora/nb8800.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> index d2855c9..fba2699 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -598,6 +598,7 @@ static irqreturn_t nb8800_irq(int irq, void *dev_id)
->  static void nb8800_mac_config(struct net_device *dev)
->  {
->  	struct nb8800_priv *priv = netdev_priv(dev);
-> +	struct phy_device *phydev = dev->phydev;
->  	bool gigabit = priv->speed == SPEED_1000;
->  	u32 mac_mode_mask = RGMII_MODE | HALF_DUPLEX | GMAC_MODE;
->  	u32 mac_mode = 0;
-> @@ -609,7 +610,7 @@ static void nb8800_mac_config(struct net_device *dev)
->  		mac_mode |= HALF_DUPLEX;
->
->  	if (gigabit) {
-> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
-> +		if (phy_interface_is_rgmii(phydev))
->  			mac_mode |= RGMII_MODE;
->
->  		mac_mode |= GMAC_MODE;
+This conversion was pretty straight forward, but it would really nice
+if some chromium people could test suspend/resume with this patch set.
 
-As I said before, this part can/should be applied separately, although
-personally I probably wouldn't have bothered adding a single-use variable.
 
-> @@ -1278,9 +1279,8 @@ static int nb8800_tangox_init(struct net_device *dev)
->  		break;
->
->  	case PHY_INTERFACE_MODE_RGMII:
-> -		pad_mode = PAD_MODE_RGMII;
-> -		break;
-> -
-> +	case PHY_INTERFACE_MODE_RGMII_ID:
-> +	case PHY_INTERFACE_MODE_RGMII_RXID:
->  	case PHY_INTERFACE_MODE_RGMII_TXID:
->  		pad_mode = PAD_MODE_RGMII;
->  		break;
-> -- 
-> 1.7.11.2
->
+Joachim Eastwood (4):
+  stmmac: dwmac-rk: turn resume/suspend into standard PM callbacks
+  stmmac: dwmac-rk: turn exit into standard driver remove callback
+  stmmac: dwmac-rk: absorb rk_gmac_init into probe
+  Revert "net: stmmac: allow to split suspend/resume from init/exit callbacks"
+
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 89 +++++++++++-----------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  8 +-
+ include/linux/stmmac.h                             |  2 -
+ 3 files changed, 46 insertions(+), 53 deletions(-)
 
 -- 
-Måns Rullgård
+2.10.2
