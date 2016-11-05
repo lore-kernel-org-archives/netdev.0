@@ -1,81 +1,36 @@
 From: Pravin B Shelar <pshelar@ovn.org>
-Subject: [PATCH net-next v2 3/7] vxlan: avoid checking socket multiple times.
-Date: Sat,  5 Nov 2016 11:45:53 -0700
-Message-ID: <1478371557-71888-4-git-send-email-pshelar@ovn.org>
-References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
+Subject: [PATCH net-next v2 0/7] vxlan: General improvements.
+Date: Sat,  5 Nov 2016 11:45:50 -0700
+Message-ID: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
 Cc: Pravin B Shelar <pshelar@ovn.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:48633 "EHLO
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:53832 "EHLO
         relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756209AbcKESqG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 14:46:06 -0400
-In-Reply-To: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
+        with ESMTP id S1754524AbcKESqD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 14:46:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check the vxlan socket in vxlan6_getroute().
+Following patch series improves vxlan fast path, removes
+duplicate code and simplifies vxlan xmit code path.
 
-Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
----
- drivers/net/vxlan.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+v1-v2:
+Fix compilation error when IPv6 support is not enabled.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index a1e707f..bd17ab5 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -944,7 +944,9 @@ static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
- {
- 	struct vxlan_dev *vxlan;
- 	struct vxlan_sock *sock4;
--	struct vxlan_sock *sock6 = NULL;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct vxlan_sock *sock6;
-+#endif
- 	unsigned short family = dev->default_dst.remote_ip.sa.sa_family;
- 
- 	sock4 = rtnl_dereference(dev->vn4_sock);
-@@ -1830,6 +1832,7 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
- 
- #if IS_ENABLED(CONFIG_IPV6)
- static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
-+					  struct vxlan_sock *sock6,
- 					  struct sk_buff *skb, int oif, u8 tos,
- 					  __be32 label,
- 					  const struct in6_addr *daddr,
-@@ -1837,7 +1840,6 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 					  struct dst_cache *dst_cache,
- 					  const struct ip_tunnel_info *info)
- {
--	struct vxlan_sock *sock6 = rcu_dereference(vxlan->vn6_sock);
- 	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
- 	struct dst_entry *ndst;
- 	struct flowi6 fl6;
-@@ -2070,11 +2072,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		struct dst_entry *ndst;
- 		u32 rt6i_flags;
- 
--		if (!sock6)
--			goto drop;
- 		sk = sock6->sock->sk;
- 
--		ndst = vxlan6_get_route(vxlan, skb,
-+		ndst = vxlan6_get_route(vxlan, sock6, skb,
- 					rdst ? rdst->remote_ifindex : 0, tos,
- 					label, &dst->sin6.sin6_addr,
- 					&src->sin6.sin6_addr,
-@@ -2426,9 +2426,10 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- 		ip_rt_put(rt);
- 	} else {
- #if IS_ENABLED(CONFIG_IPV6)
-+		struct vxlan_sock *sock6 = rcu_dereference(vxlan->vn6_sock);
- 		struct dst_entry *ndst;
- 
--		ndst = vxlan6_get_route(vxlan, skb, 0, info->key.tos,
-+		ndst = vxlan6_get_route(vxlan, sock6, skb, 0, info->key.tos,
- 					info->key.label, &info->key.u.ipv6.dst,
- 					&info->key.u.ipv6.src, NULL, info);
- 		if (IS_ERR(ndst))
+Pravin B Shelar (7):
+  vxlan: avoid vlan processing in vxlan device.
+  vxlan: simplify exception handling
+  vxlan: avoid checking socket multiple times.
+  vxlan: improve vxlan route lookup checks.
+  vxlan: simplify RTF_LOCAL handling.
+  vxlan: simplify vxlan xmit
+  vxlan: remove unsed vxlan_dev_dst_port()
+
+ drivers/net/vxlan.c     | 275 +++++++++++++++++++++++-------------------------
+ include/linux/if_vlan.h |  16 ---
+ include/net/vxlan.h     |  10 --
+ 3 files changed, 133 insertions(+), 168 deletions(-)
+
 -- 
 1.9.1
