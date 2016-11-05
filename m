@@ -1,74 +1,70 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH net-next 4/4] Revert "net: stmmac: allow to split suspend/resume from init/exit callbacks"
-Date: Sat,  5 Nov 2016 14:04:52 +0100
-Message-ID: <20161105130452.24226-5-manabian@gmail.com>
-References: <20161105130452.24226-1-manabian@gmail.com>
-Cc: Joachim Eastwood <manabian@gmail.com>, heiko@sntech.de,
-        linux-rockchip@lists.infradead.org, vpalatin@chromium.org,
-        peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36328 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754151AbcKENFR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2016 09:05:17 -0400
-Received: by mail-lf0-f65.google.com with SMTP id o20so6133221lfg.3
-        for <netdev@vger.kernel.org>; Sat, 05 Nov 2016 06:05:16 -0700 (PDT)
-In-Reply-To: <20161105130452.24226-1-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: adaptec: starfire: use new api ethtool_{get|set}_link_ksettings
+Date: Sat,  5 Nov 2016 14:05:39 +0100
+Message-ID: <1478351139-1720-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: ionut@badula.org, davem@davemloft.net, mugunthanvnm@ti.com,
+        a@unstable.cc, fw@strlen.de, jarod@redhat.com,
+        javier@osg.samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Instead of adding hooks inside stmmac_platform it is better to just use
-the standard PM callbacks within the specific dwmac-driver. This only
-used by the dwmac-rk driver.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-This reverts commit cecbc5563a02 ("stmmac: allow to split suspend/resume
-from init/exit callbacks").
-
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 8 ++------
- include/linux/stmmac.h                                | 2 --
- 2 files changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/adaptec/starfire.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 0a0d6a8..4d544c3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -417,9 +417,7 @@ static int stmmac_pltfr_suspend(struct device *dev)
- 	struct platform_device *pdev = to_platform_device(dev);
+diff --git a/drivers/net/ethernet/adaptec/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
+index 4a9a16e..3aaad33 100644
+--- a/drivers/net/ethernet/adaptec/starfire.c
++++ b/drivers/net/ethernet/adaptec/starfire.c
+@@ -1816,21 +1816,23 @@ static void get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ 	strlcpy(info->bus_info, pci_name(np->pci_dev), sizeof(info->bus_info));
+ }
  
- 	ret = stmmac_suspend(dev);
--	if (priv->plat->suspend)
--		priv->plat->suspend(pdev, priv->plat->bsp_priv);
--	else if (priv->plat->exit)
-+	if (priv->plat->exit)
- 		priv->plat->exit(pdev, priv->plat->bsp_priv);
+-static int get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int get_link_ksettings(struct net_device *dev,
++			      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	spin_lock_irq(&np->lock);
+-	mii_ethtool_gset(&np->mii_if, ecmd);
++	mii_ethtool_get_link_ksettings(&np->mii_if, cmd);
+ 	spin_unlock_irq(&np->lock);
+ 	return 0;
+ }
  
- 	return ret;
-@@ -438,9 +436,7 @@ static int stmmac_pltfr_resume(struct device *dev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct platform_device *pdev = to_platform_device(dev);
+-static int set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int set_link_ksettings(struct net_device *dev,
++			      const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	int res;
+ 	spin_lock_irq(&np->lock);
+-	res = mii_ethtool_sset(&np->mii_if, ecmd);
++	res = mii_ethtool_set_link_ksettings(&np->mii_if, cmd);
+ 	spin_unlock_irq(&np->lock);
+ 	check_duplex(dev);
+ 	return res;
+@@ -1861,12 +1863,12 @@ static void set_msglevel(struct net_device *dev, u32 val)
+ static const struct ethtool_ops ethtool_ops = {
+ 	.begin = check_if_running,
+ 	.get_drvinfo = get_drvinfo,
+-	.get_settings = get_settings,
+-	.set_settings = set_settings,
+ 	.nway_reset = nway_reset,
+ 	.get_link = get_link,
+ 	.get_msglevel = get_msglevel,
+ 	.set_msglevel = set_msglevel,
++	.get_link_ksettings = get_link_ksettings,
++	.set_link_ksettings = set_link_ksettings,
+ };
  
--	if (priv->plat->resume)
--		priv->plat->resume(pdev, priv->plat->bsp_priv);
--	else if (priv->plat->init)
-+	if (priv->plat->init)
- 		priv->plat->init(pdev, priv->plat->bsp_priv);
- 
- 	return stmmac_resume(dev);
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 705840e..3537fb3 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -135,8 +135,6 @@ struct plat_stmmacenet_data {
- 	void (*bus_setup)(void __iomem *ioaddr);
- 	int (*init)(struct platform_device *pdev, void *priv);
- 	void (*exit)(struct platform_device *pdev, void *priv);
--	void (*suspend)(struct platform_device *pdev, void *priv);
--	void (*resume)(struct platform_device *pdev, void *priv);
- 	void *bsp_priv;
- 	struct stmmac_axi *axi;
- 	int has_gmac4;
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 -- 
-2.10.2
+1.7.4.4
