@@ -1,76 +1,80 @@
-From: <helga.brickl@arcor.de>
-Subject: 59009 netdev
-Date: Sun, 06 Nov 2016 04:01:22 -0000
-Message-ID: <147840488298.10546.5431800048855801744@static.cytanet.com.cy>
-Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_508233064_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nb34-134.static.cytanet.com.cy ([81.4.134.134]:43951 "HELO
-        static.cytanet.com.cy" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1750734AbcKFEB2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 00:01:28 -0400
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: amd: pcnet32: use new api ethtool_{get|set}_link_ksettings
+Date: Sun,  6 Nov 2016 00:26:41 +0100
+Message-ID: <1478388401-13029-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: pcnet32@frontier.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
-AAB9DAAAAAA=
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
+
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/amd/pcnet32.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index adc7ab9..41e58cc 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -677,7 +677,8 @@ static void pcnet32_poll_controller(struct net_device *dev)
+ }
+ #endif
+ 
+-static int pcnet32_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int pcnet32_get_link_ksettings(struct net_device *dev,
++				      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct pcnet32_private *lp = netdev_priv(dev);
+ 	unsigned long flags;
+@@ -685,14 +686,15 @@ static int pcnet32_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ 	if (lp->mii) {
+ 		spin_lock_irqsave(&lp->lock, flags);
+-		mii_ethtool_gset(&lp->mii_if, cmd);
++		mii_ethtool_get_link_ksettings(&lp->mii_if, cmd);
+ 		spin_unlock_irqrestore(&lp->lock, flags);
+ 		r = 0;
+ 	}
+ 	return r;
+ }
+ 
+-static int pcnet32_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int pcnet32_set_link_ksettings(struct net_device *dev,
++				      const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct pcnet32_private *lp = netdev_priv(dev);
+ 	unsigned long flags;
+@@ -700,7 +702,7 @@ static int pcnet32_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ 	if (lp->mii) {
+ 		spin_lock_irqsave(&lp->lock, flags);
+-		r = mii_ethtool_sset(&lp->mii_if, cmd);
++		r = mii_ethtool_set_link_ksettings(&lp->mii_if, cmd);
+ 		spin_unlock_irqrestore(&lp->lock, flags);
+ 	}
+ 	return r;
+@@ -1440,8 +1442,6 @@ static void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ }
+ 
+ static const struct ethtool_ops pcnet32_ethtool_ops = {
+-	.get_settings		= pcnet32_get_settings,
+-	.set_settings		= pcnet32_set_settings,
+ 	.get_drvinfo		= pcnet32_get_drvinfo,
+ 	.get_msglevel		= pcnet32_get_msglevel,
+ 	.set_msglevel		= pcnet32_set_msglevel,
+@@ -1455,6 +1455,8 @@ static void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 	.get_regs_len		= pcnet32_get_regs_len,
+ 	.get_regs		= pcnet32_get_regs,
+ 	.get_sset_count		= pcnet32_get_sset_count,
++	.get_link_ksettings	= pcnet32_get_link_ksettings,
++	.set_link_ksettings	= pcnet32_set_link_ksettings,
+ };
+ 
+ /* only probes for non-PCI devices, the rest are handled by
+-- 
+1.7.4.4
