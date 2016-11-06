@@ -1,36 +1,36 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: 3com: typhoon: fix typhoon_get_link_ksettings
-Date: Sun, 6 Nov 2016 12:53:57 +0300
-Message-ID: <37849ac5-8781-00c0-de4c-476ca69ab1bf@cogentembedded.com>
-References: <1478358700-22711-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net-next v2 1/7] vxlan: avoid vlan processing in vxlan
+ device.
+Date: Sun, 6 Nov 2016 12:57:48 +0300
+Message-ID: <353545ba-268b-5e19-caf6-f10ca64c3f94@cogentembedded.com>
+References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
+ <1478371557-71888-2-git-send-email-pshelar@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>, dave@thedillows.org,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478358700-22711-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Pravin B Shelar <pshelar@ovn.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:35802 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751474AbcKFJ5v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 04:57:51 -0500
+Received: by mail-lf0-f44.google.com with SMTP id b14so93084020lfg.2
+        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 01:57:50 -0800 (PST)
+In-Reply-To: <1478371557-71888-2-git-send-email-pshelar@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 11/5/2016 6:11 PM, Philippe Reynes wrote:
+On 11/5/2016 9:45 PM, Pravin B Shelar wrote:
 
-> When moving from typhoon_get_settings to typhoon_getlink_ksettings
-> in the commit commit f7a5537cd2a5 ("net: 3com: typhoon: use new api
+> VxLan device does not have special handling for vlan taging on egress.
 
-    One "commit" is enough. :-)
+    Tagging.
 
-> ethtool_{get|set}_link_ksettings"), we use a local variable supported
-> but we forgot to update the struct ethtool_link_ksettings with
-> this value.
+> Therefore it does not make sense to expose vlan offloading feature.
 >
-> We also initialize advertising to zero, because otherwise it may
-> be uninitialized if no case of the switch (tp->xcvr_select) is used.
->
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
 [...]
 
 MBR, Sergei
