@@ -1,83 +1,159 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: rhashtable: how to use insecure_elasticity of rhashtable_params
-Date: Sun, 6 Nov 2016 21:15:07 +0800
-Message-ID: <CADvbK_cPQVT-icKn_2WpKqTyWgVEJikSAbg6=xB3+dt=zcdk0Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        davem <davem@davemloft.net>, Phil Sutter <phil@nwl.cc>
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:32871 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751699AbcKFNPJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 08:15:09 -0500
-Received: by mail-qk0-f195.google.com with SMTP id x190so9567906qkb.0
-        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 05:15:08 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: xgbe: use new api ethtool_{get|set}_link_ksettings
+Date: Sun,  6 Nov 2016 14:57:04 +0100
+Message-ID: <1478440624-23565-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: thomas.lendacky@amd.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now when I don't set  insecure_elasticity, ht->elasticity would be
-set 16, it would be checked in  the loop of __rhashtable_insert_fast
-and rhashtable_lookup_one.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-But if I set  insecure_elasticity = true,  ht->elasticity wouldn't be
-set (and the default is 0). when it is checked in that loop. they
-also return EAGAIN, as:
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   68 ++++++++++++++------------
+ 1 files changed, 37 insertions(+), 31 deletions(-)
 
-    if (elasticity <= 0)
-        return ERR_PTR(-EAGAIN);
-
-it seems insecure_elasticity=true doesn't really work well.
-
-* @insecure_elasticity: Set to true to disable chain length checks
-
-shouldn't it be something like this ? or did I miss something ?
-
--------------------------------------
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 5c132d3..9743ab7 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -702,7 +702,8 @@ static inline void *__rhashtable_insert_fast(
-                struct rhlist_head *plist;
-                struct rhlist_head *list;
-
--               elasticity--;
-+               if (ht->elasticity)
-+                       elasticity--;
-                if (!key ||
-                    (params.obj_cmpfn ?
-                     params.obj_cmpfn(&arg, rht_obj(ht, head)) :
-@@ -726,7 +727,7 @@ static inline void *__rhashtable_insert_fast(
-                goto good;
-        }
-
--       if (elasticity <= 0)
-+       if (ht->elasticity && elasticity <= 0)
-                goto slow_path;
-
-        data = ERR_PTR(-E2BIG);
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 32d0ad0..e3d615a 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -444,7 +444,8 @@ static void *rhashtable_lookup_one(struct rhashtable *ht,
-                struct rhlist_head *list;
-                struct rhlist_head *plist;
-
--               elasticity--;
-+               if (ht->elasticity)
-+                       elasticity--;
-                if (!key ||
-                    (ht->p.obj_cmpfn ?
-                     ht->p.obj_cmpfn(&arg, rht_obj(ht, head)) :
-@@ -465,7 +466,7 @@ static void *rhashtable_lookup_one(struct rhashtable *ht,
-                return NULL;
-        }
-
--       if (elasticity <= 0)
-+       if (ht->elasticity && elasticity <= 0)
-                return ERR_PTR(-EAGAIN);
-
-        return ERR_PTR(-ENOENT);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 46c959b..920566a 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -272,80 +272,86 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
+ 	return ret;
+ }
+ 
+-static int xgbe_get_settings(struct net_device *netdev,
+-			     struct ethtool_cmd *cmd)
++static int xgbe_get_link_ksettings(struct net_device *netdev,
++				   struct ethtool_link_ksettings *cmd)
+ {
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 
+-	cmd->phy_address = pdata->phy.address;
++	cmd->base.phy_address = pdata->phy.address;
+ 
+-	cmd->supported = pdata->phy.supported;
+-	cmd->advertising = pdata->phy.advertising;
+-	cmd->lp_advertising = pdata->phy.lp_advertising;
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						pdata->phy.supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						pdata->phy.advertising);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.lp_advertising,
++						pdata->phy.lp_advertising);
+ 
+-	cmd->autoneg = pdata->phy.autoneg;
+-	ethtool_cmd_speed_set(cmd, pdata->phy.speed);
+-	cmd->duplex = pdata->phy.duplex;
++	cmd->base.autoneg = pdata->phy.autoneg;
++	cmd->base.speed = pdata->phy.speed;
++	cmd->base.duplex = pdata->phy.duplex;
+ 
+-	cmd->port = PORT_NONE;
+-	cmd->transceiver = XCVR_INTERNAL;
++	cmd->base.port = PORT_NONE;
+ 
+ 	return 0;
+ }
+ 
+-static int xgbe_set_settings(struct net_device *netdev,
+-			     struct ethtool_cmd *cmd)
++static int xgbe_set_link_ksettings(struct net_device *netdev,
++				   const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
++	u32 advertising;
+ 	u32 speed;
+ 	int ret;
+ 
+-	speed = ethtool_cmd_speed(cmd);
++	speed = cmd->base.speed;
+ 
+-	if (cmd->phy_address != pdata->phy.address) {
++	if (cmd->base.phy_address != pdata->phy.address) {
+ 		netdev_err(netdev, "invalid phy address %hhu\n",
+-			   cmd->phy_address);
++			   cmd->base.phy_address);
+ 		return -EINVAL;
+ 	}
+ 
+-	if ((cmd->autoneg != AUTONEG_ENABLE) &&
+-	    (cmd->autoneg != AUTONEG_DISABLE)) {
++	if ((cmd->base.autoneg != AUTONEG_ENABLE) &&
++	    (cmd->base.autoneg != AUTONEG_DISABLE)) {
+ 		netdev_err(netdev, "unsupported autoneg %hhu\n",
+-			   cmd->autoneg);
++			   cmd->base.autoneg);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (cmd->autoneg == AUTONEG_DISABLE) {
++	if (cmd->base.autoneg == AUTONEG_DISABLE) {
+ 		if (!pdata->phy_if.phy_valid_speed(pdata, speed)) {
+ 			netdev_err(netdev, "unsupported speed %u\n", speed);
+ 			return -EINVAL;
+ 		}
+ 
+-		if (cmd->duplex != DUPLEX_FULL) {
++		if (cmd->base.duplex != DUPLEX_FULL) {
+ 			netdev_err(netdev, "unsupported duplex %hhu\n",
+-				   cmd->duplex);
++				   cmd->base.duplex);
+ 			return -EINVAL;
+ 		}
+ 	}
+ 
++	ethtool_convert_link_mode_to_legacy_u32(&advertising,
++						cmd->link_modes.advertising);
++
+ 	netif_dbg(pdata, link, netdev,
+ 		  "requested advertisement %#x, phy supported %#x\n",
+-		  cmd->advertising, pdata->phy.supported);
++		  advertising, pdata->phy.supported);
+ 
+-	cmd->advertising &= pdata->phy.supported;
+-	if ((cmd->autoneg == AUTONEG_ENABLE) && !cmd->advertising) {
++	advertising &= pdata->phy.supported;
++	if ((cmd->base.autoneg == AUTONEG_ENABLE) && !advertising) {
+ 		netdev_err(netdev,
+ 			   "unsupported requested advertisement\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	ret = 0;
+-	pdata->phy.autoneg = cmd->autoneg;
++	pdata->phy.autoneg = cmd->base.autoneg;
+ 	pdata->phy.speed = speed;
+-	pdata->phy.duplex = cmd->duplex;
+-	pdata->phy.advertising = cmd->advertising;
++	pdata->phy.duplex = cmd->base.duplex;
++	pdata->phy.advertising = advertising;
+ 
+-	if (cmd->autoneg == AUTONEG_ENABLE)
++	if (cmd->base.autoneg == AUTONEG_ENABLE)
+ 		pdata->phy.advertising |= ADVERTISED_Autoneg;
+ 	else
+ 		pdata->phy.advertising &= ~ADVERTISED_Autoneg;
+@@ -585,8 +591,6 @@ static int xgbe_get_ts_info(struct net_device *netdev,
+ }
+ 
+ static const struct ethtool_ops xgbe_ethtool_ops = {
+-	.get_settings = xgbe_get_settings,
+-	.set_settings = xgbe_set_settings,
+ 	.get_drvinfo = xgbe_get_drvinfo,
+ 	.get_msglevel = xgbe_get_msglevel,
+ 	.set_msglevel = xgbe_set_msglevel,
+@@ -604,6 +608,8 @@ static int xgbe_get_ts_info(struct net_device *netdev,
+ 	.get_rxfh = xgbe_get_rxfh,
+ 	.set_rxfh = xgbe_set_rxfh,
+ 	.get_ts_info = xgbe_get_ts_info,
++	.get_link_ksettings = xgbe_get_link_ksettings,
++	.set_link_ksettings = xgbe_set_link_ksettings,
+ };
+ 
+ const struct ethtool_ops *xgbe_get_ethtool_ops(void)
+-- 
+1.7.4.4
