@@ -1,51 +1,46 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net-next] net: core: add missing check for uid_range in rule_exists.
-Date: Mon,  7 Nov 2016 00:16:25 +0900
-Message-ID: <1478445385-94937-1-git-send-email-lorenzo@google.com>
-Cc: davem@davemloft.net, ek@google.com, eric.dumazet@gmail.com,
-        zenczykowski@gmail.com, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net] Revert "net/mlx4_en: Fix panic during reboot"
+Date: Sun,  6 Nov 2016 18:05:06 +0200
+Message-ID: <1478448306-28738-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Eugenia Emantayev <eugenia@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34654 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752144AbcKFPQc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 10:16:32 -0500
-Received: by mail-pf0-f172.google.com with SMTP id n85so77903148pfi.1
-        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 07:16:32 -0800 (PST)
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50600 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751872AbcKFQFe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 11:05:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this check, it is not possible to create two rules that
-are identical except for their UID ranges. For example:
+This reverts commit 9d2afba058722d40cc02f430229c91611c0e8d16.
 
-root@net-test:/# ip rule add prio 1000 lookup 300
-root@net-test:/# ip rule add prio 1000 uidrange 100-200 lookup 300
-RTNETLINK answers: File exists
-root@net-test:/# ip rule add prio 1000 uidrange 100-199 lookup 100
-root@net-test:/# ip rule add prio 1000 uidrange 200-299 lookup 200
-root@net-test:/# ip rule add prio 1000 uidrange 300-399 lookup 100
-RTNETLINK answers: File exists
+The original issue would possibly exist if an external module
+tried calling our "ethtool_ops" without checking if it still
+exists.
 
-Tested: https://android-review.googlesource.com/#/c/299980/
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+The right way of solving it is by simply doing the check in
+the caller side.
+Currently, no action is required as there's no such use case.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- net/core/fib_rules.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 5de436a..b6791d9 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -343,6 +343,10 @@ static int rule_exists(struct fib_rules_ops *ops, struct fib_rule_hdr *frh,
- 		if (r->l3mdev != rule->l3mdev)
- 			continue;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 12c99a2655f2..3a47e83d3e07 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2202,7 +2202,6 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
  
-+		if (!uid_eq(r->uid_range.start, rule->uid_range.start) ||
-+		    !uid_eq(r->uid_range.end, rule->uid_range.end))
-+			continue;
-+
- 		if (!ops->compare(r, frh, tb))
- 			continue;
- 		return 1;
+ 	if (!shutdown)
+ 		free_netdev(dev);
+-	dev->ethtool_ops = NULL;
+ }
+ 
+ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
 -- 
-2.8.0.rc3.226.g39d4020
+1.8.3.1
