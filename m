@@ -1,159 +1,61 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: xgbe: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  6 Nov 2016 14:57:04 +0100
-Message-ID: <1478440624-23565-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH v2] net: 3com: typhoon: fix typhoon_get_link_ksettings
+Date: Sun,  6 Nov 2016 15:02:32 +0100
+Message-ID: <1478440952-24973-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Philippe Reynes <tremyfr@gmail.com>
-To: thomas.lendacky@amd.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: dave@thedillows.org, sergei.shtylyov@cogentembedded.com,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:32876 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751660AbcKFOCk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 09:02:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+When moving from typhoon_get_settings to typhoon_getlink_ksettings
+in the commit f7a5537cd2a5 ("net: 3com: typhoon: use new api
+ethtool_{get|set}_link_ksettings"), we use a local variable supported
+but we forgot to update the struct ethtool_link_ksettings with
+this value.
+
+We also initialize advertising to zero, because otherwise it may
+be uninitialized if no case of the switch (tp->xcvr_select) is used.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   68 ++++++++++++++------------
- 1 files changed, 37 insertions(+), 31 deletions(-)
+Changelog:
+v2:
+- remove a duplicate "commit" in the commit log
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 46c959b..920566a 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -272,80 +272,86 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
- 	return ret;
- }
- 
--static int xgbe_get_settings(struct net_device *netdev,
--			     struct ethtool_cmd *cmd)
-+static int xgbe_get_link_ksettings(struct net_device *netdev,
-+				   struct ethtool_link_ksettings *cmd)
+ drivers/net/ethernet/3com/typhoon.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
+index dbdf06f..a0cacbe 100644
+--- a/drivers/net/ethernet/3com/typhoon.c
++++ b/drivers/net/ethernet/3com/typhoon.c
+@@ -1000,7 +1000,7 @@ enum state_values {
+ 			   struct ethtool_link_ksettings *cmd)
  {
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 	struct typhoon *tp = netdev_priv(dev);
+-	u32 supported, advertising;
++	u32 supported, advertising = 0;
  
--	cmd->phy_address = pdata->phy.address;
-+	cmd->base.phy_address = pdata->phy.address;
+ 	supported = SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
+ 				SUPPORTED_Autoneg;
+@@ -1049,6 +1049,11 @@ enum state_values {
+ 	else
+ 		cmd->base.autoneg = AUTONEG_DISABLE;
  
--	cmd->supported = pdata->phy.supported;
--	cmd->advertising = pdata->phy.advertising;
--	cmd->lp_advertising = pdata->phy.lp_advertising;
 +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						pdata->phy.supported);
++						supported);
 +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						pdata->phy.advertising);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.lp_advertising,
-+						pdata->phy.lp_advertising);
- 
--	cmd->autoneg = pdata->phy.autoneg;
--	ethtool_cmd_speed_set(cmd, pdata->phy.speed);
--	cmd->duplex = pdata->phy.duplex;
-+	cmd->base.autoneg = pdata->phy.autoneg;
-+	cmd->base.speed = pdata->phy.speed;
-+	cmd->base.duplex = pdata->phy.duplex;
- 
--	cmd->port = PORT_NONE;
--	cmd->transceiver = XCVR_INTERNAL;
-+	cmd->base.port = PORT_NONE;
- 
++						advertising);
++
  	return 0;
  }
  
--static int xgbe_set_settings(struct net_device *netdev,
--			     struct ethtool_cmd *cmd)
-+static int xgbe_set_link_ksettings(struct net_device *netdev,
-+				   const struct ethtool_link_ksettings *cmd)
- {
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
-+	u32 advertising;
- 	u32 speed;
- 	int ret;
- 
--	speed = ethtool_cmd_speed(cmd);
-+	speed = cmd->base.speed;
- 
--	if (cmd->phy_address != pdata->phy.address) {
-+	if (cmd->base.phy_address != pdata->phy.address) {
- 		netdev_err(netdev, "invalid phy address %hhu\n",
--			   cmd->phy_address);
-+			   cmd->base.phy_address);
- 		return -EINVAL;
- 	}
- 
--	if ((cmd->autoneg != AUTONEG_ENABLE) &&
--	    (cmd->autoneg != AUTONEG_DISABLE)) {
-+	if ((cmd->base.autoneg != AUTONEG_ENABLE) &&
-+	    (cmd->base.autoneg != AUTONEG_DISABLE)) {
- 		netdev_err(netdev, "unsupported autoneg %hhu\n",
--			   cmd->autoneg);
-+			   cmd->base.autoneg);
- 		return -EINVAL;
- 	}
- 
--	if (cmd->autoneg == AUTONEG_DISABLE) {
-+	if (cmd->base.autoneg == AUTONEG_DISABLE) {
- 		if (!pdata->phy_if.phy_valid_speed(pdata, speed)) {
- 			netdev_err(netdev, "unsupported speed %u\n", speed);
- 			return -EINVAL;
- 		}
- 
--		if (cmd->duplex != DUPLEX_FULL) {
-+		if (cmd->base.duplex != DUPLEX_FULL) {
- 			netdev_err(netdev, "unsupported duplex %hhu\n",
--				   cmd->duplex);
-+				   cmd->base.duplex);
- 			return -EINVAL;
- 		}
- 	}
- 
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
-+
- 	netif_dbg(pdata, link, netdev,
- 		  "requested advertisement %#x, phy supported %#x\n",
--		  cmd->advertising, pdata->phy.supported);
-+		  advertising, pdata->phy.supported);
- 
--	cmd->advertising &= pdata->phy.supported;
--	if ((cmd->autoneg == AUTONEG_ENABLE) && !cmd->advertising) {
-+	advertising &= pdata->phy.supported;
-+	if ((cmd->base.autoneg == AUTONEG_ENABLE) && !advertising) {
- 		netdev_err(netdev,
- 			   "unsupported requested advertisement\n");
- 		return -EINVAL;
- 	}
- 
- 	ret = 0;
--	pdata->phy.autoneg = cmd->autoneg;
-+	pdata->phy.autoneg = cmd->base.autoneg;
- 	pdata->phy.speed = speed;
--	pdata->phy.duplex = cmd->duplex;
--	pdata->phy.advertising = cmd->advertising;
-+	pdata->phy.duplex = cmd->base.duplex;
-+	pdata->phy.advertising = advertising;
- 
--	if (cmd->autoneg == AUTONEG_ENABLE)
-+	if (cmd->base.autoneg == AUTONEG_ENABLE)
- 		pdata->phy.advertising |= ADVERTISED_Autoneg;
- 	else
- 		pdata->phy.advertising &= ~ADVERTISED_Autoneg;
-@@ -585,8 +591,6 @@ static int xgbe_get_ts_info(struct net_device *netdev,
- }
- 
- static const struct ethtool_ops xgbe_ethtool_ops = {
--	.get_settings = xgbe_get_settings,
--	.set_settings = xgbe_set_settings,
- 	.get_drvinfo = xgbe_get_drvinfo,
- 	.get_msglevel = xgbe_get_msglevel,
- 	.set_msglevel = xgbe_set_msglevel,
-@@ -604,6 +608,8 @@ static int xgbe_get_ts_info(struct net_device *netdev,
- 	.get_rxfh = xgbe_get_rxfh,
- 	.set_rxfh = xgbe_set_rxfh,
- 	.get_ts_info = xgbe_get_ts_info,
-+	.get_link_ksettings = xgbe_get_link_ksettings,
-+	.set_link_ksettings = xgbe_set_link_ksettings,
- };
- 
- const struct ethtool_ops *xgbe_get_ethtool_ops(void)
 -- 
 1.7.4.4
