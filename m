@@ -1,72 +1,83 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH RFC] rtlwifi: btcoexist: fix port assignment
-Date: Sun,  6 Nov 2016 13:56:59 +0100
-Message-ID: <1478437019-24689-1-git-send-email-hofrat@osadl.org>
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Joe Perches <joe@perches.com>, Arnd Bergmann <arnd@arndb.de>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: rhashtable: how to use insecure_elasticity of rhashtable_params
+Date: Sun, 6 Nov 2016 21:15:07 +0800
+Message-ID: <CADvbK_cPQVT-icKn_2WpKqTyWgVEJikSAbg6=xB3+dt=zcdk0Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        davem <davem@davemloft.net>, Phil Sutter <phil@nwl.cc>
+To: network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:32871 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751699AbcKFNPJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 08:15:09 -0500
+Received: by mail-qk0-f195.google.com with SMTP id x190so9567906qkb.0
+        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 05:15:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The port assignment in the if case should be to AUX not MAIN.
+Now when I don't set  insecure_elasticity, ht->elasticity would be
+set 16, it would be checked in  the loop of __rhashtable_insert_fast
+and rhashtable_lookup_one.
 
-Fixes: commit baa170229095 ("rtlwifi: btcoexist: Implement antenna selection")
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
-problem located by coccinelle
+But if I set  insecure_elasticity = true,  ht->elasticity wouldn't be
+set (and the default is 0). when it is checked in that loop. they
+also return EAGAIN, as:
 
-in:
-drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c:exhalbtc_set_ant_num()
-973       /* The antenna position:
-974        * Main (default) or Aux for pgAntNum=2 && btdmAntNum =1.
-975        * The antenna position should be determined by
-976        * auto-detect mechanism.
-977        * The following is assumed to main,
-978        * and those must be modified
-979        * if y auto-detect mechanism is ready
-980        */
-981       if ((gl_bt_coexist.board_info.pg_ant_num == 2) &&
-982           (gl_bt_coexist.board_info.btdm_ant_num == 1))
-983               gl_bt_coexist.board_info.btdm_ant_pos =
-984                                              BTC_ANTENNA_AT_MAIN_PORT;
-985       else
-986               gl_bt_coexist.board_info.btdm_ant_pos =
-987                                              BTC_ANTENNA_AT_MAIN_PORT;
-(line number from 4.9.0-rc2 linux-next 20161028)
+    if (elasticity <= 0)
+        return ERR_PTR(-EAGAIN);
 
-the if and else branch here are the same but the comment seems to indicate
-that the first case should be the AUX port and not the MAIN port here (the
-second sentence in the comment though is not really clear to me). If the 
-intent is to set it to MAIN unconditionally and then let autodetect fix it
-then the if/else construct is useless.
+it seems insecure_elasticity=true doesn't really work well.
 
-Looks like a cut&past bug, but this needs a check by someone who knows the
-details of the device.
+* @insecure_elasticity: Set to true to disable chain length checks
 
-Patch was compile tested with: x86_64_defconfig + RTL8723AE=m 
-(implies CONFIG_RTLBTCOEXIST)
+shouldn't it be something like this ? or did I miss something ?
 
-Patch is against 4.9.0-rc2 (localversion-next is next-20161028)
+-------------------------------------
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index 5c132d3..9743ab7 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -702,7 +702,8 @@ static inline void *__rhashtable_insert_fast(
+                struct rhlist_head *plist;
+                struct rhlist_head *list;
 
- drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+-               elasticity--;
++               if (ht->elasticity)
++                       elasticity--;
+                if (!key ||
+                    (params.obj_cmpfn ?
+                     params.obj_cmpfn(&arg, rht_obj(ht, head)) :
+@@ -726,7 +727,7 @@ static inline void *__rhashtable_insert_fast(
+                goto good;
+        }
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c
-index 91cc139..588c8ed 100644
---- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c
-@@ -981,7 +981,7 @@ void exhalbtc_set_ant_num(struct rtl_priv *rtlpriv, u8 type, u8 ant_num)
- 		if ((gl_bt_coexist.board_info.pg_ant_num == 2) &&
- 		    (gl_bt_coexist.board_info.btdm_ant_num == 1))
- 			gl_bt_coexist.board_info.btdm_ant_pos =
--						       BTC_ANTENNA_AT_MAIN_PORT;
-+						       BTC_ANTENNA_AT_AUX_PORT;
- 		else
- 			gl_bt_coexist.board_info.btdm_ant_pos =
- 						       BTC_ANTENNA_AT_MAIN_PORT;
--- 
-2.1.4
+-       if (elasticity <= 0)
++       if (ht->elasticity && elasticity <= 0)
+                goto slow_path;
+
+        data = ERR_PTR(-E2BIG);
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 32d0ad0..e3d615a 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -444,7 +444,8 @@ static void *rhashtable_lookup_one(struct rhashtable *ht,
+                struct rhlist_head *list;
+                struct rhlist_head *plist;
+
+-               elasticity--;
++               if (ht->elasticity)
++                       elasticity--;
+                if (!key ||
+                    (ht->p.obj_cmpfn ?
+                     ht->p.obj_cmpfn(&arg, rht_obj(ht, head)) :
+@@ -465,7 +466,7 @@ static void *rhashtable_lookup_one(struct rhashtable *ht,
+                return NULL;
+        }
+
+-       if (elasticity <= 0)
++       if (ht->elasticity && elasticity <= 0)
+                return ERR_PTR(-EAGAIN);
+
+        return ERR_PTR(-ENOENT);
