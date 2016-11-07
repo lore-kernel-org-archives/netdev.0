@@ -1,62 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA
- Ethernet
-Date: Mon, 07 Nov 2016 11:39:41 -0500 (EST)
-Message-ID: <20161107.113941.669208733868640796.davem@davemloft.net>
-References: <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
-        <20161107.105500.43380129278294700.davem@davemloft.net>
-        <AM4PR04MB1604B2393D5CE6607204800EECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org, oss@buserror.net,
-        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
-        joakim.tjernlund@transmode.se
-To: madalin.bucur@nxp.com
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH 1/2] net: qcom/emac: configure the external phy to allow pause frames
+Date: Mon,  7 Nov 2016 10:51:40 -0600
+Message-ID: <1478537501-23454-2-git-send-email-timur@codeaurora.org>
+References: <1478537501-23454-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>, alokc@codeaurora.org,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36282 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753234AbcKGQjo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:39:44 -0500
-In-Reply-To: <AM4PR04MB1604B2393D5CE6607204800EECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:46134 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932349AbcKGQvq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:51:46 -0500
+In-Reply-To: <1478537501-23454-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Date: Mon, 7 Nov 2016 16:32:16 +0000
+Pause frames are used to enable flow control.  A MAC can send and
+receive pause frames in order to throttle traffic.  However, the PHY
+must be configured to allow those frames to pass through.
 
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Monday, November 07, 2016 5:55 PM
->> 
->> From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
->> Date: Mon, 7 Nov 2016 15:43:26 +0000
->> 
->> >> From: David Miller [mailto:davem@davemloft.net]
->> >> Sent: Thursday, November 03, 2016 9:58 PM
->> >>
->> >> Why?  By clearing this, you disallow an important fundamental way to do
->> >> performane testing, via pktgen.
->> >
->> > The Tx path in DPAA requires one to insert a back-pointer to the skb
->> into
->> > the Tx buffer. On the Tx confirmation path the back-pointer in the
->> buffer
->> > is used to release the skb. If Tx buffer is shared we'd alter the back-
->> pointer
->> > and leak/double free skbs. See also
->> 
->> Then have your software state store an array of SKB pointers, one for each
->> TX ring entry, just like every other driver does.
-> 
-> There is no Tx ring in DPAA. Frames are send out on QMan HW queues towards
-> the FMan for Tx and then received back on Tx confirmation queues for cleanup.
-> Array traversal would for sure cost more than using the back-pointer. Also,
-> we can now process confirmations on a different core than the one doing Tx,
-> we'd have to keep the arrays percpu and force the Tx conf on the same core.
-> Or add locks.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Report back an integer index, like every scsi driver out there which
-completes tagged queued block I/O operations asynchronously.  You can
-associate the array with a specific TX confirmation queue.
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+index 6fb3bee..70a55dc 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+@@ -1003,6 +1003,12 @@ int emac_mac_up(struct emac_adapter *adpt)
+ 	writel((u32)~DIS_INT, adpt->base + EMAC_INT_STATUS);
+ 	writel(adpt->irq.mask, adpt->base + EMAC_INT_MASK);
+ 
++	/* Enable pause frames.  Without this feature, the EMAC has been shown
++	 * to receive (and drop) frames with FCS errors at gigabit connections.
++	 */
++	adpt->phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++	adpt->phydev->advertising |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++
+ 	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
+ 	phy_start(adpt->phydev);
+ 
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
