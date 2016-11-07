@@ -1,52 +1,86 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH 2/2] [v2] net: qcom/emac: enable flow control if requested
-Date: Mon,  7 Nov 2016 10:51:41 -0600
-Message-ID: <1478537501-23454-3-git-send-email-timur@codeaurora.org>
-References: <1478537501-23454-1-git-send-email-timur@codeaurora.org>
-To: David Miller <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>, alokc@codeaurora.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46182 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932368AbcKGQvr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:51:47 -0500
-In-Reply-To: <1478537501-23454-1-git-send-email-timur@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Mon, 7 Nov 2016 16:59:14 +0000
+Message-ID: <AM4PR04MB16042515F3D8DD0EF54219A9ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+References: <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+ <20161107.105500.43380129278294700.davem@davemloft.net>
+ <AM4PR04MB1604B2393D5CE6607204800EECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+ <20161107.113941.669208733868640796.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "ppc@mindchasers.com" <ppc@mindchasers.com>,
+ "oss@buserror.net" <oss@buserror.net>, "joe@perches.com" <joe@perches.com>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20161107.113941.669208733868640796.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-If the PHY has been configured to allow pause frames, then the MAC
-should be configured to generate and/or accept those frames.
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, November 07, 2016 6:40 PM
+>=20
+> From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+> Date: Mon, 7 Nov 2016 16:32:16 +0000
+>=20
+> >> From: David Miller [mailto:davem@davemloft.net]
+> >> Sent: Monday, November 07, 2016 5:55 PM
+> >>
+> >> From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+> >> Date: Mon, 7 Nov 2016 15:43:26 +0000
+> >>
+> >> >> From: David Miller [mailto:davem@davemloft.net]
+> >> >> Sent: Thursday, November 03, 2016 9:58 PM
+> >> >>
+> >> >> Why?  By clearing this, you disallow an important fundamental way t=
+o
+> >> >> do performane testing, via pktgen.
+> >> >
+> >> > The Tx path in DPAA requires one to insert a back-pointer to the skb
+> >> > into
+> >> > the Tx buffer. On the Tx confirmation path the back-pointer in the
+> >> > buffer
+> >> > is used to release the skb. If Tx buffer is shared we'd alter the
+> >> > back-pointer
+> >> > and leak/double free skbs. See also
+> >>
+> >> Then have your software state store an array of SKB pointers, one for
+> each
+> >> TX ring entry, just like every other driver does.
+> >
+> > There is no Tx ring in DPAA. Frames are send out on QMan HW queues
+> > towards the FMan for Tx and then received back on Tx confirmation queue=
+s
+> > for cleanup.
+> > Array traversal would for sure cost more than using the back-pointer.
+> > Also, we can now process confirmations on a different core than the one
+> > doing Tx,
+> > we'd have to keep the arrays percpu and force the Tx conf on the same
+> > core. Or add locks.
+>=20
+> Report back an integer index, like every scsi driver out there which
+> completes tagged queued block I/O operations asynchronously.  You can
+> associate the array with a specific TX confirmation queue.
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
-
-v2: fix calculation when TXFC should be set
-
- drivers/net/ethernet/qualcomm/emac/emac-mac.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index 70a55dc..0b4deb3 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -575,10 +575,11 @@ void emac_mac_start(struct emac_adapter *adpt)
- 
- 	mac |= TXEN | RXEN;     /* enable RX/TX */
- 
--	/* We don't have ethtool support yet, so force flow-control mode
--	 * to 'full' always.
--	 */
--	mac |= TXFC | RXFC;
-+	/* Configure MAC flow control to match the PHY's settings. */
-+	if (phydev->pause)
-+		mac |= RXFC;
-+	if (phydev->pause != phydev->asym_pause)
-+		mac |= TXFC;
- 
- 	/* setup link speed */
- 	mac &= ~SPEED_MASK;
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+>From HW? It only gives you back the buffer start address (plus length, etc)=
+.
+"buff_2_skb()" needs to be solved in SW, expensively using array (lists? As
+the number of frames in flight can be large/variable) or cheaply with the b=
+ack
+pointer. The back-pointer approach has its tradeoffs: no shared skbs, impos=
+ed
+non-zero needed_headroom.
