@@ -1,39 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix htab map destruction when extra reserve
- is in use
-Date: Mon, 07 Nov 2016 13:21:38 -0500 (EST)
-Message-ID: <20161107.132138.2135085089697860098.davem@davemloft.net>
-References: <e8a8cc8011d16169eaf604b78583836ab2246f0e.1478213579.git.daniel@iogearbox.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/2] udp: do fwd memory scheduling on dequeue
+Date: Mon, 07 Nov 2016 13:24:58 -0500 (EST)
+Message-ID: <20161107.132458.256635426505538931.davem@davemloft.net>
+References: <cover.1478254512.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, dvyukov@google.com
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39240 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932794AbcKGSVk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 13:21:40 -0500
-In-Reply-To: <e8a8cc8011d16169eaf604b78583836ab2246f0e.1478213579.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1478254512.git.pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri,  4 Nov 2016 00:01:19 +0100
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Fri,  4 Nov 2016 11:28:57 +0100
 
-> Commit a6ed3ea65d98 ("bpf: restore behavior of bpf_map_update_elem")
-> added an extra per-cpu reserve to the hash table map to restore old
-> behaviour from pre prealloc times. When non-prealloc is in use for a
-> map, then problem is that once a hash table extra element has been
-> linked into the hash-table, and the hash table is destroyed due to
-> refcount dropping to zero, then htab_map_free() -> delete_all_elements()
-> will walk the whole hash table and drop all elements via htab_elem_free().
-> The problem is that the element from the extra reserve is first fed
-> to the wrong backend allocator and eventually freed twice.
+> After commit 850cbaddb52d ("udp: use it's own memory accounting schema"),
+> the udp code needs to acquire twice the receive queue spinlock on dequeue.
 > 
-> Fixes: a6ed3ea65d98 ("bpf: restore behavior of bpf_map_update_elem")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> This patch series remove the need for the second lock at skb free time,
+> moving the udp memory scheduling inside the dequeue operation; the skb
+> destructor field is not used anymore and an additional sk argument is added
+> to ip_cmsg_recv_offset() to cope with null skb->sk after dequeue.
+> 
+> Many thanks to Eric Dumazed for suggesting pretty all much the above.
 
-Applied and queued up for -stable, thanks!
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
