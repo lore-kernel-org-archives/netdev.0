@@ -1,51 +1,179 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [v15, 3/7] powerpc/fsl: move mpc85xx.h to include/linux/fsl
-Date: Mon, 07 Nov 2016 22:20:18 +0100
-Message-ID: <1543282.vWjeo4ynTa@wuerfel>
-References: <1477637418-38938-1-git-send-email-yangbo.lu@nxp.com> <2723366.1bJeJ7SKI6@wuerfel> <DB6PR0401MB2536B1B2E6AC36BDC8FC540DF8AE0@DB6PR0401MB2536.eurprd04.prod.outlook.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: net/sctp: null-ptr-deref in sctp_inet_listen
+Date: Mon, 7 Nov 2016 22:44:45 +0100
+Message-ID: <CAAeHK+yCE-e2scjs=rUwr+XHmmCcd33P--7MVFmxrTQ_AFZcOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-        "linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        "X.B. Xie" <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
-        "M.H. Lian" <minghuan.lian-3arQi8VN3Tc@public.gmane.org>,
-        "linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
-        Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-        Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-        Joerg Roedel <joro-zLv9SwRftAIdnm+yROfE0A@public.gmane.org>,
-        Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-To: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <DB6PR0401MB2536B1B2E6AC36BDC8FC540DF8AE0-2mNvjAGDOPkZcyyZo0JLBI3W/0Ik+aLCnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed; boundary=94eb2c19273eb5fe5f0540bcee1e
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, October 31, 2016 9:35:33 AM CET Y.B. Lu wrote:
-> > 
-> > I don't see any of the contents of this header referenced by the soc
-> > driver any more. I think you can just drop this patch.
-> > 
-> 
-> [Lu Yangbo-B47093] This header file was included by guts.c.
-> The guts driver used macro SVR_MAJ/SVR_MIN for calculation.
-> 
-> This header file was for powerpc arch before. And this patch is to made it as
-> common header file for both ARM and PPC.
-> Sooner or later this is needed.
+--94eb2c19273eb5fe5f0540bcee1e
+Content-Type: text/plain; charset=UTF-8
 
-Let's discuss it once we actually need the header then, ok?
+Hi,
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've got the following error report while running the syzkaller fuzzer:
+
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Modules linked in:
+CPU: 1 PID: 3851 Comm: a.out Not tainted 4.9.0-rc4+ #354
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff880065f1d800 task.stack: ffff880063840000
+RIP: 0010:[<ffffffff8394151b>]  [<ffffffff8394151b>]
+sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
+RSP: 0018:ffff880063847dd0  EFLAGS: 00010202
+RAX: dffffc0000000000 RBX: 1ffff1000c708fbd RCX: 0000000000000000
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000002
+RBP: ffff880063847e70 R08: dffffc0000000000 R09: dffffc0000000000
+R10: 0000000000000002 R11: 0000000000000002 R12: ffff88006b350800
+R13: 0000000000000000 R14: 1ffff1000d66a1a5 R15: 0000000000000000
+FS:  00007fd1f0f3d7c0(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000020000000 CR3: 0000000064af9000 CR4: 00000000000006e0
+Stack:
+ ffff880063847de0 ffff880066165900 ffff88006b350d20 0000000041b58ab3
+ ffffffff847ff589 ffffffff83941280 dffffc0000000000 0000000000000000
+ ffff880069b9f740 0000000000000000 ffff880063847e38 ffffffff819f04ef
+Call Trace:
+ [<     inline     >] SYSC_listen net/socket.c:1396
+ [<ffffffff82b73cf6>] SyS_listen+0x206/0x250 net/socket.c:1382
+ [<ffffffff83fc1501>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+arch/x86/entry/entry_64.S:209
+Code: 00 0f 85 f4 04 00 00 4d 8b ac 24 28 05 00 00 49 b8 00 00 00 00
+00 fc ff df 49 8d 7d 02 48 89 fe 49 89 fa 48 c1 ee 03 41 83 e2 07 <46>
+0f b6 0c 06 41 83 c2 01 45 38 ca 7c 09 45 84 c9 0f 85 87 04
+RIP  [<ffffffff8394151b>] sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
+ RSP <ffff880063847dd0>
+---[ end trace f2b501fc22999b37 ]---
+
+A reproducer is attached.
+
+On commit bc33b0ca11e3df467777a4fa7639ba488c9d4911 (Nov 5).
+
+Thanks!
+
+--94eb2c19273eb5fe5f0540bcee1e
+Content-Type: application/octet-stream; name="sctp-listen-null-poc.c"
+Content-Disposition: attachment; filename="sctp-listen-null-poc.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iv8lir9a0
+
+Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
+eXprYWxsZXIpCgojaWZuZGVmIF9fTlJfc3l6X2Z1c2VibGtfbW91bnQKI2RlZmluZSBfX05SX3N5
+el9mdXNlYmxrX21vdW50IDEwMDAwMDUKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpfb3Blbl9kZXYK
+I2RlZmluZSBfX05SX3N5el9vcGVuX2RldiAxMDAwMDAyCiNlbmRpZgojaWZuZGVmIF9fTlJfc3l6
+X3Rlc3QKI2RlZmluZSBfX05SX3N5el90ZXN0IDEwMDAwMDEKI2VuZGlmCiNpZm5kZWYgX19OUl9z
+b2NrZXQKI2RlZmluZSBfX05SX3NvY2tldCA0MQojZW5kaWYKI2lmbmRlZiBfX05SX3NodXRkb3du
+CiNkZWZpbmUgX19OUl9zaHV0ZG93biA0OAojZW5kaWYKI2lmbmRlZiBfX05SX2xpc3RlbgojZGVm
+aW5lIF9fTlJfbGlzdGVuIDUwCiNlbmRpZgojaWZuZGVmIF9fTlJfc3l6X29wZW5fcHRzCiNkZWZp
+bmUgX19OUl9zeXpfb3Blbl9wdHMgMTAwMDAwMwojZW5kaWYKI2lmbmRlZiBfX05SX21tYXAKI2Rl
+ZmluZSBfX05SX21tYXAgOQojZW5kaWYKI2lmbmRlZiBfX05SX3NldHNvY2tvcHQKI2RlZmluZSBf
+X05SX3NldHNvY2tvcHQgNTQKI2VuZGlmCiNpZm5kZWYgX19OUl9zeXpfZnVzZV9tb3VudAojZGVm
+aW5lIF9fTlJfc3l6X2Z1c2VfbW91bnQgMTAwMDAwNAojZW5kaWYKCiNpbmNsdWRlIDxzeXMvaW9j
+dGwuaD4KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4KI2luY2x1ZGUgPHN5cy9zdGF0Lmg+CiNpbmNs
+dWRlIDxzeXMvc3lzY2FsbC5oPgojaW5jbHVkZSA8c3lzL3R5cGVzLmg+CgojaW5jbHVkZSA8ZXJy
+bm8uaD4KI2luY2x1ZGUgPGVycm9yLmg+CiNpbmNsdWRlIDxmY250bC5oPgojaW5jbHVkZSA8cHRo
+cmVhZC5oPgojaW5jbHVkZSA8c2V0am1wLmg+CiNpbmNsdWRlIDxzaWduYWwuaD4KI2luY2x1ZGUg
+PHN0ZGRlZi5oPgojaW5jbHVkZSA8c3RkaW50Lmg+CiNpbmNsdWRlIDxzdGRpby5oPgojaW5jbHVk
+ZSA8c3RkbGliLmg+CiNpbmNsdWRlIDxzdHJpbmcuaD4KI2luY2x1ZGUgPHVuaXN0ZC5oPgoKX190
+aHJlYWQgaW50IHNraXBfc2VndjsKX190aHJlYWQgam1wX2J1ZiBzZWd2X2VudjsKCnN0YXRpYyB2
+b2lkIHNlZ3ZfaGFuZGxlcihpbnQgc2lnLCBzaWdpbmZvX3QqIGluZm8sIHZvaWQqIHVjdHgpCnsK
+ICBpZiAoX19hdG9taWNfbG9hZF9uKCZza2lwX3NlZ3YsIF9fQVRPTUlDX1JFTEFYRUQpKQogICAg
+X2xvbmdqbXAoc2Vndl9lbnYsIDEpOwogIGV4aXQoc2lnKTsKfQoKc3RhdGljIHZvaWQgaW5zdGFs
+bF9zZWd2X2hhbmRsZXIoKQp7CiAgc3RydWN0IHNpZ2FjdGlvbiBzYTsKICBtZW1zZXQoJnNhLCAw
+LCBzaXplb2Yoc2EpKTsKICBzYS5zYV9zaWdhY3Rpb24gPSBzZWd2X2hhbmRsZXI7CiAgc2Euc2Ff
+ZmxhZ3MgPSBTQV9OT0RFRkVSIHwgU0FfU0lHSU5GTzsKICBzaWdhY3Rpb24oU0lHU0VHViwgJnNh
+LCBOVUxMKTsKICBzaWdhY3Rpb24oU0lHQlVTLCAmc2EsIE5VTEwpOwp9CgojZGVmaW5lIE5PTkZB
+SUxJTkcoLi4uKSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IFwKICB7ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICBcCiAgICBfX2F0b21pY19mZXRjaF9hZGQoJnNraXBfc2VndiwgMSwg
+X19BVE9NSUNfU0VRX0NTVCk7ICAgICAgICAgICAgICAgXAogICAgaWYgKF9zZXRqbXAoc2Vndl9l
+bnYpID09IDApIHsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwKICAgICAg
+X19WQV9BUkdTX187ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICBcCiAgICB9ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgXAogICAgX19hdG9taWNfZmV0Y2hfc3ViKCZza2lwX3Nl
+Z3YsIDEsIF9fQVRPTUlDX1NFUV9DU1QpOyAgICAgICAgICAgICAgIFwKICB9CgpzdGF0aWMgdWlu
+dHB0cl90IHN5el9vcGVuX2Rldih1aW50cHRyX3QgYTAsIHVpbnRwdHJfdCBhMSwgdWludHB0cl90
+IGEyKQp7CiAgaWYgKGEwID09IDB4YyB8fCBhMCA9PSAweGIpIHsKCiAgICBjaGFyIGJ1ZlsxMjhd
+OwogICAgc3ByaW50ZihidWYsICIvZGV2LyVzLyVkOiVkIiwgYTAgPT0gMHhjID8gImNoYXIiIDog
+ImJsb2NrIiwKICAgICAgICAgICAgKHVpbnQ4X3QpYTEsICh1aW50OF90KWEyKTsKICAgIHJldHVy
+biBvcGVuKGJ1ZiwgT19SRFdSLCAwKTsKICB9IGVsc2UgewoKICAgIGNoYXIgYnVmWzEwMjRdOwog
+ICAgY2hhciogaGFzaDsKICAgIHN0cm5jcHkoYnVmLCAoY2hhciopYTAsIHNpemVvZihidWYpKTsK
+ICAgIGJ1ZltzaXplb2YoYnVmKSAtIDFdID0gMDsKICAgIHdoaWxlICgoaGFzaCA9IHN0cmNocihi
+dWYsICcjJykpKSB7CiAgICAgICpoYXNoID0gJzAnICsgKGNoYXIpKGExICUgMTApOwogICAgICBh
+MSAvPSAxMDsKICAgIH0KICAgIHJldHVybiBvcGVuKGJ1ZiwgYTIsIDApOwogIH0KfQoKc3RhdGlj
+IHVpbnRwdHJfdCBzeXpfb3Blbl9wdHModWludHB0cl90IGEwLCB1aW50cHRyX3QgYTEpCnsKCiAg
+aW50IHB0eW5vID0gMDsKICBpZiAoaW9jdGwoYTAsIFRJT0NHUFROLCAmcHR5bm8pKQogICAgcmV0
+dXJuIC0xOwogIGNoYXIgYnVmWzEyOF07CiAgc3ByaW50ZihidWYsICIvZGV2L3B0cy8lZCIsIHB0
+eW5vKTsKICByZXR1cm4gb3BlbihidWYsIGExLCAwKTsKfQoKc3RhdGljIHVpbnRwdHJfdCBzeXpf
+ZnVzZV9tb3VudCh1aW50cHRyX3QgYTAsIHVpbnRwdHJfdCBhMSwKICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICB1aW50cHRyX3QgYTIsIHVpbnRwdHJfdCBhMywKICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICB1aW50cHRyX3QgYTQsIHVpbnRwdHJfdCBhNSkKewoKICB1aW50NjRf
+dCB0YXJnZXQgPSBhMDsKICB1aW50NjRfdCBtb2RlID0gYTE7CiAgdWludDY0X3QgdWlkID0gYTI7
+CiAgdWludDY0X3QgZ2lkID0gYTM7CiAgdWludDY0X3QgbWF4cmVhZCA9IGE0OwogIHVpbnQ2NF90
+IGZsYWdzID0gYTU7CgogIGludCBmZCA9IG9wZW4oIi9kZXYvZnVzZSIsIE9fUkRXUik7CiAgaWYg
+KGZkID09IC0xKQogICAgcmV0dXJuIGZkOwogIGNoYXIgYnVmWzEwMjRdOwogIHNwcmludGYoYnVm
+LCAiZmQ9JWQsdXNlcl9pZD0lbGQsZ3JvdXBfaWQ9JWxkLHJvb3Rtb2RlPTAlbyIsIGZkLAogICAg
+ICAgICAgKGxvbmcpdWlkLCAobG9uZylnaWQsICh1bnNpZ25lZCltb2RlICYgfjN1KTsKICBpZiAo
+bWF4cmVhZCAhPSAwKQogICAgc3ByaW50ZihidWYgKyBzdHJsZW4oYnVmKSwgIixtYXhfcmVhZD0l
+bGQiLCAobG9uZyltYXhyZWFkKTsKICBpZiAobW9kZSAmIDEpCiAgICBzdHJjYXQoYnVmLCAiLGRl
+ZmF1bHRfcGVybWlzc2lvbnMiKTsKICBpZiAobW9kZSAmIDIpCiAgICBzdHJjYXQoYnVmLCAiLGFs
+bG93X290aGVyIik7CiAgc3lzY2FsbChTWVNfbW91bnQsICIiLCB0YXJnZXQsICJmdXNlIiwgZmxh
+Z3MsIGJ1Zik7CgogIHJldHVybiBmZDsKfQoKc3RhdGljIHVpbnRwdHJfdCBzeXpfZnVzZWJsa19t
+b3VudCh1aW50cHRyX3QgYTAsIHVpbnRwdHJfdCBhMSwKICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICB1aW50cHRyX3QgYTIsIHVpbnRwdHJfdCBhMywKICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICB1aW50cHRyX3QgYTQsIHVpbnRwdHJfdCBhNSwKICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICB1aW50cHRyX3QgYTYsIHVpbnRwdHJfdCBhNykKewoKICB1
+aW50NjRfdCB0YXJnZXQgPSBhMDsKICB1aW50NjRfdCBibGtkZXYgPSBhMTsKICB1aW50NjRfdCBt
+b2RlID0gYTI7CiAgdWludDY0X3QgdWlkID0gYTM7CiAgdWludDY0X3QgZ2lkID0gYTQ7CiAgdWlu
+dDY0X3QgbWF4cmVhZCA9IGE1OwogIHVpbnQ2NF90IGJsa3NpemUgPSBhNjsKICB1aW50NjRfdCBm
+bGFncyA9IGE3OwoKICBpbnQgZmQgPSBvcGVuKCIvZGV2L2Z1c2UiLCBPX1JEV1IpOwogIGlmIChm
+ZCA9PSAtMSkKICAgIHJldHVybiBmZDsKICBpZiAoc3lzY2FsbChTWVNfbWtub2RhdCwgQVRfRkRD
+V0QsIGJsa2RldiwgU19JRkJMSywgbWFrZWRldig3LCAxOTkpKSkKICAgIHJldHVybiBmZDsKICBj
+aGFyIGJ1ZlsyNTZdOwogIHNwcmludGYoYnVmLCAiZmQ9JWQsdXNlcl9pZD0lbGQsZ3JvdXBfaWQ9
+JWxkLHJvb3Rtb2RlPTAlbyIsIGZkLAogICAgICAgICAgKGxvbmcpdWlkLCAobG9uZylnaWQsICh1
+bnNpZ25lZCltb2RlICYgfjN1KTsKICBpZiAobWF4cmVhZCAhPSAwKQogICAgc3ByaW50ZihidWYg
+KyBzdHJsZW4oYnVmKSwgIixtYXhfcmVhZD0lbGQiLCAobG9uZyltYXhyZWFkKTsKICBpZiAoYmxr
+c2l6ZSAhPSAwKQogICAgc3ByaW50ZihidWYgKyBzdHJsZW4oYnVmKSwgIixibGtzaXplPSVsZCIs
+IChsb25nKWJsa3NpemUpOwogIGlmIChtb2RlICYgMSkKICAgIHN0cmNhdChidWYsICIsZGVmYXVs
+dF9wZXJtaXNzaW9ucyIpOwogIGlmIChtb2RlICYgMikKICAgIHN0cmNhdChidWYsICIsYWxsb3df
+b3RoZXIiKTsKICBzeXNjYWxsKFNZU19tb3VudCwgYmxrZGV2LCB0YXJnZXQsICJmdXNlYmxrIiwg
+ZmxhZ3MsIGJ1Zik7CgogIHJldHVybiBmZDsKfQoKc3RhdGljIHVpbnRwdHJfdCBleGVjdXRlX3N5
+c2NhbGwoaW50IG5yLCB1aW50cHRyX3QgYTAsIHVpbnRwdHJfdCBhMSwKICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgdWludHB0cl90IGEyLCB1aW50cHRyX3QgYTMsCiAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHVpbnRwdHJfdCBhNCwgdWludHB0cl90IGE1LAogICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICB1aW50cHRyX3QgYTYsIHVpbnRwdHJfdCBhNywKICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdWludHB0cl90IGE4KQp7CiAgc3dpdGNoIChu
+cikgewogIGRlZmF1bHQ6CiAgICByZXR1cm4gc3lzY2FsbChuciwgYTAsIGExLCBhMiwgYTMsIGE0
+LCBhNSk7CiAgY2FzZSBfX05SX3N5el90ZXN0OgogICAgcmV0dXJuIDA7CiAgY2FzZSBfX05SX3N5
+el9vcGVuX2RldjoKICAgIHJldHVybiBzeXpfb3Blbl9kZXYoYTAsIGExLCBhMik7CiAgY2FzZSBf
+X05SX3N5el9vcGVuX3B0czoKICAgIHJldHVybiBzeXpfb3Blbl9wdHMoYTAsIGExKTsKICBjYXNl
+IF9fTlJfc3l6X2Z1c2VfbW91bnQ6CiAgICByZXR1cm4gc3l6X2Z1c2VfbW91bnQoYTAsIGExLCBh
+MiwgYTMsIGE0LCBhNSk7CiAgY2FzZSBfX05SX3N5el9mdXNlYmxrX21vdW50OgogICAgcmV0dXJu
+IHN5el9mdXNlYmxrX21vdW50KGEwLCBhMSwgYTIsIGEzLCBhNCwgYTUsIGE2LCBhNyk7CiAgfQp9
+Cgpsb25nIHJbNl07CgppbnQgbWFpbigpCnsKICBpbnN0YWxsX3NlZ3ZfaGFuZGxlcigpOwogIG1l
+bXNldChyLCAtMSwgc2l6ZW9mKHIpKTsKICByWzBdID0gZXhlY3V0ZV9zeXNjYWxsKF9fTlJfbW1h
+cCwgMHgyMDAwMDAwMHVsLCAweGEwMDB1bCwgMHgzdWwsCiAgICAgICAgICAgICAgICAgICAgICAg
+ICAweDMydWwsIDB4ZmZmZmZmZmZmZmZmZmZmZnVsLCAweDB1bCwgMCwgMCwgMCk7CiAgclsxXSA9
+IGV4ZWN1dGVfc3lzY2FsbChfX05SX3NvY2tldCwgMHhhdWwsIDB4MXVsLCAweDg0dWwsIDAsIDAs
+IDAsIDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAwLCAwKTsKICBOT05GQUlMSU5HKCoodWlu
+dDMyX3QqKTB4MjAwMDAwMDAgPSAodWludDMyX3QpMHg3KTsKICByWzNdID0gZXhlY3V0ZV9zeXNj
+YWxsKF9fTlJfc2V0c29ja29wdCwgclsxXSwgMHgxdWwsIDB4MnVsLAogICAgICAgICAgICAgICAg
+ICAgICAgICAgMHgyMDAwMDAwMHVsLCAweDR1bCwgMCwgMCwgMCwgMCk7CiAgcls0XSA9CiAgICAg
+IGV4ZWN1dGVfc3lzY2FsbChfX05SX3NodXRkb3duLCByWzFdLCAweDF1bCwgMCwgMCwgMCwgMCwg
+MCwgMCwgMCk7CiAgcls1XSA9IGV4ZWN1dGVfc3lzY2FsbChfX05SX2xpc3RlbiwgclsxXSwgMHgw
+dWwsIDAsIDAsIDAsIDAsIDAsIDAsIDApOwogIHJldHVybiAwOwp9Cg==
+--94eb2c19273eb5fe5f0540bcee1e--
