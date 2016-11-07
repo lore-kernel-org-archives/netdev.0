@@ -1,7 +1,7 @@
 From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: [PATCH v3 1/4] kconfig: introduce the "imply" keyword
-Date: Mon,  7 Nov 2016 17:14:56 -0500
-Message-ID: <1478556899-2951-2-git-send-email-nicolas.pitre@linaro.org>
+Subject: [PATCH v3 3/4] ptp_clock: allow for it to be optional
+Date: Mon,  7 Nov 2016 17:14:58 -0500
+Message-ID: <1478556899-2951-4-git-send-email-nicolas.pitre@linaro.org>
 References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Paul Bolle <pebolle@tiscali.nl>,
@@ -11,391 +11,448 @@ Cc: Richard Cochran <richardcochran@gmail.com>,
         linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
 To: John Stultz <john.stultz@linaro.org>,
         Michal Marek <mmarek@suse.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alt22.smtp-out.videotron.ca ([70.80.0.73]:51609 "EHLO
+        alt22.smtp-out.videotron.ca" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751969AbcKGWPi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 17:15:38 -0500
 In-Reply-To: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The "imply" keyword is a weak version of "select" where the target
-config symbol can still be turned off, avoiding those pitfalls that come
-with the "select" keyword.
+In order to break the hard dependency between the PTP clock subsystem and
+ethernet drivers capable of being clock providers, this patch provides
+simple PTP stub functions to allow linkage of those drivers into the
+kernel even when the PTP subsystem is configured out. Drivers must be
+ready to accept NULL from ptp_clock_register() in that case.
 
-This is useful e.g. with multiple drivers that want to indicate their
-ability to hook into a secondary subsystem while allowing the user to
-configure that subsystem out without also having to unset these drivers.
+And to make it possible for PTP to be configured out, the select statement
+in those driver's Kconfig menu entries is converted to the new "imply"
+statement. This way the PTP subsystem may have Kconfig dependencies of
+its own, such as POSIX_TIMERS, without having to make those ethernet
+drivers unavailable if POSIX timers are cconfigured out. And when support
+for POSIX timers is selected again then the default config option for PTP
+clock support will automatically be adjusted accordingly.
 
-Currently, the same effect can almost be achieved with:
-
-config DRIVER_A
-	tristate
-
-config DRIVER_B
-	tristate
-
-config DRIVER_C
-	tristate
-
-config DRIVER_D
-	tristate
-
-[...]
-
-config SUBSYSTEM_X
-	tristate
-	default DRIVER_A || DRIVER_B || DRIVER_C || DRIVER_D || [...]
-
-This is unwieldy to maintain especially with a large number of drivers.
-Furthermore, there is no easy way to restrict the choice for SUBSYSTEM_X
-to y or n, excluding m, when some drivers are built-in. The "select"
-keyword allows for excluding m, but it excludes n as well. Hence
-this "imply" keyword.  The above becomes:
-
-config DRIVER_A
-	tristate
-	imply SUBSYSTEM_X
-
-config DRIVER_B
-	tristate
-	imply SUBSYSTEM_X
-
-[...]
-
-config SUBSYSTEM_X
-	tristate
-
-This is much cleaner, and way more flexible than "select". SUBSYSTEM_X
-can still be configured out, and it can be set as a module when none of
-the drivers are configured in or all of them are modular.
+The pch_gbe driver is a bit special as it relies on extra code in
+drivers/ptp/ptp_pch.c. Therefore we let the make process descend into
+drivers/ptp/ even if PTP_1588_CLOCK is unselected.
 
 Signed-off-by: Nicolas Pitre <nico@linaro.org>
 Reviewed-by: Josh Triplett <josh@joshtriplett.org>
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- Documentation/kbuild/kconfig-language.txt | 29 ++++++++++++++++
- scripts/kconfig/expr.h                    |  2 ++
- scripts/kconfig/menu.c                    | 55 ++++++++++++++++++++++---------
- scripts/kconfig/symbol.c                  | 24 +++++++++++++-
- scripts/kconfig/zconf.gperf               |  1 +
- scripts/kconfig/zconf.y                   | 16 +++++++--
- 6 files changed, 108 insertions(+), 19 deletions(-)
+ drivers/Makefile                                |  2 +-
+ drivers/net/ethernet/adi/Kconfig                |  2 +-
+ drivers/net/ethernet/amd/Kconfig                |  2 +-
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c       |  6 ++-
+ drivers/net/ethernet/broadcom/Kconfig           |  4 +-
+ drivers/net/ethernet/cavium/Kconfig             |  2 +-
+ drivers/net/ethernet/freescale/Kconfig          |  2 +-
+ drivers/net/ethernet/intel/Kconfig              | 10 ++--
+ drivers/net/ethernet/mellanox/mlx4/Kconfig      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig |  2 +-
+ drivers/net/ethernet/renesas/Kconfig            |  2 +-
+ drivers/net/ethernet/samsung/Kconfig            |  2 +-
+ drivers/net/ethernet/sfc/Kconfig                |  2 +-
+ drivers/net/ethernet/stmicro/stmmac/Kconfig     |  2 +-
+ drivers/net/ethernet/ti/Kconfig                 |  2 +-
+ drivers/net/ethernet/tile/Kconfig               |  2 +-
+ drivers/ptp/Kconfig                             |  8 +--
+ include/linux/ptp_clock_kernel.h                | 65 ++++++++++++++++---------
+ 18 files changed, 69 insertions(+), 50 deletions(-)
 
-diff --git a/Documentation/kbuild/kconfig-language.txt b/Documentation/kbuild/kconfig-language.txt
-index 069fcb3eef..262722d886 100644
---- a/Documentation/kbuild/kconfig-language.txt
-+++ b/Documentation/kbuild/kconfig-language.txt
-@@ -113,6 +113,34 @@ applicable everywhere (see syntax).
- 	That will limit the usefulness but on the other hand avoid
- 	the illegal configurations all over.
+diff --git a/drivers/Makefile b/drivers/Makefile
+index f0afdfb3c7..8cfa1ff8f6 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -107,7 +107,7 @@ obj-$(CONFIG_INPUT)		+= input/
+ obj-$(CONFIG_RTC_LIB)		+= rtc/
+ obj-y				+= i2c/ media/
+ obj-$(CONFIG_PPS)		+= pps/
+-obj-$(CONFIG_PTP_1588_CLOCK)	+= ptp/
++obj-y				+= ptp/
+ obj-$(CONFIG_W1)		+= w1/
+ obj-y				+= power/
+ obj-$(CONFIG_HWMON)		+= hwmon/
+diff --git a/drivers/net/ethernet/adi/Kconfig b/drivers/net/ethernet/adi/Kconfig
+index 6b94ba6103..98cc8f5350 100644
+--- a/drivers/net/ethernet/adi/Kconfig
++++ b/drivers/net/ethernet/adi/Kconfig
+@@ -58,7 +58,7 @@ config BFIN_RX_DESC_NUM
+ config BFIN_MAC_USE_HWSTAMP
+ 	bool "Use IEEE 1588 hwstamp"
+ 	depends on BFIN_MAC && BF518
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	default y
+ 	---help---
+ 	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
+index 0038709fd3..713ea7ad22 100644
+--- a/drivers/net/ethernet/amd/Kconfig
++++ b/drivers/net/ethernet/amd/Kconfig
+@@ -177,7 +177,7 @@ config AMD_XGBE
+ 	depends on ARM64 || COMPILE_TEST
+ 	select BITREVERSE
+ 	select CRC32
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports the AMD 10GbE Ethernet device found on an
+ 	  AMD SoC.
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 9de078819a..e10e569c0d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -773,7 +773,8 @@ static int xgbe_probe(struct platform_device *pdev)
+ 		goto err_wq;
+ 	}
  
-+- weak reverse dependencies: "imply" <symbol> ["if" <expr>]
-+  This is similar to "select" as it enforces a lower limit on another
-+  symbol except that the "implied" symbol's value may still be set to n
-+  from a direct dependency or with a visible prompt.
-+
-+  Given the following example:
-+
-+  config FOO
-+	tristate
-+	imply BAZ
-+
-+  config BAZ
-+	tristate
-+	depends on BAR
-+
-+  The following values are possible:
-+
-+	FOO		BAR		BAZ's default	choice for BAZ
-+	---		---		-------------	--------------
-+	n		y		n		N/m/y
-+	m		y		m		M/y/n
-+	y		y		y		Y/n
-+	y		n		*		N
-+
-+  This is useful e.g. with multiple drivers that want to indicate their
-+  ability to hook into a secondary subsystem while allowing the user to
-+  configure that subsystem out without also having to unset these drivers.
-+
- - limiting menu display: "visible if" <expr>
-   This attribute is only applicable to menu blocks, if the condition is
-   false, the menu block is not displayed to the user (the symbols
-@@ -481,6 +509,7 @@ historical issues resolved through these different solutions.
-   b) Match dependency semantics:
- 	b1) Swap all "select FOO" to "depends on FOO" or,
- 	b2) Swap all "depends on FOO" to "select FOO"
-+  c) Consider the use of "imply" instead of "select"
+-	xgbe_ptp_register(pdata);
++	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK))
++		xgbe_ptp_register(pdata);
  
- The resolution to a) can be tested with the sample Kconfig file
- Documentation/kbuild/Kconfig.recursion-issue-01 through the removal
-diff --git a/scripts/kconfig/expr.h b/scripts/kconfig/expr.h
-index 973b6f7333..a73f762c48 100644
---- a/scripts/kconfig/expr.h
-+++ b/scripts/kconfig/expr.h
-@@ -85,6 +85,7 @@ struct symbol {
- 	struct property *prop;
- 	struct expr_value dir_dep;
- 	struct expr_value rev_dep;
-+	struct expr_value implied;
+ 	xgbe_debugfs_init(pdata);
+ 
+@@ -812,7 +813,8 @@ static int xgbe_remove(struct platform_device *pdev)
+ 
+ 	xgbe_debugfs_exit(pdata);
+ 
+-	xgbe_ptp_unregister(pdata);
++	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK))
++		xgbe_ptp_unregister(pdata);
+ 
+ 	flush_workqueue(pdata->an_workqueue);
+ 	destroy_workqueue(pdata->an_workqueue);
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index bd8c80c0b7..6a8d74aeb6 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -110,7 +110,7 @@ config TIGON3
+ 	depends on PCI
+ 	select PHYLIB
+ 	select HWMON
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
+ 
+@@ -120,7 +120,7 @@ config TIGON3
+ config BNX2X
+ 	tristate "Broadcom NetXtremeII 10Gb support"
+ 	depends on PCI
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	select FW_LOADER
+ 	select ZLIB_INFLATE
+ 	select LIBCRC32C
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index 92f411c9f0..2e64a96661 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -53,7 +53,7 @@ config	THUNDER_NIC_RGX
+ config LIQUIDIO
+ 	tristate "Cavium LiquidIO support"
+ 	depends on 64BIT
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	select FW_LOADER
+ 	select LIBCRC32C
+ 	---help---
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index d1ca45fbb1..5eb9280973 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -25,7 +25,7 @@ config FEC
+ 		   ARCH_MXC || SOC_IMX28)
+ 	default ARCH_MXC || SOC_IMX28 if ARM
+ 	select PHYLIB
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
+ 	  controller on some Motorola ColdFire and Freescale i.MX processors.
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index c0e17433f6..1349b45f01 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -58,7 +58,7 @@ config E1000E
+ 	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI && (!SPARC32 || BROKEN)
+ 	select CRC32
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports the PCI-Express Intel(R) PRO/1000 gigabit
+ 	  ethernet family of adapters. For PCI or PCI-X e1000 adapters,
+@@ -83,7 +83,7 @@ config E1000E_HWTS
+ config IGB
+ 	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	select I2C
+ 	select I2C_ALGOBIT
+ 	---help---
+@@ -156,7 +156,7 @@ config IXGBE
+ 	tristate "Intel(R) 10GbE PCI Express adapters support"
+ 	depends on PCI
+ 	select MDIO
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports Intel(R) 10GbE PCI Express family of
+ 	  adapters.  For more information on how to identify your adapter, go
+@@ -213,7 +213,7 @@ config IXGBEVF
+ 
+ config I40E
+ 	tristate "Intel(R) Ethernet Controller XL710 Family support"
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	depends on PCI
+ 	---help---
+ 	  This driver supports Intel(R) Ethernet Controller XL710 Family of
+@@ -264,7 +264,7 @@ config FM10K
+ 	tristate "Intel(R) FM10000 Ethernet Switch Host Interface Support"
+ 	default n
+ 	depends on PCI_MSI
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports Intel(R) FM10000 Ethernet Switch Host
+ 	  Interface.  For more information on how to identify your adapter,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+index 5098e7f219..22b1cc012b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -7,7 +7,7 @@ config MLX4_EN
+ 	depends on MAY_USE_DEVLINK
+ 	depends on PCI
+ 	select MLX4_CORE
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports Mellanox Technologies ConnectX Ethernet
+ 	  devices.
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index aae46884bf..2cd841590e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -14,7 +14,7 @@ config MLX5_CORE
+ config MLX5_CORE_EN
+ 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
+ 	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	default n
+ 	---help---
+ 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
+diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+index 85ec447c2d..27be51f0a4 100644
+--- a/drivers/net/ethernet/renesas/Kconfig
++++ b/drivers/net/ethernet/renesas/Kconfig
+@@ -37,7 +37,7 @@ config RAVB
+ 	select MII
+ 	select MDIO_BITBANG
+ 	select PHYLIB
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	help
+ 	  Renesas Ethernet AVB device driver.
+ 	  This driver supports the following SoCs:
+diff --git a/drivers/net/ethernet/samsung/Kconfig b/drivers/net/ethernet/samsung/Kconfig
+index 2360d81507..fbd5e06654 100644
+--- a/drivers/net/ethernet/samsung/Kconfig
++++ b/drivers/net/ethernet/samsung/Kconfig
+@@ -21,7 +21,7 @@ config SXGBE_ETH
+ 	depends on HAS_IOMEM && HAS_DMA
+ 	select PHYLIB
+ 	select CRC32
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This is the driver for the SXGBE 10G Ethernet IP block found on
+ 	  Samsung platforms.
+diff --git a/drivers/net/ethernet/sfc/Kconfig b/drivers/net/ethernet/sfc/Kconfig
+index 4dd92b7b80..83f4766a1d 100644
+--- a/drivers/net/ethernet/sfc/Kconfig
++++ b/drivers/net/ethernet/sfc/Kconfig
+@@ -5,7 +5,7 @@ config SFC
+ 	select CRC32
+ 	select I2C
+ 	select I2C_ALGOBIT
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports 10/40-gigabit Ethernet cards based on
+ 	  the Solarflare SFC4000, SFC9000-family and SFC9100-family
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 3818c5e06e..139c85fa6a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -4,7 +4,7 @@ config STMMAC_ETH
+ 	select MII
+ 	select PHYLIB
+ 	select CRC32
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	select RESET_CONTROLLER
+ 	---help---
+ 	  This is the driver for the Ethernet IPs are built around a
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+index 9904d740d5..61b835a7e6 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -76,7 +76,7 @@ config TI_CPSW
+ config TI_CPTS
+ 	bool "TI Common Platform Time Sync (CPTS) Support"
+ 	depends on TI_CPSW
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports the Common Platform Time Sync unit of
+ 	  the CPSW Ethernet Switch. The unit can time stamp PTP UDP/IPv4
+diff --git a/drivers/net/ethernet/tile/Kconfig b/drivers/net/ethernet/tile/Kconfig
+index f59a6c2653..bdfeaf3d4f 100644
+--- a/drivers/net/ethernet/tile/Kconfig
++++ b/drivers/net/ethernet/tile/Kconfig
+@@ -9,7 +9,7 @@ config TILE_NET
+ 	select CRC32
+ 	select TILE_GXIO_MPIPE if TILEGX
+ 	select HIGH_RES_TIMERS if TILEGX
+-	select PTP_1588_CLOCK if TILEGX
++	imply PTP_1588_CLOCK if TILEGX
+ 	---help---
+ 	  This is a standard Linux network device driver for the
+ 	  on-chip Tilera Gigabit Ethernet and XAUI interfaces.
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index ee3de3421f..0f7492f8ea 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -28,7 +28,7 @@ config PTP_1588_CLOCK
+ config PTP_1588_CLOCK_GIANFAR
+ 	tristate "Freescale eTSEC as PTP clock"
+ 	depends on GIANFAR
+-	select PTP_1588_CLOCK
++	depends on PTP_1588_CLOCK
+ 	default y
+ 	help
+ 	  This driver adds support for using the eTSEC as a PTP
+@@ -42,7 +42,7 @@ config PTP_1588_CLOCK_GIANFAR
+ config PTP_1588_CLOCK_IXP46X
+ 	tristate "Intel IXP46x as PTP clock"
+ 	depends on IXP4XX_ETH
+-	select PTP_1588_CLOCK
++	depends on PTP_1588_CLOCK
+ 	default y
+ 	help
+ 	  This driver adds support for using the IXP46X as a PTP
+@@ -60,7 +60,7 @@ config DP83640_PHY
+ 	tristate "Driver for the National Semiconductor DP83640 PHYTER"
+ 	depends on NETWORK_PHY_TIMESTAMPING
+ 	depends on PHYLIB
+-	select PTP_1588_CLOCK
++	depends on PTP_1588_CLOCK
+ 	---help---
+ 	  Supports the DP83640 PHYTER with IEEE 1588 features.
+ 
+@@ -76,7 +76,7 @@ config PTP_1588_CLOCK_PCH
+ 	tristate "Intel PCH EG20T as PTP clock"
+ 	depends on X86_32 || COMPILE_TEST
+ 	depends on HAS_IOMEM && NET
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	help
+ 	  This driver adds support for using the PCH EG20T as a PTP
+ 	  clock. The hardware supports time stamping of PTP packets
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index 5ad54fc66c..96699526d3 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -122,30 +122,6 @@ struct ptp_clock_info {
+ 
+ struct ptp_clock;
+ 
+-/**
+- * ptp_clock_register() - register a PTP hardware clock driver
+- *
+- * @info:   Structure describing the new clock.
+- * @parent: Pointer to the parent device of the new clock.
+- *
+- * Returns a valid pointer on success or PTR_ERR on failure.  If PHC
+- * support is missing at the configuration level, this function
+- * returns NULL, and drivers are expected to gracefully handle that
+- * case separately.
+- */
+-
+-extern struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+-					    struct device *parent);
+-
+-/**
+- * ptp_clock_unregister() - unregister a PTP hardware clock driver
+- *
+- * @ptp:  The clock to remove from service.
+- */
+-
+-extern int ptp_clock_unregister(struct ptp_clock *ptp);
+-
+-
+ enum ptp_clock_events {
+ 	PTP_CLOCK_ALARM,
+ 	PTP_CLOCK_EXTTS,
+@@ -171,6 +147,31 @@ struct ptp_clock_event {
+ 	};
  };
  
- #define for_all_symbols(i, sym) for (i = 0; i < SYMBOL_HASHSIZE; i++) for (sym = symbol_hash[i]; sym; sym = sym->next) if (sym->type != S_OTHER)
-@@ -136,6 +137,7 @@ enum prop_type {
- 	P_DEFAULT,  /* default y */
- 	P_CHOICE,   /* choice value */
- 	P_SELECT,   /* select BAR */
-+	P_IMPLY,    /* imply BAR */
- 	P_RANGE,    /* range 7..100 (for a symbol) */
- 	P_ENV,      /* value from environment variable */
- 	P_SYMBOL,   /* where a symbol is defined */
-diff --git a/scripts/kconfig/menu.c b/scripts/kconfig/menu.c
-index aed678e8a7..e9357931b4 100644
---- a/scripts/kconfig/menu.c
-+++ b/scripts/kconfig/menu.c
-@@ -233,6 +233,8 @@ static void sym_check_prop(struct symbol *sym)
- {
- 	struct property *prop;
- 	struct symbol *sym2;
-+	char *use;
++#if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
 +
- 	for (prop = sym->prop; prop; prop = prop->next) {
- 		switch (prop->type) {
- 		case P_DEFAULT:
-@@ -252,18 +254,20 @@ static void sym_check_prop(struct symbol *sym)
- 			}
- 			break;
- 		case P_SELECT:
-+		case P_IMPLY:
-+			use = prop->type == P_SELECT ? "select" : "imply";
- 			sym2 = prop_get_symbol(prop);
- 			if (sym->type != S_BOOLEAN && sym->type != S_TRISTATE)
- 				prop_warn(prop,
--				    "config symbol '%s' uses select, but is "
--				    "not boolean or tristate", sym->name);
-+				    "config symbol '%s' uses %s, but is "
-+				    "not boolean or tristate", sym->name, use);
- 			else if (sym2->type != S_UNKNOWN &&
- 				 sym2->type != S_BOOLEAN &&
- 				 sym2->type != S_TRISTATE)
- 				prop_warn(prop,
--				    "'%s' has wrong type. 'select' only "
-+				    "'%s' has wrong type. '%s' only "
- 				    "accept arguments of boolean and "
--				    "tristate type", sym2->name);
-+				    "tristate type", sym2->name, use);
- 			break;
- 		case P_RANGE:
- 			if (sym->type != S_INT && sym->type != S_HEX)
-@@ -333,6 +337,10 @@ void menu_finalize(struct menu *parent)
- 					struct symbol *es = prop_get_symbol(prop);
- 					es->rev_dep.expr = expr_alloc_or(es->rev_dep.expr,
- 							expr_alloc_and(expr_alloc_symbol(menu->sym), expr_copy(dep)));
-+				} else if (prop->type == P_IMPLY) {
-+					struct symbol *es = prop_get_symbol(prop);
-+					es->implied.expr = expr_alloc_or(es->implied.expr,
-+							expr_alloc_and(expr_alloc_symbol(menu->sym), expr_copy(dep)));
- 				}
- 			}
- 		}
-@@ -612,13 +620,30 @@ static struct property *get_symbol_prop(struct symbol *sym)
- 	return prop;
- }
- 
-+static void get_symbol_props_str(struct gstr *r, struct symbol *sym,
-+				 enum prop_type tok, const char *prefix)
-+{
-+	bool hit = false;
-+	struct property *prop;
++/**
++ * ptp_clock_register() - register a PTP hardware clock driver
++ *
++ * @info:   Structure describing the new clock.
++ * @parent: Pointer to the parent device of the new clock.
++ *
++ * Returns a valid pointer on success or PTR_ERR on failure.  If PHC
++ * support is missing at the configuration level, this function
++ * returns NULL, and drivers are expected to gracefully handle that
++ * case separately.
++ */
 +
-+	for_all_properties(sym, prop, tok) {
-+		if (!hit) {
-+			str_append(r, prefix);
-+			hit = true;
-+		} else
-+			str_printf(r, " && ");
-+		expr_gstr_print(prop->expr, r);
-+	}
-+	if (hit)
-+		str_append(r, "\n");
-+}
++extern struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
++					    struct device *parent);
 +
- /*
-  * head is optional and may be NULL
-  */
- static void get_symbol_str(struct gstr *r, struct symbol *sym,
- 		    struct list_head *head)
- {
--	bool hit;
- 	struct property *prop;
- 
- 	if (sym && sym->name) {
-@@ -648,22 +673,20 @@ static void get_symbol_str(struct gstr *r, struct symbol *sym,
- 		}
- 	}
- 
--	hit = false;
--	for_all_properties(sym, prop, P_SELECT) {
--		if (!hit) {
--			str_append(r, "  Selects: ");
--			hit = true;
--		} else
--			str_printf(r, " && ");
--		expr_gstr_print(prop->expr, r);
--	}
--	if (hit)
--		str_append(r, "\n");
-+	get_symbol_props_str(r, sym, P_SELECT, _("  Selects: "));
- 	if (sym->rev_dep.expr) {
- 		str_append(r, _("  Selected by: "));
- 		expr_gstr_print(sym->rev_dep.expr, r);
- 		str_append(r, "\n");
- 	}
++/**
++ * ptp_clock_unregister() - unregister a PTP hardware clock driver
++ *
++ * @ptp:  The clock to remove from service.
++ */
 +
-+	get_symbol_props_str(r, sym, P_IMPLY, _("  Implies: "));
-+	if (sym->implied.expr) {
-+		str_append(r, _("  Implied by: "));
-+		expr_gstr_print(sym->implied.expr, r);
-+		str_append(r, "\n");
-+	}
++extern int ptp_clock_unregister(struct ptp_clock *ptp);
 +
- 	str_append(r, "\n\n");
- }
+ /**
+  * ptp_clock_event() - notify the PTP layer about an event
+  *
+@@ -202,4 +203,20 @@ extern int ptp_clock_index(struct ptp_clock *ptp);
+ int ptp_find_pin(struct ptp_clock *ptp,
+ 		 enum ptp_pin_function func, unsigned int chan);
  
-diff --git a/scripts/kconfig/symbol.c b/scripts/kconfig/symbol.c
-index 2432298487..20136ffefb 100644
---- a/scripts/kconfig/symbol.c
-+++ b/scripts/kconfig/symbol.c
-@@ -258,6 +258,15 @@ static void sym_calc_visibility(struct symbol *sym)
- 		sym->rev_dep.tri = tri;
- 		sym_set_changed(sym);
- 	}
-+	tri = no;
-+	if (sym->implied.expr && sym->dir_dep.tri != no)
-+		tri = expr_calc_value(sym->implied.expr);
-+	if (tri == mod && sym_get_type(sym) == S_BOOLEAN)
-+		tri = yes;
-+	if (sym->implied.tri != tri) {
-+		sym->implied.tri = tri;
-+		sym_set_changed(sym);
-+	}
- }
- 
- /*
-@@ -397,6 +406,10 @@ void sym_calc_value(struct symbol *sym)
- 					newval.tri = EXPR_AND(expr_calc_value(prop->expr),
- 							      prop->visible.tri);
- 				}
-+				if (sym->implied.tri != no) {
-+					sym->flags |= SYMBOL_WRITE;
-+					newval.tri = EXPR_OR(newval.tri, sym->implied.tri);
-+				}
- 			}
- 		calc_newval:
- 			if (sym->dir_dep.tri == no && sym->rev_dep.tri != no) {
-@@ -413,7 +426,8 @@ void sym_calc_value(struct symbol *sym)
- 			}
- 			newval.tri = EXPR_OR(newval.tri, sym->rev_dep.tri);
- 		}
--		if (newval.tri == mod && sym_get_type(sym) == S_BOOLEAN)
-+		if (newval.tri == mod &&
-+		    (sym_get_type(sym) == S_BOOLEAN || sym->implied.tri == yes))
- 			newval.tri = yes;
- 		break;
- 	case S_STRING:
-@@ -498,6 +512,8 @@ bool sym_tristate_within_range(struct symbol *sym, tristate val)
- 		return false;
- 	if (sym->visible <= sym->rev_dep.tri)
- 		return false;
-+	if (sym->implied.tri == yes && val == mod)
-+		return false;
- 	if (sym_is_choice_value(sym) && sym->visible == yes)
- 		return val == yes;
- 	return val >= sym->rev_dep.tri && val <= sym->visible;
-@@ -750,6 +766,10 @@ const char *sym_get_string_default(struct symbol *sym)
- 	if (sym->type == S_BOOLEAN && val == mod)
- 		val = yes;
- 
-+	/* adjust the default value if this symbol is implied by another */
-+	if (val < sym->implied.tri)
-+		val = sym->implied.tri;
++#else
++static inline struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
++						   struct device *parent)
++{ return NULL; }
++static inline int ptp_clock_unregister(struct ptp_clock *ptp)
++{ return 0; }
++static inline void ptp_clock_event(struct ptp_clock *ptp,
++				   struct ptp_clock_event *event)
++{ }
++static inline int ptp_clock_index(struct ptp_clock *ptp)
++{ return -1; }
++static inline int ptp_find_pin(struct ptp_clock *ptp,
++			       enum ptp_pin_function func, unsigned int chan)
++{ return -1; }
++#endif
 +
- 	switch (sym->type) {
- 	case S_BOOLEAN:
- 	case S_TRISTATE:
-@@ -1352,6 +1372,8 @@ const char *prop_get_type_name(enum prop_type type)
- 		return "choice";
- 	case P_SELECT:
- 		return "select";
-+	case P_IMPLY:
-+		return "imply";
- 	case P_RANGE:
- 		return "range";
- 	case P_SYMBOL:
-diff --git a/scripts/kconfig/zconf.gperf b/scripts/kconfig/zconf.gperf
-index ac498f01b4..ead02edec9 100644
---- a/scripts/kconfig/zconf.gperf
-+++ b/scripts/kconfig/zconf.gperf
-@@ -38,6 +38,7 @@ int,		T_TYPE,		TF_COMMAND, S_INT
- hex,		T_TYPE,		TF_COMMAND, S_HEX
- string,		T_TYPE,		TF_COMMAND, S_STRING
- select,		T_SELECT,	TF_COMMAND
-+imply,		T_IMPLY,	TF_COMMAND
- range,		T_RANGE,	TF_COMMAND
- visible,	T_VISIBLE,	TF_COMMAND
- option,		T_OPTION,	TF_COMMAND
-diff --git a/scripts/kconfig/zconf.y b/scripts/kconfig/zconf.y
-index 71bf8bff69..001305fa08 100644
---- a/scripts/kconfig/zconf.y
-+++ b/scripts/kconfig/zconf.y
-@@ -31,7 +31,7 @@ struct symbol *symbol_hash[SYMBOL_HASHSIZE];
- static struct menu *current_menu, *current_entry;
- 
- %}
--%expect 30
-+%expect 32
- 
- %union
- {
-@@ -62,6 +62,7 @@ static struct menu *current_menu, *current_entry;
- %token <id>T_TYPE
- %token <id>T_DEFAULT
- %token <id>T_SELECT
-+%token <id>T_IMPLY
- %token <id>T_RANGE
- %token <id>T_VISIBLE
- %token <id>T_OPTION
-@@ -124,7 +125,7 @@ stmt_list:
- ;
- 
- option_name:
--	T_DEPENDS | T_PROMPT | T_TYPE | T_SELECT | T_OPTIONAL | T_RANGE | T_DEFAULT | T_VISIBLE
-+	T_DEPENDS | T_PROMPT | T_TYPE | T_SELECT | T_IMPLY | T_OPTIONAL | T_RANGE | T_DEFAULT | T_VISIBLE
- ;
- 
- common_stmt:
-@@ -216,6 +217,12 @@ config_option: T_SELECT T_WORD if_expr T_EOL
- 	printd(DEBUG_PARSE, "%s:%d:select\n", zconf_curname(), zconf_lineno());
- };
- 
-+config_option: T_IMPLY T_WORD if_expr T_EOL
-+{
-+	menu_add_symbol(P_IMPLY, sym_lookup($2, 0), $3);
-+	printd(DEBUG_PARSE, "%s:%d:imply\n", zconf_curname(), zconf_lineno());
-+};
-+
- config_option: T_RANGE symbol symbol if_expr T_EOL
- {
- 	menu_add_expr(P_RANGE, expr_alloc_comp(E_RANGE,$2, $3), $4);
-@@ -664,6 +671,11 @@ static void print_symbol(FILE *out, struct menu *menu)
- 			expr_fprint(prop->expr, out);
- 			fputc('\n', out);
- 			break;
-+		case P_IMPLY:
-+			fputs( "  imply ", out);
-+			expr_fprint(prop->expr, out);
-+			fputc('\n', out);
-+			break;
- 		case P_RANGE:
- 			fputs( "  range ", out);
- 			expr_fprint(prop->expr, out);
+ #endif
 -- 
 2.7.4
-
