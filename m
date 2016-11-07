@@ -1,48 +1,43 @@
-From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
-Subject: Re: [PATCH net] Fixes: 5943634fc559 ("ipv4: Maintain redirect and
- PMTU info in struct rtable again.")
-Date: Mon, 7 Nov 2016 18:05:33 -0500
-Message-ID: <20161107230533.GA16422@ssuryaputra-desktop>
-References: <1478531058-12701-1-git-send-email-ssurya@ieee.org>
- <1478534932.17367.2.camel@edumazet-glaptop3.roam.corp.google.com>
- <20161107.112016.598403889913912857.davem@davemloft.net>
+From: Josh Triplett <josh@joshtriplett.org>
+Subject: Re: [PATCH v3 2/4] kconfig: regenerate *.c_shipped files after
+ previous changes
+Date: Mon, 7 Nov 2016 15:12:36 -0800
+Message-ID: <20161107231236.c7p7fqefckwxcsvv@jtriplet-mobl2.jf.intel.com>
+References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
+ <1478556899-2951-3-git-send-email-nicolas.pitre@linaro.org>
+ <20161107223149.pgs5dqtbw5aprow7@jtriplet-mobl2.jf.intel.com>
+ <alpine.LFD.2.20.1611071733010.14694@knanqh.ubzr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34005 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750905AbcKGXFh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 18:05:37 -0500
-Received: by mail-qk0-f195.google.com with SMTP id 124so6414332qkh.1
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 15:05:37 -0800 (PST)
-Received: from ssuryaputra-desktop ([12.38.14.193])
-        by smtp.gmail.com with ESMTPSA id f16sm17737564qta.9.2016.11.07.15.05.35
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 07 Nov 2016 15:05:35 -0800 (PST)
+Cc: John Stultz <john.stultz@linaro.org>,
+        Michal Marek <mmarek@suse.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Paul Bolle <pebolle@tiscali.nl>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161107.112016.598403889913912857.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.20.1611071733010.14694@knanqh.ubzr>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I did the temporary clearing/restoring rt_gateway following the deleted
-function check_peer_redir(). But, looking again at the function the
-assigning of peer->redirect_learned.a4 to rt_gateway can be permanent
-because restoring to the old_gw only happens on errors.
-
-I have updated the patch to use __ipv4_neigh_lookup().
-
-Thank you.
-
-On Mon, Nov 07, 2016 at 11:20:16AM -0500, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 07 Nov 2016 08:08:52 -0800
+On Mon, Nov 07, 2016 at 05:41:38PM -0500, Nicolas Pitre wrote:
+> On Mon, 7 Nov 2016, Josh Triplett wrote:
 > 
-> > In any case, rt is a shared object at that time, so even temporarily
-> > clearing/restoring rt_gateway seems wrong to me.
+> > [snipping large patch]
 > > 
-> > I would rather call __ipv4_neigh_lookup(dst->dev, new_gw) directly at
-> > this point.
+> > One suggestion that might make this patch easier to review: you might
+> > consider first regenerating the unchanged parser with Bison 3.0.4, then
+> > regenerating it again after the "imply" change.  I think that'd
+> > eliminate quite a lot of noise in this patch.
 > 
-> Agreed.
+> I tried that. This made two large patches instead of just one, both 
+> equally obscure.
+> 
+> So this patch stands on its own, containing changes that are 
+> mechanically generated and therefore shouldn't require manual review.
+
+Fair enough. I hadn't expected that the changes from "imply" would still
+be huge.
