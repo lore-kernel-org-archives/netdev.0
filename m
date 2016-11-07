@@ -1,43 +1,43 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [PATCH v3 2/4] kconfig: regenerate *.c_shipped files after
- previous changes
-Date: Mon, 7 Nov 2016 15:12:36 -0800
-Message-ID: <20161107231236.c7p7fqefckwxcsvv@jtriplet-mobl2.jf.intel.com>
-References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
- <1478556899-2951-3-git-send-email-nicolas.pitre@linaro.org>
- <20161107223149.pgs5dqtbw5aprow7@jtriplet-mobl2.jf.intel.com>
- <alpine.LFD.2.20.1611071733010.14694@knanqh.ubzr>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH] igb: Workaround for igb i210 firmware issue.
+Date: Mon, 7 Nov 2016 23:55:35 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81FC45B5@ORSMSX101.amr.corp.intel.com>
+References: <1478096032-22119-1-git-send-email-christopherarges@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Stultz <john.stultz@linaro.org>,
-        Michal Marek <mmarek@suse.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Paul Bolle <pebolle@tiscali.nl>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.20.1611071733010.14694@knanqh.ubzr>
-Sender: linux-kbuild-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Chris J Arges <christopherarges@gmail.com>,
+        "jh@henneberg-systemdesign.com" <jh@henneberg-systemdesign.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478096032-22119-1-git-send-email-christopherarges@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 07, 2016 at 05:41:38PM -0500, Nicolas Pitre wrote:
-> On Mon, 7 Nov 2016, Josh Triplett wrote:
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Chris J Arges
+> Sent: Wednesday, November 2, 2016 7:14 AM
+> To: jh@henneberg-systemdesign.com
+> Cc: intel-wired-lan@lists.osuosl.org; Chris J Arges
+> <christopherarges@gmail.com>; Kirsher, Jeffrey T
+> <jeffrey.t.kirsher@intel.com>; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org
+> Subject: [PATCH] igb: Workaround for igb i210 firmware issue.
 > 
-> > [snipping large patch]
-> > 
-> > One suggestion that might make this patch easier to review: you might
-> > consider first regenerating the unchanged parser with Bison 3.0.4, then
-> > regenerating it again after the "imply" change.  I think that'd
-> > eliminate quite a lot of noise in this patch.
+> Sometimes firmware may not properly initialize I347AT4_PAGE_SELECT
+> causing
+> the probe of an igb i210 NIC to fail. This patch adds an addition zeroing of
+> this register during igb_get_phy_id to workaround this issue.
 > 
-> I tried that. This made two large patches instead of just one, both 
-> equally obscure.
+> Thanks for Jochen Henneberg for the idea and original patch.
 > 
-> So this patch stands on its own, containing changes that are 
-> mechanically generated and therefore shouldn't require manual review.
+> Signed-off-by: Chris J Arges <christopherarges@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/igb/e1000_phy.c | 4 ++++
+>  1 file changed, 4 insertions(+)
 
-Fair enough. I hadn't expected that the changes from "imply" would still
-be huge.
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
