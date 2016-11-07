@@ -1,106 +1,137 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 00/13] Mellanox 100G SRIOV offloads tunnel_key set/release
-Date: Mon,  7 Nov 2016 15:14:35 +0200
-Message-ID: <1478524488-1377-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 04/13] net/sched: cls_flower: Add UDP port to tunnel parameters
+Date: Mon,  7 Nov 2016 15:14:39 +0200
+Message-ID: <1478524488-1377-5-git-send-email-saeedm@mellanox.com>
+References: <1478524488-1377-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Hadar Hen-Zion <hadarh@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39578 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:39582 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753413AbcKGNPH (ORCPT
+        with ESMTP id S1753144AbcKGNPH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 08:15:07 -0500
+In-Reply-To: <1478524488-1377-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-  
->From Hadar Hen Zion: 
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-This series further enhances the SRIOV TC offloads of mlx5 to handle the
-TC tunnel_key release and set actions.
+The current IP tunneling classification supports only IP addresses and key.
+Enhance UDP based IP tunneling classification parameters by adding UDP
+src and dst port.
 
-This serves a common use-case in virtualization systems where the virtual
-switch encapsulate packets (tunnel_key set action) sent from VMs with
-outer headers corresponding to the local/remote host IPs and de-capsulate
-(tunnel_key release) outer headers before the packets are received by the
-VM. 
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ include/net/flow_dissector.h |  1 +
+ include/uapi/linux/pkt_cls.h |  5 +++++
+ net/sched/cls_flower.c       | 29 ++++++++++++++++++++++++++++-
+ 3 files changed, 34 insertions(+), 1 deletion(-)
 
-We use the new E-Switch switchdev mode and TC tunnel_key set/release
-action to achieve that also in SW defined SRIOV environments by
-offloading TC rules that contain these actions along with forwarding
-(TC mirred/redirect action) the packets.
-
-The first six patches are adding the needed support in flow dissector,
-flower and tc for offloading tunnel_key actions:
-    - The first three patches are adding the needed help functions
-      and enums
-    - The next three patches in the series are adding UDP port attribute
-      to tunnel_key release and set actions. 
-
-The addition of UDP ports would allow the HW driver to make sure they are
-given (say) a VXLAN tunnel to offload (mlx5e uses that).
-
-Patches 7-10 are mlx5 preparations for tunnel_key actions offloads support.
-
-Patch #11 adds mlx5e support to offload tunnel_key release action, and the
-last two patches (#12-13) add mlx5e support to tc tunnel_key set action.
-
-Currently in order to offload tc tunnel_key release action, the tc rule
-should be placed on top of the mlx5e offloading (uplink) interface instead
-of the shared tunnel interface. The resolution between the tunnel interface
-to the HW netdevice will be implemented in a follow up series.
-
-Hadar.
-
-This series was generated against commit
-94edc86bf13f ("Merge branch 'dwmac-sti-refactor-cleanup'")
-
-Thanks,
-Saeed.
-
-Hadar Hen Zion (13):
-  net/sched: act_tunnel_key: add helper inlines to access tcf_tunnel_key
-  flow_dissector: Add enums for encapsulation keys
-  net/sched: cls_flower: Allow setting encapsulation fields as used key
-  net/sched: cls_flower: Add UDP port to tunnel parameters
-  net/dst: Add dst port to dst_metadata utility functions
-  net/sched: act_tunnel_key: Add UDP dst port option
-  net/mlx5: Move alloc/dealloc encap commands declarations to common
-    header file
-  net/mlx5: Check max encap header size capability
-  net/mlx5: Add creation flags when adding new flow table
-  net/mlx5: Support encap id when setting new steering entry
-  net/mlx5e: Add TC tunnel release action for SRIOV offloads
-  net/mlx5e: Add ndo_udp_tunnel_add to VF representors
-  net/mlx5e: Add basic TC tunnel set action for SRIOV offloads
-
- drivers/infiniband/hw/mlx5/main.c                  |  12 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   4 +
- drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  19 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  35 +-
- .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |  12 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   8 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |   2 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    | 462 ++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  26 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  20 +
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  42 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  46 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |   9 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  76 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |   2 +
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   6 +
- include/linux/mlx5/fs.h                            |  19 +-
- include/net/dst_metadata.h                         |  10 +-
- include/net/flow_dissector.h                       |   5 +
- include/net/tc_act/tc_tunnel_key.h                 |  37 ++
- include/uapi/linux/pkt_cls.h                       |   5 +
- include/uapi/linux/tc_act/tc_tunnel_key.h          |   1 +
- net/sched/act_tunnel_key.c                         |  15 +-
- net/sched/cls_flower.c                             |  39 +-
- 24 files changed, 764 insertions(+), 148 deletions(-)
-
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index 4e7cf38a..c4f3166 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -132,6 +132,7 @@ enum flow_dissector_key_id {
+ 	FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS, /* struct flow_dissector_key_ipv4_addrs */
+ 	FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS, /* struct flow_dissector_key_ipv6_addrs */
+ 	FLOW_DISSECTOR_KEY_ENC_CONTROL, /* struct flow_dissector_key_control */
++	FLOW_DISSECTOR_KEY_ENC_PORTS, /* struct flow_dissector_key_ports */
+ 
+ 	FLOW_DISSECTOR_KEY_MAX,
+ };
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index eb94781..86786d4 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -452,6 +452,11 @@ enum {
+ 
+ 	TCA_FLOWER_KEY_SCTP_SRC,	/* be16 */
+ 	TCA_FLOWER_KEY_SCTP_DST,	/* be16 */
++
++	TCA_FLOWER_KEY_ENC_UDP_SRC_PORT,	/* be16 */
++	TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,	/* be16 */
++	TCA_FLOWER_KEY_ENC_UDP_DST_PORT,	/* be16 */
++	TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,	/* be16 */
+ 	__TCA_FLOWER_MAX,
+ };
+ 
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 6369b74..e8dd09a 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -43,6 +43,7 @@ struct fl_flow_key {
+ 		struct flow_dissector_key_ipv4_addrs enc_ipv4;
+ 		struct flow_dissector_key_ipv6_addrs enc_ipv6;
+ 	};
++	struct flow_dissector_key_ports enc_tp;
+ } __aligned(BITS_PER_LONG / 8); /* Ensure that we can do comparisons as longs. */
+ 
+ struct fl_flow_mask_range {
+@@ -155,6 +156,8 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		}
+ 
+ 		skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
++		skb_key.enc_tp.src = key->tp_src;
++		skb_key.enc_tp.dst = key->tp_dst;
+ 	}
+ 
+ 	skb_key.indev_ifindex = skb->skb_iif;
+@@ -348,6 +351,10 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_SCTP_DST_MASK]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_SCTP_SRC]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_SCTP_DST]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_ENC_UDP_SRC_PORT]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK]	= { .type = NLA_U16 },
+ };
+ 
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -500,6 +507,14 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 		       &mask->enc_key_id.keyid, TCA_FLOWER_UNSPEC,
+ 		       sizeof(key->enc_key_id.keyid));
+ 
++	fl_set_key_val(tb, &key->enc_tp.src, TCA_FLOWER_KEY_ENC_UDP_SRC_PORT,
++		       &mask->enc_tp.src, TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,
++		       sizeof(key->enc_tp.src));
++
++	fl_set_key_val(tb, &key->enc_tp.dst, TCA_FLOWER_KEY_ENC_UDP_DST_PORT,
++		       &mask->enc_tp.dst, TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,
++		       sizeof(key->enc_tp.dst));
++
+ 	return 0;
+ }
+ 
+@@ -577,6 +592,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
+ 	    FL_KEY_IS_MASKED(&mask->key, enc_ipv6))
+ 		FL_KEY_SET(keys, cnt, FLOW_DISSECTOR_KEY_ENC_CONTROL,
+ 			   enc_control);
++	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
++			     FLOW_DISSECTOR_KEY_ENC_PORTS, enc_tp);
+ 
+ 	skb_flow_dissector_init(&head->dissector, keys, cnt);
+ }
+@@ -951,7 +968,17 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 
+ 	if (fl_dump_key_val(skb, &key->enc_key_id, TCA_FLOWER_KEY_ENC_KEY_ID,
+ 			    &mask->enc_key_id, TCA_FLOWER_UNSPEC,
+-			    sizeof(key->enc_key_id)))
++			    sizeof(key->enc_key_id)) ||
++	    fl_dump_key_val(skb, &key->enc_tp.src,
++			    TCA_FLOWER_KEY_ENC_UDP_SRC_PORT,
++			    &mask->enc_tp.src,
++			    TCA_FLOWER_KEY_ENC_UDP_SRC_PORT_MASK,
++			    sizeof(key->enc_tp.src)) ||
++	    fl_dump_key_val(skb, &key->enc_tp.dst,
++			    TCA_FLOWER_KEY_ENC_UDP_DST_PORT,
++			    &mask->enc_tp.dst,
++			    TCA_FLOWER_KEY_ENC_UDP_DST_PORT_MASK,
++			    sizeof(key->enc_tp.dst)))
+ 		goto nla_put_failure;
+ 
+ 	nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags);
 -- 
 2.7.4
