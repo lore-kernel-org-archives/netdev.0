@@ -1,39 +1,37 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 06/11] net: l3mdev: remove redundant calls
-Date: Mon, 7 Nov 2016 08:48:53 -0700
-Message-ID: <0eb5f56b-80dd-0c91-0adb-a91736bbc3f5@cumulusnetworks.com>
-References: <1473534602-23602-1-git-send-email-dsa@cumulusnetworks.com>
- <1473534602-23602-7-git-send-email-dsa@cumulusnetworks.com>
- <CAKD1Yr21aQnjyrb6P7aThvnhNLaJt-yrFsyokUBCyOJZkKXwJQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA
+ Ethernet
+Date: Mon, 07 Nov 2016 10:55:00 -0500 (EST)
+Message-ID: <20161107.105500.43380129278294700.davem@davemloft.net>
+References: <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
+        <20161103.155816.642712588084106823.davem@davemloft.net>
+        <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        shm@cumulusnetworks.com
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:36683 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753223AbcKGPtI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 10:49:08 -0500
-Received: by mail-it0-f50.google.com with SMTP id q124so31130155itd.1
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 07:49:08 -0800 (PST)
-In-Reply-To: <CAKD1Yr21aQnjyrb6P7aThvnhNLaJt-yrFsyokUBCyOJZkKXwJQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, oss@buserror.net,
+        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
+        joakim.tjernlund@transmode.se
+To: madalin.bucur@nxp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/7/16 3:13 AM, Lorenzo Colitti wrote:
-> What should we do here? It would seem that now that
-> netif_index_is_l3_master has been resurrected, it's appropriate to use
-> it here as well. The user-visible behaviour changed only two months
-> ago. Unless we think that RSTs should always mirror the iif, in which
-> case I can change our tests accordingly.
+From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+Date: Mon, 7 Nov 2016 15:43:26 +0000
 
-Using ingress information (iif in this case) to determine the route for a response seems appropriate.
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Thursday, November 03, 2016 9:58 PM
+>> 
+>> Why?  By clearing this, you disallow an important fundamental way to do
+>> performane testing, via pktgen.
+> 
+> The Tx path in DPAA requires one to insert a back-pointer to the skb into
+> the Tx buffer. On the Tx confirmation path the back-pointer in the buffer
+> is used to release the skb. If Tx buffer is shared we'd alter the back-pointer
+> and leak/double free skbs. See also 
 
-I can send a patch to revert back to:
-
-	if (!oif && netif_index_is_vrf(net, skb->skb_iif))
-		oif = skb->skb_iif;
-
-thanks for the report.
+Then have your software state store an array of SKB pointers, one for each
+TX ring entry, just like every other driver does.
