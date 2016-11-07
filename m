@@ -1,36 +1,62 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Mon, 7 Nov 2016 16:25:56 +0000
-Message-ID: <1478535955.1983.118.camel@transmode.se>
-References: <1478117854-8952-1-git-send-email-madalin.bucur@nxp.com>
-         <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA
+ Ethernet
+Date: Mon, 07 Nov 2016 11:39:41 -0500 (EST)
+Message-ID: <20161107.113941.669208733868640796.davem@davemloft.net>
+References: <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+        <20161107.105500.43380129278294700.davem@davemloft.net>
+        <AM4PR04MB1604B2393D5CE6607204800EECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-15"
-Content-Transfer-Encoding: 8BIT
-Cc: "joe@perches.com" <joe@perches.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "oss@buserror.net" <oss@buserror.net>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
-        "ppc@mindchasers.com" <ppc@mindchasers.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "madalin.bucur@nxp.com" <madalin.bucur@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
-Content-Language: en-US
-Content-ID: <BA97FA0564313D4EAFECDAFC9020926C@transmode.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, oss@buserror.net,
+        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
+        joakim.tjernlund@transmode.se
+To: madalin.bucur@nxp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36282 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753234AbcKGQjo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:39:44 -0500
+In-Reply-To: <AM4PR04MB1604B2393D5CE6607204800EECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-02 at 22:17 +0200, Madalin Bucur wrote:
-> This introduces the Freescale Data Path Acceleration Architecture
-> (DPAA) Ethernet driver (dpaa_eth) that builds upon the DPAA QMan,
-> BMan, PAMU and FMan drivers to deliver Ethernet connectivity on
-> the Freescale DPAA QorIQ platforms.
+From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+Date: Mon, 7 Nov 2016 16:32:16 +0000
 
-Nice to see DPAA support soon entering the kernel(not a day too early:)
-I would like to see BQL supported from day one though, if possible.
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Monday, November 07, 2016 5:55 PM
+>> 
+>> From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+>> Date: Mon, 7 Nov 2016 15:43:26 +0000
+>> 
+>> >> From: David Miller [mailto:davem@davemloft.net]
+>> >> Sent: Thursday, November 03, 2016 9:58 PM
+>> >>
+>> >> Why?  By clearing this, you disallow an important fundamental way to do
+>> >> performane testing, via pktgen.
+>> >
+>> > The Tx path in DPAA requires one to insert a back-pointer to the skb
+>> into
+>> > the Tx buffer. On the Tx confirmation path the back-pointer in the
+>> buffer
+>> > is used to release the skb. If Tx buffer is shared we'd alter the back-
+>> pointer
+>> > and leak/double free skbs. See also
+>> 
+>> Then have your software state store an array of SKB pointers, one for each
+>> TX ring entry, just like every other driver does.
+> 
+> There is no Tx ring in DPAA. Frames are send out on QMan HW queues towards
+> the FMan for Tx and then received back on Tx confirmation queues for cleanup.
+> Array traversal would for sure cost more than using the back-pointer. Also,
+> we can now process confirmations on a different core than the one doing Tx,
+> we'd have to keep the arrays percpu and force the Tx conf on the same core.
+> Or add locks.
 
- Regards
-          Joakim Tjernlund
+Report back an integer index, like every scsi driver out there which
+completes tagged queued block I/O operations asynchronously.  You can
+associate the array with a specific TX confirmation queue.
