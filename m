@@ -1,60 +1,77 @@
-From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
-Subject: [PATCH net,v2] Fixes: 5943634fc559 ("ipv4: Maintain redirect and PMTU info in struct rtable again.")
-Date: Mon,  7 Nov 2016 17:48:39 -0500
-Message-ID: <1478558919-12014-1-git-send-email-ssurya@ieee.org>
-Cc: Stephen Suryaputra Lin <ssurya@ieee.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:34880 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751540AbcKGWtG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 17:49:06 -0500
-Received: by mail-qk0-f196.google.com with SMTP id n204so12879405qke.2
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 14:49:05 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris Roth <chris.roth@usask.ca>
+Subject: [PATCH v4] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
+Date: Mon, 7 Nov 2016 16:44:20 -0600
+Message-ID: <CAPZMiRa0kYyPFQ77L5y4NgxxH85iuMAjODV2iCzd-5OjyGfNuw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Allan Chou <allan@asix.com.tw>,
+        Artjom Simon <artjom.simon@gmail.com>
+To: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ICMP redirects behavior is different after the commit above. An email
-requesting the explanation on why the behavior needs to be different
-was sent earlier to netdev (https://patchwork.ozlabs.org/patch/687728/).
-Since there isn't a reply yet, I decided to prepare this formal patch.
+From: Allan Chou <allan@asix.com.tw>
 
-In v2.6 kernel, it used to be that ip_rt_redirect() calls
-arp_bind_neighbour() which returns 0 and then the state of the neigh for
-the new_gw is checked. If the state isn't valid then the redirected
-route is deleted. This behavior is maintained up to v3.5.7 by
-check_peer_redirect() because rt->rt_gateway is assigned to
-peer->redirect_learned.a4 before calling ipv4_neigh_lookup().
+Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
+Bridge Controller (Vendor=04b4 ProdID=3610).
 
-After the commit, ipv4_neigh_lookup() is performed without the
-rt_gateway assigned to the new_gw. In the case when rt_gateway (old_gw)
-isn't zero, the function uses it as the key. The neigh is most likely valid
-since the old_gw is the one that sends the ICMP redirect message. Then the
-new_gw is assigned to fib_nh_exception. The problem is: the new_gw ARP may
-never gets resolved and the traffic is blackholed.
+Patch verified on x64 linux kernel 4.7.4, 4.8.6, 4.9-rc4 systems
+with the Kensington SD4600P USB-C Universal Dock with Power,
+which uses the Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge
+Controller.
 
-Changes from v1:
- - use __ipv4_neigh_lookup instead (per Eric Dumazet).
+A similar patch was signed-off and tested-by Allan Chou
+<allan@asix.com.tw> on 2015-12-01.
 
-Signed-off-by: Stephen Suryaputra Lin <ssurya@ieee.org>
+Allan verified his similar patch on x86 Linux kernel 4.1.6 system
+with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+
+Tested-by: Allan Chou <allan@asix.com.tw>
+Tested-by: Chris Roth <chris.roth@usask.ca>
+Tested-by: Artjom Simon <artjom.simon@gmail.com>
+
+Signed-off-by: Allan Chou <allan@asix.com.tw>
+Signed-off-by: Chris Roth <chris.roth@usask.ca>
 ---
- net/ipv4/route.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 62d4d90c1389..2a57566e6e91 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -753,7 +753,9 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
- 			goto reject_redirect;
- 	}
- 
--	n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
-+	n = __ipv4_neigh_lookup(rt->dst.dev, new_gw);
-+	if (!n)
-+		n = neigh_create(&arp_tbl, &new_gw, rt->dst.dev);
- 	if (!IS_ERR(n)) {
- 		if (!(n->nud_state & NUD_VALID)) {
- 			neigh_event_send(n, NULL);
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index e6338c1..8a6675d 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
+     .tx_fixup = ax88179_tx_fixup,
+ };
+
++static const struct driver_info cypress_GX3_info = {
++    .description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
++    .bind = ax88179_bind,
++    .unbind = ax88179_unbind,
++    .status = ax88179_status,
++    .link_reset = ax88179_link_reset,
++    .reset = ax88179_reset,
++    .stop = ax88179_stop,
++    .flags = FLAG_ETHER | FLAG_FRAMING_AX,
++    .rx_fixup = ax88179_rx_fixup,
++    .tx_fixup = ax88179_tx_fixup,
++};
++
+ static const struct driver_info dlink_dub1312_info = {
+     .description = "D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter",
+     .bind = ax88179_bind,
+@@ -1718,6 +1731,10 @@ static const struct usb_device_id products[] = {
+     , USB_DEVICE(0x0b95, 0x178a),
+     .driver_info = (unsigned long)&ax88178a_info,
+ }, {
++    /* Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller */
++    USB_DEVICE(0x04b4, 0x3610),
++    .driver_info = (unsigned long)&cypress_GX3_info,
++}, {
+     /* D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter */
+     USB_DEVICE(0x2001, 0x4a00),
+     .driver_info = (unsigned long)&dlink_dub1312_info,
 -- 
 2.7.4
