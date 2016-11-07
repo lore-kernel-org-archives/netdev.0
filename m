@@ -1,37 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/7] stmmac: dwmac-sti refactor+cleanup
-Date: Sun, 06 Nov 2016 22:00:33 -0500 (EST)
-Message-ID: <20161106.220033.1499160366690845326.davem@davemloft.net>
-References: <20161104175411.12943-1-manabian@gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH net-next] sock: do not set sk_err in sock_dequeue_err_skb
+Date: Sun, 6 Nov 2016 21:18:22 -0800
+Message-ID: <CALCETrWLg+FKPD6DWBD8GGRA1RUVv6AHcH2kyi2tvyZ9kXhrcA@mail.gmail.com>
+References: <1478211867-24569-1-git-send-email-soheil.kdev@gmail.com>
+ <a3f7ea70-658e-9836-1a09-d1b9586582eb@stressinduktion.org> <CAF=yD-Ln_h5LHA=bfKYP7UPvANLXVBP4w6a5FE90AfByEyKNUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org
-To: manabian@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Neal Cardwell <ncardwell@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48580 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751646AbcKGDBY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 22:01:24 -0500
-In-Reply-To: <20161104175411.12943-1-manabian@gmail.com>
+Received: from mail-ua0-f175.google.com ([209.85.217.175]:36632 "EHLO
+        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750717AbcKGFT3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 00:19:29 -0500
+Received: by mail-ua0-f175.google.com with SMTP id b35so110959990uaa.3
+        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 21:18:43 -0800 (PST)
+In-Reply-To: <CAF=yD-Ln_h5LHA=bfKYP7UPvANLXVBP4w6a5FE90AfByEyKNUw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Fri,  4 Nov 2016 18:54:04 +0100
+On Nov 4, 2016 1:26 PM, "Willem de Bruijn"
+<willemdebruijn.kernel@gmail.com> wrote:
+>
+> On Thu, Nov 3, 2016 at 7:10 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > [also cc'ed Andy, albeit this doesn't seem to solve his initial problem,
+> > right? <http://www.spinics.net/lists/netdev/msg331753.html>]
+>
+> Indeed, this does not help disambiguate the source of an error
+> returned by a socketcall. It only reduces how often sk_err is leaked
+> into the socket call datapath. Local errors and timestamps never set
+> sk_err in the first place, so there can be no expectation that they
+> set it on dequeue.
+>
+> I suspect that that line in sock_dequeue_err_skb originates from icmp
+> errors, as those do set sk_err whenever queueing an error. So
+> reenabling it when there are multiple errors on the queue makes sense,
+> if all queued errors would be icmp errors. But they are not. And that
+> path is racy, so there is no guarantee, either way. Processes that
+> rely on syscall blocking to read the errqueue still block for icmp
+> errors after this patch, due to the initial sk_err assignment on
+> enqueue.
+>
+> Note that the comment in the patch that only TCP socket calls are
+> blocked is probably incorrect. TCP has its own check in tcp_sendmsg
+> and returns EPIPE when an sk_err is set, without clearing it. But
+> other send, recv, connect, .. implementations include a path to
+> sock_error that aborts the call (e.g., in __skb_try_recv_datagram),
+> returns the value of sk_err, and clears it. This is an inconsistency
+> between the protocols.
+>
+> Andy's original problem mentions recvmsg. We could probably make that
+> unambiguous by returning a cmsg with the value of sk_err if RECVERR is
+> set and sk_err is the source of the error. But this still does not
+> solve the general issue, as other socketcalls, like send and connect,
+> can also return sk_err. We can modify the number of places that check
+> for it and currently abort system calls. Mainly sock_error(). One
+> option is to add a socket option (SOL_SOCKET, as sk_err is not limited
+> to when INET_RECVERR is set) to make that a noop. If the caller sets
+> this option it instead has to wait with poll to receive POLLERR and
+> call getsockopt SO_ERROR and recv MSG_ERRQUEUE to get the asynchronous
+> error.
 
-> This patch set aims to remove the init/exit callbacks from the 
-> dwmac-sti driver and instead use standard PM callbacks. Doing this
-> will also allow us to cleanup the driver.
-> 
-> Eventually the init/exit callbacks will be deprecated and removed
-> from all drivers dwmac-* except for dwmac-generic. Drivers will be
-> refactored to use standard PM and remove callbacks.
-> 
-> Changes since v2:
->  - add missing static to sti_dwmac_pm_ops
->  - s/sti_dwmac_set_phy_mode/sti_dwmac_set_mode
->  - acked/tested by Giuseppe
-
-Series applied, thanks.
+That would work for me, I think.  If this socket option were set, I
+would hope that SO_ERROR wouldn't report anything if the only error
+were a queued message on the error queue.
