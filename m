@@ -1,108 +1,60 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Mon, 7 Nov 2016 11:59:17 +0100
-Message-ID: <3c21b0a4-43c9-0257-f8f2-c8e02cf94fbf@st.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
- <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
- <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
- <20161031112524.4c4ee8f8@gmail.com> <1478192276.6632.34.camel@baylibre.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Coding Style: Reverse XMAS tree declarations ?
+Date: Mon, 7 Nov 2016 11:00:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB021646E@AcuExch.aculab.com>
+References: <20161103.155816.642712588084106823.davem@davemloft.net>
+ <1478242438.1924.31.camel@perches.com> <581C6A7D.8030704@marvell.com>
+ <20161104.110759.1093635654135143910.davem@davemloft.net>
+ <1478281455.1924.41.camel@perches.com>
+ <31ace8dd-1e42-2762-6367-028068d4d816@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Johnson Leung <r58129@freescale.com>,
-        <linux-amlogic@lists.infradead.org>, <netdev@vger.kernel.org>
-To: Jerome Brunet <jbrunet@baylibre.com>,
-        =?UTF-8?Q?Andr=c3=a9_Roth?= <neolynx@gmail.com>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:48510 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750995AbcKGK7v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 05:59:51 -0500
-In-Reply-To: <1478192276.6632.34.camel@baylibre.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "madalin.bucur@nxp.com" <madalin.bucur@nxp.com>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "corbet@lwn.net" <corbet@lwn.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "oss@buserror.net" <oss@buserror.net>,
+        "ppc@mindchasers.com" <ppc@mindchasers.com>,
+        "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+        "joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
+        Randy Dunlap <rdunlap@infradead.org>
+To: 'Lino Sanfilippo' <LinoSanfilippo@gmx.de>,
+        Joe Perches <joe@perches.com>,
+        David Miller <davem@davemloft.net>,
+        "lsanfil@marvell.com" <lsanfil@marvell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <31ace8dd-1e42-2762-6367-028068d4d816@gmx.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jerome
+From: Lino Sanfilippo
+> Sent: 04 November 2016 20:07
+...
+> In this case it is IMHO rather the declaration + initialization that makes
+> "bar" hard to find at one glance, not the use of RXT. You could do something like
+> 
+>  	[longish list of reverse xmas tree identifiers...]
+>  	struct foobarbaz *qux;
+>  	struct foo *bar;
+> 
+>  	bar = longish_function(args, ...);
+> 
+> to increase readability.
+> 
+> Personally I find it more readable to always use a separate line for initializations
+> by means of functions (regardless of whether the RXT scheme is used or not).
 
-We met, on some platform, problems that, in a glance,
-look similar to yours and those were related to EEE and
-LPI interrupts.
-We had a subset of patches to disable EEE but, indeed,
-if you disable from PHY, the STMMAC will never act
-the protocol. We can provide you these patches... I will
-ask Alex to decide how to proceed.
-There is a issue on lpi timer and I have another patch to
-share but I am not sure this can help.
+I find it best to only use initialisers for 'variables' that are (mostly) constant.
+If something need to be set to NULL in case a search fails, set it to NULL
+just before the loop.
+Don't put initialisation on the declaration 'because you can'.
 
-In sum, if EEE is a suspected problem we can share and review
-some patches.
-In the meantime, I will read again the thread just to see if
-there is something I am missing.
+Difficulty in spotting the type of a variable is why (IMHO) you should
+but all declarations at the top of a function
+(except, maybe, temporaries needed for a few lines).
 
-Regards
-Peppe
-
-On 11/3/2016 5:57 PM, Jerome Brunet wrote:
-> On Mon, 2016-10-31 at 11:25 +0100, André Roth wrote:
->> Hi all,
->>
->>>
->>> on my device this results in:
->>> [0xc9410018] = 0x2000000
->>> [0xc9410030] = 0x0
->>> [0xc941003c] = 0x0
->>> [0xc9411000] = 0x1100802
->>> [0xc9411018] = 0x2202006
->>> [0xc9411028] = 0x0
->>>
->>> maybe someone else could try the command from above on his device
->>> (running the original Amlogic kernel).
->>
->> those registers have the same value on an original image from
->> hardkernel:
->>
->> Linux odroid64 3.14.65-65 #1 SMP PREEMPT Sat May 28
->> 02:50:51 BRT 2016 aarch64 aarch64 aarch64 GNU/Linux
->>
->>>
->>> please also state if ethernet is working properly on the original
->>> kernel (and preferably which device/board this is).
->>
->> yes, the ethernet works flawless in 100 and 1000 Mbit/s on the 3.14
->> kernel.
->
-> Andre, the 3.14 kernel you are talking, is it this one ? :
-> https://github.com/hardkernel/linux/tree/odroidc2-3.14.y
->
-> Because in drivers/net/phy/realtek.c, they disable EEE, but
-> also 1000Base-T Full Duplex advertisement ?
->
-> +	/* disable 1000m adv*/
-> +	val = phy_read(phydev, 0x9);
-> +	phy_write(phydev, 0x9, val&(~(1<<9)));
->
-> If this is the kernel you are running, you should not be able to have
-> ethernet at 1000MB/s ? Or is it in half duplex mode ?
->
->>
->> I can now confirm that both 100 and 1000 Mbit/s do not work properly
->> on the 4.8/integ branch. the network connection is interrupted after
->> some outbound traffic. it can be recovered by running a ifdown/ifup
->> which restarts dhclient, which I think is able to somehow reset the
->> interface.
->>
->> Anything I can help to debug the issue further ?
->>
->> Regards,
->>
->>  André
->>
->>
->>
->> _______________________________________________
->> linux-amlogic mailing list
->> linux-amlogic@lists.infradead.org
->> http://lists.infradead.org/mailman/listinfo/linux-amlogic
->
+	David
