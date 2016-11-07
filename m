@@ -1,102 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net-ipv6: on device mtu change do not add mtu to mtu-less
- routes
-Date: Mon, 7 Nov 2016 20:28:29 +0100
-Message-ID: <940a49a5-32e3-6da8-21cf-7bce62eec5f1@stressinduktion.org>
-References: <1478296314-32396-1-git-send-email-zenczykowski@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>,
-        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH v2] net: icmp_route_lookup should use rt dev to determine L3 domain
+Date: Mon,  7 Nov 2016 12:03:09 -0800
+Message-ID: <1478548989-1832-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:34638 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751218AbcKGT2c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 14:28:32 -0500
-In-Reply-To: <1478296314-32396-1-git-send-email-zenczykowski@gmail.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34759 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751736AbcKGUEH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 15:04:07 -0500
+Received: by mail-pf0-f172.google.com with SMTP id n85so95213487pfi.1
+        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 12:03:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04.11.2016 22:51, Maciej Żenczykowski wrote:
-> From: Maciej Żenczykowski <maze@google.com>
-> 
-> Routes can specify an mtu explicitly or inherit the mtu from
-> the underlying device - this inheritance is implemented in
-> dst->ops->mtu handlers ip6_mtu() and ip6_blackhole_mtu().
-> 
-> Currently changing the mtu of a device adds mtu explicitly
-> to routes using that device.
-> 
-> ie.
->   # ip link set dev lo mtu 65536
->   # ip -6 route add local 2000::1 dev lo
->   # ip -6 route get 2000::1
->   local 2000::1 dev lo  table local  src ...  metric 1024  pref medium
-> 
->   # ip link set dev lo mtu 65535
->   # ip -6 route get 2000::1
->   local 2000::1 dev lo  table local  src ...  metric 1024  mtu 65535 pref medium
-> 
->   # ip link set dev lo mtu 65536
->   # ip -6 route get 2000::1
->   local 2000::1 dev lo  table local  src ...  metric 1024  mtu 65536 pref medium
-> 
->   # ip -6 route del local 2000::1
-> 
-> After this patch the route entry no longer changes unless it already has an mtu.
-> There is no need: this inheritance is already done in ip6_mtu()
-> 
->   # ip link set dev lo mtu 65536
->   # ip -6 route add local 2000::1 dev lo
->   # ip -6 route add local 2000::2 dev lo mtu 2000
->   # ip -6 route get 2000::1; ip -6 route get 2000::2
->   local 2000::1 dev lo  table local  src ...  metric 1024  pref medium
->   local 2000::2 dev lo  table local  src ...  metric 1024  mtu 2000 pref medium
-> 
->   # ip link set dev lo mtu 65535
->   # ip -6 route get 2000::1; ip -6 route get 2000::2
->   local 2000::1 dev lo  table local  src ...  metric 1024  pref medium
->   local 2000::2 dev lo  table local  src ...  metric 1024  mtu 2000 pref medium
-> 
->   # ip link set dev lo mtu 1501
->   # ip -6 route get 2000::1; ip -6 route get 2000::2
->   local 2000::1 dev lo  table local  src ...  metric 1024  pref medium
->   local 2000::2 dev lo  table local  src ...  metric 1024  mtu 1501 pref medium
-> 
->   # ip link set dev lo mtu 65536
->   # ip -6 route get 2000::1; ip -6 route get 2000::2
->   local 2000::1 dev lo  table local  src ...  metric 1024  pref medium
->   local 2000::2 dev lo  table local  src ...  metric 1024  mtu 65536 pref medium
-> 
->   # ip -6 route del local 2000::1
->   # ip -6 route del local 2000::2
-> 
-> This is desirable because changing device mtu and then resetting it
-> to the previous value shouldn't change the user visible routing table.
-> 
-> Signed-off-by: Maciej Żenczykowski <maze@google.com>
-> CC: Eric Dumazet <edumazet@google.com>
-> ---
->  net/ipv6/route.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 947ed1ded026..fa90d14302f7 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -2758,6 +2758,7 @@ static int rt6_mtu_change_route(struct rt6_info *rt, void *p_arg)
->  	   PMTU discouvery.
->  	 */
->  	if (rt->dst.dev == arg->dev &&
-> +	    dst_metric_raw(&rt->dst, RTAX_MTU) &&
->  	    !dst_metric_locked(&rt->dst, RTAX_MTU)) {
->  		if (rt->rt6i_flags & RTF_CACHE) {
->  			/* For RTF_CACHE with rt6i_pmtu == 0
-> 
+icmp_send is called in response to some event. The skb may not have
+the device set (skb->dev is NULL), but it is expected to have an rt.
+Update icmp_route_lookup to use the rt on the skb to determine L3
+domain.
 
-Yep, that makes sense.
+Fixes: 613d09b30f8b ("net: Use VRF device index for lookups on TX")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v2
+- use skb_dst versus skb_rtable
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+ net/ipv4/icmp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 53a890b605fc..691146abde2d 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -479,7 +479,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	fl4->flowi4_proto = IPPROTO_ICMP;
+ 	fl4->fl4_icmp_type = type;
+ 	fl4->fl4_icmp_code = code;
+-	fl4->flowi4_oif = l3mdev_master_ifindex(skb_in->dev);
++	fl4->flowi4_oif = l3mdev_master_ifindex(skb_dst(skb_in)->dev);
+ 
+ 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
+ 	rt = __ip_route_output_key_hash(net, fl4,
+@@ -504,7 +504,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	if (err)
+ 		goto relookup_failed;
+ 
+-	if (inet_addr_type_dev_table(net, skb_in->dev,
++	if (inet_addr_type_dev_table(net, skb_dst(skb_in)->dev,
+ 				     fl4_dec.saddr) == RTN_LOCAL) {
+ 		rt2 = __ip_route_output_key(net, &fl4_dec);
+ 		if (IS_ERR(rt2))
+-- 
+2.1.4
