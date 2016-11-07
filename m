@@ -1,67 +1,39 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH] bna: Add synchronization for tx ring.
-Date: Mon,  7 Nov 2016 17:57:56 +0800
-Message-ID: <20161107095756.15343-1-bpoirier@suse.com>
-Cc: Rasesh Mody <rasesh.mody@cavium.com>,
-        Sudarsana Kalluru <sudarsana.kalluru@cavium.com>,
-        Dept-GELinuxNICDev@cavium.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36477 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752469AbcKGKQW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 05:16:22 -0500
-Received: by mail-pf0-f195.google.com with SMTP id n85so15775783pfi.3
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 02:15:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe
+ function
+Date: Mon, 07 Nov 2016 11:32:25 +0100
+Message-ID: <1478514745.2400.3.camel@suse.com>
+References: <Pine.LNX.4.44L0.1611040923110.6787-100000@netrider.rowland.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kai-Heng Feng <kai.heng.feng@canonical.com>,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.1611040923110.6787-100000@netrider.rowland.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We received two reports of BUG_ON in bnad_txcmpl_process() where
-hw_consumer_index appeared to be ahead of producer_index. Out of order
-write/read of these variables could explain these reports.
+On Fri, 2016-11-04 at 09:26 -0400, Alan Stern wrote:
+> On Fri, 4 Nov 2016, Kai-Heng Feng wrote:
+> 
+> > Sometimes cdc_mbim failed to probe if runtime pm is enabled:
+> > [    9.305626] cdc_mbim: probe of 2-2:1.12 failed with error -22
+> > 
+> > This can be solved by increase its pm usage counter.
+> 
+> This should not be needed.  The USB core increments the PM usage 
+> counter of a device before probing its interfaces.
 
-bnad_start_xmit(), as a producer of tx descriptors, has a few memory
-barriers sprinkled around writes to producer_index and the device's
-doorbell but they're not paired with anything in bnad_txcmpl_process(), a
-consumer.
+Indeed. Yet we have experimental evidence.
 
-Since we are synchronizing with a device, we must use mandatory barriers,
-not smp_*. Also, I didn't see the purpose of the last smp_mb() in
-bnad_start_xmit().
+Kai-Heng Feng, could you please enable dynamic debugging
+for 
+drivers/usb/core/driver.c
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+so that we can see what is going on with the usage counters?
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index f9df4b5a..f42f672 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -177,6 +177,7 @@ bnad_txcmpl_process(struct bnad *bnad, struct bna_tcb *tcb)
- 		return 0;
- 
- 	hw_cons = *(tcb->hw_consumer_index);
-+	rmb();
- 	cons = tcb->consumer_index;
- 	q_depth = tcb->q_depth;
- 
-@@ -3094,7 +3095,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	BNA_QE_INDX_INC(prod, q_depth);
- 	tcb->producer_index = prod;
- 
--	smp_mb();
-+	wmb();
- 
- 	if (unlikely(!test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags)))
- 		return NETDEV_TX_OK;
-@@ -3102,7 +3103,6 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	skb_tx_timestamp(skb);
- 
- 	bna_txq_prod_indx_doorbell(tcb);
--	smp_mb();
- 
- 	return NETDEV_TX_OK;
- }
--- 
-2.9.3
+	Regards
+		Oliver
