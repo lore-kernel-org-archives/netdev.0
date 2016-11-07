@@ -1,110 +1,65 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH] igb: drop field "tail" of struct igb_ring
-Date: Mon, 7 Nov 2016 10:49:16 -0800
-Message-ID: <CAKgT0UcHutO9kotxN2-MTH=rrB1PjmyMdjyeT4PkYbBXkBquFw@mail.gmail.com>
-References: <1478522697-4773-1-git-send-email-caoj.fnst@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net-gro: avoid reorders
+Date: Mon, 07 Nov 2016 11:12:27 -0800
+Message-ID: <1478545947.17367.10.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>,
-        =?UTF-8?B?SXp1bWksIFRha3Uv5rOJIOaLkw==?=
-        <izumi.taku@jp.fujitsu.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-To: Cao jin <caoj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35687 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933504AbcKGStS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 13:49:18 -0500
-In-Reply-To: <1478522697-4773-1-git-send-email-caoj.fnst@cn.fujitsu.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36777 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932795AbcKGTNk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 14:13:40 -0500
+Received: by mail-pf0-f194.google.com with SMTP id n85so16848232pfi.3
+        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 11:12:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 7, 2016 at 4:44 AM, Cao jin <caoj.fnst@cn.fujitsu.com> wrote:
-> Under certain condition, I find guest will oops on writel() in
-> igb_configure_tx_ring(), because hw->hw_address is NULL. While other
-> register access won't oops kernel because they use wr32/rd32 which have
-> a defense against NULL pointer. The oops message are as following:
->
->     [  141.225449] pcieport 0000:00:1c.0: AER: Multiple Uncorrected (Fatal)
->     error received: id=0101
->     [  141.225523] igb 0000:01:00.1: PCIe Bus Error: severity=Uncorrected
->     (Fatal), type=Unaccessible, id=0101(Unregistered Agent ID)
->     [  141.299442] igb 0000:01:00.1: broadcast error_detected message
->     [  141.300539] igb 0000:01:00.0 enp1s0f0: PCIe link lost, device now
->     detached
->     [  141.351019] igb 0000:01:00.1 enp1s0f1: PCIe link lost, device now
->     detached
->     [  143.465904] pcieport 0000:00:1c.0: Root Port link has been reset
->     [  143.465994] igb 0000:01:00.1: broadcast slot_reset message
->     [  143.466039] igb 0000:01:00.0: enabling device (0000 -> 0002)
->     [  144.389078] igb 0000:01:00.1: enabling device (0000 -> 0002)
->     [  145.312078] igb 0000:01:00.1: broadcast resume message
->     [  145.322211] BUG: unable to handle kernel paging request at
->     0000000000003818
->     [  145.361275] IP: [<ffffffffa02fd38d>] igb_configure_tx_ring+0x14d/0x280 [igb]
->     [  145.438007] Oops: 0002 [#1] SMP
->
-> On the other hand, commit 238ac817 does some optimization which
-> dropped the field "head". So I think it is time to drop "tail" as well.
+From: Eric Dumazet <edumazet@google.com>
 
-There is a bug here, but removing tail isn't the fix.
+Receiving a GSO packet in dev_gro_receive() is not uncommon
+in stacked devices, or devices partially implementing LRO/GRO
+like bnx2x. GRO is implementing the aggregation the device
+was not able to do itself.
 
-> Signed-off-by: Cao jin <caoj.fnst@cn.fujitsu.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb.h      |  1 -
->  drivers/net/ethernet/intel/igb/igb_main.c | 16 +++++++++-------
->  2 files changed, 9 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-> index d11093d..0df06bc 100644
-> --- a/drivers/net/ethernet/intel/igb/igb.h
-> +++ b/drivers/net/ethernet/intel/igb/igb.h
-> @@ -247,7 +247,6 @@ struct igb_ring {
->         };
->         void *desc;                     /* descriptor ring memory */
->         unsigned long flags;            /* ring specific flags */
-> -       void __iomem *tail;             /* pointer to ring tail register */
->         dma_addr_t dma;                 /* phys address of the ring */
->         unsigned int  size;             /* length of desc. ring in bytes */
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index edc9a6a..e177d0e 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -3390,9 +3390,8 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
->              tdba & 0x00000000ffffffffULL);
->         wr32(E1000_TDBAH(reg_idx), tdba >> 32);
->
-> -       ring->tail = hw->hw_addr + E1000_TDT(reg_idx);
+Current code causes reorders, like in following case :
 
-This line is where the bug is.  This should be adapter->io_addr, not
-hw->hw_addr.
+For a given flow where sender sent 3 packets P1,P2,P3,P4
 
->         wr32(E1000_TDH(reg_idx), 0);
-> -       writel(0, ring->tail);
-> +        wr32(E1000_TDT(reg_idx), 0);
->
->         txdctl |= IGB_TX_PTHRESH;
->         txdctl |= IGB_TX_HTHRESH << 8;
-> @@ -3729,9 +3728,8 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
->              ring->count * sizeof(union e1000_adv_rx_desc));
->
->         /* initialize head and tail */
-> -       ring->tail = hw->hw_addr + E1000_RDT(reg_idx);
+Receiver might receive P1 as a single packet, stored in GRO engine.
 
-Same thing here.  It looks like the wrong values where used.
+Then P2-P4 are received as a single GSO packet, immediately given to
+upper stack, while P1 is held in GRO engine.
 
->         wr32(E1000_RDH(reg_idx), 0);
-> -       writel(0, ring->tail);
-> +       wr32(E1000_RDT(reg_idx), 0);
->
->         /* set descriptor configuration */
+This patch will make sure P1 is given to upper stack, then P2-P4
+immediately after.
 
-Would you prefer to submit the patch for this or should I?  Basically
-all you need to do is change the two lines where ring->tail is
-populated so that you use adapter->io_addr instead of hw->hw_addr.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks.
-
-- Alex
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f23e28668f32..b77cde68967c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4482,7 +4482,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 	if (!(skb->dev->features & NETIF_F_GRO))
+ 		goto normal;
+ 
+-	if (skb_is_gso(skb) || skb_has_frag_list(skb) || skb->csum_bad)
++	if (skb->csum_bad)
+ 		goto normal;
+ 
+ 	gro_list_prepare(napi, skb);
+@@ -4495,7 +4495,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 		skb_set_network_header(skb, skb_gro_offset(skb));
+ 		skb_reset_mac_len(skb);
+ 		NAPI_GRO_CB(skb)->same_flow = 0;
+-		NAPI_GRO_CB(skb)->flush = 0;
++		NAPI_GRO_CB(skb)->flush = skb_is_gso(skb) || skb_has_frag_list(skb);
+ 		NAPI_GRO_CB(skb)->free = 0;
+ 		NAPI_GRO_CB(skb)->encap_mark = 0;
+ 		NAPI_GRO_CB(skb)->recursion_counter = 0;
