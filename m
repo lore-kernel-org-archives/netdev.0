@@ -1,50 +1,69 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [RFC] net: phy: phy drivers should not set
- SUPPORTED_Pause or SUPPORTED_Asym_Pause
-Date: Mon, 7 Nov 2016 10:30:21 -0600
-Message-ID: <5820AC1D.4040408@codeaurora.org>
-References: <1478020715-25578-1-git-send-email-timur@codeaurora.org>
- <aa0224f1-814a-d281-ad26-6c8086e40658@gmail.com>
+From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Mon, 7 Nov 2016 16:32:16 +0000
+Message-ID: <AM4PR04MB1604B2393D5CE6607204800EECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+References: <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
+ <20161103.155816.642712588084106823.davem@davemloft.net>
+ <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+ <20161107.105500.43380129278294700.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:60292 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753109AbcKGQav (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:30:51 -0500
-In-Reply-To: <aa0224f1-814a-d281-ad26-6c8086e40658@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "pebolle@tiscali.nl" <pebolle@tiscali.nl>,
+ "joakim.tjernlund@transmode.se" <joakim.tjernlund@transmode.se>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "ppc@mindchasers.com" <ppc@mindchasers.com>,
+ "oss@buserror.net" <oss@buserror.net>, "joe@perches.com" <joe@perches.com>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20161107.105500.43380129278294700.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On 11/01/2016 01:35 PM, Florian Fainelli wrote:
-> So in premise, this is good, and is exactly what I have in mind for the
-> series that I am cooking, but if we apply this alone, without a change
-> in drivers/net/phy/phy.c which adds SUPPORTED_Pause |
-> SUPPORTED_AsymPause to phydev->features, we are basically breaking the
-> Ethernet MAC drivers that don't explicitly override phydev->features and
-> yet rely on that to get flow control to work.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, November 07, 2016 5:55 PM
+>=20
+> From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+> Date: Mon, 7 Nov 2016 15:43:26 +0000
+>=20
+> >> From: David Miller [mailto:davem@davemloft.net]
+> >> Sent: Thursday, November 03, 2016 9:58 PM
+> >>
+> >> Why?  By clearing this, you disallow an important fundamental way to d=
+o
+> >> performane testing, via pktgen.
+> >
+> > The Tx path in DPAA requires one to insert a back-pointer to the skb
+> into
+> > the Tx buffer. On the Tx confirmation path the back-pointer in the
+> buffer
+> > is used to release the skb. If Tx buffer is shared we'd alter the back-
+> pointer
+> > and leak/double free skbs. See also
+>=20
+> Then have your software state store an array of SKB pointers, one for eac=
+h
+> TX ring entry, just like every other driver does.
 
-Can you tell me where I should set the SUPPORTED_Pause and 
-SUPPORTED_AsymPause flags?  I have a two candidates:
+There is no Tx ring in DPAA. Frames are send out on QMan HW queues towards
+the FMan for Tx and then received back on Tx confirmation queues for cleanu=
+p.
+Array traversal would for sure cost more than using the back-pointer. Also,
+we can now process confirmations on a different core than the one doing Tx,
+we'd have to keep the arrays percpu and force the Tx conf on the same core.
+Or add locks.
 
-1. The settings[] array.  Add these flags to each entry.
-
-2. In phy_sanitize_settings().  Add
-
-	phydev->supported |= SUPPORTED_Pause | SUPPORTED_AsymPause;
-
-at the end of the function.
-
-
-I'm still don't understand 100% how these flags really work, because I 
-just can't shake the feeling that they should not be set for every phy. 
-  If these flags are supposed to be turned on universally, then why are 
-they even an option?
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Madalin
