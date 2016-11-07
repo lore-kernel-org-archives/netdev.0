@@ -1,92 +1,56 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v1 18/21] net: phy: expose phy_aneg_done API for
- use by drivers
-Date: Mon, 7 Nov 2016 09:01:56 -0600
-Message-ID: <9aa07ca3-3056-58a3-ce40-30d76712fe54@amd.com>
-References: <201611041055.uVHswmMu%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
-To: Andreas Larsson <andreas@gaisler.com>,
-        Kristoffer Glembo <kristoffer@gaisler.com>
+From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
+Subject: [PATCH net] Fixes: 5943634fc559 ("ipv4: Maintain redirect and PMTU info in struct rtable again.")
+Date: Mon,  7 Nov 2016 10:04:18 -0500
+Message-ID: <1478531058-12701-1-git-send-email-ssurya@ieee.org>
+Cc: Stephen Suryaputra Lin <ssurya@ieee.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0045.outbound.protection.outlook.com ([104.47.42.45]:47760
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752994AbcKGPCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 7 Nov 2016 10:02:50 -0500
-In-Reply-To: <201611041055.uVHswmMu%fengguang.wu@intel.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36255 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752683AbcKGPFE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 10:05:04 -0500
+Received: by mail-qk0-f193.google.com with SMTP id h201so11116332qke.3
+        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 07:04:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/03/2016 09:13 PM, kbuild test robot wrote:
-> Hi Tom,
-> 
-> [auto build test ERROR on net-next/master]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Tom-Lendacky/amd-xgbe-AMD-XGBE-driver-updates-2016-11-01/20161103-222344
-> config: sparc-allyesconfig (attached as .config)
-> compiler: sparc64-linux-gnu-gcc (Debian 6.1.1-9) 6.1.1 20160705
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=sparc 
-> 
-> All errors (new ones prefixed by >>):
-> 
->>> drivers/net/ethernet/aeroflex/greth.c:1293:19: error: static declaration of 'phy_aneg_done' follows non-static declaration
->     static inline int phy_aneg_done(struct phy_device *phydev)
->                       ^~~~~~~~~~~~~
->    In file included from include/net/dsa.h:19:0,
->                     from include/linux/netdevice.h:44,
->                     from drivers/net/ethernet/aeroflex/greth.c:29:
->    include/linux/phy.h:789:5: note: previous declaration of 'phy_aneg_done' was here
->     int phy_aneg_done(struct phy_device *phydev);
->         ^~~~~~~~~~~~~
-> 
-> vim +/phy_aneg_done +1293 drivers/net/ethernet/aeroflex/greth.c
-> 
+ICMP redirects behavior is different after the commit above. An email
+requesting the explanation on why the behavior needs to be different
+was sent earlier to netdev (https://patchwork.ozlabs.org/patch/687728/).
+Since there isn't a reply yet, I decided to prepare this formal patch.
 
-Hi Andreas/Kristoffer,
+In v2.6 kernel, it used to be that ip_rt_redirect() calls
+arp_bind_neighbour() which returns 0 and then the state of the neigh for
+the new_gw is checked. If the state isn't valid then the redirected
+route is deleted. This behavior is maintained up to v3.5.7 by
+check_peer_redirect() because rt->rt_gateway is assigned to
+peer->redirect_learned.a4 before calling ipv4_neigh_lookup().
 
-Kbuild generated an error for this driver when I exposed the phylib
-phy_aneg_done() function in the first version of my patches.  For this
-driver, I have two choices:
+After the commit, ipv4_neigh_lookup() is performed without the
+rt_gateway assigned to the new_gw. In the case when rt_gateway (old_gw)
+isn't zero, the function uses it as the key. The neigh is most likely valid
+since the old_gw is the one that sends the ICMP redirect message. Then the
+new_gw is assigned to fib_nh_exception. The problem is: the new_gw ARP may
+never gets resolved and the traffic is blackholed.
 
-  - Remove the phy_aneg_done() function from the aeroflex driver and
-    have it use the phylib version which is now exported
+Signed-off-by: Stephen Suryaputra Lin <ssurya@ieee.org>
+---
+ net/ipv4/route.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-  - Rename the current phy_aneg_done() function in the aeroflex driver
-    and have the driver continue to use its version.
-
-I think the first option is the way to go, but I don't have a sparc
-machine on which to test it. Let me know which you would prefer and
-I will include that in the second version of the patch submission.
-
-Thanks,
-Tom
-
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1287  	greth->speed = 0;
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1288  	greth->duplex = -1;
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1289  
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1290  	return 0;
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1291  }
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1292  
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15 @1293  static inline int phy_aneg_done(struct phy_device *phydev)
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1294  {
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1295  	int retval;
-> d4c41139 drivers/net/greth.c Kristoffer Glembo 2010-02-15  1296  
-> 
-> :::::: The code at line 1293 was first introduced by commit
-> :::::: d4c41139df6e74c6fff0cbac43e51cab782133be net: Add Aeroflex Gaisler 10/100/1G Ethernet MAC driver
-> 
-> :::::: TO: Kristoffer Glembo <kristoffer@gaisler.com>
-> :::::: CC: David S. Miller <davem@davemloft.net>
-> 
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
-> 
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 62d4d90c1389..510045cefcab 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -753,7 +753,9 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
+ 			goto reject_redirect;
+ 	}
+ 
++	rt->rt_gateway = 0;
+ 	n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
++	rt->rt_gateway = old_gw;
+ 	if (!IS_ERR(n)) {
+ 		if (!(n->nud_state & NUD_VALID)) {
+ 			neigh_event_send(n, NULL);
+-- 
+2.7.4
