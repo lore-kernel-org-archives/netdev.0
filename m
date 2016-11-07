@@ -1,27 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] sfc: enable 4-tuple UDP RSS hashing
-Date: Mon, 07 Nov 2016 13:20:03 -0500 (EST)
-Message-ID: <20161107.132003.727799156798583121.davem@davemloft.net>
-References: <ba5aa0bc-277b-5b47-89f8-fad1010b77f9@solarflare.com>
+Subject: Re: [PATCH net] bpf: fix htab map destruction when extra reserve
+ is in use
+Date: Mon, 07 Nov 2016 13:21:38 -0500 (EST)
+Message-ID: <20161107.132138.2135085089697860098.davem@davemloft.net>
+References: <e8a8cc8011d16169eaf604b78583836ab2246f0e.1478213579.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, ast@kernel.org, dvyukov@google.com
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39226 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39240 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933043AbcKGSUF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 13:20:05 -0500
-In-Reply-To: <ba5aa0bc-277b-5b47-89f8-fad1010b77f9@solarflare.com>
+        with ESMTP id S932794AbcKGSVk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 13:21:40 -0500
+In-Reply-To: <e8a8cc8011d16169eaf604b78583836ab2246f0e.1478213579.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Thu, 3 Nov 2016 22:10:31 +0000
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri,  4 Nov 2016 00:01:19 +0100
 
-> EF10 based NICs have configurable RSS hash fields, and can be made to take the
-> ports into the hash on UDP (they already do so for TCP).  This patch series
-> enables this, in order to improve spreading of UDP traffic.
+> Commit a6ed3ea65d98 ("bpf: restore behavior of bpf_map_update_elem")
+> added an extra per-cpu reserve to the hash table map to restore old
+> behaviour from pre prealloc times. When non-prealloc is in use for a
+> map, then problem is that once a hash table extra element has been
+> linked into the hash-table, and the hash table is destroyed due to
+> refcount dropping to zero, then htab_map_free() -> delete_all_elements()
+> will walk the whole hash table and drop all elements via htab_elem_free().
+> The problem is that the element from the extra reserve is first fed
+> to the wrong backend allocator and eventually freed twice.
+> 
+> Fixes: a6ed3ea65d98 ("bpf: restore behavior of bpf_map_update_elem")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-What does the chip do with fragmented traffic?
+Applied and queued up for -stable, thanks!
