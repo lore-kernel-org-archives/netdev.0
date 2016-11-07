@@ -1,39 +1,108 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe
- function
-Date: Mon, 07 Nov 2016 11:32:25 +0100
-Message-ID: <1478514745.2400.3.camel@suse.com>
-References: <Pine.LNX.4.44L0.1611040923110.6787-100000@netrider.rowland.org>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
+Date: Mon, 7 Nov 2016 11:59:17 +0100
+Message-ID: <3c21b0a4-43c9-0257-f8f2-c8e02cf94fbf@st.com>
+References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
+ <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
+ <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
+ <20161031112524.4c4ee8f8@gmail.com> <1478192276.6632.34.camel@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kai-Heng Feng <kai.heng.feng@canonical.com>,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.44L0.1611040923110.6787-100000@netrider.rowland.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Johnson Leung <r58129@freescale.com>,
+        <linux-amlogic@lists.infradead.org>, <netdev@vger.kernel.org>
+To: Jerome Brunet <jbrunet@baylibre.com>,
+        =?UTF-8?Q?Andr=c3=a9_Roth?= <neolynx@gmail.com>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:48510 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750995AbcKGK7v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 05:59:51 -0500
+In-Reply-To: <1478192276.6632.34.camel@baylibre.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-11-04 at 09:26 -0400, Alan Stern wrote:
-> On Fri, 4 Nov 2016, Kai-Heng Feng wrote:
-> 
-> > Sometimes cdc_mbim failed to probe if runtime pm is enabled:
-> > [    9.305626] cdc_mbim: probe of 2-2:1.12 failed with error -22
-> > 
-> > This can be solved by increase its pm usage counter.
-> 
-> This should not be needed.  The USB core increments the PM usage 
-> counter of a device before probing its interfaces.
+Hi Jerome
 
-Indeed. Yet we have experimental evidence.
+We met, on some platform, problems that, in a glance,
+look similar to yours and those were related to EEE and
+LPI interrupts.
+We had a subset of patches to disable EEE but, indeed,
+if you disable from PHY, the STMMAC will never act
+the protocol. We can provide you these patches... I will
+ask Alex to decide how to proceed.
+There is a issue on lpi timer and I have another patch to
+share but I am not sure this can help.
 
-Kai-Heng Feng, could you please enable dynamic debugging
-for 
-drivers/usb/core/driver.c
+In sum, if EEE is a suspected problem we can share and review
+some patches.
+In the meantime, I will read again the thread just to see if
+there is something I am missing.
 
-so that we can see what is going on with the usage counters?
+Regards
+Peppe
 
-	Regards
-		Oliver
+On 11/3/2016 5:57 PM, Jerome Brunet wrote:
+> On Mon, 2016-10-31 at 11:25 +0100, André Roth wrote:
+>> Hi all,
+>>
+>>>
+>>> on my device this results in:
+>>> [0xc9410018] = 0x2000000
+>>> [0xc9410030] = 0x0
+>>> [0xc941003c] = 0x0
+>>> [0xc9411000] = 0x1100802
+>>> [0xc9411018] = 0x2202006
+>>> [0xc9411028] = 0x0
+>>>
+>>> maybe someone else could try the command from above on his device
+>>> (running the original Amlogic kernel).
+>>
+>> those registers have the same value on an original image from
+>> hardkernel:
+>>
+>> Linux odroid64 3.14.65-65 #1 SMP PREEMPT Sat May 28
+>> 02:50:51 BRT 2016 aarch64 aarch64 aarch64 GNU/Linux
+>>
+>>>
+>>> please also state if ethernet is working properly on the original
+>>> kernel (and preferably which device/board this is).
+>>
+>> yes, the ethernet works flawless in 100 and 1000 Mbit/s on the 3.14
+>> kernel.
+>
+> Andre, the 3.14 kernel you are talking, is it this one ? :
+> https://github.com/hardkernel/linux/tree/odroidc2-3.14.y
+>
+> Because in drivers/net/phy/realtek.c, they disable EEE, but
+> also 1000Base-T Full Duplex advertisement ?
+>
+> +	/* disable 1000m adv*/
+> +	val = phy_read(phydev, 0x9);
+> +	phy_write(phydev, 0x9, val&(~(1<<9)));
+>
+> If this is the kernel you are running, you should not be able to have
+> ethernet at 1000MB/s ? Or is it in half duplex mode ?
+>
+>>
+>> I can now confirm that both 100 and 1000 Mbit/s do not work properly
+>> on the 4.8/integ branch. the network connection is interrupted after
+>> some outbound traffic. it can be recovered by running a ifdown/ifup
+>> which restarts dhclient, which I think is able to somehow reset the
+>> interface.
+>>
+>> Anything I can help to debug the issue further ?
+>>
+>> Regards,
+>>
+>>  André
+>>
+>>
+>>
+>> _______________________________________________
+>> linux-amlogic mailing list
+>> linux-amlogic@lists.infradead.org
+>> http://lists.infradead.org/mailman/listinfo/linux-amlogic
+>
