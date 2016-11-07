@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA
- Ethernet
-Date: Mon, 07 Nov 2016 10:55:00 -0500 (EST)
-Message-ID: <20161107.105500.43380129278294700.davem@davemloft.net>
-References: <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
-        <20161103.155816.642712588084106823.davem@davemloft.net>
-        <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [net PATCH] fib_trie: Correct /proc/net/route off by one error
+Date: Mon, 7 Nov 2016 11:03:51 -0500
+Message-ID: <aad592f0-e815-55a0-0da3-1fd52ce3322c@akamai.com>
+References: <20161104191157.13974.70665.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org, oss@buserror.net,
-        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
-        joakim.tjernlund@transmode.se
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM4PR04MB16049FF6E433DA445828A855ECA70@AM4PR04MB1604.eurprd04.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andy Whitcroft <apw@canonical.com>, <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@intel.com>,
+        <netdev@vger.kernel.org>, <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:11828 "EHLO
+        prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932380AbcKGQDx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:03:53 -0500
+In-Reply-To: <20161104191157.13974.70665.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Date: Mon, 7 Nov 2016 15:43:26 +0000
 
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Thursday, November 03, 2016 9:58 PM
->> 
->> Why?  By clearing this, you disallow an important fundamental way to do
->> performane testing, via pktgen.
-> 
-> The Tx path in DPAA requires one to insert a back-pointer to the skb into
-> the Tx buffer. On the Tx confirmation path the back-pointer in the buffer
-> is used to release the skb. If Tx buffer is shared we'd alter the back-pointer
-> and leak/double free skbs. See also 
 
-Then have your software state store an array of SKB pointers, one for each
-TX ring entry, just like every other driver does.
+On 11/04/2016 03:11 PM, Alexander Duyck wrote:
+> The display of /proc/net/route has had a couple issues due to the fact that
+> when I originally rewrote most of fib_trie I made it so that the iterator
+> was tracking the next value to use instead of the current.
+>
+> In addition it had an off by 1 error where I was tracking the first piece
+> of data as position 0, even though in reality that belonged to the
+> SEQ_START_TOKEN.
+>
+> This patch updates the code so the iterator tracks the last reported
+> position and key instead of the next expected position and key.  In
+> addition it shifts things so that all of the leaves start at 1 instead of
+> trying to report leaves starting with offset 0 as being valid.  With these
+> two issues addressed this should resolve any off by one errors that were
+> present in the display of /proc/net/route.
+>
+> Fixes: 25b97c016b26 ("ipv4: off-by-one in continuation handling in /proc/net/route")
+> Cc: Andy Whitcroft <apw@canonical.com>
+> Reported-by: Jason Baron <jbaron@akamai.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>  net/ipv4/fib_trie.c |   21 +++++++++------------
+>  1 file changed, 9 insertions(+), 12 deletions(-)
+>
+
+Ok. Works for me.
+
+Feel free to add:
+Reviewed-and-Tested-by: Jason Baron <jbaron@akamai.com>
+
+Thanks,
+
+-Jason
