@@ -1,47 +1,30 @@
 From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH 1/2] net: qcom/emac: configure the external phy to allow pause frames
-Date: Mon,  7 Nov 2016 10:51:40 -0600
-Message-ID: <1478537501-23454-2-git-send-email-timur@codeaurora.org>
-References: <1478537501-23454-1-git-send-email-timur@codeaurora.org>
+Subject: [PATCH 0/2] net: qcom/emac: ensure that pause frames are enabled
+Date: Mon,  7 Nov 2016 10:51:39 -0600
+Message-ID: <1478537501-23454-1-git-send-email-timur@codeaurora.org>
 To: David Miller <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>, alokc@codeaurora.org,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46134 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:46084 "EHLO
         smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932349AbcKGQvq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:51:46 -0500
-In-Reply-To: <1478537501-23454-1-git-send-email-timur@codeaurora.org>
+        with ESMTP id S932334AbcKGQvp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 11:51:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pause frames are used to enable flow control.  A MAC can send and
-receive pause frames in order to throttle traffic.  However, the PHY
-must be configured to allow those frames to pass through.
+The qcom emac driver experiences significant packet loss (through frame
+check sequence errors) if flow control is not enabled and the phy is
+not configured to allow pause frames to pass through it.  Therefore, we
+need to enable flow control and force the phy to pass pause frames.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
- drivers/net/ethernet/qualcomm/emac/emac-mac.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Timur Tabi (2):
+  net: qcom/emac: configure the external phy to allow pause frames
+  [v2] net: qcom/emac: enable flow control if requested
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index 6fb3bee..70a55dc 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -1003,6 +1003,12 @@ int emac_mac_up(struct emac_adapter *adpt)
- 	writel((u32)~DIS_INT, adpt->base + EMAC_INT_STATUS);
- 	writel(adpt->irq.mask, adpt->base + EMAC_INT_MASK);
- 
-+	/* Enable pause frames.  Without this feature, the EMAC has been shown
-+	 * to receive (and drop) frames with FCS errors at gigabit connections.
-+	 */
-+	adpt->phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+	adpt->phydev->advertising |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+
- 	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
- 	phy_start(adpt->phydev);
- 
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
 -- 
 Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
 Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
