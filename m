@@ -1,70 +1,36 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] virtio-net: drop legacy features in virtio 1 mode
-Date: Mon, 7 Nov 2016 17:17:38 +0800
-Message-ID: <64fb12f5-3724-f35b-1a83-44e4ae2d0f20@redhat.com>
-References: <1478256865-29003-1-git-send-email-mst@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [lkp] [net]  af1fee9821:
+ BUG:spinlock_trylock_failure_on_UP_on_CPU
+Date: Mon, 7 Nov 2016 10:31:48 +0100
+Message-ID: <20161107093148.GA27001@lunn.ch>
+References: <20161107022628.GA21529@yexl-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1478256865-29003-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "Allan W. Nielsen" <allan.nielsen@microsemi.com>,
+        LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+        lkp@01.org
+To: kernel test robot <xiaolong.ye@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161107022628.GA21529@yexl-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE25bm0MTHmnIgwNOaXpSAxODo1NSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IFZpcnRpbyAxLjAgc3BlYyBzYXlzIFZJUlRJT19GX0FOWV9MQVlPVVQgYW5kIFZJUlRJT19ORVRf
-Rl9HU08gYXJlCj4gbGVnYWN5LW9ubHkgZmVhdHVyZSBiaXRzLiBEbyBub3QgbmVnb3RpYXRlIHRo
-ZW0gaW4gdmlydGlvIDEgbW9kZS4gIE5vdGUKPiB0aGlzIGlzIGEgc3BlYyB2aW9sYXRpb24gc28g
-d2UgbmVlZCB0byBiYWNrcG9ydCBpdCB0byBzdGFibGUvZG93bnN0cmVhbQo+IGtlcm5lbHMuCj4K
-PiBDYzogc3RhYmxlQHZnZXIua2VybmVsLm9yZwo+IFNpZ25lZC1vZmYtYnk6IE1pY2hhZWwgUy4g
-VHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4gLS0tCj4gICBkcml2ZXJzL25ldC92aXJ0aW9fbmV0
-LmMgfCAzMCArKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0KPiAgIDEgZmlsZSBjaGFuZ2Vk
-LCAyMCBpbnNlcnRpb25zKCspLCAxMCBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiBpbmRleCA3
-YTAwMzY1Li5iMTlmYjRkIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+
-ICsrKyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+IEBAIC0yMDg5LDIzICsyMDg5LDMzIEBA
-IHN0YXRpYyBzdHJ1Y3QgdmlydGlvX2RldmljZV9pZCBpZF90YWJsZVtdID0gewo+ICAgCXsgMCB9
-LAo+ICAgfTsKPiAgIAo+ICsjZGVmaW5lIFZJUlRORVRfRkVBVFVSRVMgXAo+ICsJVklSVElPX05F
-VF9GX0NTVU0sIFZJUlRJT19ORVRfRl9HVUVTVF9DU1VNLCBcCj4gKwlWSVJUSU9fTkVUX0ZfTUFD
-LCBcCj4gKwlWSVJUSU9fTkVUX0ZfSE9TVF9UU080LCBWSVJUSU9fTkVUX0ZfSE9TVF9VRk8sIFZJ
-UlRJT19ORVRfRl9IT1NUX1RTTzYsIFwKPiArCVZJUlRJT19ORVRfRl9IT1NUX0VDTiwgVklSVElP
-X05FVF9GX0dVRVNUX1RTTzQsIFZJUlRJT19ORVRfRl9HVUVTVF9UU082LCBcCj4gKwlWSVJUSU9f
-TkVUX0ZfR1VFU1RfRUNOLCBWSVJUSU9fTkVUX0ZfR1VFU1RfVUZPLCBcCj4gKwlWSVJUSU9fTkVU
-X0ZfTVJHX1JYQlVGLCBWSVJUSU9fTkVUX0ZfU1RBVFVTLCBWSVJUSU9fTkVUX0ZfQ1RSTF9WUSwg
-XAo+ICsJVklSVElPX05FVF9GX0NUUkxfUlgsIFZJUlRJT19ORVRfRl9DVFJMX1ZMQU4sIFwKPiAr
-CVZJUlRJT19ORVRfRl9HVUVTVF9BTk5PVU5DRSwgVklSVElPX05FVF9GX01RLCBcCj4gKwlWSVJU
-SU9fTkVUX0ZfQ1RSTF9NQUNfQUREUiwgXAo+ICsJVklSVElPX05FVF9GX01UVQo+ICsKPiAgIHN0
-YXRpYyB1bnNpZ25lZCBpbnQgZmVhdHVyZXNbXSA9IHsKPiAtCVZJUlRJT19ORVRfRl9DU1VNLCBW
-SVJUSU9fTkVUX0ZfR1VFU1RfQ1NVTSwKPiAtCVZJUlRJT19ORVRfRl9HU08sIFZJUlRJT19ORVRf
-Rl9NQUMsCj4gLQlWSVJUSU9fTkVUX0ZfSE9TVF9UU080LCBWSVJUSU9fTkVUX0ZfSE9TVF9VRk8s
-IFZJUlRJT19ORVRfRl9IT1NUX1RTTzYsCj4gLQlWSVJUSU9fTkVUX0ZfSE9TVF9FQ04sIFZJUlRJ
-T19ORVRfRl9HVUVTVF9UU080LCBWSVJUSU9fTkVUX0ZfR1VFU1RfVFNPNiwKPiAtCVZJUlRJT19O
-RVRfRl9HVUVTVF9FQ04sIFZJUlRJT19ORVRfRl9HVUVTVF9VRk8sCj4gLQlWSVJUSU9fTkVUX0Zf
-TVJHX1JYQlVGLCBWSVJUSU9fTkVUX0ZfU1RBVFVTLCBWSVJUSU9fTkVUX0ZfQ1RSTF9WUSwKPiAt
-CVZJUlRJT19ORVRfRl9DVFJMX1JYLCBWSVJUSU9fTkVUX0ZfQ1RSTF9WTEFOLAo+IC0JVklSVElP
-X05FVF9GX0dVRVNUX0FOTk9VTkNFLCBWSVJUSU9fTkVUX0ZfTVEsCj4gLQlWSVJUSU9fTkVUX0Zf
-Q1RSTF9NQUNfQUREUiwKPiArCVZJUlRORVRfRkVBVFVSRVMsCj4gK307Cj4gKwo+ICtzdGF0aWMg
-dW5zaWduZWQgaW50IGZlYXR1cmVzX2xlZ2FjeVtdID0gewo+ICsJVklSVE5FVF9GRUFUVVJFUywK
-PiArCVZJUlRJT19ORVRfRl9HU08sCj4gICAJVklSVElPX0ZfQU5ZX0xBWU9VVCwKPiAtCVZJUlRJ
-T19ORVRfRl9NVFUsCj4gICB9Owo+ICAgCj4gICBzdGF0aWMgc3RydWN0IHZpcnRpb19kcml2ZXIg
-dmlydGlvX25ldF9kcml2ZXIgPSB7Cj4gICAJLmZlYXR1cmVfdGFibGUgPSBmZWF0dXJlcywKPiAg
-IAkuZmVhdHVyZV90YWJsZV9zaXplID0gQVJSQVlfU0laRShmZWF0dXJlcyksCj4gKwkuZmVhdHVy
-ZV90YWJsZV9sZWdhY3kgPSBmZWF0dXJlc19sZWdhY3ksCj4gKwkuZmVhdHVyZV90YWJsZV9zaXpl
-X2xlZ2FjeSA9IEFSUkFZX1NJWkUoZmVhdHVyZXNfbGVnYWN5KSwKPiAgIAkuZHJpdmVyLm5hbWUg
-PQlLQlVJTERfTU9ETkFNRSwKPiAgIAkuZHJpdmVyLm93bmVyID0JVEhJU19NT0RVTEUsCj4gICAJ
-LmlkX3RhYmxlID0JaWRfdGFibGUsCgpBY2tlZC1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVk
-aGF0LmNvbT4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-VmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZv
-dW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL3ZpcnR1YWxpemF0aW9u
+On Mon, Nov 07, 2016 at 10:26:28AM +0800, kernel test robot wrote:
+> 
+> FYI, we noticed the following commit:
+> 
+> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> commit af1fee98219992ba2c12441a447719652ed7e983 ("net: phy: Add support for Microsemi VSC 8530/40 Fast Ethernet PHY")
+
+Humm, interesting. I've no idea how this patch can trigger such a
+warning. The USB gadget does not have an Ethernet PHY, let alone a
+Microsemi 8530/40 Fast Ethernet PHY this patch adds.
+
+However, it seems nicely documented how to reproduce this. Allan, can
+you setup such a system? Reproduce it, then revert the change and see
+if it still happens.
+
+   Andrew
