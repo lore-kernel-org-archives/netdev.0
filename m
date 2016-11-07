@@ -1,74 +1,172 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net-next] sock: do not set sk_err in sock_dequeue_err_skb
-Date: Sun, 6 Nov 2016 21:18:22 -0800
-Message-ID: <CALCETrWLg+FKPD6DWBD8GGRA1RUVv6AHcH2kyi2tvyZ9kXhrcA@mail.gmail.com>
-References: <1478211867-24569-1-git-send-email-soheil.kdev@gmail.com>
- <a3f7ea70-658e-9836-1a09-d1b9586582eb@stressinduktion.org> <CAF=yD-Ln_h5LHA=bfKYP7UPvANLXVBP4w6a5FE90AfByEyKNUw@mail.gmail.com>
+From: Anurup M <anurup.m-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH for-next 01/11] IB/hns: Add the interface for querying QP1
+Date: Mon, 7 Nov 2016 11:15:35 +0530
+Message-ID: <582014FF.3070600@huawei.com>
+References: <20161104163633.141880-1-salil.mehta@huawei.com>
+ <20161104163633.141880-2-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Neal Cardwell <ncardwell@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:36632 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750717AbcKGFT3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 00:19:29 -0500
-Received: by mail-ua0-f175.google.com with SMTP id b35so110959990uaa.3
-        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 21:18:43 -0800 (PST)
-In-Reply-To: <CAF=yD-Ln_h5LHA=bfKYP7UPvANLXVBP4w6a5FE90AfByEyKNUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161104163633.141880-2-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Nov 4, 2016 1:26 PM, "Willem de Bruijn"
-<willemdebruijn.kernel@gmail.com> wrote:
->
-> On Thu, Nov 3, 2016 at 7:10 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > [also cc'ed Andy, albeit this doesn't seem to solve his initial problem,
-> > right? <http://www.spinics.net/lists/netdev/msg331753.html>]
->
-> Indeed, this does not help disambiguate the source of an error
-> returned by a socketcall. It only reduces how often sk_err is leaked
-> into the socket call datapath. Local errors and timestamps never set
-> sk_err in the first place, so there can be no expectation that they
-> set it on dequeue.
->
-> I suspect that that line in sock_dequeue_err_skb originates from icmp
-> errors, as those do set sk_err whenever queueing an error. So
-> reenabling it when there are multiple errors on the queue makes sense,
-> if all queued errors would be icmp errors. But they are not. And that
-> path is racy, so there is no guarantee, either way. Processes that
-> rely on syscall blocking to read the errqueue still block for icmp
-> errors after this patch, due to the initial sk_err assignment on
-> enqueue.
->
-> Note that the comment in the patch that only TCP socket calls are
-> blocked is probably incorrect. TCP has its own check in tcp_sendmsg
-> and returns EPIPE when an sk_err is set, without clearing it. But
-> other send, recv, connect, .. implementations include a path to
-> sock_error that aborts the call (e.g., in __skb_try_recv_datagram),
-> returns the value of sk_err, and clears it. This is an inconsistency
-> between the protocols.
->
-> Andy's original problem mentions recvmsg. We could probably make that
-> unambiguous by returning a cmsg with the value of sk_err if RECVERR is
-> set and sk_err is the source of the error. But this still does not
-> solve the general issue, as other socketcalls, like send and connect,
-> can also return sk_err. We can modify the number of places that check
-> for it and currently abort system calls. Mainly sock_error(). One
-> option is to add a socket option (SOL_SOCKET, as sk_err is not limited
-> to when INET_RECVERR is set) to make that a noop. If the caller sets
-> this option it instead has to wait with poll to receive POLLERR and
-> call getsockopt SO_ERROR and recv MSG_ERRQUEUE to get the asynchronous
-> error.
 
-That would work for me, I think.  If this socket option were set, I
-would hope that SO_ERROR wouldn't report anything if the only error
-were a queued message on the error queue.
+
+On 11/4/2016 10:06 PM, Salil Mehta wrote:
+> From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> 
+> In old code, It only added the interface for querying non-specific
+> QP. This patch mainly adds an interface for querying QP1.
+> 
+> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Wei Hu (Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Salil Mehta  <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/infiniband/hw/hns/hns_roce_hw_v1.c |   87 +++++++++++++++++++++++++++-
+>  drivers/infiniband/hw/hns/hns_roce_hw_v1.h |    6 +-
+>  2 files changed, 90 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+> index 71232e5..ca8b784 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+> +++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+> @@ -2630,8 +2630,82 @@ static int hns_roce_v1_query_qpc(struct hns_roce_dev *hr_dev,
+>  	return ret;
+>  }
+>  
+> -int hns_roce_v1_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+> -			 int qp_attr_mask, struct ib_qp_init_attr *qp_init_attr)
+> +static int hns_roce_v1_q_sqp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+> +			     int qp_attr_mask,
+> +			     struct ib_qp_init_attr *qp_init_attr)
+> +{
+> +	struct hns_roce_dev *hr_dev = to_hr_dev(ibqp->device);
+> +	struct hns_roce_qp *hr_qp = to_hr_qp(ibqp);
+> +	struct hns_roce_sqp_context *context;
+> +	u32 addr;
+> +
+> +	context = kzalloc(sizeof(*context), GFP_KERNEL);
+> +	if (!context)
+> +		return -ENOMEM;
+> +
+Do we really need dynamic alloc here as the size is fixed and this memory scope is
+only inside this function. I think better to use a static allocation.
+
+> +	mutex_lock(&hr_qp->mutex);
+> +
+> +	if (hr_qp->state == IB_QPS_RESET) {
+I think alloc can be moved after this check (if dynamic alloc is really needed).
+> +		qp_attr->qp_state = IB_QPS_RESET;
+> +		goto done;
+> +	}
+> +
+> +	addr = ROCEE_QP1C_CFG0_0_REG + hr_qp->port * sizeof(*context);
+> +	context->qp1c_bytes_4 = roce_read(hr_dev, addr);
+> +	context->sq_rq_bt_l = roce_read(hr_dev, addr + 1);
+> +	context->qp1c_bytes_12 = roce_read(hr_dev, addr + 2);
+> +	context->qp1c_bytes_16 = roce_read(hr_dev, addr + 3);
+> +	context->qp1c_bytes_20 = roce_read(hr_dev, addr + 4);
+> +	context->cur_rq_wqe_ba_l = roce_read(hr_dev, addr + 5);
+> +	context->qp1c_bytes_28 = roce_read(hr_dev, addr + 6);
+> +	context->qp1c_bytes_32 = roce_read(hr_dev, addr + 7);
+> +	context->cur_sq_wqe_ba_l = roce_read(hr_dev, addr + 8);
+> +	context->qp1c_bytes_40 = roce_read(hr_dev, addr + 9);
+> +
+> +	hr_qp->state = roce_get_field(context->qp1c_bytes_4,
+> +				      QP1C_BYTES_4_QP_STATE_M,
+> +				      QP1C_BYTES_4_QP_STATE_S);
+> +	qp_attr->qp_state	= hr_qp->state;
+> +	qp_attr->path_mtu	= IB_MTU_256;
+> +	qp_attr->path_mig_state	= IB_MIG_ARMED;
+> +	qp_attr->qkey		= QKEY_VAL;
+> +	qp_attr->rq_psn		= 0;
+> +	qp_attr->sq_psn		= 0;
+> +	qp_attr->dest_qp_num	= 1;
+> +	qp_attr->qp_access_flags = 6;
+> +
+> +	qp_attr->pkey_index = roce_get_field(context->qp1c_bytes_20,
+> +					     QP1C_BYTES_20_PKEY_IDX_M,
+> +					     QP1C_BYTES_20_PKEY_IDX_S);
+> +	qp_attr->port_num = hr_qp->port + 1;
+> +	qp_attr->sq_draining = 0;
+> +	qp_attr->max_rd_atomic = 0;
+> +	qp_attr->max_dest_rd_atomic = 0;
+> +	qp_attr->min_rnr_timer = 0;
+> +	qp_attr->timeout = 0;
+> +	qp_attr->retry_cnt = 0;
+> +	qp_attr->rnr_retry = 0;
+> +	qp_attr->alt_timeout = 0;
+> +
+> +done:
+> +	qp_attr->cur_qp_state = qp_attr->qp_state;
+> +	qp_attr->cap.max_recv_wr = hr_qp->rq.wqe_cnt;
+> +	qp_attr->cap.max_recv_sge = hr_qp->rq.max_gs;
+> +	qp_attr->cap.max_send_wr = hr_qp->sq.wqe_cnt;
+> +	qp_attr->cap.max_send_sge = hr_qp->sq.max_gs;
+> +	qp_attr->cap.max_inline_data = 0;
+> +	qp_init_attr->cap = qp_attr->cap;
+> +	qp_init_attr->create_flags = 0;
+> +
+> +	mutex_unlock(&hr_qp->mutex);
+> +	kfree(context);
+> +
+> +	return 0;
+> +}
+> +
+> +static int hns_roce_v1_q_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+> +			    int qp_attr_mask,
+> +			    struct ib_qp_init_attr *qp_init_attr)
+>  {
+>  	struct hns_roce_dev *hr_dev = to_hr_dev(ibqp->device);
+>  	struct hns_roce_qp *hr_qp = to_hr_qp(ibqp);
+> @@ -2767,6 +2841,15 @@ int hns_roce_v1_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+>  	return ret;
+>  }
+>  
+> +int hns_roce_v1_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr,
+> +			 int qp_attr_mask, struct ib_qp_init_attr *qp_init_attr)
+> +{
+> +	struct hns_roce_qp *hr_qp = to_hr_qp(ibqp);
+> +
+> +	return hr_qp->doorbell_qpn <= 1 ?
+> +		hns_roce_v1_q_sqp(ibqp, qp_attr, qp_attr_mask, qp_init_attr) :
+> +		hns_roce_v1_q_qp(ibqp, qp_attr, qp_attr_mask, qp_init_attr);
+> +}
+>  static void hns_roce_v1_destroy_qp_common(struct hns_roce_dev *hr_dev,
+>  					  struct hns_roce_qp *hr_qp,
+>  					  int is_user)
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+> index 539b0a3b..2e1878b 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+> +++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+> @@ -480,13 +480,17 @@ struct hns_roce_sqp_context {
+>  	u32 qp1c_bytes_12;
+>  	u32 qp1c_bytes_16;
+>  	u32 qp1c_bytes_20;
+> -	u32 qp1c_bytes_28;
+>  	u32 cur_rq_wqe_ba_l;
+> +	u32 qp1c_bytes_28;
+>  	u32 qp1c_bytes_32;
+>  	u32 cur_sq_wqe_ba_l;
+>  	u32 qp1c_bytes_40;
+>  };
+>  
+> +#define QP1C_BYTES_4_QP_STATE_S 0
+> +#define QP1C_BYTES_4_QP_STATE_M   \
+> +	(((1UL << 3) - 1) << QP1C_BYTES_4_QP_STATE_S)
+> +
+>  #define QP1C_BYTES_4_SQ_WQE_SHIFT_S 8
+>  #define QP1C_BYTES_4_SQ_WQE_SHIFT_M   \
+>  	(((1UL << 4) - 1) << QP1C_BYTES_4_SQ_WQE_SHIFT_S)
+> 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
