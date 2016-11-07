@@ -1,37 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix map not being uncharged during map
- creation failure
-Date: Mon, 07 Nov 2016 13:23:55 -0500 (EST)
-Message-ID: <20161107.132355.1099647347767603358.davem@davemloft.net>
-References: <89c1a3a48ca9940a0fdc1298e11c03c4074a1c59.1478216947.git.daniel@iogearbox.net>
+From: Eric Leblond <eric@regit.org>
+Subject: Re: [PATCH 7/8] tools lib bpf: fix maps resolution
+Date: Mon, 07 Nov 2016 13:40:39 -0500
+Message-ID: <1478544039.13425.11.camel@regit.org>
+References: <20161016211834.11732-1-eric@regit.org>
+         <20161016211834.11732-8-eric@regit.org> <5820C6BE.9080300@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39272 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932691AbcKGSZ3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 13:25:29 -0500
-In-Reply-To: <89c1a3a48ca9940a0fdc1298e11c03c4074a1c59.1478216947.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, ast@fb.com,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Joe Stringer <joe@ovn.org>
+To: "Wangnan (F)" <wangnan0@huawei.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5820C6BE.9080300@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri,  4 Nov 2016 00:56:31 +0100
+Hi,
 
-> In map_create(), we first find and create the map, then once that
-> suceeded, we charge it to the user's RLIMIT_MEMLOCK, and then fetch
-> a new anon fd through anon_inode_getfd(). The problem is, once the
-> latter fails f.e. due to RLIMIT_NOFILE limit, then we only destruct
-> the map via map->ops->map_free(), but without uncharging the previously
-> locked memory first. That means that the user_struct allocation is
-> leaked as well as the accounted RLIMIT_MEMLOCK memory not released.
-> Make the label names in the fix consistent with bpf_prog_load().
+On Tue, 2016-11-08 at 02:23 +0800, Wangnan (F) wrote:
+> Hi Eric,
 > 
-> Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Are you still working in this patch set?
 
-Applied and queued up for -stable.
+Sorry to lag on this, I've been taken by a series of other projects. I
+did not yet reworked it yet but I was planning to do a bit on it this
+week.
+
+> 
+> Now I know why maps section is not a simple array
+> from a patch set from Joe Stringer:
+> 
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg135088.html
+> 
+> So I think this patch is really useful.
+> 
+> Are you going to resend the whole patch set? If not, let me collect
+> this patch 7/8 into my local code base and send to Arnaldo
+> with my other patches.
+
+If ok with you, I propose that you collect patch 7/8 it you have no
+news from me on Friday. If an issue for you, just collect it now and I
+will synchronize with updated code when resending my patchset.
+
+BR,
+-- 
+Eric Leblond <eric@regit.org>
+Blog: https://home.regit.org/
