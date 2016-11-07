@@ -1,47 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] vxlan: hide unused local variable
-Date: Mon,  7 Nov 2016 22:09:07 +0100
-Message-ID: <20161107211017.857340-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Jiri Benc <jbenc@redhat.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        pravin shelar <pshelar@ovn.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [v15, 3/7] powerpc/fsl: move mpc85xx.h to include/linux/fsl
+Date: Mon, 07 Nov 2016 22:20:18 +0100
+Message-ID: <1543282.vWjeo4ynTa@wuerfel>
+References: <1477637418-38938-1-git-send-email-yangbo.lu@nxp.com> <2723366.1bJeJ7SKI6@wuerfel> <DB6PR0401MB2536B1B2E6AC36BDC8FC540DF8AE0@DB6PR0401MB2536.eurprd04.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+        "linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        "X.B. Xie" <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+        "M.H. Lian" <minghuan.lian-3arQi8VN3Tc@public.gmane.org>,
+        "linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
+        Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+        Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+        Joerg Roedel <joro-zLv9SwRftAIdnm+yROfE0A@public.gmane.org>,
+        Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+To: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <DB6PR0401MB2536B1B2E6AC36BDC8FC540DF8AE0-2mNvjAGDOPkZcyyZo0JLBI3W/0Ik+aLCnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-A bugfix introduced a harmless warning in v4.9-rc4:
+On Monday, October 31, 2016 9:35:33 AM CET Y.B. Lu wrote:
+> > 
+> > I don't see any of the contents of this header referenced by the soc
+> > driver any more. I think you can just drop this patch.
+> > 
+> 
+> [Lu Yangbo-B47093] This header file was included by guts.c.
+> The guts driver used macro SVR_MAJ/SVR_MIN for calculation.
+> 
+> This header file was for powerpc arch before. And this patch is to made it as
+> common header file for both ARM and PPC.
+> Sooner or later this is needed.
 
-drivers/net/vxlan.c: In function 'vxlan_group_used':
-drivers/net/vxlan.c:947:21: error: unused variable 'sock6' [-Werror=unused-variable]
+Let's discuss it once we actually need the header then, ok?
 
-This hides the variable inside of the same #ifdef that is
-around its user. The extraneous initialization is removed
-at the same time, it was accidentally introduced in the
-same commit.
-
-Fixes: c6fcc4fc5f8b ("vxlan: avoid using stale vxlan socket.")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/vxlan.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index cb5cc7c03160..5264c1a49d86 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -944,7 +944,9 @@ static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
- {
- 	struct vxlan_dev *vxlan;
- 	struct vxlan_sock *sock4;
--	struct vxlan_sock *sock6 = NULL;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct vxlan_sock *sock6;
-+#endif
- 	unsigned short family = dev->default_dst.remote_ip.sa.sa_family;
- 
- 	sock4 = rtnl_dereference(dev->vn4_sock);
--- 
-2.9.0
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
