@@ -1,7 +1,7 @@
 From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: [PATCH v3 3/4] ptp_clock: allow for it to be optional
-Date: Mon,  7 Nov 2016 17:14:58 -0500
-Message-ID: <1478556899-2951-4-git-send-email-nicolas.pitre@linaro.org>
+Subject: [PATCH v3 4/4] posix-timers: make it configurable
+Date: Mon,  7 Nov 2016 17:14:59 -0500
+Message-ID: <1478556899-2951-5-git-send-email-nicolas.pitre@linaro.org>
 References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Paul Bolle <pebolle@tiscali.nl>,
@@ -11,448 +11,335 @@ Cc: Richard Cochran <richardcochran@gmail.com>,
         linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
 To: John Stultz <john.stultz@linaro.org>,
         Michal Marek <mmarek@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alt22.smtp-out.videotron.ca ([70.80.0.73]:51609 "EHLO
-        alt22.smtp-out.videotron.ca" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751969AbcKGWPi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 17:15:38 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In order to break the hard dependency between the PTP clock subsystem and
-ethernet drivers capable of being clock providers, this patch provides
-simple PTP stub functions to allow linkage of those drivers into the
-kernel even when the PTP subsystem is configured out. Drivers must be
-ready to accept NULL from ptp_clock_register() in that case.
+Some embedded systems have no use for them.  This removes about
+22KB from the kernel binary size when configured out.
 
-And to make it possible for PTP to be configured out, the select statement
-in those driver's Kconfig menu entries is converted to the new "imply"
-statement. This way the PTP subsystem may have Kconfig dependencies of
-its own, such as POSIX_TIMERS, without having to make those ethernet
-drivers unavailable if POSIX timers are cconfigured out. And when support
-for POSIX timers is selected again then the default config option for PTP
-clock support will automatically be adjusted accordingly.
+Corresponding syscalls are routed to a stub logging the attempt to
+use those syscalls which should be enough of a clue if they were
+disabled without proper consideration. They are: timer_create,
+timer_gettime: timer_getoverrun, timer_settime, timer_delete,
+clock_adjtime.
 
-The pch_gbe driver is a bit special as it relies on extra code in
-drivers/ptp/ptp_pch.c. Therefore we let the make process descend into
-drivers/ptp/ even if PTP_1588_CLOCK is unselected.
+The clock_settime, clock_gettime, clock_getres and clock_nanosleep
+syscalls are replaced by simple wrappers compatible with CLOCK_REALTIME,
+CLOCK_MONOTONIC and CLOCK_BOOTTIME only which should cover the vast
+majority of use cases with very little code.
 
 Signed-off-by: Nicolas Pitre <nico@linaro.org>
 Reviewed-by: Josh Triplett <josh@joshtriplett.org>
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/Makefile                                |  2 +-
- drivers/net/ethernet/adi/Kconfig                |  2 +-
- drivers/net/ethernet/amd/Kconfig                |  2 +-
- drivers/net/ethernet/amd/xgbe/xgbe-main.c       |  6 ++-
- drivers/net/ethernet/broadcom/Kconfig           |  4 +-
- drivers/net/ethernet/cavium/Kconfig             |  2 +-
- drivers/net/ethernet/freescale/Kconfig          |  2 +-
- drivers/net/ethernet/intel/Kconfig              | 10 ++--
- drivers/net/ethernet/mellanox/mlx4/Kconfig      |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/Kconfig |  2 +-
- drivers/net/ethernet/renesas/Kconfig            |  2 +-
- drivers/net/ethernet/samsung/Kconfig            |  2 +-
- drivers/net/ethernet/sfc/Kconfig                |  2 +-
- drivers/net/ethernet/stmicro/stmmac/Kconfig     |  2 +-
- drivers/net/ethernet/ti/Kconfig                 |  2 +-
- drivers/net/ethernet/tile/Kconfig               |  2 +-
- drivers/ptp/Kconfig                             |  8 +--
- include/linux/ptp_clock_kernel.h                | 65 ++++++++++++++++---------
- 18 files changed, 69 insertions(+), 50 deletions(-)
+ drivers/ptp/Kconfig          |   2 +-
+ include/linux/posix-timers.h |  28 +++++++++-
+ include/linux/sched.h        |  10 ++++
+ init/Kconfig                 |  17 +++++++
+ kernel/signal.c              |   4 ++
+ kernel/time/Makefile         |  10 +++-
+ kernel/time/posix-stubs.c    | 118 +++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 184 insertions(+), 5 deletions(-)
+ create mode 100644 kernel/time/posix-stubs.c
 
-diff --git a/drivers/Makefile b/drivers/Makefile
-index f0afdfb3c7..8cfa1ff8f6 100644
---- a/drivers/Makefile
-+++ b/drivers/Makefile
-@@ -107,7 +107,7 @@ obj-$(CONFIG_INPUT)		+= input/
- obj-$(CONFIG_RTC_LIB)		+= rtc/
- obj-y				+= i2c/ media/
- obj-$(CONFIG_PPS)		+= pps/
--obj-$(CONFIG_PTP_1588_CLOCK)	+= ptp/
-+obj-y				+= ptp/
- obj-$(CONFIG_W1)		+= w1/
- obj-y				+= power/
- obj-$(CONFIG_HWMON)		+= hwmon/
-diff --git a/drivers/net/ethernet/adi/Kconfig b/drivers/net/ethernet/adi/Kconfig
-index 6b94ba6103..98cc8f5350 100644
---- a/drivers/net/ethernet/adi/Kconfig
-+++ b/drivers/net/ethernet/adi/Kconfig
-@@ -58,7 +58,7 @@ config BFIN_RX_DESC_NUM
- config BFIN_MAC_USE_HWSTAMP
- 	bool "Use IEEE 1588 hwstamp"
- 	depends on BFIN_MAC && BF518
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	default y
- 	---help---
- 	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
-diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
-index 0038709fd3..713ea7ad22 100644
---- a/drivers/net/ethernet/amd/Kconfig
-+++ b/drivers/net/ethernet/amd/Kconfig
-@@ -177,7 +177,7 @@ config AMD_XGBE
- 	depends on ARM64 || COMPILE_TEST
- 	select BITREVERSE
- 	select CRC32
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports the AMD 10GbE Ethernet device found on an
- 	  AMD SoC.
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 9de078819a..e10e569c0d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -773,7 +773,8 @@ static int xgbe_probe(struct platform_device *pdev)
- 		goto err_wq;
- 	}
- 
--	xgbe_ptp_register(pdata);
-+	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK))
-+		xgbe_ptp_register(pdata);
- 
- 	xgbe_debugfs_init(pdata);
- 
-@@ -812,7 +813,8 @@ static int xgbe_remove(struct platform_device *pdev)
- 
- 	xgbe_debugfs_exit(pdata);
- 
--	xgbe_ptp_unregister(pdata);
-+	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK))
-+		xgbe_ptp_unregister(pdata);
- 
- 	flush_workqueue(pdata->an_workqueue);
- 	destroy_workqueue(pdata->an_workqueue);
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index bd8c80c0b7..6a8d74aeb6 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -110,7 +110,7 @@ config TIGON3
- 	depends on PCI
- 	select PHYLIB
- 	select HWMON
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
- 
-@@ -120,7 +120,7 @@ config TIGON3
- config BNX2X
- 	tristate "Broadcom NetXtremeII 10Gb support"
- 	depends on PCI
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	select FW_LOADER
- 	select ZLIB_INFLATE
- 	select LIBCRC32C
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index 92f411c9f0..2e64a96661 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -53,7 +53,7 @@ config	THUNDER_NIC_RGX
- config LIQUIDIO
- 	tristate "Cavium LiquidIO support"
- 	depends on 64BIT
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	select FW_LOADER
- 	select LIBCRC32C
- 	---help---
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index d1ca45fbb1..5eb9280973 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -25,7 +25,7 @@ config FEC
- 		   ARCH_MXC || SOC_IMX28)
- 	default ARCH_MXC || SOC_IMX28 if ARM
- 	select PHYLIB
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
- 	  controller on some Motorola ColdFire and Freescale i.MX processors.
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index c0e17433f6..1349b45f01 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -58,7 +58,7 @@ config E1000E
- 	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
- 	depends on PCI && (!SPARC32 || BROKEN)
- 	select CRC32
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports the PCI-Express Intel(R) PRO/1000 gigabit
- 	  ethernet family of adapters. For PCI or PCI-X e1000 adapters,
-@@ -83,7 +83,7 @@ config E1000E_HWTS
- config IGB
- 	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
- 	depends on PCI
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	select I2C
- 	select I2C_ALGOBIT
- 	---help---
-@@ -156,7 +156,7 @@ config IXGBE
- 	tristate "Intel(R) 10GbE PCI Express adapters support"
- 	depends on PCI
- 	select MDIO
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports Intel(R) 10GbE PCI Express family of
- 	  adapters.  For more information on how to identify your adapter, go
-@@ -213,7 +213,7 @@ config IXGBEVF
- 
- config I40E
- 	tristate "Intel(R) Ethernet Controller XL710 Family support"
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	depends on PCI
- 	---help---
- 	  This driver supports Intel(R) Ethernet Controller XL710 Family of
-@@ -264,7 +264,7 @@ config FM10K
- 	tristate "Intel(R) FM10000 Ethernet Switch Host Interface Support"
- 	default n
- 	depends on PCI_MSI
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports Intel(R) FM10000 Ethernet Switch Host
- 	  Interface.  For more information on how to identify your adapter,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-index 5098e7f219..22b1cc012b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-@@ -7,7 +7,7 @@ config MLX4_EN
- 	depends on MAY_USE_DEVLINK
- 	depends on PCI
- 	select MLX4_CORE
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports Mellanox Technologies ConnectX Ethernet
- 	  devices.
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-index aae46884bf..2cd841590e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-@@ -14,7 +14,7 @@ config MLX5_CORE
- config MLX5_CORE_EN
- 	bool "Mellanox Technologies ConnectX-4 Ethernet support"
- 	depends on NETDEVICES && ETHERNET && PCI && MLX5_CORE
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	default n
- 	---help---
- 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
-diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
-index 85ec447c2d..27be51f0a4 100644
---- a/drivers/net/ethernet/renesas/Kconfig
-+++ b/drivers/net/ethernet/renesas/Kconfig
-@@ -37,7 +37,7 @@ config RAVB
- 	select MII
- 	select MDIO_BITBANG
- 	select PHYLIB
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	help
- 	  Renesas Ethernet AVB device driver.
- 	  This driver supports the following SoCs:
-diff --git a/drivers/net/ethernet/samsung/Kconfig b/drivers/net/ethernet/samsung/Kconfig
-index 2360d81507..fbd5e06654 100644
---- a/drivers/net/ethernet/samsung/Kconfig
-+++ b/drivers/net/ethernet/samsung/Kconfig
-@@ -21,7 +21,7 @@ config SXGBE_ETH
- 	depends on HAS_IOMEM && HAS_DMA
- 	select PHYLIB
- 	select CRC32
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This is the driver for the SXGBE 10G Ethernet IP block found on
- 	  Samsung platforms.
-diff --git a/drivers/net/ethernet/sfc/Kconfig b/drivers/net/ethernet/sfc/Kconfig
-index 4dd92b7b80..83f4766a1d 100644
---- a/drivers/net/ethernet/sfc/Kconfig
-+++ b/drivers/net/ethernet/sfc/Kconfig
-@@ -5,7 +5,7 @@ config SFC
- 	select CRC32
- 	select I2C
- 	select I2C_ALGOBIT
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports 10/40-gigabit Ethernet cards based on
- 	  the Solarflare SFC4000, SFC9000-family and SFC9100-family
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 3818c5e06e..139c85fa6a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -4,7 +4,7 @@ config STMMAC_ETH
- 	select MII
- 	select PHYLIB
- 	select CRC32
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	select RESET_CONTROLLER
- 	---help---
- 	  This is the driver for the Ethernet IPs are built around a
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index 9904d740d5..61b835a7e6 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -76,7 +76,7 @@ config TI_CPSW
- config TI_CPTS
- 	bool "TI Common Platform Time Sync (CPTS) Support"
- 	depends on TI_CPSW
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports the Common Platform Time Sync unit of
- 	  the CPSW Ethernet Switch. The unit can time stamp PTP UDP/IPv4
-diff --git a/drivers/net/ethernet/tile/Kconfig b/drivers/net/ethernet/tile/Kconfig
-index f59a6c2653..bdfeaf3d4f 100644
---- a/drivers/net/ethernet/tile/Kconfig
-+++ b/drivers/net/ethernet/tile/Kconfig
-@@ -9,7 +9,7 @@ config TILE_NET
- 	select CRC32
- 	select TILE_GXIO_MPIPE if TILEGX
- 	select HIGH_RES_TIMERS if TILEGX
--	select PTP_1588_CLOCK if TILEGX
-+	imply PTP_1588_CLOCK if TILEGX
- 	---help---
- 	  This is a standard Linux network device driver for the
- 	  on-chip Tilera Gigabit Ethernet and XAUI interfaces.
 diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
-index ee3de3421f..0f7492f8ea 100644
+index 0f7492f8ea..bdce332911 100644
 --- a/drivers/ptp/Kconfig
 +++ b/drivers/ptp/Kconfig
-@@ -28,7 +28,7 @@ config PTP_1588_CLOCK
- config PTP_1588_CLOCK_GIANFAR
- 	tristate "Freescale eTSEC as PTP clock"
- 	depends on GIANFAR
--	select PTP_1588_CLOCK
-+	depends on PTP_1588_CLOCK
- 	default y
+@@ -6,7 +6,7 @@ menu "PTP clock support"
+ 
+ config PTP_1588_CLOCK
+ 	tristate "PTP clock support"
+-	depends on NET
++	depends on NET && POSIX_TIMERS
+ 	select PPS
+ 	select NET_PTP_CLASSIFY
  	help
- 	  This driver adds support for using the eTSEC as a PTP
-@@ -42,7 +42,7 @@ config PTP_1588_CLOCK_GIANFAR
- config PTP_1588_CLOCK_IXP46X
- 	tristate "Intel IXP46x as PTP clock"
- 	depends on IXP4XX_ETH
--	select PTP_1588_CLOCK
-+	depends on PTP_1588_CLOCK
- 	default y
- 	help
- 	  This driver adds support for using the IXP46X as a PTP
-@@ -60,7 +60,7 @@ config DP83640_PHY
- 	tristate "Driver for the National Semiconductor DP83640 PHYTER"
- 	depends on NETWORK_PHY_TIMESTAMPING
- 	depends on PHYLIB
--	select PTP_1588_CLOCK
-+	depends on PTP_1588_CLOCK
- 	---help---
- 	  Supports the DP83640 PHYTER with IEEE 1588 features.
+diff --git a/include/linux/posix-timers.h b/include/linux/posix-timers.h
+index 62d44c1760..2288c5c557 100644
+--- a/include/linux/posix-timers.h
++++ b/include/linux/posix-timers.h
+@@ -118,6 +118,8 @@ struct k_clock {
+ extern struct k_clock clock_posix_cpu;
+ extern struct k_clock clock_posix_dynamic;
  
-@@ -76,7 +76,7 @@ config PTP_1588_CLOCK_PCH
- 	tristate "Intel PCH EG20T as PTP clock"
- 	depends on X86_32 || COMPILE_TEST
- 	depends on HAS_IOMEM && NET
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	help
- 	  This driver adds support for using the PCH EG20T as a PTP
- 	  clock. The hardware supports time stamping of PTP packets
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index 5ad54fc66c..96699526d3 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -122,30 +122,6 @@ struct ptp_clock_info {
++#ifdef CONFIG_POSIX_TIMERS
++
+ void posix_timers_register_clock(const clockid_t clock_id, struct k_clock *new_clock);
  
- struct ptp_clock;
+ /* function to call to trigger timer event */
+@@ -131,8 +133,30 @@ void posix_cpu_timers_exit_group(struct task_struct *task);
+ void set_process_cpu_timer(struct task_struct *task, unsigned int clock_idx,
+ 			   cputime_t *newval, cputime_t *oldval);
  
--/**
-- * ptp_clock_register() - register a PTP hardware clock driver
-- *
-- * @info:   Structure describing the new clock.
-- * @parent: Pointer to the parent device of the new clock.
-- *
-- * Returns a valid pointer on success or PTR_ERR on failure.  If PHC
-- * support is missing at the configuration level, this function
-- * returns NULL, and drivers are expected to gracefully handle that
-- * case separately.
-- */
+-long clock_nanosleep_restart(struct restart_block *restart_block);
 -
--extern struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
--					    struct device *parent);
--
--/**
-- * ptp_clock_unregister() - unregister a PTP hardware clock driver
-- *
-- * @ptp:  The clock to remove from service.
-- */
--
--extern int ptp_clock_unregister(struct ptp_clock *ptp);
--
--
- enum ptp_clock_events {
- 	PTP_CLOCK_ALARM,
- 	PTP_CLOCK_EXTTS,
-@@ -171,6 +147,31 @@ struct ptp_clock_event {
- 	};
- };
- 
-+#if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
-+
-+/**
-+ * ptp_clock_register() - register a PTP hardware clock driver
-+ *
-+ * @info:   Structure describing the new clock.
-+ * @parent: Pointer to the parent device of the new clock.
-+ *
-+ * Returns a valid pointer on success or PTR_ERR on failure.  If PHC
-+ * support is missing at the configuration level, this function
-+ * returns NULL, and drivers are expected to gracefully handle that
-+ * case separately.
-+ */
-+
-+extern struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
-+					    struct device *parent);
-+
-+/**
-+ * ptp_clock_unregister() - unregister a PTP hardware clock driver
-+ *
-+ * @ptp:  The clock to remove from service.
-+ */
-+
-+extern int ptp_clock_unregister(struct ptp_clock *ptp);
-+
- /**
-  * ptp_clock_event() - notify the PTP layer about an event
-  *
-@@ -202,4 +203,20 @@ extern int ptp_clock_index(struct ptp_clock *ptp);
- int ptp_find_pin(struct ptp_clock *ptp,
- 		 enum ptp_pin_function func, unsigned int chan);
+ void update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new);
  
 +#else
-+static inline struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
-+						   struct device *parent)
-+{ return NULL; }
-+static inline int ptp_clock_unregister(struct ptp_clock *ptp)
++
++#include <linux/random.h>
++
++static inline void posix_timers_register_clock(const clockid_t clock_id,
++					       struct k_clock *new_clock) {}
++static inline int posix_timer_event(struct k_itimer *timr, int si_private)
 +{ return 0; }
-+static inline void ptp_clock_event(struct ptp_clock *ptp,
-+				   struct ptp_clock_event *event)
-+{ }
-+static inline int ptp_clock_index(struct ptp_clock *ptp)
-+{ return -1; }
-+static inline int ptp_find_pin(struct ptp_clock *ptp,
-+			       enum ptp_pin_function func, unsigned int chan)
-+{ return -1; }
++static inline void run_posix_cpu_timers(struct task_struct *task) {}
++static inline void posix_cpu_timers_exit(struct task_struct *task)
++{
++	add_device_randomness((const void*) &task->se.sum_exec_runtime,
++			      sizeof(unsigned long long));
++}
++static inline void posix_cpu_timers_exit_group(struct task_struct *task) {}
++static inline void set_process_cpu_timer(struct task_struct *task,
++		unsigned int clock_idx, cputime_t *newval, cputime_t *oldval) {}
++static inline void update_rlimit_cpu(struct task_struct *task,
++				     unsigned long rlim_new) {}
++
 +#endif
 +
++long clock_nanosleep_restart(struct restart_block *restart_block);
++
  #endif
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 348f51b0ec..ad716d5559 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2946,8 +2946,13 @@ static inline void exit_thread(struct task_struct *tsk)
+ extern void exit_files(struct task_struct *);
+ extern void __cleanup_sighand(struct sighand_struct *);
+ 
++#ifdef CONFIG_POSIX_TIMERS
+ extern void exit_itimers(struct signal_struct *);
+ extern void flush_itimer_signals(void);
++#else
++static inline void exit_itimers(struct signal_struct *s) {}
++static inline void flush_itimer_signals(void) {}
++#endif
+ 
+ extern void do_group_exit(int);
+ 
+@@ -3450,7 +3455,12 @@ static __always_inline bool need_resched(void)
+  * Thread group CPU time accounting.
+  */
+ void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times);
++#ifdef CONFIG_POSIX_TIMERS
+ void thread_group_cputimer(struct task_struct *tsk, struct task_cputime *times);
++#else
++static inline void thread_group_cputimer(struct task_struct *tsk,
++					 struct task_cputime *times) {}
++#endif
+ 
+ /*
+  * Reevaluate whether the task has signals pending delivery.
+diff --git a/init/Kconfig b/init/Kconfig
+index 34407f15e6..f430f776e8 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1445,6 +1445,23 @@ config SYSCTL_SYSCALL
+ 
+ 	  If unsure say N here.
+ 
++config POSIX_TIMERS
++	bool "Posix Clocks & timers" if EXPERT
++	default y
++	help
++	  This includes native support for POSIX timers to the kernel.
++	  Some embedded systems have no use for them and therefore they
++	  can be configured out to reduce the size of the kernel image.
++
++	  When this option is disabled, the following syscalls won't be
++	  available: timer_create, timer_gettime: timer_getoverrun,
++	  timer_settime, timer_delete, clock_adjtime. Furthermore, the
++	  clock_settime, clock_gettime, clock_getres and clock_nanosleep
++	  syscalls will be limited to CLOCK_REALTIME and CLOCK_MONOTONIC
++	  only.
++
++	  If unsure say y.
++
+ config KALLSYMS
+ 	 bool "Load all symbols for debugging/ksymoops" if EXPERT
+ 	 default y
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 75761acc77..0a38c9d646 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -427,6 +427,7 @@ void flush_signals(struct task_struct *t)
+ 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
+ }
+ 
++#ifdef CONFIG_POSIX_TIMERS
+ static void __flush_itimer_signals(struct sigpending *pending)
+ {
+ 	sigset_t signal, retain;
+@@ -460,6 +461,7 @@ void flush_itimer_signals(void)
+ 	__flush_itimer_signals(&tsk->signal->shared_pending);
+ 	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
+ }
++#endif
+ 
+ void ignore_signals(struct task_struct *t)
+ {
+@@ -611,6 +613,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
+ 		 */
+ 		current->jobctl |= JOBCTL_STOP_DEQUEUED;
+ 	}
++#ifdef CONFIG_POSIX_TIMERS
+ 	if ((info->si_code & __SI_MASK) == __SI_TIMER && info->si_sys_private) {
+ 		/*
+ 		 * Release the siglock to ensure proper locking order
+@@ -622,6 +625,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
+ 		do_schedule_next_timer(info);
+ 		spin_lock(&tsk->sighand->siglock);
+ 	}
++#endif
+ 	return signr;
+ }
+ 
+diff --git a/kernel/time/Makefile b/kernel/time/Makefile
+index 49eca0beed..fc26c308f5 100644
+--- a/kernel/time/Makefile
++++ b/kernel/time/Makefile
+@@ -1,6 +1,12 @@
+-obj-y += time.o timer.o hrtimer.o itimer.o posix-timers.o posix-cpu-timers.o
++obj-y += time.o timer.o hrtimer.o itimer.o
+ obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o
+-obj-y += timeconv.o timecounter.o posix-clock.o alarmtimer.o
++obj-y += timeconv.o timecounter.o alarmtimer.o
++
++ifeq ($(CONFIG_POSIX_TIMERS),y)
++ obj-y += posix-timers.o posix-cpu-timers.o posix-clock.o
++else
++ obj-y += posix-stubs.o
++endif
+ 
+ obj-$(CONFIG_GENERIC_CLOCKEVENTS)		+= clockevents.o tick-common.o
+ ifeq ($(CONFIG_GENERIC_CLOCKEVENTS_BROADCAST),y)
+diff --git a/kernel/time/posix-stubs.c b/kernel/time/posix-stubs.c
+new file mode 100644
+index 0000000000..fe857bd4a0
+--- /dev/null
++++ b/kernel/time/posix-stubs.c
+@@ -0,0 +1,118 @@
++/*
++ * Dummy stubs used when CONFIG_POSIX_TIMERS=n
++ *
++ * Created by:  Nicolas Pitre, July 2016
++ * Copyright:   (C) 2016 Linaro Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/linkage.h>
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/errno.h>
++#include <linux/syscalls.h>
++#include <linux/ktime.h>
++#include <linux/timekeeping.h>
++#include <linux/posix-timers.h>
++
++asmlinkage long sys_ni_posix_timers(void)
++{
++	pr_err_once("process %d (%s) attempted a POSIX timer syscall "
++		    "while CONFIG_POSIX_TIMERS is not set\n",
++		    current->pid, current->comm);
++	return -ENOSYS;
++}
++
++#define SYS_NI(name)  SYSCALL_ALIAS(sys_##name, sys_ni_posix_timers)
++
++SYS_NI(timer_create);
++SYS_NI(timer_gettime);
++SYS_NI(timer_getoverrun);
++SYS_NI(timer_settime);
++SYS_NI(timer_delete);
++SYS_NI(clock_adjtime);
++
++/*
++ * We preserve minimal support for CLOCK_REALTIME and CLOCK_MONOTONIC
++ * as it is easy to remain compatible with little code. CLOCK_BOOTTIME
++ * is also included for convenience as at least systemd uses it.
++ */
++
++SYSCALL_DEFINE2(clock_settime, const clockid_t, which_clock,
++		const struct timespec __user *, tp)
++{
++	struct timespec new_tp;
++
++	if (which_clock != CLOCK_REALTIME)
++		return -EINVAL;
++	if (copy_from_user(&new_tp, tp, sizeof (*tp)))
++		return -EFAULT;
++	return do_sys_settimeofday(&new_tp, NULL);
++}
++
++SYSCALL_DEFINE2(clock_gettime, const clockid_t, which_clock,
++		struct timespec __user *,tp)
++{
++	struct timespec kernel_tp;
++
++	switch (which_clock) {
++	case CLOCK_REALTIME: ktime_get_real_ts(&kernel_tp); break;
++	case CLOCK_MONOTONIC: ktime_get_ts(&kernel_tp); break;
++	case CLOCK_BOOTTIME: get_monotonic_boottime(&kernel_tp); break;
++	default: return -EINVAL;
++	}
++	if (copy_to_user(tp, &kernel_tp, sizeof (kernel_tp)))
++		return -EFAULT;
++	return 0;
++}
++
++SYSCALL_DEFINE2(clock_getres, const clockid_t, which_clock, struct timespec __user *, tp)
++{
++	struct timespec rtn_tp = {
++		.tv_sec = 0,
++		.tv_nsec = hrtimer_resolution,
++	};
++
++	switch (which_clock) {
++	case CLOCK_REALTIME:
++	case CLOCK_MONOTONIC:
++	case CLOCK_BOOTTIME:
++		if (copy_to_user(tp, &rtn_tp, sizeof(rtn_tp)))
++			return -EFAULT;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++SYSCALL_DEFINE4(clock_nanosleep, const clockid_t, which_clock, int, flags,
++		const struct timespec __user *, rqtp,
++		struct timespec __user *, rmtp)
++{
++	struct timespec t;
++
++	switch (which_clock) {
++	case CLOCK_REALTIME:
++	case CLOCK_MONOTONIC:
++	case CLOCK_BOOTTIME:
++		if (copy_from_user(&t, rqtp, sizeof (struct timespec)))
++			return -EFAULT;
++		if (!timespec_valid(&t))
++			return -EINVAL;
++		return hrtimer_nanosleep(&t, rmtp, flags & TIMER_ABSTIME ?
++					 HRTIMER_MODE_ABS : HRTIMER_MODE_REL,
++					 which_clock);
++	default:
++		return -EINVAL;
++	}
++}
++
++#ifdef CONFIG_COMPAT
++long clock_nanosleep_restart(struct restart_block *restart_block)
++{
++	return hrtimer_nanosleep_restart(restart_block);
++}
++#endif
 -- 
 2.7.4
