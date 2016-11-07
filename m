@@ -1,47 +1,41 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v3 2/2] net: ethernet: nb8800: handle all RGMII definitions
-Date: Mon, 07 Nov 2016 11:51:27 +0000
-Message-ID: <yw1xk2cfik3k.fsf@unicorn.mansr.com>
-References: <581CD1AF.6030300@laposte.net> <581CD210.5060206@laposte.net>
-        <yw1xoa1uhylu.fsf@unicorn.mansr.com> <58205103.4090208@laposte.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] qed: Prevent stack corruption on MFW
+ interaction
+Date: Mon, 7 Nov 2016 12:17:46 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB021652B@AcuExch.aculab.com>
+References: <1478445147-23163-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, Mason <slash.tmp@free.fr>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Sebastian Frias <sf84@laposte.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58205103.4090208@laposte.net> (Sebastian Frias's message of
-        "Mon, 7 Nov 2016 11:01:39 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: 'Yuval Mintz' <Yuval.Mintz@cavium.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.185]:53907 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750776AbcKGMVR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 07:21:17 -0500
+In-Reply-To: <1478445147-23163-1-git-send-email-Yuval.Mintz@cavium.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sebastian Frias <sf84@laposte.net> writes:
+From: Yuval Mintz
+> Sent: 06 November 2016 15:12
+ 
+> Driver uses a union for copying data to & from management firmware
+> when interacting with it.
+> Problem is that the function always copies sizeof(union) while commit
+> 2edbff8dcb5d ("qed: Learn resources from management firmware") is casting
+> a union elements which is of smaller size [24-byte instead of 88-bytes].
+> 
+> Also, the union contains some inappropriate elements which increase its
+> size [should have been 32-bytes]. While this shouldn't corrupt other
+> PF messages to the MFW [as management firmware enforces permissions so
+> that each PF is allowed to write only to its own mailbox] we fix this
+> here as well.
+...
 
-> Hi Måns,
->
-> On 11/05/2016 01:58 PM, Måns Rullgård wrote:
->>>  	if (gigabit) {
->>> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
->>> +		if (phy_interface_is_rgmii(phydev))
->>>  			mac_mode |= RGMII_MODE;
->>>
->>>  		mac_mode |= GMAC_MODE;
->> 
->> As I said before, this part can/should be applied separately, although
->> personally I probably wouldn't have bothered adding a single-use variable.
->
-> It was for consistency with other functions that use 'phydev', but I don't
-> mind making the changes.
->
-> Just to be clear, when you say "can/should be applied separately", do you
-> mean that this patch should not be part of a series, and that I should split
-> the series into separate patches?
+Is it worth adding a compile-time assert on the size of the union?
 
-I meant that this change should be made regardless of the others and can
-be done separately if desired.
-
--- 
-Måns Rullgård
+	David
