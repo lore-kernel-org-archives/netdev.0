@@ -1,42 +1,46 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Anybody in Paris?
-Date: Mon, 7 Nov 2016 01:09:03 +0100
-Message-ID: <CAHmME9pe1b2-MfXs3ZEr7dQyVhSY-0HML_md2sn1ubH5mfccjQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Netdev <netdev@vger.kernel.org>
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH iproute2 1/1] tc: print raw qdisc handle.
+Date: Sun,  6 Nov 2016 21:16:59 -0500
+Message-ID: <1478485019-9438-1-git-send-email-mrv@mojatatu.com>
+Cc: netdev@vger.kernel.org, jhs@emojatatu.com,
+        stephen@networkplumber.org, Roman Mashak <mrv@mojatatu.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:60364 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751167AbcKGAJI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 6 Nov 2016 19:09:08 -0500
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 54ca048a
-        for <netdev@vger.kernel.org>;
-        Mon, 7 Nov 2016 00:07:26 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 8874f410 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Mon, 7 Nov 2016 00:07:26 +0000 (UTC)
-Received: by mail-lf0-f47.google.com with SMTP id c13so101208824lfg.0
-        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 16:09:05 -0800 (PST)
+Received: from mail-it0-f65.google.com ([209.85.214.65]:34175 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751169AbcKGCRU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2016 21:17:20 -0500
+Received: by mail-it0-f65.google.com with SMTP id q124so6856039itd.1
+        for <netdev@vger.kernel.org>; Sun, 06 Nov 2016 18:17:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ tc/tc_qdisc.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Unusual question for a virtual mailing list, perhaps...
-
-Anybody happen to be in Paris who knows the core networking stack
-really quite well, and would like to sit down for lunch and talk about
-sk_buffs? I've been developing in isolation far too long, and it seems
-like a lot of networking stack things are pre-Homer oral tradition
-lore. Based on the work I've been doing, I suspect it would be a
-mutually beneficial and interesting conversation.
-
-Networking networking?
-
-So, if anybody is in Paris and would like to sit down and talk, shoot
-me an email directly. (Alternatively, if you're outrageously chatty on
-IRC, don't hesitate to message #zx2c4.)
-
-Regards,
-Jason
+diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
+index a63c476..9b06b8f 100644
+--- a/tc/tc_qdisc.c
++++ b/tc/tc_qdisc.c
+@@ -238,7 +238,14 @@ int print_qdisc(const struct sockaddr_nl *who,
+ 	if (n->nlmsg_type == RTM_DELQDISC)
+ 		fprintf(fp, "deleted ");
+ 
+-	fprintf(fp, "qdisc %s %x: ", rta_getattr_str(tb[TCA_KIND]), t->tcm_handle>>16);
++	if (!show_raw) {
++	   fprintf(fp, "qdisc %s %x: ", rta_getattr_str(tb[TCA_KIND]),
++			t->tcm_handle >> 16);
++	} else {
++	   fprintf(fp, "qdisc %s %x:[%08x] ", rta_getattr_str(tb[TCA_KIND]),
++			t->tcm_handle >> 16, t->tcm_handle);
++	}
++
+ 	if (filter_ifindex == 0)
+ 		fprintf(fp, "dev %s ", ll_index_to_name(t->tcm_ifindex));
+ 	if (t->tcm_parent == TC_H_ROOT)
+-- 
+1.9.1
