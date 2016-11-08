@@ -1,67 +1,65 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH v2 6/6] qedi: Add support for data path.
-Date: Tue, 8 Nov 2016 19:09:54 +0800
-Message-ID: <201611081941.8e9Ut5J9%fengguang.wu@intel.com>
-References: <1478588223-16183-7-git-send-email-manish.rangankar@cavium.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Virtio_net support vxlan encapsulation package TSO offload
+ discuss
+Date: Tue, 8 Nov 2016 19:13:53 +0800
+Message-ID: <c2f735e4-eddf-f737-2afe-35a93289f8d4@redhat.com>
+References: <DBCD2614ECF3FF4087A2C27CA80E34DD5401AC8B@SZXEMA501-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, martin.petersen@oracle.com, lduncan@suse.com,
-        cleech@redhat.com, linux-scsi@vger.kernel.org,
-        netdev@vger.kernel.org, QLogic-Storage-Upstream@cavium.com,
-        Yuval.Mintz@cavium.com
-To: Manish Rangankar <manish.rangankar@cavium.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1478588223-16183-7-git-send-email-manish.rangankar@cavium.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+To: "Zhangming (James, Euler)" <james.zhangming@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59042 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751711AbcKHLN5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Nov 2016 06:13:57 -0500
+In-Reply-To: <DBCD2614ECF3FF4087A2C27CA80E34DD5401AC8B@SZXEMA501-MBX.china.huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Manish,
+Cc Michael
 
-[auto build test WARNING on net-next/master]
-[also build test WARNING on v4.9-rc4 next-20161028]
-[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+On 2016年11月08日 16:34, Zhangming (James, Euler) wrote:
+>
+> In container scenario, OVS is installed in the Virtual machine, and 
+> all the containers connected to the OVS will communicated through 
+> VXLAN encapsulation.
+>
+> By now, virtio_net does not support TSO offload for VXLAN encapsulated 
+> TSO package. In this condition, the performance is not good, sender is 
+> bottleneck
+>
+> I googled this scenario, but I didn’t find any information. Will 
+> virtio_net support VXLAN encapsulation package TSO offload later?
+>
 
-url:    https://github.com/0day-ci/linux/commits/Manish-Rangankar/qed-Add-support-for-hardware-offloaded-iSCSI/20161108-180027
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+Yes and for both sender and receiver.
 
+> My idea is virtio_net open encapsulated TSO offload, and transport 
+> encapsulation info to TUN, TUN will parse the info and build skb with 
+> encapsulation info.
+>
+> OVS or kernel on the host should be modified to support this. Using 
+> this method, the TCP performance aremore than 2x as before.
+>
+> Any advice and suggestions for this idea or new idea will be greatly 
+> appreciated!
+>
+> Best regards,
+>
+>    James zhang
+>
 
-sparse warnings: (new ones prefixed by >>)
+Sounds very good. And we may also need features bits 
+(VIRTIO_NET_F_GUEST|HOST_GSO_X) for this.
 
-   include/linux/compiler.h:253:8: sparse: attribute 'no_sanitize_address': unknown attribute
->> drivers/scsi/qedi/qedi_fw.c:2179:31: sparse: incompatible types in comparison expression (different base types)
+This is in fact one of items in networking todo list. (See 
+http://www.linux-kvm.org/page/NetworkingTodo). While at it, we'd better 
+support not only VXLAN but also other tunnels.
 
-vim +2179 drivers/scsi/qedi/qedi_fw.c
+We can start with the spec work, or if you've already had some bits you 
+can post them as RFC for early review.
 
-  2163		fw_task_ctx = qedi_get_task_mem(&qedi->tasks, tid);
-  2164	
-  2165		memset(fw_task_ctx, 0, sizeof(struct iscsi_task_context));
-  2166		cmd->task_id = tid;
-  2167	
-  2168		/* Ystorm context */
-  2169		fw_cmd = &fw_task_ctx->ystorm_st_context.pdu_hdr.cmd;
-  2170		SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_ATTR, ISCSI_ATTR_SIMPLE);
-  2171	
-  2172		if (sc->sc_data_direction == DMA_TO_DEVICE) {
-  2173			if (conn->session->initial_r2t_en) {
-  2174				fw_task_ctx->ustorm_ag_context.exp_data_acked =
-  2175					min((conn->session->imm_data_en *
-  2176					    conn->max_xmit_dlength),
-  2177					    conn->session->first_burst);
-  2178				fw_task_ctx->ustorm_ag_context.exp_data_acked =
-> 2179				      min(fw_task_ctx->ustorm_ag_context.exp_data_acked,
-  2180					  scsi_bufflen(sc));
-  2181			} else {
-  2182				fw_task_ctx->ustorm_ag_context.exp_data_acked =
-  2183				      min(conn->session->first_burst, scsi_bufflen(sc));
-  2184			}
-  2185	
-  2186			SET_FIELD(fw_cmd->flags_attr, ISCSI_CMD_HDR_WRITE, 1);
-  2187			task_type = ISCSI_TASK_TYPE_INITIATOR_WRITE;
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Thanks
