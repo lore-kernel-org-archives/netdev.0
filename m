@@ -1,79 +1,74 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 3/3] ptp: dp83640: Use the high resolution frequency method.
-Date: Tue,  8 Nov 2016 22:49:18 +0100
-Message-ID: <d7d35004cd2769efcd0e26b0b78d2890bd5c9d40.1478526333.git.richardcochran@gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net-next 0/3] PHC frequency fine tuning
+Date: Tue, 8 Nov 2016 21:56:54 +0000
+Message-ID: <1478642213.7545.36.camel@intel.com>
 References: <cover.1478526333.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-        Jacob Keller <jacob.e.keller@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        John Stultz <john.stultz@linaro.org>,
-        Manfred Rudigier <Manfred.Rudigier@omicron.at>,
-        =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-        <stefan.sorensen@spectralink.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ulrik De Bie <ulrik.debie-os@e2big.org>,
-        intel-wired-lan@lists.osuosl.org
-To: <netdev@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
+        "Manfred.Rudigier@omicron.at" <Manfred.Rudigier@omicron.at>,
+        "ulrik.debie-os@e2big.org" <ulrik.debie-os@e2big.org>,
+        "stefan.sorensen@spectralink.com" <stefan.sorensen@spectralink.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "john.stultz@linaro.org" <john.stultz@linaro.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36065 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753391AbcKHVt2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 16:49:28 -0500
-Received: by mail-wm0-f65.google.com with SMTP id c17so25324310wmc.3
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 13:49:28 -0800 (PST)
+Received: from mga01.intel.com ([192.55.52.88]:3393 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751307AbcKHV44 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Nov 2016 16:56:56 -0500
 In-Reply-To: <cover.1478526333.git.richardcochran@gmail.com>
+Content-Language: en-US
+Content-ID: <C0E6A064103A5E499794ADD6C4119C42@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dp83640 has a frequency resolution of about 0.029 ppb.
-This patch lets users of the device benefit from the
-increased frequency resolution when tuning the clock.
-
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/phy/dp83640.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 7a240fc..e2460a5 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -375,7 +375,7 @@ static int periodic_output(struct dp83640_clock *clock,
- 
- /* ptp clock methods */
- 
--static int ptp_dp83640_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-+static int ptp_dp83640_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
- {
- 	struct dp83640_clock *clock =
- 		container_of(ptp, struct dp83640_clock, caps);
-@@ -384,13 +384,13 @@ static int ptp_dp83640_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 	int neg_adj = 0;
- 	u16 hi, lo;
- 
--	if (ppb < 0) {
-+	if (scaled_ppm < 0) {
- 		neg_adj = 1;
--		ppb = -ppb;
-+		scaled_ppm = -scaled_ppm;
- 	}
--	rate = ppb;
--	rate <<= 26;
--	rate = div_u64(rate, 1953125);
-+	rate = scaled_ppm;
-+	rate <<= 13;
-+	rate = div_u64(rate, 15625);
- 
- 	hi = (rate >> 16) & PTP_RATE_HI_MASK;
- 	if (neg_adj)
-@@ -1035,7 +1035,7 @@ static void dp83640_clock_init(struct dp83640_clock *clock, struct mii_bus *bus)
- 	clock->caps.n_per_out	= N_PER_OUT;
- 	clock->caps.n_pins	= DP83640_N_PINS;
- 	clock->caps.pps		= 0;
--	clock->caps.adjfreq	= ptp_dp83640_adjfreq;
-+	clock->caps.adjfine	= ptp_dp83640_adjfine;
- 	clock->caps.adjtime	= ptp_dp83640_adjtime;
- 	clock->caps.gettime64	= ptp_dp83640_gettime;
- 	clock->caps.settime64	= ptp_dp83640_settime;
--- 
-2.1.4
+T24gVHVlLCAyMDE2LTExLTA4IGF0IDIyOjQ5ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+IFRoaXMgc2VyaWVzIGV4cGFuZHMgdGhlIFBUUCBIYXJkd2FyZSBDbG9jayBzdWJzeXN0ZW0g
+YnkgYWRkaW5nIGENCj4gbWV0aG9kIHRoYXQgcGFzc2VzIHRoZSBmcmVxdWVuY3kgdHVuaW5nIHdv
+cmQgdG8gdGhlIHRoZSBkcml2ZXJzDQo+IHdpdGhvdXQgZHJvcHBpbmcgdGhlIGxvdyBvcmRlciBi
+aXRzLsKgwqBLZWVwaW5nIHRob3NlIGJpdHMgaXMgdXNlZnVsDQo+IGZvcg0KPiBkcml2ZXJzIHdo
+b3NlIGZyZXF1ZW5jeSByZXNvbHV0aW9uIGlzIGhpZ2hlciB0aGFuIDEgcHBiLg0KPiANCg0KTWFr
+ZXMgc2Vuc2UuDQoNCj4gVGhlIGFwcGVuZGVkIHNjcmlwdCAoYmVsb3cpIHJ1bnMgYSBzaW1wbGUg
+ZGVtb25zdHJhdGlvbiBvZiB0aGUNCj4gaW1wcm92ZW1lbnQuwqDCoFRoaXMgdGVzdCBuZWVkcyB0
+d28gSW50ZWwgaTIxMCBQQ0llIGNhcmRzIGluc3RhbGxlZCBpbg0KPiB0aGUgc2FtZSBQQywgd2l0
+aCB0aGVpciBTRFAwIHBpbnMgY29ubmVjdGVkIGJ5IGNvcHBlcg0KPiB3aXJlLsKgwqBNZWFzdXJp
+bmcNCj4gdGhlIGVzdGltYXRlZCBvZmZzZXQgKGZyb20gdGhlIHB0cDRsIHNlcnZvKSBhbmQgdGhl
+IHRydWUgb2Zmc2V0IChmcm9tDQo+IHRoZSBQUFMpIG92ZXIgb25lIGhvdXIgeWllbGRzIHRoZSBm
+b2xsb3dpbmcgc3RhdGlzdGljcy4NCj4gDQo+ID4gDQo+ID4gwqDCoMKgwqDCoMKgwqB8wqDCoMKg
+RXN0LiBCZWZvcmUgfMKgwqDCoMKgRXN0LiBBZnRlciB8wqDCoMKgVHJ1ZSBCZWZvcmUgfMKgwqDC
+oMKgVHJ1ZQ0KPiA+IEFmdGVyIHwNCj4gPiAtLS0tLS0tLSstLS0tLS0tLS0tLS0tLS0rLS0tLS0t
+LS0tLS0tLS0tKy0tLS0tLS0tLS0tLS0tLSstLS0tLS0tLQ0KPiA+IC0tLS0tLS18DQo+ID4gbWlu
+wqDCoMKgwqB8IC01LjIwMDAwMGUrMDEgfCAtMS42MDAwMDBlKzAxIHwgLTMuMTAwMDAwZSswMSB8
+DQo+ID4gLTEuMDAwMDAwZSswMCB8DQo+ID4gbWF4wqDCoMKgwqB8ICs1LjcwMDAwMGUrMDEgfCAr
+Mi41MDAwMDBlKzAxIHwgKzguNTAwMDAwZSswMSB8DQo+ID4gKzQuMDAwMDAwZSswMSB8DQo+ID4g
+cGstcGs6IHwgKzEuMDkwMDAwZSswMiB8ICs0LjEwMDAwMGUrMDEgfCArMS4xNjAwMDBlKzAyIHwN
+Cj4gPiArNC4xMDAwMDBlKzAxIHwNCj4gPiBtZWFuwqDCoMKgfCArNi40NzIyMjJlLTAyIHwgKzEu
+Mjc3Nzc4ZS0wMiB8ICsyLjQyMjA4M2UrMDEgfA0KPiA+ICsxLjgyNjA4M2UrMDEgfA0KPiA+IHN0
+ZGRldiB8ICsxLjE1ODAwNmUrMDEgfCArNC41ODE5ODJlKzAwIHwgKzEuMjA3NzA4ZSswMSB8DQo+
+ID4gKzQuOTgxNDM1ZSswMCB8DQo+IA0KPiBIZXJlIHRoZSBudW1iZXJzIGluIHVuaXRzIG9mIG5h
+bm9zZWNvbmRzLCBhbmQgdGhlIH4yMCBuYW5vc2Vjb25kIFBQUw0KPiBvZmZzZXQgaXMgZHVlIHRv
+IGlucHV0L291dHB1dCBkZWxheXMgb24gdGhlIGkyMTAncyBleHRlcm5hbCBpbnRlcmZhY2UNCj4g
+bG9naWMuDQo+IA0KPiBXaXRoIHRoZSBzZXJpZXMgYXBwbGllZCwgYm90aCB0aGUgcGVhayB0byBw
+ZWFrIGVycm9yIGFuZCB0aGUgc3RhbmRhcmQNCj4gZGV2aWF0aW9uIGltcHJvdmUgYnkgYSBmYWN0
+b3Igb2YgbW9yZSB0aGFuIHR3by7CoMKgVGhlc2UgdHdvIGdyYXBocw0KPiBzaG93DQo+IHRoZSBp
+bXByb3ZlbWVudCBuaWNlbHkuDQo+IA0KPiDCoCBodHRwOi8vbGludXhwdHAuc291cmNlZm9yZ2Uu
+bmV0L2ZpbmUtdHVuaW5nL2ZpbmUtZXN0LnBuZw0KPiANCj4gwqAgaHR0cDovL2xpbnV4cHRwLnNv
+dXJjZWZvcmdlLm5ldC9maW5lLXR1bmluZy9maW5lLXRydS5wbmcNCj4gDQoNCldvdywgbmljZSEg
+SSdsbCB0YWtlIGEgbG9vayBhdCB0aGUgYWN0dWFsIHBhdGNoZXMgaW4gYSBmZXcgbWludXRlcywg
+YnV0DQp0aGlzIGlzIGEgcmVhbGx5IG5pY2UgaW1wcm92ZW1lbnQhDQoNClRoYW5rcywNCkpha2UN
+Cg0KPiANCj4gVGhhbmtzLA0KPiBSaWNoYXJkDQo+IA0KPiBSaWNoYXJkIENvY2hyYW4gKDMpOg0K
+PiDCoCBwdHA6IEludHJvZHVjZSBhIGhpZ2ggcmVzb2x1dGlvbiBmcmVxdWVuY3kgYWRqdXN0bWVu
+dCBtZXRob2QuDQo+IMKgIHB0cDogaWdiOiBVc2UgdGhlIGhpZ2ggcmVzb2x1dGlvbiBmcmVxdWVu
+Y3kgbWV0aG9kLg0KPiDCoCBwdHA6IGRwODM2NDA6IFVzZSB0aGUgaGlnaCByZXNvbHV0aW9uIGZy
+ZXF1ZW5jeSBtZXRob2QuDQo+IA0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9p
+Z2JfcHRwLmMgfCAxNiArKysrKysrKy0tLS0tLS0tDQo+IMKgZHJpdmVycy9uZXQvcGh5L2RwODM2
+NDAuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgfCAxNCArKysrKysrLS0tLS0tLQ0K
+PiDCoGRyaXZlcnMvcHRwL3B0cF9jbG9jay5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgfMKgwqA1ICsrKystDQo+IMKgaW5jbHVkZS9saW51eC9wdHBfY2xvY2tfa2VybmVsLmjC
+oMKgwqDCoMKgwqDCoMKgwqB8wqDCoDggKysrKysrKysNCj4gwqA0IGZpbGVzIGNoYW5nZWQsIDI3
+IGluc2VydGlvbnMoKyksIDE2IGRlbGV0aW9ucygtKQ0KPiANCg==
