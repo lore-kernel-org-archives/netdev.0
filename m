@@ -1,72 +1,82 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [net-next PATCH] amd-xgbe: use __maybe_unused to hide pm functions
-Date: Tue,  8 Nov 2016 14:37:32 +0100
-Message-ID: <20161108133802.1716319-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Tom Lendacky <thomas.lendacky@amd.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen PATCH] xen-netback: fix error handling output
+Date: Tue, 8 Nov 2016 13:40:02 +0000
+Message-ID: <f38572a35c244b2bad7c8e2dde890c75@AMSPEX02CL03.citrite.net>
+References: <20161108133449.1649345-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Wei Liu <wei.liu2@citrix.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Juergen Gross <jgross@suse.com>,
+        Filipe Manco <filipe.manco@neclab.eu>,
+        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>,
+        David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.135]:53217 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751704AbcKHNi1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 08:38:27 -0500
+Received: from smtp.eu.citrix.com ([185.25.65.24]:17866 "EHLO
+        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751243AbcKHNkS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 08:40:18 -0500
+In-Reply-To: <20161108133449.1649345-1-arnd@arndb.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The amd-xgbe ethernet driver hides its suspend/resume functions
-in #ifdef CONFIG_PM, but uses SIMPLE_DEV_PM_OPS() to make the
-reference conditional on CONFIG_PM_SLEEP, which results in a
-warning when PM_SLEEP is not set but PM is:
+> -----Original Message-----
+> From: Arnd Bergmann [mailto:arnd@arndb.de]
+> Sent: 08 November 2016 13:35
+> To: David Vrabel <david.vrabel@citrix.com>
+> Cc: Arnd Bergmann <arnd@arndb.de>; Wei Liu <wei.liu2@citrix.com>; Paul
+> Durrant <Paul.Durrant@citrix.com>; David S. Miller
+> <davem@davemloft.net>; Juergen Gross <jgross@suse.com>; Filipe Manco
+> <filipe.manco@neclab.eu>; xen-devel@lists.xenproject.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: [Xen PATCH] xen-netback: fix error handling output
+> 
+> The connect function prints an unintialized error code after an
+> earlier initialization was removed:
+> 
+> drivers/net/xen-netback/xenbus.c: In function 'connect':
+> drivers/net/xen-netback/xenbus.c:938:3: error: 'err' may be used
+> uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> This prints it as -EINVAL instead, which seems to be the most
+> appropriate error code. Before the patch that caused the warning,
+> this would print a positive number returned by vsscanf() instead,
+> which is also wrong. We probably don't need a backport though,
+> as fixing the warning here should be sufficient.
+> 
+> Fixes: f95842e7a9f2 ("xen: make use of xenbus_read_unsigned() in xen-
+> netback")
+> Fixes: 8d3d53b3e433 ("xen-netback: Add support for multiple queues")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-drivers/net/ethernet/amd/xgbe/xgbe-platform.c:553:12: error: 'xgbe_platform_resume' defined but not used [-Werror=unused-function]
-drivers/net/ethernet/amd/xgbe/xgbe-platform.c:533:12: error: 'xgbe_platform_suspend' defined but not used [-Werror=unused-function]
+Yes, I'd say EINVAL was most appropriate.
 
-This removes the incorrect #ifdef and instead uses a __maybe_unused
-annotation to let the compiler know it can silently drop
-the function definition.
+Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
 
-Fixes: bd8255d8ba35 ("amd-xgbe: Prepare for supporting PCI devices")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
-I originally submitted this when in March 2016, but the patch has not
-yet made it upstream, and the file contents have moved around so
-the old patch no longer applied so I'm resending the rebased version
-now.
----
- drivers/net/ethernet/amd/xgbe/xgbe-platform.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-index 0edbcd523f8f..02daca817bb7 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-platform.c
-@@ -529,8 +529,7 @@ static int xgbe_platform_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--#ifdef CONFIG_PM
--static int xgbe_platform_suspend(struct device *dev)
-+static int __maybe_unused xgbe_platform_suspend(struct device *dev)
- {
- 	struct xgbe_prv_data *pdata = dev_get_drvdata(dev);
- 	struct net_device *netdev = pdata->netdev;
-@@ -550,7 +549,7 @@ static int xgbe_platform_suspend(struct device *dev)
- 	return ret;
- }
- 
--static int xgbe_platform_resume(struct device *dev)
-+static int __maybe_unused xgbe_platform_resume(struct device *dev)
- {
- 	struct xgbe_prv_data *pdata = dev_get_drvdata(dev);
- 	struct net_device *netdev = pdata->netdev;
-@@ -574,7 +573,6 @@ static int xgbe_platform_resume(struct device *dev)
- 
- 	return ret;
- }
--#endif /* CONFIG_PM */
- 
- static const struct xgbe_version_data xgbe_v1 = {
- 	.init_function_ptrs_phy_impl	= xgbe_init_function_ptrs_phy_v1,
--- 
-2.9.0
+> ---
+>  drivers/net/xen-netback/xenbus.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-
+> netback/xenbus.c
+> index 7356e00fac54..bfed79877b8a 100644
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -935,7 +935,7 @@ static void connect(struct backend_info *be)
+>  					"multi-queue-num-queues", 1);
+>  	if (requested_num_queues > xenvif_max_queues) {
+>  		/* buggy or malicious guest */
+> -		xenbus_dev_fatal(dev, err,
+> +		xenbus_dev_fatal(dev, -EINVAL,
+>  				 "guest requested %u queues, exceeding the
+> maximum of %u.",
+>  				 requested_num_queues,
+> xenvif_max_queues);
+>  		return;
+> --
+> 2.9.0
