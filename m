@@ -1,82 +1,58 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [PATCH v3 4/4] posix-timers: make it configurable
-Date: Tue, 8 Nov 2016 10:48:06 -0800
-Message-ID: <CALAqxLVL-YLBYynW1c+vUV8y=HFQc7o5QbO47kKog0J-xpgSWw@mail.gmail.com>
-References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
- <1478556899-2951-5-git-send-email-nicolas.pitre@linaro.org>
- <CALAqxLVrGRW3ODzZk=4-8FSLe5wBwHJSOEAW=+kMFjTRoe1HzQ@mail.gmail.com> <alpine.LFD.2.20.1611081311420.11818@knanqh.ubzr>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: [PATCH 13/17] batman-adv: Consume skb in receive handlers
+Date: Tue, 08 Nov 2016 20:05:12 +0100
+Message-ID: <3014212.KTtP4ZxDTH@sven-edge>
+References: <20161108164526.7518-1-sw@simonwunderlich.de> <2044854.g075mifYzn@bentobox> <1478626981.17367.16.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michal Marek <mmarek@suse.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Paul Bolle <pebolle@tiscali.nl>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.20.1611081311420.11818@knanqh.ubzr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; boundary="nextPart4301090.dxVAeb7ts5"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: Simon Wunderlich <sw@simonwunderlich.de>, davem@davemloft.net,
+        netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from narfation.org ([79.140.41.39]:49502 "EHLO v3-1039.vlinux.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753358AbcKHTFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Nov 2016 14:05:22 -0500
+In-Reply-To: <1478626981.17367.16.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 8, 2016 at 10:19 AM, Nicolas Pitre <nicolas.pitre@linaro.org> wrote:
-> On Tue, 8 Nov 2016, John Stultz wrote:
->
->> One spot of concern is that the
->> tools/testing/selftests/timers/posix_timers.c test hangs testing
->> virtual itimers. Looking through the code I'm not seeing where an
->> error case is missed.
->>
->> The strace looks like:
->> ...
->> write(1, "Testing posix timers. False nega"..., 66Testing posix
->> timers. False negative may happen on CPU execution
->> ) = 66
->> write(1, "based timers if other threads ru"..., 48based timers if
->> other threads run on the CPU...
->> ) = 48
->> write(1, "Check itimer virtual... ", 24Check itimer virtual... ) = 24
->> rt_sigaction(SIGVTALRM, {0x400a80, [VTALRM], SA_RESTORER|SA_RESTART,
->> 0x7fb73306ccb0}, {SIG_DFL, [], 0}, 8) = 0
->> gettimeofday({1478710402, 937476}, NULL) = 0
->> setitimer(ITIMER_VIRTUAL, {it_interval={0, 0}, it_value={2, 0}}, NULL) = 0
->> <Hang>
->>
->>
->> Where as with posix timers enabled:
->> ...
->> write(1, "Testing posix timers. False nega"..., 138Testing posix
->> timers. False negative may happen on CPU execution
->> based timers if other threads run on the CPU...
->> Check itimer virtual... ) = 138
->> rt_sigaction(SIGVTALRM, {0x400a80, [VTALRM], SA_RESTORER|SA_RESTART,
->> 0x7f231ba8ccb0}, {SIG_DFL, [], 0}, 8) = 0
->> gettimeofday({1478626751, 904856}, NULL) = 0
->> setitimer(ITIMER_VIRTUAL, {it_interval={0, 0}, it_value={2, 0}}, NULL) = 0
->> --- SIGVTALRM {si_signo=SIGVTALRM, si_code=SI_KERNEL} ---
->> rt_sigreturn()                          = 0
->
-> I'll have a look.
->
->> So I suspect you were a little too aggressive with the #ifdefs around
->> the itimers/signal code, or we need to make sure we return an error on
->> the setitimer ITIMER_VIRTUAL case as well.
->
-> Well, it seemed to me that with POSIX_TIMERS=n, all the code that would
-> set up that signal is gone, so there was no point keeping the code to
-> deliver it.
->
-> Now... would it make more sense to remove itimer support as well when
-> POSIX_TIMERS=n?  The same reasoning would apply.
+--nextPart4301090.dxVAeb7ts5
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-Yes, returning an error with itimers seems needed if the signal bits
-are missing.
+On Dienstag, 8. November 2016 09:43:01 CET Eric Dumazet wrote:
+[...]
+> Sure, but your patch 13/17 should address this right away.
+[...]
 
-Though I do worry that since getitimer/setitimer are older obsolete
-interfaces which the posix timers api is supposed to replace, folks
-might be surprised to see it removed when setting POSIX_TIMERS=n. So
-some additional notes in the kconfig description may be needed.
+Fair enough. I've asked Simon to resubmit the patches with the
+"consume_skb -> conditional kfree_skb/consume_skb" patch squashed
+into patch 13.
 
-thanks
--john
+Kind regards,
+	Sven
+
+--nextPart4301090.dxVAeb7ts5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABCgAGBQJYIiHoAAoJEF2HCgfBJntGMVkP/2iOM+5iWWxrl68tAhsqOVXn
+T9Khl+S8DOYkw2VZTphJ1VtAWRBUgAn80zH0V4FaD3qd6ImG8AD6hWFdt6i/94hK
+1TiSqUgn5qkzwGRGxEcpXmgiYcavY1DbNFXTVnqidxA5602wk6/DnyE4nDCq0y/5
+aACJdj9iadort5+rXUFX70KRs/tcF78piKaN4LNwtq5pxLV+MY1OjHqPpc6oI7XX
+6f69dG0LDTcNR7RhwjVDRcV0aTpXnVhEjUTckDVWkWM5cEZAbBHlQ1WKDZm0kbT2
+YicNtLvb+gEDK1CZx9tkYanQwNXc47HnRW0TcTASAo7GchPy+2xosO96yWtES/UP
+owPEyP8PtYche41Xxr4YLNecqPeRcTI/GPOydNSLraVXEkPy8Kv2ZxbbyKQKPn+a
+F0GdlPnCDbPzashGBf3cjCdCySFveypumR1kwvtO4gVK17dG7kKfo8dYYj1aDfl/
+IugWyIysjzES+Q02LEa4RFLQFkM54rOGfcNOB99OuKlkxZUAV22XUa3JaAO2kN83
+8bfvbzoFzJj4VEMyWZINGgiRVe9CBm1xz87BIUQPObldQcBMW1mChq5PkxhXHpcs
+i6m03UHxbvdgY8FEsqw1MZ95e6h280YtFKoNdE3WFUIckZFHSvyuhTBHH9ema2e6
+/1Qo/gSONzEvh45UKvLF
+=7vpt
+-----END PGP SIGNATURE-----
+
+--nextPart4301090.dxVAeb7ts5--
