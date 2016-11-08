@@ -1,60 +1,71 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: free memory while
- channel destroy
-Date: Tue, 8 Nov 2016 17:22:09 -0600
-Message-ID: <366a66b8-33f4-2ad7-4ac4-957d25348718@ti.com>
-References: <1478610965-25288-1-git-send-email-ivan.khoronzhuk@linaro.org>
+From: Arun Easi <arun.easi@cavium.com>
+Subject: Re: [PATCH v2 3/6] qedi: Add QLogic FastLinQ offload iSCSI driver
+ framework.
+Date: Tue, 8 Nov 2016 12:04:48 -0800
+Message-ID: <alpine.LRH.2.00.1611081129440.28058@mvluser05.qlc.com>
+References: <201611081805.KzpHTNxg%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Manish Rangankar <manish.rangankar@cavium.com>,
+        <kbuild-all@01.org>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        James Bottomley <jejb@linux.vnet.ibm.com>, <lduncan@suse.com>,
+        <cleech@redhat.com>, <linux-scsi@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <QLogic-Storage-Upstream@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:47337 "EHLO
-        devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751062AbcKHXWL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 18:22:11 -0500
-In-Reply-To: <1478610965-25288-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Received: from mail-bl2nam02on0086.outbound.protection.outlook.com ([104.47.38.86]:64384
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752087AbcKHXkb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Nov 2016 18:40:31 -0500
+In-Reply-To: <201611081805.KzpHTNxg%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+[ Sending on behalf of Manish to cover for the time difference. ]
 
+Hi Martin, James,
 
-On 11/08/2016 07:16 AM, Ivan Khoronzhuk wrote:
-> While create/destroy channel operation memory is not freed. It was
-> supposed that memory is freed while driver remove. But a channel
-> can be created and destroyed many times while changing number of
-> channels with ethtool.
->
-> Based on net-next/master
+I would like to request your input on this kbuild test error on the 
+series, where they compile fine together, but is not bisectable.
 
-^?
+qedi is the new iSCSI driver, which we are trying to submit, for our 41000 
+series CNA. This patch series were broken up into logical blocks for 
+review purpose, but were not made to compile individually. It is our 
+impression that this is acceptable for SCSI and all the initial "qedi" 
+patches will be squashed and committed as a single commit. Please let us 
+know if we are mistaken, and if so, we will post another series 
+with this taken care of.
 
->
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+FYI, this series accompany additions to the common core module, "qed", 
+that goes under drivers/net/. The patches for the qed module compiles fine 
+individually and so is bisectable.
 
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+In regards to the additional warnings brought out by kbuild test on 
+"PATCH v2 6/6" and "PATCH v2 3/6", we will post a v3 with the fixes.
 
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index 05afc05..07fc92d 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -586,7 +586,7 @@ int cpdma_chan_destroy(struct cpdma_chan *chan)
->  		cpdma_chan_stop(chan);
->  	ctlr->channels[chan->chan_num] = NULL;
->  	ctlr->chan_num--;
-> -
-> +	devm_kfree(ctlr->dev, chan);
->  	cpdma_chan_split_pool(ctlr);
->
->  	spin_unlock_irqrestore(&ctlr->lock, flags);
->
+Regards,
+-Arun
 
--- 
-regards,
--grygorii
+On Tue, 8 Nov 2016, 2:52am -0000, kbuild test robot wrote:
+
+> Hi Manish,
+> 
+> [auto build test ERROR on net-next/master]
+> [also build test ERROR on v4.9-rc4]
+> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Manish-Rangankar/qed-Add-support-for-hardware-offloaded-iSCSI/20161108-180027
+> config: ia64-allmodconfig (attached as .config)
+> compiler: ia64-linux-gcc (GCC) 6.2.0
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=ia64 
+> 
+> Note: the linux-review/Manish-Rangankar/qed-Add-support-for-hardware-offloaded-iSCSI/20161108-180027 HEAD dd4d1d0e0785d20cdcfdf9b2c792c564a79b2de2 builds fine.
+>       It only hurts bisectibility.
+> 
