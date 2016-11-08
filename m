@@ -1,75 +1,173 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 2/2] net: napi_hash_add() is no longer exported
-Date: Tue, 08 Nov 2016 11:07:28 -0800
-Message-ID: <1478632048.17367.24.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v4] cadence: Add LSO support.
+Date: Tue, 8 Nov 2016 11:09:09 -0800
+Message-ID: <911391d0-a7ec-1d4f-e419-b1a09c4d13d3@gmail.com>
+References: <20161107.203846.734910693756417486.davem@davemloft.net>
+ <1478612463-15076-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Michael Chan <michael.chan@broadcom.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35521 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750869AbcKHTHa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 14:07:30 -0500
-Received: by mail-pf0-f196.google.com with SMTP id i88so20517255pfk.2
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 11:07:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Rafal Ozieblo <rafalo@cadence.com>, nicolas.ferre@atmel.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478612463-15076-1-git-send-email-rafalo@cadence.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 11/08/2016 05:41 AM, Rafal Ozieblo wrote:
+> New Cadence GEM hardware support Large Segment Offload (LSO):
+> TCP segmentation offload (TSO) as well as UDP fragmentation
+> offload (UFO). Support for those features was added to the driver.
+> 
+> Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
+> ---
 
-There are no more users except from net/core/dev.c
-napi_hash_add() can now be static.
+> -#define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1))
+> -#define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1))
+> +/* Max length of transmit frame must be a multiple of 8 bytes */
+> +#define MACB_TX_LEN_ALIGN	8
+> +#define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1) & ~((unsigned int)(MACB_TX_LEN_ALIGN - 1)))
+> +#define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1) & ~((unsigned int)(MACB_TX_LEN_ALIGN - 1)))
+>  
+>  #define GEM_MTU_MIN_SIZE	ETH_MIN_MTU
+> +#define MACB_NETIF_LSO		(NETIF_F_TSO | NETIF_F_UFO)
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Michael Chan <michael.chan@broadcom.com>
----
- include/linux/netdevice.h |   11 -----------
- net/core/dev.c            |    3 +--
- 2 files changed, 1 insertion(+), 13 deletions(-)
+Not a huge fan of this definition, since it is always used in conjuction
+with netdev_features_t, having it expanded all the time is kind of nicer
+for the reader, but this is just personal preference here.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 66fd61c681d90d4a7ecc3bf7bae44c2b3b1fe10c..d64135a0ab718b9e119646b74f92901e8fe4b356 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -468,17 +468,6 @@ static inline void napi_complete(struct napi_struct *n)
- }
- 
- /**
-- *	napi_hash_add - add a NAPI to global hashtable
-- *	@napi: NAPI context
-- *
-- * Generate a new napi_id and store a @napi under it in napi_hash.
-- * Used for busy polling (CONFIG_NET_RX_BUSY_POLL).
-- * Note: This is normally automatically done from netif_napi_add(),
-- * so might disappear in a future Linux version.
-- */
--void napi_hash_add(struct napi_struct *napi);
--
--/**
-  *	napi_hash_del - remove a NAPI from global table
-  *	@napi: NAPI context
-  *
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0260ad314506c621215a0e3449392bc01aad55ca..e2148d9845868d7ca5d2c6b853cb0fbe18b32163 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5017,7 +5017,7 @@ EXPORT_SYMBOL(sk_busy_loop);
- 
- #endif /* CONFIG_NET_RX_BUSY_POLL */
- 
--void napi_hash_add(struct napi_struct *napi)
-+static void napi_hash_add(struct napi_struct *napi)
- {
- 	if (test_bit(NAPI_STATE_NO_BUSY_POLL, &napi->state) ||
- 	    test_and_set_bit(NAPI_STATE_HASHED, &napi->state))
-@@ -5037,7 +5037,6 @@ void napi_hash_add(struct napi_struct *napi)
- 
- 	spin_unlock(&napi_hash_lock);
- }
--EXPORT_SYMBOL_GPL(napi_hash_add);
- 
- /* Warning : caller is responsible to make sure rcu grace period
-  * is respected before freeing memory containing @napi
+>  
+>  #define MACB_WOL_HAS_MAGIC_PACKET	(0x1 << 0)
+>  #define MACB_WOL_ENABLED		(0x1 << 1)
+> @@ -1223,7 +1228,8 @@ static void macb_poll_controller(struct net_device *dev)
+>  
+>  static unsigned int macb_tx_map(struct macb *bp,
+>  				struct macb_queue *queue,
+> -				struct sk_buff *skb)
+> +				struct sk_buff *skb,
+> +				unsigned int hdrlen)
+>  {
+>  	dma_addr_t mapping;
+>  	unsigned int len, entry, i, tx_head = queue->tx_head;
+> @@ -1231,14 +1237,27 @@ static unsigned int macb_tx_map(struct macb *bp,
+>  	struct macb_dma_desc *desc;
+>  	unsigned int offset, size, count = 0;
+>  	unsigned int f, nr_frags = skb_shinfo(skb)->nr_frags;
+> -	unsigned int eof = 1;
+> -	u32 ctrl;
+> +	unsigned int eof = 1, mss_mfs = 0;
+> +	u32 ctrl, lso_ctrl = 0, seq_ctrl = 0;
+> +
+> +	/* LSO */
+> +	if (skb_shinfo(skb)->gso_size != 0) {
+> +		if (IPPROTO_UDP == (ip_hdr(skb)->protocol))
+
+Most checks are usually done the other way with the left and right
+member swapped.
+
+> +			/* UDP - UFO */
+> +			lso_ctrl = MACB_LSO_UFO_ENABLE;
+> +		else
+> +			/* TCP - TSO */
+> +			lso_ctrl = MACB_LSO_TSO_ENABLE;
+> +	}
+
+>  
+>  	/* Then, map paged data from fragments */
+> @@ -1311,6 +1332,20 @@ static unsigned int macb_tx_map(struct macb *bp,
+>  	desc = &queue->tx_ring[entry];
+>  	desc->ctrl = ctrl;
+>  
+> +	if (lso_ctrl) {
+> +		if (lso_ctrl == MACB_LSO_UFO_ENABLE)
+> +			/* include header and FCS in value given to h/w */
+> +			mss_mfs = skb_shinfo(skb)->gso_size +
+> +					skb_transport_offset(skb) + 4;
+
+ETH_FCS_LEN instead of 4?
+
+
+> +static netdev_features_t macb_features_check(struct sk_buff *skb,
+> +					     struct net_device *dev,
+> +					     netdev_features_t features)
+> +{
+> +	unsigned int nr_frags, f;
+> +	unsigned int hdrlen;
+> +
+> +	/* Validate LSO compatibility */
+> +
+> +	/* there is only one buffer */
+> +	if (!skb_is_nonlinear(skb))
+> +		return features;
+> +
+> +	/* length of header */
+> +	hdrlen = skb_transport_offset(skb);
+> +	if (IPPROTO_TCP == (ip_hdr(skb)->protocol))
+> +		hdrlen += tcp_hdrlen(skb);
+
+Same here, please reverse the left and right members, no need for
+parenthesis aground ip_hdr(skb)->protocol.
+
+> +
+> +	/* For LSO:
+> +	 * When software supplies two or more payload buffers all payload buffers
+> +	 * apart from the last must be a multiple of 8 bytes in size.
+> +	 */
+> +	if (!IS_ALIGNED(skb_headlen(skb) - hdrlen, MACB_TX_LEN_ALIGN))
+> +		return features & ~MACB_NETIF_LSO;
+> +
+> +	nr_frags = skb_shinfo(skb)->nr_frags;
+> +	/* No need to check last fragment */
+> +	nr_frags--;
+> +	for (f = 0; f < nr_frags; f++) {
+> +		const skb_frag_t *frag = &skb_shinfo(skb)->frags[f];
+> +
+> +		if (!IS_ALIGNED(skb_frag_size(frag), MACB_TX_LEN_ALIGN))
+> +			return features & ~MACB_NETIF_LSO;
+> +	}
+> +	return features;
+> +}
+> +
+>  static inline int macb_clear_csum(struct sk_buff *skb)
+>  {
+>  	/* no change for packets without checksum offloading */
+> @@ -1374,7 +1456,27 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	struct macb *bp = netdev_priv(dev);
+>  	struct macb_queue *queue = &bp->queues[queue_index];
+>  	unsigned long flags;
+> -	unsigned int count, nr_frags, frag_size, f;
+> +	unsigned int desc_cnt, nr_frags, frag_size, f;
+> +	unsigned int is_lso = 0, is_udp, hdrlen;
+> +
+> +	is_lso = (skb_shinfo(skb)->gso_size != 0);
+> +
+> +	if (is_lso) {
+> +		is_udp = (IPPROTO_UDP == (ip_hdr(skb)->protocol));
+
+Same here, and you may want to declare is_udp as boolean and do this:
+
+		is_udp = !!(ip_hdr(skb)->protocl == IPPROTO_UDP);
+
+> +
+> +		/* length of headers */
+> +		if (is_udp)
+> +			/* only queue eth + ip headers separately for UDP */
+> +			hdrlen = skb_transport_offset(skb);
+> +		else
+> +			hdrlen = skb_transport_offset(skb) + tcp_hdrlen(skb);
+> +		if (skb_headlen(skb) < hdrlen) {
+> +			netdev_err(bp->dev, "Error - LSO headers fragmented!!!\n");
+> +			/* if this is required, would need to copy to single buffer */
+> +			return NETDEV_TX_BUSY;
+> +		}
+
+>  
+> +	if (is_lso) {
+> +		if (is_udp)
+> +			/* zero UDP checksum, not calculated by h/w for UFO */
+> +			udp_hdr(skb)->check = 0;
+
+is_udp is only set when (is_lso) is checked, so the two conditions are
+redundant, just checking is_udp should be enough?
+-- 
+Florian
