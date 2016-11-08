@@ -1,46 +1,44 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [net-next PATCH 3/3] qdisc: catch misconfig of attaching qdisc to
- tx_queue_len zero device
-Date: Mon, 7 Nov 2016 22:14:37 -0800
-Message-ID: <CAHo-Oozk1AqqR4+9HxLYSGQOQ8Ohs0NaOx=ZV+94JCH-ftxtMw@mail.gmail.com>
-References: <20161103135534.28737.37657.stgit@firesoul> <20161103135611.28737.39840.stgit@firesoul>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 7 Nov 2016 22:34:11 -0800
+Message-ID: <CAM_iQpU1p8aJy_64muXhszzYMzC8AZtRC7+1bB7f4hK+6-rSNQ@mail.gmail.com>
+References: <20161108122537.40fa6e58@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux NetDev <netdev@vger.kernel.org>, Phil Sutter <phil@nwl.cc>,
-        Robert Olsson <robert@herjulf.se>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:34071 "EHLO
-        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752723AbcKHGOi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 01:14:38 -0500
-Received: by mail-yw0-f196.google.com with SMTP id l124so6243020ywb.1
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 22:14:38 -0800 (PST)
-In-Reply-To: <20161103135611.28737.39840.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Johannes Berg <johannes.berg@intel.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20161108122537.40fa6e58@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just FYI:
+On Mon, Nov 7, 2016 at 5:25 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
+>
+> Today's linux-next merge of the net-next tree got a conflict in:
+>
+>   net/netlink/genetlink.c
+>
+> between commit:
+>
+>   00ffc1ba02d8 ("genetlink: fix a memory leak on error path")
+>
+> from the net tree and commit:
+>
+>   2ae0f17df1cd ("genetlink: use idr to track families")
+>
+> from the net-next tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
 
-I'm tangentially aware of internal Google code that:
-- expects a bonding device running HTB with non-zero txqueuelen
-- wants to remove HTB and get a noqueue interface (the normal default
-for bonding)
+Looks good to me.
 
-The code currently removes HTB, which gets us to mq, sets txqueuelen
-to 0, adds a pfifo, removes the pfifo, which gets us to noqueue.
-
-After this patch this would ?possibly? break (adding pfifo, would
-change txqueuelen, so when we remove it we wouldn't end up with
-noqueue).
-
->From what I fuzzily recall, HTB with txquelelen == 0 drops traffic
-hard, while pfifo continues to function, hence the ordering...
-
-Obviously our code can be fixed, but I'm worried there's a more
-generic backwards compatibility problem here.
-
-(note: this is mostly about 3.11 and 4.3 and might no longer be
-relevant with 4.10... maybe the new kernel's default qdisc selection
-logic doesn't depend on txqueuelen and checks the flag instead???)
+Thanks!
