@@ -1,26 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] cadence: Add LSO support.
-Date: Mon, 07 Nov 2016 20:38:46 -0500 (EST)
-Message-ID: <20161107.203846.734910693756417486.davem@davemloft.net>
-References: <1477397130-24250-1-git-send-email-rafalo@cadence.com>
-        <1478259618-23474-1-git-send-email-rafalo@cadence.com>
+Subject: Re: [PATCH] Documentation: networking: dsa: Update tagging
+ protocols
+Date: Mon, 07 Nov 2016 20:39:31 -0500 (EST)
+Message-ID: <20161107.203931.1885713434079995902.davem@davemloft.net>
+References: <1478261774-14265-1-git-send-email-architekt@coding4coffee.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: rafalo@cadence.com
+Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, standby24x7@gmail.com,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: architekt@coding4coffee.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478259618-23474-1-git-send-email-rafalo@cadence.com>
+In-Reply-To: <1478261774-14265-1-git-send-email-architekt@coding4coffee.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rafal Ozieblo <rafalo@cadence.com>
-Date: Fri, 4 Nov 2016 11:40:18 +0000
+From: Fabian Mewes <architekt@coding4coffee.org>
+Date: Fri,  4 Nov 2016 13:16:14 +0100
 
-> +		if (IPPROTO_UDP == (((struct iphdr *)skb_network_header(skb))->protocol))
+> Add Qualcomm QCA tagging introduced in cafdc45c9 to the
+> list of supported protocols.
+> 
+> Signed-off-by: Fabian Mewes <architekt@coding4coffee.org>
 
-This is simply "ip_hdr(skb)->protocol", please use it everywhere you
-have this ugly cast thing in this change.
-
-Thanks.
+Applied.
