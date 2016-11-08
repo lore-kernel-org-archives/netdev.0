@@ -1,124 +1,102 @@
-From: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
-Subject: Re: net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
-Date: Tue, 8 Nov 2016 12:56:14 -0500
-Message-ID: <4e93c6f4-ffb1-dc03-0f48-9949f8ef0f49@Netapp.com>
-References: <20161108054202.GA12406@linux.intel.com>
- <1478606028.2443.2.camel@redhat.com> <1478606957.2443.8.camel@redhat.com>
- <60a0f29b-7a0a-c5e2-0e98-fa9a923dd339@Netapp.com>
- <20161108174346.GA17545@linux.intel.com>
+From: "De Schepper, Koen (Nokia - BE)"
+        <koen.de_schepper@nokia-bell-labs.com>
+Subject: RE: Is there a maximum bytes in flight limitation in the tcp stack?
+ -->limit in scp
+Date: Tue, 8 Nov 2016 18:07:41 +0000
+Message-ID: <BF6B00CC65FD2D45A326E74492B2C19FB7788B17@FR711WXCHMBA05.zeu.alcatel-lucent.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-To: Ross Zwisler <ross.zwisler-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161108174346.GA17545-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fr-hpida-esg-02.alcatel-lucent.com ([135.245.210.21]:53369 "EHLO
+        smtp-fr.alcatel-lucent.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750869AbcKHSHp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 13:07:45 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2016 12:43 PM, Ross Zwisler wrote:
-> On Tue, Nov 08, 2016 at 07:42:59AM -0500, Anna Schumaker wrote:
->> On 11/08/2016 07:09 AM, Jeff Layton wrote:
->>> On Tue, 2016-11-08 at 06:53 -0500, Jeff Layton wrote:
->>>> On Mon, 2016-11-07 at 22:42 -0700, Ross Zwisler wrote:
->>>>>
->>>>> I've got a virtual machine that has some NFS mounts, and with a newly compiled
->>>>> kernel based on v4.9-rc3 I see the following warning/info message:
->>>>>
->>>>> [   42.750181] ===============================
->>>>> [   42.750192] [ INFO: suspicious RCU usage. ]
->>>>> [   42.750203] 4.9.0-rc3-00002-g7b6e7de #3 Not tainted
->>>>> [   42.750213] -------------------------------
->>>>> [   42.750225] net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
->>>>> [   42.750235] 
->>>>> [   42.750235] other info that might help us debug this:
->>>>> [   42.750235] 
->>>>> [   42.750246] 
->>>>> [   42.750246] rcu_scheduler_active = 1, debug_locks = 0
->>>>> [   42.750257] 1 lock held by mount.nfs4/6440:
->>>>> [   42.750278]  #0: 
->>>>> [   42.750299]  (
->>>>> [   42.750319] &(&nn->nfs_client_lock)->rlock
->>>>> [   42.750340] ){+.+...}
->>>>> [   42.750362] , at: 
->>>>> [   42.750372] [<ffffffff813012b5>] nfs_get_client+0x105/0x5e0
->>>>> [   42.750383] 
->>>>> [   42.750383] stack backtrace:
->>>>> [   42.750394] CPU: 0 PID: 6440 Comm: mount.nfs4 Not tainted 4.9.0-rc3-00002-g7b6e7de #3
->>>>> [   42.750406] Hardware name: Intel Corporation PURLEY/PURLEY, BIOS PLYDCRB1.MBH.0096.D23.1608240105 08/24/2016
->>>>> [   42.750429]  ffffc9000092fa68 ffffffff8150730f ffff88014ec8da40 0000000000000001
->>>>> [   42.750452]  ffffc9000092fa98 ffffffff810bc3f7 ffff880150b0b228 ffff88015068dbb0
->>>>> [   42.750475]  ffffc9000092fb38 ffff88014fc99180 ffffc9000092fac0 ffffffff81b243e5
->>>>> [   42.750486] Call Trace:
->>>>> [   42.750498]  [<ffffffff8150730f>] dump_stack+0x67/0x98
->>>>> [   42.750511]  [<ffffffff810bc3f7>] lockdep_rcu_suspicious+0xe7/0x120
->>>>> [   42.750524]  [<ffffffff81b243e5>] rpc_clnt_xprt_switch_has_addr+0x115/0x150
->>>>> [   42.750536]  [<ffffffff813013f4>] nfs_get_client+0x244/0x5e0
->>>>> [   42.750549]  [<ffffffff813012ac>] ? nfs_get_client+0xfc/0x5e0
->>>>> [   42.750561]  [<ffffffff813568f8>] nfs4_set_client+0x98/0x130
->>>>> [   42.750574]  [<ffffffff8135872e>] nfs4_create_server+0x13e/0x390
->>>>> [   42.750588]  [<ffffffff8134cd0e>] nfs4_remote_mount+0x2e/0x60
->>>>> [   42.750600]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
->>>>> [   42.750614]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
->>>>> [   42.750626]  [<ffffffff8134cbec>] ? nfs_do_root_mount+0x3c/0xc0
->>>>> [   42.750639]  [<ffffffff8134cc36>] nfs_do_root_mount+0x86/0xc0
->>>>> [   42.750652]  [<ffffffff8134d014>] nfs4_try_mount+0x44/0xc0
->>>>> [   42.750664]  [<ffffffff81302097>] ? get_nfs_version+0x27/0x90
->>>>> [   42.750677]  [<ffffffff81310f8c>] nfs_fs_mount+0x4ac/0xd80
->>>>> [   42.750689]  [<ffffffff810bb938>] ? lockdep_init_map+0x88/0x1f0
->>>>> [   42.750701]  [<ffffffff81311ac0>] ? nfs_clone_super+0x130/0x130
->>>>> [   42.750713]  [<ffffffff8130f300>] ? param_set_portnr+0x70/0x70
->>>>> [   42.750726]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
->>>>> [   42.750740]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
->>>>> [   42.750752]  [<ffffffff812176f1>] do_mount+0x1f1/0xd10
->>>>> [   42.750765]  [<ffffffff81217441>] ? copy_mount_options+0xa1/0x140
->>>>> [   42.750777]  [<ffffffff81218543>] SyS_mount+0x83/0xd0
->>>>> [   42.750790]  [<ffffffff81002abc>] do_syscall_64+0x5c/0x130
->>>>> [   42.750802]  [<ffffffff81c479a4>] entry_SYSCALL64_slow_path+0x25/0x25
->>>>>
->>>>> This rcu_dereference_check() was introduced by the following commit:
->>>>>
->>>>> commit 39e5d2df959dd4aea81fa33d765d2a5cc67a0512
->>>>> Author: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
->>>>> Date:   Fri Sep 9 09:22:25 2016 -0400
->>>>>
->>>>>     SUNRPC search xprt switch for sockaddr
->>>>>     
->>>>>     Signed-off-by: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
->>>>>     Signed-off-by: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
->>>>>
->>>>> Thanks,
->>>>> - Ross
->>>>
->>>> Thanks Ross,
->>
->> Hi Ross,
->>
->> Can you try this patch and let me know if it helps:
->>
->> http://git.linux-nfs.org/?p=anna/linux-nfs.git;a=commitdiff;h=bb29dd84333a96f309c6d0f88b285b5b78927058
->>
->> I'm planning on sending it to Linus soon, so it should be in rc5.
-> 
-> Hi Anna,
-> 
-> Yep, this patch makes the warning go away in my setup.
-
-Great!  Thanks for testing!
-
-Anna
-
-> 
-> Thanks,
-> - Ross
-> 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+U2VlbXMgdG8gYmUgYSBsaW1pdGF0aW9uIGluIHRoZSBhcHBsaWNhdGlvbi4gV2UgdXNlZCBzY3As
+IGFuZCBpdCAoc3RpbGwpIHNlZW1zIHRvIGxpbWl0IHRoZSBieXRlcyBpbiBmbGlnaHQuIFVzaW5n
+IG91ciBvd24gYXBwbGljYXRpb24sIHdlIGRpZG4ndCBzZWUgYSBsaW1pdCBpbmRlZWQuIFRoYW5r
+cyBmb3IgeW91ciByZXNwb25zZSwgYW5kIHNvcnJ5IGZvciB0aGUgbm9pc2UuLi4NCg0KS29lbi4N
+Cg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBZdWNodW5nIENoZW5nIFtt
+YWlsdG86eWNoZW5nQGdvb2dsZS5jb21dDQo+IFNlbnQ6IGRpbnNkYWcgOCBub3ZlbWJlciAyMDE2
+IDU6NTENCj4gVG86IERlIFNjaGVwcGVyLCBLb2VuIChOb2tpYSAtIEJFKSA8a29lbi5kZV9zY2hl
+cHBlckBub2tpYS1iZWxsLQ0KPiBsYWJzLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmcNCj4gU3ViamVjdDogUmU6IElzIHRoZXJlIGEgbWF4aW11bSBieXRlcyBpbiBmbGlnaHQgbGlt
+aXRhdGlvbiBpbiB0aGUgdGNwIHN0YWNrPw0KPiANCj4gT24gVGh1LCBOb3YgMywgMjAxNiBhdCA5
+OjM3IEFNLCBEZSBTY2hlcHBlciwgS29lbiAoTm9raWEgLSBCRSkNCj4gPGtvZW4uZGVfc2NoZXBw
+ZXJAbm9raWEtYmVsbC1sYWJzLmNvbT4gd3JvdGU6DQo+ID4NCj4gPiBIaSwNCj4gPg0KPiA+IFdl
+IGV4cGVyaWVuY2Ugc29tZSBsaW1pdCBvbiB0aGUgbWF4aW11bSBwYWNrZXRzIGluIGZsaWdodCB3
+aGljaCBzZWVtDQo+IG5vdCB0byBiZSByZWxhdGVkIHdpdGggdGhlIHJlY2VpdmUgb3Igd3JpdGUg
+YnVmZmVycy4gRG9lcyBzb21lYm9keSBrbm93IGlmDQo+IHRoZXJlIGlzIGFuIGlzc3VlIHdpdGgg
+YSBtYXhpbXVtIG9mIGFyb3VuZCAxTUJ5dGUgKG9yIHNvbWV0aW1lcyAyTWJ5dGUpDQo+IG9mIGRh
+dGEgaW4gZmxpZ2h0IHBlciBUQ1AgZmxvdz8NCj4gDQo+IGRvZXMgbm90IHJpbmcgYSBiZWxsLiBJ
+J3ZlIGRlZmluaXRlbHkgc2VlIGN1YmljIHJlYWNoaW5nID4yTUIgY3duZCAoaW5mbGlnaHQpDQo+
+IHNvbWUgcGFja2V0IHRyYWNlIHdpbGwgaGVscC4NCj4gDQo+IGJ0dywgdGNwX3JtZW0gaXMgdGhl
+IG1heGltdW0gcmVjZWl2ZSBidWZmZXIgaW5jbHVkaW5nIGFsbCBoZWFkZXIgYW5kDQo+IGNvbnRy
+b2wgb3ZlcmhlYWQuIHRoZSByZWNlaXZlIHdpbmRvdyBhbm5vdW5jZWQgaXMgKHZlcnkgcm91Z2hs
+eSkgaGFsZg0KPiBvZiB5b3VyIHJjdmJ1Zi4NCj4gDQo+ID4NCj4gPiBJdCBzZWVtcyB0byBiZSBh
+IHN0cmljdCBhbmQgc3RhYmxlIGxpbWl0IGluZGVwZW5kZW50IGZyb20gdGhlIENDICh0ZXN0ZWQN
+Cj4gd2l0aCBDdWJpYywgUmVubyBhbmQgRENUQ1ApLiBPbiBhIGxpbmsgb2YgMjAwTWJwcyBhbmQg
+MjAwbXMgUlRUIG91ciBsaW5rIGlzDQo+IG9ubHkgMjAlIChzb21ldGltZXMgNDAlLCBzZWUgY29u
+ZGl0aW9ucyBiZWxvdykgdXRpbGl6ZWQgZm9yIGEgc2luZ2xlIFRDUA0KPiBmbG93IHdpdGggbm8g
+ZHJvcCBleHBlcmllbmNlZCBhdCBhbGwgKG5vIGJvdHRsZW5lY2sgaW4gdGhlIEFRTSBvciBSVFQN
+Cj4gZW11bGF0aW9uLCBhcyBpdCBzdXBwb3J0cyBtb3JlIHRocm91Z2hwdXQgaWYgbXVsdGlwbGUg
+Zmxvd3MgYXJlIGFjdGl2ZSkuDQo+ID4NCj4gPiBTb21lIGNvbmZpZ3VyYXRpb24gY2hhbmdlcyB3
+ZSBhbHJlYWR5IHRyaWVkIG9uIGJvdGggY2xpZW50IGFuZCBzZXJ2ZXINCj4gKGtlcm5lbCAzLjE4
+LjkpOg0KPiA+DQo+ID4gbmV0LmlwdjQudGNwX25vX21ldHJpY3Nfc2F2ZSA9IDENCj4gPiBuZXQu
+aXB2NC50Y3Bfcm1lbSA9IDQwOTYgODczODAgNjI5MTQ1Ng0KPiA+IG5ldC5pcHY0LnRjcF93bWVt
+ID0gNDA5NiAxNjM4NCA0MTk0MzA0DQo+ID4NCj4gPiBTRVJWRVIjIHNzIC1pDQo+ID4gdGNwICAg
+IEVTVEFCICAgICAgMCAgICAgIDEwNDk3MjggIDEwLjE4Ny4yNTUuMjExOjQ2NjQyICAgICAxMC4x
+ODcuMTYuMTk0OnNzaA0KPiA+ICAgICAgICAgIGRjdGNwIHdzY2FsZTo3LDcgcnRvOjQwOCBydHQ6
+MjA0LjMzMy8wLjc0MSBhdG86NDAgbXNzOjE0NDggY3duZDoxNDY2DQo+IHNlbmQgODMuMU1icHMg
+dW5hY2tlZDo3MjggcmN2X3J0dDoyMTIgcmN2X3NwYWNlOjI5MjAwDQo+ID4gQ0xJRU5UIyBzcyAt
+aQ0KPiA+IHRjcCAgICBFU1RBQiAgICAgIDAgICAgICAyODggICAgICAxMC4xODcuMTYuMTk0OnNz
+aCAgICAgIDEwLjE4Ny4yNTUuMjExOjQ2NjQyDQo+ID4gICAgICAgICAgZGN0Y3Agd3NjYWxlOjcs
+NyBydG86NDA0IHJ0dDoyMDMuMzg5LzAuMjEzIGF0bzo0MCBtc3M6MTQ0OCBjd25kOjc4DQo+IHNl
+bmQgNC40TWJwcyB1bmFja2VkOjggcmN2X3J0dDoyMDQgcmN2X3NwYWNlOjEwNzQ4NDQNCj4gPg0K
+PiA+IFdoZW4gaW5jcmVhc2luZyB0aGUgd3JpdGUgYW5kIHJlY2VpdmUgbWVtIGZ1cnRoZXIgKHRo
+ZXkgd2VyZSBhbHJlYWR5DQo+IHdheSBhYm92ZSAxIG9yIDIgTUIpIGl0IHN0ZXBzIHRvIGRvdWJs
+ZSAoNDAlOyAyTWJ5dGVzIGluIGZsaWdodCk6DQo+ID4gbmV0LmlwdjQudGNwX25vX21ldHJpY3Nf
+c2F2ZSA9IDENCj4gPiBuZXQuaXB2NC50Y3Bfcm1lbSA9IDQwOTYgODAwMDAwMCAxNjI5MTQ1Ng0K
+PiA+IG5ldC5pcHY0LnRjcF93bWVtID0gNDA5NiA4MDAwMDAwIDE2MjkxNDU2DQo+ID4NCj4gPiBT
+RVJWRVIgIyBzcyAtaQ0KPiA+IHRjcCAgICBFU1RBQiAgICAgIDAgICAgICAyMDY4OTc2ICAxMC4x
+ODcuMjU1LjIxMjo1NDYzNyAgICAgMTAuMTg3LjE2LjExMjpzc2gNCj4gPiAgICAgICAgICBjdWJp
+YyB3c2NhbGU6OCw4IHJ0bzo0MDQgcnR0OjIwMi42MjIvMC4wNjEgYXRvOjQwIG1zczoxNDQ4IGN3
+bmQ6MTg0OQ0KPiBzc3RocmVzaDoxMTQwIHNlbmQgMTA1LjdNYnBzIHVuYWNrZWQ6MTQ1NyByY3Zf
+cnR0OjIxNy41IHJjdl9zcGFjZToyOTIwMA0KPiA+IENMSUVOVCMgc3MgLWkNCj4gPiB0Y3AgICAg
+RVNUQUIgICAgICAwICAgICAgNjQ4ICAgICAgMTAuMTg3LjE2LjExMjpzc2ggICAgICAxMC4xODcu
+MjU1LjIxMjo1NDYzNw0KPiA+ICAgICAgICAgIGN1YmljIHdzY2FsZTo4LDggcnRvOjQwNCBydHQ6
+MjAxLjk1Ni8wLjAzOCBhdG86NDAgbXNzOjE0NDggY3duZDoxMzINCj4gc2VuZCA3LjZNYnBzIHVu
+YWNrZWQ6MTggcmN2X3J0dDoyMDQgcmN2X3NwYWNlOjIwOTMwNDQNCj4gPg0KPiA+IEZ1cnRoZXIg
+aW5jcmVhc2luZyAoeDEwKSBkb2VzIG5vdCBoZWxwIGFueW1vcmUuLi4NCj4gPiBuZXQuaXB2NC50
+Y3Bfbm9fbWV0cmljc19zYXZlID0gMQ0KPiA+IG5ldC5pcHY0LnRjcF9ybWVtID0gNDA5NiA4MDAw
+MDAwMCAxNjI5MTQ1NjANCj4gPiBuZXQuaXB2NC50Y3Bfd21lbSA9IDQwOTYgODAwMDAwMDAgMTYy
+OTE0NTYwDQo+ID4NCj4gPiBBcyBhbGwgdGhlc2UgcGFyYW1ldGVycyBhdXRvdHVuZSwgaXQgaXMg
+aGFyZCB0byBmaW5kIG91dCB3aGljaCBvbmUgaXMNCj4gbGltaXRpbmcuLi4gSW4gdGhlIGV4YW1w
+bGVzLCBhYm92ZSB1bmFja2VkIGRvZXMgbm90IHdhbnQgdG8gZ28gaGlnaGVyLCB3aGlsZQ0KPiBj
+b25nZXN0aW9uIHdpbmRvdyBpbiB0aGUgc2VydmVyIGlzIGJpZyBlbm91Z2guLi4gcmN2X3NwYWNl
+IGNvdWxkIGJlIGxpbWl0aW5nLA0KPiBidXQgaXQgdHVuZXMgdXAgaWYgSSBjaGFuZ2UgdGhlIHNl
+cnZlciB3aXRoIHRoZSBoaWdoZXIgYnVmZmVycyAoc3dpdGNoaW5nIHRvDQo+IDJNQnl0ZSBpbiBm
+bGlnaHQpLg0KPiA+DQo+ID4gV2UgYWxzbyB0cmllZCB0Y3BfbGltaXRfb3V0cHV0X2J5dGVzLCBz
+ZXR0aW5nIGl0IGJpZ2dlciAoeDEwKSBhbmQNCj4gc21hbGxlcigvMTApLCB3aXRob3V0IGVmZmVj
+dC4gV2UndmUgcHV0IGl0IGluIC9ldGMvc3lzY3RsLmNvbmYgYW5kIHJlYm9vdGVkLCB0bw0KPiBt
+YWtlIHN1cmUgdGhhdCBpdCBpcyBlZmZlY3RpdmUuDQo+ID4NCj4gPiBTb21lIG1vcmUgZGV0YWls
+ZWQgdGVzdHMgdGhhdCBoYWQgYW4gZWZmZWN0IG9uIHRoZSAxIG9yIDJNQnl0ZToNCj4gPiAtIEl0
+IHNlZW1zIHRoYXQgd2l0aCBUU08gb2ZmLCBpZiB3ZSBjb25maWd1cmUgYSBiaWdnZXIgd21lbSBi
+dWZmZXIsIGFuDQo+IG9uZ29pbmcgZmxvdyBzdWRkZW5seSBpcyBhYmxlIHRvIGltbWVkaWF0ZWx5
+IGRvdWJsZSBpdHMgYnl0ZXMgaW4gZmxpZ2h0IGxpbWl0Lg0KPiBXZSBjb25maWd1cmVkIGZ1cnRo
+ZXIgdXAgdG8gbW9yZSB0aGFuIDEweCB0aGUgYnVmZmVyLCBidXQgbm8gZnVydGhlcg0KPiBpbmNy
+ZWFzZSBoZWxwcywgYW5kIHRoZSBsaW1pdHMgd2Ugc2F3IGFyZSBvbmx5IDFNQnl0ZSBhbmQgMk1i
+eXRlIChubw0KPiBpbnRlcm1lZGlhdGUgdmFsdWVzIGRlcGVuZGluZyBvbiBhbnkgcGFyYW1ldGVy
+KS4gV2hlbiBzZXR0aW5nIHRjcF93bWVtDQo+IHNtYWxsZXIgYWdhaW4sIHRoZSAyTUJ5dGUgbGlt
+aXQgc3RheXMgb24gdGhlIG9uZ29pbmcgZmxvdy4gV2UgaGF2ZSB0byByZXN0YXJ0DQo+IHRoZSBm
+bG93IHRvIG1ha2UgdGhlIGJ1ZmZlciByZWR1Y3Rpb24gdG8gMU1CeXRlIGVmZmVjdGl2ZS4NCj4g
+PiAtIFdpdGggVFNPIG9uLCBvbmx5IHRoZSAyTUJ5dGUgbGltaXQgaXMgZWZmZWN0aXZlLCBpbmRl
+cGVuZGVudCBmcm9tIHRoZQ0KPiB3bWVtIGJ1ZmZlci4gV2UgaGF2ZSB0byByZXN0YXJ0IHRoZSBm
+bG93IHRvIG1ha2UgYSB0c28gY2hhbmdlIGVmZmVjdGl2ZS4NCj4gPg0KPiA+IEtvZW4uDQo+ID4N
+Cg==
