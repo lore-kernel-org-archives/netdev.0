@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] igmp: Make igmp group member RFC 3376 compliant
-Date: Mon, 07 Nov 2016 20:13:45 -0500 (EST)
-Message-ID: <20161107.201345.1974283028907025304.davem@davemloft.net>
-References: <20161103093834.GA31875@sparky-lenivo.brq.redhat.com>
+Subject: Re: [net-next PATCH 0/3] qdisc and tx_queue_len cleanups for
+ IFF_NO_QUEUE devices
+Date: Mon, 07 Nov 2016 20:16:15 -0500 (EST)
+Message-ID: <20161107.201615.15893986035760466.davem@davemloft.net>
+References: <20161103135534.28737.37657.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        netdev@vger.kernel.org
-To: mtesar@redhat.com
+Cc: netdev@vger.kernel.org, phil@nwl.cc, robert@herjulf.se,
+        jhs@mojatatu.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47538 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47614 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751741AbcKHBNr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 20:13:47 -0500
-In-Reply-To: <20161103093834.GA31875@sparky-lenivo.brq.redhat.com>
+        with ESMTP id S1751227AbcKHBQR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 20:16:17 -0500
+In-Reply-To: <20161103135534.28737.37657.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Tesar <mtesar@redhat.com>
-Date: Thu, 3 Nov 2016 10:38:34 +0100
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Thu, 03 Nov 2016 14:55:56 +0100
 
->  2. If the received Query is a General Query, the interface timer is
->     used to schedule a response to the General Query after the
->     selected delay.  Any previously pending response to a General
->     Query is canceled.
-> --8<--
-> 
-> Currently the timer is rearmed with new random expiration time for
-> every incoming query regardless of possibly already pending report.
-> Which is not aligned with the above RFE.
+> This patchset is a cleanup for IFF_NO_QUEUE devices.  It will
+> hopefully help userspace get a more consistent behavior when attaching
+> qdisc to such virtual devices.
 
-I don't read it that way.  #2 says if this is a general query then any
-pending response to a general query is cancelled.  And that's
-effectively what the code is doing right now.
+Series applied, thanks Jesper.
