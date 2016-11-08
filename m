@@ -1,58 +1,43 @@
-From: Sven Eckelmann <sven@narfation.org>
-Subject: Re: [PATCH 13/17] batman-adv: Consume skb in receive handlers
-Date: Tue, 08 Nov 2016 20:05:12 +0100
-Message-ID: <3014212.KTtP4ZxDTH@sven-edge>
-References: <20161108164526.7518-1-sw@simonwunderlich.de> <2044854.g075mifYzn@bentobox> <1478626981.17367.16.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next 1/2] bnxt_en: do not call napi_hash_add()
+Date: Tue, 08 Nov 2016 11:06:53 -0800
+Message-ID: <1478632013.17367.23.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart4301090.dxVAeb7ts5"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: Simon Wunderlich <sw@simonwunderlich.de>, davem@davemloft.net,
-        netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Michael Chan <michael.chan@broadcom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:49502 "EHLO v3-1039.vlinux.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753358AbcKHTFW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Nov 2016 14:05:22 -0500
-In-Reply-To: <1478626981.17367.16.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36470 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751865AbcKHTGz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 14:06:55 -0500
+Received: by mail-pf0-f194.google.com with SMTP id n85so20522244pfi.3
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 11:06:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart4301090.dxVAeb7ts5
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+From: Eric Dumazet <edumazet@google.com>
 
-On Dienstag, 8. November 2016 09:43:01 CET Eric Dumazet wrote:
-[...]
-> Sure, but your patch 13/17 should address this right away.
-[...]
+This is automatically done from netif_napi_add(), and we want to not
+export napi_hash_add() anymore in the following patch.
 
-Fair enough. I've asked Simon to resubmit the patches with the
-"consume_skb -> conditional kfree_skb/consume_skb" patch squashed
-into patch 13.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-Kind regards,
-	Sven
-
---nextPart4301090.dxVAeb7ts5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABCgAGBQJYIiHoAAoJEF2HCgfBJntGMVkP/2iOM+5iWWxrl68tAhsqOVXn
-T9Khl+S8DOYkw2VZTphJ1VtAWRBUgAn80zH0V4FaD3qd6ImG8AD6hWFdt6i/94hK
-1TiSqUgn5qkzwGRGxEcpXmgiYcavY1DbNFXTVnqidxA5602wk6/DnyE4nDCq0y/5
-aACJdj9iadort5+rXUFX70KRs/tcF78piKaN4LNwtq5pxLV+MY1OjHqPpc6oI7XX
-6f69dG0LDTcNR7RhwjVDRcV0aTpXnVhEjUTckDVWkWM5cEZAbBHlQ1WKDZm0kbT2
-YicNtLvb+gEDK1CZx9tkYanQwNXc47HnRW0TcTASAo7GchPy+2xosO96yWtES/UP
-owPEyP8PtYche41Xxr4YLNecqPeRcTI/GPOydNSLraVXEkPy8Kv2ZxbbyKQKPn+a
-F0GdlPnCDbPzashGBf3cjCdCySFveypumR1kwvtO4gVK17dG7kKfo8dYYj1aDfl/
-IugWyIysjzES+Q02LEa4RFLQFkM54rOGfcNOB99OuKlkxZUAV22XUa3JaAO2kN83
-8bfvbzoFzJj4VEMyWZINGgiRVe9CBm1xz87BIUQPObldQcBMW1mChq5PkxhXHpcs
-i6m03UHxbvdgY8FEsqw1MZ95e6h280YtFKoNdE3WFUIckZFHSvyuhTBHH9ema2e6
-/1Qo/gSONzEvh45UKvLF
-=7vpt
------END PGP SIGNATURE-----
-
---nextPart4301090.dxVAeb7ts5--
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index a042da1ff4b90e9aae4f76db71c99c2c4da321d3..d313b02485a10b2b7995076578ce3632865b475f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4954,7 +4954,6 @@ static void bnxt_init_napi(struct bnxt *bp)
+ 			bnapi = bp->bnapi[cp_nr_rings];
+ 			netif_napi_add(bp->dev, &bnapi->napi,
+ 				       bnxt_poll_nitroa0, 64);
+-			napi_hash_add(&bnapi->napi);
+ 		}
+ 	} else {
+ 		bnapi = bp->bnapi[0];
