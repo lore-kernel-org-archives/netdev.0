@@ -1,29 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/3] qdisc and tx_queue_len cleanups for
- IFF_NO_QUEUE devices
-Date: Mon, 07 Nov 2016 20:16:15 -0500 (EST)
-Message-ID: <20161107.201615.15893986035760466.davem@davemloft.net>
-References: <20161103135534.28737.37657.stgit@firesoul>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH] igb/e1000: correct register comments
+Date: Tue, 8 Nov 2016 01:17:18 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81FC45FC@ORSMSX101.amr.corp.intel.com>
+References: <1478071215-5122-1-git-send-email-caoj.fnst@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, phil@nwl.cc, robert@herjulf.se,
-        jhs@mojatatu.com
-To: brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47614 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751227AbcKHBQR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 20:16:17 -0500
-In-Reply-To: <20161103135534.28737.37657.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Cao jin <caoj.fnst@cn.fujitsu.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478071215-5122-1-git-send-email-caoj.fnst@cn.fujitsu.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Thu, 03 Nov 2016 14:55:56 +0100
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Cao jin
+> Sent: Wednesday, November 2, 2016 12:20 AM
+> To: linux-kernel@vger.kernel.org; netdev@vger.kernel.org
+> Cc: intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T
+> <jeffrey.t.kirsher@intel.com>
+> Subject: [PATCH] igb/e1000: correct register comments
+> 
+> Signed-off-by: Cao jin <caoj.fnst@cn.fujitsu.com>
+> ---
+>  drivers/net/ethernet/intel/igb/e1000_regs.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-> This patchset is a cleanup for IFF_NO_QUEUE devices.  It will
-> hopefully help userspace get a more consistent behavior when attaching
-> qdisc to such virtual devices.
-
-Series applied, thanks Jesper.
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
