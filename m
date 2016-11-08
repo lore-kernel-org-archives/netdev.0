@@ -1,111 +1,89 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: Is there a maximum bytes in flight limitation in the tcp stack?
-Date: Mon, 7 Nov 2016 20:50:54 -0800
-Message-ID: <CAK6E8=ed4yer_OLzRzUCfrU-80qC+txQ8n5UnUDT_X=3=YHLRw@mail.gmail.com>
-References: <BF6B00CC65FD2D45A326E74492B2C19FB77853E9@FR711WXCHMBA05.zeu.alcatel-lucent.com>
+From: Ross Zwisler <ross.zwisler-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
+Date: Mon, 7 Nov 2016 22:42:02 -0700
+Message-ID: <20161108054202.GA12406@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "De Schepper, Koen (Nokia - BE)"
-        <koen.de_schepper@nokia-bell-labs.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f48.google.com ([209.85.214.48]:33974 "EHLO
-        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751081AbcKHEvg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 23:51:36 -0500
-Received: by mail-it0-f48.google.com with SMTP id q124so15307767itd.1
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2016 20:51:35 -0800 (PST)
-In-Reply-To: <BF6B00CC65FD2D45A326E74492B2C19FB77853E9@FR711WXCHMBA05.zeu.alcatel-lucent.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 3, 2016 at 9:37 AM, De Schepper, Koen (Nokia - BE)
-<koen.de_schepper@nokia-bell-labs.com> wrote:
->
-> Hi,
->
-> We experience some limit on the maximum packets in flight which seem not =
-to be related with the receive or write buffers. Does somebody know if ther=
-e is an issue with a maximum of around 1MByte (or sometimes 2Mbyte) of data=
- in flight per TCP flow?
+I've got a virtual machine that has some NFS mounts, and with a newly compiled
+kernel based on v4.9-rc3 I see the following warning/info message:
 
-does not ring a bell. I've definitely see cubic reaching >2MB cwnd (infligh=
-t)
-some packet trace will help.
+[   42.750181] ===============================
+[   42.750192] [ INFO: suspicious RCU usage. ]
+[   42.750203] 4.9.0-rc3-00002-g7b6e7de #3 Not tainted
+[   42.750213] -------------------------------
+[   42.750225] net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
+[   42.750235] 
+[   42.750235] other info that might help us debug this:
+[   42.750235] 
+[   42.750246] 
+[   42.750246] rcu_scheduler_active = 1, debug_locks = 0
+[   42.750257] 1 lock held by mount.nfs4/6440:
+[   42.750278]  #0: 
+[   42.750299]  (
+[   42.750319] &(&nn->nfs_client_lock)->rlock
+[   42.750340] ){+.+...}
+[   42.750362] , at: 
+[   42.750372] [<ffffffff813012b5>] nfs_get_client+0x105/0x5e0
+[   42.750383] 
+[   42.750383] stack backtrace:
+[   42.750394] CPU: 0 PID: 6440 Comm: mount.nfs4 Not tainted 4.9.0-rc3-00002-g7b6e7de #3
+[   42.750406] Hardware name: Intel Corporation PURLEY/PURLEY, BIOS PLYDCRB1.MBH.0096.D23.1608240105 08/24/2016
+[   42.750429]  ffffc9000092fa68 ffffffff8150730f ffff88014ec8da40 0000000000000001
+[   42.750452]  ffffc9000092fa98 ffffffff810bc3f7 ffff880150b0b228 ffff88015068dbb0
+[   42.750475]  ffffc9000092fb38 ffff88014fc99180 ffffc9000092fac0 ffffffff81b243e5
+[   42.750486] Call Trace:
+[   42.750498]  [<ffffffff8150730f>] dump_stack+0x67/0x98
+[   42.750511]  [<ffffffff810bc3f7>] lockdep_rcu_suspicious+0xe7/0x120
+[   42.750524]  [<ffffffff81b243e5>] rpc_clnt_xprt_switch_has_addr+0x115/0x150
+[   42.750536]  [<ffffffff813013f4>] nfs_get_client+0x244/0x5e0
+[   42.750549]  [<ffffffff813012ac>] ? nfs_get_client+0xfc/0x5e0
+[   42.750561]  [<ffffffff813568f8>] nfs4_set_client+0x98/0x130
+[   42.750574]  [<ffffffff8135872e>] nfs4_create_server+0x13e/0x390
+[   42.750588]  [<ffffffff8134cd0e>] nfs4_remote_mount+0x2e/0x60
+[   42.750600]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
+[   42.750614]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
+[   42.750626]  [<ffffffff8134cbec>] ? nfs_do_root_mount+0x3c/0xc0
+[   42.750639]  [<ffffffff8134cc36>] nfs_do_root_mount+0x86/0xc0
+[   42.750652]  [<ffffffff8134d014>] nfs4_try_mount+0x44/0xc0
+[   42.750664]  [<ffffffff81302097>] ? get_nfs_version+0x27/0x90
+[   42.750677]  [<ffffffff81310f8c>] nfs_fs_mount+0x4ac/0xd80
+[   42.750689]  [<ffffffff810bb938>] ? lockdep_init_map+0x88/0x1f0
+[   42.750701]  [<ffffffff81311ac0>] ? nfs_clone_super+0x130/0x130
+[   42.750713]  [<ffffffff8130f300>] ? param_set_portnr+0x70/0x70
+[   42.750726]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
+[   42.750740]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
+[   42.750752]  [<ffffffff812176f1>] do_mount+0x1f1/0xd10
+[   42.750765]  [<ffffffff81217441>] ? copy_mount_options+0xa1/0x140
+[   42.750777]  [<ffffffff81218543>] SyS_mount+0x83/0xd0
+[   42.750790]  [<ffffffff81002abc>] do_syscall_64+0x5c/0x130
+[   42.750802]  [<ffffffff81c479a4>] entry_SYSCALL64_slow_path+0x25/0x25
 
-btw, tcp_rmem is the maximum receive buffer including all header and
-control overhead. the receive window announced is (very roughly) half
-of your rcvbuf.
+This rcu_dereference_check() was introduced by the following commit:
 
->
-> It seems to be a strict and stable limit independent from the CC (tested =
-with Cubic, Reno and DCTCP). On a link of 200Mbps and 200ms RTT our link is=
- only 20% (sometimes 40%, see conditions below) utilized for a single TCP f=
-low with no drop experienced at all (no bottleneck in the AQM or RTT emulat=
-ion, as it supports more throughput if multiple flows are active).
->
-> Some configuration changes we already tried on both client and server (ke=
-rnel 3.18.9):
->
-> net.ipv4.tcp_no_metrics_save =3D 1
-> net.ipv4.tcp_rmem =3D 4096 87380 6291456
-> net.ipv4.tcp_wmem =3D 4096 16384 4194304
->
-> SERVER# ss -i
-> tcp    ESTAB      0      1049728  10.187.255.211:46642     10.187.16.194:=
-ssh
->          dctcp wscale:7,7 rto:408 rtt:204.333/0.741 ato:40 mss:1448 cwnd:=
-1466 send 83.1Mbps unacked:728 rcv_rtt:212 rcv_space:29200
-> CLIENT# ss -i
-> tcp    ESTAB      0      288      10.187.16.194:ssh      10.187.255.211:4=
-6642
->          dctcp wscale:7,7 rto:404 rtt:203.389/0.213 ato:40 mss:1448 cwnd:=
-78 send 4.4Mbps unacked:8 rcv_rtt:204 rcv_space:1074844
->
-> When increasing the write and receive mem further (they were already way =
-above 1 or 2 MB) it steps to double (40%; 2Mbytes in flight):
-> net.ipv4.tcp_no_metrics_save =3D 1
-> net.ipv4.tcp_rmem =3D 4096 8000000 16291456
-> net.ipv4.tcp_wmem =3D 4096 8000000 16291456
->
-> SERVER # ss -i
-> tcp    ESTAB      0      2068976  10.187.255.212:54637     10.187.16.112:=
-ssh
->          cubic wscale:8,8 rto:404 rtt:202.622/0.061 ato:40 mss:1448 cwnd:=
-1849 ssthresh:1140 send 105.7Mbps unacked:1457 rcv_rtt:217.5 rcv_space:2920=
-0
-> CLIENT# ss -i
-> tcp    ESTAB      0      648      10.187.16.112:ssh      10.187.255.212:5=
-4637
->          cubic wscale:8,8 rto:404 rtt:201.956/0.038 ato:40 mss:1448 cwnd:=
-132 send 7.6Mbps unacked:18 rcv_rtt:204 rcv_space:2093044
->
-> Further increasing (x10) does not help anymore...
-> net.ipv4.tcp_no_metrics_save =3D 1
-> net.ipv4.tcp_rmem =3D 4096 80000000 162914560
-> net.ipv4.tcp_wmem =3D 4096 80000000 162914560
->
-> As all these parameters autotune, it is hard to find out which one is lim=
-iting... In the examples, above unacked does not want to go higher, while c=
-ongestion window in the server is big enough... rcv_space could be limiting=
-, but it tunes up if I change the server with the higher buffers (switching=
- to 2MByte in flight).
->
-> We also tried tcp_limit_output_bytes, setting it bigger (x10) and smaller=
-(/10), without effect. We've put it in /etc/sysctl.conf and rebooted, to ma=
-ke sure that it is effective.
->
-> Some more detailed tests that had an effect on the 1 or 2MByte:
-> - It seems that with TSO off, if we configure a bigger wmem buffer, an on=
-going flow suddenly is able to immediately double its bytes in flight limit=
-. We configured further up to more than 10x the buffer, but no further incr=
-ease helps, and the limits we saw are only 1MByte and 2Mbyte (no intermedia=
-te values depending on any parameter). When setting tcp_wmem smaller again,=
- the 2MByte limit stays on the ongoing flow. We have to restart the flow to=
- make the buffer reduction to 1MByte effective.
-> - With TSO on, only the 2MByte limit is effective, independent from the w=
-mem buffer. We have to restart the flow to make a tso change effective.
->
-> Koen.
->
+commit 39e5d2df959dd4aea81fa33d765d2a5cc67a0512
+Author: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Date:   Fri Sep 9 09:22:25 2016 -0400
+
+    SUNRPC search xprt switch for sockaddr
+    
+    Signed-off-by: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+    Signed-off-by: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
+
+Thanks,
+- Ross
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
