@@ -1,284 +1,670 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 07/17] batman-adv: Use own timer for multicast TT and TVLV updates
-Date: Tue,  8 Nov 2016 17:45:16 +0100
-Message-ID: <20161108164526.7518-8-sw@simonwunderlich.de>
+Subject: [PATCH 13/17] batman-adv: Consume skb in receive handlers
+Date: Tue,  8 Nov 2016 17:45:22 +0100
+Message-ID: <20161108164526.7518-14-sw@simonwunderlich.de>
 References: <20161108164526.7518-1-sw@simonwunderlich.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
         Sven Eckelmann <sven@narfation.org>,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:48897 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:48903 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753940AbcKHQqA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 11:46:00 -0500
+        with ESMTP id S1753882AbcKHQqB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 11:46:01 -0500
 In-Reply-To: <20161108164526.7518-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Lüssing <linus.luessing@c0d3.blue>
+From: Sven Eckelmann <sven@narfation.org>
 
-Instead of latching onto the OGM period, this patch introduces a worker
-dedicated to multicast TT and TVLV updates.
+Receiving functions in Linux consume the supplied skbuff. Doing the same in
+the batadv_rx_handler functions makes the behavior more similar to the rest
+of the Linux network code.
 
-The reasoning is, that upon roaming especially the translation table
-should be updated timely to minimize connectivity issues.
-
-With BATMAN V, the idea is to greatly increase the OGM interval to
-reduce overhead. Unfortunately, right now this could lead to
-a bad user experience if multicast traffic is involved.
-
-Therefore this patch introduces a fixed 500ms update interval for
-multicast TT entries and the multicast TVLV.
-
-Signed-off-by: Linus Lüssing <linus.luessing@c0d3.blue>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/main.h              |  1 +
- net/batman-adv/multicast.c         | 62 ++++++++++++++++++++++++++++++++++----
- net/batman-adv/multicast.h         |  6 ----
- net/batman-adv/translation-table.c |  4 ---
- net/batman-adv/types.h             |  4 ++-
- 5 files changed, 60 insertions(+), 17 deletions(-)
+ net/batman-adv/bat_iv_ogm.c     |  17 +++--
+ net/batman-adv/bat_v_elp.c      |  25 ++++---
+ net/batman-adv/bat_v_ogm.c      |  10 +--
+ net/batman-adv/main.c           |  11 +--
+ net/batman-adv/network-coding.c |  11 +--
+ net/batman-adv/routing.c        | 149 +++++++++++++++++++++++++++-------------
+ 6 files changed, 141 insertions(+), 82 deletions(-)
 
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index daddca9..a6cc804 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -48,6 +48,7 @@
- #define BATADV_TT_CLIENT_TEMP_TIMEOUT 600000 /* in milliseconds */
- #define BATADV_TT_WORK_PERIOD 5000 /* 5 seconds */
- #define BATADV_ORIG_WORK_PERIOD 1000 /* 1 second */
-+#define BATADV_MCAST_WORK_PERIOD 500 /* 0.5 seconds */
- #define BATADV_DAT_ENTRY_TIMEOUT (5 * 60000) /* 5 mins in milliseconds */
- /* sliding packet range of received originator messages in sequence numbers
-  * (should be a multiple of our word size)
-diff --git a/net/batman-adv/multicast.c b/net/batman-adv/multicast.c
-index 45757fa..090a69f 100644
---- a/net/batman-adv/multicast.c
-+++ b/net/batman-adv/multicast.c
-@@ -33,6 +33,7 @@
- #include <linux/in6.h>
- #include <linux/ip.h>
- #include <linux/ipv6.h>
-+#include <linux/jiffies.h>
- #include <linux/kernel.h>
- #include <linux/kref.h>
- #include <linux/list.h>
-@@ -48,6 +49,7 @@
- #include <linux/stddef.h>
- #include <linux/string.h>
- #include <linux/types.h>
-+#include <linux/workqueue.h>
- #include <net/addrconf.h>
- #include <net/if_inet6.h>
- #include <net/ip.h>
-@@ -60,6 +62,18 @@
- #include "translation-table.h"
- #include "tvlv.h"
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 310f391..b9941bf 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -1823,17 +1823,18 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
+ 	struct batadv_ogm_packet *ogm_packet;
+ 	u8 *packet_pos;
+ 	int ogm_offset;
+-	bool ret;
++	bool res;
++	int ret = NET_RX_DROP;
  
-+static void batadv_mcast_mla_update(struct work_struct *work);
+-	ret = batadv_check_management_packet(skb, if_incoming, BATADV_OGM_HLEN);
+-	if (!ret)
+-		return NET_RX_DROP;
++	res = batadv_check_management_packet(skb, if_incoming, BATADV_OGM_HLEN);
++	if (!res)
++		goto free_skb;
+ 
+ 	/* did we receive a B.A.T.M.A.N. IV OGM packet on an interface
+ 	 * that does not have B.A.T.M.A.N. IV enabled ?
+ 	 */
+ 	if (bat_priv->algo_ops->iface.enable != batadv_iv_ogm_iface_enable)
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	batadv_inc_counter(bat_priv, BATADV_CNT_MGMT_RX);
+ 	batadv_add_counter(bat_priv, BATADV_CNT_MGMT_RX_BYTES,
+@@ -1854,8 +1855,12 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
+ 		ogm_packet = (struct batadv_ogm_packet *)packet_pos;
+ 	}
+ 
++	ret = NET_RX_SUCCESS;
 +
-+/**
-+ * batadv_mcast_start_timer - schedule the multicast periodic worker
-+ * @bat_priv: the bat priv with all the soft interface information
-+ */
-+static void batadv_mcast_start_timer(struct batadv_priv *bat_priv)
-+{
-+	queue_delayed_work(batadv_event_workqueue, &bat_priv->mcast.work,
-+			   msecs_to_jiffies(BATADV_MCAST_WORK_PERIOD));
-+}
++free_skb:
+ 	consume_skb(skb);
+-	return NET_RX_SUCCESS;
 +
- /**
-  * batadv_mcast_get_bridge - get the bridge on top of the softif if it exists
-  * @soft_iface: netdev struct of the mesh interface
-@@ -255,6 +269,8 @@ static void batadv_mcast_mla_list_free(struct hlist_head *mcast_list)
-  * translation table except the ones listed in the given mcast_list.
-  *
-  * If mcast_list is NULL then all are retracted.
-+ *
-+ * Do not call outside of the mcast worker! (or cancel mcast worker first)
-  */
- static void batadv_mcast_mla_tt_retract(struct batadv_priv *bat_priv,
- 					struct hlist_head *mcast_list)
-@@ -262,7 +278,7 @@ static void batadv_mcast_mla_tt_retract(struct batadv_priv *bat_priv,
- 	struct batadv_hw_addr *mcast_entry;
- 	struct hlist_node *tmp;
- 
--	lockdep_assert_held(&bat_priv->tt.commit_lock);
-+	WARN_ON(delayed_work_pending(&bat_priv->mcast.work));
- 
- 	hlist_for_each_entry_safe(mcast_entry, tmp, &bat_priv->mcast.mla_list,
- 				  list) {
-@@ -287,6 +303,8 @@ static void batadv_mcast_mla_tt_retract(struct batadv_priv *bat_priv,
-  *
-  * Adds multicast listener announcements from the given mcast_list to the
-  * translation table if they have not been added yet.
-+ *
-+ * Do not call outside of the mcast worker! (or cancel mcast worker first)
-  */
- static void batadv_mcast_mla_tt_add(struct batadv_priv *bat_priv,
- 				    struct hlist_head *mcast_list)
-@@ -294,7 +312,7 @@ static void batadv_mcast_mla_tt_add(struct batadv_priv *bat_priv,
- 	struct batadv_hw_addr *mcast_entry;
- 	struct hlist_node *tmp;
- 
--	lockdep_assert_held(&bat_priv->tt.commit_lock);
-+	WARN_ON(delayed_work_pending(&bat_priv->mcast.work));
- 
- 	if (!mcast_list)
- 		return;
-@@ -528,13 +546,18 @@ static bool batadv_mcast_mla_tvlv_update(struct batadv_priv *bat_priv)
- }
- 
- /**
-- * batadv_mcast_mla_update - update the own MLAs
-+ * __batadv_mcast_mla_update - update the own MLAs
-  * @bat_priv: the bat priv with all the soft interface information
-  *
-  * Updates the own multicast listener announcements in the translation
-  * table as well as the own, announced multicast tvlv container.
-+ *
-+ * Note that non-conflicting reads and writes to bat_priv->mcast.mla_list
-+ * in batadv_mcast_mla_tt_retract() and batadv_mcast_mla_tt_add() are
-+ * ensured by the non-parallel execution of the worker this function
-+ * belongs to.
-  */
--void batadv_mcast_mla_update(struct batadv_priv *bat_priv)
-+static void __batadv_mcast_mla_update(struct batadv_priv *bat_priv)
- {
- 	struct net_device *soft_iface = bat_priv->soft_iface;
- 	struct hlist_head mcast_list = HLIST_HEAD_INIT;
-@@ -560,6 +583,29 @@ void batadv_mcast_mla_update(struct batadv_priv *bat_priv)
- }
- 
- /**
-+ * batadv_mcast_mla_update - update the own MLAs
-+ * @work: kernel work struct
-+ *
-+ * Updates the own multicast listener announcements in the translation
-+ * table as well as the own, announced multicast tvlv container.
-+ *
-+ * In the end, reschedules the work timer.
-+ */
-+static void batadv_mcast_mla_update(struct work_struct *work)
-+{
-+	struct delayed_work *delayed_work;
-+	struct batadv_priv_mcast *priv_mcast;
-+	struct batadv_priv *bat_priv;
-+
-+	delayed_work = to_delayed_work(work);
-+	priv_mcast = container_of(delayed_work, struct batadv_priv_mcast, work);
-+	bat_priv = container_of(priv_mcast, struct batadv_priv, mcast);
-+
-+	__batadv_mcast_mla_update(bat_priv);
-+	batadv_mcast_start_timer(bat_priv);
-+}
-+
-+/**
-  * batadv_mcast_is_report_ipv4 - check for IGMP reports
-  * @skb: the ethernet frame destined for the mesh
-  *
-@@ -1128,6 +1174,9 @@ void batadv_mcast_init(struct batadv_priv *bat_priv)
- 	batadv_tvlv_handler_register(bat_priv, batadv_mcast_tvlv_ogm_handler,
- 				     NULL, BATADV_TVLV_MCAST, 2,
- 				     BATADV_TVLV_HANDLER_OGM_CIFNOTFND);
-+
-+	INIT_DELAYED_WORK(&bat_priv->mcast.work, batadv_mcast_mla_update);
-+	batadv_mcast_start_timer(bat_priv);
++	return ret;
  }
  
  #ifdef CONFIG_BATMAN_ADV_DEBUGFS
-@@ -1239,12 +1288,13 @@ int batadv_mcast_flags_seq_print_text(struct seq_file *seq, void *offset)
-  */
- void batadv_mcast_free(struct batadv_priv *bat_priv)
- {
-+	cancel_delayed_work_sync(&bat_priv->mcast.work);
-+
- 	batadv_tvlv_container_unregister(bat_priv, BATADV_TVLV_MCAST, 2);
- 	batadv_tvlv_handler_unregister(bat_priv, BATADV_TVLV_MCAST, 2);
+diff --git a/net/batman-adv/bat_v_elp.c b/net/batman-adv/bat_v_elp.c
+index ee08540..81a0501 100644
+--- a/net/batman-adv/bat_v_elp.c
++++ b/net/batman-adv/bat_v_elp.c
+@@ -492,20 +492,21 @@ int batadv_v_elp_packet_recv(struct sk_buff *skb,
+ 	struct batadv_elp_packet *elp_packet;
+ 	struct batadv_hard_iface *primary_if;
+ 	struct ethhdr *ethhdr = (struct ethhdr *)skb_mac_header(skb);
+-	bool ret;
++	bool res;
++	int ret;
  
--	spin_lock_bh(&bat_priv->tt.commit_lock);
-+	/* safely calling outside of worker, as worker was canceled above */
- 	batadv_mcast_mla_tt_retract(bat_priv, NULL);
--	spin_unlock_bh(&bat_priv->tt.commit_lock);
+-	ret = batadv_check_management_packet(skb, if_incoming, BATADV_ELP_HLEN);
+-	if (!ret)
+-		return NET_RX_DROP;
++	res = batadv_check_management_packet(skb, if_incoming, BATADV_ELP_HLEN);
++	if (!res)
++		goto free_skb;
+ 
+ 	if (batadv_is_my_mac(bat_priv, ethhdr->h_source))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	/* did we receive a B.A.T.M.A.N. V ELP packet on an interface
+ 	 * that does not have B.A.T.M.A.N. V ELP enabled ?
+ 	 */
+ 	if (strcmp(bat_priv->algo_ops->name, "BATMAN_V") != 0)
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	elp_packet = (struct batadv_elp_packet *)skb->data;
+ 
+@@ -516,14 +517,16 @@ int batadv_v_elp_packet_recv(struct sk_buff *skb,
+ 
+ 	primary_if = batadv_primary_if_get_selected(bat_priv);
+ 	if (!primary_if)
+-		goto out;
++		goto free_skb;
+ 
+ 	batadv_v_elp_neigh_update(bat_priv, ethhdr->h_source, if_incoming,
+ 				  elp_packet);
+ 
+-out:
+-	if (primary_if)
+-		batadv_hardif_put(primary_if);
++	ret = NET_RX_SUCCESS;
++	batadv_hardif_put(primary_if);
++
++free_skb:
+ 	consume_skb(skb);
+-	return NET_RX_SUCCESS;
++
++	return ret;
+ }
+diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
+index 9922ccd..ef3a88d 100644
+--- a/net/batman-adv/bat_v_ogm.c
++++ b/net/batman-adv/bat_v_ogm.c
+@@ -810,18 +810,18 @@ int batadv_v_ogm_packet_recv(struct sk_buff *skb,
+ 	 * B.A.T.M.A.N. V enabled ?
+ 	 */
+ 	if (strcmp(bat_priv->algo_ops->name, "BATMAN_V") != 0)
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	if (!batadv_check_management_packet(skb, if_incoming, BATADV_OGM2_HLEN))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	if (batadv_is_my_mac(bat_priv, ethhdr->h_source))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	ogm_packet = (struct batadv_ogm2_packet *)skb->data;
+ 
+ 	if (batadv_is_my_mac(bat_priv, ogm_packet->orig))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	batadv_inc_counter(bat_priv, BATADV_CNT_MGMT_RX);
+ 	batadv_add_counter(bat_priv, BATADV_CNT_MGMT_RX_BYTES,
+@@ -842,6 +842,8 @@ int batadv_v_ogm_packet_recv(struct sk_buff *skb,
+ 	}
+ 
+ 	ret = NET_RX_SUCCESS;
++
++free_skb:
+ 	consume_skb(skb);
+ 
+ 	return ret;
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 5e4e818..6b5dae6 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -402,6 +402,8 @@ void batadv_skb_set_priority(struct sk_buff *skb, int offset)
+ static int batadv_recv_unhandled_packet(struct sk_buff *skb,
+ 					struct batadv_hard_iface *recv_if)
+ {
++	kfree_skb(skb);
++
+ 	return NET_RX_DROP;
+ }
+ 
+@@ -416,7 +418,6 @@ int batadv_batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 	struct batadv_ogm_packet *batadv_ogm_packet;
+ 	struct batadv_hard_iface *hard_iface;
+ 	u8 idx;
+-	int ret;
+ 
+ 	hard_iface = container_of(ptype, struct batadv_hard_iface,
+ 				  batman_adv_ptype);
+@@ -466,14 +467,8 @@ int batadv_batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 	/* reset control block to avoid left overs from previous users */
+ 	memset(skb->cb, 0, sizeof(struct batadv_skb_cb));
+ 
+-	/* all receive handlers return whether they received or reused
+-	 * the supplied skb. if not, we have to free the skb.
+-	 */
+ 	idx = batadv_ogm_packet->packet_type;
+-	ret = (*batadv_rx_handler[idx])(skb, hard_iface);
+-
+-	if (ret == NET_RX_DROP)
+-		kfree_skb(skb);
++	(*batadv_rx_handler[idx])(skb, hard_iface);
+ 
+ 	batadv_hardif_put(hard_iface);
+ 
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
+index 3af66d3..ab5a3bf 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -1819,11 +1819,11 @@ static int batadv_nc_recv_coded_packet(struct sk_buff *skb,
+ 
+ 	/* Check if network coding is enabled */
+ 	if (!atomic_read(&bat_priv->network_coding))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	/* Make sure we can access (and remove) header */
+ 	if (unlikely(!pskb_may_pull(skb, hdr_size)))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	coded_packet = (struct batadv_coded_packet *)skb->data;
+ 	ethhdr = eth_hdr(skb);
+@@ -1831,7 +1831,7 @@ static int batadv_nc_recv_coded_packet(struct sk_buff *skb,
+ 	/* Verify frame is destined for us */
+ 	if (!batadv_is_my_mac(bat_priv, ethhdr->h_dest) &&
+ 	    !batadv_is_my_mac(bat_priv, coded_packet->second_dest))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	/* Update stat counter */
+ 	if (batadv_is_my_mac(bat_priv, coded_packet->second_dest))
+@@ -1841,7 +1841,7 @@ static int batadv_nc_recv_coded_packet(struct sk_buff *skb,
+ 						   coded_packet);
+ 	if (!nc_packet) {
+ 		batadv_inc_counter(bat_priv, BATADV_CNT_NC_DECODE_FAILED);
+-		return NET_RX_DROP;
++		goto free_skb;
+ 	}
+ 
+ 	/* Make skb's linear, because decoding accesses the entire buffer */
+@@ -1867,6 +1867,9 @@ static int batadv_nc_recv_coded_packet(struct sk_buff *skb,
+ 
+ free_nc_packet:
+ 	batadv_nc_packet_free(nc_packet, true);
++free_skb:
++	kfree_skb(skb);
++
+ 	return NET_RX_DROP;
+ }
+ 
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 4d2679a..caf1866 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -262,8 +262,11 @@ static int batadv_recv_my_icmp_packet(struct batadv_priv *bat_priv,
+ 		icmph->ttl = BATADV_TTL;
+ 
+ 		res = batadv_send_skb_to_orig(skb, orig_node, NULL);
+-		ret = NET_RX_SUCCESS;
++		if (res == NET_XMIT_SUCCESS)
++			ret = NET_RX_SUCCESS;
+ 
++		/* skb was consumed */
++		skb = NULL;
+ 		break;
+ 	case BATADV_TP:
+ 		if (!pskb_may_pull(skb, sizeof(struct batadv_icmp_tp_packet)))
+@@ -271,6 +274,8 @@ static int batadv_recv_my_icmp_packet(struct batadv_priv *bat_priv,
+ 
+ 		batadv_tp_meter_recv(bat_priv, skb);
+ 		ret = NET_RX_SUCCESS;
++		/* skb was consumed */
++		skb = NULL;
+ 		goto out;
+ 	default:
+ 		/* drop unknown type */
+@@ -281,6 +286,9 @@ static int batadv_recv_my_icmp_packet(struct batadv_priv *bat_priv,
+ 		batadv_hardif_put(primary_if);
+ 	if (orig_node)
+ 		batadv_orig_node_put(orig_node);
++
++	kfree_skb(skb);
++
+ 	return ret;
+ }
+ 
+@@ -322,13 +330,20 @@ static int batadv_recv_icmp_ttl_exceeded(struct batadv_priv *bat_priv,
+ 	icmp_packet->ttl = BATADV_TTL;
+ 
+ 	res = batadv_send_skb_to_orig(skb, orig_node, NULL);
+-	ret = NET_RX_SUCCESS;
++	if (res == NET_RX_SUCCESS)
++		ret = NET_XMIT_SUCCESS;
++
++	/* skb was consumed */
++	skb = NULL;
+ 
+ out:
+ 	if (primary_if)
+ 		batadv_hardif_put(primary_if);
+ 	if (orig_node)
+ 		batadv_orig_node_put(orig_node);
++
++	kfree_skb(skb);
++
+ 	return ret;
+ }
+ 
+@@ -345,21 +360,21 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+ 
+ 	/* drop packet if it has not necessary minimum size */
+ 	if (unlikely(!pskb_may_pull(skb, hdr_size)))
+-		goto out;
++		goto free_skb;
+ 
+ 	ethhdr = eth_hdr(skb);
+ 
+ 	/* packet with unicast indication but broadcast recipient */
+ 	if (is_broadcast_ether_addr(ethhdr->h_dest))
+-		goto out;
++		goto free_skb;
+ 
+ 	/* packet with broadcast sender address */
+ 	if (is_broadcast_ether_addr(ethhdr->h_source))
+-		goto out;
++		goto free_skb;
+ 
+ 	/* not for me */
+ 	if (!batadv_is_my_mac(bat_priv, ethhdr->h_dest))
+-		goto out;
++		goto free_skb;
+ 
+ 	icmph = (struct batadv_icmp_header *)skb->data;
+ 
+@@ -368,17 +383,17 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+ 	     icmph->msg_type == BATADV_ECHO_REQUEST) &&
+ 	    (skb->len >= sizeof(struct batadv_icmp_packet_rr))) {
+ 		if (skb_linearize(skb) < 0)
+-			goto out;
++			goto free_skb;
+ 
+ 		/* create a copy of the skb, if needed, to modify it. */
+ 		if (skb_cow(skb, ETH_HLEN) < 0)
+-			goto out;
++			goto free_skb;
+ 
+ 		ethhdr = eth_hdr(skb);
+ 		icmph = (struct batadv_icmp_header *)skb->data;
+ 		icmp_packet_rr = (struct batadv_icmp_packet_rr *)icmph;
+ 		if (icmp_packet_rr->rr_cur >= BATADV_RR_LEN)
+-			goto out;
++			goto free_skb;
+ 
+ 		ether_addr_copy(icmp_packet_rr->rr[icmp_packet_rr->rr_cur],
+ 				ethhdr->h_dest);
+@@ -396,11 +411,11 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+ 	/* get routing information */
+ 	orig_node = batadv_orig_hash_find(bat_priv, icmph->dst);
+ 	if (!orig_node)
+-		goto out;
++		goto free_skb;
+ 
+ 	/* create a copy of the skb, if needed, to modify it. */
+ 	if (skb_cow(skb, ETH_HLEN) < 0)
+-		goto out;
++		goto put_orig_node;
+ 
+ 	icmph = (struct batadv_icmp_header *)skb->data;
+ 
+@@ -409,11 +424,18 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+ 
+ 	/* route it */
+ 	res = batadv_send_skb_to_orig(skb, orig_node, recv_if);
+-	ret = NET_RX_SUCCESS;
++	if (res == NET_XMIT_SUCCESS)
++		ret = NET_RX_SUCCESS;
+ 
+-out:
++	/* skb was consumed */
++	skb = NULL;
++
++put_orig_node:
+ 	if (orig_node)
+ 		batadv_orig_node_put(orig_node);
++free_skb:
++	kfree_skb(skb);
++
+ 	return ret;
+ }
+ 
+@@ -662,18 +684,18 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
+ 	if (unicast_packet->ttl < 2) {
+ 		pr_debug("Warning - can't forward unicast packet from %pM to %pM: ttl exceeded\n",
+ 			 ethhdr->h_source, unicast_packet->dest);
+-		goto out;
++		goto free_skb;
+ 	}
+ 
+ 	/* get routing information */
+ 	orig_node = batadv_orig_hash_find(bat_priv, unicast_packet->dest);
+ 
+ 	if (!orig_node)
+-		goto out;
++		goto free_skb;
+ 
+ 	/* create a copy of the skb, if needed, to modify it. */
+ 	if (skb_cow(skb, ETH_HLEN) < 0)
+-		goto out;
++		goto put_orig_node;
+ 
+ 	/* decrement ttl */
+ 	unicast_packet = (struct batadv_unicast_packet *)skb->data;
+@@ -697,6 +719,11 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
+ 
+ 	len = skb->len;
+ 	res = batadv_send_skb_to_orig(skb, orig_node, recv_if);
++	if (res == NET_XMIT_SUCCESS)
++		ret = NET_RX_SUCCESS;
++
++	/* skb was consumed */
++	skb = NULL;
+ 
+ 	/* translate transmit result into receive result */
+ 	if (res == NET_XMIT_SUCCESS) {
+@@ -706,11 +733,11 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
+ 				   len + ETH_HLEN);
+ 	}
+ 
+-	ret = NET_RX_SUCCESS;
++put_orig_node:
++	batadv_orig_node_put(orig_node);
++free_skb:
++	kfree_skb(skb);
+ 
+-out:
+-	if (orig_node)
+-		batadv_orig_node_put(orig_node);
+ 	return ret;
+ }
+ 
+@@ -895,14 +922,18 @@ int batadv_recv_unhandled_unicast_packet(struct sk_buff *skb,
+ 
+ 	check = batadv_check_unicast_packet(bat_priv, skb, hdr_size);
+ 	if (check < 0)
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	/* we don't know about this type, drop it. */
+ 	unicast_packet = (struct batadv_unicast_packet *)skb->data;
+ 	if (batadv_is_my_mac(bat_priv, unicast_packet->dest))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	return batadv_route_unicast_packet(skb, recv_if);
++
++free_skb:
++	kfree_skb(skb);
++	return NET_RX_DROP;
+ }
+ 
+ int batadv_recv_unicast_packet(struct sk_buff *skb,
+@@ -916,6 +947,7 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
+ 	int check, hdr_size = sizeof(*unicast_packet);
+ 	enum batadv_subtype subtype;
+ 	bool is4addr;
++	int ret = NET_RX_DROP;
+ 
+ 	unicast_packet = (struct batadv_unicast_packet *)skb->data;
+ 	unicast_4addr_packet = (struct batadv_unicast_4addr_packet *)skb->data;
+@@ -935,9 +967,9 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
+ 		batadv_nc_skb_store_sniffed_unicast(bat_priv, skb);
+ 
+ 	if (check < 0)
+-		return NET_RX_DROP;
++		goto free_skb;
+ 	if (!batadv_check_unicast_ttvn(bat_priv, skb, hdr_size))
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	/* packet for me */
+ 	if (batadv_is_my_mac(bat_priv, unicast_packet->dest)) {
+@@ -975,7 +1007,14 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
+ 		return NET_RX_SUCCESS;
+ 	}
+ 
+-	return batadv_route_unicast_packet(skb, recv_if);
++	ret = batadv_route_unicast_packet(skb, recv_if);
++	/* skb was consumed */
++	skb = NULL;
++
++free_skb:
++	kfree_skb(skb);
++
++	return ret;
  }
  
  /**
-diff --git a/net/batman-adv/multicast.h b/net/batman-adv/multicast.h
-index 1fb00ba..2cddaf5 100644
---- a/net/batman-adv/multicast.h
-+++ b/net/batman-adv/multicast.h
-@@ -39,8 +39,6 @@ enum batadv_forw_mode {
+@@ -997,15 +1036,15 @@ int batadv_recv_unicast_tvlv(struct sk_buff *skb,
+ 	int ret = NET_RX_DROP;
  
- #ifdef CONFIG_BATMAN_ADV_MCAST
+ 	if (batadv_check_unicast_packet(bat_priv, skb, hdr_size) < 0)
+-		return NET_RX_DROP;
++		goto free_skb;
  
--void batadv_mcast_mla_update(struct batadv_priv *bat_priv);
--
- enum batadv_forw_mode
- batadv_mcast_forw_mode(struct batadv_priv *bat_priv, struct sk_buff *skb,
- 		       struct batadv_orig_node **mcast_single_orig);
-@@ -55,10 +53,6 @@ void batadv_mcast_purge_orig(struct batadv_orig_node *orig_node);
+ 	/* the header is likely to be modified while forwarding */
+ 	if (skb_cow(skb, hdr_size) < 0)
+-		return NET_RX_DROP;
++		goto free_skb;
  
- #else
+ 	/* packet needs to be linearized to access the tvlv content */
+ 	if (skb_linearize(skb) < 0)
+-		return NET_RX_DROP;
++		goto free_skb;
  
--static inline void batadv_mcast_mla_update(struct batadv_priv *bat_priv)
--{
--}
--
- static inline enum batadv_forw_mode
- batadv_mcast_forw_mode(struct batadv_priv *bat_priv, struct sk_buff *skb,
- 		       struct batadv_orig_node **mcast_single_orig)
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index ad1e3bc..3cae8f4f 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -56,7 +56,6 @@
- #include "hard-interface.h"
- #include "hash.h"
- #include "log.h"
--#include "multicast.h"
- #include "netlink.h"
- #include "originator.h"
- #include "packet.h"
-@@ -3795,9 +3794,6 @@ static void batadv_tt_local_commit_changes_nolock(struct batadv_priv *bat_priv)
- {
- 	lockdep_assert_held(&bat_priv->tt.commit_lock);
+ 	unicast_tvlv_packet = (struct batadv_unicast_tvlv_packet *)skb->data;
  
--	/* Update multicast addresses in local translation table */
--	batadv_mcast_mla_update(bat_priv);
--
- 	if (atomic_read(&bat_priv->tt.local_changes) < 1) {
- 		if (!batadv_atomic_dec_not_zero(&bat_priv->tt.ogm_append_cnt))
- 			batadv_tt_tvlv_container_update(bat_priv);
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index c9db184..0d46aea 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -785,9 +785,10 @@ struct batadv_mcast_querier_state {
-  * @num_want_all_ipv6: counter for items in want_all_ipv6_list
-  * @want_lists_lock: lock for protecting modifications to mcast want lists
-  *  (traversals are rcu-locked)
-+ * @work: work queue callback item for multicast TT and TVLV updates
-  */
- struct batadv_priv_mcast {
--	struct hlist_head mla_list;
-+	struct hlist_head mla_list; /* see __batadv_mcast_mla_update() */
- 	struct hlist_head want_all_unsnoopables_list;
- 	struct hlist_head want_all_ipv4_list;
- 	struct hlist_head want_all_ipv6_list;
-@@ -802,6 +803,7 @@ struct batadv_priv_mcast {
- 	atomic_t num_want_all_ipv6;
- 	/* protects want_all_{unsnoopables,ipv4,ipv6}_list */
- 	spinlock_t want_lists_lock;
-+	struct delayed_work work;
- };
- #endif
+@@ -1013,17 +1052,21 @@ int batadv_recv_unicast_tvlv(struct sk_buff *skb,
+ 	tvlv_buff_len = ntohs(unicast_tvlv_packet->tvlv_len);
  
+ 	if (tvlv_buff_len > skb->len - hdr_size)
+-		return NET_RX_DROP;
++		goto free_skb;
+ 
+ 	ret = batadv_tvlv_containers_process(bat_priv, false, NULL,
+ 					     unicast_tvlv_packet->src,
+ 					     unicast_tvlv_packet->dst,
+ 					     tvlv_buff, tvlv_buff_len);
+ 
+-	if (ret != NET_RX_SUCCESS)
++	if (ret != NET_RX_SUCCESS) {
+ 		ret = batadv_route_unicast_packet(skb, recv_if);
+-	else
+-		consume_skb(skb);
++		/* skb was consumed */
++		skb = NULL;
++	}
++
++free_skb:
++	consume_skb(skb);
+ 
+ 	return ret;
+ }
+@@ -1049,20 +1092,22 @@ int batadv_recv_frag_packet(struct sk_buff *skb,
+ 
+ 	if (batadv_check_unicast_packet(bat_priv, skb,
+ 					sizeof(*frag_packet)) < 0)
+-		goto out;
++		goto free_skb;
+ 
+ 	frag_packet = (struct batadv_frag_packet *)skb->data;
+ 	orig_node_src = batadv_orig_hash_find(bat_priv, frag_packet->orig);
+ 	if (!orig_node_src)
+-		goto out;
++		goto free_skb;
+ 
+ 	skb->priority = frag_packet->priority + 256;
+ 
+ 	/* Route the fragment if it is not for us and too big to be merged. */
+ 	if (!batadv_is_my_mac(bat_priv, frag_packet->dest) &&
+ 	    batadv_frag_skb_fwd(skb, recv_if, orig_node_src)) {
++		/* skb was consumed */
++		skb = NULL;
+ 		ret = NET_RX_SUCCESS;
+-		goto out;
++		goto put_orig_node;
+ 	}
+ 
+ 	batadv_inc_counter(bat_priv, BATADV_CNT_FRAG_RX);
+@@ -1070,20 +1115,24 @@ int batadv_recv_frag_packet(struct sk_buff *skb,
+ 
+ 	/* Add fragment to buffer and merge if possible. */
+ 	if (!batadv_frag_skb_buffer(&skb, orig_node_src))
+-		goto out;
++		goto put_orig_node;
+ 
+ 	/* Deliver merged packet to the appropriate handler, if it was
+ 	 * merged
+ 	 */
+-	if (skb)
++	if (skb) {
+ 		batadv_batman_skb_recv(skb, recv_if->net_dev,
+ 				       &recv_if->batman_adv_ptype, NULL);
++		/* skb was consumed */
++		skb = NULL;
++	}
+ 
+ 	ret = NET_RX_SUCCESS;
+ 
+-out:
+-	if (orig_node_src)
+-		batadv_orig_node_put(orig_node_src);
++put_orig_node:
++	batadv_orig_node_put(orig_node_src);
++free_skb:
++	kfree_skb(skb);
+ 
+ 	return ret;
+ }
+@@ -1102,35 +1151,35 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
+ 
+ 	/* drop packet if it has not necessary minimum size */
+ 	if (unlikely(!pskb_may_pull(skb, hdr_size)))
+-		goto out;
++		goto free_skb;
+ 
+ 	ethhdr = eth_hdr(skb);
+ 
+ 	/* packet with broadcast indication but unicast recipient */
+ 	if (!is_broadcast_ether_addr(ethhdr->h_dest))
+-		goto out;
++		goto free_skb;
+ 
+ 	/* packet with broadcast sender address */
+ 	if (is_broadcast_ether_addr(ethhdr->h_source))
+-		goto out;
++		goto free_skb;
+ 
+ 	/* ignore broadcasts sent by myself */
+ 	if (batadv_is_my_mac(bat_priv, ethhdr->h_source))
+-		goto out;
++		goto free_skb;
+ 
+ 	bcast_packet = (struct batadv_bcast_packet *)skb->data;
+ 
+ 	/* ignore broadcasts originated by myself */
+ 	if (batadv_is_my_mac(bat_priv, bcast_packet->orig))
+-		goto out;
++		goto free_skb;
+ 
+ 	if (bcast_packet->ttl < 2)
+-		goto out;
++		goto free_skb;
+ 
+ 	orig_node = batadv_orig_hash_find(bat_priv, bcast_packet->orig);
+ 
+ 	if (!orig_node)
+-		goto out;
++		goto free_skb;
+ 
+ 	spin_lock_bh(&orig_node->bcast_seqno_lock);
+ 
+@@ -1158,7 +1207,7 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
+ 
+ 	/* check whether this has been sent by another originator before */
+ 	if (batadv_bla_check_bcast_duplist(bat_priv, skb))
+-		goto out;
++		goto free_skb;
+ 
+ 	batadv_skb_set_priority(skb, sizeof(struct batadv_bcast_packet));
+ 
+@@ -1169,7 +1218,7 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
+ 	 * from the same backbone.
+ 	 */
+ 	if (batadv_bla_is_backbone_gw(skb, orig_node, hdr_size))
+-		goto out;
++		goto free_skb;
+ 
+ 	if (batadv_dat_snoop_incoming_arp_request(bat_priv, skb, hdr_size))
+ 		goto rx_success;
+@@ -1185,6 +1234,8 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
+ 
+ spin_unlock:
+ 	spin_unlock_bh(&orig_node->bcast_seqno_lock);
++free_skb:
++	kfree_skb(skb);
+ out:
+ 	if (orig_node)
+ 		batadv_orig_node_put(orig_node);
 -- 
 2.10.1
