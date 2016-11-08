@@ -1,102 +1,77 @@
-From: "De Schepper, Koen (Nokia - BE)"
-        <koen.de_schepper@nokia-bell-labs.com>
-Subject: RE: Is there a maximum bytes in flight limitation in the tcp stack?
- -->limit in scp
-Date: Tue, 8 Nov 2016 18:07:41 +0000
-Message-ID: <BF6B00CC65FD2D45A326E74492B2C19FB7788B17@FR711WXCHMBA05.zeu.alcatel-lucent.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: Re: [PATCH v3 4/4] posix-timers: make it configurable
+Date: Tue, 8 Nov 2016 13:19:22 -0500 (EST)
+Message-ID: <alpine.LFD.2.20.1611081311420.11818@knanqh.ubzr>
+References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org> <1478556899-2951-5-git-send-email-nicolas.pitre@linaro.org> <CALAqxLVrGRW3ODzZk=4-8FSLe5wBwHJSOEAW=+kMFjTRoe1HzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Michal Marek <mmarek@suse.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Paul Bolle <pebolle@tiscali.nl>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
+To: John Stultz <john.stultz@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fr-hpida-esg-02.alcatel-lucent.com ([135.245.210.21]:53369 "EHLO
-        smtp-fr.alcatel-lucent.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750869AbcKHSHp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 13:07:45 -0500
-Content-Language: en-US
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:35636 "EHLO
+        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752088AbcKHSTY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 13:19:24 -0500
+Received: by mail-qk0-f172.google.com with SMTP id n204so216906892qke.2
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 10:19:24 -0800 (PST)
+In-Reply-To: <CALAqxLVrGRW3ODzZk=4-8FSLe5wBwHJSOEAW=+kMFjTRoe1HzQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-U2VlbXMgdG8gYmUgYSBsaW1pdGF0aW9uIGluIHRoZSBhcHBsaWNhdGlvbi4gV2UgdXNlZCBzY3As
-IGFuZCBpdCAoc3RpbGwpIHNlZW1zIHRvIGxpbWl0IHRoZSBieXRlcyBpbiBmbGlnaHQuIFVzaW5n
-IG91ciBvd24gYXBwbGljYXRpb24sIHdlIGRpZG4ndCBzZWUgYSBsaW1pdCBpbmRlZWQuIFRoYW5r
-cyBmb3IgeW91ciByZXNwb25zZSwgYW5kIHNvcnJ5IGZvciB0aGUgbm9pc2UuLi4NCg0KS29lbi4N
-Cg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBZdWNodW5nIENoZW5nIFtt
-YWlsdG86eWNoZW5nQGdvb2dsZS5jb21dDQo+IFNlbnQ6IGRpbnNkYWcgOCBub3ZlbWJlciAyMDE2
-IDU6NTENCj4gVG86IERlIFNjaGVwcGVyLCBLb2VuIChOb2tpYSAtIEJFKSA8a29lbi5kZV9zY2hl
-cHBlckBub2tpYS1iZWxsLQ0KPiBsYWJzLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gU3ViamVjdDogUmU6IElzIHRoZXJlIGEgbWF4aW11bSBieXRlcyBpbiBmbGlnaHQgbGlt
-aXRhdGlvbiBpbiB0aGUgdGNwIHN0YWNrPw0KPiANCj4gT24gVGh1LCBOb3YgMywgMjAxNiBhdCA5
-OjM3IEFNLCBEZSBTY2hlcHBlciwgS29lbiAoTm9raWEgLSBCRSkNCj4gPGtvZW4uZGVfc2NoZXBw
-ZXJAbm9raWEtYmVsbC1sYWJzLmNvbT4gd3JvdGU6DQo+ID4NCj4gPiBIaSwNCj4gPg0KPiA+IFdl
-IGV4cGVyaWVuY2Ugc29tZSBsaW1pdCBvbiB0aGUgbWF4aW11bSBwYWNrZXRzIGluIGZsaWdodCB3
-aGljaCBzZWVtDQo+IG5vdCB0byBiZSByZWxhdGVkIHdpdGggdGhlIHJlY2VpdmUgb3Igd3JpdGUg
-YnVmZmVycy4gRG9lcyBzb21lYm9keSBrbm93IGlmDQo+IHRoZXJlIGlzIGFuIGlzc3VlIHdpdGgg
-YSBtYXhpbXVtIG9mIGFyb3VuZCAxTUJ5dGUgKG9yIHNvbWV0aW1lcyAyTWJ5dGUpDQo+IG9mIGRh
-dGEgaW4gZmxpZ2h0IHBlciBUQ1AgZmxvdz8NCj4gDQo+IGRvZXMgbm90IHJpbmcgYSBiZWxsLiBJ
-J3ZlIGRlZmluaXRlbHkgc2VlIGN1YmljIHJlYWNoaW5nID4yTUIgY3duZCAoaW5mbGlnaHQpDQo+
-IHNvbWUgcGFja2V0IHRyYWNlIHdpbGwgaGVscC4NCj4gDQo+IGJ0dywgdGNwX3JtZW0gaXMgdGhl
-IG1heGltdW0gcmVjZWl2ZSBidWZmZXIgaW5jbHVkaW5nIGFsbCBoZWFkZXIgYW5kDQo+IGNvbnRy
-b2wgb3ZlcmhlYWQuIHRoZSByZWNlaXZlIHdpbmRvdyBhbm5vdW5jZWQgaXMgKHZlcnkgcm91Z2hs
-eSkgaGFsZg0KPiBvZiB5b3VyIHJjdmJ1Zi4NCj4gDQo+ID4NCj4gPiBJdCBzZWVtcyB0byBiZSBh
-IHN0cmljdCBhbmQgc3RhYmxlIGxpbWl0IGluZGVwZW5kZW50IGZyb20gdGhlIENDICh0ZXN0ZWQN
-Cj4gd2l0aCBDdWJpYywgUmVubyBhbmQgRENUQ1ApLiBPbiBhIGxpbmsgb2YgMjAwTWJwcyBhbmQg
-MjAwbXMgUlRUIG91ciBsaW5rIGlzDQo+IG9ubHkgMjAlIChzb21ldGltZXMgNDAlLCBzZWUgY29u
-ZGl0aW9ucyBiZWxvdykgdXRpbGl6ZWQgZm9yIGEgc2luZ2xlIFRDUA0KPiBmbG93IHdpdGggbm8g
-ZHJvcCBleHBlcmllbmNlZCBhdCBhbGwgKG5vIGJvdHRsZW5lY2sgaW4gdGhlIEFRTSBvciBSVFQN
-Cj4gZW11bGF0aW9uLCBhcyBpdCBzdXBwb3J0cyBtb3JlIHRocm91Z2hwdXQgaWYgbXVsdGlwbGUg
-Zmxvd3MgYXJlIGFjdGl2ZSkuDQo+ID4NCj4gPiBTb21lIGNvbmZpZ3VyYXRpb24gY2hhbmdlcyB3
-ZSBhbHJlYWR5IHRyaWVkIG9uIGJvdGggY2xpZW50IGFuZCBzZXJ2ZXINCj4gKGtlcm5lbCAzLjE4
-LjkpOg0KPiA+DQo+ID4gbmV0LmlwdjQudGNwX25vX21ldHJpY3Nfc2F2ZSA9IDENCj4gPiBuZXQu
-aXB2NC50Y3Bfcm1lbSA9IDQwOTYgODczODAgNjI5MTQ1Ng0KPiA+IG5ldC5pcHY0LnRjcF93bWVt
-ID0gNDA5NiAxNjM4NCA0MTk0MzA0DQo+ID4NCj4gPiBTRVJWRVIjIHNzIC1pDQo+ID4gdGNwICAg
-IEVTVEFCICAgICAgMCAgICAgIDEwNDk3MjggIDEwLjE4Ny4yNTUuMjExOjQ2NjQyICAgICAxMC4x
-ODcuMTYuMTk0OnNzaA0KPiA+ICAgICAgICAgIGRjdGNwIHdzY2FsZTo3LDcgcnRvOjQwOCBydHQ6
-MjA0LjMzMy8wLjc0MSBhdG86NDAgbXNzOjE0NDggY3duZDoxNDY2DQo+IHNlbmQgODMuMU1icHMg
-dW5hY2tlZDo3MjggcmN2X3J0dDoyMTIgcmN2X3NwYWNlOjI5MjAwDQo+ID4gQ0xJRU5UIyBzcyAt
-aQ0KPiA+IHRjcCAgICBFU1RBQiAgICAgIDAgICAgICAyODggICAgICAxMC4xODcuMTYuMTk0OnNz
-aCAgICAgIDEwLjE4Ny4yNTUuMjExOjQ2NjQyDQo+ID4gICAgICAgICAgZGN0Y3Agd3NjYWxlOjcs
-NyBydG86NDA0IHJ0dDoyMDMuMzg5LzAuMjEzIGF0bzo0MCBtc3M6MTQ0OCBjd25kOjc4DQo+IHNl
-bmQgNC40TWJwcyB1bmFja2VkOjggcmN2X3J0dDoyMDQgcmN2X3NwYWNlOjEwNzQ4NDQNCj4gPg0K
-PiA+IFdoZW4gaW5jcmVhc2luZyB0aGUgd3JpdGUgYW5kIHJlY2VpdmUgbWVtIGZ1cnRoZXIgKHRo
-ZXkgd2VyZSBhbHJlYWR5DQo+IHdheSBhYm92ZSAxIG9yIDIgTUIpIGl0IHN0ZXBzIHRvIGRvdWJs
-ZSAoNDAlOyAyTWJ5dGVzIGluIGZsaWdodCk6DQo+ID4gbmV0LmlwdjQudGNwX25vX21ldHJpY3Nf
-c2F2ZSA9IDENCj4gPiBuZXQuaXB2NC50Y3Bfcm1lbSA9IDQwOTYgODAwMDAwMCAxNjI5MTQ1Ng0K
-PiA+IG5ldC5pcHY0LnRjcF93bWVtID0gNDA5NiA4MDAwMDAwIDE2MjkxNDU2DQo+ID4NCj4gPiBT
-RVJWRVIgIyBzcyAtaQ0KPiA+IHRjcCAgICBFU1RBQiAgICAgIDAgICAgICAyMDY4OTc2ICAxMC4x
-ODcuMjU1LjIxMjo1NDYzNyAgICAgMTAuMTg3LjE2LjExMjpzc2gNCj4gPiAgICAgICAgICBjdWJp
-YyB3c2NhbGU6OCw4IHJ0bzo0MDQgcnR0OjIwMi42MjIvMC4wNjEgYXRvOjQwIG1zczoxNDQ4IGN3
-bmQ6MTg0OQ0KPiBzc3RocmVzaDoxMTQwIHNlbmQgMTA1LjdNYnBzIHVuYWNrZWQ6MTQ1NyByY3Zf
-cnR0OjIxNy41IHJjdl9zcGFjZToyOTIwMA0KPiA+IENMSUVOVCMgc3MgLWkNCj4gPiB0Y3AgICAg
-RVNUQUIgICAgICAwICAgICAgNjQ4ICAgICAgMTAuMTg3LjE2LjExMjpzc2ggICAgICAxMC4xODcu
-MjU1LjIxMjo1NDYzNw0KPiA+ICAgICAgICAgIGN1YmljIHdzY2FsZTo4LDggcnRvOjQwNCBydHQ6
-MjAxLjk1Ni8wLjAzOCBhdG86NDAgbXNzOjE0NDggY3duZDoxMzINCj4gc2VuZCA3LjZNYnBzIHVu
-YWNrZWQ6MTggcmN2X3J0dDoyMDQgcmN2X3NwYWNlOjIwOTMwNDQNCj4gPg0KPiA+IEZ1cnRoZXIg
-aW5jcmVhc2luZyAoeDEwKSBkb2VzIG5vdCBoZWxwIGFueW1vcmUuLi4NCj4gPiBuZXQuaXB2NC50
-Y3Bfbm9fbWV0cmljc19zYXZlID0gMQ0KPiA+IG5ldC5pcHY0LnRjcF9ybWVtID0gNDA5NiA4MDAw
-MDAwMCAxNjI5MTQ1NjANCj4gPiBuZXQuaXB2NC50Y3Bfd21lbSA9IDQwOTYgODAwMDAwMDAgMTYy
-OTE0NTYwDQo+ID4NCj4gPiBBcyBhbGwgdGhlc2UgcGFyYW1ldGVycyBhdXRvdHVuZSwgaXQgaXMg
-aGFyZCB0byBmaW5kIG91dCB3aGljaCBvbmUgaXMNCj4gbGltaXRpbmcuLi4gSW4gdGhlIGV4YW1w
-bGVzLCBhYm92ZSB1bmFja2VkIGRvZXMgbm90IHdhbnQgdG8gZ28gaGlnaGVyLCB3aGlsZQ0KPiBj
-b25nZXN0aW9uIHdpbmRvdyBpbiB0aGUgc2VydmVyIGlzIGJpZyBlbm91Z2guLi4gcmN2X3NwYWNl
-IGNvdWxkIGJlIGxpbWl0aW5nLA0KPiBidXQgaXQgdHVuZXMgdXAgaWYgSSBjaGFuZ2UgdGhlIHNl
-cnZlciB3aXRoIHRoZSBoaWdoZXIgYnVmZmVycyAoc3dpdGNoaW5nIHRvDQo+IDJNQnl0ZSBpbiBm
-bGlnaHQpLg0KPiA+DQo+ID4gV2UgYWxzbyB0cmllZCB0Y3BfbGltaXRfb3V0cHV0X2J5dGVzLCBz
-ZXR0aW5nIGl0IGJpZ2dlciAoeDEwKSBhbmQNCj4gc21hbGxlcigvMTApLCB3aXRob3V0IGVmZmVj
-dC4gV2UndmUgcHV0IGl0IGluIC9ldGMvc3lzY3RsLmNvbmYgYW5kIHJlYm9vdGVkLCB0bw0KPiBt
-YWtlIHN1cmUgdGhhdCBpdCBpcyBlZmZlY3RpdmUuDQo+ID4NCj4gPiBTb21lIG1vcmUgZGV0YWls
-ZWQgdGVzdHMgdGhhdCBoYWQgYW4gZWZmZWN0IG9uIHRoZSAxIG9yIDJNQnl0ZToNCj4gPiAtIEl0
-IHNlZW1zIHRoYXQgd2l0aCBUU08gb2ZmLCBpZiB3ZSBjb25maWd1cmUgYSBiaWdnZXIgd21lbSBi
-dWZmZXIsIGFuDQo+IG9uZ29pbmcgZmxvdyBzdWRkZW5seSBpcyBhYmxlIHRvIGltbWVkaWF0ZWx5
-IGRvdWJsZSBpdHMgYnl0ZXMgaW4gZmxpZ2h0IGxpbWl0Lg0KPiBXZSBjb25maWd1cmVkIGZ1cnRo
-ZXIgdXAgdG8gbW9yZSB0aGFuIDEweCB0aGUgYnVmZmVyLCBidXQgbm8gZnVydGhlcg0KPiBpbmNy
-ZWFzZSBoZWxwcywgYW5kIHRoZSBsaW1pdHMgd2Ugc2F3IGFyZSBvbmx5IDFNQnl0ZSBhbmQgMk1i
-eXRlIChubw0KPiBpbnRlcm1lZGlhdGUgdmFsdWVzIGRlcGVuZGluZyBvbiBhbnkgcGFyYW1ldGVy
-KS4gV2hlbiBzZXR0aW5nIHRjcF93bWVtDQo+IHNtYWxsZXIgYWdhaW4sIHRoZSAyTUJ5dGUgbGlt
-aXQgc3RheXMgb24gdGhlIG9uZ29pbmcgZmxvdy4gV2UgaGF2ZSB0byByZXN0YXJ0DQo+IHRoZSBm
-bG93IHRvIG1ha2UgdGhlIGJ1ZmZlciByZWR1Y3Rpb24gdG8gMU1CeXRlIGVmZmVjdGl2ZS4NCj4g
-PiAtIFdpdGggVFNPIG9uLCBvbmx5IHRoZSAyTUJ5dGUgbGltaXQgaXMgZWZmZWN0aXZlLCBpbmRl
-cGVuZGVudCBmcm9tIHRoZQ0KPiB3bWVtIGJ1ZmZlci4gV2UgaGF2ZSB0byByZXN0YXJ0IHRoZSBm
-bG93IHRvIG1ha2UgYSB0c28gY2hhbmdlIGVmZmVjdGl2ZS4NCj4gPg0KPiA+IEtvZW4uDQo+ID4N
-Cg==
+On Tue, 8 Nov 2016, John Stultz wrote:
+
+> One spot of concern is that the
+> tools/testing/selftests/timers/posix_timers.c test hangs testing
+> virtual itimers. Looking through the code I'm not seeing where an
+> error case is missed.
+> 
+> The strace looks like:
+> ...
+> write(1, "Testing posix timers. False nega"..., 66Testing posix
+> timers. False negative may happen on CPU execution
+> ) = 66
+> write(1, "based timers if other threads ru"..., 48based timers if
+> other threads run on the CPU...
+> ) = 48
+> write(1, "Check itimer virtual... ", 24Check itimer virtual... ) = 24
+> rt_sigaction(SIGVTALRM, {0x400a80, [VTALRM], SA_RESTORER|SA_RESTART,
+> 0x7fb73306ccb0}, {SIG_DFL, [], 0}, 8) = 0
+> gettimeofday({1478710402, 937476}, NULL) = 0
+> setitimer(ITIMER_VIRTUAL, {it_interval={0, 0}, it_value={2, 0}}, NULL) = 0
+> <Hang>
+> 
+> 
+> Where as with posix timers enabled:
+> ...
+> write(1, "Testing posix timers. False nega"..., 138Testing posix
+> timers. False negative may happen on CPU execution
+> based timers if other threads run on the CPU...
+> Check itimer virtual... ) = 138
+> rt_sigaction(SIGVTALRM, {0x400a80, [VTALRM], SA_RESTORER|SA_RESTART,
+> 0x7f231ba8ccb0}, {SIG_DFL, [], 0}, 8) = 0
+> gettimeofday({1478626751, 904856}, NULL) = 0
+> setitimer(ITIMER_VIRTUAL, {it_interval={0, 0}, it_value={2, 0}}, NULL) = 0
+> --- SIGVTALRM {si_signo=SIGVTALRM, si_code=SI_KERNEL} ---
+> rt_sigreturn()                          = 0
+
+I'll have a look.
+
+> So I suspect you were a little too aggressive with the #ifdefs around
+> the itimers/signal code, or we need to make sure we return an error on
+> the setitimer ITIMER_VIRTUAL case as well.
+
+Well, it seemed to me that with POSIX_TIMERS=n, all the code that would 
+set up that signal is gone, so there was no point keeping the code to 
+deliver it.
+
+Now... would it make more sense to remove itimer support as well when 
+POSIX_TIMERS=n?  The same reasoning would apply.
+
+
+Nicolas
