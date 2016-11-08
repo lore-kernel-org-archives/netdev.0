@@ -1,110 +1,67 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 1/2] ipaddress: Simplify vf_info parsing
-Date: Tue,  8 Nov 2016 22:29:11 +0100
-Message-ID: <20161108212912.27258-2-phil@nwl.cc>
-References: <20161108212912.27258-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next] net: ethtool: add support for forward error
+ correction modes
+Date: Tue, 8 Nov 2016 13:33:47 -0800
+Message-ID: <CAKWE-XqT8kBckOB_CgPsjMo5WkYfPdvZPeWY1XZwiqiAnBVcZQ@mail.gmail.com>
+References: <1477363849-36517-1-git-send-email-vidya@cumulusnetworks.com> <25b7fce6-49f9-bd54-5c12-c72298d107c1@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Gal Pressman <galp@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        Oded Wertheim <odedw@mellanox.com>,
+        Ariel Almog <ariela@mellanox.com>,
+        Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        Tzahi Oved <tzahio@mellanox.com>,
+        Roee Shapiro <roees@mellanox.com>,
+        Aviad Raveh <aviadr@mellanox.com>,
+        Dustin Byford <dustin@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Gal Pressman <galp.dev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:42169 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933835AbcKHV3h (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Nov 2016 16:29:37 -0500
-In-Reply-To: <20161108212912.27258-1-phil@nwl.cc>
+Received: from mail-yb0-f177.google.com ([209.85.213.177]:34239 "EHLO
+        mail-yb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752084AbcKHVeY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 16:34:24 -0500
+Received: by mail-yb0-f177.google.com with SMTP id d59so35513612ybi.1
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 13:33:48 -0800 (PST)
+In-Reply-To: <25b7fce6-49f9-bd54-5c12-c72298d107c1@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7b8179c780a1a ("iproute2: Add new command to ip link to
-enable/disable VF spoof check") tried to add support for
-IFLA_VF_SPOOFCHK in a backwards-compatible manner, but aparently overdid
-it: parse_rtattr_nested() handles missing attributes perfectly fine in
-that it will leave the relevant field unassigned so calling code can
-just compare against NULL. There is no need to layback from the previous
-(IFLA_VF_TX_RATE) attribute to the next to check if IFLA_VF_SPOOFCHK is
-present or not. To the contrary, it establishes a potentially incorrect
-assumption of these two attributes directly following each other which
-may not be the case (although up to now, kernel aligns them this way).
+On Thu, Nov 3, 2016 at 6:24 AM, Gal Pressman <galp.dev@gmail.com> wrote:
+>
+>
+> On 25/10/2016 05:50, Vidya Sagar Ravipati wrote:
+>> SET FEC option:
+>> root@tor: ethtool --set-fec  swp1 encoding [off | RS | BaseR | auto] autoneg [off | on]
+>>
+>> Encoding: Types of encoding
+>> Off    :  Turning off any encoding
+>> RS     :  enforcing RS-FEC encoding on supported speeds
+>> BaseR  :  enforcing Base R encoding on supported speeds
+>> Auto   :  Default FEC settings  for  divers , and would represent
+>
+> divers? :)
+Drivers :)
+>
+>>           asking the hardware to essentially go into a best effort mode.
+>>
+>> Here are a few examples of what we would expect if encoding=auto:
+>> - if autoneg is on, we are  expecting FEC to be negotiated as on or off
+>>   as long as protocol supports it
+>> - if the hardware is capable of detecting the FEC encoding on it's
+>>       receiver it will reconfigure its encoder to match
+>> - in absence of the above, the configuration would be set to IEEE
+>>   defaults.
+>
+> Not sure I follow, why do we need an autoneg option if encoding type can be set to auto?
+Auto is one of the FEC configuration modes  which indicates  the
+drivers to set the IEEE defaults based on speed/duplex combination of
+the port. i.e. RS FEC mode will be set in case of 100G/full
 
-This patch cleans up the code to adhere to the common way of checking
-for attribute existence. It has been tested to return correct results
-regardless of whether the kernel exports IFLA_VF_SPOOFCHK or not.
-
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipaddress.c | 44 ++++++++++----------------------------------
- 1 file changed, 10 insertions(+), 34 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 7f05258f43453..df0f1b9c94c58 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -322,10 +322,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- {
- 	struct ifla_vf_mac *vf_mac;
- 	struct ifla_vf_tx_rate *vf_tx_rate;
--	struct ifla_vf_spoofchk *vf_spoofchk;
--	struct ifla_vf_link_state *vf_linkstate;
- 	struct rtattr *vf[IFLA_VF_MAX + 1] = {};
--	struct rtattr *tmp;
- 
- 	SPRINT_BUF(b1);
- 
-@@ -339,31 +336,6 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	vf_mac = RTA_DATA(vf[IFLA_VF_MAC]);
- 	vf_tx_rate = RTA_DATA(vf[IFLA_VF_TX_RATE]);
- 
--	/* Check if the spoof checking vf info type is supported by
--	 * this kernel.
--	 */
--	tmp = (struct rtattr *)((char *)vf[IFLA_VF_TX_RATE] +
--				vf[IFLA_VF_TX_RATE]->rta_len);
--
--	if (tmp->rta_type != IFLA_VF_SPOOFCHK)
--		vf_spoofchk = NULL;
--	else
--		vf_spoofchk = RTA_DATA(vf[IFLA_VF_SPOOFCHK]);
--
--	if (vf_spoofchk) {
--		/* Check if the link state vf info type is supported by
--		 * this kernel.
--		 */
--		tmp = (struct rtattr *)((char *)vf[IFLA_VF_SPOOFCHK] +
--					vf[IFLA_VF_SPOOFCHK]->rta_len);
--
--		if (tmp->rta_type != IFLA_VF_LINK_STATE)
--			vf_linkstate = NULL;
--		else
--			vf_linkstate = RTA_DATA(vf[IFLA_VF_LINK_STATE]);
--	} else
--		vf_linkstate = NULL;
--
- 	fprintf(fp, "%s    vf %d MAC %s", _SL_, vf_mac->vf,
- 		ll_addr_n2a((unsigned char *)&vf_mac->mac,
- 			    ETH_ALEN, 0, b1, sizeof(b1)));
-@@ -407,14 +379,18 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 		if (vf_rate->min_tx_rate)
- 			fprintf(fp, ", min_tx_rate %dMbps", vf_rate->min_tx_rate);
- 	}
-+	if (vf[IFLA_VF_SPOOFCHK]) {
-+		struct ifla_vf_spoofchk *vf_spoofchk =
-+			RTA_DATA(vf[IFLA_VF_SPOOFCHK]);
- 
--	if (vf_spoofchk && vf_spoofchk->setting != -1) {
--		if (vf_spoofchk->setting)
--			fprintf(fp, ", spoof checking on");
--		else
--			fprintf(fp, ", spoof checking off");
-+		if (vf_spoofchk->setting != -1)
-+			fprintf(fp, ", spoof checking %s",
-+			        vf_spoofchk->setting ? "on" : "off");
- 	}
--	if (vf_linkstate) {
-+	if (vf[IFLA_VF_LINK_STATE]) {
-+		struct ifla_vf_link_state *vf_linkstate =
-+			RTA_DATA(vf[IFLA_VF_LINK_STATE]);
-+
- 		if (vf_linkstate->link_state == IFLA_VF_LINK_STATE_AUTO)
- 			fprintf(fp, ", link-state auto");
- 		else if (vf_linkstate->link_state == IFLA_VF_LINK_STATE_ENABLE)
--- 
-2.10.0
+Auto negotiation is the configuration for the link  to negotiate the
+FEC capabilities and different FEC modes with other endpoint  using
+encoded bits D44:47 in base link code word.
