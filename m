@@ -1,338 +1,114 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net-next v5 5/9] ipv6: sr: implement API to control SR HMAC structure
-Date: Tue, 8 Nov 2016 14:59:18 +0100
-Message-ID: <1478613562-27947-1-git-send-email-david.lebrun@uclouvain.be>
+Subject: [PATCH net-next v5 7/9] ipv6: add source address argument for ipv6_push_nfrag_opts
+Date: Tue, 8 Nov 2016 14:59:20 +0100
+Message-ID: <1478613562-27947-3-git-send-email-david.lebrun@uclouvain.be>
 References: <1478613467-27712-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:56921 "EHLO
-        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752901AbcKHN5o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 08:57:44 -0500
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:44049 "EHLO
+        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752901AbcKHN5e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 08:57:34 -0500
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp2.sgsi.ucl.ac.be (Postfix) with ESMTPS id 51B4467DE46
+        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id 95CF467DC44
         for <netdev@vger.kernel.org>; Tue,  8 Nov 2016 14:57:23 +0100 (CET)
 In-Reply-To: <1478613467-27712-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides an implementation of the genetlink commands
-to associate a given HMAC key identifier with an hashing algorithm
-and a secret.
+This patch prepares for insertion of SRH through setsockopt().
+The new source address argument is used when an HMAC field is
+present in the SRH, which must be filled. The HMAC signature
+process requires the source address as input text.
 
 Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- net/ipv6/seg6.c | 229 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 229 insertions(+)
+ include/net/ipv6.h    | 3 ++-
+ net/ipv6/exthdrs.c    | 6 +++---
+ net/ipv6/ip6_output.c | 5 +++--
+ net/ipv6/ip6_tunnel.c | 2 +-
+ 4 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/seg6.c b/net/ipv6/seg6.c
-index 9c78053..50f6e06 100644
---- a/net/ipv6/seg6.c
-+++ b/net/ipv6/seg6.c
-@@ -25,6 +25,9 @@
- #include <net/genetlink.h>
- #include <linux/seg6.h>
- #include <linux/seg6_genl.h>
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+#include <net/seg6_hmac.h>
-+#endif
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8fed1cd..0a3622b 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -932,7 +932,8 @@ int ip6_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
+  */
  
- bool seg6_validate_srh(struct ipv6_sr_hdr *srh, int len)
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+-			  u8 *proto, struct in6_addr **daddr_p);
++			  u8 *proto, struct in6_addr **daddr_p,
++			  struct in6_addr *saddr);
+ void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			 u8 *proto);
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 541cfa6..72aadce 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -866,7 +866,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
+ 
+ static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
+ 			    struct ipv6_rt_hdr *opt,
+-			    struct in6_addr **addr_p)
++			    struct in6_addr **addr_p, struct in6_addr *saddr)
  {
-@@ -76,11 +79,90 @@ static const struct nla_policy seg6_genl_policy[SEG6_ATTR_MAX + 1] = {
- 	[SEG6_ATTR_HMACINFO]		= { .type = NLA_NESTED, },
- };
+ 	struct rt0_hdr *phdr, *ihdr;
+ 	int hops;
+@@ -900,10 +900,10 @@ static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv
  
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+
-+static int seg6_genl_sethmac(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net *net = genl_info_net(info);
-+	struct seg6_pernet_data *sdata;
-+	struct seg6_hmac_info *hinfo;
-+	u32 hmackeyid;
-+	char *secret;
-+	int err = 0;
-+	u8 algid;
-+	u8 slen;
-+
-+	sdata = seg6_pernet(net);
-+
-+	if (!info->attrs[SEG6_ATTR_HMACKEYID] ||
-+	    !info->attrs[SEG6_ATTR_SECRETLEN] ||
-+	    !info->attrs[SEG6_ATTR_ALGID])
-+		return -EINVAL;
-+
-+	hmackeyid = nla_get_u32(info->attrs[SEG6_ATTR_HMACKEYID]);
-+	slen = nla_get_u8(info->attrs[SEG6_ATTR_SECRETLEN]);
-+	algid = nla_get_u8(info->attrs[SEG6_ATTR_ALGID]);
-+
-+	if (hmackeyid == 0)
-+		return -EINVAL;
-+
-+	if (slen > SEG6_HMAC_SECRET_LEN)
-+		return -EINVAL;
-+
-+	mutex_lock(&sdata->lock);
-+	hinfo = seg6_hmac_info_lookup(net, hmackeyid);
-+
-+	if (!slen) {
-+		if (!hinfo)
-+			err = -ENOENT;
-+
-+		err = seg6_hmac_info_del(net, hmackeyid);
-+
-+		goto out_unlock;
-+	}
-+
-+	if (!info->attrs[SEG6_ATTR_SECRET]) {
-+		err = -EINVAL;
-+		goto out_unlock;
-+	}
-+
-+	if (hinfo) {
-+		err = seg6_hmac_info_del(net, hmackeyid);
-+		if (err)
-+			goto out_unlock;
-+	}
-+
-+	secret = (char *)nla_data(info->attrs[SEG6_ATTR_SECRET]);
-+
-+	hinfo = kzalloc(sizeof(*hinfo), GFP_KERNEL);
-+	if (!hinfo) {
-+		err = -ENOMEM;
-+		goto out_unlock;
-+	}
-+
-+	memcpy(hinfo->secret, secret, slen);
-+	hinfo->slen = slen;
-+	hinfo->alg_id = algid;
-+	hinfo->hmackeyid = hmackeyid;
-+
-+	err = seg6_hmac_info_add(net, hmackeyid, hinfo);
-+	if (err)
-+		kfree(hinfo);
-+
-+out_unlock:
-+	mutex_unlock(&sdata->lock);
-+	return err;
-+}
-+
-+#else
-+
- static int seg6_genl_sethmac(struct sk_buff *skb, struct genl_info *info)
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			  u8 *proto,
+-			  struct in6_addr **daddr)
++			  struct in6_addr **daddr, struct in6_addr *saddr)
  {
- 	return -ENOTSUPP;
- }
+ 	if (opt->srcrt) {
+-		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr);
++		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr, saddr);
+ 		/*
+ 		 * IPV6_RTHDRDSTOPTS is ignored
+ 		 * unless IPV6_RTHDR is set (RFC3542).
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6001e78..ddc878d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -203,7 +203,8 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 		if (opt->opt_flen)
+ 			ipv6_push_frag_opts(skb, opt, &proto);
+ 		if (opt->opt_nflen)
+-			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
++			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop,
++					     &fl6->saddr);
+ 	}
  
-+#endif
-+
- static int seg6_genl_set_tunsrc(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct net *net = genl_info_net(info);
-@@ -145,11 +227,135 @@ static int seg6_genl_get_tunsrc(struct sk_buff *skb, struct genl_info *info)
- 	return -ENOMEM;
- }
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+@@ -1672,7 +1673,7 @@ struct sk_buff *__ip6_make_skb(struct sock *sk,
+ 	if (opt && opt->opt_flen)
+ 		ipv6_push_frag_opts(skb, opt, &proto);
+ 	if (opt && opt->opt_nflen)
+-		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
++		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst, &fl6->saddr);
  
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+
-+static int __seg6_hmac_fill_info(struct seg6_hmac_info *hinfo,
-+				 struct sk_buff *msg)
-+{
-+	if (nla_put_u32(msg, SEG6_ATTR_HMACKEYID, hinfo->hmackeyid) ||
-+	    nla_put_u8(msg, SEG6_ATTR_SECRETLEN, hinfo->slen) ||
-+	    nla_put(msg, SEG6_ATTR_SECRET, hinfo->slen, hinfo->secret) ||
-+	    nla_put_u8(msg, SEG6_ATTR_ALGID, hinfo->alg_id))
-+		return -1;
-+
-+	return 0;
-+}
-+
-+static int __seg6_genl_dumphmac_element(struct seg6_hmac_info *hinfo,
-+					u32 portid, u32 seq, u32 flags,
-+					struct sk_buff *skb, u8 cmd)
-+{
-+	void *hdr;
-+
-+	hdr = genlmsg_put(skb, portid, seq, &seg6_genl_family, flags, cmd);
-+	if (!hdr)
-+		return -ENOMEM;
-+
-+	if (__seg6_hmac_fill_info(hinfo, skb) < 0)
-+		goto nla_put_failure;
-+
-+	genlmsg_end(skb, hdr);
-+	return 0;
-+
-+nla_put_failure:
-+	genlmsg_cancel(skb, hdr);
-+	return -EMSGSIZE;
-+}
-+
-+static int seg6_genl_dumphmac_start(struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(cb->skb->sk);
-+	struct seg6_pernet_data *sdata;
-+	struct rhashtable_iter *iter;
-+
-+	sdata = seg6_pernet(net);
-+	iter = (struct rhashtable_iter *)cb->args[0];
-+
-+	if (!iter) {
-+		iter = kmalloc(sizeof(*iter), GFP_KERNEL);
-+		if (!iter)
-+			return -ENOMEM;
-+
-+		cb->args[0] = (long)iter;
-+	}
-+
-+	rhashtable_walk_enter(&sdata->hmac_infos, iter);
-+
-+	return 0;
-+}
-+
-+static int seg6_genl_dumphmac_done(struct netlink_callback *cb)
-+{
-+	struct rhashtable_iter *iter = (struct rhashtable_iter *)cb->args[0];
-+
-+	rhashtable_walk_exit(iter);
-+
-+	kfree(iter);
-+
-+	return 0;
-+}
-+
-+static int seg6_genl_dumphmac(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct rhashtable_iter *iter = (struct rhashtable_iter *)cb->args[0];
-+	struct net *net = sock_net(skb->sk);
-+	struct seg6_pernet_data *sdata;
-+	struct seg6_hmac_info *hinfo;
-+	int ret;
-+
-+	sdata = seg6_pernet(net);
-+
-+	ret = rhashtable_walk_start(iter);
-+	if (ret && ret != -EAGAIN)
-+		goto done;
-+
-+	for (;;) {
-+		hinfo = rhashtable_walk_next(iter);
-+
-+		if (IS_ERR(hinfo)) {
-+			if (PTR_ERR(hinfo) == -EAGAIN)
-+				continue;
-+			ret = PTR_ERR(hinfo);
-+			goto done;
-+		} else if (!hinfo) {
-+			break;
-+		}
-+
-+		ret = __seg6_genl_dumphmac_element(hinfo,
-+						   NETLINK_CB(cb->skb).portid,
-+						   cb->nlh->nlmsg_seq,
-+						   NLM_F_MULTI,
-+						   skb, SEG6_CMD_DUMPHMAC);
-+		if (ret)
-+			goto done;
-+	}
-+
-+	ret = skb->len;
-+
-+done:
-+	rhashtable_walk_stop(iter);
-+	return ret;
-+}
-+
-+#else
-+
-+static int seg6_genl_dumphmac_start(struct netlink_callback *cb)
-+{
-+	return 0;
-+}
-+
-+static int seg6_genl_dumphmac_done(struct netlink_callback *cb)
-+{
-+	return 0;
-+}
-+
- static int seg6_genl_dumphmac(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	return -ENOTSUPP;
- }
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index bfa889c..259e850 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1157,7 +1157,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
  
-+#endif
-+
- static int __net_init seg6_net_init(struct net *net)
- {
- 	struct seg6_pernet_data *sdata;
-@@ -168,6 +374,10 @@ static int __net_init seg6_net_init(struct net *net)
+ 	if (encap_limit >= 0) {
+ 		init_tel_txopt(&opt, encap_limit);
+-		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
++		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
+ 	}
  
- 	net->ipv6.seg6_data = sdata;
- 
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	seg6_hmac_net_init(net);
-+#endif
-+
- 	return 0;
- }
- 
-@@ -175,6 +385,10 @@ static void __net_exit seg6_net_exit(struct net *net)
- {
- 	struct seg6_pernet_data *sdata = seg6_pernet(net);
- 
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	seg6_hmac_net_exit(net);
-+#endif
-+
- 	kfree(sdata->tun_src);
- 	kfree(sdata);
- }
-@@ -193,7 +407,9 @@ static const struct genl_ops seg6_genl_ops[] = {
- 	},
- 	{
- 		.cmd	= SEG6_CMD_DUMPHMAC,
-+		.start	= seg6_genl_dumphmac_start,
- 		.dumpit	= seg6_genl_dumphmac,
-+		.done	= seg6_genl_dumphmac_done,
- 		.policy	= seg6_genl_policy,
- 		.flags	= GENL_ADMIN_PERM,
- 	},
-@@ -239,10 +455,20 @@ int __init seg6_init(void)
- 	if (err)
- 		goto out_unregister_pernet;
- 
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	err = seg6_hmac_init();
-+	if (err)
-+		goto out_unregister_iptun;
-+#endif
-+
- 	pr_info("Segment Routing with IPv6\n");
- 
- out:
- 	return err;
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+out_unregister_iptun:
-+	seg6_iptunnel_exit();
-+#endif
- out_unregister_pernet:
- 	unregister_pernet_subsys(&ip6_segments_ops);
- out_unregister_genl:
-@@ -252,6 +478,9 @@ int __init seg6_init(void)
- 
- void seg6_exit(void)
- {
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	seg6_hmac_exit();
-+#endif
- 	seg6_iptunnel_exit();
- 	unregister_pernet_subsys(&ip6_segments_ops);
- 	genl_unregister_family(&seg6_genl_family);
+ 	/* Calculate max headroom for all the headers and adjust
 -- 
 2.7.3
