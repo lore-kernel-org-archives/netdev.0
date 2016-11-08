@@ -1,51 +1,48 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2] irqchip/renesas-irqc: Postpone driver initialization
-Date: Tue, 8 Nov 2016 20:50:45 +0100
-Message-ID: <CAMuHMdWkXsAuRpbTWGw9Wp4m2M38zRAd8OpPpA-sCDb7Xb7skw@mail.gmail.com>
-References: <1478633747-26878-1-git-send-email-geert+renesas@glider.be> <216fe100-556b-7f83-39b0-4cf54c1fa35c@gmail.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [RFC] net: phy: phy drivers should not set
+ SUPPORTED_Pause or SUPPORTED_Asym_Pause
+Date: Tue, 8 Nov 2016 14:43:31 -0600
+Message-ID: <582238F3.30906@codeaurora.org>
+References: <1478020715-25578-1-git-send-email-timur@codeaurora.org>
+ <aa0224f1-814a-d281-ad26-6c8086e40658@gmail.com>
+ <5820AC1D.4040408@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Marc Zyngier <marc.zyngier@arm.com>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <216fe100-556b-7f83-39b0-4cf54c1fa35c@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:34668 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752640AbcKHUne (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 15:43:34 -0500
+In-Reply-To: <5820AC1D.4040408@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-
-On Tue, Nov 8, 2016 at 8:42 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 11/08/2016 11:35 AM, Geert Uytterhoeven wrote:
->> Currently the renesas-irqc driver uses postcore_initcall().
->>
->> However, the new CPG/MSSR driver uses subsys_initcall(). Hence the
->> IRQC's probe will be deferred, which causes the Micrel Ethernet PHY to
->> not find its interrupt on R-Car Gen2 and RZ/G, as the of_mdio subsystem
->> does not support deferred probe yet.
+On 11/07/2016 10:30 AM, Timur Tabi wrote:
 >
-> Is not that the more correct fix to implement though?
+> I'm still don't understand 100% how these flags really work, because I
+> just can't shake the feeling that they should not be set for every phy.
+>   If these flags are supposed to be turned on universally, then why are
+> they even an option?
 
-Sure it is. But nothing has happened since this was reported ca. 1 year ago.
-Cfr. "of_mdiobus_register_phy() and deferred probe"
-https://lkml.org/lkml/2015/10/22/377
+So I've been giving this more thought.  Can you tell me if the following 
+is correct:
 
-My MDIO foo is not that strong...
+1) PHY drivers and/or phylib sets the SUPPORTED_Pause | 
+SUPPORTED_AsymPause bits in phydev->supported.  This indicates that the 
+PHY supports pause frames.
 
-Gr{oetje,eeting}s,
+2) The MAC driver checks phydev->supported before it calls phy_start(). 
+  If (SUPPORTED_Pause | SUPPORTED_AsymPause) is set, then it sets those 
+bits in phydev->advertising if it wants to enable pause frame support.
 
-                        Geert
+3) When the link state changes, the MAC driver checks 
+phydev->advertising, and if the bits are set, then it enables those 
+features in the MAC.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
