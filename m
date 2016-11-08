@@ -1,52 +1,35 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [Xen PATCH] xen-netback: fix error handling output
-Date: Tue,  8 Nov 2016 14:34:34 +0100
-Message-ID: <20161108133449.1649345-1-arnd@arndb.de>
+Subject: Re: [PATCH] net: mii: report 0 for unknown lp_advertising
+Date: Tue, 08 Nov 2016 14:37:09 +0100
+Message-ID: <2691679.uD93atpuSb@wuerfel>
+References: <20161108133232.1571441-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, Filipe Manco <filipe.manco@neclab.eu>,
- Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Paul Durrant <paul.durrant@citrix.com>,
- xen-devel@lists.xenproject.org, Wei Liu <wei.liu2@citrix.com>,
- "David S. Miller" <davem@davemloft.net>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161108133232.1571441-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIGNvbm5lY3QgZnVuY3Rpb24gcHJpbnRzIGFuIHVuaW50aWFsaXplZCBlcnJvciBjb2RlIGFm
-dGVyIGFuCmVhcmxpZXIgaW5pdGlhbGl6YXRpb24gd2FzIHJlbW92ZWQ6Cgpkcml2ZXJzL25ldC94
-ZW4tbmV0YmFjay94ZW5idXMuYzogSW4gZnVuY3Rpb24gJ2Nvbm5lY3QnOgpkcml2ZXJzL25ldC94
-ZW4tbmV0YmFjay94ZW5idXMuYzo5Mzg6MzogZXJyb3I6ICdlcnInIG1heSBiZSB1c2VkIHVuaW5p
-dGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVdlcnJvcj1tYXliZS11bmluaXRpYWxpemVkXQoK
-VGhpcyBwcmludHMgaXQgYXMgLUVJTlZBTCBpbnN0ZWFkLCB3aGljaCBzZWVtcyB0byBiZSB0aGUg
-bW9zdAphcHByb3ByaWF0ZSBlcnJvciBjb2RlLiBCZWZvcmUgdGhlIHBhdGNoIHRoYXQgY2F1c2Vk
-IHRoZSB3YXJuaW5nLAp0aGlzIHdvdWxkIHByaW50IGEgcG9zaXRpdmUgbnVtYmVyIHJldHVybmVk
-IGJ5IHZzc2NhbmYoKSBpbnN0ZWFkLAp3aGljaCBpcyBhbHNvIHdyb25nLiBXZSBwcm9iYWJseSBk
-b24ndCBuZWVkIGEgYmFja3BvcnQgdGhvdWdoLAphcyBmaXhpbmcgdGhlIHdhcm5pbmcgaGVyZSBz
-aG91bGQgYmUgc3VmZmljaWVudC4KCkZpeGVzOiBmOTU4NDJlN2E5ZjIgKCJ4ZW46IG1ha2UgdXNl
-IG9mIHhlbmJ1c19yZWFkX3Vuc2lnbmVkKCkgaW4geGVuLW5ldGJhY2siKQpGaXhlczogOGQzZDUz
-YjNlNDMzICgieGVuLW5ldGJhY2s6IEFkZCBzdXBwb3J0IGZvciBtdWx0aXBsZSBxdWV1ZXMiKQpT
-aWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgotLS0KIGRyaXZlcnMv
-bmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jIHwgMiArLQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
-aW9uKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJh
-Y2sveGVuYnVzLmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwppbmRleCA3MzU2
-ZTAwZmFjNTQuLmJmZWQ3OTg3N2I4YSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJh
-Y2sveGVuYnVzLmMKKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMKQEAgLTkz
-NSw3ICs5MzUsNyBAQCBzdGF0aWMgdm9pZCBjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2luZm8gKmJl
-KQogCQkJCQkibXVsdGktcXVldWUtbnVtLXF1ZXVlcyIsIDEpOwogCWlmIChyZXF1ZXN0ZWRfbnVt
-X3F1ZXVlcyA+IHhlbnZpZl9tYXhfcXVldWVzKSB7CiAJCS8qIGJ1Z2d5IG9yIG1hbGljaW91cyBn
-dWVzdCAqLwotCQl4ZW5idXNfZGV2X2ZhdGFsKGRldiwgZXJyLAorCQl4ZW5idXNfZGV2X2ZhdGFs
-KGRldiwgLUVJTlZBTCwKIAkJCQkgImd1ZXN0IHJlcXVlc3RlZCAldSBxdWV1ZXMsIGV4Y2VlZGlu
-ZyB0aGUgbWF4aW11bSBvZiAldS4iLAogCQkJCSByZXF1ZXN0ZWRfbnVtX3F1ZXVlcywgeGVudmlm
-X21heF9xdWV1ZXMpOwogCQlyZXR1cm47Ci0tIAoyLjkuMAoKCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRl
-dmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+On Tuesday, November 8, 2016 2:31:38 PM CET Arnd Bergmann wrote:
+> The newly introduced mii_ethtool_get_link_ksettings function sets
+> lp_advertising to an uninitialized value when BMCR_ANENABLE is not
+> set:
+> 
+> drivers/net/mii.c: In function 'mii_ethtool_get_link_ksettings':
+> drivers/net/mii.c:224:2: error: 'lp_advertising' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> As documented in include/uapi/linux/ethtool.h, the value is
+> expected to be zero when we don't know it, so let's initialize
+> it to that.
+> 
+> Fixes: bc8ee596afe8 ("net: mii: add generic function to support ksetting support")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+In case there was any doubt: the patch causing this is currently in net-next
+and has just shown up in linux-next.
+
+	Arnd
