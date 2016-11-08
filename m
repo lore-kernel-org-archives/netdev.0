@@ -1,73 +1,119 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Virtio_net support vxlan encapsulation package TSO offload
- discuss
-Date: Tue, 8 Nov 2016 19:17:25 +0800
-Message-ID: <3a0b8f10-f479-3ed5-dd10-5b92de3eb593@redhat.com>
-References: <DBCD2614ECF3FF4087A2C27CA80E34DD5401AC8B@SZXEMA501-MBX.china.huawei.com>
- <c2f735e4-eddf-f737-2afe-35a93289f8d4@redhat.com>
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
+Date: Tue, 08 Nov 2016 06:53:48 -0500
+Message-ID: <1478606028.2443.2.camel@redhat.com>
+References: <20161108054202.GA12406@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Vlad Yasevic <vyasevic@redhat.com>
-To: "Zhangming (James, Euler)" <james.zhangming@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ross Zwisler <ross.zwisler@linux.intel.com>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "J. Bruce Fields" <bfields@fieldses.org>,
+        "David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andy Adamson <andros@netapp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36462 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932582AbcKHLRb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Nov 2016 06:17:31 -0500
-In-Reply-To: <c2f735e4-eddf-f737-2afe-35a93289f8d4@redhat.com>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:33634 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752196AbcKHLxw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 06:53:52 -0500
+Received: by mail-qk0-f182.google.com with SMTP id x190so211233787qkb.0
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 03:53:51 -0800 (PST)
+In-Reply-To: <20161108054202.GA12406@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2016-11-07 at 22:42 -0700, Ross Zwisler wrote:
+> I've got a virtual machine that has some NFS mounts, and with a newly compiled
+> kernel based on v4.9-rc3 I see the following warning/info message:
+> 
+> [   42.750181] ===============================
+> [   42.750192] [ INFO: suspicious RCU usage. ]
+> [   42.750203] 4.9.0-rc3-00002-g7b6e7de #3 Not tainted
+> [   42.750213] -------------------------------
+> [   42.750225] net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
+> [   42.750235] 
+> [   42.750235] other info that might help us debug this:
+> [   42.750235] 
+> [   42.750246] 
+> [   42.750246] rcu_scheduler_active = 1, debug_locks = 0
+> [   42.750257] 1 lock held by mount.nfs4/6440:
+> [   42.750278]  #0: 
+> [   42.750299]  (
+> [   42.750319] &(&nn->nfs_client_lock)->rlock
+> [   42.750340] ){+.+...}
+> [   42.750362] , at: 
+> [   42.750372] [<ffffffff813012b5>] nfs_get_client+0x105/0x5e0
+> [   42.750383] 
+> [   42.750383] stack backtrace:
+> [   42.750394] CPU: 0 PID: 6440 Comm: mount.nfs4 Not tainted 4.9.0-rc3-00002-g7b6e7de #3
+> [   42.750406] Hardware name: Intel Corporation PURLEY/PURLEY, BIOS PLYDCRB1.MBH.0096.D23.1608240105 08/24/2016
+> [   42.750429]  ffffc9000092fa68 ffffffff8150730f ffff88014ec8da40 0000000000000001
+> [   42.750452]  ffffc9000092fa98 ffffffff810bc3f7 ffff880150b0b228 ffff88015068dbb0
+> [   42.750475]  ffffc9000092fb38 ffff88014fc99180 ffffc9000092fac0 ffffffff81b243e5
+> [   42.750486] Call Trace:
+> [   42.750498]  [<ffffffff8150730f>] dump_stack+0x67/0x98
+> [   42.750511]  [<ffffffff810bc3f7>] lockdep_rcu_suspicious+0xe7/0x120
+> [   42.750524]  [<ffffffff81b243e5>] rpc_clnt_xprt_switch_has_addr+0x115/0x150
+> [   42.750536]  [<ffffffff813013f4>] nfs_get_client+0x244/0x5e0
+> [   42.750549]  [<ffffffff813012ac>] ? nfs_get_client+0xfc/0x5e0
+> [   42.750561]  [<ffffffff813568f8>] nfs4_set_client+0x98/0x130
+> [   42.750574]  [<ffffffff8135872e>] nfs4_create_server+0x13e/0x390
+> [   42.750588]  [<ffffffff8134cd0e>] nfs4_remote_mount+0x2e/0x60
+> [   42.750600]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
+> [   42.750614]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
+> [   42.750626]  [<ffffffff8134cbec>] ? nfs_do_root_mount+0x3c/0xc0
+> [   42.750639]  [<ffffffff8134cc36>] nfs_do_root_mount+0x86/0xc0
+> [   42.750652]  [<ffffffff8134d014>] nfs4_try_mount+0x44/0xc0
+> [   42.750664]  [<ffffffff81302097>] ? get_nfs_version+0x27/0x90
+> [   42.750677]  [<ffffffff81310f8c>] nfs_fs_mount+0x4ac/0xd80
+> [   42.750689]  [<ffffffff810bb938>] ? lockdep_init_map+0x88/0x1f0
+> [   42.750701]  [<ffffffff81311ac0>] ? nfs_clone_super+0x130/0x130
+> [   42.750713]  [<ffffffff8130f300>] ? param_set_portnr+0x70/0x70
+> [   42.750726]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
+> [   42.750740]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
+> [   42.750752]  [<ffffffff812176f1>] do_mount+0x1f1/0xd10
+> [   42.750765]  [<ffffffff81217441>] ? copy_mount_options+0xa1/0x140
+> [   42.750777]  [<ffffffff81218543>] SyS_mount+0x83/0xd0
+> [   42.750790]  [<ffffffff81002abc>] do_syscall_64+0x5c/0x130
+> [   42.750802]  [<ffffffff81c479a4>] entry_SYSCALL64_slow_path+0x25/0x25
+> 
+> This rcu_dereference_check() was introduced by the following commit:
+> 
+> commit 39e5d2df959dd4aea81fa33d765d2a5cc67a0512
+> Author: Andy Adamson <andros@netapp.com>
+> Date:   Fri Sep 9 09:22:25 2016 -0400
+> 
+>     SUNRPC search xprt switch for sockaddr
+>     
+>     Signed-off-by: Andy Adamson <andros@netapp.com>
+>     Signed-off-by: Anna Schumaker <Anna.Schumaker@Netapp.com>
+> 
+> Thanks,
+> - Ross
 
+Thanks Ross,
 
-On 2016年11月08日 19:13, Jason Wang wrote:
-> Cc Michael
->
-> On 2016年11月08日 16:34, Zhangming (James, Euler) wrote:
->>
->> In container scenario, OVS is installed in the Virtual machine, and 
->> all the containers connected to the OVS will communicated through 
->> VXLAN encapsulation.
->>
->> By now, virtio_net does not support TSO offload for VXLAN 
->> encapsulated TSO package. In this condition, the performance is not 
->> good, sender is bottleneck
->>
->> I googled this scenario, but I didn’t find any information. Will 
->> virtio_net support VXLAN encapsulation package TSO offload later?
->>
->
-> Yes and for both sender and receiver.
->
->> My idea is virtio_net open encapsulated TSO offload, and transport 
->> encapsulation info to TUN, TUN will parse the info and build skb with 
->> encapsulation info.
->>
->> OVS or kernel on the host should be modified to support this. Using 
->> this method, the TCP performance aremore than 2x as before.
->>
->> Any advice and suggestions for this idea or new idea will be greatly 
->> appreciated!
->>
->> Best regards,
->>
->>    James zhang
->>
->
-> Sounds very good. And we may also need features bits 
-> (VIRTIO_NET_F_GUEST|HOST_GSO_X) for this.
->
-> This is in fact one of items in networking todo list. (See 
-> http://www.linux-kvm.org/page/NetworkingTodo). While at it, we'd 
-> better support not only VXLAN but also other tunnels.
+----------------------8<----------------------
+bool rpc_clnt_xprt_switch_has_addr(struct rpc_clnt *clnt,
+                                   const struct sockaddr *sap)
+{
+        struct rpc_xprt_switch *xps;
+        bool ret;
 
-Cc Vlad who is working on extending virtio-net headers.
+        xps = rcu_dereference(clnt->cl_xpi.xpi_xpswitch);
 
->
-> We can start with the spec work, or if you've already had some bits 
-> you can post them as RFC for early review.
->
-> Thanks
+        rcu_read_lock();
+        ret = rpc_xprt_switch_has_addr(xps, sap);
+        rcu_read_unlock();
+        return ret;
+}
+----------------------8<----------------------
+
+Looks like the simple fix is to just move that rcu_dereference call
+inside the rcu_read_lock there.
+
+Cheers,
+-- 
+Jeff Layton <jlayton@redhat.com>
