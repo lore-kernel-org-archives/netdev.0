@@ -1,173 +1,104 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v4] cadence: Add LSO support.
-Date: Tue, 8 Nov 2016 11:09:09 -0800
-Message-ID: <911391d0-a7ec-1d4f-e419-b1a09c4d13d3@gmail.com>
-References: <20161107.203846.734910693756417486.davem@davemloft.net>
- <1478612463-15076-1-git-send-email-rafalo@cadence.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] igb: use igb_adapter->io_addr instead
+ of e1000_hw->hw_addr
+Date: Tue, 8 Nov 2016 11:33:17 -0800
+Message-ID: <CAKgT0UeaoGfOOC1=h4pGk+=FDd5EqvgRGAdk1StLuiW1-M8tVA@mail.gmail.com>
+References: <1478588780-24480-1-git-send-email-caoj.fnst@cn.fujitsu.com>
+ <20161108164214.GF31855@calimero.vinschen.de> <alpine.NEB.2.20.17.1611080910530.6177@chris.i8u.org>
+ <20161108183739.GA3744@calimero.vinschen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Rafal Ozieblo <rafalo@cadence.com>, nicolas.ferre@atmel.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Hisashi T Fujinaka <htodd@twofifty.com>,
+        Cao jin <caoj.fnst@cn.fujitsu.com>,
+        Netdev <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        =?UTF-8?B?SXp1bWksIFRha3Uv5rOJIOaLkw==?=
+        <izumi.taku@jp.fujitsu.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478612463-15076-1-git-send-email-rafalo@cadence.com>
+In-Reply-To: <20161108183739.GA3744@calimero.vinschen.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/08/2016 05:41 AM, Rafal Ozieblo wrote:
-> New Cadence GEM hardware support Large Segment Offload (LSO):
-> TCP segmentation offload (TSO) as well as UDP fragmentation
-> offload (UFO). Support for those features was added to the driver.
-> 
-> Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
-> ---
+On Tue, Nov 8, 2016 at 10:37 AM, Corinna Vinschen <vinschen@redhat.com> wrote:
+> On Nov  8 09:16, Hisashi T Fujinaka wrote:
+>> On Tue, 8 Nov 2016, Corinna Vinschen wrote:
+>> > On Nov  8 15:06, Cao jin wrote:
+>> > > When running as guest, under certain condition, it will oops as following.
+>> > > writel() in igb_configure_tx_ring() results in oops, because hw->hw_addr
+>> > > is NULL. While other register access won't oops kernel because they use
+>> > > wr32/rd32 which have a defense against NULL pointer.
+>> > > [...]
+>> >
+>> > Incidentally we're just looking for a solution to that problem too.
+>> > Do three patches to fix the same problem at rougly the same time already
+>> > qualify as freak accident?
+>> >
+>> > FTR, I attached my current patch, which I was planning to submit after
+>> > some external testing.
+>> >
+>> > However, all three patches have one thing in common:  They workaround
+>> > a somewhat dubious resetting of the hardware address to NULL in case
+>> > reading from a register failed.
+>> >
+>> > That makes me wonder if setting the hardware address to NULL in
+>> > rd32/igb_rd32 is really such a good idea.  It's performed in a function
+>> > which return value is *never* tested for validity in the calling
+>> > functions and leads to subsequent crashes since no tests for hw_addr ==
+>> > NULL are performed.
+>> >
+>> > Maybe commit 22a8b2915 should be reconsidered?  Isn't there some more
+>> > graceful way to handle the "surprise removal"?
+>>
+>> Answering this from my home account because, well, work is Outlook.
+>>
+>> "Reconsidering" would be great. In fact, revert if if you'd like. I'm
+>> uncertain that the surprise removal code actually works the way I
+>> thought previously and I think I took a lot of it out of my local code.
+>>
+>> Unfortuantely I don't have any equipment that I can use to reproduce
+>> surprise removal any longer so that means I wouldn't be able to test
+>> anything. I have to defer to you or Cao Jin.
+>
+> I'm not too keen to rip out a PCIe NIC under power from my locale
+> desktop machine, but I think an actual surprise removal is not the
+> problem.
+>
+> As described in my git log entry, the error condition in igb_rd32 can be
+> triggered during a suspend.  The HW has been put into a sleep state but
+> some register read requests are apparently not guarded against that
+> situation.  Reading a register in this state returns -1, thus a suspend
+> is erroneously triggering the "surprise removal" sequence.
 
-> -#define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1))
-> -#define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1))
-> +/* Max length of transmit frame must be a multiple of 8 bytes */
-> +#define MACB_TX_LEN_ALIGN	8
-> +#define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1) & ~((unsigned int)(MACB_TX_LEN_ALIGN - 1)))
-> +#define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1) & ~((unsigned int)(MACB_TX_LEN_ALIGN - 1)))
->  
->  #define GEM_MTU_MIN_SIZE	ETH_MIN_MTU
-> +#define MACB_NETIF_LSO		(NETIF_F_TSO | NETIF_F_UFO)
+The question I would have is what is reading the device when it is in
+this state.  The watchdog and any other functions that would read the
+device should be disabled.
 
-Not a huge fan of this definition, since it is always used in conjuction
-with netdev_features_t, having it expanded all the time is kind of nicer
-for the reader, but this is just personal preference here.
+One possibility could be a race between a call to igb_close and the
+igb_suspend function.  We have seen some of those pop up recently on
+ixgbe and it looks like igb has the same bug.  We should probably be
+using the rtnl_lock to guarantee that netif_device_detach and the call
+to __igb_close are completed before igb_close could possibly be called
+by the network stack.
 
->  
->  #define MACB_WOL_HAS_MAGIC_PACKET	(0x1 << 0)
->  #define MACB_WOL_ENABLED		(0x1 << 1)
-> @@ -1223,7 +1228,8 @@ static void macb_poll_controller(struct net_device *dev)
->  
->  static unsigned int macb_tx_map(struct macb *bp,
->  				struct macb_queue *queue,
-> -				struct sk_buff *skb)
-> +				struct sk_buff *skb,
-> +				unsigned int hdrlen)
->  {
->  	dma_addr_t mapping;
->  	unsigned int len, entry, i, tx_head = queue->tx_head;
-> @@ -1231,14 +1237,27 @@ static unsigned int macb_tx_map(struct macb *bp,
->  	struct macb_dma_desc *desc;
->  	unsigned int offset, size, count = 0;
->  	unsigned int f, nr_frags = skb_shinfo(skb)->nr_frags;
-> -	unsigned int eof = 1;
-> -	u32 ctrl;
-> +	unsigned int eof = 1, mss_mfs = 0;
-> +	u32 ctrl, lso_ctrl = 0, seq_ctrl = 0;
-> +
-> +	/* LSO */
-> +	if (skb_shinfo(skb)->gso_size != 0) {
-> +		if (IPPROTO_UDP == (ip_hdr(skb)->protocol))
+> Here's a raw idea:
+>
+> - Note that device is suspended in e1000_hw struct.  Don't trigger
+>   error sequence in igb_rd32 if so (...and return a 0 value???)
 
-Most checks are usually done the other way with the left and right
-member swapped.
+The thing is that a suspended device should not be accessed at all.
+If we are accessing it while it is suspended then that is a bug.  If
+you could throw a WARN_ON call in igb_rd32 to capture where this is
+being triggered that might be useful.
 
-> +			/* UDP - UFO */
-> +			lso_ctrl = MACB_LSO_UFO_ENABLE;
-> +		else
-> +			/* TCP - TSO */
-> +			lso_ctrl = MACB_LSO_TSO_ENABLE;
-> +	}
+> - Otherwise assume it's actually a surprise removal.  In theory that
+>   should somehow trigger a device removal sequence, kind of like
+>   calling igb_remove, no?
 
->  
->  	/* Then, map paged data from fragments */
-> @@ -1311,6 +1332,20 @@ static unsigned int macb_tx_map(struct macb *bp,
->  	desc = &queue->tx_ring[entry];
->  	desc->ctrl = ctrl;
->  
-> +	if (lso_ctrl) {
-> +		if (lso_ctrl == MACB_LSO_UFO_ENABLE)
-> +			/* include header and FCS in value given to h/w */
-> +			mss_mfs = skb_shinfo(skb)->gso_size +
-> +					skb_transport_offset(skb) + 4;
+Well a read of the MMIO region while suspended is more of a surprise
+read since there shouldn't be anything going on.  We need to isolate
+where that read is coming from and fix it.
 
-ETH_FCS_LEN instead of 4?
+Thanks.
 
-
-> +static netdev_features_t macb_features_check(struct sk_buff *skb,
-> +					     struct net_device *dev,
-> +					     netdev_features_t features)
-> +{
-> +	unsigned int nr_frags, f;
-> +	unsigned int hdrlen;
-> +
-> +	/* Validate LSO compatibility */
-> +
-> +	/* there is only one buffer */
-> +	if (!skb_is_nonlinear(skb))
-> +		return features;
-> +
-> +	/* length of header */
-> +	hdrlen = skb_transport_offset(skb);
-> +	if (IPPROTO_TCP == (ip_hdr(skb)->protocol))
-> +		hdrlen += tcp_hdrlen(skb);
-
-Same here, please reverse the left and right members, no need for
-parenthesis aground ip_hdr(skb)->protocol.
-
-> +
-> +	/* For LSO:
-> +	 * When software supplies two or more payload buffers all payload buffers
-> +	 * apart from the last must be a multiple of 8 bytes in size.
-> +	 */
-> +	if (!IS_ALIGNED(skb_headlen(skb) - hdrlen, MACB_TX_LEN_ALIGN))
-> +		return features & ~MACB_NETIF_LSO;
-> +
-> +	nr_frags = skb_shinfo(skb)->nr_frags;
-> +	/* No need to check last fragment */
-> +	nr_frags--;
-> +	for (f = 0; f < nr_frags; f++) {
-> +		const skb_frag_t *frag = &skb_shinfo(skb)->frags[f];
-> +
-> +		if (!IS_ALIGNED(skb_frag_size(frag), MACB_TX_LEN_ALIGN))
-> +			return features & ~MACB_NETIF_LSO;
-> +	}
-> +	return features;
-> +}
-> +
->  static inline int macb_clear_csum(struct sk_buff *skb)
->  {
->  	/* no change for packets without checksum offloading */
-> @@ -1374,7 +1456,27 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	struct macb *bp = netdev_priv(dev);
->  	struct macb_queue *queue = &bp->queues[queue_index];
->  	unsigned long flags;
-> -	unsigned int count, nr_frags, frag_size, f;
-> +	unsigned int desc_cnt, nr_frags, frag_size, f;
-> +	unsigned int is_lso = 0, is_udp, hdrlen;
-> +
-> +	is_lso = (skb_shinfo(skb)->gso_size != 0);
-> +
-> +	if (is_lso) {
-> +		is_udp = (IPPROTO_UDP == (ip_hdr(skb)->protocol));
-
-Same here, and you may want to declare is_udp as boolean and do this:
-
-		is_udp = !!(ip_hdr(skb)->protocl == IPPROTO_UDP);
-
-> +
-> +		/* length of headers */
-> +		if (is_udp)
-> +			/* only queue eth + ip headers separately for UDP */
-> +			hdrlen = skb_transport_offset(skb);
-> +		else
-> +			hdrlen = skb_transport_offset(skb) + tcp_hdrlen(skb);
-> +		if (skb_headlen(skb) < hdrlen) {
-> +			netdev_err(bp->dev, "Error - LSO headers fragmented!!!\n");
-> +			/* if this is required, would need to copy to single buffer */
-> +			return NETDEV_TX_BUSY;
-> +		}
-
->  
-> +	if (is_lso) {
-> +		if (is_udp)
-> +			/* zero UDP checksum, not calculated by h/w for UFO */
-> +			udp_hdr(skb)->check = 0;
-
-is_udp is only set when (is_lso) is checked, so the two conditions are
-redundant, just checking is_udp should be enough?
--- 
-Florian
+- Alex
