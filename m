@@ -1,86 +1,65 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 8 Nov 2016 12:25:37 +1100
-Message-ID: <20161108122537.40fa6e58@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sock: do not set sk_err in
+ sock_dequeue_err_skb
+Date: Mon, 07 Nov 2016 20:29:56 -0500 (EST)
+Message-ID: <20161107.202956.378754457373863655.davem@davemloft.net>
+References: <1478211867-24569-1-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Johannes Berg <johannes.berg@intel.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, willemb@google.com,
+        ncardwell@google.com, soheil@google.com
+To: soheil.kdev@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47924 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751081AbcKHB36 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2016 20:29:58 -0500
+In-Reply-To: <1478211867-24569-1-git-send-email-soheil.kdev@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Date: Thu,  3 Nov 2016 18:24:27 -0400
 
-Today's linux-next merge of the net-next tree got a conflict in:
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+> 
+> Do not set sk_err when dequeuing errors from the error queue.
+> Doing so results in:
+> a) Bugs: By overwriting existing sk_err values, it possibly
+>    hides legitimate errors. It is also incorrect when local
+>    errors are queued with ip_local_error. That happens in the
+>    context of a system call, which already returns the error
+>    code.
+> b) Inconsistent behavior: When there are pending errors on
+>    the error queue, sk_err is sometimes 0 (e.g., for
+>    the first timestamp on the error queue) and sometimes
+>    set to an error code (after dequeuing the first
+>    timestamp).
+> c) Suboptimality: Setting sk_err to ENOMSG on simple
+>    TX timestamps can abort parallel reads and writes.
+> 
+> Removing this line doesn't break userspace. This is because
+> userspace code cannot rely on sk_err for detecting whether
+> there is something on the error queue. Except for ICMP messages
+> received for UDP and RAW, sk_err is not set at enqueue time,
+> and as a result sk_err can be 0 while there are plenty of
+> errors on the error queue.
+> 
+> For ICMP packets in UDP and RAW, sk_err is set when they are
+> enqueued on the error queue, but that does not result in aborting
+> reads and writes. For such cases, sk_err is only readable via
+> getsockopt(SO_ERROR) which will reset the value of sk_err on
+> its own. More importantly, prior to this patch,
+> recvmsg(MSG_ERRQUEUE) has a race on setting sk_err (i.e.,
+> sk_err is set by sock_dequeue_err_skb without atomic ops or
+> locks) which can store 0 in sk_err even when we have ICMP
+> messages pending. Removing this line from sock_dequeue_err_skb
+> eliminates that race.
+> 
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-  net/netlink/genetlink.c
-
-between commit:
-
-  00ffc1ba02d8 ("genetlink: fix a memory leak on error path")
-
-from the net tree and commit:
-
-  2ae0f17df1cd ("genetlink: use idr to track families")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/netlink/genetlink.c
-index 49c28e8ef01b,bbd3bff885a1..000000000000
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@@ -402,11 -360,17 +360,17 @@@ int genl_register_family(struct genl_fa
-  	} else
-  		family->attrbuf = NULL;
-  
-+ 	family->id = idr_alloc(&genl_fam_idr, family,
-+ 			       start, end + 1, GFP_KERNEL);
-+ 	if (family->id < 0) {
-+ 		err = family->id;
- -		goto errout_locked;
-++		goto errout_free;
-+ 	}
-+ 
-  	err = genl_validate_assign_mc_groups(family);
-  	if (err)
-- 		goto errout_free;
-+ 		goto errout_remove;
-  
-- 	list_add_tail(&family->family_list, genl_family_chain(family->id));
-  	genl_unlock_all();
-  
-  	/* send all events */
-@@@ -417,14 -381,13 +381,15 @@@
-  
-  	return 0;
-  
-+ errout_remove:
-+ 	idr_remove(&genl_fam_idr, family->id);
- +errout_free:
- +	kfree(family->attrbuf);
-  errout_locked:
-  	genl_unlock_all();
-- errout:
-  	return err;
-  }
-- EXPORT_SYMBOL(__genl_register_family);
-+ EXPORT_SYMBOL(genl_register_family);
-  
-  /**
-   * genl_unregister_family - unregister generic netlink family
+Ok, applied.
