@@ -1,29 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio-net: drop legacy features in virtio 1 mode
-Date: Mon, 07 Nov 2016 20:36:08 -0500 (EST)
-Message-ID: <20161107.203608.2045895060395892989.davem@davemloft.net>
-References: <1478256865-29003-1-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH net-next v3] cadence: Add LSO support.
+Date: Mon, 07 Nov 2016 20:38:46 -0500 (EST)
+Message-ID: <20161107.203846.734910693756417486.davem@davemloft.net>
+References: <1477397130-24250-1-git-send-email-rafalo@cadence.com>
+        <1478259618-23474-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-        jasowang@redhat.com, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org
-To: mst@redhat.com
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: rafalo@cadence.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478256865-29003-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1478259618-23474-1-git-send-email-rafalo@cadence.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Fri, 4 Nov 2016 12:55:36 +0200
+From: Rafal Ozieblo <rafalo@cadence.com>
+Date: Fri, 4 Nov 2016 11:40:18 +0000
 
-> Virtio 1.0 spec says VIRTIO_F_ANY_LAYOUT and VIRTIO_NET_F_GSO are
-> legacy-only feature bits. Do not negotiate them in virtio 1 mode.  Note
-> this is a spec violation so we need to backport it to stable/downstream
-> kernels.
-> 
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> +		if (IPPROTO_UDP == (((struct iphdr *)skb_network_header(skb))->protocol))
 
-Applied.
+This is simply "ip_hdr(skb)->protocol", please use it everywhere you
+have this ugly cast thing in this change.
+
+Thanks.
