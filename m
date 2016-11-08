@@ -1,37 +1,61 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH net-next] tc_act: Remove tcf_act macro
-Date: Tue,  8 Nov 2016 17:24:03 +0200
-Message-ID: <1478618643-37144-1-git-send-email-yotamg@mellanox.com>
-Cc: Yotam Gigi <yotamg@mellanox.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, mlxsw@mellanox.com
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe
+ function
+Date: Tue, 8 Nov 2016 10:25:26 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1611081020550.1499-100000@iolanthe.rowland.org>
+References: <CAAd53p5=xLJR=cLwLstjmgdEg_Nr2JHUWDFa218Dhn50F_NH8g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Oliver Neukum <oneukum@suse.com>, <linux-kernel@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Kai-Heng Feng <kai.heng.feng@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37449 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751786AbcKHPWJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 10:22:09 -0500
+Received: from iolanthe.rowland.org ([192.131.102.54]:33018 "HELO
+        iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with SMTP id S1753282AbcKHPZ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 10:25:28 -0500
+In-Reply-To: <CAAd53p5=xLJR=cLwLstjmgdEg_Nr2JHUWDFa218Dhn50F_NH8g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tc_act macro addressed a non existing field, and was not used in the
-kernel source.
+On Tue, 8 Nov 2016, Kai-Heng Feng wrote:
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/act_api.h | 1 -
- 1 file changed, 1 deletion(-)
+> Hi,
+> 
+> On Mon, Nov 7, 2016 at 7:02 PM, Oliver Neukum <oneukum@suse.com> wrote:
+> > On Fri, 2016-11-04 at 17:57 +0800, Kai-Heng Feng wrote:
+> >> Sometimes cdc_mbim failed to probe if runtime pm is enabled:
+> >> [    9.305626] cdc_mbim: probe of 2-2:1.12 failed with error -22
+> >>
+> >> This can be solved by increase its pm usage counter.
+> >>
+> >> Signed-off-by: Kai-Heng Feng <kai.heng.feng@canonical.com>
+> >
+> > For the record:
+> >
+> > NAK. This fixes a symptom. If this patch helps something is broken in
+> > device core. We need to find that.
+> >
+> 
+> Please check attached dmesg with usbcore.dyndbg="+p".
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 82f3c91..d8eae87 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -42,7 +42,6 @@ struct tc_action {
- 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
- 	struct gnet_stats_queue __percpu *cpu_qstats;
- };
--#define tcf_act		common.tcfa_act
- #define tcf_head	common.tcfa_head
- #define tcf_index	common.tcfa_index
- #define tcf_refcnt	common.tcfa_refcnt
--- 
-2.4.11
+The log shows that the device went into suspend _before_ the cdc_mbim 
+driver was probed, not during the probe.  Then just before the probe 
+was started, the USB core tried to resume the device and the resume 
+failed.
+
+The log shows a bunch of other problems with this device:
+
+[    3.862253] usb 2-2: config 1 has an invalid interface number: 12 but max is 1
+[    3.862254] usb 2-2: config 1 has an invalid interface number: 13 but max is 1
+[    3.862254] usb 2-2: config 1 has an invalid interface number: 13 but max is 1
+[    3.862255] usb 2-2: config 1 has no interface number 0
+[    3.862256] usb 2-2: config 1 has no interface number 1
+...
+[    8.295180] usb 2-2: Disable of device-initiated U1 failed.
+[    8.295322] usb 2-2: Disable of device-initiated U2 failed.
+
+I get the impression that the device won't work properly with runtime 
+PM at all.
+
+Alan Stern
