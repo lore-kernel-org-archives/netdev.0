@@ -1,82 +1,96 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 3/3] qdisc: catch misconfig of attaching qdisc
- to tx_queue_len zero device
-Date: Tue, 8 Nov 2016 08:46:35 +0100
-Message-ID: <20161108084635.02cdc293@redhat.com>
-References: <20161103135534.28737.37657.stgit@firesoul>
-        <20161103135611.28737.39840.stgit@firesoul>
-        <CAHo-Oozk1AqqR4+9HxLYSGQOQ8Ohs0NaOx=ZV+94JCH-ftxtMw@mail.gmail.com>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: Re: [lkp] [net]  af1fee9821:
+ BUG:spinlock_trylock_failure_on_UP_on_CPU
+Date: Tue, 8 Nov 2016 09:11:54 +0100
+Message-ID: <20161108081154.GA22561@microsemi.com>
+References: <20161107022628.GA21529@yexl-desktop>
+ <20161107093148.GA27001@lunn.ch>
+ <20161107132714.GA10669@microsemi.com>
+ <20161108020151.GA16988@yexl-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Linux NetDev <netdev@vger.kernel.org>, Phil Sutter <phil@nwl.cc>,
-        Robert Olsson <robert@herjulf.se>,
-        Jamal Hadi Salim <jhs@mojatatu.com>, brouer@redhat.com
-To: Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41242 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752302AbcKHHql (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Nov 2016 02:46:41 -0500
-In-Reply-To: <CAHo-Oozk1AqqR4+9HxLYSGQOQ8Ohs0NaOx=ZV+94JCH-ftxtMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <lkp@01.org>
+To: Ye Xiaolong <xiaolong.ye@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161108020151.GA16988@yexl-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Ye Xiaolong,
 
-On Mon, 7 Nov 2016 22:14:37 -0800 Maciej Żenczykowski <zenczykowski@gmail.com> wrote:
+On 08/11/16 10:01, Ye Xiaolong wrote:
+> Could you tell us what troubles you have met when trying the "lkp qemu"
+> tool, it would be better if you could paste some log so we can help to
+> improve it.
 
-> Just FYI:
-> 
-> I'm tangentially aware of internal Google code that:
-> - expects a bonding device running HTB with non-zero txqueuelen
-> - wants to remove HTB and get a noqueue interface (the normal default
-> for bonding)
-> 
-> The code currently removes HTB, which gets us to mq, sets txqueuelen
-> to 0, adds a pfifo, removes the pfifo, which gets us to noqueue.
+Sure:
 
-This clearly shows that the older userspace interface, of tx_queue_len
-having double meaning, was a mess!
+anielsen@lx-anielsen ~/work/opensource-phy/lkp-tests (master) $ bin/lkp qemu -k ../net-next/bug-build/arch/x86_64/boot/bzImage /home/anielsen/Downloads/job-script
+/home/anielsen/Downloads/job-script: line 2: $'\r': command not found
+/home/anielsen/Downloads/job-script: line 3: syntax error near unexpected token
+`$'\r''
+'home/anielsen/Downloads/job-script: line 3: `export_top_env()
+mkdir: cannot create directory ‘/lkp’: Permission denied
+mv: cannot stat ‘/home/anielsen/.lkp/cache/lkp-x86_64.cgz’: No such file or
+directory
+find: ‘/boot/lost+found’: Permission denied
+^C
 
-> After this patch this would ?possibly? break (adding pfifo, would
-> change txqueuelen, so when we remove it we wouldn't end up with
-> noqueue).
+Looks like it expect unix-style line endings (not sure where it got converted to dos-style):
 
-No, you will still end-up with "noqueue".  It is now the flag
-IFF_NO_QUEUE that determine if a device gets "noqueue" when the default
-qdisc is attached. The tx_queue_len no longer have any effect on
-getting "noqueue".  The IFF_NO_QUEUE system removed this double meaning
-of tx_queue_len.
+So I tried that (and created some of the missing folders):
 
+$ dos2unix /home/anielsen/Downloads/job-script
+$ sudo mkdir /lkp
+$ sudo chmod 777 /lkp
+$ bin/lkp qemu -k ../net-next/bug-build/arch/x86_64/boot/bzImage /home/anielsen/Downloads/job-script
+make: Entering directory '/home/anielsen/work/opensource-phy/lkp-tests/bin/event'
+klcc    -c -o wakeup.o wakeup.c
+make: klcc: Command not found
+<builtin>: recipe for target 'wakeup.o' failed
+make: *** [wakeup.o] Error 127
+make: Leaving directory '/home/anielsen/work/opensource-phy/lkp-tests/bin/event'
+mv: cannot stat ‘/home/anielsen/.lkp/cache/lkp-x86_64.cgz’: No such file or directory
+downloading initrds ...
+/usr/bin/wget -q --local-encoding=UTF-8 --retry-connrefused --waitretry 1000 --tries 1000 https://github.com/0day-ci/lkp-qemu/raw/master/osimage/debian/debian-x86_64-2016-08-31.cgz -N -P /home/anielsen/.lkp/cache/osimage/debian
+/usr/bin/wget -q --local-encoding=UTF-8 --retry-connrefused --waitretry 1000 --tries 1000 https://github.com/0day-ci/lkp-qemu/raw/master/osimage/deps/debian-x86_64-2016-08-31.cgz/lkp_2016-11-02.cgz -N -P /home/anielsen/.lkp/cache/osimage/deps/debian-x86_64-2016-08-31.cgz
+Failed to download osimage/deps/debian-x86_64-2016-08-31.cgz/lkp_2016-11-02.cgz
 
-> From what I fuzzily recall, HTB with txquelelen == 0 drops traffic
-> hard, while pfifo continues to function, hence the ordering...
-> 
-> Obviously our code can be fixed, but I'm worried there's a more
-> generic backwards compatibility problem here.
+Okay, so klcc is missing:
+$ sudo emerge -av dev-libs/klibc
+...
+make -j8 prepare CC=x86_64-pc-linux-gnu-gcc HOSTCC=x86_64-pc-linux-gnu-gcc
+scripts/kconfig/conf --silentoldconfig Kconfig
+  CHK     include/linux/version.h
+  UPD     include/linux/version.h
+  CHK     include/generated/utsrelease.h
+  UPD     include/generated/utsrelease.h
+  CC      kernel/bounds.s
+In file included from include/linux/compiler.h:48:0,
+                 from include/linux/stddef.h:4,
+                 from include/linux/posix_types.h:4,
+                 from include/linux/types.h:17,
+                 from include/linux/page-flags.h:8,
+                 from kernel/bounds.c:9:
+include/linux/compiler-gcc.h:90:30: fatal error: linux/compiler-gcc5.h: No such file or directory
+compilation terminated.
+...
 
-It is good you bring it up, but I don't see a backwards compatibility
-problem with your usage after the patchset.
- 
-> (note: this is mostly about 3.11 and 4.3 and might no longer be
-> relevant with 4.10... maybe the new kernel's default qdisc selection
-> logic doesn't depend on txqueuelen and checks the flag instead???)
+And this is where I gave up (at least for now) - it is because I have not
+installed my kernel using the packet system - that is my fault and I will get it
+fixed.
 
-If I were you, I would now implement a validation check that reported
-the problem if not getting into the expected "noqueue" state.  Then
-when you eventually upgrade to a more recent kernel, you would get
-alerted of improper state.
+I did see that you wrote in the readme.md that this needs to run as root - but
+it did not look like a permission issue...
 
-Something like:
+So, not very usefull feedback - I know - sorry.
 
-noqueue=$(ip link show dev $DEV 2> /dev/null | grep -q "noqueue" && echo "noqueue" || echo "bad")
-if [[ "$noqueue" != "noqueue" ]]; then
-    echo "report-problem";
-fi
+I will get this fixed, give it another try and the get back to you.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+/Allan
