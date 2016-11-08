@@ -1,82 +1,163 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: net/sctp: null-ptr-deref in sctp_inet_listen
-Date: Tue, 8 Nov 2016 18:06:23 +0800
-Message-ID: <CADvbK_eyG3pLMOws5wAOpvDUPUB2SknOCV5z6TLfJoKfj+Q27A@mail.gmail.com>
-References: <CAAeHK+yCE-e2scjs=rUwr+XHmmCcd33P--7MVFmxrTQ_AFZcOA@mail.gmail.com>
+From: Manish Rangankar <manish.rangankar@cavium.com>
+Subject: [PATCH v2 0/6] Add QLogic FastLinQ iSCSI (qedi) driver.
+Date: Mon, 7 Nov 2016 22:56:57 -0800
+Message-ID: <1478588223-16183-1-git-send-email-manish.rangankar@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+yCE-e2scjs=rUwr+XHmmCcd33P--7MVFmxrTQ_AFZcOA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <QLogic-Storage-Upstream@cavium.com>, <Yuval.Mintz@cavium.com>
+To: <martin.petersen@oracle.com>, <lduncan@suse.com>,
+        <cleech@redhat.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 8, 2016 at 5:44 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> Hi,
->
-> I've got the following error report while running the syzkaller fuzzer:
->
-> kasan: CONFIG_KASAN_INLINE enabled
-> kasan: GPF could be caused by NULL-ptr deref or user memory access
-> general protection fault: 0000 [#1] SMP KASAN
-> Modules linked in:
-> CPU: 1 PID: 3851 Comm: a.out Not tainted 4.9.0-rc4+ #354
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff880065f1d800 task.stack: ffff880063840000
-> RIP: 0010:[<ffffffff8394151b>]  [<ffffffff8394151b>]
-> sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
-> RSP: 0018:ffff880063847dd0  EFLAGS: 00010202
-> RAX: dffffc0000000000 RBX: 1ffff1000c708fbd RCX: 0000000000000000
-> RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000002
-> RBP: ffff880063847e70 R08: dffffc0000000000 R09: dffffc0000000000
-> R10: 0000000000000002 R11: 0000000000000002 R12: ffff88006b350800
-> R13: 0000000000000000 R14: 1ffff1000d66a1a5 R15: 0000000000000000
-> FS:  00007fd1f0f3d7c0(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000020000000 CR3: 0000000064af9000 CR4: 00000000000006e0
-> Stack:
->  ffff880063847de0 ffff880066165900 ffff88006b350d20 0000000041b58ab3
->  ffffffff847ff589 ffffffff83941280 dffffc0000000000 0000000000000000
->  ffff880069b9f740 0000000000000000 ffff880063847e38 ffffffff819f04ef
-> Call Trace:
->  [<     inline     >] SYSC_listen net/socket.c:1396
->  [<ffffffff82b73cf6>] SyS_listen+0x206/0x250 net/socket.c:1382
->  [<ffffffff83fc1501>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-> arch/x86/entry/entry_64.S:209
-> Code: 00 0f 85 f4 04 00 00 4d 8b ac 24 28 05 00 00 49 b8 00 00 00 00
-> 00 fc ff df 49 8d 7d 02 48 89 fe 49 89 fa 48 c1 ee 03 41 83 e2 07 <46>
-> 0f b6 0c 06 41 83 c2 01 45 38 ca 7c 09 45 84 c9 0f 85 87 04
-> RIP  [<ffffffff8394151b>] sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
->  RSP <ffff880063847dd0>
-> ---[ end trace f2b501fc22999b37 ]---
->
-> A reproducer is attached.
->
-> On commit bc33b0ca11e3df467777a4fa7639ba488c9d4911 (Nov 5).
->
-This is a shutdown injection issue.
-sctp_shutdown need a sk->state check, just like tcp_shutdown:
+This series introduces hardware offload iSCSI initiator driver for the
+41000 Series Converged Network Adapters (579xx chip) by Qlogic. The overall
+driver design includes a common module ('qed') and protocol specific
+dependent modules ('qedi' for iSCSI).
 
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4287,7 +4287,8 @@ static void sctp_shutdown(struct sock *sk, int how)
-        if (!sctp_style(sk, TCP))
-                return;
+This is an open iSCSI driver, modifications to open iSCSI user components
+'iscsid', 'iscsiuio', etc. are required for the solution to work. The user
+space changes are also in the process of being submitted.
 
--       if (how & SEND_SHUTDOWN) {
-+       if (how & SEND_SHUTDOWN &&
-+           (1 << sk->sk_state) & (SCTP_SS_ESTABLISHED | SCTP_SS_CLOSING)) {
-                sk->sk_state = SCTP_SS_CLOSING;
-                ep = sctp_sk(sk)->ep;
-                if (!list_empty(&ep->asocs)) {
+    https://groups.google.com/forum/#!forum/open-iscsi
+
+The 'qed' common module, under drivers/net/ethernet/qlogic/qed/, is
+enhanced with functionality required for the iSCSI support. This series
+is based on:
+
+    net tree base: Merge of net and net-next as of 10/31/2016
+
+Changes from RFC v1:
+
+ RFC v1 comments reference:
+
+  http://marc.info/?l=linux-scsi&w=2&r=1&s=qed&q=b
+
+ The following comments were incorporated:-
+
+  1. MAC copying to use unaligned macro in qed_sp_iscsi_conn_offload()
+  2. Contain scattered IS_ENABLED() check inside header file.
+  3. Reduce indent in qed_iscsi_start() by changing logic slightly.
+  4. Use kernel-doc style documentation.
+  5. Shorten qed_ll2_lb_rxq_completion() by removing queue handling as
+     a separate function.
+  6. Reduce code duplication by creating qed_ooo_submit_[tr]x_buffers().
+  7. Remove dynamic memory allocation in ISR for solicited packets. 
+  8. Rearrange qedi_process_iscsi_error() code to use mapping values
+     onto strings.
+  9. Use kernel-doc style documentation in qedi_hsi.h
+  10. Change pr_crit to pr_err. 
+  11. Remove unnecessary typecasting. 
+  12. Change kmalloc to kmalloc_array in qedi_setup_cid_que(). 
+  13. Rearrange firmware and driver version information print. 
+  14. Change variable names from scsi_lun to other, as scsi_lun struct exists.
+  15. Introduce QEDI_U64_HI and QEDI_U64_LO macros for code readability. 
+  16. Move scsi_dma_unmap above sge_valid in qedi_iscsi_unmap_sg_list(). 
+  17. Introduce QEDI_OFLD_WAIT_STATE for code readability.
+  18. Add cond_resched() in per_cpu_io_thread to avoid soft-lockups.
+  19. Change trace_io to accomodate all the scsi commands. 
+  20. Spell correction in comments section.
+
+ The following comments were not incorporated:-
+  1. Remove "QLogic qed NIC Driver" comment
+     - Applies to drivers/net/ethernet/qlogic/qed/*.[ch]
+     - This will be submitted as a separate patch, as there are multiple
+       files (files that are not part of this series) need to be updated
+       and this change is not related to this series.
+  2. Update copyright
+     - Applies to drivers/net/ethernet/qlogic/qed/*.[ch]
+     - Same as above, will submit a separate patch, as multiple files
+       need to be updated and this change is not related to this series.
+  3. Remove adding and removing of QEDI Kconfig entries. Added by
+     "qed" patch and removed and re-added by "qedi" patch.
+     - QEDI driver is composed of two parts, the common module (qed) and
+       the protocol module (qedi), which goes in net and scsi trees
+       respectively. The qed module conditionally enables certain
+       functionality for the QEDI module in qed; hence the Kconfig entry was
+       added for QEDI by qed; otherwise it looks odd to use CONFIG_QEDI
+       in qed. So, the remove and re-add is left as is.
+  4. Workqueue implementation in completion path.
+     - This change will be submitted as a separate patch, as it requires 
+       complete performance validation cycle.
+  5. IRQ handling changes from Christoph H. irq work. 
+     - This change will also be subitted as a separate patch, as it also
+       require change in qed.ko module which will affect other protocol
+       drivers (qedr, qede) as well.
+     - This change will be integral part of MQ/MQ-TAG infrastructure that
+       we want to employ in our qedi driver. 
+  6. Using multiple memory barriers.
+     - We kept both memory barriers as a failsafe, as for some architectures
+       the call is the same but on others they are two different assembly
+       operations. We have updated patch with same information in comments.
+
+
+Manish Rangankar (4):
+  qedi: Add QLogic FastLinQ offload iSCSI driver framework.
+  qedi: Add LL2 iSCSI interface for offload iSCSI.
+  qedi: Add support for iSCSI session management.
+  qedi: Add support for data path.
+
+Yuval Mintz (2):
+  qed: Add support for hardware offloaded iSCSI.
+  qed: Add iSCSI out of order packet handling.
+
+ MAINTAINERS                                    |    6 +
+ drivers/net/ethernet/qlogic/Kconfig            |   15 +
+ drivers/net/ethernet/qlogic/qed/Makefile       |    1 +
+ drivers/net/ethernet/qlogic/qed/qed.h          |    8 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c      |   22 +
+ drivers/net/ethernet/qlogic/qed/qed_int.h      |    1 -
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c    | 1276 +++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.h    |   52 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.c       |    1 -
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c      |  507 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h      |    9 +
+ drivers/net/ethernet/qlogic/qed/qed_ooo.c      |  501 +++++
+ drivers/net/ethernet/qlogic/qed/qed_ooo.h      |  173 ++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |    2 +
+ drivers/net/ethernet/qlogic/qed/qed_roce.c     |    1 +
+ drivers/net/ethernet/qlogic/qed/qed_spq.c      |   24 +
+ drivers/scsi/Kconfig                           |    1 +
+ drivers/scsi/Makefile                          |    1 +
+ drivers/scsi/qedi/Kconfig                      |   10 +
+ drivers/scsi/qedi/Makefile                     |    5 +
+ drivers/scsi/qedi/qedi.h                       |  364 ++++
+ drivers/scsi/qedi/qedi_dbg.c                   |  143 ++
+ drivers/scsi/qedi/qedi_dbg.h                   |  144 ++
+ drivers/scsi/qedi/qedi_debugfs.c               |  244 +++
+ drivers/scsi/qedi/qedi_fw.c                    | 2378 ++++++++++++++++++++++++
+ drivers/scsi/qedi/qedi_gbl.h                   |   73 +
+ drivers/scsi/qedi/qedi_hsi.h                   |   52 +
+ drivers/scsi/qedi/qedi_iscsi.c                 | 1624 ++++++++++++++++
+ drivers/scsi/qedi/qedi_iscsi.h                 |  232 +++
+ drivers/scsi/qedi/qedi_main.c                  | 2143 +++++++++++++++++++++
+ drivers/scsi/qedi/qedi_sysfs.c                 |   52 +
+ drivers/scsi/qedi/qedi_version.h               |   14 +
+ include/linux/qed/qed_if.h                     |    2 +
+ include/linux/qed/qed_iscsi_if.h               |  229 +++
+ 34 files changed, 10297 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iscsi.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iscsi.h
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ooo.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ooo.h
+ create mode 100644 drivers/scsi/qedi/Kconfig
+ create mode 100644 drivers/scsi/qedi/Makefile
+ create mode 100644 drivers/scsi/qedi/qedi.h
+ create mode 100644 drivers/scsi/qedi/qedi_dbg.c
+ create mode 100644 drivers/scsi/qedi/qedi_dbg.h
+ create mode 100644 drivers/scsi/qedi/qedi_debugfs.c
+ create mode 100644 drivers/scsi/qedi/qedi_fw.c
+ create mode 100644 drivers/scsi/qedi/qedi_gbl.h
+ create mode 100644 drivers/scsi/qedi/qedi_hsi.h
+ create mode 100644 drivers/scsi/qedi/qedi_iscsi.c
+ create mode 100644 drivers/scsi/qedi/qedi_iscsi.h
+ create mode 100644 drivers/scsi/qedi/qedi_main.c
+ create mode 100644 drivers/scsi/qedi/qedi_sysfs.c
+ create mode 100644 drivers/scsi/qedi/qedi_version.h
+ create mode 100644 include/linux/qed/qed_iscsi_if.h
+
+-- 
+1.8.3.1
+
