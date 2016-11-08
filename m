@@ -1,89 +1,169 @@
-From: Ross Zwisler <ross.zwisler-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
-Date: Mon, 7 Nov 2016 22:42:02 -0700
-Message-ID: <20161108054202.GA12406@linux.intel.com>
+From: Jes Sorensen <jes.sorensen@gmail.com>
+Subject: Re: [PATCH] net: alteon: acenic: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Tue, 8 Nov 2016 00:52:38 -0500
+Message-ID: <f79b6e37-b05f-bfd5-d1d0-ddf974a867cf@gmail.com>
+References: <1478359074-23941-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36136 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752510AbcKHFwl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 00:52:41 -0500
+In-Reply-To: <1478359074-23941-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've got a virtual machine that has some NFS mounts, and with a newly compiled
-kernel based on v4.9-rc3 I see the following warning/info message:
+On 11/05/16 11:17, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+>  drivers/net/ethernet/alteon/acenic.c |   65 ++++++++++++++++++---------------
+>  1 files changed, 35 insertions(+), 30 deletions(-)
 
-[   42.750181] ===============================
-[   42.750192] [ INFO: suspicious RCU usage. ]
-[   42.750203] 4.9.0-rc3-00002-g7b6e7de #3 Not tainted
-[   42.750213] -------------------------------
-[   42.750225] net/sunrpc/clnt.c:2773 suspicious rcu_dereference_check() usage!
-[   42.750235] 
-[   42.750235] other info that might help us debug this:
-[   42.750235] 
-[   42.750246] 
-[   42.750246] rcu_scheduler_active = 1, debug_locks = 0
-[   42.750257] 1 lock held by mount.nfs4/6440:
-[   42.750278]  #0: 
-[   42.750299]  (
-[   42.750319] &(&nn->nfs_client_lock)->rlock
-[   42.750340] ){+.+...}
-[   42.750362] , at: 
-[   42.750372] [<ffffffff813012b5>] nfs_get_client+0x105/0x5e0
-[   42.750383] 
-[   42.750383] stack backtrace:
-[   42.750394] CPU: 0 PID: 6440 Comm: mount.nfs4 Not tainted 4.9.0-rc3-00002-g7b6e7de #3
-[   42.750406] Hardware name: Intel Corporation PURLEY/PURLEY, BIOS PLYDCRB1.MBH.0096.D23.1608240105 08/24/2016
-[   42.750429]  ffffc9000092fa68 ffffffff8150730f ffff88014ec8da40 0000000000000001
-[   42.750452]  ffffc9000092fa98 ffffffff810bc3f7 ffff880150b0b228 ffff88015068dbb0
-[   42.750475]  ffffc9000092fb38 ffff88014fc99180 ffffc9000092fac0 ffffffff81b243e5
-[   42.750486] Call Trace:
-[   42.750498]  [<ffffffff8150730f>] dump_stack+0x67/0x98
-[   42.750511]  [<ffffffff810bc3f7>] lockdep_rcu_suspicious+0xe7/0x120
-[   42.750524]  [<ffffffff81b243e5>] rpc_clnt_xprt_switch_has_addr+0x115/0x150
-[   42.750536]  [<ffffffff813013f4>] nfs_get_client+0x244/0x5e0
-[   42.750549]  [<ffffffff813012ac>] ? nfs_get_client+0xfc/0x5e0
-[   42.750561]  [<ffffffff813568f8>] nfs4_set_client+0x98/0x130
-[   42.750574]  [<ffffffff8135872e>] nfs4_create_server+0x13e/0x390
-[   42.750588]  [<ffffffff8134cd0e>] nfs4_remote_mount+0x2e/0x60
-[   42.750600]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
-[   42.750614]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
-[   42.750626]  [<ffffffff8134cbec>] ? nfs_do_root_mount+0x3c/0xc0
-[   42.750639]  [<ffffffff8134cc36>] nfs_do_root_mount+0x86/0xc0
-[   42.750652]  [<ffffffff8134d014>] nfs4_try_mount+0x44/0xc0
-[   42.750664]  [<ffffffff81302097>] ? get_nfs_version+0x27/0x90
-[   42.750677]  [<ffffffff81310f8c>] nfs_fs_mount+0x4ac/0xd80
-[   42.750689]  [<ffffffff810bb938>] ? lockdep_init_map+0x88/0x1f0
-[   42.750701]  [<ffffffff81311ac0>] ? nfs_clone_super+0x130/0x130
-[   42.750713]  [<ffffffff8130f300>] ? param_set_portnr+0x70/0x70
-[   42.750726]  [<ffffffff811f3a29>] mount_fs+0x39/0x170
-[   42.750740]  [<ffffffff81214a0b>] vfs_kern_mount+0x6b/0x150
-[   42.750752]  [<ffffffff812176f1>] do_mount+0x1f1/0xd10
-[   42.750765]  [<ffffffff81217441>] ? copy_mount_options+0xa1/0x140
-[   42.750777]  [<ffffffff81218543>] SyS_mount+0x83/0xd0
-[   42.750790]  [<ffffffff81002abc>] do_syscall_64+0x5c/0x130
-[   42.750802]  [<ffffffff81c479a4>] entry_SYSCALL64_slow_path+0x25/0x25
+Nothing that sticks out to me
 
-This rcu_dereference_check() was introduced by the following commit:
+Acked-by: Jes Sorensen <Jes.Sorensen@gmail.com>
 
-commit 39e5d2df959dd4aea81fa33d765d2a5cc67a0512
-Author: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Date:   Fri Sep 9 09:22:25 2016 -0400
+Jes
 
-    SUNRPC search xprt switch for sockaddr
-    
-    Signed-off-by: Andy Adamson <andros-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-    Signed-off-by: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
 
-Thanks,
-- Ross
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/alteon/acenic.c b/drivers/net/ethernet/alteon/acenic.c
+> index a5c1e29..16f0c70 100644
+> --- a/drivers/net/ethernet/alteon/acenic.c
+> +++ b/drivers/net/ethernet/alteon/acenic.c
+> @@ -429,14 +429,16 @@
+>    "acenic.c: v0.92 08/05/2002  Jes Sorensen, linux-acenic@SunSITE.dk\n"
+>    "                            http://home.cern.ch/~jes/gige/acenic.html\n";
+>  
+> -static int ace_get_settings(struct net_device *, struct ethtool_cmd *);
+> -static int ace_set_settings(struct net_device *, struct ethtool_cmd *);
+> +static int ace_get_link_ksettings(struct net_device *,
+> +				  struct ethtool_link_ksettings *);
+> +static int ace_set_link_ksettings(struct net_device *,
+> +				  const struct ethtool_link_ksettings *);
+>  static void ace_get_drvinfo(struct net_device *, struct ethtool_drvinfo *);
+>  
+>  static const struct ethtool_ops ace_ethtool_ops = {
+> -	.get_settings = ace_get_settings,
+> -	.set_settings = ace_set_settings,
+>  	.get_drvinfo = ace_get_drvinfo,
+> +	.get_link_ksettings = ace_get_link_ksettings,
+> +	.set_link_ksettings = ace_set_link_ksettings,
+>  };
+>  
+>  static void ace_watchdog(struct net_device *dev);
+> @@ -2579,43 +2581,44 @@ static int ace_change_mtu(struct net_device *dev, int new_mtu)
+>  	return 0;
+>  }
+>  
+> -static int ace_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+> +static int ace_get_link_ksettings(struct net_device *dev,
+> +				  struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct ace_private *ap = netdev_priv(dev);
+>  	struct ace_regs __iomem *regs = ap->regs;
+>  	u32 link;
+> +	u32 supported;
+>  
+> -	memset(ecmd, 0, sizeof(struct ethtool_cmd));
+> -	ecmd->supported =
+> -		(SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
+> -		 SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
+> -		 SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full |
+> -		 SUPPORTED_Autoneg | SUPPORTED_FIBRE);
+> +	memset(cmd, 0, sizeof(struct ethtool_link_ksettings));
+>  
+> -	ecmd->port = PORT_FIBRE;
+> -	ecmd->transceiver = XCVR_INTERNAL;
+> +	supported = (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
+> +		     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
+> +		     SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full |
+> +		     SUPPORTED_Autoneg | SUPPORTED_FIBRE);
+> +
+> +	cmd->base.port = PORT_FIBRE;
+>  
+>  	link = readl(&regs->GigLnkState);
+> -	if (link & LNK_1000MB)
+> -		ethtool_cmd_speed_set(ecmd, SPEED_1000);
+> -	else {
+> +	if (link & LNK_1000MB) {
+> +		cmd->base.speed = SPEED_1000;
+> +	} else {
+>  		link = readl(&regs->FastLnkState);
+>  		if (link & LNK_100MB)
+> -			ethtool_cmd_speed_set(ecmd, SPEED_100);
+> +			cmd->base.speed = SPEED_100;
+>  		else if (link & LNK_10MB)
+> -			ethtool_cmd_speed_set(ecmd, SPEED_10);
+> +			cmd->base.speed = SPEED_10;
+>  		else
+> -			ethtool_cmd_speed_set(ecmd, 0);
+> +			cmd->base.speed = 0;
+>  	}
+>  	if (link & LNK_FULL_DUPLEX)
+> -		ecmd->duplex = DUPLEX_FULL;
+> +		cmd->base.duplex = DUPLEX_FULL;
+>  	else
+> -		ecmd->duplex = DUPLEX_HALF;
+> +		cmd->base.duplex = DUPLEX_HALF;
+>  
+>  	if (link & LNK_NEGOTIATE)
+> -		ecmd->autoneg = AUTONEG_ENABLE;
+> +		cmd->base.autoneg = AUTONEG_ENABLE;
+>  	else
+> -		ecmd->autoneg = AUTONEG_DISABLE;
+> +		cmd->base.autoneg = AUTONEG_DISABLE;
+>  
+>  #if 0
+>  	/*
+> @@ -2626,13 +2629,15 @@ static int ace_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+>  	ecmd->txcoal = readl(&regs->TuneTxCoalTicks);
+>  	ecmd->rxcoal = readl(&regs->TuneRxCoalTicks);
+>  #endif
+> -	ecmd->maxtxpkt = readl(&regs->TuneMaxTxDesc);
+> -	ecmd->maxrxpkt = readl(&regs->TuneMaxRxDesc);
+> +
+> +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
+> +						supported);
+>  
+>  	return 0;
+>  }
+>  
+> -static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+> +static int ace_set_link_ksettings(struct net_device *dev,
+> +				  const struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct ace_private *ap = netdev_priv(dev);
+>  	struct ace_regs __iomem *regs = ap->regs;
+> @@ -2655,11 +2660,11 @@ static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+>  		LNK_RX_FLOW_CTL_Y | LNK_NEG_FCTL;
+>  	if (!ACE_IS_TIGON_I(ap))
+>  		link |= LNK_TX_FLOW_CTL_Y;
+> -	if (ecmd->autoneg == AUTONEG_ENABLE)
+> +	if (cmd->base.autoneg == AUTONEG_ENABLE)
+>  		link |= LNK_NEGOTIATE;
+> -	if (ethtool_cmd_speed(ecmd) != speed) {
+> +	if (cmd->base.speed != speed) {
+>  		link &= ~(LNK_1000MB | LNK_100MB | LNK_10MB);
+> -		switch (ethtool_cmd_speed(ecmd)) {
+> +		switch (cmd->base.speed) {
+>  		case SPEED_1000:
+>  			link |= LNK_1000MB;
+>  			break;
+> @@ -2672,7 +2677,7 @@ static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+>  		}
+>  	}
+>  
+> -	if (ecmd->duplex == DUPLEX_FULL)
+> +	if (cmd->base.duplex == DUPLEX_FULL)
+>  		link |= LNK_FULL_DUPLEX;
+>  
+>  	if (link != ap->link) {
+> 
