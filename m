@@ -1,84 +1,178 @@
-From: <chris.roth@usask.ca>
-Subject: [PATCH v5] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
-Date: Tue, 8 Nov 2016 16:08:01 -0600
-Message-ID: <265b996975d64bb0bc892b946aafab5a@Mail07.usask.ca>
-References: <CAPZMiRa0kYyPFQ77L5y4NgxxH85iuMAjODV2iCzd-5OjyGfNuw@mail.gmail.com>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH 7/8] tools lib bpf: fix maps resolution
+Date: Tue, 8 Nov 2016 14:08:51 -0800
+Message-ID: <58224CF3.8000707@huawei.com>
+References: <20161016211834.11732-1-eric@regit.org>
+ <20161016211834.11732-8-eric@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Allan Chou <allan@asix.com.tw>, Chris Roth <chris.roth@usask.ca>
-To: <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <artjom.simon@gmail.com>,
-        <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPZMiRa0kYyPFQ77L5y4NgxxH85iuMAjODV2iCzd-5OjyGfNuw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <ast@fb.com>
+To: Eric Leblond <eric@regit.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:15474 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751455AbcKHWJj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 17:09:39 -0500
+In-Reply-To: <20161016211834.11732-8-eric@regit.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Allan Chou <allan@asix.com.tw>
+Hi Eric,
 
-Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
-Bridge Controller (Vendor=04b4 ProdID=3610).
+During testing this patch I find a segfault, please see inline comment.
 
-Patch verified on x64 linux kernel 4.7.4, 4.8.6, 4.9-rc4 systems
-with the Kensington SD4600P USB-C Universal Dock with Power,
-which uses the Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge
-Controller.
+In addition, since both the BPF map array and map names should be done
+after symbol table is collected, merging bpf_object__init_maps and
+bpf_object__init_maps_name would be a good practice, making code
+simpler.
 
-A similar patch was signed-off and tested-by Allan Chou
-<allan@asix.com.tw> on 2015-12-01.
+So I prepare a new patch. Please have a look at:
 
-Allan verified his similar patch on x86 Linux kernel 4.1.6 system
-with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+http://lkml.kernel.org/g/20161108215734.28905-1-wangnan0@huawei.com
 
-Tested-by: Allan Chou <allan@asix.com.tw>
-Tested-by: Chris Roth <chris.roth@usask.ca>
-Tested-by: Artjom Simon <artjom.simon@gmail.com>
+New version ensure not crashing in any case user provides a corrupted
+maps section, including array of bpf maps, maps with different definition
+structures and very short map definition.
 
-Signed-off-by: Allan Chou <allan@asix.com.tw>
-Signed-off-by: Chris Roth <chris.roth@usask.ca>
----
-Changes in v4, v5:
- - Add verification of patch on 4.8.6, 4.9-rc4 (v4)
- - Add tester Artjom Simon <artjom.simon@gmail.com> (v4)
- - Reformat spaces to tabs (v5)
+Thank you.
 
- drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+On 2016/10/16 14:18, Eric Leblond wrote:
+> It is not correct to assimilate the elf data of the maps section
+> to an array of map definition. In fact the sizes differ. The
+> offset provided in the symbol section has to be used instead.
+>
+> This patch fixes a bug causing a elf with two maps not to load
+> correctly.
+>
+> Signed-off-by: Eric Leblond <eric@regit.org>
+> ---
+>   tools/lib/bpf/libbpf.c | 50 +++++++++++++++++++++++++++++++++++---------------
+>   1 file changed, 35 insertions(+), 15 deletions(-)
+>
+> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+> index 1fe4532..f72628b 100644
+> --- a/tools/lib/bpf/libbpf.c
+> +++ b/tools/lib/bpf/libbpf.c
+> @@ -186,6 +186,7 @@ struct bpf_program {
+>   struct bpf_map {
+>   	int fd;
+>   	char *name;
+> +	size_t offset;
+>   	struct bpf_map_def def;
+>   	void *priv;
+>   	bpf_map_clear_priv_t clear_priv;
+> @@ -529,13 +530,6 @@ bpf_object__init_maps(struct bpf_object *obj, void *data,
+>   
+>   	pr_debug("maps in %s: %zd bytes\n", obj->path, size);
+>   
+> -	obj->maps = calloc(nr_maps, sizeof(obj->maps[0]));
+> -	if (!obj->maps) {
+> -		pr_warning("alloc maps for object failed\n");
+> -		return -ENOMEM;
+> -	}
+> -	obj->nr_maps = nr_maps;
+> -
+>   	for (i = 0; i < nr_maps; i++) {
+>   		struct bpf_map_def *def = &obj->maps[i].def;
+>   
+> @@ -547,23 +541,42 @@ bpf_object__init_maps(struct bpf_object *obj, void *data,
+>   		obj->maps[i].fd = -1;
+>   
+>   		/* Save map definition into obj->maps */
+> -		*def = ((struct bpf_map_def *)data)[i];
+> +		*def = *(struct bpf_map_def *)(data + obj->maps[i].offset);
+>   	}
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index e6338c1..8a6675d 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
- 	.tx_fixup = ax88179_tx_fixup,
- };
- 
-+static const struct driver_info cypress_GX3_info = {
-+	.description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
-+	.bind = ax88179_bind,
-+	.unbind = ax88179_unbind,
-+	.status = ax88179_status,
-+	.link_reset = ax88179_link_reset,
-+	.reset = ax88179_reset,
-+	.stop = ax88179_stop,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
-+	.rx_fixup = ax88179_rx_fixup,
-+	.tx_fixup = ax88179_tx_fixup,
-+};
-+
- static const struct driver_info dlink_dub1312_info = {
- 	.description = "D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter",
- 	.bind = ax88179_bind,
-@@ -1718,6 +1731,10 @@ static const struct usb_device_id products[] = {
- 	USB_DEVICE(0x0b95, 0x178a),
- 	.driver_info = (unsigned long)&ax88178a_info,
- }, {
-+	/* Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller */
-+	USB_DEVICE(0x04b4, 0x3610),
-+	.driver_info = (unsigned long)&cypress_GX3_info,
-+}, {
- 	/* D-Link DUB-1312 USB 3.0 to Gigabit Ethernet Adapter */
- 	USB_DEVICE(0x2001, 0x4a00),
- 	.driver_info = (unsigned long)&dlink_dub1312_info,
--- 
-2.7.4
+Here, nr_maps is still size / sizeof(struct bpf_map_def), so obj->maps[i]
+can be invalid.
+
+>   	return 0;
+>   }
+>   
+>   static int
+> -bpf_object__init_maps_name(struct bpf_object *obj)
+> +bpf_object__init_maps_symbol(struct bpf_object *obj)
+>   {
+>   	int i;
+> +	int nr_maps = 0;
+>   	Elf_Data *symbols = obj->efile.symbols;
+> +	size_t map_idx = 0;
+>   
+>   	if (!symbols || obj->efile.maps_shndx < 0)
+>   		return -EINVAL;
+>   
+> +	/* get the number of maps */
+> +	for (i = 0; i < symbols->d_size / sizeof(GElf_Sym); i++) {
+> +		GElf_Sym sym;
+> +
+> +		if (!gelf_getsym(symbols, i, &sym))
+> +			continue;
+> +		if (sym.st_shndx != obj->efile.maps_shndx)
+> +			continue;
+> +		nr_maps++;
+> +	}
+> +
+> +	obj->maps = calloc(nr_maps, sizeof(obj->maps[0]));
+> +	if (!obj->maps) {
+> +		pr_warning("alloc maps for object failed\n");
+> +		return -ENOMEM;
+> +	}
+> +	obj->nr_maps = nr_maps;
+> +
+>   	for (i = 0; i < symbols->d_size / sizeof(GElf_Sym); i++) {
+>   		GElf_Sym sym;
+> -		size_t map_idx;
+>   		const char *map_name;
+>   
+>   		if (!gelf_getsym(symbols, i, &sym))
+> @@ -574,12 +587,12 @@ bpf_object__init_maps_name(struct bpf_object *obj)
+>   		map_name = elf_strptr(obj->efile.elf,
+>   				      obj->efile.strtabidx,
+>   				      sym.st_name);
+> -		map_idx = sym.st_value / sizeof(struct bpf_map_def);
+>   		if (map_idx >= obj->nr_maps) {
+>   			pr_warning("index of map \"%s\" is buggy: %zu > %zu\n",
+>   				   map_name, map_idx, obj->nr_maps);
+>   			continue;
+>   		}
+> +		obj->maps[map_idx].offset = sym.st_value;
+>   		obj->maps[map_idx].name = strdup(map_name);
+>   		if (!obj->maps[map_idx].name) {
+>   			pr_warning("failed to alloc map name\n");
+> @@ -587,6 +600,7 @@ bpf_object__init_maps_name(struct bpf_object *obj)
+>   		}
+>   		pr_debug("map %zu is \"%s\"\n", map_idx,
+>   			 obj->maps[map_idx].name);
+> +		map_idx++;
+>   	}
+>   	return 0;
+>   }
+> @@ -647,8 +661,6 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
+>   							data->d_buf,
+>   							data->d_size);
+>   		else if (strcmp(name, "maps") == 0) {
+> -			err = bpf_object__init_maps(obj, data->d_buf,
+> -						    data->d_size);
+>   			obj->efile.maps_shndx = idx;
+>   		} else if (sh.sh_type == SHT_SYMTAB) {
+>   			if (obj->efile.symbols) {
+> @@ -698,8 +710,16 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
+>   		pr_warning("Corrupted ELF file: index of strtab invalid\n");
+>   		return LIBBPF_ERRNO__FORMAT;
+>   	}
+> -	if (obj->efile.maps_shndx >= 0)
+> -		err = bpf_object__init_maps_name(obj);
+> +	if (obj->efile.maps_shndx >= 0) {
+> +		Elf_Data *data;
+> +		err = bpf_object__init_maps_symbol(obj);
+> +		if (err)
+> +			goto out;
+> +
+> +		scn = elf_getscn(elf, obj->efile.maps_shndx);
+> +		data = elf_getdata(scn, 0);
+> +		err = bpf_object__init_maps(obj, data->d_buf, data->d_size);
+> +	}
+>   out:
+>   	return err;
+>   }
