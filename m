@@ -1,82 +1,90 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe function
-Date: Tue, 08 Nov 2016 17:49:21 +0100
-Message-ID: <87eg2lkjce.fsf@miraculix.mork.no>
-References: <Pine.LNX.4.44L0.1611081020550.1499-100000@iolanthe.rowland.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 13/17] batman-adv: Consume skb in receive
+	handlers
+Date: Tue, 08 Nov 2016 08:59:49 -0800
+Message-ID: <1478624389.17367.12.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161108164526.7518-1-sw@simonwunderlich.de>
+ <20161108164526.7518-14-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Kai-Heng Feng <kai.heng.feng@canonical.com>,
-        Oliver Neukum <oneukum@suse.com>,
-        <linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-        <netdev@vger.kernel.org>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.44L0.1611081020550.1499-100000@iolanthe.rowland.org>
-        (Alan Stern's message of "Tue, 8 Nov 2016 10:25:26 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161108164526.7518-14-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Alan Stern <stern@rowland.harvard.edu> writes:
-
-> On Tue, 8 Nov 2016, Kai-Heng Feng wrote:
->
->> Hi,
->>=20
->> On Mon, Nov 7, 2016 at 7:02 PM, Oliver Neukum <oneukum@suse.com> wrote:
->> > On Fri, 2016-11-04 at 17:57 +0800, Kai-Heng Feng wrote:
->> >> Sometimes cdc_mbim failed to probe if runtime pm is enabled:
->> >> [    9.305626] cdc_mbim: probe of 2-2:1.12 failed with error -22
->> >>
->> >> This can be solved by increase its pm usage counter.
->> >>
->> >> Signed-off-by: Kai-Heng Feng <kai.heng.feng@canonical.com>
->> >
->> > For the record:
->> >
->> > NAK. This fixes a symptom. If this patch helps something is broken in
->> > device core. We need to find that.
->> >
->>=20
->> Please check attached dmesg with usbcore.dyndbg=3D"+p".
->
-> The log shows that the device went into suspend _before_ the cdc_mbim=20
-> driver was probed, not during the probe.  Then just before the probe=20
-> was started, the USB core tried to resume the device and the resume=20
-> failed.
->
-> The log shows a bunch of other problems with this device:
->
-> [    3.862253] usb 2-2: config 1 has an invalid interface number: 12 but =
-max is 1
-> [    3.862254] usb 2-2: config 1 has an invalid interface number: 13 but =
-max is 1
-> [    3.862254] usb 2-2: config 1 has an invalid interface number: 13 but =
-max is 1
-> [    3.862255] usb 2-2: config 1 has no interface number 0
-> [    3.862256] usb 2-2: config 1 has no interface number 1
-
-These messages are completely harmless and normal for Sierra Wireless
-devices.  They use the interface number to identify the type of
-function, causing this mismatch between the number of interfaces and the
-inteface numbers. Boy, that looks weird in writing :)
-
-Ref this discussion we had a few years ago:
-http://www.spinics.net/lists/linux-usb/msg77499.html
-
-No, I didn't expect you to remember that :)
-
-
-> [    8.295180] usb 2-2: Disable of device-initiated U1 failed.
-> [    8.295322] usb 2-2: Disable of device-initiated U2 failed.
->
-> I get the impression that the device won't work properly with runtime=20
-> PM at all.
-
-I suspect the device is an EM7455?  If so, then it does work fine with
-runtime PM, as long as we're talking USB2.  Not sure about USB3 runtime
-PM though.  Cannot test it. The Lenovo laptop I got with one of these
-modems has disabled the USB3 link on the m.2 modem slot for some reason.
+On Tue, 2016-11-08 at 17:45 +0100, Simon Wunderlich wrote:
+> From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+> 
+> Receiving functions in Linux consume the supplied skbuff. Doing the same in
+> the batadv_rx_handler functions makes the behavior more similar to the rest
+> of the Linux network code.
+> 
+> Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+> Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+> ---
+>  net/batman-adv/bat_iv_ogm.c     |  17 +++--
+>  net/batman-adv/bat_v_elp.c      |  25 ++++---
+>  net/batman-adv/bat_v_ogm.c      |  10 +--
+>  net/batman-adv/main.c           |  11 +--
+>  net/batman-adv/network-coding.c |  11 +--
+>  net/batman-adv/routing.c        | 149 +++++++++++++++++++++++++++-------------
+>  6 files changed, 141 insertions(+), 82 deletions(-)
+> 
+> diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+> index 310f391..b9941bf 100644
+> --- a/net/batman-adv/bat_iv_ogm.c
+> +++ b/net/batman-adv/bat_iv_ogm.c
+> @@ -1823,17 +1823,18 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
+>  	struct batadv_ogm_packet *ogm_packet;
+>  	u8 *packet_pos;
+>  	int ogm_offset;
+> -	bool ret;
+> +	bool res;
+> +	int ret = NET_RX_DROP;
+>  
+> -	ret = batadv_check_management_packet(skb, if_incoming, BATADV_OGM_HLEN);
+> -	if (!ret)
+> -		return NET_RX_DROP;
+> +	res = batadv_check_management_packet(skb, if_incoming, BATADV_OGM_HLEN);
+> +	if (!res)
+> +		goto free_skb;
+>  
+>  	/* did we receive a B.A.T.M.A.N. IV OGM packet on an interface
+>  	 * that does not have B.A.T.M.A.N. IV enabled ?
+>  	 */
+>  	if (bat_priv->algo_ops->iface.enable != batadv_iv_ogm_iface_enable)
+> -		return NET_RX_DROP;
+> +		goto free_skb;
+>  
+>  	batadv_inc_counter(bat_priv, BATADV_CNT_MGMT_RX);
+>  	batadv_add_counter(bat_priv, BATADV_CNT_MGMT_RX_BYTES,
+> @@ -1854,8 +1855,12 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
+>  		ogm_packet = (struct batadv_ogm_packet *)packet_pos;
+>  	}
+>  
+> +	ret = NET_RX_SUCCESS;
+> +
+> +free_skb:
+>  	consume_skb(skb);
+> -	return NET_RX_SUCCESS;
+> +
+> +	return ret;
+>  }
 
 
-Bj=C3=B8rn
+Okay, but we do have kfree_skb() and consume_skb() and they should be
+used appropriately.
