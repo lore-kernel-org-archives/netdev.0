@@ -1,45 +1,49 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 10/17] batman-adv: Count all non-success TX packets as dropped
-Date: Tue,  8 Nov 2016 17:45:19 +0100
-Message-ID: <20161108164526.7518-11-sw@simonwunderlich.de>
-References: <20161108164526.7518-1-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Sven Eckelmann <sven@narfation.org>,
-        Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v3 0/4] make POSIX timers optional with some Kconfig
+ help
+Date: Tue, 8 Nov 2016 17:47:53 +0100 (CET)
+Message-ID: <alpine.DEB.2.20.1611081747330.3501@nanos>
+References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: John Stultz <john.stultz@linaro.org>,
+        Michal Marek <mmarek@suse.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Paul Bolle <pebolle@tiscali.nl>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
+        linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicolas Pitre <nicolas.pitre@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:48900 "EHLO
-        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753929AbcKHQqA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 11:46:00 -0500
-In-Reply-To: <20161108164526.7518-1-sw@simonwunderlich.de>
+Received: from Galois.linutronix.de ([146.0.238.70]:55474 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932301AbcKHQug (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 11:50:36 -0500
+In-Reply-To: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+On Mon, 7 Nov 2016, Nicolas Pitre wrote:
 
-A failure during the submission also causes dropped packets.
-batadv_interface_tx should therefore also increase the DROPPED counter for
-these returns.
+> Many embedded systems don't need the full POSIX timer support.
+> Configuring them out provides a nice kernel image size reduction.
+> 
+> When POSIX timers are configured out, the PTP clock subsystem should be
+> left out as well. However a bunch of ethernet drivers currently *select*
+> the later in their Kconfig entries. Therefore some more work was needed
+> to break that hard dependency from those drivers without preventing their
+> usage altogether.
+> 
+> Therefore this series also includes kconfig changes to implement a new
+> keyword to express some reverse dependencies like "select" does, named
+> "imply", and still allowing for the target config symbol to be disabled
+> if the user or a direct dependency says so.
+> 
+> At this point I'd like to gather ACKs especially from people in the "To"
+> field. Ideally this would need to go upstream as a single series to avoid
+> cross subsystem dependency issues.  So far it was suggested that this should go
+> via the kbuild tree.
 
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
----
- net/batman-adv/soft-interface.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+For the whole series:
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 2f0304e..7b3494a 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -386,7 +386,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
- 			ret = batadv_send_skb_via_tt(bat_priv, skb, dst_hint,
- 						     vid);
- 		}
--		if (ret == NET_XMIT_DROP)
-+		if (ret != NET_XMIT_SUCCESS)
- 			goto dropped_freed;
- 	}
- 
--- 
-2.10.1
+Acked-by: Thomas Gleixner <tglx@linutronix.de>
