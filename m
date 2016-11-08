@@ -1,169 +1,78 @@
-From: Jes Sorensen <jes.sorensen@gmail.com>
-Subject: Re: [PATCH] net: alteon: acenic: use new api
- ethtool_{get|set}_link_ksettings
-Date: Tue, 8 Nov 2016 00:52:38 -0500
-Message-ID: <f79b6e37-b05f-bfd5-d1d0-ddf974a867cf@gmail.com>
-References: <1478359074-23941-1-git-send-email-tremyfr@gmail.com>
+From: Cao jin <caoj.fnst@cn.fujitsu.com>
+Subject: Re: [Intel-wired-lan] [PATCH] igb: drop field "tail" of struct
+ igb_ring
+Date: Tue, 8 Nov 2016 14:07:58 +0800
+Message-ID: <58216BBE.5000108@cn.fujitsu.com>
+References: <1478522697-4773-1-git-send-email-caoj.fnst@cn.fujitsu.com>
+ <CAKgT0UcHutO9kotxN2-MTH=rrB1PjmyMdjyeT4PkYbBXkBquFw@mail.gmail.com>
+ <58213D66.5090203@cn.fujitsu.com>
+ <CAKgT0UcZiJJbb+-vCkhL=A2X9CB+ekp8-CnTZznEB+NBMYALFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36136 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752510AbcKHFwl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 00:52:41 -0500
-In-Reply-To: <1478359074-23941-1-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 11/05/16 11:17, Philippe Reynes wrote:
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
->  drivers/net/ethernet/alteon/acenic.c |   65 ++++++++++++++++++---------------
->  1 files changed, 35 insertions(+), 30 deletions(-)
-
-Nothing that sticks out to me
-
-Acked-by: Jes Sorensen <Jes.Sorensen@gmail.com>
-
-Jes
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>,
+        =?UTF-8?B?SXp1bWksIFRha3Uv5rOJIOaLkw==?=
+        <izumi.taku@jp.fujitsu.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UcZiJJbb+-vCkhL=A2X9CB+ekp8-CnTZznEB+NBMYALFg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> diff --git a/drivers/net/ethernet/alteon/acenic.c b/drivers/net/ethernet/alteon/acenic.c
-> index a5c1e29..16f0c70 100644
-> --- a/drivers/net/ethernet/alteon/acenic.c
-> +++ b/drivers/net/ethernet/alteon/acenic.c
-> @@ -429,14 +429,16 @@
->    "acenic.c: v0.92 08/05/2002  Jes Sorensen, linux-acenic@SunSITE.dk\n"
->    "                            http://home.cern.ch/~jes/gige/acenic.html\n";
->  
-> -static int ace_get_settings(struct net_device *, struct ethtool_cmd *);
-> -static int ace_set_settings(struct net_device *, struct ethtool_cmd *);
-> +static int ace_get_link_ksettings(struct net_device *,
-> +				  struct ethtool_link_ksettings *);
-> +static int ace_set_link_ksettings(struct net_device *,
-> +				  const struct ethtool_link_ksettings *);
->  static void ace_get_drvinfo(struct net_device *, struct ethtool_drvinfo *);
->  
->  static const struct ethtool_ops ace_ethtool_ops = {
-> -	.get_settings = ace_get_settings,
-> -	.set_settings = ace_set_settings,
->  	.get_drvinfo = ace_get_drvinfo,
-> +	.get_link_ksettings = ace_get_link_ksettings,
-> +	.set_link_ksettings = ace_set_link_ksettings,
->  };
->  
->  static void ace_watchdog(struct net_device *dev);
-> @@ -2579,43 +2581,44 @@ static int ace_change_mtu(struct net_device *dev, int new_mtu)
->  	return 0;
->  }
->  
-> -static int ace_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-> +static int ace_get_link_ksettings(struct net_device *dev,
-> +				  struct ethtool_link_ksettings *cmd)
->  {
->  	struct ace_private *ap = netdev_priv(dev);
->  	struct ace_regs __iomem *regs = ap->regs;
->  	u32 link;
-> +	u32 supported;
->  
-> -	memset(ecmd, 0, sizeof(struct ethtool_cmd));
-> -	ecmd->supported =
-> -		(SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
-> -		 SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
-> -		 SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full |
-> -		 SUPPORTED_Autoneg | SUPPORTED_FIBRE);
-> +	memset(cmd, 0, sizeof(struct ethtool_link_ksettings));
->  
-> -	ecmd->port = PORT_FIBRE;
-> -	ecmd->transceiver = XCVR_INTERNAL;
-> +	supported = (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
-> +		     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
-> +		     SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full |
-> +		     SUPPORTED_Autoneg | SUPPORTED_FIBRE);
-> +
-> +	cmd->base.port = PORT_FIBRE;
->  
->  	link = readl(&regs->GigLnkState);
-> -	if (link & LNK_1000MB)
-> -		ethtool_cmd_speed_set(ecmd, SPEED_1000);
-> -	else {
-> +	if (link & LNK_1000MB) {
-> +		cmd->base.speed = SPEED_1000;
-> +	} else {
->  		link = readl(&regs->FastLnkState);
->  		if (link & LNK_100MB)
-> -			ethtool_cmd_speed_set(ecmd, SPEED_100);
-> +			cmd->base.speed = SPEED_100;
->  		else if (link & LNK_10MB)
-> -			ethtool_cmd_speed_set(ecmd, SPEED_10);
-> +			cmd->base.speed = SPEED_10;
->  		else
-> -			ethtool_cmd_speed_set(ecmd, 0);
-> +			cmd->base.speed = 0;
->  	}
->  	if (link & LNK_FULL_DUPLEX)
-> -		ecmd->duplex = DUPLEX_FULL;
-> +		cmd->base.duplex = DUPLEX_FULL;
->  	else
-> -		ecmd->duplex = DUPLEX_HALF;
-> +		cmd->base.duplex = DUPLEX_HALF;
->  
->  	if (link & LNK_NEGOTIATE)
-> -		ecmd->autoneg = AUTONEG_ENABLE;
-> +		cmd->base.autoneg = AUTONEG_ENABLE;
->  	else
-> -		ecmd->autoneg = AUTONEG_DISABLE;
-> +		cmd->base.autoneg = AUTONEG_DISABLE;
->  
->  #if 0
->  	/*
-> @@ -2626,13 +2629,15 @@ static int ace_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
->  	ecmd->txcoal = readl(&regs->TuneTxCoalTicks);
->  	ecmd->rxcoal = readl(&regs->TuneRxCoalTicks);
->  #endif
-> -	ecmd->maxtxpkt = readl(&regs->TuneMaxTxDesc);
-> -	ecmd->maxrxpkt = readl(&regs->TuneMaxRxDesc);
-> +
-> +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-> +						supported);
->  
->  	return 0;
->  }
->  
-> -static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-> +static int ace_set_link_ksettings(struct net_device *dev,
-> +				  const struct ethtool_link_ksettings *cmd)
->  {
->  	struct ace_private *ap = netdev_priv(dev);
->  	struct ace_regs __iomem *regs = ap->regs;
-> @@ -2655,11 +2660,11 @@ static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
->  		LNK_RX_FLOW_CTL_Y | LNK_NEG_FCTL;
->  	if (!ACE_IS_TIGON_I(ap))
->  		link |= LNK_TX_FLOW_CTL_Y;
-> -	if (ecmd->autoneg == AUTONEG_ENABLE)
-> +	if (cmd->base.autoneg == AUTONEG_ENABLE)
->  		link |= LNK_NEGOTIATE;
-> -	if (ethtool_cmd_speed(ecmd) != speed) {
-> +	if (cmd->base.speed != speed) {
->  		link &= ~(LNK_1000MB | LNK_100MB | LNK_10MB);
-> -		switch (ethtool_cmd_speed(ecmd)) {
-> +		switch (cmd->base.speed) {
->  		case SPEED_1000:
->  			link |= LNK_1000MB;
->  			break;
-> @@ -2672,7 +2677,7 @@ static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
->  		}
->  	}
->  
-> -	if (ecmd->duplex == DUPLEX_FULL)
-> +	if (cmd->base.duplex == DUPLEX_FULL)
->  		link |= LNK_FULL_DUPLEX;
->  
->  	if (link != ap->link) {
-> 
+
+On 11/08/2016 12:12 PM, Alexander Duyck wrote:
+>
+>
+> On Monday, November 7, 2016, Cao jin <caoj.fnst@cn.fujitsu.com
+> <mailto:caoj.fnst@cn.fujitsu.com>> wrote:
+>
+>
+
+>
+> We removed head because it isn't really accessed very often, it is only
+> really used for when the ring is configured.  Tail is accessed every
+> time we add a descriptor to a ring.  The pointer chasing from ring to
+> netdev to adapter to hw is expensive.  That is one of the rasons why
+> we cache the pointer to the tail register.
+
+I see. I can submit the patch as you suggested.
+
+>
+>             Signed-off-by: Cao jin <caoj.fnst@cn.fujitsu.com>
+>             ---
+>                drivers/net/ethernet/intel/igb/igb.h      |  1 -
+>                drivers/net/ethernet/intel/igb/igb_main.c | 16
+>             +++++++++-------
+
+>
+>     hw->hw_addr could be alterred to NULL(in igb_rd32), this is why
+>     writel oops the kernel, you give a fine solution.
+>
+>     But from the oops message, we can find, register reading returns all
+>     F's, I also have a question want to consult: when igb device is
+>     reset, would reading register(no matter config space or non-PCIe
+>     configuration registers) during reset returns all F's? (I guess this
+>     is the core of my issue)
+>
+>
+> An all F's value means the read failed.  The device is likely off of the
+> bus and the hw_addr may not have been repopulated after the reset.
+>
+> You might want to check the mailing list as I thought someone had
+> submitted a patch recently for one of the drivers to repopulate hw_addr
+> after a reset.
+>
+
+I guess you are saying this one:
+   http://patchwork.ozlabs.org/patch/689592/
+
+Seems they have a similar issue with me.
+
+
+-- 
+Yours Sincerely,
+
+Cao jin
