@@ -1,44 +1,78 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 7 Nov 2016 22:34:11 -0800
-Message-ID: <CAM_iQpU1p8aJy_64muXhszzYMzC8AZtRC7+1bB7f4hK+6-rSNQ@mail.gmail.com>
-References: <20161108122537.40fa6e58@canb.auug.org.au>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v4] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
+Date: Tue, 8 Nov 2016 07:48:42 +0100
+Message-ID: <20161108064842.GB13024@kroah.com>
+References: <CAPZMiRa0kYyPFQ77L5y4NgxxH85iuMAjODV2iCzd-5OjyGfNuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Johannes Berg <johannes.berg@intel.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20161108122537.40fa6e58@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Allan Chou <allan@asix.com.tw>,
+        Artjom Simon <artjom.simon@gmail.com>
+To: Chris Roth <chris.roth@usask.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:39380 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753534AbcKHGsf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 01:48:35 -0500
+Content-Disposition: inline
+In-Reply-To: <CAPZMiRa0kYyPFQ77L5y4NgxxH85iuMAjODV2iCzd-5OjyGfNuw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 7, 2016 at 5:25 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got a conflict in:
->
->   net/netlink/genetlink.c
->
-> between commit:
->
->   00ffc1ba02d8 ("genetlink: fix a memory leak on error path")
->
-> from the net tree and commit:
->
->   2ae0f17df1cd ("genetlink: use idr to track families")
->
-> from the net-next tree.
->
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
+On Mon, Nov 07, 2016 at 04:44:20PM -0600, Chris Roth wrote:
+> From: Allan Chou <allan@asix.com.tw>
+> 
+> Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
+> Bridge Controller (Vendor=04b4 ProdID=3610).
+> 
+> Patch verified on x64 linux kernel 4.7.4, 4.8.6, 4.9-rc4 systems
+> with the Kensington SD4600P USB-C Universal Dock with Power,
+> which uses the Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge
+> Controller.
+> 
+> A similar patch was signed-off and tested-by Allan Chou
+> <allan@asix.com.tw> on 2015-12-01.
+> 
+> Allan verified his similar patch on x86 Linux kernel 4.1.6 system
+> with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+> 
+> Tested-by: Allan Chou <allan@asix.com.tw>
+> Tested-by: Chris Roth <chris.roth@usask.ca>
+> Tested-by: Artjom Simon <artjom.simon@gmail.com>
+> 
+> Signed-off-by: Allan Chou <allan@asix.com.tw>
+> Signed-off-by: Chris Roth <chris.roth@usask.ca>
+> ---
+>  drivers/net/usb/ax88179_178a.c | 17 +++++++++++++++++
+>  1 file changed, 17 insertions(+)
+> 
+> diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+> index e6338c1..8a6675d 100644
+> --- a/drivers/net/usb/ax88179_178a.c
+> +++ b/drivers/net/usb/ax88179_178a.c
+> @@ -1656,6 +1656,19 @@ static const struct driver_info ax88178a_info = {
+>      .tx_fixup = ax88179_tx_fixup,
+>  };
+> 
+> +static const struct driver_info cypress_GX3_info = {
+> +    .description = "Cypress GX3 SuperSpeed to Gigabit Ethernet Controller",
+> +    .bind = ax88179_bind,
+> +    .unbind = ax88179_unbind,
+> +    .status = ax88179_status,
+> +    .link_reset = ax88179_link_reset,
+> +    .reset = ax88179_reset,
+> +    .stop = ax88179_stop,
+> +    .flags = FLAG_ETHER | FLAG_FRAMING_AX,
+> +    .rx_fixup = ax88179_rx_fixup,
+> +    .tx_fixup = ax88179_tx_fixup,
+> +};
 
-Looks good to me.
+Your tabs got eaten and converted to spaces, making this patch
+impossible to apply :(
 
-Thanks!
+And you forgot to list what changed from v3, please put that below the
+--- line.
+
+thanks,
+
+greg k-h
