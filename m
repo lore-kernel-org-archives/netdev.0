@@ -1,77 +1,41 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: Re: [PATCH v3 4/4] posix-timers: make it configurable
-Date: Tue, 8 Nov 2016 13:19:22 -0500 (EST)
-Message-ID: <alpine.LFD.2.20.1611081311420.11818@knanqh.ubzr>
-References: <1478556899-2951-1-git-send-email-nicolas.pitre@linaro.org> <1478556899-2951-5-git-send-email-nicolas.pitre@linaro.org> <CALAqxLVrGRW3ODzZk=4-8FSLe5wBwHJSOEAW=+kMFjTRoe1HzQ@mail.gmail.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: linux-next: Tree for Nov 8 (netdev, netfilter)
+Date: Tue, 8 Nov 2016 10:22:34 -0800
+Message-ID: <44b626cf-7cc5-a82d-299b-5ce7418f53db@infradead.org>
+References: <20161108183855.5f8c209a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Michal Marek <mmarek@suse.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Paul Bolle <pebolle@tiscali.nl>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org,
-        linux-kbuild@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>
-To: John Stultz <john.stultz@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:35636 "EHLO
-        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752088AbcKHSTY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 13:19:24 -0500
-Received: by mail-qk0-f172.google.com with SMTP id n204so216906892qke.2
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 10:19:24 -0800 (PST)
-In-Reply-To: <CALAqxLVrGRW3ODzZk=4-8FSLe5wBwHJSOEAW=+kMFjTRoe1HzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        netfilter-devel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161108183855.5f8c209a@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Nov 2016, John Stultz wrote:
-
-> One spot of concern is that the
-> tools/testing/selftests/timers/posix_timers.c test hangs testing
-> virtual itimers. Looking through the code I'm not seeing where an
-> error case is missed.
+On 11/07/16 23:38, Stephen Rothwell wrote:
+> Hi all,
 > 
-> The strace looks like:
-> ...
-> write(1, "Testing posix timers. False nega"..., 66Testing posix
-> timers. False negative may happen on CPU execution
-> ) = 66
-> write(1, "based timers if other threads ru"..., 48based timers if
-> other threads run on the CPU...
-> ) = 48
-> write(1, "Check itimer virtual... ", 24Check itimer virtual... ) = 24
-> rt_sigaction(SIGVTALRM, {0x400a80, [VTALRM], SA_RESTORER|SA_RESTART,
-> 0x7fb73306ccb0}, {SIG_DFL, [], 0}, 8) = 0
-> gettimeofday({1478710402, 937476}, NULL) = 0
-> setitimer(ITIMER_VIRTUAL, {it_interval={0, 0}, it_value={2, 0}}, NULL) = 0
-> <Hang>
-> 
-> 
-> Where as with posix timers enabled:
-> ...
-> write(1, "Testing posix timers. False nega"..., 138Testing posix
-> timers. False negative may happen on CPU execution
-> based timers if other threads run on the CPU...
-> Check itimer virtual... ) = 138
-> rt_sigaction(SIGVTALRM, {0x400a80, [VTALRM], SA_RESTORER|SA_RESTART,
-> 0x7f231ba8ccb0}, {SIG_DFL, [], 0}, 8) = 0
-> gettimeofday({1478626751, 904856}, NULL) = 0
-> setitimer(ITIMER_VIRTUAL, {it_interval={0, 0}, it_value={2, 0}}, NULL) = 0
-> --- SIGVTALRM {si_signo=SIGVTALRM, si_code=SI_KERNEL} ---
-> rt_sigreturn()                          = 0
-
-I'll have a look.
-
-> So I suspect you were a little too aggressive with the #ifdefs around
-> the itimers/signal code, or we need to make sure we return an error on
-> the setitimer ITIMER_VIRTUAL case as well.
-
-Well, it seemed to me that with POSIX_TIMERS=n, all the code that would 
-set up that signal is gone, so there was no point keeping the code to 
-deliver it.
-
-Now... would it make more sense to remove itimer support as well when 
-POSIX_TIMERS=n?  The same reasoning would apply.
+> Changes since 20161028:
 
 
-Nicolas
+on i386 or x86_64:
+
+net/built-in.o: In function `nf_sk_lookup_slow_v4':
+(.text+0x97414): undefined reference to `udp4_lib_lookup'
+
+when these are not enabled:
+#if IS_ENABLED(CONFIG_NETFILTER_XT_MATCH_SOCKET) || \
+    IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY)
+
+and
+CONFIG_NF_SOCKET_IPV4=y
+
+See net/ipv4/netfilter/nf_socket_ipv4.c.
+
+
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+-- 
+~Randy
