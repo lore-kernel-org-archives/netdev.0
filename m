@@ -1,692 +1,208 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net-next v5 3/9] ipv6: sr: add support for SRH encapsulation and injection with lwtunnels
-Date: Tue, 8 Nov 2016 14:57:41 +0100
-Message-ID: <1478613467-27712-4-git-send-email-david.lebrun@uclouvain.be>
-References: <1478613467-27712-1-git-send-email-david.lebrun@uclouvain.be>
+Subject: [PATCH net-next v5 0/9] net: add support for IPv6 Segment Routing
+Date: Tue, 8 Nov 2016 14:57:38 +0100
+Message-ID: <1478613467-27712-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:43808 "EHLO
-        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752446AbcKHN4N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 08:56:13 -0500
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:57318 "EHLO
+        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751779AbcKHN4M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 08:56:12 -0500
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id 20BDB67DAAC
-        for <netdev@vger.kernel.org>; Tue,  8 Nov 2016 14:56:02 +0100 (CET)
-In-Reply-To: <1478613467-27712-1-git-send-email-david.lebrun@uclouvain.be>
+        by smtp1.sgsi.ucl.ac.be (Postfix) with ESMTPS id 7B38767DD23
+        for <netdev@vger.kernel.org>; Tue,  8 Nov 2016 14:56:01 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch creates a new type of interfaceless lightweight tunnel (SEG6),
-enabling the encapsulation and injection of SRH within locally emitted
-packets and forwarded packets.
+v5:
+ - Check SRH validity when adding a new route with lwtunnels and
+   when setting an IPV6_RTHDR socket option.
+ - Check that hdr->segments_left is not out of bounds when processing
+   an SR-enabled packet.
+ - Add __ro_after_init attribute to seg6_genl_policy structure.
+ - Add CONFIG_IPV6_SEG6_INLINE option to enable or disable
+   direct header insertion.
 
->From a configuration viewpoint, a seg6 tunnel would be configured as follows:
+v4:
+ - Change @cleanup in ipv6_srh_rcv() from int to bool
+ - Move checksum helper functions into header file
+ - Add common definition for SR TLVs
+ - Add comments for HMAC computation algorithm
+ - Use rhashtable to store HMAC infos instead of linked list
+ - Remove packed attribute for struct sr6_tlv_hmac
+ - Use dst cache only if CONFIG_DST_CACHE is enabled
 
-  ip -6 ro ad fc00::1/128 encap seg6 mode encap segs fc42::1,fc42::2,fc42::3 dev eth0
+v3:
+ - Fix compilation for CONFIG_IPV6={n,m}
 
-Any packet whose destination address is fc00::1 would thus be encapsulated
-within an outer IPv6 header containing the SRH with three segments, and would
-actually be routed to the first segment of the list. If `mode inline' was
-specified instead of `mode encap', then the SRH would be directly inserted
-after the IPv6 header without outer encapsulation.
+v2:
+ - Remove packed attribute from sr6 struct and replaced unaligned
+   16-bit flags with two 8-bit flags.
+ - SR code now included by default. Option CONFIG_IPV6_SEG6_HMAC
+   exists for HMAC support (which requires crypto dependencies).
+ - Replace "hidden" calls to mutex_{un,}lock to direct calls.
+ - Fix reverse xmas tree coding style.
+ - Fix cast-from-void*'s.
+ - Update skb->csum to account for SR modifications.
+ - Add dst_cache in seg6_output.
 
-The inline mode is only available if CONFIG_IPV6_SEG6_INLINE is enabled. This
-feature was made configurable because direct header insertion may break
-several mechanisms such as PMTUD or IPSec AH.
+Segment Routing (SR) is a source routing paradigm, architecturally
+defined in draft-ietf-spring-segment-routing-09 [1]. The IPv6 flavor of
+SR is defined in draft-ietf-6man-segment-routing-header-02 [2].
 
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
----
- include/linux/seg6_iptunnel.h      |   6 +
- include/net/seg6.h                 |   6 +
- include/uapi/linux/lwtunnel.h      |   1 +
- include/uapi/linux/seg6_iptunnel.h |  44 ++++
- net/core/lwtunnel.c                |   2 +
- net/ipv6/Kconfig                   |  12 ++
- net/ipv6/Makefile                  |   2 +-
- net/ipv6/seg6.c                    |  44 ++++
- net/ipv6/seg6_iptunnel.c           | 410 +++++++++++++++++++++++++++++++++++++
- 9 files changed, 526 insertions(+), 1 deletion(-)
+The main idea is that an SR-enabled packet contains a list of segments,
+which represent mandatory waypoints. Each waypoint is called a segment
+endpoint. The SR-enabled packet is routed normally (e.g. shortest path)
+between the segment endpoints. A node that inserts an SRH into a packet
+is called an ingress node, and a node that is the last segment endpoint
+is called an egress node.
+
+>From an IPv6 viewpoint, an SR-enabled packet contains an IPv6 extension
+header, which is a Routing Header type 4, defined as follows:
+
+struct ipv6_sr_hdr {
+        __u8    nexthdr;
+        __u8    hdrlen;
+        __u8    type;
+        __u8    segments_left;
+        __u8    first_segment;
+        __u8    flag_1;
+        __u8    flag_2;
+        __u8    reserved;
+
+        struct in6_addr segments[0];
+};
+
+The first 4 bytes of the SRH is consistent with the Routing Header
+definition in RFC 2460. The type is set to `4' (SRH).
+
+Each segment is encoded as an IPv6 address. The segments are encoded in
+reverse order: segments[0] is the last segment of the path, and
+segments[first_segment] is the first segment of the path.
+
+segments[segments_left] points to the currently active segment and
+segments_left is decremented at each segment endpoint.
+
+There exist two ways for a packet to receive an SRH, we call them
+encap mode and inline mode. In the encap mode, the packet is encapsulated
+in an outer IPv6 header that contains the SRH. The inner (original) packet
+is not modified. A virtual tunnel is thus created between the ingress node
+(the node that encapsulates) and the egress node (the last segment of the path).
+Once an encapsulated SR packet reaches the egress node, the node decapsulates
+the packet and performs a routing decision on the inner packet. This kind of
+SRH insertion is intended to use for routers that encapsulates in-transit
+packet.
+
+The second SRH insertion method, the inline mode, acts by directly inserting
+the SRH right after the IPv6 header of the original packet. For this method,
+if a particular flag (SR6_FLAG_CLEANUP) is set, then the penultimate segment
+endpoint must strip the SRH from the packet before forwarding it to the last
+segment endpoint. This insertion method is intended to use for endhosts,
+however it is also used for in-transit packets by some industry actors.
+Note that directly inserting extension headers may break several mechanisms
+such as Path MTU Discovery, IPSec AH, etc. For this reason, this insertion
+method is only available if CONFIG_IPV6_SEG6_INLINE is enabled.
+
+Finally, the SRH may contain TLVs after the segments list. Several types of
+TLVs are defined, but we currently consider only the HMAC TLV. This TLV is
+an answer to the deprecation of the RH0 and enables to ensure the authenticity
+and integrity of the SRH. The HMAC text contains the flags, the first_segment
+index, the full list of segments, and the source address of the packet. While
+SR is intended to use mostly within a single administrative domain, the HMAC
+TLV allows to verify SR packets coming from an untrusted source.
+
+This patches series implements support for the IPv6 flavor of SR and is
+logically divided into the following components:
+
+        (1) Data plane support (patch 01). This patch adds a function
+            in net/ipv6/exthdrs.c to handle the Routing Header type 4.
+            It enables the kernel to act as a segment endpoint, by supporting
+            the following operations: decrementation of the segments_left field,
+            cleanup flag support (removal of the SRH if we are the penultimate
+            segment endpoint) and decapsulation of the inner packet as an egress
+            node.
+
+        (2) Control plane support (patches 02..03 and 07..09). These patches enables
+            to insert SRH on locally emitted and/or forwarded packets, both with
+            encap mode and with inline mode. The SRH insertion is controlled through
+            the lightweight tunnels mechanism. Furthermore, patch 08 enables the
+            applications to insert an SRH on a per-socket basis, through the
+            setsockopt() system call. The mechanism to specify a per-socket
+            Routing Header was already defined for RH0 and no special modification
+            was performed on this side. However, the code to actually push the RH
+            onto the packets had to be adapted for the SRH specifications.
+
+        (3) HMAC support (patches 04..06). These patches adds the support of the
+            HMAC TLV verification for the dataplane part, and generation for
+            the control plane part. Two hashing algorithms are supported
+            (SHA-1 as legacy and SHA-256 as required by the IETF draft), but
+            additional algorithms can be easily supported by simply adding an
+            entry into an array.
+
+[1] https://tools.ietf.org/html/draft-ietf-spring-segment-routing-09
+[2] https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-02
+
+David Lebrun (9):
+  ipv6: implement dataplane support for rthdr type 4 (Segment Routing
+    Header)
+  ipv6: sr: add code base for control plane support of SR-IPv6
+  ipv6: sr: add support for SRH encapsulation and injection with
+    lwtunnels
+  ipv6: sr: add core files for SR HMAC support
+  ipv6: sr: implement API to control SR HMAC structure
+  ipv6: sr: add calls to verify and insert HMAC signatures
+  ipv6: add source address argument for ipv6_push_nfrag_opts
+  ipv6: sr: add support for SRH injection through setsockopt
+  ipv6: sr: add documentation file for per-interface sysctls
+
+ Documentation/networking/seg6-sysctl.txt |  18 ++
+ include/linux/ipv6.h                     |   4 +
+ include/linux/seg6.h                     |   6 +
+ include/linux/seg6_genl.h                |   6 +
+ include/linux/seg6_hmac.h                |   6 +
+ include/linux/seg6_iptunnel.h            |   6 +
+ include/net/ipv6.h                       |   3 +-
+ include/net/netns/ipv6.h                 |   1 +
+ include/net/seg6.h                       |  62 ++++
+ include/net/seg6_hmac.h                  |  62 ++++
+ include/uapi/linux/ipv6.h                |   3 +
+ include/uapi/linux/lwtunnel.h            |   1 +
+ include/uapi/linux/seg6.h                |  54 ++++
+ include/uapi/linux/seg6_genl.h           |  32 ++
+ include/uapi/linux/seg6_hmac.h           |  21 ++
+ include/uapi/linux/seg6_iptunnel.h       |  44 +++
+ net/core/lwtunnel.c                      |   2 +
+ net/ipv6/Kconfig                         |  24 ++
+ net/ipv6/Makefile                        |   3 +-
+ net/ipv6/addrconf.c                      |  28 ++
+ net/ipv6/af_inet6.c                      |   9 +-
+ net/ipv6/exthdrs.c                       | 268 ++++++++++++++++-
+ net/ipv6/ip6_output.c                    |   5 +-
+ net/ipv6/ip6_tunnel.c                    |   2 +-
+ net/ipv6/ipv6_sockglue.c                 |  10 +
+ net/ipv6/seg6.c                          | 487 +++++++++++++++++++++++++++++++
+ net/ipv6/seg6_hmac.c                     | 484 ++++++++++++++++++++++++++++++
+ net/ipv6/seg6_iptunnel.c                 | 431 +++++++++++++++++++++++++++
+ 28 files changed, 2070 insertions(+), 12 deletions(-)
+ create mode 100644 Documentation/networking/seg6-sysctl.txt
+ create mode 100644 include/linux/seg6.h
+ create mode 100644 include/linux/seg6_genl.h
+ create mode 100644 include/linux/seg6_hmac.h
  create mode 100644 include/linux/seg6_iptunnel.h
+ create mode 100644 include/net/seg6.h
+ create mode 100644 include/net/seg6_hmac.h
+ create mode 100644 include/uapi/linux/seg6.h
+ create mode 100644 include/uapi/linux/seg6_genl.h
+ create mode 100644 include/uapi/linux/seg6_hmac.h
  create mode 100644 include/uapi/linux/seg6_iptunnel.h
+ create mode 100644 net/ipv6/seg6.c
+ create mode 100644 net/ipv6/seg6_hmac.c
  create mode 100644 net/ipv6/seg6_iptunnel.c
 
-diff --git a/include/linux/seg6_iptunnel.h b/include/linux/seg6_iptunnel.h
-new file mode 100644
-index 0000000..5377cf6
---- /dev/null
-+++ b/include/linux/seg6_iptunnel.h
-@@ -0,0 +1,6 @@
-+#ifndef _LINUX_SEG6_IPTUNNEL_H
-+#define _LINUX_SEG6_IPTUNNEL_H
-+
-+#include <uapi/linux/seg6_iptunnel.h>
-+
-+#endif
-diff --git a/include/net/seg6.h b/include/net/seg6.h
-index 7c7b8ed..ff5da0c 100644
---- a/include/net/seg6.h
-+++ b/include/net/seg6.h
-@@ -16,6 +16,8 @@
- 
- #include <linux/net.h>
- #include <linux/ipv6.h>
-+#include <net/lwtunnel.h>
-+#include <linux/seg6.h>
- 
- static inline void update_csum_diff4(struct sk_buff *skb, __be32 from,
- 				     __be32 to)
-@@ -48,5 +50,9 @@ static inline struct seg6_pernet_data *seg6_pernet(struct net *net)
- 
- extern int seg6_init(void);
- extern void seg6_exit(void);
-+extern int seg6_iptunnel_init(void);
-+extern void seg6_iptunnel_exit(void);
-+
-+extern bool seg6_validate_srh(struct ipv6_sr_hdr *srh, int len);
- 
- #endif
-diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
-index a478fe8..453cc62 100644
---- a/include/uapi/linux/lwtunnel.h
-+++ b/include/uapi/linux/lwtunnel.h
-@@ -9,6 +9,7 @@ enum lwtunnel_encap_types {
- 	LWTUNNEL_ENCAP_IP,
- 	LWTUNNEL_ENCAP_ILA,
- 	LWTUNNEL_ENCAP_IP6,
-+	LWTUNNEL_ENCAP_SEG6,
- 	__LWTUNNEL_ENCAP_MAX,
- };
- 
-diff --git a/include/uapi/linux/seg6_iptunnel.h b/include/uapi/linux/seg6_iptunnel.h
-new file mode 100644
-index 0000000..0f7dbd2
---- /dev/null
-+++ b/include/uapi/linux/seg6_iptunnel.h
-@@ -0,0 +1,44 @@
-+/*
-+ *  SR-IPv6 implementation
-+ *
-+ *  Author:
-+ *  David Lebrun <david.lebrun@uclouvain.be>
-+ *
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *      modify it under the terms of the GNU General Public License
-+ *      as published by the Free Software Foundation; either version
-+ *      2 of the License, or (at your option) any later version.
-+ */
-+
-+#ifndef _UAPI_LINUX_SEG6_IPTUNNEL_H
-+#define _UAPI_LINUX_SEG6_IPTUNNEL_H
-+
-+enum {
-+	SEG6_IPTUNNEL_UNSPEC,
-+	SEG6_IPTUNNEL_SRH,
-+	__SEG6_IPTUNNEL_MAX,
-+};
-+#define SEG6_IPTUNNEL_MAX (__SEG6_IPTUNNEL_MAX - 1)
-+
-+struct seg6_iptunnel_encap {
-+	int mode;
-+	struct ipv6_sr_hdr srh[0];
-+};
-+
-+#define SEG6_IPTUN_ENCAP_SIZE(x) ((sizeof(*x)) + (((x)->srh->hdrlen + 1) << 3))
-+
-+enum {
-+	SEG6_IPTUN_MODE_INLINE,
-+	SEG6_IPTUN_MODE_ENCAP,
-+};
-+
-+static inline size_t seg6_lwt_headroom(struct seg6_iptunnel_encap *tuninfo)
-+{
-+	int encap = (tuninfo->mode == SEG6_IPTUN_MODE_ENCAP);
-+
-+	return ((tuninfo->srh->hdrlen + 1) << 3) +
-+	       (encap * sizeof(struct ipv6hdr));
-+}
-+
-+#endif
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-index 88fd642..03976e9 100644
---- a/net/core/lwtunnel.c
-+++ b/net/core/lwtunnel.c
-@@ -39,6 +39,8 @@ static const char *lwtunnel_encap_str(enum lwtunnel_encap_types encap_type)
- 		return "MPLS";
- 	case LWTUNNEL_ENCAP_ILA:
- 		return "ILA";
-+	case LWTUNNEL_ENCAP_SEG6:
-+		return "SEG6";
- 	case LWTUNNEL_ENCAP_IP6:
- 	case LWTUNNEL_ENCAP_IP:
- 	case LWTUNNEL_ENCAP_NONE:
-diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-index 2343e4f..1123a00 100644
---- a/net/ipv6/Kconfig
-+++ b/net/ipv6/Kconfig
-@@ -289,4 +289,16 @@ config IPV6_PIMSM_V2
- 	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
- 	  If unsure, say N.
- 
-+config IPV6_SEG6_INLINE
-+	bool "IPv6: direct Segment Routing Header insertion "
-+	depends on IPV6
-+	---help---
-+	  Support for direct insertion of the Segment Routing Header,
-+	  also known as inline mode. Be aware that direct insertion of
-+	  extension headers (as opposed to encapsulation) may break
-+	  multiple mechanisms such as PMTUD or IPSec AH. Use this feature
-+	  only if you know exactly what you are doing.
-+
-+	  If unsure, say N.
-+
- endif # IPV6
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index c92010d..59ee92f 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -9,7 +9,7 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
- 		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o ping.o \
- 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o \
--		udp_offload.o seg6.o
-+		udp_offload.o seg6.o seg6_iptunnel.o
- 
- ipv6-offload :=	ip6_offload.o tcpv6_offload.o exthdrs_offload.o
- 
-diff --git a/net/ipv6/seg6.c b/net/ipv6/seg6.c
-index e246b0b..9c78053 100644
---- a/net/ipv6/seg6.c
-+++ b/net/ipv6/seg6.c
-@@ -26,6 +26,43 @@
- #include <linux/seg6.h>
- #include <linux/seg6_genl.h>
- 
-+bool seg6_validate_srh(struct ipv6_sr_hdr *srh, int len)
-+{
-+	int trailing;
-+	unsigned int tlv_offset;
-+
-+	if (srh->type != IPV6_SRCRT_TYPE_4)
-+		return false;
-+
-+	if (((srh->hdrlen + 1) << 3) != len)
-+		return false;
-+
-+	if (srh->segments_left != srh->first_segment)
-+		return false;
-+
-+	tlv_offset = sizeof(*srh) + ((srh->first_segment + 1) << 4);
-+
-+	trailing = len - tlv_offset;
-+	if (trailing < 0)
-+		return false;
-+
-+	while (trailing) {
-+		struct sr6_tlv *tlv;
-+		unsigned int tlv_len;
-+
-+		tlv = (struct sr6_tlv *)((unsigned char *)srh + tlv_offset);
-+		tlv_len = sizeof(*tlv) + tlv->len;
-+
-+		trailing -= tlv_len;
-+		if (trailing < 0)
-+			return false;
-+
-+		tlv_offset += tlv_len;
-+	}
-+
-+	return true;
-+}
-+
- static struct genl_family seg6_genl_family;
- 
- static const struct nla_policy seg6_genl_policy[SEG6_ATTR_MAX + 1] = {
-@@ -198,10 +235,16 @@ int __init seg6_init(void)
- 	if (err)
- 		goto out_unregister_genl;
- 
-+	err = seg6_iptunnel_init();
-+	if (err)
-+		goto out_unregister_pernet;
-+
- 	pr_info("Segment Routing with IPv6\n");
- 
- out:
- 	return err;
-+out_unregister_pernet:
-+	unregister_pernet_subsys(&ip6_segments_ops);
- out_unregister_genl:
- 	genl_unregister_family(&seg6_genl_family);
- 	goto out;
-@@ -209,6 +252,7 @@ int __init seg6_init(void)
- 
- void seg6_exit(void)
- {
-+	seg6_iptunnel_exit();
- 	unregister_pernet_subsys(&ip6_segments_ops);
- 	genl_unregister_family(&seg6_genl_family);
- }
-diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
-new file mode 100644
-index 0000000..39762b2
---- /dev/null
-+++ b/net/ipv6/seg6_iptunnel.c
-@@ -0,0 +1,410 @@
-+/*
-+ *  SR-IPv6 implementation
-+ *
-+ *  Author:
-+ *  David Lebrun <david.lebrun@uclouvain.be>
-+ *
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *        modify it under the terms of the GNU General Public License
-+ *        as published by the Free Software Foundation; either version
-+ *        2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/types.h>
-+#include <linux/skbuff.h>
-+#include <linux/net.h>
-+#include <linux/module.h>
-+#include <net/ip.h>
-+#include <net/lwtunnel.h>
-+#include <net/netevent.h>
-+#include <net/netns/generic.h>
-+#include <net/ip6_fib.h>
-+#include <net/route.h>
-+#include <net/seg6.h>
-+#include <linux/seg6.h>
-+#include <linux/seg6_iptunnel.h>
-+#include <net/addrconf.h>
-+#include <net/ip6_route.h>
-+#ifdef CONFIG_DST_CACHE
-+#include <net/dst_cache.h>
-+#endif
-+
-+struct seg6_lwt {
-+#ifdef CONFIG_DST_CACHE
-+	struct dst_cache cache;
-+#endif
-+	struct seg6_iptunnel_encap tuninfo[0];
-+};
-+
-+static inline struct seg6_lwt *seg6_lwt_lwtunnel(struct lwtunnel_state *lwt)
-+{
-+	return (struct seg6_lwt *)lwt->data;
-+}
-+
-+static inline struct seg6_iptunnel_encap *
-+seg6_encap_lwtunnel(struct lwtunnel_state *lwt)
-+{
-+	return seg6_lwt_lwtunnel(lwt)->tuninfo;
-+}
-+
-+static const struct nla_policy seg6_iptunnel_policy[SEG6_IPTUNNEL_MAX + 1] = {
-+	[SEG6_IPTUNNEL_SRH]	= { .type = NLA_BINARY },
-+};
-+
-+int nla_put_srh(struct sk_buff *skb, int attrtype,
-+		struct seg6_iptunnel_encap *tuninfo)
-+{
-+	struct seg6_iptunnel_encap *data;
-+	struct nlattr *nla;
-+	int len;
-+
-+	len = SEG6_IPTUN_ENCAP_SIZE(tuninfo);
-+
-+	nla = nla_reserve(skb, attrtype, len);
-+	if (!nla)
-+		return -EMSGSIZE;
-+
-+	data = nla_data(nla);
-+	memcpy(data, tuninfo, len);
-+
-+	return 0;
-+}
-+
-+static void set_tun_src(struct net *net, struct net_device *dev,
-+			struct in6_addr *daddr, struct in6_addr *saddr)
-+{
-+	struct seg6_pernet_data *sdata = seg6_pernet(net);
-+	struct in6_addr *tun_src;
-+
-+	rcu_read_lock();
-+
-+	tun_src = rcu_dereference(sdata->tun_src);
-+
-+	if (!ipv6_addr_any(tun_src)) {
-+		memcpy(saddr, tun_src, sizeof(struct in6_addr));
-+	} else {
-+		ipv6_dev_get_saddr(net, dev, daddr, IPV6_PREFER_SRC_PUBLIC,
-+				   saddr);
-+	}
-+
-+	rcu_read_unlock();
-+}
-+
-+/* encapsulate an IPv6 packet within an outer IPv6 header with a given SRH */
-+static int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
-+{
-+	struct net *net = dev_net(skb_dst(skb)->dev);
-+	struct ipv6hdr *hdr, *inner_hdr;
-+	struct ipv6_sr_hdr *isrh;
-+	int hdrlen, tot_len, err;
-+
-+	hdrlen = (osrh->hdrlen + 1) << 3;
-+	tot_len = hdrlen + sizeof(*hdr);
-+
-+	err = pskb_expand_head(skb, tot_len, 0, GFP_ATOMIC);
-+	if (unlikely(err))
-+		return err;
-+
-+	inner_hdr = ipv6_hdr(skb);
-+
-+	skb_push(skb, tot_len);
-+	skb_reset_network_header(skb);
-+	skb_mac_header_rebuild(skb);
-+	hdr = ipv6_hdr(skb);
-+
-+	/* inherit tc, flowlabel and hlim
-+	 * hlim will be decremented in ip6_forward() afterwards and
-+	 * decapsulation will overwrite inner hlim with outer hlim
-+	 */
-+	ip6_flow_hdr(hdr, ip6_tclass(ip6_flowinfo(inner_hdr)),
-+		     ip6_flowlabel(inner_hdr));
-+	hdr->hop_limit = inner_hdr->hop_limit;
-+	hdr->nexthdr = NEXTHDR_ROUTING;
-+
-+	isrh = (void *)hdr + sizeof(*hdr);
-+	memcpy(isrh, osrh, hdrlen);
-+
-+	isrh->nexthdr = NEXTHDR_IPV6;
-+
-+	hdr->daddr = isrh->segments[isrh->first_segment];
-+	set_tun_src(net, skb->dev, &hdr->daddr, &hdr->saddr);
-+
-+	skb_postpush_rcsum(skb, hdr, tot_len);
-+
-+	return 0;
-+}
-+
-+/* insert an SRH within an IPv6 packet, just after the IPv6 header */
-+#ifdef CONFIG_IPV6_SEG6_INLINE
-+static int seg6_do_srh_inline(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
-+{
-+	struct ipv6hdr *hdr, *oldhdr;
-+	struct ipv6_sr_hdr *isrh;
-+	int hdrlen, err;
-+
-+	hdrlen = (osrh->hdrlen + 1) << 3;
-+
-+	err = pskb_expand_head(skb, hdrlen, 0, GFP_ATOMIC);
-+	if (unlikely(err))
-+		return err;
-+
-+	oldhdr = ipv6_hdr(skb);
-+
-+	skb_pull(skb, sizeof(struct ipv6hdr));
-+	skb_postpull_rcsum(skb, skb_network_header(skb),
-+			   sizeof(struct ipv6hdr));
-+
-+	skb_push(skb, sizeof(struct ipv6hdr) + hdrlen);
-+	skb_reset_network_header(skb);
-+	skb_mac_header_rebuild(skb);
-+
-+	hdr = ipv6_hdr(skb);
-+
-+	memmove(hdr, oldhdr, sizeof(*hdr));
-+
-+	isrh = (void *)hdr + sizeof(*hdr);
-+	memcpy(isrh, osrh, hdrlen);
-+
-+	isrh->nexthdr = hdr->nexthdr;
-+	hdr->nexthdr = NEXTHDR_ROUTING;
-+
-+	isrh->segments[0] = hdr->daddr;
-+	hdr->daddr = isrh->segments[isrh->first_segment];
-+
-+	skb_postpush_rcsum(skb, hdr, sizeof(struct ipv6hdr) + hdrlen);
-+
-+	return 0;
-+}
-+#endif
-+
-+static int seg6_do_srh(struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+	struct seg6_iptunnel_encap *tinfo;
-+	int err = 0;
-+
-+	tinfo = seg6_encap_lwtunnel(dst->lwtstate);
-+
-+	if (likely(!skb->encapsulation)) {
-+		skb_reset_inner_headers(skb);
-+		skb->encapsulation = 1;
-+	}
-+
-+	switch (tinfo->mode) {
-+#ifdef CONFIG_IPV6_SEG6_INLINE
-+	case SEG6_IPTUN_MODE_INLINE:
-+		err = seg6_do_srh_inline(skb, tinfo->srh);
-+		skb_reset_inner_headers(skb);
-+		break;
-+#endif
-+	case SEG6_IPTUN_MODE_ENCAP:
-+		err = seg6_do_srh_encap(skb, tinfo->srh);
-+		break;
-+	}
-+
-+	if (err)
-+		return err;
-+
-+	ipv6_hdr(skb)->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
-+	skb_set_transport_header(skb, sizeof(struct ipv6hdr));
-+
-+	skb_set_inner_protocol(skb, skb->protocol);
-+
-+	return 0;
-+}
-+
-+int seg6_input(struct sk_buff *skb)
-+{
-+	int err;
-+
-+	err = seg6_do_srh(skb);
-+	if (unlikely(err)) {
-+		kfree_skb(skb);
-+		return err;
-+	}
-+
-+	skb_dst_drop(skb);
-+	ip6_route_input(skb);
-+
-+	return dst_input(skb);
-+}
-+
-+int seg6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-+{
-+	struct dst_entry *orig_dst = skb_dst(skb);
-+	struct dst_entry *dst = NULL;
-+	struct seg6_lwt *slwt;
-+	int err = -EINVAL;
-+
-+	err = seg6_do_srh(skb);
-+	if (unlikely(err))
-+		goto drop;
-+
-+	slwt = seg6_lwt_lwtunnel(orig_dst->lwtstate);
-+
-+#ifdef CONFIG_DST_CACHE
-+	dst = dst_cache_get(&slwt->cache);
-+#endif
-+
-+	if (unlikely(!dst)) {
-+		struct ipv6hdr *hdr = ipv6_hdr(skb);
-+		struct flowi6 fl6;
-+
-+		fl6.daddr = hdr->daddr;
-+		fl6.saddr = hdr->saddr;
-+		fl6.flowlabel = ip6_flowinfo(hdr);
-+		fl6.flowi6_mark = skb->mark;
-+		fl6.flowi6_proto = hdr->nexthdr;
-+
-+		dst = ip6_route_output(net, NULL, &fl6);
-+		if (dst->error) {
-+			err = dst->error;
-+			dst_release(dst);
-+			goto drop;
-+		}
-+
-+#ifdef CONFIG_DST_CACHE
-+		dst_cache_set_ip6(&slwt->cache, dst, &fl6.saddr);
-+#endif
-+	}
-+
-+	skb_dst_drop(skb);
-+	skb_dst_set(skb, dst);
-+
-+	return dst_output(net, sk, skb);
-+drop:
-+	kfree_skb(skb);
-+	return err;
-+}
-+
-+static int seg6_build_state(struct net_device *dev, struct nlattr *nla,
-+			    unsigned int family, const void *cfg,
-+			    struct lwtunnel_state **ts)
-+{
-+	struct nlattr *tb[SEG6_IPTUNNEL_MAX + 1];
-+	struct seg6_iptunnel_encap *tuninfo;
-+	struct lwtunnel_state *newts;
-+	int tuninfo_len, min_size;
-+	struct seg6_lwt *slwt;
-+	int err;
-+
-+	err = nla_parse_nested(tb, SEG6_IPTUNNEL_MAX, nla,
-+			       seg6_iptunnel_policy);
-+
-+	if (err < 0)
-+		return err;
-+
-+	if (!tb[SEG6_IPTUNNEL_SRH])
-+		return -EINVAL;
-+
-+	tuninfo = nla_data(tb[SEG6_IPTUNNEL_SRH]);
-+	tuninfo_len = nla_len(tb[SEG6_IPTUNNEL_SRH]);
-+
-+	/* tuninfo must contain at least the iptunnel encap structure,
-+	 * the SRH and one segment
-+	 */
-+	min_size = sizeof(*tuninfo) + sizeof(struct ipv6_sr_hdr) +
-+		   sizeof(struct in6_addr);
-+	if (tuninfo_len < min_size)
-+		return -EINVAL;
-+
-+	switch (tuninfo->mode) {
-+#ifdef CONFIG_IPV6_SEG6_INLINE
-+	case SEG6_IPTUN_MODE_INLINE:
-+		break;
-+#endif
-+	case SEG6_IPTUN_MODE_ENCAP:
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	/* verify that SRH is consistent */
-+	if (!seg6_validate_srh(tuninfo->srh, tuninfo_len - sizeof(*tuninfo)))
-+		return -EINVAL;
-+
-+	newts = lwtunnel_state_alloc(tuninfo_len + sizeof(*slwt));
-+	if (!newts)
-+		return -ENOMEM;
-+
-+	slwt = seg6_lwt_lwtunnel(newts);
-+
-+#ifdef CONFIG_DST_CACHE
-+	err = dst_cache_init(&slwt->cache, GFP_KERNEL);
-+	if (err) {
-+		kfree(newts);
-+		return err;
-+	}
-+#endif
-+
-+	memcpy(&slwt->tuninfo, tuninfo, tuninfo_len);
-+
-+	newts->type = LWTUNNEL_ENCAP_SEG6;
-+	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
-+			LWTUNNEL_STATE_INPUT_REDIRECT;
-+	newts->headroom = seg6_lwt_headroom(tuninfo);
-+
-+	*ts = newts;
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_DST_CACHE
-+static void seg6_destroy_state(struct lwtunnel_state *lwt)
-+{
-+	dst_cache_destroy(&seg6_lwt_lwtunnel(lwt)->cache);
-+}
-+#endif
-+
-+static int seg6_fill_encap_info(struct sk_buff *skb,
-+				struct lwtunnel_state *lwtstate)
-+{
-+	struct seg6_iptunnel_encap *tuninfo = seg6_encap_lwtunnel(lwtstate);
-+
-+	if (nla_put_srh(skb, SEG6_IPTUNNEL_SRH, tuninfo))
-+		return -EMSGSIZE;
-+
-+	return 0;
-+}
-+
-+static int seg6_encap_nlsize(struct lwtunnel_state *lwtstate)
-+{
-+	struct seg6_iptunnel_encap *tuninfo = seg6_encap_lwtunnel(lwtstate);
-+
-+	return nla_total_size(SEG6_IPTUN_ENCAP_SIZE(tuninfo));
-+}
-+
-+static int seg6_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
-+{
-+	struct seg6_iptunnel_encap *a_hdr = seg6_encap_lwtunnel(a);
-+	struct seg6_iptunnel_encap *b_hdr = seg6_encap_lwtunnel(b);
-+	int len = SEG6_IPTUN_ENCAP_SIZE(a_hdr);
-+
-+	if (len != SEG6_IPTUN_ENCAP_SIZE(b_hdr))
-+		return 1;
-+
-+	return memcmp(a_hdr, b_hdr, len);
-+}
-+
-+static const struct lwtunnel_encap_ops seg6_iptun_ops = {
-+	.build_state = seg6_build_state,
-+#ifdef CONFIG_DST_CACHE
-+	.destroy_state = seg6_destroy_state,
-+#endif
-+	.output = seg6_output,
-+	.input = seg6_input,
-+	.fill_encap = seg6_fill_encap_info,
-+	.get_encap_size = seg6_encap_nlsize,
-+	.cmp_encap = seg6_encap_cmp,
-+};
-+
-+int __init seg6_iptunnel_init(void)
-+{
-+	return lwtunnel_encap_add_ops(&seg6_iptun_ops, LWTUNNEL_ENCAP_SEG6);
-+}
-+
-+void seg6_iptunnel_exit(void)
-+{
-+	lwtunnel_encap_del_ops(&seg6_iptun_ops, LWTUNNEL_ENCAP_SEG6);
-+}
 -- 
 2.7.3
