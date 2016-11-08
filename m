@@ -1,90 +1,57 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 13/17] batman-adv: Consume skb in receive
-	handlers
-Date: Tue, 08 Nov 2016 08:59:49 -0800
-Message-ID: <1478624389.17367.12.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20161108164526.7518-1-sw@simonwunderlich.de>
- <20161108164526.7518-14-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Why are IPv6 host and anycast routes referencing lo device?
+Date: Tue, 8 Nov 2016 18:08:12 +0100
+Message-ID: <a2955697-9cd2-9f27-9d15-4f9ed95561ec@stressinduktion.org>
+References: <db922fb9-2553-7801-d597-0f40999be944@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161108164526.7518-14-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>,
+        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:52101 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932177AbcKHRIQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 12:08:16 -0500
+In-Reply-To: <db922fb9-2553-7801-d597-0f40999be944@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-11-08 at 17:45 +0100, Simon Wunderlich wrote:
-> From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+On 08.11.2016 02:08, David Ahern wrote:
 > 
-> Receiving functions in Linux consume the supplied skbuff. Doing the same in
-> the batadv_rx_handler functions makes the behavior more similar to the rest
-> of the Linux network code.
+> Can anyone explain why host routes and anycast routes for IPv6 are added with the device set to loopback versus the device with the address:
 > 
-> Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-> Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-> ---
->  net/batman-adv/bat_iv_ogm.c     |  17 +++--
->  net/batman-adv/bat_v_elp.c      |  25 ++++---
->  net/batman-adv/bat_v_ogm.c      |  10 +--
->  net/batman-adv/main.c           |  11 +--
->  net/batman-adv/network-coding.c |  11 +--
->  net/batman-adv/routing.c        | 149 +++++++++++++++++++++++++++-------------
->  6 files changed, 141 insertions(+), 82 deletions(-)
-> 
-> diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-> index 310f391..b9941bf 100644
-> --- a/net/batman-adv/bat_iv_ogm.c
-> +++ b/net/batman-adv/bat_iv_ogm.c
-> @@ -1823,17 +1823,18 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
->  	struct batadv_ogm_packet *ogm_packet;
->  	u8 *packet_pos;
->  	int ogm_offset;
-> -	bool ret;
-> +	bool res;
-> +	int ret = NET_RX_DROP;
->  
-> -	ret = batadv_check_management_packet(skb, if_incoming, BATADV_OGM_HLEN);
-> -	if (!ret)
-> -		return NET_RX_DROP;
-> +	res = batadv_check_management_packet(skb, if_incoming, BATADV_OGM_HLEN);
-> +	if (!res)
-> +		goto free_skb;
->  
->  	/* did we receive a B.A.T.M.A.N. IV OGM packet on an interface
->  	 * that does not have B.A.T.M.A.N. IV enabled ?
->  	 */
->  	if (bat_priv->algo_ops->iface.enable != batadv_iv_ogm_iface_enable)
-> -		return NET_RX_DROP;
-> +		goto free_skb;
->  
->  	batadv_inc_counter(bat_priv, BATADV_CNT_MGMT_RX);
->  	batadv_add_counter(bat_priv, BATADV_CNT_MGMT_RX_BYTES,
-> @@ -1854,8 +1855,12 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
->  		ogm_packet = (struct batadv_ogm_packet *)packet_pos;
->  	}
->  
-> +	ret = NET_RX_SUCCESS;
-> +
-> +free_skb:
->  	consume_skb(skb);
-> -	return NET_RX_SUCCESS;
-> +
-> +	return ret;
->  }
+> local ::1 dev lo  proto none  metric 0  pref medium
+> local 2000:1:: dev lo  proto none  metric 0  pref medium
+> local 2000:1::3 dev lo  proto none  metric 0  pref medium
+> local 2100:2:: dev lo  proto none  metric 0  pref medium
+> local 2100:2::3 dev lo  proto none  metric 0  pref medium
 
+Does it really matter? For global valid unicast addresses we still
+implement the weak model. Thus the interface does not matter at all.
 
-Okay, but we do have kfree_skb() and consume_skb() and they should be
-used appropriately.
+> This behavior differs from IPv4 where host routes use the device with the address:
+> 
+> broadcast 10.1.1.0 dev eth0  proto kernel  scope link  src 10.1.1.3
+> local 10.1.1.3 dev eth0  proto kernel  scope host  src 10.1.1.3
+> broadcast 10.1.1.255 dev eth0  proto kernel  scope link  src 10.1.1.3
+> broadcast 10.100.2.0 dev eth2  proto kernel  scope link  src 10.100.2.3
+> local 10.100.2.3 dev eth2  proto kernel  scope host  src 10.100.2.3
+> broadcast 10.100.2.255 dev eth2  proto kernel  scope link  src 10.100.2.3
+> 
+> The use of loopback pre-dates the git history, so wondering if someone recalls the reason why. We would like to change that to make it consistent with IPv4 - with a sysctl to maintain backwards compatibility.
+
+A sysctl for that sounds like a really bad idea.
+
+Internally the sysctl will change the reference counting of interfaces
+and routes towards each other, have small but difficult to find
+semantically changes inside the kernel, just for switchting the
+interface in iproute/netlink dumps?
+
+If there a good reasons (which can very well be) to switch to have the
+interface with the address in the routes, we should switch without
+providing the backwards compatibility sysctl.
+
+Bye,
+Hannes
