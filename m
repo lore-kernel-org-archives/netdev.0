@@ -1,52 +1,82 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/sctp: null-ptr-deref in sctp_inet_listen
-Date: Wed, 9 Nov 2016 20:24:20 +0100
-Message-ID: <CAAeHK+x5tsuCjrxdj_AAedQEcii-H70ZbJpi6ZYzj0m4H-W1GQ@mail.gmail.com>
-References: <CAAeHK+yCE-e2scjs=rUwr+XHmmCcd33P--7MVFmxrTQ_AFZcOA@mail.gmail.com>
- <CADvbK_eyG3pLMOws5wAOpvDUPUB2SknOCV5z6TLfJoKfj+Q27A@mail.gmail.com>
- <CAAeHK+yW+5qqPtiXt+5+HsDPj=czh2ppfcUi0qO0fEjGsaqFnQ@mail.gmail.com> <CADvbK_dswzCgnQXMSiTOsODXP19epKkQsoUgLmv8PORhfAzwFA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: remove unaligned accesses from tcp_get_info()
+Date: Wed, 09 Nov 2016 11:24:22 -0800
+Message-ID: <1478719462.16809.15.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1478285672-3195-1-git-send-email-edumazet@google.com>
+         <20161109.130319.505221196913812307.davem@davemloft.net>
+         <1478717921.16809.0.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: syzkaller <syzkaller@googlegroups.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADvbK_dswzCgnQXMSiTOsODXP19epKkQsoUgLmv8PORhfAzwFA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
+        ycheng@google.com, soheil@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34678 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752186AbcKITYY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 14:24:24 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y68so1239775pfb.1
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 11:24:24 -0800 (PST)
+In-Reply-To: <1478717921.16809.0.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 9, 2016 at 4:32 AM, Xin Long <lucien.xin@gmail.com> wrote:
-> this fix may break TYPE_SCTP_PRIMITIVE_SHUTDOWN statetable,
-> could you give the following one a try ? thanks.
+From: Eric Dumazet <edumazet@google.com>
 
-This one also works.
+After commit 6ed46d1247a5 ("sock_diag: align nlattr properly when
+needed"), tcp_get_info() gets 64bit aligned memory, so we can avoid
+the unaligned helpers.
 
-Thanks.
+Suggested-by: David Miller <davem@davemloft.net>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c |   11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
->
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4288,9 +4288,9 @@ static void sctp_shutdown(struct sock *sk, int how)
->                 return;
->
->         if (how & SEND_SHUTDOWN) {
-> -               sk->sk_state = SCTP_SS_CLOSING;
->                 ep = sctp_sk(sk)->ep;
->                 if (!list_empty(&ep->asocs)) {
-> +                       sk->sk_state = SCTP_SS_CLOSING;
->                         asoc = list_entry(ep->asocs.next,
->                                           struct sctp_association, asocs);
->                         sctp_primitive_SHUTDOWN(net, asoc, NULL);
->
-> --
-> You received this message because you are subscribed to the Google Groups "syzkaller" group.
-> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
-> For more options, visit https://groups.google.com/d/optout.
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index a7d54cbcdabbbc0838c00e05074ef15560665f2d..f8f924ca662d5c84e438a6eacbe8f734ff0674ae 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -279,7 +279,6 @@
+ 
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+-#include <asm/unaligned.h>
+ #include <net/busy_poll.h>
+ 
+ int sysctl_tcp_min_tso_segs __read_mostly = 2;
+@@ -2722,11 +2721,11 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	/* Report meaningful fields for all TCP states, including listeners */
+ 	rate = READ_ONCE(sk->sk_pacing_rate);
+ 	rate64 = rate != ~0U ? rate : ~0ULL;
+-	put_unaligned(rate64, &info->tcpi_pacing_rate);
++	info->tcpi_pacing_rate = rate64;
+ 
+ 	rate = READ_ONCE(sk->sk_max_pacing_rate);
+ 	rate64 = rate != ~0U ? rate : ~0ULL;
+-	put_unaligned(rate64, &info->tcpi_max_pacing_rate);
++	info->tcpi_max_pacing_rate = rate64;
+ 
+ 	info->tcpi_reordering = tp->reordering;
+ 	info->tcpi_snd_cwnd = tp->snd_cwnd;
+@@ -2792,8 +2791,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 
+ 	slow = lock_sock_fast(sk);
+ 
+-	put_unaligned(tp->bytes_acked, &info->tcpi_bytes_acked);
+-	put_unaligned(tp->bytes_received, &info->tcpi_bytes_received);
++	info->tcpi_bytes_acked = tp->bytes_acked;
++	info->tcpi_bytes_received = tp->bytes_received;
+ 	info->tcpi_notsent_bytes = max_t(int, 0, tp->write_seq - tp->snd_nxt);
+ 
+ 	unlock_sock_fast(sk, slow);
+@@ -2811,7 +2810,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	if (rate && intv) {
+ 		rate64 = (u64)rate * tp->mss_cache * USEC_PER_SEC;
+ 		do_div(rate64, intv);
+-		put_unaligned(rate64, &info->tcpi_delivery_rate);
++		info->tcpi_delivery_rate = rate64;
+ 	}
+ }
+ EXPORT_SYMBOL_GPL(tcp_get_info);
