@@ -1,33 +1,104 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: nf_nat_tftp broken in 4.8?
-Date: Wed, 9 Nov 2016 14:18:50 -0800
-Message-ID: <84639b86-1e69-86c0-5395-c77b3630ec73@gmail.com>
-References: <b3fb3d07-fb0b-e4a5-20fe-bdc2abc8f6fc@gmail.com>
- <20161109215614.GA21923@breakpoint.cc>
+From: Scott Branden <scott.branden@broadcom.com>
+Subject: Re: [PATCH 1/6] dt-bindings: mdio-mux: Add documentation for mdio mux
+ for NSP SoC
+Date: Wed, 9 Nov 2016 14:23:42 -0800
+Message-ID: <54363ca1-333a-52e6-911c-cc394256be97@broadcom.com>
+References: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
+ <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        fgao@ikuai8.com, pablo@netfilter.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33978 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754268AbcKIWSx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 17:18:53 -0500
-In-Reply-To: <20161109215614.GA21923@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Ray Jui <rjui@broadcom.com>,
+        Scott Branden <sbranden@broadcom.com>,
+        Jon Mason <jonmason@broadcom.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Kishon Vijay Abraham I <kishon@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/09/2016 01:56 PM, Florian Westphal wrote:
-> Florian Fainelli <f.fainelli@gmail.com> wrote:
->> After updating my workstation from 4.4 to 4.8, which also serves as a
->> NAT gateway for local machines, I noticed that TFTP across this NAT box
->> broke:
-> 
-> does 'sysctl net.netfilter.nf_conntrack_helper=1' help?
-> 
+One change
 
-It does yes, thanks, and apologies for not seeing that earlier.
--- 
-Florian
+On 16-11-09 01:33 AM, Yendapally Reddy Dhananjaya Reddy wrote:
+> Add documentation for mdio mux available in Broadcom NSP SoC
+>
+> Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+> ---
+>  .../devicetree/bindings/net/brcm,mdio-mux-nsp.txt  | 57 ++++++++++++++++++++++
+>  1 file changed, 57 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
+>
+> diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
+> new file mode 100644
+> index 0000000..b749a2b
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
+> @@ -0,0 +1,57 @@
+> +Properties for an MDIO bus multiplexer available in Broadcom NSP SoC.
+> +
+> +This MDIO bus multiplexer defines buses that could access the internal
+> +phys as well as external to SoCs. When child bus is selected, one needs
+> +to select the below properties to generate desired MDIO transaction on
+> +appropriate bus.
+> +
+> +Required properties in addition to the generic multiplexer properties:
+> +
+> +MDIO multiplexer node:
+> +- compatible: brcm,mdio-mux-iproc.
+This should be brcm,mdio-mux-nsp
+
+> +- reg: Should contain registers location and length.
+> +- reg-names: Should contain the resource reg names.
+> +	- bus-ctrl: mdio bus control register address space required to
+> +	  select the bus master. This property is not required for SoC's
+> +	  that doesn't provide master selection.
+> +	- mgmt-ctrl: mdio management control register address space
+> +
+> +Sub-nodes:
+> +   Each bus master should be represented as a sub-node.
+> +
+> +Sub-nodes required properties:
+> +- reg: Bus master number. Should be 0x10 to access the external mdio devices.
+> +- address-cells: should be 1
+> +- size-cells: should be 0
+> +
+> +Every non-ethernet PHY requires a compatible property so that it could be
+> +probed based on this compatible string.
+> +
+> +Additional information regarding generic multiplexer properties can be found
+> +at- Documentation/devicetree/bindings/net/mdio-mux.txt
+> +
+> +example:
+> +
+> +	mdio_mux: mdio-mux@3f190 {
+> +		compatible = "brcm,mdio-mux-nsp";
+> +		reg = <0x3f190 0x4>,
+> +		      <0x32000 0x4>;
+> +		reg-names = "bus-ctrl", "mgmt-ctrl";
+> +		mdio-parent-bus = <&mdio>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +
+> +		mdio@0 {
+> +			reg = <0x0>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			usb3_phy: usb3-phy@10 {
+> +				compatible = "brcm,nsp-usb3-phy";
+> +				reg = <0x10>;
+> +				usb3-ctrl-syscon = <&usb3_ctrl>;
+> +				#phy-cells = <0>;
+> +				status = "disabled";
+> +			};
+> +		};
+> +	};
+>
