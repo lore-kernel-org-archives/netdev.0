@@ -1,85 +1,63 @@
-From: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
-Subject: [PATCH 2/6] dt-bindings: phy: Add documentation for NSP USB3 PHY
-Date: Wed,  9 Nov 2016 04:33:10 -0500
-Message-ID: <1478683994-12008-3-git-send-email-yendapally.reddy@broadcom.com>
-References: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
+From: maowenan <maowenan@huawei.com>
+Subject: =?utf-8?B?562U5aSNOiBbUEFUQ0hdIGFkZCBvbmUgcGFyYW1ldGVyIHdyb19lbmFibGUg?=
+ =?utf-8?Q?to_enable_relaxed_ordering_for_IXGBE?=
+Date: Wed, 9 Nov 2016 09:43:36 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F2A766D3@szxeml504-mbs.china.huawei.com>
+References: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
+ <1477726941.2309.9.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
- bcm-kernel-feedback-list@broadcom.com, linux-arm-kernel@lists.infradead.org
-To: Rob Herring <robh+dt@kernel.org>, Mark Rutland <mark.rutland@arm.com>,
- Russell King <linux@armlinux.org.uk>, Ray Jui <rjui@broadcom.com>,
- Scott Branden <sbranden@broadcom.com>, Jon Mason <jonmason@broadcom.com>,
- Florian Fainelli <f.fainelli@gmail.com>,
- Kishon Vijay Abraham I <kishon@ti.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Dingtianhong <dingtianhong@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:14769 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752163AbcKIJpB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 04:45:01 -0500
+In-Reply-To: <1477726941.2309.9.camel@intel.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add documentation for USB3 PHY available in Northstar plus SoC
-
-Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
----
- .../devicetree/bindings/phy/brcm,nsp-usb3-phy.txt  | 39 ++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
-
-diff --git a/Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt b/Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
-new file mode 100644
-index 0000000..30cf4b9
---- /dev/null
-+++ b/Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
-@@ -0,0 +1,39 @@
-+Broadcom USB3 phy binding northstar plus SoC
-+This is a child bus node of "brcm,mdio-mux-nsp" node.
-+
-+Required mdio bus properties:
-+- reg: MDIO Bus number for the MDIO interface
-+- #address-cells: must be 1
-+- #size-cells: must be 0
-+
-+Required PHY properties:
-+- compatible: should be "brcm,nsp-usb3-phy"
-+- reg: Phy address in the MDIO interface
-+- usb3-ctrl-syscon: handler of syscon node defining physical address
-+  of usb3 control register.
-+- #phy-cells: must be 0
-+
-+Required usb3 control properties:
-+- compatible: should be "brcm,nsp-usb3-ctrl"
-+- reg: offset and length of the control registers
-+
-+Example:
-+
-+	mdio@0 {
-+		reg = <0x0>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		usb3_phy: usb3-phy@10 {
-+			compatible = "brcm,nsp-usb3-phy";
-+			reg = <0x10>;
-+			usb3-ctrl-syscon = <&usb3_ctrl>;
-+			#phy-cells = <0>;
-+			status = "disabled";
-+		};
-+	}
-+
-+	usb3_ctrl: syscon@104408 {
-+		compatible = "brcm,nsp-usb3-ctrl", "syscon";
-+		reg = <0x104408 0x3fc>;
-+	};
--- 
-2.1.0
+SSBoYXZlIHZlcmlmaWVkIHRoYXQgdGhlIHBlcmZvcm1hbmNlIHdpbGwgYmUgZW5oYW5jZWQgY2Vy
+dGFpbmx5IHdoZW4gSSBlbmFibGVkIFJlbGF4IE9yZGVyaW5nIG9uIFNQQVJDLCBidXQgdGhpbmsg
+aXQgaXMgbm90IHZlcnkgZmxleGlibGUgdG8gZGlzYWJsZSBvciBlbmFibGUgUmVsYXggT3JkZXJp
+bmcgZmVhdHVyZSB1c2luZyBDT05GSUdfU1BBUkMgY3VycmVudGx5LA0KU28gSSB3YW50IHRvIHVz
+ZSBtb2R1bGUgcGFyYW1ldGVyIHRvIHNldCBSTyBpbnN0ZWFkIG9mICIjaWZuZGVmIENPTkZJR19T
+UEFSQyIsIG5vIG5lZWQgdG8gcmVidWlsZCB0aGUgd2hvbGUga2VybmVsLg0KDQoNCi0tLS0t6YKu
+5Lu25Y6f5Lu2LS0tLS0NCuWPkeS7tuS6ujogSmVmZiBLaXJzaGVyIFttYWlsdG86amVmZnJleS50
+LmtpcnNoZXJAaW50ZWwuY29tXSANCuWPkemAgeaXtumXtDogMjAxNuW5tDEw5pyIMjnml6UgMTU6
+NDINCuaUtuS7tuS6ujogbWFvd2VuYW47IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3Jn
+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQrk
+uLvpopg6IFJlOiBbUEFUQ0hdIGFkZCBvbmUgcGFyYW1ldGVyIHdyb19lbmFibGUgdG8gZW5hYmxl
+IHJlbGF4ZWQgb3JkZXJpbmcgZm9yIElYR0JFDQoNCk9uIFNhdCwgMjAxNi0xMC0yOSBhdCAxNTow
+OCArMDgwMCwgTWFvIFdlbmFuIHdyb3RlOg0KPiBUaGlzIHBhdGNoIHByb3ZpZGVzIGEgd2F5IHRv
+IGVuYWJsZSByZWxheGVkIG9yZGVyaW5nLCB3aGVyZSBpdCBoZWxwcyANCj4gd2l0aCBwZXJmb3Jt
+YW5jZSBpbiBzb21lIGFyY2hpdGVjdHVyZS4NCj4gVGhlIGRlZmF1bHQgdmFsdWUgb2Ygd3JvX2Vu
+YWJsZSBpcyAwLCBpZiB5b3Ugd2FudCB0byBlbmFibGUgcmVsYXhlZCANCj4gb3JkZXJpbmcsIHBs
+ZWFzZSBzZXQgd3JvX2VuYWJsZT0xLg0KPiANCj4gTWFvIFdlbmFuICgxKToNCj4gwqAgYWRkIG9u
+ZSBwYXJhbWV0ZXIgd3JvX2VuYWJsZSBmb3IgSVhHQkUNCj4gDQo+IMKgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaMKgwqDCoMKgwqDCoMKgIHzCoCAxICsNCj4gwqBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV84MjU5OC5jwqAgfCAyOSANCj4gKysr
+KysrKysrKysrKystLS0tLQ0KPiAtLS0tLS0NCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
+bC9peGdiZS9peGdiZV9jb21tb24uYyB8IDI4IA0KPiArKysrKysrKysrKysrLS0tLQ0KPiAtLS0t
+LS0tDQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jwqDC
+oCB8wqAgOSArKysrKysrKw0KPiDCoDQgZmlsZXMgY2hhbmdlZCwgNDEgaW5zZXJ0aW9ucygrKSwg
+MjYgZGVsZXRpb25zKC0pDQoNCldoeSBoYXZlIGEgdGl0bGUgcGF0Y2ggZm9yIG9ubHkgb25lIHBh
+dGNoPyDCoEJldHRlciB5ZXQsIHRoZSBvbmUgcGF0Y2ggZG9lcyBub3QgaGF2ZSBhIHBhdGNoIGRl
+c2NyaXB0aW9uLiDCoEdldCByaWQgb2YgdGhlIHRpdGxlIHBhdGNoIGFuZCBhZGQgdGhlIGFib3Zl
+IGluZm9ybWF0aW9uIGludG8gdGhlIHBhdGNoZXMgZGVzY3JpcHRpb24uDQoNCkluIGFkZGl0aW9u
+LCBtb2R1bGUgcGFyYW1ldGVycyBhcmUgbm90IGtpbmRseSBsb29rZWQgdXBvbiwgb25lIHJlYXNv
+biBpcyB0aGF0IGl0IGNhbm5vdCBiZSBzdGFuZGFyZGl6ZWQgYW5kIGVuZm9yY2VkLg0KDQpJIGFt
+IGFsc28gY29uZnVzZWQgYmVjYXVzZSB5b3UgYXJlIHN0YXRpbmcgdGhhdCBvbiBzb21lIGFyY2hp
+dGVjdHVyZXMsIHlldCB0aGlzIGNvZGUgaXMgb25seSBjb21waWxlZCBpbiB3aGVuIFNQQVJDIGlz
+IGRlZmluZWQgYW5kIHRoYXQgdGhlcmUgYXJlIHRpbWVzIHdoZW4geW91IHdhbnQgcmVsYXhlZCBv
+cmRlcmluZyBlbmFibGVkIGFuZCBvdGhlciB0aW1lcyBkaXNhYmxlZD8NCsKgWW91ciBnb25uYSBo
+YXZlIHRvIHByb3ZpZGUgbW9yZSBkYXRhIG9uIHdoeSwgYmVjYXVzZSB0aGUgY29kZSBhcyBpcyB3
+YXMgcmVzb2x2aW5nIHNlcmlvdXMgcGVyZm9ybWFuY2UgaXNzdWVzIG9uIFNQQVJDIHdoZW4gcmVs
+YXhlZCBvcmRlcmluZyB3YXMgZW5hYmxlZC4NCg==
