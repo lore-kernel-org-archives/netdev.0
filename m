@@ -1,159 +1,98 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCHv2 net] igmp: do not remove igmp souce list info when set link down
-Date: Wed,  9 Nov 2016 11:16:40 +0800
-Message-ID: <1478661400-10152-1-git-send-email-liuhangbin@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34758 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751226AbcKIDRD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 22:17:03 -0500
-Received: by mail-pf0-f193.google.com with SMTP id y68so21823307pfb.1
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 19:17:02 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v16, 0/7] Fix eSDHC host version register bug
+Date: Wed, 9 Nov 2016 11:14:05 +0800
+Message-ID: <1478661252-42439-1-git-send-email-yangbo.lu@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	Minghuan Lian <minghuan.lian-3arQi8VN3Tc@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Scott Wood
+	<oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In commit 24cf3af(igmp: call ip_mc_clear_src...), we forgot to remove
-igmpv3_clear_delrec() in ip_mc_down(), which also called ip_mc_clear_src().
-This make us clear all IGMPv3 source filter info after NETDEV_DOWN.
-Move igmpv3_clear_delrec() to ip_mc_destroy_dev() and then no need
-ip_mc_clear_src() in ip_mc_destroy_dev().
+This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+eSDHC controller. To match the SoC version and revision, 15 previous version
+patchsets had tried many methods but all of them were rejected by reviewers.
+Such as
+	- dts compatible method
+	- syscon method
+	- ifdef PPC method
+	- GUTS driver getting SVR method
+Anrd suggested a soc_device_match method in v10, and this is the only available
+method left now. This v11 patchset introduces the soc_device_match interface in
+soc driver.
 
-On the other hand, we should restore back instead of free all source filter
-info in igmpv3_del_delrec(). Or we will not able to restore IGMPv3 source
-filter info after NETDEV_UP and NETDEV_POST_TYPE_CHANGE.
+The first four patches of Yangbo are to add the GUTS driver. This is used to
+register a soc device which contain soc version and revision information.
+The other three patches introduce the soc_device_match method in soc driver
+and apply it on esdhc driver to fix this bug.
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 ---
- net/ipv4/igmp.c | 50 ++++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 36 insertions(+), 14 deletions(-)
+Changes for v15:
+	- Dropped patch 'dt: bindings: update Freescale DCFG compatible'
+	  since the work had been done by below patch on ShawnGuo's linux tree.
+	  'dt-bindings: fsl: add LS1043A/LS1046A/LS2080A compatible for SCFG
+	   and DCFG'
+	- Fixed error code issue in guts driver
+Changes for v16:
+	- Dropped patch 'powerpc/fsl: move mpc85xx.h to include/linux/fsl'
+	- Added a bug-fix patch from Geert
+---
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 606cc3e..15db786 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -162,7 +162,7 @@ static int unsolicited_report_interval(struct in_device *in_dev)
- }
- 
- static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
--static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr);
-+static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im);
- static void igmpv3_clear_delrec(struct in_device *in_dev);
- static int sf_setstate(struct ip_mc_list *pmc);
- static void sf_markstate(struct ip_mc_list *pmc);
-@@ -1130,10 +1130,15 @@ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im)
- 	spin_unlock_bh(&in_dev->mc_tomb_lock);
- }
- 
--static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
-+/*
-+ * restore ip_mc_list deleted records
-+ */
-+static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im)
- {
- 	struct ip_mc_list *pmc, *pmc_prev;
--	struct ip_sf_list *psf, *psf_next;
-+	struct ip_sf_list *psf;
-+	struct net *net = dev_net(in_dev->dev);
-+	__be32 multiaddr = im->multiaddr;
- 
- 	spin_lock_bh(&in_dev->mc_tomb_lock);
- 	pmc_prev = NULL;
-@@ -1149,16 +1154,26 @@ static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
- 			in_dev->mc_tomb = pmc->next;
- 	}
- 	spin_unlock_bh(&in_dev->mc_tomb_lock);
-+
-+	spin_lock_bh(&im->lock);
- 	if (pmc) {
--		for (psf = pmc->tomb; psf; psf = psf_next) {
--			psf_next = psf->sf_next;
--			kfree(psf);
-+		im->interface = pmc->interface;
-+		im->crcount = in_dev->mr_qrv ?: net->ipv4.sysctl_igmp_qrv;
-+		im->sfmode = pmc->sfmode;
-+		if (pmc->sfmode == MCAST_INCLUDE) {
-+			im->tomb = pmc->tomb;
-+			im->sources = pmc->sources;
-+			for (psf = im->sources; psf; psf = psf->sf_next)
-+				psf->sf_crcount = im->crcount;
- 		}
- 		in_dev_put(pmc->interface);
--		kfree(pmc);
- 	}
-+	spin_unlock_bh(&im->lock);
- }
- 
-+/*
-+ * flush ip_mc_list deleted records
-+ */
- static void igmpv3_clear_delrec(struct in_device *in_dev)
- {
- 	struct ip_mc_list *pmc, *nextpmc;
-@@ -1366,7 +1381,7 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
- 	ip_mc_hash_add(in_dev, im);
- 
- #ifdef CONFIG_IP_MULTICAST
--	igmpv3_del_delrec(in_dev, im->multiaddr);
-+	igmpv3_del_delrec(in_dev, im);
- #endif
- 	igmp_group_added(im);
- 	if (!in_dev->dead)
-@@ -1626,8 +1641,12 @@ void ip_mc_remap(struct in_device *in_dev)
- 
- 	ASSERT_RTNL();
- 
--	for_each_pmc_rtnl(in_dev, pmc)
-+	for_each_pmc_rtnl(in_dev, pmc) {
-+#ifdef CONFIG_IP_MULTICAST
-+		igmpv3_del_delrec(in_dev, pmc);
-+#endif
- 		igmp_group_added(pmc);
-+	}
- }
- 
- /* Device going down */
-@@ -1648,7 +1667,6 @@ void ip_mc_down(struct in_device *in_dev)
- 	in_dev->mr_gq_running = 0;
- 	if (del_timer(&in_dev->mr_gq_timer))
- 		__in_dev_put(in_dev);
--	igmpv3_clear_delrec(in_dev);
- #endif
- 
- 	ip_mc_dec_group(in_dev, IGMP_ALL_HOSTS);
-@@ -1688,8 +1706,12 @@ void ip_mc_up(struct in_device *in_dev)
- #endif
- 	ip_mc_inc_group(in_dev, IGMP_ALL_HOSTS);
- 
--	for_each_pmc_rtnl(in_dev, pmc)
-+	for_each_pmc_rtnl(in_dev, pmc) {
-+#ifdef CONFIG_IP_MULTICAST
-+		igmpv3_del_delrec(in_dev, pmc);
-+#endif
- 		igmp_group_added(pmc);
-+	}
- }
- 
- /*
-@@ -1704,13 +1726,13 @@ void ip_mc_destroy_dev(struct in_device *in_dev)
- 
- 	/* Deactivate timers */
- 	ip_mc_down(in_dev);
-+#ifdef CONFIG_IP_MULTICAST
-+	igmpv3_clear_delrec(in_dev);
-+#endif
- 
- 	while ((i = rtnl_dereference(in_dev->mc_list)) != NULL) {
- 		in_dev->mc_list = i->next_rcu;
- 		in_dev->mc_count--;
--
--		/* We've dropped the groups in ip_mc_down already */
--		ip_mc_clear_src(i);
- 		ip_ma_put(i);
- 	}
- }
+Arnd Bergmann (1):
+  base: soc: introduce soc_device_match() interface
+
+Geert Uytterhoeven (1):
+  base: soc: Check for NULL SoC device attributes
+
+Yangbo Lu (5):
+  ARM64: dts: ls2080a: add device configuration node
+  dt: bindings: move guts devicetree doc out of powerpc directory
+  soc: fsl: add GUTS driver for QorIQ platforms
+  MAINTAINERS: add entry for Freescale SoC drivers
+  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+
+ .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+ MAINTAINERS                                        |  11 +-
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 +
+ drivers/base/Kconfig                               |   1 +
+ drivers/base/soc.c                                 |  70 ++++++
+ drivers/mmc/host/Kconfig                           |   1 +
+ drivers/mmc/host/sdhci-of-esdhc.c                  |  20 ++
+ drivers/soc/Kconfig                                |   3 +-
+ drivers/soc/fsl/Kconfig                            |  18 ++
+ drivers/soc/fsl/Makefile                           |   1 +
+ drivers/soc/fsl/guts.c                             | 236 +++++++++++++++++++++
+ include/linux/fsl/guts.h                           | 125 ++++++-----
+ include/linux/sys_soc.h                            |   3 +
+ 13 files changed, 447 insertions(+), 51 deletions(-)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/guts.c
+
 -- 
-2.5.5
+2.1.0.27.g96db324
