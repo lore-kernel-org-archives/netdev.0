@@ -1,69 +1,81 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: tcp response should set oif only if it is L3 master
-Date: Wed,  9 Nov 2016 09:07:26 -0800
-Message-ID: <1478711246-17440-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: lorenzo@google.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH net] igb: re-assign hw address pointer
+ on reset after PCI error
+Date: Wed, 9 Nov 2016 09:12:37 -0800
+Message-ID: <CAKgT0UdYrO14ytSgPfa6KgC0OPaydqtd2-j2+AQFgJMgz69d+w@mail.gmail.com>
+References: <1477944749-22822-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>,
+        "Fujinaka, Todd" <todd.fujinaka@intel.com>
+To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34105 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753562AbcKIRHe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 12:07:34 -0500
-Received: by mail-pf0-f176.google.com with SMTP id n85so129721621pfi.1
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 09:07:34 -0800 (PST)
+Received: from mail-it0-f66.google.com ([209.85.214.66]:35114 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754528AbcKIRMi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 12:12:38 -0500
+Received: by mail-it0-f66.google.com with SMTP id b123so17949116itb.2
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 09:12:38 -0800 (PST)
+In-Reply-To: <1477944749-22822-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lorenzo noted an Android unit test failed due to e0d56fdd7342:
-"The expectation in the test was that the RST replying to a SYN sent to a
-closed port should be generated with oif=0. In other words it should not
-prefer the interface where the SYN came in on, but instead should follow
-whatever the routing table says it should do."
+On Mon, Oct 31, 2016 at 1:12 PM, Guilherme G. Piccoli
+<gpiccoli@linux.vnet.ibm.com> wrote:
+> Whenever the igb driver detects the result of a read operation returns
+> a value composed only by F's (like 0xFFFFFFFF), it will detach the
+> net_device, clear the hw_addr pointer and warn to the user that adapter's
+> link is lost - those steps happen on igb_rd32().
+>
+> In case a PCI error happens on Power architecture, there's a recovery
+> mechanism called EEH, that will reset the PCI slot and call driver's
+> handlers to reset the adapter and network functionality as well.
+>
+> We observed that once hw_addr is NULL after the error is detected on
+> igb_rd32(), it's never assigned back, so in the process of resetting
+> the network functionality we got a NULL pointer dereference in both
+> igb_configure_tx_ring() and igb_configure_rx_ring(). In order to avoid
+> such bug, we re-assign the hw_addr value in the beginning of the
+> function igb_reset(), in case the hw_addr is NULL when we reach that
+> path.
+>
+> Reported-by: Anthony H. Thai <ahthai@us.ibm.com>
+> Reported-by: Harsha Thyagaraja <hathyaga@in.ibm.com>
+> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> index edc9a6a..c19119c 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -1873,6 +1873,13 @@ void igb_reset(struct igb_adapter *adapter)
+>         struct e1000_fc_info *fc = &hw->fc;
+>         u32 pba, hwm;
+>
+> +       /* In case of PCI error, adapter might have lost its HW
+> +        * address; if we reached this point after an error scenario,
+> +        * we should re-assign the hw_addr based on the saved io_addr.
+> +        */
+> +       if (!hw->hw_addr)
+> +               hw->hw_addr = adapter->io_addr;
+> +
+>         /* Repartition Pba for greater than 9k mtu
+>          * To take effect CTRL.RST is required.
+>          */
 
-Revert the change to ip_send_unicast_reply and tcp_v6_send_response such
-that the oif in the flow is set to the skb_iif only if skb_iif is an L3
-master.
+It seems like this would have the potential to get noisy pretty
+quickly since every reset would retrigger this.
 
-Fixes: e0d56fdd7342 ("net: l3mdev: remove redundant calls")
-Reported-by: Lorenzo Colitti <lorenzo@google.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv4/ip_output.c | 3 ++-
- net/ipv6/tcp_ipv6.c  | 8 ++++++--
- 2 files changed, 8 insertions(+), 3 deletions(-)
+It might make more sense to move this line into igb_io_slot_reset and
+igb_resume where the device would have gone through a reset of some
+sort and then had the state of the device restored and the device
+memory access was re-enabled via pci_enable_device_mem.  Also there is
+no point in really doing the "if" since you should always be okay to
+overwrite hw->hw_addr with adapter->io_addr.
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 03e7f7310423..7cf627b0b248 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1579,7 +1579,8 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
- 	}
- 
- 	oif = arg->bound_dev_if;
--	oif = oif ? : skb->skb_iif;
-+	if (!oif && netif_index_is_l3_master(net, skb->skb_iif))
-+		oif = skb->skb_iif;
- 
- 	flowi4_init_output(&fl4, oif,
- 			   IP4_REPLY_MARK(net, skb->mark),
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5a27ab4eab39..6ca23c2e76f7 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -818,8 +818,12 @@ static void tcp_v6_send_response(const struct sock *sk, struct sk_buff *skb, u32
- 	fl6.flowi6_proto = IPPROTO_TCP;
- 	if (rt6_need_strict(&fl6.daddr) && !oif)
- 		fl6.flowi6_oif = tcp_v6_iif(skb);
--	else
--		fl6.flowi6_oif = oif ? : skb->skb_iif;
-+	else {
-+		if (!oif && netif_index_is_l3_master(net, skb->skb_iif))
-+			oif = skb->skb_iif;
-+
-+		fl6.flowi6_oif = oif;
-+	}
- 
- 	fl6.flowi6_mark = IP6_REPLY_MARK(net, skb->mark);
- 	fl6.fl6_dport = t1->dest;
--- 
-2.1.4
+Thanks.
+
+- Alex
