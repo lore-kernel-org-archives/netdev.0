@@ -1,74 +1,31 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the netfilter
- tree
-Date: Thu, 10 Nov 2016 10:56:33 +1100
-Message-ID: <20161110105633.31ebdc76@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 5/5] net: l2tp: fix negative assignment to
+ unsigned int
+Date: Wed, 09 Nov 2016 18:56:50 -0500 (EST)
+Message-ID: <20161109.185650.2019509498057617104.davem@davemloft.net>
+References: <20161107203928.30111-1-asbjorn@asbjorn.st>
+        <20161107203928.30111-5-asbjorn@asbjorn.st>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Johannes Berg <johannes.berg@intel.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        NetFilter <netfilter-devel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jchapman@katalix.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: asbjorn@asbjorn.st
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44912 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754894AbcKIX4w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 18:56:52 -0500
+In-Reply-To: <20161107203928.30111-5-asbjorn@asbjorn.st>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+Date: Mon,  7 Nov 2016 20:39:28 +0000
 
-Today's linux-next merge of the net-next tree got a conflict in:
+> recv_seq, send_seq and lns_mode mode are all defined as
+> unsigned int foo:1;
+> 
+> Signed-off-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
 
-  net/netfilter/ipvs/ip_vs_ctl.c
-
-between commit:
-
-  8fbfef7f505b ("ipvs: use IPVS_CMD_ATTR_MAX for family.maxattr")
-
-from the netfilter tree and commit:
-
-  489111e5c25b ("genetlink: statically initialize families")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/netfilter/ipvs/ip_vs_ctl.c
-index a6e44ef2ec9a,6b85ded4f91d..000000000000
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@@ -3872,10 -3865,20 +3865,20 @@@ static const struct genl_ops ip_vs_genl
-  	},
-  };
-  
-+ static struct genl_family ip_vs_genl_family __ro_after_init = {
-+ 	.hdrsize	= 0,
-+ 	.name		= IPVS_GENL_NAME,
-+ 	.version	= IPVS_GENL_VERSION,
- -	.maxattr	= IPVS_CMD_MAX,
-++	.maxattr	= IPVS_CMD_ATTR_MAX,
-+ 	.netnsok        = true,         /* Make ipvsadm to work on netns */
-+ 	.module		= THIS_MODULE,
-+ 	.ops		= ip_vs_genl_ops,
-+ 	.n_ops		= ARRAY_SIZE(ip_vs_genl_ops),
-+ };
-+ 
-  static int __init ip_vs_genl_register(void)
-  {
-- 	return genl_register_family_with_ops(&ip_vs_genl_family,
-- 					     ip_vs_genl_ops);
-+ 	return genl_register_family(&ip_vs_genl_family);
-  }
-  
-  static void ip_vs_genl_unregister(void)
+Applied.
