@@ -1,77 +1,91 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH 1/2] wcn36xx: Correct Kconfig dependency
-Date: Wed, 9 Nov 2016 12:45:39 -0800
-Message-ID: <20161109204539.GB11179@tuxbot>
-References: <1478714571-4841-1-git-send-email-bjorn.andersson@linaro.org>
- <20975667-9D09-430C-A70B-D0C38A320C86@holtmann.org>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: remove unaligned accesses from tcp_get_info()
+Date: Wed, 9 Nov 2016 12:46:21 -0800
+Message-ID: <CAK6E8=cQmgqfqXudceG6vJcg8=HA5st3v=THgTkjv-QtVSiLtA@mail.gmail.com>
+References: <1478285672-3195-1-git-send-email-edumazet@google.com>
+ <20161109.130319.505221196913812307.davem@davemloft.net> <1478717921.16809.0.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1478719462.16809.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gross <andy.gross@linaro.org>,
-        Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>, wcn36xx@lists.infradead.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36147 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754052AbcKIUpn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 15:45:43 -0500
-Received: by mail-pf0-f173.google.com with SMTP id 189so132543436pfz.3
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 12:45:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20975667-9D09-430C-A70B-D0C38A320C86@holtmann.org>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:37888 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752675AbcKIUrD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 15:47:03 -0500
+Received: by mail-it0-f54.google.com with SMTP id q124so296001668itd.1
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 12:47:02 -0800 (PST)
+In-Reply-To: <1478719462.16809.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed 09 Nov 12:32 PST 2016, Marcel Holtmann wrote:
-
-> Hi Bjorn,
-> 
-> > In the case SMD or WCNSS_CTRL are compiled as modules, wcn36xx must be
-> > compiled as module as well, so we need to mention this dependency.
-> > But we still want allow the driver to be compiled in case either of
-> > those are =n, for compile testing reasons.
-> > 
-> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> > ---
-> > drivers/net/wireless/ath/wcn36xx/Kconfig | 2 ++
-> > 1 file changed, 2 insertions(+)
-> > 
-> > diff --git a/drivers/net/wireless/ath/wcn36xx/Kconfig b/drivers/net/wireless/ath/wcn36xx/Kconfig
-> > index 591ebaea8265..4b83e87f0b94 100644
-> > --- a/drivers/net/wireless/ath/wcn36xx/Kconfig
-> > +++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
-> > @@ -1,6 +1,8 @@
-> > config WCN36XX
-> > 	tristate "Qualcomm Atheros WCN3660/3680 support"
-> > 	depends on MAC80211 && HAS_DMA
-> > +	depends on QCOM_WCNSS_CTRL || QCOM_WCNSS_CTRL=n
-> > +	depends on QCOM_SMD || QCOM_SMD=n
-> 
-> I thought we wanted to move towards being able to compile the WiFi and
-> Bluetooth support without requiring QCOM_SMD.
-> 
-
-That's right.
-
-The problem I spotted was that without the dependency on QCOM_SMD we're
-allowed to compile these modules as builtin, but as
-IS_ENABLED(CONFIG_QCOM_SMD) is true we don't get the stubs and as such
-the kernel doesn't link.
-
-So we must enforce these modules to be compiled as modules if either
-QCOM_SMD or QCOM_WCNSS_CTRL are compiled as modules, and we do that with
-the first part of the depends lines.
+On Wed, Nov 9, 2016 at 11:24 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> After commit 6ed46d1247a5 ("sock_diag: align nlattr properly when
+> needed"), tcp_get_info() gets 64bit aligned memory, so we can avoid
+> the unaligned helpers.
+>
+> Suggested-by: David Miller <davem@davemloft.net>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
 
-The second part of the depends lines states that the alternative
-dependency is that the modules are not enabled at all, in which case we
-will fall back to using the function stubs.
-
-So this is unfortunately how we have to describe it in Kconfig to work
-with the function stubs, sorry for not getting this right in the first
-place.
-
-Regards,
-Bjorn
+> ---
+>  net/ipv4/tcp.c |   11 +++++------
+>  1 file changed, 5 insertions(+), 6 deletions(-)
+>
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index a7d54cbcdabbbc0838c00e05074ef15560665f2d..f8f924ca662d5c84e438a6eacbe8f734ff0674ae 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -279,7 +279,6 @@
+>
+>  #include <asm/uaccess.h>
+>  #include <asm/ioctls.h>
+> -#include <asm/unaligned.h>
+>  #include <net/busy_poll.h>
+>
+>  int sysctl_tcp_min_tso_segs __read_mostly = 2;
+> @@ -2722,11 +2721,11 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+>         /* Report meaningful fields for all TCP states, including listeners */
+>         rate = READ_ONCE(sk->sk_pacing_rate);
+>         rate64 = rate != ~0U ? rate : ~0ULL;
+> -       put_unaligned(rate64, &info->tcpi_pacing_rate);
+> +       info->tcpi_pacing_rate = rate64;
+>
+>         rate = READ_ONCE(sk->sk_max_pacing_rate);
+>         rate64 = rate != ~0U ? rate : ~0ULL;
+> -       put_unaligned(rate64, &info->tcpi_max_pacing_rate);
+> +       info->tcpi_max_pacing_rate = rate64;
+>
+>         info->tcpi_reordering = tp->reordering;
+>         info->tcpi_snd_cwnd = tp->snd_cwnd;
+> @@ -2792,8 +2791,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+>
+>         slow = lock_sock_fast(sk);
+>
+> -       put_unaligned(tp->bytes_acked, &info->tcpi_bytes_acked);
+> -       put_unaligned(tp->bytes_received, &info->tcpi_bytes_received);
+> +       info->tcpi_bytes_acked = tp->bytes_acked;
+> +       info->tcpi_bytes_received = tp->bytes_received;
+>         info->tcpi_notsent_bytes = max_t(int, 0, tp->write_seq - tp->snd_nxt);
+>
+>         unlock_sock_fast(sk, slow);
+> @@ -2811,7 +2810,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+>         if (rate && intv) {
+>                 rate64 = (u64)rate * tp->mss_cache * USEC_PER_SEC;
+>                 do_div(rate64, intv);
+> -               put_unaligned(rate64, &info->tcpi_delivery_rate);
+> +               info->tcpi_delivery_rate = rate64;
+>         }
+>  }
+>  EXPORT_SYMBOL_GPL(tcp_get_info);
+>
+>
