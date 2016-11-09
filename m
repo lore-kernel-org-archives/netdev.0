@@ -1,54 +1,76 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 01/17] batman-adv: Introduce missing headers
-	for genetlink restructure
-Date: Wed,  9 Nov 2016 23:25:50 +0100
-Message-ID: <20161109222606.29039-2-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 14/17] batman-adv: Remove dev_queue_xmit return code exception
+Date: Wed,  9 Nov 2016 23:26:03 +0100
+Message-ID: <20161109222606.29039-15-sw@simonwunderlich.de>
 References: <20161109222606.29039-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161109222606.29039-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Sven Eckelmann <sven@narfation.org>,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:55501 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754720AbcKIW0g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 17:26:36 -0500
+In-Reply-To: <20161109222606.29039-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+From: Sven Eckelmann <sven@narfation.org>
 
-Fixes: 56989f6d8568 ("genetlink: mark families as __ro_after_init")
-Fixes: 2ae0f17df1cd ("genetlink: use idr to track families")
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+No caller of batadv_send_skb_to_orig is expecting the results to be -1
+(-EPERM) anymore when the skbuff was not consumed. They will instead expect
+that the skbuff is always consumed. Having such return code filter is
+therefore not needed anymore.
+
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/netlink.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/batman-adv/send.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
-diff --git a/net/batman-adv/netlink.c b/net/batman-adv/netlink.c
-index 005012b..2171281 100644
---- a/net/batman-adv/netlink.c
-+++ b/net/batman-adv/netlink.c
-@@ -20,11 +20,14 @@
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index b00aac7..9ea272e 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -64,8 +64,11 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work);
+  * If neigh_node is NULL, then the packet is broadcasted using hard_iface,
+  * otherwise it is sent as unicast to the given neighbor.
+  *
+- * Return: NET_TX_DROP in case of error or the result of dev_queue_xmit(skb)
+- * otherwise
++ * Regardless of the return value, the skb is consumed.
++ *
++ * Return: A negative errno code is returned on a failure. A success does not
++ * guarantee the frame will be transmitted as it may be dropped due
++ * to congestion or traffic shaping.
+  */
+ int batadv_send_skb_packet(struct sk_buff *skb,
+ 			   struct batadv_hard_iface *hard_iface,
+@@ -73,7 +76,6 @@ int batadv_send_skb_packet(struct sk_buff *skb,
+ {
+ 	struct batadv_priv *bat_priv;
+ 	struct ethhdr *ethhdr;
+-	int ret;
  
- #include <linux/atomic.h>
- #include <linux/byteorder/generic.h>
-+#include <linux/cache.h>
- #include <linux/errno.h>
-+#include <linux/export.h>
- #include <linux/fs.h>
- #include <linux/genetlink.h>
- #include <linux/if_ether.h>
- #include <linux/init.h>
-+#include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/netlink.h>
- #include <linux/printk.h>
+ 	bat_priv = netdev_priv(hard_iface->soft_iface);
+ 
+@@ -111,15 +113,8 @@ int batadv_send_skb_packet(struct sk_buff *skb,
+ 	/* dev_queue_xmit() returns a negative result on error.	 However on
+ 	 * congestion and traffic shaping, it drops and returns NET_XMIT_DROP
+ 	 * (which is > 0). This will not be treated as an error.
+-	 *
+-	 * a negative value cannot be returned because it could be interepreted
+-	 * as not consumed skb by callers of batadv_send_skb_to_orig.
+ 	 */
+-	ret = dev_queue_xmit(skb);
+-	if (ret < 0)
+-		ret = NET_XMIT_DROP;
+-
+-	return ret;
++	return dev_queue_xmit(skb);
+ send_skb_err:
+ 	kfree_skb(skb);
+ 	return NET_XMIT_DROP;
 -- 
 2.10.1
