@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] tcp: tcp_get_info() locking changes
-Date: Wed, 09 Nov 2016 13:03:19 -0500 (EST)
-Message-ID: <20161109.130319.505221196913812307.davem@davemloft.net>
-References: <1478285672-3195-1-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH net-next 0/2] sfc: enable 4-tuple UDP RSS hashing
+Date: Wed, 09 Nov 2016 13:09:18 -0500 (EST)
+Message-ID: <20161109.130918.1657511488354824947.davem@davemloft.net>
+References: <ba5aa0bc-277b-5b47-89f8-fad1010b77f9@solarflare.com>
+        <20161107.132003.727799156798583121.davem@davemloft.net>
+        <2c97d90b-bbb3-2cdc-7a72-597fd3f5231a@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
-        soheil@google.com, eric.dumazet@gmail.com
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37890 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38042 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754641AbcKISDV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:03:21 -0500
-In-Reply-To: <1478285672-3195-1-git-send-email-edumazet@google.com>
+        with ESMTP id S1752200AbcKISJX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:09:23 -0500
+In-Reply-To: <2c97d90b-bbb3-2cdc-7a72-597fd3f5231a@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Fri,  4 Nov 2016 11:54:30 -0700
+From: Edward Cree <ecree@solarflare.com>
+Date: Tue, 8 Nov 2016 13:02:05 +0000
 
-> This short series prepares tcp_get_info() for more detailed infos.
+> On 07/11/16 18:20, David Miller wrote:
+>> From: Edward Cree <ecree@solarflare.com>
+>> Date: Thu, 3 Nov 2016 22:10:31 +0000
+>>
+>>> EF10 based NICs have configurable RSS hash fields, and can be made to take the
+>>> ports into the hash on UDP (they already do so for TCP).  This patch series
+>>> enables this, in order to improve spreading of UDP traffic.
+>> What does the chip do with fragmented traffic?
+> Only the first fragment will be considered UDP, it will treat the rest as "other
+> IP" and 2-tuple hash them, probably hitting a different queue.
 > 
-> In order to not slow down fast path, our goal is to use the normal
-> socket spinlock instead of custom synchronization.
-> 
-> All we need to ensure is that tcp_get_info() is not called with
-> ehash lock, which might dead lock, since packet processing would acquire
-> the spinlocks in reverse way.
+> My understanding is that while that will reduce performance, that shouldn't be a
+> problem as performance-sensitive users will avoid fragmentation anyway.
+> It could also lead to out-of-order packet delivery, but it's UDP so that's
+> supposed to be OK.
 
-Looks really nice, series applied, thanks Eric.
+Our software hashing never tries to inspect the ports for fragmented
+frames.  And I'm pretty sure this is intentional.
 
-BTW, can we possibly use the netlink NOP trick to align the netlink
-attribute data here and avoid these unaligned accesses?
+We should minimize the difference between what we do in software, which
+we fully control, and what we ask the hardware to offload for us.
 
-Thanks again.
+If you can't configure the chip to skip the ports for fragmented frames
+than I'm going to ask you to drop this.
