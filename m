@@ -1,7 +1,7 @@
 From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: [v16, 1/7] ARM64: dts: ls2080a: add device configuration node
-Date: Wed, 9 Nov 2016 11:14:06 +0800
-Message-ID: <1478661252-42439-2-git-send-email-yangbo.lu@nxp.com>
+Subject: [v16, 4/7] MAINTAINERS: add entry for Freescale SoC drivers
+Date: Wed, 9 Nov 2016 11:14:09 +0800
+Message-ID: <1478661252-42439-5-git-send-email-yangbo.lu@nxp.com>
 References: <1478661252-42439-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,25 +36,23 @@ Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.o
 Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add the dts node for device configuration unit that provides
-general purpose configuration and status for the device.
+Add maintainer entry for Freescale SoC drivers including
+the QE library and the GUTS driver now. Also add maintainer
+for QE library.
 
 Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
 Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
+Acked-by: Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
 Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 ---
-Changes for v5:
-	- Added this patch
-Changes for v6:
-	- None
-Changes for v7:
-	- None
 Changes for v8:
-	- Added 'Acked-by: Scott Wood'
+	- Added this patch
 Changes for v9:
-	- None
+	- Added linux-arm mail list
+	- Removed GUTS driver entry
 Changes for v10:
-	- None
+	- Changed 'DRIVER' to 'DRIVERS'
+	- Added 'Acked-by' of Scott and Qiang
 Changes for v11:
 	- None
 Changes for v12:
@@ -68,25 +66,32 @@ Changes for v15:
 Changes for v16:
 	- Added 'Acked-by: Arnd'
 ---
- arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi | 6 ++++++
- 1 file changed, 6 insertions(+)
+ MAINTAINERS | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
-index 7f0dc13..d058e56 100644
---- a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
-+++ b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
-@@ -216,6 +216,12 @@
- 			clocks = <&sysclk>;
- 		};
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 9be761f..e1a8835 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5045,9 +5045,18 @@ S:	Maintained
+ F:	drivers/net/ethernet/freescale/fman
+ F:	Documentation/devicetree/bindings/powerpc/fsl/fman.txt
  
-+		dcfg: dcfg@1e00000 {
-+			compatible = "fsl,ls2080a-dcfg", "syscon";
-+			reg = <0x0 0x1e00000 0x0 0x10000>;
-+			little-endian;
-+		};
++FREESCALE SOC DRIVERS
++M:	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
++L:	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
++L:	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
++S:	Maintained
++F:	drivers/soc/fsl/
++F:	include/linux/fsl/
 +
- 		serial0: serial@21c0500 {
- 			compatible = "fsl,ns16550", "ns16550a";
- 			reg = <0x0 0x21c0500 0x0 0x100>;
+ FREESCALE QUICC ENGINE LIBRARY
++M:	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>
+ L:	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+-S:	Orphan
++S:	Maintained
+ F:	drivers/soc/fsl/qe/
+ F:	include/soc/fsl/*qe*.h
+ F:	include/soc/fsl/*ucc*.h
 -- 
 2.1.0.27.g96db324
