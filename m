@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V5 5/9] liquidio CN23XX: VF related operations
-Date: Wed, 9 Nov 2016 15:13:48 -0800
-Message-ID: <1478733232-15739-6-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V5 1/9] liquidio CN23XX: HW config for VF support
+Date: Wed, 9 Nov 2016 15:13:44 -0800
+Message-ID: <1478733232-15739-2-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1478733232-15739-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,376 +16,230 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-sn1nam01on0081.outbound.protection.outlook.com ([104.47.32.81]:54484
         "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754718AbcKIXOf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Nov 2016 18:14:35 -0500
+        id S1754415AbcKIXO1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Nov 2016 18:14:27 -0500
 In-Reply-To: <1478733232-15739-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for VF related operations like mac address vlan
-and link changes.
+Adds support for configuring HW for creating VFs.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    |  22 +++
- .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |   5 +
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 211 +++++++++++++++++++++
- .../net/ethernet/cavium/liquidio/liquidio_common.h |   5 +
- .../net/ethernet/cavium/liquidio/octeon_device.h   |   8 +
- 5 files changed, 251 insertions(+)
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 90 ++++++++++++++--------
+ .../net/ethernet/cavium/liquidio/octeon_config.h   |  6 ++
+ .../net/ethernet/cavium/liquidio/octeon_device.h   | 12 ++-
+ 3 files changed, 74 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-index ffc94ac..d01b00b 100644
+index 380a641..832d710 100644
 --- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
 +++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-@@ -23,6 +23,7 @@
- #include <linux/pci.h>
- #include <linux/netdevice.h>
- #include <linux/vmalloc.h>
-+#include <linux/etherdevice.h>
- #include "liquidio_common.h"
- #include "octeon_droq.h"
- #include "octeon_iq.h"
-@@ -1416,3 +1417,24 @@ int cn23xx_fw_loaded(struct octeon_device *oct)
- 	val = octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1);
- 	return (val >> 1) & 1ULL;
- }
-+
-+void cn23xx_tell_vf_its_macaddr_changed(struct octeon_device *oct, int vfidx,
-+					u8 *mac)
-+{
-+	if (oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vfidx)) {
-+		struct octeon_mbox_cmd mbox_cmd;
-+
-+		mbox_cmd.msg.u64 = 0;
-+		mbox_cmd.msg.s.type = OCTEON_MBOX_REQUEST;
-+		mbox_cmd.msg.s.resp_needed = 0;
-+		mbox_cmd.msg.s.cmd = OCTEON_PF_CHANGED_VF_MACADDR;
-+		mbox_cmd.msg.s.len = 1;
-+		mbox_cmd.recv_len = 0;
-+		mbox_cmd.recv_status = 0;
-+		mbox_cmd.fn = NULL;
-+		mbox_cmd.fn_arg = 0;
-+		ether_addr_copy(mbox_cmd.msg.s.params, mac);
-+		mbox_cmd.q_no = vfidx * oct->sriov_info.rings_per_vf;
-+		octeon_mbox_write(oct, &mbox_cmd);
-+	}
-+}
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-index 21b5c90..cee346a 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-@@ -29,6 +29,8 @@
+@@ -40,11 +40,6 @@
+  */
+ #define CN23XX_INPUT_JABBER 64600
  
- #include "cn23xx_pf_regs.h"
+-#define LIOLUT_RING_DISTRIBUTION 9
+-const int liolut_num_vfs_to_rings_per_vf[LIOLUT_RING_DISTRIBUTION] = {
+-	0, 8, 4, 2, 2, 2, 1, 1, 1
+-};
+-
+ void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct)
+ {
+ 	int i = 0;
+@@ -309,9 +304,10 @@ u32 cn23xx_pf_get_oq_ticks(struct octeon_device *oct, u32 time_intr_in_us)
  
-+#define LIO_CMD_WAIT_TM 100
-+
- /* Register address and configuration for a CN23XX devices.
-  * If device specific changes need to be made then add a struct to include
-  * device specific fields as shown in the commented section
-@@ -56,4 +58,7 @@ int validate_cn23xx_pf_config_info(struct octeon_device *oct,
- void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct);
+ static void cn23xx_setup_global_mac_regs(struct octeon_device *oct)
+ {
+-	u64 reg_val;
+ 	u16 mac_no = oct->pcie_port;
+ 	u16 pf_num = oct->pf_num;
++	u64 reg_val;
++	u64 temp;
  
- int cn23xx_fw_loaded(struct octeon_device *oct);
-+
-+void cn23xx_tell_vf_its_macaddr_changed(struct octeon_device *oct, int vfidx,
-+					u8 *mac);
- #endif
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index f776808..6e435db 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3573,6 +3573,151 @@ static void liquidio_del_vxlan_port(struct net_device *netdev,
- 				    OCTNET_CMD_VXLAN_PORT_DEL);
- }
+ 	/* programming SRN and TRS for each MAC(0..3)  */
  
-+static int __liquidio_set_vf_mac(struct net_device *netdev, int vfidx,
-+				 u8 *mac, bool is_admin_assigned)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
+@@ -333,6 +329,14 @@ static void cn23xx_setup_global_mac_regs(struct octeon_device *oct)
+ 	/* setting TRS <23:16> */
+ 	reg_val = reg_val |
+ 		  (oct->sriov_info.trs << CN23XX_PKT_MAC_CTL_RINFO_TRS_BIT_POS);
++	/* setting RPVF <39:32> */
++	temp = oct->sriov_info.rings_per_vf & 0xff;
++	reg_val |= (temp << CN23XX_PKT_MAC_CTL_RINFO_RPVF_BIT_POS);
 +
-+	if (!is_valid_ether_addr(mac))
-+		return -EINVAL;
++	/* setting NVFS <55:48> */
++	temp = oct->sriov_info.max_vfs & 0xff;
++	reg_val |= (temp << CN23XX_PKT_MAC_CTL_RINFO_NVFS_BIT_POS);
 +
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.max_vfs)
-+		return -EINVAL;
+ 	/* write these settings to MAC register */
+ 	octeon_write_csr64(oct, CN23XX_SLI_PKT_MAC_RINFO64(mac_no, pf_num),
+ 			   reg_val);
+@@ -399,11 +403,12 @@ static int cn23xx_reset_io_queues(struct octeon_device *oct)
+ 
+ static int cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
+ {
++	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
++	struct octeon_instr_queue *iq;
++	u64 intr_threshold, reg_val;
+ 	u32 q_no, ern, srn;
+ 	u64 pf_num;
+-	u64 intr_threshold, reg_val;
+-	struct octeon_instr_queue *iq;
+-	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
++	u64 vf_num;
+ 
+ 	pf_num = oct->pf_num;
+ 
+@@ -420,6 +425,16 @@ static int cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
+ 	*/
+ 	for (q_no = 0; q_no < ern; q_no++) {
+ 		reg_val = oct->pcie_port << CN23XX_PKT_INPUT_CTL_MAC_NUM_POS;
 +
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++		/* for VF assigned queues. */
++		if (q_no < oct->sriov_info.pf_srn) {
++			vf_num = q_no / oct->sriov_info.rings_per_vf;
++			vf_num += 1; /* VF1, VF2,........ */
++		} else {
++			vf_num = 0;
++		}
 +
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_CHANGE_MACADDR;
-+	/* vfidx is 0 based, but vf_num (param1) is 1 based */
-+	nctrl.ncmd.s.param1 = vfidx + 1;
-+	nctrl.ncmd.s.param2 = (is_admin_assigned ? 1 : 0);
-+	nctrl.ncmd.s.more = 1;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.cb_fn = 0;
-+	nctrl.wait_time = LIO_CMD_WAIT_TM;
-+
-+	nctrl.udd[0] = 0;
-+	/* The MAC Address is presented in network byte order. */
-+	ether_addr_copy((u8 *)&nctrl.udd[0] + 2, mac);
-+
-+	oct->sriov_info.vf_macaddr[vfidx] = nctrl.udd[0];
-+
-+	octnet_send_nic_ctrl_pkt(oct, &nctrl);
-+
-+	return 0;
-+}
-+
-+static int liquidio_set_vf_mac(struct net_device *netdev, int vfidx, u8 *mac)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	int retval;
-+
-+	retval = __liquidio_set_vf_mac(netdev, vfidx, mac, true);
-+	if (!retval)
-+		cn23xx_tell_vf_its_macaddr_changed(oct, vfidx, mac);
-+
-+	return retval;
-+}
-+
-+static int liquidio_set_vf_vlan(struct net_device *netdev, int vfidx,
-+				u16 vlan, u8 qos, __be16 vlan_proto)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	u16 vlantci;
-+
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
-+		return -EINVAL;
-+
-+	if (vlan_proto != htons(ETH_P_8021Q))
-+		return -EPROTONOSUPPORT;
-+
-+	if (vlan >= VLAN_N_VID || qos > 7)
-+		return -EINVAL;
-+
-+	if (vlan)
-+		vlantci = vlan | (u16)qos << VLAN_PRIO_SHIFT;
++		reg_val |= vf_num << CN23XX_PKT_INPUT_CTL_VF_NUM_POS;
+ 		reg_val |= pf_num << CN23XX_PKT_INPUT_CTL_PF_NUM_POS;
+ 
+ 		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
+@@ -1048,50 +1063,59 @@ static void cn23xx_setup_reg_address(struct octeon_device *oct)
+ 
+ static int cn23xx_sriov_config(struct octeon_device *oct)
+ {
+-	u32 total_rings;
+ 	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
+-	/* num_vfs is already filled for us */
++	u32 max_rings, total_rings, max_vfs, rings_per_vf;
+ 	u32 pf_srn, num_pf_rings;
++	u32 max_possible_vfs;
+ 
+ 	cn23xx->conf =
+-	    (struct octeon_config *)oct_get_config_info(oct, LIO_23XX);
++		(struct octeon_config *)oct_get_config_info(oct, LIO_23XX);
+ 	switch (oct->rev_id) {
+ 	case OCTEON_CN23XX_REV_1_0:
+-		total_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_0;
++		max_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_0;
++		max_possible_vfs = CN23XX_MAX_VFS_PER_PF_PASS_1_0;
+ 		break;
+ 	case OCTEON_CN23XX_REV_1_1:
+-		total_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_1;
++		max_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_1;
++		max_possible_vfs = CN23XX_MAX_VFS_PER_PF_PASS_1_1;
+ 		break;
+ 	default:
+-		total_rings = CN23XX_MAX_RINGS_PER_PF;
++		max_rings = CN23XX_MAX_RINGS_PER_PF;
++		max_possible_vfs = CN23XX_MAX_VFS_PER_PF;
+ 		break;
+ 	}
+-	if (!oct->sriov_info.num_pf_rings) {
+-		if (total_rings > num_present_cpus())
+-			num_pf_rings = num_present_cpus();
+-		else
+-			num_pf_rings = total_rings;
+-	} else {
+-		num_pf_rings = oct->sriov_info.num_pf_rings;
+ 
+-		if (num_pf_rings > total_rings) {
+-			dev_warn(&oct->pci_dev->dev,
+-				 "num_queues_per_pf requested %u is more than available rings. Reducing to %u\n",
+-				 num_pf_rings, total_rings);
+-			num_pf_rings = total_rings;
+-		}
+-	}
++	if (max_rings <= num_present_cpus())
++		num_pf_rings = 1;
 +	else
-+		vlantci = 0;
++		num_pf_rings = num_present_cpus();
 +
-+	if (oct->sriov_info.vf_vlantci[vfidx] == vlantci)
-+		return 0;
++#ifdef CONFIG_PCI_IOV
++	max_vfs = min_t(u32,
++			(max_rings - num_pf_rings), max_possible_vfs);
++	rings_per_vf = 1;
++#else
++	max_vfs = 0;
++	rings_per_vf = 0;
++#endif
 +
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
-+	if (vlan)
-+		nctrl.ncmd.s.cmd = OCTNET_CMD_ADD_VLAN_FILTER;
-+	else
-+		nctrl.ncmd.s.cmd = OCTNET_CMD_DEL_VLAN_FILTER;
-+
-+	nctrl.ncmd.s.param1 = vlantci;
-+	nctrl.ncmd.s.param2 =
-+	    vfidx + 1; /* vfidx is 0 based, but vf_num (param2) is 1 based */
-+	nctrl.ncmd.s.more = 0;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.cb_fn = 0;
-+	nctrl.wait_time = LIO_CMD_WAIT_TM;
-+
-+	octnet_send_nic_ctrl_pkt(oct, &nctrl);
-+
-+	oct->sriov_info.vf_vlantci[vfidx] = vlantci;
-+
-+	return 0;
-+}
-+
-+static int liquidio_get_vf_config(struct net_device *netdev, int vfidx,
-+				  struct ifla_vf_info *ivi)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	u8 *macaddr;
-+
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
-+		return -EINVAL;
-+
-+	ivi->vf = vfidx;
-+	macaddr = 2 + (u8 *)&oct->sriov_info.vf_macaddr[vfidx];
-+	ether_addr_copy(&ivi->mac[0], macaddr);
-+	ivi->vlan = oct->sriov_info.vf_vlantci[vfidx] & VLAN_VID_MASK;
-+	ivi->qos = oct->sriov_info.vf_vlantci[vfidx] >> VLAN_PRIO_SHIFT;
-+	ivi->linkstate = oct->sriov_info.vf_linkstate[vfidx];
-+	return 0;
-+}
-+
-+static int liquidio_set_vf_link_state(struct net_device *netdev, int vfidx,
-+				      int linkstate)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+
-+	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
-+		return -EINVAL;
-+
-+	if (oct->sriov_info.vf_linkstate[vfidx] == linkstate)
-+		return 0;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_VF_LINKSTATE;
-+	nctrl.ncmd.s.param1 =
-+	    vfidx + 1; /* vfidx is 0 based, but vf_num (param1) is 1 based */
-+	nctrl.ncmd.s.param2 = linkstate;
-+	nctrl.ncmd.s.more = 0;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.cb_fn = 0;
-+	nctrl.wait_time = LIO_CMD_WAIT_TM;
-+
-+	octnet_send_nic_ctrl_pkt(oct, &nctrl);
-+
-+	oct->sriov_info.vf_linkstate[vfidx] = linkstate;
-+
-+	return 0;
-+}
-+
- static struct net_device_ops lionetdevops = {
- 	.ndo_open		= liquidio_open,
- 	.ndo_stop		= liquidio_stop,
-@@ -3590,6 +3735,10 @@ static void liquidio_del_vxlan_port(struct net_device *netdev,
- 	.ndo_set_features	= liquidio_set_features,
- 	.ndo_udp_tunnel_add	= liquidio_add_vxlan_port,
- 	.ndo_udp_tunnel_del	= liquidio_del_vxlan_port,
-+	.ndo_set_vf_mac		= liquidio_set_vf_mac,
-+	.ndo_set_vf_vlan	= liquidio_set_vf_vlan,
-+	.ndo_get_vf_config	= liquidio_get_vf_config,
-+	.ndo_set_vf_link_state  = liquidio_set_vf_link_state,
- };
++	total_rings = num_pf_rings + max_vfs;
  
- /** \brief Entry point for the liquidio module
-@@ -3912,6 +4061,19 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			"if%d gmx: %d hw_addr: 0x%llx\n", i,
- 			lio->linfo.gmxport, CVM_CAST64(lio->linfo.hw_addr));
+-	total_rings = num_pf_rings;
+ 	/* the first ring of the pf */
+ 	pf_srn = total_rings - num_pf_rings;
  
-+		for (j = 0; j < octeon_dev->sriov_info.max_vfs; j++) {
-+			u8 vfmac[ETH_ALEN];
+ 	oct->sriov_info.trs = total_rings;
++	oct->sriov_info.max_vfs = max_vfs;
++	oct->sriov_info.rings_per_vf = rings_per_vf;
+ 	oct->sriov_info.pf_srn = pf_srn;
+ 	oct->sriov_info.num_pf_rings = num_pf_rings;
+-	dev_dbg(&oct->pci_dev->dev, "trs:%d pf_srn:%d num_pf_rings:%d\n",
+-		oct->sriov_info.trs, oct->sriov_info.pf_srn,
+-		oct->sriov_info.num_pf_rings);
++	dev_notice(&oct->pci_dev->dev, "trs:%d max_vfs:%d rings_per_vf:%d pf_srn:%d num_pf_rings:%d\n",
++		   oct->sriov_info.trs, oct->sriov_info.max_vfs,
++		   oct->sriov_info.rings_per_vf, oct->sriov_info.pf_srn,
++		   oct->sriov_info.num_pf_rings);
 +
-+			random_ether_addr(&vfmac[0]);
-+			if (__liquidio_set_vf_mac(netdev, j,
-+						  &vfmac[0], false)) {
-+				dev_err(&octeon_dev->pci_dev->dev,
-+					"Error setting VF%d MAC address\n",
-+					j);
-+				goto setup_nic_dev_fail;
-+			}
-+		}
++	oct->sriov_info.sriov_enabled = 0;
 +
- 		/* 64-bit swap required on LE machines */
- 		octeon_swap_8B_data(&lio->linfo.hw_addr, 1);
- 		for (j = 0; j < 6; j++)
-@@ -4207,6 +4369,52 @@ static void nic_starter(struct work_struct *work)
- 	complete(&handshake[oct->octeon_id].started);
+ 	return 0;
  }
  
-+static int
-+octeon_recv_vf_drv_notice(struct octeon_recv_info *recv_info, void *buf)
-+{
-+	struct octeon_device *oct = (struct octeon_device *)buf;
-+	struct octeon_recv_pkt *recv_pkt = recv_info->recv_pkt;
-+	int i, notice, vf_idx;
-+	u64 *data, vf_num;
-+
-+	notice = recv_pkt->rh.r.ossp;
-+	data = (u64 *)get_rbd(recv_pkt->buffer_ptr[0]);
-+
-+	/* the first 64-bit word of data is the vf_num */
-+	vf_num = data[0];
-+	octeon_swap_8B_data(&vf_num, 1);
-+	vf_idx = (int)vf_num - 1;
-+
-+	if (notice == VF_DRV_LOADED) {
-+		if (!(oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vf_idx))) {
-+			oct->sriov_info.vf_drv_loaded_mask |= BIT_ULL(vf_idx);
-+			dev_info(&oct->pci_dev->dev,
-+				 "driver for VF%d was loaded\n", vf_idx);
-+			try_module_get(THIS_MODULE);
-+		}
-+	} else if (notice == VF_DRV_REMOVED) {
-+		if (oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vf_idx)) {
-+			oct->sriov_info.vf_drv_loaded_mask &= ~BIT_ULL(vf_idx);
-+			dev_info(&oct->pci_dev->dev,
-+				 "driver for VF%d was removed\n", vf_idx);
-+			module_put(THIS_MODULE);
-+		}
-+	} else if (notice == VF_DRV_MACADDR_CHANGED) {
-+		u8 *b = (u8 *)&data[1];
-+
-+		oct->sriov_info.vf_macaddr[vf_idx] = data[1];
-+		dev_info(&oct->pci_dev->dev,
-+			 "VF driver changed VF%d's MAC address to %02x:%02x:%02x:%02x:%02x:%02x\n",
-+			 vf_idx, b[2], b[3], b[4], b[5], b[6], b[7]);
-+	}
-+
-+	for (i = 0; i < recv_pkt->buffer_count; i++)
-+		recv_buffer_free(recv_pkt->buffer_ptr[i]);
-+	octeon_free_recv_info(recv_info);
-+
-+	return 0;
-+}
-+
- /**
-  * \brief Device initialization for each Octeon device that is probed
-  * @param octeon_dev  octeon device
-@@ -4265,6 +4473,9 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 				    octeon_core_drv_init,
- 				    octeon_dev);
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+index c765568..512bca5 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+@@ -65,9 +65,15 @@
+ #define   DEFAULT_NUM_NIC_PORTS_68XX_210NV  2
  
-+	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC,
-+				    OPCODE_NIC_VF_DRV_NOTICE,
-+				    octeon_recv_vf_drv_notice, octeon_dev);
- 	INIT_DELAYED_WORK(&octeon_dev->nic_poll_work.work, nic_starter);
- 	octeon_dev->nic_poll_work.ctxptr = (void *)octeon_dev;
- 	schedule_delayed_work(&octeon_dev->nic_poll_work.work,
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index caeff9a..edf1282 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -89,6 +89,10 @@ enum octeon_tag_type {
- #define OPCODE_NIC_TIMESTAMP           0x07
- #define OPCODE_NIC_INTRMOD_CFG         0x08
- #define OPCODE_NIC_IF_CFG              0x09
-+#define OPCODE_NIC_VF_DRV_NOTICE       0x0A
-+#define VF_DRV_LOADED                  1
-+#define VF_DRV_REMOVED                -1
-+#define VF_DRV_MACADDR_CHANGED         2
+ /* CN23xx  IQ configuration macros */
++#define   CN23XX_MAX_VFS_PER_PF_PASS_1_0 8
++#define   CN23XX_MAX_VFS_PER_PF_PASS_1_1 31
++#define   CN23XX_MAX_VFS_PER_PF          63
++#define   CN23XX_MAX_RINGS_PER_VF        8
++
+ #define   CN23XX_MAX_RINGS_PER_PF_PASS_1_0 12
+ #define   CN23XX_MAX_RINGS_PER_PF_PASS_1_1 32
+ #define   CN23XX_MAX_RINGS_PER_PF          64
++#define   CN23XX_MAX_RINGS_PER_VF          8
  
- #define CORE_DRV_TEST_SCATTER_OP    0xFFF5
- 
-@@ -235,6 +239,7 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
- 
- #define   OCTNET_CMD_ID_ACTIVE         0x1a
- 
-+#define   OCTNET_CMD_SET_VF_LINKSTATE  0x1c
- #define   OCTNET_CMD_VXLAN_PORT_ADD    0x0
- #define   OCTNET_CMD_VXLAN_PORT_DEL    0x1
- #define   OCTNET_CMD_RXCSUM_ENABLE     0x0
+ #define   CN23XX_MAX_INPUT_QUEUES	CN23XX_MAX_RINGS_PER_PF
+ #define   CN23XX_MAX_IQ_DESCRIPTORS	2048
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index bdb10a0..70a0d98 100644
+index da15c2a..751d3b6 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -354,6 +354,14 @@ struct octeon_sriov_info {
- 
- 	/*lookup table that maps DPI ring number to VF pci_dev struct pointer*/
- 	struct pci_dev *dpiring_to_vfpcidev_lut[MAX_POSSIBLE_VFS];
-+
-+	u64	vf_macaddr[MAX_POSSIBLE_VFS];
-+
-+	u16	vf_vlantci[MAX_POSSIBLE_VFS];
-+
-+	int	vf_linkstate[MAX_POSSIBLE_VFS];
-+
-+	u64	vf_drv_loaded_mask;
+@@ -322,11 +322,21 @@ struct octeon_pf_vf_hs_word {
  };
  
- struct octeon_ioq_vector {
+ struct octeon_sriov_info {
++	/* Number of rings assigned to VF */
++	u32	rings_per_vf;
++
++	/** Max Number of VF devices that can be enabled. This variable can
++	 *  specified during load time or it will be derived after allocating
++	 *  PF queues. When max_vfs is derived then each VF will get one queue
++	 **/
++	u32	max_vfs;
++
+ 	/* Actual rings left for PF device */
+ 	u32	num_pf_rings;
+ 
+-	/* SRN of PF usable IO queues   */
++	/* SRN of PF usable IO queues */
+ 	u32	pf_srn;
++
+ 	/* total pf rings */
+ 	u32	trs;
+ 
 -- 
 1.8.3.1
