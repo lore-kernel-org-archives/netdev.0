@@ -1,64 +1,159 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: 484611357c19 introduces arbitrary kernel write bug (root-only)
-Date: Tue, 8 Nov 2016 21:02:53 -0500
-Message-ID: <d3c60ae6-7c48-7735-eabd-014d3ece7845@fb.com>
-References: <CAG48ez0mP4xwv6vnKRJ+rcdXYyA1wGnCWsbkKUgWGSBbMtgFMw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <security@kernel.org>, <netdev@vger.kernel.org>
-To: Jann Horn <jannh@google.com>,
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCHv2 net] igmp: do not remove igmp souce list info when set link down
+Date: Wed,  9 Nov 2016 11:16:40 +0800
+Message-ID: <1478661400-10152-1-git-send-email-liuhangbin@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58203 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751316AbcKICDS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 21:03:18 -0500
-In-Reply-To: <CAG48ez0mP4xwv6vnKRJ+rcdXYyA1wGnCWsbkKUgWGSBbMtgFMw@mail.gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34758 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751226AbcKIDRD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 22:17:03 -0500
+Received: by mail-pf0-f193.google.com with SMTP id y68so21823307pfb.1
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 19:17:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2016 07:23 PM, Jann Horn wrote:
-> In 484611357c19 (not in any stable kernel yet), functionality is
-> introduced that allows root (and afaics nobody else, since nobody else
-> is allowed to perform pointer arithmetic) to basically write to (and
-> read from) arbitrary kernel memory. There are multiple bugs in the
-> validation logic:
->
->  - A bitwise AND of values in the ranges [a,b] and [c,d] is assumed to
-> always result in a value
->    >= a&b. However, for the combination of ranges [1,1] and [1,2],
-> this calculates a minimum of 1
->    while actually, 1&2 is zero. This is the bug that my crasher
-> (below) triggers.
+In commit 24cf3af(igmp: call ip_mc_clear_src...), we forgot to remove
+igmpv3_clear_delrec() in ip_mc_down(), which also called ip_mc_clear_src().
+This make us clear all IGMPv3 source filter info after NETDEV_DOWN.
+Move igmpv3_clear_delrec() to ip_mc_destroy_dev() and then no need
+ip_mc_clear_src() in ip_mc_destroy_dev().
 
-Ugh crap.  I had this logic right before, but changed it to deal with the case 
-of -value & -value which would make the min_value -value.  Instead if min and 
-max are both positive then the min should be 0.  I'll fix this up and add a 
-testcase, nice catch.
+On the other hand, we should restore back instead of free all source filter
+info in igmpv3_del_delrec(). Or we will not able to restore IGMPv3 source
+filter info after NETDEV_UP and NETDEV_POST_TYPE_CHANGE.
 
->  - a%b is assumed to always be smaller than b-1. However, for b==0,
-> this will calculate an upper
->    limit of -1 while the values will actually always be zero.
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ net/ipv4/igmp.c | 50 ++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 36 insertions(+), 14 deletions(-)
 
-Yup you're right.
-
->  - I'm not sure about this, but I think that, when only one end of the
-> range is bounded, the logic will
->    incorrectly also treat the other end as a bounded, and because of
-> the usage of bound
->    placeholders that are smaller than the actual maximum values, this
-> could be used to perform
->    out-of-bounds accesses.
-
-Yeah I think you're right, if we have register A min bounded at say 
-REGISTER_MAX_VALUE, and then have register B not min bounded at all so we 
-default to the REGISTER_MIN_VALUE we and did a add we could end up thinking the 
-minimum was 0, when it could be anything.  I'll fix this as well.
-
-Thanks for looking at all this, I'll get this fixed up in the morning with test 
-cases and send it out,
-
-Josef
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 606cc3e..15db786 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -162,7 +162,7 @@ static int unsolicited_report_interval(struct in_device *in_dev)
+ }
+ 
+ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
+-static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr);
++static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im);
+ static void igmpv3_clear_delrec(struct in_device *in_dev);
+ static int sf_setstate(struct ip_mc_list *pmc);
+ static void sf_markstate(struct ip_mc_list *pmc);
+@@ -1130,10 +1130,15 @@ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im)
+ 	spin_unlock_bh(&in_dev->mc_tomb_lock);
+ }
+ 
+-static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
++/*
++ * restore ip_mc_list deleted records
++ */
++static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im)
+ {
+ 	struct ip_mc_list *pmc, *pmc_prev;
+-	struct ip_sf_list *psf, *psf_next;
++	struct ip_sf_list *psf;
++	struct net *net = dev_net(in_dev->dev);
++	__be32 multiaddr = im->multiaddr;
+ 
+ 	spin_lock_bh(&in_dev->mc_tomb_lock);
+ 	pmc_prev = NULL;
+@@ -1149,16 +1154,26 @@ static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
+ 			in_dev->mc_tomb = pmc->next;
+ 	}
+ 	spin_unlock_bh(&in_dev->mc_tomb_lock);
++
++	spin_lock_bh(&im->lock);
+ 	if (pmc) {
+-		for (psf = pmc->tomb; psf; psf = psf_next) {
+-			psf_next = psf->sf_next;
+-			kfree(psf);
++		im->interface = pmc->interface;
++		im->crcount = in_dev->mr_qrv ?: net->ipv4.sysctl_igmp_qrv;
++		im->sfmode = pmc->sfmode;
++		if (pmc->sfmode == MCAST_INCLUDE) {
++			im->tomb = pmc->tomb;
++			im->sources = pmc->sources;
++			for (psf = im->sources; psf; psf = psf->sf_next)
++				psf->sf_crcount = im->crcount;
+ 		}
+ 		in_dev_put(pmc->interface);
+-		kfree(pmc);
+ 	}
++	spin_unlock_bh(&im->lock);
+ }
+ 
++/*
++ * flush ip_mc_list deleted records
++ */
+ static void igmpv3_clear_delrec(struct in_device *in_dev)
+ {
+ 	struct ip_mc_list *pmc, *nextpmc;
+@@ -1366,7 +1381,7 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
+ 	ip_mc_hash_add(in_dev, im);
+ 
+ #ifdef CONFIG_IP_MULTICAST
+-	igmpv3_del_delrec(in_dev, im->multiaddr);
++	igmpv3_del_delrec(in_dev, im);
+ #endif
+ 	igmp_group_added(im);
+ 	if (!in_dev->dead)
+@@ -1626,8 +1641,12 @@ void ip_mc_remap(struct in_device *in_dev)
+ 
+ 	ASSERT_RTNL();
+ 
+-	for_each_pmc_rtnl(in_dev, pmc)
++	for_each_pmc_rtnl(in_dev, pmc) {
++#ifdef CONFIG_IP_MULTICAST
++		igmpv3_del_delrec(in_dev, pmc);
++#endif
+ 		igmp_group_added(pmc);
++	}
+ }
+ 
+ /* Device going down */
+@@ -1648,7 +1667,6 @@ void ip_mc_down(struct in_device *in_dev)
+ 	in_dev->mr_gq_running = 0;
+ 	if (del_timer(&in_dev->mr_gq_timer))
+ 		__in_dev_put(in_dev);
+-	igmpv3_clear_delrec(in_dev);
+ #endif
+ 
+ 	ip_mc_dec_group(in_dev, IGMP_ALL_HOSTS);
+@@ -1688,8 +1706,12 @@ void ip_mc_up(struct in_device *in_dev)
+ #endif
+ 	ip_mc_inc_group(in_dev, IGMP_ALL_HOSTS);
+ 
+-	for_each_pmc_rtnl(in_dev, pmc)
++	for_each_pmc_rtnl(in_dev, pmc) {
++#ifdef CONFIG_IP_MULTICAST
++		igmpv3_del_delrec(in_dev, pmc);
++#endif
+ 		igmp_group_added(pmc);
++	}
+ }
+ 
+ /*
+@@ -1704,13 +1726,13 @@ void ip_mc_destroy_dev(struct in_device *in_dev)
+ 
+ 	/* Deactivate timers */
+ 	ip_mc_down(in_dev);
++#ifdef CONFIG_IP_MULTICAST
++	igmpv3_clear_delrec(in_dev);
++#endif
+ 
+ 	while ((i = rtnl_dereference(in_dev->mc_list)) != NULL) {
+ 		in_dev->mc_list = i->next_rcu;
+ 		in_dev->mc_count--;
+-
+-		/* We've dropped the groups in ip_mc_down already */
+-		ip_mc_clear_src(i);
+ 		ip_ma_put(i);
+ 	}
+ }
+-- 
+2.5.5
