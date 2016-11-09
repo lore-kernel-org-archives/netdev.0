@@ -1,10 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/6] dt-bindings: mdio-mux: Add documentation for mdio
- mux for NSP SoC
-Date: Wed, 9 Nov 2016 15:34:25 +0100
-Message-ID: <20161109143425.GE15386@lunn.ch>
+Subject: Re: [PATCH 3/6] net: mdio-mux: Add MDIO mux driver for NSP SoC
+Date: Wed, 9 Nov 2016 15:45:15 +0100
+Message-ID: <20161109144515.GF15386@lunn.ch>
 References: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
- <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
+ <1478683994-12008-4-git-send-email-yendapally.reddy@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Rob Herring <robh+dt@kernel.org>,
@@ -19,46 +18,44 @@ Cc: Rob Herring <robh+dt@kernel.org>,
         devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org
 To: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60492 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753016AbcKIOek (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Nov 2016 09:34:40 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1478683994-12008-4-git-send-email-yendapally.reddy@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 09, 2016 at 04:33:09AM -0500, Yendapally Reddy Dhananjaya Reddy wrote:
-> Add documentation for mdio mux available in Broadcom NSP SoC
-> 
-> Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
-> ---
->  .../devicetree/bindings/net/brcm,mdio-mux-nsp.txt  | 57 ++++++++++++++++++++++
->  1 file changed, 57 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
-> new file mode 100644
-> index 0000000..b749a2b
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
-> @@ -0,0 +1,57 @@
-> +Properties for an MDIO bus multiplexer available in Broadcom NSP SoC.
+> +#define NSP_MDIO_EXT_BUS_START_ADDR		16
+> +#define NSP_MDIO_EXT_SELECT_BIT			BIT(9)
 > +
-> +This MDIO bus multiplexer defines buses that could access the internal
-> +phys as well as external to SoCs. When child bus is selected, one needs
+> +static int mdio_mux_nsp_switch_fn(int current_child, int desired_child,
+> +				  void *priv)
+> +{
+> +	struct nsp_mdiomux_desc *md = priv;
+> +	u32 data, bus_id;
+> +
+> +	/* select internal or external bus */
+> +	data = readl(md->mgmt_ctrl);
+> +	if (desired_child == NSP_MDIO_EXT_BUS_START_ADDR)
+> +		data |= NSP_MDIO_EXT_SELECT_BIT;
+> +	else
+> +		data &= ~NSP_MDIO_EXT_SELECT_BIT;
+> +	writel(data, md->mgmt_ctrl);
+> +
+> +	/* select bus number */
+> +	if (md->bus_ctrl) {
+> +		bus_id = desired_child & (NSP_MDIO_EXT_BUS_START_ADDR - 1);
+> +		writel(bus_id, md->bus_ctrl);
+> +	}
+> +
+> +	return 0;
 
-Hi Yendapally
+So address 16 is external. What happens which you try to access
+address 16 internally? Does the chip raise an abort? Reads just give
+0xffff?
 
-Since we are in the networking subsystem, when we see phy, we think
-Ethernet PHY. But broadcom mdio mux is generic and can have any sort
-of PHY or device connected to it. To avoid confusion and
-missunderstanding, please could you try to prefix each 'PHY' in the
-with an indication of what type it is, 'Ethernet PHY', 'USB phy',
-'SERDES PHY', or 'generic PHY/mdio device'.
+I'm wondering if it would be better to implement this as two nested
+muxes. One mux doing internal/external, and the other doing the bus.
+If you do that, you can use the existing mdio-mux-mmioreg.c and don't
+need any new code at all.
 
-And i mean this in general, not just this patch.
-
-Thanks
-	Andrew
+     Andrew
