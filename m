@@ -1,52 +1,32 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next 0/2] sfc: enable 4-tuple UDP RSS hashing
-Date: Wed, 9 Nov 2016 18:51:15 +0000
-Message-ID: <2932a4dc-cee0-47d1-d4a9-2b293e6155ad@solarflare.com>
-References: <ba5aa0bc-277b-5b47-89f8-fad1010b77f9@solarflare.com>
- <20161107.132003.727799156798583121.davem@davemloft.net>
- <2c97d90b-bbb3-2cdc-7a72-597fd3f5231a@solarflare.com>
- <20161109.130918.1657511488354824947.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/2] tcp: tcp_get_info() locking changes
+Date: Wed, 09 Nov 2016 10:58:41 -0800
+Message-ID: <1478717921.16809.0.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1478285672-3195-1-git-send-email-edumazet@google.com>
+         <20161109.130319.505221196913812307.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
+        ycheng@google.com, soheil@google.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:46543 "EHLO
-        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751425AbcKISv7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:51:59 -0500
-In-Reply-To: <20161109.130918.1657511488354824947.davem@davemloft.net>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35803 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751382AbcKIS6n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:58:43 -0500
+Received: by mail-pf0-f196.google.com with SMTP id i88so1174428pfk.2
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 10:58:42 -0800 (PST)
+In-Reply-To: <20161109.130319.505221196913812307.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/11/16 18:09, David Miller wrote:
-> From: Edward Cree <ecree@solarflare.com>
-> Date: Tue, 8 Nov 2016 13:02:05 +0000
->
->> On 07/11/16 18:20, David Miller wrote:
->>> From: Edward Cree <ecree@solarflare.com>
->>> Date: Thu, 3 Nov 2016 22:10:31 +0000
->>>
->>>> EF10 based NICs have configurable RSS hash fields, and can be made to take the
->>>> ports into the hash on UDP (they already do so for TCP).  This patch series
->>>> enables this, in order to improve spreading of UDP traffic.
->>> What does the chip do with fragmented traffic?
->> Only the first fragment will be considered UDP, it will treat the rest as "other
->> IP" and 2-tuple hash them, probably hitting a different queue.
->>
->> My understanding is that while that will reduce performance, that shouldn't be a
->> problem as performance-sensitive users will avoid fragmentation anyway.
->> It could also lead to out-of-order packet delivery, but it's UDP so that's
->> supposed to be OK.
-> Our software hashing never tries to inspect the ports for fragmented
-> frames.  And I'm pretty sure this is intentional.
->
-> We should minimize the difference between what we do in software, which
-> we fully control, and what we ask the hardware to offload for us.
->
-> If you can't configure the chip to skip the ports for fragmented frames
-> than I'm going to ask you to drop this.
-I just checked and it turns out I was mistaken, we don't treat the first fragment
-differently after all, we skip the ports for all fragments including the first.
-Sorry for the misinformation.
+On Wed, 2016-11-09 at 13:03 -0500, David Miller wrote:
+
+> Looks really nice, series applied, thanks Eric.
+> 
+> BTW, can we possibly use the netlink NOP trick to align the netlink
+> attribute data here and avoid these unaligned accesses?
+> 
+
+Good idea, I will do this, thanks for the suggestion.
