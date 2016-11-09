@@ -1,63 +1,120 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: Is Documentation/networking/phy.txt still up-to-date?
-Date: Wed, 9 Nov 2016 14:24:56 +0100
-Message-ID: <582323A8.20706@laposte.net>
+From: Cao jin <caoj.fnst@cn.fujitsu.com>
+Subject: Re: [Intel-wired-lan] [PATCH] igb: use igb_adapter->io_addr instead
+ of e1000_hw->hw_addr
+Date: Wed, 9 Nov 2016 21:28:03 +0800
+Message-ID: <58232463.7030107@cn.fujitsu.com>
+References: <1478588780-24480-1-git-send-email-caoj.fnst@cn.fujitsu.com>
+ <20161108164214.GF31855@calimero.vinschen.de>
+ <alpine.NEB.2.20.17.1611080910530.6177@chris.i8u.org>
+ <20161108183739.GA3744@calimero.vinschen.de>
+ <CAKgT0UeaoGfOOC1=h4pGk+=FDd5EqvgRGAdk1StLuiW1-M8tVA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: afleming@freescale.com, jgarzik@pobox.com,
-        =?UTF-8?B?TcOlbnMgUnVsbGc=?= =?UTF-8?Q?=c3=a5rd?=
-        <mans@mansr.com>, Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpoutz299.laposte.net ([178.22.154.199]:38232 "EHLO
-        smtpoutz2.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932992AbcKINZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 08:25:02 -0500
-Received: from smtpoutz2.laposte.net (localhost [127.0.0.1])
-        by lpn-prd-vrout011 (Postfix) with ESMTP id E4A1752A0EC
-        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
-Received: from smtpoutz2.laposte.net (localhost [127.0.0.1])
-        by lpn-prd-vrout011 (Postfix) with ESMTP id D67AF52BAF6
-        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
-Received: from lpn-prd-vrin004 (lpn-prd-vrin004.laposte [10.128.63.5])
-        by lpn-prd-vrout011 (Postfix) with ESMTP id D0EF252BB79
-        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
-Received: from lpn-prd-vrin004 (localhost [127.0.0.1])
-        by lpn-prd-vrin004 (Postfix) with ESMTP id BEAE6710207
-        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        Hisashi T Fujinaka <htodd@twofifty.com>,
+        Netdev <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        =?UTF-8?B?SXp1bWksIFRha3Uv5rOJIOaLkw==?=
+        <izumi.taku@jp.fujitsu.com>, <vinschen@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UeaoGfOOC1=h4pGk+=FDd5EqvgRGAdk1StLuiW1-M8tVA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Thanks Corrina for your info.
 
-Documentation/networking/phy.txt discusses phy_connect and states that:
+I tested my patch, it works for me on kernel 4.9-rc4.
+"surprise removal" maybe another issue to solve. This one is enough to 
+solve my issue and other one's, could it be accept first?
 
- "...
+Cao jin
 
- interface is a u32 which specifies the connection type used
- between the controller and the PHY.  Examples are GMII, MII,
- RGMII, and SGMII.  For a full list, see include/linux/phy.h
-
- Now just make sure that phydev->supported and phydev->advertising have any
- values pruned from them which don't make sense for your controller (a 10/100
- controller may be connected to a gigabit capable PHY, so you would need to
- mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for definitions
- for these bitfields. Note that you should not SET any bits, or the PHY may
- get put into an unsupported state.
-
- ..."
-
-However, 'drivers/net/ethernet/aurora/nb8800.c' for example, does SETs some
-bits (in function 'nb8800_pause_adv').
-
-I checked 'drivers/net/ethernet/broadcom/genet/bcmmii.c' and that one CLEARs
-bits (as per the documentation).
-
-Does anybody knows what is the correct/recommended approach?
-
-Best regards,
-
-Sebastian
+On 11/09/2016 03:33 AM, Alexander Duyck wrote:
+> On Tue, Nov 8, 2016 at 10:37 AM, Corinna Vinschen <vinschen@redhat.com> wrote:
+>> On Nov  8 09:16, Hisashi T Fujinaka wrote:
+>>> On Tue, 8 Nov 2016, Corinna Vinschen wrote:
+>>>> On Nov  8 15:06, Cao jin wrote:
+>>>>> When running as guest, under certain condition, it will oops as following.
+>>>>> writel() in igb_configure_tx_ring() results in oops, because hw->hw_addr
+>>>>> is NULL. While other register access won't oops kernel because they use
+>>>>> wr32/rd32 which have a defense against NULL pointer.
+>>>>> [...]
+>>>>
+>>>> Incidentally we're just looking for a solution to that problem too.
+>>>> Do three patches to fix the same problem at rougly the same time already
+>>>> qualify as freak accident?
+>>>>
+>>>> FTR, I attached my current patch, which I was planning to submit after
+>>>> some external testing.
+>>>>
+>>>> However, all three patches have one thing in common:  They workaround
+>>>> a somewhat dubious resetting of the hardware address to NULL in case
+>>>> reading from a register failed.
+>>>>
+>>>> That makes me wonder if setting the hardware address to NULL in
+>>>> rd32/igb_rd32 is really such a good idea.  It's performed in a function
+>>>> which return value is *never* tested for validity in the calling
+>>>> functions and leads to subsequent crashes since no tests for hw_addr ==
+>>>> NULL are performed.
+>>>>
+>>>> Maybe commit 22a8b2915 should be reconsidered?  Isn't there some more
+>>>> graceful way to handle the "surprise removal"?
+>>>
+>>> Answering this from my home account because, well, work is Outlook.
+>>>
+>>> "Reconsidering" would be great. In fact, revert if if you'd like. I'm
+>>> uncertain that the surprise removal code actually works the way I
+>>> thought previously and I think I took a lot of it out of my local code.
+>>>
+>>> Unfortuantely I don't have any equipment that I can use to reproduce
+>>> surprise removal any longer so that means I wouldn't be able to test
+>>> anything. I have to defer to you or Cao Jin.
+>>
+>> I'm not too keen to rip out a PCIe NIC under power from my locale
+>> desktop machine, but I think an actual surprise removal is not the
+>> problem.
+>>
+>> As described in my git log entry, the error condition in igb_rd32 can be
+>> triggered during a suspend.  The HW has been put into a sleep state but
+>> some register read requests are apparently not guarded against that
+>> situation.  Reading a register in this state returns -1, thus a suspend
+>> is erroneously triggering the "surprise removal" sequence.
+>
+> The question I would have is what is reading the device when it is in
+> this state.  The watchdog and any other functions that would read the
+> device should be disabled.
+>
+> One possibility could be a race between a call to igb_close and the
+> igb_suspend function.  We have seen some of those pop up recently on
+> ixgbe and it looks like igb has the same bug.  We should probably be
+> using the rtnl_lock to guarantee that netif_device_detach and the call
+> to __igb_close are completed before igb_close could possibly be called
+> by the network stack.
+>
+>> Here's a raw idea:
+>>
+>> - Note that device is suspended in e1000_hw struct.  Don't trigger
+>>    error sequence in igb_rd32 if so (...and return a 0 value???)
+>
+> The thing is that a suspended device should not be accessed at all.
+> If we are accessing it while it is suspended then that is a bug.  If
+> you could throw a WARN_ON call in igb_rd32 to capture where this is
+> being triggered that might be useful.
+>
+>> - Otherwise assume it's actually a surprise removal.  In theory that
+>>    should somehow trigger a device removal sequence, kind of like
+>>    calling igb_remove, no?
+>
+> Well a read of the MMIO region while suspended is more of a surprise
+> read since there shouldn't be anything going on.  We need to isolate
+> where that read is coming from and fix it.
+>
+> Thanks.
+>
+> - Alex
+>
+>
+> .
+>
