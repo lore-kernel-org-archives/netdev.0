@@ -1,75 +1,50 @@
-From: Zhiyi Sun <zhiyisun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net/mlx4_en: Fix bpf_prog_add ref_cnt in mlx4
-Date: Wed, 9 Nov 2016 17:45:46 +0800
-Message-ID: <20161109094546.jtmzc4xwtaavzcnt@ubuntu>
-References: <20161109073544.jbufjqn7y7oa6ptg@ubuntu>
- <5822E6DB.40204@iogearbox.net>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH net v2 2/4] net: ethernet: ti: cpsw: fix device and
+ of_node leaks
+Date: Wed, 9 Nov 2016 10:58:25 +0100
+Message-ID: <20161109095825.GE14744@localhost>
+References: <1478194822-29545-1-git-send-email-johan@kernel.org>
+ <1478194822-29545-3-git-send-email-johan@kernel.org>
+ <0c76f9db-ab5f-bce3-897d-5f325c2b84c4@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bblanco-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Johan Hovold <johan@kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:32775 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751420AbcKIJ6h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 04:58:37 -0500
 Content-Disposition: inline
-In-Reply-To: <5822E6DB.40204-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <0c76f9db-ab5f-bce3-897d-5f325c2b84c4@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 09, 2016 at 10:05:31AM +0100, Daniel Borkmann wrote:
-> On 11/09/2016 08:35 AM, Zhiyi Sun wrote:
-> > There are rx_ring_num queues. Each queue will load xdp prog. So
-> > bpf_prog_add() should add rx_ring_num to ref_cnt.
-> > 
-> > Signed-off-by: Zhiyi Sun <zhiyisun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Tue, Nov 08, 2016 at 05:19:29PM -0600, Grygorii Strashko wrote:
 > 
-> Your analysis looks incorrect to me. Please elaborate in more detail why
-> you think current code is buggy ...
 > 
-
-Yes, you are correct. My patch is incorrect. It is not a bug.
-
-> Call path is dev_change_xdp_fd(), which does bpf_prog_get_type() on the
-> fd. This already takes a ref and only drops it in case of error. Thus
-> in mlx4_xdp_set(), you only need priv->rx_ring_num - 1 refs for the rest
-> of the rings, so that dropping refs from old_prog makes sure we release
-> it again. Looks correct to me (maybe a comment would have helped there).
+> On 11/03/2016 12:40 PM, Johan Hovold wrote:
+> > Make sure to drop the references taken by of_get_child_by_name() and
+> > bus_find_device() before returning from cpsw_phy_sel().
+> >
+> > Note that holding a reference to the cpsw-phy-sel device does not
+> > prevent the devres-managed private data from going away.
+> >
+> > Fixes: 5892cd135e16 ("drivers: net: cpsw-phy-sel: Add new driver...")
+> > Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> > Cc: Grygorii Strashko <grygorii.strashko@ti.com>
+> > Cc: linux-omap@vger.kernel.org
+> > Signed-off-by: Johan Hovold <johan@kernel.org>
+> > ---
 > 
+> Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
 
-I thought mlx4's code is incorrect because in mlx5's driver, function
-mlx5e_xdp_set() calls a pair of bpf_prog_add/put, the number of add and
-put to the refs are same. I didn't notice that one "add" has been called in its
-calller. So, it seems that mlx5's code is incorrect, right?
+Thanks for the review. Note that David has already applied these, though.
 
-> >   drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 4 ++--
-> >   1 file changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> > index 12c99a2..d25e150 100644
-> > --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> > @@ -2650,7 +2650,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-> >   	 */
-> >   	if (priv->xdp_ring_num == xdp_ring_num) {
-> >   		if (prog) {
-> > -			prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
-> > +			prog = bpf_prog_add(prog, priv->rx_ring_num);
-> >   			if (IS_ERR(prog))
-> >   				return PTR_ERR(prog);
-> >   		}
-> > @@ -2680,7 +2680,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-> >   	}
-> > 
-> >   	if (prog) {
-> > -		prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
-> > +		prog = bpf_prog_add(prog, priv->rx_ring_num);
-> >   		if (IS_ERR(prog))
-> >   			return PTR_ERR(prog);
-> >   	}
-> > 
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Johan
