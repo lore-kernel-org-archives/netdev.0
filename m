@@ -1,48 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] sfc: enable 4-tuple UDP RSS hashing
-Date: Wed, 09 Nov 2016 13:09:18 -0500 (EST)
-Message-ID: <20161109.130918.1657511488354824947.davem@davemloft.net>
-References: <ba5aa0bc-277b-5b47-89f8-fad1010b77f9@solarflare.com>
-        <20161107.132003.727799156798583121.davem@davemloft.net>
-        <2c97d90b-bbb3-2cdc-7a72-597fd3f5231a@solarflare.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH net-next 05/17] net: hns: bug fix about restart auto-negotiation
+Date: Wed, 9 Nov 2016 18:13:49 +0000
+Message-ID: <20161109181401.913728-6-salil.mehta@huawei.com>
+References: <20161109181401.913728-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38042 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752200AbcKISJX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:09:23 -0500
-In-Reply-To: <2c97d90b-bbb3-2cdc-7a72-597fd3f5231a@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
+        Daode Huang <huangdaode@hisilicon.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161109181401.913728-1-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 8 Nov 2016 13:02:05 +0000
+From: Daode Huang <huangdaode@hisilicon.com>
 
-> On 07/11/16 18:20, David Miller wrote:
->> From: Edward Cree <ecree@solarflare.com>
->> Date: Thu, 3 Nov 2016 22:10:31 +0000
->>
->>> EF10 based NICs have configurable RSS hash fields, and can be made to take the
->>> ports into the hash on UDP (they already do so for TCP).  This patch series
->>> enables this, in order to improve spreading of UDP traffic.
->> What does the chip do with fragmented traffic?
-> Only the first fragment will be considered UDP, it will treat the rest as "other
-> IP" and 2-tuple hash them, probably hitting a different queue.
-> 
-> My understanding is that while that will reduce performance, that shouldn't be a
-> problem as performance-sensitive users will avoid fragmentation anyway.
-> It could also lead to out-of-order packet delivery, but it's UDP so that's
-> supposed to be OK.
+When set auto-negotiation off and duplex half, if run "ethtool -r ethX"
+on port with phy, then the port will be failed to work. It should
+forbid to start auto-negotiation when auto-negotiate is off. This
+patch add the limited condition.
 
-Our software hashing never tries to inspect the ports for fragmented
-frames.  And I'm pretty sure this is intentional.
+Reported-by: Jinchuang Tian <tianjinchuang1@huawei.com>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Reviewed-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-We should minimize the difference between what we do in software, which
-we fully control, and what we ask the hardware to offload for us.
-
-If you can't configure the chip to skip the ports for fragmented frames
-than I'm going to ask you to drop this.
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 87d5c94..3ac2183 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -1178,7 +1178,8 @@ static int hns_nic_nway_reset(struct net_device *netdev)
+ 	struct phy_device *phy = netdev->phydev;
+ 
+ 	if (netif_running(netdev)) {
+-		if (phy)
++		/* if autoneg is disabled, don't restart auto-negotiation */
++		if (phy && phy->autoneg == AUTONEG_ENABLE)
+ 			ret = genphy_restart_aneg(phy);
+ 	}
+ 
+-- 
+1.7.9.5
