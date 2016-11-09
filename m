@@ -1,63 +1,75 @@
-From: maowenan <maowenan@huawei.com>
-Subject: =?utf-8?B?562U5aSNOiBbUEFUQ0hdIGFkZCBvbmUgcGFyYW1ldGVyIHdyb19lbmFibGUg?=
- =?utf-8?Q?to_enable_relaxed_ordering_for_IXGBE?=
-Date: Wed, 9 Nov 2016 09:43:36 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F2A766D3@szxeml504-mbs.china.huawei.com>
-References: <1477724932-5440-1-git-send-email-maowenan@huawei.com>
- <1477726941.2309.9.camel@intel.com>
+From: Zhiyi Sun <zhiyisun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net/mlx4_en: Fix bpf_prog_add ref_cnt in mlx4
+Date: Wed, 9 Nov 2016 17:45:46 +0800
+Message-ID: <20161109094546.jtmzc4xwtaavzcnt@ubuntu>
+References: <20161109073544.jbufjqn7y7oa6ptg@ubuntu>
+ <5822E6DB.40204@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Dingtianhong <dingtianhong@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:14769 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752163AbcKIJpB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 04:45:01 -0500
-In-Reply-To: <1477726941.2309.9.camel@intel.com>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: bblanco-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5822E6DB.40204-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-SSBoYXZlIHZlcmlmaWVkIHRoYXQgdGhlIHBlcmZvcm1hbmNlIHdpbGwgYmUgZW5oYW5jZWQgY2Vy
-dGFpbmx5IHdoZW4gSSBlbmFibGVkIFJlbGF4IE9yZGVyaW5nIG9uIFNQQVJDLCBidXQgdGhpbmsg
-aXQgaXMgbm90IHZlcnkgZmxleGlibGUgdG8gZGlzYWJsZSBvciBlbmFibGUgUmVsYXggT3JkZXJp
-bmcgZmVhdHVyZSB1c2luZyBDT05GSUdfU1BBUkMgY3VycmVudGx5LA0KU28gSSB3YW50IHRvIHVz
-ZSBtb2R1bGUgcGFyYW1ldGVyIHRvIHNldCBSTyBpbnN0ZWFkIG9mICIjaWZuZGVmIENPTkZJR19T
-UEFSQyIsIG5vIG5lZWQgdG8gcmVidWlsZCB0aGUgd2hvbGUga2VybmVsLg0KDQoNCi0tLS0t6YKu
-5Lu25Y6f5Lu2LS0tLS0NCuWPkeS7tuS6ujogSmVmZiBLaXJzaGVyIFttYWlsdG86amVmZnJleS50
-LmtpcnNoZXJAaW50ZWwuY29tXSANCuWPkemAgeaXtumXtDogMjAxNuW5tDEw5pyIMjnml6UgMTU6
-NDINCuaUtuS7tuS6ujogbWFvd2VuYW47IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3Jn
-OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQrk
-uLvpopg6IFJlOiBbUEFUQ0hdIGFkZCBvbmUgcGFyYW1ldGVyIHdyb19lbmFibGUgdG8gZW5hYmxl
-IHJlbGF4ZWQgb3JkZXJpbmcgZm9yIElYR0JFDQoNCk9uIFNhdCwgMjAxNi0xMC0yOSBhdCAxNTow
-OCArMDgwMCwgTWFvIFdlbmFuIHdyb3RlOg0KPiBUaGlzIHBhdGNoIHByb3ZpZGVzIGEgd2F5IHRv
-IGVuYWJsZSByZWxheGVkIG9yZGVyaW5nLCB3aGVyZSBpdCBoZWxwcyANCj4gd2l0aCBwZXJmb3Jt
-YW5jZSBpbiBzb21lIGFyY2hpdGVjdHVyZS4NCj4gVGhlIGRlZmF1bHQgdmFsdWUgb2Ygd3JvX2Vu
-YWJsZSBpcyAwLCBpZiB5b3Ugd2FudCB0byBlbmFibGUgcmVsYXhlZCANCj4gb3JkZXJpbmcsIHBs
-ZWFzZSBzZXQgd3JvX2VuYWJsZT0xLg0KPiANCj4gTWFvIFdlbmFuICgxKToNCj4gwqAgYWRkIG9u
-ZSBwYXJhbWV0ZXIgd3JvX2VuYWJsZSBmb3IgSVhHQkUNCj4gDQo+IMKgZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaMKgwqDCoMKgwqDCoMKgIHzCoCAxICsNCj4gwqBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV84MjU5OC5jwqAgfCAyOSANCj4gKysr
-KysrKysrKysrKystLS0tLQ0KPiAtLS0tLS0NCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9peGdiZS9peGdiZV9jb21tb24uYyB8IDI4IA0KPiArKysrKysrKysrKysrLS0tLQ0KPiAtLS0t
-LS0tDQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jwqDC
-oCB8wqAgOSArKysrKysrKw0KPiDCoDQgZmlsZXMgY2hhbmdlZCwgNDEgaW5zZXJ0aW9ucygrKSwg
-MjYgZGVsZXRpb25zKC0pDQoNCldoeSBoYXZlIGEgdGl0bGUgcGF0Y2ggZm9yIG9ubHkgb25lIHBh
-dGNoPyDCoEJldHRlciB5ZXQsIHRoZSBvbmUgcGF0Y2ggZG9lcyBub3QgaGF2ZSBhIHBhdGNoIGRl
-c2NyaXB0aW9uLiDCoEdldCByaWQgb2YgdGhlIHRpdGxlIHBhdGNoIGFuZCBhZGQgdGhlIGFib3Zl
-IGluZm9ybWF0aW9uIGludG8gdGhlIHBhdGNoZXMgZGVzY3JpcHRpb24uDQoNCkluIGFkZGl0aW9u
-LCBtb2R1bGUgcGFyYW1ldGVycyBhcmUgbm90IGtpbmRseSBsb29rZWQgdXBvbiwgb25lIHJlYXNv
-biBpcyB0aGF0IGl0IGNhbm5vdCBiZSBzdGFuZGFyZGl6ZWQgYW5kIGVuZm9yY2VkLg0KDQpJIGFt
-IGFsc28gY29uZnVzZWQgYmVjYXVzZSB5b3UgYXJlIHN0YXRpbmcgdGhhdCBvbiBzb21lIGFyY2hp
-dGVjdHVyZXMsIHlldCB0aGlzIGNvZGUgaXMgb25seSBjb21waWxlZCBpbiB3aGVuIFNQQVJDIGlz
-IGRlZmluZWQgYW5kIHRoYXQgdGhlcmUgYXJlIHRpbWVzIHdoZW4geW91IHdhbnQgcmVsYXhlZCBv
-cmRlcmluZyBlbmFibGVkIGFuZCBvdGhlciB0aW1lcyBkaXNhYmxlZD8NCsKgWW91ciBnb25uYSBo
-YXZlIHRvIHByb3ZpZGUgbW9yZSBkYXRhIG9uIHdoeSwgYmVjYXVzZSB0aGUgY29kZSBhcyBpcyB3
-YXMgcmVzb2x2aW5nIHNlcmlvdXMgcGVyZm9ybWFuY2UgaXNzdWVzIG9uIFNQQVJDIHdoZW4gcmVs
-YXhlZCBvcmRlcmluZyB3YXMgZW5hYmxlZC4NCg==
+On Wed, Nov 09, 2016 at 10:05:31AM +0100, Daniel Borkmann wrote:
+> On 11/09/2016 08:35 AM, Zhiyi Sun wrote:
+> > There are rx_ring_num queues. Each queue will load xdp prog. So
+> > bpf_prog_add() should add rx_ring_num to ref_cnt.
+> > 
+> > Signed-off-by: Zhiyi Sun <zhiyisun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Your analysis looks incorrect to me. Please elaborate in more detail why
+> you think current code is buggy ...
+> 
+
+Yes, you are correct. My patch is incorrect. It is not a bug.
+
+> Call path is dev_change_xdp_fd(), which does bpf_prog_get_type() on the
+> fd. This already takes a ref and only drops it in case of error. Thus
+> in mlx4_xdp_set(), you only need priv->rx_ring_num - 1 refs for the rest
+> of the rings, so that dropping refs from old_prog makes sure we release
+> it again. Looks correct to me (maybe a comment would have helped there).
+> 
+
+I thought mlx4's code is incorrect because in mlx5's driver, function
+mlx5e_xdp_set() calls a pair of bpf_prog_add/put, the number of add and
+put to the refs are same. I didn't notice that one "add" has been called in its
+calller. So, it seems that mlx5's code is incorrect, right?
+
+> >   drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 4 ++--
+> >   1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > index 12c99a2..d25e150 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > @@ -2650,7 +2650,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+> >   	 */
+> >   	if (priv->xdp_ring_num == xdp_ring_num) {
+> >   		if (prog) {
+> > -			prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
+> > +			prog = bpf_prog_add(prog, priv->rx_ring_num);
+> >   			if (IS_ERR(prog))
+> >   				return PTR_ERR(prog);
+> >   		}
+> > @@ -2680,7 +2680,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+> >   	}
+> > 
+> >   	if (prog) {
+> > -		prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
+> > +		prog = bpf_prog_add(prog, priv->rx_ring_num);
+> >   		if (IS_ERR(prog))
+> >   			return PTR_ERR(prog);
+> >   	}
+> > 
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
