@@ -1,40 +1,45 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 1/2] wcn36xx: Correct Kconfig dependency
-Date: Wed,  9 Nov 2016 10:02:50 -0800
-Message-ID: <1478714571-4841-1-git-send-email-bjorn.andersson@linaro.org>
-References: <201611092150.OxpAuHow%fengguang.wu@intel.com>
+Subject: [PATCH 2/2] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Wed,  9 Nov 2016 10:02:51 -0800
+Message-ID: <1478714571-4841-2-git-send-email-bjorn.andersson@linaro.org>
+References: <1478714571-4841-1-git-send-email-bjorn.andersson@linaro.org>
 Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Andy Gross <andy.gross@linaro.org>,
         Eugene Krasnikov <k.eugene.e@gmail.com>,
         Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478714571-4841-1-git-send-email-bjorn.andersson@linaro.org>
 In-Reply-To: <201611092150.OxpAuHow%fengguang.wu@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the case SMD or WCNSS_CTRL are compiled as modules, wcn36xx must be
-compiled as module as well, so we need to mention this dependency.
-But we still want allow the driver to be compiled in case either of
-those are =n, for compile testing reasons.
+The correct include file for getting errno constants and ERR_PTR() is
+linux/err.h, rather than linux/errno.h, so fix the include.
 
+Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
- drivers/net/wireless/ath/wcn36xx/Kconfig | 2 ++
- 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/Kconfig b/drivers/net/wireless/ath/wcn36xx/Kconfig
-index 591ebaea8265..4b83e87f0b94 100644
---- a/drivers/net/wireless/ath/wcn36xx/Kconfig
-+++ b/drivers/net/wireless/ath/wcn36xx/Kconfig
-@@ -1,6 +1,8 @@
- config WCN36XX
- 	tristate "Qualcomm Atheros WCN3660/3680 support"
- 	depends on MAC80211 && HAS_DMA
-+	depends on QCOM_WCNSS_CTRL || QCOM_WCNSS_CTRL=n
-+	depends on QCOM_SMD || QCOM_SMD=n
- 	---help---
- 	  This module adds support for wireless adapters based on
- 	  Qualcomm Atheros WCN3660 and WCN3680 mobile chipsets.
+Andy, I don't see anything else going into v4.10 for smem_state.h. So if you
+are okay I would like Kalle to pick this patch through his tree and be able to
+merge my wcn36xx patches for v4.10.
+
+ include/linux/soc/qcom/smem_state.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/soc/qcom/smem_state.h b/include/linux/soc/qcom/smem_state.h
+index 7b88697929e9..b8478ee7a71f 100644
+--- a/include/linux/soc/qcom/smem_state.h
++++ b/include/linux/soc/qcom/smem_state.h
+@@ -1,7 +1,7 @@
+ #ifndef __QCOM_SMEM_STATE__
+ #define __QCOM_SMEM_STATE__
+ 
+-#include <linux/errno.h>
++#include <linux/err.h>
+ 
+ struct device_node;
+ struct qcom_smem_state;
 -- 
 2.5.0
