@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Revert "net/mlx4_en: Fix panic during reboot"
-Date: Wed, 09 Nov 2016 13:30:36 -0500 (EST)
-Message-ID: <20161109.133036.2136919717437832633.davem@davemloft.net>
-References: <1478448306-28738-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH] bna: Add synchronization for tx ring.
+Date: Wed, 09 Nov 2016 13:32:33 -0500 (EST)
+Message-ID: <20161109.133233.218503199113292279.davem@davemloft.net>
+References: <20161107095756.15343-1-bpoirier@suse.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, eugenia@mellanox.com,
-        saeedm@mellanox.com
-To: tariqt@mellanox.com
+Cc: netdev@vger.kernel.org, rasesh.mody@cavium.com,
+        sudarsana.kalluru@cavium.com, Dept-GELinuxNICDev@cavium.com
+To: bpoirier@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38554 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38696 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751095AbcKISah (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:30:37 -0500
-In-Reply-To: <1478448306-28738-1-git-send-email-tariqt@mellanox.com>
+        with ESMTP id S1752429AbcKIScf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:32:35 -0500
+In-Reply-To: <20161107095756.15343-1-bpoirier@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Sun,  6 Nov 2016 18:05:06 +0200
+From: Benjamin Poirier <bpoirier@suse.com>
+Date: Mon,  7 Nov 2016 17:57:56 +0800
 
-> This reverts commit 9d2afba058722d40cc02f430229c91611c0e8d16.
+> We received two reports of BUG_ON in bnad_txcmpl_process() where
+> hw_consumer_index appeared to be ahead of producer_index. Out of order
+> write/read of these variables could explain these reports.
 > 
-> The original issue would possibly exist if an external module
-> tried calling our "ethtool_ops" without checking if it still
-> exists.
+> bnad_start_xmit(), as a producer of tx descriptors, has a few memory
+> barriers sprinkled around writes to producer_index and the device's
+> doorbell but they're not paired with anything in bnad_txcmpl_process(), a
+> consumer.
 > 
-> The right way of solving it is by simply doing the check in
-> the caller side.
-> Currently, no action is required as there's no such use case.
+> Since we are synchronizing with a device, we must use mandatory barriers,
+> not smp_*. Also, I didn't see the purpose of the last smp_mb() in
+> bnad_start_xmit().
 > 
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
 
 Applied.
