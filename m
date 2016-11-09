@@ -1,222 +1,29 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: 484611357c19 introduces arbitrary kernel write bug (root-only)
-Date: Wed, 9 Nov 2016 16:21:39 -0500
-Message-ID: <2e6a3cf8-254a-9cbb-201b-d3059a5b723a@fb.com>
-References: <CAG48ez0mP4xwv6vnKRJ+rcdXYyA1wGnCWsbkKUgWGSBbMtgFMw@mail.gmail.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [swiotlb PATCH v3 0/3] Add support for DMA writable pages being
+ writable by the network stack.
+Date: Wed, 9 Nov 2016 16:23:41 -0500
+Message-ID: <20161109212341.GC12670@char.us.oracle.com>
+References: <20161109151639.25151.24290.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <security@kernel.org>, <netdev@vger.kernel.org>
-To: Jann Horn <jannh@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43502 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754143AbcKIVWM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 16:22:12 -0500
-In-Reply-To: <CAG48ez0mP4xwv6vnKRJ+rcdXYyA1wGnCWsbkKUgWGSBbMtgFMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161109151639.25151.24290.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/08/2016 07:23 PM, Jann Horn wrote:
-> In 484611357c19 (not in any stable kernel yet), functionality is
-> introduced that allows root (and afaics nobody else, since nobody else
-> is allowed to perform pointer arithmetic) to basically write to (and
-> read from) arbitrary kernel memory. There are multiple bugs in the
-> validation logic:
->
->  - A bitwise AND of values in the ranges [a,b] and [c,d] is assumed to
-> always result in a value
->    >= a&b. However, for the combination of ranges [1,1] and [1,2],
-> this calculates a minimum of 1
->    while actually, 1&2 is zero. This is the bug that my crasher
-> (below) triggers.
->  - a%b is assumed to always be smaller than b-1. However, for b==0,
-> this will calculate an upper
->    limit of -1 while the values will actually always be zero.
->  - I'm not sure about this, but I think that, when only one end of the
-> range is bounded, the logic will
->    incorrectly also treat the other end as a bounded, and because of
-> the usage of bound
->    placeholders that are smaller than the actual maximum values, this
-> could be used to perform
->    out-of-bounds accesses.
->
-> The fun part here is that, as soon as the validation is just
-> off-by-one, arithmetic transformations can be used to turn that into
-> out-of-bounds accesses at arbitrary offsets. The crasher turns the
-> off-by-one into a memory write at offset 0x10000000.
->
+On Wed, Nov 09, 2016 at 10:19:57AM -0500, Alexander Duyck wrote:
+> This patch series is a subset of the patches originally submitted with the
+> above patch title.  Specifically all of these patches relate to the
+> swiotlb.
+> 
+> I wasn't sure if I needed to resubmit this series or not.  I see that v2 is
+> currently sitting in the for-linus-4.9 branch of the swiotlb git repo.  If
+> no updates are required for the previous set then this patch set can be
+> ignored since most of the changes are just cosmetic.
 
-Can you give this a whirl?  It addresses your testcase and the other issues 
-you've brought up.  Thanks
-
- From e47a1de98af2c1bcebd4224f546e3be1fd340b6a Mon Sep 17 00:00:00 2001
-From: Josef Bacik <jbacik@fb.com>
-Date: Wed, 9 Nov 2016 16:09:52 -0500
-Subject: [PATCH] bpf: fix range arithmetic for bpf map access
-
-I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
-invalid accesses to bpf map entries.  Fix this up by doing a few things
-
-1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
-life and just adds extra complexity.
-
-2) Fix the logic for BPF_AND.  If the min value is negative then that is the new
-minimum, otherwise it is unconditionally 0.
-
-3) Don't do operations on the ranges if they are set to the limits, as they are
-by definition undefined, and allowing arithmetic operations on those values
-could make them appear valid when they really aren't.
-
-This fixes the testcase provided by Jann as well as a few other theoretical
-problems.
-
-Reported-by: Jann Horn <jannh@google.com>
-Signed-off-by: Josef Bacik <jbacik@fb.com>
----
-  include/linux/bpf_verifier.h |  3 +-
-  kernel/bpf/verifier.c        | 65 ++++++++++++++++++++++++++++----------------
-  2 files changed, 44 insertions(+), 24 deletions(-)
-
-diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
-index ac5b393..15ceb7f 100644
---- a/include/linux/bpf_verifier.h
-+++ b/include/linux/bpf_verifier.h
-@@ -22,7 +22,8 @@ struct bpf_reg_state {
-  	 * Used to determine if any memory access using this register will
-  	 * result in a bad access.
-  	 */
--	u64 min_value, max_value;
-+	s64 min_value;
-+	u64 max_value;
-  	u32 id;
-  	union {
-  		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 9002575..840533a 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -234,8 +234,8 @@ static void print_verifier_state(struct bpf_verifier_state 
-*state)
-  				reg->map_ptr->value_size,
-  				reg->id);
-  		if (reg->min_value != BPF_REGISTER_MIN_RANGE)
--			verbose(",min_value=%llu",
--				(unsigned long long)reg->min_value);
-+			verbose(",min_value=%lld",
-+				(long long)reg->min_value);
-  		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
-  			verbose(",max_value=%llu",
-  				(unsigned long long)reg->max_value);
-@@ -1490,7 +1490,7 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
-  {
-  	if (reg->max_value > BPF_REGISTER_MAX_RANGE)
-  		reg->max_value = BPF_REGISTER_MAX_RANGE;
--	if ((s64)reg->min_value < BPF_REGISTER_MIN_RANGE)
-+	if (reg->min_value < BPF_REGISTER_MIN_RANGE)
-  		reg->min_value = BPF_REGISTER_MIN_RANGE;
-  }
-
-@@ -1498,7 +1498,8 @@ static void adjust_reg_min_max_vals(struct 
-bpf_verifier_env *env,
-  				    struct bpf_insn *insn)
-  {
-  	struct bpf_reg_state *regs = env->cur_state.regs, *dst_reg;
--	u64 min_val = BPF_REGISTER_MIN_RANGE, max_val = BPF_REGISTER_MAX_RANGE;
-+	s64 min_val = BPF_REGISTER_MIN_RANGE;
-+	u64 max_val = BPF_REGISTER_MAX_RANGE;
-  	bool min_set = false, max_set = false;
-  	u8 opcode = BPF_OP(insn->code);
-
-@@ -1534,22 +1535,45 @@ static void adjust_reg_min_max_vals(struct 
-bpf_verifier_env *env,
-  		return;
-  	}
-
-+	/* If one of our values was at the end of our ranges then we can't just
-+	 * do our normal operations to the register, we need to set the values
-+	 * to the min/max since they are undefined.
-+	 */
-+	if (min_val == BPF_REGISTER_MIN_RANGE)
-+		dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
-+	if (max_val == BPF_REGISTER_MAX_RANGE)
-+		dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
-+
-  	switch (opcode) {
-  	case BPF_ADD:
--		dst_reg->min_value += min_val;
--		dst_reg->max_value += max_val;
-+		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value += min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value += max_val;
-  		break;
-  	case BPF_SUB:
--		dst_reg->min_value -= min_val;
--		dst_reg->max_value -= max_val;
-+		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value -= min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value -= max_val;
-  		break;
-  	case BPF_MUL:
--		dst_reg->min_value *= min_val;
--		dst_reg->max_value *= max_val;
-+		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value *= min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value *= max_val;
-  		break;
-  	case BPF_AND:
--		/* & is special since it could end up with 0 bits set. */
--		dst_reg->min_value &= min_val;
-+		/* & is special since it's could be any value within our range,
-+		 * including 0.  But if the thing we're AND'ing against is
-+		 * negative and we're negative then that's the minimum value,
-+		 * otherwise the minimum will always be 0.
-+		 */
-+		if (min_val < 0 && dst_reg->min_value < 0)
-+			dst_reg->min_value = min_t(s64, dst_reg->min_value,
-+						   min_val);
-+		else
-+			dst_reg->min_value = 0;
-  		dst_reg->max_value = max_val;
-  		break;
-  	case BPF_LSH:
-@@ -1559,24 +1583,19 @@ static void adjust_reg_min_max_vals(struct 
-bpf_verifier_env *env,
-  		 */
-  		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
-  			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
--		else
-+		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-  			dst_reg->min_value <<= min_val;
-
-  		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
-  			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
--		else
-+		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-  			dst_reg->max_value <<= max_val;
-  		break;
-  	case BPF_RSH:
--		dst_reg->min_value >>= min_val;
--		dst_reg->max_value >>= max_val;
--		break;
--	case BPF_MOD:
--		/* % is special since it is an unsigned modulus, so the floor
--		 * will always be 0.
--		 */
--		dst_reg->min_value = 0;
--		dst_reg->max_value = max_val - 1;
-+		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value >>= min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value >>= max_val;
-  		break;
-  	default:
-  		reset_reg_range_values(regs, insn->dst_reg);
--- 
-2.5.5
+I already had tested v2 so if you have patches that you want to put on top
+of that please do send them.
