@@ -1,60 +1,63 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: [PATCH net] r8152: Fix broken RX checksums.
-Date: Wed, 9 Nov 2016 08:19:31 -0500
-Message-ID: <d261ef1c-b6d1-18a9-572a-2cf6978ff259@pobox.com>
-References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
- <20161030.205755.1198665157526465556.davem@davemloft.net>
- <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
- <20161030.235342.134481656830778556.davem@davemloft.net>
- <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
- <201611030159.uA31x0np004648@rtits1.realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20104878A@RTITMBSV03.realtek.com.tw>
- <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
- <201611041425.uA4EPwCw018176@rtits1.realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20104A0FD@RTITMBSV03.realtek.com.tw>
+From: Sebastian Frias <sf84@laposte.net>
+Subject: Is Documentation/networking/phy.txt still up-to-date?
+Date: Wed, 9 Nov 2016 14:24:56 +0100
+Message-ID: <582323A8.20706@laposte.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB20104A0FD@RTITMBSV03.realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: afleming@freescale.com, jgarzik@pobox.com,
+        =?UTF-8?B?TcOlbnMgUnVsbGc=?= =?UTF-8?Q?=c3=a5rd?=
+        <mans@mansr.com>, Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpoutz299.laposte.net ([178.22.154.199]:38232 "EHLO
+        smtpoutz2.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932992AbcKINZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 08:25:02 -0500
+Received: from smtpoutz2.laposte.net (localhost [127.0.0.1])
+        by lpn-prd-vrout011 (Postfix) with ESMTP id E4A1752A0EC
+        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
+Received: from smtpoutz2.laposte.net (localhost [127.0.0.1])
+        by lpn-prd-vrout011 (Postfix) with ESMTP id D67AF52BAF6
+        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
+Received: from lpn-prd-vrin004 (lpn-prd-vrin004.laposte [10.128.63.5])
+        by lpn-prd-vrout011 (Postfix) with ESMTP id D0EF252BB79
+        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
+Received: from lpn-prd-vrin004 (localhost [127.0.0.1])
+        by lpn-prd-vrin004 (Postfix) with ESMTP id BEAE6710207
+        for <netdev@vger.kernel.org>; Wed,  9 Nov 2016 14:24:59 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-11-09 08:09 AM, Hayes Wang wrote:
-> Mark Lord [mailto:mlord@pobox.com]
-..
->> The MTU/MRU on this link is the standard 1500 bytes, so a pkt_len of 2045 isn't
->> valid here.
->> And the rx_desc values look an awful lot like the rx_data values that follow it.
->>
->> There's definitely more broken here than just TCP RX checksums.
-> 
-> I don't think it is the issue of our hw. If it happens, windows or
-> other OS may have problems, too. It is like the memory issue described
-> in commit 990c9b347245("Merge branch 'r8152-fixes'"). It seems that
-> the data in memory is not same with the one from the device.
+Hi,
 
-I am still doing long-term testing of various tweaks to the driver,
-and can now confirm that changing from kmalloc() to usb_alloc_coherent()
-vastly improves reliability, and re-enabling RX checksums works fine
-with that change.
+Documentation/networking/phy.txt discusses phy_connect and states that:
 
-However, even with coherent URB buffers, I still see the occasional bad rx_desc:
-like, twice in 36 hours of continuous bashing at it.
+ "...
 
-So having code in the driver to sanitize the rx_desc is essential.
-My current test code (shared with Hayes already) includes validation of various
-key fields of the rx_desc, and detects when the chip/driver/whatever gets confused.
+ interface is a u32 which specifies the connection type used
+ between the controller and the PHY.  Examples are GMII, MII,
+ RGMII, and SGMII.  For a full list, see include/linux/phy.h
 
-Hopefully r8152.c will get updated to take more care before trusting
-what it sees in the rx_desc fields.
+ Now just make sure that phydev->supported and phydev->advertising have any
+ values pruned from them which don't make sense for your controller (a 10/100
+ controller may be connected to a gigabit capable PHY, so you would need to
+ mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for definitions
+ for these bitfields. Note that you should not SET any bits, or the PHY may
+ get put into an unsupported state.
 
-Cheers
--- 
-Mark Lord
-mlord@pobox.com
+ ..."
+
+However, 'drivers/net/ethernet/aurora/nb8800.c' for example, does SETs some
+bits (in function 'nb8800_pause_adv').
+
+I checked 'drivers/net/ethernet/broadcom/genet/bcmmii.c' and that one CLEARs
+bits (as per the documentation).
+
+Does anybody knows what is the correct/recommended approach?
+
+Best regards,
+
+Sebastian
