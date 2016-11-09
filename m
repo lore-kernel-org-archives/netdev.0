@@ -1,81 +1,35 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] igb: use igb_adapter->io_addr instead of e1000_hw->hw_addr
-Date: Wed, 9 Nov 2016 08:28:34 -0800
-Message-ID: <CAKgT0UfA5jcr_1bB1=iVoBJuwLkwagNL_MUeoAq8q=Ep_OATXg@mail.gmail.com>
-References: <1478588780-24480-1-git-send-email-caoj.fnst@cn.fujitsu.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v2 3/7] vxlan: avoid checking socket multiple
+ times.
+Date: Wed, 9 Nov 2016 17:34:58 +0100
+Message-ID: <20161109173458.1f57d699@griffin>
+References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
+        <1478371557-71888-4-git-send-email-pshelar@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        =?UTF-8?B?SXp1bWksIFRha3Uv5rOJIOaLkw==?=
-        <izumi.taku@jp.fujitsu.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Cao jin <caoj.fnst@cn.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478588780-24480-1-git-send-email-caoj.fnst@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42176 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753480AbcKIQfB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Nov 2016 11:35:01 -0500
+In-Reply-To: <1478371557-71888-4-git-send-email-pshelar@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 7, 2016 at 11:06 PM, Cao jin <caoj.fnst@cn.fujitsu.com> wrote:
-> When running as guest, under certain condition, it will oops as following.
-> writel() in igb_configure_tx_ring() results in oops, because hw->hw_addr
-> is NULL. While other register access won't oops kernel because they use
-> wr32/rd32 which have a defense against NULL pointer.
->
->     [  141.225449] pcieport 0000:00:1c.0: AER: Multiple Uncorrected (Fatal)
->     error received: id=0101
->     [  141.225523] igb 0000:01:00.1: PCIe Bus Error:
->     severity=Uncorrected (Fatal), type=Unaccessible,
->     id=0101(Unregistered Agent ID)
->     [  141.299442] igb 0000:01:00.1: broadcast error_detected message
->     [  141.300539] igb 0000:01:00.0 enp1s0f0: PCIe link lost, device now
->     detached
->     [  141.351019] igb 0000:01:00.1 enp1s0f1: PCIe link lost, device now
->     detached
->     [  143.465904] pcieport 0000:00:1c.0: Root Port link has been reset
->     [  143.465994] igb 0000:01:00.1: broadcast slot_reset message
->     [  143.466039] igb 0000:01:00.0: enabling device (0000 -> 0002)
->     [  144.389078] igb 0000:01:00.1: enabling device (0000 -> 0002)
->     [  145.312078] igb 0000:01:00.1: broadcast resume message
->     [  145.322211] BUG: unable to handle kernel paging request at
->     0000000000003818
->     [  145.361275] IP: [<ffffffffa02fd38d>]
->     igb_configure_tx_ring+0x14d/0x280 [igb]
->     [  145.400048] PGD 0
->     [  145.438007] Oops: 0002 [#1] SMP
->
-> A similiar issue & solution could be found at:
->     http://patchwork.ozlabs.org/patch/689592/
->
-> Signed-off-by: Cao jin <caoj.fnst@cn.fujitsu.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index edc9a6a..3f240ac 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -3390,7 +3390,7 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
->              tdba & 0x00000000ffffffffULL);
->         wr32(E1000_TDBAH(reg_idx), tdba >> 32);
->
-> -       ring->tail = hw->hw_addr + E1000_TDT(reg_idx);
-> +       ring->tail = adapter->io_addr + E1000_TDT(reg_idx);
->         wr32(E1000_TDH(reg_idx), 0);
->         writel(0, ring->tail);
->
-> @@ -3729,7 +3729,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
->              ring->count * sizeof(union e1000_adv_rx_desc));
->
->         /* initialize head and tail */
-> -       ring->tail = hw->hw_addr + E1000_RDT(reg_idx);
-> +       ring->tail = adapter->io_addr + E1000_RDT(reg_idx);
->         wr32(E1000_RDH(reg_idx), 0);
->         writel(0, ring->tail);
->
+On Sat,  5 Nov 2016 11:45:53 -0700, Pravin B Shelar wrote:
+> @@ -2070,11 +2072,9 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>  		struct dst_entry *ndst;
+>  		u32 rt6i_flags;
+>  
+> -		if (!sock6)
+> -			goto drop;
+>  		sk = sock6->sock->sk;
 
-This patch looks good to me.
+I take back that the rest of the patch looks good. This will panic if
+an IPv6 packet is routed (through encap route) to an IPv4-only
+interface.
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+ Jiri
