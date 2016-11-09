@@ -1,83 +1,72 @@
-From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: [PATCH] mwifiex: fix memory leak in
- mwifiex_save_hidden_ssid_channels()
-Date: Wed, 9 Nov 2016 08:53:40 +0000
-Message-ID: <afaba6dcd5e845118be806ffd7bbe511@SC-EXCH04.marvell.com>
-References: <1478662648-70698-1-git-send-email-jcliang@chromium.org>
+From: Marc Zyngier <marc.zyngier@arm.com>
+Subject: Re: [PATCH v2] irqchip/renesas-irqc: Postpone driver initialization
+Date: Wed, 9 Nov 2016 09:03:41 +0000
+Message-ID: <3c801796-fef9-b589-4a05-da9e9ab9599d@arm.com>
+References: <1478633747-26878-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Nishant Sarmukadam <nishants@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "open list:MARVELL MWIFIEX WIRELESS DRIVER"
-        <linux-wireless@vger.kernel.org>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Ricky Liang <jcliang@chromium.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Jason Cooper <jason@lakedaemon.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478662648-70698-1-git-send-email-jcliang@chromium.org>
-Content-Language: en-US
+In-Reply-To: <1478633747-26878-1-git-send-email-geert+renesas@glider.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Ricky Liang [mailto:jcliang@chromium.org]
-> Sent: Wednesday, November 09, 2016 9:07 AM
-> Cc: Ricky Liang; Amitkumar Karwar; Nishant Sarmukadam; Kalle Valo; open
-> list:MARVELL MWIFIEX WIRELESS DRIVER; open list:NETWORKING DRIVERS; open
-> list
-> Subject: [PATCH] mwifiex: fix memory leak in
-> mwifiex_save_hidden_ssid_channels()
+Hi Geert,
+
+On 08/11/16 19:35, Geert Uytterhoeven wrote:
+> Currently the renesas-irqc driver uses postcore_initcall().
 > 
-> kmemleak reports memory leak in mwifiex_save_hidden_ssid_channels():
+> However, the new CPG/MSSR driver uses subsys_initcall(). Hence the
+> IRQC's probe will be deferred, which causes the Micrel Ethernet PHY to
+> not find its interrupt on R-Car Gen2 and RZ/G, as the of_mdio subsystem
+> does not support deferred probe yet.
 > 
-> unreferenced object 0xffffffc0a2914780 (size 192):
->   comm "ksdioirqd/mmc2", pid 2004, jiffies 4307182506 (age 820.684s)
->   hex dump (first 32 bytes):
->     00 06 47 49 4e 2d 32 67 01 03 c8 60 6c 03 01 40  ..GIN-2g...`l..@
->     07 10 54 57 20 34 04 1e 64 05 24 84 03 24 95 04  ..TW 4..d.$..$..
->   backtrace:
->     [<ffffffc0003375f4>] create_object+0x164/0x2b4
->     [<ffffffc0008e3530>] kmemleak_alloc+0x50/0x88
->     [<ffffffc000335120>] __kmalloc_track_caller+0x1bc/0x264
->     [<ffffffc00030899c>] kmemdup+0x38/0x64
->     [<ffffffbffc2311cc>] mwifiex_fill_new_bss_desc+0x3c/0x130 [mwifiex]
->     [<ffffffbffc22ee9c>] mwifiex_save_curr_bcn+0x4ec/0x640 [mwifiex]
->     [<ffffffbffc22f45c>]
-> mwifiex_handle_event_ext_scan_report+0x1d4/0x268 [mwifiex]
->     [<ffffffbffc2375d0>] mwifiex_process_sta_event+0x378/0x898 [mwifiex]
->     [<ffffffbffc224dc8>] mwifiex_process_event+0x1a8/0x1e8 [mwifiex]
->     [<ffffffbffc2228f0>] mwifiex_main_process+0x258/0x534 [mwifiex]
->     [<ffffffbffc258858>] 0xffffffbffc258858
->     [<ffffffc00071ee90>] process_sdio_pending_irqs+0xf8/0x160
->     [<ffffffc00071efdc>] sdio_irq_thread+0x9c/0x1a4
->     [<ffffffc000240d08>] kthread+0xf4/0x100
->     [<ffffffc0002043fc>] ret_from_fork+0xc/0x50
->     [<ffffffffffffffff>] 0xffffffffffffffff
+> Replace postcore_initcall() by device_initcall() to work around this.
 > 
-> Signed-off-by: Ricky Liang <jcliang@chromium.org>
+> Note that on R-Mobile APE6, where the PFC/GPIO combo uses the IRQC as
+> its parent interrupt controller, this does cause a few additional probe
+> deferrals (for SCIFA0, SD0, SD1, and MMC). But the affected drivers
+> handle that fine.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Tested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 > ---
->  drivers/net/wireless/marvell/mwifiex/scan.c | 4 ++++
->  1 file changed, 4 insertions(+)
+> v2:
+>   - Drop RFC state,
+>   - Add Tested-by,
+>   - Improved description.
+> ---
+>  drivers/irqchip/irq-renesas-irqc.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c
-> b/drivers/net/wireless/marvell/mwifiex/scan.c
-> index 97c9765..98ce072 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/scan.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/scan.c
-> @@ -1671,6 +1671,10 @@ static int
-> mwifiex_save_hidden_ssid_channels(struct mwifiex_private *priv,
->  	}
-> 
->  done:
-> +	/* beacon_ie buffer was allocated in function
-> +	 * mwifiex_fill_new_bss_desc(). Free it now.
-> +	 */
-> +	kfree(bss_desc->beacon_buf);
->  	kfree(bss_desc);
->  	return 0;
+> diff --git a/drivers/irqchip/irq-renesas-irqc.c b/drivers/irqchip/irq-renesas-irqc.c
+> index 52304b139aa46a60..992849e54d00ea77 100644
+> --- a/drivers/irqchip/irq-renesas-irqc.c
+> +++ b/drivers/irqchip/irq-renesas-irqc.c
+> @@ -295,7 +295,7 @@ static int __init irqc_init(void)
+>  {
+>  	return platform_driver_register(&irqc_device_driver);
 >  }
+> -postcore_initcall(irqc_init);
+> +device_initcall(irqc_init);
 
-Acked-by: Amitkumar Karwar <akarwar@marvell.com>
+Overall, I'm not keen on these hacks (by moving from one initcall to
+another, you're as likely to fix something than to break something else).
 
-Regards,
-Amitkumar
+What should really be done is to either teach the various drivers to
+handle deferred probing, or to teach the kernel to handle proper
+dependencies (vastly more ambitious).
+
+Thanks,
+
+	M.
+-- 
+Jazz is not dead. It just smells funny...
