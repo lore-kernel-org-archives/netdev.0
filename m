@@ -1,41 +1,40 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [bug report] genetlink: fix error return code in genl_register_family()
-Date: Wed, 9 Nov 2016 14:43:34 -0800
-Message-ID: <CAM_iQpXySa6i6_Gtue1gbaHGZq5DG6SMvdO=ufGousUDKCGocw@mail.gmail.com>
-References: <20161109095613.GA24471@mwanda>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] [net-next] udp: provide udp{4,6}_lib_lookup for
+ nf_socket_ipv{4,6}
+Date: Thu, 10 Nov 2016 00:08:23 +0100
+Message-ID: <20161109230823.GA12171@salvia>
+References: <20161108132914.1495283-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: weiyongjun1@huawei.com, kernel-janitors@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36285 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751550AbcKIWn4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 17:43:56 -0500
-In-Reply-To: <20161109095613.GA24471@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Eric Dumazet <edumazet@google.com>,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161108132914.1495283-1-arnd@arndb.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc'ing netdev
+On Tue, Nov 08, 2016 at 02:28:18PM +0100, Arnd Bergmann wrote:
+> Since commit ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
+> the udp6_lib_lookup and udp4_lib_lookup functions are only
+> provided when it is actually possible to call them.
+> 
+> However, moving the callers now caused a link error:
+> 
+> net/built-in.o: In function `nf_sk_lookup_slow_v6':
+> (.text+0x131a39): undefined reference to `udp6_lib_lookup'
+> net/ipv4/netfilter/nf_socket_ipv4.o: In function `nf_sk_lookup_slow_v4':
+> nf_socket_ipv4.c:(.text.nf_sk_lookup_slow_v4+0x114): undefined reference to `udp4_lib_lookup'
+> 
+> This extends the #ifdef so we also provide the functions when
+> CONFIG_NF_SOCKET_IPV4 or CONFIG_NF_SOCKET_IPV6, respectively
+> are set.
 
-On Wed, Nov 9, 2016 at 1:56 AM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> Hello Wei Yongjun,
->
-> The patch 22ca904ad70a: "genetlink: fix error return code in
-> genl_register_family()" from Nov 1, 2016, leads to the following
-> static checker warning:
->
->         net/netlink/genetlink.c:365 genl_register_family()
->         warn: unsigned 'family->id' is never less than zero.
->
-> net/netlink/genetlink.c
->    362
->    363          family->id = idr_alloc(&genl_fam_idr, family,
->    364                                 start, end + 1, GFP_KERNEL);
->    365          if (family->id < 0) {
->                     ^^^^^^^^^^^^^^
-> Doesn't work for unsigned int.
-
-
-family->id should be signed int.
+Applied, thanks Arnd!
