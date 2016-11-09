@@ -1,37 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 4/5] net: l2tp: cleanup: remove redundant
- condition
-Date: Wed, 09 Nov 2016 18:56:43 -0500 (EST)
-Message-ID: <20161109.185643.1145389940936719190.davem@davemloft.net>
-References: <20161107203928.30111-1-asbjorn@asbjorn.st>
-        <20161107203928.30111-4-asbjorn@asbjorn.st>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: fix fixed prio cpdma
+ ctlr configuration
+Date: Thu, 10 Nov 2016 01:56:44 +0200
+Message-ID: <592966c0-ae4c-ba6b-43ba-8ca837e9a700@linaro.org>
+References: <1478610656-24634-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <a20ab87c-4f9d-0eaa-e486-156d9f359866@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jchapman@katalix.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: asbjorn@asbjorn.st
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161107203928.30111-4-asbjorn@asbjorn.st>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>, mugunthanvnm@ti.com,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:33314 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754885AbcKIX4t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 18:56:49 -0500
+Received: by mail-lf0-f49.google.com with SMTP id c13so176778804lfg.0
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 15:56:48 -0800 (PST)
+In-Reply-To: <a20ab87c-4f9d-0eaa-e486-156d9f359866@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
-Date: Mon,  7 Nov 2016 20:39:27 +0000
 
-> These assignments follow this pattern:
-> 
-> 	unsigned int foo:1;
-> 	struct nlattr *nla = info->attrs[bar];
-> 
-> 	if (nla)
-> 		foo = nla_get_flag(nla); /* expands to: foo = !!nla */
-> 
-> This could be simplified to: if (nla) foo = 1;
-> but lets just remove the condition and use the macro,
-> 
-> 	foo = nla_get_flag(nla);
-> 
-> Signed-off-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
 
-Applied.
+On 09.11.16 23:09, Grygorii Strashko wrote:
+>
+>
+> On 11/08/2016 07:10 AM, Ivan Khoronzhuk wrote:
+>> The dma ctlr is reseted to 0 while cpdma start, thus cpdma ctlr
+>
+> I assume this is because cpdma_ctlr_start() does soft reset. Is it correct?
+Probably not. I've seen this register doesn't hold any previous settings (just trash)
+after cpdma_ctlr_stop(), actually after last channel is stopped (inside of cpdma_ctlr_stop()).
+Then cpdma_ctlr_start() just reset it to 0.
+
+>
+>> cannot be configured after cpdma is stopped. So, restore content
+>> of cpdma ctlr while off/on procedure.
+>>
+>> Based on net-next/master
+>
+> ^ remove it
+sure
+
+>
+>>
+>> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+>> ---
+>>  drivers/net/ethernet/ti/cpsw.c          |   6 +-
+>>  drivers/net/ethernet/ti/davinci_cpdma.c | 103 +++++++++++++++++---------------
+>>  drivers/net/ethernet/ti/davinci_cpdma.h |   2 +
+>>  3 files changed, 58 insertions(+), 53 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>> index b1ddf89..4d04b8e 100644
+>> --- a/drivers/net/ethernet/ti/cpsw.c
+>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>> @@ -1376,10 +1376,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+>>  				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
+>>
+>>  	if (!cpsw_common_res_usage_state(cpsw)) {
+>> -		/* setup tx dma to fixed prio and zero offset */
+>> -		cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1);
+>> -		cpdma_control_set(cpsw->dma, CPDMA_RX_BUFFER_OFFSET, 0);
+>> -
+>>  		/* disable priority elevation */
+>>  		__raw_writel(0, &cpsw->regs->ptype);
+>>
+>> @@ -2710,6 +2706,8 @@ static int cpsw_probe(struct platform_device *pdev)
+>>  	dma_params.desc_align		= 16;
+>>  	dma_params.has_ext_regs		= true;
+>>  	dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
+>> +	dma_params.rxbuf_offset		= 0;
+>> +	dma_params.fixed_prio		= 1;
+>
+> Do we really need this new parameters? Do you have plans to use other values?
+I'm ok if this is static (equally as a bunch of rest in dma_params), no see reason to use other values,
+it at least now. But the issue is not only in these two parameters and not only in cpsw_ndo_open().
+It touches cpsw_set_channels() also, where ctlr stop/start is present.
+In order to not copy cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1)...
+in all such kind places in eth drivers, better to allow the cpdma to control it's parameters...
+
+The cpdma ctlr register holds a little more parameters (but only two of them are set in cpsw)
+Maybe there is reason to save them also. Actually I'd seen this problem when playing with
+on/off channel shapers, unfortunately the cpdma ctlr holds this info also, and it was lost
+while on/off (but I'm going to restore it in chan_start()).
+
+
+>
+
+-- 
+Regards,
+Ivan Khoronzhuk
