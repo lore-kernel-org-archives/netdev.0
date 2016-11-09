@@ -1,140 +1,87 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Virtio_net support vxlan encapsulation package TSO offload
- discuss
-Date: Wed, 9 Nov 2016 15:14:24 +0800
-Message-ID: <53d0322b-4ce1-d0db-4b53-f9e860ece2c5@redhat.com>
-References: <DBCD2614ECF3FF4087A2C27CA80E34DD5401AC8B@SZXEMA501-MBX.china.huawei.com>
- <c2f735e4-eddf-f737-2afe-35a93289f8d4@redhat.com>
- <3a0b8f10-f479-3ed5-dd10-5b92de3eb593@redhat.com>
- <DBCD2614ECF3FF4087A2C27CA80E34DD5401ADA8@SZXEMA501-MBX.china.huawei.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH for-next 03/11] IB/hns: Optimize the logic of allocating
+ memory using APIs
+Date: Wed, 9 Nov 2016 09:21:30 +0200
+Message-ID: <20161109072130.GH27883@leon.nu>
+References: <20161104163633.141880-1-salil.mehta@huawei.com>
+ <20161104163633.141880-4-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Vlad Yasevic <vyasevic@redhat.com>
-To: "Zhangming (James, Euler)" <james.zhangming@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50594 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751332AbcKIHOk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Nov 2016 02:14:40 -0500
-In-Reply-To: <DBCD2614ECF3FF4087A2C27CA80E34DD5401ADA8@SZXEMA501-MBX.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="5vjQsMS/9MbKYGLq"
+Cc: dledford@redhat.com, xavier.huwei@huawei.com, oulijun@huawei.com,
+        mehta.salil.lnk@gmail.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com, Ping Zhang <zhangping5@huawei.com>
+To: Salil Mehta <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161104163633.141880-4-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+--5vjQsMS/9MbKYGLq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 2016年11月08日 19:58, Zhangming (James, Euler) wrote:
-> On 2016年11月08日 19:17, Jason Wang wrote:
+On Fri, Nov 04, 2016 at 04:36:25PM +0000, Salil Mehta wrote:
+> From: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
 >
->> On 2016年11月08日 19:13, Jason Wang wrote:
->>> Cc Michael
->>>
->>> On 2016年11月08日 16:34, Zhangming (James, Euler) wrote:
->>>> In container scenario, OVS is installed in the Virtual machine, and
->>>> all the containers connected to the OVS will communicated through
->>>> VXLAN encapsulation.
->>>>
->>>> By now, virtio_net does not support TSO offload for VXLAN
->>>> encapsulated TSO package. In this condition, the performance is not
->>>> good, sender is bottleneck
->>>>
->>>> I googled this scenario, but I didn’t find any information. Will
->>>> virtio_net support VXLAN encapsulation package TSO offload later?
->>>>
->>> Yes and for both sender and receiver.
->>>
->>>> My idea is virtio_net open encapsulated TSO offload, and transport
->>>> encapsulation info to TUN, TUN will parse the info and build skb with
->>>> encapsulation info.
->>>>
->>>> OVS or kernel on the host should be modified to support this. Using
->>>> this method, the TCP performance aremore than 2x as before.
->>>>
->>>> Any advice and suggestions for this idea or new idea will be greatly
->>>> appreciated!
->>>>
->>>> Best regards,
->>>>
->>>>     James zhang
->>>>
->>> Sounds very good. And we may also need features bits
->>> (VIRTIO_NET_F_GUEST|HOST_GSO_X) for this.
->>>
->>> This is in fact one of items in networking todo list. (See
->>> http://www.linux-kvm.org/page/NetworkingTodo). While at it, we'd
->>> better support not only VXLAN but also other tunnels.
->> Cc Vlad who is working on extending virtio-net headers.
->>
->>> We can start with the spec work, or if you've already had some bits
->>> you can post them as RFC for early review.
->>>
->>> Thanks
-> Below is my demo code
-> Virtio_net.c
-> static int virtnet_probe(struct virtio_device *vdev), add belows codes:
->          if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||				// avoid gso segment, it should be negotiation later, because in the demo I reuse num_buffers.
->              virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
->                  dev->hw_enc_features |= NETIF_F_TSO;
->                  dev->hw_enc_features |= NETIF_F_ALL_CSUM;
->                  dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
->                  dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
->                  dev->hw_enc_features |= NETIF_F_GSO_TUNNEL_REMCSUM;
+> This patch modified the logic of allocating memory using APIs in
+> hns RoCE driver. We used kcalloc instead of kmalloc_array and
+> bitmap_zero. And When kcalloc failed, call vzalloc to alloc
+> memory.
 >
->                  dev->features |= NETIF_F_GSO_UDP_TUNNEL;
->                  dev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
->                  dev->features |= NETIF_F_GSO_TUNNEL_REMCSUM;
->          }
+> Signed-off-by: Wei Hu (Xavier) <xavier.huwei@huawei.com>
+> Signed-off-by: Ping Zhang <zhangping5@huawei.com>
+> Signed-off-by: Salil Mehta  <salil.mehta@huawei.com>
+> ---
+>  drivers/infiniband/hw/hns/hns_roce_mr.c |   15 ++++++++-------
+>  1 file changed, 8 insertions(+), 7 deletions(-)
 >
-> static int xmit_skb(struct send_queue *sq, struct sk_buff *skb), add below to pieces of codes
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_mr.c b/drivers/infiniband/hw/hns/hns_roce_mr.c
+> index fb87883..d3dfb5f 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_mr.c
+> +++ b/drivers/infiniband/hw/hns/hns_roce_mr.c
+> @@ -137,11 +137,12 @@ static int hns_roce_buddy_init(struct hns_roce_buddy *buddy, int max_order)
 >
->                  if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
->                          hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL;
->                  if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)
->                          hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL_CSUM;
->                  if (skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM)
->                          hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM;
->
->          if (skb->encapsulation && skb_is_gso(skb)) {
->                  inner_mac_len = skb_inner_network_header(skb) - skb_inner_mac_header(skb);
->                  tnl_len = skb_inner_mac_header(skb) - skb_mac_header(skb);
->                  if ( !(inner_mac_len >> DATA_LEN_SHIFT) && !(tnl_len >> DATA_LEN_SHIFT) ) {
->                          hdr->hdr.flags |= VIRTIO_NET_HDR_F_ENCAPSULATION;
->                          hdr->num_buffers = (__virtio16)((inner_mac_len << DATA_LEN_SHIFT) | tnl_len);		//we reuse num_buffers for simple , we should add extend member for later.
->                  }  else
->                          hdr->num_buffers = 0;
->          }
->
-> Tun.c
->                  if (memcpy_fromiovecend((void *)&hdr, iv, offset, tun->vnet_hdr_sz))		//read header with negotiation length
->                          return -EFAULT;
->
->                  if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL)					//set tunnel gso info
->                          skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
->                  if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_CSUM)
->                          skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
->                  if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM)
->                          skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
->
->          if (hdr.flags & VIRTIO_NET_HDR_F_ENCAPSULATION) {						//read tunnel info from header and set to built skb.
->                  tnl_len = tun16_to_cpu(tun, hdr.num_buffers) & TUN_TNL_LEN_MASK;
->                  payload_mac_len = tun16_to_cpu(tun, hdr.num_buffers) >> TUN_DATA_LEN_SHIFT;
->                  mac_len = skb_network_header(skb) - skb_mac_header(skb);
->                  skb_set_inner_mac_header(skb, tnl_len - mac_len);
->                  skb_set_inner_network_header(skb, tnl_len + payload_mac_len - mac_len);
->                  skb->encapsulation = 1;
->          }
->
->
+>  	for (i = 0; i <= buddy->max_order; ++i) {
+>  		s = BITS_TO_LONGS(1 << (buddy->max_order - i));
+> -		buddy->bits[i] = kmalloc_array(s, sizeof(long), GFP_KERNEL);
+> -		if (!buddy->bits[i])
+> -			goto err_out_free;
+> -
+> -		bitmap_zero(buddy->bits[i], 1 << (buddy->max_order - i));
+> +		buddy->bits[i] = kcalloc(s, sizeof(long), GFP_KERNEL);
+> +		if (!buddy->bits[i]) {
+> +			buddy->bits[i] = vzalloc(s * sizeof(long));
 
-Something like this, and you probably need do something more:
+I wonder, why don't you use directly vzalloc instead of kcalloc fallback?
 
-- use net-next.git to generate the patch (for the latest code)
-- add feature negotiation
-- tun/macvtap/qemu patches for this, you can start with tun/macvtap patches
-- support for all other SKB_GSO_* types which is not supported
-- use a new field instead of num_buffers
-- a virtio spec patch to describe the support for encapsulation offload
+> +			if (!buddy->bits[i])
+> +				goto err_out_free;
+> +		}
+>  	}
 
-Thanks
+--5vjQsMS/9MbKYGLq
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJYIs56AAoJEORje4g2clinpeAP/1Y5dEOVusc9e97LxEeAe+AN
+CoQe1btGX8WRhg4N52R2F4DkaKm1Y0XrJBZOBH+VwPz9sWv7NSIA0Sol50E/sf5j
+5OtQnQfBsONWMQtdqudvwC8/sW3NIkdlDiIiRTTcgD2YARPvgGNbQqOOBTCwcFCF
+6WAocSmecBhVjeGJ5PIZWLKL7IrsGeU9bZjE4lE0Q5tt7yuFau+9levs/SXAaNUD
+Ol1LJ/vasuubgt+JpXvpt8m0cxhqDH3QdDFv+j+0fPDI+PKjKB2CM+Ip6MnE/bt0
+fEfp8zwEhZi0KsXc6Uk6635kwz77z3m3tbgSYMTCzgPG+Ha5EzVUWevuVjZ0lbMZ
+OHcRd/Aoo2eKb3glR3cJ2Ti+V7EGqAabmtr/7lImlZIKQ32JyTh0j4KQ404RxAI6
+tw3M4E4Upds1d5p3wPHzbBA+xuv9j3byjxD6wn3a7wfApx+63F609uEaRQ9x/6Fg
+rA59ZTsPxleTApkTvkL57luciGx031TX+OnFnX0miT/AI8KEk+vN5b5mGmz3IdAI
+LhQu3SuJXUX9ZpnkunsX9T/Bz8kLJet2nTsD8vBMrYVgn2AncJMhmopAz97l82OT
+xWAnGARYW3r5hsrYkMIgQkRTun2wmQ6SAYadiGtW5ivdkDyjKnlqdz+HyfILeFN8
+7keB6ePdvdT7Qqf4NuOH
+=UmbZ
+-----END PGP SIGNATURE-----
+
+--5vjQsMS/9MbKYGLq--
