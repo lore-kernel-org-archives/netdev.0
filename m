@@ -1,113 +1,63 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: net/sctp: null-ptr-deref in sctp_inet_listen
-Date: Wed, 9 Nov 2016 11:32:08 +0800
-Message-ID: <CADvbK_dswzCgnQXMSiTOsODXP19epKkQsoUgLmv8PORhfAzwFA@mail.gmail.com>
-References: <CAAeHK+yCE-e2scjs=rUwr+XHmmCcd33P--7MVFmxrTQ_AFZcOA@mail.gmail.com>
- <CADvbK_eyG3pLMOws5wAOpvDUPUB2SknOCV5z6TLfJoKfj+Q27A@mail.gmail.com> <CAAeHK+yW+5qqPtiXt+5+HsDPj=czh2ppfcUi0qO0fEjGsaqFnQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:33049 "EHLO
-        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751100AbcKIDcK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 22:32:10 -0500
-In-Reply-To: <CAAeHK+yW+5qqPtiXt+5+HsDPj=czh2ppfcUi0qO0fEjGsaqFnQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ricky Liang <jcliang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH] mwifiex: fix memory leak in mwifiex_save_hidden_ssid_channels()
+Date: Wed,  9 Nov 2016 11:37:28 +0800
+Message-ID: <1478662648-70698-1-git-send-email-jcliang@chromium.org>
+Cc: Ricky Liang <jcliang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:MARVELL MWIFIEX WIRELESS
+        DRIVER), netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING DRIVERS),
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 9, 2016 at 2:46 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> Hi Xin,
->
-> Your patch seems to be fixing the issue.
->
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
->
-> Thanks!
->
-> On Tue, Nov 8, 2016 at 11:06 AM, Xin Long <lucien.xin@gmail.com> wrote:
->> On Tue, Nov 8, 2016 at 5:44 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->>> Hi,
->>>
->>> I've got the following error report while running the syzkaller fuzzer:
->>>
->>> kasan: CONFIG_KASAN_INLINE enabled
->>> kasan: GPF could be caused by NULL-ptr deref or user memory access
->>> general protection fault: 0000 [#1] SMP KASAN
->>> Modules linked in:
->>> CPU: 1 PID: 3851 Comm: a.out Not tainted 4.9.0-rc4+ #354
->>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->>> task: ffff880065f1d800 task.stack: ffff880063840000
->>> RIP: 0010:[<ffffffff8394151b>]  [<ffffffff8394151b>]
->>> sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
->>> RSP: 0018:ffff880063847dd0  EFLAGS: 00010202
->>> RAX: dffffc0000000000 RBX: 1ffff1000c708fbd RCX: 0000000000000000
->>> RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000002
->>> RBP: ffff880063847e70 R08: dffffc0000000000 R09: dffffc0000000000
->>> R10: 0000000000000002 R11: 0000000000000002 R12: ffff88006b350800
->>> R13: 0000000000000000 R14: 1ffff1000d66a1a5 R15: 0000000000000000
->>> FS:  00007fd1f0f3d7c0(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
->>> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->>> CR2: 0000000020000000 CR3: 0000000064af9000 CR4: 00000000000006e0
->>> Stack:
->>>  ffff880063847de0 ffff880066165900 ffff88006b350d20 0000000041b58ab3
->>>  ffffffff847ff589 ffffffff83941280 dffffc0000000000 0000000000000000
->>>  ffff880069b9f740 0000000000000000 ffff880063847e38 ffffffff819f04ef
->>> Call Trace:
->>>  [<     inline     >] SYSC_listen net/socket.c:1396
->>>  [<ffffffff82b73cf6>] SyS_listen+0x206/0x250 net/socket.c:1382
->>>  [<ffffffff83fc1501>] entry_SYSCALL_64_fastpath+0x1f/0xc2
->>> arch/x86/entry/entry_64.S:209
->>> Code: 00 0f 85 f4 04 00 00 4d 8b ac 24 28 05 00 00 49 b8 00 00 00 00
->>> 00 fc ff df 49 8d 7d 02 48 89 fe 49 89 fa 48 c1 ee 03 41 83 e2 07 <46>
->>> 0f b6 0c 06 41 83 c2 01 45 38 ca 7c 09 45 84 c9 0f 85 87 04
->>> RIP  [<ffffffff8394151b>] sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
->>>  RSP <ffff880063847dd0>
->>> ---[ end trace f2b501fc22999b37 ]---
->>>
->>> A reproducer is attached.
->>>
->>> On commit bc33b0ca11e3df467777a4fa7639ba488c9d4911 (Nov 5).
->>>
->> This is a shutdown injection issue.
->> sctp_shutdown need a sk->state check, just like tcp_shutdown:
->>
->> --- a/net/sctp/socket.c
->> +++ b/net/sctp/socket.c
->> @@ -4287,7 +4287,8 @@ static void sctp_shutdown(struct sock *sk, int how)
->>         if (!sctp_style(sk, TCP))
->>                 return;
->>
->> -       if (how & SEND_SHUTDOWN) {
->> +       if (how & SEND_SHUTDOWN &&
->> +           (1 << sk->sk_state) & (SCTP_SS_ESTABLISHED | SCTP_SS_CLOSING)) {
->>                 sk->sk_state = SCTP_SS_CLOSING;
->>                 ep = sctp_sk(sk)->ep;
->>                 if (!list_empty(&ep->asocs)) {
-this fix may break TYPE_SCTP_PRIMITIVE_SHUTDOWN statetable,
-could you give the following one a try ? thanks.
+kmemleak reports memory leak in mwifiex_save_hidden_ssid_channels():
 
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4288,9 +4288,9 @@ static void sctp_shutdown(struct sock *sk, int how)
-                return;
+unreferenced object 0xffffffc0a2914780 (size 192):
+  comm "ksdioirqd/mmc2", pid 2004, jiffies 4307182506 (age 820.684s)
+  hex dump (first 32 bytes):
+    00 06 47 49 4e 2d 32 67 01 03 c8 60 6c 03 01 40  ..GIN-2g...`l..@
+    07 10 54 57 20 34 04 1e 64 05 24 84 03 24 95 04  ..TW 4..d.$..$..
+  backtrace:
+    [<ffffffc0003375f4>] create_object+0x164/0x2b4
+    [<ffffffc0008e3530>] kmemleak_alloc+0x50/0x88
+    [<ffffffc000335120>] __kmalloc_track_caller+0x1bc/0x264
+    [<ffffffc00030899c>] kmemdup+0x38/0x64
+    [<ffffffbffc2311cc>] mwifiex_fill_new_bss_desc+0x3c/0x130 [mwifiex]
+    [<ffffffbffc22ee9c>] mwifiex_save_curr_bcn+0x4ec/0x640 [mwifiex]
+    [<ffffffbffc22f45c>] mwifiex_handle_event_ext_scan_report+0x1d4/0x268 [mwifiex]
+    [<ffffffbffc2375d0>] mwifiex_process_sta_event+0x378/0x898 [mwifiex]
+    [<ffffffbffc224dc8>] mwifiex_process_event+0x1a8/0x1e8 [mwifiex]
+    [<ffffffbffc2228f0>] mwifiex_main_process+0x258/0x534 [mwifiex]
+    [<ffffffbffc258858>] 0xffffffbffc258858
+    [<ffffffc00071ee90>] process_sdio_pending_irqs+0xf8/0x160
+    [<ffffffc00071efdc>] sdio_irq_thread+0x9c/0x1a4
+    [<ffffffc000240d08>] kthread+0xf4/0x100
+    [<ffffffc0002043fc>] ret_from_fork+0xc/0x50
+    [<ffffffffffffffff>] 0xffffffffffffffff
 
-        if (how & SEND_SHUTDOWN) {
--               sk->sk_state = SCTP_SS_CLOSING;
-                ep = sctp_sk(sk)->ep;
-                if (!list_empty(&ep->asocs)) {
-+                       sk->sk_state = SCTP_SS_CLOSING;
-                        asoc = list_entry(ep->asocs.next,
-                                          struct sctp_association, asocs);
-                        sctp_primitive_SHUTDOWN(net, asoc, NULL);
+Signed-off-by: Ricky Liang <jcliang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+ drivers/net/wireless/marvell/mwifiex/scan.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
+index 97c9765..98ce072 100644
+--- a/drivers/net/wireless/marvell/mwifiex/scan.c
++++ b/drivers/net/wireless/marvell/mwifiex/scan.c
+@@ -1671,6 +1671,10 @@ static int mwifiex_save_hidden_ssid_channels(struct mwifiex_private *priv,
+ 	}
+ 
+ done:
++	/* beacon_ie buffer was allocated in function
++	 * mwifiex_fill_new_bss_desc(). Free it now.
++	 */
++	kfree(bss_desc->beacon_buf);
+ 	kfree(bss_desc);
+ 	return 0;
+ }
+-- 
+2.6.6
