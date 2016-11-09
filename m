@@ -1,54 +1,36 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 1/2] Documentation: devicetree: Add bindings info for
- rfkill-regulator
-Date: Wed, 9 Nov 2016 12:26:12 -0600
-Message-ID: <20161109182612.i4rnsdxulk5ghemz@rob-hp-laptop>
-References: <20161101105840.24313-1-paul@crapouillou.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] Revert "net/mlx4_en: Fix panic during reboot"
+Date: Wed, 09 Nov 2016 13:30:36 -0500 (EST)
+Message-ID: <20161109.133036.2136919717437832633.davem@davemloft.net>
+References: <1478448306-28738-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Maarten ter Huurne <maarten@treewalker.org>
-To: Paul Cercueil <paul@crapouillou.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161101105840.24313-1-paul@crapouillou.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com, eugenia@mellanox.com,
+        saeedm@mellanox.com
+To: tariqt@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38554 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751095AbcKISah (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:30:37 -0500
+In-Reply-To: <1478448306-28738-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 01, 2016 at 11:58:39AM +0100, Paul Cercueil wrote:
-> This document gives information about how to write a devicetree
-> node that corresponds to the rfkill-regulator driver.
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Sun,  6 Nov 2016 18:05:06 +0200
+
+> This reverts commit 9d2afba058722d40cc02f430229c91611c0e8d16.
 > 
-> Signed-off-by: Paul Cercueil <paul@crapouillou.net>
-> ---
->  .../devicetree/bindings/net/rfkill-regulator.txt       | 18 ++++++++++++++++++
->  1 file changed, 18 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/rfkill-regulator.txt
+> The original issue would possibly exist if an external module
+> tried calling our "ethtool_ops" without checking if it still
+> exists.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/rfkill-regulator.txt b/Documentation/devicetree/bindings/net/rfkill-regulator.txt
-> new file mode 100644
-> index 0000000..aac2fe1
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/rfkill-regulator.txt
-> @@ -0,0 +1,18 @@
-> +Device tree bindings for the rfkill-regulator driver
-> +
-> +Required properties:
-> +  - compatible:	should be "rfkill-regulator"
-> +  - rfkill-name:	the name of this rfkill device
-> +  - rfkill-type:	the type of this rfkill device;
-> +			must correspond to a valid rfkill_type from <uapi/linux/rfkill.h>
-> +  - vrfkill-supply:	phandle to a regulator
+> The right way of solving it is by simply doing the check in
+> the caller side.
+> Currently, no action is required as there's no such use case.
+> 
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 
-My understanding is it is generally felt that using the regulator enable 
-GPIO commonly found on WiFi chips for rfkill is an abuse of rfkill as it 
-is more that just an RF disable. From a DT standpoint, this seems like 
-creating a binding for what a Linux driver wants. Instead, I think this 
-should be either a GPIO or GPIO regulator and the driver for the WiFi 
-chip should decide whether or not to register that as an rfkill driver.
-
-Rob
+Applied.
