@@ -1,104 +1,54 @@
-From: Scott Branden <scott.branden@broadcom.com>
-Subject: Re: [PATCH 1/6] dt-bindings: mdio-mux: Add documentation for mdio mux
- for NSP SoC
-Date: Wed, 9 Nov 2016 14:23:42 -0800
-Message-ID: <54363ca1-333a-52e6-911c-cc394256be97@broadcom.com>
-References: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
- <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Ray Jui <rjui@broadcom.com>,
-        Scott Branden <sbranden@broadcom.com>,
-        Jon Mason <jonmason@broadcom.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Kishon Vijay Abraham I <kishon@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 01/17] batman-adv: Introduce missing headers
+	for genetlink restructure
+Date: Wed,  9 Nov 2016 23:25:50 +0100
+Message-ID: <20161109222606.29039-2-sw@simonwunderlich.de>
+References: <20161109222606.29039-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161109222606.29039-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-One change
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-On 16-11-09 01:33 AM, Yendapally Reddy Dhananjaya Reddy wrote:
-> Add documentation for mdio mux available in Broadcom NSP SoC
->
-> Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
-> ---
->  .../devicetree/bindings/net/brcm,mdio-mux-nsp.txt  | 57 ++++++++++++++++++++++
->  1 file changed, 57 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
-> new file mode 100644
-> index 0000000..b749a2b
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
-> @@ -0,0 +1,57 @@
-> +Properties for an MDIO bus multiplexer available in Broadcom NSP SoC.
-> +
-> +This MDIO bus multiplexer defines buses that could access the internal
-> +phys as well as external to SoCs. When child bus is selected, one needs
-> +to select the below properties to generate desired MDIO transaction on
-> +appropriate bus.
-> +
-> +Required properties in addition to the generic multiplexer properties:
-> +
-> +MDIO multiplexer node:
-> +- compatible: brcm,mdio-mux-iproc.
-This should be brcm,mdio-mux-nsp
+Fixes: 56989f6d8568 ("genetlink: mark families as __ro_after_init")
+Fixes: 2ae0f17df1cd ("genetlink: use idr to track families")
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+---
+ net/batman-adv/netlink.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-> +- reg: Should contain registers location and length.
-> +- reg-names: Should contain the resource reg names.
-> +	- bus-ctrl: mdio bus control register address space required to
-> +	  select the bus master. This property is not required for SoC's
-> +	  that doesn't provide master selection.
-> +	- mgmt-ctrl: mdio management control register address space
-> +
-> +Sub-nodes:
-> +   Each bus master should be represented as a sub-node.
-> +
-> +Sub-nodes required properties:
-> +- reg: Bus master number. Should be 0x10 to access the external mdio devices.
-> +- address-cells: should be 1
-> +- size-cells: should be 0
-> +
-> +Every non-ethernet PHY requires a compatible property so that it could be
-> +probed based on this compatible string.
-> +
-> +Additional information regarding generic multiplexer properties can be found
-> +at- Documentation/devicetree/bindings/net/mdio-mux.txt
-> +
-> +example:
-> +
-> +	mdio_mux: mdio-mux@3f190 {
-> +		compatible = "brcm,mdio-mux-nsp";
-> +		reg = <0x3f190 0x4>,
-> +		      <0x32000 0x4>;
-> +		reg-names = "bus-ctrl", "mgmt-ctrl";
-> +		mdio-parent-bus = <&mdio>;
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +
-> +		mdio@0 {
-> +			reg = <0x0>;
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +
-> +			usb3_phy: usb3-phy@10 {
-> +				compatible = "brcm,nsp-usb3-phy";
-> +				reg = <0x10>;
-> +				usb3-ctrl-syscon = <&usb3_ctrl>;
-> +				#phy-cells = <0>;
-> +				status = "disabled";
-> +			};
-> +		};
-> +	};
->
+diff --git a/net/batman-adv/netlink.c b/net/batman-adv/netlink.c
+index 005012b..2171281 100644
+--- a/net/batman-adv/netlink.c
++++ b/net/batman-adv/netlink.c
+@@ -20,11 +20,14 @@
+ 
+ #include <linux/atomic.h>
+ #include <linux/byteorder/generic.h>
++#include <linux/cache.h>
+ #include <linux/errno.h>
++#include <linux/export.h>
+ #include <linux/fs.h>
+ #include <linux/genetlink.h>
+ #include <linux/if_ether.h>
+ #include <linux/init.h>
++#include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <linux/netlink.h>
+ #include <linux/printk.h>
+-- 
+2.10.1
