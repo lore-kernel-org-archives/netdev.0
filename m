@@ -1,59 +1,41 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 06/17] batman-adv: Remove unused
-	skb_reset_mac_header()
-Date: Wed,  9 Nov 2016 23:25:55 +0100
-Message-ID: <20161109222606.29039-7-sw@simonwunderlich.de>
-References: <20161109222606.29039-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [bug report] genetlink: fix error return code in genl_register_family()
+Date: Wed, 9 Nov 2016 14:43:34 -0800
+Message-ID: <CAM_iQpXySa6i6_Gtue1gbaHGZq5DG6SMvdO=ufGousUDKCGocw@mail.gmail.com>
+References: <20161109095613.GA24471@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20161109222606.29039-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: weiyongjun1@huawei.com, kernel-janitors@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36285 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751550AbcKIWn4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 17:43:56 -0500
+In-Reply-To: <20161109095613.GA24471@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Cc'ing netdev
 
-During broadcast queueing, the skb_reset_mac_header() sets the skb
-to a place invalid for a MAC header, pointing right into the
-batman-adv broadcast packet. Luckily, no one seems to actually use
-eth_hdr(skb) afterwards until batadv_send_skb_packet() resets the
-header to a valid position again.
+On Wed, Nov 9, 2016 at 1:56 AM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+> Hello Wei Yongjun,
+>
+> The patch 22ca904ad70a: "genetlink: fix error return code in
+> genl_register_family()" from Nov 1, 2016, leads to the following
+> static checker warning:
+>
+>         net/netlink/genetlink.c:365 genl_register_family()
+>         warn: unsigned 'family->id' is never less than zero.
+>
+> net/netlink/genetlink.c
+>    362
+>    363          family->id = idr_alloc(&genl_fam_idr, family,
+>    364                                 start, end + 1, GFP_KERNEL);
+>    365          if (family->id < 0) {
+>                     ^^^^^^^^^^^^^^
+> Doesn't work for unsigned int.
 
-Therefore removing this unnecessary, weird skb_reset_mac_header()
-call.
 
-Signed-off-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
----
- net/batman-adv/send.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index e1e9136..be3f6d7 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -586,8 +586,6 @@ int batadv_add_bcast_packet_to_list(struct batadv_priv *bat_priv,
- 	bcast_packet = (struct batadv_bcast_packet *)newskb->data;
- 	bcast_packet->ttl--;
- 
--	skb_reset_mac_header(newskb);
--
- 	forw_packet->skb = newskb;
- 
- 	INIT_DELAYED_WORK(&forw_packet->delayed_work,
--- 
-2.10.1
+family->id should be signed int.
