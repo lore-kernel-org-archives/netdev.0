@@ -1,91 +1,47 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp: remove unaligned accesses from tcp_get_info()
-Date: Wed, 9 Nov 2016 12:46:21 -0800
-Message-ID: <CAK6E8=cQmgqfqXudceG6vJcg8=HA5st3v=THgTkjv-QtVSiLtA@mail.gmail.com>
-References: <1478285672-3195-1-git-send-email-edumazet@google.com>
- <20161109.130319.505221196913812307.davem@davemloft.net> <1478717921.16809.0.camel@edumazet-glaptop3.roam.corp.google.com>
- <1478719462.16809.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net 0/2] qed: Fix RoCE infrastructure
+Date: Wed, 9 Nov 2016 22:48:42 +0200
+Message-ID: <1478724524-16940-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:37888 "EHLO
-        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752675AbcKIUrD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 15:47:03 -0500
-Received: by mail-it0-f54.google.com with SMTP id q124so296001668itd.1
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 12:47:02 -0800 (PST)
-In-Reply-To: <1478719462.16809.15.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 9, 2016 at 11:24 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> From: Eric Dumazet <edumazet@google.com>
->
-> After commit 6ed46d1247a5 ("sock_diag: align nlattr properly when
-> needed"), tcp_get_info() gets 64bit aligned memory, so we can avoid
-> the unaligned helpers.
->
-> Suggested-by: David Miller <davem@davemloft.net>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+This series fixes 2 basic issues with RoCE support,
+one handles a missing configuration in the initial infrastructure
+support while the other is a regression introduced by one of the
+initial fix submissions.
 
+Dave,
 
-> ---
->  net/ipv4/tcp.c |   11 +++++------
->  1 file changed, 5 insertions(+), 6 deletions(-)
->
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index a7d54cbcdabbbc0838c00e05074ef15560665f2d..f8f924ca662d5c84e438a6eacbe8f734ff0674ae 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -279,7 +279,6 @@
->
->  #include <asm/uaccess.h>
->  #include <asm/ioctls.h>
-> -#include <asm/unaligned.h>
->  #include <net/busy_poll.h>
->
->  int sysctl_tcp_min_tso_segs __read_mostly = 2;
-> @@ -2722,11 +2721,11 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->         /* Report meaningful fields for all TCP states, including listeners */
->         rate = READ_ONCE(sk->sk_pacing_rate);
->         rate64 = rate != ~0U ? rate : ~0ULL;
-> -       put_unaligned(rate64, &info->tcpi_pacing_rate);
-> +       info->tcpi_pacing_rate = rate64;
->
->         rate = READ_ONCE(sk->sk_max_pacing_rate);
->         rate64 = rate != ~0U ? rate : ~0ULL;
-> -       put_unaligned(rate64, &info->tcpi_max_pacing_rate);
-> +       info->tcpi_max_pacing_rate = rate64;
->
->         info->tcpi_reordering = tp->reordering;
->         info->tcpi_snd_cwnd = tp->snd_cwnd;
-> @@ -2792,8 +2791,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->
->         slow = lock_sock_fast(sk);
->
-> -       put_unaligned(tp->bytes_acked, &info->tcpi_bytes_acked);
-> -       put_unaligned(tp->bytes_received, &info->tcpi_bytes_received);
-> +       info->tcpi_bytes_acked = tp->bytes_acked;
-> +       info->tcpi_bytes_received = tp->bytes_received;
->         info->tcpi_notsent_bytes = max_t(int, 0, tp->write_seq - tp->snd_nxt);
->
->         unlock_sock_fast(sk, slow);
-> @@ -2811,7 +2810,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->         if (rate && intv) {
->                 rate64 = (u64)rate * tp->mss_cache * USEC_PER_SEC;
->                 do_div(rate64, intv);
-> -               put_unaligned(rate64, &info->tcpi_delivery_rate);
-> +               info->tcpi_delivery_rate = rate64;
->         }
->  }
->  EXPORT_SYMBOL_GPL(tcp_get_info);
->
->
+I've built this series against 'net'  [specifically on top of
+cdb26d3387f0 ("net: bgmac: fix reversed checks for clock control flag")],
+but I'm not entirely convinced whether that's the right place for them -
+On one-hand, they're RoCE-specific fixes, but they're also infrastructure
+fixes that are wholly contained inside qed.
+Would like to hear your [and Doug's] preference on whether we should
+target such patches to net or linux-rdma.
+
+Thanks,
+Yuval
+
+Ram Amrani (2):
+  qed: configure ll2 RoCE v1/v2 flavor correctly
+  qed: correct rdma params configuration
+
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h  |  3 ---
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c  |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 17 ++++++++---------
+ 3 files changed, 9 insertions(+), 12 deletions(-)
+
+-- 
+1.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
