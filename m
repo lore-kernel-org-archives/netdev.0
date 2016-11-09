@@ -1,45 +1,38 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 2/2] soc: qcom: smem_state: Fix include for ERR_PTR()
-Date: Wed,  9 Nov 2016 10:02:51 -0800
-Message-ID: <1478714571-4841-2-git-send-email-bjorn.andersson@linaro.org>
-References: <1478714571-4841-1-git-send-email-bjorn.andersson@linaro.org>
-Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andy Gross <andy.gross@linaro.org>,
-        Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478714571-4841-1-git-send-email-bjorn.andersson@linaro.org>
-In-Reply-To: <201611092150.OxpAuHow%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] tcp: tcp_get_info() locking changes
+Date: Wed, 09 Nov 2016 13:03:19 -0500 (EST)
+Message-ID: <20161109.130319.505221196913812307.davem@davemloft.net>
+References: <1478285672-3195-1-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+        soheil@google.com, eric.dumazet@gmail.com
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37890 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754641AbcKISDV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:03:21 -0500
+In-Reply-To: <1478285672-3195-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The correct include file for getting errno constants and ERR_PTR() is
-linux/err.h, rather than linux/errno.h, so fix the include.
+From: Eric Dumazet <edumazet@google.com>
+Date: Fri,  4 Nov 2016 11:54:30 -0700
 
-Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
-Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
----
+> This short series prepares tcp_get_info() for more detailed infos.
+> 
+> In order to not slow down fast path, our goal is to use the normal
+> socket spinlock instead of custom synchronization.
+> 
+> All we need to ensure is that tcp_get_info() is not called with
+> ehash lock, which might dead lock, since packet processing would acquire
+> the spinlocks in reverse way.
 
-Andy, I don't see anything else going into v4.10 for smem_state.h. So if you
-are okay I would like Kalle to pick this patch through his tree and be able to
-merge my wcn36xx patches for v4.10.
+Looks really nice, series applied, thanks Eric.
 
- include/linux/soc/qcom/smem_state.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+BTW, can we possibly use the netlink NOP trick to align the netlink
+attribute data here and avoid these unaligned accesses?
 
-diff --git a/include/linux/soc/qcom/smem_state.h b/include/linux/soc/qcom/smem_state.h
-index 7b88697929e9..b8478ee7a71f 100644
---- a/include/linux/soc/qcom/smem_state.h
-+++ b/include/linux/soc/qcom/smem_state.h
-@@ -1,7 +1,7 @@
- #ifndef __QCOM_SMEM_STATE__
- #define __QCOM_SMEM_STATE__
- 
--#include <linux/errno.h>
-+#include <linux/err.h>
- 
- struct device_node;
- struct qcom_smem_state;
--- 
-2.5.0
+Thanks again.
