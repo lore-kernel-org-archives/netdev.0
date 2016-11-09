@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bna: Add synchronization for tx ring.
-Date: Wed, 09 Nov 2016 13:32:33 -0500 (EST)
-Message-ID: <20161109.133233.218503199113292279.davem@davemloft.net>
-References: <20161107095756.15343-1-bpoirier@suse.com>
+Subject: Re: [PATCH net] net: bgmac: fix reversed checks for clock control
+ flag
+Date: Wed, 09 Nov 2016 13:32:42 -0500 (EST)
+Message-ID: <20161109.133242.427186215971765834.davem@davemloft.net>
+References: <20161107125327.5375-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rasesh.mody@cavium.com,
-        sudarsana.kalluru@cavium.com, Dept-GELinuxNICDev@cavium.com
-To: bpoirier@suse.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+        bcm-kernel-feedback-list@broadcom.com, rafal@milecki.pl,
+        jon.mason@broadcom.com
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38696 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38712 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752429AbcKIScf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:32:35 -0500
-In-Reply-To: <20161107095756.15343-1-bpoirier@suse.com>
+        with ESMTP id S1753972AbcKISco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:32:44 -0500
+In-Reply-To: <20161107125327.5375-1-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.com>
-Date: Mon,  7 Nov 2016 17:57:56 +0800
+From: Rafa©© Mi©©ecki <zajec5@gmail.com>
+Date: Mon,  7 Nov 2016 13:53:27 +0100
 
-> We received two reports of BUG_ON in bnad_txcmpl_process() where
-> hw_consumer_index appeared to be ahead of producer_index. Out of order
-> write/read of these variables could explain these reports.
+> From: Rafa©© Mi©©ecki <rafal@milecki.pl>
 > 
-> bnad_start_xmit(), as a producer of tx descriptors, has a few memory
-> barriers sprinkled around writes to producer_index and the device's
-> doorbell but they're not paired with anything in bnad_txcmpl_process(), a
-> consumer.
+> This fixes regression introduced by patch adding feature flags. It was
+> already reported and patch followed (it got accepted) but it appears it
+> was incorrect. Instead of fixing reversed condition it broke a good one.
 > 
-> Since we are synchronizing with a device, we must use mandatory barriers,
-> not smp_*. Also, I didn't see the purpose of the last smp_mb() in
-> bnad_start_xmit().
+> This patch was verified to actually fix SoC hanges caused by bgmac on
+> BCM47186B0.
 > 
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> Fixes: db791eb2970b ("net: ethernet: bgmac: convert to feature flags")
+> Fixes: 4af1474e6198 ("net: bgmac: Fix errant feature flag check")
+> Cc: Jon Mason <jon.mason@broadcom.com>
+> Signed-off-by: Rafa©© Mi©©ecki <rafal@milecki.pl>
 
 Applied.
