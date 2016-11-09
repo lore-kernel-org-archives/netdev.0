@@ -1,39 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: core: add missing check for uid_range in
- rule_exists.
-Date: Wed, 09 Nov 2016 13:28:27 -0500 (EST)
-Message-ID: <20161109.132827.579982211587371286.davem@davemloft.net>
-References: <1478445385-94937-1-git-send-email-lorenzo@google.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/2] Documentation: devicetree: Add bindings info for
+ rfkill-regulator
+Date: Wed, 9 Nov 2016 12:26:12 -0600
+Message-ID: <20161109182612.i4rnsdxulk5ghemz@rob-hp-laptop>
+References: <20161101105840.24313-1-paul@crapouillou.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ek@google.com, eric.dumazet@gmail.com,
-        zenczykowski@gmail.com
-To: lorenzo@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38524 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751847AbcKIS22 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:28:28 -0500
-In-Reply-To: <1478445385-94937-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Maarten ter Huurne <maarten@treewalker.org>
+To: Paul Cercueil <paul@crapouillou.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161101105840.24313-1-paul@crapouillou.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Mon,  7 Nov 2016 00:16:25 +0900
-
-> Without this check, it is not possible to create two rules that
-> are identical except for their UID ranges. For example:
+On Tue, Nov 01, 2016 at 11:58:39AM +0100, Paul Cercueil wrote:
+> This document gives information about how to write a devicetree
+> node that corresponds to the rfkill-regulator driver.
 > 
-> root@net-test:/# ip rule add prio 1000 lookup 300
-> root@net-test:/# ip rule add prio 1000 uidrange 100-200 lookup 300
-> RTNETLINK answers: File exists
-> root@net-test:/# ip rule add prio 1000 uidrange 100-199 lookup 100
-> root@net-test:/# ip rule add prio 1000 uidrange 200-299 lookup 200
-> root@net-test:/# ip rule add prio 1000 uidrange 300-399 lookup 100
-> RTNETLINK answers: File exists
+> Signed-off-by: Paul Cercueil <paul@crapouillou.net>
+> ---
+>  .../devicetree/bindings/net/rfkill-regulator.txt       | 18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/rfkill-regulator.txt
 > 
-> Tested: https://android-review.googlesource.com/#/c/299980/
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> diff --git a/Documentation/devicetree/bindings/net/rfkill-regulator.txt b/Documentation/devicetree/bindings/net/rfkill-regulator.txt
+> new file mode 100644
+> index 0000000..aac2fe1
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/rfkill-regulator.txt
+> @@ -0,0 +1,18 @@
+> +Device tree bindings for the rfkill-regulator driver
+> +
+> +Required properties:
+> +  - compatible:	should be "rfkill-regulator"
+> +  - rfkill-name:	the name of this rfkill device
+> +  - rfkill-type:	the type of this rfkill device;
+> +			must correspond to a valid rfkill_type from <uapi/linux/rfkill.h>
+> +  - vrfkill-supply:	phandle to a regulator
 
-Applied.
+My understanding is it is generally felt that using the regulator enable 
+GPIO commonly found on WiFi chips for rfkill is an abuse of rfkill as it 
+is more that just an RF disable. From a DT standpoint, this seems like 
+creating a binding for what a Linux driver wants. Instead, I think this 
+should be either a GPIO or GPIO regulator and the driver for the WiFi 
+chip should decide whether or not to register that as an rfkill driver.
+
+Rob
