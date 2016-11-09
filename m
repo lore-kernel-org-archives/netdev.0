@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net-next 02/17] net: hns: add fuzzy match of tcam table for hns
-Date: Wed, 9 Nov 2016 18:13:46 +0000
-Message-ID: <20161109181401.913728-3-salil.mehta@huawei.com>
+Subject: [PATCH net-next 17/17] net: hns: add the support to add/remove the ucast entry to/from table
+Date: Wed, 9 Nov 2016 18:14:01 +0000
+Message-ID: <20161109181401.913728-18-salil.mehta@huawei.com>
 References: <20161109181401.913728-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,429 +10,286 @@ Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
         Kejian Yan <yankejian@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:56871 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932242AbcKIUea (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 15:34:30 -0500
 In-Reply-To: <20161109181401.913728-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kejian Yan <yankejian@huawei.com>
 
-Since there is not enough tcam table entries for vlan and multicast
-address, HNSv2 needs to add support of fuzzy matching of TCAM tables.
-To add fuzzy match of TCAM, we Add the property to mask the bits to
-be fuzzy matched
+This patch adds the support to add or remove the unicast entries
+to the table and remove from the table.
 
+Reported-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |   16 ++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |    8 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  140 ++++++++++++++------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |    6 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |    2 +
- 5 files changed, 118 insertions(+), 54 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |    8 ++++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |   24 ++++++++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |   40 ++++++++++++++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |    4 ++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   49 ++++++++++++++++++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |    4 ++
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      |   26 +++++++++++
+ 7 files changed, 155 insertions(+)
 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 55c0334..09602f1 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -430,6 +430,10 @@ enum hnae_media_type {
+  *   clear mcast tcam table
+  * set_mc_addr()
+  *   set multicast mode
++ * add_uc_addr()
++ *   add ucast address
++ * rm_uc_addr()
++ *   remove ucast address
+  * set_mtu()
+  *   set mtu
+  * update_stats()
+@@ -490,6 +494,10 @@ struct hnae_ae_ops {
+ 	void (*set_promisc_mode)(struct hnae_handle *handle, u32 en);
+ 	int (*get_mac_addr)(struct hnae_handle *handle, void **p);
+ 	int (*set_mac_addr)(struct hnae_handle *handle, void *p);
++	int (*add_uc_addr)(struct hnae_handle *handle,
++			   const unsigned char *addr);
++	int (*rm_uc_addr)(struct hnae_handle *handle,
++			  const unsigned char *addr);
+ 	int (*clr_mc_addr)(struct hnae_handle *handle);
+ 	int (*set_mc_addr)(struct hnae_handle *handle, void *addr);
+ 	int (*set_mtu)(struct hnae_handle *handle, int new_mtu);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index 366b25b..0a9cdf0 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -199,6 +199,28 @@ static int hns_ae_set_mac_address(struct hnae_handle *handle, void *p)
+ 	return 0;
+ }
+ 
++static int hns_ae_add_uc_address(struct hnae_handle *handle,
++				 const unsigned char *addr)
++{
++	struct hns_mac_cb *mac_cb = hns_get_mac_cb(handle);
++
++	if (mac_cb->mac_type != HNAE_PORT_SERVICE)
++		return -ENOSPC;
++
++	return hns_mac_add_uc_addr(mac_cb, handle->vf_id, addr);
++}
++
++static int hns_ae_rm_uc_address(struct hnae_handle *handle,
++				const unsigned char *addr)
++{
++	struct hns_mac_cb *mac_cb = hns_get_mac_cb(handle);
++
++	if (mac_cb->mac_type != HNAE_PORT_SERVICE)
++		return -ENOSPC;
++
++	return hns_mac_rm_uc_addr(mac_cb, handle->vf_id, addr);
++}
++
+ static int hns_ae_set_multicast_one(struct hnae_handle *handle, void *addr)
+ {
+ 	int ret;
+@@ -830,6 +852,8 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 	.get_coalesce_range = hns_ae_get_coalesce_range,
+ 	.set_promisc_mode = hns_ae_set_promisc_mode,
+ 	.set_mac_addr = hns_ae_set_mac_address,
++	.add_uc_addr = hns_ae_add_uc_address,
++	.rm_uc_addr = hns_ae_rm_uc_address,
+ 	.set_mc_addr = hns_ae_set_multicast_one,
+ 	.clr_mc_addr = hns_ae_clr_multicast,
+ 	.set_mtu = hns_ae_set_mtu,
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 55cbb6c..2d64f53 100644
+index 266417d..3239d27 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -335,8 +335,7 @@ static void hns_mac_param_get(struct mac_params *param,
- {
- 	param->vaddr = (void *)mac_cb->vaddr;
- 	param->mac_mode = hns_get_enet_interface(mac_cb);
--	memcpy(param->addr, mac_cb->addr_entry_idx[0].addr,
--	       MAC_NUM_OCTETS_PER_ADDR);
-+	ether_addr_copy(param->addr, mac_cb->addr_entry_idx[0].addr);
- 	param->mac_id = mac_cb->mac_id;
- 	param->dev = mac_cb->dev;
- }
-@@ -353,8 +352,7 @@ static int hns_mac_port_config_bc_en(struct hns_mac_cb *mac_cb,
- {
- 	int ret;
- 	struct dsaf_device *dsaf_dev = mac_cb->dsaf_dev;
--	u8 addr[MAC_NUM_OCTETS_PER_ADDR]
--		= {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-+	u8 addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
- 	struct dsaf_drv_mac_single_dest_entry mac_entry;
- 
- 	/* directy return ok in debug network mode */
-@@ -389,8 +387,7 @@ int hns_mac_vm_config_bc_en(struct hns_mac_cb *mac_cb, u32 vmid, bool enable)
- 	int ret;
- 	struct dsaf_device *dsaf_dev = mac_cb->dsaf_dev;
- 	u8 port_num;
--	u8 addr[MAC_NUM_OCTETS_PER_ADDR]
--		= {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-+	u8 addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
- 	struct mac_entry_idx *uc_mac_entry;
- 	struct dsaf_drv_mac_single_dest_entry mac_entry;
- 
-@@ -868,6 +865,13 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
- 		}
- 	}
- 
-+	if (fwnode_property_read_u8_array(mac_cb->fw_port, "mc-mac-mask",
-+					  mac_cb->mc_mask, ETH_ALEN)) {
-+		dev_warn(mac_cb->dev,
-+			 "no mc-mac-mask property, set to default value.\n");
-+		eth_broadcast_addr(mac_cb->mc_mask);
-+	}
-+
+@@ -263,6 +263,46 @@ int hns_mac_change_vf_addr(struct hns_mac_cb *mac_cb,
  	return 0;
  }
  
++int hns_mac_add_uc_addr(struct hns_mac_cb *mac_cb, u8 vf_id,
++			const unsigned char *addr)
++{
++	struct dsaf_device *dsaf_dev = mac_cb->dsaf_dev;
++	struct dsaf_drv_mac_single_dest_entry mac_entry;
++	int ret;
++
++	if (HNS_DSAF_IS_DEBUG(dsaf_dev))
++		return -ENOSPC;
++
++	memset(&mac_entry, 0, sizeof(mac_entry));
++	memcpy(mac_entry.addr, addr, sizeof(mac_entry.addr));
++	mac_entry.in_port_num = mac_cb->mac_id;
++	ret = hns_mac_get_inner_port_num(mac_cb, vf_id, &mac_entry.port_num);
++	if (ret)
++		return ret;
++
++	return hns_dsaf_set_mac_uc_entry(dsaf_dev, &mac_entry);
++}
++
++int hns_mac_rm_uc_addr(struct hns_mac_cb *mac_cb, u8 vf_id,
++		       const unsigned char *addr)
++{
++	struct dsaf_device *dsaf_dev = mac_cb->dsaf_dev;
++	struct dsaf_drv_mac_single_dest_entry mac_entry;
++	int ret;
++
++	if (HNS_DSAF_IS_DEBUG(dsaf_dev))
++		return -ENOSPC;
++
++	memset(&mac_entry, 0, sizeof(mac_entry));
++	memcpy(mac_entry.addr, addr, sizeof(mac_entry.addr));
++	mac_entry.in_port_num = mac_cb->mac_id;
++	ret = hns_mac_get_inner_port_num(mac_cb, vf_id, &mac_entry.port_num);
++	if (ret)
++		return ret;
++
++	return hns_dsaf_rm_mac_addr(dsaf_dev, &mac_entry);
++}
++
+ int hns_mac_set_multi(struct hns_mac_cb *mac_cb,
+ 		      u32 port_num, char *addr, bool enable)
+ {
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index d3a1f72..1d941d5 100644
+index d896452..2bb3d1e 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -56,9 +56,6 @@
- /*check mac addr multicast*/
- #define MAC_IS_MULTICAST(p)	((*((u8 *)((p) + 0)) & 0x01) ? (1) : (0))
+@@ -461,6 +461,10 @@ int hns_cpld_led_set_id(struct hns_mac_cb *mac_cb,
+ void hns_mac_set_promisc(struct hns_mac_cb *mac_cb, u8 en);
+ int hns_mac_get_inner_port_num(struct hns_mac_cb *mac_cb,
+ 			       u8 vmid, u8 *port_num);
++int hns_mac_add_uc_addr(struct hns_mac_cb *mac_cb, u8 vf_id,
++			const unsigned char *addr);
++int hns_mac_rm_uc_addr(struct hns_mac_cb *mac_cb, u8 vf_id,
++		       const unsigned char *addr);
+ int hns_mac_clr_multicast(struct hns_mac_cb *mac_cb, int vfn);
  
--/**< Number of octets (8-bit bytes) in an ethernet address */
--#define MAC_NUM_OCTETS_PER_ADDR 6
--
- struct mac_priv {
- 	void *mac;
- };
-@@ -189,7 +186,7 @@ struct mac_statistics {
- 
- /*mac para struct ,mac get param from nic or dsaf when initialize*/
- struct mac_params {
--	char addr[MAC_NUM_OCTETS_PER_ADDR];
-+	char addr[ETH_ALEN];
- 	void *vaddr; /*virtual address*/
- 	struct device *dev;
- 	u8 mac_id;
-@@ -214,7 +211,7 @@ struct mac_info {
- };
- 
- struct mac_entry_idx {
--	u8 addr[MAC_NUM_OCTETS_PER_ADDR];
-+	u8 addr[ETH_ALEN];
- 	u16 vlan_id:12;
- 	u16 valid:1;
- 	u16 qos:3;
-@@ -317,6 +314,7 @@ struct hns_mac_cb {
- 	u8 __iomem *serdes_vaddr;
- 	struct regmap *serdes_ctrl;
- 	struct regmap *cpld_ctrl;
-+	char mc_mask[ETH_ALEN];
- 	u32 cpld_ctrl_reg;
- 	u32 port_rst_off;
- 	u32 port_mode_off;
+ #endif /* _HNS_DSAF_MAC_H */
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 8ea3d95..64f45ee 100644
+index ebecbed..90dbda7 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -591,6 +591,16 @@ static void hns_dsaf_voq_bp_all_thrd_cfg(struct dsaf_device *dsaf_dev)
- 	}
- }
- 
-+static void hns_dsaf_tbl_tcam_match_cfg(
-+	struct dsaf_device *dsaf_dev,
-+	struct dsaf_tbl_tcam_data *ptbl_tcam_data)
-+{
-+	dsaf_write_dev(dsaf_dev, DSAF_TBL_TCAM_MATCH_CFG_L_REG,
-+		       ptbl_tcam_data->tbl_tcam_data_low);
-+	dsaf_write_dev(dsaf_dev, DSAF_TBL_TCAM_MATCH_CFG_H_REG,
-+		       ptbl_tcam_data->tbl_tcam_data_high);
-+}
-+
- /**
-  * hns_dsaf_tbl_tcam_data_cfg - tbl
-  * @dsaf_id: dsa fabric id
-@@ -894,15 +904,16 @@ static void hns_dsaf_tcam_uc_cfg(
- }
- 
- /**
-- * hns_dsaf_tcam_mc_cfg - INT
-- * @dsaf_id: dsa fabric id
-- * @address,
-- * @ptbl_tcam_data,
-- * @ptbl_tcam_mcast,
-+ * hns_dsaf_tcam_mc_cfg - cfg the tcam for mc
-+ * @dsaf_dev: dsa fabric device struct pointer
-+ * @address: tcam index
-+ * @ptbl_tcam_data: tcam data struct pointer
-+ * @ptbl_tcam_mcast: tcam mask struct pointer, it must be null for HNSv1
-  */
- static void hns_dsaf_tcam_mc_cfg(
- 	struct dsaf_device *dsaf_dev, u32 address,
- 	struct dsaf_tbl_tcam_data *ptbl_tcam_data,
-+	struct dsaf_tbl_tcam_data *ptbl_tcam_mask,
- 	struct dsaf_tbl_tcam_mcast_cfg *ptbl_tcam_mcast)
- {
- 	spin_lock_bh(&dsaf_dev->tcam_lock);
-@@ -913,7 +924,11 @@ static void hns_dsaf_tcam_mc_cfg(
- 	hns_dsaf_tbl_tcam_data_cfg(dsaf_dev, ptbl_tcam_data);
- 	/*Write Tcam Mcast*/
- 	hns_dsaf_tbl_tcam_mcast_cfg(dsaf_dev, ptbl_tcam_mcast);
--	/*Write Plus*/
-+	/* Write Match Data */
-+	if (ptbl_tcam_mask)
-+		hns_dsaf_tbl_tcam_match_cfg(dsaf_dev, ptbl_tcam_mask);
-+
-+	/* Write Puls */
- 	hns_dsaf_tbl_tcam_data_mcast_pul(dsaf_dev);
- 
- 	spin_unlock_bh(&dsaf_dev->tcam_lock);
-@@ -1625,7 +1640,7 @@ int hns_dsaf_set_mac_mc_entry(
- 
- 	hns_dsaf_tcam_mc_cfg(
- 		dsaf_dev, entry_index,
--		(struct dsaf_tbl_tcam_data *)(&mac_key), &mac_data);
-+		(struct dsaf_tbl_tcam_data *)(&mac_key), NULL, &mac_data);
- 
- 	/* config software entry */
- 	soft_mac_entry += entry_index;
-@@ -1636,6 +1651,16 @@ int hns_dsaf_set_mac_mc_entry(
+@@ -1598,6 +1598,55 @@ int hns_dsaf_set_mac_uc_entry(
  	return 0;
  }
  
-+static void hns_dsaf_mc_mask_bit_clear(char *dst, const char *src)
++int hns_dsaf_rm_mac_addr(
++	struct dsaf_device *dsaf_dev,
++	struct dsaf_drv_mac_single_dest_entry *mac_entry)
 +{
-+	u16 *a = (u16 *)dst;
-+	const u16 *b = (const u16 *)src;
++	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
++	struct dsaf_tbl_tcam_ucast_cfg mac_data;
++	struct dsaf_drv_tbl_tcam_key mac_key;
 +
-+	a[0] &= b[0];
-+	a[1] &= b[1];
-+	a[2] &= b[2];
-+}
-+
- /**
-  * hns_dsaf_add_mac_mc_port - add mac mc-port
-  * @dsaf_dev: dsa fabric device struct pointer
-@@ -1646,11 +1671,14 @@ int hns_dsaf_add_mac_mc_port(struct dsaf_device *dsaf_dev,
- {
- 	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
- 	struct dsaf_drv_tbl_tcam_key mac_key;
-+	struct dsaf_drv_tbl_tcam_key mask_key;
-+	struct dsaf_tbl_tcam_data *pmask_key = NULL;
- 	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_drv_priv *priv =
--	    (struct dsaf_drv_priv *)hns_dsaf_dev_priv(dsaf_dev);
-+	struct dsaf_drv_priv *priv = hns_dsaf_dev_priv(dsaf_dev);
- 	struct dsaf_drv_soft_mac_tbl *soft_mac_entry = priv->soft_mac_tbl;
--	struct dsaf_drv_tbl_tcam_key tmp_mac_key;
-+	struct dsaf_tbl_tcam_data tcam_data;
-+	u8 mc_addr[ETH_ALEN];
-+	u8 *mc_mask;
- 	int mskid;
- 
- 	/*chechk mac addr */
-@@ -1660,14 +1688,28 @@ int hns_dsaf_add_mac_mc_port(struct dsaf_device *dsaf_dev,
- 		return -EINVAL;
- 	}
- 
-+	ether_addr_copy(mc_addr, mac_entry->addr);
-+	mc_mask = dsaf_dev->mac_cb[mac_entry->in_port_num]->mc_mask;
-+	if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
-+		/* prepare for key data setting */
-+		hns_dsaf_mc_mask_bit_clear(mc_addr, mc_mask);
-+
-+		/* config key mask */
-+		hns_dsaf_set_mac_key(dsaf_dev, &mask_key,
-+				     0x0,
-+				     0xff,
-+				     mc_mask);
-+		pmask_key = (struct dsaf_tbl_tcam_data *)(&mask_key);
++	/* mac addr check */
++	if (!is_valid_ether_addr(mac_entry->addr)) {
++		dev_err(dsaf_dev->dev, "rm_uc_addr %s Mac %pM err!\n",
++			dsaf_dev->ae_dev.name, mac_entry->addr);
++		return -EINVAL;
 +	}
-+
- 	/*config key */
- 	hns_dsaf_set_mac_key(
- 		dsaf_dev, &mac_key, mac_entry->in_vlan_id,
--		mac_entry->in_port_num, mac_entry->addr);
-+		mac_entry->in_port_num, mc_addr);
- 
- 	memset(&mac_data, 0, sizeof(struct dsaf_tbl_tcam_mcast_cfg));
- 
--	/*check exist? */
-+	/* check if the tcam is exist */
- 	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
- 	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
- 		/*if hasnot , find a empty*/
-@@ -1681,11 +1723,11 @@ int hns_dsaf_add_mac_mc_port(struct dsaf_device *dsaf_dev,
- 			return -EINVAL;
- 		}
- 	} else {
--		/*if exist, add in */
--		hns_dsaf_tcam_mc_get(
--			dsaf_dev, entry_index,
--			(struct dsaf_tbl_tcam_data *)(&tmp_mac_key), &mac_data);
-+		/* if exist, add in */
-+		hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data,
-+				     &mac_data);
- 	}
-+
- 	/* config hardware entry */
- 	if (mac_entry->port_num < DSAF_SERVICE_NW_NUM) {
- 		mskid = mac_entry->port_num;
-@@ -1708,9 +1750,12 @@ int hns_dsaf_add_mac_mc_port(struct dsaf_device *dsaf_dev,
- 		dsaf_dev->ae_dev.name, mac_key.high.val,
- 		mac_key.low.val, entry_index);
- 
--	hns_dsaf_tcam_mc_cfg(
--		dsaf_dev, entry_index,
--		(struct dsaf_tbl_tcam_data *)(&mac_key), &mac_data);
-+	tcam_data.tbl_tcam_data_high = mac_key.high.val;
-+	tcam_data.tbl_tcam_data_low = mac_key.low.val;
-+
-+	/* config mc entry with mask */
-+	hns_dsaf_tcam_mc_cfg(dsaf_dev, entry_index, &tcam_data,
-+			     pmask_key, &mac_data);
- 
- 	/*config software entry */
- 	soft_mac_entry += entry_index;
-@@ -1782,15 +1827,18 @@ int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- {
- 	u16 entry_index = DSAF_INVALID_ENTRY_IDX;
- 	struct dsaf_drv_tbl_tcam_key mac_key;
--	struct dsaf_drv_priv *priv =
--	    (struct dsaf_drv_priv *)hns_dsaf_dev_priv(dsaf_dev);
-+	struct dsaf_drv_priv *priv = hns_dsaf_dev_priv(dsaf_dev);
- 	struct dsaf_drv_soft_mac_tbl *soft_mac_entry = priv->soft_mac_tbl;
- 	u16 vlan_id;
- 	u8 in_port_num;
- 	struct dsaf_tbl_tcam_mcast_cfg mac_data;
--	struct dsaf_drv_tbl_tcam_key tmp_mac_key;
-+	struct dsaf_tbl_tcam_data tcam_data;
- 	int mskid;
- 	const u8 empty_msk[sizeof(mac_data.tbl_mcast_port_msk)] = {0};
-+	struct dsaf_drv_tbl_tcam_key mask_key;
-+	struct dsaf_tbl_tcam_data *pmask_key = NULL;
-+	u8 mc_addr[ETH_ALEN];
-+	u8 *mc_mask;
- 
- 	if (!(void *)mac_entry) {
- 		dev_err(dsaf_dev->dev,
-@@ -1798,10 +1846,6 @@ int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- 		return -EINVAL;
- 	}
- 
--	/*get key info*/
--	vlan_id = mac_entry->in_vlan_id;
--	in_port_num = mac_entry->in_port_num;
--
- 	/*check mac addr */
- 	if (MAC_IS_ALL_ZEROS(mac_entry->addr)) {
- 		dev_err(dsaf_dev->dev, "del_port failed, addr %pM!\n",
-@@ -1809,11 +1853,28 @@ int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- 		return -EINVAL;
- 	}
- 
--	/*config key */
--	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, vlan_id, in_port_num,
--			     mac_entry->addr);
-+	/* always mask vlan_id field */
-+	ether_addr_copy(mc_addr, mac_entry->addr);
-+	mc_mask = dsaf_dev->mac_cb[mac_entry->in_port_num]->mc_mask;
- 
--	/*check is exist? */
-+	if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
-+		/* prepare for key data setting */
-+		hns_dsaf_mc_mask_bit_clear(mc_addr, mc_mask);
-+
-+		/* config key mask */
-+		hns_dsaf_set_mac_key(dsaf_dev, &mask_key, 0x00, 0xff, mc_addr);
-+
-+		pmask_key = (struct dsaf_tbl_tcam_data *)(&mask_key);
-+	}
-+
-+	/* get key info */
-+	vlan_id = mac_entry->in_vlan_id;
-+	in_port_num = mac_entry->in_port_num;
 +
 +	/* config key */
-+	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, vlan_id, in_port_num, mc_addr);
++	hns_dsaf_set_mac_key(dsaf_dev, &mac_key, mac_entry->in_vlan_id,
++			     mac_entry->in_port_num, mac_entry->addr);
 +
-+	/* check if the tcam entry is exist */
- 	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
- 	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
- 		/*find none */
-@@ -1829,10 +1890,8 @@ int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- 		dsaf_dev->ae_dev.name, mac_key.high.val,
- 		mac_key.low.val, entry_index);
- 
--	/*read entry*/
--	hns_dsaf_tcam_mc_get(
--		dsaf_dev, entry_index,
--		(struct dsaf_tbl_tcam_data *)(&tmp_mac_key), &mac_data);
-+	/* read entry */
-+	hns_dsaf_tcam_mc_get(dsaf_dev, entry_index, &tcam_data, &mac_data);
- 
- 	/*del the port*/
- 	if (mac_entry->port_num < DSAF_SERVICE_NW_NUM) {
-@@ -1857,10 +1916,13 @@ int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- 		/* del soft entry */
- 		soft_mac_entry += entry_index;
- 		soft_mac_entry->index = DSAF_INVALID_ENTRY_IDX;
--	} else { /* not zer, just del port, updata*/
--		hns_dsaf_tcam_mc_cfg(
--			dsaf_dev, entry_index,
--			(struct dsaf_tbl_tcam_data *)(&mac_key), &mac_data);
-+	} else { /* not zero, just del port, update */
-+		tcam_data.tbl_tcam_data_high = mac_key.high.val;
-+		tcam_data.tbl_tcam_data_low = mac_key.low.val;
++	entry_index = hns_dsaf_find_soft_mac_entry(dsaf_dev, &mac_key);
++	if (entry_index == DSAF_INVALID_ENTRY_IDX) {
++		/* can not find the tcam entry, return 0 */
++		dev_info(dsaf_dev->dev,
++			 "rm_uc_addr no tcam, %s Mac key(%#x:%#x)\n",
++			 dsaf_dev->ae_dev.name,
++			 mac_key.high.val, mac_key.low.val);
++		return 0;
++	}
 +
-+		hns_dsaf_tcam_mc_cfg(dsaf_dev, entry_index,
-+				     &tcam_data,
-+				     pmask_key, &mac_data);
- 	}
- 
- 	return 0;
-@@ -1976,7 +2038,7 @@ int hns_dsaf_get_mac_entry_by_index(
- 
- 	struct dsaf_tbl_tcam_mcast_cfg mac_data;
- 	struct dsaf_tbl_tcam_ucast_cfg mac_uc_data;
--	char mac_addr[MAC_NUM_OCTETS_PER_ADDR] = {0};
-+	char mac_addr[ETH_ALEN] = {0};
- 
- 	if (entry_index >= DSAF_TCAM_SUM) {
- 		/* find none, del error */
++	dev_dbg(dsaf_dev->dev,
++		"rm_uc_addr, %s Mac key(%#x:%#x) entry_index%d\n",
++		dsaf_dev->ae_dev.name, mac_key.high.val,
++		mac_key.low.val, entry_index);
++
++	hns_dsaf_tcam_uc_get(
++			dsaf_dev, entry_index,
++			(struct dsaf_tbl_tcam_data *)&mac_key,
++			&mac_data);
++
++	/* unicast entry not used locally should not clear */
++	if (mac_entry->port_num != mac_data.tbl_ucast_out_port)
++		return -EFAULT;
++
++	return hns_dsaf_del_mac_entry(dsaf_dev,
++				      mac_entry->in_vlan_id,
++				      mac_entry->in_port_num,
++				      mac_entry->addr);
++}
++
+ /**
+  * hns_dsaf_set_mac_mc_entry - set mac mc-entry
+  * @dsaf_dev: dsa fabric device struct pointer
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index c494fc5..f832a32 100644
+index 901037c..cef6bf4 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -35,8 +35,6 @@
+@@ -468,6 +468,10 @@ void hns_dsaf_get_rx_mac_pause_en(struct dsaf_device *dsaf_dev, int mac_id,
+ 				  u32 *en);
+ int hns_dsaf_set_rx_mac_pause_en(struct dsaf_device *dsaf_dev, int mac_id,
+ 				 u32 en);
++int hns_dsaf_rm_mac_addr(
++	struct dsaf_device *dsaf_dev,
++	struct dsaf_drv_mac_single_dest_entry *mac_entry);
++
+ int hns_dsaf_clr_mac_mc_port(struct dsaf_device *dsaf_dev,
+ 			     u8 mac_id, u8 port_num);
  
- #define DSAF_CFG_READ_CNT   30
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index d22a39e..776d81e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1493,6 +1493,29 @@ static netdev_features_t hns_nic_fix_features(
+ 	return features;
+ }
  
--#define MAC_NUM_OCTETS_PER_ADDR 6
--
- #define DSAF_DUMP_REGS_NUM 504
- #define DSAF_STATIC_NUM 28
- #define DSAF_V2_STATIC_NUM	44
-@@ -165,7 +163,7 @@ enum dsaf_mode {
- /*mac entry, mc or uc entry*/
- struct dsaf_drv_mac_single_dest_entry {
- 	/* mac addr, match the entry*/
--	u8 addr[MAC_NUM_OCTETS_PER_ADDR];
-+	u8 addr[ETH_ALEN];
- 	u16 in_vlan_id; /* value of VlanId */
++static int hns_nic_uc_sync(struct net_device *netdev, const unsigned char *addr)
++{
++	struct hns_nic_priv *priv = netdev_priv(netdev);
++	struct hnae_handle *h = priv->ae_handle;
++
++	if (h->dev->ops->add_uc_addr)
++		return h->dev->ops->add_uc_addr(h, addr);
++
++	return 0;
++}
++
++static int hns_nic_uc_unsync(struct net_device *netdev,
++			     const unsigned char *addr)
++{
++	struct hns_nic_priv *priv = netdev_priv(netdev);
++	struct hnae_handle *h = priv->ae_handle;
++
++	if (h->dev->ops->rm_uc_addr)
++		return h->dev->ops->rm_uc_addr(h, addr);
++
++	return 0;
++}
++
+ /**
+  * nic_set_multicast_list - set mutl mac address
+  * @netdev: net device
+@@ -1535,6 +1558,9 @@ void hns_nic_set_rx_mode(struct net_device *ndev)
+ 	}
  
- 	/* the vld input port num, dsaf-mode fix 0, */
-@@ -179,7 +177,7 @@ struct dsaf_drv_mac_single_dest_entry {
- /*only mc entry*/
- struct dsaf_drv_mac_multi_dest_entry {
- 	/* mac addr, match the entry*/
--	u8 addr[MAC_NUM_OCTETS_PER_ADDR];
-+	u8 addr[ETH_ALEN];
- 	u16 in_vlan_id;
- 	/* this mac addr output port,*/
- 	/*	bit0-bit5 means Port0-Port5(1bit is vld)**/
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 878950a..6826b28 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -297,6 +297,8 @@
- #define DSAF_TBL_LKUP_NUM_I_0_REG		0x50C0
- #define DSAF_TBL_LKUP_NUM_O_0_REG		0x50E0
- #define DSAF_TBL_UCAST_BCAST_MIS_INFO_0_0_REG	0x510C
-+#define DSAF_TBL_TCAM_MATCH_CFG_H_REG		0x5130
-+#define DSAF_TBL_TCAM_MATCH_CFG_L_REG		0x5134
+ 	hns_set_multicast_list(ndev);
++
++	if (__dev_uc_sync(ndev, hns_nic_uc_sync, hns_nic_uc_unsync))
++		netdev_err(ndev, "sync uc address fail\n");
+ }
  
- #define DSAF_INODE_FIFO_WL_0_REG		0x6000
- #define DSAF_ONODE_FIFO_WL_0_REG		0x6020
+ struct rtnl_link_stats64 *hns_nic_get_stats64(struct net_device *ndev,
 -- 
 1.7.9.5
