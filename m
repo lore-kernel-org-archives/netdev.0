@@ -1,60 +1,56 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v2] irqchip/renesas-irqc: Postpone driver initialization
-Date: Wed, 9 Nov 2016 20:43:15 +0100
-Message-ID: <CAMuHMdXMYy+g4WWzCAq5Y1Y1Egbt9i6bGRpFpR86mg6AfxiqWA@mail.gmail.com>
-References: <1478633747-26878-1-git-send-email-geert+renesas@glider.be>
- <216fe100-556b-7f83-39b0-4cf54c1fa35c@gmail.com> <CAMuHMdWkXsAuRpbTWGw9Wp4m2M38zRAd8OpPpA-sCDb7Xb7skw@mail.gmail.com>
- <3dface9b-7602-b1f2-0dd6-37b444ac42e3@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/3] vhost: better detection of available buffers
+Date: Wed, 9 Nov 2016 21:57:13 +0200
+Message-ID: <20161109215513-mutt-send-email-mst@kernel.org>
+References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
+ <1478677113-13126-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Marc Zyngier <marc.zyngier@arm.com>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3dface9b-7602-b1f2-0dd6-37b444ac42e3@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1478677113-13126-2-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Florian,
+On Wed, Nov 09, 2016 at 03:38:32PM +0800, Jason Wang wrote:
+> We should use vq->last_avail_idx instead of vq->avail_idx in the
+> checking of vhost_vq_avail_empty() since latter is the cached avail
+> index from guest but we want to know if there's pending available
+> buffers in the virtqueue.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-On Wed, Nov 9, 2016 at 8:17 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 11/08/2016 11:50 AM, Geert Uytterhoeven wrote:
->> On Tue, Nov 8, 2016 at 8:42 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>> On 11/08/2016 11:35 AM, Geert Uytterhoeven wrote:
->>>> Currently the renesas-irqc driver uses postcore_initcall().
->>>>
->>>> However, the new CPG/MSSR driver uses subsys_initcall(). Hence the
->>>> IRQC's probe will be deferred, which causes the Micrel Ethernet PHY to
->>>> not find its interrupt on R-Car Gen2 and RZ/G, as the of_mdio subsystem
->>>> does not support deferred probe yet.
->>>
->>> Is not that the more correct fix to implement though?
->>
->> Sure it is. But nothing has happened since this was reported ca. 1 year ago.
->> Cfr. "of_mdiobus_register_phy() and deferred probe"
->> https://lkml.org/lkml/2015/10/22/377
->>
->> My MDIO foo is not that strong...
->
-> Let me try to cook something here which may require
-> of_mdiobus_register_phy(), are you okay testing patches?
+I'm not sure why is this patch here. Is it related to
+batching somehow?
 
-Of course I am. Thanks a lot!
 
-Gr{oetje,eeting}s,
+> ---
+>  drivers/vhost/vhost.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index c6f2d89..fdf4cdf 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -2230,7 +2230,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  	if (r)
+>  		return false;
+>  
+> -	return vhost16_to_cpu(vq, avail_idx) == vq->avail_idx;
+> +	return vhost16_to_cpu(vq, avail_idx) == vq->last_avail_idx;
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_vq_avail_empty);
 
-                        Geert
+That might be OK for TX but it's probably wrong for RX
+where the fact that used != avail does not mean
+we have enough space to store the packet.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Maybe we should just rename this to vhost_vq_avail_unchanged
+to clarify usage.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+
+>  
+> -- 
+> 2.7.4
