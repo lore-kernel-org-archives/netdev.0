@@ -1,131 +1,57 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe function
-Date: Wed, 09 Nov 2016 13:32:08 +0100
-Message-ID: <8760nwj0l3.fsf@miraculix.mork.no>
-References: <Pine.LNX.4.44L0.1611081339060.1499-100000@iolanthe.rowland.org>
-        <1478692735.2428.10.camel@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-        Kai-Heng Feng <kai.heng.feng@canonical.com>,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH 1/2] net: mvpp2: don't bring up on MAC address set
+Date: Wed,  9 Nov 2016 14:56:33 +0200
+Message-ID: <ff17831771f3575f351c134703d3f153485b01c0.1478696194.git.baruch@tkos.co.il>
+Cc: netdev@vger.kernel.org,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Baruch Siach <baruch@tkos.co.il>
+To: Marcin Wojtas <mw@semihalf.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:49798 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751618AbcKIMc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Nov 2016 07:32:29 -0500
-In-Reply-To: <1478692735.2428.10.camel@suse.com> (Oliver Neukum's message of
-        "Wed, 09 Nov 2016 12:58:55 +0100")
+Received: from guitar.tcltek.co.il ([192.115.133.116]:53459 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752509AbcKIM4v (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Nov 2016 07:56:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum@suse.com> writes:
+Current .ndo_set_mac_address implementation brings up the interface when revert
+to original address after failure succeeds. Fix this.
 
-> On Tue, 2016-11-08 at 13:44 -0500, Alan Stern wrote:
->
->> These problems could very well be caused by running at SuperSpeed
->> (USB-3) instead of high speed (USB-2).
->>=20
->> Is there any way to test what happens when the device is attached to=20
->> the computer by a USB-2 cable?  That would prevent it from operating at=
-=20
->> SuperSpeed.
->>=20
->> The main point, however, is that the proposed patch doesn't seem to
->> address the true problem, which is that the device gets suspended
->> between probes.  The patch only tries to prevent it from being
->> suspended during a probe -- which is already prevented by the USB core.
->
-> But why doesn't it fail during normal operation?
->
-> I suspect that its firmware requires the altsetting
->
->         /* should we change control altsetting on a NCM/MBIM function? */
->         if (cdc_ncm_select_altsetting(intf) =3D=3D CDC_NCM_COMM_ALTSETTIN=
-G_MBIM) {
->                 data_altsetting =3D CDC_NCM_DATA_ALTSETTING_MBIM;
->                 ret =3D cdc_mbim_set_ctrlalt(dev, intf, CDC_NCM_COMM_ALTS=
-ETTING_MBIM);
->
-> to be set before it accepts a suspension.
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+---
+Untested; I don't have the hardware.
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-Could be, but I don't think so.  The above code is effectively a noop
-unless the function is a combined NCM/MBIM function.  Something I've
-never seen on a Sierra Wireless device (ignoring the infamous EM7345,
-which really is an Intel device).
-
-This is a typical example of a Sierra Wireless modem configured for
-MBIM:
-
-P:  Vendor=3D1199 ProdID=3D9079 Rev=3D 0.06
-S:  Manufacturer=3DSierra Wireless, Incorporated
-S:  Product=3DSierra Wireless EM7455 Qualcomm Snapdragon X7 LTE-A
-S:  SerialNumber=3DLF615126xxxxxxx
-C:* #Ifs=3D 2 Cfg#=3D 1 Atr=3Da0 MxPwr=3D500mA
-A:  FirstIf#=3D12 IfCount=3D 2 Cls=3D02(comm.) Sub=3D0e Prot=3D00
-I:* If#=3D12 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0e Prot=3D00 Driver=
-=3D(none)
-E:  Ad=3D82(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D32ms
-I:* If#=3D13 Alt=3D 0 #EPs=3D 0 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driver=
-=3D(none)
-I:  If#=3D13 Alt=3D 1 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driver=
-=3D(none)
-E:  Ad=3D81(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-E:  Ad=3D01(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-
-
-The control interface of plain MBIM functions will always have a single
-altsetting, like the example above. So cdc_ncm_select_altsetting(intf)
-returns "0", while CDC_NCM_COMM_ALTSETTING_MBIM is "1".
-
-
-Just for reference, using the Intel^H^H^H^H^HEM7345 as example, this is
-what a combined NCM/MBIM function looks like:
-
-
-P:  Vendor=3D1199 ProdID=3Da001 Rev=3D17.29
-S:  Manufacturer=3DSierra Wireless Inc.
-S:  Product=3DSierra Wireless EM7345 4G LTE
-S:  SerialNumber=3D013937000xxxxxx
-C:* #Ifs=3D 4 Cfg#=3D 1 Atr=3De0 MxPwr=3D100mA
-A:  FirstIf#=3D 0 IfCount=3D 2 Cls=3D02(comm.) Sub=3D0d Prot=3D00
-A:  FirstIf#=3D 2 IfCount=3D 2 Cls=3D02(comm.) Sub=3D02 Prot=3D01
-I:  If#=3D 0 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0d Prot=3D00 Driver=
-=3Dcdc_mbim
-E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D1ms
-I:* If#=3D 0 Alt=3D 1 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0e Prot=3D00 Driver=
-=3Dcdc_mbim
-E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D1ms
-I:  If#=3D 1 Alt=3D 0 #EPs=3D 0 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driver=
-=3Dcdc_mbim
-I:  If#=3D 1 Alt=3D 1 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driver=
-=3Dcdc_mbim
-E:  Ad=3D82(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-I:* If#=3D 1 Alt=3D 2 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driver=
-=3Dcdc_mbim
-E:  Ad=3D82(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-I:* If#=3D 2 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D02 Prot=3D01 Driver=
-=3D(none)
-E:  Ad=3D83(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D1ms
-I:* If#=3D 3 Alt=3D 0 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D00 Driver=
-=3D(none)
-E:  Ad=3D84(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-E:  Ad=3D04(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
-
-
-And this is what the code you quote is trying to deal with.  Note the
-different subclass of altsetting 0 and 1.... This is incredibly ugly.
-
-FWIW, the modem in question cannot be an EM7345. That modem does not
-have the static interface numbering oddity.  Another sign that it isn't
-a true Sierra device.
-
-
-
-
-Bj=C3=B8rn
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 60227a3452a4..e427b4706726 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -5686,9 +5686,8 @@ static int mvpp2_set_mac_address(struct net_device *dev, void *p)
+ 		if (!err)
+ 			return 0;
+ 		/* Reconfigure parser to accept the original MAC address */
+-		err = mvpp2_prs_update_mac_da(dev, dev->dev_addr);
+-		if (err)
+-			goto error;
++		mvpp2_prs_update_mac_da(dev, dev->dev_addr);
++		goto error;
+ 	}
+ 
+ 	mvpp2_stop_dev(port);
+@@ -5698,9 +5697,8 @@ static int mvpp2_set_mac_address(struct net_device *dev, void *p)
+ 		goto out_start;
+ 
+ 	/* Reconfigure parser accept the original MAC address */
+-	err = mvpp2_prs_update_mac_da(dev, dev->dev_addr);
+-	if (err)
+-		goto error;
++	mvpp2_prs_update_mac_da(dev, dev->dev_addr);
++	goto error;
+ out_start:
+ 	mvpp2_start_dev(port);
+ 	mvpp2_egress_enable(port);
+-- 
+2.10.2
