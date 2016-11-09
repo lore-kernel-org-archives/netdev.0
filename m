@@ -1,38 +1,49 @@
-From: Heiko Stuebner <heiko@sntech.de>
-Subject: Re: [PATCH net-next 0/4] stmmac: dwmac-rk: convert to standard PM/remove functions
-Date: Wed, 09 Nov 2016 20:14:23 +0100
-Message-ID: <6241984.qhtTRLrLyd@phil>
-References: <20161105130452.24226-1-manabian@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] irqchip/renesas-irqc: Postpone driver initialization
+Date: Wed, 9 Nov 2016 11:17:05 -0800
+Message-ID: <3dface9b-7602-b1f2-0dd6-37b444ac42e3@gmail.com>
+References: <1478633747-26878-1-git-send-email-geert+renesas@glider.be>
+ <216fe100-556b-7f83-39b0-4cf54c1fa35c@gmail.com>
+ <CAMuHMdWkXsAuRpbTWGw9Wp4m2M38zRAd8OpPpA-sCDb7Xb7skw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, linux-rockchip@lists.infradead.org,
-        vpalatin@chromium.org, peppe.cavallaro@st.com,
-        netdev@vger.kernel.org
-To: Joachim Eastwood <manabian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gloria.sntech.de ([95.129.55.99]:50733 "EHLO gloria.sntech.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750927AbcKITOb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Nov 2016 14:14:31 -0500
-In-Reply-To: <20161105130452.24226-1-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Marc Zyngier <marc.zyngier@arm.com>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdWkXsAuRpbTWGw9Wp4m2M38zRAd8OpPpA-sCDb7Xb7skw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Samstag, 5. November 2016, 14:04:48 CET schrieb Joachim Eastwood:
-> This patch set aims to remove the init/exit callbacks from the
-> dwmac-rk driver and instead use standard PM callbacks. Eventually
-> the init/exit callbacks will be deprecated and removed from all
-> drivers dwmac-* except for dwmac-generic. Drivers will be refactored
-> to use standard PM and remove callbacks.
+On 11/08/2016 11:50 AM, Geert Uytterhoeven wrote:
+> Hi Florian,
 > 
-> This conversion was pretty straight forward, but it would really nice
-> if some chromium people could test suspend/resume with this patch set.
+> On Tue, Nov 8, 2016 at 8:42 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> On 11/08/2016 11:35 AM, Geert Uytterhoeven wrote:
+>>> Currently the renesas-irqc driver uses postcore_initcall().
+>>>
+>>> However, the new CPG/MSSR driver uses subsys_initcall(). Hence the
+>>> IRQC's probe will be deferred, which causes the Micrel Ethernet PHY to
+>>> not find its interrupt on R-Car Gen2 and RZ/G, as the of_mdio subsystem
+>>> does not support deferred probe yet.
+>>
+>> Is not that the more correct fix to implement though?
+> 
+> Sure it is. But nothing has happened since this was reported ca. 1 year ago.
+> Cfr. "of_mdiobus_register_phy() and deferred probe"
+> https://lkml.org/lkml/2015/10/22/377
+> 
+> My MDIO foo is not that strong...
 
-while I couldn't test suspens/resume specifically, I at least can confirm that 
-regular probing + usage still works :-)
-
-Dave already applied the series, but anyway
-Tested-by: Heiko Stuebner <heiko@sntech.de>
-
-Heiko
+Let me try to cook something here which may require
+of_mdiobus_register_phy(), are you okay testing patches?
+-- 
+Florian
