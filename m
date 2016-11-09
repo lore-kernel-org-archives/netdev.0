@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qed: Prevent stack corruption on MFW
- interaction
-Date: Wed, 09 Nov 2016 13:27:45 -0500 (EST)
-Message-ID: <20161109.132745.2191587840450609497.davem@davemloft.net>
-References: <1478445147-23163-1-git-send-email-Yuval.Mintz@cavium.com>
+Subject: Re: [PATCH net-next] net: core: add missing check for uid_range in
+ rule_exists.
+Date: Wed, 09 Nov 2016 13:28:27 -0500 (EST)
+Message-ID: <20161109.132827.579982211587371286.davem@davemloft.net>
+References: <1478445385-94937-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@cavium.com
+Cc: netdev@vger.kernel.org, ek@google.com, eric.dumazet@gmail.com,
+        zenczykowski@gmail.com
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38502 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38524 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754016AbcKIS1q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:27:46 -0500
-In-Reply-To: <1478445147-23163-1-git-send-email-Yuval.Mintz@cavium.com>
+        with ESMTP id S1751847AbcKIS22 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:28:28 -0500
+In-Reply-To: <1478445385-94937-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Date: Sun, 6 Nov 2016 17:12:27 +0200
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Mon,  7 Nov 2016 00:16:25 +0900
 
-> Driver uses a union for copying data to & from management firmware
-> when interacting with it.
-> Problem is that the function always copies sizeof(union) while commit
-> 2edbff8dcb5d ("qed: Learn resources from management firmware") is casting
-> a union elements which is of smaller size [24-byte instead of 88-bytes].
+> Without this check, it is not possible to create two rules that
+> are identical except for their UID ranges. For example:
 > 
-> Also, the union contains some inappropriate elements which increase its
-> size [should have been 32-bytes]. While this shouldn't corrupt other
-> PF messages to the MFW [as management firmware enforces permissions so
-> that each PF is allowed to write only to its own mailbox] we fix this
-> here as well.
+> root@net-test:/# ip rule add prio 1000 lookup 300
+> root@net-test:/# ip rule add prio 1000 uidrange 100-200 lookup 300
+> RTNETLINK answers: File exists
+> root@net-test:/# ip rule add prio 1000 uidrange 100-199 lookup 100
+> root@net-test:/# ip rule add prio 1000 uidrange 200-299 lookup 200
+> root@net-test:/# ip rule add prio 1000 uidrange 300-399 lookup 100
+> RTNETLINK answers: File exists
 > 
-> Fixes: 2edbff8dcb5d ("qed: Learn resources from management firmware")
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+> Tested: https://android-review.googlesource.com/#/c/299980/
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
 Applied.
