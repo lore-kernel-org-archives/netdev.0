@@ -1,32 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/2] tcp: tcp_get_info() locking changes
-Date: Wed, 09 Nov 2016 10:58:41 -0800
-Message-ID: <1478717921.16809.0.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1478285672-3195-1-git-send-email-edumazet@google.com>
-         <20161109.130319.505221196913812307.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] sfc: enable 4-tuple UDP RSS hashing
+Date: Wed, 09 Nov 2016 13:59:36 -0500 (EST)
+Message-ID: <20161109.135936.1665492542584983522.davem@davemloft.net>
+References: <2c97d90b-bbb3-2cdc-7a72-597fd3f5231a@solarflare.com>
+        <20161109.130918.1657511488354824947.davem@davemloft.net>
+        <2932a4dc-cee0-47d1-d4a9-2b293e6155ad@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
-        ycheng@google.com, soheil@google.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35803 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751382AbcKIS6n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:58:43 -0500
-Received: by mail-pf0-f196.google.com with SMTP id i88so1174428pfk.2
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 10:58:42 -0800 (PST)
-In-Reply-To: <20161109.130319.505221196913812307.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39322 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754077AbcKIS7h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:59:37 -0500
+In-Reply-To: <2932a4dc-cee0-47d1-d4a9-2b293e6155ad@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-11-09 at 13:03 -0500, David Miller wrote:
+From: Edward Cree <ecree@solarflare.com>
+Date: Wed, 9 Nov 2016 18:51:15 +0000
 
-> Looks really nice, series applied, thanks Eric.
-> 
-> BTW, can we possibly use the netlink NOP trick to align the netlink
-> attribute data here and avoid these unaligned accesses?
-> 
+> On 09/11/16 18:09, David Miller wrote:
+>> From: Edward Cree <ecree@solarflare.com>
+>> Date: Tue, 8 Nov 2016 13:02:05 +0000
+>>
+>>> On 07/11/16 18:20, David Miller wrote:
+>>>> From: Edward Cree <ecree@solarflare.com>
+>>>> Date: Thu, 3 Nov 2016 22:10:31 +0000
+>>>>
+>>>>> EF10 based NICs have configurable RSS hash fields, and can be made to take the
+>>>>> ports into the hash on UDP (they already do so for TCP).  This patch series
+>>>>> enables this, in order to improve spreading of UDP traffic.
+>>>> What does the chip do with fragmented traffic?
+>>> Only the first fragment will be considered UDP, it will treat the rest as "other
+>>> IP" and 2-tuple hash them, probably hitting a different queue.
+>>>
+>>> My understanding is that while that will reduce performance, that shouldn't be a
+>>> problem as performance-sensitive users will avoid fragmentation anyway.
+>>> It could also lead to out-of-order packet delivery, but it's UDP so that's
+>>> supposed to be OK.
+>> Our software hashing never tries to inspect the ports for fragmented
+>> frames.  And I'm pretty sure this is intentional.
+>>
+>> We should minimize the difference between what we do in software, which
+>> we fully control, and what we ask the hardware to offload for us.
+>>
+>> If you can't configure the chip to skip the ports for fragmented frames
+>> than I'm going to ask you to drop this.
+> I just checked and it turns out I was mistaken, we don't treat the first fragment
+> differently after all, we skip the ports for all fragments including the first.
+> Sorry for the misinformation.
 
-Good idea, I will do this, thanks for the suggestion.
+That's more in line with what is expected, series applied, thanks.
