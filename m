@@ -1,53 +1,80 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net] r8152: Fix broken RX checksums.
-Date: Wed, 9 Nov 2016 13:09:53 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB20104A0FD@RTITMBSV03.realtek.com.tw>
-References: <9fb6be7b-95f3-6e59-c0f4-1d6c3357416d@pobox.com>
- <20161030.205755.1198665157526465556.davem@davemloft.net>
- <1f847ae0-4928-01e7-f1e7-3cbc37529961@pobox.com>
- <20161030.235342.134481656830778556.davem@davemloft.net>
- <0835B3720019904CB8F7AA43166CEEB201047353@RTITMBSV03.realtek.com.tw>
- <201611030159.uA31x0np004648@rtits1.realtek.com>
- <0835B3720019904CB8F7AA43166CEEB20104878A@RTITMBSV03.realtek.com.tw>
- <ddbc14e2-dfb5-01f2-0d5b-5b409a01160f@pobox.com>
- <201611041425.uA4EPwCw018176@rtits1.realtek.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 2/3] ptp: igb: Use the high resolution frequency
+ method.
+Date: Wed, 9 Nov 2016 14:11:46 +0100
+Message-ID: <20161109131146.GA6491@localhost.localdomain>
+References: <cover.1478526333.git.richardcochran@gmail.com>
+ <b1d732324e0b1960b294e90ca5eb2a31b6559188.1478526333.git.richardcochran@gmail.com>
+ <1478642533.7545.38.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: nic_swsd <nic_swsd@realtek.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Mark Lord <mlord@pobox.com>, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201611041425.uA4EPwCw018176@rtits1.realtek.com>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tglx@linutronix.de" <tglx@linutronix.de>,
+        "Manfred.Rudigier@omicron.at" <Manfred.Rudigier@omicron.at>,
+        "ulrik.debie-os@e2big.org" <ulrik.debie-os@e2big.org>,
+        "stefan.sorensen@spectralink.com" <stefan.sorensen@spectralink.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "john.stultz@linaro.org" <john.stultz@linaro.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34456 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753831AbcKINMO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 08:12:14 -0500
+Received: by mail-wm0-f65.google.com with SMTP id p190so29217211wmp.1
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 05:11:51 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1478642533.7545.38.camel@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TWFyayBMb3JkIFttYWlsdG86bWxvcmRAcG9ib3guY29tXQ0KPiBTZW50OiBGcmlkYXksIE5vdmVt
-YmVyIDA0LCAyMDE2IDk6NTAgUE0NClsuLi5dDQo+IFllYWgsIHRoZSBkZXZpY2Ugb3IgZHJpdmVy
-IGlzIGRlZmluaXRlbHkgZ2V0dGluZyBjb25mdXNlZCB3aXRoIHJ4X2Rlc2Mgc3RydWN0dXJlcy4N
-Cj4gSSBhZGRlZCBjb2RlIHRvIGNoZWNrIGZvciB1bmxpa2VseSByeF9kZXNjIHZhbHVlcywgYW5k
-IGl0IGZvdW5kIHRoaXMgZm9yIHN0YXJ0ZXJzOg0KPiANCj4gcnhfZGVzYzogMDA0ODA4MDEgMDA0
-ODA0MDEgMDA0ODAwMDEgMDA0OGZjMDAgMDA0OGY4MDAgMDA0OGY0MDANCj4gcGt0X2xlbj0yMDQ1
-DQo+IHJ4X2RhdGE6IDAwIGYwIDQ4IDAwIDAwIGVjIDQ4IDAwIDAwIGU4IDQ4IDAwIDAwIGU0IDQ4
-IDAwIDAwIGUwIDQ4IDAwIDAwIGRjIDQ4IDAwDQo+IDAwIGQ4IDQ4IDAwIDAwIGQ0IDQ4IDAwDQo+
-IHJ4X2RhdGE6IDAwIGQwIDQ4IDAwIDAwIGNjIDQ4IDAwIDAwIGM4IDQ4IDAwIDAwIGM0IDQ4IDAw
-IDAwIGMwIDQ4IDAwIDAwIGJjIDQ4IDAwDQo+IDAwIGI4IDQ4IDAwIDAwIGI0IDQ4IDAwDQo+IHJ4
-X2RhdGE6IDAwIGIwIDQ4IDAwIDAwIGFjIDQ4IDAwIDAwIDAxIDAwIDAwIDgxIGVkIDAwIDAwIDAw
-IDAxIDAwIDAwIDAwIDAwIDAwIDAwDQo+IDAwIDAwIDAwIDAyIDRkIGFjIDAwIDAwDQo+IHJ4X2Rh
-dGE6IDEwIDAwIGZmIGZmIGZmIGZmIDAwIDAwIDAxIDI4IDgzIGQ2IGZmIDZkIDAwIDIwIDI1IGIx
-IDU4IDFiIDY4IGZmIDAwIDA1IDIwIDAxDQo+IDU2IDQxIDE3IDM1IDAwIDAwDQo+IC4uLg0KPiAN
-Cj4gVGhlIE1UVS9NUlUgb24gdGhpcyBsaW5rIGlzIHRoZSBzdGFuZGFyZCAxNTAwIGJ5dGVzLCBz
-byBhIHBrdF9sZW4gb2YgMjA0NSBpc24ndA0KPiB2YWxpZCBoZXJlLg0KPiBBbmQgdGhlIHJ4X2Rl
-c2MgdmFsdWVzIGxvb2sgYW4gYXdmdWwgbG90IGxpa2UgdGhlIHJ4X2RhdGEgdmFsdWVzIHRoYXQg
-Zm9sbG93IGl0Lg0KPiANCj4gVGhlcmUncyBkZWZpbml0ZWx5IG1vcmUgYnJva2VuIGhlcmUgdGhh
-biBqdXN0IFRDUCBSWCBjaGVja3N1bXMuDQoNCkkgZG9uJ3QgdGhpbmsgaXQgaXMgdGhlIGlzc3Vl
-IG9mIG91ciBody4gSWYgaXQgaGFwcGVucywgd2luZG93cyBvcg0Kb3RoZXIgT1MgbWF5IGhhdmUg
-cHJvYmxlbXMsIHRvby4gSXQgaXMgbGlrZSB0aGUgbWVtb3J5IGlzc3VlIGRlc2NyaWJlZA0KaW4g
-Y29tbWl0IDk5MGM5YjM0NzI0NSgiTWVyZ2UgYnJhbmNoICdyODE1Mi1maXhlcyciKS4gSXQgc2Vl
-bXMgdGhhdA0KdGhlIGRhdGEgaW4gbWVtb3J5IGlzIG5vdCBzYW1lIHdpdGggdGhlIG9uZSBmcm9t
-IHRoZSBkZXZpY2UuDQoNCkJlc2lkZXMsIEkgdGVzdCB0aGUgcmFzcGJlcnJ5IHBpIHdpdGggUlRM
-ODE1Mi4gSG93ZXZlciwgSSBkb24ndCBmaW5kDQphbnkgY2hlY2tzdW0gaXNzdWUgZm9yIFRDUC4g
-SSB0cnkgdG8gY29weSBhIGxhcmdlIGZpbGUgYW5kIG1kNXN1bSBpdA0KdGhyb3VnaCBORlMuIEl0
-IHdvcmtzIGZpbmUuDQoNCkJlc3QgUmVnYXJkcywNCkhheWVzDQoNCg==
+On Tue, Nov 08, 2016 at 10:02:22PM +0000, Keller, Jacob E wrote:
+> On Tue, 2016-11-08 at 22:49 +0100, Richard Cochran wrote:
+> > -	rate = ppb;
+> > -	rate <<= 26;
+> > -	rate = div_u64(rate, 1953125);
+> > +	rate = scaled_ppm;
+> > +	rate <<= 13;
+> > +	rate = div_u64(rate, 15625);
+> 
+> I'm curious how you generate the new math here, since this can be
+> tricky, and I could use more examples in order to port to some of the
+> other drivers implementations. I'm not quit sure how to handle the
+> value when the lower 16 bits are fractional.
+
+TL;DR version:
+
+In ptp_clock.c we convert scaled_ppm to ppb like this.
+
+	ppb = scaled_ppm * 10^3 * 2^-16
+
+If you already have a working driver that does
+
+	regval = ppb * SOMEMATH;
+
+then just substitute
+
+	regval = (scaled_ppm * 10^3 * 2^-16) * SOMEMATH;
+	       = (scaled_ppm *  5^3 * 2^-13) * SOMEMATH;
+
+and simplify by combining the 5^3 and 2^-13 constants into SOMEMATH.
+
+Longer explanation:
+
+You have to consider how the frequency adjustment HW works, case by
+case.  Both the i210 and the phyter have an adjustment register that
+holds units of 2^-32 nanoseconds per 8 nanosecond clock period, and so
+the rate from adjustment value 1 is (2^-32 / 8).
+
+Then with the old interface, the conversion from "adjustment unit" to
+ppb was (2^-32 / 8 * 10^9) or (2^-26 * 5^9).  The conversion the other
+way needs the inverse, and so the code did (ppb << 26) / 5^9.
+
+With the new interface, the conversion from "adjustment unit" to
+scaled_ppm is (2^-32 / 8 * 10^6 * 2^16) or (2^-13 * 5^6).  The code
+converts the other direction using the inverse, (s_ppm << 13) / 5^6.
+
+HTH,
+Richard
