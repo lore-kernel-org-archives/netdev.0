@@ -1,52 +1,140 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH] net: ipv4: ip_send_unicast_reply should set oif only if
- it is L3 master
-Date: Wed, 9 Nov 2016 15:38:34 +0900
-Message-ID: <CAKD1Yr3v8qYn0eRwJttBr_1KpPBLrPbDLp0+WanQSBKDkD6+0Q@mail.gmail.com>
-References: <1478645431-7454-1-git-send-email-dsa@cumulusnetworks.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Virtio_net support vxlan encapsulation package TSO offload
+ discuss
+Date: Wed, 9 Nov 2016 15:14:24 +0800
+Message-ID: <53d0322b-4ce1-d0db-4b53-f9e860ece2c5@redhat.com>
+References: <DBCD2614ECF3FF4087A2C27CA80E34DD5401AC8B@SZXEMA501-MBX.china.huawei.com>
+ <c2f735e4-eddf-f737-2afe-35a93289f8d4@redhat.com>
+ <3a0b8f10-f479-3ed5-dd10-5b92de3eb593@redhat.com>
+ <DBCD2614ECF3FF4087A2C27CA80E34DD5401ADA8@SZXEMA501-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        Vlad Yasevic <vyasevic@redhat.com>
+To: "Zhangming (James, Euler)" <james.zhangming@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f51.google.com ([209.85.214.51]:38555 "EHLO
-        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751091AbcKIGi4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 01:38:56 -0500
-Received: by mail-it0-f51.google.com with SMTP id q124so253638573itd.1
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2016 22:38:55 -0800 (PST)
-In-Reply-To: <1478645431-7454-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50594 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751332AbcKIHOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Nov 2016 02:14:40 -0500
+In-Reply-To: <DBCD2614ECF3FF4087A2C27CA80E34DD5401ADA8@SZXEMA501-MBX.china.huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 9, 2016 at 7:50 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> @@ -1577,7 +1577,8 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
 
-Tested-by: Lorenzo Colitti <lorenzo@google.com>
 
-This fixes the IPv4 test, thanks. I notice that 4.8 didn't have
-e0d56fdd73, so if this patch can get into 4.9 then there will be no
-release that had the behaviour change. Not sure if that's possible any
-more though.
+On 2016年11月08日 19:58, Zhangming (James, Euler) wrote:
+> On 2016年11月08日 19:17, Jason Wang wrote:
+>
+>> On 2016年11月08日 19:13, Jason Wang wrote:
+>>> Cc Michael
+>>>
+>>> On 2016年11月08日 16:34, Zhangming (James, Euler) wrote:
+>>>> In container scenario, OVS is installed in the Virtual machine, and
+>>>> all the containers connected to the OVS will communicated through
+>>>> VXLAN encapsulation.
+>>>>
+>>>> By now, virtio_net does not support TSO offload for VXLAN
+>>>> encapsulated TSO package. In this condition, the performance is not
+>>>> good, sender is bottleneck
+>>>>
+>>>> I googled this scenario, but I didn’t find any information. Will
+>>>> virtio_net support VXLAN encapsulation package TSO offload later?
+>>>>
+>>> Yes and for both sender and receiver.
+>>>
+>>>> My idea is virtio_net open encapsulated TSO offload, and transport
+>>>> encapsulation info to TUN, TUN will parse the info and build skb with
+>>>> encapsulation info.
+>>>>
+>>>> OVS or kernel on the host should be modified to support this. Using
+>>>> this method, the TCP performance aremore than 2x as before.
+>>>>
+>>>> Any advice and suggestions for this idea or new idea will be greatly
+>>>> appreciated!
+>>>>
+>>>> Best regards,
+>>>>
+>>>>     James zhang
+>>>>
+>>> Sounds very good. And we may also need features bits
+>>> (VIRTIO_NET_F_GUEST|HOST_GSO_X) for this.
+>>>
+>>> This is in fact one of items in networking todo list. (See
+>>> http://www.linux-kvm.org/page/NetworkingTodo). While at it, we'd
+>>> better support not only VXLAN but also other tunnels.
+>> Cc Vlad who is working on extending virtio-net headers.
+>>
+>>> We can start with the spec work, or if you've already had some bits
+>>> you can post them as RFC for early review.
+>>>
+>>> Thanks
+> Below is my demo code
+> Virtio_net.c
+> static int virtnet_probe(struct virtio_device *vdev), add belows codes:
+>          if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||				// avoid gso segment, it should be negotiation later, because in the demo I reuse num_buffers.
+>              virtio_has_feature(vdev, VIRTIO_F_VERSION_1)) {
+>                  dev->hw_enc_features |= NETIF_F_TSO;
+>                  dev->hw_enc_features |= NETIF_F_ALL_CSUM;
+>                  dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
+>                  dev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>                  dev->hw_enc_features |= NETIF_F_GSO_TUNNEL_REMCSUM;
+>
+>                  dev->features |= NETIF_F_GSO_UDP_TUNNEL;
+>                  dev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>                  dev->features |= NETIF_F_GSO_TUNNEL_REMCSUM;
+>          }
+>
+> static int xmit_skb(struct send_queue *sq, struct sk_buff *skb), add below to pieces of codes
+>
+>                  if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
+>                          hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL;
+>                  if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)
+>                          hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL_CSUM;
+>                  if (skb_shinfo(skb)->gso_type & SKB_GSO_TUNNEL_REMCSUM)
+>                          hdr->hdr.gso_type |= VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM;
+>
+>          if (skb->encapsulation && skb_is_gso(skb)) {
+>                  inner_mac_len = skb_inner_network_header(skb) - skb_inner_mac_header(skb);
+>                  tnl_len = skb_inner_mac_header(skb) - skb_mac_header(skb);
+>                  if ( !(inner_mac_len >> DATA_LEN_SHIFT) && !(tnl_len >> DATA_LEN_SHIFT) ) {
+>                          hdr->hdr.flags |= VIRTIO_NET_HDR_F_ENCAPSULATION;
+>                          hdr->num_buffers = (__virtio16)((inner_mac_len << DATA_LEN_SHIFT) | tnl_len);		//we reuse num_buffers for simple , we should add extend member for later.
+>                  }  else
+>                          hdr->num_buffers = 0;
+>          }
+>
+> Tun.c
+>                  if (memcpy_fromiovecend((void *)&hdr, iv, offset, tun->vnet_hdr_sz))		//read header with negotiation length
+>                          return -EFAULT;
+>
+>                  if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL)					//set tunnel gso info
+>                          skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
+>                  if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_CSUM)
+>                          skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
+>                  if (hdr.gso_type & VIRTIO_NET_HDR_GSO_TUNNEL_REMCSUM)
+>                          skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
+>
+>          if (hdr.flags & VIRTIO_NET_HDR_F_ENCAPSULATION) {						//read tunnel info from header and set to built skb.
+>                  tnl_len = tun16_to_cpu(tun, hdr.num_buffers) & TUN_TNL_LEN_MASK;
+>                  payload_mac_len = tun16_to_cpu(tun, hdr.num_buffers) >> TUN_DATA_LEN_SHIFT;
+>                  mac_len = skb_network_header(skb) - skb_mac_header(skb);
+>                  skb_set_inner_mac_header(skb, tnl_len - mac_len);
+>                  skb_set_inner_network_header(skb, tnl_len + payload_mac_len - mac_len);
+>                  skb->encapsulation = 1;
+>          }
+>
+>
 
-Can you also fix tcp_v6_send_response, which suffers from the same
-problem? Perhaps revert this hunk of e0d56fdd73 ("net: l3mdev: remove
-redundant calls"):
+Something like this, and you probably need do something more:
 
-@@ -818,12 +818,8 @@ static void tcp_v6_send_response(const struct
-sock *sk, struct sk_buff *skb, u32
-        fl6.flowi6_proto = IPPROTO_TCP;
-        if (rt6_need_strict(&fl6.daddr) && !oif)
-                fl6.flowi6_oif = tcp_v6_iif(skb);
--       else {
--               if (!oif && netif_index_is_l3_master(net, skb->skb_iif))
--                       oif = skb->skb_iif;
--
--               fl6.flowi6_oif = oif;
--       }
-+       else
-+               fl6.flowi6_oif = oif ? : skb->skb_iif;
+- use net-next.git to generate the patch (for the latest code)
+- add feature negotiation
+- tun/macvtap/qemu patches for this, you can start with tun/macvtap patches
+- support for all other SKB_GSO_* types which is not supported
+- use a new field instead of num_buffers
+- a virtio spec patch to describe the support for encapsulation offload
 
-        fl6.flowi6_mark = IP6_REPLY_MARK(net, skb->mark);
-        fl6.fl6_dport = t1->dest;
+Thanks
