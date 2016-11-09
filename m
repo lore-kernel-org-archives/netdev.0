@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 2/3] vhost: better detection of available buffers
-Date: Wed,  9 Nov 2016 15:38:32 +0800
-Message-ID: <1478677113-13126-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH 3/3] vhost_net: tx support batching
+Date: Wed,  9 Nov 2016 15:38:33 +0800
+Message-ID: <1478677113-13126-3-git-send-email-jasowang@redhat.com>
 References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: mst@redhat.com, netdev@vger.kernel.org,
@@ -11,28 +11,89 @@ In-Reply-To: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We should use vq->last_avail_idx instead of vq->avail_idx in the
-checking of vhost_vq_avail_empty() since latter is the cached avail
-index from guest but we want to know if there's pending available
-buffers in the virtqueue.
+This patch tries to utilize tuntap rx batching by peeking the tx
+virtqueue during transmission, if there's more available buffers in
+the virtqueue, set MSG_MORE flag for a hint for tuntap to batch the
+packets. The maximum number of batched tx packets were specified
+through a module parameter: tx_bached.
+
+When use 16 as tx_batched:
+
+Pktgen test shows 16% on tx pps in guest.
+Netperf test does not show obvious regression.
+
+For safety, 1 were used as the default value for tx_batched.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/vhost.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/vhost/net.c   | 15 ++++++++++++++-
+ drivers/vhost/vhost.c |  1 +
+ drivers/vhost/vhost.h |  1 +
+ 3 files changed, 16 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 5dc128a..51c378e 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -35,6 +35,10 @@ module_param(experimental_zcopytx, int, 0444);
+ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
+ 		                       " 1 -Enable; 0 - Disable");
+ 
++static int tx_batched = 1;
++module_param(tx_batched, int, 0444);
++MODULE_PARM_DESC(tx_batched, "Number of patches batched in TX");
++
+ /* Max number of bytes transferred before requeueing the job.
+  * Using this limit prevents one virtqueue from starving others. */
+ #define VHOST_NET_WEIGHT 0x80000
+@@ -454,6 +458,16 @@ static void handle_tx(struct vhost_net *net)
+ 			msg.msg_control = NULL;
+ 			ubufs = NULL;
+ 		}
++		total_len += len;
++		if (vq->delayed < tx_batched &&
++		    total_len < VHOST_NET_WEIGHT &&
++		    !vhost_vq_avail_empty(&net->dev, vq)) {
++			vq->delayed++;
++			msg.msg_flags |= MSG_MORE;
++		} else {
++			vq->delayed = 0;
++			msg.msg_flags &= ~MSG_MORE;
++		}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(sock, &msg, len);
+ 		if (unlikely(err < 0)) {
+@@ -472,7 +486,6 @@ static void handle_tx(struct vhost_net *net)
+ 			vhost_add_used_and_signal(&net->dev, vq, head, 0);
+ 		else
+ 			vhost_zerocopy_signal_used(net, vq);
+-		total_len += len;
+ 		vhost_net_tx_packet(net);
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
 diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index c6f2d89..fdf4cdf 100644
+index fdf4cdf..bc362c7 100644
 --- a/drivers/vhost/vhost.c
 +++ b/drivers/vhost/vhost.c
-@@ -2230,7 +2230,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 	if (r)
- 		return false;
- 
--	return vhost16_to_cpu(vq, avail_idx) == vq->avail_idx;
-+	return vhost16_to_cpu(vq, avail_idx) == vq->last_avail_idx;
+@@ -311,6 +311,7 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->busyloop_timeout = 0;
+ 	vq->umem = NULL;
+ 	vq->iotlb = NULL;
++	vq->delayed = 0;
  }
- EXPORT_SYMBOL_GPL(vhost_vq_avail_empty);
  
+ static int vhost_worker(void *data)
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 78f3c5f..9f81a94 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -141,6 +141,7 @@ struct vhost_virtqueue {
+ 	bool user_be;
+ #endif
+ 	u32 busyloop_timeout;
++	int delayed;
+ };
+ 
+ struct vhost_msg_node {
 -- 
 2.7.4
