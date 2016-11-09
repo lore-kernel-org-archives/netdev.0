@@ -1,61 +1,69 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Is Documentation/networking/phy.txt still up-to-date?
-Date: Wed, 9 Nov 2016 09:07:08 -0800
-Message-ID: <24676d24-5b07-7d26-6ffa-14e857960a52@gmail.com>
-References: <582323A8.20706@laposte.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Sebastian Frias <sf84@laposte.net>, afleming@freescale.com,
-        jgarzik@pobox.com,
-        =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <582323A8.20706@laposte.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: tcp response should set oif only if it is L3 master
+Date: Wed,  9 Nov 2016 09:07:26 -0800
+Message-ID: <1478711246-17440-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: lorenzo@google.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34105 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753562AbcKIRHe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 12:07:34 -0500
+Received: by mail-pf0-f176.google.com with SMTP id n85so129721621pfi.1
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 09:07:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/09/2016 05:24 AM, Sebastian Frias wrote:
-> Hi,
-> 
-> Documentation/networking/phy.txt discusses phy_connect and states that:
-> 
->  "...
-> 
->  interface is a u32 which specifies the connection type used
->  between the controller and the PHY.  Examples are GMII, MII,
->  RGMII, and SGMII.  For a full list, see include/linux/phy.h
-> 
->  Now just make sure that phydev->supported and phydev->advertising have any
->  values pruned from them which don't make sense for your controller (a 10/100
->  controller may be connected to a gigabit capable PHY, so you would need to
->  mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for definitions
->  for these bitfields. Note that you should not SET any bits, or the PHY may
->  get put into an unsupported state.
-> 
->  ..."
-> 
-> However, 'drivers/net/ethernet/aurora/nb8800.c' for example, does SETs some
-> bits (in function 'nb8800_pause_adv').
+Lorenzo noted an Android unit test failed due to e0d56fdd7342:
+"The expectation in the test was that the RST replying to a SYN sent to a
+closed port should be generated with oif=0. In other words it should not
+prefer the interface where the SYN came in on, but instead should follow
+whatever the routing table says it should do."
 
-All pause/flow control related bits should be set by the Ethernet MAC
-driver because this is an Ethernet MAC, not PHY, thing. See this
-discussion for some details:
+Revert the change to ip_send_unicast_reply and tcp_v6_send_response such
+that the oif in the flow is set to the skb_iif only if skb_iif is an L3
+master.
 
-https://www.mail-archive.com/netdev@vger.kernel.org/msg135347.html
+Fixes: e0d56fdd7342 ("net: l3mdev: remove redundant calls")
+Reported-by: Lorenzo Colitti <lorenzo@google.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/ip_output.c | 3 ++-
+ net/ipv6/tcp_ipv6.c  | 8 ++++++--
+ 2 files changed, 8 insertions(+), 3 deletions(-)
 
-So the nb8800 drivers does the correct thing here, but the documentation
-should be updated to reflect that this applies to all bits, except the
-Pause capabilities because these need to come from the Ethernet MAC.
-
-> 
-> I checked 'drivers/net/ethernet/broadcom/genet/bcmmii.c' and that one CLEARs
-> bits (as per the documentation).
-> 
-> Does anybody knows what is the correct/recommended approach?
-
-Both drivers do correct things, they just don't set the same things here.
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 03e7f7310423..7cf627b0b248 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1579,7 +1579,8 @@ void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	oif = arg->bound_dev_if;
+-	oif = oif ? : skb->skb_iif;
++	if (!oif && netif_index_is_l3_master(net, skb->skb_iif))
++		oif = skb->skb_iif;
+ 
+ 	flowi4_init_output(&fl4, oif,
+ 			   IP4_REPLY_MARK(net, skb->mark),
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5a27ab4eab39..6ca23c2e76f7 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -818,8 +818,12 @@ static void tcp_v6_send_response(const struct sock *sk, struct sk_buff *skb, u32
+ 	fl6.flowi6_proto = IPPROTO_TCP;
+ 	if (rt6_need_strict(&fl6.daddr) && !oif)
+ 		fl6.flowi6_oif = tcp_v6_iif(skb);
+-	else
+-		fl6.flowi6_oif = oif ? : skb->skb_iif;
++	else {
++		if (!oif && netif_index_is_l3_master(net, skb->skb_iif))
++			oif = skb->skb_iif;
++
++		fl6.flowi6_oif = oif;
++	}
+ 
+ 	fl6.flowi6_mark = IP6_REPLY_MARK(net, skb->mark);
+ 	fl6.fl6_dport = t1->dest;
 -- 
-Florian
+2.1.4
