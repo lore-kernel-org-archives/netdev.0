@@ -1,78 +1,41 @@
-From: Brian Norris <briannorris@chromium.org>
-Subject: Re: [PATCH] mwifiex: fix memory leak in
- mwifiex_save_hidden_ssid_channels()
-Date: Wed, 9 Nov 2016 15:27:47 -0800
-Message-ID: <20161109232744.GA66287@google.com>
-References: <1478662648-70698-1-git-send-email-jcliang@chromium.org>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net 0/2] bpf: Fix bpf_redirect to an ipip/ip6tnl dev
+Date: Wed, 9 Nov 2016 15:36:32 -0800
+Message-ID: <1478734594-337666-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "open list:MARVELL MWIFIEX WIRELESS DRIVER"
-        <linux-wireless@vger.kernel.org>,
-        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Ricky Liang <jcliang@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1478662648-70698-1-git-send-email-jcliang@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34341 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751599AbcKIXhC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 18:37:02 -0500
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uA9NYlKY021558
+        for <netdev@vger.kernel.org>; Wed, 9 Nov 2016 15:37:02 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 26mc9ngnsb-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 15:37:02 -0800
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
+ mx-out.facebook.com (10.223.100.97) with ESMTP id
+ 696c2050a6d511e6bd1e24be0593f280-275faa50 for <netdev@vger.kernel.org>;        Wed,
+ 09 Nov 2016 15:37:00 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 09, 2016 at 11:37:28AM +0800, Ricky Liang wrote:
-> kmemleak reports memory leak in mwifiex_save_hidden_ssid_channels():
-> 
-> unreferenced object 0xffffffc0a2914780 (size 192):
->   comm "ksdioirqd/mmc2", pid 2004, jiffies 4307182506 (age 820.684s)
->   hex dump (first 32 bytes):
->     00 06 47 49 4e 2d 32 67 01 03 c8 60 6c 03 01 40  ..GIN-2g...`l..@
->     07 10 54 57 20 34 04 1e 64 05 24 84 03 24 95 04  ..TW 4..d.$..$..
->   backtrace:
->     [<ffffffc0003375f4>] create_object+0x164/0x2b4
->     [<ffffffc0008e3530>] kmemleak_alloc+0x50/0x88
->     [<ffffffc000335120>] __kmalloc_track_caller+0x1bc/0x264
->     [<ffffffc00030899c>] kmemdup+0x38/0x64
->     [<ffffffbffc2311cc>] mwifiex_fill_new_bss_desc+0x3c/0x130 [mwifiex]
->     [<ffffffbffc22ee9c>] mwifiex_save_curr_bcn+0x4ec/0x640 [mwifiex]
->     [<ffffffbffc22f45c>] mwifiex_handle_event_ext_scan_report+0x1d4/0x268 [mwifiex]
->     [<ffffffbffc2375d0>] mwifiex_process_sta_event+0x378/0x898 [mwifiex]
->     [<ffffffbffc224dc8>] mwifiex_process_event+0x1a8/0x1e8 [mwifiex]
->     [<ffffffbffc2228f0>] mwifiex_main_process+0x258/0x534 [mwifiex]
->     [<ffffffbffc258858>] 0xffffffbffc258858
->     [<ffffffc00071ee90>] process_sdio_pending_irqs+0xf8/0x160
->     [<ffffffc00071efdc>] sdio_irq_thread+0x9c/0x1a4
->     [<ffffffc000240d08>] kthread+0xf4/0x100
->     [<ffffffc0002043fc>] ret_from_fork+0xc/0x50
->     [<ffffffffffffffff>] 0xffffffffffffffff
-> 
-> Signed-off-by: Ricky Liang <jcliang@chromium.org>
-> ---
->  drivers/net/wireless/marvell/mwifiex/scan.c | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
-> index 97c9765..98ce072 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/scan.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/scan.c
-> @@ -1671,6 +1671,10 @@ static int mwifiex_save_hidden_ssid_channels(struct mwifiex_private *priv,
->  	}
->  
->  done:
-> +	/* beacon_ie buffer was allocated in function
-> +	 * mwifiex_fill_new_bss_desc(). Free it now.
-> +	 */
-> +	kfree(bss_desc->beacon_buf);
+Hi,
 
-For a bit, I thought this was possibly a sort of double-free, since
-mwifiex_fill_new_bss_desc() might actually fail to allocate
-->beacon_buf, but kfree(NULL) is safe, so:
+This patch set fixes a bug in bpf_redirect(dev, flags) when dev is an
+ipip/ip6tnl.  The current problem is IP-EthHdr-IP is sent out instead of
+IP-IP.
 
-Reviewed-by: Brian Norris <briannorris@chromium.org>
+Patch 1 adds a dev->type test similar to dev_is_mac_header_xmit()
+in act_mirred.c which is only available in net-next.  We can consider to
+refactor it once this patch is pulled into net-next from net.
 
->  	kfree(bss_desc);
->  	return 0;
->  }
-> -- 
-> 2.6.6
-> 
+Thanks,
+-- Martin
