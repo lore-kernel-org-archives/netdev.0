@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net-next 15/17] net: hns: modify tcam table of mask_key
-Date: Wed, 9 Nov 2016 18:13:59 +0000
-Message-ID: <20161109181401.913728-16-salil.mehta@huawei.com>
+Subject: [PATCH net-next 10/17] net: hns: modify tcam table and set mac key
+Date: Wed, 9 Nov 2016 18:13:54 +0000
+Message-ID: <20161109181401.913728-11-salil.mehta@huawei.com>
 References: <20161109181401.913728-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,52 +10,90 @@ Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
         Qianqian Xie <xieqianqian@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:27924 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754772AbcKISP6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:15:58 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20161109181401.913728-1-salil.mehta@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Qianqian Xie <xieqianqian@huawei.com>
 
-The packets of wrong mac address(only the last bit is different) can be
-received in Big-endian by current definition of mask_key. Thus it needs
-to be modified to support Big-endian and ensure Big-endian normal.
+The current definition of dsaf_drv_tbl_tcam_key is only suitable for
+Little-endian. If data is stored in Big-endian, this may lead to
+error in data use. Shift operation can make it work normally in both
+Big-endian and Little-endian.
 
 Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
 Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   16 ++++++++++++----
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   13 ++++++++-----
+ 2 files changed, 20 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 74ca53d..250e4a1 100644
+index 2721458..db23eef 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -1718,6 +1718,10 @@ int hns_dsaf_add_mac_mc_port(struct dsaf_device *dsaf_dev,
- 				     0x0,
- 				     0xff,
- 				     mc_mask);
+@@ -1509,8 +1509,12 @@ static void hns_dsaf_set_mac_key(
+ 	mac_key->high.bits.mac_3 = addr[3];
+ 	mac_key->low.bits.mac_4 = addr[4];
+ 	mac_key->low.bits.mac_5 = addr[5];
+-	mac_key->low.bits.vlan = vlan_id;
+-	mac_key->low.bits.port = port;
++	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_VLAN_M,
++		       DSAF_TBL_TCAM_KEY_VLAN_S, vlan_id);
++	dsaf_set_field(mac_key->low.bits.port_vlan, DSAF_TBL_TCAM_KEY_PORT_M,
++		       DSAF_TBL_TCAM_KEY_PORT_S, port);
 +
-+		mask_key.high.val = le32_to_cpu(mask_key.high.val);
-+		mask_key.low.val = le32_to_cpu(mask_key.low.val);
++	mac_key->low.bits.port_vlan = le16_to_cpu(mac_key->low.bits.port_vlan);
+ }
+ 
+ /**
+@@ -2760,8 +2764,12 @@ void hns_dsaf_set_promisc_tcam(struct dsaf_device *dsaf_dev,
+ 	if (enable) {
+ 		memset(&tbl_tcam_data, 0, sizeof(tbl_tcam_data));
+ 		memset(&tbl_tcam_mask, 0, sizeof(tbl_tcam_mask));
+-		tbl_tcam_data.low.bits.port = port;
+-		tbl_tcam_mask.low.bits.port = 0xf;  /* [3:0]: port id */
++		dsaf_set_field(tbl_tcam_data.low.bits.port_vlan,
++			       DSAF_TBL_TCAM_KEY_PORT_M,
++			       DSAF_TBL_TCAM_KEY_PORT_S, port);
++		dsaf_set_field(tbl_tcam_mask.low.bits.port_vlan,
++			       DSAF_TBL_TCAM_KEY_PORT_M,
++			       DSAF_TBL_TCAM_KEY_PORT_S, 0xf);
+ 
+ 		/* SUB_QID */
+ 		dsaf_set_bit(mac_data.tbl_mcast_port_msk[0],
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index 7f70f34..c68555b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -357,6 +357,11 @@ static inline void *hns_dsaf_dev_priv(const struct dsaf_device *dsaf_dev)
+ 	return (void *)((u8 *)dsaf_dev + sizeof(*dsaf_dev));
+ }
+ 
++#define DSAF_TBL_TCAM_KEY_PORT_S 0
++#define DSAF_TBL_TCAM_KEY_PORT_M (((1ULL << 4) - 1) << 0)
++#define DSAF_TBL_TCAM_KEY_VLAN_S 4
++#define DSAF_TBL_TCAM_KEY_VLAN_M (((1ULL << 12) - 1) << 4)
 +
- 		pmask_key = (struct dsaf_tbl_tcam_data *)(&mask_key);
- 	}
+ struct dsaf_drv_tbl_tcam_key {
+ 	union {
+ 		struct {
+@@ -370,11 +375,9 @@ struct dsaf_drv_tbl_tcam_key {
+ 	} high;
+ 	union {
+ 		struct {
+-			u32 port:4; /* port id, */
+-			/* dsaf-mode fixed 0, non-dsaf-mode port id*/
+-			u32 vlan:12; /* vlan id */
+-			u32 mac_5:8;
+-			u32 mac_4:8;
++			u16 port_vlan;
++			u8 mac_5;
++			u8 mac_4;
+ 		} bits;
  
-@@ -1887,6 +1891,9 @@ int hns_dsaf_del_mac_mc_port(struct dsaf_device *dsaf_dev,
- 		/* config key mask */
- 		hns_dsaf_set_mac_key(dsaf_dev, &mask_key, 0x00, 0xff, mc_addr);
- 
-+		mask_key.high.val = le32_to_cpu(mask_key.high.val);
-+		mask_key.low.val = le32_to_cpu(mask_key.low.val);
-+
- 		pmask_key = (struct dsaf_tbl_tcam_data *)(&mask_key);
- 	}
- 
+ 		u32 val;
 -- 
 1.7.9.5
