@@ -1,49 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] irqchip/renesas-irqc: Postpone driver initialization
-Date: Wed, 9 Nov 2016 11:17:05 -0800
-Message-ID: <3dface9b-7602-b1f2-0dd6-37b444ac42e3@gmail.com>
-References: <1478633747-26878-1-git-send-email-geert+renesas@glider.be>
- <216fe100-556b-7f83-39b0-4cf54c1fa35c@gmail.com>
- <CAMuHMdWkXsAuRpbTWGw9Wp4m2M38zRAd8OpPpA-sCDb7Xb7skw@mail.gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net/sctp: null-ptr-deref in sctp_inet_listen
+Date: Wed, 9 Nov 2016 20:24:20 +0100
+Message-ID: <CAAeHK+x5tsuCjrxdj_AAedQEcii-H70ZbJpi6ZYzj0m4H-W1GQ@mail.gmail.com>
+References: <CAAeHK+yCE-e2scjs=rUwr+XHmmCcd33P--7MVFmxrTQ_AFZcOA@mail.gmail.com>
+ <CADvbK_eyG3pLMOws5wAOpvDUPUB2SknOCV5z6TLfJoKfj+Q27A@mail.gmail.com>
+ <CAAeHK+yW+5qqPtiXt+5+HsDPj=czh2ppfcUi0qO0fEjGsaqFnQ@mail.gmail.com> <CADvbK_dswzCgnQXMSiTOsODXP19epKkQsoUgLmv8PORhfAzwFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Marc Zyngier <marc.zyngier@arm.com>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: syzkaller <syzkaller@googlegroups.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdWkXsAuRpbTWGw9Wp4m2M38zRAd8OpPpA-sCDb7Xb7skw@mail.gmail.com>
+In-Reply-To: <CADvbK_dswzCgnQXMSiTOsODXP19epKkQsoUgLmv8PORhfAzwFA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/08/2016 11:50 AM, Geert Uytterhoeven wrote:
-> Hi Florian,
-> 
-> On Tue, Nov 8, 2016 at 8:42 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 11/08/2016 11:35 AM, Geert Uytterhoeven wrote:
->>> Currently the renesas-irqc driver uses postcore_initcall().
->>>
->>> However, the new CPG/MSSR driver uses subsys_initcall(). Hence the
->>> IRQC's probe will be deferred, which causes the Micrel Ethernet PHY to
->>> not find its interrupt on R-Car Gen2 and RZ/G, as the of_mdio subsystem
->>> does not support deferred probe yet.
->>
->> Is not that the more correct fix to implement though?
-> 
-> Sure it is. But nothing has happened since this was reported ca. 1 year ago.
-> Cfr. "of_mdiobus_register_phy() and deferred probe"
-> https://lkml.org/lkml/2015/10/22/377
-> 
-> My MDIO foo is not that strong...
+On Wed, Nov 9, 2016 at 4:32 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> this fix may break TYPE_SCTP_PRIMITIVE_SHUTDOWN statetable,
+> could you give the following one a try ? thanks.
 
-Let me try to cook something here which may require
-of_mdiobus_register_phy(), are you okay testing patches?
--- 
-Florian
+This one also works.
+
+Thanks.
+
+>
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4288,9 +4288,9 @@ static void sctp_shutdown(struct sock *sk, int how)
+>                 return;
+>
+>         if (how & SEND_SHUTDOWN) {
+> -               sk->sk_state = SCTP_SS_CLOSING;
+>                 ep = sctp_sk(sk)->ep;
+>                 if (!list_empty(&ep->asocs)) {
+> +                       sk->sk_state = SCTP_SS_CLOSING;
+>                         asoc = list_entry(ep->asocs.next,
+>                                           struct sctp_association, asocs);
+>                         sctp_primitive_SHUTDOWN(net, asoc, NULL);
+>
+> --
+> You received this message because you are subscribed to the Google Groups "syzkaller" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
+> For more options, visit https://groups.google.com/d/optout.
