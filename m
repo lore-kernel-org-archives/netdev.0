@@ -1,58 +1,49 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 17/17] batman-adv: Reject unicast packet with zero/mcast dst address
-Date: Wed,  9 Nov 2016 23:26:06 +0100
-Message-ID: <20161109222606.29039-18-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 02/17] batman-adv: Mark batadv_netlink_ops as
+	const
+Date: Wed,  9 Nov 2016 23:25:51 +0100
+Message-ID: <20161109222606.29039-3-sw@simonwunderlich.de>
 References: <20161109222606.29039-1-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Sven Eckelmann <sven@narfation.org>,
-        Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:55527 "EHLO
-        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754142AbcKIW0h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 17:26:37 -0500
-In-Reply-To: <20161109222606.29039-1-sw@simonwunderlich.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161109222606.29039-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Sven Eckelmann <sven@narfation.org>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-An unicast batman-adv packet cannot be transmitted to a multicast or zero
-mac address. So reject incoming packets which still have these classes of
-addresses as destination mac address in the outer ethernet header.
+The genl_ops don't need to be written by anyone and thus can be moved in a
+ro memory range.
 
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/routing.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/batman-adv/netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 4f034df..6713bdf 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -364,8 +364,8 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
+diff --git a/net/batman-adv/netlink.c b/net/batman-adv/netlink.c
+index 2171281..0627381 100644
+--- a/net/batman-adv/netlink.c
++++ b/net/batman-adv/netlink.c
+@@ -530,7 +530,7 @@ batadv_netlink_dump_hardifs(struct sk_buff *msg, struct netlink_callback *cb)
+ 	return msg->len;
+ }
  
- 	ethhdr = eth_hdr(skb);
- 
--	/* packet with unicast indication but broadcast recipient */
--	if (is_broadcast_ether_addr(ethhdr->h_dest))
-+	/* packet with unicast indication but non-unicast recipient */
-+	if (!is_valid_ether_addr(ethhdr->h_dest))
- 		goto free_skb;
- 
- 	/* packet with broadcast/multicast sender address */
-@@ -462,8 +462,8 @@ static int batadv_check_unicast_packet(struct batadv_priv *bat_priv,
- 
- 	ethhdr = eth_hdr(skb);
- 
--	/* packet with unicast indication but broadcast recipient */
--	if (is_broadcast_ether_addr(ethhdr->h_dest))
-+	/* packet with unicast indication but non-unicast recipient */
-+	if (!is_valid_ether_addr(ethhdr->h_dest))
- 		return -EBADR;
- 
- 	/* packet with broadcast/multicast sender address */
+-static struct genl_ops batadv_netlink_ops[] = {
++static const struct genl_ops batadv_netlink_ops[] = {
+ 	{
+ 		.cmd = BATADV_CMD_GET_MESH_INFO,
+ 		.flags = GENL_ADMIN_PERM,
 -- 
 2.10.1
