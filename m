@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 1/2] qed: configure ll2 RoCE v1/v2 flavor correctly
-Date: Wed, 9 Nov 2016 22:48:43 +0200
-Message-ID: <1478724524-16940-2-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net 2/2] qed: Correct rdma params configuration
+Date: Wed, 9 Nov 2016 22:48:44 +0200
+Message-ID: <1478724524-16940-3-git-send-email-Yuval.Mintz@cavium.com>
 References: <1478724524-16940-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,45 +15,50 @@ List-Id: netdev.vger.kernel.org
 
 From: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 
-Currently RoCE v2 won't operate with RDMA CM due to missing setting of
-the roce-flavour in the ll2 configuration.
-This patch properly sets the flavour, and deletes incorrect HSI
-that doesn't [yet] exist.
+Previous fix has broken RoCE support as the rdma_pf_params are now
+being set into the parameters only after the params are alrady assigned
+into the hw-function.
 
-Fixes: abd49676c707 ("qed: Add RoCE ll2 & GSI support")
+Fixes: 0189efb8f4f8 ("qed*: Fix Kconfig dependencies with INFINIBAND_QEDR")
 Signed-off-by: Ram Amrani <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/qlogic/qed/qed_hsi.h | 3 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 1 +
- 2 files changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 72eee29..2777d5b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -727,9 +727,6 @@ struct core_tx_bd_flags {
- #define CORE_TX_BD_FLAGS_L4_PROTOCOL_SHIFT	6
- #define CORE_TX_BD_FLAGS_L4_PSEUDO_CSUM_MODE_MASK	0x1
- #define CORE_TX_BD_FLAGS_L4_PSEUDO_CSUM_MODE_SHIFT 7
--#define CORE_TX_BD_FLAGS_ROCE_FLAV_MASK		0x1
--#define CORE_TX_BD_FLAGS_ROCE_FLAV_SHIFT	12
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index c418360..333c744 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -839,20 +839,19 @@ static void qed_update_pf_params(struct qed_dev *cdev,
+ {
+ 	int i;
+ 
++	if (IS_ENABLED(CONFIG_QED_RDMA)) {
++		params->rdma_pf_params.num_qps = QED_ROCE_QPS;
++		params->rdma_pf_params.min_dpis = QED_ROCE_DPIS;
++		/* divide by 3 the MRs to avoid MF ILT overflow */
++		params->rdma_pf_params.num_mrs = RDMA_MAX_TIDS;
++		params->rdma_pf_params.gl_pi = QED_ROCE_PROTOCOL_INDEX;
++	}
++
+ 	for (i = 0; i < cdev->num_hwfns; i++) {
+ 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
+ 
+ 		p_hwfn->pf_params = *params;
+ 	}
 -
- };
+-	if (!IS_ENABLED(CONFIG_QED_RDMA))
+-		return;
+-
+-	params->rdma_pf_params.num_qps = QED_ROCE_QPS;
+-	params->rdma_pf_params.min_dpis = QED_ROCE_DPIS;
+-	/* divide by 3 the MRs to avoid MF ILT overflow */
+-	params->rdma_pf_params.num_mrs = RDMA_MAX_TIDS;
+-	params->rdma_pf_params.gl_pi = QED_ROCE_PROTOCOL_INDEX;
+ }
  
- struct core_tx_bd {
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 63e1a1b..f95385c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -1119,6 +1119,7 @@ static void qed_ll2_prepare_tx_packet_set_bd(struct qed_hwfn *p_hwfn,
- 	start_bd->bd_flags.as_bitfield |= CORE_TX_BD_FLAGS_START_BD_MASK <<
- 	    CORE_TX_BD_FLAGS_START_BD_SHIFT;
- 	SET_FIELD(start_bd->bitfield0, CORE_TX_BD_NBDS, num_of_bds);
-+	SET_FIELD(start_bd->bitfield0, CORE_TX_BD_ROCE_FLAV, type);
- 	DMA_REGPAIR_LE(start_bd->addr, first_frag);
- 	start_bd->nbytes = cpu_to_le16(first_frag_len);
- 
+ static int qed_slowpath_start(struct qed_dev *cdev,
 -- 
 1.9.3
 
