@@ -1,258 +1,222 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [swiotlb PATCH v3 3/3] swiotlb: Add support for
- DMA_ATTR_SKIP_CPU_SYNC
-Date: Wed, 09 Nov 2016 10:20:49 -0500
-Message-ID: <20161109152039.25151.37018.stgit@ahduyck-blue-test.jf.intel.com>
-References: <20161109151639.25151.24290.stgit@ahduyck-blue-test.jf.intel.com>
+From: Josef Bacik <jbacik@fb.com>
+Subject: Re: 484611357c19 introduces arbitrary kernel write bug (root-only)
+Date: Wed, 9 Nov 2016 16:21:39 -0500
+Message-ID: <2e6a3cf8-254a-9cbb-201b-d3059a5b723a@fb.com>
+References: <CAG48ez0mP4xwv6vnKRJ+rcdXYyA1wGnCWsbkKUgWGSBbMtgFMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux-mm@kvack.org, konrad.wilk@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161109151639.25151.24290.stgit@ahduyck-blue-test.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <security@kernel.org>, <netdev@vger.kernel.org>
+To: Jann Horn <jannh@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43502 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754143AbcKIVWM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 16:22:12 -0500
+In-Reply-To: <CAG48ez0mP4xwv6vnKRJ+rcdXYyA1wGnCWsbkKUgWGSBbMtgFMw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As a first step to making DMA_ATTR_SKIP_CPU_SYNC apply to architectures
-beyond just ARM I need to make it so that the swiotlb will respect the
-flag.  In order to do that I also need to update the swiotlb-xen since it
-heavily makes use of the functionality.
+On 11/08/2016 07:23 PM, Jann Horn wrote:
+> In 484611357c19 (not in any stable kernel yet), functionality is
+> introduced that allows root (and afaics nobody else, since nobody else
+> is allowed to perform pointer arithmetic) to basically write to (and
+> read from) arbitrary kernel memory. There are multiple bugs in the
+> validation logic:
+>
+>  - A bitwise AND of values in the ranges [a,b] and [c,d] is assumed to
+> always result in a value
+>    >= a&b. However, for the combination of ranges [1,1] and [1,2],
+> this calculates a minimum of 1
+>    while actually, 1&2 is zero. This is the bug that my crasher
+> (below) triggers.
+>  - a%b is assumed to always be smaller than b-1. However, for b==0,
+> this will calculate an upper
+>    limit of -1 while the values will actually always be zero.
+>  - I'm not sure about this, but I think that, when only one end of the
+> range is bounded, the logic will
+>    incorrectly also treat the other end as a bounded, and because of
+> the usage of bound
+>    placeholders that are smaller than the actual maximum values, this
+> could be used to perform
+>    out-of-bounds accesses.
+>
+> The fun part here is that, as soon as the validation is just
+> off-by-one, arithmetic transformations can be used to turn that into
+> out-of-bounds accesses at arbitrary offsets. The crasher turns the
+> off-by-one into a memory write at offset 0x10000000.
+>
 
-In addition I am applying the attribute to the unmap calls in the case of
-map_single or map_sg has to later destroy a buffer because the device is
-not able to access the DMA region.
+Can you give this a whirl?  It addresses your testcase and the other issues 
+you've brought up.  Thanks
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+ From e47a1de98af2c1bcebd4224f546e3be1fd340b6a Mon Sep 17 00:00:00 2001
+From: Josef Bacik <jbacik@fb.com>
+Date: Wed, 9 Nov 2016 16:09:52 -0500
+Subject: [PATCH] bpf: fix range arithmetic for bpf map access
+
+I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
+invalid accesses to bpf map entries.  Fix this up by doing a few things
+
+1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
+life and just adds extra complexity.
+
+2) Fix the logic for BPF_AND.  If the min value is negative then that is the new
+minimum, otherwise it is unconditionally 0.
+
+3) Don't do operations on the ranges if they are set to the limits, as they are
+by definition undefined, and allowing arithmetic operations on those values
+could make them appear valid when they really aren't.
+
+This fixes the testcase provided by Jann as well as a few other theoretical
+problems.
+
+Reported-by: Jann Horn <jannh@google.com>
+Signed-off-by: Josef Bacik <jbacik@fb.com>
 ---
+  include/linux/bpf_verifier.h |  3 +-
+  kernel/bpf/verifier.c        | 65 ++++++++++++++++++++++++++++----------------
+  2 files changed, 44 insertions(+), 24 deletions(-)
 
-v1: Found different fix for avoiding lines longer than 80 characters
-    Dropped code that moved section to a label at end of function.
-    Split out mapping error fix to separate patch.
-v3: Used 0 where applying DMA_ATTR_SKIP_CPU_SYNC is redundant
-    Applied DMA_ATTR_SKIP_CPU_SYNC to attr instead of ORing in parameter
-    Unwrap a few lines that are more readable as a single line
-    Updated patch to work with changes in xen_swiotlb_map_page code flow
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index ac5b393..15ceb7f 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -22,7 +22,8 @@ struct bpf_reg_state {
+  	 * Used to determine if any memory access using this register will
+  	 * result in a bad access.
+  	 */
+-	u64 min_value, max_value;
++	s64 min_value;
++	u64 max_value;
+  	u32 id;
+  	union {
+  		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 9002575..840533a 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -234,8 +234,8 @@ static void print_verifier_state(struct bpf_verifier_state 
+*state)
+  				reg->map_ptr->value_size,
+  				reg->id);
+  		if (reg->min_value != BPF_REGISTER_MIN_RANGE)
+-			verbose(",min_value=%llu",
+-				(unsigned long long)reg->min_value);
++			verbose(",min_value=%lld",
++				(long long)reg->min_value);
+  		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
+  			verbose(",max_value=%llu",
+  				(unsigned long long)reg->max_value);
+@@ -1490,7 +1490,7 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
+  {
+  	if (reg->max_value > BPF_REGISTER_MAX_RANGE)
+  		reg->max_value = BPF_REGISTER_MAX_RANGE;
+-	if ((s64)reg->min_value < BPF_REGISTER_MIN_RANGE)
++	if (reg->min_value < BPF_REGISTER_MIN_RANGE)
+  		reg->min_value = BPF_REGISTER_MIN_RANGE;
+  }
 
- drivers/xen/swiotlb-xen.c |   10 ++++++----
- include/linux/swiotlb.h   |    6 ++++--
- lib/swiotlb.c             |   37 ++++++++++++++++++++++---------------
- 3 files changed, 32 insertions(+), 21 deletions(-)
+@@ -1498,7 +1498,8 @@ static void adjust_reg_min_max_vals(struct 
+bpf_verifier_env *env,
+  				    struct bpf_insn *insn)
+  {
+  	struct bpf_reg_state *regs = env->cur_state.regs, *dst_reg;
+-	u64 min_val = BPF_REGISTER_MIN_RANGE, max_val = BPF_REGISTER_MAX_RANGE;
++	s64 min_val = BPF_REGISTER_MIN_RANGE;
++	u64 max_val = BPF_REGISTER_MAX_RANGE;
+  	bool min_set = false, max_set = false;
+  	u8 opcode = BPF_OP(insn->code);
 
-diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
-index c36caa5..b0d5d27 100644
---- a/drivers/xen/swiotlb-xen.c
-+++ b/drivers/xen/swiotlb-xen.c
-@@ -405,7 +405,7 @@ dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
- 	 */
- 	trace_swiotlb_bounced(dev, dev_addr, size, swiotlb_force);
- 
--	map = swiotlb_tbl_map_single(dev, start_dma_addr, phys, size, dir);
-+	map = swiotlb_tbl_map_single(dev, start_dma_addr, phys, size, dir, attrs);
- 	if (map == SWIOTLB_MAP_ERROR)
- 		return DMA_ERROR_CODE;
- 
-@@ -417,7 +417,8 @@ dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
- 	 * Ensure that the address returned is DMA'ble
- 	 */
- 	if (!dma_capable(dev, dev_addr, size)) {
--		swiotlb_tbl_unmap_single(dev, map, size, dir);
-+		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-+		swiotlb_tbl_unmap_single(dev, map, size, dir, attrs);
- 		return DMA_ERROR_CODE;
- 	}
- 	return dev_addr;
-@@ -444,7 +445,7 @@ static void xen_unmap_single(struct device *hwdev, dma_addr_t dev_addr,
- 
- 	/* NOTE: We use dev_addr here, not paddr! */
- 	if (is_xen_swiotlb_buffer(dev_addr)) {
--		swiotlb_tbl_unmap_single(hwdev, paddr, size, dir);
-+		swiotlb_tbl_unmap_single(hwdev, paddr, size, dir, attrs);
- 		return;
- 	}
- 
-@@ -557,11 +558,12 @@ xen_swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl,
- 								 start_dma_addr,
- 								 sg_phys(sg),
- 								 sg->length,
--								 dir);
-+								 dir, attrs);
- 			if (map == SWIOTLB_MAP_ERROR) {
- 				dev_warn(hwdev, "swiotlb buffer is full\n");
- 				/* Don't panic here, we expect map_sg users
- 				   to do proper error handling. */
-+				attrs |= DMA_ATTR_SKIP_CPU_SYNC;
- 				xen_swiotlb_unmap_sg_attrs(hwdev, sgl, i, dir,
- 							   attrs);
- 				sg_dma_len(sgl) = 0;
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index f0d2589..183f37c 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -44,11 +44,13 @@ enum dma_sync_target {
- extern phys_addr_t swiotlb_tbl_map_single(struct device *hwdev,
- 					  dma_addr_t tbl_dma_addr,
- 					  phys_addr_t phys, size_t size,
--					  enum dma_data_direction dir);
-+					  enum dma_data_direction dir,
-+					  unsigned long attrs);
- 
- extern void swiotlb_tbl_unmap_single(struct device *hwdev,
- 				     phys_addr_t tlb_addr,
--				     size_t size, enum dma_data_direction dir);
-+				     size_t size, enum dma_data_direction dir,
-+				     unsigned long attrs);
- 
- extern void swiotlb_tbl_sync_single(struct device *hwdev,
- 				    phys_addr_t tlb_addr,
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index 5005316..1fa0491 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -425,7 +425,8 @@ static void swiotlb_bounce(phys_addr_t orig_addr, phys_addr_t tlb_addr,
- phys_addr_t swiotlb_tbl_map_single(struct device *hwdev,
- 				   dma_addr_t tbl_dma_addr,
- 				   phys_addr_t orig_addr, size_t size,
--				   enum dma_data_direction dir)
-+				   enum dma_data_direction dir,
-+				   unsigned long attrs)
- {
- 	unsigned long flags;
- 	phys_addr_t tlb_addr;
-@@ -526,7 +527,8 @@ found:
- 	 */
- 	for (i = 0; i < nslots; i++)
- 		io_tlb_orig_addr[index+i] = orig_addr + (i << IO_TLB_SHIFT);
--	if (dir == DMA_TO_DEVICE || dir == DMA_BIDIRECTIONAL)
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC) &&
-+	    (dir == DMA_TO_DEVICE || dir == DMA_BIDIRECTIONAL))
- 		swiotlb_bounce(orig_addr, tlb_addr, size, DMA_TO_DEVICE);
- 
- 	return tlb_addr;
-@@ -539,18 +541,19 @@ EXPORT_SYMBOL_GPL(swiotlb_tbl_map_single);
- 
- static phys_addr_t
- map_single(struct device *hwdev, phys_addr_t phys, size_t size,
--	   enum dma_data_direction dir)
-+	   enum dma_data_direction dir, unsigned long attrs)
- {
- 	dma_addr_t start_dma_addr = phys_to_dma(hwdev, io_tlb_start);
- 
--	return swiotlb_tbl_map_single(hwdev, start_dma_addr, phys, size, dir);
-+	return swiotlb_tbl_map_single(hwdev, start_dma_addr, phys, size, dir, attrs);
- }
- 
- /*
-  * dma_addr is the kernel virtual address of the bounce buffer to unmap.
-  */
- void swiotlb_tbl_unmap_single(struct device *hwdev, phys_addr_t tlb_addr,
--			      size_t size, enum dma_data_direction dir)
-+			      size_t size, enum dma_data_direction dir,
-+			      unsigned long attrs)
- {
- 	unsigned long flags;
- 	int i, count, nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
-@@ -561,6 +564,7 @@ void swiotlb_tbl_unmap_single(struct device *hwdev, phys_addr_t tlb_addr,
- 	 * First, sync the memory before unmapping the entry
- 	 */
- 	if (orig_addr != INVALID_PHYS_ADDR &&
-+	    !(attrs & DMA_ATTR_SKIP_CPU_SYNC) &&
- 	    ((dir == DMA_FROM_DEVICE) || (dir == DMA_BIDIRECTIONAL)))
- 		swiotlb_bounce(orig_addr, tlb_addr, size, DMA_FROM_DEVICE);
- 
-@@ -654,7 +658,7 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 		 * GFP_DMA memory; fall back on map_single(), which
- 		 * will grab memory from the lowest available address range.
- 		 */
--		phys_addr_t paddr = map_single(hwdev, 0, size, DMA_FROM_DEVICE);
-+		phys_addr_t paddr = map_single(hwdev, 0, size, DMA_FROM_DEVICE, 0);
- 		if (paddr == SWIOTLB_MAP_ERROR)
- 			goto err_warn;
- 
-@@ -669,7 +673,7 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 
- 			/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
- 			swiotlb_tbl_unmap_single(hwdev, paddr,
--						 size, DMA_TO_DEVICE);
-+						 size, DMA_TO_DEVICE, 0);
- 			goto err_warn;
- 		}
- 	}
-@@ -699,7 +703,7 @@ swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
- 		free_pages((unsigned long)vaddr, get_order(size));
- 	else
- 		/* DMA_TO_DEVICE to avoid memcpy in swiotlb_tbl_unmap_single */
--		swiotlb_tbl_unmap_single(hwdev, paddr, size, DMA_TO_DEVICE);
-+		swiotlb_tbl_unmap_single(hwdev, paddr, size, DMA_TO_DEVICE, 0);
- }
- EXPORT_SYMBOL(swiotlb_free_coherent);
- 
-@@ -755,7 +759,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
- 	trace_swiotlb_bounced(dev, dev_addr, size, swiotlb_force);
- 
- 	/* Oh well, have to allocate and map a bounce buffer. */
--	map = map_single(dev, phys, size, dir);
-+	map = map_single(dev, phys, size, dir, attrs);
- 	if (map == SWIOTLB_MAP_ERROR) {
- 		swiotlb_full(dev, size, dir, 1);
- 		return phys_to_dma(dev, io_tlb_overflow_buffer);
-@@ -765,7 +769,8 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
- 
- 	/* Ensure that the address returned is DMA'ble */
- 	if (!dma_capable(dev, dev_addr, size)) {
--		swiotlb_tbl_unmap_single(dev, map, size, dir);
-+		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-+		swiotlb_tbl_unmap_single(dev, map, size, dir, attrs);
- 		return phys_to_dma(dev, io_tlb_overflow_buffer);
- 	}
- 
-@@ -782,14 +787,15 @@ EXPORT_SYMBOL_GPL(swiotlb_map_page);
-  * whatever the device wrote there.
-  */
- static void unmap_single(struct device *hwdev, dma_addr_t dev_addr,
--			 size_t size, enum dma_data_direction dir)
-+			 size_t size, enum dma_data_direction dir,
-+			 unsigned long attrs)
- {
- 	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
- 
- 	BUG_ON(dir == DMA_NONE);
- 
- 	if (is_swiotlb_buffer(paddr)) {
--		swiotlb_tbl_unmap_single(hwdev, paddr, size, dir);
-+		swiotlb_tbl_unmap_single(hwdev, paddr, size, dir, attrs);
- 		return;
- 	}
- 
-@@ -809,7 +815,7 @@ void swiotlb_unmap_page(struct device *hwdev, dma_addr_t dev_addr,
- 			size_t size, enum dma_data_direction dir,
- 			unsigned long attrs)
- {
--	unmap_single(hwdev, dev_addr, size, dir);
-+	unmap_single(hwdev, dev_addr, size, dir, attrs);
- }
- EXPORT_SYMBOL_GPL(swiotlb_unmap_page);
- 
-@@ -891,11 +897,12 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
- 		if (swiotlb_force ||
- 		    !dma_capable(hwdev, dev_addr, sg->length)) {
- 			phys_addr_t map = map_single(hwdev, sg_phys(sg),
--						     sg->length, dir);
-+						     sg->length, dir, attrs);
- 			if (map == SWIOTLB_MAP_ERROR) {
- 				/* Don't panic here, we expect map_sg users
- 				   to do proper error handling. */
- 				swiotlb_full(hwdev, sg->length, dir, 0);
-+				attrs |= DMA_ATTR_SKIP_CPU_SYNC;
- 				swiotlb_unmap_sg_attrs(hwdev, sgl, i, dir,
- 						       attrs);
- 				sg_dma_len(sgl) = 0;
-@@ -925,7 +932,7 @@ swiotlb_unmap_sg_attrs(struct device *hwdev, struct scatterlist *sgl,
- 	BUG_ON(dir == DMA_NONE);
- 
- 	for_each_sg(sgl, sg, nelems, i)
--		unmap_single(hwdev, sg->dma_address, sg_dma_len(sg), dir);
-+		unmap_single(hwdev, sg->dma_address, sg_dma_len(sg), dir, attrs);
- 
- }
- EXPORT_SYMBOL(swiotlb_unmap_sg_attrs);
+@@ -1534,22 +1535,45 @@ static void adjust_reg_min_max_vals(struct 
+bpf_verifier_env *env,
+  		return;
+  	}
+
++	/* If one of our values was at the end of our ranges then we can't just
++	 * do our normal operations to the register, we need to set the values
++	 * to the min/max since they are undefined.
++	 */
++	if (min_val == BPF_REGISTER_MIN_RANGE)
++		dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
++	if (max_val == BPF_REGISTER_MAX_RANGE)
++		dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
++
+  	switch (opcode) {
+  	case BPF_ADD:
+-		dst_reg->min_value += min_val;
+-		dst_reg->max_value += max_val;
++		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value += min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value += max_val;
+  		break;
+  	case BPF_SUB:
+-		dst_reg->min_value -= min_val;
+-		dst_reg->max_value -= max_val;
++		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value -= min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value -= max_val;
+  		break;
+  	case BPF_MUL:
+-		dst_reg->min_value *= min_val;
+-		dst_reg->max_value *= max_val;
++		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value *= min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value *= max_val;
+  		break;
+  	case BPF_AND:
+-		/* & is special since it could end up with 0 bits set. */
+-		dst_reg->min_value &= min_val;
++		/* & is special since it's could be any value within our range,
++		 * including 0.  But if the thing we're AND'ing against is
++		 * negative and we're negative then that's the minimum value,
++		 * otherwise the minimum will always be 0.
++		 */
++		if (min_val < 0 && dst_reg->min_value < 0)
++			dst_reg->min_value = min_t(s64, dst_reg->min_value,
++						   min_val);
++		else
++			dst_reg->min_value = 0;
+  		dst_reg->max_value = max_val;
+  		break;
+  	case BPF_LSH:
+@@ -1559,24 +1583,19 @@ static void adjust_reg_min_max_vals(struct 
+bpf_verifier_env *env,
+  		 */
+  		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
+  			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+-		else
++		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+  			dst_reg->min_value <<= min_val;
+
+  		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
+  			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
+-		else
++		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+  			dst_reg->max_value <<= max_val;
+  		break;
+  	case BPF_RSH:
+-		dst_reg->min_value >>= min_val;
+-		dst_reg->max_value >>= max_val;
+-		break;
+-	case BPF_MOD:
+-		/* % is special since it is an unsigned modulus, so the floor
+-		 * will always be 0.
+-		 */
+-		dst_reg->min_value = 0;
+-		dst_reg->max_value = max_val - 1;
++		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value >>= min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value >>= max_val;
+  		break;
+  	default:
+  		reset_reg_range_values(regs, insn->dst_reg);
+-- 
+2.5.5
