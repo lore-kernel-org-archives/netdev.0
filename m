@@ -1,53 +1,64 @@
-From: Tyler Baicar <tbaicar@codeaurora.org>
-Subject: [PATCH v2] e1000e: free IRQ regardless of __E1000_DOWN
-Date: Wed,  9 Nov 2016 14:41:21 -0700
-Message-ID: <1478727681-16505-1-git-send-email-tbaicar@codeaurora.org>
-Cc: alexander.duyck@gmail.com, dima.ruinskiy@intel.com,
-        Tyler Baicar <tbaicar@codeaurora.org>
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        okaya@codeaurora.org, timur@codeaurora.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] bpf, mlx4: fix prog refcount in
+ mlx4_en_try_alloc_resources error path
+Date: Wed, 9 Nov 2016 13:53:48 -0800
+Message-ID: <20161109215346.GA54489@ast-mbp.thefacebook.com>
+References: <9d5b1ed1b70a8a4db545c308bcb5b28280564798.1478724690.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, bblanco@plumgrid.com, tariqt@mellanox.com,
+        zhiyisun@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:49028 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753168AbcKIVl0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 16:41:26 -0500
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35646 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753832AbcKIVxy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 16:53:54 -0500
+Received: by mail-pf0-f194.google.com with SMTP id i88so1555696pfk.2
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 13:53:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <9d5b1ed1b70a8a4db545c308bcb5b28280564798.1478724690.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move IRQ free code so that it will happen regardless of the
-__E1000_DOWN bit. Currently the e1000e driver only releases its IRQ
-if the __E1000_DOWN bit is cleared. This is not sufficient because
-it is possible for __E1000_DOWN to be set without releasing the IRQ.
-In such a situation, we will hit a kernel bug later in e1000_remove
-because the IRQ still has action since it was never freed. A
-secondary bus reset can cause this case to happen.
+On Wed, Nov 09, 2016 at 10:02:34PM +0100, Daniel Borkmann wrote:
+> Commit 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings
+> scheme") added a bug in that the prog's reference count is not dropped
+> in the error path when mlx4_en_try_alloc_resources() is failing from
+> mlx4_xdp_set().
+> 
+> We previously took bpf_prog_add(prog, priv->rx_ring_num - 1), that we
+> need to release again. Earlier in the call path, dev_change_xdp_fd()
+> itself holds a reference to the prog as well (hence the '- 1' in the
+> bpf_prog_add()), so a simple atomic_sub() is safe to use here. When
+> an error is propagated, then bpf_prog_put() is called eventually from
+> dev_change_xdp_fd()
+> 
+> Fixes: 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings scheme")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Signed-off-by: Tyler Baicar <tbaicar@codeaurora.org>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Good catch. Thanks for the quick fix.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 7017281..36cfcb0 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4679,12 +4679,13 @@ int e1000e_close(struct net_device *netdev)
- 
- 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
- 		e1000e_down(adapter, true);
--		e1000_free_irq(adapter);
- 
- 		/* Link status message must follow this format */
- 		pr_info("%s NIC Link is Down\n", adapter->netdev->name);
- 	}
- 
-+	e1000_free_irq(adapter);
-+
- 	napi_disable(&adapter->napi);
- 
- 	e1000e_free_tx_resources(adapter->tx_ring);
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm Technologies, Inc.
-Qualcomm Technologies, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project.
+> +void bpf_prog_sub(struct bpf_prog *prog, int i)
+> +{
+> +	/* Only to be used for undoing previous bpf_prog_add() in some
+> +	 * error path. We still know that another entity in our call
+> +	 * path holds a reference to the program, thus atomic_sub() can
+> +	 * be safely used in such cases!
+> +	 */
+> +	WARN_ON(atomic_sub_return(i, &prog->aux->refcnt) == 0);
+> +}
+> +EXPORT_SYMBOL_GPL(bpf_prog_sub);
+
+to elaborate on this little bit further...
+if we did it as an extension to bpf_prog_put(), like
+  if (atomic_sub_return(i, &prog->aux->refcnt) == 0)
+    call_rcu(&prog->aux->rcu, __bpf_prog_put_rcu);
+it could be seen a 'safe' version and people would be tempted
+to use without thinking,
+but since right now bpf_prog_add() can be done only after bpf_prog_get(),
+this bpf_prog_sub() matches bpf_prog_add() to clean up refcnt
+in the error path, so having separate helper like this makes sense,
+instead of overloading bpf_prog_sub into 'safe' bpf_prog_put variant.
+So all looks correct to me.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
