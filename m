@@ -1,120 +1,62 @@
-From: Cao jin <caoj.fnst@cn.fujitsu.com>
-Subject: Re: [Intel-wired-lan] [PATCH] igb: use igb_adapter->io_addr instead
- of e1000_hw->hw_addr
-Date: Wed, 9 Nov 2016 21:28:03 +0800
-Message-ID: <58232463.7030107@cn.fujitsu.com>
-References: <1478588780-24480-1-git-send-email-caoj.fnst@cn.fujitsu.com>
- <20161108164214.GF31855@calimero.vinschen.de>
- <alpine.NEB.2.20.17.1611080910530.6177@chris.i8u.org>
- <20161108183739.GA3744@calimero.vinschen.de>
- <CAKgT0UeaoGfOOC1=h4pGk+=FDd5EqvgRGAdk1StLuiW1-M8tVA@mail.gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 1/2] net: mvpp2: don't bring up on MAC address set
+Date: Wed, 9 Nov 2016 14:22:11 +0100
+Message-ID: <20161109142211.28caffda@free-electrons.com>
+References: <ff17831771f3575f351c134703d3f153485b01c0.1478696194.git.baruch@tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Hisashi T Fujinaka <htodd@twofifty.com>,
-        Netdev <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        =?UTF-8?B?SXp1bWksIFRha3Uv5rOJIOaLkw==?=
-        <izumi.taku@jp.fujitsu.com>, <vinschen@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UeaoGfOOC1=h4pGk+=FDd5EqvgRGAdk1StLuiW1-M8tVA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Marcin Wojtas <mw@semihalf.com>, netdev@vger.kernel.org,
+        Gregory Clement <gregory.clement@free-electrons.com>
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:42247 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752395AbcKINcG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 08:32:06 -0500
+In-Reply-To: <ff17831771f3575f351c134703d3f153485b01c0.1478696194.git.baruch@tkos.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks Corrina for your info.
+Hello,
 
-I tested my patch, it works for me on kernel 4.9-rc4.
-"surprise removal" maybe another issue to solve. This one is enough to 
-solve my issue and other one's, could it be accept first?
+On Wed,  9 Nov 2016 14:56:33 +0200, Baruch Siach wrote:
+> Current .ndo_set_mac_address implementation brings up the interface when revert
+> to original address after failure succeeds. Fix this.
+> 
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 
-Cao jin
+Indeed, this piece of code is not very smart.
 
-On 11/09/2016 03:33 AM, Alexander Duyck wrote:
-> On Tue, Nov 8, 2016 at 10:37 AM, Corinna Vinschen <vinschen@redhat.com> wrote:
->> On Nov  8 09:16, Hisashi T Fujinaka wrote:
->>> On Tue, 8 Nov 2016, Corinna Vinschen wrote:
->>>> On Nov  8 15:06, Cao jin wrote:
->>>>> When running as guest, under certain condition, it will oops as following.
->>>>> writel() in igb_configure_tx_ring() results in oops, because hw->hw_addr
->>>>> is NULL. While other register access won't oops kernel because they use
->>>>> wr32/rd32 which have a defense against NULL pointer.
->>>>> [...]
->>>>
->>>> Incidentally we're just looking for a solution to that problem too.
->>>> Do three patches to fix the same problem at rougly the same time already
->>>> qualify as freak accident?
->>>>
->>>> FTR, I attached my current patch, which I was planning to submit after
->>>> some external testing.
->>>>
->>>> However, all three patches have one thing in common:  They workaround
->>>> a somewhat dubious resetting of the hardware address to NULL in case
->>>> reading from a register failed.
->>>>
->>>> That makes me wonder if setting the hardware address to NULL in
->>>> rd32/igb_rd32 is really such a good idea.  It's performed in a function
->>>> which return value is *never* tested for validity in the calling
->>>> functions and leads to subsequent crashes since no tests for hw_addr ==
->>>> NULL are performed.
->>>>
->>>> Maybe commit 22a8b2915 should be reconsidered?  Isn't there some more
->>>> graceful way to handle the "surprise removal"?
->>>
->>> Answering this from my home account because, well, work is Outlook.
->>>
->>> "Reconsidering" would be great. In fact, revert if if you'd like. I'm
->>> uncertain that the surprise removal code actually works the way I
->>> thought previously and I think I took a lot of it out of my local code.
->>>
->>> Unfortuantely I don't have any equipment that I can use to reproduce
->>> surprise removal any longer so that means I wouldn't be able to test
->>> anything. I have to defer to you or Cao Jin.
->>
->> I'm not too keen to rip out a PCIe NIC under power from my locale
->> desktop machine, but I think an actual surprise removal is not the
->> problem.
->>
->> As described in my git log entry, the error condition in igb_rd32 can be
->> triggered during a suspend.  The HW has been put into a sleep state but
->> some register read requests are apparently not guarded against that
->> situation.  Reading a register in this state returns -1, thus a suspend
->> is erroneously triggering the "surprise removal" sequence.
->
-> The question I would have is what is reading the device when it is in
-> this state.  The watchdog and any other functions that would read the
-> device should be disabled.
->
-> One possibility could be a race between a call to igb_close and the
-> igb_suspend function.  We have seen some of those pop up recently on
-> ixgbe and it looks like igb has the same bug.  We should probably be
-> using the rtnl_lock to guarantee that netif_device_detach and the call
-> to __igb_close are completed before igb_close could possibly be called
-> by the network stack.
->
->> Here's a raw idea:
->>
->> - Note that device is suspended in e1000_hw struct.  Don't trigger
->>    error sequence in igb_rd32 if so (...and return a 0 value???)
->
-> The thing is that a suspended device should not be accessed at all.
-> If we are accessing it while it is suspended then that is a bug.  If
-> you could throw a WARN_ON call in igb_rd32 to capture where this is
-> being triggered that might be useful.
->
->> - Otherwise assume it's actually a surprise removal.  In theory that
->>    should somehow trigger a device removal sequence, kind of like
->>    calling igb_remove, no?
->
-> Well a read of the MMIO region while suspended is more of a surprise
-> read since there shouldn't be anything going on.  We need to isolate
-> where that read is coming from and fix it.
->
-> Thanks.
->
-> - Alex
->
->
-> .
->
+> diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+> index 60227a3452a4..e427b4706726 100644
+> --- a/drivers/net/ethernet/marvell/mvpp2.c
+> +++ b/drivers/net/ethernet/marvell/mvpp2.c
+> @@ -5686,9 +5686,8 @@ static int mvpp2_set_mac_address(struct net_device *dev, void *p)
+>  		if (!err)
+>  			return 0;
+>  		/* Reconfigure parser to accept the original MAC address */
+> -		err = mvpp2_prs_update_mac_da(dev, dev->dev_addr);
+> -		if (err)
+> -			goto error;
+> +		mvpp2_prs_update_mac_da(dev, dev->dev_addr);
+> +		goto error;
+
+Wouldn't it make more sense to call mvpp2_prs_update_mac_da() under
+the error: goto label?
+
+But if you think beyond that, it is a bit crazy that to handle the
+error case of mvpp2_prs_update_mac_da(), we have to call
+mvpp2_prs_update_mac_da(), which is exactly the same function...
+
+Perhaps it would be interesting to investigate what are the various
+conditions for which mvpp2_prs_update_mac_da() fails, and see if we can
+avoid them.
+
+Best regards,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
