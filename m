@@ -1,95 +1,74 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: fix fixed prio cpdma
- ctlr configuration
-Date: Thu, 10 Nov 2016 01:56:44 +0200
-Message-ID: <592966c0-ae4c-ba6b-43ba-8ca837e9a700@linaro.org>
-References: <1478610656-24634-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <a20ab87c-4f9d-0eaa-e486-156d9f359866@ti.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the netfilter
+ tree
+Date: Thu, 10 Nov 2016 10:56:33 +1100
+Message-ID: <20161110105633.31ebdc76@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>, mugunthanvnm@ti.com,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:33314 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754885AbcKIX4t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 18:56:49 -0500
-Received: by mail-lf0-f49.google.com with SMTP id c13so176778804lfg.0
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 15:56:48 -0800 (PST)
-In-Reply-To: <a20ab87c-4f9d-0eaa-e486-156d9f359866@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi all,
 
+Today's linux-next merge of the net-next tree got a conflict in:
 
-On 09.11.16 23:09, Grygorii Strashko wrote:
->
->
-> On 11/08/2016 07:10 AM, Ivan Khoronzhuk wrote:
->> The dma ctlr is reseted to 0 while cpdma start, thus cpdma ctlr
->
-> I assume this is because cpdma_ctlr_start() does soft reset. Is it correct?
-Probably not. I've seen this register doesn't hold any previous settings (just trash)
-after cpdma_ctlr_stop(), actually after last channel is stopped (inside of cpdma_ctlr_stop()).
-Then cpdma_ctlr_start() just reset it to 0.
+  net/netfilter/ipvs/ip_vs_ctl.c
 
->
->> cannot be configured after cpdma is stopped. So, restore content
->> of cpdma ctlr while off/on procedure.
->>
->> Based on net-next/master
->
-> ^ remove it
-sure
+between commit:
 
->
->>
->> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->> ---
->>  drivers/net/ethernet/ti/cpsw.c          |   6 +-
->>  drivers/net/ethernet/ti/davinci_cpdma.c | 103 +++++++++++++++++---------------
->>  drivers/net/ethernet/ti/davinci_cpdma.h |   2 +
->>  3 files changed, 58 insertions(+), 53 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index b1ddf89..4d04b8e 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -1376,10 +1376,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
->>  				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
->>
->>  	if (!cpsw_common_res_usage_state(cpsw)) {
->> -		/* setup tx dma to fixed prio and zero offset */
->> -		cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1);
->> -		cpdma_control_set(cpsw->dma, CPDMA_RX_BUFFER_OFFSET, 0);
->> -
->>  		/* disable priority elevation */
->>  		__raw_writel(0, &cpsw->regs->ptype);
->>
->> @@ -2710,6 +2706,8 @@ static int cpsw_probe(struct platform_device *pdev)
->>  	dma_params.desc_align		= 16;
->>  	dma_params.has_ext_regs		= true;
->>  	dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
->> +	dma_params.rxbuf_offset		= 0;
->> +	dma_params.fixed_prio		= 1;
->
-> Do we really need this new parameters? Do you have plans to use other values?
-I'm ok if this is static (equally as a bunch of rest in dma_params), no see reason to use other values,
-it at least now. But the issue is not only in these two parameters and not only in cpsw_ndo_open().
-It touches cpsw_set_channels() also, where ctlr stop/start is present.
-In order to not copy cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1)...
-in all such kind places in eth drivers, better to allow the cpdma to control it's parameters...
+  8fbfef7f505b ("ipvs: use IPVS_CMD_ATTR_MAX for family.maxattr")
 
-The cpdma ctlr register holds a little more parameters (but only two of them are set in cpsw)
-Maybe there is reason to save them also. Actually I'd seen this problem when playing with
-on/off channel shapers, unfortunately the cpdma ctlr holds this info also, and it was lost
-while on/off (but I'm going to restore it in chan_start()).
+from the netfilter tree and commit:
 
+  489111e5c25b ("genetlink: statically initialize families")
 
->
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
 
 -- 
-Regards,
-Ivan Khoronzhuk
+Cheers,
+Stephen Rothwell
+
+diff --cc net/netfilter/ipvs/ip_vs_ctl.c
+index a6e44ef2ec9a,6b85ded4f91d..000000000000
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@@ -3872,10 -3865,20 +3865,20 @@@ static const struct genl_ops ip_vs_genl
+  	},
+  };
+  
++ static struct genl_family ip_vs_genl_family __ro_after_init = {
++ 	.hdrsize	= 0,
++ 	.name		= IPVS_GENL_NAME,
++ 	.version	= IPVS_GENL_VERSION,
+ -	.maxattr	= IPVS_CMD_MAX,
+++	.maxattr	= IPVS_CMD_ATTR_MAX,
++ 	.netnsok        = true,         /* Make ipvsadm to work on netns */
++ 	.module		= THIS_MODULE,
++ 	.ops		= ip_vs_genl_ops,
++ 	.n_ops		= ARRAY_SIZE(ip_vs_genl_ops),
++ };
++ 
+  static int __init ip_vs_genl_register(void)
+  {
+- 	return genl_register_family_with_ops(&ip_vs_genl_family,
+- 					     ip_vs_genl_ops);
++ 	return genl_register_family(&ip_vs_genl_family);
+  }
+  
+  static void ip_vs_genl_unregister(void)
