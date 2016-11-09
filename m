@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net-next 05/17] net: hns: bug fix about restart auto-negotiation
-Date: Wed, 9 Nov 2016 18:13:49 +0000
-Message-ID: <20161109181401.913728-6-salil.mehta@huawei.com>
+Subject: [PATCH net-next 04/17] net: hns: set default mac pause time to 0xffff
+Date: Wed, 9 Nov 2016 18:13:48 +0000
+Message-ID: <20161109181401.913728-5-salil.mehta@huawei.com>
 References: <20161109181401.913728-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,33 +17,29 @@ List-Id: netdev.vger.kernel.org
 
 From: Daode Huang <huangdaode@hisilicon.com>
 
-When set auto-negotiation off and duplex half, if run "ethtool -r ethX"
-on port with phy, then the port will be failed to work. It should
-forbid to start auto-negotiation when auto-negotiate is off. This
-patch add the limited condition.
+The default mac pause time set to 0xff which is too short for pausing,
+this patch change it to the max value 0xffff.
 
-Reported-by: Jinchuang Tian <tianjinchuang1@huawei.com>
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 Reviewed-by: lipeng <lipeng321@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 87d5c94..3ac2183 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -1178,7 +1178,8 @@ static int hns_nic_nway_reset(struct net_device *netdev)
- 	struct phy_device *phy = netdev->phydev;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+index 1d941d5..a9b0cb3 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+@@ -31,7 +31,7 @@
+ #define MAC_MIN_MTU		68
+ #define MAC_MAX_MTU_DBG		MAC_DEFAULT_MTU
  
- 	if (netif_running(netdev)) {
--		if (phy)
-+		/* if autoneg is disabled, don't restart auto-negotiation */
-+		if (phy && phy->autoneg == AUTONEG_ENABLE)
- 			ret = genphy_restart_aneg(phy);
- 	}
+-#define MAC_DEFAULT_PAUSE_TIME 0xff
++#define MAC_DEFAULT_PAUSE_TIME 0xffff
  
+ #define MAC_GMAC_IDX 0
+ #define MAC_XGMAC_IDX 1
 -- 
 1.7.9.5
