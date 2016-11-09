@@ -1,169 +1,61 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [PATCH] net/mlx4_en: Fix bpf_prog_add ref_cnt in mlx4
-Date: Wed, 9 Nov 2016 09:06:15 -0800
-Message-ID: <20161109170615.GB10428@gmail.com>
-References: <20161109073544.jbufjqn7y7oa6ptg@ubuntu>
- <5822E6DB.40204@iogearbox.net>
- <20161109094546.jtmzc4xwtaavzcnt@ubuntu>
- <5822F30C.1050900@iogearbox.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Is Documentation/networking/phy.txt still up-to-date?
+Date: Wed, 9 Nov 2016 09:07:08 -0800
+Message-ID: <24676d24-5b07-7d26-6ffa-14e857960a52@gmail.com>
+References: <582323A8.20706@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zhiyi Sun <zhiyisun@gmail.com>, Tariq Toukan <tariqt@mellanox.com>,
-        Yishai Hadas <yishaih@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-        alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Sebastian Frias <sf84@laposte.net>, afleming@freescale.com,
+        jgarzik@pobox.com,
+        =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5822F30C.1050900@iogearbox.net>
+In-Reply-To: <582323A8.20706@laposte.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 09, 2016 at 10:57:32AM +0100, Daniel Borkmann wrote:
-> On 11/09/2016 10:45 AM, Zhiyi Sun wrote:
-> >On Wed, Nov 09, 2016 at 10:05:31AM +0100, Daniel Borkmann wrote:
-> >>On 11/09/2016 08:35 AM, Zhiyi Sun wrote:
-> >>>There are rx_ring_num queues. Each queue will load xdp prog. So
-> >>>bpf_prog_add() should add rx_ring_num to ref_cnt.
-> >>>
-> >>>Signed-off-by: Zhiyi Sun <zhiyisun@gmail.com>
-> >>
-> >>Your analysis looks incorrect to me. Please elaborate in more detail why
-> >>you think current code is buggy ...
-> >
-> >Yes, you are correct. My patch is incorrect. It is not a bug.
-> >
-> >>Call path is dev_change_xdp_fd(), which does bpf_prog_get_type() on the
-> >>fd. This already takes a ref and only drops it in case of error. Thus
-> >>in mlx4_xdp_set(), you only need priv->rx_ring_num - 1 refs for the rest
-> >>of the rings, so that dropping refs from old_prog makes sure we release
-> >>it again. Looks correct to me (maybe a comment would have helped there).
-> >
-> >I thought mlx4's code is incorrect because in mlx5's driver, function
-> >mlx5e_xdp_set() calls a pair of bpf_prog_add/put, the number of add and
-> >put to the refs are same. I didn't notice that one "add" has been called in its
-> >calller. So, it seems that mlx5's code is incorrect, right?
+On 11/09/2016 05:24 AM, Sebastian Frias wrote:
+> Hi,
 > 
-> Yep, I think the two attached patches are needed.
+> Documentation/networking/phy.txt discusses phy_connect and states that:
 > 
-> The other thing I noticed in mlx5e_create_rq() is that it calls
-> bpf_prog_add(rq->xdp_prog, 1) without actually checking for errors.
+>  "...
+> 
+>  interface is a u32 which specifies the connection type used
+>  between the controller and the PHY.  Examples are GMII, MII,
+>  RGMII, and SGMII.  For a full list, see include/linux/phy.h
+> 
+>  Now just make sure that phydev->supported and phydev->advertising have any
+>  values pruned from them which don't make sense for your controller (a 10/100
+>  controller may be connected to a gigabit capable PHY, so you would need to
+>  mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for definitions
+>  for these bitfields. Note that you should not SET any bits, or the PHY may
+>  get put into an unsupported state.
+> 
+>  ..."
+> 
+> However, 'drivers/net/ethernet/aurora/nb8800.c' for example, does SETs some
+> bits (in function 'nb8800_pause_adv').
 
-> From d2bd6b3cd8636716a06b0ea3b1e041e16f87cce0 Mon Sep 17 00:00:00 2001
-> Message-Id: <d2bd6b3cd8636716a06b0ea3b1e041e16f87cce0.1478685278.git.daniel@iogearbox.net>
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Wed, 9 Nov 2016 10:31:19 +0100
-> Subject: [PATCH net-next 1/2] bpf, mlx4: fix prog refcount in mlx4_en_try_alloc_resources error path
-> 
-> Commit 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings
-> scheme") added a bug in that the prog's reference count is not dropped
-> in the error path when mlx4_en_try_alloc_resources() is failing.
-> 
-> We previously took bpf_prog_add(prog, priv->rx_ring_num - 1), that we
-> need to release again. Earlier in the call-path, dev_change_xdp_fd()
-> itself holds a ref to the prog as well, which is then released though
-> bpf_prog_put() due to the propagated error.
-> 
-> Fixes: 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings scheme")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  5 ++++-
->  include/linux/bpf.h                            |  1 +
->  kernel/bpf/syscall.c                           | 11 +++++++++++
->  3 files changed, 16 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 0f6225c..4104aec 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2747,8 +2747,11 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  	}
->  
->  	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
-> -	if (err)
-> +	if (err) {
-> +		if (prog)
-> +			bpf_prog_add_undo(prog, priv->rx_ring_num - 1);
-Why not just move the above bpf_prog_add to be below the try_alloc?
-Nobody needs those references until all of the resources have been
-allocated, and then we can remove the need for bpf_prog_add_undo.
->  		goto unlock_out;
-> +	}
->  
->  	if (priv->port_up) {
->  		port_up = 1;
-> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-> index edcd96d..4f6a4f1 100644
-> --- a/include/linux/bpf.h
-> +++ b/include/linux/bpf.h
-> @@ -234,6 +234,7 @@ u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
->  struct bpf_prog *bpf_prog_get(u32 ufd);
->  struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
->  struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i);
-> +void bpf_prog_add_undo(struct bpf_prog *prog, int i);
->  struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);
->  void bpf_prog_put(struct bpf_prog *prog);
->  
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 228f962..a6e4dd8 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -680,6 +680,17 @@ struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
->  }
->  EXPORT_SYMBOL_GPL(bpf_prog_add);
->  
-> +void bpf_prog_add_undo(struct bpf_prog *prog, int i)
-> +{
-> +	/* Only to be used for undoing previous bpf_prog_add() in some
-> +	 * error path. We still know that another entity in our call
-> +	 * path holds a reference to the program, thus atomic_sub() can
-> +	 * be safely used here!
-> +	 */
-> +	atomic_sub(i, &prog->aux->refcnt);
-> +}
-> +EXPORT_SYMBOL_GPL(bpf_prog_add_undo);
-> +
->  struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
->  {
->  	return bpf_prog_add(prog, 1);
-> -- 
-> 1.9.3
-> 
+All pause/flow control related bits should be set by the Ethernet MAC
+driver because this is an Ethernet MAC, not PHY, thing. See this
+discussion for some details:
 
-> From f0789544432bbb89c53c3b8ac6575d48fed97786 Mon Sep 17 00:00:00 2001
-> Message-Id: <f0789544432bbb89c53c3b8ac6575d48fed97786.1478685278.git.daniel@iogearbox.net>
-> In-Reply-To: <d2bd6b3cd8636716a06b0ea3b1e041e16f87cce0.1478685278.git.daniel@iogearbox.net>
-> References: <d2bd6b3cd8636716a06b0ea3b1e041e16f87cce0.1478685278.git.daniel@iogearbox.net>
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Wed, 9 Nov 2016 10:51:26 +0100
-> Subject: [PATCH net-next 2/2] bpf, mlx5: fix prog refcount in mlx5e_xdp_set
+https://www.mail-archive.com/netdev@vger.kernel.org/msg135347.html
+
+So the nb8800 drivers does the correct thing here, but the documentation
+should be updated to reflect that this applies to all bits, except the
+Pause capabilities because these need to come from the Ethernet MAC.
+
 > 
-> dev_change_xdp_fd() already holds a reference, so bpf_prog_add(prog, 1)
-> is not correct as it takes one reference too much and will thus leak
-> the prog eventually. Also, bpf_prog_add() can fail and is not checked
-> for errors here.
+> I checked 'drivers/net/ethernet/broadcom/genet/bcmmii.c' and that one CLEARs
+> bits (as per the documentation).
 > 
-> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index ba0c774..63309dd 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -3121,8 +3121,6 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
->  
->  	/* exchange programs */
->  	old_prog = xchg(&priv->xdp_prog, prog);
-> -	if (prog)
-> -		bpf_prog_add(prog, 1);
-There is also another use of bpf_prog_add down below, which does not
-check the error return. Same in mlx5e_create_rq.
->  	if (old_prog)
->  		bpf_prog_put(old_prog);
->  
-> -- 
-> 1.9.3
-> 
+> Does anybody knows what is the correct/recommended approach?
+
+Both drivers do correct things, they just don't set the same things here.
+-- 
+Florian
