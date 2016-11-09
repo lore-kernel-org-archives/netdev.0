@@ -1,65 +1,48 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net-next 09/17] net: hns: modify buffer format of cpu data to le64
-Date: Wed, 9 Nov 2016 18:13:53 +0000
-Message-ID: <20161109181401.913728-10-salil.mehta@huawei.com>
-References: <20161109181401.913728-1-salil.mehta@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sock: fix sendmmsg for partial sendmsg
+Date: Wed, 09 Nov 2016 13:18:45 -0500 (EST)
+Message-ID: <20161109.131845.1786294086774828048.davem@davemloft.net>
+References: <1478288209-30893-1-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
-        Qianqian Xie <xieqianqian@huawei.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, willemb@google.com,
+        ncardwell@google.com, soheil@google.com
+To: soheil.kdev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:55051 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754712AbcKISPi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:15:38 -0500
-In-Reply-To: <20161109181401.913728-1-salil.mehta@huawei.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38180 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752504AbcKISSr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 13:18:47 -0500
+In-Reply-To: <1478288209-30893-1-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Qianqian Xie <xieqianqian@huawei.com>
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Date: Fri,  4 Nov 2016 15:36:49 -0400
 
-Hardware ring buffer data is stored in Little-endian. Thus cpu data
-should be modified to Little-endian.
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+> 
+> Do not send the next message in sendmmsg for partial sendmsg
+> invocations.
+> 
+> sendmmsg assumes that it can continue sending the next message
+> when the return value of the individual sendmsg invocations
+> is positive. It results in corrupting the data for TCP,
+> SCTP, and UNIX streams.
+> 
+> For example, sendmmsg([["abcd"], ["efgh"]]) can result in a stream
+> of "aefgh" if the first sendmsg invocation sends only the first
+> byte while the second sendmsg goes through.
+> 
+> Datagram sockets either send the entire datagram or fail, so
+> this patch affects only sockets of type SOCK_STREAM and
+> SOCK_SEQPACKET.
+> 
+> Fixes: 228e548e6020 ("net: Add sendmmsg socket system call")
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
-Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hnae.h |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index e093cbf..b0f0557 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -590,7 +590,7 @@ static inline int hnae_alloc_buffer_attach(struct hnae_ring *ring, int i)
- 	if (ret)
- 		return ret;
- 
--	ring->desc[i].addr = (__le64)ring->desc_cb[i].dma;
-+	ring->desc[i].addr = cpu_to_le64(ring->desc_cb[i].dma);
- 
- 	return 0;
- }
-@@ -621,14 +621,14 @@ static inline void hnae_replace_buffer(struct hnae_ring *ring, int i,
- 
- 	bops->unmap_buffer(ring, &ring->desc_cb[i]);
- 	ring->desc_cb[i] = *res_cb;
--	ring->desc[i].addr = (__le64)ring->desc_cb[i].dma;
-+	ring->desc[i].addr = cpu_to_le64(ring->desc_cb[i].dma);
- 	ring->desc[i].rx.ipoff_bnum_pid_flag = 0;
- }
- 
- static inline void hnae_reuse_buffer(struct hnae_ring *ring, int i)
- {
- 	ring->desc_cb[i].reuse_flag = 0;
--	ring->desc[i].addr = (__le64)(ring->desc_cb[i].dma
-+	ring->desc[i].addr = cpu_to_le64(ring->desc_cb[i].dma
- 		+ ring->desc_cb[i].page_offset);
- 	ring->desc[i].rx.ipoff_bnum_pid_flag = 0;
- }
--- 
-1.7.9.5
+Applied and queued up for -stable, thanks.
