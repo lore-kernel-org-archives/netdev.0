@@ -1,165 +1,113 @@
-From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: [v16, 7/7] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
-Date: Wed, 9 Nov 2016 11:14:12 +0800
-Message-ID: <1478661252-42439-8-git-send-email-yangbo.lu@nxp.com>
-References: <1478661252-42439-1-git-send-email-yangbo.lu@nxp.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: net/sctp: null-ptr-deref in sctp_inet_listen
+Date: Wed, 9 Nov 2016 11:32:08 +0800
+Message-ID: <CADvbK_dswzCgnQXMSiTOsODXP19epKkQsoUgLmv8PORhfAzwFA@mail.gmail.com>
+References: <CAAeHK+yCE-e2scjs=rUwr+XHmmCcd33P--7MVFmxrTQ_AFZcOA@mail.gmail.com>
+ <CADvbK_eyG3pLMOws5wAOpvDUPUB2SknOCV5z6TLfJoKfj+Q27A@mail.gmail.com> <CAAeHK+yW+5qqPtiXt+5+HsDPj=czh2ppfcUi0qO0fEjGsaqFnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
-	Minghuan Lian <minghuan.lian-3arQi8VN3Tc@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
-	iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Scott Wood
-	<oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1478661252-42439-1-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:33049 "EHLO
+        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751100AbcKIDcK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2016 22:32:10 -0500
+In-Reply-To: <CAAeHK+yW+5qqPtiXt+5+HsDPj=czh2ppfcUi0qO0fEjGsaqFnQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The eSDHC of T4240-R1.0-R2.0 has incorrect vender version and spec version.
-Acturally the right version numbers should be VVN=0x13 and SVN = 0x1.
-This patch adds the GUTS driver support for eSDHC driver to match SoC.
-And fix host version to avoid that incorrect version numbers break down
-the ADMA data transfer.
+On Wed, Nov 9, 2016 at 2:46 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi Xin,
+>
+> Your patch seems to be fixing the issue.
+>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+>
+> Thanks!
+>
+> On Tue, Nov 8, 2016 at 11:06 AM, Xin Long <lucien.xin@gmail.com> wrote:
+>> On Tue, Nov 8, 2016 at 5:44 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>>> Hi,
+>>>
+>>> I've got the following error report while running the syzkaller fuzzer:
+>>>
+>>> kasan: CONFIG_KASAN_INLINE enabled
+>>> kasan: GPF could be caused by NULL-ptr deref or user memory access
+>>> general protection fault: 0000 [#1] SMP KASAN
+>>> Modules linked in:
+>>> CPU: 1 PID: 3851 Comm: a.out Not tainted 4.9.0-rc4+ #354
+>>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>>> task: ffff880065f1d800 task.stack: ffff880063840000
+>>> RIP: 0010:[<ffffffff8394151b>]  [<ffffffff8394151b>]
+>>> sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
+>>> RSP: 0018:ffff880063847dd0  EFLAGS: 00010202
+>>> RAX: dffffc0000000000 RBX: 1ffff1000c708fbd RCX: 0000000000000000
+>>> RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000002
+>>> RBP: ffff880063847e70 R08: dffffc0000000000 R09: dffffc0000000000
+>>> R10: 0000000000000002 R11: 0000000000000002 R12: ffff88006b350800
+>>> R13: 0000000000000000 R14: 1ffff1000d66a1a5 R15: 0000000000000000
+>>> FS:  00007fd1f0f3d7c0(0000) GS:ffff88006cd00000(0000) knlGS:0000000000000000
+>>> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>>> CR2: 0000000020000000 CR3: 0000000064af9000 CR4: 00000000000006e0
+>>> Stack:
+>>>  ffff880063847de0 ffff880066165900 ffff88006b350d20 0000000041b58ab3
+>>>  ffffffff847ff589 ffffffff83941280 dffffc0000000000 0000000000000000
+>>>  ffff880069b9f740 0000000000000000 ffff880063847e38 ffffffff819f04ef
+>>> Call Trace:
+>>>  [<     inline     >] SYSC_listen net/socket.c:1396
+>>>  [<ffffffff82b73cf6>] SyS_listen+0x206/0x250 net/socket.c:1382
+>>>  [<ffffffff83fc1501>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+>>> arch/x86/entry/entry_64.S:209
+>>> Code: 00 0f 85 f4 04 00 00 4d 8b ac 24 28 05 00 00 49 b8 00 00 00 00
+>>> 00 fc ff df 49 8d 7d 02 48 89 fe 49 89 fa 48 c1 ee 03 41 83 e2 07 <46>
+>>> 0f b6 0c 06 41 83 c2 01 45 38 ca 7c 09 45 84 c9 0f 85 87 04
+>>> RIP  [<ffffffff8394151b>] sctp_inet_listen+0x29b/0x790 net/sctp/socket.c:6870
+>>>  RSP <ffff880063847dd0>
+>>> ---[ end trace f2b501fc22999b37 ]---
+>>>
+>>> A reproducer is attached.
+>>>
+>>> On commit bc33b0ca11e3df467777a4fa7639ba488c9d4911 (Nov 5).
+>>>
+>> This is a shutdown injection issue.
+>> sctp_shutdown need a sk->state check, just like tcp_shutdown:
+>>
+>> --- a/net/sctp/socket.c
+>> +++ b/net/sctp/socket.c
+>> @@ -4287,7 +4287,8 @@ static void sctp_shutdown(struct sock *sk, int how)
+>>         if (!sctp_style(sk, TCP))
+>>                 return;
+>>
+>> -       if (how & SEND_SHUTDOWN) {
+>> +       if (how & SEND_SHUTDOWN &&
+>> +           (1 << sk->sk_state) & (SCTP_SS_ESTABLISHED | SCTP_SS_CLOSING)) {
+>>                 sk->sk_state = SCTP_SS_CLOSING;
+>>                 ep = sctp_sk(sk)->ep;
+>>                 if (!list_empty(&ep->asocs)) {
+this fix may break TYPE_SCTP_PRIMITIVE_SHUTDOWN statetable,
+could you give the following one a try ? thanks.
 
-Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Acked-by: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
-Acked-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
----
-Changes for v2:
-	- Got SVR through iomap instead of dts
-Changes for v3:
-	- Managed GUTS through syscon instead of iomap in eSDHC driver
-Changes for v4:
-	- Got SVR by GUTS driver instead of SYSCON
-Changes for v5:
-	- Changed to get SVR through API fsl_guts_get_svr()
-	- Combined patch 4, patch 5 and patch 6 into one
-Changes for v6:
-	- Added 'Acked-by: Ulf Hansson'
-Changes for v7:
-	- None
-Changes for v8:
-	- Added 'Acked-by: Scott Wood'
-Changes for v9:
-	- None
-Changes for v10:
-	- None
-Changes for v11:
-	- Changed to use soc_device_match
-Changes for v12:
-	- Matched soc through .family field instead of .soc_id
-Changes for v13:
-	- None
-Changes for v14:
-	- None
-Changes for v15:
-	- None
-Changes for v16:
-	- Added 'Acked-by: Arnd'
----
- drivers/mmc/host/Kconfig          |  1 +
- drivers/mmc/host/sdhci-of-esdhc.c | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+)
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4288,9 +4288,9 @@ static void sctp_shutdown(struct sock *sk, int how)
+                return;
 
-diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
-index 5cf7eba..4128a3c 100644
---- a/drivers/mmc/host/Kconfig
-+++ b/drivers/mmc/host/Kconfig
-@@ -144,6 +144,7 @@ config MMC_SDHCI_OF_ESDHC
- 	depends on MMC_SDHCI_PLTFM
- 	depends on PPC || ARCH_MXC || ARCH_LAYERSCAPE
- 	select MMC_SDHCI_IO_ACCESSORS
-+	select FSL_GUTS
- 	help
- 	  This selects the Freescale eSDHC controller support.
- 
-diff --git a/drivers/mmc/host/sdhci-of-esdhc.c b/drivers/mmc/host/sdhci-of-esdhc.c
-index fb71c86..57bdb9e 100644
---- a/drivers/mmc/host/sdhci-of-esdhc.c
-+++ b/drivers/mmc/host/sdhci-of-esdhc.c
-@@ -18,6 +18,7 @@
- #include <linux/of.h>
- #include <linux/delay.h>
- #include <linux/module.h>
-+#include <linux/sys_soc.h>
- #include <linux/mmc/host.h>
- #include "sdhci-pltfm.h"
- #include "sdhci-esdhc.h"
-@@ -28,6 +29,7 @@
- struct sdhci_esdhc {
- 	u8 vendor_ver;
- 	u8 spec_ver;
-+	bool quirk_incorrect_hostver;
- };
- 
- /**
-@@ -73,6 +75,8 @@ static u32 esdhc_readl_fixup(struct sdhci_host *host,
- static u16 esdhc_readw_fixup(struct sdhci_host *host,
- 				     int spec_reg, u32 value)
- {
-+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-+	struct sdhci_esdhc *esdhc = sdhci_pltfm_priv(pltfm_host);
- 	u16 ret;
- 	int shift = (spec_reg & 0x2) * 8;
- 
-@@ -80,6 +84,12 @@ static u16 esdhc_readw_fixup(struct sdhci_host *host,
- 		ret = value & 0xffff;
- 	else
- 		ret = (value >> shift) & 0xffff;
-+	/* Workaround for T4240-R1.0-R2.0 eSDHC which has incorrect
-+	 * vendor version and spec version information.
-+	 */
-+	if ((spec_reg == SDHCI_HOST_VERSION) &&
-+	    (esdhc->quirk_incorrect_hostver))
-+		ret = (VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) | SDHCI_SPEC_200;
- 	return ret;
- }
- 
-@@ -558,6 +568,12 @@ static const struct sdhci_pltfm_data sdhci_esdhc_le_pdata = {
- 	.ops = &sdhci_esdhc_le_ops,
- };
- 
-+static struct soc_device_attribute soc_incorrect_hostver[] = {
-+	{ .family = "QorIQ T4240", .revision = "1.0", },
-+	{ .family = "QorIQ T4240", .revision = "2.0", },
-+	{ },
-+};
-+
- static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
- {
- 	struct sdhci_pltfm_host *pltfm_host;
-@@ -571,6 +587,10 @@ static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
- 	esdhc->vendor_ver = (host_ver & SDHCI_VENDOR_VER_MASK) >>
- 			     SDHCI_VENDOR_VER_SHIFT;
- 	esdhc->spec_ver = host_ver & SDHCI_SPEC_VER_MASK;
-+	if (soc_device_match(soc_incorrect_hostver))
-+		esdhc->quirk_incorrect_hostver = true;
-+	else
-+		esdhc->quirk_incorrect_hostver = false;
- }
- 
- static int sdhci_esdhc_probe(struct platform_device *pdev)
--- 
-2.1.0.27.g96db324
+        if (how & SEND_SHUTDOWN) {
+-               sk->sk_state = SCTP_SS_CLOSING;
+                ep = sctp_sk(sk)->ep;
+                if (!list_empty(&ep->asocs)) {
++                       sk->sk_state = SCTP_SS_CLOSING;
+                        asoc = list_entry(ep->asocs.next,
+                                          struct sctp_association, asocs);
+                        sctp_primitive_SHUTDOWN(net, asoc, NULL);
