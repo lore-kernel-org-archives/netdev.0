@@ -1,53 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6 02/10] dpaa_eth: add support for DPAA
- Ethernet
-Date: Wed, 09 Nov 2016 12:18:44 -0500 (EST)
-Message-ID: <20161109.121844.1246735222647356131.davem@davemloft.net>
-References: <1478117854-8952-3-git-send-email-madalin.bucur@nxp.com>
-        <20161103.155816.642712588084106823.davem@davemloft.net>
-        <AM4PR04MB160440B1F671B4C86B238C2DECB90@AM4PR04MB1604.eurprd04.prod.outlook.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Ethernet not working on a different SoC with same eth HW
+Date: Wed, 9 Nov 2016 18:38:12 +0100
+Message-ID: <58235F04.1060604@free.fr>
+References: <58176355.7090200@free.fr> <5821F223.5090508@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org, oss@buserror.net,
-        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
-        joakim.tjernlund@transmode.se
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM4PR04MB160440B1F671B4C86B238C2DECB90@AM4PR04MB1604.eurprd04.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
+        Daniel Mack <zonque@gmail.com>,
+        Sebastian Frias <sf84@laposte.net>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:60698 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751618AbcKIRik (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Nov 2016 12:38:40 -0500
+In-Reply-To: <5821F223.5090508@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Date: Wed, 9 Nov 2016 17:16:12 +0000
+On 08/11/2016 16:41, Mason wrote:
 
->> From: Madalin-Cristian Bucur
->> Sent: Monday, November 07, 2016 5:43 PM
->> 
->> > From: David Miller [mailto:davem@davemloft.net]
->> > Sent: Thursday, November 03, 2016 9:58 PM
->> >
->> > From: Madalin Bucur <madalin.bucur@nxp.com>
->> > Date: Wed, 2 Nov 2016 22:17:26 +0200
->> >
->> > > This introduces the Freescale Data Path Acceleration Architecture
-> <snip>
+> On 31/10/2016 16:29, Mason wrote:
 > 
->> > > +	int numstats = sizeof(struct rtnl_link_stats64) / sizeof(u64);
->> >  ...
->> > > +		cpustats = (u64 *)&percpu_priv->stats;
->> > > +
->> > > +		for (j = 0; j < numstats; j++)
->> > > +			netstats[j] += cpustats[j];
->> >
->> > This is a memcpy() on well-typed datastructures which requires no
->> > casting or special handling whatsoever, so use memcpy instead of
->> > needlessly open coding the operation.
->> 
->> Will fix.
+>> I'm using these net drivers:
+>>
+>>   drivers/net/ethernet/aurora/nb8800.c
+>>   drivers/net/phy/at803x.c
+>>
+>> With a smp8758 board, they work great.
+>> I've been trying to use them on a different board:
+>>
+>>   same eth PHY (Atheros AR8035)
+>>   same eth MAC (Aurora SSN8800)
+>>   different SoC (same base address for MAC block)
+>>
+>> It doesn't work, and I'm not sure where to look first...
 > 
-> Took a second look at this, it's not copying but adding the percpu
-> statistics into consolidated results.
+> After oh-so-many days making increasingly random changes,
+> hoping something would magically un-break, we did find a
+> *local* commit for an exotic platform (chip emulator) that
+> was causing the issue.
 
-Ok, then it looks fine, thanks for clarifying.
+However... all is not well yet :-(
+
+A) When the board is connected to a Gigabit switch, it is able to
+complete the DHCP dance. But this takes around 5 seconds,
+(with several requests timing out).
+
+Whereas the same board running an ugly 3.4 kernel (which Mans called
+"quite hideous even by evil vendor standards") completes the DHCP
+dance in under a second.
+
+B) When the board is connected to a Fast Ethernet switch, the DHCP
+dance times out forever. (Whereas this works on the 3.4 kernel.)
+
+C) When the board is connected to a Gigabit switch, then plugged
+into the Fast Ethernet switch, then back into the Gigabit switch,
+network connectivity is lost forever.
+
+We've started examining the differences in phy and net frameworks
+between 3.4 and 4.9 but that's an atom in a haystack.
+
+To be continued...
+
+Regards.
