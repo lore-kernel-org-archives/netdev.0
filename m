@@ -1,93 +1,60 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net-next] tcp: remove unaligned accesses from tcp_get_info()
-Date: Wed, 9 Nov 2016 14:30:22 -0500
-Message-ID: <CACSApvb8hYfJYhKkViJEoetCLJx+3AjtKVT9pKMyWzJ0a42qyg@mail.gmail.com>
-References: <1478285672-3195-1-git-send-email-edumazet@google.com>
- <20161109.130319.505221196913812307.davem@davemloft.net> <1478717921.16809.0.camel@edumazet-glaptop3.roam.corp.google.com>
- <1478719462.16809.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2] irqchip/renesas-irqc: Postpone driver initialization
+Date: Wed, 9 Nov 2016 20:43:15 +0100
+Message-ID: <CAMuHMdXMYy+g4WWzCAq5Y1Y1Egbt9i6bGRpFpR86mg6AfxiqWA@mail.gmail.com>
+References: <1478633747-26878-1-git-send-email-geert+renesas@glider.be>
+ <216fe100-556b-7f83-39b0-4cf54c1fa35c@gmail.com> <CAMuHMdWkXsAuRpbTWGw9Wp4m2M38zRAd8OpPpA-sCDb7Xb7skw@mail.gmail.com>
+ <3dface9b-7602-b1f2-0dd6-37b444ac42e3@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:35332 "EHLO
-        mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750917AbcKITbD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 14:31:03 -0500
-Received: by mail-yw0-f178.google.com with SMTP id i145so121995522ywg.2
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 11:31:03 -0800 (PST)
-In-Reply-To: <1478719462.16809.15.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Marc Zyngier <marc.zyngier@arm.com>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3dface9b-7602-b1f2-0dd6-37b444ac42e3@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 9, 2016 at 2:24 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> From: Eric Dumazet <edumazet@google.com>
->
-> After commit 6ed46d1247a5 ("sock_diag: align nlattr properly when
-> needed"), tcp_get_info() gets 64bit aligned memory, so we can avoid
-> the unaligned helpers.
->
-> Suggested-by: David Miller <davem@davemloft.net>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Hi Florian,
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+On Wed, Nov 9, 2016 at 8:17 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 11/08/2016 11:50 AM, Geert Uytterhoeven wrote:
+>> On Tue, Nov 8, 2016 at 8:42 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>>> On 11/08/2016 11:35 AM, Geert Uytterhoeven wrote:
+>>>> Currently the renesas-irqc driver uses postcore_initcall().
+>>>>
+>>>> However, the new CPG/MSSR driver uses subsys_initcall(). Hence the
+>>>> IRQC's probe will be deferred, which causes the Micrel Ethernet PHY to
+>>>> not find its interrupt on R-Car Gen2 and RZ/G, as the of_mdio subsystem
+>>>> does not support deferred probe yet.
+>>>
+>>> Is not that the more correct fix to implement though?
+>>
+>> Sure it is. But nothing has happened since this was reported ca. 1 year ago.
+>> Cfr. "of_mdiobus_register_phy() and deferred probe"
+>> https://lkml.org/lkml/2015/10/22/377
+>>
+>> My MDIO foo is not that strong...
+>
+> Let me try to cook something here which may require
+> of_mdiobus_register_phy(), are you okay testing patches?
 
-> ---
->  net/ipv4/tcp.c |   11 +++++------
->  1 file changed, 5 insertions(+), 6 deletions(-)
->
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index a7d54cbcdabbbc0838c00e05074ef15560665f2d..f8f924ca662d5c84e438a6eacbe8f734ff0674ae 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -279,7 +279,6 @@
->
->  #include <asm/uaccess.h>
->  #include <asm/ioctls.h>
-> -#include <asm/unaligned.h>
->  #include <net/busy_poll.h>
->
->  int sysctl_tcp_min_tso_segs __read_mostly = 2;
-> @@ -2722,11 +2721,11 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->         /* Report meaningful fields for all TCP states, including listeners */
->         rate = READ_ONCE(sk->sk_pacing_rate);
->         rate64 = rate != ~0U ? rate : ~0ULL;
-> -       put_unaligned(rate64, &info->tcpi_pacing_rate);
-> +       info->tcpi_pacing_rate = rate64;
->
->         rate = READ_ONCE(sk->sk_max_pacing_rate);
->         rate64 = rate != ~0U ? rate : ~0ULL;
-> -       put_unaligned(rate64, &info->tcpi_max_pacing_rate);
-> +       info->tcpi_max_pacing_rate = rate64;
->
->         info->tcpi_reordering = tp->reordering;
->         info->tcpi_snd_cwnd = tp->snd_cwnd;
-> @@ -2792,8 +2791,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->
->         slow = lock_sock_fast(sk);
->
-> -       put_unaligned(tp->bytes_acked, &info->tcpi_bytes_acked);
-> -       put_unaligned(tp->bytes_received, &info->tcpi_bytes_received);
-> +       info->tcpi_bytes_acked = tp->bytes_acked;
-> +       info->tcpi_bytes_received = tp->bytes_received;
->         info->tcpi_notsent_bytes = max_t(int, 0, tp->write_seq - tp->snd_nxt);
->
->         unlock_sock_fast(sk, slow);
-> @@ -2811,7 +2810,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->         if (rate && intv) {
->                 rate64 = (u64)rate * tp->mss_cache * USEC_PER_SEC;
->                 do_div(rate64, intv);
-> -               put_unaligned(rate64, &info->tcpi_delivery_rate);
-> +               info->tcpi_delivery_rate = rate64;
->         }
->  }
->  EXPORT_SYMBOL_GPL(tcp_get_info);
->
->
+Of course I am. Thanks a lot!
 
-Very nice! Thanks.
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
