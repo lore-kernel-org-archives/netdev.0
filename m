@@ -1,64 +1,63 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH] net/mlx4_en: Fix bpf_prog_add ref_cnt in mlx4
-Date: Wed, 09 Nov 2016 10:05:31 +0100
-Message-ID: <5822E6DB.40204@iogearbox.net>
-References: <20161109073544.jbufjqn7y7oa6ptg@ubuntu>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: Re: [v16, 0/7] Fix eSDHC host version register bug
+Date: Wed, 9 Nov 2016 10:18:33 +0100
+Message-ID: <20161109091832.GC1807@katana>
+References: <1478661252-42439-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bblanco-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Zhiyi Sun <zhiyisun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161109073544.jbufjqn7y7oa6ptg@ubuntu>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="uh9ZiVrAOUUm9fzH"
+Cc: linux-mmc@vger.kernel.org, ulf.hansson@linaro.org,
+        Scott Wood <oss@buserror.net>, Arnd Bergmann <arnd@arndb.de>,
+        linuxppc-dev@lists.ozlabs.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        linux-clk@vger.kernel.org, linux-i2c@vger.kernel.org,
+        iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Russell King <linux@arm.linux.org.uk>,
+        Jochen Friedrich <jochen@scram.de>,
+        Joerg Roedel <joro@8bytes.org>,
+        Claudiu Manoil <claudiu.manoil@freescale.com>,
+        Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+        Qiang Zhao <qiang.zhao@nxp.com>,
+        Kumar Gala <galak@codeaurora.org>, Leo Li <leoyang.li@nxp.com>,
+To: Yangbo Lu <yangbo.lu@nxp.com>
+Return-path: <linux-i2c-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1478661252-42439-1-git-send-email-yangbo.lu@nxp.com>
+Sender: linux-i2c-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/09/2016 08:35 AM, Zhiyi Sun wrote:
-> There are rx_ring_num queues. Each queue will load xdp prog. So
-> bpf_prog_add() should add rx_ring_num to ref_cnt.
->
-> Signed-off-by: Zhiyi Sun <zhiyisun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Your analysis looks incorrect to me. Please elaborate in more detail why
-you think current code is buggy ...
+--uh9ZiVrAOUUm9fzH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Call path is dev_change_xdp_fd(), which does bpf_prog_get_type() on the
-fd. This already takes a ref and only drops it in case of error. Thus
-in mlx4_xdp_set(), you only need priv->rx_ring_num - 1 refs for the rest
-of the rings, so that dropping refs from old_prog makes sure we release
-it again. Looks correct to me (maybe a comment would have helped there).
 
->   drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 12c99a2..d25e150 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2650,7 +2650,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->   	 */
->   	if (priv->xdp_ring_num == xdp_ring_num) {
->   		if (prog) {
-> -			prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
-> +			prog = bpf_prog_add(prog, priv->rx_ring_num);
->   			if (IS_ERR(prog))
->   				return PTR_ERR(prog);
->   		}
-> @@ -2680,7 +2680,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->   	}
->
->   	if (prog) {
-> -		prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
-> +		prog = bpf_prog_add(prog, priv->rx_ring_num);
->   		if (IS_ERR(prog))
->   			return PTR_ERR(prog);
->   	}
->
+Can you please update your CC list? There is nothing i2c related in this
+patch series, so you could drop the i2c-list.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--uh9ZiVrAOUUm9fzH
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJYIunoAAoJEBQN5MwUoCm2JCAP/0clLR2IchSWDZ0rRwfbLcAL
+aKM/ckNIlHdPmOCq/KnJcPpGux4l6J+WkODLGpCJSMJzI0/WwjPIcNGITaapo7Ue
+U0NlY49zQ6scE9OMwsCwW22Ao5sArOi+6PAZSjmXYMN2+a+k+AnnWc+mmVmHZ9Y4
+lWVeksXVm4Lg2xEtq84ceXOpatb/4KE3M3iOKgcg+9T+Fro+/NnTjf+AkuF9Xkay
+jNqGoOdeIzD2WvrjCRD7+ApBfZZyz/Za89cGtkTvK69QqON6HB6xiesDF/YbPoz3
+UYn91ab+/teyAvoN5kDHaRcEQT2L47rQPY2hh26eCV4pyepp+23sAZ9nMakYOZRl
+rV7/ZBUh6GvyUSxDW8ud/G/O52wbdSObyBjj+qUhCQ5LjtHgcaSZwg8/Brml7YsS
+NO205lIMOsjGiB+vs9N1QhApga6Rcamb3RgIeg3un6gHCFsqnG3xEyeEDhYNNzia
+AIa+xhQ/8MAps3yjGQDp3rDJ+kxzn1qHfsEBCkOEloGsDlKt1L8R9t/05/dYwJGd
+7aKyLlhCXMGbdgzKxPcWNCiKm/UP+pZns4ABDJA8Gi9xkkEJrcr87IQ070M8N4if
+gMRmGS8Q4Yr7MXLC44C2+aStjQWk/058IuKXV/oGHvrj3Buh+IKBl4GazD2tECj5
+gmp4R7RKlYgaZUklTDQT
+=Bmj3
+-----END PGP SIGNATURE-----
+
+--uh9ZiVrAOUUm9fzH--
