@@ -1,7 +1,7 @@
 From: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
-Subject: [PATCH 1/6] dt-bindings: mdio-mux: Add documentation for mdio mux for NSP SoC
-Date: Wed,  9 Nov 2016 04:33:09 -0500
-Message-ID: <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
+Subject: [PATCH 4/6] net: phy: Initialize mdio clock at probe function
+Date: Wed,  9 Nov 2016 04:33:12 -0500
+Message-ID: <1478683994-12008-5-git-send-email-yendapally.reddy@broadcom.com>
 References: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
 Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
         devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -16,81 +16,56 @@ To: Rob Herring <robh+dt@kernel.org>,
         Jon Mason <jonmason@broadcom.com>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Kishon Vijay Abraham I <kishon@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:36130 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753437AbcKIJdl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 04:33:41 -0500
+Received: by mail-pf0-f178.google.com with SMTP id 189so124657429pfz.3
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 01:33:41 -0800 (PST)
 In-Reply-To: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add documentation for mdio mux available in Broadcom NSP SoC
+Initialize mdio clock divisor in probe function. The ext bus
+bit available in the same register will be used by mdio mux
+to enable external mdio.
 
 Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
 ---
- .../devicetree/bindings/net/brcm,mdio-mux-nsp.txt  | 57 ++++++++++++++++++++++
- 1 file changed, 57 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
+ drivers/net/phy/mdio-bcm-iproc.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
-new file mode 100644
-index 0000000..b749a2b
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
-@@ -0,0 +1,57 @@
-+Properties for an MDIO bus multiplexer available in Broadcom NSP SoC.
+diff --git a/drivers/net/phy/mdio-bcm-iproc.c b/drivers/net/phy/mdio-bcm-iproc.c
+index c0b4e65..46fe1ae 100644
+--- a/drivers/net/phy/mdio-bcm-iproc.c
++++ b/drivers/net/phy/mdio-bcm-iproc.c
+@@ -81,8 +81,6 @@ static int iproc_mdio_read(struct mii_bus *bus, int phy_id, int reg)
+ 	if (rc)
+ 		return rc;
+ 
+-	iproc_mdio_config_clk(priv->base);
+-
+ 	/* Prepare the read operation */
+ 	cmd = (MII_DATA_TA_VAL << MII_DATA_TA_SHIFT) |
+ 		(reg << MII_DATA_RA_SHIFT) |
+@@ -112,8 +110,6 @@ static int iproc_mdio_write(struct mii_bus *bus, int phy_id,
+ 	if (rc)
+ 		return rc;
+ 
+-	iproc_mdio_config_clk(priv->base);
+-
+ 	/* Prepare the write operation */
+ 	cmd = (MII_DATA_TA_VAL << MII_DATA_TA_SHIFT) |
+ 		(reg << MII_DATA_RA_SHIFT) |
+@@ -163,6 +159,8 @@ static int iproc_mdio_probe(struct platform_device *pdev)
+ 	bus->read = iproc_mdio_read;
+ 	bus->write = iproc_mdio_write;
+ 
++	iproc_mdio_config_clk(priv->base);
 +
-+This MDIO bus multiplexer defines buses that could access the internal
-+phys as well as external to SoCs. When child bus is selected, one needs
-+to select the below properties to generate desired MDIO transaction on
-+appropriate bus.
-+
-+Required properties in addition to the generic multiplexer properties:
-+
-+MDIO multiplexer node:
-+- compatible: brcm,mdio-mux-iproc.
-+- reg: Should contain registers location and length.
-+- reg-names: Should contain the resource reg names.
-+	- bus-ctrl: mdio bus control register address space required to
-+	  select the bus master. This property is not required for SoC's
-+	  that doesn't provide master selection.
-+	- mgmt-ctrl: mdio management control register address space
-+
-+Sub-nodes:
-+   Each bus master should be represented as a sub-node.
-+
-+Sub-nodes required properties:
-+- reg: Bus master number. Should be 0x10 to access the external mdio devices.
-+- address-cells: should be 1
-+- size-cells: should be 0
-+
-+Every non-ethernet PHY requires a compatible property so that it could be
-+probed based on this compatible string.
-+
-+Additional information regarding generic multiplexer properties can be found
-+at- Documentation/devicetree/bindings/net/mdio-mux.txt
-+
-+example:
-+
-+	mdio_mux: mdio-mux@3f190 {
-+		compatible = "brcm,mdio-mux-nsp";
-+		reg = <0x3f190 0x4>,
-+		      <0x32000 0x4>;
-+		reg-names = "bus-ctrl", "mgmt-ctrl";
-+		mdio-parent-bus = <&mdio>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		mdio@0 {
-+			reg = <0x0>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			usb3_phy: usb3-phy@10 {
-+				compatible = "brcm,nsp-usb3-phy";
-+				reg = <0x10>;
-+				usb3-ctrl-syscon = <&usb3_ctrl>;
-+				#phy-cells = <0>;
-+				status = "disabled";
-+			};
-+		};
-+	};
+ 	rc = of_mdiobus_register(bus, pdev->dev.of_node);
+ 	if (rc) {
+ 		dev_err(&pdev->dev, "MDIO bus registration failed\n");
 -- 
 2.1.0
