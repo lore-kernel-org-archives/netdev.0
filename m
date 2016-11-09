@@ -1,125 +1,78 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/2] [nf-next] netfilter: fix NF_REPEAT handling
-Date: Thu, 10 Nov 2016 00:15:55 +0100
-Message-ID: <20161109231555.GA12259@salvia>
-References: <20161108132914.1495283-1-arnd@arndb.de>
- <20161108132914.1495283-2-arnd@arndb.de>
+From: Brian Norris <briannorris@chromium.org>
+Subject: Re: [PATCH] mwifiex: fix memory leak in
+ mwifiex_save_hidden_ssid_channels()
+Date: Wed, 9 Nov 2016 15:27:47 -0800
+Message-ID: <20161109232744.GA66287@google.com>
+References: <1478662648-70698-1-git-send-email-jcliang@chromium.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="cWoXeonUoKmBZSoM"
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "open list:MARVELL MWIFIEX WIRELESS DRIVER"
+        <linux-wireless@vger.kernel.org>,
+        "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Ricky Liang <jcliang@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161108132914.1495283-2-arnd@arndb.de>
+In-Reply-To: <1478662648-70698-1-git-send-email-jcliang@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Tue, Nov 08, 2016 at 02:28:19PM +0100, Arnd Bergmann wrote:
-> gcc correctly identified a theoretical uninitialized variable use:
+On Wed, Nov 09, 2016 at 11:37:28AM +0800, Ricky Liang wrote:
+> kmemleak reports memory leak in mwifiex_save_hidden_ssid_channels():
 > 
-> net/netfilter/nf_conntrack_core.c: In function 'nf_conntrack_in':
-> net/netfilter/nf_conntrack_core.c:1125:14: error: 'l4proto' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> unreferenced object 0xffffffc0a2914780 (size 192):
+>   comm "ksdioirqd/mmc2", pid 2004, jiffies 4307182506 (age 820.684s)
+>   hex dump (first 32 bytes):
+>     00 06 47 49 4e 2d 32 67 01 03 c8 60 6c 03 01 40  ..GIN-2g...`l..@
+>     07 10 54 57 20 34 04 1e 64 05 24 84 03 24 95 04  ..TW 4..d.$..$..
+>   backtrace:
+>     [<ffffffc0003375f4>] create_object+0x164/0x2b4
+>     [<ffffffc0008e3530>] kmemleak_alloc+0x50/0x88
+>     [<ffffffc000335120>] __kmalloc_track_caller+0x1bc/0x264
+>     [<ffffffc00030899c>] kmemdup+0x38/0x64
+>     [<ffffffbffc2311cc>] mwifiex_fill_new_bss_desc+0x3c/0x130 [mwifiex]
+>     [<ffffffbffc22ee9c>] mwifiex_save_curr_bcn+0x4ec/0x640 [mwifiex]
+>     [<ffffffbffc22f45c>] mwifiex_handle_event_ext_scan_report+0x1d4/0x268 [mwifiex]
+>     [<ffffffbffc2375d0>] mwifiex_process_sta_event+0x378/0x898 [mwifiex]
+>     [<ffffffbffc224dc8>] mwifiex_process_event+0x1a8/0x1e8 [mwifiex]
+>     [<ffffffbffc2228f0>] mwifiex_main_process+0x258/0x534 [mwifiex]
+>     [<ffffffbffc258858>] 0xffffffbffc258858
+>     [<ffffffc00071ee90>] process_sdio_pending_irqs+0xf8/0x160
+>     [<ffffffc00071efdc>] sdio_irq_thread+0x9c/0x1a4
+>     [<ffffffc000240d08>] kthread+0xf4/0x100
+>     [<ffffffc0002043fc>] ret_from_fork+0xc/0x50
+>     [<ffffffffffffffff>] 0xffffffffffffffff
 > 
-> This could only happen when we 'goto out' before looking up l4proto,
-> and then enter the retry, implying that l3proto->get_l4proto()
-> returned NF_REPEAT. This does not currently get returned in any
-> code path and probably won't ever happen, but is not good to
-> rely on.
-> 
-> Moving the repeat handling up a little should have the same
-> behavior as today but avoids the warning by making that case
-> impossible to enter.
-> 
-> Fixes: 08733a0cb7de ("netfilter: handle NF_REPEAT from nf_conntrack_in()")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Ricky Liang <jcliang@chromium.org>
 > ---
-> The patch causing this is currently only in nf-next, and not yet
-> in net-next.
-> ---
->  net/netfilter/nf_conntrack_core.c | 7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
+>  drivers/net/wireless/marvell/mwifiex/scan.c | 4 ++++
+>  1 file changed, 4 insertions(+)
 > 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index de4b8a75f30b..610c9de0ce18 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -1337,6 +1337,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
->  		NF_CT_STAT_INC_ATOMIC(net, invalid);
->  		if (ret == -NF_DROP)
->  			NF_CT_STAT_INC_ATOMIC(net, drop);
-> +		if (ret == -NF_REPEAT && tmpl)
-> +			goto repeat;
-
-This is my fault, I'm going to mangle this patch since 08733a0cb7de
-really broke the NF_REPEAT handling. We should inconditionally jump
-back to repeat if we get NF_REPEAT, no matter if the template is set
-or not. I'll include a side node on this mangling.
-
->  		ret = -ret;
->  		goto out;
+> diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
+> index 97c9765..98ce072 100644
+> --- a/drivers/net/wireless/marvell/mwifiex/scan.c
+> +++ b/drivers/net/wireless/marvell/mwifiex/scan.c
+> @@ -1671,6 +1671,10 @@ static int mwifiex_save_hidden_ssid_channels(struct mwifiex_private *priv,
 >  	}
-> @@ -1349,10 +1351,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
->  		 * closed/aborted connection. We have to go back and create a
->  		 * fresh conntrack.
->  		 */
+>  
+>  done:
+> +	/* beacon_ie buffer was allocated in function
+> +	 * mwifiex_fill_new_bss_desc(). Free it now.
+> +	 */
+> +	kfree(bss_desc->beacon_buf);
 
-I'm going to move the comment above on top of the NF_REPEAT check, so
-it still keeps around as context.
+For a bit, I thought this was possibly a sort of double-free, since
+mwifiex_fill_new_bss_desc() might actually fail to allocate
+->beacon_buf, but kfree(NULL) is safe, so:
 
-BTW, the revamped patch looks like the one attached.
+Reviewed-by: Brian Norris <briannorris@chromium.org>
 
-Thanks a lot for addressing this fallout.
-
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=x
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index de4b8a75f30b..e9ffe33dc0ca 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1337,6 +1337,12 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 		NF_CT_STAT_INC_ATOMIC(net, invalid);
- 		if (ret == -NF_DROP)
- 			NF_CT_STAT_INC_ATOMIC(net, drop);
-+		/* Special case: TCP tracker reports an attempt to reopen a
-+		 * closed/aborted connection. We have to go back and create a
-+		 * fresh conntrack.
-+		 */
-+		if (ret == -NF_REPEAT)
-+			goto repeat;
- 		ret = -ret;
- 		goto out;
- 	}
-@@ -1344,16 +1350,8 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
- 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status))
- 		nf_conntrack_event_cache(IPCT_REPLY, ct);
- out:
--	if (tmpl) {
--		/* Special case: TCP tracker reports an attempt to reopen a
--		 * closed/aborted connection. We have to go back and create a
--		 * fresh conntrack.
--		 */
--		if (ret == NF_REPEAT)
--			goto repeat;
--		else
--			nf_ct_put(tmpl);
--	}
-+	if (tmpl)
-+		nf_ct_put(tmpl);
- 
- 	return ret;
- }
-
---cWoXeonUoKmBZSoM--
+>  	kfree(bss_desc);
+>  	return 0;
+>  }
+> -- 
+> 2.6.6
+> 
