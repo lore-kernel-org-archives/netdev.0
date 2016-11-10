@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] xen-netback: prefer xenbus_scanf() over
- xenbus_gather()
-Date: Wed, 09 Nov 2016 20:24:52 -0500 (EST)
-Message-ID: <20161109.202452.1499530038072098751.davem@davemloft.net>
-References: <582190C1020000780011CF5C@prv-mh.provo.novell.com>
+Subject: Re: [PATCH] net: mii: report 0 for unknown lp_advertising
+Date: Wed, 09 Nov 2016 20:27:22 -0500 (EST)
+Message-ID: <20161109.202722.2270232582216800896.davem@davemloft.net>
+References: <20161108133232.1571441-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.durrant@citrix.com, wei.liu2@citrix.com,
-        xen-devel@lists.xenproject.org, netdev@vger.kernel.org
-To: JBeulich@suse.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46670 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754051AbcKJBYy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 20:24:54 -0500
-In-Reply-To: <582190C1020000780011CF5C@prv-mh.provo.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161108133232.1571441-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jan Beulich" <JBeulich@suse.com>
-Date: Tue, 08 Nov 2016 00:45:53 -0700
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue,  8 Nov 2016 14:31:38 +0100
 
-> For single items being collected this should be preferred as being more
-> typesafe (as the compiler can check format string and to-be-written-to
-> variable match) and more efficient (requiring one less parameter to be
-> passed).
+> The newly introduced mii_ethtool_get_link_ksettings function sets
+> lp_advertising to an uninitialized value when BMCR_ANENABLE is not
+> set:
 > 
-> Signed-off-by: Jan Beulich <jbeulich@suse.com>
-> ---
-> v3: For consistency with other code don't consider zero an error
->     (utilizing that xenbus_scanf() at present won't return zero).
-> v2: Avoid commit message to continue from subject.
+> drivers/net/mii.c: In function 'mii_ethtool_get_link_ksettings':
+> drivers/net/mii.c:224:2: error: 'lp_advertising' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> As documented in include/uapi/linux/ethtool.h, the value is
+> expected to be zero when we don't know it, so let's initialize
+> it to that.
+> 
+> Fixes: bc8ee596afe8 ("net: mii: add generic function to support ksetting support")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied to net-next, thanks.
+Applied.
