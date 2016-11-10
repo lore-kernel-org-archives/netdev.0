@@ -1,11 +1,8 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/14] netfilter: ip_vs_sync: fix bogus maybe-uninitialized warning
-Date: Thu, 10 Nov 2016 01:23:40 +0100
-Message-ID: <1478737427-1574-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/14] netfilter: nft_dynset: fix panic if NFT_SET_HASH is not enabled
+Date: Thu, 10 Nov 2016 01:23:34 +0100
+Message-ID: <1478737427-1574-2-git-send-email-pablo@netfilter.org>
 References: <1478737427-1574-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
@@ -13,73 +10,51 @@ In-Reply-To: <1478737427-1574-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+From: Liping Zhang <zlpnobody@gmail.com>
 
-Building the ip_vs_sync code with CONFIG_OPTIMIZE_INLINING on x86
-confuses the compiler to the point where it produces a rather
-dubious warning message:
+When CONFIG_NFT_SET_HASH is not enabled and I input the following rule:
+"nft add rule filter output flow table test {ip daddr counter }", kernel
+panic happened on my system:
+ BUG: unable to handle kernel NULL pointer dereference at (null)
+ IP: [<          (null)>]           (null)
+ [...]
+ Call Trace:
+ [<ffffffffa0590466>] ? nft_dynset_eval+0x56/0x100 [nf_tables]
+ [<ffffffffa05851bb>] nft_do_chain+0xfb/0x4e0 [nf_tables]
+ [<ffffffffa0432f01>] ? nf_conntrack_tuple_taken+0x61/0x210 [nf_conntrack]
+ [<ffffffffa0459ea6>] ? get_unique_tuple+0x136/0x560 [nf_nat]
+ [<ffffffffa043bca1>] ? __nf_ct_ext_add_length+0x111/0x130 [nf_conntrack]
+ [<ffffffffa045a357>] ? nf_nat_setup_info+0x87/0x3b0 [nf_nat]
+ [<ffffffff81761e27>] ? ipt_do_table+0x327/0x610
+ [<ffffffffa045a6d7>] ? __nf_nat_alloc_null_binding+0x57/0x80 [nf_nat]
+ [<ffffffffa059f21f>] nft_ipv4_output+0xaf/0xd0 [nf_tables_ipv4]
+ [<ffffffff81702515>] nf_iterate+0x55/0x60
+ [<ffffffff81702593>] nf_hook_slow+0x73/0xd0
 
-net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-  struct ip_vs_sync_conn_options opt;
-                                 ^~~
-net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘opt.previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).init_seq’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
-net/netfilter/ipvs/ip_vs_sync.c:1073:33: error: ‘*((void *)&opt+12).previous_delta’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+Because in rbtree type set, ops->update is not implemented. So just keep
+it simple, in such case, report -EOPNOTSUPP to the user space.
 
-The problem appears to be a combination of a number of factors, including
-the __builtin_bswap32 compiler builtin being slightly odd, having a large
-amount of code inlined into a single function, and the way that some
-functions only get partially inlined here.
-
-I've spent way too much time trying to work out a way to improve the
-code, but the best I've come up with is to add an explicit memset
-right before the ip_vs_seq structure is first initialized here. When
-the compiler works correctly, this has absolutely no effect, but in the
-case that produces the warning, the warning disappears.
-
-In the process of analysing this warning, I also noticed that
-we use memcpy to copy the larger ip_vs_sync_conn_options structure
-over two members of the ip_vs_conn structure. This works because
-the layout is identical, but seems error-prone, so I'm changing
-this in the process to directly copy the two members. This change
-seemed to have no effect on the object code or the warning, but
-it deals with the same data, so I kept the two changes together.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Fixes: 22fe54d5fefc ("netfilter: nf_tables: add support for dynamic set updates")
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_sync.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ net/netfilter/nft_dynset.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 1b07578bedf3..9350530c16c1 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -283,6 +283,7 @@ struct ip_vs_sync_buff {
-  */
- static void ntoh_seq(struct ip_vs_seq *no, struct ip_vs_seq *ho)
- {
-+	memset(ho, 0, sizeof(*ho));
- 	ho->init_seq       = get_unaligned_be32(&no->init_seq);
- 	ho->delta          = get_unaligned_be32(&no->delta);
- 	ho->previous_delta = get_unaligned_be32(&no->previous_delta);
-@@ -917,8 +918,10 @@ static void ip_vs_proc_conn(struct netns_ipvs *ipvs, struct ip_vs_conn_param *pa
- 			kfree(param->pe_data);
+diff --git a/net/netfilter/nft_dynset.c b/net/netfilter/nft_dynset.c
+index 517f08767a3c..bfdb689664b0 100644
+--- a/net/netfilter/nft_dynset.c
++++ b/net/netfilter/nft_dynset.c
+@@ -139,6 +139,9 @@ static int nft_dynset_init(const struct nft_ctx *ctx,
+ 			return PTR_ERR(set);
  	}
  
--	if (opt)
--		memcpy(&cp->in_seq, opt, sizeof(*opt));
-+	if (opt) {
-+		cp->in_seq = opt->in_seq;
-+		cp->out_seq = opt->out_seq;
-+	}
- 	atomic_set(&cp->in_pkts, sysctl_sync_threshold(ipvs));
- 	cp->state = state;
- 	cp->old_state = cp->state;
++	if (set->ops->update == NULL)
++		return -EOPNOTSUPP;
++
+ 	if (set->flags & NFT_SET_CONSTANT)
+ 		return -EBUSY;
+ 
 -- 
 2.1.4
 
