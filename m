@@ -1,53 +1,50 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next resend 10/13] debugfs: constify argument to
- debugfs_real_fops()
-Date: Thu, 10 Nov 2016 15:25:59 +0100
-Message-ID: <20161110142559.GA15902@kroah.com>
-References: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
- <1478193129-23476-11-git-send-email-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Nicolai Stange <nicstange@gmail.com>,
-        Christian Lamparter <chunkeey@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1478193129-23476-11-git-send-email-jakub.kicinski@netronome.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Don't modify RGMII delays when not RGMII mode
+Date: Thu, 10 Nov 2016 15:44:00 +0100
+Message-ID: <1478789041-16264-2-git-send-email-andrew@lunn.ch>
+References: <1478789041-16264-1-git-send-email-andrew@lunn.ch>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:34162 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933598AbcKJOoY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Nov 2016 09:44:24 -0500
+In-Reply-To: <1478789041-16264-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 03, 2016 at 05:12:06PM +0000, Jakub Kicinski wrote:
-> seq_file users can only access const version of file pointer,
-> because the ->file member of struct seq_operations is marked
-> as such.  Make parameter to debugfs_real_fops() const.
-> 
-> CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> CC: Nicolai Stange <nicstange@gmail.com>
-> CC: Christian Lamparter <chunkeey@gmail.com>
-> CC: LKML <linux-kernel@vger.kernel.org>
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  include/linux/debugfs.h | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/debugfs.h b/include/linux/debugfs.h
-> index 4d3f0d1aec73..bf1907d96097 100644
-> --- a/include/linux/debugfs.h
-> +++ b/include/linux/debugfs.h
-> @@ -52,7 +52,8 @@ struct debugfs_regset32 {
->   * Must only be called under the protection established by
->   * debugfs_use_file_start().
->   */
-> -static inline const struct file_operations *debugfs_real_fops(struct file *filp)
-> +static inline const struct file_operations *
-> +debugfs_real_fops(const struct file *filp)
+The RGMII modes delays can be set via strapping pings or EEPROM.
+Don't change them unless explicitly asked to change them.  The recent
+refactoring of setting the MAC configuration changed this behaviours,
+in that CPU and DSA ports have any pre-configured RGMII delays
+removed. This breaks the Armada 370RD board. Restore the previous
+behaviour, in that RGMII delays are only applied/removed when
+explicitly asked for via an phy-mode being PHY_INTERFACE_MODE_RGMII*
 
-Ick.  Tell me that looks better :(
+Fixes: 7340e5ecdbb1 ("net: dsa: mv88e6xxx: setup port's MAC")
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx/port.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Please just don't wrap things like that, just make it go longer than 80
-columns, I can handle the complaints...
-
-thanks,
-
-greg k-h
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index 18eeed083cbd..e4978f6367aa 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -63,9 +63,10 @@ static int mv88e6xxx_port_set_rgmii_delay(struct mv88e6xxx_chip *chip, int port,
+ 		reg |= PORT_PCS_CTRL_RGMII_DELAY_RXCLK |
+ 			PORT_PCS_CTRL_RGMII_DELAY_TXCLK;
+ 		break;
+-	default:
+-		/* no delay */
++	case PHY_INTERFACE_MODE_RGMII:
+ 		break;
++	default:
++		return 0;
+ 	}
+ 
+ 	err = mv88e6xxx_port_write(chip, port, PORT_PCS_CTRL, reg);
+-- 
+2.10.2
