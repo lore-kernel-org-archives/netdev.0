@@ -1,53 +1,59 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH iproute2 1/1] tc: improved usage help for fw classifier.
-Date: Thu, 10 Nov 2016 11:02:57 -0500
-Message-ID: <1478793777-8979-1-git-send-email-mrv@mojatatu.com>
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-        Roman Mashak <mrv@mojatatu.com>
-To: stephen@networkplumber.org
+From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
+Subject: [PATCH net,v2] ipv4: use new_gw for redirect neigh lookup
+Date: Thu, 10 Nov 2016 11:16:15 -0500
+Message-ID: <1478794575-28748-1-git-send-email-ssurya@ieee.org>
+Cc: Stephen Suryaputra Lin <ssurya@ieee.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:33006 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933663AbcKJQDc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 11:03:32 -0500
-Received: by mail-it0-f67.google.com with SMTP id e187so4324312itc.0
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 08:03:32 -0800 (PST)
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:34893 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934058AbcKJQQZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 11:16:25 -0500
+Received: by mail-qt0-f195.google.com with SMTP id m48so10532621qta.2
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 08:16:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- tc/f_fw.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+In v2.6, ip_rt_redirect() calls arp_bind_neighbour() which returns 0
+and then the state of the neigh for the new_gw is checked. If the state
+isn't valid then the redirected route is deleted. This behavior is
+maintained up to v3.5.7 by check_peer_redirect() because rt->rt_gateway
+is assigned to peer->redirect_learned.a4 before calling
+ipv4_neigh_lookup().
 
-diff --git a/tc/f_fw.c b/tc/f_fw.c
-index 29c9854..790bef9 100644
---- a/tc/f_fw.c
-+++ b/tc/f_fw.c
-@@ -25,10 +25,19 @@
+After commit 5943634fc559 ("ipv4: Maintain redirect and PMTU info in
+struct rtable again."), ipv4_neigh_lookup() is performed without the
+rt_gateway assigned to the new_gw. In the case when rt_gateway (old_gw)
+isn't zero, the function uses it as the key. The neigh is most likely
+valid since the old_gw is the one that sends the ICMP redirect message.
+Then the new_gw is assigned to fib_nh_exception. The problem is: the
+new_gw ARP may never gets resolved and the traffic is blackholed.
+
+So, use the new_gw for neigh lookup.
+
+Changes from v1:
+ - use __ipv4_neigh_lookup instead (per Eric Dumazet).
+
+Fixes: 5943634fc559 ("ipv4: Maintain redirect and PMTU info in struct rtable again.")
+Signed-off-by: Stephen Suryaputra Lin <ssurya@ieee.org>
+---
+ net/ipv4/route.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 62d4d90c1389..2a57566e6e91 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -753,7 +753,9 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
+ 			goto reject_redirect;
+ 	}
  
- static void explain(void)
- {
--	fprintf(stderr, "Usage: ... fw [ classid CLASSID ] [ action ACTION_SPEC ]\n");
--	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
--	fprintf(stderr, "       CLASSID := X:Y\n");
--	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
-+	fprintf(stderr,
-+		"Usage: ... fw [ classid CLASSID ] [ indev DEV ] [ action ACTION_SPEC ]\n");
-+	fprintf(stderr,
-+		"       CLASSID := Push matching packets to the class identified by CLASSID with format X:Y\n");
-+	fprintf(stderr,
-+		"                  CLASSID is parsed as hexadecimal input.\n");
-+	fprintf(stderr,
-+		"       DEV := specify device for incoming device classification.\n");
-+	fprintf(stderr,
-+		"       ACTION_SPEC := Apply an action on matching packets.\n");
-+	fprintf(stderr,
-+		"       NOTE: handle is represented as HANDLE[/FWMASK].\n");
-+	fprintf(stderr, "             FWMASK is 0xffffffff by default.\n");
- }
- 
- static int fw_parse_opt(struct filter_util *qu, char *handle, int argc, char **argv, struct nlmsghdr *n)
+-	n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
++	n = __ipv4_neigh_lookup(rt->dst.dev, new_gw);
++	if (!n)
++		n = neigh_create(&arp_tbl, &new_gw, rt->dst.dev);
+ 	if (!IS_ERR(n)) {
+ 		if (!(n->nud_state & NUD_VALID)) {
+ 			neigh_event_send(n, NULL);
 -- 
-1.9.1
+2.7.4
