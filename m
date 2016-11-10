@@ -1,55 +1,53 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] genetlink: fix unsigned int comparison with less than zero
-Date: Thu, 10 Nov 2016 15:57:58 +0000
-Message-ID: <20161110155758.26996-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        pravin shelar <pshelar@ovn.org>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        Florian Westphal <fw@strlen.de>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>,
-        Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH iproute2 1/1] tc: improved usage help for fw classifier.
+Date: Thu, 10 Nov 2016 11:02:57 -0500
+Message-ID: <1478793777-8979-1-git-send-email-mrv@mojatatu.com>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+        Roman Mashak <mrv@mojatatu.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:33006 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933663AbcKJQDc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 11:03:32 -0500
+Received: by mail-it0-f67.google.com with SMTP id e187so4324312itc.0
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 08:03:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
-
-family->id is unsigned, so the less than zero check for
-failure return from idr_alloc is never true and so the error exit
-is never handled.  Instead, assign err and check if this is less
-than zero since this is a signed integer.
-
-Issue found with static analysis with CoverityScan, CID 1375916
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/netlink/genetlink.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ tc/f_fw.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index f0b65fe..2ea61ba 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -360,12 +360,10 @@ int genl_register_family(struct genl_family *family)
- 	} else
- 		family->attrbuf = NULL;
+diff --git a/tc/f_fw.c b/tc/f_fw.c
+index 29c9854..790bef9 100644
+--- a/tc/f_fw.c
++++ b/tc/f_fw.c
+@@ -25,10 +25,19 @@
  
--	family->id = idr_alloc(&genl_fam_idr, family,
-+	family->id = err = idr_alloc(&genl_fam_idr, family,
- 			       start, end + 1, GFP_KERNEL);
--	if (family->id < 0) {
--		err = family->id;
-+	if (err < 0)
- 		goto errout_free;
--	}
+ static void explain(void)
+ {
+-	fprintf(stderr, "Usage: ... fw [ classid CLASSID ] [ action ACTION_SPEC ]\n");
+-	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
+-	fprintf(stderr, "       CLASSID := X:Y\n");
+-	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
++	fprintf(stderr,
++		"Usage: ... fw [ classid CLASSID ] [ indev DEV ] [ action ACTION_SPEC ]\n");
++	fprintf(stderr,
++		"       CLASSID := Push matching packets to the class identified by CLASSID with format X:Y\n");
++	fprintf(stderr,
++		"                  CLASSID is parsed as hexadecimal input.\n");
++	fprintf(stderr,
++		"       DEV := specify device for incoming device classification.\n");
++	fprintf(stderr,
++		"       ACTION_SPEC := Apply an action on matching packets.\n");
++	fprintf(stderr,
++		"       NOTE: handle is represented as HANDLE[/FWMASK].\n");
++	fprintf(stderr, "             FWMASK is 0xffffffff by default.\n");
+ }
  
- 	err = genl_validate_assign_mc_groups(family);
- 	if (err)
+ static int fw_parse_opt(struct filter_util *qu, char *handle, int argc, char **argv, struct nlmsghdr *n)
 -- 
-2.10.2
+1.9.1
