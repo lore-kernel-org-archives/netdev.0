@@ -1,52 +1,60 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe
- function
-Date: Thu, 10 Nov 2016 10:36:18 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1611101035140.1667-100000@iolanthe.rowland.org>
-References: <CAAd53p5W4xpSYsFZ00deQDh-gZBijn_ApreE9NmC=_B_MAQaug@mail.gmail.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next resend 10/13] debugfs: constify argument to
+ debugfs_real_fops()
+Date: Thu, 10 Nov 2016 15:42:47 +0000
+Message-ID: <20161110154247.64f5cff9@jkicinski-Precision-T1700>
+References: <1478193129-23476-1-git-send-email-jakub.kicinski@netronome.com>
+        <1478193129-23476-11-git-send-email-jakub.kicinski@netronome.com>
+        <20161110142559.GA15902@kroah.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
-        Oliver Neukum <oneukum@suse.com>,
-        <linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-        <netdev@vger.kernel.org>
-To: Kai-Heng Feng <kai.heng.feng@canonical.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Nicolai Stange <nicstange@gmail.com>,
+        Christian Lamparter <chunkeey@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:55404 "HELO
-        iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with SMTP id S933690AbcKJPgU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Nov 2016 10:36:20 -0500
-In-Reply-To: <CAAd53p5W4xpSYsFZ00deQDh-gZBijn_ApreE9NmC=_B_MAQaug@mail.gmail.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36695 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934361AbcKJPnA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 10:43:00 -0500
+Received: by mail-wm0-f53.google.com with SMTP id g23so48593726wme.1
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 07:42:54 -0800 (PST)
+In-Reply-To: <20161110142559.GA15902@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Nov 2016, Kai-Heng Feng wrote:
+On Thu, 10 Nov 2016 15:25:59 +0100, Greg Kroah-Hartman wrote:
+> On Thu, Nov 03, 2016 at 05:12:06PM +0000, Jakub Kicinski wrote:
+> > seq_file users can only access const version of file pointer,
+> > because the ->file member of struct seq_operations is marked
+> > as such.  Make parameter to debugfs_real_fops() const.
+> > 
+> > CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> > CC: Nicolai Stange <nicstange@gmail.com>
+> > CC: Christian Lamparter <chunkeey@gmail.com>
+> > CC: LKML <linux-kernel@vger.kernel.org>
+> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> > ---
+> >  include/linux/debugfs.h | 3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/include/linux/debugfs.h b/include/linux/debugfs.h
+> > index 4d3f0d1aec73..bf1907d96097 100644
+> > --- a/include/linux/debugfs.h
+> > +++ b/include/linux/debugfs.h
+> > @@ -52,7 +52,8 @@ struct debugfs_regset32 {
+> >   * Must only be called under the protection established by
+> >   * debugfs_use_file_start().
+> >   */
+> > -static inline const struct file_operations *debugfs_real_fops(struct file *filp)
+> > +static inline const struct file_operations *
+> > +debugfs_real_fops(const struct file *filp)  
+> 
+> Ick.  Tell me that looks better :(
+> 
+> Please just don't wrap things like that, just make it go longer than 80
+> columns, I can handle the complaints...
 
-> Hi,
-> 
-> On Wed, Nov 9, 2016 at 8:32 PM, Bjørn Mork <bjorn@mork.no> wrote:
-> > Oliver Neukum <oneukum@suse.com> writes:
-> >
-> >> On Tue, 2016-11-08 at 13:44 -0500, Alan Stern wrote:
-> >>
-> >>> These problems could very well be caused by running at SuperSpeed
-> >>> (USB-3) instead of high speed (USB-2).
-> 
-> Yes, it's running at SuperSpeed, on a Kabylake laptop.
-> 
-> It does not have this issue on a Broadwell laptop, also running at SuperSpeed.
-> 
-> >>>
-> >>> Is there any way to test what happens when the device is attached to
-> >>> the computer by a USB-2 cable?  That would prevent it from operating at
-> >>> SuperSpeed.
-> 
-> I recall old Intel PCH can change the USB host from XHCI to EHCI,
-> newer PCH does not have this option.
-> 
-> Is there a way to force XHCI run at HighSpeed?
-
-Yes, like I said above: Use a USB-2 cable instead of a USB-3 cable.
-
-Alan Stern
+Ugh, I should've gone with my gut feeling then.  I'll post a fix up
+shortly since this is already in Dave's tree.
