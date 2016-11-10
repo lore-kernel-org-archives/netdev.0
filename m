@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 5/8] Introduce sample tc action
-Date: Thu, 10 Nov 2016 12:23:05 +0100
-Message-ID: <1478776988-5400-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 1/8] Introduce ife encapsulation module
+Date: Thu, 10 Nov 2016 12:23:01 +0100
+Message-ID: <1478776988-5400-2-git-send-email-jiri@resnulli.us>
 References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,11 +10,11 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         linux@roeck-us.net, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36677 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36604 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755209AbcKJLXT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:19 -0500
-Received: by mail-wm0-f65.google.com with SMTP id m203so806762wma.3
+        with ESMTP id S1755371AbcKJLXS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:18 -0500
+Received: by mail-wm0-f65.google.com with SMTP id m203so806269wma.3
         for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 03:23:18 -0800 (PST)
 In-Reply-To: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
@@ -22,217 +22,221 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-This action allow the user to sample traffic matched by tc classifier.
-The sampling consists of choosing packets randomly, truncating them,
-adding some informative metadata regarding the interface and the original
-packet size and mark them with specific mark, to allow further tc rules to
-match and process. The marked sample packets are then injected into the
-device ingress qdisc using netif_receive_skb.
-
-The packets metadata is packed using the ife encapsulation protocol, and
-the outer packet's ethernet dest, source and eth_type, along with the
-rate, mark and the optional truncation size can be configured from
-userspace.
-
-Example:
-To sample ingress traffic from interface eth1, and redirect the sampled
-the sampled packets to interface dummy0, one may use the commands:
-
-tc qdisc add dev eth1 handle ffff: ingress
-
-tc filter add dev eth1 parent ffff: \
-	   matchall action sample rate 12 mark 17
-
-tc filter add parent ffff: dev eth1 protocol all \
-	   u32 match mark 17 0xff \
-	   action mirred egress redirect dev dummy0
-
-Where the first command adds an ingress qdisc and the second starts
-sampling every 12'th packet on dev eth1 and marks the sampled packets with
-17. The third command catches the sampled packets, which are marked with
-17, and redirects them to dev dummy0.
+This module is responsible for the ife encapsulation protocol
+encode/decode logics. That module can:
+ - ife_encode: encode skb and reserve space for the ife meta header
+ - ife_decode: decode skb and extract the meta header size
+ - ife_tlv_meta_encode - encodes one tlv entry into the reserved ife
+   header space.
+ - ife_tlv_meta_decode - decodes one tlv entry from the packet
+ - ife_tlv_meta_next - advance to the next tlv
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/tc_act/tc_sample.h        |  65 ++++++++
- include/uapi/linux/tc_act/Kbuild      |   1 +
- include/uapi/linux/tc_act/tc_sample.h |  29 ++++
- net/sched/Kconfig                     |  13 ++
- net/sched/Makefile                    |   1 +
- net/sched/act_sample.c                | 283 ++++++++++++++++++++++++++++++++++
- 6 files changed, 392 insertions(+)
- create mode 100644 include/net/tc_act/tc_sample.h
- create mode 100644 include/uapi/linux/tc_act/tc_sample.h
- create mode 100644 net/sched/act_sample.c
+ MAINTAINERS               |   7 +++
+ include/net/ife.h         |  52 +++++++++++++++++
+ include/uapi/linux/Kbuild |   1 +
+ include/uapi/linux/ife.h  |  18 ++++++
+ net/Kconfig               |   1 +
+ net/Makefile              |   1 +
+ net/ife/Kconfig           |  16 ++++++
+ net/ife/Makefile          |   5 ++
+ net/ife/ife.c             | 144 ++++++++++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 245 insertions(+)
+ create mode 100644 include/net/ife.h
+ create mode 100644 include/uapi/linux/ife.h
+ create mode 100644 net/ife/Kconfig
+ create mode 100644 net/ife/Makefile
+ create mode 100644 net/ife/ife.c
 
-diff --git a/include/net/tc_act/tc_sample.h b/include/net/tc_act/tc_sample.h
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e5c17a9..cc3e640 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6114,6 +6114,13 @@ F:	include/net/cfg802154.h
+ F:	include/net/ieee802154_netdev.h
+ F:	Documentation/networking/ieee802154.txt
+ 
++IFE PROTOCOL
++M:	Yotam Gigi <yotamg@mellanox.com>
++M:	Jamal Hadi Salim <jhs@mojatatu.com>
++F:	net/ife
++F:	include/net/ife.h
++F:	include/uapi/linux/ife.h
++
+ IGORPLUG-USB IR RECEIVER
+ M:	Sean Young <sean@mess.org>
+ L:	linux-media@vger.kernel.org
+diff --git a/include/net/ife.h b/include/net/ife.h
 new file mode 100644
-index 0000000..73154b3
+index 0000000..a75d4e0
 --- /dev/null
-+++ b/include/net/tc_act/tc_sample.h
-@@ -0,0 +1,65 @@
-+#ifndef __NET_TC_SAMPLE_H
-+#define __NET_TC_SAMPLE_H
++++ b/include/net/ife.h
+@@ -0,0 +1,52 @@
++#ifndef __NET_IFE_H
++#define __NET_IFE_H
 +
-+#include <net/act_api.h>
-+#include <linux/tc_act/tc_sample.h>
++#include <uapi/linux/ife.h>
++#include <linux/etherdevice.h>
++#include <linux/rtnetlink.h>
++#include <linux/module.h>
++#include <uapi/linux/ife.h>
 +
-+struct tcf_sample {
-+	struct tc_action	common;
-+	u32			rate;
-+	u32			mark;
-+	bool			truncate;
-+	u32			trunc_size;
-+	u32			packet_counter;
-+	u8			eth_dst[ETH_ALEN];
-+	u8			eth_src[ETH_ALEN];
-+	u16			eth_type;
-+	struct list_head	tcfm_list;
-+};
-+#define to_sample(a) ((struct tcf_sample *)a)
++#if IS_ENABLED(CONFIG_NET_IFE)
 +
-+static inline bool is_tcf_sample(const struct tc_action *a)
-+{
-+#ifdef CONFIG_NET_CLS_ACT
-+	return a->ops && a->ops->type == TCA_ACT_SAMPLE;
++void *ife_encode(struct sk_buff *skb, u16 metalen);
++void *ife_decode(struct sk_buff *skb, u16 *metalen);
++
++void *ife_tlv_meta_decode(void *skbdata, u16 *attrtype, u16 *dlen, u16 *totlen);
++int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
++			const void *dval);
++
++void *ife_tlv_meta_next(void *skbdata);
++
 +#else
-+	return false;
++
++static inline void *ife_encode(struct sk_buff *skb, u16 metalen)
++{
++	return NULL;
++}
++
++static inline void *ife_decode(struct sk_buff *skb, u16 *metalen)
++{
++	return NULL;
++}
++
++static inline void *ife_tlv_meta_decode(void *skbdata, u16 *attrtype, u16 *dlen,
++					u16 *totlen)
++{
++	return NULL;
++}
++
++static inline int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
++			const void *dval)
++{
++	return 0;
++}
++
++static inline void *ife_tlv_meta_next(void *skbdata)
++{
++	return NULL;
++}
++
 +#endif
-+}
 +
-+static inline __u32 tcf_sample_mark(const struct tc_action *a)
-+{
-+	return to_sample(a)->mark;
-+}
-+
-+static inline __u32 tcf_sample_rate(const struct tc_action *a)
-+{
-+	return to_sample(a)->rate;
-+}
-+
-+static inline bool tcf_sample_truncate(const struct tc_action *a)
-+{
-+	return to_sample(a)->truncate;
-+}
-+
-+static inline int tcf_sample_trunc_size(const struct tc_action *a)
-+{
-+	return to_sample(a)->trunc_size;
-+}
-+
-+static inline u16 tcf_sample_eth_type(const struct tc_action *a)
-+{
-+	return to_sample(a)->eth_type;
-+}
-+
-+static inline void tcf_sample_eth_dst_addr(const struct tc_action *a, u8 *dst)
-+{
-+	ether_addr_copy(dst, to_sample(a)->eth_dst);
-+}
-+
-+static inline void tcf_sample_eth_src_addr(const struct tc_action *a, u8 *src)
-+{
-+	ether_addr_copy(src, to_sample(a)->eth_src);
-+}
-+
-+#endif /* __NET_TC_SAMPLE_H */
-diff --git a/include/uapi/linux/tc_act/Kbuild b/include/uapi/linux/tc_act/Kbuild
-index e3969bd..6c6b8d6 100644
---- a/include/uapi/linux/tc_act/Kbuild
-+++ b/include/uapi/linux/tc_act/Kbuild
-@@ -4,6 +4,7 @@ header-y += tc_defact.h
- header-y += tc_gact.h
- header-y += tc_ipt.h
- header-y += tc_mirred.h
-+header-y += tc_sample.h
- header-y += tc_nat.h
- header-y += tc_pedit.h
- header-y += tc_skbedit.h
-diff --git a/include/uapi/linux/tc_act/tc_sample.h b/include/uapi/linux/tc_act/tc_sample.h
++#endif /* __NET_IFE_H */
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index cd2be1c..eabf838 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -191,6 +191,7 @@ header-y += if_tun.h
+ header-y += if_tunnel.h
+ header-y += if_vlan.h
+ header-y += if_x25.h
++header-y += ife.h
+ header-y += igmp.h
+ header-y += ila.h
+ header-y += in6.h
+diff --git a/include/uapi/linux/ife.h b/include/uapi/linux/ife.h
 new file mode 100644
-index 0000000..44ee9d0
+index 0000000..2954da3
 --- /dev/null
-+++ b/include/uapi/linux/tc_act/tc_sample.h
-@@ -0,0 +1,29 @@
-+#ifndef __LINUX_TC_SAMPLE_H
-+#define __LINUX_TC_SAMPLE_H
++++ b/include/uapi/linux/ife.h
+@@ -0,0 +1,18 @@
++#ifndef __UAPI_IFE_H
++#define __UAPI_IFE_H
 +
-+#include <linux/types.h>
-+#include <linux/pkt_cls.h>
-+#include <linux/if_ether.h>
-+
-+#define TCA_ACT_SAMPLE 26
-+
-+struct tc_sample {
-+	tc_gen;
-+};
++#define IFE_METAHDRLEN 2
 +
 +enum {
-+	TCA_SAMPLE_UNSPEC,
-+	TCA_SAMPLE_PARMS,
-+	TCA_SAMPLE_TM,
-+	TCA_SAMPLE_RATE,
-+	TCA_SAMPLE_MARK,
-+	TCA_SAMPLE_TRUNC_SIZE,
-+	TCA_SAMPLE_ETH_DST,
-+	TCA_SAMPLE_ETH_SRC,
-+	TCA_SAMPLE_ETH_TYPE,
-+	TCA_SAMPLE_PAD,
-+	__TCA_SAMPLE_MAX
++	IFE_META_SKBMARK = 1,
++	IFE_META_HASHID,
++	IFE_META_PRIO,
++	IFE_META_QMAP,
++	IFE_META_TCINDEX,
++	__IFE_META_MAX
 +};
-+#define TCA_SAMPLE_MAX (__TCA_SAMPLE_MAX - 1)
++
++/*Can be overridden at runtime by module option*/
++#define IFE_META_MAX (__IFE_META_MAX - 1)
 +
 +#endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 24f7cac..c54ea6b 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -650,6 +650,19 @@ config NET_ACT_MIRRED
- 	  To compile this code as a module, choose M here: the
- 	  module will be called act_mirred.
+diff --git a/net/Kconfig b/net/Kconfig
+index 7b6cd34..3cf29b1 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -393,6 +393,7 @@ source "net/9p/Kconfig"
+ source "net/caif/Kconfig"
+ source "net/ceph/Kconfig"
+ source "net/nfc/Kconfig"
++source "net/ife/Kconfig"
  
-+config NET_ACT_SAMPLE
-+        tristate "Traffic Sampling"
-+        depends on NET_CLS_ACT
-+        select NET_IFE
-+        ---help---
-+	  Say Y here to allow packet sampling tc action. The packet sample
-+	  action consists of statistically duplicating packets, truncating them
-+	  and adding descriptive metadata to them. The duplicated packets are
-+	  then marked to allow further processing using tc.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called act_sample.
-+
- config NET_ACT_IPT
-         tristate "IPtables targets"
-         depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 4bdda36..7b915d2 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_CLS_ACT)	+= act_api.o
- obj-$(CONFIG_NET_ACT_POLICE)	+= act_police.o
- obj-$(CONFIG_NET_ACT_GACT)	+= act_gact.o
- obj-$(CONFIG_NET_ACT_MIRRED)	+= act_mirred.o
-+obj-$(CONFIG_NET_ACT_SAMPLE)	+= act_sample.o
- obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
- obj-$(CONFIG_NET_ACT_NAT)	+= act_nat.o
- obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
-diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
+ config LWTUNNEL
+ 	bool "Network light weight tunnels"
+diff --git a/net/Makefile b/net/Makefile
+index 4cafaa2..4ddc67e 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -69,6 +69,7 @@ obj-$(CONFIG_DNS_RESOLVER)	+= dns_resolver/
+ obj-$(CONFIG_CEPH_LIB)		+= ceph/
+ obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/
+ obj-$(CONFIG_NFC)		+= nfc/
++obj-$(CONFIG_NET_IFE)		+= ife/
+ obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
+ obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
+ obj-$(CONFIG_MPLS)		+= mpls/
+diff --git a/net/ife/Kconfig b/net/ife/Kconfig
 new file mode 100644
-index 0000000..6596f4b
+index 0000000..31e48b6
 --- /dev/null
-+++ b/net/sched/act_sample.c
-@@ -0,0 +1,283 @@
++++ b/net/ife/Kconfig
+@@ -0,0 +1,16 @@
++#
++# IFE subsystem configuration
++#
++
++menuconfig NET_IFE
++	depends on NET
++        tristate "Inter-FE based on IETF ForCES InterFE LFB"
++	default n
++	help
++	  Say Y here to add support of IFE encapsulation protocol
++	  For details refer to netdev01 paper:
++	  "Distributing Linux Traffic Control Classifier-Action Subsystem"
++	   Authors: Jamal Hadi Salim and Damascene M. Joachimpillai
++
++	  To compile this support as a module, choose M here: the module will
++	  be called ife.
+diff --git a/net/ife/Makefile b/net/ife/Makefile
+new file mode 100644
+index 0000000..2a90d97
+--- /dev/null
++++ b/net/ife/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the IFE encapsulation protocol
++#
++
++obj-$(CONFIG_NET_IFE) += ife.o
+diff --git a/net/ife/ife.c b/net/ife/ife.c
+new file mode 100644
+index 0000000..ee3221a
+--- /dev/null
++++ b/net/ife/ife.c
+@@ -0,0 +1,144 @@
 +/*
-+ * net/sched/act_sample.c - Packet samplig tc action
++ * net/ife/ife.c - Inter-FE protocol based on ForCES WG InterFE LFB
++ * Copyright (c) 2015 Jamal Hadi Salim <jhs@mojatatu.com>
 + * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
 + *
++ * Refer to: draft-ietf-forces-interfelfb-03 and netdev01 paper:
++ * "Distributing Linux Traffic Control Classifier-Action Subsystem"
++ * Authors: Jamal Hadi Salim and Damascene M. Joachimpillai
++ *
 + * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
 + */
 +
 +#include <linux/types.h>
@@ -243,271 +247,127 @@ index 0000000..6596f4b
 +#include <linux/rtnetlink.h>
 +#include <linux/module.h>
 +#include <linux/init.h>
-+#include <linux/gfp.h>
 +#include <net/net_namespace.h>
 +#include <net/netlink.h>
 +#include <net/pkt_sched.h>
-+#include <linux/tc_act/tc_sample.h>
-+#include <net/tc_act/tc_sample.h>
++#include <linux/etherdevice.h>
 +#include <net/ife.h>
 +
-+#include <linux/if_arp.h>
++void *ife_encode(struct sk_buff *skb, u16 metalen)
++{
++	/* OUTERHDR:TOTMETALEN:{TLVHDR:Metadatum:TLVHDR..}:ORIGDATA
++	 * where ORIGDATA = original ethernet header ...
++	 */
++	int hdrm = metalen + IFE_METAHDRLEN;
++	int total_push = hdrm + skb->dev->hard_header_len;
++	struct ethhdr *iethh;	/* inner ether header */
++	int skboff = 0;
++	int err;
 +
-+#define SAMPLE_TAB_MASK     7
-+static int sample_net_id;
-+static struct tc_action_ops act_sample_ops;
++	err = skb_cow_head(skb, total_push);
++	if (unlikely(err))
++		return NULL;
 +
-+static const struct nla_policy sample_policy[TCA_SAMPLE_MAX + 1] = {
-+	[TCA_SAMPLE_PARMS]	= { .len = sizeof(struct tc_sample) },
++	iethh = (struct ethhdr *) skb->data;
++
++	__skb_push(skb, total_push);
++	memcpy(skb->data, iethh, skb->dev->hard_header_len);
++	skb_reset_mac_header(skb);
++	skboff += skb->dev->hard_header_len;
++
++	/* total metadata length */
++	metalen += IFE_METAHDRLEN;
++	metalen = htons(metalen);
++	memcpy((skb->data + skboff), &metalen, IFE_METAHDRLEN);
++	skboff += IFE_METAHDRLEN;
++
++	return skb->data + skboff;
++}
++EXPORT_SYMBOL_GPL(ife_encode);
++
++struct ifeheadr {
++	__be16 metalen;
++	u8 tlv_data[];
 +};
 +
-+static int tcf_sample_init(struct net *net, struct nlattr *nla,
-+			   struct nlattr *est, struct tc_action **a, int ovr,
-+			   int bind)
++void *ife_decode(struct sk_buff *skb, u16 *metalen)
 +{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+	struct nlattr *tb[TCA_SAMPLE_MAX + 1];
-+	struct tc_sample *parm;
-+	struct tcf_sample *s;
-+	int ret;
-+	bool exists = false;
++	struct ifeheadr *ifehdr;
++	int total_pull;
++	u16 ifehdrln;
 +
-+	if (!nla)
-+		return -EINVAL;
-+	ret = nla_parse_nested(tb, TCA_SAMPLE_MAX, nla, sample_policy);
-+	if (ret < 0)
-+		return ret;
-+	if (!tb[TCA_SAMPLE_PARMS] || !tb[TCA_SAMPLE_RATE] ||
-+	    !tb[TCA_SAMPLE_MARK] || !tb[TCA_SAMPLE_ETH_TYPE])
-+		return -EINVAL;
++	ifehdr = (struct ifeheadr *) (skb->data + skb->dev->hard_header_len);
++	ifehdrln = ifehdr->metalen;
++	ifehdrln = ntohs(ifehdrln);
++	total_pull = skb->dev->hard_header_len + ifehdrln;
 +
-+	parm = nla_data(tb[TCA_SAMPLE_PARMS]);
++	if (unlikely(ifehdrln < 2))
++		return NULL;
 +
-+	exists = tcf_hash_check(tn, parm->index, a, bind);
-+	if (exists && bind)
-+		return 0;
++	if (unlikely(!pskb_may_pull(skb, total_pull)))
++		return NULL;
 +
-+	if (!exists) {
-+		ret = tcf_hash_create(tn, parm->index, est, a,
-+				      &act_sample_ops, bind, false);
-+		if (ret)
-+			return ret;
-+		ret = ACT_P_CREATED;
-+	} else {
-+		tcf_hash_release(*a, bind);
-+		if (!ovr)
-+			return -EEXIST;
-+	}
-+	s = to_sample(*a);
++	skb_set_mac_header(skb, total_pull);
++	__skb_pull(skb, total_pull);
++	*metalen = ifehdrln - IFE_METAHDRLEN;
 +
-+	ASSERT_RTNL();
-+	s->tcf_action = parm->action;
-+	s->rate = nla_get_u32(tb[TCA_SAMPLE_RATE]);
-+	s->mark = nla_get_u32(tb[TCA_SAMPLE_MARK]);
-+	s->eth_type = nla_get_u16(tb[TCA_SAMPLE_ETH_TYPE]);
-+
-+	s->truncate = tb[TCA_SAMPLE_TRUNC_SIZE];
-+	if (tb[TCA_SAMPLE_TRUNC_SIZE])
-+		s->trunc_size = nla_get_u32(tb[TCA_SAMPLE_TRUNC_SIZE]);
-+
-+	s->packet_counter = 0;
-+
-+	if (tb[TCA_SAMPLE_ETH_SRC])
-+		ether_addr_copy(s->eth_src, nla_data(tb[TCA_SAMPLE_ETH_SRC]));
-+	else
-+		eth_zero_addr(s->eth_src);
-+	if (tb[TCA_SAMPLE_ETH_DST])
-+		ether_addr_copy(s->eth_dst, nla_data(tb[TCA_SAMPLE_ETH_DST]));
-+	else
-+		eth_zero_addr(s->eth_dst);
-+
-+	if (ret == ACT_P_CREATED)
-+		tcf_hash_insert(tn, *a);
-+	return ret;
++	return &ifehdr->tlv_data;
 +}
++EXPORT_SYMBOL_GPL(ife_decode);
 +
-+static bool dev_ok_push(struct net_device *dev)
-+{
-+	switch (dev->type) {
-+	case ARPHRD_TUNNEL:
-+	case ARPHRD_TUNNEL6:
-+	case ARPHRD_SIT:
-+	case ARPHRD_IPGRE:
-+	case ARPHRD_VOID:
-+	case ARPHRD_NONE:
-+		return false;
-+	default:
-+		return true;
-+	}
-+}
-+
-+static int tcf_sample(struct sk_buff *skb, const struct tc_action *a,
-+		      struct tcf_result *res)
-+{
-+	struct tcf_sample *s = to_sample(a);
-+	static struct ethhdr *ethhdr;
-+	struct sk_buff *skb2;
-+	int orig_size;
-+	int retval;
-+	u32 at;
-+
-+	tcf_lastuse_update(&s->tcf_tm);
-+	bstats_cpu_update(this_cpu_ptr(s->common.cpu_bstats), skb);
-+
-+	rcu_read_lock();
-+	retval = READ_ONCE(s->tcf_action);
-+
-+	if (++s->packet_counter % s->rate == 0) {
-+		skb2 = skb_copy(skb, GFP_ATOMIC);
-+		if (!skb2)
-+			goto out;
-+
-+		if (s->truncate)
-+			skb_trim(skb2, s->trunc_size);
-+
-+		at = G_TC_AT(skb->tc_verd);
-+		skb2->mac_len = skb->mac_len;
-+
-+		/* on ingress, the mac header gets poped, so push it back */
-+		if (!(at & AT_EGRESS) && dev_ok_push(skb->dev))
-+			skb_push(skb2, skb2->mac_len);
-+
-+		orig_size = skb->len + skb->dev->hard_header_len;
-+		ethhdr = ife_packet_info_pack(skb2, orig_size,
-+					      skb->dev->ifindex, 0);
-+		if (!ethhdr)
-+			goto out;
-+
-+		ethhdr->h_proto = htons(s->eth_type);
-+		if (!is_zero_ether_addr(s->eth_src))
-+			ether_addr_copy(ethhdr->h_source, s->eth_src);
-+		if (!is_zero_ether_addr(s->eth_dst))
-+			ether_addr_copy(ethhdr->h_dest, s->eth_dst);
-+
-+		skb2->mark = s->mark;
-+		netif_receive_skb(skb2);
-+
-+		/* mirror is always swallowed */
-+		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
-+	}
-+out:
-+	rcu_read_unlock();
-+
-+	return retval;
-+}
-+
-+static int tcf_sample_dump(struct sk_buff *skb, struct tc_action *a,
-+			   int bind, int ref)
-+{
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct tcf_sample *s = to_sample(a);
-+	struct tc_sample opt = {
-+		.index      = s->tcf_index,
-+		.action     = s->tcf_action,
-+		.refcnt     = s->tcf_refcnt - ref,
-+		.bindcnt    = s->tcf_bindcnt - bind,
-+	};
-+	struct tcf_t t;
-+
-+	if (nla_put(skb, TCA_SAMPLE_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
-+
-+	tcf_tm_dump(&t, &s->tcf_tm);
-+	if (nla_put_64bit(skb, TCA_SAMPLE_TM, sizeof(t), &t, TCA_SAMPLE_PAD))
-+		goto nla_put_failure;
-+
-+	if (nla_put_u32(skb, TCA_SAMPLE_RATE, s->rate))
-+		goto nla_put_failure;
-+
-+	if (nla_put_u32(skb, TCA_SAMPLE_MARK, s->mark))
-+		goto nla_put_failure;
-+
-+	if (nla_put_u32(skb, TCA_SAMPLE_ETH_TYPE, s->eth_type))
-+		goto nla_put_failure;
-+
-+	if (s->truncate)
-+		if (nla_put_u32(skb, TCA_SAMPLE_TRUNC_SIZE, s->trunc_size))
-+			goto nla_put_failure;
-+
-+	if (!is_zero_ether_addr(s->eth_src))
-+		if (nla_put(skb, TCA_SAMPLE_ETH_SRC, ETH_ALEN, s->eth_src))
-+			goto nla_put_failure;
-+
-+	if (!is_zero_ether_addr(s->eth_dst))
-+		if (nla_put(skb, TCA_SAMPLE_ETH_DST, ETH_ALEN, s->eth_dst))
-+			goto nla_put_failure;
-+
-+	return skb->len;
-+
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+static int tcf_sample_walker(struct net *net, struct sk_buff *skb,
-+			     struct netlink_callback *cb, int type,
-+			     const struct tc_action_ops *ops)
-+{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+
-+	return tcf_generic_walker(tn, skb, cb, type, ops);
-+}
-+
-+static int tcf_sample_search(struct net *net, struct tc_action **a, u32 index)
-+{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+
-+	return tcf_hash_search(tn, a, index);
-+}
-+
-+static struct tc_action_ops act_sample_ops = {
-+	.kind	= "sample",
-+	.type	= TCA_ACT_SAMPLE,
-+	.owner	= THIS_MODULE,
-+	.act	= tcf_sample,
-+	.dump	= tcf_sample_dump,
-+	.init	= tcf_sample_init,
-+	.walk	= tcf_sample_walker,
-+	.lookup	= tcf_sample_search,
-+	.size	= sizeof(struct tcf_sample),
++struct meta_tlvhdr {
++	__be16 type;
++	__be16 len;
 +};
 +
-+static __net_init int sample_init_net(struct net *net)
++/* Caller takes care of presenting data in network order
++ */
++void *ife_tlv_meta_decode(void *skbdata, u16 *attrtype, u16 *dlen, u16 *totlen)
 +{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
++	struct meta_tlvhdr *tlv = (struct meta_tlvhdr *) skbdata;
 +
-+	return tc_action_net_init(tn, &act_sample_ops, SAMPLE_TAB_MASK);
++	*dlen = ntohs(tlv->len) - NLA_HDRLEN;
++	*attrtype = ntohs(tlv->type);
++
++	if (totlen)
++		*totlen = nla_total_size(*dlen);
++
++	return skbdata + sizeof(struct meta_tlvhdr);
 +}
++EXPORT_SYMBOL_GPL(ife_tlv_meta_decode);
 +
-+static void __net_exit sample_exit_net(struct net *net)
++void *ife_tlv_meta_next(void *skbdata)
 +{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
++	struct meta_tlvhdr *tlv = (struct meta_tlvhdr *) skbdata;
++	u16 tlvlen = tlv->len;
 +
-+	tc_action_net_exit(tn);
++	tlvlen = ntohs(tlvlen);
++	tlvlen = NLA_ALIGN(tlvlen);
++
++	return skbdata + tlvlen;
 +}
++EXPORT_SYMBOL_GPL(ife_tlv_meta_next);
 +
-+static struct pernet_operations sample_net_ops = {
-+	.init = sample_init_net,
-+	.exit = sample_exit_net,
-+	.id   = &sample_net_id,
-+	.size = sizeof(struct tc_action_net),
-+};
-+
-+static int __init sample_init_module(void)
++/* Caller takes care of presenting data in network order
++ */
++int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
 +{
-+	return tcf_register_action(&act_sample_ops, &sample_net_ops);
++	u32 *tlv = (u32 *) (skbdata);
++	u16 totlen = nla_total_size(dlen);	/*alignment + hdr */
++	char *dptr = (char *) tlv + NLA_HDRLEN;
++	u32 htlv = attrtype << 16 | (dlen + NLA_HDRLEN);
++
++	*tlv = htonl(htlv);
++	memset(dptr, 0, totlen - NLA_HDRLEN);
++	memcpy(dptr, dval, dlen);
++
++	return totlen;
 +}
++EXPORT_SYMBOL_GPL(ife_tlv_meta_encode);
 +
-+static void __exit sample_cleanup_module(void)
-+{
-+	tcf_unregister_action(&act_sample_ops, &sample_net_ops);
-+}
-+
-+module_init(sample_init_module);
-+module_exit(sample_cleanup_module);
-+
++MODULE_AUTHOR("Jamal Hadi Salim <jhs@mojatatu.com>");
 +MODULE_AUTHOR("Yotam Gigi <yotamg@mellanox.com>");
-+MODULE_DESCRIPTION("Packet sampling action");
-+MODULE_LICENSE("GPL v2");
++MODULE_DESCRIPTION("Inter-FE LFB action");
++MODULE_LICENSE("GPL");
 -- 
 2.7.4
