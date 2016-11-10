@@ -1,849 +1,639 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 11/11] amd-xgbe: Add support for a KR redriver
-Date: Thu, 10 Nov 2016 17:11:41 -0600
-Message-ID: <20161110231141.20704.67246.stgit@tlendack-t1.amdoffice.net>
-References: <20161110230916.20704.34081.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] [v2] net: phy: phy drivers should not set SUPPORTED_[Asym_]Pause
+Date: Thu, 10 Nov 2016 17:46:01 -0600
+Message-ID: <1478821561-26498-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        jon.mason@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0058.outbound.protection.outlook.com ([104.47.42.58]:33287
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S965060AbcKJXLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Nov 2016 18:11:49 -0500
-In-Reply-To: <20161110230916.20704.34081.stgit@tlendack-t1.amdoffice.net>
+Received: from smtp.codeaurora.org ([198.145.29.96]:54364 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934560AbcKJXqI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 18:46:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides support for the presence of a KR redriver chip in
-between the device PCS and an external PHY.  When a redriver chip is
-present the device must perform clause 73 auto-negotiation in order to
-set the redriver chip for the downstream connection.
+Instead of having individual PHY drivers set the SUPPORTED_Pause and
+SUPPORTED_Asym_Pause flags, phylib itself should set those flags.
+During autonegotiation, the PHYs will determine whether to enable
+pause frame support.
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+Pause frames are a feature that is supported by the MAC.  It is the MAC
+that generates the frames and that processes them.  The PHY can only be
+configured to allow them to pass through.
+
+So the new process is:
+
+1) Phylib sets the SUPPORTED_Pause and SUPPORTED_AsymPause bits in
+phydev->supported.  This indicates that the PHY supports pause frames.
+
+2) The MAC driver checks phydev->supported before it calls phy_start().
+If (SUPPORTED_Pause | SUPPORTED_AsymPause) is set, then the MAC driver
+sets those bits in phydev->advertising, if it wants to enable pause
+frame support.
+
+3) When the link state changes, the MAC driver checks phydev->pause and
+phydev->asym_pause,  If the bits are set, then it enables the corresponding
+features in the MAC.  The algorithm is:
+
+	if (phydev->pause)
+		The MAC should be programmed to receive and honor
+                pause frames it receives, i.e. enable receive flow control.
+
+	if (phydev->pause != phydev->asym_pause)
+		The MAC should be programmed to transmit pause
+		frames when needed, i.e. enable transmit flow control.
+
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |   10 +
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |   45 ++-
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c |    7 
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |  427 +++++++++++++++++++++++++--
- drivers/net/ethernet/amd/xgbe/xgbe.h        |    6 
- 5 files changed, 458 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index ecd4f4d..5b7ba25 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -1062,6 +1062,16 @@
- #define XP_PROP_4_MUX_ADDR_LO_WIDTH		3
- #define XP_PROP_4_MUX_CHAN_INDEX		4
- #define XP_PROP_4_MUX_CHAN_WIDTH		3
-+#define XP_PROP_4_REDRV_ADDR_INDEX		16
-+#define XP_PROP_4_REDRV_ADDR_WIDTH		7
-+#define XP_PROP_4_REDRV_IF_INDEX		23
-+#define XP_PROP_4_REDRV_IF_WIDTH		1
-+#define XP_PROP_4_REDRV_LANE_INDEX		24
-+#define XP_PROP_4_REDRV_LANE_WIDTH		3
-+#define XP_PROP_4_REDRV_MODEL_INDEX		28
-+#define XP_PROP_4_REDRV_MODEL_WIDTH		3
-+#define XP_PROP_4_REDRV_PRESENT_INDEX		31
-+#define XP_PROP_4_REDRV_PRESENT_WIDTH		1
+v2: set the Pause bits in phy_probe()
+    update broadcom.c which was recently changed
+
+ drivers/net/phy/bcm-cygnus.c |  3 +--
+ drivers/net/phy/bcm63xx.c    |  5 ++---
+ drivers/net/phy/bcm7xxx.c    |  6 ++----
+ drivers/net/phy/broadcom.c   | 42 ++++++++++++++----------------------------
+ drivers/net/phy/icplus.c     |  6 ++----
+ drivers/net/phy/intel-xway.c | 24 ++++++++----------------
+ drivers/net/phy/micrel.c     | 30 ++++++++++++------------------
+ drivers/net/phy/microchip.c  |  3 +--
+ drivers/net/phy/national.c   |  2 +-
+ drivers/net/phy/phy_device.c |  7 +++++++
+ drivers/net/phy/smsc.c       | 18 ++++++------------
+ drivers/net/phy/ste10Xp.c    |  4 ++--
+ 12 files changed, 58 insertions(+), 92 deletions(-)
+
+diff --git a/drivers/net/phy/bcm-cygnus.c b/drivers/net/phy/bcm-cygnus.c
+index 49bbc68..12c6d49 100644
+--- a/drivers/net/phy/bcm-cygnus.c
++++ b/drivers/net/phy/bcm-cygnus.c
+@@ -134,8 +134,7 @@ static int bcm_cygnus_resume(struct phy_device *phydev)
+ 	.phy_id        = PHY_ID_BCM_CYGNUS,
+ 	.phy_id_mask   = 0xfffffff0,
+ 	.name          = "Broadcom Cygnus PHY",
+-	.features      = PHY_GBIT_FEATURES |
+-			SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features      = PHY_GBIT_FEATURES,
+ 	.config_init   = bcm_cygnus_config_init,
+ 	.config_aneg   = genphy_config_aneg,
+ 	.read_status   = genphy_read_status,
+diff --git a/drivers/net/phy/bcm63xx.c b/drivers/net/phy/bcm63xx.c
+index e741bf6..5e9922e 100644
+--- a/drivers/net/phy/bcm63xx.c
++++ b/drivers/net/phy/bcm63xx.c
+@@ -48,8 +48,7 @@ static int bcm63xx_config_init(struct phy_device *phydev)
+ 	.phy_id		= 0x00406000,
+ 	.phy_id_mask	= 0xfffffc00,
+ 	.name		= "Broadcom BCM63XX (1)",
+-	/* ASYM_PAUSE bit is marked RO in datasheet, so don't cheat */
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_IS_INTERNAL,
+ 	.config_init	= bcm63xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -61,7 +60,7 @@ static int bcm63xx_config_init(struct phy_device *phydev)
+ 	.phy_id		= 0x002bdc00,
+ 	.phy_id_mask	= 0xfffffc00,
+ 	.name		= "Broadcom BCM63XX (2)",
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_IS_INTERNAL,
+ 	.config_init	= bcm63xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
+index 9636da0..c1629df 100644
+--- a/drivers/net/phy/bcm7xxx.c
++++ b/drivers/net/phy/bcm7xxx.c
+@@ -308,8 +308,7 @@ static int bcm7xxx_suspend(struct phy_device *phydev)
+ 	.phy_id		= (_oui),					\
+ 	.phy_id_mask	= 0xfffffff0,					\
+ 	.name		= _name,					\
+-	.features	= PHY_GBIT_FEATURES |				\
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,	\
++	.features	= PHY_GBIT_FEATURES,				\
+ 	.flags		= PHY_IS_INTERNAL,				\
+ 	.config_init	= bcm7xxx_28nm_config_init,			\
+ 	.config_aneg	= genphy_config_aneg,				\
+@@ -322,8 +321,7 @@ static int bcm7xxx_suspend(struct phy_device *phydev)
+ 	.phy_id         = (_oui),					\
+ 	.phy_id_mask    = 0xfffffff0,					\
+ 	.name           = _name,					\
+-	.features       = PHY_BASIC_FEATURES |				\
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,	\
++	.features       = PHY_BASIC_FEATURES,				\
+ 	.flags          = PHY_IS_INTERNAL,				\
+ 	.config_init    = bcm7xxx_config_init,				\
+ 	.config_aneg    = genphy_config_aneg,				\
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index b1e32e9..1c990c8 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -540,8 +540,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM5411,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5411",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -552,8 +551,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM5421,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5421",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -564,8 +562,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM5461,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5461",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -576,8 +573,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM54612E,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM54612E",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= bcm54612e_config_aneg,
+@@ -588,8 +584,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM54616S,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM54616S",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -600,8 +595,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM5464,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5464",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -612,8 +606,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM5481,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5481",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= bcm5481_config_aneg,
+@@ -624,8 +617,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id         = PHY_ID_BCM54810,
+ 	.phy_id_mask    = 0xfffffff0,
+ 	.name           = "Broadcom BCM54810",
+-	.features       = PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features       = PHY_GBIT_FEATURES,
+ 	.flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init    = bcm54xx_config_init,
+ 	.config_aneg    = bcm5481_config_aneg,
+@@ -636,8 +628,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM5482,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5482",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm5482_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -648,8 +639,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM50610,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM50610",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -660,8 +650,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM50610M,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM50610M",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -672,8 +661,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM57780,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM57780",
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= bcm54xx_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -684,8 +672,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCMAC131,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCMAC131",
+-	.features	= PHY_BASIC_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= brcm_fet_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -696,8 +683,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_BCM5241,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5241",
+-	.features	= PHY_BASIC_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= brcm_fet_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
+index e5f251b..22b51f0 100644
+--- a/drivers/net/phy/icplus.c
++++ b/drivers/net/phy/icplus.c
+@@ -225,8 +225,7 @@ static int ip101a_g_ack_interrupt(struct phy_device *phydev)
+ 	.phy_id		= 0x02430d90,
+ 	.name		= "ICPlus IP1001",
+ 	.phy_id_mask	= 0x0ffffff0,
+-	.features	= PHY_GBIT_FEATURES | SUPPORTED_Pause |
+-			  SUPPORTED_Asym_Pause,
++	.features	= PHY_GBIT_FEATURES,
+ 	.config_init	= &ip1001_config_init,
+ 	.config_aneg	= &genphy_config_aneg,
+ 	.read_status	= &genphy_read_status,
+@@ -236,8 +235,7 @@ static int ip101a_g_ack_interrupt(struct phy_device *phydev)
+ 	.phy_id		= 0x02430c54,
+ 	.name		= "ICPlus IP101A/G",
+ 	.phy_id_mask	= 0x0ffffff0,
+-	.features	= PHY_BASIC_FEATURES | SUPPORTED_Pause |
+-			  SUPPORTED_Asym_Pause,
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT,
+ 	.ack_interrupt	= ip101a_g_ack_interrupt,
+ 	.config_init	= &ip101a_g_config_init,
+diff --git a/drivers/net/phy/intel-xway.c b/drivers/net/phy/intel-xway.c
+index c300ab5..b1fd7bb 100644
+--- a/drivers/net/phy/intel-xway.c
++++ b/drivers/net/phy/intel-xway.c
+@@ -239,8 +239,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY11G_1_3,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY11G (PEF 7071/PEF 7072) v1.3",
+-		.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_GBIT_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= xway_gphy14_config_aneg,
+@@ -254,8 +253,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY22F_1_3,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY22F (PEF 7061) v1.3",
+-		.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_BASIC_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= xway_gphy14_config_aneg,
+@@ -269,8 +267,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY11G_1_4,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY11G (PEF 7071/PEF 7072) v1.4",
+-		.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_GBIT_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= xway_gphy14_config_aneg,
+@@ -284,8 +281,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY22F_1_4,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY22F (PEF 7061) v1.4",
+-		.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_BASIC_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= xway_gphy14_config_aneg,
+@@ -299,8 +295,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY11G_1_5,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY11G (PEF 7071/PEF 7072) v1.5 / v1.6",
+-		.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_GBIT_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= genphy_config_aneg,
+@@ -314,8 +309,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY22F_1_5,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY22F (PEF 7061) v1.5 / v1.6",
+-		.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_BASIC_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= genphy_config_aneg,
+@@ -329,8 +323,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY11G_VR9,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY11G (xRX integrated)",
+-		.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_GBIT_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= genphy_config_aneg,
+@@ -344,8 +337,7 @@ static int xway_gphy_config_intr(struct phy_device *phydev)
+ 		.phy_id		= PHY_ID_PHY22F_VR9,
+ 		.phy_id_mask	= 0xffffffff,
+ 		.name		= "Intel XWAY PHY22F (xRX integrated)",
+-		.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+-				   SUPPORTED_Asym_Pause),
++		.features	= PHY_BASIC_FEATURES,
+ 		.flags		= PHY_HAS_INTERRUPT,
+ 		.config_init	= xway_gphy_config_init,
+ 		.config_aneg	= genphy_config_aneg,
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 081df68..76cc727 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -790,7 +790,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KS8737,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KS8737",
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ks8737_type,
+ 	.config_init	= kszphy_config_init,
+@@ -807,8 +807,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8021,
+ 	.phy_id_mask	= 0x00ffffff,
+ 	.name		= "Micrel KSZ8021 or KSZ8031",
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+-			   SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8021_type,
+ 	.probe		= kszphy_probe,
+@@ -826,8 +825,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8031,
+ 	.phy_id_mask	= 0x00ffffff,
+ 	.name		= "Micrel KSZ8031",
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+-			   SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8021_type,
+ 	.probe		= kszphy_probe,
+@@ -845,8 +843,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8041,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8041",
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8041_type,
+ 	.probe		= kszphy_probe,
+@@ -864,8 +861,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8041RNLI,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8041RNLI",
+-	.features	= PHY_BASIC_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8041_type,
+ 	.probe		= kszphy_probe,
+@@ -883,8 +879,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8051,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8051",
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8051_type,
+ 	.probe		= kszphy_probe,
+@@ -902,7 +897,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8001,
+ 	.name		= "Micrel KSZ8001 or KS8721",
+ 	.phy_id_mask	= 0x00fffffc,
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8041_type,
+ 	.probe		= kszphy_probe,
+@@ -920,7 +915,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8081,
+ 	.name		= "Micrel KSZ8081 or KSZ8091",
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz8081_type,
+ 	.probe		= kszphy_probe,
+@@ -938,7 +933,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8061,
+ 	.name		= "Micrel KSZ8061",
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+@@ -954,7 +949,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ9021,
+ 	.phy_id_mask	= 0x000ffffe,
+ 	.name		= "Micrel KSZ9021 Gigabit PHY",
+-	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz9021_type,
+ 	.config_init	= ksz9021_config_init,
+@@ -973,7 +968,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ9031,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ9031 Gigabit PHY",
+-	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.driver_data	= &ksz9021_type,
+ 	.config_init	= ksz9031_config_init,
+@@ -990,7 +985,6 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ8873MLL,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8873MLL Switch",
+-	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= ksz8873mll_config_aneg,
+@@ -1004,7 +998,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	.phy_id		= PHY_ID_KSZ886X,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ886X Switch",
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
+index 7c00e50..4c83229 100644
+--- a/drivers/net/phy/microchip.c
++++ b/drivers/net/phy/microchip.c
+@@ -112,8 +112,7 @@ static int lan88xx_set_wol(struct phy_device *phydev,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Microchip LAN88xx",
  
- /* I2C Control register offsets */
- #define IC_CON					0x0000
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 622675a..0ecae70 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -179,6 +179,7 @@ static void xgbe_an_enable_interrupts(struct xgbe_prv_data *pdata)
- {
- 	switch (pdata->an_mode) {
- 	case XGBE_AN_MODE_CL73:
-+	case XGBE_AN_MODE_CL73_REDRV:
- 		xgbe_an73_enable_interrupts(pdata);
- 		break;
- 	case XGBE_AN_MODE_CL37:
-@@ -254,6 +255,10 @@ static void xgbe_kx_1000_mode(struct xgbe_prv_data *pdata)
+-	.features	= (PHY_GBIT_FEATURES |
+-			   SUPPORTED_Pause | SUPPORTED_Asym_Pause),
++	.features	= PHY_GBIT_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
  
- static void xgbe_sfi_mode(struct xgbe_prv_data *pdata)
- {
-+	/* If a KR re-driver is present, change to KR mode instead */
-+	if (pdata->kr_redrv)
-+		return xgbe_kr_mode(pdata);
-+
- 	/* Disable KR training */
- 	xgbe_an73_disable_kr_training(pdata);
+ 	.probe		= lan88xx_probe,
+diff --git a/drivers/net/phy/national.c b/drivers/net/phy/national.c
+index 2a1b490..2addf1d 100644
+--- a/drivers/net/phy/national.c
++++ b/drivers/net/phy/national.c
+@@ -133,7 +133,7 @@ static int ns_config_init(struct phy_device *phydev)
+ 	.phy_id = DP83865_PHY_ID,
+ 	.phy_id_mask = 0xfffffff0,
+ 	.name = "NatSemi DP83865",
+-	.features = PHY_GBIT_FEATURES | SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.features = PHY_GBIT_FEATURES,
+ 	.flags = PHY_HAS_INTERRUPT,
+ 	.config_init = ns_config_init,
+ 	.config_aneg = genphy_config_aneg,
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 49a1c98..eab5333 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1598,6 +1598,13 @@ static int phy_probe(struct device *dev)
+ 	of_set_phy_supported(phydev);
+ 	phydev->advertising = phydev->supported;
  
-@@ -433,6 +438,7 @@ static void xgbe_an_restart(struct xgbe_prv_data *pdata)
- {
- 	switch (pdata->an_mode) {
- 	case XGBE_AN_MODE_CL73:
-+	case XGBE_AN_MODE_CL73_REDRV:
- 		xgbe_an73_restart(pdata);
- 		break;
- 	case XGBE_AN_MODE_CL37:
-@@ -448,6 +454,7 @@ static void xgbe_an_disable(struct xgbe_prv_data *pdata)
- {
- 	switch (pdata->an_mode) {
- 	case XGBE_AN_MODE_CL73:
-+	case XGBE_AN_MODE_CL73_REDRV:
- 		xgbe_an73_disable(pdata);
- 		break;
- 	case XGBE_AN_MODE_CL37:
-@@ -687,6 +694,7 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
++	/* Report that the PHYs can support passing pause frames.  During
++	 * autonegotiation, the PHYs will determine if they should allow
++	 * pause frames to pass.  The MAC driver should then use that result
++	 * to determine whether to enable flow control via pause frames.
++	 */
++	phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++
+ 	/* Set the state to READY by default */
+ 	phydev->state = PHY_READY;
  
- 	switch (pdata->an_mode) {
- 	case XGBE_AN_MODE_CL73:
-+	case XGBE_AN_MODE_CL73_REDRV:
- 		xgbe_an73_isr(pdata);
- 		break;
- 	case XGBE_AN_MODE_CL37:
-@@ -895,6 +903,7 @@ static void xgbe_an_state_machine(struct work_struct *work)
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index b62c4aa..fb32eaf 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -168,8 +168,7 @@ static int smsc_phy_probe(struct phy_device *phydev)
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "SMSC LAN83C185",
  
- 	switch (pdata->an_mode) {
- 	case XGBE_AN_MODE_CL73:
-+	case XGBE_AN_MODE_CL73_REDRV:
- 		xgbe_an73_state_machine(pdata);
- 		break;
- 	case XGBE_AN_MODE_CL37:
-@@ -910,16 +919,18 @@ static void xgbe_an_state_machine(struct work_struct *work)
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
  
- static void xgbe_an37_init(struct xgbe_prv_data *pdata)
- {
--	unsigned int reg;
-+	unsigned int advertising, reg;
-+
-+	advertising = pdata->phy_if.phy_impl.an_advertising(pdata);
+ 	.probe		= smsc_phy_probe,
+@@ -191,8 +190,7 @@ static int smsc_phy_probe(struct phy_device *phydev)
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "SMSC LAN8187",
  
- 	/* Set up Advertisement register */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_ADVERTISE);
--	if (pdata->phy.advertising & ADVERTISED_Pause)
-+	if (advertising & ADVERTISED_Pause)
- 		reg |= 0x100;
- 	else
- 		reg &= ~0x100;
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
  
--	if (pdata->phy.advertising & ADVERTISED_Asym_Pause)
-+	if (advertising & ADVERTISED_Asym_Pause)
- 		reg |= 0x80;
- 	else
- 		reg &= ~0x80;
-@@ -954,11 +965,13 @@ static void xgbe_an37_init(struct xgbe_prv_data *pdata)
+ 	.probe		= smsc_phy_probe,
+@@ -214,8 +212,7 @@ static int smsc_phy_probe(struct phy_device *phydev)
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "SMSC LAN8700",
  
- static void xgbe_an73_init(struct xgbe_prv_data *pdata)
- {
--	unsigned int reg;
-+	unsigned int advertising, reg;
-+
-+	advertising = pdata->phy_if.phy_impl.an_advertising(pdata);
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
  
- 	/* Set up Advertisement register 3 first */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2);
--	if (pdata->phy.advertising & ADVERTISED_10000baseR_FEC)
-+	if (advertising & ADVERTISED_10000baseR_FEC)
- 		reg |= 0xc000;
- 	else
- 		reg &= ~0xc000;
-@@ -967,13 +980,13 @@ static void xgbe_an73_init(struct xgbe_prv_data *pdata)
+ 	.probe		= smsc_phy_probe,
+@@ -237,8 +234,7 @@ static int smsc_phy_probe(struct phy_device *phydev)
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "SMSC LAN911x Internal PHY",
  
- 	/* Set up Advertisement register 2 next */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1);
--	if (pdata->phy.advertising & ADVERTISED_10000baseKR_Full)
-+	if (advertising & ADVERTISED_10000baseKR_Full)
- 		reg |= 0x80;
- 	else
- 		reg &= ~0x80;
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
  
--	if ((pdata->phy.advertising & ADVERTISED_1000baseKX_Full) ||
--	    (pdata->phy.advertising & ADVERTISED_2500baseX_Full))
-+	if ((advertising & ADVERTISED_1000baseKX_Full) ||
-+	    (advertising & ADVERTISED_2500baseX_Full))
- 		reg |= 0x20;
- 	else
- 		reg &= ~0x20;
-@@ -982,12 +995,12 @@ static void xgbe_an73_init(struct xgbe_prv_data *pdata)
+ 	.probe		= smsc_phy_probe,
+@@ -259,8 +255,7 @@ static int smsc_phy_probe(struct phy_device *phydev)
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "SMSC LAN8710/LAN8720",
  
- 	/* Set up Advertisement register 1 last */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE);
--	if (pdata->phy.advertising & ADVERTISED_Pause)
-+	if (advertising & ADVERTISED_Pause)
- 		reg |= 0x400;
- 	else
- 		reg &= ~0x400;
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
  
--	if (pdata->phy.advertising & ADVERTISED_Asym_Pause)
-+	if (advertising & ADVERTISED_Asym_Pause)
- 		reg |= 0x800;
- 	else
- 		reg &= ~0x800;
-@@ -1006,6 +1019,7 @@ static void xgbe_an_init(struct xgbe_prv_data *pdata)
- 	pdata->an_mode = pdata->phy_if.phy_impl.an_mode(pdata);
- 	switch (pdata->an_mode) {
- 	case XGBE_AN_MODE_CL73:
-+	case XGBE_AN_MODE_CL73_REDRV:
- 		xgbe_an73_init(pdata);
- 		break;
- 	case XGBE_AN_MODE_CL37:
-@@ -1149,10 +1163,15 @@ static int __xgbe_phy_config_aneg(struct xgbe_prv_data *pdata)
- 	if (ret)
- 		return ret;
+ 	.probe		= smsc_phy_probe,
+@@ -282,8 +277,7 @@ static int smsc_phy_probe(struct phy_device *phydev)
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "SMSC LAN8740",
  
--	if (pdata->phy.autoneg != AUTONEG_ENABLE)
--		return xgbe_phy_config_fixed(pdata);
-+	if (pdata->phy.autoneg != AUTONEG_ENABLE) {
-+		ret = xgbe_phy_config_fixed(pdata);
-+		if (ret || !pdata->kr_redrv)
-+			return ret;
+-	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+-				| SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_INTERRUPT | PHY_HAS_MAGICANEG,
  
--	netif_dbg(pdata, link, pdata->netdev, "AN PHY configuration\n");
-+		netif_dbg(pdata, link, pdata->netdev, "AN redriver support\n");
-+	} else {
-+		netif_dbg(pdata, link, pdata->netdev, "AN PHY configuration\n");
-+	}
- 
- 	/* Disable auto-negotiation interrupt */
- 	disable_irq(pdata->an_irq);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-index 6c64d11..c75edca 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-@@ -295,6 +295,11 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- 	return mode;
- }
- 
-+static unsigned int xgbe_phy_an_advertising(struct xgbe_prv_data *pdata)
-+{
-+	return pdata->phy.advertising;
-+}
-+
- static int xgbe_phy_an_config(struct xgbe_prv_data *pdata)
- {
- 	/* Nothing uniquely required for an configuration */
-@@ -831,6 +836,8 @@ void xgbe_init_function_ptrs_phy_v1(struct xgbe_phy_if *phy_if)
- 
- 	phy_impl->an_config		= xgbe_phy_an_config;
- 
-+	phy_impl->an_advertising	= xgbe_phy_an_advertising;
-+
- 	phy_impl->an_outcome		= xgbe_phy_an_outcome;
- 
- 	phy_impl->kr_training_pre	= xgbe_phy_kr_training_pre;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 9848f74..4ba4332 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-@@ -277,6 +277,26 @@ enum xgbe_mdio_reset {
- 	XGBE_MDIO_RESET_MAX,
- };
- 
-+/* Re-driver related definitions */
-+enum xgbe_phy_redrv_if {
-+	XGBE_PHY_REDRV_IF_MDIO = 0,
-+	XGBE_PHY_REDRV_IF_I2C,
-+	XGBE_PHY_REDRV_IF_MAX,
-+};
-+
-+enum xgbe_phy_redrv_model {
-+	XGBE_PHY_REDRV_MODEL_4223 = 0,
-+	XGBE_PHY_REDRV_MODEL_4227,
-+	XGBE_PHY_REDRV_MODEL_MAX,
-+};
-+
-+enum xgbe_phy_redrv_mode {
-+	XGBE_PHY_REDRV_MODE_CX = 5,
-+	XGBE_PHY_REDRV_MODE_SR = 9,
-+};
-+
-+#define XGBE_PHY_REDRV_MODE_REG	0x12b0
-+
- /* PHY related configuration information */
- struct xgbe_phy_data {
- 	enum xgbe_port_mode port_mode;
-@@ -327,6 +347,13 @@ struct xgbe_phy_data {
- 	enum xgbe_mdio_reset mdio_reset;
- 	unsigned int mdio_reset_addr;
- 	unsigned int mdio_reset_gpio;
-+
-+	/* Re-driver support */
-+	unsigned int redrv;
-+	unsigned int redrv_if;
-+	unsigned int redrv_addr;
-+	unsigned int redrv_lane;
-+	unsigned int redrv_model;
- };
- 
- /* I2C, MDIO and GPIO lines are muxed, so only one device at a time */
-@@ -346,6 +373,68 @@ static int xgbe_phy_i2c_xfer(struct xgbe_prv_data *pdata,
- 	return pdata->i2c_if.i2c_xfer(pdata, i2c_op);
- }
- 
-+static int xgbe_phy_redrv_write(struct xgbe_prv_data *pdata, unsigned int reg,
-+				unsigned int val)
-+{
-+	struct xgbe_phy_data *phy_data = pdata->phy_data;
-+	struct xgbe_i2c_op i2c_op;
-+	__be16 *redrv_val;
-+	u8 redrv_data[5], csum;
-+	unsigned int i, retry;
-+	int ret;
-+
-+	/* High byte of register contains read/write indicator */
-+	redrv_data[0] = ((reg >> 8) & 0xff) << 1;
-+	redrv_data[1] = reg & 0xff;
-+	redrv_val = (__be16 *)&redrv_data[2];
-+	*redrv_val = cpu_to_be16(val);
-+
-+	/* Calculate 1 byte checksum */
-+	csum = 0;
-+	for (i = 0; i < 4; i++) {
-+		csum += redrv_data[i];
-+		if (redrv_data[i] > csum)
-+			csum++;
-+	}
-+	redrv_data[4] = ~csum;
-+
-+	retry = 1;
-+again1:
-+	i2c_op.cmd = XGBE_I2C_CMD_WRITE;
-+	i2c_op.target = phy_data->redrv_addr;
-+	i2c_op.len = sizeof(redrv_data);
-+	i2c_op.buf = redrv_data;
-+	ret = xgbe_phy_i2c_xfer(pdata, &i2c_op);
-+	if (ret) {
-+		if ((ret == -EAGAIN) && retry--)
-+			goto again1;
-+
-+		return ret;
-+	}
-+
-+	retry = 1;
-+again2:
-+	i2c_op.cmd = XGBE_I2C_CMD_READ;
-+	i2c_op.target = phy_data->redrv_addr;
-+	i2c_op.len = 1;
-+	i2c_op.buf = redrv_data;
-+	ret = xgbe_phy_i2c_xfer(pdata, &i2c_op);
-+	if (ret) {
-+		if ((ret == -EAGAIN) && retry--)
-+			goto again2;
-+
-+		return ret;
-+	}
-+
-+	if (redrv_data[0] != 0xff) {
-+		netif_dbg(pdata, drv, pdata->netdev,
-+			  "Redriver write checksum error\n");
-+		ret = -EIO;
-+	}
-+
-+	return ret;
-+}
-+
- static int xgbe_phy_i2c_write(struct xgbe_prv_data *pdata, unsigned int target,
- 			      void *val, unsigned int val_len)
- {
-@@ -1144,38 +1233,49 @@ static void xgbe_phy_sfp_detect(struct xgbe_prv_data *pdata)
- 	xgbe_phy_put_comm_ownership(pdata);
- }
- 
--static enum xgbe_mode xgbe_phy_an37_sgmii_outcome(struct xgbe_prv_data *pdata)
-+static void xgbe_phy_phydev_flowctrl(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
--	enum xgbe_mode mode;
-+	u16 lcl_adv = 0, rmt_adv = 0;
-+	u8 fc;
- 
--	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
--	pdata->phy.lp_advertising |= ADVERTISED_TP;
-+	pdata->phy.tx_pause = 0;
-+	pdata->phy.rx_pause = 0;
- 
--	if (pdata->phy.pause_autoneg && phy_data->phydev) {
--		/* Flow control is obtained from the attached PHY */
--		u16 lcl_adv = 0, rmt_adv = 0;
--		u8 fc;
-+	if (!phy_data->phydev)
-+		return;
- 
--		pdata->phy.tx_pause = 0;
--		pdata->phy.rx_pause = 0;
-+	if (phy_data->phydev->advertising & ADVERTISED_Pause)
-+		lcl_adv |= ADVERTISE_PAUSE_CAP;
-+	if (phy_data->phydev->advertising & ADVERTISED_Asym_Pause)
-+		lcl_adv |= ADVERTISE_PAUSE_ASYM;
- 
--		if (phy_data->phydev->advertising & ADVERTISED_Pause)
--			lcl_adv |= ADVERTISE_PAUSE_CAP;
--		if (phy_data->phydev->advertising & ADVERTISED_Asym_Pause)
--			lcl_adv |= ADVERTISE_PAUSE_ASYM;
-+	if (phy_data->phydev->pause) {
-+		pdata->phy.lp_advertising |= ADVERTISED_Pause;
-+		rmt_adv |= LPA_PAUSE_CAP;
-+	}
-+	if (phy_data->phydev->asym_pause) {
-+		pdata->phy.lp_advertising |= ADVERTISED_Asym_Pause;
-+		rmt_adv |= LPA_PAUSE_ASYM;
-+	}
- 
--		if (phy_data->phydev->pause)
--			rmt_adv |= LPA_PAUSE_CAP;
--		if (phy_data->phydev->asym_pause)
--			rmt_adv |= LPA_PAUSE_ASYM;
-+	fc = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
-+	if (fc & FLOW_CTRL_TX)
-+		pdata->phy.tx_pause = 1;
-+	if (fc & FLOW_CTRL_RX)
-+		pdata->phy.rx_pause = 1;
-+}
- 
--		fc = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
--		if (fc & FLOW_CTRL_TX)
--			pdata->phy.tx_pause = 1;
--		if (fc & FLOW_CTRL_RX)
--			pdata->phy.rx_pause = 1;
--	}
-+static enum xgbe_mode xgbe_phy_an37_sgmii_outcome(struct xgbe_prv_data *pdata)
-+{
-+	enum xgbe_mode mode;
-+
-+	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
-+	pdata->phy.lp_advertising |= ADVERTISED_TP;
-+
-+	/* Use external PHY to determine flow control */
-+	if (pdata->phy.pause_autoneg)
-+		xgbe_phy_phydev_flowctrl(pdata);
- 
- 	switch (pdata->an_status & XGBE_SGMII_AN_LINK_SPEED) {
- 	case XGBE_SGMII_AN_LINK_SPEED_100:
-@@ -1249,6 +1349,83 @@ static enum xgbe_mode xgbe_phy_an37_outcome(struct xgbe_prv_data *pdata)
- 	return mode;
- }
- 
-+static enum xgbe_mode xgbe_phy_an73_redrv_outcome(struct xgbe_prv_data *pdata)
-+{
-+	struct xgbe_phy_data *phy_data = pdata->phy_data;
-+	enum xgbe_mode mode;
-+	unsigned int ad_reg, lp_reg;
-+
-+	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
-+	pdata->phy.lp_advertising |= ADVERTISED_Backplane;
-+
-+	/* Use external PHY to determine flow control */
-+	if (pdata->phy.pause_autoneg)
-+		xgbe_phy_phydev_flowctrl(pdata);
-+
-+	/* Compare Advertisement and Link Partner register 2 */
-+	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1);
-+	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 1);
-+	if (lp_reg & 0x80)
-+		pdata->phy.lp_advertising |= ADVERTISED_10000baseKR_Full;
-+	if (lp_reg & 0x20)
-+		pdata->phy.lp_advertising |= ADVERTISED_1000baseKX_Full;
-+
-+	ad_reg &= lp_reg;
-+	if (ad_reg & 0x80) {
-+		switch (phy_data->port_mode) {
-+		case XGBE_PORT_MODE_BACKPLANE:
-+			mode = XGBE_MODE_KR;
-+			break;
-+		default:
-+			mode = XGBE_MODE_SFI;
-+			break;
-+		}
-+	} else if (ad_reg & 0x20) {
-+		switch (phy_data->port_mode) {
-+		case XGBE_PORT_MODE_BACKPLANE:
-+			mode = XGBE_MODE_KX_1000;
-+			break;
-+		case XGBE_PORT_MODE_1000BASE_X:
-+			mode = XGBE_MODE_X;
-+			break;
-+		case XGBE_PORT_MODE_SFP:
-+			switch (phy_data->sfp_base) {
-+			case XGBE_SFP_BASE_1000_T:
-+				if (phy_data->phydev &&
-+				    (phy_data->phydev->speed == SPEED_100))
-+					mode = XGBE_MODE_SGMII_100;
-+				else
-+					mode = XGBE_MODE_SGMII_1000;
-+				break;
-+			case XGBE_SFP_BASE_1000_SX:
-+			case XGBE_SFP_BASE_1000_LX:
-+			case XGBE_SFP_BASE_1000_CX:
-+			default:
-+				mode = XGBE_MODE_X;
-+				break;
-+			}
-+			break;
-+		default:
-+			if (phy_data->phydev &&
-+			    (phy_data->phydev->speed == SPEED_100))
-+				mode = XGBE_MODE_SGMII_100;
-+			else
-+				mode = XGBE_MODE_SGMII_1000;
-+			break;
-+		}
-+	} else {
-+		mode = XGBE_MODE_UNKNOWN;
-+	}
-+
-+	/* Compare Advertisement and Link Partner register 3 */
-+	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2);
-+	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 2);
-+	if (lp_reg & 0xc000)
-+		pdata->phy.lp_advertising |= ADVERTISED_10000baseR_FEC;
-+
-+	return mode;
-+}
-+
- static enum xgbe_mode xgbe_phy_an73_outcome(struct xgbe_prv_data *pdata)
- {
- 	enum xgbe_mode mode;
-@@ -1311,6 +1488,8 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- 	switch (pdata->an_mode) {
- 	case XGBE_AN_MODE_CL73:
- 		return xgbe_phy_an73_outcome(pdata);
-+	case XGBE_AN_MODE_CL73_REDRV:
-+		return xgbe_phy_an73_redrv_outcome(pdata);
- 	case XGBE_AN_MODE_CL37:
- 		return xgbe_phy_an37_outcome(pdata);
- 	case XGBE_AN_MODE_CL37_SGMII:
-@@ -1320,6 +1499,63 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- 	}
- }
- 
-+static unsigned int xgbe_phy_an_advertising(struct xgbe_prv_data *pdata)
-+{
-+	struct xgbe_phy_data *phy_data = pdata->phy_data;
-+	unsigned int advertising;
-+
-+	/* Without a re-driver, just return current advertising */
-+	if (!phy_data->redrv)
-+		return pdata->phy.advertising;
-+
-+	/* With the KR re-driver we need to advertise a single speed */
-+	advertising = pdata->phy.advertising;
-+	advertising &= ~ADVERTISED_1000baseKX_Full;
-+	advertising &= ~ADVERTISED_10000baseKR_Full;
-+
-+	switch (phy_data->port_mode) {
-+	case XGBE_PORT_MODE_BACKPLANE:
-+		advertising |= ADVERTISED_10000baseKR_Full;
-+		break;
-+	case XGBE_PORT_MODE_BACKPLANE_2500:
-+		advertising |= ADVERTISED_1000baseKX_Full;
-+		break;
-+	case XGBE_PORT_MODE_1000BASE_T:
-+	case XGBE_PORT_MODE_1000BASE_X:
-+	case XGBE_PORT_MODE_NBASE_T:
-+		advertising |= ADVERTISED_1000baseKX_Full;
-+		break;
-+	case XGBE_PORT_MODE_10GBASE_T:
-+		if (phy_data->phydev &&
-+		    (phy_data->phydev->speed == SPEED_10000))
-+			advertising |= ADVERTISED_10000baseKR_Full;
-+		else
-+			advertising |= ADVERTISED_1000baseKX_Full;
-+		break;
-+	case XGBE_PORT_MODE_10GBASE_R:
-+		advertising |= ADVERTISED_10000baseKR_Full;
-+		break;
-+	case XGBE_PORT_MODE_SFP:
-+		switch (phy_data->sfp_base) {
-+		case XGBE_SFP_BASE_1000_T:
-+		case XGBE_SFP_BASE_1000_SX:
-+		case XGBE_SFP_BASE_1000_LX:
-+		case XGBE_SFP_BASE_1000_CX:
-+			advertising |= ADVERTISED_1000baseKX_Full;
-+			break;
-+		default:
-+			advertising |= ADVERTISED_10000baseKR_Full;
-+			break;
-+		}
-+		break;
-+	default:
-+		advertising |= ADVERTISED_10000baseKR_Full;
-+		break;
-+	}
-+
-+	return advertising;
-+}
-+
- static int xgbe_phy_an_config(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
-@@ -1364,6 +1600,10 @@ static enum xgbe_an_mode xgbe_phy_an_mode(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 
-+	/* A KR re-driver will always require CL73 AN */
-+	if (phy_data->redrv)
-+		return XGBE_AN_MODE_CL73_REDRV;
-+
- 	switch (phy_data->port_mode) {
- 	case XGBE_PORT_MODE_BACKPLANE:
- 		return XGBE_AN_MODE_CL73;
-@@ -1386,6 +1626,61 @@ static enum xgbe_an_mode xgbe_phy_an_mode(struct xgbe_prv_data *pdata)
- 	}
- }
- 
-+static int xgbe_phy_set_redrv_mode_mdio(struct xgbe_prv_data *pdata,
-+					enum xgbe_phy_redrv_mode mode)
-+{
-+	struct xgbe_phy_data *phy_data = pdata->phy_data;
-+	u16 redrv_reg, redrv_val;
-+
-+	redrv_reg = XGBE_PHY_REDRV_MODE_REG + (phy_data->redrv_lane * 0x1000);
-+	redrv_val = (u16)mode;
-+
-+	return pdata->hw_if.write_ext_mii_regs(pdata, phy_data->redrv_addr,
-+					       redrv_reg, redrv_val);
-+}
-+
-+static int xgbe_phy_set_redrv_mode_i2c(struct xgbe_prv_data *pdata,
-+				       enum xgbe_phy_redrv_mode mode)
-+{
-+	struct xgbe_phy_data *phy_data = pdata->phy_data;
-+	unsigned int redrv_reg;
-+	int ret;
-+
-+	/* Calculate the register to write */
-+	redrv_reg = XGBE_PHY_REDRV_MODE_REG + (phy_data->redrv_lane * 0x1000);
-+
-+	ret = xgbe_phy_redrv_write(pdata, redrv_reg, mode);
-+
-+	return ret;
-+}
-+
-+static void xgbe_phy_set_redrv_mode(struct xgbe_prv_data *pdata)
-+{
-+	struct xgbe_phy_data *phy_data = pdata->phy_data;
-+	enum xgbe_phy_redrv_mode mode;
-+	int ret;
-+
-+	if (!phy_data->redrv)
-+		return;
-+
-+	mode = XGBE_PHY_REDRV_MODE_CX;
-+	if ((phy_data->port_mode == XGBE_PORT_MODE_SFP) &&
-+	    (phy_data->sfp_base != XGBE_SFP_BASE_1000_CX) &&
-+	    (phy_data->sfp_base != XGBE_SFP_BASE_10000_CR))
-+		mode = XGBE_PHY_REDRV_MODE_SR;
-+
-+	ret = xgbe_phy_get_comm_ownership(pdata);
-+	if (ret)
-+		return;
-+
-+	if (phy_data->redrv_if)
-+		xgbe_phy_set_redrv_mode_i2c(pdata, mode);
-+	else
-+		xgbe_phy_set_redrv_mode_mdio(pdata, mode);
-+
-+	xgbe_phy_put_comm_ownership(pdata);
-+}
-+
- static void xgbe_phy_start_ratechange(struct xgbe_prv_data *pdata)
- {
- 	if (!XP_IOREAD_BITS(pdata, XP_DRIVER_INT_RO, STATUS))
-@@ -1457,6 +1752,8 @@ static void xgbe_phy_sfi_mode(struct xgbe_prv_data *pdata)
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	unsigned int s0;
- 
-+	xgbe_phy_set_redrv_mode(pdata);
-+
- 	xgbe_phy_start_ratechange(pdata);
- 
- 	/* 10G/SFI */
-@@ -1492,6 +1789,8 @@ static void xgbe_phy_x_mode(struct xgbe_prv_data *pdata)
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	unsigned int s0;
- 
-+	xgbe_phy_set_redrv_mode(pdata);
-+
- 	xgbe_phy_start_ratechange(pdata);
- 
- 	/* 1G/X */
-@@ -1516,6 +1815,8 @@ static void xgbe_phy_sgmii_1000_mode(struct xgbe_prv_data *pdata)
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	unsigned int s0;
- 
-+	xgbe_phy_set_redrv_mode(pdata);
-+
- 	xgbe_phy_start_ratechange(pdata);
- 
- 	/* 1G/SGMII */
-@@ -1540,6 +1841,8 @@ static void xgbe_phy_sgmii_100_mode(struct xgbe_prv_data *pdata)
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	unsigned int s0;
- 
-+	xgbe_phy_set_redrv_mode(pdata);
-+
- 	xgbe_phy_start_ratechange(pdata);
- 
- 	/* 1G/SGMII */
-@@ -1564,6 +1867,8 @@ static void xgbe_phy_kr_mode(struct xgbe_prv_data *pdata)
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	unsigned int s0;
- 
-+	xgbe_phy_set_redrv_mode(pdata);
-+
- 	xgbe_phy_start_ratechange(pdata);
- 
- 	/* 10G/KR */
-@@ -1588,6 +1893,8 @@ static void xgbe_phy_kx_2500_mode(struct xgbe_prv_data *pdata)
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	unsigned int s0;
- 
-+	xgbe_phy_set_redrv_mode(pdata);
-+
- 	xgbe_phy_start_ratechange(pdata);
- 
- 	/* 2.5G/KX */
-@@ -1612,6 +1919,8 @@ static void xgbe_phy_kx_1000_mode(struct xgbe_prv_data *pdata)
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	unsigned int s0;
- 
-+	xgbe_phy_set_redrv_mode(pdata);
-+
- 	xgbe_phy_start_ratechange(pdata);
- 
- 	/* 1G/KX */
-@@ -2232,6 +2541,30 @@ static int xgbe_phy_mdio_reset(struct xgbe_prv_data *pdata)
- 	return ret;
- }
- 
-+static bool xgbe_phy_redrv_error(struct xgbe_phy_data *phy_data)
-+{
-+	if (!phy_data->redrv)
-+		return false;
-+
-+	if (phy_data->redrv_if >= XGBE_PHY_REDRV_IF_MAX)
-+		return true;
-+
-+	switch (phy_data->redrv_model) {
-+	case XGBE_PHY_REDRV_MODEL_4223:
-+		if (phy_data->redrv_lane > 3)
-+			return true;
-+		break;
-+	case XGBE_PHY_REDRV_MODEL_4227:
-+		if (phy_data->redrv_lane > 1)
-+			return true;
-+		break;
-+	default:
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
- static int xgbe_phy_mdio_reset_setup(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
-@@ -2481,6 +2814,20 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 		dev_dbg(pdata->dev, "mdio addr=%u\n", phy_data->mdio_addr);
- 	}
- 
-+	reg = XP_IOREAD(pdata, XP_PROP_4);
-+	phy_data->redrv = XP_GET_BITS(reg, XP_PROP_4, REDRV_PRESENT);
-+	phy_data->redrv_if = XP_GET_BITS(reg, XP_PROP_4, REDRV_IF);
-+	phy_data->redrv_addr = XP_GET_BITS(reg, XP_PROP_4, REDRV_ADDR);
-+	phy_data->redrv_lane = XP_GET_BITS(reg, XP_PROP_4, REDRV_LANE);
-+	phy_data->redrv_model = XP_GET_BITS(reg, XP_PROP_4, REDRV_MODEL);
-+	if (phy_data->redrv && netif_msg_probe(pdata)) {
-+		dev_dbg(pdata->dev, "redrv present\n");
-+		dev_dbg(pdata->dev, "redrv i/f=%u\n", phy_data->redrv_if);
-+		dev_dbg(pdata->dev, "redrv addr=%#x\n", phy_data->redrv_addr);
-+		dev_dbg(pdata->dev, "redrv lane=%u\n", phy_data->redrv_lane);
-+		dev_dbg(pdata->dev, "redrv model=%u\n", phy_data->redrv_model);
-+	}
-+
- 	/* Validate the connection requested */
- 	if (xgbe_phy_conn_type_mismatch(pdata)) {
- 		dev_err(pdata->dev, "phy mode/connection mismatch (%#x/%#x)\n",
-@@ -2499,6 +2846,13 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 	if (ret)
- 		return ret;
- 
-+	/* Validate the re-driver information */
-+	if (xgbe_phy_redrv_error(phy_data)) {
-+		dev_err(pdata->dev, "phy re-driver settings error\n");
-+		return -EINVAL;
-+	}
-+	pdata->kr_redrv = phy_data->redrv;
-+
- 	/* Indicate current mode is unknown */
- 	phy_data->cur_mode = XGBE_MODE_UNKNOWN;
- 
-@@ -2651,6 +3005,29 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 		dev_dbg(pdata->dev, "phy supported=%#x\n",
- 			pdata->phy.supported);
- 
-+	if ((phy_data->conn_type & XGBE_CONN_TYPE_MDIO) &&
-+	    (phy_data->phydev_mode != XGBE_MDIO_MODE_NONE)) {
-+		ret = pdata->hw_if.set_ext_mii_mode(pdata, phy_data->mdio_addr,
-+						    phy_data->phydev_mode);
-+		if (ret) {
-+			dev_err(pdata->dev,
-+				"mdio port/clause not compatible (%d/%u)\n",
-+				phy_data->mdio_addr, phy_data->phydev_mode);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	if (phy_data->redrv && !phy_data->redrv_if) {
-+		ret = pdata->hw_if.set_ext_mii_mode(pdata, phy_data->redrv_addr,
-+						    XGBE_MDIO_MODE_CL22);
-+		if (ret) {
-+			dev_err(pdata->dev,
-+				"redriver mdio port not compatible (%u)\n",
-+				phy_data->redrv_addr);
-+			return -EINVAL;
-+		}
-+	}
-+
- 	/* Register for driving external PHYs */
- 	mii = devm_mdiobus_alloc(pdata->dev);
- 	if (!mii) {
-@@ -2700,5 +3077,7 @@ void xgbe_init_function_ptrs_phy_v2(struct xgbe_phy_if *phy_if)
- 
- 	phy_impl->an_config		= xgbe_phy_an_config;
- 
-+	phy_impl->an_advertising	= xgbe_phy_an_advertising;
-+
- 	phy_impl->an_outcome		= xgbe_phy_an_outcome;
- }
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 34db470..f52a9bd 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -508,6 +508,7 @@ enum xgbe_xpcs_access {
- 
- enum xgbe_an_mode {
- 	XGBE_AN_MODE_CL73 = 0,
-+	XGBE_AN_MODE_CL73_REDRV,
- 	XGBE_AN_MODE_CL37,
- 	XGBE_AN_MODE_CL37_SGMII,
- 	XGBE_AN_MODE_NONE,
-@@ -807,6 +808,9 @@ struct xgbe_phy_impl_if {
- 	/* Configure auto-negotiation settings */
- 	int (*an_config)(struct xgbe_prv_data *);
- 
-+	/* Set/override auto-negotiation advertisement settings */
-+	unsigned int (*an_advertising)(struct xgbe_prv_data *);
-+
- 	/* Process results of auto-negotiation */
- 	enum xgbe_mode (*an_outcome)(struct xgbe_prv_data *);
- 
-@@ -1124,6 +1128,8 @@ struct xgbe_prv_data {
- 	unsigned long link_check;
- 	struct completion mdio_complete;
- 
-+	unsigned int kr_redrv;
-+
- 	char an_name[IFNAMSIZ + 32];
- 	struct workqueue_struct *an_workqueue;
- 
+ 	.probe		= smsc_phy_probe,
+diff --git a/drivers/net/phy/ste10Xp.c b/drivers/net/phy/ste10Xp.c
+index d00cfb6..1af1a4a 100644
+--- a/drivers/net/phy/ste10Xp.c
++++ b/drivers/net/phy/ste10Xp.c
+@@ -86,7 +86,7 @@ static int ste10Xp_ack_interrupt(struct phy_device *phydev)
+ 	.phy_id = STE101P_PHY_ID,
+ 	.phy_id_mask = 0xfffffff0,
+ 	.name = "STe101p",
+-	.features = PHY_BASIC_FEATURES | SUPPORTED_Pause,
++	.features = PHY_BASIC_FEATURES,
+ 	.flags = PHY_HAS_INTERRUPT,
+ 	.config_init = ste10Xp_config_init,
+ 	.config_aneg = genphy_config_aneg,
+@@ -99,7 +99,7 @@ static int ste10Xp_ack_interrupt(struct phy_device *phydev)
+ 	.phy_id = STE100P_PHY_ID,
+ 	.phy_id_mask = 0xffffffff,
+ 	.name = "STe100p",
+-	.features = PHY_BASIC_FEATURES | SUPPORTED_Pause,
++	.features = PHY_BASIC_FEATURES,
+ 	.flags = PHY_HAS_INTERRUPT,
+ 	.config_init = ste10Xp_config_init,
+ 	.config_aneg = genphy_config_aneg,
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
