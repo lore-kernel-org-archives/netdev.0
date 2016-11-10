@@ -1,63 +1,86 @@
-From: Barry Day <briselec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] rtl8xxxu: Fix for bogus data used to determine
- macpower
-Date: Fri, 11 Nov 2016 08:45:37 +1000
-Message-ID: <20161110224535.GA31931@testbox>
-References: <CANf5e8aQ+HZz47M3-4+qjsG=ZCaXhBFU_jVupLqT4rEYT2LQFQ@mail.gmail.com>
- <wrfjh97i11vw.fsf@redhat.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v1 00/11] amd-xgbe: AMD XGBE driver updates
+ 2016-11-10
+Date: Thu, 10 Nov 2016 17:09:17 -0600
+Message-ID: <20161110230916.20704.34081.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Jones <s.dave.jones-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-        John Heenan <john-AMlJbUfTsso@public.gmane.org>, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <wrfjh97i11vw.fsf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam03on0059.outbound.protection.outlook.com ([104.47.42.59]:41183
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933993AbcKJXJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Nov 2016 18:09:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 08, 2016 at 09:29:07AM -0500, Jes Sorensen wrote:
-> Dave Jones <s.dave.jones-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-> > On Fri, Nov 04, 2016 at 09:56:00AM -0400, Jes Sorensen wrote:
-> >>
-> >> Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> writes:
-> >> > On Sun, 2016-10-30 at 19:02 -0400, Jes Sorensen wrote:
-> >> >> Code is 80 characters wide, and comments are /* */ never the ugly C++
-> >> >> crap.
-> >> >
-> >> > You might look at the recent Linus Torvalds authored commit
-> >> > 5e467652ffef (?printk: re-organize log_output() to be more legible")
-> >> > which does both of those: c99 // comments and > 80 columns.
-> >> >
-> >> > Absolutes are for zealots.
-> >>
-> >> What Linus does in his code, is totally up to him. What I pull into the
-> >> driver that *I* maintain, is up to me. It is perfectly normal to expect
-> >> submitters to respect the coding style of the piece of code they are
-> >> trying to edit.
-> >
-> > Bullshit.  It's perfectly normal to respect Linux coding style described in
-> > Documentation/CodingStyle.  Now let's back to the topic, could you
-> > apply John's patch or you just wanna improve your driver is 100% bug free?
-> 
-> First of all, I call for proper CodingStyle to be applied to my driver,
-> and I expect someone posting a patch to respect the codingstyle of the
-> driver in question. It is simple respect for the code. If you consider
-> that BS - that is on you!
-> 
-> Second I am NOT applying that patch as I have stated repeatedly because
-> I am not convinced it is safe to do so and it changes the code flow for
-> one type of chip and not the rest. In addition it uses a broken approach
-> to doing chip specific changes.
-> 
-> In short, the patch is broken!
-> 
-> Jes
+This patch series is targeted at adding support for a new PCI version
+of the hardware. As part of the new PCI device, there is a new PCS/PHY
+interaction, ECC support, I2C sideband communication, SFP+ support and
+more.
+
+The following updates and fixes are included in this driver update series:
+
+- Hardware workaround for possible incorrectly generated interrupts
+  during software reset
+- Hardware workaround for Tx timestamp register access order
+- Add support for a PCI version of the device
+- Increase the Rx queue limit to take advantage of the increased number
+  of DMA channels that might be available
+- Add support for a new DMA channel interrupt mode
+- Add ECC support for the device memory
+- Add support for using the integrated I2C controller for sideband
+  communication
+- Expose the phylib phy_aneg_done() function so it can be called by the
+  driver
+- Add support for SFP+ modules
+- Add support for MDIO attached PHYs
+- Add support for KR re-driver between the PCS/SerDes and an external
+  PHY
+
+This patch series is based on net-next.
+
+---
+
+Tom Lendacky (11):
+      amd-xgbe: Guard against incorrectly generated interrupts
+      amd-xgbe: Add a workaround for Tx timestamp issue
+      amd-xgbe: Add PCI device support
+      amd-xgbe: Allow for a greater number of Rx queues
+      amd-xgbe: Add support for new DMA interrupt mode
+      amd-xgbe: Add ECC status support for the device memory
+      amd-xgbe: Add I2C support for sideband communication
+      net: phy: expose phy_aneg_done API for use by drivers
+      amd-xgbe: Add support for SFP+ modules
+      amd-xgbe: Add support for MDIO attached PHYs
+      amd-xgbe: Add support for a KR redriver
 
 
-Jes is correct not to accept the patch. It is just a hack that in one
-particular situation gets around a problem with the driver. It doesn't do
-anything towards fixing the issue.
+ drivers/net/ethernet/aeroflex/greth.c         |    9 
+ drivers/net/ethernet/amd/Kconfig              |   10 
+ drivers/net/ethernet/amd/xgbe/Makefile        |    3 
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h   |  314 +++
+ drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c  |  152 +
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c      |  225 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c      |  316 ++-
+ drivers/net/ethernet/amd/xgbe/xgbe-i2c.c      |  492 ++++
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c     |   48 
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c     |  182 +
+ drivers/net/ethernet/amd/xgbe/xgbe-pci.c      |  529 ++++
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c   |   19 
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c   | 3083 +++++++++++++++++++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-platform.c |   14 
+ drivers/net/ethernet/amd/xgbe/xgbe.h          |  177 +
+ drivers/net/phy/phy.c                         |    3 
+ include/linux/phy.h                           |    1 
+ 17 files changed, 5487 insertions(+), 90 deletions(-)
+ create mode 100644 drivers/net/ethernet/amd/xgbe/xgbe-i2c.c
+ create mode 100644 drivers/net/ethernet/amd/xgbe/xgbe-pci.c
+ create mode 100644 drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
 
-Barry
+-- 
+Tom Lendacky
