@@ -1,52 +1,147 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v2 2/7] vxlan: simplify exception handling
-Date: Thu, 10 Nov 2016 11:21:19 -0800
-Message-ID: <CAOrHB_AGV4x4G4QYFAaWNYgckvkDAS-prp65CgXfTqB4KoxHTw@mail.gmail.com>
-References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
- <1478371557-71888-3-git-send-email-pshelar@ovn.org> <20161109171018.69d08ff9@griffin>
- <CAOrHB_AkVXDOaFKy_-ccRc--=wXG14TLfoC6Vc4HSBgjbDm3sA@mail.gmail.com>
- <20161110104703.7386ab29@griffin> <CAOrHB_BdYpCpjrzHmNmEkvhXk7u6Gb_1aRyggeCrsL0Jx1nkvw@mail.gmail.com>
- <20161110193347.0e81d68b@griffin>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG() can be hit in tcp_collapse()
+Date: Thu, 10 Nov 2016 11:26:32 -0800
+Message-ID: <1478805992.8455.20.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1623420310.11961160.1478789246631.JavaMail.zimbra@redhat.com>
+         <1478792652.8455.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:47768 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932259AbcKJTV1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 14:21:27 -0500
-Received: from mfilter39-d.gandi.net (mfilter39-d.gandi.net [217.70.178.170])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id CE8C4A80C6
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 20:21:25 +0100 (CET)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter39-d.gandi.net (mfilter39-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id HGOB-p0SVKlR for <netdev@vger.kernel.org>;
-        Thu, 10 Nov 2016 20:21:24 +0100 (CET)
-Received: from mail-it0-f41.google.com (mail-it0-f41.google.com [209.85.214.41])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 450E1A80CD
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 20:21:24 +0100 (CET)
-Received: by mail-it0-f41.google.com with SMTP id e187so281414026itc.0
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 11:21:24 -0800 (PST)
-In-Reply-To: <20161110193347.0e81d68b@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+        Marco Grassi <marco.gra@gmail.com>
+To: Vladis Dronov <vdronov@redhat.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1478792652.8455.3.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 10, 2016 at 10:33 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> On Thu, 10 Nov 2016 10:10:09 -0800, Pravin Shelar wrote:
->> I wanted to do same, that is free dst and skb in caller function. But
->> that would need more changes due to discrepancy in IPv4 udp-tunnel and
->> IPv6 udp-tunnel api. IPv4 works on route entry and IPv6 needs dst
->> entry. so If caller frees dst-entry then I need additional variable to
->> keep track of dst entry which is what I am trying to avoid.
->
-> Is additional variable really that bad? It's likely to be optimized by
-> the compiler and it will lead to less surprises. You obviously caught
-> me during review :-)
->
-One additional variable is not bad but look at what has happened in
-vxlan_xmit_one(). There are already more than 20 variables defined. It
-is hard to read code in this case.
-anyways I can add another variable to the function. I do not feel that
-strongly about this.
+On Thu, 2016-11-10 at 07:44 -0800, Eric Dumazet wrote:
+> On Thu, 2016-11-10 at 09:47 -0500, Vladis Dronov wrote:
+> > Hello,
+> > 
+> > It was discovered by Marco Grassi <marco.gra@gmail.com> (many thanks) that the
+> > latest stable Linux kernel v4.8.6 is crashing in tcp_collapse() after making
+> > certain syscalls:
+> > 
+> > [    9.622886] kernel BUG at net/ipv4/tcp_input.c:4813!
+> > [    9.623299] invalid opcode: 0000 [#1] SMP
+> > [    9.623642] Modules linked in: iptable_nat nf_nat_ipv4 nf_nat
+> > [    9.624287] CPU: 2 PID: 2871 Comm: poc Not tainted 4.8.6 #2
+> > [    9.624730] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.8.2-20150714_191134- 04/01/2014
+> > [    9.625459] task: ffff8801387b9a00 task.stack: ffff8801380e4000
+> > [    9.625929] RIP: 0010:[<ffffffff8178d4ec>]  [<ffffffff8178d4ec>] tcp_collapse+0x3ac/0x3b0
+> > [    9.626609] RSP: 0018:ffff8801380e7b78  EFLAGS: 00010282
+> > [    9.627028] RAX: 00000000fffffff2 RBX: 0000000000000ec0 RCX: 0000000000000ec0
+> > [    9.627587] RDX: ffff8801365cd000 RSI: 0000000000000000 RDI: ffff8801364106e0
+> > [    9.628142] RBP: ffff8801380e7bc8 R08: 0000000000000000 R09: ffff88013b003300
+> > [    9.628704] R10: ffff8801365cd000 R11: 0000000000000000 R12: 0000000000000ec0
+> > [    9.629259] R13: ffff88013663ae00 R14: 00000000cdf0ca26 R15: ffff8801364106e0
+> > [    9.629819] FS:  00007f2cef695800(0000) GS:ffff88013fc80000(0000) knlGS:0000000000000000
+> > [    9.630945] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> > [    9.631655] CR2: 000000002002a000 CR3: 0000000139d46000 CR4: 00000000001406e0
+> > [    9.632462] Stack:
+> > [    9.632900]  0000000000000000 cdf0da2600000001 ffff880138050000 ffff8801380500a8
+> > [    9.634138]  ffff880100000000 ffff880138050688 0000000000000900 ffff8801364136e0
+> > [    9.635379]  ffff880138050000 ffff880138050688 ffff8801380e7c00 ffffffff8178d630
+> > [    9.636622] Call Trace:
+> > [    9.637087]  [<ffffffff8178d630>] tcp_try_rmem_schedule+0x140/0x380
+> > [    9.637834]  [<ffffffff81791aa8>] tcp_data_queue+0x898/0xcf0
+> > [    9.638538]  [<ffffffff8179210b>] tcp_rcv_established+0x20b/0x6c0
+> > [    9.639268]  [<ffffffff81710143>] ? sk_reset_timer+0x13/0x30
+> > [    9.639968]  [<ffffffff81813009>] tcp_v6_do_rcv+0x1b9/0x420
+> > [    9.640666]  [<ffffffff81710b02>] __release_sock+0x82/0xf0
+> > [    9.641353]  [<ffffffff81710b9b>] release_sock+0x2b/0x90
+> > [    9.642029]  [<ffffffff817890ca>] tcp_sendmsg+0x55a/0xb60
+> > [    9.642714]  [<ffffffff817b29d0>] inet_sendmsg+0x60/0x90
+> > [    9.643389]  [<ffffffff8170c7b3>] sock_sendmsg+0x33/0x40
+> > [    9.644064]  [<ffffffff8170ccee>] SYSC_sendto+0xee/0x160
+> > [    9.645530]  [<ffffffff8170d6f9>] SyS_sendto+0x9/0x10
+> > [    9.646190]  [<ffffffff81909df2>] entry_SYSCALL_64_fastpath+0x1a/0xa4
+> > [    9.646947] Code: 48 c7 07 00 00 00 00 48 89 42 08 48 89 10 e8 cc 7e f8 ff 49 8b 47 30 48 8b 80 80 01 00 00 65 48 ff 80 b0 01 00 00 e9 72 fd ff ff <0f> 0b 66 90 55 48 89 e5 41 57 41 56 41 55 41 54 49 89 fe 53 8b 
+> > [    9.651794] RIP  [<ffffffff8178d4ec>] tcp_collapse+0x3ac/0x3b0
+> > [    9.652554]  RSP <ffff8801380e7b78>
+> > 
+> > The reproducer is generated by the syzkaller, please, see attached. The
+> > following BUG() is hit:
+> > 
+> > [net/ipv4/tcp_input.c]
+> > static void
+> > tcp_collapse(struct sock *sk, struct sk_buff_head *list,
+> >              struct sk_buff *head, struct sk_buff *tail,
+> >              u32 start, u32 end)
+> > {
+> > ...
+> > /* Copy data, releasing collapsed skbs. */
+> > while (copy > 0) {
+> >         int offset = start - TCP_SKB_CB(skb)->seq;
+> >         int size = TCP_SKB_CB(skb)->end_seq - start;
+> > 
+> >         BUG_ON(offset < 0);
+> >         if (size > 0) {
+> >                 size = min(copy, size);
+> > 4812:           if (skb_copy_bits(skb, offset, skb_put(nskb, size), size))
+> > 4813:                   BUG();
+> > 
+> > /usr/src/linux-4.8.6/net/ipv4/tcp_input.c: 4812
+> > 0xffffffff8178d390 <tcp_collapse+0x250>:        mov    %r12d,%esi
+> > 0xffffffff8178d393 <tcp_collapse+0x253>:        callq  0xffffffff81713ce0 <skb_put>
+> > 0xffffffff8178d398 <tcp_collapse+0x258>:        mov    -0x30(%rbp),%r8d
+> > 0xffffffff8178d39c <tcp_collapse+0x25c>:        mov    %r12d,%ecx
+> > 0xffffffff8178d39f <tcp_collapse+0x25f>:        mov    %rax,%rdx
+> > 0xffffffff8178d3a2 <tcp_collapse+0x262>:        mov    %r15,%rdi
+> > 0xffffffff8178d3a5 <tcp_collapse+0x265>:        mov    %r8d,%esi
+> > 0xffffffff8178d3a8 <tcp_collapse+0x268>:        callq  0xffffffff81714b90 <skb_copy_bits>
+> > 0xffffffff8178d3ad <tcp_collapse+0x26d>:        test   %eax,%eax
+> > 0xffffffff8178d3af <tcp_collapse+0x26f>:        jne    0xffffffff8178d4ec <tcp_collapse+0x3ac>
+> > ...
+> > /usr/src/linux-4.8.6/net/ipv4/tcp_input.c: 4813
+> > 0xffffffff8178d4ec <tcp_collapse+0x3ac>:        ud2    
+> > 
+> > I have checked that the reproducer can cause hitting this BUG() in the kernels
+> > since, at least v4.0. I was not checking the earlier kernels except RHEL-7 ones
+> > (3.10.0-xxx) which are not vulnerable.
+> > 
+> > The upstream kernels since v4.9-rc1 are not vulnerable too and I have bisected
+> > the repo to the commit c9c3321257 which fixes the issue.
+> > 
+> > $ git tag --contain c9c3321257e1b95be9b375f811fb250162af8d39
+> > v4.9-rc1
+> > 
+> > Stable v4.8.6 kernel with the c9c3321257 commit applied does not hit the BUG(),
+> > so I believe this commit should be backported to the stable branch. This commit
+> > applies cleanly to the v4.8.6 tree with just line offsets.
+> > 
+> > Meanwhile, I see that commit c9c3321257 just increases(?) an skb buffer(?)
+> > (which fixes hitting the BUG() for this exact reproducer), but does not fix the
+> > real reason (so another set of syscalls still may cause hitting the BUG()). This
+> > is why I'm emailing not only to stable@, but also to netdev@, asking to review the
+> > data above and probably develop a fix.
+> 
+> I do not believe c9c3321257 is a proper fix for this issue.
+> 
+> It only works around the bug for this specific use case, probably
+> because of :
+> 
+> +       /* In case all data was pulled from skb frags (in __pskb_pull_tail()),
+> +        * we can fix skb->truesize to its real value to avoid future drops.
+> +        * This is valid because skb is not yet charged to the socket.
+> +        * It has been noticed pure SACK packets were sometimes dropped
+> +        * (if cooked by drivers without copybreak feature).
+> +        */
+> +       if (!skb->data_len)
+> +               skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
+> 
+> Meaning that (tcp_win_from_space(skb->truesize) > skb->len) expression
+> result differs in tcp_collapse() later.
+
+The issue is that sk_filter() truncates an incoming packet to a smaller
+value.
+
+Bad things happen because TCP_SKB_CB(skb)->end_seq is not updated.
+
+I guess other issues would also happen if the truncation also removes
+part of tcp header.
+
+sk_filter_trim_cap(sk, skb, tcp_hlen) would be needed,
+or sk_filter_trim_cap(sk, skb, skb->len) to only ACCEPT/DROP packets,
+but no truncations.
