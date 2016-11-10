@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 06/11] amd-xgbe: Add ECC status support for the
- device memory
-Date: Thu, 10 Nov 2016 17:10:26 -0600
-Message-ID: <20161110231026.20704.31226.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 07/11] amd-xgbe: Add I2C support for sideband
+ communication
+Date: Thu, 10 Nov 2016 17:10:36 -0600
+Message-ID: <20161110231036.20704.96316.stgit@tlendack-t1.amdoffice.net>
 References: <20161110230916.20704.34081.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,627 +11,981 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0046.outbound.protection.outlook.com ([104.47.42.46]:2626
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-bn3nam01on0080.outbound.protection.outlook.com ([104.47.33.80]:8783
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S964802AbcKJXKf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Nov 2016 18:10:35 -0500
+        id S964802AbcKJXKn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Nov 2016 18:10:43 -0500
 In-Reply-To: <20161110230916.20704.34081.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some versions of the amd-xgbe device are capable of reporting ECC error
-information back to the driver. Add support to process, track and report
-on this information.
+Add support to initialize and use the I2C controller within the hardware
+in order to perform sideband communication, e.g. determine the SFP media
+type that is installed.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/Kconfig            |    5 +
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |   40 ++++++
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   68 ++++++++++
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c    |  180 +++++++++++++++++++++++++++
- drivers/net/ethernet/amd/xgbe/xgbe-main.c   |   13 ++
- drivers/net/ethernet/amd/xgbe/xgbe-pci.c    |    2 
- drivers/net/ethernet/amd/xgbe/xgbe.h        |   35 +++++
- 7 files changed, 340 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/amd/xgbe/Makefile       |    2 
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h  |   92 +++++
+ drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |   76 ++++
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |    4 
+ drivers/net/ethernet/amd/xgbe/xgbe-i2c.c     |  492 ++++++++++++++++++++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c    |    7 
+ drivers/net/ethernet/amd/xgbe/xgbe-pci.c     |    2 
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c  |   15 +
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |   64 +++
+ 9 files changed, 753 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/amd/xgbe/xgbe-i2c.c
 
-diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
-index 9255ce4..930636c 100644
---- a/drivers/net/ethernet/amd/Kconfig
-+++ b/drivers/net/ethernet/amd/Kconfig
-@@ -178,6 +178,7 @@ config AMD_XGBE
- 	select BITREVERSE
- 	select CRC32
- 	select PTP_1588_CLOCK
-+	select AMD_XGBE_HAVE_ECC if X86
- 	---help---
- 	  This driver supports the AMD 10GbE Ethernet device found on an
- 	  AMD SoC.
-@@ -195,4 +196,8 @@ config AMD_XGBE_DCB
+diff --git a/drivers/net/ethernet/amd/xgbe/Makefile b/drivers/net/ethernet/amd/xgbe/Makefile
+index d1ce1c1..0dea8f5 100644
+--- a/drivers/net/ethernet/amd/xgbe/Makefile
++++ b/drivers/net/ethernet/amd/xgbe/Makefile
+@@ -3,7 +3,7 @@ obj-$(CONFIG_AMD_XGBE) += amd-xgbe.o
+ amd-xgbe-objs := xgbe-main.o xgbe-drv.o xgbe-dev.o \
+ 		 xgbe-desc.o xgbe-ethtool.o xgbe-mdio.o \
+ 		 xgbe-ptp.o \
+-		 xgbe-phy-v1.o xgbe-phy-v2.o \
++		 xgbe-i2c.o xgbe-phy-v1.o xgbe-phy-v2.o \
+ 		 xgbe-platform.o
  
- 	  If unsure, say N.
- 
-+config AMD_XGBE_HAVE_ECC
-+	bool
-+	default n
-+
- endif # NET_VENDOR_AMD
+ amd-xgbe-$(CONFIG_PCI) += xgbe-pci.o
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index 516345c..f7527cd 100644
+index f7527cd..3b81b83 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -920,6 +920,10 @@
- #define XP_PROP_5			0x0014
- #define XP_MAC_ADDR_LO			0x0020
- #define XP_MAC_ADDR_HI			0x0024
-+#define XP_ECC_ISR			0x0030
-+#define XP_ECC_IER			0x0034
-+#define XP_ECC_CNT0			0x003c
-+#define XP_ECC_CNT1			0x0040
- #define XP_DRIVER_INT_REQ		0x0060
- #define XP_DRIVER_INT_RO		0x0064
- #define XP_DRIVER_SCRATCH_0		0x0068
-@@ -935,6 +939,42 @@
- #define XP_DRIVER_SCRATCH_0_COMMAND_WIDTH	8
- #define XP_DRIVER_SCRATCH_0_SUB_COMMAND_INDEX	8
- #define XP_DRIVER_SCRATCH_0_SUB_COMMAND_WIDTH	8
-+#define XP_ECC_CNT0_RX_DED_INDEX		24
-+#define XP_ECC_CNT0_RX_DED_WIDTH		8
-+#define XP_ECC_CNT0_RX_SEC_INDEX		16
-+#define XP_ECC_CNT0_RX_SEC_WIDTH		8
-+#define XP_ECC_CNT0_TX_DED_INDEX		8
-+#define XP_ECC_CNT0_TX_DED_WIDTH		8
-+#define XP_ECC_CNT0_TX_SEC_INDEX		0
-+#define XP_ECC_CNT0_TX_SEC_WIDTH		8
-+#define XP_ECC_CNT1_DESC_DED_INDEX		8
-+#define XP_ECC_CNT1_DESC_DED_WIDTH		8
-+#define XP_ECC_CNT1_DESC_SEC_INDEX		0
-+#define XP_ECC_CNT1_DESC_SEC_WIDTH		8
-+#define XP_ECC_IER_DESC_DED_INDEX		0
-+#define XP_ECC_IER_DESC_DED_WIDTH		1
-+#define XP_ECC_IER_DESC_SEC_INDEX		1
-+#define XP_ECC_IER_DESC_SEC_WIDTH		1
-+#define XP_ECC_IER_RX_DED_INDEX			2
-+#define XP_ECC_IER_RX_DED_WIDTH			1
-+#define XP_ECC_IER_RX_SEC_INDEX			3
-+#define XP_ECC_IER_RX_SEC_WIDTH			1
-+#define XP_ECC_IER_TX_DED_INDEX			4
-+#define XP_ECC_IER_TX_DED_WIDTH			1
-+#define XP_ECC_IER_TX_SEC_INDEX			5
-+#define XP_ECC_IER_TX_SEC_WIDTH			1
-+#define XP_ECC_ISR_DESC_DED_INDEX		0
-+#define XP_ECC_ISR_DESC_DED_WIDTH		1
-+#define XP_ECC_ISR_DESC_SEC_INDEX		1
-+#define XP_ECC_ISR_DESC_SEC_WIDTH		1
-+#define XP_ECC_ISR_RX_DED_INDEX			2
-+#define XP_ECC_ISR_RX_DED_WIDTH			1
-+#define XP_ECC_ISR_RX_SEC_INDEX			3
-+#define XP_ECC_ISR_RX_SEC_WIDTH			1
-+#define XP_ECC_ISR_TX_DED_INDEX			4
-+#define XP_ECC_ISR_TX_DED_WIDTH			1
-+#define XP_ECC_ISR_TX_SEC_INDEX			5
-+#define XP_ECC_ISR_TX_SEC_WIDTH			1
- #define XP_MAC_ADDR_HI_VALID_INDEX		31
- #define XP_MAC_ADDR_HI_VALID_WIDTH		1
- #define XP_PROP_0_CONN_TYPE_INDEX		28
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index ff7f5ab..78a2063 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -724,6 +724,65 @@ static void xgbe_enable_mac_interrupts(struct xgbe_prv_data *pdata)
- 	XGMAC_IOWRITE_BITS(pdata, MMC_TIER, ALL_INTERRUPTS, 0xffffffff);
- }
+@@ -1000,6 +1000,65 @@
+ #define XP_PROP_2_TX_FIFO_SIZE_INDEX		0
+ #define XP_PROP_2_TX_FIFO_SIZE_WIDTH		16
  
-+static void xgbe_enable_ecc_interrupts(struct xgbe_prv_data *pdata)
++/* I2C Control register offsets */
++#define IC_CON					0x0000
++#define IC_TAR					0x0004
++#define IC_DATA_CMD				0x0010
++#define IC_INTR_STAT				0x002c
++#define IC_INTR_MASK				0x0030
++#define IC_RAW_INTR_STAT			0x0034
++#define IC_CLR_INTR				0x0040
++#define IC_CLR_TX_ABRT				0x0054
++#define IC_CLR_STOP_DET				0x0060
++#define IC_ENABLE				0x006c
++#define IC_TXFLR				0x0074
++#define IC_RXFLR				0x0078
++#define IC_TX_ABRT_SOURCE			0x0080
++#define IC_ENABLE_STATUS			0x009c
++#define IC_COMP_PARAM_1				0x00f4
++
++/* I2C Control register entry bit positions and sizes */
++#define IC_COMP_PARAM_1_MAX_SPEED_MODE_INDEX	2
++#define IC_COMP_PARAM_1_MAX_SPEED_MODE_WIDTH	2
++#define IC_COMP_PARAM_1_RX_BUFFER_DEPTH_INDEX	8
++#define IC_COMP_PARAM_1_RX_BUFFER_DEPTH_WIDTH	8
++#define IC_COMP_PARAM_1_TX_BUFFER_DEPTH_INDEX	16
++#define IC_COMP_PARAM_1_TX_BUFFER_DEPTH_WIDTH	8
++#define IC_CON_MASTER_MODE_INDEX		0
++#define IC_CON_MASTER_MODE_WIDTH		1
++#define IC_CON_RESTART_EN_INDEX			5
++#define IC_CON_RESTART_EN_WIDTH			1
++#define IC_CON_RX_FIFO_FULL_HOLD_INDEX		9
++#define IC_CON_RX_FIFO_FULL_HOLD_WIDTH		1
++#define IC_CON_SLAVE_DISABLE_INDEX		6
++#define IC_CON_SLAVE_DISABLE_WIDTH		1
++#define IC_CON_SPEED_INDEX			1
++#define IC_CON_SPEED_WIDTH			2
++#define IC_DATA_CMD_CMD_INDEX			8
++#define IC_DATA_CMD_CMD_WIDTH			1
++#define IC_DATA_CMD_STOP_INDEX			9
++#define IC_DATA_CMD_STOP_WIDTH			1
++#define IC_ENABLE_ABORT_INDEX			1
++#define IC_ENABLE_ABORT_WIDTH			1
++#define IC_ENABLE_EN_INDEX			0
++#define IC_ENABLE_EN_WIDTH			1
++#define IC_ENABLE_STATUS_EN_INDEX		0
++#define IC_ENABLE_STATUS_EN_WIDTH		1
++#define IC_INTR_MASK_TX_EMPTY_INDEX		4
++#define IC_INTR_MASK_TX_EMPTY_WIDTH		1
++#define IC_RAW_INTR_STAT_RX_FULL_INDEX		2
++#define IC_RAW_INTR_STAT_RX_FULL_WIDTH		1
++#define IC_RAW_INTR_STAT_STOP_DET_INDEX		9
++#define IC_RAW_INTR_STAT_STOP_DET_WIDTH		1
++#define IC_RAW_INTR_STAT_TX_ABRT_INDEX		6
++#define IC_RAW_INTR_STAT_TX_ABRT_WIDTH		1
++#define IC_RAW_INTR_STAT_TX_EMPTY_INDEX		4
++#define IC_RAW_INTR_STAT_TX_EMPTY_WIDTH		1
++
++/* I2C Control register value */
++#define IC_TX_ABRT_7B_ADDR_NOACK		0x0001
++#define IC_TX_ABRT_ARB_LOST			0x1000
++
+ /* Descriptor/Packet entry bit positions and sizes */
+ #define RX_PACKET_ERRORS_CRC_INDEX		2
+ #define RX_PACKET_ERRORS_CRC_WIDTH		1
+@@ -1470,6 +1529,39 @@
+ } while (0)
+ 
+ /* Macros for building, reading or writing register values or bits
++ * within the register values of I2C Control registers.
++ */
++#define XI2C_GET_BITS(_var, _prefix, _field)				\
++	GET_BITS((_var),						\
++		 _prefix##_##_field##_INDEX,				\
++		 _prefix##_##_field##_WIDTH)
++
++#define XI2C_SET_BITS(_var, _prefix, _field, _val)			\
++	SET_BITS((_var),						\
++		 _prefix##_##_field##_INDEX,				\
++		 _prefix##_##_field##_WIDTH, (_val))
++
++#define XI2C_IOREAD(_pdata, _reg)					\
++	ioread32((_pdata)->xi2c_regs + (_reg))
++
++#define XI2C_IOREAD_BITS(_pdata, _reg, _field)				\
++	GET_BITS(XI2C_IOREAD((_pdata), (_reg)),				\
++		 _reg##_##_field##_INDEX,				\
++		 _reg##_##_field##_WIDTH)
++
++#define XI2C_IOWRITE(_pdata, _reg, _val)				\
++	iowrite32((_val), (_pdata)->xi2c_regs + (_reg))
++
++#define XI2C_IOWRITE_BITS(_pdata, _reg, _field, _val)			\
++do {									\
++	u32 reg_val = XI2C_IOREAD((_pdata), (_reg));			\
++	SET_BITS(reg_val,						\
++		 _reg##_##_field##_INDEX,				\
++		 _reg##_##_field##_WIDTH, (_val));			\
++	XI2C_IOWRITE((_pdata), (_reg), reg_val);			\
++} while (0)
++
++/* Macros for building, reading or writing register values or bits
+  * using MDIO.  Different from above because of the use of standardized
+  * Linux include values.  No shifting is performed with the bit
+  * operations, everything works on mask values.
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
+index 951b5ab..0c0140d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
+@@ -376,6 +376,66 @@ static ssize_t xprop_reg_value_write(struct file *filp,
+ 	.write = xprop_reg_value_write,
+ };
+ 
++static ssize_t xi2c_reg_addr_read(struct file *filp, char __user *buffer,
++				  size_t count, loff_t *ppos)
 +{
-+	unsigned int ecc_isr, ecc_ier = 0;
++	struct xgbe_prv_data *pdata = filp->private_data;
 +
-+	if (!pdata->vdata->ecc_support)
-+		return;
-+
-+	/* Clear all the interrupts which are set */
-+	ecc_isr = XP_IOREAD(pdata, XP_ECC_ISR);
-+	XP_IOWRITE(pdata, XP_ECC_ISR, ecc_isr);
-+
-+	/* Enable ECC interrupts */
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, TX_DED, 1);
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, TX_SEC, 1);
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, RX_DED, 1);
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, RX_SEC, 1);
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, DESC_DED, 1);
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, DESC_SEC, 1);
-+
-+	XP_IOWRITE(pdata, XP_ECC_IER, ecc_ier);
++	return xgbe_common_read(buffer, count, ppos, pdata->debugfs_xi2c_reg);
 +}
 +
-+static void xgbe_disable_ecc_ded(struct xgbe_prv_data *pdata)
++static ssize_t xi2c_reg_addr_write(struct file *filp,
++				   const char __user *buffer,
++				   size_t count, loff_t *ppos)
 +{
-+	unsigned int ecc_ier;
++	struct xgbe_prv_data *pdata = filp->private_data;
 +
-+	ecc_ier = XP_IOREAD(pdata, XP_ECC_IER);
-+
-+	/* Disable ECC DED interrupts */
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, TX_DED, 0);
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, RX_DED, 0);
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, DESC_DED, 0);
-+
-+	XP_IOWRITE(pdata, XP_ECC_IER, ecc_ier);
++	return xgbe_common_write(buffer, count, ppos,
++				 &pdata->debugfs_xi2c_reg);
 +}
 +
-+static void xgbe_disable_ecc_sec(struct xgbe_prv_data *pdata,
-+				 enum xgbe_ecc_sec sec)
++static ssize_t xi2c_reg_value_read(struct file *filp, char __user *buffer,
++				   size_t count, loff_t *ppos)
 +{
-+	unsigned int ecc_ier;
++	struct xgbe_prv_data *pdata = filp->private_data;
++	unsigned int value;
 +
-+	ecc_ier = XP_IOREAD(pdata, XP_ECC_IER);
++	value = XI2C_IOREAD(pdata, pdata->debugfs_xi2c_reg);
 +
-+	/* Disable ECC SEC interrupt */
-+	switch (sec) {
-+	case XGBE_ECC_SEC_TX:
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, TX_SEC, 0);
-+		break;
-+	case XGBE_ECC_SEC_RX:
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, RX_SEC, 0);
-+		break;
-+	case XGBE_ECC_SEC_DESC:
-+	XP_SET_BITS(ecc_ier, XP_ECC_IER, DESC_SEC, 0);
-+		break;
++	return xgbe_common_read(buffer, count, ppos, value);
++}
++
++static ssize_t xi2c_reg_value_write(struct file *filp,
++				    const char __user *buffer,
++				    size_t count, loff_t *ppos)
++{
++	struct xgbe_prv_data *pdata = filp->private_data;
++	unsigned int value;
++	ssize_t len;
++
++	len = xgbe_common_write(buffer, count, ppos, &value);
++	if (len < 0)
++		return len;
++
++	XI2C_IOWRITE(pdata, pdata->debugfs_xi2c_reg, value);
++
++	return len;
++}
++
++static const struct file_operations xi2c_reg_addr_fops = {
++	.owner = THIS_MODULE,
++	.open = simple_open,
++	.read =  xi2c_reg_addr_read,
++	.write = xi2c_reg_addr_write,
++};
++
++static const struct file_operations xi2c_reg_value_fops = {
++	.owner = THIS_MODULE,
++	.open = simple_open,
++	.read =  xi2c_reg_value_read,
++	.write = xi2c_reg_value_write,
++};
++
+ void xgbe_debugfs_init(struct xgbe_prv_data *pdata)
+ {
+ 	struct dentry *pfile;
+@@ -443,6 +503,22 @@ void xgbe_debugfs_init(struct xgbe_prv_data *pdata)
+ 				   "debugfs_create_file failed\n");
+ 	}
+ 
++	if (pdata->xi2c_regs) {
++		pfile = debugfs_create_file("xi2c_register", 0600,
++					    pdata->xgbe_debugfs, pdata,
++					    &xi2c_reg_addr_fops);
++		if (!pfile)
++			netdev_err(pdata->netdev,
++				   "debugfs_create_file failed\n");
++
++		pfile = debugfs_create_file("xi2c_register_value", 0600,
++					    pdata->xgbe_debugfs, pdata,
++					    &xi2c_reg_value_fops);
++		if (!pfile)
++			netdev_err(pdata->netdev,
++				   "debugfs_create_file failed\n");
 +	}
 +
-+	XP_IOWRITE(pdata, XP_ECC_IER, ecc_ier);
-+}
-+
- static int xgbe_set_speed(struct xgbe_prv_data *pdata, int speed)
- {
- 	unsigned int ss;
-@@ -3294,6 +3353,11 @@ static int xgbe_init(struct xgbe_prv_data *pdata)
- 	xgbe_config_mmc(pdata);
- 	xgbe_enable_mac_interrupts(pdata);
- 
-+	/*
-+	 * Initialize ECC related features
-+	 */
-+	xgbe_enable_ecc_interrupts(pdata);
-+
- 	DBGPR("<--xgbe_init\n");
- 
- 	return 0;
-@@ -3399,5 +3463,9 @@ void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *hw_if)
- 	hw_if->set_rss_hash_key = xgbe_set_rss_hash_key;
- 	hw_if->set_rss_lookup_table = xgbe_set_rss_lookup_table;
- 
-+	/* For ECC */
-+	hw_if->disable_ecc_ded = xgbe_disable_ecc_ded;
-+	hw_if->disable_ecc_sec = xgbe_disable_ecc_sec;
-+
- 	DBGPR("<--xgbe_init_function_ptrs\n");
+ 	kfree(buf);
  }
+ 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 490fdb5..fc3b703 100644
+index fc3b703..7af358f 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -114,6 +114,7 @@
-  *     THE POSSIBILITY OF SUCH DAMAGE.
-  */
+@@ -530,6 +530,10 @@ static irqreturn_t xgbe_isr(int irq, void *data)
+ 	if (pdata->vdata->ecc_support && (pdata->dev_irq == pdata->ecc_irq))
+ 		xgbe_ecc_isr(irq, pdata);
  
-+#include <linux/module.h>
- #include <linux/spinlock.h>
- #include <linux/tcp.h>
- #include <linux/if_vlan.h>
-@@ -126,8 +127,35 @@
- #include "xgbe.h"
- #include "xgbe-common.h"
- 
-+static unsigned int ecc_sec_info_threshold = 10;
-+static unsigned int ecc_sec_warn_threshold = 10000;
-+static unsigned int ecc_sec_period = 600;
-+static unsigned int ecc_ded_threshold = 2;
-+static unsigned int ecc_ded_period = 600;
-+
-+#ifdef CONFIG_AMD_XGBE_HAVE_ECC
-+/* Only expose the ECC parameters if supported */
-+module_param(ecc_sec_info_threshold, uint, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(ecc_sec_info_threshold,
-+		 " ECC corrected error informational threshold setting");
-+
-+module_param(ecc_sec_warn_threshold, uint, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(ecc_sec_warn_threshold,
-+		 " ECC corrected error warning threshold setting");
-+
-+module_param(ecc_sec_period, uint, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(ecc_sec_period, " ECC corrected error period (in seconds)");
-+
-+module_param(ecc_ded_threshold, uint, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(ecc_ded_threshold, " ECC detected error threshold setting");
-+
-+module_param(ecc_ded_period, uint, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(ecc_ded_period, " ECC detected error period (in seconds)");
-+#endif
-+
- static int xgbe_one_poll(struct napi_struct *, int);
- static int xgbe_all_poll(struct napi_struct *, int);
-+static void xgbe_stop(struct xgbe_prv_data *);
- 
- static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
- {
-@@ -308,6 +336,107 @@ static void xgbe_disable_rx_tx_ints(struct xgbe_prv_data *pdata)
- 		xgbe_disable_rx_tx_int(pdata, channel);
- }
- 
-+static bool xgbe_ecc_sec(struct xgbe_prv_data *pdata, unsigned long *period,
-+			 unsigned int *count, const char *area)
-+{
-+	if (time_before(jiffies, *period)) {
-+		(*count)++;
-+	} else {
-+		*period = jiffies + (ecc_sec_period * HZ);
-+		*count = 1;
-+	}
-+
-+	if (*count > ecc_sec_info_threshold)
-+		dev_warn_once(pdata->dev,
-+			      "%s ECC corrected errors exceed informational threshold\n",
-+			      area);
-+
-+	if (*count > ecc_sec_warn_threshold) {
-+		dev_warn_once(pdata->dev,
-+			      "%s ECC corrected errors exceed warning threshold\n",
-+			      area);
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
-+static bool xgbe_ecc_ded(struct xgbe_prv_data *pdata, unsigned long *period,
-+			 unsigned int *count, const char *area)
-+{
-+	if (time_before(jiffies, *period)) {
-+		(*count)++;
-+	} else {
-+		*period = jiffies + (ecc_ded_period * HZ);
-+		*count = 1;
-+	}
-+
-+	if (*count > ecc_ded_threshold) {
-+		netdev_alert(pdata->netdev,
-+			     "%s ECC detected errors exceed threshold\n",
-+			     area);
-+		return true;
-+	}
-+
-+	return false;
-+}
-+
-+static irqreturn_t xgbe_ecc_isr(int irq, void *data)
-+{
-+	struct xgbe_prv_data *pdata = data;
-+	unsigned int ecc_isr;
-+	bool stop = false;
-+
-+	/* Mask status with only the interrupts we care about */
-+	ecc_isr = XP_IOREAD(pdata, XP_ECC_ISR);
-+	ecc_isr &= XP_IOREAD(pdata, XP_ECC_IER);
-+	netif_dbg(pdata, intr, pdata->netdev, "ECC_ISR=%#010x\n", ecc_isr);
-+
-+	if (XP_GET_BITS(ecc_isr, XP_ECC_ISR, TX_DED)) {
-+		stop |= xgbe_ecc_ded(pdata, &pdata->tx_ded_period,
-+				     &pdata->tx_ded_count, "TX fifo");
-+	}
-+
-+	if (XP_GET_BITS(ecc_isr, XP_ECC_ISR, RX_DED)) {
-+		stop |= xgbe_ecc_ded(pdata, &pdata->rx_ded_period,
-+				     &pdata->rx_ded_count, "RX fifo");
-+	}
-+
-+	if (XP_GET_BITS(ecc_isr, XP_ECC_ISR, DESC_DED)) {
-+		stop |= xgbe_ecc_ded(pdata, &pdata->desc_ded_period,
-+				     &pdata->desc_ded_count,
-+				     "descriptor cache");
-+	}
-+
-+	if (stop) {
-+		pdata->hw_if.disable_ecc_ded(pdata);
-+		schedule_work(&pdata->stopdev_work);
-+		goto out;
-+	}
-+
-+	if (XP_GET_BITS(ecc_isr, XP_ECC_ISR, TX_SEC)) {
-+		if (xgbe_ecc_sec(pdata, &pdata->tx_sec_period,
-+				 &pdata->tx_sec_count, "TX fifo"))
-+			pdata->hw_if.disable_ecc_sec(pdata, XGBE_ECC_SEC_TX);
-+	}
-+
-+	if (XP_GET_BITS(ecc_isr, XP_ECC_ISR, RX_SEC))
-+		if (xgbe_ecc_sec(pdata, &pdata->rx_sec_period,
-+				 &pdata->rx_sec_count, "RX fifo"))
-+			pdata->hw_if.disable_ecc_sec(pdata, XGBE_ECC_SEC_RX);
-+
-+	if (XP_GET_BITS(ecc_isr, XP_ECC_ISR, DESC_SEC))
-+		if (xgbe_ecc_sec(pdata, &pdata->desc_sec_period,
-+				 &pdata->desc_sec_count, "descriptor cache"))
-+			pdata->hw_if.disable_ecc_sec(pdata, XGBE_ECC_SEC_DESC);
-+
-+out:
-+	/* Clear all ECC interrupts */
-+	XP_IOWRITE(pdata, XP_ECC_ISR, ecc_isr);
-+
-+	return IRQ_HANDLED;
-+}
-+
- static irqreturn_t xgbe_isr(int irq, void *data)
- {
- 	struct xgbe_prv_data *pdata = data;
-@@ -397,6 +526,10 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 	if (pdata->dev_irq == pdata->an_irq)
- 		pdata->phy_if.an_isr(irq, pdata);
- 
-+	/* If there is not a separate ECC irq, handle it here */
-+	if (pdata->vdata->ecc_support && (pdata->dev_irq == pdata->ecc_irq))
-+		xgbe_ecc_isr(irq, pdata);
++	/* If there is not a separate I2C irq, handle it here */
++	if (pdata->vdata->i2c_support && (pdata->dev_irq == pdata->i2c_irq))
++		pdata->i2c_if.i2c_isr(irq, pdata);
 +
  isr_done:
  	return IRQ_HANDLED;
  }
-@@ -679,6 +812,16 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
- 		return ret;
- 	}
- 
-+	if (pdata->vdata->ecc_support && (pdata->dev_irq != pdata->ecc_irq)) {
-+		ret = devm_request_irq(pdata->dev, pdata->ecc_irq, xgbe_ecc_isr,
-+				       0, pdata->ecc_name, pdata);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-i2c.c b/drivers/net/ethernet/amd/xgbe/xgbe-i2c.c
+new file mode 100644
+index 0000000..0c7088a
+--- /dev/null
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-i2c.c
+@@ -0,0 +1,492 @@
++/*
++ * AMD 10Gb Ethernet driver
++ *
++ * This file is available to you under your choice of the following two
++ * licenses:
++ *
++ * License 1: GPLv2
++ *
++ * Copyright (c) 2016 Advanced Micro Devices, Inc.
++ *
++ * This file is free software; you may copy, redistribute and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 2 of the License, or (at
++ * your option) any later version.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * This file incorporates work covered by the following copyright and
++ * permission notice:
++ *     The Synopsys DWC ETHER XGMAC Software Driver and documentation
++ *     (hereinafter "Software") is an unsupported proprietary work of Synopsys,
++ *     Inc. unless otherwise expressly agreed to in writing between Synopsys
++ *     and you.
++ *
++ *     The Software IS NOT an item of Licensed Software or Licensed Product
++ *     under any End User Software License Agreement or Agreement for Licensed
++ *     Product with Synopsys or any supplement thereto.  Permission is hereby
++ *     granted, free of charge, to any person obtaining a copy of this software
++ *     annotated with this license and the Software, to deal in the Software
++ *     without restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or sell copies
++ *     of the Software, and to permit persons to whom the Software is furnished
++ *     to do so, subject to the following conditions:
++ *
++ *     The above copyright notice and this permission notice shall be included
++ *     in all copies or substantial portions of the Software.
++ *
++ *     THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS"
++ *     BASIS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ *     TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
++ *     PARTICULAR PURPOSE ARE HEREBY DISCLAIMED. IN NO EVENT SHALL SYNOPSYS
++ *     BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ *     CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ *     SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ *     INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ *     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ *     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ *     THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ *
++ * License 2: Modified BSD
++ *
++ * Copyright (c) 2016 Advanced Micro Devices, Inc.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *       notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *       notice, this list of conditions and the following disclaimer in the
++ *       documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Advanced Micro Devices, Inc. nor the
++ *       names of its contributors may be used to endorse or promote products
++ *       derived from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * This file incorporates work covered by the following copyright and
++ * permission notice:
++ *     The Synopsys DWC ETHER XGMAC Software Driver and documentation
++ *     (hereinafter "Software") is an unsupported proprietary work of Synopsys,
++ *     Inc. unless otherwise expressly agreed to in writing between Synopsys
++ *     and you.
++ *
++ *     The Software IS NOT an item of Licensed Software or Licensed Product
++ *     under any End User Software License Agreement or Agreement for Licensed
++ *     Product with Synopsys or any supplement thereto.  Permission is hereby
++ *     granted, free of charge, to any person obtaining a copy of this software
++ *     annotated with this license and the Software, to deal in the Software
++ *     without restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or sell copies
++ *     of the Software, and to permit persons to whom the Software is furnished
++ *     to do so, subject to the following conditions:
++ *
++ *     The above copyright notice and this permission notice shall be included
++ *     in all copies or substantial portions of the Software.
++ *
++ *     THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS"
++ *     BASIS AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
++ *     TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
++ *     PARTICULAR PURPOSE ARE HEREBY DISCLAIMED. IN NO EVENT SHALL SYNOPSYS
++ *     BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ *     CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ *     SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ *     INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ *     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ *     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ *     THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/module.h>
++#include <linux/kmod.h>
++#include <linux/delay.h>
++#include <linux/completion.h>
++#include <linux/mutex.h>
++
++#include "xgbe.h"
++#include "xgbe-common.h"
++
++#define XGBE_ABORT_COUNT	500
++#define XGBE_DISABLE_COUNT	1000
++
++#define XGBE_STD_SPEED		1
++
++#define XGBE_INTR_RX_FULL	BIT(IC_RAW_INTR_STAT_RX_FULL_INDEX)
++#define XGBE_INTR_TX_EMPTY	BIT(IC_RAW_INTR_STAT_TX_EMPTY_INDEX)
++#define XGBE_INTR_TX_ABRT	BIT(IC_RAW_INTR_STAT_TX_ABRT_INDEX)
++#define XGBE_INTR_STOP_DET	BIT(IC_RAW_INTR_STAT_STOP_DET_INDEX)
++#define XGBE_DEFAULT_INT_MASK	(XGBE_INTR_RX_FULL  |	\
++				 XGBE_INTR_TX_EMPTY |	\
++				 XGBE_INTR_TX_ABRT  |	\
++				 XGBE_INTR_STOP_DET)
++
++#define XGBE_I2C_READ		BIT(8)
++#define XGBE_I2C_STOP		BIT(9)
++
++static int xgbe_i2c_abort(struct xgbe_prv_data *pdata)
++{
++	unsigned int wait = XGBE_ABORT_COUNT;
++
++	/* Must be enabled to recognize the abort request */
++	XI2C_IOWRITE_BITS(pdata, IC_ENABLE, EN, 1);
++
++	/* Issue the abort */
++	XI2C_IOWRITE_BITS(pdata, IC_ENABLE, ABORT, 1);
++
++	while (wait--) {
++		if (!XI2C_IOREAD_BITS(pdata, IC_ENABLE, ABORT))
++			return 0;
++
++		usleep_range(500, 600);
++	}
++
++	return -EBUSY;
++}
++
++static int xgbe_i2c_set_enable(struct xgbe_prv_data *pdata, bool enable)
++{
++	unsigned int wait = XGBE_DISABLE_COUNT;
++	unsigned int mode = enable ? 1 : 0;
++
++	while (wait--) {
++		XI2C_IOWRITE_BITS(pdata, IC_ENABLE, EN, mode);
++		if (XI2C_IOREAD_BITS(pdata, IC_ENABLE_STATUS, EN) == mode)
++			return 0;
++
++		usleep_range(100, 110);
++	}
++
++	return -EBUSY;
++}
++
++static int xgbe_i2c_disable(struct xgbe_prv_data *pdata)
++{
++	unsigned int ret;
++
++	ret = xgbe_i2c_set_enable(pdata, false);
++	if (ret) {
++		/* Disable failed, try an abort */
++		ret = xgbe_i2c_abort(pdata);
++		if (ret)
++			return ret;
++
++		/* Abort succeeded, try to disable again */
++		ret = xgbe_i2c_set_enable(pdata, false);
++	}
++
++	return ret;
++}
++
++static int xgbe_i2c_enable(struct xgbe_prv_data *pdata)
++{
++	return xgbe_i2c_set_enable(pdata, true);
++}
++
++static void xgbe_i2c_clear_all_interrupts(struct xgbe_prv_data *pdata)
++{
++	XI2C_IOREAD(pdata, IC_CLR_INTR);
++}
++
++static void xgbe_i2c_disable_interrupts(struct xgbe_prv_data *pdata)
++{
++	XI2C_IOWRITE(pdata, IC_INTR_MASK, 0);
++}
++
++static void xgbe_i2c_enable_interrupts(struct xgbe_prv_data *pdata)
++{
++	XI2C_IOWRITE(pdata, IC_INTR_MASK, XGBE_DEFAULT_INT_MASK);
++}
++
++static void xgbe_i2c_write(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_i2c_op_state *state = &pdata->i2c.op_state;
++	unsigned int tx_slots;
++	unsigned int cmd;
++
++	/* Configured to never receive Rx overflows, so fill up Tx fifo */
++	tx_slots = pdata->i2c.tx_fifo_size - XI2C_IOREAD(pdata, IC_TXFLR);
++	while (tx_slots && state->tx_len) {
++		if (state->op->cmd == XGBE_I2C_CMD_READ)
++			cmd = XGBE_I2C_READ;
++		else
++			cmd = *state->tx_buf++;
++
++		if (state->tx_len == 1)
++			XI2C_SET_BITS(cmd, IC_DATA_CMD, STOP, 1);
++
++		XI2C_IOWRITE(pdata, IC_DATA_CMD, cmd);
++
++		tx_slots--;
++		state->tx_len--;
++	}
++
++	/* No more Tx operations, so ignore TX_EMPTY and return */
++	if (!state->tx_len)
++		XI2C_IOWRITE_BITS(pdata, IC_INTR_MASK, TX_EMPTY, 0);
++}
++
++static void xgbe_i2c_read(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_i2c_op_state *state = &pdata->i2c.op_state;
++	unsigned int rx_slots;
++
++	/* Anything to be read? */
++	if (state->op->cmd != XGBE_I2C_CMD_READ)
++		return;
++
++	rx_slots = XI2C_IOREAD(pdata, IC_RXFLR);
++	while (rx_slots && state->rx_len) {
++		*state->rx_buf++ = XI2C_IOREAD(pdata, IC_DATA_CMD);
++		state->rx_len--;
++		rx_slots--;
++	}
++}
++
++static void xgbe_i2c_clear_isr_interrupts(struct xgbe_prv_data *pdata,
++					  unsigned int isr)
++{
++	struct xgbe_i2c_op_state *state = &pdata->i2c.op_state;
++
++	if (isr & XGBE_INTR_TX_ABRT) {
++		state->tx_abort_source = XI2C_IOREAD(pdata, IC_TX_ABRT_SOURCE);
++		XI2C_IOREAD(pdata, IC_CLR_TX_ABRT);
++	}
++
++	if (isr & XGBE_INTR_STOP_DET)
++		XI2C_IOREAD(pdata, IC_CLR_STOP_DET);
++}
++
++static irqreturn_t xgbe_i2c_isr(int irq, void *data)
++{
++	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
++	struct xgbe_i2c_op_state *state = &pdata->i2c.op_state;
++	unsigned int isr;
++
++	isr = XI2C_IOREAD(pdata, IC_RAW_INTR_STAT);
++	netif_dbg(pdata, intr, pdata->netdev,
++		  "I2C interrupt received: status=%#010x\n", isr);
++
++	xgbe_i2c_clear_isr_interrupts(pdata, isr);
++
++	if (isr & XGBE_INTR_TX_ABRT) {
++		netif_dbg(pdata, link, pdata->netdev,
++			  "I2C TX_ABRT received (%#010x) for target %#04x\n",
++			  state->tx_abort_source, state->op->target);
++
++		xgbe_i2c_disable_interrupts(pdata);
++
++		state->ret = -EIO;
++		goto out;
++	}
++
++	/* Check for data in the Rx fifo */
++	xgbe_i2c_read(pdata);
++
++	/* Fill up the Tx fifo next */
++	xgbe_i2c_write(pdata);
++
++out:
++	/* Complete on an error or STOP condition */
++	if (state->ret || XI2C_GET_BITS(isr, IC_RAW_INTR_STAT, STOP_DET))
++		complete(&pdata->i2c_complete);
++
++	return IRQ_HANDLED;
++}
++
++static void xgbe_i2c_set_mode(struct xgbe_prv_data *pdata)
++{
++	unsigned int reg;
++
++	reg = XI2C_IOREAD(pdata, IC_CON);
++	XI2C_SET_BITS(reg, IC_CON, MASTER_MODE, 1);
++	XI2C_SET_BITS(reg, IC_CON, SLAVE_DISABLE, 1);
++	XI2C_SET_BITS(reg, IC_CON, RESTART_EN, 1);
++	XI2C_SET_BITS(reg, IC_CON, SPEED, XGBE_STD_SPEED);
++	XI2C_SET_BITS(reg, IC_CON, RX_FIFO_FULL_HOLD, 1);
++	XI2C_IOWRITE(pdata, IC_CON, reg);
++}
++
++static void xgbe_i2c_get_features(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_i2c *i2c = &pdata->i2c;
++	unsigned int reg;
++
++	reg = XI2C_IOREAD(pdata, IC_COMP_PARAM_1);
++	i2c->max_speed_mode = XI2C_GET_BITS(reg, IC_COMP_PARAM_1,
++					    MAX_SPEED_MODE);
++	i2c->rx_fifo_size = XI2C_GET_BITS(reg, IC_COMP_PARAM_1,
++					  RX_BUFFER_DEPTH);
++	i2c->tx_fifo_size = XI2C_GET_BITS(reg, IC_COMP_PARAM_1,
++					  TX_BUFFER_DEPTH);
++
++	if (netif_msg_probe(pdata))
++		dev_dbg(pdata->dev, "I2C features: %s=%u, %s=%u, %s=%u\n",
++			"MAX_SPEED_MODE", i2c->max_speed_mode,
++			"RX_BUFFER_DEPTH", i2c->rx_fifo_size,
++			"TX_BUFFER_DEPTH", i2c->tx_fifo_size);
++}
++
++static void xgbe_i2c_set_target(struct xgbe_prv_data *pdata, unsigned int addr)
++{
++	XI2C_IOWRITE(pdata, IC_TAR, addr);
++}
++
++static irqreturn_t xgbe_i2c_combined_isr(int irq, struct xgbe_prv_data *pdata)
++{
++	if (!XI2C_IOREAD(pdata, IC_RAW_INTR_STAT))
++		return IRQ_HANDLED;
++
++	return xgbe_i2c_isr(irq, pdata);
++}
++
++static int xgbe_i2c_xfer(struct xgbe_prv_data *pdata, struct xgbe_i2c_op *op)
++{
++	struct xgbe_i2c_op_state *state = &pdata->i2c.op_state;
++	int ret;
++
++	mutex_lock(&pdata->i2c_mutex);
++
++	reinit_completion(&pdata->i2c_complete);
++
++	ret = xgbe_i2c_disable(pdata);
++	if (ret) {
++		netdev_err(pdata->netdev, "failed to disable i2c master\n");
++		goto unlock;
++	}
++
++	xgbe_i2c_set_target(pdata, op->target);
++
++	memset(state, 0, sizeof(*state));
++	state->op = op;
++	state->tx_len = op->len;
++	state->tx_buf = op->buf;
++	state->rx_len = op->len;
++	state->rx_buf = op->buf;
++
++	xgbe_i2c_clear_all_interrupts(pdata);
++	ret = xgbe_i2c_enable(pdata);
++	if (ret) {
++		netdev_err(pdata->netdev, "failed to enable i2c master\n");
++		goto unlock;
++	}
++
++	/* Enabling the interrupts will cause the TX FIFO empty interrupt to
++	 * fire and begin to process the command via the ISR.
++	 */
++	xgbe_i2c_enable_interrupts(pdata);
++
++	if (!wait_for_completion_timeout(&pdata->i2c_complete, HZ)) {
++		netdev_err(pdata->netdev, "i2c operation timed out\n");
++		ret = -ETIMEDOUT;
++		goto disable;
++	}
++
++	ret = state->ret;
++	if (ret) {
++		if (state->tx_abort_source & IC_TX_ABRT_7B_ADDR_NOACK)
++			ret = -ENOTCONN;
++		else if (state->tx_abort_source & IC_TX_ABRT_ARB_LOST)
++			ret = -EAGAIN;
++	}
++
++disable:
++	xgbe_i2c_disable_interrupts(pdata);
++	xgbe_i2c_disable(pdata);
++
++unlock:
++	mutex_unlock(&pdata->i2c_mutex);
++
++	return ret;
++}
++
++static void xgbe_i2c_stop(struct xgbe_prv_data *pdata)
++{
++	if (!pdata->i2c.started)
++		return;
++
++	netif_dbg(pdata, link, pdata->netdev, "stopping I2C\n");
++
++	pdata->i2c.started = 0;
++
++	xgbe_i2c_disable_interrupts(pdata);
++	xgbe_i2c_disable(pdata);
++	xgbe_i2c_clear_all_interrupts(pdata);
++
++	if (pdata->dev_irq != pdata->i2c_irq)
++		devm_free_irq(pdata->dev, pdata->i2c_irq, pdata);
++}
++
++static int xgbe_i2c_start(struct xgbe_prv_data *pdata)
++{
++	int ret;
++
++	if (pdata->i2c.started)
++		return 0;
++
++	netif_dbg(pdata, link, pdata->netdev, "starting I2C\n");
++
++	/* If we have a separate I2C irq, enable it */
++	if (pdata->dev_irq != pdata->i2c_irq) {
++		ret = devm_request_irq(pdata->dev, pdata->i2c_irq,
++				       xgbe_i2c_isr, 0, pdata->i2c_name,
++				       pdata);
 +		if (ret) {
-+			netdev_alert(netdev, "error requesting ecc irq %d\n",
-+				     pdata->ecc_irq);
-+			goto err_dev_irq;
++			netdev_err(pdata->netdev, "i2c irq request failed\n");
++			return ret;
 +		}
 +	}
 +
- 	if (!pdata->per_channel_irq)
- 		return 0;
- 
-@@ -695,17 +838,21 @@ static int xgbe_request_irqs(struct xgbe_prv_data *pdata)
- 		if (ret) {
- 			netdev_alert(netdev, "error requesting irq %d\n",
- 				     channel->dma_irq);
--			goto err_irq;
-+			goto err_dma_irq;
- 		}
- 	}
- 
- 	return 0;
- 
--err_irq:
-+err_dma_irq:
- 	/* Using an unsigned int, 'i' will go to UINT_MAX and exit */
- 	for (i--, channel--; i < pdata->channel_count; i--, channel--)
- 		devm_free_irq(pdata->dev, channel->dma_irq, channel);
- 
-+	if (pdata->vdata->ecc_support && (pdata->dev_irq != pdata->ecc_irq))
-+		devm_free_irq(pdata->dev, pdata->ecc_irq, pdata);
++	pdata->i2c.started = 1;
 +
-+err_dev_irq:
- 	devm_free_irq(pdata->dev, pdata->dev_irq, pdata);
- 
- 	return ret;
-@@ -718,6 +865,9 @@ static void xgbe_free_irqs(struct xgbe_prv_data *pdata)
- 
- 	devm_free_irq(pdata->dev, pdata->dev_irq, pdata);
- 
-+	if (pdata->vdata->ecc_support && (pdata->dev_irq != pdata->ecc_irq))
-+		devm_free_irq(pdata->dev, pdata->ecc_irq, pdata);
-+
- 	if (!pdata->per_channel_irq)
- 		return;
- 
-@@ -919,6 +1069,8 @@ static int xgbe_start(struct xgbe_prv_data *pdata)
- 	xgbe_start_timers(pdata);
- 	queue_work(pdata->dev_workqueue, &pdata->service_work);
- 
-+	clear_bit(XGBE_STOPPED, &pdata->dev_state);
-+
- 	DBGPR("<--xgbe_start\n");
- 
- 	return 0;
-@@ -945,6 +1097,9 @@ static void xgbe_stop(struct xgbe_prv_data *pdata)
- 
- 	DBGPR("-->xgbe_stop\n");
- 
-+	if (test_bit(XGBE_STOPPED, &pdata->dev_state))
-+		return;
-+
- 	netif_tx_stop_all_queues(netdev);
- 
- 	xgbe_stop_timers(pdata);
-@@ -970,9 +1125,29 @@ static void xgbe_stop(struct xgbe_prv_data *pdata)
- 		netdev_tx_reset_queue(txq);
- 	}
- 
-+	set_bit(XGBE_STOPPED, &pdata->dev_state);
-+
- 	DBGPR("<--xgbe_stop\n");
- }
- 
-+static void xgbe_stopdev(struct work_struct *work)
-+{
-+	struct xgbe_prv_data *pdata = container_of(work,
-+						   struct xgbe_prv_data,
-+						   stopdev_work);
-+
-+	rtnl_lock();
-+
-+	xgbe_stop(pdata);
-+
-+	xgbe_free_tx_data(pdata);
-+	xgbe_free_rx_data(pdata);
-+
-+	rtnl_unlock();
-+
-+	netdev_alert(pdata->netdev, "device stopped\n");
++	return 0;
 +}
 +
- static void xgbe_restart_dev(struct xgbe_prv_data *pdata)
- {
- 	DBGPR("-->xgbe_restart_dev\n");
-@@ -1355,6 +1530,7 @@ static int xgbe_open(struct net_device *netdev)
- 
- 	INIT_WORK(&pdata->service_work, xgbe_service);
- 	INIT_WORK(&pdata->restart_work, xgbe_restart);
-+	INIT_WORK(&pdata->stopdev_work, xgbe_stopdev);
- 	INIT_WORK(&pdata->tx_tstamp_work, xgbe_tx_tstamp);
- 	xgbe_init_timers(pdata);
- 
++static int xgbe_i2c_init(struct xgbe_prv_data *pdata)
++{
++	int ret;
++
++	xgbe_i2c_disable_interrupts(pdata);
++
++	ret = xgbe_i2c_disable(pdata);
++	if (ret) {
++		dev_err(pdata->dev, "failed to disable i2c master\n");
++		return ret;
++	}
++
++	xgbe_i2c_get_features(pdata);
++
++	xgbe_i2c_set_mode(pdata);
++
++	xgbe_i2c_clear_all_interrupts(pdata);
++
++	return 0;
++}
++
++void xgbe_init_function_ptrs_i2c(struct xgbe_i2c_if *i2c_if)
++{
++	i2c_if->i2c_init		= xgbe_i2c_init;
++
++	i2c_if->i2c_start		= xgbe_i2c_start;
++	i2c_if->i2c_stop		= xgbe_i2c_stop;
++
++	i2c_if->i2c_xfer		= xgbe_i2c_xfer;
++
++	i2c_if->i2c_isr			= xgbe_i2c_combined_isr;
++}
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 7655753..b16b7b6 100644
+index b16b7b6..385b7f6 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -190,6 +190,7 @@ struct xgbe_prv_data *xgbe_alloc_pdata(struct device *dev)
+@@ -161,6 +161,7 @@ static void xgbe_init_all_fptrs(struct xgbe_prv_data *pdata)
+ {
+ 	xgbe_init_function_ptrs_dev(&pdata->hw_if);
+ 	xgbe_init_function_ptrs_phy(&pdata->phy_if);
++	xgbe_init_function_ptrs_i2c(&pdata->i2c_if);
+ 	xgbe_init_function_ptrs_desc(&pdata->desc_if);
+ 
+ 	pdata->vdata->init_function_ptrs_phy_impl(&pdata->phy_if);
+@@ -186,6 +187,8 @@ struct xgbe_prv_data *xgbe_alloc_pdata(struct device *dev)
+ 	spin_lock_init(&pdata->xpcs_lock);
+ 	mutex_init(&pdata->rss_mutex);
+ 	spin_lock_init(&pdata->tstamp_lock);
++	mutex_init(&pdata->i2c_mutex);
++	init_completion(&pdata->i2c_complete);
+ 
  	pdata->msg_enable = netif_msg_init(debug, default_msg_level);
  
- 	set_bit(XGBE_DOWN, &pdata->dev_state);
-+	set_bit(XGBE_STOPPED, &pdata->dev_state);
- 
- 	return pdata;
- }
-@@ -263,6 +264,14 @@ int xgbe_config_netdev(struct xgbe_prv_data *pdata)
- 	netdev->base_addr = (unsigned long)pdata->xgmac_regs;
- 	memcpy(netdev->dev_addr, pdata->mac_addr, netdev->addr_len);
- 
-+	/* Initialize ECC timestamps */
-+	pdata->tx_sec_period = jiffies;
-+	pdata->tx_ded_period = jiffies;
-+	pdata->rx_sec_period = jiffies;
-+	pdata->rx_ded_period = jiffies;
-+	pdata->desc_sec_period = jiffies;
-+	pdata->desc_ded_period = jiffies;
-+
- 	/* Issue software reset to device */
- 	pdata->hw_if.exit(pdata);
- 
-@@ -384,6 +393,10 @@ int xgbe_config_netdev(struct xgbe_prv_data *pdata)
- 	snprintf(pdata->an_name, sizeof(pdata->an_name) - 1, "%s-pcs",
+@@ -397,6 +400,10 @@ int xgbe_config_netdev(struct xgbe_prv_data *pdata)
+ 	snprintf(pdata->ecc_name, sizeof(pdata->ecc_name) - 1, "%s-ecc",
  		 netdev_name(netdev));
  
-+	/* Create the ECC name based on netdev name */
-+	snprintf(pdata->ecc_name, sizeof(pdata->ecc_name) - 1, "%s-ecc",
++	/* Create the I2C name based on netdev name */
++	snprintf(pdata->i2c_name, sizeof(pdata->i2c_name) - 1, "%s-i2c",
 +		 netdev_name(netdev));
 +
  	/* Create workqueues */
  	pdata->dev_workqueue =
  		create_singlethread_workqueue(netdev_name(netdev));
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-index 61eb6613..798a65e 100644
+index 798a65e..e76b7f6 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-@@ -482,6 +482,7 @@ static int xgbe_pci_resume(struct pci_dev *pdev)
- 	.tx_max_fifo_size		= 229376,
+@@ -483,6 +483,7 @@ static int xgbe_pci_resume(struct pci_dev *pdev)
  	.rx_max_fifo_size		= 229376,
  	.tx_tstamp_workaround		= 1,
-+	.ecc_support			= 1,
+ 	.ecc_support			= 1,
++	.i2c_support			= 1,
  };
  
  static const struct xgbe_version_data xgbe_v2b = {
-@@ -491,6 +492,7 @@ static int xgbe_pci_resume(struct pci_dev *pdev)
- 	.tx_max_fifo_size		= 65536,
+@@ -493,6 +494,7 @@ static int xgbe_pci_resume(struct pci_dev *pdev)
  	.rx_max_fifo_size		= 65536,
  	.tx_tstamp_workaround		= 1,
-+	.ecc_support			= 1,
+ 	.ecc_support			= 1,
++	.i2c_support			= 1,
  };
  
  static const struct pci_device_id xgbe_pci_table[] = {
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+index 7ae0abc..4bfe5c2 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+@@ -710,11 +710,20 @@ static void xgbe_phy_stop(struct xgbe_prv_data *pdata)
+ {
+ 	/* Power off the PHY */
+ 	xgbe_phy_power_off(pdata);
++
++	/* Stop the I2C controller */
++	pdata->i2c_if.i2c_stop(pdata);
+ }
+ 
+ static int xgbe_phy_start(struct xgbe_prv_data *pdata)
+ {
+ 	struct xgbe_phy_data *phy_data = pdata->phy_data;
++	int ret;
++
++	/* Start the I2C controller */
++	ret = pdata->i2c_if.i2c_start(pdata);
++	if (ret)
++		return ret;
+ 
+ 	/* Start in highest supported mode */
+ 	xgbe_phy_set_mode(pdata, phy_data->start_mode);
+@@ -744,6 +753,7 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+ {
+ 	struct xgbe_phy_data *phy_data;
+ 	unsigned int reg;
++	int ret;
+ 
+ 	/* Check if enabled */
+ 	if (!xgbe_phy_port_enabled(pdata)) {
+@@ -751,6 +761,11 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+ 		return -ENODEV;
+ 	}
+ 
++	/* Initialize the I2C controller */
++	ret = pdata->i2c_if.i2c_init(pdata);
++	if (ret)
++		return ret;
++
+ 	phy_data = devm_kzalloc(pdata->dev, sizeof(*phy_data), GFP_KERNEL);
+ 	if (!phy_data)
+ 		return -ENOMEM;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 381144b..2f0b0b4 100644
+index 2f0b0b4..586154f 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -285,6 +285,9 @@
- #define XGBE_SGMII_AN_LINK_SPEED_1000	0x08
- #define XGBE_SGMII_AN_LINK_DUPLEX	BIT(4)
+@@ -127,6 +127,7 @@
+ #include <linux/timecounter.h>
+ #include <linux/net_tstamp.h>
+ #include <net/dcbnl.h>
++#include <linux/completion.h>
  
-+/* ECC correctable error notification window (seconds) */
-+#define XGBE_ECC_LIMIT			60
-+
- struct xgbe_prv_data;
- 
- struct xgbe_packet_data {
-@@ -461,6 +464,7 @@ enum xgbe_state {
- 	XGBE_DOWN,
- 	XGBE_LINK_INIT,
- 	XGBE_LINK_ERR,
-+	XGBE_STOPPED,
+ #define XGBE_DRV_NAME		"amd-xgbe"
+ #define XGBE_DRV_VERSION	"1.0.3"
+@@ -555,6 +556,43 @@ struct xgbe_phy {
+ 	int rx_pause;
  };
  
- enum xgbe_int {
-@@ -480,6 +484,12 @@ enum xgbe_int_state {
- 	XGMAC_INT_STATE_RESTORE,
- };
- 
-+enum xgbe_ecc_sec {
-+	XGBE_ECC_SEC_TX,
-+	XGBE_ECC_SEC_RX,
-+	XGBE_ECC_SEC_DESC,
++enum xgbe_i2c_cmd {
++	XGBE_I2C_CMD_READ = 0,
++	XGBE_I2C_CMD_WRITE,
 +};
 +
- enum xgbe_speed {
- 	XGBE_SPEED_1000 = 0,
- 	XGBE_SPEED_2500,
-@@ -694,6 +704,10 @@ struct xgbe_hw_if {
- 	int (*disable_rss)(struct xgbe_prv_data *);
- 	int (*set_rss_hash_key)(struct xgbe_prv_data *, const u8 *);
- 	int (*set_rss_lookup_table)(struct xgbe_prv_data *, const u32 *);
++struct xgbe_i2c_op {
++	enum xgbe_i2c_cmd cmd;
 +
-+	/* For ECC */
-+	void (*disable_ecc_ded)(struct xgbe_prv_data *);
-+	void (*disable_ecc_sec)(struct xgbe_prv_data *, enum xgbe_ecc_sec);
++	unsigned int target;
++
++	void *buf;
++	unsigned int len;
++};
++
++struct xgbe_i2c_op_state {
++	struct xgbe_i2c_op *op;
++
++	unsigned int tx_len;
++	unsigned char *tx_buf;
++
++	unsigned int rx_len;
++	unsigned char *rx_buf;
++
++	unsigned int tx_abort_source;
++
++	int ret;
++};
++
++struct xgbe_i2c {
++	unsigned int started;
++	unsigned int max_speed_mode;
++	unsigned int rx_fifo_size;
++	unsigned int tx_fifo_size;
++
++	struct xgbe_i2c_op_state op_state;
++};
++
+ struct xgbe_mmc_stats {
+ 	/* Tx Stats */
+ 	u64 txoctetcount_gb;
+@@ -777,6 +815,21 @@ struct xgbe_phy_if {
+ 	struct xgbe_phy_impl_if phy_impl;
  };
  
- /* This structure represents implementation specific routines for an
-@@ -827,6 +841,7 @@ struct xgbe_version_data {
- 	unsigned int tx_max_fifo_size;
++struct xgbe_i2c_if {
++	/* For initial I2C setup */
++	int (*i2c_init)(struct xgbe_prv_data *);
++
++	/* For I2C support when setting device up/down */
++	int (*i2c_start)(struct xgbe_prv_data *);
++	void (*i2c_stop)(struct xgbe_prv_data *);
++
++	/* For performing I2C operations */
++	int (*i2c_xfer)(struct xgbe_prv_data *, struct xgbe_i2c_op *);
++
++	/* For single interrupt support */
++	irqreturn_t (*i2c_isr)(int, struct xgbe_prv_data *);
++};
++
+ struct xgbe_desc_if {
+ 	int (*alloc_ring_resources)(struct xgbe_prv_data *);
+ 	void (*free_ring_resources)(struct xgbe_prv_data *);
+@@ -842,6 +895,7 @@ struct xgbe_version_data {
  	unsigned int rx_max_fifo_size;
  	unsigned int tx_tstamp_workaround;
-+	unsigned int ecc_support;
+ 	unsigned int ecc_support;
++	unsigned int i2c_support;
  };
  
  struct xgbe_prv_data {
-@@ -868,6 +883,21 @@ struct xgbe_prv_data {
- 	/* Flags representing xgbe_state */
- 	unsigned long dev_state;
- 
-+	/* ECC support */
-+	unsigned long tx_sec_period;
-+	unsigned long tx_ded_period;
-+	unsigned long rx_sec_period;
-+	unsigned long rx_ded_period;
-+	unsigned long desc_sec_period;
-+	unsigned long desc_ded_period;
-+
-+	unsigned int tx_sec_count;
-+	unsigned int tx_ded_count;
-+	unsigned int rx_sec_count;
-+	unsigned int rx_ded_count;
-+	unsigned int desc_ded_count;
-+	unsigned int desc_sec_count;
-+
- 	struct msix_entry *msix_entries;
- 	int dev_irq;
- 	int ecc_irq;
-@@ -880,6 +910,8 @@ struct xgbe_prv_data {
- 	unsigned int channel_irq_count;
- 	unsigned int channel_irq_mode;
- 
-+	char ecc_name[IFNAMSIZ + 32];
-+
+@@ -915,6 +969,7 @@ struct xgbe_prv_data {
  	struct xgbe_hw_if hw_if;
  	struct xgbe_phy_if phy_if;
  	struct xgbe_desc_if desc_if;
-@@ -990,8 +1022,9 @@ struct xgbe_prv_data {
- 	/* Hardware features of the device */
- 	struct xgbe_hw_features hw_feat;
++	struct xgbe_i2c_if i2c_if;
  
--	/* Device restart work structure */
-+	/* Device work structures */
- 	struct work_struct restart_work;
-+	struct work_struct stopdev_work;
+ 	/* AXI DMA settings */
+ 	unsigned int coherent;
+@@ -1065,6 +1120,12 @@ struct xgbe_prv_data {
+ 	unsigned long an_start;
+ 	enum xgbe_an_mode an_mode;
  
- 	/* Keeps track of power mode */
- 	unsigned int power_down;
++	/* I2C support */
++	struct xgbe_i2c i2c;
++	struct mutex i2c_mutex;
++	struct completion i2c_complete;
++	char i2c_name[IFNAMSIZ + 32];
++
+ 	unsigned int lpm_ctrl;		/* CTRL1 for resume */
+ 
+ #ifdef CONFIG_DEBUG_FS
+@@ -1076,6 +1137,8 @@ struct xgbe_prv_data {
+ 	unsigned int debugfs_xpcs_reg;
+ 
+ 	unsigned int debugfs_xprop_reg;
++
++	unsigned int debugfs_xi2c_reg;
+ #endif
+ };
+ 
+@@ -1101,6 +1164,7 @@ static inline void xgbe_pci_exit(void) { }
+ void xgbe_init_function_ptrs_phy_v1(struct xgbe_phy_if *);
+ void xgbe_init_function_ptrs_phy_v2(struct xgbe_phy_if *);
+ void xgbe_init_function_ptrs_desc(struct xgbe_desc_if *);
++void xgbe_init_function_ptrs_i2c(struct xgbe_i2c_if *);
+ const struct net_device_ops *xgbe_get_netdev_ops(void);
+ const struct ethtool_ops *xgbe_get_ethtool_ops(void);
+ 
