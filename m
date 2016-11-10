@@ -1,82 +1,101 @@
-From: Corinna Vinschen <vinschen@redhat.com>
-Subject: Re: [Intel-wired-lan] [PATCH] igb: use igb_adapter->io_addr instead
- of e1000_hw->hw_addr
-Date: Thu, 10 Nov 2016 18:28:07 +0100
-Message-ID: <20161110172807.GH24351@calimero.vinschen.de>
-References: <1478588780-24480-1-git-send-email-caoj.fnst@cn.fujitsu.com>
- <20161108164214.GF31855@calimero.vinschen.de>
- <alpine.NEB.2.20.17.1611080910530.6177@chris.i8u.org>
- <20161108183739.GA3744@calimero.vinschen.de>
- <CAKgT0UeaoGfOOC1=h4pGk+=FDd5EqvgRGAdk1StLuiW1-M8tVA@mail.gmail.com>
- <20161110093549.GA24351@calimero.vinschen.de>
- <alpine.NEB.2.20.17.1611100544220.6177@chris.i8u.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [mm PATCH v3 00/23] Add support for DMA writable pages being
+ writable by the network stack
+Date: Thu, 10 Nov 2016 06:34:14 -0500
+Message-ID: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="imjhCm/Pyz7Rq5F2"
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Cao jin <caoj.fnst@cn.fujitsu.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        =?utf-8?B?SXp1bWksIFRha3Uv5rOJIOaLkw==?=
-        <izumi.taku@jp.fujitsu.com>
-To: Hisashi T Fujinaka <htodd@twofifty.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.NEB.2.20.17.1611100544220.6177@chris.i8u.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The first 19 patches in the set add support for the DMA attribute
+DMA_ATTR_SKIP_CPU_SYNC on multiple platforms/architectures.  This is needed
+so that we can flag the calls to dma_map/unmap_page so that we do not
+invalidate cache lines that do not currently belong to the device.  Instead
+we have to take care of this in the driver via a call to
+sync_single_range_for_cpu prior to freeing the Rx page.
 
---imjhCm/Pyz7Rq5F2
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Patch 20 adds support for dma_map_page_attrs and dma_unmap_page_attrs so
+that we can unmap and map a page using the DMA_ATTR_SKIP_CPU_SYNC
+attribute.
 
-On Nov 10 05:48, Hisashi T Fujinaka wrote:
-> On Thu, 10 Nov 2016, Corinna Vinschen wrote:
-> > On Nov  8 11:33, Alexander Duyck wrote:
-> ...
-> > > The question I would have is what is reading the device when it is in
-> > > this state.  The watchdog and any other functions that would read the
-> > > device should be disabled.
-> > >=20
-> > > One possibility could be a race between a call to igb_close and the
-> > > igb_suspend function.  We have seen some of those pop up recently on
-> > > ixgbe and it looks like igb has the same bug.  We should probably be
-> > > using the rtnl_lock to guarantee that netif_device_detach and the call
-> > > to __igb_close are completed before igb_close could possibly be called
-> > > by the network stack.
-> >=20
-> > Do you have a pointer to the related ixgbe patch, by any chance?
-> ...
-> Here's the initial patch for igb I have, but it's on hold awaiting more
-> changes in ixgbe regarding AER.
+Patch 21 adds support for freeing a page that has multiple references being
+held by a single caller.  This way we can free page fragments that were
+allocated by a given driver.
 
-Thanks a lot!
+The last 2 patches use these updates in the igb driver, and lay the
+groundwork to allow for us to reimplement the use of build_skb.
+
+v1: Minor fixes based on issues found by kernel build bot
+    Few minor changes for issues found on code review
+    Added Acked-by for patches that were acked and not changed
+
+v2: Added a few more Acked-by
+    Submitting patches to mm instead of net-next
+
+v3: Added Acked-by for PowerPC architecture
+    Dropped first 3 patches which were accepted into swiotlb tree
+    Dropped comments describing swiotlb changes.
+
+---
+
+Alexander Duyck (23):
+      arch/arc: Add option to skip sync on DMA mapping
+      arch/arm: Add option to skip sync on DMA map and unmap
+      arch/avr32: Add option to skip sync on DMA map
+      arch/blackfin: Add option to skip sync on DMA map
+      arch/c6x: Add option to skip sync on DMA map and unmap
+      arch/frv: Add option to skip sync on DMA map
+      arch/hexagon: Add option to skip DMA sync as a part of mapping
+      arch/m68k: Add option to skip DMA sync as a part of mapping
+      arch/metag: Add option to skip DMA sync as a part of map and unmap
+      arch/microblaze: Add option to skip DMA sync as a part of map and unmap
+      arch/mips: Add option to skip DMA sync as a part of map and unmap
+      arch/nios2: Add option to skip DMA sync as a part of map and unmap
+      arch/openrisc: Add option to skip DMA sync as a part of mapping
+      arch/parisc: Add option to skip DMA sync as a part of map and unmap
+      arch/powerpc: Add option to skip DMA sync as a part of mapping
+      arch/sh: Add option to skip DMA sync as a part of mapping
+      arch/sparc: Add option to skip DMA sync as a part of map and unmap
+      arch/tile: Add option to skip DMA sync as a part of map and unmap
+      arch/xtensa: Add option to skip DMA sync as a part of mapping
+      dma: Add calls for dma_map_page_attrs and dma_unmap_page_attrs
+      mm: Add support for releasing multiple instances of a page
+      igb: Update driver to make use of DMA_ATTR_SKIP_CPU_SYNC
+      igb: Update code to better handle incrementing page count
 
 
-Corinna
+ arch/arc/mm/dma.c                         |    5 ++
+ arch/arm/common/dmabounce.c               |   16 ++++--
+ arch/avr32/mm/dma-coherent.c              |    7 ++-
+ arch/blackfin/kernel/dma-mapping.c        |    8 +++
+ arch/c6x/kernel/dma.c                     |   14 ++++-
+ arch/frv/mb93090-mb00/pci-dma-nommu.c     |   14 ++++-
+ arch/frv/mb93090-mb00/pci-dma.c           |    9 +++
+ arch/hexagon/kernel/dma.c                 |    6 ++
+ arch/m68k/kernel/dma.c                    |    8 +++
+ arch/metag/kernel/dma.c                   |   16 +++++-
+ arch/microblaze/kernel/dma.c              |   10 +++-
+ arch/mips/loongson64/common/dma-swiotlb.c |    2 -
+ arch/mips/mm/dma-default.c                |    8 ++-
+ arch/nios2/mm/dma-mapping.c               |   26 +++++++---
+ arch/openrisc/kernel/dma.c                |    3 +
+ arch/parisc/kernel/pci-dma.c              |   20 ++++++--
+ arch/powerpc/kernel/dma.c                 |    9 +++
+ arch/sh/kernel/dma-nommu.c                |    7 ++-
+ arch/sparc/kernel/iommu.c                 |    4 +-
+ arch/sparc/kernel/ioport.c                |    4 +-
+ arch/tile/kernel/pci-dma.c                |   12 ++++-
+ arch/xtensa/kernel/pci-dma.c              |    7 ++-
+ drivers/net/ethernet/intel/igb/igb.h      |    7 ++-
+ drivers/net/ethernet/intel/igb/igb_main.c |   77 +++++++++++++++++++----------
+ include/linux/dma-mapping.h               |   20 +++++---
+ include/linux/gfp.h                       |    2 +
+ mm/page_alloc.c                           |   14 +++++
+ 27 files changed, 246 insertions(+), 89 deletions(-)
 
---imjhCm/Pyz7Rq5F2
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJYJK4nAAoJEPU2Bp2uRE+gmVAP/iftrKpyTIWgKNvhBMrmpuhl
-I3IzGMbATPo8KQYT0Y04onzsum8sTR3bdgCcoXVHdr5gtClIMoHDV2xEeGPxfarm
-bQ1t68h2p2syDik3DdeqGbaDNexMndN670bqG92PnrCISRoWra8w7hNcj9taMbQy
-5egR2Tnz4xplM7X935lfi6/96Q36+k4zgTm0kRLNkXXd19fyYpuLHujglW67RDn9
-6VRABGysi5/E59NI/J5sD7eBkVUaOltgHGGQlmRVrt/4MaPrMGIdaswHaDi653jK
-zWqSsdUpTLVFYyH02xshPykIC1FSAY7JYVnOzAqNAPIpBfxyTGzT1yzltisXX6kK
-1TYu+jrQjWVNech8zEHhog+AaMxOe7Izv/YCXr2BcRTLpmZYZbVqAsigPtA2gumX
-KbtYxbdc/hCM72Og3Uxff/z7SVexXlDMolYPw8H9GCzVv3PNDvPosBMuWf7lx6ZY
-GgA8E1jKm1+18UVkjMd7RrH/0io+jVUi+1FABhfyS/NO3D6V3rGCnSqXS4tmmXn+
-4eRG5ZW5NizvyPUbw9zUXrHqH5HAQfvrJsLz1qszzm8FY86h3FzacrA0paNYhIPt
-Ev0IEVH/ow70Z6qQCipcCAhTFsOcHrY581EH8p9IfGiMH93Y9wjoLaJSNN71ZCWg
-cquZfauU0x1gdWER9CAD
-=1iD8
------END PGP SIGNATURE-----
-
---imjhCm/Pyz7Rq5F2--
+--
