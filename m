@@ -1,35 +1,34 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] genetlink: fix unsigned int comparison with less than zero
-Date: Thu, 10 Nov 2016 09:11:29 -0800
-Message-ID: <CAM_iQpW=q4nm97dNouSL19Cr2cEWT9xQHXAm4CNJk=AY8z_2MA@mail.gmail.com>
-References: <20161110155758.26996-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V5 3/9] liquidio CN23XX: Mailbox support
+Date: Thu, 10 Nov 2016 12:19:10 -0500 (EST)
+Message-ID: <20161110.121910.154188943242358141.davem@davemloft.net>
+References: <1478733232-15739-1-git-send-email-rvatsavayi@caviumnetworks.com>
+        <1478733232-15739-4-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        pravin shelar <pshelar@ovn.org>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        Florian Westphal <fw@strlen.de>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@caviumnetworks.com,
+        derek.chickles@caviumnetworks.com,
+        satananda.burla@caviumnetworks.com,
+        felix.manlunas@caviumnetworks.com
+To: rvatsavayi@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f41.google.com ([209.85.214.41]:35846 "EHLO
-        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934264AbcKJRLv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:11:51 -0500
-In-Reply-To: <20161110155758.26996-1-colin.king@canonical.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34746 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935590AbcKJRTN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:19:13 -0500
+In-Reply-To: <1478733232-15739-4-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 10, 2016 at 7:57 AM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> family->id is unsigned, so the less than zero check for
-> failure return from idr_alloc is never true and so the error exit
-> is never handled.  Instead, assign err and check if this is less
-> than zero since this is a signed integer.
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Date: Wed, 9 Nov 2016 15:13:46 -0800
 
-Why family->id can't be just signed int? For me it should be.
+> +		dev_info(&oct->pci_dev->dev,
+> +			 "PF changed VF's MAC address to %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
+> +			 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+We have a standard mechanism to print network addresses, including
+MAC ones, via the %pXXX format specifier.  In this case you should
+use "%pM" or "%pm" depending upon whether you want the address printed
+with colon separators or not.
