@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] PHC frequency fine tuning
-Date: Wed, 09 Nov 2016 21:20:25 -0500 (EST)
-Message-ID: <20161109.212025.33151158831725274.davem@davemloft.net>
-References: <cover.1478526333.git.richardcochran@gmail.com>
+Subject: Re: [PATCH v5] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
+Date: Wed, 09 Nov 2016 21:47:00 -0500 (EST)
+Message-ID: <20161109.214700.1779934663063986869.davem@davemloft.net>
+References: <CAPZMiRa0kYyPFQ77L5y4NgxxH85iuMAjODV2iCzd-5OjyGfNuw@mail.gmail.com>
+        <265b996975d64bb0bc892b946aafab5a@Mail07.usask.ca>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jacob.e.keller@intel.com,
-        jeffrey.t.kirsher@intel.com, john.stultz@linaro.org,
-        Manfred.Rudigier@omicron.at, stefan.sorensen@spectralink.com,
-        tglx@linutronix.de, ulrik.debie-os@e2big.org,
-        intel-wired-lan@lists.osuosl.org
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47680 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754668AbcKJCU3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 21:20:29 -0500
-In-Reply-To: <cover.1478526333.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, artjom.simon@gmail.com,
+        gregkh@linuxfoundation.org, allan@asix.com.tw
+To: chris.roth@usask.ca
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <265b996975d64bb0bc892b946aafab5a@Mail07.usask.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Tue,  8 Nov 2016 22:49:15 +0100
+From: <chris.roth@usask.ca>
+Date: Tue, 8 Nov 2016 16:08:01 -0600
 
-> This series expands the PTP Hardware Clock subsystem by adding a
-> method that passes the frequency tuning word to the the drivers
-> without dropping the low order bits.  Keeping those bits is useful for
-> drivers whose frequency resolution is higher than 1 ppb.
+> From: Allan Chou <allan@asix.com.tw>
+> 
+> Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
+> Bridge Controller (Vendor=04b4 ProdID=3610).
+> 
+> Patch verified on x64 linux kernel 4.7.4, 4.8.6, 4.9-rc4 systems
+> with the Kensington SD4600P USB-C Universal Dock with Power,
+> which uses the Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge
+> Controller.
+> 
+> A similar patch was signed-off and tested-by Allan Chou
+> <allan@asix.com.tw> on 2015-12-01.
+> 
+> Allan verified his similar patch on x86 Linux kernel 4.1.6 system
+> with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
+> 
+> Tested-by: Allan Chou <allan@asix.com.tw>
+> Tested-by: Chris Roth <chris.roth@usask.ca>
+> Tested-by: Artjom Simon <artjom.simon@gmail.com>
+> 
+> Signed-off-by: Allan Chou <allan@asix.com.tw>
+> Signed-off-by: Chris Roth <chris.roth@usask.ca>
 
-Series applied, thanks Richard.
+Applied.
