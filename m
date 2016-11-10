@@ -1,45 +1,36 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv4: ip_send_unicast_reply should set oif only if
- it is L3 master
-Date: Wed, 9 Nov 2016 19:52:22 -0700
-Message-ID: <bd19302c-8ae9-efd6-dbb6-66c7bc1b2a82@cumulusnetworks.com>
-References: <1478645431-7454-1-git-send-email-dsa@cumulusnetworks.com>
- <20161109.214824.929135741139951182.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 00/17] pull request for net-next:
+ batman-adv 2016-11-08 v2
+Date: Wed, 09 Nov 2016 22:15:57 -0500 (EST)
+Message-ID: <20161109.221557.1559176212707456996.davem@davemloft.net>
+References: <20161109222606.29039-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:32804 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753021AbcKJCxU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 21:53:20 -0500
-Received: by mail-pf0-f180.google.com with SMTP id d2so137532699pfd.0
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2016 18:52:24 -0800 (PST)
-In-Reply-To: <20161109.214824.929135741139951182.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20161109222606.29039-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 11/9/16 7:48 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Tue,  8 Nov 2016 14:50:31 -0800
-> 
->> Lorenzo noted an Android unit test failed due to commit e0d56fdd7342:
->>   "The expectation in the test was that the RST replying to a SYN sent to a
->>   closed port should be generated with oif=0. In other words it should not
->>   prefer the interface where the SYN came in on, but instead should follow
->>   whatever the routing table says it should do."
->>
->> Since this a change in behavior, revert the change to
->> ip_send_unicast_reply such that the oif in the flow is set to the skb_iif
->> only if skb_iif is an L3 master.
->>
->> Fixes: e0d56fdd7342 ("net: l3mdev: remove redundant calls")
->> Reported-by: Lorenzo Colitti <lorenzo@google.com>
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> 
-> David, I'm assuming that a new spin of this patch is coming.
-> 
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Date: Wed,  9 Nov 2016 23:25:49 +0100
 
-yes. posted this morning; Lorenzo tested and ack'ed an hour or so ago. Since it expanded to include IPv6, the subject line changed so it won't be readily apparent.
+> this is an updated version from yesterdays pull request. Sven did changes
+> according to Eric Dumazets comments in Patch 13, everything else staid the
+> same.
+> 
+> Please pull or let me know of any problem!
+
+Pulled, thanks Simon.
