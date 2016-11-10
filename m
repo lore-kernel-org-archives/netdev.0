@@ -1,45 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] Net Driver: Add Cypress GX3 VID=04b4 PID=3610.
-Date: Wed, 09 Nov 2016 21:47:00 -0500 (EST)
-Message-ID: <20161109.214700.1779934663063986869.davem@davemloft.net>
-References: <CAPZMiRa0kYyPFQ77L5y4NgxxH85iuMAjODV2iCzd-5OjyGfNuw@mail.gmail.com>
-        <265b996975d64bb0bc892b946aafab5a@Mail07.usask.ca>
+Subject: Re: [PATCH] net: ipv4: ip_send_unicast_reply should set oif only
+ if it is L3 master
+Date: Wed, 09 Nov 2016 21:48:24 -0500 (EST)
+Message-ID: <20161109.214824.929135741139951182.davem@davemloft.net>
+References: <1478645431-7454-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, artjom.simon@gmail.com,
-        gregkh@linuxfoundation.org, allan@asix.com.tw
-To: chris.roth@usask.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <265b996975d64bb0bc892b946aafab5a@Mail07.usask.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48212 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751546AbcKJCs0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 21:48:26 -0500
+In-Reply-To: <1478645431-7454-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <chris.roth@usask.ca>
-Date: Tue, 8 Nov 2016 16:08:01 -0600
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue,  8 Nov 2016 14:50:31 -0800
 
-> From: Allan Chou <allan@asix.com.tw>
+> Lorenzo noted an Android unit test failed due to commit e0d56fdd7342:
+>   "The expectation in the test was that the RST replying to a SYN sent to a
+>   closed port should be generated with oif=0. In other words it should not
+>   prefer the interface where the SYN came in on, but instead should follow
+>   whatever the routing table says it should do."
 > 
-> Add support for Cypress GX3 SuperSpeed to Gigabit Ethernet
-> Bridge Controller (Vendor=04b4 ProdID=3610).
+> Since this a change in behavior, revert the change to
+> ip_send_unicast_reply such that the oif in the flow is set to the skb_iif
+> only if skb_iif is an L3 master.
 > 
-> Patch verified on x64 linux kernel 4.7.4, 4.8.6, 4.9-rc4 systems
-> with the Kensington SD4600P USB-C Universal Dock with Power,
-> which uses the Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge
-> Controller.
-> 
-> A similar patch was signed-off and tested-by Allan Chou
-> <allan@asix.com.tw> on 2015-12-01.
-> 
-> Allan verified his similar patch on x86 Linux kernel 4.1.6 system
-> with Cypress GX3 SuperSpeed to Gigabit Ethernet Bridge Controller.
-> 
-> Tested-by: Allan Chou <allan@asix.com.tw>
-> Tested-by: Chris Roth <chris.roth@usask.ca>
-> Tested-by: Artjom Simon <artjom.simon@gmail.com>
-> 
-> Signed-off-by: Allan Chou <allan@asix.com.tw>
-> Signed-off-by: Chris Roth <chris.roth@usask.ca>
+> Fixes: e0d56fdd7342 ("net: l3mdev: remove redundant calls")
+> Reported-by: Lorenzo Colitti <lorenzo@google.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied.
+David, I'm assuming that a new spin of this patch is coming.
