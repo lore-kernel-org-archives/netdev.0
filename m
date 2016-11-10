@@ -1,13 +1,14 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [mm PATCH v3 01/23] arch/arc: Add option to skip sync on DMA mapping
-Date: Thu, 10 Nov 2016 06:34:19 -0500
-Message-ID: <20161110113419.76501.38491.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [mm PATCH v3 07/23] arch/hexagon: Add option to skip DMA sync as a
+ part of mapping
+Date: Thu, 10 Nov 2016 06:34:52 -0500
+Message-ID: <20161110113452.76501.45864.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vineet Gupta <vgupta@synopsys.com>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org
+Cc: linux-hexagon@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Richard Kuo <rkuo@codeaurora.org>
 To: linux-mm@kvack.org, akpm@linux-foundation.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
@@ -18,28 +19,37 @@ This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
 avoid invoking cache line invalidation if the driver will just handle it
 later via a sync_for_cpu or sync_for_device call.
 
-Acked-by: Vineet Gupta <vgupta@synopsys.com>
+Cc: Richard Kuo <rkuo@codeaurora.org>
+Cc: linux-hexagon@vger.kernel.org
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/arc/mm/dma.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ arch/hexagon/kernel/dma.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arc/mm/dma.c b/arch/arc/mm/dma.c
-index 20afc65..6303c34 100644
---- a/arch/arc/mm/dma.c
-+++ b/arch/arc/mm/dma.c
-@@ -133,7 +133,10 @@ static dma_addr_t arc_dma_map_page(struct device *dev, struct page *page,
- 		unsigned long attrs)
- {
- 	phys_addr_t paddr = page_to_phys(page) + offset;
--	_dma_cache_sync(paddr, size, dir);
-+
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		_dma_cache_sync(paddr, size, dir);
-+
- 	return plat_phys_to_dma(dev, paddr);
- }
+diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
+index b901778..dbc4f10 100644
+--- a/arch/hexagon/kernel/dma.c
++++ b/arch/hexagon/kernel/dma.c
+@@ -119,6 +119,9 @@ static int hexagon_map_sg(struct device *hwdev, struct scatterlist *sg,
  
+ 		s->dma_length = s->length;
+ 
++		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
++			continue;
++
+ 		flush_dcache_range(dma_addr_to_virt(s->dma_address),
+ 				   dma_addr_to_virt(s->dma_address + s->length));
+ 	}
+@@ -180,7 +183,8 @@ static dma_addr_t hexagon_map_page(struct device *dev, struct page *page,
+ 	if (!check_addr("map_single", dev, bus, size))
+ 		return bad_dma_address;
+ 
+-	dma_sync(dma_addr_to_virt(bus), size, dir);
++	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
++		dma_sync(dma_addr_to_virt(bus), size, dir);
+ 
+ 	return bus;
+ }
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
