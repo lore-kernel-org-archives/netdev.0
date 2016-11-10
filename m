@@ -1,34 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V5 3/9] liquidio CN23XX: Mailbox support
-Date: Thu, 10 Nov 2016 12:19:10 -0500 (EST)
-Message-ID: <20161110.121910.154188943242358141.davem@davemloft.net>
-References: <1478733232-15739-1-git-send-email-rvatsavayi@caviumnetworks.com>
-        <1478733232-15739-4-git-send-email-rvatsavayi@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@caviumnetworks.com,
-        derek.chickles@caviumnetworks.com,
-        satananda.burla@caviumnetworks.com,
-        felix.manlunas@caviumnetworks.com
-To: rvatsavayi@caviumnetworks.com
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH] debugfs: improve formatting of debugfs_real_fops()
+Date: Thu, 10 Nov 2016 17:23:49 +0000
+Message-ID: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Nicolai Stange <nicstange@gmail.com>,
+        Christian Lamparter <chunkeey@gmail.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34746 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935590AbcKJRTN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:19:13 -0500
-In-Reply-To: <1478733232-15739-4-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38859 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935051AbcKJRY1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:24:27 -0500
+Received: by mail-wm0-f52.google.com with SMTP id f82so45723648wmf.1
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 09:24:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Wed, 9 Nov 2016 15:13:46 -0800
+Type of debugfs_real_fops() is longer than parameters and
+the name, so there is no way to break the declaration nicely.
+We have to go over 80 characters.
 
-> +		dev_info(&oct->pci_dev->dev,
-> +			 "PF changed VF's MAC address to %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
-> +			 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ include/linux/debugfs.h | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-We have a standard mechanism to print network addresses, including
-MAC ones, via the %pXXX format specifier.  In this case you should
-use "%pM" or "%pm" depending upon whether you want the address printed
-with colon separators or not.
+diff --git a/include/linux/debugfs.h b/include/linux/debugfs.h
+index bf1907d96097..374c6c67e6c0 100644
+--- a/include/linux/debugfs.h
++++ b/include/linux/debugfs.h
+@@ -52,8 +52,7 @@ struct debugfs_regset32 {
+  * Must only be called under the protection established by
+  * debugfs_use_file_start().
+  */
+-static inline const struct file_operations *
+-debugfs_real_fops(const struct file *filp)
++static inline const struct file_operations *debugfs_real_fops(const struct file *filp)
+ 	__must_hold(&debugfs_srcu)
+ {
+ 	/*
+-- 
+1.9.1
