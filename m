@@ -1,52 +1,86 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/14] netfilter: nf_conntrack_sip: extend request line validation
-Date: Thu, 10 Nov 2016 01:23:37 +0100
-Message-ID: <1478737427-1574-5-git-send-email-pablo@netfilter.org>
-References: <1478737427-1574-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1478737427-1574-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Subject: Re: linux-next: manual merge of the net-next tree with the netfilter
+ tree
+Date: Thu, 10 Nov 2016 01:31:17 +0100
+Message-ID: <20161110003117.GA4285@salvia>
+References: <20161110105633.31ebdc76@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+        Networking <netdev@vger.kernel.org>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161110105633.31ebdc76@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Weber <ulrich.weber@riverbed.com>
+Hi David,
 
-on SIP requests, so a fragmented TCP SIP packet from an allow header starting with
- INVITE,NOTIFY,OPTIONS,REFER,REGISTER,UPDATE,SUBSCRIBE
- Content-Length: 0
+On Thu, Nov 10, 2016 at 10:56:33AM +1100, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got a conflict in:
+> 
+>   net/netfilter/ipvs/ip_vs_ctl.c
+> 
+> between commit:
+> 
+>   8fbfef7f505b ("ipvs: use IPVS_CMD_ATTR_MAX for family.maxattr")
+> 
+> from the netfilter tree and commit:
+> 
+>   489111e5c25b ("genetlink: statically initialize families")
+> 
+> from the net-next tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
 
-will not bet interpreted as an INVITE request. Also Request-URI must start with an alphabetic character.
+I think I cannot help to address this conflict myself.
 
-Confirm with RFC 3261
- Request-Line   =  Method SP Request-URI SP SIP-Version CRLF
+8fbfef7f505b is in my nf tree, while 489111e5c25b is in net-next. So
+you will hit this conflict by when you pull net into net-next.
 
-Fixes: 30f33e6dee80 ("[NETFILTER]: nf_conntrack_sip: support method specific request/response handling")
-Signed-off-by: Ulrich Weber <ulrich.weber@riverbed.com>
-Acked-by: Marco Angaroni <marcoangaroni@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_sip.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+So please keep this patch from Stephen to resolve the conflict in your
+radar to solve this.
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 621b81c7bddc..c3fc14e021ec 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1436,9 +1436,12 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
- 		handler = &sip_handlers[i];
- 		if (handler->request == NULL)
- 			continue;
--		if (*datalen < handler->len ||
-+		if (*datalen < handler->len + 2 ||
- 		    strncasecmp(*dptr, handler->method, handler->len))
- 			continue;
-+		if ((*dptr)[handler->len] != ' ' ||
-+		    !isalpha((*dptr)[handler->len+1]))
-+			continue;
- 
- 		if (ct_sip_get_header(ct, *dptr, 0, *datalen, SIP_HDR_CSEQ,
- 				      &matchoff, &matchlen) <= 0) {
--- 
-2.1.4
+Or let me know if you come up with any way I can handle this from here
+to reduce your burden. Thanks.
 
+> diff --cc net/netfilter/ipvs/ip_vs_ctl.c
+> index a6e44ef2ec9a,6b85ded4f91d..000000000000
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@@ -3872,10 -3865,20 +3865,20 @@@ static const struct genl_ops ip_vs_genl
+>   	},
+>   };
+>   
+> + static struct genl_family ip_vs_genl_family __ro_after_init = {
+> + 	.hdrsize	= 0,
+> + 	.name		= IPVS_GENL_NAME,
+> + 	.version	= IPVS_GENL_VERSION,
+>  -	.maxattr	= IPVS_CMD_MAX,
+> ++	.maxattr	= IPVS_CMD_ATTR_MAX,
+> + 	.netnsok        = true,         /* Make ipvsadm to work on netns */
+> + 	.module		= THIS_MODULE,
+> + 	.ops		= ip_vs_genl_ops,
+> + 	.n_ops		= ARRAY_SIZE(ip_vs_genl_ops),
+> + };
+> + 
+>   static int __init ip_vs_genl_register(void)
+>   {
+> - 	return genl_register_family_with_ops(&ip_vs_genl_family,
+> - 					     ip_vs_genl_ops);
+> + 	return genl_register_family(&ip_vs_genl_family);
+>   }
+>   
+>   static void ip_vs_genl_unregister(void)
