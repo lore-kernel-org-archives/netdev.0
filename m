@@ -1,148 +1,148 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [mm PATCH v3 22/23] igb: Update driver to make use of
- DMA_ATTR_SKIP_CPU_SYNC
-Date: Thu, 10 Nov 2016 06:36:11 -0500
-Message-ID: <20161110113611.76501.98897.stgit@ahduyck-blue-test.jf.intel.com>
-References: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Long delays creating a netns after deleting one (possibly RCU related)
+Date: Thu, 10 Nov 2016 09:37:47 -0800
+Message-ID: <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
+References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
- linux-kernel@vger.kernel.org
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Justin Cormack <justin.cormack@docker.com>,
+        Ian Campbell <ian.campbell@docker.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Rolf Neugebauer <rolf.neugebauer@docker.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:34226 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964959AbcKJRiJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:38:09 -0500
+In-Reply-To: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ARM architecture provides a mechanism for deferring cache line
-invalidation in the case of map/unmap.  This patch makes use of this
-mechanism to avoid unnecessary synchronization.
+(Cc'ing Paul)
 
-A secondary effect of this change is that the portion of the page that has
-been synchronized for use by the CPU should be writable and could be passed
-up the stack (at least on ARM).
+On Wed, Nov 9, 2016 at 7:42 AM, Rolf Neugebauer
+<rolf.neugebauer@docker.com> wrote:
+> Hi
+>
+> We noticed some long delays starting docker containers on some newer
+> kernels (starting with 4.5.x and still present in 4.9-rc4, 4.4.x is
+> fine). We narrowed this down to the creation of a network namespace
+> being delayed directly after removing another one (details and
+> reproduction below). We have seen delays of up to 60s on some systems.
+>
+> - The delay is proportional to the number of CPUs (online or offline).
+> We first discovered it with a Hyper-V Linux VM. Hyper-V advertises up
+> to 240 offline vCPUs even if one configures the VM with only, say 2
+> vCPUs. We see linear increase in delay when we change NR_CPUS in the
+> kernel config.
+>
+> - The delay is also dependent on some tunnel network interfaces being
+> present (which we had compiled in in one of our kernel configs).
+>
+> - We can reproduce this issue with stock kernels from
+> http://kernel.ubuntu.com/~kernel-ppa/mainline/running in Hyper-V VMs
+> as well as other hypervisors like qemu and hyperkit where we have good
+> control over the number of CPUs.
+>
+> A simple test is:
+> modprobe ipip
+> moprobe  ip_gre
+> modprobe ip_vti
+> echo -n "add netns foo ===> "; /usr/bin/time -f "%E" ip netns add foo
+> echo -n "del netns foo ===> "; /usr/bin/time -f "%E" ip netns delete foo
+> echo -n "add netns bar ===> "; /usr/bin/time -f "%E" ip netns add bar
+> echo -n "del netns bar ===> "; /usr/bin/time -f "%E" ip netns delete bar
+>
+> with an output like:
+> add netns foo ===> 0:00.00
+> del netns foo ===> 0:00.01
+> add netns bar ===> 0:08.53
+> del netns bar ===> 0:00.01
+>
+> This is on a 4.9-rc4 kernel from the above URL configured with
+> NR_CPUS=256 running in a Hyper-V VM (kernel config attached).
+>
+> Below is a dump of the work queues while the second 'ip add netns' is
+> hanging. The state of the work queues does not seem to change while
+> the command is delayed and the pattern shown is consistent across
+> different kernel versions.
+>
+> Is this a known issue and/or is someone working on a fix?
 
-The last bit that occurred to me is that on architectures where the
-sync_for_cpu call invalidates cache lines we were prefetching and then
-invalidating the first 128 bytes of the packet.  To avoid that I have moved
-the sync up to before we perform the prefetch and allocate the skbuff so
-that we can actually make use of it.
+Not to me.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |   53 ++++++++++++++++++-----------
- 1 file changed, 33 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 942a89f..ba97392 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3922,10 +3922,21 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
- 		if (!buffer_info->page)
- 			continue;
- 
--		dma_unmap_page(rx_ring->dev,
--			       buffer_info->dma,
--			       PAGE_SIZE,
--			       DMA_FROM_DEVICE);
-+		/* Invalidate cache lines that may have been written to by
-+		 * device so that we avoid corrupting memory.
-+		 */
-+		dma_sync_single_range_for_cpu(rx_ring->dev,
-+					      buffer_info->dma,
-+					      buffer_info->page_offset,
-+					      IGB_RX_BUFSZ,
-+					      DMA_FROM_DEVICE);
-+
-+		/* free resources associated with mapping */
-+		dma_unmap_page_attrs(rx_ring->dev,
-+				     buffer_info->dma,
-+				     PAGE_SIZE,
-+				     DMA_FROM_DEVICE,
-+				     DMA_ATTR_SKIP_CPU_SYNC);
- 		__free_page(buffer_info->page);
- 
- 		buffer_info->page = NULL;
-@@ -6791,12 +6802,6 @@ static void igb_reuse_rx_page(struct igb_ring *rx_ring,
- 
- 	/* transfer page from old buffer to new buffer */
- 	*new_buff = *old_buff;
--
--	/* sync the buffer for use by the device */
--	dma_sync_single_range_for_device(rx_ring->dev, old_buff->dma,
--					 old_buff->page_offset,
--					 IGB_RX_BUFSZ,
--					 DMA_FROM_DEVICE);
- }
- 
- static inline bool igb_page_is_reserved(struct page *page)
-@@ -6917,6 +6922,13 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 	page = rx_buffer->page;
- 	prefetchw(page);
- 
-+	/* we are reusing so sync this buffer for CPU use */
-+	dma_sync_single_range_for_cpu(rx_ring->dev,
-+				      rx_buffer->dma,
-+				      rx_buffer->page_offset,
-+				      size,
-+				      DMA_FROM_DEVICE);
-+
- 	if (likely(!skb)) {
- 		void *page_addr = page_address(page) +
- 				  rx_buffer->page_offset;
-@@ -6941,21 +6953,15 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 		prefetchw(skb->data);
- 	}
- 
--	/* we are reusing so sync this buffer for CPU use */
--	dma_sync_single_range_for_cpu(rx_ring->dev,
--				      rx_buffer->dma,
--				      rx_buffer->page_offset,
--				      size,
--				      DMA_FROM_DEVICE);
--
- 	/* pull page into skb */
- 	if (igb_add_rx_frag(rx_ring, rx_buffer, size, rx_desc, skb)) {
- 		/* hand second half of page back to the ring */
- 		igb_reuse_rx_page(rx_ring, rx_buffer);
- 	} else {
- 		/* we are not reusing the buffer so unmap it */
--		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
--			       PAGE_SIZE, DMA_FROM_DEVICE);
-+		dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
-+				     PAGE_SIZE, DMA_FROM_DEVICE,
-+				     DMA_ATTR_SKIP_CPU_SYNC);
- 	}
- 
- 	/* clear contents of rx_buffer */
-@@ -7213,7 +7219,8 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
- 	}
- 
- 	/* map page for use */
--	dma = dma_map_page(rx_ring->dev, page, 0, PAGE_SIZE, DMA_FROM_DEVICE);
-+	dma = dma_map_page_attrs(rx_ring->dev, page, 0, PAGE_SIZE,
-+				 DMA_FROM_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
- 
- 	/* if mapping failed free memory back to system since
- 	 * there isn't much point in holding memory we can't use
-@@ -7254,6 +7261,12 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
- 		if (!igb_alloc_mapped_page(rx_ring, bi))
- 			break;
- 
-+		/* sync the buffer for use by the device */
-+		dma_sync_single_range_for_device(rx_ring->dev, bi->dma,
-+						 bi->page_offset,
-+						 IGB_RX_BUFSZ,
-+						 DMA_FROM_DEVICE);
-+
- 		/* Refresh the desc even if buffer_addrs didn't change
- 		 * because each write-back erases this info.
- 		 */
+>
+> [  610.356272] sysrq: SysRq : Show Blocked State
+> [  610.356742]   task                        PC stack   pid father
+> [  610.357252] kworker/u480:1  D    0  1994      2 0x00000000
+> [  610.357752] Workqueue: netns cleanup_net
+> [  610.358239]  ffff9892f1065800 0000000000000000 ffff9892ee1e1e00
+> ffff9892f8e59340
+> [  610.358705]  ffff9892f4526900 ffffbf0104b5ba88 ffffffffbe486df3
+> ffffbf0104b5ba60
+> [  610.359168]  00ffffffbdcbe663 ffff9892f8e59340 0000000100012e70
+> ffff9892ee1e1e00
+> [  610.359677] Call Trace:
+> [  610.360169]  [<ffffffffbe486df3>] ? __schedule+0x233/0x6e0
+> [  610.360723]  [<ffffffffbe4872d6>] schedule+0x36/0x80
+> [  610.361194]  [<ffffffffbe48a9ca>] schedule_timeout+0x22a/0x3f0
+> [  610.361789]  [<ffffffffbe486dfb>] ? __schedule+0x23b/0x6e0
+> [  610.362260]  [<ffffffffbe487d24>] wait_for_completion+0xb4/0x140
+> [  610.362736]  [<ffffffffbdcb05a0>] ? wake_up_q+0x80/0x80
+> [  610.363306]  [<ffffffffbdceb528>] __wait_rcu_gp+0xc8/0xf0
+> [  610.363782]  [<ffffffffbdceea5c>] synchronize_sched+0x5c/0x80
+> [  610.364137]  [<ffffffffbdcf0010>] ? call_rcu_bh+0x20/0x20
+> [  610.364742]  [<ffffffffbdceb440>] ?
+> trace_raw_output_rcu_utilization+0x60/0x60
+> [  610.365337]  [<ffffffffbe3696bc>] synchronize_net+0x1c/0x30
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This is a worker which holds the net_mutex and is waiting for
+a RCU grace period to elapse.
+
+
+> [  610.365846]  [<ffffffffbe369803>] netif_napi_del+0x23/0x80
+> [  610.367494]  [<ffffffffc057f6f8>] ip_tunnel_dev_free+0x68/0xf0 [ip_tunnel]
+> [  610.368007]  [<ffffffffbe372c10>] netdev_run_todo+0x230/0x330
+> [  610.368454]  [<ffffffffbe37eb4e>] rtnl_unlock+0xe/0x10
+> [  610.369001]  [<ffffffffc057f4df>] ip_tunnel_delete_net+0xdf/0x120 [ip_tunnel]
+> [  610.369500]  [<ffffffffc058b92c>] ipip_exit_net+0x2c/0x30 [ipip]
+> [  610.369997]  [<ffffffffbe362688>] ops_exit_list.isra.4+0x38/0x60
+> [  610.370636]  [<ffffffffbe363674>] cleanup_net+0x1c4/0x2b0
+> [  610.371130]  [<ffffffffbdc9e4ac>] process_one_work+0x1fc/0x4b0
+> [  610.371812]  [<ffffffffbdc9e7ab>] worker_thread+0x4b/0x500
+> [  610.373074]  [<ffffffffbdc9e760>] ? process_one_work+0x4b0/0x4b0
+> [  610.373622]  [<ffffffffbdc9e760>] ? process_one_work+0x4b0/0x4b0
+> [  610.374100]  [<ffffffffbdca4b09>] kthread+0xd9/0xf0
+> [  610.374574]  [<ffffffffbdca4a30>] ? kthread_park+0x60/0x60
+> [  610.375198]  [<ffffffffbe48c2b5>] ret_from_fork+0x25/0x30
+> [  610.375678] ip              D    0  2149   2148 0x00000000
+> [  610.376185]  ffff9892f0a99000 0000000000000000 ffff9892f0a66900
+> [  610.376185]  ffff9892f8e59340
+> [  610.376185]  ffff9892f4526900 ffffbf0101173db8 ffffffffbe486df3
+> [  610.376753]  00000005fecffd76
+> [  610.376762]  00ff9892f11d9820 ffff9892f8e59340 ffff989200000000
+> ffff9892f0a66900
+> [  610.377274] Call Trace:
+> [  610.377789]  [<ffffffffbe486df3>] ? __schedule+0x233/0x6e0
+> [  610.378306]  [<ffffffffbe4872d6>] schedule+0x36/0x80
+> [  610.378992]  [<ffffffffbe48756e>] schedule_preempt_disabled+0xe/0x10
+> [  610.379514]  [<ffffffffbe489199>] __mutex_lock_slowpath+0xb9/0x130
+> [  610.380031]  [<ffffffffbde0fce2>] ? __kmalloc+0x162/0x1e0
+> [  610.380556]  [<ffffffffbe48922f>] mutex_lock+0x1f/0x30
+> [  610.381135]  [<ffffffffbe3637ff>] copy_net_ns+0x9f/0x170
+> [  610.381647]  [<ffffffffbdca5e6b>] create_new_namespaces+0x11b/0x200
+> [  610.382249]  [<ffffffffbdca60fa>] unshare_nsproxy_namespaces+0x5a/0xb0
+> [  610.382818]  [<ffffffffbdc82dcd>] SyS_unshare+0x1cd/0x360
+> [  610.383319]  [<ffffffffbe48c03b>] entry_SYSCALL_64_fastpath+0x1e/0xad
+
+This process is apparently waiting for the net_mutex held by the previous one.
+
+Either RCU implementation is broken or something else is missing.
+Do you have more stack traces of related processes? For example,
+rcu_tasks_kthread. And if anything you can help to narrow down the problem,
+it would be great.
+
+Thanks.
