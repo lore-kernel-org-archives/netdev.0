@@ -1,57 +1,55 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH 2/2] rtl8xxxu: Fix for bogus data used to determine macpower
-Date: Tue, 08 Nov 2016 09:29:07 -0500
-Message-ID: <wrfjh97i11vw.fsf@redhat.com>
-References: <CANf5e8aQ+HZz47M3-4+qjsG=ZCaXhBFU_jVupLqT4rEYT2LQFQ@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] genetlink: fix unsigned int comparison with less than zero
+Date: Thu, 10 Nov 2016 15:57:58 +0000
+Message-ID: <20161110155758.26996-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Joe Perches <joe@perches.com>, John Heenan <john@zgus.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Dave Jones <s.dave.jones@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33038 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933992AbcKJPyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Nov 2016 10:54:00 -0500
-In-Reply-To: <CANf5e8aQ+HZz47M3-4+qjsG=ZCaXhBFU_jVupLqT4rEYT2LQFQ@mail.gmail.com>
-        (Dave Jones's message of "Tue, 8 Nov 2016 09:45:12 +0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        pravin shelar <pshelar@ovn.org>,
+        Wei Yongjun <weiyongjun1@huawei.com>,
+        Florian Westphal <fw@strlen.de>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave Jones <s.dave.jones@gmail.com> writes:
-> On Fri, Nov 04, 2016 at 09:56:00AM -0400, Jes Sorensen wrote:
->>
->> Joe Perches <joe@perches.com> writes:
->> > On Sun, 2016-10-30 at 19:02 -0400, Jes Sorensen wrote:
->> >> Code is 80 characters wide, and comments are /* */ never the ugly C++
->> >> crap.
->> >
->> > You might look at the recent Linus Torvalds authored commit
->> > 5e467652ffef (?printk: re-organize log_output() to be more legible")
->> > which does both of those: c99 // comments and > 80 columns.
->> >
->> > Absolutes are for zealots.
->>
->> What Linus does in his code, is totally up to him. What I pull into the
->> driver that *I* maintain, is up to me. It is perfectly normal to expect
->> submitters to respect the coding style of the piece of code they are
->> trying to edit.
->
-> Bullshit.  It's perfectly normal to respect Linux coding style described in
-> Documentation/CodingStyle.  Now let's back to the topic, could you
-> apply John's patch or you just wanna improve your driver is 100% bug free?
+From: Colin Ian King <colin.king@canonical.com>
 
-First of all, I call for proper CodingStyle to be applied to my driver,
-and I expect someone posting a patch to respect the codingstyle of the
-driver in question. It is simple respect for the code. If you consider
-that BS - that is on you!
+family->id is unsigned, so the less than zero check for
+failure return from idr_alloc is never true and so the error exit
+is never handled.  Instead, assign err and check if this is less
+than zero since this is a signed integer.
 
-Second I am NOT applying that patch as I have stated repeatedly because
-I am not convinced it is safe to do so and it changes the code flow for
-one type of chip and not the rest. In addition it uses a broken approach
-to doing chip specific changes.
+Issue found with static analysis with CoverityScan, CID 1375916
 
-In short, the patch is broken!
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/netlink/genetlink.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-Jes
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f0b65fe..2ea61ba 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -360,12 +360,10 @@ int genl_register_family(struct genl_family *family)
+ 	} else
+ 		family->attrbuf = NULL;
+ 
+-	family->id = idr_alloc(&genl_fam_idr, family,
++	family->id = err = idr_alloc(&genl_fam_idr, family,
+ 			       start, end + 1, GFP_KERNEL);
+-	if (family->id < 0) {
+-		err = family->id;
++	if (err < 0)
+ 		goto errout_free;
+-	}
+ 
+ 	err = genl_validate_assign_mc_groups(family);
+ 	if (err)
+-- 
+2.10.2
