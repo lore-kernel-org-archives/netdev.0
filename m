@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Regression w/ patch] Restore network resistance to weird ICMP
- messages
-Date: Thu, 10 Nov 2016 14:07:22 -0500 (EST)
-Message-ID: <20161110.140722.1599944595520089484.davem@davemloft.net>
-References: <CAO1wt+Z12-0vDVy2yo_L24Uesa688-wLfDb-CUZ5qmfRUF982Q@mail.gmail.com>
+Subject: Re: [patch net-next 1/8] Introduce ife encapsulation module
+Date: Thu, 10 Nov 2016 14:17:31 -0500 (EST)
+Message-ID: <20161110.141731.1693686577994851858.davem@davemloft.net>
+References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
+        <1478776988-5400-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: googuy@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAO1wt+Z12-0vDVy2yo_L24Uesa688-wLfDb-CUZ5qmfRUF982Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        jhs@mojatatu.com, geert+renesas@glider.be,
+        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+        linux@roeck-us.net, roopa@cumulusnetworks.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37300 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934979AbcKJTSA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 14:18:00 -0500
+In-Reply-To: <1478776988-5400-2-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 10 Nov 2016 12:23:01 +0100
 
-This is still not formed properly.
+> +void *ife_encode(struct sk_buff *skb, u16 metalen)
 
-Your Subject line should be of the form:
+metalen is u16
 
-	Subject: $Subsystem: $Description
+> +	metalen = htons(metalen);
 
-Something like "icmp: Restore resistence to abnormal messages."
+htons() returns be16.
 
-Also, your patch must be inline, right after the commit message,
-rather than included as an attachment.
+> +int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
+> +{
+> +	u32 *tlv = (u32 *) (skbdata);
+ ...
+> +	*tlv = htonl(htlv);
 
-Finally your Fixes: line much be exactly right before the first
-Signoff of your commit message.
+Similar situation here.
