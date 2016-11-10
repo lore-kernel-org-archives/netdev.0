@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 7/8] mlxsw: reg: add the Monitoring Packet Sampling Configuration Register
-Date: Thu, 10 Nov 2016 12:23:07 +0100
-Message-ID: <1478776988-5400-8-git-send-email-jiri@resnulli.us>
-References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 0/8] Add support for offloading packet-sampling
+Date: Thu, 10 Nov 2016 12:23:00 +0100
+Message-ID: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
         jhs@mojatatu.com, geert+renesas@glider.be,
@@ -10,76 +9,96 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         linux@roeck-us.net, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33952 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35026 "EHLO
         mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755380AbcKJLXU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:20 -0500
-Received: by mail-wm0-f67.google.com with SMTP id g23so2477459wme.1
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 03:23:19 -0800 (PST)
-In-Reply-To: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
+        with ESMTP id S1755383AbcKJLXV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:21 -0500
+Received: by mail-wm0-f67.google.com with SMTP id a20so2466557wme.2
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 03:23:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-The MPSC register allows to configure ingress packet sampling on specific
-port of the mlxsw device. The sampled packets are then trapped via
-PKT_SAMPLE trap.
+Add the sample tc action, which allows to sample packet matching
+a classifier. The sample action peeks randomly packets, duplicates them,
+truncates them and adds informative metadata on the packet, for example,
+the input interface and the original packet length. The sampled packets
+are marked to allow matching them and redirecting them to a specific
+collector device.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+The sampled packets metadata is packed using ife encapsulation. To do
+that, this patch-set extracts ife logics from the tc_ife action into an
+independent ife module, and uses that functionality to pack the metadata.
+To include all the needed metadata, this patch-set introduces some new
+IFE_META tlv types.
+
+In addition, Add the support for offloading the macthall-sample tc command
+in the Mellanox mlxsw driver, for ingress qdiscs.
+
+Userspace examples for that code can be found in:
+ - https://github.com/yotamgi/host-sflow: sflow client that uses the sample
+   with combination of tap device to sample packets and send to a
+   centralized sflow collector.
+ - https://github.com/yotamgi/libife: a library for manipulating ife
+   packets in userspace. The library is used in the host-sflow program to
+   parse the sampled packets.
+
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 38 +++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
+rfc1->v1:
+ - Change ifindex sampled packets metadatum to in_ifindex and out_ifindex
+ - Add sequence number metadatum to sampled packets
+ - Add sampler_id metadatum to sampled packets
+ - Make the user kernel interface extensible
+ - Move the sampling helper function to the ife module
+ - Fix ife header to be safe when CONFIG_NET_IFE is not set
+ - Made the sampled packets eth_type field mandatory other then optional
+ - Change the IFE_META* fields to be enum
+ - Remove the ife_packet_info struct and pass the parameters directly to
+   the ife_packet_ifo_pack function
+ - Couple of more styling and cosmetic issues
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index a61ce34..0936b4a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4771,6 +4771,44 @@ static inline void mlxsw_reg_mlcr_pack(char *payload, u8 local_port,
- 					   MLXSW_REG_MLCR_DURATION_MAX : 0);
- }
- 
-+/* MPSC - Monitoring Packet Sampling Configuration Register
-+ * --------------------------------------------------------
-+ * MPSC Register is used to configure the Packet Sampling mechanism.
-+ */
-+#define MLXSW_REG_MPSC_ID 0x9080
-+#define MLXSW_REG_MPSC_LEN 0x14
-+
-+MLXSW_REG_DEFINE(mpsc, MLXSW_REG_MPSC_ID, MLXSW_REG_MPSC_LEN);
-+
-+/* reg_mpsc_local_port
-+ * Local port number
-+ * Not supported for CPU port
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, mpsc, local_port, 0x00, 16, 8);
-+
-+/* reg_mpsc_e
-+ * Enable sampling on port local_port
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mpsc, e, 0x04, 30, 1);
-+
-+/* reg_mpsc_rate
-+ * Sampling rate = 1 out of rate packets (with randomization around
-+ * the point). Valid values are: 1 to 3.5*10^9
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mpsc, rate, 0x08, 0, 32);
-+
-+static inline void mlxsw_reg_mpsc_pack(char *payload, u8 local_port, bool e,
-+				       u32 rate)
-+{
-+	MLXSW_REG_ZERO(mpsc, payload);
-+	mlxsw_reg_mpsc_local_port_set(payload, local_port);
-+	mlxsw_reg_mpsc_e_set(payload, e);
-+	mlxsw_reg_mpsc_rate_set(payload, rate);
-+}
-+
- /* SBPR - Shared Buffer Pools Register
-  * -----------------------------------
-  * The SBPR configures and retrieves the shared buffer pools and configuration.
+Yotam Gigi (8):
+  Introduce ife encapsulation module
+  act_ife: Change to use ife module
+  net: ife: Introduce new metadata tlv types
+  net: ife: Introduce packet info packing method
+  Introduce sample tc action
+  tc: sample: Add sequence number and sampler_id fields
+  mlxsw: reg: add the Monitoring Packet Sampling Configuration Register
+  mlxsw: packet sample: Add packet sample offloading support
+
+ MAINTAINERS                                    |   7 +
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      |  38 ++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 120 +++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  12 +
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |   1 +
+ include/net/ife.h                              |  63 ++++++
+ include/net/tc_act/tc_ife.h                    |   3 -
+ include/net/tc_act/tc_sample.h                 |  74 +++++++
+ include/uapi/linux/Kbuild                      |   1 +
+ include/uapi/linux/ife.h                       |  24 ++
+ include/uapi/linux/tc_act/Kbuild               |   1 +
+ include/uapi/linux/tc_act/tc_ife.h             |  10 +-
+ include/uapi/linux/tc_act/tc_sample.h          |  29 +++
+ net/Kconfig                                    |   1 +
+ net/Makefile                                   |   1 +
+ net/ife/Kconfig                                |  16 ++
+ net/ife/Makefile                               |   5 +
+ net/ife/ife.c                                  | 199 +++++++++++++++++
+ net/sched/Kconfig                              |  14 ++
+ net/sched/Makefile                             |   1 +
+ net/sched/act_ife.c                            | 109 +++------
+ net/sched/act_sample.c                         | 291 +++++++++++++++++++++++++
+ 22 files changed, 923 insertions(+), 97 deletions(-)
+ create mode 100644 include/net/ife.h
+ create mode 100644 include/net/tc_act/tc_sample.h
+ create mode 100644 include/uapi/linux/ife.h
+ create mode 100644 include/uapi/linux/tc_act/tc_sample.h
+ create mode 100644 net/ife/Kconfig
+ create mode 100644 net/ife/Makefile
+ create mode 100644 net/ife/ife.c
+ create mode 100644 net/sched/act_sample.c
+
 -- 
 2.7.4
