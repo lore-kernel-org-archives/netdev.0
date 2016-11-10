@@ -1,147 +1,144 @@
-From: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: RE: [v16, 0/7] Fix eSDHC host version register bug
-Date: Thu, 10 Nov 2016 04:06:05 +0000
-Message-ID: <DB6PR0401MB25364DB523031CB267FC8CEFF8B80@DB6PR0401MB2536.eurprd04.prod.outlook.com>
-References: <1478661252-42439-1-git-send-email-yangbo.lu@nxp.com>
-	<CAPDyKFrcAN_pqgtGaUanfB2zh97zGcL23m5VDtJ3g==NJeRrfA@mail.gmail.com>
-	<1478750114.21746.4.camel@buserror.net>
+From: Kai-Heng Feng <kai.heng.feng@canonical.com>
+Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe function
+Date: Thu, 10 Nov 2016 12:06:31 +0800
+Message-ID: <CAAd53p5W4xpSYsFZ00deQDh-gZBijn_ApreE9NmC=_B_MAQaug@mail.gmail.com>
+References: <Pine.LNX.4.44L0.1611081339060.1499-100000@iolanthe.rowland.org>
+ <1478692735.2428.10.camel@suse.com> <8760nwj0l3.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"X.B. Xie" <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>, "M.H. Lian" <minghuan.lian-3arQi8VN3Tc@public.gmane.org>,
-	linux-clk <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, Jochen
-	Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-mmc <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
-	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Kumar Gala <galak@codeauror
-To: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1478750114.21746.4.camel-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Oliver Neukum <oneukum@suse.com>,
+        Alan Stern <stern@rowland.harvard.edu>,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8760nwj0l3.fsf@miraculix.mork.no>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBsaW51eC1tbWMtb3duZXJAdmdl
-ci5rZXJuZWwub3JnIFttYWlsdG86bGludXgtbW1jLQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmdd
-IE9uIEJlaGFsZiBPZiBTY290dCBXb29kDQo+IFNlbnQ6IFRodXJzZGF5LCBOb3ZlbWJlciAxMCwg
-MjAxNiAxMTo1NSBBTQ0KPiBUbzogVWxmIEhhbnNzb247IFkuQi4gTHUNCj4gQ2M6IGxpbnV4LW1t
-YzsgQXJuZCBCZXJnbWFubjsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7DQo+IGRldmlj
-ZXRyZWVAdmdlci5rZXJuZWwub3JnOyBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5v
-cmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC1jbGs7IGlvbW11QGxp
-c3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBHcmVn
-IEtyb2FoLUhhcnRtYW47IE1hcmsgUnV0bGFuZDsgUm9iIEhlcnJpbmc7DQo+IFJ1c3NlbGwgS2lu
-ZzsgSm9jaGVuIEZyaWVkcmljaDsgSm9lcmcgUm9lZGVsOyBDbGF1ZGl1IE1hbm9pbDsgQmh1cGVz
-aA0KPiBTaGFybWE7IFFpYW5nIFpoYW87IEt1bWFyIEdhbGE7IExlbyBMaTsgWC5CLiBYaWU7IE0u
-SC4gTGlhbg0KPiBTdWJqZWN0OiBSZTogW3YxNiwgMC83XSBGaXggZVNESEMgaG9zdCB2ZXJzaW9u
-IHJlZ2lzdGVyIGJ1Zw0KPiANCj4gT24gV2VkLCAyMDE2LTExLTA5IGF0IDE5OjI3ICswMTAwLCBV
-bGYgSGFuc3NvbiB3cm90ZToNCj4gPiAtIGkyYy1saXN0DQo+ID4NCj4gPiBPbiA5IE5vdmVtYmVy
-IDIwMTYgYXQgMDQ6MTQsIFlhbmdibyBMdSA8eWFuZ2JvLmx1QG54cC5jb20+IHdyb3RlOg0KPiA+
-ID4NCj4gPiA+IFRoaXMgcGF0Y2hzZXQgaXMgdXNlZCB0byBmaXggYSBob3N0IHZlcnNpb24gcmVn
-aXN0ZXIgYnVnIGluIHRoZQ0KPiA+ID4gVDQyNDAtDQo+ID4gPiBSMS4wLVIyLjANCj4gPiA+IGVT
-REhDIGNvbnRyb2xsZXIuIFRvIG1hdGNoIHRoZSBTb0MgdmVyc2lvbiBhbmQgcmV2aXNpb24sIDE1
-IHByZXZpb3VzDQo+ID4gPiB2ZXJzaW9uIHBhdGNoc2V0cyBoYWQgdHJpZWQgbWFueSBtZXRob2Rz
-IGJ1dCBhbGwgb2YgdGhlbSB3ZXJlDQo+ID4gPiByZWplY3RlZCBieSByZXZpZXdlcnMuDQo+ID4g
-PiBTdWNoIGFzDQo+ID4gPiDCoMKgwqDCoMKgwqDCoMKgLSBkdHMgY29tcGF0aWJsZSBtZXRob2QN
-Cj4gPiA+IMKgwqDCoMKgwqDCoMKgwqAtIHN5c2NvbiBtZXRob2QNCj4gPiA+IMKgwqDCoMKgwqDC
-oMKgwqAtIGlmZGVmIFBQQyBtZXRob2QNCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqAtIEdVVFMgZHJp
-dmVyIGdldHRpbmcgU1ZSIG1ldGhvZCBBbnJkIHN1Z2dlc3RlZCBhDQo+ID4gPiBzb2NfZGV2aWNl
-X21hdGNoIG1ldGhvZCBpbiB2MTAsIGFuZCB0aGlzIGlzIHRoZSBvbmx5IGF2YWlsYWJsZQ0KPiA+
-ID4gbWV0aG9kIGxlZnQgbm93LiBUaGlzIHYxMSBwYXRjaHNldCBpbnRyb2R1Y2VzIHRoZSBzb2Nf
-ZGV2aWNlX21hdGNoDQo+ID4gPiBpbnRlcmZhY2UgaW4gc29jIGRyaXZlci4NCj4gPiA+DQo+ID4g
-PiBUaGUgZmlyc3QgZm91ciBwYXRjaGVzIG9mIFlhbmdibyBhcmUgdG8gYWRkIHRoZSBHVVRTIGRy
-aXZlci4gVGhpcyBpcw0KPiA+ID4gdXNlZCB0byByZWdpc3RlciBhIHNvYyBkZXZpY2Ugd2hpY2gg
-Y29udGFpbiBzb2MgdmVyc2lvbiBhbmQgcmV2aXNpb24NCj4gPiA+IGluZm9ybWF0aW9uLg0KPiA+
-ID4gVGhlIG90aGVyIHRocmVlIHBhdGNoZXMgaW50cm9kdWNlIHRoZSBzb2NfZGV2aWNlX21hdGNo
-IG1ldGhvZCBpbiBzb2MNCj4gPiA+IGRyaXZlciBhbmQgYXBwbHkgaXQgb24gZXNkaGMgZHJpdmVy
-IHRvIGZpeCB0aGlzIGJ1Zy4NCj4gPiA+DQo+ID4gPiAtLS0NCj4gPiA+IENoYW5nZXMgZm9yIHYx
-NToNCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqAtIERyb3BwZWQgcGF0Y2ggJ2R0OiBiaW5kaW5nczog
-dXBkYXRlIEZyZWVzY2FsZSBEQ0ZHDQo+IGNvbXBhdGlibGUnDQo+ID4gPiDCoMKgwqDCoMKgwqDC
-oMKgwqDCoHNpbmNlIHRoZSB3b3JrIGhhZCBiZWVuIGRvbmUgYnkgYmVsb3cgcGF0Y2ggb24gU2hh
-d25HdW8ncw0KPiA+ID4gbGludXggdHJlZS4NCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgJ2R0
-LWJpbmRpbmdzOiBmc2w6IGFkZCBMUzEwNDNBL0xTMTA0NkEvTFMyMDgwQSBjb21wYXRpYmxlDQo+
-ID4gPiBmb3IgU0NGRw0KPiA+ID4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGFuZCBEQ0ZHJw0KPiA+
-ID4gwqDCoMKgwqDCoMKgwqDCoC0gRml4ZWQgZXJyb3IgY29kZSBpc3N1ZSBpbiBndXRzIGRyaXZl
-ciBDaGFuZ2VzIGZvciB2MTY6DQo+ID4gPiDCoMKgwqDCoMKgwqDCoMKgLSBEcm9wcGVkIHBhdGNo
-ICdwb3dlcnBjL2ZzbDogbW92ZSBtcGM4NXh4LmggdG8NCj4gaW5jbHVkZS9saW51eC9mc2wnDQo+
-ID4gPiDCoMKgwqDCoMKgwqDCoMKgLSBBZGRlZCBhIGJ1Zy1maXggcGF0Y2ggZnJvbSBHZWVydA0K
-PiA+ID4gLS0tDQo+ID4gPg0KPiA+ID4gQXJuZCBCZXJnbWFubiAoMSk6DQo+ID4gPiDCoCBiYXNl
-OiBzb2M6IGludHJvZHVjZSBzb2NfZGV2aWNlX21hdGNoKCkgaW50ZXJmYWNlDQo+ID4gPg0KPiA+
-ID4gR2VlcnQgVXl0dGVyaG9ldmVuICgxKToNCj4gPiA+IMKgIGJhc2U6IHNvYzogQ2hlY2sgZm9y
-IE5VTEwgU29DIGRldmljZSBhdHRyaWJ1dGVzDQo+ID4gPg0KPiA+ID4gWWFuZ2JvIEx1ICg1KToN
-Cj4gPiA+IMKgIEFSTTY0OiBkdHM6IGxzMjA4MGE6IGFkZCBkZXZpY2UgY29uZmlndXJhdGlvbiBu
-b2RlDQo+ID4gPiDCoCBkdDogYmluZGluZ3M6IG1vdmUgZ3V0cyBkZXZpY2V0cmVlIGRvYyBvdXQg
-b2YgcG93ZXJwYyBkaXJlY3RvcnkNCj4gPiA+IMKgIHNvYzogZnNsOiBhZGQgR1VUUyBkcml2ZXIg
-Zm9yIFFvcklRIHBsYXRmb3Jtcw0KPiA+ID4gwqAgTUFJTlRBSU5FUlM6IGFkZCBlbnRyeSBmb3Ig
-RnJlZXNjYWxlIFNvQyBkcml2ZXJzDQo+ID4gPiDCoCBtbWM6IHNkaGNpLW9mLWVzZGhjOiBmaXgg
-aG9zdCB2ZXJzaW9uIGZvciBUNDI0MC1SMS4wLVIyLjANCj4gPiA+DQo+ID4gPiDCoC4uLi9iaW5k
-aW5ncy97cG93ZXJwYyA9PiBzb2N9L2ZzbC9ndXRzLnR4dMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKg
-wqAzICsNCj4gPiA+IMKgTUFJTlRBSU5FUlPCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgMTEg
-Ky0NCj4gPiA+IMKgYXJjaC9hcm02NC9ib290L2R0cy9mcmVlc2NhbGUvZnNsLWxzMjA4MGEuZHRz
-acKgwqDCoMKgwqB8wqDCoMKgNiArDQo+ID4gPiDCoGRyaXZlcnMvYmFzZS9LY29uZmlnwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8
-wqDCoMKgMSArDQo+ID4gPiDCoGRyaXZlcnMvYmFzZS9zb2MuY8KgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgNzAgKysr
-KysrDQo+ID4gPiDCoGRyaXZlcnMvbW1jL2hvc3QvS2NvbmZpZ8KgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgwqAxICsNCj4gPiA+IMKgZHJp
-dmVycy9tbWMvaG9zdC9zZGhjaS1vZi1lc2RoYy5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgfMKgwqAyMCArKw0KPiA+ID4gwqBkcml2ZXJzL3NvYy9LY29uZmlnwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzC
-oMKgwqAzICstDQo+ID4gPiDCoGRyaXZlcnMvc29jL2ZzbC9LY29uZmlnwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8wqDCoDE4ICsrDQo+ID4g
-PiDCoGRyaXZlcnMvc29jL2ZzbC9NYWtlZmlsZcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgwqAxICsNCj4gPiA+IMKgZHJpdmVycy9zb2Mv
-ZnNsL2d1dHMuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqB8IDIzNg0KPiA+ID4gKysrKysrKysrKysrKysrKysrKysrDQo+ID4gPiDCoGlu
-Y2x1ZGUvbGludXgvZnNsL2d1dHMuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoHwgMTI1DQo+ID4gPiArKysrKystLS0tLQ0KPiA+ID4gwqBpbmNs
-dWRlL2xpbnV4L3N5c19zb2MuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgfMKgwqDCoDMgKw0KPiA+ID4gwqAxMyBmaWxlcyBjaGFuZ2VkLCA0
-NDcgaW5zZXJ0aW9ucygrKSwgNTEgZGVsZXRpb25zKC0pDQo+ID4gPiDCoHJlbmFtZSBEb2N1bWVu
-dGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3Mve3Bvd2VycGMgPT4NCj4gPiA+IHNvY30vZnNsL2d1
-dHMudHh0DQo+ID4gPiAoOTElKQ0KPiA+ID4gwqBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9z
-b2MvZnNsL0tjb25maWcNCj4gPiA+IMKgY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2Zz
-bC9ndXRzLmMNCj4gPiA+DQo+ID4gPiAtLQ0KPiA+ID4gMi4xLjAuMjcuZzk2ZGIzMjQNCj4gPiA+
-DQo+ID4gVGhhbmtzLCBhcHBsaWVkIG9uIG15IG1tYyB0cmVlIGZvciBuZXh0IQ0KPiA+DQo+ID4g
-SSBub3RpY2VkIHRoYXQgc29tZSBEVCBjb21wYXRpYmxlcyB3ZXJlbid0IGRvY3VtZW50ZWQsIGFj
-Y29yZGluZyB0bw0KPiA+IGNoZWNrcGF0Y2guIFBsZWFzZSBmaXggdGhhdCBhc2FwIQ0KPiANCj4g
-VGhleSBhcmUgZG9jdW1lbnRlZCwgaW4gZnNsL2d1dHMudHh0ICh0aGUgZmlsZSBtb3ZlZCBpbiBw
-YXRjaCAyLzcpOg0KPiA+IMKgLSBjb21wYXRpYmxlIDogU2hvdWxkIGRlZmluZSB0aGUgY29tcGF0
-aWJsZSBkZXZpY2UgdHlwZSBmb3INCj4gPiDCoMKgwqBnbG9iYWwtdXRpbGl0aWVzLg0KPiA+IMKg
-wqDCoFBvc3NpYmxlIGNvbXBhdGlibGVzOg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLHFvcmlx
-LWRldmljZS1jb25maWctMS4wIg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLHFvcmlxLWRldmlj
-ZS1jb25maWctMi4wIg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLDxjaGlwPi1kZXZpY2UtY29u
-ZmlnIg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLDxjaGlwPi1ndXRzIg0KPiANCj4gQ2hlY2tw
-YXRjaCBkb2Vzbid0IHVuZGVyc3RhbmQgY29tcGF0aWJsZXMgZGVmaW5lZCBpbiBzdWNoIGEgd2F5
-Lg0KDQpbTHUgWWFuZ2JvLUI0NzA5M10gWW91J3JlIHJpZ2h0LCBTY290dC4gSSBkcm9wcGVkIERU
-IHBhdGNoICdkdDogYmluZGluZ3M6IHVwZGF0ZSBGcmVlc2NhbGUgRENGRyBjb21wYXRpYmxlICcN
-CndoaWNoIGZpeGVkIHVuLWRvYyBpc3N1ZSBzaW5jZSBTaGFvaHVpIGhhZCBkb25lIHRoaXMgb24g
-U2hhd24gR3VvJ3MgdHJlZS4NCmh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJu
-ZWwvZ2l0L3NoYXduZ3VvL2xpbnV4LmdpdC9jb21taXQvP2g9aW14L2R0NjQmaWQ9OTgxMDM0YTJi
-ZmNhZmY1Yzk1ZGFmZGUyNGQ3YWJmZTdmOTAyNWMxOQ0KDQpUaGFua3MuDQoNCj4gDQo+IC1TY290
-dA0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxp
-bmUgInVuc3Vic2NyaWJlIGxpbnV4LW1tYyIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRv
-IG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpvcmRvbW8gaW5mbyBhdA0KPiBodHRw
-Oi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvbW11IG1haWxpbmcgbGlzdAppb21tdUBs
-aXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5v
-cmcvbWFpbG1hbi9saXN0aW5mby9pb21tdQ==
+Hi,
+
+On Wed, Nov 9, 2016 at 8:32 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+> Oliver Neukum <oneukum@suse.com> writes:
+>
+>> On Tue, 2016-11-08 at 13:44 -0500, Alan Stern wrote:
+>>
+>>> These problems could very well be caused by running at SuperSpeed
+>>> (USB-3) instead of high speed (USB-2).
+
+Yes, it's running at SuperSpeed, on a Kabylake laptop.
+
+It does not have this issue on a Broadwell laptop, also running at SuperSpe=
+ed.
+
+>>>
+>>> Is there any way to test what happens when the device is attached to
+>>> the computer by a USB-2 cable?  That would prevent it from operating at
+>>> SuperSpeed.
+
+I recall old Intel PCH can change the USB host from XHCI to EHCI,
+newer PCH does not have this option.
+
+Is there a way to force XHCI run at HighSpeed?
+
+>>>
+>>> The main point, however, is that the proposed patch doesn't seem to
+>>> address the true problem, which is that the device gets suspended
+>>> between probes.  The patch only tries to prevent it from being
+>>> suspended during a probe -- which is already prevented by the USB core.
+>>
+>> But why doesn't it fail during normal operation?
+>>
+>> I suspect that its firmware requires the altsetting
+>>
+>>         /* should we change control altsetting on a NCM/MBIM function? *=
+/
+>>         if (cdc_ncm_select_altsetting(intf) =3D=3D CDC_NCM_COMM_ALTSETTI=
+NG_MBIM) {
+>>                 data_altsetting =3D CDC_NCM_DATA_ALTSETTING_MBIM;
+>>                 ret =3D cdc_mbim_set_ctrlalt(dev, intf, CDC_NCM_COMM_ALT=
+SETTING_MBIM);
+>>
+>> to be set before it accepts a suspension.
+>
+> Could be, but I don't think so.  The above code is effectively a noop
+> unless the function is a combined NCM/MBIM function.  Something I've
+> never seen on a Sierra Wireless device (ignoring the infamous EM7345,
+> which really is an Intel device).
+>
+> This is a typical example of a Sierra Wireless modem configured for
+> MBIM:
+>
+> P:  Vendor=3D1199 ProdID=3D9079 Rev=3D 0.06
+> S:  Manufacturer=3DSierra Wireless, Incorporated
+> S:  Product=3DSierra Wireless EM7455 Qualcomm Snapdragon X7 LTE-A
+> S:  SerialNumber=3DLF615126xxxxxxx
+> C:* #Ifs=3D 2 Cfg#=3D 1 Atr=3Da0 MxPwr=3D500mA
+> A:  FirstIf#=3D12 IfCount=3D 2 Cls=3D02(comm.) Sub=3D0e Prot=3D00
+> I:* If#=3D12 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0e Prot=3D00 Driver=
+=3D(none)
+> E:  Ad=3D82(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D32ms
+> I:* If#=3D13 Alt=3D 0 #EPs=3D 0 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driver=
+=3D(none)
+> I:  If#=3D13 Alt=3D 1 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driver=
+=3D(none)
+> E:  Ad=3D81(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+> E:  Ad=3D01(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+>
+>
+> The control interface of plain MBIM functions will always have a single
+> altsetting, like the example above. So cdc_ncm_select_altsetting(intf)
+> returns "0", while CDC_NCM_COMM_ALTSETTING_MBIM is "1".
+>
+>
+> Just for reference, using the Intel^H^H^H^H^HEM7345 as example, this is
+> what a combined NCM/MBIM function looks like:
+>
+>
+> P:  Vendor=3D1199 ProdID=3Da001 Rev=3D17.29
+> S:  Manufacturer=3DSierra Wireless Inc.
+> S:  Product=3DSierra Wireless EM7345 4G LTE
+> S:  SerialNumber=3D013937000xxxxxx
+> C:* #Ifs=3D 4 Cfg#=3D 1 Atr=3De0 MxPwr=3D100mA
+> A:  FirstIf#=3D 0 IfCount=3D 2 Cls=3D02(comm.) Sub=3D0d Prot=3D00
+> A:  FirstIf#=3D 2 IfCount=3D 2 Cls=3D02(comm.) Sub=3D02 Prot=3D01
+> I:  If#=3D 0 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0d Prot=3D00 Driver=
+=3Dcdc_mbim
+> E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D1ms
+> I:* If#=3D 0 Alt=3D 1 #EPs=3D 1 Cls=3D02(comm.) Sub=3D0e Prot=3D00 Driver=
+=3Dcdc_mbim
+> E:  Ad=3D81(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D1ms
+> I:  If#=3D 1 Alt=3D 0 #EPs=3D 0 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driver=
+=3Dcdc_mbim
+> I:  If#=3D 1 Alt=3D 1 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D01 Driver=
+=3Dcdc_mbim
+> E:  Ad=3D82(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+> E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+> I:* If#=3D 1 Alt=3D 2 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D02 Driver=
+=3Dcdc_mbim
+> E:  Ad=3D82(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+> E:  Ad=3D02(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+> I:* If#=3D 2 Alt=3D 0 #EPs=3D 1 Cls=3D02(comm.) Sub=3D02 Prot=3D01 Driver=
+=3D(none)
+> E:  Ad=3D83(I) Atr=3D03(Int.) MxPS=3D  64 Ivl=3D1ms
+> I:* If#=3D 3 Alt=3D 0 #EPs=3D 2 Cls=3D0a(data ) Sub=3D00 Prot=3D00 Driver=
+=3D(none)
+> E:  Ad=3D84(I) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+> E:  Ad=3D04(O) Atr=3D02(Bulk) MxPS=3D 512 Ivl=3D0ms
+>
+>
+> And this is what the code you quote is trying to deal with.  Note the
+> different subclass of altsetting 0 and 1.... This is incredibly ugly.
+>
+> FWIW, the modem in question cannot be an EM7345. That modem does not
+> have the static interface numbering oddity.  Another sign that it isn't
+> a true Sierra device.
+
+Yes, this modem is an EM7445.
+
+>
+>
+>
+>
+> Bj=C3=B8rn
