@@ -1,31 +1,38 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] debugfs: improve formatting of debugfs_real_fops()
-Date: Thu, 10 Nov 2016 18:51:44 +0100
-Message-ID: <20161110175144.GA13023@kroah.com>
-References: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V5 3/9] liquidio CN23XX: Mailbox support
+Date: Thu, 10 Nov 2016 12:53:11 -0500 (EST)
+Message-ID: <20161110.125311.1529253166893183743.davem@davemloft.net>
+References: <1478733232-15739-4-git-send-email-rvatsavayi@caviumnetworks.com>
+        <20161110.121910.154188943242358141.davem@davemloft.net>
+        <DM3PR07MB21382E9EA153F2C3FE1BC41881B80@DM3PR07MB2138.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Nicolai Stange <nicstange@gmail.com>,
-        Christian Lamparter <chunkeey@gmail.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Derek.Chickles@cavium.com,
+        Satananda.Burla@cavium.com, Felix.Manlunas@cavium.com
+To: Raghu.Vatsavayi@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:41600 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964995AbcKJRvg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:51:36 -0500
-Content-Disposition: inline
-In-Reply-To: <1478798629-22318-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35472 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935524AbcKJRxQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:53:16 -0500
+In-Reply-To: <DM3PR07MB21382E9EA153F2C3FE1BC41881B80@DM3PR07MB2138.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 10, 2016 at 05:23:49PM +0000, Jakub Kicinski wrote:
-> Type of debugfs_real_fops() is longer than parameters and
-> the name, so there is no way to break the declaration nicely.
-> We have to go over 80 characters.
-> 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  include/linux/debugfs.h | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
+From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
+Date: Thu, 10 Nov 2016 17:44:50 +0000
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Thanks. Will you please let me know if any more changes that you
+> need, I will include all those in next version.
+
+Nobody is under any obligation to review your entire series every time
+I or any other develoer performs a review.
+
+My time is extremely limited, and by the time I review a patch series
+it is supposedly "ready".  So all I am able to do is review until I
+find the first error and I will report it and push back on you.
+
+Please make your reviewer expectations match reality.  Yes, this means
+we might send you through several more iterations.  That's simply how
+it works.
