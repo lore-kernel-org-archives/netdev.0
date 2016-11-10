@@ -1,37 +1,42 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v2 4/7] vxlan: improve vxlan route lookup
- checks.
-Date: Thu, 10 Nov 2016 19:37:09 +0100
-Message-ID: <20161110193709.2c539093@griffin>
-References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
-        <1478371557-71888-5-git-send-email-pshelar@ovn.org>
-        <20161109174138.410b4385@griffin>
-        <CAOrHB_BwcJ0K3YcqPrVkKxFjWX9DFT1NjS3BbrcNtKQ_p_y44w@mail.gmail.com>
-        <20161110105639.6e8b70f7@griffin>
-        <CAOrHB_DPWiGah9vADm=SXXnWkiDcvsHdmy3RQ6f7ntjmjZOeDg@mail.gmail.com>
+From: Richard Kuo <rkuo@codeaurora.org>
+Subject: Re: [mm PATCH v3 07/23] arch/hexagon: Add option to skip DMA sync as
+ a part of mapping
+Date: Thu, 10 Nov 2016 12:40:14 -0600
+Message-ID: <20161110184014.GA30680@codeaurora.org>
+References: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
+ <20161110113452.76501.45864.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51462 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751674AbcKJShM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Nov 2016 13:37:12 -0500
-In-Reply-To: <CAOrHB_DPWiGah9vADm=SXXnWkiDcvsHdmy3RQ6f7ntjmjZOeDg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org,
+        linux-hexagon@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161110113452.76501.45864.stgit@ahduyck-blue-test.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Nov 2016 10:10:25 -0800, Pravin Shelar wrote:
-> I am specifically talking about cached routes. If the dst entry is
-> cached, this patch avoids checking for device loop.
+On Thu, Nov 10, 2016 at 06:34:52AM -0500, Alexander Duyck wrote:
+> This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
+> avoid invoking cache line invalidation if the driver will just handle it
+> later via a sync_for_cpu or sync_for_device call.
+> 
+> Cc: Richard Kuo <rkuo@codeaurora.org>
+> Cc: linux-hexagon@vger.kernel.org
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>  arch/hexagon/kernel/dma.c |    6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
 
-Okay, true, for cached routes we do less work with this patch.
+For Hexagon:
 
-This was more a side note anyway, the real comment was increasing of
-the dev stats (which you already said you would fix).
+Acked-by: Richard Kuo <rkuo@codeaurora.org>
 
-Thanks!
 
- Jiri
+
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum, 
+a Linux Foundation Collaborative Project
