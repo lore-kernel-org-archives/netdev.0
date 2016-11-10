@@ -1,48 +1,68 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH iproute2 1/1] tc: print raw qdisc handle.
-Date: Thu, 10 Nov 2016 10:06:32 -0500
-Message-ID: <1478790392-13028-1-git-send-email-mrv@mojatatu.com>
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-        Roman Mashak <mrv@mojatatu.com>
-To: stephen@networkplumber.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next v13 0/8] openvswitch: support for layer 3 encapsulated packets
+Date: Thu, 10 Nov 2016 16:28:16 +0100
+Message-ID: <cover.1478791347.git.jbenc@redhat.com>
+Cc: dev@openvswitch.org, Pravin Shelar <pshelar@ovn.org>,
+        Lorand Jakab <lojakab@cisco.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35705 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933387AbcKJPHA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 10:07:00 -0500
-Received: by mail-it0-f65.google.com with SMTP id b123so3989072itb.2
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 07:07:00 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:50460 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933482AbcKJP2l (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Nov 2016 10:28:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resending patch after fixing indentation and spaces.
+At the core of this patch set is removing the assumption in Open vSwitch
+datapath that all packets have Ethernet header.
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- tc/tc_qdisc.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+The implementation relies on the presence of pop_eth and push_eth actions
+in datapath flows to facilitate adding and removing Ethernet headers as
+appropriate. The construction of such flows is left up to user-space.
 
-diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-index 93c9a4c..a8c8386 100644
---- a/tc/tc_qdisc.c
-+++ b/tc/tc_qdisc.c
-@@ -231,7 +231,15 @@ int print_qdisc(const struct sockaddr_nl *who,
- 	if (n->nlmsg_type == RTM_DELQDISC)
- 		fprintf(fp, "deleted ");
- 
--	fprintf(fp, "qdisc %s %x: ", rta_getattr_str(tb[TCA_KIND]), t->tcm_handle>>16);
-+	if (!show_raw) {
-+		fprintf(fp, "qdisc %s %x: ", rta_getattr_str(tb[TCA_KIND]),
-+				t->tcm_handle >> 16);
-+	} else {
-+		fprintf(fp, "qdisc %s %x:[%08x]  ",
-+				rta_getattr_str(tb[TCA_KIND]),
-+				t->tcm_handle >> 16, t->tcm_handle);
-+	}
-+
- 	if (filter_ifindex == 0)
- 		fprintf(fp, "dev %s ", ll_index_to_name(t->tcm_ifindex));
- 	if (t->tcm_parent == TC_H_ROOT)
+This series is based on work by Simon Horman, Lorand Jakab, Thomas Morin and
+others. I kept Lorand's and Simon's s-o-b in the patches that are derived
+from v11 to record their authorship of parts of the code.
+
+Changes from v12 to v13:
+
+* Addressed Pravin's feedback.
+* Removed the GRE vport conversion patch; L3 GRE ports should be created by
+  rtnetlink instead.
+
+Main changes from v11 to v12:
+
+* The patches were restructured and split differently for easier review.
+* They were rebased and adjusted to the current net-next. Especially MPLS
+  handling is different (and easier) thanks to the recent MPLS GSO rework.
+* Several bugs were discovered and fixed. The most notable is fragment
+  handling: header adjustment for ARPHRD_NONE devices on tx needs to be done
+  after refragmentation, not before it. This required significant changes in
+  the patchset. Another one is stricter checking of attributes (match on L2
+  vs. L3 packet) at the kernel level.
+* Instead of is_layer3 bool, a mac_proto field is used.
+
+Jiri Benc (8):
+  openvswitch: use hard_header_len instead of hardcoded ETH_HLEN
+  openvswitch: add mac_proto field to the flow key
+  openvswitch: pass mac_proto to ovs_vport_send
+  openvswitch: support MPLS push and pop for L3 packets
+  openvswitch: add processing of L3 packets
+  openvswitch: netlink: support L3 packets
+  openvswitch: add Ethernet push and pop actions
+  openvswitch: allow L3 netdev ports
+
+ include/uapi/linux/openvswitch.h |  15 ++++
+ net/openvswitch/actions.c        | 111 +++++++++++++++++-------
+ net/openvswitch/datapath.c       |  13 +--
+ net/openvswitch/flow.c           | 105 +++++++++++++++++------
+ net/openvswitch/flow.h           |  22 +++++
+ net/openvswitch/flow_netlink.c   | 179 ++++++++++++++++++++++++++-------------
+ net/openvswitch/vport-netdev.c   |   9 +-
+ net/openvswitch/vport.c          |  31 +++++--
+ net/openvswitch/vport.h          |   2 +-
+ 9 files changed, 353 insertions(+), 134 deletions(-)
+
 -- 
-1.9.1
+1.8.3.1
