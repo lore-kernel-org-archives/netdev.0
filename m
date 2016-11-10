@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/8] net: ife: Introduce new metadata tlv types
-Date: Thu, 10 Nov 2016 12:23:03 +0100
-Message-ID: <1478776988-5400-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 6/8] tc: sample: Add sequence number and sampler_id fields
+Date: Thu, 10 Nov 2016 12:23:06 +0100
+Message-ID: <1478776988-5400-7-git-send-email-jiri@resnulli.us>
 References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,47 +10,202 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         linux@roeck-us.net, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35073 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33919 "EHLO
         mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755209AbcKJLXP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:15 -0500
-Received: by mail-wm0-f67.google.com with SMTP id a20so2466886wme.2
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 03:23:15 -0800 (PST)
+        with ESMTP id S1755376AbcKJLXT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:19 -0500
+Received: by mail-wm0-f67.google.com with SMTP id g23so2477330wme.1
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 03:23:18 -0800 (PST)
 In-Reply-To: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-IFE_META_IN_IFINDEX: Allow to pass input ifindex value as part of the
-ife metadata
-IFE_META_OUT_IFINDEX: Allow to pass output ifindex value as part of the
-ife metadata
-IFE_META_ORIG_SIZE: Allow to pass the original packet size as part of
-the ife metadata. Can be used in case that the packet is truncated
-IFE_META_SIZE: Allow to pass the size of the encapsulated packet as
-part of the ife metadata
+Add support for sequence numbering to the sampled packets. The sequence
+number counts the sampled packets and enables to check whether sampled
+packets have been dropped. The sequence state is kept per sample action
+instance.
+
+Add unique id (sampler_id) for each sample action instance, and add that
+sampler_id to the packet. This way, a user application can verify sample
+drops, by tracking the sequence numbers from each sampler id.
+
+Because of the fact that hw and sw can be triggered by the same tc action
+(if the user does not specify both skip_sw and skip_hw), each should
+have a different sampler_id, as each generates a different sequence
+numbering. To allow that, the macros TC_SAMPLE_HW_ID and TC_SAMPLE_SW_ID,
+which, given a sampler_id, calculates the hw sample_id and sw sample_id.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/uapi/linux/ife.h | 4 ++++
- 1 file changed, 4 insertions(+)
+ include/net/ife.h              |  5 +++--
+ include/net/tc_act/tc_sample.h |  9 +++++++++
+ include/uapi/linux/ife.h       |  2 ++
+ net/ife/ife.c                  | 14 ++++++++++++--
+ net/sched/act_sample.c         | 10 +++++++++-
+ 5 files changed, 35 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/ife.h b/include/net/ife.h
+index 5fbcfb3..3ae4f0d 100644
+--- a/include/net/ife.h
++++ b/include/net/ife.h
+@@ -19,7 +19,8 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
+ void *ife_tlv_meta_next(void *skbdata);
+ 
+ struct ethhdr *ife_packet_info_pack(struct sk_buff *skb, int orig_size,
+-				    int in_ifindex, int out_ifindex);
++				    int in_ifindex, int out_ifindex,
++				    u32 sampler_id, u32 seq);
+ 
+ #else
+ 
+@@ -52,7 +53,7 @@ static inline void *ife_tlv_meta_next(void *skbdata)
+ 
+ static inline struct ethhdr *
+ ife_packet_info_pack(struct sk_buff *skb, int orig_size, int in_ifindex,
+-		     int out_ifindex)
++		     int out_ifindex, u32 sampler_id, u32 seq)
+ {
+ 	return NULL;
+ }
+diff --git a/include/net/tc_act/tc_sample.h b/include/net/tc_act/tc_sample.h
+index 73154b3..98eafda 100644
+--- a/include/net/tc_act/tc_sample.h
++++ b/include/net/tc_act/tc_sample.h
+@@ -14,9 +14,13 @@ struct tcf_sample {
+ 	u8			eth_dst[ETH_ALEN];
+ 	u8			eth_src[ETH_ALEN];
+ 	u16			eth_type;
++	u32			sampler_id;
++	u32			seq;
+ 	struct list_head	tcfm_list;
+ };
+ #define to_sample(a) ((struct tcf_sample *)a)
++#define TC_SAMPLE_SW_ID(id) ((id << 1) + 0)
++#define TC_SAMPLE_HW_ID(id) ((id << 1) + 1)
+ 
+ static inline bool is_tcf_sample(const struct tc_action *a)
+ {
+@@ -62,4 +66,9 @@ static inline void tcf_sample_eth_src_addr(const struct tc_action *a, u8 *src)
+ 	ether_addr_copy(src, to_sample(a)->eth_src);
+ }
+ 
++static inline u32 tcf_sample_sampler_id(const struct tc_action *a)
++{
++	return to_sample(a)->sampler_id;
++}
++
+ #endif /* __NET_TC_SAMPLE_H */
 diff --git a/include/uapi/linux/ife.h b/include/uapi/linux/ife.h
-index 2954da3..ebdd785 100644
+index ebdd785..2007818 100644
 --- a/include/uapi/linux/ife.h
 +++ b/include/uapi/linux/ife.h
-@@ -9,6 +9,10 @@ enum {
- 	IFE_META_PRIO,
- 	IFE_META_QMAP,
- 	IFE_META_TCINDEX,
-+	IFE_META_IN_IFINDEX,
-+	IFE_META_OUT_IFINDEX,
-+	IFE_META_ORIGSIZE,
-+	IFE_META_SIZE,
+@@ -13,6 +13,8 @@ enum {
+ 	IFE_META_OUT_IFINDEX,
+ 	IFE_META_ORIGSIZE,
+ 	IFE_META_SIZE,
++	IFE_META_SAMPLER_ID,
++	IFE_META_SEQ,
  	__IFE_META_MAX
  };
+ 
+diff --git a/net/ife/ife.c b/net/ife/ife.c
+index 756af46..3ebd6ab 100644
+--- a/net/ife/ife.c
++++ b/net/ife/ife.c
+@@ -139,7 +139,8 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
+ EXPORT_SYMBOL_GPL(ife_tlv_meta_encode);
+ 
+ struct ethhdr *ife_packet_info_pack(struct sk_buff *skb, int orig_size,
+-				    int in_ifindex, int out_ifindex)
++				    int in_ifindex, int out_ifindex,
++				    u32 sampler_id, u32 seq)
+ {
+ 	int curr_size;
+ 	void *ifetlv;
+@@ -148,7 +149,9 @@ struct ethhdr *ife_packet_info_pack(struct sk_buff *skb, int orig_size,
+ 	curr_size = skb->len;
+ 
+ 	metalen = nla_total_size(sizeof(orig_size)) +
+-		  nla_total_size(sizeof(curr_size));
++		  nla_total_size(sizeof(curr_size)) +
++		  nla_total_size(sizeof(sampler_id)) +
++		  nla_total_size(sizeof(seq));
+ 
+ 	if (in_ifindex)
+ 		metalen += nla_total_size(sizeof(in_ifindex));
+@@ -159,6 +162,8 @@ struct ethhdr *ife_packet_info_pack(struct sk_buff *skb, int orig_size,
+ 	out_ifindex = htonl(out_ifindex);
+ 	orig_size = htonl(orig_size);
+ 	curr_size = htonl(curr_size);
++	sampler_id = htonl(sampler_id);
++	seq = htonl(seq);
+ 
+ 	ifetlv = ife_encode(skb, metalen);
+ 	if (!ifetlv)
+@@ -179,6 +184,11 @@ struct ethhdr *ife_packet_info_pack(struct sk_buff *skb, int orig_size,
+ 	ifetlv += ife_tlv_meta_encode(ifetlv, IFE_META_SIZE,
+ 				      sizeof(curr_size), &curr_size);
+ 
++	ifetlv += ife_tlv_meta_encode(ifetlv, IFE_META_SAMPLER_ID,
++				      sizeof(sampler_id), &sampler_id);
++
++	ifetlv += ife_tlv_meta_encode(ifetlv, IFE_META_SEQ, sizeof(seq), &seq);
++
+ 	return (struct ethhdr *) skb->data;
+ }
+ EXPORT_SYMBOL(ife_packet_info_pack);
+diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
+index 6596f4b..3530401 100644
+--- a/net/sched/act_sample.c
++++ b/net/sched/act_sample.c
+@@ -27,6 +27,7 @@
+ 
+ #define SAMPLE_TAB_MASK     7
+ static int sample_net_id;
++static u32 samplers;
+ static struct tc_action_ops act_sample_ops;
+ 
+ static const struct nla_policy sample_policy[TCA_SAMPLE_MAX + 1] = {
+@@ -77,6 +78,7 @@ static int tcf_sample_init(struct net *net, struct nlattr *nla,
+ 	s->rate = nla_get_u32(tb[TCA_SAMPLE_RATE]);
+ 	s->mark = nla_get_u32(tb[TCA_SAMPLE_MARK]);
+ 	s->eth_type = nla_get_u16(tb[TCA_SAMPLE_ETH_TYPE]);
++	s->sampler_id = samplers++;
+ 
+ 	s->truncate = tb[TCA_SAMPLE_TRUNC_SIZE];
+ 	if (tb[TCA_SAMPLE_TRUNC_SIZE])
+@@ -119,6 +121,7 @@ static int tcf_sample(struct sk_buff *skb, const struct tc_action *a,
+ 	struct tcf_sample *s = to_sample(a);
+ 	static struct ethhdr *ethhdr;
+ 	struct sk_buff *skb2;
++	u32 sampler_id;
+ 	int orig_size;
+ 	int retval;
+ 	u32 at;
+@@ -145,8 +148,12 @@ static int tcf_sample(struct sk_buff *skb, const struct tc_action *a,
+ 			skb_push(skb2, skb2->mac_len);
+ 
+ 		orig_size = skb->len + skb->dev->hard_header_len;
++		sampler_id = TC_SAMPLE_SW_ID(s->sampler_id);
++
+ 		ethhdr = ife_packet_info_pack(skb2, orig_size,
+-					      skb->dev->ifindex, 0);
++					      skb->dev->ifindex, 0,
++					      sampler_id, s->seq++);
++
+ 		if (!ethhdr)
+ 			goto out;
+ 
+@@ -267,6 +274,7 @@ static struct pernet_operations sample_net_ops = {
+ 
+ static int __init sample_init_module(void)
+ {
++	samplers = 0;
+ 	return tcf_register_action(&act_sample_ops, &sample_net_ops);
+ }
  
 -- 
 2.7.4
