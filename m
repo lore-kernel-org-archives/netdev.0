@@ -1,81 +1,60 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [patch net-next 5/8] Introduce sample tc action
-Date: Thu, 10 Nov 2016 11:38:24 -0800
-Message-ID: <5824CCB0.4090302@gmail.com>
-References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
- <1478776988-5400-6-git-send-email-jiri@resnulli.us>
- <5824CBFE.5030502@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG() can be hit in tcp_collapse()
+Date: Thu, 10 Nov 2016 11:49:26 -0800
+Message-ID: <1478807366.8455.21.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1623420310.11961160.1478789246631.JavaMail.zimbra@redhat.com>
+         <1478792652.8455.3.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1478805992.8455.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        jhs@mojatatu.com, geert+renesas@glider.be,
-        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
-        linux@roeck-us.net, roopa@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33877 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934267AbcKJTit (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 14:38:49 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y68so5173930pfb.1
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 11:38:49 -0800 (PST)
-In-Reply-To: <5824CBFE.5030502@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+        Marco Grassi <marco.gra@gmail.com>
+To: Vladis Dronov <vdronov@redhat.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1478805992.8455.20.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-11-10 11:35 AM, John Fastabend wrote:
-> On 16-11-10 03:23 AM, Jiri Pirko wrote:
->> From: Yotam Gigi <yotamg@mellanox.com>
->>
->> This action allow the user to sample traffic matched by tc classifier.
->> The sampling consists of choosing packets randomly, truncating them,
->> adding some informative metadata regarding the interface and the original
->> packet size and mark them with specific mark, to allow further tc rules to
->> match and process. The marked sample packets are then injected into the
->> device ingress qdisc using netif_receive_skb.
->>
->> The packets metadata is packed using the ife encapsulation protocol, and
->> the outer packet's ethernet dest, source and eth_type, along with the
->> rate, mark and the optional truncation size can be configured from
->> userspace.
->>
->> Example:
->> To sample ingress traffic from interface eth1, and redirect the sampled
->> the sampled packets to interface dummy0, one may use the commands:
->>
->> tc qdisc add dev eth1 handle ffff: ingress
->>
->> tc filter add dev eth1 parent ffff: \
->> 	   matchall action sample rate 12 mark 17
->>
->> tc filter add parent ffff: dev eth1 protocol all \
->> 	   u32 match mark 17 0xff \
->> 	   action mirred egress redirect dev dummy0
->>
->> Where the first command adds an ingress qdisc and the second starts
->> sampling every 12'th packet on dev eth1 and marks the sampled packets with
->> 17. The third command catches the sampled packets, which are marked with
->> 17, and redirects them to dev dummy0.
-> 
-> The sampling algorithm was not randomized based on the above commit
-> log? It really needs to be for all the reasons Roopa mentioned earlier.
-> Did I miss some email on why it didn't get implemented?
-> 
-> Also there was an indication the already is actually implemented
-> correctly so don't we need the hw/sw to behave the same. The whole
-> argument about sw/hw parity, etc.
+On Thu, 2016-11-10 at 11:26 -0800, Eric Dumazet wrote:
 
-sorry bit of a typo there corrected 2nd paragraph here...
-
-Also there was an indication the hardware is already implemented \
-correctly so don't we need the hw/sw to behave the same. The argument
-about sw/hw parity, etc.
-
+> The issue is that sk_filter() truncates an incoming packet to a smaller
+> value.
 > 
->>
->> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
+> Bad things happen because TCP_SKB_CB(skb)->end_seq is not updated.
 > 
+> I guess other issues would also happen if the truncation also removes
+> part of tcp header.
+> 
+> sk_filter_trim_cap(sk, skb, tcp_hlen) would be needed,
+> or sk_filter_trim_cap(sk, skb, skb->len) to only ACCEPT/DROP packets,
+> but no truncations.
+
+Something like :
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 61b7be303eec..0b8f575eefaa 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1676,7 +1676,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 
+ 	nf_reset(skb);
+ 
+-	if (sk_filter(sk, skb))
++	if (sk_filter_trim_cap(sk, skb, skb->len))
+ 		goto discard_and_relse;
+ 
+ 	skb->dev = NULL;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 6ca23c2e76f7..2c7a6f7f1113 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1229,7 +1229,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		return tcp_v4_do_rcv(sk, skb);
+ 
+-	if (sk_filter(sk, skb))
++	if (sk_filter_trim_cap(sk, skb, skb->len))
+ 		goto discard;
+ 
+ 	/*
