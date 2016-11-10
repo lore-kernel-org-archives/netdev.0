@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/8] Add support for offloading packet-sampling
-Date: Thu, 10 Nov 2016 12:23:00 +0100
-Message-ID: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/8] act_ife: Change to use ife module
+Date: Thu, 10 Nov 2016 12:23:02 +0100
+Message-ID: <1478776988-5400-3-git-send-email-jiri@resnulli.us>
+References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
         jhs@mojatatu.com, geert+renesas@glider.be,
@@ -9,96 +10,296 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         linux@roeck-us.net, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35026 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755383AbcKJLXV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:21 -0500
-Received: by mail-wm0-f67.google.com with SMTP id a20so2466557wme.2
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 03:23:15 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36613 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755100AbcKJLXO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 06:23:14 -0500
+Received: by mail-wm0-f68.google.com with SMTP id m203so806336wma.3
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 03:23:14 -0800 (PST)
+In-Reply-To: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Add the sample tc action, which allows to sample packet matching
-a classifier. The sample action peeks randomly packets, duplicates them,
-truncates them and adds informative metadata on the packet, for example,
-the input interface and the original packet length. The sampled packets
-are marked to allow matching them and redirecting them to a specific
-collector device.
+Use the encode/decode functionality from the ife module instead of using
+implementation inside the act_ife.
 
-The sampled packets metadata is packed using ife encapsulation. To do
-that, this patch-set extracts ife logics from the tc_ife action into an
-independent ife module, and uses that functionality to pack the metadata.
-To include all the needed metadata, this patch-set introduces some new
-IFE_META tlv types.
-
-In addition, Add the support for offloading the macthall-sample tc command
-in the Mellanox mlxsw driver, for ingress qdiscs.
-
-Userspace examples for that code can be found in:
- - https://github.com/yotamgi/host-sflow: sflow client that uses the sample
-   with combination of tap device to sample packets and send to a
-   centralized sflow collector.
- - https://github.com/yotamgi/libife: a library for manipulating ife
-   packets in userspace. The library is used in the host-sflow program to
-   parse the sampled packets.
-
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-rfc1->v1:
- - Change ifindex sampled packets metadatum to in_ifindex and out_ifindex
- - Add sequence number metadatum to sampled packets
- - Add sampler_id metadatum to sampled packets
- - Make the user kernel interface extensible
- - Move the sampling helper function to the ife module
- - Fix ife header to be safe when CONFIG_NET_IFE is not set
- - Made the sampled packets eth_type field mandatory other then optional
- - Change the IFE_META* fields to be enum
- - Remove the ife_packet_info struct and pass the parameters directly to
-   the ife_packet_ifo_pack function
- - Couple of more styling and cosmetic issues
+ include/net/tc_act/tc_ife.h        |   3 -
+ include/uapi/linux/tc_act/tc_ife.h |  10 +---
+ net/sched/Kconfig                  |   1 +
+ net/sched/act_ife.c                | 109 +++++++++++--------------------------
+ 4 files changed, 34 insertions(+), 89 deletions(-)
 
-Yotam Gigi (8):
-  Introduce ife encapsulation module
-  act_ife: Change to use ife module
-  net: ife: Introduce new metadata tlv types
-  net: ife: Introduce packet info packing method
-  Introduce sample tc action
-  tc: sample: Add sequence number and sampler_id fields
-  mlxsw: reg: add the Monitoring Packet Sampling Configuration Register
-  mlxsw: packet sample: Add packet sample offloading support
-
- MAINTAINERS                                    |   7 +
- drivers/net/ethernet/mellanox/mlxsw/reg.h      |  38 ++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 120 +++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  12 +
- drivers/net/ethernet/mellanox/mlxsw/trap.h     |   1 +
- include/net/ife.h                              |  63 ++++++
- include/net/tc_act/tc_ife.h                    |   3 -
- include/net/tc_act/tc_sample.h                 |  74 +++++++
- include/uapi/linux/Kbuild                      |   1 +
- include/uapi/linux/ife.h                       |  24 ++
- include/uapi/linux/tc_act/Kbuild               |   1 +
- include/uapi/linux/tc_act/tc_ife.h             |  10 +-
- include/uapi/linux/tc_act/tc_sample.h          |  29 +++
- net/Kconfig                                    |   1 +
- net/Makefile                                   |   1 +
- net/ife/Kconfig                                |  16 ++
- net/ife/Makefile                               |   5 +
- net/ife/ife.c                                  | 199 +++++++++++++++++
- net/sched/Kconfig                              |  14 ++
- net/sched/Makefile                             |   1 +
- net/sched/act_ife.c                            | 109 +++------
- net/sched/act_sample.c                         | 291 +++++++++++++++++++++++++
- 22 files changed, 923 insertions(+), 97 deletions(-)
- create mode 100644 include/net/ife.h
- create mode 100644 include/net/tc_act/tc_sample.h
- create mode 100644 include/uapi/linux/ife.h
- create mode 100644 include/uapi/linux/tc_act/tc_sample.h
- create mode 100644 net/ife/Kconfig
- create mode 100644 net/ife/Makefile
- create mode 100644 net/ife/ife.c
- create mode 100644 net/sched/act_sample.c
-
+diff --git a/include/net/tc_act/tc_ife.h b/include/net/tc_act/tc_ife.h
+index 9fd2bea0..30ba459 100644
+--- a/include/net/tc_act/tc_ife.h
++++ b/include/net/tc_act/tc_ife.h
+@@ -6,7 +6,6 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/module.h>
+ 
+-#define IFE_METAHDRLEN 2
+ struct tcf_ife_info {
+ 	struct tc_action common;
+ 	u8 eth_dst[ETH_ALEN];
+@@ -45,8 +44,6 @@ struct tcf_meta_ops {
+ 
+ int ife_get_meta_u32(struct sk_buff *skb, struct tcf_meta_info *mi);
+ int ife_get_meta_u16(struct sk_buff *skb, struct tcf_meta_info *mi);
+-int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
+-			const void *dval);
+ int ife_alloc_meta_u32(struct tcf_meta_info *mi, void *metaval, gfp_t gfp);
+ int ife_alloc_meta_u16(struct tcf_meta_info *mi, void *metaval, gfp_t gfp);
+ int ife_check_meta_u32(u32 metaval, struct tcf_meta_info *mi);
+diff --git a/include/uapi/linux/tc_act/tc_ife.h b/include/uapi/linux/tc_act/tc_ife.h
+index cd18360..7c28178 100644
+--- a/include/uapi/linux/tc_act/tc_ife.h
++++ b/include/uapi/linux/tc_act/tc_ife.h
+@@ -3,6 +3,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/pkt_cls.h>
++#include <linux/ife.h>
+ 
+ #define TCA_ACT_IFE 25
+ /* Flag bits for now just encoding/decoding; mutually exclusive */
+@@ -28,13 +29,4 @@ enum {
+ };
+ #define TCA_IFE_MAX (__TCA_IFE_MAX - 1)
+ 
+-#define IFE_META_SKBMARK 1
+-#define IFE_META_HASHID 2
+-#define	IFE_META_PRIO 3
+-#define	IFE_META_QMAP 4
+-#define	IFE_META_TCINDEX 5
+-/*Can be overridden at runtime by module option*/
+-#define	__IFE_META_MAX 6
+-#define IFE_META_MAX (__IFE_META_MAX - 1)
+-
+ #endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 87956a7..24f7cac 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -763,6 +763,7 @@ config NET_ACT_SKBMOD
+ config NET_ACT_IFE
+         tristate "Inter-FE action based on IETF ForCES InterFE LFB"
+         depends on NET_CLS_ACT
++        select NET_IFE
+         ---help---
+ 	  Say Y here to allow for sourcing and terminating metadata
+ 	  For details refer to netdev01 paper:
+diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
+index 95c463c..5c2478a 100644
+--- a/net/sched/act_ife.c
++++ b/net/sched/act_ife.c
+@@ -32,6 +32,7 @@
+ #include <uapi/linux/tc_act/tc_ife.h>
+ #include <net/tc_act/tc_ife.h>
+ #include <linux/etherdevice.h>
++#include <net/ife.h>
+ 
+ #define IFE_TAB_MASK 15
+ 
+@@ -46,23 +47,6 @@ static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
+ 	[TCA_IFE_TYPE] = { .type = NLA_U16},
+ };
+ 
+-/* Caller takes care of presenting data in network order
+-*/
+-int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
+-{
+-	u32 *tlv = (u32 *)(skbdata);
+-	u16 totlen = nla_total_size(dlen);	/*alignment + hdr */
+-	char *dptr = (char *)tlv + NLA_HDRLEN;
+-	u32 htlv = attrtype << 16 | (dlen + NLA_HDRLEN);
+-
+-	*tlv = htonl(htlv);
+-	memset(dptr, 0, totlen - NLA_HDRLEN);
+-	memcpy(dptr, dval, dlen);
+-
+-	return totlen;
+-}
+-EXPORT_SYMBOL_GPL(ife_tlv_meta_encode);
+-
+ int ife_encode_meta_u16(u16 metaval, void *skbdata, struct tcf_meta_info *mi)
+ {
+ 	u16 edata = 0;
+@@ -637,69 +621,60 @@ int find_decode_metaid(struct sk_buff *skb, struct tcf_ife_info *ife,
+ 	return 0;
+ }
+ 
+-struct ifeheadr {
+-	__be16 metalen;
+-	u8 tlv_data[];
+-};
+-
+-struct meta_tlvhdr {
+-	__be16 type;
+-	__be16 len;
+-};
+-
+ static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
+ 			  struct tcf_result *res)
+ {
+ 	struct tcf_ife_info *ife = to_ife(a);
++	u32 at = G_TC_AT(skb->tc_verd);
+ 	int action = ife->tcf_action;
+-	struct ifeheadr *ifehdr = (struct ifeheadr *)skb->data;
+-	int ifehdrln = (int)ifehdr->metalen;
+-	struct meta_tlvhdr *tlv = (struct meta_tlvhdr *)(ifehdr->tlv_data);
++	u8 *ifehdr_end;
++	u8 *tlv_data;
++	u16 metalen;
+ 
+ 	spin_lock(&ife->tcf_lock);
+ 	bstats_update(&ife->tcf_bstats, skb);
+ 	tcf_lastuse_update(&ife->tcf_tm);
+ 	spin_unlock(&ife->tcf_lock);
+ 
+-	ifehdrln = ntohs(ifehdrln);
+-	if (unlikely(!pskb_may_pull(skb, ifehdrln))) {
++	if (!(at & AT_EGRESS))
++		skb_push(skb, skb->dev->hard_header_len);
++
++	tlv_data = ife_decode(skb, &metalen);
++	if (unlikely(!tlv_data)) {
+ 		spin_lock(&ife->tcf_lock);
+ 		ife->tcf_qstats.drops++;
+ 		spin_unlock(&ife->tcf_lock);
+ 		return TC_ACT_SHOT;
+ 	}
+ 
+-	skb_set_mac_header(skb, ifehdrln);
+-	__skb_pull(skb, ifehdrln);
+-	skb->protocol = eth_type_trans(skb, skb->dev);
+-	ifehdrln -= IFE_METAHDRLEN;
+-
+-	while (ifehdrln > 0) {
+-		u8 *tlvdata = (u8 *)tlv;
+-		u16 mtype = tlv->type;
+-		u16 mlen = tlv->len;
+-		u16 alen;
++	ifehdr_end = tlv_data + metalen;
++	for (; tlv_data < ifehdr_end; tlv_data = ife_tlv_meta_next(tlv_data)) {
++		u8 *curr_data;
++		u16 mtype;
++		u16 dlen;
+ 
+-		mtype = ntohs(mtype);
+-		mlen = ntohs(mlen);
+-		alen = NLA_ALIGN(mlen);
++		curr_data = ife_tlv_meta_decode(tlv_data, &mtype, &dlen, NULL);
+ 
+-		if (find_decode_metaid(skb, ife, mtype, (mlen - NLA_HDRLEN),
+-				       (void *)(tlvdata + NLA_HDRLEN))) {
++		if (find_decode_metaid(skb, ife, mtype, dlen, curr_data)) {
+ 			/* abuse overlimits to count when we receive metadata
+ 			 * but dont have an ops for it
+ 			 */
+-			pr_info_ratelimited("Unknown metaid %d alnlen %d\n",
+-					    mtype, mlen);
++			pr_info_ratelimited("Unknown metaid %d dlen %d\n",
++					    mtype, dlen);
+ 			ife->tcf_qstats.overlimits++;
+ 		}
++	}
+ 
+-		tlvdata += alen;
+-		ifehdrln -= alen;
+-		tlv = (struct meta_tlvhdr *)tlvdata;
++	if (WARN_ON(tlv_data != ifehdr_end)) {
++		spin_lock(&ife->tcf_lock);
++		ife->tcf_qstats.drops++;
++		spin_unlock(&ife->tcf_lock);
++		return TC_ACT_SHOT;
+ 	}
+ 
++	skb->protocol = eth_type_trans(skb, skb->dev);
+ 	skb_reset_network_header(skb);
++
+ 	return action;
+ }
+ 
+@@ -727,7 +702,6 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+ 	struct tcf_ife_info *ife = to_ife(a);
+ 	int action = ife->tcf_action;
+ 	struct ethhdr *oethh;	/* outer ether header */
+-	struct ethhdr *iethh;	/* inner eth header */
+ 	struct tcf_meta_info *e;
+ 	/*
+ 	   OUTERHDR:TOTMETALEN:{TLVHDR:Metadatum:TLVHDR..}:ORIGDATA
+@@ -735,10 +709,11 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+ 	 */
+ 	u16 metalen = ife_get_sz(skb, ife);
+ 	int hdrm = metalen + skb->dev->hard_header_len + IFE_METAHDRLEN;
+-	unsigned int skboff = skb->dev->hard_header_len;
++	unsigned int skboff = 0;
+ 	u32 at = G_TC_AT(skb->tc_verd);
+ 	int new_len = skb->len + hdrm;
+ 	bool exceed_mtu = false;
++	void *ife_meta;
+ 	int err;
+ 
+ 	if (at & AT_EGRESS) {
+@@ -766,27 +741,10 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+ 		return TC_ACT_SHOT;
+ 	}
+ 
+-	err = skb_cow_head(skb, hdrm);
+-	if (unlikely(err)) {
+-		ife->tcf_qstats.drops++;
+-		spin_unlock(&ife->tcf_lock);
+-		return TC_ACT_SHOT;
+-	}
+-
+ 	if (!(at & AT_EGRESS))
+ 		skb_push(skb, skb->dev->hard_header_len);
+ 
+-	iethh = (struct ethhdr *)skb->data;
+-	__skb_push(skb, hdrm);
+-	memcpy(skb->data, iethh, skb->mac_len);
+-	skb_reset_mac_header(skb);
+-	oethh = eth_hdr(skb);
+-
+-	/*total metadata length */
+-	metalen += IFE_METAHDRLEN;
+-	metalen = htons(metalen);
+-	memcpy((skb->data + skboff), &metalen, IFE_METAHDRLEN);
+-	skboff += IFE_METAHDRLEN;
++	ife_meta = ife_encode(skb, metalen);
+ 
+ 	/* XXX: we dont have a clever way of telling encode to
+ 	 * not repeat some of the computations that are done by
+@@ -794,7 +752,7 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+ 	 */
+ 	list_for_each_entry(e, &ife->metalist, metalist) {
+ 		if (e->ops->encode) {
+-			err = e->ops->encode(skb, (void *)(skb->data + skboff),
++			err = e->ops->encode(skb, (void *)(ife_meta + skboff),
+ 					     e);
+ 		}
+ 		if (err < 0) {
+@@ -805,15 +763,12 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+ 		}
+ 		skboff += err;
+ 	}
++	oethh = (struct ethhdr *)skb->data;
+ 
+ 	if (!is_zero_ether_addr(ife->eth_src))
+ 		ether_addr_copy(oethh->h_source, ife->eth_src);
+-	else
+-		ether_addr_copy(oethh->h_source, iethh->h_source);
+ 	if (!is_zero_ether_addr(ife->eth_dst))
+ 		ether_addr_copy(oethh->h_dest, ife->eth_dst);
+-	else
+-		ether_addr_copy(oethh->h_dest, iethh->h_dest);
+ 	oethh->h_proto = htons(ife->eth_type);
+ 
+ 	if (!(at & AT_EGRESS))
 -- 
 2.7.4
