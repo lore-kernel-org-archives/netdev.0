@@ -1,77 +1,70 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [mm PATCH v3 18/23] arch/tile: Add option to skip DMA sync as a
- part of map and unmap
-Date: Thu, 10 Nov 2016 06:35:50 -0500
-Message-ID: <20161110113550.76501.73060.stgit@ahduyck-blue-test.jf.intel.com>
+Subject: [mm PATCH v3 21/23] mm: Add support for releasing multiple
+ instances of a page
+Date: Thu, 10 Nov 2016 06:36:06 -0500
+Message-ID: <20161110113606.76501.70752.stgit@ahduyck-blue-test.jf.intel.com>
 References: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Chris Metcalf <cmetcalf@mellanox.com>,
- linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: linux-mm@kvack.org, akpm@linux-foundation.org
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <20161110113027.76501.63030.stgit@ahduyck-blue-test.jf.intel.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This change allows us to pass DMA_ATTR_SKIP_CPU_SYNC which allows us to
-avoid invoking cache line invalidation if the driver will just handle it
-via a sync_for_cpu or sync_for_device call.
+This patch adds a function that allows us to batch free a page that has
+multiple references outstanding.  Specifically this function can be used to
+drop a page being used in the page frag alloc cache.  With this drivers can
+make use of functionality similar to the page frag alloc cache without
+having to do any workarounds for the fact that there is no function that
+frees multiple references.
 
-Cc: Chris Metcalf <cmetcalf@mellanox.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- arch/tile/kernel/pci-dma.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ include/linux/gfp.h |    2 ++
+ mm/page_alloc.c     |   14 ++++++++++++++
+ 2 files changed, 16 insertions(+)
 
-diff --git a/arch/tile/kernel/pci-dma.c b/arch/tile/kernel/pci-dma.c
-index 09bb774..24e0f8c 100644
---- a/arch/tile/kernel/pci-dma.c
-+++ b/arch/tile/kernel/pci-dma.c
-@@ -213,10 +213,12 @@ static int tile_dma_map_sg(struct device *dev, struct scatterlist *sglist,
+diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+index f8041f9de..4175dca 100644
+--- a/include/linux/gfp.h
++++ b/include/linux/gfp.h
+@@ -506,6 +506,8 @@ extern void free_hot_cold_page(struct page *page, bool cold);
+ extern void free_hot_cold_page_list(struct list_head *list, bool cold);
  
- 	for_each_sg(sglist, sg, nents, i) {
- 		sg->dma_address = sg_phys(sg);
--		__dma_prep_pa_range(sg->dma_address, sg->length, direction);
- #ifdef CONFIG_NEED_SG_DMA_LENGTH
- 		sg->dma_length = sg->length;
- #endif
-+		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+			continue;
-+		__dma_prep_pa_range(sg->dma_address, sg->length, direction);
- 	}
- 
- 	return nents;
-@@ -232,6 +234,8 @@ static void tile_dma_unmap_sg(struct device *dev, struct scatterlist *sglist,
- 	BUG_ON(!valid_dma_direction(direction));
- 	for_each_sg(sglist, sg, nents, i) {
- 		sg->dma_address = sg_phys(sg);
-+		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+			continue;
- 		__dma_complete_pa_range(sg->dma_address, sg->length,
- 					direction);
- 	}
-@@ -245,7 +249,8 @@ static dma_addr_t tile_dma_map_page(struct device *dev, struct page *page,
- 	BUG_ON(!valid_dma_direction(direction));
- 
- 	BUG_ON(offset + size > PAGE_SIZE);
--	__dma_prep_page(page, offset, size, direction);
-+	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
-+		__dma_prep_page(page, offset, size, direction);
- 
- 	return page_to_pa(page) + offset;
+ struct page_frag_cache;
++extern void __page_frag_drain(struct page *page, unsigned int order,
++			      unsigned int count);
+ extern void *__alloc_page_frag(struct page_frag_cache *nc,
+ 			       unsigned int fragsz, gfp_t gfp_mask);
+ extern void __free_page_frag(void *addr);
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 0fbfead..54fea40 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -3912,6 +3912,20 @@ static struct page *__page_frag_refill(struct page_frag_cache *nc,
+ 	return page;
  }
-@@ -256,6 +261,9 @@ static void tile_dma_unmap_page(struct device *dev, dma_addr_t dma_address,
- {
- 	BUG_ON(!valid_dma_direction(direction));
  
-+	if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
-+		return;
++void __page_frag_drain(struct page *page, unsigned int order,
++		       unsigned int count)
++{
++	VM_BUG_ON_PAGE(page_ref_count(page) == 0, page);
 +
- 	__dma_complete_page(pfn_to_page(PFN_DOWN(dma_address)),
- 			    dma_address & (PAGE_SIZE - 1), size, direction);
- }
++	if (page_ref_sub_and_test(page, count)) {
++		if (order == 0)
++			free_hot_cold_page(page, false);
++		else
++			__free_pages_ok(page, order);
++	}
++}
++EXPORT_SYMBOL(__page_frag_drain);
++
+ void *__alloc_page_frag(struct page_frag_cache *nc,
+ 			unsigned int fragsz, gfp_t gfp_mask)
+ {
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
