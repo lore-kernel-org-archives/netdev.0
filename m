@@ -1,79 +1,79 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/14] netfilter: nf_tables: fix race when create new element in dynset
-Date: Thu, 10 Nov 2016 01:23:36 +0100
-Message-ID: <1478737427-1574-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/14] netfilter: nf_tables: fix type mismatch with error return from nft_parse_u32_check
+Date: Thu, 10 Nov 2016 01:23:38 +0100
+Message-ID: <1478737427-1574-6-git-send-email-pablo@netfilter.org>
 References: <1478737427-1574-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37750 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:37752 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754593AbcKJAYF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Nov 2016 19:24:05 -0500
+        id S1754756AbcKJAYI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Nov 2016 19:24:08 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id D4BC496213
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 01:24:02 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id E5D679662B
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 01:24:06 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id C3604DA80B
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 01:24:02 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D5E17DA804
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 01:24:06 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id BDB72DA81A
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 01:23:59 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 75975DA804
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 01:24:01 +0100 (CET)
 In-Reply-To: <1478737427-1574-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <zlpnobody@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
 
-Packets may race when create the new element in nft_hash_update:
-       CPU0                 CPU1
-  lookup_fast - fail     lookup_fast - fail
-       new - ok             new - ok
-     insert - ok         insert - fail(EEXIST)
+Commit 36b701fae12ac ("netfilter: nf_tables: validate maximum value of
+u32 netlink attributes") introduced nft_parse_u32_check with a return
+value of "unsigned int", yet on error it returns "-ERANGE".
 
-So when race happened, we reuse the existing element. Otherwise,
-these *racing* packets will not be handled properly.
+This patch corrects the mismatch by changing the return value to "int",
+which happens to match the actual users of nft_parse_u32_check already.
 
-Fixes: 22fe54d5fefc ("netfilter: nf_tables: add support for dynamic set updates")
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Found by Coverity, CID 1373930.
+
+Note that commit 21a9e0f1568ea ("netfilter: nft_exthdr: fix error
+handling in nft_exthdr_init()) attempted to address the issue, but
+did not address the return type of nft_parse_u32_check.
+
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Cc: Laura Garcia Liebana <nevola@gmail.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Fixes: 36b701fae12ac ("netfilter: nf_tables: validate maximum value...")
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_set_hash.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+ include/net/netfilter/nf_tables.h | 2 +-
+ net/netfilter/nf_tables_api.c     | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
-index 88d9fc8343e7..a3dface3e6e6 100644
---- a/net/netfilter/nft_set_hash.c
-+++ b/net/netfilter/nft_set_hash.c
-@@ -98,7 +98,7 @@ static bool nft_hash_update(struct nft_set *set, const u32 *key,
- 			    const struct nft_set_ext **ext)
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 741dcded5b4f..d79d1e9b9546 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -145,7 +145,7 @@ static inline enum nft_registers nft_type_to_reg(enum nft_data_types type)
+ 	return type == NFT_DATA_VERDICT ? NFT_REG_VERDICT : NFT_REG_1 * NFT_REG_SIZE / NFT_REG32_SIZE;
+ }
+ 
+-unsigned int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest);
++int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest);
+ unsigned int nft_parse_register(const struct nlattr *attr);
+ int nft_dump_register(struct sk_buff *skb, unsigned int attr, unsigned int reg);
+ 
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 86e48aeb20be..365d31b86816 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -4422,7 +4422,7 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
+  *	Otherwise a 0 is returned and the attribute value is stored in the
+  *	destination variable.
+  */
+-unsigned int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
++int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
  {
- 	struct nft_hash *priv = nft_set_priv(set);
--	struct nft_hash_elem *he;
-+	struct nft_hash_elem *he, *prev;
- 	struct nft_hash_cmp_arg arg = {
- 		.genmask = NFT_GENMASK_ANY,
- 		.set	 = set,
-@@ -112,9 +112,18 @@ static bool nft_hash_update(struct nft_set *set, const u32 *key,
- 	he = new(set, expr, regs);
- 	if (he == NULL)
- 		goto err1;
--	if (rhashtable_lookup_insert_key(&priv->ht, &arg, &he->node,
--					 nft_hash_params))
-+
-+	prev = rhashtable_lookup_get_insert_key(&priv->ht, &arg, &he->node,
-+						nft_hash_params);
-+	if (IS_ERR(prev))
- 		goto err2;
-+
-+	/* Another cpu may race to insert the element with the same key */
-+	if (prev) {
-+		nft_set_elem_destroy(set, he, true);
-+		he = prev;
-+	}
-+
- out:
- 	*ext = &he->ext;
- 	return true;
+ 	u32 val;
+ 
 -- 
 2.1.4
