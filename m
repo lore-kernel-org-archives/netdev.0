@@ -1,135 +1,108 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next PATCH] amd-xgbe: use __maybe_unused to hide pm functions
-Date: Thu, 10 Nov 2016 11:47:48 +0100
-Message-ID: <3786660.Dsz56fUYtX@wuerfel>
-References: <20161108133802.1716319-1-arnd@arndb.de> <20161109.203251.2242759501432326877.davem@davemloft.net>
+From: =?UTF-8?Q?Vicente_Jim=C3=A9nez?= <googuy@gmail.com>
+Subject: Re: [Regression w/ patch] Restore network resistance to weird ICMP messages
+Date: Thu, 10 Nov 2016 11:52:01 +0100
+Message-ID: <CAO1wt+aZ-vkP0e43oSvxWR-rNXKfbPFh1P=Shkn6x_rCczmX1A@mail.gmail.com>
+References: <CAO1wt+Y7JfeCXnrR5BeZ7K6dErmB3nfdA4mRkFQ21S=VPCkLXg@mail.gmail.com>
+ <20161109.202210.1450575682716819324.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Linux PM <linux-pm@vger.kernel.org>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Kirtika Ruchandani <kirtika.ruchandani@gmail.com>
+Content-Type: multipart/mixed; boundary=001a1130d266da0d650540f029aa
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161109.203251.2242759501432326877.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34944 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754796AbcKJKwD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 05:52:03 -0500
+In-Reply-To: <20161109.202210.1450575682716819324.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 9, 2016 8:32:51 PM CET David Miller wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Tue,  8 Nov 2016 14:37:32 +0100
-> 
-> > The amd-xgbe ethernet driver hides its suspend/resume functions
-> > in #ifdef CONFIG_PM, but uses SIMPLE_DEV_PM_OPS() to make the
-> > reference conditional on CONFIG_PM_SLEEP, which results in a
-> > warning when PM_SLEEP is not set but PM is:
-> > 
-> > drivers/net/ethernet/amd/xgbe/xgbe-platform.c:553:12: error: 'xgbe_platform_resume' defined but not used [-Werror=unused-function]
-> > drivers/net/ethernet/amd/xgbe/xgbe-platform.c:533:12: error: 'xgbe_platform_suspend' defined but not used [-Werror=unused-function]
-> > 
-> > This removes the incorrect #ifdef and instead uses a __maybe_unused
-> > annotation to let the compiler know it can silently drop
-> > the function definition.
-> > 
-> > Fixes: bd8255d8ba35 ("amd-xgbe: Prepare for supporting PCI devices")
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > ---
-> > I originally submitted this when in March 2016, but the patch has not
-> > yet made it upstream, and the file contents have moved around so
-> > the old patch no longer applied so I'm resending the rebased version
-> > now.
-> 
-> By and large, drivers handle this by using a CONFIG_PM_SLEEP ifdef.
-> 
-> Unless you can make an extremely convincing argument why not to do
-> so here, I'd like you to handle it that way instead.
+--001a1130d266da0d650540f029aa
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-[adding linux-pm to Cc]
+Corrected patch attached.
+Thanks for the advices.
+I was unaware of those style policies.
 
-The main reason is that everyone gets the #ifdef wrong, I run into
-half a dozen new build regressions with linux-next every week on
-average, the typical problems being:
+On Thu, Nov 10, 2016 at 2:22 AM, David Miller <davem@davemloft.net> wrote:
+> From: Vicente Jim=C3=A9nez <googuy@gmail.com>
+> Date: Mon, 7 Nov 2016 12:11:59 +0100
+>
+>> From bfc9a00e6b78d8eb60e46dacd7d761669d29a573 Mon Sep 17 00:00:00 2001
+>> From: Vicente Jimenez Aguilar <googuy@gmail.com>
+>> Date: Mon, 31 Oct 2016 13:10:29 +0100
+>> Subject: [PATCH] ipv4: icmp: Fix pMTU handling for rarest case
+>>
+>> Restore network resistance to weird ICMP fragmentation needed messages
+>> with next hop MTU equal to (or exceeding) dropped packet size
+>>
+>> Fixes: 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
+>> Signed-off-by: Vicente Jimenez Aguilar <googuy@gmail.com>
+>> ---
+>>  net/ipv4/icmp.c | 7 +++++++
+>>  1 file changed, 7 insertions(+)
+>>
+>> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+>> index 38abe70..c0af1d2 100644
+>> --- a/net/ipv4/icmp.c
+>> +++ b/net/ipv4/icmp.c
+>> @@ -776,6 +776,7 @@ static bool icmp_unreach(struct sk_buff *skb)
+>>       struct icmphdr *icmph;
+>>       struct net *net;
+>>       u32 info =3D 0;
+>> +     unsigned short old_mtu;
+>>
+>>       net =3D dev_net(skb_dst(skb)->dev);
+>>
+>
+> Order local variable declarations from longest to shortest line
+> please.
+>
+>> +                             if ( info >=3D old_mtu )
+>
+> There should be no space after the '(' and before the ')' in this
+> conditional.
 
-- testing CONFIG_PM_SLEEP instead of CONFIG_PM, leading to an unused
-  function warning
-- testing CONFIG_PM instead of CONFIG_PM_SLEEP, leading to a build
-  failure
-- calling a function outside of the #ifdef only from inside an
-  otherwise correct #ifdef, again leading to an unused function
-  warning
-- causing a warning inside of the #ifdef but only testing if that
-  is disabled, leading to a problem if the macro is set (this is
-  rare these days for CONFIG_PM as that is normally enabled)
 
-Using __maybe_unused avoids all of the above. My plan for the
-long run however is to change the macro to something like
 
-#define SET_SYSTEM_SLEEP_PM_OPS(suspend_fn, resume_fn) \
-        .suspend   = IS_ENABLED(CONFIG_PM_SLEEP) ? suspend_fn : NULL, \
-        .resume    = IS_ENABLED(CONFIG_PM_SLEEP) ? resume_fn  : NULL, \
-        .freeze    = IS_ENABLED(CONFIG_PM_SLEEP) ? suspend_fn : NULL, \
-        .thaw      = IS_ENABLED(CONFIG_PM_SLEEP) ? resume_fn  : NULL, \
-        .poweroff  = IS_ENABLED(CONFIG_PM_SLEEP) ? suspend_fn : NULL, \
-        .restore   = IS_ENABLED(CONFIG_PM_SLEEP) ? resume_fn  : NULL, 
+--=20
+saludos
+vicente
 
-#define SET_RUNTIME_PM_OPS(suspend_fn, resume_fn, idle_fn) \
-        .runtime_suspend = IS_ENABLED(CONFIG_PM) ? suspend_fn : NULL, \
-        .runtime_resume  = IS_ENABLED(CONFIG_PM) ? resume_fn  : NULL, \
-        .runtime_idle    = IS_ENABLED(CONFIG_PM) ? idle_fn    : NULL,
+--001a1130d266da0d650540f029aa
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="0001-ipv4-icmp-Fix-pMTU-handling-for-rarest-case.patch"
+Content-Disposition: attachment;
+	filename="0001-ipv4-icmp-Fix-pMTU-handling-for-rarest-case.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ivc8drtr0
 
-I just haven't found the energy to start that discussion. With a definition
-like this, we would need neither #ifdef nor __maybe_unused. Unfortunately
-we can't just replace the existing macro while keeping the same name
-because that would break every single user that has the #ifdef.
-
-There was some discussion about that a while ago but no patch was merged
-for it. I think in order to pull this off, we'd have to introduced
-replacements for the existing six macros and change over the ~1000
-existing users before removing the existing definitions:
-
-   202  SET_SYSTEM_SLEEP_PM_OPS
-    14  SET_LATE_SYSTEM_SLEEP_PM_OPS
-    11  SET_NOIRQ_SYSTEM_SLEEP_PM_OPS
-   218  SET_RUNTIME_PM_OPS
-   551  SIMPLE_DEV_PM_OPS
-    12  UNIVERSAL_DEV_PM_OPS
-
-This would of course be a nontrivial amount of work, but it could
-be mostly automated using coccinelle. In files per subsystem,
-this would be
-
-      7 drivers/acpi
-     14 drivers/ata
-     17 drivers/char
-      6 drivers/crypto
-     26 drivers/dma
-      7 drivers/extcon
-      7 drivers/gpio
-     41 drivers/gpu
-     10 drivers/hwmon
-      7 drivers/hwtracing
-     29 drivers/i2c
-     90 drivers/iio
-     37 drivers/media
-     28 drivers/mfd
-     15 drivers/misc
-     52 drivers/mmc
-     11 drivers/mtd
-     67 drivers/net
-     10 drivers/pinctrl
-     19 drivers/platform
-     13 drivers/power
-      7 drivers/pwm
-     44 drivers/rtc
-     46 drivers/spi
-     15 drivers/staging
-     11 drivers/thermal
-     22 drivers/tty
-     37 drivers/usb
-     32 drivers/video
-     15 drivers/watchdog
-     38 sound/pci
-     52 sound/soc
-
-	Arnd
+RnJvbSA4OGFjNDlmYTI4N2UyZTBkM2QzYmM4MDVkZWExZmVjMzAxYWFkMWRmIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBWaWNlbnRlIEppbWVuZXogQWd1aWxhciA8Z29vZ3V5QGdtYWls
+LmNvbT4KRGF0ZTogTW9uLCAzMSBPY3QgMjAxNiAxMzoxMDoyOSArMDEwMApTdWJqZWN0OiBbUEFU
+Q0hdIGlwdjQ6IGljbXA6IEZpeCBwTVRVIGhhbmRsaW5nIGZvciByYXJlc3QgY2FzZQoKUmVzdG9y
+ZSBuZXR3b3JrIHJlc2lzdGFuY2UgdG8gd2VpcmQgSUNNUCBmcmFnbWVudGF0aW9uIG5lZWRlZCBt
+ZXNzYWdlcwp3aXRoIG5leHQgaG9wIE1UVSBlcXVhbCB0byAob3IgZXhjZWVkaW5nKSBkcm9wcGVk
+IHBhY2tldCBzaXplCgpGaXhlczogNDY1MTcwMDhlMTE2ICgiaXB2NDogS2lsbCBpcF9ydF9mcmFn
+X25lZWRlZCgpLiIpClNpZ25lZC1vZmYtYnk6IFZpY2VudGUgSmltZW5leiBBZ3VpbGFyIDxnb29n
+dXlAZ21haWwuY29tPgotLS0KIG5ldC9pcHY0L2ljbXAuYyB8IDcgKysrKysrKwogMSBmaWxlIGNo
+YW5nZWQsIDcgaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBhL25ldC9pcHY0L2ljbXAuYyBiL25l
+dC9pcHY0L2ljbXAuYwppbmRleCAzOGFiZTcwLi40YzkwZDc2IDEwMDY0NAotLS0gYS9uZXQvaXB2
+NC9pY21wLmMKKysrIGIvbmV0L2lwdjQvaWNtcC5jCkBAIC03NzMsNiArNzczLDcgQEAgc3RhdGlj
+IGJvb2wgaWNtcF90YWdfdmFsaWRhdGlvbihpbnQgcHJvdG8pCiBzdGF0aWMgYm9vbCBpY21wX3Vu
+cmVhY2goc3RydWN0IHNrX2J1ZmYgKnNrYikKIHsKIAljb25zdCBzdHJ1Y3QgaXBoZHIgKmlwaDsK
+Kwl1bnNpZ25lZCBzaG9ydCBvbGRfbXR1OwogCXN0cnVjdCBpY21waGRyICppY21waDsKIAlzdHJ1
+Y3QgbmV0ICpuZXQ7CiAJdTMyIGluZm8gPSAwOwpAQCAtODE5LDYgKzgyMCwxMiBAQCBzdGF0aWMg
+Ym9vbCBpY21wX3VucmVhY2goc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJCQkvKiBmYWxsIHRocm91
+Z2ggKi8KIAkJCWNhc2UgMDoKIAkJCQlpbmZvID0gbnRvaHMoaWNtcGgtPnVuLmZyYWcubXR1KTsK
+KwkJCQkvKiBIYW5kbGUgd2VpcmQgY2FzZSB3aGVyZSBuZXh0IGhvcCBNVFUgaXMKKwkJCQkgKiBl
+cXVhbCB0byBvciBleGNlZWRpbmcgZHJvcHBlZCBwYWNrZXQgc2l6ZQorCQkJCSAqLworCQkJCW9s
+ZF9tdHUgPSBudG9ocyhpcGgtPnRvdF9sZW4pOworCQkJCWlmIChpbmZvID49IG9sZF9tdHUpCisJ
+CQkJCWluZm8gPSBvbGRfbXR1IC0gMjsKIAkJCX0KIAkJCWJyZWFrOwogCQljYXNlIElDTVBfU1Jf
+RkFJTEVEOgotLSAKMi43LjMKCg==
+--001a1130d266da0d650540f029aa--
