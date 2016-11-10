@@ -1,126 +1,110 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: fix fixed prio cpdma
- ctlr configuration
-Date: Thu, 10 Nov 2016 10:37:29 -0600
-Message-ID: <37548a54-c54b-3194-691a-22fa8118ed3d@ti.com>
-References: <1478610656-24634-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <a20ab87c-4f9d-0eaa-e486-156d9f359866@ti.com>
- <592966c0-ae4c-ba6b-43ba-8ca837e9a700@linaro.org>
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Subject: Re: [Intel-wired-lan] [PATCH net] igb: re-assign hw address pointer
+ on reset after PCI error
+Date: Thu, 10 Nov 2016 14:48:30 -0200
+Message-ID: <5824A4DE.9020508@linux.vnet.ibm.com>
+References: <1477944749-22822-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+ <CAKgT0UdYrO14ytSgPfa6KgC0OPaydqtd2-j2+AQFgJMgz69d+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>,
+        "Fujinaka, Todd" <todd.fujinaka@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:36509 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934957AbcKJQhc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 11:37:32 -0500
-In-Reply-To: <592966c0-ae4c-ba6b-43ba-8ca837e9a700@linaro.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:39880 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S935416AbcKJQsh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 11:48:37 -0500
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uAAGhkMu024379
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 11:48:36 -0500
+Received: from e24smtp02.br.ibm.com (e24smtp02.br.ibm.com [32.104.18.86])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 26msch97yn-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 11:48:36 -0500
+Received: from localhost
+        by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
+        Thu, 10 Nov 2016 14:48:33 -0200
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+        by d24dlp01.br.ibm.com (Postfix) with ESMTP id DF77C3520078
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 11:48:02 -0500 (EST)
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
+        by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id uAAGmVeu4907080
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 14:48:31 -0200
+Received: from d24av01.br.ibm.com (localhost [127.0.0.1])
+        by d24av01.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id uAAGmUmA023950
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 14:48:30 -0200
+In-Reply-To: <CAKgT0UdYrO14ytSgPfa6KgC0OPaydqtd2-j2+AQFgJMgz69d+w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 11/09/2016 05:56 PM, Ivan Khoronzhuk wrote:
+On 11/09/2016 03:12 PM, Alexander Duyck wrote:
+> On Mon, Oct 31, 2016 at 1:12 PM, Guilherme G. Piccoli
+> <gpiccoli@linux.vnet.ibm.com> wrote:
+>> Whenever the igb driver detects the result of a read operation returns
+>> a value composed only by F's (like 0xFFFFFFFF), it will detach the
+>> net_device, clear the hw_addr pointer and warn to the user that adapter's
+>> link is lost - those steps happen on igb_rd32().
+>>
+>> In case a PCI error happens on Power architecture, there's a recovery
+>> mechanism called EEH, that will reset the PCI slot and call driver's
+>> handlers to reset the adapter and network functionality as well.
+>>
+>> We observed that once hw_addr is NULL after the error is detected on
+>> igb_rd32(), it's never assigned back, so in the process of resetting
+>> the network functionality we got a NULL pointer dereference in both
+>> igb_configure_tx_ring() and igb_configure_rx_ring(). In order to avoid
+>> such bug, we re-assign the hw_addr value in the beginning of the
+>> function igb_reset(), in case the hw_addr is NULL when we reach that
+>> path.
+>>
+>> Reported-by: Anthony H. Thai <ahthai@us.ibm.com>
+>> Reported-by: Harsha Thyagaraja <hathyaga@in.ibm.com>
+>> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
+>> ---
+>>  drivers/net/ethernet/intel/igb/igb_main.c | 7 +++++++
+>>  1 file changed, 7 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+>> index edc9a6a..c19119c 100644
+>> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+>> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+>> @@ -1873,6 +1873,13 @@ void igb_reset(struct igb_adapter *adapter)
+>>         struct e1000_fc_info *fc = &hw->fc;
+>>         u32 pba, hwm;
+>>
+>> +       /* In case of PCI error, adapter might have lost its HW
+>> +        * address; if we reached this point after an error scenario,
+>> +        * we should re-assign the hw_addr based on the saved io_addr.
+>> +        */
+>> +       if (!hw->hw_addr)
+>> +               hw->hw_addr = adapter->io_addr;
+>> +
+>>         /* Repartition Pba for greater than 9k mtu
+>>          * To take effect CTRL.RST is required.
+>>          */
 > 
+> It seems like this would have the potential to get noisy pretty
+> quickly since every reset would retrigger this.
 > 
-> On 09.11.16 23:09, Grygorii Strashko wrote:
->>
->>
->> On 11/08/2016 07:10 AM, Ivan Khoronzhuk wrote:
->>> The dma ctlr is reseted to 0 while cpdma start, thus cpdma ctlr
->>
->> I assume this is because cpdma_ctlr_start() does soft reset. Is it
->> correct?
-> Probably not. I've seen this register doesn't hold any previous settings
-> (just trash)
+> It might make more sense to move this line into igb_io_slot_reset and
+> igb_resume where the device would have gone through a reset of some
+> sort and then had the state of the device restored and the device
+> memory access was re-enabled via pci_enable_device_mem.  Also there is
+> no point in really doing the "if" since you should always be okay to
+> overwrite hw->hw_addr with adapter->io_addr.
 
-What register CPDMA_DMACONTROL or CPSW_DMACTRL?
+Thanks for the good suggestion Alexander, will send a V2.
+Cheers,
 
-> after cpdma_ctlr_stop(), actually after last channel is stopped (inside
-> of cpdma_ctlr_stop()).
+Guilherme
 
-So, You are stating that Registers context is changed after stop?
-
-> Then cpdma_ctlr_start() just reset it to 0.
-
-"just trash" or "0".
-
-Sry, I do not see how cpdma_ctlr_stop() can affect on registers state :(
-and I'd very appreciated if can provide more detailed information.
 
 > 
->>
->>> cannot be configured after cpdma is stopped. So, restore content
->>> of cpdma ctlr while off/on procedure.
->>>
->>> Based on net-next/master
->>
->> ^ remove it
-> sure
+> Thanks.
 > 
->>
->>>
->>> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->>> ---
->>>  drivers/net/ethernet/ti/cpsw.c          |   6 +-
->>>  drivers/net/ethernet/ti/davinci_cpdma.c | 103
->>> +++++++++++++++++---------------
->>>  drivers/net/ethernet/ti/davinci_cpdma.h |   2 +
->>>  3 files changed, 58 insertions(+), 53 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/ti/cpsw.c
->>> b/drivers/net/ethernet/ti/cpsw.c
->>> index b1ddf89..4d04b8e 100644
->>> --- a/drivers/net/ethernet/ti/cpsw.c
->>> +++ b/drivers/net/ethernet/ti/cpsw.c
->>> @@ -1376,10 +1376,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
->>>                    ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
->>>
->>>      if (!cpsw_common_res_usage_state(cpsw)) {
->>> -        /* setup tx dma to fixed prio and zero offset */
->>> -        cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1);
->>> -        cpdma_control_set(cpsw->dma, CPDMA_RX_BUFFER_OFFSET, 0);
->>> -
->>>          /* disable priority elevation */
->>>          __raw_writel(0, &cpsw->regs->ptype);
->>>
->>> @@ -2710,6 +2706,8 @@ static int cpsw_probe(struct platform_device
->>> *pdev)
->>>      dma_params.desc_align        = 16;
->>>      dma_params.has_ext_regs        = true;
->>>      dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
->>> +    dma_params.rxbuf_offset        = 0;
->>> +    dma_params.fixed_prio        = 1;
->>
->> Do we really need this new parameters? Do you have plans to use other
->> values?
-> I'm ok if this is static (equally as a bunch of rest in dma_params), no
-> see reason to use other values,
-
-That's what i wanted to know :) - go static, pls.
-
-> it at least now. But the issue is not only in these two parameters and
-> not only in cpsw_ndo_open().
-> It touches cpsw_set_channels() also, where ctlr stop/start is present.
-> In order to not copy cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED,
-> 1)...
-> in all such kind places in eth drivers, better to allow the cpdma to
-> control it's parameters...
+> - Alex
 > 
-> The cpdma ctlr register holds a little more parameters (but only two of
-> them are set in cpsw)
-> Maybe there is reason to save them also. Actually I'd seen this problem
-> when playing with
-> on/off channel shapers, unfortunately the cpdma ctlr holds this info
-> also, and it was lost
-> while on/off (but I'm going to restore it in chan_start()).
-> 
-
-I understand you change, but I'm note sure about real root cause :(
-
--- 
-regards,
--grygorii
