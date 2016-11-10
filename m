@@ -1,52 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,v2] Fixes: 5943634fc559 ("ipv4: Maintain redirect
- and PMTU info in struct rtable again.")
-Date: Wed, 09 Nov 2016 20:20:34 -0500 (EST)
-Message-ID: <20161109.202034.2263389836773612417.davem@davemloft.net>
-References: <1478558919-12014-1-git-send-email-ssurya@ieee.org>
+Subject: Re: [Regression w/ patch] Restore network resistance to weird ICMP
+ messages
+Date: Wed, 09 Nov 2016 20:22:10 -0500 (EST)
+Message-ID: <20161109.202210.1450575682716819324.davem@davemloft.net>
+References: <CAO1wt+Y7JfeCXnrR5BeZ7K6dErmB3nfdA4mRkFQ21S=VPCkLXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssurya@ieee.org
-To: stephen.suryaputra.lin@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: googuy@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46482 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46500 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752824AbcKJBUh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 20:20:37 -0500
-In-Reply-To: <1478558919-12014-1-git-send-email-ssurya@ieee.org>
+        with ESMTP id S1751420AbcKJBWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2016 20:22:13 -0500
+In-Reply-To: <CAO1wt+Y7JfeCXnrR5BeZ7K6dErmB3nfdA4mRkFQ21S=VPCkLXg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
-Date: Mon,  7 Nov 2016 17:48:39 -0500
+From: Vicente Jiménez <googuy@gmail.com>
+Date: Mon, 7 Nov 2016 12:11:59 +0100
 
-> ICMP redirects behavior is different after the commit above. An email
-> requesting the explanation on why the behavior needs to be different
-> was sent earlier to netdev (https://patchwork.ozlabs.org/patch/687728/).
-> Since there isn't a reply yet, I decided to prepare this formal patch.
+> From bfc9a00e6b78d8eb60e46dacd7d761669d29a573 Mon Sep 17 00:00:00 2001
+> From: Vicente Jimenez Aguilar <googuy@gmail.com>
+> Date: Mon, 31 Oct 2016 13:10:29 +0100
+> Subject: [PATCH] ipv4: icmp: Fix pMTU handling for rarest case
 > 
-> In v2.6 kernel, it used to be that ip_rt_redirect() calls
-> arp_bind_neighbour() which returns 0 and then the state of the neigh for
-> the new_gw is checked. If the state isn't valid then the redirected
-> route is deleted. This behavior is maintained up to v3.5.7 by
-> check_peer_redirect() because rt->rt_gateway is assigned to
-> peer->redirect_learned.a4 before calling ipv4_neigh_lookup().
+> Restore network resistance to weird ICMP fragmentation needed messages
+> with next hop MTU equal to (or exceeding) dropped packet size
 > 
-> After the commit, ipv4_neigh_lookup() is performed without the
-> rt_gateway assigned to the new_gw. In the case when rt_gateway (old_gw)
-> isn't zero, the function uses it as the key. The neigh is most likely valid
-> since the old_gw is the one that sends the ICMP redirect message. Then the
-> new_gw is assigned to fib_nh_exception. The problem is: the new_gw ARP may
-> never gets resolved and the traffic is blackholed.
+> Fixes: 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
+> Signed-off-by: Vicente Jimenez Aguilar <googuy@gmail.com>
+> ---
+>  net/ipv4/icmp.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
 > 
-> Changes from v1:
->  - use __ipv4_neigh_lookup instead (per Eric Dumazet).
-> 
-> Signed-off-by: Stephen Suryaputra Lin <ssurya@ieee.org>
+> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> index 38abe70..c0af1d2 100644
+> --- a/net/ipv4/icmp.c
+> +++ b/net/ipv4/icmp.c
+> @@ -776,6 +776,7 @@ static bool icmp_unreach(struct sk_buff *skb)
+>  	struct icmphdr *icmph;
+>  	struct net *net;
+>  	u32 info = 0;
+> +	unsigned short old_mtu;
+>  
+>  	net = dev_net(skb_dst(skb)->dev);
+>  
 
-The Fixes tag belongs in the commit message body, right before the
-signoff(s).  And you need to therefore write an appropriate subject
-line of the form:
+Order local variable declarations from longest to shortest line
+please.
 
-	[PATCH net,v2] $SUBSYSTEM: $DESCRIPTION
+> +				if ( info >= old_mtu )
+
+There should be no space after the '(' and before the ')' in this
+conditional.
