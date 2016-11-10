@@ -1,134 +1,67 @@
-From: "ivan.khoronzhuk" <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: fix fixed prio cpdma
- ctlr configuration
-Date: Thu, 10 Nov 2016 21:52:24 +0200
-Message-ID: <1501d6bd-ef97-cfb4-f02b-2b03b97ae636@globallogic.com>
-References: <1478610656-24634-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <a20ab87c-4f9d-0eaa-e486-156d9f359866@ti.com>
- <592966c0-ae4c-ba6b-43ba-8ca837e9a700@linaro.org>
- <37548a54-c54b-3194-691a-22fa8118ed3d@ti.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [patch net-next 1/8] Introduce ife encapsulation module
+Date: Thu, 10 Nov 2016 19:52:50 +0000
+Message-ID: <AM3PR05MB0759D7525807B4A30A2AEF5BACB80@AM3PR05MB0759.eurprd05.prod.outlook.com>
+References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
+        <1478776988-5400-2-git-send-email-jiri@resnulli.us>
+ <20161110.141731.1693686577994851858.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        mugunthanvnm@ti.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "geert+renesas@glider.be" <geert+renesas@glider.be>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "linux@roeck-us.net" <linux@roeck-us.net>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>,
+        "jiri@resnulli.us" <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:36101 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935677AbcKJTw3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 14:52:29 -0500
-Received: by mail-lf0-f43.google.com with SMTP id t196so198957272lff.3
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 11:52:28 -0800 (PST)
-In-Reply-To: <37548a54-c54b-3194-691a-22fa8118ed3d@ti.com>
+Received: from mail-db5eur01on0076.outbound.protection.outlook.com ([104.47.2.76]:63296
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S933973AbcKJTwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Nov 2016 14:52:53 -0500
+In-Reply-To: <20161110.141731.1693686577994851858.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Thursday, November 10, 2016 9:18 PM
+>To: jiri@resnulli.us
+>Cc: netdev@vger.kernel.org; Yotam Gigi <yotamg@mellanox.com>; Ido Schimmel
+><idosch@mellanox.com>; Elad Raz <eladr@mellanox.com>; Nogah Frankel
+><nogahf@mellanox.com>; Or Gerlitz <ogerlitz@mellanox.com>;
+>jhs@mojatatu.com; geert+renesas@glider.be; stephen@networkplumber.org;
+>xiyou.wangcong@gmail.com; linux@roeck-us.net; roopa@cumulusnetworks.com
+>Subject: Re: [patch net-next 1/8] Introduce ife encapsulation module
+>
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Thu, 10 Nov 2016 12:23:01 +0100
+>
+>> +void *ife_encode(struct sk_buff *skb, u16 metalen)
+>
+>metalen is u16
+>
+>> +	metalen =3D htons(metalen);
+>
+>htons() returns be16.
+>
+>> +int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const vo=
+id
+>*dval)
+>> +{
+>> +	u32 *tlv =3D (u32 *) (skbdata);
+> ...
+>> +	*tlv =3D htonl(htlv);
+>
+>Similar situation here.
 
-
-On 10.11.16 18:37, Grygorii Strashko wrote:
->
->
-> On 11/09/2016 05:56 PM, Ivan Khoronzhuk wrote:
->>
->>
->> On 09.11.16 23:09, Grygorii Strashko wrote:
->>>
->>>
->>> On 11/08/2016 07:10 AM, Ivan Khoronzhuk wrote:
->>>> The dma ctlr is reseted to 0 while cpdma start, thus cpdma ctlr
->>>
->>> I assume this is because cpdma_ctlr_start() does soft reset. Is it
->>> correct?
->> Probably not. I've seen this register doesn't hold any previous settings
->> (just trash)
->
-> What register CPDMA_DMACONTROL or CPSW_DMACTRL?
->
->> after cpdma_ctlr_stop(), actually after last channel is stopped (inside
->> of cpdma_ctlr_stop()).
->
-> So, You are stating that Registers context is changed after stop?
->
->> Then cpdma_ctlr_start() just reset it to 0.
->
-> "just trash" or "0".
->
-> Sry, I do not see how cpdma_ctlr_stop() can affect on registers state :(
-> and I'd very appreciated if can provide more detailed information.
->
-I've checked again, it was my mistake. It simply reset to 0 while soft reset.
-
->>
->>>
->>>> cannot be configured after cpdma is stopped. So, restore content
->>>> of cpdma ctlr while off/on procedure.
->>>>
->>>> Based on net-next/master
->>>
->>> ^ remove it
->> sure
->>
->>>
->>>>
->>>> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->>>> ---
->>>>  drivers/net/ethernet/ti/cpsw.c          |   6 +-
->>>>  drivers/net/ethernet/ti/davinci_cpdma.c | 103
->>>> +++++++++++++++++---------------
->>>>  drivers/net/ethernet/ti/davinci_cpdma.h |   2 +
->>>>  3 files changed, 58 insertions(+), 53 deletions(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/ti/cpsw.c
->>>> b/drivers/net/ethernet/ti/cpsw.c
->>>> index b1ddf89..4d04b8e 100644
->>>> --- a/drivers/net/ethernet/ti/cpsw.c
->>>> +++ b/drivers/net/ethernet/ti/cpsw.c
->>>> @@ -1376,10 +1376,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
->>>>                    ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
->>>>
->>>>      if (!cpsw_common_res_usage_state(cpsw)) {
->>>> -        /* setup tx dma to fixed prio and zero offset */
->>>> -        cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1);
->>>> -        cpdma_control_set(cpsw->dma, CPDMA_RX_BUFFER_OFFSET, 0);
->>>> -
->>>>          /* disable priority elevation */
->>>>          __raw_writel(0, &cpsw->regs->ptype);
->>>>
->>>> @@ -2710,6 +2706,8 @@ static int cpsw_probe(struct platform_device
->>>> *pdev)
->>>>      dma_params.desc_align        = 16;
->>>>      dma_params.has_ext_regs        = true;
->>>>      dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
->>>> +    dma_params.rxbuf_offset        = 0;
->>>> +    dma_params.fixed_prio        = 1;
->>>
->>> Do we really need this new parameters? Do you have plans to use other
->>> values?
->> I'm ok if this is static (equally as a bunch of rest in dma_params), no
->> see reason to use other values,
->
-> That's what i wanted to know :) - go static, pls.
->
->> it at least now. But the issue is not only in these two parameters and
->> not only in cpsw_ndo_open().
->> It touches cpsw_set_channels() also, where ctlr stop/start is present.
->> In order to not copy cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED,
->> 1)...
->> in all such kind places in eth drivers, better to allow the cpdma to
->> control it's parameters...
->>
->> The cpdma ctlr register holds a little more parameters (but only two of
->> them are set in cpsw)
->> Maybe there is reason to save them also. Actually I'd seen this problem
->> when playing with
->> on/off channel shapers, unfortunately the cpdma ctlr holds this info
->> also, and it was lost
->> while on/off (but I'm going to restore it in chan_start()).
->>
->
-> I understand you change, but I'm note sure about real root cause :(
-so, are you Ok with current version?
-
->
+I will fix those and we will send a v2.
