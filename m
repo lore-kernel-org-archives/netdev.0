@@ -1,130 +1,147 @@
-From: Scott Wood <oss@buserror.net>
-Subject: Re: [v16, 0/7] Fix eSDHC host version register bug
-Date: Wed, 09 Nov 2016 21:55:14 -0600
-Message-ID: <1478750114.21746.4.camel@buserror.net>
+From: "Y.B. Lu" <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [v16, 0/7] Fix eSDHC host version register bug
+Date: Thu, 10 Nov 2016 04:06:05 +0000
+Message-ID: <DB6PR0401MB25364DB523031CB267FC8CEFF8B80@DB6PR0401MB2536.eurprd04.prod.outlook.com>
 References: <1478661252-42439-1-git-send-email-yangbo.lu@nxp.com>
-         <CAPDyKFrcAN_pqgtGaUanfB2zh97zGcL23m5VDtJ3g==NJeRrfA@mail.gmail.com>
+	<CAPDyKFrcAN_pqgtGaUanfB2zh97zGcL23m5VDtJ3g==NJeRrfA@mail.gmail.com>
+	<1478750114.21746.4.camel@buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-mmc <linux-mmc@vger.kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        linux-clk <linux-clk@vger.kernel.org>,
-        iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Russell King <linux@arm.linux.org.uk>,
-        Jochen Friedrich <jochen@scram.de>,
-        Joerg Roedel <joro@8bytes.org>,
-        Claudiu Manoil <claudiu.manoil@freescale.com>,
-        Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-        Qiang
-To: Ulf Hansson <ulf.hansson@linaro.org>, Yangbo Lu <yangbo.lu@nxp.com>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <CAPDyKFrcAN_pqgtGaUanfB2zh97zGcL23m5VDtJ3g==NJeRrfA@mail.gmail.com>
-Sender: linux-mmc-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"X.B. Xie" <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>, "M.H. Lian" <minghuan.lian-3arQi8VN3Tc@public.gmane.org>,
+	linux-clk <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, Jochen
+	Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-mmc <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Kumar Gala <galak@codeauror
+To: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1478750114.21746.4.camel-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-11-09 at 19:27 +0100, Ulf Hansson wrote:
-> - i2c-list
-> 
-> On 9 November 2016 at 04:14, Yangbo Lu <yangbo.lu@nxp.com> wrote:
-> > 
-> > This patchset is used to fix a host version register bug in the T4240-
-> > R1.0-R2.0
-> > eSDHC controller. To match the SoC version and revision, 15 previous
-> > version
-> > patchsets had tried many methods but all of them were rejected by
-> > reviewers.
-> > Such as
-> >         - dts compatible method
-> >         - syscon method
-> >         - ifdef PPC method
-> >         - GUTS driver getting SVR method
-> > Anrd suggested a soc_device_match method in v10, and this is the only
-> > available
-> > method left now. This v11 patchset introduces the soc_device_match
-> > interface in
-> > soc driver.
-> > 
-> > The first four patches of Yangbo are to add the GUTS driver. This is used
-> > to
-> > register a soc device which contain soc version and revision information.
-> > The other three patches introduce the soc_device_match method in soc
-> > driver
-> > and apply it on esdhc driver to fix this bug.
-> > 
-> > ---
-> > Changes for v15:
-> >         - Dropped patch 'dt: bindings: update Freescale DCFG compatible'
-> >           since the work had been done by below patch on ShawnGuo's linux
-> > tree.
-> >           'dt-bindings: fsl: add LS1043A/LS1046A/LS2080A compatible for
-> > SCFG
-> >            and DCFG'
-> >         - Fixed error code issue in guts driver
-> > Changes for v16:
-> >         - Dropped patch 'powerpc/fsl: move mpc85xx.h to include/linux/fsl'
-> >         - Added a bug-fix patch from Geert
-> > ---
-> > 
-> > Arnd Bergmann (1):
-> >   base: soc: introduce soc_device_match() interface
-> > 
-> > Geert Uytterhoeven (1):
-> >   base: soc: Check for NULL SoC device attributes
-> > 
-> > Yangbo Lu (5):
-> >   ARM64: dts: ls2080a: add device configuration node
-> >   dt: bindings: move guts devicetree doc out of powerpc directory
-> >   soc: fsl: add GUTS driver for QorIQ platforms
-> >   MAINTAINERS: add entry for Freescale SoC drivers
-> >   mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
-> > 
-> >  .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
-> >  MAINTAINERS                                        |  11 +-
-> >  arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 +
-> >  drivers/base/Kconfig                               |   1 +
-> >  drivers/base/soc.c                                 |  70 ++++++
-> >  drivers/mmc/host/Kconfig                           |   1 +
-> >  drivers/mmc/host/sdhci-of-esdhc.c                  |  20 ++
-> >  drivers/soc/Kconfig                                |   3 +-
-> >  drivers/soc/fsl/Kconfig                            |  18 ++
-> >  drivers/soc/fsl/Makefile                           |   1 +
-> >  drivers/soc/fsl/guts.c                             | 236
-> > +++++++++++++++++++++
-> >  include/linux/fsl/guts.h                           | 125 ++++++-----
-> >  include/linux/sys_soc.h                            |   3 +
-> >  13 files changed, 447 insertions(+), 51 deletions(-)
-> >  rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt
-> > (91%)
-> >  create mode 100644 drivers/soc/fsl/Kconfig
-> >  create mode 100644 drivers/soc/fsl/guts.c
-> > 
-> > --
-> > 2.1.0.27.g96db324
-> > 
-> Thanks, applied on my mmc tree for next!
-> 
-> I noticed that some DT compatibles weren't documented, according to
-> checkpatch. Please fix that asap!
-
-They are documented, in fsl/guts.txt (the file moved in patch 2/7):
->  - compatible : Should define the compatible device type for
->    global-utilities.
->    Possible compatibles:
->         "fsl,qoriq-device-config-1.0"
->         "fsl,qoriq-device-config-2.0"
->         "fsl,<chip>-device-config"
->         "fsl,<chip>-guts"
-
-Checkpatch doesn't understand compatibles defined in such a way.
-
--Scott
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBsaW51eC1tbWMtb3duZXJAdmdl
+ci5rZXJuZWwub3JnIFttYWlsdG86bGludXgtbW1jLQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmdd
+IE9uIEJlaGFsZiBPZiBTY290dCBXb29kDQo+IFNlbnQ6IFRodXJzZGF5LCBOb3ZlbWJlciAxMCwg
+MjAxNiAxMTo1NSBBTQ0KPiBUbzogVWxmIEhhbnNzb247IFkuQi4gTHUNCj4gQ2M6IGxpbnV4LW1t
+YzsgQXJuZCBCZXJnbWFubjsgbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmc7DQo+IGRldmlj
+ZXRyZWVAdmdlci5rZXJuZWwub3JnOyBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5v
+cmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC1jbGs7IGlvbW11QGxp
+c3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBHcmVn
+IEtyb2FoLUhhcnRtYW47IE1hcmsgUnV0bGFuZDsgUm9iIEhlcnJpbmc7DQo+IFJ1c3NlbGwgS2lu
+ZzsgSm9jaGVuIEZyaWVkcmljaDsgSm9lcmcgUm9lZGVsOyBDbGF1ZGl1IE1hbm9pbDsgQmh1cGVz
+aA0KPiBTaGFybWE7IFFpYW5nIFpoYW87IEt1bWFyIEdhbGE7IExlbyBMaTsgWC5CLiBYaWU7IE0u
+SC4gTGlhbg0KPiBTdWJqZWN0OiBSZTogW3YxNiwgMC83XSBGaXggZVNESEMgaG9zdCB2ZXJzaW9u
+IHJlZ2lzdGVyIGJ1Zw0KPiANCj4gT24gV2VkLCAyMDE2LTExLTA5IGF0IDE5OjI3ICswMTAwLCBV
+bGYgSGFuc3NvbiB3cm90ZToNCj4gPiAtIGkyYy1saXN0DQo+ID4NCj4gPiBPbiA5IE5vdmVtYmVy
+IDIwMTYgYXQgMDQ6MTQsIFlhbmdibyBMdSA8eWFuZ2JvLmx1QG54cC5jb20+IHdyb3RlOg0KPiA+
+ID4NCj4gPiA+IFRoaXMgcGF0Y2hzZXQgaXMgdXNlZCB0byBmaXggYSBob3N0IHZlcnNpb24gcmVn
+aXN0ZXIgYnVnIGluIHRoZQ0KPiA+ID4gVDQyNDAtDQo+ID4gPiBSMS4wLVIyLjANCj4gPiA+IGVT
+REhDIGNvbnRyb2xsZXIuIFRvIG1hdGNoIHRoZSBTb0MgdmVyc2lvbiBhbmQgcmV2aXNpb24sIDE1
+IHByZXZpb3VzDQo+ID4gPiB2ZXJzaW9uIHBhdGNoc2V0cyBoYWQgdHJpZWQgbWFueSBtZXRob2Rz
+IGJ1dCBhbGwgb2YgdGhlbSB3ZXJlDQo+ID4gPiByZWplY3RlZCBieSByZXZpZXdlcnMuDQo+ID4g
+PiBTdWNoIGFzDQo+ID4gPiDCoMKgwqDCoMKgwqDCoMKgLSBkdHMgY29tcGF0aWJsZSBtZXRob2QN
+Cj4gPiA+IMKgwqDCoMKgwqDCoMKgwqAtIHN5c2NvbiBtZXRob2QNCj4gPiA+IMKgwqDCoMKgwqDC
+oMKgwqAtIGlmZGVmIFBQQyBtZXRob2QNCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqAtIEdVVFMgZHJp
+dmVyIGdldHRpbmcgU1ZSIG1ldGhvZCBBbnJkIHN1Z2dlc3RlZCBhDQo+ID4gPiBzb2NfZGV2aWNl
+X21hdGNoIG1ldGhvZCBpbiB2MTAsIGFuZCB0aGlzIGlzIHRoZSBvbmx5IGF2YWlsYWJsZQ0KPiA+
+ID4gbWV0aG9kIGxlZnQgbm93LiBUaGlzIHYxMSBwYXRjaHNldCBpbnRyb2R1Y2VzIHRoZSBzb2Nf
+ZGV2aWNlX21hdGNoDQo+ID4gPiBpbnRlcmZhY2UgaW4gc29jIGRyaXZlci4NCj4gPiA+DQo+ID4g
+PiBUaGUgZmlyc3QgZm91ciBwYXRjaGVzIG9mIFlhbmdibyBhcmUgdG8gYWRkIHRoZSBHVVRTIGRy
+aXZlci4gVGhpcyBpcw0KPiA+ID4gdXNlZCB0byByZWdpc3RlciBhIHNvYyBkZXZpY2Ugd2hpY2gg
+Y29udGFpbiBzb2MgdmVyc2lvbiBhbmQgcmV2aXNpb24NCj4gPiA+IGluZm9ybWF0aW9uLg0KPiA+
+ID4gVGhlIG90aGVyIHRocmVlIHBhdGNoZXMgaW50cm9kdWNlIHRoZSBzb2NfZGV2aWNlX21hdGNo
+IG1ldGhvZCBpbiBzb2MNCj4gPiA+IGRyaXZlciBhbmQgYXBwbHkgaXQgb24gZXNkaGMgZHJpdmVy
+IHRvIGZpeCB0aGlzIGJ1Zy4NCj4gPiA+DQo+ID4gPiAtLS0NCj4gPiA+IENoYW5nZXMgZm9yIHYx
+NToNCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqAtIERyb3BwZWQgcGF0Y2ggJ2R0OiBiaW5kaW5nczog
+dXBkYXRlIEZyZWVzY2FsZSBEQ0ZHDQo+IGNvbXBhdGlibGUnDQo+ID4gPiDCoMKgwqDCoMKgwqDC
+oMKgwqDCoHNpbmNlIHRoZSB3b3JrIGhhZCBiZWVuIGRvbmUgYnkgYmVsb3cgcGF0Y2ggb24gU2hh
+d25HdW8ncw0KPiA+ID4gbGludXggdHJlZS4NCj4gPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgJ2R0
+LWJpbmRpbmdzOiBmc2w6IGFkZCBMUzEwNDNBL0xTMTA0NkEvTFMyMDgwQSBjb21wYXRpYmxlDQo+
+ID4gPiBmb3IgU0NGRw0KPiA+ID4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGFuZCBEQ0ZHJw0KPiA+
+ID4gwqDCoMKgwqDCoMKgwqDCoC0gRml4ZWQgZXJyb3IgY29kZSBpc3N1ZSBpbiBndXRzIGRyaXZl
+ciBDaGFuZ2VzIGZvciB2MTY6DQo+ID4gPiDCoMKgwqDCoMKgwqDCoMKgLSBEcm9wcGVkIHBhdGNo
+ICdwb3dlcnBjL2ZzbDogbW92ZSBtcGM4NXh4LmggdG8NCj4gaW5jbHVkZS9saW51eC9mc2wnDQo+
+ID4gPiDCoMKgwqDCoMKgwqDCoMKgLSBBZGRlZCBhIGJ1Zy1maXggcGF0Y2ggZnJvbSBHZWVydA0K
+PiA+ID4gLS0tDQo+ID4gPg0KPiA+ID4gQXJuZCBCZXJnbWFubiAoMSk6DQo+ID4gPiDCoCBiYXNl
+OiBzb2M6IGludHJvZHVjZSBzb2NfZGV2aWNlX21hdGNoKCkgaW50ZXJmYWNlDQo+ID4gPg0KPiA+
+ID4gR2VlcnQgVXl0dGVyaG9ldmVuICgxKToNCj4gPiA+IMKgIGJhc2U6IHNvYzogQ2hlY2sgZm9y
+IE5VTEwgU29DIGRldmljZSBhdHRyaWJ1dGVzDQo+ID4gPg0KPiA+ID4gWWFuZ2JvIEx1ICg1KToN
+Cj4gPiA+IMKgIEFSTTY0OiBkdHM6IGxzMjA4MGE6IGFkZCBkZXZpY2UgY29uZmlndXJhdGlvbiBu
+b2RlDQo+ID4gPiDCoCBkdDogYmluZGluZ3M6IG1vdmUgZ3V0cyBkZXZpY2V0cmVlIGRvYyBvdXQg
+b2YgcG93ZXJwYyBkaXJlY3RvcnkNCj4gPiA+IMKgIHNvYzogZnNsOiBhZGQgR1VUUyBkcml2ZXIg
+Zm9yIFFvcklRIHBsYXRmb3Jtcw0KPiA+ID4gwqAgTUFJTlRBSU5FUlM6IGFkZCBlbnRyeSBmb3Ig
+RnJlZXNjYWxlIFNvQyBkcml2ZXJzDQo+ID4gPiDCoCBtbWM6IHNkaGNpLW9mLWVzZGhjOiBmaXgg
+aG9zdCB2ZXJzaW9uIGZvciBUNDI0MC1SMS4wLVIyLjANCj4gPiA+DQo+ID4gPiDCoC4uLi9iaW5k
+aW5ncy97cG93ZXJwYyA9PiBzb2N9L2ZzbC9ndXRzLnR4dMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKg
+wqAzICsNCj4gPiA+IMKgTUFJTlRBSU5FUlPCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgMTEg
+Ky0NCj4gPiA+IMKgYXJjaC9hcm02NC9ib290L2R0cy9mcmVlc2NhbGUvZnNsLWxzMjA4MGEuZHRz
+acKgwqDCoMKgwqB8wqDCoMKgNiArDQo+ID4gPiDCoGRyaXZlcnMvYmFzZS9LY29uZmlnwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8
+wqDCoMKgMSArDQo+ID4gPiDCoGRyaXZlcnMvYmFzZS9zb2MuY8KgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgNzAgKysr
+KysrDQo+ID4gPiDCoGRyaXZlcnMvbW1jL2hvc3QvS2NvbmZpZ8KgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgwqAxICsNCj4gPiA+IMKgZHJp
+dmVycy9tbWMvaG9zdC9zZGhjaS1vZi1lc2RoYy5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgfMKgwqAyMCArKw0KPiA+ID4gwqBkcml2ZXJzL3NvYy9LY29uZmlnwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzC
+oMKgwqAzICstDQo+ID4gPiDCoGRyaXZlcnMvc29jL2ZzbC9LY29uZmlnwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8wqDCoDE4ICsrDQo+ID4g
+PiDCoGRyaXZlcnMvc29jL2ZzbC9NYWtlZmlsZcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgwqAxICsNCj4gPiA+IMKgZHJpdmVycy9zb2Mv
+ZnNsL2d1dHMuY8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqB8IDIzNg0KPiA+ID4gKysrKysrKysrKysrKysrKysrKysrDQo+ID4gPiDCoGlu
+Y2x1ZGUvbGludXgvZnNsL2d1dHMuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoHwgMTI1DQo+ID4gPiArKysrKystLS0tLQ0KPiA+ID4gwqBpbmNs
+dWRlL2xpbnV4L3N5c19zb2MuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgfMKgwqDCoDMgKw0KPiA+ID4gwqAxMyBmaWxlcyBjaGFuZ2VkLCA0
+NDcgaW5zZXJ0aW9ucygrKSwgNTEgZGVsZXRpb25zKC0pDQo+ID4gPiDCoHJlbmFtZSBEb2N1bWVu
+dGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3Mve3Bvd2VycGMgPT4NCj4gPiA+IHNvY30vZnNsL2d1
+dHMudHh0DQo+ID4gPiAoOTElKQ0KPiA+ID4gwqBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9z
+b2MvZnNsL0tjb25maWcNCj4gPiA+IMKgY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvc29jL2Zz
+bC9ndXRzLmMNCj4gPiA+DQo+ID4gPiAtLQ0KPiA+ID4gMi4xLjAuMjcuZzk2ZGIzMjQNCj4gPiA+
+DQo+ID4gVGhhbmtzLCBhcHBsaWVkIG9uIG15IG1tYyB0cmVlIGZvciBuZXh0IQ0KPiA+DQo+ID4g
+SSBub3RpY2VkIHRoYXQgc29tZSBEVCBjb21wYXRpYmxlcyB3ZXJlbid0IGRvY3VtZW50ZWQsIGFj
+Y29yZGluZyB0bw0KPiA+IGNoZWNrcGF0Y2guIFBsZWFzZSBmaXggdGhhdCBhc2FwIQ0KPiANCj4g
+VGhleSBhcmUgZG9jdW1lbnRlZCwgaW4gZnNsL2d1dHMudHh0ICh0aGUgZmlsZSBtb3ZlZCBpbiBw
+YXRjaCAyLzcpOg0KPiA+IMKgLSBjb21wYXRpYmxlIDogU2hvdWxkIGRlZmluZSB0aGUgY29tcGF0
+aWJsZSBkZXZpY2UgdHlwZSBmb3INCj4gPiDCoMKgwqBnbG9iYWwtdXRpbGl0aWVzLg0KPiA+IMKg
+wqDCoFBvc3NpYmxlIGNvbXBhdGlibGVzOg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLHFvcmlx
+LWRldmljZS1jb25maWctMS4wIg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLHFvcmlxLWRldmlj
+ZS1jb25maWctMi4wIg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLDxjaGlwPi1kZXZpY2UtY29u
+ZmlnIg0KPiA+IMKgwqDCoMKgwqDCoMKgwqAiZnNsLDxjaGlwPi1ndXRzIg0KPiANCj4gQ2hlY2tw
+YXRjaCBkb2Vzbid0IHVuZGVyc3RhbmQgY29tcGF0aWJsZXMgZGVmaW5lZCBpbiBzdWNoIGEgd2F5
+Lg0KDQpbTHUgWWFuZ2JvLUI0NzA5M10gWW91J3JlIHJpZ2h0LCBTY290dC4gSSBkcm9wcGVkIERU
+IHBhdGNoICdkdDogYmluZGluZ3M6IHVwZGF0ZSBGcmVlc2NhbGUgRENGRyBjb21wYXRpYmxlICcN
+CndoaWNoIGZpeGVkIHVuLWRvYyBpc3N1ZSBzaW5jZSBTaGFvaHVpIGhhZCBkb25lIHRoaXMgb24g
+U2hhd24gR3VvJ3MgdHJlZS4NCmh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJu
+ZWwvZ2l0L3NoYXduZ3VvL2xpbnV4LmdpdC9jb21taXQvP2g9aW14L2R0NjQmaWQ9OTgxMDM0YTJi
+ZmNhZmY1Yzk1ZGFmZGUyNGQ3YWJmZTdmOTAyNWMxOQ0KDQpUaGFua3MuDQoNCj4gDQo+IC1TY290
+dA0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxp
+bmUgInVuc3Vic2NyaWJlIGxpbnV4LW1tYyIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRv
+IG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpvcmRvbW8gaW5mbyBhdA0KPiBodHRw
+Oi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvbW11IG1haWxpbmcgbGlzdAppb21tdUBs
+aXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5v
+cmcvbWFpbG1hbi9saXN0aW5mby9pb21tdQ==
