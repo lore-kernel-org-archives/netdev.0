@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: mvpp2: don't bring up on MAC address set
-Date: Thu, 10 Nov 2016 11:57:18 -0500 (EST)
-Message-ID: <20161110.115718.1744727306693534849.davem@davemloft.net>
-References: <ff17831771f3575f351c134703d3f153485b01c0.1478696194.git.baruch@tkos.co.il>
+Subject: Re: [PATCH net-next v5]] cadence: Add LSO support.
+Date: Thu, 10 Nov 2016 12:01:23 -0500 (EST)
+Message-ID: <20161110.120123.1915127624714352140.davem@davemloft.net>
+References: <1478612463-15076-1-git-send-email-rafalo@cadence.com>
+        <1478698862-12924-1-git-send-email-rafalo@cadence.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mw@semihalf.com, netdev@vger.kernel.org,
-        thomas.petazzoni@free-electrons.com,
-        gregory.clement@free-electrons.com
-To: baruch@tkos.co.il
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: rafalo@cadence.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34410 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34490 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934274AbcKJQ5W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 11:57:22 -0500
-In-Reply-To: <ff17831771f3575f351c134703d3f153485b01c0.1478696194.git.baruch@tkos.co.il>
+        with ESMTP id S934425AbcKJRB2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 12:01:28 -0500
+In-Reply-To: <1478698862-12924-1-git-send-email-rafalo@cadence.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Baruch Siach <baruch@tkos.co.il>
-Date: Wed,  9 Nov 2016 14:56:33 +0200
+From: Rafal Ozieblo <rafalo@cadence.com>
+Date: Wed, 9 Nov 2016 13:41:02 +0000
 
-> Current .ndo_set_mac_address implementation brings up the interface when revert
-> to original address after failure succeeds. Fix this.
-> 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> ---
-> Untested; I don't have the hardware.
+First, please remove the spurious closing bracket in your Subject line
+in future submittions.
 
-The code which updates the parser should keep the existing
-state if any part of the update fails.
+> +	if (is_udp) /* is_udp is only set when (is_lso) is checked */
+> +		/* zero UDP checksum, not calculated by h/w for UFO */
+> +		udp_hdr(skb)->check = 0;
 
-This means it must attempt all memory allocations and whatever other
-resource acquisition is necessary, and only after all of those
-operations succeed and no more error cases are possible should it
-update the tables and release the old entry.
+This is really not ok.
 
-In other worse, this whole mechanism must move to a proper "prepare
---> commit" model of making changes.
+If UFO is in use it should not silently disable UDP checksums.
+
+If you cannot support UFO with proper checksumming, then you cannot
+enable support for that feature.
