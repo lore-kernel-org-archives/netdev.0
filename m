@@ -1,66 +1,59 @@
-From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: AF_VSOCK loopback
-Date: Fri, 11 Nov 2016 14:14:44 +0000
-Message-ID: <BY2PR0501MB20561F98987156779668ECB1DABB0@BY2PR0501MB2056.namprd05.prod.outlook.com>
-References: <20161110144329.GA19683@stefanha-x1.localdomain>
+From: Mathias Nyman <mathias.nyman@linux.intel.com>
+Subject: Re: [PATCH] usbnet: prevent device rpm suspend in usbnet_probe
+ function
+Date: Fri, 11 Nov 2016 16:44:50 +0200
+Message-ID: <5825D962.9090807@linux.intel.com>
+References: <Pine.LNX.4.44L0.1611081339060.1499-100000@iolanthe.rowland.org>
+ <1478692735.2428.10.camel@suse.com> <8760nwj0l3.fsf@miraculix.mork.no>
+ <CAAd53p5W4xpSYsFZ00deQDh-gZBijn_ApreE9NmC=_B_MAQaug@mail.gmail.com>
+ <87a8d7h9q1.fsf@miraculix.mork.no> <1478776957.2428.15.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "cavery@redhat.com" <cavery@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ex13-edg-ou-001.vmware.com ([208.91.0.189]:55731 "EHLO
-        EX13-EDG-OU-001.vmware.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750714AbcKKOQX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 09:16:23 -0500
-In-Reply-To: <20161110144329.GA19683@stefanha-x1.localdomain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Kai-Heng Feng <kai.heng.feng@canonical.com>,
+        Alan Stern <stern@rowland.harvard.edu>,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>,
+        =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478776957.2428.15.camel@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stefan,
+On 10.11.2016 13:22, Oliver Neukum wrote:
+> On Thu, 2016-11-10 at 12:09 +0100, Bjørn Mork wrote:
+>> Kai-Heng Feng <kai.heng.feng@canonical.com> writes:
+>>> On Wed, Nov 9, 2016 at 8:32 PM, Bjørn Mork <bjorn@mork.no> wrote:
+>>>> Oliver Neukum <oneukum@suse.com> writes:
+>>>>
+>>>>> On Tue, 2016-11-08 at 13:44 -0500, Alan Stern wrote:
+>>>>>
+>>>>>> These problems could very well be caused by running at SuperSpeed
+>>>>>> (USB-3) instead of high speed (USB-2).
+>>>
+>>> Yes, it's running at SuperSpeed, on a Kabylake laptop.
+>>>
+>>> It does not have this issue on a Broadwell laptop, also running at SuperSpeed.
+>>
+>> Then I must join Oliver, being very surprised by where in the stack you
+>> attempt to fix the issue.  What you write above indicates a problem in
+>> pci bridge or usb host controller, doesn't it?
+>
+> Indeed. And this means we need an XHCI specialist.
+> Mathias, we have a failure specific to one implementation of XHCI.
+>
 
-All datagram communication in VMCI based AF_VSOCK is going through the host=
- - also for loopback communication. The only difference wrt loopback is tha=
-t the VMCI queue pairs implementing the shared queues for the stream protoc=
-ols aren't registered with the hypervisor - they are created specifying the=
- VMCI_QPFLAG_LOCAL flag, and exist only as local guest memory.
 
-So in the current form, there isn't much loopback code in the vmci AF_VSOCK=
- implementation, so it doesn't seem like there would be much to share eithe=
-r.
+Could be related to resume singnalling time.
+Does the xhci fix for it in 4.9-rc3 help?
 
-Thanks,
-J=F8rgen
+commit 7d3b016a6f5a0fa610dfd02b05654c08fa4ae514
+     xhci: use default USB_RESUME_TIMEOUT when resuming ports.
 
-________________________________________
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Sent: Thursday, November 10, 2016 3:43 PM
-To: Jorgen S. Hansen
-Cc: cavery@redhat.com; netdev@vger.kernel.org
-Subject: AF_VSOCK loopback
+It doesn't directly explain why it would work on Broadwell but not Kabylake,
+but it resolved very similar cases.
 
-Hi Jorgen,
-Cathy Avery found that the AF_VSOCK VMCI transport does loopback inside
-the guest (but not on the host?).  The virtio transport currently does
-no loopback.
+If not, then adding dynamic debug for xhci could show something.
 
-The loopback scenario I'm thinking of is where process A listens on port
-1234 and process B on the same machine connects to port 1234 both with
-the same CID.
-
-I'd like to make the virtio transport compatible with VMCI transport
-semantics so AF_VSOCK behaves the same regardless of the transport.
-This means loopback must be added to virtio-vsock.
-
-The core net/vmware/af_vsock.c code does not implement loopback.  How
-does VMCI do loopback?  Are the loopback packets reflected back from the
-host?  Or does the guest driver notice the loopback and avoid passing
-packets to the host in the first place?
-
-Maybe we can make the loopback code common in af_vsock.c if that avoids
-code duplication.
-
-Thanks,
-Stefan
+-Mathias
