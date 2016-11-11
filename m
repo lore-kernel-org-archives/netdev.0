@@ -1,60 +1,157 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
-Date: Fri, 11 Nov 2016 15:15:40 +0800
-Message-ID: <1394712342-15778-227-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH net-next v7 01/10] devres: add devm_alloc_percpu()
+Date: Fri, 11 Nov 2016 10:19:58 +0200
+Message-ID: <1478852407-27420-2-git-send-email-madalin.bucur@nxp.com>
+References: <1478852407-27420-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-        Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-226-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        <davem@davemloft.net>, <oss@buserror.net>, <ppc@mindchasers.com>,
+        <joe@perches.com>, <pebolle@tiscali.nl>,
+        <joakim.tjernlund@infinera.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478852407-27420-1-git-send-email-madalin.bucur@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix the hw rx checksum is always enabled, and the user couldn't switch
-it to sw rx checksum.
+Introduce managed counterparts for alloc_percpu() and free_percpu().
+Add devm_alloc_percpu() and devm_free_percpu() into the managed
+interfaces list.
 
-Note that the RTL_VER_01 only supports sw rx checksum only. Besides,
-the hw rx checksum for RTL_VER_02 is disabled after
-commit b9a321b48af4 ("r8152: Fix broken RX checksums."). Re-enable it.
-
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/usb/r8152.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ Documentation/driver-model/devres.txt |  4 +++
+ drivers/base/devres.c                 | 66 +++++++++++++++++++++++++++++++++++
+ include/linux/device.h                | 19 ++++++++++
+ 3 files changed, 89 insertions(+)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 75c5168..0e42a78 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1730,7 +1730,7 @@ static u8 r8152_rx_csum(struct r8152 *tp, struct rx_desc *rx_desc)
- 	u8 checksum = CHECKSUM_NONE;
- 	u32 opts2, opts3;
+diff --git a/Documentation/driver-model/devres.txt b/Documentation/driver-model/devres.txt
+index 1670708..ca9d1eb 100644
+--- a/Documentation/driver-model/devres.txt
++++ b/Documentation/driver-model/devres.txt
+@@ -332,6 +332,10 @@ MEM
+ MFD
+  devm_mfd_add_devices()
  
--	if (tp->version == RTL_VER_01 || tp->version == RTL_VER_02)
-+	if (!(tp->netdev->features & NETIF_F_RXCSUM))
- 		goto return_result;
++PER-CPU MEM
++  devm_alloc_percpu()
++  devm_free_percpu()
++
+ PCI
+   pcim_enable_device()	: after success, all PCI ops become managed
+   pcim_pin_device()	: keep PCI device enabled after release
+diff --git a/drivers/base/devres.c b/drivers/base/devres.c
+index 8fc654f..71d5770 100644
+--- a/drivers/base/devres.c
++++ b/drivers/base/devres.c
+@@ -10,6 +10,7 @@
+ #include <linux/device.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
++#include <linux/percpu.h>
  
- 	opts2 = le32_to_cpu(rx_desc->opts2);
-@@ -4307,6 +4307,11 @@ static int rtl8152_probe(struct usb_interface *intf,
- 				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
- 				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
+ #include "base.h"
  
-+	if (tp->version == RTL_VER_01) {
-+		netdev->features &= ~NETIF_F_RXCSUM;
-+		netdev->hw_features &= ~NETIF_F_RXCSUM;
+@@ -985,3 +986,68 @@ void devm_free_pages(struct device *dev, unsigned long addr)
+ 			       &devres));
+ }
+ EXPORT_SYMBOL_GPL(devm_free_pages);
++
++static void devm_percpu_release(struct device *dev, void *pdata)
++{
++	void __percpu *p;
++
++	p = *(void __percpu **)pdata;
++	free_percpu(p);
++}
++
++static int devm_percpu_match(struct device *dev, void *data, void *p)
++{
++	struct devres *devr = container_of(data, struct devres, data);
++
++	return *(void **)devr->data == p;
++}
++
++/**
++ * __devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @size: Size of per-cpu memory to allocate
++ * @align: Alignment of per-cpu memory to allocate
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++		size_t align)
++{
++	void *p;
++	void __percpu *pcpu;
++
++	pcpu = __alloc_percpu(size, align);
++	if (!pcpu)
++		return NULL;
++
++	p = devres_alloc(devm_percpu_release, sizeof(void *), GFP_KERNEL);
++	if (!p) {
++		free_percpu(pcpu);
++		return NULL;
 +	}
 +
- 	netdev->ethtool_ops = &ops;
- 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
++	*(void __percpu **)p = pcpu;
++
++	devres_add(dev, p);
++
++	return pcpu;
++}
++EXPORT_SYMBOL_GPL(__devm_alloc_percpu);
++
++/**
++ * devm_free_percpu - Resource-managed free_percpu
++ * @dev: Device this memory belongs to
++ * @pdata: Per-cpu memory to free
++ *
++ * Free memory allocated with devm_alloc_percpu().
++ */
++void devm_free_percpu(struct device *dev, void __percpu *pdata)
++{
++	WARN_ON(devres_destroy(dev, devm_percpu_release, devm_percpu_match,
++			       (void *)pdata));
++}
++EXPORT_SYMBOL_GPL(devm_free_percpu);
+diff --git a/include/linux/device.h b/include/linux/device.h
+index bc41e87..a00105c 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -698,6 +698,25 @@ static inline int devm_add_action_or_reset(struct device *dev,
+ 	return ret;
+ }
  
++/**
++ * devm_alloc_percpu - Resource-managed alloc_percpu
++ * @dev: Device to allocate per-cpu memory for
++ * @type: Type to allocate per-cpu memory for
++ *
++ * Managed alloc_percpu. Per-cpu memory allocated with this function is
++ * automatically freed on driver detach.
++ *
++ * RETURNS:
++ * Pointer to allocated memory on success, NULL on failure.
++ */
++#define devm_alloc_percpu(dev, type)      \
++	((typeof(type) __percpu *)__devm_alloc_percpu((dev), sizeof(type), \
++						      __alignof__(type)))
++
++void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
++				   size_t align);
++void devm_free_percpu(struct device *dev, void __percpu *pdata);
++
+ struct device_dma_parameters {
+ 	/*
+ 	 * a low level driver may set these to teach IOMMU code about
 -- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.1.0
