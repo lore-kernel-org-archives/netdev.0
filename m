@@ -1,260 +1,94 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [net-next PATCH] net: dummy: Introduce dummy virtual functions
-Date: Sat, 12 Nov 2016 03:23:07 +0800
-Message-ID: <201611120352.XWscTIjL%fengguang.wu@intel.com>
-References: <20161111173333.12603-1-phil@nwl.cc>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Source address fib invalidation on IPv6
+Date: Fri, 11 Nov 2016 20:29:55 +0100
+Message-ID: <CAHmME9qi7_C7c=wsZg=EwBg3jzFzVmW1eiFGGXgcX8fCcOOZcA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="3V7upXqbjpZ4EhLz"
-Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
-        netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12002 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S936455AbcKKTXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Nov 2016 14:23:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20161111173333.12603-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
+Hi folks,
 
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+If I'm replying to a UDP packet, I generally want to use a source
+address that's the same as the destination address of the packet to
+which I'm replying. For example:
 
-Hi Phil,
+Peer A sends packet: src = 10.0.0.1,  dst = 10.0.0.3
+Peer B replies with: src = 10.0.0.3, dst = 10.0.0.1
 
-[auto build test ERROR on net-next/master]
+But let's complicate things. Let's say Peer B has multiple IPs on an
+interface: 10.0.0.2, 10.0.0.3. The default route uses 10.0.0.2. In
+this case what do you think should happen?
 
-url:    https://github.com/0day-ci/linux/commits/Phil-Sutter/net-dummy-Introduce-dummy-virtual-functions/20161112-013558
-config: xtensa-common_defconfig (attached as .config)
-compiler: xtensa-linux-gcc (GCC) 4.9.0
-reproduce:
-        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
-        chmod +x ~/bin/make.cross
-        # save the attached .config to linux build tree
-        make.cross ARCH=xtensa 
+Case 1:
+Peer A sends packet: src = 10.0.0.1,  dst = 10.0.0.3
+Peer B replies with: src = 10.0.0.2, dst = 10.0.0.1
 
-All error/warnings (new ones prefixed by >>):
+Case 2:
+Peer A sends packet: src = 10.0.0.1,  dst = 10.0.0.3
+Peer B replies with: src = 10.0.0.3, dst = 10.0.0.1
 
->> drivers/net/dummy.c:53:2: error: unknown field 'sriov' specified in initializer
-     .sriov = &pdev_sriov,
-     ^
->> drivers/net/dummy.c:53:2: warning: initialization makes integer from pointer without a cast
-   drivers/net/dummy.c:53:2: warning: (near initialization for 'pci_pdev.is_virtfn')
->> drivers/net/dummy.c:53:2: error: initializer element is not computable at load time
-   drivers/net/dummy.c:53:2: error: (near initialization for 'pci_pdev.is_virtfn')
+Intuition tells me the answer is "Case 2". If you agree, keep reading.
+If you disagree, stop reading here, and instead correct my poor
+intuition.
 
-vim +/sriov +53 drivers/net/dummy.c
+So, assuming "Case 2", when Peer B receives the first packet, he notes
+that packet's destination address, so that he can use it as a source
+address next. When replying, Peer B sets the stored source address and
+calls the routing function:
 
-    47	static int num_vfs;
-    48	
-    49	static struct pci_sriov pdev_sriov;
-    50	
-    51	static struct pci_dev pci_pdev = {
-    52		.is_physfn = 1,
-  > 53		.sriov = &pdev_sriov,
-    54		.dev.bus = &pci_bus_type,
-    55	};
-    56	
+    struct flowi4 fl = {
+       .saddr = from_daddr_of_previous_packet,
+       .daddr = from_saddr_of_previous_packet,
+    };
+    rt = ip_route_output_flow(sock_net(sock), &fl, sock);
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+What if, however, by the time Peer B chooses to reply, his interface
+no longer has that source address? No problem, because
+ip_route_output_flow will return -EINVAL in that case. So, we can do
+this:
 
---3V7upXqbjpZ4EhLz
-Content-Type: application/gzip
-Content-Disposition: attachment; filename=".config.gz"
-Content-Transfer-Encoding: base64
+    struct flowi4 fl = {
+       .saddr = from_daddr_of_previous_packet,
+       .daddr = from_saddr_of_previous_packet,
+    };
+    rt = ip_route_output_flow(sock_net(sock), &fl, sock);
+    if (unlikely(IS_ERR(rt))) {
+        fl.saddr = 0;
+        rt = ip_route_output_flow(sock_net(sock), &fl, sock);
+    }
 
-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
-ibV110H//w9wVBR/HZsAAA==
+And then all is good in the neighborhood. This solution works. Done.
 
---3V7upXqbjpZ4EhLz--
+But what about IPv6? That's where we get into trouble:
+
+    struct flowi6 fl = {
+       .saddr = from_daddr_of_previous_packet,
+       .daddr = from_saddr_of_previous_packet,
+    };
+    ret = ipv6_stub->ipv6_dst_lookup(sock_net(sock), sock, &dst, &fl);
+
+In this case, IPv6 returns a valid dst, when no interface has the
+source address anymore! So, there's no way to know whether or not the
+source address for replying has gone stale. We don't have a means of
+falling back to inaddr_any for the source address.
+
+Primary question: is this behavior a bug? Or is this some consequence
+of a fundamental IPv6 difference with v4? Or is something else
+happening here?
+
+Thanks,
+Jason
