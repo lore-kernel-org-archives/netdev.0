@@ -1,70 +1,44 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/3] tuntap: rx batching
-Date: Fri, 11 Nov 2016 12:28:38 +0800
-Message-ID: <2b357b06-f749-5897-f882-aa3121e49e89@redhat.com>
-References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
- <20161109183259-mutt-send-email-mst@kernel.org>
- <c6cd619f-b9a6-784d-2c44-6106e64f5664@redhat.com>
- <20161111053048-mutt-send-email-mst@kernel.org> <58254654.4000501@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RFC PATCH 0/2] illustrate cmpxchg ring for tap/tun and qdisc
+Date: Thu, 10 Nov 2016 20:43:47 -0800
+Message-ID: <20161111043857.1547.70337.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58254654.4000501@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: jasowang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35037 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935011AbcKKEoK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 23:44:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a cmpxchg ring that could potentially be used to replace the spinlock
+variant of skb_array.
+
+Couple comments its missing a resize operator which would need to be added
+before it could be a drop in replacement. And although I tested the first
+patch with my latest set of qdisc updates the second patch I have not tested
+for a bit so it may or may not work but it illustrates the idea at least.
+
+This was derived from the DPDK documentation where there is a description
+of the cmpxchg ring presumably used there. It may or may not actually align
+with what is done in DPDK implementation I have no idea I didn't look.
 
 
+---
 
-On 2016年11月11日 12:17, John Fastabend wrote:
-> On 16-11-10 07:31 PM, Michael S. Tsirkin wrote:
->> >On Fri, Nov 11, 2016 at 10:07:44AM +0800, Jason Wang wrote:
->>> >>
->>> >>
->>> >>On 2016年11月10日 00:38, Michael S. Tsirkin wrote:
->>>> >>>On Wed, Nov 09, 2016 at 03:38:31PM +0800, Jason Wang wrote:
->>>>> >>>>Backlog were used for tuntap rx, but it can only process 1 packet at
->>>>> >>>>one time since it was scheduled during sendmsg() synchronously in
->>>>> >>>>process context. This lead bad cache utilization so this patch tries
->>>>> >>>>to do some batching before call rx NAPI. This is done through:
->>>>> >>>>
->>>>> >>>>- accept MSG_MORE as a hint from sendmsg() caller, if it was set,
->>>>> >>>>    batch the packet temporarily in a linked list and submit them all
->>>>> >>>>    once MSG_MORE were cleared.
->>>>> >>>>- implement a tuntap specific NAPI handler for processing this kind of
->>>>> >>>>    possible batching. (This could be done by extending backlog to
->>>>> >>>>    support skb like, but using a tun specific one looks cleaner and
->>>>> >>>>    easier for future extension).
->>>>> >>>>
->>>>> >>>>Signed-off-by: Jason Wang<jasowang@redhat.com>
->>>> >>>So why do we need an extra queue?
->>> >>
->>> >>The idea was borrowed from backlog to allow some kind of bulking and avoid
->>> >>spinlock on each dequeuing.
->>> >>
->>>> >>>   This is not what hardware devices do.
->>>> >>>How about adding the packet to queue unconditionally, deferring
->>>> >>>signalling until we get sendmsg without MSG_MORE?
->>> >>
->>> >>Then you need touch spinlock when dequeuing each packet.
->> >
-> Random thought, I have a cmpxchg ring I am using for the qdisc work that
-> could possibly replace the spinlock implementation. I haven't figured
-> out the resizing API yet because I did not need it but I assume it could
-> help here and let you dequeue multiple skbs in one operation.
->
-> I can post the latest version if useful or an older version is
-> somewhere on patchworks as well.
->
-> .John
->
->
+John Fastabend (2):
+      net: use cmpxchg instead of spinlock in ptr rings
+      ptr_ring_ll: pop/push multiple objects at once
 
-Look useful here, and I can compare the performance if you post.
 
-A question is can we extend the skb_array to support that?
-
-Thanks
+ include/linux/netdevice.h   |   12 ----
+ include/linux/ptr_ring_ll.h |  146 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/skb_array.h   |   32 +++++++++
+ net/core/dev.c              |   18 +----
+ net/sched/sch_generic.c     |   86 +++++++++++++------------
+ 5 files changed, 224 insertions(+), 70 deletions(-)
+ create mode 100644 include/linux/ptr_ring_ll.h
