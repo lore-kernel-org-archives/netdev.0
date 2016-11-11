@@ -1,75 +1,86 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/3] vhost: better detection of available buffers
-Date: Fri, 11 Nov 2016 18:20:44 +0200
-Message-ID: <20161111182023-mutt-send-email-mst@kernel.org>
-References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
- <1478677113-13126-2-git-send-email-jasowang@redhat.com>
- <20161109215513-mutt-send-email-mst@kernel.org>
- <70cb5ad8-5266-b0c4-7b55-4aea4f5f01a6@redhat.com>
- <20161111054021-mutt-send-email-mst@kernel.org>
- <a2e98020-0fc5-e8c0-fd57-7d395733c693@redhat.com>
+From: Jann Horn <jannh@google.com>
+Subject: Re: [PATCH] bpf: fix range arithmetic for bpf map access
+Date: Fri, 11 Nov 2016 17:36:13 +0100
+Message-ID: <CAG48ez1c_s-S8dh=37Pj5XOCUbQ1C3SyJGWd7dXhEA2D2+ps9g@mail.gmail.com>
+References: <CAG48ez0DyDoySPEkNqYnSEZpTXuuP2xheSuc_EQ+ZzmSwOGy6Q@mail.gmail.com>
+ <1478823492-7335-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a2e98020-0fc5-e8c0-fd57-7d395733c693@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Josef Bacik <jbacik@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f44.google.com ([209.85.214.44]:34842 "EHLO
+        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751566AbcKKQgg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 11:36:36 -0500
+Received: by mail-it0-f44.google.com with SMTP id e187so336276710itc.0
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 08:36:36 -0800 (PST)
+In-Reply-To: <1478823492-7335-1-git-send-email-jbacik@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 11, 2016 at 12:18:50PM +0800, Jason Wang wrote:
-> 
-> 
-> On 2016年11月11日 11:41, Michael S. Tsirkin wrote:
-> > On Fri, Nov 11, 2016 at 10:18:37AM +0800, Jason Wang wrote:
-> > > >
-> > > >
-> > > >On 2016年11月10日 03:57, Michael S. Tsirkin wrote:
-> > > > > >On Wed, Nov 09, 2016 at 03:38:32PM +0800, Jason Wang wrote:
-> > > > > > > >We should use vq->last_avail_idx instead of vq->avail_idx in the
-> > > > > > > >checking of vhost_vq_avail_empty() since latter is the cached avail
-> > > > > > > >index from guest but we want to know if there's pending available
-> > > > > > > >buffers in the virtqueue.
-> > > > > > > >
-> > > > > > > >Signed-off-by: Jason Wang<jasowang@redhat.com>
-> > > > > >I'm not sure why is this patch here. Is it related to
-> > > > > >batching somehow?
-> > > >
-> > > >Yes, we need to know whether or not there's still buffers left in the
-> > > >virtqueue, so need to check last_avail_idx. Otherwise, we're checking if
-> > > >guest has submitted new buffers.
-> > > >
-> > > > > >
-> > > > > >
-> > > > > > > >---
-> > > > > > > >   drivers/vhost/vhost.c | 2 +-
-> > > > > > > >   1 file changed, 1 insertion(+), 1 deletion(-)
-> > > > > > > >
-> > > > > > > >diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > > > > > > >index c6f2d89..fdf4cdf 100644
-> > > > > > > >--- a/drivers/vhost/vhost.c
-> > > > > > > >+++ b/drivers/vhost/vhost.c
-> > > > > > > >@@ -2230,7 +2230,7 @@ bool vhost_vq_avail_empty(struct vhost_dev *dev, struct vhost_virtqueue *vq)
-> > > > > > > >   	if (r)
-> > > > > > > >   		return false;
-> > > > > > > >-	return vhost16_to_cpu(vq, avail_idx) == vq->avail_idx;
-> > > > > > > >+	return vhost16_to_cpu(vq, avail_idx) == vq->last_avail_idx;
-> > > > > > > >   }
-> > > > > > > >   EXPORT_SYMBOL_GPL(vhost_vq_avail_empty);
-> > > > > >That might be OK for TX but it's probably wrong for RX
-> > > > > >where the fact that used != avail does not mean
-> > > > > >we have enough space to store the packet.
-> > > >
-> > > >Right, but it's no harm since it was just a hint, handle_rx() can handle
-> > > >this situation.
-> > Means busy polling will cause useless load on the CPU though.
-> > 
-> 
-> Right, but,it's not easy to have 100% correct hint here. Needs more thought.
+On Fri, Nov 11, 2016 at 1:18 AM, Josef Bacik <jbacik@fb.com> wrote:
+> ---
+> Sorry Jann, I saw your response last night and then promptly forgot about it,
+> here's the git-send-email version.
+> ---
 
-What's wrong with what we have? It polls until value changes.
+A note: This doesn't seem to apply cleanly to current net-next (or I'm
+too stupid to
+use "git am"), so I'm applying it on f41cd11d64b2b21012eb4abffbe579bc0b90467f,
+which is net-next from a few days ago.
 
--- 
-MST
+
+> I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
+> invalid accesses to bpf map entries.  Fix this up by doing a few things
+>
+> 1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
+> life and just adds extra complexity.
+
+Yay! As a security person, I am very much in favor of killing unused features.
+
+
+> 2) Fix the logic for BPF_AND.  If the min value is negative then that is the new
+> minimum, otherwise it is unconditionally 0.
+>
+> 3) Don't do operations on the ranges if they are set to the limits, as they are
+> by definition undefined, and allowing arithmetic operations on those values
+> could make them appear valid when they really aren't.
+>
+> This fixes the testcase provided by Jann as well as a few other theoretical
+> problems.
+>
+> Reported-by: Jann Horn <jannh@google.com>
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
+
+A nit: check_mem_access() still has an explicit cast of reg->min_value to s64, I
+think that's not necessary anymore?
+
+>         case BPF_AND:
+> -               /* & is special since it could end up with 0 bits set. */
+> -               dst_reg->min_value &= min_val;
+> +               /* & is special since it's could be any value within our range,
+> +                * including 0.  But if the thing we're AND'ing against is
+> +                * negative and we're negative then that's the minimum value,
+> +                * otherwise the minimum will always be 0.
+> +                */
+> +               if (min_val < 0 && dst_reg->min_value < 0)
+> +                       dst_reg->min_value = min_t(s64, dst_reg->min_value,
+> +                                                  min_val);
+> +               else
+> +                       dst_reg->min_value = 0;
+>                 dst_reg->max_value = max_val;
+
+I'm not sure whether this is correct when dealing with signed numbers.
+Let's say I have -2 and -3 (as u32: 0xfffffffe and 0xfffffffd) and AND them
+together. The result is 0xfffffffc, or -4, right? So if I just compute
+the AND of
+constant numbers -2 and -3 (known to the verifier), the verifier would
+compute minimum -3 while the actual value is -4, right?
+
+If I am correct about this, I think it might make sense to just reset
+the state to
+unknown in the `min_val < 0 && dst_reg->min_value < 0` case. That shouldn't
+occur in legitimate programs, right?
