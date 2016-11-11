@@ -1,140 +1,55 @@
-From: Hannes Reinecke <hare@suse.de>
-Subject: Re: [PATCH v2 1/6] qed: Add support for hardware offloaded iSCSI.
-Date: Fri, 11 Nov 2016 16:57:57 +0100
-Message-ID: <1c5639c1-4160-72fe-ecc7-ca6257ec333f@suse.de>
-References: <1478588223-16183-1-git-send-email-manish.rangankar@cavium.com>
- <1478588223-16183-2-git-send-email-manish.rangankar@cavium.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: [PATCH net-next] sfc: clear napi_hash state when copying channels
+Date: Fri, 11 Nov 2016 15:56:51 +0000
+Message-ID: <80535661-f88f-3dc5-9b40-111358707ffd@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-        QLogic-Storage-Upstream@cavium.com, Yuval.Mintz@cavium.com
-To: Manish Rangankar <manish.rangankar@cavium.com>,
-        martin.petersen@oracle.com, lduncan@suse.com, cleech@redhat.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1478588223-16183-2-git-send-email-manish.rangankar@cavium.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+        Solarflare Linux Maintainers <linux-net-drivers@solarflare.com>
+To: Dave Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:33187 "EHLO
+        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755920AbcKKP6O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 10:58:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2016 07:56 AM, Manish Rangankar wrote:
-> From: Yuval Mintz <Yuval.Mintz@cavium.com>
->
-> This adds the backbone required for the various HW initalizations
-> which are necessary for the iSCSI driver (qedi) for QLogic FastLinQ
-> 4xxxx line of adapters - FW notification, resource initializations, etc.
->
-> Signed-off-by: Arun Easi <arun.easi@cavium.com>
-> Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
-> ---
->  drivers/net/ethernet/qlogic/Kconfig            |   15 +
->  drivers/net/ethernet/qlogic/qed/Makefile       |    1 +
->  drivers/net/ethernet/qlogic/qed/qed.h          |    7 +-
->  drivers/net/ethernet/qlogic/qed/qed_dev.c      |   12 +
->  drivers/net/ethernet/qlogic/qed/qed_int.h      |    1 -
->  drivers/net/ethernet/qlogic/qed/qed_iscsi.c    | 1276 ++++++++++++++++++++++++
->  drivers/net/ethernet/qlogic/qed/qed_iscsi.h    |   52 +
->  drivers/net/ethernet/qlogic/qed/qed_l2.c       |    1 -
->  drivers/net/ethernet/qlogic/qed/qed_ll2.c      |    4 +-
->  drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |    2 +
->  drivers/net/ethernet/qlogic/qed/qed_spq.c      |   15 +
->  include/linux/qed/qed_if.h                     |    2 +
->  include/linux/qed/qed_iscsi_if.h               |  229 +++++
->  13 files changed, 1613 insertions(+), 4 deletions(-)
->  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iscsi.c
->  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_iscsi.h
->  create mode 100644 include/linux/qed/qed_iscsi_if.h
->
-> diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-> index 32f2a45..2832570 100644
-> --- a/drivers/net/ethernet/qlogic/Kconfig
-> +++ b/drivers/net/ethernet/qlogic/Kconfig
-> @@ -110,4 +110,19 @@ config QEDE
->  config QED_RDMA
->  	bool
->
-> +config QED_ISCSI
-> +	bool
-> +
-> +config QEDI
-> +	tristate "QLogic QED 25/40/100Gb iSCSI driver"
-> +	depends on QED
-> +	select QED_LL2
-> +	select QED_ISCSI
-> +	default n
-> +	---help---
-> +	  This provides a temporary node that allows the compilation
-> +	  and logical testing of the hardware offload iSCSI support
-> +	  for QLogic QED. This would be replaced by the 'real' option
-> +	  once the QEDI driver is added [+relocated].
-> +
->  endif # NET_VENDOR_QLOGIC
-> diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
-> index 967acf3..597e15c 100644
-> --- a/drivers/net/ethernet/qlogic/qed/Makefile
-> +++ b/drivers/net/ethernet/qlogic/qed/Makefile
-> @@ -6,3 +6,4 @@ qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o \
->  qed-$(CONFIG_QED_SRIOV) += qed_sriov.o qed_vf.o
->  qed-$(CONFIG_QED_LL2) += qed_ll2.o
->  qed-$(CONFIG_QED_RDMA) += qed_roce.o
-> +qed-$(CONFIG_QED_ISCSI) += qed_iscsi.o
-> diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-> index 50b8a01..15286c1 100644
-> --- a/drivers/net/ethernet/qlogic/qed/qed.h
-> +++ b/drivers/net/ethernet/qlogic/qed/qed.h
-> @@ -35,6 +35,7 @@
->
->  #define QED_WFQ_UNIT	100
->
-> +#define ISCSI_BDQ_ID(_port_id) (_port_id)
->  #define QED_WID_SIZE            (1024)
->  #define QED_PF_DEMS_SIZE        (4)
->
-> @@ -392,6 +393,7 @@ struct qed_hwfn {
->  	bool				using_ll2;
->  	struct qed_ll2_info		*p_ll2_info;
->  	struct qed_rdma_info		*p_rdma_info;
-> +	struct qed_iscsi_info		*p_iscsi_info;
->  	struct qed_pf_params		pf_params;
->
->  	bool b_rdma_enabled_in_prs;
-> @@ -593,6 +595,8 @@ struct qed_dev {
->  	/* Linux specific here */
->  	struct  qede_dev		*edev;
->  	struct  pci_dev			*pdev;
-> +	u32 flags;
-> +#define QED_FLAG_STORAGE_STARTED	(BIT(0))
->  	int				msg_enable;
->
->  	struct pci_params		pci_params;
-> @@ -606,6 +610,7 @@ struct qed_dev {
->  	union {
->  		struct qed_common_cb_ops	*common;
->  		struct qed_eth_cb_ops		*eth;
-> +		struct qed_iscsi_cb_ops		*iscsi;
->  	} protocol_ops;
->  	void				*ops_cookie;
->
-> @@ -615,7 +620,7 @@ struct qed_dev {
->  	struct qed_cb_ll2_info		*ll2;
->  	u8				ll2_mac_address[ETH_ALEN];
->  #endif
-> -
-> +	DECLARE_HASHTABLE(connections, 10);
->  	const struct firmware		*firmware;
->
->  	u32 rdma_max_sge;
-10 connections? Only?
-Hmm.
+efx_copy_channel() doesn't correctly clear the napi_hash related state.
+This means that when napi_hash_add is called for that channel nothing is
+done, and we are left with a copy of the napi_hash_node from the old
+channel. When we later call napi_hash_del() on this channel we have a
+stale napi_hash_node.
 
-Other than that:
+Corruption is only seen when there are multiple entries in one of the
+napi_hash lists. This is made more likely by having a very large number
+of channels. Testing was carried out with 512 channels - 32 channels on
+each of 16 ports.
 
-Reviewed-by: Hannes Reinecke <hare@suse.com>
+This failure typically appears as protection faults within napi_by_id()
+or napi_hash_add(). efx_copy_channel() is only used when tx or rx ring
+sizes are changed (ethtool -G).
 
-Cheers,
+Fixes: 36763266bbe8 ("sfc: Add support for busy polling")
+Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Hannes
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 3cf3557..6b89e4a 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -485,6 +485,9 @@ efx_copy_channel(const struct efx_channel *old_channel)
+ 	*channel = *old_channel;
+ 
+ 	channel->napi_dev = NULL;
++	INIT_HLIST_NODE(&channel->napi_str.napi_hash_node);
++	channel->napi_str.napi_id = 0;
++	channel->napi_str.state = 0;
+ 	memset(&channel->eventq, 0, sizeof(channel->eventq));
+ 
+ 	for (j = 0; j < EFX_TXQ_TYPES; j++) {
 -- 
-Dr. Hannes Reinecke		      zSeries & Storage
-hare@suse.de			      +49 911 74053 688
-SUSE LINUX Products GmbH, Maxfeldstr. 5, 90409 Nürnberg
-GF: J. Hawn, J. Guild, F. Imendörffer, HRB 16746 (AG Nürnberg)
+2.7.4
