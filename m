@@ -1,48 +1,52 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v2] net: ethernet: ti: davinci_cpdma: free memory while channel destroy
-Date: Fri, 11 Nov 2016 14:39:03 +0200
-Message-ID: <1478867943-21083-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        netdev@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [patch net-next 5/8] Introduce sample tc action
+Date: Fri, 11 Nov 2016 13:43:54 +0100
+Message-ID: <20161111124353.GA31511@penelope.isobedori.kobe.vergenet.net>
+References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
+ <1478776988-5400-6-git-send-email-jiri@resnulli.us>
+ <5824CBFE.5030502@gmail.com>
+ <5824CCB0.4090302@gmail.com>
+ <DB3PR05MB0764850867353EEB018FCA5FACBB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "geert+renesas@glider.be" <geert+renesas@glider.be>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "linux@roeck-us.net" <linux@roeck-us.net>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>
+To: Yotam Gigi <yotamg@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:34980 "EHLO
-        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755195AbcKKMlD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 07:41:03 -0500
-Received: by mail-lf0-f46.google.com with SMTP id b14so11461969lfg.2
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 04:41:02 -0800 (PST)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:37922 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754978AbcKKMn7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 07:43:59 -0500
+Received: by mail-wm0-f50.google.com with SMTP id f82so89963423wmf.1
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 04:43:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <DB3PR05MB0764850867353EEB018FCA5FACBB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While create/destroy channel operation memory is not freed. It was
-supposed that memory is freed while driver remove. But a channel
-can be created and destroyed many times while changing number of
-channels with ethtool.
+On Fri, Nov 11, 2016 at 08:28:50AM +0000, Yotam Gigi wrote:
 
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+...
 
----
+> John, as a result of your question I realized that our hardware does do
+> randomized sampling that I was not aware of. I will use the extensibility of
+> the API and implement a random keyword, that will be offloaded in our
+> hardware. Those changes will be sent on v2.
+>
+> Eventually, your question was very relevant :) Thanks!
 
-Based on net-next/master
-
- drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 05afc05..07fc92d 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -586,7 +586,7 @@ int cpdma_chan_destroy(struct cpdma_chan *chan)
- 		cpdma_chan_stop(chan);
- 	ctlr->channels[chan->chan_num] = NULL;
- 	ctlr->chan_num--;
--
-+	devm_kfree(ctlr->dev, chan);
- 	cpdma_chan_split_pool(ctlr);
- 
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
--- 
-1.9.1
+Perhaps I am missing the point but why not just make random the default and
+implement the inverse as an extension if it turns out to be needed in
+future?
