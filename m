@@ -1,72 +1,53 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net 1/2] mlxsw: spectrum: Fix refcount bug on span entries
-Date: Fri, 11 Nov 2016 14:15:52 +0100
-Message-ID: <20161111131552.GC1873@nanopsycho.orion>
-References: <1478859642-2918-1-git-send-email-jiri@resnulli.us>
- <1478859642-2918-2-git-send-email-jiri@resnulli.us>
- <20161111124928.dbxqswx6akatsjrt@splinter>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] vhost/vsock: Remove unused but set variable
+Date: Fri, 11 Nov 2016 14:26:31 +0100
+Message-ID: <20161111132631.25708-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-        arkadis@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        nogahf@mellanox.com, ogerlitz@mellanox.com
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org
+To: Stefan Hajnoczi <stefanha@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34945 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755999AbcKKNPz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 08:15:55 -0500
-Received: by mail-wm0-f65.google.com with SMTP id a20so9428956wme.2
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 05:15:54 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161111124928.dbxqswx6akatsjrt@splinter>
+Received: from mail.zhinst.com ([212.126.164.98]:56806 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756358AbcKKN0m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Nov 2016 08:26:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Nov 11, 2016 at 01:49:28PM CET, idosch@idosch.org wrote:
->On Fri, Nov 11, 2016 at 11:20:41AM +0100, Jiri Pirko wrote:
->> From: Yotam Gigi <yotamg@mellanox.com>
->> 
->> When binding port to a newly created span entry, its refcount is set 0
->> even though it has a bound port. That leeds to unexpected behaviour when
->
->s/leeds/leads/
->
->> the user tries to delete that port from the span entry.
->> 
->> Change the binding process to increase the refcount of the bound entry
->> even if the entry is newly created, and add warning on the process of
->> removing bound port from entry when its refcount is 0.
->> 
->> Fixes: 763b4b70afcd3 ("mlxsw: spectrum: Add support in matchall mirror TC offloading")
->
->You only need the first 12 characters.
->
->> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 11 ++++++-----
->>  1 file changed, 6 insertions(+), 5 deletions(-)
->> 
->> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
->> index 1ec0a4c..d75c1ff 100644
->> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
->> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
->> @@ -269,17 +269,18 @@ static struct mlxsw_sp_span_entry
->>  	struct mlxsw_sp_span_entry *span_entry;
->>  
->>  	span_entry = mlxsw_sp_span_entry_find(port);
->> -	if (span_entry) {
->> -		span_entry->ref_count++;
->> -		return span_entry;
->> -	}
->> +	if (!span_entry)
->> +		span_entry = mlxsw_sp_span_entry_create(port);
->>  
->> -	return mlxsw_sp_span_entry_create(port);
->> +	span_entry->ref_count++;
->
->mlxsw_sp_span_entry_create() can return NULL. You can look at
->mlxsw_sp_fib_entry_get() for reference.
+Remove the unused but set variable vq in vhost_transport_send_pkt() to
+fix the following GCC warning when building with 'W=1':
 
-Right, missed that. Will fix. Thanks.
+  drivers/vhost/vsock.c:198:26: warning: variable ‘vq’ set but not used
+
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/vhost/vsock.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index e3b30ea9ece5..9c3c68b9a49e 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -195,7 +195,6 @@ static int
+ vhost_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+ {
+ 	struct vhost_vsock *vsock;
+-	struct vhost_virtqueue *vq;
+ 	int len = pkt->len;
+ 
+ 	/* Find the vhost_vsock according to guest context id  */
+@@ -205,8 +204,6 @@ vhost_transport_send_pkt(struct virtio_vsock_pkt *pkt)
+ 		return -ENODEV;
+ 	}
+ 
+-	vq = &vsock->vqs[VSOCK_VQ_RX];
+-
+ 	if (pkt->reply)
+ 		atomic_inc(&vsock->queued_replies);
+ 
+-- 
+2.11.0.rc0.7.gbe5a750
