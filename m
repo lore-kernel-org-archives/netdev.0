@@ -1,80 +1,276 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: marvell: optimize logic for page changing
- during init
-Date: Thu, 10 Nov 2016 18:34:19 -0800
-Message-ID: <5b63b127-85e3-a866-2032-56142b3e7b91@gmail.com>
-References: <20161110140301.13381-1-uwe@kleine-koenig.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
-To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <uwe@kleine-koenig.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 10/11] net: dsa: mv88e6xxx: Add stats_get_stats to ops structure
+Date: Fri, 11 Nov 2016 03:53:42 +0100
+Message-ID: <1478832823-31471-11-git-send-email-andrew@lunn.ch>
+References: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:35686 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965673AbcKKCeW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2016 21:34:22 -0500
-Received: by mail-it0-f68.google.com with SMTP id b123so7586291itb.2
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2016 18:34:21 -0800 (PST)
-In-Reply-To: <20161110140301.13381-1-uwe@kleine-koenig.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:34634 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S964823AbcKKCyN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Nov 2016 21:54:13 -0500
+In-Reply-To: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 10/11/2016 à 06:03, Uwe Kleine-König a écrit :
-> Instead of remembering if the page was changed, just compare the current
-> page to the saved one. This is easier and has the advantage to save a
-> register write if the page was already restored.
+Different families have different sets of statistics. Abstract this
+using a stats_get_stats op. The mv88e6390 needs a different
+implementation, which will be added later.
 
-Seems reasonable to me:
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c      | 84 +++++++++++++++++++++++------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  2 +
+ 2 files changed, 58 insertions(+), 28 deletions(-)
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> 
-> Signed-off-by: Uwe Kleine-König <uwe@kleine-koenig.org>
-> ---
->  drivers/net/phy/marvell.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index c2dcf02df202..fa31f50824d3 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -361,7 +361,7 @@ static int m88e1111_config_aneg(struct phy_device *phydev)
->  static int marvell_of_reg_init(struct phy_device *phydev)
->  {
->  	const __be32 *paddr;
-> -	int len, i, saved_page, current_page, page_changed, ret;
-> +	int len, i, saved_page, current_page, ret;
->  
->  	if (!phydev->mdio.dev.of_node)
->  		return 0;
-> @@ -374,7 +374,6 @@ static int marvell_of_reg_init(struct phy_device *phydev)
->  	saved_page = phy_read(phydev, MII_MARVELL_PHY_PAGE);
->  	if (saved_page < 0)
->  		return saved_page;
-> -	page_changed = 0;
->  	current_page = saved_page;
->  
->  	ret = 0;
-> @@ -388,7 +387,6 @@ static int marvell_of_reg_init(struct phy_device *phydev)
->  
->  		if (reg_page != current_page) {
->  			current_page = reg_page;
-> -			page_changed = 1;
->  			ret = phy_write(phydev, MII_MARVELL_PHY_PAGE, reg_page);
->  			if (ret < 0)
->  				goto err;
-> @@ -411,7 +409,7 @@ static int marvell_of_reg_init(struct phy_device *phydev)
->  
->  	}
->  err:
-> -	if (page_changed) {
-> +	if (current_page != saved_page) {
->  		i = phy_write(phydev, MII_MARVELL_PHY_PAGE, saved_page);
->  		if (ret == 0)
->  			ret = i;
-> 
-
-
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index cfbf0f0ff0dd..ebef214eb1e3 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -921,25 +921,6 @@ static struct mv88e6xxx_hw_stat mv88e6xxx_hw_stats[] = {
+ 	{ "out_management",		4, 0x1f, STATS_TYPE_BANK1, },
+ };
+ 
+-static bool mv88e6xxx_has_stat(struct mv88e6xxx_chip *chip,
+-			       struct mv88e6xxx_hw_stat *stat)
+-{
+-	switch (stat->type) {
+-	case STATS_TYPE_BANK0:
+-		return true;
+-	case STATS_TYPE_BANK1:
+-		return mv88e6xxx_6320_family(chip);
+-	case STATS_TYPE_PORT:
+-		return mv88e6xxx_6095_family(chip) ||
+-			mv88e6xxx_6185_family(chip) ||
+-			mv88e6xxx_6097_family(chip) ||
+-			mv88e6xxx_6165_family(chip) ||
+-			mv88e6xxx_6351_family(chip) ||
+-			mv88e6xxx_6352_family(chip);
+-	}
+-	return false;
+-}
+-
+ static uint64_t _mv88e6xxx_get_ethtool_stat(struct mv88e6xxx_chip *chip,
+ 					    struct mv88e6xxx_hw_stat *s,
+ 					    int port)
+@@ -1049,13 +1030,48 @@ static int mv88e6xxx_get_sset_count(struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
++static void _mv88e6xxx_get_stats(struct mv88e6xxx_chip *chip, int port,
++				 uint64_t *data, int types)
++{
++	struct mv88e6xxx_hw_stat *stat;
++	int i, j;
++
++	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
++		stat = &mv88e6xxx_hw_stats[i];
++		if (stat->type & types) {
++			data[j] = _mv88e6xxx_get_ethtool_stat(chip, stat, port,
++							      bank1_select);
++			j++;
++		}
++	}
++}
++
++static void mv88e6095_get_stats(struct mv88e6xxx_chip *chip, int port,
++				uint64_t *data)
++{
++	return _mv88e6xxx_get_stats(chip, port, data,
++				    STATS_TYPE_BANK0 | STATS_TYPE_PORT);
++}
++
++static void mv88e6320_get_stats(struct mv88e6xxx_chip *chip, int port,
++				uint64_t *data)
++{
++	return _mv88e6xxx_get_stats(chip, port, data,
++				    STATS_TYPE_BANK0 | STATS_TYPE_BANK1);
++}
++
++static void mv88e6xxx_get_stats(struct mv88e6xxx_chip *chip, int port,
++				uint64_t *data)
++{
++	if (chip->info->ops->stats_get_stats)
++		chip->info->ops->stats_get_stats(chip, port, data);
++}
++
+ static void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
+ 					uint64_t *data)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+-	struct mv88e6xxx_hw_stat *stat;
+ 	int ret;
+-	int i, j;
+ 
+ 	mutex_lock(&chip->reg_lock);
+ 
+@@ -1064,13 +1080,8 @@ static void mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds, int port,
+ 		mutex_unlock(&chip->reg_lock);
+ 		return;
+ 	}
+-	for (i = 0, j = 0; i < ARRAY_SIZE(mv88e6xxx_hw_stats); i++) {
+-		stat = &mv88e6xxx_hw_stats[i];
+-		if (mv88e6xxx_has_stat(chip, stat)) {
+-			data[j] = _mv88e6xxx_get_ethtool_stat(chip, stat, port);
+-			j++;
+-		}
+-	}
++
++	mv88e6xxx_get_stats(chip, port, data);
+ 
+ 	mutex_unlock(&chip->reg_lock);
+ }
+@@ -3251,6 +3262,7 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ 	.stats_snapshot = _mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6095_ops = {
+@@ -3264,6 +3276,7 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	.stats_snapshot = _mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6123_ops = {
+@@ -3277,6 +3290,7 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ 	.stats_snapshot = _mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6131_ops = {
+@@ -3290,6 +3304,7 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	.stats_snapshot = _mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6161_ops = {
+@@ -3303,6 +3318,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
+ 	.stats_snapshot = _mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6165_ops = {
+@@ -3316,6 +3332,7 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
+ 	.stats_snapshot = _mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6171_ops = {
+@@ -3330,6 +3347,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
+ 	.stats_snapshot = mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6172_ops = {
+@@ -3346,6 +3364,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.stats_snapshot = mv88e6320_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6175_ops = {
+@@ -3360,6 +3379,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
+ 	.stats_snapshot = mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6176_ops = {
+@@ -3376,6 +3396,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.stats_snapshot = mv88e6320_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6185_ops = {
+@@ -3389,6 +3410,7 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ 	.stats_snapshot = _mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6240_ops = {
+@@ -3405,6 +3427,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.stats_snapshot = mv88e6320_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6320_ops = {
+@@ -3420,6 +3443,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.stats_snapshot = mv88e6320_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6320_get_sset_count,
+ 	.stats_get_strings = mv88e6320_get_strings,
++	.stats_get_stats = mv88e6320_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6321_ops = {
+@@ -3435,6 +3459,7 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
+ 	.stats_snapshot = mv88e6320_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6320_get_sset_count,
+ 	.stats_get_strings = mv88e6320_get_strings,
++	.stats_get_stats = mv88e6320_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6350_ops = {
+@@ -3449,6 +3474,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
+ 	.stats_snapshot = mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6351_ops = {
+@@ -3463,6 +3489,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.stats_snapshot = mv88e6xxx_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6352_ops = {
+@@ -3479,6 +3506,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.stats_snapshot = mv88e6320_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_get_sset_count,
+ 	.stats_get_strings = mv88e6095_get_strings,
++	.stats_get_stats = mv88e6095_get_stats,
+ };
+ 
+ static const struct mv88e6xxx_ops mv88e6390_ops = {
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index d3b8eed109a6..e0196450e8a2 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -804,6 +804,8 @@ struct mv88e6xxx_ops {
+ 	int (*stats_snapshot)(struct mv88e6xxx_chip *chip, int port);
+ 	int (*stats_get_sset_count)(struct mv88e6xxx_chip *chip);
+ 	void (*stats_get_strings)(struct mv88e6xxx_chip *chip,  uint8_t *data);
++	void (*stats_get_stats)(struct mv88e6xxx_chip *chip,  int port,
++				uint64_t *data);
+ };
+ 
+ #define STATS_TYPE_PORT		BIT(0)
 -- 
-Florian
+2.10.2
