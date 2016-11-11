@@ -1,171 +1,187 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: TCP performance problems - GSO/TSO, MSS, 8139cp related
-Date: Fri, 11 Nov 2016 21:23:43 +0000
-Message-ID: <1478899423.3892.7.camel@infradead.org>
-References: <20161111210500.GE1041@n2100.armlinux.org.uk>
+From: Josef Bacik <jbacik@fb.com>
+Subject: [PATCH net-next] bpf: fix range arithmetic for bpf map access
+Date: Fri, 11 Nov 2016 16:47:39 -0500
+Message-ID: <1478900859-7807-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha-256";
-        protocol="application/x-pkcs7-signature";
-        boundary="=-2fKvkGplDDFNEJ0FHGj8"
-Cc: qemu-devel@nongnu.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        netdev@vger.kernel.org
+Content-Type: text/plain
+To: <jannh@google.com>, <ast@kernel.org>, <daniel@iogearbox.net>,
+        <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:40870 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938551AbcKKVX4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 16:23:56 -0500
-In-Reply-To: <20161111210500.GE1041@n2100.armlinux.org.uk>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:32768 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S934163AbcKKVsO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 16:48:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
+invalid accesses to bpf map entries.  Fix this up by doing a few things
 
---=-2fKvkGplDDFNEJ0FHGj8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
+life and just adds extra complexity.
 
-On Fri, 2016-11-11 at 21:05 +0000, Russell King - ARM Linux wrote:
->=20
-> 18:59:38.782818 IP (tos 0x0, ttl 52, id 35619, offset 0, flags [DF], prot=
-o TCP (6), length 60)
-> =C2=A0=C2=A0=C2=A0 84.xx.xxx.196.61236 > 195.92.253.2.http: Flags [S], ck=
-sum 0x88db (correct), seq 158975430, win 29200, options [mss 1452,sackOK,TS=
- val 1377914597 ecr 0,nop,wscale 7], length 0
+2) Fix the logic for BPF_AND, don't allow AND of negative numbers and set the
+minimum value to 0 for positive AND's.
 
-... (MSS 1452)
+3) Don't do operations on the ranges if they are set to the limits, as they are
+by definition undefined, and allowing arithmetic operations on those values
+could make them appear valid when they really aren't.
 
-> 18:59:38.816371 IP (tos 0x0, ttl 64, id 25879, offset 0, flags [DF], prot=
-o TCP (6), length 1500)
-> =C2=A0=C2=A0=C2=A0 195.92.253.2.http > 84.xx.xxx.196.61236: Flags [.], se=
-q 1:1449, ack 154, win 235, options [nop,nop,TS val 3363137952 ecr 13779146=
-27], length 1448: HTTP, length: 1448
-> 18:59:38.816393 IP (tos 0x0, ttl 64, id 25880, offset 0, flags [DF], prot=
-o TCP (6), length 1484)
-> =C2=A0=C2=A0=C2=A0 195.92.253.2.http > 84.xx.xxx.196.61236: Flags [.], se=
-q 1449:2881, ack 154, win 235, options [nop,nop,TS val 3363137952 ecr 13779=
-14627], length 1432: HTTP
+This fixes the testcase provided by Jann as well as a few other theoretical
+problems.
 
-Can you instrument cp_start_xmit() in 8139cp.c and get it to print the
-value of 'mss' when this happens?
+Reported-by: Jann Horn <jannh@google.com>
+Signed-off-by: Josef Bacik <jbacik@fb.com>
+---
+ include/linux/bpf_verifier.h |  3 +-
+ kernel/bpf/verifier.c        | 70 +++++++++++++++++++++++++++++---------------
+ 2 files changed, 49 insertions(+), 24 deletions(-)
 
-All we do is take that value from skb_shinfo(skb)->gso_size, shift it a
-bit, and shove it in the descriptor ring. There's not much scope for a
-driver-specific bug.
-
-It's also *fairly* unlikely that the kernel in the guest has developed
-a bug and isn't setting gso_size sanely. I'm more inclined to suspect
-that qemu isn't properly emulating those bits. But at first glance at
-the code, it looks like *that's* been there for the last decade too...
-
---=20
-dwmw2
---=-2fKvkGplDDFNEJ0FHGj8
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCCEeAw
-ggXiMIIDyqADAgECAhBrp4p9CteI1lEK+Vnk57ThMA0GCSqGSIb3DQEBCwUAMH0xCzAJBgNVBAYT
-AklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSswKQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0
-aWZpY2F0ZSBTaWduaW5nMSkwJwYDVQQDEyBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0
-eTAeFw0xNTEyMTYwMTAwMDVaFw0zMDEyMTYwMTAwMDVaMHUxCzAJBgNVBAYTAklMMRYwFAYDVQQK
-Ew1TdGFydENvbSBMdGQuMSkwJwYDVQQLEyBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0
-eTEjMCEGA1UEAxMaU3RhcnRDb20gQ2xhc3MgMSBDbGllbnQgQ0EwggEiMA0GCSqGSIb3DQEBAQUA
-A4IBDwAwggEKAoIBAQC9fdr3w6J9g/Zbgv3bW1+uHht1wLUZr5gkrLtXedg17AkefMyUGwrQdvwO
-bhajcVmnKVxhrUwkZPXRAwZZosRHfEIi5FH7x6SV/8Sp5lZEuiMnvMFG2MzLA84J6Ws5T4NfXZ0q
-n4TPgnr3X2vPVS51M7Ua9nIJgn8jvTra4eyyQzxvuA/GZwKg7VQfDCmCS+kICslYYWgXOMt2xlsS
-slxLce0CGWRsT8EpMyt1iDflSjXZIsE7m1uTyHaKZspMLyIyz6mySu8j8BWWHpChNNeTrFuhVfrO
-AyDPFJVUvKZCLKBhibTLloyy+LatoWELrjdI4a8StZY8+dIR9t4APXGzAgMBAAGjggFkMIIBYDAO
-BgNVHQ8BAf8EBAMCAQYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMBIGA1UdEwEB/wQI
-MAYBAf8CAQAwMgYDVR0fBCswKTAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5jb20vc2ZzY2Eu
-Y3JsMGYGCCsGAQUFBwEBBFowWDAkBggrBgEFBQcwAYYYaHR0cDovL29jc3Auc3RhcnRzc2wuY29t
-MDAGCCsGAQUFBzAChiRodHRwOi8vYWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9jYS5jcnQwHQYDVR0O
-BBYEFCSBbDlhvkkPj7cbRivJKLUnSG1oMB8GA1UdIwQYMBaAFE4L7xqkQFulF2mHMMo0aEPQQa7y
-MD8GA1UdIAQ4MDYwNAYEVR0gADAsMCoGCCsGAQUFBwIBFh5odHRwOi8vd3d3LnN0YXJ0c3NsLmNv
-bS9wb2xpY3kwDQYJKoZIhvcNAQELBQADggIBAIvj94fsAYuErQ8BAluc4SMnIwS9NPBwAm5SH9uh
-2NCXTq7im61g7F1LIiNI/+wq37fUuaMbz4g7VarKQTgf8ubs0p7NZWcIe7Bvem2AWaXBsxsaRTYw
-5kG3DN8pd1hSEUuFoTa7DmNeFe8tiK1BrL3rbA/m48jp4AiFXgvxprJrW7izsyetOrRHPbkW4Y07
-v29MdhaPv3u1JELyszXqOzjIYo4sWlC8iDQXwgSW/ntvWy2n4LuiaozlCfXl149tKeqvwlvrla2Y
-klue/quWp9j9ou4T/OY0CXMuY+B8wNK0ohd2D4ShgFlMSjzAFRoHGKF81snTr2d1A7Ew02oF6UQy
-CkC2aNNsK5cWOojBar5c7HplX9aHYUCZouxIeU28SONJAxnATgR4cJ2jrpmYSz/kliUJ46S6UpVD
-o/ebn9c6PaM/XtDYCCaM/7XX6wc3s++sbQ7CtCn1Ax7df6ufQbwyO0V+oFa9H0KAsjHMzcwk3EV2
-B2NLatidKE/m7G+rB9m+FlVgIiSp0mGlg43QO9Kh1+JqvTCIzv2bJJkmPMLQJNuKKwHNL8F4GGp6
-jbAV+WL+LDeGfVcq8DHS3LrD+xyYEXQBiqZEdiPVOMxLDSUCXsDO0uCWpaNQ8j6y6S9p0xE/Ga0p
-eVLadVHhqf9nXqKaxnr358VgfrxzUIrvOaOjMIIF+TCCBOGgAwIBAgIQaRjuleoVgt0XsPAUByve
-JDANBgkqhkiG9w0BAQsFADB1MQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEp
-MCcGA1UECxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkxIzAhBgNVBAMTGlN0YXJ0
-Q29tIENsYXNzIDEgQ2xpZW50IENBMB4XDTE2MDMxMjE2MjEyNVoXDTE3MDMxMjE2MjEyNVowQjEc
-MBoGA1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFk
-ZWFkLm9yZzCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBANBDAiGnoeOIQJ/Aolutct4z
-x6Yt3dOUI5d0YnydAMNOiyVLXzHuuuVjUpk/6nRxg1FN3e0i3TWe5MjSTD98760qWoAuF2g5BGU+
-tN/GUsyws26ZWOt82w7xhn4dcI8EhmASUtwDTZs5ZXPQzSkuNs6uX5SY0eKPlBNHkAtMf39hNc4m
-liy6WRDKApZxA1vCbiHsJQZdNEBYO35022bu8PZBe6LSAFKoncoGMHl1xNEkN6kfOJFYnLqBYeXO
-2mDA8KZ4h15EnQyyHGSghN92OUTc9stAWEt9a+q6TCtyW5zNgYTaaOtE41t5x2xDAgsnNU7sVM8f
-wSR3tYeW9IqTgU6eDUllb1a9FK7es3+j9UDg7OxNv9rnXIda6TdXlGWYfFltujF7FMwTofq3UG7t
-w68Ugk0MMfpZadhPhjYLI/qXiEDgQi8Xr+eWSo5P0ygaLvAz8OPcWAt8RG5Y8Id9hpb5neW1HTAR
-Q+k8lbpkx2wDPHZEft0ITROOupf76f9CNF4jYcyCKZNnjSsKeJv69VX1TsVaeqT1LJUEudXLa/BK
-FSb7x5M1KF4z46yImJrnagI19Nk/ufWn1usBXqXh8pY8cVN/I7C+TDPBY5SqIceTq7DaHZp19JQU
-IIWlyRsm2d4UoVcgIdTjX57Odap4Pjzrfp2RmC6hvkW2hQ5EreIPAgMBAAGjggG2MIIBsjAOBgNV
-HQ8BAf8EBAMCBLAwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMAkGA1UdEwQCMAAwHQYD
-VR0OBBYEFBDmK2IjZJ7MKmBK0A7J/tKaSIdoMB8GA1UdIwQYMBaAFCSBbDlhvkkPj7cbRivJKLUn
-SG1oMG8GCCsGAQUFBwEBBGMwYTAkBggrBgEFBQcwAYYYaHR0cDovL29jc3Auc3RhcnRzc2wuY29t
-MDkGCCsGAQUFBzAChi1odHRwOi8vYWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zY2EuY2xpZW50MS5j
-cnQwOAYDVR0fBDEwLzAtoCugKYYnaHR0cDovL2NybC5zdGFydHNzbC5jb20vc2NhLWNsaWVudDEu
-Y3JsMB4GA1UdEQQXMBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwIwYDVR0SBBwwGoYYaHR0cDovL3d3
-dy5zdGFydHNzbC5jb20vMEYGA1UdIAQ/MD0wOwYLKwYBBAGBtTcBAgQwLDAqBggrBgEFBQcCARYe
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vcG9saWN5MA0GCSqGSIb3DQEBCwUAA4IBAQAn5wvdgC0V
-kS226sFKAbqPnmVhc9jgrbsiXUcpdtYEzv6EZonARIeRC1UlIzK7jzZFRe95W5y4/qlcPQDoAeZL
-cSsbpW3AYPFFWdRgVp/eIR3iy9C5KEcAbkJES2lRUZWyRqAceW1Gur9kfvjM5H0kM6BBwJfCtoqo
-WragTXfsIXGNsF0F+60mUYYsKFPZzPmyz9J0Dr0xx9Lcp4fbD6UckDWCNJt2AJAiEPt/vPiiBzU8
-edaRzkYhzxd9f3pZAzhlzIf2CgTrGtKSL2X1bS/b3siREjQLhVrlGw4qxqllqER3APrDzyijLFuc
-CWpS8hxjTmYcNZSibv+3Oy6uU+wqMIIF+TCCBOGgAwIBAgIQaRjuleoVgt0XsPAUByveJDANBgkq
-hkiG9w0BAQsFADB1MQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEpMCcGA1UE
-CxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkxIzAhBgNVBAMTGlN0YXJ0Q29tIENs
-YXNzIDEgQ2xpZW50IENBMB4XDTE2MDMxMjE2MjEyNVoXDTE3MDMxMjE2MjEyNVowQjEcMBoGA1UE
-AwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBANBDAiGnoeOIQJ/Aolutct4zx6Yt3dOU
-I5d0YnydAMNOiyVLXzHuuuVjUpk/6nRxg1FN3e0i3TWe5MjSTD98760qWoAuF2g5BGU+tN/GUsyw
-s26ZWOt82w7xhn4dcI8EhmASUtwDTZs5ZXPQzSkuNs6uX5SY0eKPlBNHkAtMf39hNc4mliy6WRDK
-ApZxA1vCbiHsJQZdNEBYO35022bu8PZBe6LSAFKoncoGMHl1xNEkN6kfOJFYnLqBYeXO2mDA8KZ4
-h15EnQyyHGSghN92OUTc9stAWEt9a+q6TCtyW5zNgYTaaOtE41t5x2xDAgsnNU7sVM8fwSR3tYeW
-9IqTgU6eDUllb1a9FK7es3+j9UDg7OxNv9rnXIda6TdXlGWYfFltujF7FMwTofq3UG7tw68Ugk0M
-MfpZadhPhjYLI/qXiEDgQi8Xr+eWSo5P0ygaLvAz8OPcWAt8RG5Y8Id9hpb5neW1HTARQ+k8lbpk
-x2wDPHZEft0ITROOupf76f9CNF4jYcyCKZNnjSsKeJv69VX1TsVaeqT1LJUEudXLa/BKFSb7x5M1
-KF4z46yImJrnagI19Nk/ufWn1usBXqXh8pY8cVN/I7C+TDPBY5SqIceTq7DaHZp19JQUIIWlyRsm
-2d4UoVcgIdTjX57Odap4Pjzrfp2RmC6hvkW2hQ5EreIPAgMBAAGjggG2MIIBsjAOBgNVHQ8BAf8E
-BAMCBLAwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMAkGA1UdEwQCMAAwHQYDVR0OBBYE
-FBDmK2IjZJ7MKmBK0A7J/tKaSIdoMB8GA1UdIwQYMBaAFCSBbDlhvkkPj7cbRivJKLUnSG1oMG8G
-CCsGAQUFBwEBBGMwYTAkBggrBgEFBQcwAYYYaHR0cDovL29jc3Auc3RhcnRzc2wuY29tMDkGCCsG
-AQUFBzAChi1odHRwOi8vYWlhLnN0YXJ0c3NsLmNvbS9jZXJ0cy9zY2EuY2xpZW50MS5jcnQwOAYD
-VR0fBDEwLzAtoCugKYYnaHR0cDovL2NybC5zdGFydHNzbC5jb20vc2NhLWNsaWVudDEuY3JsMB4G
-A1UdEQQXMBWBE2R3bXcyQGluZnJhZGVhZC5vcmcwIwYDVR0SBBwwGoYYaHR0cDovL3d3dy5zdGFy
-dHNzbC5jb20vMEYGA1UdIAQ/MD0wOwYLKwYBBAGBtTcBAgQwLDAqBggrBgEFBQcCARYeaHR0cDov
-L3d3dy5zdGFydHNzbC5jb20vcG9saWN5MA0GCSqGSIb3DQEBCwUAA4IBAQAn5wvdgC0VkS226sFK
-AbqPnmVhc9jgrbsiXUcpdtYEzv6EZonARIeRC1UlIzK7jzZFRe95W5y4/qlcPQDoAeZLcSsbpW3A
-YPFFWdRgVp/eIR3iy9C5KEcAbkJES2lRUZWyRqAceW1Gur9kfvjM5H0kM6BBwJfCtoqoWragTXfs
-IXGNsF0F+60mUYYsKFPZzPmyz9J0Dr0xx9Lcp4fbD6UckDWCNJt2AJAiEPt/vPiiBzU8edaRzkYh
-zxd9f3pZAzhlzIf2CgTrGtKSL2X1bS/b3siREjQLhVrlGw4qxqllqER3APrDzyijLFucCWpS8hxj
-TmYcNZSibv+3Oy6uU+wqMYIEXjCCBFoCAQEwgYkwdTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0
-YXJ0Q29tIEx0ZC4xKTAnBgNVBAsTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MSMw
-IQYDVQQDExpTdGFydENvbSBDbGFzcyAxIENsaWVudCBDQQIQaRjuleoVgt0XsPAUByveJDANBglg
-hkgBZQMEAgEFAKCCAaUwGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcN
-MTYxMTExMjEyMzQzWjAvBgkqhkiG9w0BCQQxIgQgapBOWx7106XZDJyxpY4caqrgxX1MAaJDAkhK
-iMj9SCwwgZoGCSsGAQQBgjcQBDGBjDCBiTB1MQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjEpMCcGA1UECxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkxIzAhBgNV
-BAMTGlN0YXJ0Q29tIENsYXNzIDEgQ2xpZW50IENBAhBpGO6V6hWC3Rew8BQHK94kMIGcBgsqhkiG
-9w0BCRACCzGBjKCBiTB1MQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEpMCcG
-A1UECxMgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkxIzAhBgNVBAMTGlN0YXJ0Q29t
-IENsYXNzIDEgQ2xpZW50IENBAhBpGO6V6hWC3Rew8BQHK94kMA0GCSqGSIb3DQEBAQUABIICAIYd
-0QqjWUOEP2qSA3BoNJf8LVOtgfjL03iKGVfffbhj3D2jo1Mz5J7HPKDvctKErPFdLEJ+uJ+o61Pd
-R2uVkyCQ3qHqA6xBEXhQIgSxhgP1tlxcMVkltREgvZzpjcvyHt7Oips0HjsumpPr2G6Wz9RSimGH
-8y7CHX0cDXm8sRq+pM8Eu8b9fOZtevXBU0hlGDrIRVeB9Tr3gYDHYTlB6G8GCgSjOH6VQNPH/ErQ
-ZMRTSQ+Wmm3bfHLLZKaZoKO//t7Nnis3U/5zOSmA1EC/8gX32RU9KdO3hKwqnQqSGd4tBsv7zz+8
-AIJKV1ELy/FHLOiXTXLr1UaW79Su+0h+qs5zFiTX5v4WcwViA+oYCc53dEMlccm4L9JPwULAiFuq
-ZaB5aA2+EDSDpFPf10xz/Ij0lZsjam9iQUyj1NOOlStGTKCRyo81kezCs87ox5MFz2P5hUQU1dwf
-2tVAm86VZUlfpaqbkjqLJ0fTWIfff0s3H/iM4SnW7j0uDL7X68s3r5YbuIOe9sJhQTkHjEnrzsrQ
-GNQ3ynSvJpmwNkGfGOtTDrRAXOtNAnXfhomFgNiuJ9DM78lDFvc97eLvl8UVMGm7NaOSWda+xJib
-oJALpowjMZvQkDeZdMhCFvyRODMfbae8Q0+xmudTE1VRLCF5yiqaaSfHErMtSUNGAEYzArljAAAA
-AAAA
-
-
---=-2fKvkGplDDFNEJ0FHGj8--
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index ac5b393..15ceb7f 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -22,7 +22,8 @@ struct bpf_reg_state {
+ 	 * Used to determine if any memory access using this register will
+ 	 * result in a bad access.
+ 	 */
+-	u64 min_value, max_value;
++	s64 min_value;
++	u64 max_value;
+ 	u32 id;
+ 	union {
+ 		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 89f787c..709fe0e 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -234,8 +234,8 @@ static void print_verifier_state(struct bpf_verifier_state *state)
+ 				reg->map_ptr->value_size,
+ 				reg->id);
+ 		if (reg->min_value != BPF_REGISTER_MIN_RANGE)
+-			verbose(",min_value=%llu",
+-				(unsigned long long)reg->min_value);
++			verbose(",min_value=%lld",
++				(long long)reg->min_value);
+ 		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
+ 			verbose(",max_value=%llu",
+ 				(unsigned long long)reg->max_value);
+@@ -778,7 +778,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
+ 			 * index'es we need to make sure that whatever we use
+ 			 * will have a set floor within our range.
+ 			 */
+-			if ((s64)reg->min_value < 0) {
++			if (reg->min_value < 0) {
+ 				verbose("R%d min value is negative, either use unsigned index or do a if (index >=0) check.\n",
+ 					regno);
+ 				return -EACCES;
+@@ -1490,7 +1490,8 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
+ {
+ 	if (reg->max_value > BPF_REGISTER_MAX_RANGE)
+ 		reg->max_value = BPF_REGISTER_MAX_RANGE;
+-	if ((s64)reg->min_value < BPF_REGISTER_MIN_RANGE)
++	if (reg->min_value < BPF_REGISTER_MIN_RANGE ||
++	    reg->min_value > BPF_REGISTER_MAX_RANGE)
+ 		reg->min_value = BPF_REGISTER_MIN_RANGE;
+ }
+ 
+@@ -1498,7 +1499,8 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+ 				    struct bpf_insn *insn)
+ {
+ 	struct bpf_reg_state *regs = env->cur_state.regs, *dst_reg;
+-	u64 min_val = BPF_REGISTER_MIN_RANGE, max_val = BPF_REGISTER_MAX_RANGE;
++	s64 min_val = BPF_REGISTER_MIN_RANGE;
++	u64 max_val = BPF_REGISTER_MAX_RANGE;
+ 	u8 opcode = BPF_OP(insn->code);
+ 
+ 	dst_reg = &regs[insn->dst_reg];
+@@ -1532,22 +1534,43 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+ 		return;
+ 	}
+ 
++	/* If one of our values was at the end of our ranges then we can't just
++	 * do our normal operations to the register, we need to set the values
++	 * to the min/max since they are undefined.
++	 */
++	if (min_val == BPF_REGISTER_MIN_RANGE)
++		dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
++	if (max_val == BPF_REGISTER_MAX_RANGE)
++		dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
++
+ 	switch (opcode) {
+ 	case BPF_ADD:
+-		dst_reg->min_value += min_val;
+-		dst_reg->max_value += max_val;
++		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value += min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value += max_val;
+ 		break;
+ 	case BPF_SUB:
+-		dst_reg->min_value -= min_val;
+-		dst_reg->max_value -= max_val;
++		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value -= min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value -= max_val;
+ 		break;
+ 	case BPF_MUL:
+-		dst_reg->min_value *= min_val;
+-		dst_reg->max_value *= max_val;
++		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value *= min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value *= max_val;
+ 		break;
+ 	case BPF_AND:
+-		/* & is special since it could end up with 0 bits set. */
+-		dst_reg->min_value &= min_val;
++		/* Disallow AND'ing of negative numbers, ain't nobody got time
++		 * for that.  Otherwise the minimum is 0 and the max is the max
++		 * value we could AND against.
++		 */
++		if (min_val < 0)
++			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
++		else
++			dst_reg->min_value = 0;
+ 		dst_reg->max_value = max_val;
+ 		break;
+ 	case BPF_LSH:
+@@ -1557,24 +1580,25 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+ 		 */
+ 		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
+ 			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+-		else
++		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+ 			dst_reg->min_value <<= min_val;
+ 
+ 		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
+ 			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
+-		else
++		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+ 			dst_reg->max_value <<= max_val;
+ 		break;
+ 	case BPF_RSH:
+-		dst_reg->min_value >>= min_val;
+-		dst_reg->max_value >>= max_val;
+-		break;
+-	case BPF_MOD:
+-		/* % is special since it is an unsigned modulus, so the floor
+-		 * will always be 0.
++		/* RSH by a negative number is undefined, and the BPF_RSH is an
++		 * unsigned shift, so make the appropriate casts.
+ 		 */
+-		dst_reg->min_value = 0;
+-		dst_reg->max_value = max_val - 1;
++		if (min_val < 0)
++			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
++		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value =
++				(u64)(dst_reg->min_value) >> min_val;
++		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value >>= max_val;
+ 		break;
+ 	default:
+ 		reset_reg_range_values(regs, insn->dst_reg);
+-- 
+2.5.5
