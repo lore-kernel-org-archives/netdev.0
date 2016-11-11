@@ -1,50 +1,33 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v2 2/7] vxlan: simplify exception handling
-Date: Fri, 11 Nov 2016 12:14:36 +0100
-Message-ID: <20161111121436.56b214ab@griffin>
-References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
-        <1478371557-71888-3-git-send-email-pshelar@ovn.org>
-        <20161109171018.69d08ff9@griffin>
-        <CAOrHB_AkVXDOaFKy_-ccRc--=wXG14TLfoC6Vc4HSBgjbDm3sA@mail.gmail.com>
-        <20161110104703.7386ab29@griffin>
-        <CAOrHB_BdYpCpjrzHmNmEkvhXk7u6Gb_1aRyggeCrsL0Jx1nkvw@mail.gmail.com>
-        <20161110193347.0e81d68b@griffin>
-        <CAOrHB_AGV4x4G4QYFAaWNYgckvkDAS-prp65CgXfTqB4KoxHTw@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: question about xt_find_table_lock
+Date: Fri, 11 Nov 2016 12:23:07 +0100
+Message-ID: <20161111112307.GA7274@breakpoint.cc>
+References: <alpine.DEB.2.20.1611111141380.2074@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55186 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754579AbcKKLOk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Nov 2016 06:14:40 -0500
-In-Reply-To: <CAOrHB_AGV4x4G4QYFAaWNYgckvkDAS-prp65CgXfTqB4KoxHTw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+        davem@davemloft.net, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, christophe.jaillet@wanadoo.fr
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.20.1611111141380.2074@hadrien>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Nov 2016 11:21:19 -0800, Pravin Shelar wrote:
-> One additional variable is not bad but look at what has happened in
-> vxlan_xmit_one(). There are already more than 20 variables defined. It
-> is hard to read code in this case.
+Julia Lawall <julia.lawall@lip6.fr> wrote:
+> The function xt_find_table_lock defined in net/netfilter/x_tables.c is
+> preceeded by a comment that says that it returns ERR_PTR() on error.  But
+> looking at the definition, I only see occurrences of return NULL and
+> returns of pointers that have previously been dereferenced.  Is it the
+> code or the documentation that is incorrect?  The call sites seem to be
+> using IS_ERR_OR_NULL.  Is there a plan to return ERR_PTR values in the
+> future?
 
-I agree that the function is horrible.
+It used to return ERR_PTR, see:
 
-What I was thinking about was separating the vxlan data and control
-plane. The vxlan data plane would perform encapsulation and
-decapsulation based on lwtunnel infrastructure and the rest of the
-"classical" vxlan would be just one of the users of that. Basically
-replacing vxlan_rdst by ip_tunnel_info, among other things.
+commit 7926dbfa4bc14e27f4e18a6184a031a1c1e077dc
+netfilter: don't use mutex_lock_interruptible()
 
-That would make the vxlan code much much cleaner.
-
-> anyways I can add another variable to the function. I do not feel that
-> strongly about this.
-
-Me neither, actually. I prefer another variable but I won't oppose the
-patchset just based on that if you choose differently.
-
-Thanks,
-
- Jiri
+So the comment isn't correct anymore and callers could test vs NULL.
