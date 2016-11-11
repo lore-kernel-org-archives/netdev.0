@@ -1,7 +1,7 @@
 From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: [PATCH v4 4/6] timer: move sys_alarm from timer.c to itimer.c
-Date: Fri, 11 Nov 2016 00:10:08 -0500
-Message-ID: <1478841010-28605-5-git-send-email-nicolas.pitre@linaro.org>
+Subject: [PATCH v4 5/6] posix_cpu_timers_exit: wrong place to collect entropy
+Date: Fri, 11 Nov 2016 00:10:09 -0500
+Message-ID: <1478841010-28605-6-git-send-email-nicolas.pitre@linaro.org>
 References: <1478841010-28605-1-git-send-email-nicolas.pitre@linaro.org>
 Cc: Richard Cochran <richardcochran@gmail.com>,
         Paul Bolle <pebolle@tiscali.nl>,
@@ -16,93 +16,61 @@ In-Reply-To: <1478841010-28605-1-git-send-email-nicolas.pitre@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the only user of alarm_setitimer to itimer.c where it is defined.
-This allows for making alarm_setitimer static, and dropping it from the
-build when __ARCH_WANT_SYS_ALARM is not defined.
+There is no logical relation between add_device_randomness() and
+posix_cpu_timers_exit(). Let's move the former to where the later
+is called. This way, when posix-cpu-timers.c is compiled out, there
+is no need to worry about not losing a call to add_device_randomness().
 
 Signed-off-by: Nicolas Pitre <nico@linaro.org>
 ---
- include/linux/time.h |  2 --
- kernel/time/itimer.c | 15 ++++++++++++++-
- kernel/time/timer.c  | 13 -------------
- 3 files changed, 14 insertions(+), 16 deletions(-)
+ kernel/exit.c                  | 4 ++++
+ kernel/time/posix-cpu-timers.c | 4 ----
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/time.h b/include/linux/time.h
-index 4cea09d942..23f0f5ce30 100644
---- a/include/linux/time.h
-+++ b/include/linux/time.h
-@@ -172,8 +172,6 @@ extern int do_setitimer(int which, struct itimerval *value,
- 			struct itimerval *ovalue);
- extern int do_getitimer(int which, struct itimerval *value);
+diff --git a/kernel/exit.c b/kernel/exit.c
+index 9d68c45ebb..d16bcdd89d 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -54,6 +54,7 @@
+ #include <linux/writeback.h>
+ #include <linux/shm.h>
+ #include <linux/kcov.h>
++#include <linux/random.h>
  
--extern unsigned int alarm_setitimer(unsigned int seconds);
--
- extern long do_utimes(int dfd, const char __user *filename, struct timespec *times, int flags);
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+@@ -116,6 +117,9 @@ static void __exit_signal(struct task_struct *tsk)
+ 			sig->curr_target = next_thread(tsk);
+ 	}
  
- struct tms;
-diff --git a/kernel/time/itimer.c b/kernel/time/itimer.c
-index 1d5c7204dd..2b9f45bc95 100644
---- a/kernel/time/itimer.c
-+++ b/kernel/time/itimer.c
-@@ -238,6 +238,8 @@ int do_setitimer(int which, struct itimerval *value, struct itimerval *ovalue)
- 	return 0;
- }
- 
-+#ifdef __ARCH_WANT_SYS_ALARM
++	add_device_randomness((const void*) &tsk->se.sum_exec_runtime,
++			      sizeof(unsigned long long));
 +
- /**
-  * alarm_setitimer - set alarm in seconds
-  *
-@@ -250,7 +252,7 @@ int do_setitimer(int which, struct itimerval *value, struct itimerval *ovalue)
-  * On 32 bit machines the seconds value is limited to (INT_MAX/2) to avoid
-  * negative timeval settings which would cause immediate expiry.
+ 	/*
+ 	 * Accumulate here the counters for all threads as they die. We could
+ 	 * skip the group leader because it is the last user of signal_struct,
+diff --git a/kernel/time/posix-cpu-timers.c b/kernel/time/posix-cpu-timers.c
+index 39008d7892..e582f20f47 100644
+--- a/kernel/time/posix-cpu-timers.c
++++ b/kernel/time/posix-cpu-timers.c
+@@ -9,7 +9,6 @@
+ #include <asm/uaccess.h>
+ #include <linux/kernel_stat.h>
+ #include <trace/events/timer.h>
+-#include <linux/random.h>
+ #include <linux/tick.h>
+ #include <linux/workqueue.h>
+ 
+@@ -447,10 +446,7 @@ static void cleanup_timers(struct list_head *head)
   */
--unsigned int alarm_setitimer(unsigned int seconds)
-+static unsigned int alarm_setitimer(unsigned int seconds)
+ void posix_cpu_timers_exit(struct task_struct *tsk)
  {
- 	struct itimerval it_new, it_old;
- 
-@@ -275,6 +277,17 @@ unsigned int alarm_setitimer(unsigned int seconds)
- 	return it_old.it_value.tv_sec;
+-	add_device_randomness((const void*) &tsk->se.sum_exec_runtime,
+-						sizeof(unsigned long long));
+ 	cleanup_timers(tsk->cpu_timers);
+-
  }
- 
-+/*
-+ * For backwards compatibility?  This can be done in libc so Alpha
-+ * and all newer ports shouldn't need it.
-+ */
-+SYSCALL_DEFINE1(alarm, unsigned int, seconds)
-+{
-+	return alarm_setitimer(seconds);
-+}
-+
-+#endif
-+
- SYSCALL_DEFINE3(setitimer, int, which, struct itimerval __user *, value,
- 		struct itimerval __user *, ovalue)
+ void posix_cpu_timers_exit_group(struct task_struct *tsk)
  {
-diff --git a/kernel/time/timer.c b/kernel/time/timer.c
-index 2d47980a1b..3ed6c67e17 100644
---- a/kernel/time/timer.c
-+++ b/kernel/time/timer.c
-@@ -1662,19 +1662,6 @@ void run_local_timers(void)
- 	raise_softirq(TIMER_SOFTIRQ);
- }
- 
--#ifdef __ARCH_WANT_SYS_ALARM
--
--/*
-- * For backwards compatibility?  This can be done in libc so Alpha
-- * and all newer ports shouldn't need it.
-- */
--SYSCALL_DEFINE1(alarm, unsigned int, seconds)
--{
--	return alarm_setitimer(seconds);
--}
--
--#endif
--
- static void process_timeout(unsigned long __data)
- {
- 	wake_up_process((struct task_struct *)__data);
 -- 
 2.7.4
