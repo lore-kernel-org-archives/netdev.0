@@ -1,110 +1,86 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 2/2] ptr_ring_ll: pop/push multiple objects at once
-Date: Thu, 10 Nov 2016 20:44:32 -0800
-Message-ID: <20161111044432.1547.65342.stgit@john-Precision-Tower-5810>
-References: <20161111043857.1547.70337.stgit@john-Precision-Tower-5810>
+Subject: Re: [PATCH 1/3] tuntap: rx batching
+Date: Thu, 10 Nov 2016 20:45:02 -0800
+Message-ID: <58254CCE.40505@gmail.com>
+References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
+ <20161109183259-mutt-send-email-mst@kernel.org>
+ <c6cd619f-b9a6-784d-2c44-6106e64f5664@redhat.com>
+ <20161111053048-mutt-send-email-mst@kernel.org> <58254654.4000501@gmail.com>
+ <2b357b06-f749-5897-f882-aa3121e49e89@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jasowang@redhat.com
+To: Jason Wang <jasowang@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161111043857.1547.70337.stgit@john-Precision-Tower-5810>
+In-Reply-To: <2b357b06-f749-5897-f882-aa3121e49e89@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- include/linux/ptr_ring_ll.h |   22 ++++++++++++++++------
- include/linux/skb_array.h   |   11 +++++++++--
- net/sched/sch_generic.c     |    2 +-
- 3 files changed, 26 insertions(+), 9 deletions(-)
+On 16-11-10 08:28 PM, Jason Wang wrote:
+> 
+> 
+> On 2016年11月11日 12:17, John Fastabend wrote:
+>> On 16-11-10 07:31 PM, Michael S. Tsirkin wrote:
+>>> >On Fri, Nov 11, 2016 at 10:07:44AM +0800, Jason Wang wrote:
+>>>> >>
+>>>> >>
+>>>> >>On 2016年11月10日 00:38, Michael S. Tsirkin wrote:
+>>>>> >>>On Wed, Nov 09, 2016 at 03:38:31PM +0800, Jason Wang wrote:
+>>>>>> >>>>Backlog were used for tuntap rx, but it can only process 1
+>>>>>> packet at
+>>>>>> >>>>one time since it was scheduled during sendmsg() synchronously in
+>>>>>> >>>>process context. This lead bad cache utilization so this patch
+>>>>>> tries
+>>>>>> >>>>to do some batching before call rx NAPI. This is done through:
+>>>>>> >>>>
+>>>>>> >>>>- accept MSG_MORE as a hint from sendmsg() caller, if it was set,
+>>>>>> >>>>    batch the packet temporarily in a linked list and submit
+>>>>>> them all
+>>>>>> >>>>    once MSG_MORE were cleared.
+>>>>>> >>>>- implement a tuntap specific NAPI handler for processing this
+>>>>>> kind of
+>>>>>> >>>>    possible batching. (This could be done by extending
+>>>>>> backlog to
+>>>>>> >>>>    support skb like, but using a tun specific one looks
+>>>>>> cleaner and
+>>>>>> >>>>    easier for future extension).
+>>>>>> >>>>
+>>>>>> >>>>Signed-off-by: Jason Wang<jasowang@redhat.com>
+>>>>> >>>So why do we need an extra queue?
+>>>> >>
+>>>> >>The idea was borrowed from backlog to allow some kind of bulking
+>>>> and avoid
+>>>> >>spinlock on each dequeuing.
+>>>> >>
+>>>>> >>>   This is not what hardware devices do.
+>>>>> >>>How about adding the packet to queue unconditionally, deferring
+>>>>> >>>signalling until we get sendmsg without MSG_MORE?
+>>>> >>
+>>>> >>Then you need touch spinlock when dequeuing each packet.
+>>> >
+>> Random thought, I have a cmpxchg ring I am using for the qdisc work that
+>> could possibly replace the spinlock implementation. I haven't figured
+>> out the resizing API yet because I did not need it but I assume it could
+>> help here and let you dequeue multiple skbs in one operation.
+>>
+>> I can post the latest version if useful or an older version is
+>> somewhere on patchworks as well.
+>>
+>> .John
+>>
+>>
+> 
+> Look useful here, and I can compare the performance if you post.
+> 
+> A question is can we extend the skb_array to support that?
+> 
+> Thanks
+> 
 
-diff --git a/include/linux/ptr_ring_ll.h b/include/linux/ptr_ring_ll.h
-index bcb11f3..5dc25f7 100644
---- a/include/linux/ptr_ring_ll.h
-+++ b/include/linux/ptr_ring_ll.h
-@@ -45,9 +45,10 @@ struct ptr_ring_ll {
- /* Note: callers invoking this in a loop must use a compiler barrier,
-  * for example cpu_relax(). Callers must hold producer_lock.
-  */
--static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void *ptr)
-+static inline int __ptr_ring_ll_produce_many(struct ptr_ring_ll *r,
-+					     void **ptr, int num)
- {
--	u32 ret, head, tail, next, slots, mask;
-+	u32 ret, head, tail, next, slots, mask, i;
- 
- 	do {
- 		head = READ_ONCE(r->prod_head);
-@@ -55,21 +56,30 @@ static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void *ptr)
- 		tail = READ_ONCE(r->cons_tail);
- 
- 		slots = mask + tail - head;
--		if (slots < 1)
-+		if (slots < num)
-+			num = slots;
-+
-+		if (unlikely(!num))
- 			return -ENOMEM;
- 
--		next = head + 1;
-+		next = head + num;
- 		ret = cmpxchg(&r->prod_head, head, next);
- 	} while (ret != head);
- 
--	r->queue[head & mask] = ptr;
-+	for (i = 0; i < num; i++)
-+		r->queue[(head + i) & mask] = ptr[i];
- 	smp_wmb();
- 
- 	while (r->prod_tail != head)
- 		cpu_relax();
- 
- 	r->prod_tail = next;
--	return 0;
-+	return num;
-+}
-+
-+static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void **ptr)
-+{
-+	return __ptr_ring_ll_produce_many(r, ptr, 1);
- }
- 
- static inline void *__ptr_ring_ll_consume(struct ptr_ring_ll *r)
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-index 9b43dfd..de3c700 100644
---- a/include/linux/skb_array.h
-+++ b/include/linux/skb_array.h
-@@ -48,9 +48,16 @@ static inline bool skb_array_full(struct skb_array *a)
- 	return ptr_ring_full(&a->ring);
- }
- 
--static inline int skb_array_ll_produce(struct skb_array_ll *a, struct sk_buff *skb)
-+static inline int skb_array_ll_produce_many(struct skb_array_ll *a,
-+					    struct sk_buff **skb, int num)
- {
--	return __ptr_ring_ll_produce(&a->ring, skb);
-+	return __ptr_ring_ll_produce_many(&a->ring, (void **)skb, num);
-+}
-+
-+static inline int skb_array_ll_produce(struct skb_array_ll *a,
-+				       struct sk_buff **skb)
-+{
-+	return __ptr_ring_ll_produce(&a->ring, (void **)skb);
- }
- 
- static inline int skb_array_produce(struct skb_array *a, struct sk_buff *skb)
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 4648ec8..58f2011 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -571,7 +571,7 @@ static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
- 	struct skb_array_ll *q = band2list(priv, band);
- 	int err;
- 
--	err = skb_array_ll_produce(q, skb);
-+	err = skb_array_ll_produce(q, &skb);
- 
- 	if (unlikely(err)) {
- 		net_warn_ratelimited("drop a packet from fast enqueue\n");
+Sent out two RFC patches with the implementation, the first has been
+running on my system for some time the second for multiple packets is
+only lightly tested and that was awhile back.
+
+.John
