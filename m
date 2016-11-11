@@ -1,41 +1,31 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: question about xt_find_table_lock
-Date: Fri, 11 Nov 2016 12:58:27 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1611111257540.2074@hadrien>
-References: <alpine.DEB.2.20.1611111141380.2074@hadrien> <20161111112307.GA7274@breakpoint.cc>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net 2/2] r8152: rx descriptor check
+Date: Fri, 11 Nov 2016 13:13:11 +0100
+Message-ID: <20161111121311.GA19673@electric-eye.fr.zoreil.com>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+ <1394712342-15778-228-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Julia Lawall <julia.lawall@lip6.fr>, pablo@netfilter.org,
-        kaber@trash.net, kadlec@blackhole.kfki.hu, davem@davemloft.net,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        christophe.jaillet@wanadoo.fr
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20161111112307.GA7274@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+        mlord@pobox.com
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1394712342-15778-228-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hayes Wang <hayeswang@realtek.com> :
+> For some platforms, the data in memory is not the same with the one
+> from the device. That is, the data of memory is unbelievable. The
+> check is used to find out this situation.
 
+Invalid packet size corrupted receive descriptors in Realtek's device
+reminds of CVE-2009-4537.
 
-On Fri, 11 Nov 2016, Florian Westphal wrote:
+Is the silicium of both devices different enough to prevent the same
+exploit to happen ?
 
-> Julia Lawall <julia.lawall@lip6.fr> wrote:
-> > The function xt_find_table_lock defined in net/netfilter/x_tables.c is
-> > preceeded by a comment that says that it returns ERR_PTR() on error.  But
-> > looking at the definition, I only see occurrences of return NULL and
-> > returns of pointers that have previously been dereferenced.  Is it the
-> > code or the documentation that is incorrect?  The call sites seem to be
-> > using IS_ERR_OR_NULL.  Is there a plan to return ERR_PTR values in the
-> > future?
->
-> It used to return ERR_PTR, see:
->
-> commit 7926dbfa4bc14e27f4e18a6184a031a1c1e077dc
-> netfilter: don't use mutex_lock_interruptible()
->
-> So the comment isn't correct anymore and callers could test vs NULL.
-
-Thanks for the quick feedback.
-
-julia
+-- 
+Ueimor
