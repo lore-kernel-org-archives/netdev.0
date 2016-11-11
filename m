@@ -1,138 +1,65 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: fix fixed prio cpdma
- ctlr configuration
-Date: Thu, 10 Nov 2016 16:58:41 -0600
-Message-ID: <2ccb346e-e5d7-0b13-1956-099f69868696@ti.com>
-References: <1478610656-24634-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <a20ab87c-4f9d-0eaa-e486-156d9f359866@ti.com>
- <592966c0-ae4c-ba6b-43ba-8ca837e9a700@linaro.org>
- <37548a54-c54b-3194-691a-22fa8118ed3d@ti.com>
- <1501d6bd-ef97-cfb4-f02b-2b03b97ae636@globallogic.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] Revert "include/uapi/linux/atm_zatm.h: include linux/time.h"
+Date: Thu, 10 Nov 2016 19:08:39 -0500
+Message-ID: <20161111000839.23267-1-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "ivan.khoronzhuk" <ivan.khoronzhuk@linaro.org>,
-        <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501d6bd-ef97-cfb4-f02b-2b03b97ae636@globallogic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: mikko.rapeli@iki.fi
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:57076 "EHLO smtp.gentoo.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935657AbcKKAIq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Nov 2016 19:08:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This reverts commit cf00713a655d ("include/uapi/linux/atm_zatm.h: include
+linux/time.h").
 
+This attempted to fix userspace breakage that no longer existed when
+the patch was merged.  Almost one year earlier, commit 70ba07b675b5
+("atm: remove 'struct zatm_t_hist'") deleted the struct in question.
 
-On 11/10/2016 01:52 PM, ivan.khoronzhuk wrote:
->
->
-> On 10.11.16 18:37, Grygorii Strashko wrote:
->>
->>
->> On 11/09/2016 05:56 PM, Ivan Khoronzhuk wrote:
->>>
->>>
->>> On 09.11.16 23:09, Grygorii Strashko wrote:
->>>>
->>>>
->>>> On 11/08/2016 07:10 AM, Ivan Khoronzhuk wrote:
->>>>> The dma ctlr is reseted to 0 while cpdma start, thus cpdma ctlr
->>>>
->>>> I assume this is because cpdma_ctlr_start() does soft reset. Is it
->>>> correct?
->>> Probably not. I've seen this register doesn't hold any previous settings
->>> (just trash)
->>
->> What register CPDMA_DMACONTROL or CPSW_DMACTRL?
->>
->>> after cpdma_ctlr_stop(), actually after last channel is stopped (inside
->>> of cpdma_ctlr_stop()).
->>
->> So, You are stating that Registers context is changed after stop?
->>
->>> Then cpdma_ctlr_start() just reset it to 0.
->>
->> "just trash" or "0".
->>
->> Sry, I do not see how cpdma_ctlr_stop() can affect on registers state :(
->> and I'd very appreciated if can provide more detailed information.
->>
-> I've checked again, it was my mistake. It simply reset to 0 while soft
-> reset.
->
->>>
->>>>
->>>>> cannot be configured after cpdma is stopped. So, restore content
->>>>> of cpdma ctlr while off/on procedure.
->>>>>
->>>>> Based on net-next/master
->>>>
->>>> ^ remove it
->>> sure
->>>
->>>>
->>>>>
->>>>> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->>>>> ---
->>>>>  drivers/net/ethernet/ti/cpsw.c          |   6 +-
->>>>>  drivers/net/ethernet/ti/davinci_cpdma.c | 103
->>>>> +++++++++++++++++---------------
->>>>>  drivers/net/ethernet/ti/davinci_cpdma.h |   2 +
->>>>>  3 files changed, 58 insertions(+), 53 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/ethernet/ti/cpsw.c
->>>>> b/drivers/net/ethernet/ti/cpsw.c
->>>>> index b1ddf89..4d04b8e 100644
->>>>> --- a/drivers/net/ethernet/ti/cpsw.c
->>>>> +++ b/drivers/net/ethernet/ti/cpsw.c
->>>>> @@ -1376,10 +1376,6 @@ static int cpsw_ndo_open(struct net_device
->>>>> *ndev)
->>>>>                    ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
->>>>>
->>>>>      if (!cpsw_common_res_usage_state(cpsw)) {
->>>>> -        /* setup tx dma to fixed prio and zero offset */
->>>>> -        cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1);
->>>>> -        cpdma_control_set(cpsw->dma, CPDMA_RX_BUFFER_OFFSET, 0);
->>>>> -
->>>>>          /* disable priority elevation */
->>>>>          __raw_writel(0, &cpsw->regs->ptype);
->>>>>
->>>>> @@ -2710,6 +2706,8 @@ static int cpsw_probe(struct platform_device
->>>>> *pdev)
->>>>>      dma_params.desc_align        = 16;
->>>>>      dma_params.has_ext_regs        = true;
->>>>>      dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
->>>>> +    dma_params.rxbuf_offset        = 0;
->>>>> +    dma_params.fixed_prio        = 1;
->>>>
->>>> Do we really need this new parameters? Do you have plans to use other
->>>> values?
->>> I'm ok if this is static (equally as a bunch of rest in dma_params), no
->>> see reason to use other values,
->>
->> That's what i wanted to know :) - go static, pls.
->>
->>> it at least now. But the issue is not only in these two parameters and
->>> not only in cpsw_ndo_open().
->>> It touches cpsw_set_channels() also, where ctlr stop/start is present.
->>> In order to not copy cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED,
->>> 1)...
->>> in all such kind places in eth drivers, better to allow the cpdma to
->>> control it's parameters...
->>>
->>> The cpdma ctlr register holds a little more parameters (but only two of
->>> them are set in cpsw)
->>> Maybe there is reason to save them also. Actually I'd seen this problem
->>> when playing with
->>> on/off channel shapers, unfortunately the cpdma ctlr holds this info
->>> also, and it was lost
->>> while on/off (but I'm going to restore it in chan_start()).
->>>
->>
->> I understand you change, but I'm note sure about real root cause :(
-> so, are you Ok with current version?
+After this patch was merged, we now have to deal with people being
+unable to include this header in conjunction with standard C library
+headers like stdlib.h (which linux-atm does).  Example breakage:
+x86_64-pc-linux-gnu-gcc -DHAVE_CONFIG_H -I. -I../.. -I./../q2931 -I./../saal \
+	-I.  -DCPPFLAGS_TEST  -I../../src/include -O2 -march=native -pipe -g \
+	-frecord-gcc-switches -freport-bug -Wimplicit-function-declaration \
+	-Wnonnull -Wstrict-aliasing -Wparentheses -Warray-bounds \
+	-Wfree-nonheap-object -Wreturn-local-addr -fno-strict-aliasing -Wall \
+	-Wshadow -Wpointer-arith -Wwrite-strings -Wstrict-prototypes -c zntune.c
+In file included from /usr/include/linux/atm_zatm.h:17:0,
+                 from zntune.c:17:
+/usr/include/linux/time.h:9:8: error: redefinition of ‘struct timespec’
+ struct timespec {
+        ^
+In file included from /usr/include/sys/select.h:43:0,
+                 from /usr/include/sys/types.h:219,
+                 from /usr/include/stdlib.h:314,
+                 from zntune.c:9:
+/usr/include/time.h:120:8: note: originally defined here
+ struct timespec
+        ^
 
-No. pls, use constant values and do not introduce additional parameters.
-Also, pls update commit message with new information.
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ include/uapi/linux/atm_zatm.h | 1 -
+ 1 file changed, 1 deletion(-)
 
+diff --git a/include/uapi/linux/atm_zatm.h b/include/uapi/linux/atm_zatm.h
+index 5cd4d4d2dd1d..9c9c6ad55f14 100644
+--- a/include/uapi/linux/atm_zatm.h
++++ b/include/uapi/linux/atm_zatm.h
+@@ -14,7 +14,6 @@
+ 
+ #include <linux/atmapi.h>
+ #include <linux/atmioc.h>
+-#include <linux/time.h>
+ 
+ #define ZATM_GETPOOL	_IOW('a',ATMIOC_SARPRV+1,struct atmif_sioc)
+ 						/* get pool statistics */
 -- 
-regards,
--grygorii
+2.9.0
