@@ -1,51 +1,55 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net 1/2] ibmvnic: Unmap ibmvnic_statistics structure
-Date: Fri, 11 Nov 2016 11:00:45 -0600
-Message-ID: <1478883646-10760-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: mwb@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+From: Hannes Reinecke <hare@suse.de>
+Subject: Re: [PATCH v2 5/6] qedi: Add support for iSCSI session management.
+Date: Fri, 11 Nov 2016 17:47:37 +0100
+Message-ID: <e74f2c3d-c0bb-cd3a-b33a-246f0946c73e@suse.de>
+References: <1478588223-16183-1-git-send-email-manish.rangankar@cavium.com>
+ <1478588223-16183-6-git-send-email-manish.rangankar@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+        QLogic-Storage-Upstream@cavium.com, Yuval.Mintz@cavium.com
+To: Manish Rangankar <manish.rangankar@cavium.com>,
+        martin.petersen@oracle.com, lduncan@suse.com, cleech@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:53220 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1756165AbcKKRAv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 12:00:51 -0500
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uABGx6uq130374
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 12:00:50 -0500
-Received: from e31.co.us.ibm.com (e31.co.us.ibm.com [32.97.110.149])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 26nfda3evp-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 12:00:50 -0500
-Received: from localhost
-        by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Fri, 11 Nov 2016 10:00:49 -0700
-Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
-        by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 15C9D1FF0023
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 10:00:27 -0700 (MST)
+Received: from mx2.suse.de ([195.135.220.15]:58017 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934564AbcKKRDu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Nov 2016 12:03:50 -0500
+In-Reply-To: <1478588223-16183-6-git-send-email-manish.rangankar@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This structure was mapped but never subsequently unmapped.
+On 11/08/2016 07:57 AM, Manish Rangankar wrote:
+> This patch adds support for iscsi_transport LLD Login,
+> Logout, NOP-IN/NOP-OUT, Async, Reject PDU processing
+> and Firmware async event handling support.
+>
+> Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
+> Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
+> Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
+> Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
+> Signed-off-by: Arun Easi <arun.easi@cavium.com>
+> Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
+> ---
+>  drivers/scsi/qedi/qedi_fw.c    | 1106 +++++++++++++++++++++++++++
+>  drivers/scsi/qedi/qedi_gbl.h   |   67 ++
+>  drivers/scsi/qedi/qedi_iscsi.c | 1611 ++++++++++++++++++++++++++++++++++++++++
+>  drivers/scsi/qedi/qedi_iscsi.h |  232 ++++++
+>  drivers/scsi/qedi/qedi_main.c  |  166 +++++
+>  5 files changed, 3182 insertions(+)
+>  create mode 100644 drivers/scsi/qedi/qedi_fw.c
+>  create mode 100644 drivers/scsi/qedi/qedi_gbl.h
+>  create mode 100644 drivers/scsi/qedi/qedi_iscsi.c
+>  create mode 100644 drivers/scsi/qedi/qedi_iscsi.h
+>
+Reviewed-by: Hannes Reinecke <hare@suse.com>
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 3 +++
- 1 file changed, 3 insertions(+)
+Cheers,
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index f6c9b6d..921c40f 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3844,6 +3844,9 @@ static int ibmvnic_remove(struct vio_dev *dev)
- 	if (adapter->debugfs_dir && !IS_ERR(adapter->debugfs_dir))
- 		debugfs_remove_recursive(adapter->debugfs_dir);
- 
-+	dma_unmap_single(&dev->dev, adapter->stats_token,
-+			 sizeof(struct ibmvnic_statistics), DMA_FROM_DEVICE);
-+
- 	if (adapter->ras_comps)
- 		dma_free_coherent(&dev->dev,
- 				  adapter->ras_comp_num *
+Hannes
 -- 
-1.8.3.1
+Dr. Hannes Reinecke		      zSeries & Storage
+hare@suse.de			      +49 911 74053 688
+SUSE LINUX Products GmbH, Maxfeldstr. 5, 90409 Nürnberg
+GF: J. Hawn, J. Guild, F. Imendörffer, HRB 16746 (AG Nürnberg)
