@@ -1,23 +1,89 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: Re: [PATCH net-next] sfc: clear napi_hash state when copying channels
-Date: Fri, 11 Nov 2016 16:10:56 +0000
-Message-ID: <ecb945f8-1b95-2fbd-f023-a554da8b296e@solarflare.com>
-References: <80535661-f88f-3dc5-9b40-111358707ffd@solarflare.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/3] tuntap: rx batching
+Date: Fri, 11 Nov 2016 18:20:10 +0200
+Message-ID: <20161111181754-mutt-send-email-mst@kernel.org>
+References: <1478677113-13126-1-git-send-email-jasowang@redhat.com>
+ <20161109183259-mutt-send-email-mst@kernel.org>
+ <c6cd619f-b9a6-784d-2c44-6106e64f5664@redhat.com>
+ <20161111053048-mutt-send-email-mst@kernel.org>
+ <58254654.4000501@gmail.com>
+ <2b357b06-f749-5897-f882-aa3121e49e89@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        Solarflare Linux Maintainers <linux-net-drivers@solarflare.com>
-To: Dave Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:36690 "EHLO
-        nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751566AbcKKQLH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 11:11:07 -0500
-In-Reply-To: <80535661-f88f-3dc5-9b40-111358707ffd@solarflare.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59828 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755629AbcKKQUM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Nov 2016 11:20:12 -0500
+Content-Disposition: inline
+In-Reply-To: <2b357b06-f749-5897-f882-aa3121e49e89@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Apologies, this was meant for net, not net-next. Shall I resubmit?
+On Fri, Nov 11, 2016 at 12:28:38PM +0800, Jason Wang wrote:
+> 
+> 
+> On 2016年11月11日 12:17, John Fastabend wrote:
+> > On 16-11-10 07:31 PM, Michael S. Tsirkin wrote:
+> > > >On Fri, Nov 11, 2016 at 10:07:44AM +0800, Jason Wang wrote:
+> > > > >>
+> > > > >>
+> > > > >>On 2016年11月10日 00:38, Michael S. Tsirkin wrote:
+> > > > > >>>On Wed, Nov 09, 2016 at 03:38:31PM +0800, Jason Wang wrote:
+> > > > > > >>>>Backlog were used for tuntap rx, but it can only process 1 packet at
+> > > > > > >>>>one time since it was scheduled during sendmsg() synchronously in
+> > > > > > >>>>process context. This lead bad cache utilization so this patch tries
+> > > > > > >>>>to do some batching before call rx NAPI. This is done through:
+> > > > > > >>>>
+> > > > > > >>>>- accept MSG_MORE as a hint from sendmsg() caller, if it was set,
+> > > > > > >>>>    batch the packet temporarily in a linked list and submit them all
+> > > > > > >>>>    once MSG_MORE were cleared.
+> > > > > > >>>>- implement a tuntap specific NAPI handler for processing this kind of
+> > > > > > >>>>    possible batching. (This could be done by extending backlog to
+> > > > > > >>>>    support skb like, but using a tun specific one looks cleaner and
+> > > > > > >>>>    easier for future extension).
+> > > > > > >>>>
+> > > > > > >>>>Signed-off-by: Jason Wang<jasowang@redhat.com>
+> > > > > >>>So why do we need an extra queue?
+> > > > >>
+> > > > >>The idea was borrowed from backlog to allow some kind of bulking and avoid
+> > > > >>spinlock on each dequeuing.
+> > > > >>
+> > > > > >>>   This is not what hardware devices do.
+> > > > > >>>How about adding the packet to queue unconditionally, deferring
+> > > > > >>>signalling until we get sendmsg without MSG_MORE?
+> > > > >>
+> > > > >>Then you need touch spinlock when dequeuing each packet.
+> > > >
+> > Random thought, I have a cmpxchg ring I am using for the qdisc work that
+> > could possibly replace the spinlock implementation. I haven't figured
+> > out the resizing API yet because I did not need it but I assume it could
+> > help here and let you dequeue multiple skbs in one operation.
+> > 
+> > I can post the latest version if useful or an older version is
+> > somewhere on patchworks as well.
+> > 
+> > .John
+> > 
+> > 
+> 
+> Look useful here, and I can compare the performance if you post.
+> 
+> A question is can we extend the skb_array to support that?
+> 
+> Thanks
 
-Bert.
+I'd like to start with simple patch adding napi with one queue, then add
+optimization patches on top.
+
+One issue that comes to mind is that write queue limits
+are byte based, they do not count packets unlike tun rx queue.
+
+
+
+-- 
+MST
