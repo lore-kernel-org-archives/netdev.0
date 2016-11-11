@@ -1,42 +1,28 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: reg: Fix pwm_frequency field size in MFCR register
-Date: Fri, 11 Nov 2016 11:22:53 +0100
-Message-ID: <1478859773-3013-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: question about xt_find_table_lock
+Date: Fri, 11 Nov 2016 11:49:57 +0100 (CET)
+Message-ID: <alpine.DEB.2.20.1611111141380.2074@hadrien>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        christophe.jaillet@wanadoo.fr
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36017 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750979AbcKKKXB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 05:23:01 -0500
-Received: by mail-wm0-f65.google.com with SMTP id m203so6741188wma.3
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 02:22:55 -0800 (PST)
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:64744
+        "EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755424AbcKKKuB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 05:50:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+The function xt_find_table_lock defined in net/netfilter/x_tables.c is
+preceeded by a comment that says that it returns ERR_PTR() on error.  But
+looking at the definition, I only see occurrences of return NULL and
+returns of pointers that have previously been dereferenced.  Is it the
+code or the documentation that is incorrect?  The call sites seem to be
+using IS_ERR_OR_NULL.  Is there a plan to return ERR_PTR values in the
+future?
 
-The field is 7bit long. Fix it.
-
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 0936b4a..b5ab81a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4424,7 +4424,7 @@ enum mlxsw_reg_mfcr_pwm_frequency {
-  * Controls the frequency of the PWM signal.
-  * Access: RW
-  */
--MLXSW_ITEM32(reg, mfcr, pwm_frequency, 0x00, 0, 6);
-+MLXSW_ITEM32(reg, mfcr, pwm_frequency, 0x00, 0, 7);
- 
- #define MLXSW_MFCR_TACHOS_MAX 10
- 
--- 
-2.7.4
+julia
