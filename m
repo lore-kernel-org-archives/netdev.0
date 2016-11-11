@@ -1,31 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net 2/2] r8152: rx descriptor check
-Date: Fri, 11 Nov 2016 13:13:11 +0100
-Message-ID: <20161111121311.GA19673@electric-eye.fr.zoreil.com>
-References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
- <1394712342-15778-228-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-        mlord@pobox.com
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1394712342-15778-228-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v2] net: ethernet: ti: davinci_cpdma: free memory while channel destroy
+Date: Fri, 11 Nov 2016 14:39:03 +0200
+Message-ID: <1478867943-21083-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:34980 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755195AbcKKMlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 07:41:03 -0500
+Received: by mail-lf0-f46.google.com with SMTP id b14so11461969lfg.2
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 04:41:02 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hayes Wang <hayeswang@realtek.com> :
-> For some platforms, the data in memory is not the same with the one
-> from the device. That is, the data of memory is unbelievable. The
-> check is used to find out this situation.
+While create/destroy channel operation memory is not freed. It was
+supposed that memory is freed while driver remove. But a channel
+can be created and destroyed many times while changing number of
+channels with ethtool.
 
-Invalid packet size corrupted receive descriptors in Realtek's device
-reminds of CVE-2009-4537.
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 
-Is the silicium of both devices different enough to prevent the same
-exploit to happen ?
+---
 
+Based on net-next/master
+
+ drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index 05afc05..07fc92d 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -586,7 +586,7 @@ int cpdma_chan_destroy(struct cpdma_chan *chan)
+ 		cpdma_chan_stop(chan);
+ 	ctlr->channels[chan->chan_num] = NULL;
+ 	ctlr->chan_num--;
+-
++	devm_kfree(ctlr->dev, chan);
+ 	cpdma_chan_split_pool(ctlr);
+ 
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
 -- 
-Ueimor
+1.9.1
