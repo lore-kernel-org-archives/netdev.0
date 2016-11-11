@@ -1,187 +1,112 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH net-next] bpf: fix range arithmetic for bpf map access
-Date: Fri, 11 Nov 2016 16:47:39 -0500
-Message-ID: <1478900859-7807-1-git-send-email-jbacik@fb.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: Source address fib invalidation on IPv6
+Date: Fri, 11 Nov 2016 15:14:52 -0700
+Message-ID: <31e050e2-0499-a77e-f698-86e58ad2fa6b@cumulusnetworks.com>
+References: <CAHmME9qi7_C7c=wsZg=EwBg3jzFzVmW1eiFGGXgcX8fCcOOZcA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <jannh@google.com>, <ast@kernel.org>, <daniel@iogearbox.net>,
-        <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:32768 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S934163AbcKKVsO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 16:48:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <CAHmME9qi7_C7c=wsZg=EwBg3jzFzVmW1eiFGGXgcX8fCcOOZcA@mail.gmail.com>
+List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
-invalid accesses to bpf map entries.  Fix this up by doing a few things
+On 11/11/16 12:29 PM, Jason A. Donenfeld wrote:
+> Hi folks,
+> 
+> If I'm replying to a UDP packet, I generally want to use a source
+> address that's the same as the destination address of the packet to
+> which I'm replying. For example:
+> 
+> Peer A sends packet: src = 10.0.0.1,  dst = 10.0.0.3
+> Peer B replies with: src = 10.0.0.3, dst = 10.0.0.1
+> 
+> But let's complicate things. Let's say Peer B has multiple IPs on an
+> interface: 10.0.0.2, 10.0.0.3. The default route uses 10.0.0.2. In
+> this case what do you think should happen?
+> 
+> Case 1:
+> Peer A sends packet: src = 10.0.0.1,  dst = 10.0.0.3
+> Peer B replies with: src = 10.0.0.2, dst = 10.0.0.1
+> 
+> Case 2:
+> Peer A sends packet: src = 10.0.0.1,  dst = 10.0.0.3
+> Peer B replies with: src = 10.0.0.3, dst = 10.0.0.1
+> 
+> Intuition tells me the answer is "Case 2". If you agree, keep reading.
+> If you disagree, stop reading here, and instead correct my poor
+> intuition.
+> 
+> So, assuming "Case 2", when Peer B receives the first packet, he notes
+> that packet's destination address, so that he can use it as a source
+> address next. When replying, Peer B sets the stored source address and
+> calls the routing function:
+> 
+>     struct flowi4 fl = {
+>        .saddr = from_daddr_of_previous_packet,
+>        .daddr = from_saddr_of_previous_packet,
+>     };
+>     rt = ip_route_output_flow(sock_net(sock), &fl, sock);
+> 
+> What if, however, by the time Peer B chooses to reply, his interface
+> no longer has that source address? No problem, because
+> ip_route_output_flow will return -EINVAL in that case. So, we can do
+> this:
+> 
+>     struct flowi4 fl = {
+>        .saddr = from_daddr_of_previous_packet,
+>        .daddr = from_saddr_of_previous_packet,
+>     };
+>     rt = ip_route_output_flow(sock_net(sock), &fl, sock);
+>     if (unlikely(IS_ERR(rt))) {
+>         fl.saddr = 0;
+>         rt = ip_route_output_flow(sock_net(sock), &fl, sock);
+>     }
+> 
+> And then all is good in the neighborhood. This solution works. Done.
+> 
+> But what about IPv6? That's where we get into trouble:
+> 
+>     struct flowi6 fl = {
+>        .saddr = from_daddr_of_previous_packet,
+>        .daddr = from_saddr_of_previous_packet,
+>     };
+>     ret = ipv6_stub->ipv6_dst_lookup(sock_net(sock), sock, &dst, &fl);
+> 
+> In this case, IPv6 returns a valid dst, when no interface has the
+> source address anymore! So, there's no way to know whether or not the
+> source address for replying has gone stale. We don't have a means of
+> falling back to inaddr_any for the source address.
 
-1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
-life and just adds extra complexity.
+What do you mean by 'valid dst'? ipv6 returns net->ipv6.ip6_null_entry on lookup failures so yes dst is non-NULL but that does not mean the lookup succeeded.
 
-2) Fix the logic for BPF_AND, don't allow AND of negative numbers and set the
-minimum value to 0 for positive AND's.
+For example take a look at ip6_dst_lookup_tail():
+        if (!*dst)
+                *dst = ip6_route_output_flags(net, sk, fl6, flags);
 
-3) Don't do operations on the ranges if they are set to the limits, as they are
-by definition undefined, and allowing arithmetic operations on those values
-could make them appear valid when they really aren't.
+        err = (*dst)->error;
+        if (err)
+                goto out_err_release;
 
-This fixes the testcase provided by Jann as well as a few other theoretical
-problems.
 
-Reported-by: Jann Horn <jannh@google.com>
-Signed-off-by: Josef Bacik <jbacik@fb.com>
----
- include/linux/bpf_verifier.h |  3 +-
- kernel/bpf/verifier.c        | 70 +++++++++++++++++++++++++++++---------------
- 2 files changed, 49 insertions(+), 24 deletions(-)
+perhaps I should add dst->error to the fib tracepoints ...
 
-diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
-index ac5b393..15ceb7f 100644
---- a/include/linux/bpf_verifier.h
-+++ b/include/linux/bpf_verifier.h
-@@ -22,7 +22,8 @@ struct bpf_reg_state {
- 	 * Used to determine if any memory access using this register will
- 	 * result in a bad access.
- 	 */
--	u64 min_value, max_value;
-+	s64 min_value;
-+	u64 max_value;
- 	u32 id;
- 	union {
- 		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 89f787c..709fe0e 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -234,8 +234,8 @@ static void print_verifier_state(struct bpf_verifier_state *state)
- 				reg->map_ptr->value_size,
- 				reg->id);
- 		if (reg->min_value != BPF_REGISTER_MIN_RANGE)
--			verbose(",min_value=%llu",
--				(unsigned long long)reg->min_value);
-+			verbose(",min_value=%lld",
-+				(long long)reg->min_value);
- 		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			verbose(",max_value=%llu",
- 				(unsigned long long)reg->max_value);
-@@ -778,7 +778,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
- 			 * index'es we need to make sure that whatever we use
- 			 * will have a set floor within our range.
- 			 */
--			if ((s64)reg->min_value < 0) {
-+			if (reg->min_value < 0) {
- 				verbose("R%d min value is negative, either use unsigned index or do a if (index >=0) check.\n",
- 					regno);
- 				return -EACCES;
-@@ -1490,7 +1490,8 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
- {
- 	if (reg->max_value > BPF_REGISTER_MAX_RANGE)
- 		reg->max_value = BPF_REGISTER_MAX_RANGE;
--	if ((s64)reg->min_value < BPF_REGISTER_MIN_RANGE)
-+	if (reg->min_value < BPF_REGISTER_MIN_RANGE ||
-+	    reg->min_value > BPF_REGISTER_MAX_RANGE)
- 		reg->min_value = BPF_REGISTER_MIN_RANGE;
- }
- 
-@@ -1498,7 +1499,8 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 				    struct bpf_insn *insn)
- {
- 	struct bpf_reg_state *regs = env->cur_state.regs, *dst_reg;
--	u64 min_val = BPF_REGISTER_MIN_RANGE, max_val = BPF_REGISTER_MAX_RANGE;
-+	s64 min_val = BPF_REGISTER_MIN_RANGE;
-+	u64 max_val = BPF_REGISTER_MAX_RANGE;
- 	u8 opcode = BPF_OP(insn->code);
- 
- 	dst_reg = &regs[insn->dst_reg];
-@@ -1532,22 +1534,43 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		return;
- 	}
- 
-+	/* If one of our values was at the end of our ranges then we can't just
-+	 * do our normal operations to the register, we need to set the values
-+	 * to the min/max since they are undefined.
-+	 */
-+	if (min_val == BPF_REGISTER_MIN_RANGE)
-+		dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
-+	if (max_val == BPF_REGISTER_MAX_RANGE)
-+		dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
-+
- 	switch (opcode) {
- 	case BPF_ADD:
--		dst_reg->min_value += min_val;
--		dst_reg->max_value += max_val;
-+		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value += min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value += max_val;
- 		break;
- 	case BPF_SUB:
--		dst_reg->min_value -= min_val;
--		dst_reg->max_value -= max_val;
-+		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value -= min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value -= max_val;
- 		break;
- 	case BPF_MUL:
--		dst_reg->min_value *= min_val;
--		dst_reg->max_value *= max_val;
-+		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value *= min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value *= max_val;
- 		break;
- 	case BPF_AND:
--		/* & is special since it could end up with 0 bits set. */
--		dst_reg->min_value &= min_val;
-+		/* Disallow AND'ing of negative numbers, ain't nobody got time
-+		 * for that.  Otherwise the minimum is 0 and the max is the max
-+		 * value we could AND against.
-+		 */
-+		if (min_val < 0)
-+			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
-+		else
-+			dst_reg->min_value = 0;
- 		dst_reg->max_value = max_val;
- 		break;
- 	case BPF_LSH:
-@@ -1557,24 +1580,25 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
- 		 */
- 		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
- 			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
--		else
-+		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
- 			dst_reg->min_value <<= min_val;
- 
- 		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
- 			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
--		else
-+		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
- 			dst_reg->max_value <<= max_val;
- 		break;
- 	case BPF_RSH:
--		dst_reg->min_value >>= min_val;
--		dst_reg->max_value >>= max_val;
--		break;
--	case BPF_MOD:
--		/* % is special since it is an unsigned modulus, so the floor
--		 * will always be 0.
-+		/* RSH by a negative number is undefined, and the BPF_RSH is an
-+		 * unsigned shift, so make the appropriate casts.
- 		 */
--		dst_reg->min_value = 0;
--		dst_reg->max_value = max_val - 1;
-+		if (min_val < 0)
-+			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
-+		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
-+			dst_reg->min_value =
-+				(u64)(dst_reg->min_value) >> min_val;
-+		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
-+			dst_reg->max_value >>= max_val;
- 		break;
- 	default:
- 		reset_reg_range_values(regs, insn->dst_reg);
--- 
-2.5.5
+> 
+> Primary question: is this behavior a bug? Or is this some consequence
+> of a fundamental IPv6 difference with v4? Or is something else
+> happening here?
+> 
+> Thanks,
+> Jason
+> 
