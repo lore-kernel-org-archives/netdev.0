@@ -1,70 +1,62 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: TCP performance problems - GSO/TSO, MSS, 8139cp related
-Date: Fri, 11 Nov 2016 22:44:27 +0000
-Message-ID: <20161111224427.GG1041@n2100.armlinux.org.uk>
-References: <20161111210500.GE1041@n2100.armlinux.org.uk>
- <1478899423.3892.7.camel@infradead.org>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v2 2/7] vxlan: simplify exception handling
+Date: Fri, 11 Nov 2016 15:24:45 -0800
+Message-ID: <CAOrHB_DsY2bFYbeG1GnmNXN8Bs8AtFHgi2JjJ70yb1d6vY4oFA@mail.gmail.com>
+References: <1478371557-71888-1-git-send-email-pshelar@ovn.org>
+ <1478371557-71888-3-git-send-email-pshelar@ovn.org> <20161109171018.69d08ff9@griffin>
+ <CAOrHB_AkVXDOaFKy_-ccRc--=wXG14TLfoC6Vc4HSBgjbDm3sA@mail.gmail.com>
+ <20161110104703.7386ab29@griffin> <CAOrHB_BdYpCpjrzHmNmEkvhXk7u6Gb_1aRyggeCrsL0Jx1nkvw@mail.gmail.com>
+ <20161110193347.0e81d68b@griffin> <CAOrHB_AGV4x4G4QYFAaWNYgckvkDAS-prp65CgXfTqB4KoxHTw@mail.gmail.com>
+ <20161111121436.56b214ab@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, qemu-devel@nongnu.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:41176 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933600AbcKKWoe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 17:44:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1478899423.3892.7.camel@infradead.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:33523 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756524AbcKKXYu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 18:24:50 -0500
+Received: from mfilter29-d.gandi.net (mfilter29-d.gandi.net [217.70.178.160])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 3870517209C
+        for <netdev@vger.kernel.org>; Sat, 12 Nov 2016 00:24:48 +0100 (CET)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter29-d.gandi.net (mfilter29-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id NQdJXWtoGlil for <netdev@vger.kernel.org>;
+        Sat, 12 Nov 2016 00:24:46 +0100 (CET)
+Received: from mail-qk0-f181.google.com (mail-qk0-f181.google.com [209.85.220.181])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id A9DCB172098
+        for <netdev@vger.kernel.org>; Sat, 12 Nov 2016 00:24:46 +0100 (CET)
+Received: by mail-qk0-f181.google.com with SMTP id n204so37506577qke.2
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 15:24:46 -0800 (PST)
+In-Reply-To: <20161111121436.56b214ab@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 11, 2016 at 09:23:43PM +0000, David Woodhouse wrote:
-> It's also *fairly* unlikely that the kernel in the guest has developed
-> a bug and isn't setting gso_size sanely. I'm more inclined to suspect
-> that qemu isn't properly emulating those bits. But at first glance at
-> the code, it looks like *that's* been there for the last decade too...
+On Fri, Nov 11, 2016 at 3:14 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Thu, 10 Nov 2016 11:21:19 -0800, Pravin Shelar wrote:
+>> One additional variable is not bad but look at what has happened in
+>> vxlan_xmit_one(). There are already more than 20 variables defined. It
+>> is hard to read code in this case.
+>
+> I agree that the function is horrible.
+>
+> What I was thinking about was separating the vxlan data and control
+> plane. The vxlan data plane would perform encapsulation and
+> decapsulation based on lwtunnel infrastructure and the rest of the
+> "classical" vxlan would be just one of the users of that. Basically
+> replacing vxlan_rdst by ip_tunnel_info, among other things.
+>
+> That would make the vxlan code much much cleaner.
+>
+I have patch which does something similar for geneve. But it is tricky
+to do it for vxlan.
 
-I take issue with that, having looked at the qemu rtl8139 code:
-
-                if ((txdw0 & CP_TX_LGSEN) && ip_protocol == IP_PROTO_TCP)
-                {
-                    int large_send_mss = (txdw0 >> 16) & CP_TC_LGSEN_MSS_MASK;
-
-                    DPRINTF("+++ C+ mode offloaded task TSO MTU=%d IP data %d "
-                        "frame data %d specified MSS=%d\n", ETH_MTU,
-                        ip_data_len, saved_size - ETH_HLEN, large_send_mss);
-
-That's the only reference to "large_send_mss" there, other than that,
-the MSS value that gets stuck into the field by 8139cp.c is completely
-unused.  Instead, qemu does this:
-
-                eth_payload_data = saved_buffer + ETH_HLEN;
-                eth_payload_len  = saved_size   - ETH_HLEN;
-
-                ip = (ip_header*)eth_payload_data;
-
-                    hlen = IP_HEADER_LENGTH(ip);
-                    ip_data_len = be16_to_cpu(ip->ip_len) - hlen;
-
-                    tcp_header *p_tcp_hdr = (tcp_header*)(eth_payload_data + hlen);
-                    int tcp_hlen = TCP_HEADER_DATA_OFFSET(p_tcp_hdr);
-
-                    /* ETH_MTU = ip header len + tcp header len + payload */
-                    int tcp_data_len = ip_data_len - tcp_hlen;
-                    int tcp_chunk_size = ETH_MTU - hlen - tcp_hlen;
-
-                    for (tcp_send_offset = 0; tcp_send_offset < tcp_data_len; tcp_send_offset += tcp_chunk_size)
-                    {
-
-It uses a fixed value of ETH_MTU to calculate the size of the TCP
-data chunks, and this is not surprisingly the well known:
-
-#define ETH_MTU     1500
-
-Qemu seems to be buggy - it ignores the MSS value, and always tries to
-send 1500 byte frames.
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+>> anyways I can add another variable to the function. I do not feel that
+>> strongly about this.
+>
+> Me neither, actually. I prefer another variable but I won't oppose the
+> patchset just based on that if you choose differently.
+>
+I have updated patches already. I will post it soon.
