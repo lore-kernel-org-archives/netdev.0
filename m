@@ -1,58 +1,85 @@
-From: yuan linyu <cugyly@163.com>
-Subject: [PATCH] net: ioctl SIOCSIFADDR minor cleanup
-Date: Fri, 11 Nov 2016 23:16:33 +0800
-Message-ID: <1478877393.3705.3.camel@163.com>
-Reply-To: cugyly@163.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net v2 2/2] mlxsw: spectrum_router: Correctly dump neighbour activity
+Date: Fri, 11 Nov 2016 16:34:26 +0100
+Message-ID: <1478878466-3141-3-git-send-email-jiri@resnulli.us>
+References: <1478878466-3141-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, yotamg@mellanox.com, arkadis@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-15.163.com ([220.181.12.15]:52541 "EHLO m12-15.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753356AbcKKPQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Nov 2016 10:16:58 -0500
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36089 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756576AbcKKPeb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 10:34:31 -0500
+Received: by mail-wm0-f68.google.com with SMTP id m203so8567091wma.3
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 07:34:30 -0800 (PST)
+In-Reply-To: <1478878466-3141-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-1. set interface address label to ioctl request device name is enough
-2. when address pass inet_abc_len check, prefixlen less than 31 is always true
+The device's neighbour table is periodically dumped in order to update
+the kernel about active neighbours. A single dump session may span
+multiple queries, until the response carries less records than requested
+or when a record (can contain up to four neighbour entries) is not full.
+Current code stops the session when the number of returned records is
+zero, which can result in infinite loop in case of high packet rate.
 
-Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Fix this by stopping the session according to the above logic.
+
+Fixes: c723c735fa6b ("mlxsw: spectrum_router: Periodically update the kernel's neigh table")
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/ipv4/devinet.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+v1->v2:
+- remove an extra space
+- fix the description
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 062a67c..d491a7a 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1063,10 +1063,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void
-__user *arg)
- 			if (!ifa)
- 				break;
- 			INIT_HLIST_NODE(&ifa->hash);
--			if (colon)
--				memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
--			else
--				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
-+			memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
- 		} else {
- 			ret = 0;
- 			if (ifa->ifa_local == sin->sin_addr.s_addr)
-@@ -1081,8 +1078,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void
-__user *arg)
- 		if (!(dev->flags & IFF_POINTOPOINT)) {
- 			ifa->ifa_prefixlen = inet_abc_len(ifa->ifa_address);
- 			ifa->ifa_mask = inet_make_mask(ifa->ifa_prefixlen);
--			if ((dev->flags & IFF_BROADCAST) &&
--			    ifa->ifa_prefixlen < 31)
-+			if (dev->flags & IFF_BROADCAST)
- 				ifa->ifa_broadcast = ifa->ifa_address |
- 						     ~ifa->ifa_mask;
- 		} else {
--- 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 040737e..cbeeddd 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -800,6 +800,26 @@ static void mlxsw_sp_router_neigh_rec_process(struct mlxsw_sp *mlxsw_sp,
+ 	}
+ }
+ 
++static bool mlxsw_sp_router_rauhtd_is_full(char *rauhtd_pl)
++{
++	u8 num_rec, last_rec_index, num_entries;
++
++	num_rec = mlxsw_reg_rauhtd_num_rec_get(rauhtd_pl);
++	last_rec_index = num_rec - 1;
++
++	if (num_rec < MLXSW_REG_RAUHTD_REC_MAX_NUM)
++		return false;
++	if (mlxsw_reg_rauhtd_rec_type_get(rauhtd_pl, last_rec_index) ==
++	    MLXSW_REG_RAUHTD_TYPE_IPV6)
++		return true;
++
++	num_entries = mlxsw_reg_rauhtd_ipv4_rec_num_entries_get(rauhtd_pl,
++								last_rec_index);
++	if (++num_entries == MLXSW_REG_RAUHTD_IPV4_ENT_PER_REC)
++		return true;
++	return false;
++}
++
+ static int mlxsw_sp_router_neighs_update_rauhtd(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	char *rauhtd_pl;
+@@ -826,7 +846,7 @@ static int mlxsw_sp_router_neighs_update_rauhtd(struct mlxsw_sp *mlxsw_sp)
+ 		for (i = 0; i < num_rec; i++)
+ 			mlxsw_sp_router_neigh_rec_process(mlxsw_sp, rauhtd_pl,
+ 							  i);
+-	} while (num_rec);
++	} while (mlxsw_sp_router_rauhtd_is_full(rauhtd_pl));
+ 	rtnl_unlock();
+ 
+ 	kfree(rauhtd_pl);
+-- 
 2.7.4
