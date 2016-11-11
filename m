@@ -1,44 +1,53 @@
-From: Hannes Reinecke <hare@suse.de>
-Subject: Re: [PATCH v2 6/6] qedi: Add support for data path.
-Date: Fri, 11 Nov 2016 17:49:50 +0100
-Message-ID: <928b2b42-7174-dc04-1197-2e8f6373af51@suse.de>
-References: <1478588223-16183-1-git-send-email-manish.rangankar@cavium.com>
- <1478588223-16183-7-git-send-email-manish.rangankar@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-        QLogic-Storage-Upstream@cavium.com, Yuval.Mintz@cavium.com
-To: Manish Rangankar <manish.rangankar@cavium.com>,
-        martin.petersen@oracle.com, lduncan@suse.com, cleech@redhat.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1478588223-16183-7-git-send-email-manish.rangankar@cavium.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net 2/2] ibmvnic: Fix size of debugfs name buffer
+Date: Fri, 11 Nov 2016 11:00:46 -0600
+Message-ID: <1478883646-10760-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
+References: <1478883646-10760-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: mwb@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57231 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756737AbcKKRA5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 12:00:57 -0500
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uABGwrFL120743
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 12:00:56 -0500
+Received: from e37.co.us.ibm.com (e37.co.us.ibm.com [32.97.110.158])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 26neaa0jet-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 12:00:56 -0500
+Received: from localhost
+        by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Fri, 11 Nov 2016 10:00:53 -0700
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+        by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id D0A043E40063
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 10:00:48 -0700 (MST)
+In-Reply-To: <1478883646-10760-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2016 07:57 AM, Manish Rangankar wrote:
-> This patch adds support for data path and TMF handling.
->
-> Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
-> Signed-off-by: Adheer Chandravanshi <adheer.chandravanshi@qlogic.com>
-> Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
-> Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
-> Signed-off-by: Arun Easi <arun.easi@cavium.com>
-> Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
-> ---
->  drivers/scsi/qedi/qedi_fw.c    | 1272 ++++++++++++++++++++++++++++++++++++++++
->  drivers/scsi/qedi/qedi_gbl.h   |    6 +
->  drivers/scsi/qedi/qedi_iscsi.c |   13 +
->  drivers/scsi/qedi/qedi_main.c  |    4 +
->  4 files changed, 1295 insertions(+)
->
-Reviewed-by: Hannes Reinecke <hare@suse.com>
+This mistake was causing debugfs directory creation
+failures when multiple ibmvnic devices were probed.
 
-Cheers,
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hannes
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 921c40f..4f3281a 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -3705,7 +3705,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	struct net_device *netdev;
+ 	unsigned char *mac_addr_p;
+ 	struct dentry *ent;
+-	char buf[16]; /* debugfs name buf */
++	char buf[17]; /* debugfs name buf */
+ 	int rc;
+ 
+ 	dev_dbg(&dev->dev, "entering ibmvnic_probe for UA 0x%x\n",
 -- 
-Dr. Hannes Reinecke		      zSeries & Storage
-hare@suse.de			      +49 911 74053 688
-SUSE LINUX Products GmbH, Maxfeldstr. 5, 90409 Nürnberg
-GF: J. Hawn, J. Guild, F. Imendörffer, HRB 16746 (AG Nürnberg)
+1.8.3.1
