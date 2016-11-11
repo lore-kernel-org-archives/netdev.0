@@ -1,72 +1,80 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [patch net-next 5/8] Introduce sample tc action
-Date: Fri, 11 Nov 2016 16:34:12 +0000
-Message-ID: <DB3PR05MB076471C7EA6C36C3A4A02F2EACBB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
- <1478776988-5400-6-git-send-email-jiri@resnulli.us>
- <5824CBFE.5030502@gmail.com> <5824CCB0.4090302@gmail.com>
- <DB3PR05MB0764850867353EEB018FCA5FACBB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <20161111124353.GA31511@penelope.isobedori.kobe.vergenet.net>
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: wl1251 & mac address & calibration data
+Date: Fri, 11 Nov 2016 18:20:50 +0100
+Message-ID: <201611111820.52072@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "geert+renesas@glider.be" <geert+renesas@glider.be>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "linux@roeck-us.net" <linux@roeck-us.net>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: multipart/signed;
+  boundary="nextPart2449889.yIGgG33EzT";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0069.outbound.protection.outlook.com ([104.47.2.69]:4704
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933831AbcKKRGy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Nov 2016 12:06:54 -0500
-In-Reply-To: <20161111124353.GA31511@penelope.isobedori.kobe.vergenet.net>
-Content-Language: en-US
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35505 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932864AbcKKRUz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 12:20:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Simon Horman [mailto:simon.horman@netronome.com]
->Sent: Friday, November 11, 2016 2:44 PM
->To: Yotam Gigi <yotamg@mellanox.com>
->Cc: John Fastabend <john.fastabend@gmail.com>; Jiri Pirko <jiri@resnulli.u=
-s>;
->netdev@vger.kernel.org; davem@davemloft.net; Ido Schimmel
-><idosch@mellanox.com>; Elad Raz <eladr@mellanox.com>; Nogah Frankel
-><nogahf@mellanox.com>; Or Gerlitz <ogerlitz@mellanox.com>;
->jhs@mojatatu.com; geert+renesas@glider.be; stephen@networkplumber.org;
->xiyou.wangcong@gmail.com; linux@roeck-us.net; roopa@cumulusnetworks.com
->Subject: Re: [patch net-next 5/8] Introduce sample tc action
->
->On Fri, Nov 11, 2016 at 08:28:50AM +0000, Yotam Gigi wrote:
->
->...
->
->> John, as a result of your question I realized that our hardware does do
->> randomized sampling that I was not aware of. I will use the extensibilit=
-y of
->> the API and implement a random keyword, that will be offloaded in our
->> hardware. Those changes will be sent on v2.
->>
->> Eventually, your question was very relevant :) Thanks!
->
->Perhaps I am missing the point but why not just make random the default an=
-d
->implement the inverse as an extension if it turns out to be needed in
->future?
+--nextPart2449889.yIGgG33EzT
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-It makes sense. It does seem to me that the average user does prefer random
-sampling over deterministic one.=20
+Hi! I will open discussion about mac address and calibration data for=20
+wl1251 wireless chip again...
 
-We will consider that. Thanks for the comment!
+Problem: Mac address & calibration data for wl1251 chip on Nokia N900=20
+are stored on second nand partition (mtd1) in special proprietary format=20
+which is used only for Nokia N900 (probably on N8x0 and N9 too).=20
+Wireless driver wl1251.ko cannot work without mac address and=20
+calibration data.
+
+Absence of mac address cause that driver generates random mac address at=20
+every kernel boot which has couple of problems (unstable identifier of=20
+wireless device due to udev permanent storage rules; unpredictable=20
+behaviour for dhcp mac address assignment, mac address filtering, ...).
+
+Currently there is no way to set (permanent) mac address for network=20
+interface from userspace. And it does not make sense to implement in=20
+linux kernel large parser for proprietary format of second nand=20
+partition where is mac address stored only for one device -- Nokia N900.
+
+Driver wl1251.ko loads calibration data via request_firmware() for file=20
+wl1251-nvs.bin. There are some "example" calibration file in linux-
+firmware repository, but it is not suitable for normal usage as real=20
+calibration data are per-device specific.
+
+So questions are:
+
+1) How to set mac address from userspace for that wl1251 interface? In=20
+userspace I can write parser for that proprietary format of nand=20
+partition and extract mac address from it
+
+2) How to send calibration data to wl1251 driver? Those are again stored=20
+in proprietary format and I can write userspace parser for it.
+
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
+
+--nextPart2449889.yIGgG33EzT
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEABECAAYFAlgl/fQACgkQi/DJPQPkQ1KqxwCgtMjwxo2Mqu7qgaFjuXY4MGrD
+d0UAoKpKMkZqfdEBDKJdqzzpYObpTEi9
+=KhfV
+-----END PGP SIGNATURE-----
+
+--nextPart2449889.yIGgG33EzT--
