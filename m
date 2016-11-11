@@ -1,55 +1,43 @@
-From: Vicente Jimenez Aguilar <googuy@gmail.com>
-Subject: [PATCH] icmp: Restore resistence to abnormal messages
-Date: Fri, 11 Nov 2016 21:20:18 +0100
-Message-ID: <20161111202018.13795-1-googuy@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Vicente Jimenez Aguilar <googuy@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: [RFC PATCH net-next] net: ethtool: add support for forward error
+ correction modes
+Date: Fri, 11 Nov 2016 19:51:36 +0000
+Message-ID: <DM5PR12MB178630AFB893C17362A4C09BC8BB0@DM5PR12MB1786.namprd12.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36549 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934931AbcKKUUs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 15:20:48 -0500
+Received: from mail-sn1nam02on0118.outbound.protection.outlook.com ([104.47.36.118]:63456
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934727AbcKKUmH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Nov 2016 15:42:07 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Restore network resistance to abnormal ICMP fragmentation needed messages
-with next hop MTU equal to (or exceeding) dropped packet size
+N.B.  Sorry I'm not able to respond to the original message since I
+wasn't subscribed to netdev when it was sent a couple of weeks ago.
 
-Fixes: 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
-Signed-off-by: Vicente Jimenez Aguilar <googuy@gmail.com>
----
- net/ipv4/icmp.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+This feature is something that Chelsio's cxgb4 driver needs.
+As we've tested our adapters against a number of switches,
+we've discovered a few which use varying defaults for FEC.
+And when Auto-Negotiation isn't used (or even possible with
+Optical Links), we need to be able to control turning FEC on/off.
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 38abe70..4c90d76 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -773,6 +773,7 @@ static bool icmp_tag_validation(int proto)
- static bool icmp_unreach(struct sk_buff *skb)
- {
- 	const struct iphdr *iph;
-+	unsigned short old_mtu;
- 	struct icmphdr *icmph;
- 	struct net *net;
- 	u32 info = 0;
-@@ -819,6 +820,12 @@ static bool icmp_unreach(struct sk_buff *skb)
- 				/* fall through */
- 			case 0:
- 				info = ntohs(icmph->un.frag.mtu);
-+				/* Handle weird case where next hop MTU is
-+				 * equal to or exceeding dropped packet size
-+				 */
-+				old_mtu = ntohs(iph->tot_len);
-+				if (info >= old_mtu)
-+					info = old_mtu - 2;
- 			}
- 			break;
- 		case ICMP_SR_FAILED:
--- 
-2.9.3
+For our part, we default FEC Off for Optical Transceivers.
+For Copper, we read the Cable's EEPROM to determine
+how to default FEC.  For some switches this works, but
+for at least one where that switch enables FEC for Optical
+Transceivers, it doesn't.  For that switch we had to hard
+wire FEC on.  Obviously that's not a good solution and we
+need an administrative interface so the system
+administrator can configure our adapter to use the
+appropriate FEC setting to match that of the switch.
+
+So this is basically a long-winded ACK of Vidya's patch
+and we would immediately implement this new ethtool API
+as soon as it's available.
+
+Casey
