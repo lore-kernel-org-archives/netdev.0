@@ -1,91 +1,80 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: Re: [PATCH] Revert "include/uapi/linux/atm_zatm.h: include
- linux/time.h"
-Date: Fri, 11 Nov 2016 11:12:09 +0200
-Message-ID: <20161111091209.GE8342@lakka.kapsi.fi>
-References: <20161111000839.23267-1-vapier@gentoo.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>
-To: Mike Frysinger <vapier@gentoo.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 2/2] mlxsw: spectrum_router: Correctly dump neighbour activity
+Date: Fri, 11 Nov 2016 11:20:42 +0100
+Message-ID: <1478859642-2918-3-git-send-email-jiri@resnulli.us>
+References: <1478859642-2918-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, yotamg@mellanox.com, arkadis@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kapsi.fi ([217.30.184.167]:58936 "EHLO mail.kapsi.fi"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965735AbcKKJMM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Nov 2016 04:12:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20161111000839.23267-1-vapier@gentoo.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34165 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751606AbcKKKUr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2016 05:20:47 -0500
+Received: by mail-wm0-f65.google.com with SMTP id g23so8418447wme.1
+        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 02:20:47 -0800 (PST)
+In-Reply-To: <1478859642-2918-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-On Thu, Nov 10, 2016 at 07:08:39PM -0500, Mike Frysinger wrote:
-> This reverts commit cf00713a655d ("include/uapi/linux/atm_zatm.h: include
-> linux/time.h").
-> 
-> This attempted to fix userspace breakage that no longer existed when
-> the patch was merged.  Almost one year earlier, commit 70ba07b675b5
-> ("atm: remove 'struct zatm_t_hist'") deleted the struct in question.
+During neighbour activity check the device's table is dumped by multiple
+query requests. The query session should end when the response carries
+less records than requested or when a given record is not full. Current
+code only stops the dumping process if the number of returned records is
+zero, which can result in infinite loop in case of activity.
 
-Acked-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+Fix this by stopping the dumping process according to the above logic.
 
-Yep, sorry about this. My development branches are living for too long and
-I should check each patch again before submitting. Simply rebasing is too easy.
-Maybe Arnd could have spotted this earlier but scripts/get_maintainer.pl
-didn't add him to Cc.
+Fixes: c723c735fa6b ("mlxsw: spectrum_router: Periodically update the kernel's neigh table")
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-> After this patch was merged, we now have to deal with people being
-> unable to include this header in conjunction with standard C library
-> headers like stdlib.h (which linux-atm does).  Example breakage:
-> x86_64-pc-linux-gnu-gcc -DHAVE_CONFIG_H -I. -I../.. -I./../q2931 -I./../saal \
-> 	-I.  -DCPPFLAGS_TEST  -I../../src/include -O2 -march=native -pipe -g \
-> 	-frecord-gcc-switches -freport-bug -Wimplicit-function-declaration \
-> 	-Wnonnull -Wstrict-aliasing -Wparentheses -Warray-bounds \
-> 	-Wfree-nonheap-object -Wreturn-local-addr -fno-strict-aliasing -Wall \
-> 	-Wshadow -Wpointer-arith -Wwrite-strings -Wstrict-prototypes -c zntune.c
-> In file included from /usr/include/linux/atm_zatm.h:17:0,
->                  from zntune.c:17:
-> /usr/include/linux/time.h:9:8: error: redefinition of ‘struct timespec’
->  struct timespec {
->         ^
-> In file included from /usr/include/sys/select.h:43:0,
->                  from /usr/include/sys/types.h:219,
->                  from /usr/include/stdlib.h:314,
->                  from zntune.c:9:
-> /usr/include/time.h:120:8: note: originally defined here
->  struct timespec
->         ^
-
-Well, this would help with the linux/time.h and glibc time.h conflicts:
-
-https://patchwork.kernel.org/patch/9294305/
-
-if linux/time.h is included after <time.h>.
-
-Unfortunately I don't know when or if ever that will be applied.
-
--Mikko
-
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  include/uapi/linux/atm_zatm.h | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/atm_zatm.h b/include/uapi/linux/atm_zatm.h
-> index 5cd4d4d2dd1d..9c9c6ad55f14 100644
-> --- a/include/uapi/linux/atm_zatm.h
-> +++ b/include/uapi/linux/atm_zatm.h
-> @@ -14,7 +14,6 @@
->  
->  #include <linux/atmapi.h>
->  #include <linux/atmioc.h>
-> -#include <linux/time.h>
->  
->  #define ZATM_GETPOOL	_IOW('a',ATMIOC_SARPRV+1,struct atmif_sioc)
->  						/* get pool statistics */
-> -- 
-> 2.9.0
-> 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 040737e..d437457 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -800,6 +800,26 @@ static void mlxsw_sp_router_neigh_rec_process(struct mlxsw_sp *mlxsw_sp,
+ 	}
+ }
+ 
++static bool mlxsw_sp_router_rauhtd_is_full(char *rauhtd_pl)
++{
++	u8 num_rec, last_rec_index, num_entries;
++
++	num_rec = mlxsw_reg_rauhtd_num_rec_get(rauhtd_pl);
++	last_rec_index = num_rec - 1;
++
++	if (num_rec < MLXSW_REG_RAUHTD_REC_MAX_NUM)
++		return false;
++	if (mlxsw_reg_rauhtd_rec_type_get(rauhtd_pl, last_rec_index) ==
++	    MLXSW_REG_RAUHTD_TYPE_IPV6)
++		return true;
++
++	num_entries = mlxsw_reg_rauhtd_ipv4_rec_num_entries_get(rauhtd_pl,
++								last_rec_index);
++	if (++num_entries ==  MLXSW_REG_RAUHTD_IPV4_ENT_PER_REC)
++		return true;
++	return false;
++}
++
+ static int mlxsw_sp_router_neighs_update_rauhtd(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	char *rauhtd_pl;
+@@ -826,7 +846,7 @@ static int mlxsw_sp_router_neighs_update_rauhtd(struct mlxsw_sp *mlxsw_sp)
+ 		for (i = 0; i < num_rec; i++)
+ 			mlxsw_sp_router_neigh_rec_process(mlxsw_sp, rauhtd_pl,
+ 							  i);
+-	} while (num_rec);
++	} while (mlxsw_sp_router_rauhtd_is_full(rauhtd_pl));
+ 	rtnl_unlock();
+ 
+ 	kfree(rauhtd_pl);
+-- 
+2.7.4
