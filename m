@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net-next v7 04/10] dpaa_eth: add ethtool functionality
-Date: Fri, 11 Nov 2016 10:20:01 +0200
-Message-ID: <1478852407-27420-5-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH net-next v7 06/10] dpaa_eth: add sysfs exports
+Date: Fri, 11 Nov 2016 10:20:03 +0200
+Message-ID: <1478852407-27420-7-git-send-email-madalin.bucur@nxp.com>
 References: <1478852407-27420-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
@@ -24,59 +24,69 @@ Sender: "Linuxppc-dev"
  <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Add support for basic ethtool operations.
+Export Frame Queue and Buffer Pool IDs through sysfs.
 
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
  drivers/net/ethernet/freescale/dpaa/Makefile       |   2 +-
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   2 +
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   3 +
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 218 +++++++++++++++++++++
- 4 files changed, 224 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |   4 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   4 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   | 165 +++++++++++++++++++++
+ 4 files changed, 174 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
 
 diff --git a/drivers/net/ethernet/freescale/dpaa/Makefile b/drivers/net/ethernet/freescale/dpaa/Makefile
-index fc76029..43a4cfd 100644
+index 43a4cfd..bfb03d4 100644
 --- a/drivers/net/ethernet/freescale/dpaa/Makefile
 +++ b/drivers/net/ethernet/freescale/dpaa/Makefile
 @@ -8,4 +8,4 @@ ccflags-y += -I$(FMAN)
  
  obj-$(CONFIG_FSL_DPAA_ETH) += fsl_dpa.o
  
--fsl_dpa-objs += dpaa_eth.o
-+fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o
+-fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o
++fsl_dpa-objs += dpaa_eth.o dpaa_ethtool.o dpaa_eth_sysfs.o
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index aa3a155..84aa0a77 100644
+index d59a08c..3a610fd 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -245,6 +245,8 @@ static int dpaa_netdev_init(struct net_device *net_dev,
- 	memcpy(net_dev->perm_addr, mac_addr, net_dev->addr_len);
- 	memcpy(net_dev->dev_addr, mac_addr, net_dev->addr_len);
+@@ -2635,6 +2635,8 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto netdev_init_failed;
  
-+	net_dev->ethtool_ops = &dpaa_ethtool_ops;
++	dpaa_eth_sysfs_init(&net_dev->dev);
 +
- 	net_dev->needed_headroom = priv->tx_headroom;
- 	net_dev->watchdog_timeo = msecs_to_jiffies(tx_timeout);
+ 	netif_info(priv, probe, net_dev, "Probed interface %s\n",
+ 		   net_dev->name);
+ 
+@@ -2680,6 +2682,8 @@ static int dpaa_remove(struct platform_device *pdev)
+ 
+ 	priv = netdev_priv(net_dev);
+ 
++	dpaa_eth_sysfs_remove(dev);
++
+ 	dev_set_drvdata(dev, NULL);
+ 	unregister_netdev(net_dev);
  
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index fe98e08..d6ab335 100644
+index 711fb06..44323e2 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -141,4 +141,7 @@ struct dpaa_priv {
- 	struct dpaa_buffer_layout buf_layout[2];
- 	u16 rx_headroom;
- };
+@@ -177,4 +177,8 @@ struct dpaa_priv {
+ 
+ /* from dpaa_ethtool.c */
+ extern const struct ethtool_ops dpaa_ethtool_ops;
 +
-+/* from dpaa_ethtool.c */
-+extern const struct ethtool_ops dpaa_ethtool_ops;
++/* from dpaa_eth_sysfs.c */
++void dpaa_eth_sysfs_remove(struct device *dev);
++void dpaa_eth_sysfs_init(struct device *dev);
  #endif	/* __DPAA_H */
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
 new file mode 100644
-index 0000000..3580a62
+index 0000000..ec75d1c
 --- /dev/null
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-@@ -0,0 +1,218 @@
-+/* Copyright 2008-2016 Freescale Semiconductor, Inc.
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+@@ -0,0 +1,165 @@
++/* Copyright 2008-2016 Freescale Semiconductor Inc.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions are met:
@@ -107,192 +117,139 @@ index 0000000..3580a62
 + * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/string.h>
-+
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/io.h>
++#include <linux/of_net.h>
 +#include "dpaa_eth.h"
 +#include "mac.h"
 +
-+static int dpaa_get_settings(struct net_device *net_dev,
-+			     struct ethtool_cmd *et_cmd)
++static ssize_t dpaa_eth_show_addr(struct device *dev,
++				  struct device_attribute *attr, char *buf)
 +{
-+	int err;
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	struct mac_device *mac_dev = priv->mac_dev;
 +
-+	if (!net_dev->phydev) {
-+		netdev_dbg(net_dev, "phy device not initialized\n");
-+		return 0;
-+	}
-+
-+	err = phy_ethtool_gset(net_dev->phydev, et_cmd);
-+
-+	return err;
++	if (mac_dev)
++		return sprintf(buf, "%llx",
++				(unsigned long long)mac_dev->res->start);
++	else
++		return sprintf(buf, "none");
 +}
 +
-+static int dpaa_set_settings(struct net_device *net_dev,
-+			     struct ethtool_cmd *et_cmd)
++static ssize_t dpaa_eth_show_fqids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
 +{
-+	int err;
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	struct dpaa_fq *prev = NULL;
++	char *prevstr = NULL;
++	struct dpaa_fq *tmp;
++	struct dpaa_fq *fq;
++	u32 first_fqid = 0;
++	u32 last_fqid = 0;
++	ssize_t bytes = 0;
++	char *str;
++	int i = 0;
 +
-+	if (!net_dev->phydev) {
-+		netdev_err(net_dev, "phy device not initialized\n");
-+		return -ENODEV;
-+	}
-+
-+	err = phy_ethtool_sset(net_dev->phydev, et_cmd);
-+	if (err < 0)
-+		netdev_err(net_dev, "phy_ethtool_sset() = %d\n", err);
-+
-+	return err;
-+}
-+
-+static void dpaa_get_drvinfo(struct net_device *net_dev,
-+			     struct ethtool_drvinfo *drvinfo)
-+{
-+	int len;
-+
-+	strlcpy(drvinfo->driver, KBUILD_MODNAME,
-+		sizeof(drvinfo->driver));
-+	len = snprintf(drvinfo->version, sizeof(drvinfo->version),
-+		       "%X", 0);
-+	len = snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
-+		       "%X", 0);
-+
-+	if (len >= sizeof(drvinfo->fw_version)) {
-+		/* Truncated output */
-+		netdev_notice(net_dev, "snprintf() = %d\n", len);
-+	}
-+	strlcpy(drvinfo->bus_info, dev_name(net_dev->dev.parent->parent),
-+		sizeof(drvinfo->bus_info));
-+}
-+
-+static u32 dpaa_get_msglevel(struct net_device *net_dev)
-+{
-+	return ((struct dpaa_priv *)netdev_priv(net_dev))->msg_enable;
-+}
-+
-+static void dpaa_set_msglevel(struct net_device *net_dev,
-+			      u32 msg_enable)
-+{
-+	((struct dpaa_priv *)netdev_priv(net_dev))->msg_enable = msg_enable;
-+}
-+
-+static int dpaa_nway_reset(struct net_device *net_dev)
-+{
-+	int err;
-+
-+	if (!net_dev->phydev) {
-+		netdev_err(net_dev, "phy device not initialized\n");
-+		return -ENODEV;
-+	}
-+
-+	err = 0;
-+	if (net_dev->phydev->autoneg) {
-+		err = phy_start_aneg(net_dev->phydev);
-+		if (err < 0)
-+			netdev_err(net_dev, "phy_start_aneg() = %d\n",
-+				   err);
-+	}
-+
-+	return err;
-+}
-+
-+static void dpaa_get_pauseparam(struct net_device *net_dev,
-+				struct ethtool_pauseparam *epause)
-+{
-+	struct mac_device *mac_dev;
-+	struct dpaa_priv *priv;
-+
-+	priv = netdev_priv(net_dev);
-+	mac_dev = priv->mac_dev;
-+
-+	if (!net_dev->phydev) {
-+		netdev_err(net_dev, "phy device not initialized\n");
-+		return;
-+	}
-+
-+	epause->autoneg = mac_dev->autoneg_pause;
-+	epause->rx_pause = mac_dev->rx_pause_active;
-+	epause->tx_pause = mac_dev->tx_pause_active;
-+}
-+
-+static int dpaa_set_pauseparam(struct net_device *net_dev,
-+			       struct ethtool_pauseparam *epause)
-+{
-+	struct mac_device *mac_dev;
-+	struct phy_device *phydev;
-+	bool rx_pause, tx_pause;
-+	struct dpaa_priv *priv;
-+	u32 newadv, oldadv;
-+	int err;
-+
-+	priv = netdev_priv(net_dev);
-+	mac_dev = priv->mac_dev;
-+
-+	phydev = net_dev->phydev;
-+	if (!phydev) {
-+		netdev_err(net_dev, "phy device not initialized\n");
-+		return -ENODEV;
-+	}
-+
-+	if (!(phydev->supported & SUPPORTED_Pause) ||
-+	    (!(phydev->supported & SUPPORTED_Asym_Pause) &&
-+	    (epause->rx_pause != epause->tx_pause)))
-+		return -EINVAL;
-+
-+	/* The MAC should know how to handle PAUSE frame autonegotiation before
-+	 * adjust_link is triggered by a forced renegotiation of sym/asym PAUSE
-+	 * settings.
-+	 */
-+	mac_dev->autoneg_pause = !!epause->autoneg;
-+	mac_dev->rx_pause_req = !!epause->rx_pause;
-+	mac_dev->tx_pause_req = !!epause->tx_pause;
-+
-+	/* Determine the sym/asym advertised PAUSE capabilities from the desired
-+	 * rx/tx pause settings.
-+	 */
-+	newadv = 0;
-+	if (epause->rx_pause)
-+		newadv = ADVERTISED_Pause | ADVERTISED_Asym_Pause;
-+	if (epause->tx_pause)
-+		newadv |= ADVERTISED_Asym_Pause;
-+
-+	oldadv = phydev->advertising &
-+			(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-+
-+	/* If there are differences between the old and the new advertised
-+	 * values, restart PHY autonegotiation and advertise the new values.
-+	 */
-+	if (oldadv != newadv) {
-+		phydev->advertising &= ~(ADVERTISED_Pause
-+				| ADVERTISED_Asym_Pause);
-+		phydev->advertising |= newadv;
-+		if (phydev->autoneg) {
-+			err = phy_start_aneg(phydev);
-+			if (err < 0)
-+				netdev_err(net_dev, "phy_start_aneg() = %d\n",
-+					   err);
++	list_for_each_entry_safe(fq, tmp, &priv->dpaa_fq_list, list) {
++		switch (fq->fq_type) {
++		case FQ_TYPE_RX_DEFAULT:
++			str = "Rx default";
++			break;
++		case FQ_TYPE_RX_ERROR:
++			str = "Rx error";
++			break;
++		case FQ_TYPE_TX_CONFIRM:
++			str = "Tx default confirmation";
++			break;
++		case FQ_TYPE_TX_CONF_MQ:
++			str = "Tx confirmation (mq)";
++			break;
++		case FQ_TYPE_TX_ERROR:
++			str = "Tx error";
++			break;
++		case FQ_TYPE_TX:
++			str = "Tx";
++			break;
++		default:
++			str = "Unknown";
 +		}
++
++		if (prev && (abs(fq->fqid - prev->fqid) != 1 ||
++			     str != prevstr)) {
++			if (last_fqid == first_fqid)
++				bytes += sprintf(buf + bytes,
++					"%s: %d\n", prevstr, prev->fqid);
++			else
++				bytes += sprintf(buf + bytes,
++					"%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++		}
++
++		if (prev && abs(fq->fqid - prev->fqid) == 1 &&
++		    str == prevstr) {
++			last_fqid = fq->fqid;
++		} else {
++			first_fqid = fq->fqid;
++			last_fqid = fq->fqid;
++		}
++
++		prev = fq;
++		prevstr = str;
++		i++;
 +	}
 +
-+	fman_get_pause_cfg(mac_dev, &rx_pause, &tx_pause);
-+	err = fman_set_mac_active_pause(mac_dev, rx_pause, tx_pause);
-+	if (err < 0)
-+		netdev_err(net_dev, "set_mac_active_pause() = %d\n", err);
++	if (prev) {
++		if (last_fqid == first_fqid)
++			bytes += sprintf(buf + bytes, "%s: %d\n", prevstr,
++					prev->fqid);
++		else
++			bytes += sprintf(buf + bytes, "%s: %d - %d\n", prevstr,
++					first_fqid, last_fqid);
++	}
 +
-+	return err;
++	return bytes;
 +}
 +
-+const struct ethtool_ops dpaa_ethtool_ops = {
-+	.get_settings = dpaa_get_settings,
-+	.set_settings = dpaa_set_settings,
-+	.get_drvinfo = dpaa_get_drvinfo,
-+	.get_msglevel = dpaa_get_msglevel,
-+	.set_msglevel = dpaa_set_msglevel,
-+	.nway_reset = dpaa_nway_reset,
-+	.get_pauseparam = dpaa_get_pauseparam,
-+	.set_pauseparam = dpaa_set_pauseparam,
-+	.get_link = ethtool_op_get_link,
++static ssize_t dpaa_eth_show_bpids(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	struct dpaa_priv *priv = netdev_priv(to_net_dev(dev));
++	ssize_t bytes = 0;
++	int i = 0;
++
++	for (i = 0; i < DPAA_BPS_NUM; i++)
++		bytes += snprintf(buf + bytes, PAGE_SIZE - bytes, "%u\n",
++				  priv->dpaa_bps[i]->bpid);
++
++	return bytes;
++}
++
++static struct device_attribute dpaa_eth_attrs[] = {
++	__ATTR(device_addr, 0444, dpaa_eth_show_addr, NULL),
++	__ATTR(fqids, 0444, dpaa_eth_show_fqids, NULL),
++	__ATTR(bpids, 0444, dpaa_eth_show_bpids, NULL),
 +};
++
++void dpaa_eth_sysfs_init(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		if (device_create_file(dev, &dpaa_eth_attrs[i])) {
++			dev_err(dev, "Error creating sysfs file\n");
++			while (i > 0)
++				device_remove_file(dev, &dpaa_eth_attrs[--i]);
++			return;
++		}
++}
++
++void dpaa_eth_sysfs_remove(struct device *dev)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(dpaa_eth_attrs); i++)
++		device_remove_file(dev, &dpaa_eth_attrs[i]);
++}
 -- 
 2.1.0
