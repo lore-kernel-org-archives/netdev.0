@@ -1,138 +1,91 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [patch net-next 5/8] Introduce sample tc action
-Date: Fri, 11 Nov 2016 08:28:50 +0000
-Message-ID: <DB3PR05MB0764850867353EEB018FCA5FACBB0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1478776988-5400-1-git-send-email-jiri@resnulli.us>
- <1478776988-5400-6-git-send-email-jiri@resnulli.us>
- <5824CBFE.5030502@gmail.com> <5824CCB0.4090302@gmail.com>
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: Re: [PATCH] Revert "include/uapi/linux/atm_zatm.h: include
+ linux/time.h"
+Date: Fri, 11 Nov 2016 11:12:09 +0200
+Message-ID: <20161111091209.GE8342@lakka.kapsi.fi>
+References: <20161111000839.23267-1-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "geert+renesas@glider.be" <geert+renesas@glider.be>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "linux@roeck-us.net" <linux@roeck-us.net>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>
-To: John Fastabend <john.fastabend@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0050.outbound.protection.outlook.com ([104.47.2.50]:1164
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S936119AbcKKInf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Nov 2016 03:43:35 -0500
-Content-Language: en-US
+Received: from mail.kapsi.fi ([217.30.184.167]:58936 "EHLO mail.kapsi.fi"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965735AbcKKJMM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Nov 2016 04:12:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20161111000839.23267-1-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Yotam Gigi
->Sent: Thursday, November 10, 2016 9:59 PM
->To: 'John Fastabend' <john.fastabend@gmail.com>; Jiri Pirko <jiri@resnulli=
-.us>;
->netdev@vger.kernel.org
->Cc: davem@davemloft.net; Ido Schimmel <idosch@mellanox.com>; Elad Raz
-><eladr@mellanox.com>; Nogah Frankel <nogahf@mellanox.com>; Or Gerlitz
-><ogerlitz@mellanox.com>; jhs@mojatatu.com; geert+renesas@glider.be;
->stephen@networkplumber.org; xiyou.wangcong@gmail.com; linux@roeck-us.net;
->roopa@cumulusnetworks.com
->Subject: RE: [patch net-next 5/8] Introduce sample tc action
->
->
->
->>-----Original Message-----
->>From: John Fastabend [mailto:john.fastabend@gmail.com]
->>Sent: Thursday, November 10, 2016 9:38 PM
->>To: Jiri Pirko <jiri@resnulli.us>; netdev@vger.kernel.org
->>Cc: davem@davemloft.net; Yotam Gigi <yotamg@mellanox.com>; Ido Schimmel
->><idosch@mellanox.com>; Elad Raz <eladr@mellanox.com>; Nogah Frankel
->><nogahf@mellanox.com>; Or Gerlitz <ogerlitz@mellanox.com>;
->>jhs@mojatatu.com; geert+renesas@glider.be; stephen@networkplumber.org;
->>xiyou.wangcong@gmail.com; linux@roeck-us.net; roopa@cumulusnetworks.com
->>Subject: Re: [patch net-next 5/8] Introduce sample tc action
->>
->>On 16-11-10 11:35 AM, John Fastabend wrote:
->>> On 16-11-10 03:23 AM, Jiri Pirko wrote:
->>>> From: Yotam Gigi <yotamg@mellanox.com>
->>>>
->>>> This action allow the user to sample traffic matched by tc classifier.
->>>> The sampling consists of choosing packets randomly, truncating them,
->>>> adding some informative metadata regarding the interface and the origi=
-nal
->>>> packet size and mark them with specific mark, to allow further tc rule=
-s to
->>>> match and process. The marked sample packets are then injected into th=
-e
->>>> device ingress qdisc using netif_receive_skb.
->>>>
->>>> The packets metadata is packed using the ife encapsulation protocol, a=
-nd
->>>> the outer packet's ethernet dest, source and eth_type, along with the
->>>> rate, mark and the optional truncation size can be configured from
->>>> userspace.
->>>>
->>>> Example:
->>>> To sample ingress traffic from interface eth1, and redirect the sample=
-d
->>>> the sampled packets to interface dummy0, one may use the commands:
->>>>
->>>> tc qdisc add dev eth1 handle ffff: ingress
->>>>
->>>> tc filter add dev eth1 parent ffff: \
->>>> 	   matchall action sample rate 12 mark 17
->>>>
->>>> tc filter add parent ffff: dev eth1 protocol all \
->>>> 	   u32 match mark 17 0xff \
->>>> 	   action mirred egress redirect dev dummy0
->>>>
->>>> Where the first command adds an ingress qdisc and the second starts
->>>> sampling every 12'th packet on dev eth1 and marks the sampled packets =
-with
->>>> 17. The third command catches the sampled packets, which are marked wi=
-th
->>>> 17, and redirects them to dev dummy0.
->>>
->>> The sampling algorithm was not randomized based on the above commit
->>> log? It really needs to be for all the reasons Roopa mentioned earlier.
->>> Did I miss some email on why it didn't get implemented?
->>>
->>> Also there was an indication the already is actually implemented
->>> correctly so don't we need the hw/sw to behave the same. The whole
->>> argument about sw/hw parity, etc.
->>
->>sorry bit of a typo there corrected 2nd paragraph here...
->>
->>Also there was an indication the hardware is already implemented \
->>correctly so don't we need the hw/sw to behave the same. The argument
->>about sw/hw parity, etc.
->
->Our hardware currently does not support sampling with random behavior, so
->we did implement it in software too.
->
->But, the API is extensible and it is possible to add a random keyword to
->the tc action to allow random sampling. In that case, the keyword will be
->implemented in sw only and our driver will fail offloading it.
->
+Hi,
 
-John, as a result of your question I realized that our hardware does do=20
-randomized sampling that I was not aware of. I will use the extensibility o=
-f
-the API and implement a random keyword, that will be offloaded in our=20
-hardware. Those changes will be sent on v2.
+On Thu, Nov 10, 2016 at 07:08:39PM -0500, Mike Frysinger wrote:
+> This reverts commit cf00713a655d ("include/uapi/linux/atm_zatm.h: include
+> linux/time.h").
+> 
+> This attempted to fix userspace breakage that no longer existed when
+> the patch was merged.  Almost one year earlier, commit 70ba07b675b5
+> ("atm: remove 'struct zatm_t_hist'") deleted the struct in question.
 
-Eventually, your question was very relevant :) Thanks!
+Acked-by: Mikko Rapeli <mikko.rapeli@iki.fi>
 
->>
->>>
->>>>
->>>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>> ---
->>>
+Yep, sorry about this. My development branches are living for too long and
+I should check each patch again before submitting. Simply rebasing is too easy.
+Maybe Arnd could have spotted this earlier but scripts/get_maintainer.pl
+didn't add him to Cc.
+
+> After this patch was merged, we now have to deal with people being
+> unable to include this header in conjunction with standard C library
+> headers like stdlib.h (which linux-atm does).  Example breakage:
+> x86_64-pc-linux-gnu-gcc -DHAVE_CONFIG_H -I. -I../.. -I./../q2931 -I./../saal \
+> 	-I.  -DCPPFLAGS_TEST  -I../../src/include -O2 -march=native -pipe -g \
+> 	-frecord-gcc-switches -freport-bug -Wimplicit-function-declaration \
+> 	-Wnonnull -Wstrict-aliasing -Wparentheses -Warray-bounds \
+> 	-Wfree-nonheap-object -Wreturn-local-addr -fno-strict-aliasing -Wall \
+> 	-Wshadow -Wpointer-arith -Wwrite-strings -Wstrict-prototypes -c zntune.c
+> In file included from /usr/include/linux/atm_zatm.h:17:0,
+>                  from zntune.c:17:
+> /usr/include/linux/time.h:9:8: error: redefinition of ‘struct timespec’
+>  struct timespec {
+>         ^
+> In file included from /usr/include/sys/select.h:43:0,
+>                  from /usr/include/sys/types.h:219,
+>                  from /usr/include/stdlib.h:314,
+>                  from zntune.c:9:
+> /usr/include/time.h:120:8: note: originally defined here
+>  struct timespec
+>         ^
+
+Well, this would help with the linux/time.h and glibc time.h conflicts:
+
+https://patchwork.kernel.org/patch/9294305/
+
+if linux/time.h is included after <time.h>.
+
+Unfortunately I don't know when or if ever that will be applied.
+
+-Mikko
+
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> ---
+>  include/uapi/linux/atm_zatm.h | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/include/uapi/linux/atm_zatm.h b/include/uapi/linux/atm_zatm.h
+> index 5cd4d4d2dd1d..9c9c6ad55f14 100644
+> --- a/include/uapi/linux/atm_zatm.h
+> +++ b/include/uapi/linux/atm_zatm.h
+> @@ -14,7 +14,6 @@
+>  
+>  #include <linux/atmapi.h>
+>  #include <linux/atmioc.h>
+> -#include <linux/time.h>
+>  
+>  #define ZATM_GETPOOL	_IOW('a',ATMIOC_SARPRV+1,struct atmif_sioc)
+>  						/* get pool statistics */
+> -- 
+> 2.9.0
+> 
