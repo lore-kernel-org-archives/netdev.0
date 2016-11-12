@@ -1,49 +1,40 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Long delays creating a netns after deleting one (possibly RCU related)
-Date: Fri, 11 Nov 2016 16:55:11 -0800
-Message-ID: <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
-References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
- <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
- <20161110212404.GB4127@linux.vnet.ibm.com> <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
- <20161112002347.GL4127@linux.vnet.ibm.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: Source address fib invalidation on IPv6
+Date: Sat, 12 Nov 2016 03:18:31 +0100
+Message-ID: <CAHmME9o_AM1Lms6CJSpbjfAgcyGuRx8yqwSaNWEbSnY7gGnt6w@mail.gmail.com>
+References: <CAHmME9qi7_C7c=wsZg=EwBg3jzFzVmW1eiFGGXgcX8fCcOOZcA@mail.gmail.com>
+ <31e050e2-0499-a77e-f698-86e58ad2fa6b@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Justin Cormack <justin.cormack@docker.com>,
-        Ian Campbell <ian.campbell@docker.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161112002347.GL4127@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <31e050e2-0499-a77e-f698-86e58ad2fa6b@cumulusnetworks.com>
+List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 11, 2016 at 4:23 PM, Paul E. McKenney
-<paulmck@linux.vnet.ibm.com> wrote:
->
-> Ah!  This net_mutex is different than RTNL.  Should synchronize_net() be
-> modified to check for net_mutex being held in addition to the current
-> checks for RTNL being held?
->
+Hi David,
 
-Good point!
+On Fri, Nov 11, 2016 at 11:14 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> What do you mean by 'valid dst'? ipv6 returns net->ipv6.ip6_null_entry on lookup failures so yes dst is non-NULL but that does not mean the lookup succeeded.
 
-Like commit be3fc413da9eb17cce0991f214ab0, checking
-for net_mutex for this case seems to be an optimization, I assume
-synchronize_rcu_expedited() and synchronize_rcu() have the same
-behavior...
+What I mean is that it returns an ordinary dst, as if that souce
+address _hadn't_ been removed from the interface, even though I just
+removed it. Is this buggy behavior? If so, let me know and I'll try to
+track it down. The expected behavior, as far as I can see, would be
+the same that ip_route_output_flow has -- returning -EINVAL when the
+saddr isn't valid. At the moment, when the saddr is invalid,
+ipv6_stub->ipv6_dst_lookup returns 0 and &dst contains a real entry.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index eaad4c2..3415b6b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7762,7 +7762,7 @@ EXPORT_SYMBOL(free_netdev);
- void synchronize_net(void)
- {
-        might_sleep();
--       if (rtnl_is_locked())
-+       if (rtnl_is_locked() || lockdep_is_held(&net_mutex))
-                synchronize_rcu_expedited();
-        else
-                synchronize_rcu();
+Regards,
+Jason
