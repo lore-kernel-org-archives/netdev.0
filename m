@@ -1,82 +1,26 @@
-From: <cbordinaro@csudh.edu>
-Subject: 46775 netdev
-Date: Sat, 12 Nov 2016 09:40:25 -0000
-Message-ID: <147894362595.28087.5297387754892078221@hinet.net>
+From: Mr Friedrich Mayrhofer <emilio.porcu@usm.cl>
+Subject: I Hope You Get My Message This Time
+Date: Sat, 12 Nov 2016 02:58:42 -0300
+Message-ID: <20161112025842.Horde.Al-_QVdzdO9YJq_SJ4TyjDA@webmail.usm.cl>
+Reply-To: friedrichmayrhofer222@gmail.com
 Mime-Version: 1.0
-Content-Type: application/zip; name="MESSAGE_645923_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed; DelSp=Yes
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 114-26-114-177.dynamic.hinet.net ([114.26.114.177]:42389 "HELO
-        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1752238AbcKLJkb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Nov 2016 04:40:31 -0500
-Content-Disposition: attachment
+Received: from webmail.utfsm.cl ([200.1.30.32]:50860 "EHLO webmail.utfsm.cl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752557AbcKLKCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Nov 2016 05:02:51 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-UEsFBgAAAAABAAEAWQAAAOcNAAAAAA==
+
+-- 
+This is the second time i am sending you this mail.
+
+I, Friedrich Mayrhofer Donate $ 1,000,000.00 to You, Email  Me  
+personally for more details.
+
+Regards.
+Friedrich Mayrhofer
