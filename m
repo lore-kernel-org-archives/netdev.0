@@ -1,61 +1,46 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: Source address fib invalidation on IPv6
-Date: Sat, 12 Nov 2016 20:08:24 +0100
-Message-ID: <CAHmME9owJNvMfF9jHGW7i_jPMaxwPhxQE5W6cxjw14nL0HK0eQ@mail.gmail.com>
-References: <CAHmME9qi7_C7c=wsZg=EwBg3jzFzVmW1eiFGGXgcX8fCcOOZcA@mail.gmail.com>
- <31e050e2-0499-a77e-f698-86e58ad2fa6b@cumulusnetworks.com>
- <CAHmME9o_AM1Lms6CJSpbjfAgcyGuRx8yqwSaNWEbSnY7gGnt6w@mail.gmail.com>
- <CAHmME9oeAuBQJguTFivYsYw4fMoc4+sgxcdS4MArN474m7NjTQ@mail.gmail.com>
- <0dbf5deb-bffb-4878-a268-1adb17c47676@cumulusnetworks.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] genetlink: fix unsigned int comparison with less than
+ zero
+Date: Sat, 12 Nov 2016 22:37:16 +0100
+Message-ID: <1478986636.4226.4.camel@sipsolutions.net>
+References: <20161110155758.26996-1-colin.king@canonical.com>
+         <CAM_iQpW=q4nm97dNouSL19Cr2cEWT9xQHXAm4CNJk=AY8z_2MA@mail.gmail.com>
+         (sfid-20161110_181214_593279_4F3243C4)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
- Hannes Frederic Sowa <hannes@stressinduktion.org>,
- LKML <linux-kernel@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <0dbf5deb-bffb-4878-a268-1adb17c47676@cumulusnetworks.com>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        pravin shelar <pshelar@ovn.org>,
+        Wei Yongjun <weiyongjun1@huawei.com>,
+        Florian Westphal <fw@strlen.de>,
+        Tycho Andersen <tycho.andersen@canonical.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpW=q4nm97dNouSL19Cr2cEWT9xQHXAm4CNJk=AY8z_2MA@mail.gmail.com> (sfid-20161110_181214_593279_4F3243C4)
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Thu, 2016-11-10 at 09:11 -0800, Cong Wang wrote:
+> On Thu, Nov 10, 2016 at 7:57 AM, Colin King <colin.king@canonical.com
+> > wrote:
+> > 
+> > From: Colin Ian King <colin.king@canonical.com>
+> > 
+> > family->id is unsigned, so the less than zero check for
+> > failure return from idr_alloc is never true and so the error exit
+> > is never handled.  Instead, assign err and check if this is less
+> > than zero since this is a signed integer.
+> 
+> Why family->id can't be just signed int? For me it should be.
 
-On Sat, Nov 12, 2016 at 7:14 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> I believe that is coming from __ip_route_output_key_hash(), line 2232 with __ip_dev_find not finding a device with that address.
+I suppose it could be, since family IDs are allocated in a 16-bit range
+anyway. But family IDs can also never actually be negative, so having
+an unsigned int in the struct makes sense too.
 
-It's possible we simply are looking at different source trees, but I
-have the -EINVAL return in 4.8 route.c sources happening due to the
-assignment on line 2175 and the jump on line 2220.
+I tend to think this patch is fine.
 
-> Not applicable for your use case, but __ip_dev_find does not have any checks on which L3 domain the device belongs to so the check does not handle VRF for example. I'll take a look at fixing this next week.
-
-Interesting.
-
->
-> Gotcha. I don't see any checks that the saddr is valid similar to what IPv4 does.
->
-> I think the right place to add a check is in ip6_dst_lookup_tail():
->     if (!ipv6_addr_any(&fl6->saddr)) {
->         // saddr is valid for L3 domain
->     }
-
-Right. It should probably do the check here, and return
-ERR_PTR(-EINVAL), the same as the v4 version, so that ret codes can be
-checked consistently.
-
-Thanks for looking into this. If you're backed up and would like me to
-submit a patch, just let me know, and I'll give it my best shot.
-
-Regards,
-Jason
+johannes
