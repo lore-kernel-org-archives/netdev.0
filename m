@@ -1,80 +1,45 @@
-From: <clinicallaw@pepperdine.edu>
-Subject: 15405 netdev
-Date: Sat, 12 Nov 2016 17:09:46 -0000
-Message-ID: <147897058677.24433.11785057493899466131@vnpt.vn>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] ps3_gelic: fix spelling mistake in debug message
+Date: Sat, 12 Nov 2016 17:20:30 +0000
+Message-ID: <20161112172030.7583-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="MESSAGE_884059386788_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([14.161.43.68]:49943 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S966413AbcKLRJy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Nov 2016 12:09:54 -0500
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        "David S . Miller" <davem@davemloft.net>,
+        Muhammad Falak R Wani <falakreyaz@gmail.com>,
+        Christophe Jaillet <christophe.jaillet@wanadoo.fr>,
+        Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
+From: Colin Ian King <colin.king@canonical.com>
+
+Trivial fix to spelling mistake "unmached" to "unmatched" in
+debug message.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/toshiba/ps3_gelic_wireless.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
+index b3abd02..eed18f8 100644
+--- a/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
++++ b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
+@@ -1694,7 +1694,7 @@ struct gelic_wl_scan_info *gelic_wl_find_best_bss(struct gelic_wl_info *wl)
+ 				pr_debug("%s: bssid matched\n", __func__);
+ 				break;
+ 			} else {
+-				pr_debug("%s: bssid unmached\n", __func__);
++				pr_debug("%s: bssid unmatched\n", __func__);
+ 				continue;
+ 			}
+ 		}
+-- 
+2.10.2
