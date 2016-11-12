@@ -1,33 +1,27 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: update link types to show 6lowpan and
- ieee802.15.4 monitor
-Date: Sat, 12 Nov 2016 10:15:12 +0300
-Message-ID: <20161112101512.79ff3879@samsung9>
-References: <1477647723-14641-1-git-send-email-stefan@datenfreihafen.org>
+Subject: Re: [PATCH] iproute2: ss: escape all null bytes in abstract unix
+ domain socket
+Date: Sat, 12 Nov 2016 10:17:29 +0300
+Message-ID: <20161112101729.4d400929@samsung9>
+References: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wpan@vger.kernel.org
-To: Stefan Schmidt <stefan@datenfreihafen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:33707 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936602AbcKLHPR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2016 02:15:17 -0500
-Received: by mail-lf0-f49.google.com with SMTP id c13so26640427lfg.0
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2016 23:15:16 -0800 (PST)
-In-Reply-To: <1477647723-14641-1-git-send-email-stefan@datenfreihafen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Isaac Boukris <iboukris@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1477768820-1295-1-git-send-email-iboukris@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Oct 2016 11:42:03 +0200
-Stefan Schmidt <stefan@datenfreihafen.org> wrote:
+On Sat, 29 Oct 2016 22:20:19 +0300
+Isaac Boukris <iboukris@gmail.com> wrote:
 
-> Both types have been missing here and thus ip always showed
-> only the numbers.
+> Abstract unix domain socket may embed null characters,
+> these should be translated to '@' when printed by ss the
+> same way the null prefix is currently being translated.
 > 
-> Based on a suggestion from Alexander Aring.
-> 
-> Signed-off-by: Stefan Schmidt <stefan@datenfreihafen.org>
+> Signed-off-by: Isaac Boukris <iboukris@gmail.com>
 
-Applied 
+Applied
