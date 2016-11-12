@@ -1,92 +1,69 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: Source address fib invalidation on IPv6
-Date: Sat, 12 Nov 2016 16:40:29 +0100
-Message-ID: <CAHmME9oeAuBQJguTFivYsYw4fMoc4+sgxcdS4MArN474m7NjTQ@mail.gmail.com>
-References: <CAHmME9qi7_C7c=wsZg=EwBg3jzFzVmW1eiFGGXgcX8fCcOOZcA@mail.gmail.com>
- <31e050e2-0499-a77e-f698-86e58ad2fa6b@cumulusnetworks.com>
- <CAHmME9o_AM1Lms6CJSpbjfAgcyGuRx8yqwSaNWEbSnY7gGnt6w@mail.gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: Spurious code in commit 1bf40ada6290 ("amd-xgbe: Add support for
+ clause 37 auto-negotiation"
+Date: Sat, 12 Nov 2016 09:47:44 -0600
+Message-ID: <b9c9483a-76d1-b568-d60c-59f24ac5dea5@amd.com>
+References: <80c6a7b3-4a03-e087-3638-7048adebbda8@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <CAHmME9o_AM1Lms6CJSpbjfAgcyGuRx8yqwSaNWEbSnY7gGnt6w@mail.gmail.com>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Kernel Janitors <kernel-janitors@vger.kernel.org>
+To: Marion & Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0047.outbound.protection.outlook.com ([104.47.38.47]:9440
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934577AbcKLPtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Nov 2016 10:49:07 -0500
+In-Reply-To: <80c6a7b3-4a03-e087-3638-7048adebbda8@wanadoo.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi again,
+On 11/12/2016 8:34 AM, Marion & Christophe JAILLET wrote:
+> Hi,
+> 
+> in commit 1bf40ada6290 ("amd-xgbe: Add support for clause 37
+> auto-negotiation"), we can find:
+> 
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+> b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+> index 695e982..8bcf4ef 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+>    [...]
+>    #define XGBE_AN_CL37_PCS_MODE_MASK    0x06
+>    #define XGBE_AN_CL37_PCS_MODE_BASEX    0x00
+>    #define XGBE_AN_CL37_PCS_MODE_SGMII    0x04
+>    #define XGBE_AN_CL37_TX_CONFIG_MASK    0x08
+>    [...]
+> 
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+> b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+> index d5bfbe4..723eb90 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+>    [...]
+>    /* Set up the Control register */
+>    reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL);
+>    reg &= XGBE_AN_CL37_TX_CONFIG_MASK;
+>    reg &= XGBE_AN_CL37_PCS_MODE_MASK;
+>    [...]
+> 
+> the "reg &=" statements look spurious. The 2 constants being 0x06 and
+> 0x08, the current code is equivalent to "reg = 0"
+> 
+> It is likely that "reg |=" (or "reg &= ~") was expected here.
 
-I've done some pretty in depth debugging now to determine exactly what
-the behavior of ipv6_stub->ipv6_dst_lookup is. First I'll start with
-ip_route_output_flow, which I believe to be well behaved, and then
-I'll show ipv6_stub->ipv6_dst_lookup, which seems ill-behaved:
+Yes, those should have been "reg &= ~". I didn't find this in my testing
+because the register is all zeroes after reset.  I'll submit a patch to
+fix that.
 
-Userspace:
-    ip addr add 192.168.1.2/24 dev eth0
-Kernelspace:
-    struct flowi4 fl = {
-       .saddr = 192.168.1.2,
-       .daddr = 192.168.1.99,
-    };
-    rt = ip_route_output_flow(sock_net(sock), &fl, sock);
-    // rt returns valid rt for routing to 192.168.1.99 from
-192.168.1.2 using eth0
-Userspace:
-    ip addr add 192.168.1.3/24 dev eth0
-    ip addr del 192.168.1.2/24 dev eth0
-Kernelspace:
-    struct flowi4 fl = {
-       .saddr = 192.168.1.2,
-       .daddr = 192.168.1.99,
-    };
-    rt = ip_route_output_flow(sock_net(sock), &fl, sock);
-    // PTR_ERR(rt) == -EINVAL
+Thanks,
+Tom
 
-This seems correct behavior to me, since no interface has 192.168.1.2
-as a source address.
-
-Now for the incorrect IPv6 behavior:
-
-Userspace:
-    ip -6 addr add abcd::2/96 dev eth0
-Kernelspace:
-    struct flowi6 fl = {
-       .saddr = abcd::2,
-       .daddr = abcd::99,
-    };
-    ret = ipv6_stub->ipv6_dst_lookup(sock_net(sock), sock, &dst, &fl);
-    // ret is 0, and dst is a non-null dst routing to abcd::99 from
-abcd::2 using eth0
-Userspace:
-    ip -6 addr add abcd::3/96 dev eth0
-    ip -6 addr del abcd::2/96 dev eth0
-Kernelspace:
-    struct flowi6 fl = {
-       .saddr = abcd::2,
-       .daddr = abcd::99,
-    };
-    ret = ipv6_stub->ipv6_dst_lookup(sock_net(sock), sock, &dst, &fl);
-    // ret is 0, and dst is a non-null dst routing to abcd::99 from
-abcd::2 using eth0 **INCORRECT BEHAVIOR!**
-
-This seems *INCORRECT* behavior to me, since no interface has abcd::2
-as a source address.
-
-So, to summarize, the problem is that ipv6_dst_lookup will happily
-return a dst even though the source IP has been removed from the
-interface.
-
-I hope this clarifies things. I await your response.
-
-Regards,
-Jason
+> 
+> Best regards,
+> CJ
+> 
