@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8152: Fix error path in open function
-Date: Sun, 13 Nov 2016 12:03:49 -0500 (EST)
-Message-ID: <20161113.120349.394151836949728811.davem@davemloft.net>
-References: <1478749885-32212-1-git-send-email-linux@roeck-us.net>
+Subject: Re: [PATCH] net: phy: marvell: optimize logic for page changing
+ during init
+Date: Sun, 13 Nov 2016 12:05:32 -0500 (EST)
+Message-ID: <20161113.120532.627984410317749893.davem@davemloft.net>
+References: <20161110140301.13381-1-uwe@kleine-koenig.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: linux@roeck-us.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478749885-32212-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: uwe@kleine-koenig.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43918 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934472AbcKMRFe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 12:05:34 -0500
+In-Reply-To: <20161110140301.13381-1-uwe@kleine-koenig.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Wed,  9 Nov 2016 19:51:25 -0800
+From: Uwe Kleine-König <uwe@kleine-koenig.org>
+Date: Thu, 10 Nov 2016 15:03:01 +0100
 
-> If usb_submit_urb() called from the open function fails, the following
-> crash may be observed.
- ...
-> Clean up error handling to avoid registering the notifier if the open
-> function is going to fail.
+> Instead of remembering if the page was changed, just compare the current
+> page to the saved one. This is easier and has the advantage to save a
+> register write if the page was already restored.
 > 
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> Signed-off-by: Uwe Kleine-König <uwe@kleine-koenig.org>
 
-Looks good, applied, thanks.
+Applied to net-next, thanks.
