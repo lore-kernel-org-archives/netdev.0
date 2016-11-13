@@ -1,84 +1,118 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: Kernel 4.8.7 crashing down cleanup_net()
-Date: Sun, 13 Nov 2016 17:00:04 +0100
-Message-ID: <20161113160004.vkmukwfoajlzhqu4@pd.tnic>
-References: <CA+OSeu=TvXdd8VmxWOo2dh-jS_WrNibSWdCt0OEyPEkfxjO_yw@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] Fixup packets with incorrect ethertype sent by ZTE MF821D
+Date: Sun, 13 Nov 2016 17:12:57 +0100
+Message-ID: <87zil3cq9i.fsf@miraculix.mork.no>
+References: <20161113134753.GR2745@pokute.pelzi.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Ashton Holmes <scoopta@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+OSeu=TvXdd8VmxWOo2dh-jS_WrNibSWdCt0OEyPEkfxjO_yw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org
+To: Jussi Peltola <plz@plz.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:47903 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933689AbcKMQN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Nov 2016 11:13:56 -0500
+In-Reply-To: <20161113134753.GR2745@pokute.pelzi.net> (Jussi Peltola's message
+        of "Sun, 13 Nov 2016 15:47:53 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hmm, there's cleanup_net() namespaces fun in there, adding netdev@.
+Jussi Peltola <plz@plz.fi> writes:
 
-On Sat, Nov 12, 2016 at 02:17:03PM -0800, Ashton Holmes wrote:
-> I upgraded to 4.8.7 and the system boots and my root partition gets
-> decrypted but right after that both of my monitors turn off and
-> looking at syslog from 4.8.6 shows the following:
-> 
-> Nov 12 11:54:24 user-desktop kernel: [   19.853197] ------------[ cut
-> here ]------------
-> Nov 12 11:54:24 user-desktop kernel: [   19.853206] WARNING: CPU: 2
-> PID: 177 at fs/proc/proc_sysctl.c:1607 ops_exit_list.isra.4+0x33/0x60
-> Nov 12 11:54:24 user-desktop kernel: [   19.853210] Modules linked in:
-> amdgpu eeepc_wmi i2c_algo_bit asus_wmi drm_kms_helper video rfkill
-> snd_hda_codec_realtek ttm snd_hda_codec_generic snd_hda_codec_hdmi drm
-> snd_hda_intel snd_usb_audio sparse_keymap snd_hda_codec mxm_wmi
-> snd_usbmidi_lib snd_hda_core efi_pstore snd_hwdep snd_rawmidi evdev
-> snd_seq_device joydev snd_pcm serio_raw pcspkr efivars fam15h_power
-> k10temp snd_timer snd sp5100_tco i2c_piix4 sg soundcore i2c_core
-> shpchp tpm_infineon tpm_tis tpm_tis_core tpm wmi button it87 hwmon_vid
-> autofs4 ext4 crc16 jbd2 mbcache algif_skcipher af_alg dm_crypt dm_mod
-> hid_generic usbhid hid sr_mod cdrom sd_mod ohci_pci crct10dif_pclmul
-> crc32_pclmul crc32c_intel aesni_intel aes_x86_64 glue_helper lrw
-> gf128mul ablk_helper cryptd psmouse ohci_hcd ahci libahci ehci_pci
-> ehci_hcd libata xhci_pci xhci_hcd e1000e usbcore scsi_mod ptp
-> usb_common pps_core
-> Nov 12 11:54:24 user-desktop kernel: [   19.853264] CPU: 2 PID: 177
-> Comm: kworker/u16:2 Not tainted 4.8.7 #1
-> Nov 12 11:54:24 user-desktop kernel: [   19.853267] Hardware name: To
-> be filled by O.E.M. To be filled by O.E.M./CROSSHAIR V FORMULA-Z, BIOS
-> 2201 03/23/2015
-> Nov 12 11:54:24 user-desktop kernel: [   19.853273] Workqueue: netns cleanup_net
-> Nov 12 11:54:24 user-desktop kernel: [   19.853276]  0000000000000286
-> 00000000b98071d2 ffffffff81302a8f 0000000000000000
-> Nov 12 11:54:24 user-desktop kernel: [   19.853281]  0000000000000000
-> ffffffff81076f54 ffff880814f88040 ffff8808140efdf0
-> Nov 12 11:54:24 user-desktop kernel: [   19.853285]  ffffffff818f11d8
-> ffffffff818f11e0 ffff8808140efde0 0000000000000200
-> Nov 12 11:54:24 user-desktop kernel: [   19.853290] Call Trace:
-> Nov 12 11:54:24 user-desktop kernel: [   19.853295]
-> [<ffffffff81302a8f>] ? dump_stack+0x5c/0x7d
-> Nov 12 11:54:24 user-desktop kernel: [   19.853299]
-> [<ffffffff81076f54>] ? __warn+0xc4/0xe0
-> Nov 12 11:54:24 user-desktop kernel: [   19.853302]
-> [<ffffffff8149e243>] ? ops_exit_list.isra.4+0x33/0x60
-> Nov 12 11:54:24 user-desktop kernel: [   19.853305]
-> [<ffffffff8149f230>] ? cleanup_net+0x1b0/0x290
-> Nov 12 11:54:24 user-desktop kernel: [   19.853309]
-> [<ffffffff8108fefd>] ? process_one_work+0x14d/0x410
-> Nov 12 11:54:24 user-desktop kernel: [   19.853312]
-> [<ffffffff81090cc2>] ? worker_thread+0x62/0x490
-> Nov 12 11:54:24 user-desktop kernel: [   19.853315]
-> [<ffffffff81090c60>] ? rescuer_thread+0x340/0x340
-> Nov 12 11:54:24 user-desktop kernel: [   19.853318]
-> [<ffffffff81095f3f>] ? kthread+0xdf/0x100
-> Nov 12 11:54:24 user-desktop kernel: [   19.853322]
-> [<ffffffff8102b78b>] ? __switch_to+0x2bb/0x710
-> Nov 12 11:54:24 user-desktop kernel: [   19.853325]
-> [<ffffffff815a371f>] ? ret_from_fork+0x1f/0x40
-> Nov 12 11:54:24 user-desktop kernel: [   19.853328]
-> [<ffffffff81095e60>] ? kthread_park+0x50/0x50
-> Nov 12 11:54:24 user-desktop kernel: [   19.853331] ---[ end trace
-> c4840b46b58dbe12 ]---
-> 
+> This brokenness appears reliably after running "rdisc6 wwan0" but I have
+> not debugged if this is related to timing or the format of the router
+> solicitation. Before receiving a router solicitation, v4 is received
+> correctly and v6 does not work. After sending the MF821D a router
+> solicitation with rdisc6, v4 is broken but v6 works. With this patch
+> (which I am using to write this message) a dual-stack context is usable.
+>
+> commit 2c25237d19c0c9741c6ebec854def99b88618eac
+> Author: Jussi Peltola <plz@plz.fi>
+> Date:   Sun Nov 13 15:41:50 2016 +0200
+>
+>     Fixup packets with incorrect ethertype sent by ZTE MF821D
+>=20=20=20=20=20
+>     Signed-off-by: Jussi Peltola <plz@plz.fi>
+>
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index 3ff76c6..edd8172 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -172,6 +172,12 @@ static const u8 buggy_fw_addr[ETH_ALEN] =3D {0x00, 0=
+xa0, 0xc6, 0x00, 0x00, 0x00};
+>   * Another common firmware bug results in all packets being addressed
+>   * to 00:a0:c6:00:00:00 despite the host address being different.
+>   * This function will also fixup such packets.
+> + *
+> + * At least the ZTE MF821D sends IPv4 packets with a bogus ethertype
+> + * of 0x63bc, 0xe3bc, 0x63bd or 0xe3bd, and bogus source and
+> + * destination MACs after it has received an IPv6 router solicitation
+> + * (IPv6 is transmitted correctly). This function will also fix up
+> + * such packets.
+>   */
+>  static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+>  {
+> @@ -195,12 +201,21 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, st=
+ruct sk_buff *skb)
+>                         return 0;
+>                 if (is_multicast_ether_addr(skb->data))
+>                         return 1;
+> +
+>                 /* possibly bogus destination - rewrite just in case */
+>                 skb_reset_mac_header(skb);
+>                 goto fix_dest;
+>         default:
+>                 if (rawip)
+>                         return 0;
+> +
+> +               /* Bogus ethertype and src/dst mac for v4 on ZTE MF821D */
+> +               if ((skb->data[12] & 0x7f) =3D=3D 0x63
+> +                && (skb->data[13] & 0xfe) =3D=3D 0xbc) {
+> +                       proto =3D htons(ETH_P_IP);
+> +                       goto reset_mac;
+> +               }
+> +
+>                 /* pass along other packets without modifications */
+>                 return 1;
+>         }
+> @@ -213,6 +228,7 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, stru=
+ct sk_buff *skb)
+>         if (skb_headroom(skb) < ETH_HLEN)
+>                 return 0;
+>         skb_push(skb, ETH_HLEN);
+> +reset_mac:
+>         skb_reset_mac_header(skb);
+>         eth_hdr(skb)->h_proto =3D proto;
+>         eth_zero_addr(eth_hdr(skb)->h_source);
 
--- 
-Regards/Gruss,
-    Boris.
 
-Good mailing practices for 400: avoid top-posting and trim the reply.
+I must admit that I don't like the additional magic stuff at all.  I
+don't doubt a second that it fixes the problem for you.  But there is
+also no doubt that the firmware is so broken that there is no way we can
+know this fixes anything for anyone else.  Where did the firmware get
+those magic numbers?  It's definitely garbage.  But we have no reason to
+think the garbage is invariable. It could be part of the firmware code,
+or a serial number, or your assigned IPv6 prefix, or something else that
+changes between different modems.  The fact that it is stable for you is
+unfortunately not proof that it is the same for everyone else.
+
+We have rejected similar fixes when this issue has come up earlier (it
+looks like a generic Qualcomm firmware issue shared with other vendors
+using the same baseband firmware generation). Using raw-ip is the
+recommended workaround for these modems.
+
+In any case, if we're going to add a fix like this, then I want it way
+more generic.  The only valid ethertypes expected from the modem is IP,
+IPV6 or ARP. Testing against those three, resetting anything else to IP,
+will at least catch *any* bogus value.
+
+But I'm not convinced I want this additional processing of every packet
+just to let Qualcomm go on hiring monkeys-on-crack to write their
+firmware. At least not when we do have raw-ip as a workaround for the
+issue.
+
+Feel free to try to convince me, though.
+
+
+Bj=C3=B8rn
