@@ -1,107 +1,48 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2] ip6_output: ensure flow saddr actually
-	belongs to device
-Date: Sun, 13 Nov 2016 20:02:51 +0100
-Message-ID: <20161113190251.1027-1-Jason@zx2c4.com>
-References: <405b2e79-854d-4c30-07b0-bd524137d2f6@cumulusnetworks.com>
+From: =?UTF-8?B?QW5kcsOp?= Roth <neolynx@gmail.com>
+Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
+Date: Sun, 13 Nov 2016 20:13:39 +0100
+Message-ID: <20161113201339.667ac1f7@gmail.com>
+References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
+        <ce15ad26-2d07-655d-b813-947ad86696ac@st.com>
+        <CAFBinCC0HiEXx5mELztH6jYfUq2f1u0Tb+pSzAvwQSu9vYydGQ@mail.gmail.com>
+        <20161031112524.4c4ee8f8@gmail.com>
+        <1478192276.6632.34.camel@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, Netdev <netdev@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- LKML <linux-kernel@vger.kernel.org>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
- Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <405b2e79-854d-4c30-07b0-bd524137d2f6@cumulusnetworks.com>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        Johnson Leung <r58129@freescale.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        linux-amlogic@lists.infradead.org,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        netdev@vger.kernel.org
+To: Jerome Brunet <jbrunet@baylibre.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35432 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935021AbcKMTNn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 14:13:43 -0500
+Received: by mail-wm0-f66.google.com with SMTP id a20so9924105wme.2
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 11:13:43 -0800 (PST)
+In-Reply-To: <1478192276.6632.34.camel@baylibre.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This puts the IPv6 routing functions in parity with the IPv4 routing
-functions. Namely, we now check in v6 that if a flowi6 requests an
-saddr, the returned dst actually corresponds to a net device that has
-that saddr. This mirrors the v4 logic with __ip_dev_find in
-__ip_route_output_key_hash. In the event that the returned dst is not
-for a dst with a dev that has the saddr, we return -EINVAL, just like
-v4; this makes it easy to use the same error handlers for both cases.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
----
-Changes from v1:
-   This moves the check to the top and now sees if it's a valid address
-   on _any_ device, not just the one in dst.
+> Andre, the 3.14 kernel you are talking, is it this one ? :=C2=A0
+> https://github.com/hardkernel/linux/tree/odroidc2-3.14.y
 
- include/net/ipv6.h    |  2 ++
- net/ipv6/ip6_output.c | 28 ++++++++++++++++++++++++++++
- 2 files changed, 30 insertions(+)
+yes
+=20
+> Because in drivers/net/phy/realtek.c, they disable EEE, but
+> also=C2=A01000Base-T Full Duplex advertisement ?
+>=20
+> +	/* disable 1000m adv*/
+> +	val =3D phy_read(phydev, 0x9);
+> +	phy_write(phydev, 0x9, val&(~(1<<9)));
+>=20
+> If this is the kernel you are running, you should not be able to have
+> ethernet at 1000MB/s ? Or is it in half duplex mode ?
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 8fed1cd..e5dc14f 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -914,6 +914,8 @@ struct dst_entry *ip6_sk_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
- 					 const struct in6_addr *final_dst);
- struct dst_entry *ip6_blackhole_route(struct net *net,
- 				      struct dst_entry *orig_dst);
-+struct net_device *__ip6_dev_find(struct net *net, struct in6_addr *addr,
-+				  bool devref);
- 
- /*
-  *	skb processing functions
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6001e78..371170b 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -916,6 +916,30 @@ static struct dst_entry *ip6_sk_dst_check(struct sock *sk,
- 	return dst;
- }
- 
-+/**
-+ * __ip6_dev_find - find the first device with a given source address.
-+ * @net: the net namespace
-+ * @addr: the source address
-+ * @devref: if true, take a reference on the found device
-+ *
-+ * If a caller uses devref=false, it should be protected by RCU, or RTNL
-+ */
-+struct net_device *__ip6_dev_find(struct net *net, struct in6_addr *addr, bool devref)
-+{
-+	struct net_device *result;
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, result) {
-+		if (ipv6_chk_addr(net, addr, result, 1))
-+			break;
-+	}
-+	if (result && devref)
-+		dev_hold(result);
-+	rcu_read_unlock();
-+	return result;
-+}
-+EXPORT_SYMBOL(__ip6_dev_find);
-+
- static int ip6_dst_lookup_tail(struct net *net, const struct sock *sk,
- 			       struct dst_entry **dst, struct flowi6 *fl6)
- {
-@@ -926,6 +950,10 @@ static int ip6_dst_lookup_tail(struct net *net, const struct sock *sk,
- 	int err;
- 	int flags = 0;
- 
-+	if (!ipv6_addr_any(&fl6->saddr) &&
-+	    !__ip6_dev_find(net, &fl6->saddr, false))
-+		return -EINVAL;
-+
- 	/* The correct way to handle this would be to do
- 	 * ip6_route_get_saddr, and then ip6_route_output; however,
- 	 * the route-specific preferred source forces the
--- 
-2.10.2
+ethtool shows 1000Mb/s Full-Duplex and the bandwith is around 300Mb/s
+(as measured by scp). kernel version: 3.14.65-73
