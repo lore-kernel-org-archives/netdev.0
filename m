@@ -1,43 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] genetlink: fix unsigned int comparison with less than zero
-Date: Sat, 12 Nov 2016 21:25:05 -0800
-Message-ID: <CAM_iQpUw-PYmksL2StciJiM-8C+y3w9T_Vo4=pVKnjQzTwKvLg@mail.gmail.com>
-References: <20161110155758.26996-1-colin.king@canonical.com>
- <CAM_iQpW=q4nm97dNouSL19Cr2cEWT9xQHXAm4CNJk=AY8z_2MA@mail.gmail.com> <1478986636.4226.4.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/11] Start adding support for mv88e6390
+ family
+Date: Sun, 13 Nov 2016 00:48:59 -0500 (EST)
+Message-ID: <20161113.004859.749028544003333521.davem@davemloft.net>
+References: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Colin King <colin.king@canonical.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        pravin shelar <pshelar@ovn.org>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        Florian Westphal <fw@strlen.de>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478986636.4226.4.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33448 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751481AbcKMFtE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 00:49:04 -0500
+In-Reply-To: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 12, 2016 at 1:37 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Thu, 2016-11-10 at 09:11 -0800, Cong Wang wrote:
->> On Thu, Nov 10, 2016 at 7:57 AM, Colin King <colin.king@canonical.com
->> > wrote:
->> >
->> > From: Colin Ian King <colin.king@canonical.com>
->> >
->> > family->id is unsigned, so the less than zero check for
->> > failure return from idr_alloc is never true and so the error exit
->> > is never handled.  Instead, assign err and check if this is less
->> > than zero since this is a signed integer.
->>
->> Why family->id can't be just signed int? For me it should be.
->
-> I suppose it could be, since family IDs are allocated in a 16-bit range
-> anyway. But family IDs can also never actually be negative, so having
-> an unsigned int in the struct makes sense too.
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Fri, 11 Nov 2016 03:53:32 +0100
 
-All idr_* API's accept int, rather than unsigned int. This is my point.
+> This is the first patchset implementing support for the mv88e6390
+> family.  This is a new generation of switch devices and has numerous
+> incompatible changes to the registers. These patches allow the switch
+> to the detected during probe, and makes the statistics unit work.
+> 
+> These patches are insufficient to make the mv88e6390 functional. More
+> patches will follow.
+
+Andrew, this series doesn't apply cleanly to net-next, so you'll
+need to respin.
+
+Thanks.
