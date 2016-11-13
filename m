@@ -1,56 +1,66 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v13 5/8] openvswitch: add processing of L3 packets
-Date: Sat, 12 Nov 2016 15:58:29 -0800
-Message-ID: <CAOrHB_DMQf7zQ+q-REmNeTY7CN6uG9kUaYbtSkB=AiNcoL=u2A@mail.gmail.com>
-References: <cover.1478791347.git.jbenc@redhat.com> <05254a13fdb29c1c3eaa1840ba2d127d98f8c418.1478791347.git.jbenc@redhat.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Debugging Ethernet issues
+Date: Sun, 13 Nov 2016 01:01:14 +0100
+Message-ID: <5827AD4A.7010908@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>,
-        Lorand Jakab <lojakab@cisco.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Mans Rullgard <mans@mansr.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Zach Brown <zach.brown@ni.com>, Andrew Lunn <andrew@lunn.ch>,
+        Shaohui Xie <shaohui.xie@nxp.com>,
+        Tim Beale <tim.beale@alliedtelesis.co.nz>,
+        Brian Hill <brian@houston-radar.com>,
+        Vince Bridgers <vbridgers2013@gmail.com>,
+        Balakumaran Kannan <kumaran.4353@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sebastian Frias <sf84@laposte.net>,
+        Kirill Kapranov <kapranoff@inbox.ru>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:56407 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751495AbcKLX6e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2016 18:58:34 -0500
-Received: from mfilter17-d.gandi.net (mfilter17-d.gandi.net [217.70.178.145])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id D9591A80C1
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 00:58:32 +0100 (CET)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter17-d.gandi.net (mfilter17-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 3AI4AeGOgXkZ for <netdev@vger.kernel.org>;
-        Sun, 13 Nov 2016 00:58:31 +0100 (CET)
-Received: from mail-it0-f50.google.com (mail-it0-f50.google.com [209.85.214.50])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 4EA9EA80C6
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 00:58:31 +0100 (CET)
-Received: by mail-it0-f50.google.com with SMTP id q124so38673759itd.1
-        for <netdev@vger.kernel.org>; Sat, 12 Nov 2016 15:58:31 -0800 (PST)
-In-Reply-To: <05254a13fdb29c1c3eaa1840ba2d127d98f8c418.1478791347.git.jbenc@redhat.com>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:57042 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750979AbcKMABx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Nov 2016 19:01:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 10, 2016 at 7:28 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> Support receiving, extracting flow key and sending of L3 packets (packets
-> without an Ethernet header).
->
-> Note that even after this patch, non-Ethernet interfaces are still not
-> allowed to be added to bridges. Similarly, netlink interface for sending and
-> receiving L3 packets to/from user space is not in place yet.
->
-> Based on previous versions by Lorand Jakab and Simon Horman.
->
-> Signed-off-by: Lorand Jakab <lojakab@cisco.com>
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> v13:
-> - fix incorrect setting of packet to NULL in ovs_packet_cmd_execute
-> - dropping packet for interfaces with wrong type
-> ---
+Hello everyone,
 
-Thanks for working on this.
+In a past thread ("Ethernet not working on a different SoC with
+same eth HW") I was struggling getting Ethernet to work at all on
+a new board using a recent 4.7 kernel.
 
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+After much hair-pulling, it turned out that *some* of the breakage
+was caused by a local patch which should have been guarded by a
+preprocessor macro.
+
+But even after reverting that patch, Ethernet does not work well
+on this board with kernel 4.7 whereas if I use an ancient 3.4 kernel,
+then Ethernet works much better.
+
+Differences:
+
+When connected to a 100 Mbps switch
+3.4 negotiates a LAN DHCP setup instantly
+4.7 times out
+
+When connected to a Gigabit switch
+3.4 negotiates a LAN DHCP setup instantly
+4.7 requires over 5 seconds to do so
+
+(In case it matters, my board is using an Atheros 8035 PHY.)
+
+I am aware that there have been hundreds of patches to the phy
+and net frameworks in the 3.4 to 4.7 time-frame. I'm wondering
+if there are important events I can log, to see what is going
+wrong in the 4.7 case?
+
+Are there kernel debugging options I might turn on, to better
+understand what is going wrong?
+
+I would be extremely grateful for any insight on this subject.
+
+Regards.
