@@ -1,36 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v13 0/8] openvswitch: support for layer 3
- encapsulated packets
-Date: Sun, 13 Nov 2016 00:51:22 -0500 (EST)
-Message-ID: <20161113.005122.1783476186953021414.davem@davemloft.net>
-References: <cover.1478791347.git.jbenc@redhat.com>
+Subject: Re: [PATCH net-next v1 00/11] amd-xgbe: AMD XGBE driver updates
+ 2016-11-10
+Date: Sun, 13 Nov 2016 00:56:47 -0500 (EST)
+Message-ID: <20161113.005647.1758389589577228475.davem@davemloft.net>
+References: <20161110230916.20704.34081.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@ovn.org,
-        lojakab@cisco.com, simon.horman@netronome.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33472 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33534 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932424AbcKMFv2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 00:51:28 -0500
-In-Reply-To: <cover.1478791347.git.jbenc@redhat.com>
+        with ESMTP id S1751143AbcKMF4t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 00:56:49 -0500
+In-Reply-To: <20161110230916.20704.34081.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Thu, 10 Nov 2016 16:28:16 +0100
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Thu, 10 Nov 2016 17:09:17 -0600
 
-> At the core of this patch set is removing the assumption in Open vSwitch
-> datapath that all packets have Ethernet header.
+> This patch series is targeted at adding support for a new PCI version
+> of the hardware. As part of the new PCI device, there is a new PCS/PHY
+> interaction, ECC support, I2C sideband communication, SFP+ support and
+> more.
 > 
-> The implementation relies on the presence of pop_eth and push_eth actions
-> in datapath flows to facilitate adding and removing Ethernet headers as
-> appropriate. The construction of such flows is left up to user-space.
+> The following updates and fixes are included in this driver update series:
 > 
-> This series is based on work by Simon Horman, Lorand Jakab, Thomas Morin and
-> others. I kept Lorand's and Simon's s-o-b in the patches that are derived
-> from v11 to record their authorship of parts of the code.
+> - Hardware workaround for possible incorrectly generated interrupts
+>   during software reset
+> - Hardware workaround for Tx timestamp register access order
+> - Add support for a PCI version of the device
+> - Increase the Rx queue limit to take advantage of the increased number
+>   of DMA channels that might be available
+> - Add support for a new DMA channel interrupt mode
+> - Add ECC support for the device memory
+> - Add support for using the integrated I2C controller for sideband
+>   communication
+> - Expose the phylib phy_aneg_done() function so it can be called by the
+>   driver
+> - Add support for SFP+ modules
+> - Add support for MDIO attached PHYs
+> - Add support for KR re-driver between the PCS/SerDes and an external
+>   PHY
+> 
+> This patch series is based on net-next.
 
-Series applied, thanks.
+Series applied, thanks Tom.
