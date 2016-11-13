@@ -1,97 +1,70 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.8 24/35] net: sctp, forbid negative length
-Date: Sun, 13 Nov 2016 12:27:38 +0100
-Message-ID: <20161113112421.823737999@linuxfoundation.org>
-References: <20161113112420.863033770@linuxfoundation.org>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Sun, 13 Nov 2016 14:27:45 +0200
+Message-ID: <CAJ3xEMhcVW8Y1SHx6WqW1C=m9VFgqtEK46PBi41YmfX6sYc9JA@mail.gmail.com>
+References: <20161110105030.3724fe28@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        stable@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161113112420.863033770@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Networking <netdev@vger.kernel.org>,
+        linux-next <linux-next@vger.kernel.org>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20161110105030.3724fe28@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-4.8-stable review patch.  If anyone has any objections, please let me know.
+On Thu, Nov 10, 2016 at 1:50 AM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
+>
+> Today's linux-next merge of the net-next tree got a conflict in:
+>
+>   drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+>
+> between commit:
+>   ee39fbc4447d ("net/mlx5: E-Switch, Set the actions for offloaded rules properly")
+> from the net tree and commit:
+>   66958ed906b8 ("net/mlx5: Support encap id when setting new steering entry")
+> from the net-next tree.
 
-------------------
+> I fixed it up (see below) and can carry the fix as necessary.
 
-From: Jiri Slaby <jslaby@suse.cz>
+Thanks Stephen, the fix is correct. Dave will hit the conflict the
+next time he rebases
+net-next on net and will solve it there. Hence the conflict will not
+show up in linux-next
+once you re-peek net-next.
 
+Or.
 
-[ Upstream commit a4b8e71b05c27bae6bad3bdecddbc6b68a3ad8cf ]
-
-Most of getsockopt handlers in net/sctp/socket.c check len against
-sizeof some structure like:
-        if (len < sizeof(int))
-                return -EINVAL;
-
-On the first look, the check seems to be correct. But since len is int
-and sizeof returns size_t, int gets promoted to unsigned size_t too. So
-the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
-false.
-
-Fix this in sctp by explicitly checking len < 0 before any getsockopt
-handler is called.
-
-Note that sctp_getsockopt_events already handled the negative case.
-Since we added the < 0 check elsewhere, this one can be removed.
-
-If not checked, this is the result:
-UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
-shift exponent 52 is too large for 32-bit type 'int'
-CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
- 0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
- ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
- 0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
-Call Trace:
- [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
-...
- [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
- [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
- [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
- [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
- [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
- [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
- [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-sctp@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- net/sctp/socket.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4683,7 +4683,7 @@ static int sctp_getsockopt_disable_fragm
- static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
- 				  int __user *optlen)
- {
--	if (len <= 0)
-+	if (len == 0)
- 		return -EINVAL;
- 	if (len > sizeof(struct sctp_event_subscribe))
- 		len = sizeof(struct sctp_event_subscribe);
-@@ -6426,6 +6426,9 @@ static int sctp_getsockopt(struct sock *
- 	if (get_user(len, optlen))
- 		return -EFAULT;
- 
-+	if (len < 0)
-+		return -EINVAL;
-+
- 	lock_sock(sk);
- 
- 	switch (optname) {
+> diff --cc drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> index d239f5d0ea36,50fe8e8861bb..000000000000
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> @@@ -57,14 -58,14 +58,15 @@@ mlx5_eswitch_add_offloaded_rule(struct
+>         if (esw->mode != SRIOV_OFFLOADS)
+>                 return ERR_PTR(-EOPNOTSUPP);
+>
+>  -      flow_act.action = attr->action;
+>  +      /* per flow vlan pop/push is emulated, don't set that into the firmware */
+> -       action = attr->action & ~(MLX5_FLOW_CONTEXT_ACTION_VLAN_PUSH | MLX5_FLOW_CONTEXT_ACTION_VLAN_POP);
+> ++      flow_act.action = attr->action & ~(MLX5_FLOW_CONTEXT_ACTION_VLAN_PUSH | MLX5_FLOW_CONTEXT_ACTION_VLAN_POP);
+>
+> -       if (action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
+> -               dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
+> -               dest.vport_num = attr->out_rep->vport;
+> -               action = MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
+> -       } else if (action & MLX5_FLOW_CONTEXT_ACTION_COUNT) {
+> +       if (flow_act.action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
+> +               dest[i].type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
+> +               dest[i].vport_num = attr->out_rep->vport;
+> +               i++;
+> +       }
+> +       if (flow_act.action & MLX5_FLOW_CONTEXT_ACTION_COUNT) {
+>                 counter = mlx5_fc_create(esw->dev, true);
+>                 if (IS_ERR(counter))
+>                         return ERR_CAST(counter);
