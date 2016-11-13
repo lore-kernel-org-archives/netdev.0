@@ -1,58 +1,49 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 11/39] netfilter: nft_hash: get random bytes if seed is not specified
-Date: Sun, 13 Nov 2016 23:25:05 +0100
-Message-ID: <1479075933-4491-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 23/39] netfilter: ipset: Regroup ip_set_put_extensions and add extern
+Date: Sun, 13 Nov 2016 23:25:17 +0100
+Message-ID: <1479075933-4491-24-git-send-email-pablo@netfilter.org>
 References: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:47690 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S964832AbcKMW0M (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 13 Nov 2016 17:26:12 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 35010A7F25
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:09 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 1684DDA80B
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:09 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 26129DA862
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:07 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the user doesn't specify a seed, generate one at configuration time.
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Cleanup: group ip_set_put_extensions and ip_set_get_extensions
+together and add missing extern.
+
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- net/netfilter/nft_hash.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ include/linux/netfilter/ipset/ip_set.h | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index baf694de3935..97ad8e30e4b4 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -57,7 +57,6 @@ static int nft_hash_init(const struct nft_ctx *ctx,
- 	if (!tb[NFTA_HASH_SREG] ||
- 	    !tb[NFTA_HASH_DREG] ||
- 	    !tb[NFTA_HASH_LEN]  ||
--	    !tb[NFTA_HASH_SEED] ||
- 	    !tb[NFTA_HASH_MODULUS])
- 		return -EINVAL;
+diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
+index b5bd0fb3d07b..7a218eb74887 100644
+--- a/include/linux/netfilter/ipset/ip_set.h
++++ b/include/linux/netfilter/ipset/ip_set.h
+@@ -331,6 +331,8 @@ extern size_t ip_set_elem_len(struct ip_set *set, struct nlattr *tb[],
+ 			      size_t len, size_t align);
+ extern int ip_set_get_extensions(struct ip_set *set, struct nlattr *tb[],
+ 				 struct ip_set_ext *ext);
++extern int ip_set_put_extensions(struct sk_buff *skb, const struct ip_set *set,
++				 const void *e, bool active);
  
-@@ -80,7 +79,10 @@ static int nft_hash_init(const struct nft_ctx *ctx,
- 	if (priv->offset + priv->modulus - 1 < priv->offset)
- 		return -EOVERFLOW;
+ static inline int
+ ip_set_get_hostipaddr4(struct nlattr *nla, u32 *ipaddr)
+@@ -449,10 +451,6 @@ bitmap_bytes(u32 a, u32 b)
+ #include <linux/netfilter/ipset/ip_set_counter.h>
+ #include <linux/netfilter/ipset/ip_set_skbinfo.h>
  
--	priv->seed = ntohl(nla_get_be32(tb[NFTA_HASH_SEED]));
-+	if (tb[NFTA_HASH_SEED])
-+		priv->seed = ntohl(nla_get_be32(tb[NFTA_HASH_SEED]));
-+	else
-+		get_random_bytes(&priv->seed, sizeof(priv->seed));
- 
- 	return nft_validate_register_load(priv->sreg, len) &&
- 	       nft_validate_register_store(ctx, priv->dreg, NULL,
+-int
+-ip_set_put_extensions(struct sk_buff *skb, const struct ip_set *set,
+-		      const void *e, bool active);
+-
+ #define IP_SET_INIT_KEXT(skb, opt, set)			\
+ 	{ .bytes = (skb)->len, .packets = 1,		\
+ 	  .timeout = ip_set_adt_opt_timeout(opt, set) }
 -- 
 2.1.4
+
