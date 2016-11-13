@@ -1,45 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7 03/10] dpaa_eth: add option to use one
- buffer pool set
-Date: Sun, 13 Nov 2016 12:46:17 -0500 (EST)
-Message-ID: <20161113.124617.2176429700446266337.davem@davemloft.net>
-References: <1478852407-27420-1-git-send-email-madalin.bucur@nxp.com>
-        <1478852407-27420-4-git-send-email-madalin.bucur@nxp.com>
+Subject: Re: [PATCH] Revert "include/uapi/linux/atm_zatm.h: include
+ linux/time.h"
+Date: Sun, 13 Nov 2016 12:35:54 -0500 (EST)
+Message-ID: <20161113.123554.597599565068798539.davem@davemloft.net>
+References: <20161111000839.23267-1-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org, oss@buserror.net,
-        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
-        joakim.tjernlund@infinera.com
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478852407-27420-4-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, mikko.rapeli@iki.fi
+To: vapier@gentoo.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44462 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934769AbcKMRqv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 12:46:51 -0500
+In-Reply-To: <20161111000839.23267-1-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Date: Fri, 11 Nov 2016 10:20:00 +0200
-
-> @@ -8,3 +8,12 @@ menuconfig FSL_DPAA_ETH
->  	  supporting the Freescale QorIQ chips.
->  	  Depends on Freescale Buffer Manager and Queue Manager
->  	  driver and Frame Manager Driver.
-> +
-> +if FSL_DPAA_ETH
-> +config FSL_DPAA_ETH_COMMON_BPOOL
-> +	bool "Use a common buffer pool set for all the interfaces"
-> +	---help---
-> +	  The DPAA Ethernet netdevices require buffer pools for storing the buffers
-> +	  used by the FMan hardware for reception. One can use a single buffer pool
-> +	  set for all interfaces or a dedicated buffer pool set for each interface.
-> +endif # FSL_DPAA_ETH
-
-This in no way belongs in Kconfig.  If you want to support this,
-support it wit a run time configuration choice via ethtool flags
-or similar.  Do not use debugfs, do not use sysfs, do not use
-module options.
-
-If you put it in Kconfig, distributions will have to pick one way or
-another which means that users who want the other choice lose.  This
-never works.
+RnJvbTogTWlrZSBGcnlzaW5nZXIgPHZhcGllckBnZW50b28ub3JnPg0KRGF0ZTogVGh1LCAxMCBO
+b3YgMjAxNiAxOTowODozOSAtMDUwMA0KDQo+IFRoaXMgcmV2ZXJ0cyBjb21taXQgY2YwMDcxM2E2
+NTVkICgiaW5jbHVkZS91YXBpL2xpbnV4L2F0bV96YXRtLmg6IGluY2x1ZGUNCj4gbGludXgvdGlt
+ZS5oIikuDQo+IA0KPiBUaGlzIGF0dGVtcHRlZCB0byBmaXggdXNlcnNwYWNlIGJyZWFrYWdlIHRo
+YXQgbm8gbG9uZ2VyIGV4aXN0ZWQgd2hlbg0KPiB0aGUgcGF0Y2ggd2FzIG1lcmdlZC4gIEFsbW9z
+dCBvbmUgeWVhciBlYXJsaWVyLCBjb21taXQgNzBiYTA3YjY3NWI1DQo+ICgiYXRtOiByZW1vdmUg
+J3N0cnVjdCB6YXRtX3RfaGlzdCciKSBkZWxldGVkIHRoZSBzdHJ1Y3QgaW4gcXVlc3Rpb24uDQo+
+IA0KPiBBZnRlciB0aGlzIHBhdGNoIHdhcyBtZXJnZWQsIHdlIG5vdyBoYXZlIHRvIGRlYWwgd2l0
+aCBwZW9wbGUgYmVpbmcNCj4gdW5hYmxlIHRvIGluY2x1ZGUgdGhpcyBoZWFkZXIgaW4gY29uanVu
+Y3Rpb24gd2l0aCBzdGFuZGFyZCBDIGxpYnJhcnkNCj4gaGVhZGVycyBsaWtlIHN0ZGxpYi5oICh3
+aGljaCBsaW51eC1hdG0gZG9lcykuICBFeGFtcGxlIGJyZWFrYWdlOg0KPiB4ODZfNjQtcGMtbGlu
+dXgtZ251LWdjYyAtREhBVkVfQ09ORklHX0ggLUkuIC1JLi4vLi4gLUkuLy4uL3EyOTMxIC1JLi8u
+Li9zYWFsIFwNCj4gCS1JLiAgLURDUFBGTEFHU19URVNUICAtSS4uLy4uL3NyYy9pbmNsdWRlIC1P
+MiAtbWFyY2g9bmF0aXZlIC1waXBlIC1nIFwNCj4gCS1mcmVjb3JkLWdjYy1zd2l0Y2hlcyAtZnJl
+cG9ydC1idWcgLVdpbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbiBcDQo+IAktV25vbm51bGwg
+LVdzdHJpY3QtYWxpYXNpbmcgLVdwYXJlbnRoZXNlcyAtV2FycmF5LWJvdW5kcyBcDQo+IAktV2Zy
+ZWUtbm9uaGVhcC1vYmplY3QgLVdyZXR1cm4tbG9jYWwtYWRkciAtZm5vLXN0cmljdC1hbGlhc2lu
+ZyAtV2FsbCBcDQo+IAktV3NoYWRvdyAtV3BvaW50ZXItYXJpdGggLVd3cml0ZS1zdHJpbmdzIC1X
+c3RyaWN0LXByb3RvdHlwZXMgLWMgem50dW5lLmMNCj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC91
+c3IvaW5jbHVkZS9saW51eC9hdG1femF0bS5oOjE3OjAsDQo+ICAgICAgICAgICAgICAgICAgZnJv
+bSB6bnR1bmUuYzoxNzoNCj4gL3Vzci9pbmNsdWRlL2xpbnV4L3RpbWUuaDo5Ojg6IGVycm9yOiBy
+ZWRlZmluaXRpb24gb2YgoXN0cnVjdCB0aW1lc3BlY6INCj4gIHN0cnVjdCB0aW1lc3BlYyB7DQo+
+ICAgICAgICAgXg0KPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20gL3Vzci9pbmNsdWRlL3N5cy9zZWxl
+Y3QuaDo0MzowLA0KPiAgICAgICAgICAgICAgICAgIGZyb20gL3Vzci9pbmNsdWRlL3N5cy90eXBl
+cy5oOjIxOSwNCj4gICAgICAgICAgICAgICAgICBmcm9tIC91c3IvaW5jbHVkZS9zdGRsaWIuaDoz
+MTQsDQo+ICAgICAgICAgICAgICAgICAgZnJvbSB6bnR1bmUuYzo5Og0KPiAvdXNyL2luY2x1ZGUv
+dGltZS5oOjEyMDo4OiBub3RlOiBvcmlnaW5hbGx5IGRlZmluZWQgaGVyZQ0KPiAgc3RydWN0IHRp
+bWVzcGVjDQo+ICAgICAgICAgXg0KPiANCj4gU2lnbmVkLW9mZi1ieTogTWlrZSBGcnlzaW5nZXIg
+PHZhcGllckBnZW50b28ub3JnPg0KDQpBcHBsaWVkIGFuZCBxdWV1ZWQgdXAgZm9yIC1zdGFibGUs
+IHRoYW5rcy4NCg==
