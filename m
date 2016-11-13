@@ -1,111 +1,40 @@
-From: Baoquan He <bhe@redhat.com>
-Subject: [PATCH v2 2/2] bnx2: Wait for in-flight DMA to complete at probe
- stage
-Date: Sun, 13 Nov 2016 12:15:24 +0800
-Message-ID: <20161113041524.GF15325@x1>
-References: <1478871995-29652-1-git-send-email-bhe@redhat.com>
- <1478871995-29652-3-git-send-email-bhe@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf, mlx4: fix prog refcount in
+ mlx4_en_try_alloc_resources error path
+Date: Sat, 12 Nov 2016 23:34:09 -0500 (EST)
+Message-ID: <20161112.233409.1021924000003441192.davem@davemloft.net>
+References: <9d5b1ed1b70a8a4db545c308bcb5b28280564798.1478724690.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
-        rasesh.mody@cavium.com, harish.patil@cavium.com,
-        frank@undermydesk.org, jsr@dex.edzone.net, pmenzel@molgen.mpg.de,
-        jroedel@suse.de, dyoung@redhat.com
-To: netdev@vger.kernel.org, Michael Chan <michael.chan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1478871995-29652-3-git-send-email-bhe@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, bblanco@plumgrid.com,
+        tariqt@mellanox.com, zhiyisun@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59936 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753498AbcKMEeL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2016 23:34:11 -0500
+In-Reply-To: <9d5b1ed1b70a8a4db545c308bcb5b28280564798.1478724690.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In-flight DMA from 1st kernel could continue going in kdump kernel.
-New io-page table has been created before bnx2 does reset at open stage.
-We have to wait for the in-flight DMA to complete to avoid it look up
-into the newly created io-page table at probe stage.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed,  9 Nov 2016 22:02:34 +0100
 
-Suggested-by: Michael Chan <michael.chan@broadcom.com>
-Signed-off-by: Baoquan He <bhe@redhat.com>
----
-v1->v2:
-    Michael suggested to wait for the in-flight DMA to complete at probe
-    stage. So give up the old method of trying to reset chip at probe
-    stage, take the new way accordingly.
+> Commit 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings
+> scheme") added a bug in that the prog's reference count is not dropped
+> in the error path when mlx4_en_try_alloc_resources() is failing from
+> mlx4_xdp_set().
+> 
+> We previously took bpf_prog_add(prog, priv->rx_ring_num - 1), that we
+> need to release again. Earlier in the call path, dev_change_xdp_fd()
+> itself holds a reference to the prog as well (hence the '- 1' in the
+> bpf_prog_add()), so a simple atomic_sub() is safe to use here. When
+> an error is propagated, then bpf_prog_put() is called eventually from
+> dev_change_xdp_fd()
+> 
+> Fixes: 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings scheme")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
- drivers/net/ethernet/broadcom/bnx2.c | 38 ++++++++++++++++++++++++++++++------
- 1 file changed, 32 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index c557972..1f7034d 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -49,6 +49,7 @@
- #include <linux/firmware.h>
- #include <linux/log2.h>
- #include <linux/aer.h>
-+#include <linux/crash_dump.h>
- 
- #if IS_ENABLED(CONFIG_CNIC)
- #define BCM_CNIC 1
-@@ -4764,15 +4765,16 @@ bnx2_setup_msix_tbl(struct bnx2 *bp)
- 	BNX2_WR(bp, BNX2_PCI_GRC_WINDOW3_ADDR, BNX2_MSIX_PBA_ADDR);
- }
- 
--static int
--bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
-+static void
-+bnx2_wait_dma_complete(struct bnx2 *bp)
- {
- 	u32 val;
--	int i, rc = 0;
--	u8 old_port;
-+	int i;
- 
--	/* Wait for the current PCI transaction to complete before
--	 * issuing a reset. */
-+	/*
-+	 * Wait for the current PCI transaction to complete before
-+	 * issuing a reset.
-+	 */
- 	if ((BNX2_CHIP(bp) == BNX2_CHIP_5706) ||
- 	    (BNX2_CHIP(bp) == BNX2_CHIP_5708)) {
- 		BNX2_WR(bp, BNX2_MISC_ENABLE_CLR_BITS,
-@@ -4796,6 +4798,21 @@ bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
- 		}
- 	}
- 
-+	return;
-+}
-+
-+
-+static int
-+bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
-+{
-+	u32 val;
-+	int i, rc = 0;
-+	u8 old_port;
-+
-+	/* Wait for the current PCI transaction to complete before
-+	 * issuing a reset. */
-+	bnx2_wait_dma_complete(bp);
-+
- 	/* Wait for the firmware to tell us it is ok to issue a reset. */
- 	bnx2_fw_sync(bp, BNX2_DRV_MSG_DATA_WAIT0 | reset_code, 1, 1);
- 
-@@ -8580,6 +8597,15 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	pci_set_drvdata(pdev, dev);
- 
-+	/*
-+	 * In-flight DMA from 1st kernel could continue going in kdump kernel.
-+	 * New io-page table has been created before bnx2 does reset at open stage.
-+	 * We have to wait for the in-flight DMA to complete to avoid it look up
-+	 * into the newly created io-page table.
-+	 */
-+	if (is_kdump_kernel())
-+		bnx2_wait_dma_complete(bp);
-+
- 	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
- 
- 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
--- 
-2.5.5
+Applied, thanks Daniel.
