@@ -1,102 +1,46 @@
-From: Baoquan He <bhe@redhat.com>
-Subject: [PATCH v2 2/2] bnx2: Wait for in-flight DMA to complete at probe stage
-Date: Sun, 13 Nov 2016 13:01:33 +0800
-Message-ID: <1479013293-21001-3-git-send-email-bhe@redhat.com>
-References: <1479013293-21001-1-git-send-email-bhe@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
-        rasesh.mody@cavium.com, harish.patil@cavium.com,
-        frank@undermydesk.org, jsr@dex.edzone.net, pmenzel@molgen.mpg.de,
-        jroedel@suse.de, dyoung@redhat.com, Baoquan He <bhe@redhat.com>
-To: netdev@vger.kernel.org, michael.chan@broadcom.com,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479013293-21001-1-git-send-email-bhe@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] ipv6: sr: fix IPv6 initialization failure
+ without lwtunnels
+Date: Sun, 13 Nov 2016 00:20:55 -0500 (EST)
+Message-ID: <20161113.002055.1386089188095640295.davem@davemloft.net>
+References: <CAKD1Yr0fDFdDv9+S3i_rH6W6btEuvs9s-h33_N67iM4qrtDezQ@mail.gmail.com>
+        <1478780813-20005-1-git-send-email-david.lebrun@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lorenzo@google.com
+To: david.lebrun@uclouvain.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33026 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750815AbcKMFVD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 00:21:03 -0500
+In-Reply-To: <1478780813-20005-1-git-send-email-david.lebrun@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In-flight DMA from 1st kernel could continue going in kdump kernel.
-New io-page table has been created before bnx2 does reset at open stage.
-We have to wait for the in-flight DMA to complete to avoid it look up
-into the newly created io-page table at probe stage.
+From: David Lebrun <david.lebrun@uclouvain.be>
+Date: Thu, 10 Nov 2016 13:26:53 +0100
 
-Suggested-by: Michael Chan <michael.chan@broadcom.com>
-Signed-off-by: Baoquan He <bhe@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2.c | 38 ++++++++++++++++++++++++++++++------
- 1 file changed, 32 insertions(+), 6 deletions(-)
+> v2: fix conditional compilation for seg6_iptunnel.o in Makefile
+> 
+> This patch compiles SR lwtunnels support only if CONFIG_LWTUNNEL=y.
+> 
+> If IPv6 is enabled and CONFIG_LWTUNNEL=n, then seg6_iptunnel_init()
+> fails with EOPNOTSUPP which in turn makes seg6_init() fail, blocking
+> the IPv6 initialization, with the following messages:
+> 
+> NET: Registered protocol family 10
+> IPv6: Attempt to unregister permanent protocol 6
+> IPv6: Attempt to unregister permanent protocol 136
+> IPv6: Attempt to unregister permanent protocol 17
+> NET: Unregistered protocol family 10
+> 
+> Fix commit 6c8702c60b88 ("ipv6: sr: add support for SRH encapsulation and injection with lwtunnels")
+> 
+> Tested with various combinations of CONFIG_IPV6 and CONFIG_LWTUNNEL.
+> 
+> Reported-by: Lorenzo Colitti <lorenzo@google.com>
+> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index c557972..1f7034d 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -49,6 +49,7 @@
- #include <linux/firmware.h>
- #include <linux/log2.h>
- #include <linux/aer.h>
-+#include <linux/crash_dump.h>
- 
- #if IS_ENABLED(CONFIG_CNIC)
- #define BCM_CNIC 1
-@@ -4764,15 +4765,16 @@ bnx2_setup_msix_tbl(struct bnx2 *bp)
- 	BNX2_WR(bp, BNX2_PCI_GRC_WINDOW3_ADDR, BNX2_MSIX_PBA_ADDR);
- }
- 
--static int
--bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
-+static void
-+bnx2_wait_dma_complete(struct bnx2 *bp)
- {
- 	u32 val;
--	int i, rc = 0;
--	u8 old_port;
-+	int i;
- 
--	/* Wait for the current PCI transaction to complete before
--	 * issuing a reset. */
-+	/*
-+	 * Wait for the current PCI transaction to complete before
-+	 * issuing a reset.
-+	 */
- 	if ((BNX2_CHIP(bp) == BNX2_CHIP_5706) ||
- 	    (BNX2_CHIP(bp) == BNX2_CHIP_5708)) {
- 		BNX2_WR(bp, BNX2_MISC_ENABLE_CLR_BITS,
-@@ -4796,6 +4798,21 @@ bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
- 		}
- 	}
- 
-+	return;
-+}
-+
-+
-+static int
-+bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
-+{
-+	u32 val;
-+	int i, rc = 0;
-+	u8 old_port;
-+
-+	/* Wait for the current PCI transaction to complete before
-+	 * issuing a reset. */
-+	bnx2_wait_dma_complete(bp);
-+
- 	/* Wait for the firmware to tell us it is ok to issue a reset. */
- 	bnx2_fw_sync(bp, BNX2_DRV_MSG_DATA_WAIT0 | reset_code, 1, 1);
- 
-@@ -8580,6 +8597,15 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	pci_set_drvdata(pdev, dev);
- 
-+	/*
-+	 * In-flight DMA from 1st kernel could continue going in kdump kernel.
-+	 * New io-page table has been created before bnx2 does reset at open stage.
-+	 * We have to wait for the in-flight DMA to complete to avoid it look up
-+	 * into the newly created io-page table.
-+	 */
-+	if (is_kdump_kernel())
-+		bnx2_wait_dma_complete(bp);
-+
- 	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
- 
- 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
--- 
-2.5.5
+Applied, thanks David.
