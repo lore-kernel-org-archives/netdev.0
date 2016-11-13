@@ -1,664 +1,349 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/39] netfilter: nf_tables: use hook state from xt_action_param structure
-Date: Sun, 13 Nov 2016 23:25:00 +0100
-Message-ID: <1479075933-4491-7-git-send-email-pablo@netfilter.org>
-References: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/39] Netfilter updates for net-next
+Date: Sun, 13 Nov 2016 23:24:54 +0100
+Message-ID: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:47636 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:47590 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S964880AbcKMW0H (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 13 Nov 2016 17:26:07 -0500
+        id S935074AbcKMWZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Nov 2016 17:25:58 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id C1C21A7E93
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:05 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id E86A5A7E92
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:25:56 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B00D3DA861
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:05 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id C84CADA809
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:25:56 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id CDC08DA801
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:02 +0100 (CET)
-In-Reply-To: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 04D35DA803
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:25:54 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't copy relevant fields from hook state structure, instead use the
-one that is already available in struct xt_action_param.
+Hi David,
 
-This patch also adds a set of new wrapper functions to fetch relevant
-hook state structure fields.
+The following patchset contains a second batch of Netfilter updates for
+your net-next tree. This includes a rework of the core hook
+infrastructure that improves Netfilter performance by ~15% according to
+synthetic benchmarks. Then, a large batch with ipset updates, including
+a new hash:ipmac set type, via Jozsef Kadlecsik. This also includes a
+couple of assorted updates.
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/net/netfilter/nf_tables.h        | 35 +++++++++++++++++++++++---------
- net/bridge/netfilter/nft_meta_bridge.c   |  2 +-
- net/bridge/netfilter/nft_reject_bridge.c | 30 ++++++++++++++++-----------
- net/ipv4/netfilter/nft_dup_ipv4.c        |  2 +-
- net/ipv4/netfilter/nft_fib_ipv4.c        | 14 ++++++-------
- net/ipv4/netfilter/nft_masq_ipv4.c       |  4 ++--
- net/ipv4/netfilter/nft_redir_ipv4.c      |  3 +--
- net/ipv4/netfilter/nft_reject_ipv4.c     |  4 ++--
- net/ipv6/netfilter/nft_dup_ipv6.c        |  2 +-
- net/ipv6/netfilter/nft_fib_ipv6.c        | 16 +++++++--------
- net/ipv6/netfilter/nft_masq_ipv6.c       |  3 ++-
- net/ipv6/netfilter/nft_redir_ipv6.c      |  3 ++-
- net/ipv6/netfilter/nft_reject_ipv6.c     |  6 +++---
- net/netfilter/nf_dup_netdev.c            |  2 +-
- net/netfilter/nf_tables_core.c           | 10 ++++-----
- net/netfilter/nf_tables_trace.c          |  8 ++++----
- net/netfilter/nft_fib.c                  |  2 +-
- net/netfilter/nft_fib_inet.c             |  2 +-
- net/netfilter/nft_log.c                  |  5 +++--
- net/netfilter/nft_lookup.c               |  5 ++---
- net/netfilter/nft_meta.c                 |  6 +++---
- net/netfilter/nft_queue.c                |  2 +-
- net/netfilter/nft_reject_inet.c          | 18 ++++++++--------
- net/netfilter/nft_rt.c                   |  4 ++--
- 24 files changed, 105 insertions(+), 83 deletions(-)
+Regarding the core hook infrastructure rework to improve performance,
+using this simple drop-all packets ruleset from ingress:
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 44060344f958..3295fb85bff6 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -14,27 +14,42 @@
- 
- struct nft_pktinfo {
- 	struct sk_buff			*skb;
--	struct net			*net;
--	const struct net_device		*in;
--	const struct net_device		*out;
--	u8				pf;
--	u8				hook;
- 	bool				tprot_set;
- 	u8				tprot;
- 	/* for x_tables compatibility */
- 	struct xt_action_param		xt;
- };
- 
-+static inline struct net *nft_net(const struct nft_pktinfo *pkt)
-+{
-+	return pkt->xt.state->net;
-+}
-+
-+static inline unsigned int nft_hook(const struct nft_pktinfo *pkt)
-+{
-+	return pkt->xt.state->hook;
-+}
-+
-+static inline u8 nft_pf(const struct nft_pktinfo *pkt)
-+{
-+	return pkt->xt.state->pf;
-+}
-+
-+static inline const struct net_device *nft_in(const struct nft_pktinfo *pkt)
-+{
-+	return pkt->xt.state->in;
-+}
-+
-+static inline const struct net_device *nft_out(const struct nft_pktinfo *pkt)
-+{
-+	return pkt->xt.state->out;
-+}
-+
- static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
- 				   struct sk_buff *skb,
- 				   const struct nf_hook_state *state)
- {
- 	pkt->skb = skb;
--	pkt->net = state->net;
--	pkt->in = state->in;
--	pkt->out = state->out;
--	pkt->hook = state->hook;
--	pkt->pf = state->pf;
- 	pkt->xt.state = state;
- }
- 
-diff --git a/net/bridge/netfilter/nft_meta_bridge.c b/net/bridge/netfilter/nft_meta_bridge.c
-index ad47a921b701..5974dbc1ea24 100644
---- a/net/bridge/netfilter/nft_meta_bridge.c
-+++ b/net/bridge/netfilter/nft_meta_bridge.c
-@@ -23,7 +23,7 @@ static void nft_meta_bridge_get_eval(const struct nft_expr *expr,
- 				     const struct nft_pktinfo *pkt)
- {
- 	const struct nft_meta *priv = nft_expr_priv(expr);
--	const struct net_device *in = pkt->in, *out = pkt->out;
-+	const struct net_device *in = nft_in(pkt), *out = nft_out(pkt);
- 	u32 *dest = &regs->data[priv->dreg];
- 	const struct net_bridge_port *p;
- 
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-index 4b3df6b0e3b9..206dc266ecd2 100644
---- a/net/bridge/netfilter/nft_reject_bridge.c
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -315,17 +315,20 @@ static void nft_reject_bridge_eval(const struct nft_expr *expr,
- 	case htons(ETH_P_IP):
- 		switch (priv->type) {
- 		case NFT_REJECT_ICMP_UNREACH:
--			nft_reject_br_send_v4_unreach(pkt->net, pkt->skb,
--						      pkt->in, pkt->hook,
-+			nft_reject_br_send_v4_unreach(nft_net(pkt), pkt->skb,
-+						      nft_in(pkt),
-+						      nft_hook(pkt),
- 						      priv->icmp_code);
- 			break;
- 		case NFT_REJECT_TCP_RST:
--			nft_reject_br_send_v4_tcp_reset(pkt->net, pkt->skb,
--							pkt->in, pkt->hook);
-+			nft_reject_br_send_v4_tcp_reset(nft_net(pkt), pkt->skb,
-+							nft_in(pkt),
-+							nft_hook(pkt));
- 			break;
- 		case NFT_REJECT_ICMPX_UNREACH:
--			nft_reject_br_send_v4_unreach(pkt->net, pkt->skb,
--						      pkt->in, pkt->hook,
-+			nft_reject_br_send_v4_unreach(nft_net(pkt), pkt->skb,
-+						      nft_in(pkt),
-+						      nft_hook(pkt),
- 						      nft_reject_icmp_code(priv->icmp_code));
- 			break;
- 		}
-@@ -333,17 +336,20 @@ static void nft_reject_bridge_eval(const struct nft_expr *expr,
- 	case htons(ETH_P_IPV6):
- 		switch (priv->type) {
- 		case NFT_REJECT_ICMP_UNREACH:
--			nft_reject_br_send_v6_unreach(pkt->net, pkt->skb,
--						      pkt->in, pkt->hook,
-+			nft_reject_br_send_v6_unreach(nft_net(pkt), pkt->skb,
-+						      nft_in(pkt),
-+						      nft_hook(pkt),
- 						      priv->icmp_code);
- 			break;
- 		case NFT_REJECT_TCP_RST:
--			nft_reject_br_send_v6_tcp_reset(pkt->net, pkt->skb,
--							pkt->in, pkt->hook);
-+			nft_reject_br_send_v6_tcp_reset(nft_net(pkt), pkt->skb,
-+							nft_in(pkt),
-+							nft_hook(pkt));
- 			break;
- 		case NFT_REJECT_ICMPX_UNREACH:
--			nft_reject_br_send_v6_unreach(pkt->net, pkt->skb,
--						      pkt->in, pkt->hook,
-+			nft_reject_br_send_v6_unreach(nft_net(pkt), pkt->skb,
-+						      nft_in(pkt),
-+						      nft_hook(pkt),
- 						      nft_reject_icmpv6_code(priv->icmp_code));
- 			break;
- 		}
-diff --git a/net/ipv4/netfilter/nft_dup_ipv4.c b/net/ipv4/netfilter/nft_dup_ipv4.c
-index bf855e64fc45..7ab544fbc382 100644
---- a/net/ipv4/netfilter/nft_dup_ipv4.c
-+++ b/net/ipv4/netfilter/nft_dup_ipv4.c
-@@ -30,7 +30,7 @@ static void nft_dup_ipv4_eval(const struct nft_expr *expr,
- 	};
- 	int oif = regs->data[priv->sreg_dev];
- 
--	nf_dup_ipv4(pkt->net, pkt->skb, pkt->hook, &gw, oif);
-+	nf_dup_ipv4(nft_net(pkt), pkt->skb, nft_hook(pkt), &gw, oif);
- }
- 
- static int nft_dup_ipv4_init(const struct nft_ctx *ctx,
-diff --git a/net/ipv4/netfilter/nft_fib_ipv4.c b/net/ipv4/netfilter/nft_fib_ipv4.c
-index db91fd42db67..1b49966484b3 100644
---- a/net/ipv4/netfilter/nft_fib_ipv4.c
-+++ b/net/ipv4/netfilter/nft_fib_ipv4.c
-@@ -45,9 +45,9 @@ void nft_fib4_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
- 	__be32 addr;
- 
- 	if (priv->flags & NFTA_FIB_F_IIF)
--		dev = pkt->in;
-+		dev = nft_in(pkt);
- 	else if (priv->flags & NFTA_FIB_F_OIF)
--		dev = pkt->out;
-+		dev = nft_out(pkt);
- 
- 	iph = ip_hdr(pkt->skb);
- 	if (priv->flags & NFTA_FIB_F_DADDR)
-@@ -55,7 +55,7 @@ void nft_fib4_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
- 	else
- 		addr = iph->saddr;
- 
--	*dst = inet_dev_addr_type(pkt->net, dev, addr);
-+	*dst = inet_dev_addr_type(nft_net(pkt), dev, addr);
- }
- EXPORT_SYMBOL_GPL(nft_fib4_eval_type);
- 
-@@ -89,13 +89,13 @@ void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
- 	 * Search results for the desired outinterface instead.
- 	 */
- 	if (priv->flags & NFTA_FIB_F_OIF)
--		oif = pkt->out;
-+		oif = nft_out(pkt);
- 	else if (priv->flags & NFTA_FIB_F_IIF)
--		oif = pkt->in;
-+		oif = nft_in(pkt);
- 	else
- 		oif = NULL;
- 
--	if (pkt->hook == NF_INET_PRE_ROUTING && fib4_is_local(pkt->skb)) {
-+	if (nft_hook(pkt) == NF_INET_PRE_ROUTING && fib4_is_local(pkt->skb)) {
- 		nft_fib_store_result(dest, priv->result, pkt, LOOPBACK_IFINDEX);
- 		return;
- 	}
-@@ -122,7 +122,7 @@ void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
- 		fl4.saddr = get_saddr(iph->daddr);
- 	}
- 
--	if (fib_lookup(pkt->net, &fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE))
-+	if (fib_lookup(nft_net(pkt), &fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE))
- 		return;
- 
- 	switch (res.type) {
-diff --git a/net/ipv4/netfilter/nft_masq_ipv4.c b/net/ipv4/netfilter/nft_masq_ipv4.c
-index 51ced81b616c..4f697e431811 100644
---- a/net/ipv4/netfilter/nft_masq_ipv4.c
-+++ b/net/ipv4/netfilter/nft_masq_ipv4.c
-@@ -31,8 +31,8 @@ static void nft_masq_ipv4_eval(const struct nft_expr *expr,
- 		range.max_proto.all =
- 			*(__be16 *)&regs->data[priv->sreg_proto_max];
- 	}
--	regs->verdict.code = nf_nat_masquerade_ipv4(pkt->skb, pkt->hook,
--						    &range, pkt->out);
-+	regs->verdict.code = nf_nat_masquerade_ipv4(pkt->skb, nft_hook(pkt),
-+						    &range, nft_out(pkt));
- }
- 
- static struct nft_expr_type nft_masq_ipv4_type;
-diff --git a/net/ipv4/netfilter/nft_redir_ipv4.c b/net/ipv4/netfilter/nft_redir_ipv4.c
-index c09d4381427e..16df0493c5ce 100644
---- a/net/ipv4/netfilter/nft_redir_ipv4.c
-+++ b/net/ipv4/netfilter/nft_redir_ipv4.c
-@@ -35,8 +35,7 @@ static void nft_redir_ipv4_eval(const struct nft_expr *expr,
- 
- 	mr.range[0].flags |= priv->flags;
- 
--	regs->verdict.code = nf_nat_redirect_ipv4(pkt->skb, &mr,
--						  pkt->hook);
-+	regs->verdict.code = nf_nat_redirect_ipv4(pkt->skb, &mr, nft_hook(pkt));
- }
- 
- static struct nft_expr_type nft_redir_ipv4_type;
-diff --git a/net/ipv4/netfilter/nft_reject_ipv4.c b/net/ipv4/netfilter/nft_reject_ipv4.c
-index 2c2553b9026c..517ce93699de 100644
---- a/net/ipv4/netfilter/nft_reject_ipv4.c
-+++ b/net/ipv4/netfilter/nft_reject_ipv4.c
-@@ -27,10 +27,10 @@ static void nft_reject_ipv4_eval(const struct nft_expr *expr,
- 
- 	switch (priv->type) {
- 	case NFT_REJECT_ICMP_UNREACH:
--		nf_send_unreach(pkt->skb, priv->icmp_code, pkt->hook);
-+		nf_send_unreach(pkt->skb, priv->icmp_code, nft_hook(pkt));
- 		break;
- 	case NFT_REJECT_TCP_RST:
--		nf_send_reset(pkt->net, pkt->skb, pkt->hook);
-+		nf_send_reset(nft_net(pkt), pkt->skb, nft_hook(pkt));
- 		break;
- 	default:
- 		break;
-diff --git a/net/ipv6/netfilter/nft_dup_ipv6.c b/net/ipv6/netfilter/nft_dup_ipv6.c
-index 8bfd470cbe72..26074a8bada7 100644
---- a/net/ipv6/netfilter/nft_dup_ipv6.c
-+++ b/net/ipv6/netfilter/nft_dup_ipv6.c
-@@ -28,7 +28,7 @@ static void nft_dup_ipv6_eval(const struct nft_expr *expr,
- 	struct in6_addr *gw = (struct in6_addr *)&regs->data[priv->sreg_addr];
- 	int oif = regs->data[priv->sreg_dev];
- 
--	nf_dup_ipv6(pkt->net, pkt->skb, pkt->hook, gw, oif);
-+	nf_dup_ipv6(nft_net(pkt), pkt->skb, nft_hook(pkt), gw, oif);
- }
- 
- static int nft_dup_ipv6_init(const struct nft_ctx *ctx,
-diff --git a/net/ipv6/netfilter/nft_fib_ipv6.c b/net/ipv6/netfilter/nft_fib_ipv6.c
-index ff1f1b6b4a4a..d526bb594956 100644
---- a/net/ipv6/netfilter/nft_fib_ipv6.c
-+++ b/net/ipv6/netfilter/nft_fib_ipv6.c
-@@ -80,17 +80,17 @@ static u32 __nft_fib6_eval_type(const struct nft_fib *priv,
- 		return RTN_UNREACHABLE;
- 
- 	if (priv->flags & NFTA_FIB_F_IIF)
--		dev = pkt->in;
-+		dev = nft_in(pkt);
- 	else if (priv->flags & NFTA_FIB_F_OIF)
--		dev = pkt->out;
-+		dev = nft_out(pkt);
- 
- 	nft_fib6_flowi_init(&fl6, priv, pkt, dev);
- 
- 	v6ops = nf_get_ipv6_ops();
--	if (dev && v6ops && v6ops->chk_addr(pkt->net, &fl6.daddr, dev, true))
-+	if (dev && v6ops && v6ops->chk_addr(nft_net(pkt), &fl6.daddr, dev, true))
- 		ret = RTN_LOCAL;
- 
--	route_err = afinfo->route(pkt->net, (struct dst_entry **)&rt,
-+	route_err = afinfo->route(nft_net(pkt), (struct dst_entry **)&rt,
- 				  flowi6_to_flowi(&fl6), false);
- 	if (route_err)
- 		goto err;
-@@ -158,20 +158,20 @@ void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
- 	int lookup_flags;
- 
- 	if (priv->flags & NFTA_FIB_F_IIF)
--		oif = pkt->in;
-+		oif = nft_in(pkt);
- 	else if (priv->flags & NFTA_FIB_F_OIF)
--		oif = pkt->out;
-+		oif = nft_out(pkt);
- 
- 	lookup_flags = nft_fib6_flowi_init(&fl6, priv, pkt, oif);
- 
--	if (pkt->hook == NF_INET_PRE_ROUTING && fib6_is_local(pkt->skb)) {
-+	if (nft_hook(pkt) == NF_INET_PRE_ROUTING && fib6_is_local(pkt->skb)) {
- 		nft_fib_store_result(dest, priv->result, pkt, LOOPBACK_IFINDEX);
- 		return;
- 	}
- 
- 	*dest = 0;
-  again:
--	rt = (void *)ip6_route_lookup(pkt->net, &fl6, lookup_flags);
-+	rt = (void *)ip6_route_lookup(nft_net(pkt), &fl6, lookup_flags);
- 	if (rt->dst.error)
- 		goto put_rt_err;
- 
-diff --git a/net/ipv6/netfilter/nft_masq_ipv6.c b/net/ipv6/netfilter/nft_masq_ipv6.c
-index 9597ffb74077..a2aff1277b40 100644
---- a/net/ipv6/netfilter/nft_masq_ipv6.c
-+++ b/net/ipv6/netfilter/nft_masq_ipv6.c
-@@ -32,7 +32,8 @@ static void nft_masq_ipv6_eval(const struct nft_expr *expr,
- 		range.max_proto.all =
- 			*(__be16 *)&regs->data[priv->sreg_proto_max];
- 	}
--	regs->verdict.code = nf_nat_masquerade_ipv6(pkt->skb, &range, pkt->out);
-+	regs->verdict.code = nf_nat_masquerade_ipv6(pkt->skb, &range,
-+						    nft_out(pkt));
- }
- 
- static struct nft_expr_type nft_masq_ipv6_type;
-diff --git a/net/ipv6/netfilter/nft_redir_ipv6.c b/net/ipv6/netfilter/nft_redir_ipv6.c
-index aca44e89a881..bfcd5af6bc15 100644
---- a/net/ipv6/netfilter/nft_redir_ipv6.c
-+++ b/net/ipv6/netfilter/nft_redir_ipv6.c
-@@ -35,7 +35,8 @@ static void nft_redir_ipv6_eval(const struct nft_expr *expr,
- 
- 	range.flags |= priv->flags;
- 
--	regs->verdict.code = nf_nat_redirect_ipv6(pkt->skb, &range, pkt->hook);
-+	regs->verdict.code =
-+		nf_nat_redirect_ipv6(pkt->skb, &range, nft_hook(pkt));
- }
- 
- static struct nft_expr_type nft_redir_ipv6_type;
-diff --git a/net/ipv6/netfilter/nft_reject_ipv6.c b/net/ipv6/netfilter/nft_reject_ipv6.c
-index 92bda9908bb9..057deeaff1cb 100644
---- a/net/ipv6/netfilter/nft_reject_ipv6.c
-+++ b/net/ipv6/netfilter/nft_reject_ipv6.c
-@@ -27,11 +27,11 @@ static void nft_reject_ipv6_eval(const struct nft_expr *expr,
- 
- 	switch (priv->type) {
- 	case NFT_REJECT_ICMP_UNREACH:
--		nf_send_unreach6(pkt->net, pkt->skb, priv->icmp_code,
--				 pkt->hook);
-+		nf_send_unreach6(nft_net(pkt), pkt->skb, priv->icmp_code,
-+				 nft_hook(pkt));
- 		break;
- 	case NFT_REJECT_TCP_RST:
--		nf_send_reset6(pkt->net, pkt->skb, pkt->hook);
-+		nf_send_reset6(nft_net(pkt), pkt->skb, nft_hook(pkt));
- 		break;
- 	default:
- 		break;
-diff --git a/net/netfilter/nf_dup_netdev.c b/net/netfilter/nf_dup_netdev.c
-index 7ec69723940f..44ae986c383f 100644
---- a/net/netfilter/nf_dup_netdev.c
-+++ b/net/netfilter/nf_dup_netdev.c
-@@ -19,7 +19,7 @@ void nf_dup_netdev_egress(const struct nft_pktinfo *pkt, int oif)
- 	struct net_device *dev;
- 	struct sk_buff *skb;
- 
--	dev = dev_get_by_index_rcu(pkt->net, oif);
-+	dev = dev_get_by_index_rcu(nft_net(pkt), oif);
- 	if (dev == NULL)
- 		return;
- 
-diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index 70de32a6d5c0..b63b1edb76a6 100644
---- a/net/netfilter/nf_tables_core.c
-+++ b/net/netfilter/nf_tables_core.c
-@@ -53,10 +53,10 @@ static noinline void __nft_trace_packet(struct nft_traceinfo *info,
- 
- 	nft_trace_notify(info);
- 
--	nf_log_trace(pkt->net, pkt->pf, pkt->hook, pkt->skb, pkt->in,
--		     pkt->out, &trace_loginfo, "TRACE: %s:%s:%s:%u ",
--		     chain->table->name, chain->name, comments[type],
--		     rulenum);
-+	nf_log_trace(nft_net(pkt), nft_pf(pkt), nft_hook(pkt), pkt->skb,
-+		     nft_in(pkt), nft_out(pkt), &trace_loginfo,
-+		     "TRACE: %s:%s:%s:%u ",
-+		     chain->table->name, chain->name, comments[type], rulenum);
- }
- 
- static inline void nft_trace_packet(struct nft_traceinfo *info,
-@@ -124,7 +124,7 @@ unsigned int
- nft_do_chain(struct nft_pktinfo *pkt, void *priv)
- {
- 	const struct nft_chain *chain = priv, *basechain = chain;
--	const struct net *net = pkt->net;
-+	const struct net *net = nft_net(pkt);
- 	const struct nft_rule *rule;
- 	const struct nft_expr *expr, *last;
- 	struct nft_regs regs;
-diff --git a/net/netfilter/nf_tables_trace.c b/net/netfilter/nf_tables_trace.c
-index ab695f8e2d29..12eb9041dca2 100644
---- a/net/netfilter/nf_tables_trace.c
-+++ b/net/netfilter/nf_tables_trace.c
-@@ -171,7 +171,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
- 	unsigned int size;
- 	int event = (NFNL_SUBSYS_NFTABLES << 8) | NFT_MSG_TRACE;
- 
--	if (!nfnetlink_has_listeners(pkt->net, NFNLGRP_NFTRACE))
-+	if (!nfnetlink_has_listeners(nft_net(pkt), NFNLGRP_NFTRACE))
- 		return;
- 
- 	size = nlmsg_total_size(sizeof(struct nfgenmsg)) +
-@@ -207,7 +207,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
- 	nfmsg->version		= NFNETLINK_V0;
- 	nfmsg->res_id		= 0;
- 
--	if (nla_put_be32(skb, NFTA_TRACE_NFPROTO, htonl(pkt->pf)))
-+	if (nla_put_be32(skb, NFTA_TRACE_NFPROTO, htonl(nft_pf(pkt))))
- 		goto nla_put_failure;
- 
- 	if (nla_put_be32(skb, NFTA_TRACE_TYPE, htonl(info->type)))
-@@ -249,7 +249,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
- 		goto nla_put_failure;
- 
- 	if (!info->packet_dumped) {
--		if (nf_trace_fill_dev_info(skb, pkt->in, pkt->out))
-+		if (nf_trace_fill_dev_info(skb, nft_in(pkt), nft_out(pkt)))
- 			goto nla_put_failure;
- 
- 		if (nf_trace_fill_pkt_info(skb, pkt))
-@@ -258,7 +258,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
- 	}
- 
- 	nlmsg_end(skb, nlh);
--	nfnetlink_send(skb, pkt->net, 0, NFNLGRP_NFTRACE, 0, GFP_ATOMIC);
-+	nfnetlink_send(skb, nft_net(pkt), 0, NFNLGRP_NFTRACE, 0, GFP_ATOMIC);
- 	return;
- 
-  nla_put_failure:
-diff --git a/net/netfilter/nft_fib.c b/net/netfilter/nft_fib.c
-index 4944a8b7f7a7..249c9b80c150 100644
---- a/net/netfilter/nft_fib.c
-+++ b/net/netfilter/nft_fib.c
-@@ -144,7 +144,7 @@ void nft_fib_store_result(void *reg, enum nft_fib_result r,
- 		*dreg = index;
- 		break;
- 	case NFT_FIB_RESULT_OIFNAME:
--		dev = dev_get_by_index_rcu(pkt->net, index);
-+		dev = dev_get_by_index_rcu(nft_net(pkt), index);
- 		strncpy(reg, dev ? dev->name : "", IFNAMSIZ);
- 		break;
- 	default:
-diff --git a/net/netfilter/nft_fib_inet.c b/net/netfilter/nft_fib_inet.c
-index fe8943b572b7..9120fc7228f4 100644
---- a/net/netfilter/nft_fib_inet.c
-+++ b/net/netfilter/nft_fib_inet.c
-@@ -21,7 +21,7 @@ static void nft_fib_inet_eval(const struct nft_expr *expr,
- {
- 	const struct nft_fib *priv = nft_expr_priv(expr);
- 
--	switch (pkt->pf) {
-+	switch (nft_pf(pkt)) {
- 	case NFPROTO_IPV4:
- 		switch (priv->result) {
- 		case NFT_FIB_RESULT_OIF:
-diff --git a/net/netfilter/nft_log.c b/net/netfilter/nft_log.c
-index 1b01404bb33f..6271e40a3dd6 100644
---- a/net/netfilter/nft_log.c
-+++ b/net/netfilter/nft_log.c
-@@ -32,8 +32,9 @@ static void nft_log_eval(const struct nft_expr *expr,
- {
- 	const struct nft_log *priv = nft_expr_priv(expr);
- 
--	nf_log_packet(pkt->net, pkt->pf, pkt->hook, pkt->skb, pkt->in,
--		      pkt->out, &priv->loginfo, "%s", priv->prefix);
-+	nf_log_packet(nft_net(pkt), nft_pf(pkt), nft_hook(pkt), pkt->skb,
-+		      nft_in(pkt), nft_out(pkt), &priv->loginfo, "%s",
-+		      priv->prefix);
- }
- 
- static const struct nla_policy nft_log_policy[NFTA_LOG_MAX + 1] = {
-diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
-index 8166b6994cc7..a8ce49bcda80 100644
---- a/net/netfilter/nft_lookup.c
-+++ b/net/netfilter/nft_lookup.c
-@@ -35,9 +35,8 @@ static void nft_lookup_eval(const struct nft_expr *expr,
- 	const struct nft_set_ext *ext;
- 	bool found;
- 
--	found = set->ops->lookup(pkt->net, set, &regs->data[priv->sreg], &ext) ^
--		priv->invert;
--
-+	found = set->ops->lookup(nft_net(pkt), set, &regs->data[priv->sreg],
-+				 &ext) ^ priv->invert;
- 	if (!found) {
- 		regs->verdict.code = NFT_BREAK;
- 		return;
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index 64994023bf81..66c7f4b4c49b 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -36,7 +36,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- {
- 	const struct nft_meta *priv = nft_expr_priv(expr);
- 	const struct sk_buff *skb = pkt->skb;
--	const struct net_device *in = pkt->in, *out = pkt->out;
-+	const struct net_device *in = nft_in(pkt), *out = nft_out(pkt);
- 	struct sock *sk;
- 	u32 *dest = &regs->data[priv->dreg];
- 
-@@ -49,7 +49,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 		*(__be16 *)dest = skb->protocol;
- 		break;
- 	case NFT_META_NFPROTO:
--		*dest = pkt->pf;
-+		*dest = nft_pf(pkt);
- 		break;
- 	case NFT_META_L4PROTO:
- 		if (!pkt->tprot_set)
-@@ -146,7 +146,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
- 			break;
- 		}
- 
--		switch (pkt->pf) {
-+		switch (nft_pf(pkt)) {
- 		case NFPROTO_IPV4:
- 			if (ipv4_is_multicast(ip_hdr(skb)->daddr))
- 				*dest = PACKET_MULTICAST;
-diff --git a/net/netfilter/nft_queue.c b/net/netfilter/nft_queue.c
-index 393d359a1889..3e19fa1230dc 100644
---- a/net/netfilter/nft_queue.c
-+++ b/net/netfilter/nft_queue.c
-@@ -43,7 +43,7 @@ static void nft_queue_eval(const struct nft_expr *expr,
- 			queue = priv->queuenum + cpu % priv->queues_total;
- 		} else {
- 			queue = nfqueue_hash(pkt->skb, queue,
--					     priv->queues_total, pkt->pf,
-+					     priv->queues_total, nft_pf(pkt),
- 					     jhash_initval);
- 		}
- 	}
-diff --git a/net/netfilter/nft_reject_inet.c b/net/netfilter/nft_reject_inet.c
-index e79d9ca2ffee..9e90a02cb104 100644
---- a/net/netfilter/nft_reject_inet.c
-+++ b/net/netfilter/nft_reject_inet.c
-@@ -23,36 +23,36 @@ static void nft_reject_inet_eval(const struct nft_expr *expr,
- {
- 	struct nft_reject *priv = nft_expr_priv(expr);
- 
--	switch (pkt->pf) {
-+	switch (nft_pf(pkt)) {
- 	case NFPROTO_IPV4:
- 		switch (priv->type) {
- 		case NFT_REJECT_ICMP_UNREACH:
- 			nf_send_unreach(pkt->skb, priv->icmp_code,
--					pkt->hook);
-+					nft_hook(pkt));
- 			break;
- 		case NFT_REJECT_TCP_RST:
--			nf_send_reset(pkt->net, pkt->skb, pkt->hook);
-+			nf_send_reset(nft_net(pkt), pkt->skb, nft_hook(pkt));
- 			break;
- 		case NFT_REJECT_ICMPX_UNREACH:
- 			nf_send_unreach(pkt->skb,
- 					nft_reject_icmp_code(priv->icmp_code),
--					pkt->hook);
-+					nft_hook(pkt));
- 			break;
- 		}
- 		break;
- 	case NFPROTO_IPV6:
- 		switch (priv->type) {
- 		case NFT_REJECT_ICMP_UNREACH:
--			nf_send_unreach6(pkt->net, pkt->skb, priv->icmp_code,
--					 pkt->hook);
-+			nf_send_unreach6(nft_net(pkt), pkt->skb,
-+					 priv->icmp_code, nft_hook(pkt));
- 			break;
- 		case NFT_REJECT_TCP_RST:
--			nf_send_reset6(pkt->net, pkt->skb, pkt->hook);
-+			nf_send_reset6(nft_net(pkt), pkt->skb, nft_hook(pkt));
- 			break;
- 		case NFT_REJECT_ICMPX_UNREACH:
--			nf_send_unreach6(pkt->net, pkt->skb,
-+			nf_send_unreach6(nft_net(pkt), pkt->skb,
- 					 nft_reject_icmpv6_code(priv->icmp_code),
--					 pkt->hook);
-+					 nft_hook(pkt));
- 			break;
- 		}
- 		break;
-diff --git a/net/netfilter/nft_rt.c b/net/netfilter/nft_rt.c
-index 9e5ec1f67020..d3eb640bc784 100644
---- a/net/netfilter/nft_rt.c
-+++ b/net/netfilter/nft_rt.c
-@@ -43,14 +43,14 @@ void nft_rt_get_eval(const struct nft_expr *expr,
- 		break;
- #endif
- 	case NFT_RT_NEXTHOP4:
--		if (pkt->pf != NFPROTO_IPV4)
-+		if (nft_pf(pkt) != NFPROTO_IPV4)
- 			goto err;
- 
- 		*dest = rt_nexthop((const struct rtable *)dst,
- 				   ip_hdr(skb)->daddr);
- 		break;
- 	case NFT_RT_NEXTHOP6:
--		if (pkt->pf != NFPROTO_IPV6)
-+		if (nft_pf(pkt) != NFPROTO_IPV6)
- 			goto err;
- 
- 		memcpy(dest, rt6_nexthop((struct rt6_info *)dst,
--- 
-2.1.4
+        nft add table netdev x
+        nft add chain netdev x y { type filter hook ingress device eth0 priority 0\; }
+        nft add rule netdev x y drop
+
+And generating traffic through Jesper Brouer's
+samples/pktgen/pktgen_bench_xmit_mode_netif_receive.sh script using -i
+option. perf report shows nf_tables calls in its top 10:
+
+    17.30%  kpktgend_0   [nf_tables]            [k] nft_do_chain
+    15.75%  kpktgend_0   [kernel.vmlinux]       [k] __netif_receive_skb_core
+    10.39%  kpktgend_0   [nf_tables_netdev]     [k] nft_do_chain_netdev
+
+I'm measuring here an improvement of ~15% in performance with this
+patchset, so we got +2.5Mpps more. I have used my old laptop Intel(R)
+Core(TM) i5-3320M CPU @ 2.60GHz 4-cores.
+
+This rework contains more specifically, in strict order, these patches:
+
+1) Remove compile-time debugging from core.
+
+2) Remove obsolete comments that predate the rcu era. These days it is
+   well known that a Netfilter hook always runs under rcu_read_lock().
+
+3) Remove threshold handling, this is only used by br_netfilter too.
+   We already have specific code to handle this from br_netfilter,
+   so remove this code from the core path.
+
+4) Deprecate NF_STOP, as this is only used by br_netfilter.
+
+5) Place nf_state_hook pointer into xt_action_param structure, so
+   this structure fits into one single cacheline according to pahole.
+   This also implicit affects nftables since it also relies on the
+   xt_action_param structure.
+
+6) Move state->hook_entries into nf_queue entry. The hook_entries
+   pointer is only required by nf_queue(), so we can store this in the
+   queue entry instead.
+
+7) use switch() statement to handle verdict cases.
+
+8) Remove hook_entries field from nf_hook_state structure, this is only
+   required by nf_queue, so store it in nf_queue_entry structure.
+
+9) Merge nf_iterate() into nf_hook_slow() that results in a much more
+   simple and readable function.
+
+10) Handle NF_REPEAT away from the core, so far the only client is
+    nf_conntrack_in() and we can restart the packet processing using a
+    simple goto to jump back there when the TCP requires it.
+    This update required a second pass to fix fallout, fix from
+    Arnd Bergmann.
+
+11) Set random seed from nft_hash when no seed is specified from
+    userspace.
+
+12) Simplify nf_tables expression registration, in a much smarter way
+    to save lots of boiler plate code, by Liping Zhang.
+
+13) Simplify layer 4 protocol conntrack tracker registration, from
+    Davide Caratti.
+
+14) Missing CONFIG_NF_SOCKET_IPV4 dependency for udp4_lib_lookup, due
+    to recent generalization of the socket infrastructure, from Arnd
+    Bergmann.
+
+15) Then, the ipset batch from Jozsef, he describes it as it follows:
+
+* Cleanup: Remove extra whitespaces in ip_set.h
+* Cleanup: Mark some of the helpers arguments as const in ip_set.h
+* Cleanup: Group counter helper functions together in ip_set.h
+* struct ip_set_skbinfo is introduced instead of open coded fields
+  in skbinfo get/init helper funcions.
+* Use kmalloc() in comment extension helper instead of kzalloc()
+  because it is unnecessary to zero out the area just before
+  explicit initialization.
+* Cleanup: Split extensions into separate files.
+* Cleanup: Separate memsize calculation code into dedicated function.
+* Cleanup: group ip_set_put_extensions() and ip_set_get_extensions()
+  together.
+* Add element count to hash headers by Eric B Munson.
+* Add element count to all set types header for uniform output
+  across all set types.
+* Count non-static extension memory into memsize calculation for
+  userspace.
+* Cleanup: Remove redundant mtype_expire() arguments, because
+  they can be get from other parameters.
+* Cleanup: Simplify mtype_expire() for hash types by removing
+  one level of intendation.
+* Make NLEN compile time constant for hash types.
+* Make sure element data size is a multiple of u32 for the hash set
+  types.
+* Optimize hash creation routine, exit as early as possible.
+* Make struct htype per ipset family so nets array becomes fixed size
+  and thus simplifies the struct htype allocation.
+* Collapse same condition body into a single one.
+* Fix reported memory size for hash:* types, base hash bucket structure
+  was not taken into account.
+* hash:ipmac type support added to ipset by Tomasz Chilinski.
+* Use setup_timer() and mod_timer() instead of init_timer()
+  by Muhammad Falak R Wani, individually for the set type families.
+
+16) Remove useless connlabel field in struct netns_ct, patch from
+    Florian Westphal.
+
+17) xt_find_table_lock() doesn't return ERR_PTR() anymore, so simplify
+    {ip,ip6,arp}tables code that uses this.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 17197236d62c44da127be461c63ac5cc2cce1e53:
+
+  enic: set skb->hash type properly (2016-11-02 15:32:53 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git HEAD
+
+for you to fetch changes up to eb1a6bdc28268afa964e4c9f3399961dff9fd691:
+
+  netfilter: x_tables: simplify IS_ERR_OR_NULL to NULL test (2016-11-13 22:26:13 +0100)
+
+----------------------------------------------------------------
+Arnd Bergmann (2):
+      udp: provide udp{4,6}_lib_lookup for nf_socket_ipv{4,6}
+      netfilter: conntrack: fix NF_REPEAT handling
+
+Davide Caratti (1):
+      netfilter: conntrack: simplify init/uninit of L4 protocol trackers
+
+Eric B Munson (1):
+      netfilter: ipset: Add element count to hash headers
+
+Florian Westphal (1):
+      netfilter: conntrack: remove unused netns_ct member
+
+Jozsef Kadlecsik (19):
+      netfilter: ipset: Remove extra whitespaces in ip_set.h
+      netfilter: ipset: Mark some helper args as const.
+      netfilter: ipset: Headers file cleanup
+      netfilter: ipset: Improve skbinfo get/init helpers
+      netfilter: ipset: Use kmalloc() in comment extension helper
+      netfilter: ipset: Split extensions into separate files
+      netfilter: ipset: Separate memsize calculation code into dedicated function
+      netfilter: ipset: Regroup ip_set_put_extensions and add extern
+      netfilter: ipset: Add element count to all set types header
+      netfilter: ipset: Count non-static extension memory for userspace
+      netfilter: ipset: Remove redundant mtype_expire() arguments
+      netfilter: ipset: Simplify mtype_expire() for hash types
+      netfilter: ipset: Make NLEN compile time constant for hash types
+      netfilter: ipset: Make sure element data size is a multiple of u32
+      netfilter: ipset: Optimize hash creation routine
+      netfilter: ipset: Make struct htype per ipset family
+      netfilter: ipset: Collapse same condition body to a single one
+      netfilter: ipset: Fix reported memory size for hash:* types
+      netfilter: ipset: use setup_timer() and mod_timer().
+
+Julia Lawall (1):
+      netfilter: x_tables: simplify IS_ERR_OR_NULL to NULL test
+
+Liping Zhang (1):
+      netfilter: nf_tables: simplify the basic expressions' init routine
+
+Pablo Neira Ayuso (11):
+      netfilter: get rid of useless debugging from core
+      netfilter: remove comments that predate rcu days
+      netfilter: kill NF_HOOK_THRESH() and state->tresh
+      netfilter: deprecate NF_STOP
+      netfilter: x_tables: move hook state into xt_action_param structure
+      netfilter: nf_tables: use hook state from xt_action_param structure
+      netfilter: use switch() to handle verdict cases from nf_hook_slow()
+      netfilter: remove hook_entries field from nf_hook_state
+      netfilter: merge nf_iterate() into nf_hook_slow()
+      netfilter: handle NF_REPEAT from nf_conntrack_in()
+      netfilter: nft_hash: get random bytes if seed is not specified
+
+Tomasz Chilinski (1):
+      netfilter: ipset: hash:ipmac type support added to ipset
+
+kbuild test robot (1):
+      netfilter: ipset: hash: fix boolreturn.cocci warnings
+
+ include/linux/netfilter.h                      |  58 ++---
+ include/linux/netfilter/ipset/ip_set.h         | 136 ++---------
+ include/linux/netfilter/ipset/ip_set_bitmap.h  |   2 +-
+ include/linux/netfilter/ipset/ip_set_comment.h |  11 +-
+ include/linux/netfilter/ipset/ip_set_counter.h |  75 ++++++
+ include/linux/netfilter/ipset/ip_set_skbinfo.h |  46 ++++
+ include/linux/netfilter/ipset/ip_set_timeout.h |   4 +-
+ include/linux/netfilter/x_tables.h             |  48 +++-
+ include/linux/netfilter_ingress.h              |   4 +-
+ include/net/netfilter/nf_conntrack_l4proto.h   |  18 +-
+ include/net/netfilter/nf_queue.h               |   1 +
+ include/net/netfilter/nf_tables.h              |  36 ++-
+ include/net/netfilter/nf_tables_core.h         |  33 +--
+ include/net/netns/conntrack.h                  |   1 -
+ include/uapi/linux/netfilter.h                 |   2 +-
+ net/bridge/br_netfilter_hooks.c                |  16 +-
+ net/bridge/netfilter/ebt_arpreply.c            |   3 +-
+ net/bridge/netfilter/ebt_log.c                 |  11 +-
+ net/bridge/netfilter/ebt_nflog.c               |   6 +-
+ net/bridge/netfilter/ebt_redirect.c            |   6 +-
+ net/bridge/netfilter/ebtable_broute.c          |   2 +-
+ net/bridge/netfilter/ebtables.c                |   6 +-
+ net/bridge/netfilter/nft_meta_bridge.c         |   2 +-
+ net/bridge/netfilter/nft_reject_bridge.c       |  30 ++-
+ net/ipv4/netfilter/arp_tables.c                |  26 +-
+ net/ipv4/netfilter/ip_tables.c                 |  26 +-
+ net/ipv4/netfilter/ipt_MASQUERADE.c            |   3 +-
+ net/ipv4/netfilter/ipt_REJECT.c                |   4 +-
+ net/ipv4/netfilter/ipt_SYNPROXY.c              |   4 +-
+ net/ipv4/netfilter/ipt_rpfilter.c              |   2 +-
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  76 ++----
+ net/ipv4/netfilter/nft_dup_ipv4.c              |   2 +-
+ net/ipv4/netfilter/nft_fib_ipv4.c              |  14 +-
+ net/ipv4/netfilter/nft_masq_ipv4.c             |   4 +-
+ net/ipv4/netfilter/nft_redir_ipv4.c            |   3 +-
+ net/ipv4/netfilter/nft_reject_ipv4.c           |   4 +-
+ net/ipv4/udp.c                                 |   3 +-
+ net/ipv6/netfilter/ip6_tables.c                |  26 +-
+ net/ipv6/netfilter/ip6t_MASQUERADE.c           |   2 +-
+ net/ipv6/netfilter/ip6t_REJECT.c               |  23 +-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c             |   4 +-
+ net/ipv6/netfilter/ip6t_rpfilter.c             |   3 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |  78 ++----
+ net/ipv6/netfilter/nft_dup_ipv6.c              |   2 +-
+ net/ipv6/netfilter/nft_fib_ipv6.c              |  16 +-
+ net/ipv6/netfilter/nft_masq_ipv6.c             |   3 +-
+ net/ipv6/netfilter/nft_redir_ipv6.c            |   3 +-
+ net/ipv6/netfilter/nft_reject_ipv6.c           |   6 +-
+ net/ipv6/udp.c                                 |   3 +-
+ net/netfilter/core.c                           |  86 +++----
+ net/netfilter/ipset/Kconfig                    |   9 +
+ net/netfilter/ipset/Makefile                   |   1 +
+ net/netfilter/ipset/ip_set_bitmap_gen.h        |  31 ++-
+ net/netfilter/ipset/ip_set_core.c              |  20 +-
+ net/netfilter/ipset/ip_set_hash_gen.h          | 254 +++++++++-----------
+ net/netfilter/ipset/ip_set_hash_ip.c           |  10 +-
+ net/netfilter/ipset/ip_set_hash_ipmac.c        | 315 +++++++++++++++++++++++++
+ net/netfilter/ipset/ip_set_hash_ipmark.c       |  10 +-
+ net/netfilter/ipset/ip_set_hash_ipport.c       |   6 +-
+ net/netfilter/ipset/ip_set_hash_ipportip.c     |   6 +-
+ net/netfilter/ipset/ip_set_hash_ipportnet.c    |  10 +-
+ net/netfilter/ipset/ip_set_hash_net.c          |   8 +-
+ net/netfilter/ipset/ip_set_hash_netiface.c     |  10 +-
+ net/netfilter/ipset/ip_set_hash_netnet.c       |   8 +-
+ net/netfilter/ipset/ip_set_hash_netport.c      |  10 +-
+ net/netfilter/ipset/ip_set_hash_netportnet.c   |  10 +-
+ net/netfilter/ipset/ip_set_list_set.c          |  37 ++-
+ net/netfilter/nf_conntrack_core.c              |  19 +-
+ net/netfilter/nf_conntrack_proto.c             |  85 ++++++-
+ net/netfilter/nf_conntrack_proto_dccp.c        |  48 +---
+ net/netfilter/nf_conntrack_proto_gre.c         |  11 +-
+ net/netfilter/nf_conntrack_proto_sctp.c        |  50 +---
+ net/netfilter/nf_conntrack_proto_udplite.c     |  50 +---
+ net/netfilter/nf_dup_netdev.c                  |   2 +-
+ net/netfilter/nf_internals.h                   |   5 -
+ net/netfilter/nf_queue.c                       |  35 ++-
+ net/netfilter/nf_tables_core.c                 |  90 +++----
+ net/netfilter/nf_tables_trace.c                |   8 +-
+ net/netfilter/nfnetlink_queue.c                |   2 +-
+ net/netfilter/nft_bitwise.c                    |  13 +-
+ net/netfilter/nft_byteorder.c                  |  13 +-
+ net/netfilter/nft_cmp.c                        |  13 +-
+ net/netfilter/nft_dynset.c                     |  13 +-
+ net/netfilter/nft_fib.c                        |   2 +-
+ net/netfilter/nft_fib_inet.c                   |   2 +-
+ net/netfilter/nft_hash.c                       |   6 +-
+ net/netfilter/nft_immediate.c                  |  13 +-
+ net/netfilter/nft_log.c                        |   5 +-
+ net/netfilter/nft_lookup.c                     |  18 +-
+ net/netfilter/nft_meta.c                       |   6 +-
+ net/netfilter/nft_payload.c                    |  13 +-
+ net/netfilter/nft_queue.c                      |   2 +-
+ net/netfilter/nft_range.c                      |  13 +-
+ net/netfilter/nft_reject_inet.c                |  18 +-
+ net/netfilter/nft_rt.c                         |   4 +-
+ net/netfilter/x_tables.c                       |   2 +-
+ net/netfilter/xt_AUDIT.c                       |  10 +-
+ net/netfilter/xt_LOG.c                         |   6 +-
+ net/netfilter/xt_NETMAP.c                      |  20 +-
+ net/netfilter/xt_NFLOG.c                       |   6 +-
+ net/netfilter/xt_NFQUEUE.c                     |   4 +-
+ net/netfilter/xt_REDIRECT.c                    |   4 +-
+ net/netfilter/xt_TCPMSS.c                      |   4 +-
+ net/netfilter/xt_TEE.c                         |   4 +-
+ net/netfilter/xt_TPROXY.c                      |  16 +-
+ net/netfilter/xt_addrtype.c                    |  10 +-
+ net/netfilter/xt_cluster.c                     |   2 +-
+ net/netfilter/xt_connlimit.c                   |   8 +-
+ net/netfilter/xt_conntrack.c                   |   8 +-
+ net/netfilter/xt_devgroup.c                    |   4 +-
+ net/netfilter/xt_dscp.c                        |   2 +-
+ net/netfilter/xt_ipvs.c                        |   4 +-
+ net/netfilter/xt_nfacct.c                      |   2 +-
+ net/netfilter/xt_osf.c                         |  10 +-
+ net/netfilter/xt_owner.c                       |   2 +-
+ net/netfilter/xt_pkttype.c                     |   4 +-
+ net/netfilter/xt_policy.c                      |   4 +-
+ net/netfilter/xt_recent.c                      |  10 +-
+ net/netfilter/xt_set.c                         |  38 +--
+ net/netfilter/xt_socket.c                      |   4 +-
+ net/openvswitch/conntrack.c                    |   8 +-
+ net/sched/act_ipt.c                            |  12 +-
+ net/sched/em_ipset.c                           |  17 +-
+ 123 files changed, 1351 insertions(+), 1171 deletions(-)
+ create mode 100644 include/linux/netfilter/ipset/ip_set_counter.h
+ create mode 100644 include/linux/netfilter/ipset/ip_set_skbinfo.h
+ create mode 100644 net/netfilter/ipset/ip_set_hash_ipmac.c
