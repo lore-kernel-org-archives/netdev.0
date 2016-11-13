@@ -1,50 +1,56 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [net-next 2/2] MAINTAINERS: add entry for slicoss ethernet driver
-Date: Sun, 13 Nov 2016 05:47:33 +0100
-Message-ID: <1479012453-19410-3-git-send-email-LinoSanfilippo@gmx.de>
-References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
+From: Baoquan He <bhe@redhat.com>
+Subject: Re: [PATCH v2 2/2] bnx2: Wait for in-flight DMA to complete at probe
+ stage
+Date: Sun, 13 Nov 2016 12:54:29 +0800
+Message-ID: <20161113045429.GG15325@x1>
+References: <1478871995-29652-1-git-send-email-bhe@redhat.com>
+ <1478871995-29652-3-git-send-email-bhe@redhat.com>
+ <20161113041524.GF15325@x1>
+ <20161112.234039.1001224346500132925.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Lino Sanfilippo <LinoSanfilippo@gmx.de>, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
- gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
+        linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
+        rasesh.mody@cavium.com, harish.patil@cavium.com,
+        frank@undermydesk.org, jsr@dex.edzone.net, pmenzel@molgen.mpg.de,
+        jroedel@suse.de, dyoung@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49506 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753676AbcKMEye (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Nov 2016 23:54:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20161112.234039.1001224346500132925.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add myself as maintainer for the slicoss ethernet driver.
+On 11/12/16 at 11:40pm, David Miller wrote:
+> From: Baoquan He <bhe@redhat.com>
+> Date: Sun, 13 Nov 2016 12:15:24 +0800
+> 
+> > In-flight DMA from 1st kernel could continue going in kdump kernel.
+> > New io-page table has been created before bnx2 does reset at open stage.
+> > We have to wait for the in-flight DMA to complete to avoid it look up
+> > into the newly created io-page table at probe stage.
+> > 
+> > Suggested-by: Michael Chan <michael.chan@broadcom.com>
+> > Signed-off-by: Baoquan He <bhe@redhat.com>
+> > ---
+> > v1->v2:
+> >     Michael suggested to wait for the in-flight DMA to complete at probe
+> >     stage. So give up the old method of trying to reset chip at probe
+> >     stage, take the new way accordingly.
+> 
+> Patch updates don't work this way.
+> 
+> When you update a patch that is part of a patch series, you must
+> resubmit the entire series anew.
 
-Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
----
- MAINTAINERS | 5 +++++
- 1 file changed, 5 insertions(+)
+Thanks for telling, David!
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 6781a3f..bb9af28 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -562,6 +562,11 @@ T:	git git://linuxtv.org/anttip/media_tree.git
- S:	Maintained
- F:	drivers/media/usb/airspy/
- 
-+ALACRITECH GIGABIT ETHERNET DRIVER
-+M:	Lino Sanfilippo <LinoSanfilippo@gmx.de>
-+S:	Maintained
-+F:	drivers/net/ethernet/alacritech/*
-+
- ALCATEL SPEEDTOUCH USB DRIVER
- M:	Duncan Sands <duncan.sands@free.fr>
- L:	linux-usb@vger.kernel.org
--- 
-1.9.1
+Learned it. I am not very sure if this is what Michael is suggesting.
+Will resubmit the entire patch series.
+
+Thanks
+Baoquan
