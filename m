@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: __skb_flow_dissect() must cap its return value
-Date: Sat, 12 Nov 2016 23:42:32 -0500 (EST)
-Message-ID: <20161112.234232.1152946645540246281.davem@davemloft.net>
-References: <1477438271.7065.157.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1478718427.16809.7.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1478736286.16809.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the
+ netfilter tree
+Date: Sat, 12 Nov 2016 23:43:00 -0500 (EST)
+Message-ID: <20161112.234300.1975552998082760798.davem@davemloft.net>
+References: <20161110105633.31ebdc76@canb.auug.org.au>
+        <20161110003117.GA4285@salvia>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yibyang@cisco.com, tom@herbertland.com, jojvargh@cisco.com,
-        alexander.h.duyck@intel.com, ast@kernel.org, willemb@google.com,
-        netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60044 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932412AbcKMEmi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2016 23:42:38 -0500
-In-Reply-To: <1478736286.16809.17.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, xiyou.wangcong@gmail.com,
+        johannes.berg@intel.com
+To: pablo@netfilter.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161110003117.GA4285@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 09 Nov 2016 16:04:46 -0800
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 10 Nov 2016 01:31:17 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> I think I cannot help to address this conflict myself.
 > 
-> After Tom patch, thoff field could point past the end of the buffer,
-> this could fool some callers.
+> 8fbfef7f505b is in my nf tree, while 489111e5c25b is in net-next. So
+> you will hit this conflict by when you pull net into net-next.
 > 
-> If an skb was provided, skb->len should be the upper limit.
-> If not, hlen is supposed to be the upper limit.
-> 
-> Fixes: a6e544b0a88b ("flow_dissector: Jump to exit code in __skb_flow_dissect")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Yibin Yang <yibyang@cisco.com
-> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Acked-by: Willem de Bruijn <willemb@google.com>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> So please keep this patch from Stephen to resolve the conflict in your
+> radar to solve this.
 
-Applied and queued up for -stable, thanks Eric.
+I will, thank you.
