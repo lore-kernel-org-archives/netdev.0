@@ -1,31 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ethernet: ti: davinci_cpdma: fix fixed prio
- cpdma ctlr configuration
-Date: Sun, 13 Nov 2016 13:40:40 -0500 (EST)
-Message-ID: <20161113.134040.2130627876291744441.davem@davemloft.net>
-References: <1478871924-20985-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH net-next] sfc: clear napi_hash state when copying
+ channels
+Date: Sun, 13 Nov 2016 13:41:55 -0500 (EST)
+Message-ID: <20161113.134155.389939007693100035.davem@davemloft.net>
+References: <80535661-f88f-3dc5-9b40-111358707ffd@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: ivan.khoronzhuk@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478871924-20985-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bkenward@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45234 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932803AbcKMSl4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 13:41:56 -0500
+In-Reply-To: <80535661-f88f-3dc5-9b40-111358707ffd@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Fri, 11 Nov 2016 15:45:24 +0200
+From: Bert Kenward <bkenward@solarflare.com>
+Date: Fri, 11 Nov 2016 15:56:51 +0000
 
-> The dma ctlr is reseted to 0 while cpdma soft reset, thus cpdma ctlr
-> cannot be configured after cpdma is stopped. So restoring content
-> of cpdma ctlr while off/on procedure is needed. The cpdma ctlr off/on
-> procedure is present while interface down/up and while changing number
-> of channels with ethtool. In order to not restore content in many
-> places, move it to cpdma_ctlr_start().
+> efx_copy_channel() doesn't correctly clear the napi_hash related state.
+> This means that when napi_hash_add is called for that channel nothing is
+> done, and we are left with a copy of the napi_hash_node from the old
+> channel. When we later call napi_hash_del() on this channel we have a
+> stale napi_hash_node.
 > 
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> Corruption is only seen when there are multiple entries in one of the
+> napi_hash lists. This is made more likely by having a very large number
+> of channels. Testing was carried out with 512 channels - 32 channels on
+> each of 16 ports.
+> 
+> This failure typically appears as protection faults within napi_by_id()
+> or napi_hash_add(). efx_copy_channel() is only used when tx or rx ring
+> sizes are changed (ethtool -G).
+> 
+> Fixes: 36763266bbe8 ("sfc: Add support for busy polling")
+> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
 
-Applied.
+Applied to net.
