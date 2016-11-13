@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] Start adding support for mv88e6390
- family
-Date: Sun, 13 Nov 2016 00:48:59 -0500 (EST)
-Message-ID: <20161113.004859.749028544003333521.davem@davemloft.net>
-References: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCH net-next v13 0/8] openvswitch: support for layer 3
+ encapsulated packets
+Date: Sun, 13 Nov 2016 00:51:22 -0500 (EST)
+Message-ID: <20161113.005122.1783476186953021414.davem@davemloft.net>
+References: <cover.1478791347.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com
-To: andrew@lunn.ch
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@ovn.org,
+        lojakab@cisco.com, simon.horman@netronome.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33448 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33472 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751481AbcKMFtE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 00:49:04 -0500
-In-Reply-To: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
+        with ESMTP id S932424AbcKMFv2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 00:51:28 -0500
+In-Reply-To: <cover.1478791347.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Fri, 11 Nov 2016 03:53:32 +0100
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu, 10 Nov 2016 16:28:16 +0100
 
-> This is the first patchset implementing support for the mv88e6390
-> family.  This is a new generation of switch devices and has numerous
-> incompatible changes to the registers. These patches allow the switch
-> to the detected during probe, and makes the statistics unit work.
+> At the core of this patch set is removing the assumption in Open vSwitch
+> datapath that all packets have Ethernet header.
 > 
-> These patches are insufficient to make the mv88e6390 functional. More
-> patches will follow.
+> The implementation relies on the presence of pop_eth and push_eth actions
+> in datapath flows to facilitate adding and removing Ethernet headers as
+> appropriate. The construction of such flows is left up to user-space.
+> 
+> This series is based on work by Simon Horman, Lorand Jakab, Thomas Morin and
+> others. I kept Lorand's and Simon's s-o-b in the patches that are derived
+> from v11 to record their authorship of parts of the code.
 
-Andrew, this series doesn't apply cleanly to net-next, so you'll
-need to respin.
-
-Thanks.
+Series applied, thanks.
