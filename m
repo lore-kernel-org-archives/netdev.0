@@ -1,32 +1,57 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v1] bpf: Use u64_to_user_ptr()
-Date: Mon, 14 Nov 2016 00:31:48 +0100
-Message-ID: <5828F7E4.6030002@iogearbox.net>
-References: <20161113184403.15222-1-mic@digikod.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 04/11] net: dsa: mv88e6xxx: Abstract stats_snapshot into ops structure
+Date: Mon, 14 Nov 2016 10:37:36 +1100
+Message-ID: <87a8d3gddr.fsf@ketchup.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1478832823-31471-1-git-send-email-andrew@lunn.ch> <1478832823-31471-5-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
-        netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57309 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935125AbcKMXc4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 18:32:56 -0500
-In-Reply-To: <20161113184403.15222-1-mic@digikod.net>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36246 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752814AbcKMXhp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 18:37:45 -0500
+In-Reply-To: <1478832823-31471-5-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2016 07:44 PM, Mickaël Salaün wrote:
-> Replace the custom u64_to_ptr() function with the u64_to_user_ptr()
-> macro.
->
-> Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
+Hi Andrew,
 
-Looks good to me, thanks!
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> +static int mv88e6320_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
+> +{
+> +	port = (port + 1) << 5;
+> +
+> +	return _mv88e6xxx_stats_snapshot(chip, port);
+> +}
+
+Please move the above helper in its internal SMI file (port, global1 or
+whatever) and keep the below wrapper in chip.c. The correct prefix will
+avoid having a _ prefix.
+
+> +static int mv88e6xxx_stats_snapshot(struct mv88e6xxx_chip *chip, int port)
+> +{
+> +	if (!chip->info->ops->stats_snapshot)
+> +		return -EOPNOTSUPP;
+> +
+> +	return chip->info->ops->stats_snapshot(chip, port);
+> +}
+
+[...]
+
+>  static const struct mv88e6xxx_ops mv88e6175_ops = {
+> @@ -3223,6 +3243,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
+>  	.port_set_duplex = mv88e6xxx_port_set_duplex,
+>  	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
+>  	.port_set_speed = mv88e6185_port_set_speed,
+> +	.stats_snapshot = mv88e6xxx_stats_snapshot,
+>  };
+
+Is this expected? Doesn't look correct to me to use
+mv88e6xxx_stats_snapshot here.
+
+Thanks,
+
+        Vivien
