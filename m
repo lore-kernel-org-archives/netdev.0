@@ -1,619 +1,332 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 32/39] netfilter: ipset: Make struct htype per ipset family
-Date: Sun, 13 Nov 2016 23:25:26 +0100
-Message-ID: <1479075933-4491-33-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 26/39] netfilter: ipset: Count non-static extension memory for userspace
+Date: Sun, 13 Nov 2016 23:25:20 +0100
+Message-ID: <1479075933-4491-27-git-send-email-pablo@netfilter.org>
 References: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:47656 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:47650 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965234AbcKMW02 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 13 Nov 2016 17:26:28 -0500
+        id S965144AbcKMW0W (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Nov 2016 17:26:22 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 3638AC1069
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:27 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id ADBECC1060
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:21 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 1562FDA848
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:27 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 98A33DA848
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:21 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 75F61DA85D
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:24 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 601C0DA843
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:19 +0100 (CET)
 In-Reply-To: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Before this patch struct htype created at the first source
-of ip_set_hash_gen.h and it is common for both IPv4 and IPv6
-set variants.
-
-Make struct htype per ipset family and use NLEN to make
-nets array fixed size to simplify struct htype allocation.
-
-Ported from a patch proposed by Sergey Popovich <popovich_sergei@mail.ua>.
+Non-static (i.e. comment) extension was not counted into the memory
+size. A new internal counter is introduced for this. In the case of
+the hash types the sizes of the arrays are counted there as well so
+that we can avoid to scan the whole set when just the header data
+is requested.
 
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- net/netfilter/ipset/ip_set_hash_gen.h        | 51 +++++++++++-----------------
- net/netfilter/ipset/ip_set_hash_ip.c         | 10 +++---
- net/netfilter/ipset/ip_set_hash_ipmark.c     | 10 +++---
- net/netfilter/ipset/ip_set_hash_ipport.c     |  6 ++--
- net/netfilter/ipset/ip_set_hash_ipportip.c   |  6 ++--
- net/netfilter/ipset/ip_set_hash_ipportnet.c  | 10 +++---
- net/netfilter/ipset/ip_set_hash_net.c        |  8 ++---
- net/netfilter/ipset/ip_set_hash_netiface.c   |  8 ++---
- net/netfilter/ipset/ip_set_hash_netnet.c     |  8 ++---
- net/netfilter/ipset/ip_set_hash_netport.c    | 10 +++---
- net/netfilter/ipset/ip_set_hash_netportnet.c | 10 +++---
- 11 files changed, 63 insertions(+), 74 deletions(-)
+ include/linux/netfilter/ipset/ip_set.h         |  8 ++++++--
+ include/linux/netfilter/ipset/ip_set_comment.h |  7 +++++--
+ net/netfilter/ipset/ip_set_bitmap_gen.h        |  5 +++--
+ net/netfilter/ipset/ip_set_core.c              |  2 +-
+ net/netfilter/ipset/ip_set_hash_gen.h          | 26 ++++++++++++++------------
+ net/netfilter/ipset/ip_set_list_set.c          |  5 +++--
+ 6 files changed, 32 insertions(+), 21 deletions(-)
 
+diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
+index 4671d740610f..8e42253e5d4d 100644
+--- a/include/linux/netfilter/ipset/ip_set.h
++++ b/include/linux/netfilter/ipset/ip_set.h
+@@ -79,10 +79,12 @@ enum ip_set_ext_id {
+ 	IPSET_EXT_ID_MAX,
+ };
+ 
++struct ip_set;
++
+ /* Extension type */
+ struct ip_set_ext_type {
+ 	/* Destroy extension private data (can be NULL) */
+-	void (*destroy)(void *ext);
++	void (*destroy)(struct ip_set *set, void *ext);
+ 	enum ip_set_extension type;
+ 	enum ipset_cadt_flags flag;
+ 	/* Size and minimal alignment */
+@@ -252,6 +254,8 @@ struct ip_set {
+ 	u32 timeout;
+ 	/* Number of elements (vs timeout) */
+ 	u32 elements;
++	/* Size of the dynamic extensions (vs timeout) */
++	size_t ext_size;
+ 	/* Element data size */
+ 	size_t dsize;
+ 	/* Offsets to extensions in elements */
+@@ -268,7 +272,7 @@ ip_set_ext_destroy(struct ip_set *set, void *data)
+ 	 */
+ 	if (SET_WITH_COMMENT(set))
+ 		ip_set_extensions[IPSET_EXT_ID_COMMENT].destroy(
+-			ext_comment(data, set));
++			set, ext_comment(data, set));
+ }
+ 
+ static inline int
+diff --git a/include/linux/netfilter/ipset/ip_set_comment.h b/include/linux/netfilter/ipset/ip_set_comment.h
+index 5444b1bbe656..8e2bab1e8e90 100644
+--- a/include/linux/netfilter/ipset/ip_set_comment.h
++++ b/include/linux/netfilter/ipset/ip_set_comment.h
+@@ -20,13 +20,14 @@ ip_set_comment_uget(struct nlattr *tb)
+  * The kadt functions don't use the comment extensions in any way.
+  */
+ static inline void
+-ip_set_init_comment(struct ip_set_comment *comment,
++ip_set_init_comment(struct ip_set *set, struct ip_set_comment *comment,
+ 		    const struct ip_set_ext *ext)
+ {
+ 	struct ip_set_comment_rcu *c = rcu_dereference_protected(comment->c, 1);
+ 	size_t len = ext->comment ? strlen(ext->comment) : 0;
+ 
+ 	if (unlikely(c)) {
++		set->ext_size -= sizeof(*c) + strlen(c->str) + 1;
+ 		kfree_rcu(c, rcu);
+ 		rcu_assign_pointer(comment->c, NULL);
+ 	}
+@@ -38,6 +39,7 @@ ip_set_init_comment(struct ip_set_comment *comment,
+ 	if (unlikely(!c))
+ 		return;
+ 	strlcpy(c->str, ext->comment, len + 1);
++	set->ext_size += sizeof(*c) + strlen(c->str) + 1;
+ 	rcu_assign_pointer(comment->c, c);
+ }
+ 
+@@ -58,13 +60,14 @@ ip_set_put_comment(struct sk_buff *skb, const struct ip_set_comment *comment)
+  * of the set data anymore.
+  */
+ static inline void
+-ip_set_comment_free(struct ip_set_comment *comment)
++ip_set_comment_free(struct ip_set *set, struct ip_set_comment *comment)
+ {
+ 	struct ip_set_comment_rcu *c;
+ 
+ 	c = rcu_dereference_protected(comment->c, 1);
+ 	if (unlikely(!c))
+ 		return;
++	set->ext_size -= sizeof(*c) + strlen(c->str) + 1;
+ 	kfree_rcu(c, rcu);
+ 	rcu_assign_pointer(comment->c, NULL);
+ }
+diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
+index 1810d1c06e3d..f8ea26cafa30 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_gen.h
++++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
+@@ -84,6 +84,7 @@ mtype_flush(struct ip_set *set)
+ 		mtype_ext_cleanup(set);
+ 	memset(map->members, 0, map->memsize);
+ 	set->elements = 0;
++	set->ext_size = 0;
+ }
+ 
+ /* Calculate the actual memory size of the set data */
+@@ -99,7 +100,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
+ {
+ 	const struct mtype *map = set->data;
+ 	struct nlattr *nested;
+-	size_t memsize = mtype_memsize(map, set->dsize);
++	size_t memsize = mtype_memsize(map, set->dsize) + set->ext_size;
+ 
+ 	nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
+ 	if (!nested)
+@@ -173,7 +174,7 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 	if (SET_WITH_COUNTER(set))
+ 		ip_set_init_counter(ext_counter(x, set), ext);
+ 	if (SET_WITH_COMMENT(set))
+-		ip_set_init_comment(ext_comment(x, set), ext);
++		ip_set_init_comment(set, ext_comment(x, set), ext);
+ 	if (SET_WITH_SKBINFO(set))
+ 		ip_set_init_skbinfo(ext_skbinfo(x, set), ext);
+ 
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index bfacccff7196..23345d2d136a 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -324,7 +324,7 @@ ip_set_get_ipaddr6(struct nlattr *nla, union nf_inet_addr *ipaddr)
+ }
+ EXPORT_SYMBOL_GPL(ip_set_get_ipaddr6);
+ 
+-typedef void (*destroyer)(void *);
++typedef void (*destroyer)(struct ip_set *, void *);
+ /* ipset data extension types, in size order */
+ 
+ const struct ip_set_ext_type ip_set_extensions[] = {
 diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index de1d16fd4121..c600f6d9f15e 100644
+index 6e967f198d1e..0746405a1d14 100644
 --- a/net/netfilter/ipset/ip_set_hash_gen.h
 +++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -166,6 +166,18 @@ htable_bits(u32 hashsize)
- 
- #endif /* _IP_SET_HASH_GEN_H */
- 
-+#ifndef MTYPE
-+#error "MTYPE is not defined!"
-+#endif
-+
-+#ifndef HTYPE
-+#error "HTYPE is not defined!"
-+#endif
-+
-+#ifndef HOST_MASK
-+#error "HOST_MASK is not defined!"
-+#endif
-+
- /* Family dependent templates */
- 
- #undef ahash_data
-@@ -189,7 +201,6 @@ htable_bits(u32 hashsize)
- #undef mtype_same_set
- #undef mtype_kadt
- #undef mtype_uadt
--#undef mtype
- 
- #undef mtype_add
- #undef mtype_del
-@@ -205,6 +216,7 @@ htable_bits(u32 hashsize)
- #undef mtype_variant
- #undef mtype_data_match
- 
-+#undef htype
- #undef HKEY
- 
- #define mtype_data_equal	IPSET_TOKEN(MTYPE, _data_equal)
-@@ -231,7 +243,6 @@ htable_bits(u32 hashsize)
- #define mtype_same_set		IPSET_TOKEN(MTYPE, _same_set)
- #define mtype_kadt		IPSET_TOKEN(MTYPE, _kadt)
- #define mtype_uadt		IPSET_TOKEN(MTYPE, _uadt)
--#define mtype			MTYPE
- 
- #define mtype_add		IPSET_TOKEN(MTYPE, _add)
- #define mtype_del		IPSET_TOKEN(MTYPE, _del)
-@@ -247,18 +258,12 @@ htable_bits(u32 hashsize)
- #define mtype_variant		IPSET_TOKEN(MTYPE, _variant)
- #define mtype_data_match	IPSET_TOKEN(MTYPE, _data_match)
- 
--#ifndef MTYPE
--#error "MTYPE is not defined!"
--#endif
--
--#ifndef HOST_MASK
--#error "HOST_MASK is not defined!"
--#endif
--
- #ifndef HKEY_DATALEN
- #define HKEY_DATALEN		sizeof(struct mtype_elem)
- #endif
- 
-+#define htype			MTYPE
-+
- #define HKEY(data, initval, htable_bits)			\
- ({								\
- 	const u32 *__k = (const u32 *)data;			\
-@@ -269,33 +274,26 @@ htable_bits(u32 hashsize)
- 	jhash2(__k, __l, initval) & jhash_mask(htable_bits);	\
- })
- 
--#ifndef htype
--#ifndef HTYPE
--#error "HTYPE is not defined!"
--#endif /* HTYPE */
--#define htype			HTYPE
--
- /* The generic hash structure */
- struct htype {
- 	struct htable __rcu *table; /* the hash table */
-+	struct timer_list gc;	/* garbage collection when timeout enabled */
- 	u32 maxelem;		/* max elements in the hash */
- 	u32 initval;		/* random jhash init value */
- #ifdef IP_SET_HASH_WITH_MARKMASK
- 	u32 markmask;		/* markmask value for mark mask to store */
- #endif
--	struct timer_list gc;	/* garbage collection when timeout enabled */
--	struct mtype_elem next; /* temporary storage for uadd */
- #ifdef IP_SET_HASH_WITH_MULTI
- 	u8 ahash_max;		/* max elements in an array block */
- #endif
- #ifdef IP_SET_HASH_WITH_NETMASK
- 	u8 netmask;		/* netmask value for subnets to store */
- #endif
-+	struct mtype_elem next; /* temporary storage for uadd */
- #ifdef IP_SET_HASH_WITH_NETS
--	struct net_prefixes nets[0]; /* book-keeping of prefixes */
-+	struct net_prefixes nets[NLEN]; /* book-keeping of prefixes */
- #endif
- };
--#endif /* htype */
- 
- #ifdef IP_SET_HASH_WITH_NETS
- /* Network cidr size book keeping when the hash stores different
-@@ -348,13 +346,7 @@ mtype_del_cidr(struct htype *h, u8 cidr, u8 n)
+@@ -343,21 +343,13 @@ mtype_del_cidr(struct htype *h, u8 cidr, u8 nets_length, u8 n)
+ /* Calculate the actual memory size of the set data */
  static size_t
- mtype_ahash_memsize(const struct htype *h, const struct htable *t)
+ mtype_ahash_memsize(const struct htype *h, const struct htable *t,
+-		    u8 nets_length, size_t dsize)
++		    u8 nets_length)
  {
--	size_t memsize = sizeof(*h) + sizeof(*t);
--
--#ifdef IP_SET_HASH_WITH_NETS
--	memsize += sizeof(struct net_prefixes) * NLEN;
--#endif
--
--	return memsize;
-+	return sizeof(*h) + sizeof(*t);
- }
+-	u32 i;
+-	struct hbucket *n;
+ 	size_t memsize = sizeof(*h) + sizeof(*t);
  
- /* Get the ith element from the array block n */
-@@ -392,7 +384,7 @@ mtype_flush(struct ip_set *set)
- 		kfree_rcu(n, rcu);
- 	}
  #ifdef IP_SET_HASH_WITH_NETS
--	memset(h->nets, 0, sizeof(struct net_prefixes) * NLEN);
-+	memset(h->nets, 0, sizeof(h->nets));
+ 	memsize += sizeof(struct net_prefixes) * nets_length;
+ #endif
+-	for (i = 0; i < jhash_size(t->htable_bits); i++) {
+-		n = rcu_dereference_bh(hbucket(t, i));
+-		if (!n)
+-			continue;
+-		memsize += sizeof(struct hbucket) + n->size * dsize;
+-	}
+ 
+ 	return memsize;
+ }
+@@ -400,6 +392,7 @@ mtype_flush(struct ip_set *set)
+ 	memset(h->nets, 0, sizeof(struct net_prefixes) * NLEN(set->family));
  #endif
  	set->elements = 0;
- 	set->ext_size = 0;
-@@ -1290,9 +1282,6 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
- 		maxelem = ip_set_get_h32(tb[IPSET_ATTR_MAXELEM]);
- 
- 	hsize = sizeof(*h);
--#ifdef IP_SET_HASH_WITH_NETS
--	hsize += sizeof(struct net_prefixes) * NLEN;
--#endif
- 	h = kzalloc(hsize, GFP_KERNEL);
- 	if (!h)
- 		return -ENOMEM;
-diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
-index 9d6bf19f7b78..20bfbd315f61 100644
---- a/net/netfilter/ipset/ip_set_hash_ip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ip.c
-@@ -82,7 +82,7 @@ hash_ip4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 	      const struct xt_action_param *par,
- 	      enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_ip *h = set->data;
-+	const struct hash_ip4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ip4_elem e = { 0 };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-@@ -101,7 +101,7 @@ static int
- hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	      enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ip *h = set->data;
-+	const struct hash_ip4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ip4_elem e = { 0 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -199,7 +199,7 @@ hash_ip6_data_list(struct sk_buff *skb, const struct hash_ip6_elem *e)
++	set->ext_size = 0;
  }
  
- static inline void
--hash_ip6_data_next(struct hash_ip4_elem *next, const struct hash_ip6_elem *e)
-+hash_ip6_data_next(struct hash_ip6_elem *next, const struct hash_ip6_elem *e)
- {
+ /* Destroy the hashtable part of the set */
+@@ -531,6 +524,7 @@ mtype_expire(struct ip_set *set, struct htype *h, u8 nets_length, size_t dsize)
+ 				d++;
+ 			}
+ 			tmp->pos = d;
++			set->ext_size -= AHASH_INIT_SIZE * dsize;
+ 			rcu_assign_pointer(hbucket(t, i), tmp);
+ 			kfree_rcu(n, rcu);
+ 		}
+@@ -562,7 +556,7 @@ mtype_resize(struct ip_set *set, bool retried)
+ 	struct htype *h = set->data;
+ 	struct htable *t, *orig;
+ 	u8 htable_bits;
+-	size_t dsize = set->dsize;
++	size_t extsize, dsize = set->dsize;
+ #ifdef IP_SET_HASH_WITH_NETS
+ 	u8 flags;
+ 	struct mtype_elem *tmp;
+@@ -605,6 +599,7 @@ mtype_resize(struct ip_set *set, bool retried)
+ 	/* There can't be another parallel resizing, but dumping is possible */
+ 	atomic_set(&orig->ref, 1);
+ 	atomic_inc(&orig->uref);
++	extsize = 0;
+ 	pr_debug("attempt to resize set %s from %u to %u, t %p\n",
+ 		 set->name, orig->htable_bits, htable_bits, orig);
+ 	for (i = 0; i < jhash_size(orig->htable_bits); i++) {
+@@ -635,6 +630,7 @@ mtype_resize(struct ip_set *set, bool retried)
+ 					goto cleanup;
+ 				}
+ 				m->size = AHASH_INIT_SIZE;
++				extsize = sizeof(*m) + AHASH_INIT_SIZE * dsize;
+ 				RCU_INIT_POINTER(hbucket(t, key), m);
+ 			} else if (m->pos >= m->size) {
+ 				struct hbucket *ht;
+@@ -654,6 +650,7 @@ mtype_resize(struct ip_set *set, bool retried)
+ 				memcpy(ht, m, sizeof(struct hbucket) +
+ 					      m->size * dsize);
+ 				ht->size = m->size + AHASH_INIT_SIZE;
++				extsize += AHASH_INIT_SIZE * dsize;
+ 				kfree(m);
+ 				m = ht;
+ 				RCU_INIT_POINTER(hbucket(t, key), ht);
+@@ -667,6 +664,7 @@ mtype_resize(struct ip_set *set, bool retried)
+ 		}
+ 	}
+ 	rcu_assign_pointer(h->table, t);
++	set->ext_size = extsize;
+ 
+ 	spin_unlock_bh(&set->lock);
+ 
+@@ -740,6 +738,7 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 		if (!n)
+ 			return -ENOMEM;
+ 		n->size = AHASH_INIT_SIZE;
++		set->ext_size += sizeof(*n) + AHASH_INIT_SIZE * set->dsize;
+ 		goto copy_elem;
+ 	}
+ 	for (i = 0; i < n->pos; i++) {
+@@ -803,6 +802,7 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 		memcpy(n, old, sizeof(struct hbucket) +
+ 		       old->size * set->dsize);
+ 		n->size = old->size + AHASH_INIT_SIZE;
++		set->ext_size += AHASH_INIT_SIZE * set->dsize;
+ 	}
+ 
+ copy_elem:
+@@ -823,7 +823,7 @@ mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 	if (SET_WITH_COUNTER(set))
+ 		ip_set_init_counter(ext_counter(data, set), ext);
+ 	if (SET_WITH_COMMENT(set))
+-		ip_set_init_comment(ext_comment(data, set), ext);
++		ip_set_init_comment(set, ext_comment(data, set), ext);
+ 	if (SET_WITH_SKBINFO(set))
+ 		ip_set_init_skbinfo(ext_skbinfo(data, set), ext);
+ 	/* Must come last for the case when timed out entry is reused */
+@@ -895,6 +895,7 @@ mtype_del(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 				k++;
+ 		}
+ 		if (n->pos == 0 && k == 0) {
++			set->ext_size -= sizeof(*n) + n->size * dsize;
+ 			rcu_assign_pointer(hbucket(t, key), NULL);
+ 			kfree_rcu(n, rcu);
+ 		} else if (k >= AHASH_INIT_SIZE) {
+@@ -913,6 +914,7 @@ mtype_del(struct ip_set *set, void *value, const struct ip_set_ext *ext,
+ 				k++;
+ 			}
+ 			tmp->pos = k;
++			set->ext_size -= AHASH_INIT_SIZE * dsize;
+ 			rcu_assign_pointer(hbucket(t, key), tmp);
+ 			kfree_rcu(n, rcu);
+ 		}
+@@ -1061,7 +1063,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
+ 
+ 	rcu_read_lock_bh();
+ 	t = rcu_dereference_bh_nfnl(h->table);
+-	memsize = mtype_ahash_memsize(h, t, NLEN(set->family), set->dsize);
++	memsize = mtype_ahash_memsize(h, t, NLEN(set->family)) + set->ext_size;
+ 	htable_bits = t->htable_bits;
+ 	rcu_read_unlock_bh();
+ 
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index c45516695934..dede343a662b 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -228,7 +228,7 @@ list_set_init_extensions(struct ip_set *set, const struct ip_set_ext *ext,
+ 	if (SET_WITH_COUNTER(set))
+ 		ip_set_init_counter(ext_counter(e, set), ext);
+ 	if (SET_WITH_COMMENT(set))
+-		ip_set_init_comment(ext_comment(e, set), ext);
++		ip_set_init_comment(set, ext_comment(e, set), ext);
+ 	if (SET_WITH_SKBINFO(set))
+ 		ip_set_init_skbinfo(ext_skbinfo(e, set), ext);
+ 	/* Update timeout last */
+@@ -422,6 +422,7 @@ list_set_flush(struct ip_set *set)
+ 	list_for_each_entry_safe(e, n, &map->members, list)
+ 		list_set_del(set, e);
+ 	set->elements = 0;
++	set->ext_size = 0;
  }
  
-@@ -217,7 +217,7 @@ hash_ip6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 	      const struct xt_action_param *par,
- 	      enum ipset_adt adt, struct ip_set_adt_opt *opt)
+ static void
+@@ -467,7 +468,7 @@ list_set_head(struct ip_set *set, struct sk_buff *skb)
  {
--	const struct hash_ip *h = set->data;
-+	const struct hash_ip6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ip6_elem e = { { .all = { 0 } } };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-@@ -234,7 +234,7 @@ static int
- hash_ip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	      enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ip *h = set->data;
-+	const struct hash_ip6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ip6_elem e = { { .all = { 0 } } };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-diff --git a/net/netfilter/ipset/ip_set_hash_ipmark.c b/net/netfilter/ipset/ip_set_hash_ipmark.c
-index a0695a2ab585..b64cf14e8352 100644
---- a/net/netfilter/ipset/ip_set_hash_ipmark.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipmark.c
-@@ -85,7 +85,7 @@ hash_ipmark4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		  const struct xt_action_param *par,
- 		  enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_ipmark *h = set->data;
-+	const struct hash_ipmark4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipmark4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-@@ -101,7 +101,7 @@ static int
- hash_ipmark4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipmark *h = set->data;
-+	const struct hash_ipmark4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipmark4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -193,7 +193,7 @@ hash_ipmark6_data_list(struct sk_buff *skb,
- }
+ 	const struct list_set *map = set->data;
+ 	struct nlattr *nested;
+-	size_t memsize = list_set_memsize(map, set->dsize);
++	size_t memsize = list_set_memsize(map, set->dsize) + set->ext_size;
  
- static inline void
--hash_ipmark6_data_next(struct hash_ipmark4_elem *next,
-+hash_ipmark6_data_next(struct hash_ipmark6_elem *next,
- 		       const struct hash_ipmark6_elem *d)
- {
- }
-@@ -211,7 +211,7 @@ hash_ipmark6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		  const struct xt_action_param *par,
- 		  enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_ipmark *h = set->data;
-+	const struct hash_ipmark6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipmark6_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-@@ -227,7 +227,7 @@ static int
- hash_ipmark6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipmark *h = set->data;
-+	const struct hash_ipmark6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipmark6_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-diff --git a/net/netfilter/ipset/ip_set_hash_ipport.c b/net/netfilter/ipset/ip_set_hash_ipport.c
-index 9d84b3dff603..f438740e6c6a 100644
---- a/net/netfilter/ipset/ip_set_hash_ipport.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipport.c
-@@ -108,7 +108,7 @@ static int
- hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipport *h = set->data;
-+	const struct hash_ipport4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipport4_elem e = { .ip = 0 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -231,7 +231,7 @@ hash_ipport6_data_list(struct sk_buff *skb,
- }
- 
- static inline void
--hash_ipport6_data_next(struct hash_ipport4_elem *next,
-+hash_ipport6_data_next(struct hash_ipport6_elem *next,
- 		       const struct hash_ipport6_elem *d)
- {
- 	next->port = d->port;
-@@ -266,7 +266,7 @@ static int
- hash_ipport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipport *h = set->data;
-+	const struct hash_ipport6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipport6_elem e = { .ip = { .all = { 0 } } };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportip.c b/net/netfilter/ipset/ip_set_hash_ipportip.c
-index 215b7b942038..6215fb898c50 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportip.c
-@@ -111,7 +111,7 @@ static int
- hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		    enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipportip *h = set->data;
-+	const struct hash_ipportip4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportip4_elem e = { .ip = 0 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -241,7 +241,7 @@ hash_ipportip6_data_list(struct sk_buff *skb,
- }
- 
- static inline void
--hash_ipportip6_data_next(struct hash_ipportip4_elem *next,
-+hash_ipportip6_data_next(struct hash_ipportip6_elem *next,
- 			 const struct hash_ipportip6_elem *d)
- {
- 	next->port = d->port;
-@@ -277,7 +277,7 @@ static int
- hash_ipportip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		    enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipportip *h = set->data;
-+	const struct hash_ipportip6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportip6_elem e = {  .ip = { .all = { 0 } } };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-index 9ca719625ea3..5ab1b99a53c2 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-@@ -138,7 +138,7 @@ hash_ipportnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		     const struct xt_action_param *par,
- 		     enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_ipportnet *h = set->data;
-+	const struct hash_ipportnet4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportnet4_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-@@ -163,7 +163,7 @@ static int
- hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		     enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipportnet *h = set->data;
-+	const struct hash_ipportnet4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportnet4_elem e = { .cidr = HOST_MASK - 1 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -370,7 +370,7 @@ hash_ipportnet6_data_list(struct sk_buff *skb,
- }
- 
- static inline void
--hash_ipportnet6_data_next(struct hash_ipportnet4_elem *next,
-+hash_ipportnet6_data_next(struct hash_ipportnet6_elem *next,
- 			  const struct hash_ipportnet6_elem *d)
- {
- 	next->port = d->port;
-@@ -389,7 +389,7 @@ hash_ipportnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		     const struct xt_action_param *par,
- 		     enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_ipportnet *h = set->data;
-+	const struct hash_ipportnet6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportnet6_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-@@ -414,7 +414,7 @@ static int
- hash_ipportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		     enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_ipportnet *h = set->data;
-+	const struct hash_ipportnet6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportnet6_elem e = { .cidr = HOST_MASK - 1 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
-index 3e4bffdc1cc0..5d9e895452e7 100644
---- a/net/netfilter/ipset/ip_set_hash_net.c
-+++ b/net/netfilter/ipset/ip_set_hash_net.c
-@@ -117,7 +117,7 @@ hash_net4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 	       const struct xt_action_param *par,
- 	       enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_net *h = set->data;
-+	const struct hash_net4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_net4_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-@@ -139,7 +139,7 @@ static int
- hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	       enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_net *h = set->data;
-+	const struct hash_net4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_net4_elem e = { .cidr = HOST_MASK };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -268,7 +268,7 @@ hash_net6_data_list(struct sk_buff *skb, const struct hash_net6_elem *data)
- }
- 
- static inline void
--hash_net6_data_next(struct hash_net4_elem *next,
-+hash_net6_data_next(struct hash_net6_elem *next,
- 		    const struct hash_net6_elem *d)
- {
- }
-@@ -286,7 +286,7 @@ hash_net6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 	       const struct xt_action_param *par,
- 	       enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_net *h = set->data;
-+	const struct hash_net6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_net6_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index aa1a776613b9..44cf11939c91 100644
---- a/net/netfilter/ipset/ip_set_hash_netiface.c
-+++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -156,7 +156,7 @@ hash_netiface4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		    const struct xt_action_param *par,
- 		    enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	struct hash_netiface *h = set->data;
-+	struct hash_netiface4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netiface4_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-@@ -196,7 +196,7 @@ static int
- hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		    enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	struct hash_netiface *h = set->data;
-+	struct hash_netiface4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netiface4_elem e = { .cidr = HOST_MASK, .elem = 1 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -348,7 +348,7 @@ hash_netiface6_data_list(struct sk_buff *skb,
- }
- 
- static inline void
--hash_netiface6_data_next(struct hash_netiface4_elem *next,
-+hash_netiface6_data_next(struct hash_netiface6_elem *next,
- 			 const struct hash_netiface6_elem *d)
- {
- }
-@@ -367,7 +367,7 @@ hash_netiface6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		    const struct xt_action_param *par,
- 		    enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	struct hash_netiface *h = set->data;
-+	struct hash_netiface6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netiface6_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
-index a93dfebffa81..db614e13b193 100644
---- a/net/netfilter/ipset/ip_set_hash_netnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netnet.c
-@@ -143,7 +143,7 @@ hash_netnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		  const struct xt_action_param *par,
- 		  enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_netnet *h = set->data;
-+	const struct hash_netnet4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netnet4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-@@ -165,7 +165,7 @@ static int
- hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_netnet *h = set->data;
-+	const struct hash_netnet4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netnet4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -352,7 +352,7 @@ hash_netnet6_data_list(struct sk_buff *skb,
- }
- 
- static inline void
--hash_netnet6_data_next(struct hash_netnet4_elem *next,
-+hash_netnet6_data_next(struct hash_netnet6_elem *next,
- 		       const struct hash_netnet6_elem *d)
- {
- }
-@@ -377,7 +377,7 @@ hash_netnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		  const struct xt_action_param *par,
- 		  enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_netnet *h = set->data;
-+	const struct hash_netnet6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netnet6_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
-index 731813e0f08c..54b64b6cd0cd 100644
---- a/net/netfilter/ipset/ip_set_hash_netport.c
-+++ b/net/netfilter/ipset/ip_set_hash_netport.c
-@@ -133,7 +133,7 @@ hash_netport4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		   const struct xt_action_param *par,
- 		   enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_netport *h = set->data;
-+	const struct hash_netport4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netport4_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-@@ -157,7 +157,7 @@ static int
- hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		   enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_netport *h = set->data;
-+	const struct hash_netport4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netport4_elem e = { .cidr = HOST_MASK - 1 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -329,7 +329,7 @@ hash_netport6_data_list(struct sk_buff *skb,
- }
- 
- static inline void
--hash_netport6_data_next(struct hash_netport4_elem *next,
-+hash_netport6_data_next(struct hash_netport6_elem *next,
- 			const struct hash_netport6_elem *d)
- {
- 	next->port = d->port;
-@@ -348,7 +348,7 @@ hash_netport6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		   const struct xt_action_param *par,
- 		   enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_netport *h = set->data;
-+	const struct hash_netport6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netport6_elem e = {
- 		.cidr = INIT_CIDR(h->nets[0].cidr[0], HOST_MASK),
-@@ -372,7 +372,7 @@ static int
- hash_netport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		   enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_netport *h = set->data;
-+	const struct hash_netport6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netport6_elem e = { .cidr = HOST_MASK  - 1 };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
-index 9a14c237830f..aff846960ac4 100644
---- a/net/netfilter/ipset/ip_set_hash_netportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
-@@ -154,7 +154,7 @@ hash_netportnet4_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		      const struct xt_action_param *par,
- 		      enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_netportnet *h = set->data;
-+	const struct hash_netportnet4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netportnet4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-@@ -180,7 +180,7 @@ static int
- hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		      enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_netportnet *h = set->data;
-+	const struct hash_netportnet4 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netportnet4_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
-@@ -406,7 +406,7 @@ hash_netportnet6_data_list(struct sk_buff *skb,
- }
- 
- static inline void
--hash_netportnet6_data_next(struct hash_netportnet4_elem *next,
-+hash_netportnet6_data_next(struct hash_netportnet6_elem *next,
- 			   const struct hash_netportnet6_elem *d)
- {
- 	next->port = d->port;
-@@ -432,7 +432,7 @@ hash_netportnet6_kadt(struct ip_set *set, const struct sk_buff *skb,
- 		      const struct xt_action_param *par,
- 		      enum ipset_adt adt, struct ip_set_adt_opt *opt)
- {
--	const struct hash_netportnet *h = set->data;
-+	const struct hash_netportnet6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netportnet6_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
-@@ -458,7 +458,7 @@ static int
- hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		      enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
--	const struct hash_netportnet *h = set->data;
-+	const struct hash_netportnet6 *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_netportnet6_elem e = { };
- 	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
+ 	nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
+ 	if (!nested)
 -- 
 2.1.4
