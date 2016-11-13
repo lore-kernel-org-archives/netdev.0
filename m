@@ -1,32 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the
- netfilter tree
-Date: Sat, 12 Nov 2016 23:43:00 -0500 (EST)
-Message-ID: <20161112.234300.1975552998082760798.davem@davemloft.net>
-References: <20161110105633.31ebdc76@canb.auug.org.au>
-        <20161110003117.GA4285@salvia>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, xiyou.wangcong@gmail.com,
-        johannes.berg@intel.com
-To: pablo@netfilter.org
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Gigabit ethernet driver for Alacritechs SLIC devices
+Date: Sun, 13 Nov 2016 05:47:31 +0100
+Message-ID: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
+Cc: devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
+        gregkh@linuxfoundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161110003117.GA4285@salvia>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 10 Nov 2016 01:31:17 +0100
+Hi,
 
-> I think I cannot help to address this conflict myself.
-> 
-> 8fbfef7f505b is in my nf tree, while 489111e5c25b is in net-next. So
-> you will hit this conflict by when you pull net into net-next.
-> 
-> So please keep this patch from Stephen to resolve the conflict in your
-> radar to solve this.
+this is a rework of the slicoss gigabit ethernet driver from Alacritech 
+that is currently part of the staging area. The driver is supposed to 
+support Mojave, Oasis and Kalahari cards, for both copper and fiber.
 
-I will, thank you.
+If this code is accepted the staging version can be removed (as Greg 
+told me by email, he would do this himself so this is not part of these
+patches).
+
+The driver is tested on a SEN2104ET card (4 Port PCIe copper).
+
+Regards,
+Lino
