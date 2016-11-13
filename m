@@ -1,123 +1,101 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 22/39] netfilter: ipset: Separate memsize calculation code into dedicated function
-Date: Sun, 13 Nov 2016 23:25:16 +0100
-Message-ID: <1479075933-4491-23-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/39] netfilter: handle NF_REPEAT from nf_conntrack_in()
+Date: Sun, 13 Nov 2016 23:25:04 +0100
+Message-ID: <1479075933-4491-11-git-send-email-pablo@netfilter.org>
 References: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:47690 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:47676 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965102AbcKMW0T (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 13 Nov 2016 17:26:19 -0500
+        id S965108AbcKMW0U (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Nov 2016 17:26:20 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 42F42C0B2C
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:18 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id 55FE2A7E9E
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:08 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3545ADA85F
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:18 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 47923DA86E
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:08 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 28A03DA860
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:16 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 590DADA85F
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:06 +0100 (CET)
 In-Reply-To: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+NF_REPEAT is only needed from nf_conntrack_in() under a very specific
+case required by the TCP protocol tracker, we can handle this case
+without returning to the core hook path. Handling of NF_REPEAT from the
+nf_reinject() is left untouched.
 
-Hash types already has it's memsize calculation code in separate
-functions. Clean up and do the same for *bitmap* and *list* sets.
-
-Ported from a patch proposed by Sergey Popovich <popovich_sergei@mail.ua>.
-
-Suggested-by: Sergey Popovich <popovich_sergei@mail.ua>
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_bitmap_gen.h | 11 ++++++++++-
- net/netfilter/ipset/ip_set_list_set.c   | 23 +++++++++++++++++------
- 2 files changed, 27 insertions(+), 7 deletions(-)
+ net/netfilter/core.c              |  2 --
+ net/netfilter/nf_conntrack_core.c | 11 ++++++-----
+ net/openvswitch/conntrack.c       |  8 ++------
+ 3 files changed, 8 insertions(+), 13 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-index 2e8e7e5fb4a6..4f07b90f8ef4 100644
---- a/net/netfilter/ipset/ip_set_bitmap_gen.h
-+++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-@@ -22,6 +22,7 @@
- #define mtype_kadt		IPSET_TOKEN(MTYPE, _kadt)
- #define mtype_uadt		IPSET_TOKEN(MTYPE, _uadt)
- #define mtype_destroy		IPSET_TOKEN(MTYPE, _destroy)
-+#define mtype_memsize		IPSET_TOKEN(MTYPE, _memsize)
- #define mtype_flush		IPSET_TOKEN(MTYPE, _flush)
- #define mtype_head		IPSET_TOKEN(MTYPE, _head)
- #define mtype_same_set		IPSET_TOKEN(MTYPE, _same_set)
-@@ -84,12 +85,20 @@ mtype_flush(struct ip_set *set)
- 	memset(map->members, 0, map->memsize);
- }
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index bd9272eeccb5..de30e08d58f2 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -322,8 +322,6 @@ int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state,
+ 			if (ret == 0)
+ 				ret = -EPERM;
+ 			return ret;
+-		case NF_REPEAT:
+-			continue;
+ 		case NF_QUEUE:
+ 			ret = nf_queue(skb, state, &entry, verdict);
+ 			if (ret == 1 && entry)
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index df2f5a3901df..de4b8a75f30b 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1305,7 +1305,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 		if (skb->nfct)
+ 			goto out;
+ 	}
+-
++repeat:
+ 	ct = resolve_normal_ct(net, tmpl, skb, dataoff, pf, protonum,
+ 			       l3proto, l4proto, &set_reply, &ctinfo);
+ 	if (!ct) {
+@@ -1345,11 +1345,12 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 		nf_conntrack_event_cache(IPCT_REPLY, ct);
+ out:
+ 	if (tmpl) {
+-		/* Special case: we have to repeat this hook, assign the
+-		 * template again to this packet. We assume that this packet
+-		 * has no conntrack assigned. This is used by nf_ct_tcp. */
++		/* Special case: TCP tracker reports an attempt to reopen a
++		 * closed/aborted connection. We have to go back and create a
++		 * fresh conntrack.
++		 */
+ 		if (ret == NF_REPEAT)
+-			skb->nfct = (struct nf_conntrack *)tmpl;
++			goto repeat;
+ 		else
+ 			nf_ct_put(tmpl);
+ 	}
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 31045ef44a82..9b8a028b7dad 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -725,12 +725,8 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			skb->nfctinfo = IP_CT_NEW;
+ 		}
  
-+/* Calculate the actual memory size of the set data */
-+static size_t
-+mtype_memsize(const struct mtype *map, size_t dsize)
-+{
-+	return sizeof(*map) + map->memsize +
-+	       map->elements * dsize;
-+}
-+
- static int
- mtype_head(struct ip_set *set, struct sk_buff *skb)
- {
- 	const struct mtype *map = set->data;
- 	struct nlattr *nested;
--	size_t memsize = sizeof(*map) + map->memsize;
-+	size_t memsize = mtype_memsize(map, set->dsize);
+-		/* Repeat if requested, see nf_iterate(). */
+-		do {
+-			err = nf_conntrack_in(net, info->family,
+-					      NF_INET_PRE_ROUTING, skb);
+-		} while (err == NF_REPEAT);
+-
++		err = nf_conntrack_in(net, info->family,
++				      NF_INET_PRE_ROUTING, skb);
+ 		if (err != NF_ACCEPT)
+ 			return -ENOENT;
  
- 	nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
- 	if (!nested)
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index a2a89e4e0a14..462b0b1870e2 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -441,12 +441,12 @@ list_set_destroy(struct ip_set *set)
- 	set->data = NULL;
- }
- 
--static int
--list_set_head(struct ip_set *set, struct sk_buff *skb)
-+/* Calculate the actual memory size of the set data */
-+static size_t
-+list_set_memsize(const struct list_set *map, size_t dsize)
- {
--	const struct list_set *map = set->data;
--	struct nlattr *nested;
- 	struct set_elem *e;
-+	size_t memsize;
- 	u32 n = 0;
- 
- 	rcu_read_lock();
-@@ -454,13 +454,24 @@ list_set_head(struct ip_set *set, struct sk_buff *skb)
- 		n++;
- 	rcu_read_unlock();
- 
-+	memsize = sizeof(*map) + n * dsize;
-+
-+	return memsize;
-+}
-+
-+static int
-+list_set_head(struct ip_set *set, struct sk_buff *skb)
-+{
-+	const struct list_set *map = set->data;
-+	struct nlattr *nested;
-+	size_t memsize = list_set_memsize(map, set->dsize);
-+
- 	nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
- 	if (!nested)
- 		goto nla_put_failure;
- 	if (nla_put_net32(skb, IPSET_ATTR_SIZE, htonl(map->size)) ||
- 	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref)) ||
--	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE,
--			  htonl(sizeof(*map) + n * set->dsize)))
-+	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE, htonl(memsize)))
- 		goto nla_put_failure;
- 	if (unlikely(ip_set_put_flags(skb, set)))
- 		goto nla_put_failure;
 -- 
 2.1.4
