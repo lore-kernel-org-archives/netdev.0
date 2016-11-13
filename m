@@ -1,50 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "include/uapi/linux/atm_zatm.h: include
- linux/time.h"
-Date: Sun, 13 Nov 2016 12:35:54 -0500 (EST)
-Message-ID: <20161113.123554.597599565068798539.davem@davemloft.net>
-References: <20161111000839.23267-1-vapier@gentoo.org>
+Subject: Re: [patch net 0/2] mlxsw: Couple of fixes
+Date: Sun, 13 Nov 2016 12:48:00 -0500 (EST)
+Message-ID: <20161113.124800.1447876233570174197.davem@davemloft.net>
+References: <1478859642-2918-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, mikko.rapeli@iki.fi
-To: vapier@gentoo.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yotamg@mellanox.com, arkadis@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44462 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44498 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934769AbcKMRqv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 12:46:51 -0500
-In-Reply-To: <20161111000839.23267-1-vapier@gentoo.org>
+        with ESMTP id S1753413AbcKMRsD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 12:48:03 -0500
+In-Reply-To: <1478859642-2918-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWlrZSBGcnlzaW5nZXIgPHZhcGllckBnZW50b28ub3JnPg0KRGF0ZTogVGh1LCAxMCBO
-b3YgMjAxNiAxOTowODozOSAtMDUwMA0KDQo+IFRoaXMgcmV2ZXJ0cyBjb21taXQgY2YwMDcxM2E2
-NTVkICgiaW5jbHVkZS91YXBpL2xpbnV4L2F0bV96YXRtLmg6IGluY2x1ZGUNCj4gbGludXgvdGlt
-ZS5oIikuDQo+IA0KPiBUaGlzIGF0dGVtcHRlZCB0byBmaXggdXNlcnNwYWNlIGJyZWFrYWdlIHRo
-YXQgbm8gbG9uZ2VyIGV4aXN0ZWQgd2hlbg0KPiB0aGUgcGF0Y2ggd2FzIG1lcmdlZC4gIEFsbW9z
-dCBvbmUgeWVhciBlYXJsaWVyLCBjb21taXQgNzBiYTA3YjY3NWI1DQo+ICgiYXRtOiByZW1vdmUg
-J3N0cnVjdCB6YXRtX3RfaGlzdCciKSBkZWxldGVkIHRoZSBzdHJ1Y3QgaW4gcXVlc3Rpb24uDQo+
-IA0KPiBBZnRlciB0aGlzIHBhdGNoIHdhcyBtZXJnZWQsIHdlIG5vdyBoYXZlIHRvIGRlYWwgd2l0
-aCBwZW9wbGUgYmVpbmcNCj4gdW5hYmxlIHRvIGluY2x1ZGUgdGhpcyBoZWFkZXIgaW4gY29uanVu
-Y3Rpb24gd2l0aCBzdGFuZGFyZCBDIGxpYnJhcnkNCj4gaGVhZGVycyBsaWtlIHN0ZGxpYi5oICh3
-aGljaCBsaW51eC1hdG0gZG9lcykuICBFeGFtcGxlIGJyZWFrYWdlOg0KPiB4ODZfNjQtcGMtbGlu
-dXgtZ251LWdjYyAtREhBVkVfQ09ORklHX0ggLUkuIC1JLi4vLi4gLUkuLy4uL3EyOTMxIC1JLi8u
-Li9zYWFsIFwNCj4gCS1JLiAgLURDUFBGTEFHU19URVNUICAtSS4uLy4uL3NyYy9pbmNsdWRlIC1P
-MiAtbWFyY2g9bmF0aXZlIC1waXBlIC1nIFwNCj4gCS1mcmVjb3JkLWdjYy1zd2l0Y2hlcyAtZnJl
-cG9ydC1idWcgLVdpbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbiBcDQo+IAktV25vbm51bGwg
-LVdzdHJpY3QtYWxpYXNpbmcgLVdwYXJlbnRoZXNlcyAtV2FycmF5LWJvdW5kcyBcDQo+IAktV2Zy
-ZWUtbm9uaGVhcC1vYmplY3QgLVdyZXR1cm4tbG9jYWwtYWRkciAtZm5vLXN0cmljdC1hbGlhc2lu
-ZyAtV2FsbCBcDQo+IAktV3NoYWRvdyAtV3BvaW50ZXItYXJpdGggLVd3cml0ZS1zdHJpbmdzIC1X
-c3RyaWN0LXByb3RvdHlwZXMgLWMgem50dW5lLmMNCj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC91
-c3IvaW5jbHVkZS9saW51eC9hdG1femF0bS5oOjE3OjAsDQo+ICAgICAgICAgICAgICAgICAgZnJv
-bSB6bnR1bmUuYzoxNzoNCj4gL3Vzci9pbmNsdWRlL2xpbnV4L3RpbWUuaDo5Ojg6IGVycm9yOiBy
-ZWRlZmluaXRpb24gb2YgoXN0cnVjdCB0aW1lc3BlY6INCj4gIHN0cnVjdCB0aW1lc3BlYyB7DQo+
-ICAgICAgICAgXg0KPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20gL3Vzci9pbmNsdWRlL3N5cy9zZWxl
-Y3QuaDo0MzowLA0KPiAgICAgICAgICAgICAgICAgIGZyb20gL3Vzci9pbmNsdWRlL3N5cy90eXBl
-cy5oOjIxOSwNCj4gICAgICAgICAgICAgICAgICBmcm9tIC91c3IvaW5jbHVkZS9zdGRsaWIuaDoz
-MTQsDQo+ICAgICAgICAgICAgICAgICAgZnJvbSB6bnR1bmUuYzo5Og0KPiAvdXNyL2luY2x1ZGUv
-dGltZS5oOjEyMDo4OiBub3RlOiBvcmlnaW5hbGx5IGRlZmluZWQgaGVyZQ0KPiAgc3RydWN0IHRp
-bWVzcGVjDQo+ICAgICAgICAgXg0KPiANCj4gU2lnbmVkLW9mZi1ieTogTWlrZSBGcnlzaW5nZXIg
-PHZhcGllckBnZW50b28ub3JnPg0KDQpBcHBsaWVkIGFuZCBxdWV1ZWQgdXAgZm9yIC1zdGFibGUs
-IHRoYW5rcy4NCg==
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 11 Nov 2016 11:20:40 +0100
+
+> Please, queue-up both for stable. Thanks!
+
+Series applied and queued up for -stable, thanks.
