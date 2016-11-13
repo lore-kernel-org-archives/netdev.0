@@ -1,46 +1,58 @@
-From: =?UTF-8?B?QW5kcsOp?= Roth <neolynx@gmail.com>
-Subject: Re: stmmac/RTL8211F/Meson GXBB: TX throughput problems
-Date: Sun, 13 Nov 2016 20:20:20 +0100
-Message-ID: <20161113202020.1acf2e1e@gmail.com>
-References: <CAFBinCALSL_-izJ2tEsAjevAw90kGNTrQ3na3D1YV8f1dS1=Xg@mail.gmail.com>
-        <ff6f3501-fbd5-3e79-dcc1-549406a5144b@st.com>
-        <CAFBinCD42A_SqQz8GM-H+A32dMELknAytHuJ5T2YgZ3BrMKA3A@mail.gmail.com>
-        <20160917232312.1e30d425@gmail.com>
-        <d59f6e2c-15ff-779d-da2f-8eb5f5a535a6@st.com>
-        <CAFBinCD_-KjVa70iOhBSGaXZc9uKy2m4d2yVr-AfLiV7F=3EqQ@mail.gmail.com>
-        <1478190980.6632.26.camel@baylibre.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Debugging Ethernet issues
+Date: Sun, 13 Nov 2016 20:51:46 +0100
+Message-ID: <5828C452.6050808@free.fr>
+References: <5827AD4A.7010908@free.fr> <20161113030919.GA2892@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Johnson Leung <r58129@freescale.com>, netdev@vger.kernel.org,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        linux-amlogic@lists.infradead.org
-To: Jerome Brunet <jbrunet@baylibre.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Mans Rullgard <mans@mansr.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Zach Brown <zach.brown@ni.com>,
+        Shaohui Xie <shaohui.xie@nxp.com>,
+        Tim Beale <tim.beale@alliedtelesis.co.nz>,
+        Brian Hill <brian@houston-radar.com>,
+        Vince Bridgers <vbridgers2013@gmail.com>,
+        Balakumaran Kannan <kumaran.4353@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sebastian Frias <sf84@laposte.net>,
+        Kirill Kapranov <kapranoff@inbox.ru>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35414 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932504AbcKMTUY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 14:20:24 -0500
-Received: by mail-wm0-f66.google.com with SMTP id a20so9956186wme.2
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 11:20:23 -0800 (PST)
-In-Reply-To: <1478190980.6632.26.camel@baylibre.com>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:59912 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934302AbcKMTw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Nov 2016 14:52:29 -0500
+In-Reply-To: <20161113030919.GA2892@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 13/11/2016 04:09, Andrew Lunn wrote:
 
-Hi all,
+> Mason wrote:
+>
+>> When connected to a Gigabit switch
+>> 3.4 negotiates a LAN DHCP setup instantly
+>> 4.7 requires over 5 seconds to do so
+> 
+> When you run tcpdump on the DHCP server, are you noticing the first
+> request is missing?
+> 
+> What can happen is the dhclient gets started immediately and sends out
+> its first request before auto-negotiation has finished. So this first packet
+> gets lost. The retransmit after a few seconds is then successful.
 
-> To everybody having similar issue with their OdroidC2, could you try
-> the attached patch and let us know if it changes anything for you ?
+I will run tcpdump on the server as I run udhcpc on the client
+for Linux 3.4 vs 4.7
 
-I can confirm that this patch removes the problem, I have now constant
-~300Mb/s in both directions without any issue ! :)
+Do you know what would make auto-negotiation fail at 100 Mbps
+on 4.7? (whereas it succeeds on 3.4)
 
-I used the v4.10/integ branch, which shows the problem without applying
-this patch.=20
+(Thinking out loud) If the problem were in auto-negotiation,
+then if should work if I hard-code speed and duplex using
+ethtool, right? (IIRC, hard-coding doesn't help.)
 
-Thanks for your work,
-
- Andr=C3=A9=20
+Regards.
