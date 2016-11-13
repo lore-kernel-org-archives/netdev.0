@@ -1,32 +1,34 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: x_tables: simplify IS_ERR_OR_NULL to NULL test
-Date: Sun, 13 Nov 2016 22:27:07 +0100
-Message-ID: <20161113212707.GA30418@salvia>
-References: <1478867558-21650-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: stmmac: Add support for ethtool::nway_reset
+Date: Sun, 13 Nov 2016 13:35:04 -0800
+Message-ID: <680b3968-5cdc-2229-fb8d-e9e75f87809a@gmail.com>
+References: <20161113212444.3777-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, coreteam@netfilter.org,
-        netfilter-devel@vger.kernel.org,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        James Morris <jmorris@namei.org>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Patrick McHardy <kaber@trash.net>,
-        christophe.jaillet@wanadoo.fr
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1478867558-21650-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        open list <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:32768 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934987AbcKMVfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 16:35:07 -0500
+In-Reply-To: <20161113212444.3777-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 11, 2016 at 01:32:38PM +0100, Julia Lawall wrote:
-> Since commit 7926dbfa4bc1 ("netfilter: don't use
-> mutex_lock_interruptible()"), the function xt_find_table_lock can only
-> return NULL on an error.  Simplify the call sites and update the
-> comment before the function.
+Le 13/11/2016 à 13:24, Florian Fainelli a écrit :
+> If we have a PHY device, just invoke genphy_restart_aneg() to restart
+> auto-negotiation.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied, thanks Julia!
+David, please drop this patch for now, since I have another one pending
+which is going to touch the net_device/phydev interaction, this one also
+causes a build warning since priv is not used.
+
+Thank you!
+-- 
+Florian
