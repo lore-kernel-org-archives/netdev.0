@@ -1,243 +1,80 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/39] netfilter: remove hook_entries field from nf_hook_state
-Date: Sun, 13 Nov 2016 23:25:02 +0100
-Message-ID: <1479075933-4491-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/39] udp: provide udp{4,6}_lib_lookup for nf_socket_ipv{4,6}
+Date: Sun, 13 Nov 2016 23:25:08 +0100
+Message-ID: <1479075933-4491-15-git-send-email-pablo@netfilter.org>
 References: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:47698 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S964978AbcKMW0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Nov 2016 17:26:13 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id EC32BB497D
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id DCF1ADA851
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9B808DA80B
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 23:26:09 +0100 (CET)
 In-Reply-To: <1479075933-4491-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This field is only useful for nf_queue, so store it in the
-nf_queue_entry structure instead, away from the core path. Pass
-hook_head to nf_hook_slow().
+From: Arnd Bergmann <arnd@arndb.de>
 
-Since we always have a valid entry on the first iteration in
-nf_iterate(), we can use 'do { ... } while (entry)' loop instead.
+Since commit ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
+the udp6_lib_lookup and udp4_lib_lookup functions are only
+provided when it is actually possible to call them.
 
+However, moving the callers now caused a link error:
+
+net/built-in.o: In function `nf_sk_lookup_slow_v6':
+(.text+0x131a39): undefined reference to `udp6_lib_lookup'
+net/ipv4/netfilter/nf_socket_ipv4.o: In function `nf_sk_lookup_slow_v4':
+nf_socket_ipv4.c:(.text.nf_sk_lookup_slow_v4+0x114): undefined reference to `udp4_lib_lookup'
+
+This extends the #ifdef so we also provide the functions when
+CONFIG_NF_SOCKET_IPV4 or CONFIG_NF_SOCKET_IPV6, respectively
+are set.
+
+Fixes: 8db4c5be88f6 ("netfilter: move socket lookup infrastructure to nf_socket_ipv{4,6}.c")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter.h             | 10 ++++------
- include/linux/netfilter_ingress.h     |  4 ++--
- include/net/netfilter/nf_queue.h      |  1 +
- net/bridge/br_netfilter_hooks.c       |  4 ++--
- net/bridge/netfilter/ebtable_broute.c |  2 +-
- net/netfilter/core.c                  |  9 ++++-----
- net/netfilter/nf_queue.c              | 13 +++++--------
- net/netfilter/nfnetlink_queue.c       |  2 +-
- 8 files changed, 20 insertions(+), 25 deletions(-)
+ net/ipv4/udp.c | 3 ++-
+ net/ipv6/udp.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index e0d000f6c9bf..69230140215b 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -54,7 +54,6 @@ struct nf_hook_state {
- 	struct net_device *out;
- 	struct sock *sk;
- 	struct net *net;
--	struct nf_hook_entry __rcu *hook_entries;
- 	int (*okfn)(struct net *, struct sock *, struct sk_buff *);
- };
- 
-@@ -81,7 +80,6 @@ struct nf_hook_entry {
- };
- 
- static inline void nf_hook_state_init(struct nf_hook_state *p,
--				      struct nf_hook_entry *hook_entry,
- 				      unsigned int hook,
- 				      u_int8_t pf,
- 				      struct net_device *indev,
-@@ -96,7 +94,6 @@ static inline void nf_hook_state_init(struct nf_hook_state *p,
- 	p->out = outdev;
- 	p->sk = sk;
- 	p->net = net;
--	RCU_INIT_POINTER(p->hook_entries, hook_entry);
- 	p->okfn = okfn;
- }
- 
-@@ -150,7 +147,8 @@ void nf_unregister_sockopt(struct nf_sockopt_ops *reg);
- extern struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
- #endif
- 
--int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state);
-+int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state,
-+		 struct nf_hook_entry *entry);
- 
- /**
-  *	nf_hook - call a netfilter hook
-@@ -179,10 +177,10 @@ static inline int nf_hook(u_int8_t pf, unsigned int hook, struct net *net,
- 	if (hook_head) {
- 		struct nf_hook_state state;
- 
--		nf_hook_state_init(&state, hook_head, hook, pf, indev, outdev,
-+		nf_hook_state_init(&state, hook, pf, indev, outdev,
- 				   sk, net, okfn);
- 
--		ret = nf_hook_slow(skb, &state);
-+		ret = nf_hook_slow(skb, &state, hook_head);
- 	}
- 	rcu_read_unlock();
- 
-diff --git a/include/linux/netfilter_ingress.h b/include/linux/netfilter_ingress.h
-index fd44e4131710..2dc3b49b804a 100644
---- a/include/linux/netfilter_ingress.h
-+++ b/include/linux/netfilter_ingress.h
-@@ -26,10 +26,10 @@ static inline int nf_hook_ingress(struct sk_buff *skb)
- 	if (unlikely(!e))
- 		return 0;
- 
--	nf_hook_state_init(&state, e, NF_NETDEV_INGRESS,
-+	nf_hook_state_init(&state, NF_NETDEV_INGRESS,
- 			   NFPROTO_NETDEV, skb->dev, NULL, NULL,
- 			   dev_net(skb->dev), NULL);
--	return nf_hook_slow(skb, &state);
-+	return nf_hook_slow(skb, &state, e);
- }
- 
- static inline void nf_hook_ingress_init(struct net_device *dev)
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index 2280cfe86c56..09948d10e38e 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -12,6 +12,7 @@ struct nf_queue_entry {
- 	unsigned int		id;
- 
- 	struct nf_hook_state	state;
-+	struct nf_hook_entry	*hook;
- 	u16			size; /* sizeof(entry) + saved route keys */
- 
- 	/* extra space to store route keys */
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index 7e3645fa6339..8155bd2a5138 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -1018,10 +1018,10 @@ int br_nf_hook_thresh(unsigned int hook, struct net *net,
- 
- 	/* We may already have this, but read-locks nest anyway */
- 	rcu_read_lock();
--	nf_hook_state_init(&state, elem, hook, NFPROTO_BRIDGE, indev, outdev,
-+	nf_hook_state_init(&state, hook, NFPROTO_BRIDGE, indev, outdev,
- 			   sk, net, okfn);
- 
--	ret = nf_hook_slow(skb, &state);
-+	ret = nf_hook_slow(skb, &state, elem);
- 	rcu_read_unlock();
- 	if (ret == 1)
- 		ret = okfn(net, sk, skb);
-diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
-index 599679e3498d..8fe36dc3aab2 100644
---- a/net/bridge/netfilter/ebtable_broute.c
-+++ b/net/bridge/netfilter/ebtable_broute.c
-@@ -53,7 +53,7 @@ static int ebt_broute(struct sk_buff *skb)
- 	struct nf_hook_state state;
- 	int ret;
- 
--	nf_hook_state_init(&state, NULL, NF_BR_BROUTING,
-+	nf_hook_state_init(&state, NF_BR_BROUTING,
- 			   NFPROTO_BRIDGE, skb->dev, NULL, NULL,
- 			   dev_net(skb->dev), NULL);
- 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 64623374bc5f..ebece48b8392 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -308,7 +308,7 @@ unsigned int nf_iterate(struct sk_buff *skb,
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 195992e0440d..395361b1398e 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -580,7 +580,8 @@ EXPORT_SYMBOL_GPL(udp4_lib_lookup_skb);
+  * Does increment socket refcount.
+  */
+ #if IS_ENABLED(CONFIG_NETFILTER_XT_MATCH_SOCKET) || \
+-    IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY)
++    IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY) || \
++    IS_ENABLED(CONFIG_NF_SOCKET_IPV4)
+ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 			     __be32 daddr, __be16 dport, int dif)
  {
- 	unsigned int verdict;
- 
--	while (*entryp) {
-+	do {
- repeat:
- 		verdict = (*entryp)->ops.hook((*entryp)->ops.priv, skb, state);
- 		if (verdict != NF_ACCEPT) {
-@@ -317,20 +317,19 @@ unsigned int nf_iterate(struct sk_buff *skb,
- 			goto repeat;
- 		}
- 		*entryp = rcu_dereference((*entryp)->next);
--	}
-+	} while (*entryp);
- 	return NF_ACCEPT;
- }
- 
- 
- /* Returns 1 if okfn() needs to be executed by the caller,
-  * -EPERM for NF_DROP, 0 otherwise.  Caller must hold rcu_read_lock. */
--int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state)
-+int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state,
-+		 struct nf_hook_entry *entry)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index a7700bbf6788..3e232585b0ff 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -302,7 +302,8 @@ EXPORT_SYMBOL_GPL(udp6_lib_lookup_skb);
+  * Does increment socket refcount.
+  */
+ #if IS_ENABLED(CONFIG_NETFILTER_XT_MATCH_SOCKET) || \
+-    IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY)
++    IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY) || \
++    IS_ENABLED(CONFIG_NF_SOCKET_IPV6)
+ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be16 sport,
+ 			     const struct in6_addr *daddr, __be16 dport, int dif)
  {
--	struct nf_hook_entry *entry;
- 	unsigned int verdict;
- 	int ret;
- 
--	entry = rcu_dereference(state->hook_entries);
- next_hook:
- 	verdict = nf_iterate(skb, state, &entry);
- 	switch (verdict & NF_VERDICT_MASK) {
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index 0fb38966e5bf..2e39e38ae1c7 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -108,7 +108,7 @@ void nf_queue_nf_hook_drop(struct net *net, const struct nf_hook_entry *entry)
- }
- 
- static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
--		      unsigned int queuenum)
-+		      struct nf_hook_entry *hook_entry, unsigned int queuenum)
- {
- 	int status = -ENOENT;
- 	struct nf_queue_entry *entry = NULL;
-@@ -136,6 +136,7 @@ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
- 	*entry = (struct nf_queue_entry) {
- 		.skb	= skb,
- 		.state	= *state,
-+		.hook	= hook_entry,
- 		.size	= sizeof(*entry) + afinfo->route_key_size,
- 	};
- 
-@@ -163,8 +164,7 @@ int nf_queue(struct sk_buff *skb, struct nf_hook_state *state,
- 	struct nf_hook_entry *entry = *entryp;
- 	int ret;
- 
--	RCU_INIT_POINTER(state->hook_entries, entry);
--	ret = __nf_queue(skb, state, verdict >> NF_VERDICT_QBITS);
-+	ret = __nf_queue(skb, state, entry, verdict >> NF_VERDICT_QBITS);
- 	if (ret < 0) {
- 		if (ret == -ESRCH &&
- 		    (verdict & NF_VERDICT_FLAG_QUEUE_BYPASS)) {
-@@ -179,15 +179,12 @@ int nf_queue(struct sk_buff *skb, struct nf_hook_state *state,
- 
- void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- {
--	struct nf_hook_entry *hook_entry;
-+	struct nf_hook_entry *hook_entry = entry->hook;
-+	struct nf_hook_ops *elem = &hook_entry->ops;
- 	struct sk_buff *skb = entry->skb;
- 	const struct nf_afinfo *afinfo;
--	struct nf_hook_ops *elem;
- 	int err;
- 
--	hook_entry = rcu_dereference(entry->state.hook_entries);
--	elem = &hook_entry->ops;
--
- 	nf_queue_entry_release_refs(entry);
- 
- 	/* Continue traversal iff userspace said ok... */
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 5379f788a372..1e33115b399f 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -919,7 +919,7 @@ static struct notifier_block nfqnl_dev_notifier = {
- 
- static int nf_hook_cmp(struct nf_queue_entry *entry, unsigned long entry_ptr)
- {
--	return rcu_access_pointer(entry->state.hook_entries) ==
-+	return rcu_access_pointer(entry->hook) ==
- 		(struct nf_hook_entry *)entry_ptr;
- }
- 
 -- 
 2.1.4
-
