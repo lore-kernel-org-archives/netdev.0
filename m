@@ -1,47 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net 2/2] r8152: rx descriptor check
-Date: Sun, 13 Nov 2016 12:39:54 -0500 (EST)
-Message-ID: <20161113.123954.2134945576362221851.davem@davemloft.net>
-References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
-        <1394712342-15778-228-Taiwan-albertk@realtek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v7 03/10] dpaa_eth: add option to use one
+ buffer pool set
+Date: Sun, 13 Nov 2016 12:46:17 -0500 (EST)
+Message-ID: <20161113.124617.2176429700446266337.davem@davemloft.net>
+References: <1478852407-27420-1-git-send-email-madalin.bucur@nxp.com>
+        <1478852407-27420-4-git-send-email-madalin.bucur@nxp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org
-To: hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-228-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, oss@buserror.net,
+        ppc@mindchasers.com, joe@perches.com, pebolle@tiscali.nl,
+        joakim.tjernlund@infinera.com
+To: madalin.bucur@nxp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1478852407-27420-4-git-send-email-madalin.bucur@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 11 Nov 2016 15:15:41 +0800
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Date: Fri, 11 Nov 2016 10:20:00 +0200
 
-> For some platforms, the data in memory is not the same with the one
-> from the device. That is, the data of memory is unbelievable. The
-> check is used to find out this situation.
-> 
-> Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+> @@ -8,3 +8,12 @@ menuconfig FSL_DPAA_ETH
+>  	  supporting the Freescale QorIQ chips.
+>  	  Depends on Freescale Buffer Manager and Queue Manager
+>  	  driver and Frame Manager Driver.
+> +
+> +if FSL_DPAA_ETH
+> +config FSL_DPAA_ETH_COMMON_BPOOL
+> +	bool "Use a common buffer pool set for all the interfaces"
+> +	---help---
+> +	  The DPAA Ethernet netdevices require buffer pools for storing the buffers
+> +	  used by the FMan hardware for reception. One can use a single buffer pool
+> +	  set for all interfaces or a dedicated buffer pool set for each interface.
+> +endif # FSL_DPAA_ETH
 
-I'm all for adding consistency checks, but I disagree with proceeding
-in this manner for this.
+This in no way belongs in Kconfig.  If you want to support this,
+support it wit a run time configuration choice via ethtool flags
+or similar.  Do not use debugfs, do not use sysfs, do not use
+module options.
 
-If you add this patch now, there is a much smaller likelyhood that you
-will work with a high priority to figure out _why_ this is happening.
-
-For all we know this could be a platform bug in the DMA API for the
-systems in question.
-
-It could also be a bug elsewhere in the driver, either in setting up
-the descriptor DMA mappings or how the chip is programmed.
-
-Either way the true cause must be found before we start throwing
-changes like this into the driver.
-
-I'm not applying this series, sorry.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you put it in Kconfig, distributions will have to pick one way or
+another which means that users who want the other choice lose.  This
+never works.
