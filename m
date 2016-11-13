@@ -1,69 +1,92 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Debugging Ethernet issues
-Date: Sun, 13 Nov 2016 11:55:15 -0800
-Message-ID: <9d1f28a7-959b-fdde-3403-f6da5f521125@gmail.com>
-References: <5827AD4A.7010908@free.fr> <20161113030919.GA2892@lunn.ch>
- <5828C452.6050808@free.fr>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [net-next 1/2] net: ethernet: slicoss: add slicoss gigabit
+ ethernet driver
+Date: Sun, 13 Nov 2016 20:55:44 +0100
+Message-ID: <20161113195544.GA18258@lunn.ch>
+References: <1479012453-19410-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>, Mans Rullgard <mans@mansr.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Tom Lendacky <thomas.lendacky@amd.com>,
-        Zach Brown <zach.brown@ni.com>,
-        Shaohui Xie <shaohui.xie@nxp.com>,
-        Tim Beale <tim.beale@alliedtelesis.co.nz>,
-        Brian Hill <brian@houston-radar.com>,
-        Vince Bridgers <vbridgers2013@gmail.com>,
-        Balakumaran Kannan <kumaran.4353@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sebastian Frias <sf84@laposte.net>,
-        Kirill Kapranov <kapranoff@inbox.ru>
-To: Mason <slash.tmp@free.fr>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34854 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934338AbcKMTzT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 14:55:19 -0500
-Received: by mail-it0-f66.google.com with SMTP id b123so8483560itb.2
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 11:55:18 -0800 (PST)
-In-Reply-To: <5828C452.6050808@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, charrer@alacritech.com, liodot@gmail.com,
+        gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1479012453-19410-2-git-send-email-LinoSanfilippo@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 13/11/2016 à 11:51, Mason a écrit :
-> On 13/11/2016 04:09, Andrew Lunn wrote:
-> 
->> Mason wrote:
->>
->>> When connected to a Gigabit switch
->>> 3.4 negotiates a LAN DHCP setup instantly
->>> 4.7 requires over 5 seconds to do so
->>
->> When you run tcpdump on the DHCP server, are you noticing the first
->> request is missing?
->>
->> What can happen is the dhclient gets started immediately and sends out
->> its first request before auto-negotiation has finished. So this first packet
->> gets lost. The retransmit after a few seconds is then successful.
-> 
-> I will run tcpdump on the server as I run udhcpc on the client
-> for Linux 3.4 vs 4.7
-> 
-> Do you know what would make auto-negotiation fail at 100 Mbps
-> on 4.7? (whereas it succeeds on 3.4)
-> 
-> (Thinking out loud) If the problem were in auto-negotiation,
-> then if should work if I hard-code speed and duplex using
-> ethtool, right? (IIRC, hard-coding doesn't help.)
+> +static const char slic_stats_strings[][ETH_GSTRING_LEN] = {
+> +	"rx_packets     ",
+> +	"rx_bytes       ",
+> +	"rx_multicasts  ",
+> +	"rx_errors      ",
+> +	"rx_buff_miss   ",
+> +	"rx_tp_csum     ",
+> +	"rx_tp_oflow    ",
+> +	"rx_tp_hlen     ",
+> +	"rx_ip_csum     ",
+> +	"rx_ip_len      ",
 
-I would start with checking basic things:
+Are there any other drivers which pad the statistics strings?
 
-- does your Ethernet driver get a link UP being reported correctly
-(netif_carrier_ok returns 1)?
-- if you let the bootloader configure the PHY and utilize the Generic
-PHY driver instead of the Atheros PHY driver, does the problem appear as
-well?
-- what do transmit/receive counters on the Ethernet driver/MAC return?
--- 
-Florian
+> +static void slic_set_link_autoneg(struct slic_device *sdev)
+> +{
+> +	unsigned int subid = sdev->pdev->subsystem_device;
+> +	u32 val;
+> +
+> +	if (sdev->is_fiber) {
+> +		/* We've got a fiber gigabit interface, and register 4 is
+> +		 * different in fiber mode than in copper mode.
+> +		 */
+> +		/* advertise FD only @1000 Mb */
+> +		val = MII_ADVERTISE << 16 | SLIC_PAR_ADV1000XFD |
+> +		      SLIC_PAR_ASYMPAUSE_FIBER;
+> +		/* enable PAUSE frames */
+> +		slic_write(sdev, SLIC_REG_WPHY, val);
+> +		/* reset phy, enable auto-neg  */
+> +		val = MII_BMCR << 16 | SLIC_PCR_RESET | SLIC_PCR_AUTONEG |
+> +		      SLIC_PCR_AUTONEG_RST;
+> +		slic_write(sdev, SLIC_REG_WPHY, val);
+> +	} else {	/* copper gigabit */
+> +		/* We've got a copper gigabit interface, and register 4 is
+> +		 * different in copper mode than in fiber mode.
+> +		 */
+> +		/* advertise 10/100 Mb modes   */
+> +		val = MII_ADVERTISE << 16 | SLIC_PAR_ADV100FD |
+> +		      SLIC_PAR_ADV100HD | SLIC_PAR_ADV10FD | SLIC_PAR_ADV10HD;
+> +		/* enable PAUSE frames  */
+> +		val |= SLIC_PAR_ASYMPAUSE;
+> +		/* required by the Cicada PHY  */
+> +		val |= SLIC_PAR_802_3;
+> +		slic_write(sdev, SLIC_REG_WPHY, val);
+> +
+> +		/* advertise FD only @1000 Mb  */
+> +		val = MII_CTRL1000 << 16 | SLIC_PGC_ADV1000FD;
+> +		slic_write(sdev, SLIC_REG_WPHY, val);
+> +
+> +		if (subid != PCI_SUBDEVICE_ID_ALACRITECH_CICADA) {
+> +			 /* if a Marvell PHY enable auto crossover */
+> +			val = SLIC_MIICR_REG_16 | SLIC_MRV_REG16_XOVERON;
+> +			slic_write(sdev, SLIC_REG_WPHY, val);
+> +
+> +			/* reset phy, enable auto-neg  */
+> +			val = MII_BMCR << 16 | SLIC_PCR_RESET |
+> +			      SLIC_PCR_AUTONEG | SLIC_PCR_AUTONEG_RST;
+> +			slic_write(sdev, SLIC_REG_WPHY, val);
+> +		} else {
+> +			/* enable and restart auto-neg (don't reset)  */
+> +			val = MII_BMCR << 16 | SLIC_PCR_AUTONEG |
+> +			      SLIC_PCR_AUTONEG_RST;
+> +			slic_write(sdev, SLIC_REG_WPHY, val);
+> +		}
+> +	}
+> +	sdev->autoneg = true;
+> +}
+
+Could this be pulled out into a standard PHY driver? All the SLIC
+SLIC_PCR_ defines seems to be the same as those in mii.h. This could
+be a standard PHY hidden behind a single register.
+
+   Andrew
