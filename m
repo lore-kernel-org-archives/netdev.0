@@ -1,80 +1,111 @@
 From: Baoquan He <bhe@redhat.com>
-Subject: Re: [PATCH 0/2] bnx2: Hard reset bnx2 chip at probe stage
-Date: Sun, 13 Nov 2016 12:10:17 +0800
-Message-ID: <20161113041017.GE15325@x1>
+Subject: [PATCH v2 2/2] bnx2: Wait for in-flight DMA to complete at probe
+ stage
+Date: Sun, 13 Nov 2016 12:15:24 +0800
+Message-ID: <20161113041524.GF15325@x1>
 References: <1478871995-29652-1-git-send-email-bhe@redhat.com>
- <20161111140205.GD15325@x1>
- <CACKFLimGyhzPY=0ehHGG7e0w58i7XfuTmAcsrjMwzc3weGNCjA@mail.gmail.com>
+ <1478871995-29652-3-git-send-email-bhe@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>,
-        Dept-GELinuxNICDev@cavium.com, rasesh.mody@cavium.com,
-        harish.patil@cavium.com, frank@undermydesk.org, jsr@dex.edzone.net,
-        pmenzel@molgen.mpg.de, jroedel@suse.de, dyoung@redhat.com
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46972 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753283AbcKMEKX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Nov 2016 23:10:23 -0500
+Cc: linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
+        rasesh.mody@cavium.com, harish.patil@cavium.com,
+        frank@undermydesk.org, jsr@dex.edzone.net, pmenzel@molgen.mpg.de,
+        jroedel@suse.de, dyoung@redhat.com
+To: netdev@vger.kernel.org, Michael Chan <michael.chan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CACKFLimGyhzPY=0ehHGG7e0w58i7XfuTmAcsrjMwzc3weGNCjA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1478871995-29652-3-git-send-email-bhe@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Michael,
+In-flight DMA from 1st kernel could continue going in kdump kernel.
+New io-page table has been created before bnx2 does reset at open stage.
+We have to wait for the in-flight DMA to complete to avoid it look up
+into the newly created io-page table at probe stage.
 
+Suggested-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: Baoquan He <bhe@redhat.com>
+---
+v1->v2:
+    Michael suggested to wait for the in-flight DMA to complete at probe
+    stage. So give up the old method of trying to reset chip at probe
+    stage, take the new way accordingly.
 
-On 11/11/16 at 09:37am, Michael Chan wrote:
-> On Fri, Nov 11, 2016 at 6:02 AM, Baoquan He <bhe@redhat.com> wrote:
-> > On 11/11/16 at 09:46pm, Baoquan He wrote:
-> >> Hi bnx2 experts,
-> >>
-> >> In commit 3e1be7a ("bnx2: Reset device during driver initialization"),
-> >> firmware requesting code was moved from open stage to probe stage.
-> >> The reason is in kdump kernel hardware iommu need device be reset in
-> >> driver probe stage, otherwise those in-flight DMA from 1st kernel
-> >> will continue going and look up into the newly created io-page tables.
-> >> So we need reset device to stop in-flight DMA as early as possibe.
-> >>
-> >> But with commit 3e1be7a merged, people reported their bnx2 driver init
-> >> failed because of failed firmware loading. After discussion, it's found
-> >> that they built bnx2 driver into kernel, and that makes probe function
-> >> bnx2_init_one be called in do_initcalls(). But at this time the initramfs
-> >> has not been uncompressed yet and mounted, kernel can't detect firmware.
-> >>
-> >> So there's only one way to cover both. Try to hard reset the bnx2 device
-> >> at probe stage, without involving firmware issues. I tried to add function
-> >> bnx2_hard_reset_chip() to do this and it's only called in kdump kernel.
-> >> The thing is I am not quite familiar with bnx2 chip spec, just abstract
-> >> code from bnx2_reset_chip, the testing result is good.
-> >
-> > Here I changed to send BNX2_MISC_COMMAND_HD_RESET in BNX2_CHIP_5709
-> > case.
-> >
-> 
-> From my old 5709 Documentation:
-> 
-> Bit 6 HD_RESET:  Writing this bit as 1 will cause the chip to do a
-> hard reset like bit 5 except the sticky bits in the PCI function are
-> not reset.
-> 
-> Bit 5 POR_RESET: Writing this bit as 1 will cause the chip to do an
-> internal reset exactly like a power-up reset.  There is no protection
-> for this request and it may cause any current PCI cycle to lock up.
-> This reset is intended for use under manufacturing conditions only.
-> 
-> So it sounds like doing HD_RESET can potentially cause a PCI bus lock up.
-> 
-> Why not just disable DMA gracefully as done at the beginning of
-> bnx2_reset_chip()?
+ drivers/net/ethernet/broadcom/bnx2.c | 38 ++++++++++++++++++++++++++++++------
+ 1 file changed, 32 insertions(+), 6 deletions(-)
 
-Thanks for your suggestion.
-
-If what I undertand is correct, you meant waiting for the current PCI
-transaction to complete, right? I tried and it also works. I like this
-idea, will repost v2. Please help check if it meets your thoughts.
-
-Thanks
-Baoquan
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index c557972..1f7034d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -49,6 +49,7 @@
+ #include <linux/firmware.h>
+ #include <linux/log2.h>
+ #include <linux/aer.h>
++#include <linux/crash_dump.h>
+ 
+ #if IS_ENABLED(CONFIG_CNIC)
+ #define BCM_CNIC 1
+@@ -4764,15 +4765,16 @@ bnx2_setup_msix_tbl(struct bnx2 *bp)
+ 	BNX2_WR(bp, BNX2_PCI_GRC_WINDOW3_ADDR, BNX2_MSIX_PBA_ADDR);
+ }
+ 
+-static int
+-bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
++static void
++bnx2_wait_dma_complete(struct bnx2 *bp)
+ {
+ 	u32 val;
+-	int i, rc = 0;
+-	u8 old_port;
++	int i;
+ 
+-	/* Wait for the current PCI transaction to complete before
+-	 * issuing a reset. */
++	/*
++	 * Wait for the current PCI transaction to complete before
++	 * issuing a reset.
++	 */
+ 	if ((BNX2_CHIP(bp) == BNX2_CHIP_5706) ||
+ 	    (BNX2_CHIP(bp) == BNX2_CHIP_5708)) {
+ 		BNX2_WR(bp, BNX2_MISC_ENABLE_CLR_BITS,
+@@ -4796,6 +4798,21 @@ bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
+ 		}
+ 	}
+ 
++	return;
++}
++
++
++static int
++bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
++{
++	u32 val;
++	int i, rc = 0;
++	u8 old_port;
++
++	/* Wait for the current PCI transaction to complete before
++	 * issuing a reset. */
++	bnx2_wait_dma_complete(bp);
++
+ 	/* Wait for the firmware to tell us it is ok to issue a reset. */
+ 	bnx2_fw_sync(bp, BNX2_DRV_MSG_DATA_WAIT0 | reset_code, 1, 1);
+ 
+@@ -8580,6 +8597,15 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
++	/*
++	 * In-flight DMA from 1st kernel could continue going in kdump kernel.
++	 * New io-page table has been created before bnx2 does reset at open stage.
++	 * We have to wait for the in-flight DMA to complete to avoid it look up
++	 * into the newly created io-page table.
++	 */
++	if (is_kdump_kernel())
++		bnx2_wait_dma_complete(bp);
++
+ 	memcpy(dev->dev_addr, bp->mac_addr, ETH_ALEN);
+ 
+ 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
+-- 
+2.5.5
