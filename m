@@ -1,36 +1,31 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net v2 0/2] mlxsw: Couple of fixes
-Date: Sun, 13 Nov 2016 21:00:46 +0100
-Message-ID: <20161113200046.GA1745@nanopsycho.orion>
-References: <1478878466-3141-1-git-send-email-jiri@resnulli.us>
- <20161113.125133.1226481580321868668.davem@davemloft.net>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH] ip6_output: ensure flow saddr actually belongs to device
+Date: Sun, 13 Nov 2016 21:19:47 +0100
+Message-ID: <CAHmME9rV_Qqj_QNKOARav6vOyyF-__E07saChPYo9MF6wED83A@mail.gmail.com>
+References: <CAHmME9qYYU-p5BhR0ReNSB+__wysuDK+eEk1SisCoyf4=2woxg@mail.gmail.com>
+ <20161113132347.17907-1-Jason@zx2c4.com> <405b2e79-854d-4c30-07b0-bd524137d2f6@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, yotamg@mellanox.com, arkadis@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:37219 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934338AbcKMUAt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 15:00:49 -0500
-Received: by mail-wm0-f44.google.com with SMTP id t79so65024134wmt.0
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2016 12:00:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161113.125133.1226481580321868668.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        WireGuard mailing list <wireguard@lists.zx2c4.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <405b2e79-854d-4c30-07b0-bd524137d2f6@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Nov 13, 2016 at 06:51:33PM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Fri, 11 Nov 2016 16:34:24 +0100
->
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Please, queue-up both for stable. Thanks!
->
->Just to be clear I did make sure to take v2 rather than
->v1.
+Hi David,
 
-Good. Thanks!
+On Sun, Nov 13, 2016 at 5:30 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> You can't require the address to be on the dst device. e.g., it can be an address from the loopback/vrf device.
+>
+> This block needs to be done at function entry, and pass dev as NULL to mean is the address assigned to any interface. That gets you the equivalency of the IPv4 check.
+
+I gave v2 my best shot. Hopefully it's adequate, but I have a feeling
+it might be best for you to just code up what you have in mind.
+
+Regards,
+Jason
