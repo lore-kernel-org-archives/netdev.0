@@ -1,62 +1,37 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] ip6_output: ensure flow saddr actually
-	belongs to device
-Date: Sun, 13 Nov 2016 09:30:15 -0700
-Message-ID: <405b2e79-854d-4c30-07b0-bd524137d2f6@cumulusnetworks.com>
-References: <CAHmME9qYYU-p5BhR0ReNSB+__wysuDK+eEk1SisCoyf4=2woxg@mail.gmail.com>
- <20161113132347.17907-1-Jason@zx2c4.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fixup packets with incorrect ethertype sent by ZTE
+ MF821D
+Date: Sun, 13 Nov 2016 12:00:15 -0500 (EST)
+Message-ID: <20161113.120015.578328097660988615.davem@davemloft.net>
+References: <20161113134753.GR2745@pokute.pelzi.net>
+        <87zil3cq9i.fsf@miraculix.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- LKML <linux-kernel@vger.kernel.org>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
- Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <20161113132347.17907-1-Jason@zx2c4.com>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: plz@plz.fi, netdev@vger.kernel.org
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43826 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751540AbcKMRAS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 12:00:18 -0500
+In-Reply-To: <87zil3cq9i.fsf@miraculix.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/13/16 6:23 AM, Jason A. Donenfeld wrote:
-> This puts the IPv6 routing functions in parity with the IPv4 routing
-> functions. Namely, we now check in v6 that if a flowi6 requests an
-> saddr, the returned dst actually corresponds to a net device that has
-> that saddr. This mirrors the v4 logic with __ip_dev_find in
-> __ip_route_output_key_hash. In the event that the returned dst is not
-> for a dst with a dev that has the saddr, we return -EINVAL, just like
-> v4; this makes it easy to use the same error handlers for both cases.
+From: Bjørn Mork <bjorn@mork.no>
+Date: Sun, 13 Nov 2016 17:12:57 +0100
+
+> In any case, if we're going to add a fix like this, then I want it way
+> more generic.  The only valid ethertypes expected from the modem is IP,
+> IPV6 or ARP. Testing against those three, resetting anything else to IP,
+> will at least catch *any* bogus value.
 > 
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-> Cc: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  net/ipv6/ip6_output.c | 5 +++++
->  1 file changed, 5 insertions(+)
+> But I'm not convinced I want this additional processing of every packet
+> just to let Qualcomm go on hiring monkeys-on-crack to write their
+> firmware. At least not when we do have raw-ip as a workaround for the
+> issue.
 > 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 6001e78..a834129 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1011,6 +1011,11 @@ static int ip6_dst_lookup_tail(struct net *net, const struct sock *sk,
->  		}
->  	}
->  #endif
-> +	if (!ipv6_addr_any(&fl6->saddr) &&
-> +	    !ipv6_chk_addr(net, &fl6->saddr, (*dst)->dev, 1)) {
-> +		err = -EINVAL;
-> +		goto out_err_release;
-> +	}
->  
->  	return 0;
+> Feel free to try to convince me, though.
 
-You can't require the address to be on the dst device. e.g., it can be an address from the loopback/vrf device.
-
-This block needs to be done at function entry, and pass dev as NULL to mean is the address assigned to any interface. That gets you the equivalency of the IPv4 check.
+There are also several coding style problems with this patch.
