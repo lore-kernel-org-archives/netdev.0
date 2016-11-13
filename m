@@ -1,79 +1,70 @@
-From: Jussi Peltola <plz@plz.fi>
-Subject: [PATCH] Fixup packets with incorrect ethertype sent by ZTE MF821D
-Date: Sun, 13 Nov 2016 15:47:53 +0200
-Message-ID: <20161113134753.GR2745@pokute.pelzi.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-To: netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: change sk state only when it has assocs in sctp_shutdown
+Date: Sun, 13 Nov 2016 21:44:37 +0800
+Message-ID: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, andreyknvl@google.com
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out1.dynaco.fi ([185.82.144.207]:40411 "EHLO
-        smtp-out1.dynaco.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933365AbcKMN4i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 08:56:38 -0500
-Content-Disposition: inline
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33546 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933365AbcKMOCG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 09:02:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This brokenness appears reliably after running "rdisc6 wwan0" but I have
-not debugged if this is related to timing or the format of the router
-solicitation. Before receiving a router solicitation, v4 is received
-correctly and v6 does not work. After sending the MF821D a router
-solicitation with rdisc6, v4 is broken but v6 works. With this patch
-(which I am using to write this message) a dual-stack context is usable.
+Now when users shutdown a sock with SEND_SHUTDOWN in sctp, even if
+this sock has no connection (assoc), sk state would be changed to
+SCTP_SS_CLOSING, which is not as we expect.
 
-commit 2c25237d19c0c9741c6ebec854def99b88618eac
-Author: Jussi Peltola <plz@plz.fi>
-Date:   Sun Nov 13 15:41:50 2016 +0200
+Besides, after that if users try to listen on this sock, kernel
+could even panic when it dereference sctp_sk(sk)->bind_hash in
+sctp_inet_listen, as bind_hash is null when sock has no assoc.
 
-    Fixup packets with incorrect ethertype sent by ZTE MF821D
-    
-    Signed-off-by: Jussi Peltola <plz@plz.fi>
+This patch is to move sk state change after checking sk assocs
+is not empty, and also merge these two if() conditions and reduce
+indent level.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 3ff76c6..edd8172 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -172,6 +172,12 @@ static const u8 buggy_fw_addr[ETH_ALEN] = {0x00, 0xa0, 0xc6, 0x00, 0x00, 0x00};
-  * Another common firmware bug results in all packets being addressed
-  * to 00:a0:c6:00:00:00 despite the host address being different.
-  * This function will also fixup such packets.
-+ *
-+ * At least the ZTE MF821D sends IPv4 packets with a bogus ethertype
-+ * of 0x63bc, 0xe3bc, 0x63bd or 0xe3bd, and bogus source and
-+ * destination MACs after it has received an IPv6 router solicitation
-+ * (IPv6 is transmitted correctly). This function will also fix up
-+ * such packets.
-  */
- static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+Fixes: d46e416c11c8 ("sctp: sctp should change socket state when shutdown is received")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/socket.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index faa48ff..f23ad91 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4285,19 +4285,18 @@ static void sctp_shutdown(struct sock *sk, int how)
  {
-@@ -195,12 +201,21 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-                        return 0;
-                if (is_multicast_ether_addr(skb->data))
-                        return 1;
+ 	struct net *net = sock_net(sk);
+ 	struct sctp_endpoint *ep;
+-	struct sctp_association *asoc;
+ 
+ 	if (!sctp_style(sk, TCP))
+ 		return;
+ 
+-	if (how & SEND_SHUTDOWN) {
++	ep = sctp_sk(sk)->ep;
++	if (how & SEND_SHUTDOWN && !list_empty(&ep->asocs)) {
++		struct sctp_association *asoc;
 +
-                /* possibly bogus destination - rewrite just in case */
-                skb_reset_mac_header(skb);
-                goto fix_dest;
-        default:
-                if (rawip)
-                        return 0;
-+
-+               /* Bogus ethertype and src/dst mac for v4 on ZTE MF821D */
-+               if ((skb->data[12] & 0x7f) == 0x63
-+                && (skb->data[13] & 0xfe) == 0xbc) {
-+                       proto = htons(ETH_P_IP);
-+                       goto reset_mac;
-+               }
-+
-                /* pass along other packets without modifications */
-                return 1;
-        }
-@@ -213,6 +228,7 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-        if (skb_headroom(skb) < ETH_HLEN)
-                return 0;
-        skb_push(skb, ETH_HLEN);
-+reset_mac:
-        skb_reset_mac_header(skb);
-        eth_hdr(skb)->h_proto = proto;
-        eth_zero_addr(eth_hdr(skb)->h_source);
+ 		sk->sk_state = SCTP_SS_CLOSING;
+-		ep = sctp_sk(sk)->ep;
+-		if (!list_empty(&ep->asocs)) {
+-			asoc = list_entry(ep->asocs.next,
+-					  struct sctp_association, asocs);
+-			sctp_primitive_SHUTDOWN(net, asoc, NULL);
+-		}
++		asoc = list_entry(ep->asocs.next,
++				  struct sctp_association, asocs);
++		sctp_primitive_SHUTDOWN(net, asoc, NULL);
+ 	}
+ }
+ 
+-- 
+2.1.0
