@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: atheros: atl1e: use new api
- ethtool_{get|set}_link_ksettings
-Date: Sun, 13 Nov 2016 13:49:13 -0500 (EST)
-Message-ID: <20161113.134913.1216834393358431093.davem@davemloft.net>
-References: <1478989011-11078-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net 1/2] ibmvnic: Unmap ibmvnic_statistics structure
+Date: Sun, 13 Nov 2016 13:42:46 -0500 (EST)
+Message-ID: <20161113.134246.1757938406341670109.davem@davemloft.net>
+References: <1478883646-10760-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1478989011-11078-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mwb@linux.vnet.ibm.com
+To: tlfalcon@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45428 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934067AbcKMSvv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 13:51:51 -0500
+In-Reply-To: <1478883646-10760-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sat, 12 Nov 2016 23:16:51 +0100
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Fri, 11 Nov 2016 11:00:45 -0600
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> This structure was mapped but never subsequently unmapped.
 > 
-> The previous implementation of set_settings was modifying
-> the value of advertising, but with the new API, it's not
-> possible. The structure ethtool_link_ksettings is defined
-> as const.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 
 Applied.
