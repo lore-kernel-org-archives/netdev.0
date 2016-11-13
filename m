@@ -1,92 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] genetlink: fix unsigned int comparison with less than
- zero
-Date: Sun, 13 Nov 2016 12:15:19 -0500 (EST)
-Message-ID: <20161113.121519.399311594808700910.davem@davemloft.net>
-References: <20161110155758.26996-1-colin.king@canonical.com>
+Subject: Re: [PATCH net,v2] ipv4: use new_gw for redirect neigh lookup
+Date: Sun, 13 Nov 2016 12:25:41 -0500 (EST)
+Message-ID: <20161113.122541.301891001345068219.davem@davemloft.net>
+References: <1478794575-28748-1-git-send-email-ssurya@ieee.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes.berg@intel.com, pshelar@ovn.org, weiyongjun1@huawei.com,
-        fw@strlen.de, tycho.andersen@canonical.com,
-        xiyou.wangcong@gmail.com, tom@herbertland.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161110155758.26996-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ssurya@ieee.org
+To: stephen.suryaputra.lin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44158 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933841AbcKMRZm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 12:25:42 -0500
+In-Reply-To: <1478794575-28748-1-git-send-email-ssurya@ieee.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu, 10 Nov 2016 15:57:58 +0000
+From: Stephen Suryaputra Lin <stephen.suryaputra.lin@gmail.com>
+Date: Thu, 10 Nov 2016 11:16:15 -0500
 
-> From: Colin Ian King <colin.king@canonical.com>
+> In v2.6, ip_rt_redirect() calls arp_bind_neighbour() which returns 0
+> and then the state of the neigh for the new_gw is checked. If the state
+> isn't valid then the redirected route is deleted. This behavior is
+> maintained up to v3.5.7 by check_peer_redirect() because rt->rt_gateway
+> is assigned to peer->redirect_learned.a4 before calling
+> ipv4_neigh_lookup().
 > 
-> family->id is unsigned, so the less than zero check for
-> failure return from idr_alloc is never true and so the error exit
-> is never handled.  Instead, assign err and check if this is less
-> than zero since this is a signed integer.
+> After commit 5943634fc559 ("ipv4: Maintain redirect and PMTU info in
+> struct rtable again."), ipv4_neigh_lookup() is performed without the
+> rt_gateway assigned to the new_gw. In the case when rt_gateway (old_gw)
+> isn't zero, the function uses it as the key. The neigh is most likely
+> valid since the old_gw is the one that sends the ICMP redirect message.
+> Then the new_gw is assigned to fib_nh_exception. The problem is: the
+> new_gw ARP may never gets resolved and the traffic is blackholed.
 > 
-> Issue found with static analysis with CoverityScan, CID 1375916
+> So, use the new_gw for neigh lookup.
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  net/netlink/genetlink.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
+> Changes from v1:
+>  - use __ipv4_neigh_lookup instead (per Eric Dumazet).
 > 
-> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> index f0b65fe..2ea61ba 100644
-> --- a/net/netlink/genetlink.c
-> +++ b/net/netlink/genetlink.c
-> @@ -360,12 +360,10 @@ int genl_register_family(struct genl_family *family)
->  	} else
->  		family->attrbuf = NULL;
->  
-> -	family->id = idr_alloc(&genl_fam_idr, family,
-> +	family->id = err = idr_alloc(&genl_fam_idr, family,
->  			       start, end + 1, GFP_KERNEL);
+> Fixes: 5943634fc559 ("ipv4: Maintain redirect and PMTU info in struct rtable again.")
+> Signed-off-by: Stephen Suryaputra Lin <ssurya@ieee.org>
 
-First of all, if we make this change you must fixup the indentation of
-the second l ine of this idr_alloc() call.  Arguments spanning
-multiple lines of a call must be indented precisely to the column
-following the openning parenthesis of the first line.
+Looks good, applied and queued up for -stable.
 
-Next, the IDR helpers never give us values that fall within the
-positive range of an integer that does not fall within the postive
-range of an unsigned integer.
-
-We are going to pass this value in later to release the ID, again
-the interface will expect a signed rather than an unsigned int.
-
-Therefore is makes sesne only to change the family->id type to
-what it must be, which is a signed int.
-
-I've commited the following to net-next:
-
-====================
-[PATCH] genetlink: Make family a signed integer.
-
-The idr_alloc(), idr_remove(), et al. routines all expect IDs to be
-signed integers.  Therefore make the genl_family member 'id' signed
-too.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/genetlink.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index 3ec87ba..a34275b 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -48,7 +48,7 @@ struct genl_info;
-  * @n_ops: number of operations supported by this family
-  */
- struct genl_family {
--	unsigned int		id;		/* private */
-+	int			id;		/* private */
- 	unsigned int		hdrsize;
- 	char			name[GENL_NAMSIZ];
- 	unsigned int		version;
--- 
-2.7.4
+Thanks.
