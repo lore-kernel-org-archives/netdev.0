@@ -1,35 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: free memory while
- channel destroy
-Date: Sat, 12 Nov 2016 21:07:37 -0500 (EST)
-Message-ID: <20161112.210737.1176459612012588179.davem@davemloft.net>
-References: <1478610965-25288-1-git-send-email-ivan.khoronzhuk@linaro.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Debugging Ethernet issues
+Date: Sun, 13 Nov 2016 04:09:19 +0100
+Message-ID: <20161113030919.GA2892@lunn.ch>
+References: <5827AD4A.7010908@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: ivan.khoronzhuk@linaro.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Mans Rullgard <mans@mansr.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Zach Brown <zach.brown@ni.com>,
+        Shaohui Xie <shaohui.xie@nxp.com>,
+        Tim Beale <tim.beale@alliedtelesis.co.nz>,
+        Brian Hill <brian@houston-radar.com>,
+        Vince Bridgers <vbridgers2013@gmail.com>,
+        Balakumaran Kannan <kumaran.4353@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Sebastian Frias <sf84@laposte.net>,
+        Kirill Kapranov <kapranoff@inbox.ru>
+To: Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58210 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753115AbcKMCHj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2016 21:07:39 -0500
-In-Reply-To: <1478610965-25288-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:36631 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753256AbcKMDJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Nov 2016 22:09:28 -0500
+Content-Disposition: inline
+In-Reply-To: <5827AD4A.7010908@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Tue,  8 Nov 2016 15:16:05 +0200
+> When connected to a Gigabit switch
+> 3.4 negotiates a LAN DHCP setup instantly
+> 4.7 requires over 5 seconds to do so
 
-> While create/destroy channel operation memory is not freed. It was
-> supposed that memory is freed while driver remove. But a channel
-> can be created and destroyed many times while changing number of
-> channels with ethtool.
-> 
-> Based on net-next/master
-> 
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+When you run tcpdump on the DHCP server, are you noticing the first
+request is missing?
 
-Applied.
+What can happen is the dhclient gets started immediately and sends out
+its first request before auto-negotiation has finished. So this first packet
+gets lost. The retransmit after a few seconds is then successful.
+
+     Andrew
