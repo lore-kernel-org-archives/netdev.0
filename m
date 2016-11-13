@@ -1,67 +1,47 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
-Date: Sun, 13 Nov 2016 09:38:11 -0800
-Message-ID: <CAADnVQJURKRFbNiVTJ76XUWZ=P+DqyP0QMVZrCutzvS28bkhGw@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net 2/2] r8152: rx descriptor check
+Date: Sun, 13 Nov 2016 12:39:54 -0500 (EST)
+Message-ID: <20161113.123954.2134945576362221851.davem@davemloft.net>
+References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
+        <1394712342-15778-228-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann <daniel@iogearbox.net>,
-	Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-	"David S . Miller" <davem@davemloft.net>, "Eric W . Biederman" <ebiederm@xmission.com>,
-	James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-	Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-	Sargun Dhillon <sargun@sargun.me>, "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-	Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
-	Linux API <linux-api@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-5331-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org
+To: hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-228-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 13, 2016 at 6:23 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
- wrote:
-> Hi,
->
-> After the BoF at LPC last week, we came to a multi-step roadmap to
-> upstream Landlock.
->
-> A first patch series containing the basic properties needed for a
-> "minimum viable product", which means being able to test it, without
-> full features. The idea is to set in place the main components which
-> include the LSM part (some hooks with the manager logic) and the new
-> eBPF type. To have a minimum amount of code, the first userland entry
-> point will be the seccomp syscall. This doesn't imply non-upstream
-> patches and should be more simple. For the sake of simplicity and to
-> ease the review, this first series will only be dedicated to privileged
-> processes (i.e. with CAP_SYS_ADMIN). We may want to only allow one level
-> of rules at first, instead of dealing with more complex rule inheritance
-> (like seccomp-bpf can do).
->
-> The second series will focus on the cgroup manager. It will follow the
-> same rules of inheritance as the Daniel Mack's patches does.
->
-> The third series will try to bring a BPF map of handles for Landlock and
-> the dedicated BPF helpers.
->
-> Finally, the fourth series will bring back the unprivileged mode (with
-> no_new_privs), at least for process hierarchies (via seccomp). This also
-> imply to handle multi-level of rules.
->
-> Right now, an important point of attention is the userland ABI. We don't
-> want LSM hooks to be exposed "as is" to userland. This may have some
-> future implications if their semantic and/or enforcement point(s)
-> change. In the next series, I will propose a new abstraction over the
-> currently used LSM hooks. I'll also propose a new way to deal with
-> resource accountability. Finally, I plan to create a minimal (kernel)
-> developer documentation and a test suite.
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 11 Nov 2016 15:15:41 +0800
 
-Thanks for the summary.
-That's exactly what we discussed and agreed upon.
+> For some platforms, the data in memory is not the same with the one
+> from the device. That is, the data of memory is unbelievable. The
+> check is used to find out this situation.
+> 
+> Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+
+I'm all for adding consistency checks, but I disagree with proceeding
+in this manner for this.
+
+If you add this patch now, there is a much smaller likelyhood that you
+will work with a high priority to figure out _why_ this is happening.
+
+For all we know this could be a platform bug in the DMA API for the
+systems in question.
+
+It could also be a bug elsewhere in the driver, either in setting up
+the descriptor DMA mappings or how the chip is programmed.
+
+Either way the true cause must be found before we start throwing
+changes like this into the driver.
+
+I'm not applying this series, sorry.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
