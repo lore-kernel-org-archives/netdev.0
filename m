@@ -1,59 +1,79 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] ip6_output: ensure flow saddr actually belongs
-	to device
-Date: Sun, 13 Nov 2016 14:23:47 +0100
-Message-ID: <20161113132347.17907-1-Jason@zx2c4.com>
-References: <CAHmME9qYYU-p5BhR0ReNSB+__wysuDK+eEk1SisCoyf4=2woxg@mail.gmail.com>
+From: Jussi Peltola <plz@plz.fi>
+Subject: [PATCH] Fixup packets with incorrect ethertype sent by ZTE MF821D
+Date: Sun, 13 Nov 2016 15:47:53 +0200
+Message-ID: <20161113134753.GR2745@pokute.pelzi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, Netdev <netdev@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- LKML <linux-kernel@vger.kernel.org>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
- Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <CAHmME9qYYU-p5BhR0ReNSB+__wysuDK+eEk1SisCoyf4=2woxg@mail.gmail.com>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out1.dynaco.fi ([185.82.144.207]:40411 "EHLO
+        smtp-out1.dynaco.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933365AbcKMN4i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 08:56:38 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This puts the IPv6 routing functions in parity with the IPv4 routing
-functions. Namely, we now check in v6 that if a flowi6 requests an
-saddr, the returned dst actually corresponds to a net device that has
-that saddr. This mirrors the v4 logic with __ip_dev_find in
-__ip_route_output_key_hash. In the event that the returned dst is not
-for a dst with a dev that has the saddr, we return -EINVAL, just like
-v4; this makes it easy to use the same error handlers for both cases.
+This brokenness appears reliably after running "rdisc6 wwan0" but I have
+not debugged if this is related to timing or the format of the router
+solicitation. Before receiving a router solicitation, v4 is received
+correctly and v6 does not work. After sending the MF821D a router
+solicitation with rdisc6, v4 is broken but v6 works. With this patch
+(which I am using to write this message) a dual-stack context is usable.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv6/ip6_output.c | 5 +++++
- 1 file changed, 5 insertions(+)
+commit 2c25237d19c0c9741c6ebec854def99b88618eac
+Author: Jussi Peltola <plz@plz.fi>
+Date:   Sun Nov 13 15:41:50 2016 +0200
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 6001e78..a834129 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1011,6 +1011,11 @@ static int ip6_dst_lookup_tail(struct net *net, const struct sock *sk,
- 		}
- 	}
- #endif
-+	if (!ipv6_addr_any(&fl6->saddr) &&
-+	    !ipv6_chk_addr(net, &fl6->saddr, (*dst)->dev, 1)) {
-+		err = -EINVAL;
-+		goto out_err_release;
-+	}
- 
- 	return 0;
- 
--- 
-2.10.2
+    Fixup packets with incorrect ethertype sent by ZTE MF821D
+    
+    Signed-off-by: Jussi Peltola <plz@plz.fi>
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 3ff76c6..edd8172 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -172,6 +172,12 @@ static const u8 buggy_fw_addr[ETH_ALEN] = {0x00, 0xa0, 0xc6, 0x00, 0x00, 0x00};
+  * Another common firmware bug results in all packets being addressed
+  * to 00:a0:c6:00:00:00 despite the host address being different.
+  * This function will also fixup such packets.
++ *
++ * At least the ZTE MF821D sends IPv4 packets with a bogus ethertype
++ * of 0x63bc, 0xe3bc, 0x63bd or 0xe3bd, and bogus source and
++ * destination MACs after it has received an IPv6 router solicitation
++ * (IPv6 is transmitted correctly). This function will also fix up
++ * such packets.
+  */
+ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ {
+@@ -195,12 +201,21 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+                        return 0;
+                if (is_multicast_ether_addr(skb->data))
+                        return 1;
++
+                /* possibly bogus destination - rewrite just in case */
+                skb_reset_mac_header(skb);
+                goto fix_dest;
+        default:
+                if (rawip)
+                        return 0;
++
++               /* Bogus ethertype and src/dst mac for v4 on ZTE MF821D */
++               if ((skb->data[12] & 0x7f) == 0x63
++                && (skb->data[13] & 0xfe) == 0xbc) {
++                       proto = htons(ETH_P_IP);
++                       goto reset_mac;
++               }
++
+                /* pass along other packets without modifications */
+                return 1;
+        }
+@@ -213,6 +228,7 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+        if (skb_headroom(skb) < ETH_HLEN)
+                return 0;
+        skb_push(skb, ETH_HLEN);
++reset_mac:
+        skb_reset_mac_header(skb);
+        eth_hdr(skb)->h_proto = proto;
+        eth_zero_addr(eth_hdr(skb)->h_source);
