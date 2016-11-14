@@ -1,78 +1,72 @@
-From: dwilder <dwilder@us.ibm.com>
-Subject: [patch] netlink.7: srcfix Change buffer size in example code about
- reading netlink message.
-Date: Mon, 14 Nov 2016 14:20:19 -0800
-Message-ID: <e9409957290af5249750afa0f10de3a6@linux.vnet.ibm.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net] ipv4: fix cloning issues in fib_trie_unmerge()
+Date: Mon, 14 Nov 2016 14:25:33 -0800
+Message-ID: <CAKgT0UdxAV03ENPmVPwWXsT4FGcEH1xNq7o_SYwfDKVBfYmKCQ@mail.gmail.com>
+References: <1479159274.8455.82.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-man@vger.kernel.org, netdev@vger.kernel.org
-To: mtk.manpages@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:60446 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933656AbcKNWRK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 17:17:10 -0500
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uAEMDgHM083648
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 17:17:10 -0500
-Received: from e31.co.us.ibm.com (e31.co.us.ibm.com [32.97.110.149])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 26qkfp65jn-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 17:17:10 -0500
-Received: from localhost
-        by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <dwilder@us.ibm.com>;
-        Mon, 14 Nov 2016 15:17:09 -0700
+Received: from mail-it0-f66.google.com ([209.85.214.66]:32953 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933656AbcKNWZe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 17:25:34 -0500
+Received: by mail-it0-f66.google.com with SMTP id c20so14910056itb.0
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 14:25:34 -0800 (PST)
+In-Reply-To: <1479159274.8455.82.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The example code in netlink(7) (for reading netlink message) suggests 
-using
-a 4k read buffer with recvmsg.  This can cause truncated messages on 
-systems
-using a page size is >4096.  Please see:
-linux/include/linux/netlink.h (in the kernel source)
+On Mon, Nov 14, 2016 at 1:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> I had crashes in a DEBUG_PAGEALLOC kernels in fib_table_flush() or
+> fib_table_lookup() that I back tracked to a refcounting issue
+> happening when we clone struct fib_alias in fib_trie_unmerge()
+>
+> While fixing this issue, I also noticed a mem leak happening
+> if fib_insert_alias() fails.
+>
+> Fixes: 0ddcf43d5d4a0 ("ipv4: FIB Local/MAIN table collapse")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>  net/ipv4/fib_trie.c |    7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index 4cff74d4133f..ebf49ab889e8 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -1737,14 +1737,19 @@ struct fib_table *fib_trie_unmerge(struct fib_table *oldtb)
+>                                 goto out;
+>
+>                         memcpy(new_fa, fa, sizeof(*fa));
+> +                       if (fa->fa_info)
+> +                               fa->fa_info->fib_treeref++;
+>
+>                         /* insert clone into table */
+>                         if (!local_l)
+>                                 local_l = fib_find_node(lt, &local_tp, l->key);
+>
+>                         if (fib_insert_alias(lt, local_tp, local_l, new_fa,
+> -                                            NULL, l->key))
+> +                                            NULL, l->key)) {
+> +                               kmem_cache_free(fn_alias_kmem, new_fa);
+> +                               fib_release_info(fa->fa_info);
+>                                 goto out;
+> +                       }
+>                 }
+>
+>                 /* stop loop if key wrapped back to 0 */
+>
+>
 
-<snip>
-/*
-  *      skb should fit one page. This choice is good for headerless 
-malloc.
-  *      But we should limit to 8K so that userspace does not have to
-  *      use enormous buffer sizes on recvmsg() calls just to avoid
-  *      MSG_TRUNC when PAGE_SIZE is very large.
-  */
-#if PAGE_SIZE < 8192UL
-#define NLMSG_GOODSIZE  SKB_WITH_OVERHEAD(PAGE_SIZE)
-#else
-#define NLMSG_GOODSIZE  SKB_WITH_OVERHEAD(8192UL)
-#endif
-
-#define NLMSG_DEFAULT_SIZE (NLMSG_GOODSIZE - NLMSG_HDRLEN)
-<snip>
-
-I was troubleshooting some up-stream code on a ppc64le system
-(page:size of 64k) This code had duplicated the example from netlink(7) 
-and
-was using a 4k buffer.  On x86-64 with a 4k page size this is not a 
-problem,
-however on the 64k page system some messages were truncated.  Using an 
-8k buffer
-as implied in netlink.h prevents problems with any page size.
-
-Lets change the example so others don't propagate the problem further.
-
-Signed-off-by David Wilder <dwilder@us.ibm.com>
-
---- man7/netlink.7.orig 2016-11-14 13:30:36.522101156 -0800
-+++ man7/netlink.7      2016-11-14 13:30:51.002086354 -0800
-@@ -511,7 +511,7 @@
-  .in +4n
-  .nf
-  int len;
--char buf[4096];
-+char buf[8192];
-  struct iovec iov = { buf, sizeof(buf) };
-  struct sockaddr_nl sa;
-  struct msghdr msg;
+Actually I think this creates a reference leak.  If you look the call
+to fib_table_flush_external is skipping the call to fib_release_info.
+If you add this then you would probably need to update
+fib_table_flush_external so that we call fib_release_info like we do
+for fib_table_flush.
