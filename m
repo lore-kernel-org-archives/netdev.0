@@ -1,282 +1,83 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 1/2] net: use cmpxchg instead of spinlock in ptr rings
-Date: Tue, 15 Nov 2016 01:01:25 +0200
-Message-ID: <20161115002552-mutt-send-email-mst@kernel.org>
-References: <20161111043857.1547.70337.stgit@john-Precision-Tower-5810>
- <20161111044408.1547.92737.stgit@john-Precision-Tower-5810>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: mvneta bug with  mvneta_set_rx_mode()
+Date: Tue, 15 Nov 2016 00:03:05 +0100
+Message-ID: <20161114230305.GA6260@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42344 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:38528 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S937878AbcKNXB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 18:01:26 -0500
+        id S939765AbcKNXDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 18:03:07 -0500
 Content-Disposition: inline
-In-Reply-To: <20161111044408.1547.92737.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 10, 2016 at 08:44:08PM -0800, John Fastabend wrote:
-> 
-> ---
->  include/linux/ptr_ring_ll.h |  136 +++++++++++++++++++++++++++++++++++++++++++
->  include/linux/skb_array.h   |   25 ++++++++
->  2 files changed, 161 insertions(+)
->  create mode 100644 include/linux/ptr_ring_ll.h
-> 
-> diff --git a/include/linux/ptr_ring_ll.h b/include/linux/ptr_ring_ll.h
-> new file mode 100644
-> index 0000000..bcb11f3
-> --- /dev/null
-> +++ b/include/linux/ptr_ring_ll.h
-> @@ -0,0 +1,136 @@
-> +/*
-> + *	Definitions for the 'struct ptr_ring_ll' datastructure.
-> + *
-> + *	Author:
-> + *		John Fastabend <john.r.fastabend@intel.com>
-> + *
-> + *	Copyright (C) 2016 Intel Corp.
-> + *
-> + *	This program is free software; you can redistribute it and/or modify it
-> + *	under the terms of the GNU General Public License as published by the
-> + *	Free Software Foundation; either version 2 of the License, or (at your
-> + *	option) any later version.
-> + *
-> + *	This is a limited-size FIFO maintaining pointers in FIFO order, with
-> + *	one CPU producing entries and another consuming entries from a FIFO.
-> + *	extended from ptr_ring_ll to use cmpxchg over spin lock.
+Hi Thomas
 
-So when is each one (ptr-ring/ptr-ring-ll) a win? _ll suffix seems to
-imply this gives a better latency, OTOH for a ping/pong I suspect
-ptr-ring would be better as it avoids index cache line bounces.
+I think i have found a bug in the mvneta driver, when coupled with
+DSA. I'm using an Armada 370 RD board, but i expect you can reproduce
+this in any board using mvneta and a switch.
 
-> + */
-> +
-> +#ifndef _LINUX_PTR_RING_LL_H
-> +#define _LINUX_PTR_RING_LL_H 1
-> +
-> +#ifdef __KERNEL__
-> +#include <linux/spinlock.h>
-> +#include <linux/cache.h>
-> +#include <linux/types.h>
-> +#include <linux/compiler.h>
-> +#include <linux/cache.h>
-> +#include <linux/slab.h>
-> +#include <asm/errno.h>
-> +#endif
-> +
-> +struct ptr_ring_ll {
-> +	u32 prod_size;
-> +	u32 prod_mask;
-> +	u32 prod_head;
-> +	u32 prod_tail;
-> +	u32 cons_size;
-> +	u32 cons_mask;
-> +	u32 cons_head;
-> +	u32 cons_tail;
-> +
-> +	void **queue;
-> +};
-> +
-> +/* Note: callers invoking this in a loop must use a compiler barrier,
-> + * for example cpu_relax(). Callers must hold producer_lock.
-> + */
-> +static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void *ptr)
-> +{
-> +	u32 ret, head, tail, next, slots, mask;
-> +
-> +	do {
-> +		head = READ_ONCE(r->prod_head);
-> +		mask = READ_ONCE(r->prod_mask);
-> +		tail = READ_ONCE(r->cons_tail);
-> +
-> +		slots = mask + tail - head;
-> +		if (slots < 1)
-> +			return -ENOMEM;
-> +
-> +		next = head + 1;
-> +		ret = cmpxchg(&r->prod_head, head, next);
-> +	} while (ret != head);
+I set the MAC address on a switch interface:
 
+root@370-rd:~# ip link set address f2:42:42:42:42:42 dev lan2
+root@370-rd:~# ip addr add 10.42.42.42/24 dev lan2
+root@370-rd:~# ip link set lan2 up
+root@370-rd:~# ip link set eth1 up
+root@370-rd:~# ping 10.42.42.41
 
-So why is this preferable to a lock?
+This does not work:
 
-I suspect it's nothing else than the qspinlock fairness
-and polling code complexity. It's all not very useful if you
-1. are just doing a couple of instructions under the lock
-and
-2. use a finite FIFO which is unfair anyway
+PING 10.42.42.41 (10.42.42.1) 56(84) bytes of data.
+>From 10.42.42.42 icmp_seq=1 Destination Host Unreachable
+>From 10.42.42.42 icmp_seq=2 Destination Host Unreachable
+>From 10.42.42.42 icmp_seq=3 Destination Host Unreachable
+^C
+--- 10.42.42.1 ping statistics ---
+10 packets transmitted, 0 received, +3 errors, 100% packet loss, time 9338ms
+pipe 8
 
+However, if i run tcpdump on the mvneta interface, so putting it into
+promiscuous mode:
 
-How about this hack (lifted from virt_spin_lock):
+root@370-rd:~# tcpdump -i eth1 &
+[1] 3757
+root@370-rd:~# ping 10.42.42.1
+PING 10.42.42.1 (10.42.42.1) 56(84) bytes of data.
+64 bytes from 10.42.42.1: icmp_seq=1 ttl=64 time=1.43 ms
+16:48:28.185095 MEDSA 0.2:0: ARP, Request who-has 10.42.42.1 tell 10.42.42.42, length 28
+16:48:28.185767 MEDSA 0.2:0: ARP, Reply 10.42.42.1 is-at d8:eb:97:bf:44:f3 (oui Unknown), length 46
+16:48:28.185961 MEDSA 0.2:0: IP 10.42.42.42 > 10.42.42.1: ICMP echo request, id 3760, seq 1, length 64
+16:48:28.186429 MEDSA 0.2:0: IP 10.42.42.1 > 10.42.42.42: ICMP echo reply, id 3760, seq 1, length 64
+16:48:29.186857 MEDSA 0.2:0: IP 10.42.42.42 > 10.42.42.1: ICMP echo request, id 3760, seq 2, length 64
+16:48:29.187620 MEDSA 0.2:0: IP 10.42.42.1 > 10.42.42.42: ICMP echo reply, id 3760, seq 2, length 64
+64 bytes from 10.42.42.1: icmp_seq=2 ttl=64 time=0.834 ms
+16:48:30.189156 MEDSA 0.2:0: IP 10.42.42.42 > 10.42.42.1: ICMP echo request, id 3760, seq 3, length 64
+16:48:30.189867 MEDSA 0.2:0: IP 10.42.42.1 > 10.42.42.42: ICMP echo reply, id 3760, seq 3, length 64
+64 bytes from 10.42.42.1: icmp_seq=3 ttl=64 time=0.782 ms
+^C
+--- 10.42.42.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2004ms
+rtt min/avg/max/mdev = 0.782/1.015/1.431/0.296 ms
 
-static inline void quick_spin_lock(struct qspinlock *lock)
-{
-        do {
-                while (atomic_read(&lock->val) != 0)
-                        cpu_relax();
-        } while (atomic_cmpxchg(&lock->val, 0, _Q_LOCKED_VAL) != 0);
-}
+What should happen is that when the MAC address is set on lan2, it
+calls dsa_slave_set_mac_address(). It sees that the requested address
+is different to the masters MAC address, so it calls dev_uc_add() to
+add the MAC address to the master device, i.e. the mvneta. That causes
+the MAC address to be added to the interfaces dev->uc list.  Since the
+driver has dev->priv_flags & IFF_UNICAST_FLT true, it is indicating it
+supports unicast filtering. So __dev_set_rx_mode() calls the drivers
+set_rx_mode() to setup the filtering.
 
-Or maybe we should even drop the atomic_read in the middle -
-worth profiling and comparing:
+I don't see anywhere in mvneta where it walks the dev->uc list adding
+these MAC addresses to its filter. Either it needs to do this, or it
+should not have IFF_UNICAST_FLT, so that the core code will put the
+interface into promisc mode when multiple unicast addresses are added.
 
-static inline void quick_spin_lock(struct qspinlock *lock)
-{
-        while (atomic_cmpxchg(&lock->val, 0, _Q_LOCKED_VAL) != 0)
-		cpu_relax();
-}
+Do you have time to look into this?
 
-
-Then, use quick_spin_lock instead of spin_lock everywhere in
-ptr_ring - will that make it more efficient?
-
-
-> +
-> +	r->queue[head & mask] = ptr;
-> +	smp_wmb();
-> +
-> +	while (r->prod_tail != head)
-> +		cpu_relax();
-> +
-> +	r->prod_tail = next;
-> +	return 0;
-> +}
-> +
-> +static inline void *__ptr_ring_ll_consume(struct ptr_ring_ll *r)
-> +{
-> +	u32 ret, head, tail, next, slots, mask;
-> +	void *ptr;
-> +
-> +	do {
-> +		head = READ_ONCE(r->cons_head);
-> +		mask = READ_ONCE(r->cons_mask);
-> +		tail = READ_ONCE(r->prod_tail);
-> +
-> +		slots = tail - head;
-> +		if (slots < 1)
-> +			return ERR_PTR(-ENOMEM);
-> +
-> +		next = head + 1;
-> +		ret = cmpxchg(&r->cons_head, head, next);
-> +	} while (ret != head);
-> +
-> +	ptr = r->queue[head & mask];
-> +	smp_rmb();
-> +
-> +	while (r->cons_tail != head)
-> +		cpu_relax();
-> +
-> +	r->cons_tail = next;
-> +	return ptr;
-> +}
-> +
-> +static inline void **__ptr_ring_ll_init_queue_alloc(int size, gfp_t gfp)
-> +{
-> +	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
-> +}
-> +
-> +static inline int ptr_ring_ll_init(struct ptr_ring_ll *r, int size, gfp_t gfp)
-> +{
-> +	r->queue = __ptr_ring_init_queue_alloc(size, gfp);
-> +	if (!r->queue)
-> +		return -ENOMEM;
-> +
-> +	r->prod_size = r->cons_size = size;
-> +	r->prod_mask = r->cons_mask = size - 1;
-> +	r->prod_tail = r->prod_head = 0;
-> +	r->cons_tail = r->prod_tail = 0;
-> +
-> +	return 0;
-> +}
-> +
-> +static inline void ptr_ring_ll_cleanup(struct ptr_ring_ll *r, void (*destroy)(void *))
-> +{
-> +	if (destroy) {
-> +		void *ptr;
-> +
-> +		ptr = __ptr_ring_ll_consume(r);
-> +		while (!IS_ERR_OR_NULL(ptr)) {
-> +			destroy(ptr);
-> +			ptr = __ptr_ring_ll_consume(r);
-> +		}
-> +	}
-> +	kfree(r->queue);
-> +}
-> +
-> +#endif /* _LINUX_PTR_RING_LL_H  */
-> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-> index f4dfade..9b43dfd 100644
-> --- a/include/linux/skb_array.h
-> +++ b/include/linux/skb_array.h
-> @@ -22,6 +22,7 @@
->  
->  #ifdef __KERNEL__
->  #include <linux/ptr_ring.h>
-> +#include <linux/ptr_ring_ll.h>
->  #include <linux/skbuff.h>
->  #include <linux/if_vlan.h>
->  #endif
-> @@ -30,6 +31,10 @@ struct skb_array {
->  	struct ptr_ring ring;
->  };
->  
-> +struct skb_array_ll {
-> +	struct ptr_ring_ll ring;
-> +};
-> +
->  /* Might be slightly faster than skb_array_full below, but callers invoking
->   * this in a loop must use a compiler barrier, for example cpu_relax().
->   */
-> @@ -43,6 +48,11 @@ static inline bool skb_array_full(struct skb_array *a)
->  	return ptr_ring_full(&a->ring);
->  }
->  
-> +static inline int skb_array_ll_produce(struct skb_array_ll *a, struct sk_buff *skb)
-> +{
-> +	return __ptr_ring_ll_produce(&a->ring, skb);
-> +}
-> +
->  static inline int skb_array_produce(struct skb_array *a, struct sk_buff *skb)
->  {
->  	return ptr_ring_produce(&a->ring, skb);
-> @@ -92,6 +102,11 @@ static inline bool skb_array_empty_any(struct skb_array *a)
->  	return ptr_ring_empty_any(&a->ring);
->  }
->  
-> +static inline struct sk_buff *skb_array_ll_consume(struct skb_array_ll *a)
-> +{
-> +	return __ptr_ring_ll_consume(&a->ring);
-> +}
-> +
->  static inline struct sk_buff *skb_array_consume(struct skb_array *a)
->  {
->  	return ptr_ring_consume(&a->ring);
-> @@ -146,6 +161,11 @@ static inline int skb_array_peek_len_any(struct skb_array *a)
->  	return PTR_RING_PEEK_CALL_ANY(&a->ring, __skb_array_len_with_tag);
->  }
->  
-> +static inline int skb_array_ll_init(struct skb_array_ll *a, int size, gfp_t gfp)
-> +{
-> +	return ptr_ring_ll_init(&a->ring, size, gfp);
-> +}
-> +
->  static inline int skb_array_init(struct skb_array *a, int size, gfp_t gfp)
->  {
->  	return ptr_ring_init(&a->ring, size, gfp);
-> @@ -170,6 +190,11 @@ static inline int skb_array_resize_multiple(struct skb_array **rings,
->  					__skb_array_destroy_skb);
->  }
->  
-> +static inline void skb_array_ll_cleanup(struct skb_array_ll *a)
-> +{
-> +	ptr_ring_ll_cleanup(&a->ring, __skb_array_destroy_skb);
-> +}
-> +
->  static inline void skb_array_cleanup(struct skb_array *a)
->  {
->  	ptr_ring_cleanup(&a->ring, __skb_array_destroy_skb);
+Thanks
+	Andrew
