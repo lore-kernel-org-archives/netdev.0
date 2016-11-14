@@ -1,70 +1,148 @@
-From: "ASIX_Allan [Office]" <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Subject: RE: [PATCH v3 3/5] net: asix: Fix AX88772x resume failures
-Date: Mon, 14 Nov 2016 17:45:28 +0800
-Message-ID: <010d01d23e5b$d8993130$89cb9390$@asix.com.tw>
-References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com> <c708db3f1e006df543284cf5215b965ce4fc44ec.1472155176.git-series.robert.foss@collabora.com> <77fa76d6-ef63-47db-a316-93b3a0c0705b@nvidia.com> <00e501d23e54$337d4b70$9a77e250$@asix.com.tw> <f0d21edc-060b-bd9b-fced-faf1f51e8467@nvidia.com>
-Reply-To: <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+From: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH nf-next,RFC] netfilter: nft_meta: add cgroup version 2
+ support
+Date: Mon, 14 Nov 2016 11:10:04 +0100
+Message-ID: <e4e0bc59-5a97-118b-2d4e-af12c2055e7e@zonque.org>
+References: <1479114761-19534-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "'Jon Hunter'" <jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, <robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-        <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>, <Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>,
-        <Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        <ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        <vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-        <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, <changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-        <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <f0d21edc-060b-bd9b-fced-faf1f51e8467-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Content-Language: zh-tw
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: htejun-b10kYP2dOMg@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+        netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1479114761-19534-1-git-send-email-pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jon,
+Hi Pablo,
 
-Please help to double check if the USB host controller of your Terga
-platform had been powered OFF while running the ax88772_suspend() routine or
-not? 
+On 11/14/2016 10:12 AM, Pablo Neira Ayuso wrote:
+> Add cgroup version 2 support to nf_tables.
+> 
+> This extension allows us to fetch the cgroup i-node number from the
+> cgroup socket data, place it in a register, then match it against any
+> value specified by user. This approach scales up nicely since it
+> integrates well in the existing nf_tables map infrastructure.
+> 
+> Contrary to what iptables cgroup v2 match does, this patch doesn't use
+> cgroup_is_descendant() because this call cannot guarantee that the cgroup
+> hierarchy is honored in anyway given that the cgroup v2 field becomes yet
+> another packet selector that you can use to build your filtering policy.
+> 
+> Actually, using the i-node approach, it should be easy to build a policy
+> that honors the hierarchy if you need this, eg.
+> 
+> 	meta cgroup2 vmap { "/A/B" : jump b-cgroup-chain,
+> 			    "/A/C" : jump c-cgroup-chain,
+> 			    "/A" : jump a-cgroup-chain }
+> 
+> then, the b-cgroup-chain looks like:
+> 
+> 	jump a-cgroup-chain
+> 	... # specific policy b-cgroup-chain goes here
+> 
+> similarly, the c-cgroup-chain looks like:
+> 
+> 	jump a-cgroup-chain
+> 	... # specific policy c-cgroup-chain goes here
+> 
+> So both B and C would evaluate A's ruleset. Note that cgroup A would
+> also jump to the root cgroup chain policy.
+> 
+> Anyway, this cgroup i-node approach provides way more flexibility since
+> it is up to the sysadmin to decide if he wants to honor the hierarchy or
+> simply define a fast path to skip any further classification.
 
----
-Best regards,
-Allan Chou
+I don't think this can work. The problem is that inodes in cgroupfs are
+dynamically allocated when a cgroup is created, so the sysadmin cannot
+install the jump rules before that. Worse yet, inode numbers in pseudo
+filesystems are recycled, so if a cgroup goes away and a new one is
+created, the latter may well end up having the same inode than the old
+one. As cgroupfs decoupled from netfilter tables, this will lead to
+major chaos in the field.
+
+Note that this was different with the netclass controller in v1 that
+would assign a user-controlled numeric value to each cgroup, so both
+sides were in the control of the sysadmin. It is also different with the
+path matching logic for v2 which does a full path string comparison.
+That's potentially expensive, it does lead to predictable runtime behavior.
+
+One way forward here would be to assign a atomically increasing 64-bit
+sequence number to each cgroup and expose that. I've recently talked to
+Tejun about that. While that won't solve the predictability issue, it
+would at least make it practically impossible to have re-used IDs.
+
+Anyway - I think it would be great to have an alternative to the v2 path
+matching here, but of course this patch does not solve the ingress issue
+we've been discussing. It is still impossible to reliably determine the
+cgroup of a local receiver at the time when the netfilter rules are
+processed, even for unicast packets.
 
 
------Original Message-----
-From: Jon Hunter [mailto:jonathanh-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org] 
-Sent: Monday, November 14, 2016 5:34 PM
-To: allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org; robert.foss-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org; freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org;
-Dean_Jenkins-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org; Mark_Craske-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org;
-ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org; john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org;
-stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org; grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org; changchias-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
-andrew-g2DYL2Zd6BY@public.gmane.org; tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org;
-linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; vpalatin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-Subject: Re: [PATCH v3 3/5] net: asix: Fix AX88772x resume failures
 
-Hi Allan,
+Thanks,
+Daniel
 
-On 14/11/16 08:50, ASIX_Allan [Home] wrote:
-> It seems the AX88772x dongle had been unexpectedly removed while 
-> running the
-> ax88772_suspend() routine. If yes, you might see these error messages
-> because the hardware had been absent.    
 
-In my case the hardware was never removed. The boards are in a test fixture
-that are not touched. This is seen on more than one board. By reverting this
-change I no longer see the error messages and appears to be 100%
-reproducible.
-
-Jon
-
---
-nvpublic
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Signed-off-by: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+> ---
+>  include/uapi/linux/netfilter/nf_tables.h |  2 ++
+>  net/netfilter/nft_meta.c                 | 15 +++++++++++++++
+>  2 files changed, 17 insertions(+)
+> 
+> diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+> index 0da7ccf65511..5d4d08367a87 100644
+> --- a/include/uapi/linux/netfilter/nf_tables.h
+> +++ b/include/uapi/linux/netfilter/nf_tables.h
+> @@ -729,6 +729,7 @@ enum nft_exthdr_attributes {
+>   * @NFT_META_OIFGROUP: packet output interface group
+>   * @NFT_META_CGROUP: socket control group (skb->sk->sk_classid)
+>   * @NFT_META_PRANDOM: a 32bit pseudo-random number
+> + * @NFT_META_CGROUP2: socket control group v2 (skb->sk->sk_cgrp_data)
+>   */
+>  enum nft_meta_keys {
+>  	NFT_META_LEN,
+> @@ -756,6 +757,7 @@ enum nft_meta_keys {
+>  	NFT_META_OIFGROUP,
+>  	NFT_META_CGROUP,
+>  	NFT_META_PRANDOM,
+> +	NFT_META_CGROUP2,
+>  };
+>  
+>  /**
+> diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+> index 6c1e0246706e..1e793e133903 100644
+> --- a/net/netfilter/nft_meta.c
+> +++ b/net/netfilter/nft_meta.c
+> @@ -190,6 +190,18 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+>  		*dest = prandom_u32_state(state);
+>  		break;
+>  	}
+> +#ifdef CONFIG_SOCK_CGROUP_DATA
+> +	case NFT_META_CGROUP2: {
+> +		struct cgroup *cgrp;
+> +
+> +		if (!skb->sk || !sk_fullsock(skb->sk))
+> +			goto err;
+> +
+> +		cgrp = sock_cgroup_ptr(&skb->sk->sk_cgrp_data);
+> +		*dest = cgrp->kn->ino;
+> +		break;
+> +	}
+> +#endif
+>  	default:
+>  		WARN_ON(1);
+>  		goto err;
+> @@ -273,6 +285,9 @@ int nft_meta_get_init(const struct nft_ctx *ctx,
+>  #ifdef CONFIG_CGROUP_NET_CLASSID
+>  	case NFT_META_CGROUP:
+>  #endif
+> +#ifdef CONFIG_SOCK_CGROUP_DATA
+> +	case NFT_META_CGROUP2:
+> +#endif
+>  		len = sizeof(u32);
+>  		break;
+>  	case NFT_META_IIFNAME:
+> 
