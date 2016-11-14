@@ -1,81 +1,61 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v2 1/5] ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE and ETHTOOL_PHY_STUNABLE
-Date: Mon, 14 Nov 2016 10:29:16 +0100
-Message-ID: <1479115760-1182-2-git-send-email-allan.nielsen@microsemi.com>
-References: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+Subject: [PATCH ethtool v2 0/2] Adding downshift support to ethtool
+Date: Mon, 14 Nov 2016 10:29:45 +0100
+Message-ID: <1479115787-1265-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
-        <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+        <allan.nielsen@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0050.outbound.protection.outlook.com ([104.47.34.50]:10398
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-bn3nam01on0083.outbound.protection.outlook.com ([104.47.33.83]:53952
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752040AbcKNJ3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 04:29:39 -0500
-In-Reply-To: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+        id S1754661AbcKNJaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 04:30:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+This is a follow-up on the patch series posted at Fri, 4 Nov 2016 11:27:31 +0100
+(old cover letter included below).
 
-Defines a generic API to get/set phy tunables. The API is using the
-existing ethtool_tunable/tunable_type_id types which is already being used
-for mac level tunables.
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- include/uapi/linux/ethtool.h | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+The following is changed/added/addressed:
+- Syntax is changed from "--set-phy-tunable downshift on|off|%d" to
+  "--set-phy-tunable [downshift on|off [count N]]" - as requested by Andrew.
+- Short description of downshifting is added to the man page.
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 8e54723..42f696f 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -248,6 +248,16 @@ struct ethtool_tunable {
- 	void	*data[0];
- };
- 
-+enum phy_tunable_id {
-+	ETHTOOL_PHY_ID_UNSPEC,
-+
-+	/*
-+	 * Add your fresh new phy tunable attribute above and remember to update
-+	 * phy_tunable_strings[] in net/core/ethtool.c
-+	 */
-+	__ETHTOOL_PHY_TUNABLE_COUNT,
-+};
-+
- /**
-  * struct ethtool_regs - hardware register dump
-  * @cmd: Command number = %ETHTOOL_GREGS
-@@ -548,6 +558,7 @@ struct ethtool_pauseparam {
-  * @ETH_SS_FEATURES: Device feature names
-  * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
-  * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
-+ * @ETH_SS_PHY_TUNABLES: PHY tunable names
-  */
- enum ethtool_stringset {
- 	ETH_SS_TEST		= 0,
-@@ -558,6 +569,7 @@ enum ethtool_stringset {
- 	ETH_SS_RSS_HASH_FUNCS,
- 	ETH_SS_TUNABLES,
- 	ETH_SS_PHY_STATS,
-+	ETH_SS_PHY_TUNABLES,
- };
- 
- /**
-@@ -1313,7 +1325,8 @@ struct ethtool_per_queue_op {
- 
- #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
- #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
--
-+#define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
-+#define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
+
+Please review
+
+Best regards
+Allan and Raju
+
+Raju Lakkaraju (2):
+  ethtool-copy.h:sync with net
+  Ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE and PHY
+    downshift
+
+ ethtool-copy.h |  18 +++++++-
+ ethtool.8.in   |  39 ++++++++++++++++
+ ethtool.c      | 144 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 200 insertions(+), 1 deletion(-)
+
+Old cover letter:
+> From 5d926ca56f13e283aaa98e820d4720305be4da8f Mon Sep 17 00:00:00 2001
+> From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+> Date: Fri, 4 Nov 2016 11:27:31 +0100
+> Subject: [PATCH ethtool 0/2] Adding downshift support to ethtool
+> 
+> Hi All,
+> 
+> This patch implements for set/get downshifting.
+> 
+> Downshifting can either be turned on/off, or it can be configured to a
+> specifc count.
+> 
+> If no "count" are provided, then it is up to the individual PHY driver to
+> configure a default count.
+
 -- 
 2.7.3
