@@ -1,178 +1,225 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: Re: [PATCH net 2/3] bpf, mlx5: fix various refcount/prog issues in
- mlx5e_xdp_set
-Date: Mon, 14 Nov 2016 20:27:47 +0200
-Message-ID: <af02aa53-0df6-e8b7-bcfe-5f765f5a8c09@mellanox.com>
-References: <cover.1479080215.git.daniel@iogearbox.net>
- <03741f7075af64e83d23add379bdab41204396b0.1479080215.git.daniel@iogearbox.net>
+From: Josef Bacik <jbacik@fb.com>
+Subject: Re: [PATCH net-next] bpf: fix range arithmetic for bpf map access
+Date: Mon, 14 Nov 2016 13:52:51 -0500
+Message-ID: <4f6d6d58-303b-0165-6e7d-1c04d658e737@fb.com>
+References: <1478900859-7807-1-git-send-email-jbacik@fb.com>
+ <20161112031338.GA86010@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <bblanco@plumgrid.com>,
-        <tariqt@mellanox.com>, <zhiyisun@gmail.com>, <ranas@mellanox.com>,
-        <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Cc: <jannh@google.com>, <ast@kernel.org>, <daniel@iogearbox.net>,
+        <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0065.outbound.protection.outlook.com ([104.47.2.65]:51456
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933715AbcKNSoC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 13:44:02 -0500
-In-Reply-To: <03741f7075af64e83d23add379bdab41204396b0.1479080215.git.daniel@iogearbox.net>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56614 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753014AbcKNSxT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:53:19 -0500
+In-Reply-To: <20161112031338.GA86010@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/11/2016 10:13 PM, Alexei Starovoitov wrote:
+> On Fri, Nov 11, 2016 at 04:47:39PM -0500, Josef Bacik wrote:
+>> I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
+>> invalid accesses to bpf map entries.  Fix this up by doing a few things
+>>
+>> 1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
+>> life and just adds extra complexity.
+>>
+>> 2) Fix the logic for BPF_AND, don't allow AND of negative numbers and set the
+>> minimum value to 0 for positive AND's.
+>>
+>> 3) Don't do operations on the ranges if they are set to the limits, as they are
+>> by definition undefined, and allowing arithmetic operations on those values
+>> could make them appear valid when they really aren't.
+>>
+>> This fixes the testcase provided by Jann as well as a few other theoretical
+>> problems.
+>>
+>> Reported-by: Jann Horn <jannh@google.com>
+>> Signed-off-by: Josef Bacik <jbacik@fb.com>
+>> ---
+>>  include/linux/bpf_verifier.h |  3 +-
+>>  kernel/bpf/verifier.c        | 70 +++++++++++++++++++++++++++++---------------
+>>  2 files changed, 49 insertions(+), 24 deletions(-)
+>>
+>> diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+>> index ac5b393..15ceb7f 100644
+>> --- a/include/linux/bpf_verifier.h
+>> +++ b/include/linux/bpf_verifier.h
+>> @@ -22,7 +22,8 @@ struct bpf_reg_state {
+>>  	 * Used to determine if any memory access using this register will
+>>  	 * result in a bad access.
+>>  	 */
+>> -	u64 min_value, max_value;
+>> +	s64 min_value;
+>> +	u64 max_value;
+>>  	u32 id;
+>>  	union {
+>>  		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
+>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+>> index 89f787c..709fe0e 100644
+>> --- a/kernel/bpf/verifier.c
+>> +++ b/kernel/bpf/verifier.c
+>> @@ -234,8 +234,8 @@ static void print_verifier_state(struct bpf_verifier_state *state)
+>>  				reg->map_ptr->value_size,
+>>  				reg->id);
+>>  		if (reg->min_value != BPF_REGISTER_MIN_RANGE)
+>> -			verbose(",min_value=%llu",
+>> -				(unsigned long long)reg->min_value);
+>> +			verbose(",min_value=%lld",
+>> +				(long long)reg->min_value);
+>>  		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
+>>  			verbose(",max_value=%llu",
+>>  				(unsigned long long)reg->max_value);
+>> @@ -778,7 +778,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
+>>  			 * index'es we need to make sure that whatever we use
+>>  			 * will have a set floor within our range.
+>>  			 */
+>> -			if ((s64)reg->min_value < 0) {
+>> +			if (reg->min_value < 0) {
+>>  				verbose("R%d min value is negative, either use unsigned index or do a if (index >=0) check.\n",
+>>  					regno);
+>>  				return -EACCES;
+>> @@ -1490,7 +1490,8 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
+>>  {
+>>  	if (reg->max_value > BPF_REGISTER_MAX_RANGE)
+>>  		reg->max_value = BPF_REGISTER_MAX_RANGE;
+>> -	if ((s64)reg->min_value < BPF_REGISTER_MIN_RANGE)
+>> +	if (reg->min_value < BPF_REGISTER_MIN_RANGE ||
+>> +	    reg->min_value > BPF_REGISTER_MAX_RANGE)
+>>  		reg->min_value = BPF_REGISTER_MIN_RANGE;
+>>  }
+>>
+>> @@ -1498,7 +1499,8 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+>>  				    struct bpf_insn *insn)
+>>  {
+>>  	struct bpf_reg_state *regs = env->cur_state.regs, *dst_reg;
+>> -	u64 min_val = BPF_REGISTER_MIN_RANGE, max_val = BPF_REGISTER_MAX_RANGE;
+>> +	s64 min_val = BPF_REGISTER_MIN_RANGE;
+>> +	u64 max_val = BPF_REGISTER_MAX_RANGE;
+>>  	u8 opcode = BPF_OP(insn->code);
+>>
+>>  	dst_reg = &regs[insn->dst_reg];
+>> @@ -1532,22 +1534,43 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+>>  		return;
+>>  	}
+>>
+>> +	/* If one of our values was at the end of our ranges then we can't just
+>> +	 * do our normal operations to the register, we need to set the values
+>> +	 * to the min/max since they are undefined.
+>> +	 */
+>> +	if (min_val == BPF_REGISTER_MIN_RANGE)
+>> +		dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+>> +	if (max_val == BPF_REGISTER_MAX_RANGE)
+>> +		dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
+>> +
+>>  	switch (opcode) {
+>>  	case BPF_ADD:
+>> -		dst_reg->min_value += min_val;
+>> -		dst_reg->max_value += max_val;
+>> +		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+>> +			dst_reg->min_value += min_val;
+>> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+>> +			dst_reg->max_value += max_val;
+>>  		break;
+>>  	case BPF_SUB:
+>> -		dst_reg->min_value -= min_val;
+>> -		dst_reg->max_value -= max_val;
+>> +		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+>> +			dst_reg->min_value -= min_val;
+>> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+>> +			dst_reg->max_value -= max_val;
+>>  		break;
+>>  	case BPF_MUL:
+>> -		dst_reg->min_value *= min_val;
+>> -		dst_reg->max_value *= max_val;
+>> +		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+>> +			dst_reg->min_value *= min_val;
+>
+> looks to be few issues here with negative values as well.
+> If dst_reg range [-2, 5] and right hand side range is [-2, 10],
+> then above will be computed as -2 * -2 == 4
+> but even if we do -1 * abs(dst_reg->min) * abs(min), it's still
+> incorrect, since dst_reg could be 5 and multiplied by -2 (== -10),
+> it will be less than above simple math on min values...
+> so I'd suggest to disable negative values everywhere.
+>
+>> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+>> +			dst_reg->max_value *= max_val;
+>>  		break;
+>>  	case BPF_AND:
+>> -		/* & is special since it could end up with 0 bits set. */
+>> -		dst_reg->min_value &= min_val;
+>> +		/* Disallow AND'ing of negative numbers, ain't nobody got time
+>> +		 * for that.  Otherwise the minimum is 0 and the max is the max
+>> +		 * value we could AND against.
+>> +		 */
+>> +		if (min_val < 0)
+>> +			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+>> +		else
+>> +			dst_reg->min_value = 0;
+>>  		dst_reg->max_value = max_val;
+>>  		break;
+>>  	case BPF_LSH:
+>> @@ -1557,24 +1580,25 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+>>  		 */
+>>  		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
+>>  			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+>> -		else
+>> +		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+>>  			dst_reg->min_value <<= min_val;
+>>
+>>  		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
+>>  			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
+>> -		else
+>> +		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+>>  			dst_reg->max_value <<= max_val;
+>>  		break;
+>>  	case BPF_RSH:
+>> -		dst_reg->min_value >>= min_val;
+>> -		dst_reg->max_value >>= max_val;
+>> -		break;
+>> -	case BPF_MOD:
+>> -		/* % is special since it is an unsigned modulus, so the floor
+>> -		 * will always be 0.
+>> +		/* RSH by a negative number is undefined, and the BPF_RSH is an
+>> +		 * unsigned shift, so make the appropriate casts.
+>>  		 */
+>> -		dst_reg->min_value = 0;
+>> -		dst_reg->max_value = max_val - 1;
+>> +		if (min_val < 0)
+>> +			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+>> +		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+>> +			dst_reg->min_value =
+>> +				(u64)(dst_reg->min_value) >> min_val;
+>
+> when min_val is negative both >> and << are undefined,
+> so we need to avoid negative values for these cases as well.
+>
+>> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+>> +			dst_reg->max_value >>= max_val;
+>
+> and for max_val too we need to make sure that max_val >= 0.
 
+Well it's unsigned, so if somebody sets it to a negative value it'll be > 
+BPF_REGISTER_MAX_RANGE and that'll get caught by the overflow logic above.
 
-On 11/14/2016 02:43 AM, Daniel Borkmann wrote:
-> There are multiple issues in mlx5e_xdp_set():
-> 
-> 1) prog can be NULL, so calling unconditionally into bpf_prog_add(prog,
->    priv->params.num_channels) can end badly.
+>
+> To address all of it I'm thinking it will be easier to set
+> BPF_REGISTER_MIN_RANGE to -1.
+> I don't think we can kill tracking of min_val completely
+> and assume valid min starts at zero, since we need either min
+> tracking or boolean flag that indicates negative overflow and
+> min tracking is imo cleaner (though valid min will always be >=0
+> and invalid min is -1)
+>
+> Also this patch has to go to 'net' tree, so rebasing with net-next
+> wasn't necessary.
+>
 
-not correct, if prog is null we will never get to bpf_prog_add:
+Yeah I'm fine with killing negative values altogether, it does seem a bit silly 
+to support it and isn't likely to be used in any sort of normal scenario.  Thanks,
 
-        reset = (!priv->xdp_prog || !prog);
-        [...]
-	if (!test_bit(MLX5E_STATE_OPENED, &priv->state) || reset)
-		goto unlock;
-        bpf_prog_add...
-         
-
-> 
-> 2) The batched bpf_prog_add() should be done at an earlier point in
->    time. This makes sure that we cannot fail anymore at the time we
->    want to set the program for each channel. This only means that we
->    have to undo the bpf_prog_add() in case we return early due to
->    reset or device not in MLX5E_STATE_OPENED yet. Note, err is 0 here.
-> 
-
-It is delayed for a reason, we do delayed batched bpf_prog_add() 
-only when reset is not required (exchanging prog/old_prg) when both prog and old_prog are not null,
-which means the only thing that could fail in this case is bpf_prog_add.
-
-so i don't see any reason for changing the logic, checking for  bpf_prog_add return value would be sufficient.
-
-Sorry I need to go for now, I will continue reviewing this patch later.  but this patch looks a little bit exaggerated.
-
-> 3) When swapping the priv->xdp_prog, then no extra reference count must
->    be taken since we got that from call path via dev_change_xdp_fd()
->    already. Otherwise, we'd never be able to free the program. Also,
->    bpf_prog_add() without checking the return code could fail.
-> 
-> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 25 ++++++++++++++++++-----
->  include/linux/bpf.h                               |  5 +++++
->  kernel/bpf/syscall.c                              | 11 ++++++++++
->  3 files changed, 36 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index 2b83667..c90610a 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -3125,6 +3125,17 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
->  		goto unlock;
->  	}
->  
-> +	if (prog) {
-> +		/* num_channels is invariant here, so we can take the
-> +		 * batched reference right upfront.
-> +		 */
-> +		prog = bpf_prog_add(prog, priv->params.num_channels);
-> +		if (IS_ERR(prog)) {
-> +			err = PTR_ERR(prog);
-> +			goto unlock;
-> +		}
-> +	}
-> +
->  	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
->  	/* no need for full reset when exchanging programs */
->  	reset = (!priv->xdp_prog || !prog);
-> @@ -3132,10 +3143,10 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
->  	if (was_opened && reset)
->  		mlx5e_close_locked(netdev);
->  
-> -	/* exchange programs */
-> +	/* exchange programs, extra prog reference we got from caller
-> +	 * as long as we don't fail from this point onwards.
-> +	 */
->  	old_prog = xchg(&priv->xdp_prog, prog);
-> -	if (prog)
-> -		bpf_prog_add(prog, 1);
->  	if (old_prog)
->  		bpf_prog_put(old_prog);
->  
-> @@ -3146,12 +3157,11 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
->  		mlx5e_open_locked(netdev);
->  
->  	if (!test_bit(MLX5E_STATE_OPENED, &priv->state) || reset)
-> -		goto unlock;
-> +		goto unlock_put;
->  
->  	/* exchanging programs w/o reset, we update ref counts on behalf
->  	 * of the channels RQs here.
->  	 */
-> -	bpf_prog_add(prog, priv->params.num_channels);
->  	for (i = 0; i < priv->params.num_channels; i++) {
->  		struct mlx5e_channel *c = priv->channel[i];
->  
-> @@ -3173,6 +3183,11 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
->  unlock:
->  	mutex_unlock(&priv->state_lock);
->  	return err;
-> +unlock_put:
-> +	/* reference on priv->xdp_prog is still held at this point */
-> +	if (prog)
-> +		bpf_prog_sub(prog, priv->params.num_channels);
-> +	goto unlock;
->  }
->  
->  static bool mlx5e_xdp_attached(struct net_device *dev)
-> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-> index c201017..ca495fd 100644
-> --- a/include/linux/bpf.h
-> +++ b/include/linux/bpf.h
-> @@ -234,6 +234,7 @@ u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
->  struct bpf_prog *bpf_prog_get(u32 ufd);
->  struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
->  struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i);
-> +void bpf_prog_sub(struct bpf_prog *prog, int i);
->  struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);
->  void bpf_prog_put(struct bpf_prog *prog);
->  
-> @@ -303,6 +304,10 @@ static inline struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
->  	return ERR_PTR(-EOPNOTSUPP);
->  }
->  
-> +static inline void bpf_prog_sub(struct bpf_prog *prog, int i)
-> +{
-> +}
-> +
->  static inline void bpf_prog_put(struct bpf_prog *prog)
->  {
->  }
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 751e806..a0fca9f 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -682,6 +682,17 @@ struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
->  }
->  EXPORT_SYMBOL_GPL(bpf_prog_add);
->  
-> +void bpf_prog_sub(struct bpf_prog *prog, int i)
-> +{
-> +	/* Only to be used for undoing previous bpf_prog_add() in some
-> +	 * error path. We still know that another entity in our call
-> +	 * path holds a reference to the program, thus atomic_sub() can
-> +	 * be safely used in such cases!
-> +	 */
-> +	WARN_ON(atomic_sub_return(i, &prog->aux->refcnt) == 0);
-> +}
-> +EXPORT_SYMBOL_GPL(bpf_prog_sub);
-> +
->  struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
->  {
->  	return bpf_prog_add(prog, 1);
-> 
+Josef
