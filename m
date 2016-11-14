@@ -1,58 +1,67 @@
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Subject: Re: [PATCH v2 0/2] bnx2: Wait for in-flight DMA to complete at probe
- stage
-Date: Mon, 14 Nov 2016 18:35:17 +0100
-Message-ID: <b8bbc1a5-f00e-c257-9119-f5e91bd68b59@molgen.mpg.de>
-References: <1479013293-21001-1-git-send-email-bhe@redhat.com>
- <8010f40d-e7ca-8fd1-7317-f576289c112f@molgen.mpg.de>
- <20161114.122838.1039215178593568702.davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net 2/3] bpf, mlx5: fix various refcount/prog issues in
+ mlx5e_xdp_set
+Date: Mon, 14 Nov 2016 09:35:27 -0800
+Message-ID: <20161114173525.GA98186@ast-mbp.thefacebook.com>
+References: <cover.1479080215.git.daniel@iogearbox.net>
+ <03741f7075af64e83d23add379bdab41204396b0.1479080215.git.daniel@iogearbox.net>
+ <20161114024908.GB94347@ast-mbp.thefacebook.com>
+ <58297AAD.8060003@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: bhe@redhat.com, netdev@vger.kernel.org, michael.chan@broadcom.com,
-        linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
-        rasesh.mody@cavium.com, harish.patil@cavium.com,
-        frank@undermydesk.org, jsr@dex.edzone.net, jroedel@suse.de,
-        dyoung@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161114.122838.1039215178593568702.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, bblanco@plumgrid.com, tariqt@mellanox.com,
+        zhiyisun@gmail.com, ranas@mellanox.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36197 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752812AbcKNRfc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 12:35:32 -0500
+Received: by mail-pf0-f193.google.com with SMTP id c4so3922089pfb.3
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 09:35:31 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <58297AAD.8060003@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/14/16 18:28, David Miller wrote:
-> From: Paul Menzel <pmenzel@molgen.mpg.de>
-> Date: Mon, 14 Nov 2016 09:25:47 +0100
+On Mon, Nov 14, 2016 at 09:49:49AM +0100, Daniel Borkmann wrote:
+> On 11/14/2016 03:49 AM, Alexei Starovoitov wrote:
+> >On Mon, Nov 14, 2016 at 01:43:41AM +0100, Daniel Borkmann wrote:
+> [...]
+> >>diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> >>index 751e806..a0fca9f 100644
+> >>--- a/kernel/bpf/syscall.c
+> >>+++ b/kernel/bpf/syscall.c
+> >>@@ -682,6 +682,17 @@ struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
+> >>  }
+> >>  EXPORT_SYMBOL_GPL(bpf_prog_add);
+> >>
+> >>+void bpf_prog_sub(struct bpf_prog *prog, int i)
+> >>+{
+> >>+	/* Only to be used for undoing previous bpf_prog_add() in some
+> >>+	 * error path. We still know that another entity in our call
+> >>+	 * path holds a reference to the program, thus atomic_sub() can
+> >>+	 * be safely used in such cases!
+> >>+	 */
+> >>+	WARN_ON(atomic_sub_return(i, &prog->aux->refcnt) == 0);
+> >>+}
+> >>+EXPORT_SYMBOL_GPL(bpf_prog_sub);
+> >
+> >the patches look good. I'm only worried about net/net-next merge
+> >conflict here. (I would have to deal with it as well).
+> >So instead of copying the above helper can we apply net-next's
+> >'bpf, mlx4: fix prog refcount in mlx4_en_try_alloc_resources error path'
+> >patch to net without mlx4_xdp_set hunk and then apply
+> >the rest of this patch?
+> >Even better is to send this patch 2/3 to net-next?
+> >yes, it's an issue, but very small one. There is no security
+> >concern here, so I would prefer to avoid merge conflict.
+> >Did you do a test merge of net/net-next by any chance?
+> 
+> Yes, I did a test merge and git resolved the above just fine w/o
+> any conflicts. I have no strong opinion whether net or net-next.
+> If preferred, I can just resend this series in the evening against
+> net-next instead, perhaps that's a bit better.
 
->> On 11/13/16 06:01, Baoquan He wrote:
->>> This is v2 post.
->>>
->>> In commit 3e1be7a ("bnx2: Reset device during driver initialization"),
->>> firmware requesting code was moved from open stage to probe stage.
->>> The reason is in kdump kernel hardware iommu need device be reset in
->>> driver probe stage, otherwise those in-flight DMA from 1st kernel
->>> will continue going and look up into the newly created io-page tables.
->>> However bnx2 chip resetting involves firmware requesting issue, that
->>> need be done in open stage.
->>>
->>> Michale Chan suggested we can just wait for the old in-flight DMA to
->>> complete at probe stage, then though without device resetting, we
->>> don't need to worry the old in-flight DMA could continue looking up
->>> the newly created io-page tables.
->>>
->>> v1->v2:
->>>     Michael suggested to wait for the in-flight DMA to complete at probe
->>>     stage. So give up the old method of trying to reset chip at probe
->>>     stage, take the new way accordingly.
->>
->> thank you for posting the updated series. Could you please resend a v3
->> with stable@vger.kernel.org added [1]?
->
-> This is not the proper procedure for networking patches.
-
-Oh, I didn’t know that. Sorry for spreading false information.
-
-
-Kind regards,
-
-Paul
+I have slight preference to go via net-next, but since it merges fine,
+I don't mind net route too.
