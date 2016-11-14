@@ -1,85 +1,54 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2] ipv6: sr: fix IPv6 initialization failure
- without lwtunnels
-Date: Mon, 14 Nov 2016 06:22:19 -0800
-Message-ID: <5829C89B.7010405@cumulusnetworks.com>
-References: <CAKD1Yr0fDFdDv9+S3i_rH6W6btEuvs9s-h33_N67iM4qrtDezQ@mail.gmail.com>        <1478780813-20005-1-git-send-email-david.lebrun@uclouvain.be>        <20161113.002055.1386089188095640295.davem@davemloft.net> <20161113.002348.81553025732356797.davem@davemloft.net> <5828C619.2020008@uclouvain.be>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v5] cadence: Add LSO support.
+Date: Mon, 14 Nov 2016 06:35:09 -0800
+Message-ID: <1479134109.8455.56.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <BN3PR07MB2516C30913D2FB8D4788071AC9BC0@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        lorenzo@google.com
-To: David Lebrun <david.lebrun@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:34992 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932190AbcKNO2H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 09:28:07 -0500
-Received: by mail-pg0-f45.google.com with SMTP id p66so54770305pga.2
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 06:28:06 -0800 (PST)
-In-Reply-To: <5828C619.2020008@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rafal Ozieblo <rafalo@cadence.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BN3PR07MB2516C30913D2FB8D4788071AC9BC0@BN3PR07MB2516.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/13/16, 11:59 AM, David Lebrun wrote:
-> On 11/13/2016 06:23 AM, David Miller wrote:
->> This seems like such a huge mess, quite frankly.
->>
->> IPV6-SR has so many strange dependencies, a weird Kconfig option that is
->> simply controlling what a responsible sysadmin should be allow to do if
->> he chooses anyways.
->>
->> Every distribution is going to say "¯\_(ツ)_/¯" and just turn the thing
->> on in their builds.
-> Indeed, the issue is that seg6_iptunnel.o was included in obj-y instead
-> of ipv6-y, triggering the bug when CONFIG_IPV6=m. Fixed with the
-> following modification to the patch (tested with allyesconfig and
-> allmodconfig):
->
-> diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-> index 8979d53..a233136 100644
-> --- a/net/ipv6/Makefile
-> +++ b/net/ipv6/Makefile
-> @@ -53,6 +53,6 @@ obj-$(subst m,y,$(CONFIG_IPV6)) += inet6_hashtables.o
->
->  ifneq ($(CONFIG_IPV6),)
->  obj-$(CONFIG_NET_UDP_TUNNEL) += ip6_udp_tunnel.o
-> -obj-$(CONFIG_LWTUNNEL) += seg6_iptunnel.o
-> +ipv6-$(CONFIG_LWTUNNEL) += seg6_iptunnel.o
->  obj-y += mcast_snoop.o
->  endif
+On Mon, 2016-11-14 at 09:32 +0000, Rafal Ozieblo wrote:
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: 10 listopada 2016 18:01
+> To: Rafal Ozieblo
+> Cc: nicolas.ferre@atmel.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next v5]] cadence: Add LSO support.
+> 
+> From: Rafal Ozieblo <rafalo@cadence.com>
+> Date: Wed, 9 Nov 2016 13:41:02 +0000
+> 
+> > First, please remove the spurious closing bracket in your Subject line in future submittions.
+> >
+> >> +	if (is_udp) /* is_udp is only set when (is_lso) is checked */
+> >> +		/* zero UDP checksum, not calculated by h/w for UFO */
+> >> +		udp_hdr(skb)->check = 0;
+> >
+> > This is really not ok.
+> > 
+> > If UFO is in use it should not silently disable UDP checksums.
+> > 
+> > If you cannot support UFO with proper checksumming, then you cannot enable support for that feature.
+> 
+> According Cadence Gigabit Ethernet MAC documentation:
+> 
+> "Hardware will not calculate the UDP checksum or modify the UDP checksum field. Therefore software
+> must set a value of zero in the checksum field in the UDP header (in the first payload buffer)
+> to indicate to the receiver that the UDP datagram does not include a checksum."
+> 
+> It is hardware requirement.
 
+Then do not claim NETIF_F_UFO suport in the driver, if hardware is
+absolutely not capable of handling this.
 
->
-> I agree with you that the way to combine the dependencies is strange,
-> even if they are very few. The part of the IPv6-SR patch that is enabled
-> by default depends on two things: IPV6 and LWTUNNEL. The problem is that
-> LWTUNNEL does not depend on IPV6 and is not necessarily enabled. To fix
-> the bug reported by Lorenzo, I propose to select one the three following
-> solutions:
->
-> 1. Make LWTUNNEL always enabled (removing the option).
->    Pros: remove an option
->    Cons: add always-enabled code
->
-> 2. Create an option IPV6_SEG6_LWTUNNEL, which would select LWTUNNEL and
-> enable the compilation of seg6_iptunnel.o.
->    Pros: logically dissociate the part of IPv6-SR that depends on
-> LWTUNNEL from the core patch and simplifies compilation
->    Cons: add an option
+Linux stack will provide proper udp checksum.
 
-I prefer option b). most LWTUNNEL encaps are done this way.
-
-seg6 and seg6_iptunnel is new segment routing code and can be under CONFIG_IPV6_SEG6 which depends on CONFIG_LWTUNNEL and CONFIG_IPV6. CONFIG_IPV6_SEG6_HMAC could then depend on CONFIG_IPV6_SEG6
-
-
-
->
-> 3. Apply the proposed patch with the fix
->    Pros: do not modify options
->    Cons: weird conditional compilation
->
-> What do you think ?
->
-> David
->
+Almost no driver sets NETIF_F_UFO.
