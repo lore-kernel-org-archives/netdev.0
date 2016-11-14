@@ -1,74 +1,51 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net] udp: restore UDPlite many-cast delivery
-Date: Mon, 14 Nov 2016 23:40:30 +0100
-Message-ID: <1479163230-8734-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, edumazet@google.com, drheld@google.com
-To: netdev@vger.kernel.org
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH 0/2] amd-xgbe: AMD XGBE driver updates 2016-11-14
+Date: Mon, 14 Nov 2016 16:42:53 -0600
+Message-ID: <5139f826-97a4-512e-7948-2db9d195cb4c@amd.com>
+References: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <julia.lawall@lip6.fr>, <christophe.jaillet@wanadoo.fr>
+To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56678 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752842AbcKNWko (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 17:40:44 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 0D00220942F
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 23:40:43 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id F27CFDA871
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 23:40:42 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B8187DA853
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 23:40:38 +0100 (CET)
+Received: from mail-bn3nam01on0060.outbound.protection.outlook.com ([104.47.33.60]:19776
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754304AbcKNWnC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 17:43:02 -0500
+In-Reply-To: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Honor udptable parameter that is passed to __udp*_lib_mcast_deliver(),
-otherwise udplite broadcast/multicast use the wrong table and it breaks.
+On 11/14/2016 4:28 PM, Tom Lendacky wrote:
+> This patch series addresses some minor issues found in the recently
+> accepted patch series for the AMD XGBE driver.
+> 
+> The following fixes are included in this driver update series:
+> 
+> - Fix how a mask is applied to a Clause 37 register value
+> - Fix some coccinelle identified warnings
+> 
+> This patch series is based on net-next.
 
-Fixes: 2dc41cff7545 ("udp: Use hash2 for long hash1 chains in __udp*_lib_mcast_deliver.")
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-It looks like UDPlite accidentally broke when dealing with long UDP many-cast
-chains, give the wrong table is used for udplite. Compile tested only.
+David,
 
- net/ipv4/udp.c | 6 +++---
- net/ipv6/udp.c | 6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+I forgot to include the net-next repo name in the subject, please
+ignore this series and I'll resend.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 195992e0440d..5b5a552a2804 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1731,10 +1731,10 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 
- 	if (use_hash2) {
- 		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
--			    udp_table.mask;
--		hash2 = udp4_portaddr_hash(net, daddr, hnum) & udp_table.mask;
-+			    udptable->mask;
-+		hash2 = udp4_portaddr_hash(net, daddr, hnum) & udptable->mask;
- start_lookup:
--		hslot = &udp_table.hash2[hash2];
-+		hslot = &udptable->hash2[hash2];
- 		offset = offsetof(typeof(*sk), __sk_common.skc_portaddr_node);
- 	}
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index a7700bbf6788..a9dd23d5c3c4 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -688,10 +688,10 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 
- 	if (use_hash2) {
- 		hash2_any = udp6_portaddr_hash(net, &in6addr_any, hnum) &
--			    udp_table.mask;
--		hash2 = udp6_portaddr_hash(net, daddr, hnum) & udp_table.mask;
-+			    udptable->mask;
-+		hash2 = udp6_portaddr_hash(net, daddr, hnum) & udptable->mask;
- start_lookup:
--		hslot = &udp_table.hash2[hash2];
-+		hslot = &udptable->hash2[hash2];
- 		offset = offsetof(typeof(*sk), __sk_common.skc_portaddr_node);
- 	}
- 
--- 
-2.1.4
+Thanks,
+Tom
+
+> 
+> ---
+> 
+> Tom Lendacky (2):
+>       amd-xgbe: Fix mask appliciation for Clause 37 register
+>       amd-xgbe: Fix up some coccinelle identified warnings
+> 
+> 
+>  drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |    4 ++--
+>  drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    5 ++---
+>  2 files changed, 4 insertions(+), 5 deletions(-)
+> 
