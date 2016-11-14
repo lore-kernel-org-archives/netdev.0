@@ -1,92 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH ethtool v2 2/2] Ethtool: Implements
- ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE and PHY downshift
-Date: Mon, 14 Nov 2016 15:03:03 +0100
-Message-ID: <20161114140303.GM26710@lunn.ch>
-References: <1479115787-1265-1-git-send-email-allan.nielsen@microsemi.com>
- <1479115787-1265-3-git-send-email-allan.nielsen@microsemi.com>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH v2] net: ioctl SIOCSIFADDR minor cleanup
+Date: Mon, 14 Nov 2016 22:48:37 +0800 (CST)
+Message-ID: <5829CEC5.0CD436.29343@m12-11.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raju.lakkaraju@microsemi.com
-To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37897 "EHLO vps0.lunn.ch"
+Received: from m12-11.163.com ([220.181.12.11]:49736 "EHLO m12-11.163.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932414AbcKNOkP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 09:40:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1479115787-1265-3-git-send-email-allan.nielsen@microsemi.com>
+        id S1751360AbcKNOsz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 09:48:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +.B \-\-get\-phy\-tunable
-> +Gets the PHY tunable parameters.
-> +.RS 4
-> +.TP
-> +.B downshift
-> +For operation in cabling environments that are incompatible with 1000BAST-T,
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-BASE
+1. set interface address label to ioctl request device name is enough
+2. when address pass inet_abc_len check, prefixlen < 31 is always true
 
-> +PHY device provides an automatic link speed downshift operation.
-> +Link speed downshift after N failed 1000BASE-T auto-negotiation attempts.
-> +
-> +Gets the PHY downshift count/status.
-> +.RE
->  .SH BUGS
->  Not supported (in part or whole) on all network drivers.
->  .SH AUTHOR
-> diff --git a/ethtool.c b/ethtool.c
-> index 49ac94e..3b7ea4e 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -4520,6 +4520,146 @@ static int do_seee(struct cmd_context *ctx)
->  	return 0;
->  }
->  
-> +static int do_get_phy_tunable(struct cmd_context *ctx)
-> +{
-> +	int argc = ctx->argc;
-> +	char **argp = ctx->argp;
-> +	int err, i;
-> +	u8 downshift_changed = 0;
-> +
-> +	if (argc < 1)
-> +		exit_bad_args();
-> +	for (i = 0; i < argc; i++) {
-> +		if (!strcmp(argp[i], "downshift")) {
-> +			downshift_changed = 1;
-> +			i += 1;
-> +		} else  {
-> +			exit_bad_args();
-> +		}
-> +	}
-> +
-> +	if (downshift_changed) {
-> +		struct ethtool_tunable ds;
-> +		u8 count = 0;
-> +
-> +		ds.cmd = ETHTOOL_PHY_GTUNABLE;
-> +		ds.id = ETHTOOL_PHY_DOWNSHIFT;
-> +		ds.type_id = ETHTOOL_TUNABLE_U8;
-> +		ds.len = 1;
-> +		ds.data[0] = &count;
-> +		err = send_ioctl(ctx, &ds);
-> +		if (err < 0) {
-> +			perror("Cannot Get PHY downshift count");
-> +			err = 87;
-> +		}
-> +		count = *((u8 *)&ds.data[0]);
-> +		if (count)
-> +			fprintf(stdout, "  Downshift count: %d\n",
-> +				count);
-> +		else
-> +			fprintf(stdout, " Downshift disabled\n");
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+---
+ net/ipv4/devinet.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-Please be consistent with the spaces.
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 062a67c..d491a7a 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1063,10 +1063,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 			if (!ifa)
+ 				break;
+ 			INIT_HLIST_NODE(&ifa->hash);
+-			if (colon)
+-				memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
+-			else
+-				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
++			memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
+ 		} else {
+ 			ret = 0;
+ 			if (ifa->ifa_local == sin->sin_addr.s_addr)
+@@ -1081,8 +1078,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 		if (!(dev->flags & IFF_POINTOPOINT)) {
+ 			ifa->ifa_prefixlen = inet_abc_len(ifa->ifa_address);
+ 			ifa->ifa_mask = inet_make_mask(ifa->ifa_prefixlen);
+-			if ((dev->flags & IFF_BROADCAST) &&
+-			    ifa->ifa_prefixlen < 31)
++			if (dev->flags & IFF_BROADCAST)
+ 				ifa->ifa_broadcast = ifa->ifa_address |
+ 						     ~ifa->ifa_mask;
+ 		} else {
+-- 
+2.7.4
 
-Also, if send_ioctl() returns an error, you print the error message,
-and then still print the value of count. You look to be missing a
-return or an else.
 
-       Andrew
+
+-- 
