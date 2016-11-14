@@ -1,81 +1,186 @@
-From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
-Subject: Re: [Qemu-devel] TCP performance problems - GSO/TSO, MSS, 8139cp
- related
-Date: Mon, 14 Nov 2016 09:29:48 +0000
-Message-ID: <20161114092947.GB2031@work-vm>
-References: <20161111210500.GE1041@n2100.armlinux.org.uk>
- <1478899423.3892.7.camel@infradead.org>
- <20161111224427.GG1041@n2100.armlinux.org.uk>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v2 2/5] ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE
+Date: Mon, 14 Nov 2016 10:29:17 +0100
+Message-ID: <1479115760-1182-3-git-send-email-allan.nielsen@microsemi.com>
+References: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org,
-        qemu-devel@nongnu.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        jasowang@redhat.com, vyasevic@redhat.com, stefanha@redhat.com
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
+        <allan.nielsen@microsemi.com>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35324 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932141AbcKNJ3y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 04:29:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20161111224427.GG1041@n2100.armlinux.org.uk>
+Received: from mail-by2nam03on0049.outbound.protection.outlook.com ([104.47.42.49]:17952
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752106AbcKNJ3m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 04:29:42 -0500
+In-Reply-To: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Russell King - ARM Linux (linux@armlinux.org.uk) wrote:
-> On Fri, Nov 11, 2016 at 09:23:43PM +0000, David Woodhouse wrote:
-> > It's also *fairly* unlikely that the kernel in the guest has developed
-> > a bug and isn't setting gso_size sanely. I'm more inclined to suspect
-> > that qemu isn't properly emulating those bits. But at first glance at
-> > the code, it looks like *that's* been there for the last decade too...
-> 
-> I take issue with that, having looked at the qemu rtl8139 code:
-> 
->                 if ((txdw0 & CP_TX_LGSEN) && ip_protocol == IP_PROTO_TCP)
->                 {
->                     int large_send_mss = (txdw0 >> 16) & CP_TC_LGSEN_MSS_MASK;
-> 
->                     DPRINTF("+++ C+ mode offloaded task TSO MTU=%d IP data %d "
->                         "frame data %d specified MSS=%d\n", ETH_MTU,
->                         ip_data_len, saved_size - ETH_HLEN, large_send_mss);
-> 
-> That's the only reference to "large_send_mss" there, other than that,
-> the MSS value that gets stuck into the field by 8139cp.c is completely
-> unused.  Instead, qemu does this:
-> 
->                 eth_payload_data = saved_buffer + ETH_HLEN;
->                 eth_payload_len  = saved_size   - ETH_HLEN;
-> 
->                 ip = (ip_header*)eth_payload_data;
-> 
->                     hlen = IP_HEADER_LENGTH(ip);
->                     ip_data_len = be16_to_cpu(ip->ip_len) - hlen;
-> 
->                     tcp_header *p_tcp_hdr = (tcp_header*)(eth_payload_data + hlen);
->                     int tcp_hlen = TCP_HEADER_DATA_OFFSET(p_tcp_hdr);
-> 
->                     /* ETH_MTU = ip header len + tcp header len + payload */
->                     int tcp_data_len = ip_data_len - tcp_hlen;
->                     int tcp_chunk_size = ETH_MTU - hlen - tcp_hlen;
-> 
->                     for (tcp_send_offset = 0; tcp_send_offset < tcp_data_len; tcp_send_offset += tcp_chunk_size)
->                     {
-> 
-> It uses a fixed value of ETH_MTU to calculate the size of the TCP
-> data chunks, and this is not surprisingly the well known:
-> 
-> #define ETH_MTU     1500
-> 
-> Qemu seems to be buggy - it ignores the MSS value, and always tries to
-> send 1500 byte frames.
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-cc'ing in Stefan who last touched that code and Jason and Vlad who
-know the net code.
+Adding get_tunable/set_tunable function pointer to the phy_driver
+structure, and uses these function pointers to implement the
+ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE ioctls.
 
-Dave
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+---
+ include/linux/phy.h |  7 +++++
+ net/core/ethtool.c  | 87 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 94 insertions(+)
 
-> -- 
-> RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-> FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-> according to speedtest.net.
-> 
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 9880d73..3d35c36 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -611,6 +611,13 @@ struct phy_driver {
+ 	void (*get_strings)(struct phy_device *dev, u8 *data);
+ 	void (*get_stats)(struct phy_device *dev,
+ 			  struct ethtool_stats *stats, u64 *data);
++
++	/* Get and Set PHY tunables */
++	int (*get_tunable)(struct phy_device *dev,
++			   struct ethtool_tunable *tuna, void *data);
++	int (*set_tunable)(struct phy_device *dev,
++			    struct ethtool_tunable *tuna,
++			    const void *data);
+ };
+ #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
+ 				      struct phy_driver, mdiodrv)
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 9774898..61aebdf 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -119,6 +119,11 @@ tunable_strings[__ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
+ 	[ETHTOOL_TX_COPYBREAK]	= "tx-copybreak",
+ };
+ 
++static const char
++phy_tunable_strings[__ETHTOOL_PHY_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
++	[ETHTOOL_ID_UNSPEC]     = "Unspec",
++};
++
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_gfeatures cmd = {
+@@ -227,6 +232,9 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+ 	if (sset == ETH_SS_TUNABLES)
+ 		return ARRAY_SIZE(tunable_strings);
+ 
++	if (sset == ETH_SS_PHY_TUNABLES)
++		return ARRAY_SIZE(phy_tunable_strings);
++
+ 	if (sset == ETH_SS_PHY_STATS) {
+ 		if (dev->phydev)
+ 			return phy_get_sset_count(dev->phydev);
+@@ -253,6 +261,8 @@ static void __ethtool_get_strings(struct net_device *dev,
+ 		       sizeof(rss_hash_func_strings));
+ 	else if (stringset == ETH_SS_TUNABLES)
+ 		memcpy(data, tunable_strings, sizeof(tunable_strings));
++	else if (stringset == ETH_SS_PHY_TUNABLES)
++		memcpy(data, phy_tunable_strings, sizeof(phy_tunable_strings));
+ 	else if (stringset == ETH_SS_PHY_STATS) {
+ 		struct phy_device *phydev = dev->phydev;
+ 
+@@ -2422,6 +2432,76 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ 	};
+ }
+ 
++static int ethtool_phy_tunable_valid(const struct ethtool_tunable *tuna)
++{
++	switch (tuna->id) {
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int get_phy_tunable(struct net_device *dev, void __user *useraddr)
++{
++	int ret;
++	struct ethtool_tunable tuna;
++	struct phy_device *phydev = dev->phydev;
++	void *data;
++
++	if (!(phydev && phydev->drv && phydev->drv->get_tunable))
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
++		return -EFAULT;
++	ret = ethtool_phy_tunable_valid(&tuna);
++	if (ret)
++		return ret;
++	data = kmalloc(tuna.len, GFP_USER);
++	if (!data)
++		return -ENOMEM;
++	ret = phydev->drv->get_tunable(phydev, &tuna, data);
++	if (ret)
++		goto out;
++	useraddr += sizeof(tuna);
++	ret = -EFAULT;
++	if (copy_to_user(useraddr, data, tuna.len))
++		goto out;
++	ret = 0;
++
++out:
++	kfree(data);
++	return ret;
++}
++
++static int set_phy_tunable(struct net_device *dev, void __user *useraddr)
++{
++	int ret;
++	struct ethtool_tunable tuna;
++	struct phy_device *phydev = dev->phydev;
++	void *data;
++
++	if (!(phydev && phydev->drv && phydev->drv->set_tunable))
++		return -EOPNOTSUPP;
++	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
++		return -EFAULT;
++	ret = ethtool_phy_tunable_valid(&tuna);
++	if (ret)
++		return ret;
++	data = kmalloc(tuna.len, GFP_USER);
++	if (!data)
++		return -ENOMEM;
++	useraddr += sizeof(tuna);
++	ret = -EFAULT;
++	if (copy_from_user(data, useraddr, tuna.len))
++		goto out;
++	ret = phydev->drv->set_tunable(phydev, &tuna, data);
++
++out:
++	kfree(data);
++	return ret;
++}
++
+ /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -2479,6 +2559,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GET_TS_INFO:
+ 	case ETHTOOL_GEEE:
+ 	case ETHTOOL_GTUNABLE:
++	case ETHTOOL_PHY_GTUNABLE:
+ 		break;
+ 	default:
+ 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+@@ -2684,6 +2765,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SLINKSETTINGS:
+ 		rc = ethtool_set_link_ksettings(dev, useraddr);
+ 		break;
++	case ETHTOOL_PHY_GTUNABLE:
++		rc = get_phy_tunable(dev, useraddr);
++		break;
++	case ETHTOOL_PHY_STUNABLE:
++		rc = set_phy_tunable(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
+-- 
+2.7.3
