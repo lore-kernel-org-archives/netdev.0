@@ -1,225 +1,78 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [PATCH net-next] bpf: fix range arithmetic for bpf map access
-Date: Mon, 14 Nov 2016 13:52:51 -0500
-Message-ID: <4f6d6d58-303b-0165-6e7d-1c04d658e737@fb.com>
-References: <1478900859-7807-1-git-send-email-jbacik@fb.com>
- <20161112031338.GA86010@ast-mbp.thefacebook.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH 3/3] net: ethernet: sun4i-emac: Read rxhdr in CPU
+ byte-order
+Date: Mon, 14 Nov 2016 19:59:34 +0100
+Message-ID: <20161114185934.2wfwyrv6buvnrja7@lukather>
+References: <20161114175807.4747-1-michael.weiser@gmx.de>
+ <20161114175807.4747-4-michael.weiser@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <jannh@google.com>, <ast@kernel.org>, <daniel@iogearbox.net>,
-        <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="wr5fexqw4bqqevgu"
+Cc: netdev@vger.kernel.org
+To: Michael Weiser <michael.weiser@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56614 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753014AbcKNSxT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:53:19 -0500
-In-Reply-To: <20161112031338.GA86010@ast-mbp.thefacebook.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:52748 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932605AbcKNS7p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:59:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20161114175807.4747-4-michael.weiser@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/11/2016 10:13 PM, Alexei Starovoitov wrote:
-> On Fri, Nov 11, 2016 at 04:47:39PM -0500, Josef Bacik wrote:
->> I made some invalid assumptions with BPF_AND and BPF_MOD that could result in
->> invalid accesses to bpf map entries.  Fix this up by doing a few things
->>
->> 1) Kill BPF_MOD support.  This doesn't actually get used by the compiler in real
->> life and just adds extra complexity.
->>
->> 2) Fix the logic for BPF_AND, don't allow AND of negative numbers and set the
->> minimum value to 0 for positive AND's.
->>
->> 3) Don't do operations on the ranges if they are set to the limits, as they are
->> by definition undefined, and allowing arithmetic operations on those values
->> could make them appear valid when they really aren't.
->>
->> This fixes the testcase provided by Jann as well as a few other theoretical
->> problems.
->>
->> Reported-by: Jann Horn <jannh@google.com>
->> Signed-off-by: Josef Bacik <jbacik@fb.com>
->> ---
->>  include/linux/bpf_verifier.h |  3 +-
->>  kernel/bpf/verifier.c        | 70 +++++++++++++++++++++++++++++---------------
->>  2 files changed, 49 insertions(+), 24 deletions(-)
->>
->> diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
->> index ac5b393..15ceb7f 100644
->> --- a/include/linux/bpf_verifier.h
->> +++ b/include/linux/bpf_verifier.h
->> @@ -22,7 +22,8 @@ struct bpf_reg_state {
->>  	 * Used to determine if any memory access using this register will
->>  	 * result in a bad access.
->>  	 */
->> -	u64 min_value, max_value;
->> +	s64 min_value;
->> +	u64 max_value;
->>  	u32 id;
->>  	union {
->>  		/* valid when type == CONST_IMM | PTR_TO_STACK | UNKNOWN_VALUE */
->> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->> index 89f787c..709fe0e 100644
->> --- a/kernel/bpf/verifier.c
->> +++ b/kernel/bpf/verifier.c
->> @@ -234,8 +234,8 @@ static void print_verifier_state(struct bpf_verifier_state *state)
->>  				reg->map_ptr->value_size,
->>  				reg->id);
->>  		if (reg->min_value != BPF_REGISTER_MIN_RANGE)
->> -			verbose(",min_value=%llu",
->> -				(unsigned long long)reg->min_value);
->> +			verbose(",min_value=%lld",
->> +				(long long)reg->min_value);
->>  		if (reg->max_value != BPF_REGISTER_MAX_RANGE)
->>  			verbose(",max_value=%llu",
->>  				(unsigned long long)reg->max_value);
->> @@ -778,7 +778,7 @@ static int check_mem_access(struct bpf_verifier_env *env, u32 regno, int off,
->>  			 * index'es we need to make sure that whatever we use
->>  			 * will have a set floor within our range.
->>  			 */
->> -			if ((s64)reg->min_value < 0) {
->> +			if (reg->min_value < 0) {
->>  				verbose("R%d min value is negative, either use unsigned index or do a if (index >=0) check.\n",
->>  					regno);
->>  				return -EACCES;
->> @@ -1490,7 +1490,8 @@ static void check_reg_overflow(struct bpf_reg_state *reg)
->>  {
->>  	if (reg->max_value > BPF_REGISTER_MAX_RANGE)
->>  		reg->max_value = BPF_REGISTER_MAX_RANGE;
->> -	if ((s64)reg->min_value < BPF_REGISTER_MIN_RANGE)
->> +	if (reg->min_value < BPF_REGISTER_MIN_RANGE ||
->> +	    reg->min_value > BPF_REGISTER_MAX_RANGE)
->>  		reg->min_value = BPF_REGISTER_MIN_RANGE;
->>  }
->>
->> @@ -1498,7 +1499,8 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
->>  				    struct bpf_insn *insn)
->>  {
->>  	struct bpf_reg_state *regs = env->cur_state.regs, *dst_reg;
->> -	u64 min_val = BPF_REGISTER_MIN_RANGE, max_val = BPF_REGISTER_MAX_RANGE;
->> +	s64 min_val = BPF_REGISTER_MIN_RANGE;
->> +	u64 max_val = BPF_REGISTER_MAX_RANGE;
->>  	u8 opcode = BPF_OP(insn->code);
->>
->>  	dst_reg = &regs[insn->dst_reg];
->> @@ -1532,22 +1534,43 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
->>  		return;
->>  	}
->>
->> +	/* If one of our values was at the end of our ranges then we can't just
->> +	 * do our normal operations to the register, we need to set the values
->> +	 * to the min/max since they are undefined.
->> +	 */
->> +	if (min_val == BPF_REGISTER_MIN_RANGE)
->> +		dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
->> +	if (max_val == BPF_REGISTER_MAX_RANGE)
->> +		dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
->> +
->>  	switch (opcode) {
->>  	case BPF_ADD:
->> -		dst_reg->min_value += min_val;
->> -		dst_reg->max_value += max_val;
->> +		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
->> +			dst_reg->min_value += min_val;
->> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
->> +			dst_reg->max_value += max_val;
->>  		break;
->>  	case BPF_SUB:
->> -		dst_reg->min_value -= min_val;
->> -		dst_reg->max_value -= max_val;
->> +		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
->> +			dst_reg->min_value -= min_val;
->> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
->> +			dst_reg->max_value -= max_val;
->>  		break;
->>  	case BPF_MUL:
->> -		dst_reg->min_value *= min_val;
->> -		dst_reg->max_value *= max_val;
->> +		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
->> +			dst_reg->min_value *= min_val;
->
-> looks to be few issues here with negative values as well.
-> If dst_reg range [-2, 5] and right hand side range is [-2, 10],
-> then above will be computed as -2 * -2 == 4
-> but even if we do -1 * abs(dst_reg->min) * abs(min), it's still
-> incorrect, since dst_reg could be 5 and multiplied by -2 (== -10),
-> it will be less than above simple math on min values...
-> so I'd suggest to disable negative values everywhere.
->
->> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
->> +			dst_reg->max_value *= max_val;
->>  		break;
->>  	case BPF_AND:
->> -		/* & is special since it could end up with 0 bits set. */
->> -		dst_reg->min_value &= min_val;
->> +		/* Disallow AND'ing of negative numbers, ain't nobody got time
->> +		 * for that.  Otherwise the minimum is 0 and the max is the max
->> +		 * value we could AND against.
->> +		 */
->> +		if (min_val < 0)
->> +			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
->> +		else
->> +			dst_reg->min_value = 0;
->>  		dst_reg->max_value = max_val;
->>  		break;
->>  	case BPF_LSH:
->> @@ -1557,24 +1580,25 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
->>  		 */
->>  		if (min_val > ilog2(BPF_REGISTER_MAX_RANGE))
->>  			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
->> -		else
->> +		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
->>  			dst_reg->min_value <<= min_val;
->>
->>  		if (max_val > ilog2(BPF_REGISTER_MAX_RANGE))
->>  			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
->> -		else
->> +		else if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
->>  			dst_reg->max_value <<= max_val;
->>  		break;
->>  	case BPF_RSH:
->> -		dst_reg->min_value >>= min_val;
->> -		dst_reg->max_value >>= max_val;
->> -		break;
->> -	case BPF_MOD:
->> -		/* % is special since it is an unsigned modulus, so the floor
->> -		 * will always be 0.
->> +		/* RSH by a negative number is undefined, and the BPF_RSH is an
->> +		 * unsigned shift, so make the appropriate casts.
->>  		 */
->> -		dst_reg->min_value = 0;
->> -		dst_reg->max_value = max_val - 1;
->> +		if (min_val < 0)
->> +			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
->> +		else if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
->> +			dst_reg->min_value =
->> +				(u64)(dst_reg->min_value) >> min_val;
->
-> when min_val is negative both >> and << are undefined,
-> so we need to avoid negative values for these cases as well.
->
->> +		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
->> +			dst_reg->max_value >>= max_val;
->
-> and for max_val too we need to make sure that max_val >= 0.
 
-Well it's unsigned, so if somebody sets it to a negative value it'll be > 
-BPF_REGISTER_MAX_RANGE and that'll get caught by the overflow logic above.
+--wr5fexqw4bqqevgu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->
-> To address all of it I'm thinking it will be easier to set
-> BPF_REGISTER_MIN_RANGE to -1.
-> I don't think we can kill tracking of min_val completely
-> and assume valid min starts at zero, since we need either min
-> tracking or boolean flag that indicates negative overflow and
-> min tracking is imo cleaner (though valid min will always be >=0
-> and invalid min is -1)
->
-> Also this patch has to go to 'net' tree, so rebasing with net-next
-> wasn't necessary.
->
+On Mon, Nov 14, 2016 at 06:58:07PM +0100, Michael Weiser wrote:
+> The EMAC EMAC_RX_IO_DATA_REG data register is dual-purpose: On one hand
+> it is used to move actual packet data off the wire. This will be in
+> wire-format and accepted as such by higher layers such as IP. Therefore
+> it is correctly read as-is (i.e. raw) using readsl.
+>=20
+> On the other hand it provides metadata about incoming transfers to the
+> driver such as length and checksum validation status. This data is
+> little-endian, always and it is interpreted by the driver. Therefore it
+> needs to be swapped to CPU endianness to make sense to the driver. This
+> is already done for the "receive header" but not rxhdr.
+>=20
+> Read rxhdr using readl in order for sun4i-emac to work correctly when
+> running a big-endian kernel.
+>=20
+> Signed-off-by: Michael Weiser <michael.weiser@gmx.de>
+> Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+> Cc: netdev@vger.kernel.org
 
-Yeah I'm fine with killing negative values altogether, it does seem a bit silly 
-to support it and isn't likely to be used in any sort of normal scenario.  Thanks,
+Acked-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 
-Josef
+Thanks!
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--wr5fexqw4bqqevgu
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJYKgmVAAoJEBx+YmzsjxAgCxEP/2GwkHmtVeTbL97yE2OjyIPZ
+3aSiIIadTQ67kWTxpr2HOvBap533xPK5cWNgbTBKCzk7NrAo1Zo1FQAxtUMahuGy
+MlstIvy2xamt19JstWh40MK/RpZX2tOjWP4aCrl5RsIvV7crcKZySxH6XK9apHsk
+FGJI89N9cH6a2f2LCBVhkuYhJprUdxuZ4n8EuiqmaOCoMbkkwxI5vO3apVGmP8ZT
+9LDIZvpa4XjLg0N/obpG1eyWSFVOvFxjX8NjKp5Ucsfi8ALGrzTljXLFWZjaY4V0
+UHUJFmYaowcSq6jKw4lcXi+OU2Q/BBdIETrQsWZPIk2xmbXjkfl3ih6GOxKUCXQD
+2Kk6wdrC3fwLuL9q8NEFD9VViJjgkuTcwbn6shNaGYy32O8TlYyQcmcPII61uXmi
+E03Y4x24ytwypIQ77QmrIe+HeH11Tdlexb2EhjCk11KuGnnsrkLaESwkJGsL7+55
+q3ThGL/7DxXAhc1G4Yr2kw6dRgvtdQ6geap1QG3sXU8oPSzjoWLFCeuAlQ6FvPIe
+1afXc7rIBKpJK//VNDkcB0X26hqrXOZDhBpqSAZ6REwiiXWE7fXju1VrKOD31YwW
+RS6yDOhOydnRpM4NkuC6sDb02C6P+h2yOS1dsBDmZLOwaFDyQXVI4lNa8JmJPoDx
+q/yKBdlgVNkbVNYMN0Hx
+=4hm2
+-----END PGP SIGNATURE-----
+
+--wr5fexqw4bqqevgu--
