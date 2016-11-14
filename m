@@ -1,130 +1,225 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <uwe@kleine-koenig.org>
-Subject: [PATCH] net/phy: add trace events for mdio accesses
-Date: Mon, 14 Nov 2016 12:03:35 +0100
-Message-ID: <20161114110335.27862-1-uwe@kleine-koenig.org>
+From: Jesper Dangaard Brouer <netdev@brouer.com>
+Subject: Re: [RFC PATCH 1/2] net: use cmpxchg instead of spinlock in ptr
+ rings
+Date: Mon, 14 Nov 2016 12:09:58 +0100
+Message-ID: <20161114120958.5f22e50a@brouer.com>
+References: <20161111043857.1547.70337.stgit@john-Precision-Tower-5810>
+        <20161111044408.1547.92737.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jasowang@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>,
+        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.kleine-koenig.org ([78.47.169.190]:47428 "EHLO
-        arcturus.kleine-koenig.org" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752059AbcKNLDn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 06:03:43 -0500
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:36794 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934338AbcKNLKC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 06:10:02 -0500
+Received: by mail-lf0-f65.google.com with SMTP id o20so6686957lfg.3
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 03:10:01 -0800 (PST)
+In-Reply-To: <20161111044408.1547.92737.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make it possible to generate trace events for mdio read and write accesses.
 
-Signed-off-by: Uwe Kleine-König <uwe@kleine-koenig.org>
----
- drivers/net/phy/mdio_bus.c  | 15 +++++++++++++++
- include/trace/events/mdio.h | 40 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 55 insertions(+)
- create mode 100644 include/trace/events/mdio.h
+On Thu, 10 Nov 2016 20:44:08 -0800 John Fastabend <john.fastabend@gmail.com> wrote:
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 09deef4bed09..0f3f207419f6 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -38,6 +38,9 @@
- 
- #include <asm/irq.h>
- 
-+#define CREATE_TRACE_POINTS
-+#include <trace/events/mdio.h>
-+
- int mdiobus_register_device(struct mdio_device *mdiodev)
- {
- 	if (mdiodev->bus->mdio_map[mdiodev->addr])
-@@ -461,6 +464,9 @@ int mdiobus_read_nested(struct mii_bus *bus, int addr, u32 regnum)
- 	retval = bus->read(bus, addr, regnum);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	if (retval >= 0)
-+		trace_mdio_access(bus, 1, addr, regnum, retval);
-+
- 	return retval;
- }
- EXPORT_SYMBOL(mdiobus_read_nested);
-@@ -485,6 +491,9 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
- 	retval = bus->read(bus, addr, regnum);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	if (retval >= 0)
-+		trace_mdio_access(bus, 1, addr, regnum, retval);
-+
- 	return retval;
- }
- EXPORT_SYMBOL(mdiobus_read);
-@@ -513,6 +522,9 @@ int mdiobus_write_nested(struct mii_bus *bus, int addr, u32 regnum, u16 val)
- 	err = bus->write(bus, addr, regnum, val);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	if (!err)
-+		trace_mdio_access(bus, 0, addr, regnum, val);
-+
- 	return err;
- }
- EXPORT_SYMBOL(mdiobus_write_nested);
-@@ -538,6 +550,9 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
- 	err = bus->write(bus, addr, regnum, val);
- 	mutex_unlock(&bus->mdio_lock);
- 
-+	if (!err)
-+		trace_mdio_access(bus, 0, addr, regnum, val);
-+
- 	return err;
- }
- EXPORT_SYMBOL(mdiobus_write);
-diff --git a/include/trace/events/mdio.h b/include/trace/events/mdio.h
-new file mode 100644
-index 000000000000..dcb2d456a346
---- /dev/null
-+++ b/include/trace/events/mdio.h
-@@ -0,0 +1,40 @@
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM mdio
-+
-+#if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ)
-+#define _TRACE_MDIO_H
-+
-+#include <linux/tracepoint.h>
-+
-+TRACE_EVENT(mdio_access,
-+
-+	TP_PROTO(struct mii_bus *bus, int read,
-+		 unsigned addr, unsigned regnum, u16 val),
-+
-+	TP_ARGS(bus, read, addr, regnum, val),
-+
-+	TP_STRUCT__entry(
-+		__array(char, busid, MII_BUS_ID_SIZE)
-+		__field(int, read)
-+		__field(unsigned, addr)
-+		__field(unsigned, regnum)
-+		__field(u16, val)
-+	),
-+
-+	TP_fast_assign(
-+		strncpy(__entry->busid, bus->id, MII_BUS_ID_SIZE);
-+		__entry->read = read;
-+		__entry->addr = addr;
-+		__entry->regnum = regnum;
-+		__entry->val = val;
-+	),
-+
-+	TP_printk("%s %-5s phy:0x%02x reg:0x%02x val:0x%04hx",
-+		  __entry->busid, __entry->read ? "read" : "write",
-+		  __entry->addr, __entry->regnum, __entry->val)
-+);
-+
-+#endif /* if !defined(_TRACE_MDIO_H) || defined(TRACE_HEADER_MULTI_READ) */
-+
-+/* This part must be outside protection */
-+#include <trace/define_trace.h>
+> ---
+>  include/linux/ptr_ring_ll.h |  136 +++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/skb_array.h   |   25 ++++++++
+>  2 files changed, 161 insertions(+)
+>  create mode 100644 include/linux/ptr_ring_ll.h
+> 
+> diff --git a/include/linux/ptr_ring_ll.h b/include/linux/ptr_ring_ll.h
+> new file mode 100644
+> index 0000000..bcb11f3
+> --- /dev/null
+> +++ b/include/linux/ptr_ring_ll.h
+> @@ -0,0 +1,136 @@
+> +/*
+> + *	Definitions for the 'struct ptr_ring_ll' datastructure.
+> + *
+> + *	Author:
+> + *		John Fastabend <john.r.fastabend@intel.com>
+[...]
+> + *
+> + *	This is a limited-size FIFO maintaining pointers in FIFO order, with
+> + *	one CPU producing entries and another consuming entries from a FIFO.
+> + *	extended from ptr_ring_ll to use cmpxchg over spin lock.
+
+It sounds like this is Single Producer Single Consumer (SPSC)
+implementation, but your implementation actually is Multi Producer
+Multi Consumer (MPMC) capable.
+
+The implementation looks a lot like my alf_queue[1] implementation:
+ [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/include/linux/alf_queue.h
+
+If the primary use-case is one CPU producing and another consuming,
+then the normal ptr_ring (skb_array) will actually be faster!
+
+The reason is ptr_ring avoids bouncing a cache-line between the CPUs on
+every ring access.  This is achieved by having the checks for full
+(__ptr_ring_full) and empty (__ptr_ring_empty) use the contents of the
+array (NULL value).
+
+I actually implemented two micro-benchmarks to measure the difference
+between skb_array[2] and alf_queue[3]:
+ [2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_parallel01.c
+ [3] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/alf_queue_parallel01.c
+
+
+> + */
+> +
+> +#ifndef _LINUX_PTR_RING_LL_H
+> +#define _LINUX_PTR_RING_LL_H 1
+> +
+[...]
+> +
+> +struct ptr_ring_ll {
+> +	u32 prod_size;
+> +	u32 prod_mask;
+> +	u32 prod_head;
+> +	u32 prod_tail;
+> +	u32 cons_size;
+> +	u32 cons_mask;
+> +	u32 cons_head;
+> +	u32 cons_tail;
+> +
+> +	void **queue;
+> +};
+
+Your implementation doesn't even split the consumer and producer into
+different cachelines (which in practice doesn't help much due to how
+the empty/full checks are performed).
+
+> +
+> +/* Note: callers invoking this in a loop must use a compiler barrier,
+> + * for example cpu_relax(). Callers must hold producer_lock.
+> + */
+> +static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void *ptr)
+> +{
+> +	u32 ret, head, tail, next, slots, mask;
+> +
+> +	do {
+> +		head = READ_ONCE(r->prod_head);
+> +		mask = READ_ONCE(r->prod_mask);
+> +		tail = READ_ONCE(r->cons_tail);
+
+Problem occur here, as the producer need to access/read the consumers
+tail, to determine if the queue is not already full (slots avail).
+Thus, the next "consumer-CPU" will see the cacheline in wrong state
+(Modified/Invalid or Shared).
+
+> +
+> +		slots = mask + tail - head;
+> +		if (slots < 1)
+> +			return -ENOMEM;
+> +
+> +		next = head + 1;
+> +		ret = cmpxchg(&r->prod_head, head, next);
+> +	} while (ret != head);
+> +
+> +	r->queue[head & mask] = ptr;
+> +	smp_wmb();
+> +
+> +	while (r->prod_tail != head)
+> +		cpu_relax();
+> +
+> +	r->prod_tail = next;
+> +	return 0;
+> +}
+> +
+> +static inline void *__ptr_ring_ll_consume(struct ptr_ring_ll *r)
+> +{
+> +	u32 ret, head, tail, next, slots, mask;
+> +	void *ptr;
+> +
+> +	do {
+> +		head = READ_ONCE(r->cons_head);
+> +		mask = READ_ONCE(r->cons_mask);
+> +		tail = READ_ONCE(r->prod_tail);
+
+Like wise the consumer is reading the producer tail (for the empty check).
+
+> +
+> +		slots = tail - head;
+> +		if (slots < 1)
+> +			return ERR_PTR(-ENOMEM);
+> +
+> +		next = head + 1;
+> +		ret = cmpxchg(&r->cons_head, head, next);
+> +	} while (ret != head);
+> +
+> +	ptr = r->queue[head & mask];
+> +	smp_rmb();
+> +
+> +	while (r->cons_tail != head)
+> +		cpu_relax();
+> +
+> +	r->cons_tail = next;
+> +	return ptr;
+> +}
+> +
+> +static inline void **__ptr_ring_ll_init_queue_alloc(int size, gfp_t gfp)
+> +{
+> +	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
+> +}
+> +
+> +static inline int ptr_ring_ll_init(struct ptr_ring_ll *r, int size, gfp_t gfp)
+> +{
+> +	r->queue = __ptr_ring_init_queue_alloc(size, gfp);
+> +	if (!r->queue)
+> +		return -ENOMEM;
+> +
+> +	r->prod_size = r->cons_size = size;
+> +	r->prod_mask = r->cons_mask = size - 1;
+
+Shouldn't we have some check like is_power_of_2(size), as this code
+looks like it depend on this.
+
+> +	r->prod_tail = r->prod_head = 0;
+> +	r->cons_tail = r->prod_tail = 0;
+> +
+> +	return 0;
+> +}
+> +
+[...]
+> +#endif /* _LINUX_PTR_RING_LL_H  */
+> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+> index f4dfade..9b43dfd 100644
+> --- a/include/linux/skb_array.h
+> +++ b/include/linux/skb_array.h
+[...]
+>  
+> +static inline int skb_array_ll_produce(struct skb_array_ll *a, struct sk_buff *skb)
+> +{
+> +	return __ptr_ring_ll_produce(&a->ring, skb);
+> +}
+> +
+[...]
+>  
+> +static inline struct sk_buff *skb_array_ll_consume(struct skb_array_ll *a)
+> +{
+> +	return __ptr_ring_ll_consume(&a->ring);
+> +}
+> +
+
+Note in the Multi Producer Multi Consumer (MPMC) use-case this type of
+queue can be faster than normal ptr_ring.  And in patch2 you implement
+bulking, which is where the real benefit shows (in the MPMC case) for
+this kind of queue.
+
+What I would really like to see is a lock-free (locked cmpxchg) queue
+implementation, what like ptr_ring use the array as empty/full check,
+and still (somehow) support bulking.
+
 -- 
-2.10.2
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
