@@ -1,78 +1,48 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: Re: [PATCH net 1/3] bpf, mlx5: fix mlx5e_create_rq taking reference
- on prog
-Date: Mon, 14 Nov 2016 20:15:32 +0200
-Message-ID: <918902f3-1852-ae68-b12d-eaa1c45bf641@mellanox.com>
-References: <cover.1479080215.git.daniel@iogearbox.net>
- <0447a6161550c466ef799b46095440949ffc7df0.1479080215.git.daniel@iogearbox.net>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Debugging Ethernet issues
+Date: Mon, 14 Nov 2016 23:48:50 +0100
+Message-ID: <582A3F52.70500@free.fr>
+References: <5827AD4A.7010908@free.fr> <20161113030919.GA2892@lunn.ch>
+ <5828C452.6050808@free.fr> <9d1f28a7-959b-fdde-3403-f6da5f521125@gmail.com>
+ <5829BBFC.7040800@free.fr> <20161114133428.GF26710@lunn.ch>
+ <5829D10F.30206@free.fr> <5829D95C.6060509@free.fr>
+ <3313424a-8d45-0883-5257-ffdc250dd45b@gmail.com>
+ <5829FB6F.6090106@laposte.net>
+ <2187db98-dc5a-7a3c-7965-7ccbeffc0fa1@gmail.com> <582A1E3F.8040908@free.fr>
+ <1fd492b4-3c32-7939-791c-56cf6d8c0078@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <bblanco@plumgrid.com>,
-        <tariqt@mellanox.com>, <zhiyisun@gmail.com>, <ranas@mellanox.com>,
-        <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Cc: Sebastian Frias <sf84@laposte.net>, Andrew Lunn <andrew@lunn.ch>,
+        netdev <netdev@vger.kernel.org>, Mans Rullgard <mans@mansr.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Zach Brown <zach.brown@ni.com>,
+        Shaohui Xie <shaohui.xie@nxp.com>,
+        Tim Beale <tim.beale@alliedtelesis.co.nz>,
+        Brian Hill <brian@houston-radar.com>,
+        Vince Bridgers <vbridgers2013@gmail.com>,
+        Balakumaran Kannan <kumaran.4353@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Kirill Kapranov <kapranoff@inbox.ru>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0085.outbound.protection.outlook.com ([104.47.2.85]:15424
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752754AbcKNWsN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 17:48:13 -0500
-In-Reply-To: <0447a6161550c466ef799b46095440949ffc7df0.1479080215.git.daniel@iogearbox.net>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:58722 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752754AbcKNWt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 17:49:28 -0500
+In-Reply-To: <1fd492b4-3c32-7939-791c-56cf6d8c0078@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 14/11/2016 22:00, Florian Fainelli wrote:
 
+> No I missed that, way too many emails, really.
 
-On 11/14/2016 02:43 AM, Daniel Borkmann wrote:
-> In mlx5e_create_rq(), when creating a new queue, we call bpf_prog_add() but
-> without checking the return value. bpf_prog_add() can fail, so we really
+Sorry, I was trying to be thorough, but I went overboard.
 
-Didn't know this, thanks for noticing, I wonder why taking a reference for an object would fail ?
-especially when someone is requesting from the driver to take a reference to it ndo_xdp_set ?! sounds like a bad design.
+I'll start a new thread tomorrow, with a smaller CC list
+(only those who have participated so far) and I'll try to
+remain concise.
 
-Anyway I will check that later.
-
-> must check it. Take the reference right when we assign it to the rq from
-> priv->xdp_prog, and just drop the reference on error path. Destruction in
-> mlx5e_destroy_rq() looks good, though.
-> 
-> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 14 +++++++++++---
->  kernel/bpf/syscall.c                              |  1 +
->  2 files changed, 12 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index 84e8b25..2b83667 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -489,7 +489,16 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
->  	rq->channel = c;
->  	rq->ix      = c->ix;
->  	rq->priv    = c->priv;
-> +
->  	rq->xdp_prog = priv->xdp_prog;
-
-Why keeping this assignment ? just test priv->xdp_prog.
-
-> +	if (rq->xdp_prog) {
-> +		rq->xdp_prog = bpf_prog_inc(rq->xdp_prog);
-> +		if (IS_ERR(rq->xdp_prog)) {
-> +			err = PTR_ERR(rq->xdp_prog);
-> +			rq->xdp_prog = NULL;
-> +			goto err_rq_wq_destroy;
-> +		}
-> +	}
-
-Try this, simpler and less indentations:
- 
-rq->xdp_prog = priv->xdp_prog ? bpf_prog_inc(priv->xdp_prog) : NULL;
-if (IS_ERR(rq->xdp_prog)) {
-	err = PTR_ERR(rq->xdp_prog);
-	rq->xdp_prog = NULL;
-	goto err_rq_wq_destroy;
-}
-
-Saeed.
+Regards.
