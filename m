@@ -1,51 +1,51 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH 0/2] amd-xgbe: AMD XGBE driver updates 2016-11-14
-Date: Mon, 14 Nov 2016 16:42:53 -0600
-Message-ID: <5139f826-97a4-512e-7948-2db9d195cb4c@amd.com>
-References: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Long delays creating a netns after deleting one (possibly RCU
+ related)
+Date: Mon, 14 Nov 2016 14:46:11 -0800
+Message-ID: <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
+         <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
+         <20161110212404.GB4127@linux.vnet.ibm.com>
+         <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
+         <20161112002347.GL4127@linux.vnet.ibm.com>
+         <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
+         <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com>
+         <20161114162417.GJ4127@linux.vnet.ibm.com>
+         <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
+         <20161114181425.GN4127@linux.vnet.ibm.com> <87y40lhfrt.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <julia.lawall@lip6.fr>, <christophe.jaillet@wanadoo.fr>
-To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0060.outbound.protection.outlook.com ([104.47.33.60]:19776
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754304AbcKNWnC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 17:43:02 -0500
-In-Reply-To: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Justin Cormack <justin.cormack@docker.com>,
+        Ian Campbell <ian.campbell@docker.com>,
+        Eric Dumazet <edumazet@google.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87y40lhfrt.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/14/2016 4:28 PM, Tom Lendacky wrote:
-> This patch series addresses some minor issues found in the recently
-> accepted patch series for the AMD XGBE driver.
-> 
-> The following fixes are included in this driver update series:
-> 
-> - Fix how a mask is applied to a Clause 37 register value
-> - Fix some coccinelle identified warnings
-> 
-> This patch series is based on net-next.
+On Mon, 2016-11-14 at 16:12 -0600, Eric W. Biederman wrote:
 
-David,
+> synchronize_rcu_expidited is not enough if you have multiple network
+> devices in play.
+> 
+> Looking at the code it comes down to this commit, and it appears there
+> is a promise add rcu grace period combining by Eric Dumazet.
+> 
+> Eric since people are hitting noticable stalls because of the rcu grace
+> period taking a long time do you think you could look at this code path
+> a bit more?
+> 
+> commit 93d05d4a320cb16712bb3d57a9658f395d8cecb9
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Wed Nov 18 06:31:03 2015 -0800
 
-I forgot to include the net-next repo name in the subject, please
-ignore this series and I'll resend.
+Absolutely, I will take a loop asap.
 
-Thanks,
-Tom
-
-> 
-> ---
-> 
-> Tom Lendacky (2):
->       amd-xgbe: Fix mask appliciation for Clause 37 register
->       amd-xgbe: Fix up some coccinelle identified warnings
-> 
-> 
->  drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |    4 ++--
->  drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    5 ++---
->  2 files changed, 4 insertions(+), 5 deletions(-)
-> 
+Thanks Eric.
