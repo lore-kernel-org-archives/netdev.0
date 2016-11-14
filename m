@@ -1,132 +1,160 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac: GMAC_RGSMIIIS reports bogus values
-Date: Mon, 14 Nov 2016 09:14:46 +0100
-Message-ID: <a1f114cc-6120-154c-a3f7-3e0389d38e36@st.com>
-References: <1478189833.4072.65.camel@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: "fabrice.gasnier@st.com" <fabrice.gasnier@st.com>,
- "manabian@gmail.com" <manabian@gmail.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "preid@electromag.com.au" <preid@electromag.com.au>,
- "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
- "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1478189833.4072.65.camel@synopsys.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCHv3 net] igmp: do not remove igmp souce list info when set link down
+Date: Mon, 14 Nov 2016 16:16:28 +0800
+Message-ID: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33724 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752545AbcKNIQl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 03:16:41 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 144so5807535pfv.0
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 00:16:41 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Alexey
+In commit 24cf3af3fed5 ("igmp: call ip_mc_clear_src..."), we forgot to remove
+igmpv3_clear_delrec() in ip_mc_down(), which also called ip_mc_clear_src().
+This make us clear all IGMPv3 source filter info after NETDEV_DOWN.
+Move igmpv3_clear_delrec() to ip_mc_destroy_dev() and then no need
+ip_mc_clear_src() in ip_mc_destroy_dev().
 
-Sorry for my late reply. In that case, I think that the stmmac
-is using own RGMII/SGMII support (PCS) to dialog with the
-transceiver. I think, from the HW capability register
-this feature is present and the driver is using it as default.
+On the other hand, we should restore back instead of free all source filter
+info in igmpv3_del_delrec(). Or we will not able to restore IGMPv3 source
+filter info after NETDEV_UP and NETDEV_POST_TYPE_CHANGE.
 
-I kindly ask you to verify if this is your setup or if you
-do not want to use it. In that case, it is likely we need to
-add some code in the driver.
+Fixes: 24cf3af3fed5 ("igmp: call ip_mc_clear_src() only when ...")
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ net/ipv4/igmp.c | 50 ++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 36 insertions(+), 14 deletions(-)
 
-Also I wonder if, other version of the stmmac worked on this platform
-before.
-
-Regards
-Peppe
-
-On 11/3/2016 5:17 PM, Alexey Brodkin wrote:
-> Hello,
->
-> I'm seeing pretty strange issue with GMAC reporting a lot of link state changes
-> based on bits in GMAC_RGSMIIIS. It looks like that:
-> -------------------------->8-----------------------
-> Link is Down
-> Link is Up - 10/Full
-> Link is Down
-> Link is Up - 10/Half
-> Link is Down
-> Link is Down
-> Link is Up - 10/Half
-> Link is Up -
-> 1000/Half
-> Link is Down
-> Link is Down
-> Link is Down
-> Link is Down
-> Link is Up - 10/Half
-> Link is Down
-> Link is Down
-> Link is Up -
-> 1000/Half
-> Link is Up - 1000/Full
-> -------------------------->8-----------------------
->
-> What's especially interesting my board with GMAC is connected to 100Mbit device
-> which means there's no chance for 1Gb mode to be set.
->
-> Also this has nothing to do with link state detected and reported by PHY via MDIO.
-> So obviously GMAC_RGSMIIIS bits are wrong. But given the fact that GMAC_RGSMIIIS bits
-> are set based on state of RXD[3:0] lines of RGMII I may only thing that it's
-> PHY (in my case DP83865) who's sending random data on the RXD during inter-frame gap.
->
-> Note data transferred through that networking connection is perfectly correct and
-> actually I haven't see those link state prints before kernel v4.8 basically
-> because the prints in question were implemented with pr_debug() and then with [1]
-> we got pr_info() that made prints visible by default.
->
-> Since I don't have any means to capture all required GMII signals to do better
-> analysis and my data is not corrupted in the end I'm thinking about way how to
-> mute these pretty senseless messages.
->
-> One thing I may think of we may disable checking of GMAC_RGSMIIIS if a particular
-> board uses MDIO for PHY setup. Something like that:
-> -------------------------->8-----------------------
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> @@ -337,7 +337,7 @@ static int dwmac1000_irq_status(struct mac_device_info *hw,
->
->         dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
->
-> -       if (intr_status & PCS_RGSMIIIS_IRQ)
-> +       if (!priv->use_mdio && (intr_status & PCS_RGSMIIIS_IRQ))
->                 dwmac1000_rgsmii(ioaddr, x);
->
->         return ret;
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 6c85b61aaa0b..34e9de0450ba 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -3356,11 +3356,13 @@ int stmmac_dvr_probe(struct device *device,
->
->         stmmac_check_pcs_mode(priv);
->
-> +       priv->use_mdio = 0;
->         if (priv->hw->pcs != STMMAC_PCS_RGMII  &&
->             priv->hw->pcs != STMMAC_PCS_TBI &&
->             priv->hw->pcs != STMMAC_PCS_RTBI) {
->                 /* MDIO bus Registration */
->                 ret = stmmac_mdio_register(ndev);
-> +               priv->use_mdio = 1;
->                 if (ret < 0) {
->                         pr_debug("%s: MDIO bus (id: %d) registration failed",
->                                  __func__, priv->plat->bus_id);
-> -------------------------->8-----------------------
->
-> Any thoughts on that are much appreciated!
->
-> Regards,
-> Alexey
->
-> [1] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=70523e639bf8ca09b3357371c3546cee55c06351
->
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 606cc3e..15db786 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -162,7 +162,7 @@ static int unsolicited_report_interval(struct in_device *in_dev)
+ }
+ 
+ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
+-static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr);
++static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im);
+ static void igmpv3_clear_delrec(struct in_device *in_dev);
+ static int sf_setstate(struct ip_mc_list *pmc);
+ static void sf_markstate(struct ip_mc_list *pmc);
+@@ -1130,10 +1130,15 @@ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im)
+ 	spin_unlock_bh(&in_dev->mc_tomb_lock);
+ }
+ 
+-static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
++/*
++ * restore ip_mc_list deleted records
++ */
++static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im)
+ {
+ 	struct ip_mc_list *pmc, *pmc_prev;
+-	struct ip_sf_list *psf, *psf_next;
++	struct ip_sf_list *psf;
++	struct net *net = dev_net(in_dev->dev);
++	__be32 multiaddr = im->multiaddr;
+ 
+ 	spin_lock_bh(&in_dev->mc_tomb_lock);
+ 	pmc_prev = NULL;
+@@ -1149,16 +1154,26 @@ static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
+ 			in_dev->mc_tomb = pmc->next;
+ 	}
+ 	spin_unlock_bh(&in_dev->mc_tomb_lock);
++
++	spin_lock_bh(&im->lock);
+ 	if (pmc) {
+-		for (psf = pmc->tomb; psf; psf = psf_next) {
+-			psf_next = psf->sf_next;
+-			kfree(psf);
++		im->interface = pmc->interface;
++		im->crcount = in_dev->mr_qrv ?: net->ipv4.sysctl_igmp_qrv;
++		im->sfmode = pmc->sfmode;
++		if (pmc->sfmode == MCAST_INCLUDE) {
++			im->tomb = pmc->tomb;
++			im->sources = pmc->sources;
++			for (psf = im->sources; psf; psf = psf->sf_next)
++				psf->sf_crcount = im->crcount;
+ 		}
+ 		in_dev_put(pmc->interface);
+-		kfree(pmc);
+ 	}
++	spin_unlock_bh(&im->lock);
+ }
+ 
++/*
++ * flush ip_mc_list deleted records
++ */
+ static void igmpv3_clear_delrec(struct in_device *in_dev)
+ {
+ 	struct ip_mc_list *pmc, *nextpmc;
+@@ -1366,7 +1381,7 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
+ 	ip_mc_hash_add(in_dev, im);
+ 
+ #ifdef CONFIG_IP_MULTICAST
+-	igmpv3_del_delrec(in_dev, im->multiaddr);
++	igmpv3_del_delrec(in_dev, im);
+ #endif
+ 	igmp_group_added(im);
+ 	if (!in_dev->dead)
+@@ -1626,8 +1641,12 @@ void ip_mc_remap(struct in_device *in_dev)
+ 
+ 	ASSERT_RTNL();
+ 
+-	for_each_pmc_rtnl(in_dev, pmc)
++	for_each_pmc_rtnl(in_dev, pmc) {
++#ifdef CONFIG_IP_MULTICAST
++		igmpv3_del_delrec(in_dev, pmc);
++#endif
+ 		igmp_group_added(pmc);
++	}
+ }
+ 
+ /* Device going down */
+@@ -1648,7 +1667,6 @@ void ip_mc_down(struct in_device *in_dev)
+ 	in_dev->mr_gq_running = 0;
+ 	if (del_timer(&in_dev->mr_gq_timer))
+ 		__in_dev_put(in_dev);
+-	igmpv3_clear_delrec(in_dev);
+ #endif
+ 
+ 	ip_mc_dec_group(in_dev, IGMP_ALL_HOSTS);
+@@ -1688,8 +1706,12 @@ void ip_mc_up(struct in_device *in_dev)
+ #endif
+ 	ip_mc_inc_group(in_dev, IGMP_ALL_HOSTS);
+ 
+-	for_each_pmc_rtnl(in_dev, pmc)
++	for_each_pmc_rtnl(in_dev, pmc) {
++#ifdef CONFIG_IP_MULTICAST
++		igmpv3_del_delrec(in_dev, pmc);
++#endif
+ 		igmp_group_added(pmc);
++	}
+ }
+ 
+ /*
+@@ -1704,13 +1726,13 @@ void ip_mc_destroy_dev(struct in_device *in_dev)
+ 
+ 	/* Deactivate timers */
+ 	ip_mc_down(in_dev);
++#ifdef CONFIG_IP_MULTICAST
++	igmpv3_clear_delrec(in_dev);
++#endif
+ 
+ 	while ((i = rtnl_dereference(in_dev->mc_list)) != NULL) {
+ 		in_dev->mc_list = i->next_rcu;
+ 		in_dev->mc_count--;
+-
+-		/* We've dropped the groups in ip_mc_down already */
+-		ip_mc_clear_src(i);
+ 		ip_ma_put(i);
+ 	}
+ }
+-- 
+2.5.5
