@@ -1,78 +1,66 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH 3/3] net: ethernet: sun4i-emac: Read rxhdr in CPU
- byte-order
-Date: Mon, 14 Nov 2016 19:59:34 +0100
-Message-ID: <20161114185934.2wfwyrv6buvnrja7@lukather>
-References: <20161114175807.4747-1-michael.weiser@gmx.de>
- <20161114175807.4747-4-michael.weiser@gmx.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="wr5fexqw4bqqevgu"
-Cc: netdev@vger.kernel.org
-To: Michael Weiser <michael.weiser@gmx.de>
+From: Michael Weiser <michael.weiser@gmx.de>
+Subject: [PATCH 0/3 v5] Fixes for running a big-endian kernel on Cubieboard2
+Date: Mon, 14 Nov 2016 18:58:04 +0100
+Message-ID: <20161114175807.4747-1-michael.weiser@gmx.de>
+Cc: Michael Weiser <michael.weiser@gmx.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:52748 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932605AbcKNS7p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:59:45 -0500
-Content-Disposition: inline
-In-Reply-To: <20161114175807.4747-4-michael.weiser@gmx.de>
+Received: from heinz.dinsnail.net ([85.214.155.104]:46516 "EHLO
+        heinz.dinsnail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753273AbcKNTAO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 14:00:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+the following patches are what remains to be fixed in order to allow running a
+big-endian kernel on the Cubieboard2.
 
---wr5fexqw4bqqevgu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The first patch fixes up endianness problems with DMA descriptors in
+the stmmac driver preventing it from working correctly when runnning a
+big-endian kernel.
 
-On Mon, Nov 14, 2016 at 06:58:07PM +0100, Michael Weiser wrote:
-> The EMAC EMAC_RX_IO_DATA_REG data register is dual-purpose: On one hand
-> it is used to move actual packet data off the wire. This will be in
-> wire-format and accepted as such by higher layers such as IP. Therefore
-> it is correctly read as-is (i.e. raw) using readsl.
->=20
-> On the other hand it provides metadata about incoming transfers to the
-> driver such as length and checksum validation status. This data is
-> little-endian, always and it is interpreted by the driver. Therefore it
-> needs to be swapped to CPU endianness to make sense to the driver. This
-> is already done for the "receive header" but not rxhdr.
->=20
-> Read rxhdr using readl in order for sun4i-emac to work correctly when
-> running a big-endian kernel.
->=20
-> Signed-off-by: Michael Weiser <michael.weiser@gmx.de>
-> Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
-> Cc: netdev@vger.kernel.org
+The second patch adds the ability to enable diagnostic messages in the
+sun4i-emac driver which were instrumental in finding the problem fixed
+by patch number three: Endianness confusion caused by dual-purpose I/O
+register usage in sun4i-emac.
 
-Acked-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+All of these have been tested successfully on a Cubieboard2 DualCard.
 
-Thanks!
-Maxime
+Changes since v4:
+- Rebased to current master
+- Removed already applied patches to sunxi-mmc and sunxi-Kconfig
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Changes since v3:
+- Rebased sunxi-mmc patch against Ulf's mmc.git/next
+- Changed Kconfig change to enable big-endian support only for sun7i
+  devices
 
---wr5fexqw4bqqevgu
-Content-Type: application/pgp-signature; name="signature.asc"
+Changes since v2:
+- Fixed typo in stmmac patch causing a build failure
+- Added sun4i-emac patches
 
------BEGIN PGP SIGNATURE-----
+Changes since v1:
+- Fixed checkpatch niggles
+- Added respective Cc:s
 
-iQIcBAEBCAAGBQJYKgmVAAoJEBx+YmzsjxAgCxEP/2GwkHmtVeTbL97yE2OjyIPZ
-3aSiIIadTQ67kWTxpr2HOvBap533xPK5cWNgbTBKCzk7NrAo1Zo1FQAxtUMahuGy
-MlstIvy2xamt19JstWh40MK/RpZX2tOjWP4aCrl5RsIvV7crcKZySxH6XK9apHsk
-FGJI89N9cH6a2f2LCBVhkuYhJprUdxuZ4n8EuiqmaOCoMbkkwxI5vO3apVGmP8ZT
-9LDIZvpa4XjLg0N/obpG1eyWSFVOvFxjX8NjKp5Ucsfi8ALGrzTljXLFWZjaY4V0
-UHUJFmYaowcSq6jKw4lcXi+OU2Q/BBdIETrQsWZPIk2xmbXjkfl3ih6GOxKUCXQD
-2Kk6wdrC3fwLuL9q8NEFD9VViJjgkuTcwbn6shNaGYy32O8TlYyQcmcPII61uXmi
-E03Y4x24ytwypIQ77QmrIe+HeH11Tdlexb2EhjCk11KuGnnsrkLaESwkJGsL7+55
-q3ThGL/7DxXAhc1G4Yr2kw6dRgvtdQ6geap1QG3sXU8oPSzjoWLFCeuAlQ6FvPIe
-1afXc7rIBKpJK//VNDkcB0X26hqrXOZDhBpqSAZ6REwiiXWE7fXju1VrKOD31YwW
-RS6yDOhOydnRpM4NkuC6sDb02C6P+h2yOS1dsBDmZLOwaFDyQXVI4lNa8JmJPoDx
-q/yKBdlgVNkbVNYMN0Hx
-=4hm2
------END PGP SIGNATURE-----
+Regards,
+Michael
 
---wr5fexqw4bqqevgu--
+Michael Weiser (3):
+  net: ethernet: stmmac: change dma descriptors to __le32
+  net: ethernet: sun4i-emac: Allow to enable netif messages
+  net: ethernet: sun4i-emac: Read rxhdr in CPU byte-order
+
+ drivers/net/ethernet/allwinner/sun4i-emac.c        | 25 ++++++++-
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c   | 55 ++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/descs.h        | 20 ++++----
+ drivers/net/ethernet/stmicro/stmmac/descs_com.h    | 48 +++++++++--------
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 60 +++++++++++-----------
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     | 55 ++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    | 48 ++++++++---------
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c    | 39 +++++++-------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 51 +++++++++---------
+ 9 files changed, 218 insertions(+), 183 deletions(-)
+
+-- 
+2.9.3 (Apple Git-75)
