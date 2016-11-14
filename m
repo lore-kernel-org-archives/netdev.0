@@ -1,86 +1,132 @@
-From: "Dr. Felix Collins" <felixcollinsfnb2@gmail.com>
-Subject: PLEASE VIEW THE ATTACHED FILE AND CONTACT ME.
-Date: Mon, 14 Nov 2016 07:44:09 +0000 (UTC)
-Message-ID: <1854903249.914393.1479109449106__28059.4682124958$1479110078$gmane$org@mail.yahoo.com>
-References: <1854903249.914393.1479109449106.ref@mail.yahoo.com>
-Reply-To: "Dr. Felix Collins" <felixcollinsa@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: stmmac: GMAC_RGSMIIIS reports bogus values
+Date: Mon, 14 Nov 2016 09:14:46 +0100
+Message-ID: <a1f114cc-6120-154c-a3f7-3e0389d38e36@st.com>
+References: <1478189833.4072.65.camel@synopsys.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-        boundary="----=_Part_914392_57161530.1479109449106"
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm34-vm8.bullet.mail.gq1.yahoo.com ([98.136.216.159]:36683 "EHLO
-        nm34-vm8.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933850AbcKNHxr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 02:53:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-------=_Part_914392_57161530.1479109449106
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
+Cc: "fabrice.gasnier@st.com" <fabrice.gasnier@st.com>,
+ "manabian@gmail.com" <manabian@gmail.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "preid@electromag.com.au" <preid@electromag.com.au>,
+ "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
+ "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1478189833.4072.65.camel@synopsys.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
+List-Post: <mailto:linux-snps-arc@lists.infradead.org>
+List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
+Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
+Hello Alexey
 
+Sorry for my late reply. In that case, I think that the stmmac
+is using own RGMII/SGMII support (PCS) to dialog with the
+transceiver. I think, from the HW capability register
+this feature is present and the driver is using it as default.
 
-------=_Part_914392_57161530.1479109449106
-Content-Type: application/msword
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="FROM FIRST NATIONAL BANK OF SOUTH AFRICA (F.N.B)..rtf"
-Content-ID: <7a5cd6df-04f1-6cf4-dc51-aa1de2c50c02@yahoo.com>
+I kindly ask you to verify if this is your setup or if you
+do not want to use it. In that case, it is likely we need to
+add some code in the driver.
 
-e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzcxNzd7XGZvbnR0Ymx7XGYwXGZz
-d2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcKlxnZW5lcmF0b3IgTXNmdGVkaXQgNS40MS4xNS4x
-NTEyO31cdmlld2tpbmQ0XHVjMVxwYXJkXGYwXGZzMjQgSSBhbSBGZWxpeCBDb2xsaW5zLCBJIHdv
-cmsgd2l0aCB0aGUgRklSU1QgTkFUSU9OQUwgQkFOSyBPRiBTT1VUSCBBRlJJQ0EgKEYuTi5CKS5c
-cGFyDQpQbGVhc2UgY29udGFjdCBtZSB3aXRoIHRoaXMgZW1haWwgYWRkcmVzc2VzLlxwYXINCmZl
-bGl4Y29sbGluc2FAZ21haWwuY29tXHBhcg0KUGxlYXNlIGNhbGwgbWUgb24gbXkgcHJpdmF0ZSBu
-dW1iZXIgKCsyNy03OSAtMTQxLTIzODUpXHBhcg0KXHBhcg0KXHBhcg0KQVRURU5USU9OOiBTSVIv
-TUFEQU0sXHBhcg0KXHBhcg0KSSBkbyB1bmRlcnN0YW5kIHRoZSBjb25jZXJuIHRoaXMgbGV0dGVy
-IHdpbGwgYnJpbmcgdG8geW91IGZvciB0aGUgZmFjdCB0aGF0IGl0IGNvbWVzIGZyb20gYSB0b3Rh
-bCBzdHJhbmdlciwgYnV0IGJlIHJlc3QgYXNzdXJlZCBmb3IgaXQgY29tZXMgd2l0aCBnb29kIGlu
-dGVudGlvbnMuIEkgZ290IHlvdXIgY29udGFjdCB0aHJvdWdoIHRoZSBTb3V0aCBBZnJpY2FuIElu
-dGVybmF0aW9uYWwgRXhjaGFuZ2UgTmV0d29yayBPbi1saW5lIGhlcmUgaW4gSm9oYW5uZXNidXJn
-LCBTb3V0aCBBZnJpY2EuIEZvciBwdXJwb3NlIG9mIGludHJvZHVjdGlvbiBJIGFtIEZlbGl4IENv
-bGxpbnMsIEkgd29yayB3aXRoIHRoZSBGSVJTVCBOQVRJT05BTCBCQU5LIE9GIFNPVVRIIEFGUklD
-QSAoRi5OLkIpICBUaGVyZSBpcyBhbiBhY2NvdW50IG9wZW5lZCBpbiB0aGlzIGJhbmsgc2luY2Ug
-MTk4MCBhbmQgc2luY2UgMTk5NSBub2JvZHkgaGFzIG9wZXJhdGVkIG9uIHRoaXMgYWNjb3VudCBh
-Z2Fpbi4gQWZ0ZXIgZ29pbmcgdGhyb3VnaCBzb21lIG9sZCBmaWxlcyBpbiB0aGUgcmVjb3Jkcywg
-SSBkaXNjb3ZlcmVkIHRoYXQgaWYgSSBkb24ndCByZW1pdCB0aGlzIG1vbmV5IG91dCB1cmdlbnRs
-eSBpdCB3b3VsZCBiZSBmb3JmZWl0ZWQgZm9yIG5vdGhpbmcuXHBhcg0KXHBhcg0KVGhlIG93bmVy
-IG9mIHRoaXMgYWNjb3VudCBpcyBNci4gU21pdGggLkIuIEFuZHJlYXMsIGEgZm9yZWlnbmVyIGFu
-ZCBhIG1pbmVyIGF0IEtydWdlciBHb2xkIENvLW9wZXJhdGlvbiwgYSBnZW9sb2dpc3QgYnkgcHJv
-ZmVzc2lvbiBhbmQgaGUgZGllZCBzaW5jZSAxOTk0LiBObyBvdGhlciBwZXJzb24ga25vd3MgYWJv
-dXQgdGhpcyBhY2NvdW50IG9yIGFueXRoaW5nIGNvbmNlcm5pbmcgaXQsIHRoZSBhY2NvdW50IGhh
-cyBubyBvdGhlciBiZW5lZmljaWFyeSBhbmQgbXkgaW52ZXN0aWdhdGlvbiBwcm92ZWQgdG8gbWUg
-YXMgd2VsbCB0aGF0IHRoZSBjb21wYW55IGRvZXMgbm90IGtub3cgYW55dGhpbmcgYWJvdXQgdGhp
-cyBhY2NvdW50IGFuZCB0aGUgYW1vdW50IGludm9sdmVkIGlzIFVTRCQ3NSwwMDAuMDAwLDAwICgg
-U2V2ZW50eSBGaXZlIE1pbGxpb24gVW5pdGVkIFN0YXRlcyBEb2xsYXJzKS4gSSBhbSBvbmx5IGNv
-bnRhY3RpbmcgeW91IGFzIGEgZm9yZWlnbmVyIGJlY2F1c2UgdGhpcyBtb25leSBjYW5ub3QgYmUg
-YXBwcm92ZWQgdG8gYSBsb2NhbCBiYW5rIGhlcmUsIGJ1dCBjYW4gb25seSBiZSBhcHByb3ZlZCB0
-byBhbnkgZm9yZWlnbiBhY2NvdW50IGJlY2F1c2UgdGhlIG1vbmV5IGlzIGluIFVuaXRlZCBTdGF0
-ZXMgRG9sbGFycyBhbmQgdGhlIGZvcm1lciBvd25lciBvZiB0aGUgYWNjb3VudCBNci4gU21pdGgg
-LkIgLiBBbmRyZWFzIGlzIGEgZm9yZWlnbmVyIHRvby4gSSBuZWVkIGEgdHJ1dGhmdWwgcGVyc29u
-IGluIHRoaXMgYnVzaW5lc3MgYmVjYXVzZSBJIGRvbid0IHdhbnQgdG8gbWFrZSBtaXN0YWtlcy5c
-cGFyDQpccGFyDQogSSBuZWVkIHlvdXIgc3Ryb25nIGFzc3VyYW5jZSBhbmQgdHJ1c3QuIFdpdGgg
-bXkgcG9zaXRpb24gbm93IGluIG9mZmljZSBJIGNhbiB0cmFuc2ZlciB0aGlzIG1vbmV5IHRvIGFu
-eSBmb3JlaWduIHJlbGlhYmxlIGFjY291bnQsIHRocm91Z2ggb24tbGluZSBiYW5raW5nIG9yIFRl
-bGVncmFwaGljIFRyYW5zZmVyIChULlQpIHdoaWNoIHlvdSBjYW4gcHJvdmlkZSB3aXRoIGFzc3Vy
-YW5jZSB0aGF0IHRoaXMgbW9uZXkgd2lsbCBiZSBpbnRhY3QgcGVuZGluZyBteSBwaHlzaWNhbCBh
-cnJpdmFsIHRvIHlvdXIgY291bnRyeSBmb3Igc2hhcmluZy4gSSB3aWxsIGFwcGx5IGZvciBhbm51
-YWwgbGVhdmUgdG8gZ2V0IGEgdmlzYSBpbW1lZGlhdGVseSBJIGhlYXIgZnJvbSB5b3UgdGhhdCB5
-b3UgYXJlIHJlYWR5IHRvIGFjdCBhbmQgcmVjZWl2ZSB0aGlzIG1vbmV5IGluIHlvdXIgYWNjb3Vu
-dC4gQXQgdGhlIGNvbmNsdXNpb24gb2YgdGhpcyBidXNpbmVzcywgSSB3aWxsIGNvbWUgdG8geW91
-ciBjb3VudHJ5IGZvciB3aXRoZHJhd2FsIGFuZCBzaGFyaW5nIGFuZCBvdGhlciBpbnZlc3RtZW50
-cy4geW91IHdpbGwgYmUgZ2l2ZW4gNDAlIG9mIHRoZSB0b3RhbCBhbW91bnQsIDUwJSB3aWxsIGJl
-IGZvciBtZSAsIGFuZCB3aGlsZSAxMCUgd2lsbCBiZSBmb3IgZXhwZW5zZXMgYm90aCBwYXJ0aWVz
-IG1pZ2h0IGluY3VyIGR1cmluZyB0aGUgcHJvY2VzcyBvZiB0cmFuc2ZlcnJpbmcgdGhpcyBtb25l
-eS5ccGFyDQpccGFyDQpUaGVyZWZvcmUsIGlmIHlvdSBhcmUgd2lsbGluZyBhbmQgaW50ZXJlc3Rl
-ZCB0byByZW5kZXIgdGhlIG5lZWRlZCBhc3Npc3RhbmNlLCBFbmRlYXZvciB0byByZXBseSB0aHJv
-dWdoIG15IGVtYWlsIGFkZHJlc3MsIEkgYWxzbyBuZWVkIHlvdXIgcHJpdmF0ZSBwaG9uZSBhbmQg
-ZmF4IG51bWJlcnMgZm9yIGVhc3kgY29tbXVuaWNhdGlvbi4gSSB3aWxsIGdpdmUgbW9yZSBjbGFy
-aWZpY2F0aW9ucyBvbiB0aGUgbW9kYWxpdGllcyBuZWVkZWQgZm9yIHRoZSBzdWNjZXNzZnVsIGNv
-bXBsZXRpb24gb2YgdGhpcyB0cmFuc2FjdGlvbi5ccGFyDQpccGFyDQpccGFyDQpCZXN0IFJlZ2Fy
-ZHMsXHBhcg0KRHIuIEZlbGl4IENvbGxpbnNccGFyDQogXHBhcg0KfQ0KAA==
+Also I wonder if, other version of the stmmac worked on this platform
+before.
 
-------=_Part_914392_57161530.1479109449106--
+Regards
+Peppe
+
+On 11/3/2016 5:17 PM, Alexey Brodkin wrote:
+> Hello,
+>
+> I'm seeing pretty strange issue with GMAC reporting a lot of link state changes
+> based on bits in GMAC_RGSMIIIS. It looks like that:
+> -------------------------->8-----------------------
+> Link is Down
+> Link is Up - 10/Full
+> Link is Down
+> Link is Up - 10/Half
+> Link is Down
+> Link is Down
+> Link is Up - 10/Half
+> Link is Up -
+> 1000/Half
+> Link is Down
+> Link is Down
+> Link is Down
+> Link is Down
+> Link is Up - 10/Half
+> Link is Down
+> Link is Down
+> Link is Up -
+> 1000/Half
+> Link is Up - 1000/Full
+> -------------------------->8-----------------------
+>
+> What's especially interesting my board with GMAC is connected to 100Mbit device
+> which means there's no chance for 1Gb mode to be set.
+>
+> Also this has nothing to do with link state detected and reported by PHY via MDIO.
+> So obviously GMAC_RGSMIIIS bits are wrong. But given the fact that GMAC_RGSMIIIS bits
+> are set based on state of RXD[3:0] lines of RGMII I may only thing that it's
+> PHY (in my case DP83865) who's sending random data on the RXD during inter-frame gap.
+>
+> Note data transferred through that networking connection is perfectly correct and
+> actually I haven't see those link state prints before kernel v4.8 basically
+> because the prints in question were implemented with pr_debug() and then with [1]
+> we got pr_info() that made prints visible by default.
+>
+> Since I don't have any means to capture all required GMII signals to do better
+> analysis and my data is not corrupted in the end I'm thinking about way how to
+> mute these pretty senseless messages.
+>
+> One thing I may think of we may disable checking of GMAC_RGSMIIIS if a particular
+> board uses MDIO for PHY setup. Something like that:
+> -------------------------->8-----------------------
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> @@ -337,7 +337,7 @@ static int dwmac1000_irq_status(struct mac_device_info *hw,
+>
+>         dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
+>
+> -       if (intr_status & PCS_RGSMIIIS_IRQ)
+> +       if (!priv->use_mdio && (intr_status & PCS_RGSMIIIS_IRQ))
+>                 dwmac1000_rgsmii(ioaddr, x);
+>
+>         return ret;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 6c85b61aaa0b..34e9de0450ba 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -3356,11 +3356,13 @@ int stmmac_dvr_probe(struct device *device,
+>
+>         stmmac_check_pcs_mode(priv);
+>
+> +       priv->use_mdio = 0;
+>         if (priv->hw->pcs != STMMAC_PCS_RGMII  &&
+>             priv->hw->pcs != STMMAC_PCS_TBI &&
+>             priv->hw->pcs != STMMAC_PCS_RTBI) {
+>                 /* MDIO bus Registration */
+>                 ret = stmmac_mdio_register(ndev);
+> +               priv->use_mdio = 1;
+>                 if (ret < 0) {
+>                         pr_debug("%s: MDIO bus (id: %d) registration failed",
+>                                  __func__, priv->plat->bus_id);
+> -------------------------->8-----------------------
+>
+> Any thoughts on that are much appreciated!
+>
+> Regards,
+> Alexey
+>
+> [1] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=70523e639bf8ca09b3357371c3546cee55c06351
+>
