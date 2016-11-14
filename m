@@ -1,35 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: Add support for ethtool::nway_reset
-Date: Mon, 14 Nov 2016 16:33:05 -0500 (EST)
-Message-ID: <20161114.163305.1253068652087279471.davem@davemloft.net>
-References: <20161113212444.3777-1-f.fainelli@gmail.com>
-        <680b3968-5cdc-2229-fb8d-e9e75f87809a@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv4: fix cloning issues in fib_trie_unmerge()
+Date: Mon, 14 Nov 2016 13:34:34 -0800
+Message-ID: <1479159274.8455.82.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41486 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753274AbcKNVdH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:33:07 -0500
-In-Reply-To: <680b3968-5cdc-2229-fb8d-e9e75f87809a@gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35478 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938503AbcKNVef (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:34:35 -0500
+Received: by mail-pg0-f66.google.com with SMTP id p66so9890955pga.2
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 13:34:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sun, 13 Nov 2016 13:35:04 -0800
+From: Eric Dumazet <edumazet@google.com>
 
-> Le 13/11/2016 à 13:24, Florian Fainelli a écrit :
->> If we have a PHY device, just invoke genphy_restart_aneg() to restart
->> auto-negotiation.
->> 
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> David, please drop this patch for now, since I have another one pending
-> which is going to touch the net_device/phydev interaction, this one also
-> causes a build warning since priv is not used.
+I had crashes in a DEBUG_PAGEALLOC kernels in fib_table_flush() or
+fib_table_lookup() that I back tracked to a refcounting issue
+happening when we clone struct fib_alias in fib_trie_unmerge()
 
-Ok, thanks for letting me know.
+While fixing this issue, I also noticed a mem leak happening
+if fib_insert_alias() fails.
+
+Fixes: 0ddcf43d5d4a0 ("ipv4: FIB Local/MAIN table collapse")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ net/ipv4/fib_trie.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 4cff74d4133f..ebf49ab889e8 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1737,14 +1737,19 @@ struct fib_table *fib_trie_unmerge(struct fib_table *oldtb)
+ 				goto out;
+ 
+ 			memcpy(new_fa, fa, sizeof(*fa));
++			if (fa->fa_info)
++				fa->fa_info->fib_treeref++;
+ 
+ 			/* insert clone into table */
+ 			if (!local_l)
+ 				local_l = fib_find_node(lt, &local_tp, l->key);
+ 
+ 			if (fib_insert_alias(lt, local_tp, local_l, new_fa,
+-					     NULL, l->key))
++					     NULL, l->key)) {
++				kmem_cache_free(fn_alias_kmem, new_fa);
++				fib_release_info(fa->fa_info);
+ 				goto out;
++			}
+ 		}
+ 
+ 		/* stop loop if key wrapped back to 0 */
