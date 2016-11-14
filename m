@@ -1,42 +1,59 @@
-From: ho.jia.jie@intel.com
-Subject: [PATCH] net: ethernet: Fix SGMII unable to switch speed and autonego failure
-Date: Mon, 14 Nov 2016 17:06:49 +0800
-Message-ID: <1479114409-20002-1-git-send-email-ho.jia.jie@intel.com>
-Cc: Jia Jie Ho <ho.jia.jie@intel.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Baoquan He <bhe@redhat.com>
+Subject: Re: [PATCH v2 0/2] bnx2: Wait for in-flight DMA to complete at probe
+ stage
+Date: Mon, 14 Nov 2016 17:10:59 +0800
+Message-ID: <20161114091059.GB5845@x1>
+References: <1479013293-21001-1-git-send-email-bhe@redhat.com>
+ <8010f40d-e7ca-8fd1-7317-f576289c112f@molgen.mpg.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        Dept-GELinuxNICDev@cavium.com, rasesh.mody@cavium.com,
+        harish.patil@cavium.com, frank@undermydesk.org, jsr@dex.edzone.net,
+        jroedel@suse.de, dyoung@redhat.com
+To: Paul Menzel <pmenzel@molgen.mpg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:26241 "EHLO mga14.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57670 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752478AbcKNJGy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 04:06:54 -0500
+        id S932883AbcKNJLE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 04:11:04 -0500
+Content-Disposition: inline
+In-Reply-To: <8010f40d-e7ca-8fd1-7317-f576289c112f@molgen.mpg.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jia Jie Ho <ho.jia.jie@intel.com>
+On 11/14/16 at 09:25am, Paul Menzel wrote:
+> Dear Baoquan,
+> 
+> On 11/13/16 06:01, Baoquan He wrote:
+> > This is v2 post.
+> > 
+> > In commit 3e1be7a ("bnx2: Reset device during driver initialization"),
+> > firmware requesting code was moved from open stage to probe stage.
+> > The reason is in kdump kernel hardware iommu need device be reset in
+> > driver probe stage, otherwise those in-flight DMA from 1st kernel
+> > will continue going and look up into the newly created io-page tables.
+> > However bnx2 chip resetting involves firmware requesting issue, that
+> > need be done in open stage.
+> > 
+> > Michale Chan suggested we can just wait for the old in-flight DMA to
+> > complete at probe stage, then though without device resetting, we
+> > don't need to worry the old in-flight DMA could continue looking up
+> > the newly created io-page tables.
+> > 
+> > v1->v2:
+> >     Michael suggested to wait for the in-flight DMA to complete at probe
+> >     stage. So give up the old method of trying to reset chip at probe
+> >     stage, take the new way accordingly.
+> 
+> thank you for posting the updated series. Could you please resend a v3 with
+> stable@vger.kernel.org added [1]?
 
-TSE PCS SGMII ethernet has an issue where switching speed doesn't work
-caused by a faulty register macro offset. This fixes the issue.
+I can add it like:
+Cc: <stable@vger.kernel.org> # 4.8.7
 
-Signed-off-by: Jia Jie Ho <ho.jia.jie@intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Only v4.8.7, right?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-index 2920e2e..489ef14 100644
---- a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-@@ -63,8 +63,8 @@
- #define TSE_PCS_SGMII_LINK_TIMER_0			0x0D40
- #define TSE_PCS_SGMII_LINK_TIMER_1			0x0003
- #define TSE_PCS_SW_RESET_TIMEOUT			100
--#define TSE_PCS_USE_SGMII_AN_MASK			BIT(2)
--#define TSE_PCS_USE_SGMII_ENA				BIT(1)
-+#define TSE_PCS_USE_SGMII_AN_MASK			BIT(1)
-+#define TSE_PCS_USE_SGMII_ENA				BIT(0)
- 
- #define SGMII_ADAPTER_CTRL_REG				0x00
- #define SGMII_ADAPTER_DISABLE				0x0001
--- 
-1.8.2.1
+Thanks
+Baoquan
