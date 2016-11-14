@@ -1,58 +1,44 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH 2/2] amd-xgbe: Fix up some coccinelle identified warnings
-Date: Mon, 14 Nov 2016 16:28:58 -0600
-Message-ID: <20161114222858.25160.47383.stgit@tlendack-t1.amdoffice.net>
-References: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
+From: Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org>
+Subject: Re: [patch] netlink.7: srcfix Change buffer size in example code
+ about reading netlink message.
+Date: Mon, 14 Nov 2016 14:36:28 -0800
+Message-ID: <7f6d8b0b-6f29-37af-9b25-47a2e78a31fd@hpe.com>
+References: <e9409957290af5249750afa0f10de3a6@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <julia.lawall@lip6.fr>, <christophe.jaillet@wanadoo.fr>,
-        David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0075.outbound.protection.outlook.com ([104.47.34.75]:6270
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S965030AbcKNW3F (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 17:29:05 -0500
-In-Reply-To: <20161114222827.25160.24791.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dwilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <e9409957290af5249750afa0f10de3a6-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fix up some warnings that were identified by coccinelle:
+> Lets change the example so others don't propagate the problem further.
+>
+> Signed-off-by David Wilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+>
+> --- man7/netlink.7.orig 2016-11-14 13:30:36.522101156 -0800
+> +++ man7/netlink.7      2016-11-14 13:30:51.002086354 -0800
+> @@ -511,7 +511,7 @@
+>  .in +4n
+>  .nf
+>  int len;
+> -char buf[4096];
+> +char buf[8192];
 
-Clean up an if/else block that can look confusing since the same statement
-is executed in an "else if" check and the final "else" statement.
+Since there doesn't seem to be a define one could use in the user space 
+linux/netlink.h (?), but there are comments in the example code in the 
+manpage, how about also including a brief comment to the effect that 
+using 8192 bytes will avoid message truncation problems on platforms 
+with a large PAGE_SIZE?
 
-Change a variable from unsigned int to int since it is used in an if
-statement checking the value to be less than 0.
+/* avoid msg truncation on > 4096 byte PAGE_SIZE platforms */
 
-Reported-by: Julia Lawall <julia.lawall@lip6.fr>
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+or something like that.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 4ba4332..348cc8c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-@@ -1766,8 +1766,6 @@ static void xgbe_phy_sfi_mode(struct xgbe_prv_data *pdata)
- 			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 1);
- 		else if (phy_data->sfp_cable_len <= 3)
- 			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 2);
--		else if (phy_data->sfp_cable_len <= 5)
--			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 3);
- 		else
- 			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 3);
- 	}
-@@ -2346,7 +2344,8 @@ static bool xgbe_phy_valid_speed(struct xgbe_prv_data *pdata, int speed)
- static int xgbe_phy_link_status(struct xgbe_prv_data *pdata, int *an_restart)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
--	unsigned int ret, reg;
-+	unsigned int reg;
-+	int ret;
- 
- 	*an_restart = 0;
- 
+rick jones
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
