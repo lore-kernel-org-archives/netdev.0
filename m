@@ -1,44 +1,44 @@
-From: Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org>
-Subject: Re: [patch] netlink.7: srcfix Change buffer size in example code
- about reading netlink message.
-Date: Mon, 14 Nov 2016 14:36:28 -0800
-Message-ID: <7f6d8b0b-6f29-37af-9b25-47a2e78a31fd@hpe.com>
-References: <e9409957290af5249750afa0f10de3a6@linux.vnet.ibm.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v2 0/2] amd-xgbe: AMD XGBE driver updates 2016-11-14
+Date: Mon, 14 Nov 2016 16:38:56 -0600
+Message-ID: <20161114223856.25437.13649.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dwilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <e9409957290af5249750afa0f10de3a6-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <julia.lawall@lip6.fr>, <christophe.jaillet@wanadoo.fr>,
+        David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-dm3nam03on0086.outbound.protection.outlook.com ([104.47.41.86]:24720
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752842AbcKNWjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 17:39:06 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Lets change the example so others don't propagate the problem further.
->
-> Signed-off-by David Wilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
->
-> --- man7/netlink.7.orig 2016-11-14 13:30:36.522101156 -0800
-> +++ man7/netlink.7      2016-11-14 13:30:51.002086354 -0800
-> @@ -511,7 +511,7 @@
->  .in +4n
->  .nf
->  int len;
-> -char buf[4096];
-> +char buf[8192];
+(Resending with net-next in the subject)
 
-Since there doesn't seem to be a define one could use in the user space 
-linux/netlink.h (?), but there are comments in the example code in the 
-manpage, how about also including a brief comment to the effect that 
-using 8192 bytes will avoid message truncation problems on platforms 
-with a large PAGE_SIZE?
+This patch series addresses some minor issues found in the recently
+accepted patch series for the AMD XGBE driver.
 
-/* avoid msg truncation on > 4096 byte PAGE_SIZE platforms */
+The following fixes are included in this driver update series:
 
-or something like that.
+- Fix how a mask is applied to a Clause 37 register value
+- Fix some coccinelle identified warnings
 
-rick jones
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch series is based on net-next.
+
+---
+
+Tom Lendacky (2):
+      amd-xgbe: Fix mask appliciation for Clause 37 register
+      amd-xgbe: Fix up some coccinelle identified warnings
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |    4 ++--
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    5 ++---
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+-- 
+Tom Lendacky
