@@ -1,93 +1,40 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Kernel 4.8.7 crashing
-Date: Mon, 14 Nov 2016 09:18:55 -0800
-Message-ID: <CAM_iQpWt6X++axevP8aFu=PW9X=r+v_BQzoDckQ6W6o33J_1fA@mail.gmail.com>
-References: <CA+OSeu=TvXdd8VmxWOo2dh-jS_WrNibSWdCt0OEyPEkfxjO_yw@mail.gmail.com>
- <CAM_iQpUiBE93MsYsMWKcSRBTCNMPvWRqiqAkH3DDqFP1cCSdtw@mail.gmail.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/6] dt-bindings: mdio-mux: Add documentation for mdio
+ mux for NSP SoC
+Date: Mon, 14 Nov 2016 11:22:01 -0600
+Message-ID: <20161114172201.eitumdrusrb466vq@rob-hp-laptop>
+References: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
+ <1478683994-12008-2-git-send-email-yendapally.reddy@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Ashton Holmes <scoopta@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpUiBE93MsYsMWKcSRBTCNMPvWRqiqAkH3DDqFP1cCSdtw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
+        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1478683994-12008-2-git-send-email-yendapally.reddy-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-(Really Cc'ing netdev.. ;-p )
+On Wed, Nov 09, 2016 at 04:33:09AM -0500, Yendapally Reddy Dhananjaya Reddy wrote:
+> Add documentation for mdio mux available in Broadcom NSP SoC
+> 
+> Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/brcm,mdio-mux-nsp.txt  | 57 ++++++++++++++++++++++
+>  1 file changed, 57 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-nsp.txt
 
-On Mon, Nov 14, 2016 at 9:18 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Cc'ing netdev.
->
-> On Sat, Nov 12, 2016 at 2:17 PM, Ashton Holmes <scoopta@gmail.com> wrote:
->> I upgraded to 4.8.7 and the system boots and my root partition gets
->> decrypted but right after that both of my monitors turn off and
->> looking at syslog from 4.8.6 shows the following:
->>
->> Nov 12 11:54:24 user-desktop kernel: [   19.853197] ------------[ cut
->> here ]------------
->> Nov 12 11:54:24 user-desktop kernel: [   19.853206] WARNING: CPU: 2
->> PID: 177 at fs/proc/proc_sysctl.c:1607 ops_exit_list.isra.4+0x33/0x60
->
-> Probably this warning in source code:
->
-> void retire_sysctl_set(struct ctl_table_set *set)
-> {
->         WARN_ON(!RB_EMPTY_ROOT(&set->dir.root));
-> }
->
->
->> Nov 12 11:54:24 user-desktop kernel: [   19.853210] Modules linked in:
->> amdgpu eeepc_wmi i2c_algo_bit asus_wmi drm_kms_helper video rfkill
->> snd_hda_codec_realtek ttm snd_hda_codec_generic snd_hda_codec_hdmi drm
->> snd_hda_intel snd_usb_audio sparse_keymap snd_hda_codec mxm_wmi
->> snd_usbmidi_lib snd_hda_core efi_pstore snd_hwdep snd_rawmidi evdev
->> snd_seq_device joydev snd_pcm serio_raw pcspkr efivars fam15h_power
->> k10temp snd_timer snd sp5100_tco i2c_piix4 sg soundcore i2c_core
->> shpchp tpm_infineon tpm_tis tpm_tis_core tpm wmi button it87 hwmon_vid
->> autofs4 ext4 crc16 jbd2 mbcache algif_skcipher af_alg dm_crypt dm_mod
->> hid_generic usbhid hid sr_mod cdrom sd_mod ohci_pci crct10dif_pclmul
->> crc32_pclmul crc32c_intel aesni_intel aes_x86_64 glue_helper lrw
->> gf128mul ablk_helper cryptd psmouse ohci_hcd ahci libahci ehci_pci
->> ehci_hcd libata xhci_pci xhci_hcd e1000e usbcore scsi_mod ptp
->> usb_common pps_core
->> Nov 12 11:54:24 user-desktop kernel: [   19.853264] CPU: 2 PID: 177
->> Comm: kworker/u16:2 Not tainted 4.8.7 #1
->> Nov 12 11:54:24 user-desktop kernel: [   19.853267] Hardware name: To
->> be filled by O.E.M. To be filled by O.E.M./CROSSHAIR V FORMULA-Z, BIOS
->> 2201 03/23/2015
->> Nov 12 11:54:24 user-desktop kernel: [   19.853273] Workqueue: netns cleanup_net
->> Nov 12 11:54:24 user-desktop kernel: [   19.853276]  0000000000000286
->> 00000000b98071d2 ffffffff81302a8f 0000000000000000
->> Nov 12 11:54:24 user-desktop kernel: [   19.853281]  0000000000000000
->> ffffffff81076f54 ffff880814f88040 ffff8808140efdf0
->> Nov 12 11:54:24 user-desktop kernel: [   19.853285]  ffffffff818f11d8
->> ffffffff818f11e0 ffff8808140efde0 0000000000000200
->> Nov 12 11:54:24 user-desktop kernel: [   19.853290] Call Trace:
->> Nov 12 11:54:24 user-desktop kernel: [   19.853295]
->> [<ffffffff81302a8f>] ? dump_stack+0x5c/0x7d
->> Nov 12 11:54:24 user-desktop kernel: [   19.853299]
->> [<ffffffff81076f54>] ? __warn+0xc4/0xe0
->> Nov 12 11:54:24 user-desktop kernel: [   19.853302]
->> [<ffffffff8149e243>] ? ops_exit_list.isra.4+0x33/0x60
->> Nov 12 11:54:24 user-desktop kernel: [   19.853305]
->> [<ffffffff8149f230>] ? cleanup_net+0x1b0/0x290
->> Nov 12 11:54:24 user-desktop kernel: [   19.853309]
->> [<ffffffff8108fefd>] ? process_one_work+0x14d/0x410
->> Nov 12 11:54:24 user-desktop kernel: [   19.853312]
->> [<ffffffff81090cc2>] ? worker_thread+0x62/0x490
->> Nov 12 11:54:24 user-desktop kernel: [   19.853315]
->> [<ffffffff81090c60>] ? rescuer_thread+0x340/0x340
->> Nov 12 11:54:24 user-desktop kernel: [   19.853318]
->> [<ffffffff81095f3f>] ? kthread+0xdf/0x100
->> Nov 12 11:54:24 user-desktop kernel: [   19.853322]
->> [<ffffffff8102b78b>] ? __switch_to+0x2bb/0x710
->> Nov 12 11:54:24 user-desktop kernel: [   19.853325]
->> [<ffffffff815a371f>] ? ret_from_fork+0x1f/0x40
->> Nov 12 11:54:24 user-desktop kernel: [   19.853328]
->> [<ffffffff81095e60>] ? kthread_park+0x50/0x50
->> Nov 12 11:54:24 user-desktop kernel: [   19.853331] ---[ end trace
->> c4840b46b58dbe12 ]---
->
-> Looks like net->sysctls is not empty when unregistering,
-> perhaps unregister_net_sysctl_table() is missing somewhere.
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
