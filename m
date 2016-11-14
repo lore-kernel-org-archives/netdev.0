@@ -1,86 +1,98 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v3] ip6_output: ensure flow saddr actually
-	belongs to device
-Date: Mon, 14 Nov 2016 19:33:05 +0100
-Message-ID: <1479148385.3747043.787432273.5FCC2F4F@webmail.messagingengine.com>
-References: <27cccef1-06d9-74b3-5b8a-912850119a76@cumulusnetworks.com>
- <20161113232813.28926-1-Jason@zx2c4.com>
- <1479141867.3723362.787321689.4A3DCFD6@webmail.messagingengine.com>
- <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
- <7d8c0210-9132-c755-9053-6ec19409e343@stressinduktion.org>
- <c75290bd-7ea2-0bf8-7ac0-fc5a3c81e312@cumulusnetworks.com>
- <7779da88-08dc-0adb-42dd-8e00502693df@stressinduktion.org>
- <0214eaf8-70c6-5a37-cddd-faa1c4268871@cumulusnetworks.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] [v2] net: phy: phy drivers should not set
+ SUPPORTED_[Asym_]Pause
+Date: Mon, 14 Nov 2016 10:35:27 -0800
+Message-ID: <cf18464c-e225-af5d-9251-f2553b93b9ff@gmail.com>
+References: <1478821561-26498-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>,
- "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- LKML <linux-kernel@vger.kernel.org>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <0214eaf8-70c6-5a37-cddd-faa1c4268871@cumulusnetworks.com>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Timur Tabi <timur@codeaurora.org>,
+        David Miller <davem@davemloft.net>, jon.mason@broadcom.com,
+        netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35753 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932414AbcKNSfa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:35:30 -0500
+Received: by mail-pf0-f193.google.com with SMTP id i88so6535375pfk.2
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 10:35:29 -0800 (PST)
+In-Reply-To: <1478821561-26498-1-git-send-email-timur@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2016, at 18:48, David Ahern wrote:
-> On 11/14/16 10:33 AM, Hannes Frederic Sowa wrote:
-> >>>>> I just also quickly read up on the history (sorry was travelling last
-> >>>>> week) and wonder if you ever saw a user space facing bug or if this is
-> >>>>> basically some difference you saw while writing out of tree code?
-> >>>>
-> >>>> I checked the userspace API this morning. bind and cmsg for example check that the address is valid with calls to ipv6_chk_addr.
-> >>>
-> >>> Hmm, so it fixes no real bug.
-> >>>
-> >>> Because of translations of flowi6_oif we actually can't do a correct
-> >>> check of source address for cases like the one I outlined above? Hmm,
-> >>> maybe we should simply depend on user space checks.
-> >>
-> >> I believe Jason's case is forwarding path and the ipv6_stub->ipv6_dst_lookup API.
-> > 
-> > It is not a kernel API, because we don't support something like that for
-> > external kernel modules. We basically exported ipv6_dst_lookup to allow
-> > some IPv4 code to do ipv6 stunts when the IPv6 module is loaded. ;)
+On 11/10/2016 03:46 PM, Timur Tabi wrote:
+> Instead of having individual PHY drivers set the SUPPORTED_Pause and
+> SUPPORTED_Asym_Pause flags, phylib itself should set those flags.
+> During autonegotiation, the PHYs will determine whether to enable
+> pause frame support.
 > 
-> ???
+> Pause frames are a feature that is supported by the MAC.  It is the MAC
+> that generates the frames and that processes them.  The PHY can only be
+> configured to allow them to pass through.
 > 
-> ipv6_stub is exported for modules (EXPORT_SYMBOL_GPL(ipv6_stub)).
+> So the new process is:
 > 
-> ipv6_stub->ipv6_dst_lookup is used by several modules -- geneve, tipc,
-> vxlan, mpls -- for IPv6 lookups, not IPv4 code do IPv6 stunts.
+> 1) Phylib sets the SUPPORTED_Pause and SUPPORTED_AsymPause bits in
+> phydev->supported.  This indicates that the PHY supports pause frames.
 > 
-> So how do you say that is not an exported kernel API?
+> 2) The MAC driver checks phydev->supported before it calls phy_start().
+> If (SUPPORTED_Pause | SUPPORTED_AsymPause) is set, then the MAC driver
+> sets those bits in phydev->advertising, if it wants to enable pause
+> frame support.
+> 
+> 3) When the link state changes, the MAC driver checks phydev->pause and
+> phydev->asym_pause,  If the bits are set, then it enables the corresponding
+> features in the MAC.  The algorithm is:
+> 
+> 	if (phydev->pause)
+> 		The MAC should be programmed to receive and honor
+>                 pause frames it receives, i.e. enable receive flow control.
+> 
+> 	if (phydev->pause != phydev->asym_pause)
+> 		The MAC should be programmed to transmit pause
+> 		frames when needed, i.e. enable transmit flow control.
+> 
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
+> ---
 
-Sorry, yes, I noticed I wrote it in a confusing way.
+> diff --git a/drivers/net/phy/bcm63xx.c b/drivers/net/phy/bcm63xx.c
+> index e741bf6..5e9922e 100644
+> --- a/drivers/net/phy/bcm63xx.c
+> +++ b/drivers/net/phy/bcm63xx.c
+> @@ -48,8 +48,7 @@ static int bcm63xx_config_init(struct phy_device *phydev)
+>  	.phy_id		= 0x00406000,
+>  	.phy_id_mask	= 0xfffffc00,
+>  	.name		= "Broadcom BCM63XX (1)",
+> -	/* ASYM_PAUSE bit is marked RO in datasheet, so don't cheat */
+> -	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+> +	.features	= PHY_BASIC_FEATURES,
 
-I meant to say, we don't require the IPv6 "API" to behave in a similar
-way like the IPv4 one. We do this function pointer trick to allow
-_in-kernel_ tree modules to use the function dynamically, even the
-kernel ipv6 module would be available but is not loaded but don't
-guarante any "API like IPv4" to outside tree modules.
+Humm that's actually a pretty important piece of information here that
+we are going to lose if we unconditionally move the setting of the
+SUPPORTED_Pause/Asym_Pause settings into the core. I don't have the HW
+in a state where I could try a mainline kernel, but I suspect that the
+following could happen though:
 
-I tried to make the point, that it is still something internal to the
-kernel if compared to out-of-tree function users. And that different
-behavior by itself doesn't count as a bug.
+- we would try to set the SUPPORTED_AsymPause bit, and it would not be
+taken into account, since the bit is RO
+- the auto-negotiation results should still show up as symmetric pause
+being supported only
+- the driver would properly react to that
 
-We could as well require the users of this function to check for the
-source address before or require to check the source address after the
-ipv6_dst_lookup call.
+NB: this also applies to drivers/net/phy/ste10Xp.c.
 
-vxlan currently seems wrong and would impacted by this patch in a better
-way, so I am all in for such a change, but I think we need to check if
-we are also correct scope-wise and not just match for the address on its
-own.
+So maybe, for theses drivers specifically, what we can do, is preserve
+the entry as-is, to convey that only symmetric Pause frames can be
+advertised, and have the logic in PHYLIB do something like this
+(pseudo-code):
 
-Thanks,
-Hannes
+if (!(drv->features & (SUPPORTED_Pause | SUPPORTED_AsymPause))
+	phydev->supported |= SUPPORTED_Pause | SUPPORTED_AsymPause;
+else if ((drv->features & (SUPPORTED_Pause) && (!(drv->features &
+(SUPPORTED_AsymPause)))
+	phydev->supported |= SUPPORTED_Pause;
+
+(there may be more efficient ways to do this of course).
+-- 
+Florian
