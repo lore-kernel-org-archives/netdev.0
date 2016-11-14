@@ -1,82 +1,86 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 1/3] bpf, mlx5: fix mlx5e_create_rq taking reference
- on prog
-Date: Mon, 14 Nov 2016 19:26:29 +0100
-Message-ID: <582A01D5.6060608@iogearbox.net>
-References: <cover.1479080215.git.daniel@iogearbox.net> <0447a6161550c466ef799b46095440949ffc7df0.1479080215.git.daniel@iogearbox.net> <918902f3-1852-ae68-b12d-eaa1c45bf641@mellanox.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v3] ip6_output: ensure flow saddr actually
+	belongs to device
+Date: Mon, 14 Nov 2016 19:33:05 +0100
+Message-ID: <1479148385.3747043.787432273.5FCC2F4F@webmail.messagingengine.com>
+References: <27cccef1-06d9-74b3-5b8a-912850119a76@cumulusnetworks.com>
+ <20161113232813.28926-1-Jason@zx2c4.com>
+ <1479141867.3723362.787321689.4A3DCFD6@webmail.messagingengine.com>
+ <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
+ <7d8c0210-9132-c755-9053-6ec19409e343@stressinduktion.org>
+ <c75290bd-7ea2-0bf8-7ac0-fc5a3c81e312@cumulusnetworks.com>
+ <7779da88-08dc-0adb-42dd-8e00502693df@stressinduktion.org>
+ <0214eaf8-70c6-5a37-cddd-faa1c4268871@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, bblanco@plumgrid.com,
-        tariqt@mellanox.com, zhiyisun@gmail.com, ranas@mellanox.com,
-        netdev@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36909 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933225AbcKNS0e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:26:34 -0500
-In-Reply-To: <918902f3-1852-ae68-b12d-eaa1c45bf641@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>,
+ "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>,
+ LKML <linux-kernel@vger.kernel.org>,
+ YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <0214eaf8-70c6-5a37-cddd-faa1c4268871@cumulusnetworks.com>
+List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-Hi Saeed,
+On Mon, Nov 14, 2016, at 18:48, David Ahern wrote:
+> On 11/14/16 10:33 AM, Hannes Frederic Sowa wrote:
+> >>>>> I just also quickly read up on the history (sorry was travelling last
+> >>>>> week) and wonder if you ever saw a user space facing bug or if this is
+> >>>>> basically some difference you saw while writing out of tree code?
+> >>>>
+> >>>> I checked the userspace API this morning. bind and cmsg for example check that the address is valid with calls to ipv6_chk_addr.
+> >>>
+> >>> Hmm, so it fixes no real bug.
+> >>>
+> >>> Because of translations of flowi6_oif we actually can't do a correct
+> >>> check of source address for cases like the one I outlined above? Hmm,
+> >>> maybe we should simply depend on user space checks.
+> >>
+> >> I believe Jason's case is forwarding path and the ipv6_stub->ipv6_dst_lookup API.
+> > 
+> > It is not a kernel API, because we don't support something like that for
+> > external kernel modules. We basically exported ipv6_dst_lookup to allow
+> > some IPv4 code to do ipv6 stunts when the IPv6 module is loaded. ;)
+> 
+> ???
+> 
+> ipv6_stub is exported for modules (EXPORT_SYMBOL_GPL(ipv6_stub)).
+> 
+> ipv6_stub->ipv6_dst_lookup is used by several modules -- geneve, tipc,
+> vxlan, mpls -- for IPv6 lookups, not IPv4 code do IPv6 stunts.
+> 
+> So how do you say that is not an exported kernel API?
 
-On 11/14/2016 07:15 PM, Saeed Mahameed wrote:
-> On 11/14/2016 02:43 AM, Daniel Borkmann wrote:
->> In mlx5e_create_rq(), when creating a new queue, we call bpf_prog_add() but
->> without checking the return value. bpf_prog_add() can fail, so we really
->
-> Didn't know this, thanks for noticing, I wonder why taking a reference for an object would fail ?
-> especially when someone is requesting from the driver to take a reference to it ndo_xdp_set ?! sounds like a bad design.
->
-> Anyway I will check that later.
+Sorry, yes, I noticed I wrote it in a confusing way.
 
-See 92117d8443bc ("bpf: fix refcnt overflow").
+I meant to say, we don't require the IPv6 "API" to behave in a similar
+way like the IPv4 one. We do this function pointer trick to allow
+_in-kernel_ tree modules to use the function dynamically, even the
+kernel ipv6 module would be available but is not loaded but don't
+guarante any "API like IPv4" to outside tree modules.
 
->> must check it. Take the reference right when we assign it to the rq from
->> priv->xdp_prog, and just drop the reference on error path. Destruction in
->> mlx5e_destroy_rq() looks good, though.
->>
->> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> ---
->>   drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 14 +++++++++++---
->>   kernel/bpf/syscall.c                              |  1 +
->>   2 files changed, 12 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> index 84e8b25..2b83667 100644
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> @@ -489,7 +489,16 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
->>   	rq->channel = c;
->>   	rq->ix      = c->ix;
->>   	rq->priv    = c->priv;
->> +
->>   	rq->xdp_prog = priv->xdp_prog;
->
-> Why keeping this assignment ? just test priv->xdp_prog.
->
->> +	if (rq->xdp_prog) {
->> +		rq->xdp_prog = bpf_prog_inc(rq->xdp_prog);
->> +		if (IS_ERR(rq->xdp_prog)) {
->> +			err = PTR_ERR(rq->xdp_prog);
->> +			rq->xdp_prog = NULL;
->> +			goto err_rq_wq_destroy;
->> +		}
->> +	}
->
-> Try this, simpler and less indentations:
->
-> rq->xdp_prog = priv->xdp_prog ? bpf_prog_inc(priv->xdp_prog) : NULL;
-> if (IS_ERR(rq->xdp_prog)) {
-> 	err = PTR_ERR(rq->xdp_prog);
-> 	rq->xdp_prog = NULL;
-> 	goto err_rq_wq_destroy;
-> }
+I tried to make the point, that it is still something internal to the
+kernel if compared to out-of-tree function users. And that different
+behavior by itself doesn't count as a bug.
 
-Sure, I don't mind. Will do.
+We could as well require the users of this function to check for the
+source address before or require to check the source address after the
+ipv6_dst_lookup call.
+
+vxlan currently seems wrong and would impacted by this patch in a better
+way, so I am all in for such a change, but I think we need to check if
+we are also correct scope-wise and not just match for the address on its
+own.
 
 Thanks,
-Daniel
+Hannes
