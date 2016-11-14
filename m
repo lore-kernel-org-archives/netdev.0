@@ -1,51 +1,63 @@
-From: Matthias Brugger <mbrugger@suse.com>
-Subject: Re: [PATCH 0/5] net: thunderx: Miscellaneous fixes
-Date: Mon, 14 Nov 2016 18:35:29 +0100
-Message-ID: <2908a070-954b-d533-a448-b8ab6c61a577@suse.com>
-References: <1479120886-13425-1-git-send-email-sunil.kovvuri@gmail.com>
- <2948c47d-0f15-8153-440b-7a2c753b7251@suse.com>
- <20161114.123253.476733911183519472.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Long delays creating a netns after deleting one (possibly RCU related)
+Date: Mon, 14 Nov 2016 09:44:35 -0800
+Message-ID: <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
+References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
+ <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
+ <20161110212404.GB4127@linux.vnet.ibm.com> <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
+ <20161112002347.GL4127@linux.vnet.ibm.com> <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
+ <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com> <20161114162417.GJ4127@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sunil.kovvuri@gmail.com, netdev@vger.kernel.org,
-        sgoutham@cavium.com, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nue.novell.com ([195.135.221.5]:57383 "EHLO
-        smtp.nue.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933813AbcKNRfp (ORCPT
-        <rfc822;groupwise-netdev@vger.kernel.org:0:0>);
-        Mon, 14 Nov 2016 12:35:45 -0500
-In-Reply-To: <20161114.123253.476733911183519472.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Justin Cormack <justin.cormack@docker.com>,
+        Ian Campbell <ian.campbell@docker.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161114162417.GJ4127@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 11/14/2016 06:32 PM, David Miller wrote:
-> From: Matthias Brugger <mbrugger@suse.com>
-> Date: Mon, 14 Nov 2016 13:01:25 +0100
->
+On Mon, Nov 14, 2016 at 8:24 AM, Paul E. McKenney
+<paulmck@linux.vnet.ibm.com> wrote:
+> On Sun, Nov 13, 2016 at 10:47:01PM -0800, Cong Wang wrote:
+>> On Fri, Nov 11, 2016 at 4:55 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> > On Fri, Nov 11, 2016 at 4:23 PM, Paul E. McKenney
+>> > <paulmck@linux.vnet.ibm.com> wrote:
+>> >>
+>> >> Ah!  This net_mutex is different than RTNL.  Should synchronize_net() be
+>> >> modified to check for net_mutex being held in addition to the current
+>> >> checks for RTNL being held?
+>> >>
+>> >
+>> > Good point!
+>> >
+>> > Like commit be3fc413da9eb17cce0991f214ab0, checking
+>> > for net_mutex for this case seems to be an optimization, I assume
+>> > synchronize_rcu_expedited() and synchronize_rcu() have the same
+>> > behavior...
 >>
+>> Thinking a bit more, I think commit be3fc413da9eb17cce0991f
+>> gets wrong on rtnl_is_locked(), the lock could be locked by other
+>> process not by the current one, therefore it should be
+>> lockdep_rtnl_is_held() which, however, is defined only when LOCKDEP
+>> is enabled... Sigh.
 >>
->> On 14/11/16 11:54, sunil.kovvuri@gmail.com wrote:
->>> From: Sunil Goutham <sgoutham@cavium.com>
->>>
->>> This patchset includes fixes for incorrect LMAC credits,
->>> unreliable driver statistics, memory leak upon interface
->>> down e.t.c
->>>
->>
->> Are these fixes relevant to for older kernels as well?
->> If so, please add "Cc: stable@vger.kernel.org" to the Sigend-off list.
+>> I don't see any better way than letting callers decide if they want the
+>> expedited version or not, but this requires changes of all callers of
+>> synchronize_net(). Hm.
 >
-> This is not appropriate for networking patches.
->
-> People instead explicitly request -stable inclusion when the
-> submit networking changes to me, and I queue them up for
-> later submission.
->
+> I must confess that I don't understand how it would help to use an
+> expedited grace period when some other process is holding RTNL.
+> In contrast, I do well understand how it helps when the current process
+> is holding RTNL.
 
-Ok, thanks for clarification.
+Yeah, this is exactly my point. And same for ASSERT_RTNL() which checks
+rtnl_is_locked(), clearly we need to assert "it is held by the current process"
+rather than "it is locked by whatever process".
+
+But given *_is_held() is always defined by LOCKDEP, so we probably need
+mutex to provide such a helper directly, mutex->owner is not always defined
+either. :-/
