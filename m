@@ -1,45 +1,96 @@
-From: Jon Hunter <jonathanh@nvidia.com>
-Subject: Re: [PATCH v3 3/5] net: asix: Fix AX88772x resume failures
-Date: Mon, 14 Nov 2016 09:34:21 +0000
-Message-ID: <f0d21edc-060b-bd9b-fced-faf1f51e8467@nvidia.com>
-References: <cover.c702ef6af13be7c1282a2f2d3189281fdc327abe.1472155176.git-series.robert.foss@collabora.com>
- <c708db3f1e006df543284cf5215b965ce4fc44ec.1472155176.git-series.robert.foss@collabora.com>
- <77fa76d6-ef63-47db-a316-93b3a0c0705b@nvidia.com>
- <00e501d23e54$337d4b70$9a77e250$@asix.com.tw>
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH ethtool v2 1/2] ethtool-copy.h:sync with net
+Date: Mon, 14 Nov 2016 10:29:46 +0100
+Message-ID: <1479115787-1265-2-git-send-email-allan.nielsen@microsemi.com>
+References: <1479115787-1265-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: <allan@asix.com.tw>, <robert.foss@collabora.com>,
-        <freddy@asix.com.tw>, <Dean_Jenkins@mentor.com>,
-        <Mark_Craske@mentor.com>, <davem@davemloft.net>,
-        <ivecera@redhat.com>, <john.stultz@linaro.org>,
-        <vpalatin@chromium.org>, <stephen@networkplumber.org>,
-        <grundler@chromium.org>, <changchias@gmail.com>, <andrew@lunn.ch>,
-        <tremyfr@gmail.com>, <colin.king@canonical.com>,
-        <linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <vpalatin@google.com>
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
+        <allan.nielsen@microsemi.com>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate16.nvidia.com ([216.228.121.65]:10434 "EHLO
-        hqemgate16.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750953AbcKNJfQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 04:35:16 -0500
-In-Reply-To: <00e501d23e54$337d4b70$9a77e250$@asix.com.tw>
+Received: from mail-bl2nam02on0074.outbound.protection.outlook.com ([104.47.38.74]:20629
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932176AbcKNJoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 04:44:34 -0500
+In-Reply-To: <1479115787-1265-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Allan,
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-On 14/11/16 08:50, ASIX_Allan [Home] wrote:
-> It seems the AX88772x dongle had been unexpectedly removed while running the
-> ax88772_suspend() routine. If yes, you might see these error messages
-> because the hardware had been absent.    
+This covers kernel changes upto:
 
-In my case the hardware was never removed. The boards are in a test
-fixture that are not touched. This is seen on more than one board. By
-reverting this change I no longer see the error messages and appears to
-be 100% reproducible.
+commit f5a4732f85613b3fb43f8bc33a017e3db3b3605a
+Author: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Date:   Wed Nov 9 16:33:09 2016 +0530
 
-Jon
+    ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE and ETHTOOL_PHY_STUNABLE
 
+    For operation in cabling environments that are incompatible with 1000BAST-T,
+    PHY device may provide an automatic link speed downshift operation. When
+    enabled, the device automatically changes its 1000BAST-T auto-negotiation
+    to the next slower speed after a configured number of failed attempts at
+    1000BAST-T.
+    This feature is useful in setting up in networks using older cable
+    installations that include only pairs A and B, and not pairs C and D.
+
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+---
+ ethtool-copy.h | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 70748f5..2e2448f 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -247,6 +247,19 @@ struct ethtool_tunable {
+ 	void	*data[0];
+ };
+ 
++#define DOWNSHIFT_DEV_DEFAULT_COUNT	0xff
++#define DOWNSHIFT_DEV_DISABLE		0
++
++enum phy_tunable_id {
++	ETHTOOL_PHY_ID_UNSPEC,
++	ETHTOOL_PHY_DOWNSHIFT,
++	/*
++	 * Add your fresh new phy tunable attribute above and remember to update
++	 * phy_tunable_strings[] in net/core/ethtool.c
++	 */
++	__ETHTOOL_PHY_TUNABLE_COUNT,
++};
++
+ /**
+  * struct ethtool_regs - hardware register dump
+  * @cmd: Command number = %ETHTOOL_GREGS
+@@ -547,6 +560,7 @@ struct ethtool_pauseparam {
+  * @ETH_SS_FEATURES: Device feature names
+  * @ETH_SS_RSS_HASH_FUNCS: RSS hush function names
+  * @ETH_SS_PHY_STATS: Statistic names, for use with %ETHTOOL_GPHYSTATS
++ * @ETH_SS_PHY_TUNABLES: PHY tunable names
+  */
+ enum ethtool_stringset {
+ 	ETH_SS_TEST		= 0,
+@@ -557,6 +571,7 @@ enum ethtool_stringset {
+ 	ETH_SS_RSS_HASH_FUNCS,
+ 	ETH_SS_TUNABLES,
+ 	ETH_SS_PHY_STATS,
++	ETH_SS_PHY_TUNABLES,
+ };
+ 
+ /**
+@@ -1312,7 +1327,8 @@ struct ethtool_per_queue_op {
+ 
+ #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
+ #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
+-
++#define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
++#define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
 -- 
-nvpublic
+2.7.3
