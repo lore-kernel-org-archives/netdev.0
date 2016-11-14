@@ -1,84 +1,67 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: change sk state only when it has assocs in
- sctp_shutdown
-Date: Mon, 14 Nov 2016 10:52:21 -0500
-Message-ID: <20161114155221.GB15570@hmsreliant.think-freely.org>
-References: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3] ip6_output: ensure flow saddr actually
+ belongs to device
+Date: Mon, 14 Nov 2016 09:19:37 -0700
+Message-ID: <87012eb2-e52d-7058-4115-a4a3c70a7b4c@cumulusnetworks.com>
+References: <27cccef1-06d9-74b3-5b8a-912850119a76@cumulusnetworks.com>
+ <20161113232813.28926-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, andreyknvl@google.com
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42592 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753205AbcKNPws (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 10:52:48 -0500
-Content-Disposition: inline
-In-Reply-To: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
+ WireGuard mailing list <wireguard@lists.zx2c4.com>,
+ LKML <linux-kernel@vger.kernel.org>,
+ YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+ Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <wireguard-bounces@lists.zx2c4.com>
+In-Reply-To: <20161113232813.28926-1-Jason@zx2c4.com>
+List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
+List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
+List-Post: <mailto:wireguard@lists.zx2c4.com>
+List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
+List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
+ <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
+Errors-To: wireguard-bounces@lists.zx2c4.com
+Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 13, 2016 at 09:44:37PM +0800, Xin Long wrote:
-> Now when users shutdown a sock with SEND_SHUTDOWN in sctp, even if
-> this sock has no connection (assoc), sk state would be changed to
-> SCTP_SS_CLOSING, which is not as we expect.
+On 11/13/16 4:28 PM, Jason A. Donenfeld wrote:
+> This puts the IPv6 routing functions in parity with the IPv4 routing
+> functions. Namely, we now check in v6 that if a flowi6 requests an
+> saddr, the returned dst actually corresponds to a net device that has
+> that saddr. This mirrors the v4 logic with __ip_dev_find in
+> __ip_route_output_key_hash. In the event that the returned dst is not
+> for a dst with a dev that has the saddr, we return -EINVAL, just like
+> v4; this makes it easy to use the same error handlers for both cases.
 > 
-> Besides, after that if users try to listen on this sock, kernel
-> could even panic when it dereference sctp_sk(sk)->bind_hash in
-> sctp_inet_listen, as bind_hash is null when sock has no assoc.
-> 
-> This patch is to move sk state change after checking sk assocs
-> is not empty, and also merge these two if() conditions and reduce
-> indent level.
-> 
-> Fixes: d46e416c11c8 ("sctp: sctp should change socket state when shutdown is received")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> Cc: David Ahern <dsa@cumulusnetworks.com>
 > ---
->  net/sctp/socket.c | 15 +++++++--------
->  1 file changed, 7 insertions(+), 8 deletions(-)
+> Changes from v2:
+>     It turns out ipv6_chk_addr already has the device enumeration
+>     logic that we need by simply passing NULL.
 > 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index faa48ff..f23ad91 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4285,19 +4285,18 @@ static void sctp_shutdown(struct sock *sk, int how)
->  {
->  	struct net *net = sock_net(sk);
->  	struct sctp_endpoint *ep;
-> -	struct sctp_association *asoc;
+>  net/ipv6/ip6_output.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 6001e78..b3b5cb6 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -926,6 +926,10 @@ static int ip6_dst_lookup_tail(struct net *net, const struct sock *sk,
+>  	int err;
+>  	int flags = 0;
 >  
->  	if (!sctp_style(sk, TCP))
->  		return;
->  
-> -	if (how & SEND_SHUTDOWN) {
-> +	ep = sctp_sk(sk)->ep;
-> +	if (how & SEND_SHUTDOWN && !list_empty(&ep->asocs)) {
-> +		struct sctp_association *asoc;
+> +	if (!ipv6_addr_any(&fl6->saddr) &&
+> +	    !ipv6_chk_addr(net, &fl6->saddr, NULL, 1))
+> +		return -EINVAL;
 > +
->  		sk->sk_state = SCTP_SS_CLOSING;
-> -		ep = sctp_sk(sk)->ep;
-> -		if (!list_empty(&ep->asocs)) {
-> -			asoc = list_entry(ep->asocs.next,
-> -					  struct sctp_association, asocs);
-> -			sctp_primitive_SHUTDOWN(net, asoc, NULL);
-> -		}
-> +		asoc = list_entry(ep->asocs.next,
-> +				  struct sctp_association, asocs);
-> +		sctp_primitive_SHUTDOWN(net, asoc, NULL);
->  	}
->  }
->  
-> -- 
-> 2.1.0
+>  	/* The correct way to handle this would be to do
+>  	 * ip6_route_get_saddr, and then ip6_route_output; however,
+>  	 * the route-specific preferred source forces the
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+LGTM
+
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
