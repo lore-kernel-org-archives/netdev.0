@@ -1,186 +1,98 @@
 From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v2 2/5] ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE
-Date: Mon, 14 Nov 2016 10:29:17 +0100
-Message-ID: <1479115760-1182-3-git-send-email-allan.nielsen@microsemi.com>
-References: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v2 0/5] Adding PHY-Tunables and downshift support
+Date: Mon, 14 Nov 2016 10:29:15 +0100
+Message-ID: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
-        <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+        <allan.nielsen@microsemi.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0049.outbound.protection.outlook.com ([104.47.42.49]:17952
+Received: from mail-by2nam03on0054.outbound.protection.outlook.com ([104.47.42.54]:48743
         "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752106AbcKNJ3m (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 04:29:42 -0500
-In-Reply-To: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+        id S1751731AbcKNJ33 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 04:29:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Hi,
 
-Adding get_tunable/set_tunable function pointer to the phy_driver
-structure, and uses these function pointers to implement the
-ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE ioctls.
+This is a follow-up on the patch series posted at Fri, 4 Nov 2016 10:55:25
++0100 (old cover letter included below).
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- include/linux/phy.h |  7 +++++
- net/core/ethtool.c  | 87 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 94 insertions(+)
+The following is changed/added/addressed:
+- Support for __ethtool_get_strings()/phy_tunables is added
+- Using DOWNSHIFT_DEV_DISABLE define instead of '0' when disabling
+- If downshifting clould not be eanbled with the requested count, then a
+  trace message with a hist is printed.
+- Using ERANGE as requested by Andrew.
+- Andrew suggested to use ENOSUPP when a tunable is not implemented We kept
+  the EINVAL because ENOSUPP does not exists, and the existing MAC-level
+  tunable is also using EINVAL in the same scenario.
+- Andrew suggested that the driver should accept a count of 1 and "just"
+  round it up to 2 (the nearest allowed value). We discussed it a bit (Raju
+  and I) and preferred to return EINVAL when a configuration value could
+  not be accommodated. People which wants "help" to choose a supported
+  value should be using the DOWNSHIFT_DEV_DEFAULT_COUNT value.
+- (ethtool) Syntax is changed from "--set-phy-tunable downshift on|off|%d"
+  to "--set-phy-tunable [downshift on|off [count N]]" - as requested by
+  Andrew.
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 9880d73..3d35c36 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -611,6 +611,13 @@ struct phy_driver {
- 	void (*get_strings)(struct phy_device *dev, u8 *data);
- 	void (*get_stats)(struct phy_device *dev,
- 			  struct ethtool_stats *stats, u64 *data);
-+
-+	/* Get and Set PHY tunables */
-+	int (*get_tunable)(struct phy_device *dev,
-+			   struct ethtool_tunable *tuna, void *data);
-+	int (*set_tunable)(struct phy_device *dev,
-+			    struct ethtool_tunable *tuna,
-+			    const void *data);
- };
- #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
- 				      struct phy_driver, mdiodrv)
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 9774898..61aebdf 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -119,6 +119,11 @@ tunable_strings[__ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
- 	[ETHTOOL_TX_COPYBREAK]	= "tx-copybreak",
- };
- 
-+static const char
-+phy_tunable_strings[__ETHTOOL_PHY_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
-+	[ETHTOOL_ID_UNSPEC]     = "Unspec",
-+};
-+
- static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
- {
- 	struct ethtool_gfeatures cmd = {
-@@ -227,6 +232,9 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
- 	if (sset == ETH_SS_TUNABLES)
- 		return ARRAY_SIZE(tunable_strings);
- 
-+	if (sset == ETH_SS_PHY_TUNABLES)
-+		return ARRAY_SIZE(phy_tunable_strings);
-+
- 	if (sset == ETH_SS_PHY_STATS) {
- 		if (dev->phydev)
- 			return phy_get_sset_count(dev->phydev);
-@@ -253,6 +261,8 @@ static void __ethtool_get_strings(struct net_device *dev,
- 		       sizeof(rss_hash_func_strings));
- 	else if (stringset == ETH_SS_TUNABLES)
- 		memcpy(data, tunable_strings, sizeof(tunable_strings));
-+	else if (stringset == ETH_SS_PHY_TUNABLES)
-+		memcpy(data, phy_tunable_strings, sizeof(phy_tunable_strings));
- 	else if (stringset == ETH_SS_PHY_STATS) {
- 		struct phy_device *phydev = dev->phydev;
- 
-@@ -2422,6 +2432,76 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
- 	};
- }
- 
-+static int ethtool_phy_tunable_valid(const struct ethtool_tunable *tuna)
-+{
-+	switch (tuna->id) {
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int get_phy_tunable(struct net_device *dev, void __user *useraddr)
-+{
-+	int ret;
-+	struct ethtool_tunable tuna;
-+	struct phy_device *phydev = dev->phydev;
-+	void *data;
-+
-+	if (!(phydev && phydev->drv && phydev->drv->get_tunable))
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
-+		return -EFAULT;
-+	ret = ethtool_phy_tunable_valid(&tuna);
-+	if (ret)
-+		return ret;
-+	data = kmalloc(tuna.len, GFP_USER);
-+	if (!data)
-+		return -ENOMEM;
-+	ret = phydev->drv->get_tunable(phydev, &tuna, data);
-+	if (ret)
-+		goto out;
-+	useraddr += sizeof(tuna);
-+	ret = -EFAULT;
-+	if (copy_to_user(useraddr, data, tuna.len))
-+		goto out;
-+	ret = 0;
-+
-+out:
-+	kfree(data);
-+	return ret;
-+}
-+
-+static int set_phy_tunable(struct net_device *dev, void __user *useraddr)
-+{
-+	int ret;
-+	struct ethtool_tunable tuna;
-+	struct phy_device *phydev = dev->phydev;
-+	void *data;
-+
-+	if (!(phydev && phydev->drv && phydev->drv->set_tunable))
-+		return -EOPNOTSUPP;
-+	if (copy_from_user(&tuna, useraddr, sizeof(tuna)))
-+		return -EFAULT;
-+	ret = ethtool_phy_tunable_valid(&tuna);
-+	if (ret)
-+		return ret;
-+	data = kmalloc(tuna.len, GFP_USER);
-+	if (!data)
-+		return -ENOMEM;
-+	useraddr += sizeof(tuna);
-+	ret = -EFAULT;
-+	if (copy_from_user(data, useraddr, tuna.len))
-+		goto out;
-+	ret = phydev->drv->set_tunable(phydev, &tuna, data);
-+
-+out:
-+	kfree(data);
-+	return ret;
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -2479,6 +2559,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GET_TS_INFO:
- 	case ETHTOOL_GEEE:
- 	case ETHTOOL_GTUNABLE:
-+	case ETHTOOL_PHY_GTUNABLE:
- 		break;
- 	default:
- 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-@@ -2684,6 +2765,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SLINKSETTINGS:
- 		rc = ethtool_set_link_ksettings(dev, useraddr);
- 		break;
-+	case ETHTOOL_PHY_GTUNABLE:
-+		rc = get_phy_tunable(dev, useraddr);
-+		break;
-+	case ETHTOOL_PHY_STUNABLE:
-+		rc = set_phy_tunable(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+Ethtool patches will follow shortly.
+
+Please review
+
+Best regards
+Allan and Raju
+
+
+Raju Lakkaraju (5):
+  ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE and ETHTOOL_PHY_STUNABLE
+  ethtool: Implements ETHTOOL_PHY_GTUNABLE/ETHTOOL_PHY_STUNABLE
+  ethtool: (uapi) Add ETHTOOL_PHY_DOWNSHIFT to PHY tunables
+  ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
+  net: phy: Add downshift get/set support in Microsemi PHYs driver
+
+ drivers/net/phy/mscc.c       | 100 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/phy.h          |   7 +++
+ include/uapi/linux/ethtool.h |  18 +++++++-
+ net/core/ethtool.c           |  93 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 217 insertions(+), 1 deletion(-)
+
 -- 
 2.7.3
+
+
+Old cover letter:
+> From 1a318266822f5d74c58b5219ebbdf5a6a5f567dc Mon Sep 17 00:00:00 2001
+> From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+> Date: Fri, 4 Nov 2016 10:55:25 +0100
+> Subject: [PATCH net-next 0/5] Adding PHY-Tunables and downshift support
+> 
+> Hi All,
+> 
+> This series add support for PHY tunables, and uses this facility to configure
+> downshifting. The downshifting mechanism is implemented for MSCC phys.
+> 
+> This series tries to address the comments provided back in mid October when this
+> feature was posted along with fast-link-failure. Fast-link-failure has been
+> separated out, but we would like to pick continue on that if/when we agree on
+> how the phy-tunables and downshifting should be done.
+> 
+> The proposed generic interface is similar to ETHTOOL_GTUNABLE/ETHTOOL_STUNABLE,
+> it uses the same type (ethtool_tunable/tunable_type_id) but a new enum
+> (phy_tunable_id) is added to reflect the PHY tunable.
+> 
+> The implementation just call the newly added function pointers in
+> get_tunable/set_tunable phy_device structure.
+> 
+> To configure downshifting, the ethtool_tunable structure is used. 'id' must be
+> set to 'ETHTOOL_PHY_DOWNSHIFT', 'type_id' must be set to 'ETHTOOL_TUNABLE_U8'
+> and 'data' value configure the amount of downshift re-tries.
+> 
+> If configured to DOWNSHIFT_DEV_DISABLE, then downshift is disabled
+> If configured to DOWNSHIFT_DEV_DEFAULT_COUNT, then it is up to the device to
+> choose a device-specific re-try count.
+> 
+> Patches to implement this in ethtool will follow in a few minutes.
