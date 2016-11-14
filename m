@@ -1,66 +1,61 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 2/3] bpf, mlx5: fix various refcount/prog issues in
- mlx5e_xdp_set
-Date: Mon, 14 Nov 2016 20:05:56 +0100
-Message-ID: <582A0B14.7080209@iogearbox.net>
-References: <cover.1479080215.git.daniel@iogearbox.net> <03741f7075af64e83d23add379bdab41204396b0.1479080215.git.daniel@iogearbox.net> <af02aa53-0df6-e8b7-bcfe-5f765f5a8c09@mellanox.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: AF_VSOCK loopback
+Date: Mon, 14 Nov 2016 19:14:46 +0000
+Message-ID: <20161114191446.GH1352@stefanha-x1.localdomain>
+References: <20161110144329.GA19683@stefanha-x1.localdomain>
+ <BY2PR0501MB20561F98987156779668ECB1DABB0@BY2PR0501MB2056.namprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, bblanco@plumgrid.com,
-        tariqt@mellanox.com, zhiyisun@gmail.com, ranas@mellanox.com,
-        netdev@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>, davem@davemloft.net
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="svZFHVx8/dhPCe52"
+Cc: "cavery@redhat.com" <cavery@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jorgen S. Hansen" <jhansen@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41311 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753379AbcKNTGB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 14:06:01 -0500
-In-Reply-To: <af02aa53-0df6-e8b7-bcfe-5f765f5a8c09@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39376 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932343AbcKNTOs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 14:14:48 -0500
+Content-Disposition: inline
+In-Reply-To: <BY2PR0501MB20561F98987156779668ECB1DABB0@BY2PR0501MB2056.namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2016 07:27 PM, Saeed Mahameed wrote:
-> On 11/14/2016 02:43 AM, Daniel Borkmann wrote:
->> There are multiple issues in mlx5e_xdp_set():
->>
->> 1) prog can be NULL, so calling unconditionally into bpf_prog_add(prog,
->>     priv->params.num_channels) can end badly.
->
-> not correct, if prog is null we will never get to bpf_prog_add:
->
->          reset = (!priv->xdp_prog || !prog);
->          [...]
-> 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state) || reset)
-> 		goto unlock;
->          bpf_prog_add...
 
-Yep, I noticed already, dropped this from the changelog for net-next
-rebase anyway.
+--svZFHVx8/dhPCe52
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->> 2) The batched bpf_prog_add() should be done at an earlier point in
->>     time. This makes sure that we cannot fail anymore at the time we
->>     want to set the program for each channel. This only means that we
->>     have to undo the bpf_prog_add() in case we return early due to
->>     reset or device not in MLX5E_STATE_OPENED yet. Note, err is 0 here.
->
-> It is delayed for a reason, we do delayed batched bpf_prog_add()
-> only when reset is not required (exchanging prog/old_prg) when both prog and old_prog are not null,
-> which means the only thing that could fail in this case is bpf_prog_add.
+On Fri, Nov 11, 2016 at 02:14:44PM +0000, Jorgen S. Hansen wrote:
+> Hi Stefan,
+>=20
+> All datagram communication in VMCI based AF_VSOCK is going through the ho=
+st - also for loopback communication. The only difference wrt loopback is t=
+hat the VMCI queue pairs implementing the shared queues for the stream prot=
+ocols aren't registered with the hypervisor - they are created specifying t=
+he VMCI_QPFLAG_LOCAL flag, and exist only as local guest memory.
+>=20
+> So in the current form, there isn't much loopback code in the vmci AF_VSO=
+CK implementation, so it doesn't seem like there would be much to share eit=
+her.
 
-Right, plus 3) below.
+Thanks for clarifying.  I'm playing with a virtio-vsock implementation
+of loopback and expect send patches later this week.
 
-> so i don't see any reason for changing the logic, checking for  bpf_prog_add return value would be sufficient.
+Stefan
 
-Yes, but if that fails, it would be better to check early for bailing out
-since at this point in time undoing logic becomes unnecessary ugly.
+--svZFHVx8/dhPCe52
+Content-Type: application/pgp-signature; name="signature.asc"
 
-> Sorry I need to go for now, I will continue reviewing this patch later.  but this patch looks a little bit exaggerated.
->
->> 3) When swapping the priv->xdp_prog, then no extra reference count must
->>     be taken since we got that from call path via dev_change_xdp_fd()
->>     already. Otherwise, we'd never be able to free the program. Also,
->>     bpf_prog_add() without checking the return code could fail.
->>
->> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJYKg0mAAoJEJykq7OBq3PIeUwH/2++zN9gubpi0F8YT1mhGgVm
+gnOz6s1t+eF85+tYFEpKNOdDuEm1haYKtu3qOGIwSpDaqk5hYLqITTMmJnWSm/Ee
+NM/YvitdzF8GD8O/OGARNP97vByFhzUq/mg0rG5zgxZmflCYz+DvBg0hrLK2Bhfg
+8551vUZXjofl4flabR1sJy+OlAJM24m2zSvS9jfDPpcA8EptpqqKRn6QpQkEiKGF
+ENWOWWFGQ4BuaqYy0ZAyw1d3zynzoASk6l7gMFuH0Het6qK15Sl8iMRG0yhcMHC8
+wVAheCeKJkXe/zlu85W2ABHfbn4YwArFHk1CXLhXz8Cm/ekKZOmTUQMh1VryQW0=
+=9N8J
+-----END PGP SIGNATURE-----
+
+--svZFHVx8/dhPCe52--
