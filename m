@@ -1,243 +1,339 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Debugging Ethernet issues
-Date: Mon, 14 Nov 2016 13:45:40 +0100
-Message-ID: <5829B1F4.8040708@free.fr>
-References: <5827AD4A.7010908@free.fr> <20161113030919.GA2892@lunn.ch>
- <5829AA80.2090102@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Mans Rullgard <mans@mansr.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Tom Lendacky <thomas.lendacky@amd.com>,
-        Zach Brown <zach.brown@ni.com>,
-        Shaohui Xie <shaohui.xie@nxp.com>,
-        Tim Beale <tim.beale@alliedtelesis.co.nz>,
-        Brian Hill <brian@houston-radar.com>,
-        Vince Bridgers <vbridgers2013@gmail.com>,
-        Balakumaran Kannan <kumaran.4353@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sebastian Frias <sf84@laposte.net>,
-        Kirill Kapranov <kapranoff@inbox.ru>
-To: netdev <netdev@vger.kernel.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [net-next PATCH v2] net: dummy: Introduce dummy virtual functions
+Date: Mon, 14 Nov 2016 14:02:05 +0100
+Message-ID: <20161114130205.18333-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:28974 "EHLO smtp5-g21.free.fr"
+Received: from orbyte.nwl.cc ([151.80.46.58]:53721 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932305AbcKNMqO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 07:46:14 -0500
-In-Reply-To: <5829AA80.2090102@free.fr>
+        id S1752154AbcKNNCR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 08:02:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/11/2016 13:13, Mason wrote:
+The idea for this was born when testing VF support in iproute2 which was
+impeded by hardware requirements. In fact, not every VF-capable hardware
+driver implements all netdev ops, so testing the interface is still hard
+to do even with a well-sorted hardware shelf.
 
-> This is a different log which I got earlier, but can no longer reproduce:
-> 
-> # tcpdump -n -i eth1-boards ether host 00:16:e8:4b:b0:7d
-> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-> listening on eth1-boards, link-type EN10MB (Ethernet), capture size 262144 bytes
-> 11:08:09.610662 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-> 11:08:10.642852 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-> 11:08:10.643276 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-> 11:08:10.790526 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-> 11:08:11.638146 ARP, Reply 172.27.64.58 is-at 00:16:e8:4b:b0:7d, length 46
-> 11:08:11.638156 IP 172.27.64.1 > 172.27.64.58: ICMP echo request, id 29883, seq 0, length 28
-> 11:08:11.638345 IP 172.27.64.58 > 172.27.64.1: ICMP echo reply, id 29883, seq 0, length 28
-> 11:08:16.642811 ARP, Request who-has 172.27.64.1 tell 172.27.64.58, length 46
-> 11:08:16.642822 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
+To overcome this and allow for testing the user-kernel interface, this
+patch allows to turn dummy into a PF with a configurable amount of VFs.
 
-Additional tests on v4.7
+Due to the assumption that all PFs are PCI devices, this implementation
+is not completely straightforward: In order to allow for
+rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
+attached to the dummy netdev. This has to happen at the right spot so
+register_netdevice() does not get confused. This patch abuses
+ndo_fix_features callback for that. In ndo_uninit callback, the fake
+parent is removed again for the same purpose.
 
-If I set the link up *BEFORE* running the DHCP client, then I get:
+Joint work with Sabrina Dubroca.
 
-# ip link set eth0 up /* Wait 4-5 seconds */
-[   69.815303] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+Changes since v1:
+- Fixed issues reported by kbuild test robot:
+  - pci_dev->sriov is only present if CONFIG_PCI_ATS is active.
+  - pci_bus_type does not exist if CONFIG_PCI is not defined.
+---
+ drivers/net/dummy.c | 199 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 197 insertions(+), 2 deletions(-)
 
-# time udhcpc | while read LINE; do date; echo $LINE; done
-Mon Nov 14 13:27:30 UTC 2016
-udhcpc (v1.22.1) started
-Mon Nov 14 13:27:30 UTC 2016
-Sending discover...
-Mon Nov 14 13:27:31 UTC 2016
-Sending select for 172.27.64.58...
-Mon Nov 14 13:27:32 UTC 2016
-Lease of 172.27.64.58 obtained, lease time 604800
-Mon Nov 14 13:27:32 UTC 2016
-deleting routers
-Mon Nov 14 13:27:32 UTC 2016
-adding dns 172.27.0.17
-
-real    0m1.292s
-user    0m0.037s
-sys     0m0.087s
-
-# tcpdump -n -i eth1-boards ether host 00:16:e8:4b:b0:7d
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth1-boards, link-type EN10MB (Ethernet), capture size 262144 bytes
-13:27:30.922880 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:27:30.923055 IP 172.27.64.1 > 172.27.64.58: ICMP echo request, id 29883, seq 0, length 28
-13:27:31.924151 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:27:31.936221 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:27:32.061869 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:27:35.933946 ARP, Request who-has 172.27.64.58 tell 172.27.64.1, length 28
-13:27:35.934079 ARP, Reply 172.27.64.58 is-at 00:16:e8:4b:b0:7d, length 46
-
-
-I did see (once) the 9-packet trace (with the ping echo/reply)
-
-# tcpdump -n -i eth1-boards ether host 00:16:e8:4b:b0:7d
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth1-boards, link-type EN10MB (Ethernet), capture size 262144 bytes
-13:17:31.494117 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:17:32.495374 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:17:32.510753 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:17:32.591262 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:17:33.494093 ARP, Reply 172.27.64.58 is-at 00:16:e8:4b:b0:7d, length 46
-13:17:33.494107 IP 172.27.64.1 > 172.27.64.58: ICMP echo request, id 29883, seq 0, length 28
-13:17:33.494242 IP 172.27.64.58 > 172.27.64.1: ICMP echo reply, id 29883, seq 0, length 28
-13:17:38.500651 ARP, Request who-has 172.27.64.1 tell 172.27.64.58, length 46
-13:17:38.500663 ARP, Reply 172.27.64.1 is-at 00:15:17:24:e0:81, length 28
-
-Since the ping request is sent from the DHCP server, perhaps the server
-is checking its ARP table. I think it is not an important difference.
-
-
-Experiment #2
-
-Set link up, then down, then up. Then send DHCP request.
-
-# ip link set eth0 up
-[   39.185326] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
-[root@buildroot ~]# ip link set eth0 down
-/* WAIT A LONG TIME FOR "Link is Down" MESSAGE */
-# ip link set eth0 up
-[  102.818598] nb8800 26000.ethernet eth0: Link is Down
-[  104.828632] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
-
-Note: isn't it weird that I have to set link up before "link down" message appears?
-
-
-# time udhcpc | while read LINE; do date; echo $LINE; done
-Mon Nov 14 13:40:08 UTC 2016
-udhcpc (v1.22.1) started
-Mon Nov 14 13:40:08 UTC 2016
-Sending discover...
-Mon Nov 14 13:40:11 UTC 2016
-Sending discover...
-Mon Nov 14 13:40:14 UTC 2016
-Sending discover...
-Mon Nov 14 13:40:37 UTC 2016
-Sending discover...
-Mon Nov 14 13:40:40 UTC 2016
-Sending discover...
-Mon Nov 14 13:40:43 UTC 2016
-Sending discover...
-Mon Nov 14 13:41:06 UTC 2016
-Sending discover...
-Mon Nov 14 13:41:09 UTC 2016
-Sending discover...
-Mon Nov 14 13:41:12 UTC 2016
-Sending discover...
-Mon Nov 14 13:41:35 UTC 2016
-Sending discover...
-Mon Nov 14 13:41:38 UTC 2016
-Sending discover...
-Mon Nov 14 13:41:42 UTC 2016
-Sending discover...
-^C
-
-real    1m37.623s
-user    0m0.100s
-sys     0m0.053s
-
-
-# tcpdump -n -i eth1-boards ether host 00:16:e8:4b:b0:7d
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth1-boards, link-type EN10MB (Ethernet), capture size 262144 bytes
-13:40:08.593122 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:40:09.594365 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:40:11.619772 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:40:11.619925 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:40:14.646372 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:40:14.646535 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:40:37.706093 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:40:37.706257 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:40:40.732693 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:40:40.732827 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:40:43.759342 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:40:43.759475 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:41:06.819024 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:41:06.819201 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:41:09.845671 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:41:09.845807 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:41:12.872271 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:41:12.872396 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:41:35.931994 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:41:35.932162 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:41:38.958593 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:41:38.958742 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-13:41:41.985194 IP 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 00:16:e8:4b:b0:7d, length 300
-13:41:41.985359 IP 172.27.200.1.67 > 172.27.64.58.68: BOOTP/DHCP, Reply, length 391
-^C
-24 packets captured
-24 packets received by filter
-0 packets dropped by kernel
-
-
-Link appears to be broken (not receiving) after up/down/up sequence.
-Despite the rx_frames_ok: 8 ???
-And why 8, server sent 12 replies...
-
-# ethtool -S eth0
-NIC statistics:
-     rx_bytes_ok: 975
-     rx_frames_ok: 8
-     rx_undersize_frames: 0
-     rx_fragment_frames: 0
-     rx_64_byte_frames: 6
-     rx_127_byte_frames: 0
-     rx_255_byte_frames: 1
-     rx_511_byte_frames: 1
-     rx_1023_byte_frames: 0
-     rx_max_size_frames: 0
-     rx_oversize_frames: 0
-     rx_bad_fcs_frames: 0
-     rx_broadcast_frames: 3
-     rx_multicast_frames: 1
-     rx_control_frames: 0
-     rx_pause_frames: 0
-     rx_unsup_control_frames: 0
-     rx_align_error_frames: 0
-     rx_overrun_frames: 0
-     rx_jabber_frames: 0
-     rx_bytes: 975
-     rx_frames: 8
-     tx_bytes_ok: 4344
-     tx_frames_ok: 15
-     tx_64_byte_frames: 3
-     tx_127_byte_frames: 0
-     tx_255_byte_frames: 0
-     tx_511_byte_frames: 12
-     tx_1023_byte_frames: 0
-     tx_max_size_frames: 0
-     tx_oversize_frames: 0
-     tx_broadcast_frames: 12
-     tx_multicast_frames: 0
-     tx_control_frames: 0
-     tx_pause_frames: 0
-     tx_underrun_frames: 0
-     tx_single_collision_frames: 0
-     tx_multi_collision_frames: 0
-     tx_deferred_collision_frames: 0
-     tx_late_collision_frames: 0
-     tx_excessive_collision_frames: 0
-     tx_bytes: 4344
-     tx_frames: 15
-     tx_collisions: 0
-
-
-Will add a few traces, as suggested by Florian.
-
-Regards.
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 69fc8409a9733..a831537145bd9 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -34,6 +34,8 @@
+ #include <linux/etherdevice.h>
+ #include <linux/init.h>
+ #include <linux/moduleparam.h>
++#include <linux/pci.h>
++#include "../pci/pci.h"		/* for struct pci_sriov */
+ #include <linux/rtnetlink.h>
+ #include <net/rtnetlink.h>
+ #include <linux/u64_stats_sync.h>
+@@ -42,6 +44,37 @@
+ #define DRV_VERSION	"1.0"
+ 
+ static int numdummies = 1;
++static int num_vfs;
++
++static struct pci_sriov pdev_sriov;
++
++static struct pci_dev pci_pdev = {
++	.is_physfn = 1,
++#ifdef CONFIG_PCI_ATS
++	.sriov = &pdev_sriov,
++#endif
++#ifdef CONFIG_PCI
++	.dev.bus = &pci_bus_type,
++#endif
++};
++
++struct vf_data_storage {
++	unsigned char vf_mac[ETH_ALEN];
++	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
++	u16 pf_qos;
++	__be16 vlan_proto;
++	u16 min_tx_rate;
++	u16 max_tx_rate;
++	u8 spoofchk_enabled;
++	bool rss_query_enabled;
++	u8 trusted;
++	int link_state;
++};
++
++struct dummy_priv {
++	int num_vfs;
++	struct vf_data_storage *vfinfo;
++};
+ 
+ /* fake multicast ability */
+ static void set_multicast_list(struct net_device *dev)
+@@ -91,15 +124,29 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int dummy_dev_init(struct net_device *dev)
+ {
++	struct dummy_priv *priv = netdev_priv(dev);
++
+ 	dev->dstats = netdev_alloc_pcpu_stats(struct pcpu_dstats);
+ 	if (!dev->dstats)
+ 		return -ENOMEM;
+ 
++	priv->num_vfs = num_vfs;
++	priv->vfinfo = NULL;
++
++	if (!num_vfs)
++		return 0;
++
++	priv->vfinfo = kcalloc(num_vfs, sizeof(struct vf_data_storage),
++			       GFP_KERNEL);
++	if (!priv->vfinfo)
++		return -ENOMEM;
++
+ 	return 0;
+ }
+ 
+ static void dummy_dev_uninit(struct net_device *dev)
+ {
++	dev->dev.parent = NULL;
+ 	free_percpu(dev->dstats);
+ }
+ 
+@@ -112,6 +159,129 @@ static int dummy_change_carrier(struct net_device *dev, bool new_carrier)
+ 	return 0;
+ }
+ 
++/* fake, just to set fake PCI parent after netdev_register_kobject() */
++static netdev_features_t dummy_fix_features(struct net_device *dev,
++					    netdev_features_t features)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (priv->num_vfs)
++		dev->dev.parent = &pci_pdev.dev;
++
++	return features;
++}
++
++static int dummy_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (!is_valid_ether_addr(mac) || (vf >= priv->num_vfs))
++		return -EINVAL;
++
++	memcpy(priv->vfinfo[vf].vf_mac, mac, ETH_ALEN);
++
++	return 0;
++}
++
++static int dummy_set_vf_vlan(struct net_device *dev, int vf,
++			     u16 vlan, u8 qos, __be16 vlan_proto)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if ((vf >= priv->num_vfs) || (vlan > 4095) || (qos > 7))
++		return -EINVAL;
++
++	priv->vfinfo[vf].pf_vlan = vlan;
++	priv->vfinfo[vf].pf_qos = qos;
++	priv->vfinfo[vf].vlan_proto = vlan_proto;
++
++	return 0;
++}
++
++static int dummy_set_vf_rate(struct net_device *dev, int vf, int min, int max)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].min_tx_rate = min;
++	priv->vfinfo[vf].max_tx_rate = max;
++
++	return 0;
++}
++
++static int dummy_set_vf_spoofchk(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].spoofchk_enabled = val;
++
++	return 0;
++}
++
++static int dummy_set_vf_rss_query_en(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].rss_query_enabled = val;
++
++	return 0;
++}
++
++static int dummy_set_vf_trust(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].trusted = val;
++
++	return 0;
++}
++
++static int dummy_get_vf_config(struct net_device *dev,
++			       int vf, struct ifla_vf_info *ivi)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	ivi->vf = vf;
++	memcpy(&ivi->mac, priv->vfinfo[vf].vf_mac, ETH_ALEN);
++	ivi->vlan = priv->vfinfo[vf].pf_vlan;
++	ivi->qos = priv->vfinfo[vf].pf_qos;
++	ivi->spoofchk = priv->vfinfo[vf].spoofchk_enabled;
++	ivi->linkstate = priv->vfinfo[vf].link_state;
++	ivi->min_tx_rate = priv->vfinfo[vf].min_tx_rate;
++	ivi->max_tx_rate = priv->vfinfo[vf].max_tx_rate;
++	ivi->rss_query_en = priv->vfinfo[vf].rss_query_enabled;
++	ivi->trusted = priv->vfinfo[vf].trusted;
++	ivi->vlan_proto = priv->vfinfo[vf].vlan_proto;
++
++	return 0;
++}
++
++static int dummy_set_vf_link_state(struct net_device *dev, int vf, int state)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].link_state = state;
++
++	return 0;
++}
++
+ static const struct net_device_ops dummy_netdev_ops = {
+ 	.ndo_init		= dummy_dev_init,
+ 	.ndo_uninit		= dummy_dev_uninit,
+@@ -121,6 +291,15 @@ static const struct net_device_ops dummy_netdev_ops = {
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ 	.ndo_get_stats64	= dummy_get_stats64,
+ 	.ndo_change_carrier	= dummy_change_carrier,
++	.ndo_fix_features	= dummy_fix_features,
++	.ndo_set_vf_mac		= dummy_set_vf_mac,
++	.ndo_set_vf_vlan	= dummy_set_vf_vlan,
++	.ndo_set_vf_rate	= dummy_set_vf_rate,
++	.ndo_set_vf_spoofchk	= dummy_set_vf_spoofchk,
++	.ndo_set_vf_trust	= dummy_set_vf_trust,
++	.ndo_get_vf_config	= dummy_get_vf_config,
++	.ndo_set_vf_link_state	= dummy_set_vf_link_state,
++	.ndo_set_vf_rss_query_en = dummy_set_vf_rss_query_en,
+ };
+ 
+ static void dummy_get_drvinfo(struct net_device *dev,
+@@ -134,6 +313,14 @@ static const struct ethtool_ops dummy_ethtool_ops = {
+ 	.get_drvinfo            = dummy_get_drvinfo,
+ };
+ 
++static void dummy_free_netdev(struct net_device *dev)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	kfree(priv->vfinfo);
++	free_netdev(dev);
++}
++
+ static void dummy_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -141,7 +328,7 @@ static void dummy_setup(struct net_device *dev)
+ 	/* Initialize the device structure. */
+ 	dev->netdev_ops = &dummy_netdev_ops;
+ 	dev->ethtool_ops = &dummy_ethtool_ops;
+-	dev->destructor = free_netdev;
++	dev->destructor = dummy_free_netdev;
+ 
+ 	/* Fill in device structure with ethernet-generic values. */
+ 	dev->flags |= IFF_NOARP;
+@@ -169,6 +356,7 @@ static int dummy_validate(struct nlattr *tb[], struct nlattr *data[])
+ 
+ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
+ 	.kind		= DRV_NAME,
++	.priv_size	= sizeof(struct dummy_priv),
+ 	.setup		= dummy_setup,
+ 	.validate	= dummy_validate,
+ };
+@@ -177,12 +365,16 @@ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
+ module_param(numdummies, int, 0);
+ MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
+ 
++module_param(num_vfs, int, 0);
++MODULE_PARM_DESC(num_vfs, "Number of dummy VFs per dummy device");
++
+ static int __init dummy_init_one(void)
+ {
+ 	struct net_device *dev_dummy;
+ 	int err;
+ 
+-	dev_dummy = alloc_netdev(0, "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
++	dev_dummy = alloc_netdev(sizeof(struct dummy_priv),
++				 "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
+ 	if (!dev_dummy)
+ 		return -ENOMEM;
+ 
+@@ -190,6 +382,7 @@ static int __init dummy_init_one(void)
+ 	err = register_netdevice(dev_dummy);
+ 	if (err < 0)
+ 		goto err;
++
+ 	return 0;
+ 
+ err:
+@@ -201,6 +394,8 @@ static int __init dummy_init_module(void)
+ {
+ 	int i, err = 0;
+ 
++	pdev_sriov.num_VFs = num_vfs;
++
+ 	rtnl_lock();
+ 	err = __rtnl_link_register(&dummy_link_ops);
+ 	if (err < 0)
+-- 
+2.10.0
