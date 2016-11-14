@@ -1,7 +1,9 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 0/2] amd-xgbe: AMD XGBE driver updates 2016-11-14
-Date: Mon, 14 Nov 2016 16:38:56 -0600
-Message-ID: <20161114223856.25437.13649.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 1/2] amd-xgbe: Fix mask appliciation for Clause
+ 37 register
+Date: Mon, 14 Nov 2016 16:39:07 -0600
+Message-ID: <20161114223907.25437.50884.stgit@tlendack-t1.amdoffice.net>
+References: <20161114223856.25437.13649.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,36 +11,37 @@ Cc: <julia.lawall@lip6.fr>, <christophe.jaillet@wanadoo.fr>,
         David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0086.outbound.protection.outlook.com ([104.47.41.86]:24720
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0046.outbound.protection.outlook.com ([104.47.38.46]:7872
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752842AbcKNWjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 17:39:06 -0500
+        id S933841AbcKNWjO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 17:39:14 -0500
+In-Reply-To: <20161114223856.25437.13649.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Resending with net-next in the subject)
+The application of a mask to clear an area of a clause 37 register value
+was not properly applied. Update the code to do the proper application
+of the mask.
 
-This patch series addresses some minor issues found in the recently
-accepted patch series for the AMD XGBE driver.
-
-The following fixes are included in this driver update series:
-
-- Fix how a mask is applied to a Clause 37 register value
-- Fix some coccinelle identified warnings
-
-This patch series is based on net-next.
-
+Reported-by: Marion & Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Tom Lendacky (2):
-      amd-xgbe: Fix mask appliciation for Clause 37 register
-      amd-xgbe: Fix up some coccinelle identified warnings
-
-
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c   |    4 ++--
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    5 ++---
- 2 files changed, 4 insertions(+), 5 deletions(-)
-
--- 
-Tom Lendacky
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+index 0ecae70..4c5b90e 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+@@ -943,8 +943,8 @@ static void xgbe_an37_init(struct xgbe_prv_data *pdata)
+ 
+ 	/* Set up the Control register */
+ 	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_CTRL);
+-	reg &= XGBE_AN_CL37_TX_CONFIG_MASK;
+-	reg &= XGBE_AN_CL37_PCS_MODE_MASK;
++	reg &= ~XGBE_AN_CL37_TX_CONFIG_MASK;
++	reg &= ~XGBE_AN_CL37_PCS_MODE_MASK;
+ 
+ 	switch (pdata->an_mode) {
+ 	case XGBE_AN_MODE_CL37:
