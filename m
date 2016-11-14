@@ -1,160 +1,57 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCHv3 net] igmp: do not remove igmp souce list info when set link down
-Date: Mon, 14 Nov 2016 16:16:28 +0800
-Message-ID: <1479111388-25383-1-git-send-email-liuhangbin@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: Paul Menzel <pmenzel@molgen.mpg.de>
+Subject: Re: [PATCH v2 0/2] bnx2: Wait for in-flight DMA to complete at probe
+ stage
+Date: Mon, 14 Nov 2016 09:25:47 +0100
+Message-ID: <8010f40d-e7ca-8fd1-7317-f576289c112f@molgen.mpg.de>
+References: <1479013293-21001-1-git-send-email-bhe@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
+        rasesh.mody@cavium.com, harish.patil@cavium.com,
+        frank@undermydesk.org, jsr@dex.edzone.net, jroedel@suse.de,
+        dyoung@redhat.com
+To: Baoquan He <bhe@redhat.com>, netdev@vger.kernel.org,
+        michael.chan@broadcom.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33724 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752545AbcKNIQl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 03:16:41 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 144so5807535pfv.0
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 00:16:41 -0800 (PST)
+Received: from mx1.molgen.mpg.de ([141.14.17.9]:33185 "EHLO mx1.molgen.mpg.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752422AbcKNIZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 03:25:50 -0500
+In-Reply-To: <1479013293-21001-1-git-send-email-bhe@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 24cf3af3fed5 ("igmp: call ip_mc_clear_src..."), we forgot to remove
-igmpv3_clear_delrec() in ip_mc_down(), which also called ip_mc_clear_src().
-This make us clear all IGMPv3 source filter info after NETDEV_DOWN.
-Move igmpv3_clear_delrec() to ip_mc_destroy_dev() and then no need
-ip_mc_clear_src() in ip_mc_destroy_dev().
+Dear Baoquan,
 
-On the other hand, we should restore back instead of free all source filter
-info in igmpv3_del_delrec(). Or we will not able to restore IGMPv3 source
-filter info after NETDEV_UP and NETDEV_POST_TYPE_CHANGE.
+On 11/13/16 06:01, Baoquan He wrote:
+> This is v2 post.
+>
+> In commit 3e1be7a ("bnx2: Reset device during driver initialization"),
+> firmware requesting code was moved from open stage to probe stage.
+> The reason is in kdump kernel hardware iommu need device be reset in
+> driver probe stage, otherwise those in-flight DMA from 1st kernel
+> will continue going and look up into the newly created io-page tables.
+> However bnx2 chip resetting involves firmware requesting issue, that
+> need be done in open stage.
+>
+> Michale Chan suggested we can just wait for the old in-flight DMA to
+> complete at probe stage, then though without device resetting, we
+> don't need to worry the old in-flight DMA could continue looking up
+> the newly created io-page tables.
+>
+> v1->v2:
+>     Michael suggested to wait for the in-flight DMA to complete at probe
+>     stage. So give up the old method of trying to reset chip at probe
+>     stage, take the new way accordingly.
 
-Fixes: 24cf3af3fed5 ("igmp: call ip_mc_clear_src() only when ...")
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- net/ipv4/igmp.c | 50 ++++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 36 insertions(+), 14 deletions(-)
+thank you for posting the updated series. Could you please resend a v3 
+with stable@vger.kernel.org added [1]?
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 606cc3e..15db786 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -162,7 +162,7 @@ static int unsolicited_report_interval(struct in_device *in_dev)
- }
- 
- static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im);
--static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr);
-+static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im);
- static void igmpv3_clear_delrec(struct in_device *in_dev);
- static int sf_setstate(struct ip_mc_list *pmc);
- static void sf_markstate(struct ip_mc_list *pmc);
-@@ -1130,10 +1130,15 @@ static void igmpv3_add_delrec(struct in_device *in_dev, struct ip_mc_list *im)
- 	spin_unlock_bh(&in_dev->mc_tomb_lock);
- }
- 
--static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
-+/*
-+ * restore ip_mc_list deleted records
-+ */
-+static void igmpv3_del_delrec(struct in_device *in_dev, struct ip_mc_list *im)
- {
- 	struct ip_mc_list *pmc, *pmc_prev;
--	struct ip_sf_list *psf, *psf_next;
-+	struct ip_sf_list *psf;
-+	struct net *net = dev_net(in_dev->dev);
-+	__be32 multiaddr = im->multiaddr;
- 
- 	spin_lock_bh(&in_dev->mc_tomb_lock);
- 	pmc_prev = NULL;
-@@ -1149,16 +1154,26 @@ static void igmpv3_del_delrec(struct in_device *in_dev, __be32 multiaddr)
- 			in_dev->mc_tomb = pmc->next;
- 	}
- 	spin_unlock_bh(&in_dev->mc_tomb_lock);
-+
-+	spin_lock_bh(&im->lock);
- 	if (pmc) {
--		for (psf = pmc->tomb; psf; psf = psf_next) {
--			psf_next = psf->sf_next;
--			kfree(psf);
-+		im->interface = pmc->interface;
-+		im->crcount = in_dev->mr_qrv ?: net->ipv4.sysctl_igmp_qrv;
-+		im->sfmode = pmc->sfmode;
-+		if (pmc->sfmode == MCAST_INCLUDE) {
-+			im->tomb = pmc->tomb;
-+			im->sources = pmc->sources;
-+			for (psf = im->sources; psf; psf = psf->sf_next)
-+				psf->sf_crcount = im->crcount;
- 		}
- 		in_dev_put(pmc->interface);
--		kfree(pmc);
- 	}
-+	spin_unlock_bh(&im->lock);
- }
- 
-+/*
-+ * flush ip_mc_list deleted records
-+ */
- static void igmpv3_clear_delrec(struct in_device *in_dev)
- {
- 	struct ip_mc_list *pmc, *nextpmc;
-@@ -1366,7 +1381,7 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
- 	ip_mc_hash_add(in_dev, im);
- 
- #ifdef CONFIG_IP_MULTICAST
--	igmpv3_del_delrec(in_dev, im->multiaddr);
-+	igmpv3_del_delrec(in_dev, im);
- #endif
- 	igmp_group_added(im);
- 	if (!in_dev->dead)
-@@ -1626,8 +1641,12 @@ void ip_mc_remap(struct in_device *in_dev)
- 
- 	ASSERT_RTNL();
- 
--	for_each_pmc_rtnl(in_dev, pmc)
-+	for_each_pmc_rtnl(in_dev, pmc) {
-+#ifdef CONFIG_IP_MULTICAST
-+		igmpv3_del_delrec(in_dev, pmc);
-+#endif
- 		igmp_group_added(pmc);
-+	}
- }
- 
- /* Device going down */
-@@ -1648,7 +1667,6 @@ void ip_mc_down(struct in_device *in_dev)
- 	in_dev->mr_gq_running = 0;
- 	if (del_timer(&in_dev->mr_gq_timer))
- 		__in_dev_put(in_dev);
--	igmpv3_clear_delrec(in_dev);
- #endif
- 
- 	ip_mc_dec_group(in_dev, IGMP_ALL_HOSTS);
-@@ -1688,8 +1706,12 @@ void ip_mc_up(struct in_device *in_dev)
- #endif
- 	ip_mc_inc_group(in_dev, IGMP_ALL_HOSTS);
- 
--	for_each_pmc_rtnl(in_dev, pmc)
-+	for_each_pmc_rtnl(in_dev, pmc) {
-+#ifdef CONFIG_IP_MULTICAST
-+		igmpv3_del_delrec(in_dev, pmc);
-+#endif
- 		igmp_group_added(pmc);
-+	}
- }
- 
- /*
-@@ -1704,13 +1726,13 @@ void ip_mc_destroy_dev(struct in_device *in_dev)
- 
- 	/* Deactivate timers */
- 	ip_mc_down(in_dev);
-+#ifdef CONFIG_IP_MULTICAST
-+	igmpv3_clear_delrec(in_dev);
-+#endif
- 
- 	while ((i = rtnl_dereference(in_dev->mc_list)) != NULL) {
- 		in_dev->mc_list = i->next_rcu;
- 		in_dev->mc_count--;
--
--		/* We've dropped the groups in ip_mc_down already */
--		ip_mc_clear_src(i);
- 		ip_ma_put(i);
- 	}
- }
--- 
-2.5.5
+
+Kind regards,
+
+Paul
+
+
+[1] https://www.kernel.org/doc/Documentation/stable_kernel_rules.txt
