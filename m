@@ -1,51 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Long delays creating a netns after deleting one (possibly RCU
- related)
-Date: Mon, 14 Nov 2016 14:46:11 -0800
-Message-ID: <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
-         <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
-         <20161110212404.GB4127@linux.vnet.ibm.com>
-         <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
-         <20161112002347.GL4127@linux.vnet.ibm.com>
-         <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
-         <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com>
-         <20161114162417.GJ4127@linux.vnet.ibm.com>
-         <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
-         <20161114181425.GN4127@linux.vnet.ibm.com> <87y40lhfrt.fsf@xmission.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: Re: [PATCH net 1/3] bpf, mlx5: fix mlx5e_create_rq taking reference
+ on prog
+Date: Mon, 14 Nov 2016 20:15:32 +0200
+Message-ID: <918902f3-1852-ae68-b12d-eaa1c45bf641@mellanox.com>
+References: <cover.1479080215.git.daniel@iogearbox.net>
+ <0447a6161550c466ef799b46095440949ffc7df0.1479080215.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Justin Cormack <justin.cormack@docker.com>,
-        Ian Campbell <ian.campbell@docker.com>,
-        Eric Dumazet <edumazet@google.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87y40lhfrt.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <alexei.starovoitov@gmail.com>, <bblanco@plumgrid.com>,
+        <tariqt@mellanox.com>, <zhiyisun@gmail.com>, <ranas@mellanox.com>,
+        <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0085.outbound.protection.outlook.com ([104.47.2.85]:15424
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752754AbcKNWsN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 17:48:13 -0500
+In-Reply-To: <0447a6161550c466ef799b46095440949ffc7df0.1479080215.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-11-14 at 16:12 -0600, Eric W. Biederman wrote:
 
-> synchronize_rcu_expidited is not enough if you have multiple network
-> devices in play.
+
+On 11/14/2016 02:43 AM, Daniel Borkmann wrote:
+> In mlx5e_create_rq(), when creating a new queue, we call bpf_prog_add() but
+> without checking the return value. bpf_prog_add() can fail, so we really
+
+Didn't know this, thanks for noticing, I wonder why taking a reference for an object would fail ?
+especially when someone is requesting from the driver to take a reference to it ndo_xdp_set ?! sounds like a bad design.
+
+Anyway I will check that later.
+
+> must check it. Take the reference right when we assign it to the rq from
+> priv->xdp_prog, and just drop the reference on error path. Destruction in
+> mlx5e_destroy_rq() looks good, though.
 > 
-> Looking at the code it comes down to this commit, and it appears there
-> is a promise add rcu grace period combining by Eric Dumazet.
+> Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 14 +++++++++++---
+>  kernel/bpf/syscall.c                              |  1 +
+>  2 files changed, 12 insertions(+), 3 deletions(-)
 > 
-> Eric since people are hitting noticable stalls because of the rcu grace
-> period taking a long time do you think you could look at this code path
-> a bit more?
-> 
-> commit 93d05d4a320cb16712bb3d57a9658f395d8cecb9
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Wed Nov 18 06:31:03 2015 -0800
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> index 84e8b25..2b83667 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> @@ -489,7 +489,16 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+>  	rq->channel = c;
+>  	rq->ix      = c->ix;
+>  	rq->priv    = c->priv;
+> +
+>  	rq->xdp_prog = priv->xdp_prog;
 
-Absolutely, I will take a loop asap.
+Why keeping this assignment ? just test priv->xdp_prog.
 
-Thanks Eric.
+> +	if (rq->xdp_prog) {
+> +		rq->xdp_prog = bpf_prog_inc(rq->xdp_prog);
+> +		if (IS_ERR(rq->xdp_prog)) {
+> +			err = PTR_ERR(rq->xdp_prog);
+> +			rq->xdp_prog = NULL;
+> +			goto err_rq_wq_destroy;
+> +		}
+> +	}
+
+Try this, simpler and less indentations:
+ 
+rq->xdp_prog = priv->xdp_prog ? bpf_prog_inc(priv->xdp_prog) : NULL;
+if (IS_ERR(rq->xdp_prog)) {
+	err = PTR_ERR(rq->xdp_prog);
+	rq->xdp_prog = NULL;
+	goto err_rq_wq_destroy;
+}
+
+Saeed.
