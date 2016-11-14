@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: change sk state only when it has assocs in
- sctp_shutdown
-Date: Mon, 14 Nov 2016 16:23:49 -0500 (EST)
-Message-ID: <20161114.162349.1179710065617941826.davem@davemloft.net>
-References: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net/phy/vitesse: Configure RGMII skew on VSC8601, if
+ needed
+Date: Mon, 14 Nov 2016 13:25:56 -0800
+Message-ID: <d567c69f-6b57-7083-9090-df01fb140e36@gmail.com>
+References: <1478993533-1936-1-git-send-email-alex.g@adaptrum.com>
+ <20161114.161818.1460191406108019273.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com, andreyknvl@google.com
-To: lucien.xin@gmail.com
+Cc: gokhan@adaptrum.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, alex.g@adaptrum.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41346 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938697AbcKNVXv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:23:51 -0500
-In-Reply-To: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33458 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753175AbcKNV0B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:26:01 -0500
+In-Reply-To: <20161114.161818.1460191406108019273.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sun, 13 Nov 2016 21:44:37 +0800
+On 11/14/2016 01:18 PM, David Miller wrote:
+> From: Alexandru Gagniuc <alex.g@adaptrum.com>
+> Date: Sat, 12 Nov 2016 15:32:13 -0800
+> 
+>> +	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+>> +		ret = vsc8601_add_skew(phydev);
+> 
+> I think you should use phy_interface_is_rgmii() here.
+> 
 
-> Now when users shutdown a sock with SEND_SHUTDOWN in sctp, even if
-> this sock has no connection (assoc), sk state would be changed to
-> SCTP_SS_CLOSING, which is not as we expect.
-> 
-> Besides, after that if users try to listen on this sock, kernel
-> could even panic when it dereference sctp_sk(sk)->bind_hash in
-> sctp_inet_listen, as bind_hash is null when sock has no assoc.
-> 
-> This patch is to move sk state change after checking sk assocs
-> is not empty, and also merge these two if() conditions and reduce
-> indent level.
-> 
-> Fixes: d46e416c11c8 ("sctp: sctp should change socket state when shutdown is received")
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Tested-by: Andrey Konovalov <andreyknvl@google.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-
-Applied and queued up for -stable, thanks.
+This would include all RGMII modes, here I think the intent is to check
+for PHY_INTERFACE_MODE_RGMII_ID and PHY_INTERFACE_MODE_RGMII_TXID (or
+RXID),  Alexandru, what direction does the skew settings apply to?
+-- 
+Florian
