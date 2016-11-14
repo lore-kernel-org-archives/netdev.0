@@ -1,96 +1,93 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3] ip6_output: ensure flow saddr actually
- belongs to device
-Date: Mon, 14 Nov 2016 10:17:32 -0700
-Message-ID: <c75290bd-7ea2-0bf8-7ac0-fc5a3c81e312@cumulusnetworks.com>
-References: <27cccef1-06d9-74b3-5b8a-912850119a76@cumulusnetworks.com>
- <20161113232813.28926-1-Jason@zx2c4.com>
- <1479141867.3723362.787321689.4A3DCFD6@webmail.messagingengine.com>
- <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
- <7d8c0210-9132-c755-9053-6ec19409e343@stressinduktion.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Kernel 4.8.7 crashing
+Date: Mon, 14 Nov 2016 09:18:55 -0800
+Message-ID: <CAM_iQpWt6X++axevP8aFu=PW9X=r+v_BQzoDckQ6W6o33J_1fA@mail.gmail.com>
+References: <CA+OSeu=TvXdd8VmxWOo2dh-jS_WrNibSWdCt0OEyPEkfxjO_yw@mail.gmail.com>
+ <CAM_iQpUiBE93MsYsMWKcSRBTCNMPvWRqiqAkH3DDqFP1cCSdtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
- "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- LKML <linux-kernel@vger.kernel.org>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <7d8c0210-9132-c755-9053-6ec19409e343@stressinduktion.org>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ashton Holmes <scoopta@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpUiBE93MsYsMWKcSRBTCNMPvWRqiqAkH3DDqFP1cCSdtw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/14/16 10:04 AM, Hannes Frederic Sowa wrote:
-> On 14.11.2016 17:55, David Ahern wrote:
->> On 11/14/16 9:44 AM, Hannes Frederic Sowa wrote:
->>> On Mon, Nov 14, 2016, at 00:28, Jason A. Donenfeld wrote:
->>>> This puts the IPv6 routing functions in parity with the IPv4 routing
->>>> functions. Namely, we now check in v6 that if a flowi6 requests an
->>>> saddr, the returned dst actually corresponds to a net device that has
->>>> that saddr. This mirrors the v4 logic with __ip_dev_find in
->>>> __ip_route_output_key_hash. In the event that the returned dst is not
->>>> for a dst with a dev that has the saddr, we return -EINVAL, just like
->>>> v4; this makes it easy to use the same error handlers for both cases.
->>>>
->>>> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
->>>> Cc: David Ahern <dsa@cumulusnetworks.com>
->>>> ---
->>>> Changes from v2:
->>>>     It turns out ipv6_chk_addr already has the device enumeration
->>>>     logic that we need by simply passing NULL.
->>>>
->>>>  net/ipv6/ip6_output.c | 4 ++++
->>>>  1 file changed, 4 insertions(+)
->>>>
->>>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->>>> index 6001e78..b3b5cb6 100644
->>>> --- a/net/ipv6/ip6_output.c
->>>> +++ b/net/ipv6/ip6_output.c
->>>> @@ -926,6 +926,10 @@ static int ip6_dst_lookup_tail(struct net *net,
->>>> const struct sock *sk,
->>>>  	int err;
->>>>  	int flags = 0;
->>>>  
->>>> +       if (!ipv6_addr_any(&fl6->saddr) &&
->>>> +           !ipv6_chk_addr(net, &fl6->saddr, NULL, 1))
->>>> +               return -EINVAL;
->>>
->>> Hmm, this check is too permissive, no?
->>>
->>> E.g. what happens if you move a link local address from one interface to
->>> another? In this case this code would still allow the saddr to be used.
+(Really Cc'ing netdev.. ;-p )
+
+On Mon, Nov 14, 2016 at 9:18 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Cc'ing netdev.
+>
+> On Sat, Nov 12, 2016 at 2:17 PM, Ashton Holmes <scoopta@gmail.com> wrote:
+>> I upgraded to 4.8.7 and the system boots and my root partition gets
+>> decrypted but right after that both of my monitors turn off and
+>> looking at syslog from 4.8.6 shows the following:
 >>
->> This check -- like the ipv4 variant -- only verifies the saddr is locally assigned. If the address moves interfaces it should be fine.
-> 
-> But in this case we should actually bail out, no?
-> 
-> Let's say, user assumes we are on ifindex eth0 with LL address from
-> eth0. Suddenly the LL address from eth0 is moved to eth1, we can't
-> accept this source address anymore and need to return -EINVAL, too.
-
-so you mean if rt6_need_strict(&fl6->saddr) then the dev needs to be considered.
-
-
-> 
->>> I just also quickly read up on the history (sorry was travelling last
->>> week) and wonder if you ever saw a user space facing bug or if this is
->>> basically some difference you saw while writing out of tree code?
->>
->> I checked the userspace API this morning. bind and cmsg for example check that the address is valid with calls to ipv6_chk_addr.
-> 
-> Hmm, so it fixes no real bug.
-> 
-> Because of translations of flowi6_oif we actually can't do a correct
-> check of source address for cases like the one I outlined above? Hmm,
-> maybe we should simply depend on user space checks.
-
-I believe Jason's case is forwarding path and the ipv6_stub->ipv6_dst_lookup API.
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853197] ------------[ cut
+>> here ]------------
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853206] WARNING: CPU: 2
+>> PID: 177 at fs/proc/proc_sysctl.c:1607 ops_exit_list.isra.4+0x33/0x60
+>
+> Probably this warning in source code:
+>
+> void retire_sysctl_set(struct ctl_table_set *set)
+> {
+>         WARN_ON(!RB_EMPTY_ROOT(&set->dir.root));
+> }
+>
+>
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853210] Modules linked in:
+>> amdgpu eeepc_wmi i2c_algo_bit asus_wmi drm_kms_helper video rfkill
+>> snd_hda_codec_realtek ttm snd_hda_codec_generic snd_hda_codec_hdmi drm
+>> snd_hda_intel snd_usb_audio sparse_keymap snd_hda_codec mxm_wmi
+>> snd_usbmidi_lib snd_hda_core efi_pstore snd_hwdep snd_rawmidi evdev
+>> snd_seq_device joydev snd_pcm serio_raw pcspkr efivars fam15h_power
+>> k10temp snd_timer snd sp5100_tco i2c_piix4 sg soundcore i2c_core
+>> shpchp tpm_infineon tpm_tis tpm_tis_core tpm wmi button it87 hwmon_vid
+>> autofs4 ext4 crc16 jbd2 mbcache algif_skcipher af_alg dm_crypt dm_mod
+>> hid_generic usbhid hid sr_mod cdrom sd_mod ohci_pci crct10dif_pclmul
+>> crc32_pclmul crc32c_intel aesni_intel aes_x86_64 glue_helper lrw
+>> gf128mul ablk_helper cryptd psmouse ohci_hcd ahci libahci ehci_pci
+>> ehci_hcd libata xhci_pci xhci_hcd e1000e usbcore scsi_mod ptp
+>> usb_common pps_core
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853264] CPU: 2 PID: 177
+>> Comm: kworker/u16:2 Not tainted 4.8.7 #1
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853267] Hardware name: To
+>> be filled by O.E.M. To be filled by O.E.M./CROSSHAIR V FORMULA-Z, BIOS
+>> 2201 03/23/2015
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853273] Workqueue: netns cleanup_net
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853276]  0000000000000286
+>> 00000000b98071d2 ffffffff81302a8f 0000000000000000
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853281]  0000000000000000
+>> ffffffff81076f54 ffff880814f88040 ffff8808140efdf0
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853285]  ffffffff818f11d8
+>> ffffffff818f11e0 ffff8808140efde0 0000000000000200
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853290] Call Trace:
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853295]
+>> [<ffffffff81302a8f>] ? dump_stack+0x5c/0x7d
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853299]
+>> [<ffffffff81076f54>] ? __warn+0xc4/0xe0
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853302]
+>> [<ffffffff8149e243>] ? ops_exit_list.isra.4+0x33/0x60
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853305]
+>> [<ffffffff8149f230>] ? cleanup_net+0x1b0/0x290
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853309]
+>> [<ffffffff8108fefd>] ? process_one_work+0x14d/0x410
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853312]
+>> [<ffffffff81090cc2>] ? worker_thread+0x62/0x490
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853315]
+>> [<ffffffff81090c60>] ? rescuer_thread+0x340/0x340
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853318]
+>> [<ffffffff81095f3f>] ? kthread+0xdf/0x100
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853322]
+>> [<ffffffff8102b78b>] ? __switch_to+0x2bb/0x710
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853325]
+>> [<ffffffff815a371f>] ? ret_from_fork+0x1f/0x40
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853328]
+>> [<ffffffff81095e60>] ? kthread_park+0x50/0x50
+>> Nov 12 11:54:24 user-desktop kernel: [   19.853331] ---[ end trace
+>> c4840b46b58dbe12 ]---
+>
+> Looks like net->sysctls is not empty when unregistering,
+> perhaps unregister_net_sysctl_table() is missing somewhere.
