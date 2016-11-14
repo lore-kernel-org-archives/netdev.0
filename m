@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/8] net: ife: Introduce packet info packing method
-Date: Mon, 14 Nov 2016 16:00:34 +0100
-Message-ID: <1479135638-3580-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 7/8] mlxsw: reg: add the Monitoring Packet Sampling Configuration Register
+Date: Mon, 14 Nov 2016 16:00:37 +0100
+Message-ID: <1479135638-3580-8-git-send-email-jiri@resnulli.us>
 References: <1479135638-3580-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -11,118 +11,76 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         john.fastabend@gmail.com, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36042 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932303AbcKNPAq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 10:00:46 -0500
-Received: by mail-wm0-f67.google.com with SMTP id m203so16035213wma.3
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 07:00:45 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34046 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932786AbcKNPAt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 10:00:49 -0500
+Received: by mail-wm0-f68.google.com with SMTP id g23so16112027wme.1
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 07:00:49 -0800 (PST)
 In-Reply-To: <1479135638-3580-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Add the ife_packet_info_pack function which encodes some informative
-metadata into a packet using the ife encapsulation. The informative
-metadata consists of:
- - The packet input/output ifindices
- - The packet original size, in case it was truncated
-
-This method is useful for anyone that wants to pass informative metadata
-on a packet alongside with the packet itself. A good usage can be packet
-sampling.
+The MPSC register allows to configure ingress packet sampling on specific
+port of the mlxsw device. The sampled packets are then trapped via
+PKT_SAMPLE trap.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/ife.h | 10 ++++++++++
- net/ife/ife.c     | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 55 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 38 +++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
 
-diff --git a/include/net/ife.h b/include/net/ife.h
-index a75d4e0..5fbcfb3 100644
---- a/include/net/ife.h
-+++ b/include/net/ife.h
-@@ -18,6 +18,9 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
- 
- void *ife_tlv_meta_next(void *skbdata);
- 
-+struct ethhdr *ife_packet_info_pack(struct sk_buff *skb, int orig_size,
-+				    int in_ifindex, int out_ifindex);
-+
- #else
- 
- static inline void *ife_encode(struct sk_buff *skb, u16 metalen)
-@@ -47,6 +50,13 @@ static inline void *ife_tlv_meta_next(void *skbdata)
- 	return NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index edad7cb..b5ab81a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -4771,6 +4771,44 @@ static inline void mlxsw_reg_mlcr_pack(char *payload, u8 local_port,
+ 					   MLXSW_REG_MLCR_DURATION_MAX : 0);
  }
  
-+static inline struct ethhdr *
-+ife_packet_info_pack(struct sk_buff *skb, int orig_size, int in_ifindex,
-+		     int out_ifindex)
++/* MPSC - Monitoring Packet Sampling Configuration Register
++ * --------------------------------------------------------
++ * MPSC Register is used to configure the Packet Sampling mechanism.
++ */
++#define MLXSW_REG_MPSC_ID 0x9080
++#define MLXSW_REG_MPSC_LEN 0x14
++
++MLXSW_REG_DEFINE(mpsc, MLXSW_REG_MPSC_ID, MLXSW_REG_MPSC_LEN);
++
++/* reg_mpsc_local_port
++ * Local port number
++ * Not supported for CPU port
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, mpsc, local_port, 0x00, 16, 8);
++
++/* reg_mpsc_e
++ * Enable sampling on port local_port
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mpsc, e, 0x04, 30, 1);
++
++/* reg_mpsc_rate
++ * Sampling rate = 1 out of rate packets (with randomization around
++ * the point). Valid values are: 1 to 3.5*10^9
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mpsc, rate, 0x08, 0, 32);
++
++static inline void mlxsw_reg_mpsc_pack(char *payload, u8 local_port, bool e,
++				       u32 rate)
 +{
-+	return NULL;
++	MLXSW_REG_ZERO(mpsc, payload);
++	mlxsw_reg_mpsc_local_port_set(payload, local_port);
++	mlxsw_reg_mpsc_e_set(payload, e);
++	mlxsw_reg_mpsc_rate_set(payload, rate);
 +}
 +
- #endif
- 
- #endif /* __NET_IFE_H */
-diff --git a/net/ife/ife.c b/net/ife/ife.c
-index 3642f43..f0b683e 100644
---- a/net/ife/ife.c
-+++ b/net/ife/ife.c
-@@ -138,6 +138,51 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
- }
- EXPORT_SYMBOL_GPL(ife_tlv_meta_encode);
- 
-+struct ethhdr *ife_packet_info_pack(struct sk_buff *skb, int orig_size,
-+				    int in_ifindex, int out_ifindex)
-+{
-+	int curr_size;
-+	void *ifetlv;
-+	u16 metalen;
-+
-+	curr_size = skb->len;
-+
-+	metalen = nla_total_size(sizeof(orig_size)) +
-+		  nla_total_size(sizeof(curr_size));
-+
-+	if (in_ifindex)
-+		metalen += nla_total_size(sizeof(in_ifindex));
-+	if (out_ifindex)
-+		metalen += nla_total_size(sizeof(out_ifindex));
-+
-+	in_ifindex = htonl(in_ifindex);
-+	out_ifindex = htonl(out_ifindex);
-+	orig_size = htonl(orig_size);
-+	curr_size = htonl(curr_size);
-+
-+	ifetlv = ife_encode(skb, metalen);
-+	if (!ifetlv)
-+		return NULL;
-+
-+	if (in_ifindex)
-+		ifetlv += ife_tlv_meta_encode(ifetlv, IFE_META_IN_IFINDEX,
-+					      sizeof(in_ifindex), &in_ifindex);
-+
-+	if (out_ifindex)
-+		ifetlv += ife_tlv_meta_encode(ifetlv, IFE_META_OUT_IFINDEX,
-+					      sizeof(out_ifindex),
-+					      &out_ifindex);
-+
-+	ifetlv += ife_tlv_meta_encode(ifetlv, IFE_META_ORIGSIZE,
-+				      sizeof(orig_size), &orig_size);
-+
-+	ifetlv += ife_tlv_meta_encode(ifetlv, IFE_META_SIZE,
-+				      sizeof(curr_size), &curr_size);
-+
-+	return (struct ethhdr *) skb->data;
-+}
-+EXPORT_SYMBOL(ife_packet_info_pack);
-+
- MODULE_AUTHOR("Jamal Hadi Salim <jhs@mojatatu.com>");
- MODULE_AUTHOR("Yotam Gigi <yotamg@mellanox.com>");
- MODULE_DESCRIPTION("Inter-FE LFB action");
+ /* SBPR - Shared Buffer Pools Register
+  * -----------------------------------
+  * The SBPR configures and retrieves the shared buffer pools and configuration.
 -- 
 2.7.4
