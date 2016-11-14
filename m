@@ -1,225 +1,213 @@
-From: Jesper Dangaard Brouer <netdev@brouer.com>
-Subject: Re: [RFC PATCH 1/2] net: use cmpxchg instead of spinlock in ptr
- rings
-Date: Mon, 14 Nov 2016 12:09:58 +0100
-Message-ID: <20161114120958.5f22e50a@brouer.com>
-References: <20161111043857.1547.70337.stgit@john-Precision-Tower-5810>
-        <20161111044408.1547.92737.stgit@john-Precision-Tower-5810>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] Fixup packets with incorrect ethertype sent by ZTE MF821D
+Date: Mon, 14 Nov 2016 12:37:30 +0100
+Message-ID: <87lgwmcmx1.fsf@miraculix.mork.no>
+References: <20161113134753.GR2745@pokute.pelzi.net>
+        <87zil3cq9i.fsf@miraculix.mork.no>
+        <20161113172525.GS2745@pokute.pelzi.net>
+        <20161114002218.GW2745@pokute.pelzi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org
+To: Jussi Peltola <plz@plz.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36794 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934338AbcKNLKC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 06:10:02 -0500
-Received: by mail-lf0-f65.google.com with SMTP id o20so6686957lfg.3
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 03:10:01 -0800 (PST)
-In-Reply-To: <20161111044408.1547.92737.stgit@john-Precision-Tower-5810>
+Received: from canardo.mork.no ([148.122.252.1]:50583 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753581AbcKNLhn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 06:37:43 -0500
+In-Reply-To: <20161114002218.GW2745@pokute.pelzi.net> (Jussi Peltola's message
+        of "Mon, 14 Nov 2016 02:22:18 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jussi Peltola <plz@plz.fi> writes:
 
-On Thu, 10 Nov 2016 20:44:08 -0800 John Fastabend <john.fastabend@gmail.com> wrote:
+> So here's another stab. The comments and the current implementation are
+> not in sync: any non-multicast address starting with a null octet gets
+> rewritten, while the comment specifically mentions 00:a0:c6:00:00:00. It
+> is certainly not elegant but re-writing all unicast destinations with
+> our address does come to mind instead of special cases.
 
-> ---
->  include/linux/ptr_ring_ll.h |  136 +++++++++++++++++++++++++++++++++++++++++++
->  include/linux/skb_array.h   |   25 ++++++++
->  2 files changed, 161 insertions(+)
->  create mode 100644 include/linux/ptr_ring_ll.h
-> 
-> diff --git a/include/linux/ptr_ring_ll.h b/include/linux/ptr_ring_ll.h
-> new file mode 100644
-> index 0000000..bcb11f3
-> --- /dev/null
-> +++ b/include/linux/ptr_ring_ll.h
-> @@ -0,0 +1,136 @@
-> +/*
-> + *	Definitions for the 'struct ptr_ring_ll' datastructure.
-> + *
-> + *	Author:
-> + *		John Fastabend <john.r.fastabend@intel.com>
-[...]
-> + *
-> + *	This is a limited-size FIFO maintaining pointers in FIFO order, with
-> + *	one CPU producing entries and another consuming entries from a FIFO.
-> + *	extended from ptr_ring_ll to use cmpxchg over spin lock.
+The known bug is related to 00:a0:c6:00:00:00 only.  But the workaround
+catches anything starting with 00 for simplicity.  It's a deliberate
+trade-off.  Could probably be clearer from the comments, yes.
 
-It sounds like this is Single Producer Single Consumer (SPSC)
-implementation, but your implementation actually is Multi Producer
-Multi Consumer (MPMC) capable.
-
-The implementation looks a lot like my alf_queue[1] implementation:
- [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/include/linux/alf_queue.h
-
-If the primary use-case is one CPU producing and another consuming,
-then the normal ptr_ring (skb_array) will actually be faster!
-
-The reason is ptr_ring avoids bouncing a cache-line between the CPUs on
-every ring access.  This is achieved by having the checks for full
-(__ptr_ring_full) and empty (__ptr_ring_empty) use the contents of the
-array (NULL value).
-
-I actually implemented two micro-benchmarks to measure the difference
-between skb_array[2] and alf_queue[3]:
- [2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_parallel01.c
- [3] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/alf_queue_parallel01.c
-
-
+> This patch fails to handle the invalid destinations in either way so I
+> will send another one if you think it's worthwhile to go on. And it
+> seems I forgot htons but I need this device for work now so a better
+> patch must wait :)
+>
+> commit 35d3a46b7f1ece70e24386acbdd16af4507cb5f3
+> Author: Jussi Peltola <plz@plz.fi>
+> Date:   Mon Nov 14 01:45:32 2016 +0200
+>
+>     Attempt to fix up packets with a broken ethernet header
+>=20=20=20=20=20
+>     Signed-off-by: Jussi Peltola <plz@plz.fi>
+>
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index 3ff76c6..7308d6b 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -153,25 +153,57 @@ static const u8 default_modem_addr[ETH_ALEN] =3D {0=
+x02, 0x50, 0xf3};
+>=20=20
+>  static const u8 buggy_fw_addr[ETH_ALEN] =3D {0x00, 0xa0, 0xc6, 0x00, 0x0=
+0, 0x00};
+>=20=20
+> -/* Make up an ethernet header if the packet doesn't have one.
+> +/* Check if the ethernet header has an unknown ethertype, and return a
+> + * guess of the correct one based on the L3 header, or zero if the type =
+was
+> + * known or detection failed.
 > + */
+> +static __be16 detect_bogus_header(struct sk_buff *skb) {
+> +       struct ethhdr *eth_hdr =3D (struct ethhdr*) skb->data;
 > +
-> +#ifndef _LINUX_PTR_RING_LL_H
-> +#define _LINUX_PTR_RING_LL_H 1
-> +
-[...]
-> +
-> +struct ptr_ring_ll {
-> +	u32 prod_size;
-> +	u32 prod_mask;
-> +	u32 prod_head;
-> +	u32 prod_tail;
-> +	u32 cons_size;
-> +	u32 cons_mask;
-> +	u32 cons_head;
-> +	u32 cons_tail;
-> +
-> +	void **queue;
-> +};
-
-Your implementation doesn't even split the consumer and producer into
-different cachelines (which in practice doesn't help much due to how
-the empty/full checks are performed).
-
-> +
-> +/* Note: callers invoking this in a loop must use a compiler barrier,
-> + * for example cpu_relax(). Callers must hold producer_lock.
-> + */
-> +static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void *ptr)
-> +{
-> +	u32 ret, head, tail, next, slots, mask;
-> +
-> +	do {
-> +		head = READ_ONCE(r->prod_head);
-> +		mask = READ_ONCE(r->prod_mask);
-> +		tail = READ_ONCE(r->cons_tail);
-
-Problem occur here, as the producer need to access/read the consumers
-tail, to determine if the queue is not already full (slots avail).
-Thus, the next "consumer-CPU" will see the cacheline in wrong state
-(Modified/Invalid or Shared).
-
-> +
-> +		slots = mask + tail - head;
-> +		if (slots < 1)
-> +			return -ENOMEM;
-> +
-> +		next = head + 1;
-> +		ret = cmpxchg(&r->prod_head, head, next);
-> +	} while (ret != head);
-> +
-> +	r->queue[head & mask] = ptr;
-> +	smp_wmb();
-> +
-> +	while (r->prod_tail != head)
-> +		cpu_relax();
-> +
-> +	r->prod_tail = next;
-> +	return 0;
+> +       switch (eth_hdr->h_proto) {
+> +       case ETH_P_IP:
+> +       case ETH_P_IPV6:
+> +       case ETH_P_ARP:
+> +               return 0;
+> +       default:
+> +               switch (skb->data[14] & 0xf0) {
+> +               case 0x40:
+> +                       return htons(ETH_P_IP);
+> +               case 0x60:
+> +                       return htons(ETH_P_IPV6);
+> +               default:
+> +                       /* pass on undetectable packets */
+> +                       return 0;
+> +               }
+> +       }
+> +       /*NOTREACHED*/
+> +       return 0;
 > +}
 > +
-> +static inline void *__ptr_ring_ll_consume(struct ptr_ring_ll *r)
-> +{
-> +	u32 ret, head, tail, next, slots, mask;
-> +	void *ptr;
-> +
-> +	do {
-> +		head = READ_ONCE(r->cons_head);
-> +		mask = READ_ONCE(r->cons_mask);
-> +		tail = READ_ONCE(r->prod_tail);
+> +/* Make up an ethernet header if the packet doesn't have a correct one.
+>   *
+>   * A firmware bug common among several devices cause them to send raw
+>   * IP packets under some circumstances.  There is no way for the
+>   * driver/host to know when this will happen.  And even when the bug
+>   * hits, some packets will still arrive with an intact header.
+>   *
+> - * The supported devices are only capably of sending IPv4, IPv6 and
+> + * The supported devices are only capable of sending IPv4, IPv6 and
+>   * ARP packets on a point-to-point link. Any packet with an ethernet
+>   * header will have either our address or a broadcast/multicast
+> - * address as destination.  ARP packets will always have a header.
+> + * address as destination. ARP packets will always have a header.
+>   *
+>   * This means that this function will reliably add the appropriate
+> - * header iff necessary, provided our hardware address does not start
+> + * header if necessary, provided our hardware address does not start
+>   * with 4 or 6.
+>   *
+>   * Another common firmware bug results in all packets being addressed
+>   * to 00:a0:c6:00:00:00 despite the host address being different.
+> - * This function will also fixup such packets.
+> + *
+> + * Some devices will send packets with garbage source/destination MACs a=
+nd
+> + * ethertypes.
+> + *
+> + * This function will try to fix up all such packets.
+> + *
+>   */
+>  static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+>  {
+> @@ -179,8 +211,8 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, stru=
+ct sk_buff *skb)
+>         bool rawip =3D info->flags & QMI_WWAN_FLAG_RAWIP;
+>         __be16 proto;
+>=20=20
+> -       /* This check is no longer done by usbnet */
+> -       if (skb->len < dev->net->hard_header_len)
+> +       /* Shorter is definitely invalid and breaks subsequent tests */
+> +       if (skb->len < 15)
+>                 return 0;
+>=20=20
+>         switch (skb->data[0] & 0xf0) {
 
-Like wise the consumer is reading the producer tail (for the empty check).
 
-> +
-> +		slots = tail - head;
-> +		if (slots < 1)
-> +			return ERR_PTR(-ENOMEM);
-> +
-> +		next = head + 1;
-> +		ret = cmpxchg(&r->cons_head, head, next);
-> +	} while (ret != head);
-> +
-> +	ptr = r->queue[head & mask];
-> +	smp_rmb();
-> +
-> +	while (r->cons_tail != head)
-> +		cpu_relax();
-> +
-> +	r->cons_tail = next;
-> +	return ptr;
-> +}
-> +
-> +static inline void **__ptr_ring_ll_init_queue_alloc(int size, gfp_t gfp)
-> +{
-> +	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
-> +}
-> +
-> +static inline int ptr_ring_ll_init(struct ptr_ring_ll *r, int size, gfp_t gfp)
-> +{
-> +	r->queue = __ptr_ring_init_queue_alloc(size, gfp);
-> +	if (!r->queue)
-> +		return -ENOMEM;
-> +
-> +	r->prod_size = r->cons_size = size;
-> +	r->prod_mask = r->cons_mask = size - 1;
+Makes sense, but could we please use some reasonable macro or something
+instead of an arbitrary magic number?  Anything shorter than an IP
+header will be bogus, for example.
 
-Shouldn't we have some check like is_power_of_2(size), as this code
-looks like it depend on this.
 
-> +	r->prod_tail = r->prod_head = 0;
-> +	r->cons_tail = r->prod_tail = 0;
-> +
-> +	return 0;
-> +}
-> +
-[...]
-> +#endif /* _LINUX_PTR_RING_LL_H  */
-> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-> index f4dfade..9b43dfd 100644
-> --- a/include/linux/skb_array.h
-> +++ b/include/linux/skb_array.h
-[...]
->  
-> +static inline int skb_array_ll_produce(struct skb_array_ll *a, struct sk_buff *skb)
-> +{
-> +	return __ptr_ring_ll_produce(&a->ring, skb);
-> +}
-> +
-[...]
->  
-> +static inline struct sk_buff *skb_array_ll_consume(struct skb_array_ll *a)
-> +{
-> +	return __ptr_ring_ll_consume(&a->ring);
-> +}
-> +
 
-Note in the Multi Producer Multi Consumer (MPMC) use-case this type of
-queue can be faster than normal ptr_ring.  And in patch2 you implement
-bulking, which is where the real benefit shows (in the MPMC case) for
-this kind of queue.
+> @@ -190,17 +222,17 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, st=
+ruct sk_buff *skb)
+>         case 0x60:
+>                 proto =3D htons(ETH_P_IPV6);
+>                 break;
+> -       case 0x00:
+> +       default:
+>                 if (rawip)
+>                         return 0;
+>                 if (is_multicast_ether_addr(skb->data))
+>                         return 1;
+> -               /* possibly bogus destination - rewrite just in case */
+> -               skb_reset_mac_header(skb);
+> -               goto fix_dest;
+> -       default:
+> -               if (rawip)
+> -                       return 0;
+> +               proto =3D detect_bogus_header(skb);
+> +               if (proto) {
+> +                       /* remove terminally broken header */
+> +                       skb_pull(skb, ETH_HLEN);
+> +                       break;
+> +               }
+>                 /* pass along other packets without modifications */
+>                 return 1;
+>         }
 
-What I would really like to see is a lock-free (locked cmpxchg) queue
-implementation, what like ptr_ring use the array as empty/full check,
-and still (somehow) support bulking.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Am I missing somehting, or is this removing the bogus destination
+address fixup?  In any case, I don't have any device with that bug
+available or the time to go and test it.  So I want you to either leave
+that part of the code alone, or verify the workaround on a device with
+the "00:a0:c6:00:00:00" bug.
+
+
+> @@ -208,17 +240,17 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, st=
+ruct sk_buff *skb)
+>                 skb->dev =3D dev->net; /* normally set by eth_type_trans =
+*/
+>                 skb->protocol =3D proto;
+>                 return 1;
+> +       } else {
+
+
+Completely unnecessary "else". We return from the other branch.
+
+In any case, this change is not related to the rest of the patch and is
+just making review more confusing.  And why would you add more indenting
+levels than strictly necessary?
+
+
+But please: Try to make the device work with raw-ip first. Qualcomm
+never managed to fix their fake ethernet mode, and have given up on it.
+Newer devices don't have that mode at all.  The device you have does
+still have the mode.  But as is pretty obvious from the observed
+behaviour: It's completely untested and not really working.  If you look
+at the Windows driver, I'm pretty sure you'll find that the only reason
+it works is because they use raw-ip mode.
+
+FWIW, I regret having chosen the fake ethernet mode as the default for
+qmi_wwan.  I did not anticipate the number of firmware issues Qualcomm
+could manage to create simply adding a made-up ethernet header.  And I
+did not anticipate them finally dropping it on the floor, forcing us to
+support raw-ip mode anyway.
+
+But with raw-ip support, there is absolutely no reason to play around
+with fixing up the ethernet header bugs anymore.  If you have an older
+device where it sort of works, then by all means use it.  But otherwise:
+Use raw-ip mode.  I don't think I would have wanted any of the existing
+header fixups either if the driver had supported raw-ip when they were
+proposed.
+
+
+Bj=C3=B8rn
