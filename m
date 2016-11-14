@@ -1,76 +1,35 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Long delays creating a netns after deleting one (possibly RCU
- related)
-Date: Mon, 14 Nov 2016 10:14:25 -0800
-Message-ID: <20161114181425.GN4127@linux.vnet.ibm.com>
-References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
- <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
- <20161110212404.GB4127@linux.vnet.ibm.com>
- <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
- <20161112002347.GL4127@linux.vnet.ibm.com>
- <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
- <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com>
- <20161114162417.GJ4127@linux.vnet.ibm.com>
- <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net: fix sleeping for sk_wait_event()
+Date: Mon, 14 Nov 2016 13:17:49 -0500 (EST)
+Message-ID: <20161114.131749.117151077627113186.davem@davemloft.net>
+References: <1478888450-16985-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Justin Cormack <justin.cormack@docker.com>,
-        Ian Campbell <ian.campbell@docker.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+        peterz@infradead.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38344 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935050AbcKNSRv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:17:51 -0500
+In-Reply-To: <1478888450-16985-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2016 at 09:44:35AM -0800, Cong Wang wrote:
-> On Mon, Nov 14, 2016 at 8:24 AM, Paul E. McKenney
-> <paulmck@linux.vnet.ibm.com> wrote:
-> > On Sun, Nov 13, 2016 at 10:47:01PM -0800, Cong Wang wrote:
-> >> On Fri, Nov 11, 2016 at 4:55 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> >> > On Fri, Nov 11, 2016 at 4:23 PM, Paul E. McKenney
-> >> > <paulmck@linux.vnet.ibm.com> wrote:
-> >> >>
-> >> >> Ah!  This net_mutex is different than RTNL.  Should synchronize_net() be
-> >> >> modified to check for net_mutex being held in addition to the current
-> >> >> checks for RTNL being held?
-> >> >>
-> >> >
-> >> > Good point!
-> >> >
-> >> > Like commit be3fc413da9eb17cce0991f214ab0, checking
-> >> > for net_mutex for this case seems to be an optimization, I assume
-> >> > synchronize_rcu_expedited() and synchronize_rcu() have the same
-> >> > behavior...
-> >>
-> >> Thinking a bit more, I think commit be3fc413da9eb17cce0991f
-> >> gets wrong on rtnl_is_locked(), the lock could be locked by other
-> >> process not by the current one, therefore it should be
-> >> lockdep_rtnl_is_held() which, however, is defined only when LOCKDEP
-> >> is enabled... Sigh.
-> >>
-> >> I don't see any better way than letting callers decide if they want the
-> >> expedited version or not, but this requires changes of all callers of
-> >> synchronize_net(). Hm.
-> >
-> > I must confess that I don't understand how it would help to use an
-> > expedited grace period when some other process is holding RTNL.
-> > In contrast, I do well understand how it helps when the current process
-> > is holding RTNL.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 11 Nov 2016 10:20:50 -0800
+
+> Similar to commit 14135f30e33c ("inet: fix sleeping inside inet_wait_for_connect()"),
+> sk_wait_event() needs to fix too, because release_sock() is blocking,
+> it changes the process state back to running after sleep, which breaks
+> the previous prepare_to_wait().
 > 
-> Yeah, this is exactly my point. And same for ASSERT_RTNL() which checks
-> rtnl_is_locked(), clearly we need to assert "it is held by the current process"
-> rather than "it is locked by whatever process".
+> Switch to the new wait API.
 > 
-> But given *_is_held() is always defined by LOCKDEP, so we probably need
-> mutex to provide such a helper directly, mutex->owner is not always defined
-> either. :-/
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Peter Zijlstra <peterz@infradead.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-There is always the option of making acquisition and release set a per-task
-variable that can be tested.  (Where did I put that asbestos suit, anyway?)
-
-							Thanx, Paul
+Applied, thanks.
