@@ -1,55 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] bnx2: Wait for in-flight DMA to complete at
- probe stage
-Date: Mon, 14 Nov 2016 12:28:38 -0500 (EST)
-Message-ID: <20161114.122838.1039215178593568702.davem@davemloft.net>
-References: <1479013293-21001-1-git-send-email-bhe@redhat.com>
-        <8010f40d-e7ca-8fd1-7317-f576289c112f@molgen.mpg.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Long delays creating a netns after deleting one (possibly RCU
+ related)
+Date: Mon, 14 Nov 2016 18:29:37 +0100
+Message-ID: <1479144577.3734328.787380169.651B5477@webmail.messagingengine.com>
+References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
+ <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
+ <20161110212404.GB4127@linux.vnet.ibm.com>
+ <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
+ <20161112002347.GL4127@linux.vnet.ibm.com>
+ <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bhe@redhat.com, netdev@vger.kernel.org, michael.chan@broadcom.com,
-        linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
-        rasesh.mody@cavium.com, harish.patil@cavium.com,
-        frank@undermydesk.org, jsr@dex.edzone.net, jroedel@suse.de,
-        dyoung@redhat.com
-To: pmenzel@molgen.mpg.de
+Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Justin Cormack <justin.cormack@docker.com>,
+        Ian Campbell <ian.campbell@docker.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37494 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933258AbcKNR2k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 12:28:40 -0500
-In-Reply-To: <8010f40d-e7ca-8fd1-7317-f576289c112f@molgen.mpg.de>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:43794 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933929AbcKNR3i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 12:29:38 -0500
+In-Reply-To: <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Date: Mon, 14 Nov 2016 09:25:47 +0100
+Hi Cong,
 
-> Dear Baoquan,
+On Sat, Nov 12, 2016, at 01:55, Cong Wang wrote:
+> On Fri, Nov 11, 2016 at 4:23 PM, Paul E. McKenney
+> <paulmck@linux.vnet.ibm.com> wrote:
+> >
+> > Ah!  This net_mutex is different than RTNL.  Should synchronize_net() be
+> > modified to check for net_mutex being held in addition to the current
+> > checks for RTNL being held?
+> >
 > 
-> On 11/13/16 06:01, Baoquan He wrote:
->> This is v2 post.
->>
->> In commit 3e1be7a ("bnx2: Reset device during driver initialization"),
->> firmware requesting code was moved from open stage to probe stage.
->> The reason is in kdump kernel hardware iommu need device be reset in
->> driver probe stage, otherwise those in-flight DMA from 1st kernel
->> will continue going and look up into the newly created io-page tables.
->> However bnx2 chip resetting involves firmware requesting issue, that
->> need be done in open stage.
->>
->> Michale Chan suggested we can just wait for the old in-flight DMA to
->> complete at probe stage, then though without device resetting, we
->> don't need to worry the old in-flight DMA could continue looking up
->> the newly created io-page tables.
->>
->> v1->v2:
->>     Michael suggested to wait for the in-flight DMA to complete at probe
->>     stage. So give up the old method of trying to reset chip at probe
->>     stage, take the new way accordingly.
+> Good point!
 > 
-> thank you for posting the updated series. Could you please resend a v3
-> with stable@vger.kernel.org added [1]?
+> Like commit be3fc413da9eb17cce0991f214ab0, checking
+> for net_mutex for this case seems to be an optimization, I assume
+> synchronize_rcu_expedited() and synchronize_rcu() have the same
+> behavior...
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index eaad4c2..3415b6b 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -7762,7 +7762,7 @@ EXPORT_SYMBOL(free_netdev);
+>  void synchronize_net(void)
+>  {
+>         might_sleep();
+> -       if (rtnl_is_locked())
+> +       if (rtnl_is_locked() || lockdep_is_held(&net_mutex))
+>                 synchronize_rcu_expedited();
 
-This is not the proper procedure for networking patches.
+I don't think we should depend on lockdep for this check but rather use
+mutex_is_locked here (I think it would fail to build like this without
+CONFIG_LOCKDEP).
+
+Bye,
+Hannes
