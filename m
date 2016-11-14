@@ -1,31 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] driver: macvlan: Replace integer number
- with bool value
-Date: Mon, 14 Nov 2016 16:36:35 -0500 (EST)
-Message-ID: <20161114.163635.1740752748873188751.davem@davemloft.net>
-References: <1479083059-12688-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH net] net: stmmac: Fix lack of link transition for fixed
+ PHYs
+Date: Mon, 14 Nov 2016 16:40:57 -0500 (EST)
+Message-ID: <20161114.164057.379572642582264115.davem@davemloft.net>
+References: <20161114015036.6926-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41538 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935299AbcKNVgh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:36:37 -0500
-In-Reply-To: <1479083059-12688-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161114015036.6926-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: fgao@ikuai8.com
-Date: Mon, 14 Nov 2016 08:24:19 +0800
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sun, 13 Nov 2016 17:50:35 -0800
 
-> From: Gao Feng <gfree.wind@gmail.com>
+> Commit 52f95bbfcf72 ("stmmac: fix adjust link call in case of a switch
+> is attached") added some logic to avoid polling the fixed PHY and
+> therefore invoking the adjust_link callback more than once, since this
+> is a fixed PHY and link events won't be generated.
 > 
-> The return value of function macvlan_addr_busy is used as bool value,
-> so use bool value instead of integer number "1" and "0".
+> This works fine the first time, because we start with phydev->irq =
+> PHY_POLL, so we call adjust_link, then we set phydev->irq =
+> PHY_IGNORE_INTERRUPT and we stop polling the PHY.
 > 
-> Signed-off-by: Gao Feng <gfree.wind@gmail.com>
+> Now, if we called ndo_close(), which calls both phy_stop() and does an
+> explicit netif_carrier_off(), we end up with a link down. Upon calling
+> ndo_open() again, despite starting the PHY state machine, we have
+> PHY_IGNORE_INTERRUPT set, and we generate no link event at all, so the
+> link is permanently down.
+> 
+> 52f95bbfcf72 ("stmmac: fix adjust link call in case of a switch is attached")
 
-Applied, thanks.
+I added the missing "Fixes: " here.
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Applied and queued up for -stable, thanks Florian.
