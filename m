@@ -1,56 +1,47 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/1] driver: macvlan: Replace integer number with bool value
-Date: Mon, 14 Nov 2016 08:24:19 +0800
-Message-ID: <1479083059-12688-1-git-send-email-fgao@ikuai8.com>
-To: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net 3/3] bpf, mlx5: drop priv->xdp_prog reference on netdev cleanup
+Date: Mon, 14 Nov 2016 01:43:42 +0100
+Message-ID: <92fc389d43209c1b691d914a0e5c556aacdee10f.1479080215.git.daniel@iogearbox.net>
+References: <cover.1479080215.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, bblanco@plumgrid.com,
+        tariqt@mellanox.com, zhiyisun@gmail.com, ranas@mellanox.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG352.QQ.COM ([183.57.50.167]:55832 "EHLO smtpbg352.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751418AbcKNAZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 13 Nov 2016 19:25:08 -0500
+Received: from www62.your-server.de ([213.133.104.62]:33168 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751847AbcKNAoF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 19:44:05 -0500
+In-Reply-To: <cover.1479080215.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1479080215.git.daniel@iogearbox.net>
+References: <cover.1479080215.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <gfree.wind@gmail.com>
+mlx5e_xdp_set() is currently the only place where we drop reference on the
+prog sitting in priv->xdp_prog when it's exchanged by a new one. We also
+need to make sure that we eventually release that reference, for example,
+in case the netdev is dismantled.
 
-The return value of function macvlan_addr_busy is used as bool value,
-so use bool value instead of integer number "1" and "0".
-
-Signed-off-by: Gao Feng <gfree.wind@gmail.com>
+Fixes: 86994156c736 ("net/mlx5e: XDP fast RX drop bpf programs support")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/macvlan.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index a064415..d0361f3 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -179,20 +179,20 @@ static void macvlan_hash_change_addr(struct macvlan_dev *vlan,
- 	macvlan_hash_add(vlan);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index c90610a..930aa6f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3697,6 +3697,9 @@ static void mlx5e_nic_cleanup(struct mlx5e_priv *priv)
+ 
+ 	if (MLX5_CAP_GEN(mdev, vport_group_manager))
+ 		mlx5_eswitch_unregister_vport_rep(esw, 0);
++
++	if (priv->xdp_prog)
++		bpf_prog_put(priv->xdp_prog);
  }
  
--static int macvlan_addr_busy(const struct macvlan_port *port,
--				const unsigned char *addr)
-+static bool macvlan_addr_busy(const struct macvlan_port *port,
-+			      const unsigned char *addr)
- {
- 	/* Test to see if the specified multicast address is
- 	 * currently in use by the underlying device or
- 	 * another macvlan.
- 	 */
- 	if (ether_addr_equal_64bits(port->dev->dev_addr, addr))
--		return 1;
-+		return true;
- 
- 	if (macvlan_hash_lookup(port, addr))
--		return 1;
-+		return true;
- 
--	return 0;
-+	return false;
- }
- 
- 
+ static int mlx5e_init_nic_rx(struct mlx5e_priv *priv)
 -- 
-1.9.1
+1.9.3
