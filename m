@@ -1,38 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] Start adding support for mv88e6390
- family
-Date: Sun, 13 Nov 2016 22:39:09 -0500 (EST)
-Message-ID: <20161113.223909.2192862536004096356.davem@davemloft.net>
-References: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
-        <20161113.004859.749028544003333521.davem@davemloft.net>
-        <20161113202403.GB18258@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] mdio: Demote print from info to debug in
+ mdio_driver_register
+Date: Mon, 14 Nov 2016 04:44:17 +0100
+Message-ID: <20161114034417.GB26710@lunn.ch>
+References: <20161114030117.25169-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com
-To: andrew@lunn.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52890 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753169AbcKNDjO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2016 22:39:14 -0500
-In-Reply-To: <20161113202403.GB18258@lunn.ch>
+Received: from vps0.lunn.ch ([178.209.37.122]:37358 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752866AbcKNDoT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Nov 2016 22:44:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20161114030117.25169-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sun, 13 Nov 2016 21:24:03 +0100
-
-> What seems to be the issue is you said you have accepted:
+On Sun, Nov 13, 2016 at 07:01:17PM -0800, Florian Fainelli wrote:
+> While it is useful to know which MDIO driver is being registered, demote
+> the pr_info() to a pr_debug().
 > 
-> [PATCH net-next 0/2] Fixes for port refactoring
-> https://marc.info/?l=linux-netdev&m=147880114928996&w=1
-> 
-> Yet i don't see these in net-next. And i based this patchset on a tree
-> which included the fixes. Hence they are not applying.
-> 
-> Have the fixes really been accepted?
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Accepted but not pushed out properly, sorry.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-This should be sorted out now.
+    Andrew
