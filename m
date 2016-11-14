@@ -1,37 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net/phy/vitesse: Configure RGMII skew on VSC8601, if
- needed
-Date: Mon, 14 Nov 2016 13:25:56 -0800
-Message-ID: <d567c69f-6b57-7083-9090-df01fb140e36@gmail.com>
-References: <1478993533-1936-1-git-send-email-alex.g@adaptrum.com>
- <20161114.161818.1460191406108019273.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/11] Start adding support for mv88e6390
+ family
+Date: Mon, 14 Nov 2016 16:30:51 -0500 (EST)
+Message-ID: <20161114.163051.648915466693753951.davem@davemloft.net>
+References: <1478832823-31471-1-git-send-email-andrew@lunn.ch>
+        <20161113.004859.749028544003333521.davem@davemloft.net>
+        <20161113202403.GB18258@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gokhan@adaptrum.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, alex.g@adaptrum.com
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33458 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753175AbcKNV0B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:26:01 -0500
-In-Reply-To: <20161114.161818.1460191406108019273.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41438 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753274AbcKNVaw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:30:52 -0500
+In-Reply-To: <20161113202403.GB18258@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2016 01:18 PM, David Miller wrote:
-> From: Alexandru Gagniuc <alex.g@adaptrum.com>
-> Date: Sat, 12 Nov 2016 15:32:13 -0800
-> 
->> +	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
->> +		ret = vsc8601_add_skew(phydev);
-> 
-> I think you should use phy_interface_is_rgmii() here.
-> 
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sun, 13 Nov 2016 21:24:03 +0100
 
-This would include all RGMII modes, here I think the intent is to check
-for PHY_INTERFACE_MODE_RGMII_ID and PHY_INTERFACE_MODE_RGMII_TXID (or
-RXID),  Alexandru, what direction does the skew settings apply to?
--- 
-Florian
+> I'm happy to respin, but i'm wondering why the don't apply.
+
+Andrew, even though this issue has been resolved, it looks like Vivien
+has some feedback for you to address with this series so I guess I'll
+see a v2 or similar soon.
+
+Thanks.
