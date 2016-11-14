@@ -1,11 +1,10 @@
 From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: [PATCHv2 (net.git) 1/3] stmmac: update the PTP header file
-Date: Mon, 14 Nov 2016 09:27:28 +0100
-Message-ID: <1479112050-14042-2-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCHv2 (net.git) 3/3] stmmac: fix PTP type ethtool stats
+Date: Mon, 14 Nov 2016 09:27:30 +0100
+Message-ID: <1479112050-14042-4-git-send-email-peppe.cavallaro@st.com>
 References: <1479112050-14042-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain
 Cc: <alexandre.torgue@st.com>, <rayagond@vayavyalabs.com>,
         <richardcochran@gmail.com>, <linux-kernel@vger.kernel.org>,
         <davem@davemloft.net>, <seraphin.bonnaffe@st.com>,
@@ -16,109 +15,202 @@ In-Reply-To: <1479112050-14042-1-git-send-email-peppe.cavallaro@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is to update this file by using BIT macros, removing
-not used defines and fixes some typos.
+This patch fixes the ethtool stats for PTP frames; previous
+version does not take care about some message types: i.e.
+announce, management and signaling. It also provided a
+broken statistic in case of "No PTP message received".
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Acked-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
 Acked-by: Alexandre TORGUE <alexandre.torgue@st.com>
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h | 72 ++++++++++++------------
- 1 file changed, 37 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h       | 19 ++++++++-------
+ drivers/net/ethernet/stmicro/stmmac/descs.h        | 20 +++++++++-------
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 27 +++++++++++++--------
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     | 28 ++++++++++++++--------
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   | 19 ++++++++-------
+ 5 files changed, 69 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
-index 4535df3..c06938c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.h
-@@ -22,51 +22,53 @@
-   Author: Rayagond Kokatanur <rayagond@vayavyalabs.com>
- ******************************************************************************/
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 6fc214c..6d2de4e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -120,14 +120,17 @@ struct stmmac_extra_stats {
+ 	unsigned long ip_csum_bypassed;
+ 	unsigned long ipv4_pkt_rcvd;
+ 	unsigned long ipv6_pkt_rcvd;
+-	unsigned long rx_msg_type_ext_no_ptp;
+-	unsigned long rx_msg_type_sync;
+-	unsigned long rx_msg_type_follow_up;
+-	unsigned long rx_msg_type_delay_req;
+-	unsigned long rx_msg_type_delay_resp;
+-	unsigned long rx_msg_type_pdelay_req;
+-	unsigned long rx_msg_type_pdelay_resp;
+-	unsigned long rx_msg_type_pdelay_follow_up;
++	unsigned long no_ptp_rx_msg_type_ext;
++	unsigned long ptp_rx_msg_type_sync;
++	unsigned long ptp_rx_msg_type_follow_up;
++	unsigned long ptp_rx_msg_type_delay_req;
++	unsigned long ptp_rx_msg_type_delay_resp;
++	unsigned long ptp_rx_msg_type_pdelay_req;
++	unsigned long ptp_rx_msg_type_pdelay_resp;
++	unsigned long ptp_rx_msg_type_pdelay_follow_up;
++	unsigned long ptp_rx_msg_type_announce;
++	unsigned long ptp_rx_msg_type_management;
++	unsigned long ptp_rx_msg_pkt_reserved_type;
+ 	unsigned long ptp_frame_type;
+ 	unsigned long ptp_ver;
+ 	unsigned long timestamp_dropped;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
+index 2e4c171..e3c86d4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/descs.h
++++ b/drivers/net/ethernet/stmicro/stmmac/descs.h
+@@ -155,14 +155,18 @@
+ #define	ERDES4_L3_L4_FILT_NO_MATCH_MASK	GENMASK(27, 26)
  
--#ifndef __STMMAC_PTP_H__
--#define __STMMAC_PTP_H__
-+#ifndef	__STMMAC_PTP_H__
-+#define	__STMMAC_PTP_H__
+ /* Extended RDES4 message type definitions */
+-#define RDES_EXT_NO_PTP			0
+-#define RDES_EXT_SYNC			1
+-#define RDES_EXT_FOLLOW_UP		2
+-#define RDES_EXT_DELAY_REQ		3
+-#define RDES_EXT_DELAY_RESP		4
+-#define RDES_EXT_PDELAY_REQ		5
+-#define RDES_EXT_PDELAY_RESP		6
+-#define RDES_EXT_PDELAY_FOLLOW_UP	7
++#define RDES_EXT_NO_PTP			0x0
++#define RDES_EXT_SYNC			0x1
++#define RDES_EXT_FOLLOW_UP		0x2
++#define RDES_EXT_DELAY_REQ		0x3
++#define RDES_EXT_DELAY_RESP		0x4
++#define RDES_EXT_PDELAY_REQ		0x5
++#define RDES_EXT_PDELAY_RESP		0x6
++#define RDES_EXT_PDELAY_FOLLOW_UP	0x7
++#define RDES_PTP_ANNOUNCE		0x8
++#define RDES_PTP_MANAGEMENT		0x9
++#define RDES_PTP_SIGNALING		0xa
++#define RDES_PTP_PKT_RESERVED_TYPE	0xf
  
--/* IEEE 1588 PTP register offsets */
--#define PTP_TCR		0x0700	/* Timestamp Control Reg */
--#define PTP_SSIR	0x0704	/* Sub-Second Increment Reg */
--#define PTP_STSR	0x0708	/* System Time – Seconds Regr */
--#define PTP_STNSR	0x070C	/* System Time – Nanoseconds Reg */
--#define PTP_STSUR	0x0710	/* System Time – Seconds Update Reg */
--#define PTP_STNSUR	0x0714	/* System Time – Nanoseconds Update Reg */
--#define PTP_TAR		0x0718	/* Timestamp Addend Reg */
--#define PTP_TTSR	0x071C	/* Target Time Seconds Reg */
--#define PTP_TTNSR	0x0720	/* Target Time Nanoseconds Reg */
--#define	PTP_STHWSR	0x0724	/* System Time - Higher Word Seconds Reg */
--#define PTP_TSR		0x0728	/* Timestamp Status */
-+#define	PTP_GMAC4_OFFSET	0xb00
-+#define	PTP_GMAC3_X_OFFSET	0x700
- 
--#define PTP_STNSUR_ADDSUB_SHIFT 31
-+/* IEEE 1588 PTP register offsets */
-+#define	PTP_TCR		0x00	/* Timestamp Control Reg */
-+#define	PTP_SSIR	0x04	/* Sub-Second Increment Reg */
-+#define	PTP_STSR	0x08	/* System Time – Seconds Regr */
-+#define	PTP_STNSR	0x0c	/* System Time – Nanoseconds Reg */
-+#define	PTP_STSUR	0x10	/* System Time – Seconds Update Reg */
-+#define	PTP_STNSUR	0x14	/* System Time – Nanoseconds Update Reg */
-+#define	PTP_TAR		0x18	/* Timestamp Addend Reg */
- 
--/* PTP TCR defines */
--#define PTP_TCR_TSENA		0x00000001 /* Timestamp Enable */
--#define PTP_TCR_TSCFUPDT	0x00000002 /* Timestamp Fine/Coarse Update */
--#define PTP_TCR_TSINIT		0x00000004 /* Timestamp Initialize */
--#define PTP_TCR_TSUPDT		0x00000008 /* Timestamp Update */
--/* Timestamp Interrupt Trigger Enable */
--#define PTP_TCR_TSTRIG		0x00000010
--#define PTP_TCR_TSADDREG	0x00000020 /* Addend Reg Update */
--#define PTP_TCR_TSENALL		0x00000100 /* Enable Timestamp for All Frames */
--/* Timestamp Digital or Binary Rollover Control */
--#define PTP_TCR_TSCTRLSSR	0x00000200
-+#define	PTP_STNSUR_ADDSUB_SHIFT	31
-+#define	PTP_DIGITAL_ROLLOVER_MODE	0x3B9ACA00	/* 10e9-1 ns */
-+#define	PTP_BINARY_ROLLOVER_MODE	0x80000000	/* ~0.466 ns */
- 
-+/* PTP Timestamp control register defines */
-+#define	PTP_TCR_TSENA		BIT(0)	/* Timestamp Enable */
-+#define	PTP_TCR_TSCFUPDT	BIT(1)	/* Timestamp Fine/Coarse Update */
-+#define	PTP_TCR_TSINIT		BIT(2)	/* Timestamp Initialize */
-+#define	PTP_TCR_TSUPDT		BIT(3)	/* Timestamp Update */
-+#define	PTP_TCR_TSTRIG		BIT(4)	/* Timestamp Interrupt Trigger Enable */
-+#define	PTP_TCR_TSADDREG	BIT(5)	/* Addend Reg Update */
-+#define	PTP_TCR_TSENALL		BIT(8)	/* Enable Timestamp for All Frames */
-+#define	PTP_TCR_TSCTRLSSR	BIT(9)	/* Digital or Binary Rollover Control */
- /* Enable PTP packet Processing for Version 2 Format */
--#define PTP_TCR_TSVER2ENA	0x00000400
-+#define	PTP_TCR_TSVER2ENA	BIT(10)
- /* Enable Processing of PTP over Ethernet Frames */
--#define PTP_TCR_TSIPENA		0x00000800
-+#define	PTP_TCR_TSIPENA		BIT(11)
- /* Enable Processing of PTP Frames Sent over IPv6-UDP */
--#define PTP_TCR_TSIPV6ENA	0x00001000
-+#define	PTP_TCR_TSIPV6ENA	BIT(12)
- /* Enable Processing of PTP Frames Sent over IPv4-UDP */
--#define PTP_TCR_TSIPV4ENA	0x00002000
-+#define	PTP_TCR_TSIPV4ENA	BIT(13)
- /* Enable Timestamp Snapshot for Event Messages */
--#define PTP_TCR_TSEVNTENA	0x00004000
-+#define	PTP_TCR_TSEVNTENA	BIT(14)
- /* Enable Snapshot for Messages Relevant to Master */
--#define PTP_TCR_TSMSTRENA	0x00008000
-+#define	PTP_TCR_TSMSTRENA	BIT(15)
- /* Select PTP packets for Taking Snapshots */
--#define PTP_TCR_SNAPTYPSEL_1	0x00010000
-+#define	PTP_TCR_SNAPTYPSEL_1	GENMASK(17, 16)
- /* Enable MAC address for PTP Frame Filtering */
--#define PTP_TCR_TSENMACADDR	0x00040000
-+#define	PTP_TCR_TSENMACADDR	BIT(18)
+ /* Basic descriptor structure for normal and alternate descriptors */
+ struct dma_desc {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+index 2ef2f0c..a601f8d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+@@ -123,22 +123,29 @@ static int dwmac4_wrback_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ 		x->ipv4_pkt_rcvd++;
+ 	if (rdes1 & RDES1_IPV6_HEADER)
+ 		x->ipv6_pkt_rcvd++;
+-	if (message_type == RDES_EXT_SYNC)
+-		x->rx_msg_type_sync++;
 +
-+/* SSIR defines */
-+#define	PTP_SSIR_SSINC_MASK		0xff
-+#define	GMAC4_PTP_SSIR_SSINC_SHIFT	16
++	if (message_type == RDES_EXT_NO_PTP)
++		x->no_ptp_rx_msg_type_ext++;
++	else if (message_type == RDES_EXT_SYNC)
++		x->ptp_rx_msg_type_sync++;
+ 	else if (message_type == RDES_EXT_FOLLOW_UP)
+-		x->rx_msg_type_follow_up++;
++		x->ptp_rx_msg_type_follow_up++;
+ 	else if (message_type == RDES_EXT_DELAY_REQ)
+-		x->rx_msg_type_delay_req++;
++		x->ptp_rx_msg_type_delay_req++;
+ 	else if (message_type == RDES_EXT_DELAY_RESP)
+-		x->rx_msg_type_delay_resp++;
++		x->ptp_rx_msg_type_delay_resp++;
+ 	else if (message_type == RDES_EXT_PDELAY_REQ)
+-		x->rx_msg_type_pdelay_req++;
++		x->ptp_rx_msg_type_pdelay_req++;
+ 	else if (message_type == RDES_EXT_PDELAY_RESP)
+-		x->rx_msg_type_pdelay_resp++;
++		x->ptp_rx_msg_type_pdelay_resp++;
+ 	else if (message_type == RDES_EXT_PDELAY_FOLLOW_UP)
+-		x->rx_msg_type_pdelay_follow_up++;
+-	else
+-		x->rx_msg_type_ext_no_ptp++;
++		x->ptp_rx_msg_type_pdelay_follow_up++;
++	else if (message_type == RDES_PTP_ANNOUNCE)
++		x->ptp_rx_msg_type_announce++;
++	else if (message_type == RDES_PTP_MANAGEMENT)
++		x->ptp_rx_msg_type_management++;
++	else if (message_type == RDES_PTP_PKT_RESERVED_TYPE)
++		x->ptp_rx_msg_pkt_reserved_type++;
  
--#endif /* __STMMAC_PTP_H__ */
-+#endif	/* __STMMAC_PTP_H__ */
+ 	if (rdes1 & RDES1_PTP_PACKET_TYPE)
+ 		x->ptp_frame_type++;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+index 38f19c9..e755493 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -150,22 +150,30 @@ static void enh_desc_get_ext_status(void *data, struct stmmac_extra_stats *x,
+ 			x->ipv4_pkt_rcvd++;
+ 		if (rdes4 & ERDES4_IPV6_PKT_RCVD)
+ 			x->ipv6_pkt_rcvd++;
+-		if (message_type == RDES_EXT_SYNC)
+-			x->rx_msg_type_sync++;
++
++		if (message_type == RDES_EXT_NO_PTP)
++			x->no_ptp_rx_msg_type_ext++;
++		else if (message_type == RDES_EXT_SYNC)
++			x->ptp_rx_msg_type_sync++;
+ 		else if (message_type == RDES_EXT_FOLLOW_UP)
+-			x->rx_msg_type_follow_up++;
++			x->ptp_rx_msg_type_follow_up++;
+ 		else if (message_type == RDES_EXT_DELAY_REQ)
+-			x->rx_msg_type_delay_req++;
++			x->ptp_rx_msg_type_delay_req++;
+ 		else if (message_type == RDES_EXT_DELAY_RESP)
+-			x->rx_msg_type_delay_resp++;
++			x->ptp_rx_msg_type_delay_resp++;
+ 		else if (message_type == RDES_EXT_PDELAY_REQ)
+-			x->rx_msg_type_pdelay_req++;
++			x->ptp_rx_msg_type_pdelay_req++;
+ 		else if (message_type == RDES_EXT_PDELAY_RESP)
+-			x->rx_msg_type_pdelay_resp++;
++			x->ptp_rx_msg_type_pdelay_resp++;
+ 		else if (message_type == RDES_EXT_PDELAY_FOLLOW_UP)
+-			x->rx_msg_type_pdelay_follow_up++;
+-		else
+-			x->rx_msg_type_ext_no_ptp++;
++			x->ptp_rx_msg_type_pdelay_follow_up++;
++		else if (message_type == RDES_PTP_ANNOUNCE)
++			x->ptp_rx_msg_type_announce++;
++		else if (message_type == RDES_PTP_MANAGEMENT)
++			x->ptp_rx_msg_type_management++;
++		else if (message_type == RDES_PTP_PKT_RESERVED_TYPE)
++			x->ptp_rx_msg_pkt_reserved_type++;
++
+ 		if (rdes4 & ERDES4_PTP_FRAME_TYPE)
+ 			x->ptp_frame_type++;
+ 		if (rdes4 & ERDES4_PTP_VER)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 1e06173..c5d0142 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -115,14 +115,17 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
+ 	STMMAC_STAT(ip_csum_bypassed),
+ 	STMMAC_STAT(ipv4_pkt_rcvd),
+ 	STMMAC_STAT(ipv6_pkt_rcvd),
+-	STMMAC_STAT(rx_msg_type_ext_no_ptp),
+-	STMMAC_STAT(rx_msg_type_sync),
+-	STMMAC_STAT(rx_msg_type_follow_up),
+-	STMMAC_STAT(rx_msg_type_delay_req),
+-	STMMAC_STAT(rx_msg_type_delay_resp),
+-	STMMAC_STAT(rx_msg_type_pdelay_req),
+-	STMMAC_STAT(rx_msg_type_pdelay_resp),
+-	STMMAC_STAT(rx_msg_type_pdelay_follow_up),
++	STMMAC_STAT(no_ptp_rx_msg_type_ext),
++	STMMAC_STAT(ptp_rx_msg_type_sync),
++	STMMAC_STAT(ptp_rx_msg_type_follow_up),
++	STMMAC_STAT(ptp_rx_msg_type_delay_req),
++	STMMAC_STAT(ptp_rx_msg_type_delay_resp),
++	STMMAC_STAT(ptp_rx_msg_type_pdelay_req),
++	STMMAC_STAT(ptp_rx_msg_type_pdelay_resp),
++	STMMAC_STAT(ptp_rx_msg_type_pdelay_follow_up),
++	STMMAC_STAT(ptp_rx_msg_type_announce),
++	STMMAC_STAT(ptp_rx_msg_type_management),
++	STMMAC_STAT(ptp_rx_msg_pkt_reserved_type),
+ 	STMMAC_STAT(ptp_frame_type),
+ 	STMMAC_STAT(ptp_ver),
+ 	STMMAC_STAT(timestamp_dropped),
 -- 
 2.7.4
