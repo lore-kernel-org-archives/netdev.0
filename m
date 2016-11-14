@@ -1,91 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: spectrum_router: Flush FIB tables during fini
-Date: Mon, 14 Nov 2016 11:26:32 +0100
-Message-ID: <1479119192-1545-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com,
-        ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
+Subject: [PATCH net-next v2 4/5] ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
+Date: Mon, 14 Nov 2016 10:29:19 +0100
+Message-ID: <1479115760-1182-5-git-send-email-allan.nielsen@microsemi.com>
+References: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
+        <allan.nielsen@microsemi.com>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34748 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933952AbcKNK0f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 05:26:35 -0500
-Received: by mail-wm0-f65.google.com with SMTP id g23so13983436wme.1
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 02:26:34 -0800 (PST)
+Received: from mail-bl2nam02on0089.outbound.protection.outlook.com ([104.47.38.89]:10753
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752824AbcKNK2k (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 05:28:40 -0500
+In-Reply-To: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Since commit b45f64d16d45 ("mlxsw: spectrum_router: Use FIB notifications
-instead of switchdev calls") we reflect to the device the entire FIB
-table and not only FIBs that point to netdevs created by the driver.
+Adding validation support for the ETHTOOL_PHY_DOWNSHIFT. Functional
+implementation needs to be done in the individual PHY drivers.
 
-During module removal, FIBs of the second type are removed following
-NETDEV_UNREGISTER events sent. The other FIBs are still present in both
-the driver's cache and the device's table.
-
-Fix this by iterating over all the FIB tables in the device and flush
-them. There's no need to take locks, as we're the only writer.
-
-Fixes: b45f64d16d45 ("mlxsw: spectrum_router: Use FIB notifications instead of switchdev calls")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ net/core/ethtool.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index cbeeddd..e83072d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -594,8 +594,11 @@ static int mlxsw_sp_vrs_init(struct mlxsw_sp *mlxsw_sp)
- 	return 0;
- }
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 61aebdf..e9b45567 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -122,6 +122,7 @@ tunable_strings[__ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
+ static const char
+ phy_tunable_strings[__ETHTOOL_PHY_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
+ 	[ETHTOOL_ID_UNSPEC]     = "Unspec",
++	[ETHTOOL_PHY_DOWNSHIFT]	= "phy-downshift",
+ };
  
-+static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp);
-+
- static void mlxsw_sp_vrs_fini(struct mlxsw_sp *mlxsw_sp)
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
+@@ -2435,6 +2436,11 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
+ static int ethtool_phy_tunable_valid(const struct ethtool_tunable *tuna)
  {
-+	mlxsw_sp_router_fib_flush(mlxsw_sp);
- 	kfree(mlxsw_sp->router.vrs);
- }
- 
-@@ -1867,18 +1870,18 @@ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralue), ralue_pl);
- }
- 
--static void mlxsw_sp_router_fib4_abort(struct mlxsw_sp *mlxsw_sp)
-+static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp)
- {
- 	struct mlxsw_resources *resources;
- 	struct mlxsw_sp_fib_entry *fib_entry;
- 	struct mlxsw_sp_fib_entry *tmp;
- 	struct mlxsw_sp_vr *vr;
- 	int i;
--	int err;
- 
- 	resources = mlxsw_core_resources_get(mlxsw_sp->core);
- 	for (i = 0; i < resources->max_virtual_routers; i++) {
- 		vr = &mlxsw_sp->router.vrs[i];
-+
- 		if (!vr->used)
- 			continue;
- 
-@@ -1894,6 +1897,13 @@ static void mlxsw_sp_router_fib4_abort(struct mlxsw_sp *mlxsw_sp)
- 				break;
- 		}
+ 	switch (tuna->id) {
++	case ETHTOOL_PHY_DOWNSHIFT:
++		if (tuna->len != sizeof(u8) ||
++		    tuna->type_id != ETHTOOL_TUNABLE_U8)
++			return -EINVAL;
++		break;
+ 	default:
+ 		return -EINVAL;
  	}
-+}
-+
-+static void mlxsw_sp_router_fib4_abort(struct mlxsw_sp *mlxsw_sp)
-+{
-+	int err;
-+
-+	mlxsw_sp_router_fib_flush(mlxsw_sp);
- 	mlxsw_sp->router.aborted = true;
- 	err = mlxsw_sp_router_set_abort_trap(mlxsw_sp);
- 	if (err)
 -- 
-2.7.4
+2.7.3
