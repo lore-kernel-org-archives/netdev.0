@@ -1,105 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v3] ip6_output: ensure flow saddr actually
- belongs to device
-Date: Mon, 14 Nov 2016 18:33:31 +0100
-Message-ID: <7779da88-08dc-0adb-42dd-8e00502693df@stressinduktion.org>
-References: <27cccef1-06d9-74b3-5b8a-912850119a76@cumulusnetworks.com>
- <20161113232813.28926-1-Jason@zx2c4.com>
- <1479141867.3723362.787321689.4A3DCFD6@webmail.messagingengine.com>
- <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
- <7d8c0210-9132-c755-9053-6ec19409e343@stressinduktion.org>
- <c75290bd-7ea2-0bf8-7ac0-fc5a3c81e312@cumulusnetworks.com>
+From: Paul Menzel <pmenzel@molgen.mpg.de>
+Subject: Re: [PATCH v2 0/2] bnx2: Wait for in-flight DMA to complete at probe
+ stage
+Date: Mon, 14 Nov 2016 18:35:17 +0100
+Message-ID: <b8bbc1a5-f00e-c257-9119-f5e91bd68b59@molgen.mpg.de>
+References: <1479013293-21001-1-git-send-email-bhe@redhat.com>
+ <8010f40d-e7ca-8fd1-7317-f576289c112f@molgen.mpg.de>
+ <20161114.122838.1039215178593568702.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>,
- "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
- WireGuard mailing list <wireguard@lists.zx2c4.com>,
- LKML <linux-kernel@vger.kernel.org>,
- YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <c75290bd-7ea2-0bf8-7ac0-fc5a3c81e312@cumulusnetworks.com>
-List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
-List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
-List-Post: <mailto:wireguard@lists.zx2c4.com>
-List-Help: <mailto:wireguard-request@lists.zx2c4.com?subject=help>
-List-Subscribe: <http://lists.zx2c4.com/mailman/listinfo/wireguard>,
- <mailto:wireguard-request@lists.zx2c4.com?subject=subscribe>
-Errors-To: wireguard-bounces@lists.zx2c4.com
-Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: bhe@redhat.com, netdev@vger.kernel.org, michael.chan@broadcom.com,
+        linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
+        rasesh.mody@cavium.com, harish.patil@cavium.com,
+        frank@undermydesk.org, jsr@dex.edzone.net, jroedel@suse.de,
+        dyoung@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161114.122838.1039215178593568702.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 14.11.2016 18:17, David Ahern wrote:
-> On 11/14/16 10:04 AM, Hannes Frederic Sowa wrote:
->> On 14.11.2016 17:55, David Ahern wrote:
->>> On 11/14/16 9:44 AM, Hannes Frederic Sowa wrote:
->>>> On Mon, Nov 14, 2016, at 00:28, Jason A. Donenfeld wrote:
->>>>> This puts the IPv6 routing functions in parity with the IPv4 routing
->>>>> functions. Namely, we now check in v6 that if a flowi6 requests an
->>>>> saddr, the returned dst actually corresponds to a net device that has
->>>>> that saddr. This mirrors the v4 logic with __ip_dev_find in
->>>>> __ip_route_output_key_hash. In the event that the returned dst is not
->>>>> for a dst with a dev that has the saddr, we return -EINVAL, just like
->>>>> v4; this makes it easy to use the same error handlers for both cases.
->>>>>
->>>>> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
->>>>> Cc: David Ahern <dsa@cumulusnetworks.com>
->>>>> ---
->>>>> Changes from v2:
->>>>>     It turns out ipv6_chk_addr already has the device enumeration
->>>>>     logic that we need by simply passing NULL.
->>>>>
->>>>>  net/ipv6/ip6_output.c | 4 ++++
->>>>>  1 file changed, 4 insertions(+)
->>>>>
->>>>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->>>>> index 6001e78..b3b5cb6 100644
->>>>> --- a/net/ipv6/ip6_output.c
->>>>> +++ b/net/ipv6/ip6_output.c
->>>>> @@ -926,6 +926,10 @@ static int ip6_dst_lookup_tail(struct net *net,
->>>>> const struct sock *sk,
->>>>>  	int err;
->>>>>  	int flags = 0;
->>>>>  
->>>>> +       if (!ipv6_addr_any(&fl6->saddr) &&
->>>>> +           !ipv6_chk_addr(net, &fl6->saddr, NULL, 1))
->>>>> +               return -EINVAL;
->>>>
->>>> Hmm, this check is too permissive, no?
->>>>
->>>> E.g. what happens if you move a link local address from one interface to
->>>> another? In this case this code would still allow the saddr to be used.
+On 11/14/16 18:28, David Miller wrote:
+> From: Paul Menzel <pmenzel@molgen.mpg.de>
+> Date: Mon, 14 Nov 2016 09:25:47 +0100
+
+>> On 11/13/16 06:01, Baoquan He wrote:
+>>> This is v2 post.
 >>>
->>> This check -- like the ipv4 variant -- only verifies the saddr is locally assigned. If the address moves interfaces it should be fine.
->>
->> But in this case we should actually bail out, no?
->>
->> Let's say, user assumes we are on ifindex eth0 with LL address from
->> eth0. Suddenly the LL address from eth0 is moved to eth1, we can't
->> accept this source address anymore and need to return -EINVAL, too.
-> 
-> so you mean if rt6_need_strict(&fl6->saddr) then the dev needs to be considered.
-
-Exactly, like we do in the user space facing APIs.
-
->>>> I just also quickly read up on the history (sorry was travelling last
->>>> week) and wonder if you ever saw a user space facing bug or if this is
->>>> basically some difference you saw while writing out of tree code?
+>>> In commit 3e1be7a ("bnx2: Reset device during driver initialization"),
+>>> firmware requesting code was moved from open stage to probe stage.
+>>> The reason is in kdump kernel hardware iommu need device be reset in
+>>> driver probe stage, otherwise those in-flight DMA from 1st kernel
+>>> will continue going and look up into the newly created io-page tables.
+>>> However bnx2 chip resetting involves firmware requesting issue, that
+>>> need be done in open stage.
 >>>
->>> I checked the userspace API this morning. bind and cmsg for example check that the address is valid with calls to ipv6_chk_addr.
+>>> Michale Chan suggested we can just wait for the old in-flight DMA to
+>>> complete at probe stage, then though without device resetting, we
+>>> don't need to worry the old in-flight DMA could continue looking up
+>>> the newly created io-page tables.
+>>>
+>>> v1->v2:
+>>>     Michael suggested to wait for the in-flight DMA to complete at probe
+>>>     stage. So give up the old method of trying to reset chip at probe
+>>>     stage, take the new way accordingly.
 >>
->> Hmm, so it fixes no real bug.
->>
->> Because of translations of flowi6_oif we actually can't do a correct
->> check of source address for cases like the one I outlined above? Hmm,
->> maybe we should simply depend on user space checks.
-> 
-> I believe Jason's case is forwarding path and the ipv6_stub->ipv6_dst_lookup API.
+>> thank you for posting the updated series. Could you please resend a v3
+>> with stable@vger.kernel.org added [1]?
+>
+> This is not the proper procedure for networking patches.
 
-It is not a kernel API, because we don't support something like that for
-external kernel modules. We basically exported ipv6_dst_lookup to allow
-some IPv4 code to do ipv6 stunts when the IPv6 module is loaded. ;)
+Oh, I didn’t know that. Sorry for spreading false information.
 
-Bye,
-Hannes
+
+Kind regards,
+
+Paul
