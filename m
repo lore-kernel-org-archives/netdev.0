@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V6 7/9] liquidio CN23XX: code cleanup
-Date: Mon, 14 Nov 2016 15:54:45 -0800
-Message-ID: <1479167687-9904-8-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V6 3/9] liquidio CN23XX: Mailbox support
+Date: Mon, 14 Nov 2016 15:54:41 -0800
+Message-ID: <1479167687-9904-4-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1479167687-9904-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,430 +13,585 @@ Cc: <netdev@vger.kernel.org>,
         Felix Manlunas <felix.manlunas@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0070.outbound.protection.outlook.com ([104.47.41.70]:39737
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0072.outbound.protection.outlook.com ([104.47.34.72]:26922
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S965244AbcKOA2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 19:28:10 -0500
+        id S938882AbcKOA2T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 19:28:19 -0500
 In-Reply-To: <1479167687-9904-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cleaned up unnecessary comments and added some minor macros.
+Adds support for mailbox communication between PF and VF.
 
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/cn66xx_device.c   | 13 ++++---------
- drivers/net/ethernet/cavium/liquidio/cn66xx_device.h   |  4 ++--
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c     | 14 ++++----------
- drivers/net/ethernet/cavium/liquidio/lio_main.c        | 16 +++++-----------
- drivers/net/ethernet/cavium/liquidio/liquidio_common.h |  2 --
- drivers/net/ethernet/cavium/liquidio/octeon_device.c   |  8 ++++----
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c     |  2 +-
- drivers/net/ethernet/cavium/liquidio/octeon_droq.h     |  1 -
- drivers/net/ethernet/cavium/liquidio/octeon_iq.h       |  1 -
- drivers/net/ethernet/cavium/liquidio/octeon_main.h     | 18 ------------------
- drivers/net/ethernet/cavium/liquidio/request_manager.c |  7 ++-----
- .../net/ethernet/cavium/liquidio/response_manager.c    |  6 +-----
- .../net/ethernet/cavium/liquidio/response_manager.h    |  1 -
- 13 files changed, 23 insertions(+), 70 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/Makefile      |   1 +
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    |  31 ++
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |   6 +-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   4 +
+ .../net/ethernet/cavium/liquidio/octeon_mailbox.c  | 318 +++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_mailbox.h  | 115 ++++++++
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h |   2 +-
+ 7 files changed, 474 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-index e779af8..1ebc225 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-@@ -275,7 +275,6 @@ void lio_cn6xxx_setup_iq_regs(struct octeon_device *oct, u32 iq_no)
- {
- 	struct octeon_instr_queue *iq = oct->instr_queue[iq_no];
- 
--	/* Disable Packet-by-Packet mode; No Parse Mode or Skip length */
- 	octeon_write_csr64(oct, CN6XXX_SLI_IQ_PKT_INSTR_HDR64(iq_no), 0);
- 
- 	/* Write the start of the input queue's ring and its size  */
-@@ -378,7 +377,7 @@ void lio_cn6xxx_disable_io_queues(struct octeon_device *oct)
- 
- 	/* Reset the doorbell register for each Input queue. */
- 	for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct); i++) {
--		if (!(oct->io_qmask.iq & (1ULL << i)))
-+		if (!(oct->io_qmask.iq & BIT_ULL(i)))
- 			continue;
- 		octeon_write_csr(oct, CN6XXX_SLI_IQ_DOORBELL(i), 0xFFFFFFFF);
- 		d32 = octeon_read_csr(oct, CN6XXX_SLI_IQ_DOORBELL(i));
-@@ -400,9 +399,8 @@ void lio_cn6xxx_disable_io_queues(struct octeon_device *oct)
- 	;
- 
- 	/* Reset the doorbell register for each Output queue. */
--	/* for (i = 0; i < oct->num_oqs; i++) { */
- 	for (i = 0; i < MAX_OCTEON_OUTPUT_QUEUES(oct); i++) {
--		if (!(oct->io_qmask.oq & (1ULL << i)))
-+		if (!(oct->io_qmask.oq & BIT_ULL(i)))
- 			continue;
- 		octeon_write_csr(oct, CN6XXX_SLI_OQ_PKTS_CREDIT(i), 0xFFFFFFFF);
- 		d32 = octeon_read_csr(oct, CN6XXX_SLI_OQ_PKTS_CREDIT(i));
-@@ -537,15 +535,14 @@ static int lio_cn6xxx_process_droq_intr_regs(struct octeon_device *oct)
- 
- 	oct->droq_intr = 0;
- 
--	/* for (oq_no = 0; oq_no < oct->num_oqs; oq_no++) { */
- 	for (oq_no = 0; oq_no < MAX_OCTEON_OUTPUT_QUEUES(oct); oq_no++) {
--		if (!(droq_mask & (1ULL << oq_no)))
-+		if (!(droq_mask & BIT_ULL(oq_no)))
- 			continue;
- 
- 		droq = oct->droq[oq_no];
- 		pkt_count = octeon_droq_check_hw_for_pkts(droq);
- 		if (pkt_count) {
--			oct->droq_intr |= (1ULL << oq_no);
-+			oct->droq_intr |= BIT_ULL(oq_no);
- 			if (droq->ops.poll_mode) {
- 				u32 value;
- 				u32 reg;
-@@ -721,8 +718,6 @@ int lio_setup_cn66xx_octeon_device(struct octeon_device *oct)
- int lio_validate_cn6xxx_config_info(struct octeon_device *oct,
- 				    struct octeon_config *conf6xxx)
- {
--	/* int total_instrs = 0; */
--
- 	if (CFG_GET_IQ_MAX_Q(conf6xxx) > CN6XXX_MAX_INPUT_QUEUES) {
- 		dev_err(&oct->pci_dev->dev, "%s: Num IQ (%d) exceeds Max (%d)\n",
- 			__func__, CFG_GET_IQ_MAX_Q(conf6xxx),
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h
-index a40a913..32fbbb2 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.h
-@@ -96,8 +96,8 @@ void lio_cn6xxx_setup_reg_address(struct octeon_device *oct, void *chip,
- 				  struct octeon_reg_list *reg_list);
- u32 lio_cn6xxx_coprocessor_clock(struct octeon_device *oct);
- u32 lio_cn6xxx_get_oq_ticks(struct octeon_device *oct, u32 time_intr_in_us);
--int lio_setup_cn66xx_octeon_device(struct octeon_device *);
-+int lio_setup_cn66xx_octeon_device(struct octeon_device *oct);
- int lio_validate_cn6xxx_config_info(struct octeon_device *oct,
--				    struct octeon_config *);
-+				    struct octeon_config *conf6xxx);
- 
- #endif
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index f163e0a..1674522 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -757,9 +757,6 @@ static void lio_set_msglevel(struct net_device *netdev, u32 msglvl)
- 	/*sum of oct->instr_queue[iq_no]->stats.tx_dropped */
- 	data[i++] = CVM_CAST64(netstats->tx_dropped);
- 
--	/*data[i++] = CVM_CAST64(stats->multicast); */
--	/*data[i++] = CVM_CAST64(stats->collisions); */
--
- 	/* firmware tx stats */
- 	/*per_core_stats[cvmx_get_core_num()].link_stats[mdata->from_ifidx].
- 	 *fromhost.fw_total_sent
-@@ -910,9 +907,8 @@ static void lio_set_msglevel(struct net_device *netdev, u32 msglvl)
- 	/*lio->link_changes*/
- 	data[i++] = CVM_CAST64(lio->link_changes);
- 
--	/* TX  -- lio_update_stats(lio); */
- 	for (j = 0; j < MAX_OCTEON_INSTR_QUEUES(oct_dev); j++) {
--		if (!(oct_dev->io_qmask.iq & (1ULL << j)))
-+		if (!(oct_dev->io_qmask.iq & BIT_ULL(j)))
- 			continue;
- 		/*packets to network port*/
- 		/*# of packets tx to network */
-@@ -954,9 +950,8 @@ static void lio_set_msglevel(struct net_device *netdev, u32 msglvl)
+diff --git a/drivers/net/ethernet/cavium/liquidio/Makefile b/drivers/net/ethernet/cavium/liquidio/Makefile
+index 5a27b2a..14958de 100644
+--- a/drivers/net/ethernet/cavium/liquidio/Makefile
++++ b/drivers/net/ethernet/cavium/liquidio/Makefile
+@@ -11,6 +11,7 @@ liquidio-$(CONFIG_LIQUIDIO) += lio_ethtool.o \
+ 			cn66xx_device.o    \
+ 			cn68xx_device.o    \
+ 			cn23xx_pf_device.o \
++			octeon_mailbox.o   \
+ 			octeon_mem_ops.o   \
+ 			octeon_droq.o      \
+ 			octeon_nic.o
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+index 201eddb..4997ec2 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+@@ -264,3 +264,34 @@ void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
+ 			nctrl->ncmd.s.cmd);
  	}
- 
- 	/* RX */
--	/* for (j = 0; j < oct_dev->num_oqs; j++) { */
- 	for (j = 0; j < MAX_OCTEON_OUTPUT_QUEUES(oct_dev); j++) {
--		if (!(oct_dev->io_qmask.oq & (1ULL << j)))
-+		if (!(oct_dev->io_qmask.oq & BIT_ULL(j)))
- 			continue;
- 
- 		/*packets send to TCP/IP network stack */
-@@ -1030,7 +1025,7 @@ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 
- 		num_iq_stats = ARRAY_SIZE(oct_iq_stats_strings);
- 		for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct_dev); i++) {
--			if (!(oct_dev->io_qmask.iq & (1ULL << i)))
-+			if (!(oct_dev->io_qmask.iq & BIT_ULL(i)))
- 				continue;
- 			for (j = 0; j < num_iq_stats; j++) {
- 				sprintf(data, "tx-%d-%s", i,
-@@ -1040,9 +1035,8 @@ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 		}
- 
- 		num_oq_stats = ARRAY_SIZE(oct_droq_stats_strings);
--		/* for (i = 0; i < oct_dev->num_oqs; i++) { */
- 		for (i = 0; i < MAX_OCTEON_OUTPUT_QUEUES(oct_dev); i++) {
--			if (!(oct_dev->io_qmask.oq & (1ULL << i)))
-+			if (!(oct_dev->io_qmask.oq & BIT_ULL(i)))
- 				continue;
- 			for (j = 0; j < num_oq_stats; j++) {
- 				sprintf(data, "rx-%d-%s", i,
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 8aa862b..e206323 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -19,10 +19,8 @@
- * This file may also be available under a different license from Cavium.
- * Contact Cavium, Inc. for more information
- **********************************************************************/
--#include <linux/version.h>
- #include <linux/pci.h>
- #include <linux/firmware.h>
--#include <linux/ptp_clock_kernel.h>
- #include <net/vxlan.h>
- #include <linux/kthread.h>
- #include "liquidio_common.h"
-@@ -201,9 +199,8 @@ static void octeon_droq_bh(unsigned long pdev)
- 	struct octeon_device_priv *oct_priv =
- 		(struct octeon_device_priv *)oct->priv;
- 
--	/* for (q_no = 0; q_no < oct->num_oqs; q_no++) { */
- 	for (q_no = 0; q_no < MAX_OCTEON_OUTPUT_QUEUES(oct); q_no++) {
--		if (!(oct->io_qmask.oq & (1ULL << q_no)))
-+		if (!(oct->io_qmask.oq & BIT_ULL(q_no)))
- 			continue;
- 		reschedule |= octeon_droq_process_packets(oct, oct->droq[q_no],
- 							  MAX_PACKET_BUDGET);
-@@ -238,7 +235,7 @@ static int lio_wait_for_oq_pkts(struct octeon_device *oct)
- 		pending_pkts = 0;
- 
- 		for (i = 0; i < MAX_OCTEON_OUTPUT_QUEUES(oct); i++) {
--			if (!(oct->io_qmask.oq & (1ULL << i)))
-+			if (!(oct->io_qmask.oq & BIT_ULL(i)))
- 				continue;
- 			pkt_cnt += octeon_droq_check_hw_for_pkts(oct->droq[i]);
- 		}
-@@ -320,7 +317,7 @@ static inline void pcierror_quiesce_device(struct octeon_device *oct)
- 	for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct); i++) {
- 		struct octeon_instr_queue *iq;
- 
--		if (!(oct->io_qmask.iq & (1ULL << i)))
-+		if (!(oct->io_qmask.iq & BIT_ULL(i)))
- 			continue;
- 		iq = oct->instr_queue[i];
- 
-@@ -386,7 +383,6 @@ static void stop_pci_io(struct octeon_device *oct)
- 	dev_dbg(&oct->pci_dev->dev, "Device state is now %s\n",
- 		lio_get_state_string(&oct->status));
- 
--	/* cn63xx_cleanup_aer_uncorrect_error_status(oct->pci_dev); */
- 	/* making it a common function for all OCTEON models */
- 	cleanup_aer_uncorrect_error_status(oct->pci_dev);
  }
-@@ -941,7 +937,6 @@ static inline void update_link_status(struct net_device *netdev,
- 
- 		if (lio->linfo.link.s.link_up) {
- 			netif_carrier_on(netdev);
--			/* start_txq(netdev); */
- 			txqs_wake(netdev);
- 		} else {
- 			netif_carrier_off(netdev);
-@@ -1019,7 +1014,7 @@ static void liquidio_schedule_droq_pkt_handlers(struct octeon_device *oct)
- 	if (oct->int_status & OCT_DEV_INTR_PKT_DATA) {
- 		for (oq_no = 0; oq_no < MAX_OCTEON_OUTPUT_QUEUES(oct);
- 		     oq_no++) {
--			if (!(oct->droq_intr & (1ULL << oq_no)))
-+			if (!(oct->droq_intr & BIT_ULL(oq_no)))
- 				continue;
- 
- 			droq = oct->droq[oq_no];
-@@ -1468,7 +1463,7 @@ static void octeon_destroy_resources(struct octeon_device *oct)
- 	/* fallthrough */
- 	case OCT_DEV_IN_RESET:
- 	case OCT_DEV_DROQ_INIT_DONE:
--		/*atomic_set(&oct->status, OCT_DEV_DROQ_INIT_DONE);*/
-+		/* Wait for any pending operations */
- 		mdelay(100);
- 		for (i = 0; i < MAX_OCTEON_OUTPUT_QUEUES(oct); i++) {
- 			if (!(oct->io_qmask.oq & BIT_ULL(i)))
-@@ -2461,7 +2456,6 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 		 * Return back if tx_done is false.
- 		 */
- 		update_txq_status(oct, iq_no);
--		/*tx_done = (iq->flush_index == iq->octeon_read_index);*/
- 	} else {
- 		dev_err(&oct->pci_dev->dev, "%s:  iq (%d) num invalid\n",
- 			__func__, iq_no);
++
++void octeon_pf_changed_vf_macaddr(struct octeon_device *oct, u8 *mac)
++{
++	bool macaddr_changed = false;
++	struct net_device *netdev;
++	struct lio *lio;
++
++	rtnl_lock();
++
++	netdev = oct->props[0].netdev;
++	lio = GET_LIO(netdev);
++
++	lio->linfo.macaddr_is_admin_asgnd = true;
++
++	if (!ether_addr_equal(netdev->dev_addr, mac)) {
++		macaddr_changed = true;
++		ether_addr_copy(netdev->dev_addr, mac);
++		ether_addr_copy(((u8 *)&lio->linfo.hw_addr) + 2, mac);
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, netdev);
++	}
++
++	rtnl_unlock();
++
++	if (macaddr_changed)
++		dev_info(&oct->pci_dev->dev,
++			 "PF changed VF's MAC address to %pM\n", mac);
++
++	/* no need to notify the firmware of the macaddr change because
++	 * the PF did that already
++	 */
++}
 diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index edf1282..1d2eba7 100644
+index 0d990ac..caeff9a 100644
 --- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
 +++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -68,8 +68,6 @@ enum octeon_tag_type {
-  */
- #define OPCODE_CORE 0           /* used for generic core operations */
- #define OPCODE_NIC  1           /* used for NIC operations */
--#define OPCODE_LAST OPCODE_NIC
--
- /* Subcodes are used by host driver/apps to identify the sub-operation
-  * for the core. They only need to by unique for a given subsystem.
-  */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 295e2ca..278c880 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -649,12 +649,12 @@ void octeon_free_device_mem(struct octeon_device *oct)
- 	int i;
+@@ -731,13 +731,15 @@ struct oct_link_info {
  
- 	for (i = 0; i < MAX_OCTEON_OUTPUT_QUEUES(oct); i++) {
--		if (oct->io_qmask.oq & (1ULL << i))
-+		if (oct->io_qmask.oq & BIT_ULL(i))
- 			vfree(oct->droq[i]);
- 	}
+ #ifdef __BIG_ENDIAN_BITFIELD
+ 	u64 gmxport:16;
+-	u64 rsvd:32;
++	u64 macaddr_is_admin_asgnd:1;
++	u64 rsvd:31;
+ 	u64 num_txpciq:8;
+ 	u64 num_rxpciq:8;
+ #else
+ 	u64 num_rxpciq:8;
+ 	u64 num_txpciq:8;
+-	u64 rsvd:32;
++	u64 rsvd:31;
++	u64 macaddr_is_admin_asgnd:1;
+ 	u64 gmxport:16;
+ #endif
  
- 	for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct); i++) {
--		if (oct->io_qmask.iq & (1ULL << i))
-+		if (oct->io_qmask.iq & BIT_ULL(i))
- 			vfree(oct->instr_queue[i]);
- 	}
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index cfd12ec..77a6eb7 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -492,6 +492,9 @@ struct octeon_device {
  
-@@ -1148,7 +1148,7 @@ int octeon_get_tx_qsize(struct octeon_device *oct, u32 q_no)
+ 	int msix_on;
  
- {
- 	if (oct && (q_no < MAX_OCTEON_INSTR_QUEUES(oct)) &&
--	    (oct->io_qmask.iq & (1ULL << q_no)))
-+	    (oct->io_qmask.iq & BIT_ULL(q_no)))
- 		return oct->instr_queue[q_no]->max_count;
++	/** Mail Box details of each octeon queue. */
++	struct octeon_mbox  *mbox[MAX_POSSIBLE_VFS];
++
+ 	/** IOq information of it's corresponding MSI-X interrupt. */
+ 	struct octeon_ioq_vector    *ioq_vector;
  
- 	return -1;
-@@ -1157,7 +1157,7 @@ int octeon_get_tx_qsize(struct octeon_device *oct, u32 q_no)
- int octeon_get_rx_qsize(struct octeon_device *oct, u32 q_no)
- {
- 	if (oct && (q_no < MAX_OCTEON_OUTPUT_QUEUES(oct)) &&
--	    (oct->io_qmask.oq & (1ULL << q_no)))
-+	    (oct->io_qmask.oq & BIT_ULL(q_no)))
- 		return oct->droq[q_no]->max_count;
- 	return -1;
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-index 886987f..8f6fc95 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-@@ -337,7 +337,7 @@ int octeon_init_droq(struct octeon_device *oct,
- 	/* For 56xx Pass1, this function won't be called, so no checks. */
- 	oct->fn_list.setup_oq_regs(oct, q_no);
+@@ -511,6 +514,7 @@ struct octeon_device {
+ #define  OCTEON_CN6XXX(oct)           ((oct->chip_id == OCTEON_CN66XX) || \
+ 				       (oct->chip_id == OCTEON_CN68XX))
+ #define  OCTEON_CN23XX_PF(oct)        (oct->chip_id == OCTEON_CN23XX_PF_VID)
++#define  OCTEON_CN23XX_VF(oct)        ((oct)->chip_id == OCTEON_CN23XX_VF_VID)
+ #define CHIP_FIELD(oct, TYPE, field)             \
+ 	(((struct octeon_ ## TYPE  *)(oct->chip))->field)
  
--	oct->io_qmask.oq |= (1ULL << q_no);
-+	oct->io_qmask.oq |= BIT_ULL(q_no);
- 
- 	return 0;
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-index 5be002d..d591f5f 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-@@ -121,7 +121,6 @@ struct oct_droq_stats {
- 	/** Num of Packets dropped due to receive path failures. */
- 	u64 rx_dropped;
- 
--	/** Num of vxlan packets received; */
- 	u64 rx_vxlan;
- 
- 	/** Num of failures of recv_buffer_alloc() */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-index e4d426b..b493e67 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-@@ -69,7 +69,6 @@ struct oct_iq_stats {
- 	u64 tx_vxlan; /* tunnel */
- 	u64 tx_dmamap_fail;
- 	u64 tx_restart;
--	/*u64 tx_timeout_count;*/
- };
- 
- #define OCT_IQ_STATS_SIZE   (sizeof(struct oct_iq_stats))
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+new file mode 100644
+index 0000000..5309384
+--- /dev/null
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.c
+@@ -0,0 +1,318 @@
++/**********************************************************************
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++#include "liquidio_common.h"
++#include "octeon_droq.h"
++#include "octeon_iq.h"
++#include "response_manager.h"
++#include "octeon_device.h"
++#include "octeon_main.h"
++#include "octeon_mailbox.h"
++
++/**
++ * octeon_mbox_read:
++ * @oct: Pointer mailbox
++ *
++ * Reads the 8-bytes of data from the mbox register
++ * Writes back the acknowldgement inidcating completion of read
++ */
++int octeon_mbox_read(struct octeon_mbox *mbox)
++{
++	union octeon_mbox_message msg;
++	int ret = 0;
++
++	spin_lock(&mbox->lock);
++
++	msg.u64 = readq(mbox->mbox_read_reg);
++
++	if ((msg.u64 == OCTEON_PFVFACK) || (msg.u64 == OCTEON_PFVFSIG)) {
++		spin_unlock(&mbox->lock);
++		return 0;
++	}
++
++	if (mbox->state & OCTEON_MBOX_STATE_REQUEST_RECEIVING) {
++		mbox->mbox_req.data[mbox->mbox_req.recv_len - 1] = msg.u64;
++		mbox->mbox_req.recv_len++;
++	} else {
++		if (mbox->state & OCTEON_MBOX_STATE_RESPONSE_RECEIVING) {
++			mbox->mbox_resp.data[mbox->mbox_resp.recv_len - 1] =
++				msg.u64;
++			mbox->mbox_resp.recv_len++;
++		} else {
++			if ((mbox->state & OCTEON_MBOX_STATE_IDLE) &&
++			    (msg.s.type == OCTEON_MBOX_REQUEST)) {
++				mbox->state &= ~OCTEON_MBOX_STATE_IDLE;
++				mbox->state |=
++				    OCTEON_MBOX_STATE_REQUEST_RECEIVING;
++				mbox->mbox_req.msg.u64 = msg.u64;
++				mbox->mbox_req.q_no = mbox->q_no;
++				mbox->mbox_req.recv_len = 1;
++			} else {
++				if ((mbox->state &
++				     OCTEON_MBOX_STATE_RESPONSE_PENDING) &&
++				    (msg.s.type == OCTEON_MBOX_RESPONSE)) {
++					mbox->state &=
++					    ~OCTEON_MBOX_STATE_RESPONSE_PENDING;
++					mbox->state |=
++					    OCTEON_MBOX_STATE_RESPONSE_RECEIVING
++					    ;
++					mbox->mbox_resp.msg.u64 = msg.u64;
++					mbox->mbox_resp.q_no = mbox->q_no;
++					mbox->mbox_resp.recv_len = 1;
++				} else {
++					writeq(OCTEON_PFVFERR,
++					       mbox->mbox_read_reg);
++					mbox->state |= OCTEON_MBOX_STATE_ERROR;
++					spin_unlock(&mbox->lock);
++					return 1;
++				}
++			}
++		}
++	}
++
++	if (mbox->state & OCTEON_MBOX_STATE_REQUEST_RECEIVING) {
++		if (mbox->mbox_req.recv_len < msg.s.len) {
++			ret = 0;
++		} else {
++			mbox->state &= ~OCTEON_MBOX_STATE_REQUEST_RECEIVING;
++			mbox->state |= OCTEON_MBOX_STATE_REQUEST_RECEIVED;
++			ret = 1;
++		}
++	} else {
++		if (mbox->state & OCTEON_MBOX_STATE_RESPONSE_RECEIVING) {
++			if (mbox->mbox_resp.recv_len < msg.s.len) {
++				ret = 0;
++			} else {
++				mbox->state &=
++				    ~OCTEON_MBOX_STATE_RESPONSE_RECEIVING;
++				mbox->state |=
++				    OCTEON_MBOX_STATE_RESPONSE_RECEIVED;
++				ret = 1;
++			}
++		} else {
++			WARN_ON(1);
++		}
++	}
++
++	writeq(OCTEON_PFVFACK, mbox->mbox_read_reg);
++
++	spin_unlock(&mbox->lock);
++
++	return ret;
++}
++
++/**
++ * octeon_mbox_write:
++ * @oct: Pointer Octeon Device
++ * @mbox_cmd: Cmd to send to mailbox.
++ *
++ * Populates the queue specific mbox structure
++ * with cmd information.
++ * Write the cmd to mbox register
++ */
++int octeon_mbox_write(struct octeon_device *oct,
++		      struct octeon_mbox_cmd *mbox_cmd)
++{
++	struct octeon_mbox *mbox = oct->mbox[mbox_cmd->q_no];
++	u32 count, i, ret = OCTEON_MBOX_STATUS_SUCCESS;
++	unsigned long flags;
++
++	spin_lock_irqsave(&mbox->lock, flags);
++
++	if ((mbox_cmd->msg.s.type == OCTEON_MBOX_RESPONSE) &&
++	    !(mbox->state & OCTEON_MBOX_STATE_REQUEST_RECEIVED)) {
++		spin_unlock_irqrestore(&mbox->lock, flags);
++		return OCTEON_MBOX_STATUS_FAILED;
++	}
++
++	if ((mbox_cmd->msg.s.type == OCTEON_MBOX_REQUEST) &&
++	    !(mbox->state & OCTEON_MBOX_STATE_IDLE)) {
++		spin_unlock_irqrestore(&mbox->lock, flags);
++		return OCTEON_MBOX_STATUS_BUSY;
++	}
++
++	if (mbox_cmd->msg.s.type == OCTEON_MBOX_REQUEST) {
++		memcpy(&mbox->mbox_resp, mbox_cmd,
++		       sizeof(struct octeon_mbox_cmd));
++		mbox->state = OCTEON_MBOX_STATE_RESPONSE_PENDING;
++	}
++
++	spin_unlock_irqrestore(&mbox->lock, flags);
++
++	count = 0;
++
++	while (readq(mbox->mbox_write_reg) != OCTEON_PFVFSIG) {
++		schedule_timeout_uninterruptible(LIO_MBOX_WRITE_WAIT_TIME);
++		if (count++ == LIO_MBOX_WRITE_WAIT_CNT) {
++			ret = OCTEON_MBOX_STATUS_FAILED;
++			break;
++		}
++	}
++
++	if (ret == OCTEON_MBOX_STATUS_SUCCESS) {
++		writeq(mbox_cmd->msg.u64, mbox->mbox_write_reg);
++		for (i = 0; i < (u32)(mbox_cmd->msg.s.len - 1); i++) {
++			count = 0;
++			while (readq(mbox->mbox_write_reg) !=
++			       OCTEON_PFVFACK) {
++				schedule_timeout_uninterruptible(10);
++				if (count++ == LIO_MBOX_WRITE_WAIT_CNT) {
++					ret = OCTEON_MBOX_STATUS_FAILED;
++					break;
++				}
++			}
++			writeq(mbox_cmd->data[i], mbox->mbox_write_reg);
++		}
++	}
++
++	spin_lock_irqsave(&mbox->lock, flags);
++	if (mbox_cmd->msg.s.type == OCTEON_MBOX_RESPONSE) {
++		mbox->state = OCTEON_MBOX_STATE_IDLE;
++		writeq(OCTEON_PFVFSIG, mbox->mbox_read_reg);
++	} else {
++		if ((!mbox_cmd->msg.s.resp_needed) ||
++		    (ret == OCTEON_MBOX_STATUS_FAILED)) {
++			mbox->state &= ~OCTEON_MBOX_STATE_RESPONSE_PENDING;
++			if (!(mbox->state &
++			      (OCTEON_MBOX_STATE_REQUEST_RECEIVING |
++			       OCTEON_MBOX_STATE_REQUEST_RECEIVED)))
++				mbox->state = OCTEON_MBOX_STATE_IDLE;
++		}
++	}
++	spin_unlock_irqrestore(&mbox->lock, flags);
++
++	return ret;
++}
++
++/**
++ * octeon_mbox_process_cmd:
++ * @mbox: Pointer mailbox
++ * @mbox_cmd: Pointer to command received
++ *
++ * Process the cmd received in mbox
++ */
++static int octeon_mbox_process_cmd(struct octeon_mbox *mbox,
++				   struct octeon_mbox_cmd *mbox_cmd)
++{
++	struct octeon_device *oct = mbox->oct_dev;
++
++	switch (mbox_cmd->msg.s.cmd) {
++	case OCTEON_VF_ACTIVE:
++		dev_dbg(&oct->pci_dev->dev, "got vfactive sending data back\n");
++		mbox_cmd->msg.s.type = OCTEON_MBOX_RESPONSE;
++		mbox_cmd->msg.s.resp_needed = 1;
++		mbox_cmd->msg.s.len = 2;
++		mbox_cmd->data[0] = 0; /* VF version is in mbox_cmd->data[0] */
++		((struct lio_version *)&mbox_cmd->data[0])->major =
++			LIQUIDIO_BASE_MAJOR_VERSION;
++		((struct lio_version *)&mbox_cmd->data[0])->minor =
++			LIQUIDIO_BASE_MINOR_VERSION;
++		((struct lio_version *)&mbox_cmd->data[0])->micro =
++			LIQUIDIO_BASE_MICRO_VERSION;
++		memcpy(mbox_cmd->msg.s.params, (uint8_t *)&oct->pfvf_hsword, 6);
++		/* Sending core cofig info to the corresponding active VF.*/
++		octeon_mbox_write(oct, mbox_cmd);
++		break;
++
++	case OCTEON_VF_FLR_REQUEST:
++		dev_info(&oct->pci_dev->dev,
++			 "got a request for FLR from VF that owns DPI ring %u\n",
++			 mbox->q_no);
++		pcie_capability_set_word(
++			oct->sriov_info.dpiring_to_vfpcidev_lut[mbox->q_no],
++			PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_BCR_FLR);
++		break;
++
++	case OCTEON_PF_CHANGED_VF_MACADDR:
++		if (OCTEON_CN23XX_VF(oct))
++			octeon_pf_changed_vf_macaddr(oct,
++						     mbox_cmd->msg.s.params);
++		break;
++
++	default:
++		break;
++	}
++	return 0;
++}
++
++/**
++ *octeon_mbox_process_message:
++ *
++ * Process the received mbox message.
++ */
++int octeon_mbox_process_message(struct octeon_mbox *mbox)
++{
++	struct octeon_mbox_cmd mbox_cmd;
++	unsigned long flags;
++
++	spin_lock_irqsave(&mbox->lock, flags);
++
++	if (mbox->state & OCTEON_MBOX_STATE_ERROR) {
++		if (mbox->state & (OCTEON_MBOX_STATE_RESPONSE_PENDING |
++				   OCTEON_MBOX_STATE_RESPONSE_RECEIVING)) {
++			memcpy(&mbox_cmd, &mbox->mbox_resp,
++			       sizeof(struct octeon_mbox_cmd));
++			mbox->state = OCTEON_MBOX_STATE_IDLE;
++			writeq(OCTEON_PFVFSIG, mbox->mbox_read_reg);
++			spin_unlock_irqrestore(&mbox->lock, flags);
++			mbox_cmd.recv_status = 1;
++			if (mbox_cmd.fn)
++				mbox_cmd.fn(mbox->oct_dev, &mbox_cmd,
++					    mbox_cmd.fn_arg);
++			return 0;
++		}
++
++		mbox->state = OCTEON_MBOX_STATE_IDLE;
++		writeq(OCTEON_PFVFSIG, mbox->mbox_read_reg);
++		spin_unlock_irqrestore(&mbox->lock, flags);
++		return 0;
++	}
++
++	if (mbox->state & OCTEON_MBOX_STATE_RESPONSE_RECEIVED) {
++		memcpy(&mbox_cmd, &mbox->mbox_resp,
++		       sizeof(struct octeon_mbox_cmd));
++		mbox->state = OCTEON_MBOX_STATE_IDLE;
++		writeq(OCTEON_PFVFSIG, mbox->mbox_read_reg);
++		spin_unlock_irqrestore(&mbox->lock, flags);
++		mbox_cmd.recv_status = 0;
++		if (mbox_cmd.fn)
++			mbox_cmd.fn(mbox->oct_dev, &mbox_cmd, mbox_cmd.fn_arg);
++		return 0;
++	}
++
++	if (mbox->state & OCTEON_MBOX_STATE_REQUEST_RECEIVED) {
++		memcpy(&mbox_cmd, &mbox->mbox_req,
++		       sizeof(struct octeon_mbox_cmd));
++		if (!mbox_cmd.msg.s.resp_needed) {
++			mbox->state &= ~OCTEON_MBOX_STATE_REQUEST_RECEIVED;
++			if (!(mbox->state &&
++			      OCTEON_MBOX_STATE_RESPONSE_PENDING))
++				mbox->state = OCTEON_MBOX_STATE_IDLE;
++			writeq(OCTEON_PFVFSIG, mbox->mbox_read_reg);
++		}
++
++		spin_unlock_irqrestore(&mbox->lock, flags);
++		octeon_mbox_process_cmd(mbox, &mbox_cmd);
++		return 0;
++	}
++
++	WARN_ON(1);
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+new file mode 100644
+index 0000000..fe60a3e
+--- /dev/null
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mailbox.h
+@@ -0,0 +1,115 @@
++/**********************************************************************
++ * Author: Cavium, Inc.
++ *
++ * Contact: support@cavium.com
++ *          Please include "LiquidIO" in the subject.
++ *
++ * Copyright (c) 2003-2016 Cavium, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, Version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++ * NONINFRINGEMENT.  See the GNU General Public License for more details.
++ ***********************************************************************/
++#ifndef __MAILBOX_H__
++#define __MAILBOX_H__
++
++/* Macros for Mail Box Communication */
++
++#define OCTEON_MBOX_DATA_MAX	32
++
++#define OCTEON_VF_ACTIVE		0x1
++#define OCTEON_VF_FLR_REQUEST		0x2
++#define OCTEON_PF_CHANGED_VF_MACADDR	0x4
++
++/*Macro for Read acknowldgement*/
++#define OCTEON_PFVFACK			0xffffffffffffffff
++#define OCTEON_PFVFSIG			0x1122334455667788
++#define OCTEON_PFVFERR			0xDEADDEADDEADDEAD
++
++#define LIO_MBOX_WRITE_WAIT_CNT          1000
++#define LIO_MBOX_WRITE_WAIT_TIME           10
++
++enum octeon_mbox_cmd_status {
++	OCTEON_MBOX_STATUS_SUCCESS = 0,
++	OCTEON_MBOX_STATUS_FAILED = 1,
++	OCTEON_MBOX_STATUS_BUSY = 2
++};
++
++enum octeon_mbox_message_type {
++	OCTEON_MBOX_REQUEST = 0,
++	OCTEON_MBOX_RESPONSE = 1
++};
++
++union octeon_mbox_message {
++	u64 u64;
++	struct {
++		u16 type : 1;
++		u16 resp_needed : 1;
++		u16 cmd : 6;
++		u16 len : 8;
++		u8 params[6];
++	} s;
++};
++
++typedef void (*octeon_mbox_callback_t)(void *, void *, void *);
++
++struct octeon_mbox_cmd {
++	union octeon_mbox_message msg;
++	u64 data[OCTEON_MBOX_DATA_MAX];
++	u32 q_no;
++	u32 recv_len;
++	u32 recv_status;
++	octeon_mbox_callback_t fn;
++	void *fn_arg;
++};
++
++enum octeon_mbox_state {
++	OCTEON_MBOX_STATE_IDLE = 1,
++	OCTEON_MBOX_STATE_REQUEST_RECEIVING = 2,
++	OCTEON_MBOX_STATE_REQUEST_RECEIVED = 4,
++	OCTEON_MBOX_STATE_RESPONSE_PENDING = 8,
++	OCTEON_MBOX_STATE_RESPONSE_RECEIVING = 16,
++	OCTEON_MBOX_STATE_RESPONSE_RECEIVED = 16,
++	OCTEON_MBOX_STATE_ERROR = 32
++};
++
++struct octeon_mbox {
++	/** A spinlock to protect access to this q_mbox. */
++	spinlock_t lock;
++
++	struct octeon_device *oct_dev;
++
++	u32 q_no;
++
++	enum octeon_mbox_state state;
++
++	struct cavium_wk mbox_poll_wk;
++
++	/** SLI_MAC_PF_MBOX_INT for PF, SLI_PKT_MBOX_INT for VF. */
++	void *mbox_int_reg;
++
++	/** SLI_PKT_PF_VF_MBOX_SIG(0) for PF, SLI_PKT_PF_VF_MBOX_SIG(1) for VF.
++	 */
++	void *mbox_write_reg;
++
++	/** SLI_PKT_PF_VF_MBOX_SIG(1) for PF, SLI_PKT_PF_VF_MBOX_SIG(0) for VF.
++	 */
++	void *mbox_read_reg;
++
++	struct octeon_mbox_cmd mbox_req;
++
++	struct octeon_mbox_cmd mbox_resp;
++
++};
++
++int octeon_mbox_read(struct octeon_mbox *mbox);
++int octeon_mbox_write(struct octeon_device *oct,
++		      struct octeon_mbox_cmd *mbox_cmd);
++int octeon_mbox_process_message(struct octeon_mbox *mbox);
++
++#endif
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_main.h b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-index 3afa61e..db86c63 100644
+index 366298f..3cddf28 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_main.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-@@ -207,24 +207,6 @@ static inline int octeon_map_pci_barx(struct octeon_device *oct,
- 	return errno;
- }
- 
--static inline void
--sleep_atomic_cond(wait_queue_head_t *waitq, atomic_t *pcond)
--{
--	wait_queue_t we;
+@@ -66,7 +66,7 @@ void octeon_update_tx_completion_counters(void *buf, int reqtype,
+ 					  unsigned int *bytes_compl);
+ void octeon_report_tx_completion_to_bql(void *txq, unsigned int pkts_compl,
+ 					unsigned int bytes_compl);
 -
--	init_waitqueue_entry(&we, current);
--	add_wait_queue(waitq, &we);
--	while (!atomic_read(pcond)) {
--		set_current_state(TASK_INTERRUPTIBLE);
--		if (signal_pending(current))
--			goto out;
--		schedule();
--	}
--out:
--	set_current_state(TASK_RUNNING);
--	remove_wait_queue(waitq, &we);
--}
--
- /* Gives up the CPU for a timeout period.
-  * Check that the condition is not true before we go to sleep for a
-  * timeout period.
-diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-index a73560c..f6e1616 100644
---- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
-+++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-@@ -145,7 +145,7 @@ int octeon_init_instr_queue(struct octeon_device *oct,
- 
- 	spin_lock_init(&iq->iq_flush_running_lock);
- 
--	oct->io_qmask.iq |= (1ULL << iq_no);
-+	oct->io_qmask.iq |= BIT_ULL(iq_no);
- 
- 	/* Set the 32B/64B mode for each input queue */
- 	oct->io_qmask.iq64B |= ((conf->instr_type == 64) << iq_no);
-@@ -252,9 +252,8 @@ int lio_wait_for_instr_fetch(struct octeon_device *oct)
- 	do {
- 		instr_cnt = 0;
- 
--		/*for (i = 0; i < oct->num_iqs; i++) {*/
- 		for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct); i++) {
--			if (!(oct->io_qmask.iq & (1ULL << i)))
-+			if (!(oct->io_qmask.iq & BIT_ULL(i)))
- 				continue;
- 			pending =
- 			    atomic_read(&oct->
-@@ -579,8 +578,6 @@ static void check_db_timeout(struct work_struct *work)
- 	/* This is only done here to expedite packets being flushed
- 	 * for cases where there are no IQ completion interrupts.
- 	 */
--	/*if (iq->do_auto_flush)*/
--	/*	octeon_flush_iq(oct, iq, 2, 0);*/
- 
- 	return st.status;
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/response_manager.c b/drivers/net/ethernet/cavium/liquidio/response_manager.c
-index be52178d..9e496c1 100644
---- a/drivers/net/ethernet/cavium/liquidio/response_manager.c
-+++ b/drivers/net/ethernet/cavium/liquidio/response_manager.c
-@@ -81,11 +81,7 @@ int lio_process_ordered_list(struct octeon_device *octeon_dev,
- 		spin_lock_bh(&ordered_sc_list->lock);
- 
- 		if (ordered_sc_list->head.next == &ordered_sc_list->head) {
--			/* ordered_sc_list is empty; there is
--			 * nothing to process
--			 */
--			spin_unlock_bh
--			    (&ordered_sc_list->lock);
-+			spin_unlock_bh(&ordered_sc_list->lock);
- 			return 1;
- 		}
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/response_manager.h b/drivers/net/ethernet/cavium/liquidio/response_manager.h
-index 7a48752..d377faf 100644
---- a/drivers/net/ethernet/cavium/liquidio/response_manager.h
-+++ b/drivers/net/ethernet/cavium/liquidio/response_manager.h
-@@ -85,7 +85,6 @@ enum {
- /**  A value of 0x00000000 indicates no error i.e. success */
- #define DRIVER_ERROR_NONE                 0x00000000
- 
--/**  (Major number: 0x0000; Minor Number: 0x0001) */
- #define DRIVER_ERROR_REQ_PENDING          0x00000001
- #define DRIVER_ERROR_REQ_TIMEOUT          0x00000003
- #define DRIVER_ERROR_REQ_EINTR            0x00000004
++void octeon_pf_changed_vf_macaddr(struct octeon_device *oct, u8 *mac);
+ /** Swap 8B blocks */
+ static inline void octeon_swap_8B_data(u64 *data, u32 blocks)
+ {
 -- 
 1.8.3.1
