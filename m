@@ -1,129 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] ptr_ring_ll: pop/push multiple objects at once
-Date: Tue, 15 Nov 2016 01:06:46 +0200
-Message-ID: <20161115010140-mutt-send-email-mst@kernel.org>
-References: <20161111043857.1547.70337.stgit@john-Precision-Tower-5810>
- <20161111044432.1547.65342.stgit@john-Precision-Tower-5810>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Long delays creating a netns after deleting one (possibly RCU
+ related)
+Date: Mon, 14 Nov 2016 15:09:27 -0800
+Message-ID: <1479164967.8455.87.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
+         <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
+         <20161110212404.GB4127@linux.vnet.ibm.com>
+         <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
+         <20161112002347.GL4127@linux.vnet.ibm.com>
+         <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
+         <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com>
+         <20161114162417.GJ4127@linux.vnet.ibm.com>
+         <CAM_iQpXL+JaVG86+h2ucYs4Dm0zJKHq+4Nm+gk75wESGOzTmJQ@mail.gmail.com>
+         <20161114181425.GN4127@linux.vnet.ibm.com> <87y40lhfrt.fsf@xmission.com>
+         <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161111044432.1547.65342.stgit@john-Precision-Tower-5810>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Justin Cormack <justin.cormack@docker.com>,
+        Ian Campbell <ian.campbell@docker.com>,
+        Eric Dumazet <edumazet@google.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33268 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934108AbcKNXJa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 18:09:30 -0500
+In-Reply-To: <1479163571.8455.83.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 10, 2016 at 08:44:32PM -0800, John Fastabend wrote:
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-
-This will naturally reduce the cache line bounce
-costs, but so will a _many API for ptr-ring,
-doing lock-add many-unlock.
-
-the number of atomics also scales better with the lock:
-one per push instead of one per queue.
-
-Also, when can qdisc use a _many operation?
-
-
-> ---
->  include/linux/ptr_ring_ll.h |   22 ++++++++++++++++------
->  include/linux/skb_array.h   |   11 +++++++++--
->  net/sched/sch_generic.c     |    2 +-
->  3 files changed, 26 insertions(+), 9 deletions(-)
+On Mon, 2016-11-14 at 14:46 -0800, Eric Dumazet wrote:
+> On Mon, 2016-11-14 at 16:12 -0600, Eric W. Biederman wrote:
 > 
-> diff --git a/include/linux/ptr_ring_ll.h b/include/linux/ptr_ring_ll.h
-> index bcb11f3..5dc25f7 100644
-> --- a/include/linux/ptr_ring_ll.h
-> +++ b/include/linux/ptr_ring_ll.h
-> @@ -45,9 +45,10 @@ struct ptr_ring_ll {
->  /* Note: callers invoking this in a loop must use a compiler barrier,
->   * for example cpu_relax(). Callers must hold producer_lock.
->   */
-> -static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void *ptr)
-> +static inline int __ptr_ring_ll_produce_many(struct ptr_ring_ll *r,
-> +					     void **ptr, int num)
->  {
-> -	u32 ret, head, tail, next, slots, mask;
-> +	u32 ret, head, tail, next, slots, mask, i;
->  
->  	do {
->  		head = READ_ONCE(r->prod_head);
-> @@ -55,21 +56,30 @@ static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void *ptr)
->  		tail = READ_ONCE(r->cons_tail);
->  
->  		slots = mask + tail - head;
-> -		if (slots < 1)
-> +		if (slots < num)
-> +			num = slots;
-> +
-> +		if (unlikely(!num))
->  			return -ENOMEM;
->  
-> -		next = head + 1;
-> +		next = head + num;
->  		ret = cmpxchg(&r->prod_head, head, next);
->  	} while (ret != head);
->  
-> -	r->queue[head & mask] = ptr;
-> +	for (i = 0; i < num; i++)
-> +		r->queue[(head + i) & mask] = ptr[i];
->  	smp_wmb();
->  
->  	while (r->prod_tail != head)
->  		cpu_relax();
->  
->  	r->prod_tail = next;
-> -	return 0;
-> +	return num;
-> +}
-> +
-> +static inline int __ptr_ring_ll_produce(struct ptr_ring_ll *r, void **ptr)
-> +{
-> +	return __ptr_ring_ll_produce_many(r, ptr, 1);
->  }
->  
->  static inline void *__ptr_ring_ll_consume(struct ptr_ring_ll *r)
-> diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-> index 9b43dfd..de3c700 100644
-> --- a/include/linux/skb_array.h
-> +++ b/include/linux/skb_array.h
-> @@ -48,9 +48,16 @@ static inline bool skb_array_full(struct skb_array *a)
->  	return ptr_ring_full(&a->ring);
->  }
->  
-> -static inline int skb_array_ll_produce(struct skb_array_ll *a, struct sk_buff *skb)
-> +static inline int skb_array_ll_produce_many(struct skb_array_ll *a,
-> +					    struct sk_buff **skb, int num)
->  {
-> -	return __ptr_ring_ll_produce(&a->ring, skb);
-> +	return __ptr_ring_ll_produce_many(&a->ring, (void **)skb, num);
-> +}
-> +
-> +static inline int skb_array_ll_produce(struct skb_array_ll *a,
-> +				       struct sk_buff **skb)
-> +{
-> +	return __ptr_ring_ll_produce(&a->ring, (void **)skb);
->  }
->  
->  static inline int skb_array_produce(struct skb_array *a, struct sk_buff *skb)
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 4648ec8..58f2011 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -571,7 +571,7 @@ static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
->  	struct skb_array_ll *q = band2list(priv, band);
->  	int err;
->  
-> -	err = skb_array_ll_produce(q, skb);
-> +	err = skb_array_ll_produce(q, &skb);
->  
->  	if (unlikely(err)) {
->  		net_warn_ratelimited("drop a packet from fast enqueue\n");
+> > synchronize_rcu_expidited is not enough if you have multiple network
+> > devices in play.
+> > 
+> > Looking at the code it comes down to this commit, and it appears there
+> > is a promise add rcu grace period combining by Eric Dumazet.
+> > 
+> > Eric since people are hitting noticable stalls because of the rcu grace
+> > period taking a long time do you think you could look at this code path
+> > a bit more?
+> > 
+> > commit 93d05d4a320cb16712bb3d57a9658f395d8cecb9
+> > Author: Eric Dumazet <edumazet@google.com>
+> > Date:   Wed Nov 18 06:31:03 2015 -0800
+> 
+> Absolutely, I will take a loop asap.
 
-I don't see a pop many operation here.
+The worst offender should be fixed by the following patch.
 
--- 
-MST
+busy poll needs to poll the physical device, not a virtual one...
+
+diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
+index d15214d673b2e8e08fd6437b572278fb1359f10d..2a1abbf8da74368cd01adc40cef6c0644e059ef2 100644
+--- a/include/net/gro_cells.h
++++ b/include/net/gro_cells.h
+@@ -68,6 +68,9 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
+ 		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
+ 
+ 		__skb_queue_head_init(&cell->napi_skbs);
++
++		set_bit(NAPI_STATE_NO_BUSY_POLL, &cell->napi.state);
++
+ 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
+ 		napi_enable(&cell->napi);
+ 	}
