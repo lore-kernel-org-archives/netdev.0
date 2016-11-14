@@ -1,26 +1,36 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH 3/5] net: thunderx: Fix configuration of L3/L4 length checking
-Date: Mon, 14 Nov 2016 22:56:12 +0530
-Message-ID: <CA+sq2CfTTvFbkBaLW5sHt1CHr0DjwyV12aho5hHYbvkDiR_ZCQ@mail.gmail.com>
-References: <1479120886-13425-1-git-send-email-sunil.kovvuri@gmail.com>
- <1479120886-13425-4-git-send-email-sunil.kovvuri@gmail.com> <20161114123350.GA2449@Red>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 2/2] r8152: rx descriptor check
+Date: Mon, 14 Nov 2016 12:27:44 -0500 (EST)
+Message-ID: <20161114.122744.544066951483789132.davem@davemloft.net>
+References: <20161113.123954.2134945576362221851.davem@davemloft.net>
+        <cd36fce8-2f17-debd-d514-e3cbe7ed3762@pobox.com>
+        <0835B3720019904CB8F7AA43166CEEB20104EBCC@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Sunil Goutham <sgoutham@cavium.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        LAKML <linux-arm-kernel@lists.infradead.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37455 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754867AbcKNR0P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 12:26:15 -0500
-In-Reply-To: <20161114123350.GA2449@Red>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mlord@pobox.com, netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB20104EBCC@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>You could use the BIT() macro here
-Thanks, will change and resubmit.
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 14 Nov 2016 07:23:51 +0000
 
-Sunil.
+> Mark Lord [mailto:mlord@pobox.com]
+>> Sent: Monday, November 14, 2016 4:34 AM
+> [...]
+>> Perhaps the driver
+>> is somehow accessing the buffer space again after doing usb_submit_urb()?
+>> That would certainly produce this kind of behaviour.
+> 
+> I don't think so. First, the driver only read the received buffer.
+> That is, the driver would not change (or write) the data. Second,
+> The driver would lose the point address of the received buffer
+> after submitting the urb to the USB host controller, until the
+> transfer is completed by the USB host controller. That is, the
+> driver doesn't how to access the buffer after calling usb_submit_urb().
+
+This is why it's most likely some DMA implementation issue or similar.
