@@ -1,104 +1,64 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
-Date: Mon, 14 Nov 2016 21:51:23 +0100
-Message-ID: <582A23CB.5080506@digikod.net>
-References: <20161026065654.19166-1-mic@digikod.net>
- <5828776A.1010104@digikod.net>
- <CAMp4zn8u3kg-nhiZ5rSUCLGveAzHr6FoP1x=iJasF2W0S56WfA@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next 4/6] bpf: Add BPF_MAP_TYPE_LRU_HASH
+Date: Mon, 14 Nov 2016 12:52:23 -0800
+Message-ID: <20161114205222.GA1655@ast-mbp.thefacebook.com>
+References: <1478890511-1346984-1-git-send-email-kafai@fb.com>
+ <1478890511-1346984-5-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="m6axgi2XTbRK5v5hc0CrFcsnwFgFhv1rE"
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Daniel Borkmann
- <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-        "David S . Miller"
- <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
-        Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
-        kernel-hardening@lists.openwall.com,
-        Linux API <linux-api@vger.kernel.org>,
-        LSM <linux-security-module@vger.kernel.org>,
-        netdev
- <netdev@vger.kernel.org>,
-        "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.ke
-To: Sargun Dhillon <sargun@sargun.me>
-Return-path: <kernel-hardening-return-5336-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAMp4zn8u3kg-nhiZ5rSUCLGveAzHr6FoP1x=iJasF2W0S56WfA@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33430 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932899AbcKNUw2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 15:52:28 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 3so9803901pgd.0
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 12:52:28 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1478890511-1346984-5-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---m6axgi2XTbRK5v5hc0CrFcsnwFgFhv1rE
-Content-Type: multipart/mixed; boundary="arxkWoIbr02QlsTBHllefpbtpIGhIljxC";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Sargun Dhillon <sargun@sargun.me>
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
- Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann
- <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
- David Drysdale <drysdale@google.com>, "David S . Miller"
- <davem@davemloft.net>, "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
- Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
- "Serge E . Hallyn" <serge@hallyn.com>, Tejun Heo <tj@kernel.org>,
- Thomas Graf <tgraf@suug.ch>, Will Drewry <wad@chromium.org>,
- kernel-hardening@lists.openwall.com, Linux API <linux-api@vger.kernel.org>,
- LSM <linux-security-module@vger.kernel.org>, netdev
- <netdev@vger.kernel.org>,
- "open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>
-Message-ID: <582A23CB.5080506@digikod.net>
-Subject: Re: [RFC v4 00/18] Landlock LSM: Unprivileged sandboxing
-References: <20161026065654.19166-1-mic@digikod.net>
- <5828776A.1010104@digikod.net>
- <CAMp4zn8u3kg-nhiZ5rSUCLGveAzHr6FoP1x=iJasF2W0S56WfA@mail.gmail.com>
-In-Reply-To: <CAMp4zn8u3kg-nhiZ5rSUCLGveAzHr6FoP1x=iJasF2W0S56WfA@mail.gmail.com>
+On Fri, Nov 11, 2016 at 10:55:09AM -0800, Martin KaFai Lau wrote:
+> Provide a LRU version of the existing BPF_MAP_TYPE_HASH.
+> 
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+...
+> +/* Instead of having one common LRU list in the
+> + * BPF_MAP_TYPE_LRU_HASH map, use a percpu LRU list
+> + * which can scale and perform better.
+> + * Note, the LRU nodes (including free nodes) cannot be moved
+> + * across different LRU lists.
+> + */
+> +#define BPF_F_NO_COMMON_LRU	(1U << 1)
 
---arxkWoIbr02QlsTBHllefpbtpIGhIljxC
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+I couldn't come up with better name, so I think it's good :)
 
+> +	if (lru && !capable(CAP_SYS_ADMIN))
+> +		/* LRU implementation is much complicated than other
+> +		 * maps.  Hence, limit to CAP_SYS_ADMIN for now.
+> +		 */
+> +		return ERR_PTR(-EPERM);
 
-On 14/11/2016 11:35, Sargun Dhillon wrote:
-> Was there a plan around getting Daniel's patches in as well? Also,
-> rather than making these handles landlock-specific, can they be
-> implemented in such a way where we can keep track of (some) of these
-> in other types of programs?
->=20
++1
+good call.
 
-About the map of handles, this is only a new type of map so it's not
-particularly Landlock-specific. Anyway, we'll see that in the third step.=
+> +	if (!percpu && !lru) {
+> +		/* lru itself can remove the least used element, so
+> +		 * there is no need for an extra elem during map_update.
+> +		 */
 
+yeah. that's an important comment, otherwise
+@@ -48,11 +52,19 @@ struct htab_elem {
+ 	union {
+ 		struct rcu_head rcu;
+ 		enum extra_elem_state state;
++		struct bpf_lru_node lru_node;
+ 	};
+wouldn't be correct.
 
- Micka=C3=ABl
-
-
---arxkWoIbr02QlsTBHllefpbtpIGhIljxC--
-
---m6axgi2XTbRK5v5hc0CrFcsnwFgFhv1rE
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlgqI8sACgkQIt7+33O9
-apU+2gf/RSjyuXmqh9+zIykIT/t4iMp3fCJR+HlDodTAGdp8PCVKYPQKJdbeYZih
-GZ8N7biNbo94Ke3t/iZoW3D43y63ZZla9i3qmegbpT6o18IoCIvHA5kuJTMh5EtR
-CKVPtiCw+GvKaUEtunrNeEJts0bztxwQPUa/0lQpLIbBJBrsuFtf7mTI17G1Aujc
-L9BE3XnzWrphT7oCbkqaYhIV9Csl+6LbHp3oBNnQN3rI9VTh49/RIRNLeexflIDh
-5VEq5MAQTvRrU5Nd9Ntc8Lik/pxa1dnjebFyeqsBXZArme5U8YKRVuChb3pEl3b5
-3DjnRqCuaFOh8i2Coj7bs4o0/tNSCg==
-=Yhft
------END PGP SIGNATURE-----
-
---m6axgi2XTbRK5v5hc0CrFcsnwFgFhv1rE--
+Acked-by: Alexei Starovoitov <ast@kernel.org>
