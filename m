@@ -1,131 +1,54 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [net]  2ab9fb18c4: kernel BUG at include/linux/skbuff.h:1935!
-Date: Mon, 14 Nov 2016 17:54:48 +0000
-Message-ID: <1479146085.681.85.camel@intel.com>
-References: <5828fc09.rTUEnj6qw0eDHzYL%xiaolong.ye@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "tom@herbertland.com" <tom@herbertland.com>,
-        "ast@kernel.org" <ast@kernel.org>,
-        "willemb@google.com" <willemb@google.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jojvargh@cisco.com" <jojvargh@cisco.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "lkp@01.org" <lkp@01.org>, "yibyang@cisco.com" <yibyang@cisco.com>
-To: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-        "Ye, Xiaolong" <xiaolong.ye@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:19937 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932705AbcKNRyy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 12:54:54 -0500
-In-Reply-To: <5828fc09.rTUEnj6qw0eDHzYL%xiaolong.ye@intel.com>
-Content-Language: en-US
-Content-ID: <47B78C56ADAF8A49829B6404B1D8DA7D@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Akshay Bhat <akshay.bhat@timesys.com>
+Subject: [PATCH 1/2] can: holt_hi311x: document device tree bindings
+Date: Mon, 14 Nov 2016 12:55:43 -0500
+Message-ID: <1479146144-29143-1-git-send-email-akshay.bhat@timesys.com>
+Cc: mark.rutland@arm.com, linux-can@vger.kernel.org,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Akshay Bhat <akshay.bhat@timesys.com>,
+        Akshay Bhat <nodeax@gmail.com>
+To: wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE2LTExLTE0IGF0IDA3OjQ5ICswODAwLCBrZXJuZWwgdGVzdCByb2JvdCB3cm90
-ZToNCj4gRllJLCB3ZSBub3RpY2VkIHRoZSBmb2xsb3dpbmcgY29tbWl0Og0KPiANCj4gaHR0cHM6
-Ly9naXRodWIuY29tLzBkYXktY2kvbGludXggRXJpYy1EdW1hemV0L25ldC1fX3NrYl9mbG93X2Rp
-c3NlY3QtbXVzdC1jYXAtaXRzLXJldHVybi12YWx1ZS8yMDE2MTExMC0wODA4MzkNCj4gY29tbWl0
-IDJhYjlmYjE4YzQ2YjkxYjE2YTBmMGYzMjkzMzZkM2JlOWZjMzJkZWIgKCJuZXQ6IF9fc2tiX2Zs
-b3dfZGlzc2VjdCgpIG11c3QgY2FwIGl0cyByZXR1cm4gdmFsdWUiKQ0KPiANCj4gaW4gdGVzdGNh
-c2U6IGtidWlsZA0KPiB3aXRoIGZvbGxvd2luZyBwYXJhbWV0ZXJzOg0KPiANCj4gCXJ1bnRpbWU6
-IDMwMHMNCj4gCW5yX3Rhc2s6IDUwJQ0KPiAJY3B1ZnJlcV9nb3Zlcm5vcjogcGVyZm9ybWFuY2UN
-Cj4gDQo+IA0KPiANCj4gDQo+IG9uIHRlc3QgbWFjaGluZTogOCB0aHJlYWRzIEludGVsKFIpIEF0
-b20oVE0pIENQVSAgQzI3NTAgIEAgMi40MEdIeiB3aXRoIDE2RyBtZW1vcnkNCj4gDQo+IGNhdXNl
-ZCBiZWxvdyBjaGFuZ2VzOg0KPiANCj4gDQo+ICstLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tKy0tLS0tLS0tLS0tLSstLS0tLS0tLS0tLS0rDQo+
-ID4gDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgfCBjZGIyNmQzMzg3IHwgMmFiOWZiMThjNCB8DQo+ICstLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tKy0tLS0tLS0tLS0tLSstLS0tLS0t
-LS0tLS0rDQo+ID4gDQo+ID4gYm9vdF9zdWNjZXNzZXMgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgfCAxMCAgICAgICAgIHwgMyAgICAgICAgICB8DQo+ID4gYm9vdF9mYWls
-dXJlcyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAwICAgICAgICAg
-IHwgOSAgICAgICAgICB8DQo+ID4ga2VybmVsX0JVR19hdF9pbmNsdWRlL2xpbnV4L3NrYnVmZi5o
-ICAgICAgICAgICAgICAgICAgfCAwICAgICAgICAgIHwgOCAgICAgICAgICB8DQo+ID4gaW52YWxp
-ZF9vcGNvZGU6I1sjI11TTVAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAwICAgICAg
-ICAgIHwgOCAgICAgICAgICB8DQo+ID4gUklQOmV0aF90eXBlX3RyYW5zICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgfCAwICAgICAgICAgIHwgOCAgICAgICAgICB8DQo+ID4gS2Vy
-bmVsX3BhbmljLW5vdF9zeW5jaW5nOkZhdGFsX2V4Y2VwdGlvbl9pbl9pbnRlcnJ1cHQgfCAwICAg
-ICAgICAgIHwgNSAgICAgICAgICB8DQo+ID4gV0FSTklORzphdF9mcy9zeXNmcy9kaXIuYzojc3lz
-ZnNfd2Fybl9kdXAgICAgICAgICAgICAgfCAwICAgICAgICAgIHwgMSAgICAgICAgICB8DQo+ID4g
-Y2FsbHRyYWNlOnBhcnBvcnRfcGNfaW5pdCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAw
-ICAgICAgICAgIHwgMSAgICAgICAgICB8DQo+ID4gY2FsbHRyYWNlOlN5U19maW5pdF9tb2R1bGUg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAwICAgICAgICAgIHwgMSAgICAgICAgICB8DQo+
-ID4gV0FSTklORzphdF9saWIva29iamVjdC5jOiNrb2JqZWN0X2FkZF9pbnRlcm5hbCAgICAgICAg
-fCAwICAgICAgICAgIHwgMSAgICAgICAgICB8DQo+ICstLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tKy0tLS0tLS0tLS0tLSstLS0tLS0tLS0tLS0r
-DQo+IA0KPiANCj4gDQo+IFsgICAyMC40OTEwMjBdIElQdjY6IEFERFJDT05GKE5FVERFVl9DSEFO
-R0UpOiBldGgwOiBsaW5rIGJlY29tZXMgcmVhZHkNCj4gWyAgIDIwLjUwMjk4OF0gU2VuZGluZyBE
-SENQIHJlcXVlc3RzIC4NCj4gWyAgIDIwLjUwNjcyOV0gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBd
-LS0tLS0tLS0tLS0tDQo+IFsgICAyMC41MTEzNjldIGtlcm5lbCBCVUcgYXQgaW5jbHVkZS9saW51
-eC9za2J1ZmYuaDoxOTM1IQ0KPiBbICAgMjAuNTE3ODkzXSBpbnZhbGlkIG9wY29kZTogMDAwMCBb
-IzFdIFNNUA0KPiBbICAgMjAuNTIxOTAyXSBNb2R1bGVzIGxpbmtlZCBpbjoNCj4gWyAgIDIwLjUy
-NDk3OV0gQ1BVOiA0IFBJRDogMCBDb21tOiBzd2FwcGVyLzQgTm90IHRhaW50ZWQgNC45LjAtcmMz
-LTAwMjg2LWcyYWI5ZmIxICMxDQo+IFsgICAyMC41MzI0NjNdIEhhcmR3YXJlIG5hbWU6IFN1cGVy
-bWljcm8gU1lTLTUwMThBLVRONC9BMVNBaSwgQklPUyAxLjFhIDA4LzI3LzIwMTUNCj4gWyAgIDIw
-LjUzOTc2OF0gdGFzazogZmZmZjg4MDQ0NTZjMjQ4MCB0YXNrLnN0YWNrOiBmZmZmYzkwMDAxOTIw
-MDAwDQo+IFsgICAyMC41NDU2ODRdIFJJUDogMDAxMDpbPGZmZmZmZmZmODE4MzdiNDg+XSAgWzxm
-ZmZmZmZmZjgxODM3YjQ4Pl0gZXRoX3R5cGVfdHJhbnMrMHhlOC8weDE0MA0KPiBbICAgMjAuNTUz
-OTcyXSBSU1A6IDAwMTg6ZmZmZjg4MDQ3ZmQwM2RiOCAgRUZMQUdTOiAwMDAxMDI5Nw0KPiBbICAg
-MjAuNTU5MjgzXSBSQVg6IDAwMDAwMDAwMDAwMDAxNTggUkJYOiBmZmZmODgwNDdkOGFlNjAwIFJD
-WDogMDAwMDAwMDAwMDAwMTA3Mw0KPiBbICAgMjAuNTY2NDE1XSBSRFg6IGZmZmY4ODA0N2JmMDdk
-YzAgUlNJOiBmZmZmODgwNDdkOGE0MDAwIFJESTogZmZmZjg4MDQ3ZGFjMGYwMA0KPiBbICAgMjAu
-NTczNTQ2XSBSQlA6IGZmZmY4ODA0N2ZkMDNlMjAgUjA4OiBmZmZmODgwNDdkOGE0MDAwIFIwOTog
-MDAwMDAwMDAwMDAwMDgwMA0KPiBbICAgMjAuNTgwNjc4XSBSMTA6IGZmZmY4ODA0N2JmMDdlYzAg
-UjExOiBmZmZmZWEwMDExZjZlNDAwIFIxMjogZmZmZjg4MDQ3ZGFjMGYwMA0KPiBbICAgMjAuNTg3
-ODEwXSBSMTM6IGZmZmY4ODA0NTc0MTMwMDAgUjE0OiBmZmZmYzkwMDAyMTI5MDAwIFIxNTogMDAw
-MDAwMDAwMDAwMDE1ZQ0KPiBbICAgMjAuNTk0OTQ2XSBGUzogIDAwMDAwMDAwMDAwMDAwMDAoMDAw
-MCkgR1M6ZmZmZjg4MDQ3ZmQwMDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAwDQo+IFsg
-ICAyMC42MDMwMzJdIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAw
-NTAwMzMNCj4gWyAgIDIwLjYwODc3NV0gQ1IyOiAwMDAwN2ZmZmFkZmI0ZWYwIENSMzogMDAwMDAw
-MDQ3ZWUwNzAwMCBDUjQ6IDAwMDAwMDAwMDAxMDA2ZTANCj4gWyAgIDIwLjYxNTkwNl0gU3RhY2s6
-DQo+IFsgICAyMC42MTc5MjddICBmZmZmZmZmZjgxNjkwNWE3IGZmZmZlYTAwMTFmNmU0MDAgZmZm
-ZmVhMDAwMDAwMDAwOCBmZmZmODgwNDdkOGFlNDUwDQo+IFsgICAyMC42MjU0MDNdICBmZmZmODgw
-NDdkOGFlNDAwIDAwMDAwMDQwMDAwMDAxNjYgZmZmZmVhMDAxMWY2ZTQwMCAwMDAwZmZmZjAwMDAw
-MDAwDQo+IFsgICAyMC42MzI4NzNdICAwMDAwMDAwMDAwMDAwMDQwIDAwMDAwMDAwMDAwMDAwMDAg
-ZmZmZjg4MDQ3ZDhhZTQ1MCBmZmZmODgwNDdkOGIxMTQwDQo+IFsgICAyMC42NDAzNTJdIENhbGwg
-VHJhY2U6DQo+IFsgICAyMC42NDI4MDVdICA8SVJRPiANCj4gWyAgIDIwLjY0NDc0MF0gIFs8ZmZm
-ZmZmZmY4MTY5MDVhNz5dID8gaWdiX2NsZWFuX3J4X2lycSsweDZhNy8weDdkMA0KPiBbICAgMjAu
-NjUwNzYwXSAgWzxmZmZmZmZmZjgxNjkwYTUyPl0gaWdiX3BvbGwrMHgzODIvMHg3MDANCj4gWyAg
-IDIwLjY1NTkwNF0gIFs8ZmZmZmZmZmY4MTQ2ZWRkOT5dID8gdGltZXJxdWV1ZV9hZGQrMHg1OS8w
-eGIwDQo+IFsgICAyMC42NjE1NjRdICBbPGZmZmZmZmZmODE4MGYyZDc+XSBuZXRfcnhfYWN0aW9u
-KzB4MjE3LzB4MzYwDQo+IFsgICAyMC42NjcxMzddICBbPGZmZmZmZmZmODE5NTdlZjQ+XSBfX2Rv
-X3NvZnRpcnErMHgxMDQvMHgyYWINCj4gWyAgIDIwLjY3MjYyNF0gIFs8ZmZmZmZmZmY4MTA4Njk2
-MT5dIGlycV9leGl0KzB4ZjEvMHgxMDANCj4gWyAgIDIwLjY3NzY3M10gIFs8ZmZmZmZmZmY4MTk1
-N2MzND5dIGRvX0lSUSsweDU0LzB4ZDANCj4gWyAgIDIwLjY4MjQ2Nl0gIFs8ZmZmZmZmZmY4MTk1
-NWFjYz5dIGNvbW1vbl9pbnRlcnJ1cHQrMHg4Yy8weDhjDQo+IFsgICAyMC42ODgxMjNdICA8RU9J
-PiANCj4gWyAgIDIwLjY5MDA1NF0gIFs8ZmZmZmZmZmY4MTdjMWQxMj5dID8gY3B1aWRsZV9lbnRl
-cl9zdGF0ZSsweDEyMi8weDJlMA0KPiBbICAgMjAuNjk2MzMzXSAgWzxmZmZmZmZmZjgxN2MxZjA3
-Pl0gY3B1aWRsZV9lbnRlcisweDE3LzB4MjANCj4gWyAgIDIwLjcwMTczM10gIFs8ZmZmZmZmZmY4
-MTBjNjRjMz5dIGNhbGxfY3B1aWRsZSsweDIzLzB4NDANCj4gWyAgIDIwLjcwNzA0NV0gIFs8ZmZm
-ZmZmZmY4MTBjNjZmND5dIGNwdV9zdGFydHVwX2VudHJ5KzB4MTE0LzB4MjAwDQo+IFsgICAyMC43
-MTI5NjRdICBbPGZmZmZmZmZmODEwNTFjODc+XSBzdGFydF9zZWNvbmRhcnkrMHgxMDcvMHgxMzAN
-Cj4gWyAgIDIwLjcxODcwOF0gQ29kZTogMDAgMDQgMDAgMDAgYzkgYzMgNDggMzMgODYgNzAgMDMg
-MDAgMDAgNDggYzEgZTAgMTAgNDggODUgYzAgMGYgYjYgODcgOTAgMDAgMDAgMDAgNzUgMjggODMg
-ZTAgZjggODMgYzggMDEgODggODcgOTAgMDAgMDAgMDAgZWIgODIgPDBmPiAwYiAwZiBiNiA4NyA5
-MCAwMCAwMCAwMCA4MyBlMCBmOCA4MyBjOCAwMyA4OCA4NyA5MCAwMCAwMCAwMCANCj4gWyAgIDIw
-LjczODcyMl0gUklQICBbPGZmZmZmZmZmODE4MzdiNDg+XSBldGhfdHlwZV90cmFucysweGU4LzB4
-MTQwDQo+IFsgICAyMC43NDQ2NjJdICBSU1AgPGZmZmY4ODA0N2ZkMDNkYjg+DQo+IFsgICAyMC43
-NDgxNjBdIC0tLVsgZW5kIHRyYWNlIDE1MzQ0MGJmMWNhMmU2ZmMgXS0tLQ0KPiBbICAgMjAuNzQ4
-MTY1XSAtLS0tLS0tLS0tLS1bIGN1dCBoZXJlIF0tLS0tLS0tLS0tLS0NCj4gDQo+IA0KPiBUbyBy
-ZXByb2R1Y2U6DQo+IA0KPiAgICAgICAgIGdpdCBjbG9uZSBnaXQ6Ly9naXQua2VybmVsLm9yZy9w
-dWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvd2ZnL2xrcC10ZXN0cy5naXQNCj4gICAgICAgICBjZCBs
-a3AtdGVzdHMNCj4gICAgICAgICBiaW4vbGtwIGluc3RhbGwgam9iLnlhbWwgICMgam9iIGZpbGUg
-aXMgYXR0YWNoZWQgaW4gdGhpcyBlbWFpbA0KPiAgICAgICAgIGJpbi9sa3AgcnVuICAgICBqb2Iu
-eWFtbA0KPiANCj4gDQo+IA0KPiBUaGFua3MsDQo+IEtlcm5lbCBUZXN0IFJvYm90DQoNCg0KU28g
-SSBhbSB0cnlpbmcgdG8gcmVwcm9kdWNlIHRoaXMgYnV0IG5lZWQgc29tZSBhZGRpdGlvbmFsIGRh
-dGEgYXMganVzdA0KY29weWluZyB0aGUgY29uZmlnIGFwcGFyZW50bHkgaXNuJ3QgZW5vdWdoLg0K
-DQpJIGp1c3Qgd2FudGVkIHRvIGNvbmZpcm0uIMKgSXQgbG9va3MgbGlrZSB5b3UgYXJlIHJ1bm5p
-bmcgc2VyaWFsIG92ZXINCmxhbiBvdmVyIG9uZSBvZiB0aGUgaWdiIHBvcnRzLiDCoERvIEkgaGF2
-ZSB0aGF0IHJpZ2h0PyDCoEkgYXNrIGJlY2F1c2UNCnRoZSBpZ2IgZHJpdmVyIGxvYWRpbmcgaW4g
-dGhlIGRtZXNnIGxvZyBzZWVtcyB0byBjYXVzZSBhIDIuMSBzZWNvbmQNCnNraXAgYW5kIGRvZXNu
-J3QgZGlzcGxheSB0aGUgZHJpdmVyIHZlcnNpb24gb3IgYW55IGluZm9ybWF0aW9uIG9uIHRoZQ0K
-aWdiIGRldmljZXMuDQoNCkFub3RoZXIgcXVlc3Rpb24gSSBoYWQgaXMgd2hhdCB2ZXJzaW9ucyBv
-ZiBnY2MgYXJlIHlvdSB0ZXN0aW5nIHdpdGg/IMKgSQ0Kc2VlIHRoZSBkbWVzZyBmb3IgdGhlIGZh
-aWxpbmcgY2FzZSBpcyB1c2luZyBnY2MgdmVyc2lvbiA2LjIuIMKgQXJlIHRoZXJlDQphbnkgb3Ro
-ZXIgdmVyc2lvbnMgb2YgZ2NjIHRoYXQgYXJlIGJlaW5nIHRlc3RlZCwgYW5kIGlmIHNvIGFyZSB0
-aGV5DQpzaG93aW5nIHNpbWlsYXIgZmFpbHVyZXM/DQoNClRoYW5rcy4NCg0KLSBBbGV4DQoNCg0K
+Document the HOLT HI-311x CAN device tree bindings.
+
+Signed-off-by: Akshay Bhat <nodeax@gmail.com>
+---
+ .../devicetree/bindings/net/can/holt_hi311x.txt    | 24 ++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/can/holt_hi311x.txt
+
+diff --git a/Documentation/devicetree/bindings/net/can/holt_hi311x.txt b/Documentation/devicetree/bindings/net/can/holt_hi311x.txt
+new file mode 100644
+index 0000000..23aa94e
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/can/holt_hi311x.txt
+@@ -0,0 +1,24 @@
++* Holt HI-311X stand-alone CAN controller device tree bindings
++
++Required properties:
++ - compatible: Should be one of the following:
++   - "holt,hi3110" for HI-3110
++ - reg: SPI chip select.
++ - clocks: The clock feeding the CAN controller.
++ - interrupt-parent: The parent interrupt controller.
++ - interrupts: Should contain IRQ line for the CAN controller.
++
++Optional properties:
++ - vdd-supply: Regulator that powers the CAN controller.
++ - xceiver-supply: Regulator that powers the CAN transceiver.
++
++Example:
++	can0: can@1 {
++		compatible = "holt,hi3110";
++		reg = <1>;
++		clocks = <&clk32m>;
++		interrupt-parent = <&gpio4>;
++		interrupts = <13 IRQ_TYPE_EDGE_RISING>;
++		vdd-supply = <&reg5v0>;
++		xceiver-supply = <&reg5v0>;
++	};
+-- 
+2.8.1
