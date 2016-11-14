@@ -1,42 +1,46 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net 2/2] r8152: rx descriptor check
-Date: Mon, 14 Nov 2016 06:43:50 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB20104EAF8@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-226-Taiwan-albertk@realtek.com>
- <1394712342-15778-228-Taiwan-albertk@realtek.com>
- <20161111121311.GA19673@electric-eye.fr.zoreil.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Long delays creating a netns after deleting one (possibly RCU related)
+Date: Sun, 13 Nov 2016 22:47:01 -0800
+Message-ID: <CAM_iQpUq14GsvGyz2xA1PkDq5YO743T68Zh2zm=NJZQ9S2Ahqg@mail.gmail.com>
+References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
+ <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
+ <20161110212404.GB4127@linux.vnet.ibm.com> <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
+ <20161112002347.GL4127@linux.vnet.ibm.com> <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        nic_swsd <nic_swsd@realtek.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        "mlord@pobox.com" <mlord@pobox.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Justin Cormack <justin.cormack@docker.com>,
+        Ian Campbell <ian.campbell@docker.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161111121311.GA19673@electric-eye.fr.zoreil.com>
-Content-Language: zh-TW
+In-Reply-To: <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu [mailto:romieu@fr.zoreil.com]
-> Sent: Friday, November 11, 2016 8:13 PM
-[...]
-> Invalid packet size corrupted receive descriptors in Realtek's device
-> reminds of CVE-2009-4537.
+On Fri, Nov 11, 2016 at 4:55 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Fri, Nov 11, 2016 at 4:23 PM, Paul E. McKenney
+> <paulmck@linux.vnet.ibm.com> wrote:
+>>
+>> Ah!  This net_mutex is different than RTNL.  Should synchronize_net() be
+>> modified to check for net_mutex being held in addition to the current
+>> checks for RTNL being held?
+>>
+>
+> Good point!
+>
+> Like commit be3fc413da9eb17cce0991f214ab0, checking
+> for net_mutex for this case seems to be an optimization, I assume
+> synchronize_rcu_expedited() and synchronize_rcu() have the same
+> behavior...
 
-Do you mean that the driver would get a packet exceed the size
-which is set to RxMaxSize? I check it with our hw engineers.
-They don't get any issue about RxMaxSize. And their test for
-RxMaxSize register is fine.
+Thinking a bit more, I think commit be3fc413da9eb17cce0991f
+gets wrong on rtnl_is_locked(), the lock could be locked by other
+process not by the current one, therefore it should be
+lockdep_rtnl_is_held() which, however, is defined only when LOCKDEP
+is enabled... Sigh.
 
-> Is the silicium of both devices different enough to prevent the same
-> exploit to happen ?
-
-For this case, I don't think the device provide a invalid value
-for the receive descriptors. However, the driver sees a different
-value. That is why I say the memory is unbelievable.
-
-Best Regards,
-Hayes
+I don't see any better way than letting callers decide if they want the
+expedited version or not, but this requires changes of all callers of
+synchronize_net(). Hm.
