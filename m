@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: atheros: atl2: use new api
- ethtool_{get|set}_link_ksettings
-Date: Mon, 14 Nov 2016 13:38:22 -0500 (EST)
-Message-ID: <20161114.133822.877802428352509301.davem@davemloft.net>
-References: <1479059608-32456-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH] ps3_gelic: fix spelling mistake in debug message
+Date: Mon, 14 Nov 2016 13:39:24 -0500 (EST)
+Message-ID: <20161114.133924.1134224338935278850.davem@davemloft.net>
+References: <20161112172030.7583-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, jarod@redhat.com,
-        ben@decadent.org.uk, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479059608-32456-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+        falakreyaz@gmail.com, christophe.jaillet@wanadoo.fr,
+        jarod@redhat.com, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38836 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935093AbcKNSj2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 13:39:28 -0500
+In-Reply-To: <20161112172030.7583-1-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 13 Nov 2016 18:53:28 +0100
+From: Colin King <colin.king@canonical.com>
+Date: Sat, 12 Nov 2016 17:20:30 +0000
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> The previous implementation of set_settings was modifying
-> the value of advertising, but with the new API, it's not
-> possible. The structure ethtool_link_ksettings is defined
-> as const.
+> Trivial fix to spelling mistake "unmached" to "unmatched" in
+> debug message.
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
