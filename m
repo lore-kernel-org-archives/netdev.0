@@ -1,43 +1,33 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Debugging Ethernet issues
-Date: Mon, 14 Nov 2016 14:34:28 +0100
-Message-ID: <20161114133428.GF26710@lunn.ch>
-References: <5827AD4A.7010908@free.fr>
- <20161113030919.GA2892@lunn.ch>
- <5828C452.6050808@free.fr>
- <9d1f28a7-959b-fdde-3403-f6da5f521125@gmail.com>
- <5829BBFC.7040800@free.fr>
+Subject: Re: [PATCH net-next v2 1/5] ethtool: (uapi) Add ETHTOOL_PHY_GTUNABLE
+ and ETHTOOL_PHY_STUNABLE
+Date: Mon, 14 Nov 2016 14:36:56 +0100
+Message-ID: <20161114133656.GG26710@lunn.ch>
+References: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+ <1479115760-1182-2-git-send-email-allan.nielsen@microsemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Mans Rullgard <mans@mansr.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Tom Lendacky <thomas.lendacky@amd.com>,
-        Zach Brown <zach.brown@ni.com>,
-        Shaohui Xie <shaohui.xie@nxp.com>,
-        Tim Beale <tim.beale@alliedtelesis.co.nz>,
-        Brian Hill <brian@houston-radar.com>,
-        Vince Bridgers <vbridgers2013@gmail.com>,
-        Balakumaran Kannan <kumaran.4353@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sebastian Frias <sf84@laposte.net>,
-        Kirill Kapranov <kapranoff@inbox.ru>
-To: Mason <slash.tmp@free.fr>
+Cc: netdev@vger.kernel.org, raju.lakkaraju@microsemi.com
+To: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37805 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:37822 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752073AbcKNNef (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 08:34:35 -0500
+        id S1752517AbcKNNg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 08:36:57 -0500
 Content-Disposition: inline
-In-Reply-To: <5829BBFC.7040800@free.fr>
+In-Reply-To: <1479115760-1182-2-git-send-email-allan.nielsen@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> How exactly does one use the generic PHY driver?
+On Mon, Nov 14, 2016 at 10:29:16AM +0100, Allan W. Nielsen wrote:
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> 
+> Defines a generic API to get/set phy tunables. The API is using the
+> existing ethtool_tunable/tunable_type_id types which is already being used
+> for mac level tunables.
+> 
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-If there is no specific driver available for the PHY, linux will fall
-back to the generic driver. So just don't compile the specific driver.
-You can see under /sys/bus/mdio_bus/devices which driver is being
-used.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-	Andrew
+    Andrew
