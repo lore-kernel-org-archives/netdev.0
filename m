@@ -1,44 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] bnx2: Wait for in-flight DMA to complete at
- probe stage
-Date: Mon, 14 Nov 2016 16:21:37 -0500 (EST)
-Message-ID: <20161114.162137.1769671597203833028.davem@davemloft.net>
-References: <1479013293-21001-1-git-send-email-bhe@redhat.com>
+Subject: Re: [PATCH net] sctp: change sk state only when it has assocs in
+ sctp_shutdown
+Date: Mon, 14 Nov 2016 16:23:49 -0500 (EST)
+Message-ID: <20161114.162349.1179710065617941826.davem@davemloft.net>
+References: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
-        linux-kernel@vger.kernel.org, Dept-GELinuxNICDev@cavium.com,
-        rasesh.mody@cavium.com, harish.patil@cavium.com,
-        frank@undermydesk.org, jsr@dex.edzone.net, pmenzel@molgen.mpg.de,
-        jroedel@suse.de, dyoung@redhat.com
-To: bhe@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479013293-21001-1-git-send-email-bhe@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com, andreyknvl@google.com
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41346 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938697AbcKNVXv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 16:23:51 -0500
+In-Reply-To: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Baoquan He <bhe@redhat.com>
-Date: Sun, 13 Nov 2016 13:01:31 +0800
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sun, 13 Nov 2016 21:44:37 +0800
 
-> This is v2 post.
+> Now when users shutdown a sock with SEND_SHUTDOWN in sctp, even if
+> this sock has no connection (assoc), sk state would be changed to
+> SCTP_SS_CLOSING, which is not as we expect.
 > 
-> In commit 3e1be7a ("bnx2: Reset device during driver initialization"),
-> firmware requesting code was moved from open stage to probe stage.
-> The reason is in kdump kernel hardware iommu need device be reset in
-> driver probe stage, otherwise those in-flight DMA from 1st kernel
-> will continue going and look up into the newly created io-page tables.
-> However bnx2 chip resetting involves firmware requesting issue, that
-> need be done in open stage. 
+> Besides, after that if users try to listen on this sock, kernel
+> could even panic when it dereference sctp_sk(sk)->bind_hash in
+> sctp_inet_listen, as bind_hash is null when sock has no assoc.
 > 
-> Michale Chan suggested we can just wait for the old in-flight DMA to
-> complete at probe stage, then though without device resetting, we
-> don't need to worry the old in-flight DMA could continue looking up 
-> the newly created io-page tables.
+> This patch is to move sk state change after checking sk assocs
+> is not empty, and also merge these two if() conditions and reduce
+> indent level.
 > 
-> v1->v2:
->     Michael suggested to wait for the in-flight DMA to complete at probe
->     stage. So give up the old method of trying to reset chip at probe
->     stage, take the new way accordingly.
+> Fixes: d46e416c11c8 ("sctp: sctp should change socket state when shutdown is received")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Series applied and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks.
