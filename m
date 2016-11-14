@@ -1,59 +1,74 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 2/2] amd-xgbe: Fix up some coccinelle identified
- warnings
-Date: Mon, 14 Nov 2016 16:39:16 -0600
-Message-ID: <20161114223916.25437.44335.stgit@tlendack-t1.amdoffice.net>
-References: <20161114223856.25437.13649.stgit@tlendack-t1.amdoffice.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <julia.lawall@lip6.fr>, <christophe.jaillet@wanadoo.fr>,
-        David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH net] udp: restore UDPlite many-cast delivery
+Date: Mon, 14 Nov 2016 23:40:30 +0100
+Message-ID: <1479163230-8734-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, edumazet@google.com, drheld@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0071.outbound.protection.outlook.com ([104.47.42.71]:58423
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933841AbcKNWjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 17:39:25 -0500
-In-Reply-To: <20161114223856.25437.13649.stgit@tlendack-t1.amdoffice.net>
+Received: from mail.us.es ([193.147.175.20]:56678 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752842AbcKNWko (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 17:40:44 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 0D00220942F
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 23:40:43 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id F27CFDA871
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 23:40:42 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B8187DA853
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 23:40:38 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix up some warnings that were identified by coccinelle:
+Honor udptable parameter that is passed to __udp*_lib_mcast_deliver(),
+otherwise udplite broadcast/multicast use the wrong table and it breaks.
 
-Clean up an if/else block that can look confusing since the same statement
-is executed in an "else if" check and the final "else" statement.
-
-Change a variable from unsigned int to int since it is used in an if
-statement checking the value to be less than 0.
-
-Reported-by: Julia Lawall <julia.lawall@lip6.fr>
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+Fixes: 2dc41cff7545 ("udp: Use hash2 for long hash1 chains in __udp*_lib_mcast_deliver.")
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+It looks like UDPlite accidentally broke when dealing with long UDP many-cast
+chains, give the wrong table is used for udplite. Compile tested only.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 4ba4332..348cc8c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-@@ -1766,8 +1766,6 @@ static void xgbe_phy_sfi_mode(struct xgbe_prv_data *pdata)
- 			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 1);
- 		else if (phy_data->sfp_cable_len <= 3)
- 			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 2);
--		else if (phy_data->sfp_cable_len <= 5)
--			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 3);
- 		else
- 			XP_SET_BITS(s0, XP_DRIVER_SCRATCH_0, SUB_COMMAND, 3);
+ net/ipv4/udp.c | 6 +++---
+ net/ipv6/udp.c | 6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 195992e0440d..5b5a552a2804 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1731,10 +1731,10 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 
+ 	if (use_hash2) {
+ 		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
+-			    udp_table.mask;
+-		hash2 = udp4_portaddr_hash(net, daddr, hnum) & udp_table.mask;
++			    udptable->mask;
++		hash2 = udp4_portaddr_hash(net, daddr, hnum) & udptable->mask;
+ start_lookup:
+-		hslot = &udp_table.hash2[hash2];
++		hslot = &udptable->hash2[hash2];
+ 		offset = offsetof(typeof(*sk), __sk_common.skc_portaddr_node);
  	}
-@@ -2346,7 +2344,8 @@ static bool xgbe_phy_valid_speed(struct xgbe_prv_data *pdata, int speed)
- static int xgbe_phy_link_status(struct xgbe_prv_data *pdata, int *an_restart)
- {
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
--	unsigned int ret, reg;
-+	unsigned int reg;
-+	int ret;
  
- 	*an_restart = 0;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index a7700bbf6788..a9dd23d5c3c4 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -688,10 +688,10 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
  
+ 	if (use_hash2) {
+ 		hash2_any = udp6_portaddr_hash(net, &in6addr_any, hnum) &
+-			    udp_table.mask;
+-		hash2 = udp6_portaddr_hash(net, daddr, hnum) & udp_table.mask;
++			    udptable->mask;
++		hash2 = udp6_portaddr_hash(net, daddr, hnum) & udptable->mask;
+ start_lookup:
+-		hslot = &udp_table.hash2[hash2];
++		hslot = &udptable->hash2[hash2];
+ 		offset = offsetof(typeof(*sk), __sk_common.skc_portaddr_node);
+ 	}
+ 
+-- 
+2.1.4
