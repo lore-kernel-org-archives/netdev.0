@@ -1,66 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Long delays creating a netns after deleting one (possibly RCU
- related)
-Date: Mon, 14 Nov 2016 18:29:37 +0100
-Message-ID: <1479144577.3734328.787380169.651B5477@webmail.messagingengine.com>
-References: <CA+pO-2f+7QfsLiFwvGcNqTrQ0t8B5+w0vZHFrshWsSWgDE6iUg@mail.gmail.com>
- <CAM_iQpUNRyv3wHi3cJpcH6avo+D7Gxwqp+iybUxYc7PCo3WUPw@mail.gmail.com>
- <20161110212404.GB4127@linux.vnet.ibm.com>
- <CA+pO-2ddoJYvhVoV3Bo+-3K7V63eY9sbKzKwYrut65GZXs6_1g@mail.gmail.com>
- <20161112002347.GL4127@linux.vnet.ibm.com>
- <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] cadence: Add LSO support.
+Date: Mon, 14 Nov 2016 12:30:38 -0500 (EST)
+Message-ID: <20161114.123038.1075174354580074536.davem@davemloft.net>
+References: <BN3PR07MB2516C30913D2FB8D4788071AC9BC0@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Justin Cormack <justin.cormack@docker.com>,
-        Ian Campbell <ian.campbell@docker.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: rafalo@cadence.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:43794 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933929AbcKNR3i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 12:29:38 -0500
-In-Reply-To: <CAM_iQpUDnPfVayQv7Q+ZtC_2_ZbX9MRX=514gFpF3E6XY+GtSA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37532 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752814AbcKNRak (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 12:30:40 -0500
+In-Reply-To: <BN3PR07MB2516C30913D2FB8D4788071AC9BC0@BN3PR07MB2516.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Cong,
+From: Rafal Ozieblo <rafalo@cadence.com>
+Date: Mon, 14 Nov 2016 09:32:34 +0000
 
-On Sat, Nov 12, 2016, at 01:55, Cong Wang wrote:
-> On Fri, Nov 11, 2016 at 4:23 PM, Paul E. McKenney
-> <paulmck@linux.vnet.ibm.com> wrote:
-> >
-> > Ah!  This net_mutex is different than RTNL.  Should synchronize_net() be
-> > modified to check for net_mutex being held in addition to the current
-> > checks for RTNL being held?
-> >
+>> If UFO is in use it should not silently disable UDP checksums.
+>> 
+>> If you cannot support UFO with proper checksumming, then you cannot enable support for that feature.
 > 
-> Good point!
+> According Cadence Gigabit Ethernet MAC documentation:
 > 
-> Like commit be3fc413da9eb17cce0991f214ab0, checking
-> for net_mutex for this case seems to be an optimization, I assume
-> synchronize_rcu_expedited() and synchronize_rcu() have the same
-> behavior...
+> "Hardware will not calculate the UDP checksum or modify the UDP checksum field. Therefore software
+> must set a value of zero in the checksum field in the UDP header (in the first payload buffer)
+> to indicate to the receiver that the UDP datagram does not include a checksum."
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index eaad4c2..3415b6b 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -7762,7 +7762,7 @@ EXPORT_SYMBOL(free_netdev);
->  void synchronize_net(void)
->  {
->         might_sleep();
-> -       if (rtnl_is_locked())
-> +       if (rtnl_is_locked() || lockdep_is_held(&net_mutex))
->                 synchronize_rcu_expedited();
+> It is hardware requirement.
 
-I don't think we should depend on lockdep for this check but rather use
-mutex_is_locked here (I think it would fail to build like this without
-CONFIG_LOCKDEP).
+I do not doubt that it is a hardware restriction.
 
-Bye,
-Hannes
+But I am saying that you cannot enable this feature under Linux if
+this is how it operates on your hardware.
