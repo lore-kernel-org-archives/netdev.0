@@ -1,57 +1,85 @@
-From: "Allan W. Nielsen" <allan.nielsen@microsemi.com>
-Subject: [PATCH net-next v2 4/5] ethtool: Core impl for ETHTOOL_PHY_DOWNSHIFT tunable
-Date: Mon, 14 Nov 2016 10:29:19 +0100
-Message-ID: <1479115760-1182-5-git-send-email-allan.nielsen@microsemi.com>
-References: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: change sk state only when it has assocs in
+ sctp_shutdown
+Date: Mon, 14 Nov 2016 08:32:40 -0200
+Message-ID: <20161114103240.GA24936@localhost.localdomain>
+References: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <raju.lakkaraju@microsemi.com>,
-        <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, andreyknvl@google.com
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0089.outbound.protection.outlook.com ([104.47.38.89]:10753
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752824AbcKNK2k (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Nov 2016 05:28:40 -0500
-In-Reply-To: <1479115760-1182-1-git-send-email-allan.nielsen@microsemi.com>
+Received: from mx1.redhat.com ([209.132.183.28]:23533 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932090AbcKNKco (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 05:32:44 -0500
+Content-Disposition: inline
+In-Reply-To: <d260f8b59f52d7ef00b83a554fc19d4aa91766a2.1479044677.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On Sun, Nov 13, 2016 at 09:44:37PM +0800, Xin Long wrote:
+> Now when users shutdown a sock with SEND_SHUTDOWN in sctp, even if
+> this sock has no connection (assoc), sk state would be changed to
+> SCTP_SS_CLOSING, which is not as we expect.
+> 
+> Besides, after that if users try to listen on this sock, kernel
+> could even panic when it dereference sctp_sk(sk)->bind_hash in
+> sctp_inet_listen, as bind_hash is null when sock has no assoc.
+> 
+> This patch is to move sk state change after checking sk assocs
+> is not empty, and also merge these two if() conditions and reduce
+> indent level.
+> 
+> Fixes: d46e416c11c8 ("sctp: sctp should change socket state when shutdown is received")
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> Tested-by: Andrey Konovalov <andreyknvl@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Adding validation support for the ETHTOOL_PHY_DOWNSHIFT. Functional
-implementation needs to be done in the individual PHY drivers.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- net/core/ethtool.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 61aebdf..e9b45567 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -122,6 +122,7 @@ tunable_strings[__ETHTOOL_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
- static const char
- phy_tunable_strings[__ETHTOOL_PHY_TUNABLE_COUNT][ETH_GSTRING_LEN] = {
- 	[ETHTOOL_ID_UNSPEC]     = "Unspec",
-+	[ETHTOOL_PHY_DOWNSHIFT]	= "phy-downshift",
- };
- 
- static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
-@@ -2435,6 +2436,11 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
- static int ethtool_phy_tunable_valid(const struct ethtool_tunable *tuna)
- {
- 	switch (tuna->id) {
-+	case ETHTOOL_PHY_DOWNSHIFT:
-+		if (tuna->len != sizeof(u8) ||
-+		    tuna->type_id != ETHTOOL_TUNABLE_U8)
-+			return -EINVAL;
-+		break;
- 	default:
- 		return -EINVAL;
- 	}
--- 
-2.7.3
+> ---
+>  net/sctp/socket.c | 15 +++++++--------
+>  1 file changed, 7 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index faa48ff..f23ad91 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4285,19 +4285,18 @@ static void sctp_shutdown(struct sock *sk, int how)
+>  {
+>  	struct net *net = sock_net(sk);
+>  	struct sctp_endpoint *ep;
+> -	struct sctp_association *asoc;
+>  
+>  	if (!sctp_style(sk, TCP))
+>  		return;
+>  
+> -	if (how & SEND_SHUTDOWN) {
+> +	ep = sctp_sk(sk)->ep;
+> +	if (how & SEND_SHUTDOWN && !list_empty(&ep->asocs)) {
+> +		struct sctp_association *asoc;
+> +
+>  		sk->sk_state = SCTP_SS_CLOSING;
+> -		ep = sctp_sk(sk)->ep;
+> -		if (!list_empty(&ep->asocs)) {
+> -			asoc = list_entry(ep->asocs.next,
+> -					  struct sctp_association, asocs);
+> -			sctp_primitive_SHUTDOWN(net, asoc, NULL);
+> -		}
+> +		asoc = list_entry(ep->asocs.next,
+> +				  struct sctp_association, asocs);
+> +		sctp_primitive_SHUTDOWN(net, asoc, NULL);
+>  	}
+>  }
+>  
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
