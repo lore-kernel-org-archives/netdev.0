@@ -1,21 +1,22 @@
-From: David Ahern <dsa@cumulusnetworks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: [PATCH v3] ip6_output: ensure flow saddr actually
  belongs to device
-Date: Mon, 14 Nov 2016 09:55:18 -0700
-Message-ID: <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
+Date: Mon, 14 Nov 2016 18:04:14 +0100
+Message-ID: <7d8c0210-9132-c755-9053-6ec19409e343@stressinduktion.org>
 References: <27cccef1-06d9-74b3-5b8a-912850119a76@cumulusnetworks.com>
  <20161113232813.28926-1-Jason@zx2c4.com>
  <1479141867.3723362.787321689.4A3DCFD6@webmail.messagingengine.com>
+ <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+To: David Ahern <dsa@cumulusnetworks.com>,
  "Jason A. Donenfeld" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
  WireGuard mailing list <wireguard@lists.zx2c4.com>,
  LKML <linux-kernel@vger.kernel.org>,
  YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
 Return-path: <wireguard-bounces@lists.zx2c4.com>
-In-Reply-To: <1479141867.3723362.787321689.4A3DCFD6@webmail.messagingengine.com>
+In-Reply-To: <fd1c804d-3e44-0321-8a3e-67d6ff7357fa@cumulusnetworks.com>
 List-Unsubscribe: <http://lists.zx2c4.com/mailman/options/wireguard>,
  <mailto:wireguard-request@lists.zx2c4.com?subject=unsubscribe>
 List-Archive: <http://lists.zx2c4.com/pipermail/wireguard/>
@@ -27,49 +28,64 @@ Errors-To: wireguard-bounces@lists.zx2c4.com
 Sender: "WireGuard" <wireguard-bounces@lists.zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
-On 11/14/16 9:44 AM, Hannes Frederic Sowa wrote:
-> On Mon, Nov 14, 2016, at 00:28, Jason A. Donenfeld wrote:
->> This puts the IPv6 routing functions in parity with the IPv4 routing
->> functions. Namely, we now check in v6 that if a flowi6 requests an
->> saddr, the returned dst actually corresponds to a net device that has
->> that saddr. This mirrors the v4 logic with __ip_dev_find in
->> __ip_route_output_key_hash. In the event that the returned dst is not
->> for a dst with a dev that has the saddr, we return -EINVAL, just like
->> v4; this makes it easy to use the same error handlers for both cases.
+On 14.11.2016 17:55, David Ahern wrote:
+> On 11/14/16 9:44 AM, Hannes Frederic Sowa wrote:
+>> On Mon, Nov 14, 2016, at 00:28, Jason A. Donenfeld wrote:
+>>> This puts the IPv6 routing functions in parity with the IPv4 routing
+>>> functions. Namely, we now check in v6 that if a flowi6 requests an
+>>> saddr, the returned dst actually corresponds to a net device that has
+>>> that saddr. This mirrors the v4 logic with __ip_dev_find in
+>>> __ip_route_output_key_hash. In the event that the returned dst is not
+>>> for a dst with a dev that has the saddr, we return -EINVAL, just like
+>>> v4; this makes it easy to use the same error handlers for both cases.
+>>>
+>>> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+>>> Cc: David Ahern <dsa@cumulusnetworks.com>
+>>> ---
+>>> Changes from v2:
+>>>     It turns out ipv6_chk_addr already has the device enumeration
+>>>     logic that we need by simply passing NULL.
+>>>
+>>>  net/ipv6/ip6_output.c | 4 ++++
+>>>  1 file changed, 4 insertions(+)
+>>>
+>>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>>> index 6001e78..b3b5cb6 100644
+>>> --- a/net/ipv6/ip6_output.c
+>>> +++ b/net/ipv6/ip6_output.c
+>>> @@ -926,6 +926,10 @@ static int ip6_dst_lookup_tail(struct net *net,
+>>> const struct sock *sk,
+>>>  	int err;
+>>>  	int flags = 0;
+>>>  
+>>> +       if (!ipv6_addr_any(&fl6->saddr) &&
+>>> +           !ipv6_chk_addr(net, &fl6->saddr, NULL, 1))
+>>> +               return -EINVAL;
 >>
->> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
->> Cc: David Ahern <dsa@cumulusnetworks.com>
->> ---
->> Changes from v2:
->>     It turns out ipv6_chk_addr already has the device enumeration
->>     logic that we need by simply passing NULL.
+>> Hmm, this check is too permissive, no?
 >>
->>  net/ipv6/ip6_output.c | 4 ++++
->>  1 file changed, 4 insertions(+)
->>
->> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->> index 6001e78..b3b5cb6 100644
->> --- a/net/ipv6/ip6_output.c
->> +++ b/net/ipv6/ip6_output.c
->> @@ -926,6 +926,10 @@ static int ip6_dst_lookup_tail(struct net *net,
->> const struct sock *sk,
->>  	int err;
->>  	int flags = 0;
->>  
->> +       if (!ipv6_addr_any(&fl6->saddr) &&
->> +           !ipv6_chk_addr(net, &fl6->saddr, NULL, 1))
->> +               return -EINVAL;
+>> E.g. what happens if you move a link local address from one interface to
+>> another? In this case this code would still allow the saddr to be used.
 > 
-> Hmm, this check is too permissive, no?
+> This check -- like the ipv4 variant -- only verifies the saddr is locally assigned. If the address moves interfaces it should be fine.
+
+But in this case we should actually bail out, no?
+
+Let's say, user assumes we are on ifindex eth0 with LL address from
+eth0. Suddenly the LL address from eth0 is moved to eth1, we can't
+accept this source address anymore and need to return -EINVAL, too.
+
+>> I just also quickly read up on the history (sorry was travelling last
+>> week) and wonder if you ever saw a user space facing bug or if this is
+>> basically some difference you saw while writing out of tree code?
 > 
-> E.g. what happens if you move a link local address from one interface to
-> another? In this case this code would still allow the saddr to be used.
+> I checked the userspace API this morning. bind and cmsg for example check that the address is valid with calls to ipv6_chk_addr.
 
-This check -- like the ipv4 variant -- only verifies the saddr is locally assigned. If the address moves interfaces it should be fine.
+Hmm, so it fixes no real bug.
 
-> 
-> I just also quickly read up on the history (sorry was travelling last
-> week) and wonder if you ever saw a user space facing bug or if this is
-> basically some difference you saw while writing out of tree code?
+Because of translations of flowi6_oif we actually can't do a correct
+check of source address for cases like the one I outlined above? Hmm,
+maybe we should simply depend on user space checks.
 
-I checked the userspace API this morning. bind and cmsg for example check that the address is valid with calls to ipv6_chk_addr.
+Bye,
+Hannes
