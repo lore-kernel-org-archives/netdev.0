@@ -1,144 +1,391 @@
-From: Andrei Vagin <avagin@gmail.com>
-Subject: Re: linux-next: BUG: unable to handle kernel NULL pointer dereference
- in __sk_mem_raise_allocated()
-Date: Mon, 14 Nov 2016 16:02:10 -0800
-Message-ID: <CANaxB-yeSv9sW+5=yStp+VfqsOyAWiCRWocdQafH_-XNzw+Myg@mail.gmail.com>
-References: <CANaxB-yCk8hhP68L4Q2nFOJht8sqgXGGQO2AftpHs0u1xyGG5A@mail.gmail.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V6 5/9] liquidio CN23XX: VF related operations
+Date: Mon, 14 Nov 2016 15:54:43 -0800
+Message-ID: <1479167687-9904-6-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1479167687-9904-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:37998 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753048AbcKOACM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 19:02:12 -0500
-Received: by mail-it0-f50.google.com with SMTP id q124so154934062itd.1
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 16:02:12 -0800 (PST)
-In-Reply-To: <CANaxB-yCk8hhP68L4Q2nFOJht8sqgXGGQO2AftpHs0u1xyGG5A@mail.gmail.com>
+Received: from mail-by2nam01on0060.outbound.protection.outlook.com ([104.47.34.60]:29568
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755153AbcKOA1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Nov 2016 19:27:05 -0500
+In-Reply-To: <1479167687-9904-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2016 at 3:24 PM, Andrei Vagin <avagin@gmail.com> wrote:
-> Hi Paolo,
->
-> Our test system detected a kernel oops. Looks like a problem in the
-> "udp: refactor memory accounting" series.
->
-> # good: [f970bd9e3a06f06df8d8ecf1f8ad2c8615cc17eb] udp: implement
-> memory accounting helpers
-> git bisect good f970bd9e3a06f06df8d8ecf1f8ad2c8615cc17eb
-> # bad: [2d0e30c30f84d08dc16f0f2af41f1b8a85f0755e] bpf: add helper for
-> retrieving current numa node id
-> git bisect bad 2d0e30c30f84d08dc16f0f2af41f1b8a85f0755e
-> # bad: [a10b91b8b81c29b87ff5a6d58c1402898337b956] Merge branch 'udpmem'
-> git bisect bad a10b91b8b81c29b87ff5a6d58c1402898337b956
-> # good: [850cbaddb52dfd4e0c7cabe2c168dd34b44ae0b9] udp: use it's own
-> memory accounting schema
-> git bisect good 850cbaddb52dfd4e0c7cabe2c168dd34b44ae0b9
+Adds support for VF related operations like mac address vlan
+and link changes.
 
-I did a mistake on this step and
-850cbaddb52dfd4e0c7cabe2c168dd34b44ae0b9 is the first bad commit.
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+---
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    |  22 +++
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |   5 +
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 211 +++++++++++++++++++++
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |   5 +
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   8 +
+ 5 files changed, 251 insertions(+)
 
-> # first bad commit: [a10b91b8b81c29b87ff5a6d58c1402898337b956] Merge
-> branch 'udpmem'
->
->
-> [  112.472363] BUG: unable to handle kernel NULL pointer dereference
-> at           (null)
-> [  112.473360] IP: [<ffffffffb76f8031>] __sk_mem_raise_allocated+0x31/0x3f0
-> [  112.474156] PGD 62a08067 [  112.474455] PUD 2b8bf067
-> PMD 0 [  112.474856]
-> [  112.475054] Oops: 0002 [#1] SMP
-> [  112.475431] Modules linked in: nf_conntrack_netlink udp_diag
-> tcp_diag inet_diag netlink_diag af_packet_diag unix_diag binfmt_misc
-> nf_conntrack_ipv6 nf_defrag_ipv6 nf_conntrack_ipv4 nf_defrag_ipv4
-> xt_conntrack nf_conntrack nfnetlink ip6table_filter ip6_tables ppdev
-> sunrpc crc32c_intel joydev virtio_balloon virtio_net i2c_piix4
-> parport_pc parport acpi_cpufreq tpm_tis tpm_tis_core tpm virtio_blk
-> serio_raw virtio_pci virtio_ring virtio ata_generic pata_acpi
-> [  112.480594] CPU: 1 PID: 7405 Comm: socket_udplite Not tainted 4.8.0+ #84
-> [  112.481377] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-> BIOS 1.9.1-1.fc24 04/01/2014
-> [  112.482375] task: ffff928a5b5fa540 task.stack: ffffb3b484a0c000
-> [  112.483059] RIP: 0010:[<ffffffffb76f8031>]  [<ffffffffb76f8031>]
-> __sk_mem_raise_allocated+0x31/0x3f0
-> [  112.484135] RSP: 0018:ffff928abfd03b18  EFLAGS: 00010296
-> [  112.484758] RAX: 0000000000000001 RBX: ffff928aa293cfc0 RCX: 0000000000000001
-> [  112.485585] RDX: 0000000000000000 RSI: 0000000000001000 RDI: ffff928aa293cfc0
-> [  112.486414] RBP: ffff928abfd03b48 R08: 0de4c53600000000 R09: 0000000000000000
-> [  112.487241] R10: 000000006226b971 R11: 0000000000000000 R12: ffff928aa293cfc0
-> [  112.488064] R13: 0000000000000001 R14: ffffffffb7f0d5a0 R15: 0000000000001000
-> [  112.488893] FS:  00007f058067a700(0000) GS:ffff928abfd00000(0000)
-> knlGS:0000000000000000
-> [  112.489807] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [  112.490447] CR2: 0000000000000000 CR3: 000000002b8f5000 CR4: 00000000000006e0
-> [  112.491248] DR0: 00000000000100a0 DR1: 0000000000000000 DR2: 0000000000000000
-> [  112.492025] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
-> [  112.492808] Stack:
-> [  112.493038]  0000000100000300 ffff928aa293cfc0 ffff928a651b9c00
-> 0000000000000300
-> [  112.493912]  ffff928aa293d108 0000000000001000 ffff928abfd03b88
-> ffffffffb779e094
-> [  112.494782]  ffff928abfd03b70 ffff928a651b9c00 ffff928aa293cfc0
-> 0000000000000000
-> [  112.495653] Call Trace:
-> [  112.495930]  <IRQ> [  112.496154]  [<ffffffffb779e094>]
-> __udp_enqueue_schedule_skb+0xc4/0x170
-> [  112.496896]  [<ffffffffb77a15b4>] udp_queue_rcv_skb+0x1a4/0x5b0
-> [  112.497551]  [<ffffffffb77a1f3e>] __udp4_lib_rcv+0x57e/0xe30
-> [  112.498173]  [<ffffffffb77a2cfa>] udplite_rcv+0x1a/0x20
-> [  112.498761]  [<ffffffffb776799f>] ip_local_deliver_finish+0xdf/0x370
-> [  112.499466]  [<ffffffffb77678ef>] ? ip_local_deliver_finish+0x2f/0x370
-> [  112.500184]  [<ffffffffb77683c4>] ip_local_deliver+0x74/0x210
-> [  112.500825]  [<ffffffffb77683ec>] ? ip_local_deliver+0x9c/0x210
-> [  112.501482]  [<ffffffffb77678c0>] ? inet_del_offload+0x40/0x40
-> [  112.502122]  [<ffffffffb7767daa>] ip_rcv_finish+0x17a/0x540
-> [  112.502749]  [<ffffffffb77687f3>] ip_rcv+0x293/0x4d0
-> [  112.503305]  [<ffffffffb776882f>] ? ip_rcv+0x2cf/0x4d0
-> [  112.503873]  [<ffffffffb7767c30>] ? ip_local_deliver_finish+0x370/0x370
-> [  112.504607]  [<ffffffffb771683b>] __netif_receive_skb_core+0x34b/0xca0
-> [  112.505327]  [<ffffffffb77180e4>] ? process_backlog+0xd4/0x240
-> [  112.505967]  [<ffffffffb77180e4>] ? process_backlog+0xd4/0x240
-> [  112.506617]  [<ffffffffb77171a8>] __netif_receive_skb+0x18/0x60
-> [  112.507277]  [<ffffffffb7718088>] process_backlog+0x78/0x240
-> [  112.507904]  [<ffffffffb77180e4>] ? process_backlog+0xd4/0x240
-> [  112.508552]  [<ffffffffb7717e01>] net_rx_action+0x1d1/0x3e0
-> [  112.509165]  [<ffffffffb7873b3d>] __do_softirq+0xcd/0x471
-> [  112.509765]  [<ffffffffb776d312>] ? ip_finish_output2+0x242/0x640
-> [  112.510446]  [<ffffffffb7871ecc>] do_softirq_own_stack+0x1c/0x30
-> [  112.511106]  <EOI> [  112.511336]  [<ffffffffb709c956>]
-> do_softirq.part.14+0x46/0x70
-> [  112.511990]  [<ffffffffb709ca39>] __local_bh_enable_ip+0xb9/0xc0
-> [  112.512661]  [<ffffffffb776d33b>] ip_finish_output2+0x26b/0x640
-> [  112.513319]  [<ffffffffb776d177>] ? ip_finish_output2+0xa7/0x640
-> [  112.513979]  [<ffffffffb776e27f>] ip_finish_output+0x19f/0x330
-> [  112.514627]  [<ffffffffb776f533>] ip_output+0x83/0x270
-> [  112.515204]  [<ffffffffb776f55b>] ? ip_output+0xab/0x270
-> [  112.515794]  [<ffffffffb776e0e0>] ? ip_fragment.constprop.51+0x80/0x80
-> [  112.516521]  [<ffffffffb776e699>] ip_local_out+0x39/0x70
-> [  112.517107]  [<ffffffffb7770069>] ip_send_skb+0x19/0x40
-> [  112.517689]  [<ffffffffb779dd22>] udp_send_skb+0x172/0x260
-> [  112.518299]  [<ffffffffb779f4b0>] udp_sendmsg+0x340/0xb30
-> [  112.518893]  [<ffffffffb779de70>] ? udp_push_pending_frames+0x60/0x60
-> [  112.519605]  [<ffffffffb77aeff8>] inet_sendmsg+0xf8/0x1c0
-> [  112.520197]  [<ffffffffb77aef05>] ? inet_sendmsg+0x5/0x1c0
-> [  112.520807]  [<ffffffffb76f4b98>] sock_sendmsg+0x38/0x50
-> [  112.521397]  [<ffffffffb76f51b1>] SYSC_sendto+0x101/0x190
-> [  112.521993]  [<ffffffffb70efc0f>] ? up_read+0x1f/0x40
-> [  112.522563]  [<ffffffffb7054dfd>] ? __do_page_fault+0x26d/0x4f0
-> [  112.523221]  [<ffffffffb70f3f55>] ? trace_hardirqs_on_caller+0xf5/0x1b0
-> [  112.523950]  [<ffffffffb700201a>] ? trace_hardirqs_on_thunk+0x1a/0x1c
-> [  112.524664]  [<ffffffffb76f60fe>] SyS_sendto+0xe/0x10
-> [  112.525230]  [<ffffffffb7870e01>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-> [  112.525939] Code: 48 89 e5 41 57 41 56 41 55 41 54 4c 63 ea 53 49
-> 89 fc 41 89 f7 4c 89 e8 48 83 ec 08 4c 8b 77 28 44 89 6d d4 49 8b 96
-> d0 00 00 00 <f0> 48 0f c1 02 49 8d 5c 05 00 e9 41 00 00 00 49 8b 44 24
-> 28 48
-> [  112.528965] RIP  [<ffffffffb76f8031>] __sk_mem_raise_allocated+0x31/0x3f0
-> [  112.529732]  RSP <ffff928abfd03b18>
-> [  112.530122] CR2: 0000000000000000
-> [  112.530504] ---[ end trace ed0c680ae4317de5 ]---
-> [  112.531019] Kernel panic - not syncing: Fatal exception in interrupt
-> [  112.550850] Kernel Offset: 0x36000000 from 0xffffffff81000000
-> (relocation rang
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+index ffc94ac..d01b00b 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+@@ -23,6 +23,7 @@
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include <linux/vmalloc.h>
++#include <linux/etherdevice.h>
+ #include "liquidio_common.h"
+ #include "octeon_droq.h"
+ #include "octeon_iq.h"
+@@ -1416,3 +1417,24 @@ int cn23xx_fw_loaded(struct octeon_device *oct)
+ 	val = octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1);
+ 	return (val >> 1) & 1ULL;
+ }
++
++void cn23xx_tell_vf_its_macaddr_changed(struct octeon_device *oct, int vfidx,
++					u8 *mac)
++{
++	if (oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vfidx)) {
++		struct octeon_mbox_cmd mbox_cmd;
++
++		mbox_cmd.msg.u64 = 0;
++		mbox_cmd.msg.s.type = OCTEON_MBOX_REQUEST;
++		mbox_cmd.msg.s.resp_needed = 0;
++		mbox_cmd.msg.s.cmd = OCTEON_PF_CHANGED_VF_MACADDR;
++		mbox_cmd.msg.s.len = 1;
++		mbox_cmd.recv_len = 0;
++		mbox_cmd.recv_status = 0;
++		mbox_cmd.fn = NULL;
++		mbox_cmd.fn_arg = 0;
++		ether_addr_copy(mbox_cmd.msg.s.params, mac);
++		mbox_cmd.q_no = vfidx * oct->sriov_info.rings_per_vf;
++		octeon_mbox_write(oct, &mbox_cmd);
++	}
++}
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+index 21b5c90..cee346a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+@@ -29,6 +29,8 @@
+ 
+ #include "cn23xx_pf_regs.h"
+ 
++#define LIO_CMD_WAIT_TM 100
++
+ /* Register address and configuration for a CN23XX devices.
+  * If device specific changes need to be made then add a struct to include
+  * device specific fields as shown in the commented section
+@@ -56,4 +58,7 @@ int validate_cn23xx_pf_config_info(struct octeon_device *oct,
+ void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct);
+ 
+ int cn23xx_fw_loaded(struct octeon_device *oct);
++
++void cn23xx_tell_vf_its_macaddr_changed(struct octeon_device *oct, int vfidx,
++					u8 *mac);
+ #endif
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index aebf342..8c82cd3 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -3573,6 +3573,151 @@ static void liquidio_del_vxlan_port(struct net_device *netdev,
+ 				    OCTNET_CMD_VXLAN_PORT_DEL);
+ }
+ 
++static int __liquidio_set_vf_mac(struct net_device *netdev, int vfidx,
++				 u8 *mac, bool is_admin_assigned)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++	struct octnic_ctrl_pkt nctrl;
++
++	if (!is_valid_ether_addr(mac))
++		return -EINVAL;
++
++	if (vfidx < 0 || vfidx >= oct->sriov_info.max_vfs)
++		return -EINVAL;
++
++	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++
++	nctrl.ncmd.u64 = 0;
++	nctrl.ncmd.s.cmd = OCTNET_CMD_CHANGE_MACADDR;
++	/* vfidx is 0 based, but vf_num (param1) is 1 based */
++	nctrl.ncmd.s.param1 = vfidx + 1;
++	nctrl.ncmd.s.param2 = (is_admin_assigned ? 1 : 0);
++	nctrl.ncmd.s.more = 1;
++	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
++	nctrl.cb_fn = 0;
++	nctrl.wait_time = LIO_CMD_WAIT_TM;
++
++	nctrl.udd[0] = 0;
++	/* The MAC Address is presented in network byte order. */
++	ether_addr_copy((u8 *)&nctrl.udd[0] + 2, mac);
++
++	oct->sriov_info.vf_macaddr[vfidx] = nctrl.udd[0];
++
++	octnet_send_nic_ctrl_pkt(oct, &nctrl);
++
++	return 0;
++}
++
++static int liquidio_set_vf_mac(struct net_device *netdev, int vfidx, u8 *mac)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++	int retval;
++
++	retval = __liquidio_set_vf_mac(netdev, vfidx, mac, true);
++	if (!retval)
++		cn23xx_tell_vf_its_macaddr_changed(oct, vfidx, mac);
++
++	return retval;
++}
++
++static int liquidio_set_vf_vlan(struct net_device *netdev, int vfidx,
++				u16 vlan, u8 qos, __be16 vlan_proto)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++	struct octnic_ctrl_pkt nctrl;
++	u16 vlantci;
++
++	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
++		return -EINVAL;
++
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
++	if (vlan >= VLAN_N_VID || qos > 7)
++		return -EINVAL;
++
++	if (vlan)
++		vlantci = vlan | (u16)qos << VLAN_PRIO_SHIFT;
++	else
++		vlantci = 0;
++
++	if (oct->sriov_info.vf_vlantci[vfidx] == vlantci)
++		return 0;
++
++	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++
++	if (vlan)
++		nctrl.ncmd.s.cmd = OCTNET_CMD_ADD_VLAN_FILTER;
++	else
++		nctrl.ncmd.s.cmd = OCTNET_CMD_DEL_VLAN_FILTER;
++
++	nctrl.ncmd.s.param1 = vlantci;
++	nctrl.ncmd.s.param2 =
++	    vfidx + 1; /* vfidx is 0 based, but vf_num (param2) is 1 based */
++	nctrl.ncmd.s.more = 0;
++	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
++	nctrl.cb_fn = 0;
++	nctrl.wait_time = LIO_CMD_WAIT_TM;
++
++	octnet_send_nic_ctrl_pkt(oct, &nctrl);
++
++	oct->sriov_info.vf_vlantci[vfidx] = vlantci;
++
++	return 0;
++}
++
++static int liquidio_get_vf_config(struct net_device *netdev, int vfidx,
++				  struct ifla_vf_info *ivi)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++	u8 *macaddr;
++
++	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
++		return -EINVAL;
++
++	ivi->vf = vfidx;
++	macaddr = 2 + (u8 *)&oct->sriov_info.vf_macaddr[vfidx];
++	ether_addr_copy(&ivi->mac[0], macaddr);
++	ivi->vlan = oct->sriov_info.vf_vlantci[vfidx] & VLAN_VID_MASK;
++	ivi->qos = oct->sriov_info.vf_vlantci[vfidx] >> VLAN_PRIO_SHIFT;
++	ivi->linkstate = oct->sriov_info.vf_linkstate[vfidx];
++	return 0;
++}
++
++static int liquidio_set_vf_link_state(struct net_device *netdev, int vfidx,
++				      int linkstate)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++	struct octnic_ctrl_pkt nctrl;
++
++	if (vfidx < 0 || vfidx >= oct->sriov_info.num_vfs_alloced)
++		return -EINVAL;
++
++	if (oct->sriov_info.vf_linkstate[vfidx] == linkstate)
++		return 0;
++
++	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_VF_LINKSTATE;
++	nctrl.ncmd.s.param1 =
++	    vfidx + 1; /* vfidx is 0 based, but vf_num (param1) is 1 based */
++	nctrl.ncmd.s.param2 = linkstate;
++	nctrl.ncmd.s.more = 0;
++	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
++	nctrl.cb_fn = 0;
++	nctrl.wait_time = LIO_CMD_WAIT_TM;
++
++	octnet_send_nic_ctrl_pkt(oct, &nctrl);
++
++	oct->sriov_info.vf_linkstate[vfidx] = linkstate;
++
++	return 0;
++}
++
+ static struct net_device_ops lionetdevops = {
+ 	.ndo_open		= liquidio_open,
+ 	.ndo_stop		= liquidio_stop,
+@@ -3590,6 +3735,10 @@ static void liquidio_del_vxlan_port(struct net_device *netdev,
+ 	.ndo_set_features	= liquidio_set_features,
+ 	.ndo_udp_tunnel_add	= liquidio_add_vxlan_port,
+ 	.ndo_udp_tunnel_del	= liquidio_del_vxlan_port,
++	.ndo_set_vf_mac		= liquidio_set_vf_mac,
++	.ndo_set_vf_vlan	= liquidio_set_vf_vlan,
++	.ndo_get_vf_config	= liquidio_get_vf_config,
++	.ndo_set_vf_link_state  = liquidio_set_vf_link_state,
+ };
+ 
+ /** \brief Entry point for the liquidio module
+@@ -3912,6 +4061,19 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 			"if%d gmx: %d hw_addr: 0x%llx\n", i,
+ 			lio->linfo.gmxport, CVM_CAST64(lio->linfo.hw_addr));
+ 
++		for (j = 0; j < octeon_dev->sriov_info.max_vfs; j++) {
++			u8 vfmac[ETH_ALEN];
++
++			random_ether_addr(&vfmac[0]);
++			if (__liquidio_set_vf_mac(netdev, j,
++						  &vfmac[0], false)) {
++				dev_err(&octeon_dev->pci_dev->dev,
++					"Error setting VF%d MAC address\n",
++					j);
++				goto setup_nic_dev_fail;
++			}
++		}
++
+ 		/* 64-bit swap required on LE machines */
+ 		octeon_swap_8B_data(&lio->linfo.hw_addr, 1);
+ 		for (j = 0; j < 6; j++)
+@@ -4207,6 +4369,52 @@ static void nic_starter(struct work_struct *work)
+ 	complete(&handshake[oct->octeon_id].started);
+ }
+ 
++static int
++octeon_recv_vf_drv_notice(struct octeon_recv_info *recv_info, void *buf)
++{
++	struct octeon_device *oct = (struct octeon_device *)buf;
++	struct octeon_recv_pkt *recv_pkt = recv_info->recv_pkt;
++	int i, notice, vf_idx;
++	u64 *data, vf_num;
++
++	notice = recv_pkt->rh.r.ossp;
++	data = (u64 *)get_rbd(recv_pkt->buffer_ptr[0]);
++
++	/* the first 64-bit word of data is the vf_num */
++	vf_num = data[0];
++	octeon_swap_8B_data(&vf_num, 1);
++	vf_idx = (int)vf_num - 1;
++
++	if (notice == VF_DRV_LOADED) {
++		if (!(oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vf_idx))) {
++			oct->sriov_info.vf_drv_loaded_mask |= BIT_ULL(vf_idx);
++			dev_info(&oct->pci_dev->dev,
++				 "driver for VF%d was loaded\n", vf_idx);
++			try_module_get(THIS_MODULE);
++		}
++	} else if (notice == VF_DRV_REMOVED) {
++		if (oct->sriov_info.vf_drv_loaded_mask & BIT_ULL(vf_idx)) {
++			oct->sriov_info.vf_drv_loaded_mask &= ~BIT_ULL(vf_idx);
++			dev_info(&oct->pci_dev->dev,
++				 "driver for VF%d was removed\n", vf_idx);
++			module_put(THIS_MODULE);
++		}
++	} else if (notice == VF_DRV_MACADDR_CHANGED) {
++		u8 *b = (u8 *)&data[1];
++
++		oct->sriov_info.vf_macaddr[vf_idx] = data[1];
++		dev_info(&oct->pci_dev->dev,
++			 "VF driver changed VF%d's MAC address to %pM\n",
++			 vf_idx, b + 2);
++	}
++
++	for (i = 0; i < recv_pkt->buffer_count; i++)
++		recv_buffer_free(recv_pkt->buffer_ptr[i]);
++	octeon_free_recv_info(recv_info);
++
++	return 0;
++}
++
+ /**
+  * \brief Device initialization for each Octeon device that is probed
+  * @param octeon_dev  octeon device
+@@ -4265,6 +4473,9 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 				    octeon_core_drv_init,
+ 				    octeon_dev);
+ 
++	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC,
++				    OPCODE_NIC_VF_DRV_NOTICE,
++				    octeon_recv_vf_drv_notice, octeon_dev);
+ 	INIT_DELAYED_WORK(&octeon_dev->nic_poll_work.work, nic_starter);
+ 	octeon_dev->nic_poll_work.ctxptr = (void *)octeon_dev;
+ 	schedule_delayed_work(&octeon_dev->nic_poll_work.work,
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index caeff9a..edf1282 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -89,6 +89,10 @@ enum octeon_tag_type {
+ #define OPCODE_NIC_TIMESTAMP           0x07
+ #define OPCODE_NIC_INTRMOD_CFG         0x08
+ #define OPCODE_NIC_IF_CFG              0x09
++#define OPCODE_NIC_VF_DRV_NOTICE       0x0A
++#define VF_DRV_LOADED                  1
++#define VF_DRV_REMOVED                -1
++#define VF_DRV_MACADDR_CHANGED         2
+ 
+ #define CORE_DRV_TEST_SCATTER_OP    0xFFF5
+ 
+@@ -235,6 +239,7 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
+ 
+ #define   OCTNET_CMD_ID_ACTIVE         0x1a
+ 
++#define   OCTNET_CMD_SET_VF_LINKSTATE  0x1c
+ #define   OCTNET_CMD_VXLAN_PORT_ADD    0x0
+ #define   OCTNET_CMD_VXLAN_PORT_DEL    0x1
+ #define   OCTNET_CMD_RXCSUM_ENABLE     0x0
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index bdb10a0..70a0d98 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -354,6 +354,14 @@ struct octeon_sriov_info {
+ 
+ 	/*lookup table that maps DPI ring number to VF pci_dev struct pointer*/
+ 	struct pci_dev *dpiring_to_vfpcidev_lut[MAX_POSSIBLE_VFS];
++
++	u64	vf_macaddr[MAX_POSSIBLE_VFS];
++
++	u16	vf_vlantci[MAX_POSSIBLE_VFS];
++
++	int	vf_linkstate[MAX_POSSIBLE_VFS];
++
++	u64	vf_drv_loaded_mask;
+ };
+ 
+ struct octeon_ioq_vector {
+-- 
+1.8.3.1
