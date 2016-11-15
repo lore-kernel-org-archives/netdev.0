@@ -1,38 +1,65 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/5] net: ethoc: Implement ethtool::nway_reset
-Date: Tue, 15 Nov 2016 11:19:46 -0800
-Message-ID: <20161115191949.15361-3-f.fainelli@gmail.com>
-References: <20161115191949.15361-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Tobias Klauser <tklauser@distanz.ch>,
-        Colin Ian King <colin.king@canonical.com>,
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161115191949.15361-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next] bpf: Fix compilation warning in __bpf_lru_list_rotate_inactive
+Date: Tue, 15 Nov 2016 11:00:04 -0800
+Message-ID: <1479236404-3906780-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43665 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751633AbcKOTXL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2016 14:23:11 -0500
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.17/8.16.0.17) with SMTP id uAFJLGuS014007
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 11:23:10 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by m0001303.ppops.net with ESMTP id 26r7d3ggdt-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2016 11:23:10 -0800
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
+ mx-out.facebook.com (10.212.232.63) with ESMTP id
+ b855e61cab6511e681920002c992ebde-631fca50 for <netdev@vger.kernel.org>;        Tue,
+ 15 Nov 2016 11:00:05 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Implement ethtool::nway_reset using phy_ethtool_nway_reset. We are
-already using dev->phydev all over the place so this comes for free.
+gcc-6.2.1 gives the following warning:
+kernel/bpf/bpf_lru_list.c: In function =E2=80=98__bpf_lru_list_rotate_ina=
+ctive.isra.3=E2=80=99:
+kernel/bpf/bpf_lru_list.c:201:28: warning: =E2=80=98next=E2=80=99 may be =
+used uninitialized in this function [-Wmaybe-uninitialized]
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+The "next" is currently initialized in the while() loop which must have >=
+=3D1
+iterations.
+
+This patch initializes next to get rid of the compiler warning.
+
+Fixes: 3a08c2fd7634 ("bpf: LRU List")
+Reported-by: David Miller <davem@davemloft.net>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- drivers/net/ethernet/ethoc.c | 1 +
- 1 file changed, 1 insertion(+)
+ kernel/bpf/bpf_lru_list.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index c044667a0a25..6456c180114b 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -966,6 +966,7 @@ static int ethoc_set_ringparam(struct net_device *dev,
- const struct ethtool_ops ethoc_ethtool_ops = {
- 	.get_regs_len = ethoc_get_regs_len,
- 	.get_regs = ethoc_get_regs,
-+	.nway_reset = phy_ethtool_nway_reset,
- 	.get_link = ethtool_op_get_link,
- 	.get_ringparam = ethoc_get_ringparam,
- 	.set_ringparam = ethoc_set_ringparam,
--- 
-2.9.3
+diff --git a/kernel/bpf/bpf_lru_list.c b/kernel/bpf/bpf_lru_list.c
+index bfebff0..89b7ef4 100644
+--- a/kernel/bpf/bpf_lru_list.c
++++ b/kernel/bpf/bpf_lru_list.c
+@@ -170,7 +170,7 @@ static void __bpf_lru_list_rotate_inactive(struct bpf=
+_lru *lru,
+ 					   struct bpf_lru_list *l)
+ {
+ 	struct list_head *inactive =3D &l->lists[BPF_LRU_LIST_T_INACTIVE];
+-	struct list_head *cur, *next, *last;
++	struct list_head *cur, *last, *next =3D inactive;
+ 	struct bpf_lru_node *node;
+ 	unsigned int i =3D 0;
+=20
+--=20
+2.5.1
