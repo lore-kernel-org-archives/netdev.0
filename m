@@ -1,124 +1,35 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [net PATCH 1/2] ipv4: Restore fib_trie_flush_external function
- and fix call ordering
-Date: Tue, 15 Nov 2016 21:11:50 +0000
-Message-ID: <1479244302.681.129.camel@intel.com>
-References: <20161115104306.13711.67911.stgit@ahduyck-blue-test.jf.intel.com>
-         <20161115104606.13711.37506.stgit@ahduyck-blue-test.jf.intel.com>
-         <20161115195107.GB1783@nanopsycho.orion>
-         <1479241747.681.105.camel@intel.com>
-         <20161115203140.GC1783@nanopsycho.orion>
-         <1479242939.681.117.camel@intel.com>
-         <20161115205233.GD1783@nanopsycho.orion>
-         <1479243657.681.125.camel@intel.com>
-         <20161115210754.GE1783@nanopsycho.orion>
+From: "Langer, Thomas" <thomas.langer@intel.com>
+Subject: RE: [PATCH 13/15] net: ethernet: lantiq_etop: Utilize
+ phy_ethtool_nway_reset
+Date: Tue, 15 Nov 2016 21:14:02 +0000
+Message-ID: <0DAF21CFE1B20740AE23D6AF6E54843F1E65AE34@IRSMSX101.ger.corp.intel.com>
+References: <20161115180644.3941-1-f.fainelli@gmail.com>
+ <20161115180644.3941-14-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jiri@mellanox.com" <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>
-To: "jiri@resnulli.us" <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:13408 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750772AbcKOVLw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Nov 2016 16:11:52 -0500
-In-Reply-To: <20161115210754.GE1783@nanopsycho.orion>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "tremyfr@gmail.com" <tremyfr@gmail.com>,
+        Florian Westphal <fw@strlen.de>,
+        Jarod Wilson <jarod@redhat.com>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161115180644.3941-14-f.fainelli@gmail.com>
 Content-Language: en-US
-Content-ID: <315DD9B7D358F74FAC4F531D0E074ADC@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDE2LTExLTE1IGF0IDIyOjA3ICswMTAwLCBKaXJpIFBpcmtvIHdyb3RlOg0KPiBU
-dWUsIE5vdiAxNSwgMjAxNiBhdCAxMDowMTowM1BNIENFVCwgYWxleGFuZGVyLmguZHV5Y2tAaW50
-ZWwuY29tIHdyb3RlOg0KPiA+IA0KPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMTo1MiArMDEw
-MCwgSmlyaSBQaXJrbyB3cm90ZToNCj4gPiA+IA0KPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQg
-MDk6NDk6MDJQTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+
-ID4gDQo+ID4gPiA+IA0KPiA+ID4gPiBPbiBUdWUsIDIwMTYtMTEtMTUgYXQgMjE6MzEgKzAxMDAs
-IEppcmkgUGlya28gd3JvdGU6DQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gVHVl
-LCBOb3YgMTUsIDIwMTYgYXQgMDk6Mjk6MDlQTSBDRVQsIGFsZXhhbmRlci5oLmR1eWNrQGludGVs
-LmNvbSB3cm90ZToNCj4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiANCj4g
-PiA+ID4gPiA+IE9uIFR1ZSwgMjAxNi0xMS0xNSBhdCAyMDo1MSArMDEwMCwgSmlyaSBQaXJrbyB3
-cm90ZToNCj4gPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiANCj4g
-PiA+ID4gPiA+ID4gVHVlLCBOb3YgMTUsIDIwMTYgYXQgMTE6NDY6MDZBTSBDRVQsIGFsZXhhbmRl
-ci5oLmR1eWNrQGludGVsLmNvbSB3cm90ZToNCj4gPiA+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+
-ID4gPiANCj4gPiA+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+ID4gPiANCj4gPiA+ID4gPiA+ID4g
-PiBUaGUgcGF0Y2ggdGhhdCByZW1vdmVkIHRoZSBGSUIgb2ZmbG9hZCBpbmZyYXN0cnVjdHVyZSB3
-YXMgYSBiaXQgdG9vDQo+ID4gPiA+ID4gPiA+ID4gYWdncmVzc2l2ZSBhbmQgYWxzbyByZW1vdmVk
-IGNvZGUgbmVlZGVkIHRvIGNsZWFuIHVwIHVzIHNwbGl0dGluZyB0aGUgdGFibGUNCj4gPiA+ID4g
-PiA+ID4gPiBpZiBhZGRpdGlvbmFsIHJ1bGVzIHdlcmUgYWRkZWQuICBTcGVjaWZpY2FsbHkgdGhl
-IGZ1bmN0aW9uDQo+ID4gPiA+ID4gPiA+ID4gZmliX3RyaWVfZmx1c2hfZXh0ZXJuYWwgd2FzIGNh
-bGxlZCBhdCB0aGUgZW5kIG9mIGEgbmV3IHJ1bGUgYmVpbmcgYWRkZWQgdG8NCj4gPiA+ID4gPiA+
-ID4gPiBmbHVzaCB0aGUgZm9yZWlnbiB0cmllIGVudHJpZXMgZnJvbSB0aGUgbWFpbiB0cmllLg0K
-PiA+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiA+IEkgdXBkYXRlZCB0aGUgY29kZSBzbyB0
-aGF0IHdlIG9ubHkgY2FsbCBmaWJfdHJpZV9mbHVzaF9leHRlcm5hbCBvbiB0aGUgbWFpbg0KPiA+
-ID4gPiA+ID4gPiA+IHRhYmxlIHNvIHRoYXQgd2UgZmx1c2ggdGhlIGVudHJpZXMgZm9yIGxvY2Fs
-IGZyb20gbWFpbi4gIFRoaXMgd2F5IHdlIGRvbid0DQo+ID4gPiA+ID4gPiA+ID4gY2FsbCBpdCBm
-b3IgZXZlcnkgcnVsZSBjaGFuZ2Ugd2hpY2ggaXMgd2hhdCB3YXMgaGFwcGVuaW5nIHByZXZpb3Vz
-bHkuDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiBXZWxsLCB0aGUgZnVuY3Rpb24gd2Fz
-IGludHJvZHVjZWQgYnk6DQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4gPiA+ID4gPiBjb21taXQgMTA0
-NjE2ZTc0ZTBiNDY0ZDQ0OWZkZDJlZTJmNTQ3ZDJmYWQ3MTYxMA0KPiA+ID4gPiA+ID4gPiBBdXRo
-b3I6IFNjb3R0IEZlbGRtYW4gPHNmZWxkbWFAZ21haWwuY29tPg0KPiA+ID4gPiA+ID4gPiBEYXRl
-OiAgIFRodSBNYXIgNSAyMToyMToxNiAyMDE1IC0wODAwDQo+ID4gPiA+ID4gPiA+IA0KPiA+ID4g
-PiA+ID4gPiAgICAgc3dpdGNoZGV2OiBkb24ndCBzdXBwb3J0IGN1c3RvbSBpcCBydWxlcywgZm9y
-IG5vdw0KPiA+ID4gPiA+ID4gPiAgICAgDQo+ID4gPiA+ID4gPiA+ICAgICBLZWVwIHN3aXRjaGRl
-diBGSUIgb2ZmbG9hZCBtb2RlbCBzaW1wbGUgZm9yIG5vdyBhbmQgZG9uJ3QgYWxsb3cgY3VzdG9t
-IGlwDQo+ID4gPiA+ID4gPiA+ICAgICBydWxlcy4NCj4gPiA+ID4gPiA+ID4gDQo+ID4gPiA+ID4g
-PiA+IFdoeSB0aGlzIHdhcyBub3QgbmVlZGVkIGJlZm9yZT8gV2hhdCBjaGFuZ2VkIGluIGJldHdl
-ZW46DQo+ID4gPiA+ID4gPiA+IDEwNDYxNmU3NGUwYjQ2NGQ0NDlmZGQyZWUyZjU0N2QyZmFkNzE2
-MTAgKCJzd2l0Y2hkZXY6IGRvbid0IHN1cHBvcnQgY3VzdG9tIGlwIHJ1bGVzLCBmb3Igbm93IikN
-Cj4gPiA+ID4gPiA+ID4gYW5kDQo+ID4gPiA+ID4gPiA+IDM0N2UzYjI4YzFiYTIgKCJzd2l0Y2hk
-ZXY6IHJlbW92ZSBGSUIgb2ZmbG9hZCBpbmZyYXN0cnVjdHVyZSIpDQo+ID4gPiA+ID4gPiANCj4g
-PiA+ID4gPiA+IFdlIGNvbGxhcHNlZCB0aGUgdHdvIHRhYmxlcyBpbnRvIG9uZSBpbiBjb21taXTC
-oDBkZGNmNDNkNWQ0YSAoImlwdjQ6IEZJQg0KPiA+ID4gPiA+ID4gTG9jYWwvTUFJTiB0YWJsZSBj
-b2xsYXBzZSIpIHdoaWNoIHdhcyBzdWJtaXR0ZWQgdGhlIG5leHQgZGF5LiDCoFNjb3R0DQo+ID4g
-PiA+ID4gPiBhbmQgSSB3ZXJlIHdvcmtpbmcgb24gdGhpbmdzIGF0IHRoZSBzYW1lIHRpbWUgYW5k
-IHRoZQ0KPiA+ID4gPiA+ID4gZmliX3RhYmxlX2ZsdXNoX2V4dGVybmFsIGZ1bmN0aW9uIHdhcyBz
-b21ldGhpbmcgd2UgaGFkIHdvcmtlZCBvdXQgdGhhdA0KPiA+ID4gPiA+ID4gd291bGQgYWxsb3cg
-aGltIHRvIHRha2UgY2FyZSBvZiBoaXMgdXNlIGNhc2UgYW5kIG1lIHRvIHRha2UgY2FyZSBvZg0K
-PiA+ID4gPiA+ID4gY2xlYW5pbmcgdXAgdGhlIHRhYmxlcyBhZnRlciB1bm1lcmdpbmcuDQo+ID4g
-PiA+ID4gDQo+ID4gPiA+ID4gT2theS4gQnV0IHBsZWFzZSBuYW1lIHRoZSBmdWN0aW9uIGRpZmZl
-cmVudGx5LCBhcyBpdCBkb2VzIG5vdCBmbHVzaA0KPiA+ID4gPiA+IGV4dGVybmFsLiBUaGFua3Mh
-DQo+ID4gPiA+IA0KPiA+ID4gPiBZb3UgYW5kIEkgaGF2ZSBkaWZmZXJlbnQgbWVhbmluZ3MgZm9y
-ICJleHRlcm5hbCIuDQo+ID4gPiA+IA0KPiA+ID4gPiBJbiBteSBjYXNlIEkgYW0gZmx1c2hpbmcg
-ZW50cmllcyB0aGF0IGJlbG9uZyB0byBhIGZvcmVpZ24gImV4dGVybmFsIg0KPiA+ID4gPiB0YWJs
-ZSBmcm9tIHRoZSB0YWJsZSBzcGVjaWZpZWQuIFNvIGJ5ICJleHRlcm5hbCIgSSBhbSByZWZlcnJp
-bmcgdG8NCj4gPiA+ID4gZW50cmllcyB0aGF0IGRvbid0IGFjdHVhbGx5IGxpdmUgaW4gbWFpbiwg
-YnV0IGFjdHVhbGx5IHJlc2lkZSBpbiBsb2NhbC4NCj4gPiA+ID4gSWYgeW91IHRha2UgYSBsb29r
-IGF0IGZpYl90YWJsZV9mbHVzaCB0aGF0IGdldHMgcmlkIG9mIGFsbCBlbnRyaWVzLA0KPiA+ID4g
-PiBmaWJfdGFibGVfZmx1c2hfZXh0ZXJuYWwgc2ltcGx5IGNsZWFycyB0aGUgZm9yZWlnbiBvbmVz
-Lg0KPiA+ID4gPiANCj4gPiA+ID4gQWxzbyBJJ2QgcmF0aGVyIG1haW50YWluIG5hbWluZyBzaW5j
-ZSBpdCBtYWtlcyBpdCBlYXNpZXIgaWYgd2UgbmVlZCB0bw0KPiA+ID4gPiBiYWNrcG9ydCBmaXhl
-cy4NCj4gPiA+ID4gDQo+ID4gPiA+IEZpbmFsbHksIHRoZSBmbGFnIFJUTkhfRl9FWFRFUk5BTCB3
-YXMgcmVuYW1lZCBvdmVyIGEgeWVhciBhZ28gaW4gY29tbWl0DQo+ID4gPiA+IDM2NTgzZWI1NGQ0
-NmMgKCJyZW5hbWUgUlROSF9GX0VYVEVSTkFMIHRvIFJUTkhfRl9PRkZMT0FEIikgc28gdGhlcmUN
-Cj4gPiA+ID4gaXNuJ3QgdG9vIG11Y2ggbGlrZWxpaG9vZCBvZiB0aGlzIGJlaW5nIGNvbmZ1c2Vk
-IGZvciBzb21ldGhpbmcgdGhhdA0KPiA+ID4gPiBoYW5kbGVzIG9mZmxvYWRlZCBlbnRyaWVzLiDC
-oElmIHlvdSB0YWtlIGEgbG9vayBpbiBuZXQvaXB2NC8qIGFmdGVyIHlvdXINCj4gPiA+ID4gcGF0
-Y2ggdGhlcmUgaXNuJ3QgYWN0dWFsbHkgYW55dGhpbmcgdGhhdCByZWZlcmVuY2VzIHRoZSB3b3Jk
-IGV4dGVybmFsDQo+ID4gPiA+IHNvIHRoZSBsaWtlbGlob29kIGZvciBhbnkgY29uZnVzaW9uIGlz
-IGV4dHJlbWVseSBsb3cuDQo+ID4gPiANCj4gPiA+IE9rYXkuIEJ1dCBpZiB5b3UgY2FuLCBwbGVh
-c2UgcHV0IGEgY29tbWVudCB0byB0aGlzIGZ1bmN0aW9uIGluIG9yZGVyIHRvDQo+ID4gPiBwcmV2
-ZW50IGZ1dHVyZSBjb25mdXNpb24uIFRoYW5rcyENCj4gPiANCj4gPiBJJ20gbm90IHN1cmUgdGhl
-cmUgaXMgbXVjaCBsZWZ0IHRvIGNvbmZ1c2UgYXQgdGhpcyBwb2ludC4gwqBUaGUgZnVuY3Rpb24N
-Cj4gPiBoYXMgZ29uZSBmcm9tIG11bHRpLXB1cnBvc2UgdG8gc2luZ2xlIHB1cnBvc2Ugc28gYW55
-b25lIHRoYXQgaXMgbWVzc2luZw0KPiA+IHdpdGggdGhpcyBzaG91bGQgb25seSBiZSBkb2luZyBz
-byBpZiB0aGV5IGFyZSBtZXNzaW5nIHdpdGggdGhlIHVubWVyZ2UNCj4gPiBmdW5jdGlvbmFsaXR5
-Lg0KPiA+IA0KPiA+IElmIGFueXRoaW5nIGl0IHdvdWxkIGJlIG1vcmUgY29uZnVzaW5nIHRvIHJl
-ZmVyIHRvIGZ1bmN0aW9uYWxpdHkgdGhhdA0KPiA+IHRoaXMgZnVuY3Rpb24gZG9lc24ndCBzdXBw
-b3J0IGluIHRoZSBjb21tZW50cy4gwqBBbGwgdGhpcyBmdW5jdGlvbiBkb2VzDQo+ID4gaXMgZmx1
-c2ggZm9yZWlnbi9leHRlcm5hbCBvYmplY3RzIGZyb20gdGhlIHRyZWUuDQo+ID4gDQo+ID4gSSdt
-IHdpbGxpbmcgdG8gcmV2aWV3IGEgcGF0Y2ggaWYgeW91IGhhdmUgYSBzdWdnZXN0aW9uIGZvciBh
-IGNvbW1lbnQNCj4gPiB0aGF0IHdvdWxkIHdvcmsuIMKgSSBqdXN0IHdhbnQgdG8gYXZvaWQgY29u
-ZnVzaW5nIHBlb3BsZSBieSByZWZlcnJpbmcgdG8NCj4gPiBjb2RlIGFuZCBmdW5jdGlvbmFsaXR5
-IHRoYXQgaXMgbm8gbG9uZ2VyIHJlbGV2ZW50Lg0KPiANCj4gUGVyaGFwcyBJIHdhcyB0aGUgb25s
-eSBvbmUgY29uZnVzZWQuIEZhaXIgZW5vdWdoLiBUaGFua3MgQWxleC4NCg0KTm8sIEkgd291bGQg
-YWdyZWUgdGhlIG9yaWdpbmFsIHNoYXJpbmcgb2YgdGhlIGZ1bmN0aW9uIHdhcyBhIGJpdA0KY29u
-ZnVzaW5nLCBhbmQgdGhhdCB3YXMgbW9zdGx5IGR1ZSB0byB0aGUgdGltZWxpbmUgb2YgdGhpbmdz
-IHdpdGggYm90aA0KU2NvdHQgYW5kIEkgcmViYXNpbmcgb3VyIGNvZGUgb24gdG9wIG9mIGVhY2gg
-b3RoZXIuDQoNCldpdGggeW91IHJlbW92aW5nIHRoZSBGSUIgb2ZmbG9hZCBwaWVjZXMgaXQgc2lt
-cGxpZmllZCBpdCBxdWl0ZSBhIGJpdA0Kc28gd2l0aCB0aGlzIGZpeCB3ZSBzaG91bGQgYmUgYmFj
-ayB0byAxMDAlIGZ1bmN0aW9uYWxpdHkgd2l0aCB0aGUgY29kZQ0KbXVjaCBtb3JlIHNpbXBsaWZp
-ZWQuDQoNClRoYW5rcy4NCg0KLSBBbGV4
+
+> Subject: [PATCH 13/15] net: ethernet: lantiq_etop: Utilize
+> phy_ethtool_nway_reset
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/lantiq_etop.c | 8 +-------
+>  1 file changed, 1 insertion(+), 7 deletions(-)
+> 
+
+Reviewed-by: Thomas Langer <Thomas.langer@intel.com>
