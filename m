@@ -1,73 +1,38 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [PATCH net-next v5] cadence: Add LSO support.
-Date: Tue, 15 Nov 2016 14:20:31 +0000
-Message-ID: <BN3PR07MB2516126E781EB2301E4E9325C9BF0@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <BN3PR07MB2516C30913D2FB8D4788071AC9BC0@BN3PR07MB2516.namprd07.prod.outlook.com>
-         <20161114.123038.1075174354580074536.davem@davemloft.net>
-         <BN3PR07MB251641C606D02892E2196960C9BF0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <1479215490.8455.122.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v3 4/7] vxlan: improve vxlan route lookup
+ checks.
+Date: Tue, 15 Nov 2016 15:39:34 +0100
+Message-ID: <20161115153934.363e176d@griffin>
+References: <1479098638-4921-1-git-send-email-pshelar@ovn.org>
+        <1479098638-4921-5-git-send-email-pshelar@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1479215490.8455.122.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54640 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752600AbcKOOjh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Nov 2016 09:39:37 -0500
+In-Reply-To: <1479098638-4921-5-git-send-email-pshelar@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANCj4g
-U2VudDogMTUgbGlzdG9wYWRhIDIwMTYgMTQ6MTINCj4gVG86IFJhZmFsIE96aWVibG8NCj4gQ2M6
-IERhdmlkIE1pbGxlcjsgbmljb2xhcy5mZXJyZUBhdG1lbC5jb207IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
-SCBuZXQtbmV4dCB2NV0gY2FkZW5jZTogQWRkIExTTyBzdXBwb3J0Lg0KPg0KPiBPbiBUdWUsIDIw
-MTYtMTEtMTUgYXQgMDc6MDcgKzAwMDAsIFJhZmFsIE96aWVibG8gd3JvdGU6DQo+ID4gPiA+ID4g
-SWYgVUZPIGlzIGluIHVzZSBpdCBzaG91bGQgbm90IHNpbGVudGx5IGRpc2FibGUgVURQIGNoZWNr
-c3Vtcy4NCj4gPiA+ID4gPiANCj4gPiA+ID4gPiBJZiB5b3UgY2Fubm90IHN1cHBvcnQgVUZPIHdp
-dGggcHJvcGVyIGNoZWNrc3VtbWluZywgdGhlbiB5b3UgY2Fubm90IGVuYWJsZSBzdXBwb3J0IGZv
-ciB0aGF0IGZlYXR1cmUuDQo+ID4gPiA+IA0KPiA+ID4gPiBBY2NvcmRpbmcgQ2FkZW5jZSBHaWdh
-Yml0IEV0aGVybmV0IE1BQyBkb2N1bWVudGF0aW9uOg0KPiA+ID4gPiANCj4gPiA+ID4gIkhhcmR3
-YXJlIHdpbGwgbm90IGNhbGN1bGF0ZSB0aGUgVURQIGNoZWNrc3VtIG9yIG1vZGlmeSB0aGUgVURQ
-IA0KPiA+ID4gPiBjaGVja3N1bSBmaWVsZC4gVGhlcmVmb3JlIHNvZnR3YXJlIG11c3Qgc2V0IGEg
-dmFsdWUgb2YgemVybyBpbiB0aGUgDQo+ID4gPiA+IGNoZWNrc3VtIGZpZWxkIGluIHRoZSBVRFAg
-aGVhZGVyIChpbiB0aGUgZmlyc3QgcGF5bG9hZCBidWZmZXIpIHRvIGluZGljYXRlIHRvIHRoZSBy
-ZWNlaXZlciB0aGF0IHRoZSBVRFAgZGF0YWdyYW0gZG9lcyBub3QgaW5jbHVkZSBhIGNoZWNrc3Vt
-LiINCj4gPiA+ID4gDQo+ID4gPiA+IEl0IGlzIGhhcmR3YXJlIHJlcXVpcmVtZW50Lg0KPiA+ID4N
-Cj4gPiA+IEkgZG8gbm90IGRvdWJ0IHRoYXQgaXQgaXMgYSBoYXJkd2FyZSByZXN0cmljdGlvbi4N
-Cj4gPiA+DQo+ID4gPiBCdXQgSSBhbSBzYXlpbmcgdGhhdCB5b3UgY2Fubm90IGVuYWJsZSB0aGlz
-IGZlYXR1cmUgdW5kZXIgTGludXggaWYgdGhpcyBpcyBob3cgaXQgb3BlcmF0ZXMgb24geW91ciBo
-YXJkd2FyZS4NCj4gPiANCj4gPiBXb3VsZCBpdCBiZSBnb29kIHRvIGVuYWJsZSBVRk8gY29uZGl0
-aW9uYWxseSB3aXRoIHNvbWUgaW50ZXJuYWwgZGVmaW5lPyBFeC46DQo+ID4gDQo+ID4gKyNpZmRl
-ZiBNQUNCX0VOQUJMRV9VRk8NCj4gPiArI2RlZmluZSBNQUNCX05FVElGX0xTTyAgICAgICAgIChO
-RVRJRl9GX1RTTyB8IE5FVElGX0ZfVUZPKQ0KPiA+ICsjZWxzZQ0KPiA+ICsjZGVmaW5lIE1BQ0Jf
-TkVUSUZfTFNPICAgICAgICAgKE5FVElGX0ZfVFNPKQ0KPiA+ICsjZW5kaWYNCj4gPiANCj4gPiBJ
-IGNvdWxkIGFkZCBwcmVjaXNlIGNvbW1lbnQgaGVyZSB0aGF0IHVmbyBpcyBwb3NzaWJsZSBvbmx5
-IHdpdGhvdXQgY2hlY2tzdW0uDQo+ID4gDQo+ID4gT3IgbWF5YmUgSSBjb3VsZCBlbmFibGUgaXQg
-ZnJvbSBtb2R1bGVfcGFyYW1zIG9yIGRldmljZS10cmVlIChsaWtlOiBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9uZXRlcmlvbi9zMmlvLmMpLg0KPg0KPiBObyB5b3UgY2FuIG5vdCBkbyB0aGF0Lg0KPg0K
-PiAxKSBUaGF0IHdvdWxkIHZpb2xhdGUgVURQIHNwZWNzLg0KPiAyKSBNb2R1bGUgcGFyYW1zIGFy
-ZSBubyBsb25nZXIgYWNjZXB0ZWQuDQo+IDMpIENvbW1lbnRzIGluIGEgZHJpdmVyIHNvdXJjZSBj
-b2RlIHdvdWxkIG9ubHkgaGVscCB0aGUgZHJpdmVyIG1haW50YWluZXIsIG5vdCB1c2VycyB0byBt
-YWtlIHRoZWlyIG1pbmQuDQo+DQo+IE9ubHkgd2F5IHdvdWxkIGJlIHRvIHByb3BhZ2F0ZSB0aGUg
-aW50ZW50IG9mIHRoZSBzZW5kZXIuDQo+DQo+IE9ubHkgdGhlIHNlbmRlciBhcHBsaWNhdGlvbiBj
-YW4gZGVjaWRlIHRvIGdlbmVyYXRlIFVEUCBjaGVja3N1bXMgb3Igbm90Lg0KPg0KPiBZb3VyIGRy
-aXZlciBuZG9fZmVhdHVyZXNfY2hlY2soKSBjb3VsZCB0aGVuIGZvcmNlIHNvZnR3YXJlIHNlZ21l
-bnRhdGlvbiBmYWxsYmFjayBpZiB0aGUgdXNlciBkaWQgbm90IGFza2VkIHRvIGRpc2FibGUgVURQ
-IGNoZWNrc3VtcywgYW5kIHBhY2tldCBpcyBVRk8uDQo+DQo+IChsb29rIGZvciBVRFBfTk9fQ0hF
-Q0s2X1RYLCBhbmQgU09fTk9fQ0hFQ0sgKQ0KPg0KPiBQcm9ibGVtIGlzIGNvbXBsZXgsIGJlY2F1
-c2UgdGhlIHNrYiBoYXMgbm8gbWFya2VyLCBvbmx5IHRoZSBzb2NrZXQgaGFzLg0KPg0KPiBBbmQg
-c29ja2V0IHN0YXRlIGNvdWxkIGNoYW5nZSBiZXR3ZWVuIHBhY2tldHMsIGFuZCBwYWNrZXRzIGNh
-biBzdGF5IGluIGFuIGludGVybWVkaWF0ZSBxZGlzYyBiZWZvcmUgaGl0dGluZyBkZXZpY2UgZHJp
-dmVyLiBTbyBsb29raW5nIGF0DQo+IHNrYi0+c2sgZnJvbSB5b3VyIG5kb19mZWF0dXJlc19jaGVj
-aygpIHdvdWxkIGJlIHJhY3kuDQo+DQo+IFdoYXQgdXNlIGNhc2Ugd291bGQgeW91IGhhdmUgcHJl
-Y2lzZWx5ID8NCg0KSSBoYXZlIHRhbGtlZCB3aXRoIGhhcmR3YXJlIHRlYW0gd2hvIGRlc2lnbmVk
-IGFuZCBjcmVhdGVkIGdlbSBJUC4gIFRoZSBjb25jbHVzaW9uIGlzIHRoYXQgdGhlcmUgaXMgbm8g
-bmVlZCB0byB6ZXJvZWQgY2hlY2tzdW0gZm9yIFVGTy4gDQpJIGhhdmUgdGVzdGVkIFVGTyB3aXRo
-b3V0IHplcm9pbmcgVURQIGNoZWNrc3VtIG9uIGNhZGVuY2UgZ2VtLiBJdCB3b3JrcyBmaW5lLg0K
-SSdsbCBkZWVwbHkgaW52ZXN0aWdhdGUgYW5kIHRlc3QgVUZPIGFnYWluLiBJJ2xsIHNlbmQgdmVy
-c2lvbiA2IG9mIExTTyBQQVRDSCBlaXRoZXIgd2l0aCBVRk8gd2l0aG91dCB6ZXJvaW5nIG9yIHdp
-dGhvdXQgVUZPIGF0IGFsbC4NCg==
+On Sun, 13 Nov 2016 20:43:55 -0800, Pravin B Shelar wrote:
+> @@ -1929,8 +1951,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>  	union vxlan_addr *src;
+>  	struct vxlan_metadata _md;
+>  	struct vxlan_metadata *md = &_md;
+> -	struct dst_entry *ndst = NULL;
+>  	__be16 src_port = 0, dst_port;
+> +	struct dst_entry *ndst = NULL;
+>  	__be32 vni, label;
+>  	__be16 df = 0;
+>  	__u8 tos, ttl;
+
+This looks kind of arbitrary. You might want to remove this hunk or
+merge it to patch 3.
+
+Other than that,
+Acked-by: Jiri Benc <jbenc@redhat.com>
