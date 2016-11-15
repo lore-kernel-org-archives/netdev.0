@@ -1,58 +1,44 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next 2/6] bpf: Add percpu LRU list
-Date: Mon, 14 Nov 2016 17:51:28 -0800
-Message-ID: <20161115015126.GD8080@ast-mbp.thefacebook.com>
-References: <1478890511-1346984-1-git-send-email-kafai@fb.com>
- <1478890511-1346984-3-git-send-email-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35266 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933258AbcKOBvc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2016 20:51:32 -0500
-Received: by mail-pf0-f193.google.com with SMTP id i88so6976417pfk.2
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2016 17:51:32 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1478890511-1346984-3-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrei Vagin <avagin@openvz.org>
+Subject: [PATCH net-next] tcp: allow to enable the repair mode for non-listening sockets
+Date: Mon, 14 Nov 2016 18:15:14 -0800
+Message-ID: <1479176114-12658-1-git-send-email-avagin@openvz.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, criu@openvz.org,
+        Andrei Vagin <avagin@openvz.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 11, 2016 at 10:55:07AM -0800, Martin KaFai Lau wrote:
-> Instead of having a common LRU list, this patch allows a
-> percpu LRU list which can be selected by specifying a map
-> attribute.  The map attribute will be added in the later
-> patch.
-> 
-> While the common use case for LRU is #reads >> #updates,
-> percpu LRU list allows bpf prog to absorb unusual #updates
-> under pathological case (e.g. external traffic facing machine which
-> could be under attack).
-> 
-> Each percpu LRU is isolated from each other.  The LRU nodes (including
-> free nodes) cannot be moved across different LRU Lists.
-> 
-> Here are the update performance comparison between
-> common LRU list and percpu LRU list (the test code is
-> at the last patch):
-> 
-> [root@kerneltest003.31.prn1 ~]# for i in 1 4 8; do echo -n "$i cpus: "; \
-> ./map_perf_test 16 $i | awk '{r += $3}END{print r " updates"}'; done
->  1 cpus: 2934082 updates
->  4 cpus: 7391434 updates
->  8 cpus: 6500576 updates
-> 
-> [root@kerneltest003.31.prn1 ~]# for i in 1 4 8; do echo -n "$i cpus: "; \
-> ./map_perf_test 32 $i | awk '{r += $3}END{printr " updates"}'; done
->   1 cpus: 2896553 updates
->   4 cpus: 9766395 updates
->   8 cpus: 17460553 updates
-> 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+The repair mode is used to get and restore sequence numbers and
+data from queues. It used to checkpoint/restore connections.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Currently the repair mode can be enabled for sockets in the established
+and closed states, but for other states we have to dump the same socket
+properties, so lets allow to enable repair mode for these sockets.
+
+The repair mode reveals nothing more for sockets in other states.
+
+Signed-off-by: Andrei Vagin <avagin@openvz.org>
+---
+ net/ipv4/tcp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 3251fe7..a2a3a8c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2302,7 +2302,7 @@ EXPORT_SYMBOL(tcp_disconnect);
+ static inline bool tcp_can_repair_sock(const struct sock *sk)
+ {
+ 	return ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN) &&
+-		((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_ESTABLISHED));
++		(sk->sk_state != TCP_LISTEN);
+ }
+ 
+ static int tcp_repair_set_window(struct tcp_sock *tp, char __user *optbuf, int len)
+-- 
+2.7.4
